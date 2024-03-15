@@ -57,6 +57,8 @@ body {
   margin: 0 8px 0 var(--nx-nav-sidebar-width);
   border-radius: var(--nx-main-rounded-corners);
   box-shadow: var(--nx-main--box-shadow);
+  overflow: scroll;
+  max-height: 100%;
 }
 
 main > .section > .content {
