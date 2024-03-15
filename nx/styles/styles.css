@@ -1,0 +1,25 @@
+:root {
+  --nx-nav-height: 49px;
+}
+
+body {
+  margin: 0;
+}
+
+.nx-nav + main {
+  margin-top: var(--nx-nav-height);
+}
+
+
+/* progressive section appearance */
+main > div, header, footer {
+  display: none;
+}
+
+[data-status="decorated"] {
+  display: none !important;
+}
+
+main .section {
+  display: unset;
+}
