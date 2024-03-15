@@ -1,26 +1,27 @@
-# Your Project's Title...
-Your project's description...
+# Nexter
+Next generation shell for Edge Delivery Services
 
-## Environments
-- Preview: https://main--{repo}--{owner}.hlx.page/
-- Live: https://main--{repo}--{owner}.hlx.live/
+## About
+Nexter provides a common set of styles, patterns, blocks, components, and libraries to accelerate building AEM Edge Delivery front-end applications.
 
-## Installation
+## Integration guide
 
-```sh
-npm i
+### Step 1
+Add Nexter to your head element.
+
+```html
+<script src="https://main--nexter--da-sites.hlx.live/nx/scripts/nexter.js" type="module"></script>
+<link rel="stylesheet" href="https://main--nexter--da-sites.hlx.live/nx/styles/nexter.css"/>
 ```
 
-## Linting
+### Step 2
+Import and run Nexter's `loadArea` function.
 
-```sh
-npm run lint
+```
+import { loadArea } from 'https://main--nexter--da-sites.hlx.live/nx/scripts/nexter.js';
+loadArea();
 ```
 
-## Local development
+### Step 3
+There is no step 3.
 
-1. Create a new repository based on the `aem-boilerplate` template and add a mountpoint in the `fstab.yaml`
-1. Add the [AEM Code Sync GitHub App](https://github.com/apps/aem-code-sync) to the repository
-1. Install the [AEM CLI](https://github.com/adobe/helix-cli): `npm install -g @adobe/aem-cli`
-1. Start AEM Proxy: `aem up` (opens your browser at `http://localhost:3000`)
-1. Open the `{repo}` directory in your favorite IDE and start coding :)

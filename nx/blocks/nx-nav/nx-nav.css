@@ -2,5 +2,13 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  width: 100%;
+  overflow: hidden;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  height: var(--nx-nav-height);
+  background-color: #FFF;
+  border-bottom: 1px solid #d3d3d3;
 }

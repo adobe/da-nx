@@ -1,0 +1,50 @@
+:root {
+  --nx-nav-height: 49px;
+  --nx-light-background: rgb(245 245 245);
+
+  --body-font-family: 'Adobe Clean', adobe-clean, 'Trebuchet MS', sans-serif;
+  --fixed-font-family: 'Roboto Mono', menlo, consolas, 'Liberation Mono', monospace;
+  --type-body-m-size: 18px;
+  --type-body-m-lh: 27px;
+}
+
+@font-face {
+  font-family: 'Trebuchet MS';
+  font-weight: 700;
+  size-adjust: 95%;
+  src: local('Trebuchet MS Bold'),
+    local('TrebuchetMSBold');
+}
+
+@font-face {
+  font-family: 'Trebuchet MS';
+  font-weight: 400;
+  size-adjust: 93%;
+  src: local('Trebuchet MS'),
+    local('TrebuchetMS');
+}
+
+body {
+  margin: 0;
+  background-color: var(--nx-light-background);
+  color: var(--text-color);
+  font-family: var(--body-font-family);
+  font-size: var(--type-body-m-size);
+  line-height: var(--type-body-m-lh);
+  word-wrap: break-word;
+  -webkit-font-smoothing: antialiased;
+}
+
+.nx-nav + main {
+  margin-top: var(--nx-nav-height);
+}
+
+/* progressive section appearance */
+main > div, header, footer,
+header[data-status], footer[data-status], .section[data-status] {
+  display: none;
+}
+
+header, footer, .section {
+  display: unset;
+}
