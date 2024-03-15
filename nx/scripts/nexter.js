@@ -11,7 +11,7 @@ export const [setConfig, getConfig] = (() => {
   ];
 })();
 
-function getMetadata(name, doc = document) {
+export function getMetadata(name, doc = document) {
   const attr = name && name.includes(':') ? 'property' : 'name';
   const meta = doc.head.querySelector(`meta[${attr}="${name}"]`);
   return meta && meta.content;
@@ -36,7 +36,8 @@ async function loadBlock(block) {
   const { classList } = block;
   const name = classList[0];
   block.dataset.name = name;
-  const path = name.startsWith('nx') ? '/nx/blocks' : `${getConfig().codeRoot || ''}/blocks`;
+  const { origin } = new URL(import.meta.url);
+  const path = name.startsWith('nx') ? `${origin}/nx/blocks` : `${getConfig().codeRoot || ''}/blocks`;
   const blockPath = `${path}/${name}/${name}`;
 
   const scriptLoaded = new Promise((resolve) => {

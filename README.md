@@ -4,7 +4,8 @@ Next generation shell for Edge Delivery Services
 ## About
 Nexter provides a common set of styles, patterns, blocks, components, and libraries to accelerate building AEM Edge Delivery front-end applications.
 
-## Integration guide
+## Integration guide (basic)
+If you want the default experience, there's very little to do.
 
 ### Step 1
 Add Nexter to your head element.
@@ -25,3 +26,5 @@ loadArea();
 ### Step 3
 There is no step 3.
 
+## Integration guide (advanced)
+At it's core, Nexter is just another Edge Delivery project. You can start with the basic integration and then progressively add Nexter features like blocks. You can do this using a typical Edge Delivery project, or you can bring your own HTML as long as you follow Edge Delivery semantics. The following goes beyond the basic integration.

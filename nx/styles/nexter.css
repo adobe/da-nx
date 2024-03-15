@@ -1,11 +1,17 @@
 :root {
-  --nx-nav-height: 49px;
   --nx-light-background: rgb(245 245 245);
 
+  /* Grid */
+  --grid-container-width: 83.4%;
+  --grid-column-width: calc(var(--grid-container-width) / 12);
+
+  /* Typography */
   --body-font-family: 'Adobe Clean', adobe-clean, 'Trebuchet MS', sans-serif;
   --fixed-font-family: 'Roboto Mono', menlo, consolas, 'Liberation Mono', monospace;
   --type-body-m-size: 18px;
   --type-body-m-lh: 27px;
+
+  --nx-nav-height: 49px;
 }
 
 @font-face {
@@ -37,6 +43,18 @@ body {
 
 .nx-nav + main {
   margin-top: var(--nx-nav-height);
+}
+
+main > .section > .content {
+  display: block;
+  max-width: var(--grid-container-width);
+  margin: 0 auto;
+}
+
+@media (min-width: 1440px) {
+  :root {
+    --grid-container-width: 1200px;
+  }
 }
 
 /* progressive section appearance */
