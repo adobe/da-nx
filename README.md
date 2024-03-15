@@ -4,9 +4,13 @@ Next generation shell for Edge Delivery Services
 ## About
 Nexter provides a common set of styles, patterns, blocks, components, and libraries to accelerate building AEM Edge Delivery front-end applications.
 
-## Integration guide (basic)
-If you want the default experience, there's very little to do.
+## How to use Nexter
+There are two ways to integrate Nexter.
 
+1. **Standalone library** - Add a script to an existng HTML page. Also useful for CMS-based content.
+2. **Individual Web Components** - Integrate Nexter Components directly into your SPA.
+
+## Standalone library integration
 ### Step 1
 Add Nexter to your head element.
 
