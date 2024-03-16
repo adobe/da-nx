@@ -7,32 +7,12 @@ const IMS_ENV = {
   stage: 'stg1',
   prod: 'prod',
 };
+
 const IO_ENV = {
   dev: 'cc-collab-stage.adobe.io',
   stage: 'cc-collab-stage.adobe.io',
   prod: 'cc-collab.adobe.io',
 };
-
-// const ENVS = {
-//   stage: {
-//     name: 'stage',
-//     ims: 'stg1',
-//     adobeIO: ,
-//     adminconsole: 'stage.adminconsole.adobe.com',
-//     account: 'stage.account.adobe.com',
-//     edgeConfigId: '8d2805dd-85bf-4748-82eb-f99fdad117a6',
-//     pdfViewerClientId: '600a4521c23d4c7eb9c7b039bee534a0',
-//   },
-//   prod: {
-//     name: 'prod',
-//     ims: 'prod',
-//     adobeIO: 'cc-collab.adobe.io',
-//     adminconsole: 'adminconsole.adobe.com',
-//     account: 'account.adobe.com',
-//     edgeConfigId: '2cba807b-7430-41ae-9aac-db2b0da742d5',
-//     pdfViewerClientId: '3c0a5ddf2cc04d3198d9e48efc390fa9',
-//   },
-// };
 
 async function loadScript(src) {
   return new Promise((resolve, reject) => {
@@ -56,6 +36,15 @@ export function handleSignOut() {
   window.adobeIMS.signOut();
 }
 
+async function getProfileDetails(env, accessToken, resolve) {
+  const profile = await window.adobeIMS.getProfile();
+  const opts = { headers: { Authorization: `Bearer ${accessToken.token}` } };
+  const resp = await fetch(`https://${IO_ENV[env]}/profile`, opts);
+  if (!resp.ok) resolve({ anonymous: true });
+  const io = await resp.json();
+  resolve({ ...profile, io });
+}
+
 let imsLoaded;
 export async function loadIms() {
   imsLoaded = imsLoaded || new Promise((resolve, reject) => {
@@ -75,11 +64,7 @@ export async function loadIms() {
       onReady: () => {
         const accessToken = window.adobeIMS.getAccessToken();
         if (accessToken) {
-          fetch(`https://${IO_ENV[env]}/profile`, { headers: { Authorization: `Bearer ${accessToken.token}` } }).then(async (resp) => {
-            const profile = await window.adobeIMS.getProfile();
-            const io = await resp.json();
-            resolve({ ...profile, io });
-          });
+          getProfileDetails(env, accessToken, resolve);
         } else {
           resolve({ anonymous: true });
         }

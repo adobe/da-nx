@@ -14,6 +14,7 @@ module.exports = {
     'no-param-reassign': [2, { props: false }],
     'class-methods-use-this': 0,
     'linebreak-style': ['error', 'unix'],
+    'no-await-in-loop': 0,
     'import/extensions': ['error', {
       js: 'always',
     }],

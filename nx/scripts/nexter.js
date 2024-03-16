@@ -15,7 +15,7 @@ export const [setConfig, getConfig] = (() => {
         ...conf,
         env: getEnv(),
         nxBase: `${import.meta.url.replace('/scripts/nexter.js', '')}`,
-      }
+      };
       return config;
     },
     () => config,
@@ -29,7 +29,7 @@ export function getMetadata(name, doc = document) {
 }
 
 async function loadStyle(href) {
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     if (!document.querySelector(`head > link[href="${href}"]`)) {
       const link = document.createElement('link');
       link.rel = 'stylesheet';
@@ -60,7 +60,6 @@ async function loadBlock(block) {
         await init(block);
       } catch (err) {
         console.log(`Failed loading ${name}`, err);
-        resolve();
       }
       resolve();
     })();
