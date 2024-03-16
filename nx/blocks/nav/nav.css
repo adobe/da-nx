@@ -32,3 +32,20 @@ p {
   width: 25px;
   height: 24px;
 }
+
+.nx-nav-btn-sign-out {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  padding: 4px;
+  margin-right: 17px;
+}
+
+.nx-nav-btn-sign-out img {
+  max-width: 24px;
+  border-radius: 12px;
+  pointer-events: none;
+}
