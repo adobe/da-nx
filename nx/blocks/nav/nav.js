@@ -1,6 +1,6 @@
-import { loadArea, getMetadata } from '../../scripts/nexter.js';
-import getStyle from '../../scripts/styles.js';
-import getSvg from '../../scripts/svg.js';
+import { loadArea, getConfig, getMetadata } from '../../scripts/nexter.js';
+import getStyle from '../../utils/styles.js';
+import getSvg from '../../utils/svg.js';
 
 const style = await getStyle(import.meta.url);
 
@@ -23,9 +23,13 @@ class NxNav extends HTMLElement {
     const doc = new DOMParser().parseFromString(html, 'text/html');
     await loadArea(doc.body);
     const sections = doc.querySelectorAll('body > .section');
+
+    // Grab the first link as it will be the main branding
     const brandLink = doc.querySelector('a');
     brandLink.classList.add('nx-nav-brand');
     brandLink.insertAdjacentHTML('afterbegin', '<svg class="icon"><use href="#spectrum-ExperienceCloud"/></svg>');
+
+
     const inner = document.createElement('div');
     inner.className = 'nx-nav-inner';
     inner.append(...sections);

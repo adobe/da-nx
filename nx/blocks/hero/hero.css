@@ -1,0 +1,26 @@
+.nx-hero {
+  position: relative;
+  color: #FFF;
+}
+
+.nx-hero-foreground {
+  max-width: var(--grid-container-width);
+  min-height: 350px;
+  margin: 0 auto;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.nx-hero-background picture {
+  position: absolute;
+  inset: 0;
+  object-fit: cover;
+  box-sizing: border-box;
+}
+
+.nx-hero-background img {
+  object-fit: cover;
+  width: 100%;
+  height: 100%;
+}

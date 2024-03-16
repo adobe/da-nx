@@ -1,10 +1,21 @@
-const DEF_CONFIG = {};
+const PAGE_URL = new URL(window.location.href);
+
+function getEnv() {
+  const { host } = PAGE_URL;
+  if (!(host.includes('.hlx.') || host.includes('local'))) return 'prod';
+  if (host.includes('.hlx.')) return 'stage';
+  return 'dev';
+}
 
 export const [setConfig, getConfig] = (() => {
   let config;
   return [
-    (conf = DEF_CONFIG) => {
-      config = conf;
+    (conf = {}) => {
+      config = {
+        ...conf,
+        env: getEnv(),
+        nxBase: `${import.meta.url.replace('/scripts/nexter.js', '')}`,
+      }
       return config;
     },
     () => config,
@@ -24,7 +35,7 @@ async function loadStyle(href) {
       link.rel = 'stylesheet';
       link.href = href;
       link.onload = resolve;
-      link.onerror = reject;
+      link.onerror = resolve;
       document.head.append(link);
     } else {
       resolve();
@@ -34,10 +45,12 @@ async function loadStyle(href) {
 
 async function loadBlock(block) {
   const { classList } = block;
-  const name = classList[0];
+  let name = classList[0];
+  const isNx = name.startsWith('nx-');
+  if (isNx) name = name.replace('nx-', '');
   block.dataset.name = name;
-  const { origin } = new URL(import.meta.url);
-  const path = name.startsWith('nx') ? `${origin}/nx/blocks` : `${getConfig().codeRoot || ''}/blocks`;
+  const { nxBase, codeRoot = '' } = getConfig();
+  const path = isNx ? `${nxBase}/blocks` : `${codeRoot}/blocks`;
   const blockPath = `${path}/${name}/${name}`;
 
   const scriptLoaded = new Promise((resolve) => {
@@ -47,6 +60,7 @@ async function loadBlock(block) {
         await init(block);
       } catch (err) {
         console.log(`Failed loading ${name}`, err);
+        resolve();
       }
       resolve();
     })();
