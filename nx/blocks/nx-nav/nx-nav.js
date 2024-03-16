@@ -1,5 +1,6 @@
 import { loadArea, getMetadata } from '../../scripts/nexter.js';
 import getStyle from '../../scripts/styles.js';
+import getSvg from '../../scripts/svg.js';
 
 const style = await getStyle(import.meta.url);
 
@@ -7,6 +8,8 @@ class NxNav extends HTMLElement {
   constructor() {
     super().attachShadow({ mode: 'open' });
     this.shadowRoot.adoptedStyleSheets = [style];
+    this.path = getMetadata('header-source') || getDefaultPath();
+    getSvg({ parent: this.shadowRoot, paths: [`${new URL(import.meta.url).origin}/nx/img/logos/aec.svg`] });
   }
 
   connectedCallback() {
@@ -20,6 +23,9 @@ class NxNav extends HTMLElement {
     const doc = new DOMParser().parseFromString(html, 'text/html');
     await loadArea(doc.body);
     const sections = doc.querySelectorAll('body > .section');
+    const brandLink = doc.querySelector('a');
+    brandLink.classList.add('nx-nav-brand');
+    brandLink.insertAdjacentHTML('afterbegin', '<svg class="icon"><use href="#spectrum-ExperienceCloud"/></svg>');
     const inner = document.createElement('div');
     inner.className = 'nx-nav-inner';
     inner.append(...sections);
@@ -42,6 +48,5 @@ function getDefaultPath() {
 
 export default function init(el) {
   const nav = document.createElement('nx-nav');
-  nav.path = getMetadata('header-source') || getDefaultPath();
   el.append(nav);
 }

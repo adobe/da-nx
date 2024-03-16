@@ -42,7 +42,6 @@ body {
   font-size: var(--type-body-m-size);
   line-height: var(--type-body-m-lh);
   word-wrap: break-word;
-  -webkit-font-smoothing: antialiased;
   display: grid;
   grid-template-rows: auto 1fr;
   height: 100vh;
@@ -74,10 +73,11 @@ main > .section > .content {
 }
 
 /* progressive section appearance */
-main > div {
+main > div,
+main > div[data-status] {
   display: none;
 }
 
-header, footer, .section {
+.section {
   display: unset;
 }

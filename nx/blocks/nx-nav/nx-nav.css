@@ -7,6 +7,28 @@
   right: 0;
   z-index: 100;
   height: var(--nx-nav-height);
-  /* background-color: #FFF;
-  border-bottom: 1px solid #d3d3d3; */
+}
+
+p {
+  margin: 0;
+}
+
+:host > svg {
+  display: none;
+}
+
+.nx-nav-brand {
+  display: flex;
+  gap: 11px;
+  color: #fa0f00;
+  font-size: 20px;
+  text-decoration: none;
+  font-weight: 700;
+  padding-left: 24px;
+}
+
+.nx-nav-brand svg {
+  margin-top: 2px;
+  width: 25px;
+  height: 24px;
 }
