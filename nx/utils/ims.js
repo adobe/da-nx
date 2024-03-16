@@ -29,10 +29,12 @@ async function loadScript(src) {
 }
 
 export function handleSignIn() {
+  localStorage.setItem('nx-ims', true);
   window.adobeIMS.signIn();
 }
 
 export function handleSignOut() {
+  localStorage.removeItem('nx-ims');
   window.adobeIMS.signOut();
 }
 
@@ -64,8 +66,10 @@ export async function loadIms() {
       onReady: () => {
         const accessToken = window.adobeIMS.getAccessToken();
         if (accessToken) {
+          localStorage.setItem('nx-ims', true);
           getProfileDetails(env, accessToken, resolve);
         } else {
+          localStorage.removeItem('nx-ims');
           resolve({ anonymous: true });
         }
         clearTimeout(timeout);

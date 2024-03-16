@@ -47,6 +47,7 @@ class NxNav extends HTMLElement {
       button.append(img);
     }
     button.className = 'nx-nav-btn nx-nav-btn-sign-out';
+    button.addEventListener('click', signOut);
     return button;
   }
 
