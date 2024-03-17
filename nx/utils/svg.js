@@ -29,11 +29,6 @@ export async function link2svg(a) {
     const textUrl = new URL(splitText.shift().trim());
     const altText = splitText.join('|').trim();
 
-    // Relative link checking
-    const hrefUrl = a.href.startsWith('/')
-      ? new URL(`${window.location.origin}${a.href}`)
-      : new URL(a.href);
-
     let src = textUrl.hostname.includes('.hlx.') ? textUrl.pathname : textUrl;
     src = src.startsWith('/nx') ? src.replace('/nx', `${nxBase}`) : src;
     const svg = await getSvg({ paths: [src] });

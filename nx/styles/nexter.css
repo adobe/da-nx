@@ -8,14 +8,47 @@
   /* Typography */
   --body-font-family: 'Adobe Clean', adobe-clean, 'Trebuchet MS', sans-serif;
   --fixed-font-family: 'Roboto Mono', menlo, consolas, 'Liberation Mono', monospace;
-  --type-body-m-size: 18px;
-  --type-body-m-lh: 27px;
+  --type-heading-all-weight: 700;
+  --spectrum-line-height-100: 1.3;
+  --spectrum-line-height-200: 1.5;
+  --type-margin-multiplier: 0.25;
 
+  /* Heading Sizing */
+  --type-heading-xxl-size: 45px;
+  --type-heading-xl-size: 36px;
+  --type-heading-l-size: 28px;
+  --type-heading-m-size: 22px;
+  --type-heading-s-size: 18px;
+  --type-heading-xs-size: 16px;
+
+  /* Body Sizing */
+  --type-body-m-size: 18px;
+
+  /* Nav */
   --nx-nav-height: 70px;
   --nx-nav-sidebar-width: 72px;
 
+  /* Generic Styles */
   --nx-main-rounded-corners: 16px 16px 0 0;
   --nx-main-box-shadow: 0 0 8px 0 rgb(0 0 0 / 10%);
+  --corner-radius-75: 4px;
+  --corner-radius-100: 8px;
+  --corner-radius-200: 10px;
+  --corner-radius-300: 16px;
+
+  /* Spacing */
+  --spacing-50: 2px;
+  --spacing-75: 4px;
+  --spacing-100: 8px;
+  --spacing-200: 12px;
+  --spacing-300: 16px;
+  --spacing-400: 24px;
+  --spacing-500: 32px;
+  --spacing-600: 40px;
+  --spacing-700: 48px;
+  --spacing-800: 64px;
+  --spacing-900: 80px;
+  --spacing-1000: 96px;
 
   /* Colors */
   --gray-200: #eaeaea;
@@ -44,10 +77,46 @@ body {
   color: var(--text-color);
   font-family: var(--body-font-family);
   font-size: var(--type-body-m-size);
-  line-height: var(--type-body-m-lh);
+  line-height: var(--spectrum-line-height-200);
   word-wrap: break-word;
   display: grid;
   grid-template-rows: auto 1fr;
+}
+
+h1 {
+  font-size: var(--type-heading-xxl-size);
+  line-height: var(--spectrum-line-height-100);
+  margin-bottom: calc(var(--type-heading-xxl-size) * var(--type-margin-multiplier));
+}
+
+h2 {
+  font-size: var(--type-heading-xl-size);
+  line-height: var(--spectrum-line-height-100);
+  margin-bottom: calc(var(--type-heading-xl-size) * var(--type-margin-multiplier));
+}
+
+h3 {
+  font-size: var(--type-heading-l-size);
+  line-height: var(--spectrum-line-height-100);
+  margin-bottom: calc(var(--type-heading-l-size) * var(--type-margin-multiplier));
+}
+
+h4 {
+  font-size: var(--type-heading-m-size);
+  line-height: var(--spectrum-line-height-100);
+  margin-bottom: calc(var(--type-heading-m-size) * var(--type-margin-multiplier));
+}
+
+h5 {
+  font-size: var(--type-heading-s-size);
+  line-height: var(--spectrum-line-height-100);
+  margin-bottom: calc(var(--type-heading-s-size) * var(--type-margin-multiplier));
+}
+
+h6 {
+  font-size: var(--type-heading-xs-size);
+  line-height: var(--spectrum-line-height-100);
+  margin-bottom: calc(var(--type-heading-xs-size) * var(--type-margin-multiplier));
 }
 
 .nx-app header {
@@ -108,5 +177,5 @@ main > div[data-status] {
 }
 
 .section {
-  display: unset;
+  display: block;
 }
