@@ -81,6 +81,7 @@ body {
   word-wrap: break-word;
   display: grid;
   grid-template-rows: auto 1fr;
+  -webkit-font-smoothing: antialiased;
 }
 
 button {
