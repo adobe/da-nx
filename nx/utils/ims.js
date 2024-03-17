@@ -59,7 +59,7 @@ export async function loadIms() {
     window.adobeid = {
       client_id: imsClientId,
       scope: imsScope || DEFAULT_SCOPE,
-      locale: document.documentElement.lang || 'en_US',
+      locale: document.documentElement.lang?.replace('-', '_') || 'en_US',
       autoValidateToken: true,
       environment: IMS_ENV[env],
       useLocalStorage: false,

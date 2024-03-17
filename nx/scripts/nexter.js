@@ -49,8 +49,8 @@ async function loadBlock(block) {
   const isNx = name.startsWith('nx-');
   if (isNx) name = name.replace('nx-', '');
   block.dataset.name = name;
-  const { nxBase, codeRoot = '' } = getConfig();
-  const path = isNx ? `${nxBase}/blocks` : `${codeRoot}/blocks`;
+  const { nxBase, codeBase = '' } = getConfig();
+  const path = isNx ? `${nxBase}/blocks` : `${codeBase}/blocks`;
   const blockPath = `${path}/${name}/${name}`;
 
   const scriptLoaded = new Promise((resolve) => {
