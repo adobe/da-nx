@@ -60,11 +60,17 @@ class Nav extends HTMLElement {
   }
 
   async getProfile() {
-    const { loadIms, handleSignIn, handleSignOut } = await import('../../utils/ims.js');
+    const {
+      loadIo,
+      loadIms,
+      handleSignIn,
+      handleSignOut,
+    } = await import('../../utils/ims.js');
     try {
-      const profile = await loadIms();
-      if (profile.anonymous) return this.renderSignin(handleSignIn);
-      return this.renderProfile(handleSignOut, profile);
+      const details = await loadIms(true);
+      if (details.anonymous) return this.renderSignin(handleSignIn);
+      details.io = await loadIo(details.accessToken);
+      return this.renderProfile(handleSignOut, details);
     } catch {
       return null;
     }

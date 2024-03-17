@@ -28,7 +28,7 @@ export function getMetadata(name, doc = document) {
   return meta && meta.content;
 }
 
-async function loadStyle(href) {
+export async function loadStyle(href) {
   return new Promise((resolve) => {
     if (!document.querySelector(`head > link[href="${href}"]`)) {
       const link = document.createElement('link');
@@ -37,6 +37,20 @@ async function loadStyle(href) {
       link.onload = resolve;
       link.onerror = resolve;
       document.head.append(link);
+    } else {
+      resolve();
+    }
+  });
+}
+
+export async function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    if (!document.querySelector(`head > script[src="${src}"]`)) {
+      const script = document.createElement('script');
+      script.src = src;
+      script.onload = resolve;
+      script.onerror = reject;
+      document.head.append(script);
     } else {
       resolve();
     }

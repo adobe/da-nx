@@ -1,4 +1,6 @@
-import { getConfig } from '../scripts/nexter.js';
+import { getConfig, loadScript } from '../scripts/nexter.js';
+
+const { imsClientId, imsScope, env } = getConfig();
 
 const IMS_URL = 'https://auth.services.adobe.com/imslib/imslib.min.js';
 const DEFAULT_SCOPE = 'AdobeID,openid,gnav';
@@ -14,20 +16,6 @@ const IO_ENV = {
   prod: 'cc-collab.adobe.io',
 };
 
-async function loadScript(src) {
-  return new Promise((resolve, reject) => {
-    if (!document.querySelector(`head > script[src="${src}"]`)) {
-      const script = document.createElement('script');
-      script.src = src;
-      script.onload = resolve;
-      script.onerror = reject;
-      document.head.append(script);
-    } else {
-      resolve();
-    }
-  });
-}
-
 export function handleSignIn() {
   localStorage.setItem('nx-ims', true);
   window.adobeIMS.signIn();
@@ -38,19 +26,23 @@ export function handleSignOut() {
   window.adobeIMS.signOut();
 }
 
-async function getProfileDetails(env, accessToken, resolve) {
+let imsDetails;
+
+async function getProfileDetails(accessToken, resolve) {
   const profile = await window.adobeIMS.getProfile();
-  const opts = { headers: { Authorization: `Bearer ${accessToken.token}` } };
-  const resp = await fetch(`https://${IO_ENV[env]}/profile`, opts);
-  if (!resp.ok) resolve({ anonymous: true });
-  const io = await resp.json();
-  resolve({ ...profile, io });
+  const details = { ...profile, accessToken };
+  resolve(details);
 }
 
-let imsLoaded;
+export async function loadIo(accessToken) {
+  const opts = { headers: { Authorization: `Bearer ${accessToken.token}` } };
+  const resp = await fetch(`https://${IO_ENV[env]}/profile`, opts);
+  if (!resp.ok) return null;
+  return resp.json();
+}
+
 export async function loadIms() {
-  imsLoaded = imsLoaded || new Promise((resolve, reject) => {
-    const { imsClientId, imsScope, env } = getConfig();
+  imsDetails = imsDetails || new Promise((resolve, reject) => {
     if (!imsClientId) {
       reject(new Error('Missing IMS Client ID'));
       return;
@@ -62,12 +54,12 @@ export async function loadIms() {
       locale: document.documentElement.lang?.replace('-', '_') || 'en_US',
       autoValidateToken: true,
       environment: IMS_ENV[env],
-      useLocalStorage: false,
+      useLocalStorage: true,
       onReady: () => {
         const accessToken = window.adobeIMS.getAccessToken();
         if (accessToken) {
           localStorage.setItem('nx-ims', true);
-          getProfileDetails(env, accessToken, resolve);
+          getProfileDetails(accessToken, resolve);
         } else {
           localStorage.removeItem('nx-ims');
           resolve({ anonymous: true });
@@ -78,5 +70,5 @@ export async function loadIms() {
     };
     loadScript(IMS_URL);
   });
-  return imsLoaded;
+  return imsDetails;
 }
