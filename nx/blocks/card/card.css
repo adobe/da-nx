@@ -15,9 +15,9 @@
 
 .nx-card-picture-container {
   position: relative;
-  height: 320px;
   border-radius: var(--corner-radius-100);
   overflow: hidden;
+  padding-bottom: 60%;
 }
 
 .nx-card-picture-container picture {
