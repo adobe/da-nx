@@ -27,6 +27,7 @@ svg {
   text-decoration: none;
   display: grid;
   justify-content: center;
+  justify-items: center;
   line-height: 1.7;
   color: rgb(75 75 75);
   padding-bottom: 2px;
