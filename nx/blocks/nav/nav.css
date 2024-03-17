@@ -33,6 +33,24 @@ p {
   height: 24px;
 }
 
+.nx-nav-btn {
+  margin-right: 17px;
+}
+
+.nx-nav-btn-sign-in {
+  line-height: 32px;
+  padding: 0 12px;
+  border: none;
+  background: none;
+  font-family: var(--body-font-family);
+  font-weight: 700;
+  border-radius: 8px;
+}
+
+.nx-nav-btn-sign-in:hover {
+  background: #dfdfdf;
+}
+
 .nx-nav-btn-sign-out {
   background: none;
   display: flex;
@@ -42,7 +60,6 @@ p {
   height: 32px;
   border: none;
   padding: 4px;
-  margin-right: 17px;
 }
 
 .nx-nav-btn-sign-out img {

@@ -15,8 +15,6 @@
 .nx-hero-background picture {
   position: absolute;
   inset: 0;
-  object-fit: cover;
-  box-sizing: border-box;
 }
 
 .nx-hero-background img {

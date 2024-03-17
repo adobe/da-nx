@@ -83,6 +83,10 @@ body {
   grid-template-rows: auto 1fr;
 }
 
+button {
+  font-family: var(--body-font-family);
+}
+
 h1 {
   font-size: var(--type-heading-xxl-size);
   line-height: var(--spectrum-line-height-100);
