@@ -1,0 +1,45 @@
+:host {
+  color: #000;
+  font-size: 11px;
+  margin-top: 24px;
+}
+
+ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+svg {
+  display: block;
+  width: 20px;
+  height: 20px;
+}
+
+.icon {
+  display: block;
+  width: 25px;
+  height: 25px;
+}
+
+.nx-link {
+  text-align: center;
+  text-decoration: none;
+  display: grid;
+  justify-content: center;
+  line-height: 1.7;
+  color: rgb(75 75 75);
+}
+
+.nx-link-icon {
+  border-radius: 8px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 32px;
+  height: 32px;
+}
+
+.nx-link:hover .nx-link-icon {
+  background: var(--gray-200);
+}

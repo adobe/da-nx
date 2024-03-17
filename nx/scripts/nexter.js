@@ -127,6 +127,7 @@ function decorateHeader() {
     return;
   }
   header.className = meta || 'nx-nav cmp';
+  if (header.classList.contains('nx-nav')) document.body.classList.add('nx-app');
   header.dataset.status = 'decorated';
 }
 

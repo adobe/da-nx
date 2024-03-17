@@ -15,7 +15,10 @@
   --nx-nav-sidebar-width: 72px;
 
   --nx-main-rounded-corners: 16px 16px 0 0;
-  --nx-main--box-shadow: 0 0 8px 0 rgba(0, 0, 0, 0.1);
+  --nx-main--box-shadow: 0 0 8px 0 rgb(0 0 0 / 10%);
+
+  /* Colors */
+  --gray-200: #eaeaea;
 }
 
 @font-face {
@@ -47,13 +50,20 @@ body {
   height: 100vh;
 }
 
-.nx-nav {
-  height: var(--nx-nav-height);
+body.nx-app {
+  grid-template:
+    "header header" var(--nx-nav-height)
+    "sidenav main" 1fr / var(--nx-nav-sidebar-width) 1fr;
 }
 
-.nx-nav + main {
+.nx-nav {
+  grid-area: header;
+}
+
+.nx-app main {
+  grid-area: main;
   background-color: #FFF;
-  margin: 0 8px 0 var(--nx-nav-sidebar-width);
+  margin: 0 8px 0 0;
   border-radius: var(--nx-main-rounded-corners);
   box-shadow: var(--nx-main--box-shadow);
   overflow: scroll;

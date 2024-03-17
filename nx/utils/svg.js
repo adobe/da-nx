@@ -1,3 +1,7 @@
+import { getConfig } from '../scripts/nexter.js';
+
+const { nxBase } = getConfig();
+
 async function fetchIcon(path) {
   const resp = await fetch(path);
   if (!resp.ok) return null;
@@ -14,4 +18,37 @@ export default function getSvg({ parent, paths }) {
     return svg;
   });
   return Promise.all(svgs);
+}
+
+export async function link2svg(a) {
+  const { textContent, href } = a;
+  if (!(textContent.includes('.svg') || href.includes('.svg'))) return a;
+  try {
+    // Mine for URL and alt text
+    const splitText = textContent.split('|');
+    const textUrl = new URL(splitText.shift().trim());
+    const altText = splitText.join('|').trim();
+
+    // Relative link checking
+    const hrefUrl = a.href.startsWith('/')
+      ? new URL(`${window.location.origin}${a.href}`)
+      : new URL(a.href);
+
+    let src = textUrl.hostname.includes('.hlx.') ? textUrl.pathname : textUrl;
+    src = src.startsWith('/nx') ? src.replace('/nx', `${nxBase}`) : src;
+    const svg = await getSvg({ paths: [src] });
+    const icon = document.createElement('span');
+    icon.className = 'nx-link-icon';
+    icon.append(svg[0]);
+
+    a.textContent = '';
+    a.classList.add('nx-link');
+    a.insertAdjacentElement('afterbegin', icon);
+    a.insertAdjacentHTML('beforeend', `<span class="nx-link-text">${altText}</span>`);
+
+    return a;
+  } catch (e) {
+    console.log('Failed to create SVG.', e.message);
+    return a;
+  }
 }

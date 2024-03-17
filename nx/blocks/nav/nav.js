@@ -8,7 +8,7 @@ function getDefaultPath() {
   const { origin } = new URL(import.meta.url);
   return `${origin}/nx/fragments/nx-nav`;
 }
-class NxNav extends HTMLElement {
+class Nav extends HTMLElement {
   constructor() {
     super().attachShadow({ mode: 'open' });
     this.shadowRoot.adoptedStyleSheets = [style];
@@ -79,9 +79,16 @@ class NxNav extends HTMLElement {
   }
 }
 
-customElements.define('nx-nav', NxNav);
+async function loadSideNav(el) {
+  await import('../sidenav/sidenav.js');
+  const sideNav = document.createElement('nx-sidenav');
+  el.insertAdjacentElement('afterend', sideNav);
+}
+
+customElements.define('nx-nav', Nav);
 
 export default function init(el) {
   const nav = document.createElement('nx-nav');
   el.append(nav);
+  if (el.nextElementSibling.nodeName === 'MAIN') loadSideNav(el);
 }
