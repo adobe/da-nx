@@ -24,3 +24,11 @@
   width: 100%;
   height: 100%;
 }
+
+.nx-hero-foreground *:first-child {
+  margin-top: 0;
+}
+
+.nx-hero-foreground *:last-child {
+  margin-bottom: 0;
+}
