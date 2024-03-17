@@ -1,7 +1,7 @@
 :host {
   color: #000;
   font-size: 11px;
-  margin-top: 24px;
+  margin-top: 13px;
 }
 
 ul {
@@ -29,6 +29,7 @@ svg {
   justify-content: center;
   line-height: 1.7;
   color: rgb(75 75 75);
+  padding-bottom: 2px;
 }
 
 .nx-link-icon {
@@ -38,8 +39,9 @@ svg {
   align-items: center;
   width: 32px;
   height: 32px;
+  transition: 0.2s background-color, color 0.2s;
 }
 
 .nx-link:hover .nx-link-icon {
-  background: var(--gray-200);
+  background-color: var(--gray-200);
 }
