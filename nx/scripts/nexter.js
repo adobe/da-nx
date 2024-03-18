@@ -159,7 +159,10 @@ async function loadPostLCP() {
 
 export async function loadArea(area = document) {
   const isDoc = area === document;
-  if (isDoc) decorateHeader();
+  if (isDoc) {
+    document.documentElement.lang = 'en';
+    decorateHeader();
+  }
   const sections = decorateSections(area, isDoc);
   for (const [idx, section] of sections.entries()) {
     const loaded = section.blocks.map((block) => loadBlock(block));
