@@ -18,7 +18,7 @@ export const [setConfig, getConfig] = (() => {
       };
       return config;
     },
-    () => config,
+    () => (config || setConfig()),
   ];
 })();
 
@@ -57,7 +57,7 @@ export async function loadScript(src) {
   });
 }
 
-async function loadBlock(block) {
+export async function loadBlock(block) {
   const { classList } = block;
   let name = classList[0];
   const isNx = name.startsWith('nx-');
@@ -66,7 +66,6 @@ async function loadBlock(block) {
   const { nxBase, codeBase = '' } = getConfig();
   const path = isNx ? `${nxBase}/blocks` : `${codeBase}/blocks`;
   const blockPath = `${path}/${name}/${name}`;
-
   const scriptLoaded = new Promise((resolve) => {
     (async () => {
       try {
@@ -79,9 +78,7 @@ async function loadBlock(block) {
     })();
   });
   const loaded = [scriptLoaded];
-  if (!block.classList.contains('cmp')) {
-    loaded.push(loadStyle(`${blockPath}.css`));
-  }
+  if (!classList.contains('cmp')) loaded.push(loadStyle(`${blockPath}.css`));
   await Promise.all(loaded);
   return block;
 }
@@ -127,7 +124,7 @@ function decorateSection(section) {
 }
 
 function decorateSections(el, isDoc) {
-  const selector = isDoc ? 'body > main > div' : ':scope > div';
+  const selector = isDoc ? 'main > div' : ':scope > div';
   return [...el.querySelectorAll(selector)].map(decorateSection);
 }
 
@@ -140,18 +137,27 @@ function decorateHeader() {
     header.remove();
     return;
   }
-  header.className = meta || 'nx-nav cmp';
-  if (header.classList.contains('nx-nav')) document.body.classList.add('nx-app');
   header.dataset.status = 'decorated';
+  header.className = meta || 'nx-nav cmp';
+  if (header.classList.contains('nx-nav')) {
+    document.body.classList.add('nx-app');
+  }
+}
+
+async function loadLazy(isDoc) {
+  if (isDoc) {
+    import('../utils/favicon.js');
+    import('../utils/footer.js');
+  }
 }
 
 async function loadPostLCP() {
   const header = document.querySelector('header');
   if (header) await loadBlock(header);
+  import('../utils/fonts.js');
 }
 
 export async function loadArea(area = document) {
-  const config = getConfig() || setConfig();
   const isDoc = area === document;
   if (isDoc) decorateHeader();
   const sections = decorateSections(area, isDoc);
@@ -161,4 +167,5 @@ export async function loadArea(area = document) {
     delete section.el.dataset.status;
     if (isDoc && idx === 0) await loadPostLCP();
   }
+  await loadLazy(isDoc);
 }

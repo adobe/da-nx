@@ -7,7 +7,7 @@ function decorateArea(area = document) {
   };
 
   (async function loadLCPImage() {
-    const hero = area.querySelector('.nx-hero, .hero');
+    const hero = area.querySelector('.nx-hero');
     if (!hero) {
       eagerLoad(area, 'img');
       return;

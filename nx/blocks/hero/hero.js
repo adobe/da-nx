@@ -14,7 +14,8 @@ export default async function init(el) {
   const rows = [...el.querySelectorAll(':scope > div')];
   const fg = rows.pop();
   fg.classList.add('nx-hero-foreground');
-  if (localStorage.getItem('nx-ims')) await personalize(fg);
+  const pzn = el.classList.contains('personalize');
+  if (localStorage.getItem('nx-ims') && pzn) await personalize(fg);
   if (rows.length) {
     const bg = rows.pop();
     bg.classList.add('nx-hero-background');
