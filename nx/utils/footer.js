@@ -9,10 +9,5 @@ import { getMetadata, loadBlock } from '../scripts/nexter.js';
     return;
   }
   footer.className = 'nx-footer cmp';
-
-  // The lesser of evils to achieve the app frame.
-  const main = document.body.querySelector('main');
-  main.append(footer);
-
   loadBlock(footer);
 }());
