@@ -2,7 +2,7 @@ const PAGE_URL = new URL(window.location.href);
 
 function getEnv() {
   const { host } = PAGE_URL;
-  if (!(host.includes('.hlx.') || host.includes('local'))) return 'prod';
+  if (!(host.includes('hlx.page') || host.includes('local'))) return 'prod';
   if (host.includes('.hlx.')) return 'stage';
   return 'dev';
 }
