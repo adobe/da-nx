@@ -1,0 +1,181 @@
+<html>
+  <head>
+    <!-- the import map to use in our test -->
+    <script type="importmap">
+      {
+        "imports": {
+          "../../../nx/scripts/nexter.js": "./mocks/mock-nexter.js"
+        }
+      }
+    </script>
+  </head>
+
+  <body>
+
+  </body>
+  <script type="module">
+    import { runTests } from '@web/test-runner-mocha';
+    import { expect } from '@esm-bundle/chai';
+    import { stub } from 'sinon';
+    import { loadIms } from '../../../nx/utils/ims.js';
+
+    const imsDetails = {
+      "accessToken": "ims_access_token",
+      'account_type': 'type3',
+      'utcOffset': 'null',
+      'preferred_languages': null,
+      'displayName': 'Chris ChrisChris',
+      'last_name': 'ChrisChris',
+      'userId': 'user_and_auth_id',
+      'authId': 'user_and_auth_id',
+      'tags': [
+          'edu',
+          'edu_k12'
+      ],
+      'emailVerified': 'true',
+      'phoneNumber': null,
+      'countryCode': 'US',
+      'name': 'Chris ChrisChris',
+      'mrktPerm': '',
+      'mrktPermEmail': null,
+      'first_name': 'Chris',
+      'email': 'chrischrischris@adobe.com',
+    };
+
+    // stub adobeIms
+    window.adobeIMS = {
+      getAccessToken: () => 'ims_access_token',
+      getProfile: () => Promise.resolve(imsDetails),
+    }
+
+    const orgResponse = {
+      ok: true,
+      json: () => ([
+        {
+          'orgName': 'IMS Support Organization',
+          'orgRef': {
+            'ident': 'ims_support_ident',
+            'authSrc': 'AdobeOrg'
+          },
+          'orgType': 'Enterprise',
+          'countryCode': 'US',
+          'groups': [
+            {
+              'groupName': 'READ_WRITE_STANDARD@DEV',
+              'role': 'TEAM_MEMBER',
+              'ident': 2871533,
+              'groupType': 'USER',
+              'groupDisplayName': 'READ_WRITE_STANDARD@DEV'
+            },
+            {
+              'groupName': 'READ_WRITE_SENSITIVE@STAGE',
+              'role': 'TEAM_MEMBER',
+              'ident': 3210875,
+              'groupType': 'USER',
+              'groupDisplayName': 'READ_WRITE_SENSITIVE@STAGE'
+            },
+          ]
+        },
+        {
+          'orgName': 'Adobe Inc.',
+          'orgRef': {
+            'ident': 'adobe_inc_ident',
+            'authSrc': 'AdobeOrg'
+          },
+          'orgType': 'Enterprise',
+          'countryCode': 'US',
+          'groups': [
+            {
+              'groupName': 'org-dude',
+              'role': 'TEAM_MEMBER',
+              'ident': 3333333,
+              'groupType': 'LICENSE',
+              'groupDisplayName': 'org-dude'
+            },
+            {
+              'groupName': 'Grp-ADOBEINC-USERS',
+              'role': 'TEAM_MEMBER',
+              'ident': 4444444,
+              'groupType': 'USER',
+              'groupDisplayName': 'Grp-ADOBEINC-USERS'
+            },
+          ]
+        }
+      ]),
+    };
+
+    const orgDetails = {
+      'IMS Support Organization': {
+          'orgRef': {
+              'ident': 'ims_support_ident',
+              'authSrc': 'AdobeOrg'
+          },
+          'orgType': 'Enterprise',
+          'countryCode': 'US',
+          'groups': [
+              {
+                  'groupName': 'READ_WRITE_STANDARD@DEV',
+                  'role': 'TEAM_MEMBER',
+                  'ident': 2871533,
+                  'groupType': 'USER',
+                  'groupDisplayName': 'READ_WRITE_STANDARD@DEV'
+              },
+              {
+                  'groupName': 'READ_WRITE_SENSITIVE@STAGE',
+                  'role': 'TEAM_MEMBER',
+                  'ident': 3210875,
+                  'groupType': 'USER',
+                  'groupDisplayName': 'READ_WRITE_SENSITIVE@STAGE'
+              }
+          ]
+      },
+      'Adobe Inc.': {
+          'orgRef': {
+              'ident': 'adobe_inc_ident',
+              'authSrc': 'AdobeOrg'
+          },
+          'orgType': 'Enterprise',
+          'countryCode': 'US',
+          'groups': [
+              {
+                  'groupName': 'org-dude',
+                  'role': 'TEAM_MEMBER',
+                  'ident': 3333333,
+                  'groupType': 'LICENSE',
+                  'groupDisplayName': 'org-dude'
+              },
+              {
+                  'groupName': 'Grp-ADOBEINC-USERS',
+                  'role': 'TEAM_MEMBER',
+                  'ident': 4444444,
+                  'groupType': 'USER',
+                  'groupDisplayName': 'Grp-ADOBEINC-USERS'
+              }
+          ]
+      }
+    };
+
+    window.fetch = stub();
+window.fetch.withArgs('https://ims-na1.adobelogin.com/ims/organizations/v5')
+  .returns(Promise.resolve(orgResponse));
+
+    runTests(() => {
+      describe('Ims', () => {
+        it('Returns imsProfile and sets nx-ims localStorage', async () => {
+          const imsProfile = await loadIms();
+          // can't compare functions so check a few props
+          expect(imsProfile.accessToken).to.equal(imsDetails.accessToken);
+          expect(imsProfile.displayName).to.equal(imsDetails.displayName);
+          expect(imsProfile.tags[0]).to.equal(imsDetails.tags[0]);
+          expect(localStorage.getItem('nx-ims')).to.equal('true');
+        });
+
+        it('Returns org details with getOrgs()', async () => {
+          const imsProfile = await loadIms();
+          const orgs = await imsProfile.getOrgs();
+          expect(orgs).to.deep.equal(orgDetails);
+        });
+      });
+    });
+  </script>
+  </html>

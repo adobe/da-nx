@@ -7,7 +7,11 @@
     "lint:js": "eslint .",
     "lint:css": "stylelint blocks/**/*.css styles/*.css",
     "lint": "npm run lint:js && npm run lint:css",
-    "local": "aem up --port=6456"
+    "local": "aem up --port=6456",
+    "test": "wtr --config ./web-test-runner.config.mjs \"./test/**/*.test.(js|html)\" --node-resolve --port=2000 --coverage --concurrent-browsers 4",
+    "test:watch": "npm test -- --watch",
+    "test:file": "wtr --config ./web-test-runner.config.mjs --node-resolve --port=2000 --coverage",
+    "test:file:watch": "wtr --config ./web-test-runner.config.mjs --node-resolve --port=2000 --coverage --watch"
   },
   "repository": {
     "type": "git",
@@ -22,9 +26,15 @@
   "devDependencies": {
     "@babel/core": "7.23.7",
     "@babel/eslint-parser": "7.23.3",
+    "@esm-bundle/chai": "4.3.4-fix.0",
+    "@web/dev-server-import-maps": "0.2.0",
+    "@web/test-runner": "0.18.1",
+    "@web/test-runner-commands": "0.9.0",
+    "chai": "5.1.0",
     "eslint": "8.56.0",
     "eslint-config-airbnb-base": "15.0.0",
     "eslint-plugin-import": "2.29.1",
+    "sinon": "17.0.1",
     "stylelint": "16.1.0",
     "stylelint-config-standard": "36.0.0"
   }
