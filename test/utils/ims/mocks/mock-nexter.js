@@ -1,17 +1,23 @@
 const PAGE_URL = new URL(window.location.href);
 
+/** Mocked Functions */
+export const getConfig = () => ({
+  codeBase: 'codeBase',
+  imsClientId: 'nexter',
+  env: 'prod',
+});
+
+export async function loadScript(src) {
+  window.adobeid.onReady();
+}
+/** End Mocked Functions */
+
 function getEnv() {
   const { host } = PAGE_URL;
   if (!(host.includes('hlx.page') || host.includes('local'))) return 'prod';
   if (host.includes('.hlx.')) return 'stage';
   return 'dev';
 }
-
-export const getConfig = () => ({
-  codeBase: 'codeBase',
-  imsClientId: 'nexter',
-  env: 'prod',
-});
 
 export function getMetadata(name, doc = document) {
   const attr = name && name.includes(':') ? 'property' : 'name';
@@ -32,11 +38,6 @@ export async function loadStyle(href) {
       resolve();
     }
   });
-}
-
-// mocked
-export async function loadScript(src) {
-  window.adobeid.onReady();
 }
 
 export async function loadBlock(block) {

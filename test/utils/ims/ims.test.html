@@ -156,8 +156,8 @@
     };
 
     window.fetch = stub();
-window.fetch.withArgs('https://ims-na1.adobelogin.com/ims/organizations/v5')
-  .returns(Promise.resolve(orgResponse));
+    window.fetch.withArgs('https://ims-na1.adobelogin.com/ims/organizations/v5')
+      .returns(Promise.resolve(orgResponse));
 
     runTests(() => {
       describe('Ims', () => {

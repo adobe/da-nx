@@ -19,29 +19,21 @@ function customReporter() {
 export default {
   coverageConfig: {
     include: [
-      '**/libs/**',
-      '**/tools/**',
-      '**/build/**',
+      '**/nx/**',
+      '**/scripts/**',
     ],
     exclude: [
       '**/mocks/**',
       '**/node_modules/**',
       '**/test/**',
       '**/deps/**',
-      '**/imslib/imslib.min.js',
-      '**/features/spectrum-web-components/**',
-      // TODO: folders below need to have tests written for 100% coverage
-      '**/ui/controls/**',
-      '**/blocks/library-config/**',
-      '**/hooks/**',
-      '**/special/tacocat/**',
     ],
   },
   testFramework: { config: { retries: GITHUB_ACTIONS ? 1 : 0 } },
   plugins: [importMapsPlugin({})],
   reporters: [
     defaultReporter({ reportTestResults: true, reportTestProgress: true }),
-    // customReporter(),
+    customReporter(),
     summaryReporter(),
   ],
   testRunnerHtml: (testFramework) => `
