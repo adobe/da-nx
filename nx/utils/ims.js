@@ -4,10 +4,17 @@ const { imsClientId, imsScope, env } = getConfig();
 
 const IMS_URL = 'https://auth.services.adobe.com/imslib/imslib.min.js';
 const DEFAULT_SCOPE = 'AdobeID,openid,gnav';
+const IMS_TIMEOUT = 5000;
 const IMS_ENV = {
   dev: 'stg1',
   stage: 'stg1',
   prod: 'prod',
+};
+
+const IMS_ENDPOINT = {
+  dev: 'ims-na1-stg1.adobelogin.com',
+  stage: 'ims-na1-stg1.adobelogin.com',
+  prod: 'ims-na1.adobelogin.com',
 };
 
 const IO_ENV = {
@@ -27,18 +34,46 @@ export function handleSignOut() {
 }
 
 let imsDetails;
+let orgDetails;
+let imsProfile;
+
+async function fetchWithToken(url, accessToken) {
+  const opts = { headers: { Authorization: `Bearer ${accessToken.token}` } };
+  try {
+    const resp = await fetch(url, opts);
+    if (!resp.ok) return null;
+    return resp.json();
+  } catch (e) {
+    return null;
+  }
+}
+
+async function getOrgs() {
+  if (!orgDetails) {
+    const orgData = await fetchWithToken(
+      `https://${IMS_ENDPOINT[env]}/ims/organizations/v5`,
+      imsProfile.accessToken,
+    );
+    orgDetails = orgData?.reduce((acc, org) => {
+      const { orgName, ...rest } = org;
+      acc[orgName] = rest;
+      return acc;
+    }, {});
+  }
+
+  return orgDetails;
+}
+
+export async function getIo() {
+  return fetchWithToken(`https://${IO_ENV[env]}/profile`, imsProfile.accessToken);
+}
 
 async function getProfileDetails(accessToken, resolve) {
   const profile = await window.adobeIMS.getProfile();
-  const details = { ...profile, accessToken };
-  resolve(details);
-}
-
-export async function loadIo(accessToken) {
-  const opts = { headers: { Authorization: `Bearer ${accessToken.token}` } };
-  const resp = await fetch(`https://${IO_ENV[env]}/profile`, opts);
-  if (!resp.ok) return null;
-  return resp.json();
+  imsProfile = {
+    ...profile, accessToken, getOrgs, getIo,
+  };
+  resolve(imsProfile);
 }
 
 export async function loadIms() {
@@ -47,7 +82,7 @@ export async function loadIms() {
       reject(new Error('Missing IMS Client ID'));
       return;
     }
-    const timeout = setTimeout(() => reject(new Error('IMS timeout')), 5000);
+    const timeout = setTimeout(() => reject(new Error('IMS timeout')), IMS_TIMEOUT);
     window.adobeid = {
       client_id: imsClientId,
       scope: imsScope || DEFAULT_SCOPE,

@@ -61,7 +61,6 @@ class Nav extends HTMLElement {
 
   async getProfile() {
     const {
-      loadIo,
       loadIms,
       handleSignIn,
       handleSignOut,
@@ -69,7 +68,7 @@ class Nav extends HTMLElement {
     try {
       const details = await loadIms(true);
       if (details.anonymous) return this.renderSignin(handleSignIn);
-      details.io = await loadIo(details.accessToken);
+      details.io = await details.getIo();
       return this.renderProfile(handleSignOut, details);
     } catch {
       return null;
