@@ -64,13 +64,15 @@ async function getOrgs() {
   return orgDetails;
 }
 
-export async function loadIo(accessToken) {
-  return fetchWithToken(`https://${IO_ENV[env]}/profile`, accessToken);
+export async function getIo() {
+  return fetchWithToken(`https://${IO_ENV[env]}/profile`, imsProfile.accessToken);
 }
 
 async function getProfileDetails(accessToken, resolve) {
   const profile = await window.adobeIMS.getProfile();
-  imsProfile = { ...profile, accessToken, getOrgs };
+  imsProfile = {
+    ...profile, accessToken, getOrgs, getIo,
+  };
   resolve(imsProfile);
 }
 
