@@ -71,8 +71,8 @@ export async function loadBlock(block) {
       try {
         const { default: init } = await import(`${blockPath}.js`);
         await init(block);
-      } catch (err) {
-        console.log(`Failed loading ${name}`, err);
+      } catch {
+        console.log(`Failed loading ${name}`);
       }
       resolve();
     })();
