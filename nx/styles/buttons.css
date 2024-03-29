@@ -1,0 +1,41 @@
+button {
+  background: none;
+  font-family: var(--body-font-family);
+  display: inline-block;
+  font-style: normal;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+button.action {
+  line-height: 1;
+  padding: 4px 8px;
+  font-weight: 400;
+  border-radius: var(--corner-radius-100);
+  background: rgb(225 225 225);
+  border: 2px solid rgb(225 225 225);
+}
+
+button.primary,
+button.accent {
+  padding: 5px 14px;
+  line-height: 18px;
+  font-size: 15px;
+  border: 2px solid #000;
+  border-radius: 16px;
+  outline-offset: 0;
+  transition: outline-offset .2s;
+}
+
+button.accent {
+  background-color: var(--spectrum-blue-800);
+  border: 2px solid var(--spectrum-blue-800);
+  outline-color: var(--spectrum-blue-800);
+  color: #FFF;
+}
+
+button.accent:focus {
+  background-color: #3b63fb;
+  border: 2px solid #3b63fb;
+  outline-offset: 4px;
+}

@@ -1,0 +1,27 @@
+:host {
+  display: block;
+  color: var(--spectrum-gray-900);
+  font-size: var(--type-body-s-size);
+}
+
+.card {
+  max-width: 320px;
+  background: #FFF;
+  padding: var(--spacing-400);
+  border-radius: var(--corner-radius-300);
+  border: 1px solid transparent;
+  box-shadow: 0 0 2px 0 rgb(0 0 0 / 12%), 0 3px 6px 0 rgb(0 0 0 / 4%), 0 4px 8px 0 rgb(0 0 0 / 8%);
+}
+
+.card .heading {
+  font-size: var(--s2-font-size-300);
+  font-weight: 700;
+  line-height: 1;
+  margin-bottom: var(--spacing-100);
+}
+
+.card .body {
+  margin: 0;
+  color: var(--spectrum-gray-700);
+  margin-bottom: var(--spacing-300);
+}

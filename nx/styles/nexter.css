@@ -22,7 +22,12 @@
   --type-heading-xs-size: 16px;
 
   /* Body Sizing */
-  --type-body-m-size: 18px;
+  --s2-font-size-100: 17px;
+  --s2-font-size-200: 19px;
+  --s2-font-size-300: 22px;
+  --s2-font-size-400: 24px;
+  --s2-font-size-600: 31px;
+  --s2-font-size-800: 39px;
 
   /* Nav */
   --nx-nav-height: 70px;
@@ -53,6 +58,8 @@
   /* Colors */
   --gray-200: #eaeaea;
   --spectrum-blue-800: #4d7bff;
+  --spectrum-gray-700: #505050;
+  --spectrum-gray-900: #131313;
 }
 
 @font-face {
@@ -76,7 +83,7 @@ body {
   background-color: var(--nx-background);
   color: var(--text-color);
   font-family: var(--body-font-family);
-  font-size: var(--type-body-m-size);
+  font-size: var(--s2-font-size-200);
   line-height: var(--spectrum-line-height-200);
   word-wrap: break-word;
   display: grid;
@@ -143,6 +150,15 @@ main > .section > .content {
 }
 
 @media (width > 600px) {
+  :root {
+    --s2-font-size-100: 14px;
+    --s2-font-size-200: 16px;
+    --s2-font-size-300: 18px;
+    --s2-font-size-400: 20px;
+    --s2-font-size-600: 25px;
+    --s2-font-size-800: 32px;
+  }
+
   body.nx-app {
     grid-template:
       "header header" var(--nx-nav-height)
