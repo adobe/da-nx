@@ -33,18 +33,22 @@ class NxLocProject extends LitElement {
     this.langs = langs;
     this.name = name;
     this.urls = urls;
+
+    const count = langs.reduce((acc, lang) => {
+      const num = acc + (lang.locales.length * urls.length);
+      return num;
+    }, 0);
+    console.log(count);
   }
 
   async handleSync(destPrefix, idx) {
-    console.log(idx);
-    const groups = makeGroup([...this.urls], 80);
+    const groups = makeGroup([...this.urls], 98);
     for (const group of groups) {
       const groupLoaded = group.map(async (url) => {
         const { pathname, daSource } = url;
         const destination = `${destPrefix}${pathname}.html`;
         await copy({ source: daSource, destination });
         if (Number.isNaN(idx)) return;
-        console.log('hi');
         this.langs[idx].complete += 1;
         this.langs = [...this.langs];
       });

@@ -58,9 +58,10 @@ export async function copy({ source, destination }) {
   body.append('destination', `/${org}/${repo}${destination}`);
 
   const opts = { method: 'POST', body };
-  try {
-    await fetch(`${DA_ORIGIN}/copy${path}`, opts);
-  } catch {
-    console.log(`Error copying: ${destination}`);
-  }
+
+  return new Promise((resolve) => {
+    (async () => {
+      fetch(`${DA_ORIGIN}/copy${path}`, opts).then(() => { resolve(); });
+    })();
+  });
 }
