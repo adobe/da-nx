@@ -35,29 +35,36 @@ class NxLocProject extends LitElement {
     this.urls = urls;
   }
 
-  async handleSync(idx, destPrefix) {
-    const groups = makeGroup([...this.urls]);
+  async handleSync(destPrefix, idx) {
+    console.log(idx);
+    const groups = makeGroup([...this.urls], 80);
     for (const group of groups) {
       const groupLoaded = group.map(async (url) => {
         const { pathname, daSource } = url;
         const destination = `${destPrefix}${pathname}.html`;
         await copy({ source: daSource, destination });
+        if (Number.isNaN(idx)) return;
+        console.log('hi');
+        this.langs[idx].complete += 1;
+        this.langs = [...this.langs];
       });
       await Promise.all(groupLoaded);
-      this.langs[idx].complete += groupLoaded.length;
-      this.langs = [...this.langs];
     }
   }
 
   async handleRolloutAll() {
-    performance.mark('rollout-all-start');
+    performance.mark('start-rollout-all');
     for (const [idx, lang] of this.langs.entries()) {
       const localeLoaded = lang.locales.map(async (locale) => {
         const destPrefix = `/${locale}`;
-        return this.handleSync(idx, destPrefix);
+        return this.handleSync(destPrefix, idx);
       });
       await Promise.all(localeLoaded);
     }
+    performance.mark('end-rollout-all');
+    performance.measure('rollout-all', 'start-rollout-all', 'end-rollout-all');
+    const replaceTime = performance.getEntriesByName('rollout-all')[0].duration;
+    console.log(String(replaceTime / 1000).substring(0, 4));
   }
 
   renderCards() {
