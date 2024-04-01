@@ -15,8 +15,6 @@ const ICONS = [
   `${nxBase}/blocks/loc/img/Smock_Add_18_N.svg`,
 ];
 
-const MOCK_URLS = 'https://main--bacom--da-sites.hlx.page/customer-success-stories/workers-credit-union-case-study\nhttps://main--bacom--da-sites.hlx.page/customer-success-stories/workers-credit-union-case-study\nhttps://main--bacom--da-sites.hlx.page/customer-success-stories/western-digital-case-study\nhttps://main--bacom--da-sites.hlx.page/customer-success-stories/webmd-case-study\nhttps://main--bacom--da-sites.hlx.page/customer-success-stories/weber-state-university-case-study\nhttps://main--bacom--da-sites.hlx.page/customer-success-stories/waymark-tech-case-study\nhttps://main--bacom--da-sites.hlx.page/customer-success-stories/warriors-camera-to-cloud-case-study\nhttps://main--bacom--da-sites.hlx.page/customer-success-stories/walgreens-boots-alliance-case-study\nhttps://main--bacom--da-sites.hlx.page/customer-success-stories/vw-classic-parts-case-study\nhttps://main--bacom--da-sites.hlx.page/customer-success-stories/vodafone-training-case-study\nhttps://main--bacom--da-sites.hlx.page/customer-success-stories/vodafone-case-study';
-
 class NxLocSetup extends LitElement {
   static properties = {
     _title: { attribute: false },
@@ -128,7 +126,7 @@ class NxLocSetup extends LitElement {
     const blob = new Blob([JSON.stringify(project)], { type: 'application/json' });
     body.append('data', blob);
     const opts = { method: 'PUT', body };
-    const path = `/${this._org}/${this._repo}${PROJ_PATH}/1711921477619`;
+    const path = `/${this._org}/${this._repo}${PROJ_PATH}/${time}`;
     const fetchPath = `${DA_ORIGIN}/source${path}.json`;
     const resp = await fetch(fetchPath, opts);
     if (!resp.ok) this._error = 'Something went wrong.';
@@ -199,7 +197,7 @@ class NxLocSetup extends LitElement {
       <h1>Create new project</h1>
       <form id="url-form" class="title" @submit=${this.handleSubmit}>
         <div class="form-heading">
-          <h2>Add details</h2>
+          <h2>Details</h2>
           <div class="actions">
             ${this._error ? html`<p class="error">${this._error}</p>` : nothing}
             <input type="submit" value="Next" class="accent" />
@@ -207,11 +205,11 @@ class NxLocSetup extends LitElement {
         </div>
         <div>
           <label for="title">Title</label>
-          <input type="text" name="title" value="test title" />
+          <input type="text" name="title" />
         </div>
         <div>
           <label for="urls">URLs</label>
-          <textarea name="urls">${MOCK_URLS}</textarea>
+          <textarea name="urls" placeholder="Add AEM URLs here."></textarea>
         </div>
       </form>
       <form id="lang-form" class="hidden" @submit=${this.handleSubmit}>
