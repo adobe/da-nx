@@ -4,6 +4,21 @@
   margin: var(--spacing-400) auto;
 }
 
+.nx-action-status {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.nx-status {
+  margin: 0;
+  line-height: 32px;
+  background-color: #1b9297;
+  color: #FFF;
+  border-radius: 8px;
+  padding: 0 12px;
+}
+
 .nx-project-actions {
   margin-bottom: var(--spacing-400);
   display: flex;

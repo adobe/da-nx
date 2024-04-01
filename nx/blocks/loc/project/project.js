@@ -16,6 +16,7 @@ class NxLocProject extends LitElement {
     _langs: { attribute: false },
     _urls: { attribute: false },
     _step: { attribute: false },
+    _status: { attribute: false },
   };
 
   constructor() {
@@ -77,8 +78,10 @@ class NxLocProject extends LitElement {
   }
 
   async rolloutLangstore(code) {
+    this._status = 'Syncing to Langstore (en).';
     const { langstore } = this._langs.find((lang) => lang.code === code);
     await this.rolloutLocale(langstore);
+    this._status = null;
   }
 
   async rolloutAll() {
@@ -89,11 +92,12 @@ class NxLocProject extends LitElement {
     performance.mark('end-rollout-all');
     performance.measure('rollout-all', 'start-rollout-all', 'end-rollout-all');
     const replaceTime = performance.getEntriesByName('rollout-all')[0].duration;
-    console.log(String((replaceTime / 1000) / 60).substring(0, 4));
+    this._status = `Rollout took: ${String((replaceTime / 1000) / 60).substring(0, 4)} minutes`;
   }
 
   async handleStart() {
     this._step = 'sending';
+    this._status = 'Starting project.';
     // Mock by copying from /langstore/en to all langstores
     const langstores = this._langs.reduce((acc, lang) => {
       if (lang.code !== 'en') acc.push(lang.langstore);
@@ -101,6 +105,7 @@ class NxLocProject extends LitElement {
     }, []);
     await Promise.all(langstores.map((langstore) => this.rolloutLocale(langstore)));
     this._step = 'sent';
+    this._status = null;
   }
 
   renderComplete(lang) {
@@ -149,10 +154,13 @@ class NxLocProject extends LitElement {
     const canRollout = this._step && this._step !== 'new' && this._step !== 'sending';
 
     return html`
-      <section class="nx-project-actions">
-        ${canSyncSend ? this.renderLangstore() : nothing}
-        ${canSyncSend ? this.renderStart() : nothing}
-        ${canRollout ? this.renderRollout() : nothing}
+      <section class="nx-action-status">
+        <div class="nx-project-actions">
+          ${canSyncSend ? this.renderLangstore() : nothing}
+          ${canSyncSend ? this.renderStart() : nothing}
+          ${canRollout ? this.renderRollout() : nothing}
+        </div>
+        ${this._status ? html`<p class="nx-status">${this._status}</p>` : nothing}
       </section>
       ${this._langs.length > 0 ? this.renderCards() : nothing}
     `;
