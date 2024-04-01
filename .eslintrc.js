@@ -16,6 +16,7 @@ module.exports = {
     'import/no-cycle': 0,
     'linebreak-style': ['error', 'unix'],
     'no-await-in-loop': 0,
+    'no-underscore-dangle': ['error', { allowAfterThis: true }],
     'import/extensions': ['error', {
       js: 'always',
     }],

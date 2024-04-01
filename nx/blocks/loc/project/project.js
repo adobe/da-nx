@@ -4,22 +4,25 @@ import getStyle from '../../../utils/styles.js';
 import { getDetails, copy } from './index.js';
 import makeGroup from '../../../utils/group.js';
 
+import '../card/card.js';
+
 const { nxBase } = getConfig();
 const style = await getStyle(import.meta.url);
 const buttons = await getStyle(`${nxBase}/styles/buttons.js`);
 
 class NxLocProject extends LitElement {
   static properties = {
-    name: { attribute: false },
-    langs: { attribute: false },
-    urls: { attribute: false },
-    status: { attribute: false },
+    _title: { attribute: false },
+    _langs: { attribute: false },
+    _urls: { attribute: false },
+    _step: { attribute: false },
   };
 
   constructor() {
     super();
-    this.urls = [];
-    this.langs = [];
+    this._urls = [];
+    this._langs = [];
+    this.cards = {};
   }
 
   connectedCallback() {
@@ -29,84 +32,129 @@ class NxLocProject extends LitElement {
   }
 
   async getProject() {
-    const { name, langs, urls } = await getDetails();
-    this.langs = langs;
-    this.name = name;
-    this.urls = urls;
-
-    const count = langs.reduce((acc, lang) => {
-      const num = acc + (lang.locales.length * urls.length);
-      return num;
-    }, 0);
-    console.log(count);
+    const {
+      title, langs, urls, step,
+    } = await getDetails();
+    this._title = title;
+    this._langs = langs;
+    this._urls = urls;
+    this._step = step;
   }
 
-  async handleSync(destPrefix, idx) {
-    const groups = makeGroup([...this.urls], 98);
-    for (const group of groups) {
-      const groupLoaded = group.map(async (url) => {
-        const { pathname, daSource } = url;
-        const destination = `${destPrefix}${pathname}.html`;
-        await copy({ source: daSource, destination });
-        if (Number.isNaN(idx)) return;
-        this.langs[idx].complete += 1;
-        this.langs = [...this.langs];
-      });
-      await Promise.all(groupLoaded);
+  async checkErrors(locale) {
+    const interval = setInterval(async () => {
+      const noSuccess = locale.urls.filter((url) => url.status !== 'success');
+      if (noSuccess.length === 0) clearInterval(interval);
+
+      const errors = noSuccess.filter((url) => url.status === 'error');
+      await Promise.all(errors.map(async (url) => copy(url)));
+
+      this._langs = [...this._langs];
+    }, 5000);
+  }
+
+  async rolloutLocale(locale) {
+    const batchSize = Math.ceil(locale.urls.length / 50);
+    const batches = makeGroup(locale.urls, batchSize);
+    for (const batch of batches) {
+      await Promise.all(batch.map(async (url) => {
+        await copy(url);
+        this._langs = [...this._langs];
+      }));
     }
+
+    // Cleanup any timeouts or errors
+    const noSuccess = locale.urls.filter((url) => url.status !== 'success');
+    if (noSuccess.length > 0) this.checkErrors(locale);
   }
 
-  async handleRolloutAll() {
+  async rolloutLang(lang) {
+    const localeKeys = Object.keys(lang.locales);
+
+    await Promise.all(
+      localeKeys.map((key) => this.rolloutLocale(lang.locales[key])),
+    );
+  }
+
+  async rolloutLangstore(code) {
+    const { langstore } = this._langs.find((lang) => lang.code === code);
+    await this.rolloutLocale(langstore);
+  }
+
+  async rolloutAll() {
     performance.mark('start-rollout-all');
-    for (const [idx, lang] of this.langs.entries()) {
-      const localeLoaded = lang.locales.map(async (locale) => {
-        const destPrefix = `/${locale}`;
-        return this.handleSync(destPrefix, idx);
-      });
-      await Promise.all(localeLoaded);
+    for (const lang of this._langs) {
+      await this.rolloutLang(lang);
     }
     performance.mark('end-rollout-all');
     performance.measure('rollout-all', 'start-rollout-all', 'end-rollout-all');
     const replaceTime = performance.getEntriesByName('rollout-all')[0].duration;
-    console.log(String(replaceTime / 1000).substring(0, 4));
+    console.log(String((replaceTime / 1000) / 60).substring(0, 4));
+  }
+
+  async handleStart() {
+    this._step = 'sending';
+    // Mock by copying from /langstore/en to all langstores
+    const langstores = this._langs.reduce((acc, lang) => {
+      if (lang.code !== 'en') acc.push(lang.langstore);
+      return acc;
+    }, []);
+    await Promise.all(langstores.map((langstore) => this.rolloutLocale(langstore)));
+    this._step = 'sent';
+  }
+
+  renderComplete(lang) {
+    return Object.keys(lang.locales).reduce((acc, key) => {
+      const { length } = lang.locales[key].urls.filter((url) => url.status === 'success');
+      const complete = acc + length;
+      return complete;
+    }, 0);
+  }
+
+  renderCard(lang) {
+    let card = this.cards[lang.code];
+    if (!card) {
+      card = document.createElement('nx-loc-card');
+      card.addEventListener('on-rollout', (e) => this.rolloutLang(e.detail.lang));
+      this.cards[lang.code] = card;
+    }
+    card.lang = lang;
+    card.total = this._urls.length;
+    card.complete = this.renderComplete(lang);
+    return card;
   }
 
   renderCards() {
     return html`
       <section class="nx-lang-cards">
-        ${this.langs.map((lang) => html`
-          <div class="nx-lang-card">
-            <p class="detail">Language</p>
-            <p class="nx-card-heading">${lang.language}</p>
-            <p class="detail">Action</p>
-            <p class="nx-card-heading">${lang.action}</p>
-            <div class="nx-card-totals">
-              <div class="totals-left">
-                <p class="detail">Items</p>
-                <p class="nx-card-heading">${this.urls.length}</p>
-              </div>
-              <div class="totals-right">
-                <p class="detail">Complete</p>
-                <p class="nx-card-heading">${lang.complete} of ${lang.locales.length * this.urls.length}</p>
-              </div>
-            </div>
-            <div class="nx-lang-card-locales">
-              ${lang.locales.map((locale) => html`<button class="action">${locale}</button>`)}
-            </div>
-            <div class="nx-lang-card-actions">
-              <button class="primary">Rollout</button>
-            </div>
-          </div>
-        `)}
+        ${this._langs.map((lang) => this.renderCard(lang))}
       </section>
     `;
   }
 
+  renderLangstore() {
+    return html`<button class="accent" @click="${() => this.rolloutLangstore('en')}">Sync to langstore (en)</button>`;
+  }
+
+  renderStart() {
+    return html`<button class="accent" @click="${() => this.handleStart()}">Start project</button>`;
+  }
+
+  renderRollout() {
+    return html`<button class="accent" @click="${this.rolloutAll}">Rollout all</button>`;
+  }
+
   render() {
+    const canSyncSend = this._step && this._step !== 'sending' && this._step !== 'sent';
+    const canRollout = this._step && this._step !== 'new' && this._step !== 'sending';
+
     return html`
-      <button class="accent" @click="${() => this.handleSync('/langstore/en')}">Sync to langstore</button>
-      <button class="accent" @click="${this.handleRolloutAll}">Rollout all</button>
-      ${this.langs.length > 0 ? this.renderCards() : nothing}
+      <section class="nx-project-actions">
+        ${canSyncSend ? this.renderLangstore() : nothing}
+        ${canSyncSend ? this.renderStart() : nothing}
+        ${canRollout ? this.renderRollout() : nothing}
+      </section>
+      ${this._langs.length > 0 ? this.renderCards() : nothing}
     `;
   }
 }

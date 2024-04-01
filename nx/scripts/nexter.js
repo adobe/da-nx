@@ -160,6 +160,7 @@ async function loadPostLCP() {
 export async function loadArea(area = document) {
   const isDoc = area === document;
   if (isDoc) {
+    if (getMetadata('signin')) await import('../utils/signin.js');
     document.documentElement.lang = 'en';
     decorateHeader();
   }

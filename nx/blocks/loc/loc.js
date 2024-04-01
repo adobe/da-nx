@@ -5,6 +5,7 @@ import getStyle from '../../utils/styles.js';
 
 import './header/header.js';
 import './project/project.js';
+import './setup/setup.js';
 
 const { nxBase } = getConfig();
 const style = await getStyle(import.meta.url);
@@ -18,10 +19,14 @@ class NxLoc extends LitElement {
     this.shadowRoot.adoptedStyleSheets = [style, buttons];
   }
 
+  get isHashProject() {
+    return window.location.hash.startsWith('#/');
+  }
+
   render() {
     return html`
       <nx-loc-header name=${imsDetails.first_name}></nx-loc-header>
-      ${window.location.hash ? html`<nx-loc-project></nx-loc-project>` : nothing}
+      ${this.isHashProject ? html`<nx-loc-project></nx-loc-project>` : html`<nx-loc-setup></nx-loc-setup>`}
     `;
   }
 }
@@ -29,11 +34,30 @@ class NxLoc extends LitElement {
 customElements.define('nx-loc', NxLoc);
 
 export default async function init(el) {
+  const isHashPath = (hash) => hash.startsWith('#/');
+
   imsDetails = await loadIms();
   if (!imsDetails.accessToken) {
     handleSignIn();
     return;
   }
-  const cmp = document.createElement('nx-loc');
-  el.append(cmp);
+
+  const setup = () => {
+    let cmp = el.querySelector('nx-loc');
+    if (cmp) cmp.remove();
+    cmp = document.createElement('nx-loc');
+    el.append(cmp);
+  };
+
+  const hashChanged = (e) => {
+    const { hash } = new URL(e.newURL);
+    if (!isHashPath(hash)) return;
+    setup();
+  };
+
+  if (!isHashPath(window.location.hash)) {
+    window.addEventListener('hashchange', hashChanged);
+  }
+
+  setup();
 }

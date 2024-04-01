@@ -1,6 +1,6 @@
 import { loadArea, getMetadata, getConfig } from '../../scripts/nexter.js';
 import getStyle from '../../utils/styles.js';
-import getSvg, { link2svg } from '../../utils/svg.js';
+import { link2svg } from '../../utils/svg.js';
 
 const style = await getStyle(import.meta.url);
 
