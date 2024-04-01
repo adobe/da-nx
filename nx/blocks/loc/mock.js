@@ -42,7 +42,7 @@ export default async function saveMockHtml() {
     const path = page.path.endsWith('/') ? `${page.path}index` : page.path;
     return {
       srcUrl: `https://main--bacom--adobecom.hlx.live${path}.plain.html`,
-      daUrl: `https://admin.da.live/source/da-sites/bacom${path}.html`,
+      daUrl: `https://admin.da.live/source/da-sites/for-jim${path}.html`,
     };
   });
 

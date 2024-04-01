@@ -10,6 +10,7 @@ class NxLocCard extends LitElement {
   static properties = {
     total: { attribute: false },
     lang: { attribute: false },
+    status: { attribute: false },
     complete: { attribute: false },
   };
 
@@ -25,16 +26,14 @@ class NxLocCard extends LitElement {
   }
 
   render() {
-    let status = 'not-started';
-    if (this.complete > 0) status = 'rolling-out';
-    if (this.complete === this.lang.total) status = 'complete';
-
+    const status = !this.status ? 'new' : this.status;
     return html`
       <div class="nx-lang-card-top nx-lang-status-${status}">
         <p class="detail">Language</p>
         <p class="nx-card-heading">${this.lang.language}</p>
         <p class="detail">Action</p>
         <p class="nx-card-heading">${this.lang.action}</p>
+        <div class="nx-lang-card-label">${status}</div>
       </div>
       <div class="nx-lang-card-middle">
         <div class="nx-card-totals">

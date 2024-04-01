@@ -1,5 +1,5 @@
 import { getConfig } from '../../scripts/nexter.js';
-import { LitElement, html, nothing } from '../../deps/lit/lit-core.min.js';
+import { LitElement, html } from '../../deps/lit/lit-core.min.js';
 import { loadIms, handleSignIn } from '../../utils/ims.js';
 import getStyle from '../../utils/styles.js';
 

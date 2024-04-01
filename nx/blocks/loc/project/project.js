@@ -42,6 +42,11 @@ class NxLocProject extends LitElement {
     this._step = step;
   }
 
+  updateCardState(lang, message) {
+    if (lang && message) lang.status = message;
+    this._langs = [...this._langs];
+  }
+
   async checkErrors(locale) {
     const interval = setInterval(async () => {
       const noSuccess = locale.urls.filter((url) => url.status !== 'success');
@@ -50,13 +55,19 @@ class NxLocProject extends LitElement {
       const errors = noSuccess.filter((url) => url.status === 'error');
       await Promise.all(errors.map(async (url) => copy(url)));
 
-      this._langs = [...this._langs];
+      this.updateCardState();
     }, 5000);
   }
 
   async rolloutLocale(locale) {
+    // Reset URL status if already marked
+    locale.urls.forEach((url) => delete url.status);
+
+    // Batch requests
     const batchSize = Math.ceil(locale.urls.length / 50);
     const batches = makeGroup(locale.urls, batchSize);
+
+    // Send it
     for (const batch of batches) {
       await Promise.all(batch.map(async (url) => {
         await copy(url);
@@ -79,15 +90,21 @@ class NxLocProject extends LitElement {
 
   async rolloutLangstore(code) {
     this._status = 'Syncing to Langstore (en).';
-    const { langstore } = this._langs.find((lang) => lang.code === code);
-    await this.rolloutLocale(langstore);
+    const lang = this._langs.find((langToFind) => langToFind.code === code);
+    this.updateCardState(lang, 'syncing');
+    await this.rolloutLocale(lang.langstore);
+    this.updateCardState(lang, 'synced');
     this._status = null;
   }
 
   async rolloutAll() {
     performance.mark('start-rollout-all');
     for (const lang of this._langs) {
+      this.updateCardState(lang, 'rolling-out');
+      this._langs = [...this._langs];
       await this.rolloutLang(lang);
+      this.updateCardState(lang, 'complete');
+      this._langs = [...this._langs];
     }
     performance.mark('end-rollout-all');
     performance.measure('rollout-all', 'start-rollout-all', 'end-rollout-all');
@@ -99,12 +116,15 @@ class NxLocProject extends LitElement {
     this._step = 'sending';
     this._status = 'Starting project.';
     // Mock by copying from /langstore/en to all langstores
-    const langstores = this._langs.reduce((acc, lang) => {
-      if (lang.code !== 'en') acc.push(lang.langstore);
+    const langs = this._langs.reduce((acc, lang) => {
+      if (lang.code !== 'en') acc.push(lang);
       return acc;
     }, []);
-    for (const langstore of langstores) {
-      await this.rolloutLocale(langstore);
+    for (const lang of langs) {
+      this.updateCardState(lang, 'syncing');
+      await this.rolloutLocale(lang.langstore);
+      lang.status = 'ready-for-rollout';
+      this.updateCardState(lang, 'synced');
     }
     this._step = 'sent';
     this._status = null;
@@ -125,6 +145,7 @@ class NxLocProject extends LitElement {
       card.addEventListener('on-rollout', (e) => this.rolloutLang(e.detail.lang));
       this.cards[lang.code] = card;
     }
+    card.status = lang.status;
     card.lang = lang;
     card.total = this._urls.length;
     card.complete = this.renderComplete(lang);

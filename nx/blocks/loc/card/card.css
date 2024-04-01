@@ -8,13 +8,28 @@
 }
 
 .nx-lang-card-top {
+  position: relative;
   background: var(--spectrum-gray-700);
   padding: var(--spacing-400);
   color: #FFF;
 }
 
+.nx-lang-card-label {
+  position: absolute;
+  top: 24px;
+  right: 0;
+  padding: 0 6px;
+  background: rgb(0 0 0 / 30%);
+  text-transform: uppercase;
+  border-radius: 4px 0 0 4px;
+}
+
 .nx-lang-status-rolling-out {
   background: #bf1a60;
+}
+
+.nx-lang-status-synced {
+  background: #158ad4;
 }
 
 .nx-lang-status-complete {
