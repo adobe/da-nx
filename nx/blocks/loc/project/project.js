@@ -57,17 +57,16 @@ class NxLocProject extends LitElement {
   async rolloutLocale(locale) {
     const batchSize = Math.ceil(locale.urls.length / 50);
     const batches = makeGroup(locale.urls, batchSize);
-    console.log(batches)
-    // for (const batch of batches) {
-    //   await Promise.all(batch.map(async (url) => {
-    //     await copy(url);
-    //     this._langs = [...this._langs];
-    //   }));
-    // }
+    for (const batch of batches) {
+      await Promise.all(batch.map(async (url) => {
+        await copy(url);
+        this._langs = [...this._langs];
+      }));
+    }
 
     // Cleanup any timeouts or errors
-    // const noSuccess = locale.urls.filter((url) => url.status !== 'success');
-    // if (noSuccess.length > 0) this.checkErrors(locale);
+    const noSuccess = locale.urls.filter((url) => url.status !== 'success');
+    if (noSuccess.length > 0) this.checkErrors(locale);
   }
 
   async rolloutLang(lang) {
