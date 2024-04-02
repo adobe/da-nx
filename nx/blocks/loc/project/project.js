@@ -145,8 +145,8 @@ class NxLocProject extends LitElement {
       card.addEventListener('on-rollout', (e) => this.rolloutLang(e.detail.lang));
       this.cards[lang.code] = card;
     }
-    card.status = lang.status;
     card.lang = lang;
+    card.status = lang.status;
     card.total = this._urls.length;
     card.complete = this.renderComplete(lang);
     return card;

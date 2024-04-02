@@ -8,6 +8,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  margin-bottom: var(--spacing-400);
 }
 
 .nx-status {
@@ -20,7 +21,6 @@
 }
 
 .nx-project-actions {
-  margin-bottom: var(--spacing-400);
   display: flex;
   gap: var(--spacing-100);
   min-height: 32px;
