@@ -8,17 +8,6 @@ const { nxBase } = getConfig();
 const style = await getStyle(import.meta.url);
 const buttons = await getStyle(`${nxBase}/styles/buttons.js`);
 
-const MOCK_URLS = `https://business.adobe.com/customer-success-stories
-https://main--bacom--adobecom.hlx.live/fragments/why-adobe/contact-footer/aec-request-demo-number
-https://main--bacom--adobecom.hlx.live/fragments/why-adobe/contact-footer/learn-what-else-request-demo
-https://main--bacom--adobecom.hlx.live/fragments/why-adobe/contact-footer/lets-talk-about
-https://main--bacom--adobecom.hlx.live/fragments/why-adobe/contact-footer/request-demo
-https://main--bacom--adobecom.hlx.live/fragments/why-adobe/contact-footer/roi-overview-blade
-https://main--bacom--adobecom.hlx.live/fragments/why-adobe/marketing-agility-srong-foundation
-https://main--bacom--adobecom.hlx.live/fragments/why-adobe/modals/digital-economy-overview
-https://main--bacom--adobecom.hlx.live/fragments/why-adobe/modals/no-worky
-https://main--bacom--adobecom.hlx.live/fragments/why-adobe/modals/marketing-agility-video`;
-
 class NxImporter extends LitElement {
   static properties = {
     _urls: { attribute: false },
@@ -77,18 +66,18 @@ class NxImporter extends LitElement {
         <div class="form-row">
           <h2>Import</h2>
           <label for="urls">URLs</label>
-          <textarea name="urls" placeholder="Add AEM URLs">${MOCK_URLS}</textarea>
+          <textarea name="urls" placeholder="Add AEM URLs"></textarea>
         </div>
         <div class="form-row">
           <h2>Into</h2>
           <div class="org-repo-row">
             <div>
               <label>Org</label>
-              <input type="text" name="org" placeholder="org" value="da-sites"/>
+              <input type="text" name="org" placeholder="org" />
             </div>
             <div>
               <label>Repo</label>
-              <input type="text" name="repo" placeholder="repo" value="bacom"/>
+              <input type="text" name="repo" placeholder="repo" />
             </div>
           </div>
         </div>
