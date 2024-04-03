@@ -7,7 +7,7 @@ async function saveToDa(text, url) {
   const full = `
     <body>
       <header></header>
-      <main>${text.replaceAll('./media', `https://main--${url.repo}--${url.repo}.hlx.live/media`)}</main>
+      <main>${text.replaceAll('./media', `https://main--${url.repo}--${url.org}.hlx.live/media`)}</main>
       <footer></footer>
     </body>
   `;
