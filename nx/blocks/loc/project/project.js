@@ -2,7 +2,7 @@ import { LitElement, html, nothing } from '../../../deps/lit/lit-core.min.js';
 import { getConfig } from '../../../scripts/nexter.js';
 import getStyle from '../../../utils/styles.js';
 import { getDetails, copy } from './index.js';
-import makeGroup from '../../../utils/group.js';
+import makeGroup from '../../../utils/batch.js';
 
 import '../card/card.js';
 

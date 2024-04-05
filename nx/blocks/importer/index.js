@@ -7,7 +7,7 @@ async function saveToDa(text, url) {
   const full = `
     <body>
       <header></header>
-      <main>${text.replaceAll('./media', `https://main--${url.repo}--${url.org}.hlx.live/media`)}</main>
+      <main>${text.replaceAll('./media', `https://main--${url.originRepo}--${url.originOrg}.hlx.live/media`)}</main>
       <footer></footer>
     </body>
   `;
@@ -33,6 +33,8 @@ export default async function importUrl(url) {
         resolve('not aem');
         return;
       }
+      url.originRepo = repo;
+      url.originOrg = org;
 
       const fetched = fetch(`${url.href}.plain.html`);
 

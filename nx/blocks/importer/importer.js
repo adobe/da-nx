@@ -1,7 +1,7 @@
 import { LitElement, html, nothing } from '../../deps/lit/lit-core.min.js';
 import { getConfig } from '../../scripts/nexter.js';
 import getStyle from '../../utils/styles.js';
-import makeGroup from '../../utils/group.js';
+import makeBatches from '../../utils/batch.js';
 import importUrl from './index.js';
 
 const { nxBase } = getConfig();
@@ -27,7 +27,7 @@ class NxImporter extends LitElement {
   async batchImport() {
     // Batch requests
     const batchSize = Math.ceil(this._urls.length / 50);
-    const batches = makeGroup(this._urls, batchSize);
+    const batches = makeBatches(this._urls, batchSize);
 
     // Send them
     for (const batch of batches) {
