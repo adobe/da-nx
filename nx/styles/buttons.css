@@ -1,11 +1,13 @@
 button,
-input[type="submit"] {
+input[type="submit"],
+input[type="button"] {
   background: none;
   font-family: var(--body-font-family);
   display: inline-block;
   font-style: normal;
   font-weight: 700;
   text-decoration: none;
+  cursor: pointer;
 }
 
 .action {
@@ -19,6 +21,7 @@ input[type="submit"] {
 
 .primary,
 .accent,
+.cancel,
 input[type="submit"].accent {
   padding: 5px 14px;
   line-height: 18px;
@@ -41,5 +44,20 @@ input[type="submit"].accent {
 input[type="submit"].accent:focus {
   background: #3b63fb;
   border: 2px solid #3b63fb;
+  outline-offset: 4px;
+}
+
+.cancel,
+input[type="button"].cancel {
+  background: #888;
+  border: 2px solid #888;
+  outline-color: #888;
+  color: #FFF;
+}
+
+.cancel:focus,
+input[type="button"].cancel:focus {
+  background: #666;
+  border: 2px solid #666;
   outline-offset: 4px;
 }
