@@ -1,5 +1,6 @@
 import { LitElement, html, nothing } from '../../../deps/lit/lit-core.min.js';
 import { getConfig } from '../../../scripts/nexter.js';
+import { findAllFragments } from '../../../utils/setup.js';
 import getStyle from '../../../utils/styles.js';
 import getSvg from '../../../utils/svg.js';
 
@@ -20,6 +21,7 @@ class NxLocSetup extends LitElement {
     _title: { attribute: false },
     _langs: { attribute: false },
     _urls: { attribute: false },
+    _fragments: { attribute: false },
     _error: { attribute: false },
     _org: { attribute: false },
     _repo: { attribute: false },
@@ -58,7 +60,21 @@ class NxLocSetup extends LitElement {
     }));
   }
 
+  addFragments(data) {
+    const addedFragments = [];
+    Object.keys(data).forEach((input) => {
+      if (input.indexOf('fragment') === 0) addedFragments.push(data[input]);
+    });
+    if (addedFragments.length) data.urls += `\n${addedFragments.join('\n')}`;
+    return data;
+  }
+
   async handleUrlsStep(form, data) {
+    if (Array.isArray(this._fragments)) {
+      this._fragments = true;
+      this.addFragments(data);
+    }
+
     // Split and de-dupe
     data.urls = [...new Set(data.urls.split('\n'))];
 
@@ -83,6 +99,16 @@ class NxLocSetup extends LitElement {
     }
     this._org = org;
     this._repo = repo;
+
+    // Find Fragments
+    if (!this._fragments) {
+      const fragments = await findAllFragments(data.urls);
+      if (fragments.length) {
+        this._fragments = fragments;
+        // give the user a chance to add fragments
+        return;
+      }
+    }
 
     // Get site's languages
     const resp = await fetch(`${DA_ORIGIN}/source/${org}/${repo}${LANG_PATH}`);
@@ -160,6 +186,44 @@ class NxLocSetup extends LitElement {
     this._langs = [...this._langs];
   }
 
+  selectAllFragments(e) {
+    const found = e.target.parentElement;
+    const fragments = found.querySelectorAll?.('input[type=checkbox]');
+    if (fragments) {
+      [...fragments].forEach((fragment) => { fragment.checked = !fragment.checked; });
+    }
+  }
+
+  renderFindFragments() {
+    if (Array.isArray(this._fragments)) {
+      const checkbox = (f, i) => html`
+        <div class="fragment">
+          <input type="checkbox" name="fragment${i}" value="${f}">
+          <label for="fragment${i}"> ${f.pathname}</label>
+        </div>
+      `;
+      return html`
+        <div class="fragments-modal">
+          <div class="content">
+            <h2>Found Fragments</h2>
+            <p>Select fragments to add to project:</p>
+            <div class="found">
+              <div class="select-all" title="Select All" @click="${this.selectAllFragments}">
+                <input type="checkbox" name="selectall">
+              </div>
+              ${this._fragments.map(checkbox)}
+            </div>
+            <div class="actions">
+              <input type="button" value="Cancel" class="cancel" @click=${() => { this._fragments = null; }} />
+              <input type="submit" value="Next" class="accent" />
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    return nothing;
+  }
+
   renderLangList() {
     return html`
       <p class="lang-heading">Select languages</p>
@@ -211,6 +275,7 @@ class NxLocSetup extends LitElement {
           <label for="urls">URLs</label>
           <textarea name="urls" placeholder="Add AEM URLs here."></textarea>
         </div>
+        ${this.renderFindFragments()}
       </form>
       <form id="lang-form" class="hidden" @submit=${this.handleSubmit}>
         <div>
