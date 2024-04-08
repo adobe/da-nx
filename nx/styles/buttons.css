@@ -21,15 +21,18 @@ input[type="button"] {
 
 .primary,
 .accent,
-.cancel,
 input[type="submit"].accent {
   padding: 5px 14px;
   line-height: 18px;
   font-size: 15px;
   border: 2px solid #000;
+  color: #000;
   border-radius: 16px;
   outline-offset: 0;
   transition: outline-offset .2s;
+  text-decoration: none;
+  font-weight: 700;
+  text-align: center;
 }
 
 .accent,
@@ -44,20 +47,5 @@ input[type="submit"].accent {
 input[type="submit"].accent:focus {
   background: #3b63fb;
   border: 2px solid #3b63fb;
-  outline-offset: 4px;
-}
-
-.cancel,
-input[type="button"].cancel {
-  background: #888;
-  border: 2px solid #888;
-  outline-color: #888;
-  color: #FFF;
-}
-
-.cancel:focus,
-input[type="button"].cancel:focus {
-  background: #666;
-  border: 2px solid #666;
   outline-offset: 4px;
 }

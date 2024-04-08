@@ -1,7 +1,5 @@
-const PAGE_URL = new URL(window.location.href);
-
 function getEnv() {
-  const { host } = PAGE_URL;
+  const { host } = new URL(window.location.href);
   if (!(host.includes('hlx.page') || host.includes('local'))) return 'prod';
   if (host.includes('.hlx.')) return 'stage';
   return 'dev';
@@ -71,9 +69,7 @@ export async function loadBlock(block) {
       try {
         const { default: init } = await import(`${blockPath}.js`);
         await init(block);
-      } catch {
-        console.log(`Failed loading ${name}`);
-      }
+      } catch { console.log(`Failed loading: ${name}`); }
       resolve();
     })();
   });
@@ -131,30 +127,16 @@ function decorateSections(el, isDoc) {
 function decorateHeader() {
   const header = document.querySelector('header');
   if (!header) return;
-  const meta = getMetadata('header');
+  const meta = getMetadata('header') || 'nx-nav cmp';
   if (meta === 'off') {
-    document.body.classList.add('header-off');
     header.remove();
     return;
   }
   header.dataset.status = 'decorated';
-  header.className = meta || 'nx-nav cmp';
+  header.className = meta;
   if (header.classList.contains('nx-nav')) {
     document.body.classList.add('nx-app');
   }
-}
-
-async function loadLazy(isDoc) {
-  if (isDoc) {
-    import('../utils/favicon.js');
-    import('../utils/footer.js');
-  }
-}
-
-async function loadPostLCP() {
-  const header = document.querySelector('header');
-  if (header) await loadBlock(header);
-  import('../utils/fonts.js');
 }
 
 export async function loadArea(area = document) {
@@ -166,10 +148,9 @@ export async function loadArea(area = document) {
   }
   const sections = decorateSections(area, isDoc);
   for (const [idx, section] of sections.entries()) {
-    const loaded = section.blocks.map((block) => loadBlock(block));
-    await Promise.all(loaded);
+    await Promise.all(section.blocks.map((block) => loadBlock(block)));
     delete section.el.dataset.status;
-    if (isDoc && idx === 0) await loadPostLCP();
+    if (isDoc && idx === 0) await import('./postlcp.js');
   }
-  await loadLazy(isDoc);
+  import('./lazy.js');
 }

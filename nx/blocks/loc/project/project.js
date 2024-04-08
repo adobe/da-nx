@@ -2,7 +2,7 @@ import { LitElement, html, nothing } from '../../../deps/lit/lit-core.min.js';
 import { getConfig } from '../../../scripts/nexter.js';
 import getStyle from '../../../utils/styles.js';
 import { getDetails, copy } from './index.js';
-import makeGroup from '../../../utils/batch.js';
+import makeBatches from '../../../utils/batch.js';
 
 import '../card/card.js';
 
@@ -33,9 +33,7 @@ class NxLocProject extends LitElement {
   }
 
   async getProject() {
-    const {
-      title, langs, urls, step,
-    } = await getDetails();
+    const { title, langs, urls, step } = await getDetails();
     this._title = title;
     this._langs = langs;
     this._urls = urls;
@@ -64,8 +62,7 @@ class NxLocProject extends LitElement {
     locale.urls.forEach((url) => delete url.status);
 
     // Batch requests
-    const batchSize = Math.ceil(locale.urls.length / 50);
-    const batches = makeGroup(locale.urls, batchSize);
+    const batches = makeBatches(locale.urls);
 
     // Send it
     for (const batch of batches) {
@@ -103,7 +100,6 @@ class NxLocProject extends LitElement {
       this.updateCardState(lang, 'rolling-out');
       this._langs = [...this._langs];
       await this.rolloutLang(lang);
-      this.updateCardState(lang, 'complete');
       this._langs = [...this._langs];
     }
     performance.mark('end-rollout-all');
@@ -145,10 +141,11 @@ class NxLocProject extends LitElement {
       card.addEventListener('on-rollout', (e) => this.rolloutLang(e.detail.lang));
       this.cards[lang.code] = card;
     }
+    const complete = this.renderComplete(lang);
     card.lang = lang;
-    card.status = lang.status;
+    card.status = complete === lang.total ? 'complete' : lang.status;
     card.total = this._urls.length;
-    card.complete = this.renderComplete(lang);
+    card.complete = complete;
     return card;
   }
 

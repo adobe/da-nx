@@ -20,6 +20,12 @@ module.exports = {
     'import/extensions': ['error', {
       js: 'always',
     }],
+    'object-curly-newline': ['error', {
+      ObjectExpression: { multiline: true, minProperties: 6 },
+      ObjectPattern: { multiline: true, minProperties: 6 },
+      ImportDeclaration: { multiline: true, minProperties: 6 },
+      ExportDeclaration: { multiline: true, minProperties: 6 },
+    }],
     'no-restricted-syntax': [
       'error',
       {

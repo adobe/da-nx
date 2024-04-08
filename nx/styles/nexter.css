@@ -61,8 +61,11 @@
   --spectrum-gray-200: #e1e1e1;
   --s2-gray-50: #f7f7f7;
   --s2-gray-75: #f1f1f1;
+  --s2-green: #009851;
+  --s2-red: #f73b26;
   --spectrum-gray-700: #505050;
   --spectrum-gray-900: #131313;
+  --s2-gray-800: #292929;
 }
 
 @font-face {
