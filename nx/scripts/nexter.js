@@ -114,9 +114,9 @@ function decorateDefaults(el) {
 function decorateSection(el) {
   el.className = 'section';
   el.dataset.status = 'decorated';
-  const blocks = [...el.querySelectorAll(':scope > div[class]')];
+  el.blocks = [...el.querySelectorAll(':scope > div[class]')];
   decorateDefaults(el);
-  return { blocks, el };
+  return el;
 }
 
 function decorateSections(el, isDoc) {
@@ -149,8 +149,8 @@ export async function loadArea(area = document) {
   const sections = decorateSections(area, isDoc);
   for (const [idx, section] of sections.entries()) {
     await Promise.all(section.blocks.map((block) => loadBlock(block)));
-    delete section.el.dataset.status;
+    delete section.dataset.status;
     if (isDoc && idx === 0) await import('./postlcp.js');
   }
-  import('./lazy.js');
+  if (isDoc) import('./lazy.js');
 }
