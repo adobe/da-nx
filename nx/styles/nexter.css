@@ -33,13 +33,11 @@
   --nx-nav-height: 70px;
   --nx-nav-sidebar-width: 72px;
 
-  /* Generic Styles */
-  --nx-main-rounded-corners: 16px 16px 0 0;
-  --nx-main-box-shadow: 0 0 8px 0 rgb(0 0 0 / 10%);
-  --corner-radius-75: 4px;
-  --corner-radius-100: 8px;
-  --corner-radius-200: 10px;
-  --corner-radius-300: 16px;
+  /* Corners */
+  --s2-radius-75: 4px;
+  --s2-radius-100: 8px;
+  --s2-radius-200: 10px;
+  --s2-radius-300: 16px;
 
   /* Spacing */
   --spacing-50: 2px;
@@ -56,16 +54,16 @@
   --spacing-1000: 96px;
 
   /* Colors */
-  --gray-200: #eaeaea;
-  --spectrum-blue-800: #4d7bff;
-  --spectrum-gray-200: #e1e1e1;
-  --s2-gray-50: #f7f7f7;
-  --s2-gray-75: #f1f1f1;
+  --spectrum-blue-800: #4d7bff; /* Legacy */
+  --s2-blue-800: #4d7bff;
   --s2-green: #009851;
   --s2-red: #f73b26;
-  --spectrum-gray-700: #505050;
-  --spectrum-gray-900: #131313;
+  --s2-gray-50: #f7f7f7;
+  --s2-gray-75: #f1f1f1;
+  --s2-gray-200: #e1e1e1;
+  --s2-gray-700: #505050;
   --s2-gray-800: #292929;
+  --s2-gray-900: #121212;
 }
 
 @font-face {
@@ -184,8 +182,8 @@ main > .section > .content {
   .nx-app main {
     grid-area: main;
     margin: 0 8px 0 0;
-    border-radius: var(--nx-main-rounded-corners);
-    box-shadow: var(--nx-main-box-shadow);
+    border-radius: var(--s2-radius-300) var(--s2-radius-300) 0 0;
+    box-shadow: 0 0 8px 0 rgb(0 0 0 / 10%);
     overflow: scroll;
     max-height: 100%;
   }

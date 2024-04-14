@@ -6,8 +6,8 @@ input[type="text"],
 textarea,
 select {
   display: block;
-  border: 2px solid var(--spectrum-gray-200);
-  border-radius: var(--corner-radius-100);
+  border: 2px solid var(--s2-gray-200);
+  border-radius: var(--s2-radius-100);
   line-height: 32px;
   margin: 0 0 var(--spacing-500);
 }

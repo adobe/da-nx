@@ -3,13 +3,13 @@
   grid-template-rows: auto 1fr auto;
   overflow: hidden;
   background: #FFF;
-  border-radius: var(--corner-radius-300);
+  border-radius: var(--s2-radius-300);
   box-shadow: 0 0 2px 0 rgb(0 0 0 / 12%), 0 3px 6px 0 rgb(0 0 0 / 4%), 0 4px 8px 0 rgb(0 0 0 / 8%);
 }
 
 .nx-lang-card-top {
   position: relative;
-  background: var(--spectrum-gray-700);
+  background: var(--s2-gray-700);
   padding: var(--spacing-400);
   color: #FFF;
 }

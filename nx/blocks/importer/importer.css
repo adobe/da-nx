@@ -25,8 +25,8 @@ textarea {
   width: 100%;
   min-height: 480px;
   background: var(--s2-gray-50);
-  border: 2px solid var(--spectrum-gray-200);
-  border-radius: 8px;
+  border: 2px solid var(--s2-gray-200);
+  border-radius: var(--s2-radius-100);
   line-height: 2;
   padding: 10px 18px;
   box-sizing: border-box;
@@ -38,16 +38,21 @@ label {
   margin-bottom: calc(var(--s2-font-size-600) * var(--type-margin-multiplier));
 }
 
+input[type="file"] {
+  margin-bottom: var(--spacing-200);
+}
+
 input[type="text"] {
   font-family: var(--body-font-family);
   display: block;
   background: var(--s2-gray-50);
-  border: 2px solid var(--spectrum-gray-200);
-  border-radius: 8px;
+  border: 2px solid var(--s2-gray-200);
+  border-radius: var(--s2-radius-100);
   line-height: 32px;
   padding: 0 12px;
   width: 100%;
   box-sizing: border-box;
+  margin-bottom: var(--spacing-200);
 }
 
 .form-row {
@@ -79,7 +84,7 @@ input[type="text"] {
 
 .status {
   text-align: center;
-  border-radius: var(--corner-radius-100);
+  border-radius: var(--s2-radius-100);
 }
 
 .status-200 {

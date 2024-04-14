@@ -1,8 +1,6 @@
 import { loadStyle, getConfig } from '../scripts/nexter.js';
 
-const KITS = {
-  en: 'hah7vzn.css',
-};
+const KITS = { en: 'hah7vzn.css' };
 
 // A gently modified version of the dynamic subsetting loader from Adobe Fonts
 function dynamicTypekit(kitId, d = document) {

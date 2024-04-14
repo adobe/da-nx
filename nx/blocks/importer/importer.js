@@ -12,6 +12,7 @@ class NxImporter extends LitElement {
   static properties = {
     _urls: { attribute: false },
     _isImporting: { attribute: false },
+    _status: { attribute: false },
   };
 
   constructor() {
@@ -25,15 +26,27 @@ class NxImporter extends LitElement {
   }
 
   async batchImport() {
+    performance.mark('start-import');
+
     // Batch requests
-    const batchSize = Math.ceil(this._urls.length / 50);
-    const batches = makeBatches(this._urls, batchSize);
+    const batches = makeBatches(this._urls);
 
     // Send them
     for (const batch of batches) {
       await Promise.all(batch.map(async (url) => importUrl(url)));
       this._urls = [...this._urls];
     }
+
+    performance.mark('end-import');
+    performance.measure('import', 'start-import', 'end-import');
+    const replaceTime = performance.getEntriesByName('import')[0].duration;
+    this._status = `Import took: ${String((replaceTime / 1000) / 60).substring(0, 4)} minutes`;
+  }
+
+  async import() {
+    this._isImporting = true;
+    await this.batchImport();
+    this._isImporting = false;
   }
 
   async handleSubmit(e) {
@@ -46,6 +59,23 @@ class NxImporter extends LitElement {
       return;
     }
 
+    if (data.upload) {
+      const file = data.upload;
+      const reader = new FileReader();
+      reader.addEventListener('load', ({ target }) => {
+        const json = JSON.parse(target.result);
+        this._urls = json.data.map(({ path }) => {
+          const url = new URL(path, data.origin);
+          url.org = data.org;
+          url.repo = data.repo;
+          return url;
+        });
+        this.import();
+      });
+      reader.readAsText(file);
+      return;
+    }
+
     this._urls = [...new Set(data.urls.split('\n'))].map((href) => {
       const url = new URL(href);
       url.org = data.org;
@@ -53,9 +83,7 @@ class NxImporter extends LitElement {
       return url;
     });
 
-    this._isImporting = true;
-    await this.batchImport();
-    this._isImporting = false;
+    this.import();
   }
 
   render() {
@@ -66,6 +94,8 @@ class NxImporter extends LitElement {
         <div class="form-row">
           <h2>Import</h2>
           <label for="urls">URLs</label>
+          <input type="file" name="upload" accept="application/json" />
+          <input type="text" name="origin" placeholder="Origin" value="https://main--bacom--adobecom.hlx.live" />
           <textarea name="urls" placeholder="Add AEM URLs"></textarea>
         </div>
         <div class="form-row">
@@ -73,16 +103,17 @@ class NxImporter extends LitElement {
           <div class="org-repo-row">
             <div>
               <label>Org</label>
-              <input type="text" name="org" placeholder="org" />
+              <input type="text" name="org" placeholder="org" value="da-sites" />
             </div>
             <div>
               <label>Repo</label>
-              <input type="text" name="repo" placeholder="repo" />
+              <input type="text" name="repo" placeholder="repo" value="bacom" />
             </div>
           </div>
         </div>
         <div class="form-row">
           <input type="submit" value="${this._isImporting ? 'Importing' : 'Import'}" class="accent" ?disabled=${this._isImporting} />
+          ${this._status ? html`<p>${this._status}</p>` : nothing}
         </div>
         <ul class="results">
           <li>

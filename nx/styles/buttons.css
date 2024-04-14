@@ -14,7 +14,7 @@ input[type="button"] {
   line-height: 1;
   padding: 4px 8px;
   font-weight: 400;
-  border-radius: var(--corner-radius-100);
+  border-radius: var(--s2-radius-100);
   background: rgb(225 225 225);
   border: 2px solid rgb(225 225 225);
 }
@@ -27,7 +27,7 @@ input[type="submit"].accent {
   font-size: 15px;
   border: 2px solid #000;
   color: #000;
-  border-radius: 16px;
+  border-radius: var(--s2-radius-300);
   outline-offset: 0;
   transition: outline-offset .2s;
   text-decoration: none;
@@ -37,14 +37,14 @@ input[type="submit"].accent {
 
 .accent,
 input[type="submit"].accent {
-  background: var(--spectrum-blue-800);
-  border: 2px solid var(--spectrum-blue-800);
-  outline-color: var(--spectrum-blue-800);
+  background: var(--s2-blue-800);
+  border: 2px solid var(--s2-blue-800);
+  outline-color: var(--s2-blue-800);
   color: #FFF;
 }
 
-.accent:focus,
-input[type="submit"].accent:focus {
+.accent:focus-visible,
+input[type="submit"].accent:focus-visible {
   background: #3b63fb;
   border: 2px solid #3b63fb;
   outline-offset: 4px;

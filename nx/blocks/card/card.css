@@ -1,7 +1,7 @@
 .nx-card {
   box-shadow: 0 0 2px 0 rgb(0 0 0 / 12%), 0 3px 6px 0 rgb(0 0 0 / 4%), 0 4px 8px 0 rgb(0 0 0 / 8%);
   padding: var(--spacing-400);
-  border-radius: var(--corner-radius-300);
+  border-radius: var(--s2-radius-300);
   overflow: hidden;
   background-color: #FFF;
 }
@@ -15,7 +15,7 @@
 
 .nx-card-picture-container {
   position: relative;
-  border-radius: var(--corner-radius-100);
+  border-radius: var(--s2-radius-100);
   overflow: hidden;
   padding-bottom: 60%;
 }
@@ -47,10 +47,10 @@
 
 
 .nx-card-cta-container strong a {
-  background-color: var(--spectrum-blue-800);
-  border-radius: 16px;
-  border: 2px solid var(--spectrum-blue-800);
-  border-color: var(--spectrum-blue-800);
+  background-color: var(--s2-blue-800);
+  border-radius: var(--s2-radius-300);
+  border: 2px solid var(--s2-blue-800);
+  border-color: var(--s2-blue-800);
   color: #FFF;
   display: inline-block;
   font-size: 15px;
@@ -60,7 +60,7 @@
   padding: 5px 14px;
   text-decoration: none;
   outline-offset: 0;
-  outline-color: var(--spectrum-blue-800);
+  outline-color: var(--s2-blue-800);
   transition: outline-offset .2s;
 }
 

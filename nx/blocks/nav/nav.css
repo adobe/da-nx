@@ -48,7 +48,7 @@ p {
   background: none;
   font-family: var(--body-font-family);
   font-weight: 700;
-  border-radius: 8px;
+  border-radius: var(--s2-radius-100);
 }
 
 .nx-nav-btn-sign-in:hover {

@@ -10,8 +10,8 @@ label {
 
 input[type="text"] {
   display: block;
-  border: 2px solid var(--spectrum-gray-200);
-  border-radius: var(--corner-radius-100);
+  border: 2px solid var(--s2-gray-200);
+  border-radius: var(--s2-radius-100);
   line-height: 32px;
   margin: 0 0 var(--spacing-400);
   font-size: var(--s2-font-size-600);
@@ -113,7 +113,7 @@ input[type="checkbox"] {
   justify-content: center;
   align-items: center;
   font-weight: 700;
-  border-radius: var(--corner-radius-200);
+  border-radius: var(--s2-radius-200);
   text-align: center;
   color: #FFF;
   text-transform: uppercase;

@@ -4,10 +4,16 @@ async function saveToDa(text, url) {
   const daPath = `/${url.org}/${url.repo}${url.pathname}`;
   const daHref = `https://da.live/edit#${daPath}`;
 
+  const origin = `https://main--${url.originRepo}--${url.originOrg}.hlx.live`;
+
+  const innerHtml = text
+    .replaceAll('./media', `${origin}/media`)
+    .replaceAll('href="/', `href="${origin}/`);
+
   const full = `
     <body>
       <header></header>
-      <main>${text.replaceAll('./media', `https://main--${url.originRepo}--${url.originOrg}.hlx.live/media`)}</main>
+      <main>${innerHtml}</main>
       <footer></footer>
     </body>
   `;

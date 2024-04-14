@@ -111,12 +111,12 @@ function decorateDefaults(el) {
   });
 }
 
-function decorateSection(section) {
-  section.className = 'section';
-  section.dataset.status = 'decorated';
-  const blocks = [...section.querySelectorAll(':scope > div[class]')];
-  decorateDefaults(section);
-  return { blocks, el: section };
+function decorateSection(el) {
+  el.className = 'section';
+  el.dataset.status = 'decorated';
+  const blocks = [...el.querySelectorAll(':scope > div[class]')];
+  decorateDefaults(el);
+  return { blocks, el };
 }
 
 function decorateSections(el, isDoc) {

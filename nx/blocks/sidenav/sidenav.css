@@ -34,7 +34,7 @@ svg {
 }
 
 .nx-link-icon {
-  border-radius: 8px;
+  border-radius: var(--s2-radius-100);
   display: flex;
   justify-content: center;
   align-items: center;
@@ -44,5 +44,5 @@ svg {
 }
 
 .nx-link:hover .nx-link-icon {
-  background-color: var(--gray-200);
+  background-color: var(--s2-gray-200);
 }
