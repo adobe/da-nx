@@ -60,7 +60,7 @@ export async function loadBlock(block) {
   let name = classList[0];
   const isNx = name.startsWith('nx-');
   if (isNx) name = name.replace('nx-', '');
-  block.dataset.name = name;
+  block.dataset.blockName = name;
   const { nxBase, codeBase = '' } = getConfig();
   const path = isNx ? `${nxBase}/blocks` : `${codeBase}/blocks`;
   const blockPath = `${path}/${name}/${name}`;

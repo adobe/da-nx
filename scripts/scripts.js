@@ -24,8 +24,6 @@ const CONFIG = {
   decorateArea,
 };
 
-import('https://rum.hlx.page/.rum/@adobe/helix-rum-js@^2/src/index.js').then((f) => f.sampleRUM());
-
 decorateArea();
 setConfig(CONFIG);
 loadArea();
