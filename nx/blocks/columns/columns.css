@@ -1,6 +1,6 @@
 .nx-columns {
   display: grid;
-  gap: var(--spacing-400);
+  gap: var(--spacing-800);
 }
 
 .nx-columns.alternate .row-title {
@@ -11,12 +11,18 @@
   .columns-row.row-content {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: var(--spacing-400);
+    gap: var(--spacing-800);
   }
 
   .nx-columns.alternate
   .row-content:nth-of-type(odd)
   .columns-col-1 {
     order: 2;
+  }
+
+  .nx-columns.alternate
+  .columns-row.row-content .columns-col {
+    display: grid;
+    align-content: center;
   }
 }

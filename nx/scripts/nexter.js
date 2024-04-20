@@ -1,3 +1,8 @@
+const AUTO_BLOCKS = [
+  { 'nx-fragment': '/fragments/' },
+  { 'nx-youtube': 'https://www.youtube.com' },
+];
+
 function getEnv() {
   const { host } = new URL(window.location.href);
   if (!(host.includes('hlx.page') || host.includes('local'))) return 'prod';
@@ -26,34 +31,32 @@ export function getMetadata(name, doc = document) {
   return meta && meta.content;
 }
 
-export async function loadStyle(href) {
-  return new Promise((resolve) => {
-    if (!document.querySelector(`head > link[href="${href}"]`)) {
-      const link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = href;
-      link.onload = resolve;
-      link.onerror = resolve;
-      document.head.append(link);
-    } else {
-      resolve();
-    }
-  });
-}
+export const loadStyle = (() => {
+  const styles = {};
 
-export async function loadScript(src) {
-  return new Promise((resolve, reject) => {
-    if (!document.querySelector(`head > script[src="${src}"]`)) {
-      const script = document.createElement('script');
-      script.src = src;
-      script.onload = resolve;
-      script.onerror = reject;
-      document.head.append(script);
-    } else {
-      resolve();
+  return (href, root = document) => {
+    const path = href.endsWith('.js') ? href.replace('.js', '.css') : href;
+    if (!styles[path]) {
+      styles[path] = new Promise((resolve) => {
+        (async () => {
+          const resp = await fetch(path);
+          const text = await resp.text();
+          const style = new CSSStyleSheet();
+          style.path = path;
+          style.replaceSync(text);
+          resolve(style);
+        })();
+      });
     }
-  });
-}
+
+    styles[path].then((style) => {
+      if (root.adoptedStyleSheets.some((sheet) => sheet.path === style.path)) return;
+      root.adoptedStyleSheets = [...root.adoptedStyleSheets, style];
+    });
+
+    return styles[path];
+  };
+})();
 
 export async function loadBlock(block) {
   const { classList } = block;
@@ -64,18 +67,16 @@ export async function loadBlock(block) {
   const { nxBase, codeBase = '' } = getConfig();
   const path = isNx ? `${nxBase}/blocks` : `${codeBase}/blocks`;
   const blockPath = `${path}/${name}/${name}`;
+  const styleLoaded = loadStyle(`${blockPath}.css`);
   const scriptLoaded = new Promise((resolve) => {
     (async () => {
       try {
-        const { default: init } = await import(`${blockPath}.js`);
-        await init(block);
+        await (await import(`${blockPath}.js`)).default(block);
       } catch { console.log(`Failed loading: ${name}`); }
       resolve();
     })();
   });
-  const loaded = [scriptLoaded];
-  if (!classList.contains('cmp')) loaded.push(loadStyle(`${blockPath}.css`));
-  await Promise.all(loaded);
+  await Promise.all([styleLoaded, scriptLoaded]);
   return block;
 }
 
@@ -111,9 +112,25 @@ function decorateDefaults(el) {
   });
 }
 
+function decorateLinks(el) {
+  const anchors = [...el.querySelectorAll('a')];
+  return anchors.reduce((acc, a) => {
+    const { href } = a;
+    const found = AUTO_BLOCKS.some((pattern) => {
+      const key = Object.keys(pattern)[0];
+      if (!href.includes(pattern[key])) return false;
+      a.classList.add(key, 'auto-block');
+      return true;
+    });
+    if (found) acc.push(a);
+    return acc;
+  }, []);
+}
+
 function decorateSection(el) {
   el.className = 'section';
   el.dataset.status = 'decorated';
+  el.autoBlocks = decorateLinks(el);
   el.blocks = [...el.querySelectorAll(':scope > div[class]')];
   decorateDefaults(el);
   return el;
@@ -148,6 +165,7 @@ export async function loadArea(area = document) {
   }
   const sections = decorateSections(area, isDoc);
   for (const [idx, section] of sections.entries()) {
+    await Promise.all(section.autoBlocks.map((block) => loadBlock(block)));
     await Promise.all(section.blocks.map((block) => loadBlock(block)));
     delete section.dataset.status;
     if (isDoc && idx === 0) await import('./postlcp.js');

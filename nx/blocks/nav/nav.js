@@ -1,8 +1,5 @@
-import { loadArea, getMetadata } from '../../scripts/nexter.js';
-import getStyle from '../../utils/styles.js';
+import { loadArea, getMetadata, loadStyle } from '../../scripts/nexter.js';
 import getSvg from '../../utils/svg.js';
-
-const style = await getStyle(import.meta.url);
 
 function getDefaultPath() {
   const { origin } = new URL(import.meta.url);
@@ -11,12 +8,12 @@ function getDefaultPath() {
 class Nav extends HTMLElement {
   constructor() {
     super().attachShadow({ mode: 'open' });
-    this.shadowRoot.adoptedStyleSheets = [style];
     this.path = getMetadata('header-source') || getDefaultPath();
     getSvg({ parent: this.shadowRoot, paths: [`${new URL(import.meta.url).origin}/nx/img/logos/aec.svg`] });
   }
 
-  connectedCallback() {
+  async connectedCallback() {
+    await loadStyle(import.meta.url, this.shadowRoot);
     this.render();
   }
 

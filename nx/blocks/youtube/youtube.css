@@ -1,0 +1,19 @@
+.nx-video {
+  width: 100%;
+  height: 0;
+  position: relative;
+  padding-bottom: 56.25%;
+  background: var(--s2-gray-200);
+  overflow: hidden;
+  border-radius: var(--s2-radius-300);
+  box-shadow: 0 0 8px 0 rgb(0 0 0 / 20%);
+}
+
+.nx-video iframe {
+  border: 0;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  position: absolute;
+}

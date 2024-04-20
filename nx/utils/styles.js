@@ -1,7 +1,9 @@
 const STYLES = {};
 
 export default async function getStyle(href) {
-  const path = href.replace('.js', '.css');
+  const path = href.endsWith('.js')
+    ? href.replace('.js', '.css') : href;
+
   if (!STYLES[path]) {
     STYLES[path] = new Promise((resolve) => {
       (async () => {
