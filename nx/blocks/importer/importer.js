@@ -59,7 +59,7 @@ class NxImporter extends LitElement {
       return;
     }
 
-    if (data.upload) {
+    if (data.upload.name) {
       const file = data.upload;
       const reader = new FileReader();
       reader.addEventListener('load', ({ target }) => {

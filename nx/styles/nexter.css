@@ -104,6 +104,11 @@ button {
   font-family: var(--body-font-family);
 }
 
+/* Typography */
+p, h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+}
+
 h1 {
   font-size: var(--type-heading-xxl-size);
   line-height: var(--spectrum-line-height-100);

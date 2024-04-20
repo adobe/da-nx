@@ -1,4 +1,5 @@
-import { getConfig, loadScript } from '../scripts/nexter.js';
+import { getConfig } from '../scripts/nexter.js';
+import loadScript from './script.js';
 
 const { imsClientId, imsScope, env } = getConfig();
 

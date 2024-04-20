@@ -1,0 +1,22 @@
+.nx-columns {
+  display: grid;
+  gap: var(--spacing-400);
+}
+
+.nx-columns.alternate .row-title {
+  text-align: center;
+}
+
+@media (width > 599px) {
+  .columns-row.row-content {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--spacing-400);
+  }
+
+  .nx-columns.alternate
+  .row-content:nth-of-type(odd)
+  .columns-col-1 {
+    order: 2;
+  }
+}
