@@ -6,7 +6,7 @@ const AUTO_BLOCKS = [
 function getEnv() {
   const { host } = new URL(window.location.href);
   if (!['.page', 'local'].some((check) => host.includes(check))) return 'prod';
-  if (host.includes('.hlx.') || host.includes('.aem.')) return 'stage';
+  if (['.hlx.', '.aem.'].some((check) => host.includes(check))) return 'stage';
   return 'dev';
 }
 
@@ -31,55 +31,40 @@ export function getMetadata(name, doc = document) {
   return meta && meta.content;
 }
 
-export const loadStyle = (() => {
-  const styles = {};
-
-  return (path, root) => {
-    if (!styles[path]) {
-      styles[path] = new Promise((resolve) => {
-        (async () => {
-          const resp = await fetch(path);
-          const text = await resp.text();
-          const style = new CSSStyleSheet();
-          style.path = path;
-          style.replaceSync(text);
-          resolve(style);
-        })();
-      });
+export async function loadStyle(href) {
+  return new Promise((resolve) => {
+    if (!document.querySelector(`head > link[href="${href}"]`)) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = href;
+      link.onload = resolve;
+      link.onerror = resolve;
+      document.head.append(link);
+    } else {
+      resolve();
     }
-
-    if (root) {
-      styles[path].then((style) => {
-        if (root.adoptedStyleSheets.some((sheet) => sheet.path === style.path)) return;
-        root.adoptedStyleSheets = [...root.adoptedStyleSheets, style];
-      });
-    }
-
-    return styles[path];
-  };
-})();
+  });
+}
 
 export async function loadBlock(block) {
   const { classList } = block;
   let name = classList[0];
   const isNx = name.startsWith('nx-');
-  const isCmp = classList.contains('cmp');
   if (isNx) name = name.replace('nx-', '');
   block.dataset.blockName = name;
-  const { nxBase, env, codeBase = '' } = getConfig();
-  console.log(env);
+  const { nxBase, codeBase = '' } = getConfig();
   const path = isNx ? `${nxBase}/blocks` : `${codeBase}/blocks`;
   const blockPath = `${path}/${name}/${name}`;
-  const styleLoaded = loadStyle(`${blockPath}.css`, isCmp ? null : document);
-  const scriptLoaded = new Promise((resolve) => {
+  const loaded = [new Promise((resolve) => {
     (async () => {
       try {
         await (await import(`${blockPath}.js`)).default(block);
       } catch { console.log(`Failed loading: ${name}`); }
       resolve();
     })();
-  });
-  await Promise.all([styleLoaded, scriptLoaded]);
+  })];
+  if (!classList.contains('cmp')) loaded.push(loadStyle(`${blockPath}.css`));
+  await Promise.all(loaded);
   return block;
 }
 
@@ -88,11 +73,7 @@ function decorateContent(el) {
   let child = el;
   while (child) {
     child = child.nextElementSibling;
-    if (child && child.nodeName !== 'DIV') {
-      children.push(child);
-    } else {
-      break;
-    }
+    if (child && child.nodeName !== 'DIV') children.push(child);
   }
   const block = document.createElement('div');
   block.className = 'content';
@@ -130,18 +111,16 @@ function decorateLinks(el) {
   }, []);
 }
 
-function decorateSection(el) {
-  el.classList.add('section');
-  el.dataset.status = 'decorated';
-  el.autoBlocks = decorateLinks(el);
-  el.blocks = [...el.querySelectorAll(':scope > div[class]')];
-  decorateDefaults(el);
-  return el;
-}
-
-function decorateSections(el, isDoc) {
+function decorateSections(parent, isDoc) {
   const selector = isDoc ? 'main > div' : ':scope > div';
-  return [...el.querySelectorAll(selector)].map(decorateSection);
+  return [...parent.querySelectorAll(selector)].map((el) => {
+    el.classList.add('section');
+    el.dataset.status = 'decorated';
+    el.autoBlocks = decorateLinks(el);
+    el.blocks = [...el.querySelectorAll(':scope > div[class]')];
+    decorateDefaults(el);
+    return el;
+  });
 }
 
 function decorateHeader() {

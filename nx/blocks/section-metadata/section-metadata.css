@@ -1,7 +1,3 @@
-.nx-section-metadata {
-  display: none;
-}
-
 .section .nx-section-container {
   display: grid;
   grid-template-columns: 1fr;

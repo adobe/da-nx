@@ -67,7 +67,7 @@ class NxLocDetails extends LitElement {
 
   handleTitle(rawTitle) {
     if (!rawTitle) {
-      this.error('Please add a title');
+      this.error('Please add a title.');
       return null;
     }
     return rawTitle;

@@ -53,4 +53,5 @@ export default async function init(el) {
   if (metadata.spacing?.text) handleLayout(metadata.spacing.text, section, 'spacing');
   if (metadata['spacing-top']?.text) handleLayout(metadata['spacing-top'].text, section, 'spacing-top');
   if (metadata['spacing-bottom']?.text) handleLayout(metadata['spacing-bottom'].text, section, 'spacing-bottom');
+  el.remove();
 }

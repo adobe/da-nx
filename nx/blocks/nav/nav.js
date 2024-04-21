@@ -1,4 +1,5 @@
-import { loadArea, getMetadata, loadStyle } from '../../scripts/nexter.js';
+import { loadArea, getMetadata } from '../../scripts/nexter.js';
+import loadStyle from '../../utils/styles.js';
 import getSvg from '../../utils/svg.js';
 
 function getDefaultPath() {
@@ -13,7 +14,7 @@ class Nav extends HTMLElement {
   }
 
   async connectedCallback() {
-    await loadStyle(import.meta.url.replace('.js', '.css'), this.shadowRoot);
+    await loadStyle(import.meta.url, this.shadowRoot);
     this.render();
   }
 

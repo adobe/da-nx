@@ -1,21 +1,6 @@
-import { getConfig } from '../scripts/nexter.js';
+import { getConfig, loadStyle } from '../scripts/nexter.js';
 
 const KITS = { en: 'hah7vzn.css' };
-
-async function loadStyle(href) {
-  return new Promise((resolve) => {
-    if (!document.querySelector(`head > link[href="${href}"]`)) {
-      const link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = href;
-      link.onload = resolve;
-      link.onerror = resolve;
-      document.head.append(link);
-    } else {
-      resolve();
-    }
-  });
-}
 
 // A gently modified version of the dynamic subsetting loader from Adobe Fonts
 function dynamicTypekit(kitId, d = document) {
