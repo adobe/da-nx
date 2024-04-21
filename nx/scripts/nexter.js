@@ -5,8 +5,8 @@ const AUTO_BLOCKS = [
 
 function getEnv() {
   const { host } = new URL(window.location.href);
-  if (!(host.includes('hlx.page') || host.includes('local'))) return 'prod';
-  if (host.includes('.hlx.')) return 'stage';
+  if (!['.page', 'local'].some((check) => host.includes(check))) return 'prod';
+  if (host.includes('.hlx.') || host.includes('.aem.')) return 'stage';
   return 'dev';
 }
 
@@ -34,8 +34,7 @@ export function getMetadata(name, doc = document) {
 export const loadStyle = (() => {
   const styles = {};
 
-  return (href, root = document) => {
-    const path = href.endsWith('.js') ? href.replace('.js', '.css') : href;
+  return (path, root) => {
     if (!styles[path]) {
       styles[path] = new Promise((resolve) => {
         (async () => {
@@ -49,10 +48,12 @@ export const loadStyle = (() => {
       });
     }
 
-    styles[path].then((style) => {
-      if (root.adoptedStyleSheets.some((sheet) => sheet.path === style.path)) return;
-      root.adoptedStyleSheets = [...root.adoptedStyleSheets, style];
-    });
+    if (root) {
+      styles[path].then((style) => {
+        if (root.adoptedStyleSheets.some((sheet) => sheet.path === style.path)) return;
+        root.adoptedStyleSheets = [...root.adoptedStyleSheets, style];
+      });
+    }
 
     return styles[path];
   };
@@ -62,12 +63,14 @@ export async function loadBlock(block) {
   const { classList } = block;
   let name = classList[0];
   const isNx = name.startsWith('nx-');
+  const isCmp = classList.contains('cmp');
   if (isNx) name = name.replace('nx-', '');
   block.dataset.blockName = name;
-  const { nxBase, codeBase = '' } = getConfig();
+  const { nxBase, env, codeBase = '' } = getConfig();
+  console.log(env);
   const path = isNx ? `${nxBase}/blocks` : `${codeBase}/blocks`;
   const blockPath = `${path}/${name}/${name}`;
-  const styleLoaded = loadStyle(`${blockPath}.css`);
+  const styleLoaded = loadStyle(`${blockPath}.css`, isCmp ? null : document);
   const scriptLoaded = new Promise((resolve) => {
     (async () => {
       try {
@@ -128,7 +131,7 @@ function decorateLinks(el) {
 }
 
 function decorateSection(el) {
-  el.className = 'section';
+  el.classList.add('section');
   el.dataset.status = 'decorated';
   el.autoBlocks = decorateLinks(el);
   el.blocks = [...el.querySelectorAll(':scope > div[class]')];

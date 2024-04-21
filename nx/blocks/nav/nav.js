@@ -13,7 +13,7 @@ class Nav extends HTMLElement {
   }
 
   async connectedCallback() {
-    await loadStyle(import.meta.url, this.shadowRoot);
+    await loadStyle(import.meta.url.replace('.js', '.css'), this.shadowRoot);
     this.render();
   }
 
