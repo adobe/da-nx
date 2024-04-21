@@ -1,8 +1,6 @@
 import { loadArea, getMetadata, getConfig } from '../../scripts/nexter.js';
-import getStyle from '../../utils/styles.js';
+import loadStyle from '../../utils/styles.js';
 import { link2svg } from '../../utils/svg.js';
-
-const style = await getStyle(import.meta.url);
 
 function getDefaultPath() {
   const { nxBase } = getConfig();
@@ -12,11 +10,12 @@ function getDefaultPath() {
 class SideNav extends HTMLElement {
   constructor() {
     super().attachShadow({ mode: 'open' });
-    this.shadowRoot.adoptedStyleSheets = [style];
     this.path = getMetadata('sidenav-source') || getDefaultPath();
   }
 
-  connectedCallback() {
+  async connectedCallback() {
+    await loadStyle(import.meta.url, this.shadowRoot);
+    this.nav = await this.fetchNav();
     this.render();
   }
 
@@ -42,8 +41,7 @@ class SideNav extends HTMLElement {
   }
 
   async render() {
-    const nav = await this.fetchNav();
-    this.shadowRoot.append(nav);
+    this.shadowRoot.append(this.nav);
   }
 }
 

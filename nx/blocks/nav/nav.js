@@ -2,6 +2,8 @@ import { loadArea, getMetadata } from '../../scripts/nexter.js';
 import loadStyle from '../../utils/styles.js';
 import getSvg from '../../utils/svg.js';
 
+const ICONS = [`${new URL(import.meta.url).origin}/nx/img/logos/aec.svg`];
+
 function getDefaultPath() {
   const { origin } = new URL(import.meta.url);
   return `${origin}/nx/fragments/nx-nav`;
@@ -10,11 +12,12 @@ class Nav extends HTMLElement {
   constructor() {
     super().attachShadow({ mode: 'open' });
     this.path = getMetadata('header-source') || getDefaultPath();
-    getSvg({ parent: this.shadowRoot, paths: [`${new URL(import.meta.url).origin}/nx/img/logos/aec.svg`] });
   }
 
   async connectedCallback() {
-    await loadStyle(import.meta.url, this.shadowRoot);
+    const style = loadStyle(import.meta.url, this.shadowRoot);
+    const svg = getSvg({ parent: this.shadowRoot, paths: ICONS });
+    Promise.all([style, svg]);
     this.render();
   }
 
