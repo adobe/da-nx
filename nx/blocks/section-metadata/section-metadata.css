@@ -13,6 +13,10 @@
   margin: 0 auto;
 }
 
+.section.container .nx-section-container .content {
+  width: 100%;
+}
+
 /* Gap */
 .section.gap-400 .nx-section-container {
   gap: var(--spacing-400);
