@@ -15,9 +15,9 @@ class Nav extends HTMLElement {
   }
 
   async connectedCallback() {
-    const style = loadStyle(import.meta.url, this.shadowRoot);
-    const svg = getSvg({ parent: this.shadowRoot, paths: ICONS });
-    Promise.all([style, svg]);
+    const style = await loadStyle(import.meta.url, this.shadowRoot);
+    await getSvg({ parent: this.shadowRoot, paths: ICONS });
+    this.shadowRoot.adoptedStyleSheets = [style];
     this.render();
   }
 

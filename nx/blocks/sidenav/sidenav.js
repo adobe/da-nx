@@ -14,7 +14,8 @@ class SideNav extends HTMLElement {
   }
 
   async connectedCallback() {
-    await loadStyle(import.meta.url, this.shadowRoot);
+    const style = await loadStyle(import.meta.url, this.shadowRoot);
+    this.shadowRoot.adoptedStyleSheets = [style];
     this.nav = await this.fetchNav();
     this.render();
   }

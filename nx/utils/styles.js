@@ -1,7 +1,7 @@
 const loadStyle = (() => {
   const styles = {};
 
-  return (href, root) => {
+  return (href) => {
     const path = href.endsWith('.js') ? href.replace('.js', '.css') : href;
     if (!styles[path]) {
       styles[path] = new Promise((resolve) => {
@@ -13,13 +13,6 @@ const loadStyle = (() => {
           style.replaceSync(text);
           resolve(style);
         })();
-      });
-    }
-
-    if (root) {
-      styles[path].then((style) => {
-        if (root.adoptedStyleSheets.some((sheet) => sheet.path === style.path)) return;
-        root.adoptedStyleSheets = [...root.adoptedStyleSheets, style];
       });
     }
 
