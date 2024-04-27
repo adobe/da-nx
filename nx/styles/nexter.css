@@ -172,11 +172,15 @@ h6 {
     margin: 0 auto;
 
     h1, h2, h3, h4, h5, h6 {
-      margin-block: var(--spacing-800) var(--spacing-400);
+      margin-block: var(--spacing-600) var(--spacing-400);
     }
 
     p {
       margin-block: 0 var(--spacing-400);
+    }
+
+    li {
+      margin-block: 0 var(--spacing-200);
     }
   }
 }
