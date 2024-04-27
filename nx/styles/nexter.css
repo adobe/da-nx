@@ -182,6 +182,10 @@ h6 {
     li {
       margin-block: 0 var(--spacing-200);
     }
+
+    li:last-of-type {
+      margin-block: 0;
+    }
   }
 }
 
