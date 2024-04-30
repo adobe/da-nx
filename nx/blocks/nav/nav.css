@@ -51,7 +51,7 @@ p {
   display: none;
   position: absolute;
   right: 0;
-  top: 32px;
+  top: 38px;
   background: #FFF;
   border-radius: var(--s2-radius-200);
   min-width: 320px;
