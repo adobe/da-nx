@@ -9,6 +9,10 @@
   height: var(--nx-nav-height);
 }
 
+button {
+  font-family: var(--body-font-family);
+}
+
 p {
   margin: 0;
 }
@@ -37,8 +41,46 @@ p {
   height: 24px;
 }
 
-.nx-nav-btn {
+.nx-nav-profile {
+  position: relative;
   margin-right: 17px;
+  font-size: 16px;
+}
+
+.nx-nav-profile-menu {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: 32px;
+  background: #FFF;
+  border-radius: var(--s2-radius-200);
+  min-width: 320px;
+  padding: var(--spacing-400) 0;
+  box-shadow: 0 0 2px 0 rgb(0 0 0 / 12%), 0 3px 6px 0 rgb(0 0 0 / 4%), 0 4px 8px 0 rgb(0 0 0 / 8%);
+}
+
+.nx-nav-profile-menu.is-visible {
+  display: block;
+}
+
+.nx-nav-profile-menu ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.nx-nav-profile-menu button {
+  background: none;
+  border: none;
+  display: block;
+  width: 100%;
+  text-align: left;
+  line-height: 32px;
+  padding: 0 var(--spacing-400);
+}
+
+.nx-nav-profile-menu button:hover {
+  background: var(--s2-gray-75);
 }
 
 .nx-nav-btn-sign-in {
@@ -55,7 +97,7 @@ p {
   background: #dfdfdf;
 }
 
-.nx-nav-btn-sign-out {
+.nx-nav-btn-profile {
   background: none;
   display: flex;
   justify-content: center;
@@ -66,7 +108,7 @@ p {
   padding: 4px;
 }
 
-.nx-nav-btn-sign-out img {
+.nx-nav-btn-profile img {
   max-width: 24px;
   border-radius: 12px;
   pointer-events: none;

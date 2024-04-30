@@ -41,15 +41,31 @@ class Nav extends HTMLElement {
   }
 
   renderProfile(signOut, profile) {
-    const button = document.createElement('button');
-    if (profile.io.user.avatar) {
-      const img = document.createElement('img');
-      img.src = profile.io.user.avatar;
-      button.append(img);
-    }
-    button.className = 'nx-nav-btn nx-nav-btn-sign-out';
-    button.addEventListener('click', signOut);
-    return button;
+    const imgSrc = profile?.io?.user?.avatar || `${import.meta.url.replace('nav.js', 'img/default-profile.png')}`;
+
+    const profileMenu = `
+      <button class="nx-nav-btn nx-nav-btn-profile"><img src="${imgSrc}"/></button>
+      <div class="nx-nav-profile-menu">
+        <ul>
+          <li class="nx-nav-profile-list-item">
+            <button class="nx-nav-profile-list-item-signout">Sign out</button>
+          </li>
+        </ul>
+      </div>
+    `;
+
+    const profileWrapper = document.createElement('div');
+    profileWrapper.classList.add('nx-nav-profile');
+
+    const fragment = new DocumentFragment();
+    fragment.append(profileWrapper);
+    profileWrapper.insertAdjacentHTML('afterbegin', profileMenu);
+    profileWrapper.querySelector('.nx-nav-btn-profile').addEventListener('click', () => {
+      profileWrapper.querySelector('.nx-nav-profile-menu').classList.toggle('is-visible');
+    });
+    profileWrapper.querySelector('.nx-nav-profile-list-item-signout').addEventListener('click', signOut);
+
+    return fragment;
   }
 
   renderSignin(signIn) {
