@@ -1,5 +1,34 @@
 const DA_ORIGIN = 'https://admin.da.live';
 
+let imsDetails;
+
+export async function initIms() {
+  if (imsDetails) return imsDetails;
+  const { loadIms } = await import('../../utils/ims.js');
+
+  try {
+    imsDetails = await loadIms();
+    return imsDetails;
+  } catch {
+    return null;
+  }
+}
+
+export const daFetch = async (url, opts = {}) => {
+  opts.headers = opts.headers || {};
+  if (localStorage.getItem('nx-ims')) {
+    const { accessToken } = await initIms();
+    if (accessToken) opts.headers.Authorization = `Bearer ${accessToken.token}`;
+  }
+  const resp = await fetch(url, opts);
+  if (resp.status === 401) {
+    const { loadIms, handleSignIn } = await import('../../utils/ims.js');
+    await loadIms();
+    handleSignIn();
+  }
+  return resp;
+};
+
 async function saveToDa(text, url) {
   const daPath = `/${url.org}/${url.repo}${url.pathname}`;
   const daHref = `https://da.live/edit#${daPath}`;
@@ -22,7 +51,7 @@ async function saveToDa(text, url) {
   formData.append('data', blob);
   const opts = { method: 'PUT', body: formData };
   try {
-    const daResp = await fetch(`${DA_ORIGIN}/source${daPath}.html`, opts);
+    const daResp = await daFetch(`${DA_ORIGIN}/source${daPath}.html`, opts);
     return { daHref, daStatus: daResp.status };
   } catch {
     console.log(`Couldn't save ${url.daUrl}`);
