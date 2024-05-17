@@ -51,7 +51,7 @@ class NxLocProject extends LitElement {
       if (noSuccess.length === 0) clearInterval(interval);
 
       const errors = noSuccess.filter((url) => url.status === 'error');
-      await Promise.all(errors.map(async (url) => rolloutCopy(url)));
+      await Promise.all(errors.map(async (url) => rolloutCopy(url, this._title)));
 
       this.updateCardState();
     }, 5000);
@@ -67,7 +67,7 @@ class NxLocProject extends LitElement {
     // Send it
     for (const batch of batches) {
       await Promise.all(batch.map(async (url) => {
-        await rolloutCopy(url);
+        await rolloutCopy(url, this._title);
         this._langs = [...this._langs];
       }));
     }

@@ -26,7 +26,7 @@ async function saveVersion(path, label) {
   return res;
 }
 
-export async function copy(url) {
+export async function copy(url, projectTitle) {
   const body = new FormData();
   body.append('destination', url.destination);
   const opts = { method: 'POST', body };
@@ -44,7 +44,7 @@ export async function copy(url) {
         clearTimeout(timedout);
         url.status = resp.ok ? 'success' : 'error';
         if (resp.ok) {
-          saveVersion(url.destination, 'Rolled Out');
+          saveVersion(url.destination, `${projectTitle} - Rolled Out`);
         }
         resolve();
       }).catch(() => {
@@ -73,7 +73,7 @@ const getDaUrl = (url) => {
   return { org, repo, pathname };
 };
 
-export async function rolloutCopy(url) {
+export async function rolloutCopy(url, projectTitle) {
   // if the regional folder has content that differs from langstore,
   // then a regional diff needs to be done
   try {
@@ -112,7 +112,7 @@ export async function rolloutCopy(url) {
         clearTimeout(timedout);
         url.status = daResp.ok ? 'success' : 'error';
         if (daResp.ok) {
-          saveVersion(url.destination, 'Rolled Out');
+          saveVersion(url.destination, `${projectTitle} - Rolled Out`);
         }
         resolve();
       }).catch(() => {
@@ -122,6 +122,6 @@ export async function rolloutCopy(url) {
       });
     });
   } catch (e) {
-    return copy(url);
+    return copy(url, projectTitle);
   }
 }
