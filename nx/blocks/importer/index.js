@@ -12,7 +12,9 @@ export default async function importUrl(url) {
       url.originRepo = repo;
       url.originOrg = org;
 
-      const fetched = fetch(`${url.href}.plain.html`);
+      const href = url.href.endsWith('/') ? `${url.href}index` : url.href;
+
+      const fetched = fetch(`${href}.plain.html`);
 
       const timedout = setTimeout(() => {
         resolve('timedout');

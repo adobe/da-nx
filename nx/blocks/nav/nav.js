@@ -103,14 +103,14 @@ class Nav extends HTMLElement {
 
 async function loadSideNav(el) {
   await import('../sidenav/sidenav.js');
-  const sideNav = document.createElement('nx-sidenav');
-  el.insertAdjacentElement('afterend', sideNav);
+  el.insertAdjacentHTML('afterend', '<nx-sidenav data-rum></nx-sidenav>');
 }
 
 customElements.define('nx-nav', Nav);
 
 export default function init(el) {
   const nav = document.createElement('nx-nav');
+  nav.dataset.rum = '';
   el.append(nav);
   if (el.nextElementSibling.nodeName === 'MAIN') loadSideNav(el);
 }
