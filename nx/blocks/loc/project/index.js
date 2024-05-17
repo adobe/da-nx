@@ -1,5 +1,5 @@
 import { regionalDiff, removeLocTags } from '../regional-diff/regional-diff.js';
-import { saveToDa } from '../../../utils/daFetch.js';
+import { daFetch, saveToDa } from '../../../utils/daFetch.js';
 
 const DA_ORIGIN = 'https://admin.da.live';
 const DEFAULT_TIMEOUT = 20000; // ms
@@ -15,8 +15,15 @@ async function fetchData(path) {
 export async function getDetails() {
   projPath = window.location.hash.replace('#', '');
   const data = await fetchData(`${DA_ORIGIN}/source${projPath}.json`);
-  console.log(data);
   return data;
+}
+
+async function saveVersion(path, label) {
+  const opts = { method: 'POST' };
+  if (label) opts.body = JSON.stringify({ label });
+
+  const res = await daFetch(`${DA_ORIGIN}/versionsource${path}`, opts);
+  return res;
 }
 
 export async function copy(url) {
@@ -36,6 +43,9 @@ export async function copy(url) {
       fetched.then((resp) => {
         clearTimeout(timedout);
         url.status = resp.ok ? 'success' : 'error';
+        if (resp.ok) {
+          saveVersion(url.destination, 'Rolled Out');
+        }
         resolve();
       }).catch(() => {
         clearTimeout(timedout);
@@ -99,6 +109,9 @@ export async function rolloutCopy(url) {
       savePromise.then(({ daResp }) => {
         clearTimeout(timedout);
         url.status = daResp.ok ? 'success' : 'error';
+        if (daResp.ok) {
+          saveVersion(url.destination, 'Rolled Out');
+        }
         resolve();
       }).catch(() => {
         clearTimeout(timedout);
