@@ -1,5 +1,6 @@
 import { LitElement, html, nothing } from '../../../../deps/lit/lit-core.min.js';
 import { getConfig } from '../../../../scripts/nexter.js';
+import { daFetch } from '../../../../utils/daFetch.js';
 import getStyle from '../../../../utils/styles.js';
 
 const { nxBase } = getConfig();
@@ -43,7 +44,7 @@ class NxLocDetails extends LitElement {
     if (!(repo || org)) return this.error('Please use AEM URLs');
 
     // Get site's languages
-    const resp = await fetch(`${DA_ORIGIN}/source/${org}/${repo}${LANG_PATH}`);
+    const resp = await daFetch(`${DA_ORIGIN}/source/${org}/${repo}${LANG_PATH}`);
     if (!resp.ok) return this.error('Site has no supported languages');
 
     const langData = (await resp.json()).data;

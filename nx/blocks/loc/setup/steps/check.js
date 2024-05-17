@@ -2,6 +2,7 @@ import { LitElement, html, nothing } from '../../../../deps/lit/lit-core.min.js'
 import { getConfig } from '../../../../scripts/nexter.js';
 import getStyle from '../../../../utils/styles.js';
 import makeBatches from '../../../../utils/batch.js';
+import { daFetch } from '../../../../utils/daFetch.js';
 
 const { nxBase } = getConfig();
 const style = await getStyle(import.meta.url);
@@ -57,7 +58,7 @@ class NxLocCheck extends LitElement {
     const isSheet = url.pathname.endsWith('.json');
     const extPath = isSheet ? url.pathname : `${url.pathname}.html`;
     const daUrl = `${DA_ADMIN}/source/${this.org}/${this.repo}${extPath}`;
-    const resp = await fetch(daUrl);
+    const resp = await daFetch(daUrl);
     const text = await resp.text();
     const ok = resp.status === 200;
     url.status = ok ? 'ready' : 'error';

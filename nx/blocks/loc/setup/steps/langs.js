@@ -1,5 +1,6 @@
 import { LitElement, html, nothing } from '../../../../deps/lit/lit-core.min.js';
 import { getConfig } from '../../../../scripts/nexter.js';
+import { daFetch } from '../../../../utils/daFetch.js';
 import getStyle from '../../../../utils/styles.js';
 import getSvg from '../../../../utils/svg.js';
 
@@ -79,7 +80,7 @@ class NxLocLangs extends LitElement {
     const opts = { method: 'PUT', body };
     const path = `/${this.org}/${this.repo}${PROJ_PATH}/${time}`;
     const fetchPath = `${DA_ORIGIN}/source${path}.json`;
-    const resp = await fetch(fetchPath, opts);
+    const resp = await daFetch(fetchPath, opts);
     if (!resp.ok) this._error = 'Something went wrong.';
     window.location.hash = `#${path}`;
   }
