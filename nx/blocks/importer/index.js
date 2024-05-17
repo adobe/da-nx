@@ -30,7 +30,9 @@ export const daFetch = async (url, opts = {}) => {
 };
 
 async function saveToDa(text, url) {
-  const daPath = `/${url.org}/${url.repo}${url.pathname}`;
+  const path = url.pathname.endsWith('/') ? `${url.pathname}index` : url.pathname;
+
+  const daPath = `/${url.org}/${url.repo}${path}`;
   const daHref = `https://da.live/edit#${daPath}`;
 
   const origin = `https://main--${url.originRepo}--${url.originOrg}.hlx.live`;
@@ -71,7 +73,9 @@ export default async function importUrl(url) {
       url.originRepo = repo;
       url.originOrg = org;
 
-      const fetched = fetch(`${url.href}.plain.html`);
+      const href = url.href.endsWith('/') ? `${url.href}index` : url.href;
+
+      const fetched = fetch(`${href}.plain.html`);
 
       const timedout = setTimeout(() => {
         resolve('timedout');
