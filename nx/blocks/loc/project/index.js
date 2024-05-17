@@ -90,7 +90,9 @@ export async function rolloutCopy(url) {
     removeLocTags(regionalCopy);
 
     if (langstoreCopy.querySelector('main').outerHTML === regionalCopy.querySelector('main').outerHTML) {
-      throw new Error('No differences between regional and langstore');
+      // No differences, don't need to do anything
+      url.status = 'success';
+      return Promise.resolve();
     }
 
     // There are differences, upload the annotated loc file

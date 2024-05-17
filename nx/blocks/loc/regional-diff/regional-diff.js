@@ -191,12 +191,15 @@ function blockGroupToStr(blockGroup) {
   }, '');
 }
 
+const isNotEmptyParagraphEl = (el) => !(el.nodeName === 'P' && !el.childNodes.length && el.textContent === '');
+
 function getBlockMap(dom) {
   const sections = [...dom.querySelectorAll('main > div')];
 
   // flatten sections so that they are just dividers between blocks
   let blocks = sections.reduce((acc, section) => {
-    const sectionBlocks = [...section.children];
+    const sectionBlocks = [...section.children]
+      .filter(isNotEmptyParagraphEl);
     const sectionArr = acc.length ? [sectionBlock] : [];
     return [...acc, ...sectionArr, ...sectionBlocks];
   }, []);
@@ -276,7 +279,10 @@ function buildHtmlFromDiff(diff, modified) {
 }
 
 export const removeLocTags = (html) => {
-  const tags = html.querySelectorAll('da-loc-deleted, da-loc-added');
+  const locElsToRemove = html.querySelectorAll('da-loc-deleted, [loc-temp-dom]');
+  locElsToRemove.forEach((el) => el.remove());
+
+  const tags = html.querySelectorAll('da-loc-added');
 
   // Iterate over each tag
   tags.forEach((tag) => {
