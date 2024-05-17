@@ -1,7 +1,7 @@
 import { LitElement, html, nothing } from '../../../deps/lit/lit-core.min.js';
 import { getConfig } from '../../../scripts/nexter.js';
 import getStyle from '../../../utils/styles.js';
-import { getDetails, copy } from './index.js';
+import { getDetails, rolloutCopy } from './index.js';
 import makeBatches from '../../../utils/batch.js';
 
 import '../card/card.js';
@@ -51,7 +51,7 @@ class NxLocProject extends LitElement {
       if (noSuccess.length === 0) clearInterval(interval);
 
       const errors = noSuccess.filter((url) => url.status === 'error');
-      await Promise.all(errors.map(async (url) => copy(url)));
+      await Promise.all(errors.map(async (url) => rolloutCopy(url, this._title)));
 
       this.updateCardState();
     }, 5000);
@@ -67,7 +67,7 @@ class NxLocProject extends LitElement {
     // Send it
     for (const batch of batches) {
       await Promise.all(batch.map(async (url) => {
-        await copy(url);
+        await rolloutCopy(url, this._title);
         this._langs = [...this._langs];
       }));
     }
