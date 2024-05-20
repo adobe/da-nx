@@ -1,6 +1,7 @@
 import { saveToDa } from '../../utils/daFetch.js';
 
 export default async function importUrl(url) {
+  console.log(url);
   return new Promise((resolve) => {
     (() => {
       const [repo, org] = url.hostname.split('.')[0].split('--').slice(1).slice(-2);
@@ -13,7 +14,7 @@ export default async function importUrl(url) {
       url.originOrg = org;
 
       const href = url.href.endsWith('/') ? `${url.href}index` : url.href;
-      const pathname = url.pathanme.endsWith('/') ? `${url.pathname}index` : url.pathname;
+      const pathname = url.pathname.endsWith('/') ? `${url.pathname}index` : url.pathname;
       const saveUrl = { ...url, pathname };
 
       const fetched = fetch(`${href}.plain.html`);
