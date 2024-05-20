@@ -13,6 +13,8 @@ export default async function importUrl(url) {
       url.originOrg = org;
 
       const href = url.href.endsWith('/') ? `${url.href}index` : url.href;
+      const pathname = url.pathanme.endsWith('/') ? `${url.pathname}index` : url.pathname;
+      const saveUrl = { ...url, pathname };
 
       const fetched = fetch(`${href}.plain.html`);
 
@@ -25,7 +27,7 @@ export default async function importUrl(url) {
 
         if (url.status === 200) {
           const text = await resp.text();
-          const { daHref, daStatus } = await saveToDa(text, url);
+          const { daHref, daStatus } = await saveToDa(text, saveUrl);
           url.daHref = daHref;
           url.daStatus = daStatus;
         }
