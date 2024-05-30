@@ -7,7 +7,7 @@ const DEFAULT_TIMEOUT = 20000; // ms
 let projPath;
 
 async function fetchData(path) {
-  const resp = await fetch(path);
+  const resp = await daFetch(path);
   if (!resp.ok) return null;
   return resp.json();
 }
@@ -33,7 +33,7 @@ export async function copy(url, projectTitle) {
 
   return new Promise((resolve) => {
     (() => {
-      const fetched = fetch(`${DA_ORIGIN}/copy${url.source}`, opts);
+      const fetched = daFetch(`${DA_ORIGIN}/copy${url.source}`, opts);
 
       const timedout = setTimeout(() => {
         url.status = 'timeout';
@@ -59,7 +59,7 @@ export async function copy(url, projectTitle) {
 const collapseWhitespace = (str) => str.replace(/\s+/g, ' ');
 
 const getHtml = async (url) => {
-  const res = await fetch(`${DA_ORIGIN}/source${url}`);
+  const res = await daFetch(`${DA_ORIGIN}/source${url}`);
   if (!res.ok) return null;
 
   const parser = new DOMParser();
