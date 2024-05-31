@@ -171,14 +171,13 @@ class NxLocProject extends LitElement {
 
   render() {
     const canSyncSend = this._step && this._step !== 'sending' && this._step !== 'sent';
-    const canRollout = this._step && this._step !== 'new' && this._step !== 'sending';
 
     return html`
       <section class="nx-action-status">
         <div class="nx-project-actions">
           ${canSyncSend ? this.renderLangstore() : nothing}
           ${canSyncSend ? this.renderStart() : nothing}
-          ${canRollout ? this.renderRollout() : nothing}
+          ${canSyncSend ? this.renderRollout() : nothing}
         </div>
         ${this._status ? html`<p class="nx-status">${this._status}</p>` : nothing}
       </section>
