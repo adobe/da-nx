@@ -97,11 +97,10 @@ export async function rolloutCopy(url, projectTitle) {
 
     // There are differences, upload the annotated loc file
     const diffedMain = await regionalDiff(langstoreCopy, regionalCopy);
-    regionalCopy.querySelector('main').innerHTML = diffedMain.innerHTML;
 
     return new Promise((resolve) => {
       const daUrl = getDaUrl(url);
-      const savePromise = saveToDa(regionalCopy.documentElement.outerHTML, daUrl);
+      const savePromise = saveToDa(diffedMain.innerHTML, daUrl);
 
       const timedout = setTimeout(() => {
         url.status = 'timeout';
