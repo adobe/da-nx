@@ -159,6 +159,10 @@ h6 {
   background-color: #FFF;
 }
 
+.no-shell main {
+  min-height: 100vh;
+}
+
 .nx-app nx-sidenav {
   display: none;
 }
