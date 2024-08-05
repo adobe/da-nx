@@ -7,7 +7,7 @@ function getParts() {
   // Get path parts
   const { pathname } = window.location;
   const pathSplit = pathname.split('/');
-  pathSplit.splice(0, 3);
+  pathSplit.splice(0, 1);
   const [org, repo, ref, ...path] = pathSplit;
   return { org, repo, ref, path: path.join('/') };
 }
