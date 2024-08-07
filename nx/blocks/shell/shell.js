@@ -28,6 +28,7 @@ function handleLoad({ target }) {
 export default function init(el) {
   if (!document.querySelector('header')) document.body.classList.add('no-shell');
   const iframe = document.createElement('iframe');
+  iframe.setAttribute('allow', 'clipboard-write *');
   iframe.addEventListener('load', handleLoad);
   iframe.src = getUrl();
   el.append(iframe);

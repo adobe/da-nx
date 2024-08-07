@@ -6,6 +6,10 @@
   height: 100%;
 }
 
+.no-shell {
+  background-color: #FFF;
+}
+
 iframe {
   border: none;
   width: 100%;
