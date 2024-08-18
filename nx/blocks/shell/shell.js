@@ -1,32 +1,17 @@
 import { loadIms } from '../../utils/ims.js';
 
-const DA_ADMIN_ENVS = {
-  local: 'http://localhost:8787',
-  stage: 'https://stage-admin.da.live',
-  prod: 'https://admin.da.live',
-};
-
 const IMS_DETAILS = await loadIms();
 const CHANNEL = new MessageChannel();
 
 function getParts() {
   // Get path parts
-  const { pathname } = window.location;
+  const view = 'fullscreen';
+  const { pathname, search } = window.location;
   const pathSplit = pathname.split('/');
   pathSplit.splice(0, 2);
-  const [org, repo, ref, ...path] = pathSplit;
-  return { org, repo, ref, path: path.join('/') };
-}
-
-function getDaEnv(key) {
-  const { href } = window.location;
-  const query = new URL(href).searchParams.get(key);
-  if (query && query === 'reset') {
-    localStorage.removeItem(key);
-  } else if (query) {
-    localStorage.setItem(key, query);
-  }
-  return DA_ADMIN_ENVS[localStorage.getItem(key) || 'prod'];
+  const [org, repo, ...path] = pathSplit;
+  const ref = new URLSearchParams(search).get('ref') || 'main';
+  return { view, org, repo, ref, path: path.join('/') };
 }
 
 function getUrl() {
@@ -41,8 +26,11 @@ function handleLoad({ target }) {
   const message = {
     ready: true,
     token: IMS_DETAILS.accessToken.token,
-    project: getParts(),
-    daAdmin: getDaEnv('da-admin'),
+    context: getParts(),
+    actions: {
+      sendText: (data) => { console.log(data); },
+      closeLibrary: () => { console.log('library not supported in fullscreen'); },
+    },
   };
 
   setTimeout(() => {
