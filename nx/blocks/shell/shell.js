@@ -27,10 +27,6 @@ function handleLoad({ target }) {
     ready: true,
     token: IMS_DETAILS.accessToken.token,
     context: getParts(),
-    actions: {
-      sendText: (data) => { console.log(data); },
-      closeLibrary: () => { console.log('library not supported in fullscreen'); },
-    },
   };
 
   setTimeout(() => {
