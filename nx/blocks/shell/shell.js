@@ -1,5 +1,11 @@
 import { loadIms } from '../../utils/ims.js';
 
+const DA_ADMIN_ENVS = {
+  local: 'http://localhost:8787',
+  stage: 'https://stage-admin.da.live',
+  prod: 'https://admin.da.live',
+};
+
 const IMS_DETAILS = await loadIms();
 const CHANNEL = new MessageChannel();
 
@@ -12,6 +18,17 @@ function getParts() {
   return { org, repo, ref, path: path.join('/') };
 }
 
+function getDaEnv(key) {
+  const { href } = window.location;
+  const query = new URL(href).searchParams.get(key);
+  if (query && query === 'reset') {
+    localStorage.removeItem(key);
+  } else if (query) {
+    localStorage.setItem(key, query);
+  }
+  return DA_ADMIN_ENVS[localStorage.getItem(key) || 'prod'];
+}
+
 function getUrl() {
   const { org, repo, ref, path } = getParts();
   if (ref === 'local') return `http://localhost:3000/${path}.html`;
@@ -19,8 +36,16 @@ function getUrl() {
 }
 
 function handleLoad({ target }) {
+  CHANNEL.port1.onmessage = (e) => { console.log(e.data); };
+
+  const message = {
+    ready: true,
+    token: IMS_DETAILS.accessToken.token,
+    project: getParts(),
+    daAdmin: getDaEnv('da-admin'),
+  };
+
   setTimeout(() => {
-    const message = { ready: true, token: IMS_DETAILS.accessToken.token, project: getParts() };
     target.contentWindow.postMessage(message, '*', [CHANNEL.port2]);
   }, 750);
 }
