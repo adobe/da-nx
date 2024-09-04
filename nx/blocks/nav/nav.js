@@ -47,6 +47,10 @@ class Nav extends HTMLElement {
       <button class="nx-nav-btn nx-nav-btn-profile"><img src="${imgSrc}"/></button>
       <div class="nx-nav-profile-menu">
         <ul>
+          <li>
+            <p class="nx-nav-profile-menu-item-header">User ID</p>
+            <p class="nx-nav-profile-menu-item-text">${profile.userId}</p>
+          </li>
           <li class="nx-nav-profile-list-item">
             <button class="nx-nav-profile-list-item-signout">Sign out</button>
           </li>
@@ -64,7 +68,6 @@ class Nav extends HTMLElement {
       profileWrapper.querySelector('.nx-nav-profile-menu').classList.toggle('is-visible');
     });
     profileWrapper.querySelector('.nx-nav-profile-list-item-signout').addEventListener('click', signOut);
-
     return fragment;
   }
 

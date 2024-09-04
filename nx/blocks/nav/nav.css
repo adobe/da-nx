@@ -78,6 +78,24 @@ p {
   text-align: left;
   line-height: 32px;
   padding: 0 var(--spacing-400);
+  color: var(--s2-blue-800);
+}
+
+.nx-nav-profile-menu .nx-nav-profile-menu-item-header,
+.nx-nav-profile-menu .nx-nav-profile-menu-item-text {
+  padding: 0 var(--spacing-400);
+  margin: 0;
+}
+
+.nx-nav-profile-menu .nx-nav-profile-menu-item-header {
+  margin-top: var(--spacing-200);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.nx-nav-profile-menu .nx-nav-profile-menu-item-text {
+  font-size: 12px;
 }
 
 .nx-nav-profile-menu button:hover {
