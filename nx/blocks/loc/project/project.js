@@ -170,7 +170,9 @@ class NxLocProject extends LitElement {
   }
 
   render() {
-    const canSyncSend = this._step && this._step !== 'sending' && this._step !== 'sent';
+    const canSyncSend = this._step && this._step !== 'sending';
+
+    console.log(this._step);
 
     return html`
       <section class="nx-action-status">
