@@ -54,7 +54,7 @@ export async function saveToDa(text, url) {
   const opts = { method: 'PUT', body: formData };
   try {
     const daResp = await daFetch(`${DA_ORIGIN}/source${daPath}.html`, opts);
-    return { daHref, daStatus: daResp.status, daResp };
+    return { daHref, daStatus: daResp.status, daResp, ok: daResp.ok };
   } catch {
     console.log(`Couldn't save ${url.daUrl}`);
     return null;

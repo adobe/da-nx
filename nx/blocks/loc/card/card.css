@@ -29,7 +29,8 @@
   background: #bf1a60;
 }
 
-.nx-lang-status-synced {
+.nx-lang-status-synced,
+.nx-lang-status-translated {
   background: #158ad4;
 }
 

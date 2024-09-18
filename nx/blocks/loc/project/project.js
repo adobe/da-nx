@@ -1,7 +1,7 @@
 import { LitElement, html, nothing } from '../../../deps/lit/lit-core.min.js';
 import { getConfig } from '../../../scripts/nexter.js';
 import getStyle from '../../../utils/styles.js';
-import { getDetails, rolloutCopy } from './index.js';
+import { getDetails, rolloutCopy, translateCopy } from './index.js';
 import makeBatches from '../../../utils/batch.js';
 
 import '../card/card.js';
@@ -45,13 +45,13 @@ class NxLocProject extends LitElement {
     this._langs = [...this._langs];
   }
 
-  async checkErrors(locale) {
+  async checkErrors(locale, rolloutFn = rolloutCopy) {
     const interval = setInterval(async () => {
       const noSuccess = locale.urls.filter((url) => url.status !== 'success');
       if (noSuccess.length === 0) clearInterval(interval);
 
       const errors = noSuccess.filter((url) => url.status === 'error');
-      await Promise.all(errors.map(async (url) => rolloutCopy(url, this._title)));
+      await Promise.all(errors.map(async (url) => rolloutFn(url, this._title)));
 
       this.updateCardState();
     }, 5000);
@@ -83,6 +83,28 @@ class NxLocProject extends LitElement {
     await Promise.all(
       localeKeys.map((key) => this.rolloutLocale(lang.locales[key])),
     );
+  }
+
+  async sendForTranslation(lang) {
+    const { code, langstore } = lang;
+
+    // // Reset URL status if already marked
+    langstore.urls.forEach((url) => delete url.status);
+
+    // // Batch requests
+    const batches = makeBatches(langstore.urls);
+
+    // // Send it
+    for (const batch of batches) {
+      await Promise.all(batch.map(async (url) => {
+        await translateCopy(code, url, this._title);
+        // this._langs = [...this._langs];
+      }));
+    }
+
+    // Cleanup any timeouts or errors
+    const noSuccess = langstore.urls.filter((url) => url.status !== 'success');
+    if (noSuccess.length > 0) this.checkErrors(langstore, translateCopy);
   }
 
   async rolloutLangstore(code) {
@@ -117,10 +139,10 @@ class NxLocProject extends LitElement {
       return acc;
     }, []);
     for (const lang of langs) {
-      this.updateCardState(lang, 'syncing');
-      await this.rolloutLocale(lang.langstore);
+      this.updateCardState(lang, 'translating');
+      await this.sendForTranslation(lang);
       lang.status = 'ready-for-rollout';
-      this.updateCardState(lang, 'synced');
+      this.updateCardState(lang, 'translated');
     }
     this._step = 'sent';
     this._status = null;
@@ -171,8 +193,6 @@ class NxLocProject extends LitElement {
 
   render() {
     const canSyncSend = this._step && this._step !== 'sending';
-
-    console.log(this._step);
 
     return html`
       <section class="nx-action-status">

@@ -58,12 +58,12 @@ export async function copy(url, projectTitle) {
 
 const collapseWhitespace = (str) => str.replace(/\s+/g, ' ');
 
-const getHtml = async (url) => {
+const getHtml = async (url, format = 'dom') => {
   const res = await daFetch(`${DA_ORIGIN}/source${url}`);
   if (!res.ok) return null;
-
-  const parser = new DOMParser();
   const str = await res.text();
+  if (format === 'text') return str;
+  const parser = new DOMParser();
   return parser.parseFromString(collapseWhitespace(str), 'text/html');
 };
 
@@ -123,4 +123,58 @@ export async function rolloutCopy(url, projectTitle) {
   } catch (e) {
     return copy(url, projectTitle);
   }
+}
+
+async function sendForTranslation(sourceHtml, toLang) {
+  const body = new FormData();
+  body.append('data', sourceHtml);
+  body.append('fromlang', 'en');
+  body.append('tolang', toLang);
+
+  const opts = { method: 'POST', body };
+
+  const resp = await fetch('https://translate.da.live/translate', opts);
+  if (!resp.ok) {
+    console.log(resp.status);
+    return null;
+  }
+  const json = await resp.json();
+  return json.translated;
+}
+
+export async function translateCopy(toLang, url, projectTitle) {
+  const sourceHtml = await getHtml(url.source, 'text');
+  const translated = await sendForTranslation(sourceHtml, toLang);
+
+  if (translated) {
+    return new Promise((resolve) => {
+      (() => {
+        const parser = new DOMParser();
+        const dom = parser.parseFromString(translated, 'text/html');
+        const mainInner = dom.querySelector('main').innerHTML;
+        const saved = saveToDa(mainInner, getDaUrl(url));
+
+        const timedout = setTimeout(() => {
+          url.status = 'timeout';
+          resolve('timeout');
+        }, DEFAULT_TIMEOUT);
+
+        saved.then((daResp) => {
+          clearTimeout(timedout);
+          url.status = daResp.ok ? 'success' : 'error';
+          if (daResp.ok) {
+            saveVersion(url.destination, `${projectTitle} - New Translation`);
+          }
+          resolve();
+        }).catch(() => {
+          clearTimeout(timedout);
+          url.status = 'error';
+          resolve();
+        });
+      })();
+    });
+  }
+
+  url.status = 'error';
+  return null;
 }
