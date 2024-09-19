@@ -7,6 +7,15 @@
   text-align: center;
 }
 
+.nx-columns table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.nx-columns td {
+  border: 2px solid #676767;
+}
+
 @media (width > 599px) {
   .columns-row.row-content {
     display: grid;
