@@ -10,19 +10,30 @@ const buttons = await getStyle(`${nxBase}/styles/buttons.js`);
 
 class NxImporter extends LitElement {
   static properties = {
-    _urls: { attribute: false },
-    _isImporting: { attribute: false },
-    _status: { attribute: false },
+    _urls: { state: true },
+    _isImporting: { state: true },
+    _status: { state: true },
   };
 
   constructor() {
     super();
     this._urls = [];
+    this._status = {};
   }
 
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style, buttons];
+  }
+
+  setStatus(text, type = 'error') {
+    if (!text) {
+      this._status = {};
+      this.statusDialog.close();
+      return;
+    }
+    this._status = { text, type };
+    this.statusDialog.showModal();
   }
 
   async batchImport() {
@@ -40,7 +51,7 @@ class NxImporter extends LitElement {
     performance.mark('end-import');
     performance.measure('import', 'start-import', 'end-import');
     const replaceTime = performance.getEntriesByName('import')[0].duration;
-    this._status = `Import took: ${String((replaceTime / 1000) / 60).substring(0, 4)} minutes`;
+    this.setStatus(`Import took: ${String((replaceTime / 1000) / 60).substring(0, 4)} minutes`, 'info');
   }
 
   async import() {
@@ -59,44 +70,53 @@ class NxImporter extends LitElement {
       return;
     }
 
-    if (data.upload.name) {
-      const file = data.upload;
-      const reader = new FileReader();
-      reader.addEventListener('load', ({ target }) => {
-        const json = JSON.parse(target.result);
-        this._urls = json.data.map(({ path }) => {
-          const url = new URL(path, data.origin);
-          url.org = data.org;
-          url.repo = data.repo;
-          return url;
-        });
-        this.import();
+    if (data.index) {
+      const { origin } = new URL(data.index);
+      const resp = await fetch(data.index);
+      if (!resp.ok) this.setStatus('Query Index could not be downloaded. CORs error?');
+      const json = await resp.json();
+      this._urls = json.data.map(({ path }) => {
+        const url = new URL(path, origin);
+        url.org = data.org;
+        url.repo = data.repo;
+        return url;
       });
-      reader.readAsText(file);
+    } else if (data.urls) {
+      this._urls = [...new Set(data.urls.split('\n'))].map((href) => {
+        const url = new URL(href);
+        url.org = data.org;
+        url.repo = data.repo;
+        return url;
+      });
+    }
+    if (!this._urls || this._urls.length === 0) {
+      this.setStatus('No URLs to import.');
       return;
     }
-
-    this._urls = [...new Set(data.urls.split('\n'))].map((href) => {
-      const url = new URL(href);
-      url.org = data.org;
-      url.repo = data.repo;
-      return url;
-    });
-
+    this.setStatus();
     this.import();
+  }
+
+  get statusDialog() {
+    return this.shadowRoot.querySelector('.da-import-status');
   }
 
   render() {
     return html`
+      <dialog class="da-import-status da-import-status-${this._status.type}">
+        ${this._status.text}
+        <button @click=${() => this.setStatus()}>Close</button>
+      </dialog>
       <h1>Importer</h1>
-      <p>Import any AEM Edge Delivery site into Dark Alley.</p>
+      <p>Import any AEM Edge Delivery site into DA.</p>
+      <p class="cors-note">Note: The site must have https://da.live in access-control-allow-origin headers.</p>
       <form @submit=${this.handleSubmit}>
         <div class="form-row">
           <h2>Import</h2>
-          <label for="urls">URLs</label>
-          <input type="file" name="upload" accept="application/json" />
-          <input type="text" name="origin" placeholder="Origin" value="https://main--bacom--adobecom.hlx.live" />
-          <textarea name="urls" placeholder="Add AEM URLs"></textarea>
+          <label for="index">By Query Index</label>
+          <input id="index" type="text" name="index" placeholder="https://main--bacom--adobecom.hlx.live/query-index.json?limit=-1" value="https://main--bacom--adobecom.hlx.live/query-index.json?limit=-1" />
+          <label for="urls">By URL</label>
+          <textarea id="urls" name="urls" placeholder="Add AEM URLs"></textarea>
         </div>
         <div class="form-row">
           <h2>Into</h2>
@@ -113,7 +133,6 @@ class NxImporter extends LitElement {
         </div>
         <div class="form-row">
           <input type="submit" value="${this._isImporting ? 'Importing' : 'Import'}" class="accent" ?disabled=${this._isImporting} />
-          ${this._status ? html`<p>${this._status}</p>` : nothing}
         </div>
         <ul class="results">
           <li>
@@ -139,6 +158,7 @@ class NxImporter extends LitElement {
 customElements.define('nx-importer', NxImporter);
 
 export default async function init(el) {
+  document.body.querySelector('main').style.position = 'relative';
   const bulk = document.createElement('nx-importer');
   el.append(bulk);
 }

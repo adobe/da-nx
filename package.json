@@ -11,7 +11,8 @@
     "test": "wtr --config ./web-test-runner.config.mjs \"./test/**/*.test.(js|html)\" --node-resolve --port=2000 --coverage --concurrent-browsers 4",
     "test:watch": "npm test -- --watch",
     "test:file": "wtr --config ./web-test-runner.config.mjs --node-resolve --port=2000 --coverage",
-    "test:file:watch": "wtr --config ./web-test-runner.config.mjs --node-resolve --port=2000 --coverage --watch"
+    "test:file:watch": "wtr --config ./web-test-runner.config.mjs --node-resolve --port=2000 --coverage --watch",
+    "build:mdast": "esbuild --format=esm --minify ./nx/deps/mdast/src/index.js --bundle --outfile=./nx/deps/mdast/dist/index.js"
   },
   "repository": {
     "type": "git",
@@ -37,5 +38,15 @@
     "sinon": "17.0.1",
     "stylelint": "16.1.0",
     "stylelint-config-standard": "36.0.0"
+  },
+  "dependencies": {
+    "@adobe/mdast-util-gridtables": "^4.0.6",
+    "@adobe/remark-gridtables": "^3.0.6",
+    "esbuild": "^0.23.1",
+    "hast-util-raw": "^9.0.4",
+    "hast-util-to-html": "^9.0.3",
+    "mdast-util-to-hast": "^13.2.0",
+    "remark-parse": "^11.0.0",
+    "unified": "^11.0.5"
   }
 }

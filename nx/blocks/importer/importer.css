@@ -38,6 +38,13 @@ label {
   margin-bottom: calc(var(--s2-font-size-600) * var(--type-margin-multiplier));
 }
 
+.cors-note {
+  background: var(--s2-blue-800);
+  color: #FFF;
+  border-radius: 4px;
+  padding: 4px 8px;
+}
+
 input[type="file"] {
   margin-bottom: var(--spacing-200);
 }
@@ -104,4 +111,9 @@ input[type="text"] {
 
 .link {
   text-align: right;
+}
+
+dialog {
+  border-radius: 8px;
+  border: none;
 }

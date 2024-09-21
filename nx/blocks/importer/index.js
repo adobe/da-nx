@@ -1,7 +1,7 @@
 import { saveToDa } from '../../utils/daFetch.js';
+import { mdToDocDom, docDomToAemHtml } from '../../utils/converters.js';
 
 export default async function importUrl(url) {
-  console.log(url);
   return new Promise((resolve) => {
     (() => {
       const [repo, org] = url.hostname.split('.')[0].split('--').slice(1).slice(-2);
@@ -17,18 +17,17 @@ export default async function importUrl(url) {
       const pathname = url.pathname.endsWith('/') ? `${url.pathname}index` : url.pathname;
       const saveUrl = { ...url, pathname };
 
-      const fetched = fetch(`${href}.plain.html`);
-
-      const timedout = setTimeout(() => {
-        resolve('timedout');
-      }, 20000);
+      const fetched = fetch(`${href}.md`);
+      const timedout = setTimeout(() => { resolve('timedout'); }, 20000);
 
       fetched.then(async (resp) => {
         url.status = resp.status;
 
         if (url.status === 200) {
-          const text = await resp.text();
-          const { daHref, daStatus } = await saveToDa(text, saveUrl);
+          const md = await resp.text();
+          const dom = mdToDocDom(md);
+          const aemHtml = docDomToAemHtml(dom);
+          const { daHref, daStatus } = await saveToDa(aemHtml, saveUrl);
           url.daHref = daHref;
           url.daStatus = daStatus;
         }
