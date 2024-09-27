@@ -120,7 +120,7 @@ class NxLocLangs extends LitElement {
         ${this.langs ? html`
           <select @change=${(e) => this.handleChangeAll(e.target.value)}>
             <option value="">Skip</option>
-            ${this.langs[2].actions.split(',').map((action) => html`
+            ${this.langs[1].actions.split(',').map((action) => html`
               <option value="${action}">${action}</option>
             `)}
           </select>
