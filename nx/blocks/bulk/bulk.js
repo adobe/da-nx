@@ -35,7 +35,7 @@ class NxBulk extends LitElement {
       return { ref, org, repo, pathname, action };
     });
 
-    const batches = makeBatches(this._urls, 100);
+    const batches = makeBatches(this._urls, 50);
     for (const batch of batches) {
       await Promise.all(batch.map(async (url) => {
         const opts = { method: 'POST' };
