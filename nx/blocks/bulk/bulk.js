@@ -10,9 +10,7 @@ const style = await getStyle(import.meta.url);
 const buttons = await getStyle(`${nxBase}/styles/buttons.js`);
 
 class NxBulk extends LitElement {
-  static properties = {
-    _urls: { state: true },
-  };
+  static properties = { _urls: { state: true } };
 
   connectedCallback() {
     super.connectedCallback();
@@ -32,10 +30,12 @@ class NxBulk extends LitElement {
       const [ref, repo, org] = url.hostname.split('.').shift().split('--');
       let { pathname } = url;
       if (pathname.endsWith('/')) pathname = `${pathname}index`;
-      return { ref, org, repo, pathname, action };
+      return {
+        href, ref, org, repo, pathname, action,
+      };
     });
 
-    const batches = makeBatches(this._urls, 50);
+    const batches = makeBatches(this._urls, 10);
     for (const batch of batches) {
       await Promise.all(batch.map(async (url) => {
         const opts = { method: 'POST' };
@@ -44,6 +44,8 @@ class NxBulk extends LitElement {
         return resp.status;
       }));
       this._urls = [...this._urls];
+      await new Promise((resolve) => { setTimeout(() => { resolve(); }, 1050); });
+      console.log(`Batch done - ${Date.now()}`);
     }
   }
 
@@ -70,7 +72,7 @@ class NxBulk extends LitElement {
       <ul class="urls-result">
         ${this._urls ? this._urls.map((url) => html`
           <li>
-            <div class="url-path">${url.pathname}</div>
+            <div class="url-path">${url.href}</div>
             <div class="url-status result-${url.status ? url.status : 'waiting'}">
               ${url.status ? url.status : 'waiting'}
             </div>
