@@ -99,7 +99,7 @@ class NxBulk extends LitElement {
       <h1>Bulk Operations</h1>
       <form @submit=${this.handleSubmit}>
         <label for="urls">URLs</label>
-        <textarea id="urls" name="urls" placeholder="Add AEM URLs here.">${MOCK_URLS}</textarea>
+        <textarea id="urls" name="urls" placeholder="Add AEM URLs here."></textarea>
         <div class="da-bulk-action-submit">
           <div>
             <select id="action" name="action">
