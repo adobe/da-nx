@@ -17,7 +17,7 @@ select {
 
 textarea {
   width: 100%;
-  min-height: 480px;
+  /* min-height: 480px; */
   resize: vertical;
   font-size: var(--s2-font-size-100);
   line-height: 2;
@@ -46,6 +46,45 @@ select {
   align-items: end;
   gap: 12px;
   margin-bottom: 24px;
+}
+
+.detail-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  gap: 24px;
+}
+
+.detail-card {
+  background: rgb(215 247 225);
+  border-radius: 18px;
+  overflow: hidden;
+  padding: var(--spacing-400);
+}
+
+.detail-card-remaining {
+  background: rgb(202 248 250);
+}
+
+.detail-card-total {
+  background: rgb(181 230 252);
+}
+
+.detail-card-error {
+  background: rgb(255 214 209);
+}
+
+.detail-card h3,
+.detail-card p {
+  margin: 0;
+  line-height: 1;
+}
+
+.detail-card h3 {
+  margin-bottom: var(--spacing-100);
+}
+
+.detail-card p {
+  font-size: var(--s2-font-size-600);
 }
 
 .urls-result {

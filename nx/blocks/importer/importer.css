@@ -92,6 +92,7 @@ input[type="text"] {
 .status {
   text-align: center;
   border-radius: var(--s2-radius-100);
+  user-select: none;
 }
 
 .status-200 {
