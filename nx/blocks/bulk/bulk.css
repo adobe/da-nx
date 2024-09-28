@@ -4,6 +4,10 @@
   margin: 0 auto var(--spacing-500) auto;
 }
 
+:host > svg {
+  display: none;
+}
+
 input[type="text"],
 textarea,
 select {
@@ -11,7 +15,7 @@ select {
   border: 2px solid var(--s2-gray-200);
   border-radius: var(--s2-radius-100);
   line-height: 32px;
-  margin: 0 0 var(--spacing-500);
+  margin: 0 0 var(--spacing-400);
   box-sizing: border-box;
 }
 
@@ -25,6 +29,30 @@ textarea {
   box-sizing: border-box;
   font-family: monospace;
   overflow-y: scroll;
+}
+
+.delete-toggle {
+  background: #ff5d4b;
+  border-radius: 8px;
+  line-height: 32px;
+  padding: 0 10px;
+  color: #FFF;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.delete-toggle input {
+  margin: 0;
+  width: 12px;
+  height: 12px;
+  display: block;
+}
+
+.delete-toggle label {
+  font-size: 14px;
+  display: block;
 }
 
 select {
@@ -45,16 +73,23 @@ select {
   justify-content: end;
   align-items: end;
   gap: 12px;
-  margin-bottom: 24px;
+  margin: 0 0 var(--spacing-400);
+}
+
+.da-bulk-action-submit button {
+  min-width: 80px;
 }
 
 .detail-cards {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr 1fr;
   gap: 24px;
+  margin: 0 0 var(--spacing-400);
 }
 
 .detail-card {
+  display: flex;
+  justify-content: space-between;
   background: rgb(215 247 225);
   border-radius: 18px;
   overflow: hidden;
@@ -73,6 +108,14 @@ select {
   background: rgb(255 214 209);
 }
 
+.detail-card .cancel-button {
+  margin: 0;
+  padding: 0;
+  min-width: 72px;
+  border-radius: var(--s2-radius-100);
+  border: 2px solid rgb(0 0 0 80%);
+}
+
 .detail-card h3,
 .detail-card p {
   margin: 0;
@@ -85,6 +128,32 @@ select {
 
 .detail-card p {
   font-size: var(--s2-font-size-600);
+}
+
+.url-list {
+  display: none;
+  background: rgb(215 247 225);
+  border-radius: 18px;
+  overflow: hidden;
+  padding: var(--spacing-400);
+  margin: 0 0 var(--spacing-400);
+}
+
+.url-list.is-expanded {
+  display: block;
+}
+
+.url-list-remaining {
+  background: rgb(202 248 250);
+}
+
+.url-list-error {
+  background: rgb(255 214 209);
+}
+
+.url-list h2 {
+  margin-top: 0;
+  line-height: 1;
 }
 
 .urls-result {
@@ -100,12 +169,38 @@ select {
   margin: 0 0 4px;
 }
 
+.urls-result li:last-child {
+  margin: 0;
+}
+
 .urls-result .url-status {
-  background: #EFEFEF;
+  background: rgb(0 0 0 / 40%);
+  color: rgb(255 255 255);
   border-radius: 4px;
   padding: 0 8px;
   font-weight: 700;
   min-width: 50px;
   text-align: center;
   user-select: none;
+}
+
+.detail-card-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.toggle-list-icon {
+  display: block;
+  border: 0;
+  padding: 0;
+}
+
+.toggle-list-icon svg {
+  width: 18px;
+  height: 18px;
+  transition: transform .2s ease-in-out;
+}
+
+.is-expanded .toggle-list-icon svg {
+  transform: rotate(90deg);
 }

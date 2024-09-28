@@ -7,7 +7,7 @@ export function throttle(start) {
   return new Promise((resolve) => { setTimeout(() => { resolve(); }, pause); });
 }
 
-export function formatUrls(urls, action) {
+export function formatUrls(urls, action, hasDelete) {
   return [...new Set(urls.split('\n'))].reduce((acc, href) => {
     try {
       const url = new URL(href);
@@ -16,7 +16,7 @@ export function formatUrls(urls, action) {
       if (pathname.endsWith('/')) pathname = `${pathname}index`;
       if (ref && org && repo && pathname) {
         acc.push({
-          href, ref, org, repo, pathname, action,
+          href, ref, org, repo, pathname, action, hasDelete,
         });
       }
     } catch {
@@ -28,9 +28,9 @@ export function formatUrls(urls, action) {
 
 export async function sendAction(url) {
   try {
-    const opts = { method: 'POST' };
+    const method = url.hasDelete ? 'DELETE' : 'POST';
     const aemUrl = `https://admin.hlx.page/${url.action}/${url.org}/${url.repo}/${url.ref}${url.pathname}`;
-    const resp = await daFetch(aemUrl, opts);
+    const resp = await daFetch(aemUrl, { method });
     url.status = resp.status;
   } catch {
     url.status = '400';

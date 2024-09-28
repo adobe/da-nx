@@ -21,6 +21,7 @@ input[type="button"] {
 
 .primary,
 .accent,
+.negative,
 input[type="submit"].accent {
   padding: 5px 14px;
   line-height: 18px;
@@ -40,6 +41,14 @@ input[type="submit"].accent {
   background: var(--s2-blue-800);
   border: 2px solid var(--s2-blue-800);
   outline-color: var(--s2-blue-800);
+  color: #FFF;
+}
+
+.negative,
+input[type="submit"].negative {
+  background: var(--s2-red);
+  border: 2px solid var(--s2-red);
+  outline-color: var(--s2-red);
   color: #FFF;
 }
 
