@@ -21,7 +21,7 @@ select {
 
 textarea {
   width: 100%;
-  /* min-height: 480px; */
+  min-height: 240px;
   resize: vertical;
   font-size: var(--s2-font-size-100);
   line-height: 2;
@@ -167,10 +167,16 @@ select {
   justify-content: space-between;
   line-height: 32px;
   margin: 0 0 4px;
+  gap: 24px;
 }
 
 .urls-result li:last-child {
   margin: 0;
+}
+
+.url-path {
+  white-space: nowrap;
+  overflow-x: hidden;
 }
 
 .urls-result .url-status {
