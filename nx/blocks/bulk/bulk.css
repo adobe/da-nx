@@ -104,7 +104,7 @@ select {
   background: rgb(181 230 252);
 }
 
-.detail-card-error {
+.detail-card-errors {
   background: rgb(255 214 209);
 }
 
@@ -113,7 +113,8 @@ select {
   padding: 0;
   min-width: 72px;
   border-radius: var(--s2-radius-100);
-  border: 2px solid rgb(0 0 0 80%);
+  border: none;
+  background: rgb(0 0 0 / 10%);
 }
 
 .detail-card h3,
@@ -147,7 +148,7 @@ select {
   background: rgb(202 248 250);
 }
 
-.url-list-error {
+.url-list-errors {
   background: rgb(255 214 209);
 }
 

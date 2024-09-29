@@ -56,10 +56,6 @@ class NxBulk extends LitElement {
   async sendBatch(batch) {
     const finishedBatch = await Promise.all(batch.map(async (url) => sendAction(url)));
     this.processBatch(finishedBatch);
-    if (this._cancel) {
-      this._cancelText = 'Cancelled';
-      return;
-    }
     this.requestUpdate();
   }
 
@@ -82,10 +78,17 @@ class NxBulk extends LitElement {
 
   handleToggleList(e) {
     const card = e.target.closest('.detail-card');
-    card.classList.toggle('is-expanded');
     const { name } = e.target.closest('button').dataset;
     const list = this.shadowRoot.querySelector(`.url-list-${name}`);
-    list.classList.toggle('is-expanded');
+    const cards = this.shadowRoot.querySelectorAll('.detail-card');
+    const lists = this.shadowRoot.querySelectorAll('.url-list');
+
+    const isExpanded = card.classList.contains('is-expanded');
+    [...cards, ...lists].forEach((el) => { el.classList.remove('is-expanded'); });
+    if (isExpanded) return;
+
+    card.classList.add('is-expanded');
+    list.classList.add('is-expanded');
   }
 
   async handleSubmit(e) {
@@ -99,7 +102,10 @@ class NxBulk extends LitElement {
     const batches = makeBatches(this._baseUrls, 10);
 
     for (const batch of batches) {
-      if (this._cancel) break;
+      if (this._cancel) {
+        this._cancelText = 'Cancelled';
+        break;
+      }
       const start = Date.now();
       await this.sendBatch(batch);
       await throttle(start);
@@ -170,11 +176,11 @@ class NxBulk extends LitElement {
       </form>
       <div class="detail-cards">
         ${this.renderBadge('Remaining', this._baseUrls.length, this._baseUrls.length > 1)}
-        ${this.renderBadge('Error', this._errorUrls.length)}
+        ${this.renderBadge('Errors', this._errorUrls.length)}
         ${this.renderBadge('Success', this._successUrls.length)}
         ${this.renderBadge('Total', this._totalCount)}
       </div>
-      ${this.renderList('Error', this._errorUrls)}
+      ${this.renderList('Errors', this._errorUrls)}
       ${this.renderList('Success', this._successUrls)}
       ${this.renderList('Remaining', this._baseUrls)}
     `;
