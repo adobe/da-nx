@@ -1,7 +1,7 @@
 import { LitElement, html, nothing } from '../../deps/lit/lit-core.min.js';
 
 import { getConfig } from '../../scripts/nexter.js';
-import makeBatches from '../../utils/public/batch.js';
+import makeBatches from '../../public/utils/batch.js';
 import getStyle from '../../utils/styles.js';
 import getSvg from '../../utils/svg.js';
 

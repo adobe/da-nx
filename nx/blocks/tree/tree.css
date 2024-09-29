@@ -1,0 +1,32 @@
+:host {
+  display: block;
+  max-width: var(--grid-container-width);
+  margin: var(--spacing-500) auto;
+}
+
+form {
+  display: flex;
+  gap: var(--spacing-400);
+}
+
+input {
+  font-family: var(--body-font-family);
+  flex: 1 1 auto;
+  display: block;
+  border: 2px solid var(--s2-gray-200);
+  border-radius: var(--s2-radius-100);
+  padding: 0 8px;
+  height: 32px;
+  margin: 0;
+  box-sizing: border-box;
+}
+
+ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+li {
+  margin-bottom: var(--spacing-200);
+}
