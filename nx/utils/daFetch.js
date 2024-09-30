@@ -2,6 +2,10 @@ const DA_ORIGIN = 'https://admin.da.live';
 
 let imsDetails;
 
+export function setImsDetails(token) {
+  imsDetails = { accessToken: { token } };
+}
+
 export async function initIms() {
   if (imsDetails) return imsDetails;
   const { loadIms } = await import('./ims.js');
@@ -15,9 +19,11 @@ export async function initIms() {
 
 export const daFetch = async (url, opts = {}) => {
   opts.headers ||= {};
-  if (localStorage.getItem('nx-ims')) {
+  if (localStorage.getItem('nx-ims') || imsDetails) {
     const { accessToken } = await initIms();
-    if (accessToken) opts.headers.Authorization = `Bearer ${accessToken.token}`;
+    if (accessToken) {
+      opts.headers.Authorization = `Bearer ${accessToken.token}`;
+    }
   }
   const resp = await fetch(url, opts);
   if (resp.status === 401) {

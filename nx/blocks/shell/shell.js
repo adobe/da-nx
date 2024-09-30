@@ -21,11 +21,16 @@ function getUrl() {
 }
 
 function handleLoad({ target }) {
-  CHANNEL.port1.onmessage = (e) => { console.log(e.data); };
+  CHANNEL.port1.onmessage = (e) => {
+    if (e.data.action === 'setTitle') {
+      document.title = e.data.details;
+    }
+    console.log(e.data);
+  };
 
   const message = {
     ready: true,
-    token: IMS_DETAILS.accessToken.token,
+    token: IMS_DETAILS.accessToken?.token,
     context: getParts(),
   };
 
