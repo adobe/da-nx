@@ -51,20 +51,57 @@ class NxBulk extends LitElement {
     }, 200);
   }
 
+  toggleView() {
+    const details = this.shadowRoot.querySelectorAll('.details');
+    details.forEach((detail) => {
+      detail.classList.toggle('hide');
+    });
+  }
+
+  renderFile(file) {
+    const path = file.path.replace('.html', '');
+    const [org, repo, ...pathParts] = path.substring(1).split('/');
+    const pageName = pathParts.pop();
+    pathParts.push(pageName === 'index' ? '' : pageName);
+
+    const aemPreview = `https://main--${repo}--${org}.aem.page/${pathParts.join('/')}`;
+
+    let editView;
+    if (file.ext === 'html') {
+      editView = '/edit';
+    } else if (file.ext === 'json') {
+      editView = '/sheet';
+    } else {
+      editView = '/media';
+    }
+    const editPath = `${editView}#${path}`;
+    return html`
+      <li>
+        <div class="details da-details">
+          <p>${path}</p>
+          <a href=${editPath}>Edit</a>
+        </div>
+        <div class="details aem-details hide">
+          <p>${aemPreview}</p>
+          <a href=${aemPreview}>Preview</a>
+        </div>
+      </li>`;
+  }
+
   renderFiles() {
     return html`
-      <h2>Files - ${this._files.length} ${this._time ? html`- ${this._time}s` : nothing}</h2>
-      <ul class="files-list">
-        ${this._files.map((file) => html`<li>${file.path}</li>`)}
-      </ul>
-    `;
+      <div class="totals-header">
+        <h2>Files - ${this._files.length} ${this._time ? html`- ${this._time}s` : nothing}</h2>
+        <button class="primary" @click=${this.toggleView}>Toggle View</button>
+      </div>
+      <ul class="files-list">${this._files.map(this.renderFile)}</ul>`;
   }
 
   render() {
     return html`
       <h1>Crawl Tree</h1>
       <form @submit=${this.handleSubmit}>
-        <input name="path" placeholder="/da-sites/bacom" />
+        <input name="path" value="/da-sites/bacom" />
         <button class="accent" .disabled=${this._canSubmit}>Crawl</button>
         <button class="primary">Cancel</button>
       </form>

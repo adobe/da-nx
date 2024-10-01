@@ -21,12 +21,32 @@ input {
   box-sizing: border-box;
 }
 
+.totals-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
 ul {
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
-li {
+li .details {
+  background: var(--s2-gray-75);
+  border-radius: var(--s2-radius-100);
+  display: flex;
   margin-bottom: var(--spacing-200);
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 var(--spacing-400);
+}
+
+li a {
+  user-select: none;
+}
+
+li .details.hide {
+  display: none;
 }
