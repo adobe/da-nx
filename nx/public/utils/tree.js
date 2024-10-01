@@ -42,7 +42,7 @@ export function crawl({ path }) {
 
   const getCrawled = () => ({
     files: files.splice(0, files.length),
-    complete: inProgress.length === 0,
+    complete: cancel || inProgress.length === 0,
   });
 
   return { cancel, getCrawled };
