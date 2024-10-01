@@ -20,11 +20,13 @@ async function getChildren(path) {
 }
 
 export function crawl({ path }) {
-  // eslint-disable-next-line prefer-const
+  let time;
   let cancel = false;
   const files = [];
   const folders = [path];
   const inProgress = [];
+  const uuid = crypto.randomUUID();
+  performance.mark(`crawl-start-${uuid}`);
 
   const interval = setInterval(async () => {
     if (folders.length > 0) {
@@ -36,14 +38,24 @@ export function crawl({ path }) {
       inProgress.pop();
     }
     if ((inProgress.length === 0 && folders.length === 0) || cancel) {
+      performance.mark(`crawl-end-${uuid}`);
+      performance.measure(`crawl-${uuid}`, `crawl-start-${uuid}`, `crawl-end-${uuid}`);
+      const searchTime = performance.getEntriesByName(`crawl-${uuid}`)[0].duration;
+      time = String(searchTime / 1000).substring(0, 4);
       clearInterval(interval);
     }
-  }, 200);
+  }, 100);
 
   const getCrawled = () => ({
     files: files.splice(0, files.length),
     complete: cancel || inProgress.length === 0,
   });
 
-  return { cancel, getCrawled };
+  const cancelCrawl = () => {
+    cancel = true;
+  };
+
+  const getTime = () => time;
+
+  return { getCrawled, cancelCrawl, getTime };
 }
