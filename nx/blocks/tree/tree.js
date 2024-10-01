@@ -24,7 +24,7 @@ class NxBulk extends LitElement {
 
     this._files = [];
 
-    const getCrawled = crawl(path);
+    const { getCrawled } = crawl({ path });
     const report = setInterval(() => {
       const { files, complete } = getCrawled();
       if (files.length > 0) {
