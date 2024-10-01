@@ -2,6 +2,7 @@ import { LitElement, html, nothing } from '../../deps/lit/lit-core.min.js';
 import { getConfig } from '../../scripts/nexter.js';
 import { crawl } from '../../public/utils/tree.js';
 import getStyle from '../../utils/styles.js';
+import { daFetch } from '../../utils/daFetch.js';
 
 const { nxBase } = getConfig();
 const style = await getStyle(import.meta.url);
@@ -20,6 +21,17 @@ class NxBulk extends LitElement {
     this._canSubmit = true;
   }
 
+  pushFile(file) {
+    // const resp = await daFetch(`https://admin.da.live/source${file.path}`);
+    // if (resp.ok) {
+    //   const text = await resp.text();
+    //   console.log(text);
+    // }
+
+    this._files.push(file);
+    this.requestUpdate();
+  }
+
   async handleSubmit(e) {
     e.preventDefault();
 
@@ -34,22 +46,17 @@ class NxBulk extends LitElement {
     const data = new FormData(e.target);
     const { path } = Object.fromEntries(data);
     if (!path) return;
-    const { getCrawled, cancelCrawl, getTime } = crawl({ path });
+    this._files = [];
+    const callback = this.pushFile.bind(this);
+    const { getResults, getDuration, cancelCrawl } = crawl({ path, callback, throttle: 10 });
+
+    const getTime = setInterval(() => { this._time = getDuration(); }, 100);
 
     this.cancelCrawl = cancelCrawl;
-    this._files = [];
-
-    const report = setInterval(() => {
-      const { files, complete } = getCrawled();
-      if (files.length > 0) {
-        this._files.push(...files);
-        this.requestUpdate();
-      }
-      if (complete) {
-        this._time = getTime();
-        clearInterval(report);
-      }
-    }, 200);
+    getResults.then(() => {
+      clearInterval(getTime);
+      this._time = getDuration();
+    });
   }
 
   toggleView() {
