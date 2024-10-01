@@ -48,12 +48,12 @@ class NxBulk extends LitElement {
     if (!path) return;
     this._files = [];
     const callback = this.pushFile.bind(this);
-    const { getResults, getDuration, cancelCrawl } = crawl({ path, callback, throttle: 10 });
+    const { results, getDuration, cancelCrawl } = crawl({ path, callback, throttle: 10 });
 
     const getTime = setInterval(() => { this._time = getDuration(); }, 100);
 
     this.cancelCrawl = cancelCrawl;
-    getResults.then(() => {
+    results.then(() => {
       this._canSubmit = true;
       clearInterval(getTime);
       this._time = getDuration();

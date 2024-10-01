@@ -32,7 +32,7 @@ export function crawl({ path, callback, throttle = 100 }) {
   const inProgress = [];
   const startTime = Date.now();
 
-  const getResults = new Promise((resolve) => {
+  const results = new Promise((resolve) => {
     const interval = setInterval(async () => {
       if (folders.length > 0) {
         inProgress.push(true);
@@ -57,6 +57,7 @@ export function crawl({ path, callback, throttle = 100 }) {
     if (time) return time;
     return calculateCrawlTime(startTime);
   };
+
   const cancelCrawl = () => { isCanceled = true; };
-  return { getResults, getDuration, cancelCrawl };
+  return { results, getDuration, cancelCrawl };
 }
