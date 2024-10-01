@@ -1,3 +1,4 @@
+/* eslint-disable import/prefer-default-export */
 import { daFetch } from '../../utils/daFetch.js';
 
 async function getChildren(path) {
@@ -18,8 +19,9 @@ async function getChildren(path) {
   return { files, folders };
 }
 
-// eslint-disable-next-line import/prefer-default-export
-export function crawl(path) {
+export function crawl({ path }) {
+  // eslint-disable-next-line prefer-const
+  let cancel = false;
   const files = [];
   const folders = [path];
   const inProgress = [];
@@ -33,13 +35,15 @@ export function crawl(path) {
       folders.push(...children.folders);
       inProgress.pop();
     }
-    if (inProgress.length === 0 && folders.length === 0) {
+    if ((inProgress.length === 0 && folders.length === 0) || cancel) {
       clearInterval(interval);
     }
   }, 200);
 
-  return () => ({
+  const getCrawled = () => ({
     files: files.splice(0, files.length),
     complete: inProgress.length === 0,
   });
+
+  return { cancel, getCrawled };
 }
