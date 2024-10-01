@@ -17,6 +17,7 @@ class NxBulk extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style, buttons];
+    this._canSubmit = true;
   }
 
   async handleSubmit(e) {
@@ -91,7 +92,8 @@ class NxBulk extends LitElement {
   renderFiles() {
     return html`
       <div class="totals-header">
-        <h2>Files - ${this._files.length} ${this._time ? html`- ${this._time}s` : nothing}</h2>
+        <h2>Files - ${this._files.length}</h2>
+        <h2>${this._time ? html`${this._time}s` : nothing}</h2>
         <button class="primary" @click=${this.toggleView}>Toggle View</button>
       </div>
       <ul class="files-list">${this._files.map(this.renderFile)}</ul>`;
@@ -102,7 +104,7 @@ class NxBulk extends LitElement {
       <h1>Crawl Tree</h1>
       <form @submit=${this.handleSubmit}>
         <input name="path" value="/da-sites/bacom" />
-        <button class="accent" .disabled=${this._canSubmit}>Crawl</button>
+        <button class="accent" .disabled=${!this._canSubmit}>Crawl</button>
         <button class="primary">Cancel</button>
       </form>
       ${this._files ? this.renderFiles() : nothing}
