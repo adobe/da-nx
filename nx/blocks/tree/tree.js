@@ -54,6 +54,7 @@ class NxBulk extends LitElement {
 
     this.cancelCrawl = cancelCrawl;
     getResults.then(() => {
+      this._canSubmit = true;
       clearInterval(getTime);
       this._time = getDuration();
     });
