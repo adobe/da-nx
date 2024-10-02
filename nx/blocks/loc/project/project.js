@@ -1,7 +1,7 @@
 import { LitElement, html, nothing } from '../../../deps/lit/lit-core.min.js';
 import { getConfig } from '../../../scripts/nexter.js';
 import getStyle from '../../../utils/styles.js';
-import { getDetails, rolloutCopy, translateCopy } from './index.js';
+import { getDetails, rolloutCopy, translateCopy, copy } from './index.js';
 import makeBatches from '../../../utils/batch.js';
 
 import '../card/card.js';
@@ -57,7 +57,7 @@ class NxLocProject extends LitElement {
     }, 5000);
   }
 
-  async rolloutLocale(locale) {
+  async rolloutLocale(locale, rolloutFn = rolloutCopy) {
     // Reset URL status if already marked
     locale.urls.forEach((url) => delete url.status);
 
@@ -67,7 +67,7 @@ class NxLocProject extends LitElement {
     // Send it
     for (const batch of batches) {
       await Promise.all(batch.map(async (url) => {
-        await rolloutCopy(url, this._title);
+        await rolloutFn(url, this._title);
         this._langs = [...this._langs];
       }));
     }
@@ -111,7 +111,7 @@ class NxLocProject extends LitElement {
     this._status = 'Syncing to Langstore (en).';
     const lang = this._langs.find((langToFind) => langToFind.code === code);
     this.updateCardState(lang, 'syncing');
-    await this.rolloutLocale(lang.langstore);
+    await this.rolloutLocale(lang.langstore, copy);
     this.updateCardState(lang, 'synced');
     this._status = null;
   }
