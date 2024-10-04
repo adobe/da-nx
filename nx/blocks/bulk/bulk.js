@@ -27,6 +27,7 @@ class NxBulk extends LitElement {
     _isDelete: { state: true },
     _cancel: { state: true },
     _cancelText: { state: true },
+    _showVersion: { state: true },
   };
 
   constructor() {
@@ -53,8 +54,8 @@ class NxBulk extends LitElement {
     });
   }
 
-  async sendBatch(batch) {
-    const finishedBatch = await Promise.all(batch.map(async (url) => sendAction(url)));
+  async sendBatch(batch, label) {
+    const finishedBatch = await Promise.all(batch.map(async (url) => sendAction(url, label)));
     this.processBatch(finishedBatch);
     this.requestUpdate();
   }
@@ -96,7 +97,7 @@ class NxBulk extends LitElement {
     this.resetState();
 
     const data = new FormData(e.target);
-    const { urls, action, delete: hasDelete } = Object.fromEntries(data);
+    const { urls, action, delete: hasDelete, label } = Object.fromEntries(data);
 
     this._baseUrls = formatUrls(urls, action, hasDelete);
     const batches = makeBatches(this._baseUrls, 10);
@@ -107,9 +108,13 @@ class NxBulk extends LitElement {
         break;
       }
       const start = Date.now();
-      await this.sendBatch(batch);
+      await this.sendBatch(batch, label);
       await throttle(start);
     }
+  }
+
+  handleSelect(e) {
+    this._showVersion = e.target.value === 'versionsource';
   }
 
   get _totalCount() {
@@ -160,15 +165,19 @@ class NxBulk extends LitElement {
       <h1>Bulk Operations</h1>
       <form @submit=${this.handleSubmit}>
         <label for="urls">URLs</label>
-        <textarea id="urls" name="urls" placeholder="Add AEM URLs here."></textarea>
+        <textarea id="urls" name="urls" placeholder="Add AEM URLs here..."></textarea>
         <div class="da-bulk-action-submit">
-          <div class="delete-toggle">
-            <input type="checkbox" id="delete" name="delete" .checked=${this._isDelete} @click=${this.handleDeleteCheck} />
-            <label for="delete">Delete</label>
-          </div>
-          <select id="action" name="action">
+          ${!this._showVersion ? html`
+            <div class="delete-toggle">
+              <input type="checkbox" id="delete" name="delete" .checked=${this._isDelete} @click=${this.handleDeleteCheck} />
+              <label for="delete">Delete</label>
+            </div>
+          ` : nothing}
+          ${this._showVersion ? html`<input type="text" name="label" placeholder="Version label" />` : nothing}
+          <select id="action" name="action" @change=${this.handleSelect}>
             <option value="preview">Preview</option>
             <option value="live">Publish</option>
+            <option value="versionsource">Version</option>
             <option value="index">Index</option>
           </select>
           ${this._isDelete ? html`<button class="negative">Delete</button>` : html`<button class="accent">Submit</button>`}

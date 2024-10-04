@@ -19,6 +19,14 @@ select {
   box-sizing: border-box;
 }
 
+input[name="label"] {
+  height: 32px;
+  width: 160px;
+  font-family: var(--body-font-family);
+  margin: 0;
+  padding: 0 6px;
+}
+
 textarea {
   width: 100%;
   min-height: 240px;
@@ -36,7 +44,7 @@ textarea {
   border-radius: 8px;
   line-height: 32px;
   padding: 0 10px;
-  color: #FFF;
+  color: #fff;
   font-weight: 700;
   display: flex;
   align-items: center;
@@ -205,7 +213,7 @@ select {
 .toggle-list-icon svg {
   width: 18px;
   height: 18px;
-  transition: transform .2s ease-in-out;
+  transition: transform 0.2s ease-in-out;
 }
 
 .is-expanded .toggle-list-icon svg {

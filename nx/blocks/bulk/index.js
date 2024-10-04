@@ -1,4 +1,12 @@
+import { getExt } from '../../public/utils/getExt.js';
 import { daFetch } from '../../utils/daFetch.js';
+
+const AEM_ORIGIN = 'https://admin.hlx.page';
+const DA_ORIGIN = 'https://admin.da.live';
+
+function isBulkDa(action) {
+  return action === 'versionsource';
+}
 
 export function throttle(start) {
   const end = Date.now();
@@ -26,11 +34,16 @@ export function formatUrls(urls, action, hasDelete) {
   }, []);
 }
 
-export async function sendAction(url) {
+export async function sendAction(url, label) {
   try {
     const method = url.hasDelete ? 'DELETE' : 'POST';
-    const aemUrl = `https://admin.hlx.page/${url.action}/${url.org}/${url.repo}/${url.ref}${url.pathname}`;
-    const resp = await daFetch(aemUrl, { method });
+    const opts = { method };
+    if (label && isBulkDa(url.action)) opts.body = JSON.stringify({ label });
+    const origin = isBulkDa(url.action) ? DA_ORIGIN : AEM_ORIGIN;
+    const ext = getExt(url.pathname);
+    const path = !ext && isBulkDa(url.action) ? `${url.pathname}.html` : url.pathname;
+    const aemUrl = `${origin}/${url.action}/${url.org}/${url.repo}/${url.ref}${path}`;
+    const resp = await daFetch(aemUrl, opts);
     url.status = resp.status;
   } catch {
     url.status = '400';

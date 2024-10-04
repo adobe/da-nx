@@ -1,9 +1,7 @@
 module.exports = {
   root: true,
   extends: 'airbnb-base',
-  env: {
-    browser: true,
-  },
+  env: { browser: true, mocha: true },
   parser: '@babel/eslint-parser',
   parserOptions: {
     allowImportExportEverywhere: true,
@@ -17,9 +15,7 @@ module.exports = {
     'linebreak-style': ['error', 'unix'],
     'no-await-in-loop': 0,
     'no-underscore-dangle': ['error', { allowAfterThis: true }],
-    'import/extensions': ['error', {
-      js: 'always',
-    }],
+    'import/extensions': ['error', { js: 'always' }],
     'object-curly-newline': ['error', {
       ObjectExpression: { multiline: true, minProperties: 6 },
       ObjectPattern: { multiline: true, minProperties: 6 },
