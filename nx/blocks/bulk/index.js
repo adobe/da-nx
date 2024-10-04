@@ -42,7 +42,8 @@ export async function sendAction(url, label) {
     const origin = isBulkDa(url.action) ? DA_ORIGIN : AEM_ORIGIN;
     const ext = getExt(url.pathname);
     const path = !ext && isBulkDa(url.action) ? `${url.pathname}.html` : url.pathname;
-    const aemUrl = `${origin}/${url.action}/${url.org}/${url.repo}/${url.ref}${path}`;
+    const ref = isBulkDa(url.action) ? '' : `/${url.ref}`;
+    const aemUrl = `${origin}/${url.action}/${url.org}/${url.repo}${ref}${path}`;
     const resp = await daFetch(aemUrl, opts);
     url.status = resp.status;
   } catch {
