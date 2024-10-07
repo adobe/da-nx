@@ -1,0 +1,40 @@
+:host {
+  display: flex;
+  align-items: center;
+  position: relative;
+  min-height: 320px;
+}
+
+.header-bg {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  inset: 0;
+  object-fit: cover;
+}
+
+.header-fg {
+  display: flex;
+  justify-content: space-between;
+  position: relative;
+  max-width: var(--grid-container-width);
+  margin: 0 auto;
+  width: 100%;
+}
+
+.header-fg-left {
+  color: #FFF;
+}
+
+.detail {
+  font-size: 20px;
+  line-height: 20px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.heading {
+  font-size: var(--s2-font-size-800);
+  font-weight: 400;
+  margin: 0;
+}
