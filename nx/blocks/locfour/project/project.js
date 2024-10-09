@@ -84,6 +84,12 @@ class NxLocProject extends LitElement {
 
   handleTranslate() {
     this._langs.forEach(async (lang) => {
+      // Do not translate the source language
+      if (this._sourceLang.language === lang.name) {
+        console.log('skipping source lang');
+        return;
+      }
+
       lang.translatedUrls = await Promise.all(this._urls.map(async (ogUrl) => {
         const url = { ...ogUrl };
         url.source = `/${this._details.org}/${this._details.site}${this._sourceLang.location}${url.extpath}`;
@@ -116,6 +122,7 @@ class NxLocProject extends LitElement {
 
   handleRolloutAll() {
     this._langs.forEach(async (lang) => {
+      if (!lang.locales) return;
       await this.handleRolloutLang(lang);
       this.requestUpdate();
     });
@@ -187,7 +194,7 @@ class NxLocProject extends LitElement {
           <h3>Behavior: <span class="behavior-value">${this._details.options.rolloutConflict}</span></h3>
         </div>
         <div class="da-lang-cards">
-          ${this._langs.map((lang) => html`
+          ${this._langs.map((lang) => (lang.locales ? html`
             <div class="da-lang-card rollout">
               <div class="da-card-top">
                 <div>
@@ -213,9 +220,10 @@ class NxLocProject extends LitElement {
                 <div class="da-loc-card-locales">
                   ${lang.locales.map((locale) => html`<button class="action">${locale.code.replace('/', '')}</button>`)}
                 </div>
+                <button class="primary" @click=${() => { this.handleRolloutLang(lang); }}>Rollout</button>
               </div>
             </div>
-          `)}
+          ` : nothing))}
         </div>
         <button class="primary" @click=${this.handleRolloutAll}>Rollout all</button>
       </div>

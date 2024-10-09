@@ -145,4 +145,5 @@ h6 {
   display: flex;
   flex-wrap: wrap;
   gap: var(--spacing-200);
+  margin-bottom: var(--spacing-400);
 }
