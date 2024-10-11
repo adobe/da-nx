@@ -44,8 +44,11 @@ class NxLocDetails extends LitElement {
     if (!(repo || org)) return this.error('Please use AEM URLs');
 
     // Get site's languages
-    const resp = await daFetch(`${DA_ORIGIN}/source/${org}/${repo}${TRANSLATE_CONF}`);
-    if (!resp.ok) return this.error('Site has no supported languages');
+    let resp = await daFetch(`${DA_ORIGIN}/source/${org}/${repo}${TRANSLATE_CONF}`);
+    if (!resp.ok) {
+      console.log('Using default translate config.');
+      resp = await fetch(`${nxBase}/blocks/locfour/setup/default.json`);
+    }
 
     const json = await resp.json();
     const { config: configJson, languages } = json;
@@ -122,7 +125,7 @@ class NxLocDetails extends LitElement {
         </div>
         <div>
           <label for="urls">URLs</label>
-          <textarea name="urls" placeholder="Add AEM URLs here.">https://main--da-block-collection--aemsites.hlx.page/drafts/cmillar/sample-page\nhttps://main--da-block-collection--aemsites.hlx.page/drafts/cmillar/sample-two</textarea>
+          <textarea name="urls" placeholder="Add AEM URLs here.">https://main--mcr-da--davidnuescheler.aem.page/</textarea>
         </div>
       </form>
     `;

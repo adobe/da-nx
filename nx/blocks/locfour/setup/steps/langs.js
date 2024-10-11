@@ -36,7 +36,7 @@ class NxLocLangs extends LitElement {
   }
 
   async handleLangsStep(options) {
-    const sourceLang = this.langs.find((lang) => lang.language === this.config['source.language'].value);
+    const sourceLang = this.langs.find((lang) => lang.language === this.config['source.language']?.value);
 
     const langs = this.langs.reduce((acc, lang) => {
       const { action, locales, location, language: name, code } = lang;
@@ -184,6 +184,7 @@ class NxLocLangs extends LitElement {
   }
 
   renderOption(label, name) {
+    if (!this.config[name]) return nothing;
     return html`
       <div class="da-loc-job-option">
         <label>${label}</label>

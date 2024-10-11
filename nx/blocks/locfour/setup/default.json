@@ -1,0 +1,67 @@
+{
+  "config": {
+      "total": 6,
+      "limit": 6,
+      "offset": 0,
+      "data": [
+          {
+              "key": "translate.conflict.behavior",
+              "value": "overwrite",
+              "description": "How to handle old content when new content returns from translation."
+          },
+          {
+              "key": "complete.aem.preview",
+              "value": "on",
+              "description": "Automatically preview the document after completion. Ignored if merge conflicts exist."
+          },
+          {
+              "key": "complete.aem.publish",
+              "value": "on",
+              "description": "Automatically publish the document after completion.  Ignored if merge conflicts exist."
+          }
+      ]
+  },
+  "languages": {
+      "total": 5,
+      "limit": 5,
+      "offset": 0,
+      "data": [
+          {
+              "language": "English",
+              "code": "en",
+              "location": "/en",
+              "actions": "Translate"
+          },
+          {
+              "language": "German",
+              "code": "de",
+              "location": "/de",
+              "actions": "Translate"
+          },
+          {
+              "language": "French",
+              "code": "fr",
+              "location": "/fr",
+              "actions": "Translate"
+          },
+          {
+              "language": "Chinese (Simplified)",
+              "code": "zh",
+              "location": "/cn",
+              "actions": "Translate"
+          },
+          {
+              "language": "Japanese",
+              "code": "ja",
+              "location": "/ja",
+              "actions": "Translate"
+          }
+      ]
+  },
+  ":names": [
+      "config",
+      "languages"
+  ],
+  ":version": 3,
+  ":type": "multi-sheet"
+}

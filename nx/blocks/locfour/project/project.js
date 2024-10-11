@@ -33,7 +33,7 @@ class NxLocProject extends LitElement {
       title, org, site, options, sourceLang, langs, urls,
     } = await getDetails();
     this._details = { title, org, site, options };
-    this._sourceLang = sourceLang;
+    this._sourceLang = sourceLang || { location: '/' };
     this._langs = langs;
     this._urls = urls;
     this.setupSourceLang();
@@ -92,7 +92,8 @@ class NxLocProject extends LitElement {
 
       lang.translatedUrls = await Promise.all(this._urls.map(async (ogUrl) => {
         const url = { ...ogUrl };
-        url.source = `/${this._details.org}/${this._details.site}${this._sourceLang.location}${url.extpath}`;
+        const sourceLocation = this._sourceLang.location === '/' ? '' : this._sourceLang.location;
+        url.source = `/${this._details.org}/${this._details.site}${sourceLocation}${url.extpath}`;
         url.destination = `/${this._details.org}/${this._details.site}${lang.location}${url.extpath}`;
         await translateCopy(lang.code, url, this._details.title);
         return url;

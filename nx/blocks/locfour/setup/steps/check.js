@@ -55,8 +55,10 @@ class NxLocCheck extends LitElement {
   }
 
   async checkUrl(url) {
-    const isSheet = url.pathname.endsWith('.json');
-    const extPath = isSheet ? url.pathname : `${url.pathname}.html`;
+    let { pathname } = url;
+    pathname = pathname.endsWith('/') ? `${pathname}index` : pathname;
+    const isSheet = pathname.endsWith('.json');
+    const extPath = isSheet ? pathname : `${pathname}.html`;
     const daUrl = `${DA_ADMIN}/source/${this.org}/${this.repo}${extPath}`;
     const resp = await daFetch(daUrl);
     const text = await resp.text();
