@@ -196,6 +196,14 @@ class NxLocLangs extends LitElement {
     `;
   }
 
+  /* <div class="da-loc-job-options complete-section">
+    <h3>Preview & publish</h3>
+    <div class="da-loc-job-option-group">
+      ${this.renderOption('Auto preview on complete', 'complete.aem.preview')}
+      ${this.renderOption('Auto publish on complete', 'complete.aem.publish')}
+    </div>
+  </div> */
+
   renderConfig() {
     return html`
       <h2>Options</h2>
@@ -205,13 +213,6 @@ class NxLocLangs extends LitElement {
           ${this.renderOption('On source sync', 'source.conflict.behavior')}
           ${this.renderOption('On translation return', 'translate.conflict.behavior')}
           ${this.hasLocales() ? this.renderOption('On rollout', 'rollout.conflict.behavior') : nothing}
-        </div>
-      </div>
-      <div class="da-loc-job-options complete-section">
-        <h3>Preview & publish</h3>
-        <div class="da-loc-job-option-group">
-          ${this.renderOption('Auto preview on complete', 'complete.aem.preview')}
-          ${this.renderOption('Auto publish on complete', 'complete.aem.publish')}
         </div>
       </div>
     `;
