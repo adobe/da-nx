@@ -4,6 +4,8 @@ import { daFetch, saveToDa } from '../../../utils/daFetch.js';
 const DA_ORIGIN = 'https://admin.da.live';
 const DEFAULT_TIMEOUT = 20000; // ms
 
+const PARSER = new DOMParser();
+
 let projPath;
 
 async function fetchData(path) {
@@ -58,13 +60,38 @@ export async function overwriteCopy(url, projectTitle) {
 
 const collapseWhitespace = (str) => str.replace(/\s+/g, ' ');
 
+const captureDnt = (dom) => {
+  const dntEls = dom.querySelectorAll('.metadata > div > div:first-of-type');
+  dntEls.forEach((el) => {
+    el.dataset.innerHtml = el.innerHTML;
+    el.innerHTML = '';
+  });
+};
+
+const capturePics = (dom) => {
+  const imgs = dom.querySelectorAll('picture img');
+  imgs.forEach((img) => {
+    [img.src] = img.getAttribute('src').split('?');
+    const pic = img.closest('picture');
+    pic.parentElement.replaceChild(img, pic);
+  });
+};
+
+const releaseDnt = (dom) => {
+  const dntEls = dom.querySelectorAll('.metadata > div > div:first-of-type');
+  dntEls.forEach((el) => {
+    el.innerHTML = el.dataset.innerHtml;
+    delete el.dataset.innerHtml;
+  });
+  return dom.querySelector('main').innerHTML;
+};
+
 const getHtml = async (url, format = 'dom') => {
   const res = await daFetch(`${DA_ORIGIN}/source${url}`);
   if (!res.ok) return null;
   const str = await res.text();
   if (format === 'text') return str;
-  const parser = new DOMParser();
-  return parser.parseFromString(collapseWhitespace(str), 'text/html');
+  return PARSER.parseFromString(collapseWhitespace(str), 'text/html');
 };
 
 const getDaUrl = (url) => {
@@ -143,16 +170,21 @@ async function sendForTranslation(sourceHtml, toLang) {
 }
 
 export async function translateCopy(toLang, url, projectTitle) {
-  const sourceHtml = await getHtml(url.source, 'text');
-  const translated = await sendForTranslation(sourceHtml, toLang);
+  const dom = await getHtml(url.source);
+  captureDnt(dom);
+  capturePics(dom);
+  console.log(dom);
+  const dntedHtml = dom.querySelector('main').outerHTML;
+  const translated = await sendForTranslation(dntedHtml, toLang);
 
   if (translated) {
     return new Promise((resolve) => {
       (() => {
-        const parser = new DOMParser();
-        const dom = parser.parseFromString(translated, 'text/html');
-        const mainInner = dom.querySelector('main').innerHTML;
-        const saved = saveToDa(mainInner, getDaUrl(url));
+        const translatedDom = PARSER.parseFromString(translated, 'text/html');
+
+        const mainHtml = releaseDnt(translatedDom);
+
+        const saved = saveToDa(mainHtml, getDaUrl(url));
 
         const timedout = setTimeout(() => {
           url.status = 'timeout';
