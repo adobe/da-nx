@@ -5,6 +5,7 @@ function rumWC(sampleRUM) {
       e.stopPropagation();
       const sourceEl = e.target.closest('a, button');
       const source = sourceEl?.title || sourceEl?.href || sourceEl?.dataset.action;
+      if (!sampleRUM.targetselector) return;
       const target = sampleRUM.targetselector(e.target);
       sampleRUM('click', { source, target });
     });
