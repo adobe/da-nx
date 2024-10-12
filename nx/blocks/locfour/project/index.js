@@ -6,6 +6,9 @@ const DEFAULT_TIMEOUT = 20000; // ms
 
 const PARSER = new DOMParser();
 
+const ROW_DNT = '.section-metadata > div';
+const KEY_DNT = '.metadata > div > div:first-of-type';
+
 let projPath;
 
 async function fetchData(path) {
@@ -60,14 +63,6 @@ export async function overwriteCopy(url, projectTitle) {
 
 const collapseWhitespace = (str) => str.replace(/\s+/g, ' ');
 
-const captureDnt = (dom) => {
-  const dntEls = dom.querySelectorAll('.metadata > div > div:first-of-type');
-  dntEls.forEach((el) => {
-    el.dataset.innerHtml = el.innerHTML;
-    el.innerHTML = '';
-  });
-};
-
 const capturePics = (dom) => {
   const imgs = dom.querySelectorAll('picture img');
   imgs.forEach((img) => {
@@ -77,8 +72,17 @@ const capturePics = (dom) => {
   });
 };
 
+const captureDnt = (dom) => {
+  const dntEls = dom.querySelectorAll(`${ROW_DNT}, ${KEY_DNT}`);
+  dntEls.forEach((el) => {
+    el.dataset.innerHtml = el.innerHTML;
+    el.innerHTML = '';
+  });
+  console.log(dom);
+};
+
 const releaseDnt = (dom) => {
-  const dntEls = dom.querySelectorAll('.metadata > div > div:first-of-type');
+  const dntEls = dom.querySelectorAll('[data-inner-html]');
   dntEls.forEach((el) => {
     el.innerHTML = el.dataset.innerHtml;
     delete el.dataset.innerHtml;
@@ -173,7 +177,6 @@ export async function translateCopy(toLang, url, projectTitle) {
   const dom = await getHtml(url.source);
   captureDnt(dom);
   capturePics(dom);
-  console.log(dom);
   const dntedHtml = dom.querySelector('main').outerHTML;
   const translated = await sendForTranslation(dntedHtml, toLang);
 
