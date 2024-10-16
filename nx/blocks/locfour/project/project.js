@@ -92,7 +92,6 @@ class NxLocProject extends LitElement {
 
   handleTranslate() {
     this._langs.forEach(async (lang) => {
-      // Do not translate the source language
       if (this._sourceLang.language === lang.name) {
         console.log('skipping source lang');
         return;
@@ -108,7 +107,7 @@ class NxLocProject extends LitElement {
         url.source = `/${this._details.org}/${this._details.site}${source}`;
         url.destination = `/${this._details.org}/${this._details.site}${destination}`;
 
-        // await translateCopy(lang.code, url, this._details.title);
+        await translateCopy(lang.code, url, this._details.title);
         return url;
       }));
       this.requestUpdate();
