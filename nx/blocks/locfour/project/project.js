@@ -68,6 +68,14 @@ class NxLocProject extends LitElement {
     return rolloutCount;
   }
 
+  convertUrl({ path, srcLang, destLang }) {
+    const srcPath = path.startsWith(srcLang) ? path : `${srcLang}${path}`;
+    const destSlash = srcLang === '/' ? '/' : '';
+    const destPath = path.startsWith(srcLang) ? path.replace(srcLang, `${destLang}${destSlash}`) : `${destLang}${path}`;
+
+    return { source: srcPath, destination: destPath };
+  }
+
   async handleSyncSource() {
     await Promise.all(this._urls.map(async (url) => {
       url.source = `/${this._details.org}/${this._details.site}${url.extpath}`;
@@ -92,10 +100,15 @@ class NxLocProject extends LitElement {
 
       lang.translatedUrls = await Promise.all(this._urls.map(async (ogUrl) => {
         const url = { ...ogUrl };
-        const sourceLocation = this._sourceLang.location === '/' ? '' : this._sourceLang.location;
-        url.source = `/${this._details.org}/${this._details.site}${sourceLocation}${url.extpath}`;
-        url.destination = `/${this._details.org}/${this._details.site}${lang.location}${url.extpath}`;
-        await translateCopy(lang.code, url, this._details.title);
+        const { extpath } = url;
+
+        const opts = { path: extpath, srcLang: this._sourceLang.location, destLang: lang.location };
+        const { source, destination } = this.convertUrl(opts);
+
+        url.source = `/${this._details.org}/${this._details.site}${source}`;
+        url.destination = `/${this._details.org}/${this._details.site}${destination}`;
+
+        // await translateCopy(lang.code, url, this._details.title);
         return url;
       }));
       this.requestUpdate();
@@ -106,11 +119,12 @@ class NxLocProject extends LitElement {
     lang.locales.map(async (locale) => {
       locale.rolledOutUrls = await Promise.all(this._urls.map(async (ogUrl) => {
         const url = { ...ogUrl };
-        // If the source already contains the lang location, remove it.
-        const path = url.extpath.startsWith(lang.location) ? url.extpath.replace(lang.location, '') : url.extpath;
 
-        url.source = `/${this._details.org}/${this._details.site}${lang.location}${path}`;
-        url.destination = `/${this._details.org}/${this._details.site}${locale.code}${path}`;
+        const opts = { path: url.extpath, srcLang: lang.location, destLang: locale.code };
+        const { source, destination } = this.convertUrl(opts);
+
+        url.source = `/${this._details.org}/${this._details.site}${source}`;
+        url.destination = `/${this._details.org}/${this._details.site}${destination}`;
 
         if (this._details.options.rolloutConflict === 'overwrite') {
           await overwriteCopy(url, this._details.title);
