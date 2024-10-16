@@ -106,8 +106,11 @@ class NxLocProject extends LitElement {
     lang.locales.map(async (locale) => {
       locale.rolledOutUrls = await Promise.all(this._urls.map(async (ogUrl) => {
         const url = { ...ogUrl };
-        url.source = `/${this._details.org}/${this._details.site}${lang.location}${url.extpath}`;
-        url.destination = `/${this._details.org}/${this._details.site}${locale.code}${url.extpath}`;
+        // If the source already contains the lang location, remove it.
+        const path = url.extpath.startsWith(lang.location) ? url.extpath.replace(lang.location, '') : url.extpath;
+
+        url.source = `/${this._details.org}/${this._details.site}${lang.location}${path}`;
+        url.destination = `/${this._details.org}/${this._details.site}${locale.code}${path}`;
 
         if (this._details.options.rolloutConflict === 'overwrite') {
           await overwriteCopy(url, this._details.title);
