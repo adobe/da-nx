@@ -159,7 +159,6 @@ class NxLocProject extends LitElement {
   }
 
   async renderLangSource(lang) {
-    console.log(lang.location);
     const results = await Promise.all(this._urls.map(async (url) => {
       const opts = {
         path: url.extpath,
@@ -168,7 +167,6 @@ class NxLocProject extends LitElement {
       };
       const { destination: path } = this.convertUrl(opts);
 
-      console.log(path);
       const resp = await daFetch(`https://admin.da.live/source/${this._details.org}/${this._details.site}${path}`);
       return resp.status;
     }));
