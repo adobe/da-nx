@@ -1,0 +1,6 @@
+.nx-site-apps {
+  margin-top: var(--spacing-600);
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--spacing-600);
+}

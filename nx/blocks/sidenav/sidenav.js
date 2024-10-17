@@ -35,6 +35,14 @@ class SideNav extends HTMLElement {
     const list = doc.querySelector('ul');
     await this.decorateIcons(list);
 
+    if (window.location.hash && window.location.hash.startsWith('#/')) {
+      const [org, repo] = window.location.hash.slice(2).split('/');
+      if (org && repo) {
+        const appLink = doc.querySelector('[title="Edge Delivery Apps"]');
+        appLink.href = `${appLink.href}#/${org}/${repo}`;
+      }
+    }
+
     const inner = document.createElement('div');
     inner.className = 'nx-sidenav-inner';
     inner.append(list);
