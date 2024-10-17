@@ -125,7 +125,7 @@ class NxLocDetails extends LitElement {
         </div>
         <div>
           <label for="urls">URLs</label>
-          <textarea name="urls" placeholder="Add AEM URLs here.">https://main--da-block-collection--aemsites.hlx.page/drafts/cmillar/sample-page\nhttps://main--da-block-collection--aemsites.hlx.page/drafts/cmillar/sample-two</textarea>
+          <textarea name="urls" placeholder="Add AEM URLs here.">https://main--anixter-da-ecommerce--wesco-international.hlx.page/en</textarea>
         </div>
       </form>
     `;

@@ -1,5 +1,6 @@
-import { LitElement, html, nothing } from '../../../deps/lit/lit-core.min.js';
+import { LitElement, html, nothing, until } from '../../../deps/lit/dist/index.js';
 import { getConfig } from '../../../scripts/nexter.js';
+import { daFetch } from '../../../utils/daFetch.js';
 import getStyle from '../../../utils/styles.js';
 import getSvg from '../../../utils/svg.js';
 import { getDetails, rolloutCopy, overwriteCopy, translateCopy } from './index.js';
@@ -80,6 +81,10 @@ class NxLocProject extends LitElement {
     await Promise.all(this._urls.map(async (url) => {
       url.source = `/${this._details.org}/${this._details.site}${url.extpath}`;
       url.destination = `/${this._details.org}/${this._details.site}${this._sourceLang.location}${url.extpath}`;
+
+      console.log('Syncing to source language');
+      console.log(url.source, url.destination);
+
       if (this._details.options.sourceConflict === 'overwrite') {
         await overwriteCopy(url, this._details.title);
       } else {
@@ -107,6 +112,9 @@ class NxLocProject extends LitElement {
         url.source = `/${this._details.org}/${this._details.site}${source}`;
         url.destination = `/${this._details.org}/${this._details.site}${destination}`;
 
+        console.log('Translating');
+        console.log(url.source, url.destination);
+
         await translateCopy(lang.code, url, this._details.title);
         return url;
       }));
@@ -119,11 +127,16 @@ class NxLocProject extends LitElement {
       locale.rolledOutUrls = await Promise.all(this._urls.map(async (ogUrl) => {
         const url = { ...ogUrl };
 
-        const opts = { path: url.extpath, srcLang: lang.location, destLang: locale.code };
+        // Rollout source of truth should be the language location
+        const path = url.extpath.replace(this._sourceLang.location, lang.location);
+        const opts = { path, srcLang: lang.location, destLang: locale.code };
         const { source, destination } = this.convertUrl(opts);
 
         url.source = `/${this._details.org}/${this._details.site}${source}`;
         url.destination = `/${this._details.org}/${this._details.site}${destination}`;
+
+        console.log('Rolling out');
+        console.log(url.source, url.destination);
 
         if (this._details.options.rolloutConflict === 'overwrite') {
           await overwriteCopy(url, this._details.title);
@@ -143,6 +156,24 @@ class NxLocProject extends LitElement {
       await this.handleRolloutLang(lang);
       this.requestUpdate();
     });
+  }
+
+  async renderLangSource(lang) {
+    console.log(lang.location);
+    const results = await Promise.all(this._urls.map(async (url) => {
+      const opts = {
+        path: url.extpath,
+        srcLang: this._sourceLang.location,
+        destLang: lang.location,
+      };
+      const { destination: path } = this.convertUrl(opts);
+
+      console.log(path);
+      const resp = await daFetch(`https://admin.da.live/source/${this._details.org}/${this._details.site}${path}`);
+      return resp.status;
+    }));
+    const error = results.some((status) => status >= 300);
+    return error ? html`<p>Missing sources</p>` : nothing;
   }
 
   renderSyncSource() {
@@ -204,6 +235,8 @@ class NxLocProject extends LitElement {
   }
 
   renderCards() {
+    const langs = this._langs.filter((lang) => lang.locales);
+
     return html`
       <div class="da-loc-box da-loc-rollout">
         <div class="da-loc-box-title">
@@ -211,12 +244,13 @@ class NxLocProject extends LitElement {
           <h3>Behavior: <span class="behavior-value">${this._details.options.rolloutConflict}</span></h3>
         </div>
         <div class="da-lang-cards">
-          ${this._langs.map((lang) => (lang.locales ? html`
+          ${langs.map((lang) => html`
             <div class="da-lang-card rollout">
               <div class="da-card-top">
                 <div>
                   <p class="da-card-sub-title">Language</p>
                   <p class="da-card-title">${lang.name}</p>
+                  ${until(this.renderLangSource(lang), nothing)}
                 </div>
               </div>
               <div class="da-card-bottom">
@@ -240,7 +274,7 @@ class NxLocProject extends LitElement {
                 <button class="primary" @click=${() => { this.handleRolloutLang(lang); }}>Rollout</button>
               </div>
             </div>
-          ` : nothing))}
+          `)}
         </div>
         <button class="primary" @click=${this.handleRolloutAll}>Rollout all</button>
       </div>
@@ -255,6 +289,7 @@ class NxLocProject extends LitElement {
       <h2 class="da-loc-detail-title">${this._details.title}</h2>
       ${this._syncSourceUrls?.length > 0 ? this.renderSyncSource() : nothing}
       ${this.isTranslateProj() ? this.renderTranslate() : nothing}
+
       ${this.hasLocales() ? this.renderCards() : nothing}
     `;
   }

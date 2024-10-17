@@ -109,7 +109,7 @@ h6 {
 }
 
 .da-card-top {
-  min-height: 92px;
+  min-height: 100px;
   display: grid;
   grid-template-columns: 1fr 1fr;
   position: relative;
@@ -138,7 +138,7 @@ h6 {
 .da-card-title {
   font-size: var(--s2-font-size-400);
   line-height: 1.2;
-  margin: 0 0 var(--spacing-400);
+  margin: 0;
 }
 
 .da-loc-card-locales {

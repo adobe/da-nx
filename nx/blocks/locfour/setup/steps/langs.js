@@ -72,6 +72,16 @@ class NxLocLangs extends LitElement {
     window.location.hash = `#${path}`;
   }
 
+  calculateActions(langs) {
+    return langs.reduce((acc, lang) => {
+      const actions = lang.actions.split(', ');
+      actions.forEach((action) => {
+        if (!acc.some((curr) => curr === action)) acc.push(action);
+      });
+      return acc;
+    }, []);
+  }
+
   getConflictOpts(name) {
     if (this.config[name]) {
       return [
@@ -159,7 +169,7 @@ class NxLocLangs extends LitElement {
           ${this.langs ? html`
             <select @change=${(e) => this.handleChangeAll(e.target.value)}>
               <option value="">Skip</option>
-              ${this.langs[1].actions.split(',').map((action) => html`
+              ${this.calculateActions(this.langs).map((action) => html`
                 <option value="${action}">${action}</option>
               `)}
             </select>
@@ -171,7 +181,7 @@ class NxLocLangs extends LitElement {
               <h3>${lang.language}</h3>
               <select @change=${(e) => this.handleChangeAction(e.target.value, lang)}>
                 <option value="">Skip</option>
-                ${lang.actions.split(',').map((action) => html`
+                ${lang.actions.split(', ').map((action) => html`
                   <option value="${action}">${action}</option>
                 `)}
               </select>
