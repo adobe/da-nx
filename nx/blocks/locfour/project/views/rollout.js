@@ -27,6 +27,7 @@ class NxLocRollout extends LitElement {
     this.shadowRoot.adoptedStyleSheets = [style, shared, buttons];
     getSvg({ parent: this.shadowRoot, paths: ICONS });
     setTimeout(() => { this.toggleExpand(); }, 100);
+    console.log(this.title);
   }
 
   toggleExpand() {
@@ -49,7 +50,7 @@ class NxLocRollout extends LitElement {
         const source = `${this.sitePath}${lang.location}${url.basePath}`;
         const destination = `${this.sitePath}${locale.code}${url.basePath}`;
         return async () => {
-          const resp = await mergeCopy({ source, destination });
+          const resp = await mergeCopy({ source, destination }, this.title);
           if (resp.ok || resp.error === 'timeout') {
             lang.rolledOut += 1;
             this.requestUpdate();

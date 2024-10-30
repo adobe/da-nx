@@ -194,6 +194,7 @@ export async function mergeCopy(url, projectTitle) {
 
     const daUrl = getDaUrl(url);
     const { daResp } = await saveToDa(diffedMain.innerHTML, daUrl);
+    if (daResp.ok) saveVersion(url.destination, `${projectTitle} - Rolled Out`);
     return daResp;
   } catch (e) {
     return overwriteCopy(url, projectTitle);
@@ -205,7 +206,6 @@ export async function saveLangItems(sitePath, items, lang) {
     const html = await item.blob.text();
     const dom = PARSER.parseFromString(html, 'text/html');
     const dntedHtml = releaseDnt(dom);
-    console.log(dntedHtml);
 
     const blob = new Blob([dntedHtml], { type: 'text/html' });
 

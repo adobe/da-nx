@@ -87,6 +87,7 @@ class NxLocProject extends LitElement {
     await import('./views/rollout.js');
     const cmp = document.createElement('nx-loc-rollout');
     cmp.state = this._state;
+    cmp.title = this._title;
     cmp.sitePath = this._sitePath;
     cmp.langs = langs;
     cmp.urls = this._urls;
