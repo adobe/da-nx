@@ -1,0 +1,34 @@
+.da-loc-panel-errors ul {
+  list-style: none;
+  margin: var(--spacing-400) 0;
+  padding: 0;
+}
+
+.da-loc-panel-errors li {
+  position: relative;
+  padding: var(--spacing-400) var(--spacing-400);
+  box-sizing: border-box;
+  border-top: 1px solid rgb(229 229 229);
+  border-bottom: 1px solid rgb(229 229 229);
+  margin: -1px 0;
+}
+
+.da-loc-panel-errors li p {
+  line-height: 1.4;
+}
+
+.da-error-box {
+  color: #fff;
+  width: 48px;
+  background: var(--s2-red);
+  font-family: monospace;
+  font-size: 14px;
+  font-weight: 700;
+  position: absolute;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  top: 0;
+  right: 0;
+  bottom: 0;
+}

@@ -58,3 +58,8 @@ input[type="submit"].accent:focus-visible {
   border: 2px solid #3b63fb;
   outline-offset: 4px;
 }
+
+button:disabled {
+  background-color: #efefef;
+  border: 2px solid #efefef;
+}

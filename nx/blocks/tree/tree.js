@@ -2,7 +2,6 @@ import { LitElement, html, nothing } from '../../deps/lit/lit-core.min.js';
 import { getConfig } from '../../scripts/nexter.js';
 import { crawl } from '../../public/utils/tree.js';
 import getStyle from '../../utils/styles.js';
-import { daFetch } from '../../utils/daFetch.js';
 
 const { nxBase } = getConfig();
 const style = await getStyle(import.meta.url);
@@ -22,14 +21,29 @@ class NxBulk extends LitElement {
   }
 
   pushFile(file) {
-    // const resp = await daFetch(`https://admin.da.live/source${file.path}`);
-    // if (resp.ok) {
-    //   const text = await resp.text();
-    //   console.log(text);
-    // }
+    const path = file.path.replace('.html', '');
+    const [org, repo, ...pathParts] = path.substring(1).split('/');
+    const pageName = pathParts.pop();
+    pathParts.push(pageName === 'index' ? '' : pageName);
+
+    file.aemPreview = `https://main--${repo}--${org}.aem.page/${pathParts.join('/')}`;
+
+    let editView;
+    if (file.ext === 'html') {
+      editView = '/edit';
+    } else if (file.ext === 'json') {
+      editView = '/sheet';
+    } else {
+      editView = '/media';
+    }
+    file.editPath = `${editView}#${path}`;
 
     this._files.push(file);
     this.requestUpdate();
+  }
+
+  makeAEMUrl() {
+
   }
 
   async handleSubmit(e) {
@@ -67,32 +81,23 @@ class NxBulk extends LitElement {
     });
   }
 
+  handleCopy() {
+    const aemPaths = this._files.map((file) => file.aemPreview);
+    const blob = new Blob([aemPaths.join('\n')], { type: 'text/plain' });
+    const data = [new ClipboardItem({ [blob.type]: blob })];
+    navigator.clipboard.write(data);
+  }
+
   renderFile(file) {
-    const path = file.path.replace('.html', '');
-    const [org, repo, ...pathParts] = path.substring(1).split('/');
-    const pageName = pathParts.pop();
-    pathParts.push(pageName === 'index' ? '' : pageName);
-
-    const aemPreview = `https://main--${repo}--${org}.aem.page/${pathParts.join('/')}`;
-
-    let editView;
-    if (file.ext === 'html') {
-      editView = '/edit';
-    } else if (file.ext === 'json') {
-      editView = '/sheet';
-    } else {
-      editView = '/media';
-    }
-    const editPath = `${editView}#${path}`;
     return html`
       <li>
         <div class="details da-details">
-          <p>${path}</p>
-          <a href=${editPath}>Edit</a>
+          <p>${file.path}</p>
+          <a href=${file.editPath}>Edit</a>
         </div>
         <div class="details aem-details hide">
-          <p>${aemPreview}</p>
-          <a href=${aemPreview}>Preview</a>
+          <p>${file.aemPreview}</p>
+          <a href=${file.aemPreview}>Preview</a>
         </div>
       </li>`;
   }
@@ -102,7 +107,10 @@ class NxBulk extends LitElement {
       <div class="totals-header">
         <h2>Files - ${this._files.length}</h2>
         <h2>${this._time ? html`${this._time}s` : nothing}</h2>
-        <button class="primary" @click=${this.toggleView}>Toggle View</button>
+        <div class="da-list-actions">
+          <button class="accent" @click=${this.handleCopy}>Copy list</button>
+          <button class="primary" @click=${this.toggleView}>Toggle view</button>
+        </div>
       </div>
       <ul class="files-list">${this._files.map(this.renderFile)}</ul>`;
   }

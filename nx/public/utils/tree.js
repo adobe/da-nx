@@ -31,7 +31,7 @@ export class Queue {
       await this.callback(item);
     } finally {
       this.activeCount -= 1;
-      await this.processQueue(); // Continue processing the next item
+      await this.processQueue();
     }
   }
 }

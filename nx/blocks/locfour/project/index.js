@@ -1,15 +1,14 @@
 import { regionalDiff, removeLocTags } from '../regional-diff/regional-diff.js';
 import { daFetch, saveToDa } from '../../../utils/daFetch.js';
+import { releaseDnt } from '../dnt/dnt.js';
 
 const DA_ORIGIN = 'https://admin.da.live';
 const DEFAULT_TIMEOUT = 20000; // ms
 
 const PARSER = new DOMParser();
 
-const ROW_DNT = '.section-metadata > div';
-const KEY_DNT = '.metadata > div > div:first-of-type';
-
 let projPath;
+let projJson;
 
 async function fetchData(path) {
   const resp = await daFetch(path);
@@ -17,10 +16,74 @@ async function fetchData(path) {
   return resp.json();
 }
 
+export function formatDate(timestamp) {
+  const rawDate = timestamp ? new Date(timestamp) : new Date();
+  const date = rawDate.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' });
+  const time = rawDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  return { date, time };
+}
+
+export function calculateTime(startTime) {
+  const crawlTime = Date.now() - startTime;
+  return `${String(crawlTime / 1000).substring(0, 4)}s`;
+}
+
+export async function detectService(config) {
+  const name = config['translation.service.name']?.value;
+  if (name === 'GLaaS') {
+    return {
+      name: 'GLaaS',
+      canResave: true,
+      origin: config['translation.service.stage.origin'].value,
+      clientid: config['translation.service.stage.clientid'].value,
+      actions: await import('../glaas/index.js'),
+    };
+  }
+  return {
+    name: 'Google',
+    origin: 'https://translate.da/live',
+    canResave: false,
+    actions: await import('../google/index.js'),
+  };
+}
+
 export async function getDetails() {
   projPath = window.location.hash.replace('#', '');
   const data = await fetchData(`${DA_ORIGIN}/source${projPath}.json`);
   return data;
+}
+
+export function convertUrl({ path, srcLang, destLang }) {
+  const source = path.startsWith(srcLang) ? path : `${srcLang}${path}`;
+  const destSlash = srcLang === '/' ? '/' : '';
+  const destination = path.startsWith(srcLang) ? path.replace(srcLang, `${destLang}${destSlash}`) : `${destLang}${path}`;
+
+  return { source, destination };
+}
+
+export async function saveStatus(json) {
+  // Make a deep (string) copy so the in-memory data is not destroyed
+  const copy = JSON.stringify(json);
+
+  // Only save if the data is different;
+  if (copy === projJson) return json;
+
+  // Store it for future comparisons
+  projJson = copy;
+
+  // Re-parse for other uses
+  const proj = JSON.parse(projJson);
+
+  // Do not persist source content
+  proj.urls.forEach((url) => { delete url.content; });
+
+  const body = new FormData();
+  const file = new Blob([JSON.stringify(proj)], { type: 'application/json' });
+  body.append('data', file);
+  const opts = { body, method: 'POST' };
+  const resp = await daFetch(`${DA_ORIGIN}/source${projPath}.json`, opts);
+  if (!resp.ok) return { error: 'Could not update project' };
+  return json;
 }
 
 async function saveVersion(path, label) {
@@ -31,64 +94,17 @@ async function saveVersion(path, label) {
   return res;
 }
 
-export async function overwriteCopy(url, projectTitle) {
+export async function overwriteCopy(url, title) {
   const body = new FormData();
   body.append('destination', url.destination);
   const opts = { method: 'POST', body };
-
-  return new Promise((resolve) => {
-    (() => {
-      const fetched = daFetch(`${DA_ORIGIN}/copy${url.source}`, opts);
-
-      const timedout = setTimeout(() => {
-        url.status = 'timeout';
-        resolve('timeout');
-      }, DEFAULT_TIMEOUT);
-
-      fetched.then((resp) => {
-        clearTimeout(timedout);
-        url.status = resp.ok ? 'success' : 'error';
-        if (resp.ok) {
-          saveVersion(url.destination, `${projectTitle} - Rolled Out`);
-        }
-        resolve();
-      }).catch(() => {
-        clearTimeout(timedout);
-        url.status = 'error';
-        resolve();
-      });
-    })();
-  });
+  const daResp = await daFetch(`${DA_ORIGIN}/copy${url.source}`, opts);
+  // Don't wait the version save
+  saveVersion(url.destination, `${title} - Rolled Out`);
+  return daResp;
 }
 
 const collapseWhitespace = (str) => str.replace(/\s+/g, ' ');
-
-const capturePics = (dom) => {
-  const imgs = dom.querySelectorAll('picture img');
-  imgs.forEach((img) => {
-    [img.src] = img.getAttribute('src').split('?');
-    const pic = img.closest('picture');
-    pic.parentElement.replaceChild(img, pic);
-  });
-};
-
-const captureDnt = (dom) => {
-  const dntEls = dom.querySelectorAll(`${ROW_DNT}, ${KEY_DNT}`);
-  dntEls.forEach((el) => {
-    el.dataset.innerHtml = el.innerHTML;
-    el.innerHTML = '';
-  });
-  console.log(dom);
-};
-
-const releaseDnt = (dom) => {
-  const dntEls = dom.querySelectorAll('[data-inner-html]');
-  dntEls.forEach((el) => {
-    el.innerHTML = el.dataset.innerHtml;
-    delete el.dataset.innerHtml;
-  });
-  return dom.querySelector('main').innerHTML;
-};
 
 const getHtml = async (url, format = 'dom') => {
   const res = await daFetch(`${DA_ORIGIN}/source${url}`);
@@ -156,60 +172,78 @@ export async function rolloutCopy(url, projectTitle) {
   }
 }
 
-async function sendForTranslation(sourceHtml, toLang) {
-  const body = new FormData();
-  body.append('data', sourceHtml);
-  body.append('fromlang', 'en');
-  body.append('tolang', toLang);
+export async function mergeCopy(url, projectTitle) {
+  try {
+    const regionalCopy = await getHtml(url.destination);
+    if (!regionalCopy) throw new Error('No regional content or error fetching');
 
-  const opts = { method: 'POST', body };
+    const langstoreCopy = await getHtml(url.source);
+    if (!langstoreCopy) throw new Error('No langstore content or error fetching');
 
-  const resp = await fetch('https://translate.da.live/translate', opts);
-  if (!resp.ok) {
-    console.log(resp.status);
-    return null;
+    removeLocTags(regionalCopy);
+
+    if (langstoreCopy.querySelector('main').outerHTML === regionalCopy.querySelector('main').outerHTML) {
+      console.log('no changes');
+      // No differences, don't need to do anything
+      url.status = 'success';
+      return { ok: true };
+    }
+
+    // There are differences, upload the annotated loc file
+    const diffedMain = await regionalDiff(langstoreCopy, regionalCopy);
+
+    const daUrl = getDaUrl(url);
+    const { daResp } = await saveToDa(diffedMain.innerHTML, daUrl);
+    return daResp;
+  } catch (e) {
+    return overwriteCopy(url, projectTitle);
   }
-  const json = await resp.json();
-  return json.translated;
 }
 
-export async function translateCopy(toLang, url, projectTitle) {
-  const dom = await getHtml(url.source);
-  captureDnt(dom);
-  capturePics(dom);
-  const dntedHtml = dom.querySelector('main').outerHTML;
-  const translated = await sendForTranslation(dntedHtml, toLang);
+export async function saveLangItems(sitePath, items, lang) {
+  return Promise.all(items.map(async (item) => {
+    const html = await item.blob.text();
+    const dom = PARSER.parseFromString(html, 'text/html');
+    const dntedHtml = releaseDnt(dom);
+    console.log(dntedHtml);
 
-  if (translated) {
-    return new Promise((resolve) => {
-      (() => {
-        const translatedDom = PARSER.parseFromString(translated, 'text/html');
+    const blob = new Blob([dntedHtml], { type: 'text/html' });
 
-        const mainHtml = releaseDnt(translatedDom);
+    const path = `${sitePath}${lang.location}${item.basePath}`;
+    const body = new FormData();
+    body.append('data', blob);
+    const opts = { body, method: 'POST' };
+    try {
+      const resp = await daFetch(`${DA_ORIGIN}/source${path}`, opts);
+      return { success: resp.status };
+    } catch {
+      return { error: 'Could not save documents' };
+    }
+  }));
+}
 
-        const saved = saveToDa(mainHtml, getDaUrl(url));
+/**
+ * Run a function with a maximum timeout.
+ * If the timeout limit hits, resolve the still in progress promise.
+ *
+ * @param {Function} fn the function to run
+ * @param {Number} timeout the miliseconds to wait before timing out.
+ * @returns the results of the function
+ */
+export async function timeoutWrapper(fn, timeout = DEFAULT_TIMEOUT) {
+  return new Promise((resolve) => {
+    const loading = fn();
 
-        const timedout = setTimeout(() => {
-          url.status = 'timeout';
-          resolve('timeout');
-        }, DEFAULT_TIMEOUT);
+    const timedout = setTimeout(() => {
+      resolve({ error: 'timeout', loading });
+    }, timeout);
 
-        saved.then((daResp) => {
-          clearTimeout(timedout);
-          url.status = daResp.ok ? 'success' : 'error';
-          if (daResp.ok) {
-            saveVersion(url.destination, `${projectTitle} Translated`);
-          }
-          resolve();
-        }).catch(() => {
-          clearTimeout(timedout);
-          url.status = 'error';
-          resolve();
-        });
-      })();
+    loading.then((result) => {
+      clearTimeout(timedout);
+      resolve(result);
+    }).catch((error) => {
+      clearTimeout(timedout);
+      resolve({ error });
     });
-  }
-
-  url.status = 'error';
-  return null;
+  });
 }

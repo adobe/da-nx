@@ -121,6 +121,10 @@ input[type="text"] {
 
 h3 {
   line-height: 1;
+  margin: 0;
+}
+
+.lang-group.has-locales h3 {
   margin: 0 0 var(--spacing-200);
 }
 

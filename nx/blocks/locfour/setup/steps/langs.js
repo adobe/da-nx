@@ -3,6 +3,7 @@ import { getConfig } from '../../../../scripts/nexter.js';
 import { daFetch } from '../../../../utils/daFetch.js';
 import getStyle from '../../../../utils/styles.js';
 import getSvg from '../../../../utils/svg.js';
+import normalizeUrls from '../../project/new.js';
 
 const { nxBase } = getConfig();
 const style = await getStyle(import.meta.url);
@@ -14,7 +15,7 @@ const ICONS = [
 ];
 
 const DA_ORIGIN = 'https://admin.da.live';
-const PROJ_PATH = '/localization/projects/active';
+const PROJ_PATH = '/.da/translation/projects/active';
 
 class NxLocLangs extends LitElement {
   static properties = {
@@ -22,6 +23,7 @@ class NxLocLangs extends LitElement {
     org: { attribute: false },
     repo: { attribute: false },
     urls: { attribute: false },
+    config: { attribute: false },
     langs: { attribute: false },
   };
 
@@ -36,29 +38,31 @@ class NxLocLangs extends LitElement {
   }
 
   async handleLangsStep(options) {
-    const sourceLang = this.langs.find((lang) => lang.language === this.config['source.language']?.value);
-
-    const langs = this.langs.reduce((acc, lang) => {
-      const { action, locales, location, language: name, code } = lang;
-
-      if (lang.action) {
-        acc.push({ action, locales, location, name, code });
-      }
-      return acc;
-    }, []);
+    const langs = this.langs.filter((lang) => lang.action);
+    langs.forEach((lang) => {
+      lang.rollout = {
+        status: lang.action === 'rollout' ? 'ready' : 'not started',
+        ready: lang.action === 'rollout' ? this.urls.length : undefined,
+      };
+      lang.translation = { status: lang.action === 'rollout' ? 'complete' : 'not started' };
+    });
 
     const project = {
       title: this.title,
       org: this.org,
       site: this.repo,
+      config: this.config,
       options,
-      sourceLang,
       langs,
-      urls: this.urls.map((url) => ({
-        pathname: url.pathname,
-        extpath: url.extPath,
-      })),
+      urls: normalizeUrls(this.urls, langs),
     };
+
+    // If project has a sourceLang, use it. Otherwise, use the root of the site.
+    if (this.config['source.language']) {
+      project.sourceLang = this.langs.find((lang) => lang.name === this.config['source.language'].value);
+    } else {
+      project.sourceLang = { location: '/' };
+    }
 
     const time = Date.now();
     const body = new FormData();
@@ -83,12 +87,18 @@ class NxLocLangs extends LitElement {
   }
 
   getConflictOpts(name) {
+    // Translate does not support merge (for now)
+    if (name === 'translate.conflict.behavior') {
+      return ['overwrite'];
+    }
+
     if (this.config[name]) {
       return [
         this.config[name].value,
         this.config[name].value === 'merge' ? 'overwrite' : 'merge',
       ];
     }
+
     return [
       'overwrite',
       'merge',
@@ -176,9 +186,10 @@ class NxLocLangs extends LitElement {
           ` : nothing}
         </div>
         ${this.langs.map((lang) => html`
+        ${lang.actions !== '' ? html`
           <div class="lang-group ${lang.locales ? 'has-locales' : ''}">
             <div class="lang-heading">
-              <h3>${lang.language}</h3>
+              <h3>${lang.name}</h3>
               <select @change=${(e) => this.handleChangeAction(e.target.value, lang)}>
                 <option value="">Skip</option>
                 ${lang.actions.split(', ').map((action) => html`
@@ -187,8 +198,8 @@ class NxLocLangs extends LitElement {
               </select>
             </div>
             ${lang.locales ? this.renderLocales(lang) : nothing}
-          </div>
-        </div>
+          </div>` : nothing}
+      </div>
       `)}
     `;
   }

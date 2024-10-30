@@ -26,6 +26,7 @@ class NxLocDetails extends LitElement {
 
     // Split and de-dupe
     let urls = [...new Set(rawUrls.split('\n'))];
+    urls = urls.filter((url) => url);
 
     // Convert to proper URLs
     urls = urls.map((url) => new URL(url));

@@ -27,6 +27,15 @@ input {
   align-items: center;
 }
 
+.da-list-actions {
+  display: flex;
+  gap: var(--spacing-400);
+}
+
+.da-list-actions button {
+  display: block;
+}
+
 ul {
   list-style: none;
   margin: 0;

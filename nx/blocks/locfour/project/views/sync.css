@@ -1,0 +1,35 @@
+ul {
+  list-style: none;
+  margin: var(--spacing-400) 0;
+  padding: 0;
+}
+
+li {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr 24px;
+  gap: 48px;
+  padding: var(--spacing-400) var(--spacing-400);
+  box-sizing: border-box;
+  border-top: 1px solid rgb(229 229 229);
+  border-bottom: 1px solid rgb(229 229 229);
+  margin: -1px 0;
+}
+
+.da-loc-sync-check {
+  width: 48px;
+  background: green;
+  position: absolute;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  opacity: 0;
+  transition: opacity 0.2s ease-in-out;
+}
+
+.da-loc-sync-check.is-visible {
+  opacity: 1;
+}

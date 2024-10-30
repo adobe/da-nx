@@ -4,10 +4,6 @@
   margin: var(--spacing-800) auto;
 }
 
-:host > svg {
-  display: none;
-}
-
 h1,
 h2,
 h3,
@@ -16,6 +12,16 @@ h5,
 h6 {
   line-height: 1;
   margin: 0;
+}
+
+nx-loc-sync,
+nx-loc-translate,
+nx-loc-rollout {
+  background: #f7f7f7;
+  display: block;
+  border-radius: 16px;
+  padding: var(--spacing-400);
+  margin-bottom: var(--spacing-400);
 }
 
 .da-loc-detail-org {
@@ -29,121 +35,5 @@ h6 {
 .da-loc-detail-title {
   line-height: 1;
   font-size: 36px;
-  margin-bottom: var(--spacing-400);
-}
-
-.da-loc-box {
-  background: #b5e6fc;
-  padding: var(--spacing-400);
-  border-radius: var(--s2-radius-100);
-  margin-bottom: var(--spacing-400);
-}
-
-.da-loc-sync-source {
-  background: #d7f7e1;
-}
-
-.da-loc-sync-url {
-  display: flex;
-  justify-content: space-between;
-}
-
-.da-loc-box-title {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: var(--spacing-400);
-}
-
-.behavior-value {
-  font-weight: 400;
-}
-
-.da-loc-box ul {
-  list-style: none;
-  margin: 1em 0;
-  padding: 0;
-}
-
-.da-loc-rollout {
-  background: #efefef;
-}
-
-.da-lang-cards {
-  display: grid;
-  gap: var(--spacing-400);
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  margin-bottom: var(--spacing-400);
-}
-
-.da-lang-card {
-  background: #fff;
-  border-radius: var(--s2-radius-100);
-  overflow: hidden;
-}
-
-.da-lang-card.translate {
-  background: rgb(164 208 228);
-}
-
-.da-loc-card-details {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--spacing-400);
-}
-
-.da-lang-card.rollout .da-loc-card-details {
-  grid-template-columns: 1fr 1fr 1fr;
-}
-
-.da-loc-card-details h4 {
-  text-transform: uppercase;
-  font-size: var(--s2-font-size-100);
-  line-height: 1;
-  margin: 0 0 var(--spacing-75);
-}
-
-.da-loc-card-details p {
-  font-size: var(--s2-font-size-400);
-  line-height: 1.2;
-  margin: 0 0 var(--spacing-400);
-}
-
-.da-card-top {
-  min-height: 100px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  position: relative;
-  background: var(--s2-gray-700);
-  padding: var(--spacing-400) var(--spacing-400) 0 var(--spacing-400);
-  color: rgb(255 255 255);
-}
-
-.da-lang-card.translate .da-card-top {
-  background: none;
-  color: #000;
-}
-
-.da-card-bottom {
-  padding: var(--spacing-400);
-}
-
-.da-card-sub-title {
-  text-transform: uppercase;
-  font-size: var(--s2-font-size-100);
-  line-height: 1;
-  font-weight: 700;
-  margin: 0 0 var(--spacing-75);
-}
-
-.da-card-title {
-  font-size: var(--s2-font-size-400);
-  line-height: 1.2;
-  margin: 0;
-}
-
-.da-loc-card-locales {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--spacing-200);
   margin-bottom: var(--spacing-400);
 }

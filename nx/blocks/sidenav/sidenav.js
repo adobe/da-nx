@@ -35,12 +35,15 @@ class SideNav extends HTMLElement {
     const list = doc.querySelector('ul');
     await this.decorateIcons(list);
 
-    if (window.location.hash && window.location.hash.startsWith('#/')) {
-      const [org, repo] = window.location.hash.slice(2).split('/');
-      if (org && repo) {
-        const appLink = doc.querySelector('[title="Edge Delivery Apps"]');
-        appLink.href = `${appLink.href}#/${org}/${repo}`;
-      }
+    const appLink = doc.querySelector('[title="Edge Delivery Apps"]');
+    if (appLink) {
+      appLink.addEventListener('click', (e) => {
+        if (window.location.hash?.startsWith('#/')) {
+          e.preventDefault();
+          const [org, repo] = window.location.hash.slice(2).split('/');
+          if (org && repo) window.open(`${appLink.href}#/${org}/${repo}`, '_apps');
+        }
+      });
     }
 
     const inner = document.createElement('div');

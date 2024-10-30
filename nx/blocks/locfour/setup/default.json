@@ -27,31 +27,31 @@
       "offset": 0,
       "data": [
           {
-              "language": "English",
+              "name": "English",
               "code": "en",
               "location": "/en",
               "actions": "Translate"
           },
           {
-              "language": "German",
+              "name": "German",
               "code": "de",
               "location": "/de",
               "actions": "Translate"
           },
           {
-              "language": "French",
+              "name": "French",
               "code": "fr",
               "location": "/fr",
               "actions": "Translate"
           },
           {
-              "language": "Chinese (Simplified)",
+              "name": "Chinese (Simplified)",
               "code": "zh",
               "location": "/cn",
               "actions": "Translate"
           },
           {
-              "language": "Japanese",
+              "name": "Japanese",
               "code": "ja",
               "location": "/ja",
               "actions": "Translate"

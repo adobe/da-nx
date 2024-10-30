@@ -1,0 +1,181 @@
+:host > svg {
+  display: none;
+}
+
+h3,
+p {
+  margin: 0;
+  line-height: 1.1;
+}
+
+.quiet {
+  font-weight: 400;
+}
+
+.da-loc-panel-title {
+  display: flex;
+  justify-content: space-between;
+}
+
+.da-loc-panel-subtitle {
+  margin-top: var(--spacing-50);
+}
+
+.da-loc-panel-title-expand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.da-loc-panel-expand-btn {
+  border: none;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  transition: transform 0.2s ease-in-out;
+  background: #e8e6e6;
+  width: 32px;
+  height: 32px;
+  border-radius: 16px;
+  padding: 0 0 0 2px;
+  box-sizing: border-box;
+}
+
+.da-loc-panel-expand-btn.rotate {
+  transform: rotate(90deg);
+}
+
+.da-loc-panel-content {
+  display: none;
+  margin-top: var(--spacing-400);
+}
+
+.da-loc-panel-content.is-visible {
+  display: block;
+}
+
+.da-loc-panel-actions {
+  min-height: 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: var(--spacing-400);
+}
+
+.da-loc-panel-actions p {
+  margin: 0;
+}
+
+.da-lang-cards {
+  display: grid;
+  gap: var(--spacing-400);
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  margin-bottom: var(--spacing-400);
+}
+
+.da-lang-card {
+  position: relative;
+  background: #fff;
+  box-shadow: rgb(0 0 0 / 8%) 0 0 16px, rgb(0 0 0 / 12%) 0 3px 6px;
+  border-radius: var(--s2-radius-100);
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+}
+
+.da-card-header {
+  display: flex;
+  align-items: center;
+  min-height: 100px;
+  padding: var(--spacing-400);
+  box-sizing: border-box;
+  background: #676767;
+  color: #fff;
+}
+
+.da-card-header.translated,
+.da-card-header.rolling-out,
+.da-card-header.saving {
+  background: #087e89;
+}
+
+.da-card-header.ready,
+.da-card-header.created,
+.da-card-header.uploading,
+.da-card-header.uploaded,
+.da-card-header.sending {
+  background: #0b78b3;
+}
+
+.da-card-header.complete {
+  background: #05834e;
+}
+
+.da-card-subtitle {
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 14px;
+  margin-bottom: var(--spacing-75);
+}
+
+.da-card-title {
+  font-size: 18px;
+}
+
+.da-card-badge {
+  position: absolute;
+  top: var(--spacing-200);
+  right: 0;
+  background: rgb(0 0 0 / 20%);
+  padding: 4px 6px 5px;
+  border-radius: 4px 0 0 4px;
+  line-height: 1;
+  font-size: 14px;
+  text-transform: uppercase;
+}
+
+.da-card-content {
+  padding: var(--spacing-400);
+  box-sizing: border-box;
+}
+
+.da-card-details {
+  display: grid;
+  grid-template-columns: 1fr 1.1fr 0.9fr;
+  margin-bottom: var(--spacing-400);
+}
+
+.da-card-details.rollout {
+  grid-template-columns: 1fr 1fr;
+}
+
+.da-card-locales {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-200);
+  margin-bottom: var(--spacing-200);
+  align-self: start;
+}
+
+.da-card-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 var(--spacing-400) var(--spacing-400) var(--spacing-400);
+}
+
+.da-card-date-heading {
+  color: var(--s2-gray-700);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.da-card-date {
+  color: var(--s2-gray-700);
+  font-size: 14px;
+}
+
+.icon {
+  width: 18px;
+  height: 18px;
+}

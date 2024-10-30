@@ -35,6 +35,16 @@ customElements.define('nx-loc', NxLoc);
 
 export default async function init(el) {
   const isHashPath = (hash) => hash.startsWith('#/');
+  try {
+    const currentProject = localStorage.getItem('currentProject');
+    if (currentProject) {
+      localStorage.setItem('prevHash', window.location.hash);
+      localStorage.removeItem('currentProject');
+      window.location.hash = currentProject;
+    }
+  } catch (e) {
+    console.log(e);
+  }
 
   imsDetails = await loadIms();
   if (!imsDetails.accessToken) {
