@@ -40,7 +40,8 @@ export async function sendAllLanguages(title, service, langs, urls) {
     const success = urlResults.filter((result) => result).length;
     lang.translation.translated = success;
     if (success === urls.length) {
-      lang.translation.status = 'translated';
+      lang.translation.translated = urls.length;
+      lang.translation.status = 'created';
       results[lang.code] = urlResults;
     }
   }));

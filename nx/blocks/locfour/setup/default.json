@@ -33,6 +33,12 @@
               "actions": "Translate"
           },
           {
+            "name": "Spanish",
+            "code": "es",
+            "location": "/es",
+            "actions": "Translate"
+          },
+          {
               "name": "German",
               "code": "de",
               "location": "/de",

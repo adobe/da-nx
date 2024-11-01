@@ -78,7 +78,11 @@ class NxLocSync extends LitElement {
   }
 
   get _canSync() {
-    return this.langs.some((lang) => lang.translation.status === 'not started');
+    // Only allow sync if translation has not been started
+    // or the language is the same as the source lang.
+    return this.langs.some(
+      (lang) => lang.translation.status === 'not started' || lang.location === this.sourceLang.location,
+    );
   }
 
   renderDate() {
