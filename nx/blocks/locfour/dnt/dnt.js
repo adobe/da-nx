@@ -2,7 +2,8 @@ import { DA_ORIGIN } from '../../../public/utils/constants.js';
 import { daFetch } from '../../../utils/daFetch.js';
 
 const ROW_DNT = '.section-metadata > div';
-const KEY_DNT = '.metadata > div > div:first-of-type';
+const KEY_DNT = '.metadata > div';
+const OPT_IN_KEYS = ['title', 'description'];
 
 const RESP_ERROR = { error: 'Error fetching document for DNT.' };
 
@@ -21,9 +22,17 @@ function capturePics(dom) {
 function captureDnt(dom) {
   const dntEls = dom.querySelectorAll(`${ROW_DNT}, ${KEY_DNT}`);
   dntEls.forEach((el) => {
-    el.dataset.innerHtml = el.innerHTML;
-    el.innerHTML = '';
+    const keyEl = el.querySelector(':scope > div');
+    const translateValue = OPT_IN_KEYS.some((key) => key === keyEl.textContent.toLowerCase());
+    if (!translateValue) {
+      el.dataset.innerHtml = el.innerHTML;
+      el.innerHTML = '';
+      return;
+    }
+    keyEl.dataset.innerHtml = keyEl.innerHTML;
+    keyEl.innerHTML = '';
   });
+  console.log(dom.querySelector('.metadata'));
   return dom.documentElement.outerHTML;
 }
 

@@ -17,6 +17,10 @@ const sectionBlock = {
 
 const isList = (block) => ['OL', 'UL'].includes(block.nodeName);
 
+function normalizeHTML(html) {
+  return html.replace(/>\s+</g, '><').trim();
+}
+
 function getLists(result) {
   const addedLists = [];
   const deletedLists = [];
@@ -207,7 +211,7 @@ function getBlockMap(dom) {
   blocks = groupBlocks(blocks);
 
   return blocks.map((block) => {
-    const stringToHash = block.outerHTML || blockGroupToStr(block);
+    const stringToHash = normalizeHTML(block.outerHTML || blockGroupToStr(block));
     const hash = objectHash(stringToHash);
     return { block, hash };
   });
