@@ -17,7 +17,7 @@ const sectionBlock = {
 
 const isList = (block) => ['OL', 'UL'].includes(block.nodeName);
 
-function normalizeHTML(html) {
+export function normalizeHTML(html) {
   return html.replace(/>\s+</g, '><').trim();
 }
 
