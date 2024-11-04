@@ -1,34 +1,43 @@
 import { expect } from '@esm-bundle/chai';
-
-function convertUrl(path, srcLang, destLang) {
-  const srcPath = path.startsWith(srcLang) ? path : `${srcLang}${path}`;
-  const destSlash = srcLang === '/' ? '/' : '';
-  const destPath = path.startsWith(srcLang) ? path.replace(srcLang, `${destLang}${destSlash}`) : `${destLang}${path}`;
-
-  return { source: srcPath, destination: destPath };
-}
+import { convertUrl } from '../../nx/blocks/locfour/project/index.js';
 
 describe('URL conversion', () => {
   it('Converts root URL to source language URL', () => {
-    const url = convertUrl('/my-cool/path', '/en', '/fr');
+    const url = convertUrl({
+      path: '/my-cool/path',
+      srcLang: '/en',
+      destLang: '/fr',
+    });
     expect(url.source).to.equal('/en/my-cool/path');
     expect(url.destination).to.equal('/fr/my-cool/path');
   });
 
   it('Respects source language URL', () => {
-    const url = convertUrl('/en/my-cool/path', '/en', '/fr');
+    const url = convertUrl({
+      path: '/en/my-cool/path',
+      srcLang: '/en',
+      destLang: '/fr',
+    });
     expect(url.source).to.equal('/en/my-cool/path');
     expect(url.destination).to.equal('/fr/my-cool/path');
   });
 
   it('Respects root language URL', () => {
-    const url = convertUrl('/my-cool/path', '/', '/fr');
+    const url = convertUrl({
+      path: '/my-cool/path',
+      srcLang: '/',
+      destLang: '/fr',
+    });
     expect(url.source).to.equal('/my-cool/path');
     expect(url.destination).to.equal('/fr/my-cool/path');
   });
 
   it('Respects root language page', () => {
-    const url = convertUrl('/en', '/en', '/fr');
+    const url = convertUrl({
+      path: '/en',
+      srcLang: '/en',
+      destLang: '/fr',
+    });
     expect(url.source).to.equal('/en');
     expect(url.destination).to.equal('/fr');
   });
