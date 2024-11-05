@@ -27,6 +27,10 @@ class NxLocCheck extends LitElement {
     return `https://main--${this.repo}--${this.org}.hlx.page`;
   }
 
+  get projectSubDomain() {
+    return `https://main--${this.repo}--${this.org}`;
+  }
+
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style, buttons];
@@ -39,7 +43,7 @@ class NxLocCheck extends LitElement {
       const attr = a.getAttribute('href');
 
       // Don't add any off-origin fragments
-      if (!(attr.startsWith('/') || attr.startsWith(this.origin))) return acc;
+      if (!attr.startsWith(this.projectSubDomain)) return acc;
 
       // Convert relative to current project origin
       const url = new URL(attr, this.origin);

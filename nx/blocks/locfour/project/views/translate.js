@@ -193,7 +193,6 @@ class NxLocTranslate extends LitElement {
   }
 
   get _canTranslate() {
-    return true;
     return this.langs.some((lang) => lang.translation.status === 'not started');
   }
 
