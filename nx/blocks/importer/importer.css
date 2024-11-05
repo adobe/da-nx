@@ -40,7 +40,7 @@ label {
 
 .cors-note {
   background: var(--s2-blue-800);
-  color: #FFF;
+  color: #fff;
   border-radius: 4px;
   padding: 4px 8px;
 }
@@ -95,18 +95,19 @@ input[type="text"] {
   user-select: none;
 }
 
-.status-200 {
-  color: #FFF;
+.status-200,
+.status-201 {
+  color: #fff;
   background: #00773f;
 }
 
 .status-404 {
-  color: #FFF;
+  color: #fff;
   background: #f73b26;
 }
 
 .status-403 {
-  color: #FFF;
+  color: #fff;
   background: #da5f00;
 }
 

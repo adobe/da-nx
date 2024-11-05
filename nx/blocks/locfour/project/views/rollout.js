@@ -53,6 +53,13 @@ class NxLocRollout extends LitElement {
           const resp = await mergeCopy({ source, destination }, this.title);
           if (resp.ok || resp.error === 'timeout') {
             lang.rolledOut += 1;
+
+            if (lang.rolledOut === items.length) {
+              lang.rollout.status = 'complete';
+              lang.rolloutDate = Date.now();
+              lang.rolloutTime = calculateTime(startTime);
+            }
+
             this.requestUpdate();
           } else {
             console.log('there was an error');
@@ -66,13 +73,6 @@ class NxLocRollout extends LitElement {
 
     const queue = new Queue(timeoutWrapper, 50);
     await Promise.all(items.map((item) => queue.push(item)));
-    if (lang.rolledOut === items.length) {
-      lang.rollout.status = 'complete';
-      lang.rolloutDate = Date.now();
-      lang.rolloutTime = calculateTime(startTime);
-    } else {
-      lang.rollout.status = 'ready';
-    }
     saveStatus(this.state);
     this.requestUpdate();
   }

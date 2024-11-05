@@ -1,4 +1,4 @@
-const DA_ORIGIN = 'https://admin.da.live';
+import { DA_ORIGIN } from '../public/utils/constants.js';
 
 let imsDetails;
 
@@ -34,27 +34,32 @@ export const daFetch = async (url, opts = {}) => {
   return resp;
 };
 
-export async function saveToDa(text, url) {
-  const daPath = `/${url.org}/${url.repo}${url.pathname}`;
-  const daHref = `https://da.live/edit#${daPath}`;
-
-  let innerHtml = text;
-
-  if (url.originRepo && url.originOrg) {
-    const origin = `https://main--${url.originRepo}--${url.originOrg}.hlx.live`;
-    innerHtml = text
-      .replaceAll('./media', `${origin}/media`)
-      .replaceAll('href="/', `href="${origin}/`);
+function replaceHtml(text, fromOrg, fromRepo) {
+  let inner = text;
+  if (fromOrg && fromRepo) {
+    const fromOrigin = `https://main--${fromRepo}--${fromOrg}.hlx.live`;
+    inner = text
+      .replaceAll('./media', `${fromOrigin}/media`)
+      .replaceAll('href="/', `href="${fromOrigin}/`);
   }
 
-  const full = `
+  return `
     <body>
       <header></header>
-      <main>${innerHtml}</main>
+      <main>${inner}</main>
       <footer></footer>
     </body>
   `;
-  const blob = new Blob([full], { type: 'text/html' });
+}
+
+export async function saveToDa(text, url) {
+  const daPath = `/${url.org}/${url.repo}${url.pathname}`;
+  const daHref = `https://da.live/edit#${daPath}`;
+  const { org, repo } = url;
+
+  const body = replaceHtml(org, repo, text);
+
+  const blob = new Blob([body], { type: 'text/html' });
   const formData = new FormData();
   formData.append('data', blob);
   const opts = { method: 'PUT', body: formData };
@@ -64,5 +69,34 @@ export async function saveToDa(text, url) {
   } catch {
     console.log(`Couldn't save ${url.daUrl}`);
     return null;
+  }
+}
+
+function getBlob(url, content) {
+  const body = url.type === 'json'
+    ? content : replaceHtml(content, url.fromOrg, url.fromRepo);
+
+  const type = url.type === 'json' ? 'application/json' : 'text/html';
+
+  return new Blob([body], { type });
+}
+
+export async function saveAllToDa(url, content) {
+  const { toOrg, toRepo, destPath, editPath, type } = url;
+
+  const route = type === 'json' ? '/sheet' : '/edit';
+  url.daHref = `https://da.live${route}#/${toOrg}/${toRepo}${editPath}`;
+
+  const blob = getBlob(url, content);
+  const body = new FormData();
+  body.append('data', blob);
+  const opts = { method: 'PUT', body };
+
+  try {
+    const resp = await daFetch(`${DA_ORIGIN}/source/${toOrg}/${toRepo}${destPath}`, opts);
+    return resp.status;
+  } catch {
+    console.log(`Couldn't save ${destPath}`);
+    return 500;
   }
 }

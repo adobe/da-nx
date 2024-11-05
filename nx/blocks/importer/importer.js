@@ -1,12 +1,13 @@
 import { LitElement, html, nothing } from '../../deps/lit/lit-core.min.js';
 import { getConfig } from '../../scripts/nexter.js';
 import getStyle from '../../utils/styles.js';
-import makeBatches from '../../utils/batch.js';
-import importUrl from './index.js';
+import importAll from './index.js';
 
 const { nxBase } = getConfig();
 const style = await getStyle(import.meta.url);
 const buttons = await getStyle(`${nxBase}/styles/buttons.js`);
+
+const MOCK_URLS = 'https://main--bacom--adobecom.hlx.live/customer-success-stories/xfinity-creative-customer-story\nhttps://main--bacom--adobecom.hlx.live/placeholders.json\nhttps://main--bacom--adobecom.hlx.live/\nhttps://main--bacom--adobecom.hlx.live/blah';
 
 class NxImporter extends LitElement {
   static properties = {
@@ -36,27 +37,17 @@ class NxImporter extends LitElement {
     this.statusDialog.showModal();
   }
 
-  async batchImport() {
+  async import() {
+    this._isImporting = true;
     performance.mark('start-import');
 
-    // Batch requests
-    const batches = makeBatches(this._urls);
-
-    // Send them
-    for (const batch of batches) {
-      await Promise.all(batch.map(async (url) => importUrl(url)));
-      this._urls = [...this._urls];
-    }
+    const requestUpdate = this.requestUpdate.bind(this);
+    await importAll(this._urls, requestUpdate);
 
     performance.mark('end-import');
     performance.measure('import', 'start-import', 'end-import');
     const replaceTime = performance.getEntriesByName('import')[0].duration;
-    this.setStatus(`Import took: ${String((replaceTime / 1000) / 60).substring(0, 4)} minutes`, 'info');
-  }
-
-  async import() {
-    this._isImporting = true;
-    await this.batchImport();
+    this.setStatus(`Import of ${this._urls.length} URLs took: ${String((replaceTime / 1000) / 60).substring(0, 4)} minutes`, 'info');
     this._isImporting = false;
   }
 
@@ -77,15 +68,15 @@ class NxImporter extends LitElement {
       const json = await resp.json();
       this._urls = json.data.map(({ path }) => {
         const url = new URL(path, origin);
-        url.org = data.org;
-        url.repo = data.repo;
+        url.toOrg = data.org;
+        url.toRepo = data.repo;
         return url;
       });
     } else if (data.urls) {
       this._urls = [...new Set(data.urls.split('\n'))].map((href) => {
         const url = new URL(href);
-        url.org = data.org;
-        url.repo = data.repo;
+        url.toOrg = data.org;
+        url.toRepo = data.repo;
         return url;
       });
     }
@@ -99,6 +90,32 @@ class NxImporter extends LitElement {
 
   get statusDialog() {
     return this.shadowRoot.querySelector('.da-import-status');
+  }
+
+  get _errors() {
+    return this._urls.filter((url) => url.status > 299);
+  }
+
+  renderUrls(title, urls) {
+    return html`
+      <h2>${title}</h2>
+      <ul class="results">
+        <li>
+          <div class="path">Source</div>
+          <div class="status">Status</div>
+          <div class="link">Link</div>
+        </li>
+        ${urls.map((url) => html`
+          <li>
+            <div class="path">${url.href}</div>
+            <div class="status status-${url.status}">${url.status}</div>
+            <div class="link">
+              ${url.status < 400 ? html`<a href=${url.daHref} target="_blank">Edit</a>` : nothing}
+            </div>
+          </li>
+        `)}
+      </ul>
+    `;
   }
 
   render() {
@@ -134,22 +151,8 @@ class NxImporter extends LitElement {
         <div class="form-row">
           <input type="submit" value="${this._isImporting ? 'Importing' : 'Import'}" class="accent" ?disabled=${this._isImporting} />
         </div>
-        <ul class="results">
-          <li>
-            <div class="path">Source</div>
-            <div class="status">Status</div>
-            <div class="link">Link</div>
-          </li>
-          ${this._urls.map((url) => html`
-            <li>
-              <div class="path">${url.href}</div>
-              <div class="status status-${url.status}">${url.status}</div>
-              <div class="link">
-                ${url.status === 200 ? html`<a href=${url.daHref} target="_blank">Edit</a>` : nothing}
-              </div>
-            </li>
-          `)}
-        </ul>
+        ${this._errors?.length > 0 ? this.renderUrls('Errors', this._errors) : nothing}
+        ${this._urls?.length > 0 ? this.renderUrls('All URLs', this._urls) : nothing}
       </form>
     `;
   }
