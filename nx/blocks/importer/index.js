@@ -61,7 +61,7 @@ async function importUrl(url) {
   const path = href.endsWith('/') ? `${pathname}index` : pathname;
   const srcPath = isJson ? path : `${path}.md`;
   url.destPath = isJson ? path : `${path}.html`;
-  url.editPath = isJson ? path.replace('.json') : path;
+  url.editPath = isJson ? path.replace('.json', '') : path;
   url.type = isJson ? 'json' : 'html';
 
   try {
