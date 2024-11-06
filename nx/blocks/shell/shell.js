@@ -17,7 +17,7 @@ function getParts() {
 function getUrl() {
   const { org, repo, ref, path } = getParts();
   if (ref === 'local') return `http://localhost:3000/${path}.html`;
-  return `https://${ref}--${repo}--${org}.hlx.live/${path}.html`;
+  return `https://${ref}--${repo}--${org}.aem.live/${path}.html`;
 }
 
 function handleLoad({ target }) {
