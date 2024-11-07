@@ -115,6 +115,10 @@ input[type="text"] {
   text-align: right;
 }
 
+.link a {
+  user-select: none;
+}
+
 dialog {
   border-radius: 8px;
   border: none;
