@@ -57,7 +57,7 @@ export async function saveToDa(text, url) {
   const daHref = `https://da.live/edit#${daPath}`;
   const { org, repo } = url;
 
-  const body = replaceHtml(org, repo, text);
+  const body = replaceHtml(text, org, repo);
 
   const blob = new Blob([body], { type: 'text/html' });
   const formData = new FormData();

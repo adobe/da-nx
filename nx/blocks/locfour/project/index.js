@@ -191,6 +191,7 @@ export async function mergeCopy(url, projectTitle) {
 
     // There are differences, upload the annotated loc file
     const diffedMain = await regionalDiff(langstoreCopy, regionalCopy);
+    console.log(diffedMain);
 
     const daUrl = getDaUrl(url);
     const { daResp } = await saveToDa(diffedMain.innerHTML, daUrl);
