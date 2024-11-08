@@ -59,6 +59,8 @@ class NxImporter extends LitElement {
       return;
     }
 
+    this._urls = [];
+
     if (data.index) {
       const { origin } = new URL(data.index);
       const resp = await fetch(data.index);
