@@ -1,7 +1,7 @@
 import { LitElement, html, nothing } from '../../deps/lit/lit-core.min.js';
 import { getConfig } from '../../scripts/nexter.js';
 import getStyle from '../../utils/styles.js';
-import importAll from './index.js';
+import { importAll, calculateTime } from './index.js';
 
 const { nxBase } = getConfig();
 const style = await getStyle(import.meta.url);
@@ -39,15 +39,13 @@ class NxImporter extends LitElement {
 
   async import() {
     this._isImporting = true;
-    performance.mark('start-import');
+    const startTime = Date.now();
 
     const requestUpdate = this.requestUpdate.bind(this);
     await importAll(this._urls, requestUpdate);
 
-    performance.mark('end-import');
-    performance.measure('import', 'start-import', 'end-import');
-    const replaceTime = performance.getEntriesByName('import')[0].duration;
-    this.setStatus(`Import of ${this._urls.length} URLs took: ${String((replaceTime / 1000) / 60).substring(0, 4)} minutes`, 'info');
+    const time = calculateTime(startTime);
+    this.setStatus(`Import of ${this._urls.length} URLs took: ${time} minutes`, 'info');
     this._isImporting = false;
   }
 
@@ -72,14 +70,18 @@ class NxImporter extends LitElement {
         url.toRepo = data.repo;
         return url;
       });
-    } else if (data.urls) {
-      this._urls = [...new Set(data.urls.split('\n'))].map((href) => {
+    }
+
+    if (data.urls) {
+      const manualUrls = [...new Set(data.urls.split('\n'))].map((href) => {
         const url = new URL(href);
         url.toOrg = data.org;
         url.toRepo = data.repo;
         return url;
       });
+      this._urls.unshift(...manualUrls);
     }
+
     if (!this._urls || this._urls.length === 0) {
       this.setStatus('No URLs to import.');
       return;
@@ -88,17 +90,28 @@ class NxImporter extends LitElement {
     this.import();
   }
 
+  handleCopy(title) {
+    const urls = title === 'Errors' ? this._errors : this._urls;
+    const aemPaths = urls.map((url) => url.href);
+    const blob = new Blob([aemPaths.join('\n')], { type: 'text/plain' });
+    const data = [new ClipboardItem({ [blob.type]: blob })];
+    navigator.clipboard.write(data);
+  }
+
   get statusDialog() {
     return this.shadowRoot.querySelector('.da-import-status');
   }
 
   get _errors() {
-    return this._urls.filter((url) => url.status > 299);
+    return this._urls.filter((url) => url.status > 299 || url.status === 'error');
   }
 
   renderUrls(title, urls) {
     return html`
-      <h2>${title}</h2>
+      <div class="da-title-row">
+        <h2>${title}</h2>
+        <button class="accent" type="button" @click=${() => this.handleCopy(title)}>Copy ${title}</button>
+      </div>
       <ul class="results">
         <li>
           <div class="path">Source</div>

@@ -74,8 +74,19 @@ input[type="text"] {
 
 .results {
   list-style: none;
-  margin: 0;
+  margin: 0 0 48px;
   padding: 0;
+}
+
+.da-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 0 0 24px;
+}
+
+.da-title-row h2 {
+  margin: 0;
 }
 
 .results li {
@@ -101,7 +112,10 @@ input[type="text"] {
   background: #00773f;
 }
 
-.status-404 {
+.status-404,
+.status-500,
+.status-error {
+  text-transform: uppercase;
   color: #fff;
   background: #f73b26;
 }

@@ -36,6 +36,11 @@ async function findFragments(pageUrl, text) {
   localUrls.push(...fragments);
 }
 
+export function calculateTime(startTime) {
+  const totalTime = Date.now() - startTime;
+  return `${String((totalTime / 1000) / 60).substring(0, 4)}`;
+}
+
 async function getAemHtml(url, text) {
   const dom = mdToDocDom(text);
   const aemHtml = docDomToAemHtml(dom);
@@ -67,19 +72,18 @@ async function importUrl(url) {
   try {
     const resp = await fetch(`${url.origin}${srcPath}`);
     if (!resp.ok) {
-      url.status = resp.status;
-      return;
+      throw new Error(resp.status);
     }
     const text = await resp.text();
     const content = isJson ? text : await getAemHtml(url, text);
 
     url.status = await saveAllToDa(url, content);
-  } catch {
-    url.status = 500;
+  } catch (e) {
+    url.status = 'error';
   }
 }
 
-export default async function importAll(urls, requestUpdate) {
+export async function importAll(urls, requestUpdate) {
   // Reset and re-add URLs
   localUrls = urls;
 
