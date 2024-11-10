@@ -99,6 +99,7 @@ export async function overwriteCopy(url, title) {
   body.append('destination', url.destination);
   const opts = { method: 'POST', body };
   const daResp = await daFetch(`${DA_ORIGIN}/copy${url.source}`, opts);
+  url.status = 'success';
   // Don't wait the version save
   saveVersion(url.destination, `${title} - Rolled Out`);
   return daResp;
