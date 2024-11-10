@@ -19,14 +19,14 @@ class NxLoc extends LitElement {
     this.shadowRoot.adoptedStyleSheets = [style, buttons];
   }
 
-  get isHashProject() {
+  get isProject() {
     return window.location.hash.startsWith('#/');
   }
 
   render() {
     return html`
       <nx-loc-header name=${imsDetails.first_name}></nx-loc-header>
-      ${this.isHashProject ? html`<nx-loc-project></nx-loc-project>` : html`<nx-loc-setup></nx-loc-setup>`}
+      ${this.isProject ? html`<nx-loc-project></nx-loc-project>` : html`<nx-loc-setup></nx-loc-setup>`}
     `;
   }
 }
@@ -35,6 +35,16 @@ customElements.define('nx-loc', NxLoc);
 
 export default async function init(el) {
   const isHashPath = (hash) => hash.startsWith('#/');
+  try {
+    const currentProject = localStorage.getItem('currentProject');
+    if (currentProject) {
+      localStorage.setItem('prevHash', window.location.hash);
+      localStorage.removeItem('currentProject');
+      window.location.hash = currentProject;
+    }
+  } catch (e) {
+    console.log(e);
+  }
 
   imsDetails = await loadIms();
   if (!imsDetails.accessToken) {
@@ -43,10 +53,9 @@ export default async function init(el) {
   }
 
   const setup = () => {
-    let cmp = el.querySelector('nx-loc');
+    const cmp = el.querySelector('nx-loc');
     if (cmp) cmp.remove();
-    cmp = document.createElement('nx-loc');
-    el.append(cmp);
+    el.innerHTML = '<nx-loc></nx-loc>';
   };
 
   const hashChanged = (e) => {

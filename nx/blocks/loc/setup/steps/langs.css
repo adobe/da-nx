@@ -24,10 +24,20 @@ select {
   align-items: center;
 }
 
-.sub-heading select,
-.sub-heading p {
-  margin: 0 var(--spacing-400) var(--spacing-400) 0;
+.sub-lang-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 0 0 var(--spacing-400);
+}
+
+.sub-lang-heading h2 {
+  margin: 0;
+}
+
+.sub-lang-heading select {
   font-weight: 700;
+  margin: 0 var(--spacing-400) 0;
 }
 
 input[type="text"] {
@@ -53,13 +63,15 @@ input[type="text"] {
 .lang-heading {
   display: flex;
   justify-content: space-between;
+  align-items: center;
+}
+
+.lang-group.has-locales .lang-heading {
   align-items: start;
 }
 
-.lang-heading p {
-  font-size: var(--s2-font-size-400);
-  font-weight: 700;
-  line-height: 1;
+.locale-heading {
+  margin: 0 0 var(--spacing-100);
 }
 
 .locale-list {
@@ -85,7 +97,7 @@ input[type="text"] {
 }
 
 .locale-list li.inactive button {
-  background: #FFF;
+  background: #fff;
 }
 
 .locale-list span {
@@ -97,5 +109,54 @@ input[type="text"] {
   display: block;
   width: 18px;
   height: 18px;
-  opacity: 0.60;
+  opacity: 0.6;
+}
+
+.da-loc-job-options {
+  background: var(--s2-gray-75);
+  border-radius: var(--s2-radius-300);
+  padding: var(--spacing-400);
+  margin: 0 0 var(--spacing-500);
+}
+
+h3 {
+  line-height: 1;
+  margin: 0;
+}
+
+.lang-group.has-locales h3 {
+  margin: 0 0 var(--spacing-200);
+}
+
+.da-loc-job-option-group {
+  display: grid;
+  gap: 24px;
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+.da-loc-job-option {
+  display: flex;
+  flex-wrap: wrap;
+  align-content: space-between;
+}
+
+.da-loc-job-option label {
+  flex: 0 0 100%;
+  margin: 0 0 var(--spacing-100);
+}
+
+.da-loc-job-option p {
+  display: none;
+}
+
+.da-loc-job-option select {
+  text-transform: capitalize;
+}
+
+.conflict-section {
+  background: #ffd6d1;
+}
+
+.complete-section {
+  background: #b5e6fc;
 }

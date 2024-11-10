@@ -46,7 +46,7 @@ textarea {
   display: flex;
   justify-content: end;
   align-items: stretch;
-  gap: var(--spacing-200)
+  gap: var(--spacing-200);
 }
 
 .error {
@@ -55,6 +55,6 @@ textarea {
   background: var(--s2-red);
   border-radius: var(--s2-radius-100);
   font-weight: 700;
-  color: #FFF;
+  color: #fff;
   font-size: 14px;
 }

@@ -3,6 +3,7 @@ import { getConfig } from '../../../../scripts/nexter.js';
 import { daFetch } from '../../../../utils/daFetch.js';
 import getStyle from '../../../../utils/styles.js';
 import getSvg from '../../../../utils/svg.js';
+import normalizeUrls from '../../project/new.js';
 
 const { nxBase } = getConfig();
 const style = await getStyle(import.meta.url);
@@ -14,7 +15,7 @@ const ICONS = [
 ];
 
 const DA_ORIGIN = 'https://admin.da.live';
-const PROJ_PATH = '/localization/projects/active';
+const PROJ_PATH = '/.da/translation/projects/active';
 
 class NxLocLangs extends LitElement {
   static properties = {
@@ -22,6 +23,7 @@ class NxLocLangs extends LitElement {
     org: { attribute: false },
     repo: { attribute: false },
     urls: { attribute: false },
+    config: { attribute: false },
     langs: { attribute: false },
   };
 
@@ -35,44 +37,33 @@ class NxLocLangs extends LitElement {
     return this.shadowRoot.querySelectorAll('.lang-group select');
   }
 
-  setupLocales(lang) {
-    return lang.locales.reduce((acc, locale) => {
-      if (locale.active) {
-        acc[locale.code] = {
-          ...locale,
-          urls: this.urls.map((url) => ({
-            source: `/${this.org}/${this.repo}/langstore/${lang.code}${url.pathname}.html`,
-            destination: `/${this.org}/${this.repo}/${locale.code}${url.pathname}.html`,
-            aemAdmin: `/${this.org}/${this.repo}/main/${locale.code}${url.pathname}`,
-            preview: `${url.origin}/${locale.code}${url.pathname}`,
-          })),
-        };
-      }
+  async handleLangsStep(options) {
+    const langs = this.langs.filter((lang) => lang.action);
+    langs.forEach((lang) => {
+      lang.rollout = {
+        status: lang.action === 'rollout' ? 'ready' : 'not started',
+        ready: lang.action === 'rollout' ? this.urls.length : undefined,
+      };
+      lang.translation = { status: lang.action === 'rollout' ? 'complete' : 'not started' };
+    });
 
-      return acc;
-    }, {});
-  }
+    const project = {
+      title: this.title,
+      org: this.org,
+      site: this.repo,
+      config: this.config,
+      options,
+      langs,
+      urls: normalizeUrls(this.urls, langs),
+    };
 
-  setupLangstore(lang) {
-    return this.urls.map((url) => ({
-      source: `/${this.org}/${this.repo}${lang.code !== 'en' ? '/langstore/en' : ''}${url.pathname}.html`,
-      destination: `/${this.org}/${this.repo}/langstore/${lang.code}${url.pathname}.html`,
-      aemAdmin: `/${this.org}/${this.repo}/main/langstore/${lang.code}${url.pathname}`,
-      preview: `${url.origin}/langstore/${lang.code}${url.pathname}`,
-    }));
-  }
+    // If project has a sourceLang, use it. Otherwise, use the root of the site.
+    if (this.config['source.language']) {
+      project.sourceLang = this.langs.find((lang) => lang.name === this.config['source.language'].value);
+    } else {
+      project.sourceLang = { location: '/' };
+    }
 
-  async handleLangsStep() {
-    const langs = this.langs.reduce((acc, lang) => {
-      if (lang.action) {
-        lang.langstore = { urls: this.setupLangstore(lang) };
-        lang.locales = this.setupLocales(lang);
-        lang.total = Object.keys(lang.locales).length * this.urls.length;
-        acc.push(lang);
-      }
-      return acc;
-    }, []);
-    const project = { title: this.title, langs, urls: this.urls, step: 'new' };
     const time = Date.now();
     const body = new FormData();
     const blob = new Blob([JSON.stringify(project)], { type: 'application/json' });
@@ -85,9 +76,58 @@ class NxLocLangs extends LitElement {
     window.location.hash = `#${path}`;
   }
 
+  calculateActions(langs) {
+    return langs.reduce((acc, lang) => {
+      const actions = lang.actions.split(', ');
+      actions.forEach((action) => {
+        if (!acc.some((curr) => curr === action)) acc.push(action);
+      });
+      return acc;
+    }, []);
+  }
+
+  getConflictOpts(name) {
+    // Translate does not support merge (for now)
+    if (name === 'translate.conflict.behavior') {
+      return ['overwrite'];
+    }
+
+    if (this.config[name]) {
+      return [
+        this.config[name].value,
+        this.config[name].value === 'merge' ? 'overwrite' : 'merge',
+      ];
+    }
+
+    return [
+      'overwrite',
+      'merge',
+    ];
+  }
+
+  hasLocales() {
+    return this.langs.some((lang) => lang.locales);
+  }
+
   handleSubmit(e) {
     e.preventDefault();
-    this.handleLangsStep();
+
+    const data = new FormData(e.target);
+    const sourceConflict = data.get('source.conflict.behavior');
+    const returnConflict = data.get('translate.conflict.behavior');
+    const rolloutConflict = data.get('rollout.conflict.behavior');
+    const autoPreview = data.get('complete.aem.preview');
+    const autoPublish = data.get('complete.aem.publish');
+
+    const options = {
+      sourceConflict,
+      returnConflict,
+      rolloutConflict,
+      autoPreview,
+      autoPublish,
+    };
+
+    this.handleLangsStep(options);
   }
 
   handleLocaleToggle(e, locale) {
@@ -113,45 +153,89 @@ class NxLocLangs extends LitElement {
     });
   }
 
+  renderLocales(lang) {
+    return html`
+      <div>
+        <p class="locale-heading">Locales</p>
+        <ul class="locale-list">
+          ${lang.locales.map((locale) => html`
+            <li class="${locale.active ? 'active' : 'inactive'}">
+              <button @click=${(e) => this.handleLocaleToggle(e, locale)}>
+                <span>${locale.code.replace('/', '')}</span>
+                ${locale.active ? html`<svg class="icon"><use href="#spectrum-close"/></svg>` : html`<svg class="icon"><use href="#spectrum-add"/></svg>`}
+              </button>
+            </li>
+          `)}
+        </ul>
+      </div>
+    `;
+  }
+
   renderLangList() {
     return html`
-      <div class="sub-heading">
-        <p class="lang-heading">Select languages & locales</p>
-        ${this.langs ? html`
-          <select @change=${(e) => this.handleChangeAll(e.target.value)}>
-            <option value="">Skip</option>
-            ${this.langs[1].actions.split(',').map((action) => html`
-              <option value="${action}">${action}</option>
-            `)}
-          </select>
-        ` : nothing}
-      </div>
-      ${this.langs.map((lang) => html`
-        <div class="lang-group">
-          <div class="lang-heading">
-            <p>${lang.language}</p>
-            <select @change=${(e) => this.handleChangeAction(e.target.value, lang)}>
+      <div class="lang-list">
+        <div class="sub-lang-heading">
+          <h2>Languages${this.hasLocales() ? html` & locales` : nothing}</h2>
+          ${this.langs ? html`
+            <select @change=${(e) => this.handleChangeAll(e.target.value)}>
               <option value="">Skip</option>
-              ${lang.actions.split(',').map((action) => html`
+              ${this.calculateActions(this.langs).map((action) => html`
                 <option value="${action}">${action}</option>
               `)}
             </select>
-          </div>
-          <div>
-            <p class="lang-heading">Locales</p>
-            <ul class="locale-list">
-              ${lang.locales.map((locale) => html`
-                <li class="${locale.active ? 'active' : 'inactive'}">
-                  <button @click=${(e) => this.handleLocaleToggle(e, locale)}>
-                    <span>${locale.code}</span>
-                    ${locale.active ? html`<svg class="icon"><use href="#spectrum-close"/></svg>` : html`<svg class="icon"><use href="#spectrum-add"/></svg>`}
-                  </button>
-                </li>
-              `)}
-            </ul>
-          </div>
+          ` : nothing}
         </div>
+        ${this.langs.map((lang) => html`
+        ${lang.actions !== '' ? html`
+          <div class="lang-group ${lang.locales ? 'has-locales' : ''}">
+            <div class="lang-heading">
+              <h3>${lang.name}</h3>
+              <select @change=${(e) => this.handleChangeAction(e.target.value, lang)}>
+                <option value="">Skip</option>
+                ${lang.actions.split(', ').map((action) => html`
+                  <option value="${action}">${action}</option>
+                `)}
+              </select>
+            </div>
+            ${lang.locales ? this.renderLocales(lang) : nothing}
+          </div>` : nothing}
+      </div>
       `)}
+    `;
+  }
+
+  renderOption(label, name) {
+    if (!this.config[name]) return nothing;
+    return html`
+      <div class="da-loc-job-option">
+        <label>${label}</label>
+        <p>${this.config[name].description}</p>
+        <select name="${name}">
+          ${this.getConflictOpts(name).map((opt) => html`<option>${opt}</option>`)}
+        </select>
+      </div>
+    `;
+  }
+
+  /* <div class="da-loc-job-options complete-section">
+    <h3>Preview & publish</h3>
+    <div class="da-loc-job-option-group">
+      ${this.renderOption('Auto preview on complete', 'complete.aem.preview')}
+      ${this.renderOption('Auto publish on complete', 'complete.aem.publish')}
+    </div>
+  </div> */
+
+  renderConfig() {
+    return html`
+      <h2>Options</h2>
+      <div class="da-loc-job-options conflict-section">
+        <h3>Conflict resolution</h3>
+        <div class="da-loc-job-option-group">
+          ${this.renderOption('On source sync', 'source.conflict.behavior')}
+          ${this.renderOption('On translation return', 'translate.conflict.behavior')}
+          ${this.hasLocales() ? this.renderOption('On rollout', 'rollout.conflict.behavior') : nothing}
+        </div>
+      </div>
     `;
   }
 
@@ -159,18 +243,17 @@ class NxLocLangs extends LitElement {
     return html`
       <form id="lang-form" class="hidden" @submit=${this.handleSubmit}>
         <div class="sub-heading">
-          <h2>Select languages & locales</h2>
+          <h2>Details</h2>
           <div class="actions">
-            <input type="submit" value="Start project" class="accent" />
+            <input type="submit" value="Create project" class="accent" />
           </div>
         </div>
         <div>
           <label for="title">Title</label>
           <input type="text" name="title" value="${this.title}" disabled />
         </div>
-        <div class="lang-list">
-          ${this.langs ? this.renderLangList() : nothing}
-        </div>
+        ${this.config ? this.renderConfig() : nothing}
+        ${this.langs ? this.renderLangList() : nothing}
       </form>
     `;
   }

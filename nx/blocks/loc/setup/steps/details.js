@@ -8,12 +8,15 @@ const style = await getStyle(import.meta.url);
 const buttons = await getStyle(`${nxBase}/styles/buttons.js`);
 
 const DA_ORIGIN = 'https://admin.da.live';
-const LANG_PATH = '/.da/languages.json';
+const TRANSLATE_CONF = '/.da/translate.json';
+
+const MOCK_URLS = `https://main--bacom-sandbox--adobecom.aem.page/customer-success-stories/xfinity-creative-customer-story\nhttps://main--bacom-sandbox--adobecom.aem.page/customer-success-stories/abb-case-study\nhttps://main--bacom-sandbox--adobecom.aem.page/customer-success-stories/academy-of-art-case-study\nhttps://main--bacom-sandbox--adobecom.aem.page/customer-success-stories/accent-group-ecommerce-case-study\nhttps://main--bacom-sandbox--adobecom.aem.page/customer-success-stories/aci-worldwide-case-study\nhttps://main--bacom-sandbox--adobecom.aem.page/customer-success-stories/adobe-campaign-orchestration-case-study\nhttps://main--bacom-sandbox--adobecom.aem.page/customer-success-stories/adobe-digital-legal-workflow-case-study\nhttps://main--bacom-sandbox--adobecom.aem.page/customer-success-stories/adobe-digital-onboarding-case-study\nhttps://main--bacom-sandbox--adobecom.aem.page/customer-success-stories/adobe-digital-university-case-study\nhttps://main--bacom-sandbox--adobecom.aem.page/customer-success-stories/adobe-inside-adobe-case-study\nhttps://main--bacom-sandbox--adobecom.aem.page/customer-success-stories/adobe-promo-case-study`;
 
 class NxLocDetails extends LitElement {
   static properties = {
     urls: { attribute: false },
     _error: { attribute: false },
+    _title: { attribute: false },
   };
 
   connectedCallback() {
@@ -26,6 +29,8 @@ class NxLocDetails extends LitElement {
 
     // Split and de-dupe
     let urls = [...new Set(rawUrls.split('\n'))];
+
+    // Remove empties
     urls = urls.filter((url) => url);
 
     // Convert to proper URLs
@@ -45,21 +50,35 @@ class NxLocDetails extends LitElement {
     if (!(repo || org)) return this.error('Please use AEM URLs');
 
     // Get site's languages
-    const resp = await daFetch(`${DA_ORIGIN}/source/${org}/${repo}${LANG_PATH}`);
-    if (!resp.ok) return this.error('Site has no supported languages');
+    let resp = await daFetch(`${DA_ORIGIN}/source/${org}/${repo}${TRANSLATE_CONF}`);
+    if (!resp.ok) {
+      console.log('Using default translate config.');
+      resp = await fetch(`${nxBase}/blocks/loc/setup/default.json`);
+    }
 
-    const langData = (await resp.json()).data;
-    const langs = langData.map((lang) => {
-      const locales = lang.locales.split(',').map((locale) => ({
-        code: locale.trim(),
-        active: true,
-      }));
+    const json = await resp.json();
+    const { config: configJson, languages } = json;
+
+    const config = {};
+    configJson.data.forEach((conf) => {
+      config[conf.key] = {
+        value: conf.value,
+        description: conf.description,
+      };
+    });
+
+    const langs = languages.data.map((lang) => {
+      const locales = lang.locales
+        ? lang.locales.split(',').map((locale) => ({
+          code: locale.trim(),
+          active: true,
+        }))
+        : undefined;
+
       return { ...lang, locales };
     });
 
-    return {
-      org, repo, langs, urls,
-    };
+    return { org, repo, config, langs, urls };
   }
 
   error(error) {
@@ -75,6 +94,10 @@ class NxLocDetails extends LitElement {
     return rawTitle;
   }
 
+  validateTitle({ target }) {
+    this._title = target.value.replaceAll(/[^a-zA-Z0-9]/g, '-').toLowerCase();
+  }
+
   async handleSubmit(e) {
     e.preventDefault();
     const step = 'details';
@@ -85,11 +108,11 @@ class NxLocDetails extends LitElement {
     const title = this.handleTitle(rawTitle);
     if (!title) return;
 
-    const { org, repo, urls, langs } = await this.handleUrls(rawUrls);
+    const { org, repo, urls, config, langs } = await this.handleUrls(rawUrls);
     if (!urls) return;
 
     const detail = {
-      step, title, org, repo, urls, langs,
+      step, title, org, repo, urls, config, langs,
     };
     const opts = { detail, bubbles: true, composed: true };
     const event = new CustomEvent('next', opts);
@@ -100,7 +123,7 @@ class NxLocDetails extends LitElement {
     return html`
       <form @submit=${this.handleSubmit}>
         <div class="sub-heading">
-          <h2>Add details</h2>
+          <h2>Basics</h2>
           <div class="actions">
             ${this._error ? html`<p class="error">${this._error}</p>` : nothing}
             <input type="submit" value="Next" class="accent" />
@@ -108,11 +131,11 @@ class NxLocDetails extends LitElement {
         </div>
         <div>
           <label for="title">Title</label>
-          <input type="text" name="title" />
+          <input type="text" name="title" .value=${this._title || 'demo'} @input=${this.validateTitle} />
         </div>
         <div>
           <label for="urls">URLs</label>
-          <textarea name="urls" placeholder="Add AEM URLs here."></textarea>
+          <textarea name="urls" placeholder="Add AEM URLs here.">${MOCK_URLS}</textarea>
         </div>
       </form>
     `;

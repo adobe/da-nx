@@ -129,6 +129,24 @@ input[type="checkbox"] {
   background: var(--s2-red);
 }
 
+.actions {
+  display: flex;
+  justify-content: end;
+  align-items: stretch;
+  gap: var(--spacing-200);
+}
+
+.error {
+  margin: 0;
+  align-content: center;
+  padding: 0 12px;
+  background: var(--s2-red);
+  border-radius: var(--s2-radius-100);
+  font-weight: 700;
+  color: #fff;
+  font-size: 14px;
+}
+
 @media (width > 600px) {
   .details {
     grid-template-columns: 1fr 1fr 1fr 1fr 1fr;

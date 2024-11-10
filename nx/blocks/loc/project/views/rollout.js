@@ -2,16 +2,23 @@ import { LitElement, html, nothing } from '../../../../deps/lit/dist/index.js';
 import { getConfig } from '../../../../scripts/nexter.js';
 import getSvg from '../../../../utils/svg.js';
 import getStyle from '../../../../utils/styles.js';
-import { calculateTime, formatDate, mergeCopy, overwriteCopy, saveStatus, timeoutWrapper } from '../index.js';
+import {
+  calculateTime,
+  formatDate,
+  mergeCopy,
+  overwriteCopy,
+  saveStatus,
+  timeoutWrapper,
+} from '../index.js';
 import { Queue } from '../../../../public/utils/tree.js';
 
 const { nxBase } = getConfig();
 const style = await getStyle(import.meta.url);
-const shared = await getStyle(`${nxBase}/blocks/locfour/project/views/shared.js`);
+const shared = await getStyle(`${nxBase}/blocks/loc/project/views/shared.js`);
 const buttons = await getStyle(`${nxBase}/styles/buttons.js`);
 
 const ICONS = [
-  `${nxBase}/blocks/locfour/img/Smock_ChevronRight_18_N.svg`,
+  `${nxBase}/blocks/loc/img/Smock_ChevronRight_18_N.svg`,
 ];
 
 class NxLocRollout extends LitElement {

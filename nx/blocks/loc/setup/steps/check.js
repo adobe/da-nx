@@ -20,10 +20,15 @@ class NxLocCheck extends LitElement {
     repo: { attribute: false },
     urls: { attribute: false },
     checked: { attribute: false },
+    _error: { state: true },
   };
 
   get origin() {
     return `https://main--${this.repo}--${this.org}.hlx.page`;
+  }
+
+  get projectSubDomain() {
+    return `https://main--${this.repo}--${this.org}`;
   }
 
   connectedCallback() {
@@ -38,7 +43,7 @@ class NxLocCheck extends LitElement {
       const attr = a.getAttribute('href');
 
       // Don't add any off-origin fragments
-      if (!(attr.startsWith('/') || attr.startsWith(this.origin))) return acc;
+      if (!attr.startsWith(this.projectSubDomain)) return acc;
 
       // Convert relative to current project origin
       const url = new URL(attr, this.origin);
@@ -55,8 +60,10 @@ class NxLocCheck extends LitElement {
   }
 
   async checkUrl(url) {
-    const isSheet = url.pathname.endsWith('.json');
-    const extPath = isSheet ? url.pathname : `${url.pathname}.html`;
+    let { pathname } = url;
+    pathname = pathname.endsWith('/') ? `${pathname}index` : pathname;
+    const isSheet = pathname.endsWith('.json');
+    const extPath = isSheet ? pathname : `${pathname}.html`;
     const daUrl = `${DA_ADMIN}/source/${this.org}/${this.repo}${extPath}`;
     const resp = await daFetch(daUrl);
     const text = await resp.text();
@@ -91,6 +98,11 @@ class NxLocCheck extends LitElement {
     e.preventDefault();
     const step = 'check';
     const urls = this.urls.filter((url) => url.checked);
+    if (urls.some((url) => (url.status === 'error'))) {
+      this._error = 'Uncheck error URLs below.';
+      return;
+    }
+
     const detail = { step, urls };
     const opts = { detail, bubbles: true, composed: true };
     const event = new CustomEvent('next', opts);
@@ -111,8 +123,9 @@ class NxLocCheck extends LitElement {
     return html`
       <form @submit=${this.handleSubmit}>
         <div class="sub-heading">
-          <h2>Check details</h2>
+          <h2>Validate</h2>
           <div class="actions">
+            ${this._error ? html`<p class="error">${this._error}</p>` : nothing}
             <input type="submit" value="Next" class="accent" />
           </div>
         </div>
@@ -124,22 +137,22 @@ class NxLocCheck extends LitElement {
           <div class="details">
             <div class="detail-card detail-card-pages">
               <p>Docs</p>
-              <p>${this.urls.filter((url) => !url.fragment && url.checked).length}</p>
+              <p>${this.urls.filter((url) => !url.fragment).length}</p>
             </div>
             <div class="detail-card detail-card-fragments">
               <p>Fragments</p>
-              <p>${this.urls.filter((url) => url.fragment && url.checked).length}</p>
+              <p>${this.urls.filter((url) => url.fragment).length}</p>
             </div>
             <div class="detail-card detail-card-sheets">
               <p>Sheets</p>
-              <p>${this.urls.filter((url) => url.sheet && url.checked).length}</p>
+              <p>${this.urls.filter((url) => url.sheet).length}</p>
             </div>
             <div class="detail-card detail-card-errors">
               <p>Errors</p>
-              <p>${this.urls.filter((url) => url.status === 'error' && url.checked).length}</p>
+              <p>${this.urls.filter((url) => url.status === 'error').length}</p>
             </div>
             <div class="detail-card detail-card-size">
-              <p>Total</p>
+              <p>Selected</p>
               <p>${this.urls.filter((url) => url.checked).length}</p>
             </div>
           </div>

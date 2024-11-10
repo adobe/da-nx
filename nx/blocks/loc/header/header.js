@@ -19,8 +19,8 @@ class NxLocHeader extends LitElement {
       <img class="header-bg" src="${root}/img/header-bg.jpg" />
       <div class="header-fg">
         <div class="header-fg-left">
-          <p class="detail">Localization</p>
-          <p class="heading">Welcome, <strong>${this.name}</strong></p>
+          <p class="detail">Welcome, ${this.name}</p>
+          <p class="heading">Localization</p>
         </div>
       </div>
     `;

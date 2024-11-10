@@ -7,11 +7,11 @@ import { dntFetchAll } from '../../dnt/dnt.js';
 
 const { nxBase } = getConfig();
 const style = await getStyle(import.meta.url);
-const shared = await getStyle(`${nxBase}/blocks/locfour/project/views/shared.css`);
+const shared = await getStyle(`${nxBase}/blocks/loc/project/views/shared.css`);
 const buttons = await getStyle(`${nxBase}/styles/buttons.js`);
 
 const ICONS = [
-  `${nxBase}/blocks/locfour/img/Smock_ChevronRight_18_N.svg`,
+  `${nxBase}/blocks/loc/img/Smock_ChevronRight_18_N.svg`,
 ];
 
 class NxLocTranslate extends LitElement {

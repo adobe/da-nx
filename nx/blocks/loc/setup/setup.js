@@ -14,6 +14,7 @@ class NxLocSetup extends LitElement {
   static properties = {
     _title: { attribute: false },
     _urls: { attribute: false },
+    _config: { attribute: false },
     _langs: { attribute: false },
     _org: { attribute: false },
     _repo: { attribute: false },
@@ -39,14 +40,23 @@ class NxLocSetup extends LitElement {
     this.langsCmp.repo = this._repo;
     this.langsCmp.urls = this._urls;
     this.langsCmp.title = this._title;
+    this.langsCmp.config = this._config;
     this.langsCmp.langs = this._langs;
   }
 
-  handleDetails({ title, org, repo, urls, langs }) {
+  handleDetails({
+    title,
+    org,
+    repo,
+    urls,
+    config,
+    langs,
+  }) {
     this._title = title;
     this._org = org;
     this._repo = repo;
     this._urls = urls;
+    this._config = config;
     this._langs = langs;
 
     this.checkCmp.org = this._org;
