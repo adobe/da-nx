@@ -184,7 +184,6 @@ export async function mergeCopy(url, projectTitle) {
     removeLocTags(regionalCopy);
 
     if (langstoreCopy.querySelector('main').outerHTML === regionalCopy.querySelector('main').outerHTML) {
-      console.log('no changes');
       // No differences, don't need to do anything
       url.status = 'success';
       return { ok: true };
@@ -196,7 +195,10 @@ export async function mergeCopy(url, projectTitle) {
 
     const daUrl = getDaUrl(url);
     const { daResp } = await saveToDa(diffedMain.innerHTML, daUrl);
-    if (daResp.ok) saveVersion(url.destination, `${projectTitle} - Rolled Out`);
+    if (daResp.ok) {
+      url.status = 'success';
+      saveVersion(url.destination, `${projectTitle} - Rolled Out`);
+    }
     return daResp;
   } catch (e) {
     return overwriteCopy(url, projectTitle);
