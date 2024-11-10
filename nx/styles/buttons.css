@@ -63,3 +63,7 @@ button:disabled {
   background-color: #efefef;
   border: 2px solid #efefef;
 }
+
+button.accent:disabled {
+  color: var(--s2-gray-700);
+}
