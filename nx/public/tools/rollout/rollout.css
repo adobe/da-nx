@@ -1,0 +1,147 @@
+:host {
+  margin: var(--spacing-400) var(--spacing-400) var(--spacing-800) var(--spacing-400);
+}
+
+svg {
+  display: none;
+}
+
+label {
+  display: block;
+  font-weight: 700;
+  line-height: 1;
+  font-size: 14px;
+  margin-bottom: var(--spacing-100);
+}
+
+label span {
+  font-weight: 400;
+}
+
+select, input {
+  border: 2px solid var(--s2-gray-200);
+  border-radius: var(--s2-radius-100);
+  font-family: var(--body-font-family);
+  font-size: 16px;
+  font-weight: 700;
+  padding: 4px 6px;
+  box-sizing: border-box;
+  margin: 0;
+  width: 100%;
+}
+
+select {
+  display: block;
+  appearance: none;
+}
+
+.select-wrapper {
+  position: relative;
+}
+
+.select-wrapper::after {
+  display: block;
+  content: '';
+  right: 6px;
+  background: no-repeat center / 18px url('https://da.live/nx/public/icons/Smock_ChevronDown_18_N.svg');
+  width: 18px;
+  height: 18px;
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+
+.da-form-row {
+  margin-bottom: var(--spacing-400);
+}
+
+.two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-400);
+}
+
+.prefix-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.da-prefix {
+  border-radius: var(--s2-radius-100);
+  background: #fff;
+  line-height: 1;
+  font-weight: 700;
+  font-size: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  overflow: hidden;
+  margin-bottom: var(--spacing-200);
+}
+
+.da-prefix.is-active {
+  background: rgb(225 225 225);
+}
+
+.da-prefix.is-active.status-success {
+  background: rgb(190 231 203);
+}
+
+.da-prefix span {
+  display: block;
+  margin: 0 4px 0 12px;
+}
+
+.da-prefix .prefix-actions {
+  display: flex;
+}
+
+.da-prefix button {
+  border: none;
+  background: none;
+  padding: 0;
+  height: 34px;
+  width: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--s2-gray-700);
+}
+
+.da-prefix button:hover {
+  background: var(--s2-blue-800);
+  color: #fff;
+}
+
+.da-prefix.da-prefix button.toggle:hover {
+  background: var(--s2-green);
+  color: #fff;
+}
+
+.da-prefix.da-prefix.is-active button.toggle:hover {
+  background: var(--s2-red);
+  color: #fff;
+}
+
+.da-prefix svg {
+  display: block;
+  width: 18px;
+  height: 18px;
+}
+
+.da-form-actions {
+  position: fixed;
+  bottom: 0;
+  right: 0;
+  left: 0;
+  /* stylelint-disable property-no-vendor-prefix */
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  padding: var(--spacing-300);
+  margin-bottom: 0;
+  border-top: 1px solid rgb(233 233 233);
+  display: flex;
+  justify-content: end;
+}
