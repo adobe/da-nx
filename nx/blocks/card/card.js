@@ -22,6 +22,10 @@ export default function init(el) {
   if (!ctaPara) return;
   const cta = ctaPara.querySelector('a');
   if (!cta) return;
+  const hashAware = el.classList.contains('hash-aware');
+  if (hashAware) {
+    cta.href = `${cta.getAttribute('href')}${window.location.hash}`;
+  }
   ctaPara.classList.add('nx-card-cta-container');
   inner.append(ctaPara);
 }
