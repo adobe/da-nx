@@ -13,9 +13,15 @@ class NxLocDashboard extends LitElement {
     _projects: { attribute: false },
   };
 
+  async getProjectCreator(path) {
+    const resp = await daFetch(`https://admin.da.live/versionlist${path}`);
+    const json = await resp.json();
+    if (json.length === 0) return 'anonymous';
+    return json.pop().users[0].email.split('@')[0];
+  }
+
   async getProjects() {
     const siteBase = window.location.hash.replace('#', '');
-    console.log(`siteBase: ${siteBase}`);
     const resp = await daFetch(`https://admin.da.live/list${siteBase}/.da/translation/projects/active`);
     if (!resp.ok) return;
     const projectList = await resp.json();
@@ -23,8 +29,8 @@ class NxLocDashboard extends LitElement {
     this._projects = await Promise.all(projectList.map(async (project) => {
       const projResp = await daFetch(`https://admin.da.live/source${project.path}`);
       const projJson = await projResp.json();
-      console.log(projJson);
       project.title = projJson.title;
+      project.createdBy = await this.getProjectCreator(project.path);
       // console.log(project);
       return project;
     }));
@@ -49,6 +55,7 @@ class NxLocDashboard extends LitElement {
       <ul>
       ${this._projects.map((project) => html`
       <li>
+        <p>${project.createdBy}</p>
         <a href="#${project.path.replace('.json', '')}">${project.title}</a>
       </li>`)}
       </ul>

@@ -20,10 +20,6 @@ class NxLoc extends LitElement {
     this.shadowRoot.adoptedStyleSheets = [style, buttons];
   }
 
-  //     nothing
-  // #/adobecom/da-bacon
-  // #/adobecom/da-bacom/.da/translation/projects/active/1732230357388
-  //
   renderLocType() {
     const { hash } = window.location;
     if (!hash) return html`<nx-loc-setup></nx-loc-setup>`;
@@ -74,9 +70,7 @@ export default async function init(el) {
     setup();
   };
 
-  if (!isHashPath(window.location.hash)) {
-    window.addEventListener('hashchange', hashChanged);
-  }
+  window.addEventListener('hashchange', hashChanged);
 
   setup();
 }
