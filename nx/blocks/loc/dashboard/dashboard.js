@@ -16,6 +16,8 @@ class NxLocDashboard extends LitElement {
     _siteBase: { attribute: false },
     _filteredProjects: { attribute: false },
     _searchQuery: { attribute: false },
+    _startDate: { attribute: false },
+    _endDate: { attribute: false },
   };
 
   constructor() {
@@ -23,6 +25,8 @@ class NxLocDashboard extends LitElement {
     this._projects = [];
     this._filteredProjects = [];
     this._searchQuery = '';
+    this._startDate = null;
+    this._endDate = null;
     this._currentPage = 1;
     this._projectsPerPage = 5; // Show 5 projects per page
   }
@@ -37,10 +41,34 @@ class NxLocDashboard extends LitElement {
     this.shadowRoot.adoptedStyleSheets = [style, buttons];
   }
 
-  // Update the filtered list of projects based on the search query
+  // Update start date
+  updateStartDate(event) {
+    this._startDate = new Date(event.target.value).toISOString();
+    this.filterProjects();
+  }
+
+  // Update end date
+  updateEndDate(event) {
+    this._endDate = new Date(event.target.value).toISOString();
+    this.filterProjects();
+  }
+
+  // Filter projects by search query and date range
   filterProjects() {
     const query = this._searchQuery.toLowerCase();
-    this._filteredProjects = this._projects.filter((project) => project.title.toLowerCase().includes(query));
+    const startDate = this._startDate ? new Date(this._startDate) : null;
+    const endDate = this._endDate ? new Date(this._endDate) : null;
+
+    this._filteredProjects = this._projects.filter((project) => {
+      const matchesQuery = project.title.toLowerCase().includes(query);
+      const projectDate = new Date(project.createdOn);
+
+      const matchesDateRange = (!startDate || projectDate >= startDate)
+                && (!endDate || projectDate <= endDate);
+
+      return matchesQuery && matchesDateRange;
+    });
+
     this._currentPage = 1; // Reset to the first page when filtering
   }
 
@@ -133,6 +161,7 @@ class NxLocDashboard extends LitElement {
       const { translationStatus, rolloutStatus } = this.getProjectStatuses(projJson.langs);
       return {
         title: project.title || 'Untitled',
+        path: project.path,
         createdBy: createdBy || 'anonymous',
         createdOn: createdOn || 'unknown',
         languages: (project.languages || 'unknown'),
@@ -155,6 +184,11 @@ class NxLocDashboard extends LitElement {
     if (page >= 1 && page <= Math.ceil(this._projects.length / this._projectsPerPage)) {
       this._currentPage = page;
     }
+  }
+
+  navigateToProject(path) {
+    const projectPath = `#${path?.replace('.json', '')}`;
+    window.location.hash = projectPath; // Update the URL hash
   }
 
   renderPaginationControls() {
@@ -211,13 +245,27 @@ class NxLocDashboard extends LitElement {
             ${this._view !== 'create'
     ? html`
                         <h1>Dashboard</h1>
-                        <div class="search-bar">
+                        <div class="filter-bar">
                             <input
                                     type="text"
+                                    class="search-input"
                                     placeholder="Search projects by title..."
                                     .value=${this._searchQuery}
                                     @input=${this.updateSearchQuery}
                             />
+                            <div class="date-range">
+                                <input
+                                        type="date"
+                                        class="date-picker"
+                                        @change=${this.updateStartDate}
+                                />
+                                <span>to</span>
+                                <input
+                                        type="date"
+                                        class="date-picker"
+                                        @change=${this.updateEndDate}
+                                />
+                            </div>
                         </div>
                         <button class="accent" @click=${this.create}>Create Project</button>
                         ${this._filteredProjects.length
@@ -243,7 +291,7 @@ class NxLocDashboard extends LitElement {
                                                             <div class="table-cell">${project.translationStatus}</div>
                                                             <div class="table-cell">${project.rolloutStatus}</div>
                                                             <div class="table-cell actions">
-                                                                <span class="icon">Edit</span>
+                                                                <button class="edit-button" @click=${() => this.navigateToProject(project.path)}>Edit</button>
                                                             </div>
                                                         </div>
                                                     `,
