@@ -2,17 +2,20 @@ import { LitElement, html } from '../../../deps/lit/lit-core.min.js';
 import { getConfig } from '../../../scripts/nexter.js';
 import getStyle from '../../../utils/styles.js';
 import { daFetch } from '../../../utils/daFetch.js';
+import { loadIms } from '../../../utils/ims.js';
 
 const { nxBase } = getConfig();
 const style = await getStyle(import.meta.url);
 const buttons = await getStyle(`${nxBase}/styles/buttons.js`);
+let imsDetails;
+let loggedinUser;
 
 class NxLocDashboard extends LitElement {
   static properties = {
     _view: { attribute: false },
     _projects: { attribute: false },
     _currentPage: { attribute: false },
-    _projectsPerPage: { attribute: false },
+    _projectsPerPage: { attribute: 5 },
     _siteBase: { attribute: false },
     _filteredProjects: { attribute: false },
     _searchQuery: { attribute: false },
@@ -23,6 +26,7 @@ class NxLocDashboard extends LitElement {
     _rolloutFilters: [],
     translationStatuses: ['Error', 'Completed', 'Created', 'In Progress'],
     rolloutStatuses: ['Error', 'Completed', 'Rollout Ready', 'In Progress'],
+    _viewAllProjects: true, // Default to "All Projects"
   };
 
   constructor() {
@@ -39,6 +43,7 @@ class NxLocDashboard extends LitElement {
     this._rolloutFilters = [];
     this.translationStatuses = ['Error', 'Completed', 'Created', 'In Progress'];
     this.rolloutStatuses = ['Error', 'Completed', 'Rollout Ready', 'In Progress'];
+    this._viewAllProjects = true; // Default to "All Projects"
   }
 
   create() {
@@ -55,6 +60,11 @@ class NxLocDashboard extends LitElement {
   disconnectedCallback() {
     super.disconnectedCallback();
     window.removeEventListener('click', this.handleOutsideClick);
+  }
+
+  toggleProjectView() {
+    this._viewAllProjects = !this._viewAllProjects;
+    this.filterProjects();
   }
 
   // Toggle the filter popup
@@ -142,7 +152,10 @@ class NxLocDashboard extends LitElement {
       const matchesRollout = this._rolloutFilters.length === 0
                 || this._rolloutFilters.includes(project.rolloutStatus);
 
-      return matchesQuery && matchesDateRange && matchesTranslation && matchesRollout;
+      const matchesOwnership = this._viewAllProjects || project.createdBy === loggedinUser;
+
+      // eslint-disable-next-line max-len
+      return matchesQuery && matchesDateRange && matchesTranslation && matchesRollout && matchesOwnership;
     });
 
     this._currentPage = 1; // Reset to the first page when filtering
@@ -223,6 +236,8 @@ class NxLocDashboard extends LitElement {
   }
 
   async getProjects() {
+    imsDetails = await loadIms();
+    loggedinUser = imsDetails?.email?.split('@')[0];
     const siteBase = window.location.hash.replace('#', '');
     this._siteBase = siteBase?.slice(1);
     const resp = await daFetch(`https://admin.da.live/list${siteBase}/.da/translation/projects/active`);
@@ -337,7 +352,23 @@ class NxLocDashboard extends LitElement {
     return html`
             ${this._view !== 'create'
     ? html`
-                        <h1>Dashboard</h1>
+                        <h1 class="dashboard-header">
+                            <span>Dashboard</span>
+                            <div class="toggle-switch">
+                                <label>
+                                    <input
+                                            type="checkbox"
+                                            .checked=${!this._viewAllProjects}
+                                            @change=${this.toggleProjectView}
+                                    />
+                                    <span class="slider"></span>
+                                    <span class="toggle-label">
+        ${this._viewAllProjects ? 'All Projects' : 'My Projects'}
+      </span>
+                                </label>
+                            </div>
+                        </h1>
+
                         <div class="filter-bar">
 
                             <input

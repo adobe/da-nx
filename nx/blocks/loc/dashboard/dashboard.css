@@ -153,17 +153,14 @@ h1 {
   z-index: 10;
   font-size: 0.9rem;
   box-shadow: 0 2px 4px rgb(0 0 0 / 20%);
+  visibility: visible;
+  opacity: 1;
 }
 
 .tooltip::after {
   visibility: hidden;
   opacity: 0;
   transition: opacity 0.2s ease-in-out;
-}
-
-.tooltip:hover::after {
-  visibility: visible;
-  opacity: 1;
 }
 
 .filter-bar {
@@ -300,5 +297,75 @@ h1 {
 }
 
 .apply-filter-button:hover {
+  background-color: #0056b3;
+}
+
+.dashboard-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #333;
+}
+
+.toggle-switch {
+  display: flex;
+  align-items: center;
+  gap: 10px; /* Add spacing between the slider and the label text */
+}
+
+.toggle-switch label {
+  position: relative;
+  display: flex; /* Use flex to align items */
+  align-items: center;
+  gap: 8px; /* Add spacing between slider and text */
+}
+
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-switch .slider {
+  position: relative;
+  display: inline-block;
+  width: 50px;
+  height: 24px;
+  background-color: #ccc;
+  border-radius: 24px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.toggle-switch .slider::before {
+  content: "";
+  position: absolute;
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  border-radius: 50%;
+  transition: transform 0.3s ease;
+}
+
+.toggle-switch input:checked + .slider {
+  background-color: #007bff;
+}
+
+.toggle-switch input:checked + .slider::before {
+  transform: translateX(26px);
+}
+
+.toggle-label {
+  font-size: 0.9rem;
+  color: #333;
+  font-weight: bold;
+}
+
+.toggle-switch label:hover .slider {
   background-color: #0056b3;
 }
