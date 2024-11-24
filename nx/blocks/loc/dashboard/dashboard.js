@@ -18,6 +18,11 @@ class NxLocDashboard extends LitElement {
     _searchQuery: { attribute: false },
     _startDate: { attribute: false },
     _endDate: { attribute: false },
+    _showFilterPopup: false,
+    _translationFilters: [],
+    _rolloutFilters: [],
+    translationStatuses: ['Error', 'Completed', 'Created', 'In Progress'],
+    rolloutStatuses: ['Error', 'Completed', 'Rollout Ready', 'In Progress'],
   };
 
   constructor() {
@@ -29,6 +34,11 @@ class NxLocDashboard extends LitElement {
     this._endDate = null;
     this._currentPage = 1;
     this._projectsPerPage = 5; // Show 5 projects per page
+    this._showFilterPopup = false;
+    this._translationFilters = [];
+    this._rolloutFilters = [];
+    this.translationStatuses = ['Error', 'Completed', 'Created', 'In Progress'];
+    this.rolloutStatuses = ['Error', 'Completed', 'Rollout Ready', 'In Progress'];
   }
 
   create() {
@@ -39,6 +49,66 @@ class NxLocDashboard extends LitElement {
     await this.getProjects();
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style, buttons];
+    window.addEventListener('click', this.handleOutsideClick);
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    window.removeEventListener('click', this.handleOutsideClick);
+  }
+
+  // Toggle the filter popup
+  toggleFilterPopup(event) {
+    this._showFilterPopup = !this._showFilterPopup;
+
+    if (this._showFilterPopup) {
+      const buttonRect = event.target.getBoundingClientRect();
+      this._popupPosition = {
+        top: buttonRect.bottom + window.scrollY,
+        left: buttonRect.left + window.scrollX,
+      };
+    }
+  }
+
+  // Handle clicks outside the popup
+  handleOutsideClick = (event) => {
+    if (
+      this._showFilterPopup
+            && !event.composedPath().some((el) => el.classList?.contains('filter-popup'))
+            && !event.composedPath().some((el) => el.classList?.contains('filter-button'))
+    ) {
+      this._showFilterPopup = false;
+    }
+  };
+
+  // Update translation filter selections
+  updateTranslationFilter(event) {
+    const { value } = event.target;
+    if (event.target.checked) {
+      this._translationFilters = [...this._translationFilters, value];
+    } else {
+      this._translationFilters = this._translationFilters.filter(
+        (filter) => filter !== value,
+      );
+    }
+  }
+
+  // Update rollout filter selections
+  updateRolloutFilter(event) {
+    const { value } = event.target;
+    if (event.target.checked) {
+      this._rolloutFilters = [...this._rolloutFilters, value];
+    } else {
+      this._rolloutFilters = this._rolloutFilters.filter(
+        (filter) => filter !== value,
+      );
+    }
+  }
+
+  // Apply filters
+  applyFilters() {
+    this.filterProjects();
+    this._showFilterPopup = false; // Close popup
   }
 
   // Update start date
@@ -53,7 +123,7 @@ class NxLocDashboard extends LitElement {
     this.filterProjects();
   }
 
-  // Filter projects by search query and date range
+  // Filter projects by title, date range, and statuses
   filterProjects() {
     const query = this._searchQuery.toLowerCase();
     const startDate = this._startDate ? new Date(this._startDate) : null;
@@ -61,12 +131,18 @@ class NxLocDashboard extends LitElement {
 
     this._filteredProjects = this._projects.filter((project) => {
       const matchesQuery = project.title.toLowerCase().includes(query);
-      const projectDate = new Date(project.createdOn);
 
+      const projectDate = new Date(project.createdOn);
       const matchesDateRange = (!startDate || projectDate >= startDate)
                 && (!endDate || projectDate <= endDate);
 
-      return matchesQuery && matchesDateRange;
+      const matchesTranslation = this._translationFilters.length === 0
+                || this._translationFilters.includes(project.translationStatus);
+
+      const matchesRollout = this._rolloutFilters.length === 0
+                || this._rolloutFilters.includes(project.rolloutStatus);
+
+      return matchesQuery && matchesDateRange && matchesTranslation && matchesRollout;
     });
 
     this._currentPage = 1; // Reset to the first page when filtering
@@ -172,11 +248,19 @@ class NxLocDashboard extends LitElement {
     this._filteredProjects = [...this._projects]; // Initialize filtered projects with all projects
   }
 
-  // Calculate the current set of projects to display
   getPaginatedProjects() {
     const start = (this._currentPage - 1) * this._projectsPerPage;
     const end = start + this._projectsPerPage;
-    return this._filteredProjects.slice(start, end);
+    const paginatedProjects = this._filteredProjects.slice(start, end);
+
+    // Calculate record range
+    this._paginationRange = {
+      start: start + 1,
+      end: Math.min(end, this._filteredProjects.length),
+      total: this._filteredProjects.length,
+    };
+
+    return paginatedProjects;
   }
 
   // Handle page navigation
@@ -193,31 +277,40 @@ class NxLocDashboard extends LitElement {
 
   renderPaginationControls() {
     const totalPages = Math.ceil(this._filteredProjects.length / this._projectsPerPage);
+
     return html`
-      <div class="pagination">
-        <button
-          class="pagination-btn"
-          ?disabled=${this._currentPage === 1}
-          @click=${() => this.goToPage(this._currentPage - 1)}>
-          Previous
-        </button>
-        ${Array.from({ length: totalPages }, (_, index) => index + 1).map(
+            <div class="pagination">
+                <div class="pagination-info">
+                    Showing ${this._paginationRange.start}–${this._paginationRange.end} of ${this._paginationRange.total}
+                </div>
+                <div class="pagination-controls">
+                    <button
+                            class="pagination-btn"
+                            ?disabled=${this._currentPage === 1}
+                            @click=${() => this.goToPage(this._currentPage - 1)}
+                    >
+                        Previous
+                    </button>
+                    ${Array.from({ length: totalPages }, (_, index) => index + 1).map(
     (page) => html`
-            <button
-              class="pagination-btn ${this._currentPage === page ? 'active' : ''}"
-              @click=${() => this.goToPage(page)}>
-              ${page}
-            </button>
-          `,
+                                <button
+                                        class="pagination-btn ${this._currentPage === page ? 'active' : ''}"
+                                        @click=${() => this.goToPage(page)}
+                                >
+                                    ${page}
+                                </button>
+                            `,
   )}
-        <button
-          class="pagination-btn"
-          ?disabled=${this._currentPage === totalPages}
-          @click=${() => this.goToPage(this._currentPage + 1)}>
-          Next
-        </button>
-      </div>
-    `;
+                    <button
+                            class="pagination-btn"
+                            ?disabled=${this._currentPage === totalPages}
+                            @click=${() => this.goToPage(this._currentPage + 1)}
+                    >
+                        Next
+                    </button>
+                </div>
+            </div>
+        `;
   }
 
   renderLanguages(languages) {
@@ -246,6 +339,7 @@ class NxLocDashboard extends LitElement {
     ? html`
                         <h1>Dashboard</h1>
                         <div class="filter-bar">
+
                             <input
                                     type="text"
                                     class="search-input"
@@ -253,6 +347,56 @@ class NxLocDashboard extends LitElement {
                                     .value=${this._searchQuery}
                                     @input=${this.updateSearchQuery}
                             />
+                            <button class="filter-button" @click=${this.toggleFilterPopup}>
+                                Filter
+                            </button>
+                            ${this._showFilterPopup
+    ? html`
+                                        <div
+                                                class="filter-popup"
+                                                style="top: ${this._popupPosition.top}px; left: ${this._popupPosition.left}px"
+                                        >
+                                            <h3>Filter Options</h3>
+                                            <div class="filter-section">
+                                                <h4>Translation Status</h4>
+                                                <div class="checkbox-grid">
+                                                    ${this.translationStatuses.map(
+    (status) => html`
+                                                                <label>
+                                                                    <input
+                                                                            type="checkbox"
+                                                                            .value=${status}
+                                                                            @change=${this.updateTranslationFilter}
+                                                                    />
+                                                                    ${status}
+                                                                </label>
+                                                            `,
+  )}
+                                                </div>
+                                            </div>
+                                            <div class="filter-section">
+                                                <h4>Rollout Status</h4>
+                                                <div class="checkbox-grid">
+                                                    ${this.rolloutStatuses.map(
+    (status) => html`
+                                                                <label>
+                                                                    <input
+                                                                            type="checkbox"
+                                                                            .value=${status}
+                                                                            @change=${this.updateRolloutFilter}
+                                                                    />
+                                                                    ${status}
+                                                                </label>
+                                                            `,
+  )}
+                                                </div>
+                                            </div>
+                                            <button class="apply-filter-button" @click=${this.applyFilters}>
+                                                Apply
+                                            </button>
+                                        </div>
+                                    `
+    : ''}
                             <div class="date-range">
                                 <input
                                         type="date"

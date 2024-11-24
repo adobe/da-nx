@@ -77,8 +77,19 @@ h1 {
 
 .pagination {
   display: flex;
-  justify-content: center;
+  justify-content: space-between;
+  align-items: center;
   margin-top: 1rem;
+  gap: 1rem;
+}
+
+.pagination-info {
+  font-size: 0.9rem;
+  color: #555;
+}
+
+.pagination-controls {
+  display: flex;
   gap: 0.5rem;
 }
 
@@ -223,4 +234,71 @@ h1 {
 .edit-button:focus {
   outline: none;
   box-shadow: 0 0 0 2px #80bdff; /* Adds a focus ring for accessibility */
+}
+
+.filter-button {
+  padding: 8px 12px;
+  border: 1px solid rgb(204 204 204);
+  background-color: rgb(255 255 255);
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.filter-popup {
+  position: absolute;
+  background-color: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 20%);
+  padding: 16px;
+  z-index: 100;
+  width: 300px;
+}
+
+.filter-popup h3 {
+  margin: 0 0 10px;
+  font-size: 1.1rem;
+}
+
+.filter-section {
+  margin-bottom: 16px;
+}
+
+.filter-section h4 {
+  margin: 0 0 10px;
+  font-size: 1rem;
+  font-weight: bold;
+}
+
+.filter-section label {
+  display: flex;
+  align-items: center;
+  margin-bottom: 8px;
+  cursor: pointer;
+}
+
+.filter-section input[type="checkbox"] {
+  margin-right: 8px;
+}
+
+.filter-section .checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr); /* Two checkboxes per row */
+  gap: 8px; /* Space between rows and columns */
+}
+
+.apply-filter-button {
+  padding: 10px;
+  border: none;
+  background-color: #007bff;
+  color: #fff;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  width: 100%;
+  text-align: center;
+}
+
+.apply-filter-button:hover {
+  background-color: #0056b3;
 }
