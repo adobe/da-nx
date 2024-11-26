@@ -33,7 +33,7 @@ class NxLocDashboard extends LitElement {
   }
 
   create() {
-    this._view = 'dashboard';
+    this._view = 'create';
   }
 
   async connectedCallback() {
