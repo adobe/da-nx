@@ -33,7 +33,6 @@ class NxFilterBar extends LitElement {
   }
 
   emitFilterChange() {
-    console.log('emitFilterChange called');
     this.dispatchEvent(
       new CustomEvent('filter-change', {
         detail: {
@@ -50,7 +49,6 @@ class NxFilterBar extends LitElement {
 
   toggleFilterPopup(event) {
     event.stopPropagation();
-    // console.log('toggleFilterPopup clicked with value:', this._showFilterPopup);
     this._showFilterPopup = !this._showFilterPopup;
     if (this._showFilterPopup) {
       const buttonRect = event.target.getBoundingClientRect();
