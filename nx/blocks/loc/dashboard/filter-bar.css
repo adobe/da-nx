@@ -84,7 +84,7 @@
 .filter-section .checkbox-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr); /* Two checkboxes per row */
-  gap: 8px; /* Space between rows and columns */
+  gap: 8px;
 }
 
 .apply-filter-button {
@@ -106,14 +106,14 @@
 .filter-bar .toggle-switch {
   display: flex;
   align-items: center;
-  gap: 10px; /* Add spacing between the slider and the label text */
+  gap: 10px;
 }
 
 .filter-bar .toggle-switch label {
   position: relative;
-  display: flex; /* Use flex to align items */
+  display: flex;
   align-items: center;
-  gap: 8px; /* Add spacing between slider and text */
+  gap: 8px;
 }
 
 .filter-bar .toggle-switch input {

@@ -1,6 +1,6 @@
 .table {
   display: grid;
-  grid-template-columns: repeat(7, 1fr); /* Adjust number of columns based on your data */
+  grid-template-columns: repeat(7, 1fr);
   border-collapse: collapse;
   margin-top: 1rem;
   width: 100%;
@@ -8,7 +8,7 @@
 
 .table-header,
 .table-row {
-  display: contents; /* Allows children to behave like grid items */
+  display: contents;
 }
 
 .table-body,
@@ -17,9 +17,9 @@
 }
 
 .table-row {
-  grid-template-columns: repeat(7, 1fr); /* Match number of columns */
-  align-items: stretch; /* Ensures all cells stretch to equal row height */
-  min-height: 50px; /* Set a baseline minimum height */
+  grid-template-columns: repeat(7, 1fr);
+  align-items: stretch;
+  min-height: 50px;
 }
 
 .table-cell {
@@ -94,8 +94,8 @@
 }
 
 .edit-button {
-  width: 80px; /* Fixed width for all buttons */
-  height: 36px; /* Fixed height for all buttons */
+  width: 80px;
+  height: 36px;
   padding: 0;
   border: none;
   background-color: #007bff;
@@ -105,7 +105,7 @@
   cursor: pointer;
   font-weight: bold;
   text-align: center;
-  display: inline-flex; /* Ensures content inside the button is centered */
+  display: inline-flex;
   justify-content: center;
   align-items: center;
   transition: background-color 0.3s ease, transform 0.2s ease;
@@ -113,15 +113,15 @@
 
 .edit-button:hover {
   background-color: #0056b3;
-  transform: translateY(-2px); /* Adds a hover lift effect */
+  transform: translateY(-2px);
 }
 
 .edit-button:active {
   background-color: #003d82;
-  transform: translateY(0); /* Reverts the lift effect when clicked */
+  transform: translateY(0);
 }
 
 .edit-button:focus {
   outline: none;
-  box-shadow: 0 0 0 2px #80bdff; /* Adds a focus ring for accessibility */
+  box-shadow: 0 0 0 2px #80bdff;
 }

@@ -20,6 +20,7 @@ class NxLocDashboard extends LitElement {
     _currentPage: { attribute: false },
     _siteBase: { attribute: false },
     _filteredProjects: { attribute: false },
+    _loading: { attribute: false },
   };
 
   constructor() {
@@ -28,6 +29,7 @@ class NxLocDashboard extends LitElement {
     this._filteredProjects = [];
     this._currentPage = 1;
     this._projectsPerPage = 5;
+    this._loading = false;
   }
 
   create() {
@@ -35,9 +37,9 @@ class NxLocDashboard extends LitElement {
   }
 
   async connectedCallback() {
-    await this.getProjects();
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style, buttons];
+    await this.getProjects();
   }
 
   disconnectedCallback() {
@@ -153,31 +155,38 @@ class NxLocDashboard extends LitElement {
   }
 
   async getProjects() {
-    imsDetails = await loadIms();
-    loggedinUser = imsDetails?.email?.split('@')[0];
-    const siteBase = window.location.hash.replace('#', '');
-    this._siteBase = siteBase?.slice(1);
-    const resp = await daFetch(`https://admin.da.live/list${siteBase}/.da/translation/projects/active`);
-    if (!resp.ok) return;
-    const projectList = await resp.json();
-    this._projects = await Promise.all(projectList.map(async (project) => {
-      const projResp = await daFetch(`https://admin.da.live/source${project.path}`);
-      const projJson = await projResp.json();
-      project.title = projJson.title;
-      const { createdBy, createdOn } = await this.getProjectDetails(project.path);
-      project.languages = projJson.langs?.map((lang) => lang.name).join(', ');
-      const { translationStatus, rolloutStatus } = this.getProjectStatuses(projJson.langs);
-      return {
-        title: project.title || 'Untitled',
-        path: project.path,
-        createdBy: createdBy || 'anonymous',
-        createdOn: createdOn || 'unknown',
-        languages: (project.languages || 'unknown'),
-        translationStatus: translationStatus || 'unknown',
-        rolloutStatus: rolloutStatus || 'unknown',
-      };
-    }));
-    this._filteredProjects = [...this._projects]; // Initialize filtered projects with all projects
+    this._loading = true;
+    try {
+      imsDetails = await loadIms();
+      loggedinUser = imsDetails?.email?.split('@')[0];
+      const siteBase = window.location.hash.replace('#', '');
+      this._siteBase = siteBase?.slice(1);
+      const resp = await daFetch(`https://admin.da.live/list${siteBase}/.da/translation/projects/active`);
+      if (!resp.ok) return;
+      const projectList = await resp.json();
+      this._projects = await Promise.all(projectList.map(async (project) => {
+        const projResp = await daFetch(`https://admin.da.live/source${project.path}`);
+        const projJson = await projResp.json();
+        project.title = projJson.title;
+        const { createdBy, createdOn } = await this.getProjectDetails(project.path);
+        project.languages = projJson.langs?.map((lang) => lang.name).join(', ');
+        const { translationStatus, rolloutStatus } = this.getProjectStatuses(projJson.langs);
+        return {
+          title: project.title || 'Untitled',
+          path: project.path,
+          createdBy: createdBy || 'anonymous',
+          createdOn: createdOn || 'unknown',
+          languages: (project.languages || 'unknown'),
+          translationStatus: translationStatus || 'unknown',
+          rolloutStatus: rolloutStatus || 'unknown',
+        };
+      }));
+      this._filteredProjects = [...this._projects];
+    } catch (error) {
+      console.error('Error fetching projects:', error);
+    } finally {
+      this._loading = false;
+    }
   }
 
   getPaginatedProjects() {
@@ -193,6 +202,10 @@ class NxLocDashboard extends LitElement {
   render() {
     const paginatedProjects = this.getPaginatedProjects();
     return html`
+            ${this._loading ? html`
+                <div class="loading-spinner">
+                    <div class="spinner"></div>
+                </div>` : ''}
             ${this._view !== 'create' ? html`
                 <h1 class="dashboard-header">
                     <span>Dashboard</span>
