@@ -1,0 +1,127 @@
+.table {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr); /* Adjust number of columns based on your data */
+  border-collapse: collapse;
+  margin-top: 1rem;
+  width: 100%;
+}
+
+.table-header,
+.table-row {
+  display: contents; /* Allows children to behave like grid items */
+}
+
+.table-body,
+.table-row {
+  display: contents;
+}
+
+.table-row {
+  grid-template-columns: repeat(7, 1fr); /* Match number of columns */
+  align-items: stretch; /* Ensures all cells stretch to equal row height */
+  min-height: 50px; /* Set a baseline minimum height */
+}
+
+.table-cell {
+  padding: 8px;
+  border-bottom: 1px solid #e0e0e0;
+  word-wrap: break-word;
+  text-align: left;
+}
+
+.table-header .table-cell {
+  font-weight: bold;
+  background-color: #f3f3f3;
+  text-align: left;
+}
+
+.table-body .table-row:nth-child(even) .table-cell {
+  background-color: #f9f9f9;
+}
+
+.table-body .table-row:hover .table-cell {
+  background-color: #f1f1f1;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.tooltip {
+  margin-left: 5px;
+  display: inline-block;
+  position: relative;
+  text-align: center;
+  font-size: 0.8rem;
+  font-weight: bold;
+  cursor: pointer;
+  width: 24px;
+  height: 24px;
+  line-height: 24px;
+  border-radius: 50%;
+  background-color: black;
+  color: white;
+  box-shadow: 0 2px 4px rgb(0 0 0 / 20%);
+}
+
+.tooltip:hover {
+  background-color: #0056b3;
+}
+
+.tooltip:hover::after {
+  content: attr(title);
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  top: calc(100% + 5px);
+  background: #333;
+  color: #fff;
+  padding: 5px 10px;
+  border-radius: 4px;
+  white-space: nowrap;
+  z-index: 10;
+  font-size: 0.9rem;
+  box-shadow: 0 2px 4px rgb(0 0 0 / 20%);
+  visibility: visible;
+  opacity: 1;
+}
+
+.tooltip::after {
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.2s ease-in-out;
+}
+
+.edit-button {
+  width: 80px; /* Fixed width for all buttons */
+  height: 36px; /* Fixed height for all buttons */
+  padding: 0;
+  border: none;
+  background-color: #007bff;
+  color: #fff;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  font-weight: bold;
+  text-align: center;
+  display: inline-flex; /* Ensures content inside the button is centered */
+  justify-content: center;
+  align-items: center;
+  transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.edit-button:hover {
+  background-color: #0056b3;
+  transform: translateY(-2px); /* Adds a hover lift effect */
+}
+
+.edit-button:active {
+  background-color: #003d82;
+  transform: translateY(0); /* Reverts the lift effect when clicked */
+}
+
+.edit-button:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px #80bdff; /* Adds a focus ring for accessibility */
+}

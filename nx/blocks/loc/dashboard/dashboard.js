@@ -5,6 +5,7 @@ import { daFetch } from '../../../utils/daFetch.js';
 import { loadIms } from '../../../utils/ims.js';
 import './pagination.js';
 import './filter-bar.js';
+import './project-table.js';
 
 const { nxBase } = getConfig();
 const style = await getStyle(import.meta.url);
@@ -17,7 +18,6 @@ class NxLocDashboard extends LitElement {
     _view: { attribute: false },
     _projects: { attribute: false },
     _currentPage: { attribute: false },
-    _projectsPerPage: { attribute: 5 },
     _siteBase: { attribute: false },
     _filteredProjects: { attribute: false },
   };
@@ -31,7 +31,7 @@ class NxLocDashboard extends LitElement {
   }
 
   create() {
-    this._view = 'create';
+    this._view = 'dashboard';
   }
 
   async connectedCallback() {
@@ -190,16 +190,6 @@ class NxLocDashboard extends LitElement {
     window.location.hash = `#${path?.replace('.json', '')}`; // Update the URL hash
   }
 
-  renderLanguages(languages) {
-    const langArray = languages.split(', '); // Convert the comma-separated string to an array
-    const visibleLanguages = langArray.slice(0, 2); // Show the first two languages
-    const remainingLanguages = langArray.slice(2); // Remaining languages for the tooltip
-
-    return html`${visibleLanguages.join(', ')}${remainingLanguages.length > 0 ? html`
-          <span class="tooltip" title="${remainingLanguages.join(', ')}">+${remainingLanguages.length}</span>` : ''}
-    `;
-  }
-
   render() {
     const paginatedProjects = this.getPaginatedProjects();
     return html`
@@ -210,37 +200,8 @@ class NxLocDashboard extends LitElement {
                 <nx-filter-bar @filter-change=${(e) => this.applyFilters(e.detail)}></nx-filter-bar>
                 <button class="accent" @click=${this.create}>Create Project</button>
                 ${this._filteredProjects.length ? html`
-                    <div class="table">
-                        <div class="table-header">
-                            <div class="table-cell">Project Name</div>
-                            <div class="table-cell">Created By</div>
-                            <div class="table-cell">Created Date</div>
-                            <div class="table-cell">Languages</div>
-                            <div class="table-cell">Localization Status</div>
-                            <div class="table-cell">Rollout Status</div>
-                            <div class="table-cell">Actions</div>
-                        </div>
-                        <div class="table-body">
-                        ${paginatedProjects.map((project) => html`
-                            <div class="table-row">
-                                <div class="table-cell">${project.title}</div>
-                                <div class="table-cell">${project.createdBy}</div>
-                                <div class="table-cell">${project.createdOn}</div>
-                                <div class="table-cell">${this.renderLanguages(project.languages)}</div>
-                                <div class="table-cell">${project.translationStatus}</div>
-                                <div class="table-cell">${project.rolloutStatus}</div>
-                                <div class="table-cell actions">
-                                    <button class="edit-button" @click=${() => this.navigateToProject(project.path)}>Edit</button>
-                                </div>
-                            </div>`)}
-                        </div>
-                    </div>
-                    <nx-pagination
-                        .currentPage=${this._currentPage}
-                        .totalItems=${this._filteredProjects.length}
-                        .itemsPerPage=${this._projectsPerPage}
-                        @page-change=${(e) => (this._currentPage = e.detail.page)}>
-                    </nx-pagination>`
+                    <nx-projects-table .projects=${paginatedProjects} @navigate-to-project=${(e) => this.navigateToProject(e.detail.path)}></nx-projects-table>
+                    <nx-pagination .currentPage=${this._currentPage} .totalItems=${this._filteredProjects.length} .itemsPerPage=${this._projectsPerPage} @page-change=${(e) => (this._currentPage = e.detail.page)}></nx-pagination>`
     : html`<p>No projects found.</p>`}`
     : html`<nx-loc-setup></nx-loc-setup>`}`;
   }
