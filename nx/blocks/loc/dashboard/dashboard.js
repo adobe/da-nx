@@ -1,4 +1,4 @@
-import { html, LitElement, nothing } from '../../../deps/lit/lit-core.min.js';
+import { html, LitElement } from '../../../deps/lit/lit-core.min.js';
 import { getConfig } from '../../../scripts/nexter.js';
 import getStyle from '../../../utils/styles.js';
 import { daFetch } from '../../../utils/daFetch.js';
@@ -29,7 +29,7 @@ class NxLocDashboard extends LitElement {
     this._filteredProjects = [];
     this._currentPage = 1;
     this._projectsPerPage = 5;
-    this._loading = false;
+    this._loading = true;
   }
 
   create() {
@@ -155,7 +155,6 @@ class NxLocDashboard extends LitElement {
   }
 
   async getProjects() {
-    this._loading = true;
     try {
       imsDetails = await loadIms();
       loggedinUser = imsDetails?.email?.split('@')[0];
@@ -217,6 +216,21 @@ class NxLocDashboard extends LitElement {
       <nx-pagination .currentPage=${this._currentPage} .totalItems=${this._filteredProjects.length} .itemsPerPage=${this._projectsPerPage} @page-change=${this.handlePagination}></nx-pagination>`;
   }
 
+  getMainContent() {
+    let content;
+    if (this._loading) {
+      // Show the spinner when loading
+      content = this.renderSpinner();
+    } else if (this._filteredProjects.length > 0) {
+      // Show the projects table if projects are available
+      content = this.renderProjects();
+    } else {
+      // Show a "No projects found" message if there are no projects
+      content = html`<p>No projects found.</p>`;
+    }
+    return content;
+  }
+
   render() {
     return html`
       ${this._view !== 'create' ? html`
@@ -225,7 +239,7 @@ class NxLocDashboard extends LitElement {
           <button class="accent" @click=${this.create}>Create Project</button>
         </div>
         <nx-filter-bar @filter-change=${(e) => this.applyFilters(e.detail)}></nx-filter-bar>
-        ${this._filteredProjects.length ? this.renderProjects() : this.renderSpinner()}`
+        ${this.getMainContent()}`
     : html`<nx-loc-setup></nx-loc-setup>`}`;
   }
 }
