@@ -146,9 +146,9 @@ class NxImporter extends LitElement {
         <div class="form-row">
           <h2>Import</h2>
           <label for="index">By Query Index</label>
-          <input id="index" type="text" name="index" placeholder="https://main--bacom--adobecom.hlx.live/query-index.json?limit=-1" value="https://main--bacom--adobecom.hlx.live/query-index.json?limit=-1" />
+          <input id="index" type="text" name="index" placeholder="https://main--bacom--adobecom.hlx.live/query-index.json?limit=-1" />
           <label for="urls">By URL</label>
-          <textarea id="urls" name="urls" placeholder="Add AEM URLs"></textarea>
+          <textarea id="urls" name="urls" placeholder="Add AEM URLs">https://main--bacom-blog--adobecom.hlx.live/au/blog/basics/4-types-of-projects-which-kind-are-you-leading</textarea>
         </div>
         <div class="form-row">
           <h2>Into</h2>

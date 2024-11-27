@@ -35,7 +35,7 @@ function convertBlocks(editor) {
     const rows = [...table.querySelectorAll(':scope > tbody > tr, :scope > thead > tr')];
     const nameRow = rows.shift();
     const divs = rows.map((row) => {
-      const cols = row.querySelectorAll(':scope > td');
+      const cols = row.querySelectorAll(':scope > td, :scope > th');
       // eslint-disable-next-line no-shadow
       const divs = [...cols].map((col) => {
         const { innerHTML } = col;
@@ -60,6 +60,7 @@ function makePictures(dom) {
   imgs.forEach((img) => {
     const clone = img.cloneNode(true);
     clone.setAttribute('loading', 'lazy');
+    clone.src = `${clone.src}?optimize=medium`;
 
     let pic = document.createElement('picture');
 
@@ -153,5 +154,6 @@ export function mdToDocDom(md) {
   const parser = new DOMParser();
   const dom = parser.parseFromString(htmlText, 'text/html');
   removeImageSizeHash(dom);
+
   return dom;
 }
