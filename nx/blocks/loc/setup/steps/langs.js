@@ -68,10 +68,14 @@ class NxLocLangs extends LitElement {
     const body = new FormData();
     const blob = new Blob([JSON.stringify(project)], { type: 'application/json' });
     body.append('data', blob);
-    const opts = { method: 'PUT', body };
+    const opts = { method: 'POST', body };
     const path = `/${this.org}/${this.repo}${PROJ_PATH}/${time}`;
     const fetchPath = `${DA_ORIGIN}/source${path}.json`;
     const resp = await daFetch(fetchPath, opts);
+
+    const verPath = `${DA_ORIGIN}/versionsource${path}.json`;
+    daFetch(verPath, { method: 'POST' });
+
     if (!resp.ok) this._error = 'Something went wrong.';
     window.location.hash = `#${path}`;
   }

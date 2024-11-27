@@ -6,6 +6,7 @@ import getStyle from '../../utils/styles.js';
 import './header/header.js';
 import './project/project.js';
 import './setup/setup.js';
+import './dashboard/dashboard.js';
 
 const { nxBase } = getConfig();
 const style = await getStyle(import.meta.url);
@@ -19,14 +20,19 @@ class NxLoc extends LitElement {
     this.shadowRoot.adoptedStyleSheets = [style, buttons];
   }
 
-  get isProject() {
-    return window.location.hash.startsWith('#/');
+  renderLocType() {
+    const { hash } = window.location;
+    if (!hash) return html`<nx-loc-setup></nx-loc-setup>`;
+    const parts = hash.replace('#/', '').split('/');
+    if (parts.length === 2) return html`<nx-loc-dashboard></nx-loc-dashboard>`;
+    if (parts.length > 2) return html`<nx-loc-project></nx-loc-project>`;
+    return html`<nx-loc-setup></nx-loc-setup>`;
   }
 
   render() {
     return html`
       <nx-loc-header name=${imsDetails.first_name}></nx-loc-header>
-      ${this.isProject ? html`<nx-loc-project></nx-loc-project>` : html`<nx-loc-setup></nx-loc-setup>`}
+      ${this.renderLocType()}
     `;
   }
 }
@@ -64,9 +70,7 @@ export default async function init(el) {
     setup();
   };
 
-  if (!isHashPath(window.location.hash)) {
-    window.addEventListener('hashchange', hashChanged);
-  }
+  window.addEventListener('hashchange', hashChanged);
 
   setup();
 }

@@ -1,0 +1,129 @@
+.table {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  border-collapse: collapse;
+  margin-top: 1rem;
+  width: 100%;
+}
+
+.table-header,
+.table-row {
+  display: contents;
+}
+
+.table-body,
+.table-row {
+  display: contents;
+}
+
+.table-row {
+  grid-template-columns: repeat(7, 1fr);
+  align-items: stretch;
+  min-height: 50px;
+}
+
+.table-cell {
+  padding: 8px;
+  border-bottom: 1px solid #e0e0e0;
+  word-wrap: break-word;
+  text-align: left;
+  min-height: 66px;
+  box-sizing: border-box;
+}
+
+.table-header .table-cell {
+  font-weight: bold;
+  background-color: #f3f3f3;
+  text-align: left;
+}
+
+.table-body .table-row:nth-child(even) .table-cell {
+  background-color: #f9f9f9;
+}
+
+.table-body .table-row:hover .table-cell {
+  background-color: #f1f1f1;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.tooltip {
+  margin-left: 5px;
+  display: inline-block;
+  position: relative;
+  text-align: center;
+  font-size: 0.8rem;
+  font-weight: bold;
+  cursor: pointer;
+  width: 24px;
+  height: 24px;
+  line-height: 24px;
+  border-radius: 50%;
+  background-color: black;
+  color: white;
+  box-shadow: 0 2px 4px rgb(0 0 0 / 20%);
+}
+
+.tooltip:hover {
+  background-color: #0056b3;
+}
+
+.tooltip:hover::after {
+  content: attr(title);
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  top: calc(100% + 5px);
+  background: #333;
+  color: #fff;
+  padding: 5px 10px;
+  border-radius: 4px;
+  white-space: nowrap;
+  z-index: 10;
+  font-size: 0.9rem;
+  box-shadow: 0 2px 4px rgb(0 0 0 / 20%);
+  visibility: visible;
+  opacity: 1;
+}
+
+.tooltip::after {
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity 0.2s ease-in-out;
+}
+
+.edit-button {
+  width: 80px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  background-color: #007bff;
+  color: #fff;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  font-weight: bold;
+  text-align: center;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  transition: background-color 0.3s ease, transform 0.2s ease;
+}
+
+.edit-button:hover {
+  background-color: #0056b3;
+  transform: translateY(-2px);
+}
+
+.edit-button:active {
+  background-color: #003d82;
+  transform: translateY(0);
+}
+
+.edit-button:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px #80bdff;
+}
