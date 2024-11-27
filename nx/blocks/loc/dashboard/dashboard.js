@@ -1,4 +1,4 @@
-import { html, LitElement } from '../../../deps/lit/lit-core.min.js';
+import { html, LitElement, nothing } from '../../../deps/lit/lit-core.min.js';
 import { getConfig } from '../../../scripts/nexter.js';
 import getStyle from '../../../utils/styles.js';
 import { daFetch } from '../../../utils/daFetch.js';
@@ -189,6 +189,10 @@ class NxLocDashboard extends LitElement {
     }
   }
 
+  handlePagination(e) {
+    this._currentPage = e.detail.page;
+  }
+
   getPaginatedProjects() {
     const start = (this._currentPage - 1) * this._projectsPerPage;
     const end = start + this._projectsPerPage;
@@ -199,23 +203,29 @@ class NxLocDashboard extends LitElement {
     window.location.hash = `#${path?.replace('.json', '')}`; // Update the URL hash
   }
 
-  render() {
+  renderSpinner() {
+    return html`
+      <div class="loading-spinner">
+        <div class="spinner"></div>
+      </div>`;
+  }
+
+  renderProjects() {
     const paginatedProjects = this.getPaginatedProjects();
     return html`
-            ${this._loading ? html`
-                <div class="loading-spinner">
-                    <div class="spinner"></div>
-                </div>` : ''}
-            ${this._view !== 'create' ? html`
-                <h1 class="dashboard-header">
-                    <span>Dashboard</span>
-                </h1>
-                <nx-filter-bar @filter-change=${(e) => this.applyFilters(e.detail)}></nx-filter-bar>
-                <button class="accent" @click=${this.create}>Create Project</button>
-                ${this._filteredProjects.length ? html`
-                    <nx-projects-table .projects=${paginatedProjects} @navigate-to-project=${(e) => this.navigateToProject(e.detail.path)}></nx-projects-table>
-                    <nx-pagination .currentPage=${this._currentPage} .totalItems=${this._filteredProjects.length} .itemsPerPage=${this._projectsPerPage} @page-change=${(e) => (this._currentPage = e.detail.page)}></nx-pagination>`
-    : html`<p>No projects found.</p>`}`
+      <nx-projects-table .projects=${paginatedProjects} @navigate-to-project=${(e) => this.navigateToProject(e.detail.path)}></nx-projects-table>
+      <nx-pagination .currentPage=${this._currentPage} .totalItems=${this._filteredProjects.length} .itemsPerPage=${this._projectsPerPage} @page-change=${this.handlePagination}></nx-pagination>`;
+  }
+
+  render() {
+    return html`
+      ${this._view !== 'create' ? html`
+        <div class="dashboard-header">
+          <h1>Dashboard</h1>
+          <button class="accent" @click=${this.create}>Create Project</button>
+        </div>
+        <nx-filter-bar @filter-change=${(e) => this.applyFilters(e.detail)}></nx-filter-bar>
+        ${this._filteredProjects.length ? this.renderProjects() : this.renderSpinner()}`
     : html`<nx-loc-setup></nx-loc-setup>`}`;
   }
 }
