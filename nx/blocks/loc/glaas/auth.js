@@ -5,17 +5,19 @@ function getAuthUri(clientid, origin) {
   return `${endpoint}${params}`;
 }
 
-export async function getGlaasToken() {
+export async function getGlaasToken(service) {
   let auth;
+  const { origin = ''} = service;
+  const keyName = origin?.includes('stage') ? 'glaasAuthStage' : 'glaasAuth';
   // Attempt with previous auth store
-  const authStore = localStorage.getItem('glaasAuth');
+  const authStore = localStorage.getItem(keyName);
   if (authStore) {
     auth = JSON.parse(authStore);
     if (auth.token && auth.expires > Date.now()) {
       return auth.token;
     }
     // Remove expired auth store
-    localStorage.removeItem('glaasAuth');
+    localStorage.removeItem(keyName);
   }
   // Attempt with previous hash
   const prevHash = localStorage.getItem('prevHash');
@@ -25,7 +27,7 @@ export async function getGlaasToken() {
     if (token) {
       // 12 hour expiration
       const expires = Date.now() + (10000 * 4320);
-      localStorage.setItem('glaasAuth', JSON.stringify({ token, expires }));
+      localStorage.setItem(keyName, JSON.stringify({ token, expires }));
       return token;
     }
   }
