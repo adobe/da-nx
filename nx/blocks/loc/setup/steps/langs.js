@@ -122,6 +122,7 @@ class NxLocLangs extends LitElement {
     const rolloutConflict = data.get('rollout.conflict.behavior');
     const autoPreview = data.get('complete.aem.preview');
     const autoPublish = data.get('complete.aem.publish');
+    const environment = data.get('service.environment');
 
     const options = {
       sourceConflict,
@@ -129,6 +130,7 @@ class NxLocLangs extends LitElement {
       rolloutConflict,
       autoPreview,
       autoPublish,
+      environment,
     };
 
     this.handleLangsStep(options);
@@ -221,6 +223,22 @@ class NxLocLangs extends LitElement {
     `;
   }
 
+  renderEnvironmentOption() {
+    const configuredEnv = ['stage', 'prod'].filter((env) => Object.keys(this.config).includes(`translation.service.${env}.origin`));
+    if (!configuredEnv.length) return nothing;
+    return html`
+      <div class="da-loc-job-options">
+        <h3>Environment</h3>
+        <div>
+          <label>Translation Service Environment</label>
+          <select name="service.environment">
+            ${configuredEnv.map((opt) => html`<option>${opt}</option>`)}
+          </select>
+        </div>
+      </div>
+    `;
+  }
+
   /* <div class="da-loc-job-options complete-section">
     <h3>Preview & publish</h3>
     <div class="da-loc-job-option-group">
@@ -257,6 +275,7 @@ class NxLocLangs extends LitElement {
           <input type="text" name="title" value="${this.title}" disabled />
         </div>
         ${this.config ? this.renderConfig() : nothing}
+        ${this.config ? this.renderEnvironmentOption() : nothing}
         ${this.langs ? this.renderLangList() : nothing}
       </form>
     `;

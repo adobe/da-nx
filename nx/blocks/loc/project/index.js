@@ -28,14 +28,14 @@ export function calculateTime(startTime) {
   return `${String(crawlTime / 1000).substring(0, 4)}s`;
 }
 
-export async function detectService(config) {
+export async function detectService(config, env = 'stage') {
   const name = config['translation.service.name']?.value;
   if (name === 'GLaaS') {
     return {
       name: 'GLaaS',
       canResave: true,
-      origin: config['translation.service.stage.origin'].value,
-      clientid: config['translation.service.stage.clientid'].value,
+      origin: config[`translation.service.${env}.origin`].value,
+      clientid: config[`translation.service.${env}.clientid`].value,
       actions: await import('../glaas/index.js'),
     };
   }
