@@ -28,7 +28,7 @@ class NxLocDashboard extends LitElement {
     this._projects = [];
     this._filteredProjects = [];
     this._currentPage = 1;
-    this._projectsPerPage = 5;
+    this._projectsPerPage = 50;
     this._loading = true;
   }
 
