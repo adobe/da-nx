@@ -19,6 +19,7 @@ export default function normalizeUrls(urls, langs) {
     return {
       extPath: url.extPath,
       basePath,
+      originalHref: url.href,
     };
   });
 }

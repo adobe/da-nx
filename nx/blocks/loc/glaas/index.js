@@ -1,5 +1,5 @@
 import {
-  checkSession, createTask, addAssets, updateStatus, getTask, downloadAsset,
+  checkSession, createTask, addAssets, updateStatus, getTask, downloadAsset, prepareTargetPreview,
 } from './api.js';
 import { getGlaasToken, connectToGlaas } from './auth.js';
 
@@ -66,7 +66,7 @@ async function createNewTask(service, task, setStatus) {
   setStatus(`Creating task ${task.name} using ${task.workflowName}.`);
 
   const { origin, clientid } = service;
-  const result = await createTask({ origin, clientid, token, task });
+  const result = await createTask({ origin, clientid, token, task, service });
   return { ...result, status: 'draft' };
 }
 
@@ -92,6 +92,7 @@ async function sendTask(service, suppliedTask, langs, urls, actions) {
     task.status = 'uploading';
     updateLangTask(task, langs);
     await addTaskAssets(service, langs, task, urls, actions);
+    await prepareTargetPreview(task, urls, service);
     updateLangTask(task, langs);
     await saveState();
   }

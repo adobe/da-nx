@@ -27,20 +27,21 @@ export async function checkSession({ origin, clientid, token }) {
   }
 }
 
-export async function createTask({ origin, clientid, token, task }) {
+export async function createTask({ origin, clientid, token, task, service }) {
   const { name, workflowName, workflow, targetLocales } = task;
+  const callbackConfig = [];
+  if (service.preview) {
+    const hookUrl = `https://${service.preview}/api/v1/web/daloc/glaas-hook`;
+    callbackConfig.push({ key: 'taskCallbackURL', value: hookUrl });
+    callbackConfig.push({ key: 'assetCallbackURL', value: hookUrl });
+  }
 
   const body = {
     name,
     targetLocales,
     workflowName,
     contentSource: 'Adhoc',
-    config: [
-      {
-        value: 'https://translate.da.live',
-        key: 'preview-server',
-      },
-    ],
+    callbackConfig,
   };
 
   const opts = getOpts(clientid, token, JSON.stringify(body), 'application/json', 'POST');
@@ -83,7 +84,7 @@ export async function addAssets({ origin, clientid, token, langs, task, items },
       const file = new Blob([item.content], { type: 'text/html' });
       const details = {
         assetName: item.basePath,
-        metadata: { 'source-preview-url': `${item.basePath}?taskName=${name}&locale=MOCK_LOCALE` },
+        metadata: { 'source-preview-url': item.originalHref },
       };
 
       body.append('file1', file, item.basePath);
@@ -142,5 +143,28 @@ export async function downloadAsset(service, token, task, path) {
     return resp.blob();
   } catch {
     return { error: 'Error downloading asset.' };
+  }
+}
+
+export async function prepareTargetPreview(task, urls, service) {
+  if (!service.preview) {
+    return;
+  }
+  const { name, workflow, workflowName, targetLocales } = task;
+  const workflowSplit = workflow.split('/');
+  if (workflowSplit.length === 2) {
+    const data = {
+      product: workflowSplit[0],
+      project: workflowSplit[1],
+      workflowName,
+      taskName: name,
+      targetLocales,
+      urls: urls.map((a) => a.originalHref),
+    };
+    await fetch(`https://${service.preview}/api/v1/web/daloc/init-target`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-OW-EXTRA-LOGGING': 'on' },
+      body: JSON.stringify(data),
+    });
   }
 }
