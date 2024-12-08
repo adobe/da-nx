@@ -2,6 +2,8 @@ import { loadArea, getMetadata, getConfig } from '../../scripts/nexter.js';
 import loadStyle from '../../utils/styles.js';
 import { link2svg } from '../../utils/svg.js';
 
+const HASH_AWARE = ['Home', 'Apps'];
+
 function getDefaultPath() {
   const { nxBase } = getConfig();
   return `${nxBase}/fragments/nx-sidenav`;
@@ -35,16 +37,19 @@ class SideNav extends HTMLElement {
     const list = doc.querySelector('ul');
     await this.decorateIcons(list);
 
-    const appLink = doc.querySelector('[title="Edge Delivery Apps"]');
-    if (appLink) {
-      appLink.addEventListener('click', (e) => {
+    const anchors = doc.querySelectorAll('a');
+    anchors.forEach((a) => {
+      const hashAware = HASH_AWARE.some((name) => name === a.title);
+      if (!hashAware) return;
+      a.addEventListener('click', (e) => {
         if (window.location.hash?.startsWith('#/')) {
           e.preventDefault();
           const [org, repo] = window.location.hash.slice(2).split('/');
-          if (org && repo) window.open(`${appLink.href}#/${org}/${repo}`, '_apps');
+          const hash = `#/${org}/${repo}`;
+          if (org && repo) window.open(`${a.href}${hash}`, hash);
         }
       });
-    }
+    });
 
     const inner = document.createElement('div');
     inner.className = 'nx-sidenav-inner';
