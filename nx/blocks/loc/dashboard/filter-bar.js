@@ -157,7 +157,7 @@ class NxFilterBar extends LitElement {
           <label>
               <input type="checkbox" .checked=${!this.viewAllProjects} @change=${this.toggleViewAllProjects}/>
               <span class="slider"></span>
-              <span class="toggle-label">${this.viewAllProjects ? 'All Projects' : 'My Projects'}</span>
+              <span class="toggle-label">My Projects</span>
           </label>
         </div>
       </div>`;

@@ -16,8 +16,6 @@ class NxPagination extends LitElement {
   constructor() {
     super();
     this.currentPage = 1;
-    this.totalItems = 0;
-    this.itemsPerPage = 10;
   }
 
   async connectedCallback() {
