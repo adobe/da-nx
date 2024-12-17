@@ -34,7 +34,7 @@ export const daFetch = async (url, opts = {}) => {
   return resp;
 };
 
-function replaceHtml(text, fromOrg, fromRepo) {
+export function replaceHtml(text, fromOrg, fromRepo) {
   let inner = text;
   if (fromOrg && fromRepo) {
     const fromOrigin = `https://main--${fromRepo}--${fromOrg}.hlx.live`;

@@ -4,6 +4,10 @@
   margin: var(--spacing-800) auto var(--spacing-800) auto;
 }
 
+:host > svg {
+  display: none;
+}
+
 h1 {
   font-size: var(--type-heading-xxl-size);
   line-height: var(--spectrum-line-height-100);
@@ -38,6 +42,21 @@ label {
   margin-bottom: calc(var(--s2-font-size-600) * var(--type-margin-multiplier));
 }
 
+select {
+  display: block;
+  border: 2px solid var(--s2-gray-200);
+  border-radius: var(--s2-radius-100);
+  font-family: var(--body-font-family);
+  font-size: var(--s2-font-size-200);
+  font-weight: 700;
+  padding: 0 6px;
+  box-sizing: border-box;
+  margin: 0;
+  min-width: 120px;
+  height: 32px;
+  line-height: 32px;
+}
+
 .cors-note {
   background: var(--s2-blue-800);
   color: #fff;
@@ -70,6 +89,14 @@ input[type="text"] {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
+}
+
+.url-list {
+  display: none;
+}
+
+.url-list.is-expanded {
+  display: block;
 }
 
 .results {
@@ -120,6 +147,12 @@ input[type="text"] {
   background: #f73b26;
 }
 
+.status-redir {
+  text-transform: uppercase;
+  color: #fff;
+  background: #2870d4;
+}
+
 .status-403 {
   color: #fff;
   background: #da5f00;
@@ -136,4 +169,76 @@ input[type="text"] {
 dialog {
   border-radius: 8px;
   border: none;
+}
+
+/* Cards */
+.detail-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+  gap: 24px;
+  margin: 0 0 var(--spacing-400);
+}
+
+.detail-card {
+  display: flex;
+  justify-content: space-between;
+  background: rgb(215 247 225);
+  border-radius: 18px;
+  overflow: hidden;
+  padding: var(--spacing-400);
+}
+
+.detail-card-remaining {
+  background: rgb(202 248 250);
+}
+
+.detail-card-total {
+  background: rgb(181 230 252);
+}
+
+.detail-card-errors {
+  background: rgb(255 214 209);
+}
+
+.detail-card-success {
+  background: rgb(202 255 164);
+}
+
+.detail-card .cancel-button {
+  margin: 0;
+  padding: 0;
+  min-width: 72px;
+  border-radius: var(--s2-radius-100);
+  border: none;
+  background: rgb(0 0 0 / 10%);
+}
+
+.detail-card h3,
+.detail-card p {
+  margin: 0;
+  line-height: 1;
+}
+
+.detail-card h3 {
+  margin-bottom: var(--spacing-100);
+}
+
+.detail-card p {
+  font-size: var(--s2-font-size-600);
+}
+
+.toggle-list-icon {
+  display: block;
+  border: 0;
+  padding: 0;
+}
+
+.toggle-list-icon svg {
+  width: 18px;
+  height: 18px;
+  transition: transform 0.2s ease-in-out;
+}
+
+.is-expanded .toggle-list-icon svg {
+  transform: rotate(90deg);
 }
