@@ -95,12 +95,18 @@ async function saveVersion(path, label) {
 }
 
 export async function overwriteCopy(url, title) {
+  const srcResp = await daFetch(`${DA_ORIGIN}/source${url.source}`);
+  if (!srcResp.ok) {
+    url.status = 'error';
+    return srcResp;
+  }
+  const blob = await srcResp.blob();
   const body = new FormData();
-  body.append('destination', url.destination);
+  body.append('data', blob);
   const opts = { method: 'POST', body };
-  const daResp = await daFetch(`${DA_ORIGIN}/copy${url.source}`, opts);
+  const daResp = await daFetch(`${DA_ORIGIN}/source${url.destination}`, opts);
   url.status = 'success';
-  // Don't wait the version save
+  // Don't wait for the version save
   saveVersion(url.destination, `${title} - Rolled Out`);
   return daResp;
 }

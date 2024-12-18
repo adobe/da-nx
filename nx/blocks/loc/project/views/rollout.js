@@ -57,7 +57,12 @@ class NxLocRollout extends LitElement {
         const source = `${this.sitePath}${lang.location}${url.basePath}`;
         const destination = `${this.sitePath}${locale.code}${url.basePath}`;
         return async () => {
-          const resp = await mergeCopy({ source, destination }, this.title);
+          let resp;
+          if (this.conflictBehavior === 'overwrite') {
+            resp = await overwriteCopy({ source, destination }, this.title);
+          } else {
+            resp = await mergeCopy({ source, destination }, this.title);
+          }
           if (resp.ok || resp.error === 'timeout') {
             lang.rolledOut += 1;
 
