@@ -52,7 +52,7 @@ async function fetchWithToken(url, accessToken) {
 async function getOrgs() {
   if (!orgDetails) {
     const orgData = await fetchWithToken(
-      `https://${IMS_ENDPOINT[env]}/ims/organizations/v5`,
+      `https://${IMS_ENDPOINT[env]}/ims/organizations/v5?client_id=${imsClientId}`,
       imsProfile.accessToken,
     );
     orgDetails = orgData?.reduce((acc, org) => {
@@ -71,9 +71,7 @@ export async function getIo() {
 
 async function getProfileDetails(accessToken, resolve) {
   const profile = await window.adobeIMS.getProfile();
-  imsProfile = {
-    ...profile, accessToken, getOrgs, getIo,
-  };
+  imsProfile = { ...profile, accessToken, getOrgs, getIo };
   resolve(imsProfile);
 }
 

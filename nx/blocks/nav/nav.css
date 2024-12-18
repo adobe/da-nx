@@ -89,13 +89,13 @@ p {
 
 .nx-nav-profile-menu .nx-nav-profile-menu-item-header {
   margin-top: var(--spacing-200);
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
   text-transform: uppercase;
 }
 
 .nx-nav-profile-menu .nx-nav-profile-menu-item-text {
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .nx-nav-profile-menu button:hover {

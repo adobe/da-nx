@@ -40,16 +40,32 @@ class Nav extends HTMLElement {
     return inner;
   }
 
-  renderProfile(signOut, profile) {
-    const imgSrc = profile?.io?.user?.avatar || `${import.meta.url.replace('nav.js', 'img/default-profile.png')}`;
+  renderOrg(currentOrg) {
+    return `
+      <li>
+        <p class="nx-nav-profile-menu-item-header">Org</p>
+        <p class="nx-nav-profile-menu-item-text">${currentOrg}</p>
+      </li>`;
+  }
+
+  async renderProfile(signOut, details) {
+    const orgs = await details.getOrgs();
+
+    const currentOrg = Object.keys(orgs).find((key) => {
+      const fullIdent = `${orgs[key].orgRef.ident}@${orgs[key].orgRef.authSrc}`;
+      return fullIdent === details.ownerOrg;
+    });
+
+    const imgSrc = details?.io?.user?.avatar || `${import.meta.url.replace('nav.js', 'img/default-profile.png')}`;
 
     const profileMenu = `
       <button class="nx-nav-btn nx-nav-btn-profile"><img src="${imgSrc}"/></button>
       <div class="nx-nav-profile-menu">
         <ul>
+          ${currentOrg ? this.renderOrg(currentOrg) : ''}
           <li>
             <p class="nx-nav-profile-menu-item-header">User ID</p>
-            <p class="nx-nav-profile-menu-item-text">${profile.userId}</p>
+            <p class="nx-nav-profile-menu-item-text">${details.userId}</p>
           </li>
           <li class="nx-nav-profile-list-item">
             <button class="nx-nav-profile-list-item-signout">Sign out</button>
@@ -88,6 +104,7 @@ class Nav extends HTMLElement {
     try {
       const details = await loadIms(true);
       if (details.anonymous) return this.renderSignin(handleSignIn);
+      // const orgs = await getOrgs();
       details.io = await details.getIo();
       return this.renderProfile(handleSignOut, details);
     } catch {
