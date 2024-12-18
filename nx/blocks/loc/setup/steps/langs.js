@@ -45,6 +45,9 @@ class NxLocLangs extends LitElement {
         ready: lang.action === 'rollout' ? this.urls.length : undefined,
       };
       lang.translation = { status: lang.action === 'rollout' ? 'complete' : 'not started' };
+      if (lang.locales) {
+        lang.locales = lang.locales.filter((locale) => locale.active);
+      }
     });
 
     const project = {
