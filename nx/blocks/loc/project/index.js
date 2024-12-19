@@ -1,6 +1,5 @@
 import { regionalDiff, removeLocTags } from '../regional-diff/regional-diff.js';
 import { daFetch, saveToDa } from '../../../utils/daFetch.js';
-import { releaseDnt } from '../dnt/dnt.js';
 
 const DA_ORIGIN = 'https://admin.da.live';
 const DEFAULT_TIMEOUT = 20000; // ms
@@ -37,6 +36,7 @@ export async function detectService(config, env = 'stage') {
       origin: config[`translation.service.${env}.origin`].value,
       clientid: config[`translation.service.${env}.clientid`].value,
       actions: await import('../glaas/index.js'),
+      dnt: await import('../glaas/dnt.js'),
     };
   }
   return {
@@ -44,6 +44,7 @@ export async function detectService(config, env = 'stage') {
     origin: 'https://translate.da/live',
     canResave: false,
     actions: await import('../google/index.js'),
+    dnt: await import('../dnt/dnt.js'),
   };
 }
 
@@ -210,13 +211,12 @@ export async function mergeCopy(url, projectTitle) {
   }
 }
 
-export async function saveLangItems(sitePath, items, lang) {
+export async function saveLangItems(sitePath, items, lang, removeDnt) {
   return Promise.all(items.map(async (item) => {
     const html = await item.blob.text();
-    const dom = PARSER.parseFromString(html, 'text/html');
-    const dntedHtml = releaseDnt(dom);
+    const htmlToSave = removeDnt(html);
 
-    const blob = new Blob([dntedHtml], { type: 'text/html' });
+    const blob = new Blob([htmlToSave], { type: 'text/html' });
 
     const path = `${sitePath}${lang.location}${item.basePath}`;
     const body = new FormData();

@@ -1,6 +1,6 @@
 /* eslint-disable max-len */
 
-let dntConfigGlobal;
+let globalDntConfig;
 const ALT_TEXT_PLACEHOLDER = '*alt-placeholder*';
 
 const getHtmlSelector = (blockscope, blockConfig) => {
@@ -26,68 +26,69 @@ const getHtmlSelector = (blockscope, blockConfig) => {
   return `${blockSelector}${rowSelector}${columnSelector}`;
 };
 
-const doFetchDntConfig = async () => {
-  const extractPattern = (rule) => {
-    const { pattern } = rule;
-    let condition = 'exists';
-    let match = '*';
-    if (pattern && pattern.length > 0) {
-      if (pattern !== '*' && pattern.includes('(') && pattern.includes(')')) {
-        condition = pattern.substring(0, pattern.indexOf('(')).trim();
-        match = (pattern.substring(pattern.indexOf('(') + 1, pattern.indexOf(')')).split('||')).map((item) => item.trim());
-      }
+const extractPattern = (rule) => {
+  const { pattern } = rule;
+  let condition = 'exists';
+  let match = '*';
+  if (pattern && pattern.length > 0) {
+    if (pattern !== '*' && pattern.includes('(') && pattern.includes(')')) {
+      condition = pattern.substring(0, pattern.indexOf('(')).trim();
+      match = (pattern.substring(pattern.indexOf('(') + 1, pattern.indexOf(')')).split('||')).map((item) => item.trim());
     }
-    return { condition, match };
-  };
-
-  // TODO: Each consumer can have additional DNT blocks/content hence have merge logic in place
-  const dntConfigPath = 'https://main--milo--adobecom.hlx.page/.milo/dnt-config.json';
-  const dntConfig = new Map();
-  const dntConfigContent = await fetchText(dntConfigPath, runtime);
-  if (dntConfigContent === '') {
-    console.error('DNT Config unavailable.');
-    return dntConfig;
   }
-  const dntConfigJson = JSON.parse(dntConfigContent);
+  return { condition, match };
+};
+
+const parseDntConfig = (config) => {
+  if (globalDntConfig) return globalDntConfig;
+
+  const dntConfig = new Map();
 
   // Docx Rule Set
-  dntConfig.set('docxRules', new Map());
-  const docxRules = dntConfig.get('docxRules');
-  dntConfigJson.docxRules.data.forEach((dntBlock) => {
-    const blockScopeArray = dntBlock.block_scope.split(',');
+  dntConfig.set('docRules', new Map());
+
+  // Get empty map
+  const docRules = dntConfig.get('docRules');
+
+  // Iterate through config doc rules
+  config['dnt-doc-rules'].data.forEach((blockRule) => {
+    const blockScopeArray = blockRule.block_scope.split(',');
     blockScopeArray.forEach((blockScope) => {
-      const selector = getHtmlSelector(blockScope.trim(), dntBlock);
-      const patternInfo = extractPattern(dntBlock);
-      const config = { ...patternInfo, action: dntBlock.action };
-      if (docxRules.has(selector)) {
-        docxRules.get(selector).push(config);
+      const selector = getHtmlSelector(blockScope.trim(), blockRule);
+      const patternInfo = extractPattern(blockRule);
+      const blockConfig = { ...patternInfo, action: blockRule.action };
+      if (docRules.has(selector)) {
+        docRules.get(selector).push(blockConfig);
       } else {
-        docxRules.set(selector, [config]);
+        docRules.set(selector, [blockConfig]);
       }
     });
   });
 
   // Docx Content Set
-  dntConfig.set('docxContent', []);
-  const docxContent = dntConfig.get('docxContent');
-  dntConfigJson.docxContent.data.forEach((dntContent) => {
-    docxContent.push(dntContent.content);
+  dntConfig.set('contentRules', []);
+
+  const docContent = dntConfig.get('contentRules');
+
+  config['dnt-content-rules'].data.forEach((contentRule) => {
+    docContent.push(contentRule.content);
   });
 
-  // XLSX Rule Set
-  dntConfig.set('xlsxRules', []);
-  const xlsxRules = dntConfig.get('xlsxRules');
-  dntConfigJson.xlsxRules.data.forEach((xlsxRule) => {
-    xlsxRules.push(extractPattern(xlsxRule));
+  // Sheet Rule Set
+  dntConfig.set('sheetRules', []);
+  const sheetRules = dntConfig.get('sheetRules');
+  config['dnt-sheet-rules'].data.forEach((sheetRule) => {
+    sheetRules.push(extractPattern(sheetRule));
   });
-  return dntConfig;
+
+  globalDntConfig = dntConfig;
+  return globalDntConfig;
 };
 
-const getDntConfig = async () => {
-  if (!dntConfigGlobal) {
-    dntConfigGlobal = await doFetchDntConfig();
-  }
-};
+function removeDntAttributes(document) {
+  const dntEls = document.querySelectorAll('[translate="no"]');
+  dntEls.forEach((el) => { el.removeAttribute('translate'); });
+}
 
 const setDntAttribute = (el) => {
   el.setAttribute('translate', 'no');
@@ -146,6 +147,7 @@ const processAltText = (document) => {
     }
     return { alt: text, dnt: null };
   };
+
   document.querySelectorAll('a').forEach((element) => {
     const elementText = element.textContent;
     const { alt, dnt } = getAltTextDntInfo(element.textContent);
@@ -170,77 +172,23 @@ const processAltText = (document) => {
   });
 };
 
-const addDntInfoToHtml = async (html) => {
-  const dom = new JSDOM(html);
-  const { document } = dom.window;
-  dntConfigGlobal.get('docxRules').forEach((operations, selector) => {
+const addDntInfoToHtml = (html) => {
+  const parser = new DOMParser();
+  const document = parser.parseFromString(html, 'text/html');
+
+  // Match existing content sent to GLaaS
+  document.querySelector('header')?.remove();
+  document.querySelector('footer')?.remove();
+
+  globalDntConfig.get('docRules').forEach((operations, selector) => {
     addDntAttribute(selector, operations, document);
   });
-  dntConfigGlobal.get('docxContent').forEach((content) => {
+  globalDntConfig.get('contentRules').forEach((content) => {
     findAndAddDntWrapper(document, content);
   });
+
   processAltText(document);
-  return dom.serialize();
-};
-
-const getPageInfo = async (previewPath) => {
-  const path = previewPath.replace(/\/$/, '/index');
-  const htmlUrl = `${path}.plain.html`;
-  const mdUrl = `${path}.md`;
-  const html = await fetchText(htmlUrl, runtime);
-  const md = await fetchText(mdUrl, runtime);
-  return { html, md };
-};
-
-const getHtml = (blockMdast) => {
-  if (!blockMdast) {
-    return '';
-  }
-  console.info(`blockMdast: ${blockMdast}`);
-  const hast = mdast2hast(blockMdast, {
-    handlers: {
-      ...defaultHandlers,
-      [TYPE_TABLE]: mdast2hastGridTablesHandler(),
-    },
-    allowDangerousHtml: true,
-  });
-  const wrappedHast = {
-    type: 'element',
-    tagName: 'div',
-    properties: {},
-    children: [raw(hast)],
-  };
-  const blockInfo = { content: { hast: wrappedHast } };
-  createPageBlocks(blockInfo);
-  return toHtml(blockInfo.content.hast);
-};
-
-const getPageLevelMetadata = async (md) => {
-  const mdast = await getMdastFromMd(md);
-  const metadataNode = find(mdast, (node) => node?.type === 'gridTable' && find(node, (child) => child?.type === 'text' && (child?.value === 'Metadata' || child?.value === 'metadata')));
-  return getHtml(metadataNode);
-};
-
-const htmlWithDnt = async (path) => {
-  const { html, md } = await getPageInfo(path);
-  const pageLevelMetadata = await getPageLevelMetadata(md);
-  return addDntInfoToHtml(`<main>${html}${pageLevelMetadata}</main>`);
-};
-
-const fixAnchors = (document) => {
-  const slugger = new IDSlugger();
-  const headings = document.querySelectorAll('h1, h2, h3, h4, h5, h6');
-  headings.forEach((heading) => {
-    const processedHeadingTxt = slugger.slug(heading.textContent.trim());
-    const headingId = heading.id;
-    if (headingId && headingId !== processedHeadingTxt) {
-      heading.id = processedHeadingTxt;
-      const anchors = document.querySelectorAll(`a[href='#${headingId}']`);
-      anchors.forEach((anchor) => {
-        anchor.href = `#${processedHeadingTxt}`;
-      });
-    }
-  });
+  return document.documentElement.outerHTML;
 };
 
 const unwrapDntContent = (document) => {
@@ -262,195 +210,16 @@ const resetAltText = (document) => {
   });
 };
 
-const fixImageSize = (document) => {
-  const imgs = document.querySelectorAll('img');
-  imgs.forEach((img) => {
-    const imgURL = new URL(img.src);
-    img.src = `${imgURL.origin}${imgURL.pathname}`;
-  });
-};
-
-const fixRelativeLinks = (document, domain) => {
-  document.querySelectorAll('a').forEach((a) => {
-    const href = a.getAttribute('href');
-    if (href.startsWith('/')) {
-      a.setAttribute('href', `${domain}${href}`);
-    }
-  });
-};
-
-const postProcessHtml = (html, project) => {
-  const domain = `https://${project.getHlxPageSubDomain()}`;
-  const htmlWithMediaUrls = html.replaceAll('./media_', `${domain}/media_`);
-  const dom = new JSDOM(htmlWithMediaUrls);
-  const { document } = dom.window;
-  fixAnchors(document);
+export function removeDnt(html) {
+  const parser = new DOMParser();
+  const document = parser.parseFromString(html, 'text/html');
   unwrapDntContent(document);
   resetAltText(document);
-  // MWPW-151193
-  fixRelativeLinks(document, domain);
-  fixImageSize(document);
-  return dom.serialize();
-};
+  removeDntAttributes(document);
+  return document.documentElement.outerHTML;
+}
 
-const json2html = async (url) => {
-  const json = await fetchPreviewContent(url, runtime);
-  const dom = new JSDOM();
-  const { document } = dom.window;
-
-  const defaultDntConfig = { sheets: [], sheetToColumns: new Map(), universalColumns: [] };
-  const isTextInDntRules = (text) =>
-    dntConfigGlobal.get('xlsxRules').some((rule) => {
-      if (rule.condition === 'exists') {
-        return true;
-      }
-      const matchTexts = rule.match;
-      return (rule.condition === 'equals' && matchTexts.includes(text)) || (rule.condition === 'beginsWith' && matchTexts.some((matchText) => text.startsWith(matchText)));
-    });
-
-  const createDataDiv = (dataJson, name, dntInfo) => {
-    let isDntAttributeSet = false;
-    const { sheets, sheetToColumns, universalColumns } = dntInfo;
-    const { total, offset, limit, data } = dataJson;
-    const div = document.createElement('div');
-    div.setAttribute('total', total);
-    div.setAttribute('offset', offset);
-    div.setAttribute('limit', limit);
-    div.setAttribute('name', name);
-    div.setAttribute('data-type', 'sheet');
-    if (sheets.includes(name)) {
-      setDntAttribute(div);
-      isDntAttributeSet = true;
-    }
-    if (data?.length > 0) {
-      data.forEach((jsonObject) => {
-        const rowDiv = div.appendChild(document.createElement('div'));
-        rowDiv.setAttribute('data-type', 'row');
-        const shouldRowBeTranslated = Object.hasOwn(jsonObject, ':translate') && jsonObject[':translate'] && jsonObject[':translate'] === 'yes';
-        let isRowSetAsDnt = false;
-        if (!shouldRowBeTranslated) {
-          setDntAttribute(rowDiv);
-          isRowSetAsDnt = true;
-        }
-        const keys = Object.keys(jsonObject);
-        keys.forEach((key) => {
-          const colDiv = rowDiv.appendChild(document.createElement('div'));
-          const text = jsonObject[key];
-          if (!isDntAttributeSet && !isRowSetAsDnt && (universalColumns.includes(key) || (sheetToColumns.has(name) && sheetToColumns.get(name).includes(key)) || isTextInDntRules(text))) {
-            setDntAttribute(colDiv);
-          }
-          colDiv.setAttribute('key', key);
-          colDiv.setAttribute('data-type', 'col');
-          if (text.includes('|')) {
-            colDiv.setAttribute('segmented', 'yes');
-            text.split('|').forEach((splitText) => {
-              const segmentSpan = colDiv.appendChild(document.createElement('p'));
-              segmentSpan.textContent = splitText.trim();
-            });
-          } else {
-            colDiv.textContent = text;
-          }
-        });
-      });
-    }
-    document.body.appendChild(div);
-  };
-
-  const getDntInfo = (dntJson) => {
-    const dntInfo = defaultDntConfig;
-    const { data } = dntJson;
-    if (data?.length > 0) {
-      dntInfo.sheets.push(['dnt', 'non-default']);
-      dntInfo.universalColumns.push(...[':translate', ':rollout', ':uid', ':regional']);
-      data.forEach((jsonObject) => {
-        const dntSheet = jsonObject['dnt-sheet'];
-        const dntColumnsStr = jsonObject['dnt-columns'];
-        if (dntColumnsStr === '*') {
-          dntInfo.sheets.push(dntSheet);
-        } else {
-          const dntColumns = dntColumnsStr.split(',');
-          if (dntSheet === '*') {
-            dntInfo.universalColumns.push(...dntColumns);
-          } else {
-            dntInfo.sheetToColumns.set(dntSheet, dntColumns);
-          }
-        }
-      });
-    }
-    return dntInfo;
-  };
-  if (isMultiSheet(json)) {
-    const dntInfo = json?.dnt ? getDntInfo(json.dnt) : defaultDntConfig;
-    json[':names'].sort().forEach((name) => {
-      createDataDiv(json[name], name, dntInfo);
-    });
-  } else {
-    createDataDiv(json, 'default', defaultDntConfig);
-  }
-  return dom.serialize();
-};
-
-const html2json = async (html) => {
-  const dom = new JSDOM(html);
-  const { document } = dom.window;
-  const sheets = document.querySelectorAll('body > div[data-type="sheet"]');
-  const isSingleSheet = sheets.length === 1;
-  const jsonData = {};
-  jsonData[':type'] = isSingleSheet ? 'sheet' : 'multi-sheet';
-  jsonData[':names'] = [];
-  sheets.forEach((sheet) => {
-    const name = sheet.getAttribute('name');
-    let jsonElement = jsonData;
-    if (!isSingleSheet) {
-      jsonData[':names'].push(name);
-      jsonData[name] = {};
-      jsonElement = jsonData[name];
-    }
-    jsonElement.total = sheet.getAttribute('total');
-    jsonElement.offset = sheet.getAttribute('offset');
-    jsonElement.limit = sheet.getAttribute('limit');
-    jsonElement.data = [];
-    sheet.querySelectorAll('div[data-type="row"]').forEach((row) => {
-      const columns = row.children;
-      const columnsArray = Array.from(columns);
-      const columnJson = {};
-      columnsArray.forEach((column) => {
-        let value = column.textContent;
-        if (column.getAttribute('segmented') === 'yes') {
-          const segmentParagraphs = column.children;
-          const segmentParagraphArray = Array.from(segmentParagraphs).map((el) => el.textContent);
-          value = segmentParagraphArray.join(' | ');
-        }
-        columnJson[column.getAttribute('key')] = value;
-      });
-      jsonElement.data.push(columnJson);
-    });
-  });
-  return JSON.stringify(jsonData);
-};
-
-const html2excel = async (html) => {
-  const json = await html2json(html);
-  return json2excel(JSON.parse(json));
-};
-
-export const convertToHtml = async (document) => {
-  const path = document.url.sourcePreview();
-  await getDntConfig();
-  console.info(`DNT config read for path ${path} Docx Rules Config length ${dntConfigGlobal.get('docxRules').size}`);
-  const html = document.isExcel() ? await json2html(path) : await htmlWithDnt(path);
-  if (html) {
-    console.info(`Path ${path} has dnt attribute: ${html.includes('translate="no"')}`);
-    await runtime.filesWrapper.writeFile(`${document.storage.source()}.html`, html);
-    console.info(`HTML has been stored: ${document.storage.source()}.html`);
-  } else {
-    console.warn(`No data for ${document.storage.fileName()}`);
-  }
-};
-
-export const buildDocument = async (document, storagePath, project) => {
-  const htmlContent = (await filesWrapper.readFileIntoBuffer(`${storagePath}.html`)).toString();
-  const content = document.isExcel() ? await html2excel(htmlContent) : await html2docx(htmlContent, document, project);
-  console.info(`New Document has been stored: ${storagePath}`);
-  await filesWrapper.writeFile(storagePath, content);
-};
+export function addDnt(suppliedHtml, config) {
+  parseDntConfig(config);
+  return addDntInfoToHtml(suppliedHtml);
+}

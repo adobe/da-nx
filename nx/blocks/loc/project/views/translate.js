@@ -1,9 +1,10 @@
 import { LitElement, html, nothing } from '../../../../deps/lit/dist/index.js';
+import { DA_ORIGIN } from '../../../../public/utils/constants.js';
 import { getConfig } from '../../../../scripts/nexter.js';
+import { daFetch } from '../../../../utils/daFetch.js';
 import getStyle from '../../../../utils/styles.js';
 import getSvg from '../../../../utils/svg.js';
 import { detectService, saveLangItems, saveStatus, formatDate } from '../index.js';
-import { dntFetchAll } from '../../dnt/dnt.js';
 
 const { nxBase } = getConfig();
 const style = await getStyle(import.meta.url);
@@ -27,6 +28,7 @@ class NxLocTranslate extends LitElement {
   };
 
   connectedCallback() {
+    console.log(this.state);
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style, shared, buttons];
     getSvg({ parent: this.shadowRoot, paths: ICONS });
@@ -39,6 +41,7 @@ class NxLocTranslate extends LitElement {
     const { environment = 'stage' } = options ?? {};
     this._service = await detectService(this.config, environment);
     this._actions = this._service.actions;
+    this._dnt = this._service.dnt;
     this._connected = await this._service.actions.isConnected(this._service);
   }
 
@@ -80,7 +83,8 @@ class NxLocTranslate extends LitElement {
     this.requestUpdate();
 
     const items = await this._actions.getItems(this._service, lang, this.urls);
-    const results = await saveLangItems(this.sitePath, items, lang);
+
+    const results = await saveLangItems(this.sitePath, items, lang, this._service.dnt.removeDnt);
 
     const success = results.filter((result) => (result.success)).length;
     lang.translation.saved = success;
@@ -127,10 +131,27 @@ class NxLocTranslate extends LitElement {
     this._fetchingStatus = false;
   }
 
+  async getSiteConfig() {
+    const resp = await daFetch(`${DA_ORIGIN}/source/${this.state.org}/${this.state.site}/.da/translate.json`);
+    if (!resp.ok) return null;
+    return resp.json();
+  }
+
   async getSourceContent() {
     this._status = 'Getting source content';
 
-    await dntFetchAll(this.urls);
+    const siteConfig = await this.getSiteConfig();
+
+    await Promise.all(this.urls.map(async (url) => {
+      const resp = await daFetch(`${DA_ORIGIN}/source${url.srcPath}`);
+      if (!resp.ok) {
+        url.error = 'Error fetching document for DNT.';
+        url.status = 520;
+        return;
+      }
+      const text = await resp.text();
+      url.content = this._service.dnt.addDnt(text, siteConfig);
+    }));
 
     // Check for errors
     this._errors = this.urls.filter((url) => url.error);
@@ -138,6 +159,7 @@ class NxLocTranslate extends LitElement {
       this._status = 'Errors fetching documents.';
       return false;
     }
+
     return true;
   }
 

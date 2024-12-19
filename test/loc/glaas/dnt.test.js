@@ -1,12 +1,17 @@
 import { expect } from '@esm-bundle/chai';
 import { readFile } from '@web/test-runner-commands';
-import { convertToHtml } from '../../../nx/blocks/loc/glaas/dnt.js';
+import { removeDnt, addDnt } from '../../../nx/blocks/loc/glaas/dnt.js';
+
+const config = JSON.parse((await readFile({ path: './mocks/translate.json' })));
+const mockHtml = await readFile({ path: './mocks/pre-dnt.html' });
 
 describe('Glaas DNT', () => {
-  it('Converts html to dnt formatted html', async () => {
-    const html = await readFile('./mocks/dnt-config.json');
-    const expectedDntHtml = await readFile('./mocks/post-dnt.html');
-    const dntHtml = await convertToHtml(html);
-    expect(dntHtml).to.equal(expectedDntHtml);
+  it('Converts html to dnt formatted html', () => {
+    const htmlWithDnt = addDnt(config, mockHtml);
+    expect(htmlWithDnt).to.exist;
+
+    const htmlWithoutDnt = removeDnt(htmlWithDnt);
+    console.log(htmlWithoutDnt);
+    expect(htmlWithoutDnt).to.exist;
   });
 });

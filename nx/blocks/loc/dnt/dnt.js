@@ -1,11 +1,6 @@
-import { DA_ORIGIN } from '../../../public/utils/constants.js';
-import { daFetch } from '../../../utils/daFetch.js';
-
 const ROW_DNT = '.section-metadata > div';
 const KEY_DNT = '.metadata > div';
 const OPT_IN_KEYS = ['title', 'description'];
-
-const RESP_ERROR = { error: 'Error fetching document for DNT.' };
 
 const PARSER = new DOMParser();
 
@@ -19,7 +14,10 @@ function capturePics(dom) {
   });
 }
 
-function captureDnt(dom) {
+export function addDnt(html) {
+  const dom = PARSER.parseFromString(html, 'text/html');
+
+  capturePics(dom);
   const dntEls = dom.querySelectorAll(`${ROW_DNT}, ${KEY_DNT}`);
   dntEls.forEach((el) => {
     const keyEl = el.querySelector(':scope > div');
@@ -32,45 +30,15 @@ function captureDnt(dom) {
     keyEl.dataset.innerHtml = keyEl.innerHTML;
     keyEl.innerHTML = '';
   });
-  console.log(dom.querySelector('.metadata'));
   return dom.documentElement.outerHTML;
 }
 
-export function releaseDnt(dom) {
+export function removeDnt(html) {
+  const dom = PARSER.parseFromString(html, 'text/html');
   const dntEls = dom.querySelectorAll('[data-inner-html]');
   dntEls.forEach((el) => {
     el.innerHTML = el.dataset.innerHtml;
     delete el.dataset.innerHtml;
   });
   return `<body>${dom.querySelector('main').outerHTML}</body>`;
-}
-
-export default async function dntFetch(url, type) {
-  try {
-    const resp = await daFetch(url);
-    if (!resp.ok) return { ...RESP_ERROR, status: resp.staus };
-    const html = await resp.text();
-    const dom = PARSER.parseFromString(html, 'text/html');
-
-    if (type === 'capture') {
-      capturePics(dom);
-      return captureDnt(dom);
-    }
-    return releaseDnt(dom);
-  } catch {
-    return { ...RESP_ERROR, status: 520 };
-  }
-}
-
-export async function dntFetchAll(urls) {
-  // Get all the source content
-  await Promise.all(urls.map(async (url) => {
-    const result = await dntFetch(`${DA_ORIGIN}/source${url.srcPath}`, 'capture');
-    if (result.error) {
-      url.error = result.error;
-      url.status = result.status;
-      return;
-    }
-    url.content = result;
-  }));
 }
