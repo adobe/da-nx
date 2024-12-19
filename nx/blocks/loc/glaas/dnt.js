@@ -210,10 +210,20 @@ const resetAltText = (document) => {
   });
 };
 
+function makeImagesRelative(document) {
+  const imgs = document.querySelectorAll('img[src*="media_"]');
+  imgs.forEach((img) => {
+    const { src } = img;
+    const url = new URL(src);
+    img.setAttribute('src', `.${url.pathname}`);
+  });
+}
+
 export function removeDnt(html) {
   const parser = new DOMParser();
   const document = parser.parseFromString(html, 'text/html');
   unwrapDntContent(document);
+  makeImagesRelative(document);
   resetAltText(document);
   removeDntAttributes(document);
   return document.documentElement.outerHTML;
