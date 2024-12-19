@@ -2,6 +2,7 @@
 
 let globalDntConfig;
 const ALT_TEXT_PLACEHOLDER = '*alt-placeholder*';
+const REGEXP_ICON = /(?<!(?:https?|urn)[^\s]*):(#?[a-z_-]+[a-z\d]*):/gi;
 
 const getHtmlSelector = (blockscope, blockConfig) => {
   const getChildSelector = (indexStr) => {
@@ -172,20 +173,45 @@ const processAltText = (document) => {
   });
 };
 
-function makeImagesRelative(document) {
-  const imgs = document.querySelectorAll('img[src*="media_"]');
-  imgs.forEach((img) => {
-    const { src } = img;
-    const url = new URL(src);
-    img.setAttribute('src', `.${url.pathname}`);
+function makeHrefsRelative(document) {
+  const els = document.querySelectorAll('[href^="https://main--"]');
+  els.forEach((el) => {
+    const url = new URL(el.href);
+    el.href = `${url.pathname}${url.search}${url.hash}`;
   });
+}
+
+function makeImagesRelative(document) {
+  const els = document.querySelectorAll('img[src*="media_"], source[srcset*="media_"]');
+  els.forEach((el) => {
+    if (el.nodeName === 'IMG') {
+      const { src } = el;
+      const url = new URL(src);
+      el.setAttribute('src', `.${url.pathname}`);
+    } else {
+      const { srcset } = el;
+      const url = new URL(srcset);
+      el.setAttribute('srcset', `.${url.pathname}`);
+    }
+  });
+}
+
+function makeIconSpans(html) {
+  const iconRegex = /:([a-zA-Z0-9-]+?):/gm;
+
+  if (!iconRegex.test(html)) return html;
+  return html.replace(
+    iconRegex,
+    (_, iconName) => `<span class="icon icon-${iconName}"></span>`,
+  );
 }
 
 const addDntInfoToHtml = (html) => {
   const parser = new DOMParser();
   const document = parser.parseFromString(html, 'text/html');
 
-  makeImagesRelative(document);
+  // makeImagesRelative(document);
+  makeHrefsRelative(document);
 
   // Match existing content sent to GLaaS
   document.querySelector('header')?.remove();
@@ -221,16 +247,38 @@ const resetAltText = (document) => {
   });
 };
 
-export function removeDnt(html) {
+function resetIcons(doc) {
+  const icons = doc.querySelectorAll('span.icon');
+  icons.forEach((icon) => {
+    const parent = icon.parentElement;
+    const name = icon.classList[1].split('-')[1];
+    const textIcon = document.createTextNode(`:${name}:`);
+    parent.replaceChild(textIcon, icon);
+  });
+}
+
+function resetHrefs(doc, org, repo) {
+  const anchors = doc.querySelectorAll('[href^="/"]');
+  anchors.forEach((a) => {
+    const href = a.getAttribute('href');
+    a.href = `https://main--${repo}--${org}.aem.page${href}`;
+  });
+  console.log(anchors);
+}
+
+export function removeDnt(html, org, repo) {
   const parser = new DOMParser();
   const document = parser.parseFromString(html, 'text/html');
   unwrapDntContent(document);
   resetAltText(document);
+  resetIcons(document);
+  resetHrefs(document, org, repo);
   removeDntAttributes(document);
   return document.documentElement.outerHTML;
 }
 
 export function addDnt(suppliedHtml, config) {
   parseDntConfig(config);
-  return addDntInfoToHtml(suppliedHtml);
+  const iconedHtml = makeIconSpans(suppliedHtml);
+  return addDntInfoToHtml(iconedHtml);
 }

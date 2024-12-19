@@ -212,9 +212,11 @@ export async function mergeCopy(url, projectTitle) {
 }
 
 export async function saveLangItems(sitePath, items, lang, removeDnt) {
+  const [org, repo] = window.location.hash.replace('#/', '').split('/');
+
   return Promise.all(items.map(async (item) => {
     const html = await item.blob.text();
-    const htmlToSave = removeDnt(html);
+    const htmlToSave = removeDnt(html, org, repo);
 
     const blob = new Blob([htmlToSave], { type: 'text/html' });
 

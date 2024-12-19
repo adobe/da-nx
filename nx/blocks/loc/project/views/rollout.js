@@ -34,7 +34,6 @@ class NxLocRollout extends LitElement {
     this.shadowRoot.adoptedStyleSheets = [style, shared, buttons];
     getSvg({ parent: this.shadowRoot, paths: ICONS });
     setTimeout(() => { this.toggleExpand(); }, 100);
-    console.log(this.title);
   }
 
   toggleExpand() {
