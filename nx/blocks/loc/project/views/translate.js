@@ -151,6 +151,8 @@ class NxLocTranslate extends LitElement {
       }
       const text = await resp.text();
       url.content = this._service.dnt.addDnt(text, siteConfig);
+
+      console.log(url.content);
     }));
 
     // Check for errors
