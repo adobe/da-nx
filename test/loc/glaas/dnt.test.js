@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-expressions */
 import { expect } from '@esm-bundle/chai';
 import { readFile } from '@web/test-runner-commands';
 import { removeDnt, addDnt } from '../../../nx/blocks/loc/glaas/dnt.js';

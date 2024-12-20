@@ -1,11 +1,16 @@
-const json2html = async (url) => {
-  const json = await fetchPreviewContent(url, runtime);
-  const dom = new JSDOM();
-  const { document } = dom.window;
+const setDntAttribute = (el) => {
+  el.setAttribute('translate', 'no');
+};
 
+const extractNonDataKeys = (obj) => {
+  const { data, ...nonDataKeys } = obj; // Destructure to exclude 'data'
+  return JSON.stringify(nonDataKeys); // Serialize the remaining keys
+};
+
+const json2html = (json, dntConfig) => {
   const defaultDntConfig = { sheets: [], sheetToColumns: new Map(), universalColumns: [] };
-  const isTextInDntRules = (text) =>
-    dntConfigGlobal.get('xlsxRules').some((rule) => {
+  const isTextInDntRules = (text) => dntConfig
+    .get('sheetRules').some((rule) => {
       if (rule.condition === 'exists') {
         return true;
       }
@@ -13,14 +18,13 @@ const json2html = async (url) => {
       return (rule.condition === 'equals' && matchTexts.includes(text)) || (rule.condition === 'beginsWith' && matchTexts.some((matchText) => text.startsWith(matchText)));
     });
 
-  const createDataDiv = (dataJson, name, dntInfo) => {
+  const createSheetDiv = (dataJson, name, dntInfo) => {
     let isDntAttributeSet = false;
     const { sheets, sheetToColumns, universalColumns } = dntInfo;
-    const { total, offset, limit, data } = dataJson;
+    const { data } = dataJson;
     const div = document.createElement('div');
-    div.setAttribute('total', total);
-    div.setAttribute('offset', offset);
-    div.setAttribute('limit', limit);
+    const sheetAttrs = extractNonDataKeys(dataJson);
+    div.setAttribute('sheet-attrs', sheetAttrs);
     div.setAttribute('name', name);
     div.setAttribute('data-type', 'sheet');
     if (sheets.includes(name)) {
@@ -41,7 +45,12 @@ const json2html = async (url) => {
         keys.forEach((key) => {
           const colDiv = rowDiv.appendChild(document.createElement('div'));
           const text = jsonObject[key];
-          if (!isDntAttributeSet && !isRowSetAsDnt && (universalColumns.includes(key) || (sheetToColumns.has(name) && sheetToColumns.get(name).includes(key)) || isTextInDntRules(text))) {
+          if (!isDntAttributeSet
+            && !isRowSetAsDnt
+            && (universalColumns.includes(key)
+              || (sheetToColumns.has(name) && sheetToColumns.get(name).includes(key))
+              || isTextInDntRules(text))
+          ) {
             setDntAttribute(colDiv);
           }
           colDiv.setAttribute('key', key);
@@ -58,7 +67,7 @@ const json2html = async (url) => {
         });
       });
     }
-    document.body.appendChild(div);
+    return div;
   };
 
   const getDntInfo = (dntJson) => {
@@ -85,25 +94,48 @@ const json2html = async (url) => {
     return dntInfo;
   };
 
-  if (isMultiSheet(json)) {
-    const dntInfo = json?.dnt ? getDntInfo(json.dnt) : defaultDntConfig;
-    json[':names'].sort().forEach((name) => {
-      createDataDiv(json[name], name, dntInfo);
+  const html = document.createElement('html');
+  const body = document.createElement('body');
+  html.appendChild(body);
+
+  const jsonCopy = { ...json };
+
+  if (jsonCopy[':type'] === 'multi-sheet') {
+    const dntInfo = jsonCopy?.dnt ? getDntInfo(jsonCopy.dnt) : defaultDntConfig;
+    jsonCopy[':names'].sort().forEach((name) => {
+      body.appendChild(createSheetDiv(jsonCopy[name], name, dntInfo));
+      delete jsonCopy[name];
     });
   } else {
-    createDataDiv(json, 'default', defaultDntConfig);
+    body.appendChild(createSheetDiv(jsonCopy, 'default', defaultDntConfig));
+    delete jsonCopy.data;
   }
-  return dom.serialize();
+
+  // Save any remaining top-level attributes
+  delete jsonCopy[':type'];
+  delete jsonCopy[':names'];
+  body.setAttribute('top-attrs', JSON.stringify(jsonCopy));
+
+  return html;
 };
 
-const html2json = async (html) => {
-  const dom = new JSDOM(html);
-  const { document } = dom.window;
-  const sheets = document.querySelectorAll('body > div[data-type="sheet"]');
+const html2json = (html) => {
+  const parser = new DOMParser();
+  const htmlDom = parser.parseFromString(html, 'text/html');
+
+  const sheets = htmlDom.querySelectorAll('body > div[data-type="sheet"]');
   const isSingleSheet = sheets.length === 1;
   const jsonData = {};
+
+  const topLevelAttrs = JSON.parse(htmlDom.body.getAttribute('top-attrs'));
+  if (topLevelAttrs) {
+    Object.assign(jsonData, topLevelAttrs);
+  }
+
   jsonData[':type'] = isSingleSheet ? 'sheet' : 'multi-sheet';
-  jsonData[':names'] = [];
+  if (!isSingleSheet) {
+    jsonData[':names'] = [];
+  }
   sheets.forEach((sheet) => {
     const name = sheet.getAttribute('name');
     let jsonElement = jsonData;
@@ -112,9 +144,8 @@ const html2json = async (html) => {
       jsonData[name] = {};
       jsonElement = jsonData[name];
     }
-    jsonElement.total = sheet.getAttribute('total');
-    jsonElement.offset = sheet.getAttribute('offset');
-    jsonElement.limit = sheet.getAttribute('limit');
+    const sheetAttrs = JSON.parse(sheet.getAttribute('sheet-attrs'));
+    Object.assign(jsonElement, sheetAttrs);
     jsonElement.data = [];
     sheet.querySelectorAll('div[data-type="row"]').forEach((row) => {
       const columns = row.children;
@@ -135,7 +166,4 @@ const html2json = async (html) => {
   return JSON.stringify(jsonData);
 };
 
-const html2excel = async (html) => {
-  const json = await html2json(html);
-  return json2excel(JSON.parse(json));
-};
+export { json2html, html2json };

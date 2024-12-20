@@ -1,1 +1,208 @@
-{"config":{"total":11,"limit":11,"offset":0,"data":[{"key":"source.language","value":"English","description":"What language folder is used as the basis to send to send for translation."},{"key":"source.conflict.behavior","value":"merge","description":"How to handle old content when it is pulled into the send for translation folder."},{"key":"translate.conflict.behavior","value":"overwrite","description":"How to handle old content when new content returns from translation."},{"key":"rollout.conflict.behavior","value":"merge","description":"How to handle old content when new content get rolled out to the locale."},{"key":"complete.aem.preview","value":"on","description":"Automatically preview the document after completion. Ignored if merge conflicts exist."},{"key":"complete.aem.publish","value":"on","description":"Automatically publish the document after completion.  Ignored if merge conflicts exist."},{"key":"translation.service.name","value":"GLaaS","description":""},{"key":"translation.service.stage.origin","value":"https://glaas-stage.corp.adobe.com","description":""},{"key":"translation.service.stage.clientid","value":"657acbf5-bf11-4698-827b-f17f4e7a388d","description":""},{"key":"translation.service.prod.origin","value":"https://glaas.corp.adobe.com","description":""},{"key":"translation.service.prod.clientid","value":"657acbf5-bf11-4698-827b-f17f4e7a388d","description":""}],":colWidths":[214,300,611]},"languages":{"total":41,"limit":41,"offset":0,"data":[{"name":"English","code":"en","location":"/langstore/en","locales":"/il_en, /ae_en, /sa_en, /vn_en, /cis_en, /ca, /mena_en, /th_en, /ph_en, /id_en","actions":"Rollout","workflow":"","workflowName":""},{"name":"British English","code":"en-GB","location":"/langstore/en-GB","locales":"/uk, /au, /africa, /be_en, /gr_en, /hk_en, /ie, /in, /lu_en, /nz, /sg, /my_en","actions":"Translate, Rollout","workflow":"WCMS_FASTLANE/FASTLANE","workflowName":"Machine Translation"},{"name":"German","code":"de","location":"/langstore/de","locales":"/de, /lu_de, /ch_de, /at","actions":"Translate, Rollout","workflow":"WCMS/WCMS","workflowName":"Human Translation"},{"name":"French","code":"fr","location":"/langstore/fr","locales":"/fr, /be_fr, /ch_fr, /lu_fr","actions":"Translate, Rollout","workflow":"WCMS/WCMS","workflowName":"Human Translation"},{"name":"Canadian French ","code":"fr-CA","location":"/langstore/fr-CA","locales":"/ca_fr","actions":"Translate, Rollout","workflow":"WCMS/WCMS-FR","workflowName":"Machine Translation"},{"name":"Japanese","code":"ja","location":"/langstore/ja","locales":"/jp","actions":"Translate, Rollout","workflow":"WCMS/WCMS","workflowName":"Human Translation"},{"name":"Arabic","code":"ar","location":"/langstore/ar","locales":"/mena_ar, /sa_ar, /ae_ar, /qa_ar, /kw_ar, /eg_ar","actions":"Translate, Rollout","workflow":"WCMS/WCMS","workflowName":"Human Translation"},{"name":"Bulgarian","code":"bg","location":"/langstore/bg","locales":"/bg","actions":"Translate, Rollout","workflow":"WCMS/WCMS","workflowName":"Human Translation"},{"name":"Czech","code":"cs","location":"/langstore/cs","locales":"/cz","actions":"Translate, Rollout","workflow":"WCMS/WCMS","workflowName":"Human Translation"},{"name":"Danish","code":"da","location":"/langstore/da","locales":"/dk","actions":"Translate, Rollout","workflow":"WCMS/WCMS","workflowName":"Human Translation"},{"name":"Spanish","code":"es","location":"/langstore/es","locales":"/es, /mx","actions":"Translate, Rollout","workflow":"WCMS/WCMS","workflowName":"Human Translation"},{"name":"Latin Spanish","code":"es-419","location":"/langstore/es-419","locales":"/ar, /la, /mx, /pe, /cl, /co, /cr, /ec, /gt, /pr","actions":"Translate, Rollout","workflow":"WCMS/WCMS","workflowName":"Human Translation"},{"name":"Estonian","code":"et","location":"/langstore/et","locales":"/ee","actions":"Translate, Rollout","workflow":"WCMS/WCMS","workflowName":"Human Translation"},{"name":"Finnish","code":"fi","location":"/langstore/fi","locales":"/fi","actions":"Translate, Rollout","workflow":"WCMS/WCMS","workflowName":"Human Translation"},{"name":"Greek","code":"el","location":"/langstore/el","locales":"/gr_el","actions":"Translate, Rollout","workflow":"WCMS/WCMS","workflowName":"Human Translation"},{"name":"Hebrew","code":"he","location":"/langstore/he","locales":"/il_he","actions":"Translate, Rollout","workflow":"WCMS/WCMS","workflowName":"Human Translation"},{"name":"Croatian","code":"hr","location":"/langstore/hr","locales":"/","actions":"Translate, Rollout","workflow":"WCMS/WCMS","workflowName":"Human Translation"},{"name":"Hungarian","code":"hu","location":"/langstore/hu","locales":"/hu","actions":"Translate, Rollout","workflow":"WCMS/WCMS","workflowName":"Human Translation"},{"name":"Italian","code":"it","location":"/langstore/it","locales":"/it, /ch_it","actions":"Translate, Rollout","workflow":"WCMS/WCMS","workflowName":"Human Translation"},{"name":"Korean","code":"ko","location":"/langstore/ko","locales":"/kr","actions":"Translate, Rollout","workflow":"WCMS/WCMS","workflowName":"Human Translation"},{"name":"Lithuanian","code":"lt","location":"/langstore/lt","locales":"/lt","actions":"Translate, Rollout","workflow":"WCMS/WCMS","workflowName":"Human Translation"},{"name":"Latvian","code":"lv","location":"/langstore/lv","locales":"/lv","actions":"Translate, Rollout","workflow":"WCMS/WCMS","workflowName":"Human Translation"},{"name":"Dutch","code":"nl","location":"/langstore/nl","locales":"/nl, /be_nl","actions":"Translate, Rollout","workflow":"WCMS/WCMS","workflowName":"Human Translation"},{"name":"Norwegian","code":"nb","location":"/langstore/nb","locales":"/no","actions":"Translate, Rollout","workflow":"WCMS/WCMS","workflowName":"Human Translation"},{"name":"Polish","code":"pl","location":"/langstore/pl","locales":"/pl","actions":"Translate, Rollout","workflow":"WCMS/WCMS","workflowName":"Human Translation"},{"name":"Portugese","code":"pt","location":"/langstore/pt","locales":"/pt, /br","actions":"Translate, Rollout","workflow":"WCMS/WCMS","workflowName":"Human Translation"},{"name":"Romanian","code":"ro","location":"/langstore/ro","locales":"/ro","actions":"Translate, Rollout","workflow":"WCMS/WCMS","workflowName":"Human Translation"},{"name":"Russian","code":"ru","location":"/langstore/ru","locales":"/ru, /cis_ru","actions":"Translate, Rollout","workflow":"WCMS/WCMS","workflowName":"Human Translation"},{"name":"Slovakian","code":"sk","location":"/langstore/sk","locales":"/sk","actions":"Translate, Rollout","workflow":"WCMS/WCMS","workflowName":"Human Translation"},{"name":"Slovenian","code":"sl","location":"/langstore/sl","locales":"/si","actions":"Translate, Rollout","workflow":"WCMS/WCMS","workflowName":"Human Translation"},{"name":"Swedish","code":"sv","location":"/langstore/sv","locales":"/se","actions":"Translate, Rollout","workflow":"WCMS/WCMS","workflowName":"Human Translation"},{"name":"Turkish","code":"tr","location":"/langstore/tr","locales":"/tr","actions":"Translate, Rollout","workflow":"WCMS/WCMS","workflowName":"Human Translation"},{"name":"Ukrainian","code":"uk","location":"/langstore/uk","locales":"/ua","actions":"Translate, Rollout","workflow":"WCMS/WCMS","workflowName":"Human Translation"},{"name":"Chinese Simplified","code":"zh-Hans","location":"/langstore/zh-Hans","locales":"/cn","actions":"Translate, Rollout","workflow":"WCMS/WCMS","workflowName":"Human Translation"},{"name":"Chinese Traditional","code":"zh-Hant","location":"/langstore/zh-Hant","locales":"/tw, /hk_zh","actions":"Translate, Rollout","workflow":"WCMS/WCMS","workflowName":"Human Translation"},{"name":"Thai","code":"th","location":"/langstore/th","locales":"/th_th","actions":"Translate, Rollout","workflow":"WCMS/WCMS","workflowName":"Human Translation"},{"name":"Filipino","code":"fil","location":"/langstore/fil","locales":"/ph_fil","actions":"Translate, Rollout","workflow":"WCMS/WCMS","workflowName":"Human Translation"},{"name":"Indonesian","code":"id","location":"/langstore/id","locales":"/id_id","actions":"Translate, Rollout","workflow":"WCMS/WCMS","workflowName":"Human Translation"},{"name":"Malay","code":"ms","location":"/langstore/ms","locales":"/my_ms","actions":"Translate, Rollout","workflow":"WCMS/WCMS","workflowName":"Human Translation"},{"name":"Vietnamese","code":"vi","location":"/langstore/vi","locales":"/vn_vi","actions":"Translate, Rollout","workflow":"WCMS/WCMS","workflowName":"Human Translation"},{"name":"Hindi","code":"hi","location":"/langstore/hi","locales":"/in_hi","actions":"Translate, Rollout","workflow":"WCMS/WCMS","workflowName":"Human Translation"}],":colWidths":[185,118,166,516,180,230,336]},"dnt-doc-rules":{"total":20,"limit":20,"offset":0,"data":[{"block_scope":"modal-metadata, table-metadata, carousel, block-group-end,block-group-start, gnav-brand","column":"*","row":"*","pattern":"*","action":"dnt"},{"block_scope":"section-metadata, card-metadata, metadata, review, marketo, dc-converter-widget","column":"1","row":"*","pattern":"*","action":"dnt"},{"block_scope":"review","column":"1","row":"*","pattern":"equals(Hide title || Tooltip delay || Initial Value)","action":"dnt-row"},{"block_scope":"section-metadata","column":"1","row":"*","pattern":"equals(style || background || tab || masonry || carousel || loader-color || loader-duration || product-name || dismissal-animation-duration || Dismissal-animation-count || dismissal-tooltip-count)","action":"dnt-row"},{"block_scope":"metadata","column":"1","row":"*","pattern":"equals(robots || serp-content-type || pageCreatedAt || translated || publishDate || productJcrID || primaryProductName || image || footer-promo-tag || jarvis-chat || Jarvis-chat || footer || header || universal-nav || gnav-source || app-prompt-entitlement || app-prompt-path || canonical || target || Target || personalization)","action":"dnt-row"},{"block_scope":"metadata","column":"1","row":"*","pattern":"except(title || description)","action":"dnt-row"},{"block_scope":"card-metadata","column":"1","row":"*","pattern":"equals(cardDate|| CardImage || primaryTag || Tags || ContentType)","action":"dnt-row"},{"block_scope":"aside, media, marquee,marquee-anchors, text, z-pattern, brick, interactive-marquee","column":"1","row":"1","pattern":"beginsWith(# || rgb || hsl || linear-gradient)","action":"dnt"},{"block_scope":"marquee","column":"*","row":"1","pattern":"beginsWith(# || rgb || hsl || linear-gradient)","action":"dnt"},{"block_scope":"tabs","column":"1","row":"2","pattern":"equals(active tab)","action":"dnt-row"},{"block_scope":"tabs","column":"1","row":"3","pattern":"equals(id)","action":"dnt-row"},{"block_scope":"action-scroller","column":"1","row":"*","pattern":"equals(Item width || item width || Item Width)","action":"dnt"},{"block_scope":"martech-metadata","column":"2","row":"*","pattern":"*","action":"dnt"},{"block_scope":"quiz-marquee","column":"1","row":"*","pattern":"equals(nested-fragments)","action":"dnt-row"},{"block_scope":"quiz-marquee","column":"1","row":"*","pattern":"equals(--- black)","action":"dnt"},{"block_scope":"brick, homepage-brick","column":"*","row":"-2","pattern":"*","action":"dnt-row"},{"block_scope":"marquee","column":"1","row":"1","pattern":"has(picture)","action":"dnt-row"},{"block_scope":"hero-marquee","column":"1","row":"*","pattern":"beginsWith(con-block-row)","action":"dnt"},{"block_scope":"hero-marquee","column":"1","row":"1","pattern":"beginsWith(# || rgb || hsl || linear-gradient)","action":"dnt"},{"block_scope":"merch-card","column":"1","row":"3","pattern":"*","action":"dnt-row"}],":colWidths":[333,124,98,364,300]},"dnt-content-rules":{"total":6,"limit":6,"offset":0,"data":[{"content":"do not translate me"},{"content":"/filter/"},{"content":"/search/"},{"content":"/0/"},{"content":"/1/"},{"content":"/10/"}],":colWidths":[145]},"dnt-sheet-rules":{"total":2,"limit":2,"offset":0,"data":[{"pattern":"equals(null)","action":"dnt"},{"pattern":"beginsWith(http:// || https://)","action":"dnt"}],":colWidths":[213,107]},":names":["config","languages","dnt-doc-rules","dnt-content-rules","dnt-sheet-rules"],":version":3,":type":"multi-sheet"}
+{
+  "config": {
+    "total": 11,
+    "limit": 11,
+    "offset": 0,
+    "data": [
+      { "key": "source.language", "value": "English", "description": "What language folder is used as the basis to send to send for translation." },
+      { "key": "source.conflict.behavior", "value": "merge", "description": "How to handle old content when it is pulled into the send for translation folder." },
+      { "key": "translate.conflict.behavior", "value": "overwrite", "description": "How to handle old content when new content returns from translation." },
+      { "key": "rollout.conflict.behavior", "value": "merge", "description": "How to handle old content when new content get rolled out to the locale." },
+      { "key": "complete.aem.preview", "value": "on", "description": "Automatically preview the document after completion. Ignored if merge conflicts exist." },
+      { "key": "complete.aem.publish", "value": "on", "description": "Automatically publish the document after completion.  Ignored if merge conflicts exist." },
+      { "key": "translation.service.name", "value": "GLaaS", "description": "" },
+      { "key": "translation.service.stage.origin", "value": "https://glaas-stage.corp.adobe.com", "description": "" },
+      { "key": "translation.service.stage.clientid", "value": "657acbf5-bf11-4698-827b-f17f4e7a388d", "description": "" },
+      { "key": "translation.service.prod.origin", "value": "https://glaas.corp.adobe.com", "description": "" },
+      { "key": "translation.service.prod.clientid", "value": "657acbf5-bf11-4698-827b-f17f4e7a388d", "description": "" }
+    ],
+    ":colWidths": [214, 300, 611]
+  },
+  "languages": {
+    "total": 41,
+    "limit": 41,
+    "offset": 0,
+    "data": [
+      {
+        "name": "English",
+        "code": "en",
+        "location": "/langstore/en",
+        "locales": "/il_en, /ae_en, /sa_en, /vn_en, /cis_en, /ca, /mena_en, /th_en, /ph_en, /id_en",
+        "actions": "Rollout",
+        "workflow": "",
+        "workflowName": ""
+      },
+      {
+        "name": "British English",
+        "code": "en-GB",
+        "location": "/langstore/en-GB",
+        "locales": "/uk, /au, /africa, /be_en, /gr_en, /hk_en, /ie, /in, /lu_en, /nz, /sg, /my_en",
+        "actions": "Translate, Rollout",
+        "workflow": "WCMS_FASTLANE/FASTLANE",
+        "workflowName": "Machine Translation"
+      },
+      {
+        "name": "German",
+        "code": "de",
+        "location": "/langstore/de",
+        "locales": "/de, /lu_de, /ch_de, /at",
+        "actions": "Translate, Rollout",
+        "workflow": "WCMS/WCMS",
+        "workflowName": "Human Translation"
+      },
+      {
+        "name": "French",
+        "code": "fr",
+        "location": "/langstore/fr",
+        "locales": "/fr, /be_fr, /ch_fr, /lu_fr",
+        "actions": "Translate, Rollout",
+        "workflow": "WCMS/WCMS",
+        "workflowName": "Human Translation"
+      },
+      {
+        "name": "Canadian French ",
+        "code": "fr-CA",
+        "location": "/langstore/fr-CA",
+        "locales": "/ca_fr",
+        "actions": "Translate, Rollout",
+        "workflow": "WCMS/WCMS-FR",
+        "workflowName": "Machine Translation"
+      },
+      { "name": "Japanese", "code": "ja", "location": "/langstore/ja", "locales": "/jp", "actions": "Translate, Rollout", "workflow": "WCMS/WCMS", "workflowName": "Human Translation" },
+      {
+        "name": "Arabic",
+        "code": "ar",
+        "location": "/langstore/ar",
+        "locales": "/mena_ar, /sa_ar, /ae_ar, /qa_ar, /kw_ar, /eg_ar",
+        "actions": "Translate, Rollout",
+        "workflow": "WCMS/WCMS",
+        "workflowName": "Human Translation"
+      },
+      { "name": "Bulgarian", "code": "bg", "location": "/langstore/bg", "locales": "/bg", "actions": "Translate, Rollout", "workflow": "WCMS/WCMS", "workflowName": "Human Translation" },
+      { "name": "Czech", "code": "cs", "location": "/langstore/cs", "locales": "/cz", "actions": "Translate, Rollout", "workflow": "WCMS/WCMS", "workflowName": "Human Translation" },
+      { "name": "Danish", "code": "da", "location": "/langstore/da", "locales": "/dk", "actions": "Translate, Rollout", "workflow": "WCMS/WCMS", "workflowName": "Human Translation" },
+      { "name": "Spanish", "code": "es", "location": "/langstore/es", "locales": "/es, /mx", "actions": "Translate, Rollout", "workflow": "WCMS/WCMS", "workflowName": "Human Translation" },
+      {
+        "name": "Latin Spanish",
+        "code": "es-419",
+        "location": "/langstore/es-419",
+        "locales": "/ar, /la, /mx, /pe, /cl, /co, /cr, /ec, /gt, /pr",
+        "actions": "Translate, Rollout",
+        "workflow": "WCMS/WCMS",
+        "workflowName": "Human Translation"
+      },
+      { "name": "Estonian", "code": "et", "location": "/langstore/et", "locales": "/ee", "actions": "Translate, Rollout", "workflow": "WCMS/WCMS", "workflowName": "Human Translation" },
+      { "name": "Finnish", "code": "fi", "location": "/langstore/fi", "locales": "/fi", "actions": "Translate, Rollout", "workflow": "WCMS/WCMS", "workflowName": "Human Translation" },
+      { "name": "Greek", "code": "el", "location": "/langstore/el", "locales": "/gr_el", "actions": "Translate, Rollout", "workflow": "WCMS/WCMS", "workflowName": "Human Translation" },
+      { "name": "Hebrew", "code": "he", "location": "/langstore/he", "locales": "/il_he", "actions": "Translate, Rollout", "workflow": "WCMS/WCMS", "workflowName": "Human Translation" },
+      { "name": "Croatian", "code": "hr", "location": "/langstore/hr", "locales": "/", "actions": "Translate, Rollout", "workflow": "WCMS/WCMS", "workflowName": "Human Translation" },
+      { "name": "Hungarian", "code": "hu", "location": "/langstore/hu", "locales": "/hu", "actions": "Translate, Rollout", "workflow": "WCMS/WCMS", "workflowName": "Human Translation" },
+      { "name": "Italian", "code": "it", "location": "/langstore/it", "locales": "/it, /ch_it", "actions": "Translate, Rollout", "workflow": "WCMS/WCMS", "workflowName": "Human Translation" },
+      { "name": "Korean", "code": "ko", "location": "/langstore/ko", "locales": "/kr", "actions": "Translate, Rollout", "workflow": "WCMS/WCMS", "workflowName": "Human Translation" },
+      { "name": "Lithuanian", "code": "lt", "location": "/langstore/lt", "locales": "/lt", "actions": "Translate, Rollout", "workflow": "WCMS/WCMS", "workflowName": "Human Translation" },
+      { "name": "Latvian", "code": "lv", "location": "/langstore/lv", "locales": "/lv", "actions": "Translate, Rollout", "workflow": "WCMS/WCMS", "workflowName": "Human Translation" },
+      { "name": "Dutch", "code": "nl", "location": "/langstore/nl", "locales": "/nl, /be_nl", "actions": "Translate, Rollout", "workflow": "WCMS/WCMS", "workflowName": "Human Translation" },
+      { "name": "Norwegian", "code": "nb", "location": "/langstore/nb", "locales": "/no", "actions": "Translate, Rollout", "workflow": "WCMS/WCMS", "workflowName": "Human Translation" },
+      { "name": "Polish", "code": "pl", "location": "/langstore/pl", "locales": "/pl", "actions": "Translate, Rollout", "workflow": "WCMS/WCMS", "workflowName": "Human Translation" },
+      { "name": "Portugese", "code": "pt", "location": "/langstore/pt", "locales": "/pt, /br", "actions": "Translate, Rollout", "workflow": "WCMS/WCMS", "workflowName": "Human Translation" },
+      { "name": "Romanian", "code": "ro", "location": "/langstore/ro", "locales": "/ro", "actions": "Translate, Rollout", "workflow": "WCMS/WCMS", "workflowName": "Human Translation" },
+      { "name": "Russian", "code": "ru", "location": "/langstore/ru", "locales": "/ru, /cis_ru", "actions": "Translate, Rollout", "workflow": "WCMS/WCMS", "workflowName": "Human Translation" },
+      { "name": "Slovakian", "code": "sk", "location": "/langstore/sk", "locales": "/sk", "actions": "Translate, Rollout", "workflow": "WCMS/WCMS", "workflowName": "Human Translation" },
+      { "name": "Slovenian", "code": "sl", "location": "/langstore/sl", "locales": "/si", "actions": "Translate, Rollout", "workflow": "WCMS/WCMS", "workflowName": "Human Translation" },
+      { "name": "Swedish", "code": "sv", "location": "/langstore/sv", "locales": "/se", "actions": "Translate, Rollout", "workflow": "WCMS/WCMS", "workflowName": "Human Translation" },
+      { "name": "Turkish", "code": "tr", "location": "/langstore/tr", "locales": "/tr", "actions": "Translate, Rollout", "workflow": "WCMS/WCMS", "workflowName": "Human Translation" },
+      { "name": "Ukrainian", "code": "uk", "location": "/langstore/uk", "locales": "/ua", "actions": "Translate, Rollout", "workflow": "WCMS/WCMS", "workflowName": "Human Translation" },
+      {
+        "name": "Chinese Simplified",
+        "code": "zh-Hans",
+        "location": "/langstore/zh-Hans",
+        "locales": "/cn",
+        "actions": "Translate, Rollout",
+        "workflow": "WCMS/WCMS",
+        "workflowName": "Human Translation"
+      },
+      {
+        "name": "Chinese Traditional",
+        "code": "zh-Hant",
+        "location": "/langstore/zh-Hant",
+        "locales": "/tw, /hk_zh",
+        "actions": "Translate, Rollout",
+        "workflow": "WCMS/WCMS",
+        "workflowName": "Human Translation"
+      },
+      { "name": "Thai", "code": "th", "location": "/langstore/th", "locales": "/th_th", "actions": "Translate, Rollout", "workflow": "WCMS/WCMS", "workflowName": "Human Translation" },
+      { "name": "Filipino", "code": "fil", "location": "/langstore/fil", "locales": "/ph_fil", "actions": "Translate, Rollout", "workflow": "WCMS/WCMS", "workflowName": "Human Translation" },
+      { "name": "Indonesian", "code": "id", "location": "/langstore/id", "locales": "/id_id", "actions": "Translate, Rollout", "workflow": "WCMS/WCMS", "workflowName": "Human Translation" },
+      { "name": "Malay", "code": "ms", "location": "/langstore/ms", "locales": "/my_ms", "actions": "Translate, Rollout", "workflow": "WCMS/WCMS", "workflowName": "Human Translation" },
+      { "name": "Vietnamese", "code": "vi", "location": "/langstore/vi", "locales": "/vn_vi", "actions": "Translate, Rollout", "workflow": "WCMS/WCMS", "workflowName": "Human Translation" },
+      { "name": "Hindi", "code": "hi", "location": "/langstore/hi", "locales": "/in_hi", "actions": "Translate, Rollout", "workflow": "WCMS/WCMS", "workflowName": "Human Translation" }
+    ],
+    ":colWidths": [185, 118, 166, 516, 180, 230, 336]
+  },
+  "dnt-doc-rules": {
+    "total": 20,
+    "limit": 20,
+    "offset": 0,
+    "data": [
+      { "block_scope": "modal-metadata, table-metadata, carousel, block-group-end,block-group-start, gnav-brand", "column": "*", "row": "*", "pattern": "*", "action": "dnt" },
+      { "block_scope": "section-metadata, card-metadata, metadata, review, marketo, dc-converter-widget", "column": "1", "row": "*", "pattern": "*", "action": "dnt" },
+      { "block_scope": "review", "column": "1", "row": "*", "pattern": "equals(Hide title || Tooltip delay || Initial Value)", "action": "dnt-row" },
+      {
+        "block_scope": "section-metadata",
+        "column": "1",
+        "row": "*",
+        "pattern": "equals(style || background || tab || masonry || carousel || loader-color || loader-duration || product-name || dismissal-animation-duration || Dismissal-animation-count || dismissal-tooltip-count)",
+        "action": "dnt-row"
+      },
+      {
+        "block_scope": "metadata",
+        "column": "1",
+        "row": "*",
+        "pattern": "equals(robots || serp-content-type || pageCreatedAt || translated || publishDate || productJcrID || primaryProductName || image || footer-promo-tag || jarvis-chat || Jarvis-chat || footer || header || universal-nav || gnav-source || app-prompt-entitlement || app-prompt-path || canonical || target || Target || personalization)",
+        "action": "dnt-row"
+      },
+      { "block_scope": "metadata", "column": "1", "row": "*", "pattern": "except(title || description)", "action": "dnt-row" },
+      { "block_scope": "card-metadata", "column": "1", "row": "*", "pattern": "equals(cardDate|| CardImage || primaryTag || Tags || ContentType)", "action": "dnt-row" },
+      {
+        "block_scope": "aside, media, marquee,marquee-anchors, text, z-pattern, brick, interactive-marquee",
+        "column": "1",
+        "row": "1",
+        "pattern": "beginsWith(# || rgb || hsl || linear-gradient)",
+        "action": "dnt"
+      },
+      { "block_scope": "marquee", "column": "*", "row": "1", "pattern": "beginsWith(# || rgb || hsl || linear-gradient)", "action": "dnt" },
+      { "block_scope": "tabs", "column": "1", "row": "2", "pattern": "equals(active tab)", "action": "dnt-row" },
+      { "block_scope": "tabs", "column": "1", "row": "3", "pattern": "equals(id)", "action": "dnt-row" },
+      { "block_scope": "action-scroller", "column": "1", "row": "*", "pattern": "equals(Item width || item width || Item Width)", "action": "dnt" },
+      { "block_scope": "martech-metadata", "column": "2", "row": "*", "pattern": "*", "action": "dnt" },
+      { "block_scope": "quiz-marquee", "column": "1", "row": "*", "pattern": "equals(nested-fragments)", "action": "dnt-row" },
+      { "block_scope": "quiz-marquee", "column": "1", "row": "*", "pattern": "equals(--- black)", "action": "dnt" },
+      { "block_scope": "brick, homepage-brick", "column": "*", "row": "-2", "pattern": "*", "action": "dnt-row" },
+      { "block_scope": "marquee", "column": "1", "row": "1", "pattern": "has(picture)", "action": "dnt-row" },
+      { "block_scope": "hero-marquee", "column": "1", "row": "*", "pattern": "beginsWith(con-block-row)", "action": "dnt" },
+      { "block_scope": "hero-marquee", "column": "1", "row": "1", "pattern": "beginsWith(# || rgb || hsl || linear-gradient)", "action": "dnt" },
+      { "block_scope": "merch-card", "column": "1", "row": "3", "pattern": "*", "action": "dnt-row" }
+    ],
+    ":colWidths": [333, 124, 98, 364, 300]
+  },
+  "dnt-content-rules": {
+    "total": 6,
+    "limit": 6,
+    "offset": 0,
+    "data": [{ "content": "do not translate me" }, { "content": "/filter/" }, { "content": "/search/" }, { "content": "/0/" }, { "content": "/1/" }, { "content": "/10/" }],
+    ":colWidths": [145]
+  },
+  "dnt-sheet-rules": {
+    "total": 2,
+    "limit": 2,
+    "offset": 0,
+    "data": [
+      { "pattern": "equals(null)", "action": "dnt" },
+      { "pattern": "beginsWith(http:// || https://)", "action": "dnt" }
+    ],
+    ":colWidths": [213, 107]
+  },
+  ":names": ["config", "languages", "dnt-doc-rules", "dnt-content-rules", "dnt-sheet-rules"],
+  ":version": 3,
+  ":type": "multi-sheet"
+}
