@@ -107,7 +107,7 @@ async function importUrl(url, findFragmentsFlag, setProcessed) {
       url.status = 'redir';
       throw new Error('redir');
     }
-    if (!resp.ok) {
+    if (!resp.ok && resp.status !== 304) {
       url.status = 'error';
       throw new Error('error');
     }
