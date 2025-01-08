@@ -114,7 +114,12 @@ class NxImporter extends LitElement {
   }
 
   handleCopy(title) {
-    const urls = title === 'Errors' ? this._errors : this._urls;
+    let urls;
+    if (title === 'Errors') urls = this._errors;
+    if (title === 'Redirects') urls = this._redirects;
+    if (title === 'Success') urls = this._successes;
+    if (urls.length === 0) urls = this._urls;
+
     const aemPaths = urls.map((url) => url.href);
     const blob = new Blob([aemPaths.join('\n')], { type: 'text/plain' });
     const data = [new ClipboardItem({ [blob.type]: blob })];
@@ -149,6 +154,7 @@ class NxImporter extends LitElement {
   }
 
   get _successes() {
+    console.log(this._urls);
     return this._urls.filter((url) => !url.status === 'error' || !url.status > 299);
   }
 

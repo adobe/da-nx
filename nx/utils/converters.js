@@ -60,7 +60,7 @@ function makePictures(dom) {
   imgs.forEach((img) => {
     const clone = img.cloneNode(true);
     clone.setAttribute('loading', 'lazy');
-    clone.src = `${clone.src}?optimize=medium`;
+    // clone.src = `${clone.src}?optimize=medium`;
 
     let pic = document.createElement('picture');
 
