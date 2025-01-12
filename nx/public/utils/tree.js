@@ -1,5 +1,6 @@
 /* eslint-disable import/prefer-default-export */
 import { daFetch } from '../../utils/daFetch.js';
+import { DA_ORIGIN } from './constants.js';
 
 export class Queue {
   constructor(callback, maxConcurrent = 500) {
@@ -40,7 +41,7 @@ async function getChildren(path) {
   const files = [];
   const folders = [];
 
-  const resp = await daFetch(`https://admin.da.live/list${path}`);
+  const resp = await daFetch(`${DA_ORIGIN}/list${path}`);
   if (resp.ok) {
     const json = await resp.json();
     json.forEach((child) => {
