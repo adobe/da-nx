@@ -1,6 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import { json2html, html2json } from '../../../nx/blocks/loc/glaas/json2html.js';
-import { singleSheetJson, multiSheetJson } from './mocks/testData.js';
+import { singleSheetJson, multiSheetJson } from './glaas/mocks/testData.js';
 
 describe('json2html2json', () => {
   it('should convert single sheet JSON to HTML', async () => {

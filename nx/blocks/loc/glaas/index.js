@@ -6,6 +6,9 @@ import { getGlaasToken, connectToGlaas } from './auth.js';
 let token;
 
 export async function isConnected(service) {
+  // DEBUG
+  return true;
+
   token = await getGlaasToken(service);
   if (token) {
     const sessionConf = { ...service, token };

@@ -45,7 +45,7 @@ export async function detectService(config, env = 'stage') {
     origin: 'https://translate.da/live',
     canResave: false,
     actions: await import('../google/index.js'),
-    dnt: await import('../dnt/dnt.js'),
+    dnt: await import('../google/dnt.js'),
   };
 }
 

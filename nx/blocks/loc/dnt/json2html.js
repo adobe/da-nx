@@ -1,3 +1,9 @@
+/*
+  This is a simple JSON to HTML converter that is used to convert the JSON data to HTML for translation.
+  The HTML format can then be modified by the different services to their own format.
+  This output format is the format used by GLAAS, so no transformation is needed for that service.
+*/
+
 const setDntAttribute = (el) => {
   el.setAttribute('translate', 'no');
 };

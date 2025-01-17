@@ -19,9 +19,14 @@ export const [setConfig, getConfig] = (() => {
         env: getEnv(),
         nxBase: `${import.meta.url.replace('/scripts/nexter.js', '')}`,
       };
+      window.c = config;
       return config;
     },
-    () => (config || setConfig()),
+    () => {
+      // DEBUG
+      if (!config && window.c) config = window.c;
+      return (config || setConfig())
+    },
   ];
 })();
 
