@@ -83,9 +83,9 @@ async function importUrl(url, findFragmentsFlag, setProcessed) {
   url.fromOrg ??= fromOrg;
 
   const { pathname, href } = url;
-  if (href.endsWith('.xml') || href.endsWith('.html')) {
+  if (href.endsWith('.xml') || href.endsWith('.html') || href.includes('query-index')) {
     url.status = 'error';
-    url.error = 'DA does not support XML or raw HTML.';
+    url.error = 'DA does not support XML, HTML, or query index files.';
     return;
   }
 
@@ -103,7 +103,7 @@ async function importUrl(url, findFragmentsFlag, setProcessed) {
 
   try {
     const resp = await fetch(`${url.origin}${srcPath}`);
-    if (resp.redirected && !srcPath.endsWith('.mp4')) {
+    if (resp.redirected && !(srcPath.endsWith('.mp4') || srcPath.endsWith('.png') || srcPath.endsWith('.jpg'))) {
       url.status = 'redir';
       throw new Error('redir');
     }

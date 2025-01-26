@@ -154,7 +154,6 @@ class NxImporter extends LitElement {
   }
 
   get _successes() {
-    console.log(this._urls);
     return this._urls.filter((url) => !url.status === 'error' || !url.status > 299);
   }
 
@@ -255,7 +254,7 @@ class NxImporter extends LitElement {
         ${this.renderBadge('Remaining', this._remaining.length)}
         ${this.renderBadge('Errors', this._errors.length)}
         ${this.renderBadge('Redirects', this._redirects.length)}
-        ${this.renderBadge('Success', this._processed)}
+        ${this.renderBadge('Success', this._successes)}
         ${this.renderBadge('Total', this._urls.length)}
       </div>
       <div class="url-lists">
