@@ -37,6 +37,7 @@ export async function detectService(config, env = 'stage') {
       clientid: config[`translation.service.${env}.clientid`].value,
       actions: await import('../glaas/index.js'),
       dnt: await import('../glaas/dnt.js'),
+      preview: config[`translation.service.${env}.preview`].value,
     };
   }
   return {
