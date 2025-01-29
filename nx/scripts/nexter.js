@@ -22,11 +22,7 @@ export const [setConfig, getConfig] = (() => {
       window.c = config;
       return config;
     },
-    () => {
-      // DEBUG
-      if (!config && window.c) config = window.c;
-      return (config || setConfig())
-    },
+    () => (config || setConfig()),
   ];
 })();
 
