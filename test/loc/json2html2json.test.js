@@ -1,5 +1,5 @@
 import { expect } from '@esm-bundle/chai';
-import { json2html, html2json } from '../../../nx/blocks/loc/glaas/json2html.js';
+import { json2html, html2json } from '../../nx/blocks/loc/dnt/json2html.js';
 import { singleSheetJson, multiSheetJson } from './glaas/mocks/testData.js';
 
 describe('json2html2json', () => {

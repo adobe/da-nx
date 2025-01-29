@@ -1,5 +1,5 @@
 import { expect } from '@esm-bundle/chai';
-import { convertUrl } from '../../nx/blocks/locfour/project/index.js';
+import { convertUrl } from '../../nx/blocks/loc/project/index.js';
 
 describe('URL conversion', () => {
   it('Converts root URL to source language URL', () => {

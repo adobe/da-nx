@@ -1,6 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import { readFile } from '@web/test-runner-commands';
-import { regionalDiff, normalizeHTML } from '../../nx/blocks/locfour/regional-diff/regional-diff.js';
+import { regionalDiff, normalizeHTML } from '../../nx/blocks/loc/regional-diff/regional-diff.js';
 
 function cleanHtmlWhitespace(html) {
   return normalizeHTML(html).replace(/\s+/g, ' ').trim();
