@@ -118,7 +118,7 @@ class NxImporter extends LitElement {
     if (title === 'Errors') urls = this._errors;
     if (title === 'Redirects') urls = this._redirects;
     if (title === 'Success') urls = this._successes;
-    if (urls.length === 0) urls = this._urls;
+    if (title === 'Total') urls = this._urls;
 
     const aemPaths = urls.map((url) => url.href);
     const blob = new Blob([aemPaths.join('\n')], { type: 'text/plain' });
@@ -138,7 +138,6 @@ class NxImporter extends LitElement {
 
     card.classList.add('is-expanded');
     this._expanded = name;
-    console.log(this._expanded);
   }
 
   get _remaining() {
@@ -154,7 +153,7 @@ class NxImporter extends LitElement {
   }
 
   get _successes() {
-    return this._urls.filter((url) => !url.status === 'error' || !url.status > 299);
+    return this._urls.filter((url) => !(url.status === 'error' || url.status > 299));
   }
 
   get _errors() {
@@ -254,7 +253,7 @@ class NxImporter extends LitElement {
         ${this.renderBadge('Remaining', this._remaining.length)}
         ${this.renderBadge('Errors', this._errors.length)}
         ${this.renderBadge('Redirects', this._redirects.length)}
-        ${this.renderBadge('Success', this._successes)}
+        ${this.renderBadge('Success', this._successes.length)}
         ${this.renderBadge('Total', this._urls.length)}
       </div>
       <div class="url-lists">
