@@ -6,6 +6,10 @@ function sendText(text) {
   port2.postMessage({ action: 'sendText', details: text });
 }
 
+function sendHTML(text) {
+  port2.postMessage({ action: 'sendHTML', details: text });
+}
+
 function setTitle(text) {
   port2.postMessage({ action: 'setTitle', details: text });
 }
@@ -29,6 +33,7 @@ const DA_SDK = (() => new Promise((resolve) => {
       const actions = {
         daFetch,
         sendText,
+        sendHTML,
         closeLibrary,
       };
 
