@@ -1,0 +1,51 @@
+.nx-404 {
+  position: relative;
+  height: calc(100vh - var(--nx-nav-height));
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.nx-404-bg picture {
+  position: absolute;
+  inset: 0;
+}
+
+.nx-404-bg img {
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
+}
+
+.nx-404-fg {
+  position: relative;
+  max-width: 320px;
+  background: var(--s2-gray-800);
+  color: #fff;
+  text-align: center;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: rgb(0 0 0 / 8%) 0 6px 16px, rgb(0 0 0 / 12%) 0 3px 6px;
+}
+
+.nx-404-fg h1 {
+  font-size: var(--s2-heading-size-400);
+  line-height: 1;
+  text-transform: uppercase;
+  padding: 24px 24px 0;
+}
+
+.nx-404-fg h2 {
+  font-size: var(--s2-heading-size-700);
+  line-height: 1;
+  padding: 0 24px 24px;
+}
+
+.nx-404-fg p {
+  margin: 0;
+}
+
+.nx-404-fg img {
+  display: block;
+}
