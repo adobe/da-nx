@@ -6,7 +6,7 @@ const ICONS = [`${new URL(import.meta.url).origin}/nx/img/logos/aec.svg`];
 
 function getDefaultPath() {
   const { origin } = new URL(import.meta.url);
-  return `${origin}/nx/fragments/nx-nav`;
+  return `${origin}/fragments/nx-nav`;
 }
 class Nav extends HTMLElement {
   constructor() {
