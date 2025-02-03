@@ -30,10 +30,10 @@
 }
 
 .nx-404-fg h1 {
-  font-size: var(--s2-heading-size-400);
+  font-size: var(--s2-heading-size-300);
   line-height: 1;
   text-transform: uppercase;
-  padding: 24px 24px 0;
+  padding: 24px 24px 12px;
 }
 
 .nx-404-fg h2 {
