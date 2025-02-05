@@ -154,7 +154,8 @@
         "pattern": "equals(style || background || tab || masonry || carousel || loader-color || loader-duration || product-name || dismissal-animation-duration || Dismissal-animation-count || dismissal-tooltip-count)",
         "action": "dnt-row"
       },
-      { "block_scope": "metadata", "column": "1", "row": "*", "pattern": "except(title || description)", "action": "dnt-row" },
+      { "block_scope": "metadata", "column": "1", "row": "*", "pattern": "except(title || Description || keywords)", "action": "dnt-row" },
+
       { "block_scope": "card-metadata", "column": "1", "row": "*", "pattern": "equals(cardDate|| CardImage || primaryTag || Tags || ContentType)", "action": "dnt-row" },
       {
         "block_scope": "aside, media, marquee,marquee-anchors, text, z-pattern, brick, interactive-marquee",

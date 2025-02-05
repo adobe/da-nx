@@ -34,7 +34,7 @@ const extractPattern = (rule) => {
   if (pattern && pattern.length > 0) {
     if (pattern !== '*' && pattern.includes('(') && pattern.includes(')')) {
       condition = pattern.substring(0, pattern.indexOf('(')).trim();
-      match = (pattern.substring(pattern.indexOf('(') + 1, pattern.indexOf(')')).split('||')).map((item) => item.trim());
+      match = (pattern.substring(pattern.indexOf('(') + 1, pattern.indexOf(')')).split('||')).map((item) => item.trim().toLowerCase());
     }
   }
   return { condition, match };
@@ -68,14 +68,14 @@ const parseDntConfig = (config, reset = false) => {
 
   const docContent = dntConfig.get('contentRules');
 
-  config['dnt-content-rules'].data.forEach((contentRule) => {
+  config['dnt-content-rules']?.data.forEach((contentRule) => {
     docContent.push(contentRule.content);
   });
 
   // Sheet Rule Set
   dntConfig.set('sheetRules', []);
   const sheetRules = dntConfig.get('sheetRules');
-  config['dnt-sheet-rules'].data.forEach((sheetRule) => {
+  config['dnt-sheet-rules']?.data.forEach((sheetRule) => {
     sheetRules.push(extractPattern(sheetRule));
   });
 
@@ -100,7 +100,7 @@ const addDntAttribute = (selector, operations, document) => {
         setDntAttribute(dntElement);
       } else {
         const matchTexts = operation.match;
-        const elementText = element.textContent;
+        const elementText = element.textContent.toLowerCase();
         if (
           (operation.condition === 'except' && !matchTexts.includes(elementText))
           || (operation.condition === 'equals' && matchTexts.includes(elementText))
