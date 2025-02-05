@@ -1,0 +1,138 @@
+{
+  "config": {
+    "total": 3,
+    "offset": 0,
+    "limit": 3,
+    "data": [
+      {
+        "key": "translate.conflict.behavior",
+        "value": "overwrite",
+        "description": "How to handle old content when new content returns from translation."
+      },
+      {
+        "key": "complete.aem.preview",
+        "value": "on",
+        "description": "Automatically preview the document after completion. Ignored if merge conflicts exist."
+      },
+      {
+        "key": "complete.aem.publish",
+        "value": "on",
+        "description": "Automatically publish the document after completion.  Ignored if merge conflicts exist."
+      }
+    ]
+  },
+  "languages": {
+    "total": 6,
+    "offset": 0,
+    "limit": 6,
+    "data": [
+      {
+        "name": "English",
+        "code": "en",
+        "location": "/en",
+        "actions": "Translate"
+      },
+      {
+        "name": "Spanish",
+        "code": "es",
+        "location": "/es",
+        "actions": "Translate"
+      },
+      {
+        "name": "German",
+        "code": "de",
+        "location": "/de",
+        "actions": "Translate"
+      },
+      {
+        "name": "French",
+        "code": "fr",
+        "location": "/fr",
+        "actions": "Translate"
+      },
+      {
+        "name": "Chinese (Simplified)",
+        "code": "zh",
+        "location": "/cn",
+        "actions": "Translate"
+      },
+      {
+        "name": "Japanese",
+        "code": "ja",
+        "location": "/ja",
+        "actions": "Translate"
+      }
+    ]
+  },
+  "dnt-doc-rules": {
+    "total": 3,
+    "offset": 0,
+    "limit": 3,
+    "data": [
+      {
+        "block_scope": "section-metadata, metadata, hubspot",
+        "column": "1",
+        "row": "*",
+        "pattern": "*",
+        "action": "dnt"
+      },
+      {
+        "block_scope": "metadata",
+        "column": "1",
+        "row": "*",
+        "pattern": "except(Title || Description)",
+        "action": "dnt-row"
+      },
+      {
+        "block_scope": "hubspot",
+        "column": "1",
+        "row": "*",
+        "pattern": "except(headline)",
+        "action": "dnt-row"
+      }
+    ]
+  },
+  "dnt-content-rules": {
+    "total": 1,
+    "offset": 0,
+    "limit": 1,
+    "data": [{}]
+  },
+  "dnt-sheet-rules": {
+    "total": 1,
+    "offset": 0,
+    "limit": 1,
+    "data": [{}]
+  },
+  "doc-rules": {
+    "total": 3,
+    "offset": 0,
+    "limit": 3,
+    "data": [
+      {
+        "block": "metadata",
+        "column": "1",
+        "row": "*",
+        "pattern": "equals(title || description)",
+        "action": "translate-col-2"
+      },
+      {
+        "block": "hubspot",
+        "column": "1",
+        "row": "*",
+        "pattern": "equals(headline)",
+        "action": "translate-col-2"
+      },
+      {
+        "block": "section-metadata",
+        "column": "*",
+        "row": "*",
+        "pattern": "*",
+        "action": "do-not-translate"
+      }
+    ]
+  },
+  ":version": 3,
+  ":names": ["config", "languages", "dnt-doc-rules", "dnt-content-rules", "dnt-sheet-rules", "doc-rules"],
+  ":type": "multi-sheet"
+}
