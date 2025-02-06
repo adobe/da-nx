@@ -16,7 +16,7 @@ describe('Google DNT', () => {
     const htmlWithDnt = await addDnt(mockHtml, config);
     expect(collapseWhitespace(htmlWithDnt, true)).to.equal(collapseWhitespace(expectedHtmlWithDnt));
 
-    const htmlWithoutDnt = `${removeDnt(htmlWithDnt, 'adobecom', 'da-bacom')}\n`;
+    const htmlWithoutDnt = `${await removeDnt(htmlWithDnt, 'adobecom', 'da-bacom')}\n`;
     const expectedHtmlWithoutDnt = await readFile({ path: './mocks/dnt-removed.html' });
     expect(htmlWithoutDnt).to.equal(expectedHtmlWithoutDnt);
   });

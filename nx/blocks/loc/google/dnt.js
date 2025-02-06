@@ -21,6 +21,14 @@ export async function addDnt(inputText, config, { fileType = 'html', reset = fal
   return dom.documentElement.outerHTML;
 }
 
+function unwrapDataInnerHtml(dom) {
+  const dntEls = dom.querySelectorAll('[data-inner-html]');
+  dntEls.forEach((el) => {
+    el.innerHTML = el.dataset.innerHtml;
+    delete el.dataset.innerHtml;
+  });
+}
+
 export async function removeDnt(inputHtml, org, repo, { fileType = 'html' } = {}) {
   let html = inputHtml;
 
@@ -29,11 +37,7 @@ export async function removeDnt(inputHtml, org, repo, { fileType = 'html' } = {}
   }
 
   const dom = PARSER.parseFromString(html, 'text/html');
-  const dntEls = dom.querySelectorAll('[data-inner-html]');
-  dntEls.forEach((el) => {
-    el.innerHTML = el.dataset.innerHtml;
-    delete el.dataset.innerHtml;
-  });
+  unwrapDataInnerHtml(dom);
 
   const contents = dom.querySelector('main')?.outerHTML || dom.body.innerHTML;
 
