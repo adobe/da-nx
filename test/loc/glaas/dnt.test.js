@@ -27,4 +27,15 @@ describe('Glaas DNT', () => {
     const htmlWithDnt = await addDnt(mockHtml, config, { reset: true });
     expect(collapseWhitespace(htmlWithDnt, true)).to.equal(collapseWhitespace(expectedHtmlWithDnt));
   });
+
+  it('Converts json to dnt formatted html and back', async () => {
+    const config = JSON.parse((await readFile({ path: './mocks/translate.json' })));
+    const expectedHtmlWithDnt = await readFile({ path: './mocks/placeholders.html' });
+    const json = await readFile({ path: './mocks/placeholders.json' });
+    const htmlWithDnt = await addDnt(json, config, { fileType: 'json', reset: true });
+    expect(collapseWhitespace(htmlWithDnt, true)).to.equal(collapseWhitespace(expectedHtmlWithDnt));
+
+    const jsonWithoutDnt = `${await removeDnt(htmlWithDnt, 'adobecom', 'da-bacom', { fileType: 'json' })}\n`;
+    expect(JSON.parse(jsonWithoutDnt)).to.deep.equal(JSON.parse(json));
+  });
 });

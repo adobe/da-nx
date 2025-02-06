@@ -39,7 +39,7 @@ export async function removeDnt(inputHtml, org, repo, { fileType = 'html' } = {}
   const dom = PARSER.parseFromString(html, 'text/html');
   unwrapDataInnerHtml(dom);
 
-  const contents = dom.querySelector('main')?.outerHTML || dom.body.innerHTML;
+  const contents = dom.querySelector('main')?.outerHTML || dom.body.outerHTML;
 
   if (fileType === 'html') {
     return `<body>${contents}</body>`;
