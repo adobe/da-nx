@@ -122,7 +122,7 @@ const json2html = (json, dntConfig) => {
   delete jsonCopy[':names'];
   body.setAttribute('top-attrs', JSON.stringify(jsonCopy));
 
-  return html;
+  return html.outerHTML;
 };
 
 const html2json = (html) => {

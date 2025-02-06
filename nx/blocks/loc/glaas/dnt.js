@@ -76,7 +76,9 @@ const parseDntConfig = (config, reset = false) => {
   dntConfig.set('sheetRules', []);
   const sheetRules = dntConfig.get('sheetRules');
   config['dnt-sheet-rules']?.data.forEach((sheetRule) => {
-    sheetRules.push(extractPattern(sheetRule));
+    if (Object.keys(sheetRule).length > 0) {
+      sheetRules.push(extractPattern(sheetRule));
+    }
   });
 
   globalDntConfig = dntConfig;
@@ -207,7 +209,7 @@ function makeIconSpans(html) {
 
 const addDntInfoToHtml = (html) => {
   const parser = new DOMParser();
-  const document = parser.parseFromString(html.outerHTML, 'text/html');
+  const document = parser.parseFromString(html, 'text/html');
   console.log(document);
 
   makeImagesRelative(document);
@@ -263,10 +265,9 @@ function resetHrefs(doc, org, repo) {
     const href = a.getAttribute('href');
     a.href = `https://main--${repo}--${org}.aem.page${href}`;
   });
-  console.log(anchors);
 }
 
-export function removeDnt(html, org, repo) {
+export async function removeDnt(html, org, repo, { fileType = 'html' } = {}) {
   const parser = new DOMParser();
   const document = parser.parseFromString(html, 'text/html');
   unwrapDntContent(document);
@@ -274,6 +275,10 @@ export function removeDnt(html, org, repo) {
   resetIcons(document);
   resetHrefs(document, org, repo);
   removeDntAttributes(document);
+  if (fileType === 'json') {
+    const { html2json } = await import('../dnt/json2html.js');
+    return html2json(document.documentElement.outerHTML);
+  }
   return document.documentElement.outerHTML;
 }
 
@@ -290,6 +295,5 @@ export async function addDnt(inputText, config, { fileType = 'html', reset = fal
   if (fileType === 'html') {
     html = makeIconSpans(inputText);
   }
-
   return addDntInfoToHtml(html);
 }

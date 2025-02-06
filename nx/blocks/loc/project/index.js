@@ -217,9 +217,10 @@ export async function saveLangItems(sitePath, items, lang, removeDnt) {
 
   return Promise.all(items.map(async (item) => {
     const html = await item.blob.text();
-    const htmlToSave = removeDnt(html, org, repo);
+    const isJson = item.basePath.endsWith('.json');
+    const htmlToSave = await removeDnt(html, org, repo, { fileType: isJson ? 'json' : 'html' });
 
-    const blob = new Blob([htmlToSave], { type: 'text/html' });
+    const blob = new Blob([htmlToSave], { type: isJson ? 'application/json' : 'text/html' });
 
     const path = `${sitePath}${lang.location}${item.basePath}`;
     const body = new FormData();
