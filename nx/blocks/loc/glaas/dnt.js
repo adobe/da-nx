@@ -210,7 +210,6 @@ function makeIconSpans(html) {
 const addDntInfoToHtml = (html) => {
   const parser = new DOMParser();
   const document = parser.parseFromString(html, 'text/html');
-  console.log(document);
 
   makeImagesRelative(document);
   makeHrefsRelative(document);
