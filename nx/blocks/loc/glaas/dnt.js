@@ -207,7 +207,8 @@ function makeIconSpans(html) {
 
 const addDntInfoToHtml = (html) => {
   const parser = new DOMParser();
-  const document = parser.parseFromString(html, 'text/html');
+  const document = parser.parseFromString(html.outerHTML, 'text/html');
+  console.log(document);
 
   makeImagesRelative(document);
   makeHrefsRelative(document);
@@ -289,5 +290,6 @@ export async function addDnt(inputText, config, { fileType = 'html', reset = fal
   if (fileType === 'html') {
     html = makeIconSpans(inputText);
   }
+
   return addDntInfoToHtml(html);
 }

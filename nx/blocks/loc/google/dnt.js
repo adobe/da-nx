@@ -29,5 +29,7 @@ export function removeDnt(inputHtml) {
     el.innerHTML = el.dataset.innerHtml;
     delete el.dataset.innerHtml;
   });
-  return `<body>${dom.querySelector('main').outerHTML}</body>`;
+  const contents = dom.querySelector('main')?.outerHTML || dom.body.innerHTML;
+
+  return `<body>${contents}</body>`;
 }
