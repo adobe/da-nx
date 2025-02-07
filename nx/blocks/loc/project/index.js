@@ -53,7 +53,7 @@ export async function detectService(config, env = 'stage') {
   const service = {
     env: env || 'stage',
     actions: await import(`../${name.toLowerCase()}/index.js`),
-    dnt: await import('../glaas/dnt.js'),
+    dnt: await import('../dnt/dnt.js'),
   };
   Object.keys(config).forEach((key) => {
     if (key.startsWith('translation.service.')) {
