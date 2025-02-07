@@ -28,10 +28,10 @@ export function calculateTime(startTime) {
 }
 
 export async function detectService(config, env = 'stage') {
-  const name = config['translation.service.name']?.value;
+  const name = config['translation.service.name']?.value || 'Google';
   if (name === 'GLaaS') {
     return {
-      name: 'GLaaS',
+      name,
       canResave: true,
       origin: config[`translation.service.${env}.origin`].value,
       clientid: config[`translation.service.${env}.clientid`].value,
@@ -40,13 +40,28 @@ export async function detectService(config, env = 'stage') {
       preview: config[`translation.service.${env}.preview`].value,
     };
   }
-  return {
-    name: 'Google',
-    origin: 'https://translate.da/live',
-    canResave: false,
-    actions: await import('../google/index.js'),
-    dnt: await import('../google/dnt.js'),
+  if (name === 'Google') {
+    return {
+      name,
+      origin: 'http://localhost:8787/google/live',
+      canResave: false,
+      actions: await import('../google/index.js'),
+      dnt: await import('../google/dnt.js'),
+    };
+  }
+  // We get the service name for free via 'translation.service.name'
+  const service = {
+    env: env || 'stage',
+    actions: await import(`../${name.toLowerCase()}/index.js`),
+    dnt: await import('../glaas/dnt.js'),
   };
+  Object.keys(config).forEach((key) => {
+    if (key.startsWith('translation.service.')) {
+      const serviceKey = key.replace('translation.service.', '');
+      service[serviceKey] = config[key].value;
+    }
+  });
+  return service;
 }
 
 export async function getDetails() {

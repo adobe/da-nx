@@ -10,7 +10,9 @@ const buttons = await getStyle(`${nxBase}/styles/buttons.js`);
 const DA_ORIGIN = 'https://admin.da.live';
 const TRANSLATE_CONF = '/.da/translate.json';
 
-const MOCK_URLS = `https://main--da-bacom--adobecom.aem.page/customer-success-stories/xfinity-creative-customer-story\nhttps://main--da-bacom--adobecom.aem.page/customer-success-stories/abb-case-study\nhttps://main--da-bacom--adobecom.aem.page/customer-success-stories/academy-of-art-case-study\nhttps://main--da-bacom--adobecom.aem.page/customer-success-stories/accent-group-ecommerce-case-study\nhttps://main--da-bacom--adobecom.aem.page/customer-success-stories/aci-worldwide-case-study\nhttps://main--da-bacom--adobecom.aem.page/customer-success-stories/adobe-campaign-orchestration-case-study\nhttps://main--da-bacom--adobecom.aem.page/customer-success-stories/adobe-digital-legal-workflow-case-study\nhttps://main--da-bacom--adobecom.aem.page/customer-success-stories/adobe-digital-onboarding-case-study\nhttps://main--da-bacom--adobecom.aem.page/customer-success-stories/adobe-digital-university-case-study\nhttps://main--da-bacom--adobecom.aem.page/customer-success-stories/adobe-inside-adobe-case-study\nhttps://main--da-bacom--adobecom.aem.page/customer-success-stories/adobe-promo-case-study`;
+const MOCK_URLS = '';
+// const MOCK_URLS = `https://main--da-bacom--adobecom.aem.page/customer-success-stories/xfinity-creative-customer-story\nhttps://main--da-bacom--adobecom.aem.page/customer-success-stories/abb-case-study\nhttps://main--da-bacom--adobecom.aem.page/customer-success-stories/academy-of-art-case-study\nhttps://main--da-bacom--adobecom.aem.page/customer-success-stories/accent-group-ecommerce-case-study\nhttps://main--da-bacom--adobecom.aem.page/customer-success-stories/aci-worldwide-case-study\nhttps://main--da-bacom--adobecom.aem.page/customer-success-stories/adobe-campaign-orchestration-case-study\nhttps://main--da-bacom--adobecom.aem.page/customer-success-stories/adobe-digital-legal-workflow-case-study\nhttps://main--da-bacom--adobecom.aem.page/customer-success-stories/adobe-digital-onboarding-case-study\nhttps://main--da-bacom--adobecom.aem.page/customer-success-stories/adobe-digital-university-case-study\nhttps://main--da-bacom--adobecom.aem.page/customer-success-stories/adobe-inside-adobe-case-study\nhttps://main--da-bacom--adobecom.aem.page/customer-success-stories/adobe-promo-case-study`;
+// const MOCK_URLS = 'https://main--smartling--aabsites.aem.page/demo\nhttps://main--smartling--aabsites.aem.page/another';
 
 class NxLocDetails extends LitElement {
   static properties = {
@@ -53,7 +55,7 @@ class NxLocDetails extends LitElement {
     let resp = await daFetch(`${DA_ORIGIN}/source/${org}/${repo}${TRANSLATE_CONF}`);
     if (!resp.ok) {
       console.log('Using default translate config.');
-      resp = await fetch(`${nxBase}/blocks/loc/setup/default.json`);
+      resp = await fetch(`${nxBase}/blocks/loc/setup/translate.json`);
     }
 
     const json = await resp.json();
