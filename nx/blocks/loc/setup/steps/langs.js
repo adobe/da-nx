@@ -57,7 +57,7 @@ class NxLocLangs extends LitElement {
       config: this.config,
       options,
       langs,
-      urls: normalizeUrls(this.urls, langs),
+      urls: normalizeUrls(this.urls, this.langs),
     };
 
     // If project has a sourceLang, use it. Otherwise, use the root of the site.

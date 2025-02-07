@@ -37,7 +37,7 @@ class NxLocTranslate extends LitElement {
 
   async connectService() {
     const { options } = this.state;
-    const { environment = 'stage' } = options ?? {};
+    const { environment = 'stage' } = options || {};
     this._service = await detectService(this.config, environment);
     this._actions = this._service.actions;
     this._dnt = this._service.dnt;
@@ -64,14 +64,16 @@ class NxLocTranslate extends LitElement {
     this.requestUpdate();
   }
 
-  handleConnect() {
-    this._actions.connect(this._service);
+  async handleConnect() {
+    const result = await this._actions.connect(this._service);
+    if (result === true) this._connected = true;
   }
 
   formatUrls() {
     this.urls.forEach((url) => {
       const prefix = this.sourceLang.location === '/' ? '' : this.sourceLang.location;
-      url.srcPath = `${this.sitePath}${prefix}${url.basePath}`;
+      const path = url.basePath.startsWith(prefix) ? url.basePath : `${prefix}${url.basePath}`;
+      url.srcPath = `${this.sitePath}${path}`;
     });
   }
 
@@ -171,8 +173,8 @@ class NxLocTranslate extends LitElement {
       saveState: this.saveState.bind(this),
     };
 
-    const { title, _service, langs, urls } = this;
-    await this._actions.sendAllLanguages(title, _service, langs, urls, actions);
+    const { title, _service, langs, urls, state } = this;
+    await this._actions.sendAllLanguages(title, _service, langs, urls, actions, state);
 
     return !this.langs.some((lang) => lang.translation.status !== 'created');
   }
@@ -259,10 +261,10 @@ class NxLocTranslate extends LitElement {
           <h3>Translate <span class="quiet">(${this._service?.name})</span></h3>
           <div class="da-loc-panel-title-expand">
             <h3>Behavior: <span class="quiet">overwrite</span></h3>
-            <button class="da-loc-panel-expand-btn" @click=${this.toggleExpand} aria-label="Toggle Expand"><svg class="icon"><use href="#spectrum-chevronRight"/></svg></button>
+            <button class="da-loc-panel-expand-btn rotate" @click=${this.toggleExpand} aria-label="Toggle Expand"><svg class="icon"><use href="#spectrum-chevronRight"/></svg></button>
           </div>
         </div>
-        <div class="da-loc-panel-content">
+        <div class="da-loc-panel-content is-visible">
           <div class="da-lang-cards">
             ${this.langs.map((lang) => html`
               <div class="da-lang-card">
