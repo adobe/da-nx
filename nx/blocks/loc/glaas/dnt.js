@@ -34,21 +34,18 @@ const extractPattern = (rule) => {
   if (pattern && pattern.length > 0) {
     if (pattern !== '*' && pattern.includes('(') && pattern.includes(')')) {
       condition = pattern.substring(0, pattern.indexOf('(')).trim();
-      match = (pattern.substring(pattern.indexOf('(') + 1, pattern.indexOf(')')).split('||')).map((item) => item.trim());
+      match = (pattern.substring(pattern.indexOf('(') + 1, pattern.indexOf(')')).split('||')).map((item) => item.trim().toLowerCase());
     }
   }
   return { condition, match };
 };
 
-const parseDntConfig = (config) => {
-  if (globalDntConfig) return globalDntConfig;
-
+const parseDntConfig = (config, reset = false) => {
+  if (globalDntConfig && !reset) return globalDntConfig;
   const dntConfig = new Map();
 
   // Docx Rule Set
   dntConfig.set('docRules', new Map());
-
-  // Get empty map
   const docRules = dntConfig.get('docRules');
 
   // Iterate through config doc rules
@@ -71,15 +68,17 @@ const parseDntConfig = (config) => {
 
   const docContent = dntConfig.get('contentRules');
 
-  config['dnt-content-rules'].data.forEach((contentRule) => {
+  config['dnt-content-rules']?.data.forEach((contentRule) => {
     docContent.push(contentRule.content);
   });
 
   // Sheet Rule Set
   dntConfig.set('sheetRules', []);
   const sheetRules = dntConfig.get('sheetRules');
-  config['dnt-sheet-rules'].data.forEach((sheetRule) => {
-    sheetRules.push(extractPattern(sheetRule));
+  config['dnt-sheet-rules']?.data.forEach((sheetRule) => {
+    if (Object.keys(sheetRule).length > 0) {
+      sheetRules.push(extractPattern(sheetRule));
+    }
   });
 
   globalDntConfig = dntConfig;
@@ -103,11 +102,13 @@ const addDntAttribute = (selector, operations, document) => {
         setDntAttribute(dntElement);
       } else {
         const matchTexts = operation.match;
-        const elementText = element.textContent;
+        const elementText = element.textContent.toLowerCase();
         if (
-          (operation.condition === 'equals' && matchTexts.includes(elementText)) ||
-          (operation.condition === 'beginsWith' && matchTexts.some((matchText) => elementText.startsWith(matchText))) ||
-          (operation.condition === 'has' && matchTexts.every((matchText) => element.querySelector(matchText)))
+          (operation.condition === 'except' && !matchTexts.includes(elementText))
+          || (operation.condition === 'equals' && matchTexts.includes(elementText))
+          || (operation.condition === 'contains' && matchTexts.some((matchText) => elementText.includes(matchText)))
+          || (operation.condition === 'beginsWith' && matchTexts.some((matchText) => elementText.startsWith(matchText)))
+          || (operation.condition === 'has' && matchTexts.every((matchText) => element.querySelector(matchText)))
         ) {
           setDntAttribute(dntElement);
         }
@@ -210,7 +211,7 @@ const addDntInfoToHtml = (html) => {
   const parser = new DOMParser();
   const document = parser.parseFromString(html, 'text/html');
 
-  // makeImagesRelative(document);
+  makeImagesRelative(document);
   makeHrefsRelative(document);
 
   // Match existing content sent to GLaaS
@@ -263,10 +264,9 @@ function resetHrefs(doc, org, repo) {
     const href = a.getAttribute('href');
     a.href = `https://main--${repo}--${org}.aem.page${href}`;
   });
-  console.log(anchors);
 }
 
-export function removeDnt(html, org, repo) {
+export async function removeDnt(html, org, repo, { fileType = 'html' } = {}) {
   const parser = new DOMParser();
   const document = parser.parseFromString(html, 'text/html');
   unwrapDntContent(document);
@@ -274,11 +274,25 @@ export function removeDnt(html, org, repo) {
   resetIcons(document);
   resetHrefs(document, org, repo);
   removeDntAttributes(document);
+  if (fileType === 'json') {
+    const { html2json } = await import('../dnt/json2html.js');
+    return html2json(document.documentElement.outerHTML);
+  }
   return document.documentElement.outerHTML;
 }
 
-export function addDnt(suppliedHtml, config) {
-  parseDntConfig(config);
-  const iconedHtml = makeIconSpans(suppliedHtml);
-  return addDntInfoToHtml(iconedHtml);
+export async function addDnt(inputText, config, { fileType = 'html', reset = false } = {}) {
+  let html;
+  const dntConfig = parseDntConfig(config, reset);
+
+  if (fileType === 'json') {
+    const json = JSON.parse(inputText);
+    const { json2html } = await import('../dnt/json2html.js');
+    html = json2html(json, dntConfig);
+  }
+
+  if (fileType === 'html') {
+    html = makeIconSpans(inputText);
+  }
+  return addDntInfoToHtml(html);
 }
