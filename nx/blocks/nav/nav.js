@@ -1,4 +1,6 @@
+import { DA_ORIGIN } from '../../public/utils/constants.js';
 import { loadArea, getMetadata } from '../../scripts/nexter.js';
+import { daFetch } from '../../utils/daFetch.js';
 import loadStyle from '../../utils/styles.js';
 import getSvg from '../../utils/svg.js';
 
@@ -83,7 +85,11 @@ class Nav extends HTMLElement {
     profileWrapper.querySelector('.nx-nav-btn-profile').addEventListener('click', () => {
       profileWrapper.querySelector('.nx-nav-profile-menu').classList.toggle('is-visible');
     });
-    profileWrapper.querySelector('.nx-nav-profile-list-item-signout').addEventListener('click', signOut);
+    const signoutEl = profileWrapper.querySelector('.nx-nav-profile-list-item-signout');
+    signoutEl.addEventListener('click', async () => {
+      await daFetch(`${DA_ORIGIN}/logout`);
+      signOut();
+    });
     return fragment;
   }
 
