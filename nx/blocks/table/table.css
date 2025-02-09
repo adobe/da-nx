@@ -1,14 +1,14 @@
-.table {
+.nx-table {
   border: 2px solid #676767;
   border-radius: 8px;
   overflow: hidden;
 }
 
-.table > div > div {
+.nx-table > div > div {
   display: flex;
 }
 
-.table table {
+.nx-table table {
   border-spacing: 0;
   border-collapse: collapse;
   box-sizing: border-box;
@@ -18,13 +18,13 @@
   flex: 1 0 auto;
 }
 
-.table table tr:first-child {
+.nx-table table tr:first-child {
   font-weight: 700;
   background: #efefef;
 }
 
-.table th,
-.table td {
+.nx-table th,
+.nx-table td {
   border: 2px solid #676767;
   padding: 4px 8px;
 }
