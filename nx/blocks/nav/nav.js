@@ -87,7 +87,11 @@ class Nav extends HTMLElement {
     });
     const signoutEl = profileWrapper.querySelector('.nx-nav-profile-list-item-signout');
     signoutEl.addEventListener('click', async () => {
-      await daFetch(`${DA_ORIGIN}/logout`);
+      try {
+        await daFetch(`${DA_ORIGIN}/logout`);
+      } catch {
+        // logout did not work.
+      }
       signOut();
     });
     return fragment;
