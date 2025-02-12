@@ -8,7 +8,7 @@ async function sendForTranslation(basePath, sourceHtml, toLang) {
 
   const opts = { method: 'POST', body };
 
-  const resp = await fetch('https://translate.da.live/translate', opts);
+  const resp = await fetch('https://translate.da.live/google', opts);
   if (!resp.ok) {
     console.log(resp.status);
     return null;
