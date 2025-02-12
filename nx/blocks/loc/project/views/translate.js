@@ -133,8 +133,10 @@ class NxLocTranslate extends LitElement {
   }
 
   async getSiteConfig() {
-    const resp = await daFetch(`${DA_ORIGIN}/source/${this.state.org}/${this.state.site}/.da/translate.json`);
-    if (!resp.ok) return null;
+    let resp = await daFetch(`${DA_ORIGIN}/source/${this.state.org}/${this.state.site}/.da/translate.json`);
+    if (!resp.ok) {
+      resp = await fetch(`${nxBase}/blocks/loc/setup/translate.json`);
+    }
     return resp.json();
   }
 
