@@ -1,4 +1,5 @@
 /* eslint-disable max-len */
+import { makeIconSpans, resetIcons } from '../dnt/dnt.js';
 
 let globalDntConfig;
 const ALT_TEXT_PLACEHOLDER = '*alt-placeholder*';
@@ -183,28 +184,21 @@ function makeHrefsRelative(document) {
 }
 
 function makeImagesRelative(document) {
-  const els = document.querySelectorAll('img[src*="media_"], source[srcset*="media_"]');
-  els.forEach((el) => {
-    if (el.nodeName === 'IMG') {
-      const { src } = el;
+  const updateSrc = (el, src) => {
+    if (src.startsWith('http')) {
       const url = new URL(src);
       el.setAttribute('src', `.${url.pathname}`);
-    } else {
-      const { srcset } = el;
-      const url = new URL(srcset);
-      el.setAttribute('srcset', `.${url.pathname}`);
     }
-  });
-}
+  };
 
-function makeIconSpans(html) {
-  const iconRegex = /:([a-zA-Z0-9-]+?):/gm;
-
-  if (!iconRegex.test(html)) return html;
-  return html.replace(
-    iconRegex,
-    (_, iconName) => `<span class="icon icon-${iconName}"></span>`,
-  );
+  document.querySelectorAll('img[src*="media_"], source[srcset*="media_"]')
+    .forEach((el) => {
+      if (el.nodeName === 'IMG') {
+        updateSrc(el, el.src);
+      } else {
+        updateSrc(el, el.srcset);
+      }
+    });
 }
 
 const addDntInfoToHtml = (html) => {
@@ -247,16 +241,6 @@ const resetAltText = (document) => {
     img.removeAttribute('dnt-alt-content');
   });
 };
-
-function resetIcons(doc) {
-  const icons = doc.querySelectorAll('span.icon');
-  icons.forEach((icon) => {
-    const parent = icon.parentElement;
-    const name = icon.classList[1].split('-')[1];
-    const textIcon = document.createTextNode(`:${name}:`);
-    parent.replaceChild(textIcon, icon);
-  });
-}
 
 function resetHrefs(doc, org, repo) {
   const anchors = doc.querySelectorAll('[href^="/"]');
