@@ -28,17 +28,17 @@ p {
   color: #fa0f00;
   font-size: 20px;
   text-decoration: none;
-  font-weight: 700;
+  font-weight: 800;
   padding-left: 24px;
-
-  /* Adobe Home uses an SVG for text and this
-   * helps match the slight difference in thickness */
-  -webkit-font-smoothing: auto;
 }
 
 .nx-nav-brand svg {
   width: 25px;
   height: 24px;
+}
+
+.nx-nav-brand span {
+  margin-bottom: 2px;
 }
 
 .nx-nav-actions {

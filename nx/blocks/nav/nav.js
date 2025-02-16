@@ -38,6 +38,7 @@ class Nav extends HTMLElement {
 
     // Grab the first link as it will be the main branding
     const brandLink = doc.querySelector('a');
+    brandLink.innerHTML = `<span>${brandLink.innerHTML}</span>`;
     brandLink.classList.add('nx-nav-brand');
     brandLink.insertAdjacentHTML('afterbegin', '<svg class="icon"><use href="#spectrum-ExperienceCloud"/></svg>');
 
