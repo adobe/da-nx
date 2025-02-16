@@ -105,6 +105,7 @@ class Nav extends HTMLElement {
   async renderHelp() {
     const helpBtn = document.createElement('button');
     helpBtn.classList.add('nx-nav-help');
+    helpBtn.setAttribute('aria-label', 'Help & legal');
     helpBtn.innerHTML = '<svg class="icon"><use href="#S2Help20N-icon"/></svg>';
 
     helpBtn.addEventListener('click', async () => {
