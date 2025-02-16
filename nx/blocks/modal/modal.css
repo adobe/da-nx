@@ -1,0 +1,60 @@
+.nx-dialog {
+  border-radius: 12px;
+  border: none;
+  min-width: 320px;
+  max-width: 98%;
+  padding: var(--spacing-600);
+
+  .section {
+    .content {
+      h4 {
+        margin-block: -2px var(--spacing-200);
+        border-bottom: 2px solid rgb(225 225 225);
+        padding: 0 0 8px;
+        line-height: 1;
+      }
+
+      p {
+        margin-block: 0 var(--spacing-100);
+      }
+
+      p:last-child {
+        margin-block: 0;
+      }
+    }
+  }
+}
+
+a {
+  color: var(--s2-blue-800);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+.nx-dialog::backdrop {
+  background: rgb(0 0 0 / 40%);
+}
+
+.nx-dialog-close-btn {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: absolute;
+  right: 16px;
+  top: 16px;
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+  border: none;
+  padding: 0;
+  background: #e1e1e1;
+}
+
+@media (width > 599px) {
+  .nx-dialog {
+    max-width: 600px;
+  }
+}

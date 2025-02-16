@@ -41,6 +41,33 @@ p {
   height: 24px;
 }
 
+.nx-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.nx-nav-help {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  padding: 0;
+  background: transparent;
+  border-radius: 5px;
+}
+
+.nx-nav-help:hover {
+  background: #e1e1e1;
+}
+
+.nx-nav-help svg {
+  width: 20px;
+  height: 20px;
+}
+
 .nx-nav-profile {
   position: relative;
   margin-right: 17px;
@@ -52,7 +79,7 @@ p {
   position: absolute;
   right: 0;
   top: 38px;
-  background: #FFF;
+  background: #fff;
   border-radius: var(--s2-radius-200);
   min-width: 320px;
   padding: var(--spacing-200) 0;
@@ -110,6 +137,7 @@ p {
   font-family: var(--body-font-family);
   font-weight: 700;
   border-radius: var(--s2-radius-100);
+  margin-right: 17px;
 }
 
 .nx-nav-btn-sign-in:hover {
@@ -125,6 +153,11 @@ p {
   height: 32px;
   border: none;
   padding: 4px;
+  border-radius: 5px;
+}
+
+.nx-nav-btn-profile:hover {
+  background: #e1e1e1;
 }
 
 .nx-nav-btn-profile img {

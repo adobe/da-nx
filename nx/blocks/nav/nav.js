@@ -1,10 +1,15 @@
 import { DA_ORIGIN } from '../../public/utils/constants.js';
-import { loadArea, getMetadata } from '../../scripts/nexter.js';
+import { getConfig, loadArea, getMetadata } from '../../scripts/nexter.js';
 import { daFetch } from '../../utils/daFetch.js';
 import loadStyle from '../../utils/styles.js';
 import getSvg from '../../utils/svg.js';
 
-const ICONS = [`${new URL(import.meta.url).origin}/nx/img/logos/aec.svg`];
+const { nxBase } = getConfig();
+
+const ICONS = [
+  `${nxBase}/img/logos/aec.svg`,
+  `${nxBase}/img/icons/S2IconHelp20N-icon.svg`,
+];
 
 function getDefaultPath() {
   const { origin } = new URL(import.meta.url);
@@ -17,9 +22,9 @@ class Nav extends HTMLElement {
   }
 
   async connectedCallback() {
-    const style = await loadStyle(import.meta.url, this.shadowRoot);
-    await getSvg({ parent: this.shadowRoot, paths: ICONS });
+    const style = await loadStyle(import.meta.url);
     this.shadowRoot.adoptedStyleSheets = [style];
+    await getSvg({ parent: this.shadowRoot, paths: ICONS });
     this.render();
   }
 
@@ -97,12 +102,16 @@ class Nav extends HTMLElement {
     return fragment;
   }
 
-  renderSignin(signIn) {
-    const button = document.createElement('button');
-    button.textContent = 'Sign in';
-    button.className = 'nx-nav-btn nx-nav-btn-sign-in';
-    button.addEventListener('click', signIn);
-    return button;
+  async renderHelp() {
+    const helpBtn = document.createElement('button');
+    helpBtn.classList.add('nx-nav-help');
+    helpBtn.innerHTML = '<svg class="icon"><use href="#S2Help20N-icon"/></svg>';
+
+    helpBtn.addEventListener('click', async () => {
+      const open = (await import('../modal/modal.js')).default;
+      open('/fragments/nav/help');
+    });
+    return helpBtn;
   }
 
   async getProfile() {
@@ -122,12 +131,34 @@ class Nav extends HTMLElement {
     }
   }
 
+  renderSignin(signIn) {
+    const button = document.createElement('button');
+    button.textContent = 'Sign in';
+    button.className = 'nx-nav-btn nx-nav-btn-sign-in';
+    button.addEventListener('click', signIn);
+    return button;
+  }
+
+  async renderActions() {
+    const navActions = document.createElement('div');
+    navActions.classList.add('nx-nav-actions');
+
+    const help = await this.renderHelp();
+    navActions.append(help);
+
+    const profile = await this.getProfile();
+    if (profile) navActions.append(profile);
+
+    return navActions;
+  }
+
   async render() {
     const nav = await this.fetchNav();
     this.shadowRoot.append(nav);
+
+    const navActions = await this.renderActions();
+    this.shadowRoot.append(navActions);
     delete this.closest('header').dataset.status;
-    const profile = await this.getProfile();
-    if (profile) this.shadowRoot.append(profile);
   }
 }
 
