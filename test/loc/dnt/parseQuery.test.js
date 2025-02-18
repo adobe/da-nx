@@ -87,7 +87,6 @@ describe('parseQuery', () => {
       action: 'translate',
       targets: [{ type: 'col', range: [1] }],
       conditions: [{
-        type: 'if',
         column: 0,
         operator: 'is',
         values: ['hello'],
@@ -105,12 +104,9 @@ describe('parseQuery', () => {
       action: 'translate',
       targets: [{ type: 'col', range: [1] }],
       conditions: [
+        // TODO double check this first obj
+        { row: [2] },
         {
-          type: 'if',
-          row: [2],
-        },
-        {
-          type: 'if',
           column: 0,
           operator: 'is',
           values: ['hello'],
@@ -127,12 +123,8 @@ describe('parseQuery', () => {
       action: 'translate',
       targets: [{ type: 'col', range: [4] }],
       conditions: [
+        { row: [3, 4, 5] },
         {
-          type: 'if',
-          row: [3, 4, 5],
-        },
-        {
-          type: 'if',
           column: 1,
           operator: 'is',
           values: ['world'],
@@ -140,7 +132,7 @@ describe('parseQuery', () => {
       ],
     };
 
-    const result = parseQuery('row 4-6 if column 2 equals "World" translate col 5');
+    const result = parseQuery('rows 4-6 if column 2 equals "World" translate col 5');
     expect(result).to.deep.equal(expected);
   });
 
@@ -150,7 +142,6 @@ describe('parseQuery', () => {
       targets: [{ type: 'col', range: [1] }],
       conditions: [
         {
-          type: 'if',
           column: 0,
           operator: 'is',
           values: ['not there', 'row 2 col 1'],
@@ -178,7 +169,275 @@ describe('parseQuery', () => {
     let result = parseQuery('row 2-3 col 2 row 3 col 1 dnt');
     expect(result).to.deep.equal(expected);
 
-    result = parseQuery('dnt row 2-3 col 2 row 3 col 1');
+    result = parseQuery('dnt row 2-3 col 2, row 3 col 1');
+    expect(result).to.deep.equal(expected);
+  });
+
+  it('if any col equals "Dark Alley" or "DA" then dnt that row', () => {
+    const expected = {
+      action: 'dnt',
+      targets: [
+        {
+          type: 'row',
+          range: [],
+        },
+      ],
+      conditions: [
+        {
+          column: '*',
+          values: [
+            'dark alley',
+            'da',
+          ],
+          operator: 'is',
+        },
+      ],
+    };
+
+    let result = parseQuery('if any col equals "Dark Alley" or "DA" then dnt that row');
+    expect(result).to.deep.equal(expected);
+
+    result = parseQuery('dnt row if any col equals "Dark Alley" or "DA"');
+    expect(result).to.deep.equal(expected);
+
+    result = parseQuery('if col * equals "Dark Alley" or "DA" then dnt row');
+    expect(result).to.deep.equal(expected);
+
+    result = parseQuery('dnt row if col * equals "Dark Alley" "DA"');
+    expect(result).to.deep.equal(expected);
+  });
+
+  it('negative target column index', () => {
+    const expected = {
+      action: 'translate',
+      targets: [
+        {
+          type: 'col',
+          range: [-2],
+        },
+      ],
+      conditions: [
+        {
+          column: 0,
+          values: [
+            'hello',
+          ],
+          operator: 'is',
+        },
+      ],
+    };
+
+    let result = parseQuery('translate col -2 if col 1 equals "Hello"');
+    expect(result).to.deep.equal(expected);
+
+    result = parseQuery('if col 1 equals "Hello" translate col -2');
+    expect(result).to.deep.equal(expected);
+  });
+
+  it('negative target row index', () => {
+    const expected = {
+      action: 'translate',
+      targets: [
+        {
+          type: 'row',
+          range: [-2],
+        },
+      ],
+      conditions: [
+        {
+          column: 0,
+          values: [
+            'hello',
+          ],
+          operator: 'is',
+        },
+      ],
+    };
+
+    let result = parseQuery('translate row -2 if col 1 equals "Hello"');
+    expect(result).to.deep.equal(expected);
+
+    result = parseQuery('if col 1 equals "Hello" translate row -2');
+    expect(result).to.deep.equal(expected);
+  });
+
+  it('negative condition column index', () => {
+    const expected = {
+      action: 'translate',
+      targets: [
+        {
+          type: 'row',
+          range: [-2],
+        },
+      ],
+      conditions: [
+        {
+          column: -1,
+          values: [
+            'hello',
+          ],
+          operator: 'is',
+        },
+      ],
+    };
+
+    let result = parseQuery('translate row -2 if col -1 equals "Hello"');
+    expect(result).to.deep.equal(expected);
+
+    result = parseQuery('if col -1 equals "Hello" translate row -2');
+    expect(result).to.deep.equal(expected);
+  });
+
+  it('target a cell', () => {
+    const expected = {
+      action: 'dnt',
+      targets: [{
+        type: 'cell',
+        range: [],
+      }],
+      conditions: [
+        {
+          row: [
+            0,
+          ],
+        },
+        {
+          column: '*',
+          values: [
+            'dark',
+          ],
+          operator: 'startswith',
+        },
+      ],
+    };
+
+    let result = parseQuery('row 1 if any col beginsWith "dark" then dnt that cell');
+    expect(result).to.deep.equal(expected);
+
+    result = parseQuery('row 1 dnt cell if any col beginsWith "dark"');
+    expect(result).to.deep.equal(expected);
+  });
+
+  it('row 2-4 translate col 3 if column 1 startswith "row"', () => {
+    const expected = {
+      action: 'translate',
+      targets: [{
+        type: 'col',
+        range: [2],
+      }],
+      conditions: [
+        { row: [1, 2, 3] },
+        {
+          column: 0,
+          values: [
+            'row',
+          ],
+          operator: 'startswith',
+        },
+      ],
+    };
+
+    let result = parseQuery('row 2-4 translate col 3 if column 1 startswith "row"');
+    expect(result).to.deep.equal(expected);
+
+    result = parseQuery('row 2-4 if column 1 startswith "row" translate col 3');
+    expect(result).to.deep.equal(expected);
+  });
+
+  it('row 2-4 translate col 3 if column 1 startswith "row"', () => {
+    const expected = {
+      action: 'dnt',
+      targets: [{
+        type: 'cell',
+        range: [],
+      }],
+      conditions: [
+        {
+          column: '*',
+          values: ['img'],
+          operator: 'has-element',
+        },
+      ],
+    };
+
+    let result = parseQuery('if any col hasEl "img" then dnt that cell');
+    expect(result).to.deep.equal(expected);
+
+    result = parseQuery('dnt cell if any col hasEl "img"');
+    expect(result).to.deep.equal(expected);
+  });
+
+  it('dnt col 2 if col 1 is not "title" or "description"', () => {
+    const expected = {
+      action: 'dnt',
+      targets: [{
+        type: 'col',
+        range: [1],
+      }],
+      conditions: [
+        {
+          column: 0,
+          values: ['title', 'description'],
+          operator: 'is',
+          negate: true,
+        },
+      ],
+    };
+
+    let result = parseQuery('dnt col 2 if col 1 is not "title" or "description"');
+    expect(result).to.deep.equal(expected);
+
+    result = parseQuery('if col 1 is not "title" or "description" dnt col 2');
+    expect(result).to.deep.equal(expected);
+
+    result = parseQuery('dnt col 2 unless col 1 is "title" or "description"');
+    expect(result).to.deep.equal(expected);
+  });
+
+  it('dnt col 2 if col 1 is not "title" or "description"', () => {
+    const expected = {
+      action: 'dnt',
+      targets: [{
+        type: 'row',
+        range: [],
+      }],
+      conditions: [
+        { row: [-2] },
+        {
+          column: '*',
+          values: ['picture'],
+          operator: 'has-element',
+        },
+      ],
+    };
+
+    let result = parseQuery('row -2 dnt if any column hasElement "picture"');
+    expect(result).to.deep.equal(expected);
+
+    // result = parseQuery('dnt row -2 if any col hasElement "picture"');
+    // expect(result).to.deep.equal(expected);
+  });
+
+  it('if cell startswith "row 3 col 1" then dnt', () => {
+    const expected = {
+      action: 'dnt',
+      targets: [{
+        type: 'cell',
+        range: [],
+      }],
+      conditions: [
+        {
+          column: '*',
+          values: ['row 3 col 1'],
+          operator: 'startswith',
+        },
+      ],
+    };
+
+    let result = parseQuery('if cell startswith "row 3 col 1" then dnt');
+    expect(result).to.deep.equal(expected);
+
+    result = parseQuery('dnt if cell startswith "row 3 col 1"');
     expect(result).to.deep.equal(expected);
   });
 });

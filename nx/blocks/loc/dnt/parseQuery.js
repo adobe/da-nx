@@ -1,34 +1,41 @@
 const TOKENS = {
   DIRECTIVES: ['translate', 'dnt'],
-  OPERATORS: ['if', 'unless', 'is', 'is not', 'startswith', 'contains'],
-  TARGETS: ['row', 'col', 'columns', 'rows', 'other', 'all'],
+  OPERATORS: ['is', 'not-is', 'startswith', 'contains', 'has-element', 'not-startswith', 'not-contains', 'not-has-element'],
+  TARGETS: ['row', 'col', 'cell'],
 };
 
 const ALIASES = {
-  always: '',
+  ',': '',
   all: '',
+  always: '',
   beginswith: 'startswith',
   column: 'col',
   columns: 'col',
-  has: 'contains',
-  includes: 'contains',
-  'do not translate': 'dnt',
-  'does not equal': 'is not',
+  cols: 'col',
   equals: 'is',
-  rows: 'row',
-  ',': '',
+  has: 'contains',
+  hasel: 'has-element',
+  haselement: 'has-element',
+  includes: 'contains',
   or: '',
+  rows: 'row',
+  that: '',
 };
 
-/**
- * Checks for specific sequences in the array and replaces them with designated values.
- * @param {Array} arr - The array to check.
- * @returns {Array} - The modified array with specified sequences replaced.
- */
+const HAS_DIGITS = /^-?\d+|\*$/;
+
 const replaceSequences = (arr) => {
   const replacements = [
     { target: ['do', 'not', 'translate'], replacement: 'dnt' },
-    { target: ['does', 'not', 'equal'], replacement: ['is', 'not'] },
+    { target: ['does', 'not', 'equal'], replacement: 'not-is' },
+    { target: ['does', 'not', 'startwith'], replacement: 'not-startswith' },
+    { target: ['starts', 'with'], replacement: 'startswith' },
+    { target: ['does', 'not', 'contain'], replacement: 'not-contains' },
+    { target: ['does', 'not', 'have', 'element'], replacement: 'not-has-element' },
+    { target: ['is', 'not', 'equal', 'to'], replacement: 'not-is' },
+    { target: ['is', 'not'], replacement: 'not-is' },
+    { target: ['any', 'col'], replacement: ['col', '*'] },
+    { target: ['any', 'row'], replacement: ['row', '*'] },
   ];
 
   const result = [...arr]; // Create a copy of the original array
@@ -60,6 +67,25 @@ const replaceSequences = (arr) => {
   });
   return result;
 };
+
+function rearrangeTokens(tokens, indexAfterRowAsTarget) {
+  const ifIndex = tokens.findIndex((t) => (t === 'if' || t === 'unless'));
+
+  if (ifIndex === -1 || ifIndex === 0 || tokens[indexAfterRowAsTarget] === 'if' || tokens[indexAfterRowAsTarget] === 'unless') {
+    return tokens;
+  }
+
+  // Extract the different parts
+  const preRowTarket = tokens.slice(0, indexAfterRowAsTarget);
+  const preIf = tokens.slice(indexAfterRowAsTarget, ifIndex);
+  const rest = tokens.slice(ifIndex);
+  // const dntCell = tokens.slice(dntIndex);
+
+  const a = [...preRowTarket, ...rest, ...preIf];
+
+  // Rearrange tokens to put condition after row specification but before dnt cell
+  return a;
+}
 
 /**
  * Tokenizes a query string into an array of tokens
@@ -95,11 +121,26 @@ function tokenizeQuery(query) {
   if (currentToken) {
     tokens.push(currentToken.toLowerCase());
   }
-
+  tokens = tokens.map((token) => ALIASES[token] ?? token);
   tokens = replaceSequences(tokens);
-  return tokens
-    .map((token) => ALIASES[token] ?? token)
-    .filter(Boolean);
+
+  return tokens.filter(Boolean);
+}
+
+function parseRangeToken(token) {
+  if (token === '*') return '*';
+
+  if (token.startsWith('-')) {
+    // negative index is not zero based
+    return [parseInt(token, 10)];
+  }
+
+  if (token.includes('-')) {
+    const [start, end] = token.split('-').map((num) => parseInt(num, 10) - 1);
+    return Array.from({ length: end - start + 1 }, (_, i) => start + i);
+  }
+
+  return [parseInt(token, 10) - 1];
 }
 
 /**
@@ -108,21 +149,16 @@ function tokenizeQuery(query) {
  * @param {string} range - The range string to parse
  * @returns {number[]} Array of numbers in the range
  */
-function parseRange(range) {
-  if (range === 'all' || range === 'any') {
-    return null;
-  }
+function parseRange(tokens, startIndex) {
+  let indices = [];
 
-  if (range.includes('-')) {
-    const [start, end] = range.split('-').map((num) => parseInt(num, 10) - 1);
-    return Array.from({ length: end - start + 1 }, (_, i) => start + i);
-  }
+  let i = startIndex;
 
-  if (range.includes(',')) {
-    return range.split(',').map((num) => parseInt(num, 10) - 1);
+  while (i < tokens.length && HAS_DIGITS.test(tokens[i])) {
+    indices = [...indices, ...parseRangeToken(tokens[i])];
+    i += 1;
   }
-
-  return [parseInt(range, 10) - 1];
+  return { indices, nextIndex: i };
 }
 
 /**
@@ -133,29 +169,32 @@ function parseRange(range) {
  */
 function parseCondition(tokens, startIndex) {
   const condition = {
-    type: null,
-    columnIndex: 0,
+    column: 0,
     values: [],
   };
 
   let i = startIndex;
 
-  // Skip 'if', 'when', etc.
-  if (TOKENS.OPERATORS.includes(tokens[i])) {
-    condition.type = tokens[i];
-    i += 1;
-  }
-
   // Parse column reference
-  // TODO: handle multiple columns or ranges
+  // TODO: handle multiple columns or ranges?
   if (tokens[i] === 'col') {
     i += 1;
-    condition.columnIndex = Number(tokens[i]) - 1;
+    // only use first token
+    condition.column = parseRangeToken(tokens[i])?.[0];
     i += 1;
   }
 
-  // Parse operator
+  if (tokens[i] === 'cell') {
+    condition.column = '*';
+    // return { condition, nextIndex: i };
+    i += 1;
+  }
+
   if (TOKENS.OPERATORS.includes(tokens[i])) {
+    if (tokens[i].startsWith('not-')) {
+      condition.negate = true;
+      tokens[i] = tokens[i].slice(4);
+    }
     condition.operator = tokens[i];
     i += 1;
   }
@@ -171,12 +210,6 @@ function parseCondition(tokens, startIndex) {
   return { condition, nextIndex: i };
 }
 
-/**
- * Parses a target specification
- * @param {string[]} tokens - Array of tokens
- * @param {number} startIndex - Starting index in tokens array
- * @returns {Object} Target object and next token index
- */
 function parseTarget(tokens, startIndex) {
   let i = startIndex;
   const target = { type: null, indices: [] };
@@ -186,21 +219,17 @@ function parseTarget(tokens, startIndex) {
     i += 1;
 
     if (i < tokens.length) {
-      if (/^\d/.test(tokens[i])) {
-        while (i < tokens.length && /^\d/.test(tokens[i])) {
-          // target.indices.push(parseRange(tokens[i]));
-          target.indices = [...target.indices, ...parseRange(tokens[i])];
-          i += 1;
-        }
-      }
+      const { indices, nextIndex } = parseRange(tokens, i);
+      target.indices = indices;
+      i = nextIndex;
     }
   } else if (tokens[i] === 'cell') {
     target.type = 'cell';
     i += 1;
-    if (i < tokens.length) {
+    if (i < tokens.length && HAS_DIGITS.test(tokens[i])) {
       target.rowIndex = Number(tokens[i]);
       i += 1;
-      if (i < tokens.length) {
+      if (i < tokens.length && HAS_DIGITS.test(tokens[i])) {
         target.columnIndex = Number(tokens[i]);
         i += 1;
       }
@@ -210,23 +239,35 @@ function parseTarget(tokens, startIndex) {
   return { target, nextIndex: i };
 }
 
-function isNextTokenDirective(tokens, index) {
-  let currentIndex = index;
-  while (currentIndex < tokens.length) {
-    const token = tokens[currentIndex];
+function hasRowAsTarget(tokens) {
+  if (tokens[0] !== 'row') {
+    return 0;
+  }
 
-    // if (TOKENS.OPERATORS.includes(token) || TOKENS.TARGETS.includes(token)) {
-    if (TOKENS.OPERATORS.includes(token)) {
-      return false;
+  let index = 1;
+
+  if (TOKENS.DIRECTIVES.includes(tokens[index])
+    && tokens[index + 1] === 'cell') {
+    return 0;
+  }
+
+  while (index < tokens.length) {
+    const token = tokens[index];
+
+    if (TOKENS.OPERATORS.includes(token) || token === 'if') {
+      return index;
     }
 
     if (TOKENS.DIRECTIVES.includes(token)) {
-      return true;
+      if (tokens.includes('if')) {
+        return index;
+      }
+      return 0;
     }
 
-    currentIndex += 1;
+    index += 1;
   }
-  return false;
+  return index;
 }
 
 function consolidateTargets(targets) {
@@ -234,8 +275,8 @@ function consolidateTargets(targets) {
     return [];
   }
 
-  const consolidatedTargets = [];
   const cellRanges = [];
+  const consolidatedTargets = [];
 
   for (let i = 0; i < targets.length; i += 1) {
     const currentTarget = targets[i];
@@ -261,7 +302,9 @@ function consolidateTargets(targets) {
     consolidatedTargets.push({ type: 'cell', range: cellRanges });
   }
 
-  return consolidatedTargets;
+  return consolidatedTargets.length
+    ? consolidatedTargets
+    : targets;
 }
 
 /**
@@ -271,28 +314,35 @@ function consolidateTargets(targets) {
  */
 export default function parseQuery(query) {
   const queryStr = query.trim().toLowerCase();
-  const tokens = tokenizeQuery(queryStr);
+  let tokens = tokenizeQuery(queryStr);
   const rule = {
     action: 'translate',
     targets: [],
     conditions: [],
   };
 
+  if (tokens.length === 1) {
+    if (tokens[0] === 'dnt') {
+      rule.action = 'dnt';
+    }
+    return rule;
+  }
+
+  // 'row' at the start of the query
+  // limits the scope of the query to the specified row(s)
+  const indexAfterRowAsTarget = hasRowAsTarget(tokens);
+  tokens = rearrangeTokens(tokens, indexAfterRowAsTarget);
+
   let i = 0;
   while (i < tokens.length) {
     const token = tokens[i];
 
-    // 'row' at the start of the query
-    // limits the scope of the query to the specified row(s)
-    if (i === 0 && token === 'row' && !isNextTokenDirective(tokens, i + 1)) {
+    if (i === 0 && indexAfterRowAsTarget) {
       const { target, nextIndex } = parseTarget(tokens, i);
       if (target.indices.length) {
         const row = [];
         target.indices.forEach((index) => row.push(index));
-        rule.conditions.push({
-          type: 'if',
-          row,
-        });
+        rule.conditions.push({ row });
       }
       i = nextIndex;
     } else if (TOKENS.DIRECTIVES.includes(token)) {
@@ -304,7 +354,7 @@ export default function parseQuery(query) {
       const { target, nextIndex } = parseTarget(tokens, i);
       if (target.indices) {
         rule.targets.push({
-          type: target.type === 'columns' ? 'column' : target.type,
+          type: target.type,
           range: target.indices,
         });
       }
@@ -312,21 +362,38 @@ export default function parseQuery(query) {
     } else if (TOKENS.OPERATORS.includes(token)) {
       const { condition, nextIndex } = parseCondition(tokens, i);
       if (condition.columnIndex !== undefined) {
-        rule.conditions.push({
-          type: condition.type,
-          column: condition.columnIndex,
-          operator: condition.operator,
-          values: condition.values,
+        rule.conditions.push(condition);
+      }
+      i = nextIndex;
+    } else if (token === 'if' || token === 'unless') {
+      // "if" is always followed by a target
+      if (tokens[i + 1] === 'cell') {
+        rule.targets.push({
+          type: 'cell',
+          range: [],
         });
       }
+
+      const { condition, nextIndex } = parseCondition(tokens, i + 1);
+      if (token === 'unless') {
+        condition.negate = true;
+      }
+      rule.conditions.push(condition);
+
       i = nextIndex;
     } else {
       i += 1;
     }
   }
 
+  if (rule.targets.length === 0) {
+    // default target is all rows that match the conditions
+    rule.targets.push({ type: 'row', range: [] });
+  }
+
   rule.targets = consolidateTargets(rule.targets);
 
+  // DEBUG
   // console.log(JSON.stringify(rule, null, 2));
   return rule;
 }

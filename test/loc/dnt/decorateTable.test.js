@@ -87,8 +87,33 @@ describe('decorateTable', () => {
   </div>
 </div>
 `;
-    const rule = parseQuery('row 2 dnt');
-    const table = createTable();
+    let rule = parseQuery('dnt row 2');
+    let table = createTable();
+    decorateTable(table, rule);
+    expect(prettyPrintNode(table)).to.equal(expected);
+
+    rule = parseQuery('row 2 dnt');
+    table = createTable();
+    decorateTable(table, rule);
+    expect(prettyPrintNode(table)).to.equal(expected);
+
+    rule = parseQuery('row -1 dnt');
+    table = createTable();
+    decorateTable(table, rule);
+    expect(prettyPrintNode(table)).to.equal(expected);
+
+    rule = parseQuery('dnt row -1');
+    table = createTable();
+    decorateTable(table, rule);
+    expect(prettyPrintNode(table)).to.equal(expected);
+
+    rule = parseQuery('translate row 1');
+    table = createTable();
+    decorateTable(table, rule);
+    expect(prettyPrintNode(table)).to.equal(expected);
+
+    rule = parseQuery('translate row -2');
+    table = createTable();
     decorateTable(table, rule);
     expect(prettyPrintNode(table)).to.equal(expected);
   });
@@ -338,13 +363,13 @@ describe('decorateTable', () => {
     <div>
       row 3 col 2
     </div>
-    <div>
+    <div translate="no">
       row 3 col 3
     </div>
   </div>
   <div>
     <div>
-      row 4 col 1
+      no label
     </div>
     <div>
       row 4 col 2
@@ -366,13 +391,15 @@ describe('decorateTable', () => {
   </div>
 </div>
 `;
-    let rule = parseQuery('row 2-4 if column 1 startswith "row 2" dnt col 3');
+    let rule = parseQuery('row 2-4 if column 1 startswith "row " dnt col 3');
     let table = createTable(5, 3);
+    table.children[3].firstElementChild.textContent = 'no label';
     decorateTable(table, rule);
     expect(prettyPrintNode(table)).to.equal(expected);
 
-    rule = parseQuery('row 2-4 dnt col 3 if column 1 startswith "row 2"');
+    rule = parseQuery('row 2-4 dnt col 3 if column 1 startswith "row"');
     table = createTable(5, 3);
+    table.children[3].firstElementChild.textContent = 'no label';
     decorateTable(table, rule);
     expect(prettyPrintNode(table)).to.equal(expected);
   });
@@ -699,6 +726,49 @@ describe('decorateTable', () => {
     expect(prettyPrintNode(table)).to.equal(expected);
   });
 
+  it('if any col equals "Dark Alley" or "DA" then dnt that row', () => {
+    const expected = `<div class="columns">
+  <div>
+    <div>
+      row 1 col 1
+    </div>
+    <div>
+      row 1 col 2
+    </div>
+    <div>
+      row 1 col 3
+    </div>
+  </div>
+  <div translate="no">
+    <div>
+      row 2 col 1
+    </div>
+    <div>
+      row 2 col 2
+    </div>
+    <div>
+      row 2 col 3
+    </div>
+  </div>
+  <div translate="no">
+    <div>
+      row 3 col 1
+    </div>
+    <div>
+      row 3 col 2
+    </div>
+    <div>
+      row 3 col 3
+    </div>
+  </div>
+</div>
+`;
+    const rule = parseQuery('if any col equals "row 2 col 3" or "row 3 col 1" then dnt that row');
+    const table = createTable(3, 3);
+    decorateTable(table, rule);
+    expect(prettyPrintNode(table)).to.equal(expected);
+  });
+
   it('target specific cells to translate', () => {
     const expected = `<div class="columns">
   <div translate="no">
@@ -743,6 +813,720 @@ describe('decorateTable', () => {
 
     rule = parseQuery('row 2-3 col 2 row 3 col 1 translate');
     table = createTable(3, 3);
+    decorateTable(table, rule);
+    expect(prettyPrintNode(table)).to.equal(expected);
+  });
+
+  it('negative index: translate col -3 if col 1 equals "row 2 col 1"', () => {
+    const expected = `<div class="columns">
+  <div translate="no">
+    <div>
+      row 1 col 1
+    </div>
+    <div>
+      row 1 col 2
+    </div>
+    <div>
+      row 1 col 3
+    </div>
+    <div>
+      row 1 col 4
+    </div>
+  </div>
+  <div>
+    <div translate="no">
+      row 2 col 1
+    </div>
+    <div>
+      row 2 col 2
+    </div>
+    <div translate="no">
+      row 2 col 3
+    </div>
+    <div translate="no">
+      row 2 col 4
+    </div>
+  </div>
+  <div translate="no">
+    <div>
+      row 3 col 1
+    </div>
+    <div>
+      row 3 col 2
+    </div>
+    <div>
+      row 3 col 3
+    </div>
+    <div>
+      row 3 col 4
+    </div>
+  </div>
+</div>
+`;
+    const rule = parseQuery('translate col -3 if col 1 equals "row 2 col 1"');
+    const table = createTable(3, 4);
+    decorateTable(table, rule);
+    expect(prettyPrintNode(table)).to.equal(expected);
+  });
+
+  it('negative index and target: translate col -1 if col -4 equals "row 2 col 1"', () => {
+    const expected = `<div class="columns">
+  <div translate="no">
+    <div>
+      row 1 col 1
+    </div>
+    <div>
+      row 1 col 2
+    </div>
+    <div>
+      row 1 col 3
+    </div>
+    <div>
+      row 1 col 4
+    </div>
+  </div>
+  <div>
+    <div translate="no">
+      row 2 col 1
+    </div>
+    <div translate="no">
+      row 2 col 2
+    </div>
+    <div translate="no">
+      row 2 col 3
+    </div>
+    <div>
+      row 2 col 4
+    </div>
+  </div>
+  <div translate="no">
+    <div>
+      row 3 col 1
+    </div>
+    <div>
+      row 3 col 2
+    </div>
+    <div>
+      row 3 col 3
+    </div>
+    <div>
+      row 3 col 4
+    </div>
+  </div>
+</div>
+`;
+    const rule = parseQuery('translate col -1 if col -4 equals "row 2 col 1"');
+    const table = createTable(3, 4);
+    decorateTable(table, rule);
+    expect(prettyPrintNode(table)).to.equal(expected);
+  });
+
+  it('negative index: translate col -2 if col 1 equals "row 2 col 1"', () => {
+    const expected = `<div class="columns">
+  <div translate="no">
+    <div>
+      row 1 col 1
+    </div>
+    <div>
+      row 1 col 2
+    </div>
+    <div>
+      row 1 col 3
+    </div>
+    <div>
+      row 1 col 4
+    </div>
+  </div>
+  <div>
+    <div translate="no">
+      row 2 col 1
+    </div>
+    <div translate="no">
+      row 2 col 2
+    </div>
+    <div translate="no">
+      row 2 col 3
+    </div>
+    <div>
+      row 2 col 4
+    </div>
+  </div>
+  <div translate="no">
+    <div>
+      row 3 col 1
+    </div>
+    <div>
+      row 3 col 2
+    </div>
+    <div>
+      row 3 col 3
+    </div>
+    <div>
+      row 3 col 4
+    </div>
+  </div>
+</div>
+`;
+    const rule = parseQuery('translate col -1 if col -4 equals "row 2 col 1"');
+    const table = createTable(3, 4);
+    decorateTable(table, rule);
+    expect(prettyPrintNode(table)).to.equal(expected);
+  });
+
+  it('row 1 3 if any col beginswith "row 1 col 2" then dnt that cell', () => {
+    const expected = `<div class="columns">
+  <div>
+    <div>
+      row 1 col 1
+    </div>
+    <div translate="no">
+      row 1 col 2
+    </div>
+    <div>
+      row 1 col 3
+    </div>
+    <div>
+      row 1 col 4
+    </div>
+  </div>
+  <div>
+    <div>
+      row 2 col 1
+    </div>
+    <div>
+      row 2 col 2
+    </div>
+    <div>
+      row 2 col 3
+    </div>
+    <div>
+      row 2 col 4
+    </div>
+  </div>
+  <div>
+    <div>
+      row 3 col 1
+    </div>
+    <div translate="no">
+      row 3 col 2
+    </div>
+    <div>
+      row 3 col 3
+    </div>
+    <div>
+      row 3 col 4
+    </div>
+  </div>
+</div>
+`;
+    const rule = parseQuery('row 1 3 if any col contains "col 2" then dnt that cell');
+    const table = createTable(3, 4);
+    decorateTable(table, rule);
+    expect(prettyPrintNode(table)).to.equal(expected);
+  });
+
+  it('if any col hasEl "picture" then dnt that cell', () => {
+    const expected = `<div class="columns">
+  <div>
+    <div>
+      row 1 col 1
+    </div>
+    <div>
+      row 1 col 2
+    </div>
+    <div>
+      row 1 col 3
+    </div>
+  </div>
+  <div>
+    <div translate="no">
+      <picture src="picture.png">
+      </picture>
+    </div>
+    <div>
+      row 2 col 2
+    </div>
+    <div>
+      row 2 col 3
+    </div>
+  </div>
+  <div>
+    <div>
+      row 3 col 1
+    </div>
+    <div>
+      row 3 col 2
+    </div>
+    <div>
+      row 3 col 3
+    </div>
+  </div>
+</div>
+`;
+    const rule = parseQuery('if any col hasEl "picture" then dnt that cell');
+    const table = createTable(3, 3);
+    table.children[1].firstElementChild.innerHTML = '<picture src="picture.png">';
+    decorateTable(table, rule);
+    expect(prettyPrintNode(table)).to.equal(expected);
+  });
+
+  it('dnt row -2 if any column hasElement "picture"', () => {
+    const expected = `<div class="columns">
+  <div>
+    <div>
+      row 1 col 1
+    </div>
+    <div>
+      row 1 col 2
+    </div>
+    <div>
+      row 1 col 3
+    </div>
+  </div>
+  <div translate="no">
+    <div>
+      <picture src="picture.png">
+      </picture>
+    </div>
+    <div>
+      row 2 col 2
+    </div>
+    <div>
+      row 2 col 3
+    </div>
+  </div>
+  <div>
+    <div>
+      row 3 col 1
+    </div>
+    <div>
+      row 3 col 2
+    </div>
+    <div>
+      row 3 col 3
+    </div>
+  </div>
+</div>
+`;
+    let rule = parseQuery('row -2 dnt if any col hasElement "picture"');
+    let table = createTable(3, 3);
+    table.children[1].firstElementChild.innerHTML = '<picture src="picture.png">';
+    decorateTable(table, rule);
+    expect(prettyPrintNode(table)).to.equal(expected);
+
+    rule = parseQuery('dnt row -2 if any col hasElement "picture"');
+    table = createTable(3, 3);
+    table.children[1].firstElementChild.innerHTML = '<picture src="picture.png">';
+    decorateTable(table, rule);
+    expect(prettyPrintNode(table)).to.equal(expected);
+
+    rule = parseQuery('if any col hasElement "picture" dnt row -2 ');
+    table = createTable(3, 3);
+    table.children[1].firstElementChild.innerHTML = '<picture src="picture.png">';
+    decorateTable(table, rule);
+    expect(prettyPrintNode(table)).to.equal(expected);
+  });
+
+  it('negated query', () => {
+    const expected = `<div class="columns">
+  <div>
+    <div translate="no">
+      row 1 col 1
+    </div>
+    <div>
+      row 1 col 2
+    </div>
+  </div>
+  <div translate="no">
+    <div>
+      row 2 col 1
+    </div>
+    <div>
+      row 2 col 2
+    </div>
+  </div>
+  <div>
+    <div translate="no">
+      row 3 col 1
+    </div>
+    <div>
+      row 3 col 2
+    </div>
+  </div>
+</div>
+`;
+    let rule = parseQuery('dnt col 2 unless col 1 is "row 3 col 1" or "row 1 col 1"');
+    let table = createTable(3, 2);
+    decorateTable(table, rule);
+    expect(prettyPrintNode(table)).to.equal(expected);
+
+    rule = parseQuery('dnt col 2 if col 1 is not "row 3 col 1" or "row 1 col 1"');
+    table = createTable(3, 2);
+    decorateTable(table, rule);
+    expect(prettyPrintNode(table)).to.equal(expected);
+
+    rule = parseQuery('translate col 2 if col 1 is "row 3 col 1" or "row 1 col 1"');
+    table = createTable(3, 2);
+    decorateTable(table, rule);
+    expect(prettyPrintNode(table)).to.equal(expected);
+  });
+
+  it('negated query with row specifier', () => {
+    const expected = `<div class="columns">
+  <div translate="no">
+    <div>
+      row 1 col 1
+    </div>
+    <div>
+      row 1 col 2
+    </div>
+  </div>
+  <div translate="no">
+    <div>
+      row 2 col 1
+    </div>
+    <div>
+      row 2 col 2
+    </div>
+  </div>
+  <div>
+    <div translate="no">
+      row 3 col 1
+    </div>
+    <div>
+      row 3 col 2
+    </div>
+  </div>
+</div>
+`;
+    let rule = parseQuery('row 3 dnt col 2 unless col 1 is "row 3 col 1" or "row 1 col 1"');
+    let table = createTable(3, 2);
+    decorateTable(table, rule);
+    expect(prettyPrintNode(table)).to.equal(expected);
+
+    rule = parseQuery('row 3 dnt col 2 if col 1 is not "row 3 col 1" or "row 1 col 1"');
+    table = createTable(3, 2);
+    decorateTable(table, rule);
+    expect(prettyPrintNode(table)).to.equal(expected);
+
+    rule = parseQuery('row 3 translate col 2 if col 1 is "row 3 col 1" or "row 1 col 1"');
+    table = createTable(3, 2);
+    decorateTable(table, rule);
+    expect(prettyPrintNode(table)).to.equal(expected);
+  });
+
+  it('dnt row 2 if col 1 is "row 3 col 1" or "row 2 col 1"', () => {
+    const expected = `<div class="columns">
+  <div>
+    <div>
+      row 1 col 1
+    </div>
+    <div>
+      row 1 col 2
+    </div>
+  </div>
+  <div translate="no">
+    <div>
+      row 2 col 1
+    </div>
+    <div>
+      row 2 col 2
+    </div>
+  </div>
+  <div>
+    <div>
+      row 3 col 1
+    </div>
+    <div>
+      row 3 col 2
+    </div>
+  </div>
+</div>
+`;
+    const rule = parseQuery('dnt row 2 if col 1 is "row 3 col 1" or "row 2 col 1"');
+    const table = createTable(3, 2);
+    decorateTable(table, rule);
+    expect(prettyPrintNode(table)).to.equal(expected);
+  });
+
+  it('dnt row 2 if col 1 is "row 3 col 1" or "row 2 col 1"', () => {
+    const expected = `<div class="columns">
+  <div>
+    <div>
+      row 1 col 1
+    </div>
+    <div>
+      row 1 col 2
+    </div>
+  </div>
+  <div translate="no">
+    <div>
+      row 2 col 1
+    </div>
+    <div>
+      row 2 col 2
+    </div>
+  </div>
+  <div>
+    <div>
+      row 3 col 1
+    </div>
+    <div>
+      row 3 col 2
+    </div>
+  </div>
+</div>
+`;
+    const rule = parseQuery('dnt row 2 if col 1 is "row 3 col 1" or "row 2 col 1"');
+    const table = createTable(3, 2);
+    decorateTable(table, rule);
+    expect(prettyPrintNode(table)).to.equal(expected);
+  });
+
+  it('dnt row 2 if col 1 is "row 3 col 1" or "row 2 col 1"', () => {
+    const expected = `<div class="columns">
+  <div>
+    <div>
+      row 1 col 1
+    </div>
+    <div>
+      row 1 col 2
+    </div>
+  </div>
+  <div>
+    <div>
+      row 2 col 1
+    </div>
+    <div>
+      row 2 col 2
+    </div>
+  </div>
+  <div>
+    <div translate="no">
+      row 3 col 1
+    </div>
+    <div>
+      row 3 col 2
+    </div>
+  </div>
+</div>
+`;
+    let rule = parseQuery('row 3 if col 1 startswith "row" then dnt that cell');
+    let table = createTable(3, 2);
+    decorateTable(table, rule);
+    expect(prettyPrintNode(table)).to.equal(expected);
+
+    rule = parseQuery('row 3 dnt the cell if col 1 startswith "row"');
+    table = createTable(3, 2);
+    decorateTable(table, rule);
+    expect(prettyPrintNode(table)).to.equal(expected);
+  });
+
+  it('if cell startswith "row 3 col 1" then dnt', () => {
+    const expected = `<div class="columns">
+  <div>
+    <div>
+      row 1 col 1
+    </div>
+    <div>
+      row 1 col 2
+    </div>
+  </div>
+  <div>
+    <div>
+      row 2 col 1
+    </div>
+    <div>
+      row 2 col 2
+    </div>
+  </div>
+  <div>
+    <div translate="no">
+      row 3 col 1
+    </div>
+    <div>
+      row 3 col 2
+    </div>
+  </div>
+</div>
+`;
+    let rule = parseQuery('if cell startswith "row 3 col 1" then dnt');
+    let table = createTable(3, 2);
+    decorateTable(table, rule);
+    expect(prettyPrintNode(table)).to.equal(expected);
+
+    rule = parseQuery('row 3 if cell startswith "row 3 col 1" then dnt');
+    table = createTable(3, 2);
+    decorateTable(table, rule);
+    expect(prettyPrintNode(table)).to.equal(expected);
+  });
+
+  it('if cell contains "2" then dnt', () => {
+    const expected = `<div class="columns">
+  <div>
+    <div>
+      row 1 col 1
+    </div>
+    <div translate="no">
+      row 1 col 2
+    </div>
+  </div>
+  <div translate="no">
+    <div>
+      row 2 col 1
+    </div>
+    <div>
+      row 2 col 2
+    </div>
+  </div>
+  <div>
+    <div>
+      row 3 col 1
+    </div>
+    <div translate="no">
+      row 3 col 2
+    </div>
+  </div>
+</div>
+`;
+    const rule = parseQuery('if cell contains "2" then dnt');
+    const table = createTable(3, 2);
+    decorateTable(table, rule);
+    expect(prettyPrintNode(table)).to.equal(expected);
+  });
+
+  it('dnt cell if col 1 startswith "row"', () => {
+    const expected = `<div class="columns">
+  <div>
+    <div translate="no">
+      row 1 col 1
+    </div>
+    <div>
+      row 1 col 2
+    </div>
+  </div>
+  <div>
+    <div translate="no">
+      row 2 col 1
+    </div>
+    <div>
+      row 2 col 2
+    </div>
+  </div>
+  <div>
+    <div translate="no">
+      row 3 col 1
+    </div>
+    <div>
+      row 3 col 2
+    </div>
+  </div>
+</div>
+`;
+    const rule = parseQuery('dnt cell if col 1 startswith "row"');
+    const table = createTable(3, 2);
+    decorateTable(table, rule);
+    expect(prettyPrintNode(table)).to.equal(expected);
+  });
+
+  it('dnt row -2', () => {
+    const expected = `<div class="columns">
+  <div>
+    <div>
+      row 1 col 1
+    </div>
+    <div>
+      row 1 col 2
+    </div>
+  </div>
+  <div translate="no">
+    <div>
+      row 2 col 1
+    </div>
+    <div>
+      row 2 col 2
+    </div>
+  </div>
+  <div>
+    <div>
+      row 3 col 1
+    </div>
+    <div>
+      row 3 col 2
+    </div>
+  </div>
+</div>
+`;
+    const rule = parseQuery('dnt row -2');
+    const table = createTable(3, 2);
+    decorateTable(table, rule);
+    expect(prettyPrintNode(table)).to.equal(expected);
+  });
+
+  it('dnt col -1', () => {
+    const expected = `<div class="columns">
+  <div>
+    <div>
+      row 1 col 1
+    </div>
+    <div translate="no">
+      row 1 col 2
+    </div>
+  </div>
+  <div>
+    <div>
+      row 2 col 1
+    </div>
+    <div translate="no">
+      row 2 col 2
+    </div>
+  </div>
+  <div>
+    <div>
+      row 3 col 1
+    </div>
+    <div translate="no">
+      row 3 col 2
+    </div>
+  </div>
+</div>
+`;
+    const rule = parseQuery('dnt col -1');
+    const table = createTable(3, 2);
+    decorateTable(table, rule);
+    expect(prettyPrintNode(table)).to.equal(expected);
+  });
+
+  it('translate col -1', () => {
+    const expected = `<div class="columns">
+  <div>
+    <div translate="no">
+      row 1 col 1
+    </div>
+    <div>
+      row 1 col 2
+    </div>
+  </div>
+  <div>
+    <div translate="no">
+      row 2 col 1
+    </div>
+    <div>
+      row 2 col 2
+    </div>
+  </div>
+  <div>
+    <div translate="no">
+      row 3 col 1
+    </div>
+    <div>
+      row 3 col 2
+    </div>
+  </div>
+</div>
+`;
+    const rule = parseQuery('translate col -1');
+    const table = createTable(3, 2);
     decorateTable(table, rule);
     expect(prettyPrintNode(table)).to.equal(expected);
   });
