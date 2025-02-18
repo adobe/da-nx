@@ -12,6 +12,7 @@ const style = await getStyle(import.meta.url);
 const buttons = await getStyle(`${nxBase}/styles/buttons.js`);
 let imsDetails;
 let loggedinUser;
+const DA_ORIGIN = 'https://admin.da.live';
 
 class NxLocDashboard extends LitElement {
   static properties = {
@@ -144,7 +145,7 @@ class NxLocDashboard extends LitElement {
   }
 
   async getProjectDetails(path) {
-    const resp = await daFetch(`https://admin.da.live/versionlist${path}`);
+    const resp = await daFetch(`${DA_ORIGIN}/versionlist${path}`);
     const json = await resp.json();
     if (json.length === 0) return 'anonymous';
     const oldestVersion = json.pop();
@@ -160,11 +161,11 @@ class NxLocDashboard extends LitElement {
       loggedinUser = imsDetails?.email?.split('@')[0];
       const siteBase = window.location.hash.replace('#', '');
       this._siteBase = siteBase?.slice(1);
-      const resp = await daFetch(`https://admin.da.live/list${siteBase}/.da/translation/projects/active`);
+      const resp = await daFetch(`${DA_ORIGIN}/list${siteBase}/.da/translation/projects/active`);
       if (!resp.ok) return;
       const projectList = await resp.json();
       this._projects = await Promise.all(projectList.map(async (project) => {
-        const projResp = await daFetch(`https://admin.da.live/source${project.path}`);
+        const projResp = await daFetch(`${DA_ORIGIN}/source${project.path}`);
         const projJson = await projResp.json();
         project.title = projJson.title;
         const { createdBy, createdOn } = await this.getProjectDetails(project.path);
@@ -209,23 +210,73 @@ class NxLocDashboard extends LitElement {
       </div>`;
   }
 
+  async duplicateProject(path, title) {
+    const resp = await daFetch(`${DA_ORIGIN}/source${path}`);
+    let json = await resp.json();
+    json.title = title;
+    const time = Date.now();
+    const newPath = path.replace(/[^/]+$/, `${time}.json`);
+    json = this.resetProjectState(json);
+
+    const body = new FormData();
+    const blob = new Blob([JSON.stringify(json)], { type: 'application/json' });
+    body.append('data', blob);
+    const opts = { method: 'POST', body };
+    const fetchPath = `${DA_ORIGIN}/source${newPath}`;
+    const newResp = await daFetch(fetchPath, opts);
+    const verPath = `${DA_ORIGIN}/versionsource${newPath}`;
+    await daFetch(verPath, { method: 'POST' });
+    await this.getProjects();
+    if (!newResp.ok) {
+      this._error = 'Something went wrong.';
+    } else {
+      const event = new CustomEvent('duplication-complete', {
+        detail: { projectPath: newPath },
+        bubbles: true,
+        composed: true,
+      });
+      this.dispatchEvent(event);
+    }
+  }
+
+  resetProjectState(json) {
+    json.langs = json?.langs?.map((lang) => {
+      lang.rollout = { status: 'not started' };
+      lang.translation = { status: 'not started' };
+      delete lang.rolloutDate;
+      delete lang.rolloutTime;
+      delete lang.rolledOut;
+      delete lang.errors;
+      return lang;
+    });
+    json.urls = json?.urls?.map((url) => {
+      delete url?.srcPath;
+      delete url?.synced;
+      return url;
+    });
+    json.sourceLang = { ...json?.sourceLang, lastSync: undefined };
+    delete json?.translateComplete;
+    return json;
+  }
+
   renderProjects() {
     const paginatedProjects = this.getPaginatedProjects();
     return html`
-      <nx-projects-table .projects=${paginatedProjects} @navigate-to-project=${(e) => this.navigateToProject(e.detail.path)}></nx-projects-table>
+      <nx-projects-table
+        .projects=${paginatedProjects}
+        @navigate-to-project=${(e) => this.navigateToProject(e.detail.path)}
+        @duplicate-project=${(e) => this.duplicateProject(e.detail.path, e.detail.title)}
+      ></nx-projects-table>
       <nx-pagination .currentPage=${this._currentPage} .totalItems=${this._filteredProjects.length} .itemsPerPage=${this._projectsPerPage} @page-change=${this.handlePagination}></nx-pagination>`;
   }
 
   getMainContent() {
     let content;
     if (this._loading) {
-      // Show the spinner when loading
       content = this.renderSpinner();
     } else if (this._filteredProjects.length > 0) {
-      // Show the projects table if projects are available
       content = this.renderProjects();
     } else {
-      // Show a "No projects found" message if there are no projects
       content = html`<p>No projects found.</p>`;
     }
     return content;
