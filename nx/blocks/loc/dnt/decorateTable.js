@@ -8,6 +8,13 @@ function evaluateConditions(conditions, row, rowIndex) {
   let matches = false;
   const matchedIndices = []; // Array to store matched indices
 
+  const operatorChecks = {
+    is: (text, value) => text === value,
+    startswith: (text, value) => text.startsWith(value),
+    contains: (text, value) => text.includes(value),
+    'has-element': (text, value, cell) => cell.querySelector(value),
+  };
+
   conditions.forEach((condition) => {
     // Convert negative column indices to positive by counting from end
     if (typeof condition.column === 'number' && condition.column < 0) {
@@ -18,49 +25,29 @@ function evaluateConditions(conditions, row, rowIndex) {
         const cellText = cell.textContent.toLowerCase() || '';
         condition.values?.forEach((v) => {
           const value = v.toLowerCase();
-          switch (condition.operator) {
-            case 'is':
-              if (cellText === value) {
-                matches = true;
-                matchedIndices.push({ r: rowIndex, c: colIndex });
-              }
-              break;
-            case 'startswith':
-              if (cellText.startsWith(value)) {
-                matches = true;
-                matchedIndices.push({ r: rowIndex, c: colIndex });
-              }
-              break;
-            case 'contains':
-              if (cellText.includes(value)) {
-                matches = true;
-                matchedIndices.push({ r: rowIndex, c: colIndex });
-              }
-              break;
-            case 'has-element':
-              if (cell.querySelector(value)) {
-                matches = true;
-                matchedIndices.push({ r: rowIndex, c: colIndex });
-              }
-              break;
-            /* c8 ignore next 2 */
-            default:
-              break;
+          // Check if operator matches condition and update indices
+          if (operatorChecks[condition.operator]?.(cellText, value, cell)) {
+            matches = true;
+            matchedIndices.push({ r: rowIndex, c: colIndex });
           }
         });
       }
     });
   });
 
-  return { matches, matchedIndices }; // Return both matches and matchedIndices
+  return { matches, matchedIndices };
 }
 
-function checkForAllDntCells(row) {
+function setDntRow(row) {
   const cells = Array.from(row.children);
   if (cells.every((cell) => cell.getAttribute('translate') === 'no')) {
     row.setAttribute('translate', 'no');
     cells.forEach((cell) => cell.removeAttribute('translate'));
   }
+}
+
+function convertNegativeIndexs(arr, len) {
+  return arr.map((idx) => (idx < 0 ? len + idx : idx));
 }
 
 /**
@@ -98,9 +85,7 @@ export default function decorateTable(table, rule) {
     const cells = Array.from(row.children);
 
     if (target.type === 'row' && target.range.length > 0) {
-      // Convert negative row indices to positive by counting from end
-      target.range = target.range
-        .map((idx) => (idx < 0 ? rows.length + idx : idx));
+      target.range = convertNegativeIndexs(target.range, rows.length);
 
       if (target.range.includes(rowIndex) !== translate) {
         // if row is in range and we should not translate
@@ -111,8 +96,7 @@ export default function decorateTable(table, rule) {
 
     rule.conditions.forEach((c) => {
       if (c.row) {
-        c.row = c.row
-          .map((idx) => (idx < 0 ? rows.length + idx : idx));
+        c.row = convertNegativeIndexs(c.row, rows.length);
       }
     });
 
@@ -132,24 +116,22 @@ export default function decorateTable(table, rule) {
         const cellKey = `${rowIndex}-${colIndex}`;
         const isTargeted = targetCells.has(cellKey);
 
-        if (translate !== isTargeted && condition.matches) {
-          cell.setAttribute('translate', 'no');
-        } else if (translate && !condition.matches) {
+        // Sets translate='no' when:
+        // condition matches: mark cells where translation status differs from targeting
+        // condition doesn't match: mark cells when in translate mode
+        if (condition.matches ? (translate !== isTargeted) : translate) {
           cell.setAttribute('translate', 'no');
         }
       });
 
-      checkForAllDntCells(row);
+      setDntRow(row);
       return;
     }
 
     // Process column-based rules
     // target.type is 'col' since 'row' is already handled above
-
     if (condition.matches) {
-      // Convert negative column indices to positive by counting from end
-      target.range = target.range
-        .map((idx) => (idx < 0 ? cells.length + idx : idx));
+      target.range = convertNegativeIndexs(target.range, cells.length);
 
       cells.forEach((cell, colIndex) => {
         // If target.range is empty then it applies to all columns
@@ -166,42 +148,6 @@ export default function decorateTable(table, rule) {
       row.setAttribute('translate', 'no');
     }
 
-    checkForAllDntCells(row);
+    setDntRow(row);
   });
-
-  // DEBUG
-  // console.log(JSON.stringify(rule, null, 2));
-  // // eslint-disable-next-line no-use-before-define
-  // console.log(prettyPrintNode(table));
-}
-
-/* c8 ignore start */
-// Helper function to pretty print with indentation
-function prettyPrintNode(node, indent = 0) {
-  let result = '';
-  const indentString = '  '.repeat(indent);
-
-  if (node.nodeType === Node.TEXT_NODE) {
-    const textContent = node.textContent.trim();
-    if (textContent) {
-      result += `${indentString}${textContent}\n`;
-    }
-  } else if (node.nodeType === Node.ELEMENT_NODE) {
-    result += `${indentString}<${node.nodeName.toLowerCase()}`;
-
-    // Add attributes
-    for (const attr of node.attributes) {
-      result += ` ${attr.name}="${attr.value}"`;
-    }
-    result += '>\n';
-
-    // Recursively process child nodes
-    for (const child of node.childNodes) {
-      result += prettyPrintNode(child, indent + 1);
-    }
-
-    result += `${indentString}</${node.nodeName.toLowerCase()}>\n`;
-  }
-
-  return result;
 }

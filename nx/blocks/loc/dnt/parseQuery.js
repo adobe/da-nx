@@ -16,6 +16,8 @@ const ALIASES = {
   has: 'contains',
   hasel: 'has-element',
   haselement: 'has-element',
+  includesel: 'has-element',
+  containsel: 'has-element',
   includes: 'contains',
   or: '',
   rows: 'row',
@@ -79,12 +81,8 @@ function rearrangeTokens(tokens, indexAfterRowAsTarget) {
   const preRowTarket = tokens.slice(0, indexAfterRowAsTarget);
   const preIf = tokens.slice(indexAfterRowAsTarget, ifIndex);
   const rest = tokens.slice(ifIndex);
-  // const dntCell = tokens.slice(dntIndex);
 
-  const a = [...preRowTarket, ...rest, ...preIf];
-
-  // Rearrange tokens to put condition after row specification but before dnt cell
-  return a;
+  return [...preRowTarket, ...rest, ...preIf];
 }
 
 /**
@@ -186,7 +184,6 @@ function parseCondition(tokens, startIndex) {
 
   if (tokens[i] === 'cell') {
     condition.column = '*';
-    // return { condition, nextIndex: i };
     i += 1;
   }
 
@@ -199,7 +196,7 @@ function parseCondition(tokens, startIndex) {
     i += 1;
   }
 
-  // Parse value
+  // Parse cell value
   if (i < tokens.length) {
     while (tokens[i]?.startsWith('"')) {
       condition.values.push(tokens[i].replaceAll('"', ''));
