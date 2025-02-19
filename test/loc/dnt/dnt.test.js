@@ -1,5 +1,5 @@
 import { expect } from '@esm-bundle/chai';
-import { resetIcons, makeIconSpans } from '../../../nx/blocks/loc/dnt/dnt.js';
+import { addDnt, removeDnt, resetIcons, makeIconSpans } from '../../../nx/blocks/loc/dnt/dnt.js';
 
 describe('resetIcons', () => {
   let doc;
@@ -111,5 +111,88 @@ describe('makeIconSpans', () => {
     const html = ':start:middle:end:';
     const result = makeIconSpans(html);
     expect(result).to.equal('<span class="icon icon-start"></span>middle<span class="icon icon-end"></span>');
+  });
+});
+
+const metadataTable = `<html><head></head><body>
+  <main>
+    <div class="metadata">
+        <div>
+          <div>language</div>
+          <div>English</div>
+        </div>
+        <div>
+          <div>style</div>
+          <div>M spacing</div>
+        </div>
+        <div>
+          <div>Title</div>
+          <div>Welcome to my page</div>
+        </div>
+        <div>
+          <div>pageperf</div>
+          <div>on</div>
+        </div>
+        <div>
+          <div>Description</div>
+          <div>This is a test</div>
+        </div>
+      </div>
+    </main>
+  </body></html>`;
+
+const config = {
+  'custom-doc-rules': {
+    total: 2,
+    offset: 0,
+    limit: 2,
+    data: [
+      {
+        block: 'metadata',
+        rule: 'translate col 2 if col 1 equals "title" or "description"',
+        action: '',
+      },
+    ],
+  },
+  ':version': 3,
+  ':names': ['custom-doc-rules'],
+  ':type': 'multi-sheet',
+};
+
+describe('addDntInfoToHtml', () => {
+  it.only('adds dnt info to html', async () => {
+    let expectedHtml = `<html><head></head><body>
+  <main>
+    <div class="metadata">
+        <div translate="no">
+          <div>language</div>
+          <div>English</div>
+        </div>
+        <div translate="no">
+          <div>style</div>
+          <div>M spacing</div>
+        </div>
+        <div>
+          <div translate="no">Title</div>
+          <div>Welcome to my page</div>
+        </div>
+        <div translate="no">
+          <div>pageperf</div>
+          <div>on</div>
+        </div>
+        <div>
+          <div translate="no">Description</div>
+          <div>This is a test</div>
+        </div>
+      </div>
+    </main>`;
+
+    // silly space in return value
+    expectedHtml += '\n  </body></html>';
+    const result = await addDnt(metadataTable, config);
+    expect(result).to.equal(expectedHtml);
+
+    const removed = await removeDnt(result, 'adobecom', 'adobe');
+    expect(removed).to.equal(metadataTable);
   });
 });
