@@ -64,9 +64,12 @@ function parseConfig(config) {
   const data = config['custom-doc-rules']?.data || [];
   const rules = new Map();
   data.forEach((rule) => {
-    const block = rules.get(rule.block) || [];
-    block.push(rule.rule);
-    rules.set(rule.block, block);
+    const blockList = rule.block.split(',').map((block) => block.trim());
+    blockList.forEach((block) => {
+      const blockRules = rules.get(block) || [];
+      blockRules.push(rule.rule);
+      rules.set(block, blockRules);
+    });
   });
   return rules;
 }

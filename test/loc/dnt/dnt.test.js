@@ -148,7 +148,7 @@ const config = {
     limit: 2,
     data: [
       {
-        block: 'metadata',
+        block: 'metadata, section-metadata',
         rule: 'translate col 2 if col 1 equals "title" or "description"',
         action: '',
       },
