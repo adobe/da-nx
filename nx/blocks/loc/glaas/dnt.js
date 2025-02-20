@@ -49,7 +49,7 @@ const parseDntConfig = (config, reset = false) => {
   const docRules = dntConfig.get('docRules');
 
   // Iterate through config doc rules
-  config['dnt-doc-rules'].data.forEach((blockRule) => {
+  config['dnt-doc-rules']?.data.forEach((blockRule) => {
     const blockScopeArray = blockRule.block_scope.split(',');
     blockScopeArray.forEach((blockScope) => {
       const selector = getHtmlSelector(blockScope.trim(), blockRule);
