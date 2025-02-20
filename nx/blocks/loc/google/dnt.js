@@ -2,8 +2,8 @@ import { addDnt as defaultAddDnt, removeDnt as defaultRemoveDnt } from '../dnt/d
 
 const PARSER = new DOMParser();
 
-// The google dnt layer first uses the glaas dnt layer to add the dnt attributes
-// Then it converts the glaas html to dom that google translate can process
+// The google dnt layer first uses the default dnt layer to add the dnt attributes
+// Then it converts the annotated html to dom that google translate can process
 
 export async function addDnt(inputText, config, { fileType = 'html', reset = false } = {}) {
   const html = await defaultAddDnt(inputText, config, { fileType, reset });
