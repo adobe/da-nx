@@ -64,6 +64,25 @@
       }
     ]
   },
+  "custom-doc-rules": {
+    "total": 2,
+    "limit": 2,
+    "offset": 0,
+    "data": [
+        {
+            "block": "metadata",
+            "rule": "translate col 2 if col 1 is \"title\" or \"description\""
+        },
+        {
+            "block": "section-metadata",
+            "rule": "do-not-translate"
+        }
+    ],
+    ":colWidths": [
+        232,
+        778
+    ]
+  },
   "dnt-doc-rules": {
     "total": 2,
     "limit": 2,
