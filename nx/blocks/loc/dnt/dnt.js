@@ -95,14 +95,29 @@ const addDntInfoToHtml = (html, dntRules) => {
   return document.documentElement.outerHTML;
 };
 
+const extractPattern = (rule) => {
+  const { pattern } = rule;
+  let condition = 'exists';
+  let match = '*';
+  if (pattern && pattern.length > 0) {
+    if (pattern !== '*' && pattern.includes('(') && pattern.includes(')')) {
+      condition = pattern.substring(0, pattern.indexOf('(')).trim();
+      match = (pattern.substring(pattern.indexOf('(') + 1, pattern.indexOf(')')).split('||')).map((item) => item.trim().toLowerCase());
+    }
+  }
+  return { condition, match };
+};
+
 // TODO memoize
 function parseConfig(config) {
   const docRules = config['custom-doc-rules']?.data || [];
   const contentRules = config['dnt-content-rules']?.data || [];
+  const sheetRules = config['dnt-sheet-rules']?.data || [];
 
   const rules = {
     docRules: new Map(),
     contentRules: [],
+    sheetRules: [],
   };
 
   docRules.forEach((rule) => {
@@ -116,6 +131,12 @@ function parseConfig(config) {
 
   contentRules.forEach((contentRule) => {
     rules.contentRules.push(contentRule.content);
+  });
+
+  sheetRules.forEach((sheetRule) => {
+    if (Object.keys(sheetRule).length > 0) {
+      rules.sheetRules.push(extractPattern(sheetRule));
+    }
   });
 
   return rules;

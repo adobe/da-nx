@@ -1,35 +1,7 @@
 import { expect } from '@esm-bundle/chai';
 import decorateTable from '../../../nx/blocks/loc/dnt/decorateTable.js';
 import parseQuery from '../../../nx/blocks/loc/dnt/parseQuery.js';
-
-function prettyPrintNode(node, indent = 0) {
-  let result = '';
-  const indentString = '  '.repeat(indent);
-
-  if (node.nodeType === Node.TEXT_NODE) {
-    const textContent = node.textContent.trim();
-    if (textContent) {
-      result += `${indentString}${textContent}\n`;
-    }
-  } else if (node.nodeType === Node.ELEMENT_NODE) {
-    result += `${indentString}<${node.nodeName.toLowerCase()}`;
-
-    // Add attributes
-    for (const attr of node.attributes) {
-      result += ` ${attr.name}="${attr.value}"`;
-    }
-    result += '>\n';
-
-    // Recursively process child nodes
-    for (const child of node.childNodes) {
-      result += prettyPrintNode(child, indent + 1);
-    }
-
-    result += `${indentString}</${node.nodeName.toLowerCase()}>\n`;
-  }
-
-  return result;
-}
+import { prettyPrintNode } from '../../../nx/utils/testUtils.js';
 
 function createTableCell(text) {
   const cell = document.createElement('div');

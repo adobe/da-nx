@@ -191,8 +191,13 @@ function makeImagesRelative(document) {
       el.setAttribute('src', `.${url.pathname}`);
     } else {
       const { srcset } = el;
-      const url = new URL(srcset);
-      el.setAttribute('srcset', `.${url.pathname}`);
+      try {
+        const url = new URL(srcset);
+        el.setAttribute('srcset', `.${url.pathname}`);
+      } catch {
+        // Ignore srcset values that are not full URLs
+        // as they're already relative
+      }
     }
   });
 }
