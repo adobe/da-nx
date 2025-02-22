@@ -6,7 +6,7 @@
   --grid-column-width: calc(var(--grid-container-width) / 12);
 
   /* Typography */
-  --body-font-family: adobe-clean, 'Trebuchet MS', sans-serif;
+  --body-font-family: 'Adobe Clean', adobe-clean, 'Trebuchet MS', sans-serif;
   --fixed-font-family: 'Roboto Mono', menlo, consolas, 'Liberation Mono', monospace;
   --type-heading-all-weight: 700;
   --spectrum-line-height-100: 1.3;
