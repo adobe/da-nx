@@ -11,12 +11,11 @@ function dynamicTypekit(kitId, d = document) {
 
 (async function loadFonts() {
   // Attempt to get the consumer preference
-  let tk = getConfig().locale?.tk;
-  // Fallback to default
-  if (!tk) tk = KITS[document.documentElement.lang || 'en'];
+  const { locale, nxBase } = getConfig();
+  const tk = locale?.tk || KITS[document.documentElement.lang || 'en'];;
   const tkSplit = tk.split('.');
   if (tkSplit[1] === 'css') {
-    loadStyle(`https://use.typekit.net/${tk}`);
+    loadStyle(`${nxBase}/styles/fonts/${tk}`);
     return;
   }
   dynamicTypekit(tk);
