@@ -24,7 +24,8 @@ class NxProfile extends LitElement {
   async connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
-    this.getDetails();
+    await this.getDetails();
+    this.dataset.loaded = true;
   }
 
   setIcons() {
@@ -46,7 +47,6 @@ class NxProfile extends LitElement {
     } catch {
       this._signedIn = false;
     }
-    this.dataset.loaded = true;
   }
 
   async getOrg() {
