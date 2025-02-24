@@ -1,6 +1,4 @@
-import { DA_ORIGIN } from '../../public/utils/constants.js';
 import { getConfig, loadArea, getMetadata } from '../../scripts/nexter.js';
-import { daFetch } from '../../utils/daFetch.js';
 import loadStyle from '../../utils/styles.js';
 import getSvg from '../../utils/svg.js';
 
@@ -48,61 +46,6 @@ class Nav extends HTMLElement {
     return inner;
   }
 
-  renderOrg(currentOrg) {
-    return `
-      <li>
-        <p class="nx-nav-profile-menu-item-header">Org</p>
-        <p class="nx-nav-profile-menu-item-text">${currentOrg}</p>
-      </li>`;
-  }
-
-  async renderProfile(signOut, details) {
-    const orgs = await details.getOrgs();
-
-    const currentOrg = Object.keys(orgs).find((key) => {
-      const fullIdent = `${orgs[key].orgRef.ident}@${orgs[key].orgRef.authSrc}`;
-      return fullIdent === details.ownerOrg;
-    });
-
-    const imgSrc = details?.io?.user?.avatar || `${import.meta.url.replace('nav.js', 'img/default-profile.png')}`;
-
-    const profileMenu = `
-      <button class="nx-nav-btn nx-nav-btn-profile"><img src="${imgSrc}"/></button>
-      <div class="nx-nav-profile-menu">
-        <ul>
-          ${currentOrg ? this.renderOrg(currentOrg) : ''}
-          <li>
-            <p class="nx-nav-profile-menu-item-header">User ID</p>
-            <p class="nx-nav-profile-menu-item-text">${details.userId}</p>
-          </li>
-          <li class="nx-nav-profile-list-item">
-            <button class="nx-nav-profile-list-item-signout">Sign out</button>
-          </li>
-        </ul>
-      </div>
-    `;
-
-    const profileWrapper = document.createElement('div');
-    profileWrapper.classList.add('nx-nav-profile');
-
-    const fragment = new DocumentFragment();
-    fragment.append(profileWrapper);
-    profileWrapper.insertAdjacentHTML('afterbegin', profileMenu);
-    profileWrapper.querySelector('.nx-nav-btn-profile').addEventListener('click', () => {
-      profileWrapper.querySelector('.nx-nav-profile-menu').classList.toggle('is-visible');
-    });
-    const signoutEl = profileWrapper.querySelector('.nx-nav-profile-list-item-signout');
-    signoutEl.addEventListener('click', async () => {
-      try {
-        await daFetch(`${DA_ORIGIN}/logout`);
-      } catch {
-        // logout did not work.
-      }
-      signOut();
-    });
-    return fragment;
-  }
-
   async renderHelp() {
     const helpBtn = document.createElement('button');
     helpBtn.classList.add('nx-nav-help');
@@ -117,39 +60,19 @@ class Nav extends HTMLElement {
   }
 
   async getProfile() {
-    const {
-      loadIms,
-      handleSignIn,
-      handleSignOut,
-    } = await import('../../utils/ims.js');
-    try {
-      const details = await loadIms(true);
-      if (details.anonymous) return this.renderSignin(handleSignIn);
-      // const orgs = await getOrgs();
-      details.io = await details.getIo();
-      return this.renderProfile(handleSignOut, details);
-    } catch {
-      return null;
-    }
-  }
-
-  renderSignin(signIn) {
-    const button = document.createElement('button');
-    button.textContent = 'Sign in';
-    button.className = 'nx-nav-btn nx-nav-btn-sign-in';
-    button.addEventListener('click', signIn);
-    return button;
+    await import('../profile/profile.js');
+    return document.createElement('nx-profile');
   }
 
   async renderActions() {
     const navActions = document.createElement('div');
     navActions.classList.add('nx-nav-actions');
 
-    const help = await this.renderHelp();
-    navActions.append(help);
+    const help = this.renderHelp();
+    const profile = this.getProfile();
 
-    const profile = await this.getProfile();
-    if (profile) navActions.append(profile);
+    const [helpEl, profileEl] = await Promise.all([help, profile]);
+    navActions.append(helpEl, profileEl);
 
     return navActions;
   }

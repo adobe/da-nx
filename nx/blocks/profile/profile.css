@@ -1,0 +1,284 @@
+:host {
+  position: relative;
+  margin-right: 17px;
+}
+
+svg {
+  display: none;
+}
+
+.icon {
+  position: absolute;
+  top: 50%;
+  right: 24px;
+  transform: translateY(-50%);
+  display: block;
+  width: 20px;
+  height: 20px;
+}
+
+button {
+  font-family: var(--body-font-family);
+}
+
+p {
+  line-height: 1;
+  margin: 0;
+}
+
+.nx-btn-signin {
+  line-height: 32px;
+  padding: 0 12px;
+  border: none;
+  background: none;
+  font-weight: 700;
+  border-radius: var(--s2-radius-100);
+}
+
+.nx-btn-signin:hover {
+  background: #dfdfdf;
+}
+
+.nx-btn-profile {
+  background: none;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  padding: 4px;
+  border-radius: 5px;
+}
+
+.nx-btn-profile:hover {
+  background: #e1e1e1;
+}
+
+.nx-btn-profile img {
+  max-width: 24px;
+  border-radius: 12px;
+  pointer-events: none;
+}
+
+#nx-menu-profile {
+  inset: 56px 17px auto auto;
+  border: none;
+  border-radius: var(--s2-radius-200);
+  width: 340px;
+  padding: 0;
+  box-shadow: 0 0 2px 0 rgb(0 0 0 / 12%), 0 3px 6px 0 rgb(0 0 0 / 4%), 0 4px 8px 0 rgb(0 0 0 / 8%);
+}
+
+#nx-menu-profile:popover-open {
+  display: grid;
+}
+
+.nx-menu-btn {
+  margin: -1px 0 0;
+  font-size: 14px;
+}
+
+.nx-menu-btn-details {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: transparent;
+  border: none;
+  padding: 24px 44px 24px 24px;
+  transition: all 0.2s ease-in-out;
+  width: 100%;
+}
+
+.nx-menu-btn::before,
+.nx-menu-all-orgs::before {
+  position: absolute;
+  inset: 0 24px auto 24px;
+  content: "";
+  height: 1px;
+  background: rgb(209 209 209);
+  transition: all 0.2s ease-in-out;
+}
+
+.nx-menu-btn::after,
+.nx-menu-all-orgs::after {
+  position: absolute;
+  inset: auto 24px 0 24px;
+  content: "";
+  height: 1px;
+  background: rgb(209 209 209);
+  transition: all 0.2s ease-in-out;
+}
+
+.nx-menu-btn:hover {
+  color: rgb(22 122 243);
+  background: rgb(228 240 255);
+  z-index: 2;
+}
+
+.nx-menu-btn:hover::before {
+  inset: 0 0 auto 0;
+  background: rgb(22 122 243);
+}
+
+.nx-menu-btn:hover::after {
+  inset: auto 0 0 0;
+  background: rgb(22 122 243);
+}
+
+.nx-menu-btn-details picture {
+  display: block;
+  border-radius: 38px;
+  overflow: hidden;
+}
+
+.nx-menu-btn-details img {
+  display: block;
+  width: 75px;
+  height: 75px;
+}
+
+.nx-menu-details-name {
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  text-align: left;
+  word-break: break-all;
+}
+
+.nx-display-name {
+  margin: 0 0 4px;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1;
+  word-break: break-word;
+}
+
+.nx-email {
+  margin: 0;
+}
+
+.nx-menu-details-wrapper {
+  position: relative;
+}
+
+.nx-menu-clipboard-notice {
+  display: flex;
+  font-weight: 700;
+  justify-content: center;
+  align-items: center;
+  position: absolute;
+  inset: 0;
+  color: rgb(22 122 243);
+  background: rgb(228 240 255);
+  border-bottom: 1px solid;
+  opacity: 0;
+  transition: opacity 0.2s ease-in-out;
+}
+
+.nx-menu-clipboard-notice.is-visible {
+  opacity: 1;
+  z-index: 3;
+}
+
+.nx-menu-btn-org {
+  position: relative;
+  padding: 24px;
+  text-align: left;
+  background: transparent;
+  border: none;
+}
+
+.nx-org-title,
+.nx-menu-link-title,
+.nx-all-orgs-title {
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  margin: 0 0 6px;
+  line-height: 1;
+}
+
+.nx-org-name {
+  margin: 0;
+  font-size: 16px;
+}
+
+.nx-menu-all-orgs {
+  position: relative;
+  margin: -1px 0;
+  padding: 24px;
+}
+
+.nx-all-orgs-title {
+  display: flex;
+  justify-content: space-between;
+}
+
+.nx-all-orgs-cancel {
+  border: none;
+  padding: 0;
+  background: transparent;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: #676767;
+}
+
+.nx-orgs-btn-switch {
+  display: block;
+  text-align: left;
+  font-size: 16px;
+  line-height: 24px;
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: rgb(22 122 243);
+  margin-bottom: 4px;
+}
+
+.nx-orgs-btn-switch:last-child {
+  margin-bottom: 0;
+}
+
+.nx-orgs-btn-switch:hover {
+  text-decoration: underline;
+}
+
+.nx-menu-links {
+  padding: 24px;
+}
+
+.nx-menu-links ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.nx-menu-links li {
+  margin-bottom: 4px;
+}
+
+.nx-menu-links li:last-child {
+  margin-bottom: 0;
+}
+
+.nx-menu-links a {
+  text-decoration: none;
+  color: rgb(22 122 243);
+}
+
+.nx-menu-links a:hover {
+  text-decoration: underline;
+}
+
+.nx-menu-btn-signout {
+  text-align: left;
+  font-size: 16px;
+  position: relative;
+  background: transparent;
+  border: none;
+  padding: 24px;
+  transition: all 0.2s ease-in-out;
+  margin: -1px 0;
+}

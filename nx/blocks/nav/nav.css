@@ -48,7 +48,7 @@ p {
 }
 
 .nx-nav-help {
-  display: flex;
+  display: none;
   justify-content: center;
   align-items: center;
   width: 32px;
@@ -59,6 +59,10 @@ p {
   border-radius: 5px;
 }
 
+.nx-nav-help:has(+ [data-loaded]) {
+  display: flex;
+}
+
 .nx-nav-help:hover {
   background: #e1e1e1;
 }
@@ -66,102 +70,4 @@ p {
 .nx-nav-help svg {
   width: 20px;
   height: 20px;
-}
-
-.nx-nav-profile {
-  position: relative;
-  margin-right: 17px;
-  font-size: 16px;
-}
-
-.nx-nav-profile-menu {
-  display: none;
-  position: absolute;
-  right: 0;
-  top: 38px;
-  background: #fff;
-  border-radius: var(--s2-radius-200);
-  min-width: 320px;
-  padding: var(--spacing-200) 0;
-  box-shadow: 0 0 2px 0 rgb(0 0 0 / 12%), 0 3px 6px 0 rgb(0 0 0 / 4%), 0 4px 8px 0 rgb(0 0 0 / 8%);
-  z-index: 10000;
-}
-
-.nx-nav-profile-menu.is-visible {
-  display: block;
-}
-
-.nx-nav-profile-menu ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.nx-nav-profile-menu button {
-  background: none;
-  border: none;
-  display: block;
-  width: 100%;
-  text-align: left;
-  line-height: 32px;
-  padding: 0 var(--spacing-400);
-  color: var(--s2-blue-800);
-}
-
-.nx-nav-profile-menu .nx-nav-profile-menu-item-header,
-.nx-nav-profile-menu .nx-nav-profile-menu-item-text {
-  padding: 0 var(--spacing-400);
-  margin: 0;
-}
-
-.nx-nav-profile-menu .nx-nav-profile-menu-item-header {
-  margin-top: var(--spacing-200);
-  font-size: 14px;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-
-.nx-nav-profile-menu .nx-nav-profile-menu-item-text {
-  font-size: 14px;
-}
-
-.nx-nav-profile-menu button:hover {
-  background: var(--s2-gray-75);
-}
-
-.nx-nav-btn-sign-in {
-  line-height: 32px;
-  padding: 0 12px;
-  border: none;
-  background: none;
-  font-family: var(--body-font-family);
-  font-weight: 700;
-  border-radius: var(--s2-radius-100);
-  margin-right: 17px;
-}
-
-.nx-nav-btn-sign-in:hover {
-  background: #dfdfdf;
-}
-
-.nx-nav-btn-profile {
-  background: none;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  width: 32px;
-  height: 32px;
-  border: none;
-  padding: 4px;
-  border-radius: 5px;
-}
-
-.nx-nav-btn-profile:hover {
-  background: #e1e1e1;
-}
-
-.nx-nav-btn-profile img {
-  max-width: 24px;
-  border-radius: 12px;
-  pointer-events: none;
 }

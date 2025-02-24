@@ -21,6 +21,7 @@ function decorateArea(area = document) {
 const CONFIG = {
   codeBase: `${import.meta.url.replace('/scripts/scripts.js', '')}`,
   imsClientId: 'nexter',
+  imsScope: 'ab.manage,AdobeID,gnav,openid,org.read,read_organizations,session,additional_info.ownerOrg',
   decorateArea,
 };
 
