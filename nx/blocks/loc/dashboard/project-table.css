@@ -1,6 +1,6 @@
 .table {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   border-collapse: collapse;
   margin-top: 1rem;
   width: 100%;
@@ -97,11 +97,8 @@
 
 .edit-button,
 .duplicate-button {
-  width: 80px;
-  height: 36px;
-  padding: 0;
+  padding: 0.5rem;
   border: none;
-  background-color: #007bff;
   color: #fff;
   border-radius: 4px;
   font-size: 0.9rem;
@@ -117,13 +114,11 @@
 
 .edit-button:hover,
 .duplicate-button:hover {
-  background-color: #0056b3;
   transform: translateY(-2px);
 }
 
 .edit-button:active,
 .duplicate-button:active {
-  background-color: #003d82;
   transform: translateY(0);
 }
 

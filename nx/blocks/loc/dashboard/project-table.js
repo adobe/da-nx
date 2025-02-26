@@ -81,6 +81,13 @@ class NxProjectsTable extends LitElement {
     this.dispatchEvent(event);
   }
 
+  navigateToProject(path) {
+    const event = new CustomEvent('navigate-to-project', {
+      detail: { path },
+    });
+    this.dispatchEvent(event);
+  }
+
   renderModal() {
     if (!this._showModal) return '';
     return html`
@@ -121,38 +128,45 @@ class NxProjectsTable extends LitElement {
       ${this.renderModal()}
       <div class="table">
         <div class="table-header">
-          <div class="table-cell">Project Name</div>
-          <div class="table-cell">Created By</div>
-          <div class="table-cell">Created Date</div>
+          <div class="table-cell">Project</div>
+          <div class="table-cell">Created</div>
           <div class="table-cell">Languages</div>
           <div class="table-cell">Localization Status</div>
           <div class="table-cell">Rollout Status</div>
           <div class="table-cell">Actions</div>
         </div>
-        ${this.projects.map(
-    (project) => html`
-            <div class="table-row ${this._duplicatingId === project.path ? 'duplicating' : ''}">
-              <div class="table-cell">${project.title}</div>
-              <div class="table-cell">${project.createdBy}</div>
-              <div class="table-cell">${project.createdOn}</div>
-              <div class="table-cell">${this.renderLanguages(project.languages)}</div>
-              <div class="table-cell">${project.translationStatus}</div>
-              <div class="table-cell">${project.rolloutStatus}</div>
-              <div class="table-cell actions">
-                <button
-                  class="edit-button"
-                  @click=${() => { const event = new CustomEvent('navigate-to-project', { detail: { path: project.path } }); this.dispatchEvent(event); }}>
-                  Edit
-                </button>
-                <button
-                  class="duplicate-button"
-                  ?disabled=${this._duplicatingId === project.path}
-                  @click=${() => this.openDuplicateModal(project)}>
-                    ${this._duplicatingId === project.path ? html`<div class="spinner"></div>` : 'Duplicate'}
-                </button>
-              </div>
-            </div>`,
-  )}
+        ${this.projects.map((project) => html`
+          <div class="table-row ${this._duplicatingId === project.path ? 'duplicating' : ''}"
+            @click=${(e) => {
+    if (!e.target.closest('button')) {
+      this.navigateToProject(project.path);
+    }
+  }}
+            style="cursor: pointer;">
+            <div class="table-cell">${project.title}</div>
+            <div class="table-cell">
+              ${project.createdBy}<br>
+              ${project.createdOn}
+            </div>
+            <div class="table-cell">${this.renderLanguages(project.languages)}</div>
+            <div class="table-cell">${project.translationStatus}</div>
+            <div class="table-cell">${project.rolloutStatus}</div>
+            <div class="table-cell actions">
+              <button
+                class="edit-button"
+                @click=${() => this.navigateToProject(project.path)}>
+                <img src="${nxBase}/public/icons/Smock_Archive_18_N.svg" alt="Archive" />
+              </button>
+              <button
+                class="duplicate-button"
+                ?disabled=${this._duplicatingId === project.path}
+                @click=${() => this.openDuplicateModal(project)}>
+                ${this._duplicatingId === project.path
+    ? html`<div class="spinner"></div>`
+    : html`<img src="${nxBase}/public/icons/Smock_Duplicate_18_N.svg" alt="Duplicate" />`}
+              </button>
+            </div>
+          </div>`)}
       </div>`;
   }
 }
