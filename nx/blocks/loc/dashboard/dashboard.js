@@ -210,6 +210,11 @@ class NxLocDashboard extends LitElement {
       </div>`;
   }
 
+  /**
+   * Duplicate a project
+   * @param {string} path - The path of the project to duplicate
+   * @param {string} title - The title of the project
+   */
   async duplicateProject(path, title) {
     const resp = await daFetch(`${DA_ORIGIN}/source${path}`);
     let json = await resp.json();
@@ -239,6 +244,11 @@ class NxLocDashboard extends LitElement {
     }
   }
 
+  /**
+   * Reset the project state
+   * @param {Object} json - The project data
+   * @returns {Object} The reset project data
+   */
   resetProjectState(json) {
     json.langs = json?.langs?.map((lang) => {
       lang.rollout = { status: 'not started' };
@@ -259,12 +269,31 @@ class NxLocDashboard extends LitElement {
     return json;
   }
 
+  /**
+   * Archive a project
+   * @param {string} path - The path of the project to archive
+   */
   async archiveProject(path) {
     const destinationPath = path.replace('/active/', '/archived/');
     const body = new FormData();
     body.append('destination', destinationPath);
     const moveSourcePath = `${DA_ORIGIN}/move${path}`;
-    await daFetch(moveSourcePath, { method: 'POST', body });
+    const response = await daFetch(moveSourcePath, { method: 'POST', body });
+
+    if (response.ok) {
+      const toast = document.createElement('div');
+      toast.className = 'toast';
+      toast.textContent = 'Project archived successfully';
+      this.shadowRoot.appendChild(toast);
+
+      setTimeout(() => {
+        toast.classList.add('fade-out');
+        setTimeout(() => {
+          this.shadowRoot.removeChild(toast);
+        }, 300);
+      }, 3000);
+    }
+
     await this.getProjects();
   }
 
