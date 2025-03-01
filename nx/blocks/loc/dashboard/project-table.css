@@ -95,7 +95,7 @@
   transition: opacity 0.2s ease-in-out;
 }
 
-.edit-button,
+.archive-button,
 .duplicate-button {
   padding: 0.5rem;
   border: none;
@@ -112,17 +112,17 @@
   position: relative;
 }
 
-.edit-button:hover,
+.archive-button:hover,
 .duplicate-button:hover {
   transform: translateY(-2px);
 }
 
-.edit-button:active,
+.archive-button:active,
 .duplicate-button:active {
   transform: translateY(0);
 }
 
-.edit-button:focus,
+.archive-button:focus,
 .duplicate-button:focus {
   outline: none;
   box-shadow: 0 0 0 2px #80bdff;

@@ -259,6 +259,15 @@ class NxLocDashboard extends LitElement {
     return json;
   }
 
+  async archiveProject(path) {
+    const destinationPath = path.replace('/active/', '/archived/');
+    const body = new FormData();
+    body.append('destination', destinationPath);
+    const moveSourcePath = `${DA_ORIGIN}/move${path}`;
+    await daFetch(moveSourcePath, { method: 'POST', body });
+    await this.getProjects();
+  }
+
   renderProjects() {
     const paginatedProjects = this.getPaginatedProjects();
     return html`
@@ -266,6 +275,7 @@ class NxLocDashboard extends LitElement {
         .projects=${paginatedProjects}
         @navigate-to-project=${(e) => this.navigateToProject(e.detail.path)}
         @duplicate-project=${(e) => this.duplicateProject(e.detail.path, e.detail.title)}
+        @archive-project=${(e) => this.archiveProject(e.detail.path)}
       ></nx-projects-table>
       <nx-pagination .currentPage=${this._currentPage} .totalItems=${this._filteredProjects.length} .itemsPerPage=${this._projectsPerPage} @page-change=${this.handlePagination}></nx-pagination>`;
   }

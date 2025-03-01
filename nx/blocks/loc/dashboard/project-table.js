@@ -12,6 +12,7 @@ class NxProjectsTable extends LitElement {
     _duplicatingId: { state: true },
     _showModal: { state: true },
     _modalProject: { state: true },
+    _modalType: { state: true },
     _duplicateName: { state: true },
     _createdProject: { state: true },
   };
@@ -22,6 +23,7 @@ class NxProjectsTable extends LitElement {
     this._duplicatingId = null;
     this._showModal = false;
     this._modalProject = null;
+    this._modalType = null; // 'duplicate' or 'archive'
     this._duplicateName = '';
     this._createdProject = null;
   }
@@ -47,15 +49,19 @@ class NxProjectsTable extends LitElement {
       : ''}`;
   }
 
-  openDuplicateModal(project) {
+  openModal(project, type) {
     this._modalProject = project;
-    this._duplicateName = `${project.title}-copy`;
+    this._modalType = type;
+    if (type === 'duplicate') {
+      this._duplicateName = `${project.title}-copy`;
+    }
     this._showModal = true;
   }
 
   closeModal() {
     this._showModal = false;
     this._modalProject = null;
+    this._modalType = null;
     this._duplicateName = '';
     this._createdProject = null;
   }
@@ -69,16 +75,27 @@ class NxProjectsTable extends LitElement {
     }
   }
 
-  async handleDuplicate(e) {
+  async handleModalAction(e) {
     e.preventDefault();
-    this._duplicatingId = this._modalProject.path;
-    const event = new CustomEvent('duplicate-project', {
-      detail: {
-        path: this._modalProject.path,
-        title: this._duplicateName,
-      },
-    });
-    this.dispatchEvent(event);
+
+    if (this._modalType === 'duplicate') {
+      this._duplicatingId = this._modalProject.path;
+      const event = new CustomEvent('duplicate-project', {
+        detail: {
+          path: this._modalProject.path,
+          title: this._duplicateName,
+        },
+      });
+      this.dispatchEvent(event);
+    } else if (this._modalType === 'archive') {
+      const event = new CustomEvent('archive-project', {
+        detail: {
+          path: this._modalProject.path,
+        },
+      });
+      this.dispatchEvent(event);
+      this.closeModal();
+    }
   }
 
   navigateToProject(path) {
@@ -90,34 +107,44 @@ class NxProjectsTable extends LitElement {
 
   renderModal() {
     if (!this._showModal) return '';
+
+    const modalContent = this._modalType === 'duplicate'
+      ? html`
+        <h2>Copying Project: ${this._modalProject.title}</h2>
+        ${this._duplicatingId ? html`<div class="spinner"></div>` : ''}
+        <div>
+          <label>
+            New Project Name:
+            <input
+              type="text"
+              .value=${this._duplicateName}
+              @input=${(e) => { this._duplicateName = e.target.value; }}
+              required
+            >
+          </label>
+          <div class="modal-buttons">
+            <button
+              @click=${this.handleModalAction}
+              ?disabled=${this._duplicatingId}>
+              ${this._duplicatingId ? 'Duplicating...' : 'Duplicate'}
+            </button>
+          </div>
+        </div>`
+      : html`
+        <h2>Archive Project</h2>
+        <p>Are you sure you want to archive "${this._modalProject.title}"?</p>
+        <div class="modal-buttons">
+          <button @click=${this.closeModal}>Cancel</button>
+          <button @click=${this.handleModalAction}>Archive</button>
+        </div>`;
+
     return html`
       <div class="modal-overlay">
         <div class="modal">
           <button class="close-button" @click=${this.closeModal}>
             <img src="${nxBase}/img/icons/S2IconClose20N-icon.svg" width="20" height="20" />
           </button>
-          <h2>Copying Project : ${this._modalProject.title}</h2>
-          ${this._duplicatingId ? html`
-            <div class="spinner"></div>
-          ` : ''}
-          <div>
-            <label>
-              New Project Name:
-              <input
-                type="text"
-                .value=${this._duplicateName}
-                @input=${(e) => { this._duplicateName = e.target.value; }}
-                required
-              >
-            </label>
-            <div class="modal-buttons">
-              <button
-                @click=${this.handleDuplicate}
-                ?disabled=${this._duplicatingId}>
-                ${this._duplicatingId ? 'Duplicating...' : 'Duplicate'}
-              </button>
-            </div>
-          </div>
+          ${modalContent}
         </div>
       </div>
     `;
@@ -153,14 +180,14 @@ class NxProjectsTable extends LitElement {
             <div class="table-cell">${project.rolloutStatus}</div>
             <div class="table-cell actions">
               <button
-                class="edit-button"
-                @click=${() => this.navigateToProject(project.path)}>
+                class="archive-button"
+                @click=${() => this.openModal(project, 'archive')}>
                 <img src="${nxBase}/public/icons/Smock_Archive_18_N.svg" alt="Archive" />
               </button>
               <button
                 class="duplicate-button"
                 ?disabled=${this._duplicatingId === project.path}
-                @click=${() => this.openDuplicateModal(project)}>
+                @click=${() => this.openModal(project, 'duplicate')}>
                 ${this._duplicatingId === project.path
     ? html`<div class="spinner"></div>`
     : html`<img src="${nxBase}/public/icons/Smock_Duplicate_18_N.svg" alt="Duplicate" />`}
