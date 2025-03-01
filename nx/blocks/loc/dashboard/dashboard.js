@@ -89,6 +89,11 @@ class NxLocDashboard extends LitElement {
     this._currentPage = 1;
   }
 
+  /**
+   * Get the project statuses
+   * @param {Array} langs - The languages of the project
+   * @returns {Object} The project statuses
+   */
   getProjectStatuses(langs) {
     if (!langs || !Array.isArray(langs) || langs.length === 0) {
       return { translationStatus: 'No Languages', rolloutStatus: 'No Languages' };
@@ -128,6 +133,11 @@ class NxLocDashboard extends LitElement {
     return { translationStatus, rolloutStatus };
   }
 
+  /**
+   * Format a timestamp
+   * @param {string} timestamp - The timestamp to format
+   * @returns {string} The formatted timestamp
+   */
   formatTimestamp(timestamp) {
     const date = new Date(timestamp);
     const options = {
@@ -144,6 +154,11 @@ class NxLocDashboard extends LitElement {
     return formattedDate.replace(',', '');
   }
 
+  /**
+   * Get the project details
+   * @param {string} path - The path of the project
+   * @returns {Object} The project details
+   */
   async getProjectDetails(path) {
     const resp = await daFetch(`${DA_ORIGIN}/versionlist${path}`);
     const json = await resp.json();
@@ -155,6 +170,9 @@ class NxLocDashboard extends LitElement {
     return { createdBy, createdOn };
   }
 
+  /**
+   * Get the projects
+   */
   async getProjects() {
     try {
       imsDetails = await loadIms();
@@ -182,6 +200,12 @@ class NxLocDashboard extends LitElement {
         };
       }));
       this._filteredProjects = [...this._projects];
+      // Sort projects by createdOn timestamp from latest to oldest
+      this._filteredProjects.sort((a, b) => {
+        const dateA = new Date(a.createdOn);
+        const dateB = new Date(b.createdOn);
+        return dateB - dateA;
+      });
     } catch (error) {
       console.error('Error fetching projects:', error);
     } finally {
@@ -193,6 +217,10 @@ class NxLocDashboard extends LitElement {
     this._currentPage = e.detail.page;
   }
 
+  /**
+   * Get the paginated projects
+   * @returns {Array} The paginated projects
+   */
   getPaginatedProjects() {
     const start = (this._currentPage - 1) * this._projectsPerPage;
     const end = start + this._projectsPerPage;
