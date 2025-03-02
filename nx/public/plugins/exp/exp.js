@@ -1,7 +1,8 @@
 import { loadStyle } from '../../../scripts/nexter.js';
 import { makeDraggable, calcOrigin, calcUrl, getExpDetails } from './utils.js';
 
-const EXP_SRC = 'https://main--da-live--adobe.aem.live/plugins/exp?nx=local';
+const NX_BRANCH = window.location.hostname.includes('localhost') ? '?nx=local' : '';
+const EXP_SRC = `https://main--da-live--adobe.aem.live/plugins/exp${NX_BRANCH}`;
 const MAIN_SELECTOR = 'aem-sidekick-exp';
 const CHANNEL = new MessageChannel();
 
