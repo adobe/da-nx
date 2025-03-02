@@ -32,7 +32,6 @@
   --s2-heading-size-1100: 55px;
   --s2-heading-size-1300: 70px;
 
-
   /* Body Sizing */
   --s2-font-size-100: 17px;
   --s2-font-size-200: 19px;
@@ -68,6 +67,7 @@
   /* Colors */
   --spectrum-blue-800: #4d7bff; /* Legacy */
   --s2-blue-800: #4d7bff;
+  --s2-blue-900: #4b75ff;
   --s2-green: #009851;
   --s2-red: #f73b26;
   --s2-gray-50: #f7f7f7;

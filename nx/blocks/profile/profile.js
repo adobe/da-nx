@@ -25,7 +25,7 @@ class NxProfile extends LitElement {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
     await this.getDetails();
-    this.dataset.loaded = true;
+    this.handleLoaded();
   }
 
   setIcons() {
@@ -56,6 +56,13 @@ class NxProfile extends LitElement {
 
   async getAllOrgs() {
     this._orgs = await this._details.getAllOrgs();
+  }
+
+  handleLoaded() {
+    this.dataset.loaded = true;
+    const opts = { bubbles: true, composed: true };
+    const event = new CustomEvent('loaded', opts);
+    this.dispatchEvent(event);
   }
 
   handleCopyUser() {
