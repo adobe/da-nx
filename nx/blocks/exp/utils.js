@@ -22,16 +22,6 @@ export function getDefaultData(page) {
  */
 export function toColor(str) {
   return str === 'control' ? '--s2-orange-600' : '--s2-cyan-800';
-  // let hash = 0;
-  // str.split('').forEach((char) => {
-  //   hash = char.charCodeAt(0) + ((hash << 5) - hash);
-  // });
-  // let color = '#';
-  // for (let i = 0; i < 3; i += 1) {
-  //   const value = (hash >> (i * 8)) & 0xff;
-  //   color += value.toString(16).padStart(2, '0');
-  // }
-  // return color;
 }
 
 /**
@@ -54,7 +44,6 @@ function getName(variant, idx) {
 }
 
 export function processDetails(experiment) {
-  console.log(experiment);
   const { variants } = experiment;
   variants.forEach((variant, idx) => {
     variant.name = getName(variant, idx);
@@ -71,6 +60,32 @@ export function getOrgSite(url) {
   } catch {
     return { error: 'Could not make URL.' };
   }
+}
+
+function calcEditUrl(info, url) {
+  if (!url || info.error) return null;
+  return `https://da.live/edit#/${info.org}/${info.repo}${info.path}`;
+}
+
+function calcOpenUrl(info, url) {
+  if (!url || info.error) return null;
+  return url;
+}
+
+function calcPreviewParam(name, url, idx) {
+  if (!(name || url) || url === '') return null;
+  // experiment=experiment-0001/challenger-1
+  return encodeURI(`experiment=${name}/challenger-${idx + 1}`);
+}
+
+export function calcLinks(name, variant, idx) {
+  const { url } = variant;
+  const info = getOrgSite(url);
+  return {
+    editUrl: calcEditUrl(info, url),
+    openUrl: calcOpenUrl(info, url),
+    previewParam: calcPreviewParam(name, url, idx),
+  };
 }
 
 function propCheck(copy, prop, errorMsg) {

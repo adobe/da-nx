@@ -166,7 +166,7 @@ nx-profile {
     align-items: center;
   }
 
-  span {
+  .nx-variant-name span {
     border-radius: 4px;
     width: 36px;
     height: 36px;
@@ -227,9 +227,23 @@ nx-profile {
         font-weight: 700;
         background: #0000001a;
         border: none;
-        padding: 0;
-        line-height: 32px;
+        padding: 16px 0;
         outline: none;
+        text-align: center;
+
+        img {
+          display: block;
+          margin: 0 auto 6px;
+        }
+
+        span {
+          display: block;
+          text-align: center;
+        }
+      }
+
+      button:disabled {
+        background: #00000045;
       }
     }
   }
@@ -318,7 +332,7 @@ nx-profile {
   align-items: center;
   border-top: 1px solid rgb(222 222 222);
   padding: 16px;
-  -webkit-backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px); /* stylelint-disable-line property-no-vendor-prefix */
   backdrop-filter: blur(8px);
   z-index: 100;
 

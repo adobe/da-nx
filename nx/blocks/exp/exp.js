@@ -10,6 +10,7 @@ import {
   toColor,
   getErrors,
   saveDetails,
+  calcLinks,
 } from './utils.js';
 
 import '../../public/sl/components.js';
@@ -139,6 +140,15 @@ class NxExp extends LitElement {
     this.port.postMessage({ reload: true });
   }
 
+  handleLink(e, href) {
+    e.preventDefault();
+    window.open(href, '_blank');
+  }
+
+  handlePreview(param) {
+    this.port.postMessage({ preview: param });
+  }
+
   get _placeholder() {
     return `${this._page.origin}/experiments/
       ${this._details.name ? `${this._details.name}/` : ''}...`;
@@ -178,6 +188,14 @@ class NxExp extends LitElement {
     const isControl = idx === 0;
     const percent = variant.percent || 0;
 
+    const {
+      editUrl,
+      openUrl,
+      previewParam,
+    } = calcLinks(this._details.name, variant, idx);
+
+    console.log(previewParam);
+
     return html`
       <li class="${variant.open ? 'is-open' : ''} ${error ? 'has-error' : ''}">
         <div class="nx-variant-name">
@@ -201,7 +219,7 @@ class NxExp extends LitElement {
         <div class="nx-variant-details">
           <hr/>
           <sl-input
-            class="nx-space-bottom-200 quiet"
+            class="nx-space-bottom-200"
             label="URL"
             type="text"
             name="url"
@@ -212,10 +230,25 @@ class NxExp extends LitElement {
             placeholder="${this._placeholder}">
           </sl-input>
           <div class="nx-variant-action-area ${isControl ? 'is-control' : ''}">
-            <button>Edit</button>
-            ${!isControl ? html`<button>Open</button>` : nothing}
-            <button>Preview</button>
-            ${!isControl ? html`<button @click=${() => this.handleDelete(idx)}>Delete</button>` : nothing}
+            <button ?disabled=${!editUrl} @click=${(e) => this.handleLink(e, editUrl)}>
+              <img src="${nxBase}/public/icons/S2_Icon_Edit_20_N.svg" loading="lazy" />
+              <span>Edit</span>
+            </button>
+            ${!isControl ? html`
+              <button
+                ?disabled=${!openUrl}
+                @click=${(e) => this.handleLink(e, openUrl)}>
+                <img src="${nxBase}/public/icons/S2_Icon_OpenIn_20_N.svg" loading="lazy" />
+                <span>Open</span>
+            </button>` : nothing}
+            <button ?disabled=${!previewParam} @click=${() => this.handlePreview(previewParam)}>
+              <img src="${nxBase}/public/icons/S2_Icon_Community_20_N.svg" loading="lazy" />
+              <span>Preview</span>
+            </button>
+            ${!isControl ? html`<button @click=${() => this.handleDelete(idx)}>
+              <img src="${nxBase}/public/icons/S2_Icon_Delete_20_N.svg" loading="lazy" />
+              <span>Delete</span>
+            </button>` : nothing}
           </div>
         </div>
       </li>
