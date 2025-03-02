@@ -9,11 +9,11 @@ const EXP_SRC = hostname.includes('localhost')
   : 'https://da.live/plugins/exp';
 
 const MAIN_SELECTOR = 'aem-sidekick-exp';
-const CHANNEL = new MessageChannel();
 
-const { port1, port2 } = CHANNEL;
+let initialized;
 
-async function init() {
+async function init(port1) {
+  initialized = true;
   const origin = calcOrigin();
   const url = calcUrl();
   const experiment = getExpDetails();
@@ -29,14 +29,16 @@ function reloadPage() {
 }
 
 function handleLoad({ target }) {
+  const CHANNEL = new MessageChannel();
+  const { port1, port2 } = CHANNEL;
+
+  target.contentWindow.postMessage({ ready: true }, '*', [port2]);
+
+  // We keep port 1 to receive messages
   port1.onmessage = (e) => {
-    if (e.data.ready) init(target);
+    if (e.data.ready) init(port1);
     if (e.data.reload) reloadPage();
   };
-
-  setTimeout(() => {
-    target.contentWindow.postMessage({ ready: true }, '*', [port2]);
-  }, 500);
 }
 
 export default async function runExp() {
@@ -62,10 +64,19 @@ export default async function runExp() {
   const iframe = document.createElement('iframe');
   iframe.src = EXP_SRC;
   iframe.allow = 'clipboard-write *';
-  iframe.addEventListener('load', handleLoad);
 
   // Append
   palette.append(handle, iframe);
+
+  let count = 0;
+  const interval = setInterval(() => {
+    if (initialized || count > 20) {
+      clearInterval(interval);
+      return;
+    }
+    count += 1;
+    handleLoad({ target: iframe });
+  }, 500);
 
   makeDraggable(palette);
   document.body.append(palette);

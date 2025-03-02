@@ -277,7 +277,6 @@ class NxExp extends LitElement {
   }
 
   renderDetails() {
-    console.log(this._details.type, this._details.goal);
     return html`
       <form>
         <div class="nx-exp-details-header nx-space-bottom-200">
@@ -344,6 +343,7 @@ export default async function init() {
   document.body.append(expCmp);
 
   window.addEventListener('message', (e) => {
+    console.log(e);
     if (e.data && e.data.ready) [expCmp.port] = e.ports;
   });
 }
