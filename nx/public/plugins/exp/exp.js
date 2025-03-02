@@ -21,11 +21,21 @@ async function init(port1) {
   port1.postMessage({ page: { origin, url }, experiment });
 }
 
-function reloadPage() {
+function reloadPage(params) {
   const { origin, pathname, searchParams, hash } = new URL(window.location.href);
   // Cache bust the page
   searchParams.set('daexperiment', Date.now());
+  if (params?.length) {
+    params.forEach((param) => {
+      searchParams.set(param.key, param.value);
+    });
+  }
   window.location = `${origin}${pathname}?${searchParams.toString()}${hash}`;
+}
+
+function previewExp(data) {
+  const params = [{ key: 'experiment', value: data.preview }];
+  reloadPage(params);
 }
 
 function handleLoad({ target }) {
@@ -38,6 +48,7 @@ function handleLoad({ target }) {
   port1.onmessage = (e) => {
     if (e.data.ready) init(port1);
     if (e.data.reload) reloadPage();
+    if (e.data.preview) previewExp(e.data);
   };
 }
 

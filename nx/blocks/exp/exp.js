@@ -148,7 +148,8 @@ class NxExp extends LitElement {
     window.open(href, '_blank');
   }
 
-  handlePreview(param) {
+  handlePreview(e, param) {
+    e.preventDefault();
     this.port.postMessage({ preview: param });
   }
 
@@ -197,8 +198,6 @@ class NxExp extends LitElement {
       previewParam,
     } = calcLinks(this._details.name, variant, idx);
 
-    console.log(previewParam);
-
     return html`
       <li class="${variant.open ? 'is-open' : ''} ${error ? 'has-error' : ''}">
         <div class="nx-variant-name">
@@ -244,7 +243,7 @@ class NxExp extends LitElement {
                 <img src="${nxBase}/public/icons/S2_Icon_OpenIn_20_N.svg" loading="lazy" />
                 <span>Open</span>
             </button>` : nothing}
-            <button ?disabled=${!previewParam} @click=${() => this.handlePreview(previewParam)}>
+            <button ?disabled=${!previewParam} @click=${(e) => this.handlePreview(e, previewParam)}>
               <img src="${nxBase}/public/icons/S2_Icon_Community_20_N.svg" loading="lazy" />
               <span>Preview</span>
             </button>
