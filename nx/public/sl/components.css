@@ -1,0 +1,165 @@
+:host {
+  display: block;
+}
+
+.sl-inputfield {
+  --sl-field-height: 28px;
+  --sl-field-border: 2px solid var(--s2-gray-300);
+  --sl-field-font-size: 14px;
+
+  label {
+    font-size: var(--s2-body-xs-size);
+    display: block;
+    color: rgb(80 80 80);
+    margin-bottom: 4px;
+  }
+
+  input[type="text"],
+  input[type="number"],
+  input[type="date"] {
+    width: 100%;
+    display: block;
+    padding: 0 12px;
+    line-height: var(--sl-field-height);
+    font-family: var(--body-font-family);
+    font-size: var(--sl-field-font-size);
+    border-radius: var(--s2-radius-100);
+    outline-color: var(--s2-blue-900);
+    outline-offset: 0;
+    transition: outline-offset 0.2s;
+    border: var(--sl-field-border);
+    box-sizing: border-box;
+
+    &.quiet {
+      background: transparent;
+      border: none;
+      padding: 0;
+    }
+
+    &.has-error {
+      border: 2px solid var(--s2-red-900);
+    }
+  }
+
+  input[type="date"] {
+    padding: 0 8px 0 12px;
+  }
+
+  input[type="range"] {
+    display: block;
+    position: relative;
+    appearance: none;
+    width: 100%;
+    outline: none;
+    background: transparent;
+    margin: 0;
+  }
+
+  input[type="range"]::after {
+    content: "";
+    height: 2px;
+    border-radius: 1px;
+    background: rgb(143 143 143);
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 50%;
+  }
+
+  input[type="range"]:focus-visible::after {
+    background: var(--s2-blue-900);
+    margin-top: -1px;
+    height: 3px;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    position: relative;
+    appearance: none;
+    border: 2px solid #464646;
+    margin-top: 2px;
+    background: #fff;
+    width: 16px;
+    height: 16px;
+    border-radius: 8px;
+    z-index: 1;
+  }
+
+  input:focus-visible {
+    outline-offset: 4px;
+  }
+
+  select {
+    display: block;
+    width: 100%;
+    padding: 0 12px;
+    background: var(--s2-gray-100);
+    font-family: var(--body-font-family);
+    font-size: var(--sl-field-font-size);
+    line-height: var(--sl-field-height);
+    border: 2px solid var(--s2-gray-100);
+    border-radius: var(--s2-radius-100);
+    outline-color: var(--s2-blue-900);
+    outline-offset: 0;
+    transition: outline-offset 0.2s;
+    box-sizing: border-box;
+    appearance: none;
+  }
+
+  select:focus-visible {
+    outline-offset: 4px;
+  }
+
+  .sl-inputfield-select-wrapper {
+    position: relative;
+  }
+
+  .sl-inputfield-select-wrapper::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 32px;
+    height: 32px;
+    background: no-repeat center / 18px url("https://da.live/nx/public/icons/Smock_ChevronDown_18_N.svg");
+    pointer-events: none;
+  }
+
+  .sl-inputfield-error {
+    font-size: var(--s2-body-xs-size);
+    color: var(--s2-red-900);
+    margin: 0;
+  }
+}
+
+button {
+  display: block;
+  padding: 5px 14px;
+  line-height: 18px;
+  font-size: 14px;
+  color: #fff;
+  background: var(--s2-blue-900);
+  border: 2px solid var(--s2-blue-900);
+  font-family: var(--body-font-family);
+  border-radius: var(--s2-border-radius);
+  outline-color: var(--s2-blue-900);
+  outline-offset: 0;
+  transition: outline-offset 0.2s;
+  text-decoration: none;
+  font-weight: 700;
+  text-align: center;
+
+  &:focus-visible {
+    outline-offset: 4px;
+  }
+
+  &.primary {
+    background: var(--s2-gray-800);
+    border: 2px solid var(--s2-gray-800);
+    color: #fff;
+
+    &.outline {
+      background: transparent;
+      color: var(--s2-gray-800);
+    }
+  }
+}

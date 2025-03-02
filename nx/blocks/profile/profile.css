@@ -72,6 +72,8 @@ p {
 
 #nx-menu-profile:popover-open {
   display: grid;
+  align-content: start;
+  align-items: start;
 }
 
 .nx-menu-btn {
