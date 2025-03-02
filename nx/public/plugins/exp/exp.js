@@ -70,11 +70,11 @@ export default async function runExp() {
 
   let count = 0;
   const interval = setInterval(() => {
+    count += 1;
     if (initialized || count > 20) {
       clearInterval(interval);
       return;
     }
-    count += 1;
     handleLoad({ target: iframe });
   }, 500);
 

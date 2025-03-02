@@ -343,7 +343,6 @@ export default async function init() {
   document.body.append(expCmp);
 
   window.addEventListener('message', (e) => {
-    console.log(e);
     if (e.data && e.data.ready) [expCmp.port] = e.ports;
   });
 }
