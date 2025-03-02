@@ -38,19 +38,34 @@ export function getExpDetails() {
   const split = getMetadata('experiment-split')?.split(',');
 
   // Match percentages to challenger URLs
-  const challengers = getMetadata('experiment-variants')?.split(',')
-    .map((path, idx) => ({ url: path.trim(), percent: Number(split[idx]) })) || [];
+  const challengers = getMetadata('experiment-variants')?.split(',').map((path, idx) => {
+    const challenger = { url: path.trim() };
 
-  // Total the percentage up
-  const challPercent = challengers.reduce(
-    (total, variant) => (variant.percent ? total + variant.percent : total),
-    0,
-  );
+    // Only add percent if its in the experiment
+    if (split) challenger.percent = Number(split?.[idx] || 0);
+    return challenger;
+  }) || [];
 
-  // Update the control with the percentage left over
-  details.variants[0].percent = 100 - challPercent;
+  if (split) {
+    // Total the percentage up
+    const challPercent = challengers.reduce(
+      (total, variant) => (variant.percent ? total + variant.percent : total),
+      0,
+    );
 
+    // Update the control with the percentage left over
+    details.variants[0].percent = 100 - challPercent;
+  }
+
+  // Push everything together
   if (challengers.length > 0) details.variants.push(...challengers);
+
+  // Set an even percent if no split
+  if (!split) {
+    details.variants.forEach((variant) => {
+      variant.percent = Math.round(100 / details.variants.length);
+    });
+  }
 
   return details;
 }
