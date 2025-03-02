@@ -147,6 +147,7 @@ function getRows(details) {
       value: copy.variants.map((variant) => variant.percent).join(', '),
     },
   ];
+  if (copy.status) rows.push({ key: 'experiment-status', value: copy.status });
   if (copy.type) rows.push({ key: 'experiment-type', value: copy.type });
   if (copy.goal) rows.push({ key: 'experiment-goal', value: copy.goal });
   if (copy.startDate) rows.push({ key: 'experiment-start-date', value: copy.startDate });
@@ -240,7 +241,7 @@ export async function saveDetails(page, details, setStatus) {
   setStatus('Getting document.');
   const dom = getDom(rows);
 
-  setStatus('Updating document with experiment.');
+  setStatus('Updating doc with experiment.');
   const result = await saveMetadata(page, dom);
   if (result.error) {
     setStatus(result.error, 'error');
@@ -254,12 +255,15 @@ export async function saveDetails(page, details, setStatus) {
     return null;
   }
 
-  setStatus('Publishing document.');
-  const live = await aemReq('live', page);
-  if (live.error) {
-    setStatus(live.error, 'error');
-    return null;
+  if (details.status === 'active') {
+    setStatus('Publishing document.');
+    const live = await aemReq('live', page);
+    if (live.error) {
+      setStatus(live.error, 'error');
+      return null;
+    }
   }
+
   setStatus();
   return { status: 'ok' };
 }

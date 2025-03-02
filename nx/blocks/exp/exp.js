@@ -125,13 +125,16 @@ class NxExp extends LitElement {
     this._details[name] = e.target.value;
   }
 
-  async handlePublish(e) {
+  async handleSave(e, status) {
     e.preventDefault();
     this._errors = getErrors(this._details);
     if (this._errors) {
       this.setStatus('Please fix errors.', 'error');
       return;
     }
+
+    // Set the experiment status based on the button clicked
+    this._details.status = status;
 
     // Bind to this so it can be called outside the class
     const setStatus = this.setStatus.bind(this);
@@ -302,8 +305,8 @@ class NxExp extends LitElement {
       <div class="nx-action-area">
         <p class="nx-status nx-status-type-${this._status?.type || 'info'}">${this._status?.text}</p>
         <div>
-          <sl-button class="primary outline">Save as draft</sl-button>
-          <sl-button @click=${this.handlePublish}>Publish</sl-button>
+          <sl-button @click=${(e) => this.handleSave(e, 'draft')} class="primary outline">Save as draft</sl-button>
+          <sl-button @click=${(e) => this.handleSave(e, 'active')}>Publish</sl-button>
         </div>
       </div>
     `;
