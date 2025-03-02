@@ -80,28 +80,17 @@ class NxProjectsTable extends LitElement {
 
     if (this._modalType === 'duplicate') {
       this._duplicatingId = this._modalProject.path;
-      const event = new CustomEvent('duplicate-project', {
-        detail: {
-          path: this._modalProject.path,
-          title: this._duplicateName,
-        },
-      });
+      const event = new CustomEvent('duplicate-project', { detail: { path: this._modalProject.path, title: this._duplicateName } });
       this.dispatchEvent(event);
     } else if (this._modalType === 'archive') {
-      const event = new CustomEvent('archive-project', {
-        detail: {
-          path: this._modalProject.path,
-        },
-      });
+      const event = new CustomEvent('archive-project', { detail: { path: this._modalProject.path } });
       this.dispatchEvent(event);
       this.closeModal();
     }
   }
 
   navigateToProject(path) {
-    const event = new CustomEvent('navigate-to-project', {
-      detail: { path },
-    });
+    const event = new CustomEvent('navigate-to-project', { detail: { path } });
     this.dispatchEvent(event);
   }
 
@@ -134,7 +123,6 @@ class NxProjectsTable extends LitElement {
         <h2>Archive Project</h2>
         <p>Are you sure you want to archive "${this._modalProject.title}"?</p>
         <div class="modal-buttons">
-          <button @click=${this.closeModal}>Cancel</button>
           <button @click=${this.handleModalAction}>Archive</button>
         </div>`;
 
@@ -165,10 +153,10 @@ class NxProjectsTable extends LitElement {
         ${this.projects.map((project) => html`
           <div class="table-row ${this._duplicatingId === project.path ? 'duplicating' : ''}"
             @click=${(e) => {
-    if (!e.target.closest('button')) {
-      this.navigateToProject(project.path);
-    }
-  }}
+              if (!e.target.closest('button')) {
+                this.navigateToProject(project.path);
+              }
+            }}
             style="cursor: pointer;">
             <div class="table-cell">${project.title}</div>
             <div class="table-cell">
@@ -181,16 +169,18 @@ class NxProjectsTable extends LitElement {
             <div class="table-cell actions">
               <button
                 class="archive-button"
+                title="Archive project"
                 @click=${() => this.openModal(project, 'archive')}>
                 <img src="${nxBase}/public/icons/Smock_Archive_18_N.svg" alt="Archive" />
               </button>
               <button
                 class="duplicate-button"
+                title="Duplicate project"
                 ?disabled=${this._duplicatingId === project.path}
                 @click=${() => this.openModal(project, 'duplicate')}>
                 ${this._duplicatingId === project.path
-    ? html`<div class="spinner"></div>`
-    : html`<img src="${nxBase}/public/icons/Smock_Duplicate_18_N.svg" alt="Duplicate" />`}
+                  ? html`<div class="spinner"></div>`
+                  : html`<img src="${nxBase}/public/icons/Smock_Duplicate_18_N.svg" alt="Duplicate" />`}
               </button>
             </div>
           </div>`)}
