@@ -74,9 +74,9 @@ function calcOpenUrl(info, url) {
 
 function calcPreviewParam(name, url, idx) {
   if (!(name || url) || url === '') return null;
-  // experiment=experiment-0001/challenger-1
-  // Reminder: Control is 0, no need to add a 1.
-  return encodeURI(`${name}/challenger-${idx}`);
+
+  const expName = idx === 0 ? 'control' : `challenger-${idx}`;
+  return encodeURI(`${name}/${expName}`);
 }
 
 export function calcLinks(name, variant, idx) {

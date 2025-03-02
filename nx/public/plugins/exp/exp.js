@@ -23,13 +23,13 @@ async function init(port1) {
 
 function reloadPage(params) {
   const { origin, pathname, searchParams, hash } = new URL(window.location.href);
-  // Cache bust the page
-  searchParams.set('daexperiment', Date.now());
   if (params?.length) {
     params.forEach((param) => {
       searchParams.set(param.key, param.value);
     });
   }
+  // Cache bust the page
+  searchParams.set('daexperiment', Date.now().toString().slice(-4));
   window.location = `${origin}${pathname}?${searchParams.toString()}${hash}`;
 }
 
