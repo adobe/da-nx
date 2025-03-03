@@ -215,7 +215,7 @@ async function saveDoc(url, opts, doc) {
 async function saveVersion(page, expName) {
   const { url, opts } = await getDaDetails(page, 'versionsource');
   opts.method = 'POST';
-  opts.body = JSON.stringify({ label: `Experiment: ${expName}` });
+  opts.body = JSON.stringify({ label: `EXP: ${expName}` });
   await fetch(url, opts);
 }
 
