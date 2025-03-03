@@ -1,10 +1,11 @@
 import { loadStyle } from '../../../scripts/nexter.js';
 import { makeDraggable, calcOrigin, calcUrl, getExpDetails } from './utils.js';
 
-const { hostname } = window.location;
-
 // Automatic developer mode.
-const EXP_SRC = hostname.includes('localhost')
+const { searchParams, origin, pathname, hash } = new URL(window.location.href);
+const branch = searchParams.get('nx') || 'main';
+
+export const EXP_SRC = branch === 'local' || origin.includes('localhost')
   ? 'https://main--da-live--adobe.aem.live/plugins/exp?nx=local'
   : 'https://da.live/plugins/exp';
 
@@ -14,15 +15,14 @@ let initialized;
 
 async function init(port1) {
   initialized = true;
-  const origin = calcOrigin();
+  const projOrigin = calcOrigin();
   const url = calcUrl();
   const experiment = getExpDetails();
 
-  port1.postMessage({ page: { origin, url }, experiment });
+  port1.postMessage({ page: { origin: projOrigin, url }, experiment });
 }
 
 function reloadPage(params) {
-  const { origin, pathname, searchParams, hash } = new URL(window.location.href);
   if (params?.length) {
     params.forEach((param) => {
       searchParams.set(param.key, param.value);
@@ -67,7 +67,7 @@ export default async function runExp() {
   palette.classList.add('is-visible');
   palette.id = MAIN_SELECTOR;
 
-  // Title
+  // Handle
   const handle = document.createElement('div');
   handle.id = `${MAIN_SELECTOR}-handle`;
 
