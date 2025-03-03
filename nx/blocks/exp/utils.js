@@ -185,6 +185,18 @@ async function aemReq(type, page) {
   return resp.json();
 }
 
+async function getDaDetails(page, api = 'source') {
+  const { org, repo, path } = getOrgSite(page.url);
+
+  const token = await getToken();
+  if (!token) return { error: 'Please login.' };
+
+  const opts = { headers: { Authorization: `Bearer ${token}` } };
+  const url = `${DA_ORIGIN}/${api}/${org}/${repo}${path}.html`;
+
+  return { url, opts };
+}
+
 async function saveDoc(url, opts, doc) {
   const body = new FormData();
 
@@ -200,6 +212,13 @@ async function saveDoc(url, opts, doc) {
   return resp.json();
 }
 
+async function saveVersion(page, expName) {
+  const { url, opts } = await getDaDetails(page, 'versionsource');
+  opts.method = 'POST';
+  opts.body = JSON.stringify({ label: `Experiment: ${expName}` });
+  await fetch(url, opts);
+}
+
 async function getDoc(url, opts) {
   const resp = await fetch(url, opts);
   const html = !resp.ok ? '<body><header></header><main><div></div></main><footer></footer></body>' : await resp.text();
@@ -207,13 +226,7 @@ async function getDoc(url, opts) {
 }
 
 async function saveMetadata(page, dom) {
-  const { org, repo, path } = getOrgSite(page.url);
-
-  const token = await getToken();
-  if (!token) return { error: 'Please login.' };
-
-  const opts = { headers: { Authorization: `Bearer ${token}` } };
-  const url = `${DA_ORIGIN}/source/${org}/${repo}${path}.html`;
+  const { url, opts } = await getDaDetails(page);
 
   const doc = await getDoc(url, opts);
 
@@ -263,6 +276,8 @@ export async function saveDetails(page, details, setStatus) {
       setStatus(live.error, 'error');
       return null;
     }
+    setStatus('Creating version.');
+    await saveVersion(page, details.name);
   }
 
   setStatus();
