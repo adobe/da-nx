@@ -2,6 +2,8 @@ import { LitElement, html, nothing } from 'da-lit';
 import { getConfig } from '../../scripts/nexter.js';
 import getStyle from '../../utils/styles.js';
 import getSvg from '../../utils/svg.js';
+import { daFetch } from '../../utils/daFetch.js';
+import { DA_ORIGIN } from '../../public/utils/constants.js';
 import { loadIms, handleSignIn, handleSignOut } from '../../utils/ims.js';
 
 const { nxBase } = getConfig();
@@ -86,6 +88,15 @@ class NxProfile extends LitElement {
     this._orgs = undefined;
   }
 
+  async handleSignOut() {
+    try {
+      await daFetch(`${DA_ORIGIN}/logout`);
+    } catch {
+      // logout did not work.
+    }
+    handleSignOut();
+  }
+
   get _notice() {
     return this.shadowRoot.querySelector('.nx-menu-clipboard-notice');
   }
@@ -154,7 +165,7 @@ class NxProfile extends LitElement {
               <li><a href="https://adminconsole.adobe.com" target="_blank">Admin Console</a></li>
             </ul>
           </div>
-          <button class="nx-menu-btn nx-menu-btn-signout" @click=${handleSignOut}>Sign out</button>
+          <button class="nx-menu-btn nx-menu-btn-signout" @click=${this.handleSignOut}>Sign out</button>
         </div>
       </div>
     `;
