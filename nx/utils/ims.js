@@ -28,7 +28,7 @@ const JIL_ENV = {
   dev: 'bps-il-stage.adobe.io',
   stage: 'bps-il-stage.adobe.io',
   prod: 'bps-il.adobe.io',
-}
+};
 
 export function handleSignIn() {
   localStorage.setItem('nx-ims', true);
