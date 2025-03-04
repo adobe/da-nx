@@ -36,7 +36,7 @@
   background-color: #f3f3f3;
 }
 
-.table .table-row:nth-child(even) .table-cell {
+.table .table-row:nth-child(odd) .table-cell {
   background-color: #f9f9f9;
 }
 
