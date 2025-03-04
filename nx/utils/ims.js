@@ -28,7 +28,7 @@ const JIL_ENV = {
   dev: 'bps-il-stage.adobe.io',
   stage: 'bps-il-stage.adobe.io',
   prod: 'bps-il.adobe.io',
-}
+};
 
 export function handleSignIn() {
   localStorage.setItem('nx-ims', true);
@@ -96,7 +96,7 @@ async function getProfileDetails(accessToken, resolve) {
   resolve(imsProfile);
 }
 
-export async function loadIms() {
+export async function loadIms(loginPopup) {
   imsDetails = imsDetails || new Promise((resolve, reject) => {
     if (!imsClientId) {
       reject(new Error('Missing IMS Client ID'));
@@ -123,6 +123,10 @@ export async function loadIms() {
       },
       onError: reject,
     };
+    if (loginPopup) {
+      window.adobeid.modalMode = true;
+      window.adobeid.modalSettings = { allowedOrigin: window.location.origin };
+    }
     loadScript(IMS_URL);
   });
   return imsDetails;
