@@ -250,7 +250,7 @@ async function saveMetadata(page, dom) {
   return saved;
 }
 
-export async function saveDetails(page, details, setStatus) {
+export async function saveDetails(page, details, setStatus, forcePublish) {
   const rows = getRows(details);
   setStatus('Getting document.');
   const dom = getDom(rows);
@@ -269,7 +269,7 @@ export async function saveDetails(page, details, setStatus) {
     return null;
   }
 
-  if (details.status === 'active') {
+  if (details.status === 'active' || forcePublish) {
     setStatus('Publishing document.');
     const live = await aemReq('live', page);
     if (live.error) {

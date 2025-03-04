@@ -150,7 +150,7 @@ class NxExp extends LitElement {
     this._details[name] = e.target.value;
   }
 
-  async handleSave(e, status) {
+  async handleSave(e, status, forcePublish = false) {
     e.preventDefault();
     this._errors = getErrors(this._details);
     if (this._errors) {
@@ -163,7 +163,7 @@ class NxExp extends LitElement {
 
     // Bind to this so it can be called outside the class
     const setStatus = this.setStatus.bind(this);
-    const result = await saveDetails(this._page, this._details, setStatus);
+    const result = await saveDetails(this._page, this._details, setStatus, forcePublish);
     if (result.status !== 'ok') return;
     this.port.postMessage({ reload: true });
   }
@@ -347,7 +347,7 @@ class NxExp extends LitElement {
         ${this._status
     ? html`<p class="nx-status nx-status-type-${this._status?.type || 'info'}">${this._status?.text}</p>`
     : html`<p class="nx-status nx-status-type-info">This experiment is active.</p>`}
-        <sl-button @click=${(e) => this.handleSave(e, 'draft')} class="primary outline">Pause</sl-button>
+        <sl-button @click=${(e) => this.handleSave(e, 'draft', true)} class="primary outline">Pause</sl-button>
       </div>
     `;
     }
