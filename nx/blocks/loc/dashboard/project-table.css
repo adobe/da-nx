@@ -26,28 +26,28 @@
   padding: 8px;
   border-bottom: 1px solid #e0e0e0;
   word-wrap: break-word;
-  text-align: left;
   min-height: 66px;
   box-sizing: border-box;
+  text-align: center;
 }
 
 .table-header .table-cell {
   font-weight: bold;
   background-color: #f3f3f3;
-  text-align: left;
 }
 
-.table-body .table-row:nth-child(even) .table-cell {
+.table .table-row:nth-child(even) .table-cell {
   background-color: #f9f9f9;
 }
 
-.table-body .table-row:hover .table-cell {
+.table .table-row:hover .table-cell {
   background-color: #f1f1f1;
 }
 
 .actions {
   display: flex;
   gap: 8px;
+  justify-content: center;
 }
 
 .tooltip {
