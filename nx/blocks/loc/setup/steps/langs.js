@@ -1,6 +1,7 @@
 import { LitElement, html, nothing } from '../../../../deps/lit/lit-core.min.js';
 import { getConfig } from '../../../../scripts/nexter.js';
 import { daFetch } from '../../../../utils/daFetch.js';
+import { loadIms } from '../../../../utils/ims.js';
 import getStyle from '../../../../utils/styles.js';
 import getSvg from '../../../../utils/svg.js';
 import normalizeUrls from '../../project/new.js';
@@ -50,11 +51,16 @@ class NxLocLangs extends LitElement {
       }
     });
 
+    const details = await loadIms();
+
+
     const project = {
       title: this.title,
       org: this.org,
       site: this.repo,
       config: this.config,
+      email: details?.email || 'anonymous',
+      timestamp: Date.now(),
       options,
       langs,
       urls: normalizeUrls(this.urls, this.langs),
