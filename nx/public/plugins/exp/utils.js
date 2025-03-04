@@ -31,6 +31,9 @@ export function getExpDetails() {
   const endDate = getMetadata('experiment-end-date');
   if (endDate) details.endDate = endDate;
 
+  const status = getMetadata('experiment-status');
+  if (status) details.experimentStatus = status;
+
   // Add the control to the variants
   details.variants = [{ url: calcUrl() }];
 

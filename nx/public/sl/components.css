@@ -39,6 +39,13 @@
     &.has-error {
       border: 2px solid var(--s2-red-900);
     }
+
+    &:disabled {
+      opacity: 1;
+      background: var(--s2-gray-75);
+      border: none;
+      color: var(--s2-gray-500);
+    }
   }
 
   input[type="date"] {
@@ -105,6 +112,13 @@
     appearance: none;
   }
 
+  select:disabled {
+    opacity: 1;
+    background: var(--s2-gray-75);
+    border: none;
+    color: var(--s2-gray-500);
+  }
+
   select:focus-visible {
     outline-offset: 4px;
   }
@@ -122,6 +136,10 @@
     height: 32px;
     background: no-repeat center / 18px url("https://da.live/nx/public/icons/Smock_ChevronDown_18_N.svg");
     pointer-events: none;
+  }
+
+  .sl-inputfield-select-wrapper:has(select:disabled)::after {
+    display: none;
   }
 
   .sl-inputfield-error {
@@ -152,14 +170,38 @@ button {
     outline-offset: 4px;
   }
 
+  &:not(:disabled) {
+    cursor: pointer;
+  }
+
   &.primary {
     background: var(--s2-gray-800);
     border: 2px solid var(--s2-gray-800);
     color: #fff;
 
+    &:not(:disabled):hover {
+      background: var(--s2-gray-900);
+      border-color: var(--s2-gray-900);
+    }
+
     &.outline {
       background: transparent;
       color: var(--s2-gray-800);
+
+      &:not(:disabled):hover {
+        background: transparent;
+        border-color: var(--s2-gray-600);
+        color: var(--s2-gray-600);
+      }
     }
+  }
+
+  &:disabled {
+    opacity: 0.6;
+  }
+
+  &:not(:disabled):hover {
+    background: var(--s2-blue-800);
+    border-color: var(--s2-blue-800);
   }
 }

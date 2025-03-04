@@ -25,6 +25,10 @@ button {
   font-family: var(--font-family);
 }
 
+button:not(:disabled) {
+  cursor: pointer;
+}
+
 .nx-space-bottom-100 {
   margin-bottom: var(--spacing-100);
 }
@@ -239,6 +243,10 @@ nx-profile {
         span {
           display: block;
           text-align: center;
+        }
+
+        &:hover {
+          background: #0000002a;
         }
       }
 

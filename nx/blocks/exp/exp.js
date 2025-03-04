@@ -216,6 +216,7 @@ class NxExp extends LitElement {
     const error = this._errors?.variants?.[idx].error;
     const isControl = idx === 0;
     const percent = variant.percent || 0;
+    const isActive = this._details.experimentStatus === 'active';
 
     const {
       editUrl,
@@ -228,19 +229,22 @@ class NxExp extends LitElement {
         <div class="nx-variant-name">
           <span style="background: var(${toColor(variant.name)})">${getAbb(variant.name)}</span>
           <p>${variant.name}</p>
-          <div class="nx-range-wrapper">
-            <sl-input
-              type="range"
-              id="percent-${idx}"
-              name="percent"
-              min="0"
-              max="100"
-              step="5"
-              .value=${percent}
-              @input=${(e) => { this.handlePercentInput(e, idx); }}>
-            </sl-input>
-            <p class="${percent < 50 ? 'on-right' : ''}">${percent}%</p>
-          </div>
+          ${isActive ? html`<div class="nx-range-wrapper"><p class="on-right">${percent}%</p></div>` : html`
+                <div class="nx-range-wrapper">
+                  <sl-input
+                      type="range"
+                      id="percent-${idx}"
+                      name="percent"
+                      min="0"
+                      max="100"
+                      step="5"
+                      ?disabled="${isActive ? 'true' : undefined}"
+                      .value=${percent}
+                      @input=${(e) => { this.handlePercentInput(e, idx); }}>
+                  </sl-input>
+                  <p class="${percent < 50 ? 'on-right' : ''}">${percent}%</p>
+                </div>
+              `}
           <button @click=${(e) => this.handleOpen(e, idx)} class="nx-exp-btn-more">Details</button>
         </div>
         <div class="nx-variant-details">
@@ -253,7 +257,7 @@ class NxExp extends LitElement {
             @input=${(e) => this.handleUrlInput(e, idx)}
             .value=${variant.url || ''}
             error=${error}
-            ?disabled=${isControl}
+            ?disabled=${isControl || isActive}
             placeholder="${this._placeholder}">
           </sl-input>
           <div class="nx-variant-action-area ${isControl ? 'is-control' : ''}">
@@ -270,9 +274,9 @@ class NxExp extends LitElement {
             </button>` : nothing}
             <button ?disabled=${!previewParam} @click=${(e) => this.handlePreview(e, previewParam)}>
               <img src="${nxBase}/public/icons/S2_Icon_Community_20_N.svg" loading="lazy" />
-              <span>Preview</span>
+              <span>Simulate</span>
             </button>
-            ${!isControl ? html`<button @click=${() => this.handleDelete(idx)}>
+            ${!isControl ? html`<button ?disabled="${isActive}" @click=${() => this.handleDelete(idx)}>
               <img src="${nxBase}/public/icons/S2_Icon_Delete_20_N.svg" loading="lazy" />
               <span>Delete</span>
             </button>` : nothing}
@@ -289,17 +293,25 @@ class NxExp extends LitElement {
         <ul class="nx-variants-list">
           ${this._details.variants?.map((variant, idx) => this.renderVariant(variant, idx))}
         </ul>
-        <button class="nx-new-variant" @click=${this.handleNewVariant}>
-          <div class="nx-icon-wrapper">
-            <svg class="icon"><use href="#S2_Icon_Add_20_N"/></svg>
-          </div>
-          <span>New variant</span>
-        </button>
+        ${this._details.experimentStatus === 'active' ? nothing : html`
+          <button class="nx-new-variant" @click=${this.handleNewVariant}>
+            <div class="nx-icon-wrapper">
+              <svg class="icon"><use href="#S2_Icon_Add_20_N"/></svg>
+            </div>
+            <span>New variant</span>
+          </button>
+        `}
       </p>
     `;
   }
 
   renderDates() {
+    const isActive = this._details.experimentStatus === 'active';
+
+    if (isActive && !this._details.startDate && !this._details.endDate) {
+      return nothing;
+    }
+
     return html`
       <div class="nx-date-area">
         <div class="nx-grid-two-up nx-space-bottom-100">
@@ -307,6 +319,7 @@ class NxExp extends LitElement {
             label="Start date"
             type="date"
             id="start" name="start"
+            ?disabled="${isActive}"
             @change=${(e) => { this.handleDateChange(e, 'startDate'); }}
             .value=${this._details.startDate}>
           </sl-input>
@@ -315,6 +328,7 @@ class NxExp extends LitElement {
             type="date"
             id="end"
             name="end"
+            ?disabled="${isActive}"
             @change=${(e) => { this.handleDateChange(e, 'endDate'); }}
             .value=${this._details.endDate}
             min="2025-03-01">
@@ -325,6 +339,19 @@ class NxExp extends LitElement {
   }
 
   renderActions() {
+    const isActive = this._details.experimentStatus === 'active';
+
+    if (isActive) {
+      return html`
+      <div class="nx-action-area">
+        ${this._status
+    ? html`<p class="nx-status nx-status-type-${this._status?.type || 'info'}">${this._status?.text}</p>`
+    : html`<p class="nx-status nx-status-type-info">This experiment is active.</p>`}
+        <sl-button @click=${(e) => this.handleSave(e, 'draft')} class="primary outline">Pause</sl-button>
+      </div>
+    `;
+    }
+
     return html`
       <div class="nx-action-area">
         <p class="nx-status nx-status-type-${this._status?.type || 'info'}">${this._status?.text}</p>
@@ -354,6 +381,7 @@ class NxExp extends LitElement {
             label="Name"
             name="exp-name"
             error=${this._errors?.name || nothing}
+            ?disabled="${this._details.experimentStatus === 'active' ? 'true' : undefined}"
             placeholder="Enter experiment name"
             class="nx-space-bottom-100"></sl-input>
           <div class="nx-grid-two-up nx-space-bottom-300">
@@ -361,6 +389,7 @@ class NxExp extends LitElement {
               label="Type"
               name="exp-type"
               .value=${this._details.type}
+              ?disabled="${this._details.experimentStatus === 'active' ? 'true' : undefined}"
               @change=${(e) => this.handleSelectChange(e, 'type')}>
                 <option value="ab">A/B test</option>
                 <option value="mab">Multi-arm bandit</option>
@@ -369,6 +398,7 @@ class NxExp extends LitElement {
               label="Goal"
               name="exp-opt-for"
               .value=${this._details.goal}
+              ?disabled="${this._details.experimentStatus === 'active' ? 'true' : undefined}"
               @change=${(e) => this.handleSelectChange(e, 'goal')}>
                 <option value="conversion">Overall conversion</option>
                 <option value="form-submit">Form submission</option>
