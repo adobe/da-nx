@@ -111,8 +111,32 @@ class NxExp extends LitElement {
     this._details[prop] = e.target.value;
   }
 
+  fixPercentages(editedIndex, isIncrease) {
+    // make sure the percentages add up to 100%
+    const usedInput = this._details.variants[editedIndex];
+    const otherInputs = this._details.variants.filter((v, i) => i !== editedIndex);
+    const percentToDistribute = 100 - usedInput.percent;
+    const otherInputsPercent = otherInputs.reduce((acc, input) => acc + input.percent, 0);
+
+    otherInputs.forEach((variant) => {
+      const variantShare = (Math.max(variant.percent, 1) / Math.max(otherInputsPercent, 1))
+        * percentToDistribute;
+      variant.percent = Math.round(variantShare / 5) * 5;
+    });
+
+    const totalPercent = this._details.variants.reduce((acc, input) => acc + input.percent, 0);
+
+    const findMin = (acc, input) => (input.percent < acc.percent ? input : acc);
+    const findMax = (acc, input) => (input.percent > acc.percent ? input : acc);
+    const variantToEdit = isIncrease ? otherInputs.reduce(findMin) : otherInputs.reduce(findMax);
+    variantToEdit.percent += 100 - totalPercent;
+  }
+
   handlePercentInput(e, idx) {
-    this._details.variants[idx].percent = e.target.value;
+    const increase = e.target.value > this._details.variants[idx].percent;
+    this._details.variants[idx].percent = parseInt(e.target.value, 10);
+    this.fixPercentages(idx, increase);
+
     this.requestUpdate();
   }
 
