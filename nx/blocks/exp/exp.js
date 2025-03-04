@@ -94,6 +94,7 @@ class NxExp extends LitElement {
   handleDelete(idx) {
     if (idx === 0) return;
     this._details.variants.splice(idx, 1);
+    this.fixPercentages(null, false);
     this.requestUpdate();
   }
 
@@ -115,7 +116,7 @@ class NxExp extends LitElement {
     // make sure the percentages add up to 100%
     const usedInput = this._details.variants[editedIndex];
     const otherInputs = this._details.variants.filter((v, i) => i !== editedIndex);
-    const percentToDistribute = 100 - usedInput.percent;
+    const percentToDistribute = 100 - (usedInput?.percent ?? 0);
     const otherInputsPercent = otherInputs.reduce((acc, input) => acc + input.percent, 0);
 
     otherInputs.forEach((variant) => {
