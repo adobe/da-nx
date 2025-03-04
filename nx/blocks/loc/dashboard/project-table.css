@@ -29,6 +29,9 @@
   min-height: 66px;
   box-sizing: border-box;
   text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .table-header .table-cell {
