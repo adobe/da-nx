@@ -38,6 +38,19 @@ function previewExp(data) {
   reloadPage(params);
 }
 
+function pollConnection(action) {
+  initialized = false;
+  let count = 0;
+  const interval = setInterval(() => {
+    count += 1;
+    if (initialized || count > 20) {
+      clearInterval(interval);
+      return;
+    }
+    action?.();
+  }, 500);
+}
+
 function handleLoad({ target }) {
   const CHANNEL = new MessageChannel();
   const { port1, port2 } = CHANNEL;
@@ -49,6 +62,12 @@ function handleLoad({ target }) {
     if (e.data.ready) init(port1);
     if (e.data.reload) reloadPage();
     if (e.data.preview) previewExp(e.data);
+    if (e.data.reset) {
+      port1.close(); port2.close();
+      pollConnection(() => {
+        handleLoad({ target });
+      });
+    }
   };
 }
 
@@ -79,15 +98,9 @@ export default async function runExp() {
   // Append
   palette.append(handle, iframe);
 
-  let count = 0;
-  const interval = setInterval(() => {
-    count += 1;
-    if (initialized || count > 20) {
-      clearInterval(interval);
-      return;
-    }
+  pollConnection(() => {
     handleLoad({ target: iframe });
-  }, 500);
+  });
 
   makeDraggable(palette);
   document.body.append(palette);

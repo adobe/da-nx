@@ -197,6 +197,13 @@ async function getDaDetails(page, api = 'source') {
   return { url, opts };
 }
 
+export async function checkAuth(page) {
+  const { url, opts, error } = await getDaDetails(page, 'source');
+  if (error) { return false; }
+  const res = await fetch(url, { ...opts, method: 'HEAD' });
+  return res.ok;
+}
+
 async function saveDoc(url, opts, doc) {
   const body = new FormData();
 

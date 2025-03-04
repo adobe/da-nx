@@ -1,16 +1,17 @@
 // eslint-disable-next-line import/no-unresolved
-import { LitElement, html, nothing } from 'da-lit';
+import { html, LitElement, nothing } from 'da-lit';
 import { getConfig, loadStyle } from '../../scripts/nexter.js';
 import getStyle from '../../utils/styles.js';
 import getSvg from '../../utils/svg.js';
 import {
-  getDefaultData,
-  getAbb,
-  processDetails,
-  toColor,
-  getErrors,
-  saveDetails,
   calcLinks,
+  checkAuth,
+  getAbb,
+  getDefaultData,
+  getErrors,
+  processDetails,
+  saveDetails,
+  toColor,
 } from './utils.js';
 
 import '../../public/sl/components.js';
@@ -28,6 +29,7 @@ class NxExp extends LitElement {
   static properties = {
     port: { attribute: false },
     _ims: { state: true },
+    _authenticated: { state: true },
     _connected: { state: true },
     _page: { state: true },
     _details: { state: true },
@@ -39,6 +41,16 @@ class NxExp extends LitElement {
     super.connectedCallback();
     getSvg({ parent: this.shadowRoot, paths: ICONS });
     this.shadowRoot.adoptedStyleSheets = [sl, exp];
+  }
+
+  async checkAuthenticated() {
+    if (!this._page) {
+      return;
+    }
+    const authenticated = await checkAuth(this._page);
+    if (authenticated) {
+      this._authenticated = true;
+    }
   }
 
   update(props) {
@@ -59,6 +71,7 @@ class NxExp extends LitElement {
 
   handleProfileLoad() {
     this._ims = true;
+    this.checkAuthenticated();
   }
 
   setStatus(text, type) {
@@ -183,6 +196,10 @@ class NxExp extends LitElement {
       ${this._details.name ? `${this._details.name}/` : ''}...`;
   }
 
+  handleLogin() {
+    window.open('https://da.live/plugins/exp-login', '_blank');
+  }
+
   renderHeader() {
     return html`
       <div class="nx-exp-header">
@@ -206,6 +223,26 @@ class NxExp extends LitElement {
           </p>
           <div class="nx-new-action-area">
             <sl-button @click=${this.handleNewExp}>Create new</sl-button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  renderLogin() {
+    return html`
+      <div class="nx-new-wrapper">
+        <div class="nx-new">
+          <img
+              alt=""
+              src="${nxBase}/img/icons/S2IconLogin20N-icon.svg"
+              class="nx-new-icon nx-space-bottom-200" />
+          <p class="sl-heading-m nx-space-bottom-100">You must be logged in to use this plugin.</p>
+          <p class="sl-body-xs nx-space-bottom-300">
+            Please use the button below to log in to your account.
+          </p>
+          <div class="nx-new-action-area">
+            <sl-button @click=${this.handleLogin}>Sign In</sl-button>
           </div>
         </div>
       </div>
@@ -420,7 +457,8 @@ class NxExp extends LitElement {
   render() {
     return html`
       ${this.renderHeader()}
-      ${this._ims && this._connected ? this.renderReady() : nothing}
+      ${this._ims && this._connected && !this._authenticated ? this.renderLogin() : nothing}
+      ${this._ims && this._connected && this._authenticated ? this.renderReady() : nothing}
     `;
   }
 }
@@ -433,6 +471,13 @@ export default async function init() {
   document.body.append(expCmp);
 
   window.addEventListener('message', (e) => {
-    if (e.data && e.data.ready) [expCmp.port] = e.ports;
+    if (e.data && e.data.ready) {
+      expCmp.port = null;
+      [expCmp.port] = e.ports;
+    }
   });
+
+  window.onbeforeunload = () => {
+    expCmp.port.postMessage({ reset: true });
+  };
 }
