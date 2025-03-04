@@ -16,6 +16,7 @@ const ICONS = [
 
 class NxProfile extends LitElement {
   static properties = {
+    loginPopup: { type: Boolean },
     _signedIn: { state: true },
     _details: { state: true },
     _avatar: { state: true },
@@ -36,7 +37,7 @@ class NxProfile extends LitElement {
 
   async getDetails() {
     try {
-      this._details = await loadIms(true);
+      this._details = await loadIms(this.loginPopup);
       if (this._details.anonymous) {
         this._signedIn = false;
         return;
