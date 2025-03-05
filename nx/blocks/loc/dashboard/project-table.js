@@ -148,7 +148,7 @@ class NxProjectsTable extends LitElement {
           <div class="table-cell">Languages</div>
           <div class="table-cell">Localization Status</div>
           <div class="table-cell">Rollout Status</div>
-          <div class="table-cell">Actions</div>
+          <div class="table-cell actions">Actions</div>
         </div>
         ${this.projects.map((project) => html`
           <div class="table-row ${this._duplicatingId === project.path ? 'duplicating' : ''}"
