@@ -5,7 +5,7 @@ import getStyle from '../../utils/styles.js';
 import getSvg from '../../utils/svg.js';
 import {
   calcLinks,
-  checkAuth,
+  checkAuth, deleteExperiment,
   getAbb,
   getDefaultData,
   getErrors, observeDetailsEdited,
@@ -134,8 +134,9 @@ class NxExp extends LitElement {
       message: 'Are you sure you want to delete this experiment? This will remove the data and re-publish the page.',
       onConfirm: () => {
         this._alertMessage = null;
-        this._details = null;
-        // TODO handle delete on backend
+        deleteExperiment(this._page, this._details, this.setStatus.bind(this)).then(() => {
+          this._details = null;
+        });
       },
       onCancel: () => { this._alertMessage = null; },
     };
@@ -451,6 +452,22 @@ class NxExp extends LitElement {
     `;
   }
 
+  renderDanger() {
+    const isActive = this._details.experimentStatus === 'active';
+    if (isActive) { return nothing; }
+
+    return html`
+      <div class="nx-danger-area nx-expandable">
+        <h4>Danger</h4>
+        <button @click=${this.openDangerArea} class="nx-exp-btn-more">Details</button>
+        <div class="nx-danger-content">
+          <p>Delete this experiment.</p>
+          <sl-button @click=${this.handleDeleteExperiment} class="negative">Delete</sl-button>
+        </div>
+      </div>
+    `;
+  }
+
   renderDetails() {
     return html`
       <form>
@@ -494,14 +511,7 @@ class NxExp extends LitElement {
         ${this.renderVariants()}
         ${this.renderDates()}
         ${this.renderActions()}
-        <div class="nx-danger-area nx-expandable">
-          <h4>Danger</h4>
-          <button @click=${this.openDangerArea} class="nx-exp-btn-more">Details</button>
-          <div class="nx-danger-content">
-            <p>Delete this experiment.</p>
-            <sl-button @click=${this.handleDeleteExperiment} class="negative">Delete</sl-button>
-          </div>
-        </div>
+        ${this.renderDanger()}
       </form>
       <sl-dialog
           title=${this._alertMessage?.title}

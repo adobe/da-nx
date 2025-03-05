@@ -253,6 +253,31 @@ async function getDoc(url, opts) {
   return new DOMParser().parseFromString(html, 'text/html');
 }
 
+function getExperimentRows(metaBlock) {
+  const metaRows = metaBlock.querySelectorAll(':scope > div');
+  return [...metaRows].filter((row) => {
+    // Likely a touch brittle, but fine for now.
+    const text = row.children[0].textContent;
+    return text.startsWith('experiment');
+  });
+}
+
+async function deleteMetadata(page) {
+  const { url, opts } = await getDaDetails(page);
+
+  const doc = await getDoc(url, opts);
+
+  const metaBlock = doc.querySelector('.metadata');
+  if (!metaBlock) return { changed: false };
+
+  const expRows = getExperimentRows(metaBlock);
+  if (!expRows.length) return { changed: false };
+
+  expRows.forEach((row) => row.remove());
+  const saved = await saveDoc(url, opts, doc);
+  return { ...saved, changed: true };
+}
+
 async function saveMetadata(page, dom) {
   const { url, opts } = await getDaDetails(page);
 
@@ -265,17 +290,47 @@ async function saveMetadata(page, dom) {
     doc.body.querySelector('main div').append(metaBlock);
   }
 
-  const metaRows = metaBlock.querySelectorAll(':scope > div');
-  metaRows.forEach((row) => {
-    // Likely a touch brittle, but fine for now.
-    const text = row.children[0].textContent;
-    if (text.startsWith('experiment')) {
-      row.remove();
-    }
-  });
+  getExperimentRows(metaBlock).forEach((row) => row.remove());
   metaBlock.append(...dom);
   const saved = await saveDoc(url, opts, doc);
   return saved;
+}
+
+async function previewAndPublish(page, details, setStatus, shouldPublish = true) {
+  setStatus('Previewing document.');
+  const preview = await aemReq('preview', page);
+  if (preview.error) {
+    setStatus(preview.error, 'error');
+    return null;
+  }
+
+  if (!shouldPublish) {
+    setStatus();
+    return { status: 'ok' };
+  }
+
+  setStatus('Publishing document.');
+  const live = await aemReq('live', page);
+  if (live.error) {
+    setStatus(live.error, 'error');
+    return null;
+  }
+  setStatus('Creating version.');
+  await saveVersion(page, details.name);
+
+  setStatus();
+  return { status: 'ok' };
+}
+
+export async function deleteExperiment(page, details, setStatus) {
+  setStatus('Writing metadata.');
+  const result = await deleteMetadata(page);
+
+  if (!result.changed) {
+    return { status: 'ok' };
+  }
+
+  return previewAndPublish(page, details, setStatus, true);
 }
 
 export async function saveDetails(page, details, setStatus, forcePublish) {
@@ -290,24 +345,5 @@ export async function saveDetails(page, details, setStatus, forcePublish) {
     return null;
   }
 
-  setStatus('Previewing document.');
-  const preview = await aemReq('preview', page);
-  if (preview.error) {
-    setStatus(preview.error, 'error');
-    return null;
-  }
-
-  if (details.status === 'active' || forcePublish) {
-    setStatus('Publishing document.');
-    const live = await aemReq('live', page);
-    if (live.error) {
-      setStatus(live.error, 'error');
-      return null;
-    }
-    setStatus('Creating version.');
-    await saveVersion(page, details.name);
-  }
-
-  setStatus();
-  return { status: 'ok' };
+  return previewAndPublish(page, details, setStatus, details.status === 'active' || forcePublish);
 }
