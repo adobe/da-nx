@@ -128,9 +128,17 @@ class NxExp extends LitElement {
     this.requestUpdate();
   }
 
-  handleBack(e) {
-    e.preventDefault();
-    this._details = null;
+  handleDeleteExperiment() {
+    this._alertMessage = {
+      title: 'Confirm deletion',
+      message: 'Are you sure you want to delete this experiment? This will remove the data and re-publish the page.',
+      onConfirm: () => {
+        this._alertMessage = null;
+        this._details = null;
+        // TODO handle delete on backend
+      },
+      onCancel: () => { this._alertMessage = null; },
+    };
   }
 
   handleNameInput(e) {
@@ -233,6 +241,11 @@ class NxExp extends LitElement {
     };
   }
 
+  openDangerArea(e) {
+    e.preventDefault();
+    this.shadowRoot.querySelector('.nx-danger-area').classList.toggle('is-open');
+  }
+
   get _placeholder() {
     return `${this._page.origin}/experiments/
       ${this._details.name ? `${this._details.name}/` : ''}...`;
@@ -300,7 +313,7 @@ class NxExp extends LitElement {
     } = calcLinks(this._details.name, variant, idx);
 
     return html`
-      <li class="${variant.open ? 'is-open' : ''} ${error ? 'has-error' : ''}">
+      <li class="${variant.open ? 'is-open' : ''} ${error ? 'has-error' : ''} nx-expandable">
         <div class="nx-variant-name">
           <span style="background: var(${toColor(variant.name)})">${getAbb(variant.name)}</span>
           <p>${variant.name}</p>
@@ -442,9 +455,6 @@ class NxExp extends LitElement {
     return html`
       <form>
         <div class="nx-exp-details-header nx-space-bottom-200">
-          <button aria-label="Back" @click=${this.handleBack}>
-            <img class="nx-exp-back" src="${nxBase}/img/icons/S2_Icon_Undo_20_N.svg" />
-          </button>
           <p class="sl-heading-m">Edit experiment</p>
         </div>
         <div class="nx-details-area">
@@ -484,6 +494,14 @@ class NxExp extends LitElement {
         ${this.renderVariants()}
         ${this.renderDates()}
         ${this.renderActions()}
+        <div class="nx-danger-area nx-expandable">
+          <h4>Danger</h4>
+          <button @click=${this.openDangerArea} class="nx-exp-btn-more">Details</button>
+          <div class="nx-danger-content">
+            <p>Delete this experiment.</p>
+            <sl-button @click=${this.handleDeleteExperiment} class="negative">Delete</sl-button>
+          </div>
+        </div>
       </form>
       <sl-dialog
           title=${this._alertMessage?.title}
