@@ -8,7 +8,7 @@ import {
   checkAuth,
   getAbb,
   getDefaultData,
-  getErrors,
+  getErrors, observeDetailsEdited,
   processDetails,
   saveDetails,
   toColor,
@@ -35,6 +35,7 @@ class NxExp extends LitElement {
     _details: { state: true },
     _errors: { state: true },
     _status: { state: true },
+    _modified: { state: true },
     _alertMessage: { state: true, type: Object },
   };
 
@@ -77,7 +78,10 @@ class NxExp extends LitElement {
   }
 
   async handleMessage({ data }) {
-    if (data.experiment) this._details = processDetails(data.experiment);
+    if (data.experiment) {
+      const details = processDetails(data.experiment);
+      this._details = observeDetailsEdited(details, () => { this._modified = true; });
+    }
     if (data.page) this._page = data.page;
     this._connected = true;
   }
@@ -210,7 +214,23 @@ class NxExp extends LitElement {
 
   handlePreview(e, param) {
     e.preventDefault();
-    this.port.postMessage({ preview: param });
+
+    if (!this._modified) {
+      this.port.postMessage({ preview: param });
+      return;
+    }
+
+    this._alertMessage = {
+      title: 'Unsaved Changes',
+      message: 'You have unsaved changes in the experimentation plugin. Simulating an experiment will discard these changes. Do you wish to continue?',
+      onConfirm: () => {
+        this._alertMessage = null;
+        this.port.postMessage({ preview: param });
+      },
+      onCancel: () => {
+        this._alertMessage = null;
+      },
+    };
   }
 
   get _placeholder() {

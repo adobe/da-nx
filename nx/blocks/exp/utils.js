@@ -51,6 +51,24 @@ export function processDetails(experiment) {
   return { ...experiment, variants };
 }
 
+export function observeDetailsEdited(details, callback) {
+  const PROPS_TO_OBSERVE = ['name', 'type', 'goal', 'startDate', 'endDate', 'percent', 'url'];
+
+  const handler = {
+    set(obj, prop, value) {
+      obj[prop] = value;
+      if (PROPS_TO_OBSERVE.includes(prop)) callback();
+      return true;
+    },
+  };
+
+  details.variants.forEach((variant, i) => {
+    details.variants[i] = new Proxy(variant, handler);
+  });
+
+  return new Proxy(details, handler);
+}
+
 export function getOrgSite(url) {
   try {
     const { hostname, pathname } = new URL(url);

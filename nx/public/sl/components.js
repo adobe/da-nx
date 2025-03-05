@@ -127,10 +127,8 @@ class SlDialog extends LitElement {
   updated(props) {
     if (props.has('open')) {
       if (this.open) {
-        console.log('show modal');
         this.shadowRoot.querySelector('dialog').showModal();
       } else {
-        console.log('close modal');
         this.shadowRoot.querySelector('dialog').close();
       }
     }
