@@ -1,3 +1,10 @@
+/*
+ *
+ * This file executes **on** the consuming project's page.
+ *
+ * This loads an iframe that loads the `exp` block.
+ */
+
 import { loadStyle } from '../../../scripts/nexter.js';
 import { makeDraggable, calcOrigin, calcUrl, getExpDetails } from './utils.js';
 
@@ -5,9 +12,9 @@ import { makeDraggable, calcOrigin, calcUrl, getExpDetails } from './utils.js';
 const { searchParams, origin, pathname, hash } = new URL(window.location.href);
 const branch = searchParams.get('nx') || 'main';
 
-export const EXP_SRC = branch === 'local' || origin.includes('localhost')
-  ? 'https://main--da-live--adobe.aem.live/plugins/exp?nx=local'
-  : 'https://da.live/plugins/exp';
+export const EXP_SRC = branch === 'main'
+  ? 'https://da.live/plugins/exp'
+  : `https://main--da-live--adobe.aem.live/plugins/exp?nx=${branch}`;
 
 const MAIN_SELECTOR = 'aem-sidekick-exp';
 

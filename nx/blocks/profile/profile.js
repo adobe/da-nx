@@ -2,6 +2,8 @@ import { LitElement, html, nothing } from 'da-lit';
 import { getConfig } from '../../scripts/nexter.js';
 import getStyle from '../../utils/styles.js';
 import getSvg from '../../utils/svg.js';
+import { daFetch } from '../../utils/daFetch.js';
+import { DA_ORIGIN } from '../../public/utils/constants.js';
 import { loadIms, handleSignIn, handleSignOut } from '../../utils/ims.js';
 
 const { nxBase } = getConfig();
@@ -14,6 +16,7 @@ const ICONS = [
 
 class NxProfile extends LitElement {
   static properties = {
+    loginPopup: { type: Boolean },
     _signedIn: { state: true },
     _details: { state: true },
     _avatar: { state: true },
@@ -34,7 +37,7 @@ class NxProfile extends LitElement {
 
   async getDetails() {
     try {
-      this._details = await loadIms(true);
+      this._details = await loadIms(this.loginPopup);
       if (this._details.anonymous) {
         this._signedIn = false;
         return;
@@ -84,6 +87,15 @@ class NxProfile extends LitElement {
 
   handleOrgCancel() {
     this._orgs = undefined;
+  }
+
+  async handleSignOut() {
+    try {
+      await daFetch(`${DA_ORIGIN}/logout`);
+    } catch {
+      // logout did not work.
+    }
+    handleSignOut();
   }
 
   get _notice() {
@@ -154,7 +166,7 @@ class NxProfile extends LitElement {
               <li><a href="https://adminconsole.adobe.com" target="_blank">Admin Console</a></li>
             </ul>
           </div>
-          <button class="nx-menu-btn nx-menu-btn-signout" @click=${handleSignOut}>Sign out</button>
+          <button class="nx-menu-btn nx-menu-btn-signout" @click=${this.handleSignOut}>Sign out</button>
         </div>
       </div>
     `;
