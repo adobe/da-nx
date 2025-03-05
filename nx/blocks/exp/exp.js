@@ -29,13 +29,18 @@ class NxExp extends LitElement {
   static properties = {
     port: { attribute: false },
     _ims: { state: true },
-    _authenticated: { state: true },
+    _authState: { state: true },
     _connected: { state: true },
     _page: { state: true },
     _details: { state: true },
     _errors: { state: true },
     _status: { state: true },
   };
+
+  constructor() {
+    super();
+    this._authState = 'uninitialized';
+  }
 
   async connectedCallback() {
     super.connectedCallback();
@@ -47,9 +52,13 @@ class NxExp extends LitElement {
     if (!this._page) {
       return;
     }
-    const authenticated = await checkAuth(this._page);
-    if (authenticated) {
-      this._authenticated = true;
+    const { ok, status } = await checkAuth(this._page);
+    if (ok) {
+      this._authState = 'authenticated';
+    } else if (status === 401) {
+      this._authState = 'unauthenticated';
+    } else if (status === 403) {
+      this._authState = 'forbidden';
     }
   }
 
@@ -59,6 +68,9 @@ class NxExp extends LitElement {
       this.port.postMessage({ ready: true });
       // Wait for more messages from the other side.
       this.port.onmessage = (e) => { this.handleMessage(e); };
+    }
+    if (props.has('_page')) {
+      this.checkAuthenticated();
     }
     super.update();
   }
@@ -196,15 +208,11 @@ class NxExp extends LitElement {
       ${this._details.name ? `${this._details.name}/` : ''}...`;
   }
 
-  handleLogin() {
-    window.open('https://da.live/plugins/exp-login', '_blank');
-  }
-
   renderHeader() {
     return html`
       <div class="nx-exp-header">
         <h1>Experimentation</h1>
-        <nx-profile @loaded=${this.handleProfileLoad}></nx-profile>
+        <nx-profile loginPopup="true" @loaded=${this.handleProfileLoad}></nx-profile>
       </div>
     `;
   }
@@ -230,6 +238,11 @@ class NxExp extends LitElement {
   }
 
   renderLogin() {
+    const title = this._authState === 'forbidden' ? 'Access Denied' : 'Sign in to use this plugin';
+    const message = this._authState === 'forbidden'
+      ? 'You do not have permission to edit this page. Try signing in with a different account.'
+      : 'Please use the button in the top right to sign in.';
+
     return html`
       <div class="nx-new-wrapper">
         <div class="nx-new">
@@ -237,13 +250,8 @@ class NxExp extends LitElement {
               alt=""
               src="${nxBase}/img/icons/S2IconLogin20N-icon.svg"
               class="nx-new-icon nx-space-bottom-200" />
-          <p class="sl-heading-m nx-space-bottom-100">You must be logged in to use this plugin.</p>
-          <p class="sl-body-xs nx-space-bottom-300">
-            Please use the button below to log in to your account.
-          </p>
-          <div class="nx-new-action-area">
-            <sl-button @click=${this.handleLogin}>Sign In</sl-button>
-          </div>
+          <p class="sl-heading-m nx-space-bottom-100">${title}</p>
+          <p class="sl-body-xs nx-space-bottom-300">${message}</p>
         </div>
       </div>
     `;
@@ -455,10 +463,18 @@ class NxExp extends LitElement {
   }
 
   render() {
+    if (!this._ims || !this._connected || this._authState === 'uninitialized') return this.renderHeader();
+
+    if (this._authState === 'authenticated') {
+      return html`
+        ${this.renderHeader()}
+        ${this.renderReady()}
+      `;
+    }
+
     return html`
       ${this.renderHeader()}
-      ${this._ims && this._connected && !this._authenticated ? this.renderLogin() : nothing}
-      ${this._ims && this._connected && this._authenticated ? this.renderReady() : nothing}
+      ${this.renderLogin()}
     `;
   }
 }
@@ -471,8 +487,8 @@ export default async function init() {
   document.body.append(expCmp);
 
   window.addEventListener('message', (e) => {
+    if (e.data?.includes?.('from_ims=true')) window.location.reload();
     if (e.data && e.data.ready) {
-      expCmp.port = null;
       [expCmp.port] = e.ports;
     }
   });

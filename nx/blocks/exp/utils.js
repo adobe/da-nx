@@ -199,9 +199,12 @@ async function getDaDetails(page, api = 'source') {
 
 export async function checkAuth(page) {
   const { url, opts, error } = await getDaDetails(page, 'source');
-  if (error) { return false; }
+  if (error) { return { ok: false, status: 401 }; }
   const res = await fetch(url, { ...opts, method: 'HEAD' });
-  return res.ok;
+  if (!res.ok) {
+    return { ok: false, status: res.statusCode };
+  }
+  return { ok: true };
 }
 
 async function saveDoc(url, opts, doc) {
