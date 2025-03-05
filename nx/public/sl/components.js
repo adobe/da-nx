@@ -119,8 +119,6 @@ class SlDialog extends LitElement {
   }
 
   static properties = {
-    title: { type: String },
-    message: { type: String },
     open: { type: Boolean },
   };
 
@@ -134,22 +132,13 @@ class SlDialog extends LitElement {
     }
   }
 
-  onConfirm() {
-    this.dispatchEvent(new CustomEvent('confirm'));
-  }
-
-  onCancel() {
-    this.dispatchEvent(new CustomEvent('cancel'));
-  }
-
   render() {
     return html`
       <dialog class="sl-dialog">
-        <h2>${this.title}</h2>
-        <p>${this.message}</p>
+        <slot name="title"></slot>
+        <slot name="message"></slot>
         <div class="sl-dialog-actions">
-          <sl-button @click=${this.onCancel} class="primary outline">Cancel</sl-button>
-          <sl-button @click=${this.onConfirm}>Confirm</sl-button>
+          <slot name="actions"></slot>
         </div>
       </dialog>
     `;

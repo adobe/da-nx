@@ -513,12 +513,20 @@ class NxExp extends LitElement {
         ${this.renderActions()}
         ${this.renderDanger()}
       </form>
-      <sl-dialog
-          title=${this._alertMessage?.title}
-          message=${this._alertMessage?.message}
-          ?open=${this._alertMessage}
-          @cancel=${() => { this._alertMessage?.onCancel?.(); this._alertMessage = null; }}
-          @confirm=${() => { this._alertMessage?.onConfirm?.(); this._alertMessage = null; }}>
+      <sl-dialog ?open=${this._alertMessage}>
+        <h2 slot="title">${this._alertMessage?.title}</h2>
+        <p slot="message">${this._alertMessage?.message}</p>
+        <sl-button
+            slot="actions"
+            @click=${() => { this._alertMessage?.onCancel?.(); this._alertMessage = null; }}
+            class="primary outline">
+          Cancel
+        </sl-button>
+        <sl-button
+            slot="actions"
+            @click=${() => { this._alertMessage?.onConfirm?.(); this._alertMessage = null; }}>
+          Confirm
+        </sl-button>
       </sl-dialog>
     `;
   }

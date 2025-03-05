@@ -238,12 +238,12 @@ button {
     display: none;
   }
 
-  h2 {
+  slot[name="title"] {
     font-size: var(--s2-heading-size-300);
     margin-bottom: var(--spacing-300);
   }
 
-  p {
+  slot[name="message"] {
     font-size: var(--dialog-font-size);
     margin: 0;
   }
