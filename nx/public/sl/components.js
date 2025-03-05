@@ -112,6 +112,53 @@ class SlButton extends LitElement {
   }
 }
 
+class SlDialog extends LitElement {
+  async connectedCallback() {
+    super.connectedCallback();
+    this.shadowRoot.adoptedStyleSheets = [style];
+  }
+
+  static properties = {
+    title: { type: String },
+    message: { type: String },
+    open: { type: Boolean },
+  };
+
+  updated(props) {
+    if (props.has('open')) {
+      if (this.open) {
+        console.log('show modal');
+        this.shadowRoot.querySelector('dialog').showModal();
+      } else {
+        console.log('close modal');
+        this.shadowRoot.querySelector('dialog').close();
+      }
+    }
+  }
+
+  onConfirm() {
+    this.dispatchEvent(new CustomEvent('confirm'));
+  }
+
+  onCancel() {
+    this.dispatchEvent(new CustomEvent('cancel'));
+  }
+
+  render() {
+    return html`
+      <dialog class="sl-dialog">
+        <h2>${this.title}</h2>
+        <p>${this.message}</p>
+        <div class="sl-dialog-actions">
+          <sl-button @click=${this.onCancel} class="primary outline">Cancel</sl-button>
+          <sl-button @click=${this.onConfirm}>Confirm</sl-button>
+        </div>
+      </dialog>
+    `;
+  }
+}
+
 customElements.define('sl-input', SlInput);
 customElements.define('sl-select', SlSelect);
 customElements.define('sl-button', SlButton);
+customElements.define('sl-dialog', SlDialog);

@@ -35,6 +35,7 @@ class NxExp extends LitElement {
     _details: { state: true },
     _errors: { state: true },
     _status: { state: true },
+    _alertMessage: { state: true, type: Object },
   };
 
   constructor() {
@@ -183,14 +184,23 @@ class NxExp extends LitElement {
       return;
     }
 
-    // Set the experiment status based on the button clicked
-    this._details.status = status;
+    const onConfirm = async () => {
+      this._alertMessage = null;
+      // Set the experiment status based on the button clicked
+      this._details.status = status;
 
-    // Bind to this so it can be called outside the class
-    const setStatus = this.setStatus.bind(this);
-    const result = await saveDetails(this._page, this._details, setStatus, forcePublish);
-    if (result.status !== 'ok') return;
-    this.port.postMessage({ reload: true });
+      // Bind to this so it can be called outside the class
+      const setStatus = this.setStatus.bind(this);
+      const result = await saveDetails(this._page, this._details, setStatus, forcePublish);
+      if (result.status !== 'ok') return;
+      this.port.postMessage({ reload: true });
+    };
+
+    this._alertMessage = {
+      title: 'Confirm action',
+      message: `Moving the experiment to ${status} status will also update the page to include any other changes since the last modification. Do you wish to continue?`,
+      onConfirm,
+    };
   }
 
   handleLink(e, href) {
@@ -455,6 +465,13 @@ class NxExp extends LitElement {
         ${this.renderDates()}
         ${this.renderActions()}
       </form>
+      <sl-dialog
+          title=${this._alertMessage?.title}
+          message=${this._alertMessage?.message}
+          ?open=${this._alertMessage}
+          @cancel=${() => { this._alertMessage?.onCancel?.(); this._alertMessage = null; }}
+          @confirm=${() => { this._alertMessage?.onConfirm?.(); this._alertMessage = null; }}>
+      </sl-dialog>
     `;
   }
 

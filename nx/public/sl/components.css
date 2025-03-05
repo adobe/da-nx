@@ -205,3 +205,42 @@ button {
     border-color: var(--s2-blue-800);
   }
 }
+
+.sl-dialog {
+  --dialog-font-size: 16px;
+
+  max-width: 95vw;
+  box-sizing: border-box;
+  border-radius: var(--s2-radius-300);
+  display: flex;
+  border: none;
+  justify-content: end;
+  flex-direction: column;
+  padding: var(--spacing-500);
+  font-family: var(--body-font-family);
+
+  &::backdrop {
+    background: rgb(0 0 0 / 44%);
+  }
+
+  &:not([open]) {
+    display: none;
+  }
+
+  h2 {
+    font-size: var(--s2-heading-size-300);
+    margin-bottom: var(--spacing-300);
+  }
+
+  p {
+    font-size: var(--dialog-font-size);
+    margin: 0;
+  }
+
+  .sl-dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--spacing-200);
+    margin-top: var(--spacing-500);
+  }
+}
