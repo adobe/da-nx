@@ -84,6 +84,13 @@ class NxExpEdit extends LitElement {
     this.dispatchEvent(new CustomEvent('action', opts));
   }
 
+  handleDelete(idx) {
+    if (idx === 0) return;
+    this.details.variants.splice(idx, 1);
+    this.fixPercentages(null, false);
+    this.requestUpdate();
+  }
+
   renderVariant(variant, idx) {
     const error = this._errors?.variants?.[idx].error;
     const isControl = idx === 0;
@@ -285,21 +292,6 @@ class NxExpEdit extends LitElement {
         ${this.renderDates()}
         ${this.renderActions()}
       </div>
-      <sl-dialog class="nx-dialog" ?open=${this._alertMessage} modal="true">
-        <h2>${this._alertMessage?.title}</h2>
-        <p>${this._alertMessage?.message}</p>
-        <div class="nx-dialog-actions">
-          <sl-button
-              @click=${() => { this._alertMessage?.onCancel?.(); this._alertMessage = null; }}
-              class="primary outline">
-            Cancel
-          </sl-button>
-          <sl-button
-              @click=${() => { this._alertMessage?.onConfirm?.(); this._alertMessage = null; }}>
-            Confirm
-          </sl-button>
-        </div>
-      </sl-dialog>
     `;
   }
 }

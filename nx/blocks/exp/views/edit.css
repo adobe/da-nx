@@ -23,30 +23,6 @@
   align-items: center;
 }
 
-.nx-dialog {
-  --dialog-font-size: 16px;
-
-  display: flex;
-  flex-direction: column;
-
-  h1 {
-    font-size: var(--s2-heading-size-300);
-    margin-bottom: var(--spacing-300);
-  }
-
-  p {
-    font-size: var(--dialog-font-size);
-    margin: 0;
-  }
-
-  .nx-dialog-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: var(--spacing-200);
-    margin-top: var(--spacing-500);
-  }
-}
-
 .nx-new {
   text-align: center;
   margin-top: -56px;

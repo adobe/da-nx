@@ -104,13 +104,6 @@ class NxExp extends LitElement {
     this.requestUpdate();
   }
 
-  handleDelete(idx) {
-    if (idx === 0) return;
-    this._details.variants.splice(idx, 1);
-    this.fixPercentages(null, false);
-    this.requestUpdate();
-  }
-
   handleDeleteExperiment() {
     this._alertMessage = {
       title: 'Confirm deletion',
@@ -180,7 +173,7 @@ class NxExp extends LitElement {
 
   handleViewAction(e) {
     if (e.detail.action === 'delete') {
-      // delete
+      this.handleDeleteExperiment();
       return;
     }
     if (e.detail.action === 'edit') {
@@ -193,6 +186,9 @@ class NxExp extends LitElement {
     }
     if (e.detail.action === 'pause') {
       // pause
+    }
+    if (e.detail.action === 'dialog') {
+      this._alertMessage = e.detail.dialog;
     }
   }
 
@@ -255,10 +251,31 @@ class NxExp extends LitElement {
     return nothing;
   }
 
+  renderDialog() {
+    return html`
+      <sl-dialog class="nx-dialog" ?open=${this._alertMessage} modal="true">
+        <h2>${this._alertMessage?.title}</h2>
+        <p>${this._alertMessage?.message}</p>
+        <div class="nx-dialog-actions">
+          <sl-button
+              @click=${() => { this._alertMessage?.onCancel?.(); this._alertMessage = null; }}
+              class="primary outline">
+            Cancel
+          </sl-button>
+          <sl-button
+              @click=${() => { this._alertMessage?.onConfirm?.(); this._alertMessage = null; }}>
+            Confirm
+          </sl-button>
+        </div>
+      </sl-dialog>
+    `;
+  }
+
   render() {
     return html`
       ${this.renderHeader()}
       ${this._ims?.anonymous ? html`<nx-exp-login></nx-exp-login>` : this.renderReady()}
+      ${this.renderDialog()}
     `;
   }
 }
