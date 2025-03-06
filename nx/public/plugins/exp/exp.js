@@ -25,7 +25,6 @@ async function init(port1) {
   const projOrigin = calcOrigin();
   const url = calcUrl();
   const experiment = getExpDetails();
-
   port1.postMessage({ page: { origin: projOrigin, url }, experiment });
 }
 

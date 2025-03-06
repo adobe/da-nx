@@ -15,6 +15,25 @@ export function getDefaultData(page) {
   };
 }
 
+export const strings = {
+  mab: 'Multi-armed bandit',
+  ab: 'A/B Test',
+  conversion: 'Overall conversion',
+  'form-submit': 'Form submission',
+  engagement: 'Engagement',
+};
+
+export function formatDate(timestamp) {
+  // Force to local time
+  const parsedDate = new Date(timestamp);
+  const localDate = new Date(parsedDate.getTime() + (parsedDate.getTimezoneOffset() * 60000));
+
+  // Put it into a decent looking format
+  const date = localDate.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' });
+  const time = localDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  return `${date} ${time}`;
+}
+
 /**
  * Convert a string to a hex color
  * @param {String} str
@@ -45,7 +64,7 @@ function getName(variant, idx) {
 
 export function processDetails(experiment) {
   const { variants } = experiment;
-  variants.forEach((variant, idx) => {
+  variants?.forEach((variant, idx) => {
     variant.name = getName(variant, idx);
   });
   return { ...experiment, variants };
@@ -62,7 +81,7 @@ export function observeDetailsEdited(details, callback) {
     },
   };
 
-  details.variants.forEach((variant, i) => {
+  details.variants?.forEach((variant, i) => {
     details.variants[i] = new Proxy(variant, handler);
   });
 
@@ -215,13 +234,18 @@ async function getDaDetails(page, api = 'source') {
   return { url, opts };
 }
 
-export async function checkAuth(page) {
-  const { url, opts, error } = await getDaDetails(page, 'source');
-  if (error) { return { ok: false, status: 401 }; }
-  const res = await fetch(url, { ...opts, method: 'HEAD' });
-  if (!res.ok) {
-    return { ok: false, status: res.statusCode };
+export async function getIsAllowed(page) {
+  const { url, opts } = await getDaDetails(page, 'source');
+
+  try {
+    const res = await fetch(url, { ...opts, method: 'HEAD' });
+
+    // We only care about 401 & 403. 404s could be net new pages.
+    if (res.statusCode === 401 || res.statusCode === 403) return { ok: false };
+  } catch (e) {
+    console.log(e);
   }
+
   return { ok: true };
 }
 

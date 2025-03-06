@@ -16,7 +16,7 @@ svg {
   height: 20px;
 }
 
-form {
+div.nx-exp-main {
   overflow: scroll;
   padding-bottom: 65px;
 }

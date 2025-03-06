@@ -150,8 +150,9 @@
 }
 
 button {
-  display: block;
-  padding: 5px 14px;
+  display: flex;
+  gap: 6px;
+  padding: 5px 16px 5px 14px;
   line-height: 18px;
   font-size: 14px;
   color: #fff;
@@ -204,6 +205,11 @@ button {
         border-color: var(--s2-gray-600);
         color: var(--s2-gray-600);
       }
+    }
+
+    svg.icon {
+      width: 20px;
+      height: 20px;
     }
   }
 

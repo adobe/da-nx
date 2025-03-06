@@ -15,7 +15,7 @@ export function calcUrl() {
 
 export function getExpDetails() {
   const name = getMetadata('experiment');
-  if (!name) return null;
+  if (!name) return {};
 
   const details = { name };
 

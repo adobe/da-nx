@@ -63,7 +63,7 @@ class NxProfile extends LitElement {
 
   handleLoaded() {
     this.dataset.loaded = true;
-    const opts = { bubbles: true, composed: true };
+    const opts = { detail: this._details, bubbles: true, composed: true };
     const event = new CustomEvent('loaded', opts);
     this.dispatchEvent(event);
   }

@@ -4,18 +4,22 @@ import { getConfig, loadStyle } from '../../scripts/nexter.js';
 import getStyle from '../../utils/styles.js';
 import getSvg from '../../utils/svg.js';
 import {
-  calcLinks,
-  checkAuth, deleteExperiment,
-  getAbb,
+  deleteExperiment,
+  getIsAllowed,
   getDefaultData,
-  getErrors, observeDetailsEdited,
+  getErrors,
+  observeDetailsEdited,
   processDetails,
   saveDetails,
-  toColor,
 } from './utils.js';
 
+// Super Lite
 import '../../public/sl/components.js';
-import '../profile/profile.js';
+
+// Sub-components
+import './views/login.js';
+import './views/view.js';
+import './views/edit.js';
 
 const { nxBase } = getConfig();
 
@@ -29,8 +33,8 @@ class NxExp extends LitElement {
   static properties = {
     port: { attribute: false },
     _ims: { state: true },
-    _authState: { state: true },
-    _connected: { state: true },
+    _isAllowed: { state: true },
+    _view: { state: true },
     _page: { state: true },
     _details: { state: true },
     _errors: { state: true },
@@ -39,28 +43,39 @@ class NxExp extends LitElement {
     _alertMessage: { state: true, type: Object },
   };
 
-  constructor() {
-    super();
-    this._authState = 'uninitialized';
-  }
-
   async connectedCallback() {
     super.connectedCallback();
     getSvg({ parent: this.shadowRoot, paths: ICONS });
     this.shadowRoot.adoptedStyleSheets = [sl, exp];
   }
 
-  async checkAuthenticated() {
-    if (!this._page) {
-      return;
+  /**
+   * Handle the profile web component loading.
+   *
+   * We should show nothing until this data is loaded.
+   *
+   * @param {Event} e the event
+   */
+  async handleProfileLoad(e) {
+    // This will have the entire profile or be anon.
+    this._ims = e.detail;
+
+    const { ok } = await getIsAllowed(this._page);
+    this._isAllowed = ok;
+  }
+
+  async handleMessage({ data }) {
+    const { page, experiment } = data;
+    if (page) {
+      // Only load the profile (and IMS) after we get the page data
+      await import('../profile/profile.js');
+      this._page = data.page;
     }
-    const { ok, status } = await checkAuth(this._page);
-    if (ok) {
-      this._authState = 'authenticated';
-    } else if (status === 401) {
-      this._authState = 'unauthenticated';
-    } else if (status === 403) {
-      this._authState = 'forbidden';
+    if (experiment) {
+      const expData = experiment.name ? experiment : getDefaultData(this._page);
+      const details = processDetails(expData);
+      this._details = observeDetailsEdited(details, () => { this._modified = true; });
+      this._view = expData.name ? 'view' : 'edit';
     }
   }
 
@@ -71,24 +86,8 @@ class NxExp extends LitElement {
       // Wait for more messages from the other side.
       this.port.onmessage = (e) => { this.handleMessage(e); };
     }
-    if (props.has('_page')) {
-      this.checkAuthenticated();
-    }
+
     super.update();
-  }
-
-  async handleMessage({ data }) {
-    if (data.experiment) {
-      const details = processDetails(data.experiment);
-      this._details = observeDetailsEdited(details, () => { this._modified = true; });
-    }
-    if (data.page) this._page = data.page;
-    this._connected = true;
-  }
-
-  handleProfileLoad() {
-    this._ims = true;
-    this.checkAuthenticated();
   }
 
   setStatus(text, type) {
@@ -242,9 +241,18 @@ class NxExp extends LitElement {
     };
   }
 
-  openDangerArea(e) {
-    e.preventDefault();
-    this.shadowRoot.querySelector('.nx-danger-area').classList.toggle('is-open');
+  handleViewAction(e) {
+    if (e.detail.action === 'delete') {
+      // delete
+      return;
+    }
+    if (e.detail.action === 'edit') {
+      this._view = 'edit';
+      return;
+    }
+    if (e.detai.action === 'pause') {
+      // pause
+    }
   }
 
   get _placeholder() {
@@ -261,32 +269,7 @@ class NxExp extends LitElement {
     `;
   }
 
-  renderNone() {
-    return html`
-      <div class="nx-new-wrapper">
-        <div class="nx-new">
-          <img
-            alt=""
-            src="${nxBase}/img/icons/S2IconUsersNo20N-icon.svg"
-            class="nx-new-icon nx-space-bottom-200" />
-          <p class="sl-heading-m nx-space-bottom-100">No experiments on this page.</p>
-          <p class="sl-body-xs nx-space-bottom-300">
-            Create a new experiment to start optimizing your web page.
-          </p>
-          <div class="nx-new-action-area">
-            <sl-button @click=${this.handleNewExp}>Create new</sl-button>
-          </div>
-        </div>
-      </div>
-    `;
-  }
-
   renderLogin() {
-    const title = this._authState === 'forbidden' ? 'Access Denied' : 'Sign in to use this plugin';
-    const message = this._authState === 'forbidden'
-      ? 'You do not have permission to edit this page. Try signing in with a different account.'
-      : 'Please use the button in the top right to sign in.';
-
     return html`
       <div class="nx-new-wrapper">
         <div class="nx-new">
@@ -294,260 +277,46 @@ class NxExp extends LitElement {
               alt=""
               src="${nxBase}/img/icons/S2IconLogin20N-icon.svg"
               class="nx-new-icon nx-space-bottom-200" />
-          <p class="sl-heading-m nx-space-bottom-100">${title}</p>
-          <p class="sl-body-xs nx-space-bottom-300">${message}</p>
+          <p class="sl-heading-m nx-space-bottom-100">ABC}</p>
+          <p class="sl-body-xs nx-space-bottom-300">123</p>
         </div>
       </div>
-    `;
-  }
-
-  renderVariant(variant, idx) {
-    const error = this._errors?.variants?.[idx].error;
-    const isControl = idx === 0;
-    const percent = variant.percent || 0;
-    const isActive = this._details.experimentStatus === 'active';
-
-    const {
-      editUrl,
-      openUrl,
-      previewParam,
-    } = calcLinks(this._details.name, variant, idx);
-
-    return html`
-      <li class="${variant.open ? 'is-open' : ''} ${error ? 'has-error' : ''} nx-expandable">
-        <div class="nx-variant-name">
-          <span style="background: var(${toColor(variant.name)})">${getAbb(variant.name)}</span>
-          <p>${variant.name}</p>
-          ${isActive ? html`<div class="nx-range-wrapper"><p class="on-right">${percent}%</p></div>` : html`
-                <div class="nx-range-wrapper">
-                  <sl-input
-                      type="range"
-                      id="percent-${idx}"
-                      name="percent"
-                      min="0"
-                      max="100"
-                      step="5"
-                      ?disabled="${isActive ? 'true' : undefined}"
-                      .value=${percent}
-                      @input=${(e) => { this.handlePercentInput(e, idx); }}>
-                  </sl-input>
-                  <p class="${percent < 50 ? 'on-right' : ''}">${percent}%</p>
-                </div>
-              `}
-          <button @click=${(e) => this.handleOpen(e, idx)} class="nx-exp-btn-more">Details</button>
-        </div>
-        <div class="nx-variant-details">
-          <hr/>
-          <sl-input
-            class="nx-space-bottom-200"
-            label="URL"
-            type="text"
-            name="url"
-            @input=${(e) => this.handleUrlInput(e, idx)}
-            .value=${variant.url || ''}
-            error=${error}
-            ?disabled=${isControl || isActive}
-            placeholder="${this._placeholder}">
-          </sl-input>
-          <div class="nx-variant-action-area ${isControl ? 'is-control' : ''}">
-            <button ?disabled=${!editUrl} @click=${(e) => this.handleLink(e, editUrl)}>
-              <img src="${nxBase}/public/icons/S2_Icon_Edit_20_N.svg" loading="lazy" />
-              <span>Edit</span>
-            </button>
-            ${!isControl ? html`
-              <button
-                ?disabled=${!openUrl}
-                @click=${(e) => this.handleLink(e, openUrl)}>
-                <img src="${nxBase}/public/icons/S2_Icon_OpenIn_20_N.svg" loading="lazy" />
-                <span>Open</span>
-            </button>` : nothing}
-            <button ?disabled=${!previewParam} @click=${(e) => this.handlePreview(e, previewParam)}>
-              <img src="${nxBase}/public/icons/S2_Icon_Community_20_N.svg" loading="lazy" />
-              <span>Simulate</span>
-            </button>
-            ${!isControl ? html`<button ?disabled="${isActive}" @click=${() => this.handleDelete(idx)}>
-              <img src="${nxBase}/public/icons/S2_Icon_Delete_20_N.svg" loading="lazy" />
-              <span>Delete</span>
-            </button>` : nothing}
-          </div>
-        </div>
-      </li>
-    `;
-  }
-
-  renderVariants() {
-    return html`
-      <div class="nx-variants-area">
-        <p class="nx-variants-heading">Variants</p>
-        <ul class="nx-variants-list">
-          ${this._details.variants?.map((variant, idx) => this.renderVariant(variant, idx))}
-        </ul>
-        ${this._details.experimentStatus === 'active' ? nothing : html`
-          <button class="nx-new-variant" @click=${this.handleNewVariant}>
-            <div class="nx-icon-wrapper">
-              <svg class="icon"><use href="#S2_Icon_Add_20_N"/></svg>
-            </div>
-            <span>New variant</span>
-          </button>
-        `}
-      </p>
-    `;
-  }
-
-  renderDates() {
-    const isActive = this._details.experimentStatus === 'active';
-
-    if (isActive && !this._details.startDate && !this._details.endDate) {
-      return nothing;
-    }
-
-    return html`
-      <div class="nx-date-area">
-        <div class="nx-grid-two-up nx-space-bottom-100">
-          <sl-input
-            label="Start date"
-            type="date"
-            id="start" name="start"
-            ?disabled="${isActive}"
-            @change=${(e) => { this.handleDateChange(e, 'startDate'); }}
-            .value=${this._details.startDate}>
-          </sl-input>
-          <sl-input
-            label="End date"
-            type="date"
-            id="end"
-            name="end"
-            ?disabled="${isActive}"
-            @change=${(e) => { this.handleDateChange(e, 'endDate'); }}
-            .value=${this._details.endDate}
-            min="2025-03-01">
-          </sl-input>
-        </div>
-      </div>
-    `;
-  }
-
-  renderActions() {
-    const isActive = this._details.experimentStatus === 'active';
-
-    if (isActive) {
-      return html`
-      <div class="nx-action-area">
-        ${this._status
-    ? html`<p class="nx-status nx-status-type-${this._status?.type || 'info'}">${this._status?.text}</p>`
-    : html`<p class="nx-status nx-status-type-info">This experiment is active.</p>`}
-        <sl-button @click=${(e) => this.handleSave(e, 'draft', true)} class="primary outline">Pause</sl-button>
-      </div>
-    `;
-    }
-
-    return html`
-      <div class="nx-action-area">
-        <p class="nx-status nx-status-type-${this._status?.type || 'info'}">${this._status?.text}</p>
-        <div>
-          <sl-button @click=${(e) => this.handleSave(e, 'draft')} class="primary outline">Save as draft</sl-button>
-          <sl-button @click=${(e) => this.handleSave(e, 'active')}>Publish</sl-button>
-        </div>
-      </div>
-    `;
-  }
-
-  renderDanger() {
-    const isActive = this._details.experimentStatus === 'active';
-    if (isActive) { return nothing; }
-
-    return html`
-      <div class="nx-danger-area nx-expandable">
-        <h4>Danger</h4>
-        <button @click=${this.openDangerArea} class="nx-exp-btn-more">Details</button>
-        <div class="nx-danger-content">
-          <p>Delete this experiment.</p>
-          <sl-button @click=${this.handleDeleteExperiment} class="negative">Delete</sl-button>
-        </div>
-      </div>
-    `;
-  }
-
-  renderDetails() {
-    return html`
-      <form>
-        <div class="nx-exp-details-header nx-space-bottom-200">
-          <p class="sl-heading-m">Edit experiment</p>
-        </div>
-        <div class="nx-details-area">
-          <sl-input
-            @input=${this.handleNameInput}
-            .value=${this._details.name}
-            class="nx-space-bottom-100"
-            type="text"
-            label="Name"
-            name="exp-name"
-            error=${this._errors?.name || nothing}
-            ?disabled="${this._details.experimentStatus === 'active' ? 'true' : undefined}"
-            placeholder="Enter experiment name"
-            class="nx-space-bottom-100"></sl-input>
-          <div class="nx-grid-two-up nx-space-bottom-300">
-            <sl-select
-              label="Type"
-              name="exp-type"
-              .value=${this._details.type}
-              ?disabled="${this._details.experimentStatus === 'active' ? 'true' : undefined}"
-              @change=${(e) => this.handleSelectChange(e, 'type')}>
-                <option value="ab">A/B test</option>
-                <option value="mab">Multi-arm bandit</option>
-            </sl-select>
-            <sl-select
-              label="Goal"
-              name="exp-opt-for"
-              .value=${this._details.goal}
-              ?disabled="${this._details.experimentStatus === 'active' ? 'true' : undefined}"
-              @change=${(e) => this.handleSelectChange(e, 'goal')}>
-                <option value="conversion">Overall conversion</option>
-                <option value="form-submit">Form submission</option>
-                <option value="engagement">Engagement</option>
-            </sl-select>
-          </div>
-        </div>
-        ${this.renderVariants()}
-        ${this.renderDates()}
-        ${this.renderActions()}
-        ${this.renderDanger()}
-      </form>
-      <sl-dialog class="nx-dialog" ?open=${this._alertMessage} modal="true">
-        <h2>${this._alertMessage?.title}</h2>
-        <p>${this._alertMessage?.message}</p>
-        <div class="nx-dialog-actions">
-          <sl-button
-              @click=${() => { this._alertMessage?.onCancel?.(); this._alertMessage = null; }}
-              class="primary outline">
-            Cancel
-          </sl-button>
-          <sl-button
-              @click=${() => { this._alertMessage?.onConfirm?.(); this._alertMessage = null; }}>
-            Confirm
-          </sl-button>
-        </div>
-      </sl-dialog>
     `;
   }
 
   renderReady() {
-    return this._details ? this.renderDetails() : this.renderNone();
+    // Do nothing until we have some value.
+    if (this._isAllowed === undefined) return nothing;
+
+    // Show the switch profile screen.
+    if (this._isAllowed === false) return '<h1>Not allowed.</h1>';
+
+    // If allowed, allow stuff...
+    if (this._isAllowed) {
+      // If someone set the view to edit, use it.
+      if (this._view === 'edit') {
+        return html`
+          <nx-exp-edit .details=${this._details}>
+          </nx-exp-edit>`;
+      }
+
+      // Default to the view screen with details.
+      if (this._details) {
+        return html`
+          <nx-exp-view
+            .details=${this._details}
+            @action=${this.handleViewAction}>
+          </nx-exp-view>
+        `;
+      }
+    }
+    return nothing;
   }
 
   render() {
-    if (!this._ims || !this._connected || this._authState === 'uninitialized') return this.renderHeader();
-
-    if (this._authState === 'authenticated') {
-      return html`
-        ${this.renderHeader()}
-        ${this.renderReady()}
-      `;
-    }
-
     return html`
       ${this.renderHeader()}
-      ${this.renderLogin()}
+      ${this._ims?.anonymous ? html`<nx-exp-login></nx-exp-login>` : this.renderReady()}
     `;
   }
 }
@@ -561,9 +330,7 @@ export default async function init() {
 
   window.addEventListener('message', (e) => {
     if (e.data?.includes?.('from_ims=true')) window.location.reload();
-    if (e.data && e.data.ready) {
-      [expCmp.port] = e.ports;
-    }
+    if (e.data && e.data.ready) [expCmp.port] = e.ports;
   });
 
   window.onbeforeunload = () => {
