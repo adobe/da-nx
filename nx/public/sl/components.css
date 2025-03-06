@@ -218,9 +218,7 @@ button {
 }
 
 .sl-dialog {
-  --dialog-font-size: 16px;
-
-  max-width: 95vw;
+  max-width: min(95vw, 600px);
   box-sizing: border-box;
   border-radius: var(--s2-radius-300);
   border: none;
