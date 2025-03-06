@@ -118,16 +118,30 @@ class SlDialog extends LitElement {
     this.shadowRoot.adoptedStyleSheets = [style];
   }
 
-  static properties = {
-    open: { type: Boolean },
-  };
+  static properties = { open: { type: Boolean }, modal: { type: Boolean } };
+
+  showModal() {
+    this.shadowRoot.querySelector('dialog').showModal();
+  }
+
+  show() {
+    this.shadowRoot.querySelector('dialog').show();
+  }
+
+  close() {
+    this.shadowRoot.querySelector('dialog').close();
+  }
 
   updated(props) {
     if (props.has('open')) {
       if (this.open) {
-        this.shadowRoot.querySelector('dialog').showModal();
+        if (this.modal) {
+          this.showModal();
+        } else {
+          this.show();
+        }
       } else {
-        this.shadowRoot.querySelector('dialog').close();
+        this.close();
       }
     }
   }
@@ -135,11 +149,7 @@ class SlDialog extends LitElement {
   render() {
     return html`
       <dialog class="sl-dialog">
-        <slot name="title"></slot>
-        <slot name="message"></slot>
-        <div class="sl-dialog-actions">
-          <slot name="actions"></slot>
-        </div>
+        <slot></slot>
       </dialog>
     `;
   }

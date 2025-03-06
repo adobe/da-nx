@@ -64,10 +64,6 @@ h1 {
   margin: 0;
 }
 
-h1:has(+ [data-loaded]) {
-  display: unset;
-}
-
 nx-profile {
   margin-right: 12px;
 }
@@ -77,6 +73,32 @@ nx-profile {
   display: flex;
   justify-content: center;
   align-items: center;
+}
+
+.nx-dialog {
+  display: flex;
+  flex-direction: column;
+
+  h1 {
+    font-size: var(--s2-heading-size-300);
+    margin-bottom: var(--spacing-300);
+  }
+
+  p {
+    font-size: var(--dialog-font-size);
+    margin: 0;
+  }
+
+  .nx-dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--spacing-200);
+    margin-top: var(--spacing-500);
+  }
+}
+
+h1:has(+ [data-loaded]) {
+  display: unset;
 }
 
 .nx-new {
