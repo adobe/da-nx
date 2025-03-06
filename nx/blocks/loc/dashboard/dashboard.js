@@ -108,10 +108,12 @@ class NxLocDashboard extends LitElement {
       translationStatus = 'Error';
     } else if (translationStatuses.every((status) => status === 'complete')) {
       translationStatus = 'Completed';
-    } else if (translationStatuses.every((status) => status === 'created')) {
+    } else if (translationStatuses.some((status) => status === 'created')) {
       translationStatus = 'Created';
-    } else if (translationStatuses.some((status) => status === 'in-progress')) {
+    } else if (translationStatuses.some((status) => status === 'in-progress') || translationStatuses.some((status) => status === 'uploading')) {
       translationStatus = 'In Progress';
+    } else if (translationStatuses.every((status) => status === 'not started')) {
+      translationStatus = 'Not Started';
     } else {
       translationStatus = 'Unknown';
     }
@@ -139,7 +141,19 @@ class NxLocDashboard extends LitElement {
    * @returns {string} The formatted timestamp
    */
   formatTimestamp(timestamp) {
-    const date = new Date(timestamp);
+    if (!timestamp) {
+      return 'unknown';
+    }
+
+    // Convert timestamp from seconds to milliseconds if needed
+    const timestampMs = timestamp.toString().length === 10 ? timestamp * 1000 : timestamp;
+    const date = new Date(timestampMs);
+
+    // Check if date is invalid
+    if (Number.isNaN(date.getTime())) {
+      return 'unknown';
+    }
+
     const options = {
       month: 'short',
       day: '2-digit',
@@ -152,22 +166,6 @@ class NxLocDashboard extends LitElement {
     // Format using Intl.DateTimeFormat
     const formattedDate = new Intl.DateTimeFormat('en-US', options).format(date);
     return formattedDate.replace(',', '');
-  }
-
-  /**
-   * Get the project details
-   * @param {string} path - The path of the project
-   * @returns {Object} The project details
-   */
-  async getProjectDetails(path) {
-    const resp = await daFetch(`${DA_ORIGIN}/versionlist${path}`);
-    const json = await resp.json();
-    if (json.length === 0) return 'anonymous';
-    const oldestVersion = json.pop();
-    const createdBy = oldestVersion?.users[0]?.email?.split('@')[0];
-    // const createdOn = new Date(oldestVersion?.timestamp);
-    const createdOn = this.formatTimestamp(oldestVersion?.timestamp);
-    return { createdBy, createdOn };
   }
 
   /**
@@ -186,8 +184,11 @@ class NxLocDashboard extends LitElement {
         const projResp = await daFetch(`${DA_ORIGIN}/source${project.path}`);
         const projJson = await projResp.json();
         project.title = projJson.title;
-        const { createdBy, createdOn } = await this.getProjectDetails(project.path);
+        const createdBy = projJson?.email;
+        const createdOn = this.formatTimestamp(projJson?.timestamp);
+
         project.languages = projJson.langs?.map((lang) => lang.name).join(', ');
+        console.log(projJson.langs);
         const { translationStatus, rolloutStatus } = this.getProjectStatuses(projJson.langs);
         return {
           title: project.title || 'Untitled',
@@ -202,6 +203,9 @@ class NxLocDashboard extends LitElement {
       this._filteredProjects = [...this._projects];
       // Sort projects by createdOn timestamp from latest to oldest
       this._filteredProjects.sort((a, b) => {
+        if (a.createdOn === 'unknown' && b.createdOn === 'unknown') return 0;
+        if (a.createdOn === 'unknown') return 1;
+        if (b.createdOn === 'unknown') return -1;
         const dateA = new Date(a.createdOn);
         const dateB = new Date(b.createdOn);
         return dateB - dateA;
