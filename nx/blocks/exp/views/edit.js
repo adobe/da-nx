@@ -1,7 +1,7 @@
 import { html, LitElement, nothing } from 'da-lit';
 import { getConfig } from '../../../scripts/nexter.js';
 import getStyle from '../../../utils/styles.js';
-import { toColor, getDefaultData, calcLinks, getAbb } from '../utils.js';
+import { toColor, calcLinks, getAbb, processDetails } from '../utils.js';
 
 const { nxBase } = getConfig();
 
@@ -9,9 +9,7 @@ const sl = await getStyle(`${nxBase}/public/sl/styles.css`);
 const style = await getStyle(import.meta.url);
 
 class NxExpEdit extends LitElement {
-  static properties = {
-    details: { attribute: false },
-  };
+  static properties = { details: { attribute: false } };
 
   async connectedCallback() {
     super.connectedCallback();
@@ -19,17 +17,84 @@ class NxExpEdit extends LitElement {
     // getSvg({ parent: this.shadowRoot, paths: ICONS });
   }
 
+  handleOpen(e, idx) {
+    e.preventDefault();
+    this.details.variants.forEach((variant, index) => {
+      variant.open = idx === index ? !variant.open : false;
+    });
+    this.requestUpdate();
+  }
+
+  handleNameInput(e) {
+    this.details.name = e.target.value.replaceAll(/[^a-zA-Z0-9]/g, '-').toLowerCase();
+    this.requestUpdate();
+  }
+
+  handleSelectChange(e, prop) {
+    this.details[prop] = e.target.value;
+  }
+
+  fixPercentages(editedIndex, isIncrease) {
+    // make sure the percentages add up to 100%
+    const usedInput = this.details.variants[editedIndex];
+    const otherInputs = this.details.variants.filter((v, i) => i !== editedIndex);
+    const percentToDistribute = 100 - (usedInput?.percent ?? 0);
+    const otherInputsPercent = otherInputs.reduce((acc, input) => acc + input.percent, 0);
+
+    otherInputs.forEach((variant) => {
+      const variantShare = (Math.max(variant.percent, 1) / Math.max(otherInputsPercent, 1))
+        * percentToDistribute;
+      variant.percent = Math.round(variantShare / 5) * 5;
+    });
+
+    const totalPercent = this.details.variants.reduce((acc, input) => acc + input.percent, 0);
+
+    const findMin = (acc, input) => (input.percent < acc.percent ? input : acc);
+    const findMax = (acc, input) => (input.percent > acc.percent ? input : acc);
+    const variantToEdit = isIncrease ? otherInputs.reduce(findMin) : otherInputs.reduce(findMax);
+    variantToEdit.percent += 100 - totalPercent;
+  }
+
+  handlePercentInput(e, idx) {
+    const increase = e.target.value > this.details.variants[idx].percent;
+    this.details.variants[idx].percent = parseInt(e.target.value, 10);
+    this.fixPercentages(idx, increase);
+
+    this.requestUpdate();
+  }
+
+  handleUrlInput(e, idx) {
+    this.details.variants[idx].url = e.target.value;
+    this.requestUpdate();
+  }
+
+  handleDateChange(e, name) {
+    this.details[name] = e.target.value;
+  }
+
+  async handleNewVariant(e) {
+    e.preventDefault();
+    this.details.variants.push({});
+    this.details = processDetails(this.details);
+    this.requestUpdate();
+  }
+
+  handleBack() {
+    const opts = { detail: { action: 'view' }, bubbles: true, composed: true };
+    this.dispatchEvent(new CustomEvent('action', opts));
+  }
+
   renderVariant(variant, idx) {
     const error = this._errors?.variants?.[idx].error;
     const isControl = idx === 0;
     const percent = variant.percent || 0;
-    const isActive = this._details?.experimentStatus === 'active';
+    const isActive = this.details?.experimentStatus === 'active';
 
     const {
       editUrl,
       openUrl,
       previewParam,
-    } = calcLinks(this._details.name, variant, idx);
+    } = calcLinks(this.details.name, variant, idx);
 
     return html`
       <li class="${variant.open ? 'is-open' : ''} ${error ? 'has-error' : ''} nx-expandable">
@@ -98,9 +163,9 @@ class NxExpEdit extends LitElement {
       <div class="nx-variants-area">
         <p class="nx-variants-heading">Variants</p>
         <ul class="nx-variants-list">
-          ${this._details.variants?.map((variant, idx) => this.renderVariant(variant, idx))}
+          ${this.details.variants?.map((variant, idx) => this.renderVariant(variant, idx))}
         </ul>
-        ${this._details.experimentStatus === 'active' ? nothing : html`
+        ${this.details.experimentStatus === 'active' ? nothing : html`
           <button class="nx-new-variant" @click=${this.handleNewVariant}>
             <div class="nx-icon-wrapper">
               <svg class="icon"><use href="#S2_Icon_Add_20_N"/></svg>
@@ -121,7 +186,7 @@ class NxExpEdit extends LitElement {
             type="date"
             id="start" name="start"
             @change=${(e) => { this.handleDateChange(e, 'startDate'); }}
-            .value=${this._details.startDate}>
+            .value=${this.details.startDate}>
           </sl-input>
           <sl-input
             label="End date"
@@ -129,7 +194,7 @@ class NxExpEdit extends LitElement {
             id="end"
             name="end"
             @change=${(e) => { this.handleDateChange(e, 'endDate'); }}
-            .value=${this._details.endDate}
+            .value=${this.details.endDate}
             min="2025-03-01">
           </sl-input>
         </div>
@@ -170,11 +235,16 @@ class NxExpEdit extends LitElement {
   }
 
   render() {
+    if (!this.details) return html`Nothing`;
+
     if (this.details.name) this.renderNone();
 
     return html`
       <div class="nx-exp-main">
         <div class="nx-exp-details-header nx-space-bottom-200">
+          <button aria-label="Back" @click=${this.handleBack}>
+            <img class="nx-exp-back" src="${nxBase}/img/icons/S2_Icon_Undo_20_N.svg" />
+          </button>
           <p class="sl-heading-m">Edit experiment</p>
         </div>
         <div class="nx-details-area">

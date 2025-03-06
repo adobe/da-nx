@@ -23,7 +23,6 @@ import './views/edit.js';
 
 const { nxBase } = getConfig();
 
-document.body.style = 'height: 600px; overflow: hidden;';
 const sl = await getStyle(`${nxBase}/public/sl/styles.css`);
 const exp = await getStyle(import.meta.url);
 
@@ -105,21 +104,6 @@ class NxExp extends LitElement {
     this.requestUpdate();
   }
 
-  async handleNewVariant(e) {
-    e.preventDefault();
-    this._details.variants.push({});
-    this._details = processDetails(this._details);
-    this.requestUpdate();
-  }
-
-  handleOpen(e, idx) {
-    e.preventDefault();
-    this._details.variants.forEach((variant, index) => {
-      variant.open = idx === index ? !variant.open : false;
-    });
-    this.requestUpdate();
-  }
-
   handleDelete(idx) {
     if (idx === 0) return;
     this._details.variants.splice(idx, 1);
@@ -139,53 +123,6 @@ class NxExp extends LitElement {
       },
       onCancel: () => { this._alertMessage = null; },
     };
-  }
-
-  handleNameInput(e) {
-    this._details.name = e.target.value.replaceAll(/[^a-zA-Z0-9]/g, '-').toLowerCase();
-    this.requestUpdate();
-  }
-
-  handleSelectChange(e, prop) {
-    this._details[prop] = e.target.value;
-  }
-
-  fixPercentages(editedIndex, isIncrease) {
-    // make sure the percentages add up to 100%
-    const usedInput = this._details.variants[editedIndex];
-    const otherInputs = this._details.variants.filter((v, i) => i !== editedIndex);
-    const percentToDistribute = 100 - (usedInput?.percent ?? 0);
-    const otherInputsPercent = otherInputs.reduce((acc, input) => acc + input.percent, 0);
-
-    otherInputs.forEach((variant) => {
-      const variantShare = (Math.max(variant.percent, 1) / Math.max(otherInputsPercent, 1))
-        * percentToDistribute;
-      variant.percent = Math.round(variantShare / 5) * 5;
-    });
-
-    const totalPercent = this._details.variants.reduce((acc, input) => acc + input.percent, 0);
-
-    const findMin = (acc, input) => (input.percent < acc.percent ? input : acc);
-    const findMax = (acc, input) => (input.percent > acc.percent ? input : acc);
-    const variantToEdit = isIncrease ? otherInputs.reduce(findMin) : otherInputs.reduce(findMax);
-    variantToEdit.percent += 100 - totalPercent;
-  }
-
-  handlePercentInput(e, idx) {
-    const increase = e.target.value > this._details.variants[idx].percent;
-    this._details.variants[idx].percent = parseInt(e.target.value, 10);
-    this.fixPercentages(idx, increase);
-
-    this.requestUpdate();
-  }
-
-  handleUrlInput(e, idx) {
-    this._details.variants[idx].url = e.target.value;
-    this.requestUpdate();
-  }
-
-  handleDateChange(e, name) {
-    this._details[name] = e.target.value;
   }
 
   async handleSave(e, status, forcePublish = false) {
@@ -250,7 +187,11 @@ class NxExp extends LitElement {
       this._view = 'edit';
       return;
     }
-    if (e.detai.action === 'pause') {
+    if (e.detail.action === 'view') {
+      this._view = 'view';
+      return;
+    }
+    if (e.detail.action === 'pause') {
       // pause
     }
   }
@@ -296,7 +237,7 @@ class NxExp extends LitElement {
       // If someone set the view to edit, use it.
       if (this._view === 'edit') {
         return html`
-          <nx-exp-edit .details=${this._details}>
+          <nx-exp-edit @action=${this.handleViewAction} .details=${this._details} class="nx-content">
           </nx-exp-edit>`;
       }
 
@@ -304,6 +245,7 @@ class NxExp extends LitElement {
       if (this._details) {
         return html`
           <nx-exp-view
+            class="nx-content"
             .details=${this._details}
             @action=${this.handleViewAction}>
           </nx-exp-view>
