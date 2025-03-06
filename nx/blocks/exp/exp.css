@@ -49,6 +49,7 @@ button:not(:disabled) {
 
   display: flex;
   flex-direction: column;
+  height: 0;
 
   h1 {
     font-size: var(--s2-heading-size-300);
@@ -69,7 +70,6 @@ button:not(:disabled) {
 }
 
 h1 {
-  display: none;
   font-size: 16px;
   line-height: 1;
   margin: 0;

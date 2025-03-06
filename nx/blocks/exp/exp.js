@@ -20,6 +20,7 @@ import '../../public/sl/components.js';
 import './views/login.js';
 import './views/view.js';
 import './views/edit.js';
+import './components/action-bar.js';
 
 const { nxBase } = getConfig();
 
@@ -118,8 +119,7 @@ class NxExp extends LitElement {
     };
   }
 
-  async handleSave(e, status, forcePublish = false) {
-    e.preventDefault();
+  async saveExperiment(status, forcePublish = false) {
     this._errors = getErrors(this._details);
     if (this._errors) {
       this.setStatus('Please fix errors.', 'error');
@@ -184,8 +184,13 @@ class NxExp extends LitElement {
       this._view = 'view';
       return;
     }
+    if (e.detail.action === 'save') {
+      this.saveExperiment(e.detail.status);
+      return;
+    }
     if (e.detail.action === 'pause') {
-      // pause
+      this.saveExperiment('draft', true);
+      return;
     }
     if (e.detail.action === 'dialog') {
       this._alertMessage = e.detail.dialog;

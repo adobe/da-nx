@@ -84,6 +84,12 @@ class NxExpEdit extends LitElement {
     this.dispatchEvent(new CustomEvent('action', opts));
   }
 
+  handleSave(e, status) {
+    e.preventDefault();
+    const opts = { detail: { action: 'save', status }, bubbles: true, composed: true };
+    this.dispatchEvent(new CustomEvent('action', opts));
+  }
+
   handleDelete(idx) {
     if (idx === 0) return;
     this.details.variants.splice(idx, 1);
@@ -211,13 +217,10 @@ class NxExpEdit extends LitElement {
 
   renderActions() {
     return html`
-      <div class="nx-action-area">
-        <p class="nx-status nx-status-type-${this._uiStatus?.type || 'info'}">${this._uiStatus?.text}</p>
-        <div>
-          <sl-button @click=${(e) => this.handleSave(e, 'draft')} class="primary outline">Save as draft</sl-button>
-          <sl-button @click=${(e) => this.handleSave(e, 'active')}>Publish</sl-button>
-        </div>
-      </div>
+      <nx-action-bar>
+        <sl-button @click=${(e) => this.handleSave(e, 'draft')} class="primary outline">Save as draft</sl-button>
+        <sl-button @click=${(e) => this.handleSave(e, 'active')}>Publish</sl-button>
+      </nx-action-bar>
     `;
   }
 
