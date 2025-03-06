@@ -1,13 +1,13 @@
-import { addDnt as addDntGlaas, removeDnt as removeDntGlaas } from '../glaas/dnt.js';
+import { addDnt as defaultAddDnt, removeDnt as defaultRemoveDnt } from '../dnt/dnt.js';
 
 const PARSER = new DOMParser();
 
-// The google dnt layer first uses the glaas dnt layer to add the dnt attributes
-// Then it converts the glaas html to dom that google translate can process
+// The google dnt layer first uses the default dnt layer to add the dnt attributes
+// Then it converts the annotated html to dom that google translate can process
 
 export async function addDnt(inputText, config, { fileType = 'html', reset = false } = {}) {
-  const glaasHtml = await addDntGlaas(inputText, config, { fileType, reset });
-  const dom = PARSER.parseFromString(glaasHtml, 'text/html');
+  const html = await defaultAddDnt(inputText, config, { fileType, reset });
+  const dom = PARSER.parseFromString(html, 'text/html');
   const dntEls = dom.querySelectorAll('[translate="no"]');
   dntEls.forEach((el) => {
     const nestedTranslates = el.querySelectorAll('[translate="no"]');
@@ -33,7 +33,7 @@ export async function removeDnt(inputHtml, org, repo, { fileType = 'html' } = {}
   let html = inputHtml;
 
   if (fileType === 'html') {
-    html = await removeDntGlaas(html, org, repo, { fileType });
+    html = await defaultRemoveDnt(html, org, repo, { fileType });
   }
 
   const dom = PARSER.parseFromString(html, 'text/html');
@@ -45,5 +45,5 @@ export async function removeDnt(inputHtml, org, repo, { fileType = 'html' } = {}
     return `<body>${contents}</body>`;
   }
 
-  return removeDntGlaas(contents, org, repo, { fileType }); // json
+  return defaultRemoveDnt(contents, org, repo, { fileType }); // json
 }
