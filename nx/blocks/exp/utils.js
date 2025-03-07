@@ -29,9 +29,9 @@ export function formatDate(timestamp) {
   const localDate = new Date(parsedDate.getTime() + (parsedDate.getTimezoneOffset() * 60000));
 
   // Put it into a decent looking format
-  const date = localDate.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' });
-  const time = localDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-  return `${date} ${time}`;
+  return localDate.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' });
+  // const time = localDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  // return `${date} ${time}`;
 }
 
 /**

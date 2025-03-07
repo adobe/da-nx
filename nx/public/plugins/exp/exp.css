@@ -6,11 +6,11 @@
   right: 24px;
   z-index: 10000;
   border-radius: 8px;
-  overflow-y: scroll;
   background-color: #fff;
   display: none;
   align-content: start;
   grid-template-rows: 1fr;
+  overflow: hidden;
   box-shadow:
     0 0 8px 0 rgb(0 0 0 / 30%),
     0 3px 6px 0 rgb(0 0 0 / 4%),

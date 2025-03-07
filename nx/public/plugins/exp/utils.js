@@ -15,7 +15,7 @@ export function calcUrl() {
 
 export function getExpDetails() {
   const name = getMetadata('experiment');
-  if (!name) return {};
+  if (!name) return null;
 
   const details = { name };
 
@@ -32,7 +32,7 @@ export function getExpDetails() {
   if (endDate) details.endDate = endDate;
 
   const status = getMetadata('experiment-status');
-  if (status) details.experimentStatus = status;
+  if (status) details.status = status;
 
   // Add the control to the variants
   details.variants = [{ url: calcUrl() }];

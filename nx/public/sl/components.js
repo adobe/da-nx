@@ -113,43 +113,44 @@ class SlButton extends LitElement {
 }
 
 class SlDialog extends LitElement {
+  static properties = {
+    open: { type: Boolean },
+    modal: { type: Boolean },
+  };
+
   async connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
   }
 
-  static properties = { open: { type: Boolean }, modal: { type: Boolean } };
-
   showModal() {
-    this.shadowRoot.querySelector('dialog').showModal();
+    this._dialog.showModal();
   }
 
   show() {
-    this.shadowRoot.querySelector('dialog').show();
+    this._dialog.show();
   }
 
   close() {
-    this.shadowRoot.querySelector('dialog').close();
+    this._dialog.close();
   }
 
-  updated(props) {
-    if (props.has('open')) {
-      if (this.open) {
-        if (this.modal) {
-          this.showModal();
-        } else {
-          this.show();
-        }
-      } else {
-        this.close();
-      }
-    }
+  handleClose() {
+    console.log('close');
+  }
+
+  get _dialog() {
+    console.log(this.shadowRoot);
+    return this.shadowRoot.querySelector('dialog');
   }
 
   render() {
     return html`
       <dialog class="sl-dialog">
-        <slot></slot>
+        <button @click=${this.handleClose}>Close</button>
+        <form method="dialog">
+          <slot></slot>
+        </form>
       </dialog>
     `;
   }

@@ -215,15 +215,6 @@ class NxExpEdit extends LitElement {
     `;
   }
 
-  renderActions() {
-    return html`
-      <nx-action-bar>
-        <sl-button @click=${(e) => this.handleSave(e, 'draft')} class="primary outline">Save as draft</sl-button>
-        <sl-button @click=${(e) => this.handleSave(e, 'active')}>Publish</sl-button>
-      </nx-action-bar>
-    `;
-  }
-
   renderNone() {
     return html`
       <div class="nx-new-wrapper">
@@ -245,9 +236,7 @@ class NxExpEdit extends LitElement {
   }
 
   render() {
-    if (!this.details) return html`Nothing`;
-
-    if (this.details.name) this.renderNone();
+    if (!this.details?.name) this.renderNone();
 
     return html`
       <div class="nx-exp-main">

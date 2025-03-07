@@ -151,8 +151,10 @@
 
 button {
   display: flex;
+  justify-content: center;
+  min-width: 34px;
   gap: 6px;
-  padding: 5px 16px 5px 14px;
+  padding: 5px 14px;
   line-height: 18px;
   font-size: 14px;
   color: #fff;
@@ -184,6 +186,10 @@ button {
       background: var(--s2-red-800);
       border-color: var(--s2-red-800);
     }
+  }
+
+  &.icon-only {
+    padding: 5px 0;
   }
 
   &.primary {
@@ -224,6 +230,13 @@ button {
 }
 
 .sl-dialog {
+  position: fixed;
+  border: none;
+  border-radius: 16px;
+  filter: drop-shadow(0 0 8px rgb(0 0 0 / 30%));
+}
+
+/* .sl-dialog {
   max-width: 500px;
   width: calc(100% - 32px);
   box-sizing: border-box;
@@ -239,4 +252,4 @@ button {
   &:not([open]) {
     display: none;
   }
-}
+} */

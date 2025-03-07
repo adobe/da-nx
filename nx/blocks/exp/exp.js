@@ -49,36 +49,6 @@ class NxExp extends LitElement {
     this.shadowRoot.adoptedStyleSheets = [sl, exp];
   }
 
-  /**
-   * Handle the profile web component loading.
-   *
-   * We should show nothing until this data is loaded.
-   *
-   * @param {Event} e the event
-   */
-  async handleProfileLoad(e) {
-    // This will have the entire profile or be anon.
-    this._ims = e.detail;
-
-    const { ok } = await getIsAllowed(this._page);
-    this._isAllowed = ok;
-  }
-
-  async handleMessage({ data }) {
-    const { page, experiment } = data;
-    if (page) {
-      // Only load the profile (and IMS) after we get the page data
-      await import('../profile/profile.js');
-      this._page = data.page;
-    }
-    if (experiment) {
-      const expData = experiment.name ? experiment : getDefaultData(this._page);
-      const details = processDetails(expData);
-      this._details = observeDetailsEdited(details, () => { this._modified = true; });
-      this._view = expData.name ? 'view' : 'edit';
-    }
-  }
-
   update(props) {
     if (props.has('port') && this.port) {
       // Post a message saying this side is ready.
@@ -86,23 +56,40 @@ class NxExp extends LitElement {
       // Wait for more messages from the other side.
       this.port.onmessage = (e) => { this.handleMessage(e); };
     }
-
     super.update();
   }
 
   setStatus(text, type) {
     if (!text) {
-      this._status = null;
+      this._status = undefined;
     } else {
       this._status = { text, type };
     }
-    this.requestUpdate();
   }
 
-  async handleNewExp() {
+  async handleMessage({ data }) {
+    const { page, experiment } = data;
+    if (page) {
+      await import('../profile/profile.js');
+      this._page = data.page;
+    }
+    if (experiment) {
+      this._details = processDetails(experiment);
+    }
+  }
+
+  async handleExpSetup(exp) {
     const experiment = getDefaultData(this._page);
     this._details = processDetails(experiment);
     this.requestUpdate();
+  }
+
+  async handleProfileLoad(e) {
+    // This will have the entire profile or be anon.
+    this._ims = e.detail;
+
+    const { ok } = await getIsAllowed(this._page);
+    this._isAllowed = ok;
   }
 
   handleDeleteExperiment() {
@@ -236,11 +223,11 @@ class NxExp extends LitElement {
     // If allowed, allow stuff...
     if (this._isAllowed) {
       // If someone set the view to edit, use it.
-      if (this._view === 'edit') {
-        return html`
-          <nx-exp-edit @action=${this.handleViewAction} .details=${this._details} class="nx-content">
-          </nx-exp-edit>`;
-      }
+      // if (this._view === 'edit') {
+      //   return html`
+      //     <nx-exp-edit @action=${this.handleViewAction} .details=${this._details} class="nx-content">
+      //     </nx-exp-edit>`;
+      // }
 
       // Default to the view screen with details.
       if (this._details) {
@@ -256,31 +243,10 @@ class NxExp extends LitElement {
     return nothing;
   }
 
-  renderDialog() {
-    return html`
-      <sl-dialog class="nx-dialog" ?open=${this._alertMessage} modal="true">
-        <h2>${this._alertMessage?.title}</h2>
-        <p>${this._alertMessage?.message}</p>
-        <div class="nx-dialog-actions">
-          <sl-button
-              @click=${() => { this._alertMessage?.onCancel?.(); this._alertMessage = null; }}
-              class="primary outline">
-            Cancel
-          </sl-button>
-          <sl-button
-              @click=${() => { this._alertMessage?.onConfirm?.(); this._alertMessage = null; }}>
-            Confirm
-          </sl-button>
-        </div>
-      </sl-dialog>
-    `;
-  }
-
   render() {
     return html`
       ${this.renderHeader()}
       ${this._ims?.anonymous ? html`<nx-exp-login></nx-exp-login>` : this.renderReady()}
-      ${this.renderDialog()}
     `;
   }
 }
