@@ -90,7 +90,7 @@ svg.icon {
     cursor: pointer;
     display: flex;
     align-items: center;
-    font-family: var(--font-family);;
+    font-family: var(--font-family);
     gap: 6px;
     padding: 6px 12px 6px 10px;
     background: var(--s2-gray-100);

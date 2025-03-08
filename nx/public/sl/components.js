@@ -1,6 +1,9 @@
 /* eslint-disable max-classes-per-file */
+/* eslint-disable-next-line import/no-unresolved */
 import { LitElement, html, nothing, spread } from 'da-lit';
 import getStyle from '../../utils/styles.js';
+
+// const nxBase = `${new URL(import.meta.url).origin}/nx`;
 
 const style = await getStyle(import.meta.url);
 
@@ -89,6 +92,8 @@ class SlSelect extends LitElement {
 }
 
 class SlButton extends LitElement {
+  static properties = { class: { type: String } };
+
   async connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
@@ -104,11 +109,13 @@ class SlButton extends LitElement {
 
   render() {
     return html`
-      <button
-        class="${this.getAttribute('class')}"
-        ${spread(this._attrs)}>
-        <slot></slot>
-      </button>`;
+      <span class="sl-button">
+        <button
+          class="${this.class}"
+          ${spread(this._attrs)}>
+          <slot></slot>
+        </button>
+      </span>`;
   }
 }
 
@@ -118,7 +125,7 @@ class SlDialog extends LitElement {
     modal: { type: Boolean },
   };
 
-  async connectedCallback() {
+  connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
   }
@@ -135,24 +142,15 @@ class SlDialog extends LitElement {
     this._dialog.close();
   }
 
-  handleClose() {
-    console.log('close');
-  }
-
   get _dialog() {
-    console.log(this.shadowRoot);
     return this.shadowRoot.querySelector('dialog');
   }
 
   render() {
     return html`
       <dialog class="sl-dialog">
-        <button @click=${this.handleClose}>Close</button>
-        <form method="dialog">
-          <slot></slot>
-        </form>
-      </dialog>
-    `;
+        <slot></slot>
+      </dialog>`;
   }
 }
 
@@ -160,3 +158,8 @@ customElements.define('sl-input', SlInput);
 customElements.define('sl-select', SlSelect);
 customElements.define('sl-button', SlButton);
 customElements.define('sl-dialog', SlDialog);
+
+// <input type="text" name="firstName" value="My val" placeholder="Enter name" />
+//
+// await import('https://da.live/nx/public/sl/components.js');
+// <sl-input type="text" name="firstName" value="My val" placeholder="Enter name"></sl-input>
