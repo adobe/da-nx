@@ -372,7 +372,8 @@ class NxExp extends LitElement {
 
 customElements.define('nx-exp', NxExp);
 
-export default async function init() {
+export default async function init(el) {
+  el.remove();
   await loadStyle(`${nxBase}/public/sl/styles.css`);
   const expCmp = document.createElement('nx-exp');
   document.body.append(expCmp);
