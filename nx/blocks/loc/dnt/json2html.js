@@ -15,8 +15,11 @@ const extractNonDataKeys = (obj) => {
 
 const json2html = (json, dntConfig) => {
   const defaultDntConfig = { sheets: [], sheetToColumns: new Map(), universalColumns: [] };
-  const isTextInDntRules = (text) => dntConfig
-    .get('sheetRules').some((rule) => {
+
+  // Support both sheetRule config formats (defaultDnt and glassDnt)
+  const sheetRules = dntConfig?.sheetRules || dntConfig?.get('sheetRules');
+  const isTextInDntRules = (text) => sheetRules
+    .some((rule) => {
       if (rule.condition === 'exists') {
         return true;
       }

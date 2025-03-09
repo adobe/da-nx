@@ -49,7 +49,7 @@ const parseDntConfig = (config, reset = false) => {
   const docRules = dntConfig.get('docRules');
 
   // Iterate through config doc rules
-  config['dnt-doc-rules'].data.forEach((blockRule) => {
+  config['dnt-doc-rules']?.data.forEach((blockRule) => {
     const blockScopeArray = blockRule.block_scope.split(',');
     blockScopeArray.forEach((blockScope) => {
       const selector = getHtmlSelector(blockScope.trim(), blockRule);
@@ -191,8 +191,13 @@ function makeImagesRelative(document) {
       el.setAttribute('src', `.${url.pathname}`);
     } else {
       const { srcset } = el;
-      const url = new URL(srcset);
-      el.setAttribute('srcset', `.${url.pathname}`);
+      try {
+        const url = new URL(srcset);
+        el.setAttribute('srcset', `.${url.pathname}`);
+      } catch {
+        // Ignore srcset values that are not full URLs
+        // as they're already relative
+      }
     }
   });
 }

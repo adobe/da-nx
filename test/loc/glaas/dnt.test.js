@@ -20,7 +20,7 @@ describe('Glaas DNT', () => {
     expect(collapseWhitespace(htmlWithoutDnt)).to.equal(collapseWhitespace(expectedHtmlWithoutDnt));
   });
 
-  it('test Converts html to dnt formatted html', async () => {
+  it('Converts html to dnt formatted html 2', async () => {
     const config = JSON.parse((await readFile({ path: './mocks/hubspot/translate.json' })));
     const expectedHtmlWithDnt = await readFile({ path: './mocks/hubspot/post-dnt.html' });
     const mockHtml = await readFile({ path: './mocks/hubspot/hubspot.html' });
