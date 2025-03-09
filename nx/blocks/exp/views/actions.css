@@ -1,0 +1,30 @@
+.nx-action-area {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 1px solid rgb(222 222 222);
+  padding: 16px;
+  backdrop-filter: blur(8px);
+  z-index: 100;
+
+  .nx-actions {
+    display: flex;
+    gap: 16px;
+  }
+
+  .nx-status {
+    font-style: italic;
+    font-size: var(--s2-body-xs-size);
+    line-height: 1;
+    margin: 0;
+    max-width: 142px;
+
+    &.nx-status-type-error {
+      color: var(--s2-red-900);
+    }
+  }
+}

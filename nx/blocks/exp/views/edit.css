@@ -1,0 +1,350 @@
+:host {
+  > svg {
+    display: none;
+  }
+}
+
+.icon {
+  display: block;
+  width: 20px;
+  height: 20px;
+}
+
+button {
+  font-family: var(--font-family);
+}
+
+input[type="range"] {
+  display: block;
+  position: relative;
+  appearance: none;
+  width: 100%;
+  outline: none;
+  background: transparent;
+  margin: 0;
+
+  &[disabled] {
+    opacity: 0.3;
+  }
+}
+
+input[type="range"]::after {
+  content: "";
+  height: 2px;
+  border-radius: 1px;
+  background: rgb(143 143 143);
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+}
+
+input[type="range"]:focus-visible::after {
+  background: var(--s2-blue-900);
+  margin-top: -1px;
+  height: 3px;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  position: relative;
+  appearance: none;
+  border: 2px solid #464646;
+  margin-top: 2px;
+  background: #fff;
+  width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  z-index: 1;
+}
+
+.nx-grid-two-up {
+  display: grid;
+  gap: var(--spacing-200);
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.nx-space-bottom-100 {
+  margin-bottom: var(--spacing-100);
+}
+
+.nx-space-bottom-200 {
+  margin-bottom: var(--spacing-200);
+}
+
+.nx-space-bottom-300 {
+  margin-bottom: var(--spacing-300);
+}
+
+.nx-exp-details-header {
+  display: flex;
+  justify-content: start;
+  align-items: center;
+  padding: 8px 0 0;
+
+  button {
+    border: none;
+    background: transparent;
+    padding: 0 8px;
+    margin: 0 8px;
+    overflow: hidden;
+    font-weight: 700;
+    height: 32px;
+    width: 32px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 8px;
+
+    &:hover {
+      background-color: var(--s2-gray-200);
+    }
+  }
+
+  .nx-exp-back {
+    display: block;
+    width: 20px;
+    height: 20px;
+    margin-bottom: 1px;
+  }
+}
+
+.nx-details-area {
+  padding: 0 var(--spacing-300);
+  border-bottom: 1px solid #dedede;
+}
+
+.nx-variants-area {
+  padding: var(--spacing-300);
+  border-bottom: 1px solid #dedede;
+}
+
+.nx-date-area {
+  padding: var(--spacing-300);
+  border-bottom: 1px solid #dedede;
+}
+
+.nx-expandable {
+  .nx-exp-btn-more {
+    position: relative;
+    display: block;
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 4px;
+    text-indent: -1000px;
+    overflow: hidden;
+    background: transparent;
+  }
+
+  .nx-exp-btn-more::after {
+    position: absolute;
+    inset: 0;
+    content: "";
+    width: 32px;
+    height: 32px;
+    background: no-repeat center / 18px url("https://da.live/nx/img/icons/Smock_ChevronRight_18_N.svg") transparent;
+    transition: transform 0.2s ease-in-out;
+  }
+
+  &.is-open .nx-exp-btn-more::after {
+    transform: rotate(90deg);
+  }
+
+  .nx-exp-btn-more:hover {
+    background: #0000001a;
+  }
+}
+
+.nx-variants-heading {
+  font-size: var(--s2-body-xs-size);
+  display: block;
+  color: rgb(80 80 80);
+  margin-bottom: 4px;
+}
+
+.nx-variants-list {
+  margin: 0 0 2px;
+  padding: 0;
+  background: var(--s2-gray-75);
+  border-radius: var(--s2-radius-100) var(--s2-radius-100) 0 0;
+  overflow: hidden;
+
+  li {
+    position: relative;
+    margin: -2px 0;
+    border-top: 2px solid #fff;
+    border-bottom: 2px solid #fff;
+    padding: 10px;
+    transition: background-color 0.2s ease-in-out;
+  }
+
+  .nx-variant-name {
+    display: grid;
+    grid-template-columns: auto 1fr 80px auto;
+    gap: 12px;
+    align-content: center;
+    align-items: center;
+  }
+
+  .nx-variant-name span {
+    border-radius: 4px;
+    width: 36px;
+    height: 36px;
+    font-weight: 700;
+    color: #fff;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 16px;
+    padding-bottom: 1px;
+    box-sizing: border-box;
+  }
+
+  p {
+    font-size: var(--s2-body-xs-size);
+    word-break: break-all;
+  }
+
+  .nx-range-wrapper {
+    position: relative;
+
+    p {
+      position: absolute;
+      top: -10px;
+      font-size: var(--s2-body-xxs-size);
+      color: var(--s2-gray-600);
+      margin: 0;
+
+      &.on-right {
+        right: 0;
+      }
+    }
+  }
+
+  .nx-variant-details {
+    overflow: hidden;
+    max-height: 0;
+    transition: max-height 0.2s ease-in-out;
+
+    hr {
+      margin: 10px 0 6px;
+      background: #0000001a;
+    }
+
+    .nx-variant-action-area {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      border-radius: 8px;
+      gap: 2px;
+      overflow: hidden;
+
+      &.is-control {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      button {
+        color: var(--s2-gray-800);
+        font-size: 12px;
+        font-weight: 700;
+        background: #0000001a;
+        border: none;
+        padding: 16px 0;
+        outline: none;
+        text-align: center;
+
+        img {
+          display: block;
+          margin: 0 auto 6px;
+        }
+
+        span {
+          display: block;
+          text-align: center;
+        }
+
+        &:hover {
+          background: #0000002a;
+        }
+      }
+
+      button:disabled {
+        background: #00000045;
+      }
+    }
+  }
+
+  .is-open {
+    background-color: var(--s2-blue-200);
+
+    .nx-variant-details {
+      max-height: 400px;
+      overflow: visible;
+    }
+  }
+
+  li.has-error {
+    background-color: var(--s2-red-200);
+
+    .nx-variant-name > p {
+      color: var(--s2-red-900);
+      font-weight: 700;
+    }
+  }
+}
+
+.nx-new-variant-area {
+  border-radius: 0 0 var(--s2-radius-100) var(--s2-radius-100);
+  background: var(--s2-gray-100);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  .nx-variant-percent-toggle {
+    display: flex;
+    gap: 4px;
+    justify-content: center;
+    align-items: center;
+    border-radius: 8px;
+    border: none;
+    background-color: var(--s2-gray-300);
+    margin: 10px 52px 10px 0;
+    width: 84px;
+    height: 32px;
+    font-weight: 700;
+
+    &:hover {
+      background-color: var(--s2-gray-400);
+    }
+
+    .icon {
+      margin-left: -2px;
+    }
+
+    .nx-toggle-text {
+      margin-bottom: 2px;
+    }
+  }
+}
+
+.nx-new-variant {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  justify-items: left;
+  align-items: center;
+  padding: 10px;
+  background: transparent;
+  border: none;
+  font-size: var(--s2-body-xs-size);
+
+  .nx-icon-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 36px;
+    height: 36px;
+    background-color: var(--s2-green-600);
+    border-radius: 4px;
+    color: #fff;
+  }
+}

@@ -1,9 +1,12 @@
 :host {
+  --header-height: 57px;
+  --action-height: 65px;
+
+  min-height: 650px;
   background: #fff;
-  height: 650px; /* This needs to be set on body in JS */
-  display: grid;
-  grid-template-rows: 57px auto;
-  padding-bottom: 65px;
+  padding-bottom: var(--action-height);
+  padding-top: var(--header-height);
+  box-sizing: border-box;
 }
 
 svg {
@@ -16,7 +19,7 @@ svg {
   height: 20px;
 }
 
-form {
+div.nx-exp-main {
   overflow: scroll;
   padding-bottom: 65px;
 }
@@ -25,332 +28,47 @@ button {
   font-family: var(--font-family);
 }
 
-.nx-space-bottom-100 {
-  margin-bottom: var(--spacing-100);
-}
-
-.nx-space-bottom-200 {
-  margin-bottom: var(--spacing-200);
-}
-
-.nx-space-bottom-300 {
-  margin-bottom: var(--spacing-300);
-}
-
-.nx-grid-two-up {
-  display: grid;
-  gap: var(--spacing-200);
-  grid-template-columns: repeat(2, 1fr);
+button:not(:disabled) {
+  cursor: pointer;
 }
 
 .nx-exp-header {
-  display: flex;
-  justify-content: space-between;
+  position: fixed;
+  top: 0;
+  width: 100%;
+  background: rgb(255 255 255 / 95%);
+  display: grid;
+  grid-template-columns: 46px 1fr auto;
   align-items: center;
-  padding: 12px 0 12px 46px;
   border-bottom: 1px solid #dedede;
-  min-height: 57px;
+  height: var(--header-height);
   box-sizing: border-box;
+  z-index: 1;
+
+  .drag-handle {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 46px;
+    height: 56px;
+
+    img {
+      width: 20px;
+      height: 20px;
+    }
+  }
 }
 
 h1 {
-  display: none;
   font-size: 16px;
   line-height: 1;
   margin: 0;
-}
-
-h1:has(+ [data-loaded]) {
-  display: unset;
 }
 
 nx-profile {
   margin-right: 12px;
 }
 
-.nx-new-wrapper {
-  height: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.nx-new {
-  text-align: center;
-  margin-top: -56px;
-  max-width: 240px;
-
-  .nx-new-icon {
-    width: 72px;
-    height: 72px;
-  }
-
-  .nx-new-action-area {
-    display: flex;
-    justify-content: center;
-  }
-}
-
-.nx-exp-details-header {
-  display: flex;
-  justify-content: start;
-  align-items: center;
-  padding: 16px 0 0;
-
-  button {
-    border: none;
-    border-radius: 4px;
-    background: transparent;
-    padding: 0 8px;
-    overflow: hidden;
-    font-weight: 700;
-    width: 46px;
-    display: flex;
-    justify-content: center;
-  }
-
-  .nx-exp-back {
-    display: block;
-    width: 20px;
-    height: 20px;
-    margin-bottom: 1px;
-  }
-
-  p.sl-heading-m {
-    margin-top: -2px;
-  }
-}
-
-.nx-details-area {
-  padding: 0 var(--spacing-300);
-  border-bottom: 1px solid #dedede;
-}
-
-.nx-variants-area {
-  padding: var(--spacing-300);
-  border-bottom: 1px solid #dedede;
-}
-
-.nx-date-area {
-  padding: var(--spacing-300);
-}
-
-.nx-variants-heading {
-  font-size: var(--s2-body-xs-size);
-  display: block;
-  color: rgb(80 80 80);
-  margin-bottom: 4px;
-}
-
-.nx-variants-list {
-  margin: 0 0 2px;
-  padding: 0;
-  background: var(--s2-gray-75);
-  border-radius: var(--s2-radius-100) var(--s2-radius-100) 0 0;
-  overflow: hidden;
-
-  li {
-    position: relative;
-    margin: -2px 0;
-    border-top: 2px solid #fff;
-    border-bottom: 2px solid #fff;
-    padding: 10px;
-    transition: background-color 0.2s ease-in-out;
-  }
-
-  .nx-variant-name {
-    display: grid;
-    grid-template-columns: auto 1fr 80px auto;
-    gap: 12px;
-    align-content: center;
-    align-items: center;
-  }
-
-  .nx-variant-name span {
-    border-radius: 4px;
-    width: 36px;
-    height: 36px;
-    font-weight: 700;
-    color: #fff;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 16px;
-    padding-bottom: 1px;
-    box-sizing: border-box;
-  }
-
-  p {
-    font-size: var(--s2-body-xs-size);
-  }
-
-  .nx-range-wrapper {
-    position: relative;
-
-    p {
-      position: absolute;
-      top: -10px;
-      font-size: var(--s2-body-xxs-size);
-      color: var(--s2-gray-600);
-      margin: 0;
-
-      &.on-right {
-        right: 0;
-      }
-    }
-  }
-
-  .nx-variant-details {
-    overflow: hidden;
-    max-height: 0;
-    transition: max-height 0.2s ease-in-out;
-
-    hr {
-      margin: 10px 0 6px;
-      background: #0000001a;
-    }
-
-    .nx-variant-action-area {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      border-radius: 8px;
-      gap: 2px;
-      overflow: hidden;
-
-      &.is-control {
-        grid-template-columns: repeat(2, 1fr);
-      }
-
-      button {
-        color: var(--s2-gray-800);
-        font-size: 12px;
-        font-weight: 700;
-        background: #0000001a;
-        border: none;
-        padding: 16px 0;
-        outline: none;
-        text-align: center;
-
-        img {
-          display: block;
-          margin: 0 auto 6px;
-        }
-
-        span {
-          display: block;
-          text-align: center;
-        }
-      }
-
-      button:disabled {
-        background: #00000045;
-      }
-    }
-  }
-
-  .nx-exp-btn-more {
-    position: relative;
-    display: block;
-    width: 32px;
-    height: 32px;
-    border: none;
-    border-radius: 4px;
-    text-indent: -1000px;
-    overflow: hidden;
-    background: transparent;
-  }
-
-  .nx-exp-btn-more::after {
-    position: absolute;
-    inset: 0;
-    content: "";
-    width: 32px;
-    height: 32px;
-    background: no-repeat center / 18px url("https://da.live/nx/img/icons/Smock_ChevronRight_18_N.svg") transparent;
-    transition: transform 0.2s ease-in-out;
-  }
-
-  .is-open .nx-exp-btn-more::after {
-    transform: rotate(90deg);
-  }
-
-  .nx-exp-btn-more:hover {
-    background: #0000001a;
-  }
-
-  .is-open {
-    background-color: var(--s2-blue-200);
-
-    .nx-variant-details {
-      max-height: 400px;
-      overflow: visible;
-    }
-  }
-
-  li.has-error {
-    background-color: var(--s2-red-200);
-
-    .nx-variant-name > p {
-      color: var(--s2-red-900);
-      font-weight: 700;
-    }
-  }
-}
-
-.nx-new-variant {
-  width: 100%;
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 12px;
-  justify-items: left;
-  align-items: center;
-  padding: 10px;
-  background: var(--s2-gray-100);
-  border: none;
-  border-radius: 0 0 var(--s2-radius-100) var(--s2-radius-100);
-  font-size: var(--s2-body-xs-size);
-
-  .nx-icon-wrapper {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    width: 36px;
-    height: 36px;
-    background-color: var(--s2-green-600);
-    border-radius: 4px;
-    color: #fff;
-  }
-}
-
-.nx-action-area {
-  position: fixed;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-top: 1px solid rgb(222 222 222);
-  padding: 16px;
-  -webkit-backdrop-filter: blur(8px); /* stylelint-disable-line property-no-vendor-prefix */
-  backdrop-filter: blur(8px);
-  z-index: 100;
-
-  > div {
-    display: flex;
-    justify-content: end;
-    gap: 8px;
-    width: 196px;
-    flex: 1 0 auto;
-  }
-
-  .nx-status {
-    font-weight: 700;
-    font-size: var(--s2-body-xxs-size);
-    line-height: 1;
-
-    &.nx-status-type-error {
-      color: var(--s2-red-900);
-    }
-  }
+h1:has(+ [data-loaded]) {
+  display: unset;
 }

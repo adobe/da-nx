@@ -25,8 +25,8 @@ async function init(port1) {
   const projOrigin = calcOrigin();
   const url = calcUrl();
   const experiment = getExpDetails();
-
-  port1.postMessage({ page: { origin: projOrigin, url }, experiment });
+  const params = window.location.search;
+  port1.postMessage({ page: { origin: projOrigin, url, params }, experiment });
 }
 
 function reloadPage(params) {
@@ -43,6 +43,19 @@ function reloadPage(params) {
 function previewExp(data) {
   const params = [{ key: 'experiment', value: data.preview }];
   reloadPage(params);
+}
+
+function pollConnection(action) {
+  initialized = false;
+  let count = 0;
+  const interval = setInterval(() => {
+    count += 1;
+    if (initialized || count > 20) {
+      clearInterval(interval);
+      return;
+    }
+    action?.();
+  }, 500);
 }
 
 function handleLoad({ target }) {
@@ -86,15 +99,9 @@ export default async function runExp() {
   // Append
   palette.append(handle, iframe);
 
-  let count = 0;
-  const interval = setInterval(() => {
-    count += 1;
-    if (initialized || count > 20) {
-      clearInterval(interval);
-      return;
-    }
+  pollConnection(() => {
     handleLoad({ target: iframe });
-  }, 500);
+  });
 
   makeDraggable(palette);
   document.body.append(palette);

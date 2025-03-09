@@ -31,6 +31,9 @@ export function getExpDetails() {
   const endDate = getMetadata('experiment-end-date');
   if (endDate) details.endDate = endDate;
 
+  const status = getMetadata('experiment-status');
+  if (status) details.status = status;
+
   // Add the control to the variants
   details.variants = [{ url: calcUrl() }];
 
@@ -59,13 +62,6 @@ export function getExpDetails() {
 
   // Push everything together
   if (challengers.length > 0) details.variants.push(...challengers);
-
-  // Set an even percent if no split
-  if (!split) {
-    details.variants.forEach((variant) => {
-      variant.percent = Math.round(100 / details.variants.length);
-    });
-  }
 
   return details;
 }

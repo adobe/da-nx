@@ -1,6 +1,9 @@
 /* eslint-disable max-classes-per-file */
+/* eslint-disable-next-line import/no-unresolved */
 import { LitElement, html, nothing, spread } from 'da-lit';
 import getStyle from '../../utils/styles.js';
+
+// const nxBase = `${new URL(import.meta.url).origin}/nx`;
 
 const style = await getStyle(import.meta.url);
 
@@ -52,6 +55,7 @@ class SlSelect extends LitElement {
     name: { type: String },
     label: { type: String },
     value: { type: String },
+    disabled: { type: Boolean },
     placeholder: { type: String },
   };
 
@@ -80,7 +84,7 @@ class SlSelect extends LitElement {
       <div class="sl-inputfield">
         ${this.label ? html`<label for="sl-input-${this.name}">${this.label}</label>` : nothing}
         <div class="sl-inputfield-select-wrapper">
-          <select .value=${this.value} id="nx-input-exp-opt-for" @change=${this.handleChange}></select>
+          <select value=${this.value} id="nx-input-exp-opt-for" @change=${this.handleChange} ?disabled="${this.disabled}"></select>
         </div>
       </div>
     `;
@@ -88,6 +92,8 @@ class SlSelect extends LitElement {
 }
 
 class SlButton extends LitElement {
+  static properties = { class: { type: String } };
+
   async connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
@@ -103,14 +109,57 @@ class SlButton extends LitElement {
 
   render() {
     return html`
-      <button
-        class="${this.getAttribute('class')}"
-        ${spread(this._attrs)}>
+      <span class="sl-button">
+        <button
+          class="${this.class}"
+          ${spread(this._attrs)}>
+          <slot></slot>
+        </button>
+      </span>`;
+  }
+}
+
+class SlDialog extends LitElement {
+  static properties = {
+    open: { type: Boolean },
+    modal: { type: Boolean },
+  };
+
+  connectedCallback() {
+    super.connectedCallback();
+    this.shadowRoot.adoptedStyleSheets = [style];
+  }
+
+  showModal() {
+    this._dialog.showModal();
+  }
+
+  show() {
+    this._dialog.show();
+  }
+
+  close() {
+    this._dialog.close();
+  }
+
+  get _dialog() {
+    return this.shadowRoot.querySelector('dialog');
+  }
+
+  render() {
+    return html`
+      <dialog class="sl-dialog">
         <slot></slot>
-      </button>`;
+      </dialog>`;
   }
 }
 
 customElements.define('sl-input', SlInput);
 customElements.define('sl-select', SlSelect);
 customElements.define('sl-button', SlButton);
+customElements.define('sl-dialog', SlDialog);
+
+// <input type="text" name="firstName" value="My val" placeholder="Enter name" />
+//
+// await import('https://da.live/nx/public/sl/components.js');
+// <sl-input type="text" name="firstName" value="My val" placeholder="Enter name"></sl-input>

@@ -9,10 +9,29 @@ export function getDefaultData(page) {
     startDate: '', // 2025-03-31
     endDate: '', // 2025-03-31
     variants: [
-      { percent: 50, url: page.url },
-      { percent: 50, url: '' },
+      { url: page.url },
+      { url: '' },
     ],
   };
+}
+
+export const strings = {
+  mab: 'Multi-armed bandit',
+  ab: 'A/B Test',
+  conversion: 'Overall conversion',
+  'form-submit': 'Form submission',
+  engagement: 'Engagement',
+};
+
+export function formatDate(timestamp) {
+  // Force to local time
+  const parsedDate = new Date(timestamp);
+  const localDate = new Date(parsedDate.getTime() + (parsedDate.getTimezoneOffset() * 60000));
+
+  // Put it into a decent looking format
+  return localDate.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' });
+  // const time = localDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  // return `${date} ${time}`;
 }
 
 /**
@@ -30,6 +49,7 @@ export function toColor(str) {
  * @returns A sentence case 2 letter abbreviation
  */
 export function getAbb(name) {
+  if (!name) return '';
   const [cap, lower] = name.slice(0, 2).split('');
   return `${cap.toUpperCase()}${lower}`;
 }
@@ -45,10 +65,61 @@ function getName(variant, idx) {
 
 export function processDetails(experiment) {
   const { variants } = experiment;
-  variants.forEach((variant, idx) => {
+  variants?.forEach((variant, idx) => {
     variant.name = getName(variant, idx);
   });
   return { ...experiment, variants };
+}
+
+export function calculatePercents(value, variants, indx) {
+  // remove the control from the percent consideration
+  const control = variants.shift();
+
+  // Change the supplied index because of control removal
+  const index = indx - 1;
+
+  // Make a copy of our actual variants
+  const updatedVariants = [...variants];
+
+  // Determine how much our other variants add up to.
+  const otherVariantsTotal = updatedVariants
+    .reduce((sum, variant, idx) => (idx !== index ? sum + variant.percent : sum), 0);
+
+  // 100 - our total is our max allowed value
+  const maxAllowedValue = 100 - otherVariantsTotal;
+
+  // Force the value into the max
+  const clampedValue = Math.min(value, maxAllowedValue);
+
+  // Update our existing array
+  updatedVariants[index] = { ...updatedVariants[index], percent: clampedValue };
+
+  // Calculate totals again as that is what's left for our control
+  const newVariantsTotal = updatedVariants.reduce((sum, variant) => sum + variant.percent, 0);
+
+  // Set the control percent
+  control.percent = Math.max(0, 100 - newVariantsTotal);
+
+  // Add it back into our variant list
+  return [control, ...updatedVariants];
+}
+
+export function observeDetailChanges(details, callback) {
+  const PROPS_TO_OBSERVE = ['name', 'type', 'goal', 'startDate', 'endDate', 'percent', 'url'];
+
+  const handler = {
+    set(obj, prop, value) {
+      obj[prop] = value;
+      if (PROPS_TO_OBSERVE.includes(prop)) callback();
+      return true;
+    },
+  };
+
+  details.variants?.forEach((variant, i) => {
+    details.variants[i] = new Proxy(variant, handler);
+  });
+
+  return new Proxy(details, handler);
 }
 
 export function getOrgSite(url) {
@@ -143,11 +214,14 @@ function getRows(details) {
       key: 'experiment-variants',
       value: copy.variants.map((variant) => variant.url).join(', '),
     },
-    {
-      key: 'experiment-split',
-      value: copy.variants.map((variant) => variant.percent).join(', '),
-    },
   ];
+
+  const splits = copy.variants.reduce((acc, variant) => {
+    if (variant.percent) acc.push(variant.percent);
+    return acc;
+  }, []);
+  if (splits.length > 0) rows.push({ key: 'experiment-split', value: splits.join(', ') });
+
   if (copy.status) rows.push({ key: 'experiment-status', value: copy.status });
   if (copy.type) rows.push({ key: 'experiment-type', value: copy.type });
   if (copy.goal) rows.push({ key: 'experiment-goal', value: copy.goal });
@@ -197,6 +271,21 @@ async function getDaDetails(page, api = 'source') {
   return { url, opts };
 }
 
+export async function getIsAllowed(page) {
+  const { url, opts } = await getDaDetails(page, 'source');
+
+  try {
+    const res = await fetch(url, { ...opts, method: 'HEAD' });
+
+    // We only care about 401 & 403. 404s could be net new pages.
+    if (res.statusCode === 401 || res.statusCode === 403) return { ok: false };
+  } catch (e) {
+    console.log(e);
+  }
+
+  return { ok: true };
+}
+
 async function saveDoc(url, opts, doc) {
   const body = new FormData();
 
@@ -225,6 +314,31 @@ async function getDoc(url, opts) {
   return new DOMParser().parseFromString(html, 'text/html');
 }
 
+function getExperimentRows(metaBlock) {
+  const metaRows = metaBlock.querySelectorAll(':scope > div');
+  return [...metaRows].filter((row) => {
+    // Likely a touch brittle, but fine for now.
+    const text = row.children[0].textContent;
+    return text.startsWith('experiment');
+  });
+}
+
+async function deleteMetadata(page) {
+  const { url, opts } = await getDaDetails(page);
+
+  const doc = await getDoc(url, opts);
+
+  const metaBlock = doc.querySelector('.metadata');
+  if (!metaBlock) return { changed: false };
+
+  const expRows = getExperimentRows(metaBlock);
+  if (!expRows.length) return { changed: false };
+
+  expRows.forEach((row) => row.remove());
+  const saved = await saveDoc(url, opts, doc);
+  return { ...saved, changed: true };
+}
+
 async function saveMetadata(page, dom) {
   const { url, opts } = await getDaDetails(page);
 
@@ -237,20 +351,50 @@ async function saveMetadata(page, dom) {
     doc.body.querySelector('main div').append(metaBlock);
   }
 
-  const metaRows = metaBlock.querySelectorAll(':scope > div');
-  metaRows.forEach((row) => {
-    // Likely a touch brittle, but fine for now.
-    const text = row.children[0].textContent;
-    if (text.startsWith('experiment')) {
-      row.remove();
-    }
-  });
+  getExperimentRows(metaBlock).forEach((row) => row.remove());
   metaBlock.append(...dom);
   const saved = await saveDoc(url, opts, doc);
   return saved;
 }
 
-export async function saveDetails(page, details, setStatus) {
+async function previewAndPublish(page, details, setStatus, shouldPublish = false) {
+  setStatus('Previewing document.');
+  const preview = await aemReq('preview', page);
+  if (preview.error) {
+    setStatus(preview.error, 'error');
+    return null;
+  }
+
+  if (details.status === 'draft' || !shouldPublish) {
+    setStatus();
+    return { status: 'ok' };
+  }
+
+  setStatus('Publishing document.');
+  const live = await aemReq('live', page);
+  if (live.error) {
+    setStatus(live.error, 'error');
+    return null;
+  }
+  setStatus('Creating version.');
+  await saveVersion(page, details.name);
+
+  setStatus();
+  return { status: 'ok' };
+}
+
+export async function deleteExperiment(page, details, setStatus, shouldPublish) {
+  setStatus('Writing metadata.');
+  const result = await deleteMetadata(page);
+
+  if (!result.changed) {
+    return { status: 'ok' };
+  }
+
+  return previewAndPublish(page, details, setStatus, shouldPublish);
+}
+
+export async function saveDetails(page, details, setStatus, shouldPublish = false) {
   const rows = getRows(details);
   setStatus('Getting document.');
   const dom = getDom(rows);
@@ -262,24 +406,29 @@ export async function saveDetails(page, details, setStatus) {
     return null;
   }
 
-  setStatus('Previewing document.');
-  const preview = await aemReq('preview', page);
-  if (preview.error) {
-    setStatus(preview.error, 'error');
-    return null;
-  }
+  // Saving a draft will put the details into a draft status.
+  // We need to force publish in this case.
+  const forcePublish = shouldPublish || details.status === 'active';
 
-  if (details.status === 'active') {
-    setStatus('Publishing document.');
-    const live = await aemReq('live', page);
-    if (live.error) {
-      setStatus(live.error, 'error');
-      return null;
-    }
-    setStatus('Creating version.');
-    await saveVersion(page, details.name);
-  }
+  return previewAndPublish(page, details, setStatus, forcePublish);
+}
 
-  setStatus();
-  return { status: 'ok' };
+export function getStrings(el) {
+  const string = {};
+
+  const rows = [...el.querySelectorAll(':scope > div')];
+  rows.forEach((row) => {
+    const [keyEl, valEl] = row.querySelectorAll('div');
+    const key = keyEl.textContent;
+
+    const [part, category] = key.split('.');
+    const val = valEl.textContent;
+
+    string[part] = {
+      ...string[part],
+      [category]: val,
+    };
+  });
+
+  return string;
 }

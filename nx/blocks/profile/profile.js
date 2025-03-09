@@ -63,7 +63,7 @@ class NxProfile extends LitElement {
 
   handleLoaded() {
     this.dataset.loaded = true;
-    const opts = { bubbles: true, composed: true };
+    const opts = { detail: this._details, bubbles: true, composed: true };
     const event = new CustomEvent('loaded', opts);
     this.dispatchEvent(event);
   }
@@ -96,6 +96,9 @@ class NxProfile extends LitElement {
       // logout did not work.
     }
     handleSignOut();
+    const opts = { bubbles: true, composed: true };
+    const event = new CustomEvent('signout', opts);
+    this.dispatchEvent(event);
   }
 
   get _notice() {
