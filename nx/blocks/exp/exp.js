@@ -53,7 +53,14 @@ class NxExp extends LitElement {
   async handleMessage({ data }) {
     const { page, experiment } = data;
     // Setup basic page data
-    if (page) this._page = data.page;
+    if (page) {
+      this._page = data.page;
+      // There are times where IMS fires faster than the post message
+      if (this._ims && !this._ims.anonymous) {
+        const { ok } = await getIsAllowed(this._page);
+        this._isAllowed = ok;
+      }
+    }
     // Format raw exp data into details
     if (experiment) this._details = processDetails(experiment);
   }
@@ -65,8 +72,10 @@ class NxExp extends LitElement {
     // Do not do anything if anon.
     if (this._ims.anonymous) return;
 
-    const { ok } = await getIsAllowed(this._page);
-    this._isAllowed = ok;
+    if (this._page) {
+      const { ok } = await getIsAllowed(this._page);
+      this._isAllowed = ok;
+    }
   }
 
   handleSignOut() {
@@ -138,8 +147,6 @@ class NxExp extends LitElement {
   }
 
   render() {
-    if (!this._page) return nothing;
-
     return html`
       <div class="nx-exp-header">
         <div class="drag-handle">
