@@ -1,5 +1,7 @@
-:host > svg {
-  display: none;
+:host {
+  > svg {
+    display: none;
+  }
 }
 
 svg.icon {

@@ -211,3 +211,8 @@ svg.icon {
     background: rgb(0 0 0 / 10%);
   }
 }
+
+nx-exp-dialog {
+  position: absolute;
+  top: 0;
+}

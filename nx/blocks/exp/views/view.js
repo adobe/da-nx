@@ -205,7 +205,7 @@ class NxExpView extends LitElement {
           Publish
         </sl-button>
       </nx-exp-actions>
-      <nx-exp-dialog @action=${this.handleDialogAction} .details=${this._dialog}></nx-exp-dialog>
+      <nx-exp-dialog class="${this._dialog ? 'is-visible' : ''}" @action=${this.handleDialogAction} .details=${this._dialog}></nx-exp-dialog>
     `;
   }
 }
