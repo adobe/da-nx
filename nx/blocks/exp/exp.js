@@ -126,10 +126,12 @@ class NxExp extends LitElement {
     }
 
     // If not allowed show the switch profile screen.
-    return '<h1>Not allowed.</h1>';
+    return html`<h1>Not allowed.</h1>`;
   }
 
   render() {
+    if (!this._page) return nothing;
+
     return html`
       <div class="nx-exp-header">
         <div class="drag-handle">
