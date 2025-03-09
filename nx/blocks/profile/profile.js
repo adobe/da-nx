@@ -96,6 +96,9 @@ class NxProfile extends LitElement {
       // logout did not work.
     }
     handleSignOut();
+    const opts = { bubbles: true, composed: true };
+    const event = new CustomEvent('signout', opts);
+    this.dispatchEvent(event);
   }
 
   get _notice() {

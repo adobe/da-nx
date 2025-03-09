@@ -27,7 +27,6 @@
   height: 56px;
   cursor: move;
   margin: 0;
-  background: no-repeat center / 20px url("./img/handle.svg");
 }
 
 #aem-sidekick-exp iframe {

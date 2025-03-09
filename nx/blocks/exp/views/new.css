@@ -1,0 +1,38 @@
+:host {
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+:host > svg {
+  display: none;
+}
+
+.nx-space-bottom-100 {
+  margin-bottom: var(--spacing-100);
+}
+
+.nx-space-bottom-200 {
+  margin-bottom: var(--spacing-200);
+}
+
+.nx-space-bottom-300 {
+  margin-bottom: var(--spacing-300);
+}
+
+.nx-new {
+  text-align: center;
+  margin-top: -56px;
+  max-width: 240px;
+
+  .nx-new-icon {
+    width: 72px;
+    height: 72px;
+  }
+
+  .nx-new-action-area {
+    display: flex;
+    justify-content: center;
+  }
+}

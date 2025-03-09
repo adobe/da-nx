@@ -1,11 +1,12 @@
 :host {
   --header-height: 57px;
+  --action-height: 65px;
 
+  min-height: 650px;
   background: #fff;
-  height: 650px; /* This needs to be set on body in JS */
-  display: grid;
-  grid-template-rows: 57px auto;
-  padding-bottom: 65px;
+  padding-bottom: var(--action-height);
+  padding-top: var(--header-height);
+  box-sizing: border-box;
 }
 
 svg {
@@ -33,39 +34,28 @@ button:not(:disabled) {
 
 .nx-exp-header {
   position: fixed;
-  width: 100vw;
-  background: white;
-  display: flex;
-  justify-content: space-between;
+  top: 0;
+  width: 100%;
+  background: rgb(255 255 255 / 95%);
+  display: grid;
+  grid-template-columns: 46px 1fr auto;
   align-items: center;
-  padding: 12px 0 12px 46px;
   border-bottom: 1px solid #dedede;
   height: var(--header-height);
   box-sizing: border-box;
-}
+  z-index: 1;
 
-.nx-dialog {
-  --dialog-font-size: 16px;
-
-  display: flex;
-  flex-direction: column;
-  height: 0;
-
-  h1 {
-    font-size: var(--s2-heading-size-300);
-    margin-bottom: var(--spacing-300);
-  }
-
-  p {
-    font-size: var(--dialog-font-size);
-    margin: 0;
-  }
-
-  .nx-dialog-actions {
+  .drag-handle {
     display: flex;
-    justify-content: flex-end;
-    gap: var(--spacing-200);
-    margin-top: var(--spacing-500);
+    justify-content: center;
+    align-items: center;
+    width: 46px;
+    height: 56px;
+
+    img {
+      width: 20px;
+      height: 20px;
+    }
   }
 }
 
@@ -81,8 +71,4 @@ nx-profile {
 
 h1:has(+ [data-loaded]) {
   display: unset;
-}
-
-.nx-content {
-  margin-top: var(--header-height);
 }

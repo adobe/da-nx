@@ -9,8 +9,8 @@ export function getDefaultData(page) {
     startDate: '', // 2025-03-31
     endDate: '', // 2025-03-31
     variants: [
-      { percent: 50, url: page.url },
-      { percent: 50, url: '' },
+      { url: page.url },
+      { url: '' },
     ],
   };
 }
@@ -49,6 +49,7 @@ export function toColor(str) {
  * @returns A sentence case 2 letter abbreviation
  */
 export function getAbb(name) {
+  if (!name) return '';
   const [cap, lower] = name.slice(0, 2).split('');
   return `${cap.toUpperCase()}${lower}`;
 }
@@ -70,7 +71,40 @@ export function processDetails(experiment) {
   return { ...experiment, variants };
 }
 
-export function observeDetailsEdited(details, callback) {
+export function calculatePercents(value, variants, indx) {
+  // remove the control from the percent consideration
+  const control = variants.shift();
+
+  // Change the supplied index because of control removal
+  const index = indx - 1;
+
+  // Make a copy of our actual variants
+  const updatedVariants = [...variants];
+
+  // Determine how much our other variants add up to.
+  const otherVariantsTotal = updatedVariants
+    .reduce((sum, variant, idx) => (idx !== index ? sum + variant.percent : sum), 0);
+
+  // 100 - our total is our max allowed value
+  const maxAllowedValue = 100 - otherVariantsTotal;
+
+  // Force the value into the max
+  const clampedValue = Math.min(value, maxAllowedValue);
+
+  // Update our existing array
+  updatedVariants[index] = { ...updatedVariants[index], percent: clampedValue };
+
+  // Calculate totals again as that is what's left for our control
+  const newVariantsTotal = updatedVariants.reduce((sum, variant) => sum + variant.percent, 0);
+
+  // Set the control percent
+  control.percent = Math.max(0, 100 - newVariantsTotal);
+
+  // Add it back into our variant list
+  return [control, ...updatedVariants];
+}
+
+export function observeDetailChanges(details, callback) {
   const PROPS_TO_OBSERVE = ['name', 'type', 'goal', 'startDate', 'endDate', 'percent', 'url'];
 
   const handler = {
@@ -180,11 +214,14 @@ function getRows(details) {
       key: 'experiment-variants',
       value: copy.variants.map((variant) => variant.url).join(', '),
     },
-    {
-      key: 'experiment-split',
-      value: copy.variants.map((variant) => variant.percent).join(', '),
-    },
   ];
+
+  const splits = copy.variants.reduce((acc, variant) => {
+    if (variant.percent) acc.push(variant.percent);
+    return acc;
+  }, []);
+  if (splits.length > 0) rows.push({ key: 'experiment-split', value: splits.join(', ') });
+
   if (copy.status) rows.push({ key: 'experiment-status', value: copy.status });
   if (copy.type) rows.push({ key: 'experiment-type', value: copy.type });
   if (copy.goal) rows.push({ key: 'experiment-goal', value: copy.goal });
@@ -320,7 +357,7 @@ async function saveMetadata(page, dom) {
   return saved;
 }
 
-async function previewAndPublish(page, details, setStatus, shouldPublish = true) {
+async function previewAndPublish(page, details, setStatus, shouldPublish = false) {
   setStatus('Previewing document.');
   const preview = await aemReq('preview', page);
   if (preview.error) {
@@ -328,7 +365,7 @@ async function previewAndPublish(page, details, setStatus, shouldPublish = true)
     return null;
   }
 
-  if (!shouldPublish) {
+  if (details.status === 'draft' || !shouldPublish) {
     setStatus();
     return { status: 'ok' };
   }
@@ -346,7 +383,7 @@ async function previewAndPublish(page, details, setStatus, shouldPublish = true)
   return { status: 'ok' };
 }
 
-export async function deleteExperiment(page, details, setStatus) {
+export async function deleteExperiment(page, details, setStatus, shouldPublish) {
   setStatus('Writing metadata.');
   const result = await deleteMetadata(page);
 
@@ -354,10 +391,10 @@ export async function deleteExperiment(page, details, setStatus) {
     return { status: 'ok' };
   }
 
-  return previewAndPublish(page, details, setStatus, true);
+  return previewAndPublish(page, details, setStatus, shouldPublish);
 }
 
-export async function saveDetails(page, details, setStatus, forcePublish) {
+export async function saveDetails(page, details, setStatus, shouldPublish = false) {
   const rows = getRows(details);
   setStatus('Getting document.');
   const dom = getDom(rows);
@@ -369,5 +406,29 @@ export async function saveDetails(page, details, setStatus, forcePublish) {
     return null;
   }
 
-  return previewAndPublish(page, details, setStatus, details.status === 'active' || forcePublish);
+  // Saving a draft will put the details into a draft status.
+  // We need to force publish in this case.
+  const forcePublish = shouldPublish || details.status === 'active';
+
+  return previewAndPublish(page, details, setStatus, forcePublish);
+}
+
+export function getStrings(el) {
+  const string = {};
+
+  const rows = [...el.querySelectorAll(':scope > div')];
+  rows.forEach((row) => {
+    const [keyEl, valEl] = row.querySelectorAll('div');
+    const key = keyEl.textContent;
+
+    const [part, category] = key.split('.');
+    const val = valEl.textContent;
+
+    string[part] = {
+      ...string[part],
+      [category]: val,
+    };
+  });
+
+  return string;
 }

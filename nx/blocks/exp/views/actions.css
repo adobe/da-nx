@@ -8,22 +8,20 @@
   align-items: center;
   border-top: 1px solid rgb(222 222 222);
   padding: 16px;
-  -webkit-backdrop-filter: blur(8px); /* stylelint-disable-line property-no-vendor-prefix */
   backdrop-filter: blur(8px);
   z-index: 100;
 
-  > div {
+  .nx-actions {
     display: flex;
-    justify-content: end;
-    gap: 8px;
-    width: 196px;
-    flex: 1 0 auto;
+    gap: 16px;
   }
 
   .nx-status {
-    font-weight: 700;
-    font-size: var(--s2-body-xxs-size);
+    font-style: italic;
+    font-size: var(--s2-body-xs-size);
     line-height: 1;
+    margin: 0;
+    max-width: 142px;
 
     &.nx-status-type-error {
       color: var(--s2-red-900);

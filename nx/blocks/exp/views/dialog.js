@@ -58,9 +58,9 @@ class NxExpDialog extends LitElement {
           </div>
           <div class="nx-dialog-action-group">
             <sl-button
-              @click=${() => this.handleAction('delete')}
+              @click=${() => this.handleAction(this.details.action)}
               class="${this.details?.action === 'delete' ? 'negative' : ''}">
-              ${this.details?.button}
+              ${this.details?.label}
             </sl-button>
           </div>
         </div>

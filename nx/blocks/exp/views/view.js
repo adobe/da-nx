@@ -1,41 +1,98 @@
 // eslint-disable-next-line import/no-unresolved
 import { html, LitElement } from 'da-lit';
 import getStyle from '../../../utils/styles.js';
-import getSvg from '../../../utils/svg.js';
-import { strings, getAbb, formatDate } from '../utils.js';
-
-import('./dialog.js');
+import {
+  getAbb,
+  toColor,
+  calcLinks,
+  formatDate,
+  saveDetails,
+  deleteExperiment,
+} from '../utils.js';
 
 const nx = `${new URL(import.meta.url).origin}/nx`;
 const sl = await getStyle(`${nx}/public/sl/styles.css`);
 const style = await getStyle(import.meta.url);
 
-const ICONS = [
-  `${nx}/public/icons/S2_Icon_Delete_20_N.svg`,
-  `${nx}/public/icons/S2_Icon_Edit_20_N.svg`,
-  `${nx}/public/icons/S2_Icon_Pause_20_N.svg`,
-];
-
-const DIALOG_CONTENT = {
-  delete: { button: 'Delete experiment', message: 'Deleting the experiment requires the page to be re-published.' },
-  pause: { button: 'Pause experiment', message: 'Pausing the experiment requires the page to be re-published.' },
-  publish: { button: 'Publish experiment', message: 'Publishing the experiment requires the page to be re-published.' },
-};
-
 class NxExpView extends LitElement {
   static properties = {
+    page: { attribute: false },
     details: { attribute: false },
+    strings: { attribute: false },
+    _previewingIdx: { state: true },
+    _status: { state: true },
     _dialog: { state: true },
   };
 
-  async connectedCallback() {
+  connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [sl, style];
-    getSvg({ parent: this.shadowRoot, paths: ICONS });
+    this._previewingIdx = this.detectPreview();
+  }
+
+  detectPreview() {
+    const searchParams = new URLSearchParams(this.page.params);
+    const experiment = searchParams.get('experiment');
+    if (!experiment) return null;
+    const variantVal = experiment.split('/')[1];
+    return variantVal === 'control' ? 0 : Number(variantVal.split('-')[1]);
+  }
+
+  setStatus(text, type = 'info') {
+    this._status = !text ? null : { text, type };
+    this.requestUpdate();
+  }
+
+  async handlePublish() {
+    this._status = { text: 'Publishing experiment.' };
+    this.details.status = 'active';
+    const setStatus = this.setStatus.bind(this);
+    const result = await saveDetails(this.page, this.details, setStatus);
+    if (result.status !== 'ok') return;
+    const opts = { detail: { action: 'saved' }, bubbles: true, composed: true };
+    this.dispatchEvent(new CustomEvent('action', opts));
+  }
+
+  async handleDelete() {
+    // Only force publish if the test is currently active;
+    const shouldPublish = this.details.status === 'active';
+    const setStatus = this.setStatus.bind(this);
+    const result = await deleteExperiment(this.page, this.details, setStatus, shouldPublish);
+    if (result.status !== 'ok') return;
+    const opts = { detail: { action: 'saved' }, bubbles: true, composed: true };
+    this.dispatchEvent(new CustomEvent('action', opts));
+  }
+
+  async handlePause() {
+    this.details.status = 'draft';
+    const setStatus = this.setStatus.bind(this);
+    const result = await saveDetails(this.page, this.details, setStatus, true);
+    if (result.status !== 'ok') return;
+    const opts = { detail: { action: 'saved' }, bubbles: true, composed: true };
+    this.dispatchEvent(new CustomEvent('action', opts));
   }
 
   async handleClick(action) {
-    this._dialog = { open: true, action, ...DIALOG_CONTENT[action] };
+    console.log(action);
+    if (action === 'publish') {
+      this.handlePublish();
+      return;
+    }
+    if (action === 'delete') {
+      // Set a warning if the status is active and we're trying to delete
+      if (this.details.status === 'active') {
+        this._dialog = { open: true, action, ...this.strings[action] };
+      } else {
+        this.handleDelete();
+      }
+    }
+    if (action === 'pause') {
+      // We should only have an active status if we are clicking pause
+      if (this.details.status === 'active') {
+        this._dialog = { open: true, action, ...this.strings[action] };
+        console.log(this._dialog);
+      }
+    }
   }
 
   handleEdit() {
@@ -44,11 +101,9 @@ class NxExpView extends LitElement {
     this.dispatchEvent(event);
   }
 
-  handleAction({ detail }) {
-    if (detail.action === 'cancel') return;
+  handleDialogAction({ detail }) {
     if (detail.action === 'delete') this.handleDelete();
     if (detail.action === 'pause') this.handlePause();
-    if (detail.action === 'publish') this.handlePublish();
   }
 
   renderEdit() {
@@ -67,6 +122,12 @@ class NxExpView extends LitElement {
         <span>Pause</span>
       </button>
     `;
+  }
+
+  handlePreview(variant, idx) {
+    const { previewParam: param } = calcLinks(this.details.name, variant, idx);
+    const opts = { detail: { action: 'preview', param }, bubbles: true, composed: true };
+    this.dispatchEvent(new CustomEvent('action', opts));
   }
 
   render() {
@@ -97,33 +158,54 @@ class NxExpView extends LitElement {
         <div class="nx-exp-detail-row">
           <div class="nx-exp-detail-col">
             <p class="nx-exp-detail-label">Type</p>
-            <p class="nx-exp-detail-content">${strings[this.details.type]}</p>
+            <p class="nx-exp-detail-content">${this.strings[this.details.type].label}</p>
           </div>
           <div class="nx-exp-detail-col">
             <p class="nx-exp-detail-label">Goal</p>
-            <p class="nx-exp-detail-content">${strings[this.details.goal]}</p>
+            <p class="nx-exp-detail-content">${this.strings[this.details.goal].label}</p>
           </div>
         </div>
         <div class="nx-exp-detail-row">
           <div class="nx-exp-detail-col">
             <p class="nx-exp-detail-label">Start date</p>
-            <p class="nx-exp-detail-content">${formatDate(this.details.startDate)}</p>
+            <p class="nx-exp-detail-content">${this.details.startDate ? formatDate(this.details.startDate) : 'None'}</p>
           </div>
           <div class="nx-exp-detail-col">
             <p class="nx-exp-detail-label">End date</p>
-            <p class="nx-exp-detail-content">${formatDate(this.details.startDate)}</p>
+            <p class="nx-exp-detail-content">${this.details.endDate ? formatDate(this.details.startDate) : 'None'}</p>
           </div>
         </div>
       </div>
-      <div class="nx-action-area">
-        <p class="nx-status"></p>
-        <div class="nx-actions">
-          <sl-button ?disabled=${isActive} @click=${() => this.handleClick('publish')}>
-            Publish
-          </sl-button>
-        </div>
+      <div class="nx-exp-view-variants-area">
+        <p class="nx-variants-heading">Variants</p>
+        <ul>
+          ${this.details.variants?.map((variant, idx) => html`
+            <li class="${this._previewingIdx === idx ? 'is-previewed' : ''}">
+              <div class="nx-variant-name">
+                <span class="nx-variant-abb" style="background: var(${toColor(variant.name)})">${getAbb(variant.name)}</span>
+                <div class="nx-variant-details">
+                  <p>${variant.name}</p>
+                  <p class="percent">
+                    ${variant.percent ? variant.percent : 100 / this.details.variants.length}%
+                  </p>
+                </div>
+                <button
+                  @click=${() => this.handlePreview(variant, idx)}
+                  class="nx-action-button"
+                  arial-label="Simulate variant"
+                  title="Simulate variant">
+                  <img src="${nx}/public/icons/S2_Icon_Community_20_N.svg" width="20" height="20" />
+                </button>
+              </div>
+            </li>`)}
+        </ul>
       </div>
-      <nx-exp-dialog @action=${this.handleAction} .details=${this._dialog}></nx-exp-dialog>
+      <nx-exp-actions .status=${this._status}>
+        <sl-button ?disabled=${isActive} @click=${() => this.handleClick('publish')}>
+          Publish
+        </sl-button>
+      </nx-exp-actions>
+      <nx-exp-dialog @action=${this.handleDialogAction} .details=${this._dialog}></nx-exp-dialog>
     `;
   }
 }

@@ -25,7 +25,8 @@ async function init(port1) {
   const projOrigin = calcOrigin();
   const url = calcUrl();
   const experiment = getExpDetails();
-  port1.postMessage({ page: { origin: projOrigin, url }, experiment });
+  const params = window.location.search;
+  port1.postMessage({ page: { origin: projOrigin, url, params }, experiment });
 }
 
 function reloadPage(params) {
@@ -68,12 +69,6 @@ function handleLoad({ target }) {
     if (e.data.ready) init(port1);
     if (e.data.reload) reloadPage();
     if (e.data.preview) previewExp(e.data);
-    if (e.data.reset) {
-      port1.close(); port2.close();
-      pollConnection(() => {
-        handleLoad({ target });
-      });
-    }
   };
 }
 

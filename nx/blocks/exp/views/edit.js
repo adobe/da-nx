@@ -1,135 +1,191 @@
 import { html, LitElement, nothing } from 'da-lit';
 import { getConfig } from '../../../scripts/nexter.js';
 import getStyle from '../../../utils/styles.js';
-import { toColor, calcLinks, getAbb, processDetails } from '../utils.js';
+import getSvg from '../../../utils/svg.js';
+import {
+  getAbb,
+  toColor,
+  getErrors,
+  calcLinks,
+  saveDetails,
+  calculatePercents,
+  observeDetailChanges,
+} from '../utils.js';
 
 const { nxBase } = getConfig();
 
 const sl = await getStyle(`${nxBase}/public/sl/styles.css`);
 const style = await getStyle(import.meta.url);
 
+const ICONS = [
+  `${nxBase}/public/icons/S2_Icon_Add_20_N.svg`,
+  `${nxBase}/public/icons/S2_Icon_Lock_20_N.svg`,
+  `${nxBase}/public/icons/S2_Icon_LockOpen_20_N.svg`,
+];
+
 class NxExpEdit extends LitElement {
-  static properties = { details: { attribute: false } };
+  static properties = {
+    page: { attribute: false },
+    details: { attribute: false },
+    _observedDetails: { state: true },
+    _hasChanges: { state: true },
+    _status: { state: true },
+  };
 
   async connectedCallback() {
     super.connectedCallback();
+    this.setupObservable();
     this.shadowRoot.adoptedStyleSheets = [sl, style];
-    // getSvg({ parent: this.shadowRoot, paths: ICONS });
+    getSvg({ parent: this.shadowRoot, paths: ICONS });
+  }
+
+  setupObservable() {
+    this._observedDetails = JSON.parse(JSON.stringify(this.details));
+    const notifyPropertyChanged = this.notifyPropertyChanged.bind(this);
+    this._observedDetails = observeDetailChanges(this._observedDetails, notifyPropertyChanged);
+  }
+
+  notifyPropertyChanged() {
+    this._hasChanges = true;
+    this._status = { text: 'You have unsaved changes.' };
+  }
+
+  setStatus(text, type) {
+    if (!text) {
+      this._status = null;
+    } else {
+      this._status = { text, type };
+    }
+    this.requestUpdate();
   }
 
   handleOpen(e, idx) {
-    e.preventDefault();
-    this.details.variants.forEach((variant, index) => {
+    this._observedDetails.variants.forEach((variant, index) => {
       variant.open = idx === index ? !variant.open : false;
     });
     this.requestUpdate();
   }
 
   handleNameInput(e) {
-    this.details.name = e.target.value.replaceAll(/[^a-zA-Z0-9]/g, '-').toLowerCase();
+    this._observedDetails.name = e.target.value.replaceAll(/[^a-zA-Z0-9]/g, '-').toLowerCase();
     this.requestUpdate();
   }
 
   handleSelectChange(e, prop) {
-    this.details[prop] = e.target.value;
-  }
-
-  fixPercentages(editedIndex, isIncrease) {
-    // make sure the percentages add up to 100%
-    const usedInput = this.details.variants[editedIndex];
-    const otherInputs = this.details.variants.filter((v, i) => i !== editedIndex);
-    const percentToDistribute = 100 - (usedInput?.percent ?? 0);
-    const otherInputsPercent = otherInputs.reduce((acc, input) => acc + input.percent, 0);
-
-    otherInputs.forEach((variant) => {
-      const variantShare = (Math.max(variant.percent, 1) / Math.max(otherInputsPercent, 1))
-        * percentToDistribute;
-      variant.percent = Math.round(variantShare / 5) * 5;
-    });
-
-    const totalPercent = this.details.variants.reduce((acc, input) => acc + input.percent, 0);
-
-    const findMin = (acc, input) => (input.percent < acc.percent ? input : acc);
-    const findMax = (acc, input) => (input.percent > acc.percent ? input : acc);
-    const variantToEdit = isIncrease ? otherInputs.reduce(findMin) : otherInputs.reduce(findMax);
-    variantToEdit.percent += 100 - totalPercent;
+    this._observedDetails[prop] = e.target.value;
   }
 
   handlePercentInput(e, idx) {
-    const increase = e.target.value > this.details.variants[idx].percent;
-    this.details.variants[idx].percent = parseInt(e.target.value, 10);
-    this.fixPercentages(idx, increase);
-
+    const { value } = e.target;
+    this._observedDetails.variants = calculatePercents(value, this._observedDetails.variants, idx);
+    e.target.value = this._observedDetails.variants[idx].percent;
     this.requestUpdate();
   }
 
   handleUrlInput(e, idx) {
-    this.details.variants[idx].url = e.target.value;
+    this._observedDetails.variants[idx].url = e.target.value;
     this.requestUpdate();
   }
 
   handleDateChange(e, name) {
-    this.details[name] = e.target.value;
+    this._observedDetails[name] = e.target.value;
   }
 
-  async handleNewVariant(e) {
-    e.preventDefault();
-    this.details.variants.push({});
-    this.details = processDetails(this.details);
+  async handleNewVariant() {
+    const newVar = { name: `Variation ${this._observedDetails.variants.length + 1}` };
+    if (this.hasPercents()) newVar.percent = 0;
+    this._observedDetails.variants.push(newVar);
     this.requestUpdate();
   }
 
   handleBack() {
-    const opts = { detail: { action: 'view' }, bubbles: true, composed: true };
+    const opts = { detail: { action: 'cancel' }, bubbles: true, composed: true };
     this.dispatchEvent(new CustomEvent('action', opts));
   }
 
-  handleSave(e, status) {
-    e.preventDefault();
-    const opts = { detail: { action: 'save', status }, bubbles: true, composed: true };
+  async handleSave(type) {
+    this._errors = getErrors(this._observedDetails);
+    if (this._errors) {
+      this._status = { text: 'Please fix errors.', type: 'error' };
+      return;
+    }
+
+    // Set the experiment status based on the button clicked
+    this._observedDetails.status = type;
+
+    // Bind to this so it can be called outside the class
+    const setStatus = this.setStatus.bind(this);
+    const result = await saveDetails(this.page, this._observedDetails, setStatus);
+    if (result.status !== 'ok') return;
+    const opts = { detail: { action: 'saved' }, bubbles: true, composed: true };
     this.dispatchEvent(new CustomEvent('action', opts));
   }
 
   handleDelete(idx) {
     if (idx === 0) return;
-    this.details.variants.splice(idx, 1);
-    this.fixPercentages(null, false);
+    this._observedDetails.variants.splice(idx, 1);
     this.requestUpdate();
+  }
+
+  handlePreview(param) {
+    const opts = { detail: { action: 'preview', param }, bubbles: true, composed: true };
+    this.dispatchEvent(new CustomEvent('action', opts));
+  }
+
+  hasPercents() {
+    return this._observedDetails.variants.some((variant) => variant.percent);
+  }
+
+  handleLock() {
+    const total = this._observedDetails.variants.length;
+    this._observedDetails.variants = this._observedDetails.variants.map((variant) => {
+      if (variant.percent !== undefined) {
+        delete variant.percent;
+      } else {
+        variant.percent = Math.round(100 / total);
+      }
+      return variant;
+    });
+    this.requestUpdate();
+  }
+
+  get _placeholder() {
+    return `${this.page.origin}/experiments/
+      ${this._observedDetails.name ? `${this._observedDetails.name}/` : ''}...`;
   }
 
   renderVariant(variant, idx) {
     const error = this._errors?.variants?.[idx].error;
     const isControl = idx === 0;
-    const percent = variant.percent || 0;
-    const isActive = this.details?.experimentStatus === 'active';
+    let { percent } = variant;
+    if (!this.hasPercents()) percent = Math.round(100 / this._observedDetails.variants.length);
+    const isActive = this._observedDetails?.experimentStatus === 'active';
 
     const {
       editUrl,
       openUrl,
       previewParam,
-    } = calcLinks(this.details.name, variant, idx);
+    } = calcLinks(this._observedDetails.name, variant, idx);
 
     return html`
       <li class="${variant.open ? 'is-open' : ''} ${error ? 'has-error' : ''} nx-expandable">
         <div class="nx-variant-name">
           <span style="background: var(${toColor(variant.name)})">${getAbb(variant.name)}</span>
           <p>${variant.name}</p>
-          ${isActive ? html`<div class="nx-range-wrapper"><p class="on-right">${percent}%</p></div>` : html`
-                <div class="nx-range-wrapper">
-                  <sl-input
-                      type="range"
-                      id="percent-${idx}"
-                      name="percent"
-                      min="0"
-                      max="100"
-                      step="1"
-                      ?disabled="${isActive ? 'true' : undefined}"
-                      .value=${percent}
-                      @input=${(e) => { this.handlePercentInput(e, idx); }}>
-                  </sl-input>
-                  <p class="${percent < 50 ? 'on-right' : ''}">${percent}%</p>
-                </div>
-              `}
+          <div class="nx-range-wrapper">
+            <input
+              class="nx-exp-percent"
+              type="range"
+              id="percent-${idx}"
+              name="percent"
+              min="0"
+              max="100"
+              step="1"
+              ?disabled=${variant.percent === undefined || idx === 0}
+              .value="${percent}"
+              @input=${(e) => { this.handlePercentInput(e, idx); }} />
+            <p class="${percent < 50 ? 'on-right' : ''}">${percent}%</p>
+          </div>
           <button @click=${(e) => this.handleOpen(e, idx)} class="nx-exp-btn-more">Details</button>
         </div>
         <div class="nx-variant-details">
@@ -157,7 +213,10 @@ class NxExpEdit extends LitElement {
                 <img src="${nxBase}/public/icons/S2_Icon_OpenIn_20_N.svg" loading="lazy" />
                 <span>Open</span>
             </button>` : nothing}
-            <button ?disabled=${!previewParam} @click=${(e) => this.handlePreview(e, previewParam)}>
+            <button
+              title=${this._hasChanges ? 'Save changes to simulate.' : nothing}
+              ?disabled=${!previewParam || this._hasChanges}
+              @click=${() => this.handlePreview(previewParam)}>
               <img src="${nxBase}/public/icons/S2_Icon_Community_20_N.svg" loading="lazy" />
               <span>Simulate</span>
             </button>
@@ -172,21 +231,26 @@ class NxExpEdit extends LitElement {
   }
 
   renderVariants() {
+    const lock = this.hasPercents() ? { icon: 'LockOpen', text: 'Custom' } : { icon: 'Lock', text: 'Even' };
     return html`
       <div class="nx-variants-area">
         <p class="nx-variants-heading">Variants</p>
         <ul class="nx-variants-list">
-          ${this.details.variants?.map((variant, idx) => this.renderVariant(variant, idx))}
+          ${this._observedDetails.variants?.map((variant, idx) => this.renderVariant(variant, idx))}
         </ul>
-        ${this.details.experimentStatus === 'active' ? nothing : html`
+        <div class="nx-new-variant-area">
           <button class="nx-new-variant" @click=${this.handleNewVariant}>
-            <div class="nx-icon-wrapper">
-              <svg class="icon"><use href="#S2_Icon_Add_20_N"/></svg>
-            </div>
-            <span>New variant</span>
+              <div class="nx-icon-wrapper">
+                <svg class="icon"><use href="#S2_Icon_Add_20_N"/></svg>
+              </div>
+              <span>New variant</span>
           </button>
-        `}
-      </p>
+          <button class="nx-variant-percent-toggle" @click=${this.handleLock}>
+            <svg class="icon"><use href="#S2_Icon_${lock.icon}_20_N"/></svg>
+            <span class="nx-toggle-text">${lock.text}</span>
+          </button>
+        </div>
+      </div>
     `;
   }
 
@@ -199,7 +263,7 @@ class NxExpEdit extends LitElement {
             type="date"
             id="start" name="start"
             @change=${(e) => { this.handleDateChange(e, 'startDate'); }}
-            .value=${this.details.startDate}>
+            .value=${this._observedDetails.startDate}>
           </sl-input>
           <sl-input
             label="End date"
@@ -207,7 +271,7 @@ class NxExpEdit extends LitElement {
             id="end"
             name="end"
             @change=${(e) => { this.handleDateChange(e, 'endDate'); }}
-            .value=${this.details.endDate}
+            .value=${this._observedDetails.endDate}
             min="2025-03-01">
           </sl-input>
         </div>
@@ -215,32 +279,18 @@ class NxExpEdit extends LitElement {
     `;
   }
 
-  renderNone() {
+  renderActions() {
     return html`
-      <div class="nx-new-wrapper">
-        <div class="nx-new">
-          <img
-            alt=""
-            src="${nxBase}/img/icons/S2IconUsersNo20N-icon.svg"
-            class="nx-new-icon nx-space-bottom-200" />
-          <p class="sl-heading-m nx-space-bottom-100">No experiments on this page.</p>
-          <p class="sl-body-xs nx-space-bottom-300">
-            Create a new experiment to start optimizing your web page.
-          </p>
-          <div class="nx-new-action-area">
-            <sl-button @click=${this.handleNewExp}>Create new</sl-button>
-          </div>
-        </div>
-      </div>
-    `;
+      <nx-exp-actions .status=${this._status}>
+        <sl-button class="primary outline" @click=${() => this.handleSave('draft')}>Save draft</sl-button>
+        <sl-button @click=${() => this.handleSave('active')}>Publish</sl-button>
+      </nx-exp-actions>`;
   }
 
   render() {
-    if (!this.details?.name) this.renderNone();
-
     return html`
       <div class="nx-exp-main">
-        <div class="nx-exp-details-header nx-space-bottom-200">
+        <div class="nx-exp-details-header">
           <button aria-label="Back" @click=${this.handleBack}>
             <img class="nx-exp-back" src="${nxBase}/img/icons/S2_Icon_Undo_20_N.svg" />
           </button>
@@ -249,21 +299,21 @@ class NxExpEdit extends LitElement {
         <div class="nx-details-area">
           <sl-input
             @input=${this.handleNameInput}
-            .value=${this.details.name}
+            .value=${this._observedDetails.name}
             class="nx-space-bottom-100"
             type="text"
             label="Name"
             name="exp-name"
             error=${this._errors?.name || nothing}
-            ?disabled="${this.details.experimentStatus === 'active' ? 'true' : undefined}"
+            ?disabled="${this._observedDetails.experimentStatus === 'active' ? 'true' : undefined}"
             placeholder="Enter experiment name"
             class="nx-space-bottom-100"></sl-input>
           <div class="nx-grid-two-up nx-space-bottom-300">
             <sl-select
               label="Type"
               name="exp-type"
-              .value=${this.details.type}
-              ?disabled="${this.details.experimentStatus === 'active' ? 'true' : undefined}"
+              .value=${this._observedDetails.type}
+              ?disabled="${this._observedDetails.experimentStatus === 'active' ? 'true' : undefined}"
               @change=${(e) => this.handleSelectChange(e, 'type')}>
                 <option value="ab">A/B test</option>
                 <option value="mab">Multi-arm bandit</option>
@@ -271,8 +321,8 @@ class NxExpEdit extends LitElement {
             <sl-select
               label="Goal"
               name="exp-opt-for"
-              .value=${this.details.goal}
-              ?disabled="${this.details.experimentStatus === 'active' ? 'true' : undefined}"
+              .value=${this._observedDetails.goal}
+              ?disabled="${this._observedDetails.experimentStatus === 'active' ? 'true' : undefined}"
               @change=${(e) => this.handleSelectChange(e, 'goal')}>
                 <option value="conversion">Overall conversion</option>
                 <option value="form-submit">Form submission</option>

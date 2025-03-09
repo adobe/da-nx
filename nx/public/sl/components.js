@@ -84,7 +84,7 @@ class SlSelect extends LitElement {
       <div class="sl-inputfield">
         ${this.label ? html`<label for="sl-input-${this.name}">${this.label}</label>` : nothing}
         <div class="sl-inputfield-select-wrapper">
-          <select .value=${this.value} id="nx-input-exp-opt-for" @change=${this.handleChange} ?disabled="${this.disabled}"></select>
+          <select value=${this.value} id="nx-input-exp-opt-for" @change=${this.handleChange} ?disabled="${this.disabled}"></select>
         </div>
       </div>
     `;
