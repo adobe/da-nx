@@ -2,11 +2,11 @@
   --header-height: 57px;
   --action-height: 65px;
 
-  min-height: 650px;
+  height: 650px;
   background: #fff;
-  padding-bottom: var(--action-height);
   padding-top: var(--header-height);
   box-sizing: border-box;
+  overflow-y: auto;
 }
 
 svg {

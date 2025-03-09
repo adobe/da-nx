@@ -1,4 +1,7 @@
 :host {
+  padding-bottom: var(--action-height);
+  display: block;
+
   > svg {
     display: none;
   }
@@ -11,10 +14,13 @@ svg.icon {
 }
 
 .nx-exp-view-name-area,
-.nx-exp-view-details-area,
-.nx-exp-view-variants-area {
+.nx-exp-view-details-area {
   padding: 16px;
   border-bottom: 1px solid var(--s2-gray-200);
+}
+
+.nx-exp-view-variants-area {
+  padding: 16px;
 }
 
 .nx-exp-view-name-card {
