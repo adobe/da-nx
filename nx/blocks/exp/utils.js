@@ -105,7 +105,7 @@ export function calculatePercents(value, variants, indx) {
 }
 
 export function observeDetailChanges(details, callback) {
-  const PROPS_TO_OBSERVE = ['name', 'type', 'goal', 'startDate', 'endDate', 'percent', 'url'];
+  const PROPS_TO_OBSERVE = ['name', 'type', 'goal', 'startDate', 'endDate', 'percent', 'url', 'variants'];
 
   const handler = {
     set(obj, prop, value) {

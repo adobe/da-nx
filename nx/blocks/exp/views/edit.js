@@ -92,9 +92,12 @@ class NxExpEdit extends LitElement {
   }
 
   async handleNewVariant() {
-    const newVar = { name: `Variation ${this._observedDetails.variants.length + 1}` };
+    const newVar = { name: `variant-${this._observedDetails.variants.length + 1}` };
     if (this.hasPercents()) newVar.percent = 0;
-    this._observedDetails.variants.push(newVar);
+
+    // Reset the variants to trigger a property change
+    this._observedDetails.variants = [...this._observedDetails.variants, newVar];
+
     this.requestUpdate();
   }
 
