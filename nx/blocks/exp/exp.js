@@ -75,14 +75,22 @@ class NxExp extends LitElement {
 
   handleAction({ detail }) {
     if (detail.action === 'edit') this._isEdit = true;
-    if (detail.action === 'cancel') this._isEdit = false;
+
+    if (detail.action === 'cancel') {
+      // If there's no name, destroy the details object
+      if (!this._details.name) this._details = undefined;
+      this._isEdit = false;
+    }
+
     if (detail.action === 'new') {
       this._details = detail.details;
       this._isEdit = true;
     }
+
     if (detail.action === 'saved') {
       this.port.postMessage({ reload: true });
     }
+
     if (detail.action === 'preview') {
       this.port.postMessage({ preview: detail.param });
     }
