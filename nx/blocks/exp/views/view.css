@@ -19,10 +19,6 @@ svg.icon {
   border-bottom: 1px solid var(--s2-gray-200);
 }
 
-.nx-exp-view-variants-area {
-  padding: 16px;
-}
-
 .nx-exp-view-name-card {
   margin: 0 0 16px;
   border: 1px solid var(--s2-gray-200);
@@ -139,6 +135,8 @@ svg.icon {
 }
 
 .nx-exp-view-variants-area {
+  padding: 16px;
+
   .nx-variants-heading {
     font-size: var(--s2-body-xs-size);
     display: block;
@@ -155,6 +153,14 @@ svg.icon {
     list-style: none;
   }
 
+  p {
+    font-size: var(--s2-body-s-size);
+
+    &.percent {
+      font-size: var(--s2-body-xs-size);
+    }
+  }
+
   li {
     position: relative;
     margin: -2px 0;
@@ -164,20 +170,16 @@ svg.icon {
     transition: background-color 0.2s ease-in-out;
 
     &.is-previewed {
-      background-color: var(--s2-green-200);
+      background-color: var(--s2-yellow-100);
     }
 
     p {
       line-height: 1;
       word-break: break-all;
     }
-  }
 
-  p {
-    font-size: var(--s2-body-s-size);
-
-    &.percent {
-      font-size: var(--s2-body-xs-size);
+    .name {
+      margin-bottom: 4px;
     }
   }
 

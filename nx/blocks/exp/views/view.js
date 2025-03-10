@@ -132,6 +132,8 @@ class NxExpView extends LitElement {
 
   render() {
     const isActive = this.details?.status === 'active';
+    const goal = this.details.goal || 'conversion';
+    const type = this.details.type || 'ab';
 
     return html`
       <div class="nx-exp-view-name-area">
@@ -158,11 +160,11 @@ class NxExpView extends LitElement {
         <div class="nx-exp-detail-row">
           <div class="nx-exp-detail-col">
             <p class="nx-exp-detail-label">Type</p>
-            <p class="nx-exp-detail-content">${this.strings[this.details.type].label}</p>
+            <p class="nx-exp-detail-content">${this.strings[type].label}</p>
           </div>
           <div class="nx-exp-detail-col">
             <p class="nx-exp-detail-label">Goal</p>
-            <p class="nx-exp-detail-content">${this.strings[this.details.goal].label}</p>
+            <p class="nx-exp-detail-content">${this.strings[goal].label}</p>
           </div>
         </div>
         <div class="nx-exp-detail-row">
@@ -184,7 +186,7 @@ class NxExpView extends LitElement {
               <div class="nx-variant-name">
                 <span class="nx-variant-abb" style="background: var(${toColor(variant.name)})">${getAbb(variant.name)}</span>
                 <div class="nx-variant-details">
-                  <p>${variant.name}</p>
+                  <p class="name">${variant.name}</p>
                   <p class="percent">
                     ${variant.percent ? variant.percent : 100 / this.details.variants.length}%
                   </p>

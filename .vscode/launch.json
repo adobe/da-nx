@@ -33,14 +33,7 @@
     {
       "type": "chrome",
       "request": "launch",
-      "name": "Launch Chrome",
-      "url": "http://localhost:2000",
-      "webRoot": "${workspaceFolder}"
-    },
-    {
-      "type": "chrome",
-      "request": "launch",
-      "name": "Launch Chrome against localhost",
+      "name": "Local NX Chrome",
       "url": "http://localhost:6456",
       "webRoot": "${workspaceFolder}"
     }
