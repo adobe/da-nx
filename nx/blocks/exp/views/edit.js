@@ -139,6 +139,11 @@ class NxExpEdit extends LitElement {
     return this._observedDetails.variants.some((variant) => variant.percent);
   }
 
+  handleLink(e, href) {
+    e.preventDefault();
+    window.open(href, '_blank');
+  }
+
   handleLock() {
     const total = this._observedDetails.variants.length;
     this._observedDetails.variants = this._observedDetails.variants.map((variant) => {
