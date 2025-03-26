@@ -174,7 +174,7 @@ class NxLocDashboard extends LitElement {
   async getProjects() {
     try {
       imsDetails = await loadIms();
-      loggedinUser = imsDetails?.email?.split('@')[0];
+      loggedinUser = imsDetails?.email;
       const siteBase = window.location.hash.replace('#', '');
       this._siteBase = siteBase?.slice(1);
       const resp = await daFetch(`${DA_ORIGIN}/list${siteBase}/.da/translation/projects/active`);
