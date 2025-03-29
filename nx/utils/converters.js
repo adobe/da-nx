@@ -60,6 +60,8 @@ function makePictures(dom) {
   imgs.forEach((img) => {
     const clone = img.cloneNode(true);
     clone.setAttribute('loading', 'lazy');
+    // MD can have hlx in the img src
+    clone.src = clone.src.replace('.hlx.', '.aem.');
     // clone.src = `${clone.src}?optimize=medium`;
 
     let pic = document.createElement('picture');
