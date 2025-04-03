@@ -7,10 +7,11 @@
 }
 
 .no-shell {
-  background-color: #FFF;
+  background-color: #fff;
 }
 
 iframe {
+  display: block;
   border: none;
   width: 100%;
   height: 100%;
