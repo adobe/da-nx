@@ -12,6 +12,7 @@ module.exports = {
     'no-param-reassign': [2, { props: false }],
     'class-methods-use-this': 0,
     'import/no-cycle': 0,
+    'import/no-unresolved': 0,
     'linebreak-style': ['error', 'unix'],
     'no-await-in-loop': 0,
     'no-underscore-dangle': ['error', { allowAfterThis: true }],

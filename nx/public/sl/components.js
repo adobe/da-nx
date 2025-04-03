@@ -1,10 +1,11 @@
 /* eslint-disable max-classes-per-file */
 /* eslint-disable-next-line import/no-unresolved */
-import { LitElement, html, nothing, spread } from 'da-lit';
+import { LitElement, html, nothing, spread } from 'https://da.live/deps/lit/dist/index.js';
+import { loadStyle } from '../../scripts/nexter.js';
 import getStyle from '../../utils/styles.js';
 
-// const nxBase = `${new URL(import.meta.url).origin}/nx`;
-
+const nx = `${new URL(import.meta.url).origin}/nx`;
+await loadStyle(`${nx}/public/sl/styles.css`);
 const style = await getStyle(import.meta.url);
 
 class SlInput extends LitElement {
@@ -39,11 +40,54 @@ class SlInput extends LitElement {
       <div class="sl-inputfield">
         ${this.label ? html`<label for="sl-input-${this.name}">${this.label}</label>` : nothing}
         <input
-          .value="${this.value}"
+          .value="${this.value || ''}"
           @input=${this.handleEvent}
           @change=${this.handleEvent}
           class="${this.class} ${this.error ? 'has-error' : ''}"
           ${spread(this._attrs)} />
+        ${this.error ? html`<p class="sl-inputfield-error">${this.error}</p>` : nothing}
+      </div>
+    `;
+  }
+}
+
+class SlTextarea extends LitElement {
+  static properties = {
+    value: { type: String },
+    class: { type: String },
+    label: { type: String },
+    error: { type: String },
+  };
+
+  async connectedCallback() {
+    super.connectedCallback();
+    this.shadowRoot.adoptedStyleSheets = [style];
+  }
+
+  handleEvent(event) {
+    this.value = event.target.value;
+    const wcEvent = new event.constructor(event.type, event);
+    this.dispatchEvent(wcEvent);
+  }
+
+  get _attrs() {
+    return this.getAttributeNames().reduce((acc, name) => {
+      if ((name === 'class' || name === 'label' || name === 'value' || name === 'error')) return acc;
+      acc[name] = this.getAttribute(name);
+      return acc;
+    }, {});
+  }
+
+  render() {
+    return html`
+      <div class="sl-inputfield sl-inputarea">
+        ${this.label ? html`<label for="sl-input-${this.name}">${this.label}</label>` : nothing}
+        <textarea
+          .value="${this.value || ''}"
+          @input=${this.handleEvent}
+          @change=${this.handleEvent}
+          class="${this.class} ${this.error ? 'has-error' : ''}"
+          ${spread(this._attrs)}></textarea>
         ${this.error ? html`<p class="sl-inputfield-error">${this.error}</p>` : nothing}
       </div>
     `;
@@ -155,11 +199,9 @@ class SlDialog extends LitElement {
 }
 
 customElements.define('sl-input', SlInput);
+customElements.define('sl-textarea', SlTextarea);
 customElements.define('sl-select', SlSelect);
 customElements.define('sl-button', SlButton);
 customElements.define('sl-dialog', SlDialog);
 
-// <input type="text" name="firstName" value="My val" placeholder="Enter name" />
-//
-// await import('https://da.live/nx/public/sl/components.js');
-// <sl-input type="text" name="firstName" value="My val" placeholder="Enter name"></sl-input>
+document.body.classList.remove('sl-loading');

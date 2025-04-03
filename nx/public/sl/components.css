@@ -1,5 +1,6 @@
 :host {
   display: block;
+  position: relative;
 }
 
 :host > svg {
@@ -11,11 +12,11 @@ svg.icon {
   height: 20px;
 }
 
-.sl-inputfield {
-  --sl-field-height: 28px;
-  --sl-field-border: 2px solid var(--s2-gray-300);
-  --sl-field-font-size: 14px;
+.sl-inputarea {
+  min-height: 64px;
+}
 
+.sl-inputfield {
   label {
     font-size: var(--s2-body-xs-size);
     display: block;
@@ -23,14 +24,25 @@ svg.icon {
     margin-bottom: 4px;
   }
 
+  input[type="date"] {
+    padding: 0 8px 0 12px;
+  }
+
+  textarea {
+    position: absolute;
+    inset: 0;
+  }
+
   input[type="text"],
   input[type="number"],
-  input[type="date"] {
+  input[type="password"],
+  input[type="date"],
+  textarea {
     width: 100%;
     display: block;
     padding: 0 12px;
     line-height: var(--sl-field-height);
-    font-family: var(--body-font-family);
+    font-family: var(--font-family);
     font-size: var(--sl-field-font-size);
     border-radius: var(--s2-radius-100);
     outline-color: var(--s2-blue-900);
@@ -57,8 +69,8 @@ svg.icon {
     }
   }
 
-  input[type="date"] {
-    padding: 0 8px 0 12px;
+  textarea[resize="none"] {
+    resize: none;
   }
 
   input[type="range"] {
@@ -100,7 +112,8 @@ svg.icon {
     z-index: 1;
   }
 
-  input:focus-visible {
+  input:focus-visible,
+  textarea:focus-visible {
     outline-offset: 4px;
   }
 
@@ -109,7 +122,7 @@ svg.icon {
     width: 100%;
     padding: 0 12px;
     background: var(--s2-gray-100);
-    font-family: var(--body-font-family);
+    font-family: var(--font-family);
     font-size: var(--sl-field-font-size);
     line-height: var(--sl-field-height);
     border: 2px solid var(--s2-gray-100);
@@ -170,7 +183,7 @@ svg.icon {
     color: #fff;
     background: var(--s2-blue-900);
     border: 2px solid var(--s2-blue-900);
-    font-family: var(--body-font-family);
+    font-family: var(--font-family);
     border-radius: var(--s2-border-radius);
     outline-color: var(--s2-blue-900);
     outline-offset: 0;
@@ -185,8 +198,8 @@ svg.icon {
     }
 
     &:hover {
-      background: var(--s2-blue-800);
-      border-color: var(--s2-blue-800);
+      background: var(--s2-blue-1000);
+      border-color: var(--s2-blue-1000);
     }
 
     &.negative {

@@ -6,6 +6,12 @@
   /* Borders */
   --s2-border-radius: 16px;
 
+  /* Corners */
+  --s2-radius-75: 4px;
+  --s2-radius-100: 8px;
+  --s2-radius-200: 10px;
+  --s2-radius-300: 16px;
+
   /* Fonts */
   --font-family: "Adobe Clean", adobe-clean, "Trebuchet MS", sans-serif;
   --fixed-family: "Roboto Mono", menlo, consolas, "Liberation Mono", monospace;
@@ -54,6 +60,7 @@
   --s2-blue-200: #e5f0fe;
   --s2-blue-700: #5989ff;
   --s2-blue-900: #3b63fb;
+  --s2-blue-1000: #274dea;
   --s2-blue-1200: #1532ad;
   --s2-red-200: #ffebe8;
   --s2-red-300: #ffd6d1;
@@ -62,6 +69,11 @@
   --s2-red-1000: #b40000;
   --s2-yellow-100: #fff8cc;
   --s2-yellow-600: #d29500;
+
+  /* Fields */
+  --sl-field-height: 28px;
+  --sl-field-border: 2px solid var(--s2-gray-300);
+  --sl-field-font-size: 14px;
 }
 
 body {

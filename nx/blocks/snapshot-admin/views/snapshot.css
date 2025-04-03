@@ -1,0 +1,261 @@
+:host {
+  > svg {
+    display: none;
+  }
+}
+
+input,
+button {
+  font-family: var(--font-family);
+}
+
+p {
+  margin: 0;
+}
+
+svg.icon {
+  display: block;
+  width: 20px;
+  height: 20px;
+}
+
+.nx-snapshot-wrapper {
+  position: relative;
+  padding: 12px 12px 12px 18px;
+  background-color: var(--s2-gray-50);
+  transition: background-color 0.2s ease-in-out;
+
+  &.is-open {
+    background-color: var(--s2-blue-200);
+  }
+
+  &.is-saving::after {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    content: "Saving";
+    font-size: 24px;
+    font-weight: 700;
+    text-transform: uppercase;
+    position: absolute;
+    inset: 0;
+    background: rgb(255 255 255 / 60%);
+    z-index: 10;
+  }
+}
+
+.nx-snapshot-header {
+  display: grid;
+  align-items: center;
+  grid-template-columns: 1fr auto;
+  gap: var(--spacing-400);
+  font-weight: 700;
+
+  .nx-snapshot-expand {
+    position: relative;
+    display: block;
+    width: 32px;
+    height: 32px;
+    border: none;
+    border-radius: 4px;
+    text-indent: -1000px;
+    overflow: hidden;
+    background: transparent;
+  }
+
+  .nx-snapshot-expand::after {
+    position: absolute;
+    inset: 0;
+    content: "";
+    width: 32px;
+    height: 32px;
+    background: no-repeat center / 18px url("https://da.live/nx/img/icons/Smock_ChevronRight_18_N.svg") transparent;
+    transition: transform 0.2s ease-in-out;
+  }
+
+  .nx-snapshot-expand:hover {
+    background: #0000001a;
+  }
+
+  input {
+    background-color: transparent;
+    border: none;
+    padding: 0;
+    line-height: 32px;
+    border-bottom: 2px dotted var(--s2-gray-600);
+
+    &:focus-visible {
+      outline: none;
+      border-bottom: 2px dotted var(--s2-blue-900);
+    }
+  }
+}
+
+.nx-snapshot-details {
+  display: none;
+  grid-template-columns: 1.4fr 0.6fr;
+  gap: 24px;
+  margin-top: 8px;
+}
+
+.is-open {
+  .nx-snapshot-expand::after {
+    transform: rotate(90deg);
+  }
+
+  .nx-snapshot-details {
+    display: grid;
+  }
+}
+
+.nx-snapshot-details-left {
+  position: relative;
+
+  &.is-list::after {
+    pointer-events: none;
+    content: "";
+    position: absolute;
+    height: 100px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(0deg, #e5f0fe 0%, #e5f0fe00 100%);
+  }
+}
+
+.nx-snapshot-edit-urls {
+  height: 388px;
+}
+
+.nx-snapshot-urls {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  height: 388px;
+  overflow-y: scroll;
+
+  li {
+    border-bottom: 1px solid var(--s2-gray-400);
+
+    &:last-child {
+      border-bottom: none;
+      margin-bottom: 24px;
+    }
+
+    &:hover {
+      background: rgb(0 0 0 / 2%);
+
+      .icon-wrap {
+        display: flex;
+      }
+    }
+  }
+
+  a {
+    padding: 4px 6px 4px 12px;
+    color: var(--s2-gray-800);
+    text-decoration: none;
+    display: grid;
+    align-items: center;
+    grid-template-columns: 1fr auto;
+    gap: 12px;
+    border-radius: 8px;
+
+    span {
+      line-height: 40px;
+    }
+
+    .icon-wrap {
+      display: none;
+      justify-content: center;
+      align-items: center;
+      width: 32px;
+      height: 32px;
+    }
+  }
+}
+
+.nx-snapshot-sub-heading {
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: var(--s2-body-s-size);
+  margin-bottom: 4px;
+
+  &.nx-snapshot-sub-heading-urls {
+    display: flex;
+    justify-content: start;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .nx-snapshot-sub-heading-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+  }
+
+  button {
+    background: transparent;
+    color: var(--s2-blue-900);
+    font-weight: 700;
+    text-transform: uppercase;
+    font-size: var(--s2-body-s-size);
+    padding: 0;
+    border: none;
+    cursor: pointer;
+
+    &:disabled {
+      color: var(--s2-gray-600);
+      cursor: not-allowed;
+    }
+  }
+}
+
+.nx-snapshot-meta {
+  sl-input,
+  sl-textarea {
+    margin-bottom: 8px;
+  }
+}
+
+.nx-snapshot-action-group {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 6px;
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 8px;
+
+  &:last-child {
+    margin-bottom: 0;
+  }
+
+  button {
+    color: var(--s2-gray-800);
+    font-size: 12px;
+    font-weight: 700;
+    background: #0000001a;
+    border: none;
+    padding: 16px 0;
+    outline: none;
+    text-align: center;
+
+    svg {
+      margin: 0 auto 6px;
+    }
+
+    span {
+      display: block;
+      text-align: center;
+    }
+
+    &:hover {
+      background: #0000002a;
+    }
+  }
+
+  button:disabled {
+    background: #00000045;
+  }
+}
