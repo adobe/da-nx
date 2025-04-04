@@ -11,7 +11,7 @@ const style = await getStyle(import.meta.url);
 class FormAwareLitElement extends LitElement {
   handleFormData({ formData }) {
     if (this.name) {
-      formData.append(this.name, this.value);
+      formData.append(this.name, this.value || '');
     }
   }
 
