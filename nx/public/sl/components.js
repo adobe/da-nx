@@ -8,12 +8,36 @@ const nx = `${new URL(import.meta.url).origin}/nx`;
 await loadStyle(`${nx}/public/sl/styles.css`);
 const style = await getStyle(import.meta.url);
 
-class SlInput extends LitElement {
+class FormAwareLitElement extends LitElement {
+  handleFormData({ formData }) {
+    if (this.name) {
+      formData.append(this.name, this.value);
+    }
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+    this.form = this.closest('form');
+    if (this.form) {
+      this.form.addEventListener('formdata', this.handleFormData.bind(this));
+    }
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    if (this.form) {
+      this.form.removeEventListener('formdata', this.handleFormData.bind(this));
+    }
+  }
+}
+
+class SlInput extends FormAwareLitElement {
   static properties = {
     value: { type: String },
     class: { type: String },
     label: { type: String },
     error: { type: String },
+    name: { type: String },
   };
 
   async connectedCallback() {
@@ -38,7 +62,7 @@ class SlInput extends LitElement {
   render() {
     return html`
       <div class="sl-inputfield">
-        ${this.label ? html`<label for="sl-input-${this.name}">${this.label}</label>` : nothing}
+        ${this.label ? html`<label for="${this.name}">${this.label}</label>` : nothing}
         <input
           .value="${this.value || ''}"
           @input=${this.handleEvent}
@@ -51,12 +75,13 @@ class SlInput extends LitElement {
   }
 }
 
-class SlTextarea extends LitElement {
+class SlTextarea extends FormAwareLitElement {
   static properties = {
     value: { type: String },
     class: { type: String },
     label: { type: String },
     error: { type: String },
+    name: { type: String },
   };
 
   async connectedCallback() {
@@ -81,7 +106,7 @@ class SlTextarea extends LitElement {
   render() {
     return html`
       <div class="sl-inputfield sl-inputarea">
-        ${this.label ? html`<label for="sl-input-${this.name}">${this.label}</label>` : nothing}
+        ${this.label ? html`<label for="${this.name}">${this.label}</label>` : nothing}
         <textarea
           .value="${this.value || ''}"
           @input=${this.handleEvent}
@@ -94,7 +119,7 @@ class SlTextarea extends LitElement {
   }
 }
 
-class SlSelect extends LitElement {
+class SlSelect extends FormAwareLitElement {
   static properties = {
     name: { type: String },
     label: { type: String },
@@ -126,7 +151,7 @@ class SlSelect extends LitElement {
     return html`
       <slot @slotchange=${this.handleSlotchange}></slot>
       <div class="sl-inputfield">
-        ${this.label ? html`<label for="sl-input-${this.name}">${this.label}</label>` : nothing}
+        ${this.label ? html`<label for="${this.name}">${this.label}</label>` : nothing}
         <div class="sl-inputfield-select-wrapper">
           <select value=${this.value} id="nx-input-exp-opt-for" @change=${this.handleChange} ?disabled="${this.disabled}"></select>
         </div>
