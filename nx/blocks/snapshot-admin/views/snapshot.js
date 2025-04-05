@@ -2,11 +2,11 @@ import { html, LitElement, nothing } from 'da-lit';
 import getStyle from '../../../utils/styles.js';
 import getSvg from '../../../utils/svg.js';
 import {
-  publishSnapshot,
   deleteSnapshot,
   fetchManifest,
   saveManifest,
   updatePaths,
+  reviewSnapshot,
 } from '../utils/utils.js';
 
 const nx = `${new URL(import.meta.url).origin}/nx`;
@@ -14,6 +14,7 @@ const style = await getStyle(import.meta.url);
 
 const ICONS = [
   `${nx}/img/icons/S2IconClose20N-icon.svg`,
+  `${nx}/public/icons/S2_Icon_Compare_20_N.svg`,
   `${nx}/public/icons/S2_Icon_Save_20_N.svg`,
   `${nx}/public/icons/S2_Icon_Lock_20_N.svg`,
   `${nx}/public/icons/S2_Icon_LockOpen_20_N.svg`,
@@ -28,9 +29,9 @@ class NxSnapshot extends LitElement {
     basics: { attribute: false },
     _manifest: { state: true },
     _editUrls: { state: true },
-    _isOpen: { state: true },
     _isSaving: { state: true },
-    _error: { state: true },
+    _message: { state: true },
+    _isOpen: { state: true },
   };
 
   async connectedCallback() {
@@ -55,38 +56,33 @@ class NxSnapshot extends LitElement {
     this.requestUpdate();
   }
 
-  async handleEditUrls() {
-    if (this._editUrls) {
-      this._isSaving = true;
-
-      // parse text area
-      const textUrls = this.getValue('[name="edit-urls"]');
-
-      // Normalize our paths
-      const currPaths = this._manifest.resources.map((res) => res.path);
-      const editedHrefs = textUrls.split('\n');
-
-      const result = await updatePaths(this.basics.name, currPaths, editedHrefs);
-      this._isSaving = false;
-      if (result.error) {
-        this._error = { heading: 'Note', message: result.error, open: true };
-        return;
-      }
-      this._manifest.resources = result;
-      this._editUrls = false;
-      return;
-    }
-    this._editUrls = true;
+  handleUrls() {
+    this._editUrls = !this._editUrls;
   }
 
-  handleCancelUrls() {
-    this._editUrls = false;
+  async handleEditUrls() {
+    const textUrls = this.getValue('[name="edit-urls"]');
+    if (textUrls) {
+      const currPaths = this._manifest?.resources?.map((res) => res.path) || [];
+      const editedHrefs = textUrls?.split('\n') || [];
+      const result = await updatePaths(this.basics.name, currPaths, editedHrefs);
+      if (result.error) {
+        this._message = { heading: 'Note', message: result.error, open: true };
+      }
+    }
   }
 
   async handleSave(lock) {
     this._isSaving = true;
     const name = this.basics.name || this.getValue('[name="name"]');
+
+    // Set the name if it isn't already set
+    if (!this.basics.name) this.basics.name = name;
+
     const manifest = this.getUpdatedManifest();
+
+    // Handle any URLs which may have changed
+    await this.handleEditUrls();
 
     // Set the lock status if it's not undefined
     if (lock === true || lock === false) manifest.locked = lock;
@@ -94,7 +90,7 @@ class NxSnapshot extends LitElement {
     const result = await saveManifest(name, manifest);
     this._isSaving = false;
     if (result.error) {
-      this._error = { heading: 'Note', message: result.error, open: true };
+      this._message = { heading: 'Note', message: result.error, open: true };
       return;
     }
     this._manifest = result;
@@ -105,10 +101,18 @@ class NxSnapshot extends LitElement {
     this.handleSave(lock);
   }
 
+  handleShare() {
+    const aemPaths = this._manifest.resources.map((res) => res.aemPreview);
+    const blob = new Blob([aemPaths.join('\n')], { type: 'text/plain' });
+    const data = [new ClipboardItem({ [blob.type]: blob })];
+    navigator.clipboard.write(data);
+    this._message = { heading: 'Copied', message: 'URLs copied to clipboard.', open: true };
+  }
+
   async handleDelete() {
     const result = await deleteSnapshot(this.basics.name);
     if (result.error) {
-      this._error = { heading: 'Note', message: result.error, open: true };
+      this._message = { heading: 'Note', message: result.error, open: true };
       return;
     }
     const opts = { bubbles: true, composed: true };
@@ -116,19 +120,19 @@ class NxSnapshot extends LitElement {
     this.dispatchEvent(event);
   }
 
-  async handlePublish() {
+  async handleReview(state) {
     this._isSaving = true;
-    const result = await publishSnapshot(this.basics.name);
-    this._isSaving = true;
+    const result = await reviewSnapshot(this.basics.name, state);
     if (result.error) {
-      this._error = { heading: 'Note', message: result.error, open: true };
+      this._message = { heading: 'Note', message: result.error, open: true };
       return;
     }
-    this._manifest = result;
+    this.loadManifest();
+    this._isSaving = false;
   }
 
   getValue(selector) {
-    const { value } = this.shadowRoot.querySelector(selector);
+    const { value } = this.shadowRoot.querySelector(selector) || {};
     return value === '' ? undefined : value;
   }
 
@@ -143,6 +147,12 @@ class NxSnapshot extends LitElement {
   get _lockStatus() {
     if (!this._manifest?.locked) return { text: 'Unlocked', icon: '#S2_Icon_LockOpen_20_N' };
     return { text: 'Locked', icon: '#S2_Icon_Lock_20_N' };
+  }
+
+  get _reviewStatus() {
+    if (this._manifest?.review === 'requested') return 'Ready';
+    if (this._manifest?.review === 'rejected') return 'Rejected';
+    return this._manifest?.review;
   }
 
   renderUrls() {
@@ -177,25 +187,34 @@ class NxSnapshot extends LitElement {
     return html`<button><svg class="icon"><use href=""/></svg>Unlock</button>`;
   }
 
+  renderEditUrlBtn() {
+    return html`
+      <button
+        title=${this._manifest?.locked ? 'Unlock snapshot to edit URLs.' : nothing}
+        ?disabled=${this._manifest?.locked}
+        @click=${this.handleUrls}>Edit</button>`;
+  }
+
+  renderCancelUrlBtn() {
+    return html`<button @click=${this.handleUrls}>Cancel</button>`;
+  }
+
   renderDetails() {
+    const showEdit = !this._manifest?.resources || this._editUrls;
     const count = this._manifest?.resources.length || 0;
     const s = count === 1 ? '' : 's';
 
     return html`
       <div class="nx-snapshot-details">
-        <div class="nx-snapshot-details-left ${!this._editUrls ? 'is-list' : ''}">
+        <div class="nx-snapshot-details-left ${showEdit ? '' : 'is-list'}">
           <div class="nx-snapshot-sub-heading nx-snapshot-sub-heading-urls">
-            <p>${!this._editUrls ? html`${count} URL${s}` : html`URLs`}</p>
+            <p>${showEdit ? html`URLs` : html`${count} URL${s}`}</p>
             <div class="nx-snapshot-sub-heading-actions">
-              <button
-                title=${this._manifest?.locked ? 'Unlock snapshot to edit URLs.' : nothing}
-                ?disabled=${this._manifest?.locked}
-                @click=${this.handleEditUrls}>${this._editUrls ? 'Save' : 'Edit'}</button>
-              ${this._editUrls ? html`<button @click=${this.handleCancelUrls}>Cancel</button>` : nothing}
-              ${!this._editUrls ? html`<button>Share</button>` : nothing}
+              ${showEdit ? this.renderCancelUrlBtn() : this.renderEditUrlBtn()}
+              ${showEdit ? nothing : html`<button @click=${this.handleShare}>Share</button>`}
             </div>
           </div>
-          ${this._manifest?.resources && !this._editUrls ? this.renderUrls() : this.renderEditUrls()}
+          ${showEdit ? this.renderEditUrls() : this.renderUrls()}
         </div>
         <div class="nx-snapshot-details-right">
           <div class="nx-snapshot-meta">
@@ -209,24 +228,24 @@ class NxSnapshot extends LitElement {
           <div class="nx-snapshot-actions">
             <p class="nx-snapshot-sub-heading">Snapshot</p>
             <div class="nx-snapshot-action-group">
-              <button @click=${() => this.handleSave()}>
-                <svg class="icon"><use href="#S2_Icon_Save_20_N"/></svg>
-                Save
+              <button @click=${this.handleDelete} ?disabled=${this._manifest?.locked}>
+                <svg class="icon"><use href="#S2_Icon_Delete_20_N"/></svg>
+                Delete
               </button>
               <button @click=${this.handleLock}>
                 <svg class="icon"><use href="${this._lockStatus.icon}"/></svg>
                 ${this._lockStatus.text}
               </button>
-              <button @click=${this.handleDelete} ?disabled=${this._manifest?.locked}>
-                <svg class="icon"><use href="#S2_Icon_Delete_20_N"/></svg>
-                Delete
+              <button class="${showEdit ? 'is-editing' : ''}" @click=${() => this.handleSave()}>
+                <svg class="icon"><use href="#S2_Icon_Save_20_N"/></svg>
+                Save
               </button>
             </div>
             <p class="nx-snapshot-sub-heading">Review</p>
             <div class="nx-snapshot-action-group">
-              <button><svg class="icon"><use href="#S2_Icon_OpenIn_20_N"/></svg>Open</button>
-              <button ?disabled=${!this._manifest?.locked}><svg class="icon"><use href="#S2_Icon_PublishNo_20_N"/></svg>Reject</button>
-              <button @click=${this.handlePublish} ?disabled=${!this._manifest?.locked}><svg class="icon"><use href="#S2_Icon_Publish_20_N"/></svg>Publish</button>
+              <button @click=${() => this.handleReview('request')} ?disabled=${this._manifest?.locked}><svg class="icon"><use href="#S2_Icon_Compare_20_N"/></svg>Request<br/>review</button>
+              <button @click=${() => this.handleReview('reject')} ?disabled=${!this._manifest?.locked}><svg class="icon"><use href="#S2_Icon_PublishNo_20_N"/></svg>Reject <br/>& unlock</button>
+              <button @click=${() => this.handleReview('approve')} ?disabled=${!this._manifest?.locked}><svg class="icon"><use href="#S2_Icon_Publish_20_N"/></svg>Approve<br/>& publish</button>
             </div>
           </div>
         </div>
@@ -234,16 +253,24 @@ class NxSnapshot extends LitElement {
     `;
   }
 
+  renderEditName() {
+    return html`<input type="text" name="name" placeholder="Enter snapshot name" />`;
+  }
+
+  renderName() {
+    return html`<div class="nx-snapshot-header-title"><p>${this.basics.name}</p> <p>${this._reviewStatus}</p></div>`;
+  }
+
   render() {
     return html`
       <div class="nx-snapshot-wrapper ${this.basics.open ? 'is-open' : ''} ${this._isSaving ? 'is-saving' : ''}">
         <div class="nx-snapshot-header">
-          ${this.basics.name ? html`<p>${this.basics.name}</p>` : html`<input type="text" name="name" placeholder="Enter snapshot name" />`}
+          ${this.basics.name ? this.renderName() : this.renderEditName()}
           <button @click=${this.handleExpand} class="nx-snapshot-expand">Expand</button>
         </div>
         ${this.renderDetails()}
       </div>
-      <nx-dialog @action=${this.handleDialog} .details=${this._error}></nx-dialog>
+      <nx-dialog @action=${this.handleDialog} .details=${this._message}></nx-dialog>
     `;
   }
 }

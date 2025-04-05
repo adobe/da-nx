@@ -51,6 +51,12 @@ svg.icon {
   gap: var(--spacing-400);
   font-weight: 700;
 
+  .nx-snapshot-header-title {
+    display: grid;
+    grid-template-columns: 1fr 64px;
+    gap: var(--spacing-400);
+  }
+
   .nx-snapshot-expand {
     position: relative;
     display: block;
@@ -240,6 +246,11 @@ svg.icon {
     padding: 16px 0;
     outline: none;
     text-align: center;
+
+    &.is-editing {
+      background: var(--s2-blue-900);
+      color: #fff;
+    }
 
     svg {
       margin: 0 auto 6px;

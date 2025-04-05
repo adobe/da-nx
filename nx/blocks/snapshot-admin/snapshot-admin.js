@@ -87,6 +87,10 @@ class NxSnapshotAdmin extends LitElement {
         <h2>${count} snapshot${s}</h2>
         <sl-button @click=${this.handleNew}>Add new</sl-button>
       </div>
+      <div class="nx-snapshot-list-labels">
+        <p>Name</p>
+        <p>State</p>
+      </div>
       ${this._snapshots ? html`
         <div class="nx-snapshot-list">
           <ul>

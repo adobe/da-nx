@@ -38,7 +38,7 @@ function comparePaths(first, second) {
   };
 }
 
-export async function saveManifest(name, manifestToSave, reviewState) {
+export async function saveManifest(name, manifestToSave) {
   const opts = { method: 'POST' };
 
   if (manifestToSave) {
@@ -46,18 +46,20 @@ export async function saveManifest(name, manifestToSave, reviewState) {
     opts.headers = { 'Content-Type': 'application/json' };
   }
 
-  // Review status
-  const review = reviewState ? `?review=${reviewState}` : '';
-
-  const resp = await daFetch(`${AEM_ORIGIN}/snapshot/${org}/${site}/main/${name}${review}`, opts);
+  const resp = await daFetch(`${AEM_ORIGIN}/snapshot/${org}/${site}/main/${name}`, opts);
   if (!resp.ok) return formatError(resp);
   const { manifest } = await resp.json();
   manifest.resources = formatResources(name, manifest.resources);
   return manifest;
 }
 
-export function publishSnapshot(name) {
-  return saveManifest(name, null, 'approve');
+export async function reviewSnapshot(name, state) {
+  const opts = { method: 'POST' };
+  // Review status
+  const review = `?review=${state}&keepResources=true`;
+  const resp = await daFetch(`${AEM_ORIGIN}/snapshot/${org}/${site}/main/${name}${review}`, opts);
+  if (!resp.ok) return formatError(resp);
+  return { success: true };
 }
 
 export async function fetchManifest(name) {
@@ -73,8 +75,8 @@ export async function fetchSnapshots() {
   if (!resp.ok) return formatError(resp);
   const json = await resp.json();
 
-  const snapshots = json.snapshots.map((snapshot, idx) => (
-    { org, site, name: snapshot, open: idx === 0 }
+  const snapshots = json.snapshots.map((snapshot) => (
+    { org, site, name: snapshot }
   ));
 
   return { snapshots };
