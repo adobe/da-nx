@@ -277,6 +277,7 @@ svg.icon {
     color: #fff;
 
     &:disabled {
+      background-color: #00000045;
       color: #000;
     }
   }

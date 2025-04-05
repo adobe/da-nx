@@ -53,6 +53,9 @@ class NxSnapshot extends LitElement {
   }
 
   handleExpand() {
+    // Do not allow closing if there is no name
+    if (this.basics.open && !this.basics.name) return;
+
     this.basics.open = !this.basics.open;
     this.requestUpdate();
   }
@@ -128,12 +131,12 @@ class NxSnapshot extends LitElement {
   async handleReview(state) {
     this._action = 'Saving';
     const result = await reviewSnapshot(this.basics.name, state);
+    this._action = undefined;
     if (result.error) {
       this._message = { heading: 'Note', message: result.error, open: true };
       return;
     }
     this.loadManifest();
-    this._action = undefined;
   }
 
   async handleCopyUrls(direction) {
@@ -194,10 +197,6 @@ class NxSnapshot extends LitElement {
         .value=${newLinedRes}
         class="nx-snapshot-edit-urls"></sl-textarea>
     `;
-  }
-
-  renderUnlock() {
-    return html`<button><svg class="icon"><use href=""/></svg>Unlock</button>`;
   }
 
   renderEditUrlBtn() {
