@@ -151,9 +151,9 @@ class NxSnapshot extends LitElement {
   }
 
   get _reviewStatus() {
-    if (this._manifest?.review === 'requested') return 'Ready';
+    if (this._manifest?.review === 'requested' && this._manifest?.locked) return 'Ready';
     if (this._manifest?.review === 'rejected') return 'Rejected';
-    return this._manifest?.review;
+    return undefined;
   }
 
   renderUrls() {

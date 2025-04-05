@@ -153,7 +153,7 @@ class NxImporter extends LitElement {
   }
 
   get _successes() {
-    return this._urls.filter((url) => !(url.status === 'error' || url.status > 299));
+    return this._urls.filter((url) => url.status && !(url.status === 'error' || url.status > 299));
   }
 
   get _errors() {
@@ -237,11 +237,11 @@ class NxImporter extends LitElement {
           <div class="org-repo-row">
             <div>
               <label>Org</label>
-              <input type="text" name="org" placeholder="org" value="da-sites" />
+              <input type="text" name="org" placeholder="org" />
             </div>
             <div>
               <label>Repo</label>
-              <input type="text" name="repo" placeholder="repo" value="bacom" />
+              <input type="text" name="repo" placeholder="repo" />
             </div>
           </div>
         </div>

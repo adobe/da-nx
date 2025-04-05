@@ -39,7 +39,7 @@ h1 {
 
 .nx-snapshot-list-labels {
   display: grid;
-  grid-template-columns: 1fr 132px;
+  grid-template-columns: 1fr 134px;
   margin: 0 0 var(--spacing-200) 20px;
   text-transform: uppercase;
   font-weight: 700;
