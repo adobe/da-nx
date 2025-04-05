@@ -1,5 +1,7 @@
 import { AEM_ORIGIN } from '../../../public/utils/constants.js';
 import { daFetch } from '../../../utils/daFetch.js';
+import { mergeCopy, overwriteCopy } from '../../loc/project/index.js';
+import { Queue } from '../../../public/utils/tree.js';
 
 let org;
 let site;
@@ -126,4 +128,38 @@ export async function updatePaths(name, currPaths, editedHrefs) {
   // so shamelessly use the supplied paths as our turth.
   const toFormat = paths.map((path) => ({ path }));
   return formatResources(name, toFormat);
+}
+
+export async function copyManifest(name, resources, direction) {
+  // The action to take
+  const copyUrl = async (url) => {
+    if (url.source.endsWith('.html')) {
+      await mergeCopy(url, `Snapshot ${direction}`);
+    } else {
+      await overwriteCopy(url, `Snapshot ${direction}`);
+    }
+  };
+
+  const urls = resources.reduce((acc, res) => {
+    try {
+      const url = new URL(res.aemPreview);
+
+      const ext = url.pathname.endsWith('.json') ? '' : '.html';
+
+      const main = `/${org}/${site}${res.path}${ext}`;
+      const fork = `/${org}/${site}/.snapshots/${name}${res.path}${ext}`;
+
+      url.source = direction === 'fork' ? main : fork;
+      url.destination = direction === 'fork' ? fork : main;
+
+      acc.push(url);
+    } catch {
+      console.log('error making url from manifest path');
+    }
+    return acc;
+  }, []);
+
+  // Setup a new Queue with the copy function
+  const queue = new Queue(copyUrl, 50);
+  await Promise.all(urls.map((url) => queue.push(url)));
 }

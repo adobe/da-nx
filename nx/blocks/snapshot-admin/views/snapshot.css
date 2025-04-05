@@ -33,10 +33,9 @@ svg.icon {
     display: flex;
     justify-content: center;
     align-items: center;
-    content: "Saving";
+    content: attr(data-action);
     font-size: 24px;
     font-weight: 700;
-    text-transform: uppercase;
     position: absolute;
     inset: 0;
     background: rgb(255 255 255 / 60%);
@@ -140,23 +139,6 @@ svg.icon {
   height: 388px;
   overflow-y: scroll;
 
-  li {
-    border-bottom: 1px solid var(--s2-gray-400);
-
-    &:last-child {
-      border-bottom: none;
-      margin-bottom: 24px;
-    }
-
-    &:hover {
-      background: rgb(0 0 0 / 2%);
-
-      .icon-wrap {
-        display: flex;
-      }
-    }
-  }
-
   a {
     padding: 4px 6px 4px 12px;
     color: var(--s2-gray-800);
@@ -179,6 +161,23 @@ svg.icon {
       height: 32px;
     }
   }
+
+  li {
+    border-bottom: 1px solid var(--s2-gray-400);
+
+    &:last-child {
+      border-bottom: none;
+      margin-bottom: 24px;
+    }
+
+    &:hover {
+      background: rgb(0 0 0 / 2%);
+
+      .icon-wrap {
+        display: flex;
+      }
+    }
+  }
 }
 
 .nx-snapshot-sub-heading {
@@ -189,9 +188,16 @@ svg.icon {
 
   &.nx-snapshot-sub-heading-urls {
     display: flex;
-    justify-content: start;
+    justify-content: space-between;
     align-items: center;
     gap: 8px;
+
+    p {
+      display: flex;
+      justify-content: start;
+      align-items: center;
+      gap: 8px;
+    }
   }
 
   .nx-snapshot-sub-heading-actions {
@@ -260,18 +266,18 @@ svg.icon {
       display: block;
       text-align: center;
     }
-
-    &:hover {
-      background-color: var(--s2-blue-1000);
-      color: #fff;
-
-      &:disabled {
-        color: #000;
-      }
-    }
   }
 
   button:disabled {
     background: #00000045;
+  }
+
+  button:hover {
+    background-color: var(--s2-blue-1000);
+    color: #fff;
+
+    &:disabled {
+      color: #000;
+    }
   }
 }

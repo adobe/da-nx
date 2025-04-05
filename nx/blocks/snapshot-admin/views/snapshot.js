@@ -5,6 +5,7 @@ import {
   deleteSnapshot,
   fetchManifest,
   saveManifest,
+  copyManifest,
   updatePaths,
   reviewSnapshot,
 } from '../utils/utils.js';
@@ -29,9 +30,9 @@ class NxSnapshot extends LitElement {
     basics: { attribute: false },
     _manifest: { state: true },
     _editUrls: { state: true },
-    _isSaving: { state: true },
     _message: { state: true },
     _isOpen: { state: true },
+    _action: { state: true },
   };
 
   async connectedCallback() {
@@ -73,7 +74,7 @@ class NxSnapshot extends LitElement {
   }
 
   async handleSave(lock) {
-    this._isSaving = true;
+    this._action = 'Saving';
     const name = this.basics.name || this.getValue('[name="name"]');
 
     // Set the name if it isn't already set
@@ -88,7 +89,7 @@ class NxSnapshot extends LitElement {
     if (lock === true || lock === false) manifest.locked = lock;
 
     const result = await saveManifest(name, manifest);
-    this._isSaving = false;
+    this._action = undefined;
     this._editUrls = false;
     if (result.error) {
       this._message = { heading: 'Note', message: result.error, open: true };
@@ -125,14 +126,22 @@ class NxSnapshot extends LitElement {
   }
 
   async handleReview(state) {
-    this._isSaving = true;
+    this._action = 'Saving';
     const result = await reviewSnapshot(this.basics.name, state);
     if (result.error) {
       this._message = { heading: 'Note', message: result.error, open: true };
       return;
     }
     this.loadManifest();
-    this._isSaving = false;
+    this._action = undefined;
+  }
+
+  async handleCopyUrls(direction) {
+    this._action = direction === 'fork'
+      ? 'Forking content into snapshot.'
+      : 'Promoting content from snapshot.';
+    await copyManifest(this.basics.name, this._manifest.resources, direction);
+    this._action = undefined;
   }
 
   getValue(selector) {
@@ -212,10 +221,14 @@ class NxSnapshot extends LitElement {
       <div class="nx-snapshot-details">
         <div class="nx-snapshot-details-left ${showEdit ? '' : 'is-list'}">
           <div class="nx-snapshot-sub-heading nx-snapshot-sub-heading-urls">
-            <p>${showEdit ? html`URLs` : html`${count} URL${s}`}</p>
-            <div class="nx-snapshot-sub-heading-actions">
+            <p>
+              ${showEdit ? html`URLs` : html`${count} URL${s}`}
               ${showEdit ? this.renderCancelUrlBtn() : this.renderEditUrlBtn()}
               ${showEdit ? nothing : html`<button @click=${this.handleShare}>Share</button>`}
+            </p>
+            <div class="nx-snapshot-sub-heading-actions">
+              ${showEdit ? nothing : html`<button @click=${() => this.handleCopyUrls('fork')}>Fork</button>`}
+              ${showEdit ? nothing : html`<button @click=${() => this.handleCopyUrls('promote')}>Promote</button>`}
             </div>
           </div>
           ${showEdit ? this.renderEditUrls() : this.renderUrls()}
@@ -267,7 +280,7 @@ class NxSnapshot extends LitElement {
 
   render() {
     return html`
-      <div class="nx-snapshot-wrapper ${this.basics.open ? 'is-open' : ''} ${this._isSaving ? 'is-saving' : ''}">
+      <div class="nx-snapshot-wrapper ${this.basics.open ? 'is-open' : ''} ${this._action ? 'is-saving' : ''}" data-action=${this._action}>
         <div class="nx-snapshot-header" @click=${this.handleExpand}>
           ${this.basics.name ? this.renderName() : this.renderEditName()}
           <button class="nx-snapshot-expand">Expand</button>
