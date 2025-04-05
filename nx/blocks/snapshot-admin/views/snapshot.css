@@ -250,10 +250,6 @@ svg.icon {
     &.is-editing {
       background-color: var(--s2-blue-900);
       color: #fff;
-
-      &:hover {
-        background-color: var(--s2-blue-1000);
-      }
     }
 
     svg {
@@ -266,7 +262,12 @@ svg.icon {
     }
 
     &:hover {
-      background: #0000002a;
+      background-color: var(--s2-blue-1000);
+      color: #fff;
+
+      &:disabled {
+        color: #000;
+      }
     }
   }
 

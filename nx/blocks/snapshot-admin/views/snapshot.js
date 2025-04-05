@@ -98,8 +98,11 @@ class NxSnapshot extends LitElement {
   }
 
   handleLock() {
-    const lock = !this._manifest.locked;
-    this.handleSave(lock);
+    if (!this._manifest.locked) {
+      this.handleReview('request');
+      return;
+    }
+    this.handleSave(false);
   }
 
   handleShare() {
