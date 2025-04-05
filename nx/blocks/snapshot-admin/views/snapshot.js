@@ -268,9 +268,9 @@ class NxSnapshot extends LitElement {
   render() {
     return html`
       <div class="nx-snapshot-wrapper ${this.basics.open ? 'is-open' : ''} ${this._isSaving ? 'is-saving' : ''}">
-        <div class="nx-snapshot-header">
+        <div class="nx-snapshot-header" @click=${this.handleExpand}>
           ${this.basics.name ? this.renderName() : this.renderEditName()}
-          <button @click=${this.handleExpand} class="nx-snapshot-expand">Expand</button>
+          <button class="nx-snapshot-expand">Expand</button>
         </div>
         ${this.renderDetails()}
       </div>

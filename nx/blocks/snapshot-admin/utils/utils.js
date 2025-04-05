@@ -6,7 +6,7 @@ let site;
 
 function formatError(resp) {
   if (resp.status === 401 || resp.status === 403) {
-    return { error: 'You do not have privledges to list snapshots.' };
+    return { error: 'You do not have privledges to take this snapshot action.' };
   }
   return { error: 'Not a valid project.' };
 }
