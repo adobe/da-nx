@@ -89,6 +89,7 @@ class NxSnapshot extends LitElement {
 
     const result = await saveManifest(name, manifest);
     this._isSaving = false;
+    this._editUrls = false;
     if (result.error) {
       this._message = { heading: 'Note', message: result.error, open: true };
       return;

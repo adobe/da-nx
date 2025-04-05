@@ -89,7 +89,7 @@ class NxSnapshotAdmin extends LitElement {
       </div>
       <div class="nx-snapshot-list-labels">
         <p>Name</p>
-        <p>State</p>
+        <p>Review</p>
       </div>
       ${this._snapshots ? html`
         <div class="nx-snapshot-list">
