@@ -45,8 +45,12 @@ class SideNav extends HTMLElement {
         if (window.location.hash?.startsWith('#/')) {
           e.preventDefault();
           const [org, repo] = window.location.hash.slice(2).split('/');
-          const hash = `#/${org}/${repo}`;
-          if (org && repo) window.open(`${a.href}${hash}`, hash);
+          if (org && repo) {
+            const hash = `#/${org}/${repo}`;
+            window.open(`${a.href}${hash}`, `${a.href}${hash}`);
+            return;
+          }
+          window.open(a.href, a.href);
         }
       });
     });
