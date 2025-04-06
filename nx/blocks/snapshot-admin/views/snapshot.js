@@ -227,7 +227,7 @@ class NxSnapshot extends LitElement {
             </p>
             <div class="nx-snapshot-sub-heading-actions">
               ${showEdit ? nothing : html`<button @click=${() => this.handleCopyUrls('fork')}>Sync down</button>`}
-              ${showEdit ? nothing : html`<button @click=${() => this.handleCopyUrls('promote')}>Promote up</button>`}
+              | ${showEdit ? nothing : html`<button @click=${() => this.handleCopyUrls('promote')}>Promote up</button>`}
             </div>
           </div>
           ${showEdit ? this.renderEditUrls() : this.renderUrls()}
