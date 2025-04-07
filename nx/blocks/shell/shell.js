@@ -25,7 +25,6 @@ function handleLoad({ target }) {
     if (e.data.action === 'setTitle') {
       document.title = e.data.details;
     }
-    console.log(e.data);
   };
 
   const message = {
