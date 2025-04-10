@@ -12,6 +12,7 @@ const style = await getStyle(import.meta.url);
 const buttons = await getStyle(`${nxBase}/styles/buttons.js`);
 let imsDetails;
 let loggedinUser;
+const DA_ORIGIN = 'https://admin.da.live';
 
 class NxLocDashboard extends LitElement {
   static properties = {
@@ -88,6 +89,11 @@ class NxLocDashboard extends LitElement {
     this._currentPage = 1;
   }
 
+  /**
+   * Get the project statuses
+   * @param {Array} langs - The languages of the project
+   * @returns {Object} The project statuses
+   */
   getProjectStatuses(langs) {
     if (!langs || !Array.isArray(langs) || langs.length === 0) {
       return { translationStatus: 'No Languages', rolloutStatus: 'No Languages' };
@@ -102,10 +108,12 @@ class NxLocDashboard extends LitElement {
       translationStatus = 'Error';
     } else if (translationStatuses.every((status) => status === 'complete')) {
       translationStatus = 'Completed';
-    } else if (translationStatuses.every((status) => status === 'created')) {
+    } else if (translationStatuses.some((status) => status === 'created')) {
       translationStatus = 'Created';
-    } else if (translationStatuses.some((status) => status === 'in-progress')) {
+    } else if (translationStatuses.some((status) => status === 'in-progress') || translationStatuses.some((status) => status === 'uploading')) {
       translationStatus = 'In Progress';
+    } else if (translationStatuses.every((status) => status === 'not started')) {
+      translationStatus = 'Not Started';
     } else {
       translationStatus = 'Unknown';
     }
@@ -127,8 +135,25 @@ class NxLocDashboard extends LitElement {
     return { translationStatus, rolloutStatus };
   }
 
+  /**
+   * Format a timestamp
+   * @param {string} timestamp - The timestamp to format
+   * @returns {string} The formatted timestamp
+   */
   formatTimestamp(timestamp) {
-    const date = new Date(timestamp);
+    if (!timestamp) {
+      return 'unknown';
+    }
+
+    // Convert timestamp from seconds to milliseconds if needed
+    const timestampMs = timestamp.toString().length === 10 ? timestamp * 1000 : timestamp;
+    const date = new Date(timestampMs);
+
+    // Check if date is invalid
+    if (Number.isNaN(date.getTime())) {
+      return 'unknown';
+    }
+
     const options = {
       month: 'short',
       day: '2-digit',
@@ -143,32 +168,27 @@ class NxLocDashboard extends LitElement {
     return formattedDate.replace(',', '');
   }
 
-  async getProjectDetails(path) {
-    const resp = await daFetch(`https://admin.da.live/versionlist${path}`);
-    const json = await resp.json();
-    if (json.length === 0) return 'anonymous';
-    const oldestVersion = json.pop();
-    const createdBy = oldestVersion?.users[0]?.email?.split('@')[0];
-    // const createdOn = new Date(oldestVersion?.timestamp);
-    const createdOn = this.formatTimestamp(oldestVersion?.timestamp);
-    return { createdBy, createdOn };
-  }
-
+  /**
+   * Get the projects
+   */
   async getProjects() {
     try {
       imsDetails = await loadIms();
-      loggedinUser = imsDetails?.email?.split('@')[0];
+      loggedinUser = imsDetails?.email;
       const siteBase = window.location.hash.replace('#', '');
       this._siteBase = siteBase?.slice(1);
-      const resp = await daFetch(`https://admin.da.live/list${siteBase}/.da/translation/projects/active`);
+      const resp = await daFetch(`${DA_ORIGIN}/list${siteBase}/.da/translation/projects/active`);
       if (!resp.ok) return;
       const projectList = await resp.json();
       this._projects = await Promise.all(projectList.map(async (project) => {
-        const projResp = await daFetch(`https://admin.da.live/source${project.path}`);
+        const projResp = await daFetch(`${DA_ORIGIN}/source${project.path}`);
         const projJson = await projResp.json();
         project.title = projJson.title;
-        const { createdBy, createdOn } = await this.getProjectDetails(project.path);
+        const createdBy = projJson?.email;
+        const createdOn = this.formatTimestamp(projJson?.timestamp);
+
         project.languages = projJson.langs?.map((lang) => lang.name).join(', ');
+        console.log(projJson.langs);
         const { translationStatus, rolloutStatus } = this.getProjectStatuses(projJson.langs);
         return {
           title: project.title || 'Untitled',
@@ -181,6 +201,15 @@ class NxLocDashboard extends LitElement {
         };
       }));
       this._filteredProjects = [...this._projects];
+      // Sort projects by createdOn timestamp from latest to oldest
+      this._filteredProjects.sort((a, b) => {
+        if (a.createdOn === 'unknown' && b.createdOn === 'unknown') return 0;
+        if (a.createdOn === 'unknown') return 1;
+        if (b.createdOn === 'unknown') return -1;
+        const dateA = new Date(a.createdOn);
+        const dateB = new Date(b.createdOn);
+        return dateB - dateA;
+      });
     } catch (error) {
       console.error('Error fetching projects:', error);
     } finally {
@@ -192,6 +221,10 @@ class NxLocDashboard extends LitElement {
     this._currentPage = e.detail.page;
   }
 
+  /**
+   * Get the paginated projects
+   * @returns {Array} The paginated projects
+   */
   getPaginatedProjects() {
     const start = (this._currentPage - 1) * this._projectsPerPage;
     const end = start + this._projectsPerPage;
@@ -209,23 +242,112 @@ class NxLocDashboard extends LitElement {
       </div>`;
   }
 
+  /**
+   * Duplicate a project
+   * @param {string} path - The path of the project to duplicate
+   * @param {string} title - The title of the project
+   */
+  async duplicateProject(path, title) {
+    const resp = await daFetch(`${DA_ORIGIN}/source${path}`);
+    let json = await resp.json();
+    json.title = title;
+    const time = Date.now();
+    const newPath = path.replace(/[^/]+$/, `${time}.json`);
+    json = this.resetProjectState(json);
+
+    const body = new FormData();
+    const blob = new Blob([JSON.stringify(json)], { type: 'application/json' });
+    body.append('data', blob);
+    const opts = { method: 'POST', body };
+    const fetchPath = `${DA_ORIGIN}/source${newPath}`;
+    const newResp = await daFetch(fetchPath, opts);
+    const verPath = `${DA_ORIGIN}/versionsource${newPath}`;
+    await daFetch(verPath, { method: 'POST' });
+    await this.getProjects();
+    if (!newResp.ok) {
+      this._error = 'Something went wrong.';
+    } else {
+      const event = new CustomEvent('duplication-complete', {
+        detail: { projectPath: newPath },
+        bubbles: true,
+        composed: true,
+      });
+      this.dispatchEvent(event);
+    }
+  }
+
+  /**
+   * Reset the project state
+   * @param {Object} json - The project data
+   * @returns {Object} The reset project data
+   */
+  resetProjectState(json) {
+    json.langs = json?.langs?.map((lang) => {
+      lang.rollout = { status: 'not started' };
+      lang.translation = { status: 'not started' };
+      delete lang.rolloutDate;
+      delete lang.rolloutTime;
+      delete lang.rolledOut;
+      delete lang.errors;
+      return lang;
+    });
+    json.urls = json?.urls?.map((url) => {
+      delete url?.srcPath;
+      delete url?.synced;
+      return url;
+    });
+    json.sourceLang = { ...json?.sourceLang, lastSync: undefined };
+    delete json?.translateComplete;
+    return json;
+  }
+
+  /**
+   * Archive a project
+   * @param {string} path - The path of the project to archive
+   */
+  async archiveProject(path) {
+    const destinationPath = path.replace('/active/', '/archived/');
+    const body = new FormData();
+    body.append('destination', destinationPath);
+    const moveSourcePath = `${DA_ORIGIN}/move${path}`;
+    const response = await daFetch(moveSourcePath, { method: 'POST', body });
+
+    if (response.ok) {
+      const toast = document.createElement('div');
+      toast.className = 'toast';
+      toast.textContent = 'Project archived successfully';
+      this.shadowRoot.appendChild(toast);
+
+      setTimeout(() => {
+        toast.classList.add('fade-out');
+        setTimeout(() => {
+          this.shadowRoot.removeChild(toast);
+        }, 300);
+      }, 3000);
+    }
+
+    await this.getProjects();
+  }
+
   renderProjects() {
     const paginatedProjects = this.getPaginatedProjects();
     return html`
-      <nx-projects-table .projects=${paginatedProjects} @navigate-to-project=${(e) => this.navigateToProject(e.detail.path)}></nx-projects-table>
+      <nx-projects-table
+        .projects=${paginatedProjects}
+        @navigate-to-project=${(e) => this.navigateToProject(e.detail.path)}
+        @duplicate-project=${(e) => this.duplicateProject(e.detail.path, e.detail.title)}
+        @archive-project=${(e) => this.archiveProject(e.detail.path)}
+      ></nx-projects-table>
       <nx-pagination .currentPage=${this._currentPage} .totalItems=${this._filteredProjects.length} .itemsPerPage=${this._projectsPerPage} @page-change=${this.handlePagination}></nx-pagination>`;
   }
 
   getMainContent() {
     let content;
     if (this._loading) {
-      // Show the spinner when loading
       content = this.renderSpinner();
     } else if (this._filteredProjects.length > 0) {
-      // Show the projects table if projects are available
       content = this.renderProjects();
     } else {
-      // Show a "No projects found" message if there are no projects
       content = html`<p>No projects found.</p>`;
     }
     return content;

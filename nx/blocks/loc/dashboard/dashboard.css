@@ -45,6 +45,23 @@
   animation: spin 1s linear infinite;
 }
 
+.toast {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #007bff;
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: 5px;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 20%);
+}
+
+.toast.fade-out {
+  opacity: 0;
+  transition: opacity 0.3s ease-out;
+}
+
 @keyframes spin {
   from {
     transform: rotate(0deg);

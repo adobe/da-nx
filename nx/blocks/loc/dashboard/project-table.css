@@ -1,6 +1,6 @@
 .table {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   border-collapse: collapse;
   margin-top: 1rem;
   width: 100%;
@@ -26,28 +26,30 @@
   padding: 8px;
   border-bottom: 1px solid #e0e0e0;
   word-wrap: break-word;
-  text-align: left;
   min-height: 66px;
   box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: start;
 }
 
 .table-header .table-cell {
   font-weight: bold;
   background-color: #f3f3f3;
-  text-align: left;
 }
 
-.table-body .table-row:nth-child(even) .table-cell {
+.table .table-row:nth-child(odd) .table-cell {
   background-color: #f9f9f9;
 }
 
-.table-body .table-row:hover .table-cell {
+.table .table-row:hover .table-cell {
   background-color: #f1f1f1;
 }
 
 .actions {
   display: flex;
   gap: 8px;
+  justify-content: center;
 }
 
 .tooltip {
@@ -95,12 +97,10 @@
   transition: opacity 0.2s ease-in-out;
 }
 
-.edit-button {
-  width: 80px;
-  height: 36px;
-  padding: 0;
+.archive-button,
+.duplicate-button {
+  padding: 0.5rem;
   border: none;
-  background-color: #007bff;
   color: #fff;
   border-radius: 4px;
   font-size: 0.9rem;
@@ -111,19 +111,182 @@
   justify-content: center;
   align-items: center;
   transition: background-color 0.3s ease, transform 0.2s ease;
+  position: relative;
 }
 
-.edit-button:hover {
+.archive-button:hover,
+.duplicate-button:hover {
+  transform: translateY(-2px);
+}
+
+.archive-button:active,
+.duplicate-button:active {
+  transform: translateY(0);
+}
+
+.archive-button:focus,
+.duplicate-button:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px #80bdff;
+}
+
+.duplicating {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+.duplicating .duplicate-button {
+  background-color: #6c757d;
+  cursor: not-allowed;
+}
+
+.spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  margin-right: 4px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: #fff;
+  animation: spin 0.8s linear infinite;
+  vertical-align: middle;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 50%);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal {
+  background: #fff;
+  padding: 20px;
+  width: 90%;
+  max-width: 400px;
+  border-radius: 8px;
+  box-shadow: 0 4px 10px rgb(0 0 0 / 20%);
+  text-align: center;
+  animation: fadeIn 0.3s ease-in-out;
+  box-sizing: border-box;
+  position: relative;
+}
+
+.modal h2 {
+  font-size: 1.5rem;
+  margin-bottom: 15px;
+  color: #333;
+}
+
+.modal label {
+  display: block;
+  font-size: 1rem;
+  margin-bottom: 8px;
+  text-align: left;
+  font-weight: bold;
+  color: #555;
+}
+
+.close-button {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 5px;
+  z-index: 1;
+}
+
+.modal input {
+  width: 100%;
+  padding: 10px;
+  margin-top: 5px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  font-size: 1rem;
+  transition: border-color 0.3s ease;
+  box-sizing: border-box;
+}
+
+.modal input:focus {
+  border-color: #007bff;
+  outline: none;
+}
+
+.modal-buttons {
+  margin-top: 20px;
+  display: flex;
+  justify-content: space-between;
+}
+
+.modal-buttons > button {
+  flex: 1;
+  padding: 10px;
+  font-size: 1rem;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.3s ease;
+  margin-right: 10px;
+  background: #007bff;
+  color: #fff;
+}
+
+.modal-buttons > button:hover {
   background-color: #0056b3;
   transform: translateY(-2px);
 }
 
-.edit-button:active {
+.modal-buttons > button:active {
   background-color: #003d82;
   transform: translateY(0);
 }
 
-.edit-button:focus {
+.modal-buttons > button:focus {
   outline: none;
   box-shadow: 0 0 0 2px #80bdff;
+}
+
+.modal-buttons > button:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 480px) {
+  .modal {
+    width: 95%;
+    padding: 15px;
+  }
+
+  .modal-buttons {
+    flex-direction: column;
+  }
+
+  .modal-buttons button {
+    width: 100%;
+    margin-bottom: 10px;
+  }
 }
