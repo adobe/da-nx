@@ -5,7 +5,7 @@ const AUTO_BLOCKS = [
 
 function getEnv() {
   const { host } = new URL(window.location.href);
-  if (!['.page', 'local'].some((check) => host.includes(check))) return 'prod';
+  if (!['.aem.page', 'local'].some((check) => host.includes(check))) return 'prod';
   if (['.hlx.', '.aem.'].some((check) => host.includes(check))) return 'stage';
   return 'dev';
 }
