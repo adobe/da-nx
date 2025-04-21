@@ -114,7 +114,9 @@ describe('makeIconSpans', () => {
   });
 });
 
-const metadataTable = `<html><head></head><body>
+describe('addDntInfoToHtml', () => {
+  it('adds dnt info to html', async () => {
+    const metadataTable = `<html><head></head><body>
   <main>
     <div class="metadata">
         <div>
@@ -141,26 +143,24 @@ const metadataTable = `<html><head></head><body>
     </main>
   </body></html>`;
 
-const config = {
-  'custom-doc-rules': {
-    total: 2,
-    offset: 0,
-    limit: 2,
-    data: [
-      {
-        block: 'metadata, section-metadata',
-        rule: 'translate col 2 if col 1 equals "title" or "description"',
-        action: '',
+    const config = {
+      'custom-doc-rules': {
+        total: 2,
+        offset: 0,
+        limit: 2,
+        data: [
+          {
+            block: 'metadata, section-metadata',
+            rule: 'translate col 2 if col 1 equals "title" or "description"',
+            action: '',
+          },
+        ],
       },
-    ],
-  },
-  ':version': 3,
-  ':names': ['custom-doc-rules'],
-  ':type': 'multi-sheet',
-};
+      ':version': 3,
+      ':names': ['custom-doc-rules'],
+      ':type': 'multi-sheet',
+    };
 
-describe('addDntInfoToHtml', () => {
-  it.only('adds dnt info to html', async () => {
     let expectedHtml = `<html><head></head><body>
   <main>
     <div class="metadata">
@@ -186,6 +186,131 @@ describe('addDntInfoToHtml', () => {
         </div>
       </div>
     </main>`;
+
+    // silly space in return value
+    expectedHtml += '\n  </body></html>';
+    const result = await addDnt(metadataTable, config);
+    expect(result).to.equal(expectedHtml);
+
+    const removed = await removeDnt(result, 'adobecom', 'adobe');
+    expect(removed).to.equal(metadataTable);
+  });
+
+  it('adds dnt info to multiple matching blocks', async () => {
+    const metadataTable = `<html><head></head><body>
+  <main>
+    <div>
+      <div class="marquee">
+        <div>
+          <div>title</div>
+          <div>Hello World</div>
+        </div>
+        <div>
+          <div>color</div>
+          <div>green</div>
+        </div>
+      </div>
+      <div class="section-metadata">
+        <div>
+          <div>language</div>
+          <div>English</div>
+        </div>
+        <div>
+          <div>style</div>
+          <div>M spacing</div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="myblock">
+        <div>
+          <div>heading</div>
+          <div>beepbloop</div>
+        </div>
+        <div>
+          <div>blockiness</div>
+          <div>minecruft</div>
+        </div>
+      </div>
+      <div class="section-metadata">
+        <div>
+          <div>language</div>
+          <div>Tagalog</div>
+        </div>
+        <div>
+          <div>style</div>
+          <div>yes</div>
+        </div>
+      </div>
+    </div>
+  </main>
+  </body></html>`;
+
+    const config = {
+      'custom-doc-rules': {
+        total: 2,
+        offset: 0,
+        limit: 2,
+        data: [
+          {
+            block: 'metadata, section-metadata',
+            rule: 'do-not-translate',
+            action: '',
+          },
+        ],
+      },
+      ':version': 3,
+      ':names': ['custom-doc-rules'],
+      ':type': 'multi-sheet',
+    };
+
+    let expectedHtml = `<html><head></head><body>
+  <main>
+    <div>
+      <div class="marquee">
+        <div>
+          <div>title</div>
+          <div>Hello World</div>
+        </div>
+        <div>
+          <div>color</div>
+          <div>green</div>
+        </div>
+      </div>
+      <div class="section-metadata" translate="no">
+        <div>
+          <div>language</div>
+          <div>English</div>
+        </div>
+        <div>
+          <div>style</div>
+          <div>M spacing</div>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="myblock">
+        <div>
+          <div>heading</div>
+          <div>beepbloop</div>
+        </div>
+        <div>
+          <div>blockiness</div>
+          <div>minecruft</div>
+        </div>
+      </div>
+      <div class="section-metadata" translate="no">
+        <div>
+          <div>language</div>
+          <div>Tagalog</div>
+        </div>
+        <div>
+          <div>style</div>
+          <div>yes</div>
+        </div>
+      </div>
+    </div>
+  </main>`;
 
     // silly space in return value
     expectedHtml += '\n  </body></html>';
