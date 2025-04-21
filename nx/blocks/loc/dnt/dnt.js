@@ -80,10 +80,13 @@ const addDntInfoToHtml = (html, dntRules) => {
   document.querySelector('footer')?.remove();
 
   dntRules.docRules.forEach((rules, block) => {
-    const blockEl = document.querySelector(`.${block}`);
-    if (!blockEl) return;
-    rules.forEach((rule) => {
-      decorateTable(blockEl, parseQuery(rule));
+    const blockEls = document.querySelectorAll(`.${block}`);
+    if (!blockEls.length) return;
+
+    blockEls.forEach((blockEl) => {
+      rules.forEach((rule) => {
+        decorateTable(blockEl, parseQuery(rule));
+      });
     });
   });
 
