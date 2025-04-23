@@ -83,7 +83,7 @@ export function crawl({ path, callback, concurrent, throttle = 100 }) {
   const folders = [path];
   const inProgress = [];
   const startTime = Date.now();
-  const queue = new Queue(callback, concurrent, (err, item) => errors.push({ item, err }));
+  const queue = new Queue(callback, concurrent, (item, err) => errors.push({ item, err }));
 
   const results = new Promise((resolve) => {
     const interval = setInterval(async () => {
