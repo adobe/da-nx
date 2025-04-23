@@ -3,7 +3,7 @@ import { daFetch } from '../../utils/daFetch.js';
 import { DA_ORIGIN } from './constants.js';
 
 export class Queue {
-  constructor(callback, maxConcurrent = 500) {
+  constructor(callback, maxConcurrent = 500, onError = null) {
     this.queue = [];
     this.activeCount = 0;
     this.maxConcurrent = maxConcurrent;
@@ -12,6 +12,7 @@ export class Queue {
     this.push = this.push.bind(this);
     this.processQueue = this.processQueue.bind(this);
     this.processItem = this.processItem.bind(this);
+    this.onError = onError;
   }
 
   async push(data) {
@@ -30,6 +31,12 @@ export class Queue {
     this.activeCount += 1;
     try {
       await this.callback(item);
+    } catch (e) {
+      if (this.onError) {
+        this.onError(item, e);
+      } else {
+        throw e;
+      }
     } finally {
       this.activeCount -= 1;
       await this.processQueue();
@@ -72,10 +79,11 @@ export function crawl({ path, callback, concurrent, throttle = 100 }) {
   let time;
   let isCanceled = false;
   const files = [];
+  const errors = [];
   const folders = [path];
   const inProgress = [];
   const startTime = Date.now();
-  const queue = new Queue(callback, concurrent);
+  const queue = new Queue(callback, concurrent, (err, item) => errors.push({ item, err }));
 
   const results = new Promise((resolve) => {
     const interval = setInterval(async () => {
@@ -86,7 +94,7 @@ export function crawl({ path, callback, concurrent, throttle = 100 }) {
         files.push(...children.files);
         folders.push(...children.folders);
         if (callback && children.files.length > 0) {
-          await Promise.all(children.files.map((file) => queue.push(file)));
+          await Promise.allSettled(children.files.map((file) => queue.push(file)));
         }
         inProgress.pop();
       }
@@ -103,6 +111,8 @@ export function crawl({ path, callback, concurrent, throttle = 100 }) {
     return calculateCrawlTime(startTime);
   };
 
+  const getCallbackErrors = () => errors;
+
   const cancelCrawl = () => { isCanceled = true; };
-  return { results, getDuration, cancelCrawl };
+  return { results, getDuration, cancelCrawl, getCallbackErrors };
 }
