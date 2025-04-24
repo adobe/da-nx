@@ -102,6 +102,10 @@ class NxLocCheck extends LitElement {
       this._error = 'Uncheck error URLs below.';
       return;
     }
+    if (urls.length < 1) {
+      this._error = 'No URLs selected.';
+      return;
+    }
 
     const detail = { step, urls };
     const opts = { detail, bubbles: true, composed: true };
