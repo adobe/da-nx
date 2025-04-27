@@ -12,7 +12,7 @@ const ICONS = [
   `${nxBase}/img/icons/Smock_ChevronRight_18_N.svg`,
 ];
 
-const MOCK_URLS = 'https://main--bacom--adobecom.hlx.live/products/experience-platform/planning-and-measurement\nhttps://main--bacom--adobecom.hlx.live/ae_ar/\nhttps://main--bacom--adobecom.hlx.live/.milo/edge-worker-config.json\nhttps://main--bacom--adobecom.hlx.live/ae_ar/sitemap.xml\nhttps://main--bacom--adobecom.hlx.live/assets/icons/badge-icon-infofilled.svg\nhttps://main--bacom--adobecom.hlx.live/assets/pdfs/resources/unlock-the-amazing-possibilities-of-personalization/unlock-the-amazing-possibilities-of-personalization-v3.pdf\nhttps://main--bacom--adobecom.hlx.live/assets/videos/customer-success-stories/adobe-generative-ai-case-study.mp4\n';
+const MOCK_URLS = 'https://main--bacom--adobecom.aem.page/products/journey-optimizer\nhttps://main--bacom--adobecom.aem.page/products/marketo\nhttps://main--bacom--adobecom.aem.page/products/frameio-business\nhttps://main--bacom--adobecom.aem.page/products/magento\nhttps://main--bacom--adobecom.aem.page/products/mix-modeler\nhttps://main--bacom--adobecom.aem.page/products/genstudio-for-performance-marketing\nhttps://main--bacom--adobecom.aem.page/products/firefly-business\nhttps://main--bacom--adobecom.aem.page/products/brand-concierge\nhttps://main--bacom--adobecom.aem.page/products/workfront\nhttps://main--bacom--adobecom.aem.page/products/sensei/ai-assistant\nhttps://main--bacom--adobecom.aem.page/products/sensei/adobe-sensei-genai\nhttps://main--bacom--adobecom.aem.page/products/mix-modeler/marketing-scenario-planning\nhttps://main--bacom--adobecom.aem.page/products/real-time-customer-data-platform/data-governance-security-privacy\nhttps://main--bacom--adobecom.aem.page/products/genstudio-for-performance-marketing/brand-compliance\nhttps://main--bacom--adobecom.aem.page/products/real-time-customer-data-platform/collaboration\nhttps://main--bacom--adobecom.aem.page/products/experience-platform/offer-decisioning\nhttps://main--bacom--adobecom.aem.page/products/genstudio-for-performance-marketing/paid-social\nhttps://main--bacom--adobecom.aem.page/products/genstudio-for-performance-marketing/insights\nhttps://main--bacom--adobecom.aem.page/products/genstudio-for-performance-marketing/activation\nhttps://main--bacom--adobecom.aem.page/products/genstudio-for-performance-marketing/content\nhttps://main--bacom--adobecom.aem.page/products/real-time-customer-data-platform/rtcdp\nhttps://main--bacom--adobecom.aem.page/products/mix-modeler/marketing-measurement-models\nhttps://main--bacom--adobecom.aem.page/products/real-time-customer-data-platform/activation-anywhere\nhttps://main--bacom--adobecom.aem.page/products/genstudio-for-performance-marketing/creation\nhttps://main--bacom--adobecom.aem.page/products/experience-platform/agent-orchestrator\nhttps://main--bacom--adobecom.aem.page/products/magento/payment-services\nhttps://main--bacom--adobecom.aem.page/products/magento/magento-commerce\nhttps://main--bacom--adobecom.aem.page/products/journey-optimizer/adobe-journey-optimizer\nhttps://main--bacom--adobecom.aem.page/products/genstudio-for-performance-marketing/campaigns\nhttps://main--bacom--adobecom.aem.page/products/journey-optimizer/adobe-journey-optimizer-vs-competitors\nhttps://main--bacom--adobecom.aem.page/products/magento/scalable-commerce-operations\nhttps://main--bacom--adobecom.aem.page/products/real-time-customer-data-platform/audience-management\nhttps://main--bacom--adobecom.aem.page/products/marketo/financial-services\nhttps://main--bacom--adobecom.aem.page/products/magento/digital-storefront-experiences\nhttps://main--bacom--adobecom.aem.page/products/campaign/adobe-campaign\nhttps://main--bacom--adobecom.aem.page/products/journey-optimizer/benefits\nhttps://main--bacom--adobecom.aem.page/products/experience-manager/assets/asset-management\nhttps://main--bacom--adobecom.aem.page/products/marketo/adobe-marketo\nhttps://main--bacom--adobecom.aem.page/products/adobe-analytics/integrations\nhttps://main--bacom--adobecom.aem.page/products/magento/commerce-personalization\nhttps://main--bacom--adobecom.aem.page/products/experience-manager/assets/asset-insights\nhttps://main--bacom--adobecom.aem.page/products/advertising/adobe-advertising-cloud\nhttps://main--bacom--adobecom.aem.page/products/experience-manager/assets/asset-discovery\nhttps://main--bacom--adobecom.aem.page/products/magento/b2b-commerce-optimization\nhttps://main--bacom--adobecom.aem.page/products/adobe-analytics/customer-journey-analytics\nhttps://main--bacom--adobecom.aem.page/products/magento/composable-commerce-platform\nhttps://main--bacom--adobecom.aem.page/products/experience-manager/assets/smart-crop\nhttps://main--bacom--adobecom.aem.page/products/experience-manager/assets\nhttps://main--bacom--adobecom.aem.page/products/adobe-analytics/customer-journey-analytics/customer-level-analysis\nhttps://main--bacom--adobecom.aem.page/products/customer-journey-analytics/adobe-customer-journey-analytics\nhttps://main--bacom--adobecom.aem.page/products/experience-manager/assets/integrations\nhttps://main--bacom--adobecom.aem.page/products/experience-manager/assets/asset-activation';
 
 class NxImporter extends LitElement {
   static properties = {
@@ -50,13 +50,13 @@ class NxImporter extends LitElement {
     this._processed += 1;
   }
 
-  async import(findFragments) {
+  async import(findFragments, liveDomain) {
     this._isImporting = true;
     const startTime = Date.now();
 
     const requestUpdate = this.requestUpdate.bind(this);
     const setProcessed = this.setProcessed.bind(this);
-    await importAll(this._urls, findFragments, setProcessed, requestUpdate);
+    await importAll(this._urls, findFragments, liveDomain, setProcessed, requestUpdate);
 
     const time = calculateTime(startTime);
     this.setStatus(`Import of ${this._urls.length} URLs took: ${time} minutes`, 'info');
@@ -74,6 +74,7 @@ class NxImporter extends LitElement {
       return;
     }
 
+    const { liveDomain } = data;
     const findFragments = data.fragments === 'yes';
     this._urls = [];
 
@@ -110,7 +111,7 @@ class NxImporter extends LitElement {
       return;
     }
     this.setStatus();
-    this.import(findFragments);
+    this.import(findFragments, liveDomain);
   }
 
   handleCopy(title) {
@@ -216,7 +217,6 @@ class NxImporter extends LitElement {
       </dialog>
       <h1>Importer</h1>
       <p>Import any AEM Edge Delivery site into DA.</p>
-      <p class="cors-note">Note: The site must have https://da.live in access-control-allow-origin headers.</p>
       <form @submit=${this.handleSubmit}>
         <div class="form-row">
           <h2>Import</h2>
@@ -226,11 +226,20 @@ class NxImporter extends LitElement {
           <textarea id="urls" name="urls" placeholder="Add AEM URLs"></textarea>
         </div>
         <div class="form-row">
-          <h2>Include fragments</h2>
-          <select id="fragments" name="fragments">
-            <option value="yes">Yes</option>
-            <option value="no">No</option>
-          </select>
+          <h2>Linked content <span class="heading-annotation">(fragments, SVGs, MP4s, PDFs)</span></h2>
+          <div class="org-repo-row">
+            <div>
+              <label>Behavior</label>
+              <select id="fragments" name="fragments">
+                <option value="no">Ignore</option>
+                <option value="yes">Import</option>
+              </select>
+            </div>
+            <div>
+              <label>Production domain</label>
+              <input type="text" name="liveDomain" placeholder="https://business.adobe.com" />
+            </div>
+          </div>
         </div>
         <div class="form-row">
           <h2>Into</h2>
@@ -245,6 +254,7 @@ class NxImporter extends LitElement {
             </div>
           </div>
         </div>
+        <p class="cors-note"><strong>Note:</strong> The site must have <strong><code>https://da.live</code></strong> in access-control-allow-origin headers.</p>
         <div class="form-row">
           <input type="submit" value="${this._isImporting ? 'Importing' : 'Import'}" class="accent" ?disabled=${this._isImporting} />
         </div>

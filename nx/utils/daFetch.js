@@ -38,7 +38,7 @@ export const daFetch = async (url, opts = {}) => {
 export function replaceHtml(text, fromOrg, fromRepo) {
   let inner = text;
   if (fromOrg && fromRepo) {
-    const fromOrigin = `https://main--${fromRepo}--${fromOrg}.hlx.live`;
+    const fromOrigin = `https://main--${fromRepo}--${fromOrg}.aem.live`;
     inner = text
       .replaceAll('./media', `${fromOrigin}/media`)
       .replaceAll('href="/', `href="${fromOrigin}/`);

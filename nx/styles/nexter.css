@@ -66,8 +66,11 @@
 
   /* Colors */
   --spectrum-blue-800: #4d7bff; /* Legacy */
-  --s2-blue-800: #4d7bff;
-  --s2-blue-900: #4b75ff;
+  --s2-blue-200: #e5f0fe;
+  --s2-blue-700: #5989ff;
+  --s2-blue-900: #3b63fb;
+  --s2-blue-1000: #274dea;
+  --s2-blue-1200: #1532ad;
   --s2-green: #009851;
   --s2-red: #f73b26;
   --s2-gray-50: #f7f7f7;

@@ -38,9 +38,9 @@ input[type="submit"].accent {
 
 .accent,
 input[type="submit"].accent {
-  background: var(--s2-blue-800);
-  border: 2px solid var(--s2-blue-800);
-  outline-color: var(--s2-blue-800);
+  background: var(--s2-blue-900);
+  border: 2px solid var(--s2-blue-900);
+  outline-color: var(--s2-blue-900);
   color: #FFF;
 }
 

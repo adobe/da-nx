@@ -4,19 +4,38 @@ import { mdToDocDom, docDomToAemHtml } from '../../utils/converters.js';
 import { Queue } from '../../public/utils/tree.js';
 
 const parser = new DOMParser();
-const FRAGMENT_SELECTOR = 'a[href*="/fragments/"]';
 const EXTS = ['json', 'svg', 'png', 'jpg', 'jpeg', 'gif', 'mp4', 'pdf'];
+
+const LINK_SELECTORS = [
+  'a[href*="/fragments/"]',
+  'a[href*=".mp4"]',
+  'a[href*=".pdf"]',
+  'a[href*=".svg"]',
+];
 
 let localUrls;
 
-async function findFragments(pageUrl, text) {
-  const dom = parser.parseFromString(text, 'text/html');
-  const results = dom.body.querySelectorAll(FRAGMENT_SELECTOR);
-  const fragments = [...results].reduce((acc, a) => {
-    const href = a.getAttribute('href');
+async function findFragments(pageUrl, text, liveDomain) {
+  // Determine commmon prefixes
+  const aemLessOrigin = pageUrl.origin.split('.')[0];
+  const prefixes = [aemLessOrigin];
+  if (liveDomain) prefixes.push(liveDomain);
 
-    // Don't add any off-origin fragments
-    if (!href.startsWith(pageUrl.origin)) return acc;
+  const dom = parser.parseFromString(text, 'text/html');
+  const results = dom.body.querySelectorAll(LINK_SELECTORS.join(', '));
+  const linkedImports = [...results].reduce((acc, a) => {
+    let href = a.getAttribute('href');
+
+    // Don't add any off origin content.
+    const isSameDomain = prefixes.some((prefix) => href.startsWith(prefix));
+    if (!isSameDomain) return acc;
+
+    href = href.replace('.hlx.', '.aem.');
+
+    [href] = href.split('#');
+    [href] = href.split('?');
+
+    console.log(href);
 
     // Convert relative to current project origin
     const url = new URL(href);
@@ -25,7 +44,7 @@ async function findFragments(pageUrl, text) {
     const found = localUrls.some((existing) => existing.pathname === url.pathname);
     if (found) return acc;
 
-    // Mine the page URL for where to send the fragment
+    // Mine the page URL for where to send the file
     const { toOrg, toRepo } = pageUrl;
 
     url.toOrg = toOrg;
@@ -35,7 +54,7 @@ async function findFragments(pageUrl, text) {
     return acc;
   }, []);
 
-  localUrls.push(...fragments);
+  localUrls.push(...linkedImports);
 }
 
 export function calculateTime(startTime) {
@@ -49,7 +68,7 @@ async function getAemHtml(url, text) {
   return aemHtml;
 }
 
-function replaceLinks(html, fromOrg, fromRepo) {
+function replaceLinks(html, fromOrg, fromRepo, liveDomain) {
   return html;
 }
 
@@ -71,12 +90,15 @@ async function saveAllToDa(url, blob) {
   }
 }
 
-async function importUrl(url, findFragmentsFlag, setProcessed) {
+async function importUrl(url, findFragmentsFlag, liveDomain, setProcessed) {
   const [fromRepo, fromOrg] = url.hostname.split('.')[0].split('--').slice(1).slice(-2);
   if (!(fromRepo || fromOrg)) {
-    url.status = '403';
-    url.error = 'URL is not from AEM.';
-    return;
+    console.log(liveDomain, url.origin.startsWith(liveDomain));
+    if (!(liveDomain && url.origin.startsWith(liveDomain))) {
+      url.status = '403';
+      url.error = 'URL is not from AEM.';
+      return;
+    }
   }
 
   url.fromRepo ??= fromRepo;
@@ -114,9 +136,9 @@ async function importUrl(url, findFragmentsFlag, setProcessed) {
     let content = isExt ? await resp.blob() : await resp.text();
     if (!isExt) {
       const aemHtml = await getAemHtml(url, content);
-      if (findFragmentsFlag) await findFragments(url, aemHtml);
+      if (findFragmentsFlag) await findFragments(url, aemHtml, liveDomain);
       let html = replaceHtml(aemHtml, url.fromOrg, url.fromRepo);
-      html = replaceLinks(html, url.fromOrg, url.fromRepo);
+      html = replaceLinks(html, url.fromOrg, url.fromRepo, liveDomain);
       content = new Blob([html], { type: 'text/html' });
     }
 
@@ -128,12 +150,12 @@ async function importUrl(url, findFragmentsFlag, setProcessed) {
   }
 }
 
-export async function importAll(urls, findFragmentsFlag, setProcessed, requestUpdate) {
+export async function importAll(urls, findFragmentsFlag, liveDomain, setProcessed, requestUpdate) {
   // Reset and re-add URLs
   localUrls = urls;
 
   const uiUpdater = async (url) => {
-    await importUrl(url, findFragmentsFlag, setProcessed);
+    await importUrl(url, findFragmentsFlag, liveDomain, setProcessed);
     requestUpdate();
   };
 
