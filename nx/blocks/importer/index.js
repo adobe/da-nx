@@ -81,8 +81,11 @@ async function saveAllToDa(url, blob) {
   body.append('data', blob);
   const opts = { method: 'PUT', body };
 
+  // Convert underscores to hyphens
+  const formattedPath = destPath.replaceAll('media_', 'media-');
+
   try {
-    const resp = await daFetch(`${DA_ORIGIN}/source/${toOrg}/${toRepo}${destPath}`, opts);
+    const resp = await daFetch(`${DA_ORIGIN}/source/${toOrg}/${toRepo}${formattedPath}`, opts);
     return resp.status;
   } catch {
     console.log(`Couldn't save ${destPath}`);
