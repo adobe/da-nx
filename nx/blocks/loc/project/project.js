@@ -47,7 +47,7 @@ class NxLocProject extends LitElement {
     this._langs = langs;
     this._urls = urls;
 
-    const needsSync = urls.some((url) => !url.extPath.startsWith(sourceLang.location));
+    const needsSync = urls.some((url) => !url.extPath.startsWith(this._sourceLang.location));
     const translateLangs = langs.filter((lang) => lang.action === 'translate');
     const rolloutLangs = langs.filter((lang) => lang.locales);
 
