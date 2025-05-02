@@ -1,7 +1,7 @@
 import { DA_ORIGIN } from '../../public/utils/constants.js';
 import { daFetch } from '../../utils/daFetch.js';
 
-const MOCK_IMG = 'https://main--da-live--adobe.hlx.live/media_1728df71ca494e752fda7ddf788b9cad0b39b5323.jpeg';
+const MOCK_IMG = './media_1728df71ca494e752fda7ddf788b9cad0b39b5323.jpeg';
 
 const ref = new URLSearchParams(window.location.search).get('ref') || 'main';
 
