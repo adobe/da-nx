@@ -1,7 +1,9 @@
+import { DA_ORIGIN } from '../../public/utils/constants.js';
+import { daFetch } from '../../utils/daFetch.js';
+
 const MOCK_IMG = 'https://main--da-live--adobe.hlx.live/media_1728df71ca494e752fda7ddf788b9cad0b39b5323.jpeg';
 
-const AEM_API = 'https://admin.hlx.page/sidekick';
-const LOCAL_CONFIG = 'http://localhost:3000/tools/sidekick/config.json';
+const ref = new URLSearchParams(window.location.search).get('ref') || 'main';
 
 const CARD_TEMPLATE = `
 <div class="nx-card" data-block-name="card">
@@ -21,11 +23,27 @@ const CARD_TEMPLATE = `
   </div>
 </div>`;
 
-function getCard({ title, description, url, image = MOCK_IMG }) {
+function getIsAppAllowed(cardRef) {
+  const pluginRef = cardRef || 'main';
+
+  // Always return true if pluginRef is main
+  if (pluginRef === 'main') return true;
+
+  // Allow all branches on dev
+  if (ref === 'dev') return true;
+
+  // Allow if pluginRef matches query param ref
+  if (pluginRef === ref) return true;
+
+  return false;
+}
+
+function getCard({ title, description, path, image }) {
+  const img = image || MOCK_IMG;
   return CARD_TEMPLATE.replace('{{title}}', title)
-    .replace('{{image}}', image)
+    .replace('{{image}}', img)
     .replace('{{description}}', description)
-    .replace('{{href}}', url);
+    .replace('{{href}}', path);
 }
 
 function removeSection(el) {
@@ -39,17 +57,19 @@ export default async function init(el) {
   }
   el.innerHTML = '';
   const [org, repo] = window.location.hash.slice(2).split('/');
-  const ref = new URL(window.location.href).searchParams.get('ref');
-  const path = ref === 'local' ? LOCAL_CONFIG : `${AEM_API}/${org}/${repo}/main/config.json`;
   try {
-    const resp = await fetch(path);
+    const resp = await daFetch(`${DA_ORIGIN}/config/${org}/${repo}/`);
     const json = await resp.json();
     if (!json.apps) {
       removeSection(el);
       return;
     }
 
-    json.apps.forEach((app) => {
+    json.apps.data.forEach((app) => {
+      const appRef = app.ref || 'main';
+      console.log(appRef);
+      const isAllowed = getIsAppAllowed(appRef);
+      if (!isAllowed) return;
       const html = getCard(app);
       el.insertAdjacentHTML('beforeend', html);
     });
