@@ -19,14 +19,21 @@
 .nx-card-picture-container {
   position: relative;
   padding-bottom: 60%;
+  background: rgb(0 0 0);
 }
 
-.nx-card-picture-container picture {
+.nx-card picture {
   position: absolute;
   inset: 0;
+  opacity: 0.85;
+  transition: opacity 0.25s ease-in-out;
 }
 
-.nx-card-picture-container img {
+.nx-card:hover picture {
+  opacity: 1;
+}
+
+.nx-card img {
   object-fit: cover;
   width: 100%;
   height: 100%;
