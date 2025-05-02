@@ -3,9 +3,10 @@
   border-radius: var(--s2-radius-200);
   overflow: hidden;
   background-color: #fff;
-  transition: box-shadow 0.25s ease-in-out;
+  transition: all 0.25s ease-in-out;
 
   &:hover {
+    transform: scale(1.005);
     box-shadow: 0 2px 8px 0 rgba(0 0 0 / 16%);
   }
 }
