@@ -87,9 +87,52 @@ li {
   background-color: var(--s2-blue-200);
   color: var(--s2-blue-1000);
   padding: var(--spacing-300) var(--spacing-400);
+  margin-top: var(--spacing-300);
   margin-bottom: var(--spacing-400);
+  border: 2px solid;
 
   a {
     color: var(--s2-blue-1000);
   }
+}
+
+.nx-status {
+  position: fixed;
+  inset: 0;
+  background: rgb(255 255 255 / 60%);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 500;
+}
+
+.nx-status-toast {
+  width: 280px;
+  background: var(--s2-blue-900);
+  line-height: 48px;
+  border-radius: 6px;
+  filter: drop-shadow(rgb(0 0 0 / 15%) 0 1px 4px);
+  justify-content: space-between;
+  align-items: center;
+  box-sizing: border-box;
+  color: #fff;
+  font-size: 14px;
+  overflow: hidden;
+}
+
+.nx-status-title {
+  font-weight: 700;
+  padding: 12px 12px 12px 40px;
+  margin: 0;
+}
+
+.nx-status-description {
+  line-height: 1.6;
+  padding: 12px;
+  margin: 0;
+  background: rgb(255 255 255 / 10%);
+}
+
+.nx-status-type-info .nx-status-title {
+  background: var(--s2-blue-900) url("/blocks/browse/img/Smock_InfoOutline_18_N.svg") 12px 50% no-repeat;
 }

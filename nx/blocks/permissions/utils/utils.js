@@ -31,7 +31,9 @@ async function formatOrgUsers(resp) {
 async function formatAccess(resp) {
   const json = await resp.json();
 
-  const users = Object.keys(json.admin.role).reduce((acc, key) => {
+  const roles = json.admin.role || [];
+
+  const users = Object.keys(roles).reduce((acc, key) => {
     json.admin.role[key].forEach((email) => {
       let user = acc.find((existingUser) => existingUser.email === email);
       if (!user) {
@@ -53,7 +55,7 @@ async function daUserConfig(path, opts = {}) {
 export async function getDaUsers(path) {
   const resp = await daUserConfig(path);
   if (!resp.ok) return [];
-  return (await resp.json()).users.data.map((user) => {
+  return (await resp.json()).users?.data.map((user) => {
     const formatted = {
       displayName: `${user['First Name']} ${user['Last Name']}`,
       email: user.Email,
@@ -67,7 +69,7 @@ export async function getDaUsers(path) {
     }
 
     return formatted;
-  });
+  }) || [];
 }
 
 async function fetchAemOrg(org) {

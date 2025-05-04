@@ -25,6 +25,7 @@ class NxPermissions extends LitElement {
     _users: { state: true },
     _tokens: { state: true },
     _secrets: { state: true },
+    _status: { state: true },
   };
 
   connectedCallback() {
@@ -50,8 +51,15 @@ class NxPermissions extends LitElement {
     window.location.hash = path;
   }
 
+  setStatus(text, description, type = 'info') {
+    if (!text) {
+      this._status = null;
+      return;
+    }
+    this._status = { type, text, description };
+  }
+
   async getPermissions() {
-    this._users = undefined;
     this._pathError = undefined;
     if (!this.path) return;
 
@@ -59,6 +67,7 @@ class NxPermissions extends LitElement {
     const [daUsers, aemUsers] = await Promise.all(loading);
     if (aemUsers.error) {
       this._pathError = aemUsers.message;
+      this._users = undefined;
       return;
     }
 
@@ -68,6 +77,8 @@ class NxPermissions extends LitElement {
   }
 
   async handleUserAction(e) {
+    this.setStatus('Saving', 'Updating permissions.');
+
     const { action, user } = e.detail;
     let resp;
 
@@ -84,13 +95,15 @@ class NxPermissions extends LitElement {
     if (action === 'remove') resp = await removeUser(this.path, user);
 
     if (resp.status === 200 || resp.status === 201 || resp.status === 204) this.getPermissions();
+
+    this.setStatus();
   }
 
   renderDaNote() {
     return html`
       <h2>Requests</h2>
       <div class="nx-permission-note">
-        <p><strong>Note:</strong> No users have requested new permissions.</p>
+        <p><strong>Note:</strong> No new permission requests.</p>
         <p><a href="https://da.live/sheet#${this.path}/.da/users" target="${this.path}/.da/users">View user list</a>
       </div>
     `;
@@ -100,7 +113,7 @@ class NxPermissions extends LitElement {
     return html`
       <h2>Active</h2>
       <div class="nx-permission-note">
-        <p><strong>Note:</strong> There are no AEM permissions currently set.</p>
+        <p><strong>Note:</strong> No AEM Edge Delivery permissions currently set.</p>
       </div>
     `;
   }
@@ -130,6 +143,16 @@ class NxPermissions extends LitElement {
     `;
   }
 
+  renderStatus() {
+    return html`
+      <div class="nx-status">
+        <div class="nx-status-toast nx-status-type-${this._status.type}">
+          <p class="nx-status-title">${this._status.text}</p>
+          ${this._status.description ? html`<p class="nx-status-description">${this._status.description}</p>` : nothing}
+        </div>
+      </div>`;
+  }
+
   render() {
     return html`
       <h1>AEM Permissions</h1>
@@ -144,6 +167,7 @@ class NxPermissions extends LitElement {
         <sl-button class="accent" @click=${this.setPath}>Get Permissions</sl-button>
       </form>
       ${this._users ? this.renderUsers() : nothing}
+      ${this._status ? this.renderStatus() : nothing}
     `;
   }
 }
