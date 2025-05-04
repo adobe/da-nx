@@ -156,7 +156,7 @@ class NxPermissions extends LitElement {
   render() {
     return html`
       <h1>AEM Permissions</h1>
-      <form class="nx-site-path" @submit=${this.handleSetSite}>
+      <form class="nx-site-path" @submit=${this.setPath}>
         <sl-input
           type="text"
           name="path"

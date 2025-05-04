@@ -31,7 +31,9 @@ class FormAwareLitElement extends LitElement {
   }
 }
 
-class SlInput extends FormAwareLitElement {
+class SlInput extends LitElement {
+  static formAssociated = true;
+
   static properties = {
     value: { type: String },
     class: { type: String },
@@ -40,15 +42,38 @@ class SlInput extends FormAwareLitElement {
     name: { type: String },
   };
 
+  constructor() {
+    super();
+    this._internals = this.attachInternals();
+  }
+
   async connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
+    this._internals.setFormValue(this.value);
   }
 
   handleEvent(event) {
     this.value = event.target.value;
+    this._internals.setFormValue(this.value);
     const wcEvent = new event.constructor(event.type, event);
     this.dispatchEvent(wcEvent);
+  }
+
+  handleKeyDown(event) {
+    if (event.key !== 'Enter') return;
+
+    if (!this.form) return;
+
+    const submitEvent = new SubmitEvent('submit', { bubbles: true, cancelable: true });
+
+    this.form.dispatchEvent(submitEvent);
+
+    // Do nothing if the event was prevented
+    if (submitEvent.defaultPrevented) return;
+
+    // Submit the form if not prevented
+    this.form.submit();
   }
 
   get _attrs() {
@@ -59,6 +84,8 @@ class SlInput extends FormAwareLitElement {
     }, {});
   }
 
+  get form() { return this._internals.form; }
+
   render() {
     return html`
       <div class="sl-inputfield">
@@ -67,6 +94,7 @@ class SlInput extends FormAwareLitElement {
           .value="${this.value || ''}"
           @input=${this.handleEvent}
           @change=${this.handleEvent}
+          @keydown=${this.handleKeyDown}
           class="${this.class} ${this.error ? 'has-error' : ''}"
           ${spread(this._attrs)} />
         ${this.error ? html`<p class="sl-inputfield-error">${this.error}</p>` : nothing}
@@ -161,7 +189,14 @@ class SlSelect extends FormAwareLitElement {
 }
 
 class SlButton extends LitElement {
+  static formAssociated = true;
+
   static properties = { class: { type: String } };
+
+  constructor() {
+    super();
+    this.internals_ = this.attachInternals();
+  }
 
   async connectedCallback() {
     super.connectedCallback();
