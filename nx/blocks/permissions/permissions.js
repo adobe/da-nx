@@ -86,7 +86,26 @@ class NxPermissions extends LitElement {
     if (resp.status === 200 || resp.status === 201 || resp.status === 204) this.getPermissions();
   }
 
-  renderUsers(name, title) {
+  renderDaNote() {
+    return html`
+      <h2>Requests</h2>
+      <div class="nx-permission-note">
+        <p><strong>Note:</strong> No users have requested new permissions.</p>
+        <p><a href="https://da.live/sheet#${this.path}/.da/users" target="${this.path}/.da/users">View user list</a>
+      </div>
+    `;
+  }
+
+  renderAemNote() {
+    return html`
+      <h2>Active</h2>
+      <div class="nx-permission-note">
+        <p><strong>Note:</strong> There are no AEM permissions currently set.</p>
+      </div>
+    `;
+  }
+
+  renderUserGroup(name, title) {
     return html`
       <div class="nx-user-list">
         <h2>${title}</h2>
@@ -104,6 +123,13 @@ class NxPermissions extends LitElement {
     `;
   }
 
+  renderUsers() {
+    return html`
+      ${this._users.daUsers.length > 0 ? this.renderUserGroup('daUsers', 'Requests') : this.renderDaNote()}
+      ${this._users.aemUsers?.length > 0 ? this.renderUserGroup('aemUsers', 'Active') : this.renderAemNote()}
+    `;
+  }
+
   render() {
     return html`
       <h1>AEM Permissions</h1>
@@ -117,8 +143,7 @@ class NxPermissions extends LitElement {
         </sl-input>
         <sl-button class="accent" @click=${this.setPath}>Get Permissions</sl-button>
       </form>
-      ${this._users?.daUsers.length > 0 ? this.renderUsers('daUsers', 'Requests') : nothing}
-      ${this._users?.aemUsers.length > 0 ? this.renderUsers('aemUsers', 'Active') : nothing}
+      ${this._users ? this.renderUsers() : nothing}
     `;
   }
 }

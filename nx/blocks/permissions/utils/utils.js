@@ -75,7 +75,23 @@ async function fetchAemOrg(org) {
 }
 
 async function fetchAemSite(org, site) {
-  return daFetch(`${AEM_ORIGIN}/config/${org}/sites/${site}/access.json`);
+  const resp = await daFetch(`${AEM_ORIGIN}/config/${org}/sites/${site}/access.json`);
+  if (resp.status === 404) {
+    return {
+      ok: true,
+      json: async () => ({
+        admin: {
+          requireAuth: 'false',
+          role: {
+            admin: [],
+            author: [],
+            publish: [],
+          },
+        },
+      }),
+    };
+  }
+  return resp;
 }
 
 async function saveToAem(path, json, method = 'POST') {
@@ -137,6 +153,12 @@ export function combineUsers(daUsers, aemUsers) {
   });
 
   combined.daUsers.push(...onlyRequests);
+
+  // If there's absolutely nothing, drop the entire DA user list
+  // user.js will see there are no permissions and put some default requests into an inactive state.
+  if (combined.aemUsers.length === 0 && combined.daUsers.length === 0) {
+    return { daUsers };
+  }
 
   return combined;
 }

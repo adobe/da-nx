@@ -81,3 +81,15 @@ li {
 .nx-user-label-approve {
   text-align: center;
 }
+
+.nx-permission-note {
+  border-radius: 8px;
+  background-color: var(--s2-blue-200);
+  color: var(--s2-blue-1000);
+  padding: var(--spacing-300) var(--spacing-400);
+  margin-bottom: var(--spacing-400);
+
+  a {
+    color: var(--s2-blue-1000);
+  }
+}

@@ -33,11 +33,16 @@ class NxPermissionUser extends LitElement {
   }
 
   formatRoles() {
-    const mapRoles = (roles) => roles.map((role) => ({ name: role, active: true }));
+    const mapRoles = (roles, active = true) => roles.map((role) => ({ name: role, active }));
 
     const { requested = [], roles = [] } = this.user;
-    this._requested = mapRoles(requested);
 
+    // Determine if user has _any_ roles or requests
+    const populated = requested.length > 0 || roles.length > 0;
+
+    if (!populated) requested.push('admin', 'author', 'publish');
+
+    this._requested = mapRoles(requested, populated);
     this._roles = mapRoles(roles);
   }
 
