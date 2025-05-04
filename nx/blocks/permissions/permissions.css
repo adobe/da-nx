@@ -1,0 +1,83 @@
+:host {
+  display: block;
+  max-width: var(--grid-container-width);
+  margin: var(--spacing-800) auto var(--spacing-800) auto;
+
+  > svg {
+    display: none;
+  }
+}
+
+input,
+button {
+  font-family: var(--font-family);
+}
+
+hr {
+  margin-bottom: var(--spacing-400);
+}
+
+h1 {
+  font-size: var(--type-heading-xxl-size);
+  line-height: var(--spectrum-line-height-100);
+  margin: 0 0 var(--spacing-400);
+}
+
+h2 {
+  margin: 0 0 var(--spacing-100);
+}
+
+ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border: var(--sl-field-border);
+  border-radius: var(--s2-radius-100);
+  overflow: hidden;
+}
+
+li {
+  position: relative;
+
+  &::before,
+  &::after {
+    display: block;
+    content: "";
+    position: absolute;
+    height: 1px;
+    left: 0;
+    right: 0;
+    background-color: rgb(229 229 229);
+  }
+
+  &::before {
+    top: -1px;
+  }
+
+  &::after {
+    bottom: -1px;
+  }
+}
+
+.nx-site-path {
+  display: grid;
+  gap: var(--spacing-400);
+  grid-template-columns: 1fr auto;
+  margin-bottom: var(--spacing-400);
+}
+
+.nx-user-list {
+  margin-bottom: 48px;
+}
+
+.nx-user-list-labels {
+  display: grid;
+  grid-template-columns: 340px 300px 280px 1fr; /* This must match user.css */
+  gap: 16px;
+  font-weight: 700;
+  padding: 0 18px 8px;
+}
+
+.nx-user-label-approve {
+  text-align: center;
+}

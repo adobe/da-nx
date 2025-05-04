@@ -67,7 +67,6 @@ export default async function init(el) {
 
     json.apps.data.forEach((app) => {
       const appRef = app.ref || 'main';
-      console.log(appRef);
       const isAllowed = getIsAppAllowed(appRef);
       if (!isAllowed) return;
       const html = getCard(app);
