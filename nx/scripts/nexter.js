@@ -60,7 +60,7 @@ export async function loadBlock(block) {
     (async () => {
       try {
         await (await import(`${blockPath}.js`)).default(block);
-      } catch { console.log(`Failed loading: ${name}`); }
+      } catch (e) { console.log(e); }
       resolve();
     })();
   })];

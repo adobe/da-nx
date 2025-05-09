@@ -1,76 +1,165 @@
+import { LitElement, html, nothing } from 'da-lit';
 import { getConfig } from '../../scripts/nexter.js';
-import { LitElement, html } from '../../deps/lit/lit-core.min.js';
-import { loadIms, handleSignIn } from '../../utils/ims.js';
 import getStyle from '../../utils/styles.js';
+import { getPathDetails, fetchProject, saveProject } from './utils/utils.js';
 
-import './header/header.js';
-import './project/project.js';
-import './setup/setup.js';
-import './dashboard/dashboard.js';
+import '../../public/sl/components.js';
 
-const { nxBase } = getConfig();
-const style = await getStyle(import.meta.url);
-const buttons = await getStyle(`${nxBase}/styles/buttons.js`);
+import './views/header/header.js';
+import './views/steps/steps.js';
+import './views/actions/actions.js';
+import './views/basics/basics.js';
+import './views/validate/validate.js';
+import './views/options/options.js';
 
-let imsDetails;
+const EL_NAME = 'nx-loc';
+
+const { nxBase: nx } = getConfig();
+const sl = await getStyle(`${nx}/public/sl/styles.css`);
+const styles = await getStyle(import.meta.url);
 
 class NxLoc extends LitElement {
+  static properties = {
+    org: { attribute: false },
+    site: { attribute: false },
+    view: { attribute: false },
+    path: { attribute: false },
+    _title: { state: true },
+    _options: { state: true },
+    _langs: { state: true },
+    _urls: { state: true },
+    _error: { state: true },
+  };
+
   connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [style, buttons];
+    this.shadowRoot.adoptedStyleSheets = [sl, styles];
   }
 
-  renderLocType() {
-    const { hash } = window.location;
-    if (!hash) return html`<nx-loc-setup></nx-loc-setup>`;
-    const parts = hash.replace('#/', '').split('/');
-    if (parts.length === 2) return html`<nx-loc-dashboard></nx-loc-dashboard>`;
-    if (parts.length > 2) return html`<nx-loc-project></nx-loc-project>`;
-    return html`<nx-loc-setup></nx-loc-setup>`;
+  update(props) {
+    // Only get the project when the path changes
+    if (props.has('path') && this.path) this.getProject();
+    super.update();
+  }
+
+  setProject(project) {
+    this._title = project.title;
+    this._options = project.options;
+    this._langs = project.langs;
+    this._urls = project.urls;
+  }
+
+  async getProject() {
+    const href = `/${this.org}/${this.site}${this.path}`;
+
+    const project = await fetchProject(href);
+    if (project.error) return;
+
+    this.setProject(project);
+  }
+
+  async handleNext(e) {
+    const { detail } = e;
+    if (!detail) return;
+
+    const { error, hash, project } = await saveProject(this.path, detail);
+    if (error) return;
+
+    // Set everything before we swap views
+    // This prevents a new view from getting
+    // old project info.
+    this.setProject(project);
+    window.location.hash = hash;
+  }
+
+  handlePrev(prevView) {
+    const stripped = window.location.hash.replace('#', '');
+    const hash = stripped.replace(this.view, prevView);
+    window.location.hash = hash;
+  }
+
+  renderView() {
+    if (this.view === 'dashboard') {
+      return html`
+        <nx-loc-dashboard
+          .org=${this.org}
+          .site=${this.site}>
+        </nx-loc-dashboard>`;
+    }
+
+    if (this.view === 'basics') {
+      return html`
+        <nx-loc-basics
+          .org=${this.org}
+          .site=${this.site}
+          .title=${this._title}
+          .urls=${this._urls}
+          @prev=${() => this.handlePrev('dashboard')}
+          @next=${this.handleNext}>
+        </nx-loc-basics>`;
+    }
+
+    if (this.view === 'validate') {
+      return html`
+        <nx-loc-validate
+          .org=${this.org}
+          .site=${this.site}
+          .urls=${this._urls}
+          @prev=${() => this.handlePrev('basics')}
+          @next=${this.handleNext}>
+        </nx-loc-validate>`;
+    }
+
+    if (this.view === 'options') {
+      return html`
+        <nx-loc-options
+          .org=${this.org}
+          .site=${this.site}
+          @prev=${() => this.handlePrev('validate')}
+          @next=${this.handleNext}>
+        </nx-loc-options>
+      `;
+    }
+    return nothing;
   }
 
   render() {
     return html`
-      <nx-loc-header name=${imsDetails.first_name}></nx-loc-header>
-      ${this.renderLocType()}
+      <nx-loc-header
+        view=${this.view}
+        title=${this._title}></nx-loc-header>
+      <nx-loc-steps
+        .view=${this.view}
+        .org=${this.org}
+        .site=${this.site}
+        .options=${this._options}
+        .langs=${this._langs}
+        .urls=${this._urls}>
+      </nx-loc-steps>
+      <div class="nx-loc-step">
+        ${this.renderView()}
+      </div>
     `;
   }
 }
 
 customElements.define('nx-loc', NxLoc);
 
-export default async function init(el) {
-  const isHashPath = (hash) => hash.startsWith('#/');
-  try {
-    const currentProject = localStorage.getItem('currentProject');
-    if (currentProject) {
-      localStorage.setItem('prevHash', window.location.hash);
-      localStorage.removeItem('currentProject');
-      window.location.hash = currentProject;
-    }
-  } catch (e) {
-    console.log(e);
+function setup(el) {
+  let cmp = el.querySelector(EL_NAME);
+  if (!cmp) {
+    cmp = document.createElement(EL_NAME);
+    el.append(cmp);
   }
+  const details = getPathDetails();
+  cmp.view = details.view;
+  cmp.org = details.org;
+  cmp.site = details.site;
+  cmp.path = details.path;
+}
 
-  imsDetails = await loadIms();
-  if (!imsDetails.accessToken) {
-    handleSignIn();
-    return;
-  }
-
-  const setup = () => {
-    const cmp = el.querySelector('nx-loc');
-    if (cmp) cmp.remove();
-    el.innerHTML = '<nx-loc></nx-loc>';
-  };
-
-  const hashChanged = (e) => {
-    const { hash } = new URL(e.newURL);
-    if (!isHashPath(hash)) return;
-    setup();
-  };
-
-  window.addEventListener('hashchange', hashChanged);
-
-  setup();
+export default function init(el) {
+  el.innerHTML = '';
+  setup(el);
+  window.addEventListener('hashchange', () => { setup(el); });
 }

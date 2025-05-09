@@ -1,8 +1,8 @@
-import { html, LitElement } from '../../../deps/lit/lit-core.min.js';
-import { getConfig } from '../../../scripts/nexter.js';
-import getStyle from '../../../utils/styles.js';
-import { daFetch } from '../../../utils/daFetch.js';
-import { loadIms } from '../../../utils/ims.js';
+import { html, LitElement } from '../../../../deps/lit/lit-core.min.js';
+import { getConfig } from '../../../../scripts/nexter.js';
+import getStyle from '../../../../utils/styles.js';
+import { daFetch } from '../../../../utils/daFetch.js';
+import { loadIms } from '../../../../utils/ims.js';
 import './pagination.js';
 import './filter-bar.js';
 import './project-table.js';

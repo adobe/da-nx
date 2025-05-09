@@ -10,8 +10,8 @@ const buttons = await getStyle(`${nxBase}/styles/buttons.js`);
 const DA_ORIGIN = 'https://admin.da.live';
 const TRANSLATE_CONF = '/.da/translate.json';
 
-const MOCK_URLS = '';
-// const MOCK_URLS = `https://main--da-bacom--adobecom.aem.page/customer-success-stories/xfinity-creative-customer-story\nhttps://main--da-bacom--adobecom.aem.page/customer-success-stories/abb-case-study\nhttps://main--da-bacom--adobecom.aem.page/customer-success-stories/academy-of-art-case-study\nhttps://main--da-bacom--adobecom.aem.page/customer-success-stories/accent-group-ecommerce-case-study\nhttps://main--da-bacom--adobecom.aem.page/customer-success-stories/aci-worldwide-case-study\nhttps://main--da-bacom--adobecom.aem.page/customer-success-stories/adobe-campaign-orchestration-case-study\nhttps://main--da-bacom--adobecom.aem.page/customer-success-stories/adobe-digital-legal-workflow-case-study\nhttps://main--da-bacom--adobecom.aem.page/customer-success-stories/adobe-digital-onboarding-case-study\nhttps://main--da-bacom--adobecom.aem.page/customer-success-stories/adobe-digital-university-case-study\nhttps://main--da-bacom--adobecom.aem.page/customer-success-stories/adobe-inside-adobe-case-study\nhttps://main--da-bacom--adobecom.aem.page/customer-success-stories/adobe-promo-case-study`;
+// const MOCK_URLS = '';
+const MOCK_URLS = `https://main--da-bacom--adobecom.aem.page/customer-success-stories/xfinity-creative-customer-story\nhttps://main--da-bacom--adobecom.aem.page/customer-success-stories/abb-case-study\nhttps://main--da-bacom--adobecom.aem.page/customer-success-stories/academy-of-art-case-study\nhttps://main--da-bacom--adobecom.aem.page/customer-success-stories/accent-group-ecommerce-case-study\nhttps://main--da-bacom--adobecom.aem.page/customer-success-stories/aci-worldwide-case-study\nhttps://main--da-bacom--adobecom.aem.page/customer-success-stories/adobe-campaign-orchestration-case-study\nhttps://main--da-bacom--adobecom.aem.page/customer-success-stories/adobe-digital-legal-workflow-case-study\nhttps://main--da-bacom--adobecom.aem.page/customer-success-stories/adobe-digital-onboarding-case-study\nhttps://main--da-bacom--adobecom.aem.page/customer-success-stories/adobe-digital-university-case-study\nhttps://main--da-bacom--adobecom.aem.page/customer-success-stories/adobe-inside-adobe-case-study\nhttps://main--da-bacom--adobecom.aem.page/customer-success-stories/adobe-promo-case-study`;
 // const MOCK_URLS = 'https://main--smartling--aabsites.aem.page/demo\nhttps://main--smartling--aabsites.aem.page/another';
 
 class NxLocDetails extends LitElement {
@@ -27,7 +27,10 @@ class NxLocDetails extends LitElement {
   }
 
   async handleUrls(rawUrls) {
-    if (!rawUrls) return this.error('Please add AEM URLs.');
+    if (!rawUrls) {
+      this.error('Please add AEM URLs.');
+      return {};
+    }
 
     // Split and de-dupe
     let urls = [...new Set(rawUrls.split('\n'))];
@@ -125,10 +128,10 @@ class NxLocDetails extends LitElement {
     return html`
       <form @submit=${this.handleSubmit}>
         <div class="sub-heading">
-          <h2>Basics</h2>
+          <h2>Setup basics</h2>
           <div class="actions">
             ${this._error ? html`<p class="error">${this._error}</p>` : nothing}
-            <input type="submit" value="Next" class="accent" />
+            <input type="submit" value="Validate references" class="accent" />
           </div>
         </div>
         <div>

@@ -1,6 +1,6 @@
-import { LitElement, html } from '../../../deps/lit/lit-core.min.js';
-import { getConfig } from '../../../scripts/nexter.js';
-import getStyle from '../../../utils/styles.js';
+import { LitElement, html } from '../../../../deps/lit/lit-core.min.js';
+import { getConfig } from '../../../../scripts/nexter.js';
+import getStyle from '../../../../utils/styles.js';
 
 const { nxBase } = getConfig();
 const style = await getStyle(import.meta.url);

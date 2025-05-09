@@ -1,0 +1,36 @@
+form {
+  margin: var(--spacing-400) 0;
+}
+
+label {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.nx-loc-title-wrapper {
+  margin-bottom: var(--spacing-200);
+}
+
+.nx-loc-title-actions {
+  display: flex;
+  align-items: end;
+  gap: 12px;
+
+  .nx-loc-title-wrapper {
+    width: 100%;
+  }
+}
+
+sl-textarea {
+  min-height: 480px;
+}
+
+.error {
+  align-content: center;
+  padding: 6px 12px;
+  background: var(--s2-red);
+  border-radius: var(--s2-radius-100);
+  font-weight: 700;
+  color: #fff;
+  font-size: 14px;
+}

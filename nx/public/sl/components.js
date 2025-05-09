@@ -195,7 +195,7 @@ class SlButton extends LitElement {
 
   constructor() {
     super();
-    this.internals_ = this.attachInternals();
+    this._internals = this.attachInternals();
   }
 
   async connectedCallback() {
