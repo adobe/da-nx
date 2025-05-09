@@ -49,7 +49,7 @@ async function formatAccess(resp) {
 }
 
 async function daUserConfig(path, opts = {}) {
-  return daFetch(`${DA_ORIGIN}/source${path}/.da/aem-permissions.json`, opts);
+  return daFetch(`${DA_ORIGIN}/source${path}/.da/aem-permission-requests.json`, opts);
 }
 
 export async function getDaUsers(path) {

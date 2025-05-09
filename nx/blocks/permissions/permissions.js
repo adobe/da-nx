@@ -104,7 +104,7 @@ class NxPermissions extends LitElement {
       <h2>Requests</h2>
       <div class="nx-permission-note">
         <p><strong>Note:</strong> No new permission requests.</p>
-        <p><a href="https://da.live/sheet#${this.path}/.da/aem-permissions" target="${this.path}/.da/aem-permissions">View user list</a>
+        <p><a href="https://da.live/sheet#${this.path}/.da/aem-permission-requests" target="${this.path}/.da/aem-permission-requests">View user list</a>
       </div>
     `;
   }
