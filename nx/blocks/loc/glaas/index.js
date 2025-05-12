@@ -17,7 +17,7 @@ export async function isConnected(service) {
 
 export async function connect(config) {
   localStorage.setItem('currentProject', window.location.hash);
-  connectToGlaas(config.origin, config.clientid);
+  await connectToGlaas(config.origin, config.clientid);
 }
 
 function langs2tasks(title, langs, timestamp) {
@@ -170,4 +170,16 @@ export async function getItems(service, lang, urls) {
     const blob = await downloadAsset(service, token, task, url.basePath);
     return { ...url, blob };
   }));
+}
+
+export function canCancel() {
+  return true;
+}
+
+export async function cancelLang(service, lang) {
+  const { translation, workflow, code } = lang;
+  if (!translation || !translation.name || !workflow || !code) {
+    return { error: 'Error cancelling task.', status: 'error' };
+  }
+  return updateStatus(service, token, { name: translation.name, workflow, targetLocales: [code] }, 'CANCELLED');
 }
