@@ -3,6 +3,7 @@ import { getConfig } from '../../../../scripts/nexter.js';
 import getStyle from '../../../../utils/styles.js';
 import getSvg from '../../../../utils/svg.js';
 import { fetchOptions } from '../../utils/utils.js';
+import { getAllActions, formatLangs, formatConfig } from './utils/utils.js';
 
 const { nxBase: nx } = getConfig();
 
@@ -17,15 +18,17 @@ class NxLocOptions extends LitElement {
   static properties = {
     org: { attribute: false },
     site: { attribute: false },
+    urls: { attribute: false },
     _config: { state: true },
     _langs: { state: true },
+    _actions: { state: true },
   };
 
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
     getSvg({ parent: this.shadowRoot, paths: ICONS });
-    this._message = { text: 'Clicking "manage project" will lock the project from URL, options, and language changes.' };
+    this._message = { text: 'Starting the project will lock sources, options, and language changes.' };
     this.formatOptions();
   }
 
@@ -39,31 +42,17 @@ class NxLocOptions extends LitElement {
       this._message = { text: 'No config available.', type: 'error' };
       return;
     }
-    this._config = options.config.data.reduce((acc, row) => {
-      acc[row.key] = row.value;
-      return acc;
-    }, {});
 
-    this._langs = options.languages.data;
+    this._config = formatConfig(options);
+    this._langs = formatLangs(options.languages.data);
+    this._actions = getAllActions(this._langs);
+  }
 
-    this._langs.forEach((lang) => {
-      lang.locales = lang.locales && lang.locales.split(',').map((value) => ({ code: value.trim(), active: true }));
-    });
-
-    const name = this._config['translation.service.name'];
-
-    const service = { name, envs: {} };
-    Object.keys(this._config).forEach((key) => {
-      if (key.startsWith('translation.service.')) {
-        const serviceKey = key.replace('translation.service.', '');
-
-        const [env, prop] = serviceKey.split('.');
-        if (env === 'name' || env === 'all') return;
-        service.envs[env] ??= {};
-        service.envs[env][prop] = this._config[key];
-      }
-    });
-    this._config.service = service;
+  handleSubmit() {
+    const form = this.shadowRoot.querySelector('form');
+    const formData = new FormData(form);
+    const entries = Object.fromEntries(formData.entries());
+    console.log(entries);
   }
 
   handleAction({ detail }) {
@@ -81,14 +70,27 @@ class NxLocOptions extends LitElement {
     this._langs = [...this._langs];
   }
 
-  calculateActions(langs) {
-    return langs.reduce((acc, lang) => {
-      const actions = lang.actions.split(', ');
-      actions.forEach((action) => {
-        if (!acc.some((curr) => curr === action)) acc.push(action);
-      });
-      return acc;
-    }, []);
+  handleChangeAll(e) {
+    const { value } = e.target;
+    // Reset to empty as we don't want to imply
+    // something if its been overridden below.
+    e.target.value = '';
+
+    for (const select of this._allSelects) {
+      select.value = value;
+      const event = new Event('change');
+      select.dispatchEvent(event);
+    }
+  }
+
+  handleChangeAction(value, lang) {
+    if (value) {
+      const { orderedActions } = lang;
+      const found = orderedActions.find((action) => action.value === value);
+      // If not found, default to skip
+      lang.activeAction = found || orderedActions.find((action) => action.value === 'skip');
+    }
+    this._langs = [...this._langs];
   }
 
   getCommaValues(prop) {
@@ -100,12 +102,34 @@ class NxLocOptions extends LitElement {
     return this._langs.some((lang) => lang.locales);
   }
 
+  get _allSelects() {
+    return this.shadowRoot.querySelectorAll('.lang-group.single-lang sl-select');
+  }
+
+  get langCount() {
+    return this._langs.filter((lang) => lang.activeAction.value !== 'skip').length;
+  }
+
+  get localeCount() {
+    return this._langs.reduce((acc, lang) => {
+      if (lang.activeAction.value !== 'skip') {
+        const activeLocales = lang.locales.filter((locale) => locale.active);
+        acc += activeLocales.length;
+      }
+      return acc;
+    }, 0);
+  }
+
+  get translateCount() {
+    return this._langs.filter((lang) => lang.activeAction.value === 'translate').length;
+  }
+
   renderFieldgroup(label, property) {
     const values = this.getCommaValues(property);
     return html`
       <div class="nx-loc-fieldgroup">
         <p>${label}</p>
-        <sl-select name="Source sync">
+        <sl-select name="${property}" value="${values[0]}">
           ${values.map((value) => html`<option>${value}</option>`)}
         </sl-select>
       </div>`;
@@ -113,7 +137,7 @@ class NxLocOptions extends LitElement {
 
   renderLocales(lang) {
     return html`
-      <div>
+      <div class="lang-locales">
         <p class="locale-heading">Locales</p>
         <ul class="locale-list">
           ${lang.locales.map((locale) => html`
@@ -131,10 +155,10 @@ class NxLocOptions extends LitElement {
 
   renderChangeAll() {
     return html`
-      <sl-select @change=${(e) => this.handleChangeAll(e.target.value)}>
-        <option value="">Skip</option>
-        ${this.calculateActions(this._langs).map((action) => html`
-          <option value="${action}">${action}</option>
+      <sl-select @change=${this.handleChangeAll}>
+        <option></option>
+        ${this._actions.map((action) => html`
+          <option value="${action.value}">${action.name}</option>
         `)}
       </sl-select>`;
   }
@@ -144,30 +168,61 @@ class NxLocOptions extends LitElement {
       <p class="nx-loc-options-header">Languages</p>
       <div class="nx-loc-options-panel nx-loc-options-panel-languages">
         <div class="lang-list">
-          <div class="lang-group">
+          <div class="lang-group all-langs">
             <div class="lang-heading">
               <p>All languages${this.hasLocales() ? html` & locales` : nothing}</p>
               ${this.renderChangeAll()}
             </div>
           </div>
           ${this._langs.map((lang) => html`
-          ${lang.actions !== '' ? html`
-            <div class="lang-group ${lang.locales ? 'has-locales' : ''}">
+            <div class="lang-group single-lang ${lang.locales ? 'has-locales' : ''}">
               <div class="lang-heading">
                 <p>${lang.name}</p>
-                <sl-select @change=${(e) => this.handleChangeAction(e.target.value, lang)}>
-                  <option value="">Skip</option>
-                  ${lang.actions.split(', ').map((action) => html`
-                    <option value="${action}">${action}</option>
+                <sl-select name="lang-${lang.code}-action" value=${lang.activeAction.value} @change=${(e) => this.handleChangeAction(e.target.value, lang)}>
+                  ${lang.orderedActions.map((action) => html`
+                    <option value="${action.value}">${action.name}</option>
                   `)}
                 </sl-select>
               </div>
               ${lang.locales ? this.renderLocales(lang) : nothing}
-            </div>` : nothing}
+            </div>
         </div>
       </div>
       `)}
     `;
+  }
+
+  renderDetails() {
+    return html`
+      <div class="detail-cards">
+        <div class="detail-card detail-card-sources">
+          <p class="detail-card-heading">Sources</p>
+          <p>${this.urls.length}</p>
+        </div>
+        <div class="detail-card detail-card-languages">
+          <p class="detail-card-heading">Languages</p>
+          <p>${this.langCount}</p>
+        </div>
+        ${this.localeCount > 0 ? html`
+          <div class="detail-card detail-card-locales">
+            <p class="detail-card-heading">Locales</p>
+            <p>${this.localeCount}</p>
+          </div>
+        ` : nothing}
+         ${this.translateCount > 0 ? html`
+          <div class="detail-card detail-card-translate">
+            <p class="detail-card-heading">Translate total</p>
+            <p>${this.translateCount * this.urls.length}</p>
+          </div>
+        ` : nothing}
+        ${this.localeCount > 0 ? html`
+          <div class="detail-card detail-card-rollout">
+            <p class="detail-card-heading">Rollout total</p>
+            <p>${this.localeCount * this.urls.length}</p>
+          </div>
+        ` : nothing}
+      </div>
+    `
   }
 
   render() {
@@ -176,25 +231,28 @@ class NxLocOptions extends LitElement {
         @action=${this.handleAction}
         .message=${this._message}
         prev="Validate references"
-        next="Manage project">
+        next="Start project">
       </nx-loc-actions>
-      ${this._config ? html`
-        <p class="nx-loc-options-header">Options</p>
-        <div class="nx-loc-options-panel">
-          <div class="nx-loc-options-group">
-            ${this.renderFieldgroup('Environment', 'translation.service.all.envs')}
-          </div>
+      <form>
+      ${this._config && html`
+        ${this.urls && this.renderDetails()}
+          <p class="nx-loc-options-header">Options</p>
+          <div class="nx-loc-options-panel">
+            <div class="nx-loc-options-group">
+              ${this.renderFieldgroup('Environment', 'translation.service.all.envs')}
+            </div>
 
-          <p class="nx-loc-options-panel-subhead">Conflict resolution</p>
-          <div class="nx-loc-options-group">
-            ${this.renderFieldgroup('On source sync', 'source.conflict.behavior')}
-            ${this.renderFieldgroup('On translation return', 'translate.conflict.behavior')}
-            ${this.renderFieldgroup('On source copy', 'source.copy.conflict.behavior')}
-            ${this.renderFieldgroup('On rollout', 'rollout.conflict.behavior')}
+            <p class="nx-loc-options-panel-subhead">Conflict resolution</p>
+            <div class="nx-loc-options-group">
+              ${this.renderFieldgroup('On source sync', 'source.conflict.behavior')}
+              ${this.renderFieldgroup('On translation return', 'translate.conflict.behavior')}
+              ${this.renderFieldgroup('On source copy', 'source.copy.conflict.behavior')}
+              ${this.renderFieldgroup('On rollout', 'rollout.conflict.behavior')}
+            </div>
           </div>
-        </div>
-      ` : nothing}
-      ${this._langs ? this.renderLangList() : nothing}
+        `}
+        ${this._langs && this.renderLangList()}
+      </form>
     `;
   }
 }

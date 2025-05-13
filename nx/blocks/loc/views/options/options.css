@@ -6,6 +6,52 @@ sl-select {
   min-width: 120px;
 }
 
+.detail-cards {
+  margin-top: 24px;
+  display: flex;
+  gap: 24px;
+
+  p {
+    margin: 0;
+    line-height: 1;
+    font-size: 24px;
+  }
+
+  .detail-card-heading {
+    font-weight: 700;
+    margin-top: -2px;
+    margin-bottom: 8px;
+    font-size: 16px;
+  }
+
+  .detail-card {
+    flex: 1;
+    border-radius: var(--s2-radius-100);
+    background-color: #efefef;
+    padding: 24px;
+  }
+
+  .detail-card-sources {
+    background-color: var(--s2-cyan-300);
+  }
+
+  .detail-card-languages {
+    background-color: var(--s2-orange-300);
+  }
+
+  .detail-card-locales {
+    background-color: var(--s2-fuchsia-300);
+  }
+
+  .detail-card-translate {
+    background-color: var(--s2-green-300);
+  }
+
+  .detail-card-rollout {
+    background-color: var(--s2-turquoise-300);
+  }
+}
+
 .nx-loc-options-header {
   font-size: 20px;
   font-weight: 700;
@@ -66,13 +112,22 @@ sl-select {
     .lang-heading {
       display: flex;
       justify-content: space-between;
+      align-items: start;
+
+      p {
+        font-size: 18px;
+        line-height: 1;
+      }
+    }
+
+    &.all-langs .lang-heading {
       align-items: center;
     }
-  }
-}
 
-.locale-heading {
-  margin: 0 0 var(--spacing-100);
+    .locale-heading {
+      margin: 0 0 var(--spacing-200);
+    }
+  }
 }
 
 .locale-list {

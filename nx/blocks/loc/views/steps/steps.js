@@ -74,7 +74,7 @@ class NxLocSteps extends LitElement {
           <hr/>
           <button class="nx-loc-wizard-btn nx-loc-basics${options.css}">
             <svg viewBox="0 0 20 20"><use href="${options.icon}" /></svg>
-            <p>Select options</p>
+            <p>Confirm options</p>
           </button>
         </div>
         <hr/>

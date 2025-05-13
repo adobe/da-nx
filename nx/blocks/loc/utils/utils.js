@@ -4,6 +4,8 @@ import { daFetch } from '../../../utils/daFetch.js';
 
 const { nxBase: nx } = getConfig();
 
+const CONFIG_PATH = '/.da/translate-v2.json';
+
 export const VIEWS = [
   'dashboard',
   'basics',
@@ -69,11 +71,11 @@ export async function fetchOptions(org, site) {
   };
 
   // Attempt a site based config
-  let options = await fetchOpts(`${DA_ORIGIN}/source/${org}/${site}/.da/translate.json`);
+  let options = await fetchOpts(`${DA_ORIGIN}/source/${org}/${site}${CONFIG_PATH}`);
 
   // Attempt an org based config
   if (options.error) {
-    options = await fetchOpts(`${DA_ORIGIN}/source/${org}/.da/translate.json`);
+    options = await fetchOpts(`${DA_ORIGIN}/source/${org}${CONFIG_PATH}`);
   }
 
   // Fallback to zero config defaults
@@ -115,8 +117,6 @@ export async function fetchProject(path, detail) {
   // If detail was supplied, it was a POST, so use detail
   // Otherwise GET will have the data we want.
   PROJECT_CACHE[path] = detail || await resp.json();
-
-  console.log(PROJECT_CACHE[path]);
 
   return PROJECT_CACHE[path];
 }

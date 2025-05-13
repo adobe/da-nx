@@ -115,6 +115,7 @@ class NxLoc extends LitElement {
         <nx-loc-options
           .org=${this.org}
           .site=${this.site}
+          .urls=${this._urls}
           @prev=${() => this.handlePrev('validate')}
           @next=${this.handleNext}>
         </nx-loc-options>
