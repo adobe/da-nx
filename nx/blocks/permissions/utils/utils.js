@@ -117,17 +117,14 @@ export async function getAemConfig(suppliedPath) {
 
 function compareRoles(aemUser, daUser) {
   // If no requests, give back all the AEM roles
-  if (daUser.requested < 1) return { roles: aemUser.roles, requested: [] };
+  if (daUser.requested.length < 1) return { roles: aemUser.roles, requested: [] };
 
-  return daUser.requested.reduce((acc, requestedRole) => {
-    const hasRole = aemUser.roles.some((role) => role === requestedRole);
-    if (hasRole) {
-      acc.roles.push(requestedRole);
-    } else {
-      acc.requested.push(requestedRole);
-    }
-    return acc;
-  }, { roles: [], requested: [] });
+  // Filter down to only net new requests
+  const requested = daUser.requested
+    .filter((requestedRole) => !aemUser.roles.some((role) => role === requestedRole));
+
+  // Combine existing AEM roles with new requests
+  return { roles: aemUser.roles, requested };
 }
 
 export function combineUsers(daUsers, aemUsers) {

@@ -132,6 +132,7 @@ class NxPermissions extends LitElement {
             <li><nx-permission-user @action=${this.handleUserAction} .user=${user} .type=${title.toLowerCase()}></nx-permission-user></li>
           `)}
         </ul>
+        ${name === 'daUsers' ? html`<p class="nx-security-note"><span>Note:</span> Ensure names match user ids before approving requests.</p>` : nothing}
       </div>
     `;
   }
