@@ -212,6 +212,8 @@ p {
   position: relative;
   margin: -1px 0;
   padding: 24px;
+  max-height: 300px;
+  overflow-y: auto;
 }
 
 .nx-all-orgs-title {
