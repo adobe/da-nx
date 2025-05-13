@@ -33,8 +33,7 @@ async function findFragments(pageUrl, text, liveDomain) {
 
     href = href.replace('.hlx.', '.aem.');
 
-    [href] = href.split('#');
-    [href] = href.split('?');
+    href = href.match(/^[^?#| ]+/)[0];
 
     console.log(href);
 
