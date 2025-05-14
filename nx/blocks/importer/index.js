@@ -11,6 +11,7 @@ const LINK_SELECTORS = [
   'a[href*=".mp4"]',
   'a[href*=".pdf"]',
   'a[href*=".svg"]',
+  'img[alt*=".mp4"]',
 ];
 
 let localUrls;
@@ -24,7 +25,7 @@ async function findFragments(pageUrl, text, liveDomain) {
   const dom = parser.parseFromString(text, 'text/html');
   const results = dom.body.querySelectorAll(LINK_SELECTORS.join(', '));
   const linkedImports = [...results].reduce((acc, a) => {
-    let href = a.getAttribute('href');
+    let href = a.getAttribute('href') || a.getAttribute('alt');
 
     // Don't add any off origin content.
     const isSameDomain = prefixes.some((prefix) => href.startsWith(prefix));
@@ -32,8 +33,7 @@ async function findFragments(pageUrl, text, liveDomain) {
 
     href = href.replace('.hlx.', '.aem.');
 
-    [href] = href.split('#');
-    [href] = href.split('?');
+    href = href.match(/^[^?#| ]+/)[0];
 
     console.log(href);
 
