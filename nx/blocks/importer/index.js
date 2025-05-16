@@ -13,6 +13,8 @@ const LINK_SELECTORS = [
   'a[href*=".svg"]',
   'img[alt*=".mp4"]',
 ];
+// For any case where we need to find SVGs outside of any elements // in their text.
+const LINK_SELECTOR_REGEX = /https:\/\/[^"'\s]+\.svg/g;
 
 let localUrls;
 
@@ -24,7 +26,13 @@ async function findFragments(pageUrl, text, liveDomain) {
 
   const dom = parser.parseFromString(text, 'text/html');
   const results = dom.body.querySelectorAll(LINK_SELECTORS.join(', '));
-  const linkedImports = [...results].reduce((acc, a) => {
+  const matches = text.match(LINK_SELECTOR_REGEX)?.map((svgUrl) => {
+    const a = window.document.createElement('a');
+    a.href = svgUrl;
+    return a;
+  }) || [];
+
+  const linkedImports = [...results, ...matches].reduce((acc, a) => {
     let href = a.getAttribute('href') || a.getAttribute('alt');
 
     // Don't add any off origin content.
@@ -33,9 +41,7 @@ async function findFragments(pageUrl, text, liveDomain) {
 
     href = href.replace('.hlx.', '.aem.');
 
-    href = href.match(/^[^?#| ]+/)[0];
-
-    console.log(href);
+    [href] = href.match(/^[^?#| ]+/);
 
     // Convert relative to current project origin
     const url = new URL(href);
