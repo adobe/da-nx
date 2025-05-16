@@ -6,8 +6,20 @@ import getSvg from '../../../../utils/svg.js';
 const { nxBase: nx } = getConfig();
 const style = await getStyle(import.meta.url);
 
+const STEPS_VIEW = {
+  basics: 'setup',
+  varlidate: 'setup',
+  options: 'setup',
+  sync: 'manage',
+  translate: 'manage',
+  rollout: 'manage',
+};
+
 const ICONS = [
   `${nx}/public/icons/S2_Icon_Archive_20_N.svg`,
+  `${nx}/public/icons/S2_Icon_Emoji_20_N.svg`,
+  `${nx}/public/icons/S2_Icon_FileConvert_20_N.svg`,
+  `${nx}/public/icons/S2_Icon_Refresh_20_N.svg`,
   `${nx}/public/icons/S2_Icon_ListBulleted_20_N.svg`,
   `${nx}/public/icons/S2_Icon_Binoculars_20_N.svg`,
   `${nx}/public/icons/S2_Icon_Properties_20_N.svg`,
@@ -48,7 +60,51 @@ class NxLocSteps extends LitElement {
     return styles;
   }
 
-  render() {
+  get needsSync() {
+
+  }
+
+  renderManage() {
+    if (!this.urls) return nothing;
+
+    const dashboard = this.getStyling('dashboard', '#S2_Icon_Archive_20_N');
+    const sync = this.getStyling('sync', '#S2_Icon_Refresh_20_N');
+    const translate = this.getStyling('translate', '#S2_Icon_GlobeGrid_20_N');
+    const rollout = this.getStyling('rollout', '#S2_Icon_FileConvert_20_N');
+
+    return html`
+      <div class="nx-setup-steps-container">
+        <button class="nx-loc-wizard-btn nx-loc-projects${dashboard.css}">
+          <svg viewBox="0 0 20 20"><use href="#S2_Icon_Archive_20_N" /></svg>
+          <p>All projects</p>
+        </button>
+        <hr class=""/>
+        <div class="nx-setup-steps-middle">
+          <button class="nx-loc-wizard-btn${sync.css}">
+            <svg viewBox="0 0 20 20"><use href="${sync.icon}" /></svg>
+            <p>Sync sources</p>
+          </button>
+          <hr/>
+          <button class="nx-loc-wizard-btn${translate.css}">
+            <svg viewBox="0 0 20 20"><use href="${translate.icon}" /></svg>
+            <p>Translate or copy</p>
+          </button>
+          <hr/>
+          <button class="nx-loc-wizard-btn${rollout.css}">
+            <svg viewBox="0 0 20 20"><use href="${rollout.icon}" /></svg>
+            <p>Rollout locales</p>
+          </button>
+        </div>
+        <hr/>
+        <button class="nx-loc-wizard-btn">
+          <svg viewBox="0 0 20 20"><use href="#S2_Icon_Emoji_20_N" /></svg>
+          <p>Project complete</p>
+        </button>
+      </div>
+    `;
+  }
+
+  renderSetup() {
     const dashboard = this.getStyling('dashboard', '#S2_Icon_Archive_20_N');
     const basics = this.getStyling('basics', '#S2_Icon_ListBulleted_20_N');
     const validate = this.getStyling('validate', '#S2_Icon_Binoculars_20_N');
@@ -69,7 +125,7 @@ class NxLocSteps extends LitElement {
           <hr/>
           <button class="nx-loc-wizard-btn nx-loc-basics${validate.css}">
             <svg viewBox="0 0 20 20"><use href="${validate.icon}" /></svg>
-            <p>Validate references</p>
+            <p>Validate sources</p>
           </button>
           <hr/>
           <button class="nx-loc-wizard-btn nx-loc-basics${options.css}">
@@ -83,6 +139,17 @@ class NxLocSteps extends LitElement {
           <p>Manage project</p>
         </button>
       </div>
+    `;
+  }
+
+  renderSteps() {
+    const stepType = STEPS_VIEW[this.view];
+    return stepType === 'setup' ? this.renderSetup() : this.renderManage();
+  }
+
+  render() {
+    return html`
+      ${this.view && this.view !== 'dashboard' ? this.renderSteps() : nothing}
     `;
   }
 }

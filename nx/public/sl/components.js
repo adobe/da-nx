@@ -167,7 +167,7 @@ class SlSelect extends LitElement {
   update(props) {
     if (props.has('value')) {
       this._internals.setFormValue(this.value);
-      // this._select.value = this.value;
+      if (this._select) this._select.value = this.value;
     }
     super.update();
   }

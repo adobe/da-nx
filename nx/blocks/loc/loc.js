@@ -11,6 +11,8 @@ import './views/actions/actions.js';
 import './views/basics/basics.js';
 import './views/validate/validate.js';
 import './views/options/options.js';
+import './views/sync/sync.js';
+import './views/translate/translate.js';
 
 const EL_NAME = 'nx-loc';
 
@@ -119,6 +121,35 @@ class NxLoc extends LitElement {
           @prev=${() => this.handlePrev('validate')}
           @next=${this.handleNext}>
         </nx-loc-options>
+      `;
+    }
+
+    if (this.view === 'sync' && this._urls) {
+      return html`
+        <nx-loc-sync
+          .org=${this.org}
+          .site=${this.site}
+          .title=${this._title}
+          .options=${this._options}
+          .urls=${this._urls}
+          @prev=${() => this.handlePrev('dashboard')}
+          @next=${this.handleNext}>
+        </nx-loc-sync>
+      `;
+    }
+
+    if (this.view === 'translate' && this._urls) {
+      return html`
+        <nx-loc-translate
+          .org=${this.org}
+          .site=${this.site}
+          .title=${this._title}
+          .options=${this._options}
+          .langs=${this._langs}
+          .urls=${this._urls}
+          @prev=${() => this.handlePrev('sync')}
+          @next=${this.handleNext}>
+        </nx-loc-translate>
       `;
     }
     return nothing;

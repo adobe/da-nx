@@ -2,8 +2,8 @@ import { LitElement, html, nothing } from 'da-lit';
 import { getConfig } from '../../../../scripts/nexter.js';
 import getStyle from '../../../../utils/styles.js';
 import getSvg from '../../../../utils/svg.js';
-import { fetchOptions } from '../../utils/utils.js';
-import { getAllActions, formatLangs, formatConfig } from './utils/utils.js';
+import { fetchOptions as fetchConfigSheets } from '../../utils/utils.js';
+import { getAllActions, formatLangs, formatConfig, finalizeOptions } from './utils/utils.js';
 
 const { nxBase: nx } = getConfig();
 
@@ -20,15 +20,17 @@ class NxLocOptions extends LitElement {
     site: { attribute: false },
     urls: { attribute: false },
     _config: { state: true },
+    _options: { state: true },
     _langs: { state: true },
     _actions: { state: true },
+    _message: { state: true },
   };
 
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
     getSvg({ parent: this.shadowRoot, paths: ICONS });
-    this._message = { text: 'Starting the project will lock sources, options, and language changes.' };
+    this._message = { text: 'Starting the project will lock sources, options, and languages.' };
     this.formatOptions();
   }
 
@@ -37,22 +39,47 @@ class NxLocOptions extends LitElement {
       this._message = { text: 'No organization or site supplied.', type: 'error' };
       return;
     }
-    const options = await fetchOptions(this.org, this.site);
-    if (!(options.config || options.languages)) {
+    const sheets = await fetchConfigSheets(this.org, this.site);
+    if (!(sheets.config || sheets.languages)) {
       this._message = { text: 'No config available.', type: 'error' };
       return;
     }
+    const { config, options } = formatConfig(sheets);
 
-    this._config = formatConfig(options);
-    this._langs = formatLangs(options.languages.data);
+    // Config is all available configs to pick from
+    this._config = config;
+
+    // Options are the currently active config options
+    this._options = options;
+
+    // Langs have information inside them
+    this._langs = formatLangs(sheets.languages.data);
+
+    // Distill down available lang actions into a single list.
     this._actions = getAllActions(this._langs);
   }
 
   handleSubmit() {
-    const form = this.shadowRoot.querySelector('form');
-    const formData = new FormData(form);
-    const entries = Object.fromEntries(formData.entries());
-    console.log(entries);
+    const {
+      view,
+      options,
+      langs,
+      message,
+    } = finalizeOptions(this._config, this._options, this._langs, this.urls);
+
+    if (message) {
+      this._message = message;
+      return;
+    }
+
+    const detail = { org: this.org, site: this.site, view, options, langs };
+    const opts = { detail, bubbles: true, composed: true };
+    const event = new CustomEvent('next', opts);
+    this.dispatchEvent(event);
+  }
+
+  handleChangeOption({ target }) {
+    this._options[target.name] = target.value;
   }
 
   handleAction({ detail }) {
@@ -112,11 +139,12 @@ class NxLocOptions extends LitElement {
 
   get localeCount() {
     return this._langs.reduce((acc, lang) => {
+      let count = acc;
       if (lang.activeAction.value !== 'skip') {
         const activeLocales = lang.locales.filter((locale) => locale.active);
-        acc += activeLocales.length;
+        count += activeLocales.length;
       }
-      return acc;
+      return count;
     }, 0);
   }
 
@@ -129,7 +157,7 @@ class NxLocOptions extends LitElement {
     return html`
       <div class="nx-loc-fieldgroup">
         <p>${label}</p>
-        <sl-select name="${property}" value="${values[0]}">
+        <sl-select name="${property}" value="${values[0]}" @change=${this.handleChangeOption}>
           ${values.map((value) => html`<option>${value}</option>`)}
         </sl-select>
       </div>`;
@@ -222,7 +250,7 @@ class NxLocOptions extends LitElement {
           </div>
         ` : nothing}
       </div>
-    `
+    `;
   }
 
   render() {
@@ -230,29 +258,26 @@ class NxLocOptions extends LitElement {
       <nx-loc-actions
         @action=${this.handleAction}
         .message=${this._message}
-        prev="Validate references"
+        prev="Validate sources"
         next="Start project">
       </nx-loc-actions>
-      <form>
       ${this._config && html`
         ${this.urls && this.renderDetails()}
-          <p class="nx-loc-options-header">Options</p>
-          <div class="nx-loc-options-panel">
-            <div class="nx-loc-options-group">
-              ${this.renderFieldgroup('Environment', 'translation.service.all.envs')}
-            </div>
-
-            <p class="nx-loc-options-panel-subhead">Conflict resolution</p>
-            <div class="nx-loc-options-group">
-              ${this.renderFieldgroup('On source sync', 'source.conflict.behavior')}
-              ${this.renderFieldgroup('On translation return', 'translate.conflict.behavior')}
-              ${this.renderFieldgroup('On source copy', 'source.copy.conflict.behavior')}
-              ${this.renderFieldgroup('On rollout', 'rollout.conflict.behavior')}
-            </div>
+        <p class="nx-loc-options-header">Options</p>
+        <div class="nx-loc-options-panel">
+          <div class="nx-loc-options-group">
+            ${this.renderFieldgroup('Environment', 'translation.service.all.env')}
           </div>
-        `}
+          <p class="nx-loc-options-panel-subhead">Conflict resolution</p>
+          <div class="nx-loc-options-group">
+            ${this.renderFieldgroup('On source sync', 'sync.conflict.behavior')}
+            ${this.renderFieldgroup('On translation return', 'translate.conflict.behavior')}
+            ${this.renderFieldgroup('On source copy', 'copy.conflict.behavior')}
+            ${this.renderFieldgroup('On rollout', 'rollout.conflict.behavior')}
+          </div>
+        </div>
         ${this._langs && this.renderLangList()}
-      </form>
+      `}
     `;
   }
 }

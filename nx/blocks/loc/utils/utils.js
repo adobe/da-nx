@@ -12,7 +12,7 @@ export const VIEWS = [
   'validate',
   'options',
   'sync',
-  'localize',
+  'translate',
   'rollout',
 ];
 
@@ -28,17 +28,20 @@ export function getPathDetails() {
     return { view: 'basics' };
   }
 
-  // Remove '#';
-  const path = hash.substring(1);
+  // Remove '#/';
+  const path = hash.substring(2);
 
-  // Remove '/' and spplit to the parts we care about
-  const split = path.substring(1).split('/');
+  if (!path) {
+    window.location.hash = '/basics';
+    return { view: 'basics' };
+  }
 
-  const knownView = VIEWS.some((view) => split[0] === view);
+  // Split to the parts we care about
+  const [view, org, site, ...projectParts] = path.split('/');
+
+  const knownView = VIEWS.some((known) => view === known);
 
   if (!knownView) {
-    const [org, site] = split;
-
     // If there's no site or org, drop them to basics
     if (!(org && site)) {
       window.location.hash = '/basics';
@@ -46,13 +49,9 @@ export function getPathDetails() {
     }
 
     window.location.hash = `/dashboard${path}`;
-    return {
-      org: split[0],
-      site: split[1],
-    };
+    return { org, site };
   }
 
-  const [, view, org, site, ...projectParts] = path.split('/');
   return {
     view,
     org,

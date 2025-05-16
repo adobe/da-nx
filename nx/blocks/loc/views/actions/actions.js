@@ -7,6 +7,7 @@ class NxLocActions extends LitElement {
   static properties = {
     prev: { type: String },
     prevDisabled: { type: Boolean },
+    nextDisabled: { type: Boolean },
     next: { type: String },
     message: { attribute: false },
   };
@@ -29,7 +30,7 @@ class NxLocActions extends LitElement {
           <span>${this.prev}</span>
         </button>
         ${this.message ? html`<p class="message type-${this.message.type || 'info'}">${this.message.text}</p>` : nothing}
-        <button @click=${() => this.handleAction('next')} class="nx-next">
+        <button @click=${() => this.handleAction('next')} class="nx-next" ?disabled=${this.nextDisabled}>
           <span>${this.next}</span>
         </button>
       </div>`;
