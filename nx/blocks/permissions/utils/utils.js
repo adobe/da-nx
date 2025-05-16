@@ -1,6 +1,9 @@
 import { AEM_ORIGIN, DA_ORIGIN } from '../../../public/utils/constants.js';
 import { daFetch } from '../../../utils/daFetch.js';
 
+// See: https://www.aem.live/docs/authentication-setup-authoring
+const AEM_ROLES = ['admin', 'basic_author', 'basic_publish', 'author', 'publish', 'develop', 'config', 'config_admin'];
+
 function pathToDetails(path) {
   const [, org, site] = path.split('/');
   return { org, site };
@@ -190,9 +193,7 @@ async function approveSiteUser(org, site, path, user) {
 
   const approvedRoles = [...new Set([...requested, ...roles])];
 
-  const availableRoles = ['admin', 'author', 'publish'];
-
-  availableRoles.forEach((role) => {
+  AEM_ROLES.forEach((role) => {
     const existingRoleUsers = json.admin.role[role];
 
     // Find the role in the approved role array
