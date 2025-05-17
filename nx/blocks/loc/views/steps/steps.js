@@ -42,12 +42,23 @@ class NxLocSteps extends LitElement {
     getSvg({ parent: this.shadowRoot, paths: ICONS });
   }
 
+  getSyncCheck() {
+    if (!(this.urls || this.urls.length)) return false;
+
+    const filtered = this.urls.filter(
+      (url) => url.synced === 'synced' || url.synced === 'skipped',
+    );
+
+    return filtered.length === this.urls.length;
+  }
+
   getStyling(view, defIcon) {
     const views = {
       dashboard: this.org && this.site,
       basics: this.urls,
       validate: this.urls?.some((url) => url.checked),
       options: this.options,
+      sync: this.getSyncCheck(),
     };
 
     const filled = views[view] ? ' filled' : '';
@@ -58,10 +69,6 @@ class NxLocSteps extends LitElement {
     styles.icon = filled ? '#S2_Icon_CheckmarkCircleGreen_20_N' : defIcon;
 
     return styles;
-  }
-
-  get needsSync() {
-
   }
 
   renderManage() {

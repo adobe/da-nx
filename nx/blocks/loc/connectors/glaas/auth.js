@@ -1,5 +1,6 @@
 function getAuthUri(clientid, origin) {
   const redirectUri = encodeURI(window.location.href);
+  console.log(redirectUri);
   const endpoint = `${origin}/api/common/sweb/oauth/authorize`;
   const params = `?response_type=token&state=home&client_id=${clientid}&redirect_uri=${redirectUri}`;
   return `${endpoint}${params}`;
@@ -7,7 +8,7 @@ function getAuthUri(clientid, origin) {
 
 export async function getGlaasToken(service) {
   let auth;
-  const { origin = ''} = service;
+  const { origin = '' } = service;
   const keyName = origin?.includes('stage') ? 'glaasAuthStage' : 'glaasAuth';
   // Attempt with previous auth store
   const authStore = localStorage.getItem(keyName);

@@ -7,8 +7,26 @@ p {
   line-height: 1;
 }
 
+.nx-loc-list-header {
+  padding: 12px 24px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1fr 92px 92px 92px 92px 120px;
+  background-color: var(--s2-gray-75);
+  border: 1px solid rgb(230 230 230);
+  border-radius: var(--s2-radius-100) var(--s2-radius-100) 0 0;
+
+  p {
+    font-weight: 700;
+  }
+
+  .status-label {
+    text-align: center;
+  }
+}
+
 ul {
-  margin: 0;
+  margin: 0 0 48px;
   padding: 0;
   list-style: none;
   background-color: var(--s2-gray-50);
@@ -20,12 +38,12 @@ ul {
   li {
     position: relative;
     margin: -1px 0;
-    padding: 24px 0 24px 24px;
+    padding: 24px;
 
     .inner {
       display: grid;
       gap: 12px;
-      grid-template-columns: 1fr 100px 100px 100px 84px;
+      grid-template-columns: 1fr 92px 92px 92px 92px 120px;
       align-items: center;
       min-height: 20px;
     }
@@ -62,6 +80,14 @@ ul {
       }
     }
   }
+
+  &.error-list {
+    li {
+      .inner {
+        grid-template-columns: 1fr;
+      }
+    }
+  }
 }
 
 nx-loc-actions {
@@ -74,6 +100,7 @@ nx-loc-actions {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 24px;
+  min-height: 32px;
 
   .nx-loc-list-actions-header {
     font-size: 22px;
@@ -87,35 +114,19 @@ nx-loc-actions {
   }
 }
 
-.nx-loc-list-header {
-  padding: 12px 0 12px 24px;
-  display: grid;
-  gap: 12px;
-  grid-template-columns: 1fr 100px 100px 100px 84px;
-  background-color: var(--s2-gray-75);
-  border: 1px solid rgb(230 230 230);
-  border-radius: var(--s2-radius-100) var(--s2-radius-100) 0 0;
-
-  p {
-    font-weight: 700;
-  }
-
-  .status-label {
-    text-align: center;
-  }
-}
-
 .lang-count {
   text-align: center;
 }
 
-.url-status {
+.lang-status {
   display: flex;
   justify-content: center;
+  align-items: center;
+  min-height: 32px;
+  border-radius: 8px;
+  padding: 0 12px;
 
-  svg {
-    display: block;
-    width: 20px;
-    height: 20px;
+  &.is-not-started {
+    background-color: var(--s2-gray-300);
   }
 }

@@ -13,6 +13,7 @@ import './views/validate/validate.js';
 import './views/options/options.js';
 import './views/sync/sync.js';
 import './views/translate/translate.js';
+import './views/url-details/url-details.js';
 
 const EL_NAME = 'nx-loc';
 
@@ -190,8 +191,22 @@ function setup(el) {
   cmp.path = details.path;
 }
 
+/**
+ * Handles services that do not persist
+ * hash-based callback URLs.
+ */
+function handleHashCallback() {
+  const currentProject = localStorage.getItem('currentProject');
+  if (currentProject) {
+    localStorage.setItem('prevHash', window.location.hash);
+    localStorage.removeItem('currentProject');
+    window.location.hash = currentProject;
+  }
+}
+
 export default function init(el) {
   el.innerHTML = '';
+  handleHashCallback();
   setup(el);
   window.addEventListener('hashchange', () => { setup(el); });
 }

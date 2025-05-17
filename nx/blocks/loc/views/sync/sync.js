@@ -45,7 +45,7 @@ class NxLocSync extends LitElement {
   handleAction() {
     const view = 'translate';
 
-    // Only persist what we want to
+    // Only persist what we need to
     const urls = this._syncUrls.map((url) => ({
       suppliedPath: url.suppliedPath,
       checked: url.checked,
@@ -61,6 +61,7 @@ class NxLocSync extends LitElement {
   async syncUrl(url) {
     const { source, destination, hasExt } = url;
     const behavior = this.options['sync.conflict.behavior'];
+    // If has an ext (sheet), force overwrite
     const overwrite = behavior === 'overwrite' || hasExt;
 
     const copyFn = overwrite ? overwriteCopy : mergeCopy;
@@ -74,19 +75,12 @@ class NxLocSync extends LitElement {
   handleSyncAll() {
     const syncUrl = this.syncUrl.bind(this);
     const queue = new Queue(syncUrl, 50);
+    this._syncUrls.map((url) => queue.push(url));
+  }
 
-    const urlPool = [...this._syncUrls];
-
-    const interval = setInterval(async () => {
-      const url = urlPool.shift();
-      queue.push(url);
-
-      if (urlPool.length === 0) {
-        clearInterval(interval);
-      }
-    }, 250);
-
-    // this._syncUrls.map((url) => queue.push(url));
+  handleToggleExpand(url) {
+    url.expand = !url.expand;
+    this.requestUpdate();
   }
 
   get _defaultMessage() {
@@ -145,14 +139,26 @@ class NxLocSync extends LitElement {
       </div>
       <ul>
         ${this._syncUrls.map((url) => html`
-          <li>
+          <li class="${url.expand ? 'is-expanded' : ''}">
             <div class="inner">
               <p>${url.suppliedPath}</p>
               <p>${url.syncPath}</p>
-              <div class="url-status">
-                ${this.renderStatus(url.synced)}
+              <div class="url-info">
+                <div class="url-status">
+                  ${this.renderStatus(url.synced)}
+                </div>
+                <button @click=${() => this.handleToggleExpand(url)} class="url-expand">Expand</button>
               </div>
             </div>
+            ${url.expand ? html`
+              <div class="url-details">
+                <nx-loc-url-details
+                  .path="/${this.org}/${this.site}${url.suppliedPath}">
+                </nx-loc-url-details>
+                <nx-loc-url-details
+                  .path="/${this.org}/${this.site}${url.syncPath}">
+                </nx-loc-url-details>
+              </div>` : nothing}
           </li>
         `)}
       </ul>

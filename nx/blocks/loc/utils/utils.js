@@ -19,6 +19,24 @@ export const VIEWS = [
 const PROJECT_CACHE = {};
 let OPTIONS_CACHE;
 
+/**
+ * Has Extension
+ *
+ * @param {*} path the path supplied by the author
+ * @returns {Boolean} whether or not the path has an extension
+ */
+export function getHasExt(path) {
+  const name = path.split('/').pop();
+  return name.split('.').length > 1;
+}
+
+export function formatDate(timestamp) {
+  const rawDate = timestamp ? new Date(timestamp) : new Date();
+  const date = rawDate.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' });
+  const time = rawDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  return { date, time };
+}
+
 export function getPathDetails() {
   const { hash } = window.location;
 

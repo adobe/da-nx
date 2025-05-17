@@ -24,7 +24,8 @@ ul {
 
     .inner {
       display: grid;
-      grid-template-columns: 1fr 1fr 88px;
+      grid-template-columns: 1fr 1fr 80px;
+      gap: 12px;
       align-items: center;
       min-height: 20px;
     }
@@ -91,7 +92,8 @@ nx-loc-actions {
 .nx-loc-list-header {
   padding: 12px 0 12px 24px;
   display: grid;
-  grid-template-columns: 1fr 1fr 88px;
+  grid-template-columns: 1fr 1fr 80px;
+  gap: 12px;
   background-color: var(--s2-gray-75);
   border: 1px solid rgb(230 230 230);
   border-radius: var(--s2-radius-100) var(--s2-radius-100) 0 0;
@@ -101,11 +103,18 @@ nx-loc-actions {
   }
 
   .status-label {
-    text-align: center;
+    margin-left: -11px;
   }
 }
 
+.url-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .url-status {
+  min-width: 20px;
   display: flex;
   justify-content: center;
 
@@ -113,5 +122,37 @@ nx-loc-actions {
     display: block;
     width: 20px;
     height: 20px;
+  }
+}
+
+.url-expand {
+  border: none;
+  width: 32px;
+  height: 32px;
+  justify-self: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-indent: -1000px;
+  overflow: hidden;
+  transition: transform 0.2s ease-in-out;
+  background: url("/blocks/browse/img/Smock_ChevronRight_18_N.svg") center center / 18px no-repeat;
+}
+
+.url-details {
+  display: none;
+  margin-right: 92px;
+  margin-top: 12px;
+}
+
+.is-expanded {
+  .url-expand {
+    transform: rotate(90deg);
+  }
+
+  .url-details {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
   }
 }

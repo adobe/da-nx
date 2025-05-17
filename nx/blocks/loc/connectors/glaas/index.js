@@ -15,9 +15,9 @@ export async function isConnected(service) {
   return false;
 }
 
-export async function connect(config) {
+export async function connect(service) {
   localStorage.setItem('currentProject', window.location.hash);
-  connectToGlaas(config.origin, config.clientid);
+  connectToGlaas(service.origin, service.clientid);
 }
 
 function langs2tasks(title, langs, timestamp) {
@@ -105,8 +105,7 @@ async function sendTask(service, suppliedTask, langs, urls, actions) {
   }
 }
 
-export async function sendAllLanguages(title, service, langs, urls, actions) {
-  // const timestamp = window.location.hash.split('/').pop();
+export async function sendAllLanguages({ title, service, langs, urls, actions }) {
   const timestamp = Date.now();
 
   const tasks = langs2tasks(title, langs, timestamp);

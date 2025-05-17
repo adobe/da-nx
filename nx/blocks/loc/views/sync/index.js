@@ -1,13 +1,10 @@
-function getHasExt(path) {
-  const name = path.split('/').pop();
-  return name.split('.').length > 1;
-}
+import { getHasExt } from '../../utils/utils.js';
 
 function getDaAdminPath(org, site, path) {
   const basePath = `/${org}/${site}${path}`;
-
-  const hasExt = getHasExt(path);
-  return hasExt ? basePath : `${basePath}.html`;
+  const indexedPath = basePath.endsWith('/') ? `${basePath}index` : basePath;
+  const hasExt = getHasExt(indexedPath);
+  return hasExt ? indexedPath : `${indexedPath}.html`;
 }
 
 export function getSyncUrls(org, site, location, urls) {
