@@ -174,3 +174,15 @@ export async function getItems({ org, site, service, lang, urls }) {
     return { ...url, content };
   }));
 }
+
+export function canCancel() {
+  return true;
+}
+
+export async function cancelLang(service, lang) {
+  const { translation, workflow, code } = lang;
+  if (!translation || !translation.name || !workflow || !code) {
+    return { error: 'Error cancelling task.', status: 'error' };
+  }
+  return updateStatus(service, token, { name: translation.name, workflow, targetLocales: [code] }, 'CANCELLED');
+}

@@ -148,4 +148,8 @@ nx-loc-actions {
     background-color: var(--s2-green-900);
     color: #fff;
   }
+
+  &.is-cancelled {
+    background-color: var(--s2-red-300);
+  }
 }
