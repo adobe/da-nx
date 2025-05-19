@@ -41,6 +41,8 @@ class NxLocTranslate extends LitElement {
   async setupService() {
     const connector = await setupConnector(this.options.service);
     this._service = { ...this.options.service, connector };
+    this._serviceSupportsCancel = typeof connector.canCancel === 'function'
+      && connector.canCancel() && typeof connector.cancelLang === 'function';
     this._connected = await this._service.connector.isConnected(this._service);
   }
 
@@ -142,6 +144,23 @@ class NxLocTranslate extends LitElement {
     await this.checkAndSaveLangs();
   }
 
+  async handleCancelProject() {
+    const toCancel = this._translateLangs.filter((lang) => lang.translation.status === 'uploaded');
+    await toCancel.reduce(async (promise, lang) => {
+      await promise;
+      this._message = { text: `Cancelling ${lang.name}` };
+      await this._service.connector.cancelLang(this._service, lang);
+      lang.translation.status = 'cancelled';
+    }, Promise.resolve());
+    await this.handleSaveLangs();
+    this._message = undefined;
+    this.requestUpdate();
+  }
+
+  canCancel() {
+    return this._serviceSupportsCancel && this._translateLangs.some((lang) => lang.translation.status === 'uploaded');
+  }
+
   renderTranslateAction() {
     if (this._connected === false) {
       return html`
@@ -153,18 +172,22 @@ class NxLocTranslate extends LitElement {
     if (this._connected) {
       // Only langs with a translation object have been sent.
       const sent = this._translateLangs.some((lang) => lang.translation);
+      const cancelled = this._translateLangs.every((lang) => lang.translation && lang.translation.status === 'cancelled');
 
-      if (sent) {
-        return html`
+      if (!cancelled) {
+        if (sent) {
+          return html`
           <p><strong>Conflict behavior:</strong> ${this.options['translate.conflict.behavior']}</p>
+          ${this.canCancel() ? html`<sl-button @click=${this.handleCancelProject} class="accent">Cancel Project</sl-button>` : nothing}
           <sl-button @click=${this.handleGetStatus} class="accent">Get status</sl-button>
         `;
-      }
+        }
 
-      return html`
+        return html`
         <p><strong>Conflict behavior:</strong> ${this.options['translate.conflict.behavior']}</p>
         <sl-button @click=${this.handleSendAll} class="accent">Translate all</sl-button>
       `;
+      }
     }
 
     return nothing;
