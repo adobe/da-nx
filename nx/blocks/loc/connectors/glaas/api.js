@@ -115,13 +115,13 @@ export async function addAssets({
   if (task.error === 0) task.status = 'uploaded';
 }
 
-export async function updateStatus(service, token, task) {
+export async function updateStatus(service, token, task, newStatus = 'CREATED') {
   await throttle(1000);
 
   const { origin, clientid } = service;
   const { name, workflow, targetLocales } = task;
   const body = new FormData();
-  body.append('newStatus', 'CREATED');
+  body.append('newStatus', newStatus);
 
   const opts = getOpts(clientid, token, body, null, 'POST');
 
