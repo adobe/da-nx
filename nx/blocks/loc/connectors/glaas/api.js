@@ -66,9 +66,16 @@ export async function getTask({ origin, clientid, token, workflow, name }) {
   }
 }
 
-export async function addAssets({ origin, clientid, token, langs, task, items }, actions) {
+export async function addAssets({
+  origin,
+  clientid,
+  token,
+  langs,
+  task,
+  items,
+}, actions) {
   const { name, workflow, targetLocales } = task;
-  const { setStatus, saveState, updateLangTask } = actions;
+  const { sendMessage, updateLangTask } = actions;
 
   task.sent ??= 0;
   task.error ??= 0;
@@ -76,18 +83,18 @@ export async function addAssets({ origin, clientid, token, langs, task, items },
   const batches = makeBatches(items, 5);
 
   for (const [index, batch] of batches.entries()) {
-    setStatus(`Uploading batch ${index + 1} of ${batches.length}.`);
+    sendMessage({ text: `Uploading batch ${index + 1} of ${batches.length}.` });
 
     const results = await Promise.all(batch.map(async (item) => {
       const body = new FormData();
 
       const file = new Blob([item.content], { type: 'text/html' });
       const details = {
-        assetName: item.basePath,
-        metadata: { 'source-preview-url': item.originalHref },
+        assetName: item.daBasePath,
+        metadata: { 'source-preview-url': item.aemHref },
       };
 
-      body.append('file1', file, item.basePath);
+      body.append('file1', file, item.daBasePath);
       body.append('asset1', new Blob([JSON.stringify(details)], { type: 'application/json; charset=utf-8' }), '_asset_metadata_');
 
       const opts = getOpts(clientid, token, body, null, 'POST');
@@ -104,7 +111,6 @@ export async function addAssets({ origin, clientid, token, langs, task, items },
     task.sent += results.filter((result) => (result.status)).length;
     task.error += results.filter((result) => (result.error)).length;
     updateLangTask(task, langs);
-    await saveState();
   }
   if (task.error === 0) task.status = 'uploaded';
 }
@@ -140,16 +146,15 @@ export async function downloadAsset(service, token, task, path) {
   const url = `${origin}/api/l10n/v1.1/tasks/${workflow}/${name}/assets/${code}${path}`;
   try {
     const resp = await fetch(url, opts);
-    return resp.blob();
+    return resp.text();
   } catch {
     return { error: 'Error downloading asset.' };
   }
 }
 
 export async function prepareTargetPreview(task, urls, service) {
-  if (!service.preview) {
-    return;
-  }
+  if (!service.preview) return;
+
   const { name, workflow, workflowName, targetLocales } = task;
   const workflowSplit = workflow.split('/');
   if (workflowSplit.length === 2) {
@@ -159,7 +164,7 @@ export async function prepareTargetPreview(task, urls, service) {
       workflowName,
       taskName: name,
       targetLocales,
-      urls: urls.map((a) => a.originalHref),
+      urls: urls.map((a) => a.aemHref),
     };
     await fetch(`https://${service.preview}/api/v1/web/daloc/init-target`, {
       method: 'POST',

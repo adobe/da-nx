@@ -2,7 +2,7 @@ import { LitElement, html, nothing } from 'da-lit';
 import { getConfig } from '../../../../scripts/nexter.js';
 import getStyle from '../../../../utils/styles.js';
 import getSvg from '../../../../utils/svg.js';
-import { fetchOptions as fetchConfigSheets } from '../../utils/utils.js';
+import { fetchConfig } from '../../utils/utils.js';
 import { getAllActions, formatLangs, formatConfig, finalizeOptions } from './utils/utils.js';
 
 const { nxBase: nx } = getConfig();
@@ -39,7 +39,7 @@ class NxLocOptions extends LitElement {
       this._message = { text: 'No organization or site supplied.', type: 'error' };
       return;
     }
-    const sheets = await fetchConfigSheets(this.org, this.site);
+    const sheets = await fetchConfig(this.org, this.site);
     if (!(sheets.config || sheets.languages)) {
       this._message = { text: 'No config available.', type: 'error' };
       return;

@@ -129,4 +129,22 @@ nx-loc-actions {
   &.is-not-started {
     background-color: var(--s2-gray-300);
   }
+
+  &.is-uploading,
+  &.is-uploaded {
+    background-color: var(--s2-cyan-300);
+  }
+
+  &.is-created {
+    background-color: var(--s2-turquoise-300);
+  }
+
+  &.is-translated {
+    background-color: var(--s2-green-200);
+  }
+
+  &.is-complete {
+    background-color: var(--s2-green-900);
+    color: #fff;
+  }
 }

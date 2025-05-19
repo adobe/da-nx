@@ -4,7 +4,7 @@ import { getConfig } from '../../../../scripts/nexter.js';
 import getStyle from '../../../../utils/styles.js';
 import { daFetch } from '../../../../utils/daFetch.js';
 import { Queue } from '../../../../public/utils/tree.js';
-import { fetchOptions } from '../../utils/utils.js';
+import { fetchConfig } from '../../utils/utils.js';
 
 const { nxBase } = getConfig();
 const style = await getStyle(import.meta.url);
@@ -39,7 +39,7 @@ class NxLocValidate extends LitElement {
   }
 
   async getOriginMatches() {
-    const { config } = await fetchOptions(this.org, this.site);
+    const { config } = await fetchConfig(this.org, this.site);
 
     const hostnameRow = config.data.find((row) => row.key === 'source.fragment.hostnames');
 

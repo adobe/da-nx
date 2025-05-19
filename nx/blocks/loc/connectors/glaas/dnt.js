@@ -271,6 +271,14 @@ function resetHrefs(doc, org, repo) {
   });
 }
 
+function resetImages(doc, org, repo) {
+  const imgs = doc.querySelectorAll('[src^="./media_"], [srcset^="./media_"]');
+  imgs.forEach((img) => {
+    if (img.src) img.src = img.getAttribute('src').replace('./', `https://main--${repo}--${org}.aem.page/`);
+    if (img.srcset) img.srcset = img.getAttribute('srcset').replace('./', `https://main--${repo}--${org}.aem.page/`);
+  });
+}
+
 export async function removeDnt(html, org, repo, { fileType = 'html' } = {}) {
   const parser = new DOMParser();
   const document = parser.parseFromString(html, 'text/html');
@@ -278,6 +286,7 @@ export async function removeDnt(html, org, repo, { fileType = 'html' } = {}) {
   resetAltText(document);
   resetIcons(document);
   resetHrefs(document, org, repo);
+  resetImages(document, org, repo);
   removeDntAttributes(document);
   if (fileType === 'json') {
     const { html2json } = await import('../dnt/json2html.js');
@@ -292,7 +301,7 @@ export async function addDnt(inputText, config, { fileType = 'html', reset = fal
 
   if (fileType === 'json') {
     const json = JSON.parse(inputText);
-    const { json2html } = await import('../dnt/json2html.js');
+    const { json2html } = await import('../../dnt/json2html.js');
     html = json2html(json, dntConfig);
   }
 

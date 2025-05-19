@@ -17,7 +17,7 @@ export const VIEWS = [
 ];
 
 const PROJECT_CACHE = {};
-let OPTIONS_CACHE;
+let CONFIG_CACHE;
 
 /**
  * Has Extension
@@ -78,29 +78,29 @@ export function getPathDetails() {
   };
 }
 
-export async function fetchOptions(org, site) {
-  if (OPTIONS_CACHE) return OPTIONS_CACHE;
+export async function fetchConfig(org, site) {
+  if (CONFIG_CACHE) return CONFIG_CACHE;
 
-  const fetchOpts = async (path) => {
+  const fetchConf = async (path) => {
     const resp = await daFetch(path);
     if (!resp.ok) return { error: 'Options not available.' };
     return resp.json();
   };
 
   // Attempt a site based config
-  let options = await fetchOpts(`${DA_ORIGIN}/source/${org}/${site}${CONFIG_PATH}`);
+  let options = await fetchConf(`${DA_ORIGIN}/source/${org}/${site}${CONFIG_PATH}`);
 
   // Attempt an org based config
   if (options.error) {
-    options = await fetchOpts(`${DA_ORIGIN}/source/${org}${CONFIG_PATH}`);
+    options = await fetchConf(`${DA_ORIGIN}/source/${org}${CONFIG_PATH}`);
   }
 
   // Fallback to zero config defaults
   if (options.error) {
-    options = await fetchOpts(`${nx}/blocks/loc/setup/translate.json`);
+    options = await fetchConf(`${nx}/blocks/loc/setup/translate.json`);
   }
 
-  OPTIONS_CACHE = options;
+  CONFIG_CACHE = options;
 
   return options;
 }

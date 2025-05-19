@@ -2,8 +2,11 @@ import {
   checkSession, createTask, addAssets, updateStatus, getTask, downloadAsset, prepareTargetPreview,
 } from './api.js';
 import { getGlaasToken, connectToGlaas } from './auth.js';
+import { addDnt, removeDnt } from './dnt.js';
 
 let token;
+
+export const dnt = { addDnt };
 
 export async function isConnected(service) {
   token = await getGlaasToken(service);
@@ -56,31 +59,33 @@ function updateLangTask(task, langs) {
 }
 
 function addTaskAssets(service, langs, task, items, actions) {
-  actions.setStatus(`Uploading items to GLaaS for project: ${task.name}.`);
   const conf = { ...service, token, langs, task, items };
   const assetActions = { ...actions, updateLangTask };
   return addAssets(conf, assetActions);
 }
 
-async function createNewTask(service, task, setStatus) {
-  setStatus(`Creating task ${task.name} using ${task.workflowName}.`);
-
+async function createNewTask(service, task) {
   const { origin, clientid } = service;
   const result = await createTask({ origin, clientid, token, task, service });
   return { ...result, status: 'draft' };
 }
 
 async function sendTask(service, suppliedTask, langs, urls, actions) {
-  const { setStatus, saveState } = actions;
-  let task = suppliedTask;
+  const { sendMessage, saveState } = actions;
 
-  task.targetLocales ??= task.langs.map((lang) => lang.code);
+  const targetLocales = suppliedTask.langs.map((lang) => lang.code);
+  let task = { ...suppliedTask, targetLocales };
+
+  const localesString = targetLocales.join(', ');
 
   // Only create a task if it has not been started
-  if (task.status === 'ready') {
-    task = await createNewTask(service, task, setStatus);
+  if (task.status === 'not started') {
+    sendMessage({ text: `Creating task for: ${localesString}.` });
+
+    task = await createNewTask(service, task);
     if (task.error) {
-      setStatus(`${task.error} - ${task.status}`);
+      const text = `Error creating task for: ${localesString}.`;
+      sendMessage({ text, type: 'error' });
       return;
     }
     updateLangTask(task, langs);
@@ -89,6 +94,7 @@ async function sendTask(service, suppliedTask, langs, urls, actions) {
 
   // Only add assets if task is not uploaded
   if (task.status === 'draft' || task.status === 'uploading') {
+    sendMessage({ text: `Uploading items for: ${localesString}.` });
     task.status = 'uploading';
     updateLangTask(task, langs);
     await addTaskAssets(service, langs, task, urls, actions);
@@ -99,9 +105,11 @@ async function sendTask(service, suppliedTask, langs, urls, actions) {
 
   // Only wrap up task if everything is uploaded
   if (task.status === 'uploaded') {
+    sendMessage({ text: `Updating task for: ${localesString}.` });
     await updateStatus(service, token, task);
     updateLangTask(task, langs);
     await saveState();
+    sendMessage();
   }
 }
 
@@ -115,8 +123,8 @@ export async function sendAllLanguages({ title, service, langs, urls, actions })
   }
 }
 
-export async function getStatusAll(title, service, langs, urls, actions) {
-  const { setStatus, saveState } = actions;
+export async function getStatusAll({ title, service, langs, urls, actions }) {
+  const { sendMessage, saveState } = actions;
 
   const tasks = langs2tasks(title, langs);
 
@@ -125,7 +133,11 @@ export async function getStatusAll(title, service, langs, urls, actions) {
   for (const key of Object.keys(tasks)) {
     const task = tasks[key];
 
-    setStatus(`Getting status for task ${task.name} (${task.langs.length} languages)`);
+    const targetLocales = task.langs.map((lang) => lang.code);
+    const localesString = targetLocales.join(', ');
+
+    sendMessage({ text: `Getting task status for ${localesString}` });
+
     let subtasks = await getTask({ ...baseConf, ...task });
     // If something went wrong, create the task again.
     if (subtasks.status === 404) {
@@ -137,36 +149,28 @@ export async function getStatusAll(title, service, langs, urls, actions) {
       const translated = subtask.assets.filter((asset) => asset.status === 'COMPLETED').length;
       const subtaskLang = langs.find((lang) => lang.code === subtask.targetLocale);
       subtaskLang.translation.translated = translated;
-      setStatus();
+      if (subtaskLang.translation.sent !== 0 && subtaskLang.translation.status !== 'complete') {
+        const isTranslated = translated === subtaskLang.translation.sent;
+        if (isTranslated) subtaskLang.translation.status = 'translated';
+      }
       await saveState();
-
-      // Determine if we have more to upload
-      // const uploadedUrls = subtask.assets?.map((asset) => asset.name) || [];
-      // if (uploadedUrls.length !== urls.length) {
-      //   const remainingUrls = urls.reduce((acc, url) => {
-      //     const found = uploadedUrls.find((upload) => upload === url.basePath);
-      //     if (!found) acc.push(url);
-      //     return acc;
-      //   }, []);
-      //   await sendTask(service, subtask, langs, remainingUrls, actions);
-      // }
-
-      // const translated = task.assets.filter((asset) => asset.status === 'COMPLETED').length;
-      // if (task.assets.length === translated) daTask.status = 'translated';
-      // console.log(daTask);
-      // daTask.translated = translated;
-
-      // updateLangTask(daTask, langs);
     }
+    sendMessage();
   }
 }
 
-export async function getItems(service, lang, urls) {
+export async function getItems({ org, site, service, lang, urls }) {
   const { translation, workflow, code } = lang;
   const task = { name: translation.name, workflow, code };
 
   return Promise.all(urls.map(async (url) => {
-    const blob = await downloadAsset(service, token, task, url.basePath);
-    return { ...url, blob };
+    const text = await downloadAsset(service, token, task, url.daBasePath);
+
+    // Use the path to determine if this should be treated
+    // as a JSON file since GLaaS will always return an HTML file.
+    const fileType = url.daBasePath.includes('.json') ? 'json' : undefined;
+
+    const content = await removeDnt(text, org, site, { fileType });
+    return { ...url, content };
   }));
 }

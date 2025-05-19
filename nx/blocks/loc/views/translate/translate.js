@@ -2,7 +2,8 @@ import { LitElement, html, nothing } from 'da-lit';
 import getStyle from '../../../../utils/styles.js';
 import { getConfig } from '../../../../scripts/nexter.js';
 import getSvg from '../../../../utils/svg.js';
-import { setupConnector, fetchContent } from './index.js';
+import { saveProject } from '../../utils/utils.js';
+import { setupConnector, getUrls, saveLangs } from './index.js';
 
 const { nxBase: nx } = getConfig();
 
@@ -17,6 +18,7 @@ class NxLocTranslate extends LitElement {
   static properties = {
     org: { attribute: false },
     site: { attribute: false },
+    path: { attribute: false },
     title: { attribute: false },
     options: { attribute: false },
     langs: { attribute: false },
@@ -32,8 +34,8 @@ class NxLocTranslate extends LitElement {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
     getSvg({ parent: this.shadowRoot, paths: ICONS });
-    this.setupService();
     this.filterLangs();
+    this.setupService();
   }
 
   async setupService() {
@@ -59,8 +61,15 @@ class NxLocTranslate extends LitElement {
     // this.dispatchEvent(event);
   }
 
-  handleSaveLangs() {
-    console.log('Saving langs');
+  async handleSaveLangs() {
+    const updates = {
+      org: this.org,
+      site: this.site,
+      langs: this.langs,
+    };
+    await saveProject(this.path, updates);
+
+    this.requestUpdate();
   }
 
   handleMessage(message) {
@@ -71,29 +80,66 @@ class NxLocTranslate extends LitElement {
     await this._service.connector.connect(this._service);
   }
 
-  async handleSendAll() {
-    const sourceLocation = this.options['source.language']?.location || '/';
-
-    const { urls } = await fetchContent(this.org, this.site, sourceLocation, this.urls);
-
-    this._urlErrors = urls.filter((url) => url.error);
-    if (this._urlErrors.length) return;
-
+  async getBaseTranslationConf(fetchContent) {
     const actions = {
-      requestUpdate: this.requestUpdate.bind(this),
-      saveLangs: this.handleSaveLangs.bind(this),
-      setMessage: this.handleMessage.bind(this),
+      saveState: this.handleSaveLangs.bind(this),
+      sendMessage: this.handleMessage.bind(this),
     };
 
-    // const translateConf = {
-    //   title: this.title,
-    //   service: this._service,
-    //   langs: this._translateLangs,
-    //   urls,
-    //   actions,
-    // };
+    const { org, site, title, _service, _translateLangs } = this;
 
-    // this._service.connector.sendAllLanguages(translateConf);
+    const sourceLocation = this.options['source.language']?.location || '/';
+
+    const { urls } = await getUrls(org, site, _service, sourceLocation, this.urls, fetchContent);
+
+    return {
+      org,
+      site,
+      title,
+      service: _service,
+      langs: _translateLangs,
+      urls,
+      actions,
+    };
+  }
+
+  async handleSendAll() {
+    const conf = await this.getBaseTranslationConf(true);
+
+    const errors = conf.urls.filter((url) => url.error);
+    if (errors.length) {
+      this._urlErrors = errors;
+      return;
+    }
+
+    await this._service.connector.sendAllLanguages(conf);
+  }
+
+  async checkAndSaveLangs() {
+    this._message = { text: 'Checking for languages to save' };
+
+    const langsToSave = this._translateLangs.filter((lang) => lang.translation?.status === 'translated');
+
+    if (langsToSave.length) {
+      const sendMessage = this.handleMessage.bind(this);
+
+      const conf = await this.getBaseTranslationConf(false);
+
+      // Overwrite the base langs to only the ones we want to save
+      const saveConf = { ...conf, langs: langsToSave };
+
+      await saveLangs(this.options, saveConf, this._service.connector, sendMessage);
+    }
+
+    this._message = undefined;
+  }
+
+  async handleGetStatus() {
+    const conf = await this.getBaseTranslationConf(false);
+
+    await this._service.connector.getStatusAll(conf);
+
+    await this.checkAndSaveLangs();
   }
 
   renderTranslateAction() {
@@ -105,6 +151,16 @@ class NxLocTranslate extends LitElement {
     }
 
     if (this._connected) {
+      // Only langs with a translation object have been sent.
+      const sent = this._translateLangs.some((lang) => lang.translation);
+
+      if (sent) {
+        return html`
+          <p><strong>Conflict behavior:</strong> ${this.options['translate.conflict.behavior']}</p>
+          <sl-button @click=${this.handleGetStatus} class="accent">Get status</sl-button>
+        `;
+      }
+
       return html`
         <p><strong>Conflict behavior:</strong> ${this.options['translate.conflict.behavior']}</p>
         <sl-button @click=${this.handleSendAll} class="accent">Translate all</sl-button>
@@ -165,9 +221,9 @@ class NxLocTranslate extends LitElement {
             <div class="inner">
               <p>${lang.name} - ${lang['translate type']}</p>
               <p class="lang-count">${this.urls.length}</p>
-              <p class="lang-count">${lang.sent || 0}</p>
-              <p class="lang-count">${lang.translate || 0}</p>
-              <p class="lang-count">${lang.saved || 0}</p>
+              <p class="lang-count">${lang.translation?.sent || 0}</p>
+              <p class="lang-count">${lang.translation?.translated || 0}</p>
+              <p class="lang-count">${lang.translation?.saved || 0}</p>
               ${this.renderLangStatus(lang)}
             </div>
           </li>
@@ -187,9 +243,9 @@ class NxLocTranslate extends LitElement {
       </div>
       <div class="nx-loc-list-header">
         <p>Location</p>
+        <p class="lang-count"></p>
+        <p class="lang-count"></p>
         <p class="lang-count">Sources</p>
-        <p class="lang-count">Sent</p>
-        <p class="lang-count">Translated</p>
         <p class="lang-count">Saved</p>
         <p class="status-label">Status</p>
       </div>
@@ -197,10 +253,10 @@ class NxLocTranslate extends LitElement {
         ${this._copyLangs.map((lang) => html`
           <li>
             <div class="inner">
-              <p>${lang.location} (${lang.name})</p>
+              <p>${lang.name} - ${this.options['source.language'].name} copy</p>
+              <p class="lang-count"></p>
+              <p class="lang-count"></p>
               <p class="lang-count">${this.urls.length}</p>
-              <p class="lang-count">${lang.sent || 0}</p>
-              <p class="lang-count">${lang.translate || 0}</p>
               <p class="lang-count">${lang.saved || 0}</p>
               <div class="url-status">
               </div>

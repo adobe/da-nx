@@ -112,12 +112,20 @@ async function saveVersion(path, label) {
 }
 
 export async function overwriteCopy(url, title) {
-  const srcResp = await daFetch(`${DA_ORIGIN}/source${url.source}`);
-  if (!srcResp.ok) {
-    url.status = 'error';
-    return srcResp;
+  let blob;
+  // If source content was supplied upstream, use it.
+  if (url.sourceContent) {
+    const type = url.destination.includes('.json') ? 'application/json' : 'text/html';
+    blob = new Blob([url.sourceContent], { type });
+  } else {
+    const srcResp = await daFetch(`${DA_ORIGIN}/source${url.source}`);
+    if (!srcResp.ok) {
+      url.status = 'error';
+      return srcResp;
+    }
+    blob = await srcResp.blob();
   }
-  const blob = await srcResp.blob();
+
   const body = new FormData();
   body.append('data', blob);
   const opts = { method: 'POST', body };
@@ -197,11 +205,12 @@ export async function rolloutCopy(url, projectTitle) {
 }
 
 export async function mergeCopy(url, projectTitle) {
+  console.log(url);
   try {
     const regionalCopy = await getHtml(url.destination);
     if (!regionalCopy) throw new Error('No regional content or error fetching');
 
-    const langstoreCopy = await getHtml(url.source);
+    const langstoreCopy = url.sourceContent || await getHtml(url.source);
     if (!langstoreCopy) throw new Error('No langstore content or error fetching');
 
     removeLocTags(regionalCopy);

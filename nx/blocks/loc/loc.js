@@ -144,6 +144,7 @@ class NxLoc extends LitElement {
         <nx-loc-translate
           .org=${this.org}
           .site=${this.site}
+          .path=${this.path}
           .title=${this._title}
           .options=${this._options}
           .langs=${this._langs}
