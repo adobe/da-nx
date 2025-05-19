@@ -233,6 +233,8 @@ class NxLocTranslate extends LitElement {
   }
 
   renderCopy() {
+    if (!this._copyLangs?.length) return nothing;
+
     return html`
       <div class="nx-loc-list-actions">
         <p class="nx-loc-list-actions-header">Copy (${this.options['source.language'].name})</p>

@@ -130,6 +130,7 @@ nx-loc-actions {
     background-color: var(--s2-gray-300);
   }
 
+  &.is-draft,
   &.is-uploading,
   &.is-uploaded {
     background-color: var(--s2-cyan-300);
