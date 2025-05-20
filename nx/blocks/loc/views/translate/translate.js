@@ -55,10 +55,9 @@ class NxLocTranslate extends LitElement {
       const event = new CustomEvent('prev', opts);
       this.dispatchEvent(event);
     }
-    // const detail = { org: this.org, site: this.site, view, urls };
-    // const opts = { detail, bubbles: true, composed: true };
-    // const event = new CustomEvent('next', opts);
-    // this.dispatchEvent(event);
+    const opts = { detail: { org: this.org, site: this.site, view: 'rollout', urls: this.urls }, bubbles: true, composed: true };
+    const event = new CustomEvent('next', opts);
+    this.dispatchEvent(event);
   }
 
   async handleSaveLangs() {
