@@ -205,7 +205,6 @@ export async function rolloutCopy(url, projectTitle) {
 }
 
 export async function mergeCopy(url, projectTitle) {
-  console.log(url);
   try {
     const regionalCopy = await getHtml(url.destination);
     if (!regionalCopy) throw new Error('No regional content or error fetching');

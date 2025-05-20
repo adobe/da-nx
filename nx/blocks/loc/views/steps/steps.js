@@ -8,7 +8,7 @@ const style = await getStyle(import.meta.url);
 
 const STEPS_VIEW = {
   basics: 'setup',
-  varlidate: 'setup',
+  validate: 'setup',
   options: 'setup',
   sync: 'manage',
   translate: 'manage',
@@ -43,7 +43,7 @@ class NxLocSteps extends LitElement {
   }
 
   getSyncCheck() {
-    if (!(this.urls || this.urls.length)) return false;
+    if (!this.urls || !this.urls?.length) return false;
 
     const filtered = this.urls.filter(
       (url) => url.synced === 'synced' || url.synced === 'skipped',
@@ -151,6 +151,7 @@ class NxLocSteps extends LitElement {
 
   renderSteps() {
     const stepType = STEPS_VIEW[this.view];
+
     return stepType === 'setup' ? this.renderSetup() : this.renderManage();
   }
 

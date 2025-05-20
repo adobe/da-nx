@@ -137,6 +137,8 @@ export async function updateStatus(service, token, task, newStatus = 'CREATED') 
   }));
 
   if (!results.some((result) => result.error)) task.status = 'created';
+
+  return task;
 }
 
 export async function downloadAsset(service, token, task, path) {

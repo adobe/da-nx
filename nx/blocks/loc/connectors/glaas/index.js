@@ -1,3 +1,4 @@
+import { Queue } from '../../../../public/utils/tree.js';
 import {
   checkSession, createTask, addAssets, updateStatus, getTask, downloadAsset, prepareTargetPreview,
 } from './api.js';
@@ -124,19 +125,30 @@ export async function sendAllLanguages({ title, service, langs, urls, actions })
 }
 
 export async function getStatusAll({ title, service, langs, urls, actions }) {
+  const baseConf = { ...service, token };
+
   const { sendMessage, saveState } = actions;
 
   const tasks = langs2tasks(title, langs);
 
-  const baseConf = { ...service, token };
+  // Filter out complete and canceled
+  const incompleteTasks = Object.keys(tasks).reduce((acc, key) => {
+    const complete = tasks[key].status === 'complete';
+    const cancelled = tasks[key].status === 'cancelled';
+    if (!cancelled && !complete) acc.push(tasks[key]);
+    return acc;
+  }, []);
 
-  for (const key of Object.keys(tasks)) {
-    const task = tasks[key];
+  if (incompleteTasks.length === 0) {
+    sendMessage({ text: 'All languages complete or canceled.' });
+    return;
+  }
 
+  for (const task of incompleteTasks) {
     const targetLocales = task.langs.map((lang) => lang.code);
     const localesString = targetLocales.join(', ');
 
-    sendMessage({ text: `Getting task status for ${localesString}` });
+    sendMessage({ text: `Getting status for ${localesString}` });
 
     let subtasks = await getTask({ ...baseConf, ...task });
     // If something went wrong, create the task again.
@@ -146,12 +158,19 @@ export async function getStatusAll({ title, service, langs, urls, actions }) {
     }
 
     for (const subtask of subtasks.json) {
-      const translated = subtask.assets.filter((asset) => asset.status === 'COMPLETED').length;
       const subtaskLang = langs.find((lang) => lang.code === subtask.targetLocale);
-      subtaskLang.translation.translated = translated;
-      if (subtaskLang.translation.sent !== 0 && subtaskLang.translation.status !== 'complete') {
-        const isTranslated = translated === subtaskLang.translation.sent;
-        if (isTranslated) subtaskLang.translation.status = 'translated';
+
+      if (subtask.status === 'FAILED') {
+        subtaskLang.translation.status = 'failed';
+      } else if (subtask.status === 'CANCEL_REQUESTED' || subtask.status === 'CANCELLED') {
+        subtaskLang.translation.status = 'cancelled';
+      } else {
+        const translated = subtask.assets.filter((asset) => asset.status === 'COMPLETED').length;
+        subtaskLang.translation.translated = translated;
+        if (subtaskLang.translation.sent !== 0 && subtaskLang.translation.status !== 'complete') {
+          const isTranslated = translated === subtaskLang.translation.sent;
+          if (isTranslated) subtaskLang.translation.status = 'translated';
+        }
       }
       await saveState();
     }
@@ -159,30 +178,60 @@ export async function getStatusAll({ title, service, langs, urls, actions }) {
   }
 }
 
-export async function getItems({ org, site, service, lang, urls }) {
+export async function saveItems({
+  org,
+  site,
+  service,
+  lang,
+  urls,
+  saveToDa,
+}) {
   const { translation, workflow, code } = lang;
   const task = { name: translation.name, workflow, code };
 
-  return Promise.all(urls.map(async (url) => {
+  const downloadCallback = async (url) => {
     const text = await downloadAsset(service, token, task, url.daBasePath);
 
     // Use the path to determine if this should be treated
     // as a JSON file since GLaaS will always return an HTML file.
     const fileType = url.daBasePath.includes('.json') ? 'json' : undefined;
 
-    const content = await removeDnt(text, org, site, { fileType });
-    return { ...url, content };
-  }));
+    url.sourceContent = await removeDnt(text, org, site, { fileType });
+
+    await saveToDa(url);
+  };
+
+  const queue = new Queue(downloadCallback, 5);
+
+  return new Promise((resolve) => {
+    const throttle = setInterval(() => {
+      const nextUrl = urls.find((url) => !url.inProgress);
+      if (nextUrl) {
+        nextUrl.inProgress = true;
+        queue.push(nextUrl);
+      } else {
+        const finished = urls.every((url) => url.status);
+        if (finished) {
+          clearInterval(throttle);
+          resolve(urls);
+        }
+      }
+    }, 250);
+  });
 }
 
-export function canCancel() {
-  return true;
+async function canCancelLang({ lang }) {
+  // Only allow cancel if there is a translation object made
+  return !!lang.translation;
 }
 
-export async function cancelLang(service, lang) {
+export async function cancelTranslation({ service, lang, sendMessage }) {
+  // As a service provider, you need to say what will be canceled
   const { translation, workflow, code } = lang;
-  if (!translation || !translation.name || !workflow || !code) {
-    return { error: 'Error cancelling task.', status: 'error' };
+  if (!canCancelLang({ lang })) {
+    sendMessage({ text: `Skipping ${lang.name}. No translation information.` });
+    return null;
   }
+  sendMessage({ text: `Canceling ${lang.name}.` });
   return updateStatus(service, token, { name: translation.name, workflow, targetLocales: [code] }, 'CANCELLED');
 }

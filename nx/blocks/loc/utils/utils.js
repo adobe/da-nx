@@ -1,6 +1,7 @@
 import { getConfig } from '../../../scripts/nexter.js';
 import { DA_ORIGIN } from '../../../public/utils/constants.js';
 import { daFetch } from '../../../utils/daFetch.js';
+import { loadIms } from '../../../utils/ims.js';
 
 const { nxBase: nx } = getConfig();
 
@@ -149,8 +150,13 @@ export async function saveProject(projPath, updates) {
 
   const existing = await fetchProject(href);
 
+  const ims = await loadIms();
+
+  const modifiedBy = ims.email;
+  const modifiedDate = Date.now();
+
   // Merge the existing json with the new details
-  const combined = { ...existing, ...updates };
+  const combined = { modifiedBy, modifiedDate, ...existing, ...updates };
 
   const project = await fetchProject(href, combined);
 

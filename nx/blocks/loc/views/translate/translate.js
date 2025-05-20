@@ -3,7 +3,7 @@ import getStyle from '../../../../utils/styles.js';
 import { getConfig } from '../../../../scripts/nexter.js';
 import getSvg from '../../../../utils/svg.js';
 import { saveProject } from '../../utils/utils.js';
-import { setupConnector, getUrls, saveLangs } from './index.js';
+import { setupConnector, getUrls, saveLangItemsToDa, copySourceLangs } from './index.js';
 
 const { nxBase: nx } = getConfig();
 
@@ -41,8 +41,6 @@ class NxLocTranslate extends LitElement {
   async setupService() {
     const connector = await setupConnector(this.options.service);
     this._service = { ...this.options.service, connector };
-    this._serviceSupportsCancel = typeof connector.canCancel === 'function'
-      && connector.canCancel() && typeof connector.cancelLang === 'function';
     this._connected = await this._service.connector.isConnected(this._service);
   }
 
@@ -70,7 +68,6 @@ class NxLocTranslate extends LitElement {
       langs: this.langs,
     };
     await saveProject(this.path, updates);
-
     this.requestUpdate();
   }
 
@@ -130,41 +127,77 @@ class NxLocTranslate extends LitElement {
       // Overwrite the base langs to only the ones we want to save
       const saveConf = { ...conf, langs: langsToSave };
 
-      await saveLangs(this.options, saveConf, this._service.connector, sendMessage);
+      await saveLangItemsToDa(this.options, saveConf, this._service.connector, sendMessage);
     }
 
     this._message = undefined;
   }
 
   async handleGetStatus() {
+    if (!this.incompleteLangs) {
+      this._message = { text: 'All languages complete or cancelled.' };
+      return;
+    }
+
     const conf = await this.getBaseTranslationConf(false);
 
     await this._service.connector.getStatusAll(conf);
 
     await this.checkAndSaveLangs();
+
+    this.handleSaveLangs();
   }
 
-  async handleCancelProject() {
-    const toCancel = this._translateLangs.filter((lang) => lang.translation.status === 'uploaded');
-    await toCancel.reduce(async (promise, lang) => {
-      await promise;
-      this._message = { text: `Cancelling ${lang.name}` };
-      await this._service.connector.cancelLang(this._service, lang);
-      lang.translation.status = 'cancelled';
-    }, Promise.resolve());
-    await this.handleSaveLangs();
-    this._message = undefined;
+  async handleCancelAll() {
+    const sendMessage = this.handleMessage.bind(this);
+
+    const { cancelTranslation } = this._service.connector;
+
+    for (const lang of this._translateLangs) {
+      await cancelTranslation({ service: this._service, lang, sendMessage });
+    }
+
+    // Re-fetch status to ensure the service canceled everything.
+    this.handleGetStatus();
+  }
+
+  async handleCopyAll() {
+    await copySourceLangs(this.org, this.site, this.title, this.options, this._copyLangs, this.urls);
+    this.handleSaveLangs();
     this.requestUpdate();
   }
 
-  canCancel() {
-    return this._serviceSupportsCancel && this._translateLangs.some((lang) => lang.translation.status === 'uploaded');
+  get canRollout() {
+    return this.langs.some((lang) => {
+      const rolloutOnly = lang.action === 'rollout';
+      const tranlateComplete = lang.translation?.status === 'complete';
+      const copyComplete = lang.copy?.status === 'complete';
+      return rolloutOnly || tranlateComplete || copyComplete;
+    });
+  }
+
+  get incompleteLangs() {
+    return this._translateLangs.filter((lang) => {
+      const status = lang.translation?.status;
+      if (status === 'complete') return false;
+      if (status === 'cancelled') return false;
+      return true;
+    }).length;
+  }
+
+  get canCancel() {
+    const { cancelTranslation } = this._service.connector;
+    return !!cancelTranslation && this.incompleteLangs;
+  }
+
+  renderBehavior() {
+    return html`<p><strong>Conflict behavior:</strong> ${this.options['translate.conflict.behavior']}</p>`;
   }
 
   renderTranslateAction() {
     if (this._connected === false) {
       return html`
-        <p><strong>Conflict behavior:</strong> ${this.options['translate.conflict.behavior']}</p>
+        ${this.renderBehavior()}
         <sl-button @click=${this.handleConnect} class="accent">Connect</sl-button>
       `;
     }
@@ -172,29 +205,30 @@ class NxLocTranslate extends LitElement {
     if (this._connected) {
       // Only langs with a translation object have been sent.
       const sent = this._translateLangs.some((lang) => lang.translation);
-      const cancelled = this._translateLangs.every((lang) => lang.translation && lang.translation.status === 'cancelled');
+      const cancelled = this._translateLangs.every((lang) => lang.translation?.status === 'cancelled');
 
       if (!cancelled) {
         if (sent) {
           return html`
-          <p><strong>Conflict behavior:</strong> ${this.options['translate.conflict.behavior']}</p>
-          ${this.canCancel() ? html`<sl-button @click=${this.handleCancelProject} class="accent">Cancel Project</sl-button>` : nothing}
-          <sl-button @click=${this.handleGetStatus} class="accent">Get status</sl-button>
-        `;
+            ${this.renderBehavior()}
+            ${this.canCancel ? html`<sl-button @click=${this.handleCancelAll} class="primary outline">Cancel project</sl-button>` : nothing}
+            <sl-button @click=${this.handleGetStatus} class="accent">Get status</sl-button>
+          `;
         }
 
         return html`
-        <p><strong>Conflict behavior:</strong> ${this.options['translate.conflict.behavior']}</p>
-        <sl-button @click=${this.handleSendAll} class="accent">Translate all</sl-button>
-      `;
+          ${this.renderBehavior()}
+          <sl-button @click=${this.handleSendAll} class="accent">Translate all</sl-button>
+        `;
       }
     }
 
     return nothing;
   }
 
-  renderLangStatus(lang) {
-    const status = lang.translation?.status || 'not started';
+  renderLangStatus(lang, suppliedType) {
+    const type = suppliedType || 'translation';
+    const status = lang[type]?.status || 'not started';
     const statusStyle = `is-${status.replaceAll(' ', '-')}`;
 
     return html`
@@ -258,12 +292,14 @@ class NxLocTranslate extends LitElement {
   renderCopy() {
     if (!this._copyLangs?.length) return nothing;
 
+    console.log(this._copyLangs);
+
     return html`
       <div class="nx-loc-list-actions">
         <p class="nx-loc-list-actions-header">Copy (${this.options['source.language'].name})</p>
         <div class="actions">
           <p><strong>Conflict behavior:</strong> ${this.options['copy.conflict.behavior']}</p>
-          <sl-button @click=${this.handleSyncAll} class="accent">Copy all</sl-button>
+          <sl-button @click=${this.handleCopyAll} class="accent">Copy all</sl-button>
         </div>
       </div>
       <div class="nx-loc-list-header">
@@ -282,8 +318,9 @@ class NxLocTranslate extends LitElement {
               <p class="lang-count"></p>
               <p class="lang-count"></p>
               <p class="lang-count">${this.urls.length}</p>
-              <p class="lang-count">${lang.saved || 0}</p>
+              <p class="lang-count">${lang.copy?.saved || 0}</p>
               <div class="url-status">
+                ${this.renderLangStatus(lang, 'copy')}
               </div>
             </div>
           </li>
@@ -298,6 +335,7 @@ class NxLocTranslate extends LitElement {
         @action=${this.handleAction}
         .message=${this._message}
         prev="Sync sources"
+        ?nextDisabled=${!this.canRollout}
         next="Rollout">
       </nx-loc-actions>
       ${this.renderUrlErrors()}

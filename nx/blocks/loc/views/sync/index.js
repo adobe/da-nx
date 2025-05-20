@@ -14,6 +14,7 @@ export function getSyncUrls(org, site, location, urls) {
     source: getDaAdminPath(org, site, url.suppliedPath),
     destination: getDaAdminPath(org, site, `${location}${url.suppliedPath}`),
     hasExt: getHasExt(url.suppliedPath),
+    synced: undefined,
   }));
 }
 

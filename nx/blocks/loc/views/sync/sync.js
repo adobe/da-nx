@@ -72,7 +72,13 @@ class NxLocSync extends LitElement {
     this.requestUpdate();
   }
 
-  handleSyncAll() {
+  handleSyncAll(type) {
+    if (type === 'skip') {
+      this._syncUrls.forEach((url) => { url.synced = 'skipped'; });
+      this.requestUpdate();
+      return;
+    }
+
     const syncUrl = this.syncUrl.bind(this);
     const queue = new Queue(syncUrl, 50);
     this._syncUrls.map((url) => queue.push(url));
@@ -100,6 +106,7 @@ class NxLocSync extends LitElement {
   renderStatus(status) {
     const iconIds = {
       synced: '#S2_Icon_CheckmarkCircleGreen_20_N',
+      skipped: '#S2_Icon_CheckmarkCircleGreen_20_N',
       error: '#S2_Icon_AlertDiamondOrange_20_N',
     };
 
@@ -129,7 +136,8 @@ class NxLocSync extends LitElement {
         </div>
         <div class="actions">
           <p><strong>Conflict behavior:</strong> ${this.options['sync.conflict.behavior']}</p>
-          <sl-button @click=${this.handleSyncAll} class="accent">Sync all</sl-button>
+          <sl-button @click=${() => this.handleSyncAll('skip')} class="primary outline">Skip sync</sl-button>
+          <sl-button @click=${() => this.handleSyncAll('sync')} class="accent">Sync all</sl-button>
         </div>
       </div>
       <div class="nx-loc-list-header">
