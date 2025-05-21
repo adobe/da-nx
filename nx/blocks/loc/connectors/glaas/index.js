@@ -192,8 +192,7 @@ export async function saveItems({
   const downloadCallback = async (url) => {
     const text = await downloadAsset(service, token, task, url.daBasePath);
 
-    // Use the path to determine if this should be treated
-    // as a JSON file since GLaaS will always return an HTML file.
+    // Use the path to determine if this should be treated as a JSON file.
     const fileType = url.daBasePath.includes('.json') ? 'json' : undefined;
 
     url.sourceContent = await removeDnt(text, org, site, { fileType });

@@ -1,50 +1,48 @@
-import { html, LitElement } from '../../../../deps/lit/lit-core.min.js';
-import { getConfig } from '../../../../scripts/nexter.js';
+import { LitElement, html, nothing } from 'da-lit';
 import getStyle from '../../../../utils/styles.js';
 import { daFetch } from '../../../../utils/daFetch.js';
 import { loadIms } from '../../../../utils/ims.js';
+import { fetchProjectList, fetchPagedDetails } from './index.js';
+
 import './pagination.js';
 import './filter-bar.js';
 import './project-table.js';
 
-const { nxBase } = getConfig();
 const style = await getStyle(import.meta.url);
-const buttons = await getStyle(`${nxBase}/styles/buttons.js`);
-let imsDetails;
-let loggedinUser;
-const DA_ORIGIN = 'https://admin.da.live';
+
+const PAGE_COUNT = 50;
 
 class NxLocDashboard extends LitElement {
   static properties = {
-    _view: { attribute: false },
-    _projects: { attribute: false },
-    _currentPage: { attribute: false },
-    _siteBase: { attribute: false },
-    _filteredProjects: { attribute: false },
-    _loading: { attribute: false },
+    org: { attribute: false },
+    site: { attribute: false },
+    _activeProjects: { state: true },
+    _filteredProjects: { state: true },
+
+    // _view: { attribute: false },
+    // _projects: { attribute: false },
+    // _currentPage: { attribute: false },
+    // _siteBase: { attribute: false },
+    // _filteredProjects: { attribute: false },
+    // _loading: { attribute: false },
   };
 
-  constructor() {
-    super();
-    this._projects = [];
-    this._filteredProjects = [];
-    this._currentPage = 1;
-    this._projectsPerPage = 50;
-    this._loading = true;
-  }
-
-  create() {
-    this._view = 'create';
-  }
-
-  async connectedCallback() {
+  connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [style, buttons];
-    await this.getProjects();
+    this.shadowRoot.adoptedStyleSheets = [style];
+    this.getCurrentUser();
+    this.getProjects();
   }
 
-  disconnectedCallback() {
-    super.disconnectedCallback();
+  async getCurrentUser() {
+    const ims = await loadIms();
+    if (!ims) return;
+    this._currentUser = ims.email;
+  }
+
+  async getProjects() {
+    const projectList = await fetchProjectList(this.org, this.site);
+    this._activeProjects = await fetchPagedDetails(projectList, PAGE_COUNT);
   }
 
   // Apply filters
@@ -78,7 +76,7 @@ class NxLocDashboard extends LitElement {
                 || selectedRolloutStatuses?.includes(project.rolloutStatus);
 
       // Match ownership statuses
-      const matchesOwnership = viewAllProjects || project.createdBy === loggedinUser;
+      const matchesOwnership = viewAllProjects || project.createdBy === currentUser;
 
       // Combine all filters
       // eslint-disable-next-line max-len
@@ -135,234 +133,39 @@ class NxLocDashboard extends LitElement {
     return { translationStatus, rolloutStatus };
   }
 
-  /**
-   * Format a timestamp
-   * @param {string} timestamp - The timestamp to format
-   * @returns {string} The formatted timestamp
-   */
-  formatTimestamp(timestamp) {
-    if (!timestamp) {
-      return 'unknown';
-    }
-
-    // Convert timestamp from seconds to milliseconds if needed
-    const timestampMs = timestamp.toString().length === 10 ? timestamp * 1000 : timestamp;
-    const date = new Date(timestampMs);
-
-    // Check if date is invalid
-    if (Number.isNaN(date.getTime())) {
-      return 'unknown';
-    }
-
-    const options = {
-      month: 'short',
-      day: '2-digit',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true, // Use 12-hour format
-    };
-
-    // Format using Intl.DateTimeFormat
-    const formattedDate = new Intl.DateTimeFormat('en-US', options).format(date);
-    return formattedDate.replace(',', '');
-  }
-
-  /**
-   * Get the projects
-   */
-  async getProjects() {
-    try {
-      imsDetails = await loadIms();
-      loggedinUser = imsDetails?.email;
-      const siteBase = window.location.hash.replace('#', '');
-      this._siteBase = siteBase?.slice(1);
-      const resp = await daFetch(`${DA_ORIGIN}/list${siteBase}/.da/translation/projects/active`);
-      if (!resp.ok) return;
-      const projectList = await resp.json();
-      this._projects = await Promise.all(projectList.map(async (project) => {
-        const projResp = await daFetch(`${DA_ORIGIN}/source${project.path}`);
-        const projJson = await projResp.json();
-        project.title = projJson.title;
-        const createdBy = projJson?.email;
-        const createdOn = this.formatTimestamp(projJson?.timestamp);
-
-        project.languages = projJson.langs?.map((lang) => lang.name).join(', ');
-        console.log(projJson.langs);
-        const { translationStatus, rolloutStatus } = this.getProjectStatuses(projJson.langs);
-        return {
-          title: project.title || 'Untitled',
-          path: project.path,
-          createdBy: createdBy || 'anonymous',
-          createdOn: createdOn || 'unknown',
-          languages: (project.languages || 'unknown'),
-          translationStatus: translationStatus || 'unknown',
-          rolloutStatus: rolloutStatus || 'unknown',
-        };
-      }));
-      this._filteredProjects = [...this._projects];
-      // Sort projects by createdOn timestamp from latest to oldest
-      this._filteredProjects.sort((a, b) => {
-        if (a.createdOn === 'unknown' && b.createdOn === 'unknown') return 0;
-        if (a.createdOn === 'unknown') return 1;
-        if (b.createdOn === 'unknown') return -1;
-        const dateA = new Date(a.createdOn);
-        const dateB = new Date(b.createdOn);
-        return dateB - dateA;
-      });
-    } catch (error) {
-      console.error('Error fetching projects:', error);
-    } finally {
-      this._loading = false;
-    }
-  }
-
-  handlePagination(e) {
-    this._currentPage = e.detail.page;
-  }
-
-  /**
-   * Get the paginated projects
-   * @returns {Array} The paginated projects
-   */
-  getPaginatedProjects() {
-    const start = (this._currentPage - 1) * this._projectsPerPage;
-    const end = start + this._projectsPerPage;
-    return this._filteredProjects.slice(start, end);
-  }
-
-  navigateToProject(path) {
-    window.location.hash = `#${path?.replace('.json', '')}`; // Update the URL hash
-  }
-
-  renderSpinner() {
+  renderProjects(type) {
     return html`
-      <div class="loading-spinner">
-        <div class="spinner"></div>
-      </div>`;
-  }
-
-  /**
-   * Duplicate a project
-   * @param {string} path - The path of the project to duplicate
-   * @param {string} title - The title of the project
-   */
-  async duplicateProject(path, title) {
-    const resp = await daFetch(`${DA_ORIGIN}/source${path}`);
-    let json = await resp.json();
-    json.title = title;
-    const time = Date.now();
-    const newPath = path.replace(/[^/]+$/, `${time}.json`);
-    json = this.resetProjectState(json);
-
-    const body = new FormData();
-    const blob = new Blob([JSON.stringify(json)], { type: 'application/json' });
-    body.append('data', blob);
-    const opts = { method: 'POST', body };
-    const fetchPath = `${DA_ORIGIN}/source${newPath}`;
-    const newResp = await daFetch(fetchPath, opts);
-    const verPath = `${DA_ORIGIN}/versionsource${newPath}`;
-    await daFetch(verPath, { method: 'POST' });
-    await this.getProjects();
-    if (!newResp.ok) {
-      this._error = 'Something went wrong.';
-    } else {
-      const event = new CustomEvent('duplication-complete', {
-        detail: { projectPath: newPath },
-        bubbles: true,
-        composed: true,
-      });
-      this.dispatchEvent(event);
-    }
-  }
-
-  /**
-   * Reset the project state
-   * @param {Object} json - The project data
-   * @returns {Object} The reset project data
-   */
-  resetProjectState(json) {
-    json.langs = json?.langs?.map((lang) => {
-      lang.rollout = { status: 'not started' };
-      lang.translation = { status: 'not started' };
-      delete lang.rolloutDate;
-      delete lang.rolloutTime;
-      delete lang.rolledOut;
-      delete lang.errors;
-      return lang;
-    });
-    json.urls = json?.urls?.map((url) => {
-      delete url?.srcPath;
-      delete url?.synced;
-      return url;
-    });
-    json.sourceLang = { ...json?.sourceLang, lastSync: undefined };
-    delete json?.translateComplete;
-    return json;
-  }
-
-  /**
-   * Archive a project
-   * @param {string} path - The path of the project to archive
-   */
-  async archiveProject(path) {
-    const destinationPath = path.replace('/active/', '/archived/');
-    const body = new FormData();
-    body.append('destination', destinationPath);
-    const moveSourcePath = `${DA_ORIGIN}/move${path}`;
-    const response = await daFetch(moveSourcePath, { method: 'POST', body });
-
-    if (response.ok) {
-      const toast = document.createElement('div');
-      toast.className = 'toast';
-      toast.textContent = 'Project archived successfully';
-      this.shadowRoot.appendChild(toast);
-
-      setTimeout(() => {
-        toast.classList.add('fade-out');
-        setTimeout(() => {
-          this.shadowRoot.removeChild(toast);
-        }, 300);
-      }, 3000);
-    }
-
-    await this.getProjects();
-  }
-
-  renderProjects() {
-    const paginatedProjects = this.getPaginatedProjects();
-    return html`
-      <nx-projects-table
-        .projects=${paginatedProjects}
-        @navigate-to-project=${(e) => this.navigateToProject(e.detail.path)}
-        @duplicate-project=${(e) => this.duplicateProject(e.detail.path, e.detail.title)}
-        @archive-project=${(e) => this.archiveProject(e.detail.path)}
-      ></nx-projects-table>
-      <nx-pagination .currentPage=${this._currentPage} .totalItems=${this._filteredProjects.length} .itemsPerPage=${this._projectsPerPage} @page-change=${this.handlePagination}></nx-pagination>`;
-  }
-
-  getMainContent() {
-    let content;
-    if (this._loading) {
-      content = this.renderSpinner();
-    } else if (this._filteredProjects.length > 0) {
-      content = this.renderProjects();
-    } else {
-      content = html`<p>No projects found.</p>`;
-    }
-    return content;
+      <div class="nx-loc-list-header">
+        <p>Project</p>
+        <p>Created</p>
+        <p>Languages</p>
+        <p>Status</p>
+        <p>Actions</p>
+      </div>
+      <ul>
+        ${this[type].map((project) => html`
+          <li>
+            <div class="inner">
+              <p>${project.title}</p>
+              <div>
+                <p>${project.createdBy}</p>
+                <p>${project.created.date} ${project.created.time}</p>
+              </div>
+              <p>${project.langsTotal}</p>
+              <p>Status</p>
+              <p>Actions</p>
+            </div>
+          </li>
+        `)}
+      </ul>
+    `;
   }
 
   render() {
     return html`
-      ${this._view !== 'create' ? html`
-        <div class="dashboard-header">
-          <h1>Dashboard</h1>
-          <button class="accent" @click=${this.create}>Create Project</button>
-        </div>
-        <nx-filter-bar @filter-change=${(e) => this.applyFilters(e.detail)}></nx-filter-bar>
-        ${this.getMainContent()}`
-    : html`<nx-loc-setup></nx-loc-setup>`}`;
+      <nx-filter-bar @filter-change=${(e) => this.applyFilters(e.detail)}></nx-filter-bar>
+      ${this._activeProjects ? this.renderProjects('_activeProjects') : nothing}
+    `;
   }
 }
 

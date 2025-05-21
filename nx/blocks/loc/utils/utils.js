@@ -136,6 +136,10 @@ export async function fetchProject(path, detail) {
   // Otherwise GET will have the data we want.
   PROJECT_CACHE[path] = detail || await resp.json();
 
+  // Set the title of the doc
+  const { title } = PROJECT_CACHE[path];
+  if (title) document.title = `${title} - DA Translation`;
+
   return PROJECT_CACHE[path];
 }
 
@@ -152,11 +156,14 @@ export async function saveProject(projPath, updates) {
 
   const ims = await loadIms();
 
-  const modifiedBy = ims.email;
-  const modifiedDate = Date.now();
+  if (!existing.org) {
+    existing.createdBy = ims.email;
+  }
+
+  existing.modifiedBy = ims.email;
 
   // Merge the existing json with the new details
-  const combined = { modifiedBy, modifiedDate, ...existing, ...updates };
+  const combined = { ...existing, ...updates };
 
   const project = await fetchProject(href, combined);
 

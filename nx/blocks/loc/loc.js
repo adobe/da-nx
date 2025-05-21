@@ -8,6 +8,7 @@ import '../../public/sl/components.js';
 import './views/header/header.js';
 import './views/steps/steps.js';
 import './views/actions/actions.js';
+import './views/dashboard/dashboard.js';
 import './views/basics/basics.js';
 import './views/validate/validate.js';
 import './views/options/options.js';
