@@ -40,6 +40,11 @@ p {
   background-color: var(--s2-gray-75);
   border: 1px solid rgb(230 230 230);
   border-radius: var(--s2-radius-100) var(--s2-radius-100) 0 0;
+  margin-bottom: 48px;
+
+  &.is-expanded {
+    margin-bottom: 0;
+  }
 
   p {
     font-weight: 700;
@@ -130,6 +135,12 @@ ul {
         grid-template-columns: 1fr 92px 92px 120px 32px;
       }
 
+      .rollout-date {
+        font-size: 14px;
+        font-weight: 400;
+        color: var(--s2-gray-700);
+      }
+
       &::before,
       &::after {
         left: 0;
@@ -201,6 +212,10 @@ nx-loc-actions {
 
   &.is-ready {
     background-color: var(--s2-green-200);
+  }
+
+  &.is-rolling-out {
+    background-color: var(--s2-cyan-300);
   }
 
   &.is-complete {
