@@ -1,0 +1,255 @@
+svg {
+  display: none;
+}
+
+p {
+  margin: 0;
+  line-height: 1;
+}
+
+.expand {
+  border: none;
+  width: 32px;
+  height: 32px;
+  justify-self: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-indent: -1000px;
+  overflow: hidden;
+  transition: transform 0.2s ease-in-out;
+  background: url("/blocks/browse/img/Smock_ChevronRight_18_N.svg") center center / 18px no-repeat;
+}
+
+.is-expanded {
+  .expand {
+    transform: rotate(90deg);
+  }
+}
+
+.expand.show-group {
+  width: 18px;
+  height: 18px;
+}
+
+.nx-loc-list-header {
+  padding: 12px 24px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1fr 32px;
+  background-color: var(--s2-gray-75);
+  border: 1px solid rgb(230 230 230);
+  border-radius: var(--s2-radius-100) var(--s2-radius-100) 0 0;
+
+  p {
+    font-weight: 700;
+  }
+}
+
+ul {
+  margin: 0 0 48px;
+  padding: 0;
+  list-style: none;
+  background-color: var(--s2-gray-50);
+  border: 1px solid rgb(230 230 230);
+  border-top: none;
+  border-radius: 0 0 var(--s2-radius-100) var(--s2-radius-100);
+  overflow: hidden;
+
+  li {
+    position: relative;
+    margin: -1px 0;
+    padding: 12px 24px;
+
+    .inner {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: 1fr 92px 92px 120px 32px;
+      align-items: center;
+      min-height: 20px;
+    }
+
+    &.hide-locale {
+      display: none;
+      margin-right: 92px;
+      margin-top: 12px;
+    }
+
+    &::before,
+    &::after {
+      position: absolute;
+      content: "";
+      display: block;
+      background-color: rgb(230 230 230);
+      height: 1px;
+      left: 24px;
+      right: 24px;
+      transition: all 0.25s ease-in-out;
+    }
+
+    &::before {
+      top: 0;
+    }
+
+    &::after {
+      bottom: 0;
+    }
+
+    &:hover {
+      background: rgb(228 240 255);
+      z-index: 2;
+
+      &::before,
+      &::after {
+        left: 0;
+        right: 0;
+        background-color: rgb(22 122 243);
+      }
+    }
+
+    .url-details {
+      display: none;
+      margin-top: 12px;
+    }
+
+    &.is-expanded {
+      .url-details {
+        display: grid;
+        grid-template-columns: 1fr 540px;
+        gap: 12px;
+      }
+    }
+
+    &.language-header {
+      padding: 24px;
+      background-color: var(--s2-gray-500);
+      z-index: 1;
+
+      .inner {
+        font-weight: 700;
+        grid-template-columns: 1fr 92px 92px 120px 32px;
+      }
+
+      &::before,
+      &::after {
+        left: 0;
+        right: 0;
+        background-color: var(--s2-gray-500);
+      }
+
+      &:hover {
+        background-color: var(--s2-gray-500);
+
+        &::before,
+        &::after {
+          left: 0;
+          right: 0;
+          background-color: var(--s2-gray-500);
+        }
+      }
+    }
+  }
+
+  &.error-list {
+    li {
+      .inner {
+        grid-template-columns: 1fr;
+      }
+    }
+  }
+}
+
+nx-loc-actions {
+  display: block;
+  margin-bottom: 24px;
+}
+
+.nx-loc-list-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  min-height: 32px;
+
+  .nx-loc-list-actions-header {
+    font-size: 22px;
+    font-weight: 700;
+  }
+
+  .actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+}
+
+.lang-count {
+  text-align: center;
+}
+
+.lang-status {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 32px;
+  border-radius: 8px;
+  padding: 0 12px;
+
+  &.is-not-ready {
+    background-color: var(--s2-gray-300);
+  }
+
+  &.is-ready {
+    background-color: var(--s2-green-200);
+  }
+
+  &.is-complete {
+    background-color: var(--s2-green-900);
+    color: #fff;
+  }
+}
+
+.summary {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--spacing-400);
+  margin: var(--spacing-400) 0;
+}
+
+.summary-card {
+  background-color: var(--s2-blue-200);
+  border-radius: 18px;
+  overflow: hidden;
+  padding: var(--spacing-400);
+}
+
+.summary-card-ready {
+  background-color: var(--s2-green-200);
+}
+
+.summary-card-complete {
+  background-color: var(--s2-green-900);
+}
+
+.summary-card-waiting {
+  background-color: var(--s2-gray-300);
+}
+
+.summary-card p {
+  margin: 0;
+  line-height: 1.2;
+}
+
+.summary-card p:first-child {
+  font-weight: 700;
+}
+
+.summary-card p:last-child {
+  font-size: var(--s2-font-size-600);
+}
+
+@media (width > 600px) {
+  .summary {
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+  }
+}

@@ -12,6 +12,7 @@ import './views/basics/basics.js';
 import './views/validate/validate.js';
 import './views/options/options.js';
 import './views/sync/sync.js';
+import './views/rollout/rollout.js';
 import './views/translate/translate.js';
 import './views/url-details/url-details.js';
 
@@ -152,6 +153,22 @@ class NxLoc extends LitElement {
           @prev=${() => this.handlePrev('sync')}
           @next=${this.handleNext}>
         </nx-loc-translate>
+      `;
+    }
+
+    if (this.view === 'rollout' && this._urls) {
+      return html`
+        <nx-loc-rollout
+          .org=${this.org}
+          .site=${this.site}
+          .path=${this.path}
+          .title=${this._title}
+          .options=${this._options}
+          .langs=${this._langs}
+          .urls=${this._urls}
+          @prev=${() => this.handlePrev('translate')}
+          @next=${this.handleNext}>
+        </nx-loc-rollout>
       `;
     }
     return nothing;
