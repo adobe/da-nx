@@ -126,8 +126,8 @@ ul {
     }
 
     &.language-header {
-      padding: 24px;
-      background-color: var(--s2-gray-500);
+      padding: 12px 24px;
+      background-color: var(--s2-gray-100);
       z-index: 1;
 
       .inner {
@@ -141,21 +141,19 @@ ul {
         color: var(--s2-gray-700);
       }
 
-      &::before,
-      &::after {
+      &::before {
         left: 0;
         right: 0;
-        background-color: var(--s2-gray-500);
+        background-color: var(--s2-gray-100);
       }
 
       &:hover {
-        background-color: var(--s2-gray-500);
+        background-color: var(--s2-blue-200);
 
-        &::before,
-        &::after {
+        &::before {
           left: 0;
           right: 0;
-          background-color: var(--s2-gray-500);
+          background-color: var(--s2-gray-100);
         }
       }
     }
@@ -244,6 +242,7 @@ nx-loc-actions {
 
 .summary-card-complete {
   background-color: var(--s2-green-900);
+  color: #fff;
 }
 
 .summary-card-waiting {
