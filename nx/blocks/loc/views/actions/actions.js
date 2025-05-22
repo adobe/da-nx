@@ -20,7 +20,6 @@ class NxLocActions extends LitElement {
     nextStyle: { type: String },
     next: { type: String },
     message: { attribute: false },
-    skipSave: { type: Boolean },
   };
 
   connectedCallback() {
@@ -29,11 +28,8 @@ class NxLocActions extends LitElement {
     getSvg({ parent: this.shadowRoot, paths: ICONS });
   }
 
-  handleAction(e, name) {
-    console.log(e);
-    const detail = name === 'next' && this.skipSave ? { name, skipSave: true } : { name };
-
-    const opts = { detail, bubbles: true, composed: true };
+  handleAction(name) {
+    const opts = { detail: name, bubbles: true, composed: true };
     const event = new CustomEvent('action', opts);
     this.dispatchEvent(event);
   }
@@ -41,12 +37,12 @@ class NxLocActions extends LitElement {
   render() {
     return html`
       <div class="nx-loc-actions-header">
-        <button @click=${(e) => this.handleAction(e, 'prev')} class="nx-prev" ?disabled=${this.prevDisabled}>
+        <button @click=${() => this.handleAction('prev')} class="nx-prev" ?disabled=${this.prevDisabled}>
           <svg class="icon"><use href="#spectrum-chevronLeft"/></svg>
           <span>${this.prev}</span>
         </button>
         ${this.message ? html`<p class="message type-${this.message.type || 'info'}">${this.message.text}</p>` : nothing}
-        <button @click=${(e) => this.handleAction(e, 'next')} class="nx-next ${this.nextStyle ? this.nextStyle : ''}" ?disabled=${this.nextDisabled}>
+        <button @click=${() => this.handleAction('next')} class="nx-next ${this.nextStyle ? this.nextStyle : ''}" ?disabled=${this.nextDisabled}>
           <span>${this.next}</span>
           <svg class="icon"><use href="#spectrum-chevronRight"/></svg>
         </button>

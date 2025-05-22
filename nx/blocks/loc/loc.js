@@ -67,18 +67,14 @@ class NxLoc extends LitElement {
     const { detail } = e;
     if (!detail) return;
 
-    if (!detail.skipSave) {
-      const { error, hash, project } = await saveProject(this.path, detail);
-      if (error) return;
+    const { error, hash, project } = await saveProject(this.path, detail);
+    if (error) return;
 
-      // Set everything before we swap views
-      // This prevents a new view from getting
-      // old project info.
-      this.setProject(project);
-      window.location.hash = hash;
-    }
-
-    window.location.hash = detail.hash;
+    // Set everything before we swap views
+    // This prevents a new view from getting
+    // old project info.
+    this.setProject(project);
+    window.location.hash = hash;
   }
 
   handlePrev(prevView) {
