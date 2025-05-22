@@ -58,6 +58,28 @@ class NxLocSteps extends LitElement {
     window.location.hash = `/${newView}/${org}/${site}`;
   }
 
+  getTranslateCheck() {
+    if (!this.urls || !this.urls?.length) return false;
+
+    return this.langs.every((lang) => {
+      const {
+        action = '',
+        translation: { saved: translationSaved = 0 } = {},
+        copy: { saved: copySaved = 0 } = {},
+      } = lang;
+      return action === 'rollout' || translationSaved + copySaved === this.urls.length;
+    });
+  }
+
+  getRolloutCheck() {
+    if (!this.urls || !this.urls?.length) return false;
+
+    return this.langs.every((lang) => {
+      const { rollout: { status = '' } = {} } = lang;
+      return status === 'complete';
+    });
+  }
+
   getStyling(view, defIcon) {
     const views = {
       dashboard: this.org && this.site,
@@ -65,6 +87,8 @@ class NxLocSteps extends LitElement {
       validate: this.urls?.some((url) => url.checked),
       options: this.options,
       sync: this.getSyncCheck(),
+      translate: this.getTranslateCheck(),
+      rollout: this.getRolloutCheck(),
     };
 
     const filled = views[view] ? ' filled' : '';

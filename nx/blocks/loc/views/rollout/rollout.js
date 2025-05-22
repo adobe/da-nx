@@ -2,7 +2,9 @@ import { LitElement, html, nothing } from 'da-lit';
 import getStyle from '../../../../utils/styles.js';
 import { getConfig } from '../../../../scripts/nexter.js';
 import getSvg from '../../../../utils/svg.js';
-import { saveProject } from '../../utils/utils.js';
+import { Queue } from '../../../../public/utils/tree.js';
+import { calculateTime, timeoutWrapper, mergeCopy, overwriteCopy, formatDate } from '../../project/index.js';
+import { getHasExt, saveProject } from '../../utils/utils.js';
 
 const { nxBase: nx } = getConfig();
 
@@ -22,73 +24,54 @@ class NxLocRollout extends LitElement {
     options: { attribute: false },
     langs: { attribute: false },
     urls: { attribute: false },
-    groupedLangs: { attribute: false },
     _urlErrors: { state: true },
-    _connected: { state: true },
-    _translateLangs: { state: true },
-    _copyLangs: { state: true },
+    _readyLanguages: { state: true },
+    _notReadyLanguages: { state: true },
+    _completeLanguages: { state: true },
+    _expandedLocales: { attribute: false },
+    _expandedGroups: { attribute: false },
     _message: { state: true },
   };
 
-  processLang(lang) {
+  calculateReadyCount(lang) {
     function getSavedCount(action) {
       const { saved = 0 } = action ?? {};
       return saved;
     }
+    return getSavedCount(lang.translation) + getSavedCount(lang.copy);
+  }
 
-    const { action = '' } = lang;
-    let ready = 0;
-    let addTo = null;
-    let status = '';
-    if (action === 'rollout') {
-      ready = this.urls.length;
-      addTo = this.groupedLangs[0].langs;
-      status = 'ready';
-    } else if (lang?.rollout && lang.rollout.status === 'complete') {
-      ready = this.urls.length;
-      addTo = this.groupedLangs[2].langs;
-      status = 'complete';
-    } else {
-      ready = getSavedCount(lang.translation) + getSavedCount(lang.copy);
-      if (ready === this.urls.length) {
-        addTo = this.groupedLangs[0].langs;
-        status = 'ready';
-      } else {
-        addTo = this.groupedLangs[1].langs;
-        status = 'not ready';
-      }
+  calculateStatus(lang) {
+    const { action = '', rollout } = lang;
+
+    if (rollout?.status) return rollout.status;
+    if (!rollout && action !== 'rollout' && this.calculateReadyCount(lang) < this.urls.length) {
+      return 'not ready';
     }
-    if (addTo) {
-      addTo.push({
-        ...lang,
-        ready,
-        status,
-        locales: lang.locales.map((locale) => ({
-          ...locale,
-          rolledOut: 0,
-          expanded: false,
-        })),
-      });
+
+    return 'ready';
+  }
+
+  processLang(lang) {
+    const status = this.calculateStatus(lang);
+    if (status === 'not ready') {
+      this._notReadyLanguages.push(lang);
+    } else if (status === 'complete') {
+      this._completeLanguages.push(lang);
+    } else {
+      this._readyLanguages.push(lang);
     }
   }
 
   connectedCallback() {
     super.connectedCallback();
+    this._expandedLocales = {};
+    this._expandedGroups = { ready: true, 'not ready': false, complete: false };
+    this._readyLanguages = [];
+    this._notReadyLanguages = [];
+    this._completeLanguages = [];
     this.shadowRoot.adoptedStyleSheets = [style];
     getSvg({ parent: this.shadowRoot, paths: ICONS });
-    this.groupedLangs = [{
-      title: 'Ready for Rollout',
-      langs: [],
-      expanded: true,
-    }, {
-      title: 'Waiting',
-      langs: [],
-      expanded: false,
-    }, {
-      title: 'Complete',
-      langs: [],
-      expanded: false,
-    }];
     this.langs.forEach((lang) => this.processLang(lang));
   }
 
@@ -104,31 +87,114 @@ class NxLocRollout extends LitElement {
     // this.dispatchEvent(event);
   }
 
-  async handleSendAll() {
-
+  async handleSaveProject() {
+    const updates = {
+      org: this.org,
+      site: this.site,
+      langs: this.langs,
+    };
+    await saveProject(this.path, updates);
   }
 
-  handleToggleLangExpand(lang, e) {
+  async performRollout(lang) {
+    // Don't roll out if already rolling out
+    const rolloutStatus = lang?.rollout?.status;
+    if (rolloutStatus === 'rolling out') return;
+    const reRoll = rolloutStatus === 'complete';
+
+    if (!lang.rollout) {
+      lang.rollout = {};
+    }
+    const startTime = Date.now();
+    lang.rollout.status = 'rolling out';
+    lang.rolloutDate = undefined;
+    lang.rolloutTime = undefined;
+    lang.rolledOut = 0;
+    lang.rolledOutByLocale = {};
+    lang.locales.forEach((locale) => { lang.rolledOutByLocale[locale.code] = 0; });
+    lang.errors = [];
+    const items = lang.locales.reduce((acc, locale) => {
+      const localeItems = this.urls.map((url) => {
+        const hasExt = getHasExt(url.suppliedPath);
+        const source = `/${this.org}/${this.site}${lang.location}${url.suppliedPath}${hasExt ? '' : '.html'}`;
+        const destination = `/${this.org}/${this.site}${locale.code}${url.suppliedPath}${hasExt ? '' : '.html'}`;
+        return async () => {
+          const behavior = this.options['rollout.conflict.behavior'];
+          const overwrite = behavior === 'overwrite' || hasExt;
+
+          const copyFn = overwrite ? overwriteCopy : mergeCopy;
+          const resp = await copyFn({ source, destination }, this.title);
+          if (resp.ok || resp.error === 'timeout') {
+            lang.rolledOut += 1;
+            lang.rolledOutByLocale[locale.code] += 1;
+
+            if (lang.rolledOut === items.length) {
+              lang.rollout.status = 'complete';
+              lang.rolloutDate = Date.now();
+              lang.rolloutTime = calculateTime(startTime);
+            }
+
+            this.requestUpdate();
+          } else {
+            console.log('there was an error');
+            lang.errors.push({ source, destination });
+          }
+        };
+      });
+      acc.push(...localeItems);
+      return acc;
+    }, []);
+
+    const queue = new Queue(timeoutWrapper, 50);
+    await Promise.all(items.map((item) => queue.push(item)));
+
+    delete lang.rolledOutByLocale;
+
+    if (!reRoll) {
+      this._completeLanguages.push(lang);
+      this._readyLanguages.splice(this._readyLanguages.indexOf(lang), 1);
+    }
+    await this.handleSaveProject();
+  }
+
+  async handleRollout(lang) {
+    // if (lang?.rollout?.status === 'rolling out') return;
+    this._message = { type: 'info', text: `Rolling out ${lang.code}.` };
+    await this.performRollout(lang);
+    this._message = undefined;
+  }
+
+  async handleRolloutAll() {
+    const readyLanguages = this.langs.filter((lang) => this.calculateStatus(lang) === 'ready');
+    if (readyLanguages.length === 0) return;
+    this._message = { type: 'info', text: `Rolling out ${readyLanguages.map((lang) => lang.code).join(', ')}.` };
+    for (const lang of readyLanguages) {
+      await this.performRollout(lang);
+    }
+    this._message = undefined;
+  }
+
+  handleLangToggle(lang, e) {
     const locales = e.target.closest('ul').querySelectorAll(`li.locale.${lang}`);
     locales.forEach((locale) => { locale.classList.toggle('hide-locale'); });
     e.target.closest('li').classList.toggle('is-expanded');
-  }
-
-  handleToggleLocaleExpand(locale, e) {
-    e.target.closest('li').classList.toggle('is-expanded');
-    locale.expanded = !locale.expanded;
     this.requestUpdate();
   }
 
-  handleGroupToggle(group) {
-    group.expanded = !group.expanded;
+  handleLocaleToggle(locale) {
+    this._expandedLocales[locale.code] = !(this._expandedLocales[locale.code] ?? false);
+    this.requestUpdate();
+  }
+
+  handleGroupToggle(state) {
+    this._expandedGroups[state] = !(this._expandedGroups[state] ?? false);
     this.requestUpdate();
   }
 
   renderRolloutAction() {
     return html`
         <p><strong>Conflict behavior:</strong> ${this.options['rollout.conflict.behavior']}</p>
-        <sl-button @click=${this.handleSendAll} class="accent">Rollout All</sl-button>
+        <sl-button @click=${this.handleRolloutAll} class="accent">Rollout All</sl-button>
       `;
   }
 
@@ -153,27 +219,34 @@ class NxLocRollout extends LitElement {
   }
 
   renderUrlDetails(locale) {
-    if (!locale.expanded) return nothing;
+    if (!this._expandedLocales[locale.code]) return nothing;
     return this.urls.map((url) => {
       const path = `${locale.code}${url.suppliedPath.replace('.html', '')}`;
       return html`<div class="url-details">
         <p>${path}</p>
-        <nx-loc-url-details .path="/adobecom/da-bacom${path}"></nx-loc-url-details>
+        <nx-loc-url-details .path="/${this.org}/${this.site}${path}"></nx-loc-url-details>
       </div>`;
     });
   }
 
-  renderLocalesFor(lang) {
-    return lang.locales.map((locale) => html`<li class="locale ${lang.code}">
-      <div class="inner">
-        <p>${locale.code}</p>
-        <p class="lang-count">${lang.ready}</p>
-        <p class="lang-count">${locale.rolledOut}</p>
-        <div class="lang-status is-${lang.status.replaceAll(' ', '-')}">${lang.status}</div>
-        <button @click=${(e) => this.handleToggleLocaleExpand(locale, e)} class="expand show-urls">Expand</button>
-      </div>
-      ${this.renderUrlDetails(locale)}
-    </li>`);
+  renderLocalesFor(lang, status) {
+    const ready = (status !== 'not ready') ? this.urls.length : this.calculateReadyCount(lang);
+    return lang.locales.map((locale) => {
+      const urlCount = this.urls?.length ?? 0;
+      const rolledOut = status === 'complete' ? urlCount : lang.rolledOutByLocale?.[locale.code] ?? 0;
+      const localeStatus = status === 'rolling out' && rolledOut === urlCount ? 'complete' : status;
+      return html`
+        <li class="locale ${lang.code}${this._expandedLocales[locale.code] ? ' is-expanded' : ''}">
+          <div class="inner">
+            <p>${locale.code}</p>
+            <p class="lang-count">${ready}</p>
+            <p class="lang-count">${rolledOut}</p>
+            <div class="lang-status is-${localeStatus.replaceAll(' ', '-')}">${localeStatus}</div>
+            <button @click=${() => this.handleLocaleToggle(locale)} class="expand show-urls">Expand</button>
+          </div>
+          ${this.renderUrlDetails(locale)}
+        </li>`;
+    });
   }
 
   renderSummary() {
@@ -184,34 +257,55 @@ class NxLocRollout extends LitElement {
       </div>
       <div class="summary-card summary-card-ready">
         <p>Rollout ready</p>
-        <p>${this.groupedLangs[0].langs.length}</p>
+        <p>${this._readyLanguages.length}</p>
       </div>
       <div class="summary-card summary-card-waiting">
         <p>Waiting</p>
-        <p>${this.groupedLangs[1].langs.length}</p>
+        <p>${this._notReadyLanguages.length}</p>
       </div>
       <div class="summary-card summary-card-complete">
         <p>Rollout complete</p>
-        <p>${this.groupedLangs[2].langs.length}</p>
+        <p>${this._completeLanguages.length}</p>
       </div>
     </div>`;
   }
 
-  renderGroup(langGroup) {
-    if (!langGroup.expanded) return nothing;
-    return html`<ul>${langGroup.langs.map((lang) => html`
+  renderGroupHeader(groupName, groupTitle) {
+    return html`<div class="nx-loc-list-header${this._expandedGroups[groupName] ? ' is-expanded' : ''}">
+      <p>${groupTitle}</p>
+      <button @click=${() => this.handleGroupToggle(groupName)} class="expand show-group">Expand</button>
+    </div>`;
+  }
+
+  renderGroupLanguages(languages, showRolloutDate) {
+    return html`<ul>${languages.map((lang) => {
+      const status = this.calculateStatus(lang);
+      let date = '';
+      let time = '';
+      if (showRolloutDate && status === 'complete' && lang.rolloutDate) {
+        ({ date, time } = formatDate(lang.rolloutDate));
+      }
+      return html`
         <li class="language-header is-expanded">
           <div class="inner">
-            <p>${lang.name}</p>
+            <p>${lang.name}${date && time ? html` <span class="rollout-date">(rolled out on ${date} at ${time})</span>` : ''}</p>
             <p class="lang-count">Ready</p>
             <p class="lang-count">Rolled Out</p>
             <div class="lang-status">
-              <sl-button @click=${this.handleSendAll} class="primary outline" ?disabled=${lang.status === 'not ready'}>Rollout</sl-button>
+              <sl-button @click=${() => this.handleRollout(lang)} class="primary outline" ?disabled=${status === 'not ready'}>Rollout</sl-button>
             </div>
-            <button @click=${(e) => this.handleToggleLangExpand(lang.code, e)} class="expand show-locales">Expand</button>
+            <button @click=${(e) => this.handleLangToggle(lang.code, e)} class="expand">Expand</button>
           </div>
         </li>
-        ${this.renderLocalesFor(lang)}`)}</ul>`;
+        ${this.renderLocalesFor(lang, status)}`;
+    })}</ul>`;
+  }
+
+  renderGroup(groupName, groupTitle, languages) {
+    if (languages.length === 0) return nothing;
+    return html`
+      ${this.renderGroupHeader(groupName, groupTitle)}
+      ${this._expandedGroups[groupName] ? this.renderGroupLanguages(languages, groupName === 'complete') : nothing}`;
   }
 
   renderLanguages() {
@@ -221,13 +315,9 @@ class NxLocRollout extends LitElement {
         <div class="actions">${this.renderRolloutAction()}</div>
       </div>
       ${this.renderSummary()}
-      ${this.groupedLangs.map((langGroup) => html`
-        <div class="nx-loc-list-header${langGroup.expanded ? ' is-expanded' : ''}">
-          <p>${langGroup.title}</p>
-          <button @click=${() => this.handleGroupToggle(langGroup)} class="expand show-group">Expand</button>
-        </div>
-        ${this.renderGroup(langGroup)}
-      `)}`;
+      ${this.renderGroup('ready', 'Ready for Rollout', this._readyLanguages)}
+      ${this.renderGroup('not ready', 'Waiting', this._notReadyLanguages)}
+      ${this.renderGroup('complete', 'Complete', this._completeLanguages)}`;
   }
 
   render() {
