@@ -67,17 +67,26 @@ class NxLoc extends LitElement {
     const { detail } = e;
     if (!detail) return;
 
-    const { error, hash, project } = await saveProject(this.path, detail);
-    if (error) return;
+    if (!detail.skipSave) {
+      const { error, hash, project } = await saveProject(this.path, detail);
+      if (error) return;
 
-    // Set everything before we swap views
-    // This prevents a new view from getting
-    // old project info.
-    this.setProject(project);
-    window.location.hash = hash;
+      // Set everything before we swap views
+      // This prevents a new view from getting
+      // old project info.
+      this.setProject(project);
+      window.location.hash = hash;
+    }
+
+    window.location.hash = detail.hash;
   }
 
   handlePrev(prevView) {
+    if (prevView === 'apps') {
+      window.location.href = `/apps#/${this.org}/${this.site}`;
+      return;
+    }
+
     const stripped = window.location.hash.replace('#', '');
     const hash = stripped.replace(this.view, prevView);
     window.location.hash = hash;
@@ -88,7 +97,9 @@ class NxLoc extends LitElement {
       return html`
         <nx-loc-dashboard
           .org=${this.org}
-          .site=${this.site}>
+          .site=${this.site}
+          @prev=${() => this.handlePrev('apps')}
+          @next=${this.handleNext}>
         </nx-loc-dashboard>`;
     }
 

@@ -55,8 +55,17 @@ export function getPathDetails() {
     return { view: 'basics' };
   }
 
+  // If its only two segments, they have an org and site
+  const split = path.split('/');
+  if (split.length === 2) {
+    const [org, site] = split;
+
+    window.location.hash = `/dashboard/${org}/${site}`;
+    return { view: 'dashboard', org, site };
+  }
+
   // Split to the parts we care about
-  const [view, org, site, ...projectParts] = path.split('/');
+  const [view, org, site, ...projectParts] = split;
 
   const knownView = VIEWS.some((known) => view === known);
 
@@ -66,9 +75,6 @@ export function getPathDetails() {
       window.location.hash = '/basics';
       return { view: 'basics' };
     }
-
-    window.location.hash = `/dashboard${path}`;
-    return { org, site };
   }
 
   return {
@@ -148,7 +154,9 @@ export async function fetchProject(path, detail) {
 export async function saveProject(projPath, updates) {
   const { org, site } = updates;
 
-  const path = projPath || `/.da/translation/active/${Date.now()}`;
+  const now = Date.now();
+
+  const path = projPath || `/.da/translation/active/${now}`;
 
   const href = `/${org}/${site}${path}`;
 
@@ -161,6 +169,7 @@ export async function saveProject(projPath, updates) {
   }
 
   existing.modifiedBy = ims.email;
+  existing.modifiedDate = now;
 
   // Merge the existing json with the new details
   const combined = { ...existing, ...updates };

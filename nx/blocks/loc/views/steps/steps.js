@@ -52,6 +52,12 @@ class NxLocSteps extends LitElement {
     return filtered.length === this.urls.length;
   }
 
+  handleSwitchView(newView) {
+    const { hash } = window.location;
+    const [, org, site] = hash.substring(2).split('/');
+    window.location.hash = `/${newView}/${org}/${site}`;
+  }
+
   getStyling(view, defIcon) {
     const views = {
       dashboard: this.org && this.site,
@@ -81,7 +87,7 @@ class NxLocSteps extends LitElement {
 
     return html`
       <div class="nx-setup-steps-container">
-        <button class="nx-loc-wizard-btn nx-loc-projects${dashboard.css}">
+        <button @click=${() => this.handleSwitchView('dashboard')} class="nx-loc-wizard-btn nx-loc-projects${dashboard.css}">
           <svg viewBox="0 0 20 20"><use href="#S2_Icon_Archive_20_N" /></svg>
           <p>All projects</p>
         </button>
@@ -119,7 +125,7 @@ class NxLocSteps extends LitElement {
 
     return html`
       <div class="nx-setup-steps-container">
-        <button class="nx-loc-wizard-btn nx-loc-projects${dashboard.css}">
+        <button @click=${() => this.handleSwitchView('dashboard')} class="nx-loc-wizard-btn nx-loc-projects${dashboard.css}">
           <svg viewBox="0 0 20 20"><use href="#S2_Icon_Archive_20_N" /></svg>
           <p>All projects</p>
         </button>

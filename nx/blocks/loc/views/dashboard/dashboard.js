@@ -1,14 +1,22 @@
 import { LitElement, html, nothing } from 'da-lit';
+import { getConfig } from '../../../../scripts/nexter.js';
 import getStyle from '../../../../utils/styles.js';
-import { daFetch } from '../../../../utils/daFetch.js';
+import getSvg from '../../../../utils/svg.js';
 import { loadIms } from '../../../../utils/ims.js';
-import { fetchProjectList, fetchPagedDetails } from './index.js';
+import { fetchProjectList, fetchPagedDetails, archiveProject, copyProject } from './index.js';
 
 import './pagination.js';
 import './filter-bar.js';
 import './project-table.js';
 
 const style = await getStyle(import.meta.url);
+
+const { nxBase: nx } = getConfig();
+
+const ICONS = [
+  `${nx}/public/icons/S2_Icon_Copy_20_N.svg`,
+  `${nx}/public/icons/S2_Icon_ProjectAddInto_20_N.svg`,
+];
 
 const PAGE_COUNT = 50;
 
@@ -18,18 +26,12 @@ class NxLocDashboard extends LitElement {
     site: { attribute: false },
     _activeProjects: { state: true },
     _filteredProjects: { state: true },
-
-    // _view: { attribute: false },
-    // _projects: { attribute: false },
-    // _currentPage: { attribute: false },
-    // _siteBase: { attribute: false },
-    // _filteredProjects: { attribute: false },
-    // _loading: { attribute: false },
   };
 
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
+    getSvg({ parent: this.shadowRoot, paths: ICONS });
     this.getCurrentUser();
     this.getProjects();
   }
@@ -56,7 +58,7 @@ class NxLocDashboard extends LitElement {
       viewAllProjects,
     } = filters;
 
-    this._filteredProjects = this._projects.filter((project) => {
+    this._filteredProjects = this._activeProjects.filter((project) => {
       // Match search query
       const matchesSearch = searchQuery
         ? project.title.toLowerCase().includes(searchQuery?.toLowerCase())
@@ -76,7 +78,7 @@ class NxLocDashboard extends LitElement {
                 || selectedRolloutStatuses?.includes(project.rolloutStatus);
 
       // Match ownership statuses
-      const matchesOwnership = viewAllProjects || project.createdBy === currentUser;
+      const matchesOwnership = viewAllProjects || project.createdBy === this._currentUser;
 
       // Combine all filters
       // eslint-disable-next-line max-len
@@ -87,73 +89,66 @@ class NxLocDashboard extends LitElement {
     this._currentPage = 1;
   }
 
-  /**
-   * Get the project statuses
-   * @param {Array} langs - The languages of the project
-   * @returns {Object} The project statuses
-   */
-  getProjectStatuses(langs) {
-    if (!langs || !Array.isArray(langs) || langs.length === 0) {
-      return { translationStatus: 'No Languages', rolloutStatus: 'No Languages' };
-    }
-
-    const translationStatuses = langs.map((lang) => lang.translation?.status?.toLowerCase());
-    const rolloutStatuses = langs.map((lang) => lang.rollout?.status?.toLowerCase());
-
-    // Derive translation status
-    let translationStatus;
-    if (translationStatuses.some((status) => status === 'error')) {
-      translationStatus = 'Error';
-    } else if (translationStatuses.every((status) => status === 'complete')) {
-      translationStatus = 'Completed';
-    } else if (translationStatuses.some((status) => status === 'created')) {
-      translationStatus = 'Created';
-    } else if (translationStatuses.some((status) => status === 'in-progress') || translationStatuses.some((status) => status === 'uploading')) {
-      translationStatus = 'In Progress';
-    } else if (translationStatuses.every((status) => status === 'not started')) {
-      translationStatus = 'Not Started';
-    } else {
-      translationStatus = 'Unknown';
-    }
-
-    // Derive rollout status
-    let rolloutStatus;
-    if (rolloutStatuses.some((status) => status === 'error')) {
-      rolloutStatus = 'Error';
-    } else if (rolloutStatuses.every((status) => status === 'complete')) {
-      rolloutStatus = 'Completed';
-    } else if (rolloutStatuses.some((status) => status === 'ready')) {
-      rolloutStatus = 'Rollout Ready';
-    } else if (rolloutStatuses.some((status) => status === 'in-progress')) {
-      rolloutStatus = 'In Progress';
-    } else {
-      rolloutStatus = 'Unknown';
-    }
-
-    return { translationStatus, rolloutStatus };
+  getCurrentList() {
+    return this._filteredProjects?.length ? this._filteredProjects : this._activeProjects;
   }
 
-  renderProjects(type) {
+  handleAction({ detail }) {
+    if (detail.name === 'prev') {
+      const opts = { detail: { href: `/apps#/${this.org}/${this.site}` }, bubbles: true, composed: true };
+      const event = new CustomEvent('prev', opts);
+      this.dispatchEvent(event);
+    }
+    const opts = { detail: { view: 'basics' }, bubbles: true, composed: true };
+    const event = new CustomEvent('next', opts);
+    this.dispatchEvent(event);
+  }
+
+  async handleCopy(project) {
+    const [newProject] = await copyProject(project, this._currentUser);
+    this.getCurrentList().unshift(newProject);
+    this.requestUpdate();
+  }
+
+  handleArchive(project, idx) {
+    archiveProject(project);
+    this.getCurrentList().splice(idx, 1);
+    this.requestUpdate();
+  }
+
+  renderProjects(projects) {
     return html`
       <div class="nx-loc-list-header">
         <p>Project</p>
-        <p>Created</p>
-        <p>Languages</p>
+        <p>Modified</p>
+        <p class="project-total">Languages</p>
         <p>Status</p>
         <p>Actions</p>
       </div>
       <ul>
-        ${this[type].map((project) => html`
+        ${projects.map((project, idx) => html`
           <li>
             <div class="inner">
-              <p>${project.title}</p>
-              <div>
-                <p>${project.createdBy}</p>
+              <div class="project-title">
+                <p><a href="#/${project.view}${project.path.replace('.json', '')}">${project.title}</a></p>
                 <p>${project.created.date} ${project.created.time}</p>
               </div>
-              <p>${project.langsTotal}</p>
-              <p>Status</p>
-              <p>Actions</p>
+              <div class="project-modified">
+                <p>${project.modifiedBy}</p>
+                <p>${project.modified?.date} ${project.modified?.time}</p>
+              </div>
+              <div class="project-total">
+                <p><strong>Languages</strong><span>${project.langsTotal}</span></p>
+                <p>${project.localesTotal ? html`<strong>Locales</strong><span>${project.localesTotal}</span>` : nothing}</p>
+              </div>
+              <div class="project-status">
+                ${project.translateStatus ? html`<p><strong>Translation</strong> ${project.translateStatus}</p>` : nothing}
+                ${project.rolloutStatus ? html`<p><strong>Rollout</strong> ${project.rolloutStatus}</p>` : nothing}
+              </div>
+              <div class="project-actions">
+                <button @click=${() => this.handleCopy(project)}><svg class="icon"><use href="#S2_Icon_Copy_20_N"/></svg></button>
+                <button @click=${() => this.handleArchive(project, idx)}><svg class="icon"><use href="#S2_Icon_ProjectAddInto_20_N"/></svg></button>
+              </div>
             </div>
           </li>
         `)}
@@ -162,9 +157,19 @@ class NxLocDashboard extends LitElement {
   }
 
   render() {
+    const projects = this.getCurrentList();
+
     return html`
+      <nx-loc-actions
+        @action=${this.handleAction}
+        .message=${this._message}
+        prev="All apps"
+        nextStyle="accent"
+        skipSave="true"
+        next="Create new project">
+      </nx-loc-actions>
       <nx-filter-bar @filter-change=${(e) => this.applyFilters(e.detail)}></nx-filter-bar>
-      ${this._activeProjects ? this.renderProjects('_activeProjects') : nothing}
+      ${projects ? this.renderProjects(projects) : nothing}
     `;
   }
 }
