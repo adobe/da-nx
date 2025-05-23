@@ -13,8 +13,9 @@ import './views/basics/basics.js';
 import './views/validate/validate.js';
 import './views/options/options.js';
 import './views/sync/sync.js';
-import './views/rollout/rollout.js';
 import './views/translate/translate.js';
+import './views/rollout/rollout.js';
+import './views/complete/complete.js';
 import './views/url-details/url-details.js';
 
 const EL_NAME = 'nx-loc';
@@ -139,8 +140,10 @@ class NxLoc extends LitElement {
         <nx-loc-sync
           .org=${this.org}
           .site=${this.site}
+          .path=${this.path}
           .title=${this._title}
           .options=${this._options}
+          .langs=${this._langs}
           .urls=${this._urls}
           @prev=${() => this.handlePrev('dashboard')}
           @next=${this.handleNext}>
@@ -177,6 +180,18 @@ class NxLoc extends LitElement {
           @prev=${() => this.handlePrev('translate')}
           @next=${this.handleNext}>
         </nx-loc-rollout>
+      `;
+    }
+
+    if (this.view === 'complete') {
+      return html`
+        <nx-loc-complete
+          .org=${this.org}
+          .site=${this.site}
+          .path=${this.path}
+          @prev=${() => this.handlePrev('dashboard')}
+          @next=${this.handleNext}>
+        </nx-loc-complete>
       `;
     }
     return nothing;

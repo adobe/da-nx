@@ -2,6 +2,7 @@ import { LitElement, html, nothing } from 'da-lit';
 import { getConfig } from '../../../../scripts/nexter.js';
 import getStyle from '../../../../utils/styles.js';
 import getSvg from '../../../../utils/svg.js';
+import { getTranslateStepText } from '../../utils/utils.js';
 
 const { nxBase: nx } = getConfig();
 const style = await getStyle(import.meta.url);
@@ -33,6 +34,7 @@ class NxLocSteps extends LitElement {
     org: { attribute: false },
     site: { attribute: false },
     path: { attribute: false },
+    langs: { attribute: false },
     urls: { attribute: false },
   };
 
@@ -61,6 +63,8 @@ class NxLocSteps extends LitElement {
   getTranslateCheck() {
     if (!this.urls || !this.urls?.length) return false;
 
+    if (!this.langs || !this.langs?.length) return false;
+
     return this.langs.every((lang) => {
       const {
         action = '',
@@ -73,6 +77,8 @@ class NxLocSteps extends LitElement {
 
   getRolloutCheck() {
     if (!this.urls || !this.urls?.length) return false;
+
+    if (!this.langs || !this.langs?.length) return false;
 
     return this.langs.every((lang) => {
       const { rollout: { status = '' } = {} } = lang;
@@ -124,7 +130,7 @@ class NxLocSteps extends LitElement {
           <hr/>
           <button class="nx-loc-wizard-btn${translate.css}">
             <svg viewBox="0 0 20 20"><use href="${translate.icon}" /></svg>
-            <p>Translate or copy</p>
+            <p>${getTranslateStepText(this.langs)}</p>
           </button>
           <hr/>
           <button class="nx-loc-wizard-btn${rollout.css}">
@@ -187,7 +193,7 @@ class NxLocSteps extends LitElement {
 
   render() {
     return html`
-      ${this.view && this.view !== 'dashboard' ? this.renderSteps() : nothing}
+      ${this.view && this.view !== 'dashboard' && this.view !== 'complete' ? this.renderSteps() : nothing}
     `;
   }
 }

@@ -1,4 +1,4 @@
-import { LitElement, html, nothing } from 'da-lit';
+import { LitElement, html } from 'da-lit';
 import getStyle from '../../../../utils/styles.js';
 import formatBasics from './index.js';
 

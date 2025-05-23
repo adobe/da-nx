@@ -3,6 +3,7 @@ import getStyle from '../../../../utils/styles.js';
 import { getConfig } from '../../../../scripts/nexter.js';
 import getSvg from '../../../../utils/svg.js';
 import { Queue } from '../../../../public/utils/tree.js';
+import { getTranslateStepText, saveProject } from '../../utils/utils.js';
 import { getSyncUrls } from './index.js';
 import { mergeCopy, overwriteCopy } from '../../project/index.js';
 
@@ -21,7 +22,7 @@ class NxLocSync extends LitElement {
     site: { attribute: false },
     title: { attribute: false },
     options: { attribute: false },
-    locale: { attribute: false },
+    langs: { attribute: false },
     urls: { attribute: false },
     _message: { state: true },
     _syncOptions: { state: true },
@@ -42,15 +43,19 @@ class NxLocSync extends LitElement {
     this._syncUrls = getSyncUrls(this.org, this.site, location, this.urls);
   }
 
-  handleAction() {
-    const view = 'translate';
-
-    // Only persist what we need to
-    const urls = this._syncUrls.map((url) => ({
+  getPersistedUrls() {
+    return this._syncUrls.map((url) => ({
       suppliedPath: url.suppliedPath,
       checked: url.checked,
       synced: url.synced,
     }));
+  }
+
+  handleAction() {
+    const view = 'translate';
+
+    // Only persist what we need to
+    const urls = this.getPersistedUrls();
 
     const detail = { org: this.org, site: this.site, view, urls };
     const opts = { detail, bubbles: true, composed: true };
@@ -72,7 +77,11 @@ class NxLocSync extends LitElement {
     this.requestUpdate();
   }
 
-  handleSyncAll(type) {
+  async handleSyncAll(type) {
+    // Forcefully drop the current sync status on the URLs
+    this._syncUrls.forEach((url) => { delete url.synced; });
+    this.requestUpdate();
+
     if (type === 'skip') {
       this._syncUrls.forEach((url) => { url.synced = 'skipped'; });
       this.requestUpdate();
@@ -81,7 +90,11 @@ class NxLocSync extends LitElement {
 
     const syncUrl = this.syncUrl.bind(this);
     const queue = new Queue(syncUrl, 50);
-    this._syncUrls.map((url) => queue.push(url));
+    await Promise.allSettled(this._syncUrls.map((url) => queue.push(url)));
+
+    const urls = this.getPersistedUrls();
+
+    await saveProject(this.path, { org: this.org, site: this.site, urls });
   }
 
   handleToggleExpand(url) {
@@ -127,7 +140,7 @@ class NxLocSync extends LitElement {
         .message=${this._message || this._defaultMessage}
         prev="Dashboard"
         ?nextDisabled=${!this._allSynced}
-        next="Translate or copy">
+        next=${getTranslateStepText(this.langs)}>
       </nx-loc-actions>
       <div class="nx-loc-list-actions">
         <div>

@@ -1,0 +1,19 @@
+:host {
+  svg {
+    display: none;
+    width: 200px;
+    height: 200px;
+  }
+}
+
+.inner {
+  width: 240px;
+  margin: 60px auto;
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+
+  svg {
+    display: block;
+  }
+}

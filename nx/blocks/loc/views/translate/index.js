@@ -1,7 +1,7 @@
 import { DA_ORIGIN } from '../../../../public/utils/constants.js';
 import { Queue } from '../../../../public/utils/tree.js';
 import { daFetch } from '../../../../utils/daFetch.js';
-import { fetchConfig, getHasExt } from '../../utils/utils.js';
+import { fetchConfig, formatPath } from '../../utils/utils.js';
 import { mergeCopy, overwriteCopy } from '../../project/index.js';
 
 let CONNECTOR;
@@ -10,47 +10,6 @@ export async function setupConnector(service) {
   const serviceName = service.name.toLowerCase().replaceAll(' ', '-');
   CONNECTOR = await import(`../../connectors/${serviceName}/index.js`);
   return CONNECTOR;
-}
-
-export function formatPath(org, site, sourceLocation, path) {
-  const hasSourceLocaction = path.startsWith(sourceLocation)
-    && path !== sourceLocation
-    && sourceLocation !== '/';
-
-  // Get site source prefix for later use in saving to other langs
-  const sourceLangPrefix = `/${org}/${site}${sourceLocation}`;
-
-  // Determine if we need to add index
-  const indexedPath = path.endsWith('/') ? `${path}index` : path;
-
-  // Determine if supplied path needs source location added
-  const toTranslatePath = hasSourceLocaction ? indexedPath : `${sourceLocation}${indexedPath}`;
-
-  const hasExt = getHasExt(toTranslatePath);
-
-  // Determine a source location for DA Admin
-  const langPath = hasExt ? toTranslatePath : `${toTranslatePath}.html`;
-  const daLangPath = `/${org}/${site}${langPath}`;
-
-  // Determine if lang agnostic path needs source location removed
-  const basePath = hasSourceLocaction ? indexedPath : indexedPath.replace(sourceLocation, '');
-
-  // daBasePath is used as a language agnostic identifier for localization services
-  const daBasePath = hasExt ? basePath : `${basePath}.html`;
-
-  // Where would this live on AEM?
-  const aemHref = `https://main--${site}--${org}.aem.page${path}`;
-
-  return {
-    sourceLangPrefix,
-    langPath,
-    daLangPath,
-    daBasePath,
-    aemHref,
-    basePath,
-    toTranslatePath,
-    hasExt,
-  };
 }
 
 export async function getUrls(org, site, service, sourceLocation, urls, fetchContent) {

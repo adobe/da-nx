@@ -4,7 +4,7 @@ import { getConfig } from '../../../../scripts/nexter.js';
 import getSvg from '../../../../utils/svg.js';
 import { Queue } from '../../../../public/utils/tree.js';
 import { calculateTime, timeoutWrapper, mergeCopy, overwriteCopy, formatDate } from '../../project/index.js';
-import { getHasExt, saveProject } from '../../utils/utils.js';
+import { getHasExt, getTranslateStepText, saveProject } from '../../utils/utils.js';
 
 const { nxBase: nx } = getConfig();
 
@@ -80,11 +80,12 @@ class NxLocRollout extends LitElement {
       const opts = { bubbles: true, composed: true };
       const event = new CustomEvent('prev', opts);
       this.dispatchEvent(event);
+      return;
     }
-    // const detail = { org: this.org, site: this.site, view, urls };
-    // const opts = { detail, bubbles: true, composed: true };
-    // const event = new CustomEvent('next', opts);
-    // this.dispatchEvent(event);
+    const nextDetail = { org: this.org, site: this.site, view: 'complete' };
+    const opts = { detail: nextDetail, bubbles: true, composed: true };
+    const event = new CustomEvent('next', opts);
+    this.dispatchEvent(event);
   }
 
   async handleSaveProject() {
@@ -191,6 +192,11 @@ class NxLocRollout extends LitElement {
     this.requestUpdate();
   }
 
+  get rolloutComplete() {
+    const langsWithLocales = this.langs.filter((lang) => lang.locales.length > 0);
+    return langsWithLocales.every((lang) => lang.rollout?.status === 'complete');
+  }
+
   renderRolloutAction() {
     return html`
         <p><strong>Conflict behavior:</strong> ${this.options['rollout.conflict.behavior']}</p>
@@ -252,16 +258,16 @@ class NxLocRollout extends LitElement {
   renderSummary() {
     return html`<div class="summary">
       <div class="summary-card">
-        <p>Total Languages</p>
+        <p>Total languages</p>
         <p>${this.langs.length}</p>
-      </div>
-      <div class="summary-card summary-card-ready">
-        <p>Rollout ready</p>
-        <p>${this._readyLanguages.length}</p>
       </div>
       <div class="summary-card summary-card-waiting">
         <p>Waiting</p>
         <p>${this._notReadyLanguages.length}</p>
+      </div>
+      <div class="summary-card summary-card-ready">
+        <p>Rollout ready</p>
+        <p>${this._readyLanguages.length}</p>
       </div>
       <div class="summary-card summary-card-complete">
         <p>Rollout complete</p>
@@ -325,7 +331,8 @@ class NxLocRollout extends LitElement {
       <nx-loc-actions
         @action=${this.handleAction}
         .message=${this._message}
-        prev="Translate or copy"
+        prev=${getTranslateStepText(this.langs)}
+
         next="Project complete">
       </nx-loc-actions>
       ${this.renderUrlErrors()}
