@@ -39,7 +39,9 @@
   --s2-body-xxs-size: 13px;
 
   /* Colors */
+  --s2-blue-100: #f5f9ff;
   --s2-blue-200: #e5f0fe;
+  --s2-blue-300: #cbe2fe;
   --s2-blue-400: #accffd;
   --s2-blue-700: #5989ff;
   --s2-blue-900: #3b63fb;
@@ -60,6 +62,7 @@
   --s2-gray-800: #292929;
   --s2-green-200: #d7f7e1;
   --s2-green-300: #adeec5;
+  --s2-green-500: #2bd17e;
   --s2-green-600: #2fb880;
   --s2-green-700: #0ba45d;
   --s2-green-900: #05834e;

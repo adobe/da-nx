@@ -7,4 +7,13 @@
 .nx-loc-step {
   max-width: var(--grid-container-width);
   margin: 0 auto var(--spacing-500) auto;
+
+  &.loc-error-step {
+    margin-top: 72px;
+    text-align: center;
+
+    .loc-error-code {
+      font-size: 72px;
+    }
+  }
 }

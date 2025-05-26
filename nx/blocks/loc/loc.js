@@ -59,7 +59,10 @@ class NxLoc extends LitElement {
     const href = `/${this.org}/${this.site}${this.path}`;
 
     const project = await fetchProject(href);
-    if (project.error) return;
+    if (project.error) {
+      this._error = project.error;
+      return;
+    }
 
     this.setProject(project);
   }
@@ -197,7 +200,21 @@ class NxLoc extends LitElement {
     return nothing;
   }
 
+  renderError() {
+    return html`
+      <nx-loc-header
+        title="Error"></nx-loc-header>
+      <div class="nx-loc-step loc-error-step">
+        <p class="loc-error-code">${this._error.status}</p>
+        <p class="loc-error-message">${this._error.message}</p>
+        <p class="loc-error-help">${this._error.help}</p>
+      </div>
+    `;
+  }
+
   render() {
+    if (this._error) return this.renderError();
+
     return html`
       <nx-loc-header
         view=${this.view}

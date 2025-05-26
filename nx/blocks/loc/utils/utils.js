@@ -46,10 +46,6 @@ export function getTranslateStepText(langs) {
   return 'Translate & copy';
 }
 
-export function skipSync(sourceLocation, urls) {
-
-}
-
 export function formatPath(org, site, sourceLocation, path) {
   const hasSourceLocaction = path.startsWith(sourceLocation)
     && path !== sourceLocation
@@ -185,7 +181,14 @@ export async function fetchProject(path, detail) {
   if (!resp.ok) {
     if (resp.status === 404) return { title: 'New project' };
     if (resp.status === 401 || resp.status === 403) {
-      return { error: `Not authorized for: ${path}.` };
+      const [org, site] = path.substring(1).split('/');
+      return {
+        error: {
+          message: `Not authorized for: ${org} / ${site}.`,
+          help: 'Are you logged into the correct organization?',
+          status: resp.status,
+        },
+      };
     }
     return { error: `Unknown error for: ${path}.` };
   }
