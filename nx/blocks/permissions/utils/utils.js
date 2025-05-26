@@ -204,7 +204,10 @@ async function approveSiteUser(org, site, path, user) {
       const exists = existingRoleUsers.some((existingUser) => existingUser === user.id);
       if (!exists) existingRoleUsers.push(user.id);
     } else {
-      // If not found, ensure the user is removed from the role.
+      // Check to see if there are existing users in the current role
+      if (!existingRoleUsers) return;
+
+      // Ensure this user is removed if they've had the role taken away from them
       json.admin.role[role] = existingRoleUsers.filter((existingUser) => existingUser !== user.id);
     }
   });
