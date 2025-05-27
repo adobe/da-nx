@@ -62,16 +62,25 @@ class NxLocRollout extends LitElement {
   async handleRolloutLang(lang) {
     this._message = { text: `Rolling out ${lang.name}.` };
 
-    const { urls } = this;
     const onConflict = this.options['rollout.conflict.behavior'];
-    const actions = { requestUpdate: this.requestUpdate.bind(this) };
+    const actions = {
+      sendMessage: (message) => { this._message = message; },
+      requestUpdate: this.requestUpdate.bind(this),
+    };
 
-    const { message } = await rolloutLang({ lang, urls, actions, onConflict });
+    const rolloutConf = {
+      org: this.org,
+      site: this.site,
+      options: this.options,
+      urls: this.urls,
+      lang,
+      actions,
+      onConflict,
+    };
+    const { message } = await rolloutLang(rolloutConf);
     if (message) {
       this._message = message;
-      return;
     }
-    console.log(lang.rollout);
   }
 
   async handleRolloutGroup(group) {

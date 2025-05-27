@@ -1,3 +1,8 @@
+import { DA_ORIGIN } from '../../../../public/utils/constants.js';
+import { Queue } from '../../../../public/utils/tree.js';
+import { daFetch } from '../../../../utils/daFetch.js';
+import { formatPath } from '../../utils/utils.js';
+
 function getTitle(status) {
   const title = {
     'not started': 'Ready',
@@ -13,8 +18,76 @@ function calcActionStatus(name, lang) {
   return lang[name]?.status || 'not started';
 }
 
-function formatRolloutUrls(locale, urls) {
-  console.log(urls);
+async function fetchLangSources(urls) {
+  const fetchUrl = async (url) => {
+    const resp = await daFetch(`${DA_ORIGIN}/source${url.source}`);
+    if (!resp.ok) {
+      url.error = `Error fetching content from ${url.source} - ${resp.status}`;
+      return url;
+    }
+
+    const content = await resp.text();
+
+    if (content.includes('da-loc-added') || content.includes('da-loc-deleted')) {
+      url.error = `${url.source} has unmerged changes. Please resolve before rolling out.`;
+      return url;
+    }
+
+    url.content = content;
+
+    return url;
+  };
+  const queue = new Queue(fetchUrl, 50);
+  await Promise.all(urls.map((url) => queue.push(url)));
+  const errors = urls.filter((url) => url.error);
+  return { errors, urls };
+}
+
+function formatRolloutUrls(org, site, sourceLocation, lang, urls) {
+  const langUrls = urls.map((url) => {
+    const { daBasePath } = formatPath(org, site, sourceLocation, url.suppliedPath);
+    const source = `/${org}/${site}${lang.location}${daBasePath}`;
+    return { source, daBasePath };
+  });
+  return lang.locales.reduce((acc, locale) => {
+    const localeUrls = langUrls.map(
+      (langUrl) => (
+        {
+          source: langUrl.source,
+          destination: `/${org}/${site}${locale.code}${langUrl.daBasePath}`,
+        }),
+    );
+    acc.push(...localeUrls);
+    return acc;
+  }, []);
+}
+
+export async function rolloutLang({
+  org,
+  site,
+  options,
+  lang,
+  urls: projectUrls,
+  actions,
+}) {
+  lang.rollout.status = 'rolling out';
+  actions.requestUpdate();
+
+  const sourceLocation = options['source.language']?.location || '/';
+  const urlsToSave = formatRolloutUrls(org, site, sourceLocation, lang, projectUrls);
+
+  // Determine all sources are valid before continuing
+  const { langSourcesEerrors, langSources } = await fetchLangSources(urlsToSave);
+  if (langSourcesEerrors) {
+    return {
+      errors,
+      message: { text: `Errors fetching content from ${lang.name}.`, type: 'error' },
+    };
+  }
+
+  const
+
+  return {};
 }
 
 function getRolloutDetails(lang) {
@@ -72,13 +145,6 @@ export function getFilteredLangs(sortedLangs, filters) {
 
     return acc;
   }, {});
-}
-
-export async function rolloutLang({ lang, urls, actions, onConflict }) {
-  lang.rollout.status = 'rolling out';
-  actions.requestUpdate();
-  const urlsToSave = formatRolloutUrls(lang.locales, urls);
-  return {};
 }
 
 export function getSummaryCards() {
