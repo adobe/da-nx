@@ -21,6 +21,30 @@ describe('Google DNT', () => {
     expect(htmlWithoutDnt).to.equal(expectedHtmlWithoutDnt);
   });
 
+  it('Converts code blocks to dnt', async () => {
+    const html = `<html><head></head><body>
+      <main>
+        <div><code>console.log("Hello, world!");</code></div>
+        <div><code>const x = 1;</code></div>
+      </main>
+    </body></html>`;
+    const result = await addDnt(html, {});
+    expect(result).to.equal(`<html><head></head><body>
+      <main>
+        <div><code data-inner-html="console.log(&quot;Hello, world!&quot;);"></code></div>
+        <div><code data-inner-html="const x = 1;"></code></div>
+      </main>
+    </body></html>`);
+
+    const removed = await removeDnt(result, 'adobecom', 'adobe');
+    // Google translate strips html and head tags
+    const removedHtml = `<body><main>
+        <div><code>console.log("Hello, world!");</code></div>
+        <div><code>const x = 1;</code></div>
+      </main></body>`;
+    expect(removed).to.equal(removedHtml);
+  });
+
   it('Converts json to dnt formatted html and back', async () => {
     const expectedHtmlWithDnt = await readFile({ path: './mocks/placeholders.html' });
     const json = await readFile({ path: './mocks/placeholders.json' });

@@ -3,6 +3,8 @@ import decorateTable from './decorateTable.js';
 import parseQuery from './parseQuery.js';
 import { processAltText, resetAltText } from './processAltText.js';
 
+const DNT_ELEMENTS = ['code'];
+
 function removeDntAttributes(document) {
   const dntEls = document.querySelectorAll('[translate="no"]');
   dntEls.forEach((el) => { el.removeAttribute('translate'); });
@@ -94,6 +96,12 @@ const addDntInfoToHtml = (html, dntRules) => {
     findAndAddDntWrapper(document, dntContent);
   });
 
+  DNT_ELEMENTS.forEach((dntElement) => {
+    document.querySelectorAll(dntElement).forEach((el) => {
+      el.setAttribute('translate', 'no');
+    });
+  });
+
   processAltText(document, addDntWrapper);
   return document.documentElement.outerHTML;
 };
@@ -111,7 +119,6 @@ const extractPattern = (rule) => {
   return { condition, match };
 };
 
-// TODO memoize
 function parseConfig(config) {
   const docRules = config['custom-doc-rules']?.data || [];
   const contentRules = config['dnt-content-rules']?.data || [];
