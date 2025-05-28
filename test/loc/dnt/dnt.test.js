@@ -114,6 +114,28 @@ describe('makeIconSpans', () => {
   });
 });
 
+describe('code blocks', () => {
+  it.only('adds dnt info to all html code blocks', async () => {
+    const html = `<html><head></head><body>
+      <main>
+        <div><code>console.log("Hello, world!");</code></div>
+        <div><code>const x = 1;</code></div>
+      </main>
+    </body></html>`;
+    const result = await addDnt(html, {});
+    console.log(result);
+    expect(result).to.equal(`<html><head></head><body>
+      <main>
+        <div><code translate="no">console.log("Hello, world!");</code></div>
+        <div><code translate="no">const x = 1;</code></div>
+      </main>
+    </body></html>`);
+
+    const removed = await removeDnt(result, 'adobecom', 'adobe');
+    expect(removed).to.equal(html);
+  });
+});
+
 describe('addDntInfoToHtml', () => {
   it('adds dnt info to html', async () => {
     const metadataTable = `<html><head></head><body>
