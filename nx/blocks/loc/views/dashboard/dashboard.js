@@ -99,7 +99,7 @@ class NxLocDashboard extends LitElement {
       const event = new CustomEvent('prev', opts);
       this.dispatchEvent(event);
     }
-    const opts = { detail: { view: 'basics' }, bubbles: true, composed: true };
+    const opts = { detail: { view: 'basics', org: this.org, site: this.site }, bubbles: true, composed: true };
     const event = new CustomEvent('next', opts);
     this.dispatchEvent(event);
   }
