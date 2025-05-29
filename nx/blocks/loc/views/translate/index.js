@@ -137,3 +137,61 @@ export async function copySourceLangs(org, site, title, options, langs, urls) {
     };
   }
 }
+
+export function removeWaitingLanguagesFromConf(conf) {
+  return {
+    ...conf,
+    langs: conf.langs.filter((lang) => !lang.waitingFor),
+  };
+}
+
+export async function sendAllForTranslation(conf, connector) {
+  const errors = conf.urls.filter((url) => url.error);
+  if (errors.length) {
+    return errors;
+  }
+
+  conf.langs.filter((lang) => lang.waitingFor).forEach((lang) => {
+    if (!lang.translation) {
+      lang.translation = {};
+    }
+    lang.translation.status = 'waiting';
+  });
+  return connector.sendAllLanguages(removeWaitingLanguagesFromConf(conf));
+}
+
+async function sendLanguageForTranslation(conf, connector, lang, originalUrls, sourceLocation) {
+  const newSourceLocation = lang.waitingFor.location;
+  const baseUrls = !sourceLocation ? originalUrls : originalUrls.map((url) => {
+    const { suppliedPath: path } = url;
+    return {
+      ...url,
+      suppliedPath: path.startsWith(sourceLocation) ? path.slice(sourceLocation.length) : path,
+    };
+  });
+  const { org, site } = conf;
+  const { urls } = await getUrls(org, site, { connector }, newSourceLocation, baseUrls, true);
+  lang.translation.status = 'not started';
+  delete lang.waitingFor;
+  return connector.sendAllLanguages({
+    ...conf,
+    langs: [lang],
+    urls,
+  });
+}
+
+export async function checkWaitingLanguages(conf, connector, originalUrls, originalSourceLocation) {
+  const waitingLangs = conf.langs.filter((lang) => (lang.waitingFor && lang.translation?.status === 'waiting'));
+
+  const readyLangs = [];
+  for (const waitingLang of waitingLangs) {
+    const sourceLang = conf.langs.find((lang) => lang.code === waitingLang.waitingFor.code);
+    if (sourceLang && (sourceLang.translation?.saved ?? 0) === conf.urls.length) {
+      readyLangs.push(waitingLang);
+    }
+  }
+
+  for (const lang of readyLangs) {
+    await sendLanguageForTranslation(conf, connector, lang, originalUrls, originalSourceLocation);
+  }
+}

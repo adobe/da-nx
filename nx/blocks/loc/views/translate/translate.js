@@ -3,7 +3,15 @@ import getStyle from '../../../../utils/styles.js';
 import { getConfig } from '../../../../scripts/nexter.js';
 import getSvg from '../../../../utils/svg.js';
 import { saveProject } from '../../utils/utils.js';
-import { setupConnector, getUrls, saveLangItemsToDa, copySourceLangs } from './index.js';
+import {
+  setupConnector,
+  getUrls,
+  saveLangItemsToDa,
+  copySourceLangs,
+  checkWaitingLanguages,
+  sendAllForTranslation,
+  removeWaitingLanguagesFromConf,
+} from './index.js';
 
 const { nxBase: nx } = getConfig();
 
@@ -104,17 +112,13 @@ class NxLocTranslate extends LitElement {
 
   async handleSendAll() {
     const conf = await this.getBaseTranslationConf(true);
-
-    const errors = conf.urls.filter((url) => url.error);
-    if (errors.length) {
-      this._urlErrors = errors;
-      return;
+    const sendAll = await sendAllForTranslation(conf, this._service.connector);
+    if (sendAll?.errors?.length) {
+      this._urlErrors = sendAll.errors;
     }
-
-    await this._service.connector.sendAllLanguages(conf);
   }
 
-  async checkAndSaveLangs() {
+  async checkAndSaveLangs(conf) {
     this._message = { text: 'Checking for languages to save' };
 
     const langsToSave = this._translateLangs.filter((lang) => lang.translation?.status === 'translated');
@@ -122,13 +126,12 @@ class NxLocTranslate extends LitElement {
     if (langsToSave.length) {
       const sendMessage = this.handleMessage.bind(this);
 
-      const conf = await this.getBaseTranslationConf(false);
-
       // Overwrite the base langs to only the ones we want to save
       const saveConf = { ...conf, langs: langsToSave };
 
       await saveLangItemsToDa(this.options, saveConf, this._service.connector, sendMessage);
     }
+    await checkWaitingLanguages(conf, this._service.connector, this.urls, this.options['source.language']?.location);
 
     this._message = undefined;
   }
@@ -141,9 +144,9 @@ class NxLocTranslate extends LitElement {
 
     const conf = await this.getBaseTranslationConf(false);
 
-    await this._service.connector.getStatusAll(conf);
+    await this._service.connector.getStatusAll(removeWaitingLanguagesFromConf(conf));
 
-    await this.checkAndSaveLangs();
+    await this.checkAndSaveLangs(conf);
 
     this.handleSaveLangs();
   }
@@ -232,7 +235,7 @@ class NxLocTranslate extends LitElement {
     const statusStyle = `is-${status.replaceAll(' ', '-')}`;
 
     return html`
-      <div class="lang-status ${statusStyle}">
+      <div class="lang-status ${statusStyle}" title="${status === 'waiting' ? `Waiting for ${lang.waitingFor?.name ?? ''}` : status}">
         ${status}
       </div>
     `;
