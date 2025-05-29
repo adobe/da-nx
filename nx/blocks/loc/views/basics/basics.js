@@ -19,6 +19,7 @@ class NxLocBasics extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
+
   }
 
   formatTitle({ target }) {
@@ -64,12 +65,12 @@ class NxLocBasics extends LitElement {
         .message=${this._message}
         prev="Dashboard"
         ?prevDisabled="${!(this.org && this.site)}"
-        next="Validate references">
+        next="Validate sources">
       </nx-loc-actions>
       <form>
         <div class="nx-loc-title-wrapper">
           <label for="title">Title</label>
-          <sl-input type="text" name="title" .value=${this.title || 'demo'} @input=${this.formatTitle}></sl-input>
+          <sl-input type="text" name="title" .value=${this.title} placeholder="demo" @input=${this.formatTitle}></sl-input>
         </div>
         <div>
           <label for="urls">URLs</label>

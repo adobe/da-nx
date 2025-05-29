@@ -189,6 +189,15 @@ ul.lang-list {
     .lang-name {
       font-weight: 700;
     }
+
+    &.lang-item-details-error {
+      grid-template-columns: 1fr;
+      padding: 24px;
+
+      .lang-name {
+        font-weight: 400;
+      }
+    }
   }
 
   .lang-item-locales {

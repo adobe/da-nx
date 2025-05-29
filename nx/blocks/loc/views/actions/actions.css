@@ -26,6 +26,7 @@
 
   &.type-error {
     background: var(--s2-red-900);
+    border: 1px solid var(--s2-red-300);
     color: #fff;
   }
 }

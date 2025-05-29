@@ -88,7 +88,9 @@ class NxLocOptions extends LitElement {
       const event = new CustomEvent('prev', opts);
       this.dispatchEvent(event);
     }
-    if (detail === 'next') this.handleSubmit();
+    if (detail === 'next') {
+      this.handleSubmit();
+    }
   }
 
   handleLocaleToggle(e, locale) {

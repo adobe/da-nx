@@ -59,10 +59,9 @@ class NxLocRollout extends LitElement {
     await saveProject(this.path, updates);
   }
 
-  async handleRolloutLang(lang) {
-    this._message = { text: `Rolling out ${lang.name}.` };
+  async handleRolloutLang(langToRollout) {
+    this._message = { text: `Rolling out ${langToRollout.name}.` };
 
-    const onConflict = this.options['rollout.conflict.behavior'];
     const actions = {
       sendMessage: (message) => { this._message = message; },
       requestUpdate: this.requestUpdate.bind(this),
@@ -71,16 +70,29 @@ class NxLocRollout extends LitElement {
     const rolloutConf = {
       org: this.org,
       site: this.site,
+      title: this.title,
       options: this.options,
       urls: this.urls,
-      lang,
+      lang: langToRollout,
       actions,
-      onConflict,
     };
-    const { message } = await rolloutLang(rolloutConf);
-    if (message) {
+
+    const { message, errors } = await rolloutLang(rolloutConf);
+    if (message || errors) {
       this._message = message;
+      this._errors = errors;
+      return;
     }
+
+    // Replace the lang from the main list
+    // with the one that has updated status info.
+    const foundIdx = this.langs.findIndex((lang) => lang.code === langToRollout.code);
+    this.langs[foundIdx] = langToRollout;
+
+    await this.handleSaveProject();
+
+    // Close any displayed messages
+    this._message = undefined;
   }
 
   async handleRolloutGroup(group) {
@@ -146,8 +158,12 @@ class NxLocRollout extends LitElement {
             <p class="sources-count">${this.urls.length}</p>
             <p class="saved-count">${locale.saved || 0}</p>
             <p class="rollout-status">${rollout.status}</p>
-            <p>${locale.saved}</p>
           <div>
+          <div class="locale-urls">
+            <ul>
+
+            </ul>
+          </div>
         </li>
       `)}
     </ul>`;
@@ -201,6 +217,21 @@ class NxLocRollout extends LitElement {
     `)}`;
   }
 
+  renderErrors() {
+    if (!this._errors) return nothing;
+    return html`
+      <div class="lang-group-header">
+        <p class="lang-group-title">Errors</p>
+      </div>
+      <ul class="lang-list">
+        ${this._errors.map((url) => html`<li class="lang-item">
+          <div class="lang-item-details lang-item-details-error">
+          <p class="lang-name">${url.error}</p>
+        </li>`)}
+      </ul>
+    `;
+  }
+
   renderSummary() {
     return html`
       <div class="summary">
@@ -226,6 +257,7 @@ class NxLocRollout extends LitElement {
         next="Project complete">
       </nx-loc-actions>
       ${this.renderSummary()}
+      ${this.renderErrors()}
       ${this.renderGroups()}
     `;
   }

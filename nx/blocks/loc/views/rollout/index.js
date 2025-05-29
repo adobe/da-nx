@@ -1,7 +1,8 @@
 import { DA_ORIGIN } from '../../../../public/utils/constants.js';
 import { Queue } from '../../../../public/utils/tree.js';
 import { daFetch } from '../../../../utils/daFetch.js';
-import { formatPath } from '../../utils/utils.js';
+import { mergeCopy, overwriteCopy } from '../../project/index.js';
+import { convertPath } from '../../utils/utils.js';
 
 function getTitle(status) {
   const title = {
@@ -18,11 +19,20 @@ function calcActionStatus(name, lang) {
   return lang[name]?.status || 'not started';
 }
 
-async function fetchLangSources(urls) {
+function getRespStatusText(status) {
+  const codeToText = {
+    404: 'Not found',
+    401: 'Not authorized',
+    403: 'Not authorized',
+  };
+  return codeToText[status];
+}
+
+async function fetchLangSources(lang, urls) {
   const fetchUrl = async (url) => {
     const resp = await daFetch(`${DA_ORIGIN}/source${url.source}`);
     if (!resp.ok) {
-      url.error = `Error fetching content from ${url.source} - ${resp.status}`;
+      url.error = `Error fetching content from ${url.source} - ${getRespStatusText(resp.status)}`;
       return url;
     }
 
@@ -39,24 +49,82 @@ async function fetchLangSources(urls) {
   };
   const queue = new Queue(fetchUrl, 50);
   await Promise.all(urls.map((url) => queue.push(url)));
-  const errors = urls.filter((url) => url.error);
-  return { errors, urls };
+
+  // Setup the results obj
+  const results = { urls };
+
+  // Find any errors and dedupe them
+  const errors = urls.reduce((acc, url) => {
+    if (url.error) {
+      const found = acc.find((errorUrl) => errorUrl.error === url.error);
+      if (!found) acc.push(url);
+    }
+    return acc;
+  }, []);
+
+  // If errors, add them to results
+  if (errors.length) {
+    results.errors = errors;
+    results.message = { text: `Errors validating content from ${lang.name}.`, type: 'error' };
+  }
+
+  return results;
 }
 
-function formatRolloutUrls(org, site, sourceLocation, lang, urls) {
-  const langUrls = urls.map((url) => {
-    const { daBasePath } = formatPath(org, site, sourceLocation, url.suppliedPath);
-    const source = `/${org}/${site}${lang.location}${daBasePath}`;
-    return { source, daBasePath };
+async function rolloutLangLocales(title, lang, urls, behavior) {
+  const rolloutUrl = async (url) => {
+    const overwrite = behavior === 'overwrite' || url.hasExt;
+    const copyFn = overwrite ? overwriteCopy : mergeCopy;
+    await copyFn(url, title);
+  };
+
+  const queue = new Queue(rolloutUrl, 50);
+  await Promise.all(urls.map((url) => queue.push(url)));
+
+  // Setup the results obj
+  const results = { urls };
+
+  // Find any errors and dedupe them
+  const errors = urls.reduce((acc, url) => {
+    if (url.error) {
+      const found = acc.find((errorUrl) => errorUrl.error === url.error);
+      if (!found) acc.push(url);
+    }
+    return acc;
+  }, []);
+
+  // If errors, add them to results
+  if (errors.length) {
+    results.errors = errors;
+    results.message = { text: `Errors rolling out content from ${lang.name}.`, type: 'error' };
+  }
+
+  return results;
+}
+
+function formatLangUrls(org, site, sourceLocation, lang, urls) {
+  return urls.map((url) => {
+    const convertConf = {
+      path: url.suppliedPath,
+      sourcePrefix: sourceLocation,
+      destPrefix: lang.location,
+    };
+    const { daDestPath, aemBasePath, ext } = convertPath(convertConf);
+    const source = `/${org}/${site}${daDestPath}`;
+    return { source, aemBasePath, ext };
   });
+}
+
+function formatRolloutUrls(org, site, lang, urls) {
   return lang.locales.reduce((acc, locale) => {
-    const localeUrls = langUrls.map(
-      (langUrl) => (
-        {
-          source: langUrl.source,
-          destination: `/${org}/${site}${locale.code}${langUrl.daBasePath}`,
-        }),
-    );
+    const localeUrls = urls.map((langUrl) => {
+      const { daDestPath } = convertPath({ path: langUrl.aemBasePath, destPrefix: locale.code });
+      return {
+        hasExt: langUrl.ext === 'json',
+        sourceContent: langUrl.content,
+        destination: `/${org}/${site}${daDestPath}`,
+      };
+    });
     acc.push(...localeUrls);
     return acc;
   }, []);
@@ -65,6 +133,7 @@ function formatRolloutUrls(org, site, sourceLocation, lang, urls) {
 export async function rolloutLang({
   org,
   site,
+  title,
   options,
   lang,
   urls: projectUrls,
@@ -74,20 +143,30 @@ export async function rolloutLang({
   actions.requestUpdate();
 
   const sourceLocation = options['source.language']?.location || '/';
-  const urlsToSave = formatRolloutUrls(org, site, sourceLocation, lang, projectUrls);
+  const behavior = options['rollout.conflict.behavior'];
 
   // Determine all sources are valid before continuing
-  const { langSourcesEerrors, langSources } = await fetchLangSources(urlsToSave);
-  if (langSourcesEerrors) {
-    return {
-      errors,
-      message: { text: `Errors fetching content from ${lang.name}.`, type: 'error' },
-    };
-  }
+  const langUrls = formatLangUrls(org, site, sourceLocation, lang, projectUrls);
+  let { errors, message, urls } = await fetchLangSources(lang, langUrls);
+  if (errors) return { errors, message };
 
-  const
+  // Convert base lang urls to the full locale list
+  const urlsToSave = formatRolloutUrls(org, site, lang, urls);
 
-  return {};
+  // Perform the actual rollout
+  ({ errors, message, urls } = await rolloutLangLocales(title, lang, urlsToSave, behavior));
+  if (errors) return { errors, message };
+
+  // The presumption is that no errors means success
+  lang.rollout.status = 'complete';
+  lang.rollout.saved = urls.length;
+  lang.locales.forEach((locale) => {
+    locale.saved = projectUrls.length;
+  });
+
+  actions.requestUpdate();
+
+  return { };
 }
 
 function getRolloutDetails(lang) {
@@ -107,7 +186,7 @@ function getRolloutDetails(lang) {
 }
 
 export function sortLangs(langs) {
-  // Filter out any langs that do not have
+  // Filter out any langs that do not have locales
   const filtered = langs.filter((lang) => lang.locales.length);
 
   return filtered.map((lang) => {

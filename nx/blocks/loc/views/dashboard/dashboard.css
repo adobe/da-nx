@@ -2,6 +2,10 @@ svg {
   display: none;
 }
 
+button {
+  font-family: var(--font-family);
+}
+
 .icon {
   display: block;
   width: 20px;
@@ -142,6 +146,16 @@ ul {
     text-transform: uppercase;
     color: var(--s2-gray-500);
   }
+
+  .draft-project {
+    display: block;
+    text-align: center;
+    padding-right: 24px;
+
+    strong {
+      color: var(--s2-gray-700);
+    }
+  }
 }
 
 .project-modified {
@@ -157,8 +171,35 @@ ul {
   gap: 12px;
 
   button {
+    position: relative;
     padding: 0;
     border: none;
     background: transparent;
+
+    &::after {
+      display: none;
+    }
+
+    &:hover::after {
+      display: block;
+      position: absolute;
+      font-size: 14px;
+      background-color: rgb(0 0 0 / 50%);
+      border-radius: 8px;
+      bottom: -38px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: #fff;
+      padding: 6px 8px;
+      z-index: 1000;
+    }
+
+    &.copy-btn::after {
+      content: "Duplicate";
+    }
+
+    &.archive-btn::after {
+      content: "Archive";
+    }
   }
 }

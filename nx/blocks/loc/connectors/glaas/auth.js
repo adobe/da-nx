@@ -1,6 +1,5 @@
 function getAuthUri(clientid, origin) {
   const redirectUri = encodeURI(window.location.href);
-  console.log(redirectUri);
   const endpoint = `${origin}/api/common/sweb/oauth/authorize`;
   const params = `?response_type=token&state=home&client_id=${clientid}&redirect_uri=${redirectUri}`;
   return `${endpoint}${params}`;
@@ -37,5 +36,6 @@ export async function getGlaasToken(service) {
 
 export async function connectToGlaas(origin, clientid) {
   const url = getAuthUri(clientid, origin);
+  console.log(url);
   window.location = url;
 }

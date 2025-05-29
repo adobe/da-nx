@@ -21,7 +21,7 @@ function calculateView(source, langs, urls) {
   if (needsSync && source !== '/') return 'sync';
 
   const needsCopy = langs.some((lang) => lang.action === 'copy');
-  if (needsCopy) return 'copy';
+  if (needsCopy) return 'translate';
 
   const needsTranslate = langs.some((lang) => lang.action === 'translate');
   if (needsTranslate) return 'translate';
@@ -113,7 +113,10 @@ export function formatLangs(langs) {
     if (!hasSkip) split.push({ value: 'skip', name: 'Skip' });
     lang.orderedActions = split;
     [lang.activeAction] = split;
-    lang.locales = lang.locales && lang.locales.split(',').map((value) => ({ code: value.trim(), active: true }));
+
+    if (typeof lang.locales === 'string') {
+      lang.locales = lang.locales.split(',').map((value) => ({ code: value.trim(), active: true }));
+    }
 
     return lang;
   });

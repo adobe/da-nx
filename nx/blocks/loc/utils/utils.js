@@ -46,6 +46,53 @@ export function getTranslateStepText(langs) {
   return 'Translate & copy';
 }
 
+function getExtPath(path) {
+  const name = path.split('/').pop();
+  const split = name.split('.');
+  return split.length > 1 ? { path, ext: split.pop() } : { path: `${path}.html`, ext: 'html' };
+}
+
+/**
+ * Get base path
+ *
+ * Used to de-regionalize a path
+ * @param config The path config.
+ * @param config.prefix The prefix to check the path for.
+ * @param config.path An AEM-formatted (no org, site, index, no .html) path to de-region.
+ */
+export function getBasePath({ prefix, path }) {
+  if (!prefix) return path;
+  return path.startsWith(prefix) ? path.replace(prefix, '') : path;
+}
+
+/**
+ * Convert a path to DA and AEM formatted w/ optional destination language prefix
+ *
+ * @param config The path config.
+ * @param config.path An AEM-formatted (no org, site, index, .html) base path.
+ * @param config.sourcePrefix The prefix to remove.
+ * @param config.destPrefix The prefix to attach.
+ */
+export function convertPath({ path, sourcePrefix, destPrefix }) {
+  const prefix = sourcePrefix === '/' || !sourcePrefix ? '' : sourcePrefix;
+
+  // Ensure the path doesn't already have the prefix
+  const plainBasePath = getBasePath({ prefix, path });
+
+  // Determine if we need to add index
+  const aemBasePath = plainBasePath.endsWith('/') ? `${plainBasePath}index` : plainBasePath;
+
+  // Get the extension base path (for use with DA API)
+  // We also use ext to determine things like conflict behavior
+  const { path: daBasePath, ext } = getExtPath(aemBasePath);
+
+  const daDestPath = `${destPrefix}${daBasePath}`;
+
+  const aemDestPath = `${destPrefix}${aemBasePath}`;
+
+  return { daBasePath, daDestPath, aemBasePath, aemDestPath, ext };
+}
+
 export function formatPath(org, site, sourceLocation, path) {
   const hasSourceLocaction = path.startsWith(sourceLocation)
     && path !== sourceLocation
@@ -138,9 +185,13 @@ export async function fetchConfig(org, site) {
   if (CONFIG_CACHE) return CONFIG_CACHE;
 
   const fetchConf = async (path) => {
-    const resp = await daFetch(path);
-    if (!resp.ok) return { error: 'Options not available.' };
-    return resp.json();
+    try {
+      const resp = await daFetch(path);
+      if (!resp.ok) return { error: 'Options not available.' };
+      return resp.json();
+    } catch {
+      return { config: { data: [] } };
+    }
   };
 
   // Attempt a site based config
@@ -185,7 +236,7 @@ export async function fetchProject(path, detail) {
       return {
         error: {
           message: `Not authorized for: ${org} / ${site}.`,
-          help: 'Are you logged into the correct organization?',
+          help: 'Are you logged into the correct profile?',
           status: resp.status,
         },
       };

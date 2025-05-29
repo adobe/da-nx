@@ -145,7 +145,7 @@ class NxLocSync extends LitElement {
       <div class="nx-loc-list-actions">
         <div>
           <p class="nx-loc-list-actions-header">Sync</p>
-          <p>Supplied source URLs are not from the language used for translation.</p>
+          <p>Supplied URLs are not from <strong>${this.options['source.language'].location}</strong>. Please sync them.</p>
         </div>
         <div class="actions">
           <p><strong>Conflict behavior:</strong> ${this.options['sync.conflict.behavior']}</p>

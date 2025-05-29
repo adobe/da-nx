@@ -4,7 +4,7 @@ import { getConfig } from '../../../../scripts/nexter.js';
 import getStyle from '../../../../utils/styles.js';
 import { daFetch } from '../../../../utils/daFetch.js';
 import { Queue } from '../../../../public/utils/tree.js';
-import { fetchConfig } from '../../utils/utils.js';
+import { convertPath, fetchConfig } from '../../utils/utils.js';
 
 const { nxBase } = getConfig();
 const style = await getStyle(import.meta.url);
@@ -20,7 +20,7 @@ class NxLocValidate extends LitElement {
     site: { attribute: false },
     options: { attribute: false },
     urls: { attribute: false },
-    _options: { state: true },
+    _configSheet: { state: true },
     _urls: { state: true },
     _message: { state: true },
   };
@@ -38,12 +38,18 @@ class NxLocValidate extends LitElement {
     super.update();
   }
 
+  async findConfigValue(key) {
+    if (!this._configSheet) this._configSheet = await fetchConfig(this.org, this.site);
+
+    const foundRow = this._configSheet.config.data.find((row) => row.key === key);
+
+    return foundRow?.value;
+  }
+
   async getOriginMatches() {
-    const { config } = await fetchConfig(this.org, this.site);
+    const value = await this.findConfigValue('source.fragment.hostnames');
 
-    const hostnameRow = config.data.find((row) => row.key === 'source.fragment.hostnames');
-
-    return hostnameRow?.value.split(',').map((role) => `https://${role.trim()}`) || [];
+    return value?.split(',').map((role) => `https://${role.trim()}`) || [];
   }
 
   checkDomain(href) {
@@ -84,7 +90,7 @@ class NxLocValidate extends LitElement {
     const resp = await daFetch(daUrl);
     const text = await resp.text();
     const ok = resp.status === 200;
-    url.status = ok ? 'ready' : 'error';
+    url.status = ok ? 'ready' : 'error - not found';
     url.checked = ok;
     url.sheet = isSheet;
     url.extPath = extPath;
@@ -113,7 +119,15 @@ class NxLocValidate extends LitElement {
     }
   }
 
-  handleSubmit() {
+  async getSourcePrefix() {
+    const sourceLang = await this.findConfigValue('source.language');
+    if (!sourceLang) return undefined;
+    const foundLang = this._configSheet.languages.data.find((row) => row.name === sourceLang);
+    if (!foundLang) return undefined;
+    return foundLang.location;
+  }
+
+  async handleSubmit() {
     const checked = this._urls.filter((url) => url.checked);
     if (checked.some((url) => (url.status === 'error'))) {
       this._message = { type: 'error', text: 'Uncheck error URLs below.' };
@@ -124,10 +138,15 @@ class NxLocValidate extends LitElement {
       return;
     }
 
-    const urls = checked.map((url) => ({
-      suppliedPath: url.pathname,
-      checked: url.checked,
-    }));
+    const sourcePrefix = await this.getSourcePrefix();
+    const urls = checked.map((url) => {
+      const { aemBasePath } = convertPath({ path: url.pathname, sourcePrefix });
+      return {
+        basePath: aemBasePath,
+        suppliedPath: url.pathname,
+        checked: url.checked,
+      };
+    });
 
     const detail = { view: 'options', org: this.org, site: this.site, urls };
 
@@ -150,8 +169,10 @@ class NxLocValidate extends LitElement {
     if (detail === 'next') this.handleSubmit();
   }
 
-  get checked() {
-    return this._urls?.some((url) => url.status);
+  get notReady() {
+    const checked = this._urls?.filter((url) => url.checked);
+    if (!checked.length) return true;
+    return checked.some((url) => url.status !== 'ready');
   }
 
   get origin() {
@@ -166,7 +187,13 @@ class NxLocValidate extends LitElement {
     if (!this._urls) return nothing;
 
     return html`
-      <nx-loc-actions @action=${this.handleAction} .message=${this._message} prev="Setup basics" next="Select options"></nx-loc-actions>
+      <nx-loc-actions
+        @action=${this.handleAction}
+        .message=${this._message}
+        prev="Setup basics"
+        ?nextDisabled=${this.notReady}
+        next="Select options">
+      </nx-loc-actions>
       ${this._urls ? html`
         <div class="details">
           <div class="detail-card detail-card-pages">

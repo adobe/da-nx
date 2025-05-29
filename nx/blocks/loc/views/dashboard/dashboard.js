@@ -116,6 +116,18 @@ class NxLocDashboard extends LitElement {
     this.requestUpdate();
   }
 
+  renderStatus(project) {
+    const draft = () => html`<p class="draft-project"><strong>Draft</strong></p>`;
+
+    const { translateStatus, rolloutStatus } = project;
+    if (!translateStatus && !rolloutStatus) return draft();
+
+    if (translateStatus === 'not started' && rolloutStatus === 'not started') return draft();
+
+    return html`${project.translateStatus ? html`<p><strong>Translation</strong> ${project.translateStatus}</p>` : nothing}
+                ${project.rolloutStatus ? html`<p><strong>Rollout</strong> ${project.rolloutStatus}</p>` : nothing}`;
+  }
+
   renderProjects(projects) {
     return html`
       <div class="nx-loc-list-header">
@@ -142,12 +154,11 @@ class NxLocDashboard extends LitElement {
                 <p>${project.localesTotal ? html`<strong>Locales</strong><span>${project.localesTotal}</span>` : nothing}</p>
               </div>
               <div class="project-status">
-                ${project.translateStatus ? html`<p><strong>Translation</strong> ${project.translateStatus}</p>` : nothing}
-                ${project.rolloutStatus ? html`<p><strong>Rollout</strong> ${project.rolloutStatus}</p>` : nothing}
+                ${this.renderStatus(project)}
               </div>
               <div class="project-actions">
-                <button @click=${() => this.handleCopy(project)}><svg class="icon"><use href="#S2_Icon_Copy_20_N"/></svg></button>
-                <button @click=${() => this.handleArchive(project, idx)}><svg class="icon"><use href="#S2_Icon_ProjectAddInto_20_N"/></svg></button>
+                <button class="copy-btn" @click=${() => this.handleCopy(project)}><svg class="icon"><use href="#S2_Icon_Copy_20_N"/></svg></button>
+                <button class="archive-btn" @click=${() => this.handleArchive(project, idx)}><svg class="icon"><use href="#S2_Icon_ProjectAddInto_20_N"/></svg></button>
               </div>
             </div>
           </li>

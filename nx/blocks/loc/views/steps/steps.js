@@ -33,6 +33,7 @@ class NxLocSteps extends LitElement {
     view: { attribute: false },
     org: { attribute: false },
     site: { attribute: false },
+    options: { attribute: false },
     path: { attribute: false },
     langs: { attribute: false },
     urls: { attribute: false },
@@ -42,6 +43,11 @@ class NxLocSteps extends LitElement {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
     getSvg({ parent: this.shadowRoot, paths: ICONS });
+  }
+
+  getShowSync() {
+    const sourceLocation = this.options['source.location'].location;
+    console.log(sourceLocation);
   }
 
   getSyncCheck() {
