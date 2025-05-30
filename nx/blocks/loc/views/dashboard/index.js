@@ -10,8 +10,11 @@ function getActionStatus(actionableLangs, action) {
   }, []);
   const successTotal = langsStatus.filter((status) => status === 'complete').length;
   const notStartedTotal = langsStatus.filter((status) => status === 'not started').length;
+  const cancelledTotal = langsStatus.filter((status) => status === 'cancelled').length;
+  const waitingTotal = langsStatus.filter((status) => status === 'waiting').length;
   if (successTotal === actionableLangs.length) return 'complete';
   if (notStartedTotal === actionableLangs.length) return 'not started';
+  if (cancelledTotal === actionableLangs.length - waitingTotal) return 'cancelled';
   return 'in progress';
 }
 
