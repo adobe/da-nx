@@ -46,8 +46,17 @@ class NxLocSteps extends LitElement {
   }
 
   getShowSync() {
-    const sourceLocation = this.options['source.location'].location;
-    console.log(sourceLocation);
+    const prefix = this.options['source.language'].location;
+    const needsSync = this.urls.some((url) => !url.suppliedPath.startsWith(prefix));
+    return needsSync && prefix !== '/';
+  }
+
+  getShowTranslate() {
+    return this.langs.some((lang) => lang.action === 'translate' || lang.action === 'copy');
+  }
+
+  getShowRollout() {
+    return this.langs.some((lang) => lang.locales?.length);
   }
 
   getSyncCheck() {
@@ -106,20 +115,58 @@ class NxLocSteps extends LitElement {
     const filled = views[view] ? ' filled' : '';
     const highlight = view === this.view ? ' highlight' : '';
 
-    const styles = { css: `${filled}${highlight}` };
+    // Highlight (active view) should override filled
+    const styles = highlight ? { css: highlight } : { css: filled };
 
-    styles.icon = filled ? '#S2_Icon_CheckmarkCircleGreen_20_N' : defIcon;
+    styles.icon = filled && !highlight ? '#S2_Icon_CheckmarkCircleGreen_20_N' : defIcon;
 
     return styles;
   }
 
-  renderManage() {
-    if (!this.urls) return nothing;
-
-    const dashboard = this.getStyling('dashboard', '#S2_Icon_Archive_20_N');
-    const sync = this.getStyling('sync', '#S2_Icon_Refresh_20_N');
-    const translate = this.getStyling('translate', '#S2_Icon_GlobeGrid_20_N');
+  renderRollout() {
     const rollout = this.getStyling('rollout', '#S2_Icon_FileConvert_20_N');
+
+    return html`
+      <button class="nx-loc-wizard-btn${rollout.css}">
+        <svg viewBox="0 0 20 20"><use href="${rollout.icon}" /></svg>
+        <p>Rollout locales</p>
+      </button>`;
+  }
+
+  renderTranslate() {
+    const translate = this.getStyling('translate', '#S2_Icon_GlobeGrid_20_N');
+
+    return html`
+      <button class="nx-loc-wizard-btn${translate.css}">
+        <svg viewBox="0 0 20 20"><use href="${translate.icon}" /></svg>
+        <p>${getTranslateStepText(this.langs)}</p>
+      </button>`;
+  }
+
+  renderSync() {
+    const sync = this.getStyling('sync', '#S2_Icon_Refresh_20_N');
+
+    return html`
+      <button class="nx-loc-wizard-btn${sync.css}">
+        <svg viewBox="0 0 20 20"><use href="${sync.icon}" /></svg>
+        <p>Sync sources</p>
+      </button>`;
+  }
+
+  renderManage() {
+    if (!this.urls && !this.langs) return nothing;
+    const dashboard = this.getStyling('dashboard', '#S2_Icon_Archive_20_N');
+
+    const middle = [];
+    if (this.getShowSync()) middle.push(this.renderSync());
+    if (this.getShowTranslate()) middle.push(this.renderTranslate());
+    if (this.getShowRollout()) middle.push(this.renderRollout());
+
+    const separator = html`<hr/>`;
+
+    const separated = middle.flatMap(
+      (item, index) => (index === middle.length - 1 ? [item] : [item, separator]),
+    );
 
     return html`
       <div class="nx-setup-steps-container">
@@ -129,20 +176,7 @@ class NxLocSteps extends LitElement {
         </button>
         <hr class=""/>
         <div class="nx-setup-steps-middle">
-          <button class="nx-loc-wizard-btn${sync.css}">
-            <svg viewBox="0 0 20 20"><use href="${sync.icon}" /></svg>
-            <p>Sync sources</p>
-          </button>
-          <hr/>
-          <button class="nx-loc-wizard-btn${translate.css}">
-            <svg viewBox="0 0 20 20"><use href="${translate.icon}" /></svg>
-            <p>${getTranslateStepText(this.langs)}</p>
-          </button>
-          <hr/>
-          <button class="nx-loc-wizard-btn${rollout.css}">
-            <svg viewBox="0 0 20 20"><use href="${rollout.icon}" /></svg>
-            <p>Rollout locales</p>
-          </button>
+          ${separated.map((content) => content)}
         </div>
         <hr/>
         <button class="nx-loc-wizard-btn">

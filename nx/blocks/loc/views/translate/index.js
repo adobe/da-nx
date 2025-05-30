@@ -42,7 +42,13 @@ export async function getUrls(org, site, service, sourceLocation, urls, fetchCon
 
       const fileType = url.daLangPath.includes('.json') ? 'json' : undefined;
 
-      url.content = await connector.dnt.addDnt(content, config, { fileType });
+      // Only add DNT if a connector exists
+      // Copy sources will not have a connector
+      if (connector) {
+        url.content = await connector.dnt.addDnt(content, config, { fileType });
+      } else {
+        url.content = content;
+      }
     };
 
     const queue = new Queue(fetchUrl, 50);
@@ -110,14 +116,13 @@ export async function copySourceLangs(org, site, title, options, langs, urls) {
   const sourceLocation = options['source.language']?.location || '/';
 
   const copyUrl = async ({ lang, url }) => {
-    const source = `/${org}/${site}${url.langPath}`;
     const destination = `/${org}/${site}${url.langPath.replace(sourceLocation, lang.location)}`;
 
     // If has an ext (sheet), force overwrite
     const overwrite = behavior === 'overwrite' || url.hasExt;
 
     const copyFn = overwrite ? overwriteCopy : mergeCopy;
-    const resp = await copyFn({ source, destination }, title);
+    const resp = await copyFn({ sourceContent: url.content, destination }, title);
     url.status = resp.status;
   };
 

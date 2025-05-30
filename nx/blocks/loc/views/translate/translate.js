@@ -79,6 +79,13 @@ class NxLocTranslate extends LitElement {
     await this._service.connector.connect(this._service);
   }
 
+  async fetchUrls(service, fetchContent) {
+    const { org, site } = this;
+    const sourceLocation = this.options['source.language']?.location || '/';
+
+    return getUrls(org, site, service, sourceLocation, this.urls, fetchContent);
+  }
+
   async getBaseTranslationConf(fetchContent) {
     const actions = {
       saveState: this.handleSaveLangs.bind(this),
@@ -87,9 +94,7 @@ class NxLocTranslate extends LitElement {
 
     const { org, site, title, _service, _translateLangs } = this;
 
-    const sourceLocation = this.options['source.language']?.location || '/';
-
-    const { urls } = await getUrls(org, site, _service, sourceLocation, this.urls, fetchContent);
+    const { urls } = await this.fetchUrls(_service, fetchContent);
 
     return {
       org,
@@ -162,7 +167,17 @@ class NxLocTranslate extends LitElement {
   }
 
   async handleCopyAll() {
-    await copySourceLangs(this.org, this.site, this.title, this.options, this._copyLangs, this.urls);
+    const { urls } = await this.fetchUrls({}, true);
+
+    const errors = urls.filter((url) => url.error);
+    if (errors.length) {
+      this._urlErrors = errors;
+      return;
+    }
+
+    const { org, site, title, options, _copyLangs } = this;
+
+    await copySourceLangs(org, site, title, options, _copyLangs, urls);
     this.handleSaveLangs();
     this.requestUpdate();
   }
@@ -259,6 +274,8 @@ class NxLocTranslate extends LitElement {
   }
 
   renderTranslate() {
+    if (!this._translateLangs?.length) return nothing;
+
     return html`
       <div class="nx-loc-list-actions">
         <p class="nx-loc-list-actions-header">Translate (${this.options.service.name})</p>
@@ -291,8 +308,6 @@ class NxLocTranslate extends LitElement {
 
   renderCopy() {
     if (!this._copyLangs?.length) return nothing;
-
-    console.log(this._copyLangs);
 
     return html`
       <div class="nx-loc-list-actions">

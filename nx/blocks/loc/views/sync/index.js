@@ -1,20 +1,30 @@
-import { getHasExt } from '../../utils/utils.js';
+import { convertPath } from '../../utils/utils.js';
 
-function getDaAdminPath(org, site, path) {
-  const basePath = `/${org}/${site}${path}`;
-  const indexedPath = basePath.endsWith('/') ? `${basePath}index` : basePath;
-  const hasExt = getHasExt(indexedPath);
-  return hasExt ? indexedPath : `${indexedPath}.html`;
+function getFullPath(path, sourcePrefix, destPrefix) {
+  return convertPath({ path, sourcePrefix, destPrefix });
 }
 
 export function getSyncUrls(org, site, location, urls) {
-  return urls.map((url) => ({
-    ...url,
-    syncPath: `${location}${url.suppliedPath}`,
-    source: getDaAdminPath(org, site, url.suppliedPath),
-    destination: getDaAdminPath(org, site, `${location}${url.suppliedPath}`),
-    hasExt: getHasExt(url.suppliedPath),
-  }));
+  return urls.map((url) => {
+    const {
+      daBasePath,
+      aemBasePath,
+      daDestPath,
+      aemDestPath,
+      ext,
+    } = getFullPath(url.suppliedPath, undefined, location);
+
+    const opts = {
+      ...url,
+      sourceView: aemBasePath,
+      destView: aemDestPath,
+      source: `/${org}/${site}${daBasePath}`,
+      destination: `/${org}/${site}${daDestPath}`,
+      hasExt: ext === 'json',
+    };
+
+    return opts;
+  });
 }
 
 export function syncPath(source, destination) {

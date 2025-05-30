@@ -25,7 +25,6 @@ class NxLocSync extends LitElement {
     langs: { attribute: false },
     urls: { attribute: false },
     _message: { state: true },
-    _syncOptions: { state: true },
     _syncUrls: { state: true },
   };
 
@@ -38,9 +37,8 @@ class NxLocSync extends LitElement {
   }
 
   getSyncUrls() {
-    this._syncOptions = this.options['source.language'];
-    const { location } = this._syncOptions;
-    this._syncUrls = getSyncUrls(this.org, this.site, location, this.urls);
+    const sendLocation = this.options['source.language']?.location || '/';
+    this._syncUrls = getSyncUrls(this.org, this.site, sendLocation, this.urls);
   }
 
   getPersistedUrls() {
@@ -51,23 +49,30 @@ class NxLocSync extends LitElement {
     }));
   }
 
-  handleAction() {
-    const view = 'translate';
+  handleAction({ detail: button }) {
+    if (button === 'prev') {
+      const opts = { bubbles: true, composed: true };
+      const event = new CustomEvent('prev', opts);
+      this.dispatchEvent(event);
+    } else {
+      const view = 'translate';
 
-    // Only persist what we need to
-    const urls = this.getPersistedUrls();
+      // Only persist what we need to
+      const urls = this.getPersistedUrls();
 
-    const detail = { org: this.org, site: this.site, view, urls };
-    const opts = { detail, bubbles: true, composed: true };
-    const event = new CustomEvent('next', opts);
-    this.dispatchEvent(event);
+      const detail = { org: this.org, site: this.site, view, urls };
+      const opts = { detail, bubbles: true, composed: true };
+      const event = new CustomEvent('next', opts);
+      this.dispatchEvent(event);
+    }
   }
 
   async syncUrl(url) {
-    const { source, destination, hasExt } = url;
+    const { source, destination, ext } = url;
     const behavior = this.options['sync.conflict.behavior'];
-    // If has an ext (sheet), force overwrite
-    const overwrite = behavior === 'overwrite' || hasExt;
+
+    // If its JSON, force overwrite
+    const overwrite = behavior === 'overwrite' || ext === 'json';
 
     const copyFn = overwrite ? overwriteCopy : mergeCopy;
     const resp = await copyFn({ source, destination }, this.title);
@@ -162,8 +167,8 @@ class NxLocSync extends LitElement {
         ${this._syncUrls.map((url) => html`
           <li class="${url.expand ? 'is-expanded' : ''}">
             <div class="inner">
-              <p>${url.suppliedPath}</p>
-              <p>${url.syncPath}</p>
+              <p>${url.sourceView}</p>
+              <p>${url.destView}</p>
               <div class="url-info">
                 <div class="url-status">
                   ${this.renderStatus(url.synced)}
@@ -174,10 +179,10 @@ class NxLocSync extends LitElement {
             ${url.expand ? html`
               <div class="url-details">
                 <nx-loc-url-details
-                  .path="/${this.org}/${this.site}${url.suppliedPath}">
+                  .path="/${this.org}/${this.site}${url.sourceView}">
                 </nx-loc-url-details>
                 <nx-loc-url-details
-                  .path="/${this.org}/${this.site}${url.syncPath}">
+                  .path="/${this.org}/${this.site}${url.destView}">
                 </nx-loc-url-details>
               </div>` : nothing}
           </li>

@@ -70,11 +70,13 @@ class NxLocValidate extends LitElement {
       // Convert href to current project origin
       const url = new URL(href, this.origin);
 
-      // Check if its already in our URL list
-      const found = this._urls.some((existingUrl) => existingUrl.pathname === url.pathname);
-      if (found) return acc;
+      // Combine what already exists with what we're currently iterating through
+      const currentUrls = [...this._urls, ...acc];
 
-      acc.push(url);
+      // Check if its already in our URL list
+      const found = currentUrls.some((existingUrl) => existingUrl.pathname === url.pathname);
+      if (!found) acc.push(url);
+
       return acc;
     }, []);
 
