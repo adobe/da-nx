@@ -12,20 +12,34 @@ async function getAemRepo(project, opts) {
   const resp = await fetch(configUrl, opts);
   if (!resp.ok) return null;
   const json = await resp.json();
-  const { value: repoId } = json.data.data.find((entry) => entry.key === 'aem.repositoryId') || {};
-  const { value: namespaces } = json.data.data.find((entry) => entry.key === 'aem.tags.namespaces') || {};
-  return { aemRepo: repoId, namespaces };
+  
+  // Get all config values that might affect behavior
+  const configs = json.data.data.reduce((acc, entry) => {
+    acc[entry.key] = entry.value;
+    return acc;
+  }, {});
+
+  // If configs aren't set at all, use defaults
+  const requiresAuth = configs['aem.tags.requiresAuth'] === undefined ? true : configs['aem.tags.requiresAuth'] !== 'false';
+  const tagExt = configs['aem.tags.extension'] || TAG_EXT;
+
+  return {
+    aemRepo: configs['aem.repositoryId'],
+    namespaces: configs['aem.tags.namespaces'],
+    requiresAuth,
+    tagExt
+  };
 }
 
-async function getTags(path, opts) {
-  const activeTag = path.split('cq:tags').pop().replace('.1.json', '').slice(1);
+async function getTags(path, opts, aemConfig) {
+  const activeTag = path.split('cq:tags').pop().replace(aemConfig.tagExt, '').slice(1);
   const resp = await fetch(path, opts);
   if (!resp.ok) return null;
   const json = await resp.json();
   const tags = Object.keys(json).reduce((acc, key) => {
     if (json[key]['jcr:primaryType'] === 'cq:Tag') {
       acc.push({
-        path: `${path.replace(TAG_EXT, '')}/${key}${TAG_EXT}`,
+        path: `${path.replace(aemConfig.tagExt, '')}/${key}${aemConfig.tagExt}`,
         activeTag,
         name: key,
         title: json[key]['jcr:title'] || key,
@@ -39,15 +53,16 @@ async function getTags(path, opts) {
 }
 
 const getRootTags = async (namespaces, aemConfig, opts) => {
-  const createTagUrl = (namespace = '') => `https://${aemConfig.aemRepo}${ROOT_TAG_PATH}${namespace ? `/${namespace}` : ''}${TAG_EXT}`;
+  const createTagUrl = (namespace = '') => 
+    `https://${aemConfig.aemRepo}${ROOT_TAG_PATH}${namespace ? `/${namespace}` : ''}${aemConfig.tagExt}`;
 
   if (namespaces.length === 0) {
-    return getTags(createTagUrl(), opts).catch(() => null);
+    return getTags(createTagUrl(), opts, aemConfig).catch(() => null);
   }
 
   if (namespaces.length === 1) {
     const namespace = namespaces[0].toLowerCase().replaceAll(' ', '-');
-    return getTags(createTagUrl(namespace), opts).catch(() => null);
+    return getTags(createTagUrl(namespace), opts, aemConfig).catch(() => null);
   }
 
   return namespaces.map((title) => {
@@ -96,8 +111,10 @@ function showError(message, link = null) {
     return;
   }
 
+  // Only use auth for tags if requiresAuth is true
+  const tagOpts = aemConfig.requiresAuth ? opts : {};
   const namespaces = aemConfig?.namespaces.split(',').map((namespace) => namespace.trim()) || [];
-  const rootTags = await getRootTags(namespaces, aemConfig, opts);
+  const rootTags = await getRootTags(namespaces, aemConfig, tagOpts);
 
   if (!rootTags || rootTags.length === 0) {
     showError('Could not load tags. ', `https://${aemConfig.aemRepo}${UI_TAG_PATH}`);
@@ -107,7 +124,7 @@ function showError(message, link = null) {
   const daTagBrowser = document.createElement('da-tag-browser');
   daTagBrowser.tabIndex = 0;
   daTagBrowser.rootTags = rootTags;
-  daTagBrowser.getTags = async (tag) => getTags(tag.path, opts);
+  daTagBrowser.getTags = async (tag) => getTags(tag.path, tagOpts, aemConfig);
   daTagBrowser.tagValue = aemConfig.namespaces ? 'title' : 'path';
   daTagBrowser.actions = actions;
   document.body.querySelector('main').append(daTagBrowser);
