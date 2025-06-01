@@ -12,8 +12,8 @@ async function getAemRepo(project, opts) {
   const resp = await fetch(configUrl, opts);
   if (!resp.ok) return null;
   const json = await resp.json();
-  const { value: repoId } = json.data.find((entry) => entry.key === 'aem.repositoryId') || {};
-  const { value: namespaces } = json.data.find((entry) => entry.key === 'aem.tags.namespaces') || {};
+  const { value: repoId } = json.data.data.find((entry) => entry.key === 'aem.repositoryId') || {};
+  const { value: namespaces } = json.data.data.find((entry) => entry.key === 'aem.tags.namespaces') || {};
   return { aemRepo: repoId, namespaces };
 }
 
