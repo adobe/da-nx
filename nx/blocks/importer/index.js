@@ -122,7 +122,7 @@ async function importUrl(url, findFragmentsFlag, liveDomain, setProcessed) {
 
   const isExt = EXTS.some((ext) => pathname.endsWith(`.${ext}`));
   const path = href.endsWith('/') ? `${pathname}index` : pathname;
-  const srcPath = isExt ? path : `${path}.md`;
+  const srcPath = pathname.endsWith('.json') ? `${pathname}${url.search}` : (isExt ? path : `${path}.md`);
   url.destPath = isExt ? path : `${path}.html`;
   url.editPath = href.endsWith('.json') ? path.replace('.json', '') : path;
 
