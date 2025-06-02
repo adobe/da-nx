@@ -196,6 +196,9 @@ async function approveSiteUser(org, site, path, user) {
   const availableRoles = ['admin', 'author', 'publish'];
 
   availableRoles.forEach((role) => {
+    if(!json.admin.role[role]){
+      json.admin.role[role] = []
+    }
     const existingRoleUsers = json.admin.role[role];
 
     // Find the role in the approved role array
