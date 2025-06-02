@@ -114,7 +114,7 @@ async function importUrl(url, findFragmentsFlag, liveDomain, setProcessed) {
     return;
   }
 
-  const isExt = EXTS.some((ext) => href.endsWith(`.${ext}`));
+  const isExt = EXTS.some((ext) => pathname.endsWith(`.${ext}`));
   const path = href.endsWith('/') ? `${pathname}index` : pathname;
   const srcPath = isExt ? path : `${path}.md`;
   url.destPath = isExt ? path : `${path}.html`;
