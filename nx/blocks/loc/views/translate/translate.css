@@ -132,7 +132,8 @@ nx-loc-actions {
 
   &.is-draft,
   &.is-uploading,
-  &.is-uploaded {
+  &.is-uploaded,
+  &.is-waiting {
     background-color: var(--s2-cyan-300);
   }
 

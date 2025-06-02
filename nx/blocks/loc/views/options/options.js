@@ -53,7 +53,7 @@ class NxLocOptions extends LitElement {
     this._options = options;
 
     // Langs have information inside them
-    this._langs = formatLangs(sheets.languages.data);
+    this._langs = formatLangs(sheets.languages.data, config);
 
     // Distill down available lang actions into a single list.
     this._actions = getAllActions(this._langs);

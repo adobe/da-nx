@@ -50,6 +50,18 @@ function formatService(config) {
   return service;
 }
 
+function findLanguageByName(languages, name) {
+  const found = languages.find((lang) => lang.name === name);
+  if (found) {
+    return {
+      name: found.name,
+      code: found.code,
+      location: found.location,
+    };
+  }
+  return null;
+}
+
 export function formatConfig(sheets) {
   const config = sheets.config.data.reduce((acc, row) => {
     acc[row.key] = row.value;
@@ -66,14 +78,9 @@ export function formatConfig(sheets) {
 
   // If a source lang is spec'd, set it.
   if (config['source.language']) {
-    const found = sheets.languages.data
-      .find((lang) => lang.name === config['source.language']);
+    const found = findLanguageByName(sheets.languages.data, config['source.language']);
     if (found) {
-      options['source.language'] = {
-        name: found.name,
-        code: found.code,
-        location: found.location,
-      };
+      options['source.language'] = found;
     }
   }
 
@@ -99,7 +106,7 @@ export function getAllActions(langs) {
     });
 }
 
-export function formatLangs(langs) {
+export function formatLangs(langs, config) {
   return langs.map((lang) => {
     // Format language actions
     const split = lang.actions.split(',').map((action) => {
@@ -116,6 +123,15 @@ export function formatLangs(langs) {
 
     if (typeof lang.locales === 'string') {
       lang.locales = lang.locales.split(',').map((value) => ({ code: value.trim(), active: true }));
+    }
+
+    if (lang['source language']) {
+      const found = findLanguageByName(langs, lang['source language']);
+      if (found) {
+        if (config['source.language'] !== found.name) {
+          lang.waitingFor = found;
+        }
+      }
     }
 
     return lang;
