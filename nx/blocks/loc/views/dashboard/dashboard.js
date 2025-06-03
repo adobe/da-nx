@@ -26,6 +26,7 @@ class NxLocDashboard extends LitElement {
     site: { attribute: false },
     _activeProjects: { state: true },
     _filteredProjects: { state: true },
+    _hasAnyFilters: { state: true },
   };
 
   connectedCallback() {
@@ -57,6 +58,13 @@ class NxLocDashboard extends LitElement {
       selectedRolloutStatuses,
       viewAllProjects,
     } = filters;
+
+    this._hasAnyFilters = searchQuery?.length
+      || startDate
+      || endDate
+      || selectedTranslationStatuses?.length
+      || selectedRolloutStatuses?.length
+      || !viewAllProjects;
 
     this._filteredProjects = this._activeProjects.filter((project) => {
       // Match search query
@@ -90,7 +98,7 @@ class NxLocDashboard extends LitElement {
   }
 
   getCurrentList() {
-    return this._filteredProjects?.length ? this._filteredProjects : this._activeProjects;
+    return this._hasAnyFilters ? this._filteredProjects : this._activeProjects;
   }
 
   handleAction({ detail }) {
