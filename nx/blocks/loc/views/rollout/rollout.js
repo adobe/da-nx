@@ -149,6 +149,10 @@ class NxLocRollout extends LitElement {
     return Object.keys(filteredLangs).map((key) => filteredLangs[key]);
   }
 
+  get _allRolledOut() {
+    return this._sortedLangs.every((lang) => lang.rollout?.status === 'complete');
+  }
+
   renderLocales(rollout, locales) {
     return html`<ul class="locale-list">
       ${locales.map((locale) => html`
@@ -254,7 +258,8 @@ class NxLocRollout extends LitElement {
         @action=${this.handleAction}
         .message=${this._message}
         prev=${getTranslateStepText(this.langs)}
-        next="Project complete">
+        next="Project complete"
+        ?nextDisabled=${!this._allRolledOut}>
       </nx-loc-actions>
       ${this.renderSummary()}
       ${this.renderErrors()}
