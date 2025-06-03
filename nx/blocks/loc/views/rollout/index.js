@@ -187,7 +187,7 @@ function getRolloutDetails(lang) {
 
 export function sortLangs(langs) {
   // Filter out any langs that do not have locales
-  const filtered = langs.filter((lang) => lang.locales.length);
+  const filtered = langs.filter((lang) => lang.locales.length && lang.translation?.status !== 'cancelled');
 
   return filtered.map((lang) => {
     const rollout = getRolloutDetails(lang);

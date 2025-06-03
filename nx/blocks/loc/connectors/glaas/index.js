@@ -26,11 +26,12 @@ export async function connect(service) {
 
 function langs2tasks(title, langs, timestamp) {
   return langs.reduce((acc, lang) => {
-    if (lang.workflowName === '') return acc;
-    if (acc[lang.workflowName]) {
-      acc[lang.workflowName].langs.push(lang);
+    const workflow = `${lang.workflow}/${lang.workflowName}`;
+    if (workflow === '/') return acc;
+    if (acc[workflow]) {
+      acc[workflow].langs.push(lang);
     } else {
-      acc[lang.workflowName] = {
+      acc[workflow] = {
         status: lang.translation?.status || 'not started',
         name: lang.translation?.name || `${title.toLowerCase()}-${timestamp}`,
         timestamp,
@@ -133,9 +134,11 @@ export async function getStatusAll({ title, service, langs, urls, actions }) {
 
   // Filter out complete and canceled
   const incompleteTasks = Object.keys(tasks).reduce((acc, key) => {
-    const complete = tasks[key].status === 'complete';
-    const cancelled = tasks[key].status === 'cancelled';
-    if (!cancelled && !complete) acc.push(tasks[key]);
+    const notAllCancelledOrComplete = tasks[key].langs.some((lang) => {
+      const langStatus = lang?.translation?.status;
+      return langStatus !== 'complete' || langStatus !== 'cancelled';
+    });
+    if (notAllCancelledOrComplete) acc.push(tasks[key]);
     return acc;
   }, []);
 
