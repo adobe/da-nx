@@ -23,6 +23,10 @@ p {
   .status-label {
     text-align: center;
   }
+
+  &.with-cancel {
+    grid-template-columns: 1fr 92px 92px 92px 92px 120px 68px;
+  }
 }
 
 ul {
@@ -46,6 +50,10 @@ ul {
       grid-template-columns: 1fr 92px 92px 92px 92px 120px;
       align-items: center;
       min-height: 20px;
+
+      &.with-cancel {
+        grid-template-columns: 1fr 92px 92px 92px 92px 120px 68px;
+      }
     }
 
     &::before,

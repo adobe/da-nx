@@ -86,7 +86,7 @@ class NxLocSteps extends LitElement {
         translation: { saved: translationSaved = 0 } = {},
         copy: { saved: copySaved = 0 } = {},
       } = lang;
-      return action === 'rollout' || translationSaved + copySaved === this.urls.length;
+      return action === 'rollout' || translationSaved + copySaved === this.urls.length || lang.translation?.status === 'cancelled';
     });
   }
 

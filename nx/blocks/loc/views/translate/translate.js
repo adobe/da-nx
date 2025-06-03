@@ -169,6 +169,16 @@ class NxLocTranslate extends LitElement {
     this.handleGetStatus();
   }
 
+  async handleCancelLang(lang) {
+    const sendMessage = this.handleMessage.bind(this);
+
+    const { cancelTranslation } = this._service.connector;
+
+    await cancelTranslation({ service: this._service, lang, sendMessage });
+
+    await this.handleGetStatus();
+  }
+
   async handleCopyAll() {
     const { urls } = await this.fetchUrls({}, true);
 
@@ -204,8 +214,7 @@ class NxLocTranslate extends LitElement {
   }
 
   get canCancel() {
-    const { cancelTranslation } = this._service.connector;
-    return !!cancelTranslation && this.incompleteLangs;
+    return !!(this._service?.connector?.cancelTranslation) && this.incompleteLangs;
   }
 
   renderBehavior() {
@@ -256,6 +265,11 @@ class NxLocTranslate extends LitElement {
     `;
   }
 
+  renderCancelLang(lang) {
+    if (!this.canCancel || !this._connected || !lang.translation || lang.translation?.status === 'cancelled') return nothing;
+    return html`<sl-button @click=${() => this.handleCancelLang(lang)} class="primary outline">Cancel</sl-button>`;
+  }
+
   renderUrlErrors() {
     if (!this._urlErrors) return nothing;
 
@@ -278,13 +292,14 @@ class NxLocTranslate extends LitElement {
 
   renderTranslate() {
     if (!this._translateLangs?.length) return nothing;
+    const withCancel = this.canCancel && this._connected && this._translateLangs.some((lang) => lang.translation && lang.translation.status !== 'cancelled') ? ' with-cancel' : '';
 
     return html`
       <div class="nx-loc-list-actions">
         <p class="nx-loc-list-actions-header">Translate (${this.options.service.name})</p>
         <div class="actions">${this.renderTranslateAction()}</div>
       </div>
-      <div class="nx-loc-list-header">
+      <div class="nx-loc-list-header${withCancel}">
         <p>Language</p>
         <p class="lang-count">Sources</p>
         <p class="lang-count">Sent</p>
@@ -295,13 +310,14 @@ class NxLocTranslate extends LitElement {
       <ul>
         ${this._translateLangs.map((lang) => html`
           <li>
-            <div class="inner">
+            <div class="inner${withCancel}">
               <p>${lang.name} - ${lang['translate type']}</p>
               <p class="lang-count">${this.urls.length}</p>
               <p class="lang-count">${lang.translation?.sent || 0}</p>
               <p class="lang-count">${lang.translation?.translated || 0}</p>
               <p class="lang-count">${lang.translation?.saved || 0}</p>
               ${this.renderLangStatus(lang)}
+              ${this.renderCancelLang(lang)}
             </div>
           </li>
         `)}
