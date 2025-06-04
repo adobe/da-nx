@@ -3,6 +3,8 @@ const AUTO_BLOCKS = [
   { 'nx-youtube': 'https://www.youtube.com' },
 ];
 
+// Hello World
+
 function getEnv() {
   const { host } = new URL(window.location.href);
   if (!['.aem.page', 'local'].some((check) => host.includes(check))) return 'prod';
