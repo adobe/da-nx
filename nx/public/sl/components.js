@@ -147,7 +147,9 @@ class SlTextarea extends FormAwareLitElement {
   }
 }
 
-class SlSelect extends FormAwareLitElement {
+class SlSelect extends LitElement {
+  static formAssociated = true;
+
   static properties = {
     name: { type: String },
     label: { type: String },
@@ -156,23 +158,34 @@ class SlSelect extends FormAwareLitElement {
     placeholder: { type: String },
   };
 
-  async connectedCallback() {
+  connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
+    this._internals = this.attachInternals();
+  }
+
+  update(props) {
+    if (props.has('value')) {
+      this._internals.setFormValue(this.value);
+      if (this._select) this._select.value = this.value;
+    }
+    super.update();
   }
 
   handleChange(event) {
     this.value = event.target.value;
+    this._internals.setFormValue(this.value);
     const wcEvent = new event.constructor(event.type, event);
     this.dispatchEvent(wcEvent);
   }
 
   handleSlotchange(e) {
     const childNodes = e.target.assignedNodes({ flatten: true });
-    const field = this.shadowRoot.querySelector('select');
-    field.append(...childNodes);
-    // Set the value after the options are
-    if (this.value) field.value = this.value;
+    this._select.append(...childNodes);
+  }
+
+  get _select() {
+    return this.shadowRoot.querySelector('select');
   }
 
   render() {
@@ -181,7 +194,7 @@ class SlSelect extends FormAwareLitElement {
       <div class="sl-inputfield">
         ${this.label ? html`<label for="${this.name}">${this.label}</label>` : nothing}
         <div class="sl-inputfield-select-wrapper">
-          <select value=${this.value} id="nx-input-exp-opt-for" @change=${this.handleChange} ?disabled="${this.disabled}"></select>
+          <select name=${this.name} value=${this.value} id="nx-input-exp-opt-for" @change=${this.handleChange} ?disabled="${this.disabled}"></select>
         </div>
       </div>
     `;
@@ -195,7 +208,7 @@ class SlButton extends LitElement {
 
   constructor() {
     super();
-    this.internals_ = this.attachInternals();
+    this._internals = this.attachInternals();
   }
 
   async connectedCallback() {
@@ -227,6 +240,7 @@ class SlDialog extends LitElement {
   static properties = {
     open: { type: Boolean },
     modal: { type: Boolean },
+    _showLazyModal: { state: true },
   };
 
   connectedCallback() {
@@ -234,7 +248,18 @@ class SlDialog extends LitElement {
     this.shadowRoot.adoptedStyleSheets = [style];
   }
 
+  updated() {
+    if (this._showLazyModal && this._dialog) {
+      this._showLazyModal = undefined;
+      this.showModal();
+    }
+  }
+
   showModal() {
+    if (!this._dialog) {
+      this._showLazyModal = true;
+      return;
+    }
     this._dialog.showModal();
   }
 
