@@ -240,6 +240,7 @@ class SlDialog extends LitElement {
   static properties = {
     open: { type: Boolean },
     modal: { type: Boolean },
+    _showLazyModal: { state: true },
   };
 
   connectedCallback() {
@@ -247,7 +248,18 @@ class SlDialog extends LitElement {
     this.shadowRoot.adoptedStyleSheets = [style];
   }
 
+  updated() {
+    if (this._showLazyModal) {
+      this._showLazyModal = undefined;
+      this.showModal();
+    }
+  }
+
   showModal() {
+    if (!this._dialog) {
+      this._showLazyModal = true;
+      return;
+    }
     this._dialog.showModal();
   }
 
