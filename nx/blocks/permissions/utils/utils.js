@@ -196,10 +196,7 @@ async function approveSiteUser(org, site, path, user) {
   const availableRoles = ['admin', 'author', 'publish'];
 
   availableRoles.forEach((role) => {
-    if(!json.admin.role[role]){
-      json.admin.role[role] = [];
-    }
-    const existingRoleUsers = json.admin.role[role];
+    const existingRoleUsers = json.admin.role[role] || [];
 
     // Find the role in the approved role array
     const found = approvedRoles.some((approvedRole) => approvedRole === role);
@@ -208,7 +205,10 @@ async function approveSiteUser(org, site, path, user) {
       // If found, check to see if the user is already in the list.
       const exists = existingRoleUsers.some((existingUser) => existingUser === user.id);
       if (!exists) existingRoleUsers.push(user.id);
-    } else {
+      if (!json.admin.role[role] && existingRoleUsers) {
+        json.admin.role[role] = existingRoleUsers;
+      }
+    } else if (json.admin.role[role]) {
       // If not found, ensure the user is removed from the role.
       json.admin.role[role] = existingRoleUsers.filter((existingUser) => existingUser !== user.id);
     }
