@@ -1,8 +1,23 @@
+/**
+ * Shell module for handling iframe-based content loading and communication
+ * @module shell
+ */
+
 import { loadIms } from '../../utils/ims.js';
 
 const IMS_DETAILS = await loadIms();
 const CHANNEL = new MessageChannel();
 
+/**
+ * Parses the current URL to extract view, organization, repository, reference, and path information
+ * @returns {Object} Object containing parsed URL components
+ * @property {string} view - The view type (defaults to 'fullscreen')
+ * @property {string} org - Organization name from URL
+ * @property {string} repo - Repository name from URL
+ * @property {string} ref - Reference/branch name (defaults to 'main')
+ * @property {string} path - Path components joined with '/'
+ * @property {string} search - Original search query string
+ */
 function getParts() {
   // Get path parts
   const view = 'fullscreen';
@@ -16,12 +31,22 @@ function getParts() {
   };
 }
 
+/**
+ * Constructs the appropriate URL based on the reference type, forwarding parent
+ * search params to the iframe
+ * @returns {string} The constructed URL for the iframe
+ */
 function getUrl() {
   const { org, repo, ref, path, search } = getParts();
   if (ref === 'local') return `http://localhost:3000/${path}.html?${search}`;
   return `https://${ref}--${repo}--${org}.aem.live/${path}.html?${search}`;
 }
 
+/**
+ * Handles iframe load event and sets up message channel communication
+ * @param {Object} event - Load event object
+ * @param {HTMLIFrameElement} event.target - The loaded iframe element
+ */
 function handleLoad({ target }) {
   CHANNEL.port1.onmessage = (e) => {
     if (e.data.action === 'setTitle') {
@@ -40,6 +65,10 @@ function handleLoad({ target }) {
   }, 750);
 }
 
+/**
+ * Initializes the shell by creating, configuring, and appending an iframe
+ * @param {HTMLElement} el - The container element for the iframe
+ */
 export default function init(el) {
   if (!document.querySelector('header')) document.body.classList.add('no-shell');
   const iframe = document.createElement('iframe');
