@@ -17,6 +17,7 @@ class NxFilterBar extends LitElement {
     selectedRolloutStatuses: { type: Array },
     _showFilterPopup: { type: Boolean },
     viewAllProjects: { type: Boolean },
+    showArchivedProjects: { type: Boolean },
   };
 
   constructor() {
@@ -30,6 +31,7 @@ class NxFilterBar extends LitElement {
     this.selectedRolloutStatuses = [];
     this._showFilterPopup = false; // Track popup visibility
     this.viewAllProjects = true; // Default to "All Projects"
+    this.showArchivedProjects = false; // Default to not showing archived projects
   }
 
   emitFilterChange() {
@@ -42,6 +44,7 @@ class NxFilterBar extends LitElement {
           selectedTranslationStatuses: this.selectedTranslationStatuses,
           selectedRolloutStatuses: this.selectedRolloutStatuses,
           viewAllProjects: this.viewAllProjects,
+          showArchivedProjects: this.showArchivedProjects,
         },
       }),
     );
@@ -108,6 +111,11 @@ class NxFilterBar extends LitElement {
     this.emitFilterChange();
   }
 
+  toggleArchivedProjects() {
+    this.showArchivedProjects = !this.showArchivedProjects;
+    this.emitFilterChange();
+  }
+
   render() {
     return html`
       <div class="filter-bar">
@@ -158,6 +166,14 @@ class NxFilterBar extends LitElement {
               <input type="checkbox" .checked=${!this.viewAllProjects} @change=${this.toggleViewAllProjects}/>
               <span class="slider"></span>
               <span class="toggle-label">My Projects</span>
+          </label>
+        </div>
+
+        <div class="toggle-switch">
+          <label>
+              <input type="checkbox" .checked=${this.showArchivedProjects} @change=${this.toggleArchivedProjects}/>
+              <span class="slider"></span>
+              <span class="toggle-label">Archived</span>
           </label>
         </div>
       </div>`;
