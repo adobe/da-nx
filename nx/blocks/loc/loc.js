@@ -71,6 +71,12 @@ class NxLoc extends LitElement {
     const { detail } = e;
     if (!detail) return;
 
+    // Dashboard will set a hash to bypass saving an empty project
+    if (detail.hash) {
+      window.location.hash = detail.hash;
+      return;
+    }
+
     const { error, hash, project } = await saveProject(this.path, detail);
     if (error) return;
 

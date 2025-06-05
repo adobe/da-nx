@@ -41,8 +41,8 @@ function getLocalesTotal(langs) {
   }, 0);
 }
 
-export async function fetchProjectList(org, site) {
-  const resp = await daFetch(`${DA_ORIGIN}/list/${org}/${site}/.da/translation/active`);
+export async function fetchProjectList(org, site, type = 'active') {
+  const resp = await daFetch(`${DA_ORIGIN}/list/${org}/${site}/.da/translation/${type}`);
   if (!resp.ok) {
     return {
       message: {

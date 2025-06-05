@@ -24,10 +24,11 @@ class NxLocDashboard extends LitElement {
   static properties = {
     org: { attribute: false },
     site: { attribute: false },
-    _activeProjects: { state: true },
+    _projectList: { state: true },
     _filteredProjects: { state: true },
     _hasAnyFilters: { state: true },
     _error: { state: true },
+    _useArchivedList: { state: true },
   };
 
   connectedCallback() {
@@ -44,17 +45,17 @@ class NxLocDashboard extends LitElement {
     this._currentUser = ims.email;
   }
 
-  async getProjects() {
-    const { projects, message } = await fetchProjectList(this.org, this.site);
+  async getProjects(type = 'active') {
+    const { projects, message } = await fetchProjectList(this.org, this.site, type);
     if (message) {
       this._error = message;
       return;
     }
-    this._activeProjects = await fetchPagedDetails(projects, PAGE_COUNT);
+    this._projectList = await fetchPagedDetails(projects, PAGE_COUNT);
   }
 
   // Apply filters
-  applyFilters(filters) {
+  async applyFilters(filters) {
     const {
       searchQuery,
       startDate,
@@ -62,6 +63,7 @@ class NxLocDashboard extends LitElement {
       selectedTranslationStatuses,
       selectedRolloutStatuses,
       viewAllProjects,
+      showArchivedProjects,
     } = filters;
 
     this._hasAnyFilters = searchQuery?.length
@@ -69,9 +71,16 @@ class NxLocDashboard extends LitElement {
       || endDate
       || selectedTranslationStatuses?.length
       || selectedRolloutStatuses?.length
-      || !viewAllProjects;
+      || !viewAllProjects
+      || !showArchivedProjects;
 
-    this._filteredProjects = this._activeProjects.filter((project) => {
+    if (this._useArchivedList !== showArchivedProjects) {
+      this._projectList = [];
+      await this.getProjects(showArchivedProjects ? 'archive' : 'active');
+      this._useArchivedList = showArchivedProjects;
+    }
+
+    this._filteredProjects = this._projectList.filter((project) => {
       // Match search query
       const matchesSearch = searchQuery
         ? project.title.toLowerCase().includes(searchQuery?.toLowerCase())
@@ -103,7 +112,7 @@ class NxLocDashboard extends LitElement {
   }
 
   getCurrentList() {
-    return this._hasAnyFilters ? this._filteredProjects : this._activeProjects;
+    return this._hasAnyFilters ? this._filteredProjects : this._projectList;
   }
 
   handleAction({ detail }) {
@@ -113,7 +122,7 @@ class NxLocDashboard extends LitElement {
       this.dispatchEvent(event);
       return;
     }
-    const opts = { detail: { view: 'basics', org: this.org, site: this.site }, bubbles: true, composed: true };
+    const opts = { detail: { hash: `#/basics/${this.org}/${this.site}` }, bubbles: true, composed: true };
     const event = new CustomEvent('next', opts);
     this.dispatchEvent(event);
   }
@@ -172,7 +181,7 @@ class NxLocDashboard extends LitElement {
               </div>
               <div class="project-actions">
                 <button class="copy-btn" @click=${() => this.handleCopy(project)}><svg class="icon"><use href="#S2_Icon_Copy_20_N"/></svg></button>
-                <button class="archive-btn" @click=${() => this.handleArchive(project, idx)}><svg class="icon"><use href="#S2_Icon_ProjectAddInto_20_N"/></svg></button>
+                ${this._useArchivedList ? nothing : html`<button class="archive-btn" @click=${() => this.handleArchive(project, idx)}><svg class="icon"><use href="#S2_Icon_ProjectAddInto_20_N"/></svg></button>`}
               </div>
             </div>
           </li>
