@@ -203,3 +203,16 @@ ul {
     }
   }
 }
+
+.loc-error-step {
+  margin-top: 72px;
+  text-align: center;
+
+  p {
+    line-height: 1.3;
+  }
+
+  .loc-error-code {
+    font-size: 72px;
+  }
+}

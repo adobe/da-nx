@@ -27,6 +27,7 @@ class NxLocDashboard extends LitElement {
     _activeProjects: { state: true },
     _filteredProjects: { state: true },
     _hasAnyFilters: { state: true },
+    _error: { state: true },
   };
 
   connectedCallback() {
@@ -44,8 +45,12 @@ class NxLocDashboard extends LitElement {
   }
 
   async getProjects() {
-    const projectList = await fetchProjectList(this.org, this.site);
-    this._activeProjects = await fetchPagedDetails(projectList, PAGE_COUNT);
+    const { projects, message } = await fetchProjectList(this.org, this.site);
+    if (message) {
+      this._error = message;
+      return;
+    }
+    this._activeProjects = await fetchPagedDetails(projects, PAGE_COUNT);
   }
 
   // Apply filters
@@ -176,6 +181,16 @@ class NxLocDashboard extends LitElement {
     `;
   }
 
+  renderError() {
+    return html`
+      <div class="nx-loc-step loc-error-step">
+        <p class="loc-error-code">${this._error.status}</p>
+        <p class="loc-error-message">${this._error.message}</p>
+        <p class="loc-error-help">${this._error.help}</p>
+      </div>
+    `;
+  }
+
   render() {
     const projects = this.getCurrentList();
 
@@ -189,6 +204,7 @@ class NxLocDashboard extends LitElement {
         next="Create new project">
       </nx-loc-actions>
       <nx-filter-bar @filter-change=${(e) => this.applyFilters(e.detail)}></nx-filter-bar>
+      ${this._error ? this.renderError() : nothing}
       ${projects ? this.renderProjects(projects) : nothing}
     `;
   }

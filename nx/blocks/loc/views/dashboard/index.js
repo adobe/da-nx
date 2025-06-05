@@ -43,9 +43,17 @@ function getLocalesTotal(langs) {
 
 export async function fetchProjectList(org, site) {
   const resp = await daFetch(`${DA_ORIGIN}/list/${org}/${site}/.da/translation/active`);
-  if (!resp.ok) return { message: { text: `Cannot fetch projects. Error: ${resp.status}` } };
+  if (!resp.ok) {
+    return {
+      message: {
+        message: `Not authorized for: ${org} / ${site}.`,
+        help: 'Are you logged into the correct profile?',
+        status: resp.status,
+      },
+    };
+  }
   const json = await resp.json();
-  return json.reverse();
+  return { projects: json.reverse() };
 }
 
 async function fetchProject(project) {
