@@ -11,13 +11,15 @@ function getParts() {
   pathSplit.splice(0, 2);
   const [org, repo, ...path] = pathSplit;
   const ref = new URLSearchParams(search).get('ref') || 'main';
-  return { view, org, repo, ref, path: path.join('/') };
+  return {
+    view, org, repo, ref, path: path.join('/'), search,
+  };
 }
 
 function getUrl() {
-  const { org, repo, ref, path } = getParts();
-  if (ref === 'local') return `http://localhost:3000/${path}.html`;
-  return `https://${ref}--${repo}--${org}.aem.live/${path}.html`;
+  const { org, repo, ref, path, search } = getParts();
+  if (ref === 'local') return `http://localhost:3000/${path}.html?${search}`;
+  return `https://${ref}--${repo}--${org}.aem.live/${path}.html?${search}`;
 }
 
 function handleLoad({ target }) {
