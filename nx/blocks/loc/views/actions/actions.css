@@ -1,4 +1,9 @@
 :host {
+  display: block;
+  max-width: var(--grid-container-width);
+  margin: 0 auto var(--spacing-500) auto;
+  padding: 0 12px;
+
   button {
     font-family: var(--body-font-family);
     font-weight: 700;

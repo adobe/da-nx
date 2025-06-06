@@ -3,7 +3,7 @@ import getStyle from '../../../../utils/styles.js';
 import { getConfig } from '../../../../scripts/nexter.js';
 import getSvg from '../../../../utils/svg.js';
 import { Queue } from '../../../../public/utils/tree.js';
-import { getTranslateStepText, saveProject } from '../../utils/utils.js';
+import { getHasTranslate, getTranslateText, getRolloutText, saveProject } from '../../utils/utils.js';
 import { getSyncUrls } from './index.js';
 import { mergeCopy, overwriteCopy } from '../../project/index.js';
 
@@ -44,6 +44,7 @@ class NxLocSync extends LitElement {
   getPersistedUrls() {
     return this._syncUrls.map((url) => ({
       suppliedPath: url.suppliedPath,
+      basePath: url.basePath,
       checked: url.checked,
       synced: url.synced,
     }));
@@ -55,7 +56,7 @@ class NxLocSync extends LitElement {
       const event = new CustomEvent('prev', opts);
       this.dispatchEvent(event);
     } else {
-      const view = 'translate';
+      const view = getHasTranslate(this.langs) ? 'translate' : 'rollout';
 
       // Only persist what we need to
       const urls = this.getPersistedUrls();
@@ -107,6 +108,14 @@ class NxLocSync extends LitElement {
     this.requestUpdate();
   }
 
+  get nextText() {
+    const translateText = getTranslateText(this.langs);
+    if (translateText) return translateText;
+    const rolloutText = getRolloutText(this.langs);
+    if (rolloutText) return rolloutText;
+    return 'Complete';
+  }
+
   get _defaultMessage() {
     const { name, location } = this.options['source.language'];
     return { text: `Sync sources to ${name} - ${location}` };
@@ -145,7 +154,7 @@ class NxLocSync extends LitElement {
         .message=${this._message || this._defaultMessage}
         prev="Dashboard"
         ?nextDisabled=${!this._allSynced}
-        next=${getTranslateStepText(this.langs)}>
+        next=${this.nextText}>
       </nx-loc-actions>
       <div class="nx-loc-list-actions">
         <div>

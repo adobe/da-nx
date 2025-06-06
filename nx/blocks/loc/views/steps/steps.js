@@ -2,7 +2,7 @@ import { LitElement, html, nothing } from 'da-lit';
 import { getConfig } from '../../../../scripts/nexter.js';
 import getStyle from '../../../../utils/styles.js';
 import getSvg from '../../../../utils/svg.js';
-import { getTranslateStepText } from '../../utils/utils.js';
+import { getTranslateText } from '../../utils/utils.js';
 
 const { nxBase: nx } = getConfig();
 const style = await getStyle(import.meta.url);
@@ -139,7 +139,7 @@ class NxLocSteps extends LitElement {
     return html`
       <button class="nx-loc-wizard-btn${translate.css}">
         <svg viewBox="0 0 20 20"><use href="${translate.icon}" /></svg>
-        <p>${getTranslateStepText(this.langs)}</p>
+        <p>${getTranslateText(this.langs)}</p>
       </button>`;
   }
 

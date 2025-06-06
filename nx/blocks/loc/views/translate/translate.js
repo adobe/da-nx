@@ -290,13 +290,18 @@ class NxLocTranslate extends LitElement {
     `;
   }
 
+  renderServiceLink() {
+    if (!this.options.service.link) return this.options.service.name;
+    return html`<a href="${this.options.service.link}" target="_blank">${this.options.service.name}</a>`;
+  }
+
   renderTranslate() {
     if (!this._translateLangs?.length) return nothing;
     const withCancel = this.canCancel && this._connected && this._translateLangs.some((lang) => lang.translation && lang.translation.status !== 'cancelled') ? ' with-cancel' : '';
 
     return html`
       <div class="nx-loc-list-actions">
-        <p class="nx-loc-list-actions-header">Translate (${this.options.service.name})</p>
+        <p class="nx-loc-list-actions-header">Translate (${this.renderServiceLink()})</p>
         <div class="actions">${this.renderTranslateAction()}</div>
       </div>
       <div class="nx-loc-list-header${withCancel}">

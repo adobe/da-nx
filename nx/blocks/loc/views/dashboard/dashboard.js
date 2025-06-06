@@ -103,8 +103,11 @@ class NxLocDashboard extends LitElement {
       const matchesOwnership = viewAllProjects || project.createdBy === this._currentUser;
 
       // Combine all filters
-      // eslint-disable-next-line max-len
-      return matchesSearch && matchesDate && matchesTranslationStatus && matchesRolloutStatus && matchesOwnership;
+      return matchesSearch
+        && matchesDate
+        && matchesTranslationStatus
+        && matchesRolloutStatus
+        && matchesOwnership;
     });
 
     // Reset to the first page after applying filters
@@ -204,14 +207,6 @@ class NxLocDashboard extends LitElement {
     const projects = this.getCurrentList();
 
     return html`
-      <nx-loc-actions
-        @action=${this.handleAction}
-        .message=${this._message}
-        prev="All apps"
-        nextStyle="accent"
-        skipSave="true"
-        next="Create new project">
-      </nx-loc-actions>
       <nx-filter-bar @filter-change=${(e) => this.applyFilters(e.detail)}></nx-filter-bar>
       ${this._error ? this.renderError() : nothing}
       ${projects ? this.renderProjects(projects) : nothing}

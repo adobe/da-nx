@@ -35,6 +35,7 @@ class NxLoc extends LitElement {
     _langs: { state: true },
     _urls: { state: true },
     _error: { state: true },
+    _message: { state: true },
   };
 
   connectedCallback() {
@@ -44,102 +45,128 @@ class NxLoc extends LitElement {
 
   update(props) {
     // Only get the project when the path changes
-    if (props.has('path') && this.path) this.getProject();
+    if (props.has('path') && this.path) this.loadProject();
+
+    // Reset the current project when the view is dashboard
+    if (props.has('view') && this.view === 'dashboard') {
+      this.setProject({});
+    }
     super.update();
   }
 
   setProject(project) {
+    console.log(project);
     this._title = project.title;
     this._options = project.options;
     this._langs = project.langs;
     this._urls = project.urls;
   }
 
-  async getProject() {
+  async loadProject() {
     const href = `/${this.org}/${this.site}${this.path}`;
 
-    const project = await fetchProject(href);
-    if (project.error) {
-      this._error = project.error;
+    const { error, project } = await fetchProject(href);
+
+    if (error) {
+      this._error = error;
       return;
     }
 
     this.setProject(project);
   }
 
-  async handleNext(e) {
-    const { detail } = e;
-    if (!detail) return;
+  async saveProject(view, data) {
+    this._message = { text: 'Saving...' };
 
-    // Dashboard will set a hash to bypass saving an empty project
-    if (detail.hash) {
-      window.location.hash = detail.hash;
-      return;
+    const { error, project } = await saveProject(this.path, { ...data, view });
+    if (error) {
+      this._error = error;
+      return null;
     }
-
-    const { error, hash, project } = await saveProject(this.path, detail);
-    if (error) return;
-
-    // Set everything before we swap views
-    // This prevents a new view from getting
-    // old project info.
     this.setProject(project);
-    window.location.hash = hash;
+
+    this._message = undefined;
+
+    return project;
   }
 
-  handlePrev(prevView) {
-    if (prevView === 'apps') {
-      window.location.href = `/apps#/${this.org}/${this.site}`;
+  async handleAction({ detail }) {
+    const { href, view, save } = detail;
+
+    const { message, data } = await this.stepData;
+    if (message) {
+      this._message = message;
       return;
     }
 
-    const stripped = window.location.hash.replace('#', '');
-    const hash = stripped.replace(this.view, prevView);
-    window.location.hash = hash;
+    const { path } = save ? await this.saveProject(view, data) : this;
+
+    if (href) {
+      window.location.href = href;
+      return;
+    }
+
+    const base = `/${view}/${this.org}/${this.site}`;
+    window.location.hash = view === 'dashboard' || !path ? base : `${base}${path}`;
+  }
+
+  get project() {
+    return {
+      org: this.org,
+      site: this.site,
+      title: this._title,
+      options: this._options,
+      langs: this._langs,
+      urls: this._urls,
+    };
+  }
+
+  get stepData() {
+    return this.shadowRoot.querySelector('.nx-loc-step').getData();
   }
 
   renderView() {
     if (this.view === 'dashboard') {
       return html`
         <nx-loc-dashboard
+          class="nx-loc-step"
           .org=${this.org}
           .site=${this.site}
-          @prev=${() => this.handlePrev('apps')}
-          @next=${this.handleNext}>
+          @message=${this.handleMessage}>
         </nx-loc-dashboard>`;
     }
 
     if (this.view === 'basics') {
       return html`
         <nx-loc-basics
+          class="nx-loc-step"
           .org=${this.org}
           .site=${this.site}
           .title=${this._title}
           .urls=${this._urls}
-          @prev=${() => this.handlePrev('dashboard')}
-          @next=${this.handleNext}>
+          @message=${this.handleMessage}>
         </nx-loc-basics>`;
     }
 
     if (this.view === 'validate') {
       return html`
         <nx-loc-validate
+          class="nx-loc-step"
           .org=${this.org}
           .site=${this.site}
           .urls=${this._urls}
-          @prev=${() => this.handlePrev('basics')}
-          @next=${this.handleNext}>
+          @message=${this.handleMessage}>
         </nx-loc-validate>`;
     }
 
     if (this.view === 'options') {
       return html`
         <nx-loc-options
+          class="nx-loc-step"
           .org=${this.org}
           .site=${this.site}
           .urls=${this._urls}
-          @prev=${() => this.handlePrev('validate')}
-          @next=${this.handleNext}>
+          @message=${this.handleMessage}>
         </nx-loc-options>
       `;
     }
@@ -154,8 +181,7 @@ class NxLoc extends LitElement {
           .options=${this._options}
           .langs=${this._langs}
           .urls=${this._urls}
-          @prev=${() => this.handlePrev('dashboard')}
-          @next=${this.handleNext}>
+          @message=${this.handleMessage}>
         </nx-loc-sync>
       `;
     }
@@ -170,8 +196,7 @@ class NxLoc extends LitElement {
           .options=${this._options}
           .langs=${this._langs}
           .urls=${this._urls}
-          @prev=${() => this.handlePrev('sync')}
-          @next=${this.handleNext}>
+          @message=${this.handleMessage}>
         </nx-loc-translate>
       `;
     }
@@ -186,8 +211,7 @@ class NxLoc extends LitElement {
           .options=${this._options}
           .langs=${this._langs}
           .urls=${this._urls}
-          @prev=${() => this.handlePrev('translate')}
-          @next=${this.handleNext}>
+          @message=${this.handleMessage}>
         </nx-loc-rollout>
       `;
     }
@@ -198,19 +222,41 @@ class NxLoc extends LitElement {
           .org=${this.org}
           .site=${this.site}
           .path=${this.path}
-          @prev=${() => this.handlePrev('dashboard')}
-          @next=${this.handleNext}>
+          @message=${this.handleMessage}>
         </nx-loc-complete>
       `;
     }
     return nothing;
   }
 
+  renderSteps() {
+    return html`
+      <nx-loc-steps
+        .view=${this.view}
+        .org=${this.org}
+        .site=${this.site}
+        .options=${this._options}
+        .langs=${this._langs}
+        .urls=${this._urls}>
+      </nx-loc-steps>
+    `;
+  }
+
+  renderActions() {
+    return html`
+      <nx-loc-actions
+        .view=${this.view}
+        .project=${this.project}
+        .message=${this._message}
+        @action=${this.handleAction}>
+      </nx-loc-actions>
+    `;
+  }
+
   renderError() {
     return html`
-      <nx-loc-header
-        title="Error"></nx-loc-header>
-      <div class="nx-loc-step loc-error-step">
+      <nx-loc-header title="Error"></nx-loc-header>
+      <div class="nx-loc-step-wrapper loc-error-step">
         <p class="loc-error-code">${this._error.status}</p>
         <p class="loc-error-message">${this._error.message}</p>
         <p class="loc-error-help">${this._error.help}</p>
@@ -224,16 +270,11 @@ class NxLoc extends LitElement {
     return html`
       <nx-loc-header
         view=${this.view}
-        title=${this._title}></nx-loc-header>
-      <nx-loc-steps
-        .view=${this.view}
-        .org=${this.org}
-        .site=${this.site}
-        .options=${this._options}
-        .langs=${this._langs}
-        .urls=${this._urls}>
-      </nx-loc-steps>
-      <div class="nx-loc-step">
+        title=${this._title}>
+      </nx-loc-header>
+      ${this.renderSteps()}
+      ${this.renderActions()}
+      <div class="nx-loc-step-wrapper">
         ${this.renderView()}
       </div>
     `;

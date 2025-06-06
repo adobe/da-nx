@@ -113,6 +113,10 @@ nx-loc-actions {
   .nx-loc-list-actions-header {
     font-size: 22px;
     font-weight: 700;
+
+    a {
+      color: var(--s2-blue-900);
+    }
   }
 
   .actions {

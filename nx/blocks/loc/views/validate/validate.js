@@ -22,7 +22,6 @@ class NxLocValidate extends LitElement {
     urls: { attribute: false },
     _configSheet: { state: true },
     _urls: { state: true },
-    _message: { state: true },
   };
 
   connectedCallback() {
@@ -129,15 +128,13 @@ class NxLocValidate extends LitElement {
     return foundLang.location;
   }
 
-  async handleSubmit() {
+  async getData() {
     const checked = this._urls.filter((url) => url.checked);
     if (checked.some((url) => (url.status === 'error'))) {
-      this._message = { type: 'error', text: 'Uncheck error URLs below.' };
-      return;
+      return { message: { type: 'error', text: 'Uncheck error URLs below.' } };
     }
     if (checked.length < 1) {
-      this._message = { type: 'error', text: 'No URLs selected.' };
-      return;
+      return { message: { type: 'error', text: 'Please select at least one URL.' } };
     }
 
     const sourcePrefix = await this.getSourcePrefix();
@@ -150,11 +147,7 @@ class NxLocValidate extends LitElement {
       };
     });
 
-    const detail = { view: 'options', org: this.org, site: this.site, urls };
-
-    const opts = { detail, bubbles: true, composed: true };
-    const event = new CustomEvent('next', opts);
-    this.dispatchEvent(event);
+    return { data: { org: this.org, site: this.site, urls } };
   }
 
   handleChanged(url) {
@@ -189,13 +182,6 @@ class NxLocValidate extends LitElement {
     if (!this._urls) return nothing;
 
     return html`
-      <nx-loc-actions
-        @action=${this.handleAction}
-        .message=${this._message}
-        prev="Setup basics"
-        ?nextDisabled=${this.notReady}
-        next="Select options">
-      </nx-loc-actions>
       ${this._urls ? html`
         <div class="details">
           <div class="detail-card detail-card-pages">

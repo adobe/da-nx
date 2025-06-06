@@ -4,7 +4,7 @@
   font-size: var(--type-body-s-size);
 }
 
-.nx-loc-step {
+.nx-loc-step-wrapper {
   max-width: var(--grid-container-width);
   margin: 0 auto var(--spacing-500) auto;
 

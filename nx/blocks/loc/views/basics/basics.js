@@ -19,35 +19,14 @@ class NxLocBasics extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
-
   }
 
   formatTitle({ target }) {
     this.title = target.value.replaceAll(/[^a-zA-Z0-9]/g, '-').toLowerCase();
   }
 
-  async handleSubmit() {
-    const formData = new FormData(this.form);
-    const { title, urls } = Object.fromEntries(formData);
-
-    const { error, detail } = await formatBasics(title, urls);
-    if (error) {
-      this._message = { text: error, type: 'error' };
-      return;
-    }
-
-    const opts = { detail, bubbles: true, composed: true };
-    const event = new CustomEvent('next', opts);
-    this.dispatchEvent(event);
-  }
-
-  handleAction({ detail }) {
-    if (detail === 'prev') {
-      const opts = { bubbles: true, composed: true };
-      const event = new CustomEvent('prev', opts);
-      this.dispatchEvent(event);
-    }
-    if (detail === 'next') this.handleSubmit();
+  getData() {
+    return formatBasics(this.title, this.textUrls);
   }
 
   get form() {
@@ -60,13 +39,6 @@ class NxLocBasics extends LitElement {
 
   render() {
     return html`
-      <nx-loc-actions
-        @action=${this.handleAction}
-        .message=${this._message}
-        prev="Dashboard"
-        ?prevDisabled="${!(this.org && this.site)}"
-        next="Validate sources">
-      </nx-loc-actions>
       <form>
         <div class="nx-loc-title-wrapper">
           <label for="title">Title</label>

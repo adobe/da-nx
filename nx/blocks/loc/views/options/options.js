@@ -59,23 +59,16 @@ class NxLocOptions extends LitElement {
     this._actions = getAllActions(this._langs);
   }
 
-  handleSubmit() {
+  getData() {
     const {
-      view,
       options,
       langs,
       message,
     } = finalizeOptions(this._config, this._options, this._langs, this.urls);
 
-    if (message) {
-      this._message = message;
-      return;
-    }
+    if (message) return { message };
 
-    const detail = { org: this.org, site: this.site, view, options, langs };
-    const opts = { detail, bubbles: true, composed: true };
-    const event = new CustomEvent('next', opts);
-    this.dispatchEvent(event);
+    return { data: { org: this.org, site: this.site, options, langs } };
   }
 
   handleChangeOption({ target }) {
@@ -257,12 +250,6 @@ class NxLocOptions extends LitElement {
 
   render() {
     return html`
-      <nx-loc-actions
-        @action=${this.handleAction}
-        .message=${this._message}
-        prev="Validate sources"
-        next="Start project">
-      </nx-loc-actions>
       ${this._config && html`
         ${this.urls && this.renderDetails()}
         <p class="nx-loc-options-header">Options</p>

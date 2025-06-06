@@ -15,6 +15,7 @@ export const VIEWS = [
   'sync',
   'translate',
   'rollout',
+  'complete',
 ];
 
 const PROJECT_CACHE = {};
@@ -36,14 +37,6 @@ export function formatDate(timestamp) {
   const date = rawDate.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' });
   const time = rawDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   return { date, time };
-}
-
-export function getTranslateStepText(langs) {
-  const hasTranslate = langs?.some((lang) => lang.action === 'translate');
-  const hasCopy = langs?.some((lang) => lang.action === 'copy');
-  if (hasTranslate && !hasCopy) return 'Translate sources';
-  if (!hasTranslate && hasCopy) return 'Copy sources';
-  return 'Translate & copy';
 }
 
 function getExtPath(path) {
@@ -69,7 +62,7 @@ export function getBasePath({ prefix, path }) {
  * Convert a path to DA and AEM formatted w/ optional destination language prefix
  *
  * @param config The path config.
- * @param config.path An AEM-formatted (no org, site, index, .html) base path.
+ * @param config.path An AEM-formatted (no org, site, index, .html) supplied path.
  * @param config.sourcePrefix The prefix to remove.
  * @param config.destPrefix The prefix to attach.
  */
@@ -214,7 +207,7 @@ export async function fetchConfig(org, site) {
 
 export async function fetchProject(path, detail) {
   // If there's a local cache at the location, use it.
-  if (!detail && PROJECT_CACHE[path]) return PROJECT_CACHE[path];
+  if (!detail && PROJECT_CACHE[path]) return { project: PROJECT_CACHE[path] };
 
   const opts = {};
   if (detail) {
@@ -253,7 +246,7 @@ export async function fetchProject(path, detail) {
   const { title } = PROJECT_CACHE[path];
   if (title) document.title = `${title} - DA Translation`;
 
-  return PROJECT_CACHE[path];
+  return { project: PROJECT_CACHE[path] };
 }
 
 // All top level properties to persist
@@ -265,9 +258,9 @@ export async function saveProject(projPath, updates) {
 
   const path = projPath || `/.da/translation/active/${now}`;
 
-  const href = `/${org}/${site}${path}`;
+  const fullpath = `/${org}/${site}${path}`;
 
-  const existing = await fetchProject(href);
+  const existing = await fetchProject(fullpath);
 
   const ims = await loadIms();
 
@@ -281,7 +274,49 @@ export async function saveProject(projPath, updates) {
   // Merge the existing json with the new details
   const combined = { ...existing, ...updates };
 
-  const project = await fetchProject(href, combined);
+  const { error, project } = await fetchProject(fullpath, combined);
+  if (error) return { error };
+  return { project: { ...project, path } };
+}
 
-  return { hash: `/${updates.view}${href}`, project };
+export function getHasSync(urls, options) {
+  const { location } = options['source.language'];
+  return urls.some((url) => !url.suppliedPath.startsWith(location));
+}
+
+export function getHasCopy(langs) {
+  return langs?.some((lang) => lang.action === 'copy');
+}
+
+export function getHasTranslate(langs) {
+  return langs?.some((lang) => lang.action === 'translate');
+}
+
+export function getHasRollout(langs) {
+  return langs?.some((lang) => lang.locales?.length > 0);
+}
+
+export function getTranslateText(langs) {
+  const hasTranslate = getHasTranslate(langs);
+  const hasCopy = getHasCopy(langs);
+  if (hasTranslate && !hasCopy) return 'Translate sources';
+  if (!hasTranslate && hasCopy) return 'Copy sources';
+  if (hasTranslate && hasCopy) return 'Translate & copy';
+  return null;
+}
+
+export function getRolloutText(langs) {
+  const hasRollout = getHasRollout(langs);
+  if (hasRollout) return 'Rollout locales';
+  return null;
+}
+
+export function getSyncText(urls, options) {
+  const hasSync = getHasSync(urls, options);
+  if (hasSync) return 'Sync sources';
+  return null;
+}
+
+export function getDashboardText() {
+  return 'Dashboard';
 }

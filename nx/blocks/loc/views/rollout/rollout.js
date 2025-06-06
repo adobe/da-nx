@@ -2,7 +2,7 @@ import { LitElement, html, nothing } from 'da-lit';
 import getStyle from '../../../../utils/styles.js';
 import { getConfig } from '../../../../scripts/nexter.js';
 import getSvg from '../../../../utils/svg.js';
-import { getTranslateStepText, saveProject } from '../../utils/utils.js';
+import { getSyncText, getTranslateText, getDashboardText, saveProject } from '../../utils/utils.js';
 import { sortLangs, rolloutLang, getFilteredLangs, getSummaryCards } from './index.js';
 
 const { nxBase: nx } = getConfig();
@@ -35,19 +35,6 @@ class NxLocRollout extends LitElement {
     getSvg({ parent: this.shadowRoot, paths: ICONS });
     this._sortedLangs = sortLangs(this.langs);
     this._summaryCards = getSummaryCards();
-  }
-
-  handleAction({ detail }) {
-    if (detail === 'prev') {
-      const opts = { bubbles: true, composed: true };
-      const event = new CustomEvent('prev', opts);
-      this.dispatchEvent(event);
-      return;
-    }
-    const nextDetail = { org: this.org, site: this.site, view: 'complete' };
-    const opts = { detail: nextDetail, bubbles: true, composed: true };
-    const event = new CustomEvent('next', opts);
-    this.dispatchEvent(event);
   }
 
   async handleSaveProject() {
@@ -101,6 +88,19 @@ class NxLocRollout extends LitElement {
     }
   }
 
+  handleAction({ detail }) {
+    if (detail === 'prev') {
+      const opts = { bubbles: true, composed: true };
+      const event = new CustomEvent('prev', opts);
+      this.dispatchEvent(event);
+      return;
+    }
+    const nextDetail = { org: this.org, site: this.site, view: 'complete' };
+    const opts = { detail: nextDetail, bubbles: true, composed: true };
+    const event = new CustomEvent('next', opts);
+    this.dispatchEvent(event);
+  }
+
   handleLangToggle(lang) {
     lang.expand = !lang.expand;
     this.requestUpdate();
@@ -138,6 +138,14 @@ class NxLocRollout extends LitElement {
     return this._sortedLangs.filter(
       (lang) => filters.some((filter) => lang.rollout.status === filter),
     ).length;
+  }
+
+  getPrevText() {
+    const translateText = getTranslateText(this.langs);
+    if (translateText) return translateText;
+    const syncText = getSyncText(this.urls, this.options);
+    if (syncText) return syncText;
+    return getDashboardText();
   }
 
   get anyRollout() {
@@ -254,13 +262,6 @@ class NxLocRollout extends LitElement {
 
   render() {
     return html`
-      <nx-loc-actions
-        @action=${this.handleAction}
-        .message=${this._message}
-        prev=${getTranslateStepText(this.langs)}
-        next="Project complete"
-        ?nextDisabled=${!this._allRolledOut}>
-      </nx-loc-actions>
       ${this.renderSummary()}
       ${this.renderErrors()}
       ${this.renderGroups()}
