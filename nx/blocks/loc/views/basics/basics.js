@@ -9,32 +9,34 @@ const MOCK_URLS = 'https://main--da-bacom--adobecom.aem.page/drafts/cmillar/loc-
 
 class NxLocBasics extends LitElement {
   static properties = {
-    title: { attribute: false },
-    org: { attribute: false },
-    site: { attribute: false },
-    urls: { attribute: false },
-    _message: { state: true },
+    project: { attribute: false },
+    _title: { state: true },
+    _textUrls: { state: true },
   };
 
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
+    this.setupProject();
+  }
+
+  setupProject() {
+    const { org, site, title, urls } = this.project || {};
+    this._title = title;
+    this._textUrls = urls ? this.formatUrls(org, site, urls) : MOCK_URLS;
   }
 
   formatTitle({ target }) {
-    this.title = target.value.replaceAll(/[^a-zA-Z0-9]/g, '-').toLowerCase();
+    this._title = target.value.replaceAll(/[^a-zA-Z0-9]/g, '-').toLowerCase();
   }
 
-  getData() {
-    return formatBasics(this.title, this.textUrls);
+  formatUrls(org, site, urls) {
+    return urls.map((url) => `https://main--${site}--${org}.aem.page${url.suppliedPath}`).join('\n');
   }
 
-  get form() {
-    return this.shadowRoot.querySelector('form');
-  }
-
-  get textUrls() {
-    return this.urls?.map((url) => `https://main--${this.site}--${this.org}.aem.page${url.suppliedPath}`).join('\n') || MOCK_URLS;
+  getUpdates() {
+    const textUrls = this.shadowRoot.querySelector('[name="urls"]').value;
+    return formatBasics(this._title, textUrls);
   }
 
   render() {
@@ -42,7 +44,11 @@ class NxLocBasics extends LitElement {
       <form>
         <div class="nx-loc-title-wrapper">
           <label for="title">Title</label>
-          <sl-input type="text" name="title" .value=${this.title} placeholder="demo" @input=${this.formatTitle}></sl-input>
+          <sl-input
+            type="text" name="title"
+            .value=${this._title}
+            placeholder="demo"
+            @input=${this.formatTitle}></sl-input>
         </div>
         <div>
           <label for="urls">URLs</label>
@@ -50,7 +56,7 @@ class NxLocBasics extends LitElement {
             placeholder="Add AEM URLs here."
             style="font-family: monospace; padding: 4px 12px;"
             resize="none"
-            .value=${this.textUrls}></sl-textarea>
+            .value=${this._textUrls}></sl-textarea>
         </div>
       </form>
     `;

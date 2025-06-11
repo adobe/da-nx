@@ -16,9 +16,7 @@ const ICONS = [
 
 class NxLocOptions extends LitElement {
   static properties = {
-    org: { attribute: false },
-    site: { attribute: false },
-    urls: { attribute: false },
+    project: { attribute: false },
     _config: { state: true },
     _options: { state: true },
     _langs: { state: true },
@@ -35,11 +33,14 @@ class NxLocOptions extends LitElement {
   }
 
   async formatOptions() {
-    if (!(this.org || this.site)) {
-      this._message = { text: 'No organization or site supplied.', type: 'error' };
+    if (!this.project) {
+      this._message = { text: 'No project available.', type: 'error' };
       return;
     }
-    const sheets = await fetchConfig(this.org, this.site);
+
+    const { org, site, urls } = this.project;
+    const sheets = await fetchConfig(org, site);
+    console.log(sheets);
     if (!(sheets.config || sheets.languages)) {
       this._message = { text: 'No config available.', type: 'error' };
       return;
@@ -59,12 +60,12 @@ class NxLocOptions extends LitElement {
     this._actions = getAllActions(this._langs);
   }
 
-  getData() {
+  getUpdates() {
     const {
       options,
       langs,
       message,
-    } = finalizeOptions(this._config, this._options, this._langs, this.urls);
+    } = finalizeOptions(this._config, this._options, this._langs, this.project.urls);
 
     if (message) return { message };
 
@@ -73,17 +74,6 @@ class NxLocOptions extends LitElement {
 
   handleChangeOption({ target }) {
     this._options[target.name] = target.value;
-  }
-
-  handleAction({ detail }) {
-    if (detail === 'prev') {
-      const opts = { bubbles: true, composed: true };
-      const event = new CustomEvent('prev', opts);
-      this.dispatchEvent(event);
-    }
-    if (detail === 'next') {
-      this.handleSubmit();
-    }
   }
 
   handleLocaleToggle(e, locale) {

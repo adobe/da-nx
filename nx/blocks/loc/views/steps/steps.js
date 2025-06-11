@@ -2,21 +2,14 @@ import { LitElement, html, nothing } from 'da-lit';
 import { getConfig } from '../../../../scripts/nexter.js';
 import getStyle from '../../../../utils/styles.js';
 import getSvg from '../../../../utils/svg.js';
-import { getTranslateText } from '../../utils/utils.js';
+import { VIEWS, calculateView } from './index.js';
 
 const { nxBase: nx } = getConfig();
 const style = await getStyle(import.meta.url);
 
-const STEPS_VIEW = {
-  basics: 'setup',
-  validate: 'setup',
-  options: 'setup',
-  sync: 'manage',
-  translate: 'manage',
-  rollout: 'manage',
-};
-
 const ICONS = [
+  `${nx}/img/icons/Smock_ChevronLeft_18_N.svg`,
+  `${nx}/img/icons/Smock_ChevronRight_18_N.svg`,
   `${nx}/public/icons/S2_Icon_Archive_20_N.svg`,
   `${nx}/public/icons/S2_Icon_Emoji_20_N.svg`,
   `${nx}/public/icons/S2_Icon_FileConvert_20_N.svg`,
@@ -31,12 +24,13 @@ const ICONS = [
 class NxLocSteps extends LitElement {
   static properties = {
     view: { attribute: false },
+    step: { attribute: false },
     org: { attribute: false },
     site: { attribute: false },
-    options: { attribute: false },
-    path: { attribute: false },
-    langs: { attribute: false },
-    urls: { attribute: false },
+    project: { attribute: false },
+    message: { attribute: false },
+    _prev: { state: true },
+    _next: { state: true },
   };
 
   connectedCallback() {
@@ -45,195 +39,105 @@ class NxLocSteps extends LitElement {
     getSvg({ parent: this.shadowRoot, paths: ICONS });
   }
 
-  getShowSync() {
-    const prefix = this.options['source.language'].location;
-    const needsSync = this.urls.some((url) => !url.suppliedPath.startsWith(prefix));
-    return needsSync && prefix !== '/';
+  update(props) {
+    if (props.has('view')) {
+      this.getSteps();
+      this.getActions();
+    }
+    super.update();
   }
 
-  getShowTranslate() {
-    return this.langs.some((lang) => lang.action === 'translate' || lang.action === 'copy');
+  getSteps() {
+    const { org, site, project } = this;
+    this._steps = Object.values(VIEWS).reduce((acc, view) => {
+      const { step } = view({ view: this.view, org, site, project });
+      if (step.visible) acc.push(step);
+      return acc;
+    }, []);
   }
 
-  getShowRollout() {
-    return this.langs.some((lang) => lang.locales?.length);
+  getActions() {
+    const { view, org, site, project } = this;
+    this._prev = VIEWS[this.view]({ view, org, site, project }).prev;
+    this._next = VIEWS[this.view]({ view, org, site, project }).next;
   }
 
-  getSyncCheck() {
-    if (!this.urls || !this.urls?.length) return false;
+  async handleAction(dir) {
+    const existing = this.project || { org: this.org, site: this.site };
 
-    const filtered = this.urls.filter(
-      (url) => url.synced === 'synced' || url.synced === 'skipped',
-    );
+    const { message, data: updates } = await this.step.getUpdates();
 
-    return filtered.length === this.urls.length;
+    // If there are updates, combine them with the current project
+    const data = updates ? { ...existing, ...updates } : existing;
+
+    // Calculate the next view based on updates from the step
+    const { href, hash, view } = calculateView(this.view, dir, data);
+    data.view = view;
+
+    const opts = { detail: { message, href, hash, data }, bubbles: true, composed: true };
+    const event = new CustomEvent('action', opts);
+    this.dispatchEvent(event);
   }
 
-  handleSwitchView(newView) {
-    const { hash } = window.location;
-    const [, org, site] = hash.substring(2).split('/');
-    window.location.hash = `/${newView}/${org}/${site}`;
+  get step() {
+    return this.parentNode.querySelector('.nx-loc-step');
   }
 
-  getTranslateCheck() {
-    if (!this.urls || !this.urls?.length) return false;
-
-    if (!this.langs || !this.langs?.length) return false;
-
-    return this.langs.every((lang) => {
-      const {
-        action = '',
-        translation: { saved: translationSaved = 0 } = {},
-        copy: { saved: copySaved = 0 } = {},
-      } = lang;
-      return action === 'rollout' || translationSaved + copySaved === this.urls.length || lang.translation?.status === 'cancelled';
-    });
-  }
-
-  getRolloutCheck() {
-    if (!this.urls || !this.urls?.length) return false;
-
-    if (!this.langs || !this.langs?.length) return false;
-
-    return this.langs.every((lang) => {
-      const { rollout: { status = '' } = {} } = lang;
-      return status === 'complete';
-    });
-  }
-
-  getStyling(view, defIcon) {
-    const views = {
-      dashboard: this.org && this.site,
-      basics: this.urls,
-      validate: this.urls?.some((url) => url.checked),
-      options: this.options,
-      sync: this.getSyncCheck(),
-      translate: this.getTranslateCheck(),
-      rollout: this.getRolloutCheck(),
-    };
-
-    const filled = views[view] ? ' filled' : '';
-    const highlight = view === this.view ? ' highlight' : '';
-
-    // Highlight (active view) should override filled
-    const styles = highlight ? { css: highlight } : { css: filled };
-
-    styles.icon = filled && !highlight ? '#S2_Icon_CheckmarkCircleGreen_20_N' : defIcon;
-
-    return styles;
-  }
-
-  renderRollout() {
-    const rollout = this.getStyling('rollout', '#S2_Icon_FileConvert_20_N');
-
+  renderStepButton(step) {
     return html`
-      <button class="nx-loc-wizard-btn${rollout.css}">
-        <svg viewBox="0 0 20 20"><use href="${rollout.icon}" /></svg>
-        <p>Rollout locales</p>
-      </button>`;
-  }
-
-  renderTranslate() {
-    const translate = this.getStyling('translate', '#S2_Icon_GlobeGrid_20_N');
-
-    return html`
-      <button class="nx-loc-wizard-btn${translate.css}">
-        <svg viewBox="0 0 20 20"><use href="${translate.icon}" /></svg>
-        <p>${getTranslateText(this.langs)}</p>
-      </button>`;
-  }
-
-  renderSync() {
-    const sync = this.getStyling('sync', '#S2_Icon_Refresh_20_N');
-
-    return html`
-      <button class="nx-loc-wizard-btn${sync.css}">
-        <svg viewBox="0 0 20 20"><use href="${sync.icon}" /></svg>
-        <p>Sync sources</p>
-      </button>`;
-  }
-
-  renderManage() {
-    if (!this.urls && !this.langs) return nothing;
-    const dashboard = this.getStyling('dashboard', '#S2_Icon_Archive_20_N');
-
-    const middle = [];
-    if (this.getShowSync()) middle.push(this.renderSync());
-    if (this.getShowTranslate()) middle.push(this.renderTranslate());
-    if (this.getShowRollout()) middle.push(this.renderRollout());
-
-    const separator = html`<hr/>`;
-
-    const separated = middle.flatMap(
-      (item, index) => (index === middle.length - 1 ? [item] : [item, separator]),
-    );
-
-    return html`
-      <div class="nx-setup-steps-container">
-        <button @click=${() => this.handleSwitchView('dashboard')} class="nx-loc-wizard-btn nx-loc-projects${dashboard.css}">
-          <svg viewBox="0 0 20 20"><use href="#S2_Icon_Archive_20_N" /></svg>
-          <p>All projects</p>
-        </button>
-        <hr class=""/>
-        <div class="nx-setup-steps-middle">
-          ${separated.map((content) => content)}
-        </div>
-        <hr/>
-        <button class="nx-loc-wizard-btn">
-          <svg viewBox="0 0 20 20"><use href="#S2_Icon_Emoji_20_N" /></svg>
-          <p>Project complete</p>
-        </button>
-      </div>
-    `;
-  }
-
-  renderSetup() {
-    const dashboard = this.getStyling('dashboard', '#S2_Icon_Archive_20_N');
-    const basics = this.getStyling('basics', '#S2_Icon_ListBulleted_20_N');
-    const validate = this.getStyling('validate', '#S2_Icon_Binoculars_20_N');
-    const options = this.getStyling('options', '#S2_Icon_Properties_20_N');
-
-    return html`
-      <div class="nx-setup-steps-container">
-        <button @click=${() => this.handleSwitchView('dashboard')} class="nx-loc-wizard-btn nx-loc-projects${dashboard.css}">
-          <svg viewBox="0 0 20 20"><use href="#S2_Icon_Archive_20_N" /></svg>
-          <p>All projects</p>
-        </button>
-        <hr class=""/>
-        <div class="nx-setup-steps-middle">
-          <button class="nx-loc-wizard-btn nx-loc-basics${basics.css}">
-            <svg viewBox="0 0 20 20"><use href="${basics.icon}" /></svg>
-            <p>Setup basics</p>
-          </button>
-          <hr/>
-          <button class="nx-loc-wizard-btn nx-loc-basics${validate.css}">
-            <svg viewBox="0 0 20 20"><use href="${validate.icon}" /></svg>
-            <p>Validate sources</p>
-          </button>
-          <hr/>
-          <button class="nx-loc-wizard-btn nx-loc-basics${options.css}">
-            <svg viewBox="0 0 20 20"><use href="${options.icon}" /></svg>
-            <p>Confirm options</p>
-          </button>
-        </div>
-        <hr/>
-        <button class="nx-loc-wizard-btn nx-loc-basics">
-          <svg viewBox="0 0 20 20"><use href="#S2_Icon_GlobeGrid_20_N" /></svg>
-          <p>Manage project</p>
-        </button>
-      </div>
+      <button class="nx-loc-wizard-btn ${step.style}">
+        <svg viewBox="0 0 20 20"><use href="${step.icon}" /></svg>
+        <p>${step.text}</p>
+      </button>
     `;
   }
 
   renderSteps() {
-    const stepType = STEPS_VIEW[this.view];
+    if (this._steps.length === 0) return nothing;
+    const displaySteps = [...this._steps];
+    const first = displaySteps.shift();
+    const last = displaySteps.pop();
 
-    return stepType === 'setup' ? this.renderSetup() : this.renderManage();
+    const separated = displaySteps.flatMap(
+      (step, index) => (index === displaySteps.length - 1
+        ? [this.renderStepButton(step)]
+        : [this.renderStepButton(step), html`<hr/>`]),
+    );
+
+    return html`
+      <div class="nx-steps-wrapper">
+        <div class="nx-steps-container">
+          ${this.renderStepButton(first)}
+          <hr/>
+          <div class="nx-steps-middle">
+            ${separated.map((content) => content)}
+          </div>
+          <hr/>
+          ${this.renderStepButton(last)}
+        </div>
+      </div>
+    `;
+  }
+
+  renderActions() {
+    return html`
+      <div class="nx-loc-actions-header">
+        <button class="nx-prev" @click=${() => this.handleAction('prev')}>
+          <svg class="icon"><use href="#spectrum-chevronLeft"/></svg>
+          <span>${this._prev.text}</span>
+        </button>
+        ${this.message ? html`<p class="message type-${this.message.type || 'info'}">${this.message.text}</p>` : nothing}
+        <button class="nx-next ${this._next.style}" @click=${() => this.handleAction('next')} ?disabled=${this._next.disabled}>
+          <span>${this._next.text}</span>
+          <svg class="icon"><use href="#spectrum-chevronRight"/></svg>
+        </button>
+      </div>`;
   }
 
   render() {
     return html`
-      ${this.view && this.view !== 'dashboard' && this.view !== 'complete' ? this.renderSteps() : nothing}
+      ${this.renderSteps()}
+      ${this.renderActions()}
     `;
   }
 }

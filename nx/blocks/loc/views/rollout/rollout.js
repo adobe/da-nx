@@ -2,7 +2,7 @@ import { LitElement, html, nothing } from 'da-lit';
 import getStyle from '../../../../utils/styles.js';
 import { getConfig } from '../../../../scripts/nexter.js';
 import getSvg from '../../../../utils/svg.js';
-import { getSyncText, getTranslateText, getDashboardText, saveProject } from '../../utils/utils.js';
+import { getSyncText, getTranslateText, getDashboardText } from '../../utils/utils.js';
 import { sortLangs, rolloutLang, getFilteredLangs, getSummaryCards } from './index.js';
 
 const { nxBase: nx } = getConfig();
@@ -43,7 +43,7 @@ class NxLocRollout extends LitElement {
       site: this.site,
       langs: this.langs,
     };
-    await saveProject(this.path, updates);
+    // await saveProject(this.path, updates);
   }
 
   async handleRolloutLang(langToRollout) {

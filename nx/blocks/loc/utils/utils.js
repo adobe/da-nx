@@ -205,7 +205,7 @@ export async function fetchConfig(org, site) {
   return options;
 }
 
-export async function fetchProject(path, detail) {
+export async function fetchProjectOld(path, detail) {
   // If there's a local cache at the location, use it.
   if (!detail && PROJECT_CACHE[path]) return { project: PROJECT_CACHE[path] };
 
@@ -223,7 +223,7 @@ export async function fetchProject(path, detail) {
 
   const resp = await daFetch(`${DA_ORIGIN}/source${path}.json`, opts);
   if (!resp.ok) {
-    if (resp.status === 404) return { title: 'New project' };
+    if (resp.status === 404) return { project: { title: 'New project' } };
     if (resp.status === 401 || resp.status === 403) {
       const [org, site] = path.substring(1).split('/');
       return {
@@ -251,7 +251,7 @@ export async function fetchProject(path, detail) {
 
 // All top level properties to persist
 // const { view, org, site, title, options, langs, urls } = detail;
-export async function saveProject(projPath, updates) {
+export async function saveProjectOld(projPath, updates) {
   const { org, site } = updates;
 
   const now = Date.now();
@@ -260,27 +260,27 @@ export async function saveProject(projPath, updates) {
 
   const fullpath = `/${org}/${site}${path}`;
 
-  const existing = await fetchProject(fullpath);
+  const { project: existing } = await fetchProject(fullpath);
 
   const ims = await loadIms();
 
-  if (!existing.org) {
-    existing.createdBy = ims.email;
-  }
+  // Only set createdBy if the project is new
+  if (!existing.org) existing.createdBy = ims.email;
 
+  // Always set modifiedBy and modifiedDate
   existing.modifiedBy = ims.email;
   existing.modifiedDate = now;
 
-  // Merge the existing json with the new details
-  const combined = { ...existing, ...updates };
+  // Merge the existing json with the new updates
+  const detail = { ...existing, ...updates };
 
-  const { error, project } = await fetchProject(fullpath, combined);
+  const { error, project } = await fetchProject(fullpath, detail);
   if (error) return { error };
   return { project: { ...project, path } };
 }
 
 export function getHasSync(urls, options) {
-  const { location } = options['source.language'];
+  const location = options['source.language']?.location || '/';
   return urls.some((url) => !url.suppliedPath.startsWith(location));
 }
 
@@ -319,4 +319,82 @@ export function getSyncText(urls, options) {
 
 export function getDashboardText() {
   return 'Dashboard';
+}
+
+// BEFORE TIMES
+
+export function getHashDetails(hash) {
+  const path = hash.substring(1);
+
+  if (!path) return { hash: '/basics' };
+
+  const split = path.substring(1).split('/');
+  if (split.length <= 1) return { view: 'basics' };
+
+  // If the view is unknown, but we have a path, we were passed an org / site from the all apps view
+  if (!VIEWS.includes(split[0])) return { hash: `/dashboard/${split[0]}/${split[1]}` };
+
+  // Return back view, org, site if the view is known
+  return { view: split[0], org: split[1], site: split[2], path: `/${split.slice(3).join('/')}` };
+}
+
+async function fetchProject({ path, updates }) {
+  // If there's no updates, and there's a cache, use it.
+  if (!updates && PROJECT_CACHE[path]) return { project: PROJECT_CACHE[path] };
+
+  const opts = {};
+  if (updates) {
+    const content = JSON.stringify(updates);
+    const data = new Blob([content], { type: 'application/json' });
+
+    const body = new FormData();
+    body.append('data', data);
+
+    opts.method = 'POST';
+    opts.body = body;
+  }
+
+  const resp = await daFetch(`${DA_ORIGIN}/source${path}.json`, opts);
+  if (!resp.ok) {
+    if (resp.status === 401 || resp.status === 403) {
+      const [org, site] = path.substring(1).split('/');
+      return { message: { text: `Not authorized for: ${org} / ${site}.` } };
+    }
+    return { message: { text: `Unknown error for: ${path}.` } };
+  }
+
+  // Cache for future requests
+  PROJECT_CACHE[path] = updates || await resp.json();
+
+  // Set the title of the doc
+  const { title } = PROJECT_CACHE[path];
+  document.title = `${title} - DA Translation`;
+
+  return { project: PROJECT_CACHE[path] };
+}
+
+export async function updateProject({ path: suppliedPath, updates }) {
+  const now = Date.now();
+  const projectPath = suppliedPath || `/.da/translation/active/${now}`;
+
+  const path = `/${updates.org}/${updates.site}${projectPath}`;
+
+  const ims = await loadIms();
+
+  // Only set createdBy if the project is new
+  if (!suppliedPath) updates.createdBy = ims.email;
+
+  // Always set modifiedBy and modifiedDate
+  updates.modifiedBy = ims.email;
+  updates.modifiedDate = now;
+
+  const { message, project } = await fetchProject({ path, updates });
+
+  const hash = `/${project.view}${path}`;
+
+  return { message, hash, project };
+}
+
+export async function loadProject({ path }) {
+  return fetchProject({ path });
 }

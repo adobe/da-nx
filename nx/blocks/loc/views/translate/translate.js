@@ -2,7 +2,6 @@ import { LitElement, html, nothing } from 'da-lit';
 import getStyle from '../../../../utils/styles.js';
 import { getConfig } from '../../../../scripts/nexter.js';
 import getSvg from '../../../../utils/svg.js';
-import { saveProject } from '../../utils/utils.js';
 import {
   setupConnector,
   getUrls,
@@ -35,7 +34,6 @@ class NxLocTranslate extends LitElement {
     _connected: { state: true },
     _translateLangs: { state: true },
     _copyLangs: { state: true },
-    _message: { state: true },
   };
 
   connectedCallback() {
@@ -57,15 +55,9 @@ class NxLocTranslate extends LitElement {
     this._copyLangs = this.langs.filter((lang) => lang.action === 'copy');
   }
 
-  handleAction({ detail }) {
-    if (detail === 'prev') {
-      const opts = { bubbles: true, composed: true };
-      const event = new CustomEvent('prev', opts);
-      this.dispatchEvent(event);
-      return;
-    }
-    const opts = { detail: { org: this.org, site: this.site, view: 'rollout', urls: this.urls }, bubbles: true, composed: true };
-    const event = new CustomEvent('next', opts);
+  handleMessage(message) {
+    const opts = { detail: { message }, bubbles: true, composed: true };
+    const event = new CustomEvent('message', opts);
     this.dispatchEvent(event);
   }
 
@@ -75,12 +67,8 @@ class NxLocTranslate extends LitElement {
       site: this.site,
       langs: this.langs,
     };
-    await saveProject(this.path, updates);
+    //await saveProject(this.path, updates);
     this.requestUpdate();
-  }
-
-  handleMessage(message) {
-    this._message = message;
   }
 
   async handleConnect() {
@@ -124,7 +112,7 @@ class NxLocTranslate extends LitElement {
   }
 
   async checkAndSaveLangs(conf) {
-    this._message = { text: 'Checking for languages to save' };
+    this.handleMessage({ text: 'Checking for languages to save' });
 
     const langsToSave = this._translateLangs.filter((lang) => lang.translation?.status === 'translated');
 
@@ -138,12 +126,12 @@ class NxLocTranslate extends LitElement {
     }
     await checkWaitingLanguages(conf, this._service.connector, this.urls, this.options['source.language']?.location);
 
-    this._message = undefined;
+    this.handleMessage(undefined);
   }
 
   async handleGetStatus() {
     if (!this.incompleteLangs) {
-      this._message = { text: 'All languages complete or cancelled.' };
+      this.handleMessage({ text: 'All languages complete or cancelled.' });
       return;
     }
 
@@ -370,13 +358,6 @@ class NxLocTranslate extends LitElement {
 
   render() {
     return html`
-      <nx-loc-actions
-        @action=${this.handleAction}
-        .message=${this._message}
-        prev="Sync sources"
-        ?nextDisabled=${!this.canRollout}
-        next="Rollout">
-      </nx-loc-actions>
       ${this.renderUrlErrors()}
       ${this.renderTranslate()}
       ${this.renderCopy()}

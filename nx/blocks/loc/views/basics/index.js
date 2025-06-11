@@ -46,6 +46,6 @@ export default function formatBasics(title, paths) {
   // Flatten down to pure pathnames
   const hrefs = urls.map((url) => ({ suppliedPath: url.pathname }));
 
-  // Always set what view is next
+  // Return the data we want to persist
   return { data: { org, site, title, urls: hrefs } };
 }

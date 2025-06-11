@@ -1,7 +1,7 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { getConfig } from '../../scripts/nexter.js';
 import getStyle from '../../utils/styles.js';
-import { getPathDetails, fetchProject, saveProject } from './utils/utils.js';
+import { getHashDetails, loadProject, updateProject } from './utils/utils.js';
 
 import '../../public/sl/components.js';
 
@@ -26,15 +26,11 @@ const styles = await getStyle(import.meta.url);
 
 class NxLoc extends LitElement {
   static properties = {
+    view: { attribute: false },
     org: { attribute: false },
     site: { attribute: false },
-    view: { attribute: false },
     path: { attribute: false },
-    _title: { state: true },
-    _options: { state: true },
-    _langs: { state: true },
-    _urls: { state: true },
-    _error: { state: true },
+    _project: { state: true },
     _message: { state: true },
   };
 
@@ -44,85 +40,67 @@ class NxLoc extends LitElement {
   }
 
   update(props) {
-    // Only get the project when the path changes
-    if (props.has('path') && this.path) this.loadProject();
-
-    // Reset the current project when the view is dashboard
-    if (props.has('view') && this.view === 'dashboard') {
-      this.setProject({});
-    }
+    if (props.has('path')) this.getProject();
     super.update();
   }
 
-  setProject(project) {
-    console.log(project);
-    this._title = project.title;
-    this._options = project.options;
-    this._langs = project.langs;
-    this._urls = project.urls;
-  }
-
-  async loadProject() {
-    const href = `/${this.org}/${this.site}${this.path}`;
-
-    const { error, project } = await fetchProject(href);
-
-    if (error) {
-      this._error = error;
+  async getProject() {
+    // If there's no path, clear any cached project
+    if (!this.path) {
+      this._project = undefined;
+      this._message = undefined;
       return;
     }
 
-    this.setProject(project);
+    const path = `/${this.org}/${this.site}/${this.path}`;
+
+    const { message, project } = await loadProject({ path });
+    if (message) this._message = message;
+    if (project) this._project = project;
   }
 
-  async saveProject(view, data) {
+  async handleSave({ detail }) {
+    // Combine the cached project with the new data
+    const updates = { ...this._project, ...detail.data };
+
     this._message = { text: 'Saving...' };
+    const { message, hash, project } = await updateProject({ path: this.path, updates });
 
-    const { error, project } = await saveProject(this.path, { ...data, view });
-    if (error) {
-      this._error = error;
-      return null;
-    }
-    this.setProject(project);
+    // Always set a message even if it's undefined
+    this._message = message;
 
-    this._message = undefined;
+    // Cache new project details
+    if (project) this._project = project;
 
-    return project;
+    // Set the new hash if it's defined
+    if (hash) window.location.hash = hash;
   }
 
   async handleAction({ detail }) {
-    const { href, view, save } = detail;
-
-    const { message, data } = await this.stepData;
-    if (message) {
-      this._message = message;
-      return;
-    }
-
-    const { path } = save ? await this.saveProject(view, data) : this;
+    const { href, hash, message } = detail;
 
     if (href) {
       window.location.href = href;
       return;
     }
 
-    const base = `/${view}/${this.org}/${this.site}`;
-    window.location.hash = view === 'dashboard' || !path ? base : `${base}${path}`;
+    if (hash) {
+      window.location.hash = hash;
+      return;
+    }
+
+    if (message) {
+      this._message = detail.message;
+      // Don't continue if there's an error
+      if (detail.message.type === 'error') return;
+    }
+
+    // Save any updates
+    await this.handleSave({ detail });
   }
 
-  get project() {
-    return {
-      org: this.org,
-      site: this.site,
-      title: this._title,
-      options: this._options,
-      langs: this._langs,
-      urls: this._urls,
-    };
-  }
-
-  get stepData() {
-    return this.shadowRoot.querySelector('.nx-loc-step').getData();
+  handleMessage({ detail }) {
+    this._message = detail.message;
   }
 
   renderView() {
@@ -142,8 +120,7 @@ class NxLoc extends LitElement {
           class="nx-loc-step"
           .org=${this.org}
           .site=${this.site}
-          .title=${this._title}
-          .urls=${this._urls}
+          .project=${this._project}
           @message=${this.handleMessage}>
         </nx-loc-basics>`;
     }
@@ -154,7 +131,7 @@ class NxLoc extends LitElement {
           class="nx-loc-step"
           .org=${this.org}
           .site=${this.site}
-          .urls=${this._urls}
+          .project=${this._project}
           @message=${this.handleMessage}>
         </nx-loc-validate>`;
     }
@@ -165,7 +142,7 @@ class NxLoc extends LitElement {
           class="nx-loc-step"
           .org=${this.org}
           .site=${this.site}
-          .urls=${this._urls}
+          .project=${this._project}
           @message=${this.handleMessage}>
         </nx-loc-options>
       `;
@@ -174,13 +151,10 @@ class NxLoc extends LitElement {
     if (this.view === 'sync' && this._urls) {
       return html`
         <nx-loc-sync
+          class="nx-loc-step"
           .org=${this.org}
           .site=${this.site}
-          .path=${this.path}
-          .title=${this._title}
-          .options=${this._options}
-          .langs=${this._langs}
-          .urls=${this._urls}
+          .project=${this._project}
           @message=${this.handleMessage}>
         </nx-loc-sync>
       `;
@@ -189,13 +163,10 @@ class NxLoc extends LitElement {
     if (this.view === 'translate' && this._urls) {
       return html`
         <nx-loc-translate
+          class="nx-loc-step"
           .org=${this.org}
           .site=${this.site}
-          .path=${this.path}
-          .title=${this._title}
-          .options=${this._options}
-          .langs=${this._langs}
-          .urls=${this._urls}
+          .project=${this._project}
           @message=${this.handleMessage}>
         </nx-loc-translate>
       `;
@@ -204,13 +175,10 @@ class NxLoc extends LitElement {
     if (this.view === 'rollout' && this._urls) {
       return html`
         <nx-loc-rollout
+          class="nx-loc-step"
           .org=${this.org}
           .site=${this.site}
-          .path=${this.path}
-          .title=${this._title}
-          .options=${this._options}
-          .langs=${this._langs}
-          .urls=${this._urls}
+          .project=${this._project}
           @message=${this.handleMessage}>
         </nx-loc-rollout>
       `;
@@ -219,13 +187,14 @@ class NxLoc extends LitElement {
     if (this.view === 'complete') {
       return html`
         <nx-loc-complete
+          class="nx-loc-step"
           .org=${this.org}
           .site=${this.site}
-          .path=${this.path}
-          @message=${this.handleMessage}>
+          .project=${this._project}>
         </nx-loc-complete>
       `;
     }
+
     return nothing;
   }
 
@@ -235,48 +204,18 @@ class NxLoc extends LitElement {
         .view=${this.view}
         .org=${this.org}
         .site=${this.site}
-        .options=${this._options}
-        .langs=${this._langs}
-        .urls=${this._urls}>
+        .project=${this._project}
+        .message=${this._message}
+        @action=${this.handleAction}>
       </nx-loc-steps>
     `;
   }
 
-  renderActions() {
-    return html`
-      <nx-loc-actions
-        .view=${this.view}
-        .project=${this.project}
-        .message=${this._message}
-        @action=${this.handleAction}>
-      </nx-loc-actions>
-    `;
-  }
-
-  renderError() {
-    return html`
-      <nx-loc-header title="Error"></nx-loc-header>
-      <div class="nx-loc-step-wrapper loc-error-step">
-        <p class="loc-error-code">${this._error.status}</p>
-        <p class="loc-error-message">${this._error.message}</p>
-        <p class="loc-error-help">${this._error.help}</p>
-      </div>
-    `;
-  }
-
   render() {
-    if (this._error) return this.renderError();
-
     return html`
-      <nx-loc-header
-        view=${this.view}
-        title=${this._title}>
-      </nx-loc-header>
+      <nx-loc-header view=${this.view} title=${this._title}></nx-loc-header>
       ${this.renderSteps()}
-      ${this.renderActions()}
-      <div class="nx-loc-step-wrapper">
-        ${this.renderView()}
-      </div>
+      ${this.renderView()}
     `;
   }
 }
@@ -289,11 +228,16 @@ function setup(el) {
     cmp = document.createElement(EL_NAME);
     el.append(cmp);
   }
-  const details = getPathDetails();
-  cmp.view = details.view;
-  cmp.org = details.org;
-  cmp.site = details.site;
-  cmp.path = details.path;
+  const { hash, view, org, site, path } = getHashDetails(window.location.hash);
+  if (hash) {
+    window.location.hash = hash;
+    return;
+  }
+  cmp.view = view;
+  cmp.org = org;
+  cmp.site = site;
+  // Only set the path if it's a project
+  if (path) cmp.path = path;
 }
 
 /**

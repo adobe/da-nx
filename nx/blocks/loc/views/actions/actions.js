@@ -43,15 +43,12 @@ class NxLocActions extends LitElement {
   render() {
     return html`
       <div class="nx-loc-actions-header">
-        <button
-          class="nx-prev"
-          @click=${() => this.handleAction('prev')}>
-            <svg class="icon"><use href="#spectrum-chevronLeft"/></svg>
-            <span>${VIEWS[this.view].prev.text(this.project)}</span>
+        <button class="nx-prev" @click=${() => this.handleAction('prev')}>
+          <svg class="icon"><use href="#spectrum-chevronLeft"/></svg>
+          <span>${VIEWS[this.view].prev.text(this.project)}</span>
         </button>
         ${this.renderMessage()}
-        <button
-          class="nx-next ${this.nextStyle ? this.nextStyle : ''}"
+        <button class="nx-next ${this.nextStyle ? this.nextStyle : ''}"
           @click=${() => this.handleAction('next')}
           ?disabled=${!VIEWS[this.view].next.enabled(this.project)}>
             <span>${VIEWS[this.view].next.text(this.project)}</span>

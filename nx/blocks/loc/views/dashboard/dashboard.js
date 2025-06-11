@@ -45,6 +45,10 @@ class NxLocDashboard extends LitElement {
     this._currentUser = ims.email;
   }
 
+  getUpdates() {
+    return {};
+  }
+
   async getProjects(type = 'active') {
     const { projects, message } = await fetchProjectList(this.org, this.site, type);
     if (message) {

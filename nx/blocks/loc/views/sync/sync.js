@@ -3,7 +3,7 @@ import getStyle from '../../../../utils/styles.js';
 import { getConfig } from '../../../../scripts/nexter.js';
 import getSvg from '../../../../utils/svg.js';
 import { Queue } from '../../../../public/utils/tree.js';
-import { getHasTranslate, getTranslateText, getRolloutText, saveProject } from '../../utils/utils.js';
+import { getHasTranslate, getTranslateText, getRolloutText } from '../../utils/utils.js';
 import { getSyncUrls } from './index.js';
 import { mergeCopy, overwriteCopy } from '../../project/index.js';
 
@@ -100,7 +100,7 @@ class NxLocSync extends LitElement {
 
     const urls = this.getPersistedUrls();
 
-    await saveProject(this.path, { org: this.org, site: this.site, urls });
+    // await saveProject(this.path, { org: this.org, site: this.site, urls });
   }
 
   handleToggleExpand(url) {

@@ -16,10 +16,7 @@ const FRAGMENT_SELECTOR = 'a[href*="/fragments/"], .fragment a';
 
 class NxLocValidate extends LitElement {
   static properties = {
-    org: { attribute: false },
-    site: { attribute: false },
-    options: { attribute: false },
-    urls: { attribute: false },
+    project: { attribute: false },
     _configSheet: { state: true },
     _urls: { state: true },
   };
@@ -30,8 +27,8 @@ class NxLocValidate extends LitElement {
   }
 
   update(props) {
-    if (props.has('urls') && this.urls) {
-      this._urls = this.urls.map((url) => new URL(url.suppliedPath, this.origin));
+    if (props.has('project') && this.project) {
+      this._urls = this.project.urls.map((url) => new URL(url.suppliedPath, this.origin));
       this.checkUrls();
     }
     super.update();
@@ -128,7 +125,7 @@ class NxLocValidate extends LitElement {
     return foundLang.location;
   }
 
-  async getData() {
+  async getUpdates() {
     const checked = this._urls.filter((url) => url.checked);
     if (checked.some((url) => (url.status === 'error'))) {
       return { message: { type: 'error', text: 'Uncheck error URLs below.' } };

@@ -1,3 +1,16 @@
+function hasSync(urls, options) {
+  const location = options['source.language']?.location || '/';
+  return urls.some((url) => !url.suppliedPath.startsWith(location));
+}
+
+function hasTranslate(langs) {
+  return langs?.some((lang) => lang.action === 'translate');
+}
+
+function hasRollout(langs) {
+  return langs?.some((lang) => lang.locales?.length > 0);
+}
+
 function getDashboardPrevView(project) {
   return { href: `/apps#/${project.org}/${project.site}` };
 }
@@ -12,16 +25,26 @@ function getBasicsPrevText(project) {
   return 'All apps';
 }
 
+function getOptionsNextView(project) {
+  const needsSync = hasSync(project.urls, project.options);
+  if (needsSync) return { view: 'sync' };
+
+  const needsTranslate = hasTranslate(project.langs);
+  if (needsTranslate) return { view: 'translate' };
+
+  const needsRollout = hasRollout(project.langs);
+  if (needsRollout) return { view: 'rollout' };
+
+  return { view: 'complete' };
+}
+
+
 function getSyncNextView(project) {
 
 }
 
 function getSyncNextText() {
   return 'Translate sources';
-}
-
-function getSyncNextEnabled() {
-  return true;
 }
 
 function getTranslatePrevView(project) {
@@ -38,20 +61,12 @@ function getTranslateNextText() {
   return 'Rollout locales';
 }
 
-function getTranslateNextEnabled() {
-  return true;
-}
-
 function getRolloutPrevView(project) {
 
 }
 
 function getRolloutPrevText() {
   return 'Translate sources';
-}
-
-function getRolloutNextEnabled() {
-  return true;
 }
 
 const VIEWS = {
@@ -70,6 +85,7 @@ const VIEWS = {
     prev: {
       view: getBasicsPrevView,
       text: getBasicsPrevText,
+      save: true,
     },
     next: {
       view: () => ({ view: 'validate' }),
@@ -82,6 +98,7 @@ const VIEWS = {
     prev: {
       view: () => ({ view: 'basics' }),
       text: () => ('Basics'),
+      save: true,
     },
     next: {
       view: () => ({ view: 'options' }),
@@ -94,10 +111,11 @@ const VIEWS = {
     prev: {
       view: () => ({ view: 'validate' }),
       text: () => ('Validate sources'),
+      save: true,
     },
     next: {
-      view: () => ({ view: 'validate' }),
-      text: getSyncNextText,
+      view: getOptionsNextView,
+      text: () => ('Start project'),
       enabled: () => (true),
       save: true,
     },
@@ -110,7 +128,7 @@ const VIEWS = {
     next: {
       view: getSyncNextView,
       text: getSyncNextText,
-      enabled: getSyncNextEnabled,
+      enabled: () => (true),
     },
   },
   translate: {
@@ -121,7 +139,7 @@ const VIEWS = {
     next: {
       view: getTranslateNextView,
       text: getTranslateNextText,
-      enabled: getTranslateNextEnabled,
+      enabled: () => (true),
       save: true,
     },
   },
@@ -133,7 +151,7 @@ const VIEWS = {
     next: {
       view: () => ({ view: 'complete' }),
       text: () => ({ view: 'Complete project' }),
-      enabled: getRolloutNextEnabled,
+      enabled: () => (true),
     },
   },
 };
