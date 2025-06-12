@@ -17,25 +17,38 @@ const FRAGMENT_SELECTOR = 'a[href*="/fragments/"], .fragment a';
 class NxLocValidate extends LitElement {
   static properties = {
     project: { attribute: false },
-    _configSheet: { state: true },
+    message: { attribute: false },
+    _org: { state: true },
+    _site: { state: true },
     _urls: { state: true },
+    _configSheet: { state: true },
+    _message: { state: true },
   };
 
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style, buttons];
+    this.setupProject();
   }
 
   update(props) {
-    if (props.has('project') && this.project) {
-      this._urls = this.project.urls.map((url) => new URL(url.suppliedPath, this.origin));
-      this.checkUrls();
-    }
+    // Allow the parent to pass or clear a message
+    if (props.has('message')) this._message = this.message;
     super.update();
   }
 
+  setupProject() {
+    const { org, site, urls } = this.project;
+
+    this._org = org;
+    this._site = site;
+    this._urls = urls.map((url) => new URL(url.suppliedPath, this.origin));
+
+    this.checkUrls();
+  }
+
   async findConfigValue(key) {
-    if (!this._configSheet) this._configSheet = await fetchConfig(this.org, this.site);
+    if (!this._configSheet) this._configSheet = await fetchConfig(this._org, this._site);
 
     const foundRow = this._configSheet.config.data.find((row) => row.key === key);
 
@@ -84,7 +97,7 @@ class NxLocValidate extends LitElement {
     pathname = pathname.endsWith('/') ? `${pathname}index` : pathname;
     const isSheet = pathname.endsWith('.json');
     const extPath = isSheet ? pathname : `${pathname}.html`;
-    const daUrl = `${DA_ORIGIN}/source/${this.org}/${this.site}${extPath}`;
+    const daUrl = `${DA_ORIGIN}/source/${this._org}/${this._site}${extPath}`;
     const resp = await daFetch(daUrl);
     const text = await resp.text();
     const ok = resp.status === 200;
@@ -93,7 +106,7 @@ class NxLocValidate extends LitElement {
     url.sheet = isSheet;
     url.extPath = extPath;
     url.fragment = url.pathname.includes('/fragments/');
-    url.daEdit = `${DA_LIVE}/edit#/${this.org}/${this.site}${url.pathname}`;
+    url.daEdit = `${DA_LIVE}/edit#/${this._org}/${this._site}${url.pathname}`;
     if (ok) await this.findFragments(text);
     this.requestUpdate();
   }
@@ -144,21 +157,25 @@ class NxLocValidate extends LitElement {
       };
     });
 
-    return { data: { org: this.org, site: this.site, urls } };
+    return { updates: { urls } };
+  }
+
+  async handleAction(e) {
+    const { view } = e.detail;
+    const { message, updates } = await this.getUpdates();
+    if (message) {
+      this._message = message;
+      return;
+    }
+    const data = { view, ...updates };
+    const opts = { detail: { data }, bubbles: true, composed: true };
+    const event = new CustomEvent('action', opts);
+    this.dispatchEvent(event);
   }
 
   handleChanged(url) {
     url.checked = !url.checked;
     this._urls = [...this._urls];
-  }
-
-  handleAction({ detail }) {
-    if (detail === 'prev') {
-      const opts = { bubbles: true, composed: true };
-      const event = new CustomEvent('prev', opts);
-      this.dispatchEvent(event);
-    }
-    if (detail === 'next') this.handleSubmit();
   }
 
   get notReady() {
@@ -168,17 +185,22 @@ class NxLocValidate extends LitElement {
   }
 
   get origin() {
-    return `https://main--${this.site}--${this.org}.aem.page`;
+    return `https://main--${this.project.site}--${this.project.org}.aem.page`;
   }
 
   get subOrigin() {
-    return `https://main--${this.site}--${this.org}`;
+    return `https://main--${this.project.site}--${this.project.org}`;
   }
 
   render() {
     if (!this._urls) return nothing;
 
     return html`
+      <nx-loc-actions
+        .project=${this.project}
+        .message=${this._message}
+        @action=${this.handleAction}>
+      </nx-loc-actions>
       ${this._urls ? html`
         <div class="details">
           <div class="detail-card detail-card-pages">

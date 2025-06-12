@@ -40,19 +40,25 @@ class NxLoc extends LitElement {
   }
 
   update(props) {
-    if (props.has('path')) this.getProject();
+    // Wipe out the project if the path changes
+    if (props.has('path')) this._project = undefined;
+
+    if (props.has('view')) this.getProject();
     super.update();
   }
 
   async getProject() {
-    // If there's no path, clear any cached project
+    // If there's no path, create a synthetic project
     if (!this.path) {
-      this._project = undefined;
-      this._message = undefined;
+      this._project = {
+        view: this.view,
+        org: this.org,
+        site: this.site,
+      };
       return;
     }
 
-    const path = `/${this.org}/${this.site}/${this.path}`;
+    const path = `/${this.org}/${this.site}${this.path}`;
 
     const { message, project } = await loadProject({ path });
     if (message) this._message = message;
@@ -64,9 +70,10 @@ class NxLoc extends LitElement {
     const updates = { ...this._project, ...detail.data };
 
     this._message = { text: 'Saving...' };
+
     const { message, hash, project } = await updateProject({ path: this.path, updates });
 
-    // Always set a message even if it's undefined
+    // Set a message even if its undefined
     this._message = message;
 
     // Cache new project details
@@ -77,145 +84,63 @@ class NxLoc extends LitElement {
   }
 
   async handleAction({ detail }) {
-    const { href, hash, message } = detail;
+    const { href, hash, data } = detail;
 
-    if (href) {
-      window.location.href = href;
-      return;
-    }
+    if (href) window.location.href = href;
 
-    if (hash) {
-      window.location.hash = hash;
-      return;
-    }
+    if (hash) window.location.hash = hash;
 
-    if (message) {
-      this._message = detail.message;
-      // Don't continue if there's an error
-      if (detail.message.type === 'error') return;
-    }
-
-    // Save any updates
-    await this.handleSave({ detail });
-  }
-
-  handleMessage({ detail }) {
-    this._message = detail.message;
+    if (data) await this.handleSave({ detail });
   }
 
   renderView() {
     if (this.view === 'dashboard') {
-      return html`
-        <nx-loc-dashboard
-          class="nx-loc-step"
-          .org=${this.org}
-          .site=${this.site}
-          @message=${this.handleMessage}>
-        </nx-loc-dashboard>`;
+      return html`<nx-loc-dashboard .org=${this.org} .site=${this.site} @action=${this.handleAction}></nx-loc-dashboard>`;
     }
 
     if (this.view === 'basics') {
-      return html`
-        <nx-loc-basics
-          class="nx-loc-step"
-          .org=${this.org}
-          .site=${this.site}
-          .project=${this._project}
-          @message=${this.handleMessage}>
-        </nx-loc-basics>`;
+      return html`<nx-loc-basics .project=${this._project} .message=${this._message} @action=${this.handleAction}></nx-loc-basics>`;
     }
 
     if (this.view === 'validate') {
-      return html`
-        <nx-loc-validate
-          class="nx-loc-step"
-          .org=${this.org}
-          .site=${this.site}
-          .project=${this._project}
-          @message=${this.handleMessage}>
-        </nx-loc-validate>`;
+      return html`<nx-loc-validate .project=${this._project} .message=${this._message} @action=${this.handleAction}></nx-loc-validate>`;
     }
 
     if (this.view === 'options') {
-      return html`
-        <nx-loc-options
-          class="nx-loc-step"
-          .org=${this.org}
-          .site=${this.site}
-          .project=${this._project}
-          @message=${this.handleMessage}>
-        </nx-loc-options>
-      `;
+      return html`<nx-loc-options .project=${this._project} .message=${this._message} @action=${this.handleAction}></nx-loc-options>`;
     }
 
-    if (this.view === 'sync' && this._urls) {
-      return html`
-        <nx-loc-sync
-          class="nx-loc-step"
-          .org=${this.org}
-          .site=${this.site}
-          .project=${this._project}
-          @message=${this.handleMessage}>
-        </nx-loc-sync>
-      `;
+    if (this.view === 'sync') {
+      return html`<nx-loc-sync .project=${this._project} .message=${this._message} @action=${this.handleAction}></nx-loc-sync>`;
     }
 
-    if (this.view === 'translate' && this._urls) {
-      return html`
-        <nx-loc-translate
-          class="nx-loc-step"
-          .org=${this.org}
-          .site=${this.site}
-          .project=${this._project}
-          @message=${this.handleMessage}>
-        </nx-loc-translate>
-      `;
+    if (this.view === 'translate') {
+      return html`<nx-loc-translate .project=${this._project} .message=${this._message} @action=${this.handleAction}></nx-loc-translate>`;
     }
 
-    if (this.view === 'rollout' && this._urls) {
-      return html`
-        <nx-loc-rollout
-          class="nx-loc-step"
-          .org=${this.org}
-          .site=${this.site}
-          .project=${this._project}
-          @message=${this.handleMessage}>
-        </nx-loc-rollout>
-      `;
+    if (this.view === 'rollout') {
+      return html`<nx-loc-rollout .project=${this._project} .message=${this._message} @action=${this.handleAction}></nx-loc-rollout>`;
     }
 
     if (this.view === 'complete') {
-      return html`
-        <nx-loc-complete
-          class="nx-loc-step"
-          .org=${this.org}
-          .site=${this.site}
-          .project=${this._project}>
-        </nx-loc-complete>
-      `;
+      return html`<nx-loc-complete .project=${this._project}></nx-loc-complete>`;
     }
 
     return nothing;
   }
 
   renderSteps() {
-    return html`
-      <nx-loc-steps
-        .view=${this.view}
-        .org=${this.org}
-        .site=${this.site}
-        .project=${this._project}
-        .message=${this._message}
-        @action=${this.handleAction}>
-      </nx-loc-steps>
-    `;
+    if (this.view === 'dashboard' || this.view === 'complete') return nothing;
+    return html`<nx-loc-steps .project=${this._project} @action=${this.handleAction}></nx-loc-steps>`;
   }
 
   render() {
+    if (!this._project) return nothing;
+
     return html`
-      <nx-loc-header view=${this.view} title=${this._title}></nx-loc-header>
+      <nx-loc-header .view=${this._project.view} .title=${this._project.title}></nx-loc-header>
       ${this.renderSteps()}
-      ${this.renderView()}
+      <div class="nx-loc-step">${this.renderView()}</div>
     `;
   }
 }
@@ -223,21 +148,21 @@ class NxLoc extends LitElement {
 customElements.define('nx-loc', NxLoc);
 
 function setup(el) {
-  let cmp = el.querySelector(EL_NAME);
-  if (!cmp) {
-    cmp = document.createElement(EL_NAME);
-    el.append(cmp);
-  }
   const { hash, view, org, site, path } = getHashDetails(window.location.hash);
   if (hash) {
     window.location.hash = hash;
     return;
   }
+
+  let cmp = el.querySelector(EL_NAME);
+  if (!cmp) {
+    cmp = document.createElement(EL_NAME);
+    el.append(cmp);
+  }
   cmp.view = view;
   cmp.org = org;
   cmp.site = site;
-  // Only set the path if it's a project
-  if (path) cmp.path = path;
+  cmp.path = path;
 }
 
 /**

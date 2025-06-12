@@ -33,14 +33,8 @@ class NxLocOptions extends LitElement {
   }
 
   async formatOptions() {
-    if (!this.project) {
-      this._message = { text: 'No project available.', type: 'error' };
-      return;
-    }
-
-    const { org, site, urls } = this.project;
+    const { org, site } = this.project;
     const sheets = await fetchConfig(org, site);
-    console.log(sheets);
     if (!(sheets.config || sheets.languages)) {
       this._message = { text: 'No config available.', type: 'error' };
       return;
@@ -241,6 +235,11 @@ class NxLocOptions extends LitElement {
   render() {
     return html`
       ${this._config && html`
+        <nx-loc-actions
+          .project=${this.project}
+          .message=${this._message}
+          @action=${this.handleAction}>
+        </nx-loc-actions>
         ${this.urls && this.renderDetails()}
         <p class="nx-loc-options-header">Options</p>
         <div class="nx-loc-options-panel">

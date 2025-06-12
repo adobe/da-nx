@@ -2,7 +2,7 @@ import { LitElement, html, nothing } from 'da-lit';
 import { getConfig } from '../../../../scripts/nexter.js';
 import getStyle from '../../../../utils/styles.js';
 import getSvg from '../../../../utils/svg.js';
-import { VIEWS, calculateView } from './index.js';
+import { VIEWS } from '../../utils/steps.js';
 
 const { nxBase: nx } = getConfig();
 const style = await getStyle(import.meta.url);
@@ -23,14 +23,8 @@ const ICONS = [
 
 class NxLocSteps extends LitElement {
   static properties = {
-    view: { attribute: false },
-    step: { attribute: false },
-    org: { attribute: false },
-    site: { attribute: false },
     project: { attribute: false },
-    message: { attribute: false },
-    _prev: { state: true },
-    _next: { state: true },
+    _steps: { state: true },
   };
 
   connectedCallback() {
@@ -40,47 +34,16 @@ class NxLocSteps extends LitElement {
   }
 
   update(props) {
-    if (props.has('view')) {
-      this.getSteps();
-      this.getActions();
-    }
+    if (props.has('project')) this.getSteps();
     super.update();
   }
 
   getSteps() {
-    const { org, site, project } = this;
     this._steps = Object.values(VIEWS).reduce((acc, view) => {
-      const { step } = view({ view: this.view, org, site, project });
+      const { step } = view(this.project);
       if (step.visible) acc.push(step);
       return acc;
     }, []);
-  }
-
-  getActions() {
-    const { view, org, site, project } = this;
-    this._prev = VIEWS[this.view]({ view, org, site, project }).prev;
-    this._next = VIEWS[this.view]({ view, org, site, project }).next;
-  }
-
-  async handleAction(dir) {
-    const existing = this.project || { org: this.org, site: this.site };
-
-    const { message, data: updates } = await this.step.getUpdates();
-
-    // If there are updates, combine them with the current project
-    const data = updates ? { ...existing, ...updates } : existing;
-
-    // Calculate the next view based on updates from the step
-    const { href, hash, view } = calculateView(this.view, dir, data);
-    data.view = view;
-
-    const opts = { detail: { message, href, hash, data }, bubbles: true, composed: true };
-    const event = new CustomEvent('action', opts);
-    this.dispatchEvent(event);
-  }
-
-  get step() {
-    return this.parentNode.querySelector('.nx-loc-step');
   }
 
   renderStepButton(step) {
@@ -92,8 +55,8 @@ class NxLocSteps extends LitElement {
     `;
   }
 
-  renderSteps() {
-    if (this._steps.length === 0) return nothing;
+  render() {
+    if (!this._steps?.length) return nothing;
     const displaySteps = [...this._steps];
     const first = displaySteps.shift();
     const last = displaySteps.pop();
@@ -116,28 +79,6 @@ class NxLocSteps extends LitElement {
           ${this.renderStepButton(last)}
         </div>
       </div>
-    `;
-  }
-
-  renderActions() {
-    return html`
-      <div class="nx-loc-actions-header">
-        <button class="nx-prev" @click=${() => this.handleAction('prev')}>
-          <svg class="icon"><use href="#spectrum-chevronLeft"/></svg>
-          <span>${this._prev.text}</span>
-        </button>
-        ${this.message ? html`<p class="message type-${this.message.type || 'info'}">${this.message.text}</p>` : nothing}
-        <button class="nx-next ${this._next.style}" @click=${() => this.handleAction('next')} ?disabled=${this._next.disabled}>
-          <span>${this._next.text}</span>
-          <svg class="icon"><use href="#spectrum-chevronRight"/></svg>
-        </button>
-      </div>`;
-  }
-
-  render() {
-    return html`
-      ${this.renderSteps()}
-      ${this.renderActions()}
     `;
   }
 }

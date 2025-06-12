@@ -334,8 +334,10 @@ export function getHashDetails(hash) {
   // If the view is unknown, but we have a path, we were passed an org / site from the all apps view
   if (!VIEWS.includes(split[0])) return { hash: `/dashboard/${split[0]}/${split[1]}` };
 
+  const projPath = split.slice(3).length ? `/${split.slice(3).join('/')}` : undefined;
+
   // Return back view, org, site if the view is known
-  return { view: split[0], org: split[1], site: split[2], path: `/${split.slice(3).join('/')}` };
+  return { view: split[0], org: split[1], site: split[2], path: projPath };
 }
 
 async function fetchProject({ path, updates }) {
@@ -379,18 +381,19 @@ export async function updateProject({ path: suppliedPath, updates }) {
 
   const path = `/${updates.org}/${updates.site}${projectPath}`;
 
-  const ims = await loadIms();
+  const { email } = await loadIms();
 
   // Only set createdBy if the project is new
-  if (!suppliedPath) updates.createdBy = ims.email;
+  if (!suppliedPath) updates.createdBy = email;
 
   // Always set modifiedBy and modifiedDate
-  updates.modifiedBy = ims.email;
+  updates.modifiedBy = email;
   updates.modifiedDate = now;
 
   const { message, project } = await fetchProject({ path, updates });
 
-  const hash = `/${project.view}${path}`;
+  // Only set a hash if the updates have a view
+  const hash = updates.view ? `/${project.view}${path}` : undefined;
 
   return { message, hash, project };
 }

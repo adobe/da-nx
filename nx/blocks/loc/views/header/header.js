@@ -6,8 +6,8 @@ const style = await getStyle(import.meta.url);
 
 class NxLocHeader extends LitElement {
   static properties = {
-    view: { type: String },
-    title: { type: String },
+    view: { attribute: false },
+    title: { attribute: false },
   };
 
   connectedCallback() {
@@ -15,21 +15,23 @@ class NxLocHeader extends LitElement {
     this.shadowRoot.adoptedStyleSheets = [style];
   }
 
-  get displayTitle() {
+  getDisplayTitle() {
     if (this.view === 'dashboard') return 'Dashboard';
     if (this.view === 'basics' && !this.title) return 'New project';
     if (this.title) return this.title;
-    return '';
+    return null;
   }
 
   render() {
+    const displayTitle = this.getDisplayTitle();
+
     return html`
       <img class="header-bg" src="${root}/img/header-bg.jpg" />
       <div class="header-fg">
-        ${this.displayTitle ? html`
+        ${displayTitle ? html`
           <div class="header-fg-left">
             <p class="detail">Localization</p>
-            <p class="heading">${this.displayTitle}</p>
+            <p class="heading">${displayTitle}</p>
           </div>
         ` : nothing}
       </div>
