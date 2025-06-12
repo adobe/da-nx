@@ -194,7 +194,7 @@ async function approveSiteUser(org, site, path, user) {
   const approvedRoles = [...new Set([...requested, ...roles])];
 
   AEM_ROLES.forEach((role) => {
-    const existingRoleUsers = json.admin.role[role];
+    const existingRoleUsers = json.admin.role[role] || [];
 
     // Find the role in the approved role array
     const found = approvedRoles.some((approvedRole) => approvedRole === role);
@@ -202,10 +202,12 @@ async function approveSiteUser(org, site, path, user) {
     if (found) {
       // If found, check to see if the user is already in the list.
       const exists = existingRoleUsers.some((existingUser) => existingUser === user.id);
-      if (!exists) existingRoleUsers.push(user.id);
+
+      // It's possible there's nothing in the role, so set it if the user isn't already there
+      if (!exists) json.admin.role[role] = [...existingRoleUsers, user.id];
     } else {
       // Check to see if there are existing users in the current role
-      if (!existingRoleUsers) return;
+      if (!existingRoleUsers.length) return;
 
       // Ensure this user is removed if they've had the role taken away from them
       json.admin.role[role] = existingRoleUsers.filter((existingUser) => existingUser !== user.id);
