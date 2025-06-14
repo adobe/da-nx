@@ -197,128 +197,12 @@ export async function fetchConfig(org, site) {
 
   // Fallback to zero config defaults
   if (options.error) {
-    options = await fetchConf(`${nx}/blocks/loc/setup/translate.json`);
+    options = await fetchConf(`${nx}/blocks/loc/connectors/google/translate.json`);
   }
 
   CONFIG_CACHE = options;
 
   return options;
-}
-
-export async function fetchProjectOld(path, detail) {
-  // If there's a local cache at the location, use it.
-  if (!detail && PROJECT_CACHE[path]) return { project: PROJECT_CACHE[path] };
-
-  const opts = {};
-  if (detail) {
-    const content = JSON.stringify(detail);
-    const data = new Blob([content], { type: 'application/json' });
-
-    const body = new FormData();
-    body.append('data', data);
-
-    opts.method = 'POST';
-    opts.body = body;
-  }
-
-  const resp = await daFetch(`${DA_ORIGIN}/source${path}.json`, opts);
-  if (!resp.ok) {
-    if (resp.status === 404) return { project: { title: 'New project' } };
-    if (resp.status === 401 || resp.status === 403) {
-      const [org, site] = path.substring(1).split('/');
-      return {
-        error: {
-          message: `Not authorized for: ${org} / ${site}.`,
-          help: 'Are you logged into the correct profile?',
-          status: resp.status,
-        },
-      };
-    }
-    return { error: `Unknown error for: ${path}.` };
-  }
-
-  // Cache for future requests
-  // If detail was supplied, it was a POST, so use detail
-  // Otherwise GET will have the data we want.
-  PROJECT_CACHE[path] = detail || await resp.json();
-
-  // Set the title of the doc
-  const { title } = PROJECT_CACHE[path];
-  if (title) document.title = `${title} - DA Translation`;
-
-  return { project: PROJECT_CACHE[path] };
-}
-
-// All top level properties to persist
-// const { view, org, site, title, options, langs, urls } = detail;
-export async function saveProjectOld(projPath, updates) {
-  const { org, site } = updates;
-
-  const now = Date.now();
-
-  const path = projPath || `/.da/translation/active/${now}`;
-
-  const fullpath = `/${org}/${site}${path}`;
-
-  const { project: existing } = await fetchProject(fullpath);
-
-  const ims = await loadIms();
-
-  // Only set createdBy if the project is new
-  if (!existing.org) existing.createdBy = ims.email;
-
-  // Always set modifiedBy and modifiedDate
-  existing.modifiedBy = ims.email;
-  existing.modifiedDate = now;
-
-  // Merge the existing json with the new updates
-  const detail = { ...existing, ...updates };
-
-  const { error, project } = await fetchProject(fullpath, detail);
-  if (error) return { error };
-  return { project: { ...project, path } };
-}
-
-export function getHasSync(urls, options) {
-  const location = options['source.language']?.location || '/';
-  return urls.some((url) => !url.suppliedPath.startsWith(location));
-}
-
-export function getHasCopy(langs) {
-  return langs?.some((lang) => lang.action === 'copy');
-}
-
-export function getHasTranslate(langs) {
-  return langs?.some((lang) => lang.action === 'translate');
-}
-
-export function getHasRollout(langs) {
-  return langs?.some((lang) => lang.locales?.length > 0);
-}
-
-export function getTranslateText(langs) {
-  const hasTranslate = getHasTranslate(langs);
-  const hasCopy = getHasCopy(langs);
-  if (hasTranslate && !hasCopy) return 'Translate sources';
-  if (!hasTranslate && hasCopy) return 'Copy sources';
-  if (hasTranslate && hasCopy) return 'Translate & copy';
-  return null;
-}
-
-export function getRolloutText(langs) {
-  const hasRollout = getHasRollout(langs);
-  if (hasRollout) return 'Rollout locales';
-  return null;
-}
-
-export function getSyncText(urls, options) {
-  const hasSync = getHasSync(urls, options);
-  if (hasSync) return 'Sync sources';
-  return null;
-}
-
-export function getDashboardText() {
-  return 'Dashboard';
 }
 
 // BEFORE TIMES

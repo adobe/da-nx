@@ -15,10 +15,7 @@ const ICONS = [
 let makeConfetti;
 
 class NxLocComplete extends LitElement {
-  static properties = {
-    org: { attribute: false },
-    site: { attribute: false },
-  };
+  static properties = { project: { attribute: false } };
 
   connectedCallback() {
     super.connectedCallback();
@@ -38,7 +35,7 @@ class NxLocComplete extends LitElement {
   }
 
   handleClick() {
-    window.location.hash = `/dashboard/${this.org}/${this.site}`;
+    window.location.hash = `/dashboard/${this.project.org}/${this.project.site}`;
   }
 
   render() {

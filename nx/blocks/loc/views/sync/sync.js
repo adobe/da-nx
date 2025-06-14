@@ -3,7 +3,6 @@ import getStyle from '../../../../utils/styles.js';
 import { getConfig } from '../../../../scripts/nexter.js';
 import getSvg from '../../../../utils/svg.js';
 import { Queue } from '../../../../public/utils/tree.js';
-import { getHasTranslate, getTranslateText, getRolloutText } from '../../utils/utils.js';
 import { getSyncUrls } from './index.js';
 import { mergeCopy, overwriteCopy } from '../../project/index.js';
 
@@ -18,12 +17,8 @@ const ICONS = [
 
 class NxLocSync extends LitElement {
   static properties = {
-    org: { attribute: false },
-    site: { attribute: false },
-    title: { attribute: false },
-    options: { attribute: false },
-    langs: { attribute: false },
-    urls: { attribute: false },
+    project: { attribute: false },
+    message: { attribute: false },
     _message: { state: true },
     _syncUrls: { state: true },
   };
@@ -36,9 +31,16 @@ class NxLocSync extends LitElement {
     this.getSyncUrls();
   }
 
+  update(props) {
+    // Allow the parent to pass or clear a message
+    if (props.has('message')) this._message = this.message;
+    super.update();
+  }
+
   getSyncUrls() {
-    const sendLocation = this.options['source.language']?.location || '/';
-    this._syncUrls = getSyncUrls(this.org, this.site, sendLocation, this.urls);
+    const { org, site, options, urls } = this.project;
+    const sendLocation = options['source.language']?.location || '/';
+    this._syncUrls = getSyncUrls(org, site, sendLocation, urls);
   }
 
   getPersistedUrls() {
@@ -50,27 +52,16 @@ class NxLocSync extends LitElement {
     }));
   }
 
-  handleAction({ detail: button }) {
-    if (button === 'prev') {
-      const opts = { bubbles: true, composed: true };
-      const event = new CustomEvent('prev', opts);
-      this.dispatchEvent(event);
-    } else {
-      const view = getHasTranslate(this.langs) ? 'translate' : 'rollout';
-
-      // Only persist what we need to
-      const urls = this.getPersistedUrls();
-
-      const detail = { org: this.org, site: this.site, view, urls };
-      const opts = { detail, bubbles: true, composed: true };
-      const event = new CustomEvent('next', opts);
-      this.dispatchEvent(event);
-    }
+  handleAction(e) {
+    const { view } = e.detail;
+    const opts = { detail: { data: { view } }, bubbles: true, composed: true };
+    const event = new CustomEvent('action', opts);
+    this.dispatchEvent(event);
   }
 
   async syncUrl(url) {
     const { source, destination, ext } = url;
-    const behavior = this.options['sync.conflict.behavior'];
+    const behavior = this.project.options['sync.conflict.behavior'];
 
     // If its JSON, force overwrite
     const overwrite = behavior === 'overwrite' || ext === 'json';
@@ -99,8 +90,9 @@ class NxLocSync extends LitElement {
     await Promise.allSettled(this._syncUrls.map((url) => queue.push(url)));
 
     const urls = this.getPersistedUrls();
-
-    // await saveProject(this.path, { org: this.org, site: this.site, urls });
+    const opts = { detail: { data: { urls } }, bubbles: true, composed: true };
+    const event = new CustomEvent('action', opts);
+    this.dispatchEvent(event);
   }
 
   handleToggleExpand(url) {
@@ -108,26 +100,24 @@ class NxLocSync extends LitElement {
     this.requestUpdate();
   }
 
-  get nextText() {
-    const translateText = getTranslateText(this.langs);
-    if (translateText) return translateText;
-    const rolloutText = getRolloutText(this.langs);
-    if (rolloutText) return rolloutText;
-    return 'Complete';
+  get _project() {
+    return {
+      ...this.project,
+      urls: this.getPersistedUrls(),
+    };
   }
 
   get _defaultMessage() {
-    const { name, location } = this.options['source.language'];
+    const { name, location } = this.project.options['source.language'];
     return { text: `Sync sources to ${name} - ${location}` };
   }
 
   get _allSynced() {
-    const synced = this._syncUrls.filter((url) => url.synced === 'synced' || url.synced === 'skipped');
-    return synced.length === this.urls.length;
+    return this._syncUrls.every((url) => url.synced === 'synced' || url.synced === 'skipped');
   }
 
   get _syncPrefix() {
-    return this.options['source.language'].location;
+    return this.project.options['source.language'].location;
   }
 
   renderStatus(status) {
@@ -150,19 +140,17 @@ class NxLocSync extends LitElement {
   render() {
     return html`
       <nx-loc-actions
-        @action=${this.handleAction}
-        .message=${this._message || this._defaultMessage}
-        prev="Dashboard"
-        ?nextDisabled=${!this._allSynced}
-        next=${this.nextText}>
+        .project=${this._project}
+        .message=${this._message}
+        @action=${this.handleAction}>
       </nx-loc-actions>
       <div class="nx-loc-list-actions">
         <div>
           <p class="nx-loc-list-actions-header">Sync</p>
-          <p>Supplied URLs are not from <strong>${this.options['source.language'].location}</strong>. Please sync them.</p>
+          <p>Supplied URLs are not from <strong>${this.project.options['source.language'].location}</strong>. Please sync them.</p>
         </div>
         <div class="actions">
-          <p><strong>Conflict behavior:</strong> ${this.options['sync.conflict.behavior']}</p>
+          <p><strong>Conflict behavior:</strong> ${this.project.options['sync.conflict.behavior']}</p>
           <sl-button @click=${() => this.handleSyncAll('skip')} class="primary outline">Skip sync</sl-button>
           <sl-button @click=${() => this.handleSyncAll('sync')} class="accent">Sync all</sl-button>
         </div>
@@ -188,10 +176,10 @@ class NxLocSync extends LitElement {
             ${url.expand ? html`
               <div class="url-details">
                 <nx-loc-url-details
-                  .path="/${this.org}/${this.site}${url.sourceView}">
+                  .path="/${this.project.org}/${this.project.site}${url.sourceView}">
                 </nx-loc-url-details>
                 <nx-loc-url-details
-                  .path="/${this.org}/${this.site}${url.destView}">
+                  .path="/${this.project.org}/${this.project.site}${url.destView}">
                 </nx-loc-url-details>
               </div>` : nothing}
           </li>

@@ -23,52 +23,64 @@ const ICONS = [
 
 class NxLocTranslate extends LitElement {
   static properties = {
-    org: { attribute: false },
-    site: { attribute: false },
-    path: { attribute: false },
-    title: { attribute: false },
-    options: { attribute: false },
-    langs: { attribute: false },
-    urls: { attribute: false },
+    project: { attribute: false },
+    message: { attribute: false },
+    _options: { state: true },
+    _langs: { state: true },
+    _urls: { state: true },
     _urlErrors: { state: true },
     _connected: { state: true },
     _translateLangs: { state: true },
     _copyLangs: { state: true },
+    _message: { state: true },
   };
 
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
     getSvg({ parent: this.shadowRoot, paths: ICONS });
-    this.filterLangs();
     this.setupService();
   }
 
+  update(props) {
+    // Allow the parent to pass or clear a message
+    if (props.has('message')) this._message = this.message;
+    if (props.has('project')) this.setupProject();
+    super.update();
+  }
+
   async setupService() {
-    const connector = await setupConnector(this.options.service);
-    this._service = { ...this.options.service, connector };
+    const connector = await setupConnector(this.project.options.service);
+    this._service = { ...this.project.options.service, connector };
     this._connected = await this._service.connector.isConnected(this._service);
   }
 
-  filterLangs() {
-    this._translateLangs = this.langs.filter((lang) => lang.action === 'translate');
-    this._copyLangs = this.langs.filter((lang) => lang.action === 'copy');
+  setupProject() {
+    this._urls = this.project.urls;
+    this._options = this.project.options;
+    this._langs = this.project.langs;
+    this._translateLangs = this._langs.filter((lang) => lang.action === 'translate');
+    this._copyLangs = this._langs.filter((lang) => lang.action === 'copy');
   }
 
   handleMessage(message) {
-    const opts = { detail: { message }, bubbles: true, composed: true };
-    const event = new CustomEvent('message', opts);
-    this.dispatchEvent(event);
+    this._message = message;
   }
 
   async handleSaveLangs() {
-    const updates = {
-      org: this.org,
-      site: this.site,
-      langs: this.langs,
-    };
-    //await saveProject(this.path, updates);
-    this.requestUpdate();
+    const opts = { detail: { data: { langs: this._langs } }, bubbles: true, composed: true };
+    const event = new CustomEvent('action', opts);
+    this.dispatchEvent(event);
+  }
+
+  handleAction(e) {
+    const { href, hash, view } = e.detail;
+    const detail = { href, hash };
+    if (view) detail.data = { view };
+
+    const opts = { detail, bubbles: true, composed: true };
+    const event = new CustomEvent('action', opts);
+    this.dispatchEvent(event);
   }
 
   async handleConnect() {
@@ -76,10 +88,10 @@ class NxLocTranslate extends LitElement {
   }
 
   async fetchUrls(service, fetchContent) {
-    const { org, site } = this;
-    const sourceLocation = this.options['source.language']?.location || '/';
+    const { org, site } = this.project;
+    const sourceLocation = this._options['source.language']?.location || '/';
 
-    return getUrls(org, site, service, sourceLocation, this.urls, fetchContent);
+    return getUrls(org, site, service, sourceLocation, this._urls, fetchContent);
   }
 
   async getBaseTranslationConf(fetchContent) {
@@ -88,16 +100,17 @@ class NxLocTranslate extends LitElement {
       sendMessage: this.handleMessage.bind(this),
     };
 
-    const { org, site, title, _service, _translateLangs } = this;
+    const { org, site, title } = this.project;
+    const { _service: service, _translateLangs: langs } = this;
 
-    const { urls } = await this.fetchUrls(_service, fetchContent);
+    const { urls } = await this.fetchUrls(service, fetchContent);
 
     return {
       org,
       site,
       title,
-      service: _service,
-      langs: _translateLangs,
+      service,
+      langs,
       urls,
       actions,
     };
@@ -122,9 +135,9 @@ class NxLocTranslate extends LitElement {
       // Overwrite the base langs to only the ones we want to save
       const saveConf = { ...conf, langs: langsToSave };
 
-      await saveLangItemsToDa(this.options, saveConf, this._service.connector, sendMessage);
+      await saveLangItemsToDa(this._options, saveConf, this._service.connector, sendMessage);
     }
-    await checkWaitingLanguages(conf, this._service.connector, this.urls, this.options['source.language']?.location);
+    await checkWaitingLanguages(conf, this._service.connector, this._urls, this._options['source.language']?.location);
 
     this.handleMessage(undefined);
   }
@@ -176,20 +189,18 @@ class NxLocTranslate extends LitElement {
       return;
     }
 
-    const { org, site, title, options, _copyLangs } = this;
+    const { org, site, title, options } = this.project;
 
-    await copySourceLangs(org, site, title, options, _copyLangs, urls);
+    await copySourceLangs(org, site, title, options, this._copyLangs, urls);
     this.handleSaveLangs();
     this.requestUpdate();
   }
 
-  get canRollout() {
-    return this.langs.some((lang) => {
-      const rolloutOnly = lang.action === 'rollout';
-      const tranlateComplete = lang.translation?.status === 'complete';
-      const copyComplete = lang.copy?.status === 'complete';
-      return rolloutOnly || tranlateComplete || copyComplete;
-    });
+  get _project() {
+    return {
+      ...this.project,
+      ...this._langs,
+    };
   }
 
   get incompleteLangs() {
@@ -206,7 +217,7 @@ class NxLocTranslate extends LitElement {
   }
 
   renderBehavior() {
-    return html`<p><strong>Conflict behavior:</strong> ${this.options['translate.conflict.behavior']}</p>`;
+    return html`<p><strong>Conflict behavior:</strong> ${this._options['translate.conflict.behavior']}</p>`;
   }
 
   renderTranslateAction() {
@@ -279,8 +290,8 @@ class NxLocTranslate extends LitElement {
   }
 
   renderServiceLink() {
-    if (!this.options.service.link) return this.options.service.name;
-    return html`<a href="${this.options.service.link}" target="_blank">${this.options.service.name}</a>`;
+    if (!this._options.service.link) return this._options.service.name;
+    return html`<a href="${this._options.service.link}" target="_blank">${this._options.service.name}</a>`;
   }
 
   renderTranslate() {
@@ -305,7 +316,7 @@ class NxLocTranslate extends LitElement {
           <li>
             <div class="inner${withCancel}">
               <p>${lang.name} - ${lang['translate type']}</p>
-              <p class="lang-count">${this.urls.length}</p>
+              <p class="lang-count">${this._urls.length}</p>
               <p class="lang-count">${lang.translation?.sent || 0}</p>
               <p class="lang-count">${lang.translation?.translated || 0}</p>
               <p class="lang-count">${lang.translation?.saved || 0}</p>
@@ -323,9 +334,9 @@ class NxLocTranslate extends LitElement {
 
     return html`
       <div class="nx-loc-list-actions">
-        <p class="nx-loc-list-actions-header">Copy (${this.options['source.language'].name})</p>
+        <p class="nx-loc-list-actions-header">Copy (${this._options['source.language'].name})</p>
         <div class="actions">
-          <p><strong>Conflict behavior:</strong> ${this.options['copy.conflict.behavior']}</p>
+          <p><strong>Conflict behavior:</strong> ${this._options['copy.conflict.behavior']}</p>
           <sl-button @click=${this.handleCopyAll} class="accent">Copy all</sl-button>
         </div>
       </div>
@@ -341,10 +352,10 @@ class NxLocTranslate extends LitElement {
         ${this._copyLangs.map((lang) => html`
           <li>
             <div class="inner">
-              <p>${lang.name} - ${this.options['source.language'].name} copy</p>
+              <p>${lang.name} - ${this._options['source.language'].name} copy</p>
               <p class="lang-count"></p>
               <p class="lang-count"></p>
-              <p class="lang-count">${this.urls.length}</p>
+              <p class="lang-count">${this._urls.length}</p>
               <p class="lang-count">${lang.copy?.saved || 0}</p>
               <div class="url-status">
                 ${this.renderLangStatus(lang, 'copy')}
@@ -358,6 +369,11 @@ class NxLocTranslate extends LitElement {
 
   render() {
     return html`
+      <nx-loc-actions
+        .project=${this._project}
+        .message=${this._message}
+        @action=${this.handleAction}>
+      </nx-loc-actions>
       ${this.renderUrlErrors()}
       ${this.renderTranslate()}
       ${this.renderCopy()}

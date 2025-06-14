@@ -40,9 +40,7 @@ class NxLoc extends LitElement {
   }
 
   update(props) {
-    // Wipe out the project if the path changes
     if (props.has('path')) this._project = undefined;
-
     if (props.has('view')) this.getProject();
     super.update();
   }
@@ -62,7 +60,9 @@ class NxLoc extends LitElement {
 
     const { message, project } = await loadProject({ path });
     if (message) this._message = message;
-    if (project) this._project = project;
+
+    // The hash-based view should override the project view
+    if (project) this._project = { ...project, view: this.view };
   }
 
   async handleSave({ detail }) {
@@ -95,7 +95,7 @@ class NxLoc extends LitElement {
 
   renderView() {
     if (this.view === 'dashboard') {
-      return html`<nx-loc-dashboard .org=${this.org} .site=${this.site} @action=${this.handleAction}></nx-loc-dashboard>`;
+      return html`<nx-loc-dashboard .view=${this.view} .org=${this.org} .site=${this.site} @action=${this.handleAction}></nx-loc-dashboard>`;
     }
 
     if (this.view === 'basics') {
@@ -138,9 +138,8 @@ class NxLoc extends LitElement {
     if (!this._project) return nothing;
 
     return html`
-      <nx-loc-header .view=${this._project.view} .title=${this._project.title}></nx-loc-header>
-      ${this.renderSteps()}
-      <div class="nx-loc-step">${this.renderView()}</div>
+      <nx-loc-header .view=${this.view} .title=${this._project?.title}></nx-loc-header>
+      ${this._project ? html`${this.renderSteps()}<div class="nx-loc-step">${this.renderView()}</div>` : nothing}
     `;
   }
 }

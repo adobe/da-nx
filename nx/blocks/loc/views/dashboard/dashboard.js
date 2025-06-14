@@ -22,6 +22,7 @@ const PAGE_COUNT = 50;
 
 class NxLocDashboard extends LitElement {
   static properties = {
+    view: { attribute: false },
     org: { attribute: false },
     site: { attribute: false },
     _projectList: { state: true },
@@ -122,15 +123,9 @@ class NxLocDashboard extends LitElement {
     return this._hasAnyFilters ? this._filteredProjects : this._projectList;
   }
 
-  handleAction({ detail }) {
-    if (detail === 'prev') {
-      const opts = { detail: { href: `/apps#/${this.org}/${this.site}` }, bubbles: true, composed: true };
-      const event = new CustomEvent('prev', opts);
-      this.dispatchEvent(event);
-      return;
-    }
-    const opts = { detail: { hash: `#/basics/${this.org}/${this.site}` }, bubbles: true, composed: true };
-    const event = new CustomEvent('next', opts);
+  async handleAction({ detail }) {
+    const opts = { detail, bubbles: true, composed: true };
+    const event = new CustomEvent('action', opts);
     this.dispatchEvent(event);
   }
 
@@ -144,6 +139,14 @@ class NxLocDashboard extends LitElement {
     archiveProject(project);
     this.getCurrentList().splice(idx, 1);
     this.requestUpdate();
+  }
+
+  get _project() {
+    return {
+      view: this.view,
+      org: this.org,
+      site: this.site,
+    };
   }
 
   renderStatus(project) {
@@ -211,6 +214,11 @@ class NxLocDashboard extends LitElement {
     const projects = this.getCurrentList();
 
     return html`
+      <nx-loc-actions
+        .project=${this._project}
+        .message=${this._message}
+        @action=${this.handleAction}>
+      </nx-loc-actions>
       <nx-filter-bar @filter-change=${(e) => this.applyFilters(e.detail)}></nx-filter-bar>
       ${this._error ? this.renderError() : nothing}
       ${projects ? this.renderProjects(projects) : nothing}

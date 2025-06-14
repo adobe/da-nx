@@ -17,7 +17,10 @@ const ICONS = [
 class NxLocOptions extends LitElement {
   static properties = {
     project: { attribute: false },
-    _config: { state: true },
+    message: { attribute: false },
+    _siteConfig: { state: true },
+    _siteOptions: { state: true },
+    _siteLangs: { state: true },
     _options: { state: true },
     _langs: { state: true },
     _actions: { state: true },
@@ -32,6 +35,12 @@ class NxLocOptions extends LitElement {
     this.formatOptions();
   }
 
+  update(props) {
+    // Allow the parent to pass or clear a message
+    if (props.has('message')) this._message = this.message;
+    super.update();
+  }
+
   async formatOptions() {
     const { org, site } = this.project;
     const sheets = await fetchConfig(org, site);
@@ -41,39 +50,60 @@ class NxLocOptions extends LitElement {
     }
     const { config, options } = formatConfig(sheets);
 
-    // Config is all available configs to pick from
-    this._config = config;
+    // Config is all available configs available from the site
+    this._siteConfig = config;
 
-    // Options are the currently active config options
-    this._options = options;
+    // Site options that can hold current selections
+    this._siteOptions = options;
 
     // Langs have information inside them
-    this._langs = formatLangs(sheets.languages.data, config);
+    this._siteLangs = formatLangs(sheets.languages.data, config);
 
     // Distill down available lang actions into a single list.
-    this._actions = getAllActions(this._langs);
+    this._actions = getAllActions(this._siteLangs);
+
+    this.updateOptions();
   }
 
-  getUpdates() {
+  updateOptions() {
     const {
       options,
       langs,
       message,
-    } = finalizeOptions(this._config, this._options, this._langs, this.project.urls);
+    } = finalizeOptions(this._siteConfig, this._siteOptions, this._siteLangs, this.project.urls);
 
     if (message) return { message };
 
-    return { data: { org: this.org, site: this.site, options, langs } };
+    // The parts we will persist
+    this._options = options;
+    this._langs = langs;
+
+    return { updates: { options, langs } };
+  }
+
+  handleAction(e) {
+    const { view } = e.detail;
+    const { message, updates } = this.updateOptions();
+    if (message) {
+      this._message = message;
+      return;
+    }
+    const data = { view, ...updates };
+    const opts = { detail: { data }, bubbles: true, composed: true };
+    const event = new CustomEvent('action', opts);
+    this.dispatchEvent(event);
   }
 
   handleChangeOption({ target }) {
-    this._options[target.name] = target.value;
+    this._siteOptions[target.name] = target.value;
+    this.updateOptions();
   }
 
   handleLocaleToggle(e, locale) {
     e.preventDefault();
     locale.active = !locale.active;
-    this._langs = [...this._langs];
+    this._siteLangs = [...this._siteLangs];
+    this.updateOptions();
   }
 
   handleChangeAll(e) {
@@ -87,6 +117,8 @@ class NxLocOptions extends LitElement {
       const event = new Event('change');
       select.dispatchEvent(event);
     }
+
+    this.updateOptions();
   }
 
   handleChangeAction(value, lang) {
@@ -96,16 +128,17 @@ class NxLocOptions extends LitElement {
       // If not found, default to skip
       lang.activeAction = found || orderedActions.find((action) => action.value === 'skip');
     }
-    this._langs = [...this._langs];
+    this._siteLangs = [...this._siteLangs];
+    this.updateOptions();
   }
 
   getCommaValues(prop) {
     if (!prop) return [];
-    return this._config[prop].split(',').map((value) => value.trim());
+    return this._siteConfig[prop].split(',').map((value) => value.trim());
   }
 
   hasLocales() {
-    return this._langs.some((lang) => lang.locales);
+    return this._siteLangs.some((lang) => lang.locales);
   }
 
   get _allSelects() {
@@ -113,11 +146,11 @@ class NxLocOptions extends LitElement {
   }
 
   get langCount() {
-    return this._langs.filter((lang) => lang.activeAction.value !== 'skip').length;
+    return this._siteLangs.filter((lang) => lang.activeAction.value !== 'skip').length;
   }
 
   get localeCount() {
-    return this._langs.reduce((acc, lang) => {
+    return this._siteLangs.reduce((acc, lang) => {
       let count = acc;
       if (lang.activeAction.value !== 'skip') {
         const activeLocales = lang.locales.filter((locale) => locale.active);
@@ -128,7 +161,15 @@ class NxLocOptions extends LitElement {
   }
 
   get translateCount() {
-    return this._langs.filter((lang) => lang.activeAction.value === 'translate').length;
+    return this._siteLangs.filter((lang) => lang.activeAction.value === 'translate').length;
+  }
+
+  get _project() {
+    return {
+      ...this.project,
+      langs: this._langs,
+      options: this._options,
+    };
   }
 
   renderFieldgroup(label, property) {
@@ -181,7 +222,7 @@ class NxLocOptions extends LitElement {
               ${this.renderChangeAll()}
             </div>
           </div>
-          ${this._langs.map((lang) => html`
+          ${this._siteLangs.map((lang) => html`
             <div class="lang-group single-lang ${lang.locales ? 'has-locales' : ''}">
               <div class="lang-heading">
                 <p>${lang.name}</p>
@@ -204,7 +245,7 @@ class NxLocOptions extends LitElement {
       <div class="detail-cards">
         <div class="detail-card detail-card-sources">
           <p class="detail-card-heading">Sources</p>
-          <p>${this.urls.length}</p>
+          <p>${this.project.urls.length}</p>
         </div>
         <div class="detail-card detail-card-languages">
           <p class="detail-card-heading">Languages</p>
@@ -219,13 +260,13 @@ class NxLocOptions extends LitElement {
          ${this.translateCount > 0 ? html`
           <div class="detail-card detail-card-translate">
             <p class="detail-card-heading">Translate total</p>
-            <p>${this.translateCount * this.urls.length}</p>
+            <p>${this.translateCount * this.project.urls.length}</p>
           </div>
         ` : nothing}
         ${this.localeCount > 0 ? html`
           <div class="detail-card detail-card-rollout">
             <p class="detail-card-heading">Rollout total</p>
-            <p>${this.localeCount * this.urls.length}</p>
+            <p>${this.localeCount * this.project.urls.length}</p>
           </div>
         ` : nothing}
       </div>
@@ -234,13 +275,13 @@ class NxLocOptions extends LitElement {
 
   render() {
     return html`
-      ${this._config && html`
+      ${this._siteConfig && html`
         <nx-loc-actions
-          .project=${this.project}
+          .project=${this._project}
           .message=${this._message}
           @action=${this.handleAction}>
         </nx-loc-actions>
-        ${this.urls && this.renderDetails()}
+        ${this.project.urls && this.renderDetails()}
         <p class="nx-loc-options-header">Options</p>
         <div class="nx-loc-options-panel">
           <div class="nx-loc-options-group">
@@ -254,7 +295,7 @@ class NxLocOptions extends LitElement {
             ${this.renderFieldgroup('On rollout', 'rollout.conflict.behavior')}
           </div>
         </div>
-        ${this._langs && this.renderLangList()}
+        ${this._siteLangs && this.renderLangList()}
       `}
     `;
   }

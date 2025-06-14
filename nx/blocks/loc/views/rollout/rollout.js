@@ -2,7 +2,6 @@ import { LitElement, html, nothing } from 'da-lit';
 import getStyle from '../../../../utils/styles.js';
 import { getConfig } from '../../../../scripts/nexter.js';
 import getSvg from '../../../../utils/svg.js';
-import { getSyncText, getTranslateText, getDashboardText } from '../../utils/utils.js';
 import { sortLangs, rolloutLang, getFilteredLangs, getSummaryCards } from './index.js';
 
 const { nxBase: nx } = getConfig();
@@ -16,13 +15,10 @@ const ICONS = [
 
 class NxLocRollout extends LitElement {
   static properties = {
-    org: { attribute: false },
-    site: { attribute: false },
-    path: { attribute: false },
-    title: { attribute: false },
-    options: { attribute: false },
-    langs: { attribute: false },
-    urls: { attribute: false },
+    project: { attribute: false },
+    message: { attribute: false },
+    _langs: { state: true },
+    _urls: { state: true },
     _summaryCards: { state: true },
     _sortedLangs: { state: true },
     _filters: { state: true },
@@ -33,17 +29,16 @@ class NxLocRollout extends LitElement {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
     getSvg({ parent: this.shadowRoot, paths: ICONS });
-    this._sortedLangs = sortLangs(this.langs);
+    this._langs = this.project.langs;
+    this._urls = this.project.urls;
+    this._sortedLangs = sortLangs(this._langs);
     this._summaryCards = getSummaryCards();
   }
 
-  async handleSaveProject() {
-    const updates = {
-      org: this.org,
-      site: this.site,
-      langs: this.langs,
-    };
-    // await saveProject(this.path, updates);
+  update(props) {
+    // Allow the parent to pass or clear a message
+    if (props.has('message')) this._message = this.message;
+    super.update();
   }
 
   async handleRolloutLang(langToRollout) {
@@ -55,11 +50,7 @@ class NxLocRollout extends LitElement {
     };
 
     const rolloutConf = {
-      org: this.org,
-      site: this.site,
-      title: this.title,
-      options: this.options,
-      urls: this.urls,
+      ...this.project,
       lang: langToRollout,
       actions,
     };
@@ -73,13 +64,12 @@ class NxLocRollout extends LitElement {
 
     // Replace the lang from the main list
     // with the one that has updated status info.
-    const foundIdx = this.langs.findIndex((lang) => lang.code === langToRollout.code);
-    this.langs[foundIdx] = langToRollout;
+    const foundIdx = this._langs.findIndex((lang) => lang.code === langToRollout.code);
+    this._langs[foundIdx] = langToRollout;
 
-    await this.handleSaveProject();
-
-    // Close any displayed messages
-    this._message = undefined;
+    const opts = { detail: { data: { langs: this._langs } }, bubbles: true, composed: true };
+    const event = new CustomEvent('action', opts);
+    this.dispatchEvent(event);
   }
 
   async handleRolloutGroup(group) {
@@ -88,16 +78,13 @@ class NxLocRollout extends LitElement {
     }
   }
 
-  handleAction({ detail }) {
-    if (detail === 'prev') {
-      const opts = { bubbles: true, composed: true };
-      const event = new CustomEvent('prev', opts);
-      this.dispatchEvent(event);
-      return;
-    }
-    const nextDetail = { org: this.org, site: this.site, view: 'complete' };
-    const opts = { detail: nextDetail, bubbles: true, composed: true };
-    const event = new CustomEvent('next', opts);
+  handleAction(e) {
+    const { href, hash, view } = e.detail;
+    const detail = { href, hash };
+    if (view) detail.data = { view };
+
+    const opts = { detail, bubbles: true, composed: true };
+    const event = new CustomEvent('action', opts);
     this.dispatchEvent(event);
   }
 
@@ -140,12 +127,11 @@ class NxLocRollout extends LitElement {
     ).length;
   }
 
-  getPrevText() {
-    const translateText = getTranslateText(this.langs);
-    if (translateText) return translateText;
-    const syncText = getSyncText(this.urls, this.options);
-    if (syncText) return syncText;
-    return getDashboardText();
+  get _project() {
+    return {
+      ...this.project,
+      langs: this._langs,
+    };
   }
 
   get anyRollout() {
@@ -167,7 +153,7 @@ class NxLocRollout extends LitElement {
         <li class="locale-item ${locale.expand ? 'is-expanded' : ''}">
           <div class="locale-details">
             <p>${locale.code}</p>
-            <p class="sources-count">${this.urls.length}</p>
+            <p class="sources-count">${this._urls.length}</p>
             <p class="saved-count">${locale.saved || 0}</p>
             <p class="rollout-status">${rollout.status}</p>
           <div>
@@ -187,7 +173,7 @@ class NxLocRollout extends LitElement {
       <li class="lang-item ${lang.expand ? 'is-expanded' : ''}">
         <div class="lang-item-details">
           <p class="lang-name">${lang.name}</p>
-          <p class="sources-count">${this.urls.length}</p>
+          <p class="sources-count">${this._urls.length}</p>
           <p class="saved-count">${lang.rollout.saved || 0}</p>
           <p class="rollout-status">${lang.rollout.status}</p>
           <div>
@@ -216,7 +202,7 @@ class NxLocRollout extends LitElement {
         <p class="lang-group-title">${group.title}</p>
         ${this.canGroupRollout(group) ? html`
           <sl-button @click=${() => this.handleRolloutGroup(group)} class="accent">
-            Rollout all ${group.title.toLowerCase()}
+            ${group.title === 'Complete' ? 'Re-rollout' : 'Rollout'} all ${group.title.toLowerCase()}
           </sl-button>` : nothing}
       </div>
       <div class="lang-group-labels">
@@ -262,6 +248,11 @@ class NxLocRollout extends LitElement {
 
   render() {
     return html`
+      <nx-loc-actions
+        .project=${this._project}
+        .message=${this._message}
+        @action=${this.handleAction}>
+      </nx-loc-actions>
       ${this.renderSummary()}
       ${this.renderErrors()}
       ${this.renderGroups()}

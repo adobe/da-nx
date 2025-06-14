@@ -58,7 +58,7 @@ class NxLocActions extends LitElement {
           <span>${this._prev.text}</span>
         </button>
         ${this.renderMessage()}
-        <button class="nx-next ${this._next.style}" @click=${() => this.handleAction(this._next)}>
+        <button class="nx-next ${this._next.style}" @click=${() => this.handleAction(this._next)} ?disabled=${this._next.disabled}>
             <span>${this._next.text}</span>
             <svg class="icon"><use href="#spectrum-chevronRight"/></svg>
         </button>
