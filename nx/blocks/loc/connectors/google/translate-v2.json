@@ -1,0 +1,150 @@
+{
+    "config": {
+        "total": 10,
+        "limit": 10,
+        "offset": 0,
+        "data": [
+            {
+                "key": "sync.conflict.behavior",
+                "value": "overwrite, merge",
+                "description": "How to handle old content when it is pulled into the send for translation folder."
+            },
+            {
+                "key": "translate.conflict.behavior",
+                "value": "merge, overwrite",
+                "description": "How to handle old content when new content returns from translation."
+            },
+            {
+                "key": "rollout.conflict.behavior",
+                "value": "merge, overwrite",
+                "description": "How to handle old content when new content get rolled out to the locale."
+            },
+            {
+                "key": "copy.conflict.behavior",
+                "value": "overwrite, merge",
+                "description": ""
+            },
+            {
+                "key": "complete.aem.preview",
+                "value": "on",
+                "description": "Automatically preview the document after completion. Ignored if merge conflicts exist."
+            },
+            {
+                "key": "complete.aem.publish",
+                "value": "on",
+                "description": "Automatically publish the document after completion.  Ignored if merge conflicts exist."
+            },
+            {
+                "key": "translation.service.name",
+                "value": "Google",
+                "description": ""
+            },
+            {
+                "key": "translation.service.all.env",
+                "value": "prod",
+                "description": "The order of service endpoints. First is default."
+            },
+            {
+                "key": "translation.service.prod.link",
+                "value": "https://cloud.google.com/translate/docs/advanced/translating-text-v3",
+                "description": ""
+            },
+            {
+                "key": "translation.service.prod.origin",
+                "value": "https://glaas.corp.adobe.com",
+                "description": ""
+            }
+        ]
+    },
+    "languages": {
+        "total": 2,
+        "limit": 2,
+        "offset": 0,
+        "data": [
+            {
+                "name": "English",
+                "code": "en",
+                "translate type": "Machine Translation",
+                "location": "/en",
+                "locales": "",
+                "actions": "Skip, Translate"
+            },
+            {
+                "name": "German",
+                "code": "de",
+                "translate type": "Machine Translation",
+                "location": "/de",
+                "locales": "",
+                "actions": "Translate"
+            }
+        ]
+    },
+    "custom-doc-rules": {
+        "total": 2,
+        "limit": 2,
+        "offset": 0,
+        "data": [
+            {
+                "block": "metadata",
+                "rule": "translate col 2 if col 1 is \"title\" or \"description\""
+            },
+            {
+                "block": "section-metadata",
+                "rule": "do-not-translate"
+            }
+        ]
+    },
+    "dnt-content-rules": {
+        "total": 6,
+        "limit": 6,
+        "offset": 0,
+        "data": [
+            {
+                "content": "do not translate me"
+            },
+            {
+                "content": "/filter/"
+            },
+            {
+                "content": "/search/"
+            },
+            {
+                "content": "/0/"
+            },
+            {
+                "content": "/1/"
+            },
+            {
+                "content": "/10/"
+            }
+        ],
+        ":colWidths": [
+            145
+        ]
+    },
+    "dnt-sheet-rules": {
+        "total": 2,
+        "limit": 2,
+        "offset": 0,
+        "data": [
+            {
+                "pattern": "equals(null)",
+                "action": "dnt"
+            },
+            {
+                "pattern": "beginsWith(http:// || https://)",
+                "action": "dnt"
+            }
+        ]
+    },
+    ":names": [
+        "config",
+        "languages",
+        "custom-doc-rules",
+        "dnt-content-rules",
+        "dnt-sheet-rules",
+        "any-custom-thing"
+    ],
+    ":version": 3,
+    ":type": "multi-sheet"
+}
