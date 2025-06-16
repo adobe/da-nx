@@ -35,7 +35,7 @@ class NxExp extends LitElement {
     _isEdit: { state: true },
   };
 
-  async connectedCallback() {
+  connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [sl, styles];
   }

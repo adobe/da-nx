@@ -14,6 +14,10 @@ function setTitle(text) {
   port2.postMessage({ action: 'setTitle', details: text });
 }
 
+function setHref(href) {
+  window.location.href = href;
+}
+
 function closeLibrary() {
   port2.postMessage({ action: 'closeLibrary' });
 }
@@ -34,6 +38,7 @@ const DA_SDK = (() => new Promise((resolve) => {
         daFetch,
         sendText,
         sendHTML,
+        setHref,
         closeLibrary,
       };
 

@@ -1,0 +1,12 @@
+p {
+  font-size: 16px;
+}
+
+.lang-group-header {
+  font-weight: 700;
+}
+
+.lang-group-list {
+  margin: 0;
+  padding: 0;
+}
