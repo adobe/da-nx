@@ -32,11 +32,17 @@ class NxLocales extends LitElement {
     this._locales = locales;
   }
 
-  renderLocaleLangs(langs) {
+  handleOpen(locale, lang) {
+    console.log(this.actions.setHash);
+    console.log(locale.location, lang.location);
+  }
+
+  renderLocaleLangs(locale, langs) {
     return html`<ul>
       ${langs.map((lang) => html`
         <li>
           <p>${lang.name}</p>
+          <button @click=${() => this.handleOpen(locale, lang)}>Open</button>
         </li>
       `)}
     </ul>`;
@@ -49,7 +55,7 @@ class NxLocales extends LitElement {
         <ul class="lang-group-list">${items.map((item) => html`
           <li>
             <p>${item.name}</p>
-            ${item.langs && this.renderLocaleLangs(item.langs)}
+            ${item.langs && this.renderLocaleLangs(item, item.langs)}
           </li>`)}
         </ul>
       </div>
@@ -71,10 +77,11 @@ class NxLocales extends LitElement {
 customElements.define('nx-locales', NxLocales);
 
 (async function init() {
-  const { context, token } = await DA_SDK;
+  const { context, token, actions } = await DA_SDK;
   setContext({ ...context, token });
 
   const nxLocales = document.createElement('nx-locales');
+  nxLocales.actions = actions;
 
   document.body.append(nxLocales);
 }());

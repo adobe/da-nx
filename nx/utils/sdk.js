@@ -18,6 +18,10 @@ function setHref(href) {
   window.location.href = href;
 }
 
+function setHash(hash) {
+  window.location.hash = hash;
+}
+
 function closeLibrary() {
   port2.postMessage({ action: 'closeLibrary' });
 }
@@ -39,6 +43,7 @@ const DA_SDK = (() => new Promise((resolve) => {
         sendText,
         sendHTML,
         setHref,
+        setHash,
         closeLibrary,
       };
 
