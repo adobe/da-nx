@@ -27,7 +27,16 @@ export async function getLangsAndLocales() {
 
   const langs = langData.map((row) => ({ name: row.name, location: row.location }));
 
-  const locales = localeData.map((row) => ({ ...row, langs }));
+  const locales = localeData.map((row) => {
+    const localeLangs = langs.map((lang) => ({
+      name: lang.name,
+      location: `${lang.location}-${row.location.replace('/', '')}`,
+    }));
+    return {
+      ...row,
+      langs: localeLangs,
+    };
+  });
 
   return { langs, locales };
 }

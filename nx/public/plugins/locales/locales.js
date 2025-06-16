@@ -1,7 +1,7 @@
 import { html, LitElement, nothing } from 'da-lit';
 import DA_SDK from 'https://da.live/nx/utils/sdk.js';
 import getStyle from '../../utils/styles.js';
-import { setContext, getLangsAndLocales } from './index.js';
+import { setContext, getLangsAndLocales, getContext } from './index.js';
 
 // NX Base
 const nx = `${new URL(import.meta.url).origin}/nx`;
@@ -19,10 +19,10 @@ class NxLocales extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [sl, styles];
-    this.getLangs();
+    this.setup();
   }
 
-  async getLangs() {
+  async setup() {
     const { message, langs, locales } = await getLangsAndLocales();
     if (message) {
       this._message = message;
@@ -32,20 +32,35 @@ class NxLocales extends LitElement {
     this._locales = locales;
   }
 
-  handleOpen(locale, lang) {
-    console.log(this.actions.setHash);
-    console.log(locale.location, lang.location);
+  findInLang(langs) {
+    return langs.find((item) => this.path.startsWith(`${item.location}/`));
   }
 
-  renderLocaleLangs(locale, langs) {
-    return html`<ul>
-      ${langs.map((lang) => html`
-        <li>
-          <p>${lang.name}</p>
-          <button @click=${() => this.handleOpen(locale, lang)}>Open</button>
-        </li>
-      `)}
-    </ul>`;
+  handleOpen(lang) {
+    let found = this.findInLang(this._langs);
+    if (!found) {
+      const flatLocaleLangs = this._locales.reduce((acc, locale) => {
+        acc.push(...locale.langs);
+        return acc;
+      }, []);
+      found = this.findInLang(flatLocaleLangs);
+    }
+
+    const newPath = this.path.replace(found.location, lang.location);
+    this.actions.setHash(`/${this.org}/${this.site}${newPath}`);
+  }
+
+  renderLocaleLangs(langs) {
+    return html`<div>
+      <ul>
+        ${langs.map((lang) => html`
+          <li>
+            <p>${lang.name}</p>
+            <button @click=${() => this.handleOpen(lang)}>Open</button>
+          </li>
+        `)}
+      </ul>
+    </div>`;
   }
 
   renderGroup(title, items) {
@@ -55,7 +70,7 @@ class NxLocales extends LitElement {
         <ul class="lang-group-list">${items.map((item) => html`
           <li>
             <p>${item.name}</p>
-            ${item.langs && this.renderLocaleLangs(item, item.langs)}
+            ${item.langs ? this.renderLocaleLangs(item.langs) : html`<button @click=${() => this.handleOpen(item)}>Open</button>`}
           </li>`)}
         </ul>
       </div>
@@ -65,7 +80,7 @@ class NxLocales extends LitElement {
   renderAll() {
     return html`
       ${this.renderGroup('Languages', this._langs)}
-      ${this.renderGroup('Regions', this._locales)}
+      ${this.renderGroup('Locales', this._locales)}
     `;
   }
 
@@ -81,6 +96,9 @@ customElements.define('nx-locales', NxLocales);
   setContext({ ...context, token });
 
   const nxLocales = document.createElement('nx-locales');
+  nxLocales.org = context.org;
+  nxLocales.site = context.repo;
+  nxLocales.path = context.path;
   nxLocales.actions = actions;
 
   document.body.append(nxLocales);

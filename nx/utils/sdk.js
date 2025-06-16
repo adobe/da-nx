@@ -15,11 +15,11 @@ function setTitle(text) {
 }
 
 function setHref(href) {
-  window.location.href = href;
+  port2.postMessage({ action: 'setHref', details: href });
 }
 
 function setHash(hash) {
-  window.location.hash = hash;
+  port2.postMessage({ action: 'setHash', details: hash });
 }
 
 function closeLibrary() {
