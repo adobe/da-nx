@@ -77,7 +77,6 @@ async function saveLang({
   });
 
   const saveToDa = async (url) => {
-    console.log(url);
     const overwrite = behavior === 'overwrite' || url.hasExt || url.ext !== 'html';
     const copyFn = overwrite ? overwriteCopy : mergeCopy;
     await copyFn(url, title);

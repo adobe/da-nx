@@ -54,11 +54,7 @@ class NxLocTranslate extends LitElement {
     this.dispatchEvent(event);
   }
 
-  async saveState(message) {
-    if (message) {
-      console.log(message);
-      console.log(JSON.stringify(this.langs[2].translation));
-    }
+  async saveState() {
     await saveStatus(this.state);
     this.requestPanelUpdates();
     this.requestUpdate();

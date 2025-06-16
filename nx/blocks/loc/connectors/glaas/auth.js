@@ -36,6 +36,5 @@ export async function getGlaasToken(service) {
 
 export async function connectToGlaas(origin, clientid) {
   const url = getAuthUri(clientid, origin);
-  console.log(url);
   window.location = url;
 }

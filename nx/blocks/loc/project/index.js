@@ -229,13 +229,7 @@ export async function mergeCopy(url, projectTitle) {
 
     removeLocTags(regionalCopy);
 
-    console.log(langstoreCopy.querySelector('main').outerHTML);
-
-    console.log(regionalCopy.querySelector('main').outerHTML);
-
     if (langstoreCopy.querySelector('main').outerHTML === regionalCopy.querySelector('main').outerHTML) {
-      console.log('no diff');
-
       // No differences, don't need to do anything
       url.status = 'success';
       return { ok: true };

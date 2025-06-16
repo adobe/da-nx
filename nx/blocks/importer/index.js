@@ -35,8 +35,6 @@ async function findFragments(pageUrl, text, liveDomain) {
     [href] = href.split('#');
     [href] = href.split('?');
 
-    console.log(href);
-
     // Convert relative to current project origin
     const url = new URL(href);
 
@@ -96,7 +94,6 @@ async function saveAllToDa(url, blob) {
 async function importUrl(url, findFragmentsFlag, liveDomain, setProcessed) {
   const [fromRepo, fromOrg] = url.hostname.split('.')[0].split('--').slice(1).slice(-2);
   if (!(fromRepo || fromOrg)) {
-    console.log(liveDomain, url.origin.startsWith(liveDomain));
     if (!(liveDomain && url.origin.startsWith(liveDomain))) {
       url.status = '403';
       url.error = 'URL is not from AEM.';
