@@ -10,6 +10,16 @@ button {
   background-color: var(--s2-blue-400);
 }
 
+.message {
+  position: fixed;
+  inset: 0;
+  background-color: rgb(255 255 255 / 80%);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 48px;
+}
+
 .lang-group-header {
   display: flex;
   justify-content: space-between;

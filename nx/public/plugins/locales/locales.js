@@ -13,6 +13,7 @@ const styles = await getStyle(import.meta.url);
 class NxLocales extends LitElement {
   static properties = {
     _langs: { state: true },
+    _locales: { state: true },
     _message: { state: true },
   };
 
@@ -66,13 +67,12 @@ class NxLocales extends LitElement {
   }
 
   async handlePublish(items) {
+    this._message = { text: 'Publishing banner' };
     const found = this.findCurrentLang();
-
     const publishLangs = items[0].langs ? this.flattenLocaleLangs(items) : items;
-    const pageList = publishLangs.map((lang) => {
-      return this.path.replace(found.location, lang.location);
-    });
+    const pageList = publishLangs.map((lang) => ({ path: `${this.path.replace(found.location, lang.location)}` }));
     await publishPages(pageList);
+    this._message = undefined;
   }
 
   renderLocaleLangs(langs) {
@@ -105,10 +105,15 @@ class NxLocales extends LitElement {
     `;
   }
 
+  renderMessage() {
+    return html`<div class="message"><p>${this._message.text}</p></div>`;
+  }
+
   renderAll() {
     return html`
       ${this.renderGroup('Global languages', this._langs)}
       ${this.renderGroup('Locales', this._locales)}
+      ${this._message && this.renderMessage()}
     `;
   }
 
