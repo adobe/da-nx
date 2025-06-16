@@ -1,7 +1,7 @@
 import { DA_ORIGIN } from '../../../../public/utils/constants.js';
 import { Queue } from '../../../../public/utils/tree.js';
 import { daFetch } from '../../../../utils/daFetch.js';
-import { fetchConfig, formatPath } from '../../utils/utils.js';
+import { convertPath, fetchConfig, formatPath } from '../../utils/utils.js';
 import { mergeCopy, overwriteCopy } from '../../project/index.js';
 
 let CONNECTOR;
@@ -17,7 +17,8 @@ export async function getUrls(org, site, service, sourceLocation, urls, fetchCon
 
   // Format the URLs to get all possible path variations
   const formattedUrls = urls.map((url) => {
-    const formatted = formatPath(org, site, sourceLocation, url.suppliedPath);
+    const formatted = convertPath({ path: url.suppliedPath });
+
     return { ...url, ...formatted };
   });
 
@@ -27,20 +28,20 @@ export async function getUrls(org, site, service, sourceLocation, urls, fetchCon
 
     // Fetch the content and add DNT
     const fetchUrl = async (url) => {
-      const resp = await daFetch(`${DA_ORIGIN}/source${url.daLangPath}`);
+      const resp = await daFetch(`${DA_ORIGIN}/source/${org}/${site}${url.daBasePath}`);
       if (!resp.ok) {
-        url.error = `Error fetching content from ${url.daLangPath} - ${resp.status}`;
+        url.error = `Error fetching content from ${url.daBasePath} - ${resp.status}`;
         return;
       }
 
       const content = await resp.text();
 
       if (content.includes('da-loc-added') || content.includes('da-loc-deleted')) {
-        url.error = `${url.daLangPath} has unmerged changes. Please resolve before translating.`;
+        url.error = `${url.daBasePath} has unmerged changes. Please resolve before translating.`;
         return;
       }
 
-      const fileType = url.daLangPath.includes('.json') ? 'json' : undefined;
+      const fileType = url.daBasePath.includes('.json') ? 'json' : undefined;
 
       // Only add DNT if a connector exists
       // Copy sources will not have a connector
@@ -70,15 +71,14 @@ async function saveLang({
   urls,
   sendMessage,
 }) {
-  const destLangPrefix = `/${org}/${site}${lang.location}`;
-
   const urlsToSave = urls.map((url) => {
-    const destination = url.daLangPath.replace(url.sourceLangPrefix, destLangPrefix).toLowerCase();
-    return { ...url, destination };
+    const { daDestPath } = convertPath({ path: url.basePath, sourcePrefix: '/', destPrefix: lang.location });
+    return { ...url, destination: `/${org}/${site}${daDestPath}` };
   });
 
   const saveToDa = async (url) => {
-    const overwrite = behavior === 'overwrite' || url.hasExt;
+    console.log(url);
+    const overwrite = behavior === 'overwrite' || url.hasExt || url.ext !== 'html';
     const copyFn = overwrite ? overwriteCopy : mergeCopy;
     await copyFn(url, title);
     const remaining = urlsToSave.filter((urlToSave) => !urlToSave.sourceContent).length;

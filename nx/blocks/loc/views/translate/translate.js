@@ -100,7 +100,7 @@ class NxLocTranslate extends LitElement {
       sendMessage: this.handleMessage.bind(this),
     };
 
-    const { org, site, title } = this.project;
+    const { org, site, title, options } = this.project;
     const { _service: service, _translateLangs: langs } = this;
 
     const { urls } = await this.fetchUrls(service, fetchContent);
@@ -110,6 +110,7 @@ class NxLocTranslate extends LitElement {
       site,
       title,
       service,
+      options,
       langs,
       urls,
       actions,
@@ -143,10 +144,10 @@ class NxLocTranslate extends LitElement {
   }
 
   async handleGetStatus() {
-    if (!this.incompleteLangs) {
-      this.handleMessage({ text: 'All languages complete or cancelled.' });
-      return;
-    }
+    // if (!this.incompleteLangs) {
+    //   this.handleMessage({ text: 'All languages complete or cancelled.' });
+    //   return;
+    // }
 
     const conf = await this.getBaseTranslationConf(false);
 

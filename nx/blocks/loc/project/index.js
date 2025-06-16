@@ -136,14 +136,29 @@ export async function overwriteCopy(url, title) {
   return daResp;
 }
 
-const collapseWhitespace = (str) => str.replace(/\s+/g, ' ');
+function collapseInnerTextSpaces(html) {
+  return html.replace(/>([^<]*)</g, (match, textContent) => {
+    // Only process if there's actual text content
+    if (!textContent.trim()) {
+      return match;
+    }
 
-const getHtml = async (url, format = 'dom') => {
-  const res = await daFetch(`${DA_ORIGIN}/source${url}`);
-  if (!res.ok) return null;
-  const str = await res.text();
-  if (format === 'text') return str;
-  return PARSER.parseFromString(collapseWhitespace(str), 'text/html');
+    // Collapse multiple spaces to single space, trim padding
+    const cleaned = textContent.replace(/\s+/g, ' ').trim();
+    return `>${cleaned}<`;
+  });
+}
+
+const getHtml = async (path, html) => {
+  const fetchHtml = async () => {
+    const res = await daFetch(`${DA_ORIGIN}/source${path}`);
+    if (!res.ok) return null;
+    const str = await res.text();
+    return str;
+  };
+
+  const str = html || await fetchHtml(path);
+  return PARSER.parseFromString(collapseInnerTextSpaces(str), 'text/html');
 };
 
 const getDaUrl = (url) => {
@@ -209,12 +224,18 @@ export async function mergeCopy(url, projectTitle) {
     const regionalCopy = await getHtml(url.destination);
     if (!regionalCopy) throw new Error('No regional content or error fetching');
 
-    const langstoreCopy = url.sourceContent || await getHtml(url.source);
+    const langstoreCopy = await getHtml(null, url.sourceContent) || await getHtml(url.source);
     if (!langstoreCopy) throw new Error('No langstore content or error fetching');
 
     removeLocTags(regionalCopy);
 
+    console.log(langstoreCopy.querySelector('main').outerHTML);
+
+    console.log(regionalCopy.querySelector('main').outerHTML);
+
     if (langstoreCopy.querySelector('main').outerHTML === regionalCopy.querySelector('main').outerHTML) {
+      console.log('no diff');
+
       // No differences, don't need to do anything
       url.status = 'success';
       return { ok: true };

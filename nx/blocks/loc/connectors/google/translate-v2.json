@@ -1,1 +1,134 @@
-{"config":{"total":8,"offset":0,"limit":8,"data":[{"key":"sync.conflict.behavior","value":"overwrite, merge","description":"How to handle old content when it is pulled into the send for translation folder."},{"key":"translate.conflict.behavior","value":"merge, overwrite","description":"How to handle old content when new content returns from translation."},{"key":"rollout.conflict.behavior","value":"merge, overwrite","description":"How to handle old content when new content get rolled out to the locale."},{"key":"copy.conflict.behavior","value":"overwrite, merge","description":""},{"key":"translation.service.name","value":"Google","description":""},{"key":"translation.service.all.env","value":"prod","description":"The order of service endpoints. First is default."},{"key":"translation.service.prod.link","value":"https://ws-stage.corp.adobe.com/ws/#app=ws_suite&entry=ws_assignments","description":""},{"key":"translation.service.prod.origin","value":"https://translate.da.live/google","description":""}]},"languages":{"total":2,"offset":0,"limit":2,"data":[{"name":"English","code":"en","translate type":"None","location":"/langstore/en","actions":"Rollout"},{"name":"German","code":"de","translate type":"Human Translation","location":"/langstore/de","actions":"Translate, Rollout, Copy"}]},"dnt-content-rules":{"total":6,"offset":0,"limit":6,"data":[{"content":"do not translate me"},{"content":"/filter/"},{"content":"/search/"},{"content":"/0/"},{"content":"/1/"},{"content":"/10/"}]},"dnt-sheet-rules":{"total":2,"offset":0,"limit":2,"data":[{"pattern":"equals(null)","action":"dnt"},{"pattern":"beginsWith(http:// || https://)","action":"dnt"}]},"custom-doc-rules":{"total":2,"offset":0,"limit":2,"data":[{"block":"metadata","rule":"translate col 2 if col 1 is \"title\" or \"description\""},{"block":"section-metadata","rule":"do-not-translate"}]},":version":3,":names":["config","languages","dnt-content-rules","dnt-sheet-rules","custom-doc-rules"],":type":"multi-sheet"}
+{
+    "config": {
+        "total": 8,
+        "offset": 0,
+        "limit": 8,
+        "data": [
+            {
+                "key": "sync.conflict.behavior",
+                "value": "overwrite, merge",
+                "description": "How to handle old content when it is pulled into the send for translation folder."
+            },
+            {
+                "key": "translate.conflict.behavior",
+                "value": "merge, overwrite",
+                "description": "How to handle old content when new content returns from translation."
+            },
+            {
+                "key": "rollout.conflict.behavior",
+                "value": "merge, overwrite",
+                "description": "How to handle old content when new content get rolled out to the locale."
+            },
+            {
+                "key": "copy.conflict.behavior",
+                "value": "overwrite, merge",
+                "description": ""
+            },
+            {
+                "key": "translation.service.name",
+                "value": "Google",
+                "description": ""
+            },
+            {
+                "key": "translation.service.all.env",
+                "value": "prod",
+                "description": "The order of service endpoints. First is default."
+            },
+            {
+                "key": "translation.service.prod.link",
+                "value": "https://ws-stage.corp.adobe.com/ws/#app=ws_suite&entry=ws_assignments",
+                "description": ""
+            },
+            {
+                "key": "translation.service.prod.origin",
+                "value": "https://translate.da.live/google",
+                "description": ""
+            }
+        ]
+    },
+    "languages": {
+        "total": 2,
+        "offset": 0,
+        "limit": 2,
+        "data": [
+            {
+                "name": "English",
+                "code": "en",
+                "translate type": "None",
+                "location": "/en",
+                "actions": "Skip, Translate"
+            },
+            {
+                "name": "German",
+                "code": "de",
+                "translate type": "Human Translation",
+                "location": "/de",
+                "actions": "Translate, Rollout, Copy"
+            }
+        ]
+    },
+    "dnt-content-rules": {
+        "total": 6,
+        "offset": 0,
+        "limit": 6,
+        "data": [
+            {
+                "content": "do not translate me"
+            },
+            {
+                "content": "/filter/"
+            },
+            {
+                "content": "/search/"
+            },
+            {
+                "content": "/0/"
+            },
+            {
+                "content": "/1/"
+            },
+            {
+                "content": "/10/"
+            }
+        ]
+    },
+    "dnt-sheet-rules": {
+        "total": 2,
+        "offset": 0,
+        "limit": 2,
+        "data": [
+            {
+                "pattern": "equals(null)",
+                "action": "dnt"
+            },
+            {
+                "pattern": "beginsWith(http:// || https://)",
+                "action": "dnt"
+            }
+        ]
+    },
+    "custom-doc-rules": {
+        "total": 2,
+        "offset": 0,
+        "limit": 2,
+        "data": [
+            {
+                "block": "metadata",
+                "rule": "translate col 2 if col 1 is \"title\" or \"description\""
+            },
+            {
+                "block": "section-metadata",
+                "rule": "do-not-translate"
+            }
+        ]
+    },
+    ":version": 3,
+    ":names": [
+        "config",
+        "languages",
+        "dnt-content-rules",
+        "dnt-sheet-rules",
+        "custom-doc-rules"
+    ],
+    ":type": "multi-sheet"
+}

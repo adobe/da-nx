@@ -79,11 +79,14 @@ export function convertPath({ path, sourcePrefix, destPrefix }) {
   // We also use ext to determine things like conflict behavior
   const { path: daBasePath, ext } = getExtPath(aemBasePath);
 
-  const daDestPath = `${destPrefix}${daBasePath}`;
+  const paths = { daBasePath, aemBasePath, ext };
 
-  const aemDestPath = `${destPrefix}${aemBasePath}`;
+  if (destPrefix) {
+    paths.daDestPath = `${destPrefix}${daBasePath}`;
+    paths.aemDestPath = `${destPrefix}${aemBasePath}`;
+  }
 
-  return { daBasePath, daDestPath, aemBasePath, aemDestPath, ext };
+  return paths;
 }
 
 export function formatPath(org, site, sourceLocation, path) {
@@ -197,7 +200,7 @@ export async function fetchConfig(org, site) {
 
   // Fallback to zero config defaults
   if (options.error) {
-    options = await fetchConf(`${nx}/blocks/loc/connectors/google/translate.json`);
+    options = await fetchConf(`${nx}/blocks/loc/connectors/google/translate-v2.json`);
   }
 
   CONFIG_CACHE = options;

@@ -161,7 +161,7 @@ export function finalizeOptions(config, suppliedOptions, suppliedLangs, supplied
       delete filteredProps.orderedActions;
       delete filteredProps.actions;
 
-      const locales = lang.locales.filter((locale) => locale.active);
+      const locales = lang.locales?.filter((locale) => locale.active);
       acc.push({
         ...filteredProps,
         action,
@@ -180,7 +180,9 @@ export function finalizeOptions(config, suppliedOptions, suppliedLangs, supplied
     };
   }
 
-  const view = calculateView(options['source.language'].location, langs, suppliedUrls);
+  const sourceLocation = options['source.language']?.location || '/';
+
+  const view = calculateView(sourceLocation, langs, suppliedUrls);
 
   return { view, options, langs };
 }
