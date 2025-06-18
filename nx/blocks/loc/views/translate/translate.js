@@ -144,10 +144,10 @@ class NxLocTranslate extends LitElement {
   }
 
   async handleGetStatus() {
-    // if (!this.incompleteLangs) {
-    //   this.handleMessage({ text: 'All languages complete or cancelled.' });
-    //   return;
-    // }
+    if (!this.incompleteLangs) {
+      this.handleMessage({ text: 'All languages complete or cancelled.' });
+      return;
+    }
 
     const conf = await this.getBaseTranslationConf(false);
 

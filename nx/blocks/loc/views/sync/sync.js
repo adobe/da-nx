@@ -53,8 +53,9 @@ class NxLocSync extends LitElement {
   }
 
   handleAction(e) {
-    const { view } = e.detail;
-    const opts = { detail: { data: { view } }, bubbles: true, composed: true };
+    const { view, hash, href } = e.detail;
+    const detail = hash || href ? { hash, href } : { data: { view } }
+    const opts = { detail, bubbles: true, composed: true };
     const event = new CustomEvent('action', opts);
     this.dispatchEvent(event);
   }

@@ -224,7 +224,9 @@ export async function mergeCopy(url, projectTitle) {
     const regionalCopy = await getHtml(url.destination);
     if (!regionalCopy) throw new Error('No regional content or error fetching');
 
-    const langstoreCopy = await getHtml(null, url.sourceContent) || await getHtml(url.source);
+    const langstoreCopy = url.sourceContent
+      ? await getHtml(null, url.sourceContent)
+      : await getHtml(url.source);
     if (!langstoreCopy) throw new Error('No langstore content or error fetching');
 
     removeLocTags(regionalCopy);

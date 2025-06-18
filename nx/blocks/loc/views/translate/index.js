@@ -17,7 +17,12 @@ export async function getUrls(org, site, service, sourceLocation, urls, fetchCon
 
   // Format the URLs to get all possible path variations
   const formattedUrls = urls.map((url) => {
-    const formatted = convertPath({ path: url.suppliedPath });
+    const converConf = {
+      path: url.suppliedPath,
+      sourcePrefix: sourceLocation,
+      destPrefix: sourceLocation,
+    };
+    const formatted = convertPath(converConf);
 
     return { ...url, ...formatted };
   });
@@ -28,9 +33,9 @@ export async function getUrls(org, site, service, sourceLocation, urls, fetchCon
 
     // Fetch the content and add DNT
     const fetchUrl = async (url) => {
-      const resp = await daFetch(`${DA_ORIGIN}/source/${org}/${site}${url.daBasePath}`);
+      const resp = await daFetch(`${DA_ORIGIN}/source/${org}/${site}${url.daDestPath}`);
       if (!resp.ok) {
-        url.error = `Error fetching content from ${url.daBasePath} - ${resp.status}`;
+        url.error = `Error fetching content from ${url.daDestPath} - ${resp.status}`;
         return;
       }
 
@@ -152,7 +157,7 @@ export function removeWaitingLanguagesFromConf(conf) {
 export async function sendAllForTranslation(conf, connector) {
   const errors = conf.urls.filter((url) => url.error);
   if (errors.length) {
-    return errors;
+    return { errors };
   }
 
   conf.langs.filter((lang) => lang.waitingFor).forEach((lang) => {
