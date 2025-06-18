@@ -24,7 +24,11 @@ export async function getUrls(org, site, service, sourceLocation, urls, fetchCon
     };
     const formatted = convertPath(converConf);
 
-    return { ...url, ...formatted };
+    return {
+      ...url,
+      ...formatted,
+      aemHref: `https://main--${site}--${org}.aem.page${formatted.aemBasePath}`,
+    };
   });
 
   // Only fetch the content if needed
