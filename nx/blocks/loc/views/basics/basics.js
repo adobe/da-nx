@@ -4,8 +4,8 @@ import formatBasics from './index.js';
 
 const style = await getStyle(import.meta.url);
 
-// const MOCK_URLS = '';
-const MOCK_URLS = 'https://main--da-bacom--adobecom.aem.page/drafts/cmillar/loc-test/main-doc';
+const MOCK_URLS = '';
+// const MOCK_URLS = 'https://main--da-bacom--adobecom.aem.page/drafts/cmillar/loc-test/main-doc';
 
 class NxLocBasics extends LitElement {
   static properties = {

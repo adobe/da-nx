@@ -1,8 +1,8 @@
 {
     "config": {
-        "total": 8,
+        "total": 11,
+        "limit": 11,
         "offset": 0,
-        "limit": 8,
         "data": [
             {
                 "key": "sync.conflict.behavior",
@@ -11,18 +11,18 @@
             },
             {
                 "key": "translate.conflict.behavior",
-                "value": "merge, overwrite",
+                "value": "overwrite, merge",
                 "description": "How to handle old content when new content returns from translation."
             },
             {
                 "key": "rollout.conflict.behavior",
-                "value": "merge, overwrite",
+                "value": "overwrite, merge",
                 "description": "How to handle old content when new content get rolled out to the locale."
             },
             {
                 "key": "copy.conflict.behavior",
                 "value": "overwrite, merge",
-                "description": ""
+                "description": "How to handle when source content is copied into a region."
             },
             {
                 "key": "translation.service.name",
@@ -36,7 +36,7 @@
             },
             {
                 "key": "translation.service.prod.link",
-                "value": "https://ws-stage.corp.adobe.com/ws/#app=ws_suite&entry=ws_assignments",
+                "value": "https://cloud.google.com/translate/docs/overview",
                 "description": ""
             },
             {
@@ -44,73 +44,80 @@
                 "value": "https://translate.da.live/google",
                 "description": ""
             }
+        ],
+        ":colWidths": [
+            300,
+            557,
+            300
         ]
     },
     "languages": {
         "total": 2,
-        "offset": 0,
         "limit": 2,
+        "offset": 0,
         "data": [
             {
                 "name": "English",
                 "code": "en",
-                "translate type": "None",
+                "translate type": "Machine Translation",
                 "location": "/en",
                 "actions": "Skip, Translate"
             },
             {
                 "name": "German",
                 "code": "de",
-                "translate type": "Human Translation",
+                "translate type": "Machine Translation",
                 "location": "/de",
-                "actions": "Translate, Rollout, Copy"
+                "actions": "Skip, Translate"
+            },
+            {
+                "name": "French",
+                "code": "fr",
+                "translate type": "Machine Translation",
+                "location": "/fr",
+                "actions": "Skip, Translate"
+            },
+            {
+                "name": "Spanish",
+                "code": "es",
+                "translate type": "Machine Translation",
+                "location": "/es",
+                "actions": "Skip, Translate"
+            },
+            {
+                "name": "Chinese",
+                "code": "zh",
+                "translate type": "Machine Translation",
+                "location": "/zh",
+                "actions": "Skip, Translate"
+            },
+            {
+                "name": "Japanese",
+                "code": "ja",
+                "translate type": "Machine Translation",
+                "location": "/ja",
+                "actions": "Skip, Translate"
+            },
+            {
+                "name": "Hindi",
+                "code": "hi",
+                "translate type": "Machine Translation",
+                "location": "/hi",
+                "actions": "Skip, Translate"
             }
-        ]
-    },
-    "dnt-content-rules": {
-        "total": 6,
-        "offset": 0,
-        "limit": 6,
-        "data": [
-            {
-                "content": "do not translate me"
-            },
-            {
-                "content": "/filter/"
-            },
-            {
-                "content": "/search/"
-            },
-            {
-                "content": "/0/"
-            },
-            {
-                "content": "/1/"
-            },
-            {
-                "content": "/10/"
-            }
-        ]
-    },
-    "dnt-sheet-rules": {
-        "total": 2,
-        "offset": 0,
-        "limit": 2,
-        "data": [
-            {
-                "pattern": "equals(null)",
-                "action": "dnt"
-            },
-            {
-                "pattern": "beginsWith(http:// || https://)",
-                "action": "dnt"
-            }
+        ],
+        ":colWidths": [
+            199,
+            198,
+            300,
+            300,
+            300
         ]
     },
     "custom-doc-rules": {
         "total": 2,
-        "offset": 0,
         "limit": 2,
+        "offset": 0,
         "data": [
             {
                 "block": "metadata",
@@ -120,15 +127,44 @@
                 "block": "section-metadata",
                 "rule": "do-not-translate"
             }
+        ],
+        ":colWidths": [
+            300,
+            300
         ]
     },
-    ":version": 3,
+    "dnt-content-rules": {
+        "total": 6,
+        "limit": 6,
+        "offset": 0,
+        "data": [
+            {
+                "content": "do not translate me"
+            }
+        ]
+    },
+    "dnt-sheet-rules": {
+        "total": 2,
+        "limit": 2,
+        "offset": 0,
+        "data": [
+            {
+                "pattern": "beginsWith(http:// || https://)",
+                "action": "dnt"
+            }
+        ],
+        ":colWidths": [
+            300,
+            300
+        ]
+    },
     ":names": [
         "config",
         "languages",
+        "custom-doc-rules",
         "dnt-content-rules",
-        "dnt-sheet-rules",
-        "custom-doc-rules"
+        "dnt-sheet-rules"
     ],
+    ":version": 3,
     ":type": "multi-sheet"
 }
