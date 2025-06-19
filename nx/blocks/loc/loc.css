@@ -3,3 +3,9 @@
   color: var(--s2-gray-900);
   font-size: var(--type-body-s-size);
 }
+
+.nx-loc-step {
+  display: block;
+  max-width: var(--grid-container-width);
+  margin: 0 auto var(--spacing-500) auto;
+}

@@ -152,16 +152,16 @@ function parseConfig(config) {
   return rules;
 }
 
-export async function removeDnt(html, org, repo, { fileType = 'html' } = {}) {
+export async function removeDnt({ org, site, html, ext = 'html' }) {
   const parser = new DOMParser();
   const document = parser.parseFromString(html, 'text/html');
 
   unwrapDntContent(document);
   resetAltText(document);
   resetIcons(document);
-  resetHrefs(document, org, repo);
+  resetHrefs(document, org, site);
   removeDntAttributes(document);
-  if (fileType === 'json') {
+  if (ext === 'json') {
     const { html2json } = await import('./json2html.js');
     return html2json(document.documentElement.outerHTML);
   }

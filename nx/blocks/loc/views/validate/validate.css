@@ -1,0 +1,132 @@
+.sub-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.details {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--spacing-400);
+  margin: var(--spacing-400) 0;
+}
+
+.detail-card {
+  background: #d7f7e1;
+  border-radius: 18px;
+  overflow: hidden;
+  padding: var(--spacing-400);
+}
+
+.detail-card-pages {
+  background: #b5e6fc;
+}
+
+.detail-card-sheets {
+  background: #caffa4;
+}
+
+.detail-card-fragments {
+  background: #caf8fa;
+}
+
+.detail-card-errors {
+  background: #ffd6d1;
+}
+
+.detail-card p {
+  margin: 0;
+  line-height: 1.2;
+}
+
+.detail-card p:first-child {
+  font-weight: 700;
+}
+
+.detail-card p:last-child {
+  font-size: var(--s2-font-size-600);
+}
+
+ul {
+  padding: 0;
+  margin: 0;
+  list-style: none;
+  border: 1px solid rgb(209 209 209);
+  border-radius: 18px;
+  overflow: hidden;
+  background: rgb(248 248 248);
+}
+
+li {
+  margin-top: -1px;
+  margin-bottom: -1px;
+  padding: 24px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  border-top: 1px solid rgb(209 209 209);
+  border-bottom: 1px solid rgb(209 209 209);
+}
+
+li:hover {
+  background: rgb(228 240 255);
+  border-top: 1px solid rgb(20 122 243);
+  border-bottom: 1px solid rgb(20 122 243);
+}
+
+input[type="checkbox"] {
+  display: block;
+  margin: 0;
+  padding: 0;
+  width: 20px;
+  height: 20px;
+}
+
+.path {
+  color: var(--s2-gray-800);
+  text-decoration: none;
+  flex: 1 1 auto;
+  word-break: break-all;
+  line-height: 32px;
+}
+
+.status {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-weight: 700;
+  border-radius: var(--s2-radius-200);
+  text-align: center;
+  color: #fff;
+  text-transform: uppercase;
+  width: 180px;
+  padding: 4px 0;
+}
+
+.status-ready {
+  background: var(--s2-green);
+}
+
+.status-error {
+  background: var(--s2-red);
+}
+
+.actions {
+  display: flex;
+  justify-content: end;
+  align-items: stretch;
+  gap: var(--spacing-200);
+}
+
+@media (width > 600px) {
+  .details {
+    grid-template-columns: 1fr 1fr 1fr 1fr 1fr;
+  }
+
+  li {
+    border-top: 1px solid transparent;
+    border-bottom: 1px solid transparent;
+  }
+}

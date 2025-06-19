@@ -112,12 +112,20 @@ async function saveVersion(path, label) {
 }
 
 export async function overwriteCopy(url, title) {
-  const srcResp = await daFetch(`${DA_ORIGIN}/source${url.source}`);
-  if (!srcResp.ok) {
-    url.status = 'error';
-    return srcResp;
+  let blob;
+  // If source content was supplied upstream, use it.
+  if (url.sourceContent) {
+    const type = url.destination.includes('.json') ? 'application/json' : 'text/html';
+    blob = new Blob([url.sourceContent], { type });
+  } else {
+    const srcResp = await daFetch(`${DA_ORIGIN}/source${url.source}`);
+    if (!srcResp.ok) {
+      url.status = 'error';
+      return srcResp;
+    }
+    blob = await srcResp.blob();
   }
-  const blob = await srcResp.blob();
+
   const body = new FormData();
   body.append('data', blob);
   const opts = { method: 'POST', body };
@@ -128,14 +136,29 @@ export async function overwriteCopy(url, title) {
   return daResp;
 }
 
-const collapseWhitespace = (str) => str.replace(/\s+/g, ' ');
+function collapseInnerTextSpaces(html) {
+  return html.replace(/>([^<]*)</g, (match, textContent) => {
+    // Only process if there's actual text content
+    if (!textContent.trim()) {
+      return match;
+    }
 
-const getHtml = async (url, format = 'dom') => {
-  const res = await daFetch(`${DA_ORIGIN}/source${url}`);
-  if (!res.ok) return null;
-  const str = await res.text();
-  if (format === 'text') return str;
-  return PARSER.parseFromString(collapseWhitespace(str), 'text/html');
+    // Collapse multiple spaces to single space, trim padding
+    const cleaned = textContent.replace(/\s+/g, ' ').trim();
+    return `>${cleaned}<`;
+  });
+}
+
+const getHtml = async (path, html) => {
+  const fetchHtml = async () => {
+    const res = await daFetch(`${DA_ORIGIN}/source${path}`);
+    if (!res.ok) return null;
+    const str = await res.text();
+    return str;
+  };
+
+  const str = html || await fetchHtml(path);
+  return PARSER.parseFromString(collapseInnerTextSpaces(str), 'text/html');
 };
 
 const getDaUrl = (url) => {
@@ -201,7 +224,9 @@ export async function mergeCopy(url, projectTitle) {
     const regionalCopy = await getHtml(url.destination);
     if (!regionalCopy) throw new Error('No regional content or error fetching');
 
-    const langstoreCopy = await getHtml(url.source);
+    const langstoreCopy = url.sourceContent
+      ? await getHtml(null, url.sourceContent)
+      : await getHtml(url.source);
     if (!langstoreCopy) throw new Error('No langstore content or error fetching');
 
     removeLocTags(regionalCopy);

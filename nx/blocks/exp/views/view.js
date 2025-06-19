@@ -73,7 +73,6 @@ class NxExpView extends LitElement {
   }
 
   async handleClick(action) {
-    console.log(action);
     if (action === 'publish') {
       this.handlePublish();
       return;
@@ -90,7 +89,6 @@ class NxExpView extends LitElement {
       // We should only have an active status if we are clicking pause
       if (this.details.status === 'active') {
         this._dialog = { open: true, action, ...this.strings[action] };
-        console.log(this._dialog);
       }
     }
   }
