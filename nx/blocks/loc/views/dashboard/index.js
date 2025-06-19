@@ -33,7 +33,7 @@ function getTranslationStatus(langs) {
 
 function getLocalesTotal(langs) {
   return langs.reduce((acc, lang) => {
-    if (lang.locales.length) {
+    if (lang.locales?.length) {
       const total = acc + lang.locales.length;
       return total;
     }
