@@ -38,8 +38,8 @@ function getParts() {
  */
 function getUrl() {
   const { org, repo, ref, path, search } = getParts();
-  if (ref === 'local') return `http://localhost:3000/${path}.html?${search}`;
-  return `https://${ref}--${repo}--${org}.aem.live/${path}.html?${search}`;
+  if (ref === 'local') return `http://localhost:3000/${path}.html${search}`;
+  return `https://${ref}--${repo}--${org}.aem.live/${path}.html${search}`;
 }
 
 /**
