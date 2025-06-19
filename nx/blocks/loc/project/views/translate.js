@@ -41,6 +41,7 @@ class NxLocTranslate extends LitElement {
     this._service = await detectService(this.config, environment);
     this._actions = this._service.actions;
     this._dnt = this._service.dnt;
+    this._serviceSupportsCancel = this._actions.canCancel && this._actions.canCancel();
     this._connected = await this._service.actions.isConnected(this._service);
   }
 
@@ -126,6 +127,27 @@ class NxLocTranslate extends LitElement {
     }
 
     this._fetchingStatus = false;
+  }
+
+  async doCancelLang(lang) {
+    this._actions.cancelLang(this._service, lang);
+    lang.translation.status = 'cancelled';
+  }
+
+  async handleCancelLang(lang) {
+    this.setStatus(`Cancelling task for ${lang.name}`);
+    await this.doCancelLang(lang);
+    this.setStatus();
+    await this.saveState();
+  }
+
+  async handleCancelAll() {
+    this.setStatus('Cancelling all tasks');
+    await Promise.all(this.langs
+      .filter((lang) => lang.translation.status === 'created')
+      .map((lang) => this.doCancelLang(lang)));
+    this.setStatus();
+    await this.saveState();
   }
 
   async getSiteConfig() {
@@ -220,6 +242,14 @@ class NxLocTranslate extends LitElement {
     return this.langs.some((lang) => lang.translation.status === 'not started');
   }
 
+  canCancelLang(lang) {
+    return this._serviceSupportsCancel && lang.translation.status === 'created';
+  }
+
+  canCancelAll() {
+    return this._serviceSupportsCancel && this.langs.every((lang) => ['created', 'cancelled'].includes(lang.translation.status));
+  }
+
   renderDate() {
     if (!this._translateComplete) return nothing;
     const { date, time } = formatDate(this._translateComplete);
@@ -247,9 +277,18 @@ class NxLocTranslate extends LitElement {
     return html`<button class="primary" @click=${this.handleStatus} ?disabled=${!this._canStatus}>Get status</button>`;
   }
 
+  renderCancelAction() {
+    if (!this.canCancelAll()) return nothing;
+    return html`<button class="primary" @click=${this.handleCancelAll} ?disabled=${!this.canCancelAll()}>Cancel all</button>`;
+  }
+
   renderSaveLang(lang) {
     if (lang.translation.saved && !this._service?.canResave) return nothing;
     return html`<button class="primary" @click=${() => { this.handleSaveLang(lang); }} ?disabled=${lang.translation.status === 'saving'}>${lang.translation.saved ? 'Re-save' : 'Save'}</button>`;
+  }
+
+  renderCancelLang(lang) {
+    return html`<button class="primary" @click=${() => { this.handleCancelLang(lang); }} ?disabled=${lang.translation.status === 'saving'}>Cancel</button>`;
   }
 
   render() {
@@ -292,6 +331,7 @@ class NxLocTranslate extends LitElement {
                 <div class="da-card-actions">
                   <p></p>
                   ${lang.translation.translated === this.urls.length ? this.renderSaveLang(lang) : nothing}
+                  ${this._connected && this.canCancelLang(lang) ? this.renderCancelLang(lang) : nothing}
                 </div>
               </div>
             `)}
@@ -300,6 +340,7 @@ class NxLocTranslate extends LitElement {
         ${this._errors?.length > 0 ? this.renderErrors() : nothing}
         <div class="da-loc-panel-actions">
           <p>${this._status || this.renderDate() || nothing}</p>
+          ${this.renderCancelAction()}
           ${this.renderActions()}
         </div>
       </div>

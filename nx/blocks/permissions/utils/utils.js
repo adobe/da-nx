@@ -1,6 +1,9 @@
 import { AEM_ORIGIN, DA_ORIGIN } from '../../../public/utils/constants.js';
 import { daFetch } from '../../../utils/daFetch.js';
 
+// See: https://www.aem.live/docs/authentication-setup-authoring
+const AEM_ROLES = ['admin', 'basic_author', 'basic_publish', 'author', 'publish', 'develop', 'config', 'config_admin'];
+
 function pathToDetails(path) {
   const [, org, site] = path.split('/');
   return { org, site };
@@ -49,7 +52,7 @@ async function formatAccess(resp) {
 }
 
 async function daUserConfig(path, opts = {}) {
-  return daFetch(`${DA_ORIGIN}/source${path}/.da/users.json`, opts);
+  return daFetch(`${DA_ORIGIN}/source${path}/.da/aem-permission-requests.json`, opts);
 }
 
 export async function getDaUsers(path) {
@@ -117,17 +120,14 @@ export async function getAemConfig(suppliedPath) {
 
 function compareRoles(aemUser, daUser) {
   // If no requests, give back all the AEM roles
-  if (daUser.requested < 1) return { roles: aemUser.roles, requested: [] };
+  if (daUser.requested.length < 1) return { roles: aemUser.roles, requested: [] };
 
-  return daUser.requested.reduce((acc, requestedRole) => {
-    const hasRole = aemUser.roles.some((role) => role === requestedRole);
-    if (hasRole) {
-      acc.roles.push(requestedRole);
-    } else {
-      acc.requested.push(requestedRole);
-    }
-    return acc;
-  }, { roles: [], requested: [] });
+  // Filter down to only net new requests
+  const requested = daUser.requested
+    .filter((requestedRole) => !aemUser.roles.some((role) => role === requestedRole));
+
+  // Combine existing AEM roles with new requests
+  return { roles: aemUser.roles, requested };
 }
 
 export function combineUsers(daUsers, aemUsers) {
@@ -193,10 +193,8 @@ async function approveSiteUser(org, site, path, user) {
 
   const approvedRoles = [...new Set([...requested, ...roles])];
 
-  const availableRoles = ['admin', 'author', 'publish'];
-
-  availableRoles.forEach((role) => {
-    const existingRoleUsers = json.admin.role[role];
+  AEM_ROLES.forEach((role) => {
+    const existingRoleUsers = json.admin.role[role] || [];
 
     // Find the role in the approved role array
     const found = approvedRoles.some((approvedRole) => approvedRole === role);
@@ -204,9 +202,14 @@ async function approveSiteUser(org, site, path, user) {
     if (found) {
       // If found, check to see if the user is already in the list.
       const exists = existingRoleUsers.some((existingUser) => existingUser === user.id);
-      if (!exists) existingRoleUsers.push(user.id);
+
+      // It's possible there's nothing in the role, so set it if the user isn't already there
+      if (!exists) json.admin.role[role] = [...existingRoleUsers, user.id];
     } else {
-      // If not found, ensure the user is removed from the role.
+      // Check to see if there are existing users in the current role
+      if (!existingRoleUsers.length) return;
+
+      // Ensure this user is removed if they've had the role taken away from them
       json.admin.role[role] = existingRoleUsers.filter((existingUser) => existingUser !== user.id);
     }
   });

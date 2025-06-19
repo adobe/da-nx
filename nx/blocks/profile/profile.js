@@ -42,8 +42,13 @@ class NxProfile extends LitElement {
         this._signedIn = false;
         return;
       }
-      const { user } = await this._details.getIo();
-      this._avatar = user.avatar;
+      try {
+        const { user } = await this._details.getIo();
+        this._avatar = user.avatar;
+      } catch {
+        console.log('Could not get avatar');
+        this._avatar = `${nxBase}/public/icons/S2_Icon_User_20_N.svg`;
+      }
       this._signedIn = true;
       this.getOrg();
       this.setIcons();

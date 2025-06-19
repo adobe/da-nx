@@ -11,7 +11,10 @@ const LINK_SELECTORS = [
   'a[href*=".mp4"]',
   'a[href*=".pdf"]',
   'a[href*=".svg"]',
+  'img[alt*=".mp4"]',
 ];
+// For any case where we need to find SVGs outside of any elements // in their text.
+const LINK_SELECTOR_REGEX = /https:\/\/[^"'\s]+\.svg/g;
 
 let localUrls;
 
@@ -23,8 +26,14 @@ async function findFragments(pageUrl, text, liveDomain) {
 
   const dom = parser.parseFromString(text, 'text/html');
   const results = dom.body.querySelectorAll(LINK_SELECTORS.join(', '));
-  const linkedImports = [...results].reduce((acc, a) => {
-    let href = a.getAttribute('href');
+  const matches = text.match(LINK_SELECTOR_REGEX)?.map((svgUrl) => {
+    const a = window.document.createElement('a');
+    a.href = svgUrl;
+    return a;
+  }) || [];
+
+  const linkedImports = [...results, ...matches].reduce((acc, a) => {
+    let href = a.getAttribute('href') || a.getAttribute('alt');
 
     // Don't add any off origin content.
     const isSameDomain = prefixes.some((prefix) => href.startsWith(prefix));
@@ -32,8 +41,7 @@ async function findFragments(pageUrl, text, liveDomain) {
 
     href = href.replace('.hlx.', '.aem.');
 
-    [href] = href.split('#');
-    [href] = href.split('?');
+    [href] = href.match(/^[^?#| ]+/);
 
     // Convert relative to current project origin
     const url = new URL(href);
@@ -111,9 +119,9 @@ async function importUrl(url, findFragmentsFlag, liveDomain, setProcessed) {
     return;
   }
 
-  const isExt = EXTS.some((ext) => href.endsWith(`.${ext}`));
+  const isExt = EXTS.some((ext) => pathname.endsWith(`.${ext}`));
   const path = href.endsWith('/') ? `${pathname}index` : pathname;
-  const srcPath = isExt ? path : `${path}.md`;
+  const srcPath = pathname.endsWith('.json') ? `${pathname}${url.search}` : (isExt ? path : `${path}.md`);
   url.destPath = isExt ? path : `${path}.html`;
   url.editPath = href.endsWith('.json') ? path.replace('.json', '') : path;
 

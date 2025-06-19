@@ -11,6 +11,15 @@
     text-overflow: ellipsis;
     overflow: hidden;
     word-wrap: initial;
+
+    span {
+      color: var(--s2-gray-500);
+      display: block;
+      max-width: 260px;
+      text-overflow: ellipsis;
+      overflow: hidden;
+      word-wrap: initial;
+    }
   }
 }
 

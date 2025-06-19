@@ -136,3 +136,16 @@ li {
 .nx-status-type-info .nx-status-title {
   background: var(--s2-blue-900) url("/blocks/browse/img/Smock_InfoOutline_18_N.svg") 12px 50% no-repeat;
 }
+
+.nx-security-note {
+  color: var(--s2-orange-900);
+  background-color: var(--s2-orange-200);
+  border: 2px solid var(--s2-orange-400);
+  border-radius: 8px;
+  padding: 6px 12px;
+  margin-top: 12px;
+
+  span {
+    font-weight: 700;
+  }
+}

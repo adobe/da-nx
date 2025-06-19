@@ -86,6 +86,7 @@
 }
 
 body {
+  margin: 0;
   font-family: var(--font-family);
   font-size: var(--s2-body-m-size);
   line-height: var(--s2-line-height-200);

@@ -249,7 +249,7 @@ class SlDialog extends LitElement {
   }
 
   updated() {
-    if (this._showLazyModal) {
+    if (this._showLazyModal && this._dialog) {
       this._showLazyModal = undefined;
       this.showModal();
     }
@@ -271,13 +271,17 @@ class SlDialog extends LitElement {
     this._dialog.close();
   }
 
+  onClose(e) {
+    this.dispatchEvent(new Event('close', e));
+  }
+
   get _dialog() {
     return this.shadowRoot.querySelector('dialog');
   }
 
   render() {
     return html`
-      <dialog class="sl-dialog">
+      <dialog class="sl-dialog" @close=${this.onClose}>
         <slot></slot>
       </dialog>`;
   }
