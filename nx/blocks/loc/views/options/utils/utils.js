@@ -144,6 +144,7 @@ export function finalizeOptions(config, suppliedOptions, suppliedLangs, supplied
 
   options.service = {
     name: config.service.name,
+    env: serviceEnv,
     ...config.service.envs[serviceEnv],
   };
 

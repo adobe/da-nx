@@ -67,8 +67,9 @@ class NxLocTranslate extends LitElement {
     this._message = message;
   }
 
-  async handleSaveLangs() {
-    const opts = { detail: { data: { langs: this._langs } }, bubbles: true, composed: true };
+  async handleSaveLangs(props) {
+    const data = props ? { langs: this._langs, ...props } : { langs: this._langs };
+    const opts = { detail: { data }, bubbles: true, composed: true };
     const event = new CustomEvent('action', opts);
     this.dispatchEvent(event);
   }
@@ -84,7 +85,7 @@ class NxLocTranslate extends LitElement {
   }
 
   async handleConnect() {
-    await this._service.connector.connect(this._service);
+    this._connected = await this._service.connector.connect(this._service);
   }
 
   async fetchUrls(service, fetchContent) {
@@ -128,7 +129,7 @@ class NxLocTranslate extends LitElement {
   async checkAndSaveLangs(conf) {
     this.handleMessage({ text: 'Checking for languages to save' });
 
-    const langsToSave = this._translateLangs.filter((lang) => lang.translation?.status === 'translated');
+    const langsToSave = this._translateLangs.filter((lang) => lang.translation?.status === 'translated' || lang.translation?.status === 'complete');
 
     if (langsToSave.length) {
       const sendMessage = this.handleMessage.bind(this);
@@ -144,10 +145,10 @@ class NxLocTranslate extends LitElement {
   }
 
   async handleGetStatus() {
-    if (!this.incompleteLangs) {
-      this.handleMessage({ text: 'All languages complete or cancelled.' });
-      return;
-    }
+    // if (!this.incompleteLangs) {
+    //   this.handleMessage({ text: 'All languages complete or cancelled.' });
+    //   return;
+    // }
 
     const conf = await this.getBaseTranslationConf(false);
 
