@@ -53,6 +53,10 @@ class SlInput extends LitElement {
     this._internals.setFormValue(this.value);
   }
 
+  focus() {
+    this.shadowRoot.querySelector('input').focus();
+  }
+
   handleEvent(event) {
     this.value = event.target.value;
     this._internals.setFormValue(this.value);
@@ -204,7 +208,10 @@ class SlSelect extends LitElement {
 class SlButton extends LitElement {
   static formAssociated = true;
 
-  static properties = { class: { type: String } };
+  static properties = {
+    class: { type: String },
+    disabled: { type: Boolean },
+  };
 
   constructor() {
     super();
