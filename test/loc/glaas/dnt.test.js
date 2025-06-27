@@ -1,6 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import { readFile } from '@web/test-runner-commands';
-import { removeDnt, addDnt } from '../../../nx/blocks/loc/glaas/dnt.js';
+import { removeDnt, addDnt } from '../../../nx/blocks/loc/connectors/glaas/dnt.js';
 
 function collapseWhitespace(str, addEndingNewline = false) {
   const newStr = str.replace(/^\s*$\n/gm, '');

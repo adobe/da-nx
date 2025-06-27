@@ -289,7 +289,7 @@ export async function removeDnt(html, org, repo, { fileType = 'html' } = {}) {
   resetImages(document, org, repo);
   removeDntAttributes(document);
   if (fileType === 'json') {
-    const { html2json } = await import('../dnt/json2html.js');
+    const { html2json } = await import('../../dnt/json2html.js');
     return html2json(document.documentElement.outerHTML);
   }
   return document.documentElement.outerHTML;

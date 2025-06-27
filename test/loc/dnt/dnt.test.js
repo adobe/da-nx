@@ -131,7 +131,7 @@ describe('code blocks', () => {
       </main>
     </body></html>`);
 
-    const removed = await removeDnt(result, 'adobecom', 'adobe');
+    const removed = await removeDnt({ html: result, org: 'adobecom', site: 'adobe' });
     expect(removed).to.equal(html);
   });
 });
@@ -214,7 +214,7 @@ describe('addDntInfoToHtml', () => {
     const result = await addDnt(metadataTable, config);
     expect(result).to.equal(expectedHtml);
 
-    const removed = await removeDnt(result, 'adobecom', 'adobe');
+    const removed = await removeDnt({ html: result, org: 'adobecom', site: 'adobe' });
     expect(removed).to.equal(metadataTable);
   });
 
@@ -339,7 +339,7 @@ describe('addDntInfoToHtml', () => {
     const result = await addDnt(metadataTable, config);
     expect(result).to.equal(expectedHtml);
 
-    const removed = await removeDnt(result, 'adobecom', 'adobe');
+    const removed = await removeDnt({ html: result, org: 'adobecom', site: 'adobe' });
     expect(removed).to.equal(metadataTable);
   });
 });
