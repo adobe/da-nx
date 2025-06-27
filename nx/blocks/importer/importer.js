@@ -245,12 +245,12 @@ class NxImporter extends LitElement {
           <h2>Into</h2>
           <div class="org-repo-row">
             <div>
-              <label>Org</label>
-              <input type="text" name="org" placeholder="org" />
+              <label>Organization</label>
+              <input type="text" name="org" placeholder="name-of-organization" />
             </div>
             <div>
-              <label>Repo</label>
-              <input type="text" name="repo" placeholder="repo" />
+              <label>Site</label>
+              <input type="text" name="repo" placeholder="name-of-site" />
             </div>
           </div>
         </div>
