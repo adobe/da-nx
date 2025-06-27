@@ -1,4 +1,5 @@
 /* global objectHash */
+import { getPathDetails, fetchConfig } from '../utils/utils.js';
 
 // eslint-disable-next-line import/no-unresolved
 import './object_hash.js';
@@ -17,8 +18,26 @@ const sectionBlock = {
 
 const isList = (block) => ['OL', 'UL'].includes(block.nodeName);
 
+const findConfigValue = (json, key) => {
+  const foundRow = json?.config?.data.find((row) => row.key === key);
+  return foundRow?.value;
+};
+
 export function normalizeHTML(html) {
   return html.replace(/>\s+</g, '><').trim();
+}
+
+export async function normalizeLinks(doc, site, equivalentSites) {
+  // convert all urls with .hlx.page, .hlx.live, .aem.page, .aem.live to .aem.live
+  const links = doc.querySelectorAll('a[href*=".hlx.page/"], a[href*=".hlx.live/"], a[href*=".aem.page/"], a[href*=".aem.live/"]');
+  links.forEach((link) => {
+    link.href = link.href.replace(/\.hlx\.page\/|\.hlx\.live\/|\.aem\.page\//g, '.aem.live/');
+    const linkSite = link.href.split('--')[1];
+    if (equivalentSites.has(linkSite)) {
+      link.href = link.href.replace(`--${linkSite}--`, `--${site}--`);
+    }
+  });
+  return doc;
 }
 
 function getLists(result) {
@@ -298,7 +317,14 @@ export const removeLocTags = (html) => {
 };
 
 export async function regionalDiff(original, modified) {
-  const diff = htmldiff(original, modified);
-  const output = buildHtmlFromDiff(diff, modified);
+  const { org, site } = getPathDetails();
+  const translateConfig = await fetchConfig(org, site);
+  const hostnames = findConfigValue(translateConfig, 'source.fragment.hostnames')?.split?.(',') || [];
+  const equivalentSites = new Set(hostnames.map((hostname) => hostname.split('--')[1]));
+
+  const normalizedOriginal = await normalizeLinks(original, site, equivalentSites);
+  const normalizedModified = await normalizeLinks(modified, site, equivalentSites);
+  const diff = htmldiff(normalizedOriginal, normalizedModified);
+  const output = buildHtmlFromDiff(diff, normalizedModified);
   return output.body.querySelector('main');
 }
