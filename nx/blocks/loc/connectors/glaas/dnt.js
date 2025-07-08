@@ -274,8 +274,8 @@ function resetHrefs(doc, org, repo) {
 function resetImages(doc, org, repo) {
   const imgs = doc.querySelectorAll('[src^="./media_"], [srcset^="./media_"]');
   imgs.forEach((img) => {
-    if (img.src) img.src = img.getAttribute('src').replace('./', `https://main--${repo}--${org}.aem.page/`);
-    if (img.srcset) img.srcset = img.getAttribute('srcset').replace('./', `https://main--${repo}--${org}.aem.page/`);
+    if (img.src) img.src = img.getAttribute('src').replace('./', `https://main--${repo}--${org}.aem.live/`);
+    if (img.srcset) img.srcset = img.getAttribute('srcset').replace('./', `https://main--${repo}--${org}.aem.live/`);
   });
 }
 
