@@ -23,8 +23,37 @@ const findConfigValue = (json, key) => {
   return foundRow?.value;
 };
 
-export function normalizeHTML(html) {
-  return html.replace(/>\s+</g, '><').trim();
+/**
+ * Recursively trims whitespace in all text nodes of a DOM element.
+ * @param {Node} node
+ */
+function trimTextNodes(node) {
+  if (node.nodeType === Node.TEXT_NODE) {
+    node.textContent = node.textContent.trim();
+  } else if (node.nodeType === Node.ELEMENT_NODE) {
+    node.childNodes.forEach(trimTextNodes);
+  }
+}
+
+/**
+ * Normalizes HTML by trimming whitespace in text nodes and removing whitespace between tags.
+ * @param {Element} element - DOM element to normalize
+ * @returns {string} - Normalized HTML string
+ */
+function normalizeHTMLFromElement(element) {
+  if (element.outerHTML === 'spoofedSectionHtml') {
+    return element.outerHTML;
+  }
+  // Clone to avoid mutating the original
+  const clone = element.cloneNode(true);
+  trimTextNodes(clone);
+  // Remove whitespace between tags
+  let html = clone.outerHTML.replace(/>\s+</g, '><');
+  // Remove all line breaks and tabs
+  html = html.replace(/[\n\r\t]/g, '');
+  // Optionally, collapse multiple spaces
+  html = html.replace(/\s{2,}/g, ' ');
+  return html.trim();
 }
 
 export async function normalizeLinks(doc, site, equivalentSites) {
@@ -206,14 +235,6 @@ function groupBlocks(blocks) {
   return groupedBlocks;
 }
 
-function blockGroupToStr(blockGroup) {
-  return blockGroup.reduce((str, block) => {
-    // eslint-disable-next-line no-param-reassign
-    str += block.outerHTML || '';
-    return str;
-  }, '');
-}
-
 const isNotEmptyParagraphEl = (el) => !(el.nodeName === 'P' && !el.childNodes.length && el.textContent === '');
 
 function getBlockMap(dom) {
@@ -230,7 +251,9 @@ function getBlockMap(dom) {
   blocks = groupBlocks(blocks);
 
   return blocks.map((block) => {
-    const stringToHash = normalizeHTML(block.outerHTML || blockGroupToStr(block));
+    const stringToHash = Array.isArray(block)
+      ? block.map(normalizeHTMLFromElement).join('')
+      : normalizeHTMLFromElement(block);
     const hash = objectHash(stringToHash);
     return { block, hash };
   });
