@@ -22,10 +22,14 @@ export function makeIconSpans(html) {
   const iconRegex = /:([a-zA-Z0-9-]+?):/gm;
 
   if (!iconRegex.test(html)) return html;
-  return html.replace(
+
+  let result = html.replace(
     iconRegex,
     (_, iconName) => `<span class="icon icon-${iconName}"></span>`,
   );
+  // Remove any whitespace after </span>
+  result = result.replace(/<\/span>\s+/g, '</span>');
+  return result;
 }
 
 export function resetIcons(doc) {

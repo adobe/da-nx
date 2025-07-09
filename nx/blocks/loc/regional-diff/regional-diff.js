@@ -58,7 +58,7 @@ function normalizeHTMLFromElement(element) {
 
 export async function normalizeLinks(doc, site, equivalentSites) {
   // convert all urls with .hlx.page, .hlx.live, .aem.page, .aem.live to .aem.live
-  const links = doc.querySelectorAll('a[href*=".hlx.page/"], a[href*=".hlx.live/"], a[href*=".aem.page/"], a[href*=".aem.live/"]');
+  const links = doc.querySelectorAll('a[href*=".hlx.page/"], a[href*=".hlx.live/"], a[href*=".aem.page/"], a[href*=".aem.live/"], source[srcset*=".hlx.page/"], source[srcset*=".hlx.live/"], source[srcset*=".aem.page/"], source[srcset*=".aem.live/"], img[src*=".hlx.page/"], img[src*=".hlx.live/"], img[src*=".aem.page/"], img[src*=".aem.live/"]');
   links.forEach((link) => {
     link.href = link.href.replace(/\.hlx\.page\/|\.hlx\.live\/|\.aem\.page\//g, '.aem.live/');
     const linkSite = link.href.split('--')[1];
