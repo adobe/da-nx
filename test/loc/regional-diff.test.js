@@ -1,9 +1,9 @@
 import { expect } from '@esm-bundle/chai';
 import { readFile } from '@web/test-runner-commands';
-import { regionalDiff, normalizeHTML, normalizeLinks } from '../../nx/blocks/loc/regional-diff/regional-diff.js';
+import { regionalDiff, normalizeLinks } from '../../nx/blocks/loc/regional-diff/regional-diff.js';
 
 function cleanHtmlWhitespace(html) {
-  return normalizeHTML(html).replace(/\s+/g, ' ').trim();
+  return html.replace(/>\s+</g, '><').trim().replace(/\s+/g, ' ').trim();
 }
 
 describe('Regional diff', () => {
@@ -14,6 +14,16 @@ describe('Regional diff', () => {
     modified.body.innerHTML = await readFile({ path: './mocks/regional-content.html' });
     const mainEl = await regionalDiff(original, modified);
     const expectedDiffedMain = await readFile({ path: './mocks/diffedMain.html' });
+    expect(cleanHtmlWhitespace(mainEl.outerHTML)).to.equal(cleanHtmlWhitespace(expectedDiffedMain));
+  });
+
+  it('Returns html with us/en vs au/en differences annotated', async () => {
+    const original = document.implementation.createHTMLDocument();
+    original.body.innerHTML = await readFile({ path: './mocks/financial-services-us-en.html' });
+    const modified = document.implementation.createHTMLDocument();
+    modified.body.innerHTML = await readFile({ path: './mocks/financial-services-au-en.html' });
+    const mainEl = await regionalDiff(original, modified);
+    const expectedDiffedMain = await readFile({ path: './mocks/financial-services-merged.html' });
     expect(cleanHtmlWhitespace(mainEl.outerHTML)).to.equal(cleanHtmlWhitespace(expectedDiffedMain));
   });
 });
