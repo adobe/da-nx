@@ -38,6 +38,48 @@ function trimTextNodes(node) {
 }
 
 /**
+ * Recursively serializes an element and its children,
+ * sorting all attributes alphabetically for every element.
+ * Escapes attribute values and text nodes for HTML safety.
+ * Handles element, text, and comment nodes.
+ * @param {Element} element - The DOM element to serialize.
+ * @returns {string} - The HTML string with sorted attributes for all elements.
+ */
+function getOuterHTMLWithSortedAttributes(element) {
+  function escapeHTML(str) {
+    return str.replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  const tagName = element.tagName.toLowerCase();
+  const attrs = Array.from(element.attributes)
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((attr) => `${attr.name}="${escapeHTML(attr.value)}"`)
+    .join(' ');
+  const voidElements = new Set([
+    'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input',
+    'link', 'meta', 'param', 'source', 'track', 'wbr',
+  ]);
+  if (voidElements.has(tagName)) {
+    return `<${tagName}${attrs ? ` ${attrs}` : ''}>`;
+  }
+  let inner = '';
+  for (const child of element.childNodes) {
+    if (child.nodeType === Node.ELEMENT_NODE) {
+      inner += getOuterHTMLWithSortedAttributes(child);
+    } else if (child.nodeType === Node.TEXT_NODE) {
+      inner += escapeHTML(child.textContent);
+    } else if (child.nodeType === Node.COMMENT_NODE) {
+      // Sanitize comment content to avoid '-->'
+      inner += `<!--${child.textContent.replace(/-->/g, '--&gt;')}-->`;
+    }
+  }
+  return `<${tagName}${attrs ? ` ${attrs}` : ''}>${inner}</${tagName}>`;
+}
+
+/**
  * Normalizes HTML by trimming whitespace in text nodes and removing whitespace between tags.
  * @param {Element} element - DOM element to normalize
  * @returns {string} - Normalized HTML string
@@ -50,7 +92,7 @@ function normalizeHTMLFromElement(element) {
   const clone = element.cloneNode(true);
   trimTextNodes(clone);
   // Remove whitespace between tags
-  let html = clone.outerHTML.replace(/>\s+</g, '><');
+  let html = getOuterHTMLWithSortedAttributes(clone).replace(/>\s+</g, '><');
   // Remove all line breaks and tabs
   html = html.replace(/[\n\r\t]/g, '');
   // Optionally, collapse multiple spaces
