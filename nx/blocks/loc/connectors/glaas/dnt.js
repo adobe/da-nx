@@ -182,22 +182,24 @@ function makeHrefsRelative(document) {
   });
 }
 
+function makeUrlRelative(originalSrc) {
+  try {
+    const url = new URL(originalSrc);
+    return `.${url.pathname}${url.search}${url.hash}`;
+  } catch (e) {
+    return null;
+  }
+}
+
 function makeImagesRelative(document) {
   const els = document.querySelectorAll('img[src*="media_"], source[srcset*="media_"]');
   els.forEach((el) => {
     if (el.nodeName === 'IMG') {
-      const { src } = el;
-      const url = new URL(src);
-      el.setAttribute('src', `.${url.pathname}`);
+      const relativeSrc = makeUrlRelative(el.src);
+      if (relativeSrc) el.setAttribute('src', relativeSrc);
     } else {
-      const { srcset } = el;
-      try {
-        const url = new URL(srcset);
-        el.setAttribute('srcset', `.${url.pathname}`);
-      } catch {
-        // Ignore srcset values that are not full URLs
-        // as they're already relative
-      }
+      const relativeSrc = makeUrlRelative(el.srcset);
+      if (relativeSrc) el.setAttribute('srcset', relativeSrc);
     }
   });
 }
@@ -217,6 +219,7 @@ function makeIconSpans(html) {
 const addDntInfoToHtml = (html) => {
   const parser = new DOMParser();
   const document = parser.parseFromString(html, 'text/html');
+  console.log(`${html}`);
 
   makeImagesRelative(document);
   makeHrefsRelative(document);
