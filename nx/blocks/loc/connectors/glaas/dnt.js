@@ -215,13 +215,12 @@ function makeIconSpans(html) {
 
 function cleanWhitespace(html) {
   // Remove whitespace between HTML tags and before closing tags
-  return html.replace(/\s+</g, '<');  
+  return html.replace(/\s+</g, '<');
 }
 
 const addDntInfoToHtml = (html) => {
   const parser = new DOMParser();
   const document = parser.parseFromString(html, 'text/html');
-  console.log(`${html}`);
 
   makeImagesRelative(document);
   makeHrefsRelative(document);
