@@ -215,7 +215,7 @@ function makeIconSpans(html) {
 
 function cleanWhitespace(html) {
   // Remove whitespace between HTML tags and before closing tags
-  return html.replace(/\s+</g, '<');  
+  return html.replace(/\s+</g, '<');
 }
 
 const addDntInfoToHtml = (html) => {
@@ -238,7 +238,7 @@ const addDntInfoToHtml = (html) => {
   });
 
   processAltText(document);
-  return document.documentElement.outerHTML;
+  return cleanWhitespace(document.documentElement.outerHTML);
 };
 
 const unwrapDntContent = (document) => {
@@ -313,7 +313,6 @@ export async function addDnt(inputText, config, { fileType = 'html', reset = fal
   }
 
   if (fileType === 'html') {
-    html = cleanWhitespace(inputText);
     html = makeIconSpans(inputText);
   }
   return addDntInfoToHtml(html);
