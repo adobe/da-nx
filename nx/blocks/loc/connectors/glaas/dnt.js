@@ -207,13 +207,15 @@ function makeImagesRelative(document) {
 function makeIconSpans(html) {
   const iconRegex = /:([a-zA-Z0-9-]+?):/gm;
 
-  let result = html.replace(
+  return html.replace(
     iconRegex,
     (_, iconName) => `<span class="icon icon-${iconName}"></span>`,
   );
-  // Remove any whitespace after </span>
-  result = result.replace(/<\/span>\s+/g, '</span>');
-  return result;
+}
+
+function cleanWhitespace(html) {
+  // Remove whitespace between HTML tags and before closing tags
+  return html.replace(/\s+</g, '<');  
 }
 
 const addDntInfoToHtml = (html) => {
@@ -311,6 +313,7 @@ export async function addDnt(inputText, config, { fileType = 'html', reset = fal
   }
 
   if (fileType === 'html') {
+    html = cleanWhitespace(inputText);
     html = makeIconSpans(inputText);
   }
   return addDntInfoToHtml(html);
