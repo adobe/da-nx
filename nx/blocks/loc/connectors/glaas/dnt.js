@@ -214,8 +214,8 @@ function makeIconSpans(html) {
 }
 
 function cleanWhitespace(html) {
-  // Remove whitespace between HTML tags and before closing tags
-  return html.replace(/\s+</g, '<');
+  // Remove whitespace between HTML tags and before/after closing tags
+  return html.replace(/\s+</g, '<').replace(/>\s+/g, '>');
 }
 
 const addDntInfoToHtml = (html) => {
