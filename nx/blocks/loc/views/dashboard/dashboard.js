@@ -18,7 +18,7 @@ const ICONS = [
   `${nx}/public/icons/S2_Icon_ProjectAddInto_20_N.svg`,
 ];
 
-const PAGE_COUNT = 50;
+const PAGE_COUNT = 200;
 
 class NxLocDashboard extends LitElement {
   static properties = {
