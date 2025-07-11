@@ -238,8 +238,7 @@ const addDntInfoToHtml = (html) => {
   });
 
   processAltText(document);
-  const processedHtml = document.documentElement.outerHTML;
-  return cleanWhitespace(processedHtml);
+  return cleanWhitespace(document.documentElement.outerHTML);
 };
 
 const unwrapDntContent = (document) => {
