@@ -11,6 +11,8 @@ const DELETED = 'deleted';
 const DELETED_TAG = 'da-loc-deleted';
 const SAME = 'same';
 
+const HLX_AEM_URL_REGEX = /\.hlx\.page\/|\.hlx\.live\/|\.aem\.page\//g;
+
 const sectionBlock = {
   isSection: true,
   outerHTML: 'spoofedSectionHtml',
@@ -36,6 +38,48 @@ function trimTextNodes(node) {
 }
 
 /**
+ * Recursively serializes an element and its children,
+ * sorting all attributes alphabetically for every element.
+ * Escapes attribute values and text nodes for HTML safety.
+ * Handles element, text, and comment nodes.
+ * @param {Element} element - The DOM element to serialize.
+ * @returns {string} - The HTML string with sorted attributes for all elements.
+ */
+function getOuterHTMLWithSortedAttributes(element) {
+  function escapeHTML(str) {
+    return str.replace(/&/g, '&amp;')
+      .replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+  }
+
+  const tagName = element.tagName.toLowerCase();
+  const attrs = Array.from(element.attributes)
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((attr) => `${attr.name}="${escapeHTML(attr.value)}"`)
+    .join(' ');
+  const voidElements = new Set([
+    'area', 'base', 'br', 'col', 'embed', 'hr', 'img', 'input',
+    'link', 'meta', 'param', 'source', 'track', 'wbr',
+  ]);
+  if (voidElements.has(tagName)) {
+    return `<${tagName}${attrs ? ` ${attrs}` : ''}>`;
+  }
+  let inner = '';
+  for (const child of element.childNodes) {
+    if (child.nodeType === Node.ELEMENT_NODE) {
+      inner += getOuterHTMLWithSortedAttributes(child);
+    } else if (child.nodeType === Node.TEXT_NODE) {
+      inner += escapeHTML(child.textContent);
+    } else if (child.nodeType === Node.COMMENT_NODE) {
+      // Sanitize comment content to avoid '-->'
+      inner += `<!--${child.textContent.replace(/-->/g, '--&gt;')}-->`;
+    }
+  }
+  return `<${tagName}${attrs ? ` ${attrs}` : ''}>${inner}</${tagName}>`;
+}
+
+/**
  * Normalizes HTML by trimming whitespace in text nodes and removing whitespace between tags.
  * @param {Element} element - DOM element to normalize
  * @returns {string} - Normalized HTML string
@@ -48,7 +92,7 @@ function normalizeHTMLFromElement(element) {
   const clone = element.cloneNode(true);
   trimTextNodes(clone);
   // Remove whitespace between tags
-  let html = clone.outerHTML.replace(/>\s+</g, '><');
+  let html = getOuterHTMLWithSortedAttributes(clone).replace(/>\s+</g, '><');
   // Remove all line breaks and tabs
   html = html.replace(/[\n\r\t]/g, '');
   // Optionally, collapse multiple spaces
@@ -59,12 +103,17 @@ function normalizeHTMLFromElement(element) {
 export async function normalizeLinks(doc, site, equivalentSites) {
   // convert all urls with .hlx.page, .hlx.live, .aem.page, .aem.live to .aem.live
   const links = doc.querySelectorAll('a[href*=".hlx.page/"], a[href*=".hlx.live/"], a[href*=".aem.page/"], a[href*=".aem.live/"], source[srcset*=".hlx.page/"], source[srcset*=".hlx.live/"], source[srcset*=".aem.page/"], source[srcset*=".aem.live/"], img[src*=".hlx.page/"], img[src*=".hlx.live/"], img[src*=".aem.page/"], img[src*=".aem.live/"]');
-  links.forEach((link) => {
-    link.href = link.href.replace(/\.hlx\.page\/|\.hlx\.live\/|\.aem\.page\//g, '.aem.live/');
-    const linkSite = link.href.split('--')[1];
+  const tagToAttr = { A: 'href', IMG: 'src', SOURCE: 'srcset' };
+  links.forEach((el) => {
+    const urlAttr = tagToAttr[el.tagName];
+    if (!urlAttr) return;
+    let url = el[urlAttr];
+    url = url.replace(HLX_AEM_URL_REGEX, '.aem.live/');
+    const linkSite = url.split('--')[1];
     if (equivalentSites.has(linkSite)) {
-      link.href = link.href.replace(`--${linkSite}--`, `--${site}--`);
+      url = url.replace(`--${linkSite}--`, `--${site}--`);
     }
+    el[urlAttr] = url;
   });
   return doc;
 }
