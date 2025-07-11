@@ -221,7 +221,6 @@ function cleanWhitespace(html) {
 const addDntInfoToHtml = (html) => {
   const parser = new DOMParser();
   const document = parser.parseFromString(html, 'text/html');
-  console.log(`${html}`);
 
   makeImagesRelative(document);
   makeHrefsRelative(document);
