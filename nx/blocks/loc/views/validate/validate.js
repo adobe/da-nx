@@ -5,14 +5,13 @@ import getStyle from '../../../../utils/styles.js';
 import { daFetch } from '../../../../utils/daFetch.js';
 import { Queue } from '../../../../public/utils/tree.js';
 import { convertPath, fetchConfig } from '../../utils/utils.js';
+import { getFragmentUrls } from './validate-utils.js';
 
 const { nxBase } = getConfig();
 const style = await getStyle(import.meta.url);
 const buttons = await getStyle(`${nxBase}/styles/buttons.js`);
-const parser = new DOMParser();
 
 const DA_LIVE = 'https://da.live';
-const FRAGMENT_SELECTOR = 'a[href*="/fragments/"], .fragment a';
 
 class NxLocValidate extends LitElement {
   static properties = {
@@ -62,22 +61,25 @@ class NxLocValidate extends LitElement {
   }
 
   checkDomain(href) {
-    return [...this._originMatches, this.subOrigin].some((origin) => href.startsWith(origin));
+    return [...this._originMatches, this.subOrigin].some((origin) => href?.startsWith(origin));
   }
 
   async findFragments(text) {
-    const dom = parser.parseFromString(text, 'text/html');
-    const results = dom.body.querySelectorAll(FRAGMENT_SELECTOR);
-    const fragments = [...results].reduce((acc, a) => {
-      const href = a.getAttribute('href');
+    const fragmentUrls = getFragmentUrls(text);
 
+    const fragments = fragmentUrls.reduce((acc, href) => {
       const include = this.checkDomain(href);
 
       // Don't add any off-origin fragments
       if (!include) return acc;
 
       // Convert href to current project origin
-      const url = new URL(href, this.origin);
+      let url;
+      try {
+        url = new URL(href, this.origin);
+      } catch (e) {
+        return acc;
+      }
 
       // Combine what already exists with what we're currently iterating through
       const currentUrls = [...this._urls, ...acc];
