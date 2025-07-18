@@ -205,12 +205,10 @@ function makeImagesRelative(document) {
 }
 
 function makeIconSpans(html) {
-  const iconRegex = /:([a-zA-Z0-9-]+?):/gm;
+  // Regex that matches :icon: but not when inside alt text double-quoted string
+  const iconRegex = /(?<!alt="[^"]*):([a-zA-Z0-9-]+?):/gm;
 
-  return html.replace(
-    iconRegex,
-    (_, iconName) => `<span class="icon icon-${iconName}"></span>`,
-  );
+  return html.replace(iconRegex, (_, iconName) => `<span class="icon icon-${iconName}"></span>`);
 }
 
 function cleanWhitespace(html) {

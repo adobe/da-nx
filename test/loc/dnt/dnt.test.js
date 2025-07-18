@@ -68,7 +68,7 @@ describe('makeIconSpans', () => {
   it('converts multiple icon texts to span format', () => {
     const html = '<div>:adobe: and :microsoft:</div>';
     const result = makeIconSpans(html);
-    expect(result).to.equal('<div><span class="icon icon-adobe"></span> and <span class="icon icon-microsoft"></span></div>');
+    expect(result).to.equal('<div><span class="icon icon-adobe"></span>and <span class="icon icon-microsoft"></span></div>');
   });
 
   it('handles icon names with hyphens', () => {
@@ -80,7 +80,7 @@ describe('makeIconSpans', () => {
   it('preserves surrounding text content', () => {
     const html = '<div>Before :test: After</div>';
     const result = makeIconSpans(html);
-    expect(result).to.equal('<div>Before <span class="icon icon-test"></span> After</div>');
+    expect(result).to.equal('<div>Before <span class="icon icon-test"></span>After</div>');
   });
 
   it('handles multiple icons in nested HTML structure', () => {
@@ -112,10 +112,16 @@ describe('makeIconSpans', () => {
     const result = makeIconSpans(html);
     expect(result).to.equal('<span class="icon icon-start"></span>middle<span class="icon icon-end"></span>');
   });
+
+  it('Does not modify icons in alt text', () => {
+    const html = '<img src="https://a.com" alt="http://a.com | Hello | :play:">';
+    const result = makeIconSpans(html);
+    expect(result).to.equal('<img src="https://a.com" alt="http://a.com | Hello | :play:">');
+  });
 });
 
 describe('code blocks', () => {
-  it.only('adds dnt info to all html code blocks', async () => {
+  it('adds dnt info to all html code blocks', async () => {
     const html = `<html><head></head><body>
       <main>
         <div><code>console.log("Hello, world!");</code></div>
@@ -123,7 +129,6 @@ describe('code blocks', () => {
       </main>
     </body></html>`;
     const result = await addDnt(html, {});
-    console.log(result);
     expect(result).to.equal(`<html><head></head><body>
       <main>
         <div><code translate="no">console.log("Hello, world!");</code></div>

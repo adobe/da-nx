@@ -19,17 +19,17 @@ function makeHrefsRelative(document) {
 }
 
 export function makeIconSpans(html) {
-  const iconRegex = /:([a-zA-Z0-9-]+?):/gm;
+  // Regex that matches :icon: but not when inside alt text double-quoted string
+  const iconRegex = /(?<!alt="[^"]*):([a-zA-Z0-9-]+?):/gm;
 
   if (!iconRegex.test(html)) return html;
 
-  let result = html.replace(
+  const result = html.replace(
     iconRegex,
     (_, iconName) => `<span class="icon icon-${iconName}"></span>`,
   );
   // Remove any whitespace after </span>
-  result = result.replace(/<\/span>\s+/g, '</span>');
-  return result;
+  return result.replace(/<\/span>\s+/g, '</span>');
 }
 
 export function resetIcons(doc) {
