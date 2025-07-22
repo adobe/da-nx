@@ -211,11 +211,6 @@ function makeIconSpans(html) {
   return html.replace(iconRegex, (_, iconName) => `<span class="icon icon-${iconName}"></span>`);
 }
 
-function cleanWhitespace(html) {
-  // Remove whitespace between HTML tags and before/after closing tags
-  return html.replace(/\s+</g, '<').replace(/>\s+/g, '>');
-}
-
 const addDntInfoToHtml = (html) => {
   const parser = new DOMParser();
   const document = parser.parseFromString(html, 'text/html');
@@ -235,7 +230,7 @@ const addDntInfoToHtml = (html) => {
   });
 
   processAltText(document);
-  return cleanWhitespace(document.documentElement.outerHTML);
+  return document.documentElement.outerHTML;
 };
 
 const unwrapDntContent = (document) => {
