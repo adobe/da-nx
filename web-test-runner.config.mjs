@@ -1,5 +1,9 @@
+/* eslint-disable import/no-extraneous-dependencies */
+
 import { importMapsPlugin } from '@web/dev-server-import-maps';
 import { defaultReporter, summaryReporter } from '@web/test-runner';
+// eslint-disable-next-line import/extensions
+import diffReporter from './tools/wtr/diffReporter.mjs';
 
 const GITHUB_ACTIONS = process.env.GITHUB_ACTIONS === 'true';
 
@@ -16,6 +20,7 @@ function customReporter() {
     },
   };
 }
+
 export default {
   coverageConfig: {
     include: [
@@ -32,9 +37,10 @@ export default {
   testFramework: { config: { retries: GITHUB_ACTIONS ? 1 : 0 } },
   plugins: [importMapsPlugin({})],
   reporters: [
-    defaultReporter({ reportTestResults: true, reportTestProgress: true }),
+    defaultReporter({ reportTestResults: false, reportTestProgress: true }),
     customReporter(),
     summaryReporter(),
+    diffReporter(),
   ],
   testRunnerHtml: (testFramework) => `
     <html>
