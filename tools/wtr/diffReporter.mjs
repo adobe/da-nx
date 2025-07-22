@@ -37,9 +37,13 @@ function findLongestCommonSubsequence(str1, str2) {
 }
 
 export default function diffReporter() {
-  const diffResults = [];
+  let diffResults = [];
 
   return {
+    onTestRunStarted() {
+      diffResults = [];
+    },
+
     async reportTestFileResults({ logger, sessionsForTestFile }) {
       sessionsForTestFile.forEach((session) => {
         const testFile = session.testFile?.split('/test/')[1];
