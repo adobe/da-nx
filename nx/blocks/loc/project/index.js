@@ -1,7 +1,7 @@
 import { regionalDiff, removeLocTags } from '../regional-diff/regional-diff.js';
 import { daFetch, saveToDa } from '../../../utils/daFetch.js';
+import { DA_ORIGIN } from '../../../public/utils/constants.js';
 
-const DA_ORIGIN = 'https://admin.da.live';
 const DEFAULT_TIMEOUT = 20000; // ms
 
 const PARSER = new DOMParser();

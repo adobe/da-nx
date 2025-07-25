@@ -1,8 +1,8 @@
 import { getExt } from '../../public/utils/getExt.js';
 import { daFetch } from '../../utils/daFetch.js';
+import { DA_ORIGIN } from '../../public/utils/constants.js';
 
 const AEM_ORIGIN = 'https://admin.hlx.page';
-const DA_ORIGIN = 'https://admin.da.live';
 
 function isBulkDa(action) {
   return action === 'versionsource';
