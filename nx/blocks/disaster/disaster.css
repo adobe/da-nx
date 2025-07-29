@@ -1,0 +1,20 @@
+.nx-disaster {
+  display: block;
+  margin: 72px auto;
+  max-width: 1000px;
+}
+
+.input {
+  margin-bottom: 24px;
+}
+
+sl-textarea {
+  height: 300px;
+}
+
+.warning {
+  display: flex;
+  justify-content: end;
+  align-items: start;
+  gap: 16px;
+}
