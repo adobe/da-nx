@@ -24,12 +24,6 @@ const IO_ENV = {
   prod: 'cc-collab.adobe.io',
 };
 
-const JIL_ENV = {
-  dev: 'bps-il-stage.adobe.io',
-  stage: 'bps-il-stage.adobe.io',
-  prod: 'bps-il.adobe.io',
-};
-
 export function handleSignIn() {
   localStorage.setItem('nx-ims', true);
   window.adobeIMS.signIn();
@@ -58,15 +52,12 @@ async function fetchWithToken(url, accessToken) {
 
 async function getAllOrgs() {
   if (allOrgs) return allOrgs;
-  const opts = {
-    headers: {
-      Authorization: `Bearer ${imsProfile.accessToken.token}`,
-      'X-Api-Key': 'ONESIE1',
-    },
-  };
-  const resp = await fetch(`https://${JIL_ENV[env]}/users/${imsProfile.userId}/linked-accounts?includePaths=true`, opts);
-  if (!resp.ok) return null;
-  allOrgs = await resp.json();
+  const orgData = await fetchWithToken(
+    `https://${IMS_ENDPOINT[env]}/ims/account_cluster/v3?client_id=${imsClientId}`,
+    imsProfile.accessToken,
+  );
+  if (!orgData) return null;
+  allOrgs = orgData.data;
   return allOrgs;
 }
 
