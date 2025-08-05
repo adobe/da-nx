@@ -5,7 +5,8 @@ import { loadIms } from '../../../utils/ims.js';
 
 const { nxBase: nx } = getConfig();
 
-const CONFIG_PATH = '/.da/translate-v2.json';
+const CONFIG_PATH = '/.da/translate.json';
+const CONFIG_PATH_V2 = '/.da/translate-v2.json';
 
 export const VIEWS = [
   'dashboard',
@@ -192,6 +193,11 @@ export async function fetchConfig(org, site) {
 
   // Attempt a site based config
   let options = await fetchConf(`${DA_ORIGIN}/source/${org}/${site}${CONFIG_PATH}`);
+
+  // Attempt the old V2 config path
+  if (options.error) {
+    options = await fetchConf(`${DA_ORIGIN}/source/${org}${CONFIG_PATH_V2}`);
+  }
 
   // Attempt an org based config
   if (options.error) {
