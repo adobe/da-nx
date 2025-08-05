@@ -47,7 +47,7 @@ export default async function getPrefixDetails(org, repo, token, path) {
   const { config, languages } = json;
 
   // Determine if path starts with a known language location
-  const pathLang = languages.data.find((lang) => path.startsWith(lang.location));
+  const pathLang = languages.data.find((lang) => path.startsWith(`${lang.location}/`));
   if (pathLang) {
     return {
       currPrefix: pathLang.location,
@@ -55,13 +55,24 @@ export default async function getPrefixDetails(org, repo, token, path) {
     };
   }
 
+  // Determine if path starts with a known locale location
+  const locales = languages.data.reduce((acc, lang) => {
+    if (lang.locales) {
+      const split = lang.locales.split(',').map((locale) => locale.trim());
+      acc.push(...split);
+    }
+    return acc;
+  }, []);
+  const pathLocale = locales.find((locale) => path.startsWith(`${locale}/`));
+  if (pathLocale) return { currPrefix: pathLocale, prefixes: [], isLocale: true };
+
   // Determine if there's a main source language
   const sourceLang = config.data.find((conf) => conf.key === 'source.language');
-  if (!sourceLang) return null;
+  if (!sourceLang) return { currPrefix: null, prefixes: [] };
 
   // Determine if there's a source language to rollout to from root
   const syncLang = languages.data.find((lang) => lang.name === sourceLang.value);
-  if (!syncLang) return null;
+  if (!syncLang) return { currPrefix: null, prefixes: [] };
 
   return { currPrefix: '/', prefixes: formatPrefixes(org, repo, '/', syncLang.location, path) };
 }
