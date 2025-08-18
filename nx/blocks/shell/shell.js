@@ -45,7 +45,7 @@ function getParts() {
  */
 function getUrl() {
   const { org, repo, ref, path, search, hash } = getParts();
-  const hashPart = hash && hash !== '' ? `#${hash}` : '';
+  const hashPart = hash ? `#${hash}` : '';
   if (ref === 'local') return `http://localhost:3000/${path}.html${search}${hashPart}`;
   return `https://${ref}--${repo}--${org}.aem.live/${path}.html${search}${hashPart}`;
 }
