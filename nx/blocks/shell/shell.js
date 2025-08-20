@@ -9,7 +9,7 @@ const IMS_DETAILS = await loadIms();
 const CHANNEL = new MessageChannel();
 
 /**
- * Parses the current URL to extract view, organization, repository, reference, and path information
+ * Parses the current URL to extract view, organization, repository, reference, path, search, and hash information
  * @returns {Object} Object containing parsed URL components
  * @property {string} view - The view type (defaults to 'fullscreen')
  * @property {string} org - Organization name from URL
@@ -17,17 +17,24 @@ const CHANNEL = new MessageChannel();
  * @property {string} ref - Reference/branch name (defaults to 'main')
  * @property {string} path - Path components joined with '/'
  * @property {string} search - Original search query string
+ * @property {string} hash - Original hash fragment from the URL
  */
 function getParts() {
   // Get path parts
   const view = 'fullscreen';
-  const { pathname, search } = window.location;
+  const { pathname, search, hash } = window.location;
   const pathSplit = pathname.split('/');
   pathSplit.splice(0, 2);
   const [org, repo, ...path] = pathSplit;
   const ref = new URLSearchParams(search).get('ref') || 'main';
   return {
-    view, org, repo, ref, path: path.join('/'), search,
+    view,
+    org,
+    repo,
+    ref,
+    path: path.join('/'),
+    search,
+    hash,
   };
 }
 
@@ -37,9 +44,10 @@ function getParts() {
  * @returns {string} The constructed URL for the iframe
  */
 function getUrl() {
-  const { org, repo, ref, path, search } = getParts();
-  if (ref === 'local') return `http://localhost:3000/${path}.html${search}`;
-  return `https://${ref}--${repo}--${org}.aem.live/${path}.html${search}`;
+  const { org, repo, ref, path, search, hash } = getParts();
+  const hashPart = hash ? `#${hash}` : '';
+  if (ref === 'local') return `http://localhost:3000/${path}.html${search}${hashPart}`;
+  return `https://${ref}--${repo}--${org}.aem.live/${path}.html${search}${hashPart}`;
 }
 
 /**
