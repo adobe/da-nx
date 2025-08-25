@@ -2,19 +2,19 @@ import { html, LitElement } from 'da-lit';
 import getStyle from '../../../../utils/styles.js';
 import getSvg from '../../../../utils/svg.js';
 import {
-  IMAGE_EXTENSIONS,
-  VIDEO_EXTENSIONS,
   getDisplayMediaType,
-} from '../../utils/types.js';
-import {
+  extractRelativePath,
   formatFileSize,
   extractMediaLocation,
-  groupUsagesByPath,
   getEditUrl,
   getViewUrl,
   updateDocumentAltText,
+  getFileName,
+  isImage,
+  isVideo,
+  isPdf,
+  EXIF_JS_URL,
 } from '../../utils/utils.js';
-import { EXIF_JS_URL } from '../../utils/video.js';
 import loadScript from '../../../../utils/script.js';
 import { daFetch } from '../../../../utils/daFetch.js';
 import { DA_ORIGIN } from '../../../../public/utils/constants.js';
@@ -30,8 +30,6 @@ class NxMediaInfo extends LitElement {
   static properties = {
     media: { attribute: false },
     isOpen: { attribute: false },
-    org: { attribute: false },
-    repo: { attribute: false },
     usageData: { attribute: false },
     _activeTab: { state: true },
     _exifData: { state: true },
@@ -83,10 +81,10 @@ class NxMediaInfo extends LitElement {
   updated(changedProperties) {
     if (changedProperties.has('media') && this.media) {
       this.loadFileSize();
-      if (this.isImage(this.media.url)) {
+      if (isImage(this.media.url)) {
         this.loadExifData();
       }
-      if (this.isPdf(this.media.url)) {
+      if (isPdf(this.media.url)) {
         this.loadPdfWithDaFetch(this.media.url);
       }
       this.loadUsageData();
@@ -102,7 +100,7 @@ class NxMediaInfo extends LitElement {
   }
 
   async loadExifData() {
-    if (!this.media || !this.isImage(this.media.url)) return;
+    if (!this.media || !isImage(this.media.url)) return;
 
     this._loading = true;
     try {
@@ -216,13 +214,16 @@ class NxMediaInfo extends LitElement {
   handleEditDocument(docPath) {
     if (!docPath) return;
 
-    const { org, repo } = this;
+    // Extract org and repo from the document path
+    const pathParts = docPath.split('/').filter(Boolean);
+    if (pathParts.length < 2) return;
 
-    if (!org || !repo) {
-      return;
-    }
+    const org = pathParts[0];
+    const repo = pathParts[1];
 
-    const editUrl = getEditUrl(org, repo, docPath);
+    // Get the relative path (without org/repo) for the edit URL
+    const relativePath = extractRelativePath(docPath);
+    const editUrl = getEditUrl(org, repo, relativePath);
     if (editUrl) {
       window.open(editUrl, '_blank');
     }
@@ -278,44 +279,22 @@ class NxMediaInfo extends LitElement {
     }
   }
 
-  getFileName(url) {
-    try {
-      const urlObj = new URL(url);
-      const { pathname } = urlObj;
-      return pathname.split('/').pop() || '';
-    } catch {
-      return url.split('/').pop() || '';
-    }
-  }
-
   handleViewDocument(docPath) {
     if (!docPath) return;
 
-    const { org, repo } = this;
+    // Extract org and repo from the document path
+    const pathParts = docPath.split('/').filter(Boolean);
+    if (pathParts.length < 2) return;
 
-    if (!org || !repo) {
-      return;
-    }
+    const org = pathParts[0];
+    const repo = pathParts[1];
 
-    const viewUrl = getViewUrl(org, repo, docPath);
+    // Get the relative path (without org/repo) for the view URL
+    const relativePath = extractRelativePath(docPath);
+    const viewUrl = getViewUrl(org, repo, relativePath);
     if (viewUrl) {
       window.open(viewUrl, '_blank');
     }
-  }
-
-  isImage(url) {
-    const ext = url.split('.').pop()?.toLowerCase();
-    return IMAGE_EXTENSIONS.includes(ext);
-  }
-
-  isVideo(url) {
-    const ext = url.split('.').pop()?.toLowerCase();
-    return VIDEO_EXTENSIONS.includes(ext);
-  }
-
-  isPdf(url) {
-    const ext = url.split('.').pop()?.toLowerCase();
-    return ext === 'pdf';
   }
 
   async loadFileSize() {
@@ -323,7 +302,7 @@ class NxMediaInfo extends LitElement {
 
     try {
       // For PDFs, try to get info from the blob if available
-      if (this.isPdf(this.media.url) && this._pdfBlobUrls.has(this.media.url)) {
+      if (isPdf(this.media.url) && this._pdfBlobUrls.has(this.media.url)) {
         const blobUrl = this._pdfBlobUrls.get(this.media.url);
         const response = await fetch(blobUrl);
         if (response.ok) {
@@ -401,48 +380,20 @@ class NxMediaInfo extends LitElement {
     }
   }
 
-  renderUsageGroup(docPath, usages) {
-    const isPdf = this.isPdf(this.media.url);
-
-    return html`
-      <div class="usage-group">
-        <div class="usage-group-header">
-          <h4 class="document-path">${docPath}</h4>
-          <span class="usage-count">${usages.length} usage${usages.length !== 1 ? 's' : ''}</span>
-        </div>
-        <div class="usage-table-container">
-          <table class="usage-table">
-            <thead>
-              <tr>
-                <th>Type</th>
-                ${!isPdf ? html`<th>Alt</th>` : ''}
-                <th>Context</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${usages.map((usage) => this.renderUsageTableRow(usage))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    `;
-  }
-
   renderMediaPreview() {
-    if (this.isImage(this.media.url)) {
+    if (isImage(this.media.url)) {
       return html`
         <img src="${this.media.url}" alt="${this.media.alt || ''}" class="preview-image">
       `;
     }
-    if (this.isVideo(this.media.url)) {
+    if (isVideo(this.media.url)) {
       return html`
         <video src="${this.media.url}" controls class="preview-video">
           Your browser does not support the video tag.
         </video>
       `;
     }
-    if (this.isPdf(this.media.url)) {
+    if (isPdf(this.media.url)) {
       const blobUrl = this._pdfBlobUrls.get(this.media.url);
 
       if (blobUrl) {
@@ -471,7 +422,7 @@ class NxMediaInfo extends LitElement {
               <use href="#S2_Icon_PDF_20_N"></use>
             </svg>
             <div class="pdf-info">
-              <span class="pdf-name">${this.getFileName(this.media.url)}</span>
+              <span class="pdf-name">${getFileName(this.media.url)}</span>
               <span class="pdf-type">PDF Document</span>
               <span class="pdf-loading">Loading...</span>
             </div>
@@ -489,7 +440,7 @@ class NxMediaInfo extends LitElement {
   }
 
   renderExifSection() {
-    if (this.isImage(this.media.url)) {
+    if (isImage(this.media.url)) {
       if (this._loading) {
         return html`<div class="loading">Loading EXIF data...</div>`;
       }
@@ -525,7 +476,7 @@ class NxMediaInfo extends LitElement {
   }
 
   renderUsageTableRow(usage) {
-    const isPdf = this.isPdf(this.media.url);
+    const isPdfFile = isPdf(this.media.url);
     const isMissingAlt = !usage.alt && usage.type && usage.type.startsWith('img >');
     const isEditingAlt = this._editingAltUsage === usage.doc;
 
@@ -534,29 +485,26 @@ class NxMediaInfo extends LitElement {
         <td class="type-cell">
           <span class="type-badge">${getDisplayMediaType(usage)}</span>
         </td>
-        ${!isPdf ? html`
+        ${!isPdfFile ? html`
           <td class="alt-cell">
             ${this.renderAltCell(usage, isEditingAlt, isMissingAlt)}
           </td>
         ` : ''}
         <td class="context-cell">
-          ${this.renderContextCell(usage)}
+          <div class="context-text">${usage.ctx || 'No context'}</div>
         </td>
         <td class="actions-cell">
-          ${this.renderActionsCell(usage)}
+          ${this.renderActionsCell(usage, isMissingAlt)}
         </td>
       </tr>
       <tr class="usage-date-row">
-        <td colspan="${isPdf ? 3 : 4}" class="date-details-cell">
+        <td colspan="${isPdfFile ? 3 : 4}" class="date-details-cell">
           <div class="date-details">
             <span class="date-item">
-              <span class="date-label">First Used:</span> 
-              <span class="date-value">${this.formatDateTime(usage.firstUsedAt)}</span>
+              <strong>First used:</strong> ${this.formatDateTime(usage.firstUsedAt)}
             </span>
-            <span class="date-separator">|</span>
             <span class="date-item">
-              <span class="date-label">Recently Modified:</span> 
-              <span class="date-value">${this.formatDateTime(usage.lastUsedAt)}</span>
+              <strong>Last used:</strong> ${this.formatDateTime(usage.lastUsedAt)}
             </span>
           </div>
         </td>
@@ -632,8 +580,6 @@ class NxMediaInfo extends LitElement {
     return html`
       <div class="tab-content">
         <div class="metadata-section">
-          <h3>Metadata</h3>
-          
           <div class="metadata-table-container">
             <table class="metadata-table">
               <thead>
@@ -688,10 +634,40 @@ class NxMediaInfo extends LitElement {
     }
 
     if (this._usageData.length > 0) {
-      const groupedUsages = groupUsagesByPath(this._usageData);
+      // Group usages by document
+      const groupedUsages = this._usageData.reduce((groups, usage) => {
+        const doc = usage.doc || 'Unknown Document';
+        if (!groups[doc]) {
+          groups[doc] = [];
+        }
+        groups[doc].push(usage);
+        return groups;
+      }, {});
+
       return html`
-        <div class="usage-list">
-          ${groupedUsages.map((group) => this.renderUsageGroup(group.path, group.usages))}
+        <div class="usage-sections">
+          ${Object.entries(groupedUsages).map(([doc, usages]) => html`
+            <div class="usage-section">
+              <div class="document-heading">
+                <h3>${extractRelativePath(doc)}</h3>
+              </div>
+              <div class="usage-table-container">
+                <table class="usage-table">
+                  <thead>
+                    <tr>
+                      <th>Type</th>
+                      ${isImage(this.media.url) ? html`<th>Alt Text</th>` : ''}
+                      <th>Context</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${usages.map((usage) => this.renderUsageTableRow(usage))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          `)}
         </div>
       `;
     }
@@ -706,13 +682,6 @@ class NxMediaInfo extends LitElement {
   renderUsageTab() {
     return html`
       <div class="tab-content">
-        <div class="usage-summary">
-          ${this._usageData.length > 0
-    ? html`<p class="usage-count">Found in ${this._usageData.length} location${this._usageData.length !== 1 ? 's' : ''}</p>`
-    : html`<p class="usage-count">Not Used</p>`
-}
-        </div>
-
         ${this.renderUsageContent()}
       </div>
     `;
@@ -721,7 +690,7 @@ class NxMediaInfo extends LitElement {
   render() {
     if (!this.isOpen || !this.media) return '';
 
-    const displayName = this.media.name || this.getFileName(this.media.url) || 'Media Details';
+    const displayName = this.media.name || getFileName(this.media.url) || 'Media Details';
 
     return html`
       <div class="modal-overlay" @click=${this.handleClose}>

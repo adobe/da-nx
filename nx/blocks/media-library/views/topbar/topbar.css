@@ -192,6 +192,11 @@ mark {
 
 .view-btn.active .icon {
   color: #fff;
+  fill: #fff;
+}
+
+.view-btn.active .icon use {
+  fill: #fff;
 }
 
 .folder-btn {

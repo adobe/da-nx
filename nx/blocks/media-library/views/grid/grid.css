@@ -40,7 +40,7 @@
 }
 
 .media-main {
-  height: 100%;
+  height: calc(100vh - 200px);
   overflow-y: auto;
   position: relative;
   padding: 16px;
@@ -237,22 +237,29 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 4px 8px;
-  border: 1px solid var(--s2-orange-600);
-  border-radius: var(--s2-radius-75);
-  background: var(--s2-orange-600);
-  color: #fff;
-  min-width: 60px;
-  height: 24px;
-  font-size: 0.7rem;
-  font-weight: 600;
-  text-align: center;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  padding: 4px;
 }
 
 .missing-alt-indicator.clickable {
   cursor: pointer;
+}
+
+.alert-icon {
+  width: 20px;
+  height: 20px;
+  color: #ff6b35;
+}
+
+.alt-present {
+  color: var(--s2-green-600);
+  font-weight: bold;
+  font-size: 1.2rem;
+}
+
+.checkmark-icon {
+  width: 20px;
+  height: 20px;
+  color: #28a745;
 }
 
 /* Video Preview Styles */

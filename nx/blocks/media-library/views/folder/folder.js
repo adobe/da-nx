@@ -1,6 +1,7 @@
 import { html, LitElement } from 'da-lit';
 import getStyle from '../../../../utils/styles.js';
 import getSvg from '../../../../public/utils/svg.js';
+import { getDisplayName } from '../../utils/utils.js';
 
 const styles = await getStyle(import.meta.url);
 const nx = `${new URL(import.meta.url).origin}/nx`;
@@ -256,17 +257,6 @@ class NxMediaFolderDialog extends LitElement {
 
   // Folder counts are now pre-calculated in media-library
 
-  getDisplayName(fullPath) {
-    if (!fullPath) return '';
-
-    // Extract just the filename from the path
-    const pathParts = fullPath.split('/').filter(Boolean);
-    const fileName = pathParts[pathParts.length - 1];
-
-    // Remove file extension for cleaner display
-    return fileName.replace(/\.[^/.]+$/, '');
-  }
-
   render() {
     if (!this.isOpen) return html``;
 
@@ -302,11 +292,11 @@ class NxMediaFolderDialog extends LitElement {
                 <div class="selected-paths">
                   ${Array.from(this.selectedPaths).map((path) => html`
                     <div class="selected-path-item">
-                      <span class="path-name">${this.getDisplayName(path)}</span>
+                      <span class="path-name">${getDisplayName(path)}</span>
                       <button 
                         class="clear-path-btn" 
                         @click=${() => this.handleClearPath(path)}
-                        title="Remove ${this.getDisplayName(path)}"
+                        title="Remove ${getDisplayName(path)}"
                       >
                         <svg class="icon">
                           <use href="#S2_Icon_Close_20_N"></use>
@@ -329,10 +319,14 @@ class NxMediaFolderDialog extends LitElement {
   }
 
   renderHierarchyItems(items, level = 0) {
-    return items.map((item) => html`
+    return items.map((item) => {
+      // Normalize paths for comparison (remove leading slash)
+      const normalizedItemPath = item.path.replace(/^\//, '');
+      const isSelected = Array.from(this.selectedPaths).some((selectedPath) => selectedPath.replace(/^\//, '') === normalizedItemPath);
+      return html`
       <div class="hierarchy-item-wrapper">
         <div 
-          class="hierarchy-item ${this.selectedPaths.has(item.path) ? 'selected' : ''} ${item.type === 'folder' ? 'folder-item' : 'file-item'}"
+          class="hierarchy-item ${isSelected ? 'selected' : ''} ${item.type === 'folder' ? 'folder-item' : 'file-item'}"
           data-path="${item.path}"
           @click=${this.handleItemClick}
           style="padding-left: ${level * 16}px;"
@@ -405,7 +399,8 @@ class NxMediaFolderDialog extends LitElement {
           </div>
         ` : ''}
       </div>
-    `);
+    `;
+    });
   }
 }
 

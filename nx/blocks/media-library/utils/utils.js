@@ -3,7 +3,158 @@
 import { daFetch } from '../../../utils/daFetch.js';
 import { DA_ORIGIN } from '../../../public/utils/constants.js';
 
-import { getMediaType } from './types.js';
+// ============================================================================
+// MEDIA TYPE CONSTANTS AND UTILITIES
+// ============================================================================
+
+export const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'avif'];
+export const VIDEO_EXTENSIONS = ['mp4', 'webm', 'mov', 'avi'];
+export const DOCUMENT_EXTENSIONS = ['pdf'];
+export const AUDIO_EXTENSIONS = ['mp3', 'wav'];
+export const MEDIA_EXTENSIONS = [
+  ...IMAGE_EXTENSIONS,
+  ...VIDEO_EXTENSIONS,
+  ...DOCUMENT_EXTENSIONS,
+  ...AUDIO_EXTENSIONS,
+];
+
+function extractFileExtension(filePath) {
+  return filePath?.split('.').pop()?.toLowerCase();
+}
+
+function isSvgFile(media) {
+  const type = media.type || '';
+  return type === 'img > svg' || type === 'link > svg';
+}
+
+export function detectMediaTypeFromExtension(ext) {
+  if (IMAGE_EXTENSIONS.includes(ext)) return 'img';
+  if (VIDEO_EXTENSIONS.includes(ext)) return 'video';
+  if (DOCUMENT_EXTENSIONS.includes(ext)) return 'document';
+  if (AUDIO_EXTENSIONS.includes(ext)) return 'audio';
+  return 'unknown';
+}
+
+export function getMediaType(media) {
+  const type = media.type || '';
+  if (type.startsWith('img >')) return 'image';
+  if (type.startsWith('video >')) return 'video';
+  if (type.startsWith('document >')) return 'document';
+  if (type.startsWith('link >')) return 'link';
+
+  const mediaUrl = media.url || '';
+  const ext = extractFileExtension(mediaUrl);
+  return detectMediaTypeFromExtension(ext);
+}
+
+export function getSubtype(media) {
+  const type = media.type || '';
+  if (!type.includes(' > ')) return '';
+
+  const [, subtype] = type.split(' > ');
+  return subtype.toUpperCase();
+}
+
+export function getDisplayMediaType(media) {
+  if (media.type) {
+    if (media.type.includes(' > ')) {
+      const [baseType, subtype] = media.type.split(' > ');
+      const baseLabels = {
+        img: 'IMAGE',
+        video: 'VIDEO',
+        'video-source': 'VIDEO SOURCE',
+        link: 'LINK',
+        background: 'BACKGROUND',
+      };
+      const baseLabel = baseLabels[baseType] || baseType.toUpperCase();
+      return `${baseLabel} (${subtype.toUpperCase()})`;
+    }
+
+    const typeLabels = {
+      img: 'IMAGE',
+      video: 'VIDEO',
+      'video-source': 'VIDEO SOURCE',
+      link: 'LINK',
+      background: 'BACKGROUND',
+    };
+    return typeLabels[media.type] || media.type.toUpperCase();
+  }
+
+  const mediaUrl = media.url || '';
+  const ext = extractFileExtension(mediaUrl);
+  if (IMAGE_EXTENSIONS.includes(ext)) return 'IMAGE';
+  if (ext === 'mp4') return 'VIDEO';
+  if (ext === 'pdf') return 'DOCUMENT';
+  return 'UNKNOWN';
+}
+
+export function isMediaFile(ext) {
+  let cleanExt = ext;
+  if (cleanExt && cleanExt.startsWith('.')) {
+    cleanExt = cleanExt.substring(1);
+  }
+  const lowerExt = cleanExt?.toLowerCase();
+  return MEDIA_EXTENSIONS.includes(lowerExt);
+}
+
+export { isSvgFile, extractFileExtension };
+
+// ============================================================================
+// VIDEO UTILITIES
+// ============================================================================
+
+export function getVideoThumbnail(videoUrl) {
+  if (!videoUrl) return null;
+
+  const youtubeMatch = videoUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/);
+  if (youtubeMatch) {
+    return `https://img.youtube.com/vi/${youtubeMatch[1]}/maxresdefault.jpg`;
+  }
+
+  const vimeoMatch = videoUrl.match(/vimeo\.com\/(\d+)/);
+  if (vimeoMatch) {
+    const videoId = vimeoMatch[1];
+    return `https://i.vimeocdn.com/video/${videoId}_640.jpg`;
+  }
+
+  const dailymotionMatch = videoUrl.match(/(?:dailymotion\.com\/video\/|dai\.ly\/)([^&\n?#]+)/);
+  if (dailymotionMatch) {
+    const videoId = dailymotionMatch[1];
+    return `https://www.dailymotion.com/thumbnail/video/${videoId}`;
+  }
+
+  const dynamicMediaMatch = videoUrl.match(/(scene7\.com\/is\/content\/[^?]+)/);
+  if (dynamicMediaMatch) {
+    return `${dynamicMediaMatch[1]}?fmt=jpeg&wid=300&hei=200`;
+  }
+
+  const marketingMatch = videoUrl.match(/(marketing\.adobe\.com\/is\/content\/[^?]+)/);
+  if (marketingMatch) {
+    return `${marketingMatch[1]}?fmt=jpeg&wid=300&hei=200`;
+  }
+
+  return null;
+}
+
+export function isExternalVideoUrl(url) {
+  if (!url) return false;
+
+  const supportedPatterns = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/)/,
+    /vimeo\.com\/(\d+)/,
+    /(?:dailymotion\.com\/video\/|dai\.ly\/)/,
+    /scene7\.com\/is\/content\//,
+    /marketing\.adobe\.com\/is\/content\//,
+  ];
+
+  return supportedPatterns.some((pattern) => pattern.test(url));
+}
+
+export const EXIF_JS_URL = 'https://cdn.jsdelivr.net/npm/exif-js';
+
+// ============================================================================
+// CORE UTILITIES
+// ============================================================================
 
 export function createHash(str) {
   // Use a more robust hash algorithm
@@ -272,3 +423,96 @@ export async function updateDocumentAltText(org, repo, docPath, mediaUrl, altTex
     throw new Error('Failed to save document');
   }
 }
+
+// ============================================================================
+// SHARED UTILITIES
+// ============================================================================
+
+export async function createSheet(data, type = 'sheet') {
+  const sheetMeta = {
+    total: data.length,
+    limit: data.length,
+    offset: 0,
+    data,
+    ':type': type,
+  };
+  const blob = new Blob([JSON.stringify(sheetMeta, null, 2)], { type: 'application/json' });
+  const formData = new FormData();
+  formData.append('data', blob);
+  return formData;
+}
+
+export function splitPathParts(fullPath) {
+  const pathParts = fullPath.split('/').filter(Boolean);
+  const relativePathParts = pathParts.slice(2);
+  return { pathParts, relativePathParts };
+}
+
+// URL path extraction utilities
+export function getFileName(url) {
+  try {
+    const urlObj = new URL(url);
+    const { pathname } = urlObj;
+    return pathname.split('/').pop() || '';
+  } catch {
+    return url.split('/').pop() || '';
+  }
+}
+
+export function extractRelativePath(fullPath) {
+  if (!fullPath) return fullPath;
+
+  const pathParts = fullPath.split('/').filter(Boolean);
+  if (pathParts.length >= 2) {
+    return `/${pathParts.slice(2).join('/')}`;
+  }
+  return fullPath;
+}
+
+export function getDisplayName(fullPath) {
+  if (!fullPath) return '';
+
+  // Extract just the filename from the path
+  const pathParts = fullPath.split('/').filter(Boolean);
+  const fileName = pathParts[pathParts.length - 1];
+
+  // Remove file extension for cleaner display
+  return fileName.replace(/\.[^/.]+$/, '');
+}
+
+// File type detection utilities
+export function isImage(url) {
+  const ext = extractFileExtension(url);
+  return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'avif'].includes(ext);
+}
+
+export function isVideo(url) {
+  const ext = extractFileExtension(url);
+  return ['mp4', 'webm', 'mov', 'avi'].includes(ext);
+}
+
+export function isPdf(url) {
+  const ext = extractFileExtension(url);
+  return ext === 'pdf';
+}
+
+// Content environment detection
+export const DA_CONTENT_ENVS = {
+  local: 'http://localhost:8788',
+  stage: 'https://stage-content.da.live',
+  prod: 'https://content.da.live',
+};
+
+export function getContentEnv(location, key, envs) {
+  const { href } = location;
+  const query = new URL(href).searchParams.get(key);
+  if (query && query === 'reset') {
+    localStorage.removeItem(key);
+  } else if (query) {
+    localStorage.setItem(key, query);
+  }
+  const env = envs[localStorage.getItem(key) || 'prod'];
+  return location.origin === 'https://da.page' ? env.replace('.live', '.page') : env;
+}
+
+export const CONTENT_ORIGIN = (() => getContentEnv(window.location, 'da-content', DA_CONTENT_ENVS))();

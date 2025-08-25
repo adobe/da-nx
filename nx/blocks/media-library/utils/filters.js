@@ -1,4 +1,4 @@
-import { getMediaType, isSvgFile } from './types.js';
+import { getMediaType, isSvgFile } from './utils.js';
 
 // Filter configuration - easy to maintain and extend
 export const FILTER_CONFIG = {
@@ -275,12 +275,6 @@ export function processMediaData(mediaData) {
 
   // 6. Calculate folder counts after building hierarchy
   calculateFolderCounts(folderHierarchy, mediaData);
-
-  // Debug logs
-  console.log('=== PROCESSED DATA DEBUG ===');
-  console.log('Folder hierarchy:', folderHierarchy);
-  console.log('Usage map:', usageMap);
-  console.log('Media data sample:', mediaData.slice(0, 3));
 
   // Sort search suggestions by relevance
   searchSuggestions.sort((a, b) => {

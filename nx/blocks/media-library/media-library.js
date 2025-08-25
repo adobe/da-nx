@@ -1,10 +1,10 @@
 import { html, LitElement } from 'da-lit';
 import getStyle from '../../utils/styles.js';
 import getSvg from '../../public/utils/svg.js';
-import runScan, { checkMediaJsonModified } from './utils/scanning.js';
+import runScan, { checkMediaSheetModified } from './utils/processing.js';
 import { copyMediaToClipboard } from './utils/utils.js';
-import { loadMediaJson } from './utils/storage.js';
-import { getDocumentMediaBreakdown, aggregateMediaData } from './utils/stats.js';
+import { loadMediaSheet } from './utils/processing.js';
+import { getDocumentMediaBreakdown, aggregateMediaData } from './utils/processing.js';
 import { applyFilter, processMediaData, filterBySearch } from './utils/filters.js';
 import '../../public/sl/components.js';
 import './views/topbar/topbar.js';
@@ -162,7 +162,7 @@ class NxMediaLibrary extends LitElement {
 
   get filteredMediaData() {
     // Always recalculate when accessed
-    this._calculateFilteredMediaData();
+    this.calculateFilteredMediaData();
     return this._filteredMediaData || [];
   }
 
@@ -197,7 +197,7 @@ class NxMediaLibrary extends LitElement {
   // DATA PROCESSING METHODS
   // ============================================================================
 
-  _calculateFilteredMediaData() {
+  calculateFilteredMediaData() {
     if (!this._mediaData) {
       this._filteredMediaData = [];
       return;
@@ -210,10 +210,15 @@ class NxMediaLibrary extends LitElement {
 
     if (this._folderFilterPaths.length > 0) {
       const hasMatchingPath = (item) => {
+        // Skip folder filtering for items with no document path
+        if (!item.doc || !item.doc.trim()) {
+          return true;
+        }
+
         const matches = this._folderFilterPaths.some(
           (path) => {
             // Normalize paths for comparison
-            const itemPath = item.doc ? item.doc.replace(/^\//, '') : '';
+            const itemPath = item.doc.replace(/^\//, '');
             const filterPath = path.replace(/^\//, '');
             return itemPath.startsWith(filterPath);
           },
@@ -256,7 +261,7 @@ class NxMediaLibrary extends LitElement {
         const [org, repo] = this.sitePath.split('/').slice(1, 3);
         if (org && repo) {
           // Check if media.json has been modified before loading
-          const { hasChanged } = await checkMediaJsonModified(org, repo);
+          const { hasChanged } = await checkMediaSheetModified(org, repo);
 
           if (hasChanged) {
             await this.loadMediaData(org, repo);
@@ -343,7 +348,7 @@ class NxMediaLibrary extends LitElement {
 
   async loadMediaData(org, repo) {
     try {
-      const mediaData = await loadMediaJson(org, repo);
+      const mediaData = await loadMediaSheet(org, repo);
 
       if (mediaData === null) {
         // Media.json unchanged, keeping existing data
@@ -440,6 +445,11 @@ class NxMediaLibrary extends LitElement {
   }
 
   renderCurrentView() {
+    // Prevent components from rendering before data loads
+    if (!this._mediaData) {
+      return html``;
+    }
+
     switch (this._currentView) {
       case 'list':
         return html`
@@ -469,7 +479,7 @@ class NxMediaLibrary extends LitElement {
   // EVENT HANDLERS - SEARCH & FILTERING
   // ============================================================================
 
-  _clearSearchQuery() {
+  clearSearchQuery() {
     if (this._searchQuery) {
       this._searchQuery = '';
     }
@@ -508,7 +518,7 @@ class NxMediaLibrary extends LitElement {
   handleFilter(e) {
     this._selectedFilterType = e.detail.type;
     this._needsFilterRecalculation = true;
-    this._clearSearchQuery();
+    this.clearSearchQuery();
   }
 
   // ============================================================================
@@ -567,7 +577,7 @@ class NxMediaLibrary extends LitElement {
     this._folderFilterPaths = paths;
     this._needsFilterRecalculation = true;
     this._folderOpen = false;
-    this._clearSearchQuery();
+    this.clearSearchQuery();
   }
 
   handleFolderDialogClose() {
@@ -578,13 +588,13 @@ class NxMediaLibrary extends LitElement {
     const { paths } = e.detail;
     this._folderFilterPaths = paths;
     this._needsFilterRecalculation = true;
-    this._clearSearchQuery();
+    this.clearSearchQuery();
   }
 
   handleClearFolderFilter() {
     this._folderFilterPaths = [];
     this._needsFilterRecalculation = true;
-    this._clearSearchQuery();
+    this.clearSearchQuery();
     const folderDialog = this.shadowRoot.querySelector('nx-media-folder-dialog');
     if (folderDialog) {
       folderDialog.selectedPaths = new Set();
@@ -594,7 +604,7 @@ class NxMediaLibrary extends LitElement {
   handleClearDocumentFilter() {
     this._folderFilterPaths = [];
     this._needsFilterRecalculation = true;
-    this._clearSearchQuery();
+    this.clearSearchQuery();
     const folderDialog = this.shadowRoot.querySelector('nx-media-folder-dialog');
     if (folderDialog) {
       folderDialog.selectedPaths = new Set();
@@ -605,7 +615,7 @@ class NxMediaLibrary extends LitElement {
     const { type } = e.detail;
     this._selectedFilterType = type;
     this._needsFilterRecalculation = true;
-    this._clearSearchQuery();
+    this.clearSearchQuery();
   }
 
   // ============================================================================

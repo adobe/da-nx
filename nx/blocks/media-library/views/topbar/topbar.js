@@ -69,6 +69,23 @@ class NxMediaTopBar extends LitElement {
     this.shadowRoot.adoptedStyleSheets = [sl, slComponents, styles];
 
     getSvg({ parent: this.shadowRoot, paths: ICONS });
+    
+    // Add click outside handler to hide suggestions
+    this.handleOutsideClick = this.handleOutsideClick.bind(this);
+    document.addEventListener('click', this.handleOutsideClick);
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    document.removeEventListener('click', this.handleOutsideClick);
+  }
+
+  handleOutsideClick(e) {
+    // Hide suggestions if clicking outside the search container
+    if (!this.shadowRoot.querySelector('.search-container').contains(e.target)) {
+      this._suggestions = [];
+      this._activeIndex = -1;
+    }
   }
 
   handleSearchInput(e) {
@@ -197,20 +214,20 @@ class NxMediaTopBar extends LitElement {
         <div class="scanning-indicator">
           <div class="spinner"></div>
           <span class="scanning-text">
-            Scanning... ${this.scanProgress?.pages || 0} pages, ${this.scanProgress?.media || 0} media files
+            Scanning ${this.scanProgress?.pages || 0} pages, ${this.scanProgress?.media || 0} media files
           </span>
         </div>
       `;
     }
 
     if (this.scanProgress?.duration) {
-      const durationText = ` (${this.scanProgress.duration})`;
+      const durationText = ` in ${this.scanProgress.duration}`;
 
       if (this.scanProgress.hasChanges === false) {
         return html`
           <div class="scanning-indicator completed no-changes">
             <span class="scanning-text">
-              No changes found${durationText}
+              Scan Completed${durationText}. No Changes Found.
             </span>
           </div>
         `;
@@ -219,7 +236,7 @@ class NxMediaTopBar extends LitElement {
       return html`
         <div class="scanning-indicator completed">
           <span class="scanning-text">
-            ${this.scanProgress?.pages || 0} pages, ${this.scanProgress?.media || 0} media files${durationText}
+            Scanned ${this.scanProgress?.pages || 0} pages, ${this.scanProgress?.media || 0} media files${durationText}
           </span>
         </div>
       `;

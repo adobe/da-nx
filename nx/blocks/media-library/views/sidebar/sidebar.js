@@ -1,5 +1,6 @@
 import { html, LitElement } from 'da-lit';
 import getStyle from '../../../../utils/styles.js';
+import { getDisplayName } from '../../utils/utils.js';
 
 const styles = await getStyle(import.meta.url);
 
@@ -44,17 +45,6 @@ class NxMediaSidebar extends LitElement {
 
   get mediaCounts() {
     return this.filterCounts || {};
-  }
-
-  getDisplayName(fullPath) {
-    if (!fullPath) return '';
-
-    // Extract just the filename from the path
-    const pathParts = fullPath.split('/').filter(Boolean);
-    const fileName = pathParts[pathParts.length - 1];
-
-    // Remove file extension for cleaner display
-    return fileName.replace(/\.[^/.]+$/, '');
   }
 
   handleDocumentFilter(e) {
@@ -158,7 +148,7 @@ class NxMediaSidebar extends LitElement {
             </div>
             <div class="document-info">
               <div class="document-name" title="${this.selectedDocument}">
-                ${this.getDisplayName(this.selectedDocument)}
+                ${getDisplayName(this.selectedDocument)}
               </div>
             </div>
             <ul class="filter-list">
