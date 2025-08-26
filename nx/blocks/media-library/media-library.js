@@ -310,6 +310,12 @@ class NxMediaLibrary extends LitElement {
       // Only reload data if the scan found actual changes
       if (result.hasChanges) {
         await this.loadMediaData(org, repo);
+        
+        // Reset polling cycle after loading data to prevent duplicate calls
+        if (this._pollingInterval) {
+          clearInterval(this._pollingInterval);
+          this.startPolling();
+        }
       }
     } catch (error) {
       if (error.message && error.message.includes('Scan already in progress')) {
@@ -409,7 +415,7 @@ class NxMediaLibrary extends LitElement {
           <nx-media-folder-dialog
             .isOpen=${this._folderOpen}
             .selectedPaths=${this._folderFilterPaths}
-            .folderHierarchy=${this._processedData?.folderHierarchy || new Map()}
+            .mediaData=${this._mediaData}
             @close=${this.handleFolderDialogClose}
             @apply=${this.handleFolderFilterApply}
             @filterChange=${this.handleFolderFilterChange}

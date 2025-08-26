@@ -2,6 +2,7 @@ import { html, LitElement } from 'da-lit';
 import getStyle from '../../../../utils/styles.js';
 import getSvg from '../../../../public/utils/svg.js';
 import { getDisplayName } from '../../utils/utils.js';
+import { buildCompleteFolderHierarchy } from '../../utils/folder-utils.js';
 
 const styles = await getStyle(import.meta.url);
 const nx = `${new URL(import.meta.url).origin}/nx`;
@@ -14,7 +15,7 @@ class NxMediaFolderDialog extends LitElement {
   static properties = {
     isOpen: { attribute: false },
     selectedPaths: { attribute: false },
-    folderHierarchy: { attribute: false },
+    mediaData: { attribute: false },
   };
 
   constructor() {
@@ -22,7 +23,8 @@ class NxMediaFolderDialog extends LitElement {
     this.isOpen = false;
     this._selectedPaths = new Set();
     this._expandedFolders = new Set();
-    this.folderHierarchy = new Map();
+    this._folderHierarchy = new Map();
+    this._hierarchyBuilt = false;
   }
 
   // Ensure selectedPaths is always a Set
@@ -53,11 +55,23 @@ class NxMediaFolderDialog extends LitElement {
   updated(changedProperties) {
     super.updated(changedProperties);
 
+    // Build folder hierarchy when dialog opens and mediaData is available
+    if (changedProperties.has('isOpen') && this.isOpen && this.mediaData && !this._hierarchyBuilt) {
+      this.buildFolderHierarchy();
+    }
+
     // Auto-expand to show selected paths when they change or when dialog opens
     if ((changedProperties.has('selectedPaths') && this.selectedPaths.size > 0)
         || (changedProperties.has('isOpen') && this.isOpen && this.selectedPaths.size > 0)) {
       this.expandToSelectedPaths();
     }
+  }
+
+  buildFolderHierarchy() {
+    if (!this.mediaData || this._hierarchyBuilt) return;
+
+    this._folderHierarchy = buildCompleteFolderHierarchy(this.mediaData);
+    this._hierarchyBuilt = true;
   }
 
   // NEW METHOD
@@ -101,14 +115,14 @@ class NxMediaFolderDialog extends LitElement {
   }
 
   get hierarchyData() {
-    if (!this.folderHierarchy || this.folderHierarchy.size === 0) {
+    if (!this._folderHierarchy || this._folderHierarchy.size === 0) {
       return [];
     }
 
     // Build hierarchical structure - only show root level items
     const rootItems = [];
 
-    this.folderHierarchy.forEach((folder) => {
+    this._folderHierarchy.forEach((folder) => {
       // Only add items that don't have a parent (root level)
       if (!folder.parent) {
         const itemWithExpansion = {
@@ -374,7 +388,7 @@ class NxMediaFolderDialog extends LitElement {
 
       // Get all child items from the hierarchy
       const childItems = childPaths.map((path) => {
-        const found = this.folderHierarchy.get(path);
+        const found = this._folderHierarchy.get(path);
         if (found) {
           // Ensure child items have the isExpanded property set
           return {
