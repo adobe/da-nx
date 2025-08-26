@@ -156,8 +156,8 @@ export const staticTemplates = {
   // Empty state templates
   emptyState: html`
     <div class="empty-state">
-      <h2>No Results Found</h2>
-      <div class="spinner"></div>
+      <h2>Discovering media usages...</h2>
+      <p>Media files will appear here once discovered.</p>
     </div>
   `,
 
@@ -315,23 +315,6 @@ export const listTemplates = {
     </main>
   `,
 
-  // Empty state templates
-  emptyState: (isScanning = false) => {
-    if (isScanning) {
-      return html`
-        <div class="empty-state">
-          <h2>Scanning in progress...</h2>
-          <p>Please wait while we discover media files on your site.</p>
-        </div>
-      `;
-    }
-    return html`
-      <div class="empty-state">
-        <h2>No Results Found</h2>
-        <p>Try adjusting your filters or search criteria.</p>
-      </div>
-    `;
-  },
 };
 
 // ============================================================================

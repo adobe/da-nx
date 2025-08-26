@@ -29,7 +29,6 @@ class NxMediaSidebar extends LitElement {
 
   updated(changedProperties) {
     super.updated(changedProperties);
-    // No longer needed - using activeFilter directly
   }
 
   handleFilter(e) {

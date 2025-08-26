@@ -1,7 +1,7 @@
 import { LitElement } from 'da-lit';
 import getStyle from '../../../../utils/styles.js';
 import getSvg from '../../../../public/utils/svg.js';
-import { getVideoThumbnail, isExternalVideoUrl } from '../../utils/utils.js';
+import { getVideoThumbnail, isExternalVideoUrl, isImage } from '../../utils/utils.js';
 import '../../../../public/sl/components.js';
 import {
   SCROLL_CONSTANTS,
@@ -10,9 +10,11 @@ import {
   throttleScroll,
   createMediaEventHandlers,
   measurePerformance,
+  staticTemplates,
+  listTemplates,
+  handlerFactories,
+  helperFactories,
 } from '../../utils/templates.js';
-import { isImage } from '../../utils/utils.js';
-import { listTemplates, handlerFactories, helperFactories } from '../../utils/templates.js';
 
 const styles = await getStyle(import.meta.url);
 const nx = `${new URL(import.meta.url).origin}/nx`;
@@ -156,7 +158,7 @@ class NxMediaList extends LitElement {
 
   render() {
     if (!this.mediaData || this.mediaData.length === 0) {
-      return listTemplates.emptyState(this.isScanning);
+      return staticTemplates.emptyState;
     }
 
     const totalHeight = this.mediaData.length * this.itemHeight;

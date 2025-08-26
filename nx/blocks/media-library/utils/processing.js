@@ -365,32 +365,6 @@ export function getAvailableSubtypes(mediaData, activeFilter = 'links') {
     .sort((a, b) => a.subtype.localeCompare(b.subtype));
 }
 
-export function aggregateMediaData(mediaData) {
-  if (!mediaData) return [];
-
-  const aggregatedMedia = new Map();
-  mediaData.forEach((item) => {
-    const mediaUrl = item.url;
-    if (!aggregatedMedia.has(mediaUrl)) {
-      aggregatedMedia.set(mediaUrl, {
-        ...item,
-        mediaUrl,
-        usageCount: 0,
-        isUsed: false,
-      });
-    }
-    const aggregated = aggregatedMedia.get(mediaUrl);
-
-    // Only increment usage count if there's a valid document path
-    if (item.doc && item.doc.trim()) {
-      aggregated.usageCount += 1;
-      aggregated.isUsed = true;
-    }
-  });
-
-  return Array.from(aggregatedMedia.values());
-}
-
 // ============================================================================
 // MEDIA SCANNING FUNCTIONS
 // ============================================================================
@@ -555,7 +529,7 @@ export async function removeScanLock(org, repo) {
   return daFetch(`${DA_ORIGIN}/source${path}`, { method: 'DELETE' });
 }
 
-export default async function runScan(path, updateTotal, onMediaItemFound) {
+export default async function runScan(path, updateTotal) {
   // Extract org and repo from path (format: /{org}/{repo})
   const pathParts = path.split('/').filter((part) => part);
   const org = pathParts[0];
@@ -584,11 +558,11 @@ export default async function runScan(path, updateTotal, onMediaItemFound) {
 
   // Load existing lastModified data for change detection
   const lastModifiedMap = await loadAllLastModifiedData(org, repo);
-  
+
   console.log('📋 LastModified map loaded:', {
     mapSize: lastModifiedMap.size,
     isFirstScan: lastModifiedMap.size === 0,
-    sampleEntries: Array.from(lastModifiedMap.entries()).slice(0, 3)
+    sampleEntries: Array.from(lastModifiedMap.entries()).slice(0, 3),
   });
 
   const mediaInUse = new Set();
@@ -624,11 +598,6 @@ export default async function runScan(path, updateTotal, onMediaItemFound) {
           mediaItems.forEach((mediaItem) => {
             mediaInUse.add(mediaItem.url);
             allMediaUsage.push(mediaItem);
-            
-            // Call the media item found callback for real-time filter counting
-            if (onMediaItemFound) {
-              onMediaItemFound(mediaItem);
-            }
           });
         }
       } catch (error) {
@@ -652,13 +621,8 @@ export default async function runScan(path, updateTotal, onMediaItemFound) {
           ctx: 'file',
           hash,
         };
-        
+
         unusedMedia.push(unusedMediaItem);
-        
-        // Call the media item found callback for real-time filter counting
-        if (onMediaItemFound) {
-          onMediaItemFound(unusedMediaItem);
-        }
       }
     }
 
@@ -674,11 +638,11 @@ export default async function runScan(path, updateTotal, onMediaItemFound) {
 
   const { results, getDuration } = crawl({ path, callback });
   await results;
-  
+
   console.log('🔍 Crawl completed:', {
     totalCrawlItems: allCrawlItems.length,
     totalMediaUsage: allMediaUsage.length,
-    totalUnusedMedia: unusedMedia.length
+    totalUnusedMedia: unusedMedia.length,
   });
 
   // Process results and save to media.json
@@ -774,7 +738,7 @@ export default async function runScan(path, updateTotal, onMediaItemFound) {
   console.log('📁 Grouped files:', {
     rootFiles: rootFiles.length,
     folderFiles: Object.keys(folderFiles).length,
-    totalCrawlItems: allCrawlItems.length
+    totalCrawlItems: allCrawlItems.length,
   });
 
   // Always save lastModified data files during scan (simplified approach)
@@ -817,5 +781,9 @@ export default async function runScan(path, updateTotal, onMediaItemFound) {
   await removeScanLock(org, repo);
 
   const duration = getDuration();
-  return { duration: `${duration}s`, hasChanges: hasActualChanges };
+  return {
+    duration: `${duration}s`,
+    hasChanges: hasActualChanges,
+    mediaData: hasActualChanges ? mediaDataWithCount : null,
+  };
 }

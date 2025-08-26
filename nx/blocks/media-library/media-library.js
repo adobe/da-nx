@@ -1,9 +1,9 @@
 import { html, LitElement } from 'da-lit';
 import getStyle from '../../utils/styles.js';
 import getSvg from '../../public/utils/svg.js';
-import runScan, { checkMediaSheetModified, loadMediaSheet, getDocumentMediaBreakdown, aggregateMediaData } from './utils/processing.js';
-import { copyMediaToClipboard, getMediaType, isSvgFile } from './utils/utils.js';
-import { applyFilter, processMediaData, filterBySearch } from './utils/filters.js';
+import runScan, { checkMediaSheetModified, loadMediaSheet, getDocumentMediaBreakdown } from './utils/processing.js';
+import { copyMediaToClipboard } from './utils/utils.js';
+import { processMediaData, calculateFilteredMediaData } from './utils/filters.js';
 import '../../public/sl/components.js';
 import './views/topbar/topbar.js';
 import './views/sidebar/sidebar.js';
@@ -75,26 +75,6 @@ class NxMediaLibrary extends LitElement {
     this.scanProgress = { pages: 0, media: 0, duration: null, hasChanges: null };
     this._isScanning = false;
 
-    // Real-time scan filter counts
-    this._scanFilterCounts = {
-      images: 0,
-      videos: 0,
-      documents: 0,
-      links: 0,
-      icons: 0,
-      used: 0,
-      unused: 0,
-      missingAlt: 0,
-      documentImages: 0,
-      documentIcons: 0,
-      documentVideos: 0,
-      documentDocuments: 0,
-      documentLinks: 0,
-      documentMissingAlt: 0,
-      documentTotal: 0,
-      all: 0,
-    };
-    this._usingScanCounts = false;
     this._filterCounts = {}; // Make this reactive
   }
 
@@ -113,95 +93,6 @@ class NxMediaLibrary extends LitElement {
     if (this._messageTimeout) {
       clearTimeout(this._messageTimeout);
     }
-  }
-
-  // ============================================================================
-  // SCAN-TIME FILTER COUNTING
-  // ============================================================================
-
-  updateScanFilterCounts(mediaItem) {
-    if (!this._isScanning) return;
-
-    console.log('🔍 Scan callback called for:', mediaItem.name || mediaItem.url);
-
-    // Cache expensive operations once per item
-    const { isUsed, alt, doc, type } = mediaItem;
-    const mediaType = getMediaType(mediaItem);
-    const isSvg = isSvgFile(mediaItem);
-    const hasAlt = alt && alt.trim();
-    const isImage = mediaType === 'image' || mediaType === 'img';
-    const isInDocument = doc && doc.trim();
-
-    // Update filter counts (same logic as processMediaData)
-    if (isImage && !isSvg) {
-      this._scanFilterCounts.images += 1;
-      if (isInDocument) this._scanFilterCounts.documentImages += 1;
-      if (!hasAlt && type?.startsWith('img >')) {
-        this._scanFilterCounts.missingAlt += 1;
-        if (isInDocument) this._scanFilterCounts.documentMissingAlt += 1;
-      }
-    }
-
-    if (isSvg) {
-      this._scanFilterCounts.icons += 1;
-      if (isInDocument) this._scanFilterCounts.documentIcons += 1;
-    }
-
-    if (mediaType === 'video') {
-      this._scanFilterCounts.videos += 1;
-      if (isInDocument) this._scanFilterCounts.documentVideos += 1;
-    }
-
-    if (mediaType === 'document') {
-      this._scanFilterCounts.documents += 1;
-      if (isInDocument) this._scanFilterCounts.documentDocuments += 1;
-    }
-
-    if (mediaType === 'link') {
-      this._scanFilterCounts.links += 1;
-      if (isInDocument) this._scanFilterCounts.documentLinks += 1;
-    }
-
-    // Usage filters
-    if (isUsed) {
-      this._scanFilterCounts.used += 1;
-    } else {
-      this._scanFilterCounts.unused += 1;
-    }
-
-    // All filter (excludes SVGs)
-    if (!isSvg) {
-      this._scanFilterCounts.all += 1;
-    }
-
-    // Document total (no filtering)
-    if (isInDocument) {
-      this._scanFilterCounts.documentTotal += 1;
-    }
-
-    // Mark that we're using scan counts
-    this._usingScanCounts = true;
-    
-    // Log the updated counts
-    console.log('📊 Scan counts updated:', {
-      images: this._scanFilterCounts.images,
-      videos: this._scanFilterCounts.videos,
-      all: this._scanFilterCounts.all
-    });
-    
-    // Update sidebar directly without triggering main component re-render
-    const sidebarElement = this.shadowRoot.querySelector('nx-media-sidebar');
-    if (sidebarElement) {
-      sidebarElement.filterCounts = { ...this._scanFilterCounts };
-      sidebarElement.requestUpdate();
-    }
-  }
-
-  resetScanFilterCounts() {
-    Object.keys(this._scanFilterCounts).forEach((key) => {
-      this._scanFilterCounts[key] = 0;
-    });
-    this._usingScanCounts = false;
   }
 
   // ============================================================================
@@ -224,18 +115,17 @@ class NxMediaLibrary extends LitElement {
     return hasDataChange || hasFilterChange || hasUIChange;
   }
 
-    willUpdate(changedProperties) {
+  willUpdate(changedProperties) {
     // Single-pass data processing when media data changes (only when not scanning)
     if (changedProperties.has('_mediaData') && this._mediaData && !this._isScanning) {
       const processingStart = performance.now();
       this._processedData = processMediaData(this._mediaData);
       const processingTime = performance.now() - processingStart;
-      
+
       console.log(`🔧 Processing time: ${processingTime.toFixed(2)}ms`);
-      
+
       this._needsFilterRecalculation = true;
       this._needsFilterUpdate = true;
-      this._usingScanCounts = false; // Switch to processed counts
     }
 
     // Prepare filter recalculation for search/filter changes
@@ -284,7 +174,12 @@ class NxMediaLibrary extends LitElement {
   get filteredMediaData() {
     // Always recalculate when accessed
     const filteringStart = performance.now();
-    this.calculateFilteredMediaData();
+    this._filteredMediaData = calculateFilteredMediaData(
+      this._mediaData,
+      this._selectedFilterType,
+      this._folderFilterPaths,
+      this._searchQuery,
+    );
     const filteringTime = performance.now() - filteringStart;
 
     console.log(`🎯 Filtering time: ${filteringTime.toFixed(2)}ms`);
@@ -323,84 +218,11 @@ class NxMediaLibrary extends LitElement {
   // DATA PROCESSING METHODS
   // ============================================================================
 
-  calculateFilteredMediaData() {
-    if (!this._mediaData) {
-      this._filteredMediaData = [];
-      return;
-    }
-
-    const aggregateStart = performance.now();
-    let filtered = aggregateMediaData(this._mediaData);
-    const aggregateTime = performance.now() - aggregateStart;
-    console.log(`📦 Aggregate time: ${aggregateTime.toFixed(2)}ms`);
-
-    const filterStart = performance.now();
-    // Apply filter using configuration
-    filtered = applyFilter(filtered, this._selectedFilterType);
-    const filterTime = performance.now() - filterStart;
-    console.log(`🎛️ Filter apply time: ${filterTime.toFixed(2)}ms`);
-
-    if (this._folderFilterPaths.length > 0) {
-      const folderFilterStart = performance.now();
-      const hasMatchingPath = (item) => {
-        // Skip folder filtering for items with no document path
-        if (!item.doc || !item.doc.trim()) {
-          return true;
-        }
-
-        const matches = this._folderFilterPaths.some(
-          (path) => {
-            // Normalize paths for comparison
-            const itemPath = item.doc.replace(/^\//, '');
-            const filterPath = path.replace(/^\//, '');
-            return itemPath.startsWith(filterPath);
-          },
-        );
-        return matches;
-      };
-
-      filtered = filtered.filter(hasMatchingPath);
-      const folderFilterTime = performance.now() - folderFilterStart;
-      console.log(`📁 Folder filter time: ${folderFilterTime.toFixed(2)}ms`);
-    }
-
-    // Apply search filter using consolidated logic
-    if (this._searchQuery && this._searchQuery.trim()) {
-      const searchFilterStart = performance.now();
-      filtered = filterBySearch(filtered, this._searchQuery);
-      const searchFilterTime = performance.now() - searchFilterStart;
-      console.log(`🔎 Search filter time: ${searchFilterTime.toFixed(2)}ms`);
-    }
-
-    const sortStart = performance.now();
-    filtered.sort((a, b) => {
-      // Sort by recently used first, then alphabetical
-      const lastUsedA = new Date(a.lastUsedAt || 0);
-      const lastUsedB = new Date(b.lastUsedAt || 0);
-      const timeDiff = lastUsedB - lastUsedA;
-
-      if (timeDiff !== 0) return timeDiff;
-
-      // Fallback to alphabetical
-      const nameA = (a.name || '').toLowerCase();
-      const nameB = (b.name || '').toLowerCase();
-      return nameA.localeCompare(nameB);
-    });
-    const sortTime = performance.now() - sortStart;
-    console.log(`📋 Sort time: ${sortTime.toFixed(2)}ms`);
-
-    this._filteredMediaData = filtered;
-  }
-
   // ============================================================================
   // FILTER COUNTS GETTER
   // ============================================================================
 
   get filterCounts() {
-    // Use scan counts when scanning, processed counts when not scanning
-    if (this._isScanning && this._usingScanCounts) {
-      return this._scanFilterCounts;
-    }
     return this._processedData?.filterCounts || {};
   }
 
@@ -442,11 +264,14 @@ class NxMediaLibrary extends LitElement {
   async startBackgroundScan(org, repo) {
     this._isScanning = true;
 
+    // Stop polling during scan
+    if (this._pollingInterval) {
+      clearInterval(this._pollingInterval);
+      this._pollingInterval = null;
+    }
+
     // Reset scan progress for new scan
     this.scanProgress = { pages: 0, media: 0, duration: null, hasChanges: null };
-    
-    // Reset scan filter counts for new scan
-    this.resetScanFilterCounts();
 
     // Update topbar directly when scan starts
     const topbarElement = this.shadowRoot.querySelector('nx-media-topbar');
@@ -458,17 +283,26 @@ class NxMediaLibrary extends LitElement {
 
     try {
       const result = await runScan(
-      this.sitePath, 
-      this.updateScanProgress.bind(this),
-      this.updateScanFilterCounts.bind(this)
-    );
+        this.sitePath,
+        this.updateScanProgress.bind(this),
+      );
 
       // Update scan results to show to user
       this.scanProgress.duration = result.duration;
       this.scanProgress.hasChanges = result.hasChanges;
 
-      // Only reload data if the scan found actual changes
-      if (result.hasChanges) {
+      // Use in-memory data directly if scan found changes
+      if (result.hasChanges && result.mediaData) {
+        this._mediaData = result.mediaData;
+        this._needsFilterRecalculation = true;
+        this._needsFilterUpdate = true;
+
+        // Reset polling cycle after loading data to prevent duplicate calls
+        if (this._pollingInterval) {
+          clearInterval(this._pollingInterval);
+          this.startPolling();
+        }
+      } else if (result.hasChanges) {
         await this.loadMediaData(org, repo);
 
         // Reset polling cycle after loading data to prevent duplicate calls
@@ -485,6 +319,12 @@ class NxMediaLibrary extends LitElement {
       }
     } finally {
       this._isScanning = false;
+
+      // Resume polling after scan completes
+      if (!this._pollingInterval) {
+        this.startPolling();
+      }
+
       // Update topbar directly with final scan results
       const finalTopbar = this.shadowRoot.querySelector('nx-media-topbar');
       if (finalTopbar) {
@@ -559,7 +399,6 @@ class NxMediaLibrary extends LitElement {
         </div>
 
         <nx-media-sidebar
-          .mediaData=${this._mediaData}
           .activeFilter=${this._selectedFilterType}
           .selectedDocument=${this.selectedDocument}
           .documentMediaBreakdown=${this.documentMediaBreakdown}

@@ -67,7 +67,6 @@ export function processMediaData(mediaData) {
   });
 
   // Single pass through all media data
-  const filterCountsStart = performance.now();
   mediaData.forEach((item) => {
     // Cache expensive operations once per item
     const { isUsed, alt, doc, type } = item;
@@ -124,12 +123,112 @@ export function processMediaData(mediaData) {
       filterCounts.documentTotal += 1;
     }
   });
-  const filterCountsTime = performance.now() - filterCountsStart;
-  console.log(`📊 Filter counts time: ${filterCountsTime.toFixed(2)}ms`);
 
   // Note: Folder hierarchy and counts moved to folder dialog component for on-demand processing
   // Note: Search suggestions moved to on-demand processing in topbar component
   return { filterCounts };
+}
+
+// ============================================================================
+// MEDIA AGGREGATION
+// ============================================================================
+
+export function aggregateMediaData(mediaData) {
+  if (!mediaData) return [];
+
+  const aggregatedMedia = new Map();
+  mediaData.forEach((item) => {
+    const mediaUrl = item.url;
+    if (!aggregatedMedia.has(mediaUrl)) {
+      aggregatedMedia.set(mediaUrl, {
+        ...item,
+        mediaUrl,
+        usageCount: 0,
+        isUsed: false,
+      });
+    }
+    const aggregated = aggregatedMedia.get(mediaUrl);
+
+    // Only increment usage count if there's a valid document path
+    if (item.doc && item.doc.trim()) {
+      aggregated.usageCount += 1;
+      aggregated.isUsed = true;
+    }
+  });
+
+  return Array.from(aggregatedMedia.values());
+}
+
+// ============================================================================
+// FILTERED MEDIA DATA CALCULATION
+// ============================================================================
+
+export function calculateFilteredMediaData(mediaData, selectedFilterType, folderFilterPaths, searchQuery) {
+  if (!mediaData) {
+    return [];
+  }
+
+  const aggregateStart = performance.now();
+  let filtered = aggregateMediaData(mediaData);
+  const aggregateTime = performance.now() - aggregateStart;
+  console.log(`📦 Aggregate time: ${aggregateTime.toFixed(2)}ms`);
+
+  const filterStart = performance.now();
+  // Apply filter using configuration
+  filtered = applyFilter(filtered, selectedFilterType);
+  const filterTime = performance.now() - filterStart;
+  console.log(`🎛️ Filter apply time: ${filterTime.toFixed(2)}ms`);
+
+  if (folderFilterPaths.length > 0) {
+    const folderFilterStart = performance.now();
+    const hasMatchingPath = (item) => {
+      // Skip folder filtering for items with no document path
+      if (!item.doc || !item.doc.trim()) {
+        return true;
+      }
+
+      const matches = folderFilterPaths.some(
+        (path) => {
+          // Normalize paths for comparison
+          const itemPath = item.doc.replace(/^\//, '');
+          const filterPath = path.replace(/^\//, '');
+          return itemPath.startsWith(filterPath);
+        },
+      );
+      return matches;
+    };
+
+    filtered = filtered.filter(hasMatchingPath);
+    const folderFilterTime = performance.now() - folderFilterStart;
+    console.log(`📁 Folder filter time: ${folderFilterTime.toFixed(2)}ms`);
+  }
+
+  // Apply search filter using consolidated logic
+  if (searchQuery && searchQuery.trim()) {
+    const searchFilterStart = performance.now();
+    filtered = filterBySearch(filtered, searchQuery);
+    const searchFilterTime = performance.now() - searchFilterStart;
+    console.log(`🔎 Search filter time: ${searchFilterTime.toFixed(2)}ms`);
+  }
+
+  const sortStart = performance.now();
+  filtered.sort((a, b) => {
+    // Sort by recently used first, then alphabetical
+    const lastUsedA = new Date(a.lastUsedAt || 0);
+    const lastUsedB = new Date(b.lastUsedAt || 0);
+    const timeDiff = lastUsedB - lastUsedA;
+
+    if (timeDiff !== 0) return timeDiff;
+
+    // Fallback to alphabetical
+    const nameA = (a.name || '').toLowerCase();
+    const nameB = (b.name || '').toLowerCase();
+    return nameA.localeCompare(nameB);
+  });
+  const sortTime = performance.now() - sortStart;
+  console.log(`📋 Sort time: ${sortTime.toFixed(2)}ms`);
+
+  return filtered;
 }
 
 // ============================================================================

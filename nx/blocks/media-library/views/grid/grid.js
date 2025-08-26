@@ -1,7 +1,7 @@
 import { html, LitElement } from 'da-lit';
 import getStyle from '../../../../utils/styles.js';
 import getSvg from '../../../../public/utils/svg.js';
-import { getVideoThumbnail, isExternalVideoUrl } from '../../utils/utils.js';
+import { getVideoThumbnail, isExternalVideoUrl, isImage, isVideo, isPdf } from '../../utils/utils.js';
 import '../../../../public/sl/components.js';
 import {
   SCROLL_CONSTANTS,
@@ -12,9 +12,11 @@ import {
   measurePerformance,
   getMediaName,
   highlightMatch,
+  staticTemplates,
+  gridTemplates,
+  handlerFactories,
+  helperFactories,
 } from '../../utils/templates.js';
-import { isImage, isVideo, isPdf } from '../../utils/utils.js';
-import { staticTemplates, gridTemplates, handlerFactories, helperFactories } from '../../utils/templates.js';
 
 const styles = await getStyle(import.meta.url);
 const nx = `${new URL(import.meta.url).origin}/nx`;

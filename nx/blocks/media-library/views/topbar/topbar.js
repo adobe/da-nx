@@ -69,7 +69,7 @@ class NxMediaTopBar extends LitElement {
     this.shadowRoot.adoptedStyleSheets = [sl, slComponents, styles];
 
     getSvg({ parent: this.shadowRoot, paths: ICONS });
-    
+
     // Add click outside handler to hide suggestions
     this.handleOutsideClick = this.handleOutsideClick.bind(this);
     document.addEventListener('click', this.handleOutsideClick);
@@ -101,7 +101,7 @@ class NxMediaTopBar extends LitElement {
     const colonMatch = q.match(/^(\w+):(.*)$/);
     if (colonMatch) {
       const [, field, value] = colonMatch;
-      
+
       this.mediaData.forEach((item) => {
         switch (field) {
           case 'doc':
@@ -123,6 +123,9 @@ class NxMediaTopBar extends LitElement {
             if (item.url && item.url.toLowerCase().includes(value) && !isSvgFile(item)) {
               suggestions.push(this.createSearchSuggestion(item));
             }
+            break;
+          default:
+            // Handle unknown field types
             break;
         }
       });
@@ -146,9 +149,9 @@ class NxMediaTopBar extends LitElement {
 
       // Check media fields (exclude SVGs)
       if (!isSvgFile(item) && (
-        (item.name && item.name.toLowerCase().includes(q)) ||
-        (item.alt && item.alt.toLowerCase().includes(q)) ||
-        (item.url && item.url.toLowerCase().includes(q))
+        (item.name && item.name.toLowerCase().includes(q))
+          || (item.alt && item.alt.toLowerCase().includes(q))
+          || (item.url && item.url.toLowerCase().includes(q))
       )) {
         suggestions.push(this.createSearchSuggestion(item));
       }
@@ -309,7 +312,7 @@ class NxMediaTopBar extends LitElement {
         <div class="scanning-indicator">
           <div class="spinner"></div>
           <span class="scanning-text">
-            Scanning ${this.scanProgress?.pages || 0} pages, ${this.scanProgress?.media || 0} media files
+            Scanning ${this.scanProgress?.pages || 0} pages, Found ${this.scanProgress?.media || 0} media
           </span>
         </div>
       `;
@@ -322,7 +325,7 @@ class NxMediaTopBar extends LitElement {
         return html`
           <div class="scanning-indicator completed no-changes">
             <span class="scanning-text">
-              Scan Completed${durationText}. No Changes Found.
+              No changes found in${this.scanProgress.duration}
             </span>
           </div>
         `;
@@ -331,7 +334,7 @@ class NxMediaTopBar extends LitElement {
       return html`
         <div class="scanning-indicator completed">
           <span class="scanning-text">
-            Scanned ${this.scanProgress?.pages || 0} pages, ${this.scanProgress?.media || 0} media files${durationText}
+            Found ${this.scanProgress?.media || 0} media${durationText}
           </span>
         </div>
       `;
