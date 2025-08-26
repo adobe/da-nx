@@ -30,7 +30,7 @@ class NxMediaInfo extends LitElement {
   static properties = {
     media: { attribute: false },
     isOpen: { attribute: false },
-    usageData: { attribute: false },
+    mediaData: { attribute: false },
     _activeTab: { state: true },
     _exifData: { state: true },
     _loading: { state: true },
@@ -59,7 +59,7 @@ class NxMediaInfo extends LitElement {
     this._usageData = [];
     this._usageLoading = false;
     this._editingAltUsage = null;
-    this.usageData = [];
+    this.mediaData = [];
     this._pdfBlobUrls = new Map();
   }
 
@@ -90,7 +90,7 @@ class NxMediaInfo extends LitElement {
       this.loadUsageData();
     }
 
-    if (changedProperties.has('usageData') && this.usageData && this.media) {
+    if (changedProperties.has('mediaData') && this.mediaData && this.media) {
       this.loadUsageData();
     }
 
@@ -131,12 +131,19 @@ class NxMediaInfo extends LitElement {
   }
 
   loadUsageData() {
-    if (!this.media || !this.media.url || !this.usageData) return;
+    if (!this.media || !this.media.url || !this.mediaData) return;
 
     this._usageLoading = true;
     try {
-      // Use pre-filtered usage data directly
-      this._usageData = this.usageData || [];
+      // Calculate usage data on-demand from raw media data
+      this._usageData = this.mediaData
+        .filter((item) => item.url === this.media.url && item.doc && item.doc.trim())
+        .map((item) => ({
+          doc: item.doc,
+          alt: item.alt,
+          type: item.type,
+          // Add other usage details as needed
+        }));
 
       // Always show usage tab if there's any data for this media
       // Even if no current usage, show the tab for potential usage

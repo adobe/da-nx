@@ -118,7 +118,12 @@ class NxMediaLibrary extends LitElement {
   willUpdate(changedProperties) {
     // Single-pass data processing when media data changes
     if (changedProperties.has('_mediaData') && this._mediaData) {
+      const processingStart = performance.now();
       this._processedData = processMediaData(this._mediaData);
+      const processingTime = performance.now() - processingStart;
+      
+      console.log(`🔧 Processing time: ${processingTime.toFixed(2)}ms`);
+      
       this._needsFilterRecalculation = true;
       this._needsFilterUpdate = true;
     }
@@ -146,6 +151,12 @@ class NxMediaLibrary extends LitElement {
     if (updateTime > CONFIG.SLOW_UPDATE_THRESHOLD) { // Longer than one frame
       console.warn(`Slow media-library update: ${updateTime.toFixed(2)}ms`, Array.from(changedProperties.keys()));
     }
+    
+    // Track total blocking time
+    if (changedProperties.has('_mediaData')) {
+      console.log(`⏱️ Total blocking time: ${updateTime.toFixed(2)}ms`);
+      console.log('---');
+    }
 
     // Handle post-update side effects
     this.updateComplete.then(() => {
@@ -162,7 +173,12 @@ class NxMediaLibrary extends LitElement {
 
   get filteredMediaData() {
     // Always recalculate when accessed
+    const filteringStart = performance.now();
     this.calculateFilteredMediaData();
+    const filteringTime = performance.now() - filteringStart;
+    
+    console.log(`🎯 Filtering time: ${filteringTime.toFixed(2)}ms`);
+    
     return this._filteredMediaData || [];
   }
 
@@ -203,12 +219,19 @@ class NxMediaLibrary extends LitElement {
       return;
     }
 
+    const aggregateStart = performance.now();
     let filtered = aggregateMediaData(this._mediaData);
+    const aggregateTime = performance.now() - aggregateStart;
+    console.log(`📦 Aggregate time: ${aggregateTime.toFixed(2)}ms`);
 
+    const filterStart = performance.now();
     // Apply filter using configuration
     filtered = applyFilter(filtered, this._selectedFilterType);
+    const filterTime = performance.now() - filterStart;
+    console.log(`🎛️ Filter apply time: ${filterTime.toFixed(2)}ms`);
 
     if (this._folderFilterPaths.length > 0) {
+      const folderFilterStart = performance.now();
       const hasMatchingPath = (item) => {
         // Skip folder filtering for items with no document path
         if (!item.doc || !item.doc.trim()) {
@@ -227,13 +250,19 @@ class NxMediaLibrary extends LitElement {
       };
 
       filtered = filtered.filter(hasMatchingPath);
+      const folderFilterTime = performance.now() - folderFilterStart;
+      console.log(`📁 Folder filter time: ${folderFilterTime.toFixed(2)}ms`);
     }
 
     // Apply search filter using consolidated logic
     if (this._searchQuery && this._searchQuery.trim()) {
+      const searchFilterStart = performance.now();
       filtered = filterBySearch(filtered, this._searchQuery);
+      const searchFilterTime = performance.now() - searchFilterStart;
+      console.log(`🔎 Search filter time: ${searchFilterTime.toFixed(2)}ms`);
     }
 
+    const sortStart = performance.now();
     filtered.sort((a, b) => {
       // Sort by recently used first, then alphabetical
       const lastUsedA = new Date(a.lastUsedAt || 0);
@@ -247,6 +276,8 @@ class NxMediaLibrary extends LitElement {
       const nameB = (b.name || '').toLowerCase();
       return nameA.localeCompare(nameB);
     });
+    const sortTime = performance.now() - sortStart;
+    console.log(`📋 Sort time: ${sortTime.toFixed(2)}ms`);
 
     this._filteredMediaData = filtered;
   }
@@ -426,7 +457,7 @@ class NxMediaLibrary extends LitElement {
           <nx-media-info
             .media=${this._infoModal}
             .isOpen=${true}
-            .usageData=${this._processedData?.usageMap?.get(this._infoModal.url)?.usageDetails || []}
+            .mediaData=${this._mediaData}
             .org=${this.org}
             .repo=${this.repo}
             @close=${this.handleInfoModalClose}

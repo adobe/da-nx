@@ -83,16 +83,12 @@ export function processMediaData(mediaData) {
       filterCounts: {},
       searchSuggestions: [],
       usageMap: new Map(),
-      folderHierarchy: new Map(),
-      mediaTypes: new Set(),
     };
   }
 
   // Initialize collections
   const filterCounts = {};
   const searchSuggestions = [];
-  const usageMap = new Map();
-  const mediaTypes = new Set();
 
   // Initialize filter counts
   Object.keys(FILTER_CONFIG).forEach((filterName) => {
@@ -100,6 +96,7 @@ export function processMediaData(mediaData) {
   });
 
   // Single pass through all media data
+  const filterCountsStart = performance.now();
   mediaData.forEach((item) => {
     // 1. Collect filter counts
     Object.entries(FILTER_CONFIG).forEach(([filterName, filterFn]) => {
@@ -113,40 +110,14 @@ export function processMediaData(mediaData) {
     if (suggestion) {
       searchSuggestions.push(suggestion);
     }
-
-    // 3. Build usage map
-    if (item.url) {
-      if (!usageMap.has(item.url)) {
-        usageMap.set(item.url, {
-          media: item,
-          usageCount: 0,
-          usageDetails: [],
-        });
-      }
-
-      // If this item has a doc property, it's a usage entry
-      if (item.doc && item.doc.trim()) {
-        const usageInfo = usageMap.get(item.url);
-        usageInfo.usageDetails.push(item);
-        usageInfo.usageCount = usageInfo.usageDetails.length;
-      }
-    }
-
-    // 4. Collect document paths (for folder dialog to use later)
-    if (item.doc) {
-      docPaths.add(item.doc);
-    }
-
-    // 5. Collect media types
-    const mediaType = getMediaType(item);
-    if (mediaType) {
-      mediaTypes.add(mediaType);
-    }
   });
+  const filterCountsTime = performance.now() - filterCountsStart;
+  console.log(`📊 Filter counts time: ${filterCountsTime.toFixed(2)}ms`);
 
   // Note: Folder hierarchy and counts moved to folder dialog component for on-demand processing
 
   // Sort search suggestions by relevance
+  const sortStart = performance.now();
   searchSuggestions.sort((a, b) => {
     // Prioritize by usage, then alphabetically
     const aUsed = a.media?.isUsed || false;
@@ -157,14 +128,12 @@ export function processMediaData(mediaData) {
     const bName = (b.display || '').toLowerCase();
     return aName.localeCompare(bName);
   });
+  const sortTime = performance.now() - sortStart;
+  console.log(`🔍 Search suggestions sort time: ${sortTime.toFixed(2)}ms`);
 
   return {
     filterCounts,
     searchSuggestions: searchSuggestions.slice(0, 50), // Limit suggestions
-    usageMap,
-    folderHierarchy: new Map(), // Empty map - folder dialog will build its own
-    docPaths: Array.from(docPaths).sort(),
-    mediaTypes: Array.from(mediaTypes),
   };
 }
 
