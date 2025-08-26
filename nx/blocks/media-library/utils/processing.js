@@ -560,12 +560,6 @@ export default async function runScan(path, updateTotal) {
   // Load existing lastModified data for change detection
   const lastModifiedMap = await loadAllLastModifiedData(org, repo);
 
-  console.log('📋 LastModified map loaded:', {
-    mapSize: lastModifiedMap.size,
-    isFirstScan: lastModifiedMap.size === 0,
-    sampleEntries: Array.from(lastModifiedMap.entries()).slice(0, 3),
-  });
-
   const mediaInUse = new Set();
 
   const callback = async (item) => {
@@ -639,12 +633,6 @@ export default async function runScan(path, updateTotal) {
 
   const { results, getDuration } = crawl({ path, callback });
   await results;
-
-  console.log('🔍 Crawl completed:', {
-    totalCrawlItems: allCrawlItems.length,
-    totalMediaUsage: allMediaUsage.length,
-    totalUnusedMedia: unusedMedia.length,
-  });
 
   // Process results and save to media.json
   const allMediaEntries = [];
@@ -739,21 +727,12 @@ export default async function runScan(path, updateTotal) {
   // Save lastModified data for next scan - only if changed
   const { rootFiles, folderFiles } = groupFilesByFolder(allCrawlItems);
 
-  console.log('📁 Grouped files:', {
-    rootFiles: rootFiles.length,
-    folderFiles: Object.keys(folderFiles).length,
-    totalCrawlItems: allCrawlItems.length,
-  });
-
   // Always save lastModified data files during scan (simplified approach)
   const savePromises = [];
-
-  console.log('💾 Saving all lastModified data files...');
 
   // Always save root files
   if (rootFiles.length > 0) {
     try {
-      console.log('💾 Saving root.json with', rootFiles.length, 'files');
       savePromises.push(saveLastModifiedData(org, repo, 'root', rootFiles));
     } catch (error) {
       console.error('Error saving root.json:', error);
@@ -764,7 +743,6 @@ export default async function runScan(path, updateTotal) {
   for (const [folderName, files] of Object.entries(folderFiles)) {
     if (files.length > 0) {
       try {
-        console.log(`💾 Saving ${folderName}.json with`, files.length, 'files');
         savePromises.push(saveLastModifiedData(org, repo, folderName, files));
       } catch (error) {
         console.error(`Error saving ${folderName}.json:`, error);
@@ -776,7 +754,6 @@ export default async function runScan(path, updateTotal) {
   if (savePromises.length > 0) {
     try {
       await Promise.all(savePromises);
-      console.log('✅ All lastModified data files saved successfully');
     } catch (error) {
       console.error('Error saving lastModified data files:', error);
     }

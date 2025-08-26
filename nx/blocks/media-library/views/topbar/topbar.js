@@ -312,7 +312,7 @@ class NxMediaTopBar extends LitElement {
         <div class="scanning-indicator">
           <div class="spinner"></div>
           <span class="scanning-text">
-            Scanning ${this.scanProgress?.pages || 0} pages, Found ${this.scanProgress?.media || 0} media
+            🔄 ${this.scanProgress?.pages || 0} pages, ${this.scanProgress?.media || 0} media
           </span>
         </div>
       `;

@@ -267,8 +267,9 @@ class NxMediaLibrary extends LitElement {
       this.scanProgress.duration = result.duration;
       this.scanProgress.hasChanges = result.hasChanges;
 
-      // Use in-memory data directly if scan found changes
+      // Update media count to reflect actual processed media, not discovered count
       if (result.hasChanges && result.mediaData) {
+        this.scanProgress.media = result.mediaData.length;
         this._mediaData = result.mediaData;
         this._needsFilterRecalculation = true;
         this._needsFilterUpdate = true;
