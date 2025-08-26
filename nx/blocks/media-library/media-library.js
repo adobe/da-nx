@@ -480,17 +480,12 @@ class NxMediaLibrary extends LitElement {
 
   // NEW METHOD
   handleDocNavigation(path) {
-    // Set folder filter to this path
-    this._folderFilterPaths = [path];
+    // Extract the actual document path from "doc:/path" format
+    const actualPath = path.replace(/^doc:\//, '');
 
-    // Only notify folder dialog if it's already open
-    if (this._folderOpen) {
-      this.dispatchEvent(new CustomEvent('navigateToPath', {
-        detail: { path },
-        bubbles: true,
-        composed: true,
-      }));
-    }
+    // Set folder filter to this path (but don't open dialog)
+    this._folderFilterPaths = [actualPath];
+    this._needsFilterRecalculation = true;
   }
 
   handleViewChange(e) {
@@ -552,6 +547,14 @@ class NxMediaLibrary extends LitElement {
 
   handleOpenFolderDialog() {
     this._folderOpen = true;
+
+    // Sync current filter paths to folder dialog
+    setTimeout(() => {
+      const folderDialog = this.shadowRoot.querySelector('nx-media-folder-dialog');
+      if (folderDialog) {
+        folderDialog.currentFilterPaths = this._folderFilterPaths;
+      }
+    }, 100);
   }
 
   handleFolderFilterApply(e) {

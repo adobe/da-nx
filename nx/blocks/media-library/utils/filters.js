@@ -247,9 +247,9 @@ export function calculateFilteredMediaData(
 
   if (folderFilterPaths.length > 0) {
     const hasMatchingPath = (item) => {
-      // Skip folder filtering for items with no document path
+      // Only include items that have a document path and match the filter
       if (!item.doc || !item.doc.trim()) {
-        return true;
+        return false; // Exclude items with no document path
       }
 
       const matches = folderFilterPaths.some(

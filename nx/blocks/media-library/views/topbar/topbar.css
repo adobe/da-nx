@@ -121,13 +121,11 @@ mark {
   color: var(--s2-gray-700);
 }
 
-.spinner {
+.spinner-icon {
   width: 20px;
   height: 20px;
-  border: 2px solid var(--s2-green-200);
-  border-top: 2px solid var(--s2-green-800);
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
+  color: var(--s2-blue-800);
+  animation: spin 2s linear infinite;
 }
 
 @keyframes spin {

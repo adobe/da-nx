@@ -12,6 +12,7 @@ const ICONS = [
   `${nx}/img/icons/S2IconClassicGridView20N-icon.svg`,
   `${nx}/public/icons/S2_Icon_ListBulleted_20_N.svg`,
   `${nx}/public/icons/S2_Icon_Close_20_N.svg`,
+  `${nx}/public/icons/S2_Icon_Refresh_20_N.svg`,
 ];
 
 class NxMediaTopBar extends LitElement {
@@ -310,9 +311,11 @@ class NxMediaTopBar extends LitElement {
     if (this.isScanning) {
       return html`
         <div class="scanning-indicator">
-          <div class="spinner"></div>
+          <svg class="spinner-icon">
+            <use href="#S2_Icon_Refresh_20_N"></use>
+          </svg>
           <span class="scanning-text">
-            🔄 ${this.scanProgress?.pages || 0} pages, ${this.scanProgress?.media || 0} media
+            ${this.scanProgress?.pages || 0} pages, ${this.scanProgress?.media || 0} media
           </span>
         </div>
       `;
@@ -325,7 +328,7 @@ class NxMediaTopBar extends LitElement {
         return html`
           <div class="scanning-indicator completed no-changes">
             <span class="scanning-text">
-              No changes found in${this.scanProgress.duration}
+              No changes found${durationText}
             </span>
           </div>
         `;
