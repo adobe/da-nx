@@ -589,10 +589,24 @@ export default async function runScan(path, updateTotal) {
 
   const callback = async (item) => {
     const ext = extractFileExtension(item.path);
+
+    // Count ALL files discovered (before lastModified check)
     if (ext === 'html') {
       totalPagesScanned += 1;
       updateTotal('page', totalPagesScanned);
+    } else if (isMediaFile(ext)) {
+      totalMediaFilesFound += 1;
+      updateTotal('media', totalMediaFilesFound);
+    }
 
+    // Check if file was modified (for both HTML and media files)
+    const existingLastModified = lastModifiedMap.get(item.path);
+    if (existingLastModified && existingLastModified === item.lastModified) {
+      // File unchanged - skip processing but counters already updated
+      return;
+    }
+
+    if (ext === 'html') {
       try {
         const resp = await daFetch(`${DA_ORIGIN}/source${item.path}`);
         if (resp.ok) {
@@ -612,9 +626,6 @@ export default async function runScan(path, updateTotal) {
       }
     } else if (isMediaFile(ext)) {
       // This is an actual media file found during crawl
-      totalMediaFilesFound += 1;
-      updateTotal('media', totalMediaFilesFound);
-
       // This is a media file that might be unused
       const resolvedUrl = `${CONTENT_ORIGIN}${item.path}`;
       if (!mediaInUse.has(resolvedUrl)) {
@@ -631,6 +642,12 @@ export default async function runScan(path, updateTotal) {
           hash,
         });
       }
+    }
+
+    // Update lastModified data for this item since it was processed
+    if (existingLastModified !== item.lastModified) {
+      // Update the map immediately
+      lastModifiedMap.set(item.path, item.lastModified);
     }
 
     // Collect for lastModified tracking
