@@ -555,7 +555,7 @@ export async function removeScanLock(org, repo) {
   return daFetch(`${DA_ORIGIN}/source${path}`, { method: 'DELETE' });
 }
 
-export default async function runScan(path, updateTotal) {
+export default async function runScan(path, updateTotal, onMediaItemFound) {
   // Extract org and repo from path (format: /{org}/{repo})
   const pathParts = path.split('/').filter((part) => part);
   const org = pathParts[0];
@@ -584,6 +584,12 @@ export default async function runScan(path, updateTotal) {
 
   // Load existing lastModified data for change detection
   const lastModifiedMap = await loadAllLastModifiedData(org, repo);
+  
+  console.log('📋 LastModified map loaded:', {
+    mapSize: lastModifiedMap.size,
+    isFirstScan: lastModifiedMap.size === 0,
+    sampleEntries: Array.from(lastModifiedMap.entries()).slice(0, 3)
+  });
 
   const mediaInUse = new Set();
 
@@ -618,6 +624,11 @@ export default async function runScan(path, updateTotal) {
           mediaItems.forEach((mediaItem) => {
             mediaInUse.add(mediaItem.url);
             allMediaUsage.push(mediaItem);
+            
+            // Call the media item found callback for real-time filter counting
+            if (onMediaItemFound) {
+              onMediaItemFound(mediaItem);
+            }
           });
         }
       } catch (error) {
@@ -632,7 +643,7 @@ export default async function runScan(path, updateTotal) {
         const mediaType = detectMediaTypeFromExtension(item.ext);
         const hash = createHash(`${item.path}|${''}|${''}`);
 
-        unusedMedia.push({
+        const unusedMediaItem = {
           url: resolvedUrl,
           name: item.path.split('/').pop(),
           alt: '',
@@ -640,7 +651,14 @@ export default async function runScan(path, updateTotal) {
           doc: '',
           ctx: 'file',
           hash,
-        });
+        };
+        
+        unusedMedia.push(unusedMediaItem);
+        
+        // Call the media item found callback for real-time filter counting
+        if (onMediaItemFound) {
+          onMediaItemFound(unusedMediaItem);
+        }
       }
     }
 
@@ -656,6 +674,12 @@ export default async function runScan(path, updateTotal) {
 
   const { results, getDuration } = crawl({ path, callback });
   await results;
+  
+  console.log('🔍 Crawl completed:', {
+    totalCrawlItems: allCrawlItems.length,
+    totalMediaUsage: allMediaUsage.length,
+    totalUnusedMedia: unusedMedia.length
+  });
 
   // Process results and save to media.json
   const allMediaEntries = [];
@@ -747,35 +771,46 @@ export default async function runScan(path, updateTotal) {
   // Save lastModified data for next scan - only if changed
   const { rootFiles, folderFiles } = groupFilesByFolder(allCrawlItems);
 
-  // Check if root files changed
-  const rootChanged = rootFiles.some((file) => {
-    const existing = lastModifiedMap.get(file.path);
-    return !existing || existing !== file.lastModified;
+  console.log('📁 Grouped files:', {
+    rootFiles: rootFiles.length,
+    folderFiles: Object.keys(folderFiles).length,
+    totalCrawlItems: allCrawlItems.length
   });
 
-  // Check if any folder files changed
-  const folderChanged = Object.entries(folderFiles).some(([, files]) => files.some((file) => {
-    const existing = lastModifiedMap.get(file.path);
-    return !existing || existing !== file.lastModified;
-  }));
+  // Always save lastModified data files during scan (simplified approach)
+  const savePromises = [];
 
-  // Only save root files if changed
-  if (rootChanged) {
+  console.log('💾 Saving all lastModified data files...');
+
+  // Always save root files
+  if (rootFiles.length > 0) {
     try {
-      await saveLastModifiedData(org, repo, 'root', rootFiles);
+      console.log('💾 Saving root.json with', rootFiles.length, 'files');
+      savePromises.push(saveLastModifiedData(org, repo, 'root', rootFiles));
     } catch (error) {
       console.error('Error saving root.json:', error);
     }
   }
 
-  // Only save folder files if changed
-  if (folderChanged) {
-    for (const [folderName, files] of Object.entries(folderFiles)) {
+  // Always save folder files
+  for (const [folderName, files] of Object.entries(folderFiles)) {
+    if (files.length > 0) {
       try {
-        await saveLastModifiedData(org, repo, folderName, files);
+        console.log(`💾 Saving ${folderName}.json with`, files.length, 'files');
+        savePromises.push(saveLastModifiedData(org, repo, folderName, files));
       } catch (error) {
         console.error(`Error saving ${folderName}.json:`, error);
       }
+    }
+  }
+
+  // Save all files in parallel (non-blocking)
+  if (savePromises.length > 0) {
+    try {
+      await Promise.all(savePromises);
+      console.log('✅ All lastModified data files saved successfully');
+    } catch (error) {
+      console.error('Error saving lastModified data files:', error);
     }
   }
 
