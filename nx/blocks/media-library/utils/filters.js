@@ -98,12 +98,60 @@ export function processMediaData(mediaData) {
   // Single pass through all media data
   const filterCountsStart = performance.now();
   mediaData.forEach((item) => {
-    // 1. Collect filter counts
-    Object.entries(FILTER_CONFIG).forEach(([filterName, filterFn]) => {
-      if (filterFn(item)) {
-        filterCounts[filterName] += 1;
+    // Cache expensive operations once per item
+    const { isUsed, alt, doc, type } = item;
+    const mediaType = getMediaType(item);
+    const isSvg = isSvgFile(item);
+    const hasAlt = alt && alt.trim();
+    const isImage = mediaType === 'image' || mediaType === 'img';
+    const isInDocument = doc && doc.trim();
+
+    // Determine which filters this item matches and count them
+    if (isImage && !isSvg) {
+      filterCounts.images += 1;
+      if (isInDocument) filterCounts.documentImages += 1;
+      if (!hasAlt && type?.startsWith('img >')) {
+        filterCounts.missingAlt += 1;
+        if (isInDocument) filterCounts.documentMissingAlt += 1;
       }
-    });
+    }
+
+    if (isSvg) {
+      filterCounts.icons += 1;
+      if (isInDocument) filterCounts.documentIcons += 1;
+    }
+
+    if (mediaType === 'video') {
+      filterCounts.videos += 1;
+      if (isInDocument) filterCounts.documentVideos += 1;
+    }
+
+    if (mediaType === 'document') {
+      filterCounts.documents += 1;
+      if (isInDocument) filterCounts.documentDocuments += 1;
+    }
+
+    if (mediaType === 'link') {
+      filterCounts.links += 1;
+      if (isInDocument) filterCounts.documentLinks += 1;
+    }
+
+    // Usage filters
+    if (isUsed) {
+      filterCounts.used += 1;
+    } else {
+      filterCounts.unused += 1;
+    }
+
+    // All filter (excludes SVGs)
+    if (!isSvg) {
+      filterCounts.all += 1;
+    }
+
+    // Document total (no filtering)
+    if (isInDocument) {
+      filterCounts.documentTotal += 1;
+    }
 
     // 2. Collect search suggestions
     const suggestion = createSearchSuggestion(item);

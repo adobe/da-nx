@@ -416,7 +416,7 @@ class NxMediaLibrary extends LitElement {
           .searchQuery=${this._searchQuery}
           .currentView=${this._currentView}
           .folderFilterPaths=${this._folderFilterPaths}
-          .searchSuggestions=${this._processedData?.searchSuggestions || []}
+          .mediaData=${this._mediaData}
           .isScanning=${this._isScanning}
           .scanProgress=${this.scanProgress}
           @search=${this.handleSearch}

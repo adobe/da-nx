@@ -1,7 +1,7 @@
 import { html, LitElement } from 'da-lit';
 import getStyle from '../../../../utils/styles.js';
 import getSvg from '../../../../public/utils/svg.js';
-import { getSearchSuggestions } from '../../utils/filters.js';
+import { getMediaType, isSvgFile } from '../../utils/utils.js';
 
 const styles = await getStyle(import.meta.url);
 const nx = `${new URL(import.meta.url).origin}/nx`;
@@ -19,7 +19,7 @@ class NxMediaTopBar extends LitElement {
     searchQuery: { attribute: false },
     currentView: { attribute: false },
     folderFilterPaths: { attribute: false },
-    searchSuggestions: { attribute: false },
+    mediaData: { attribute: false },
     isScanning: { attribute: false },
     scanProgress: { attribute: false },
     // Internal state
@@ -88,12 +88,107 @@ class NxMediaTopBar extends LitElement {
     }
   }
 
+  getOnDemandSearchSuggestions(query) {
+    if (!query || !query.trim() || !this.mediaData) {
+      return [];
+    }
+
+    const q = query.toLowerCase().trim();
+    const suggestions = [];
+    const matchingDocs = new Set();
+
+    // Check for colon syntax (doc:, alt:, name:, url:)
+    const colonMatch = q.match(/^(\w+):(.*)$/);
+    if (colonMatch) {
+      const [, field, value] = colonMatch;
+      
+      this.mediaData.forEach((item) => {
+        switch (field) {
+          case 'doc':
+            if (item.doc && item.doc.toLowerCase().includes(value)) {
+              matchingDocs.add(item.doc);
+            }
+            break;
+          case 'alt':
+            if (item.alt && item.alt.toLowerCase().includes(value) && !isSvgFile(item)) {
+              suggestions.push(this.createSearchSuggestion(item));
+            }
+            break;
+          case 'name':
+            if (item.name && item.name.toLowerCase().includes(value) && !isSvgFile(item)) {
+              suggestions.push(this.createSearchSuggestion(item));
+            }
+            break;
+          case 'url':
+            if (item.url && item.url.toLowerCase().includes(value) && !isSvgFile(item)) {
+              suggestions.push(this.createSearchSuggestion(item));
+            }
+            break;
+        }
+      });
+
+      // Add doc suggestions
+      const docSuggestions = Array.from(matchingDocs).map((doc) => ({
+        type: 'doc',
+        value: doc,
+        display: doc,
+      }));
+
+      return [...docSuggestions, ...suggestions].slice(0, 10);
+    }
+
+    // General search across all fields
+    this.mediaData.forEach((item) => {
+      // Check doc paths
+      if (item.doc && item.doc.toLowerCase().includes(q)) {
+        matchingDocs.add(item.doc);
+      }
+
+      // Check media fields (exclude SVGs)
+      if (!isSvgFile(item) && (
+        (item.name && item.name.toLowerCase().includes(q)) ||
+        (item.alt && item.alt.toLowerCase().includes(q)) ||
+        (item.url && item.url.toLowerCase().includes(q))
+      )) {
+        suggestions.push(this.createSearchSuggestion(item));
+      }
+    });
+
+    // Combine doc and media suggestions
+    const docSuggestions = Array.from(matchingDocs).map((doc) => ({
+      type: 'doc',
+      value: doc,
+      display: doc,
+    }));
+
+    return [...docSuggestions, ...suggestions].slice(0, 10);
+  }
+
+  createSearchSuggestion(item) {
+    if (!item.name && !item.url && !item.doc) return null;
+
+    // Exclude SVG files from search suggestions (consistent with 'all' filter)
+    if (isSvgFile(item)) return null;
+
+    return {
+      type: 'media',
+      value: item,
+      display: item.name || item.url || 'Unnamed Media',
+      details: {
+        alt: item.alt,
+        doc: item.doc,
+        url: item.url,
+        type: getMediaType(item),
+      },
+    };
+  }
+
   handleSearchInput(e) {
     const query = e.target.value;
     this.searchQuery = query;
     this._originalQuery = query;
     this._activeIndex = -1;
-    this._suggestions = getSearchSuggestions(this.searchSuggestions || [], query);
+    this._suggestions = this.getOnDemandSearchSuggestions(query);
     this.dispatchEvent(new CustomEvent('search', { detail: { query } }));
   }
 
