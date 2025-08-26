@@ -2,7 +2,7 @@ import { html, LitElement } from 'da-lit';
 import getStyle from '../../../../utils/styles.js';
 import getSvg from '../../../../public/utils/svg.js';
 import { getDisplayName } from '../../utils/utils.js';
-import { buildCompleteFolderHierarchy } from '../../utils/folder-utils.js';
+import { buildCompleteFolderHierarchy } from '../../utils/filters.js';
 
 const styles = await getStyle(import.meta.url);
 const nx = `${new URL(import.meta.url).origin}/nx`;
