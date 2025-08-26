@@ -9,12 +9,8 @@ export const FILTER_CONFIG = {
   links: (item) => getMediaType(item) === 'link',
   icons: (item) => isSvgFile(item),
 
-  // Usage filters
-  used: (item) => item.isUsed,
-  unused: (item) => !item.isUsed,
-
   // Special filters
-  missingAlt: (item) => getMediaType(item) === 'image' && !item.alt && item.type?.startsWith('img >') && !isSvgFile(item),
+  missingAlt: (item) => item.type?.startsWith('img >') && !item.type?.includes('svg') && !item.alt,
 
   // Document-specific filters (reuse base filters)
   documentImages: (item) => FILTER_CONFIG.images(item),
@@ -22,7 +18,7 @@ export const FILTER_CONFIG = {
   documentVideos: (item) => FILTER_CONFIG.videos(item),
   documentDocuments: (item) => FILTER_CONFIG.documents(item),
   documentLinks: (item) => FILTER_CONFIG.links(item),
-  documentMissingAlt: (item) => getMediaType(item) === 'image' && !item.alt && item.type?.startsWith('img >'),
+  documentMissingAlt: (item) => item.type?.startsWith('img >') && !item.type?.includes('svg') && !item.alt,
 
   // Special cases
   documentTotal: () => true, // No filtering
@@ -69,7 +65,7 @@ export function processMediaData(mediaData) {
   // Single pass through all media data
   mediaData.forEach((item) => {
     // Cache expensive operations once per item
-    const { isUsed, alt, doc, type } = item;
+    const { alt, doc, type } = item;
     const mediaType = getMediaType(item);
     const isSvg = isSvgFile(item);
     const hasAlt = alt && alt.trim();
@@ -80,7 +76,7 @@ export function processMediaData(mediaData) {
     if (isImage && !isSvg) {
       filterCounts.images += 1;
       if (isInDocument) filterCounts.documentImages += 1;
-      if (!hasAlt && type?.startsWith('img >')) {
+      if (type?.startsWith('img >') && !type?.includes('svg') && !hasAlt) {
         filterCounts.missingAlt += 1;
         if (isInDocument) filterCounts.documentMissingAlt += 1;
       }
@@ -104,13 +100,6 @@ export function processMediaData(mediaData) {
     if (mediaType === 'link') {
       filterCounts.links += 1;
       if (isInDocument) filterCounts.documentLinks += 1;
-    }
-
-    // Usage filters
-    if (isUsed) {
-      filterCounts.used += 1;
-    } else {
-      filterCounts.unused += 1;
     }
 
     // All filter (excludes SVGs)
