@@ -225,7 +225,7 @@ class SlButton extends LitElement {
 
   get _attrs() {
     return this.getAttributeNames().reduce((acc, name) => {
-      if ((name === 'class' || name === 'label')) return acc;
+      if ((name === 'class' || name === 'label' || name === 'disabled')) return acc;
       acc[name] = this.getAttribute(name);
       return acc;
     }, {});
@@ -236,6 +236,7 @@ class SlButton extends LitElement {
       <span class="sl-button">
         <button
           class="${this.class}"
+          ?disabled=${this.disabled}
           ${spread(this._attrs)}>
           <slot></slot>
         </button>

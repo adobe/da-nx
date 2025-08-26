@@ -3,10 +3,11 @@ import { daFetch } from '../../utils/daFetch.js';
 import { DA_ORIGIN } from './constants.js';
 
 export class Queue {
-  constructor(callback, maxConcurrent = 500, onError = null) {
+  constructor(callback, maxConcurrent = 500, onError = null, throttle = null) {
     this.queue = [];
     this.activeCount = 0;
     this.maxConcurrent = maxConcurrent;
+    this.throttle = throttle;
     this.callback = callback;
 
     this.push = this.push.bind(this);
@@ -38,6 +39,9 @@ export class Queue {
         throw e;
       }
     } finally {
+      if (this.throttle) {
+        await new Promise((resolve) => { setTimeout(() => { resolve(); }, this.throttle); });
+      }
       this.activeCount -= 1;
       await this.processQueue();
     }
