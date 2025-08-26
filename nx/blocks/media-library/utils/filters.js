@@ -44,30 +44,6 @@ export function getAvailableFilters() {
 // HELPER FUNCTIONS (defined before use)
 // ============================================================================
 
-/**
- * Create search suggestion from media item
- * @param {Object} item - Media item
- * @returns {Object|null} Search suggestion object
- */
-function createSearchSuggestion(item) {
-  if (!item.name && !item.url && !item.doc) return null;
-
-  // Exclude SVG files from search suggestions (consistent with 'all' filter)
-  if (isSvgFile(item)) return null;
-
-  return {
-    type: 'media',
-    value: item,
-    display: item.name || item.url || 'Unnamed Media',
-    details: {
-      alt: item.alt,
-      doc: item.doc,
-      url: item.url,
-      type: getMediaType(item),
-    },
-  };
-}
-
 // ============================================================================
 // SINGLE-PASS DATA PROCESSING
 // ============================================================================
@@ -79,16 +55,11 @@ function createSearchSuggestion(item) {
  */
 export function processMediaData(mediaData) {
   if (!mediaData || !Array.isArray(mediaData)) {
-    return {
-      filterCounts: {},
-      searchSuggestions: [],
-      usageMap: new Map(),
-    };
+    return { filterCounts: {} };
   }
 
   // Initialize collections
   const filterCounts = {};
-  const searchSuggestions = [];
 
   // Initialize filter counts
   Object.keys(FILTER_CONFIG).forEach((filterName) => {
@@ -152,37 +123,13 @@ export function processMediaData(mediaData) {
     if (isInDocument) {
       filterCounts.documentTotal += 1;
     }
-
-    // 2. Collect search suggestions
-    const suggestion = createSearchSuggestion(item);
-    if (suggestion) {
-      searchSuggestions.push(suggestion);
-    }
   });
   const filterCountsTime = performance.now() - filterCountsStart;
   console.log(`📊 Filter counts time: ${filterCountsTime.toFixed(2)}ms`);
 
   // Note: Folder hierarchy and counts moved to folder dialog component for on-demand processing
-
-  // Sort search suggestions by relevance
-  const sortStart = performance.now();
-  searchSuggestions.sort((a, b) => {
-    // Prioritize by usage, then alphabetically
-    const aUsed = a.media?.isUsed || false;
-    const bUsed = b.media?.isUsed || false;
-    if (aUsed !== bUsed) return bUsed - aUsed;
-
-    const aName = (a.display || '').toLowerCase();
-    const bName = (b.display || '').toLowerCase();
-    return aName.localeCompare(bName);
-  });
-  const sortTime = performance.now() - sortStart;
-  console.log(`🔍 Search suggestions sort time: ${sortTime.toFixed(2)}ms`);
-
-  return {
-    filterCounts,
-    searchSuggestions: searchSuggestions.slice(0, 50), // Limit suggestions
-  };
+  // Note: Search suggestions moved to on-demand processing in topbar component
+  return { filterCounts };
 }
 
 // ============================================================================
