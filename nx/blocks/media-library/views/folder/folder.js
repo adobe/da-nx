@@ -320,16 +320,16 @@ class NxMediaFolderDialog extends LitElement {
 
   renderHierarchyItems(items, level = 0) {
     return items.map((item) => {
-      // Normalize paths for comparison (remove leading slash)
-      const normalizedItemPath = item.path.replace(/^\//, '');
-      const isSelected = Array.from(this.selectedPaths).some((selectedPath) => selectedPath.replace(/^\//, '') === normalizedItemPath);
+      // Check if this item is selected by comparing with path
+      const isSelected = Array.from(this.selectedPaths)
+        .some((selectedPath) => selectedPath === item.path);
       return html`
       <div class="hierarchy-item-wrapper">
         <div 
           class="hierarchy-item ${isSelected ? 'selected' : ''} ${item.type === 'folder' ? 'folder-item' : 'file-item'}"
           data-path="${item.path}"
           @click=${this.handleItemClick}
-          style="padding-left: ${level * 16}px;"
+          style="padding-left: ${level * 16}px; margin-left: 0;"
         >
           <div class="item-icon">
             ${item.type === 'folder' ? html`

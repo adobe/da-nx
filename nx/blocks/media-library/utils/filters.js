@@ -127,8 +127,6 @@ function buildFolderHierarchy(hierarchy, docPath) {
       if (hierarchy.has(parentPath)) {
         hierarchy.get(parentPath).hasFiles = true;
         hierarchy.get(parentPath).children.add(filePath);
-      } else {
-        // File is at root level
       }
     }
   }

@@ -301,7 +301,7 @@ class NxMediaLibrary extends LitElement {
     }
 
     try {
-      const result = await runScan(this.sitePath, this.updateScanProgress.bind(this), org, repo);
+      const result = await runScan(this.sitePath, this.updateScanProgress.bind(this));
 
       // Update scan results to show to user
       this.scanProgress.duration = result.duration;

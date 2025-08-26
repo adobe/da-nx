@@ -174,14 +174,14 @@ export function parseHtmlMedia(html, docPath, lastModified) {
       const resolvedUrl = resolveMediaUrl(img.src, docPath);
       const fileExt = extractFileExtension(img.src);
       const mediaType = detectMediaTypeFromExtension(fileExt);
-      const hash = createHash(img.src);
+      const hash = createHash(`${img.src}|${img.alt || ''}|${docPath}`);
       const context = captureContext(img, 'img');
 
       mediaItems.push({
         url: resolvedUrl,
         name: img.src.split('/').pop(),
         alt: img.alt || '',
-        type: `${mediaType} > ${fileExt.toUpperCase()}`,
+        type: `${mediaType} > ${fileExt.toLowerCase()}`,
         doc: docPath,
         ctx: context,
         hash,
@@ -197,14 +197,14 @@ export function parseHtmlMedia(html, docPath, lastModified) {
     if (video.src && isMediaFile(extractFileExtension(video.src))) {
       const resolvedUrl = resolveMediaUrl(video.src, docPath);
       const fileExt = extractFileExtension(video.src);
-      const hash = createHash(video.src);
+      const hash = createHash(`${video.src}|${''}|${docPath}`);
       const context = captureContext(video, 'video');
 
       mediaItems.push({
         url: resolvedUrl,
         name: video.src.split('/').pop(),
         alt: '',
-        type: `video > ${fileExt.toUpperCase()}`,
+        type: `video > ${fileExt.toLowerCase()}`,
         doc: docPath,
         ctx: context,
         hash,
@@ -220,14 +220,14 @@ export function parseHtmlMedia(html, docPath, lastModified) {
     if (source.src && isMediaFile(extractFileExtension(source.src))) {
       const resolvedUrl = resolveMediaUrl(source.src, docPath);
       const fileExt = extractFileExtension(source.src);
-      const hash = createHash(source.src);
+      const hash = createHash(`${source.src}|${''}|${docPath}`);
       const context = captureContext(source, 'video-source');
 
       mediaItems.push({
         url: resolvedUrl,
         name: source.src.split('/').pop(),
         alt: '',
-        type: `video-source > ${fileExt.toUpperCase()}`,
+        type: `video-source > ${fileExt.toLowerCase()}`,
         doc: docPath,
         ctx: context,
         hash,
@@ -244,14 +244,14 @@ export function parseHtmlMedia(html, docPath, lastModified) {
     if (href && isMediaFile(extractFileExtension(href))) {
       const resolvedUrl = resolveMediaUrl(href, docPath);
       const fileExt = extractFileExtension(href);
-      const hash = createHash(href);
+      const hash = createHash(`${href}|${link.textContent || ''}|${docPath}`);
       const context = captureContext(link, 'link');
 
       mediaItems.push({
         url: resolvedUrl,
         name: href.split('/').pop(),
         alt: link.textContent || '',
-        type: `link > ${fileExt.toUpperCase()}`,
+        type: `link > ${fileExt.toLowerCase()}`,
         doc: docPath,
         ctx: context,
         hash,
@@ -400,20 +400,6 @@ async function getLastModifiedPath(org, repo, folderName = 'root') {
   return getLastModifiedDataPath(org, repo, folderName);
 }
 
-async function loadLastModifiedData(org, repo, folderName = 'root') {
-  const path = await getLastModifiedPath(org, repo, folderName);
-  try {
-    const resp = await daFetch(`${DA_ORIGIN}/source${path}`);
-    if (resp.ok) {
-      const data = await resp.json();
-      return data.data || data || [];
-    }
-  } catch (error) {
-    // File doesn't exist or other error
-  }
-  return [];
-}
-
 async function saveLastModifiedData(org, repo, folderName, data) {
   const path = await getLastModifiedPath(org, repo, folderName);
   const formData = await createSheet(data);
@@ -421,6 +407,36 @@ async function saveLastModifiedData(org, repo, folderName, data) {
     method: 'PUT',
     body: formData,
   });
+}
+
+async function loadAllLastModifiedData(org, repo) {
+  const lastModifiedMap = new Map();
+
+  // Use crawl API to discover and load JSON files in .da/mediaindex/lastmodified-data
+  const callback = async (item) => {
+    const ext = extractFileExtension(item.path);
+    if (ext === 'json') {
+      try {
+        const resp = await daFetch(`${DA_ORIGIN}/source${item.path}`);
+        if (resp.ok) {
+          const data = await resp.json();
+          const fileData = data.data || data || [];
+          fileData.forEach((fileItem) => {
+            lastModifiedMap.set(fileItem.path, fileItem.lastModified);
+          });
+        }
+      } catch (error) {
+        // Individual file load failed, continue with others
+        console.warn(`Failed to load ${item.path}:`, error);
+      }
+    }
+  };
+
+  const lastModifiedDataPath = `${getMediaLibraryPath(org, repo)}/lastmodified-data`;
+  const { results } = crawl({ path: lastModifiedDataPath, callback });
+  await results;
+
+  return lastModifiedMap;
 }
 
 function groupFilesByFolder(crawlItems) {
@@ -539,7 +555,11 @@ export async function removeScanLock(org, repo) {
   return daFetch(`${DA_ORIGIN}/source${path}`, { method: 'DELETE' });
 }
 
-export default async function runScan(path, updateTotal, org, repo) {
+export default async function runScan(path, updateTotal) {
+  // Extract org and repo from path (format: /{org}/{repo})
+  const pathParts = path.split('/').filter((part) => part);
+  const org = pathParts[0];
+  const repo = pathParts[1];
   let totalPagesScanned = 0;
   let totalMediaFilesFound = 0; // Count of actual media files found during crawl
   const allMediaUsage = [];
@@ -563,32 +583,7 @@ export default async function runScan(path, updateTotal, org, repo) {
   const existingMediaData = await loadMediaSheet(org, repo) || [];
 
   // Load existing lastModified data for change detection
-  const lastModifiedMap = new Map();
-
-  // Load root files
-  try {
-    const rootData = await loadLastModifiedData(org, repo, 'root');
-    rootData.forEach((item) => {
-      lastModifiedMap.set(item.path, item.lastModified);
-    });
-  } catch (error) {
-    // Root file doesn't exist yet, that's okay
-  }
-
-  // Load folder files - we need to discover what folders exist
-  // For now, let's try common folder names, or we could scan the directory
-  const commonFolders = ['media', 'fragments', 'drafts', 'authors', 'developers', 'administrators', 'about', 'ja', 'fr', 'es', 'de', 'cn'];
-
-  for (const folderName of commonFolders) {
-    try {
-      const folderData = await loadLastModifiedData(org, repo, folderName);
-      folderData.forEach((item) => {
-        lastModifiedMap.set(item.path, item.lastModified);
-      });
-    } catch (error) {
-      // Folder file doesn't exist yet, that's okay
-    }
-  }
+  const lastModifiedMap = await loadAllLastModifiedData(org, repo);
 
   const mediaInUse = new Set();
 
@@ -602,7 +597,9 @@ export default async function runScan(path, updateTotal, org, repo) {
         const resp = await daFetch(`${DA_ORIGIN}/source${item.path}`);
         if (resp.ok) {
           const html = await resp.text();
-          const mediaItems = parseHtmlMedia(html, item.path, item.lastModified);
+          // Strip org/repo from path for storage (keep only the relative path)
+          const relativePath = item.path.split('/').slice(3).join('/');
+          const mediaItems = parseHtmlMedia(html, `/${relativePath}`, item.lastModified);
 
           mediaItems.forEach((mediaItem) => {
             mediaInUse.add(mediaItem.url);
@@ -621,15 +618,14 @@ export default async function runScan(path, updateTotal, org, repo) {
       // This is a media file that might be unused
       const resolvedUrl = `${CONTENT_ORIGIN}${item.path}`;
       if (!mediaInUse.has(resolvedUrl)) {
-        const fileExt = extractFileExtension(item.ext);
-        const mediaType = detectMediaTypeFromExtension(fileExt);
-        const hash = createHash(item.path);
+        const mediaType = detectMediaTypeFromExtension(item.ext);
+        const hash = createHash(`${item.path}|${''}|${''}`);
 
         unusedMedia.push({
           url: resolvedUrl,
           name: item.path.split('/').pop(),
           alt: '',
-          type: `${mediaType} > ${fileExt.toUpperCase()}`,
+          type: `${mediaType} > ${item.ext.toLowerCase()}`,
           doc: '',
           ctx: 'file',
           hash,
@@ -655,39 +651,47 @@ export default async function runScan(path, updateTotal, org, repo) {
     processedUrls.add(item.url);
   });
 
-  // Deduplicate allMediaUsage by URL to prevent multiple comparisons of the same media
+  // Deduplicate allMediaUsage by hash to prevent multiple comparisons of the same usage
   const uniqueMediaUsage = [];
-  const seenUrls = new Set();
+  const seenHashes = new Set();
 
   allMediaUsage.forEach((usage) => {
-    const isDuplicate = Array.from(seenUrls).some((seenUrl) => urlsMatch(seenUrl, usage.url));
-    if (!isDuplicate) {
+    if (!seenHashes.has(usage.hash)) {
       uniqueMediaUsage.push(usage);
-      seenUrls.add(usage.url);
+      seenHashes.add(usage.hash);
     }
   });
 
   // Then, replace/add new usage entries
   uniqueMediaUsage.forEach((usage) => {
-    // Remove existing entry if it exists - use urlsMatch for proper URL comparison
-    const existingIndex = allMediaEntries.findIndex((entry) => urlsMatch(entry.url, usage.url));
+    // Find existing entry by hash (unique per url+doc+alt combination)
+    const existingIndex = allMediaEntries.findIndex((entry) => entry.hash === usage.hash);
     if (existingIndex !== -1) {
       const existingEntry = allMediaEntries[existingIndex];
 
-      // Only mark as changed if alt text actually changed
-      // Ignore document path changes to prevent oscillation
-      const altChanged = existingEntry.alt !== usage.alt;
+      // Hash should be the same since we found it, but check for other changes
+      const hasChanges = existingEntry.lastUsedAt !== usage.lastUsedAt
+                        || existingEntry.ctx !== usage.ctx
+                        || existingEntry.type !== usage.type;
 
-      // Only consider it a change if alt text changed
-      // Document path changes are ignored to prevent oscillation
-      const significantChange = altChanged;
-
-      if (significantChange) {
+      if (hasChanges) {
         hasActualChanges = true;
       }
 
-      // Preserve firstUsedAt from existing entry, lastUsedAt is already doc.lastModified
+      // Preserve firstUsedAt from existing entry
       usage.firstUsedAt = existingEntry.firstUsedAt || usage.firstUsedAt;
+
+      // Find all documents that use this media URL and get the most recent lastModified
+      const allUsagesOfThisUrl = allMediaUsage.filter((u) => urlsMatch(u.url, usage.url));
+      const allDocPaths = allUsagesOfThisUrl.map((u) => u.doc).filter(Boolean);
+      const allLastModifieds = allDocPaths
+        .map((docPath) => lastModifiedMap.get(docPath))
+        .filter(Boolean);
+      const mostRecentLastModified = allLastModifieds.length > 0
+        ? Math.max(...allLastModifieds)
+        : usage.lastUsedAt;
+
+      usage.lastUsedAt = mostRecentLastModified;
 
       allMediaEntries.splice(existingIndex, 1);
     } else {

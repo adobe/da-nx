@@ -170,6 +170,7 @@
 .hierarchy-item-wrapper {
   display: flex;
   flex-direction: column;
+  width: 100%;
 }
 
 .hierarchy-item {
@@ -181,10 +182,17 @@
   background: var(--s2-gray-50);
   transition: all 0.2s ease;
   cursor: pointer;
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
 }
 
 .hierarchy-item:hover {
   background: var(--s2-gray-75);
+}
+
+.hierarchy-item:active {
+  background: var(--s2-gray-100);
 }
 
 .hierarchy-item.selected {
