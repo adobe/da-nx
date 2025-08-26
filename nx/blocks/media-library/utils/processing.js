@@ -16,6 +16,7 @@ import {
   isSvgFile,
   getSubtype,
   urlsMatch,
+  sortMediaData,
 } from './utils.js';
 
 // ============================================================================
@@ -728,8 +729,11 @@ export default async function runScan(path, updateTotal) {
   const mediaDataWithCount = allMediaEntries
     .filter((item) => item.url && item.name);
 
+  // Sort media data at scan time for better performance
+  const sortedMediaData = sortMediaData(mediaDataWithCount);
+
   if (hasActualChanges) {
-    await saveMediaSheet(mediaDataWithCount, org, repo);
+    await saveMediaSheet(sortedMediaData, org, repo);
   }
 
   // Save lastModified data for next scan - only if changed

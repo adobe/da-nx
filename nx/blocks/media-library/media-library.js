@@ -100,9 +100,6 @@ class NxMediaLibrary extends LitElement {
   // ============================================================================
 
   shouldUpdate(changedProperties) {
-    // Performance monitoring
-    this._updateStartTime = performance.now();
-
     // Only update for meaningful property changes
     const dataProps = ['_mediaData', '_error'];
     const filterProps = ['_searchQuery', '_selectedFilterType', '_folderFilterPaths', '_filterCounts'];
@@ -118,12 +115,7 @@ class NxMediaLibrary extends LitElement {
   willUpdate(changedProperties) {
     // Single-pass data processing when media data changes (only when not scanning)
     if (changedProperties.has('_mediaData') && this._mediaData && !this._isScanning) {
-      const processingStart = performance.now();
       this._processedData = processMediaData(this._mediaData);
-      const processingTime = performance.now() - processingStart;
-
-      console.log(`🔧 Processing time: ${processingTime.toFixed(2)}ms`);
-
       this._needsFilterRecalculation = true;
       this._needsFilterUpdate = true;
     }
@@ -145,19 +137,7 @@ class NxMediaLibrary extends LitElement {
     super.update(changedProperties);
   }
 
-  updated(changedProperties) {
-    // Performance monitoring
-    const updateTime = performance.now() - this._updateStartTime;
-    if (updateTime > CONFIG.SLOW_UPDATE_THRESHOLD) { // Longer than one frame
-      console.warn(`Slow media-library update: ${updateTime.toFixed(2)}ms`, Array.from(changedProperties.keys()));
-    }
-
-    // Track total blocking time
-    if (changedProperties.has('_mediaData')) {
-      console.log(`⏱️ Total blocking time: ${updateTime.toFixed(2)}ms`);
-      console.log('---');
-    }
-
+  updated() {
     // Handle post-update side effects
     this.updateComplete.then(() => {
       if (this._needsFilterUpdate) {
@@ -173,16 +153,12 @@ class NxMediaLibrary extends LitElement {
 
   get filteredMediaData() {
     // Always recalculate when accessed
-    const filteringStart = performance.now();
     this._filteredMediaData = calculateFilteredMediaData(
       this._mediaData,
       this._selectedFilterType,
       this._folderFilterPaths,
       this._searchQuery,
     );
-    const filteringTime = performance.now() - filteringStart;
-
-    console.log(`🎯 Filtering time: ${filteringTime.toFixed(2)}ms`);
 
     return this._filteredMediaData || [];
   }

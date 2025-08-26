@@ -100,6 +100,31 @@ export function isMediaFile(ext) {
 export { isSvgFile, extractFileExtension };
 
 // ============================================================================
+// SORTING UTILITIES
+// ============================================================================
+
+/**
+ * Sort media data by lastUsedAt (recent first) then alphabetically by name
+ * @param {Array} mediaData - Media data to sort
+ * @returns {Array} Sorted media data
+ */
+export function sortMediaData(mediaData) {
+  return [...mediaData].sort((a, b) => {
+    // Sort by recently used first, then alphabetical
+    const lastUsedA = new Date(a.lastUsedAt || 0);
+    const lastUsedB = new Date(b.lastUsedAt || 0);
+    const timeDiff = lastUsedB - lastUsedA;
+
+    if (timeDiff !== 0) return timeDiff;
+
+    // Fallback to alphabetical
+    const nameA = (a.name || '').toLowerCase();
+    const nameB = (b.name || '').toLowerCase();
+    return nameA.localeCompare(nameB);
+  });
+}
+
+// ============================================================================
 // VIDEO UTILITIES
 // ============================================================================
 

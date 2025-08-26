@@ -40,6 +40,84 @@ export function getAvailableFilters() {
 // HELPER FUNCTIONS (defined before use)
 // ============================================================================
 
+/**
+ * Parse colon syntax from search query
+ * @param {string} query - Search query
+ * @returns {Object|null} Parsed colon syntax object
+ */
+export function parseColonSyntax(query) {
+  if (!query) return null;
+
+  const colonMatch = query.match(/^(\w+):(.*)$/);
+  if (!colonMatch) return null;
+
+  const [, field, value] = colonMatch;
+  return {
+    field: field.toLowerCase(),
+    value: value.trim().toLowerCase(),
+    originalQuery: query,
+  };
+}
+
+/**
+ * Filter by colon syntax (doc:, name:, alt:, url:)
+ * @param {Array} mediaData - Media data to filter
+ * @param {Object} colonSyntax - Parsed colon syntax object
+ * @returns {Array} Filtered media data
+ */
+function filterByColonSyntax(mediaData, colonSyntax) {
+  const { field, value } = colonSyntax;
+
+  return mediaData.filter((item) => {
+    switch (field) {
+      case 'doc':
+        return item.doc && item.doc.toLowerCase().includes(value);
+      case 'name':
+        return item.name && item.name.toLowerCase().includes(value);
+      case 'alt':
+        return item.alt && item.alt.toLowerCase().includes(value);
+      case 'url':
+        return item.url && item.url.toLowerCase().includes(value);
+      default:
+        return false;
+    }
+  });
+}
+
+/**
+ * Filter by general search across all fields
+ * @param {Array} mediaData - Media data to filter
+ * @param {string} query - Search query
+ * @returns {Array} Filtered media data
+ */
+function filterByGeneralSearch(mediaData, query) {
+  return mediaData.filter((item) => (item.name && item.name.toLowerCase().includes(query))
+    || (item.alt && item.alt.toLowerCase().includes(query))
+    || (item.doc && item.doc.toLowerCase().includes(query))
+            || (item.url && item.url.toLowerCase().includes(query)));
+}
+
+/**
+ * Filter media data based on search query
+ * @param {Array} mediaData - Media data to filter
+ * @param {string} searchQuery - Search query
+ * @returns {Array} Filtered media data
+ */
+export function filterBySearch(mediaData, searchQuery) {
+  if (!searchQuery || !searchQuery.trim() || !mediaData) {
+    return mediaData;
+  }
+
+  const query = searchQuery.toLowerCase().trim();
+  const colonSyntax = parseColonSyntax(query);
+
+  if (colonSyntax) {
+    return filterByColonSyntax(mediaData, colonSyntax);
+  }
+
+  return filterByGeneralSearch(mediaData, query);
+}
+
 // ============================================================================
 // SINGLE-PASS DATA PROCESSING
 // ============================================================================
@@ -152,24 +230,22 @@ export function aggregateMediaData(mediaData) {
 // FILTERED MEDIA DATA CALCULATION
 // ============================================================================
 
-export function calculateFilteredMediaData(mediaData, selectedFilterType, folderFilterPaths, searchQuery) {
+export function calculateFilteredMediaData(
+  mediaData,
+  selectedFilterType,
+  folderFilterPaths,
+  searchQuery,
+) {
   if (!mediaData) {
     return [];
   }
 
-  const aggregateStart = performance.now();
   let filtered = aggregateMediaData(mediaData);
-  const aggregateTime = performance.now() - aggregateStart;
-  console.log(`📦 Aggregate time: ${aggregateTime.toFixed(2)}ms`);
 
-  const filterStart = performance.now();
   // Apply filter using configuration
   filtered = applyFilter(filtered, selectedFilterType);
-  const filterTime = performance.now() - filterStart;
-  console.log(`🎛️ Filter apply time: ${filterTime.toFixed(2)}ms`);
 
   if (folderFilterPaths.length > 0) {
-    const folderFilterStart = performance.now();
     const hasMatchingPath = (item) => {
       // Skip folder filtering for items with no document path
       if (!item.doc || !item.doc.trim()) {
@@ -188,34 +264,15 @@ export function calculateFilteredMediaData(mediaData, selectedFilterType, folder
     };
 
     filtered = filtered.filter(hasMatchingPath);
-    const folderFilterTime = performance.now() - folderFilterStart;
-    console.log(`📁 Folder filter time: ${folderFilterTime.toFixed(2)}ms`);
   }
 
   // Apply search filter using consolidated logic
   if (searchQuery && searchQuery.trim()) {
-    const searchFilterStart = performance.now();
     filtered = filterBySearch(filtered, searchQuery);
-    const searchFilterTime = performance.now() - searchFilterStart;
-    console.log(`🔎 Search filter time: ${searchFilterTime.toFixed(2)}ms`);
   }
 
-  const sortStart = performance.now();
-  filtered.sort((a, b) => {
-    // Sort by recently used first, then alphabetical
-    const lastUsedA = new Date(a.lastUsedAt || 0);
-    const lastUsedB = new Date(b.lastUsedAt || 0);
-    const timeDiff = lastUsedB - lastUsedA;
-
-    if (timeDiff !== 0) return timeDiff;
-
-    // Fallback to alphabetical
-    const nameA = (a.name || '').toLowerCase();
-    const nameB = (b.name || '').toLowerCase();
-    return nameA.localeCompare(nameB);
-  });
-  const sortTime = performance.now() - sortStart;
-  console.log(`📋 Sort time: ${sortTime.toFixed(2)}ms`);
+  // Sort is now done at scan time - data is pre-sorted
+  // Removed sort operation to improve filter performance
 
   return filtered;
 }
@@ -223,44 +280,6 @@ export function calculateFilteredMediaData(mediaData, selectedFilterType, folder
 // ============================================================================
 // SEARCH HELPER FUNCTIONS (defined before use)
 // ============================================================================
-
-/**
- * Filter by colon syntax (doc:, name:, alt:, url:)
- * @param {Array} mediaData - Media data to filter
- * @param {Object} colonSyntax - Parsed colon syntax object
- * @returns {Array} Filtered media data
- */
-function filterByColonSyntax(mediaData, colonSyntax) {
-  const { field, value } = colonSyntax;
-
-  return mediaData.filter((item) => {
-    switch (field) {
-      case 'doc':
-        return item.doc && item.doc.toLowerCase().includes(value);
-      case 'name':
-        return item.name && item.name.toLowerCase().includes(value);
-      case 'alt':
-        return item.alt && item.alt.toLowerCase().includes(value);
-      case 'url':
-        return item.url && item.url.toLowerCase().includes(value);
-      default:
-        return false;
-    }
-  });
-}
-
-/**
- * Filter by general search across all fields
- * @param {Array} mediaData - Media data to filter
- * @param {string} query - Search query
- * @returns {Array} Filtered media data
- */
-function filterByGeneralSearch(mediaData, query) {
-  return mediaData.filter((item) => (item.name && item.name.toLowerCase().includes(query))
-    || (item.alt && item.alt.toLowerCase().includes(query))
-    || (item.doc && item.doc.toLowerCase().includes(query))
-            || (item.url && item.url.toLowerCase().includes(query)));
-}
 
 /**
  * Get suggestions for colon syntax queries
@@ -326,50 +345,6 @@ function getGeneralSearchSuggestions(searchSuggestions, query) {
   }));
 
   return [...docSuggestions, ...matchingMedia].slice(0, 10);
-}
-
-// ============================================================================
-// SEARCH PROCESSING
-// ============================================================================
-
-/**
- * Parse colon syntax from search query
- * @param {string} query - Search query
- * @returns {Object|null} Parsed colon syntax object
- */
-export function parseColonSyntax(query) {
-  if (!query) return null;
-
-  const colonMatch = query.match(/^(\w+):(.*)$/);
-  if (!colonMatch) return null;
-
-  const [, field, value] = colonMatch;
-  return {
-    field: field.toLowerCase(),
-    value: value.trim().toLowerCase(),
-    originalQuery: query,
-  };
-}
-
-/**
- * Filter media data based on search query
- * @param {Array} mediaData - Media data to filter
- * @param {string} searchQuery - Search query
- * @returns {Array} Filtered media data
- */
-export function filterBySearch(mediaData, searchQuery) {
-  if (!searchQuery || !searchQuery.trim() || !mediaData) {
-    return mediaData;
-  }
-
-  const query = searchQuery.toLowerCase().trim();
-  const colonSyntax = parseColonSyntax(query);
-
-  if (colonSyntax) {
-    return filterByColonSyntax(mediaData, colonSyntax);
-  }
-
-  return filterByGeneralSearch(mediaData, query);
 }
 
 /**

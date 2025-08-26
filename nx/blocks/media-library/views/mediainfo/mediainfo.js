@@ -142,6 +142,8 @@ class NxMediaInfo extends LitElement {
           doc: item.doc,
           alt: item.alt,
           type: item.type,
+          firstUsedAt: item.firstUsedAt,
+          lastUsedAt: item.lastUsedAt,
           // Add other usage details as needed
         }));
 
