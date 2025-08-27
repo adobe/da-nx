@@ -66,7 +66,7 @@ export async function loadMediaSheet(org, repo) {
     }
   } catch (error) {
     // eslint-disable-next-line no-console
-    console.error('Error loading media.json:', error);
+    console.error('[LOAD] Error loading media.json:', error);
   }
   return [];
 }
@@ -377,41 +377,56 @@ async function getLastModifiedPath(org, repo, folderName = 'root') {
 
 async function saveLastModifiedData(org, repo, folderName, data) {
   const path = await getLastModifiedPath(org, repo, folderName);
+
   const formData = await createSheet(data);
-  return daFetch(`${DA_ORIGIN}/source${path}`, {
+  const response = await daFetch(`${DA_ORIGIN}/source${path}`, {
     method: 'PUT',
     body: formData,
   });
+
+  if (!response.ok) {
+    // eslint-disable-next-line no-console
+    console.error('[SAVE] Failed to save', path, 'status:', response.status);
+  }
+
+  return response;
 }
 
 async function loadAllLastModifiedData(org, repo) {
   const lastModifiedMap = new Map();
 
-  // Use crawl API to discover and load JSON files in .da/mediaindex/lastmodified-data
-  const callback = async (item) => {
-    const ext = extractFileExtension(item.path);
-    if (ext === 'json') {
-      try {
-        const resp = await daFetch(`${DA_ORIGIN}/source${item.path}`);
-        if (resp.ok) {
-          const data = await resp.json();
-          const fileData = data.data || data || [];
-          fileData.forEach((fileItem) => {
-            lastModifiedMap.set(fileItem.path, fileItem.lastModified);
-          });
+  try {
+    // Use crawl API to discover and load JSON files in .da/mediaindex/lastmodified-data
+    const callback = async (item) => {
+      const ext = extractFileExtension(item.path);
+
+      if (ext === 'json') {
+        try {
+          const resp = await daFetch(`${DA_ORIGIN}/source${item.path}`);
+          if (resp.ok) {
+            const data = await resp.json();
+            const fileData = data.data || data || [];
+            fileData.forEach((fileItem) => {
+              lastModifiedMap.set(fileItem.path, fileItem.lastModified);
+            });
+          }
+        } catch (error) {
+          // Individual file load failed, continue with others
+          console.warn(`[LASTMOD] Failed to load ${item.path}:`, error);
         }
-      } catch (error) {
-        // Individual file load failed, continue with others
-        console.warn(`Failed to load ${item.path}:`, error);
       }
-    }
-  };
+    };
 
-  const lastModifiedDataPath = `${getMediaLibraryPath(org, repo)}/lastmodified-data`;
-  const { results } = crawl({ path: lastModifiedDataPath, callback });
-  await results;
+    const lastModifiedDataPath = `${getMediaLibraryPath(org, repo)}/lastmodified-data`;
+    const { results } = crawl({ path: lastModifiedDataPath, callback });
+    await results;
 
-  return lastModifiedMap;
+    return lastModifiedMap;
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('[LASTMOD] Error in loadAllLastModifiedData:', error);
+    return lastModifiedMap;
+  }
 }
 
 function groupFilesByFolder(crawlItems) {
@@ -486,6 +501,7 @@ export async function checkMediaSheetModified(org, repo) {
     }
 
     const { lastModified } = mediaSheetEntry;
+
     const hasChanged = !lastMediaSheetModified || lastModified > lastMediaSheetModified;
 
     setMediaSheetLastModified(org, repo, lastModified);
@@ -496,6 +512,18 @@ export async function checkMediaSheetModified(org, repo) {
     console.error('Error checking media.json modification:', error);
     return { hasChanged: true, fileTimestamp: null };
   }
+}
+
+export async function loadMediaSheetIfModified(org, repo) {
+  // Check if media.json has been modified
+  const { hasChanged } = await checkMediaSheetModified(org, repo);
+
+  if (hasChanged) {
+    const mediaData = await loadMediaSheet(org, repo);
+    return { hasChanged: true, mediaData };
+  }
+
+  return { hasChanged: false, mediaData: null };
 }
 
 export async function createScanLock(org, repo) {
@@ -562,10 +590,17 @@ export default async function runScan(path, updateTotal) {
 
   const mediaInUse = new Set();
 
+  let hasChanges = false; // Track if any files were modified
+
   const callback = async (item) => {
     const ext = extractFileExtension(item.path);
 
-    // Count ALL files discovered (before lastModified check)
+    // Only process HTML and media files
+    if (ext !== 'html' && !isMediaFile(ext)) {
+      return; // Skip non-HTML and non-media files
+    }
+
+    // Count files discovered
     if (ext === 'html') {
       totalPagesScanned += 1;
       updateTotal('page', totalPagesScanned);
@@ -574,12 +609,16 @@ export default async function runScan(path, updateTotal) {
       updateTotal('media', totalMediaFilesFound);
     }
 
-    // Check if file was modified (for both HTML and media files)
+    // Check if file was modified (only for HTML and media files)
     const existingLastModified = lastModifiedMap.get(item.path);
+
     if (existingLastModified && existingLastModified === item.lastModified) {
       // File unchanged - skip processing but counters already updated
       return;
     }
+
+    // File was modified - set the flag
+    hasChanges = true;
 
     if (ext === 'html') {
       try {
@@ -637,60 +676,34 @@ export default async function runScan(path, updateTotal) {
   // Process results and save to media.json
   const allMediaEntries = [];
   const processedUrls = new Set();
-  let hasActualChanges = false;
 
-  // First, preserve ALL existing entries - be very conservative
-  existingMediaData.forEach((item) => {
-    allMediaEntries.push(item);
-    processedUrls.add(item.url);
-  });
+  // For incremental scans, we need to preserve media from unchanged documents
+  // and only remove/add media from changed documents
+  const changedDocPaths = new Set();
 
-  // Deduplicate allMediaUsage by hash to prevent multiple comparisons of the same usage
-  const uniqueMediaUsage = [];
-  const seenHashes = new Set();
-
+  // Track which documents were processed in this scan
   allMediaUsage.forEach((usage) => {
-    if (!seenHashes.has(usage.hash)) {
-      uniqueMediaUsage.push(usage);
-      seenHashes.add(usage.hash);
+    if (usage.doc) {
+      changedDocPaths.add(usage.doc);
     }
   });
 
-  // Then, replace/add new usage entries
-  uniqueMediaUsage.forEach((usage) => {
-    // Find existing entry by hash (unique per url+doc+alt combination)
-    const existingIndex = allMediaEntries.findIndex((entry) => entry.hash === usage.hash);
-    if (existingIndex !== -1) {
-      const existingEntry = allMediaEntries[existingIndex];
-
-      // Hash should be the same since we found it, but check for other changes
-      const hasChanges = existingEntry.lastUsedAt !== usage.lastUsedAt
-                        || existingEntry.ctx !== usage.ctx
-                        || existingEntry.type !== usage.type;
-
-      if (hasChanges) {
-        hasActualChanges = true;
-      }
-
-      // Preserve firstUsedAt from existing entry
-      usage.firstUsedAt = existingEntry.firstUsedAt || usage.firstUsedAt;
-
-      // Find all documents that use this media URL and get the most recent lastModified
-      const allUsagesOfThisUrl = allMediaUsage.filter((u) => urlsMatch(u.url, usage.url));
-      const allDocPaths = allUsagesOfThisUrl.map((u) => u.doc).filter(Boolean);
-      const allLastModifieds = allDocPaths
-        .map((docPath) => lastModifiedMap.get(docPath))
-        .filter(Boolean);
-      const mostRecentLastModified = allLastModifieds.length > 0
-        ? Math.max(...allLastModifieds)
-        : usage.lastUsedAt;
-
-      usage.lastUsedAt = mostRecentLastModified;
-
-      allMediaEntries.splice(existingIndex, 1);
-    } else {
-      hasActualChanges = true;
+  // Preserve media from unchanged documents
+  existingMediaData.forEach((item) => {
+    // If this media usage is from an unchanged document, preserve it
+    if (!item.doc || !changedDocPaths.has(item.doc)) {
+      allMediaEntries.push(item);
+      processedUrls.add(item.url);
     }
+    // If it's from a changed document, we'll handle it below (add/update/remove)
+  });
+
+  // Store all instances without deduplication - let aggregation handle grouping
+  const allMediaUsageInstances = allMediaUsage;
+
+  // Then, add all usage entries without deduplication
+  allMediaUsageInstances.forEach((usage) => {
+    // Always add new usage entry - let aggregation handle grouping
     allMediaEntries.push(usage);
     processedUrls.add(usage.url);
   });
@@ -709,8 +722,6 @@ export default async function runScan(path, updateTotal) {
         type: item.type || '',
         ctx: item.ctx || '',
       });
-      // New unused media - this is a change
-      hasActualChanges = true;
     }
   });
 
@@ -720,30 +731,71 @@ export default async function runScan(path, updateTotal) {
   // Sort media data at scan time for better performance
   const sortedMediaData = sortMediaData(mediaDataWithCount);
 
-  if (hasActualChanges) {
+  if (hasChanges) {
     await saveMediaSheet(sortedMediaData, org, repo);
   }
 
-  // Save lastModified data for next scan - only if changed
+  // Save lastModified data for next scan - ALWAYS overwrite on every scan
   const { rootFiles, folderFiles } = groupFilesByFolder(allCrawlItems);
-
-  // Always save lastModified data files during scan (simplified approach)
   const savePromises = [];
 
-  // Always save root files
+  // Load existing lastModified data to merge with new data
+  const existingLastModifiedMap = await loadAllLastModifiedData(org, repo);
+
+  // Merge root files with existing data
   if (rootFiles.length > 0) {
     try {
-      savePromises.push(saveLastModifiedData(org, repo, 'root', rootFiles));
+      // Get existing root files
+      const existingRootFiles = [];
+      existingLastModifiedMap.forEach((lastModified, filePath) => {
+        const { relativePathParts } = splitPathParts(filePath);
+        if (relativePathParts.length === 1) {
+          existingRootFiles.push({ path: filePath, lastModified });
+        }
+      });
+
+      // Merge with new root files
+      const mergedRootFiles = [...existingRootFiles];
+      rootFiles.forEach((newFile) => {
+        const existingIndex = mergedRootFiles.findIndex((f) => f.path === newFile.path);
+        if (existingIndex >= 0) {
+          mergedRootFiles[existingIndex] = newFile; // Update existing
+        } else {
+          mergedRootFiles.push(newFile); // Add new
+        }
+      });
+
+      savePromises.push(saveLastModifiedData(org, repo, 'root', mergedRootFiles));
     } catch (error) {
       console.error('Error saving root.json:', error);
     }
   }
 
-  // Always save folder files
+  // Save folder files
   for (const [folderName, files] of Object.entries(folderFiles)) {
     if (files.length > 0) {
       try {
-        savePromises.push(saveLastModifiedData(org, repo, folderName, files));
+        // Get existing files for this folder
+        const existingFolderFiles = [];
+        existingLastModifiedMap.forEach((lastModified, filePath) => {
+          const { relativePathParts } = splitPathParts(filePath);
+          if (relativePathParts.length > 1 && relativePathParts[0] === folderName) {
+            existingFolderFiles.push({ path: filePath, lastModified });
+          }
+        });
+
+        // Merge with new files
+        const mergedFolderFiles = [...existingFolderFiles];
+        files.forEach((newFile) => {
+          const existingIndex = mergedFolderFiles.findIndex((f) => f.path === newFile.path);
+          if (existingIndex >= 0) {
+            mergedFolderFiles[existingIndex] = newFile; // Update existing
+          } else {
+            mergedFolderFiles.push(newFile); // Add new
+          }
+        });
+
+        savePromises.push(saveLastModifiedData(org, repo, folderName, mergedFolderFiles));
       } catch (error) {
         console.error(`Error saving ${folderName}.json:`, error);
       }
@@ -764,7 +816,7 @@ export default async function runScan(path, updateTotal) {
   const duration = getDuration();
   return {
     duration: `${duration}s`,
-    hasChanges: hasActualChanges,
-    mediaData: hasActualChanges ? mediaDataWithCount : null,
+    hasChanges,
+    mediaData: hasChanges ? sortedMediaData : null,
   };
 }

@@ -79,6 +79,7 @@ class NxMediaInfo extends LitElement {
   }
 
   updated(changedProperties) {
+
     if (changedProperties.has('media') && this.media) {
       this.loadFileSize();
       if (isImage(this.media.url)) {

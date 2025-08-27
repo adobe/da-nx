@@ -205,18 +205,18 @@ export function aggregateMediaData(mediaData) {
 
   const aggregatedMedia = new Map();
   mediaData.forEach((item) => {
-    const mediaUrl = item.url;
-    if (!aggregatedMedia.has(mediaUrl)) {
-      aggregatedMedia.set(mediaUrl, {
+    const mediaHash = item.hash; // Group by hash instead of URL
+    if (!aggregatedMedia.has(mediaHash)) {
+      aggregatedMedia.set(mediaHash, {
         ...item,
-        mediaUrl,
+        mediaUrl: item.url,
         usageCount: 0,
         isUsed: false,
       });
     }
-    const aggregated = aggregatedMedia.get(mediaUrl);
+    const aggregated = aggregatedMedia.get(mediaHash);
 
-    // Only increment usage count if there's a valid document path
+    // Count all instances of this hash
     if (item.doc && item.doc.trim()) {
       aggregated.usageCount += 1;
       aggregated.isUsed = true;

@@ -2,6 +2,7 @@ import { html, LitElement } from 'da-lit';
 import getStyle from '../../../../utils/styles.js';
 import getSvg from '../../../../public/utils/svg.js';
 import { getMediaType, isSvgFile } from '../../utils/utils.js';
+import '../scan/scan.js';
 
 const styles = await getStyle(import.meta.url);
 const nx = `${new URL(import.meta.url).origin}/nx`;
@@ -21,13 +22,14 @@ class NxMediaTopBar extends LitElement {
     currentView: { attribute: false },
     folderFilterPaths: { attribute: false },
     mediaData: { attribute: false },
-    isScanning: { attribute: false },
-    scanProgress: { attribute: false },
+    sitePath: { attribute: false },
     // Internal state
     _currentView: { state: true },
     _suggestions: { state: true },
     _activeIndex: { state: true },
     _originalQuery: { state: true },
+    _isScanning: { state: true },
+    _scanProgress: { state: true },
   };
 
   constructor() {
@@ -37,6 +39,21 @@ class NxMediaTopBar extends LitElement {
     this._suggestions = [];
     this._activeIndex = -1;
     this._originalQuery = '';
+    this._isScanning = false;
+    this._scanProgress = { pages: 0, media: 0, duration: null, hasChanges: null };
+  }
+
+  shouldUpdate(changedProperties) {
+    // Only update when relevant properties change
+    const hasSearchChange = changedProperties.has('searchQuery');
+    const hasViewChange = changedProperties.has('currentView');
+    const hasFolderChange = changedProperties.has('folderFilterPaths');
+    const hasMediaDataChange = changedProperties.has('mediaData');
+    const hasScanChange = changedProperties.has('_isScanning')
+      || changedProperties.has('_scanProgress');
+
+    return hasSearchChange || hasViewChange || hasFolderChange
+      || hasMediaDataChange || hasScanChange;
   }
 
   updated(changedProperties) {
@@ -55,11 +72,11 @@ class NxMediaTopBar extends LitElement {
       }
     }
 
-    if (this.scanProgress?.duration && !this.isScanning && !this._statusTimeout) {
+    if (this._scanProgress?.duration && !this._isScanning && !this._statusTimeout) {
       this.setScanStatusTimeout();
     }
 
-    if (this.isScanning && this._statusTimeout) {
+    if (this._isScanning && this._statusTimeout) {
       clearTimeout(this._statusTimeout);
       this._statusTimeout = null;
     }
@@ -307,24 +324,67 @@ class NxMediaTopBar extends LitElement {
     this.dispatchEvent(new CustomEvent('clearFolderFilter'));
   }
 
+  // ============================================================================
+  // SCAN EVENT HANDLERS
+  // ============================================================================
+
+  handleScanStart() {
+    this._isScanning = true;
+    this._scanProgress = { pages: 0, media: 0, duration: null, hasChanges: null };
+  }
+
+  handleScanProgress(e) {
+    // Update scan progress - let lit handle the re-render efficiently
+    this._scanProgress = { ...e.detail.progress };
+  }
+
+  handleScanComplete(e) {
+    this._isScanning = false;
+
+    const { mediaData, hasChanges, duration } = e.detail;
+
+    // Update scan progress with completion data
+    this._scanProgress = {
+      ...this._scanProgress, // Keep current pages count
+      duration,
+      hasChanges,
+      // Only update media count if there are actual changes
+      media: hasChanges && mediaData ? mediaData.length : this._scanProgress.media,
+    };
+
+    // Emit event to main component if there are changes
+    if (hasChanges && mediaData) {
+      this.dispatchEvent(new CustomEvent('mediaDataUpdated', { detail: { mediaData, hasChanges } }));
+    }
+  }
+
+  handleScanError(e) {
+    this._isScanning = false;
+    console.error('Scan error:', e.detail.error); // eslint-disable-line no-console
+  }
+
+  handleClearScanStatus() {
+    this._scanProgress = { pages: 0, media: 0, duration: null, hasChanges: null };
+  }
+
   renderScanningStatus() {
-    if (this.isScanning) {
+    if (this._isScanning) {
       return html`
         <div class="scanning-indicator">
           <svg class="spinner-icon">
             <use href="#S2_Icon_Refresh_20_N"></use>
           </svg>
           <span class="scanning-text">
-            ${this.scanProgress?.pages || 0} pages, ${this.scanProgress?.media || 0} media
+            ${this._scanProgress?.pages || 0} pages, ${this._scanProgress?.media || 0} media
           </span>
         </div>
       `;
     }
 
-    if (this.scanProgress?.duration) {
-      const durationText = ` in ${this.scanProgress.duration}`;
+    if (this._scanProgress?.duration) {
+      const durationText = ` in ${this._scanProgress.duration}`;
 
-      if (this.scanProgress.hasChanges === false) {
+      if (this._scanProgress.hasChanges === false) {
         return html`
           <div class="scanning-indicator completed no-changes">
             <span class="scanning-text">
@@ -334,10 +394,22 @@ class NxMediaTopBar extends LitElement {
         `;
       }
 
+      // Show success message only if hasChanges is explicitly true
+      if (this._scanProgress.hasChanges === true) {
+        return html`
+          <div class="scanning-indicator completed">
+            <span class="scanning-text">
+              Found ${this._scanProgress?.media || 0} media${durationText}
+            </span>
+          </div>
+        `;
+      }
+
+      // Default case
       return html`
         <div class="scanning-indicator completed">
           <span class="scanning-text">
-            Found ${this.scanProgress?.media || 0} media${durationText}
+            Scan completed${durationText}
           </span>
         </div>
       `;
@@ -346,9 +418,25 @@ class NxMediaTopBar extends LitElement {
     return '';
   }
 
+  handleMediaDataUpdated(e) {
+    // Bubble up the media data update event to the main component
+    this.dispatchEvent(new CustomEvent('mediaDataUpdated', { detail: e.detail }));
+  }
+
   render() {
     return html`
       <div class="top-bar">
+        <!-- Hidden scan component that provides scan functionality -->
+        <nx-media-scan
+          .sitePath=${this.sitePath}
+          @scanStart=${this.handleScanStart}
+          @scanProgress=${this.handleScanProgress}
+          @scanComplete=${this.handleScanComplete}
+          @scanError=${this.handleScanError}
+          @mediaDataUpdated=${this.handleMediaDataUpdated}
+          style="display: none;"
+        ></nx-media-scan>
+
         <div class="search-container">
           <div class="search-wrapper">
             <sl-input
