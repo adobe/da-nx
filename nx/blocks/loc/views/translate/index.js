@@ -112,10 +112,12 @@ export async function saveLangItemsToDa(options, conf, connector, sendMessage) {
   const saveLangConf = { ...conf, connector, behavior, sendMessage };
 
   for (const lang of conf.langs) {
-    sendMessage({ text: `Fetching ${conf.urls.length} items for ${lang.name}` });
-    const { savedCount } = await saveLang({ ...saveLangConf, lang });
-    lang.translation.saved = savedCount;
-    lang.translation.status = savedCount === conf.urls.length ? 'complete' : 'error';
+    if (lang.translation.status !== 'complete') {
+      sendMessage({ text: `Fetching ${conf.urls.length} items for ${lang.name}` });
+      const { savedCount } = await saveLang({ ...saveLangConf, lang });
+      lang.translation.saved = savedCount;
+      lang.translation.status = savedCount === conf.urls.length ? 'complete' : 'error';
+    }
   }
 }
 
