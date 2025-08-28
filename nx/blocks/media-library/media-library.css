@@ -31,12 +31,105 @@
   overflow: hidden;
 }
 
-/* Grid areas */
-nx-media-topbar {
+.top-bar {
   grid-area: topbar;
-  z-index: 1000;
   background: var(--s2-gray-50);
   border-bottom: 1px solid var(--s2-gray-200);
+  z-index: 1000;
+}
+
+/* Grid areas */
+.search-container {
+  max-width: 800px;
+  width: 100%;
+  justify-self: center;
+}
+
+nx-media-topbar {
+  width: 100%;
+}
+
+nx-media-scan {
+  justify-self: end;
+}
+
+.view-controls {
+  display: flex;
+  gap: var(--spacing-200);
+  justify-self: end;
+}
+
+.view-btn {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-200);
+  padding: var(--spacing-200) var(--spacing-300);
+  border: 1px solid var(--s2-gray-200);
+  border-radius: var(--s2-radius-75);
+  background: var(--s2-gray-50);
+  color: var(--s2-gray-700);
+  font-size: var(--s2-font-size-100);
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 60px;
+  justify-content: center;
+}
+
+.view-btn:hover {
+  background: var(--s2-gray-50);
+  border-color: var(--s2-gray-700);
+}
+
+.view-btn.active {
+  background: var(--s2-blue-800);
+  border-color: var(--s2-blue-800);
+  color: #fff;
+}
+
+.view-btn.active:hover {
+  background: var(--s2-blue-1000);
+  border-color: var(--s2-blue-1000);
+}
+
+.icon {
+  display: block;
+  width: 20px;
+  height: 20px;
+}
+
+.view-btn .icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: currentcolor;
+}
+
+.view-btn.active .icon {
+  color: #fff;
+  fill: #fff;
+}
+
+.view-btn.active .icon use {
+  fill: #fff;
+}
+
+.folder-btn {
+  position: relative;
+}
+
+.filter-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: var(--s2-blue-800);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 4px;
+  border-radius: 12px;
+  min-width: 1rem;
+  text-align: center;
+  line-height: 1;
 }
 
 nx-media-sidebar {
@@ -58,6 +151,16 @@ nx-media-sidebar {
       "sidebar" auto
       "main" 1fr
       / 1fr;
+  }
+
+  .top-bar {
+    flex-direction: column;
+    gap: var(--spacing-200);
+  }
+
+  nx-media-scan {
+    margin-left: 0;
+    margin-top: var(--spacing-200);
   }
 
   nx-media-sidebar {

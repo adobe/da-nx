@@ -1,14 +1,9 @@
 import { html, LitElement } from 'da-lit';
 import getStyle from '../../utils/styles.js';
 import getSvg from '../../public/utils/svg.js';
-import runScan, {
-  loadMediaJson,
-  copyMediaToClipboard,
-  getMediaCounts,
-  getDocumentMediaBreakdown,
-  aggregateMediaData,
-  getMediaType,
-} from './utils/utils.js';
+import { getDocumentMediaBreakdown, loadMediaSheet } from './utils/processing.js';
+import { copyMediaToClipboard } from './utils/utils.js';
+import { processMediaData, calculateFilteredMediaData } from './utils/filters.js';
 import '../../public/sl/components.js';
 import './views/topbar/topbar.js';
 import './views/sidebar/sidebar.js';
@@ -16,6 +11,7 @@ import './views/grid/grid.js';
 import './views/folder/folder.js';
 import './views/list/list.js';
 import './views/mediainfo/mediainfo.js';
+import './views/scan/scan.js';
 
 const EL_NAME = 'nx-media-library';
 const nx = `${new URL(import.meta.url).origin}/nx`;
@@ -23,47 +19,55 @@ const sl = await getStyle(`${nx}/public/sl/styles.css`);
 const slComponents = await getStyle(`${nx}/public/sl/components.css`);
 const styles = await getStyle(import.meta.url);
 
+// Configuration constants
+const CONFIG = {
+  POLLING_INTERVAL: 60000, // 1 minute
+  MESSAGE_DURATION: 3000, // 3 seconds
+  SLOW_UPDATE_THRESHOLD: 16, // 1 frame at 60fps
+};
+
 const ICONS = [
   `${nx}/public/icons/S2_Icon_Close_20_N.svg`,
 ];
 
 class NxMediaLibrary extends LitElement {
   static properties = {
+    // GROUP 1: Core Data Properties
     sitePath: { attribute: false },
-    _error: { state: true },
-    _sitePathError: { state: true },
-    _pageTotal: { state: true },
-    _mediaTotal: { state: true },
-    _duration: { state: true },
-    _hasChanges: { state: true },
     _mediaData: { state: true },
-    _filters: { state: true },
+    _error: { state: true },
+
+    // GROUP 2: Filter & Search Properties
     _searchQuery: { state: true },
-    _isScanning: { state: true },
-    _currentView: { state: true },
-    _scanProgress: { state: true },
-    _hierarchyDialogOpen: { state: true },
-    _infoModalOpen: { state: true },
-    _selectedMedia: { state: true },
-    _activeFilter: { state: true },
-    _selectedSubtypes: { state: true },
+    _selectedFilterType: { state: true },
     _folderFilterPaths: { state: true },
+    _filterCounts: { state: true },
+
+    // GROUP 3: UI State Properties
+    _currentView: { state: true },
+    _folderOpen: { state: true },
+    _infoModal: { state: true },
     _message: { state: true },
   };
 
   constructor() {
     super();
     this._currentView = 'grid';
-    this._scanProgress = { pages: 0, media: 0 };
-    this._hierarchyDialogOpen = false;
-    this._infoModalOpen = false;
-    this._selectedMedia = null;
-    this._activeFilter = 'all';
-    this._selectedSubtypes = [];
+    this._folderOpen = false;
+    this._infoModal = null;
+    this._selectedFilterType = 'all';
     this._folderFilterPaths = [];
-    this._hasChanges = null;
     this._message = null;
-    this._pollingStarted = false;
+    this._needsFilterRecalculation = true;
+    this._needsFilterUpdate = false;
+    this._updateStartTime = 0;
+
+    // Single-pass processing results
+    this._processedData = null;
+    this._filteredMediaData = null;
+    this._searchSuggestions = [];
+
+    this._filterCounts = {}; // Make this reactive
   }
 
   connectedCallback() {
@@ -75,120 +79,75 @@ class NxMediaLibrary extends LitElement {
 
   disconnectedCallback() {
     super.disconnectedCallback();
-    if (this._pollingInterval) {
-      clearInterval(this._pollingInterval);
+    if (this._messageTimeout) {
+      clearTimeout(this._messageTimeout);
     }
   }
 
-  startPolling() {
-    this._pollingInterval = setInterval(async () => {
-      if (this.sitePath) {
-        const [org, repo] = this.sitePath.split('/').slice(1, 3);
-        if (org && repo) {
-          await this.loadMediaData(org, repo);
-        } else {
-          console.warn('Invalid org/repo from sitePath:', this.sitePath);
-        }
+  // ============================================================================
+  // LIFECYCLE OPTIMIZATION
+  // ============================================================================
+
+  shouldUpdate(changedProperties) {
+    // Only update for meaningful property changes
+    const dataProps = ['_mediaData', '_error'];
+    const filterProps = ['_searchQuery', '_selectedFilterType', '_folderFilterPaths', '_filterCounts'];
+    const uiProps = ['_currentView', '_folderOpen', '_infoModal', '_message'];
+    const hasDataChange = dataProps.some((prop) => changedProperties.has(prop));
+    const hasFilterChange = filterProps.some((prop) => changedProperties.has(prop));
+    const hasUIChange = uiProps.some((prop) => changedProperties.has(prop));
+
+    return hasDataChange || hasFilterChange || hasUIChange;
+  }
+
+  willUpdate(changedProperties) {
+    // Single-pass data processing when media data changes
+    if (changedProperties.has('_mediaData') && this._mediaData) {
+      this._processedData = processMediaData(this._mediaData);
+      this._needsFilterRecalculation = true;
+      this._needsFilterUpdate = true;
+    }
+
+    // Prepare filter recalculation for search/filter changes
+    if (changedProperties.has('_searchQuery')
+        || changedProperties.has('_selectedFilterType')
+        || changedProperties.has('_folderFilterPaths')) {
+      this._needsFilterRecalculation = true;
+    }
+  }
+
+  update(changedProperties) {
+    // Handle sitePath changes for timestamp management
+    if (changedProperties.has('sitePath') && this.sitePath) {
+      this.initialize();
+    }
+    super.update(changedProperties);
+  }
+
+  updated() {
+    // Handle post-update side effects
+    this.updateComplete.then(() => {
+      if (this._needsFilterUpdate) {
+        this.updateFilters();
+        this._needsFilterUpdate = false;
       }
-    }, 60000);
-  }
-
-  update(props) {
-    if (props.has('sitePath') && this.sitePath) {
-      if (!this._pollingStarted) {
-        this.startPolling();
-        this._pollingStarted = true;
-      }
-      this.scan();
-    }
-    super.update();
-  }
-
-  async scan() {
-    const [org, repo] = this.sitePath.split('/').slice(1, 3);
-
-    await this.loadMediaData(org, repo);
-
-    this.startBackgroundScan(org, repo);
-  }
-
-  async startBackgroundScan(org, repo) {
-    this._isScanning = true;
-
-    try {
-      const result = await runScan(this.sitePath, this.updateScanProgress.bind(this), org, repo);
-      this._duration = result.duration;
-      this._hasChanges = result.hasChanges;
-
-      await this.loadMediaData(org, repo);
-    } catch (error) {
-      if (error.message && error.message.includes('Scan already in progress')) {
-        console.warn('Scan lock detected:', error.message);
-      } else {
-        console.error('Scan failed:', error);
-      }
-    } finally {
-      this._isScanning = false;
-    }
-  }
-
-  updateScanProgress(type, totalScanned, processedCount) {
-    if (type === 'page') {
-      this._pageTotal = processedCount;
-      this._scanProgress = { ...this._scanProgress, pages: totalScanned };
-      this.requestUpdate();
-    }
-    if (type === 'media') {
-      this._mediaTotal = processedCount;
-      this._scanProgress = { ...this._scanProgress, media: totalScanned };
-      this.requestUpdate();
-    }
-
-    return new Promise((resolve) => {
-      setTimeout(resolve, 10);
     });
   }
 
-  async startPollingBackgroundScan(org, repo) {
-    try {
-      this._isScanning = true;
-      await runScan(this.sitePath, this.updateScanProgress.bind(this), org, repo);
-      await this.loadMediaData(org, repo);
-    } catch (error) {
-      console.error('Background scan failed:', error);
-    } finally {
-      this._isScanning = false;
-    }
-  }
+  // ============================================================================
+  // COMPUTED PROPERTIES (GETTERS)
+  // ============================================================================
 
-  async loadMediaData(org, repo) {
-    try {
-      const mediaData = await loadMediaJson(org, repo);
-      if (mediaData) {
-        this._mediaData = mediaData;
-        this.updateFilters();
-      }
-    } catch (error) {
-      console.error('Failed to load media data:', error);
-    }
-  }
+  get filteredMediaData() {
+    // Always recalculate when accessed
+    this._filteredMediaData = calculateFilteredMediaData(
+      this._mediaData,
+      this._selectedFilterType,
+      this._folderFilterPaths,
+      this._searchQuery,
+    );
 
-  updateFilters() {
-    if (!this._mediaData) return;
-    const aggregatedData = aggregateMediaData(this._mediaData);
-    this._filters = getMediaCounts(aggregatedData);
-  }
-
-  get org() {
-    if (!this.sitePath) return '';
-    const pathParts = this.sitePath.split('/').filter(Boolean);
-    return pathParts[0] || '';
-  }
-
-  get repo() {
-    if (!this.sitePath) return '';
-    const pathParts = this.sitePath.split('/').filter(Boolean);
-    return pathParts[1] || '';
+    return this._filteredMediaData || [];
   }
 
   get selectedDocument() {
@@ -218,81 +177,154 @@ class NxMediaLibrary extends LitElement {
     return getDocumentMediaBreakdown(this._mediaData, this.selectedDocument);
   }
 
+  // ============================================================================
+  // DATA PROCESSING METHODS
+  // ============================================================================
+
+  // ============================================================================
+  // FILTER COUNTS GETTER
+  // ============================================================================
+
+  get filterCounts() {
+    return this._processedData?.filterCounts || {};
+  }
+
+  // ============================================================================
+  // INITIALIZATION & DATA LOADING
+  // ============================================================================
+
+  async initialize() {
+    // Initial data loading with timestamp management
+    if (this.sitePath) {
+      const [org, repo] = this.sitePath.split('/').slice(1, 3);
+      if (org && repo) {
+        // Load initial media data using the combined method
+        await this.loadMediaData(org, repo);
+      }
+    }
+  }
+
+  async loadMediaData(org, repo) {
+    try {
+      // For initial load, always load the data regardless of changes
+      const mediaData = await loadMediaSheet(org, repo);
+
+      if (mediaData && mediaData.length > 0) {
+        this._mediaData = mediaData;
+        this._needsFilterRecalculation = true;
+        this._needsFilterUpdate = true;
+      }
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('[MAIN] Failed to load media data:', error);
+    }
+  }
+
+  updateFilters() {
+    if (!this._processedData) return;
+    // Use pre-calculated filter counts from single-pass processing
+    this._filterCounts = this._processedData.filterCounts;
+  }
+
+  // ============================================================================
+  // MEDIA DATA UPDATE HANDLER
+  // ============================================================================
+
+  handleMediaDataUpdated(e) {
+    const { mediaData } = e.detail;
+
+    if (mediaData) {
+      this._mediaData = mediaData;
+      this._needsFilterRecalculation = true;
+      this._needsFilterUpdate = true;
+    }
+  }
+
+  // ============================================================================
+  // RENDERING METHODS
+  // ============================================================================
+
   render() {
     return html`
       <div class="media-library">
-        <nx-media-topbar
-          .searchQuery=${this._searchQuery}
-          .currentView=${this._currentView}
-          ._isScanning=${this._isScanning}
-          ._scanProgress=${this._scanProgress}
-          ._duration=${this._duration}
-          ._hasChanges=${this._hasChanges}
-          .folderFilterPaths=${this._folderFilterPaths}
-          @search=${this.handleSearch}
-          @viewChange=${this.handleViewChange}
-          @openFolderDialog=${this.handleOpenFolderDialog}
-          @clearScanStatus=${this.handleClearScanStatus}
-        ></nx-media-topbar>
-        
+        <div class="top-bar">
+          <nx-media-topbar
+            .searchQuery=${this._searchQuery}
+            .currentView=${this._currentView}
+            .folderFilterPaths=${this._folderFilterPaths}
+            .mediaData=${this._mediaData}
+            .sitePath=${this.sitePath}
+            @search=${this.handleSearch}
+            @viewChange=${this.handleViewChange}
+            @openFolderDialog=${this.handleOpenFolderDialog}
+            @clearFolderFilter=${this.handleClearFolderFilter}
+            @mediaDataUpdated=${this.handleMediaDataUpdated}
+          ></nx-media-topbar>
+        </div>
+
+        <div class="content">
+          ${this.renderCurrentView()}
+        </div>
+
         <nx-media-sidebar
-          .mediaData=${this._mediaData}
-          .activeFilter=${this._activeFilter}
+          .activeFilter=${this._selectedFilterType}
           .selectedDocument=${this.selectedDocument}
           .documentMediaBreakdown=${this.documentMediaBreakdown}
           .folderFilterPaths=${this._folderFilterPaths}
+          .filterCounts=${this.filterCounts}
           @filter=${this.handleFilter}
-          @subtypeFilter=${this.handleSubtypeFilter}
           @clearDocumentFilter=${this.handleClearDocumentFilter}
           @documentFilter=${this.handleDocumentFilter}
+          @clearFolderFilter=${this.handleClearFolderFilter}
         ></nx-media-sidebar>
-        
-        <div class="media-content">
-          ${this.renderCurrentView()}
-        </div>
-        
-        <nx-media-folder-dialog
-          .mediaData=${this._mediaData}
-          .isOpen=${this._hierarchyDialogOpen}
-          @close=${this.handleFolderDialogClose}
-          @apply=${this.handleFolderFilterApply}
-          @filterChange=${this.handleFolderFilterChange}
-        ></nx-media-folder-dialog>
 
-        <nx-media-info
-          .media=${this._selectedMedia}
-          .org=${this.org}
-          .repo=${this.repo}
-          .allMediaData=${this._mediaData}
-          .isOpen=${this._infoModalOpen}
-          @close=${this.handleInfoModalClose}
-          @altTextUpdated=${this.handleAltTextUpdated}
-        ></nx-media-info>
+        ${this._folderOpen ? html`
+          <nx-media-folder-dialog
+            .isOpen=${this._folderOpen}
+            .selectedPaths=${this._folderFilterPaths}
+            .mediaData=${this._mediaData}
+            @close=${this.handleFolderDialogClose}
+            @apply=${this.handleFolderFilterApply}
+            @filterChange=${this.handleFolderFilterChange}
+          ></nx-media-folder-dialog>
+        ` : ''}
+
+        ${this._infoModal ? html`
+          <nx-media-info
+            .media=${this._infoModal}
+            .isOpen=${true}
+            .mediaData=${this._mediaData}
+            .org=${this.org}
+            .repo=${this.repo}
+            @close=${this.handleInfoModalClose}
+            @altTextUpdated=${this.handleAltTextUpdated}
+          ></nx-media-info>
+        ` : ''}
 
         ${this._message ? html`
-          <div class="nx-media-toast is-visible">
-            <div class="nx-media-toast-content">
-              <p class="nx-media-toast-heading">${this._message.heading}</p>
-              <p class="nx-media-toast-message">${this._message.message}</p>
-            </div>
-            <button class="nx-media-toast-close" @click=${this.handleToastClose}>
-              <svg viewBox="0 0 20 20">
-                <use href="#S2_Icon_Close_20_N"></use>
-              </svg>
-            </button>
-          </div>
+          <sl-alert
+            variant=${this._message.type || 'primary'}
+            closable
+            .open=${this._message.open}
+            @sl-hide=${this.handleToastClose}
+          >
+            <sl-icon slot="icon" name=${this._message.icon || 'info-circle'}></sl-icon>
+            <strong>${this._message.heading || 'Info'}</strong><br>
+            ${this._message.message}
+          </sl-alert>
         ` : ''}
       </div>
     `;
   }
 
   renderCurrentView() {
+    // Always render components - let them handle their own empty states
     switch (this._currentView) {
       case 'list':
         return html`
           <nx-media-list
             .mediaData=${this.filteredMediaData}
-            .isScanning=${this._isScanning}
+            .searchQuery=${this._searchQuery}
             @mediaClick=${this.handleMediaClick}
             @mediaInfo=${this.handleMediaInfo}
             @mediaUsage=${this.handleMediaUsage}
@@ -303,7 +335,7 @@ class NxMediaLibrary extends LitElement {
         return html`
           <nx-media-grid
             .mediaData=${this.filteredMediaData}
-            .isScanning=${this._isScanning}
+            .searchQuery=${this._searchQuery}
             @mediaClick=${this.handleMediaClick}
             @mediaInfo=${this.handleMediaInfo}
             @mediaUsage=${this.handleMediaUsage}
@@ -312,8 +344,34 @@ class NxMediaLibrary extends LitElement {
     }
   }
 
+  // ============================================================================
+  // EVENT HANDLERS - SEARCH & FILTERING
+  // ============================================================================
+
+  clearSearchQuery() {
+    if (this._searchQuery) {
+      this._searchQuery = '';
+    }
+  }
+
   handleSearch(e) {
-    this._searchQuery = e.detail.query;
+    const { query, type, path } = e.detail;
+    this._searchQuery = query;
+    this._needsFilterRecalculation = true;
+
+    // Handle smart navigation
+    if (type === 'doc' && path) {
+      this.handleDocNavigation(path);
+    }
+  }
+
+  handleDocNavigation(path) {
+    // Extract the actual document path from "doc:/path" format
+    const actualPath = path.replace(/^doc:\//, '');
+
+    // Set folder filter to this path (but don't open dialog)
+    this._folderFilterPaths = [actualPath];
+    this._needsFilterRecalculation = true;
   }
 
   handleViewChange(e) {
@@ -321,98 +379,14 @@ class NxMediaLibrary extends LitElement {
   }
 
   handleFilter(e) {
-    this._activeFilter = e.detail.type;
-    if (e.detail.type !== 'missingAlt') {
-      this._selectedSubtypes = [];
-    }
+    this._selectedFilterType = e.detail.type;
+    this._needsFilterRecalculation = true;
+    this.clearSearchQuery();
   }
 
-  handleSubtypeFilter(e) {
-    this._selectedSubtypes = e.detail.subtypes;
-  }
-
-  get filteredMediaData() {
-    if (!this._mediaData) return [];
-
-    let filtered = aggregateMediaData(this._mediaData);
-
-    switch (this._activeFilter) {
-      case 'images':
-        filtered = filtered.filter((item) => getMediaType(item) === 'image');
-        break;
-      case 'videos':
-        filtered = filtered.filter((item) => getMediaType(item) === 'video');
-        break;
-      case 'documents':
-        filtered = filtered.filter((item) => getMediaType(item) === 'document');
-        break;
-      case 'links':
-        filtered = filtered.filter((item) => getMediaType(item) === 'link');
-        break;
-      case 'used':
-        filtered = filtered.filter((item) => item.isUsed);
-        break;
-      case 'unused':
-        filtered = filtered.filter((item) => !item.isUsed);
-        break;
-      case 'missingAlt':
-        filtered = filtered.filter((item) => getMediaType(item) === 'image' && !item.alt && item.type && item.type.startsWith('img >'));
-        break;
-      case 'documentTotal':
-        break;
-      case 'documentImages':
-        filtered = filtered.filter((item) => getMediaType(item) === 'image');
-        break;
-      case 'documentVideos':
-        filtered = filtered.filter((item) => getMediaType(item) === 'video');
-        break;
-      case 'documentDocuments':
-        filtered = filtered.filter((item) => getMediaType(item) === 'document');
-        break;
-      case 'documentLinks':
-        filtered = filtered.filter((item) => getMediaType(item) === 'link');
-        break;
-      case 'documentMissingAlt':
-        filtered = filtered.filter((item) => getMediaType(item) === 'image' && !item.alt && item.type && item.type.startsWith('img >'));
-        break;
-      case 'all':
-      default:
-        break;
-    }
-
-    if (this._selectedSubtypes.length > 0) {
-      filtered = filtered.filter((item) => {
-        const itemType = item.type || '';
-
-        if (!itemType.includes(' > ')) return false;
-
-        if (!(itemType.startsWith('img >') || itemType.startsWith('link >'))) return false;
-
-        const [, subtype] = itemType.split(' > ');
-        return this._selectedSubtypes.includes(subtype.toUpperCase());
-      });
-    }
-
-    if (this._folderFilterPaths.length > 0) {
-      const hasMatchingPath = (item) => this._folderFilterPaths.some((path) => item.doc === path);
-      filtered = filtered.filter(hasMatchingPath);
-    }
-
-    if (this._searchQuery && this._searchQuery.trim()) {
-      const query = this._searchQuery.toLowerCase().trim();
-      filtered = filtered.filter((item) => (item.name && item.name.toLowerCase().includes(query))
-        || (item.alt && item.alt.toLowerCase().includes(query))
-        || (item.doc && item.doc.toLowerCase().includes(query)));
-    }
-
-    filtered.sort((a, b) => {
-      const nameA = (a.name || '').toLowerCase();
-      const nameB = (b.name || '').toLowerCase();
-      return nameA.localeCompare(nameB);
-    });
-
-    return filtered;
-  }
+  // ============================================================================
+  // EVENT HANDLERS - MEDIA INTERACTIONS
+  // ============================================================================
 
   async handleMediaClick(e) {
     const { media } = e.detail;
@@ -422,61 +396,76 @@ class NxMediaLibrary extends LitElement {
       const result = await copyMediaToClipboard(media);
       this.setMessage({ ...result, open: true });
     } catch (error) {
-      console.error('Failed to copy to clipboard:', error);
       this.setMessage({ heading: 'Error', message: 'Failed to copy to clipboard.', open: true });
     }
   }
 
   handleMediaInfo(e) {
     const { media } = e.detail;
-    this._selectedMedia = media;
-    this._infoModalOpen = true;
+    this._infoModal = media;
   }
 
   handleMediaUsage(e) {
     const { media } = e.detail;
-    this._selectedMedia = media;
-    this._infoModalOpen = true;
+    this._infoModal = media;
   }
 
   handleInfoModalClose() {
-    this._infoModalOpen = false;
-    this._selectedMedia = null;
+    this._infoModal = null;
   }
 
   handleAltTextUpdated(e) {
     const { media } = e.detail;
 
     if (this._mediaData) {
-      const index = this._mediaData.findIndex((item) => item.mediaUrl === media.mediaUrl);
+      const index = this._mediaData.findIndex((item) => item.url === media.url);
       if (index !== -1) {
         this._mediaData[index] = { ...this._mediaData[index], ...media };
+        this._needsFilterRecalculation = true;
         this.requestUpdate();
       }
     }
   }
 
+  // ============================================================================
+  // EVENT HANDLERS - FOLDER & DOCUMENT MANAGEMENT
+  // ============================================================================
+
   handleOpenFolderDialog() {
-    this._hierarchyDialogOpen = true;
+    this._folderOpen = true;
+
+    // Sync current filter paths to folder dialog
+    setTimeout(() => {
+      const folderDialog = this.shadowRoot.querySelector('nx-media-folder-dialog');
+      if (folderDialog) {
+        folderDialog.currentFilterPaths = this._folderFilterPaths;
+      }
+    }, 100);
   }
 
   handleFolderFilterApply(e) {
     const { paths } = e.detail;
     this._folderFilterPaths = paths;
-    this._hierarchyDialogOpen = false;
+    this._needsFilterRecalculation = true;
+    this._folderOpen = false;
+    this.clearSearchQuery();
   }
 
   handleFolderDialogClose() {
-    this._hierarchyDialogOpen = false;
+    this._folderOpen = false;
   }
 
   handleFolderFilterChange(e) {
     const { paths } = e.detail;
     this._folderFilterPaths = paths;
+    this._needsFilterRecalculation = true;
+    this.clearSearchQuery();
   }
 
   handleClearFolderFilter() {
     this._folderFilterPaths = [];
+    this._needsFilterRecalculation = true;
+    this.clearSearchQuery();
     const folderDialog = this.shadowRoot.querySelector('nx-media-folder-dialog');
     if (folderDialog) {
       folderDialog.selectedPaths = new Set();
@@ -485,6 +474,8 @@ class NxMediaLibrary extends LitElement {
 
   handleClearDocumentFilter() {
     this._folderFilterPaths = [];
+    this._needsFilterRecalculation = true;
+    this.clearSearchQuery();
     const folderDialog = this.shadowRoot.querySelector('nx-media-folder-dialog');
     if (folderDialog) {
       folderDialog.selectedPaths = new Set();
@@ -493,15 +484,16 @@ class NxMediaLibrary extends LitElement {
 
   handleDocumentFilter(e) {
     const { type } = e.detail;
-    this._activeFilter = type;
+    this._selectedFilterType = type;
+    this._needsFilterRecalculation = true;
+    this.clearSearchQuery();
   }
 
-  handleClearScanStatus() {
-    this._duration = null;
-    this._hasChanges = null;
-  }
+  // ============================================================================
+  // EVENT HANDLERS - STATUS MANAGEMENT
+  // ============================================================================
 
-  setMessage(message, duration = 3000) {
+  setMessage(message, duration = CONFIG.MESSAGE_DURATION) {
     this._message = message;
 
     if (this._messageTimeout) {
@@ -522,6 +514,10 @@ class NxMediaLibrary extends LitElement {
     }
   }
 }
+
+// ============================================================================
+// UTILITY FUNCTIONS
+// ============================================================================
 
 customElements.define(EL_NAME, NxMediaLibrary);
 

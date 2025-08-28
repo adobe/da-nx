@@ -1,153 +1,216 @@
-import { html, LitElement } from 'da-lit';
+import { LitElement } from 'da-lit';
 import getStyle from '../../../../utils/styles.js';
-import { IMAGE_EXTENSIONS, getDisplayMediaType } from '../../utils/utils.js';
+import getSvg from '../../../../public/utils/svg.js';
+import { getVideoThumbnail, isExternalVideoUrl, isImage } from '../../utils/utils.js';
+import '../../../../public/sl/components.js';
+import {
+  SCROLL_CONSTANTS,
+  calculateVisibleRange,
+  calculateListPosition,
+  throttleScroll,
+  createMediaEventHandlers,
+  measurePerformance,
+  staticTemplates,
+  listTemplates,
+  handlerFactories,
+  helperFactories,
+} from '../../utils/templates.js';
 
 const styles = await getStyle(import.meta.url);
+const nx = `${new URL(import.meta.url).origin}/nx`;
+const sl = await getStyle(`${nx}/public/sl/styles.css`);
+const slComponents = await getStyle(`${nx}/public/sl/components.css`);
+
+const ICONS = [
+  `${nx}/public/icons/S2_Icon_Video_20_N.svg`,
+  `${nx}/public/icons/S2_Icon_PDF_20_N.svg`,
+  `${nx}/public/icons/S2_Icon_AlertCircle_18_N.svg`,
+  `${nx}/public/icons/S2_Icon_CheckmarkCircle_18_N.svg`,
+];
 
 class NxMediaList extends LitElement {
   static properties = {
-    mediaData: { attribute: false },
-    isScanning: { attribute: false },
+    mediaData: { type: Array },
+    searchQuery: { type: String },
   };
+
+  constructor() {
+    super();
+
+    // Virtual scroll state
+    this.visibleStart = 0;
+    this.visibleEnd = SCROLL_CONSTANTS.MAX_VISIBLE_ITEMS;
+    this.renderedItems = new Set();
+    this.previousMediaDataLength = 0;
+
+    // Scroll handling
+    this.scrollTimeout = null;
+    this.container = null;
+    this.scrollListenerAttached = false;
+
+    // Event handlers
+    this.eventHandlers = createMediaEventHandlers(this);
+
+    // Constants from scroll.js
+    this.itemHeight = SCROLL_CONSTANTS.LIST_ITEM_HEIGHT;
+    this.bufferSize = SCROLL_CONSTANTS.BUFFER_SIZE;
+  }
 
   connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [styles];
+    this.shadowRoot.adoptedStyleSheets = [sl, slComponents, styles];
+    getSvg({ parent: this.shadowRoot, paths: ICONS });
   }
 
-  handleMediaClick(e) {
-    const { path } = e.currentTarget.dataset;
-    const media = this.mediaData.find((m) => m.url === path || m.mediaUrl === path);
-    this.dispatchEvent(new CustomEvent('mediaClick', { detail: { media } }));
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    if (this.scrollTimeout) {
+      clearTimeout(this.scrollTimeout);
+    }
+    if (this.container && this.scrollListenerAttached) {
+      this.container.removeEventListener('scroll', this.throttledScroll);
+      this.scrollListenerAttached = false;
+    }
   }
 
-  handleInfoClick(e, media) {
-    e.stopPropagation();
-    this.dispatchEvent(new CustomEvent('mediaInfo', { detail: { media } }));
+  firstUpdated() {
+    this.setupScrollListener();
+    window.addEventListener('resize', () => this.updateVisibleRange());
   }
 
-  handleUsageClick(e, media) {
-    e.stopPropagation();
-    this.dispatchEvent(new CustomEvent('mediaInfo', { detail: { media } }));
+  willUpdate(changedProperties) {
+    // Pre-process when mediaData changes
+    if (changedProperties.has('mediaData') && this.mediaData) {
+      this.preprocessListData();
+    }
   }
 
-  handlePreviewClick(e, media) {
-    e.stopPropagation();
-    navigator.clipboard.writeText(media.mediaUrl).then(() => {
-      // Could add a toast notification here if needed
-      console.log('Media URL copied to clipboard');
-    }).catch((err) => {
-      console.error('Failed to copy URL:', err);
+  updated(changedProperties) {
+    if (changedProperties.has('mediaData') && this.mediaData) {
+      this.handleDataChange();
+    }
+  }
+
+  // ============================================================================
+  // PRE-PROCESSING METHODS
+  // ============================================================================
+
+  preprocessListData() {
+    measurePerformance('list preprocessing', () => {
+      this.resetVirtualScrollState();
     });
   }
 
+  resetVirtualScrollState() {
+    this.visibleStart = 0;
+    this.visibleEnd = Math.min(SCROLL_CONSTANTS.MAX_VISIBLE_ITEMS, this.mediaData?.length || 0);
+    this.renderedItems.clear();
+  }
+
+  handleDataChange() {
+    this.updateComplete.then(() => {
+      if (this.container && this.previousMediaDataLength > 0) {
+        this.container.scrollTop = 0;
+      }
+      this.previousMediaDataLength = this.mediaData.length;
+    });
+  }
+
+  // ============================================================================
+  // SCROLL HANDLING
+  // ============================================================================
+
+  setupScrollListener() {
+    this.updateComplete.then(() => {
+      this.container = this.shadowRoot.querySelector('.list-content');
+      if (this.container && !this.scrollListenerAttached) {
+        this.throttledScroll = throttleScroll(this.onScroll.bind(this));
+        this.container.addEventListener('scroll', this.throttledScroll);
+        this.scrollListenerAttached = true;
+      }
+    });
+  }
+
+  onScroll() {
+    if (!this.container || !this.mediaData) return;
+
+    const range = calculateVisibleRange(
+      this.container,
+      this.itemHeight,
+      this.bufferSize,
+      this.mediaData.length,
+    );
+
+    if (range.start !== this.visibleStart || range.end !== this.visibleEnd) {
+      this.visibleStart = range.start;
+      this.visibleEnd = range.end;
+      this.requestUpdate();
+    }
+  }
+
+  updateVisibleRange() {
+    this.onScroll();
+  }
+
+  // ============================================================================
+  // RENDERING METHODS
+  // ============================================================================
+
   render() {
     if (!this.mediaData || this.mediaData.length === 0) {
-      if (this.isScanning) {
-        return html`
-          <div class="empty-state">
-            <h2>Scanning in progress...</h2>
-            <p>Please wait while we discover media files on your site.</p>
-          </div>
-        `;
-      }
-      return html`
-        <div class="empty-state">
-          <h2>No Results Found</h2>
-          <p>Try adjusting your filters or search criteria.</p>
-        </div>
-      `;
+      return staticTemplates.emptyState;
     }
 
-    return html`
-      <main class="list-main">
-        <div class="list-header">
-          <div class="header-cell">Preview</div>
-          <div class="header-cell">Name</div>
-          <div class="header-cell">Type</div>
-          <div class="header-cell">Usage</div>
-          <div class="header-cell">Alt</div>
-          <div class="header-cell">Media Info</div>
-        </div>
-        
-        <div class="list-content">
-          ${this.mediaData.map((media) => html`
-            <div class="media-item" data-path="${media.mediaUrl}" @click=${this.handleMediaClick}>
-              <div class="item-preview clickable" @click=${(e) => this.handlePreviewClick(e, media)} title="Click to copy media URL">
-                ${this.renderMediaPreview(media)}
-              </div>
-              <div class="item-name">${this.getMediaName(media)}</div>
-              <div class="item-type">${getDisplayMediaType(media)}</div>
-              <div class="item-usage">
-                <span class="usage-badge used clickable" @click=${(e) => this.handleUsageClick(e, media)} title="View usage details">Usage (${media.usageCount || 0})</span>
-              </div>
-              <div class="item-alt">
-                ${!media.alt && media.type && media.type.startsWith('img >') ? html`
-                  <span class="missing-alt-indicator clickable" @click=${(e) => this.handleUsageClick(e, media)} title="View usage details">
-                    NO ALT
-                  </span>
-                ` : html`
-                  <span class="alt-present">✓</span>
-                `}
-              </div>
-              <div class="item-actions">
-                <sl-button variant="primary" size="small" @click=${(e) => this.handleInfoClick(e, media)} title="View details">
-                  INFO
-                </sl-button>
-              </div>
-            </div>
-          `)}
-        </div>
-      </main>
-    `;
+    const totalHeight = this.mediaData.length * this.itemHeight;
+    const visibleItems = this.mediaData.slice(this.visibleStart, this.visibleEnd);
+
+    return listTemplates.listContainer(
+      totalHeight,
+      visibleItems,
+      (media, i) => {
+        const index = this.visibleStart + i;
+        const position = calculateListPosition(index, this.itemHeight);
+
+        this.renderedItems.add(index);
+
+        const handlers = handlerFactories.createListHandlers(
+          media,
+          this.eventHandlers,
+          this.handleUsageClick.bind(this),
+        );
+
+        const helpers = helperFactories.createListHelpers(
+          media,
+          this.searchQuery,
+          isImage,
+          isExternalVideoUrl,
+          getVideoThumbnail,
+          handlers,
+        );
+
+        return listTemplates.listItem(
+          media,
+          index,
+          position,
+          handlers,
+          helpers,
+        );
+      },
+    );
   }
 
-  renderMediaPreview(media) {
-    const ext = media.mediaUrl.split('.').pop()?.toLowerCase();
+  // ============================================================================
+  // CARD RENDERING HELPERS
+  // ============================================================================
 
-    if (this.isImage(media.mediaUrl)) {
-      const imageUrl = media.mediaUrl;
-      return html`
-        <img src="${imageUrl}" alt="${media.alt || ''}" loading="lazy">
-      `;
-    }
+  // All rendering helpers are now handled by fragments.js
 
-    if (ext === 'mp4') {
-      return html`
-        <div class="video-placeholder">
-          <svg class="play-icon">
-            <use href="#S2IconPlay_20_N"></use>
-          </svg>
-        </div>
-      `;
-    }
+  // ============================================================================
+  // EVENT HANDLERS
+  // ============================================================================
 
-    if (ext === 'pdf') {
-      return html`
-        <div class="document-placeholder">
-          <svg class="document-icon">
-            <use href="#S2IconFileConvert_20_N"></use>
-          </svg>
-        </div>
-      `;
-    }
-
-    return html`
-      <div class="unknown-placeholder">
-        <svg class="unknown-icon">
-          <use href="#S2_Icon_FileConvert_20_N"></use>
-        </svg>
-      </div>
-    `;
-  }
-
-  getMediaName(media) {
-    return media.mediaName || media.mediaUrl.split('/').pop() || 'Unknown';
-  }
-
-  isImage(mediaUrl) {
-    const ext = mediaUrl.split('.').pop()?.toLowerCase();
-    return IMAGE_EXTENSIONS.includes(ext);
+  handleUsageClick(media) {
+    this.eventHandlers.handleInfoClick(media);
   }
 }
 

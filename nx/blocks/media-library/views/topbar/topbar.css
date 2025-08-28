@@ -20,6 +20,77 @@
   justify-self: center;
 }
 
+.search-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.suggestions-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid var(--s2-gray-200);
+  border-radius: var(--s2-radius-75);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 15%);
+  max-height: 300px;
+  overflow-y: auto;
+  z-index: 1000;
+  margin-top: 2px;
+}
+
+.suggestion-item {
+  padding: var(--spacing-200) var(--spacing-300);
+  cursor: pointer;
+  border-bottom: 1px solid var(--s2-gray-100);
+  transition: background-color 0.2s ease;
+}
+
+.suggestion-item:hover {
+  background: var(--s2-gray-50);
+}
+
+.suggestion-item.active {
+  background: var(--s2-blue-100);
+}
+
+.suggestion-item:last-child {
+  border-bottom: none;
+}
+
+.suggestion-main {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-200);
+}
+
+.suggestion-text {
+  flex: 1;
+  font-weight: 500;
+}
+
+.suggestion-details {
+  margin-left: 0;
+  margin-top: var(--spacing-100);
+  font-size: var(--s2-font-size-100);
+  color: var(--s2-gray-600);
+}
+
+.detail-line {
+  margin-bottom: var(--spacing-75);
+}
+
+.detail-line:last-child {
+  margin-bottom: 0;
+}
+
+mark {
+  background: yellow;
+  padding: 0 2px;
+  border-radius: 2px;
+}
+
 .scanning-status {
   display: flex;
   align-items: center;
@@ -36,6 +107,30 @@
   color: var(--s2-green-900);
   font-size: var(--s2-font-size-100);
   white-space: nowrap;
+}
+
+.scanning-indicator.completed {
+  background: linear-gradient(135deg, var(--s2-blue-200) 0%, var(--s2-blue-300) 100%);
+  border-color: var(--s2-blue-300);
+  color: var(--s2-blue-900);
+}
+
+.scanning-indicator.completed.no-changes {
+  background: linear-gradient(135deg, var(--s2-gray-200) 0%, var(--s2-gray-300) 100%);
+  border-color: var(--s2-gray-300);
+  color: var(--s2-gray-700);
+}
+
+.spinner-icon {
+  width: 20px;
+  height: 20px;
+  color: var(--s2-blue-800);
+  animation: spin 2s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 .scanning-text {
@@ -95,6 +190,11 @@
 
 .view-btn.active .icon {
   color: #fff;
+  fill: #fff;
+}
+
+.view-btn.active .icon use {
+  fill: #fff;
 }
 
 .folder-btn {

@@ -1,214 +1,295 @@
 import { html, LitElement } from 'da-lit';
 import getStyle from '../../../../utils/styles.js';
-import { IMAGE_EXTENSIONS, getDisplayMediaType } from '../../utils/utils.js';
+import getSvg from '../../../../public/utils/svg.js';
+import { getVideoThumbnail, isExternalVideoUrl, isImage, isVideo, isPdf } from '../../utils/utils.js';
+import '../../../../public/sl/components.js';
+import {
+  SCROLL_CONSTANTS,
+  calculateVisibleRange,
+  calculateGridPosition,
+  throttleScroll,
+  createMediaEventHandlers,
+  measurePerformance,
+  getMediaName,
+  highlightMatch,
+  staticTemplates,
+  gridTemplates,
+  handlerFactories,
+  helperFactories,
+} from '../../utils/templates.js';
 
 const styles = await getStyle(import.meta.url);
+const nx = `${new URL(import.meta.url).origin}/nx`;
+const sl = await getStyle(`${nx}/public/sl/styles.css`);
+const slComponents = await getStyle(`${nx}/public/sl/components.css`);
+
+const ICONS = [
+  `${nx}/public/icons/S2_Icon_Video_20_N.svg`,
+  `${nx}/public/icons/S2_Icon_PDF_20_N.svg`,
+  `${nx}/public/icons/S2_Icon_AlertCircle_18_N.svg`,
+  `${nx}/public/icons/S2_Icon_CheckmarkCircle_18_N.svg`,
+];
 
 class NxMediaGrid extends LitElement {
   static properties = {
-    mediaData: { attribute: false },
-    sitePath: { attribute: false },
-    isScanning: { attribute: false },
+    mediaData: { type: Array },
+    searchQuery: { type: String },
   };
+
+  constructor() {
+    super();
+
+    // Virtual scroll state
+    this.visibleStart = 0;
+    this.visibleEnd = SCROLL_CONSTANTS.MAX_VISIBLE_ITEMS;
+    this.colCount = 4;
+    this.renderedCards = new Set();
+    this.previousMediaDataLength = 0;
+
+    // Scroll handling
+    this.scrollTimeout = null;
+    this.container = null;
+    this.scrollListenerAttached = false;
+
+    // Event handlers
+    this.eventHandlers = createMediaEventHandlers(this);
+
+    // Constants from scroll.js
+    this.itemWidth = SCROLL_CONSTANTS.GRID_ITEM_WIDTH;
+    this.itemHeight = SCROLL_CONSTANTS.GRID_ITEM_HEIGHT;
+    this.cardSpacing = SCROLL_CONSTANTS.GRID_CARD_SPACING;
+    this.bufferSize = SCROLL_CONSTANTS.BUFFER_SIZE;
+  }
 
   connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [styles];
+    this.shadowRoot.adoptedStyleSheets = [sl, slComponents, styles];
+    getSvg({ parent: this.shadowRoot, paths: ICONS });
   }
 
-  handleMediaClick(e) {
-    const { path } = e.currentTarget.dataset;
-    const media = this.mediaData.find((m) => m.url === path || m.mediaUrl === path);
-    this.dispatchEvent(new CustomEvent('mediaClick', { detail: { media } }));
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    if (this.scrollTimeout) {
+      clearTimeout(this.scrollTimeout);
+    }
+    if (this.container && this.scrollListenerAttached) {
+      this.container.removeEventListener('scroll', this.throttledScroll);
+      this.scrollListenerAttached = false;
+    }
   }
 
-  handleInfoClick(e, media) {
-    e.stopPropagation();
-    this.dispatchEvent(new CustomEvent('mediaInfo', { detail: { media } }));
+  firstUpdated() {
+    this.setupScrollListener();
+    window.addEventListener('resize', () => this.updateColCount());
   }
 
-  handleUsageClick(e, media) {
-    e.stopPropagation();
-    this.dispatchEvent(new CustomEvent('mediaInfo', { detail: { media } }));
+  willUpdate(changedProperties) {
+    // Pre-process when mediaData changes
+    if (changedProperties.has('mediaData') && this.mediaData) {
+      this.preprocessGridData();
+    }
   }
+
+  updated(changedProperties) {
+    if (changedProperties.has('mediaData') && this.mediaData) {
+      this.handleDataChange();
+
+      // Set up scroll listener if container exists but listener isn't attached
+      if (!this.scrollListenerAttached) {
+        this.setupScrollListener();
+      }
+
+      // Update column count
+      this.updateColCount();
+    }
+  }
+
+  // ============================================================================
+  // PRE-PROCESSING METHODS
+  // ============================================================================
+
+  preprocessGridData() {
+    measurePerformance('grid preprocessing', () => {
+      this.updateColCount();
+      this.resetVirtualScrollState();
+    });
+  }
+
+  updateColCount() {
+    if (!this.container) return;
+    const width = this.container.clientWidth;
+    if (width === 0) return;
+
+    this.colCount = Math.max(1, Math.floor(width / (this.itemWidth + this.cardSpacing)));
+  }
+
+  resetVirtualScrollState() {
+    this.visibleStart = 0;
+    this.visibleEnd = Math.min(SCROLL_CONSTANTS.MAX_VISIBLE_ITEMS, this.mediaData?.length || 0);
+    this.renderedCards.clear();
+  }
+
+  handleDataChange() {
+    this.updateComplete.then(() => {
+      if (this.container && this.previousMediaDataLength > 0) {
+        this.container.scrollTop = 0;
+      }
+      this.previousMediaDataLength = this.mediaData.length;
+    });
+  }
+
+  // ============================================================================
+  // SCROLL HANDLING
+  // ============================================================================
+
+  setupScrollListener() {
+    this.updateComplete.then(() => {
+      this.container = this.shadowRoot.querySelector('.media-main');
+      if (this.container && !this.scrollListenerAttached) {
+        this.throttledScroll = throttleScroll(this.onScroll.bind(this));
+        this.container.addEventListener('scroll', this.throttledScroll);
+        this.scrollListenerAttached = true;
+      }
+    });
+  }
+
+  onScroll() {
+    if (!this.container || !this.mediaData) return;
+
+    const range = calculateVisibleRange(
+      this.container,
+      this.itemHeight + this.cardSpacing,
+      this.bufferSize,
+      this.mediaData.length,
+      this.colCount,
+    );
+
+    if (range.start !== this.visibleStart || range.end !== this.visibleEnd) {
+      this.visibleStart = range.start;
+      this.visibleEnd = range.end;
+      this.requestUpdate();
+    }
+  }
+
+  // ============================================================================
+  // RENDERING METHODS
+  // ============================================================================
 
   render() {
     if (!this.mediaData || this.mediaData.length === 0) {
-      if (this.isScanning) {
-        return html`
-          <div class="empty-state">
-            <h2>Scanning in progress...</h2>
-            <p>Please wait while we discover media files on your site.</p>
-          </div>
-        `;
-      }
-      return html`
-        <div class="empty-state">
-          <h2>No Results Found</h2>
-          <p>Try adjusting your filters or search criteria.</p>
-        </div>
-      `;
+      return staticTemplates.emptyState;
     }
 
-    return html`
-      <main class="media-main">
-        <div class="media-grid">
-          ${this.mediaData.map((media) => html`
-            <div class="media-card" data-path="${media.url}" @click=${this.handleMediaClick}>
-              <div class="media-preview">
-                ${this.renderMediaPreview(media)}
-              </div>
-              <div class="media-info">
-                <h3 class="media-name">${this.getMediaName(media)}</h3>
-                <div class="media-meta">
-                  <span class="media-type">${getDisplayMediaType(media)}</span>
-                  <span class="media-used clickable" @click=${(e) => this.handleUsageClick(e, media)} title="View usage details">Usage (${media.usageCount || 0})</span>
-                  <div class="media-actions">
-                    <sl-button variant="primary" size="small" @click=${(e) => this.handleInfoClick(e, media)} title="View details">
-                      INFO
-                    </sl-button>
-                    ${!media.alt && media.type && media.type.startsWith('img >') ? html`
-                      <span class="missing-alt-indicator clickable" @click=${(e) => this.handleUsageClick(e, media)} title="View usage details">
-                        NO ALT
-                      </span>
-                    ` : ''}
-                  </div>
-                </div>
-              </div>
-            </div>
-          `)}
-        </div>
-      </main>
-    `;
+    const totalRows = Math.ceil(this.mediaData.length / this.colCount);
+    const totalHeight = totalRows * (this.itemHeight + this.cardSpacing);
+    const visibleItems = this.mediaData.slice(this.visibleStart, this.visibleEnd);
+
+    return gridTemplates.gridContainer(
+      totalHeight,
+      visibleItems,
+      (media, i) => {
+        const index = this.visibleStart + i;
+        const position = calculateGridPosition(
+          index,
+          this.colCount,
+          this.itemWidth,
+          this.itemHeight,
+          this.cardSpacing,
+        );
+
+        this.renderedCards.add(index);
+
+        const handlers = handlerFactories.createGridHandlers(
+          media,
+          this.eventHandlers,
+          this.handleUsageClick.bind(this),
+        );
+
+        const helpers = helperFactories.createGridHelpers(
+          media,
+          this.searchQuery,
+          this.renderMediaPreview.bind(this),
+          handlers,
+        );
+
+        return gridTemplates.mediaCard(
+          media,
+          index,
+          { ...position, width: this.itemWidth, height: this.itemHeight },
+          handlers,
+          helpers,
+        );
+      },
+    );
+  }
+
+  // ============================================================================
+  // CARD RENDERING HELPERS
+  // ============================================================================
+
+  renderHighlightedName(media) {
+    const name = getMediaName(media);
+    return html`<span .innerHTML=${highlightMatch(name, this.searchQuery)}></span>`;
+  }
+
+  renderHighlightedAlt(media) {
+    if (!media.alt) return '';
+    return html`<div class="media-alt" .innerHTML=${highlightMatch(media.alt, this.searchQuery)}></div>`;
+  }
+
+  renderHighlightedDoc(media) {
+    if (!media.doc) return '';
+    return html`<div class="media-doc" .innerHTML=${highlightMatch(media.doc, this.searchQuery)}></div>`;
+  }
+
+  renderAltStatus(media) {
+    if (!media.alt && media.type && media.type.startsWith('img >')) {
+      return staticTemplates.missingAlt;
+    }
+    return staticTemplates.altPresent;
   }
 
   renderMediaPreview(media) {
-    const ext = this.getFileExtension(media.url);
-
-    if (this.isImage(media.url)) {
+    if (isImage(media.url)) {
+      const optimizedUrl = media.url.replace('format=jpeg', 'format=webply').replace('format=png', 'format=webply');
       return html`
-        <img src="${media.url}" alt="${media.alt || ''}" loading="lazy" @error=${this.handleImageError}>
+        <img src="${optimizedUrl}" alt="${media.alt || ''}" loading="lazy">
       `;
     }
 
-    if (ext === 'mp4') {
-      return html`
-        <video 
-          src="${media.url}" 
-          preload="metadata"
-          muted
-          @loadedmetadata=${this.handleVideoLoad}
-          @error=${this.handleVideoError}
-        >
-        </video>
-        <div class="video-placeholder">
-          <svg class="play-icon" viewBox="0 0 20 20">
-            <use href="#S2_Icon_Play_20_N"></use>
-          </svg>
-        </div>
-      `;
-    }
-
-    if (ext === 'pdf') {
-      return html`
-        <iframe 
-          src="${media.url}#toolbar=0&navpanes=0&scrollbar=0" 
-          class="pdf-preview"
-          @load=${this.handlePdfLoad}
-          @error=${this.handlePdfError}
-        >
-        </iframe>
-        <div class="document-placeholder">
-          <svg class="document-icon" viewBox="0 0 20 20">
-            <use href="#S2_Icon_FileConvert_20_N"></use>
-          </svg>
-        </div>
-      `;
-    }
-
-    return html`
-      <div class="unknown-placeholder">
-        <svg class="unknown-icon" viewBox="0 0 20 20">
-          <use href="#S2IconHome20N-icon"></use>
-        </svg>
-      </div>
-    `;
-  }
-
-  getMediaName(media) {
-    return media.name || this.getFileName(media.url) || 'Unknown';
-  }
-
-  isImage(mediaUrl) {
-    const ext = this.getFileExtension(mediaUrl);
-    return IMAGE_EXTENSIONS.includes(ext);
-  }
-
-  getFileExtension(url) {
-    try {
-      const urlObj = new URL(url);
-      const { pathname } = urlObj;
-      return pathname.split('.').pop()?.toLowerCase() || '';
-    } catch {
-      return url.split('.').pop()?.toLowerCase() || '';
-    }
-  }
-
-  getFileName(url) {
-    try {
-      const urlObj = new URL(url);
-      const { pathname } = urlObj;
-      return pathname.split('/').pop() || '';
-    } catch {
-      return url.split('/').pop() || '';
-    }
-  }
-
-  handleImageError(e) {
-    const img = e.target;
-    img.style.display = 'none';
-    // Show placeholder for broken images
-    const card = img.closest('.media-card');
-    if (card) {
-      const placeholder = card.querySelector('.unknown-placeholder');
-      if (placeholder) {
-        placeholder.style.display = 'flex';
+    if (isExternalVideoUrl(media.url)) {
+      const thumbnailUrl = getVideoThumbnail(media.url);
+      if (thumbnailUrl) {
+        return html`
+          <div class="video-preview-container">
+            <img src="${thumbnailUrl}" alt="Video thumbnail" class="video-thumbnail" loading="lazy">
+            <div class="video-overlay">
+              <svg class="play-icon" viewBox="0 0 20 20">
+                <use href="#S2_Icon_Play_20_N"></use>
+              </svg>
+            </div>
+          </div>
+        `;
       }
     }
+
+    if (isVideo(media.url)) {
+      return staticTemplates.videoPlaceholder;
+    }
+
+    if (isPdf(media.url)) {
+      return staticTemplates.pdfPlaceholder;
+    }
+
+    return staticTemplates.unknownPlaceholder;
   }
 
-  handleVideoLoad(e) {
-    const video = e.target;
-    const placeholder = video.nextElementSibling;
-    if (placeholder && placeholder.classList.contains('video-placeholder')) {
-      placeholder.style.display = 'none';
-    }
-  }
+  // ============================================================================
+  // EVENT HANDLERS
+  // ============================================================================
 
-  handleVideoError(e) {
-    const video = e.target;
-    video.style.display = 'none';
-    const placeholder = video.nextElementSibling;
-    if (placeholder && placeholder.classList.contains('video-placeholder')) {
-      placeholder.style.display = 'flex';
-    }
-  }
-
-  handlePdfLoad(e) {
-    const iframe = e.target;
-    const placeholder = iframe.nextElementSibling;
-    if (placeholder && placeholder.classList.contains('document-placeholder')) {
-      placeholder.style.display = 'none';
-    }
-  }
-
-  handlePdfError(e) {
-    const iframe = e.target;
-    iframe.style.display = 'none';
-    const placeholder = iframe.nextElementSibling;
-    if (placeholder && placeholder.classList.contains('document-placeholder')) {
-      placeholder.style.display = 'flex';
-    }
+  handleUsageClick(media) {
+    this.eventHandlers.handleInfoClick(media);
   }
 }
 

@@ -1,0 +1,8 @@
+<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <g id="S2_Icon_PDF_20_N">
+    <!-- Document outline with PDF text -->
+    <path d="M11.5194,1.111H3.8889a.5556.5556,0,0,0-.5556.5556v16.6667a.5556.5556,0,0,0,.5556.5556h12.2222a.5556.5556,0,0,0,.5556-.5556V6.2583a1.1111,1.1111,0,0,0-.3257-.7857L12.305,1.4361A1.1111,1.1111,0,0,0,11.5194,1.111ZM15.5556,17.7778H4.4444V2.2222h6.7339V6.0444a.5556.5556,0,0,0,.5556.5556h3.8222ZM12.2222,5.5556V2.9256L14.8522,5.5556Z" fill="currentColor"/>
+    <!-- PDF text -->
+    <text x="10" y="12.5" text-anchor="middle" font-family="Arial, sans-serif" font-size="4" font-weight="bold" fill="currentColor">PDF</text>
+  </g>
+</svg>
