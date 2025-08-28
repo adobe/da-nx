@@ -15,14 +15,8 @@ function determineStatus(translation) {
     const workflowTasks = Object.values(translation.workflowTasks);
     const taskStatuses = workflowTasks.map((task) => task.status.status);
 
-    const firstMatchStatuses = ['not started', 'draft', 'uploading', 'failed'];
-    for (const stage of firstMatchStatuses) {
-      if (taskStatuses.some((status) => status === stage)) {
-        return stage;
-      }
-    }
-    const allMatchStatuses = ['uploaded', 'created', 'complete', 'cancelled'];
-    for (const stage of allMatchStatuses) {
+    const statuses = ['not started', 'draft', 'uploading', 'failed', 'uploaded', 'created', 'complete', 'cancelled'];
+    for (const stage of statuses) {
       if (taskStatuses.every((status) => status === stage)) {
         return stage;
       } if (taskStatuses.some((status) => status === stage)) {
