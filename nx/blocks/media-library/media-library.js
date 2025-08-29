@@ -190,6 +190,22 @@ class NxMediaLibrary extends LitElement {
   }
 
   // ============================================================================
+  // ORG/REPO GETTERS
+  // ============================================================================
+
+  get org() {
+    if (!this.sitePath) return null;
+    const [org] = this.sitePath.split('/').slice(1, 3);
+    return org;
+  }
+
+  get repo() {
+    if (!this.sitePath) return null;
+    const [, repo] = this.sitePath.split('/').slice(1, 3);
+    return repo;
+  }
+
+  // ============================================================================
   // INITIALIZATION & DATA LOADING
   // ============================================================================
 
