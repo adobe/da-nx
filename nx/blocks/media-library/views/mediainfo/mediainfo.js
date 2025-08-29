@@ -31,6 +31,8 @@ class NxMediaInfo extends LitElement {
     media: { attribute: false },
     isOpen: { attribute: false },
     mediaData: { attribute: false },
+    org: { attribute: false },
+    repo: { attribute: false },
     _activeTab: { state: true },
     _exifData: { state: true },
     _loading: { state: true },
@@ -221,19 +223,16 @@ class NxMediaInfo extends LitElement {
     }
   }
 
+
+
   handleEditDocument(docPath) {
     if (!docPath) return;
 
-    // Extract org and repo from the document path
-    const pathParts = docPath.split('/').filter(Boolean);
-    if (pathParts.length < 2) return;
-
-    const org = pathParts[0];
-    const repo = pathParts[1];
+    const { org, repo } = this;
+    if (!org || !repo) return;
 
     // Get the relative path (without org/repo) for the edit URL
-    const relativePath = extractRelativePath(docPath);
-    const editUrl = getEditUrl(org, repo, relativePath);
+    const editUrl = getEditUrl(org, repo, docPath.replace(`.html`, ''));
     if (editUrl) {
       window.open(editUrl, '_blank');
     }
@@ -291,17 +290,10 @@ class NxMediaInfo extends LitElement {
 
   handleViewDocument(docPath) {
     if (!docPath) return;
-
-    // Extract org and repo from the document path
-    const pathParts = docPath.split('/').filter(Boolean);
-    if (pathParts.length < 2) return;
-
-    const org = pathParts[0];
-    const repo = pathParts[1];
-
+    const { org, repo } = this;
+    if (!org || !repo) return;
     // Get the relative path (without org/repo) for the view URL
-    const relativePath = extractRelativePath(docPath);
-    const viewUrl = getViewUrl(org, repo, relativePath);
+    const viewUrl = getViewUrl(org, repo, docPath.replace(`.html`, ''));
     if (viewUrl) {
       window.open(viewUrl, '_blank');
     }
