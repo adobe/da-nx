@@ -545,7 +545,8 @@
   font-style: italic;
 }
 
-.alt-missing {
+.alt-missing,
+.alt-decorative {
   display: flex;
   align-items: center;
   gap: 8px;

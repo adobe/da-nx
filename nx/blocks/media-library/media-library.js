@@ -10,7 +10,7 @@ import './views/sidebar/sidebar.js';
 import './views/grid/grid.js';
 
 import './views/list/list.js';
-import './views/mediainfo/mediainfo.js';
+import './views/modal-manager/modal-manager.js';
 import './views/scan/scan.js';
 
 const EL_NAME = 'nx-media-library';
@@ -44,16 +44,12 @@ class NxMediaLibrary extends LitElement {
 
     // GROUP 3: UI State Properties
     _currentView: { state: true },
-    _infoModal: { state: true },
-    _message: { state: true },
   };
 
   constructor() {
     super();
     this._currentView = 'grid';
-    this._infoModal = null;
     this._selectedFilterType = 'all';
-    this._message = null;
     this._needsFilterRecalculation = true;
     this._needsFilterUpdate = false;
     this._updateStartTime = 0;
@@ -71,6 +67,9 @@ class NxMediaLibrary extends LitElement {
     this.shadowRoot.adoptedStyleSheets = [sl, slComponents, styles];
 
     getSvg({ parent: this.shadowRoot, paths: ICONS });
+    
+    // Listen for alt text updates from modal manager
+    window.addEventListener('alt-text-updated', this.handleAltTextUpdated);
   }
 
   disconnectedCallback() {
@@ -78,6 +77,7 @@ class NxMediaLibrary extends LitElement {
     if (this._messageTimeout) {
       clearTimeout(this._messageTimeout);
     }
+    window.removeEventListener('alt-text-updated', this.handleAltTextUpdated);
   }
 
   // ============================================================================
@@ -88,7 +88,7 @@ class NxMediaLibrary extends LitElement {
     // Only update for meaningful property changes
     const dataProps = ['_mediaData', '_error'];
     const filterProps = ['_searchQuery', '_selectedFilterType', '_filterCounts'];
-    const uiProps = ['_currentView', '_infoModal', '_message'];
+    const uiProps = ['_currentView'];
     const hasDataChange = dataProps.some((prop) => changedProperties.has(prop));
     const hasFilterChange = filterProps.some((prop) => changedProperties.has(prop));
     const hasUIChange = uiProps.some((prop) => changedProperties.has(prop));
@@ -280,32 +280,7 @@ class NxMediaLibrary extends LitElement {
           @documentFilter=${this.handleDocumentFilter}
         ></nx-media-sidebar>
 
-
-
-        ${this._infoModal ? html`
-          <nx-media-info
-            .media=${this._infoModal}
-            .isOpen=${true}
-            .mediaData=${this._mediaData}
-            .org=${this.org}
-            .repo=${this.repo}
-            @close=${this.handleInfoModalClose}
-            @altTextUpdated=${this.handleAltTextUpdated}
-          ></nx-media-info>
-        ` : ''}
-
-        ${this._message ? html`
-          <sl-alert
-            variant=${this._message.type || 'primary'}
-            closable
-            .open=${this._message.open}
-            @sl-hide=${this.handleToastClose}
-          >
-            <sl-icon slot="icon" name=${this._message.icon || 'info-circle'}></sl-icon>
-            <strong>${this._message.heading || 'Info'}</strong><br>
-            ${this._message.message}
-          </sl-alert>
-        ` : ''}
+        <nx-modal-manager></nx-modal-manager>
       </div>
     `;
   }
@@ -383,33 +358,85 @@ class NxMediaLibrary extends LitElement {
     const { media } = e.detail;
     if (!media) return;
 
-    // Changed: Image click now opens modal instead of copying to clipboard
-    this._infoModal = media;
+    // Pre-filter usage data for the modal
+    const usageData = this._mediaData
+      ?.filter((item) => item.url === media.url && item.doc && item.doc.trim())
+      .map((item) => ({
+        doc: item.doc,
+        alt: item.alt,
+        type: item.type,
+        firstUsedAt: item.firstUsedAt,
+        lastUsedAt: item.lastUsedAt,
+      })) || [];
+
+    // Open modal via modal manager
+    window.dispatchEvent(new CustomEvent('open-modal', {
+      detail: {
+        type: 'details',
+        data: {
+          media: media,
+          usageData: usageData,
+          org: this.org,
+          repo: this.repo
+        }
+      }
+    }));
   }
 
   async handleMediaCopy(e) {
     const { media } = e.detail;
     if (!media) return;
 
-    console.log('handleMediaCopy called with media:', media);
-
     try {
       const result = await copyMediaToClipboard(media);
-      console.log('Copy result:', result);
-      this.setMessage({ ...result, open: true });
+      
+      // Show notification via modal manager
+      window.dispatchEvent(new CustomEvent('show-notification', {
+        detail: { 
+          ...result, 
+          type: 'success',
+          open: true 
+        }
+      }));
     } catch (error) {
-      console.error('Copy error:', error);
-      this.setMessage({ heading: 'Error', message: 'Failed to copy to clipboard.', open: true });
+      // Show error notification via modal manager
+      window.dispatchEvent(new CustomEvent('show-notification', {
+        detail: { 
+          heading: 'Error', 
+          message: 'Failed to copy to clipboard.', 
+          type: 'danger',
+          open: true 
+        }
+      }));
     }
   }
 
   handleMediaUsage(e) {
     const { media } = e.detail;
-    this._infoModal = media;
-  }
+    
+    // Pre-filter usage data for the modal
+    const usageData = this._mediaData
+      ?.filter((item) => item.url === media.url && item.doc && item.doc.trim())
+      .map((item) => ({
+        doc: item.doc,
+        alt: item.alt,
+        type: item.type,
+        firstUsedAt: item.firstUsedAt,
+        lastUsedAt: item.lastUsedAt,
+      })) || [];
 
-  handleInfoModalClose() {
-    this._infoModal = null;
+    // Open modal via modal manager
+    window.dispatchEvent(new CustomEvent('open-modal', {
+      detail: {
+        type: 'details',
+        data: {
+          media: media,
+          usageData: usageData,
+          org: this.org,
+          repo: this.repo
+        }
+      }
+    }));
   }
 
   handleAltTextUpdated(e) {
@@ -429,16 +456,6 @@ class NxMediaLibrary extends LitElement {
   // EVENT HANDLERS - DOCUMENT MANAGEMENT
   // ============================================================================
 
-
-
-
-
-
-
-
-
-
-
   handleClearDocumentFilter() {
     this._needsFilterRecalculation = true;
     this.clearSearchQuery();
@@ -451,30 +468,7 @@ class NxMediaLibrary extends LitElement {
     this.clearSearchQuery();
   }
 
-  // ============================================================================
-  // EVENT HANDLERS - STATUS MANAGEMENT
-  // ============================================================================
 
-  setMessage(message, duration = CONFIG.MESSAGE_DURATION) {
-    this._message = message;
-
-    if (this._messageTimeout) {
-      clearTimeout(this._messageTimeout);
-    }
-
-    this._messageTimeout = setTimeout(() => {
-      this._message = null;
-      this._messageTimeout = null;
-    }, duration);
-  }
-
-  handleToastClose() {
-    this._message = null;
-    if (this._messageTimeout) {
-      clearTimeout(this._messageTimeout);
-      this._messageTimeout = null;
-    }
-  }
 }
 
 // ============================================================================

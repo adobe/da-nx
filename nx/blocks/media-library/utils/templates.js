@@ -239,7 +239,7 @@ export const gridTemplates = {
             ${media.usageCount || 0}
           </span>
           <div class="media-actions">
-            <sl-button variant="primary outline" size="small" @click=${(e) => { console.log('COPY button clicked'); e.stopPropagation(); handlers.copyClick(); }} title="Copy to clipboard">
+            <sl-button variant="primary outline" size="small" @click=${(e) => { e.stopPropagation(); handlers.copyClick(); }} title="Copy to clipboard">
               COPY
             </sl-button>
             ${renderHelpers.altStatus(media)}
@@ -291,7 +291,7 @@ export const listTemplates = {
         ${renderHelpers.altStatus(media)}
       </div>
       <div class="item-actions">
-        <sl-button variant="primary outline" size="small" @click=${(e) => { console.log('COPY button clicked (list)'); e.stopPropagation(); handlers.copyClick(); }} title="Copy to clipboard">
+        <sl-button variant="primary outline" size="small" @click=${(e) => { e.stopPropagation(); handlers.copyClick(); }} title="Copy to clipboard">
           COPY
         </sl-button>
       </div>
@@ -327,12 +327,12 @@ export const listTemplates = {
 export const handlerFactories = {
   createGridHandlers: (media, eventHandlers) => ({
     mediaClick: () => eventHandlers.handleMediaClick(media),
-    copyClick: () => { console.log('copyClick handler called for grid'); eventHandlers.handleMediaCopy(media); },
+    copyClick: () => eventHandlers.handleMediaCopy(media),
   }),
 
   createListHandlers: (media, eventHandlers) => ({
     mediaClick: () => eventHandlers.handleMediaClick(media),
-    copyClick: () => { console.log('copyClick handler called for list'); eventHandlers.handleMediaCopy(media); },
+    copyClick: () => eventHandlers.handleMediaCopy(media),
   }),
 };
 

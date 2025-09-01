@@ -31,7 +31,7 @@ class NxMediaInfo extends LitElement {
   static properties = {
     media: { attribute: false },
     isOpen: { attribute: false },
-    mediaData: { attribute: false },
+    usageData: { attribute: false },
     org: { attribute: false },
     repo: { attribute: false },
     _activeTab: { state: true },
@@ -62,7 +62,7 @@ class NxMediaInfo extends LitElement {
     this._usageData = [];
     this._usageLoading = false;
     this._editingAltUsage = null;
-    this.mediaData = [];
+    this.usageData = [];
     this._pdfBlobUrls = new Map();
   }
 
@@ -94,7 +94,7 @@ class NxMediaInfo extends LitElement {
       this.loadUsageData();
     }
 
-    if (changedProperties.has('mediaData') && this.mediaData && this.media) {
+    if (changedProperties.has('usageData') && this.usageData && this.media) {
       this.loadUsageData();
     }
 
@@ -135,21 +135,12 @@ class NxMediaInfo extends LitElement {
   }
 
   loadUsageData() {
-    if (!this.media || !this.media.url || !this.mediaData) return;
+    if (!this.media || !this.media.url || !this.usageData) return;
 
     this._usageLoading = true;
     try {
-      // Calculate usage data on-demand from raw media data
-      this._usageData = this.mediaData
-        .filter((item) => item.url === this.media.url && item.doc && item.doc.trim())
-        .map((item) => ({
-          doc: item.doc,
-          alt: item.alt,
-          type: item.type,
-          firstUsedAt: item.firstUsedAt,
-          lastUsedAt: item.lastUsedAt,
-          // Add other usage details as needed
-        }));
+      // Use pre-filtered usage data directly
+      this._usageData = this.usageData;
 
       // Always show usage tab if there's any data for this media
       // Even if no current usage, show the tab for potential usage
@@ -163,7 +154,8 @@ class NxMediaInfo extends LitElement {
   }
 
   handleClose() {
-    this.dispatchEvent(new CustomEvent('close'));
+    // Dispatch close event to modal manager
+    window.dispatchEvent(new Event('close-modal'));
   }
 
   handleTabChange(e) {
@@ -546,9 +538,9 @@ class NxMediaInfo extends LitElement {
     if (usage.alt === null) {
       return html`
         <div class="alt-missing">
-          <span class="alt-warning-badge">Missing</span>
+          <span class="alt-warning-badge">No Alt Text</span>
           <sl-button type="button" size="small" class="primary" @click=${() => this.editAlt(usage)}>
-            Add Alt
+            Add Alt Text
           </sl-button>
         </div>
       `;
@@ -559,7 +551,7 @@ class NxMediaInfo extends LitElement {
         <div class="alt-decorative">
           <span class="alt-decorative-badge">Decorative</span>
           <sl-button type="button" size="small" class="primary" @click=${() => this.editAlt(usage)}>
-            Add Alt
+            Update Alt
           </sl-button>
         </div>
       `;
