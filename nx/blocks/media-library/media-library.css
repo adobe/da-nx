@@ -29,6 +29,7 @@
   max-width: 100%;
   background: var(--s2-gray-50);
   overflow: hidden;
+  position: relative;
 }
 
 .top-bar {
@@ -96,6 +97,16 @@ nx-media-scan {
   display: block;
   width: 20px;
   height: 20px;
+}
+
+/* Toast message positioning */
+sl-alert {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 10000;
+  max-width: 400px;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 15%);
 }
 
 .view-btn .icon {

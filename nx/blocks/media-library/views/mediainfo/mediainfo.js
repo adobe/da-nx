@@ -3,6 +3,8 @@ import getStyle from '../../../../utils/styles.js';
 import getSvg from '../../../../utils/svg.js';
 import {
   getDisplayMediaType,
+  getSubtype,
+  // eslint-disable-next-line no-unused-vars
   extractRelativePath,
   formatFileSize,
   extractMediaLocation,
@@ -30,7 +32,7 @@ class NxMediaInfo extends LitElement {
   static properties = {
     media: { attribute: false },
     isOpen: { attribute: false },
-    mediaData: { attribute: false },
+    usageData: { attribute: false },
     org: { attribute: false },
     repo: { attribute: false },
     _activeTab: { state: true },
@@ -61,7 +63,7 @@ class NxMediaInfo extends LitElement {
     this._usageData = [];
     this._usageLoading = false;
     this._editingAltUsage = null;
-    this.mediaData = [];
+    this.usageData = [];
     this._pdfBlobUrls = new Map();
   }
 
@@ -81,7 +83,6 @@ class NxMediaInfo extends LitElement {
   }
 
   updated(changedProperties) {
-
     if (changedProperties.has('media') && this.media) {
       this.loadFileSize();
       if (isImage(this.media.url)) {
@@ -93,7 +94,7 @@ class NxMediaInfo extends LitElement {
       this.loadUsageData();
     }
 
-    if (changedProperties.has('mediaData') && this.mediaData && this.media) {
+    if (changedProperties.has('usageData') && this.usageData && this.media) {
       this.loadUsageData();
     }
 
@@ -134,21 +135,12 @@ class NxMediaInfo extends LitElement {
   }
 
   loadUsageData() {
-    if (!this.media || !this.media.url || !this.mediaData) return;
+    if (!this.media || !this.media.url || !this.usageData) return;
 
     this._usageLoading = true;
     try {
-      // Calculate usage data on-demand from raw media data
-      this._usageData = this.mediaData
-        .filter((item) => item.url === this.media.url && item.doc && item.doc.trim())
-        .map((item) => ({
-          doc: item.doc,
-          alt: item.alt,
-          type: item.type,
-          firstUsedAt: item.firstUsedAt,
-          lastUsedAt: item.lastUsedAt,
-          // Add other usage details as needed
-        }));
+      // Use pre-filtered usage data directly
+      this._usageData = this.usageData;
 
       // Always show usage tab if there's any data for this media
       // Even if no current usage, show the tab for potential usage
@@ -162,7 +154,8 @@ class NxMediaInfo extends LitElement {
   }
 
   handleClose() {
-    this.dispatchEvent(new CustomEvent('close'));
+    // Dispatch close event to modal manager
+    window.dispatchEvent(new Event('close-modal'));
   }
 
   handleTabChange(e) {
@@ -223,8 +216,6 @@ class NxMediaInfo extends LitElement {
     }
   }
 
-
-
   handleEditDocument(docPath) {
     if (!docPath) return;
 
@@ -232,7 +223,7 @@ class NxMediaInfo extends LitElement {
     if (!org || !repo) return;
 
     // Get the relative path (without org/repo) for the edit URL
-    const editUrl = getEditUrl(org, repo, docPath.replace(`.html`, ''));
+    const editUrl = getEditUrl(org, repo, docPath.replace('.html', ''));
     if (editUrl) {
       window.open(editUrl, '_blank');
     }
@@ -293,7 +284,7 @@ class NxMediaInfo extends LitElement {
     const { org, repo } = this;
     if (!org || !repo) return;
     // Get the relative path (without org/repo) for the view URL
-    const viewUrl = getViewUrl(org, repo, docPath.replace(`.html`, ''));
+    const viewUrl = getViewUrl(org, repo, docPath.replace('.html', ''));
     if (viewUrl) {
       window.open(viewUrl, '_blank');
     }
@@ -384,8 +375,12 @@ class NxMediaInfo extends LitElement {
 
   renderMediaPreview() {
     if (isImage(this.media.url)) {
+      const subtype = getSubtype(this.media);
       return html`
-        <img src="${this.media.url}" alt="${this.media.alt || ''}" class="preview-image">
+        <div class="image-preview-container">
+          <img src="${this.media.url}" alt="${this.media.alt || ''}" class="preview-image">
+          ${subtype ? html`<div class="subtype-label">${subtype}</div>` : ''}
+        </div>
       `;
     }
     if (isVideo(this.media.url)) {
@@ -484,9 +479,6 @@ class NxMediaInfo extends LitElement {
 
     return html`
       <tr class="usage-row">
-        <td class="type-cell">
-          <span class="type-badge">${getDisplayMediaType(usage)}</span>
-        </td>
         ${!isPdfFile ? html`
           <td class="alt-cell">
             ${this.renderAltCell(usage, isEditingAlt, isMissingAlt)}
@@ -500,7 +492,7 @@ class NxMediaInfo extends LitElement {
         </td>
       </tr>
       <tr class="usage-date-row">
-        <td colspan="${isPdfFile ? 3 : 4}" class="date-details-cell">
+        <td colspan="${isPdfFile ? 2 : 3}" class="date-details-cell">
           <div class="date-details">
             <span class="date-item">
               <strong>First used:</strong> ${this.formatDateTime(usage.firstUsedAt)}
@@ -514,6 +506,7 @@ class NxMediaInfo extends LitElement {
     `;
   }
 
+  // eslint-disable-next-line no-unused-vars
   renderAltCell(usage, isEditingAlt, isMissingAlt) {
     if (isEditingAlt) {
       return html`
@@ -537,16 +530,27 @@ class NxMediaInfo extends LitElement {
       `;
     }
 
-    if (usage.alt) {
+    if (usage.alt && usage.alt !== '') {
       return html`<span class="alt-text">${usage.alt}</span>`;
     }
 
-    if (isMissingAlt) {
+    if (usage.alt === null) {
       return html`
         <div class="alt-missing">
-          <span class="alt-warning-badge">Missing</span>
+          <span class="alt-warning-badge">No Alt Text</span>
           <sl-button type="button" size="small" class="primary" @click=${() => this.editAlt(usage)}>
-            Add Alt
+            Add Alt Text
+          </sl-button>
+        </div>
+      `;
+    }
+
+    if (usage.alt === '') {
+      return html`
+        <div class="alt-decorative">
+          <span class="alt-decorative-badge">Decorative</span>
+          <sl-button type="button" size="small" class="primary" @click=${() => this.editAlt(usage)}>
+            Update Alt
           </sl-button>
         </div>
       `;
@@ -591,10 +595,7 @@ class NxMediaInfo extends LitElement {
                 </tr>
               </thead>
               <tbody>
-                <tr class="metadata-row">
-                  <td class="metadata-label">File Type</td>
-                  <td class="metadata-value">${this.getFileType()}</td>
-                </tr>
+
                 <tr class="metadata-row">
                   <td class="metadata-label">MIME Type</td>
                   <td class="metadata-value">${this._mimeType || 'Loading...'}</td>
@@ -651,13 +652,12 @@ class NxMediaInfo extends LitElement {
           ${Object.entries(groupedUsages).map(([doc, usages]) => html`
             <div class="usage-section">
               <div class="document-heading">
-                <h3>${extractRelativePath(doc)}</h3>
+                <h3>${doc}</h3>
               </div>
               <div class="usage-table-container">
                 <table class="usage-table">
                   <thead>
                     <tr>
-                      <th>Type</th>
                       ${isImage(this.media.url) ? html`<th>Alt Text</th>` : ''}
                       <th>Context</th>
                       <th>Actions</th>

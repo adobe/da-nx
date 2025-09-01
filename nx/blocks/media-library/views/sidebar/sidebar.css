@@ -182,3 +182,18 @@
   word-break: break-word;
   margin-bottom: var(--spacing-200);
 }
+
+.accessibility-section {
+  margin-top: var(--spacing-200);
+  margin-bottom: var(--spacing-100);
+}
+
+.section-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--s2-gray-600);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: var(--spacing-100) var(--spacing-200);
+  display: block;
+}

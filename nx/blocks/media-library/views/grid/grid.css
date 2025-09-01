@@ -57,7 +57,7 @@
   border: 1px solid var(--s2-gray-200);
   border-radius: var(--s2-radius-100);
   overflow: hidden;
-  cursor: pointer;
+  cursor: default;
   transition: box-shadow 0.2s ease, border-color 0.2s ease;
   box-shadow: 0 1px 3px rgb(0 0 0 / 10%);
   padding: 0;
@@ -68,7 +68,7 @@
 .media-card:hover {
   box-shadow: 0 4px 12px rgb(0 0 0 / 15%);
   transform: translateY(-2px);
-  border-color: var(--s2-blue-700);
+  border-color: var(--s2-gray-300);
 }
 
 .media-preview {
@@ -80,6 +80,15 @@
   overflow: hidden;
   border-bottom: 1px solid var(--s2-gray-200);
   position: relative;
+}
+
+.media-preview.clickable {
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.media-preview.clickable:hover {
+  background: var(--s2-gray-100);
 }
 
 .media-preview img,
@@ -222,8 +231,9 @@
   font-weight: bold;
 }
 
-.media-used.clickable {
-  cursor: pointer;
+.media-used-text {
+  color: var(--s2-gray-600);
+  font-size: 0.875rem;
 }
 
 .media-actions {
@@ -240,14 +250,23 @@
   padding: 4px;
 }
 
-.missing-alt-indicator.clickable {
-  cursor: pointer;
+.decorative-alt-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
 }
 
 .alert-icon {
   width: 20px;
   height: 20px;
   color: #ff6b35;
+}
+
+.info-icon {
+  width: 20px;
+  height: 20px;
+  color: #17a2b8;
 }
 
 .alt-present {

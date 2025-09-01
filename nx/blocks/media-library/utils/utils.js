@@ -339,33 +339,6 @@ export function createElement(tag, attributes = {}, content = undefined) {
   return element;
 }
 
-export async function copyMediaToClipboard(media) {
-  const mediaUrl = media.url;
-  const mediaType = getMediaType(media);
-
-  let clipboardContent = '';
-
-  if (mediaType === 'image') {
-    const imageName = media.name || 'Image';
-    clipboardContent = `<img src="${mediaUrl}" alt="${media.alt || ''}" title="${imageName}">`;
-  } else if (mediaType === 'video') {
-    clipboardContent = `<a href="${mediaUrl}" title="${media.name || 'Video'}">${media.name || 'Video'}</a>`;
-  } else if (mediaType === 'document') {
-    clipboardContent = `<a href="${mediaUrl}" title="${media.name || 'Document'}">${media.name || 'Document'}</a>`;
-  } else {
-    clipboardContent = `<a href="${mediaUrl}" title="${media.name || 'Media'}">${media.name || 'Media'}</a>`;
-  }
-
-  try {
-    await navigator.clipboard.writeText(clipboardContent);
-    return { heading: 'Copied', message: 'Media link copied to clipboard.' };
-  } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error('Failed to copy to clipboard:', error);
-    return { heading: 'Error', message: 'Failed to copy to clipboard.' };
-  }
-}
-
 export async function copyImageToClipboard(imageUrl) {
   const response = await fetch(imageUrl);
   if (!response.ok) {
@@ -402,6 +375,26 @@ export async function copyImageToClipboard(imageUrl) {
 
   const clipboardItem = new ClipboardItem({ [mimeType]: clipboardBlob });
   await navigator.clipboard.write([clipboardItem]);
+}
+
+export async function copyMediaToClipboard(media) {
+  const mediaUrl = media.url;
+  const mediaType = getMediaType(media);
+
+  try {
+    if (mediaType === 'image') {
+      // Copy actual image to clipboard
+      await copyImageToClipboard(mediaUrl);
+      return { heading: 'Copied', message: 'Image copied to clipboard.' };
+    }
+    // For non-images, copy the URL as text
+    await navigator.clipboard.writeText(mediaUrl);
+    return { heading: 'Copied', message: 'Media URL copied to clipboard.' };
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to copy to clipboard:', error);
+    return { heading: 'Error', message: 'Failed to copy to clipboard.' };
+  }
 }
 
 export async function updateDocumentAltText(org, repo, docPath, mediaUrl, altText) {
