@@ -3,6 +3,7 @@ import getStyle from '../../../../utils/styles.js';
 import getSvg from '../../../../utils/svg.js';
 import {
   getDisplayMediaType,
+  getSubtype,
   extractRelativePath,
   formatFileSize,
   extractMediaLocation,
@@ -384,8 +385,12 @@ class NxMediaInfo extends LitElement {
 
   renderMediaPreview() {
     if (isImage(this.media.url)) {
+      const subtype = getSubtype(this.media);
       return html`
-        <img src="${this.media.url}" alt="${this.media.alt || ''}" class="preview-image">
+        <div class="image-preview-container">
+          <img src="${this.media.url}" alt="${this.media.alt || ''}" class="preview-image">
+          ${subtype ? html`<div class="subtype-label">${subtype}</div>` : ''}
+        </div>
       `;
     }
     if (isVideo(this.media.url)) {
@@ -484,9 +489,6 @@ class NxMediaInfo extends LitElement {
 
     return html`
       <tr class="usage-row">
-        <td class="type-cell">
-          <span class="type-badge">${getDisplayMediaType(usage)}</span>
-        </td>
         ${!isPdfFile ? html`
           <td class="alt-cell">
             ${this.renderAltCell(usage, isEditingAlt, isMissingAlt)}
@@ -500,7 +502,7 @@ class NxMediaInfo extends LitElement {
         </td>
       </tr>
       <tr class="usage-date-row">
-        <td colspan="${isPdfFile ? 3 : 4}" class="date-details-cell">
+        <td colspan="${isPdfFile ? 2 : 3}" class="date-details-cell">
           <div class="date-details">
             <span class="date-item">
               <strong>First used:</strong> ${this.formatDateTime(usage.firstUsedAt)}
@@ -537,14 +539,25 @@ class NxMediaInfo extends LitElement {
       `;
     }
 
-    if (usage.alt) {
+    if (usage.alt && usage.alt !== '') {
       return html`<span class="alt-text">${usage.alt}</span>`;
     }
 
-    if (isMissingAlt) {
+    if (usage.alt === null) {
       return html`
         <div class="alt-missing">
           <span class="alt-warning-badge">Missing</span>
+          <sl-button type="button" size="small" class="primary" @click=${() => this.editAlt(usage)}>
+            Add Alt
+          </sl-button>
+        </div>
+      `;
+    }
+
+    if (usage.alt === '') {
+      return html`
+        <div class="alt-decorative">
+          <span class="alt-decorative-badge">Decorative</span>
           <sl-button type="button" size="small" class="primary" @click=${() => this.editAlt(usage)}>
             Add Alt
           </sl-button>
@@ -591,10 +604,7 @@ class NxMediaInfo extends LitElement {
                 </tr>
               </thead>
               <tbody>
-                <tr class="metadata-row">
-                  <td class="metadata-label">File Type</td>
-                  <td class="metadata-value">${this.getFileType()}</td>
-                </tr>
+
                 <tr class="metadata-row">
                   <td class="metadata-label">MIME Type</td>
                   <td class="metadata-value">${this._mimeType || 'Loading...'}</td>
@@ -651,13 +661,12 @@ class NxMediaInfo extends LitElement {
           ${Object.entries(groupedUsages).map(([doc, usages]) => html`
             <div class="usage-section">
               <div class="document-heading">
-                <h3>${extractRelativePath(doc)}</h3>
+                <h3>${doc}</h3>
               </div>
               <div class="usage-table-container">
                 <table class="usage-table">
                   <thead>
                     <tr>
-                      <th>Type</th>
                       ${isImage(this.media.url) ? html`<th>Alt Text</th>` : ''}
                       <th>Context</th>
                       <th>Actions</th>

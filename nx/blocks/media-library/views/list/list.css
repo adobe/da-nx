@@ -70,18 +70,19 @@
   gap: var(--spacing-400);
   padding: var(--spacing-400);
   border-bottom: 1px solid var(--s2-gray-75);
-  cursor: pointer;
+  cursor: default;
   transition: background-color 0.2s ease;
   width: 100%;
   height: 80px;
   box-sizing: border-box;
+  align-items: center;
 
   /* Prevent flickering during virtual scroll updates */
   will-change: transform;
 }
 
 .media-item:hover {
-  background: var(--s2-gray-50);
+  background: var(--s2-gray-25);
 }
 
 .media-item:last-child {
@@ -98,17 +99,19 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  position: relative;
 }
 
 .item-preview.clickable {
   cursor: pointer;
-  transition: border-color 0.2s ease;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
 }
 
 .item-preview.clickable:hover {
   border-color: var(--s2-blue-400);
+  background: var(--s2-gray-100);
 }
+
+
 
 .item-preview img,
 .item-preview video {
@@ -184,9 +187,7 @@
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-  position: absolute;
-  top: 0;
-  left: 0;
+  position: relative;
   z-index: 1;
 }
 
@@ -198,9 +199,7 @@
   align-items: center;
   justify-content: center;
   background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-  position: absolute;
-  top: 0;
-  left: 0;
+  position: relative;
   z-index: 1;
 }
 
@@ -254,6 +253,9 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   cursor: default;
+  display: flex;
+  align-items: center;
+  min-height: 20px;
 }
 
 .item-type {
@@ -265,11 +267,15 @@
   font-weight: bold;
   max-width: fit-content;
   cursor: default;
+  display: flex;
+  align-items: center;
+  min-height: 20px;
 }
 
 .item-usage {
   display: flex;
   align-items: center;
+  min-height: 20px;
 }
 
 .usage-badge {
@@ -284,7 +290,7 @@
   justify-content: center;
   width: 20px;
   height: 20px;
-  cursor: pointer;
+  cursor: default;
 }
 
 .item-alt {
@@ -301,6 +307,7 @@
 .item-actions {
   display: flex;
   align-items: center;
+  min-height: 20px;
 }
 
 .missing-alt-indicator {
@@ -310,14 +317,25 @@
   padding: 4px;
 }
 
-.missing-alt-indicator.clickable {
-  cursor: pointer;
+
+
+.decorative-alt-indicator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
 }
 
 .alert-icon {
   width: 20px;
   height: 20px;
   color: #ff6b35;
+}
+
+.info-icon {
+  width: 20px;
+  height: 20px;
+  color: #17a2b8;
 }
 
 .checkmark-icon {

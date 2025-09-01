@@ -10,7 +10,9 @@ export const FILTER_CONFIG = {
   icons: (item) => isSvgFile(item),
 
   // Special filters
-  missingAlt: (item) => item.type?.startsWith('img >') && !item.type?.includes('svg') && !item.alt,
+  missingAlt: (item) => item.type?.startsWith('img >') && !item.type?.includes('svg') && item.alt === null,
+  decorative: (item) => item.type?.startsWith('img >') && !item.type?.includes('svg') && item.alt === '',
+  filled: (item) => item.type?.startsWith('img >') && !item.type?.includes('svg') && item.alt && item.alt !== '',
 
   // Document-specific filters (reuse base filters)
   documentImages: (item) => FILTER_CONFIG.images(item),
@@ -18,7 +20,9 @@ export const FILTER_CONFIG = {
   documentVideos: (item) => FILTER_CONFIG.videos(item),
   documentDocuments: (item) => FILTER_CONFIG.documents(item),
   documentLinks: (item) => FILTER_CONFIG.links(item),
-  documentMissingAlt: (item) => item.type?.startsWith('img >') && !item.type?.includes('svg') && !item.alt,
+  documentMissingAlt: (item) => item.type?.startsWith('img >') && !item.type?.includes('svg') && item.alt === null,
+  documentDecorative: (item) => item.type?.startsWith('img >') && !item.type?.includes('svg') && item.alt === '',
+  documentFilled: (item) => item.type?.startsWith('img >') && !item.type?.includes('svg') && item.alt && item.alt !== '',
 
   // Special cases
   documentTotal: () => true, // No filtering
@@ -48,27 +52,59 @@ export function getAvailableFilters() {
 export function parseColonSyntax(query) {
   if (!query) return null;
 
+  // First check for explicit colon syntax
   const colonMatch = query.match(/^(\w+):(.*)$/);
-  if (!colonMatch) return null;
+  if (colonMatch) {
+    const [, field, value] = colonMatch;
+    return {
+      field: field.toLowerCase(),
+      value: value.trim().toLowerCase(),
+      originalQuery: query,
+    };
+  }
 
-  const [, field, value] = colonMatch;
-  return {
-    field: field.toLowerCase(),
-    value: value.trim().toLowerCase(),
-    originalQuery: query,
-  };
+  // Auto-detect folder paths (starts with / or contains /)
+  if (query.startsWith('/') || query.includes('/')) {
+    return {
+      field: 'folder',
+      value: query.toLowerCase().trim(),
+      originalQuery: query,
+    };
+  }
+
+  return null;
 }
 
 /**
- * Filter by colon syntax (doc:, name:, alt:, url:)
+ * Filter by colon syntax (doc:, name:, alt:, url:, folder:)
  * @param {Array} mediaData - Media data to filter
  * @param {Object} colonSyntax - Parsed colon syntax object
  * @returns {Array} Filtered media data
  */
 function filterByColonSyntax(mediaData, colonSyntax) {
   const { field, value } = colonSyntax;
+  
+  // Debug: Log the search parameters
+  if (field === 'folder' && value === '/drafts/km') {
+    console.log('=== FILTER FUNCTION DEBUG ===');
+    console.log('Search field:', field);
+    console.log('Search value:', value);
+    console.log('Total items to filter:', mediaData.length);
+    
+    // Check if any items have /drafts/km in their doc path
+    const itemsWithDraftsKm = mediaData.filter(item => 
+      item.doc && item.doc.includes('/drafts/km')
+    );
+    console.log('Items with /drafts/km in doc:', itemsWithDraftsKm.length);
+    if (itemsWithDraftsKm.length > 0) {
+      console.log('Sample items with /drafts/km:', itemsWithDraftsKm.slice(0, 3).map(item => ({
+        name: item.name,
+        doc: item.doc
+      })));
+    }
+  }
 
-  return mediaData.filter((item) => {
+  const filteredResults = mediaData.filter((item) => {
     switch (field) {
       case 'doc':
         return item.doc && item.doc.toLowerCase().includes(value);
@@ -78,10 +114,49 @@ function filterByColonSyntax(mediaData, colonSyntax) {
         return item.alt && item.alt.toLowerCase().includes(value);
       case 'url':
         return item.url && item.url.toLowerCase().includes(value);
+      case 'folder':
+        // Simple folder matching using doc path
+        if (!item.doc) return false;
+        
+        // Handle root-level search
+        if (value === '' || value === '/') {
+          return !item.doc.includes('/', 1); // No slash after the first character
+        }
+        
+        // For specific folder: extract folder path from doc and check exact match
+        const cleanPath = item.doc.replace(/\.html$/, '');
+        const parts = cleanPath.split('/');
+        
+        if (parts.length > 2) {
+          // Extract folder path (remove file part)
+          const folderPath = parts.slice(0, -1).join('/');
+          const searchPath = value.startsWith('/') ? value : `/${value}`;
+          const matches = folderPath === searchPath;          
+          return matches;
+        }
+        
+        return false;
       default:
         return false;
     }
   });
+  
+  // Debug: Log the final results
+  if (field === 'folder' && value === '/drafts/km') {
+    console.log('=== FILTER RESULTS DEBUG ===');
+    console.log('Filtered results count:', filteredResults.length);
+    if (filteredResults.length > 0) {
+      console.log('Filtered results:', filteredResults.map(item => ({
+        name: item.name,
+        doc: item.doc
+      })));
+    } else {
+      console.log('No items matched the folder search criteria');
+    }
+    console.log('=== END FILTER RESULTS DEBUG ===');
+  }
+  
+  return filteredResults;
 }
 
 /**
@@ -146,7 +221,6 @@ export function processMediaData(mediaData) {
     const { alt, doc, type } = item;
     const mediaType = getMediaType(item);
     const isSvg = isSvgFile(item);
-    const hasAlt = alt && alt.trim();
     const isImage = mediaType === 'image' || mediaType === 'img';
     const isInDocument = doc && doc.trim();
 
@@ -154,9 +228,17 @@ export function processMediaData(mediaData) {
     if (isImage && !isSvg) {
       filterCounts.images += 1;
       if (isInDocument) filterCounts.documentImages += 1;
-      if (type?.startsWith('img >') && !type?.includes('svg') && !hasAlt) {
-        filterCounts.missingAlt += 1;
-        if (isInDocument) filterCounts.documentMissingAlt += 1;
+      if (type?.startsWith('img >') && !type?.includes('svg')) {
+        if (alt === null) {
+          filterCounts.missingAlt += 1;
+          if (isInDocument) filterCounts.documentMissingAlt += 1;
+        } else if (alt === '') {
+          filterCounts.decorative += 1;
+          if (isInDocument) filterCounts.documentDecorative += 1;
+        } else if (alt && alt !== '') {
+          filterCounts.filled += 1;
+          if (isInDocument) filterCounts.documentFilled += 1;
+        }
       }
     }
 
@@ -233,7 +315,6 @@ export function aggregateMediaData(mediaData) {
 export function calculateFilteredMediaData(
   mediaData,
   selectedFilterType,
-  folderFilterPaths,
   searchQuery,
 ) {
   if (!mediaData) {
@@ -244,27 +325,6 @@ export function calculateFilteredMediaData(
 
   // Apply filter using configuration
   filtered = applyFilter(filtered, selectedFilterType);
-
-  if (folderFilterPaths.length > 0) {
-    const hasMatchingPath = (item) => {
-      // Only include items that have a document path and match the filter
-      if (!item.doc || !item.doc.trim()) {
-        return false; // Exclude items with no document path
-      }
-
-      const matches = folderFilterPaths.some(
-        (path) => {
-          // Normalize paths for comparison
-          const itemPath = item.doc.replace(/^\//, '');
-          const filterPath = path.replace(/^\//, '');
-          return itemPath.startsWith(filterPath);
-        },
-      );
-      return matches;
-    };
-
-    filtered = filtered.filter(hasMatchingPath);
-  }
 
   // Apply search filter using consolidated logic
   if (searchQuery && searchQuery.trim()) {
@@ -278,160 +338,185 @@ export function calculateFilteredMediaData(
 }
 
 // ============================================================================
-// SEARCH HELPER FUNCTIONS (defined before use)
-// ============================================================================
-
-// ============================================================================
-// FOLDER HIERARCHY FUNCTIONS (moved from folder-utils.js)
+// SEARCH SUGGESTIONS
 // ============================================================================
 
 /**
- * Build folder hierarchy from document path
- * @param {Map} hierarchy - Hierarchy map to populate
- * @param {string} docPath - Document path
+ * Generate search suggestions for dropdown
+ * @param {Array} mediaData - Media data to search
+ * @param {string} query - Search query
+ * @param {Function} createSuggestionFn - Function to create suggestion objects
+ * @returns {Array} Array of suggestion objects
  */
-export function buildFolderHierarchy(hierarchy, docPath) {
-  if (!docPath) return;
+export function generateSearchSuggestions(mediaData, query, createSuggestionFn) {
+  if (!query || !query.trim() || !mediaData) {
+    return [];
+  }
 
-  // Remove leading slash
-  const cleanPath = docPath.startsWith('/') ? docPath.substring(1) : docPath;
-  const parts = cleanPath.split('/').filter(Boolean);
+  const suggestions = [];
+  const matchingDocs = new Set();
 
-  if (parts.length === 0) return;
+  // Use centralized parsing logic
+  const colonSyntax = parseColonSyntax(query);
+  
+  if (colonSyntax) {
+    const { field, value } = colonSyntax;
 
-  // Simple rule: if the last part ends with .html, it's a file
-  // Everything else in the path are folders
-  const lastPart = parts[parts.length - 1];
-  const isFile = lastPart.endsWith('.html');
+    if (field === 'folder') {
+      // Generate folder suggestions
+      return generateFolderSuggestions(mediaData, value);
+    }
 
-  if (isFile) {
-    // Create folders for all parts except the last one
-    const folderParts = parts.slice(0, -1);
-
-    let currentPath = '';
-    folderParts.forEach((part) => {
-      currentPath = currentPath ? `${currentPath}/${part}` : part;
-
-      if (!hierarchy.has(currentPath)) {
-        hierarchy.set(currentPath, {
-          path: currentPath,
-          name: part,
-          level: currentPath.split('/').length,
-          children: new Set(),
-          parent: currentPath.includes('/') ? currentPath.substring(0, currentPath.lastIndexOf('/')) : null,
-          count: 0,
-          type: 'folder',
-          hasFiles: false,
-        });
+    // Handle other field types (doc:, name:, alt:, url:)
+    mediaData.forEach((item) => {
+      switch (field) {
+        case 'doc':
+          if (item.doc && item.doc.toLowerCase().includes(value)) {
+            matchingDocs.add(item.doc);
+          }
+          break;
+        case 'alt':
+          if (item.alt && item.alt.toLowerCase().includes(value) && !isSvgFile(item)) {
+            suggestions.push(createSuggestionFn(item));
+          }
+          break;
+        case 'name':
+          if (item.name && item.name.toLowerCase().includes(value) && !isSvgFile(item)) {
+            suggestions.push(createSuggestionFn(item));
+          }
+          break;
+        case 'url':
+          if (item.url && item.url.toLowerCase().includes(value) && !isSvgFile(item)) {
+            suggestions.push(createSuggestionFn(item));
+          }
+          break;
       }
     });
 
-    // Add the file itself to the hierarchy
-    const filePath = cleanPath;
-    if (!hierarchy.has(filePath)) {
-      hierarchy.set(filePath, {
-        path: filePath,
-        name: lastPart,
-        level: parts.length,
-        children: new Set(),
-        parent: folderParts.length > 0 ? folderParts.join('/') : null,
-        count: 0,
-        type: 'file',
-        hasFiles: false,
-      });
-    }
+    // Add doc suggestions
+    const docSuggestions = Array.from(matchingDocs).map((doc) => ({
+      type: 'doc',
+      value: doc,
+      display: doc,
+    }));
 
-    // Always update the parent-child relationship, even if file already exists
-    if (folderParts.length > 0) {
-      const parentPath = folderParts.join('/');
-      if (hierarchy.has(parentPath)) {
-        hierarchy.get(parentPath).hasFiles = true;
-        hierarchy.get(parentPath).children.add(filePath);
-      }
-    }
+    return [...docSuggestions, ...suggestions].slice(0, 10);
   }
 
-  // Build parent-child relationships for both folders and files
-  hierarchy.forEach((node, path) => {
-    if (node.parent && hierarchy.has(node.parent)) {
-      hierarchy.get(node.parent).children.add(path);
+  // General search across all fields
+  const q = query.toLowerCase().trim();
+  
+  // Handle root-level search (just "/")
+  if (q === '/') {
+    mediaData.forEach((item) => {
+      if (item.doc && !item.doc.includes('/', 1)) {
+        suggestions.push(createSuggestionFn(item));
+      }
+    });
+    return suggestions.slice(0, 10);
+  }
+
+  mediaData.forEach((item) => {
+    // Check doc paths
+    if (item.doc && item.doc.toLowerCase().includes(q)) {
+      matchingDocs.add(item.doc);
+    }
+
+    // Check media fields (exclude SVGs)
+    if (!isSvgFile(item) && (
+      (item.name && item.name.toLowerCase().includes(q))
+        || (item.alt && item.alt.toLowerCase().includes(q))
+        || (item.url && item.url.toLowerCase().includes(q))
+    )) {
+      suggestions.push(createSuggestionFn(item));
     }
   });
+
+  // Add doc suggestions
+  const docSuggestions = Array.from(matchingDocs).map((doc) => ({
+    type: 'doc',
+    value: doc,
+    display: doc,
+  }));
+
+  return [...docSuggestions, ...suggestions].slice(0, 10);
 }
 
 /**
- * Calculate media counts for each folder in the hierarchy
- * @param {Map} hierarchy - Folder hierarchy map
- * @param {Array} mediaData - Media data array
+ * Generate folder suggestions
+ * @param {Array} mediaData - Media data to search
+ * @param {string} value - Folder search value
+ * @returns {Array} Array of folder suggestion objects
  */
-export function calculateFolderCounts(hierarchy, mediaData) {
-  if (!hierarchy || !mediaData) return;
-
-  // Reset all counts
-  hierarchy.forEach((folder) => {
-    folder.count = 0;
-  });
-
-  // Count media items for each folder and file
-  mediaData.forEach((media) => {
-    if (media.doc) {
-      const docPath = media.doc;
-
-      // Remove leading slash
-      const cleanPath = docPath.startsWith('/') ? docPath.substring(1) : docPath;
-      const parts = cleanPath.split('/').filter(Boolean);
-
-      if (parts.length === 0) return;
-
-      // If it's a file (ends with .html), count for the file itself and all parent folders
-      const lastPart = parts[parts.length - 1];
-      if (lastPart.endsWith('.html')) {
-        const filePath = cleanPath;
-        const folderParts = parts.slice(0, -1); // All parts except the file
-
-        // Count for the file itself
-        const file = hierarchy.get(filePath);
-        if (file) {
-          file.count += 1;
-        }
-
-        // Count for all parent folders
-        let currentPath = '';
-        folderParts.forEach((part) => {
-          currentPath = currentPath ? `${currentPath}/${part}` : part;
-          const folder = hierarchy.get(currentPath);
-          if (folder) {
-            folder.count += 1;
-          }
-        });
-      }
-    }
-  });
-
-  // Counts are now calculated for both folders and files
-}
-
-/**
- * Build complete folder hierarchy from media data
- * @param {Array} mediaData - Media data array
- * @returns {Map} Complete folder hierarchy with counts
- */
-export function buildCompleteFolderHierarchy(mediaData) {
-  if (!mediaData || !Array.isArray(mediaData)) {
-    return new Map();
-  }
-
-  const folderHierarchy = new Map();
-
-  // Build hierarchy for all document paths
+function generateFolderSuggestions(mediaData, value) {
+  // Collect all unique folder paths from doc paths
+  const folderPaths = new Set();
+  
   mediaData.forEach((item) => {
     if (item.doc) {
-      buildFolderHierarchy(folderHierarchy, item.doc);
+      // Keep leading slash, just remove .html extension
+      const cleanPath = item.doc.replace(/\.html$/, '');
+      const parts = cleanPath.split('/');
+      
+      if (parts.length > 2) { // ["", "sports", "nba", "players"] -> length 4
+        // Extract ALL folder levels (root, subfolders, etc.)
+        for (let i = 1; i < parts.length - 1; i++) {
+          const folderPath = parts.slice(0, i + 1).join('/'); // "/sports", "/sports/nba"
+          folderPaths.add(folderPath);
+        }
+      } else if (parts.length === 2) {
+        // Root-level files like "/index.html"
+        folderPaths.add('/');
+      }
     }
   });
 
-  // Calculate counts
-  calculateFolderCounts(folderHierarchy, mediaData);
+  // Filter folder paths based on search value
+  const filteredPaths = Array.from(folderPaths).filter((folderPath) => {
+    if (value === '' || value === '/') {
+      return true; // Show all folders when starting fresh
+    }
+    // Show folders that start with the search value
+    const searchPath = value.startsWith('/') ? value : `/${value}`;
+    return folderPath.startsWith(searchPath);
+  });
 
-  return folderHierarchy;
+  // Add folder suggestions (already have leading /)
+  const folderSuggestions = filteredPaths.map((folderPath) => ({
+    type: 'folder',
+    value: folderPath,
+    display: folderPath,
+  }));
+
+  return folderSuggestions.slice(0, 10);
 }
+
+/**
+ * Create a search suggestion object for a media item
+ * @param {Object} item - Media item
+ * @returns {Object|null} Suggestion object or null if invalid
+ */
+export function createSearchSuggestion(item) {
+  if (!item.name && !item.url && !item.doc) return null;
+
+  // Exclude SVG files from search suggestions (consistent with 'all' filter)
+  if (isSvgFile(item)) return null;
+
+  return {
+    type: 'media',
+    value: item,
+    display: item.name || item.url || 'Unnamed Media',
+    details: {
+      alt: item.alt,
+      doc: item.doc,
+      url: item.url,
+      type: getMediaType(item),
+    },
+  };
+}
+
+// ============================================================================
+// SEARCH HELPER FUNCTIONS (defined before use)
+// ============================================================================
+
+

@@ -2,6 +2,7 @@ import { html, LitElement } from 'da-lit';
 import getStyle from '../../../../utils/styles.js';
 import getSvg from '../../../../public/utils/svg.js';
 import { getMediaType, isSvgFile } from '../../utils/utils.js';
+import { parseColonSyntax, generateSearchSuggestions, createSearchSuggestion } from '../../utils/filters.js';
 import '../scan/scan.js';
 
 const styles = await getStyle(import.meta.url);
@@ -20,7 +21,7 @@ class NxMediaTopBar extends LitElement {
   static properties = {
     searchQuery: { attribute: false },
     currentView: { attribute: false },
-    folderFilterPaths: { attribute: false },
+
     mediaData: { attribute: false },
     sitePath: { attribute: false },
     // Internal state
@@ -41,18 +42,19 @@ class NxMediaTopBar extends LitElement {
     this._originalQuery = '';
     this._isScanning = false;
     this._scanProgress = { pages: 0, media: 0, duration: null, hasChanges: null };
+    this._suppressSuggestions = false; // Flag to suppress suggestions after escape
   }
 
   shouldUpdate(changedProperties) {
     // Only update when relevant properties change
     const hasSearchChange = changedProperties.has('searchQuery');
     const hasViewChange = changedProperties.has('currentView');
-    const hasFolderChange = changedProperties.has('folderFilterPaths');
+
     const hasMediaDataChange = changedProperties.has('mediaData');
     const hasScanChange = changedProperties.has('_isScanning')
       || changedProperties.has('_scanProgress');
 
-    return hasSearchChange || hasViewChange || hasFolderChange
+    return hasSearchChange || hasViewChange
       || hasMediaDataChange || hasScanChange;
   }
 
@@ -100,116 +102,41 @@ class NxMediaTopBar extends LitElement {
 
   handleOutsideClick(e) {
     // Hide suggestions if clicking outside the search container
-    if (!this.shadowRoot.querySelector('.search-container').contains(e.target)) {
+    const searchContainer = this.shadowRoot.querySelector('.search-container');
+    if (searchContainer && !searchContainer.contains(e.target)) {
       this._suggestions = [];
       this._activeIndex = -1;
+      this._suppressSuggestions = true; // Suppress suggestions after clicking outside
     }
   }
+
+  clearSuggestions() {
+    this._suggestions = [];
+    this._activeIndex = -1;
+  }
+
+
 
   getOnDemandSearchSuggestions(query) {
-    if (!query || !query.trim() || !this.mediaData) {
-      return [];
-    }
-
-    const q = query.toLowerCase().trim();
-    const suggestions = [];
-    const matchingDocs = new Set();
-
-    // Check for colon syntax (doc:, alt:, name:, url:)
-    const colonMatch = q.match(/^(\w+):(.*)$/);
-    if (colonMatch) {
-      const [, field, value] = colonMatch;
-
-      this.mediaData.forEach((item) => {
-        switch (field) {
-          case 'doc':
-            if (item.doc && item.doc.toLowerCase().includes(value)) {
-              matchingDocs.add(item.doc);
-            }
-            break;
-          case 'alt':
-            if (item.alt && item.alt.toLowerCase().includes(value) && !isSvgFile(item)) {
-              suggestions.push(this.createSearchSuggestion(item));
-            }
-            break;
-          case 'name':
-            if (item.name && item.name.toLowerCase().includes(value) && !isSvgFile(item)) {
-              suggestions.push(this.createSearchSuggestion(item));
-            }
-            break;
-          case 'url':
-            if (item.url && item.url.toLowerCase().includes(value) && !isSvgFile(item)) {
-              suggestions.push(this.createSearchSuggestion(item));
-            }
-            break;
-          default:
-            // Handle unknown field types
-            break;
-        }
-      });
-
-      // Add doc suggestions
-      const docSuggestions = Array.from(matchingDocs).map((doc) => ({
-        type: 'doc',
-        value: doc,
-        display: doc,
-      }));
-
-      return [...docSuggestions, ...suggestions].slice(0, 10);
-    }
-
-    // General search across all fields
-    this.mediaData.forEach((item) => {
-      // Check doc paths
-      if (item.doc && item.doc.toLowerCase().includes(q)) {
-        matchingDocs.add(item.doc);
-      }
-
-      // Check media fields (exclude SVGs)
-      if (!isSvgFile(item) && (
-        (item.name && item.name.toLowerCase().includes(q))
-          || (item.alt && item.alt.toLowerCase().includes(q))
-          || (item.url && item.url.toLowerCase().includes(q))
-      )) {
-        suggestions.push(this.createSearchSuggestion(item));
-      }
-    });
-
-    // Combine doc and media suggestions
-    const docSuggestions = Array.from(matchingDocs).map((doc) => ({
-      type: 'doc',
-      value: doc,
-      display: doc,
-    }));
-
-    return [...docSuggestions, ...suggestions].slice(0, 10);
-  }
-
-  createSearchSuggestion(item) {
-    if (!item.name && !item.url && !item.doc) return null;
-
-    // Exclude SVG files from search suggestions (consistent with 'all' filter)
-    if (isSvgFile(item)) return null;
-
-    return {
-      type: 'media',
-      value: item,
-      display: item.name || item.url || 'Unnamed Media',
-      details: {
-        alt: item.alt,
-        doc: item.doc,
-        url: item.url,
-        type: getMediaType(item),
-      },
-    };
+    // Use centralized suggestion generation from filters.js
+    return generateSearchSuggestions(this.mediaData, query, createSearchSuggestion);
   }
 
   handleSearchInput(e) {
     const query = e.target.value;
+    
     this.searchQuery = query;
     this._originalQuery = query;
     this._activeIndex = -1;
-    this._suggestions = this.getOnDemandSearchSuggestions(query);
+    
+    // Clear suggestions if query is empty or if suggestions are suppressed
+    if (!query || !query.trim() || this._suppressSuggestions) {
+      this._suggestions = [];
+      this._suppressSuggestions = false; // Reset the flag
+    } else {
+      this._suggestions = this.getOnDemandSearchSuggestions(query);
+    }
+    
     this.dispatchEvent(new CustomEvent('search', { detail: { query } }));
   }
 
@@ -240,13 +167,40 @@ class NxMediaTopBar extends LitElement {
         e.preventDefault();
         if (this._activeIndex >= 0) {
           this.selectSuggestion(this._suggestions[this._activeIndex]);
+        } else {
+          // Handle Enter without selection - convert "/" to "folder:/"
+          if (this.searchQuery === '/') {
+            this.searchQuery = 'folder:/';
+            this._suggestions = [];
+            this._activeIndex = -1;
+            this._suppressSuggestions = true;
+            this.dispatchEvent(new CustomEvent('search', {
+              detail: {
+                query: this.searchQuery,
+                type: 'folder',
+                path: '',
+              },
+            }));
+          } else {
+            // For other queries, just hide suggestions and execute search
+            this._suggestions = [];
+            this._activeIndex = -1;
+            this._suppressSuggestions = true;
+            this.dispatchEvent(new CustomEvent('search', {
+              detail: {
+                query: this.searchQuery,
+              },
+            }));
+          }
         }
         break;
 
       case 'Escape':
+        e.preventDefault();
         this.searchQuery = this._originalQuery;
         this._suggestions = [];
         this._activeIndex = -1;
+        this._suppressSuggestions = true; // Suppress suggestions after escape
         break;
 
       default:
@@ -257,6 +211,13 @@ class NxMediaTopBar extends LitElement {
 
   getSuggestionText(suggestion) {
     if (suggestion.type === 'doc') return `doc:${suggestion.value}`;
+    if (suggestion.type === 'folder') {
+      // Handle root folder case
+      if (suggestion.value === '') {
+        return 'folder:/';
+      }
+      return `folder:${suggestion.value}`;
+    }
     if (suggestion.type === 'media') {
       return suggestion.value.name || suggestion.value.url;
     }
@@ -266,6 +227,7 @@ class NxMediaTopBar extends LitElement {
   selectSuggestion(suggestion) {
     this._suggestions = [];
     this._activeIndex = -1;
+    this._suppressSuggestions = true; // Suppress suggestions after selection
 
     if (suggestion.type === 'doc') {
       this.searchQuery = `doc:${suggestion.value}`;
@@ -273,6 +235,20 @@ class NxMediaTopBar extends LitElement {
         detail: {
           query: this.searchQuery,
           type: 'doc',
+          path: suggestion.value,
+        },
+      }));
+    } else if (suggestion.type === 'folder') {
+      // Handle root folder case
+      if (suggestion.value === '') {
+        this.searchQuery = 'folder:/';
+      } else {
+        this.searchQuery = `folder:${suggestion.value}`;
+      }
+      this.dispatchEvent(new CustomEvent('search', {
+        detail: {
+          query: this.searchQuery,
+          type: 'folder',
           path: suggestion.value,
         },
       }));
@@ -305,9 +281,7 @@ class NxMediaTopBar extends LitElement {
     this.dispatchEvent(new CustomEvent('viewChange', { detail: { view } }));
   }
 
-  handleFolderClick() {
-    this.dispatchEvent(new CustomEvent('openFolderDialog'));
-  }
+
 
   setScanStatusTimeout(duration = 5000) {
     if (this._statusTimeout) {
@@ -320,9 +294,7 @@ class NxMediaTopBar extends LitElement {
     }, duration);
   }
 
-  handleClearFolderFilter() {
-    this.dispatchEvent(new CustomEvent('clearFolderFilter'));
-  }
+
 
   // ============================================================================
   // SCAN EVENT HANDLERS
@@ -441,7 +413,7 @@ class NxMediaTopBar extends LitElement {
           <div class="search-wrapper">
             <sl-input
               type="text"
-              placeholder="Search media or doc:path..."
+              placeholder="Search media, doc:path, folder:path, or / for root files..."
               .value=${this.searchQuery}
               @input=${this.handleSearchInput}
               @keydown=${this.handleKeyDown}
@@ -495,18 +467,7 @@ class NxMediaTopBar extends LitElement {
               <use href="#S2_Icon_ListBulleted_20_N"></use>
             </svg>
           </button>
-          <button
-            class="view-btn folder-btn ${this.folderFilterPaths && this.folderFilterPaths.length > 0 ? 'active' : ''}"
-            title="Folder view"
-            @click=${this.handleFolderClick}
-          >
-            <svg class="icon">
-              <use href="#S2IconFolder20N-icon"></use>
-            </svg>
-            ${this.folderFilterPaths && this.folderFilterPaths.length > 0 ? html`
-              <span class="filter-badge">${this.folderFilterPaths.length}</span>
-            ` : ''}
-          </button>
+
         </div>
       </div>
     `;
@@ -514,3 +475,6 @@ class NxMediaTopBar extends LitElement {
 }
 
 customElements.define('nx-media-topbar', NxMediaTopBar);
+
+
+

@@ -120,8 +120,8 @@ export function createMediaEventHandlers(component) {
       component.dispatchEvent(new CustomEvent('mediaClick', { detail: { media } }));
     },
 
-    handleInfoClick: (media) => {
-      component.dispatchEvent(new CustomEvent('mediaInfo', { detail: { media } }));
+    handleMediaCopy: (media) => {
+      component.dispatchEvent(new CustomEvent('mediaCopy', { detail: { media } }));
     },
 
     handlePreviewClick: (media) => {
@@ -163,7 +163,7 @@ export const staticTemplates = {
 
   // Alt status templates
   missingAlt: html`
-    <span class="missing-alt-indicator clickable" title="Missing alt text">
+    <span class="missing-alt-indicator" title="Missing alt text">
       <svg class="alert-icon" viewBox="0 0 18 18">
         <use href="#S2_Icon_AlertCircle_18_N"></use>
       </svg>
@@ -227,21 +227,20 @@ export const gridTemplates = {
       class="media-card"
       data-index="${index}"
       style="top: ${position.top}px; left: ${position.left}px; width: ${position.width}px; height: ${position.height}px;"
-      @click=${handlers.mediaClick}
     >
-      <div class="media-preview">
+      <div class="media-preview clickable" @click=${handlers.mediaClick}>
         ${renderHelpers.mediaPreview(media)}
       </div>
       <div class="media-info">
         <h3 class="media-name">${renderHelpers.highlightedName(media)}</h3>
         <div class="media-meta">
-          <span class="media-type">${getDisplayMediaType(media)}</span>
-          <span class="media-used clickable" @click=${handlers.usageClick} title="View usage details">
-            Usage (${media.usageCount || 0})
+          <span class="media-type">${renderHelpers.displayType(media)}</span>
+          <span class="media-used" title="Usage count">
+            ${media.usageCount || 0}
           </span>
           <div class="media-actions">
-            <sl-button variant="primary outline" size="small" @click=${handlers.infoClick} title="View details">
-              INFO
+            <sl-button variant="primary outline" size="small" @click=${(e) => { console.log('COPY button clicked'); e.stopPropagation(); handlers.copyClick(); }} title="Copy to clipboard">
+              COPY
             </sl-button>
             ${renderHelpers.altStatus(media)}
           </div>
@@ -273,15 +272,18 @@ export const listTemplates = {
       class="media-item"
       data-index="${index}"
       style="top: ${position.top}px;"
-      @click=${handlers.mediaClick}
     >
-      <div class="item-preview clickable" @click=${handlers.previewClick} title="Click to copy media URL">
+      <div class="item-preview clickable" @click=${handlers.mediaClick} title="Click to view media details">
         ${renderHelpers.mediaPreview(media)}
       </div>
-      <div class="item-name">${renderHelpers.highlightedName(media)}</div>
-      <div class="item-type">${getDisplayMediaType(media)}</div>
+      <div class="item-name">
+        ${renderHelpers.highlightedName(media)}
+      </div>
+      <div class="item-type">
+        ${renderHelpers.displayType(media)}
+      </div>
       <div class="item-usage">
-        <span class="media-used clickable" @click=${handlers.usageClick} title="View usage details">
+        <span class="media-used" title="Usage count">
           ${media.usageCount || 0}
         </span>
       </div>
@@ -289,8 +291,8 @@ export const listTemplates = {
         ${renderHelpers.altStatus(media)}
       </div>
       <div class="item-actions">
-        <sl-button variant="primary outline" size="small" @click=${handlers.infoClick} title="View details">
-          INFO
+        <sl-button variant="primary outline" size="small" @click=${(e) => { console.log('COPY button clicked (list)'); e.stopPropagation(); handlers.copyClick(); }} title="Copy to clipboard">
+          COPY
         </sl-button>
       </div>
     </div>
@@ -323,17 +325,14 @@ export const listTemplates = {
 
 // Handler factories for creating consistent event handlers
 export const handlerFactories = {
-  createGridHandlers: (media, eventHandlers, handleUsageClick) => ({
+  createGridHandlers: (media, eventHandlers) => ({
     mediaClick: () => eventHandlers.handleMediaClick(media),
-    usageClick: () => handleUsageClick(media),
-    infoClick: () => eventHandlers.handleInfoClick(media),
+    copyClick: () => { console.log('copyClick handler called for grid'); eventHandlers.handleMediaCopy(media); },
   }),
 
-  createListHandlers: (media, eventHandlers, handleUsageClick) => ({
+  createListHandlers: (media, eventHandlers) => ({
     mediaClick: () => eventHandlers.handleMediaClick(media),
-    previewClick: () => eventHandlers.handlePreviewClick(media),
-    usageClick: () => handleUsageClick(media),
-    infoClick: () => eventHandlers.handleInfoClick(media),
+    copyClick: () => { console.log('copyClick handler called for list'); eventHandlers.handleMediaCopy(media); },
   }),
 };
 
@@ -358,11 +357,19 @@ export const renderHelpers = {
   altStatus: (media, handlers) => {
     // Only show alt status for images
     if (media.type && media.type.startsWith('img >')) {
-      if (!media.alt) {
+      if (media.alt === null) {
         return html`
-          <span class="missing-alt-indicator clickable" @click=${handlers.usageClick} title="Missing alt text">
+          <span class="missing-alt-indicator" title="Missing alt text">
             <svg class="alert-icon" viewBox="0 0 18 18">
               <use href="#S2_Icon_AlertCircle_18_N"></use>
+            </svg>
+          </span>
+        `;
+      } else if (media.alt === '') {
+        return html`
+          <span class="decorative-alt-indicator" title="Decorative alt text (empty)">
+            <svg class="info-icon" viewBox="0 0 18 18">
+              <use href="#S2_Icon_InfoCircle_18_N"></use>
             </svg>
           </span>
         `;
@@ -371,6 +378,15 @@ export const renderHelpers = {
     }
     // Return empty for non-image files (PDFs, videos, etc.)
     return '';
+  },
+
+  // Display type helper - shows just the subtype in bold
+  displayType: (media) => {
+    if (media.type && media.type.includes(' > ')) {
+      const [, subtype] = media.type.split(' > ');
+      return html`<strong>${subtype.toUpperCase()}</strong>`;
+    }
+    return html`<strong>${getDisplayMediaType(media)}</strong>`;
   },
 
   // Media preview helper (from list.js)
@@ -436,6 +452,7 @@ export const helperFactories = {
     highlightedAlt: () => renderHelpers.highlightedAlt(media, searchQuery),
     highlightedDoc: () => renderHelpers.highlightedDoc(media, searchQuery),
     altStatus: () => renderHelpers.altStatus(media, handlers),
+    displayType: () => renderHelpers.displayType(media),
   }),
 
   createListHelpers: (
@@ -454,5 +471,6 @@ export const helperFactories = {
     ),
     highlightedName: () => renderHelpers.highlightedName(media, searchQuery),
     altStatus: () => renderHelpers.altStatus(media, handlers),
+    displayType: () => renderHelpers.displayType(media),
   }),
 };

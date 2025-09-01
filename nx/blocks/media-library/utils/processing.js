@@ -175,13 +175,13 @@ export function parseHtmlMedia(html, docPath, lastModified) {
       const resolvedUrl = resolveMediaUrl(img.src, docPath);
       const fileExt = extractFileExtension(img.src);
       const mediaType = detectMediaTypeFromExtension(fileExt);
-      const hash = createHash(`${img.src}|${img.alt || ''}|${docPath}`);
+      const hash = createHash(`${img.src}|${img.hasAttribute('alt') ? img.alt : ''}|${docPath}`);
       const context = captureContext(img, 'img');
 
       mediaItems.push({
         url: resolvedUrl,
         name: img.src.split('/').pop(),
-        alt: img.alt || '',
+        alt: img.hasAttribute('alt') ? img.alt : null,
         type: `${mediaType} > ${fileExt.toLowerCase()}`,
         doc: docPath,
         ctx: context,

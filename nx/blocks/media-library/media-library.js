@@ -8,7 +8,7 @@ import '../../public/sl/components.js';
 import './views/topbar/topbar.js';
 import './views/sidebar/sidebar.js';
 import './views/grid/grid.js';
-import './views/folder/folder.js';
+
 import './views/list/list.js';
 import './views/mediainfo/mediainfo.js';
 import './views/scan/scan.js';
@@ -40,12 +40,10 @@ class NxMediaLibrary extends LitElement {
     // GROUP 2: Filter & Search Properties
     _searchQuery: { state: true },
     _selectedFilterType: { state: true },
-    _folderFilterPaths: { state: true },
     _filterCounts: { state: true },
 
     // GROUP 3: UI State Properties
     _currentView: { state: true },
-    _folderOpen: { state: true },
     _infoModal: { state: true },
     _message: { state: true },
   };
@@ -53,10 +51,8 @@ class NxMediaLibrary extends LitElement {
   constructor() {
     super();
     this._currentView = 'grid';
-    this._folderOpen = false;
     this._infoModal = null;
     this._selectedFilterType = 'all';
-    this._folderFilterPaths = [];
     this._message = null;
     this._needsFilterRecalculation = true;
     this._needsFilterUpdate = false;
@@ -91,8 +87,8 @@ class NxMediaLibrary extends LitElement {
   shouldUpdate(changedProperties) {
     // Only update for meaningful property changes
     const dataProps = ['_mediaData', '_error'];
-    const filterProps = ['_searchQuery', '_selectedFilterType', '_folderFilterPaths', '_filterCounts'];
-    const uiProps = ['_currentView', '_folderOpen', '_infoModal', '_message'];
+    const filterProps = ['_searchQuery', '_selectedFilterType', '_filterCounts'];
+    const uiProps = ['_currentView', '_infoModal', '_message'];
     const hasDataChange = dataProps.some((prop) => changedProperties.has(prop));
     const hasFilterChange = filterProps.some((prop) => changedProperties.has(prop));
     const hasUIChange = uiProps.some((prop) => changedProperties.has(prop));
@@ -111,7 +107,7 @@ class NxMediaLibrary extends LitElement {
     // Prepare filter recalculation for search/filter changes
     if (changedProperties.has('_searchQuery')
         || changedProperties.has('_selectedFilterType')
-        || changedProperties.has('_folderFilterPaths')) {
+        ) {
       this._needsFilterRecalculation = true;
     }
   }
@@ -143,7 +139,6 @@ class NxMediaLibrary extends LitElement {
     this._filteredMediaData = calculateFilteredMediaData(
       this._mediaData,
       this._selectedFilterType,
-      this._folderFilterPaths,
       this._searchQuery,
     );
 
@@ -151,10 +146,6 @@ class NxMediaLibrary extends LitElement {
   }
 
   get selectedDocument() {
-    if (this._folderFilterPaths && this._folderFilterPaths.length > 0) {
-      return this._folderFilterPaths[0];
-    }
-
     if (this._mediaData && this._mediaData.length > 0) {
       const indexDoc = this._mediaData.find((media) => media.doc === '/index.html');
       if (indexDoc) {
@@ -267,13 +258,10 @@ class NxMediaLibrary extends LitElement {
           <nx-media-topbar
             .searchQuery=${this._searchQuery}
             .currentView=${this._currentView}
-            .folderFilterPaths=${this._folderFilterPaths}
             .mediaData=${this._mediaData}
             .sitePath=${this.sitePath}
             @search=${this.handleSearch}
             @viewChange=${this.handleViewChange}
-            @openFolderDialog=${this.handleOpenFolderDialog}
-            @clearFolderFilter=${this.handleClearFolderFilter}
             @mediaDataUpdated=${this.handleMediaDataUpdated}
           ></nx-media-topbar>
         </div>
@@ -286,24 +274,13 @@ class NxMediaLibrary extends LitElement {
           .activeFilter=${this._selectedFilterType}
           .selectedDocument=${this.selectedDocument}
           .documentMediaBreakdown=${this.documentMediaBreakdown}
-          .folderFilterPaths=${this._folderFilterPaths}
           .filterCounts=${this.filterCounts}
           @filter=${this.handleFilter}
           @clearDocumentFilter=${this.handleClearDocumentFilter}
           @documentFilter=${this.handleDocumentFilter}
-          @clearFolderFilter=${this.handleClearFolderFilter}
         ></nx-media-sidebar>
 
-        ${this._folderOpen ? html`
-          <nx-media-folder-dialog
-            .isOpen=${this._folderOpen}
-            .selectedPaths=${this._folderFilterPaths}
-            .mediaData=${this._mediaData}
-            @close=${this.handleFolderDialogClose}
-            @apply=${this.handleFolderFilterApply}
-            @filterChange=${this.handleFolderFilterChange}
-          ></nx-media-folder-dialog>
-        ` : ''}
+
 
         ${this._infoModal ? html`
           <nx-media-info
@@ -342,7 +319,7 @@ class NxMediaLibrary extends LitElement {
             .mediaData=${this.filteredMediaData}
             .searchQuery=${this._searchQuery}
             @mediaClick=${this.handleMediaClick}
-            @mediaInfo=${this.handleMediaInfo}
+            @mediaCopy=${this.handleMediaCopy}
             @mediaUsage=${this.handleMediaUsage}
           ></nx-media-list>
         `;
@@ -353,7 +330,7 @@ class NxMediaLibrary extends LitElement {
             .mediaData=${this.filteredMediaData}
             .searchQuery=${this._searchQuery}
             @mediaClick=${this.handleMediaClick}
-            @mediaInfo=${this.handleMediaInfo}
+            @mediaCopy=${this.handleMediaCopy}
             @mediaUsage=${this.handleMediaUsage}
           ></nx-media-grid>
         `;
@@ -384,10 +361,8 @@ class NxMediaLibrary extends LitElement {
   handleDocNavigation(path) {
     // Extract the actual document path from "doc:/path" format
     const actualPath = path.replace(/^doc:\//, '');
-
-    // Set folder filter to this path (but don't open dialog)
-    this._folderFilterPaths = [actualPath];
-    this._needsFilterRecalculation = true;
+    // Note: Document navigation is now handled through search
+    console.log('Document navigation to:', actualPath);
   }
 
   handleViewChange(e) {
@@ -408,17 +383,24 @@ class NxMediaLibrary extends LitElement {
     const { media } = e.detail;
     if (!media) return;
 
-    try {
-      const result = await copyMediaToClipboard(media);
-      this.setMessage({ ...result, open: true });
-    } catch (error) {
-      this.setMessage({ heading: 'Error', message: 'Failed to copy to clipboard.', open: true });
-    }
+    // Changed: Image click now opens modal instead of copying to clipboard
+    this._infoModal = media;
   }
 
-  handleMediaInfo(e) {
+  async handleMediaCopy(e) {
     const { media } = e.detail;
-    this._infoModal = media;
+    if (!media) return;
+
+    console.log('handleMediaCopy called with media:', media);
+
+    try {
+      const result = await copyMediaToClipboard(media);
+      console.log('Copy result:', result);
+      this.setMessage({ ...result, open: true });
+    } catch (error) {
+      console.error('Copy error:', error);
+      this.setMessage({ heading: 'Error', message: 'Failed to copy to clipboard.', open: true });
+    }
   }
 
   handleMediaUsage(e) {
@@ -444,58 +426,22 @@ class NxMediaLibrary extends LitElement {
   }
 
   // ============================================================================
-  // EVENT HANDLERS - FOLDER & DOCUMENT MANAGEMENT
+  // EVENT HANDLERS - DOCUMENT MANAGEMENT
   // ============================================================================
 
-  handleOpenFolderDialog() {
-    this._folderOpen = true;
 
-    // Sync current filter paths to folder dialog
-    setTimeout(() => {
-      const folderDialog = this.shadowRoot.querySelector('nx-media-folder-dialog');
-      if (folderDialog) {
-        folderDialog.currentFilterPaths = this._folderFilterPaths;
-      }
-    }, 100);
-  }
 
-  handleFolderFilterApply(e) {
-    const { paths } = e.detail;
-    this._folderFilterPaths = paths;
-    this._needsFilterRecalculation = true;
-    this._folderOpen = false;
-    this.clearSearchQuery();
-  }
 
-  handleFolderDialogClose() {
-    this._folderOpen = false;
-  }
 
-  handleFolderFilterChange(e) {
-    const { paths } = e.detail;
-    this._folderFilterPaths = paths;
-    this._needsFilterRecalculation = true;
-    this.clearSearchQuery();
-  }
 
-  handleClearFolderFilter() {
-    this._folderFilterPaths = [];
-    this._needsFilterRecalculation = true;
-    this.clearSearchQuery();
-    const folderDialog = this.shadowRoot.querySelector('nx-media-folder-dialog');
-    if (folderDialog) {
-      folderDialog.selectedPaths = new Set();
-    }
-  }
+
+
+
+
 
   handleClearDocumentFilter() {
-    this._folderFilterPaths = [];
     this._needsFilterRecalculation = true;
     this.clearSearchQuery();
-    const folderDialog = this.shadowRoot.querySelector('nx-media-folder-dialog');
-    if (folderDialog) {
-      folderDialog.selectedPaths = new Set();
-    }
   }
 
   handleDocumentFilter(e) {

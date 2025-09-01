@@ -176,7 +176,6 @@ class NxMediaList extends LitElement {
         const handlers = handlerFactories.createListHandlers(
           media,
           this.eventHandlers,
-          this.handleUsageClick.bind(this),
         );
 
         const helpers = helperFactories.createListHelpers(
@@ -209,9 +208,7 @@ class NxMediaList extends LitElement {
   // EVENT HANDLERS
   // ============================================================================
 
-  handleUsageClick(media) {
-    this.eventHandlers.handleInfoClick(media);
-  }
+  // Usage click behavior removed - no longer needed
 }
 
 customElements.define('nx-media-list', NxMediaList);
