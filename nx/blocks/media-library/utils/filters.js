@@ -83,23 +83,21 @@ export function parseColonSyntax(query) {
  */
 function filterByColonSyntax(mediaData, colonSyntax) {
   const { field, value } = colonSyntax;
-  
+
   // Debug: Log the search parameters
   if (field === 'folder' && value === '/drafts/km') {
     console.log('=== FILTER FUNCTION DEBUG ===');
     console.log('Search field:', field);
     console.log('Search value:', value);
     console.log('Total items to filter:', mediaData.length);
-    
+
     // Check if any items have /drafts/km in their doc path
-    const itemsWithDraftsKm = mediaData.filter(item => 
-      item.doc && item.doc.includes('/drafts/km')
-    );
+    const itemsWithDraftsKm = mediaData.filter((item) => item.doc && item.doc.includes('/drafts/km'));
     console.log('Items with /drafts/km in doc:', itemsWithDraftsKm.length);
     if (itemsWithDraftsKm.length > 0) {
-      console.log('Sample items with /drafts/km:', itemsWithDraftsKm.slice(0, 3).map(item => ({
+      console.log('Sample items with /drafts/km:', itemsWithDraftsKm.slice(0, 3).map((item) => ({
         name: item.name,
-        doc: item.doc
+        doc: item.doc,
       })));
     }
   }
@@ -114,48 +112,54 @@ function filterByColonSyntax(mediaData, colonSyntax) {
         return item.alt && item.alt.toLowerCase().includes(value);
       case 'url':
         return item.url && item.url.toLowerCase().includes(value);
-      case 'folder':
+      case 'folder': {
         // Simple folder matching using doc path
         if (!item.doc) return false;
-        
+
         // Handle root-level search
         if (value === '' || value === '/') {
           return !item.doc.includes('/', 1); // No slash after the first character
         }
-        
+
         // For specific folder: extract folder path from doc and check exact match
         const cleanPath = item.doc.replace(/\.html$/, '');
         const parts = cleanPath.split('/');
-        
+
         if (parts.length > 2) {
           // Extract folder path (remove file part)
           const folderPath = parts.slice(0, -1).join('/');
           const searchPath = value.startsWith('/') ? value : `/${value}`;
-          const matches = folderPath === searchPath;          
+          const matches = folderPath === searchPath;
           return matches;
         }
-        
+
         return false;
+      }
       default:
         return false;
     }
   });
-  
+
   // Debug: Log the final results
   if (field === 'folder' && value === '/drafts/km') {
+    // eslint-disable-next-line no-console
     console.log('=== FILTER RESULTS DEBUG ===');
+    // eslint-disable-next-line no-console
     console.log('Filtered results count:', filteredResults.length);
     if (filteredResults.length > 0) {
-      console.log('Filtered results:', filteredResults.map(item => ({
+      // eslint-disable-next-line no-console
+      console.log('Filtered results:', filteredResults.map((item) => ({
         name: item.name,
-        doc: item.doc
+        doc: item.doc,
       })));
     } else {
+      // eslint-disable-next-line no-console
       console.log('No items matched the folder search criteria');
     }
+    // eslint-disable-next-line no-console
     console.log('=== END FILTER RESULTS DEBUG ===');
   }
-  
+
   return filteredResults;
 }
 
@@ -342,6 +346,55 @@ export function calculateFilteredMediaData(
 // ============================================================================
 
 /**
+ * Generate folder suggestions
+ * @param {Array} mediaData - Media data to search
+ * @param {string} value - Folder search value
+ * @returns {Array} Array of folder suggestion objects
+ */
+function generateFolderSuggestions(mediaData, value) {
+  // Collect all unique folder paths from doc paths
+  const folderPaths = new Set();
+
+  mediaData.forEach((item) => {
+    if (item.doc) {
+      // Keep leading slash, just remove .html extension
+      const cleanPath = item.doc.replace(/\.html$/, '');
+      const parts = cleanPath.split('/');
+
+      if (parts.length > 2) { // ["", "sports", "nba", "players"] -> length 4
+        // Extract ALL folder levels (root, subfolders, etc.)
+        for (let i = 1; i < parts.length - 1; i += 1) {
+          const folderPath = parts.slice(0, i + 1).join('/'); // "/sports", "/sports/nba"
+          folderPaths.add(folderPath);
+        }
+      } else if (parts.length === 2) {
+        // Root-level files like "/index.html"
+        folderPaths.add('/');
+      }
+    }
+  });
+
+  // Filter folder paths based on search value
+  const filteredPaths = Array.from(folderPaths).filter((folderPath) => {
+    if (value === '' || value === '/') {
+      return true; // Show all folders when starting fresh
+    }
+    // Show folders that start with the search value
+    const searchPath = value.startsWith('/') ? value : `/${value}`;
+    return folderPath.startsWith(searchPath);
+  });
+
+  // Add folder suggestions (already have leading /)
+  const folderSuggestions = filteredPaths.map((folderPath) => ({
+    type: 'folder',
+    value: folderPath,
+    display: folderPath,
+  }));
+
+  return folderSuggestions.slice(0, 10);
+}
+
+/**
  * Generate search suggestions for dropdown
  * @param {Array} mediaData - Media data to search
  * @param {string} query - Search query
@@ -358,7 +411,7 @@ export function generateSearchSuggestions(mediaData, query, createSuggestionFn) 
 
   // Use centralized parsing logic
   const colonSyntax = parseColonSyntax(query);
-  
+
   if (colonSyntax) {
     const { field, value } = colonSyntax;
 
@@ -370,25 +423,31 @@ export function generateSearchSuggestions(mediaData, query, createSuggestionFn) 
     // Handle other field types (doc:, name:, alt:, url:)
     mediaData.forEach((item) => {
       switch (field) {
-        case 'doc':
+        case 'doc': {
           if (item.doc && item.doc.toLowerCase().includes(value)) {
             matchingDocs.add(item.doc);
           }
           break;
-        case 'alt':
+        }
+        case 'alt': {
           if (item.alt && item.alt.toLowerCase().includes(value) && !isSvgFile(item)) {
             suggestions.push(createSuggestionFn(item));
           }
           break;
-        case 'name':
+        }
+        case 'name': {
           if (item.name && item.name.toLowerCase().includes(value) && !isSvgFile(item)) {
             suggestions.push(createSuggestionFn(item));
           }
           break;
-        case 'url':
+        }
+        case 'url': {
           if (item.url && item.url.toLowerCase().includes(value) && !isSvgFile(item)) {
             suggestions.push(createSuggestionFn(item));
           }
+          break;
+        }
+        default:
           break;
       }
     });
@@ -405,7 +464,7 @@ export function generateSearchSuggestions(mediaData, query, createSuggestionFn) 
 
   // General search across all fields
   const q = query.toLowerCase().trim();
-  
+
   // Handle root-level search (just "/")
   if (q === '/') {
     mediaData.forEach((item) => {
@@ -443,55 +502,6 @@ export function generateSearchSuggestions(mediaData, query, createSuggestionFn) 
 }
 
 /**
- * Generate folder suggestions
- * @param {Array} mediaData - Media data to search
- * @param {string} value - Folder search value
- * @returns {Array} Array of folder suggestion objects
- */
-function generateFolderSuggestions(mediaData, value) {
-  // Collect all unique folder paths from doc paths
-  const folderPaths = new Set();
-  
-  mediaData.forEach((item) => {
-    if (item.doc) {
-      // Keep leading slash, just remove .html extension
-      const cleanPath = item.doc.replace(/\.html$/, '');
-      const parts = cleanPath.split('/');
-      
-      if (parts.length > 2) { // ["", "sports", "nba", "players"] -> length 4
-        // Extract ALL folder levels (root, subfolders, etc.)
-        for (let i = 1; i < parts.length - 1; i++) {
-          const folderPath = parts.slice(0, i + 1).join('/'); // "/sports", "/sports/nba"
-          folderPaths.add(folderPath);
-        }
-      } else if (parts.length === 2) {
-        // Root-level files like "/index.html"
-        folderPaths.add('/');
-      }
-    }
-  });
-
-  // Filter folder paths based on search value
-  const filteredPaths = Array.from(folderPaths).filter((folderPath) => {
-    if (value === '' || value === '/') {
-      return true; // Show all folders when starting fresh
-    }
-    // Show folders that start with the search value
-    const searchPath = value.startsWith('/') ? value : `/${value}`;
-    return folderPath.startsWith(searchPath);
-  });
-
-  // Add folder suggestions (already have leading /)
-  const folderSuggestions = filteredPaths.map((folderPath) => ({
-    type: 'folder',
-    value: folderPath,
-    display: folderPath,
-  }));
-
-  return folderSuggestions.slice(0, 10);
-}
-
-/**
  * Create a search suggestion object for a media item
  * @param {Object} item - Media item
  * @returns {Object|null} Suggestion object or null if invalid
@@ -518,5 +528,3 @@ export function createSearchSuggestion(item) {
 // ============================================================================
 // SEARCH HELPER FUNCTIONS (defined before use)
 // ============================================================================
-
-

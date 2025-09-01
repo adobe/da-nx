@@ -34,8 +34,6 @@ class NxMediaSidebar extends LitElement {
   handleFilter(e) {
     const filterType = e.target.dataset.filter;
 
-
-
     this.dispatchEvent(new CustomEvent('filter', { detail: { type: filterType } }));
   }
 

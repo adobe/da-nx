@@ -19,12 +19,7 @@ const sl = await getStyle(`${nx}/public/sl/styles.css`);
 const slComponents = await getStyle(`${nx}/public/sl/components.css`);
 const styles = await getStyle(import.meta.url);
 
-// Configuration constants
-const CONFIG = {
-  POLLING_INTERVAL: 60000, // 1 minute
-  MESSAGE_DURATION: 3000, // 3 seconds
-  SLOW_UPDATE_THRESHOLD: 16, // 1 frame at 60fps
-};
+// Configuration constants - removed unused CONFIG variable
 
 const ICONS = [
   `${nx}/public/icons/S2_Icon_Close_20_N.svg`,
@@ -67,7 +62,7 @@ class NxMediaLibrary extends LitElement {
     this.shadowRoot.adoptedStyleSheets = [sl, slComponents, styles];
 
     getSvg({ parent: this.shadowRoot, paths: ICONS });
-    
+
     // Listen for alt text updates from modal manager
     window.addEventListener('alt-text-updated', this.handleAltTextUpdated);
   }
@@ -107,7 +102,7 @@ class NxMediaLibrary extends LitElement {
     // Prepare filter recalculation for search/filter changes
     if (changedProperties.has('_searchQuery')
         || changedProperties.has('_selectedFilterType')
-        ) {
+    ) {
       this._needsFilterRecalculation = true;
     }
   }
@@ -333,11 +328,12 @@ class NxMediaLibrary extends LitElement {
     }
   }
 
+  // eslint-disable-next-line no-unused-vars
   handleDocNavigation(path) {
     // Extract the actual document path from "doc:/path" format
-    const actualPath = path.replace(/^doc:\//, '');
+    // const actualPath = path.replace(/^doc:\//, ''); // eslint-disable-line no-unused-vars
     // Note: Document navigation is now handled through search
-    console.log('Document navigation to:', actualPath);
+    // console.log('Document navigation to:', actualPath); // eslint-disable-line no-console
   }
 
   handleViewChange(e) {
@@ -374,12 +370,12 @@ class NxMediaLibrary extends LitElement {
       detail: {
         type: 'details',
         data: {
-          media: media,
-          usageData: usageData,
+          media,
+          usageData,
           org: this.org,
-          repo: this.repo
-        }
-      }
+          repo: this.repo,
+        },
+      },
     }));
   }
 
@@ -389,31 +385,31 @@ class NxMediaLibrary extends LitElement {
 
     try {
       const result = await copyMediaToClipboard(media);
-      
+
       // Show notification via modal manager
       window.dispatchEvent(new CustomEvent('show-notification', {
-        detail: { 
-          ...result, 
+        detail: {
+          ...result,
           type: 'success',
-          open: true 
-        }
+          open: true,
+        },
       }));
     } catch (error) {
       // Show error notification via modal manager
       window.dispatchEvent(new CustomEvent('show-notification', {
-        detail: { 
-          heading: 'Error', 
-          message: 'Failed to copy to clipboard.', 
+        detail: {
+          heading: 'Error',
+          message: 'Failed to copy to clipboard.',
           type: 'danger',
-          open: true 
-        }
+          open: true,
+        },
       }));
     }
   }
 
   handleMediaUsage(e) {
     const { media } = e.detail;
-    
+
     // Pre-filter usage data for the modal
     const usageData = this._mediaData
       ?.filter((item) => item.url === media.url && item.doc && item.doc.trim())
@@ -430,12 +426,12 @@ class NxMediaLibrary extends LitElement {
       detail: {
         type: 'details',
         data: {
-          media: media,
-          usageData: usageData,
+          media,
+          usageData,
           org: this.org,
-          repo: this.repo
-        }
-      }
+          repo: this.repo,
+        },
+      },
     }));
   }
 
@@ -467,8 +463,6 @@ class NxMediaLibrary extends LitElement {
     this._needsFilterRecalculation = true;
     this.clearSearchQuery();
   }
-
-
 }
 
 // ============================================================================

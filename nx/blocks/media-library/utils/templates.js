@@ -354,6 +354,7 @@ export const renderHelpers = {
   },
 
   // Alt status helper
+  // eslint-disable-next-line no-unused-vars
   altStatus: (media, handlers) => {
     // Only show alt status for images
     if (media.type && media.type.startsWith('img >')) {
@@ -365,7 +366,8 @@ export const renderHelpers = {
             </svg>
           </span>
         `;
-      } else if (media.alt === '') {
+      }
+      if (media.alt === '') {
         return html`
           <span class="decorative-alt-indicator" title="Decorative alt text (empty)">
             <svg class="info-icon" viewBox="0 0 18 18">

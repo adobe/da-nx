@@ -1,7 +1,9 @@
 import { html, LitElement } from 'da-lit';
 import getStyle from '../../../../utils/styles.js';
 import getSvg from '../../../../public/utils/svg.js';
+// eslint-disable-next-line no-unused-vars
 import { getMediaType, isSvgFile } from '../../utils/utils.js';
+// eslint-disable-next-line no-unused-vars
 import { parseColonSyntax, generateSearchSuggestions, createSearchSuggestion } from '../../utils/filters.js';
 import '../scan/scan.js';
 
@@ -115,8 +117,6 @@ class NxMediaTopBar extends LitElement {
     this._activeIndex = -1;
   }
 
-
-
   getOnDemandSearchSuggestions(query) {
     // Use centralized suggestion generation from filters.js
     return generateSearchSuggestions(this.mediaData, query, createSearchSuggestion);
@@ -124,11 +124,11 @@ class NxMediaTopBar extends LitElement {
 
   handleSearchInput(e) {
     const query = e.target.value;
-    
+
     this.searchQuery = query;
     this._originalQuery = query;
     this._activeIndex = -1;
-    
+
     // Clear suggestions if query is empty or if suggestions are suppressed
     if (!query || !query.trim() || this._suppressSuggestions) {
       this._suggestions = [];
@@ -136,7 +136,7 @@ class NxMediaTopBar extends LitElement {
     } else {
       this._suggestions = this.getOnDemandSearchSuggestions(query);
     }
-    
+
     this.dispatchEvent(new CustomEvent('search', { detail: { query } }));
   }
 
@@ -181,17 +181,13 @@ class NxMediaTopBar extends LitElement {
                 path: '',
               },
             }));
-          } else {
-            // For other queries, just hide suggestions and execute search
-            this._suggestions = [];
-            this._activeIndex = -1;
-            this._suppressSuggestions = true;
-            this.dispatchEvent(new CustomEvent('search', {
-              detail: {
-                query: this.searchQuery,
-              },
-            }));
+            return;
           }
+          // For other queries, just hide suggestions and execute search
+          this._suggestions = [];
+          this._activeIndex = -1;
+          this._suppressSuggestions = true;
+          this.dispatchEvent(new CustomEvent('search', { detail: { query: this.searchQuery } }));
         }
         break;
 
@@ -213,10 +209,7 @@ class NxMediaTopBar extends LitElement {
     if (suggestion.type === 'doc') return `doc:${suggestion.value}`;
     if (suggestion.type === 'folder') {
       // Handle root folder case
-      if (suggestion.value === '') {
-        return 'folder:/';
-      }
-      return `folder:${suggestion.value}`;
+      return suggestion.value === '' ? 'folder:/' : `folder:${suggestion.value}`;
     }
     if (suggestion.type === 'media') {
       return suggestion.value.name || suggestion.value.url;
@@ -240,11 +233,7 @@ class NxMediaTopBar extends LitElement {
       }));
     } else if (suggestion.type === 'folder') {
       // Handle root folder case
-      if (suggestion.value === '') {
-        this.searchQuery = 'folder:/';
-      } else {
-        this.searchQuery = `folder:${suggestion.value}`;
-      }
+      this.searchQuery = suggestion.value === '' ? 'folder:/' : `folder:${suggestion.value}`;
       this.dispatchEvent(new CustomEvent('search', {
         detail: {
           query: this.searchQuery,
@@ -281,8 +270,6 @@ class NxMediaTopBar extends LitElement {
     this.dispatchEvent(new CustomEvent('viewChange', { detail: { view } }));
   }
 
-
-
   setScanStatusTimeout(duration = 5000) {
     if (this._statusTimeout) {
       clearTimeout(this._statusTimeout);
@@ -293,8 +280,6 @@ class NxMediaTopBar extends LitElement {
       this._statusTimeout = null;
     }, duration);
   }
-
-
 
   // ============================================================================
   // SCAN EVENT HANDLERS
@@ -475,6 +460,3 @@ class NxMediaTopBar extends LitElement {
 }
 
 customElements.define('nx-media-topbar', NxMediaTopBar);
-
-
-

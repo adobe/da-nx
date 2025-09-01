@@ -231,7 +231,7 @@
   font-weight: bold;
 }
 
-.media-used {
+.media-used-text {
   color: var(--s2-gray-600);
   font-size: 0.875rem;
 }
@@ -249,8 +249,6 @@
   justify-content: center;
   padding: 4px;
 }
-
-
 
 .decorative-alt-indicator {
   display: inline-flex;

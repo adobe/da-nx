@@ -4,6 +4,7 @@ import getSvg from '../../../../utils/svg.js';
 import {
   getDisplayMediaType,
   getSubtype,
+  // eslint-disable-next-line no-unused-vars
   extractRelativePath,
   formatFileSize,
   extractMediaLocation,
@@ -82,7 +83,6 @@ class NxMediaInfo extends LitElement {
   }
 
   updated(changedProperties) {
-
     if (changedProperties.has('media') && this.media) {
       this.loadFileSize();
       if (isImage(this.media.url)) {
@@ -216,8 +216,6 @@ class NxMediaInfo extends LitElement {
     }
   }
 
-
-
   handleEditDocument(docPath) {
     if (!docPath) return;
 
@@ -225,7 +223,7 @@ class NxMediaInfo extends LitElement {
     if (!org || !repo) return;
 
     // Get the relative path (without org/repo) for the edit URL
-    const editUrl = getEditUrl(org, repo, docPath.replace(`.html`, ''));
+    const editUrl = getEditUrl(org, repo, docPath.replace('.html', ''));
     if (editUrl) {
       window.open(editUrl, '_blank');
     }
@@ -286,7 +284,7 @@ class NxMediaInfo extends LitElement {
     const { org, repo } = this;
     if (!org || !repo) return;
     // Get the relative path (without org/repo) for the view URL
-    const viewUrl = getViewUrl(org, repo, docPath.replace(`.html`, ''));
+    const viewUrl = getViewUrl(org, repo, docPath.replace('.html', ''));
     if (viewUrl) {
       window.open(viewUrl, '_blank');
     }
@@ -508,6 +506,7 @@ class NxMediaInfo extends LitElement {
     `;
   }
 
+  // eslint-disable-next-line no-unused-vars
   renderAltCell(usage, isEditingAlt, isMissingAlt) {
     if (isEditingAlt) {
       return html`

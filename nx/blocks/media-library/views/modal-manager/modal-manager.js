@@ -31,7 +31,7 @@ class NxModalManager extends LitElement {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [sl, slComponents, styles];
     getSvg({ parent: this.shadowRoot, paths: ICONS });
-    
+
     // Listen for modal open events
     window.addEventListener('open-modal', this._onOpenModal);
     window.addEventListener('close-modal', this._onCloseModal);
@@ -58,7 +58,7 @@ class NxModalManager extends LitElement {
 
   _onShowNotification = (e) => {
     this._notification = e.detail;
-    
+
     // Auto-hide notification after 3 seconds
     setTimeout(() => {
       this._notification = null;
@@ -94,13 +94,13 @@ class NxModalManager extends LitElement {
   renderNotification() {
     const iconName = this._notification.type === 'danger' ? 'exclamation-triangle' : 'check-circle';
     const variant = this._notification.type || 'success';
-    
+
     return html`
       <sl-alert
         variant=${variant}
         closable
         .open=${this._notification.open}
-        @sl-hide=${() => this._notification = null}
+        @sl-hide=${() => { this._notification = null; }}
       >
         <sl-icon slot="icon" name=${iconName}></sl-icon>
         <div>
@@ -113,9 +113,7 @@ class NxModalManager extends LitElement {
 
   _handleAltTextUpdated(e) {
     // Forward the event to the main component
-    window.dispatchEvent(new CustomEvent('alt-text-updated', {
-      detail: e.detail
-    }));
+    window.dispatchEvent(new CustomEvent('alt-text-updated', { detail: e.detail }));
   }
 }
 

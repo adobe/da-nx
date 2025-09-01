@@ -111,8 +111,6 @@
   background: var(--s2-gray-100);
 }
 
-
-
 .item-preview img,
 .item-preview video {
   width: 100%;
@@ -316,8 +314,6 @@
   justify-content: center;
   padding: 4px;
 }
-
-
 
 .decorative-alt-indicator {
   display: inline-flex;
