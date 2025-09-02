@@ -181,7 +181,7 @@ export function parseHtmlMedia(html, docPath, lastModified) {
       mediaItems.push({
         url: resolvedUrl,
         name: img.src.split('/').pop(),
-        alt: img.hasAttribute('alt') ? img.alt : null,
+        alt: img.hasAttribute('alt') ? img.alt : 'null',
         type: `${mediaType} > ${fileExt.toLowerCase()}`,
         doc: docPath,
         ctx: context,
@@ -307,7 +307,7 @@ export function getMediaCounts(mediaData) {
       uniqueUnused.add(mediaUrl);
     }
 
-    if (!media.alt && media.type && media.type.startsWith('img >') && !isSvg) {
+    if (media.alt === 'null' && media.type && media.type.startsWith('img >') && !isSvg) {
       uniqueMissingAlt.add(mediaUrl);
     }
   });
@@ -718,7 +718,7 @@ export default async function runScan(path, updateTotal) {
       allMediaEntries.push({
         ...item,
         doc: item.doc || '',
-        alt: item.alt || '',
+        alt: item.alt || 'null',
         type: item.type || '',
         ctx: item.ctx || '',
       });
