@@ -135,6 +135,7 @@ class NxMediaLibrary extends LitElement {
       this._mediaData,
       this._selectedFilterType,
       this._searchQuery,
+      this.selectedDocument,
     );
 
     return this._filteredMediaData || [];

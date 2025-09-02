@@ -31,10 +31,9 @@
 
 .filter-section h3 {
   margin: 0 0 var(--spacing-200);
-  font-size: 12px;
+  font-size: 16px;
   font-weight: 600;
   color: var(--s2-gray-700);
-  text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 
@@ -45,7 +44,7 @@
 }
 
 .filter-list li {
-  margin-bottom: var(--spacing-100);
+  margin-bottom: var(--spacing-50);
 }
 
 .filter-list button {
