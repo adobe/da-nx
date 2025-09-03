@@ -24,7 +24,17 @@ export async function connect(service) {
   connectToGlaas(service.origin, service.clientid);
 }
 
-function langs2tasks(title, langs, timestamp) {
+// Business unit determination logic for GLaaS Transcreation Style Guide
+const getBusinessUnit = (siteName) => {
+  if (siteName && siteName.includes('bacom')) {
+    return 'Digital Experience';
+  }
+  return 'Digital Media';
+};
+
+function langs2tasks(site, title, langs, timestamp) {
+  const businessUnit = getBusinessUnit(site);
+
   return langs.reduce((acc, lang) => {
     const workflow = `${lang.workflow}/${lang.workflowName}`;
     if (workflow === '/') return acc;
@@ -37,6 +47,7 @@ function langs2tasks(title, langs, timestamp) {
         timestamp,
         workflowName: lang.workflowName,
         workflow: lang.workflow,
+        businessUnit,
         langs: [lang],
       };
     }
@@ -115,22 +126,22 @@ async function sendTask(service, suppliedTask, langs, urls, actions) {
   }
 }
 
-export async function sendAllLanguages({ title, service, langs, urls, actions }) {
+export async function sendAllLanguages({ site, title, service, langs, urls, actions }) {
   const timestamp = Date.now();
 
-  const tasks = langs2tasks(title, langs, timestamp);
+  const tasks = langs2tasks(site, title, langs, timestamp);
 
   for (const key of Object.keys(tasks)) {
     await sendTask(service, tasks[key], langs, urls, actions);
   }
 }
 
-export async function getStatusAll({ title, service, langs, urls, actions }) {
+export async function getStatusAll({ site, title, service, langs, urls, actions }) {
   const baseConf = { ...service, token };
 
   const { sendMessage, saveState } = actions;
 
-  const tasks = langs2tasks(title, langs);
+  const tasks = langs2tasks(site, title, langs);
 
   // Filter out complete and canceled
   const incompleteTasks = Object.keys(tasks).reduce((acc, key) => {
