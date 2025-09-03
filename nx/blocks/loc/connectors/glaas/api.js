@@ -28,7 +28,7 @@ export async function checkSession({ origin, clientid, token }) {
 }
 
 export async function createTask({ origin, clientid, token, task, service }) {
-  const { name, workflowName, workflow, targetLocales } = task;
+  const { name, workflowName, workflow, targetLocales, businessUnit } = task;
   const callbackConfig = [];
   if (service.preview) {
     const hookUrl = `https://${service.preview}/api/v1/web/daloc/glaas-hook`;
@@ -42,6 +42,10 @@ export async function createTask({ origin, clientid, token, task, service }) {
     workflowName,
     contentSource: 'Adhoc',
     callbackConfig,
+    config: [{
+      key: 'businessUnit',
+      value: businessUnit,
+    }],
   };
 
   const opts = getOpts(clientid, token, JSON.stringify(body), 'application/json', 'POST');
