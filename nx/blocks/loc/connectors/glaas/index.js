@@ -10,12 +10,15 @@ import { fetchConfig } from '../../utils/utils.js';
 
 function determineStatus(translation) {
   if (translation.error > 0) return 'failed';
-
+  // Respect existing final statuses
+  const finalStatuses = ['complete', 'cancelled', 'error'];
+  if (finalStatuses.includes(translation.status)) {
+    return translation.status;
+  }
   if (translation.workflowTasks) {
     const workflowTasks = Object.values(translation.workflowTasks);
     const taskStatuses = workflowTasks.map((task) => task.status.status);
-
-    const statuses = ['not started', 'draft', 'uploading', 'failed', 'uploaded', 'created', 'complete', 'cancelled'];
+    const statuses = ['not started', 'draft', 'uploading', 'failed', 'uploaded', 'created', 'translated', 'complete', 'cancelled'];
     for (const stage of statuses) {
       if (taskStatuses.every((status) => status === stage)) {
         return stage;
@@ -24,7 +27,6 @@ function determineStatus(translation) {
       }
     }
   }
-
   return 'not started';
 }
 
