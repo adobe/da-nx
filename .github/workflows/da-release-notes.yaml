@@ -3,7 +3,10 @@ name: DA Release Notes
 on:
   pull_request_target:
     types:
-      - [assigned, opened, synchronize, reopened]
+      - assigned
+      - opened
+      - synchronize
+      - reopened
     branches:
       - main
 
