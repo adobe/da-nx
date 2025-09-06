@@ -57,6 +57,14 @@ svg.icon {
       padding: 0;
     }
 
+    &.monospace {
+      font-family: var(--fixed-family);
+    }
+
+    &.has-label {
+      top: 22px; /* match label height */
+    }
+
     &.has-error {
       border: 2px solid var(--s2-red-900);
     }
@@ -67,10 +75,10 @@ svg.icon {
       border: none;
       color: var(--s2-gray-500);
     }
-  }
 
-  textarea[resize="none"] {
-    resize: none;
+    &[resize="none"] {
+      resize: none;
+    }
   }
 
   input[type="range"] {

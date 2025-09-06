@@ -143,7 +143,7 @@ class SlTextarea extends FormAwareLitElement {
           .value="${this.value || ''}"
           @input=${this.handleEvent}
           @change=${this.handleEvent}
-          class="${this.class} ${this.error ? 'has-error' : ''}"
+          class="${this.class} ${this.error ? 'has-error' : ''} ${this.label ? 'has-label' : ''}"
           ${spread(this._attrs)}></textarea>
         ${this.error ? html`<p class="sl-inputfield-error">${this.error}</p>` : nothing}
       </div>
@@ -166,6 +166,7 @@ class SlSelect extends LitElement {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
     this._internals = this.attachInternals();
+    this._internals.setFormValue(this.value);
   }
 
   update(props) {
@@ -186,6 +187,11 @@ class SlSelect extends LitElement {
   handleSlotchange(e) {
     const childNodes = e.target.assignedNodes({ flatten: true });
     this._select.append(...childNodes);
+
+    // Set the initial value to the first option
+    if (!this.value && childNodes.length) {
+      this.value = childNodes.find((child) => child.nodeName === 'OPTION').value;
+    }
   }
 
   get _select() {
