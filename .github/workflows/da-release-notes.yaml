@@ -4,12 +4,17 @@ on:
   pull_request_target:
     types:
       - opened
+      - closed
+      - assigned
+      - synchronize
+      - reopened
     branches:
       - main
+      - main-release-notes
 
 jobs:
   action:
-    if: github.event.pull_request.merged == true
+    # if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
 
     steps:
