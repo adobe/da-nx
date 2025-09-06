@@ -1,7 +1,7 @@
 .nx-user-wrapper {
   padding: 16px;
   display: grid;
-  grid-template-columns: 340px 300px 280px 1fr;
+  grid-template-columns: 2fr 2fr 1fr 1fr;
   gap: 16px;
   align-items: center;
   background-color: var(--s2-gray-50);
@@ -32,6 +32,7 @@ svg {
 .nx-roles {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
 
   .nx-role-tag {
     border-radius: 8px;
