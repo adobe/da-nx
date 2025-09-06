@@ -8,13 +8,6 @@ function isBulkDa(action) {
   return action === 'versionsource';
 }
 
-export function throttle(start) {
-  const end = Date.now();
-  const timeDiff = end - start;
-  const pause = timeDiff > 2000 ? 0 : 500 + timeDiff;
-  return new Promise((resolve) => { setTimeout(() => { resolve(); }, pause); });
-}
-
 export function formatUrls(urls, action, hasDelete) {
   return [...new Set(urls.split('\n'))].reduce((acc, href) => {
     try {
@@ -35,6 +28,7 @@ export function formatUrls(urls, action, hasDelete) {
 }
 
 export async function sendAction(url, label) {
+  let resp;
   try {
     const method = url.hasDelete ? 'DELETE' : 'POST';
     const opts = { method };
@@ -44,10 +38,12 @@ export async function sendAction(url, label) {
     const path = !ext && isBulkDa(url.action) ? `${url.pathname}.html` : url.pathname;
     const ref = isBulkDa(url.action) ? '' : `/${url.ref}`;
     const aemUrl = `${origin}/${url.action}/${url.org}/${url.repo}${ref}${path}`;
-    const resp = await daFetch(aemUrl, opts);
-    url.status = resp.status;
+    resp = await daFetch(aemUrl, opts);
   } catch {
-    url.status = '400';
+    console.log(`Error sending ${url.action} for ${url.href}`);
+  } finally {
+    url.ok = resp.ok;
+    url.status = resp.status;
   }
   return url;
 }
