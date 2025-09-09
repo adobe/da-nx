@@ -1,9 +1,9 @@
+import { sampleRUM } from '../deps/rum.js';
+
 const AUTO_BLOCKS = [
   { 'nx-fragment': '/fragments/' },
   { 'nx-youtube': 'https://www.youtube.com' },
 ];
-
-// Hello World
 
 function getEnv() {
   const { host } = new URL(window.location.href);
@@ -116,12 +116,15 @@ function decorateLinks(el) {
 
 function decorateSections(parent, isDoc) {
   const selector = isDoc ? 'main > div' : ':scope > div';
-  return [...parent.querySelectorAll(selector)].map((el) => {
+  return [...parent.querySelectorAll(selector)].map((el, i) => {
     el.classList.add('section');
     el.dataset.status = 'decorated';
     el.autoBlocks = decorateLinks(el);
     el.blocks = [...el.querySelectorAll(':scope > div[class]')];
     decorateDefaults(el);
+    if (i === 0 && sampleRUM.enhance) {
+      sampleRUM.enhance();
+    }
     return el;
   });
 }
