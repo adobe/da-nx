@@ -59,15 +59,17 @@ function langs2Tasks(langs) {
   langs.forEach((lang) => {
     if (lang.translation?.workflowTasks) {
       Object.entries(lang.translation.workflowTasks).forEach(([name, workflowTask]) => {
-        if (!taskGroups[name]) {
-          taskGroups[name] = {
+        // Create composite key to handle same task name with different workflows
+        const compositeKey = `${workflowTask.workflow}::${name}`;
+        if (!taskGroups[compositeKey]) {
+          taskGroups[compositeKey] = {
             workflow: workflowTask.workflow,
             name,
             langs: [],
             urlPaths: workflowTask.urls || [],
           };
         }
-        taskGroups[name].langs.push(lang);
+        taskGroups[compositeKey].langs.push(lang);
       });
     }
   });
