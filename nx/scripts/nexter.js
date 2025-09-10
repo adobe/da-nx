@@ -1,5 +1,3 @@
-import { sampleRUM } from '../deps/rum.js';
-
 const AUTO_BLOCKS = [
   { 'nx-fragment': '/fragments/' },
   { 'nx-youtube': 'https://www.youtube.com' },
@@ -122,9 +120,6 @@ function decorateSections(parent, isDoc) {
     el.autoBlocks = decorateLinks(el);
     el.blocks = [...el.querySelectorAll(':scope > div[class]')];
     decorateDefaults(el);
-    if (i === 0 && sampleRUM.enhance) {
-      sampleRUM.enhance();
-    }
     return el;
   });
 }
