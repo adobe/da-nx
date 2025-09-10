@@ -16,6 +16,7 @@ function rumWC(sampleRUM) {
   import('../utils/favicon.js');
   import('../utils/footer.js');
   import('../deps/rum.js').then(({ sampleRUM }) => {
+    sampleRUM();
     window.setTimeout(() => {
       rumWC(sampleRUM);
     }, 3000);
