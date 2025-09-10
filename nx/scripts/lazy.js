@@ -16,12 +16,8 @@ function rumWC(sampleRUM) {
   import('../utils/favicon.js');
   import('../utils/footer.js');
   import('../deps/rum.js').then(({ sampleRUM }) => {
-    sampleRUM('load');
-    sampleRUM('lazy');
-    sampleRUM.observe(document.querySelectorAll('main div[data-block-name]'));
-    sampleRUM.observe(document.querySelectorAll('main picture > img'));
+    sampleRUM();
     window.setTimeout(() => {
-      sampleRUM('cwv');
       rumWC(sampleRUM);
     }, 3000);
   });
