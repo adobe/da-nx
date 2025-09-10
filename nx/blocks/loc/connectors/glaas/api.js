@@ -175,6 +175,7 @@ export async function prepareTargetPreview(task, urls, service) {
       project: workflowSplit[1],
       workflowName,
       taskName: name,
+      useTaskVersion: 'v2',
       targetLocales,
       urls: urls.map((a) => a.aemHref),
     };
