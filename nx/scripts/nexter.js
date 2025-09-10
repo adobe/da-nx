@@ -114,7 +114,7 @@ function decorateLinks(el) {
 
 function decorateSections(parent, isDoc) {
   const selector = isDoc ? 'main > div' : ':scope > div';
-  return [...parent.querySelectorAll(selector)].map((el, i) => {
+  return [...parent.querySelectorAll(selector)].map((el) => {
     el.classList.add('section');
     el.dataset.status = 'decorated';
     el.autoBlocks = decorateLinks(el);
