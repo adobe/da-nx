@@ -72,7 +72,7 @@ li {
 
 .nx-user-list-labels {
   display: grid;
-  grid-template-columns: 340px 300px 280px 1fr; /* This must match user.css */
+  grid-template-columns: 280px 220px 220px 1fr; /* This must match user.css */
   gap: 16px;
   font-weight: 700;
   padding: 0 18px 8px;
