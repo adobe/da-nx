@@ -35,11 +35,12 @@ async function findFragments(pageUrl, text, liveDomain) {
   const linkedImports = [...results, ...matches].reduce((acc, a) => {
     let href = a.getAttribute('href') || a.getAttribute('alt');
 
+    // Normalize all links to aem
+    href = href.replace('.hlx.', '.aem.');
+
     // Don't add any off origin content.
     const isSameDomain = prefixes.some((prefix) => href.startsWith(prefix));
     if (!isSameDomain) return acc;
-
-    href = href.replace('.hlx.', '.aem.');
 
     [href] = href.match(/^[^?#| ]+/);
 
