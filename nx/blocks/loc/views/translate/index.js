@@ -54,10 +54,13 @@ export async function getUrls(org, site, service, sourceLocation, urls, fetchCon
 
       // Only add DNT if a connector exists
       // Copy sources will not have a connector
+      url.content = content;
       if (connector) {
-        url.content = await connector.dnt.addDnt(content, config, { fileType });
-      } else {
-        url.content = content;
+        try {
+          url.content = await connector.dnt.addDnt(content, config, { fileType });
+        } catch (error) {
+          url.error = `Error adding DNT to ${url.daBasePath} - ${error.message}`;
+        }
       }
     };
 
