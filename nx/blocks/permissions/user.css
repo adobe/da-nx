@@ -1,7 +1,7 @@
 .nx-user-wrapper {
   padding: 16px;
   display: grid;
-  grid-template-columns: 2fr 2fr 1fr 1fr;
+  grid-template-columns: 280px 220px 220px 1fr; /* This must match permissions.css */
   gap: 16px;
   align-items: center;
   background-color: var(--s2-gray-50);
@@ -11,6 +11,14 @@
     text-overflow: ellipsis;
     overflow: hidden;
     word-wrap: initial;
+
+    strong {
+      display: block;
+      max-width: 260px;
+      text-overflow: ellipsis;
+      overflow: hidden;
+      word-wrap: initial;
+    }
 
     span {
       color: var(--s2-gray-500);
