@@ -534,3 +534,21 @@ export function getContentEnv(location, key, envs) {
 }
 
 export const CONTENT_ORIGIN = (() => getContentEnv(window.location, 'da-content', DA_CONTENT_ENVS))();
+
+export function parseAemUrl(urlString) {
+  try {
+    const { hostname } = new URL(urlString);
+    const parts = hostname.split('.')[0].split('--');
+
+    // Pattern: ref--repo--org.domain
+    // We want repo and org (skip the ref)
+    if (parts.length >= 3) {
+      const [, repo, org] = parts;
+      return { repo, org };
+    }
+
+    return { error: 'Invalid AEM URL format' };
+  } catch {
+    return { error: 'Could not parse URL' };
+  }
+}
