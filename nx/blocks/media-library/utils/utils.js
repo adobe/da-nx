@@ -534,3 +534,31 @@ export function getContentEnv(location, key, envs) {
 }
 
 export const CONTENT_ORIGIN = (() => getContentEnv(window.location, 'da-content', DA_CONTENT_ENVS))();
+
+// ============================================================================
+// URL PARSING UTILITIES
+// ============================================================================
+
+export function getOrgRepoFrmUrl(siteUrl) {
+  if (!siteUrl) {
+    throw new Error('Site URL is required');
+  }
+
+  try {
+    const url = new URL(siteUrl);
+    const hostname = url.hostname;
+    
+    // Parse AEM URL format: main--site--org.aem.page
+    const match = hostname.match(/^main--([^--]+)--([^.]+)\.aem\.page$/);
+    
+    if (match) {
+      const [, repo, org] = match;
+      return { org, repo };
+    }
+    
+    // Fallback: try to extract from path or other formats
+    throw new Error(`Unable to parse AEM URL format from: ${siteUrl}`);
+  } catch (error) {
+    throw new Error(`Invalid URL format: ${siteUrl}. Expected format: https://main--site--org.aem.page`);
+  }
+}
