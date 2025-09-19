@@ -12,6 +12,7 @@ import './views/grid/grid.js';
 import './views/list/list.js';
 import './views/modal-manager/modal-manager.js';
 import './views/scan/scan.js';
+import './views/onboard/onboard.js';
 
 const EL_NAME = 'nx-media-library';
 const nx = `${new URL(import.meta.url).origin}/nx`;
@@ -19,25 +20,18 @@ const sl = await getStyle(`${nx}/public/sl/styles.css`);
 const slComponents = await getStyle(`${nx}/public/sl/components.css`);
 const styles = await getStyle(import.meta.url);
 
-// Configuration constants - removed unused CONFIG variable
-
 const ICONS = [
   `${nx}/public/icons/S2_Icon_Close_20_N.svg`,
 ];
 
 class NxMediaLibrary extends LitElement {
   static properties = {
-    // GROUP 1: Core Data Properties
-    sitePath: { attribute: false },
+    sitePath: { state: true },
     _mediaData: { state: true },
     _error: { state: true },
-
-    // GROUP 2: Filter & Search Properties
     _searchQuery: { state: true },
     _selectedFilterType: { state: true },
     _filterCounts: { state: true },
-
-    // GROUP 3: UI State Properties
     _currentView: { state: true },
   };
 
@@ -48,13 +42,10 @@ class NxMediaLibrary extends LitElement {
     this._needsFilterRecalculation = true;
     this._needsFilterUpdate = false;
     this._updateStartTime = 0;
-
-    // Single-pass processing results
     this._processedData = null;
     this._filteredMediaData = null;
     this._searchSuggestions = [];
-
-    this._filterCounts = {}; // Make this reactive
+    this._filterCounts = {};
   }
 
   connectedCallback() {
@@ -62,8 +53,6 @@ class NxMediaLibrary extends LitElement {
     this.shadowRoot.adoptedStyleSheets = [sl, slComponents, styles];
 
     getSvg({ parent: this.shadowRoot, paths: ICONS });
-
-    // Listen for alt text updates from modal manager
     window.addEventListener('alt-text-updated', this.handleAltTextUpdated);
   }
 
@@ -75,15 +64,10 @@ class NxMediaLibrary extends LitElement {
     window.removeEventListener('alt-text-updated', this.handleAltTextUpdated);
   }
 
-  // ============================================================================
-  // LIFECYCLE OPTIMIZATION
-  // ============================================================================
-
   shouldUpdate(changedProperties) {
-    // Only update for meaningful property changes
     const dataProps = ['_mediaData', '_error'];
     const filterProps = ['_searchQuery', '_selectedFilterType', '_filterCounts'];
-    const uiProps = ['_currentView'];
+    const uiProps = ['_currentView', 'sitePath'];
     const hasDataChange = dataProps.some((prop) => changedProperties.has(prop));
     const hasFilterChange = filterProps.some((prop) => changedProperties.has(prop));
     const hasUIChange = uiProps.some((prop) => changedProperties.has(prop));
@@ -92,14 +76,12 @@ class NxMediaLibrary extends LitElement {
   }
 
   willUpdate(changedProperties) {
-    // Single-pass data processing when media data changes
     if (changedProperties.has('_mediaData') && this._mediaData) {
       this._processedData = processMediaData(this._mediaData);
       this._needsFilterRecalculation = true;
       this._needsFilterUpdate = true;
     }
 
-    // Prepare filter recalculation for search/filter changes
     if (changedProperties.has('_searchQuery')
         || changedProperties.has('_selectedFilterType')
     ) {
@@ -108,15 +90,22 @@ class NxMediaLibrary extends LitElement {
   }
 
   update(changedProperties) {
-    // Handle sitePath changes for timestamp management
-    if (changedProperties.has('sitePath') && this.sitePath) {
-      this.initialize();
+    if (changedProperties.has('sitePath')) {
+      if (this.sitePath) {
+        this._mediaData = null;
+        this._error = null;
+        this._searchQuery = '';
+        this._selectedFilterType = 'all';
+        this._filterCounts = {};
+        this._processedData = null;
+        this._filteredMediaData = null;
+        this.initialize();
+      }
     }
     super.update(changedProperties);
   }
 
   updated() {
-    // Handle post-update side effects
     this.updateComplete.then(() => {
       if (this._needsFilterUpdate) {
         this.updateFilters();
@@ -125,12 +114,7 @@ class NxMediaLibrary extends LitElement {
     });
   }
 
-  // ============================================================================
-  // COMPUTED PROPERTIES (GETTERS)
-  // ============================================================================
-
   get filteredMediaData() {
-    // Always recalculate when accessed
     this._filteredMediaData = calculateFilteredMediaData(
       this._mediaData,
       this._selectedFilterType,
@@ -164,21 +148,9 @@ class NxMediaLibrary extends LitElement {
     return getDocumentMediaBreakdown(this._mediaData, this.selectedDocument);
   }
 
-  // ============================================================================
-  // DATA PROCESSING METHODS
-  // ============================================================================
-
-  // ============================================================================
-  // FILTER COUNTS GETTER
-  // ============================================================================
-
   get filterCounts() {
     return this._processedData?.filterCounts || {};
   }
-
-  // ============================================================================
-  // ORG/REPO GETTERS
-  // ============================================================================
 
   get org() {
     if (!this.sitePath) return null;
@@ -192,16 +164,10 @@ class NxMediaLibrary extends LitElement {
     return repo;
   }
 
-  // ============================================================================
-  // INITIALIZATION & DATA LOADING
-  // ============================================================================
-
   async initialize() {
-    // Initial data loading with timestamp management
     if (this.sitePath) {
       const [org, repo] = this.sitePath.split('/').slice(1, 3);
       if (org && repo) {
-        // Load initial media data using the combined method
         await this.loadMediaData(org, repo);
       }
     }
@@ -209,7 +175,6 @@ class NxMediaLibrary extends LitElement {
 
   async loadMediaData(org, repo) {
     try {
-      // For initial load, always load the data regardless of changes
       const mediaData = await loadMediaSheet(org, repo);
 
       if (mediaData && mediaData.length > 0) {
@@ -225,13 +190,8 @@ class NxMediaLibrary extends LitElement {
 
   updateFilters() {
     if (!this._processedData) return;
-    // Use pre-calculated filter counts from single-pass processing
     this._filterCounts = this._processedData.filterCounts;
   }
-
-  // ============================================================================
-  // MEDIA DATA UPDATE HANDLER
-  // ============================================================================
 
   handleMediaDataUpdated(e) {
     const { mediaData } = e.detail;
@@ -243,11 +203,18 @@ class NxMediaLibrary extends LitElement {
     }
   }
 
-  // ============================================================================
-  // RENDERING METHODS
-  // ============================================================================
+  handleSiteSelected(e) {
+    const { sitePath } = e.detail;
+
+    // Update the URL hash to navigate to the media library
+    window.location.hash = sitePath;
+  }
 
   render() {
+    if (!this.sitePath) {
+      return html`<nx-media-onboard @site-selected=${this.handleSiteSelected}></nx-media-onboard>`;
+    }
+
     return html`
       <div class="media-library">
         <div class="top-bar">
@@ -282,7 +249,6 @@ class NxMediaLibrary extends LitElement {
   }
 
   renderCurrentView() {
-    // Always render components - let them handle their own empty states
     switch (this._currentView) {
       case 'list':
         return html`
@@ -308,10 +274,6 @@ class NxMediaLibrary extends LitElement {
     }
   }
 
-  // ============================================================================
-  // EVENT HANDLERS - SEARCH & FILTERING
-  // ============================================================================
-
   clearSearchQuery() {
     if (this._searchQuery) {
       this._searchQuery = '';
@@ -323,18 +285,13 @@ class NxMediaLibrary extends LitElement {
     this._searchQuery = query;
     this._needsFilterRecalculation = true;
 
-    // Handle smart navigation
     if (type === 'doc' && path) {
       this.handleDocNavigation(path);
     }
   }
 
-  // eslint-disable-next-line no-unused-vars
-  handleDocNavigation(path) {
-    // Extract the actual document path from "doc:/path" format
-    // const actualPath = path.replace(/^doc:\//, ''); // eslint-disable-line no-unused-vars
-    // Note: Document navigation is now handled through search
-    // console.log('Document navigation to:', actualPath); // eslint-disable-line no-console
+  handleDocNavigation() {
+    // Document navigation handled through search
   }
 
   handleViewChange(e) {
@@ -346,10 +303,6 @@ class NxMediaLibrary extends LitElement {
     this._needsFilterRecalculation = true;
     this.clearSearchQuery();
   }
-
-  // ============================================================================
-  // EVENT HANDLERS - MEDIA INTERACTIONS
-  // ============================================================================
 
   async handleMediaClick(e) {
     const { media } = e.detail;
@@ -449,10 +402,6 @@ class NxMediaLibrary extends LitElement {
     }
   }
 
-  // ============================================================================
-  // EVENT HANDLERS - DOCUMENT MANAGEMENT
-  // ============================================================================
-
   handleClearDocumentFilter() {
     this._needsFilterRecalculation = true;
     this.clearSearchQuery();
@@ -466,10 +415,6 @@ class NxMediaLibrary extends LitElement {
   }
 }
 
-// ============================================================================
-// UTILITY FUNCTIONS
-// ============================================================================
-
 customElements.define(EL_NAME, NxMediaLibrary);
 
 function setupMediaLibrary(el) {
@@ -479,7 +424,8 @@ function setupMediaLibrary(el) {
     el.append(cmp);
   }
 
-  cmp.sitePath = window.location.hash?.replace('#', '');
+  const hash = window.location.hash?.replace('#', '');
+  cmp.sitePath = hash;
 }
 
 export default function init(el) {
