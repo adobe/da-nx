@@ -51,7 +51,7 @@ export async function createTask({ origin, clientid, token, task, service }) {
   const opts = getOpts(clientid, token, JSON.stringify(body), 'application/json', 'POST');
 
   try {
-    const resp = await fetch(`${origin}/api/l10n/v1.1/tasks/${workflow}/create`, opts);
+    const resp = await fetch(`${origin}/api/l10n/v1.2/tasks/${workflow}/create`, opts);
     if (!resp.ok) throw new Error(resp.status);
     return task;
   } catch (e) {
@@ -62,7 +62,7 @@ export async function createTask({ origin, clientid, token, task, service }) {
 export async function getTask({ origin, clientid, token, workflow, name }) {
   const opts = getOpts(clientid, token);
   try {
-    const resp = await fetch(`${origin}/api/l10n/v1.1/tasks/${workflow}/${name}`, opts);
+    const resp = await fetch(`${origin}/api/l10n/v1.2/tasks/${workflow}/${name}`, opts);
     const json = await resp.json();
     return { status: resp.status, json };
   } catch {
@@ -70,11 +70,13 @@ export async function getTask({ origin, clientid, token, workflow, name }) {
   }
 }
 
+// Helper function to ensure GLaaS compatibility with json extensions are converted to html
+export const getGlaasFilename = (daBasePath) => (daBasePath.endsWith('.html') ? daBasePath : `${daBasePath}.html`);
+
 export async function addAssets({
   origin,
   clientid,
   token,
-  langs,
   task,
   items,
 }, actions) {
@@ -93,16 +95,20 @@ export async function addAssets({
       const body = new FormData();
 
       const file = new Blob([item.content], { type: 'text/html' });
-      const details = {
-        assetName: item.daBasePath,
+      const glaasFilename = getGlaasFilename(item.daBasePath);
+      const fileDetails = {
+        assetName: glaasFilename,
+        assetType: 'SOURCE',
+        targetLocales,
         metadata: { 'source-preview-url': item.aemHref },
       };
 
-      body.append('file1', file, item.daBasePath);
-      body.append('asset1', new Blob([JSON.stringify(details)], { type: 'application/json; charset=utf-8' }), '_asset_metadata_');
+      // GLaaS v1.2
+      body.append('file', file, glaasFilename);
 
       const opts = getOpts(clientid, token, body, null, 'POST');
-      const url = `${origin}/api/l10n/v1.1/tasks/${workflow}/${name}/assets?targetLanguages=${targetLocales.join(',')}`;
+      // Add fileDetails parameter for GLaaS v1.2
+      const url = `${origin}/api/l10n/v1.2/tasks/${workflow}/${name}/assets?targetLanguages=${targetLocales.join(',')}&fileDetails=${encodeURIComponent(JSON.stringify(fileDetails))}`;
 
       try {
         const resp = await fetch(url, opts);
@@ -114,7 +120,7 @@ export async function addAssets({
     }));
     task.sent += results.filter((result) => (result.status)).length;
     task.error += results.filter((result) => (result.error)).length;
-    updateLangTask(task, langs);
+    updateLangTask(task, task.langs);
   }
   if (task.error === 0) task.status = 'uploaded';
 }
@@ -130,7 +136,7 @@ export async function updateStatus(service, token, task, newStatus = 'CREATED') 
   const opts = getOpts(clientid, token, body, null, 'POST');
 
   const results = await Promise.all(targetLocales.map(async (code) => {
-    const url = `${origin}/api/l10n/v1.1/tasks/${workflow}/${name}/${code}/updateStatus`;
+    const url = `${origin}/api/l10n/v1.2/tasks/${workflow}/${name}/${code}/updateStatus`;
     try {
       const resp = await fetch(url, opts);
       if (!resp.ok) throw new Error(resp.status);
@@ -149,7 +155,7 @@ export async function downloadAsset(service, token, task, path) {
   const { origin, clientid } = service;
   const { name, workflow, code } = task;
   const opts = getOpts(clientid, token, null, null, 'GET');
-  const url = `${origin}/api/l10n/v1.1/tasks/${workflow}/${name}/assets/${code}${path}`;
+  const url = `${origin}/api/l10n/v1.2/tasks/${workflow}/${name}/assets/${code}${path}`;
   try {
     const resp = await fetch(url, opts);
     return resp.text();
@@ -169,6 +175,7 @@ export async function prepareTargetPreview(task, urls, service) {
       project: workflowSplit[1],
       workflowName,
       taskName: name,
+      useTaskVersion: 'v2',
       targetLocales,
       urls: urls.map((a) => a.aemHref),
     };

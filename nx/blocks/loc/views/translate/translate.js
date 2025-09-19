@@ -317,7 +317,7 @@ class NxLocTranslate extends LitElement {
         ${this._translateLangs.map((lang) => html`
           <li>
             <div class="inner${withCancel}">
-              <p>${lang.name} - ${lang['translate type']}</p>
+              <p>${lang.name}${lang['translate type'] ? ` - ${lang['translate type']}` : ''}</p>
               <p class="lang-count">${this._urls.length}</p>
               <p class="lang-count">${lang.translation?.sent || 0}</p>
               <p class="lang-count">${lang.translation?.translated || 0}</p>
