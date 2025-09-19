@@ -144,10 +144,12 @@ export async function copyManifest(name, resources, direction) {
     try {
       const url = new URL(res.aemPreview);
 
-      const ext = url.pathname.endsWith('.json') ? '' : '.html';
+      const path = url.pathname.endsWith('/') ? `${url.pathname}index` : url.pathname;
 
-      const main = `/${org}/${site}${res.path}${ext}`;
-      const fork = `/${org}/${site}/.snapshots/${name}${res.path}${ext}`;
+      const extPath = path.endsWith('.json') ? path : `${path}.html`;
+
+      const main = `/${org}/${site}${extPath}`;
+      const fork = `/${org}/${site}/.snapshots/${name}${extPath}`;
 
       url.source = direction === 'fork' ? main : fork;
       url.destination = direction === 'fork' ? fork : main;
