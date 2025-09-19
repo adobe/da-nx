@@ -223,7 +223,8 @@ const addDntInfoToHtml = (html) => {
   document.querySelector('footer')?.remove();
 
   globalDntConfig.get('docRules').forEach((operations, selector) => {
-    addDntAttribute(selector, operations, document);
+    const newSelector = selector.startsWith('.* >') ? selector.replace('.* >', 'div[class] >') : selector;
+    addDntAttribute(newSelector, operations, document);
   });
   globalDntConfig.get('contentRules').forEach((content) => {
     findAndAddDntWrapper(document, content);
