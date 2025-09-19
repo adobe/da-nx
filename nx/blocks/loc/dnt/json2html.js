@@ -18,7 +18,7 @@ const json2html = (json, dntConfig) => {
 
   // Support both sheetRule config formats (defaultDnt and glassDnt)
   const sheetRules = dntConfig?.sheetRules || dntConfig?.get('sheetRules');
-  const isTextInDntRules = (text) => sheetRules
+  const isTextInDntRules = (text) => sheetRules && sheetRules
     .some((rule) => {
       if (rule.condition === 'exists') {
         return true;
@@ -44,7 +44,8 @@ const json2html = (json, dntConfig) => {
       data.forEach((jsonObject) => {
         const rowDiv = div.appendChild(document.createElement('div'));
         rowDiv.setAttribute('data-type', 'row');
-        const shouldRowBeTranslated = Object.hasOwn(jsonObject, ':translate') && jsonObject[':translate'] && jsonObject[':translate'] === 'yes';
+        const hasTranslateColumn = Object.hasOwn(jsonObject, ':translate');
+        const shouldRowBeTranslated = !hasTranslateColumn || (jsonObject[':translate'] && jsonObject[':translate'].toLowerCase() === 'yes');
         let isRowSetAsDnt = false;
         if (!shouldRowBeTranslated) {
           setDntAttribute(rowDiv);
@@ -83,7 +84,7 @@ const json2html = (json, dntConfig) => {
     const dntInfo = defaultDntConfig;
     const { data } = dntJson;
     if (data?.length > 0) {
-      dntInfo.sheets.push(['dnt', 'non-default']);
+      dntInfo.sheets.push('dnt', 'non-default');
       dntInfo.universalColumns.push(...[':translate', ':rollout', ':uid', ':regional']);
       data.forEach((jsonObject) => {
         const dntSheet = jsonObject['dnt-sheet'];
@@ -91,7 +92,7 @@ const json2html = (json, dntConfig) => {
         if (dntColumnsStr === '*') {
           dntInfo.sheets.push(dntSheet);
         } else {
-          const dntColumns = dntColumnsStr.split(',');
+          const dntColumns = dntColumnsStr.split(',').map((columnName) => columnName.trim());
           if (dntSheet === '*') {
             dntInfo.universalColumns.push(...dntColumns);
           } else {
