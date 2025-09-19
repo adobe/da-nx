@@ -5,7 +5,7 @@ import { loadIms } from '../../../utils/ims.js';
 
 const { nxBase: nx } = getConfig();
 
-const CONFIG_PATH = '/.da/translate.json';
+const CONFIG_PATH = '/.da/translate-qa.json';
 const CONFIG_PATH_V2 = '/.da/translate-v2.json';
 
 export const VIEWS = [

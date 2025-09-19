@@ -1,6 +1,6 @@
 import { DA_ORIGIN } from '../../utils/constants.js';
 
-const DA_TRANSLATE = '/.da/translate.json';
+const DA_TRANSLATE = '/.da/translate-qa.json';
 const DA_SOURCE = `${DA_ORIGIN}/source/`;
 
 async function fetchConf(org, repo, token) {
