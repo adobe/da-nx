@@ -38,9 +38,9 @@ class NxLocSync extends LitElement {
   }
 
   getSyncUrls() {
-    const { org, site, options, urls } = this.project;
+    const { org, site, options, urls, snapshot } = this.project;
     const sendLocation = options['source.language']?.location || '/';
-    this._syncUrls = getSyncUrls(org, site, sendLocation, urls);
+    this._syncUrls = getSyncUrls(org, site, sendLocation, urls, snapshot);
   }
 
   getPersistedUrls() {

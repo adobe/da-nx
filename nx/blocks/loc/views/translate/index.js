@@ -1,7 +1,7 @@
 import { DA_ORIGIN } from '../../../../public/utils/constants.js';
 import { Queue } from '../../../../public/utils/tree.js';
 import { daFetch } from '../../../../utils/daFetch.js';
-import { convertPath, fetchConfig, formatPath } from '../../utils/utils.js';
+import { convertPath, createSnapshotPrefix, fetchConfig, formatPath } from '../../utils/utils.js';
 import { mergeCopy, overwriteCopy } from '../../project/index.js';
 
 let CONNECTOR;
@@ -12,8 +12,9 @@ export async function setupConnector(service) {
   return CONNECTOR;
 }
 
-export async function getUrls(org, site, service, sourceLocation, urls, fetchContent) {
+export async function getUrls(org, site, service, sourceLocation, urls, fetchContent, snapshot) {
   const { connector } = service;
+  const snapshotPrefix = createSnapshotPrefix(snapshot);
 
   // Format the URLs to get all possible path variations
   const formattedUrls = urls.map((url) => {
@@ -21,6 +22,7 @@ export async function getUrls(org, site, service, sourceLocation, urls, fetchCon
       path: url.suppliedPath,
       sourcePrefix: sourceLocation,
       destPrefix: sourceLocation,
+      snapshotPrefix,
     };
     const formatted = convertPath(converConf);
 
@@ -75,6 +77,7 @@ export async function getUrls(org, site, service, sourceLocation, urls, fetchCon
 async function saveLang({
   org,
   site,
+  snapshot,
   title,
   service,
   connector,
@@ -83,8 +86,10 @@ async function saveLang({
   urls,
   sendMessage,
 }) {
+  const snapshotPrefix = createSnapshotPrefix(snapshot);
+
   const urlsToSave = urls.map((url) => {
-    const { daDestPath } = convertPath({ path: url.basePath, sourcePrefix: '/', destPrefix: lang.location });
+    const { daDestPath } = convertPath({ path: url.basePath, sourcePrefix: '/', destPrefix: lang.location, snapshotPrefix });
     return { ...url, destination: `/${org}/${site}${daDestPath}` };
   });
 

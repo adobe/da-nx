@@ -89,10 +89,10 @@ class NxLocTranslate extends LitElement {
   }
 
   async fetchUrls(service, fetchContent) {
-    const { org, site } = this.project;
+    const { org, site, snapshot } = this.project;
     const sourceLocation = this._options['source.language']?.location || '/';
 
-    return getUrls(org, site, service, sourceLocation, this._urls, fetchContent);
+    return getUrls(org, site, service, sourceLocation, this._urls, fetchContent, snapshot);
   }
 
   async getBaseTranslationConf(fetchContent) {
@@ -101,7 +101,7 @@ class NxLocTranslate extends LitElement {
       sendMessage: this.handleMessage.bind(this),
     };
 
-    const { org, site, title, options } = this.project;
+    const { org, site, title, options, snapshot } = this.project;
     const { _service: service, _translateLangs: langs } = this;
 
     const { urls } = await this.fetchUrls(service, fetchContent);
@@ -109,6 +109,7 @@ class NxLocTranslate extends LitElement {
     return {
       org,
       site,
+      snapshot,
       title,
       service,
       options,

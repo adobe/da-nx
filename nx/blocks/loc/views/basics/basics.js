@@ -29,20 +29,21 @@ class NxLocBasics extends LitElement {
   }
 
   setupProject() {
-    const { org, site, title, urls } = this.project;
+    const { org, site, title, snapshot, urls } = this.project;
 
     this._title = title;
 
     // If the existing project has URLs, format them down to plain text
-    this._textUrls = urls ? this.formatUrls(org, site, urls) : MOCK_URLS;
+    this._textUrls = urls ? this.formatUrls(org, site, urls, snapshot) : MOCK_URLS;
   }
 
   formatTitle({ target }) {
     this._title = target.value.replaceAll(/[^a-zA-Z0-9]/g, '-').toLowerCase();
   }
 
-  formatUrls(org, site, urls) {
-    return urls.map((url) => `https://main--${site}--${org}.aem.page${url.suppliedPath}`).join('\n');
+  formatUrls(org, site, urls, snapshot) {
+    const baseUrl = snapshot ? `${snapshot}--main--${site}--${org}.aem.reviews` : `main--${site}--${org}.aem.page`;
+    return urls.map((url) => `https://${baseUrl}${url.suppliedPath}`).join('\n');
   }
 
   async getUpdates(view) {
