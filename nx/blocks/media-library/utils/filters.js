@@ -168,22 +168,53 @@ export function aggregateMediaData(mediaData) {
  */
 export function processMediaData(mediaData) {
   if (!mediaData || !Array.isArray(mediaData)) {
-    return { filterCounts: {} };
+    return { filterCounts: {}, filterArrays: {} };
   }
 
-  const aggregatedData = aggregateMediaData(mediaData);
+  const filterArrays = {};
   const filterCounts = {};
+  const uniqueUrls = new Set();
+  const uniqueNonSvgUrls = new Set();
 
   Object.keys(FILTER_CONFIG).forEach((filterName) => {
+    if (!filterName.startsWith('document') || filterName === 'documents') {
+      filterArrays[filterName] = [];
+    }
     filterCounts[filterName] = 0;
   });
 
-  aggregatedData.forEach((item) => {
+  const hashToItemMap = new Map();
+  mediaData.forEach((item) => {
+    if (item.hash) {
+      hashToItemMap.set(item.hash, item);
+    }
+  });
+
+  mediaData.forEach((item) => {
+    if (!item.hash) return;
+
     const { alt, doc, type } = item;
     const mediaType = getMediaType(item);
     const isSvg = isSvgFile(item);
     const isImage = mediaType === 'image' || mediaType === 'img';
     const isInDocument = doc && doc.trim();
+
+    if (item.url) {
+      uniqueUrls.add(item.url);
+      if (!isSvg) {
+        uniqueNonSvgUrls.add(item.url);
+      }
+    }
+
+    Object.keys(filterArrays).forEach((filterName) => {
+      try {
+        if (FILTER_CONFIG[filterName](item)) {
+          filterArrays[filterName].push(item.hash);
+        }
+      } catch (error) {
+        // Filter function failed, skip this item
+      }
+    });
 
     if (isImage && !isSvg) {
       filterCounts.images += 1;
@@ -231,7 +262,20 @@ export function processMediaData(mediaData) {
     }
   });
 
-  return { filterCounts };
+  Object.keys(filterArrays).forEach((filterName) => {
+    const uniqueUrlsForFilter = new Set();
+    filterArrays[filterName].forEach((hash) => {
+      const item = hashToItemMap.get(hash);
+      if (item && item.url) {
+        uniqueUrlsForFilter.add(item.url);
+      }
+    });
+    filterCounts[filterName] = uniqueUrlsForFilter.size;
+  });
+
+  filterCounts.all = uniqueNonSvgUrls.size;
+
+  return { filterCounts, filterArrays };
 }
 
 export function calculateFilteredMediaData(
@@ -244,15 +288,55 @@ export function calculateFilteredMediaData(
     return [];
   }
 
-  let filtered = aggregateMediaData(mediaData);
-
-  filtered = applyFilter(filtered, selectedFilterType, selectedDocument);
+  let filteredData = [...mediaData];
 
   if (searchQuery && searchQuery.trim()) {
-    filtered = filterBySearch(filtered, searchQuery);
+    filteredData = filterBySearch(filteredData, searchQuery);
   }
 
-  return filtered;
+  if (selectedFilterType && selectedFilterType !== 'all') {
+    filteredData = applyFilter(filteredData, selectedFilterType, selectedDocument);
+  }
+
+  return filteredData;
+}
+
+export function calculateFilteredMediaDataFromIndex(
+  mediaData,
+  processedData,
+  selectedFilterType,
+  searchQuery,
+  selectedDocument,
+) {
+  if (!mediaData || mediaData.length === 0 || !processedData) {
+    return [];
+  }
+
+  let filteredData = [...mediaData];
+
+  if (searchQuery && searchQuery.trim()) {
+    const colonSyntax = parseColonSyntax(searchQuery);
+    if (colonSyntax) {
+      filteredData = filterByColonSyntax(filteredData, colonSyntax);
+    } else {
+      filteredData = filterByGeneralSearch(filteredData, searchQuery);
+    }
+  }
+
+  if (selectedFilterType && selectedFilterType !== 'all') {
+    const filterHashes = processedData.filterArrays[selectedFilterType] || [];
+    const filteredHashes = new Set(filterHashes);
+
+    if (selectedDocument && selectedFilterType.startsWith('document') && selectedFilterType !== 'documents') {
+      filteredData = filteredData.filter((item) => (
+        filteredHashes.has(item.hash) && item.doc === selectedDocument
+      ));
+    } else {
+      filteredData = filteredData.filter((item) => filteredHashes.has(item.hash));
+    }
+  }
+
+  return filteredData;
 }
 
 function generateFolderSuggestions(mediaData, value) {

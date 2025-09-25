@@ -196,3 +196,22 @@
   padding: var(--spacing-100) var(--spacing-200);
   display: block;
 }
+
+.filter-list button.loading {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.filter-list button.loading:hover {
+  background: none;
+}
+
+.count.loading {
+  font-style: italic;
+  color: var(--s2-gray-500);
+}
+
+.filter-list button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}

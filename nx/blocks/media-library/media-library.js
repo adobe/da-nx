@@ -1,9 +1,8 @@
 import { html, LitElement } from 'da-lit';
 import getStyle from '../../utils/styles.js';
-import getSvg from '../../public/utils/svg.js';
 import { getDocumentMediaBreakdown, loadMediaSheet } from './utils/processing.js';
 import { copyMediaToClipboard } from './utils/utils.js';
-import { processMediaData, calculateFilteredMediaData } from './utils/filters.js';
+import { processMediaData, calculateFilteredMediaData, calculateFilteredMediaDataFromIndex } from './utils/filters.js';
 import '../../public/sl/components.js';
 import './views/topbar/topbar.js';
 import './views/sidebar/sidebar.js';
@@ -19,10 +18,6 @@ const nx = `${new URL(import.meta.url).origin}/nx`;
 const sl = await getStyle(`${nx}/public/sl/styles.css`);
 const slComponents = await getStyle(`${nx}/public/sl/components.css`);
 const styles = await getStyle(import.meta.url);
-
-const ICONS = [
-  `${nx}/public/icons/S2_Icon_Close_20_N.svg`,
-];
 
 class NxMediaLibrary extends LitElement {
   static properties = {
@@ -46,13 +41,14 @@ class NxMediaLibrary extends LitElement {
     this._filteredMediaData = null;
     this._searchSuggestions = [];
     this._filterCounts = {};
+    this._filteredDataCache = null;
+    this._lastFilterParams = null;
   }
 
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [sl, slComponents, styles];
 
-    getSvg({ parent: this.shadowRoot, paths: ICONS });
     window.addEventListener('alt-text-updated', this.handleAltTextUpdated);
   }
 
@@ -111,18 +107,71 @@ class NxMediaLibrary extends LitElement {
         this.updateFilters();
         this._needsFilterUpdate = false;
       }
+
+      const sidebar = this.shadowRoot.querySelector('nx-media-sidebar');
+      if (sidebar) {
+        sidebar.isLoading = !this._processedData;
+      }
     });
   }
 
   get filteredMediaData() {
-    this._filteredMediaData = calculateFilteredMediaData(
-      this._mediaData,
-      this._selectedFilterType,
-      this._searchQuery,
-      this.selectedDocument,
-    );
+    const currentParams = {
+      filterType: this._selectedFilterType,
+      searchQuery: this._searchQuery,
+      selectedDocument: this.selectedDocument,
+      dataLength: this._mediaData?.length || 0,
+    };
 
-    return this._filteredMediaData || [];
+    if (this._filteredDataCache
+        && this._lastFilterParams
+        && JSON.stringify(this._lastFilterParams) === JSON.stringify(currentParams)) {
+      return this._filteredDataCache;
+    }
+
+    let filteredData;
+    if (!this._processedData) {
+      filteredData = calculateFilteredMediaData(
+        this._mediaData,
+        this._selectedFilterType,
+        this._searchQuery,
+        this.selectedDocument,
+      );
+    } else {
+      filteredData = calculateFilteredMediaDataFromIndex(
+        this._mediaData,
+        this._processedData,
+        this._selectedFilterType,
+        this._searchQuery,
+        this.selectedDocument,
+      );
+    }
+
+    const deduplicatedData = [];
+    const urlToItemMap = new Map();
+
+    filteredData.forEach((item) => {
+      if (item.url) {
+        const usageCount = this.getUsageCount(item.url);
+        const itemWithUsage = { ...item, usageCount };
+
+        if (!urlToItemMap.has(item.url)) {
+          urlToItemMap.set(item.url, itemWithUsage);
+        } else {
+          const existingItem = urlToItemMap.get(item.url);
+          if (usageCount > existingItem.usageCount) {
+            urlToItemMap.set(item.url, itemWithUsage);
+          }
+        }
+      }
+    });
+
+    deduplicatedData.push(...urlToItemMap.values());
+
+    this._filteredDataCache = deduplicatedData;
+    this._lastFilterParams = currentParams;
+
+    return deduplicatedData;
   }
 
   get selectedDocument() {
@@ -150,6 +199,12 @@ class NxMediaLibrary extends LitElement {
 
   get filterCounts() {
     return this._processedData?.filterCounts || {};
+  }
+
+  getUsageCount(mediaUrl) {
+    if (!this._mediaData) return 0;
+    const hasUsage = (item) => item.url === mediaUrl && item.doc && item.doc.trim();
+    return this._mediaData.filter(hasUsage).length;
   }
 
   get org() {
@@ -284,6 +339,8 @@ class NxMediaLibrary extends LitElement {
     const { query, type, path } = e.detail;
     this._searchQuery = query;
     this._needsFilterRecalculation = true;
+    this._filteredDataCache = null;
+    this._lastFilterParams = null;
 
     if (type === 'doc' && path) {
       this.handleDocNavigation(path);
@@ -301,6 +358,8 @@ class NxMediaLibrary extends LitElement {
   handleFilter(e) {
     this._selectedFilterType = e.detail.type;
     this._needsFilterRecalculation = true;
+    this._filteredDataCache = null;
+    this._lastFilterParams = null;
     this.clearSearchQuery();
   }
 
