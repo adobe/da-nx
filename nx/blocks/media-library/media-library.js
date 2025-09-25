@@ -3,6 +3,8 @@ import getStyle from '../../utils/styles.js';
 import { getDocumentMediaBreakdown, loadMediaSheet } from './utils/processing.js';
 import { copyMediaToClipboard } from './utils/utils.js';
 import { processMediaData, calculateFilteredMediaData, calculateFilteredMediaDataFromIndex } from './utils/filters.js';
+import { daFetch } from '../../utils/daFetch.js';
+import { DA_ORIGIN } from '../../public/utils/constants.js';
 import '../../public/sl/components.js';
 import './views/topbar/topbar.js';
 import './views/sidebar/sidebar.js';
@@ -28,6 +30,8 @@ class NxMediaLibrary extends LitElement {
     _selectedFilterType: { state: true },
     _filterCounts: { state: true },
     _currentView: { state: true },
+    _progressiveMediaData: { state: true },
+    _isScanning: { state: true },
   };
 
   constructor() {
@@ -43,13 +47,27 @@ class NxMediaLibrary extends LitElement {
     this._filterCounts = {};
     this._filteredDataCache = null;
     this._lastFilterParams = null;
+    this._progressiveMediaData = [];
+    this._progressiveGroupingKeys = new Set();
+    this._progressiveLimit = 500;
+    this._isScanning = false;
+    this._scanStartTime = null;
+    this._realTimeStats = { pages: 0, media: 0, elapsed: 0 };
+    this._statsInterval = null;
   }
 
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [sl, slComponents, styles];
 
-    window.addEventListener('alt-text-updated', this.handleAltTextUpdated);
+    this._boundHandleAltTextUpdated = this.handleAltTextUpdated.bind(this);
+    this._boundHandleScanStart = this.handleScanStart.bind(this);
+    this._boundHandleScanComplete = this.handleScanComplete.bind(this);
+    this._boundHandleProgressiveDataUpdate = this.handleProgressiveDataUpdate.bind(this);
+    window.addEventListener('alt-text-updated', this._boundHandleAltTextUpdated);
+    window.addEventListener('scanStart', this._boundHandleScanStart);
+    window.addEventListener('scanComplete', this._boundHandleScanComplete);
+    window.addEventListener('progressiveDataUpdate', this._boundHandleProgressiveDataUpdate);
   }
 
   disconnectedCallback() {
@@ -57,11 +75,17 @@ class NxMediaLibrary extends LitElement {
     if (this._messageTimeout) {
       clearTimeout(this._messageTimeout);
     }
-    window.removeEventListener('alt-text-updated', this.handleAltTextUpdated);
+    if (this._statsInterval) {
+      clearInterval(this._statsInterval);
+    }
+    window.removeEventListener('alt-text-updated', this._boundHandleAltTextUpdated);
+    window.removeEventListener('scanStart', this._boundHandleScanStart);
+    window.removeEventListener('scanComplete', this._boundHandleScanComplete);
+    window.removeEventListener('progressiveDataUpdate', this._boundHandleProgressiveDataUpdate);
   }
 
   shouldUpdate(changedProperties) {
-    const dataProps = ['_mediaData', '_error'];
+    const dataProps = ['_mediaData', '_error', '_progressiveMediaData', '_isScanning'];
     const filterProps = ['_searchQuery', '_selectedFilterType', '_filterCounts'];
     const uiProps = ['_currentView', 'sitePath'];
     const hasDataChange = dataProps.some((prop) => changedProperties.has(prop));
@@ -152,7 +176,13 @@ class NxMediaLibrary extends LitElement {
 
     filteredData.forEach((item) => {
       if (item.url) {
-        const usageCount = this.getUsageCount(item.url);
+        const usageCount = this._mediaData
+          ? this._mediaData.filter((mediaItem) => {
+            const isMatchingUrl = mediaItem.url === item.url;
+            const hasDoc = mediaItem.doc && mediaItem.doc.trim();
+            return isMatchingUrl && hasDoc;
+          }).length
+          : 0;
         const itemWithUsage = { ...item, usageCount };
 
         if (!urlToItemMap.has(item.url)) {
@@ -199,12 +229,6 @@ class NxMediaLibrary extends LitElement {
 
   get filterCounts() {
     return this._processedData?.filterCounts || {};
-  }
-
-  getUsageCount(mediaUrl) {
-    if (!this._mediaData) return 0;
-    const hasUsage = (item) => item.url === mediaUrl && item.doc && item.doc.trim();
-    return this._mediaData.filter(hasUsage).length;
   }
 
   get org() {
@@ -261,7 +285,6 @@ class NxMediaLibrary extends LitElement {
   handleSiteSelected(e) {
     const { sitePath } = e.detail;
 
-    // Update the URL hash to navigate to the media library
     window.location.hash = sitePath;
   }
 
@@ -304,12 +327,36 @@ class NxMediaLibrary extends LitElement {
   }
 
   renderCurrentView() {
+    let displayData;
+    if (this._isScanning && this._progressiveMediaData.length > 0) {
+      const existingKeys = new Set(
+        this.filteredMediaData.map((item) => this.getGroupingKey(item.url)),
+      );
+      const uniqueProgressiveData = this._progressiveMediaData.filter(
+        (item) => !existingKeys.has(this.getGroupingKey(item.url)),
+      );
+      displayData = [...this.filteredMediaData, ...uniqueProgressiveData];
+    } else {
+      displayData = this.filteredMediaData;
+    }
+
+    if (this._isScanning && this._progressiveMediaData.length === 0
+        && this.filteredMediaData.length === 0) {
+      return html`
+        <div class="scanning-state">
+          <div class="scanning-spinner"></div>
+          <h3>Discovering Media</h3>
+        </div>
+      `;
+    }
+
     switch (this._currentView) {
       case 'list':
         return html`
           <nx-media-list
-            .mediaData=${this.filteredMediaData}
+            .mediaData=${displayData}
             .searchQuery=${this._searchQuery}
+            .isScanning=${this._isScanning}
             @mediaClick=${this.handleMediaClick}
             @mediaCopy=${this.handleMediaCopy}
             @mediaUsage=${this.handleMediaUsage}
@@ -319,19 +366,14 @@ class NxMediaLibrary extends LitElement {
       default:
         return html`
           <nx-media-grid
-            .mediaData=${this.filteredMediaData}
+            .mediaData=${displayData}
             .searchQuery=${this._searchQuery}
+            .isScanning=${this._isScanning}
             @mediaClick=${this.handleMediaClick}
             @mediaCopy=${this.handleMediaCopy}
             @mediaUsage=${this.handleMediaUsage}
           ></nx-media-grid>
         `;
-    }
-  }
-
-  clearSearchQuery() {
-    if (this._searchQuery) {
-      this._searchQuery = '';
     }
   }
 
@@ -347,10 +389,6 @@ class NxMediaLibrary extends LitElement {
     }
   }
 
-  handleDocNavigation() {
-    // Document navigation handled through search
-  }
-
   handleViewChange(e) {
     this._currentView = e.detail.view;
   }
@@ -360,14 +398,13 @@ class NxMediaLibrary extends LitElement {
     this._needsFilterRecalculation = true;
     this._filteredDataCache = null;
     this._lastFilterParams = null;
-    this.clearSearchQuery();
+    this._searchQuery = '';
   }
 
   async handleMediaClick(e) {
     const { media } = e.detail;
     if (!media) return;
 
-    // Pre-filter usage data for the modal
     const usageData = this._mediaData
       ?.filter((item) => item.url === media.url && item.doc && item.doc.trim())
       .map((item) => ({
@@ -378,7 +415,6 @@ class NxMediaLibrary extends LitElement {
         lastUsedAt: item.lastUsedAt,
       })) || [];
 
-    // Open modal via modal manager
     window.dispatchEvent(new CustomEvent('open-modal', {
       detail: {
         type: 'details',
@@ -399,7 +435,6 @@ class NxMediaLibrary extends LitElement {
     try {
       const result = await copyMediaToClipboard(media);
 
-      // Show notification via modal manager
       window.dispatchEvent(new CustomEvent('show-notification', {
         detail: {
           ...result,
@@ -408,7 +443,6 @@ class NxMediaLibrary extends LitElement {
         },
       }));
     } catch (error) {
-      // Show error notification via modal manager
       window.dispatchEvent(new CustomEvent('show-notification', {
         detail: {
           heading: 'Error',
@@ -423,7 +457,6 @@ class NxMediaLibrary extends LitElement {
   handleMediaUsage(e) {
     const { media } = e.detail;
 
-    // Pre-filter usage data for the modal
     const usageData = this._mediaData
       ?.filter((item) => item.url === media.url && item.doc && item.doc.trim())
       .map((item) => ({
@@ -434,7 +467,6 @@ class NxMediaLibrary extends LitElement {
         lastUsedAt: item.lastUsedAt,
       })) || [];
 
-    // Open modal via modal manager
     window.dispatchEvent(new CustomEvent('open-modal', {
       detail: {
         type: 'details',
@@ -463,14 +495,115 @@ class NxMediaLibrary extends LitElement {
 
   handleClearDocumentFilter() {
     this._needsFilterRecalculation = true;
-    this.clearSearchQuery();
+    this._searchQuery = '';
   }
 
   handleDocumentFilter(e) {
     const { type } = e.detail;
     this._selectedFilterType = type;
     this._needsFilterRecalculation = true;
-    this.clearSearchQuery();
+    this._searchQuery = '';
+  }
+
+  startProgressiveScan() {
+    this._isScanning = true;
+    this._scanStartTime = Date.now();
+    this._progressiveMediaData = [];
+    this._progressiveGroupingKeys.clear();
+    this._realTimeStats = { pages: 0, media: 0, elapsed: 0 };
+
+    this._statsInterval = setInterval(() => {
+      this._realTimeStats.elapsed = ((Date.now() - this._scanStartTime) / 1000).toFixed(1);
+      this.requestUpdate();
+    }, 100);
+  }
+
+  stopProgressiveScan() {
+    this._isScanning = false;
+    if (this._statsInterval) {
+      clearInterval(this._statsInterval);
+      this._statsInterval = null;
+    }
+  }
+
+  async handleScanStart() {
+    let hasExistingData = false;
+    try {
+      if (this.sitePath) {
+        const [org, repo] = this.sitePath.split('/').slice(1, 3);
+        if (org && repo) {
+          const response = await daFetch(`${DA_ORIGIN}/source/${org}/${repo}/.da/mediaindex/media.json`);
+          hasExistingData = response.ok;
+        }
+      }
+    } catch (error) {
+      // Ignore error
+    }
+
+    const hasCurrentData = (this._mediaData && this._mediaData.length > 0)
+                          || (this.filteredMediaData && this.filteredMediaData.length > 0);
+
+    if (hasExistingData || hasCurrentData) {
+      this._progressiveMediaData = [];
+      this._progressiveGroupingKeys.clear();
+      this._realTimeStats = { pages: 0, media: 0, elapsed: 0 };
+      this._scanStartTime = Date.now();
+    } else {
+      this.startProgressiveScan();
+    }
+  }
+
+  handleScanComplete() {
+    this.stopProgressiveScan();
+  }
+
+  handleProgressiveDataUpdate(e) {
+    const { mediaItems } = e.detail;
+    this.updateProgressiveData(mediaItems);
+  }
+
+  updateProgressiveData(mediaItems) {
+    if (!mediaItems || mediaItems.length === 0) return;
+
+    let hasUpdates = false;
+
+    mediaItems.forEach((newItem) => {
+      const groupingKey = this.getGroupingKey(newItem.url);
+      const existingItem = this._progressiveMediaData.find(
+        (item) => this.getGroupingKey(item.url) === groupingKey,
+      );
+
+      if (existingItem) {
+        existingItem.usageCount = (existingItem.usageCount || 0) + 1;
+        hasUpdates = true;
+      }
+    });
+
+    const newUniqueItems = mediaItems.filter((newItem) => {
+      const groupingKey = this.getGroupingKey(newItem.url);
+      return !this._progressiveMediaData.some(
+        (item) => this.getGroupingKey(item.url) === groupingKey,
+      );
+    }).map((item) => ({
+      ...item,
+      usageCount: 1,
+    }));
+
+    if (newUniqueItems.length > 0 || hasUpdates) {
+      this._progressiveMediaData = [...this._progressiveMediaData, ...newUniqueItems];
+      this._realTimeStats.media = this._progressiveMediaData.length;
+    }
+
+    if (this._progressiveMediaData.length > this._progressiveLimit) {
+      this._progressiveMediaData = this._progressiveMediaData.slice(-this._progressiveLimit);
+    }
+
+    this.requestUpdate();
+  }
+
+  getGroupingKey(url) {
+    if (!url) return '';
+    return url.split('?')[0];
   }
 }
 

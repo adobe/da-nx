@@ -1,4 +1,4 @@
-import { LitElement } from 'da-lit';
+import { html, LitElement } from 'da-lit';
 import getStyle from '../../../../utils/styles.js';
 import getSvg from '../../../../public/utils/svg.js';
 import { getVideoThumbnail, isExternalVideoUrl, isImage } from '../../utils/utils.js';
@@ -32,6 +32,7 @@ class NxMediaList extends LitElement {
   static properties = {
     mediaData: { type: Array },
     searchQuery: { type: String },
+    isScanning: { type: Boolean },
   };
 
   constructor() {
@@ -158,6 +159,15 @@ class NxMediaList extends LitElement {
 
   render() {
     if (!this.mediaData || this.mediaData.length === 0) {
+      if (this.isScanning) {
+        return html`
+          <div class="scanning-state">
+            <div class="scanning-spinner"></div>
+            <h3>Discovering Media</h3>
+            <p>Scanning pages and extracting media files...</p>
+          </div>
+        `;
+      }
       return staticTemplates.emptyState;
     }
 
