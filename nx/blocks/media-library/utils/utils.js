@@ -38,7 +38,7 @@ export function detectMediaTypeFromExtension(ext) {
 export function getMediaType(media) {
   const type = media.type || '';
   if (type.startsWith('img >')) return 'image';
-  if (type.startsWith('video >')) return 'video';
+  if (type.startsWith('video >') || type.startsWith('video-source >')) return 'video';
   if (type.startsWith('document >')) return 'document';
   if (type.startsWith('link >')) return 'link';
 

@@ -479,7 +479,7 @@ class NxMediaInfo extends LitElement {
 
     return html`
       <tr class="usage-row">
-        ${!isPdfFile ? html`
+        ${isImage(this.media.url) ? html`
           <td class="alt-cell">
             ${this.renderAltCell(usage, isEditingAlt, isMissingAlt)}
           </td>
@@ -488,7 +488,7 @@ class NxMediaInfo extends LitElement {
           <div class="context-text">${usage.ctx || 'No context'}</div>
         </td>
         <td class="actions-cell">
-          ${this.renderActionsCell(usage, isMissingAlt)}
+          ${this.renderActionsCell(usage)}
         </td>
       </tr>
       <tr class="usage-date-row">
