@@ -212,16 +212,17 @@ export function aggregateMediaData(mediaData) {
 
   const aggregatedMedia = new Map();
   mediaData.forEach((item) => {
-    const mediaHash = item.hash;
-    if (!aggregatedMedia.has(mediaHash)) {
-      aggregatedMedia.set(mediaHash, {
+    const normalizedUrl = item.url.split('?')[0];
+    if (!aggregatedMedia.has(normalizedUrl)) {
+      aggregatedMedia.set(normalizedUrl, {
         ...item,
+        url: normalizedUrl,
         mediaUrl: item.url,
         usageCount: 0,
         isUsed: false,
       });
     }
-    const aggregated = aggregatedMedia.get(mediaHash);
+    const aggregated = aggregatedMedia.get(normalizedUrl);
 
     if (item.doc && item.doc.trim()) {
       aggregated.usageCount += 1;
