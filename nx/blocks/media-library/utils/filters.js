@@ -137,6 +137,32 @@ export function filterBySearch(mediaData, searchQuery) {
   return filterByGeneralSearch(mediaData, query);
 }
 
+export function aggregateMediaData(mediaData) {
+  if (!mediaData) return [];
+
+  const aggregatedMedia = new Map();
+  mediaData.forEach((item) => {
+    const normalizedUrl = item.url.split('?')[0];
+    if (!aggregatedMedia.has(normalizedUrl)) {
+      aggregatedMedia.set(normalizedUrl, {
+        ...item,
+        url: normalizedUrl,
+        mediaUrl: item.url,
+        usageCount: 0,
+        isUsed: false,
+      });
+    }
+    const aggregated = aggregatedMedia.get(normalizedUrl);
+
+    if (item.doc && item.doc.trim()) {
+      aggregated.usageCount += 1;
+      aggregated.isUsed = true;
+    }
+  });
+
+  return Array.from(aggregatedMedia.values());
+}
+
 /**
  * Process media data in a single pass to collect all derived information
  */
@@ -145,13 +171,14 @@ export function processMediaData(mediaData) {
     return { filterCounts: {} };
   }
 
+  const aggregatedData = aggregateMediaData(mediaData);
   const filterCounts = {};
 
   Object.keys(FILTER_CONFIG).forEach((filterName) => {
     filterCounts[filterName] = 0;
   });
 
-  mediaData.forEach((item) => {
+  aggregatedData.forEach((item) => {
     const { alt, doc, type } = item;
     const mediaType = getMediaType(item);
     const isSvg = isSvgFile(item);
@@ -205,32 +232,6 @@ export function processMediaData(mediaData) {
   });
 
   return { filterCounts };
-}
-
-export function aggregateMediaData(mediaData) {
-  if (!mediaData) return [];
-
-  const aggregatedMedia = new Map();
-  mediaData.forEach((item) => {
-    const normalizedUrl = item.url.split('?')[0];
-    if (!aggregatedMedia.has(normalizedUrl)) {
-      aggregatedMedia.set(normalizedUrl, {
-        ...item,
-        url: normalizedUrl,
-        mediaUrl: item.url,
-        usageCount: 0,
-        isUsed: false,
-      });
-    }
-    const aggregated = aggregatedMedia.get(normalizedUrl);
-
-    if (item.doc && item.doc.trim()) {
-      aggregated.usageCount += 1;
-      aggregated.isUsed = true;
-    }
-  });
-
-  return Array.from(aggregatedMedia.values());
 }
 
 export function calculateFilteredMediaData(
