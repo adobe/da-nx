@@ -11,6 +11,25 @@ class NxMediaSidebar extends LitElement {
 
     activeFilter: { attribute: false },
     filterCounts: { attribute: false },
+    isLoading: { attribute: false },
+  };
+
+  static filterStructure = {
+    main: [
+      { key: 'all', label: 'All Media' },
+      { key: 'images', label: 'Images' },
+      { key: 'icons', label: 'SVGs' },
+      { key: 'videos', label: 'Videos' },
+      { key: 'documents', label: 'PDFs' },
+    ],
+    usage: [
+      { key: 'links', label: 'Links' },
+    ],
+    accessibility: [
+      { key: 'filled', label: 'Filled' },
+      { key: 'decorative', label: 'Decorative' },
+      { key: 'missingAlt', label: 'No Alt Text' },
+    ],
   };
 
   constructor() {
@@ -20,6 +39,7 @@ class NxMediaSidebar extends LitElement {
 
     this.activeFilter = 'all';
     this.filterCounts = {};
+    this.isLoading = true;
   }
 
   connectedCallback() {
@@ -41,6 +61,34 @@ class NxMediaSidebar extends LitElement {
     return this.filterCounts || {};
   }
 
+  hasAccessibilityData(counts) {
+    return (counts.filled > 0 || counts.decorative > 0 || counts.missingAlt > 0);
+  }
+
+  renderFilterButton(filter, counts, isLoading) {
+    const count = counts[filter.key] || 0;
+    const isActive = this.activeFilter === filter.key;
+    const showButton = isLoading || count > 0;
+
+    if (!showButton) return '';
+
+    return html`
+      <li>
+        <button 
+          data-filter="${filter.key}" 
+          @click=${this.handleFilter}
+          class="${isActive ? 'active' : ''} ${isLoading ? 'loading' : ''}"
+          ${isLoading ? 'disabled' : ''}
+        >
+          ${filter.label}
+          <span class="count ${isLoading ? 'loading' : ''}">
+            ${isLoading ? '...' : count}
+          </span>
+        </button>
+      </li>
+    `;
+  }
+
   handleDocumentFilter(e) {
     const filterType = e.target.dataset.filter;
     this.dispatchEvent(new CustomEvent('documentFilter', {
@@ -53,6 +101,7 @@ class NxMediaSidebar extends LitElement {
 
   render() {
     const counts = this.mediaCounts;
+    const isLoading = this.isLoading || Object.keys(counts).length === 0;
 
     return html`
       <aside class="media-sidebar">
@@ -62,127 +111,24 @@ class NxMediaSidebar extends LitElement {
         <div class="filter-section">
           <h3>Filters</h3>
           <ul class="filter-list">
-            ${counts.all > 0 ? html`
-              <li>
-                <button 
-                  data-filter="all" 
-                  @click=${this.handleFilter}
-                  class="${this.activeFilter === 'all' ? 'active' : ''}"
-                >
-                  All Media
-                  <span class="count">${counts.all}</span>
-                </button>
-              </li>
-            ` : ''}
-            ${counts.images > 0 ? html`
-              <li>
-                <button 
-                  data-filter="images" 
-                  @click=${this.handleFilter}
-                  class="${this.activeFilter === 'images' ? 'active' : ''}"
-                >
-                  Images
-                  <span class="count">${counts.images}</span>
-                </button>
-              </li>
-            ` : ''}
-            ${counts.icons > 0 ? html`
-              <li>
-                <button 
-                  data-filter="icons" 
-                  @click=${this.handleFilter}
-                  class="${this.activeFilter === 'icons' ? 'active' : ''}"
-                >
-                  SVGs
-                  <span class="count">${counts.icons}</span>
-                </button>
-              </li>
-            ` : ''}
-            ${counts.videos > 0 ? html`
-              <li>
-                <button 
-                  data-filter="videos" 
-                  @click=${this.handleFilter}
-                  class="${this.activeFilter === 'videos' ? 'active' : ''}"
-                >
-                  Videos
-                  <span class="count">${counts.videos}</span>
-                </button>
-              </li>
-            ` : ''}
-            ${counts.documents > 0 ? html`
-              <li>
-                <button 
-                  data-filter="documents" 
-                  @click=${this.handleFilter}
-                  class="${this.activeFilter === 'documents' ? 'active' : ''}"
-                >
-                  PDFs
-                  <span class="count">${counts.documents}</span>
-                </button>
-              </li>
-            ` : ''}
+            ${NxMediaSidebar.filterStructure.main.map((filter) => this.renderFilterButton(filter, counts, isLoading))}
           </ul>
         </div>
 
-        ${counts.links > 0 ? html`
+        ${(counts.links > 0 || isLoading) ? html`
           <div class="filter-section">
             <h3>Usage</h3>
             <ul class="filter-list">
-              <li>
-                <button 
-                  data-filter="links" 
-                  @click=${this.handleFilter}
-                  class="${this.activeFilter === 'links' ? 'active' : ''}"
-                >
-                  Links
-                  <span class="count">${counts.links}</span>
-                </button>
-              </li>
+              ${NxMediaSidebar.filterStructure.usage.map((filter) => this.renderFilterButton(filter, counts, isLoading))}
             </ul>
           </div>
         ` : ''}
 
-        ${(counts.filled > 0 || counts.decorative > 0 || counts.missingAlt > 0) ? html`
+        ${(this.hasAccessibilityData(counts) || isLoading) ? html`
           <div class="filter-section">
             <h3>Accessibility</h3>
             <ul class="filter-list">
-              ${counts.filled > 0 ? html`
-                <li>
-                  <button 
-                    data-filter="filled" 
-                    @click=${this.handleFilter}
-                    class="${this.activeFilter === 'filled' ? 'active' : ''}"
-                  >
-                    Filled
-                    <span class="count">${counts.filled}</span>
-                  </button>
-                </li>
-              ` : ''}
-              ${counts.decorative > 0 ? html`
-                <li>
-                  <button 
-                    data-filter="decorative" 
-                    @click=${this.handleFilter}
-                    class="${this.activeFilter === 'decorative' ? 'active' : ''}"
-                  >
-                    Decorative
-                    <span class="count">${counts.decorative}</span>
-                  </button>
-                </li>
-              ` : ''}
-              ${counts.missingAlt > 0 ? html`
-                <li>
-                  <button 
-                    data-filter="missingAlt" 
-                    @click=${this.handleFilter}
-                    class="${this.activeFilter === 'missingAlt' ? 'active' : ''}"
-                  >
-                    No Alt Text
-                    <span class="count">${counts.missingAlt}</span>
-                  </button>
-                </li>
-              ` : ''}
+              ${NxMediaSidebar.filterStructure.accessibility.map((filter) => this.renderFilterButton(filter, counts, isLoading))}
             </ul>
           </div>
         ` : ''}

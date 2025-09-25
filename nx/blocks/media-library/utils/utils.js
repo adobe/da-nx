@@ -40,11 +40,19 @@ export function getMediaType(media) {
   if (type.startsWith('img >')) return 'image';
   if (type.startsWith('video >') || type.startsWith('video-source >')) return 'video';
   if (type.startsWith('document >')) return 'document';
-  if (type.startsWith('link >')) return 'link';
+  if (type.startsWith('link >')) {
+    const mediaUrl = media.url || '';
+    const ext = extractFileExtension(mediaUrl);
+    const detectedType = detectMediaTypeFromExtension(ext);
+    if (detectedType === 'video') return 'video';
+    if (detectedType === 'document') return 'document';
+    return 'link';
+  }
 
   const mediaUrl = media.url || '';
   const ext = extractFileExtension(mediaUrl);
-  return detectMediaTypeFromExtension(ext);
+  const result = detectMediaTypeFromExtension(ext);
+  return result;
 }
 
 export function getSubtype(media) {

@@ -59,12 +59,14 @@ class NxMediaGrid extends LitElement {
     this.itemHeight = SCROLL_CONSTANTS.GRID_ITEM_HEIGHT;
     this.cardSpacing = SCROLL_CONSTANTS.GRID_CARD_SPACING;
     this.bufferSize = SCROLL_CONSTANTS.BUFFER_SIZE;
+
+    // Icon loading state
+    this.iconsLoaded = false;
   }
 
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [sl, slComponents, styles];
-    getSvg({ parent: this.shadowRoot, paths: ICONS });
   }
 
   disconnectedCallback() {
@@ -91,22 +93,34 @@ class NxMediaGrid extends LitElement {
   }
 
   updated(changedProperties) {
+    if (changedProperties.has('mediaData') && this.mediaData?.length > 0 && !this.iconsLoaded) {
+      this.loadIcons();
+      this.iconsLoaded = true;
+    }
+
     if (changedProperties.has('mediaData') && this.mediaData) {
       this.handleDataChange();
 
-      // Set up scroll listener if container exists but listener isn't attached
       if (!this.scrollListenerAttached) {
         this.setupScrollListener();
       }
 
-      // Update column count
       this.updateColCount();
     }
   }
 
-  // ============================================================================
-  // PRE-PROCESSING METHODS
-  // ============================================================================
+  async loadIcons() {
+    const existingIcons = this.shadowRoot.querySelectorAll('svg[id]');
+    const loadedIconIds = Array.from(existingIcons).map((icon) => icon.id);
+    const missingIcons = ICONS.filter((iconPath) => {
+      const iconId = iconPath.split('/').pop().replace('.svg', '');
+      return !loadedIconIds.includes(iconId);
+    });
+
+    if (missingIcons.length > 0) {
+      await getSvg({ parent: this.shadowRoot, paths: missingIcons });
+    }
+  }
 
   preprocessGridData() {
     measurePerformance('grid preprocessing', () => {
