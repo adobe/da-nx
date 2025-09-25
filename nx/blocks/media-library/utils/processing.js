@@ -558,7 +558,7 @@ export async function removeScanLock(org, repo) {
   return daFetch(`${DA_ORIGIN}/source${path}`, { method: 'DELETE' });
 }
 
-export default async function runScan(path, updateTotal) {
+export default async function runScan(path, updateTotal, updateProgressive = null) {
   // Extract org and repo from path (format: /{org}/{repo})
   const pathParts = path.split('/').filter((part) => part);
   const org = pathParts[0];
@@ -628,6 +628,10 @@ export default async function runScan(path, updateTotal) {
           // Strip org/repo from path for storage (keep only the relative path)
           const relativePath = item.path.split('/').slice(3).join('/');
           const mediaItems = parseHtmlMedia(html, `/${relativePath}`, item.lastModified);
+
+          if (updateProgressive && mediaItems.length > 0) {
+            updateProgressive(mediaItems);
+          }
 
           mediaItems.forEach((mediaItem) => {
             mediaInUse.add(mediaItem.url);

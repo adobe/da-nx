@@ -10,8 +10,6 @@ import {
   throttleScroll,
   createMediaEventHandlers,
   measurePerformance,
-  getMediaName,
-  highlightMatch,
   staticTemplates,
   gridTemplates,
   handlerFactories,
@@ -34,33 +32,29 @@ class NxMediaGrid extends LitElement {
   static properties = {
     mediaData: { type: Array },
     searchQuery: { type: String },
+    isScanning: { type: Boolean },
   };
 
   constructor() {
     super();
 
-    // Virtual scroll state
     this.visibleStart = 0;
     this.visibleEnd = SCROLL_CONSTANTS.MAX_VISIBLE_ITEMS;
     this.colCount = 4;
     this.renderedCards = new Set();
     this.previousMediaDataLength = 0;
 
-    // Scroll handling
     this.scrollTimeout = null;
     this.container = null;
     this.scrollListenerAttached = false;
 
-    // Event handlers
     this.eventHandlers = createMediaEventHandlers(this);
 
-    // Constants from scroll.js
     this.itemWidth = SCROLL_CONSTANTS.GRID_ITEM_WIDTH;
     this.itemHeight = SCROLL_CONSTANTS.GRID_ITEM_HEIGHT;
     this.cardSpacing = SCROLL_CONSTANTS.GRID_CARD_SPACING;
     this.bufferSize = SCROLL_CONSTANTS.BUFFER_SIZE;
 
-    // Icon loading state
     this.iconsLoaded = false;
   }
 
@@ -86,7 +80,6 @@ class NxMediaGrid extends LitElement {
   }
 
   willUpdate(changedProperties) {
-    // Pre-process when mediaData changes
     if (changedProperties.has('mediaData') && this.mediaData) {
       this.preprocessGridData();
     }
@@ -149,12 +142,27 @@ class NxMediaGrid extends LitElement {
         this.container.scrollTop = 0;
       }
       this.previousMediaDataLength = this.mediaData.length;
+
+      this.updateVisibleRange();
     });
   }
 
-  // ============================================================================
-  // SCROLL HANDLING
-  // ============================================================================
+  updateVisibleRange() {
+    if (this.container && this.mediaData?.length > 0) {
+      const range = calculateVisibleRange(
+        this.container,
+        this.itemHeight,
+        SCROLL_CONSTANTS.BUFFER_SIZE,
+        this.mediaData.length,
+        this.colCount,
+      );
+      if (range.start !== this.visibleStart || range.end !== this.visibleEnd) {
+        this.visibleStart = range.start;
+        this.visibleEnd = range.end;
+        this.requestUpdate();
+      }
+    }
+  }
 
   setupScrollListener() {
     this.updateComplete.then(() => {
@@ -185,12 +193,17 @@ class NxMediaGrid extends LitElement {
     }
   }
 
-  // ============================================================================
-  // RENDERING METHODS
-  // ============================================================================
-
   render() {
     if (!this.mediaData || this.mediaData.length === 0) {
+      if (this.isScanning) {
+        return html`
+          <div class="scanning-state">
+            <div class="scanning-spinner"></div>
+            <h3>Discovering Media</h3>
+            <p>Scanning pages and extracting media files...</p>
+          </div>
+        `;
+      }
       return staticTemplates.emptyState;
     }
 
@@ -236,32 +249,6 @@ class NxMediaGrid extends LitElement {
     );
   }
 
-  // ============================================================================
-  // CARD RENDERING HELPERS
-  // ============================================================================
-
-  renderHighlightedName(media) {
-    const name = getMediaName(media);
-    return html`<span .innerHTML=${highlightMatch(name, this.searchQuery)}></span>`;
-  }
-
-  renderHighlightedAlt(media) {
-    if (!media.alt) return '';
-    return html`<div class="media-alt" .innerHTML=${highlightMatch(media.alt, this.searchQuery)}></div>`;
-  }
-
-  renderHighlightedDoc(media) {
-    if (!media.doc) return '';
-    return html`<div class="media-doc" .innerHTML=${highlightMatch(media.doc, this.searchQuery)}></div>`;
-  }
-
-  renderAltStatus(media) {
-    if (!media.alt && media.type && media.type.startsWith('img >')) {
-      return staticTemplates.missingAlt;
-    }
-    return staticTemplates.altPresent;
-  }
-
   renderMediaPreview(media) {
     if (isImage(media.url)) {
       const optimizedUrl = media.url.replace('format=jpeg', 'format=webply').replace('format=png', 'format=webply');
@@ -298,10 +285,6 @@ class NxMediaGrid extends LitElement {
   }
 
   // ============================================================================
-  // EVENT HANDLERS
-  // ============================================================================
-
-  // Usage click behavior removed - no longer needed
 }
 
 customElements.define('nx-media-grid', NxMediaGrid);

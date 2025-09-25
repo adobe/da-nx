@@ -265,3 +265,56 @@ nx-media-sidebar {
   width: 20px;
   height: 20px;
 }
+
+/* Scanning state styles */
+.scanning-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  padding: var(--spacing-600);
+  text-align: center;
+  background: var(--s2-gray-50);
+}
+
+.scanning-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--s2-gray-200);
+  border-top: 3px solid var(--s2-blue-500);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: var(--spacing-400);
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.scanning-state h3 {
+  margin: 0 0 var(--spacing-200) 0;
+  color: var(--s2-gray-900);
+  font-size: var(--font-size-500);
+  font-weight: var(--font-weight-600);
+}
+
+.scanning-state p {
+  margin: 0 0 var(--spacing-400) 0;
+  color: var(--s2-gray-600);
+  font-size: var(--font-size-300);
+}
+
+.scan-stats {
+  display: flex;
+  gap: var(--spacing-400);
+  font-size: var(--font-size-200);
+  color: var(--s2-gray-500);
+}
+
+.scan-stats span {
+  padding: var(--spacing-100) var(--spacing-200);
+  background: var(--s2-gray-100);
+  border-radius: var(--border-radius-100);
+}

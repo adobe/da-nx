@@ -185,26 +185,36 @@ class NxMediaScan extends LitElement {
 
     // Emit scan start event
     this.dispatchEvent(new CustomEvent('scanStart'));
+    window.dispatchEvent(new CustomEvent('scanStart'));
+    
+    // Test event to see if events are reaching the main component
+    this.dispatchEvent(new CustomEvent('testEvent', { detail: { message: 'test from scan' } }));
+    window.dispatchEvent(new CustomEvent('testEvent', { detail: { message: 'test from scan to window' } }));
 
     try {
       const result = await runScan(
         this.sitePath,
         this.updateScanProgress.bind(this),
+        this.updateProgressiveData.bind(this),
       );
-
-      // Update scan results
-      this._scanProgress.duration = result.duration;
       this._scanProgress.hasChanges = result.hasChanges;
+      this._scanProgress.media = result.mediaData?.length || 0;
+      this._scanProgress.duration = result.duration;
 
-      if (result.hasChanges && result.mediaData) {
-        this._scanProgress.media = result.mediaData.length;
-
+      if (this._scanProgress.hasChanges && result.mediaData) {
         // Emit scan complete event with results
         this.dispatchEvent(new CustomEvent('scanComplete', {
           detail: {
             mediaData: result.mediaData,
-            hasChanges: result.hasChanges,
-            duration: result.duration,
+            hasChanges: this._scanProgress.hasChanges,
+            duration: this._scanProgress.duration,
+          },
+        }));
+        window.dispatchEvent(new CustomEvent('scanComplete', {
+          detail: {
+            mediaData: result.mediaData,
+            hasChanges: this._scanProgress.hasChanges,
+            duration: this._scanProgress.duration,
           },
         }));
 
@@ -212,7 +222,8 @@ class NxMediaScan extends LitElement {
         this.dispatchEvent(new CustomEvent('mediaDataUpdated', {
           detail: {
             mediaData: result.mediaData,
-            hasChanges: result.hasChanges,
+            hasChanges: this._scanProgress.hasChanges,
+            duration: this._scanProgress.duration,
           },
         }));
       } else {
@@ -256,6 +267,16 @@ class NxMediaScan extends LitElement {
 
     // Trigger re-render for progress update
     this.requestUpdate();
+  }
+
+  updateProgressiveData(mediaItems) {
+    this.dispatchEvent(new CustomEvent('progressiveDataUpdate', {
+      detail: { mediaItems },
+      bubbles: true,
+    }));
+    window.dispatchEvent(new CustomEvent('progressiveDataUpdate', {
+      detail: { mediaItems },
+    }));
   }
 
   setScanStatusTimeout(duration = 5000) {
