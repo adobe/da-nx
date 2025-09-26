@@ -304,24 +304,47 @@ class NxMediaInfo extends LitElement {
           this._mimeType = blob.type || 'application/pdf';
         }
       } else {
-        // Check if URL is from content.da.live - use daFetch for those
-        const url = new URL(this.media.url);
-        let response;
+        // Use the media URL directly since it's already a full URL
+        const contentUrl = this.media.url;
 
-        if (url.hostname.includes('content.da.live')) {
-          // Convert content.da.live URL to admin.da.live URL for HEAD request
-          const path = url.pathname;
-          const adminUrl = `${DA_ORIGIN}/source${path}`;
-          response = await daFetch(adminUrl, { method: 'HEAD' });
-        } else {
-          // For other URLs, use regular fetch
-          response = await fetch(this.media.url, { method: 'HEAD' });
+        let response = null;
+        let metadataFound = false;
+
+        try {
+          response = await daFetch(contentUrl, { method: 'HEAD' });
+          if (response.ok) {
+            metadataFound = true;
+          }
+        } catch (error) {
+          try {
+            response = await daFetch(contentUrl, { method: 'GET' });
+            if (response.ok) {
+              metadataFound = true;
+            }
+          } catch (getError) {
+            // Silent error handling
+          }
         }
 
-        if (response.ok) {
+        if (metadataFound && response.ok) {
           const contentLength = response.headers.get('content-length');
           if (contentLength) {
             this._fileSize = formatFileSize(parseInt(contentLength, 10));
+          } else if (response.body) {
+            // Try to get size from response body if available
+            const reader = response.body.getReader();
+            let totalSize = 0;
+            try {
+              // eslint-disable-next-line no-constant-condition
+              while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                totalSize += value.length;
+              }
+              this._fileSize = formatFileSize(totalSize);
+            } catch (bodyError) {
+              this._fileSize = 'Unknown';
+            }
           } else {
             this._fileSize = 'Unknown';
           }
@@ -331,11 +354,38 @@ class NxMediaInfo extends LitElement {
             const [mimeType] = contentType.split(';');
             this._mimeType = mimeType;
           } else {
-            this._mimeType = 'Unknown';
+            // Try to infer MIME type from file extension
+            const ext = this.media.url.split('.').pop()?.toLowerCase();
+            const mimeMap = {
+              jpg: 'image/jpeg',
+              jpeg: 'image/jpeg',
+              png: 'image/png',
+              gif: 'image/gif',
+              webp: 'image/webp',
+              svg: 'image/svg+xml',
+              mp4: 'video/mp4',
+              pdf: 'application/pdf',
+              avif: 'image/avif',
+            };
+            this._mimeType = mimeMap[ext] || 'Unknown';
           }
         } else {
+          // Fallback: try to infer metadata from file extension
+          const ext = this.media.url.split('.').pop()?.toLowerCase();
+          const mimeMap = {
+            jpg: 'image/jpeg',
+            jpeg: 'image/jpeg',
+            png: 'image/png',
+            gif: 'image/gif',
+            webp: 'image/webp',
+            svg: 'image/svg+xml',
+            mp4: 'video/mp4',
+            pdf: 'application/pdf',
+            avif: 'image/avif',
+          };
+
+          this._mimeType = mimeMap[ext] || 'Unknown';
           this._fileSize = 'Unknown';
-          this._mimeType = 'Unknown';
         }
       }
 
@@ -344,6 +394,7 @@ class NxMediaInfo extends LitElement {
       this._mediaOrigin = origin;
       this._mediaPath = path;
     } catch (error) {
+      // Silent error handling
       this._fileSize = 'Unknown';
       this._mimeType = 'Unknown';
       this._mediaOrigin = 'Unknown';
