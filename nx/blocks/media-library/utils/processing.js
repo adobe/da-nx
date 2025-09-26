@@ -412,7 +412,6 @@ async function loadAllLastModifiedData(org, repo) {
           }
         } catch (error) {
           // Individual file load failed, continue with others
-          console.warn(`[LASTMOD] Failed to load ${item.path}:`, error);
         }
       }
     };
@@ -771,7 +770,7 @@ export default async function runScan(path, updateTotal, updateProgressive = nul
 
       savePromises.push(saveLastModifiedData(org, repo, 'root', mergedRootFiles));
     } catch (error) {
-      console.error('Error saving root.json:', error);
+      // Error saving root.json
     }
   }
 
@@ -801,7 +800,7 @@ export default async function runScan(path, updateTotal, updateProgressive = nul
 
         savePromises.push(saveLastModifiedData(org, repo, folderName, mergedFolderFiles));
       } catch (error) {
-        console.error(`Error saving ${folderName}.json:`, error);
+        // Error saving folder file
       }
     }
   }
@@ -811,7 +810,7 @@ export default async function runScan(path, updateTotal, updateProgressive = nul
     try {
       await Promise.all(savePromises);
     } catch (error) {
-      console.error('Error saving lastModified data files:', error);
+      // Error saving lastModified data files
     }
   }
 

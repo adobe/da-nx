@@ -26,7 +26,6 @@ class NxMediaTopBar extends LitElement {
 
     mediaData: { attribute: false },
     sitePath: { attribute: false },
-    // Internal state
     _currentView: { state: true },
     _suggestions: { state: true },
     _activeIndex: { state: true },
@@ -44,11 +43,10 @@ class NxMediaTopBar extends LitElement {
     this._originalQuery = '';
     this._isScanning = false;
     this._scanProgress = { pages: 0, media: 0, duration: null, hasChanges: null };
-    this._suppressSuggestions = false; // Flag to suppress suggestions after escape
+    this._suppressSuggestions = false;
   }
 
   shouldUpdate(changedProperties) {
-    // Only update when relevant properties change
     const hasSearchChange = changedProperties.has('searchQuery');
     const hasViewChange = changedProperties.has('currentView');
 
@@ -68,7 +66,6 @@ class NxMediaTopBar extends LitElement {
     }
 
     if (changedProperties.has('searchQuery')) {
-      // Clear suggestions when search query is cleared externally
       if (!this.searchQuery) {
         this._suggestions = [];
         this._activeIndex = -1;
@@ -92,7 +89,6 @@ class NxMediaTopBar extends LitElement {
 
     getSvg({ parent: this.shadowRoot, paths: ICONS });
 
-    // Add click outside handler to hide suggestions
     this.handleOutsideClick = this.handleOutsideClick.bind(this);
     document.addEventListener('click', this.handleOutsideClick);
   }
@@ -103,12 +99,11 @@ class NxMediaTopBar extends LitElement {
   }
 
   handleOutsideClick(e) {
-    // Hide suggestions if clicking outside the search container
     const searchContainer = this.shadowRoot.querySelector('.search-container');
     if (searchContainer && !searchContainer.contains(e.target)) {
       this._suggestions = [];
       this._activeIndex = -1;
-      this._suppressSuggestions = true; // Suppress suggestions after clicking outside
+      this._suppressSuggestions = true;
     }
   }
 
@@ -118,7 +113,6 @@ class NxMediaTopBar extends LitElement {
   }
 
   getOnDemandSearchSuggestions(query) {
-    // Use centralized suggestion generation from filters.js
     return generateSearchSuggestions(this.mediaData, query, createSearchSuggestion);
   }
 
@@ -129,10 +123,9 @@ class NxMediaTopBar extends LitElement {
     this._originalQuery = query;
     this._activeIndex = -1;
 
-    // Clear suggestions if query is empty or if suggestions are suppressed
     if (!query || !query.trim() || this._suppressSuggestions) {
       this._suggestions = [];
-      this._suppressSuggestions = false; // Reset the flag
+      this._suppressSuggestions = false;
     } else {
       this._suggestions = this.getOnDemandSearchSuggestions(query);
     }
@@ -168,7 +161,6 @@ class NxMediaTopBar extends LitElement {
         if (this._activeIndex >= 0) {
           this.selectSuggestion(this._suggestions[this._activeIndex]);
         } else {
-          // Handle Enter without selection - convert "/" to "folder:/"
           if (this.searchQuery === '/') {
             this.searchQuery = 'folder:/';
             this._suggestions = [];
@@ -183,7 +175,22 @@ class NxMediaTopBar extends LitElement {
             }));
             return;
           }
-          // For other queries, just hide suggestions and execute search
+
+          const colonSyntax = parseColonSyntax(this.searchQuery);
+          if (colonSyntax) {
+            this._suggestions = [];
+            this._activeIndex = -1;
+            this._suppressSuggestions = true;
+            this.dispatchEvent(new CustomEvent('search', {
+              detail: {
+                query: this.searchQuery,
+                type: colonSyntax.field,
+                path: colonSyntax.value,
+              },
+            }));
+            return;
+          }
+
           this._suggestions = [];
           this._activeIndex = -1;
           this._suppressSuggestions = true;
@@ -196,11 +203,10 @@ class NxMediaTopBar extends LitElement {
         this.searchQuery = this._originalQuery;
         this._suggestions = [];
         this._activeIndex = -1;
-        this._suppressSuggestions = true; // Suppress suggestions after escape
+        this._suppressSuggestions = true;
         break;
 
       default:
-        // Handle other keys normally
         break;
     }
   }
@@ -208,7 +214,6 @@ class NxMediaTopBar extends LitElement {
   getSuggestionText(suggestion) {
     if (suggestion.type === 'doc') return `doc:${suggestion.value}`;
     if (suggestion.type === 'folder') {
-      // Handle root folder case
       return suggestion.value === '' ? 'folder:/' : `folder:${suggestion.value}`;
     }
     if (suggestion.type === 'media') {
@@ -220,7 +225,7 @@ class NxMediaTopBar extends LitElement {
   selectSuggestion(suggestion) {
     this._suggestions = [];
     this._activeIndex = -1;
-    this._suppressSuggestions = true; // Suppress suggestions after selection
+    this._suppressSuggestions = true;
 
     if (suggestion.type === 'doc') {
       this.searchQuery = `doc:${suggestion.value}`;
@@ -232,7 +237,6 @@ class NxMediaTopBar extends LitElement {
         },
       }));
     } else if (suggestion.type === 'folder') {
-      // Handle root folder case
       this.searchQuery = suggestion.value === '' ? 'folder:/' : `folder:${suggestion.value}`;
       this.dispatchEvent(new CustomEvent('search', {
         detail: {
@@ -291,7 +295,6 @@ class NxMediaTopBar extends LitElement {
   }
 
   handleScanProgress(e) {
-    // Update scan progress - let lit handle the re-render efficiently
     this._scanProgress = { ...e.detail.progress };
   }
 
@@ -300,16 +303,13 @@ class NxMediaTopBar extends LitElement {
 
     const { mediaData, hasChanges, duration } = e.detail;
 
-    // Update scan progress with completion data
     this._scanProgress = {
-      ...this._scanProgress, // Keep current pages count
+      ...this._scanProgress,
       duration,
       hasChanges,
-      // Only update media count if there are actual changes
       media: hasChanges && mediaData ? mediaData.length : this._scanProgress.media,
     };
 
-    // Emit event to main component if there are changes
     if (hasChanges && mediaData) {
       this.dispatchEvent(new CustomEvent('mediaDataUpdated', { detail: { mediaData, hasChanges } }));
     }
@@ -351,7 +351,6 @@ class NxMediaTopBar extends LitElement {
         `;
       }
 
-      // Show success message only if hasChanges is explicitly true
       if (this._scanProgress.hasChanges === true) {
         return html`
           <div class="scanning-indicator completed">
@@ -362,7 +361,6 @@ class NxMediaTopBar extends LitElement {
         `;
       }
 
-      // Default case
       return html`
         <div class="scanning-indicator completed">
           <span class="scanning-text">
@@ -376,14 +374,12 @@ class NxMediaTopBar extends LitElement {
   }
 
   handleMediaDataUpdated(e) {
-    // Bubble up the media data update event to the main component
     this.dispatchEvent(new CustomEvent('mediaDataUpdated', { detail: e.detail }));
   }
 
   render() {
     return html`
       <div class="top-bar">
-        <!-- Hidden scan component that provides scan functionality -->
         <nx-media-scan
           .sitePath=${this.sitePath}
           @scanStart=${this.handleScanStart}

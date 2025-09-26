@@ -28,7 +28,7 @@ export const FILTER_CONFIG = {
   documentFilled: (item, selectedDocument) => item.doc === selectedDocument && item.type?.startsWith('img >')
    && !item.type?.includes('svg') && item.alt && item.alt !== '' && item.alt !== 'null',
 
-  documentTotal: () => true,
+  documentTotal: (item, selectedDocument) => item.doc === selectedDocument,
   all: (item) => !isSvgFile(item),
 };
 
@@ -49,9 +49,225 @@ export function getAvailableFilters() {
   return Object.keys(FILTER_CONFIG);
 }
 
-/**
- * Parse colon syntax from search query (e.g., "doc:path", "name:value")
- */
+// Chunk array utility for batch processing
+function chunkArray(array, chunkSize) {
+  const chunks = [];
+  for (let i = 0; i < array.length; i += chunkSize) {
+    chunks.push(array.slice(i, i + chunkSize));
+  }
+  return chunks;
+}
+
+// Initialize processed data structure
+function initializeProcessedData() {
+  const filterArrays = {};
+  const usageData = {};
+  const filterCounts = {};
+
+  Object.keys(FILTER_CONFIG).forEach((filterName) => {
+    if (!filterName.startsWith('document')) {
+      filterArrays[filterName] = [];
+    }
+  });
+
+  return {
+    filterArrays,
+    usageData,
+    filterCounts,
+    totalCount: 0,
+  };
+}
+
+// Get grouping key for URL deduplication (moved from media-library.js)
+export function getGroupingKey(url) {
+  if (!url) return '';
+
+  try {
+    const urlObj = new URL(url);
+    const { pathname } = urlObj;
+    const filename = pathname.split('/').pop();
+
+    if (filename && filename.includes('media_')) {
+      return filename;
+    }
+
+    return pathname;
+  } catch (error) {
+    return url.split('?')[0];
+  }
+}
+
+// Process media data with batching and pre-calculation
+export async function processMediaData(mediaData, onProgress = null) {
+  if (!mediaData || mediaData.length === 0) {
+    return initializeProcessedData();
+  }
+
+  const processedData = initializeProcessedData();
+  const uniqueMediaUrls = new Set();
+  const uniqueNonSvgUrls = new Set();
+
+  let batchSize = 1000;
+  if (mediaData.length > 100000) {
+    batchSize = 500;
+  } else if (mediaData.length > 10000) {
+    batchSize = 250;
+  }
+  const batches = chunkArray(mediaData, batchSize);
+  const totalBatches = batches.length;
+
+  for (let i = 0; i < batches.length; i += 1) {
+    const batch = batches[i];
+
+    batch.forEach((item) => {
+      if (!item.hash) return;
+
+      if (item.url) {
+        const groupingKey = getGroupingKey(item.url);
+        if (!processedData.usageData[groupingKey]) {
+          processedData.usageData[groupingKey] = {
+            hashes: [],
+            uniqueDocs: new Set(),
+            count: 0,
+          };
+        }
+        processedData.usageData[groupingKey].hashes.push(item.hash);
+        if (item.doc) {
+          processedData.usageData[groupingKey].uniqueDocs.add(item.doc);
+        }
+        const usageData = processedData.usageData[groupingKey];
+        usageData.count = usageData.hashes.length;
+      }
+
+      Object.keys(processedData.filterArrays).forEach((filterName) => {
+        try {
+          if (FILTER_CONFIG[filterName](item)) {
+            processedData.filterArrays[filterName].push(item.hash);
+          }
+        } catch (error) {
+          // Silently continue on filter error
+        }
+      });
+
+      if (item.url) {
+        uniqueMediaUrls.add(item.url);
+        if (!isSvgFile(item)) {
+          uniqueNonSvgUrls.add(item.url);
+        }
+      }
+    });
+
+    if (onProgress) {
+      onProgress(((i + 1) / totalBatches) * 100);
+    }
+
+    if (i < batches.length - 1) {
+      if (mediaData.length > 100000 && i % 5 === 0) {
+        await new Promise((resolve) => {
+          setTimeout(resolve, 1);
+        });
+      } else if (mediaData.length > 10000 && i % 3 === 0) {
+        await new Promise((resolve) => {
+          setTimeout(resolve, 1);
+        });
+      } else {
+        await new Promise((resolve) => {
+          setTimeout(resolve, 0);
+        });
+      }
+    }
+  }
+
+  const hashToItemMap = new Map();
+  mediaData.forEach((item) => {
+    if (item.hash) {
+      hashToItemMap.set(item.hash, item);
+    }
+  });
+
+  mediaData.forEach((item) => {
+    if (item.url) {
+      const groupingKey = getGroupingKey(item.url);
+      const usageInfo = processedData.usageData[groupingKey];
+      if (usageInfo) {
+        item.usageCount = usageInfo.count || 1;
+      } else {
+        item.usageCount = 1;
+      }
+    } else {
+      item.usageCount = 1;
+    }
+  });
+
+  Object.keys(processedData.filterArrays).forEach((filterName) => {
+    const uniqueUrls = new Set();
+    processedData.filterArrays[filterName].forEach((hash) => {
+      const item = hashToItemMap.get(hash);
+      if (item && item.url) {
+        uniqueUrls.add(item.url);
+      }
+    });
+    processedData.filterCounts[filterName] = uniqueUrls.size;
+  });
+
+  processedData.filterCounts.all = uniqueNonSvgUrls.size;
+  processedData.totalCount = uniqueMediaUrls.size;
+
+  return processedData;
+}
+
+export function calculateFilteredMediaDataFromIndex(
+  mediaData,
+  processedData,
+  filterName,
+  selectedDocument,
+) {
+  if (!processedData || !processedData.filterArrays) {
+    return [];
+  }
+
+  let filterHashes = [];
+
+  if (filterName.startsWith('document')) {
+    const baseFilterName = filterName.replace('document', '').toLowerCase();
+    if (baseFilterName === 'total') {
+      filterHashes = mediaData
+        .filter((item) => item.doc === selectedDocument)
+        .map((item) => item.hash);
+    } else {
+      const baseFilterFn = FILTER_CONFIG[`${baseFilterName}`];
+      if (baseFilterFn) {
+        filterHashes = mediaData
+          .filter((item) => baseFilterFn(item) && item.doc === selectedDocument)
+          .map((item) => item.hash);
+      }
+    }
+  } else {
+    filterHashes = processedData.filterArrays[filterName] || [];
+  }
+
+  const hashToItemMap = new Map();
+  mediaData.forEach((item) => {
+    if (item.hash) {
+      hashToItemMap.set(item.hash, item);
+    }
+  });
+
+  const filteredItems = filterHashes
+    .map((hash) => hashToItemMap.get(hash))
+    .filter((item) => item !== undefined);
+
+  const seenUrls = new Set();
+  const result = filteredItems.filter((item) => {
+    if (!item.url) return true;
+    if (seenUrls.has(item.url)) return false;
+    seenUrls.add(item.url);
+    return true;
+  });
+
+  return result;
+}
+
 export function parseColonSyntax(query) {
   if (!query) return null;
 
@@ -163,121 +379,6 @@ export function aggregateMediaData(mediaData) {
   return Array.from(aggregatedMedia.values());
 }
 
-/**
- * Process media data in a single pass to collect all derived information
- */
-export function processMediaData(mediaData) {
-  if (!mediaData || !Array.isArray(mediaData)) {
-    return { filterCounts: {}, filterArrays: {} };
-  }
-
-  const filterArrays = {};
-  const filterCounts = {};
-  const uniqueUrls = new Set();
-  const uniqueNonSvgUrls = new Set();
-
-  Object.keys(FILTER_CONFIG).forEach((filterName) => {
-    if (!filterName.startsWith('document') || filterName === 'documents') {
-      filterArrays[filterName] = [];
-    }
-    filterCounts[filterName] = 0;
-  });
-
-  const hashToItemMap = new Map();
-  mediaData.forEach((item) => {
-    if (item.hash) {
-      hashToItemMap.set(item.hash, item);
-    }
-  });
-
-  mediaData.forEach((item) => {
-    if (!item.hash) return;
-
-    const { alt, doc, type } = item;
-    const mediaType = getMediaType(item);
-    const isSvg = isSvgFile(item);
-    const isImage = mediaType === 'image' || mediaType === 'img';
-    const isInDocument = doc && doc.trim();
-
-    if (item.url) {
-      uniqueUrls.add(item.url);
-      if (!isSvg) {
-        uniqueNonSvgUrls.add(item.url);
-      }
-    }
-
-    Object.keys(filterArrays).forEach((filterName) => {
-      try {
-        if (FILTER_CONFIG[filterName](item)) {
-          filterArrays[filterName].push(item.hash);
-        }
-      } catch (error) {
-        // Filter function failed, skip this item
-      }
-    });
-
-    if (isImage && !isSvg) {
-      filterCounts.images += 1;
-      if (isInDocument) filterCounts.documentImages += 1;
-      if (type?.startsWith('img >') && !type?.includes('svg')) {
-        if (alt === 'null') {
-          filterCounts.missingAlt += 1;
-          if (isInDocument) filterCounts.documentMissingAlt += 1;
-        } else if (alt === '') {
-          filterCounts.decorative += 1;
-          if (isInDocument) filterCounts.documentDecorative += 1;
-        } else if (alt && alt !== '' && alt !== 'null') {
-          filterCounts.filled += 1;
-          if (isInDocument) filterCounts.documentFilled += 1;
-        }
-      }
-    }
-
-    if (isSvg) {
-      filterCounts.icons += 1;
-      if (isInDocument) filterCounts.documentIcons += 1;
-    }
-
-    if (mediaType === 'video') {
-      filterCounts.videos += 1;
-      if (isInDocument) filterCounts.documentVideos += 1;
-    }
-
-    if (mediaType === 'document') {
-      filterCounts.documents += 1;
-      if (isInDocument) filterCounts.documentDocuments += 1;
-    }
-
-    if (mediaType === 'link') {
-      filterCounts.links += 1;
-      if (isInDocument) filterCounts.documentLinks += 1;
-    }
-
-    if (!isSvg) {
-      filterCounts.all += 1;
-    }
-
-    if (isInDocument) {
-      filterCounts.documentTotal += 1;
-    }
-  });
-
-  Object.keys(filterArrays).forEach((filterName) => {
-    const uniqueUrlsForFilter = new Set();
-    filterArrays[filterName].forEach((hash) => {
-      const item = hashToItemMap.get(hash);
-      if (item && item.url) {
-        uniqueUrlsForFilter.add(item.url);
-      }
-    });
-    filterCounts[filterName] = uniqueUrlsForFilter.size;
-  });
-
-  filterCounts.all = uniqueNonSvgUrls.size;
-
-  return { filterCounts, filterArrays };
-}
-
 export function calculateFilteredMediaData(
   mediaData,
   selectedFilterType,
@@ -296,44 +397,6 @@ export function calculateFilteredMediaData(
 
   if (selectedFilterType && selectedFilterType !== 'all') {
     filteredData = applyFilter(filteredData, selectedFilterType, selectedDocument);
-  }
-
-  return filteredData;
-}
-
-export function calculateFilteredMediaDataFromIndex(
-  mediaData,
-  processedData,
-  selectedFilterType,
-  searchQuery,
-  selectedDocument,
-) {
-  if (!mediaData || mediaData.length === 0 || !processedData) {
-    return [];
-  }
-
-  let filteredData = [...mediaData];
-
-  if (searchQuery && searchQuery.trim()) {
-    const colonSyntax = parseColonSyntax(searchQuery);
-    if (colonSyntax) {
-      filteredData = filterByColonSyntax(filteredData, colonSyntax);
-    } else {
-      filteredData = filterByGeneralSearch(filteredData, searchQuery);
-    }
-  }
-
-  if (selectedFilterType && selectedFilterType !== 'all') {
-    const filterHashes = processedData.filterArrays[selectedFilterType] || [];
-    const filteredHashes = new Set(filterHashes);
-
-    if (selectedDocument && selectedFilterType.startsWith('document') && selectedFilterType !== 'documents') {
-      filteredData = filteredData.filter((item) => (
-        filteredHashes.has(item.hash) && item.doc === selectedDocument
-      ));
-    } else {
-      filteredData = filteredData.filter((item) => filteredHashes.has(item.hash));
-    }
   }
 
   return filteredData;
@@ -482,4 +545,91 @@ export function createSearchSuggestion(item) {
       type: getMediaType(item),
     },
   };
+}
+
+// Get document filtered items (moved from media-library.js)
+export function getDocumentFilteredItems(
+  processedData,
+  mediaData,
+  selectedDocument,
+  selectedFilterType,
+) {
+  if (!selectedDocument || !mediaData) {
+    return [];
+  }
+
+  // Simple approach: filter mediaData directly by document
+  const documentItems = mediaData.filter((item) => item.doc === selectedDocument);
+
+  // Deduplicate by URL
+  const seenUrls = new Set();
+  const uniqueDocumentItems = documentItems.filter((item) => {
+    if (!item.url) return true;
+    if (seenUrls.has(item.url)) return false;
+    seenUrls.add(item.url);
+    return true;
+  });
+
+  // Apply specific document filter if not documentTotal
+  if (selectedFilterType && selectedFilterType !== 'documentTotal') {
+    return applyFilter(uniqueDocumentItems, selectedFilterType, selectedDocument);
+  }
+
+  return uniqueDocumentItems;
+}
+
+// Get folder filtered items (moved from media-library.js)
+export function getFolderFilteredItems(data, selectedFolder, usageIndex) {
+  if (!selectedFolder || !data) {
+    return data;
+  }
+
+  if (usageIndex && usageIndex.size > 0) {
+    const mediaUrlsInFolder = new Set();
+    const folderUsageCounts = new Map();
+
+    usageIndex.forEach((usageEntries, groupingKey) => {
+      usageEntries.forEach((entry) => {
+        if (!entry.doc) return;
+
+        let isInFolder = false;
+        if (selectedFolder === '/' || selectedFolder === '') {
+          if (!entry.doc.includes('/', 1)) {
+            isInFolder = true;
+          }
+        } else {
+          const cleanPath = entry.doc.replace(/\.html$/, '');
+          const parts = cleanPath.split('/');
+
+          if (parts.length > 2) {
+            const folderPath = parts.slice(0, -1).join('/');
+            const searchPath = selectedFolder.startsWith('/') ? selectedFolder : `/${selectedFolder}`;
+            if (folderPath === searchPath) {
+              isInFolder = true;
+            }
+          }
+        }
+
+        if (isInFolder) {
+          const mediaItem = data.find((item) => getGroupingKey(item.url) === groupingKey);
+          if (mediaItem) {
+            mediaUrlsInFolder.add(mediaItem.url);
+            const currentCount = folderUsageCounts.get(mediaItem.url) || 0;
+            folderUsageCounts.set(mediaItem.url, currentCount + 1);
+          }
+        }
+      });
+    });
+
+    const filteredData = data.filter((item) => mediaUrlsInFolder.has(item.url));
+
+    filteredData.forEach((item) => {
+      const folderCount = folderUsageCounts.get(item.url) || 0;
+      item.folderUsageCount = folderCount;
+    });
+
+    return filteredData;
+  }
+
+  return data;
 }

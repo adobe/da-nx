@@ -5,7 +5,6 @@ import { getVideoThumbnail, isExternalVideoUrl, isImage, isVideo, isPdf } from '
 import '../../../../public/sl/components.js';
 import {
   SCROLL_CONSTANTS,
-  calculateVisibleRange,
   calculateGridPosition,
   throttleScroll,
   createMediaEventHandlers,
@@ -43,6 +42,7 @@ class NxMediaGrid extends LitElement {
     this.colCount = 4;
     this.renderedCards = new Set();
     this.previousMediaDataLength = 0;
+    this.totalItems = 0;
 
     this.scrollTimeout = null;
     this.container = null;
@@ -99,6 +99,13 @@ class NxMediaGrid extends LitElement {
       }
 
       this.updateColCount();
+
+      // Ensure visible range is set after data change
+      if (this.mediaData.length > 0 && this.visibleEnd === 0) {
+        this.visibleStart = 0;
+        this.visibleEnd = Math.min(SCROLL_CONSTANTS.MAX_VISIBLE_ITEMS, this.mediaData.length);
+        this.onVisibleRangeChange();
+      }
     }
   }
 
@@ -118,7 +125,7 @@ class NxMediaGrid extends LitElement {
   preprocessGridData() {
     measurePerformance('grid preprocessing', () => {
       this.updateColCount();
-      this.resetVirtualScrollState();
+      this.totalItems = this.mediaData.length;
     });
   }
 
@@ -127,7 +134,18 @@ class NxMediaGrid extends LitElement {
     const width = this.container.clientWidth;
     if (width === 0) return;
 
-    this.colCount = Math.max(1, Math.floor(width / (this.itemWidth + this.cardSpacing)));
+    const newColCount = Math.max(1, Math.floor(width / (this.itemWidth + this.cardSpacing)));
+
+    // Only update if colCount actually changed to avoid unnecessary recalculations
+    if (this.colCount !== newColCount) {
+      this.colCount = newColCount;
+
+      // Recalculate visible range with new column count
+      if (this.totalItems > 0) {
+        this.calculateVisibleRange();
+        this.onVisibleRangeChange();
+      }
+    }
   }
 
   resetVirtualScrollState() {
@@ -136,32 +154,105 @@ class NxMediaGrid extends LitElement {
     this.renderedCards.clear();
   }
 
-  handleDataChange() {
-    this.updateComplete.then(() => {
-      if (this.container && this.previousMediaDataLength > 0) {
-        this.container.scrollTop = 0;
-      }
-      this.previousMediaDataLength = this.mediaData.length;
+  updateTotalItems(totalItems) {
+    this.totalItems = totalItems;
 
-      this.updateVisibleRange();
+    // Force column count update for progressive updates
+    if (this.container) {
+      this.updateColCount();
+    }
+
+    this.calculateVisibleRange();
+    this.onVisibleRangeChange();
+  }
+
+  resetState(totalItems) {
+    this.totalItems = totalItems;
+    this.visibleStart = 0;
+    this.visibleEnd = Math.min(SCROLL_CONSTANTS.MAX_VISIBLE_ITEMS, totalItems);
+
+    // Force visible range calculation without container dependency for initial load
+    if (totalItems > 0 && (!this.container || this.container.clientWidth === 0)) {
+      this.visibleStart = 0;
+      this.visibleEnd = Math.min(SCROLL_CONSTANTS.MAX_VISIBLE_ITEMS, totalItems);
+    } else {
+      this.calculateVisibleRange();
+    }
+
+    this.onVisibleRangeChange();
+  }
+
+  calculateVisibleRange() {
+    if (!this.container || this.totalItems === 0) {
+      this.visibleStart = 0;
+      this.visibleEnd = 0;
+      return;
+    }
+
+    const { scrollTop } = this.container;
+    const containerRect = this.container.getBoundingClientRect();
+    const containerHeight = containerRect.height;
+    const containerWidth = containerRect.width;
+
+    // Use the stored colCount if available, otherwise calculate it
+    const itemsPerRow = this.colCount || Math.floor(
+      containerWidth / (this.itemWidth + this.cardSpacing),
+    );
+
+    // If container is not fully rendered (width is 0 or very small), use a fallback
+    if (containerWidth === 0 || containerWidth < 400) {
+      this.visibleStart = 0;
+      this.visibleEnd = Math.min(SCROLL_CONSTANTS.MAX_VISIBLE_ITEMS, this.totalItems);
+      return;
+    }
+
+    const startRow = Math.floor(scrollTop / (this.itemHeight + this.cardSpacing));
+    const endRow = Math.ceil(
+      (scrollTop + containerHeight) / (this.itemHeight + this.cardSpacing),
+    );
+
+    this.visibleStart = Math.max(0, startRow * itemsPerRow - this.bufferSize);
+    this.visibleEnd = Math.min(this.totalItems, (endRow + 1) * itemsPerRow + this.bufferSize);
+
+    if (this.visibleEnd - this.visibleStart > SCROLL_CONSTANTS.MAX_VISIBLE_ITEMS) {
+      const center = Math.floor((this.visibleStart + this.visibleEnd) / 2);
+      this.visibleStart = Math.max(0, center - Math.floor(SCROLL_CONSTANTS.MAX_VISIBLE_ITEMS / 2));
+      this.visibleEnd = Math.min(
+        this.totalItems,
+        this.visibleStart + SCROLL_CONSTANTS.MAX_VISIBLE_ITEMS,
+      );
+    }
+  }
+
+  onVisibleRangeChange() {
+    requestAnimationFrame(() => {
+      this.requestUpdate();
+    });
+  }
+
+  handleDataChange() {
+    const isIncremental = this.mediaData.length > this.previousMediaDataLength
+      && this.previousMediaDataLength > 0;
+
+    this.updateComplete.then(() => {
+      if (this.previousMediaDataLength === 0) {
+        // Initial load - reset everything
+        this.resetState(this.mediaData.length);
+      } else if (isIncremental) {
+        // Progressive update - just update total items
+        this.updateTotalItems(this.mediaData.length);
+      } else {
+        // Complete replacement - reset everything
+        this.resetState(this.mediaData.length);
+      }
+
+      this.previousMediaDataLength = this.mediaData.length;
     });
   }
 
   updateVisibleRange() {
-    if (this.container && this.mediaData?.length > 0) {
-      const range = calculateVisibleRange(
-        this.container,
-        this.itemHeight,
-        SCROLL_CONSTANTS.BUFFER_SIZE,
-        this.mediaData.length,
-        this.colCount,
-      );
-      if (range.start !== this.visibleStart || range.end !== this.visibleEnd) {
-        this.visibleStart = range.start;
-        this.visibleEnd = range.end;
-        this.requestUpdate();
-      }
-    }
+    this.calculateVisibleRange();
+    this.onVisibleRangeChange();
   }
 
   setupScrollListener() {
@@ -171,6 +262,13 @@ class NxMediaGrid extends LitElement {
         this.throttledScroll = throttleScroll(this.onScroll.bind(this));
         this.container.addEventListener('scroll', this.throttledScroll);
         this.scrollListenerAttached = true;
+
+        // Force column count update and visible range recalculation
+        if (this.totalItems > 0) {
+          this.updateColCount();
+          this.calculateVisibleRange();
+          this.onVisibleRangeChange();
+        }
       }
     });
   }
@@ -178,19 +276,16 @@ class NxMediaGrid extends LitElement {
   onScroll() {
     if (!this.container || !this.mediaData) return;
 
-    const range = calculateVisibleRange(
-      this.container,
-      this.itemHeight + this.cardSpacing,
-      this.bufferSize,
-      this.mediaData.length,
-      this.colCount,
-    );
-
-    if (range.start !== this.visibleStart || range.end !== this.visibleEnd) {
-      this.visibleStart = range.start;
-      this.visibleEnd = range.end;
-      this.requestUpdate();
+    if (this.scrollTimeout) {
+      clearTimeout(this.scrollTimeout);
     }
+
+    this.scrollTimeout = setTimeout(() => {
+      requestAnimationFrame(() => {
+        this.calculateVisibleRange();
+        this.onVisibleRangeChange();
+      });
+    }, SCROLL_CONSTANTS.SCROLL_THROTTLE);
   }
 
   render() {
@@ -200,7 +295,6 @@ class NxMediaGrid extends LitElement {
           <div class="scanning-state">
             <div class="scanning-spinner"></div>
             <h3>Discovering Media</h3>
-            <p>Scanning pages and extracting media files...</p>
           </div>
         `;
       }

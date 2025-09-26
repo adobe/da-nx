@@ -614,7 +614,7 @@ class NxMediaInfo extends LitElement {
                 </tr>
                 <tr class="metadata-row">
                   <td class="metadata-label">Usage Count</td>
-                  <td class="metadata-value">${this.media.usageCount || 0}</td>
+                  <td class="metadata-value">${this.media.folderUsageCount !== undefined ? this.media.folderUsageCount : (this.media.usageCount || 0)}</td>
                 </tr>
               </tbody>
             </table>

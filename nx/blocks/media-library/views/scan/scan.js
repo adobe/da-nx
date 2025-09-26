@@ -1,7 +1,7 @@
 import { html, LitElement } from 'da-lit';
 import getStyle from '../../../../utils/styles.js';
 import getSvg from '../../../../public/utils/svg.js';
-import runScan, { loadMediaSheet, loadMediaSheetIfModified } from '../../utils/processing.js';
+import runScan, { loadMediaSheetIfModified } from '../../utils/processing.js';
 
 const styles = await getStyle(import.meta.url);
 const nx = `${new URL(import.meta.url).origin}/nx`;
@@ -10,21 +10,19 @@ const slComponents = await getStyle(`${nx}/public/sl/components.css`);
 
 const ICONS = [`${nx}/public/icons/S2_Icon_Refresh_20_N.svg`];
 
-// Configuration constants
-const CONFIG = { POLLING_INTERVAL: 60000 }; // 1 minute
+const CONFIG = {
+  POLLING_INTERVAL: 60000,
+  BATCH_SIZE: 10,
+  BATCH_DELAY: 50,
+};
 
 class NxMediaScan extends LitElement {
   static properties = {
     sitePath: { attribute: false },
-    // Internal scan state
     _isScanning: { state: true },
     _scanProgress: { state: true },
-    _statusTimeout: { state: true },
-    // Polling state
     _pollingInterval: { state: true },
     _pollingStarted: { state: true },
-    // Initialization state
-    _initialized: { state: true },
   };
 
   constructor() {
@@ -32,10 +30,10 @@ class NxMediaScan extends LitElement {
     this.sitePath = null;
     this._isScanning = false;
     this._scanProgress = { pages: 0, media: 0, duration: null, hasChanges: null };
-    this._statusTimeout = null;
     this._pollingInterval = null;
     this._pollingStarted = false;
-    this._initialized = false;
+    this._batchQueue = [];
+    this._batchTimeout = null;
   }
 
   connectedCallback() {
@@ -43,70 +41,30 @@ class NxMediaScan extends LitElement {
     this.shadowRoot.adoptedStyleSheets = [sl, slComponents, styles];
     getSvg({ parent: this.shadowRoot, paths: ICONS });
 
-    // Initialize if sitePath is already set
-    if (this.sitePath) {
-      this.initialize();
+    if (this.sitePath && !this._pollingStarted) {
+      this.startPolling();
+      this._pollingStarted = true;
+      this.startScan();
     }
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
-    if (this._statusTimeout) {
-      clearTimeout(this._statusTimeout);
-    }
     if (this._pollingInterval) {
       clearInterval(this._pollingInterval);
+    }
+    if (this._batchTimeout) {
+      clearTimeout(this._batchTimeout);
     }
   }
 
   updated(changedProperties) {
     super.updated(changedProperties);
 
-    // Auto-start initialization when sitePath is set or changes
-    // (but only if not already initialized)
-    if (changedProperties.has('sitePath') && this.sitePath && !this._initialized) {
-      this.initialize();
-    }
-
-    // Handle scan completion status timeout
-    if (this._scanProgress?.duration && !this._isScanning && !this._statusTimeout) {
-      this.setScanStatusTimeout();
-    }
-
-    if (this._isScanning && this._statusTimeout) {
-      clearTimeout(this._statusTimeout);
-      this._statusTimeout = null;
-    }
-  }
-
-  // ============================================================================
-  // INITIALIZATION & POLLING
-  // ============================================================================
-
-  async initialize() {
-    if (!this.sitePath) {
-      return;
-    }
-
-    if (this._initialized) {
-      return;
-    }
-
-    // Set initialized flag immediately to prevent duplicate initialization
-    this._initialized = true;
-
-    const [org, repo] = this.sitePath.split('/').slice(1, 3);
-    if (!(org && repo)) {
-      return;
-    }
-
-    // Run scan first to ensure we have latest data
-    await this.startScan();
-
-    // After scan completes, start polling
-    if (!this._pollingStarted) {
+    if (changedProperties.has('sitePath') && this.sitePath && !this._pollingStarted) {
       this.startPolling();
       this._pollingStarted = true;
+      this.startScan();
     }
   }
 
@@ -115,7 +73,6 @@ class NxMediaScan extends LitElement {
       if (this.sitePath && !this._isScanning) {
         const [org, repo] = this.sitePath.split('/').slice(1, 3);
         if (org && repo) {
-          // Use the combined method that checks modification and loads data
           const { hasChanged, mediaData } = await loadMediaSheetIfModified(org, repo);
 
           if (hasChanged && mediaData) {
@@ -144,29 +101,6 @@ class NxMediaScan extends LitElement {
     }
   }
 
-  async loadMediaData(org, repo) {
-    try {
-      const mediaData = await loadMediaSheet(org, repo);
-
-      if (mediaData && mediaData.length > 0) {
-        // Dispatch data update event to main component
-        this.dispatchEvent(new CustomEvent('mediaDataUpdated', {
-          detail: {
-            mediaData,
-            hasChanges: false, // Data load, not a change
-          },
-        }));
-      }
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error('[SCAN] Failed to load media data:', error);
-    }
-  }
-
-  // ============================================================================
-  // SCAN OPERATIONS
-  // ============================================================================
-
   async startScan() {
     if (!this.sitePath) {
       return;
@@ -180,16 +114,9 @@ class NxMediaScan extends LitElement {
     this._isScanning = true;
     this._scanProgress = { pages: 0, media: 0, duration: null, hasChanges: null };
 
-    // Pause polling during scan
     this.pausePolling();
-
-    // Emit scan start event
     this.dispatchEvent(new CustomEvent('scanStart'));
     window.dispatchEvent(new CustomEvent('scanStart'));
-    
-    // Test event to see if events are reaching the main component
-    this.dispatchEvent(new CustomEvent('testEvent', { detail: { message: 'test from scan' } }));
-    window.dispatchEvent(new CustomEvent('testEvent', { detail: { message: 'test from scan to window' } }));
 
     try {
       const result = await runScan(
@@ -202,7 +129,6 @@ class NxMediaScan extends LitElement {
       this._scanProgress.duration = result.duration;
 
       if (this._scanProgress.hasChanges && result.mediaData) {
-        // Emit scan complete event with results
         this.dispatchEvent(new CustomEvent('scanComplete', {
           detail: {
             mediaData: result.mediaData,
@@ -218,7 +144,6 @@ class NxMediaScan extends LitElement {
           },
         }));
 
-        // Also dispatch data update event
         this.dispatchEvent(new CustomEvent('mediaDataUpdated', {
           detail: {
             mediaData: result.mediaData,
@@ -227,7 +152,6 @@ class NxMediaScan extends LitElement {
           },
         }));
       } else {
-        // No changes found
         this.dispatchEvent(new CustomEvent('scanComplete', {
           detail: {
             mediaData: null,
@@ -238,18 +162,16 @@ class NxMediaScan extends LitElement {
       }
     } catch (error) {
       if (error.message && error.message.includes('Scan already in progress')) {
-        // Scan already in progress, ignore
+        // Ignore
       } else {
         // eslint-disable-next-line no-console
         console.error('Scan failed:', error);
-
-        // Emit scan error event
         this.dispatchEvent(new CustomEvent('scanError', { detail: { error: error.message } }));
       }
     } finally {
       this._isScanning = false;
 
-      // Resume polling after scan completes
+      this.flushBatchQueue();
       this.resumePolling();
     }
   }
@@ -262,32 +184,55 @@ class NxMediaScan extends LitElement {
       this._scanProgress = { ...this._scanProgress, media: totalScanned };
     }
 
-    // Dispatch progress event to parent
     this.dispatchEvent(new CustomEvent('scanProgress', { detail: { type, totalScanned, progress: this._scanProgress } }));
-
-    // Trigger re-render for progress update
     this.requestUpdate();
   }
 
   updateProgressiveData(mediaItems) {
-    this.dispatchEvent(new CustomEvent('progressiveDataUpdate', {
-      detail: { mediaItems },
-      bubbles: true,
-    }));
-    window.dispatchEvent(new CustomEvent('progressiveDataUpdate', {
-      detail: { mediaItems },
-    }));
+    this._batchQueue.push(...mediaItems);
+
+    if (this._batchTimeout) {
+      clearTimeout(this._batchTimeout);
+    }
+    if (this._batchQueue.length >= CONFIG.BATCH_SIZE) {
+      this.processBatch();
+    } else {
+      this._batchTimeout = setTimeout(() => {
+        this.processBatch();
+      }, CONFIG.BATCH_DELAY);
+    }
   }
 
-  setScanStatusTimeout(duration = 5000) {
-    if (this._statusTimeout) {
-      clearTimeout(this._statusTimeout);
+  processBatch() {
+    if (this._batchQueue.length === 0) return;
+
+    const batch = this._batchQueue.splice(0, CONFIG.BATCH_SIZE);
+
+    this.dispatchEvent(new CustomEvent('progressiveDataUpdate', {
+      detail: { mediaItems: batch },
+      bubbles: true,
+    }));
+    window.dispatchEvent(new CustomEvent('progressiveDataUpdate', { detail: { mediaItems: batch } }));
+
+    if (this._batchQueue.length > 0) {
+      this._batchTimeout = setTimeout(() => {
+        this.processBatch();
+      }, CONFIG.BATCH_DELAY);
+    }
+  }
+
+  flushBatchQueue() {
+    if (!this._batchQueue) {
+      this._batchQueue = [];
     }
 
-    this._statusTimeout = setTimeout(() => {
-      this.dispatchEvent(new CustomEvent('clearScanStatus'));
-      this._statusTimeout = null;
-    }, duration);
+    if (this._batchTimeout) {
+      clearTimeout(this._batchTimeout);
+      this._batchTimeout = null;
+    }
+    while (this._batchQueue.length > 0) {
+      this.processBatch();
+    }
   }
 
   renderScanProgress() {

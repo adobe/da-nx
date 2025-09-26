@@ -8,9 +8,9 @@ import { getFileName, getDisplayMediaType, isVideo, isPdf } from './utils.js';
 
 export const SCROLL_CONSTANTS = {
   // Grid constants
-  GRID_ITEM_WIDTH: 400,
+  GRID_ITEM_WIDTH: 350,
   GRID_ITEM_HEIGHT: 360,
-  GRID_CARD_SPACING: 32,
+  GRID_CARD_SPACING: 20,
 
   // List constants
   LIST_ITEM_HEIGHT: 80,
@@ -236,7 +236,7 @@ export const gridTemplates = {
         <div class="media-meta">
           <span class="media-type">${renderHelpers.displayType(media)}</span>
           <span class="media-used" title="Usage count">
-            ${media.usageCount || 0}
+            ${media.folderUsageCount !== undefined ? media.folderUsageCount : (media.usageCount || 0)}
           </span>
           <div class="media-actions">
             <sl-button variant="primary outline" size="small" @click=${(e) => { e.stopPropagation(); handlers.copyClick(); }} title="Copy to clipboard">
@@ -284,7 +284,7 @@ export const listTemplates = {
       </div>
       <div class="item-usage">
         <span class="media-used" title="Usage count">
-          ${media.usageCount || 0}
+          ${media._folderUsageCount !== undefined ? media._folderUsageCount : (media.usageCount || 0)}
         </span>
       </div>
       <div class="item-alt">
