@@ -4,8 +4,6 @@ import getSvg from '../../../../utils/svg.js';
 import {
   getDisplayMediaType,
   getSubtype,
-  // eslint-disable-next-line no-unused-vars
-  extractRelativePath,
   formatFileSize,
   extractMediaLocation,
   getEditUrl,
@@ -16,10 +14,13 @@ import {
   isVideo,
   isPdf,
   EXIF_JS_URL,
+  normalizeUrl,
 } from '../../utils/utils.js';
 import loadScript from '../../../../utils/script.js';
 import { daFetch } from '../../../../utils/daFetch.js';
-import { DA_ORIGIN } from '../../../../public/utils/constants.js';
+import { DA_ORIGIN, SUPPORTED_FILES } from '../../../../public/utils/constants.js';
+
+const CORS_PROXY_URL = 'https://media-library-cors-proxy.aem-poc-lab.workers.dev/';
 
 const styles = await getStyle(import.meta.url);
 const nx = `${new URL(import.meta.url).origin}/nx`;
@@ -52,7 +53,7 @@ class NxMediaInfo extends LitElement {
     super();
     this.isOpen = false;
     this.media = null;
-    this._activeTab = 'metadata'; // Default to metadata tab
+    this._activeTab = 'metadata';
     this._exifData = null;
     this._loading = false;
     this._fileSize = null;
@@ -65,6 +66,8 @@ class NxMediaInfo extends LitElement {
     this._editingAltUsage = null;
     this.usageData = [];
     this._pdfBlobUrls = new Map();
+    this._pendingRequests = new Set();
+    this._cachedMetadata = new Map();
   }
 
   connectedCallback() {
@@ -75,11 +78,19 @@ class NxMediaInfo extends LitElement {
 
   disconnectedCallback() {
     super.disconnectedCallback();
-    // Clean up blob URLs
+    this._cleanupPendingRequests();
     this._pdfBlobUrls.forEach((blobUrl) => {
       URL.revokeObjectURL(blobUrl);
     });
     this._pdfBlobUrls.clear();
+    this._cachedMetadata.clear();
+  }
+
+  _cleanupPendingRequests() {
+    this._pendingRequests.forEach((controller) => {
+      controller.abort();
+    });
+    this._pendingRequests.clear();
   }
 
   updated(changedProperties) {
@@ -104,31 +115,53 @@ class NxMediaInfo extends LitElement {
   }
 
   async loadExifData() {
-    if (!this.media || !isImage(this.media.url)) return;
+    if (!this.media || !isImage(this.media.url)) {
+      return;
+    }
+
+    const fullUrl = this._getFullMediaUrl(this.media.url);
+    const cleanUrl = normalizeUrl(fullUrl);
+    const cacheKey = `exif_${cleanUrl}`;
+
+    if (this._cachedMetadata.has(cacheKey)) {
+      this._exifData = this._cachedMetadata.get(cacheKey);
+      this._loading = false;
+      return;
+    }
 
     this._loading = true;
     try {
       await loadScript(EXIF_JS_URL);
 
       const img = new Image();
-      img.crossOrigin = 'anonymous';
+      const controller = new AbortController();
+      this._pendingRequests.add(controller);
 
       img.onload = () => {
+        this._pendingRequests.delete(controller);
         if (typeof window.EXIF !== 'undefined') {
-          window.EXIF.getData(img, () => {
-            this._exifData = window.EXIF.getAllTags(img);
+          try {
+            window.EXIF.getData(img, () => {
+              this._exifData = window.EXIF.getAllTags(img);
+              this._cachedMetadata.set(cacheKey, this._exifData);
+              this._loading = false;
+            });
+          } catch (exifError) {
+            this._exifData = null;
             this._loading = false;
-          });
+          }
         } else {
           this._loading = false;
         }
       };
 
       img.onerror = () => {
+        this._pendingRequests.delete(controller);
         this._loading = false;
       };
 
-      img.src = this.media.url;
+      const corsProxyUrl = `${CORS_PROXY_URL}?url=${encodeURIComponent(cleanUrl)}`;
+      img.src = corsProxyUrl;
     } catch (error) {
       this._loading = false;
     }
@@ -139,11 +172,8 @@ class NxMediaInfo extends LitElement {
 
     this._usageLoading = true;
     try {
-      // Use pre-filtered usage data directly
       this._usageData = this.usageData;
 
-      // Always show usage tab if there's any data for this media
-      // Even if no current usage, show the tab for potential usage
       this._activeTab = 'usage';
     } catch (error) {
       this._usageData = [];
@@ -154,7 +184,6 @@ class NxMediaInfo extends LitElement {
   }
 
   handleClose() {
-    // Dispatch close event to modal manager
     window.dispatchEvent(new Event('close-modal'));
   }
 
@@ -212,7 +241,7 @@ class NxMediaInfo extends LitElement {
         },
       }));
     } catch (error) {
-      // Silent error handling
+      // Error handling
     }
   }
 
@@ -222,7 +251,6 @@ class NxMediaInfo extends LitElement {
     const { org, repo } = this;
     if (!org || !repo) return;
 
-    // Get the relative path (without org/repo) for the edit URL
     const editUrl = getEditUrl(org, repo, docPath.replace('.html', ''));
     if (editUrl) {
       window.open(editUrl, '_blank');
@@ -230,21 +258,18 @@ class NxMediaInfo extends LitElement {
   }
 
   async loadPdfWithDaFetch(pdfUrl) {
-    if (this._pdfBlobUrls.has(pdfUrl)) return; // Already loading or loaded
+    if (this._pdfBlobUrls.has(pdfUrl)) return;
 
     try {
       const url = new URL(pdfUrl);
 
       let response;
 
-      // Check if URL is from content.da.live - use daFetch for those
       if (url.hostname.includes('content.da.live')) {
-        // Convert content.da.live URL to admin.da.live URL
         const path = url.pathname;
         const adminUrl = `${DA_ORIGIN}/source${path}`;
         response = await daFetch(adminUrl);
       } else {
-        // For other URLs, use regular fetch
         response = await fetch(pdfUrl);
       }
 
@@ -254,11 +279,10 @@ class NxMediaInfo extends LitElement {
         this._pdfBlobUrls.set(pdfUrl, blobUrl);
         this.requestUpdate();
 
-        // Update file size and MIME type after loading
         this.loadFileSize();
       }
     } catch (error) {
-      // Silent error handling
+      // Error handling
     }
   }
 
@@ -283,18 +307,50 @@ class NxMediaInfo extends LitElement {
     if (!docPath) return;
     const { org, repo } = this;
     if (!org || !repo) return;
-    // Get the relative path (without org/repo) for the view URL
     const viewUrl = getViewUrl(org, repo, docPath.replace('.html', ''));
     if (viewUrl) {
       window.open(viewUrl, '_blank');
     }
   }
 
-  async loadFileSize() {
-    if (!this.media || !this.media.url) return;
+  _getFullMediaUrl(mediaUrl) {
+    if (!mediaUrl) return '';
 
     try {
-      // For PDFs, try to get info from the blob if available
+      const url = new URL(mediaUrl);
+      return url.href;
+    } catch {
+      const { org, repo } = this;
+      if (org && repo) {
+        return `https://main--${repo}--${org}.aem.live${mediaUrl.startsWith('/') ? '' : '/'}${mediaUrl}`;
+      }
+      return mediaUrl;
+    }
+  }
+
+  async loadFileSize() {
+    if (!this.media || !this.media.url) {
+      return;
+    }
+
+    const fullUrl = this._getFullMediaUrl(this.media.url);
+    const cacheKey = fullUrl;
+
+    // Set media origin and path immediately (synchronous)
+    const { origin, path } = extractMediaLocation(fullUrl);
+    this._mediaOrigin = origin || 'Unknown';
+    this._mediaPath = path || 'Unknown';
+
+    if (this._cachedMetadata.has(cacheKey)) {
+      const metadata = this._cachedMetadata.get(cacheKey);
+      this._fileSize = metadata.fileSize;
+      this._mimeType = metadata.mimeType;
+      this._mediaOrigin = metadata.mediaOrigin;
+      this._mediaPath = metadata.mediaPath;
+      return;
+    }
+
+    try {
       if (isPdf(this.media.url) && this._pdfBlobUrls.has(this.media.url)) {
         const blobUrl = this._pdfBlobUrls.get(this.media.url);
         const response = await fetch(blobUrl);
@@ -304,97 +360,96 @@ class NxMediaInfo extends LitElement {
           this._mimeType = blob.type || 'application/pdf';
         }
       } else {
-        // Use the media URL directly since it's already a full URL
-        const contentUrl = this.media.url;
+        const ext = fullUrl.split('.').pop()?.toLowerCase();
+        this._mimeType = SUPPORTED_FILES[ext] || 'Unknown';
 
-        let response = null;
-        let metadataFound = false;
+        const controller = new AbortController();
+        this._pendingRequests.add(controller);
 
         try {
-          response = await daFetch(contentUrl, { method: 'HEAD' });
+          const fetchUrl = fullUrl.toLowerCase().includes('.svg') ? normalizeUrl(fullUrl) : fullUrl;
+          let response;
+          let isCorsError = false;
+
+          // Try direct fetch first
+          try {
+            response = await fetch(fetchUrl, {
+              method: 'HEAD',
+              signal: controller.signal,
+            });
+          } catch (directError) {
+            // Check if it's a CORS error
+            if (directError.name === 'TypeError'
+                && (directError.message.includes('CORS')
+                || directError.message.includes('blocked')
+                || directError.message.includes('Access-Control-Allow-Origin'))) {
+              isCorsError = true;
+
+              // Try CORS proxy as fallback
+              try {
+                const corsProxyUrl = `${CORS_PROXY_URL}?url=${encodeURIComponent(fetchUrl)}`;
+                response = await fetch(corsProxyUrl, {
+                  method: 'HEAD',
+                  signal: controller.signal,
+                });
+              } catch (corsProxyError) {
+                this._fileSize = 'Unable to fetch file (CORS blocked)';
+                return;
+              }
+            } else {
+              // Other error (network, timeout, etc.)
+              this._fileSize = `Unable to fetch file (${directError.message})`;
+              return;
+            }
+          }
+
           if (response.ok) {
-            metadataFound = true;
+            const contentLength = response.headers.get('content-length');
+            if (contentLength) {
+              this._fileSize = formatFileSize(parseInt(contentLength, 10));
+            } else {
+              // Try GET request to get actual size
+              try {
+                let getResponse;
+                if (isCorsError) {
+                  const corsProxyUrl = `${CORS_PROXY_URL}?url=${encodeURIComponent(fetchUrl)}`;
+                  getResponse = await fetch(corsProxyUrl, {
+                    method: 'GET',
+                    signal: controller.signal,
+                  });
+                } else {
+                  getResponse = await fetch(fetchUrl, {
+                    method: 'GET',
+                    signal: controller.signal,
+                  });
+                }
+                if (getResponse.ok) {
+                  const blob = await getResponse.blob();
+                  this._fileSize = formatFileSize(blob.size);
+                } else {
+                  this._fileSize = `Unable to fetch file (HTTP ${getResponse.status})`;
+                }
+              } catch (getError) {
+                this._fileSize = `Unable to fetch file (${getError.message})`;
+              }
+            }
+          } else {
+            this._fileSize = `Unable to fetch file (HTTP ${response.status})`;
           }
         } catch (error) {
-          try {
-            response = await daFetch(contentUrl, { method: 'GET' });
-            if (response.ok) {
-              metadataFound = true;
-            }
-          } catch (getError) {
-            // Silent error handling
-          }
+          this._fileSize = `Unable to fetch file (${error.message})`;
         }
 
-        if (metadataFound && response.ok) {
-          const contentLength = response.headers.get('content-length');
-          if (contentLength) {
-            this._fileSize = formatFileSize(parseInt(contentLength, 10));
-          } else if (response.body) {
-            // Try to get size from response body if available
-            const reader = response.body.getReader();
-            let totalSize = 0;
-            try {
-              // eslint-disable-next-line no-constant-condition
-              while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                totalSize += value.length;
-              }
-              this._fileSize = formatFileSize(totalSize);
-            } catch (bodyError) {
-              this._fileSize = 'Unknown';
-            }
-          } else {
-            this._fileSize = 'Unknown';
-          }
-
-          const contentType = response.headers.get('content-type');
-          if (contentType) {
-            const [mimeType] = contentType.split(';');
-            this._mimeType = mimeType;
-          } else {
-            // Try to infer MIME type from file extension
-            const ext = this.media.url.split('.').pop()?.toLowerCase();
-            const mimeMap = {
-              jpg: 'image/jpeg',
-              jpeg: 'image/jpeg',
-              png: 'image/png',
-              gif: 'image/gif',
-              webp: 'image/webp',
-              svg: 'image/svg+xml',
-              mp4: 'video/mp4',
-              pdf: 'application/pdf',
-              avif: 'image/avif',
-            };
-            this._mimeType = mimeMap[ext] || 'Unknown';
-          }
-        } else {
-          // Fallback: try to infer metadata from file extension
-          const ext = this.media.url.split('.').pop()?.toLowerCase();
-          const mimeMap = {
-            jpg: 'image/jpeg',
-            jpeg: 'image/jpeg',
-            png: 'image/png',
-            gif: 'image/gif',
-            webp: 'image/webp',
-            svg: 'image/svg+xml',
-            mp4: 'video/mp4',
-            pdf: 'application/pdf',
-            avif: 'image/avif',
-          };
-
-          this._mimeType = mimeMap[ext] || 'Unknown';
-          this._fileSize = 'Unknown';
-        }
+        this._pendingRequests.delete(controller);
       }
 
-      // Extract media location
-      const { origin, path } = extractMediaLocation(this.media.url);
-      this._mediaOrigin = origin;
-      this._mediaPath = path;
+      this._cachedMetadata.set(cacheKey, {
+        fileSize: this._fileSize,
+        mimeType: this._mimeType,
+        mediaOrigin: this._mediaOrigin,
+        mediaPath: this._mediaPath,
+      });
     } catch (error) {
-      // Silent error handling
       this._fileSize = 'Unknown';
       this._mimeType = 'Unknown';
       this._mediaOrigin = 'Unknown';
@@ -445,7 +500,6 @@ class NxMediaInfo extends LitElement {
       const blobUrl = this._pdfBlobUrls.get(this.media.url);
 
       if (blobUrl) {
-        // Use authenticated blob URL for iframe
         return html`
           <iframe 
             src="${blobUrl}" 
@@ -462,7 +516,6 @@ class NxMediaInfo extends LitElement {
         `;
       }
 
-      // Show loading state
       return html`
         <div class="pdf-preview-container">
           <div class="document-placeholder">
@@ -557,8 +610,7 @@ class NxMediaInfo extends LitElement {
     `;
   }
 
-  // eslint-disable-next-line no-unused-vars
-  renderAltCell(usage, isEditingAlt, isMissingAlt) {
+  renderAltCell(usage, isEditingAlt) {
     if (isEditingAlt) {
       return html`
         <div class="alt-edit-form">
@@ -688,7 +740,6 @@ class NxMediaInfo extends LitElement {
     }
 
     if (this._usageData.length > 0) {
-      // Group usages by document
       const groupedUsages = this._usageData.reduce((groups, usage) => {
         const doc = usage.doc || 'Unknown Document';
         if (!groups[doc]) {

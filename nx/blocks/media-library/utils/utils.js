@@ -183,7 +183,7 @@ export function isExternalVideoUrl(url) {
   return supportedPatterns.some((pattern) => pattern.test(url));
 }
 
-export const EXIF_JS_URL = 'https://cdn.jsdelivr.net/npm/exif-js';
+export const EXIF_JS_URL = 'https://cdn.jsdelivr.net/npm/exif-js@2.3.0/exif.js';
 
 // ============================================================================
 // CORE UTILITIES
@@ -235,9 +235,16 @@ export function extractMediaLocation(mediaUrl) {
 export function normalizeUrl(url) {
   if (!url) return '';
 
-  // Remove protocol and domain to get just the path
   try {
     const urlObj = new URL(url);
+    const { pathname } = urlObj;
+    
+    // For SVG files, remove any query parameters and fragments
+    if (pathname.toLowerCase().endsWith('.svg')) {
+      return `${urlObj.protocol}//${urlObj.host}${pathname}`;
+    }
+    
+    // For other files, return just the pathname
     return urlObj.pathname;
   } catch {
     // If it's not a valid URL, return as is (might be a relative path)
