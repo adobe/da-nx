@@ -181,7 +181,7 @@ export function parseHtmlMedia(html, docPath, lastModified) {
       mediaItems.push({
         url: resolvedUrl,
         name: img.src.split('/').pop(),
-        alt: img.hasAttribute('alt') ? img.alt : 'null',
+        alt: img.hasAttribute('alt') ? img.alt : '',
         type: `${mediaType} > ${fileExt.toLowerCase()}`,
         doc: docPath,
         ctx: context,

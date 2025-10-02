@@ -313,6 +313,18 @@ class NxMediaInfo extends LitElement {
     }
   }
 
+  handlePublishDocument(docPath) {
+    if (!docPath) return;
+    const { org, repo } = this;
+    if (!org || !repo) return;
+    const viewUrl = getViewUrl(org, repo, docPath.replace('.html', ''));
+    if (viewUrl) {
+      // Replace .aem.page with .aem.live for published version
+      const publishUrl = viewUrl.replace('.aem.page', '.aem.live');
+      window.open(publishUrl, '_blank');
+    }
+  }
+
   _getFullMediaUrl(mediaUrl) {
     if (!mediaUrl) return '';
 
@@ -634,32 +646,24 @@ class NxMediaInfo extends LitElement {
     }
 
     if (usage.alt && usage.alt !== '') {
-      return html`<span class="alt-text">${usage.alt}</span>`;
-    }
-
-    if (usage.alt === null) {
       return html`
-        <div class="alt-missing">
-          <span class="alt-warning-badge">No Alt Text</span>
+        <div class="alt-filled">
+          <span class="alt-text">${usage.alt}</span>
           <sl-button type="button" size="small" class="primary" @click=${() => this.editAlt(usage)}>
-            Add Alt Text
+            Update
           </sl-button>
         </div>
       `;
     }
 
-    if (usage.alt === '') {
-      return html`
-        <div class="alt-decorative">
-          <span class="alt-decorative-badge">Decorative</span>
-          <sl-button type="button" size="small" class="primary" @click=${() => this.editAlt(usage)}>
-            Update Alt
-          </sl-button>
-        </div>
-      `;
-    }
-
-    return html`<span class="alt-none">-</span>`;
+    return html`
+      <div class="alt-decorative">
+        <span class="alt-decorative-badge">Decorative</span>
+        <sl-button type="button" size="small" class="primary" @click=${() => this.editAlt(usage)}>
+          Update Alt Text
+        </sl-button>
+      </div>
+    `;
   }
 
   renderContextCell(usage) {
@@ -678,6 +682,9 @@ class NxMediaInfo extends LitElement {
           </sl-button>
           <sl-button type="button" size="small" class="primary" @click=${() => this.handleEditDocument(usage.doc)} title="Edit document">
             Edit
+          </sl-button>
+          <sl-button type="button" size="small" class="primary" @click=${() => this.handlePublishDocument(usage.doc)} title="View published document">
+            Publish
           </sl-button>
         </div>
       `;

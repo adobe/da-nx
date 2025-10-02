@@ -358,25 +358,17 @@ export const renderHelpers = {
   altStatus: (media, handlers) => {
     // Only show alt status for images
     if (media.type && media.type.startsWith('img >')) {
-      if (media.alt === null) {
+      if (media.alt && media.alt !== '') {
         return html`
-          <span class="missing-alt-indicator" title="Missing alt text">
-            <svg class="alert-icon" viewBox="0 0 18 18">
-              <use href="#S2_Icon_AlertCircle_18_N"></use>
+          <span class="filled-alt-indicator" title="Alt text present">
+            <svg class="check-icon" viewBox="0 0 18 18">
+              <use href="#S2_Icon_CheckmarkCircle_18_N"></use>
             </svg>
           </span>
         `;
       }
-      if (media.alt === '') {
-        return html`
-          <span class="decorative-alt-indicator" title="Decorative alt text (empty)">
-            <svg class="info-icon" viewBox="0 0 18 18">
-              <use href="#S2_Icon_InfoCircle_18_N"></use>
-            </svg>
-          </span>
-        `;
-      }
-      return staticTemplates.altPresent;
+      // Return empty for decorative images (no indicator)
+      return '';
     }
     // Return empty for non-image files (PDFs, videos, etc.)
     return '';

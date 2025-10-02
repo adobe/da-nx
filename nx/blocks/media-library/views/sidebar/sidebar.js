@@ -28,7 +28,6 @@ class NxMediaSidebar extends LitElement {
     accessibility: [
       { key: 'filled', label: 'Filled' },
       { key: 'decorative', label: 'Decorative' },
-      { key: 'missingAlt', label: 'No Alt Text' },
     ],
   };
 
@@ -218,18 +217,6 @@ class NxMediaSidebar extends LitElement {
                   >
                     Filled
                     <span class="count">${this.documentMediaBreakdown.filled}</span>
-                  </button>
-                </li>
-              ` : ''}
-              ${this.documentMediaBreakdown.missingAlt > 0 ? html`
-                <li>
-                  <button 
-                    data-filter="documentMissingAlt" 
-                    @click=${this.handleDocumentFilter}
-                    class="${this.activeFilter === 'documentMissingAlt' ? 'active' : ''}"
-                  >
-                    No Alt Text
-                    <span class="count">${this.documentMediaBreakdown.missingAlt}</span>
                   </button>
                 </li>
               ` : ''}

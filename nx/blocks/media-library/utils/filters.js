@@ -7,9 +7,8 @@ export const FILTER_CONFIG = {
   links: (item) => getMediaType(item) === 'link',
   icons: (item) => isSvgFile(item),
 
-  missingAlt: (item) => item.type?.startsWith('img >') && !item.type?.includes('svg') && item.alt === 'null',
   decorative: (item) => item.type?.startsWith('img >') && !item.type?.includes('svg') && item.alt === '',
-  filled: (item) => item.type?.startsWith('img >') && !item.type?.includes('svg') && item.alt && item.alt !== '' && item.alt !== 'null',
+  filled: (item) => item.type?.startsWith('img >') && !item.type?.includes('svg') && item.alt && item.alt !== '',
 
   documentImages: (item, selectedDocument) => FILTER_CONFIG.images(item)
   && item.doc === selectedDocument,
@@ -21,12 +20,10 @@ export const FILTER_CONFIG = {
    && item.doc === selectedDocument,
   documentLinks: (item, selectedDocument) => FILTER_CONFIG.links(item)
    && item.doc === selectedDocument,
-  documentMissingAlt: (item, selectedDocument) => item.type?.startsWith('img >')
-  && !item.type?.includes('svg') && item.alt === 'null' && item.doc === selectedDocument,
   documentDecorative: (item, selectedDocument) => item.type?.startsWith('img >')
    && !item.type?.includes('svg') && item.alt === '' && item.doc === selectedDocument,
   documentFilled: (item, selectedDocument) => item.doc === selectedDocument && item.type?.startsWith('img >')
-   && !item.type?.includes('svg') && item.alt && item.alt !== '' && item.alt !== 'null',
+   && !item.type?.includes('svg') && item.alt && item.alt !== '',
 
   documentTotal: (item, selectedDocument) => item.doc === selectedDocument,
   all: (item) => !isSvgFile(item),
