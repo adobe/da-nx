@@ -13,6 +13,7 @@ import {
   isImage,
   isVideo,
   isPdf,
+  isFragment,
   EXIF_JS_URL,
   normalizeUrl,
 } from '../../utils/utils.js';
@@ -27,6 +28,7 @@ const nx = `${new URL(import.meta.url).origin}/nx`;
 
 const ICONS = [
   `${nx}/public/icons/S2_Icon_PDF_20_N.svg`,
+  `${nx}/public/icons/Smock_DocumentFragment_18_N.svg`,
 ];
 
 class NxMediaInfo extends LitElement {
@@ -95,7 +97,16 @@ class NxMediaInfo extends LitElement {
 
   updated(changedProperties) {
     if (changedProperties.has('media') && this.media) {
-      this.loadFileSize();
+      if (isFragment(this.media)) {
+        // Set N/A values for fragments immediately
+        this._mimeType = 'N/A';
+        this._fileSize = 'N/A';
+        const { origin, path } = extractMediaLocation(this.media.url);
+        this._mediaOrigin = origin || 'Unknown';
+        this._mediaPath = path || 'Unknown';
+      } else {
+        this.loadFileSize();
+      }
       if (isImage(this.media.url)) {
         this.loadExifData();
       }
@@ -325,6 +336,45 @@ class NxMediaInfo extends LitElement {
     }
   }
 
+  handleViewFragment() {
+    if (!this.media || !isFragment(this.media)) return;
+    const { org, repo } = this;
+    if (!org || !repo) return;
+
+    // Extract path from full fragment URL
+    let fragmentPath = this.media.url;
+    if (fragmentPath.includes('/eds/fragments/')) {
+      const [, pathPart] = fragmentPath.split('/eds/fragments/');
+      fragmentPath = `/eds/fragments/${pathPart}`;
+    }
+
+    // Use .aem.page for fragment preview
+    const viewUrl = `https://main--${repo}--${org}.aem.page${fragmentPath}`;
+    if (viewUrl) {
+      window.open(viewUrl, '_blank');
+    }
+  }
+
+  handleEditFragment() {
+    if (!this.media || !isFragment(this.media)) return;
+    const { org, repo } = this;
+    if (!org || !repo) return;
+
+    // Extract path from full fragment URL
+    let fragmentPath = this.media.url;
+    if (fragmentPath.includes('/eds/fragments/')) {
+      const [, pathPart] = fragmentPath.split('/eds/fragments/');
+      fragmentPath = `/eds/fragments/${pathPart}`;
+    }
+
+    // Remove .html extension if present
+    const cleanPath = fragmentPath.replace(/\.html$/, '');
+    const editUrl = `https://da.live/edit#/${org}/${repo}${cleanPath}`;
+    if (editUrl) {
+      window.open(editUrl, '_blank');
+    }
+  }
+
   _getFullMediaUrl(mediaUrl) {
     if (!mediaUrl) return '';
 
@@ -492,6 +542,29 @@ class NxMediaInfo extends LitElement {
   }
 
   renderMediaPreview() {
+    if (isFragment(this.media)) {
+      return html`
+        <div class="fragment-preview-container">
+          <div class="document-placeholder">
+            <svg class="document-icon" viewBox="0 0 18 18">
+              <use href="#Smock_DocumentFragment_18_N"></use>
+            </svg>
+            <div class="fragment-info">
+              <span class="fragment-name">${getFileName(this.media.url)}</span>
+              <span class="fragment-type">Fragment</span>
+            </div>
+          </div>
+          <div class="fragment-actions">
+            <sl-button size="small" @click=${this.handleViewFragment}>
+              Preview
+            </sl-button>
+            <sl-button size="small" @click=${this.handleEditFragment}>
+              Edit
+            </sl-button>
+          </div>
+        </div>
+      `;
+    }
     if (isImage(this.media.url)) {
       const subtype = getSubtype(this.media);
       return html`
@@ -708,11 +781,11 @@ class NxMediaInfo extends LitElement {
 
                 <tr class="metadata-row">
                   <td class="metadata-label">MIME Type</td>
-                  <td class="metadata-value">${this._mimeType || 'Loading...'}</td>
+                  <td class="metadata-value">${this._mimeType || (isFragment(this.media) ? 'N/A' : 'Loading...')}</td>
                 </tr>
                 <tr class="metadata-row">
                   <td class="metadata-label">File Size</td>
-                  <td class="metadata-value">${this._fileSize || 'Loading...'}</td>
+                  <td class="metadata-value">${this._fileSize || (isFragment(this.media) ? 'N/A' : 'Loading...')}</td>
                 </tr>
                 <tr class="metadata-row">
                   <td class="metadata-label">Media Origin</td>

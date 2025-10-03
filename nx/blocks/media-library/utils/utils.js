@@ -40,6 +40,7 @@ export function getMediaType(media) {
   if (type.startsWith('img >')) return 'image';
   if (type.startsWith('video >') || type.startsWith('video-source >')) return 'video';
   if (type.startsWith('document >')) return 'document';
+  if (type.startsWith('fragment >')) return 'fragment';
   if (type.startsWith('link >')) {
     const mediaUrl = media.url || '';
     const ext = extractFileExtension(mediaUrl);
@@ -73,6 +74,7 @@ export function getDisplayMediaType(media) {
         'video-source': 'VIDEO SOURCE',
         link: 'LINK',
         background: 'BACKGROUND',
+        fragment: 'FRAGMENT',
       };
       const baseLabel = baseLabels[baseType] || baseType.toUpperCase();
       return `${baseLabel} (${subtype.toUpperCase()})`;
@@ -84,6 +86,7 @@ export function getDisplayMediaType(media) {
       'video-source': 'VIDEO SOURCE',
       link: 'LINK',
       background: 'BACKGROUND',
+      fragment: 'FRAGMENT',
     };
     return typeLabels[media.type] || media.type.toUpperCase();
   }
@@ -527,6 +530,11 @@ export function isVideo(url) {
 export function isPdf(url) {
   const ext = extractFileExtension(url);
   return ext === 'pdf';
+}
+
+export function isFragment(media) {
+  const type = media.type || '';
+  return type.startsWith('fragment >');
 }
 
 // Content environment detection

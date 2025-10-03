@@ -1,6 +1,6 @@
 // Template fragments for media library components
 import { html, repeat } from 'da-lit';
-import { getFileName, getDisplayMediaType, isVideo, isPdf } from './utils.js';
+import { getFileName, getDisplayMediaType, isVideo, isPdf, isFragment } from './utils.js';
 
 // ============================================================================
 // SCROLL UTILITIES
@@ -207,6 +207,20 @@ export const staticTemplates = {
     </div>
   `,
 
+  fragmentPlaceholder: html`
+    <div class="fragment-preview-container">
+      <div class="fragment-preview-background">
+        <svg class="fragment-icon" viewBox="0 0 18 18">
+          <use href="#Smock_DocumentFragment_18_N"></use>
+        </svg>
+        <div class="fragment-info">
+          <span class="fragment-name"></span>
+          <span class="fragment-type">Fragment</span>
+        </div>
+      </div>
+    </div>
+  `,
+
   unknownPlaceholder: html`
     <div class="unknown-placeholder">
       <svg class="unknown-icon" viewBox="0 0 20 20">
@@ -377,7 +391,11 @@ export const renderHelpers = {
   // Display type helper - shows just the subtype in bold
   displayType: (media) => {
     if (media.type && media.type.includes(' > ')) {
-      const [, subtype] = media.type.split(' > ');
+      const [baseType, subtype] = media.type.split(' > ');
+      // Special case for fragments - show "FRAGMENT" instead of "HTML"
+      if (baseType === 'fragment') {
+        return html`<strong>FRAGMENT</strong>`;
+      }
       return html`<strong>${subtype.toUpperCase()}</strong>`;
     }
     return html`<strong>${getDisplayMediaType(media)}</strong>`;
@@ -385,6 +403,16 @@ export const renderHelpers = {
 
   // Media preview helper (from list.js)
   mediaPreview: (media, isImage, isExternalVideoUrl, getVideoThumbnail) => {
+    if (isFragment(media)) {
+      return html`
+        <div class="fragment-preview-container">
+          <svg class="fragment-icon" viewBox="0 0 18 18">
+            <use href="#Smock_DocumentFragment_18_N"></use>
+          </svg>
+        </div>
+      `;
+    }
+
     if (isImage(media.url)) {
       const imageUrl = media.url;
       return html`
@@ -430,8 +458,8 @@ export const renderHelpers = {
 
     return html`
       <div class="unknown-placeholder">
-        <svg class="unknown-icon">
-          <use href="#S2_Icon_FileConvert_20_N"></use>
+        <svg class="unknown-icon" viewBox="0 0 18 18">
+          <use href="#Smock_DocumentFragment_18_N"></use>
         </svg>
       </div>
     `;

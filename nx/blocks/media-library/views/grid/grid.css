@@ -65,6 +65,62 @@
   100% { transform: rotate(360deg); }
 }
 
+/* Fragment Preview Styles */
+.fragment-preview-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+}
+
+.fragment-preview-background {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 20px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 10%);
+  border: 1px solid var(--s2-gray-200);
+}
+
+.fragment-icon {
+  width: 48px;
+  height: 48px;
+  color: var(--s2-purple-600);
+  margin-bottom: 12px;
+}
+
+.fragment-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-100);
+}
+
+.fragment-name {
+  font-weight: 600;
+  color: var(--s2-gray-800);
+  font-size: 0.9rem;
+  word-break: break-word;
+  max-width: 100%;
+}
+
+.fragment-type {
+  font-size: 0.8rem;
+  color: var(--s2-gray-500);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
 .media-main {
   height: calc(100vh - 200px);
   overflow-y: auto;

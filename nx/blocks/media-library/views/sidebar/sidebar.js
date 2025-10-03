@@ -21,6 +21,7 @@ class NxMediaSidebar extends LitElement {
       { key: 'icons', label: 'SVGs' },
       { key: 'videos', label: 'Videos' },
       { key: 'documents', label: 'PDFs' },
+      { key: 'fragments', label: 'Fragments' },
     ],
     usage: [
       { key: 'links', label: 'Links' },
@@ -105,7 +106,7 @@ class NxMediaSidebar extends LitElement {
     return html`
       <aside class="media-sidebar">
         <div class="sidebar-header">
-          <h1 class="sidebar-title">Media Library</h1>
+          <h1 class="sidebar-title">Resource Library</h1>
         </div>
         <div class="filter-section">
           <h3>Filters</h3>
@@ -188,6 +189,18 @@ class NxMediaSidebar extends LitElement {
                   >
                     PDFs
                     <span class="count">${this.documentMediaBreakdown.documents}</span>
+                  </button>
+                </li>
+              ` : ''}
+              ${this.documentMediaBreakdown.fragments > 0 ? html`
+                <li>
+                  <button 
+                    data-filter="documentFragments" 
+                    @click=${this.handleDocumentFilter}
+                    class="${this.activeFilter === 'documentFragments' ? 'active' : ''}"
+                  >
+                    Fragments
+                    <span class="count">${this.documentMediaBreakdown.fragments}</span>
                   </button>
                 </li>
               ` : ''}
