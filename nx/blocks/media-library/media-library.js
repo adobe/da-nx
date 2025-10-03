@@ -733,7 +733,7 @@ class NxMediaLibrary extends LitElement {
     return html`
       <div class="scanning-state">
         <div class="scanning-spinner"></div>
-        <h3>Loading Resource Library</h3>
+        <h3>Loading Media Library</h3>
         <p>Processing existing media data...</p>
       </div>
     `;

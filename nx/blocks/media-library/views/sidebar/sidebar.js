@@ -106,7 +106,7 @@ class NxMediaSidebar extends LitElement {
     return html`
       <aside class="media-sidebar">
         <div class="sidebar-header">
-          <h1 class="sidebar-title">Resource Library</h1>
+          <h1 class="sidebar-title">Media Library</h1>
         </div>
         <div class="filter-section">
           <h3>Filters</h3>
