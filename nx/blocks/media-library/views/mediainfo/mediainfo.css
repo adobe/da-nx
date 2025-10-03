@@ -667,3 +667,48 @@
     display: none;
   }
 }
+
+/* Fragment preview styles */
+.fragment-preview-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--s2-gray-75);
+  border-radius: var(--s2-radius-100);
+  overflow: hidden;
+}
+
+.fragment-actions {
+  display: flex;
+  gap: var(--spacing-200);
+  margin-top: var(--spacing-200);
+  padding: var(--spacing-200);
+}
+
+.fragment-info {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-100);
+  padding: var(--spacing-400);
+}
+
+.fragment-name {
+  font-weight: 600;
+  color: var(--s2-gray-800);
+}
+
+.fragment-type {
+  color: var(--s2-gray-600);
+  font-size: 0.9rem;
+}
+
+.fragment-icon {
+  width: 48px;
+  height: 48px;
+  color: var(--s2-purple-600);
+  margin-bottom: var(--spacing-200);
+}

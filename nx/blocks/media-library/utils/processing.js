@@ -262,6 +262,29 @@ export function parseHtmlMedia(html, docPath, lastModified) {
     }
   });
 
+  // Parse links to fragments (paths containing "/fragments")
+  const fragmentLinks = doc.querySelectorAll('a[href*="/fragments"]');
+  fragmentLinks.forEach((link) => {
+    const href = link.getAttribute('href');
+    if (href && href.includes('/fragments')) {
+      const resolvedUrl = resolveMediaUrl(href, docPath);
+      const hash = createHash(`${href}|${link.textContent || ''}|${docPath}`);
+      const context = captureContext(link, 'fragment');
+
+      mediaItems.push({
+        url: resolvedUrl,
+        name: href.split('/').pop() || 'Fragment',
+        alt: link.textContent || '',
+        type: 'fragment > html',
+        doc: docPath,
+        ctx: context,
+        hash,
+        firstUsedAt: docTimestamp,
+        lastUsedAt: docTimestamp,
+      });
+    }
+  });
+
   return mediaItems;
 }
 
@@ -276,6 +299,7 @@ export function getMediaCounts(mediaData) {
   const uniqueImages = new Set();
   const uniqueVideos = new Set();
   const uniqueDocuments = new Set();
+  const uniqueFragments = new Set();
   const uniqueLinks = new Set();
   const uniqueIcons = new Set();
   const uniqueUsed = new Set();
@@ -297,6 +321,8 @@ export function getMediaCounts(mediaData) {
       uniqueVideos.add(mediaUrl);
     } else if (mediaType === 'document') {
       uniqueDocuments.add(mediaUrl);
+    } else if (mediaType === 'fragment') {
+      uniqueFragments.add(mediaUrl);
     } else if (mediaType === 'link') {
       uniqueLinks.add(mediaUrl);
     }
@@ -317,6 +343,7 @@ export function getMediaCounts(mediaData) {
     images: uniqueImages.size,
     videos: uniqueVideos.size,
     documents: uniqueDocuments.size,
+    fragments: uniqueFragments.size,
     links: uniqueLinks.size,
     icons: uniqueIcons.size,
     used: uniqueUsed.size,

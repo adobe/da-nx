@@ -4,6 +4,7 @@ export const FILTER_CONFIG = {
   images: (item) => getMediaType(item) === 'image' && !isSvgFile(item),
   videos: (item) => getMediaType(item) === 'video',
   documents: (item) => getMediaType(item) === 'document',
+  fragments: (item) => getMediaType(item) === 'fragment',
   links: (item) => getMediaType(item) === 'link',
   icons: (item) => isSvgFile(item),
 
@@ -17,6 +18,8 @@ export const FILTER_CONFIG = {
   documentVideos: (item, selectedDocument) => FILTER_CONFIG.videos(item)
    && item.doc === selectedDocument,
   documentDocuments: (item, selectedDocument) => FILTER_CONFIG.documents(item)
+   && item.doc === selectedDocument,
+  documentFragments: (item, selectedDocument) => FILTER_CONFIG.fragments(item)
    && item.doc === selectedDocument,
   documentLinks: (item, selectedDocument) => FILTER_CONFIG.links(item)
    && item.doc === selectedDocument,

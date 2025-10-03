@@ -270,6 +270,35 @@
   min-height: 20px;
 }
 
+.fragment-type {
+  background: var(--s2-purple-200);
+  color: var(--s2-purple-800);
+  padding: var(--spacing-100) var(--spacing-300);
+  border-radius: var(--s2-radius-75);
+  font-size: 0.7rem;
+  font-weight: bold;
+  max-width: fit-content;
+  cursor: default;
+  display: flex;
+  align-items: center;
+  min-height: 20px;
+}
+
+.fragment-preview-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  background: var(--s2-gray-75);
+}
+
+.fragment-icon {
+  width: 20px;
+  height: 20px;
+  color: var(--s2-purple-600);
+}
+
 .item-usage {
   display: flex;
   align-items: center;

@@ -1,7 +1,14 @@
 import { html, LitElement } from 'da-lit';
 import getStyle from '../../../../utils/styles.js';
 import getSvg from '../../../../public/utils/svg.js';
-import { getVideoThumbnail, isExternalVideoUrl, isImage, isVideo, isPdf } from '../../utils/utils.js';
+import {
+  getVideoThumbnail,
+  isExternalVideoUrl,
+  isImage,
+  isVideo,
+  isPdf,
+  isFragment,
+} from '../../utils/utils.js';
 import '../../../../public/sl/components.js';
 import {
   SCROLL_CONSTANTS,
@@ -25,6 +32,7 @@ const ICONS = [
   `${nx}/public/icons/S2_Icon_PDF_20_N.svg`,
   `${nx}/public/icons/S2_Icon_AlertCircle_18_N.svg`,
   `${nx}/public/icons/S2_Icon_CheckmarkCircle_18_N.svg`,
+  `${nx}/public/icons/Smock_DocumentFragment_18_N.svg`,
 ];
 
 class NxMediaGrid extends LitElement {
@@ -344,6 +352,10 @@ class NxMediaGrid extends LitElement {
   }
 
   renderMediaPreview(media) {
+    if (isFragment(media)) {
+      return staticTemplates.fragmentPlaceholder;
+    }
+
     if (isImage(media.url)) {
       const optimizedUrl = media.url.replace('format=jpeg', 'format=webply').replace('format=png', 'format=webply');
       return html`
