@@ -668,7 +668,7 @@ class NxMediaLibrary extends LitElement {
       window.dispatchEvent(new CustomEvent('show-notification', {
         detail: {
           heading: 'Error',
-          message: 'Failed to copy to clipboard.',
+          message: 'Failed to copy Resource.',
           type: 'danger',
           open: true,
         },

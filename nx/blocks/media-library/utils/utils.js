@@ -357,8 +357,23 @@ export function createElement(tag, attributes = {}, content = undefined) {
   return element;
 }
 
+const CORS_PROXY_URL = 'https://media-library-cors-proxy.aem-poc-lab.workers.dev/';
+
 export async function copyImageToClipboard(imageUrl) {
-  const response = await fetch(imageUrl);
+  // Use CORS proxy for external images to avoid CORS issues
+  let fetchUrl = imageUrl;
+  try {
+    const url = new URL(imageUrl);
+    // If it's an external URL (not same origin), use CORS proxy
+    if (url.origin !== window.location.origin) {
+      fetchUrl = `${CORS_PROXY_URL}?url=${encodeURIComponent(imageUrl)}`;
+    }
+  } catch (error) {
+    // If URL parsing fails, use original URL
+    fetchUrl = imageUrl;
+  }
+
+  const response = await fetch(fetchUrl);
   if (!response.ok) {
     throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
   }
@@ -403,15 +418,15 @@ export async function copyMediaToClipboard(media) {
     if (mediaType === 'image') {
       // Copy actual image to clipboard
       await copyImageToClipboard(mediaUrl);
-      return { heading: 'Copied', message: 'Image copied to clipboard.' };
+      return { heading: 'Copied', message: 'Resource Copied.' };
     }
     // For non-images, copy the URL as text
     await navigator.clipboard.writeText(mediaUrl);
-    return { heading: 'Copied', message: 'Media URL copied to clipboard.' };
+    return { heading: 'Copied', message: 'Resource URL Copied.' };
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('Failed to copy to clipboard:', error);
-    return { heading: 'Error', message: 'Failed to copy to clipboard.' };
+    return { heading: 'Error', message: 'Failed to copy Resource.' };
   }
 }
 
