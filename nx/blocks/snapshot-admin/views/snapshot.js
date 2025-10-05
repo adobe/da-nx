@@ -275,7 +275,7 @@ class NxSnapshot extends LitElement {
             <sl-input type="password" name="password" .value=${this._manifest?.metadata?.reviewPassword}></sl-input>
             ${this._isRegisteredForSnapshotScheduler ? html`
               <p class="nx-snapshot-sub-heading">Schedule Publish</p>
-              <input type="datetime-local" name="scheduler" .value=${formatLocalDate(this._manifest?.metadata?.scheduledPublish)}>
+              <sl-input type="datetime-local" name="scheduler" .value=${formatLocalDate(this._manifest?.metadata?.scheduledPublish)}></sl-input>
             ` : nothing}
           </div>
           <div class="nx-snapshot-actions">

@@ -37,6 +37,7 @@ svg.icon {
   input[type="number"],
   input[type="password"],
   input[type="date"],
+  input[type="datetime-local"],
   textarea {
     width: 100%;
     display: block;
