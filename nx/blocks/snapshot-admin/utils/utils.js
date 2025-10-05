@@ -173,11 +173,7 @@ export async function updateScheduledPublish(snapshotId) {
     site,
     snapshotId,
   };
-
-  const headers = {
-    'content-type': 'application/json',
-  };
-
+  const headers = { 'content-type': 'application/json' };
   const resp = await fetch(`${adminURL}`, {
     method: 'POST',
     headers,

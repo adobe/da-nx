@@ -99,13 +99,12 @@ class NxSnapshot extends LitElement {
       const scheduledDate = new Date(scheduledPublish);
       const now = new Date();
       const fiveMinutesFromNow = new Date(now.getTime() + 5 * 60 * 1000);
-      
       if (scheduledDate < fiveMinutesFromNow) {
         this._action = undefined;
-        this._message = { 
-          heading: 'Schedule Error', 
-          message: 'Scheduled publish date must be at least 5 minutes from now', 
-          open: true 
+        this._message = {
+          heading: 'Schedule Error',
+          message: 'Scheduled publish date must be at least 5 minutes from now',
+          open: true,
         };
         return;
       }
@@ -132,10 +131,10 @@ class NxSnapshot extends LitElement {
     if (scheduledPublish) {
       const scheduleResult = await updateScheduledPublish(name);
       if (scheduleResult.status !== 200) {
-        this._message = { 
-          heading: 'Schedule Error', 
-          message: scheduleResult.text || 'Failed to schedule publish', 
-          open: true 
+        this._message = {
+          heading: 'Schedule Error',
+          message: scheduleResult.headers.get('X-Error') || 'Failed to schedule publish',
+          open: true,
         };
       }
     }
