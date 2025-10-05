@@ -1,4 +1,5 @@
 export const AEM_ORIGIN = 'https://admin.hlx.page';
+export const SNAPSHOT_SCHEDULER_URL = 'https://helix-snapshot-scheduler-prod.adobeaem.workers.dev';
 
 export const SUPPORTED_FILES = {
   html: 'text/html',

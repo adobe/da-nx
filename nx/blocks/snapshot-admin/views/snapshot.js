@@ -8,6 +8,9 @@ import {
   copyManifest,
   updatePaths,
   reviewSnapshot,
+  isRegisteredForSnapshotScheduler,
+  updateScheduledPublish,
+  formatLocalDate,
 } from '../utils/utils.js';
 
 const nx = `${new URL(import.meta.url).origin}/nx`;
@@ -33,12 +36,19 @@ class NxSnapshot extends LitElement {
     _message: { state: true },
     _isOpen: { state: true },
     _action: { state: true },
+    _isRegisteredForSnapshotScheduler: { state: true, type: Boolean },
   };
 
   async connectedCallback() {
     super.connectedCallback();
+    this._isRegisteredForSnapshotScheduler = false;
     this.shadowRoot.adoptedStyleSheets = [style];
     getSvg({ parent: this.shadowRoot, paths: ICONS });
+  }
+
+  async firstUpdated() {
+    // Check if registered for snapshot scheduler after first render
+    this._isRegisteredForSnapshotScheduler = await isRegisteredForSnapshotScheduler();
   }
 
   update(props) {
@@ -99,6 +109,19 @@ class NxSnapshot extends LitElement {
       return;
     }
     this._manifest = result;
+
+    // Handle scheduled publish if the field exists and has a value
+    const scheduledPublish = this.getValue('[name="scheduler"]');
+    if (scheduledPublish) {
+      const scheduleResult = await updateScheduledPublish(name);
+      if (scheduleResult.status !== 200) {
+        this._message = { 
+          heading: 'Schedule Error', 
+          message: scheduleResult.text || 'Failed to schedule publish', 
+          open: true 
+        };
+      }
+    }
   }
 
   handleLock() {
@@ -153,11 +176,17 @@ class NxSnapshot extends LitElement {
   }
 
   getUpdatedManifest() {
-    return {
+    const manifest = {
       title: this.getValue('[name="title"]'),
       description: this.getValue('[name="description"]'),
       metadata: { reviewPassword: this.getValue('[name="password"]') },
     };
+    // Add scheduled publish to metadata if it exists
+    const scheduledPublish = this.getValue('[name="scheduler"]');
+    if (scheduledPublish) {
+      manifest.metadata.scheduledPublish = new Date(scheduledPublish).toISOString();
+    }
+    return manifest;
   }
 
   get _lockStatus() {
@@ -244,6 +273,10 @@ class NxSnapshot extends LitElement {
             <sl-textarea name="description" resize="none" .value="${this._manifest?.description}"></sl-textarea>
             <p class="nx-snapshot-sub-heading">Password</p>
             <sl-input type="password" name="password" .value=${this._manifest?.metadata?.reviewPassword}></sl-input>
+            ${this._isRegisteredForSnapshotScheduler ? html`
+              <p class="nx-snapshot-sub-heading">Schedule Publish</p>
+              <input type="datetime-local" name="scheduler" .value=${formatLocalDate(this._manifest?.metadata?.scheduledPublish)}>
+            ` : nothing}
           </div>
           <div class="nx-snapshot-actions">
             <p class="nx-snapshot-sub-heading">Snapshot</p>
