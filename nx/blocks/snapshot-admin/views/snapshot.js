@@ -8,7 +8,6 @@ import {
   copyManifest,
   updatePaths,
   reviewSnapshot,
-  isRegistered,
   updateSchedule,
   formatLocalDate,
 } from '../utils/utils.js';
@@ -31,19 +30,18 @@ const ICONS = [
 class NxSnapshot extends LitElement {
   static properties = {
     basics: { attribute: false },
+    isRegistered: { attribute: false },
     _manifest: { state: true },
     _editUrls: { state: true },
     _message: { state: true },
     _isOpen: { state: true },
     _action: { state: true },
-    _isRegistered: { state: true },
   };
 
   async connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
     getSvg({ parent: this.shadowRoot, paths: ICONS });
-    this._isRegistered = await isRegistered();
   }
 
   update(props) {
@@ -284,7 +282,7 @@ class NxSnapshot extends LitElement {
             <sl-textarea name="description" resize="none" .value="${this._manifest?.description}"></sl-textarea>
             <p class="nx-snapshot-sub-heading">Password</p>
             <sl-input type="password" name="password" .value=${this._manifest?.metadata?.reviewPassword}></sl-input>
-            ${this._isRegistered ? html`
+            ${this.isRegistered ? html`
               <p class="nx-snapshot-sub-heading">Schedule Publish</p>
               <sl-input type="datetime-local" name="scheduler" .value=${formatLocalDate(this._manifest?.metadata?.scheduledPublish)}></sl-input>
             ` : nothing}
