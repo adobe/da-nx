@@ -8,8 +8,8 @@ import {
   copyManifest,
   updatePaths,
   reviewSnapshot,
-  isRegisteredForSnapshotScheduler,
-  updateScheduledPublish,
+  isRegistered,
+  updateSchedule,
   formatLocalDate,
 } from '../utils/utils.js';
 
@@ -36,19 +36,14 @@ class NxSnapshot extends LitElement {
     _message: { state: true },
     _isOpen: { state: true },
     _action: { state: true },
-    _isRegisteredForSnapshotScheduler: { state: true, type: Boolean },
+    _isRegistered: { state: true },
   };
 
   async connectedCallback() {
     super.connectedCallback();
-    this._isRegisteredForSnapshotScheduler = false;
     this.shadowRoot.adoptedStyleSheets = [style];
     getSvg({ parent: this.shadowRoot, paths: ICONS });
-  }
-
-  async firstUpdated() {
-    // Check if registered for snapshot scheduler after first render
-    this._isRegisteredForSnapshotScheduler = await isRegisteredForSnapshotScheduler();
+    this._isRegistered = await isRegistered();
   }
 
   update(props) {
@@ -86,6 +81,20 @@ class NxSnapshot extends LitElement {
     }
   }
 
+  validateSchedule(scheduledPublish) {
+    const scheduledDate = new Date(scheduledPublish);
+    const now = new Date();
+    const fiveMinutesFromNow = new Date(now.getTime() + 5 * 60 * 1000);
+    if (scheduledDate < fiveMinutesFromNow) {
+      this._action = undefined;
+      this._message = {
+        heading: 'Schedule Error',
+        message: 'Scheduled publish date must be at least 5 minutes from now',
+        open: true,
+      };
+    }
+  }
+
   async handleSave(lock) {
     this._action = 'Saving';
     const name = this.basics.name || this.getValue('[name="name"]');
@@ -95,20 +104,7 @@ class NxSnapshot extends LitElement {
 
     // Validate scheduled publish time before saving
     const scheduledPublish = this.getValue('[name="scheduler"]');
-    if (scheduledPublish) {
-      const scheduledDate = new Date(scheduledPublish);
-      const now = new Date();
-      const fiveMinutesFromNow = new Date(now.getTime() + 5 * 60 * 1000);
-      if (scheduledDate < fiveMinutesFromNow) {
-        this._action = undefined;
-        this._message = {
-          heading: 'Schedule Error',
-          message: 'Scheduled publish date must be at least 5 minutes from now',
-          open: true,
-        };
-        return;
-      }
-    }
+    if (scheduledPublish && scheduledPublish !== '') this.validateSchedule(scheduledPublish);
 
     const manifest = this.getUpdatedManifest();
 
@@ -128,15 +124,14 @@ class NxSnapshot extends LitElement {
     this._manifest = result;
 
     // Handle scheduled publish if the field exists and has a value
-    if (scheduledPublish) {
-      const scheduleResult = await updateScheduledPublish(name);
-      if (scheduleResult.status !== 200) {
-        this._message = {
-          heading: 'Schedule Error',
-          message: scheduleResult.headers.get('X-Error') || 'Failed to schedule publish',
-          open: true,
-        };
-      }
+    if (!scheduledPublish || scheduledPublish === '') return;
+    const scheduleResult = await updateSchedule(name);
+    if (scheduleResult.status !== 200) {
+      this._message = {
+        heading: 'Schedule Error',
+        message: scheduleResult.headers.get('X-Error') || 'Failed to schedule publish',
+        open: true,
+      };
     }
   }
 
@@ -289,7 +284,7 @@ class NxSnapshot extends LitElement {
             <sl-textarea name="description" resize="none" .value="${this._manifest?.description}"></sl-textarea>
             <p class="nx-snapshot-sub-heading">Password</p>
             <sl-input type="password" name="password" .value=${this._manifest?.metadata?.reviewPassword}></sl-input>
-            ${this._isRegisteredForSnapshotScheduler ? html`
+            ${this._isRegistered ? html`
               <p class="nx-snapshot-sub-heading">Schedule Publish</p>
               <sl-input type="datetime-local" name="scheduler" .value=${formatLocalDate(this._manifest?.metadata?.scheduledPublish)}></sl-input>
             ` : nothing}

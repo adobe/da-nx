@@ -1,7 +1,9 @@
-import { AEM_ORIGIN, SNAPSHOT_SCHEDULER_URL } from '../../../public/utils/constants.js';
+import { AEM_ORIGIN } from '../../../public/utils/constants.js';
 import { daFetch } from '../../../utils/daFetch.js';
 import { mergeCopy, overwriteCopy } from '../../loc/project/index.js';
 import { Queue } from '../../../public/utils/tree.js';
+
+const SNAPSHOT_SCHEDULER_URL = 'https://helix-snapshot-scheduler-prod.adobeaem.workers.dev';
 
 let org;
 let site;
@@ -166,7 +168,7 @@ export async function copyManifest(name, resources, direction) {
   await Promise.all(urls.map((url) => queue.push(url)));
 }
 
-export async function updateScheduledPublish(snapshotId) {
+export async function updateSchedule(snapshotId) {
   const adminURL = `${SNAPSHOT_SCHEDULER_URL}/schedule`;
   const body = {
     org,
@@ -183,7 +185,7 @@ export async function updateScheduledPublish(snapshotId) {
   return { status: resp.status, text: result };
 }
 
-export async function isRegisteredForSnapshotScheduler() {
+export async function isRegistered() {
   try {
     const adminURL = `${SNAPSHOT_SCHEDULER_URL}/register/${org}/${site}`;
     const resp = await fetch(adminURL);
