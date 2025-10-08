@@ -176,7 +176,7 @@ export async function updateSchedule(snapshotId) {
     snapshotId,
   };
   const headers = { 'content-type': 'application/json' };
-  const resp = await fetch(`${adminURL}`, {
+  const resp = await daFetch(`${adminURL}`, {
     method: 'POST',
     headers,
     body: JSON.stringify(body),
@@ -188,7 +188,7 @@ export async function updateSchedule(snapshotId) {
 export async function isRegistered() {
   try {
     const adminURL = `${SNAPSHOT_SCHEDULER_URL}/register/${org}/${site}`;
-    const resp = await fetch(adminURL);
+    const resp = await daFetch(adminURL);
     return resp.status === 200;
   } catch (error) {
     console.error('Error checking if registered for snapshot scheduler', error);
