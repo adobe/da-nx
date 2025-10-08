@@ -3,6 +3,8 @@ import { daFetch } from '../../../utils/daFetch.js';
 import { mergeCopy, overwriteCopy } from '../../loc/project/index.js';
 import { Queue } from '../../../public/utils/tree.js';
 
+const SNAPSHOT_SCHEDULER_URL = 'https://helix-snapshot-scheduler-prod.adobeaem.workers.dev';
+
 let org;
 let site;
 
@@ -164,4 +166,39 @@ export async function copyManifest(name, resources, direction) {
   // Setup a new Queue with the copy function
   const queue = new Queue(copyUrl, 50);
   await Promise.all(urls.map((url) => queue.push(url)));
+}
+
+export async function updateSchedule(snapshotId) {
+  const adminURL = `${SNAPSHOT_SCHEDULER_URL}/schedule`;
+  const body = {
+    org,
+    site,
+    snapshotId,
+  };
+  const headers = { 'content-type': 'application/json' };
+  const resp = await daFetch(`${adminURL}`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(body),
+  });
+  const result = resp.headers.get('X-Error');
+  return { status: resp.status, text: result };
+}
+
+export async function isRegistered() {
+  try {
+    const adminURL = `${SNAPSHOT_SCHEDULER_URL}/register/${org}/${site}`;
+    const resp = await daFetch(adminURL);
+    return resp.status === 200;
+  } catch (error) {
+    console.error('Error checking if registered for snapshot scheduler', error);
+    return false;
+  }
+}
+
+// Convert UTC date to local datetime-local format
+export function formatLocalDate(utcDate) {
+  if (!utcDate) return '';
+  const d = new Date(utcDate);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}T${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
