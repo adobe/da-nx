@@ -9,6 +9,7 @@ module.exports = {
     requireConfigFile: false,
   },
   rules: {
+    'max-len': ['error', { code: 150, ignoreComments: true, ignoreUrls: true, ignoreStrings: true, ignoreTemplateLiterals: true }],
     'no-param-reassign': [2, { props: false }],
     'class-methods-use-this': 0,
     'import/no-cycle': 0,
