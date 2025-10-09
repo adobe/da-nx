@@ -28,7 +28,7 @@ describe('Glaas DNT', () => {
     expect(`${htmlWithDnt}\n`).to.equal(expectedHtmlWithDnt);
   });
 
-  it.only('Converts html to dnt formatted html with icons', async () => {
+  it('Converts html to dnt formatted html with icons', async () => {
     const config = JSON.parse((await readFile({ path: './mocks/hubspot/translate.json' })));
     const html = `<body>
   <header></header>
