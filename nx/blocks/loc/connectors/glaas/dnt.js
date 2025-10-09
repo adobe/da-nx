@@ -211,11 +211,6 @@ function makeIconSpans(html) {
   return html.replace(iconRegex, (_, iconName) => `<span class="icon icon-${iconName}"></span>`);
 }
 
-function cleanWhitespace(html) {
-  // Remove whitespace between HTML tags and before/after closing tags
-  return html.replace(/\s+</g, '<').replace(/>\s+/g, '>');
-}
-
 const addDntInfoToHtml = (html) => {
   const parser = new DOMParser();
   const document = parser.parseFromString(html, 'text/html');
@@ -228,14 +223,15 @@ const addDntInfoToHtml = (html) => {
   document.querySelector('footer')?.remove();
 
   globalDntConfig.get('docRules').forEach((operations, selector) => {
-    addDntAttribute(selector, operations, document);
+    const newSelector = selector.startsWith('.* >') ? selector.replace('.* >', 'div[class] >') : selector;
+    addDntAttribute(newSelector, operations, document);
   });
   globalDntConfig.get('contentRules').forEach((content) => {
     findAndAddDntWrapper(document, content);
   });
 
   processAltText(document);
-  return cleanWhitespace(document.documentElement.outerHTML);
+  return document.documentElement.outerHTML;
 };
 
 const unwrapDntContent = (document) => {

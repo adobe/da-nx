@@ -17,7 +17,11 @@ const style = await getStyle(import.meta.url);
 const buttons = await getStyle('https://da.live/nx/styles/buttons.js');
 
 export default class DaRollout extends LitElement {
-  static properties = { _prefixes: { state: true } };
+  static properties = {
+    _currPrefix: { state: true },
+    _prefixes: { state: true },
+    _isLocale: { state: true },
+  };
 
   connectedCallback() {
     super.connectedCallback();
@@ -28,10 +32,10 @@ export default class DaRollout extends LitElement {
 
   async getRolloutInfo() {
     const { org, repo, path, token } = this;
-    const { currPrefix, prefixes } = await getPrefixDetails(org, repo, token, path);
-    if (!(currPrefix && prefixes)) return;
+    const { currPrefix, prefixes, isLocale } = await getPrefixDetails(org, repo, token, path);
     this._currPrefix = currPrefix;
     this._prefixes = prefixes;
+    this._isLocale = isLocale;
   }
 
   async handleRollout(e) {
@@ -72,7 +76,7 @@ export default class DaRollout extends LitElement {
   renderList(title, items) {
     return html`
       <div class="da-form-row">
-        ${items.length === 0 ? nothing : html` 
+        ${items.length === 0 ? nothing : html`
           <label>${title}</label>
           <ul class="prefix-list">
             ${items.map((prefix) => html`
@@ -92,7 +96,7 @@ export default class DaRollout extends LitElement {
     `;
   }
 
-  render() {
+  renderForm() {
     return html`
       <form @submit=${this.handleRollout}>
         <div class="da-form-row">
@@ -122,6 +126,19 @@ export default class DaRollout extends LitElement {
           <button class="accent" ?disabled=${this._disabled}>Rollout</button>
         </div>
       </form>`;
+  }
+
+  renderLocale() {
+    return html`
+      <div class="locale-note">
+        <p class="locale-note-title">Locale</p>
+        <p class="locale-note-text">This page is in a locale (${this._currPrefix}). There are no downstream pages to rollout to.</p>
+      </div>
+    `;
+  }
+
+  render() {
+    return this._isLocale ? this.renderLocale() : this.renderForm();
   }
 }
 

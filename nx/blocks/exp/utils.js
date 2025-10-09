@@ -365,9 +365,11 @@ async function previewAndPublish(page, details, setStatus, shouldPublish = false
     return null;
   }
 
-  if (details.status === 'draft' || !shouldPublish) {
-    setStatus();
-    return { status: 'ok' };
+  if (details.status === 'draft') {
+    if (!shouldPublish) {
+      setStatus();
+      return { status: 'ok' };
+    }
   }
 
   setStatus('Publishing document.');

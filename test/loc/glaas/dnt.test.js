@@ -34,7 +34,7 @@ describe('Glaas DNT', () => {
   <header></header>
   <main>
     <div>
-      <p>Some text with an :happy: icon</p>
+      <p>Some text with a :happy: icon</p>
     </div>
     <div>
       <img src="https://main--da-bacom--adobecom.aem.live/media_14a4b58fd73d82e553ccb65d5f53c3f5ff552330d.jpeg?optimize=medium" alt="https://a.com | Text here | :play:" loading="lazy" />
@@ -42,13 +42,34 @@ describe('Glaas DNT', () => {
   </main>
 </body>`;
     const htmlWithDnt = await addDnt(html, config, { reset: true });
+    console.log(htmlWithDnt);
     expect(htmlWithDnt).to.equal(
-      '<html><head></head><body><main><div><p>Some text with an<span class="icon icon-happy"></span>icon</p></div><div><img src="./media_14a4b58fd73d82e553ccb65d5f53c3f5ff552330d.jpeg?optimize=medium" alt="Text here" loading="lazy" dnt-alt-content="https://a.com | *alt-placeholder* | :play:"></div></main></body></html>',
+      `<html><head></head><body>
+  
+  <main>
+    <div>
+      <p>Some text with a <span class="icon icon-happy"></span> icon</p>
+    </div>
+    <div>
+      <img src="./media_14a4b58fd73d82e553ccb65d5f53c3f5ff552330d.jpeg?optimize=medium" alt="Text here" loading="lazy" dnt-alt-content="https://a.com | *alt-placeholder* | :play:">
+    </div>
+  </main>
+</body></html>`,
     );
 
     const htmlWithoutDnt = await removeDnt(htmlWithDnt, 'adobecom', 'da-bacom');
     expect(htmlWithoutDnt).to.equal(
-      '<html><head></head><body><main><div><p>Some text with an:happy:icon</p></div><div><img src="https://main--da-bacom--adobecom.aem.live/media_14a4b58fd73d82e553ccb65d5f53c3f5ff552330d.jpeg?optimize=medium" alt="https://a.com | Text here | :play:" loading="lazy"></div></main></body></html>',
+      `<html><head></head><body>
+  
+  <main>
+    <div>
+      <p>Some text with a :happy: icon</p>
+    </div>
+    <div>
+      <img src="https://main--da-bacom--adobecom.aem.live/media_14a4b58fd73d82e553ccb65d5f53c3f5ff552330d.jpeg?optimize=medium" alt="https://a.com | Text here | :play:" loading="lazy">
+    </div>
+  </main>
+</body></html>`,
     );
   });
 

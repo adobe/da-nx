@@ -86,7 +86,7 @@ class NxProfile extends LitElement {
   }
 
   async handleOrgSwitch(org) {
-    await window.adobeIMS.switchProfile(org.entitlement_user_id);
+    await window.adobeIMS.switchProfile(org.userId);
     window.location.reload();
   }
 
@@ -133,11 +133,13 @@ class NxProfile extends LitElement {
           Switch Organization
           <button class="nx-all-orgs-cancel" @click=${this.handleOrgCancel}>Cancel</button>
         </p>
-        ${this._orgs.map((org) => html`
-          <button class="nx-orgs-btn-switch" @click=${() => this.handleOrgSwitch(org)}>
-            ${org.organization_name}
-          </button>
-        `)}
+        <div class="nx-menu-all-orgs-inner">
+          ${this._orgs.map((org) => html`
+            <button class="nx-orgs-btn-switch" @click=${() => this.handleOrgSwitch(org)}>
+              ${org.description}
+            </button>
+          `)}
+        </div>
       </div>
     `;
   }

@@ -8,15 +8,17 @@
   display: none;
 }
 
-input[type="text"],
-textarea,
-select {
-  display: block;
-  border: 2px solid var(--s2-gray-200);
-  border-radius: var(--s2-radius-100);
-  line-height: 32px;
-  margin: 0 0 var(--spacing-400);
-  box-sizing: border-box;
+button {
+  font-family: var(--body-font-family);
+}
+
+sl-textarea {
+  height: 320px;
+  margin-bottom: var(--spacing-400);
+}
+
+sl-select {
+  width: 120px;
 }
 
 input[name="label"] {
@@ -25,18 +27,6 @@ input[name="label"] {
   font-family: var(--body-font-family);
   margin: 0;
   padding: 0 6px;
-}
-
-textarea {
-  width: 100%;
-  min-height: 240px;
-  resize: vertical;
-  font-size: var(--s2-font-size-100);
-  line-height: 2;
-  padding: 6px 12px;
-  box-sizing: border-box;
-  font-family: monospace;
-  overflow-y: scroll;
 }
 
 .delete-toggle {
@@ -62,20 +52,6 @@ textarea {
   font-size: 14px;
   display: block;
 }
-
-select {
-  border: 2px solid var(--s2-gray-200);
-  border-radius: var(--s2-radius-100);
-  font-family: var(--body-font-family);
-  font-size: var(--s2-font-size-200);
-  font-weight: 700;
-  padding: 0 6px;
-  box-sizing: border-box;
-  margin: 0;
-  min-width: 120px;
-  height: 32px;
-}
-
 .da-bulk-action-submit {
   display: flex;
   justify-content: end;
@@ -102,6 +78,10 @@ select {
   border-radius: 18px;
   overflow: hidden;
   padding: var(--spacing-400);
+
+  button {
+    background: transparent;
+  }
 }
 
 .detail-card-remaining {
@@ -158,6 +138,10 @@ select {
 
 .url-list-errors {
   background: rgb(255 214 209);
+}
+
+.url-list-total {
+  background: rgb(202 248 250);
 }
 
 .url-list h2 {

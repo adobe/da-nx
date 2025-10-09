@@ -211,14 +211,18 @@ p {
 .nx-menu-all-orgs {
   position: relative;
   margin: -1px 0;
-  padding: 24px;
-  max-height: 300px;
-  overflow-y: auto;
+
+  .nx-menu-all-orgs-inner {
+    padding: 0 24px 24px;
+    max-height: 300px;
+    overflow-y: auto;
+  }
 }
 
 .nx-all-orgs-title {
   display: flex;
   justify-content: space-between;
+  padding: 24px 24px 0;
 }
 
 .nx-all-orgs-cancel {
@@ -239,7 +243,7 @@ p {
   border: none;
   padding: 0;
   color: rgb(22 122 243);
-  margin-bottom: 4px;
+  margin-bottom: 8px;
 }
 
 .nx-orgs-btn-switch:last-child {

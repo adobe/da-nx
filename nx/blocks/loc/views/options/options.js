@@ -134,7 +134,7 @@ class NxLocOptions extends LitElement {
 
   getCommaValues(prop) {
     if (!prop) return [];
-    return this._siteConfig[prop].split(',').map((value) => value.trim());
+    return this._siteConfig[prop]?.split(',').map((value) => value.trim()) || [];
   }
 
   hasLocales() {

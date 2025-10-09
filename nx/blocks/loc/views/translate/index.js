@@ -56,10 +56,13 @@ export async function getUrls(org, site, service, sourceLocation, urls, fetchCon
 
       // Only add DNT if a connector exists
       // Copy sources will not have a connector
+      url.content = content;
       if (connector) {
-        url.content = await connector.dnt.addDnt(content, config, { fileType });
-      } else {
-        url.content = content;
+        try {
+          url.content = await connector.dnt.addDnt(content, config, { fileType });
+        } catch (error) {
+          url.error = `Error adding DNT to ${url.daBasePath} - ${error.message}`;
+        }
       }
     };
 
@@ -114,10 +117,12 @@ export async function saveLangItemsToDa(options, conf, connector, sendMessage) {
   const saveLangConf = { ...conf, connector, behavior, sendMessage };
 
   for (const lang of conf.langs) {
-    sendMessage({ text: `Fetching ${conf.urls.length} items for ${lang.name}` });
-    const { savedCount } = await saveLang({ ...saveLangConf, lang });
-    lang.translation.saved = savedCount;
-    lang.translation.status = savedCount === conf.urls.length ? 'complete' : 'error';
+    if (lang.translation.status !== 'complete') {
+      sendMessage({ text: `Fetching ${conf.urls.length} items for ${lang.name}` });
+      const { savedCount } = await saveLang({ ...saveLangConf, lang });
+      lang.translation.saved = savedCount;
+      lang.translation.status = savedCount === conf.urls.length ? 'complete' : 'error';
+    }
   }
 }
 
