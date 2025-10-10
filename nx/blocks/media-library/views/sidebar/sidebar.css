@@ -1,32 +1,63 @@
 .media-sidebar {
-  width: 100%;
   height: 100vh;
-  border-right: 2px solid var(--s2-gray-300);
-  padding: var(--spacing-400);
   overflow-y: auto;
   overflow-x: hidden;
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-400);
   background: var(--s2-gray-25);
   box-sizing: border-box;
+  transition: width 0.3s ease;
 }
 
-.sidebar-header {
-  border-bottom: 2px solid var(--s2-gray-200);
-  margin-bottom: var(--spacing-300);
-  min-height: 56px;
-  box-sizing: border-box;
+.media-sidebar.collapsed {
+  width: 60px;
+}
+
+.media-sidebar.expanded {
+  width: 180px;
+}
+
+.sidebar-icons {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 72px 8px 16px 16px;
+}
+
+.icon-btn {
   display: flex;
   align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: var(--s2-gray-700);
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
 }
 
-.sidebar-title {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--s2-gray-900);
-  letter-spacing: -0.01em;
+.icon-btn:hover {
+  background: var(--s2-gray-100);
+}
+
+.icon-btn.active {
+  background: var(--s2-blue-100);
+  color: var(--s2-blue-800);
+}
+
+.icon-btn .icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.filter-panel {
+  padding: 16px;
+  overflow-y: auto;
 }
 
 .filter-section h3 {
@@ -61,6 +92,7 @@
   color: var(--s2-gray-700);
   transition: background-color 0.2s ease;
   gap: var(--spacing-200);
+  font-weight: 600;
 }
 
 .filter-list button:hover {

@@ -241,12 +241,12 @@ export function normalizeUrl(url) {
   try {
     const urlObj = new URL(url);
     const { pathname } = urlObj;
-    
+
     // For SVG files, remove any query parameters and fragments
     if (pathname.toLowerCase().endsWith('.svg')) {
       return `${urlObj.protocol}//${urlObj.host}${pathname}`;
     }
-    
+
     // For other files, return just the pathname
     return urlObj.pathname;
   } catch {
@@ -584,16 +584,16 @@ export function getOrgRepoFrmUrl(siteUrl) {
 
   try {
     const url = new URL(siteUrl);
-    const hostname = url.hostname;
-    
+    const { hostname } = url;
+
     // Parse AEM URL format: main--site--org.aem.page
     const match = hostname.match(/^main--([^--]+)--([^.]+)\.aem\.page$/);
-    
+
     if (match) {
       const [, repo, org] = match;
       return { org, repo };
     }
-    
+
     // Fallback: try to extract from path or other formats
     throw new Error(`Unable to parse AEM URL format from: ${siteUrl}`);
   } catch (error) {

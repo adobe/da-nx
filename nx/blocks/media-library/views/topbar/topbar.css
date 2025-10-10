@@ -11,7 +11,19 @@
   gap: var(--spacing-300);
   padding: var(--spacing-300);
   background: var(--s2-gray-50);
-  border-bottom: 1px solid var(--s2-gray-200);
+}
+
+.result-count {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--s2-gray-700);
+  white-space: nowrap;
+}
+
+.left-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-200);
 }
 
 .search-container {

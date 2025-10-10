@@ -1,19 +1,21 @@
 import { html, LitElement } from 'da-lit';
+import { virtualize } from 'da-virtualizer';
 import getStyle from '../../../../utils/styles.js';
 import getSvg from '../../../../public/utils/svg.js';
-import { getVideoThumbnail, isExternalVideoUrl, isImage } from '../../utils/utils.js';
+import {
+  getVideoThumbnail,
+  isExternalVideoUrl,
+  isImage,
+  isVideo,
+  isPdf,
+  isFragment,
+  getDisplayMediaType,
+} from '../../utils/utils.js';
 import '../../../../public/sl/components.js';
 import {
-  SCROLL_CONSTANTS,
-  calculateVisibleRange,
-  calculateListPosition,
-  throttleScroll,
   createMediaEventHandlers,
-  measurePerformance,
-  staticTemplates,
-  listTemplates,
-  handlerFactories,
-  helperFactories,
+  highlightMatch,
+  getMediaName,
 } from '../../utils/templates.js';
 
 const styles = await getStyle(import.meta.url);
@@ -38,24 +40,7 @@ class NxMediaList extends LitElement {
 
   constructor() {
     super();
-
-    // Virtual scroll state
-    this.visibleStart = 0;
-    this.visibleEnd = SCROLL_CONSTANTS.MAX_VISIBLE_ITEMS;
-    this.renderedItems = new Set();
-    this.previousMediaDataLength = 0;
-
-    // Scroll handling
-    this.scrollTimeout = null;
-    this.container = null;
-    this.scrollListenerAttached = false;
-
-    // Event handlers
     this.eventHandlers = createMediaEventHandlers(this);
-
-    // Constants from scroll.js
-    this.itemHeight = SCROLL_CONSTANTS.LIST_ITEM_HEIGHT;
-    this.bufferSize = SCROLL_CONSTANTS.BUFFER_SIZE;
   }
 
   connectedCallback() {
@@ -64,162 +49,148 @@ class NxMediaList extends LitElement {
     getSvg({ parent: this.shadowRoot, paths: ICONS });
   }
 
-  disconnectedCallback() {
-    super.disconnectedCallback();
-    if (this.scrollTimeout) {
-      clearTimeout(this.scrollTimeout);
-    }
-    if (this.container && this.scrollListenerAttached) {
-      this.container.removeEventListener('scroll', this.throttledScroll);
-      this.scrollListenerAttached = false;
-    }
-  }
-
-  firstUpdated() {
-    this.setupScrollListener();
-    window.addEventListener('resize', () => this.updateVisibleRange());
-  }
-
-  willUpdate(changedProperties) {
-    // Pre-process when mediaData changes
-    if (changedProperties.has('mediaData') && this.mediaData) {
-      this.preprocessListData();
-    }
-  }
-
-  updated(changedProperties) {
-    if (changedProperties.has('mediaData') && this.mediaData) {
-      this.handleDataChange();
-    }
-  }
-
-  // ============================================================================
-  // PRE-PROCESSING METHODS
-  // ============================================================================
-
-  preprocessListData() {
-    measurePerformance('list preprocessing', () => {
-      this.resetVirtualScrollState();
-    });
-  }
-
-  resetVirtualScrollState() {
-    this.visibleStart = 0;
-    this.visibleEnd = Math.min(SCROLL_CONSTANTS.MAX_VISIBLE_ITEMS, this.mediaData?.length || 0);
-    this.renderedItems.clear();
-  }
-
-  handleDataChange() {
-    this.updateComplete.then(() => {
-      if (this.container && this.previousMediaDataLength > 0) {
-        this.container.scrollTop = 0;
-      }
-      this.previousMediaDataLength = this.mediaData.length;
-    });
-  }
-
-  // ============================================================================
-  // SCROLL HANDLING
-  // ============================================================================
-
-  setupScrollListener() {
-    this.updateComplete.then(() => {
-      this.container = this.shadowRoot.querySelector('.list-content');
-      if (this.container && !this.scrollListenerAttached) {
-        this.throttledScroll = throttleScroll(this.onScroll.bind(this));
-        this.container.addEventListener('scroll', this.throttledScroll);
-        this.scrollListenerAttached = true;
-      }
-    });
-  }
-
-  onScroll() {
-    if (!this.container || !this.mediaData) return;
-
-    const range = calculateVisibleRange(
-      this.container,
-      this.itemHeight,
-      this.bufferSize,
-      this.mediaData.length,
-    );
-
-    if (range.start !== this.visibleStart || range.end !== this.visibleEnd) {
-      this.visibleStart = range.start;
-      this.visibleEnd = range.end;
-      this.requestUpdate();
-    }
-  }
-
-  updateVisibleRange() {
-    this.onScroll();
-  }
-
-  // ============================================================================
-  // RENDERING METHODS
-  // ============================================================================
-
   render() {
     if (!this.mediaData || this.mediaData.length === 0) {
-      if (this.isScanning) {
+      return html`
+        <div class="empty-state">
+          <h3>No results found</h3>
+          <p>Try a different search or type selection</p>
+        </div>
+      `;
+    }
+
+    return html`
+      <main class="list-main">
+        <div class="list-header">
+          <div class="header-cell">Preview</div>
+          <div class="header-cell">Name</div>
+          <div class="header-cell">Type</div>
+          <div class="header-cell">Usage</div>
+          <div class="header-cell">Actions</div>
+        </div>
+        <div class="list-content" id="list-scroller">
+          ${virtualize({
+    items: this.mediaData,
+    renderItem: (media) => this.renderListItem(media),
+    scroller: true,
+  })}
+        </div>
+      </main>
+    `;
+  }
+
+  renderListItem(media) {
+    const handlers = {
+      mediaClick: () => this.eventHandlers.handleMediaClick(media),
+      copyClick: () => this.eventHandlers.handleMediaCopy(media),
+    };
+
+    return html`
+      <div class="media-item">
+        <div class="item-preview clickable" @click=${handlers.mediaClick} title="Click to view media details">
+          ${this.renderMediaPreview(media)}
+        </div>
+        <div class="item-name">
+          ${this.getHighlightedName(media)}
+        </div>
+        <div class="item-type">
+          ${this.getDisplayType(media)}
+        </div>
+        <div class="item-usage">
+          <span class="usage-badge" title="Usage count">
+            ${media.folderUsageCount !== undefined ? media.folderUsageCount : (media.usageCount || 0)}
+          </span>
+        </div>
+        <div class="item-actions">
+          <sl-button 
+            variant="primary outline" 
+            size="small" 
+            @click=${(e) => { e.stopPropagation(); handlers.copyClick(); }} 
+            title="Copy to clipboard"
+          >
+            COPY
+          </sl-button>
+        </div>
+      </div>
+    `;
+  }
+
+  getHighlightedName(media) {
+    const name = getMediaName(media);
+    if (!this.searchQuery) return name;
+    return html`<span .innerHTML=${highlightMatch(name, this.searchQuery)}></span>`;
+  }
+
+  getDisplayType(media) {
+    if (media.type && media.type.includes(' > ')) {
+      const [baseType, subtype] = media.type.split(' > ');
+      if (baseType === 'fragment') {
+        return 'FRAGMENT';
+      }
+      return subtype.toUpperCase();
+    }
+    return getDisplayMediaType(media);
+  }
+
+  renderMediaPreview(media) {
+    if (isFragment(media)) {
+      return html`
+        <div class="fragment-preview-container">
+          <svg class="fragment-icon" viewBox="0 0 18 18">
+            <use href="#Smock_DocumentFragment_18_N"></use>
+          </svg>
+        </div>
+      `;
+    }
+
+    if (isImage(media.url)) {
+      return html`<img src="${media.url}" alt="${media.alt || ''}" loading="lazy">`;
+    }
+
+    if (isExternalVideoUrl(media.url)) {
+      const thumbnailUrl = getVideoThumbnail(media.url);
+      if (thumbnailUrl) {
         return html`
-          <div class="scanning-state">
-            <div class="scanning-spinner"></div>
-            <h3>Discovering Media</h3>
-            <p>Scanning pages and extracting media files...</p>
+          <div class="video-preview-container">
+            <img src="${thumbnailUrl}" alt="Video thumbnail" class="video-thumbnail" loading="lazy">
+            <div class="video-overlay">
+              <svg class="play-icon" viewBox="0 0 20 20">
+                <use href="#S2_Icon_Play_20_N"></use>
+              </svg>
+            </div>
           </div>
         `;
       }
-      return staticTemplates.emptyState;
     }
 
-    const totalHeight = this.mediaData.length * this.itemHeight;
-    const visibleItems = this.mediaData.slice(this.visibleStart, this.visibleEnd);
+    if (isVideo(media.url)) {
+      return html`
+        <div class="video-preview-container">
+          <svg class="video-icon" viewBox="0 0 20 20">
+            <use href="#S2_Icon_Video_20_N"></use>
+          </svg>
+        </div>
+      `;
+    }
 
-    return listTemplates.listContainer(
-      totalHeight,
-      visibleItems,
-      (media, i) => {
-        const index = this.visibleStart + i;
-        const position = calculateListPosition(index, this.itemHeight);
+    if (isPdf(media.url)) {
+      return html`
+        <div class="pdf-preview-container">
+          <svg class="pdf-icon" viewBox="0 0 20 20">
+            <use href="#S2_Icon_PDF_20_N"></use>
+          </svg>
+        </div>
+      `;
+    }
 
-        this.renderedItems.add(index);
-
-        const handlers = handlerFactories.createListHandlers(
-          media,
-          this.eventHandlers,
-        );
-
-        const helpers = helperFactories.createListHelpers(
-          media,
-          this.searchQuery,
-          isImage,
-          isExternalVideoUrl,
-          getVideoThumbnail,
-          handlers,
-        );
-
-        return listTemplates.listItem(
-          media,
-          index,
-          position,
-          handlers,
-          helpers,
-        );
-      },
-    );
+    return html`
+      <div class="unknown-placeholder">
+        <svg class="unknown-icon" viewBox="0 0 18 18">
+          <use href="#Smock_DocumentFragment_18_N"></use>
+        </svg>
+      </div>
+    `;
   }
-
-  // ============================================================================
-  // CARD RENDERING HELPERS
-  // ============================================================================
-
-  // All rendering helpers are now handled by fragments.js
-
-  // ============================================================================
-  // EVENT HANDLERS
-  // ============================================================================
-
-  // Usage click behavior removed - no longer needed
 }
 
 customElements.define('nx-media-list', NxMediaList);
