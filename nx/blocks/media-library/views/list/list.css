@@ -38,7 +38,7 @@
 
 .list-header {
   display: grid;
-  grid-template-columns: 80px 2fr 1fr 1fr 1fr 1fr;
+  grid-template-columns: 80px 3fr 1fr 80px 100px;
   gap: var(--spacing-400);
   padding: var(--spacing-400);
   background: var(--s2-gray-50);
@@ -53,32 +53,23 @@
 }
 
 .list-content {
-  max-height: calc(100vh - 200px);
+  height: calc(100vh - 200px);
   overflow-y: auto;
   position: relative;
-}
-
-.list-grid {
-  position: relative;
-  width: 100%;
+  contain: layout;
 }
 
 .media-item {
-  position: absolute;
   display: grid;
-  grid-template-columns: 80px 2fr 1fr 1fr 1fr 1fr;
+  grid-template-columns: 80px 3fr 1fr 80px 100px;
   gap: var(--spacing-400);
   padding: var(--spacing-400);
   border-bottom: 1px solid var(--s2-gray-75);
   cursor: default;
   transition: background-color 0.2s ease;
   width: 100%;
-  height: 80px;
   box-sizing: border-box;
   align-items: center;
-
-  /* Prevent flickering during virtual scroll updates */
-  will-change: transform;
 }
 
 .media-item:hover {
@@ -302,71 +293,32 @@
 .item-usage {
   display: flex;
   align-items: center;
+  justify-content: center;
   min-height: 20px;
 }
 
 .usage-badge {
-  background: #6c757d;
-  color: #fff;
+  background: rgb(255 255 255 / 95%);
+  color: var(--s2-gray-800);
+  border: 1px solid var(--s2-gray-300);
   border-radius: 50%;
   padding: 4px;
   font-size: 0.7rem;
-  font-weight: 600;
+  font-weight: 700;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  min-width: 24px;
+  min-height: 24px;
   cursor: default;
-}
-
-.item-alt {
-  display: flex;
-  align-items: center;
-}
-
-.alt-present {
-  color: var(--s2-green-600);
-  font-weight: bold;
-  font-size: 1.2rem;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 10%);
 }
 
 .item-actions {
   display: flex;
   align-items: center;
+  justify-content: center;
   min-height: 20px;
-}
-
-.missing-alt-indicator {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 4px;
-}
-
-.decorative-alt-indicator {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 4px;
-}
-
-.alert-icon {
-  width: 20px;
-  height: 20px;
-  color: #ff6b35;
-}
-
-.info-icon {
-  width: 20px;
-  height: 20px;
-  color: #17a2b8;
-}
-
-.checkmark-icon {
-  width: 20px;
-  height: 20px;
-  color: #28a745;
 }
 
 .type-badge {

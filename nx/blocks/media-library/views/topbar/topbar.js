@@ -17,12 +17,15 @@ const ICONS = [
   `${nx}/public/icons/S2_Icon_ListBulleted_20_N.svg`,
   `${nx}/public/icons/S2_Icon_Close_20_N.svg`,
   `${nx}/public/icons/S2_Icon_Refresh_20_N.svg`,
+  `${nx}/public/icons/S2_Icon_Properties_20_N.svg`,
 ];
 
 class NxMediaTopBar extends LitElement {
   static properties = {
     searchQuery: { attribute: false },
     currentView: { attribute: false },
+    sidebarVisible: { attribute: false },
+    resultSummary: { attribute: false },
 
     mediaData: { attribute: false },
     sitePath: { attribute: false },
@@ -55,7 +58,8 @@ class NxMediaTopBar extends LitElement {
       || changedProperties.has('_scanProgress');
 
     return hasSearchChange || hasViewChange
-      || hasMediaDataChange || hasScanChange;
+      || hasMediaDataChange || hasScanChange
+      || changedProperties.has('resultSummary');
   }
 
   updated(changedProperties) {
@@ -267,13 +271,6 @@ class NxMediaTopBar extends LitElement {
     this.dispatchEvent(new CustomEvent('search', { detail: { query: e.target.value } }));
   }
 
-  handleViewChange(e) {
-    const button = e.target.closest('button') || e.target;
-    const { view } = button.dataset;
-    this._currentView = view;
-    this.dispatchEvent(new CustomEvent('viewChange', { detail: { view } }));
-  }
-
   setScanStatusTimeout(duration = 5000) {
     if (this._statusTimeout) {
       clearTimeout(this._statusTimeout);
@@ -423,32 +420,14 @@ class NxMediaTopBar extends LitElement {
           </div>
         </div>
 
+        ${this.resultSummary ? html`
+          <div class="result-count">
+            ${this.resultSummary}
+          </div>
+        ` : ''}
+
         <div class="scanning-status">
           ${this.renderScanningStatus()}
-        </div>
-
-        <div class="view-controls">
-          <button
-            class="view-btn ${this._currentView === 'grid' ? 'active' : ''}"
-            data-view="grid"
-            @click=${this.handleViewChange}
-            title="Grid view"
-          >
-            <svg class="icon">
-              <use href="#S2IconClassicGridView20N-icon"></use>
-            </svg>
-          </button>
-          <button
-            class="view-btn ${this._currentView === 'list' ? 'active' : ''}"
-            data-view="list"
-            @click=${this.handleViewChange}
-            title="List view"
-          >
-            <svg class="icon">
-              <use href="#S2_Icon_ListBulleted_20_N"></use>
-            </svg>
-          </button>
-
         </div>
       </div>
     `;

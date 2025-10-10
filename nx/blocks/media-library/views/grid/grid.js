@@ -1,4 +1,5 @@
 import { html, LitElement } from 'da-lit';
+import { virtualize, grid } from 'da-virtualizer';
 import getStyle from '../../../../utils/styles.js';
 import getSvg from '../../../../public/utils/svg.js';
 import {
@@ -8,18 +9,14 @@ import {
   isVideo,
   isPdf,
   isFragment,
+  getDisplayMediaType,
 } from '../../utils/utils.js';
 import '../../../../public/sl/components.js';
 import {
-  SCROLL_CONSTANTS,
-  calculateGridPosition,
-  throttleScroll,
   createMediaEventHandlers,
-  measurePerformance,
   staticTemplates,
-  gridTemplates,
-  handlerFactories,
-  helperFactories,
+  highlightMatch,
+  getMediaName,
 } from '../../utils/templates.js';
 
 const styles = await getStyle(import.meta.url);
@@ -32,6 +29,7 @@ const ICONS = [
   `${nx}/public/icons/S2_Icon_PDF_20_N.svg`,
   `${nx}/public/icons/S2_Icon_AlertCircle_18_N.svg`,
   `${nx}/public/icons/S2_Icon_CheckmarkCircle_18_N.svg`,
+  `${nx}/public/icons/S2_Icon_Share_20_N.svg`,
   `${nx}/public/icons/Smock_DocumentFragment_18_N.svg`,
 ];
 
@@ -44,25 +42,7 @@ class NxMediaGrid extends LitElement {
 
   constructor() {
     super();
-
-    this.visibleStart = 0;
-    this.visibleEnd = SCROLL_CONSTANTS.MAX_VISIBLE_ITEMS;
-    this.colCount = 4;
-    this.renderedCards = new Set();
-    this.previousMediaDataLength = 0;
-    this.totalItems = 0;
-
-    this.scrollTimeout = null;
-    this.container = null;
-    this.scrollListenerAttached = false;
-
     this.eventHandlers = createMediaEventHandlers(this);
-
-    this.itemWidth = SCROLL_CONSTANTS.GRID_ITEM_WIDTH;
-    this.itemHeight = SCROLL_CONSTANTS.GRID_ITEM_HEIGHT;
-    this.cardSpacing = SCROLL_CONSTANTS.GRID_CARD_SPACING;
-    this.bufferSize = SCROLL_CONSTANTS.BUFFER_SIZE;
-
     this.iconsLoaded = false;
   }
 
@@ -71,49 +51,10 @@ class NxMediaGrid extends LitElement {
     this.shadowRoot.adoptedStyleSheets = [sl, slComponents, styles];
   }
 
-  disconnectedCallback() {
-    super.disconnectedCallback();
-    if (this.scrollTimeout) {
-      clearTimeout(this.scrollTimeout);
-    }
-    if (this.container && this.scrollListenerAttached) {
-      this.container.removeEventListener('scroll', this.throttledScroll);
-      this.scrollListenerAttached = false;
-    }
-  }
-
-  firstUpdated() {
-    this.setupScrollListener();
-    window.addEventListener('resize', () => this.updateColCount());
-  }
-
-  willUpdate(changedProperties) {
-    if (changedProperties.has('mediaData') && this.mediaData) {
-      this.preprocessGridData();
-    }
-  }
-
   updated(changedProperties) {
     if (changedProperties.has('mediaData') && this.mediaData?.length > 0 && !this.iconsLoaded) {
       this.loadIcons();
       this.iconsLoaded = true;
-    }
-
-    if (changedProperties.has('mediaData') && this.mediaData) {
-      this.handleDataChange();
-
-      if (!this.scrollListenerAttached) {
-        this.setupScrollListener();
-      }
-
-      this.updateColCount();
-
-      // Ensure visible range is set after data change
-      if (this.mediaData.length > 0 && this.visibleEnd === 0) {
-        this.visibleStart = 0;
-        this.visibleEnd = Math.min(SCROLL_CONSTANTS.MAX_VISIBLE_ITEMS, this.mediaData.length);
-        this.onVisibleRangeChange();
-      }
     }
   }
 
@@ -130,230 +71,142 @@ class NxMediaGrid extends LitElement {
     }
   }
 
-  preprocessGridData() {
-    measurePerformance('grid preprocessing', () => {
-      this.updateColCount();
-      this.totalItems = this.mediaData.length;
-    });
-  }
-
-  updateColCount() {
-    if (!this.container) return;
-    const width = this.container.clientWidth;
-    if (width === 0) return;
-
-    const newColCount = Math.max(1, Math.floor(width / (this.itemWidth + this.cardSpacing)));
-
-    // Only update if colCount actually changed to avoid unnecessary recalculations
-    if (this.colCount !== newColCount) {
-      this.colCount = newColCount;
-
-      // Recalculate visible range with new column count
-      if (this.totalItems > 0) {
-        this.calculateVisibleRange();
-        this.onVisibleRangeChange();
-      }
-    }
-  }
-
-  resetVirtualScrollState() {
-    this.visibleStart = 0;
-    this.visibleEnd = Math.min(SCROLL_CONSTANTS.MAX_VISIBLE_ITEMS, this.mediaData?.length || 0);
-    this.renderedCards.clear();
-  }
-
-  updateTotalItems(totalItems) {
-    this.totalItems = totalItems;
-
-    // Force column count update for progressive updates
-    if (this.container) {
-      this.updateColCount();
-    }
-
-    this.calculateVisibleRange();
-    this.onVisibleRangeChange();
-  }
-
-  resetState(totalItems) {
-    this.totalItems = totalItems;
-    this.visibleStart = 0;
-    this.visibleEnd = Math.min(SCROLL_CONSTANTS.MAX_VISIBLE_ITEMS, totalItems);
-
-    // Force visible range calculation without container dependency for initial load
-    if (totalItems > 0 && (!this.container || this.container.clientWidth === 0)) {
-      this.visibleStart = 0;
-      this.visibleEnd = Math.min(SCROLL_CONSTANTS.MAX_VISIBLE_ITEMS, totalItems);
-    } else {
-      this.calculateVisibleRange();
-    }
-
-    this.onVisibleRangeChange();
-  }
-
-  calculateVisibleRange() {
-    if (!this.container || this.totalItems === 0) {
-      this.visibleStart = 0;
-      this.visibleEnd = 0;
-      return;
-    }
-
-    const { scrollTop } = this.container;
-    const containerRect = this.container.getBoundingClientRect();
-    const containerHeight = containerRect.height;
-    const containerWidth = containerRect.width;
-
-    // Use the stored colCount if available, otherwise calculate it
-    const itemsPerRow = this.colCount || Math.floor(
-      containerWidth / (this.itemWidth + this.cardSpacing),
-    );
-
-    // If container is not fully rendered (width is 0 or very small), use a fallback
-    if (containerWidth === 0 || containerWidth < 400) {
-      this.visibleStart = 0;
-      this.visibleEnd = Math.min(SCROLL_CONSTANTS.MAX_VISIBLE_ITEMS, this.totalItems);
-      return;
-    }
-
-    const startRow = Math.floor(scrollTop / (this.itemHeight + this.cardSpacing));
-    const endRow = Math.ceil(
-      (scrollTop + containerHeight) / (this.itemHeight + this.cardSpacing),
-    );
-
-    this.visibleStart = Math.max(0, startRow * itemsPerRow - this.bufferSize);
-    this.visibleEnd = Math.min(this.totalItems, (endRow + 1) * itemsPerRow + this.bufferSize);
-
-    if (this.visibleEnd - this.visibleStart > SCROLL_CONSTANTS.MAX_VISIBLE_ITEMS) {
-      const center = Math.floor((this.visibleStart + this.visibleEnd) / 2);
-      this.visibleStart = Math.max(0, center - Math.floor(SCROLL_CONSTANTS.MAX_VISIBLE_ITEMS / 2));
-      this.visibleEnd = Math.min(
-        this.totalItems,
-        this.visibleStart + SCROLL_CONSTANTS.MAX_VISIBLE_ITEMS,
-      );
-    }
-  }
-
-  onVisibleRangeChange() {
-    requestAnimationFrame(() => {
-      this.requestUpdate();
-    });
-  }
-
-  handleDataChange() {
-    const isIncremental = this.mediaData.length > this.previousMediaDataLength
-      && this.previousMediaDataLength > 0;
-
-    this.updateComplete.then(() => {
-      if (this.previousMediaDataLength === 0) {
-        // Initial load - reset everything
-        this.resetState(this.mediaData.length);
-      } else if (isIncremental) {
-        // Progressive update - just update total items
-        this.updateTotalItems(this.mediaData.length);
-      } else {
-        // Complete replacement - reset everything
-        this.resetState(this.mediaData.length);
-      }
-
-      this.previousMediaDataLength = this.mediaData.length;
-    });
-  }
-
-  updateVisibleRange() {
-    this.calculateVisibleRange();
-    this.onVisibleRangeChange();
-  }
-
-  setupScrollListener() {
-    this.updateComplete.then(() => {
-      this.container = this.shadowRoot.querySelector('.media-main');
-      if (this.container && !this.scrollListenerAttached) {
-        this.throttledScroll = throttleScroll(this.onScroll.bind(this));
-        this.container.addEventListener('scroll', this.throttledScroll);
-        this.scrollListenerAttached = true;
-
-        // Force column count update and visible range recalculation
-        if (this.totalItems > 0) {
-          this.updateColCount();
-          this.calculateVisibleRange();
-          this.onVisibleRangeChange();
-        }
-      }
-    });
-  }
-
-  onScroll() {
-    if (!this.container || !this.mediaData) return;
-
-    if (this.scrollTimeout) {
-      clearTimeout(this.scrollTimeout);
-    }
-
-    this.scrollTimeout = setTimeout(() => {
-      requestAnimationFrame(() => {
-        this.calculateVisibleRange();
-        this.onVisibleRangeChange();
-      });
-    }, SCROLL_CONSTANTS.SCROLL_THROTTLE);
-  }
-
   render() {
     if (!this.mediaData || this.mediaData.length === 0) {
-      if (this.isScanning) {
-        return html`
-          <div class="scanning-state">
-            <div class="scanning-spinner"></div>
-            <h3>Discovering Media</h3>
-          </div>
-        `;
-      }
-      return staticTemplates.emptyState;
+      return html`
+        <div class="empty-state">
+          <h3>No results found</h3>
+          <p>Try a different search or type selection</p>
+        </div>
+      `;
     }
 
-    const totalRows = Math.ceil(this.mediaData.length / this.colCount);
-    const totalHeight = totalRows * (this.itemHeight + this.cardSpacing);
-    const visibleItems = this.mediaData.slice(this.visibleStart, this.visibleEnd);
+    return html`
+      <main class="media-main" id="grid-scroller">
+        ${virtualize({
+    items: this.mediaData,
+    renderItem: (media) => this.renderMediaCard(media),
+    scroller: true,
+    layout: grid({
+      gap: '24px',
+      minColumnWidth: '240px',
+      maxColumnWidth: '350px',
+    }),
+  })}
+      </main>
+    `;
+  }
 
-    return gridTemplates.gridContainer(
-      totalHeight,
-      visibleItems,
-      (media, i) => {
-        const index = this.visibleStart + i;
-        const position = calculateGridPosition(
-          index,
-          this.colCount,
-          this.itemWidth,
-          this.itemHeight,
-          this.cardSpacing,
-        );
+  renderMediaCard(media) {
+    const handlers = {
+      mediaClick: () => this.eventHandlers.handleMediaClick(media),
+      copyClick: () => this.eventHandlers.handleMediaCopy(media),
+    };
+    const usageCount = media.folderUsageCount !== undefined
+      ? media.folderUsageCount
+      : (media.usageCount || 0);
 
-        this.renderedCards.add(index);
+    return html`
+      <div class="media-card">
+        <div class="media-preview clickable" @click=${handlers.mediaClick}>
+          ${this.renderMediaPreview(media)}
+        </div>
+        <div class="media-info clickable" @click=${handlers.mediaClick}>
+          <div class="media-meta">
+            <span class="media-label media-used">${usageCount}</span>
+            <span class="media-label media-type">${this.getDisplayTypeText(media)}</span>
+          </div>
+          <div class="media-actions">
+            ${media.alt && media.alt !== '' && media.alt !== 'null' ? html`
+              <div class="filled-alt-indicator">
+                <svg class="icon" viewBox="0 0 18 18">
+                  <use href="#S2_Icon_CheckmarkCircle_18_N"></use>
+                </svg>
+              </div>
+            ` : ''}
+            <button 
+              class="icon-button share-button"
+              @click=${(e) => { e.stopPropagation(); handlers.copyClick(); }} 
+              title="Copy to clipboard"
+            >
+              <svg class="icon" viewBox="0 0 20 20">
+                <use href="#S2_Icon_Share_20_N"></use>
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
 
-        const handlers = handlerFactories.createGridHandlers(
-          media,
-          this.eventHandlers,
-        );
+  getHighlightedName(media) {
+    const name = getMediaName(media);
+    if (!this.searchQuery) return name;
+    return html`<span .innerHTML=${highlightMatch(name, this.searchQuery)}></span>`;
+  }
 
-        const helpers = helperFactories.createGridHelpers(
-          media,
-          this.searchQuery,
-          this.renderMediaPreview.bind(this),
-          handlers,
-        );
+  getDisplayType(media) {
+    if (media.type && media.type.includes(' > ')) {
+      const [baseType, subtype] = media.type.split(' > ');
+      if (baseType === 'fragment') {
+        return html`<strong>FRAGMENT</strong>`;
+      }
+      return html`<strong>${subtype.toUpperCase()}</strong>`;
+    }
+    return html`<strong>${getDisplayMediaType(media)}</strong>`;
+  }
 
-        return gridTemplates.mediaCard(
-          media,
-          index,
-          { ...position, width: this.itemWidth, height: this.itemHeight },
-          handlers,
-          helpers,
-        );
-      },
-    );
+  getDisplayTypeText(media) {
+    if (media.type && media.type.includes(' > ')) {
+      const [baseType, subtype] = media.type.split(' > ');
+      if (baseType === 'fragment') {
+        return 'FRAGMENT';
+      }
+      return subtype.toUpperCase();
+    }
+    return getDisplayMediaType(media).toUpperCase();
+  }
+
+  renderAltStatus(media) {
+    if (media.type && media.type.startsWith('img >')) {
+      if (media.alt && media.alt !== '') {
+        return html`
+          <span class="filled-alt-indicator" title="Alt text present">
+            <svg class="check-icon" viewBox="0 0 18 18">
+              <use href="#S2_Icon_CheckmarkCircle_18_N"></use>
+            </svg>
+          </span>
+        `;
+      }
+    }
+    return '';
+  }
+
+  renderHighlightedAlt(media) {
+    if (!media.alt) return '';
+    const content = this.searchQuery ? highlightMatch(media.alt, this.searchQuery) : media.alt;
+    return html`<div class="media-alt" .innerHTML=${content}></div>`;
+  }
+
+  renderHighlightedDoc(media) {
+    if (!media.doc) return '';
+    const content = this.searchQuery ? highlightMatch(media.doc, this.searchQuery) : media.doc;
+    return html`<div class="media-doc" .innerHTML=${content}></div>`;
   }
 
   renderMediaPreview(media) {
     if (isFragment(media)) {
-      return staticTemplates.fragmentPlaceholder;
+      return html`
+        <div class="placeholder-full fragment-placeholder">
+          <svg class="placeholder-icon" viewBox="0 0 48 48" fill="none">
+            <rect x="8" y="8" width="32" height="32" rx="2" stroke="currentColor" stroke-width="2"/>
+            <line x1="14" y1="16" x2="26" y2="16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <line x1="14" y1="24" x2="34" y2="24" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <line x1="14" y1="32" x2="30" y2="32" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <span class="placeholder-label">FRAGMENT</span>
+        </div>
+      `;
     }
 
     if (isImage(media.url)) {
@@ -380,17 +233,28 @@ class NxMediaGrid extends LitElement {
     }
 
     if (isVideo(media.url)) {
-      return staticTemplates.videoPlaceholder;
+      return html`
+        <video src="${media.url}" muted playsinline preload="metadata" loading="lazy">
+          <source src="${media.url}" type="video/mp4">
+        </video>
+      `;
     }
 
     if (isPdf(media.url)) {
-      return staticTemplates.pdfPlaceholder;
+      return html`
+        <div class="placeholder-full pdf-placeholder">
+          <svg class="placeholder-icon" viewBox="0 0 48 48" fill="none">
+            <path d="M12 6h16l8 8v26a2 2 0 01-2 2H12a2 2 0 01-2-2V8a2 2 0 012-2z" stroke="currentColor" stroke-width="2"/>
+            <path d="M28 6v8h8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <text x="24" y="30" font-size="10" text-anchor="middle" fill="currentColor" font-weight="600">PDF</text>
+          </svg>
+          <span class="placeholder-label">DOCUMENT</span>
+        </div>
+      `;
     }
 
     return staticTemplates.unknownPlaceholder;
   }
-
-  // ============================================================================
 }
 
 customElements.define('nx-media-grid', NxMediaGrid);
