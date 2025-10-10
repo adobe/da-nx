@@ -27,6 +27,19 @@ const nx = `${new URL(import.meta.url).origin}/nx`;
 
 const ICONS = [
   `${nx}/public/icons/S2_Icon_PDF_20_N.svg`,
+  `${nx}/public/icons/S2_Icon_AIGenReferenceImage_20_N.svg`,
+  `${nx}/public/icons/C_Icon_Image_Info.svg`,
+  `${nx}/public/icons/S2_Icon_AlertDiamondOrange_20_N.svg`,
+  `${nx}/public/icons/S2_Icon_InfoCircleBlue_20_N.svg`,
+  `${nx}/public/icons/S2_Icon_OpenIn_20_N.svg`,
+  `${nx}/public/icons/S2_Icon_AdobeExpressSolid_20_N.svg`,
+  `${nx}/public/icons/S2_Icon_Edit_20_N.svg`,
+  `${nx}/public/icons/S2_Icon_Accessibility_20_N.svg`,
+  `${nx}/public/icons/S2_Icon_ChevronRight_20_N.svg`,
+  `${nx}/public/icons/S2_Icon_CheckmarkCircleGreen_20_N.svg`,
+  `${nx}/public/icons/S2_Icon_Close_20_N.svg`,
+  `${nx}/public/icons/S2_Icon_CloseCircle_20_N.svg`,
+  `${nx}/public/icons/S2_Icon_Checkmark_20_N.svg`,
 ];
 
 class NxMediaInfo extends LitElement {
@@ -204,6 +217,13 @@ class NxMediaInfo extends LitElement {
   cancelAlt() {
     this._editingAltUsage = null;
     this._newAltText = '';
+  }
+
+  showActions(e) {
+    const documentHeading = e.target.closest('.document-heading');
+    if (documentHeading) {
+      documentHeading.classList.toggle('open');
+    }
   }
 
   async saveAlt(usage) {
@@ -513,15 +533,15 @@ class NxMediaInfo extends LitElement {
 
       if (blobUrl) {
         return html`
-          <iframe 
-            src="${blobUrl}" 
+          <iframe
+            src="${blobUrl}"
             class="pdf-preview"
             @load=${this.handlePdfLoad}
             @error=${this.handlePdfError}
           >
           </iframe>
           <div class="document-placeholder">
-            <svg class="document-icon" viewBox="0 0 20 20">
+            <svg class="icon" viewBox="0 0 20 20">
               <use href="#S2_Icon_PDF_20_N"></use>
             </svg>
           </div>
@@ -531,7 +551,7 @@ class NxMediaInfo extends LitElement {
       return html`
         <div class="pdf-preview-container">
           <div class="document-placeholder">
-            <svg class="document-icon" viewBox="0 0 20 20">
+            <svg class="icon" viewBox="0 0 20 20">
               <use href="#S2_Icon_PDF_20_N"></use>
             </svg>
             <div class="pdf-info">
@@ -545,7 +565,7 @@ class NxMediaInfo extends LitElement {
     }
     return html`
       <div class="preview-placeholder">
-        <svg class="document-icon">
+        <svg class="icon">
           <use href="#S2_Icon_PDF_20_N"></use>
         </svg>
       </div>
@@ -588,58 +608,42 @@ class NxMediaInfo extends LitElement {
     return '';
   }
 
-  renderUsageTableRow(usage) {
-    const isPdfFile = isPdf(this.media.url);
-    const isMissingAlt = !usage.alt && usage.type && usage.type.startsWith('img >');
+  renderUsageActions(usage) {
+    const isMissingAlt = !usage.alt && usage.type && usage.type.trim().startsWith('img >');
     const isEditingAlt = this._editingAltUsage === usage.doc;
 
     return html`
-      <tr class="usage-row">
+      <div class="usage-row">
         ${isImage(this.media.url) ? html`
-          <td class="alt-cell">
-            ${this.renderAltCell(usage, isEditingAlt, isMissingAlt)}
-          </td>
+        ${this.renderAltText(usage, isEditingAlt, isMissingAlt)}
         ` : ''}
-        <td class="context-cell">
-          <div class="context-text">${usage.ctx || 'No context'}</div>
-        </td>
-        <td class="actions-cell">
-          ${this.renderActionsCell(usage)}
-        </td>
-      </tr>
-      <tr class="usage-date-row">
-        <td colspan="${isPdfFile ? 2 : 3}" class="date-details-cell">
-          <div class="date-details">
-            <span class="date-item">
-              <strong>First used:</strong> ${this.formatDateTime(usage.firstUsedAt)}
-            </span>
-            <span class="date-item">
-              <strong>Last used:</strong> ${this.formatDateTime(usage.lastUsedAt)}
-            </span>
-          </div>
-        </td>
-      </tr>
+      </div>
     `;
   }
 
-  renderAltCell(usage, isEditingAlt) {
+  // eslint-disable-next-line no-unused-vars
+  renderAltText(usage, isEditingAlt, isMissingAlt) {
     if (isEditingAlt) {
       return html`
         <div class="alt-edit-form">
-          <sl-input 
-            type="text" 
+          <sl-input
+            type="text"
             placeholder="Enter alt text..."
             .value=${this._newAltText}
             @input=${this.handleAltTextInput}
             size="small"
           ></sl-input>
           <div class="alt-edit-actions">
-            <sl-button type="button" size="small" class="accent" @click=${() => this.saveAlt(usage)}>
-              Save
-            </sl-button>
-            <sl-button type="button" size="small" class="negative" @click=${this.cancelAlt}>
-              Cancel
-            </sl-button>
+            <button type="button" class="icon-button save-alt-text-button" @click=${() => this.saveAlt(usage)}>
+              <svg class="icon" viewBox="0 0 20 20">
+                <use href="#S2_Icon_Checkmark_20_N"></use>
+              </svg>
+            </button>
+            <button type="button" class="icon-button cancel-alt-text-button" @click=${this.cancelAlt}>
+              <svg class="icon" viewBox="0 0 20 20">
+                <use href="#S2_Icon_Close_20_N"></use>
+              </svg>
+            </button>
           </div>
         </div>
       `;
@@ -647,21 +651,53 @@ class NxMediaInfo extends LitElement {
 
     if (usage.alt && usage.alt !== '') {
       return html`
-        <div class="alt-filled">
-          <span class="alt-text">${usage.alt}</span>
-          <sl-button type="button" size="small" class="primary" @click=${() => this.editAlt(usage)}>
-            Update
-          </sl-button>
+        <div class="alt-text-container">
+          <div class="alt-text">
+            <svg class="alt-text-icon has-text" viewBox="0 0 22 20">
+              <use href="#S2_Icon_Accessibility_20_N"></use>
+            </svg>
+            ${usage.alt}
+          </div>
+          <button type="button" size="small" class="icon-button" @click=${() => this.editAlt(usage)}>
+            <svg class="icon" viewBox="0 0 22 20">
+              <use href="#S2_Icon_Edit_20_N"></use>
+            </svg>
+          </button>
+        </div>
+      `;
+    }
+
+    if (usage.alt === null) {
+      return html`
+        <div class="alt-text-container">
+          <div class="alt-text">
+            <svg class="image-reference-icon" viewBox="0 0 22 20">
+              <use href="#S2_Icon_AlertDiamondOrange_20_N"></use>
+            </svg>
+            <span class="alt-warning-badge">No Alt Text</span>
+          </div>
+          <button type="button" size="small" class="icon-button" @click=${() => this.editAlt(usage)}>
+            <svg class="icon" viewBox="0 0 22 20">
+              <use href="#S2_Icon_Edit_20_N"></use>
+            </svg>
+          </button>
         </div>
       `;
     }
 
     return html`
-      <div class="alt-decorative">
-        <span class="alt-decorative-badge">Decorative</span>
-        <sl-button type="button" size="small" class="primary" @click=${() => this.editAlt(usage)}>
-          Update Alt Text
-        </sl-button>
+      <div class="alt-text-container">
+        <div class="alt-text">
+          <svg class="icon decorative" viewBox="0 0 22 20">
+            <use href="#S2_Icon_Accessibility_20_N"></use>
+          </svg>
+          Decorative
+        </div>
+        <button type="button" size="small" class="icon-button" @click=${() => this.editAlt(usage)}>
+          <svg class="icon" viewBox="0 0 22 20">
+            <use href="#S2_Icon_Edit_20_N"></use>
+          </svg>
+        </button>
       </div>
     `;
   }
@@ -673,19 +709,28 @@ class NxMediaInfo extends LitElement {
     return html`<span class="context-none">-</span>`;
   }
 
-  renderActionsCell(usage) {
+  renderActions(usage) {
     if (usage.doc) {
       return html`
-        <div class="actions-container">
-          <sl-button type="button" size="small" class="primary" @click=${() => this.handleViewDocument(usage.doc)} title="View document">
-           Preview
-          </sl-button>
-          <sl-button type="button" size="small" class="primary" @click=${() => this.handleEditDocument(usage.doc)} title="Edit document">
-            Edit
-          </sl-button>
-          <sl-button type="button" size="small" class="primary" @click=${() => this.handlePublishDocument(usage.doc)} title="View published document">
+        <div class="action-items">
+          <button type="button" size="small" class="icon-button" @click=${() => this.handleEditDocument(usage.doc)} title="Edit document">
+            <svg class="icon" viewBox="0 0 22 20">
+              <use href="#S2_Icon_OpenIn_20_N"></use>
+            </svg>
+            Document
+          </button>
+          <button type="button" size="small" class="icon-button preview-button" @click=${() => this.handleViewDocument(usage.doc)} title="View document">
+            <svg class="icon" viewBox="0 0 22 20">
+              <use href="#S2_Icon_AdobeExpressSolid_20_N"></use>
+            </svg>
+            Preview
+          </button>
+          <button type="button" size="small" class="icon-button publish-button" @click=${() => this.handlePublishDocument(usage.doc)} title="View published document">
+            <svg class="icon" viewBox="0 0 22 20">
+              <use href="#S2_Icon_AdobeExpressSolid_20_N"></use>
+            </svg>
             Publish
-          </sl-button>
+          </button>
         </div>
       `;
     }
@@ -696,38 +741,21 @@ class NxMediaInfo extends LitElement {
     return html`
       <div class="tab-content">
         <div class="metadata-section">
-          <div class="metadata-table-container">
-            <table class="metadata-table">
-              <thead>
-                <tr>
-                  <th>Property</th>
-                  <th>Value</th>
-                </tr>
-              </thead>
-              <tbody>
-
-                <tr class="metadata-row">
-                  <td class="metadata-label">MIME Type</td>
-                  <td class="metadata-value">${this._mimeType || 'Loading...'}</td>
-                </tr>
-                <tr class="metadata-row">
-                  <td class="metadata-label">File Size</td>
-                  <td class="metadata-value">${this._fileSize || 'Loading...'}</td>
-                </tr>
-                <tr class="metadata-row">
-                  <td class="metadata-label">Media Origin</td>
-                  <td class="metadata-value">${this._mediaOrigin || 'Loading...'}</td>
-                </tr>
-                <tr class="metadata-row">
-                  <td class="metadata-label">Media Path</td>
-                  <td class="metadata-value">${this._mediaPath || 'Loading...'}</td>
-                </tr>
-                <tr class="metadata-row">
-                  <td class="metadata-label">Usage Count</td>
-                  <td class="metadata-value">${this.media.folderUsageCount !== undefined ? this.media.folderUsageCount : (this.media.usageCount || 0)}</td>
-                </tr>
-              </tbody>
-            </table>
+          <div class="metadata-grid-container">
+            <div class="metadata-grid">
+              <div class="grid-heading">Property</div>
+              <div class="grid-heading">Value</div>
+              <div class="metadata-label">MIME Type</div>
+              <div class="metadata-value">${this._mimeType || 'Loading...'}</div>
+              <div class="metadata-label">File Size</div>
+              <div class="metadata-value">${this._fileSize || 'Loading...'}</div>
+              <div class="metadata-label">Media Origin</div>
+              <div class="metadata-value">${this._mediaOrigin || 'Loading...'}</div>
+              <div class="metadata-label">Media Path</div>
+              <div class="metadata-value">${this._mediaPath || 'Loading...'}</div>
+              <div class="metadata-label">Usage Count</div>
+              <div class="metadata-value">${this.media.folderUsageCount !== undefined ? this.media.folderUsageCount : (this.media.usageCount || 0)}</div>
+            </div>
           </div>
 
           ${this.renderExifSection()}
@@ -737,6 +765,8 @@ class NxMediaInfo extends LitElement {
   }
 
   renderUsageContent() {
+    const { org } = this;
+
     if (this._usageLoading) {
       return html`
         <div class="loading-state">
@@ -761,22 +791,26 @@ class NxMediaInfo extends LitElement {
           ${Object.entries(groupedUsages).map(([doc, usages]) => html`
             <div class="usage-section">
               <div class="document-heading">
-                <h3>${doc}</h3>
+                <div class="document-path">
+                  <p class="usage-org">${org}</p>
+                  <p class="usage-path">${doc}</p>
+                  <button type="button" size="small" class="icon-button toggle-actions" @click=${this.showActions}>
+                    <svg class="icon" viewBox="0 0 22 20">
+                      <use href="#S2_Icon_ChevronRight_20_N"></use>
+                    </svg>
+                  </button>
+                </div>
+                <div class="actions-container" style="--action-row-multiplier: ${usages.length}">
+                  <h5 class="usage-title">Open</h5>
+                  ${usages.map((usage) => this.renderActions(usage))}
+                </div>
               </div>
-              <div class="usage-table-container">
-                <table class="usage-table">
-                  <thead>
-                    <tr>
-                      ${isImage(this.media.url) ? html`<th>Alt Text</th>` : ''}
-                      <th>Context</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    ${usages.map((usage) => this.renderUsageTableRow(usage))}
-                  </tbody>
-                </table>
-              </div>
+              ${usages.map((usage) => (usage.alt && usage.type.includes('img'))) ? html`
+                <div class="usage-container">
+                  <h5 class="usage-title">Alt</h5>
+                  ${usages.map((usage) => this.renderUsageActions(usage))}
+                </div>
+              ` : ''}
             </div>
           `)}
         </div>
@@ -798,49 +832,70 @@ class NxMediaInfo extends LitElement {
     `;
   }
 
+  renderMediaOrigin() {
+    const origin = this._mediaOrigin?.split('/') || [];
+    const filename = origin[origin.length - 1] || 'Unknown';
+    return html`
+      <div class="media-origin">${filename}</div>
+    `;
+  }
+
   render() {
     if (!this.isOpen || !this.media) return '';
 
     const displayName = this.media.name || getFileName(this.media.url) || 'Media Details';
 
     return html`
-      <div class="modal-overlay" @click=${this.handleClose}>
+      <dialog class="modal-overlay" @click=${this.handleClose}>
         <div class="modal-content" @click=${(e) => e.stopPropagation()}>
-          <div class="modal-header">
-            <h2>${displayName}</h2>
-            <sl-button type="button" size="small" class="primary outline" @click=${this.handleClose} title="Close">
-              Close
-            </sl-button>
-          </div>
-
           <div class="media-preview-section">
             ${this.renderMediaPreview()}
           </div>
+          <div class="modal-details">
 
-          <div class="modal-tabs">
-            <button 
-              type="button"
-              class="tab-btn ${this._activeTab === 'usage' ? 'active' : ''}"
-              data-tab="usage"
-              @click=${this.handleTabChange}
-            >
-              Usage (${this._usageData.length})
-            </button>
-            <button 
-              type="button"
-              class="tab-btn ${this._activeTab === 'metadata' ? 'active' : ''}"
-              data-tab="metadata"
-              @click=${this.handleTabChange}
-            >
-              Metadata
-            </button>
+            <div class="modal-header">
+              <h2>${displayName}</h2>
+              ${this.renderMediaOrigin()}
+              <button type="button" class="icon-button close-modal-button" @click=${this.handleClose} title="Close">
+                <svg class="icon" viewBox="0 0 20 20">
+                  <use href="#S2_Icon_Close_20_N"></use>
+                </svg>
+              </button>
+            </div>
+
+            <div class="modal-tabs">
+              <button
+                type="button"
+                class="tab-button ${this._activeTab === 'usage' ? 'active' : ''}"
+                data-tab="usage"
+                @click=${this.handleTabChange}
+              >
+              <svg class="icon" viewBox="0 0 22 20">
+                <use href="#S2_Icon_AIGenReferenceImage_20_N"></use>
+              </svg>
+                ${this._usageData.length} ${this._usageData.length > 1 ? 'References' : 'Reference'}
+              </button>
+              <button
+                type="button"
+                class="tab-button ${this._activeTab === 'metadata' ? 'active' : ''}"
+                data-tab="metadata"
+                @click=${this.handleTabChange}
+              >
+              <svg class="image-info-icon" viewBox="0 0 20 20">
+                <use href="#C_Icon_Image_Info"></use>
+              </svg>
+                Metadata
+              </button>
+            </div>
+
+            <div class="modal-body">
+              ${this._activeTab === 'usage' ? this.renderUsageTab() : this.renderInfoTab()}
+            </div>
+
           </div>
 
-          <div class="modal-body">
-            ${this._activeTab === 'usage' ? this.renderUsageTab() : this.renderInfoTab()}
-          </div>
         </div>
-      </div>
+      </dialog>
     `;
   }
 }

@@ -228,25 +228,24 @@ export const gridTemplates = {
       data-index="${index}"
       style="top: ${position.top}px; left: ${position.left}px; width: ${position.width}px; height: ${position.height}px;"
     >
-      <div class="media-preview clickable" @click=${handlers.mediaClick}>
+      <div class="media-preview">
         ${renderHelpers.mediaPreview(media)}
       </div>
-      <div class="media-info">
-        <h3 class="media-name">${renderHelpers.highlightedName(media)}</h3>
+      <div class="media-info clickable" @click=${handlers.mediaClick}>
         <div class="media-meta">
-          <span class="media-type">${renderHelpers.displayType(media)}</span>
-          <span class="media-used" title="Usage count">
+          <span class="media-used media-label" title="Usage count">
             ${media.folderUsageCount !== undefined ? media.folderUsageCount : (media.usageCount || 0)}
           </span>
+          <span class="media-type media-label">${renderHelpers.displayType(media)}</span>
           <div class="media-actions">
-            <sl-button variant="primary outline" size="small" @click=${(e) => { e.stopPropagation(); handlers.copyClick(); }} title="Copy to clipboard">
-              COPY
-            </sl-button>
+            <button class="icon-button share-button" @click=${(e) => { e.stopPropagation(); handlers.copyClick(); }} title="Copy to clipboard">
+              <svg class="icon" viewBox="0 0 20 20">
+                <use href="#S2_Icon_Share_20_N"></use>
+              </svg>
+            </button>
             ${renderHelpers.altStatus(media)}
           </div>
         </div>
-        ${renderHelpers.highlightedAlt(media)}
-        ${renderHelpers.highlightedDoc(media)}
       </div>
     </div>
   `,
@@ -361,7 +360,7 @@ export const renderHelpers = {
       if (media.alt && media.alt !== '') {
         return html`
           <span class="filled-alt-indicator" title="Alt text present">
-            <svg class="check-icon" viewBox="0 0 18 18">
+            <svg class="icon" viewBox="0 0 18 18">
               <use href="#S2_Icon_CheckmarkCircle_18_N"></use>
             </svg>
           </span>

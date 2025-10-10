@@ -25,6 +25,7 @@ const ICONS = [
   `${nx}/public/icons/S2_Icon_PDF_20_N.svg`,
   `${nx}/public/icons/S2_Icon_AlertCircle_18_N.svg`,
   `${nx}/public/icons/S2_Icon_CheckmarkCircle_18_N.svg`,
+  `${nx}/public/icons/S2_Icon_Share_20_N.svg`,
 ];
 
 class NxMediaGrid extends LitElement {
