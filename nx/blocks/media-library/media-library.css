@@ -160,7 +160,6 @@ nx-media-sidebar {
   flex-direction: column;
 }
 
-
 .media-content {
   grid-area: main;
   overflow: hidden;

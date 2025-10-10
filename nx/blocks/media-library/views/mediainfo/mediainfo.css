@@ -6,6 +6,61 @@
   }
 }
 
+svg.icon,
+.alt-text-icon {
+  width: 20px;
+  height: 20px;
+  color: #000;
+}
+
+.save-alt-text-button,
+.cancel-alt-text-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 2px solid transparent;
+  border-radius: 4px;
+
+  svg.icon {
+    color: var(--s2-gray-600);
+  }
+
+  &:hover {
+    background-color: #ffffffe7;
+
+    svg.icon {
+      color: initial;
+    }
+  }
+}
+
+.icon-button {
+  background: none;
+  border: none;
+  outline: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 600;
+  padding: 0;
+
+  &.toggle-actions {
+    position: absolute;
+    right: 0;
+    top: 12px;
+    height: 42px;
+    transform: translateY(-11px);
+
+    svg.icon {
+      transform: rotate(0deg);
+      transition: transform 0.2s cubic-bezier(0.5, 1.8, 0.3, 0.8);
+    }
+  }
+}
+
 .modal-overlay {
   background: rgb(0 0 0 / 50%);
   display: flex;
@@ -561,13 +616,6 @@
   filter: brightness(0) saturate(100%) invert(20%) sepia(0%) saturate(0%) hue-rotate(0deg) brightness(0.6) contrast(1);
 }
 
-svg.icon,
-.alt-text-icon {
-  width: 20px;
-  height: 20px;
-  color: #000;
-}
-
 .save-icon,
 .cancel-icon {
   width: 25px;
@@ -583,54 +631,6 @@ svg.icon,
 .preview-button,
 .publish-button {
   fill: red;
-}
-
-.icon-button {
-  background: none;
-  border: none;
-  outline: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  font-weight: 600;
-  padding: 0;
-
-  &.toggle-actions {
-    position: absolute;
-    right: 0;
-    top: 12px;
-    height: 42px;
-    transform: translateY(-11px);
-
-    svg.icon {
-      transform: rotate(0deg);
-      transition: transform 0.2s cubic-bezier(0.5, 1.8, 0.3, 0.8);
-    }
-  }
-}
-
-.save-alt-text-button,
-.cancel-alt-text-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: 2px solid transparent;
-  border-radius: 4px;
-
-  svg.icon {
-    color: var(--s2-gray-600);
-  }
-
-  &:hover {
-    background-color: #ffffffe7;
-
-    svg.icon {
-      color: initial;
-    }
-  }
 }
 
 .open .icon-button.toggle-actions {
