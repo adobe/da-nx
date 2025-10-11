@@ -86,6 +86,7 @@ class NxMediaGrid extends LitElement {
         ${virtualize({
     items: this.mediaData,
     renderItem: (media) => this.renderMediaCard(media),
+    keyFunction: (media) => media.url,
     scroller: true,
     layout: grid({
       gap: '24px',
@@ -151,6 +152,9 @@ class NxMediaGrid extends LitElement {
       if (baseType === 'fragment') {
         return html`<strong>FRAGMENT</strong>`;
       }
+      if (baseType === 'document' || (baseType === 'link' && subtype === 'pdf')) {
+        return html`<strong>PDF</strong>`;
+      }
       return html`<strong>${subtype.toUpperCase()}</strong>`;
     }
     return html`<strong>${getDisplayMediaType(media)}</strong>`;
@@ -161,6 +165,9 @@ class NxMediaGrid extends LitElement {
       const [baseType, subtype] = media.type.split(' > ');
       if (baseType === 'fragment') {
         return 'FRAGMENT';
+      }
+      if (baseType === 'document' || (baseType === 'link' && subtype === 'pdf')) {
+        return 'PDF';
       }
       return subtype.toUpperCase();
     }
@@ -204,7 +211,7 @@ class NxMediaGrid extends LitElement {
             <line x1="14" y1="24" x2="34" y2="24" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
             <line x1="14" y1="32" x2="30" y2="32" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
           </svg>
-          <span class="placeholder-label">FRAGMENT</span>
+          <span class="placeholder-label">${getMediaName(media)}</span>
         </div>
       `;
     }
@@ -248,7 +255,7 @@ class NxMediaGrid extends LitElement {
             <path d="M28 6v8h8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             <text x="24" y="30" font-size="10" text-anchor="middle" fill="currentColor" font-weight="600">PDF</text>
           </svg>
-          <span class="placeholder-label">DOCUMENT</span>
+          <span class="placeholder-label">${getMediaName(media)}</span>
         </div>
       `;
     }

@@ -108,6 +108,13 @@ svg.icon {
   overflow-y: auto;
   position: relative;
   contain: layout;
+  padding-top: 0;
+  margin-top: 0;
+}
+
+.media-main > * {
+  margin-top: 0;
+  padding-top: 0;
 }
 
 .media-grid {

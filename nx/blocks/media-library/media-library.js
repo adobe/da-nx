@@ -162,7 +162,9 @@ class NxMediaLibrary extends LitElement {
     }
 
     // For document filtering, use optimized approach with processed data
-    if (this._selectedFilterType && this._selectedFilterType.startsWith('document') && this._processedData) {
+    // Note: 'documents' is a type filter, 'documentImages' etc are document-specific filters
+    if (this._selectedFilterType && this._selectedFilterType.startsWith('document')
+        && this._selectedFilterType !== 'documents' && this._processedData) {
       return getDocumentFilteredItems(
         this._processedData,
         this._mediaData,
@@ -547,9 +549,10 @@ class NxMediaLibrary extends LitElement {
     // Determine what data to display
     const hasData = this._mediaData && this._mediaData.length > 0;
     const hasFilteredData = this.filteredMediaData && this.filteredMediaData.length > 0;
+    const hasProgressiveData = this._progressiveMediaData && this._progressiveMediaData.length > 0;
 
-    // If currently scanning and no data yet
-    if (this._isScanning && !hasData) {
+    // If currently scanning and no data yet (including progressive)
+    if (this._isScanning && !hasData && !hasProgressiveData) {
       return this.renderScanningState();
     }
 
@@ -761,11 +764,8 @@ class NxMediaLibrary extends LitElement {
     this._isScanning = true;
     this._scanStartTime = Date.now();
 
-    // Only clear progressive data if no existing data
-    if (this._progressiveMediaData.length === 0) {
-      this._progressiveMediaData = [];
-      this._progressiveGroupingKeys.clear();
-    }
+    this._progressiveMediaData = [];
+    this._progressiveGroupingKeys.clear();
 
     this._realTimeStats = { pages: 0, media: 0, elapsed: 0 };
 

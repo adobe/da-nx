@@ -42,11 +42,12 @@ export function getMediaType(media) {
   if (type.startsWith('document >')) return 'document';
   if (type.startsWith('fragment >')) return 'fragment';
   if (type.startsWith('link >')) {
-    const mediaUrl = media.url || '';
-    const ext = extractFileExtension(mediaUrl);
-    const detectedType = detectMediaTypeFromExtension(ext);
-    if (detectedType === 'video') return 'video';
-    if (detectedType === 'document') return 'document';
+    const [, subtype] = type.split(' > ');
+    if (subtype) {
+      const detectedType = detectMediaTypeFromExtension(subtype);
+      if (detectedType === 'video') return 'video';
+      if (detectedType === 'document') return 'document';
+    }
     return 'link';
   }
 

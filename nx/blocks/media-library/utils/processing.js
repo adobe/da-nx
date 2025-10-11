@@ -619,11 +619,15 @@ export default async function runScan(path, updateTotal, updateProgressive = nul
   let hasChanges = false; // Track if any files were modified
 
   const callback = async (item) => {
+    const itemPathParts = item.path.split('/').filter((part) => part);
+    if (itemPathParts.length >= 3 && itemPathParts[2] === 'drafts') {
+      return;
+    }
+
     const ext = extractFileExtension(item.path);
 
-    // Only process HTML and media files
     if (ext !== 'html' && !isMediaFile(ext)) {
-      return; // Skip non-HTML and non-media files
+      return;
     }
 
     // Count files discovered
