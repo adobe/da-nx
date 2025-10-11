@@ -11,7 +11,7 @@ export { virtualize, virtualizerRef, defaultKeyFunction, defaultRenderItem } fro
 export { grid } from './layouts/grid.js';
 export { flow } from './layouts/flow.js';
 export { masonry } from './layouts/masonry.js';
-export { flexWrap } from './layouts/flexWrap.js';
+export { layout1dFlex } from './layouts/flexWrap.js';
 
 // Core classes
 export { Virtualizer } from './Virtualizer.js';

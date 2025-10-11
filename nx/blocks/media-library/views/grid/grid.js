@@ -1,5 +1,5 @@
-import { html, LitElement } from 'da-lit';
-import { virtualize, grid } from '../../../../../deps/virtualizer/index.js';
+import { html, LitElement } from '../../deps/lit/dist/index.js';
+import { virtualize, grid } from '../../deps/virtualizer/index.js';
 import getStyle from '../../../../utils/styles.js';
 import getSvg from '../../../../public/utils/svg.js';
 import {

@@ -3,7 +3,7 @@
  * Copyright 2021 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-import { html, noChange, directive, PartType, AsyncDirective, repeat } from 'da-lit';
+import { html, noChange, directive, PartType, AsyncDirective, repeat } from '../lit/dist/index.js';
 import { Virtualizer } from './Virtualizer.js';
 export { virtualizerRef } from './Virtualizer.js';
 export const defaultKeyFunction = (item) => item;

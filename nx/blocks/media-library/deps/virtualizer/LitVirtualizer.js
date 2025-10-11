@@ -3,9 +3,15 @@
  * Copyright 2021 Google LLC
  * SPDX-License-Identifier: BSD-3-Clause
  */
-import { __decorate } from "tslib";
-import { html, LitElement } from 'http://localhost:6456/deps/lit/dist/index.js';
-import { property } from 'http://localhost:6456/deps/lit/dist/index.js';
+// Inline minimal tslib __decorate helper
+function __decorate(decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+}
+
+import { html, LitElement, property } from '../lit/dist/index.js';
 import { virtualize, virtualizerRef, defaultRenderItem, defaultKeyFunction, } from './virtualize.js';
 export class LitVirtualizer extends LitElement {
     constructor() {
