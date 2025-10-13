@@ -209,8 +209,8 @@ class NxMediaInfo extends LitElement {
     this._newAltText = e.target.value;
   }
 
-  editAlt(usage) {
-    this._editingAltUsage = usage.doc;
+  editAlt(usage, usageIndex) {
+    this._editingAltUsage = { doc: usage.doc, index: usageIndex };
     this._newAltText = '';
   }
 
@@ -226,7 +226,7 @@ class NxMediaInfo extends LitElement {
     }
   }
 
-  async saveAlt(usage) {
+  async saveAlt(usage, usageIndex) {
     if (!this._newAltText.trim()) return;
 
     try {
@@ -242,11 +242,12 @@ class NxMediaInfo extends LitElement {
         usage.doc,
         this.media.url,
         this._newAltText,
+        usageIndex,
       );
 
-      const usageIndex = this._usageData.findIndex((u) => u.doc === usage.doc);
-      if (usageIndex !== -1) {
-        this._usageData[usageIndex].alt = this._newAltText;
+      const globalUsageIndex = this._usageData.indexOf(usage);
+      if (globalUsageIndex !== -1) {
+        this._usageData[globalUsageIndex].alt = this._newAltText;
       }
 
       const savedAltText = this._newAltText;
@@ -608,21 +609,22 @@ class NxMediaInfo extends LitElement {
     return '';
   }
 
-  renderUsageActions(usage) {
+  renderUsageActions(usage, usageIndex) {
     const isMissingAlt = !usage.alt && usage.type && usage.type.trim().startsWith('img >');
-    const isEditingAlt = this._editingAltUsage === usage.doc;
+    const isEditingAlt = this._editingAltUsage?.doc === usage.doc
+                         && this._editingAltUsage?.index === usageIndex;
 
     return html`
       <div class="usage-row">
         ${isImage(this.media.url) ? html`
-        ${this.renderAltText(usage, isEditingAlt, isMissingAlt)}
+        ${this.renderAltText(usage, usageIndex, isEditingAlt, isMissingAlt)}
         ` : ''}
       </div>
     `;
   }
 
   // eslint-disable-next-line no-unused-vars
-  renderAltText(usage, isEditingAlt, isMissingAlt) {
+  renderAltText(usage, usageIndex, isEditingAlt, isMissingAlt) {
     if (isEditingAlt) {
       return html`
         <div class="alt-edit-form">
@@ -634,7 +636,7 @@ class NxMediaInfo extends LitElement {
             size="small"
           ></sl-input>
           <div class="alt-edit-actions">
-            <button type="button" class="icon-button save-alt-text-button" @click=${() => this.saveAlt(usage)}>
+            <button type="button" class="icon-button save-alt-text-button" @click=${() => this.saveAlt(usage, usageIndex)}>
               <svg class="icon" viewBox="0 0 20 20">
                 <use href="#S2_Icon_Checkmark_20_N"></use>
               </svg>
@@ -658,7 +660,7 @@ class NxMediaInfo extends LitElement {
             </svg>
             ${usage.alt}
           </div>
-          <button type="button" size="small" class="icon-button" @click=${() => this.editAlt(usage)}>
+          <button type="button" size="small" class="icon-button" @click=${() => this.editAlt(usage, usageIndex)}>
             <svg class="icon" viewBox="0 0 22 20">
               <use href="#S2_Icon_Edit_20_N"></use>
             </svg>
@@ -676,7 +678,7 @@ class NxMediaInfo extends LitElement {
             </svg>
             <span class="alt-warning-badge">No Alt Text</span>
           </div>
-          <button type="button" size="small" class="icon-button" @click=${() => this.editAlt(usage)}>
+          <button type="button" size="small" class="icon-button" @click=${() => this.editAlt(usage, usageIndex)}>
             <svg class="icon" viewBox="0 0 22 20">
               <use href="#S2_Icon_Edit_20_N"></use>
             </svg>
@@ -693,7 +695,7 @@ class NxMediaInfo extends LitElement {
           </svg>
           Decorative
         </div>
-        <button type="button" size="small" class="icon-button" @click=${() => this.editAlt(usage)}>
+        <button type="button" size="small" class="icon-button" @click=${() => this.editAlt(usage, usageIndex)}>
           <svg class="icon" viewBox="0 0 22 20">
             <use href="#S2_Icon_Edit_20_N"></use>
           </svg>
@@ -808,7 +810,7 @@ class NxMediaInfo extends LitElement {
               ${isImage(this.media.url) ? html`
                 <div class="usage-container">
                   <h5 class="usage-title">Alt</h5>
-                  ${usages.map((usage) => this.renderUsageActions(usage))}
+                  ${usages.map((usage, usageIndex) => this.renderUsageActions(usage, usageIndex))}
                 </div>
               ` : ''}
             </div>

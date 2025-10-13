@@ -431,7 +431,7 @@ export async function copyMediaToClipboard(media) {
   }
 }
 
-export async function updateDocumentAltText(org, repo, docPath, mediaUrl, altText) {
+export async function updateDocumentAltText(org, repo, docPath, mediaUrl, altText, imageIndex = 0) {
   const response = await daFetch(`${DA_ORIGIN}/source/${org}/${repo}${docPath}`);
   if (!response.ok) {
     throw new Error('Failed to fetch document');
@@ -441,24 +441,23 @@ export async function updateDocumentAltText(org, repo, docPath, mediaUrl, altTex
   const parser = new DOMParser();
   const doc = parser.parseFromString(htmlContent, 'text/html');
 
-  // Find all img elements with matching src that don't have alt text
+  // Find all img elements with matching src
   const imgElements = doc.querySelectorAll('img');
-  let updated = false;
-
+  const matchingImages = [];
+  
   imgElements.forEach((img) => {
     const imgSrc = img.getAttribute('src');
-    if (imgSrc && !img.getAttribute('alt')) {
-      // Use lenient URL matching
-      if (urlsMatch(imgSrc, mediaUrl)) {
-        img.setAttribute('alt', altText);
-        updated = true;
-      }
+    if (imgSrc && urlsMatch(imgSrc, mediaUrl)) {
+      matchingImages.push(img);
     }
   });
 
-  if (!updated) {
-    throw new Error('No matching image elements without alt text found in document');
+  // Update the specific image at the given index
+  if (!matchingImages[imageIndex]) {
+    throw new Error(`No matching image found at index ${imageIndex}`);
   }
+
+  matchingImages[imageIndex].setAttribute('alt', altText);
 
   // Save the entire document, not just the main content
   const fullDocumentContent = doc.documentElement.outerHTML;
