@@ -81,11 +81,19 @@ class NxBulk extends LitElement {
     });
   }
 
-  handleCopy() {
+  handleCopy(e) {
+    const button = e.currentTarget;
+    const originalText = button.textContent;
+    button.textContent = 'Copied ✓';
+
     const aemPaths = this._files.map((file) => file.aemPreview);
     const blob = new Blob([aemPaths.join('\n')], { type: 'text/plain' });
     const data = [new ClipboardItem({ [blob.type]: blob })];
     navigator.clipboard.write(data);
+
+    setTimeout(() => {
+      button.textContent = originalText;
+    }, 1000);
   }
 
   renderFile(file) {
