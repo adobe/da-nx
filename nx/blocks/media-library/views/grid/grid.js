@@ -86,7 +86,7 @@ class NxMediaGrid extends LitElement {
         ${virtualize({
     items: this.mediaData,
     renderItem: (media) => this.renderMediaCard(media),
-    keyFunction: (media) => media.url,
+    keyFunction: (media) => media?.url || '',
     scroller: true,
     layout: grid({
       gap: '24px',
@@ -99,6 +99,8 @@ class NxMediaGrid extends LitElement {
   }
 
   renderMediaCard(media) {
+    if (!media) return html``;
+    
     const handlers = {
       mediaClick: () => this.eventHandlers.handleMediaClick(media),
       copyClick: () => this.eventHandlers.handleMediaCopy(media),

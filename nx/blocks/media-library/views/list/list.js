@@ -73,6 +73,7 @@ class NxMediaList extends LitElement {
           ${virtualize({
     items: this.mediaData,
     renderItem: (media) => this.renderListItem(media),
+    keyFunction: (media) => media?.url || '',
     scroller: true,
   })}
         </div>
@@ -81,6 +82,8 @@ class NxMediaList extends LitElement {
   }
 
   renderListItem(media) {
+    if (!media) return html``;
+    
     const handlers = {
       mediaClick: () => this.eventHandlers.handleMediaClick(media),
       copyClick: () => this.eventHandlers.handleMediaCopy(media),

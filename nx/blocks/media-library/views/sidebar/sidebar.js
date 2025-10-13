@@ -4,18 +4,28 @@ import getSvg from '../../../../public/utils/svg.js';
 
 const styles = await getStyle(import.meta.url);
 const nx = `${new URL(import.meta.url).origin}/nx`;
+const sl = await getStyle(`${nx}/public/sl/styles.css`);
+const slComponents = await getStyle(`${nx}/public/sl/components.css`);
 const ICONS = [
   `${nx}/img/icons/S2IconClassicGridView20N-icon.svg`,
   `${nx}/public/icons/S2_Icon_ListBulleted_20_N.svg`,
   `${nx}/public/icons/S2_Icon_Properties_20_N.svg`,
+  `${nx}/public/icons/S2_GraphBarVertical_18_N.svg`,
 ];
 
 class NxMediaSidebar extends LitElement {
   static properties = {
     activeFilter: { attribute: false },
     currentView: { attribute: false },
+    isScanning: { attribute: false, type: Boolean },
+    scanProgress: { attribute: false, type: Object },
     isExpanded: { state: true },
+    isIndexExpanded: { state: true },
   };
+
+  shouldUpdate() {
+    return true;
+  }
 
   static filterStructure = {
     main: [
@@ -39,11 +49,14 @@ class NxMediaSidebar extends LitElement {
     this.activeFilter = 'all';
     this.currentView = 'grid';
     this.isExpanded = false;
+    this.isIndexExpanded = false;
+    this.isScanning = false;
+    this.scanProgress = { pages: 0, media: 0, duration: null, hasChanges: null };
   }
 
   connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [styles];
+    this.shadowRoot.adoptedStyleSheets = [sl, slComponents, styles];
     getSvg({ parent: this.shadowRoot, paths: ICONS });
   }
 
@@ -53,8 +66,18 @@ class NxMediaSidebar extends LitElement {
   }
 
   handleFiltersToggle() {
+    if (this.isIndexExpanded) {
+      this.isIndexExpanded = false;
+    }
     this.isExpanded = !this.isExpanded;
     this.dispatchEvent(new CustomEvent('sidebarToggle', { detail: { expanded: this.isExpanded } }));
+  }
+
+  handleIndexToggle() {
+    if (this.isExpanded) {
+      this.isExpanded = false;
+    }
+    this.isIndexExpanded = !this.isIndexExpanded;
   }
 
   handleFilter(e) {
@@ -83,9 +106,62 @@ class NxMediaSidebar extends LitElement {
     this.handleViewChange(newView);
   }
 
+  renderIndexPanel() {
+    if (this.isScanning) {
+      return html`
+        <div class="index-panel">
+          <div class="index-message">
+            ${this.scanProgress?.pages || 0} pages, ${this.scanProgress?.media || 0} media
+          </div>
+        </div>
+      `;
+    }
+
+    const hasCompletedScan = this.scanProgress?.duration
+      || (!this.isScanning && (this.scanProgress?.pages > 0 || this.scanProgress?.media > 0));
+
+    if (hasCompletedScan) {
+      if (this.scanProgress.hasChanges === false) {
+        return html`
+          <div class="index-panel">
+            <div class="index-message">
+              No changes found
+            </div>
+          </div>
+        `;
+      }
+
+      if (this.scanProgress.hasChanges === true) {
+        return html`
+          <div class="index-panel">
+            <div class="index-message">
+              Found ${this.scanProgress?.media || 0} media
+            </div>
+          </div>
+        `;
+      }
+
+      return html`
+        <div class="index-panel">
+          <div class="index-message">
+            Scan completed
+          </div>
+        </div>
+      `;
+    }
+
+    return html`
+      <div class="index-panel">
+        <div class="index-message empty">
+          Ready to index
+        </div>
+      </div>
+    `;
+  }
+
   render() {
     return html`
-      <aside class="media-sidebar ${this.isExpanded ? 'expanded' : 'collapsed'}">
+      <aside class="media-sidebar ${this.isExpanded || this.isIndexExpanded ? 'expanded' : 'collapsed'}">
         <div class="sidebar-icons">
           <button
             class="icon-btn"
@@ -95,7 +171,7 @@ class NxMediaSidebar extends LitElement {
             <svg class="icon">
               <use href="${this.currentView === 'grid' ? '#S2_Icon_ListBulleted_20_N' : '#S2IconClassicGridView20N-icon'}"></use>
             </svg>
-            ${this.isExpanded ? html`<span>${this.currentView === 'grid' ? 'List' : 'Grid'}</span>` : ''}
+            ${this.isExpanded || this.isIndexExpanded ? html`<span>${this.currentView === 'grid' ? 'List' : 'Grid'}</span>` : ''}
           </button>
           <button
             class="icon-btn ${this.isExpanded ? 'active' : ''}"
@@ -105,9 +181,20 @@ class NxMediaSidebar extends LitElement {
             <svg class="icon">
               <use href="#S2_Icon_Properties_20_N"></use>
             </svg>
-            ${this.isExpanded ? html`<span>Filters</span>` : ''}
+            ${this.isExpanded || this.isIndexExpanded ? html`<span>Filters</span>` : ''}
+          </button>
+          <button
+            class="icon-btn ${this.isIndexExpanded ? 'active' : ''}"
+            @click=${this.handleIndexToggle}
+            title="Index"
+          >
+            <svg class="icon">
+              <use href="#S2_GraphBarVertical_18_N"></use>
+            </svg>
+            ${this.isExpanded || this.isIndexExpanded ? html`<span>Index</span>` : ''}
           </button>
         </div>
+
         
         ${this.isExpanded ? html`
           <div class="filter-panel">
@@ -129,6 +216,8 @@ class NxMediaSidebar extends LitElement {
             </div>
           </div>
         ` : ''}
+
+        ${this.isIndexExpanded ? this.renderIndexPanel() : ''}
       </aside>
     `;
   }

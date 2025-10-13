@@ -24,12 +24,16 @@ import './views/list/list.js';
 import './views/modal-manager/modal-manager.js';
 import './views/scan/scan.js';
 import './views/onboard/onboard.js';
+import getSvg from '../../public/utils/svg.js';
 
 const EL_NAME = 'nx-media-library';
 const nx = `${new URL(import.meta.url).origin}/nx`;
 const sl = await getStyle(`${nx}/public/sl/styles.css`);
 const slComponents = await getStyle(`${nx}/public/sl/components.css`);
+const topbarStyles = await getStyle(`${nx}/blocks/media-library/views/topbar/topbar.css`);
 const styles = await getStyle(import.meta.url);
+
+const SCAN_ICONS = [`${nx}/public/icons/S2_Icon_Refresh_20_N.svg`];
 
 class NxMediaLibrary extends LitElement {
   static properties = {
@@ -43,6 +47,7 @@ class NxMediaLibrary extends LitElement {
     _currentView: { state: true },
     _progressiveMediaData: { state: true },
     _isScanning: { state: true },
+    _scanProgress: { state: true },
     _resultSummary: { state: true },
   };
 
@@ -63,6 +68,7 @@ class NxMediaLibrary extends LitElement {
     this._progressiveGroupingKeys = new Set();
     this._progressiveLimit = 500;
     this._isScanning = false;
+    this._scanProgress = { pages: 0, media: 0, duration: null, hasChanges: null };
     this._scanStartTime = null;
     this._scanCompleted = false;
     this._scanInProgress = false;
@@ -75,17 +81,12 @@ class NxMediaLibrary extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [sl, slComponents, styles];
+    this.shadowRoot.adoptedStyleSheets = [sl, slComponents, topbarStyles, styles];
+    getSvg({ parent: this.shadowRoot, paths: SCAN_ICONS });
 
     this._boundHandleAltTextUpdated = this.handleAltTextUpdated.bind(this);
-    this._boundHandleScanStart = this.handleScanStart.bind(this);
-    this._boundHandleScanComplete = this.handleScanComplete.bind(this);
-    this._boundHandleProgressiveDataUpdate = this.handleProgressiveDataUpdate.bind(this);
     this._boundHandleMediaDataUpdated = this.handleMediaDataUpdated.bind(this);
     window.addEventListener('alt-text-updated', this._boundHandleAltTextUpdated);
-    window.addEventListener('scanStart', this._boundHandleScanStart);
-    window.addEventListener('scanComplete', this._boundHandleScanComplete);
-    window.addEventListener('progressiveDataUpdate', this._boundHandleProgressiveDataUpdate);
     window.addEventListener('mediaDataUpdated', this._boundHandleMediaDataUpdated);
   }
 
@@ -98,9 +99,6 @@ class NxMediaLibrary extends LitElement {
       clearInterval(this._statsInterval);
     }
     window.removeEventListener('alt-text-updated', this._boundHandleAltTextUpdated);
-    window.removeEventListener('scanStart', this._boundHandleScanStart);
-    window.removeEventListener('scanComplete', this._boundHandleScanComplete);
-    window.removeEventListener('progressiveDataUpdate', this._boundHandleProgressiveDataUpdate);
     window.removeEventListener('mediaDataUpdated', this._boundHandleMediaDataUpdated);
   }
 
@@ -108,16 +106,17 @@ class NxMediaLibrary extends LitElement {
     const dataProps = ['_mediaData', '_error', '_progressiveMediaData', '_isScanning'];
     const filterProps = ['_searchQuery', '_selectedFilterType'];
     const uiProps = ['_currentView', 'sitePath'];
+    const scanProps = ['_scanProgress'];
     const hasDataChange = dataProps.some((prop) => changedProperties.has(prop));
     const hasFilterChange = filterProps.some((prop) => changedProperties.has(prop));
     const hasUIChange = uiProps.some((prop) => changedProperties.has(prop));
+    const hasScanChange = scanProps.some((prop) => changedProperties.has(prop));
 
-    return hasDataChange || hasFilterChange || hasUIChange;
+    return hasDataChange || hasFilterChange || hasUIChange || hasScanChange;
   }
 
   willUpdate(changedProperties) {
     if (changedProperties.has('_mediaData') && this._mediaData) {
-      // Simple data change - no complex processing
       this._needsFilterRecalculation = true;
       this._needsFilterUpdate = true;
     }
@@ -128,7 +127,6 @@ class NxMediaLibrary extends LitElement {
       this._needsFilterRecalculation = true;
     }
 
-    // Update result summary when filter/search/data changes
     if (changedProperties.has('_mediaData')
         || changedProperties.has('_searchQuery')
         || changedProperties.has('_selectedFilterType')
@@ -159,9 +157,7 @@ class NxMediaLibrary extends LitElement {
   }
 
   updated() {
-    this.updateComplete.then(() => {
-      // Sidebar isLoading state is now handled via template binding
-    });
+    this.updateComplete.then(() => {});
   }
 
   get filteredMediaData() {
@@ -169,8 +165,6 @@ class NxMediaLibrary extends LitElement {
       return [];
     }
 
-    // For document filtering, use optimized approach with processed data
-    // Note: 'documents' is a type filter, 'documentImages' etc are document-specific filters
     if (this._selectedFilterType && this._selectedFilterType.startsWith('document')
         && this._selectedFilterType !== 'documents' && this._processedData) {
       return getDocumentFilteredItems(
@@ -181,7 +175,6 @@ class NxMediaLibrary extends LitElement {
       );
     }
 
-    // Create unique items with usage counts from processed data
     const uniqueItems = [];
     const seenKeys = new Set();
 
@@ -190,7 +183,6 @@ class NxMediaLibrary extends LitElement {
       if (!seenKeys.has(groupingKey)) {
         seenKeys.add(groupingKey);
 
-        // Ensure usage count is set correctly
         let usageCount = item.usageCount || 1;
         if (this._processedData && this._processedData.usageData
           && this._processedData.usageData[groupingKey]) {
@@ -204,7 +196,6 @@ class NxMediaLibrary extends LitElement {
       }
     });
 
-    // Apply folder filtering if a folder is selected
     let dataWithUsageCounts = uniqueItems;
     if (this._selectedFolder) {
       dataWithUsageCounts = getFolderFilteredItems(
@@ -214,13 +205,11 @@ class NxMediaLibrary extends LitElement {
       );
     }
 
-    // Apply search filtering if there's a search query
     let finalData = dataWithUsageCounts;
     if (this._searchQuery && this._searchQuery.trim()) {
       finalData = filterBySearch(dataWithUsageCounts, this._searchQuery);
     }
 
-    // Apply filter if not 'all'
     if (this._selectedFilterType && this._selectedFilterType !== 'all') {
       return applyFilter(
         finalData,
@@ -278,14 +267,11 @@ class NxMediaLibrary extends LitElement {
       const mediaData = await loadMediaSheet(org, repo);
 
       if (mediaData && mediaData.length > 0) {
-        // Store raw data for suggestions
         this._rawMediaData = mediaData;
 
         this._usageIndex = buildUsageIndex(mediaData);
 
-        // Process raw data first to calculate usage counts
         this._processedData = await processMediaData(mediaData);
-        // Then deduplicate the data using the same grouping logic
         const uniqueItems = [];
         const seenKeys = new Set();
 
@@ -313,14 +299,11 @@ class NxMediaLibrary extends LitElement {
   async handleMediaDataUpdated(e) {
     const { mediaData } = e.detail;
 
-    // Process the data for usage counts and filters
     if (mediaData && mediaData.length > 0) {
-      // Store raw data for suggestions
       this._rawMediaData = mediaData;
 
       this._usageIndex = buildUsageIndex(mediaData);
 
-      // Deduplicate the data using the same grouping logic
       const uniqueItems = [];
       const seenKeys = new Set();
 
@@ -335,7 +318,6 @@ class NxMediaLibrary extends LitElement {
       this._mediaData = uniqueItems;
       this._processedData = await processMediaData(uniqueItems);
       this._needsFilterRecalculation = true;
-      // Clear any cached data
       this._filteredDataCache = null;
       this._lastFilterParams = null;
       this._lastProcessedData = null;
@@ -351,7 +333,7 @@ class NxMediaLibrary extends LitElement {
   handleDocNavigation(path) {
     if (path) {
       this._selectedDocument = path;
-      this._selectedFilterType = 'documentTotal'; // Set to document filter to show all media for this document
+      this._selectedFilterType = 'documentTotal';
       this._needsFilterRecalculation = true;
       this._filteredDataCache = null;
       this._lastFilterParams = null;
@@ -362,7 +344,7 @@ class NxMediaLibrary extends LitElement {
   handleFolderNavigation(path) {
     if (path) {
       this._selectedFolder = path;
-      this._selectedFilterType = 'all'; // Reset to all filter for folder search
+      this._selectedFilterType = 'all';
       this._needsFilterRecalculation = true;
       this._filteredDataCache = null;
       this._lastFilterParams = null;
@@ -381,6 +363,8 @@ class NxMediaLibrary extends LitElement {
           <nx-media-sidebar
             .activeFilter=${this._selectedFilterType}
             .currentView=${this._currentView}
+            .isScanning=${this._isScanning}
+            .scanProgress=${this._scanProgress}
             @filter=${this.handleFilter}
             @viewChange=${this.handleViewChange}
           ></nx-media-sidebar>
@@ -391,11 +375,9 @@ class NxMediaLibrary extends LitElement {
             .searchQuery=${this._searchQuery}
             .currentView=${this._currentView}
             .mediaData=${this._rawMediaData || this._mediaData}
-            .sitePath=${this.sitePath}
             .resultSummary=${this._resultSummary}
             @search=${this.handleSearch}
             @clear-search=${this.handleClearSearch}
-            @mediaDataUpdated=${this.handleMediaDataUpdated}
           ></nx-media-topbar>
         </div>
 
@@ -404,32 +386,38 @@ class NxMediaLibrary extends LitElement {
         </div>
 
         <nx-modal-manager></nx-modal-manager>
+
+        <nx-media-scan
+          .sitePath=${this.sitePath}
+          @scanStart=${this.handleScanStart}
+          @scanProgress=${this.handleScanProgress}
+          @scanComplete=${this.handleScanComplete}
+          @scanError=${this.handleScanError}
+          @progressiveDataUpdate=${this.handleProgressiveDataUpdate}
+          @mediaDataUpdated=${this.handleMediaDataUpdated}
+          style="display: none;"
+        ></nx-media-scan>
       </div>
     `;
   }
 
   renderCurrentView() {
-    // Determine what data to display
     const hasData = this._mediaData && this._mediaData.length > 0;
     const hasFilteredData = this.filteredMediaData && this.filteredMediaData.length > 0;
     const hasProgressiveData = this._progressiveMediaData && this._progressiveMediaData.length > 0;
 
-    // If currently scanning and no data yet (including progressive)
     if (this._isScanning && !hasData && !hasProgressiveData) {
       return this.renderScanningState();
     }
 
-    // If have data but filtered results are empty and NOT scanning
     if (hasData && !hasFilteredData && !this._isScanning) {
       return this.renderEmptyState();
     }
 
-    // If no data at all (not scanning, no data loaded)
     if (!hasData && !this._isScanning) {
       return this.renderEmptyState();
     }
 
-    // Determine display data
     let displayData;
     if (this._isScanning && this._progressiveMediaData.length > 0) {
       displayData = this._progressiveMediaData;
@@ -437,7 +425,6 @@ class NxMediaLibrary extends LitElement {
       displayData = this.filteredMediaData;
     }
 
-    // Render the appropriate view
     switch (this._currentView) {
       case 'list':
         return html`
@@ -676,8 +663,21 @@ class NxMediaLibrary extends LitElement {
   async handleScanStart() {
     this._scanCompleted = false;
     this._scanInProgress = true;
+    this._isScanning = true;
+    this._scanProgress = { pages: 0, media: 0, duration: null, hasChanges: null };
+    this._scanStartTime = Date.now();
 
     this.startProgressiveScan();
+  }
+
+  handleScanProgress(e) {
+    this._scanProgress = { ...e.detail.progress };
+    this.requestUpdate('_scanProgress');
+  }
+
+  handleScanError(e) {
+    this._isScanning = false;
+    console.error('Scan error:', e.detail.error); // eslint-disable-line no-console
   }
 
   async handleScanComplete() {
@@ -687,12 +687,10 @@ class NxMediaLibrary extends LitElement {
       return;
     }
 
+    const previousDataLength = this._mediaData?.length || 0;
+
     this._progressiveMediaData = [];
     this._progressiveGroupingKeys.clear();
-    this._mediaData = null;
-    this._processedData = null;
-    this._filteredDataCache = null;
-    this._lastFilterParams = null;
 
     this._scanCompleted = true;
     this._scanInProgress = false;
@@ -711,13 +709,9 @@ class NxMediaLibrary extends LitElement {
             const responseData = await response.json();
             const mediaData = responseData.data || responseData || [];
 
+            const duration = ((Date.now() - this._scanStartTime) / 1000).toFixed(1);
+
             if (mediaData && mediaData.length > 0) {
-              // Store raw data for suggestions
-              this._rawMediaData = mediaData;
-
-              this._usageIndex = buildUsageIndex(mediaData);
-
-              // Deduplicate the data using the same grouping logic
               const uniqueItems = [];
               const seenKeys = new Set();
 
@@ -729,24 +723,60 @@ class NxMediaLibrary extends LitElement {
                 }
               });
 
-              this._mediaData = uniqueItems;
-              this._processedData = await processMediaData(uniqueItems);
-              this._needsFilterRecalculation = true;
+              const newDataLength = uniqueItems.length;
+              const hasChanges = newDataLength !== previousDataLength;
 
-              this.requestUpdate();
+              if (hasChanges) {
+                this._rawMediaData = mediaData;
+                this._usageIndex = buildUsageIndex(mediaData);
+                this._mediaData = uniqueItems;
+                this._processedData = await processMediaData(uniqueItems);
+                this._needsFilterRecalculation = true;
+                this._filteredDataCache = null;
+                this._lastFilterParams = null;
+              }
+
+              this._scanProgress = {
+                ...this._scanProgress,
+                media: newDataLength,
+                duration: `${duration}s`,
+                hasChanges,
+              };
+
+              this._isScanning = false;
+              this.requestUpdate('_scanProgress');
+            } else {
+              this._scanProgress = {
+                ...this._scanProgress,
+                media: 0,
+                duration: `${duration}s`,
+                hasChanges: false,
+              };
+              this._isScanning = false;
+              this.requestUpdate('_scanProgress');
             }
           }
         }
       }
     } catch (error) {
-      // Error loading media.json - keep current state
+      console.error('[MEDIA-LIB] Error in handleScanComplete:', error); // eslint-disable-line no-console
     } finally {
       this._isProcessingData = false;
+      this._isScanning = false;
     }
   }
 
   handleProgressiveDataUpdate(e) {
     const { mediaItems } = e.detail;
+    this._realTimeStats.pages = e.detail.pages || this._realTimeStats.pages;
+    this._realTimeStats.media += mediaItems.length;
+    this._scanProgress = {
+      pages: this._realTimeStats.pages,
+      media: this._realTimeStats.media,
+      duration: null,
+      hasChanges: null,
+    };
+    this.requestUpdate('_scanProgress');
     this.updateProgressiveData(mediaItems);
   }
 

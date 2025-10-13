@@ -21,7 +21,7 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 72px 8px 16px 16px;
+  padding: 72px 8px 8px 16px;
 }
 
 .icon-btn {
@@ -246,4 +246,22 @@
 .filter-list button:disabled {
   cursor: not-allowed;
   opacity: 0.6;
+}
+
+/* Index Panel Styles */
+
+.index-panel {
+  padding: 8px 16px 16px 16px;
+  overflow-y: auto;
+}
+
+.index-message {
+  font-size: 14px;
+  color: var(--s2-gray-700);
+  line-height: 1.5;
+}
+
+.index-message.empty {
+  color: var(--s2-gray-500);
+  font-style: italic;
 }
