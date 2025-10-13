@@ -137,16 +137,20 @@ class NxMediaList extends LitElement {
   renderMediaPreview(media) {
     if (isFragment(media)) {
       return html`
-        <div class="fragment-preview-container">
-          <svg class="fragment-icon" viewBox="0 0 18 18">
-            <use href="#Smock_DocumentFragment_18_N"></use>
+        <div class="placeholder-full fragment-placeholder">
+          <svg class="placeholder-icon" viewBox="0 0 48 48" fill="none">
+            <rect x="8" y="8" width="32" height="32" rx="2" stroke="currentColor" stroke-width="2"/>
+            <line x1="14" y1="16" x2="26" y2="16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <line x1="14" y1="24" x2="34" y2="24" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            <line x1="14" y1="32" x2="30" y2="32" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
           </svg>
         </div>
       `;
     }
 
     if (isImage(media.url)) {
-      return html`<img src="${media.url}" alt="${media.alt || ''}" loading="lazy">`;
+      const optimizedUrl = media.url.replace('format=jpeg', 'format=webply').replace('format=png', 'format=webply');
+      return html`<img src="${optimizedUrl}" alt="${media.alt || ''}" loading="lazy">`;
     }
 
     if (isExternalVideoUrl(media.url)) {
@@ -167,19 +171,19 @@ class NxMediaList extends LitElement {
 
     if (isVideo(media.url)) {
       return html`
-        <div class="video-preview-container">
-          <svg class="video-icon" viewBox="0 0 20 20">
-            <use href="#S2_Icon_Video_20_N"></use>
-          </svg>
-        </div>
+        <video src="${media.url}" muted playsinline preload="metadata" loading="lazy">
+          <source src="${media.url}" type="video/mp4">
+        </video>
       `;
     }
 
     if (isPdf(media.url)) {
       return html`
-        <div class="pdf-preview-container">
-          <svg class="pdf-icon" viewBox="0 0 20 20">
-            <use href="#S2_Icon_PDF_20_N"></use>
+        <div class="placeholder-full pdf-placeholder">
+          <svg class="placeholder-icon" viewBox="0 0 48 48" fill="none">
+            <path d="M12 6h16l8 8v26a2 2 0 01-2 2H12a2 2 0 01-2-2V8a2 2 0 012-2z" stroke="currentColor" stroke-width="2"/>
+            <path d="M28 6v8h8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <text x="24" y="30" font-size="10" text-anchor="middle" fill="currentColor" font-weight="600">PDF</text>
           </svg>
         </div>
       `;
