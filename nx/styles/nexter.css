@@ -155,6 +155,10 @@ h6 {
   line-height: var(--spectrum-line-height-100);
 }
 
+.nx-app {
+  height: 100svh;
+}
+
 .nx-app header {
   height: var(--nx-nav-height);
   z-index: 1000;
