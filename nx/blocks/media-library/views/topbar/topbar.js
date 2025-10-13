@@ -261,6 +261,15 @@ class NxMediaTopBar extends LitElement {
     }
   }
 
+  handleClearSearch() {
+    this.searchQuery = '';
+    this._suggestions = [];
+    this._activeIndex = -1;
+    this._suppressSuggestions = false;
+    this._originalQuery = '';
+    this.dispatchEvent(new CustomEvent('clear-search'));
+  }
+
   highlightMatch(text, query) {
     if (!query || !text) return text;
     const regex = new RegExp(`(${query})`, 'ig');
@@ -391,12 +400,21 @@ class NxMediaTopBar extends LitElement {
           <div class="search-wrapper">
             <sl-input
               type="text"
-              placeholder="Search media, doc:path, folder:path, or / for root files..."
+              placeholder="Search"
               .value=${this.searchQuery}
               @input=${this.handleSearchInput}
               @keydown=${this.handleKeyDown}
-            >
-            </sl-input>
+            ></sl-input>
+            ${this.searchQuery ? html`
+              <button 
+                class="clear-search-btn" 
+                @click=${this.handleClearSearch}
+                title="Clear search"
+                aria-label="Clear search"
+              >
+                ✕
+              </button>
+            ` : ''}
             ${this._suggestions.length ? html`
               <div class="suggestions-dropdown">
                 ${this._suggestions.map((suggestion, index) => html`

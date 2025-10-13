@@ -1,6 +1,6 @@
 import { html, LitElement } from 'da-lit';
 import getStyle from '../../utils/styles.js';
-import { loadMediaSheet } from './utils/processing.js';
+import { loadMediaSheet, buildUsageIndex } from './utils/processing.js';
 import { copyMediaToClipboard } from './utils/utils.js';
 import {
   processMediaData,
@@ -9,6 +9,9 @@ import {
   getGroupingKey,
   getDocumentFilteredItems,
   getFolderFilteredItems,
+  parseColonSyntax,
+  getFilterLabel,
+  computeResultSummary,
 } from './utils/filters.js';
 import { daFetch } from '../../utils/daFetch.js';
 import { DA_ORIGIN } from '../../public/utils/constants.js';
@@ -130,7 +133,12 @@ class NxMediaLibrary extends LitElement {
         || changedProperties.has('_searchQuery')
         || changedProperties.has('_selectedFilterType')
     ) {
-      this._resultSummary = this.computeResultSummary();
+      this._resultSummary = computeResultSummary(
+        this._mediaData,
+        this.filteredMediaData,
+        this._searchQuery,
+        this._selectedFilterType,
+      );
     }
   }
 
@@ -224,120 +232,6 @@ class NxMediaLibrary extends LitElement {
     return finalData;
   }
 
-  getFolderFilteredItems(data) {
-    if (!this._selectedFolder || !data) {
-      return data;
-    }
-
-    if (this._usageIndex && this._usageIndex.size > 0) {
-      const mediaUrlsInFolder = new Set();
-      const folderUsageCounts = new Map();
-
-      this._usageIndex.forEach((usageEntries, groupingKey) => {
-        usageEntries.forEach((entry) => {
-          if (!entry.doc) return;
-
-          let isInFolder = false;
-          if (this._selectedFolder === '/' || this._selectedFolder === '') {
-            if (!entry.doc.includes('/', 1)) {
-              isInFolder = true;
-            }
-          } else {
-            const cleanPath = entry.doc.replace(/\.html$/, '');
-            const parts = cleanPath.split('/');
-
-            if (parts.length > 2) {
-              const folderPath = parts.slice(0, -1).join('/');
-              const searchPath = this._selectedFolder.startsWith('/') ? this._selectedFolder : `/${this._selectedFolder}`;
-              if (folderPath === searchPath) {
-                isInFolder = true;
-              }
-            }
-          }
-
-          if (isInFolder) {
-            const mediaItem = data.find((item) => getGroupingKey(item.url) === groupingKey);
-            if (mediaItem) {
-              mediaUrlsInFolder.add(mediaItem.url);
-              const currentCount = folderUsageCounts.get(mediaItem.url) || 0;
-              folderUsageCounts.set(mediaItem.url, currentCount + 1);
-            }
-          }
-        });
-      });
-
-      const filteredData = data.filter((item) => mediaUrlsInFolder.has(item.url));
-
-      filteredData.forEach((item) => {
-        const folderCount = folderUsageCounts.get(item.url) || 0;
-        item.folderUsageCount = folderCount;
-      });
-
-      return filteredData;
-    }
-
-    if (this._rawMediaData && this._rawMediaData.length > 0) {
-      const mediaUrlsInFolder = new Set();
-      const folderUsageCounts = new Map();
-
-      this._rawMediaData.forEach((item) => {
-        if (!item.doc) return;
-
-        let isInFolder = false;
-        if (this._selectedFolder === '/' || this._selectedFolder === '') {
-          if (!item.doc.includes('/', 1)) {
-            isInFolder = true;
-          }
-        } else {
-          const cleanPath = item.doc.replace(/\.html$/, '');
-          const parts = cleanPath.split('/');
-
-          if (parts.length > 2) {
-            const folderPath = parts.slice(0, -1).join('/');
-            const searchPath = this._selectedFolder.startsWith('/') ? this._selectedFolder : `/${this._selectedFolder}`;
-            if (folderPath === searchPath) {
-              isInFolder = true;
-            }
-          }
-        }
-
-        if (isInFolder) {
-          mediaUrlsInFolder.add(item.url);
-          const currentCount = folderUsageCounts.get(item.url) || 0;
-          folderUsageCounts.set(item.url, currentCount + 1);
-        }
-      });
-
-      const filteredData = data.filter((item) => mediaUrlsInFolder.has(item.url));
-
-      filteredData.forEach((item) => {
-        const folderCount = folderUsageCounts.get(item.url) || 0;
-        item.folderUsageCount = folderCount;
-      });
-
-      return filteredData;
-    }
-
-    return data.filter((item) => {
-      if (!item.doc) return false;
-
-      if (this._selectedFolder === '/' || this._selectedFolder === '') {
-        return !item.doc.includes('/', 1);
-      }
-
-      const cleanPath = item.doc.replace(/\.html$/, '');
-      const parts = cleanPath.split('/');
-
-      if (parts.length > 2) {
-        const folderPath = parts.slice(0, -1).join('/');
-        const searchPath = this._selectedFolder.startsWith('/') ? this._selectedFolder : `/${this._selectedFolder}`;
-        return folderPath === searchPath;
-      }
-
-      return false;
-    });
-  }
-
   get selectedDocument() {
     if (this._selectedDocument) {
       return this._selectedDocument;
@@ -356,34 +250,6 @@ class NxMediaLibrary extends LitElement {
     }
 
     return null;
-  }
-
-  getFilterLabel(filterType) {
-    const labels = {
-      all: 'items',
-      images: 'images',
-      icons: 'SVGs',
-      videos: 'videos',
-      documents: 'PDFs',
-      fragments: 'fragments',
-      links: 'links',
-    };
-    return labels[filterType] || 'items';
-  }
-
-  computeResultSummary() {
-    if (!this._mediaData || this._mediaData.length === 0) {
-      return '';
-    }
-
-    const count = this.filteredMediaData?.length || 0;
-    const filterLabel = this.getFilterLabel(this._selectedFilterType);
-
-    if (!this._searchQuery) {
-      return `${count} ${filterLabel}`;
-    }
-
-    return `${count} ${filterLabel} matching "${this._searchQuery}"`;
   }
 
   get org() {
@@ -415,8 +281,7 @@ class NxMediaLibrary extends LitElement {
         // Store raw data for suggestions
         this._rawMediaData = mediaData;
 
-        // Build usage index for O(1) lookups
-        this._usageIndex = this.buildUsageIndex(mediaData);
+        this._usageIndex = buildUsageIndex(mediaData);
 
         // Process raw data first to calculate usage counts
         this._processedData = await processMediaData(mediaData);
@@ -453,8 +318,7 @@ class NxMediaLibrary extends LitElement {
       // Store raw data for suggestions
       this._rawMediaData = mediaData;
 
-      // Build usage index for O(1) lookups
-      this._usageIndex = this.buildUsageIndex(mediaData);
+      this._usageIndex = buildUsageIndex(mediaData);
 
       // Deduplicate the data using the same grouping logic
       const uniqueItems = [];
@@ -488,7 +352,6 @@ class NxMediaLibrary extends LitElement {
     if (path) {
       this._selectedDocument = path;
       this._selectedFilterType = 'documentTotal'; // Set to document filter to show all media for this document
-      this._searchQuery = ''; // Clear search query to avoid interference
       this._needsFilterRecalculation = true;
       this._filteredDataCache = null;
       this._lastFilterParams = null;
@@ -500,7 +363,6 @@ class NxMediaLibrary extends LitElement {
     if (path) {
       this._selectedFolder = path;
       this._selectedFilterType = 'all'; // Reset to all filter for folder search
-      this._searchQuery = ''; // Clear search query to avoid interference
       this._needsFilterRecalculation = true;
       this._filteredDataCache = null;
       this._lastFilterParams = null;
@@ -532,6 +394,7 @@ class NxMediaLibrary extends LitElement {
             .sitePath=${this.sitePath}
             .resultSummary=${this._resultSummary}
             @search=${this.handleSearch}
+            @clear-search=${this.handleClearSearch}
             @mediaDataUpdated=${this.handleMediaDataUpdated}
           ></nx-media-topbar>
         </div>
@@ -621,7 +484,7 @@ class NxMediaLibrary extends LitElement {
     let searchPath = path;
 
     if (!searchType || !searchPath) {
-      const colonSyntax = this.parseColonSyntax(query);
+      const colonSyntax = parseColonSyntax(query);
       if (colonSyntax) {
         searchType = colonSyntax.field;
         searchPath = colonSyntax.value;
@@ -633,6 +496,17 @@ class NxMediaLibrary extends LitElement {
     } else if (searchType === 'folder' && searchPath !== undefined) {
       this.handleFolderNavigation(searchPath);
     }
+  }
+
+  handleClearSearch() {
+    this._searchQuery = '';
+    this._selectedDocument = null;
+    this._selectedFolder = null;
+    this._selectedFilterType = 'all';
+    this._needsFilterRecalculation = true;
+    this._filteredDataCache = null;
+    this._lastFilterParams = null;
+    this.requestUpdate();
   }
 
   handleViewChange(e) {
@@ -745,11 +619,27 @@ class NxMediaLibrary extends LitElement {
   }
 
   renderEmptyState() {
-    const filterLabel = this.getFilterLabel(this._selectedFilterType);
+    const filterLabel = getFilterLabel(this._selectedFilterType, 0);
     let message = `No ${filterLabel} found`;
 
     if (this._searchQuery) {
-      message = `No ${filterLabel} matching "${this._searchQuery}"`;
+      const colonSyntax = parseColonSyntax(this._searchQuery);
+
+      if (colonSyntax) {
+        const { field, value } = colonSyntax;
+
+        if (field === 'folder') {
+          const folderPath = value || '/';
+          message = `No ${filterLabel} in ${folderPath}`;
+        } else if (field === 'doc') {
+          const docPath = value.replace(/\.html$/, '');
+          message = `No ${filterLabel} in ${docPath}`;
+        } else {
+          message = `No ${filterLabel} matching "${this._searchQuery}"`;
+        }
+      } else {
+        message = `No ${filterLabel} matching "${this._searchQuery}"`;
+      }
     }
 
     return html`
@@ -825,8 +715,7 @@ class NxMediaLibrary extends LitElement {
               // Store raw data for suggestions
               this._rawMediaData = mediaData;
 
-              // Build usage index for O(1) lookups
-              this._usageIndex = this.buildUsageIndex(mediaData);
+              this._usageIndex = buildUsageIndex(mediaData);
 
               // Deduplicate the data using the same grouping logic
               const uniqueItems = [];
@@ -894,60 +783,6 @@ class NxMediaLibrary extends LitElement {
     }
 
     this.requestUpdate();
-  }
-
-  parseColonSyntax(query) {
-    if (!query) return null;
-
-    const colonMatch = query.match(/^([a-zA-Z]+):(.*)$/);
-    if (colonMatch) {
-      const [, field, value] = colonMatch;
-      return {
-        field: field.toLowerCase(),
-        value: value.trim().toLowerCase(),
-        originalQuery: query,
-      };
-    }
-
-    if (query.startsWith('/') || query.includes('/')) {
-      return {
-        field: 'folder',
-        value: query.toLowerCase().trim(),
-        originalQuery: query,
-      };
-    }
-
-    return null;
-  }
-
-  buildUsageIndex(rawData) {
-    const usageIndex = new Map();
-
-    if (!rawData || rawData.length === 0) {
-      return usageIndex;
-    }
-
-    rawData.forEach((item) => {
-      if (!item.url) return;
-
-      const groupingKey = getGroupingKey(item.url);
-
-      if (!usageIndex.has(groupingKey)) {
-        usageIndex.set(groupingKey, []);
-      }
-
-      usageIndex.get(groupingKey).push({
-        doc: item.doc,
-        alt: item.alt,
-        type: item.type,
-        ctx: item.ctx,
-        firstUsedAt: item.firstUsedAt,
-        lastUsedAt: item.lastUsedAt,
-        hash: item.hash,
-      });
-    });
-
-    return usageIndex;
   }
 }
 

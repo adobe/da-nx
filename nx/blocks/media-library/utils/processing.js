@@ -18,6 +18,7 @@ import {
   urlsMatch,
   sortMediaData,
 } from './utils.js';
+import { getGroupingKey } from './filters.js';
 
 // ============================================================================
 // PERSISTENCE FUNCTIONS
@@ -853,4 +854,34 @@ export default async function runScan(path, updateTotal, updateProgressive = nul
     hasChanges,
     mediaData: hasChanges ? sortedMediaData : null,
   };
+}
+
+export function buildUsageIndex(rawData) {
+  const usageIndex = new Map();
+
+  if (!rawData || rawData.length === 0) {
+    return usageIndex;
+  }
+
+  rawData.forEach((item) => {
+    if (!item.url) return;
+
+    const groupingKey = getGroupingKey(item.url);
+
+    if (!usageIndex.has(groupingKey)) {
+      usageIndex.set(groupingKey, []);
+    }
+
+    usageIndex.get(groupingKey).push({
+      doc: item.doc,
+      alt: item.alt,
+      type: item.type,
+      ctx: item.ctx,
+      firstUsedAt: item.firstUsedAt,
+      lastUsedAt: item.lastUsedAt,
+      hash: item.hash,
+    });
+  });
+
+  return usageIndex;
 }

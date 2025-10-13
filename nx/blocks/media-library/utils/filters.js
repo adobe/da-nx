@@ -632,5 +632,74 @@ export function getFolderFilteredItems(data, selectedFolder, usageIndex) {
     return filteredData;
   }
 
-  return data;
+  return data.filter((item) => {
+    if (!item.doc) return false;
+
+    if (selectedFolder === '/' || selectedFolder === '') {
+      return !item.doc.includes('/', 1);
+    }
+
+    const cleanPath = item.doc.replace(/\.html$/, '');
+    const parts = cleanPath.split('/');
+
+    if (parts.length > 2) {
+      const folderPath = parts.slice(0, -1).join('/');
+      const searchPath = selectedFolder.startsWith('/') ? selectedFolder : `/${selectedFolder}`;
+      return folderPath === searchPath;
+    }
+
+    return false;
+  });
+}
+
+export function pluralize(singular, plural, count) {
+  return count === 1 ? singular : plural;
+}
+
+export function getFilterLabel(filterType, count = 0) {
+  const labels = {
+    all: { singular: 'item', plural: 'items' },
+    images: { singular: 'image', plural: 'images' },
+    icons: { singular: 'SVG', plural: 'SVGs' },
+    videos: { singular: 'video', plural: 'videos' },
+    documents: { singular: 'PDF', plural: 'PDFs' },
+    fragments: { singular: 'fragment', plural: 'fragments' },
+    links: { singular: 'link', plural: 'links' },
+  };
+
+  const label = labels[filterType] || labels.all;
+  return pluralize(label.singular, label.plural, count);
+}
+
+export function computeResultSummary(mediaData, filteredData, searchQuery, filterType) {
+  if (!mediaData || mediaData.length === 0) {
+    return '';
+  }
+
+  const count = filteredData?.length || 0;
+  const filterLabel = getFilterLabel(filterType, count);
+
+  if (!searchQuery) {
+    return `${count} ${filterLabel}`;
+  }
+
+  const colonSyntax = parseColonSyntax(searchQuery);
+
+  if (colonSyntax) {
+    const { field, value } = colonSyntax;
+
+    if (field === 'folder') {
+      const folderPath = value || '/';
+      return `${count} ${filterLabel} in ${folderPath}`;
+    }
+
+    if (field === 'doc') {
+      const docPath = value.replace(/\.html$/, '');
+      return `${count} ${filterLabel} in ${docPath}`;
+    }
+
+    return `${count} ${filterLabel} matching "${searchQuery}"`;
+  }
+
+  return `${count} ${filterLabel} matching "${searchQuery}"`;
 }
