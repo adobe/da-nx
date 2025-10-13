@@ -183,19 +183,8 @@ class NxMediaSidebar extends LitElement {
             </svg>
             ${this.isExpanded || this.isIndexExpanded ? html`<span>Filters</span>` : ''}
           </button>
-          <button
-            class="icon-btn ${this.isIndexExpanded ? 'active' : ''}"
-            @click=${this.handleIndexToggle}
-            title="Index"
-          >
-            <svg class="icon">
-              <use href="#S2_GraphBarVertical_18_N"></use>
-            </svg>
-            ${this.isExpanded || this.isIndexExpanded ? html`<span>Index</span>` : ''}
-          </button>
         </div>
 
-        
         ${this.isExpanded ? html`
           <div class="filter-panel">
             <div class="filter-section">
@@ -216,6 +205,19 @@ class NxMediaSidebar extends LitElement {
             </div>
           </div>
         ` : ''}
+
+        <div class="sidebar-icons secondary">
+          <button
+            class="icon-btn ${this.isIndexExpanded ? 'active' : ''}"
+            @click=${this.handleIndexToggle}
+            title="Index"
+          >
+            <svg class="icon">
+              <use href="#S2_GraphBarVertical_18_N"></use>
+            </svg>
+            ${this.isExpanded || this.isIndexExpanded ? html`<span>Index</span>` : ''}
+          </button>
+        </div>
 
         ${this.isIndexExpanded ? this.renderIndexPanel() : ''}
       </aside>
