@@ -10,7 +10,7 @@ export const FILTER_CONFIG = {
 
   decorative: (item) => item.type?.startsWith('img >') && !item.type?.includes('svg') && item.alt === '',
   filled: (item) => item.type?.startsWith('img >') && !item.type?.includes('svg') && item.alt && item.alt !== '',
-  empty: (item) => item.type?.startsWith('img >') && !item.type?.includes('svg') && (!item.alt || item.alt === 'null'),
+  empty: (item) => item.type?.startsWith('img >') && !item.type?.includes('svg') && item.alt === null,
 
   documentImages: (item, selectedDocument) => FILTER_CONFIG.images(item)
   && item.doc === selectedDocument,

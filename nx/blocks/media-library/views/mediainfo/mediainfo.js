@@ -651,7 +651,7 @@ class NxMediaInfo extends LitElement {
       `;
     }
 
-    if (usage.alt && usage.alt !== '') {
+    if (usage.alt !== null && usage.alt !== '' && usage.alt !== 'null') {
       return html`
         <div class="alt-text-container">
           <div class="alt-text">
@@ -669,7 +669,7 @@ class NxMediaInfo extends LitElement {
       `;
     }
 
-    if (usage.alt === null) {
+    if (usage.alt === null || usage.alt === 'null') {
       return html`
         <div class="alt-text-container">
           <div class="alt-text">

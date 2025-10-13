@@ -120,7 +120,7 @@ class NxMediaGrid extends LitElement {
             <span class="media-label media-type">${this.getDisplayTypeText(media)}</span>
           </div>
           <div class="media-actions">
-            ${media.alt && media.alt !== '' && media.alt !== 'null' ? html`
+            ${media.alt !== null && media.alt !== '' ? html`
               <div class="filled-alt-indicator">
                 <svg class="icon" viewBox="0 0 18 18">
                   <use href="#S2_Icon_CheckmarkCircle_18_N"></use>

@@ -564,10 +564,11 @@ svg.icon,
 .alt-warning-badge {
   background: #f59e0b;
   color: white;
-  padding: 4px 8px;
+  padding: 6px 12px;
   border-radius: 4px;
   font-size: 12px;
   font-weight: 500;
+  white-space: nowrap;
 }
 
 .type-cell {

@@ -54,6 +54,15 @@ export async function saveMediaSheet(data, org, repo) {
   });
 }
 
+function normalizeMediaItem(item) {
+  if (item.type?.startsWith('img >')) {
+    if (item.alt === 'null' || item.alt === undefined) {
+      item.alt = null;
+    }
+  }
+  return item;
+}
+
 export async function loadMediaSheet(org, repo) {
   const path = getMediaSheetPath(org, repo);
 
@@ -63,7 +72,7 @@ export async function loadMediaSheet(org, repo) {
     if (resp.ok) {
       const data = await resp.json();
       const result = data.data || data || [];
-      return result;
+      return result.map(normalizeMediaItem);
     }
   } catch (error) {
     // eslint-disable-next-line no-console
@@ -182,7 +191,7 @@ export function parseHtmlMedia(html, docPath, lastModified) {
       mediaItems.push({
         url: resolvedUrl,
         name: img.src.split('/').pop(),
-        alt: img.hasAttribute('alt') ? img.alt : '',
+        alt: img.hasAttribute('alt') ? (img.alt === 'null' ? null : img.alt) : null,
         type: `${mediaType} > ${fileExt.toLowerCase()}`,
         doc: docPath,
         ctx: context,
