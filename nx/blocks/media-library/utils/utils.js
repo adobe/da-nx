@@ -304,8 +304,8 @@ export function getEditUrl(org, repo, docPath) {
 }
 
 export function getViewUrl(org, repo, docPath) {
-  // Remove .html extension if present
-  const cleanPath = docPath.replace(/\.html$/, '');
+  // Remove .html extension and handle index pages
+  const cleanPath = docPath.replace(/\.html$/, '').replace(/\/index$/, '/');
   return `https://main--${repo}--${org}.aem.page${cleanPath}`;
 }
 
