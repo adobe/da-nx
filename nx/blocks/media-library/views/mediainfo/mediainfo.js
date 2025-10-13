@@ -800,9 +800,9 @@ class NxMediaInfo extends LitElement {
                     </svg>
                   </button>
                 </div>
-                <div class="actions-container" style="--action-row-multiplier: ${usages.length}">
+                <div class="actions-container">
                   <h5 class="usage-title">Open</h5>
-                  ${usages.map((usage) => this.renderActions(usage))}
+                  ${this.renderActions(usages[0])}
                 </div>
               </div>
               ${isImage(this.media.url) ? html`
