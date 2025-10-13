@@ -4,6 +4,36 @@
   }
 }
 
+svg.icon {
+  width: 20px;
+  height: 20px;
+  color: #000;
+}
+
+.icon-button {
+  background: none;
+  border: none;
+  outline: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+}
+
+.icon-button:hover {
+  background: var(--s2-gray-100);
+}
+
+.share-button svg.icon {
+  width: 20px;
+  height: 20px;
+  color: var(--s2-gray-700);
+  fill: currentcolor;
+}
+
 .empty-state {
   display: flex;
   flex-direction: column;
@@ -38,9 +68,9 @@
 
 .list-header {
   display: grid;
-  grid-template-columns: 80px 3fr 1fr 80px 100px;
-  gap: var(--spacing-400);
-  padding: var(--spacing-400);
+  grid-template-columns: 140px 1fr 120px 100px 80px;
+  gap: var(--spacing-300);
+  padding: var(--spacing-300) var(--spacing-400);
   background: var(--s2-gray-50);
   border-bottom: 1px solid var(--s2-gray-200);
   font-weight: 600;
@@ -61,19 +91,20 @@
 
 .media-item {
   display: grid;
-  grid-template-columns: 80px 3fr 1fr 80px 100px;
-  gap: var(--spacing-400);
-  padding: var(--spacing-400);
+  grid-template-columns: 140px 1fr 120px 100px 80px;
+  gap: var(--spacing-300);
+  padding: var(--spacing-300) var(--spacing-400);
   border-bottom: 1px solid var(--s2-gray-75);
   cursor: default;
   transition: background-color 0.2s ease;
   width: 100%;
   box-sizing: border-box;
   align-items: center;
+  min-height: 80px;
 }
 
 .media-item:hover {
-  background: var(--s2-gray-25);
+  background: var(--s2-gray-100);
 }
 
 .media-item:last-child {
@@ -81,8 +112,8 @@
 }
 
 .item-preview {
-  width: 60px;
-  height: 40px;
+  width: 120px;
+  height: 80px;
   border: 1px solid var(--s2-gray-200);
   border-radius: var(--s2-radius-75);
   overflow: hidden;
@@ -159,8 +190,8 @@
 .play-icon,
 .document-icon,
 .unknown-icon {
-  width: 1.25rem;
-  height: 1.25rem;
+  width: 1.5rem;
+  height: 1.5rem;
   color: var(--s2-gray-700);
 }
 
@@ -193,14 +224,14 @@
 }
 
 .pdf-icon {
-  width: 1.25rem;
-  height: 1.25rem;
+  width: 1.5rem;
+  height: 1.5rem;
   color: #dc3545;
 }
 
 .video-icon {
-  width: 1.25rem;
-  height: 1.25rem;
+  width: 1.5rem;
+  height: 1.5rem;
   color: #6c757d;
 }
 
@@ -237,6 +268,7 @@
 
 .item-name {
   font-weight: 500;
+  font-size: 14px;
   color: var(--s2-gray-800);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -244,35 +276,25 @@
   cursor: default;
   display: flex;
   align-items: center;
-  min-height: 20px;
+  line-height: 1.4;
 }
 
 .item-type {
-  background: var(--s2-blue-200);
-  color: var(--s2-blue-800);
-  padding: var(--spacing-100) var(--spacing-300);
-  border-radius: var(--s2-radius-75);
-  font-size: 0.7rem;
-  font-weight: bold;
+  background: #ff6b35;
+  color: white;
+  padding: 6px 14px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
   max-width: fit-content;
   cursor: default;
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  min-height: 20px;
-}
-
-.fragment-type {
-  background: var(--s2-purple-200);
-  color: var(--s2-purple-800);
-  padding: var(--spacing-100) var(--spacing-300);
-  border-radius: var(--s2-radius-75);
-  font-size: 0.7rem;
-  font-weight: bold;
-  max-width: fit-content;
-  cursor: default;
-  display: flex;
-  align-items: center;
-  min-height: 20px;
+  justify-content: center;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 10%);
+  white-space: nowrap;
 }
 
 .fragment-preview-container {
@@ -285,8 +307,8 @@
 }
 
 .fragment-icon {
-  width: 20px;
-  height: 20px;
+  width: 24px;
+  height: 24px;
   color: var(--s2-purple-600);
 }
 
@@ -294,31 +316,28 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 20px;
 }
 
 .usage-badge {
-  background: rgb(255 255 255 / 95%);
-  color: var(--s2-gray-800);
-  border: 1px solid var(--s2-gray-300);
-  border-radius: 50%;
-  padding: 4px;
-  font-size: 0.7rem;
-  font-weight: 700;
+  background: #3fa9f5;
+  color: white;
+  padding: 6px 14px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  cursor: default;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 10%);
+  white-space: nowrap;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 24px;
-  min-height: 24px;
-  cursor: default;
-  box-shadow: 0 1px 3px rgb(0 0 0 / 10%);
 }
 
 .item-actions {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 20px;
 }
 
 .type-badge {

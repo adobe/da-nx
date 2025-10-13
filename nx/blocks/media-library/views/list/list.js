@@ -28,6 +28,7 @@ const ICONS = [
   `${nx}/public/icons/S2_Icon_PDF_20_N.svg`,
   `${nx}/public/icons/S2_Icon_AlertCircle_18_N.svg`,
   `${nx}/public/icons/S2_Icon_CheckmarkCircle_18_N.svg`,
+  `${nx}/public/icons/S2_Icon_Share_20_N.svg`,
   `${nx}/public/icons/Smock_DocumentFragment_18_N.svg`,
 ];
 
@@ -102,14 +103,15 @@ class NxMediaList extends LitElement {
           </span>
         </div>
         <div class="item-actions">
-          <sl-button 
-            variant="primary outline" 
-            size="small" 
+          <button 
+            class="icon-button share-button"
             @click=${(e) => { e.stopPropagation(); handlers.copyClick(); }} 
             title="Copy to clipboard"
           >
-            COPY
-          </sl-button>
+            <svg class="icon" viewBox="0 0 20 20">
+              <use href="#S2_Icon_Share_20_N"></use>
+            </svg>
+          </button>
         </div>
       </div>
     `;
