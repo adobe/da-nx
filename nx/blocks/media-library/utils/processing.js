@@ -88,22 +88,18 @@ export async function loadMediaSheet(org, repo) {
 export function resolveMediaUrl(src, docPath) {
   if (!src) return null;
 
-  // Handle absolute URLs
   if (src.startsWith('http://') || src.startsWith('https://')) {
     return src;
   }
 
-  // Handle data URLs
   if (src.startsWith('data:')) {
     return src;
   }
 
-  // Handle relative URLs
   if (src.startsWith('/')) {
     return `${CONTENT_ORIGIN}${src}`;
   }
 
-  // Handle relative paths
   const docDir = docPath.substring(0, docPath.lastIndexOf('/') + 1);
   const relativePath = docDir + src;
   return `${CONTENT_ORIGIN}${relativePath}`;
@@ -112,7 +108,6 @@ export function resolveMediaUrl(src, docPath) {
 export function extractRelativePath(fullPath) {
   if (!fullPath) return '';
 
-  // Remove protocol and domain
   const url = new URL(fullPath);
   return url.pathname;
 }
@@ -147,23 +142,20 @@ function extractSurroundingContext(element, maxLength = 100) {
 function captureContext(element, type) {
   const context = [];
 
-  // Add the element type
   context.push(type);
 
-  // Capture div classes for context - look for any div with classes
   let divElement = element;
   while (divElement && divElement !== document.body) {
     if (divElement.tagName === 'DIV' && divElement.className) {
       const classes = divElement.className.split(' ').filter((c) => c.trim());
       if (classes.length > 0) {
         context.push(`In div: ${classes.join(' ')}`);
-        break; // Only capture the closest div with classes
+        break;
       }
     }
     divElement = divElement.parentElement;
   }
 
-  // Capture meaningful text around the media
   const surroundingText = extractSurroundingContext(element);
   if (surroundingText) {
     context.push(`text: ${surroundingText}`);
@@ -178,7 +170,6 @@ export function parseHtmlMedia(html, docPath, lastModified) {
   const doc = parser.parseFromString(html, 'text/html');
   const docTimestamp = lastModified;
 
-  // Parse images
   const images = doc.querySelectorAll('img');
   images.forEach((img) => {
     if (img.src && isMediaFile(extractFileExtension(img.src))) {
@@ -188,10 +179,15 @@ export function parseHtmlMedia(html, docPath, lastModified) {
       const hash = createHash(`${img.src}|${img.hasAttribute('alt') ? img.alt : ''}|${docPath}`);
       const context = captureContext(img, 'img');
 
+      let altValue = null;
+      if (img.hasAttribute('alt') && img.alt !== 'null') {
+        altValue = img.alt;
+      }
+
       mediaItems.push({
         url: resolvedUrl,
         name: img.src.split('/').pop(),
-        alt: img.hasAttribute('alt') ? (img.alt === 'null' ? null : img.alt) : null,
+        alt: altValue,
         type: `${mediaType} > ${fileExt.toLowerCase()}`,
         doc: docPath,
         ctx: context,
@@ -202,7 +198,6 @@ export function parseHtmlMedia(html, docPath, lastModified) {
     }
   });
 
-  // Parse videos
   const videos = doc.querySelectorAll('video');
   videos.forEach((video) => {
     if (video.src && isMediaFile(extractFileExtension(video.src))) {
@@ -225,7 +220,6 @@ export function parseHtmlMedia(html, docPath, lastModified) {
     }
   });
 
-  // Parse video sources
   const sources = doc.querySelectorAll('video source');
   sources.forEach((source) => {
     if (source.src && isMediaFile(extractFileExtension(source.src))) {
@@ -248,7 +242,6 @@ export function parseHtmlMedia(html, docPath, lastModified) {
     }
   });
 
-  // Parse links to media files
   const links = doc.querySelectorAll('a[href]');
   links.forEach((link) => {
     const href = link.getAttribute('href');
@@ -272,7 +265,6 @@ export function parseHtmlMedia(html, docPath, lastModified) {
     }
   });
 
-  // Parse links to fragments (paths containing "/fragments")
   const fragmentLinks = doc.querySelectorAll('a[href*="/fragments"]');
   fragmentLinks.forEach((link) => {
     const href = link.getAttribute('href');
@@ -407,7 +399,6 @@ export function getAvailableSubtypes(mediaData, activeFilter = 'links') {
 // MEDIA SCANNING FUNCTIONS
 // ============================================================================
 
-// LastModified tracking functions
 async function getLastModifiedPath(org, repo, folderName = 'root') {
   return getLastModifiedDataPath(org, repo, folderName);
 }
@@ -433,7 +424,6 @@ async function loadAllLastModifiedData(org, repo) {
   const lastModifiedMap = new Map();
 
   try {
-    // Use crawl API to discover and load JSON files in .da/mediaindex/lastmodified-data
     const callback = async (item) => {
       const ext = extractFileExtension(item.path);
 
@@ -448,7 +438,7 @@ async function loadAllLastModifiedData(org, repo) {
             });
           }
         } catch (error) {
-          // Individual file load failed, continue with others
+          // Continue with other files
         }
       }
     };
@@ -470,10 +460,8 @@ function groupFilesByFolder(crawlItems) {
   const folderFiles = {};
 
   crawlItems.forEach((item) => {
-    // Extract extension from path
     const ext = extractFileExtension(item.path);
 
-    // Only include HTML and media files
     if (ext === 'html' || isMediaFile(ext)) {
       const fileInfo = {
         path: item.path,
@@ -483,10 +471,8 @@ function groupFilesByFolder(crawlItems) {
       const { relativePathParts } = splitPathParts(item.path);
 
       if (relativePathParts.length === 1) {
-        // Root level file
         rootFiles.push(fileInfo);
       } else if (relativePathParts.length > 1) {
-        // Folder file
         const folderName = relativePathParts[0];
         if (!folderFiles[folderName]) {
           folderFiles[folderName] = [];
@@ -584,7 +570,7 @@ export async function checkScanLock(org, repo) {
       return data.data || data;
     }
   } catch (error) {
-    // Lock doesn't exist
+    return { exists: false, locked: false, timestamp: null };
   }
   return { exists: false, locked: false, timestamp: null };
 }
@@ -595,15 +581,14 @@ export async function removeScanLock(org, repo) {
 }
 
 export default async function runScan(path, updateTotal, updateProgressive = null) {
-  // Extract org and repo from path (format: /{org}/{repo})
   const pathParts = path.split('/').filter((part) => part);
   const org = pathParts[0];
   const repo = pathParts[1];
   let totalPagesScanned = 0;
-  let totalMediaFilesFound = 0; // Count of actual media files found during crawl
+  let totalMediaFilesFound = 0;
   const allMediaUsage = [];
   const unusedMedia = [];
-  const allCrawlItems = []; // Collect all crawl items for lastModified tracking
+  const allCrawlItems = [];
 
   const existingLock = await checkScanLock(org, repo);
   if (existingLock.exists && existingLock.locked) {
@@ -621,16 +606,14 @@ export default async function runScan(path, updateTotal, updateProgressive = nul
 
   const existingMediaData = await loadMediaSheet(org, repo) || [];
 
-  // Load existing lastModified data for change detection
   const lastModifiedMap = await loadAllLastModifiedData(org, repo);
 
   const mediaInUse = new Set();
 
-  let hasChanges = false; // Track if any files were modified
+  let hasChanges = false;
 
   const callback = async (item) => {
-    const itemPathParts = item.path.split('/').filter((part) => part);
-    if (itemPathParts.length >= 3 && itemPathParts[2] === 'drafts') {
+    if (item.path.includes('/drafts/')) {
       return;
     }
 
@@ -640,7 +623,6 @@ export default async function runScan(path, updateTotal, updateProgressive = nul
       return;
     }
 
-    // Count files discovered
     if (ext === 'html') {
       totalPagesScanned += 1;
       updateTotal('page', totalPagesScanned);
@@ -649,15 +631,12 @@ export default async function runScan(path, updateTotal, updateProgressive = nul
       updateTotal('media', totalMediaFilesFound);
     }
 
-    // Check if file was modified (only for HTML and media files)
     const existingLastModified = lastModifiedMap.get(item.path);
 
     if (existingLastModified && existingLastModified === item.lastModified) {
-      // File unchanged - skip processing but counters already updated
       return;
     }
 
-    // File was modified - set the flag
     hasChanges = true;
 
     if (ext === 'html') {
@@ -665,7 +644,6 @@ export default async function runScan(path, updateTotal, updateProgressive = nul
         const resp = await daFetch(`${DA_ORIGIN}/source${item.path}`);
         if (resp.ok) {
           const html = await resp.text();
-          // Strip org/repo from path for storage (keep only the relative path)
           const relativePath = item.path.split('/').slice(3).join('/');
           const mediaItems = parseHtmlMedia(html, `/${relativePath}`, item.lastModified);
 
@@ -683,8 +661,6 @@ export default async function runScan(path, updateTotal, updateProgressive = nul
         console.error(`Error processing ${item.path}:`, error);
       }
     } else if (isMediaFile(ext)) {
-      // This is an actual media file found during crawl
-      // This is a media file that might be unused
       const resolvedUrl = `${CONTENT_ORIGIN}${item.path}`;
       if (!mediaInUse.has(resolvedUrl)) {
         const mediaType = detectMediaTypeFromExtension(item.ext);
@@ -704,57 +680,42 @@ export default async function runScan(path, updateTotal, updateProgressive = nul
       }
     }
 
-    // Update lastModified data for this item since it was processed
     if (existingLastModified !== item.lastModified) {
-      // Update the map immediately
       lastModifiedMap.set(item.path, item.lastModified);
     }
 
-    // Collect for lastModified tracking
     allCrawlItems.push(item);
   };
 
   const { results, getDuration } = crawl({ path, callback });
   await results;
 
-  // Process results and save to media.json
   const allMediaEntries = [];
   const processedUrls = new Set();
 
-  // For incremental scans, we need to preserve media from unchanged documents
-  // and only remove/add media from changed documents
   const changedDocPaths = new Set();
 
-  // Track which documents were processed in this scan
   allMediaUsage.forEach((usage) => {
     if (usage.doc) {
       changedDocPaths.add(usage.doc);
     }
   });
 
-  // Preserve media from unchanged documents
   existingMediaData.forEach((item) => {
-    // If this media usage is from an unchanged document, preserve it
     if (!item.doc || !changedDocPaths.has(item.doc)) {
       allMediaEntries.push(item);
       processedUrls.add(item.url);
     }
-    // If it's from a changed document, we'll handle it below (add/update/remove)
   });
 
-  // Store all instances without deduplication - let aggregation handle grouping
   const allMediaUsageInstances = allMediaUsage;
 
-  // Then, add all usage entries without deduplication
   allMediaUsageInstances.forEach((usage) => {
-    // Always add new usage entry - let aggregation handle grouping
     allMediaEntries.push(usage);
     processedUrls.add(usage.url);
   });
 
-  // Finally, add unused media that aren't already processed
   unusedMedia.forEach((item) => {
-    // Check if this URL is already processed using urlsMatch
     const isAlreadyProcessed = Array.from(processedUrls).some(
       (processedUrl) => urlsMatch(processedUrl, item.url),
     );
@@ -772,24 +733,19 @@ export default async function runScan(path, updateTotal, updateProgressive = nul
   const mediaDataWithCount = allMediaEntries
     .filter((item) => item.url && item.name);
 
-  // Sort media data at scan time for better performance
   const sortedMediaData = sortMediaData(mediaDataWithCount);
 
   if (hasChanges) {
     await saveMediaSheet(sortedMediaData, org, repo);
   }
 
-  // Save lastModified data for next scan - ALWAYS overwrite on every scan
   const { rootFiles, folderFiles } = groupFilesByFolder(allCrawlItems);
   const savePromises = [];
 
-  // Load existing lastModified data to merge with new data
   const existingLastModifiedMap = await loadAllLastModifiedData(org, repo);
 
-  // Merge root files with existing data
   if (rootFiles.length > 0) {
     try {
-      // Get existing root files
       const existingRootFiles = [];
       existingLastModifiedMap.forEach((lastModified, filePath) => {
         const { relativePathParts } = splitPathParts(filePath);
@@ -798,28 +754,25 @@ export default async function runScan(path, updateTotal, updateProgressive = nul
         }
       });
 
-      // Merge with new root files
       const mergedRootFiles = [...existingRootFiles];
       rootFiles.forEach((newFile) => {
         const existingIndex = mergedRootFiles.findIndex((f) => f.path === newFile.path);
         if (existingIndex >= 0) {
-          mergedRootFiles[existingIndex] = newFile; // Update existing
+          mergedRootFiles[existingIndex] = newFile;
         } else {
-          mergedRootFiles.push(newFile); // Add new
+          mergedRootFiles.push(newFile);
         }
       });
 
       savePromises.push(saveLastModifiedData(org, repo, 'root', mergedRootFiles));
     } catch (error) {
-      // Error saving root.json
+      // Continue
     }
   }
 
-  // Save folder files
   for (const [folderName, files] of Object.entries(folderFiles)) {
     if (files.length > 0) {
       try {
-        // Get existing files for this folder
         const existingFolderFiles = [];
         existingLastModifiedMap.forEach((lastModified, filePath) => {
           const { relativePathParts } = splitPathParts(filePath);
@@ -828,30 +781,28 @@ export default async function runScan(path, updateTotal, updateProgressive = nul
           }
         });
 
-        // Merge with new files
         const mergedFolderFiles = [...existingFolderFiles];
         files.forEach((newFile) => {
           const existingIndex = mergedFolderFiles.findIndex((f) => f.path === newFile.path);
           if (existingIndex >= 0) {
-            mergedFolderFiles[existingIndex] = newFile; // Update existing
+            mergedFolderFiles[existingIndex] = newFile;
           } else {
-            mergedFolderFiles.push(newFile); // Add new
+            mergedFolderFiles.push(newFile);
           }
         });
 
         savePromises.push(saveLastModifiedData(org, repo, folderName, mergedFolderFiles));
       } catch (error) {
-        // Error saving folder file
+        // Continue
       }
     }
   }
 
-  // Save all files in parallel (non-blocking)
   if (savePromises.length > 0) {
     try {
       await Promise.all(savePromises);
     } catch (error) {
-      // Error saving lastModified data files
+      // Continue
     }
   }
 
