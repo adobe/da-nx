@@ -14,14 +14,22 @@
 
 /* Notification positioning */
 sl-alert {
+  bottom: 12px;
+  left: 50%;
+  transform: translateX(-50%);
   position: fixed;
-  top: 20px;
-  right: 20px;
-  z-index: 10000;
-  max-width: 400px;
-  pointer-events: auto;
-  box-shadow: 0 4px 12px rgb(0 0 0 / 15%);
-  border-radius: 8px;
+  background: rgb(188 28 116);
+  min-height: 48px;
+  border-radius: 6px;
+  z-index: 400;
+  filter: drop-shadow(rgba(0 0 0 / 15%) 0 1px 4px);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  box-sizing: border-box;
+  color: rgb(255 255 255);
+  font-size: 14px;
 }
 
 /* Ensure notification content is properly styled */

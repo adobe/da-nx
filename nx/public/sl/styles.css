@@ -92,6 +92,10 @@ body {
   line-height: var(--s2-line-height-200);
 }
 
+button {
+  font-family: var(--font-family);
+}
+
 @media (width >= 600px) {
   :root {
     /* Heading */

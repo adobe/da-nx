@@ -104,7 +104,7 @@ class NxModalManager extends LitElement {
       >
         <sl-icon slot="icon" name=${iconName}></sl-icon>
         <div>
-          <strong>${this._notification.heading || 'Info'}</strong><br>
+          <strong>${this._notification.heading || 'Info'}. </strong>
           ${this._notification.message}
         </div>
       </sl-alert>

@@ -104,7 +104,7 @@ svg.icon {
 }
 
 .media-main {
-  height: calc(100vh - 200px);
+  height: calc(100vh - 130px);
   overflow-y: auto;
   position: relative;
   contain: layout;
@@ -162,7 +162,7 @@ svg.icon {
 }
 
 .media-preview {
-  height: 360px;
+  height: 300px;
   background: var(--s2-gray-75);
   display: flex;
   align-items: center;
@@ -170,28 +170,24 @@ svg.icon {
   overflow: hidden;
   border-bottom: 1px solid var(--s2-gray-200);
   position: relative;
-}
 
-.media-preview img,
-.media-preview video,
-.media-preview iframe {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.2s ease;
+  & video,
+  & iframe,
+  & img {
+    object-fit: cover;
+    z-index: 2;
+    width: 100%;
+    height: 100%;
+    transition: transform 0.2s ease;
+  }
 }
 
 .media-preview video {
-  object-fit: cover;
-  z-index: 2;
-  position: relative;
+  object-position: top;
 }
 
 .media-preview iframe {
   border: none;
-  object-fit: cover;
-  z-index: 2;
-  position: relative;
 }
 
 .video-placeholder,
@@ -430,13 +426,7 @@ svg.icon {
 }
 
 .video-overlay {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
   z-index: 3;
-  width: 64px;
-  height: 64px;
   display: flex;
   align-items: center;
   justify-content: center;
