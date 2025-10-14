@@ -30,6 +30,7 @@ const ICONS = [
   `${nx}/public/icons/S2_Icon_CheckmarkCircle_18_N.svg`,
   `${nx}/public/icons/S2_Icon_Share_20_N.svg`,
   `${nx}/public/icons/Smock_DocumentFragment_18_N.svg`,
+  `${nx}/public/icons/S2_Icon_Play_20_N.svg`,
 ];
 
 class NxMediaList extends LitElement {
@@ -174,9 +175,16 @@ class NxMediaList extends LitElement {
 
     if (isVideo(media.url)) {
       return html`
-        <video src="${media.url}" muted playsinline preload="metadata" loading="lazy">
-          <source src="${media.url}" type="video/mp4">
-        </video>
+        <div class="video-preview-container">
+          <video src="${media.url}" muted playsinline preload="metadata" loading="lazy" class="video-thumbnail">
+            <source src="${media.url}" type="video/mp4">
+          </video>
+          <div class="video-overlay">
+            <svg class="play-icon" viewBox="0 0 20 20">
+              <use href="#S2_Icon_Play_20_N"></use>
+            </svg>
+          </div>
+        </div>
       `;
     }
 
