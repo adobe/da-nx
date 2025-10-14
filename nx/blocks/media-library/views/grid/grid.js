@@ -31,6 +31,7 @@ const ICONS = [
   `${nx}/public/icons/S2_Icon_CheckmarkCircle_18_N.svg`,
   `${nx}/public/icons/S2_Icon_Share_20_N.svg`,
   `${nx}/public/icons/Smock_DocumentFragment_18_N.svg`,
+  `${nx}/public/icons/S2_Icon_Play_20_N.svg`,
 ];
 
 class NxMediaGrid extends LitElement {
@@ -100,7 +101,7 @@ class NxMediaGrid extends LitElement {
 
   renderMediaCard(media) {
     if (!media) return html``;
-    
+
     const handlers = {
       mediaClick: () => this.eventHandlers.handleMediaClick(media),
       copyClick: () => this.eventHandlers.handleMediaCopy(media),
@@ -120,13 +121,7 @@ class NxMediaGrid extends LitElement {
             <span class="media-label media-type">${this.getDisplayTypeText(media)}</span>
           </div>
           <div class="media-actions">
-            ${media.alt !== null && media.alt !== '' ? html`
-              <div class="filled-alt-indicator">
-                <svg class="icon" viewBox="0 0 18 18">
-                  <use href="#S2_Icon_CheckmarkCircle_18_N"></use>
-                </svg>
-              </div>
-            ` : ''}
+            ${this.renderAltStatus(media)}
             <button 
               class="icon-button share-button"
               @click=${(e) => { e.stopPropagation(); handlers.copyClick(); }} 
@@ -177,14 +172,14 @@ class NxMediaGrid extends LitElement {
   }
 
   renderAltStatus(media) {
-    if (media.type && media.type.startsWith('img >')) {
+    if (media.type && media.type.startsWith('img >') && !media.type.includes('svg')) {
       if (media.alt && media.alt !== '') {
         return html`
-          <span class="filled-alt-indicator" title="Alt text present">
-            <svg class="check-icon" viewBox="0 0 18 18">
+          <div class="filled-alt-indicator">
+            <svg class="icon" viewBox="0 0 18 18">
               <use href="#S2_Icon_CheckmarkCircle_18_N"></use>
             </svg>
-          </span>
+          </div>
         `;
       }
     }
@@ -243,9 +238,16 @@ class NxMediaGrid extends LitElement {
 
     if (isVideo(media.url)) {
       return html`
-        <video src="${media.url}" muted playsinline preload="metadata" loading="lazy">
-          <source src="${media.url}" type="video/mp4">
-        </video>
+        <div class="video-preview-container">
+          <video src="${media.url}" muted playsinline preload="metadata" loading="lazy" class="video-thumbnail">
+            <source src="${media.url}" type="video/mp4">
+          </video>
+          <div class="video-overlay">
+            <svg class="play-icon" viewBox="0 0 20 20">
+              <use href="#S2_Icon_Play_20_N"></use>
+            </svg>
+          </div>
+        </div>
       `;
     }
 

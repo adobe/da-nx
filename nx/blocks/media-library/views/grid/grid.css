@@ -177,20 +177,19 @@ svg.icon {
 .media-preview iframe {
   width: 100%;
   height: 100%;
-  object-fit: contain;
-  object-position: center;
+  object-fit: cover;
   transition: transform 0.2s ease;
 }
 
 .media-preview video {
-  object-fit: contain;
+  object-fit: cover;
   z-index: 2;
   position: relative;
 }
 
 .media-preview iframe {
   border: none;
-  object-fit: contain;
+  object-fit: cover;
   z-index: 2;
   position: relative;
 }
@@ -262,6 +261,11 @@ svg.icon {
   width: 2rem;
   height: 2rem;
   color: var(--s2-gray-700);
+}
+
+.video-overlay .play-icon {
+  color: white;
+  fill: white;
 }
 
 .media-name {
@@ -431,13 +435,24 @@ svg.icon {
   left: 50%;
   transform: translate(-50%, -50%);
   z-index: 3;
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .video-thumbnail {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  border-radius: 8px;
+}
+
+.video-preview-container .video-thumbnail {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
 }
 
 /* PDF Preview Styles */
