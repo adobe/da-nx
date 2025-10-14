@@ -425,5 +425,38 @@ describe('locPageRules', () => {
 
       expect(result).to.deep.equal(expected);
     });
+
+    it('should handle empty workflowName gracefully (bug fix for hash add4effe)', () => {
+      // This tests the fix for the bug where empty workflowName created "WCMS/DX/"
+      // instead of "WCMS/DX/Human Translation", causing hash add4effe
+      const urls = ['/page1', '/page2'];
+
+      const languageObjects = [
+        { code: 'de', workflow: 'WCMS/DX', workflowName: 'Human Translation' }, // Valid
+        { code: 'fr', workflow: 'WCMS/DX', workflowName: '' }, // Empty workflowName - should be skipped
+        { code: 'ja', workflow: 'WCMS/DX', workflowName: undefined }, // Undefined - should be skipped
+        { code: 'es', workflow: '', workflowName: 'Human Translation' },
+      ];
+
+      const config = {};
+
+      const result = groupUrlsByWorkflow(urls, languageObjects, config);
+
+      // Only 'de' should be included, 'fr' and 'ja' should be skipped
+      const expected = {
+        'WCMS/DX/Human Translation': [
+          {
+            languages: ['de'],
+            urlPaths: ['/page1', '/page2'],
+          },
+        ],
+      };
+
+      expect(result).to.deep.equal(expected);
+
+      // Verify that languages with empty/undefined workflowName are excluded
+      expect(result['WCMS/DX/Human Translation'][0].languages).to.not.include('fr');
+      expect(result['WCMS/DX/Human Translation'][0].languages).to.not.include('ja');
+    });
   });
 });

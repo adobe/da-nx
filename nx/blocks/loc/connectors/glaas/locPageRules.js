@@ -113,6 +113,10 @@ function buildLanguageUrlSets(assignments) {
 
   assignments.forEach((assignment) => {
     const { lang, url, workflow, workflowName } = assignment;
+    if (!workflow || !workflowName) {
+      console.warn(`Skipping assignment with empty workflow/workflowName: lang=${lang}, url=${url}, workflow="${workflow}", workflowName="${workflowName}"`);
+      return;
+    }
     const workflowKey = `${workflow}/${workflowName}`;
 
     if (!languageUrlSets[lang]) {
