@@ -379,7 +379,7 @@ function buildHtmlFromDiff(diff, modified) {
 
 export const removeLocTags = (html) => {
   // TODO: Remove da-loc-deleted once we've migrated all regional edits to the new loc tags
-  const locElsToRemove = html.querySelectorAll(`${DELETED_TAG}, [loc-temp-dom], 'da-loc-deleted'`);
+  const locElsToRemove = html.querySelectorAll(`${DELETED_TAG}, [loc-temp-dom], da-loc-deleted`);
   locElsToRemove.forEach((el) => el.remove());
 
   // Temp code to support old regional edits
