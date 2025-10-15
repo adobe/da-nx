@@ -10,6 +10,7 @@ import {
   reviewSnapshot,
   updateSchedule,
   formatLocalDate,
+  addResourcesToSnapshot,
 } from '../utils/utils.js';
 
 const nx = `${new URL(import.meta.url).origin}/nx`;
@@ -176,6 +177,15 @@ class NxSnapshot extends LitElement {
       ? 'Forking content into snapshot.'
       : 'Promoting content from snapshot.';
     await copyManifest(this.basics.name, this._manifest.resources, direction);
+    if (this._action === 'fork') {
+      // we copied the content into the snapshot
+      // now we need to add the resources to the snapshot again to update aem.reviews
+      const result = await addResourcesToSnapshot(this.basics.name, this._manifest.resources);
+      if (result.error) {
+        this._message = { heading: 'Note', message: result.error, open: true };
+        return;
+      }
+    }
     this._action = undefined;
   }
 
