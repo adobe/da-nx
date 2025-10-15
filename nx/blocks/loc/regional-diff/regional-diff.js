@@ -6,9 +6,9 @@ import './object_hash.js';
 
 const MIN_LIST_ITEMS_IN_COMMON = 2;
 const ADDED = 'added';
-const ADDED_TAG = 'da-loc-added';
+const ADDED_TAG = 'da-diff-added';
 const DELETED = 'deleted';
-const DELETED_TAG = 'da-loc-deleted';
+const DELETED_TAG = 'da-diff-deleted';
 const SAME = 'same';
 
 const HLX_AEM_URL_REGEX = /\.hlx\.page\/|\.hlx\.live\/|\.aem\.page\//g;
@@ -334,11 +334,15 @@ function getGroupInnerHtml(blockGroup) {
 }
 
 function getBlockgroupHtml(blockGroup, type) {
+  if (type === ADDED) {
+    blockGroup[0]?.setAttribute(ADDED_TAG, '');
+  }
+
   // Modified block groups automatically get sections at start and end
   const htmlText = getGroupInnerHtml(blockGroup);
 
   if (type === ADDED) {
-    return `<${ADDED_TAG} class="da-group"><div>${htmlText}</div></${ADDED_TAG}>`;
+    return `<div>${htmlText}</div>`;
   }
   if (type === DELETED) {
     return `<${DELETED_TAG} class="da-group"><div>${htmlText}</div></${DELETED_TAG}>`;
@@ -361,7 +365,7 @@ function buildHtmlFromDiff(diff, modified) {
     }
 
     if (item.type === ADDED) {
-      modifiedBlock = wrapElement(item.block, ADDED_TAG);
+      modifiedBlock.setAttribute(ADDED_TAG, '');
     } else if (item.type === DELETED) {
       modifiedBlock = wrapElement(item.block, DELETED_TAG);
     }
@@ -374,17 +378,24 @@ function buildHtmlFromDiff(diff, modified) {
 }
 
 export const removeLocTags = (html) => {
-  const locElsToRemove = html.querySelectorAll('da-loc-deleted, [loc-temp-dom]');
+  // TODO: Remove da-loc-deleted once we've migrated all regional edits to the new loc tags
+  const locElsToRemove = html.querySelectorAll(`${DELETED_TAG}, [loc-temp-dom], 'da-loc-deleted'`);
   locElsToRemove.forEach((el) => el.remove());
 
-  const tags = html.querySelectorAll('da-loc-added');
-
-  // Iterate over each tag
-  tags.forEach((tag) => {
-    while (tag.firstChild) {
-      tag.parentNode.insertBefore(tag.firstChild, tag);
+  // Temp code to support old regional edits
+  const daLocAddedEls = html.querySelectorAll('da-loc-added');
+  daLocAddedEls.forEach((el) => {
+    const parent = el.parentNode;
+    if (!parent) return;
+    while (el.firstChild) {
+      parent.insertBefore(el.firstChild, el);
     }
-    tag.parentNode.removeChild(tag);
+    parent.removeChild(el);
+  });
+
+  const addedEls = html.querySelectorAll(`[${ADDED_TAG}]`);
+  addedEls.forEach((el) => {
+    el.removeAttribute(ADDED_TAG);
   });
 };
 

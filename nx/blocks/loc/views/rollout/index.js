@@ -38,7 +38,9 @@ async function fetchLangSources(lang, urls) {
 
     const content = await resp.text();
 
-    if (content.includes('da-loc-added') || content.includes('da-loc-deleted')) {
+    if (content.includes('da-diff-added') || content.includes('da-diff-deleted')
+      // TODO: Remove da-loc-* once we've migrated all regional edits to the new loc tags
+      || content.includes('da-loc-added') || content.includes('da-loc-deleted')) {
       url.error = `${url.source} has unmerged changes. Please resolve before rolling out.`;
       return url;
     }
