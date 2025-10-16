@@ -107,17 +107,6 @@ export function setOrgSite(suppliedOrg, suppliedSite) {
   site = suppliedSite;
 }
 
-export async function addResourcesToSnapshot(name, resources) {
-  const opts = {
-    method: 'POST',
-    body: JSON.stringify({ paths: resources }),
-    headers: { 'Content-Type': 'application/json' },
-  };
-  const resp = await daFetch(`${AEM_ORIGIN}/snapshot/${org}/${site}/main/${name}/*`, opts);
-  if (!resp.ok) return formatError(resp);
-  return { success: true };
-}
-
 export async function updatePaths(name, currPaths, editedHrefs) {
   const paths = filterPaths(editedHrefs);
   const { removed, added } = comparePaths(currPaths, paths);
@@ -130,8 +119,15 @@ export async function updatePaths(name, currPaths, editedHrefs) {
 
   // Handle adds
   if (added.length > 0) {
-    const result = await addResourcesToSnapshot(name, added);
-    if (result.error) return result;
+    const opts = {
+      method: 'POST',
+      body: JSON.stringify({ paths: added }),
+      headers: { 'Content-Type': 'application/json' },
+    };
+
+    // This is technically a bulk ops request
+    const resp = await daFetch(`${AEM_ORIGIN}/snapshot/${org}/${site}/main/${name}/*`, opts);
+    if (!resp.ok) return formatError(resp);
   }
 
   // The formatting of the response will be bulk job-like,
