@@ -153,7 +153,12 @@ export function getPathDetails() {
   if (split.length === 2) {
     const [org, site] = split;
 
-    window.location.hash = `/dashboard/${org}/${site}`;
+    const { pathname } = new URL(window.location.href);
+
+    if (pathname.includes('loc')) {
+      window.location.hash = `/dashboard/${org}/${site}`;
+    }
+
     return { view: 'dashboard', org, site };
   }
 
