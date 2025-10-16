@@ -95,7 +95,11 @@ export async function deleteSnapshot(name, paths = ['/*']) {
   }));
   const firstError = results.find((result) => result.error);
   if (firstError) return firstError;
-  return results[0];
+  // once all resources are deleted, delete the snapshot as well
+  const opts = { method: 'DELETE' };
+  const resp = await daFetch(`${AEM_ORIGIN}/snapshot/${org}/${site}/main/${name}`, opts);
+  if (!resp.ok) return formatError(resp);
+  return { success: true };
 }
 
 export function setOrgSite(suppliedOrg, suppliedSite) {
