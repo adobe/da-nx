@@ -40,6 +40,7 @@ const ICONS = [
   `${nx}/public/icons/S2_Icon_Close_20_N.svg`,
   `${nx}/public/icons/S2_Icon_CloseCircle_20_N.svg`,
   `${nx}/public/icons/S2_Icon_Checkmark_20_N.svg`,
+  `${nx}/public/icons/C_Icon_Fragment.svg`,
 ];
 
 class NxMediaInfo extends LitElement {
@@ -560,15 +561,17 @@ class NxMediaInfo extends LitElement {
               <span class="pdf-type">PDF Document</span>
               <span class="pdf-loading">Loading...</span>
             </div>
+            <div class="subtype-label">PDF</div>
           </div>
         </div>
       `;
     }
     return html`
       <div class="preview-placeholder">
-        <svg class="icon">
-          <use href="#S2_Icon_PDF_20_N"></use>
+        <svg class="icon fragment-icon" viewBox="0 0 60 60">
+          <use href="#C_Icon_Fragment"></use>
         </svg>
+        <div class="subtype-label">Fragment</div>
       </div>
     `;
   }
@@ -673,10 +676,10 @@ class NxMediaInfo extends LitElement {
       return html`
         <div class="alt-text-container">
           <div class="alt-text">
-            <svg class="image-reference-icon" viewBox="0 0 22 20">
+            <svg class="image-reference-icon icon" viewBox="0 0 22 20">
               <use href="#S2_Icon_AlertDiamondOrange_20_N"></use>
             </svg>
-            <span class="alt-warning-badge">No Alt Text</span>
+            Missing alt text
           </div>
           <button type="button" size="small" class="icon-button" @click=${() => this.editAlt(usage, usageIndex)}>
             <svg class="icon" viewBox="0 0 22 20">
@@ -872,7 +875,7 @@ class NxMediaInfo extends LitElement {
                 data-tab="usage"
                 @click=${this.handleTabChange}
               >
-              <svg class="icon" viewBox="0 0 22 20">
+              <svg class="reference-icon icon" viewBox="0 0 22 20">
                 <use href="#S2_Icon_AIGenReferenceImage_20_N"></use>
               </svg>
                 ${this._usageData.length} ${this._usageData.length > 1 ? 'References' : 'Reference'}
@@ -883,7 +886,7 @@ class NxMediaInfo extends LitElement {
                 data-tab="metadata"
                 @click=${this.handleTabChange}
               >
-              <svg class="image-info-icon" viewBox="0 0 20 20">
+              <svg class="image-info-icon icon" viewBox="0 0 20 20">
                 <use href="#C_Icon_Image_Info"></use>
               </svg>
                 Metadata

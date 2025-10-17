@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20">
+  <g id="C_Icon_Filters_20" data-name="Layer 1">
+    <path fill="currentColor" d="M13.25,11.25H.75c-.41,0-.75.34-.75.75s.34.75.75.75h12.5c.41,0,.75-.34.75-.75s-.34-.75-.75-.75Z"/>
+    <path fill="currentColor" d="M.75,2.75h12.5c.41,0,.75-.34.75-.75s-.34-.75-.75-.75H.75c-.41,0-.75.34-.75.75s.34.75.75.75Z"/>
+    <path fill="currentColor" d="M13.25,6.25H.75c-.41,0-.75.34-.75.75s.34.75.75.75h12.5c.41,0,.75-.34.75-.75s-.34-.75-.75-.75Z"/>
+    <circle cx="12" cy="2" r="2" fill="currentColor"/>
+    <circle cx="2" cy="7" r="2" fill="currentColor"/>
+    <circle cx="7" cy="12" r="2" fill="currentColor"/>
+  </g>
+</svg>

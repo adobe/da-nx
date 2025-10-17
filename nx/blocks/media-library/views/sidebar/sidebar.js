@@ -11,6 +11,7 @@ const ICONS = [
   `${nx}/public/icons/S2_Icon_ListBulleted_20_N.svg`,
   `${nx}/public/icons/S2_Icon_Properties_20_N.svg`,
   `${nx}/public/icons/S2_GraphBarVertical_18_N.svg`,
+  `${nx}/public/icons/C_Icon_Filters_20.svg`,
 ];
 
 class NxMediaSidebar extends LitElement {
@@ -60,11 +61,6 @@ class NxMediaSidebar extends LitElement {
     getSvg({ parent: this.shadowRoot, paths: ICONS });
   }
 
-  handleViewChange(view) {
-    this.currentView = view;
-    this.dispatchEvent(new CustomEvent('viewChange', { detail: { view } }));
-  }
-
   handleFiltersToggle() {
     if (this.isIndexExpanded) {
       this.isIndexExpanded = false;
@@ -99,11 +95,6 @@ class NxMediaSidebar extends LitElement {
         </button>
       </li>
     `;
-  }
-
-  handleViewToggle() {
-    const newView = this.currentView === 'grid' ? 'list' : 'grid';
-    this.handleViewChange(newView);
   }
 
   renderIndexPanel() {
@@ -163,16 +154,6 @@ class NxMediaSidebar extends LitElement {
     return html`
       <aside class="media-sidebar ${this.isExpanded || this.isIndexExpanded ? 'expanded' : 'collapsed'}">
         <div class="sidebar-icons">
-          <button
-            class="icon-btn"
-            @click=${this.handleViewToggle}
-            title="${this.currentView === 'grid' ? 'Switch to List view' : 'Switch to Grid view'}"
-          >
-            <svg class="icon">
-              <use href="${this.currentView === 'grid' ? '#S2_Icon_ListBulleted_20_N' : '#S2IconClassicGridView20N-icon'}"></use>
-            </svg>
-            ${this.isExpanded || this.isIndexExpanded ? html`<span>${this.currentView === 'grid' ? 'List' : 'Grid'}</span>` : ''}
-          </button>
           <button
             class="icon-btn ${this.isExpanded ? 'active' : ''}"
             @click=${this.handleFiltersToggle}

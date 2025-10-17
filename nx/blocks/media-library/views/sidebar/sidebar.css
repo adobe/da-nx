@@ -8,37 +8,61 @@
   background: var(--s2-gray-25);
   box-sizing: border-box;
   transition: width 0.3s ease;
+  font-size: var(--s2-font-size-100);
 
   button {
+    font-size: var(--s2-font-size-100);
     display: flex;
     align-items: center;
     width: 100%;
-    padding: var(--spacing-200);
+    padding: 6px var(--spacing-200) 8px var(--spacing-400);
     border: none;
     background: none;
-    border-radius: var(--s2-radius-75);
+    border-radius: var(--s2-radius-100);
     cursor: pointer;
     text-align: left;
     transition: background-color 0.2s ease;
-    gap: var(--spacing-100);
+    gap: var(--spacing-75);
 
     svg {
-      transform: translateX(-4px);
-    }
-
-    &:hover {
-      background: var(--s2-gray-100);
+      transform: translate(-4px, 1px);
     }
 
     &.active {
-      background: #e4e4e4;
-      color: var(--s2-gray-800);
+      background: var(--s2-blue-200);
+      color: var(--s2-blue-800);
       font-weight: 600;
+    }
+
+    &:hover,
+    &.active:hover {
+      background: var(--s2-blue-200);
+      color: var(--s2-blue-800);
     }
 
     & :focus {
       outline: 2px solid var(--s2-blue-500);
       outline-offset: 2px;
+    }
+  }
+
+  .sidebar-icons {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 88px 8px 8px 16px;
+
+    &.secondary {
+      padding: 8px 8px 8px 16px;
+    }
+
+    button {
+      padding-inline-start: var(--spacing-200);
+      padding-inline-end: var(--spacing-400);
+
+      &.active {
+        background: transparent;
+      }
     }
   }
 
@@ -48,17 +72,6 @@
 
   &.expanded {
     width: 180px;
-  }
-}
-
-.sidebar-icons {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 72px 8px 8px 16px;
-
-  &.secondary {
-    padding: 8px 8px 8px 16px;
   }
 }
 
@@ -87,22 +100,21 @@
   }
 
   .icon {
-    width: 20px;
-    height: 20px;
     flex-shrink: 0;
   }
 }
 
 .filter-panel {
-  padding: 16px;
+  padding: 0 16px;
   overflow-y: auto;
+  scrollbar-color: var(--s2-gray-200) transparent;
+  scrollbar-width: thin;
 }
 
 .filter-section h3 {
-  margin: var(--spacing-200) 0 var(--spacing-100);
-  font-size: 16px;
-  font-weight: 600;
-  letter-spacing: 0.05em;
+  margin: var(--spacing-100);
+  font-size: var(--s2-font-size-100);
+  font-weight: 700;
 }
 
 .filter-list {
@@ -111,7 +123,7 @@
   margin: 0;
 
   li {
-    margin-bottom: var(--spacing-50);
+    margin-bottom: var(--spacing-75);
   }
 }
 

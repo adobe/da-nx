@@ -32,6 +32,8 @@ const ICONS = [
   `${nx}/public/icons/S2_Icon_Share_20_N.svg`,
   `${nx}/public/icons/Smock_DocumentFragment_18_N.svg`,
   `${nx}/public/icons/S2_Icon_Play_20_N.svg`,
+  `${nx}/public/icons/C_Icon_Fragment.svg`,
+  `${nx}/public/icons/S2_Icon_Accessibility_20_N.svg`,
 ];
 
 class NxMediaGrid extends LitElement {
@@ -122,9 +124,9 @@ class NxMediaGrid extends LitElement {
           </div>
           <div class="media-actions">
             ${this.renderAltStatus(media)}
-            <button 
+            <button
               class="icon-button share-button"
-              @click=${(e) => { e.stopPropagation(); handlers.copyClick(); }} 
+              @click=${(e) => { e.stopPropagation(); handlers.copyClick(); }}
               title="Copy to clipboard"
             >
               <svg class="icon" viewBox="0 0 20 20">
@@ -176,8 +178,8 @@ class NxMediaGrid extends LitElement {
       if (media.alt && media.alt !== '') {
         return html`
           <div class="filled-alt-indicator">
-            <svg class="icon" viewBox="0 0 18 18">
-              <use href="#S2_Icon_CheckmarkCircle_18_N"></use>
+            <svg class="alt-text-icon icon" viewBox="0 0 22 20">
+              <use href="#S2_Icon_Accessibility_20_N"></use>
             </svg>
           </div>
         `;
@@ -202,11 +204,8 @@ class NxMediaGrid extends LitElement {
     if (isFragment(media)) {
       return html`
         <div class="placeholder-full fragment-placeholder">
-          <svg class="placeholder-icon" viewBox="0 0 48 48" fill="none">
-            <rect x="8" y="8" width="32" height="32" rx="2" stroke="currentColor" stroke-width="2"/>
-            <line x1="14" y1="16" x2="26" y2="16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            <line x1="14" y1="24" x2="34" y2="24" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            <line x1="14" y1="32" x2="30" y2="32" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <svg class="placeholder-icon fragment-icon" viewBox="0 0 60 60">
+            <use href="#C_Icon_Fragment"></use>
           </svg>
           <span class="placeholder-label">${getMediaName(media)}</span>
         </div>

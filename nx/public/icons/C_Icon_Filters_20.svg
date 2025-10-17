@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20">
+  <g id="C_Icon_Filters_20" data-name="Group 19" transform="translate(-122 -1778)">
+    <rect id="Rectangle_10" width="20" height="20"/>
+    <g id="Layer_1" data-name="Layer 1" transform="translate(125 1781)">
+      <path d="M13.25,11.25H.75a.75.75,0,0,0,0,1.5h12.5a.75.75,0,0,0,0-1.5Z" fill="currentColor"/>
+      <path d="M.75,2.75h12.5a.75.75,0,0,0,0-1.5H.75a.75.75,0,0,0,0,1.5Z" fill="currentColor"/>
+      <path d="M13.25,6.25H.75a.75.75,0,0,0,0,1.5h12.5a.75.75,0,0,0,0-1.5Z" fill="currentColor"/>
+      <circle id="Ellipse_12" data-name="Ellipse 12" cx="2" cy="2" r="2" transform="translate(10)" fill="currentColor"/>
+      <circle id="Ellipse_13" data-name="Ellipse 13" cx="2" cy="2" r="2" transform="translate(0 5)" fill="currentColor"/>
+      <circle id="Ellipse_14" data-name="Ellipse 14" cx="2" cy="2" r="2" transform="translate(5 10)" fill="currentColor"/>
+    </g>
+  </g>
+</svg>
