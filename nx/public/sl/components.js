@@ -192,6 +192,9 @@ class SlSelect extends LitElement {
     if (!this.value && childNodes.length) {
       this.value = childNodes.find((child) => child.nodeName === 'OPTION').value;
     }
+
+    // Always ensure the internal select has the current value
+    this._select.value = this.value;
   }
 
   get _select() {
