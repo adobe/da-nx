@@ -1,0 +1,35 @@
+:host {
+  display: block;
+  max-width: var(--grid-container-width);
+  margin: var(--spacing-800) auto var(--spacing-800) auto;
+
+  > svg {
+    display: none;
+  }
+
+  nx-path {
+    display: block;
+    margin-bottom: 16px;
+  }
+
+  sl-textarea {
+    min-height: 600px;
+  }
+}
+
+.schema-select-wrapper {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+
+  sl-select,
+  sl-input {
+    flex: 1 0 auto;
+  }
+}
+
+.nx-codemirror {
+  border: 2px solid var(--s2-gray-300);
+  border-radius: 8px;
+  overflow: hidden;
+}
