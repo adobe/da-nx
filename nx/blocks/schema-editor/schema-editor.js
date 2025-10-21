@@ -64,6 +64,7 @@ class SchemaEditor extends LitElement {
   setDefault() {
     this._createNew = undefined;
     ([this._currentSchema] = Object.keys(this._schemas));
+    console.log(this._schemas);
   }
 
   getPrefix() {
@@ -73,12 +74,12 @@ class SchemaEditor extends LitElement {
 
   async handleDelete() {
     const id = this._currentSchema;
-    const prefix = this.getPrefix();
-    const result = await deleteSchema(prefix, id);
-    if (result.error) {
-      this.newInput.error = result.error;
-      return;
-    }
+    // const prefix = this.getPrefix();
+    // const result = await deleteSchema(prefix, id);
+    // if (result.error) {
+    //   this.newInput.error = result.error;
+    //   return;
+    // }
     delete this._schemas[id];
     this.setDefault();
   }
@@ -110,14 +111,24 @@ class SchemaEditor extends LitElement {
     return this.shadowRoot.querySelector('.nx-codemirror');
   }
 
+  // Programatically make the select so lit doesn't keep old options
+  // TODO: Fix me
+  get schemaSelect() {
+    const select = document.createElement('sl-select');
+    const options = Object.keys(this._schemas).map((key) => {
+      const option = document.createElement('option');
+      option.value = key;
+      option.innerText = this._schemas[key].title;
+      return option;
+    });
+    select.append(...options);
+    select.addEventListener('change', (e) => { this.handleSchemaChange(e); });
+    return select;
+  }
+
   renderSelectSchema() {
     return html`
-      <sl-select @change=${this.handleSchemaChange}>
-        ${Object.keys(this._schemas).map((key) => html`
-          <option value="${key}">${this._schemas[key].title}</option>
-        `)}
-        <option value="nx-new-schema">New Schema</option>
-      </sl-select>
+      ${this.schemaSelect}
       <sl-button class="negative outline" @click=${this.handleDelete}>Delete schema</sl-button>
       <sl-button @click=${() => this.handleSave(true)}>Update schema</sl-button>`;
   }
