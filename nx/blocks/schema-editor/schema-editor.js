@@ -64,7 +64,6 @@ class SchemaEditor extends LitElement {
   setDefault() {
     this._createNew = undefined;
     ([this._currentSchema] = Object.keys(this._schemas));
-    console.log(this._schemas);
   }
 
   getPrefix() {
@@ -74,12 +73,12 @@ class SchemaEditor extends LitElement {
 
   async handleDelete() {
     const id = this._currentSchema;
-    // const prefix = this.getPrefix();
-    // const result = await deleteSchema(prefix, id);
-    // if (result.error) {
-    //   this.newInput.error = result.error;
-    //   return;
-    // }
+    const prefix = this.getPrefix();
+    const result = await deleteSchema(prefix, id);
+    if (result.error) {
+      this.newInput.error = result.error;
+      return;
+    }
     delete this._schemas[id];
     this.setDefault();
   }
