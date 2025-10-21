@@ -1,19 +1,31 @@
 import { html, LitElement, nothing } from 'da-lit';
+import { getConfig } from '../../scripts/nexter.js';
 import getStyle from '../../utils/styles.js';
+import getSvg from '../../utils/svg.js';
 import { loadSchemas, saveSchema, deleteSchema, loadCodeMirror, updateCodeMirror } from './utils/utils.js';
 
 import '../../public/sl/components.js';
 import '../shared/path/path.js';
 
+const { nxBase: nx } = getConfig();
+
+const ICONS = [
+  `${nx}/public/icons/S2_Icon_InfoCircle_20_N.svg`,
+  `${nx}/public/icons/S2_Icon_AlertDiamond_20_N.svg`,
+  `${nx}/public/icons/S2_Icon_CheckmarkCircle_20_N.svg`,
+];
+
 const EL_NAME = 'nx-schema-editor';
-const DEFAULT_SCHEMA = { '$schema': 'https://json-schema.org/draft/2020-12/schema' };
+const DEFAULT_SCHEMA = { $schema: 'https://json-schema.org/draft/2020-12/schema' };
 
 const styles = await getStyle(import.meta.url);
+const icons = await getSvg({ paths: ICONS });
 
 class SchemaEditor extends LitElement {
   static properties = {
     _org: { state: true },
     _site: { state: true },
+    _alert: { state: true },
     _schemas: { state: true },
     _currentSchema: { state: true },
     _createNew: { state: true },
@@ -22,10 +34,11 @@ class SchemaEditor extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [styles];
+    this.shadowRoot.append(...icons);
   }
 
   updated(props) {
-    if (!props.has('_currentSchema')) return;
+    if (!(props.has('_currentSchema') || props.has('_createNew'))) return;
 
     const data = this._schemas?.[this._currentSchema] || DEFAULT_SCHEMA;
 
@@ -42,11 +55,19 @@ class SchemaEditor extends LitElement {
   async handleDetail({ detail }) {
     this._org = detail.org;
     this._site = detail.site;
+
+    if (!this._org) {
+      this._alert = { type: 'warning', message: 'Please enter an org/site to view schemas.' };
+      return;
+    }
+
     const schemas = await loadSchemas(this._org, this._site);
 
+    // We at least have an org, but the schemas are empty
     if (!Object.keys(schemas).length) {
-      this._schemas = null;
-      this._currentSchema = '';
+      this._schemas = {};
+      this._createNew = true;
+      this._alert = { type: 'warning', message: 'No schemas found. Please create one.' };
       return;
     }
 
@@ -54,21 +75,25 @@ class SchemaEditor extends LitElement {
     this.setDefault();
   }
 
-  handleSchemaChange({ target }) {
-    if (target.value === 'nx-new-schema') {
-      this._createNew = true;
-    }
-    this._currentSchema = target.value;
-  }
-
   setDefault() {
     this._createNew = undefined;
+    this._alert = { type: 'info', message: 'Select a schema to edit.' };
     ([this._currentSchema] = Object.keys(this._schemas));
   }
 
   getPrefix() {
     const prefix = `/${this._org}`;
     return this._site ? `${prefix}/${this._site}` : prefix;
+  }
+
+  handleSchemaChange({ target }) {
+    if (target.value === 'nx-new-schema') {
+      this._createNew = true;
+      // Remove any existing schema
+      this._currentSchema = undefined;
+      return;
+    }
+    this._currentSchema = target.value;
   }
 
   async handleDelete() {
@@ -84,7 +109,7 @@ class SchemaEditor extends LitElement {
   }
 
   async handleSave(isUpdate) {
-    const id = isUpdate ? this._currentSchema : this.newInput.value;
+    const id = isUpdate && this._currentSchema ? this._currentSchema : this.newInput.value;
     const content = this._editor.state.doc.toString();
     const prefix = this.getPrefix();
     const result = await saveSchema(prefix, id, content);
@@ -96,6 +121,7 @@ class SchemaEditor extends LitElement {
       this._schemas[id] = JSON.parse(content);
       this._createNew = undefined;
     }
+    this._alert = { type: 'success', message: 'Schema saved.' };
   }
 
   handleNewInput({ target }) {
@@ -111,13 +137,14 @@ class SchemaEditor extends LitElement {
   }
 
   // Programatically make the select so lit doesn't keep old options
-  // TODO: Fix me
   get schemaSelect() {
+    // Make a synthetic list with a "new schema" entry
+    const schemas = { ...this._schemas, 'nx-new-schema': { title: 'New schema' } };
     const select = document.createElement('sl-select');
-    const options = Object.keys(this._schemas).map((key) => {
+    const options = Object.keys(schemas).map((key) => {
       const option = document.createElement('option');
       option.value = key;
-      option.innerText = this._schemas[key].title;
+      option.innerText = schemas[key].title || key;
       return option;
     });
     select.append(...options);
@@ -129,7 +156,7 @@ class SchemaEditor extends LitElement {
     return html`
       ${this.schemaSelect}
       <sl-button class="negative outline" @click=${this.handleDelete}>Delete schema</sl-button>
-      <sl-button @click=${() => this.handleSave(true)}>Update schema</sl-button>`;
+      <sl-button @click=${() => this.handleSave(true)}>Save schema</sl-button>`;
   }
 
   renderNewSchema() {
@@ -149,11 +176,29 @@ class SchemaEditor extends LitElement {
     `;
   }
 
+  renderAlert() {
+    if (!this._alert) return nothing;
+
+    const type2icon = {
+      info: 'InfoCircle',
+      warning: 'AlertDiamond',
+      success: 'CheckmarkCircle',
+    };
+
+    return html`
+      <div class="nx-alert ${this._alert.type || 'info'}">
+        <svg class="icon"><use href="#S2_Icon_${type2icon[this._alert.type || 'info']}_20_N"/></svg>
+        <p>${this._alert.message}</p>
+      </div>
+    `;
+  }
+
   render() {
     return html`
       <nx-path label="Load schemas" @details=${this.handleDetail}></nx-path>
       <h1>Schema Editor</h1>
-      ${this._schemas !== undefined ? this.renderEditor() : nothing}
+      ${this.renderAlert()}
+      ${this._schemas ? this.renderEditor() : nothing}
     `;
   }
 }

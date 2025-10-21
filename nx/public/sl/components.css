@@ -216,6 +216,21 @@ svg.icon {
       border-color: var(--s2-red-900);
       outline-color: var(--s2-red-900);
 
+      &.outline {
+        background: transparent;
+        color: var(--s2-red-900);
+
+        &:hover {
+          color: #fff;
+        }
+
+        &:focus-visible {
+          color: #fff;
+          background: var(--s2-red-900);
+          border-color: var(--s2-red-900);
+        }
+      }
+
       &:hover {
         background: var(--s2-red-800);
         border-color: var(--s2-red-800);
