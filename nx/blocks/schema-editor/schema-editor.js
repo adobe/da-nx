@@ -147,6 +147,7 @@ class SchemaEditor extends LitElement {
       option.innerText = schemas[key].title || key;
       return option;
     });
+    if (this._currentSchema) select.value = this._currentSchema;
     select.append(...options);
     select.addEventListener('change', (e) => { this.handleSchemaChange(e); });
     return select;
