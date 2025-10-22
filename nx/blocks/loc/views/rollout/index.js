@@ -2,7 +2,7 @@ import { DA_ORIGIN } from '../../../../public/utils/constants.js';
 import { Queue } from '../../../../public/utils/tree.js';
 import { daFetch } from '../../../../utils/daFetch.js';
 import { mergeCopy, overwriteCopy } from '../../project/index.js';
-import { convertPath } from '../../utils/utils.js';
+import { convertPath, createSnapshotPrefix } from '../../utils/utils.js';
 
 function getTitle(status) {
   const title = {
@@ -104,12 +104,14 @@ async function rolloutLangLocales(title, lang, urls, behavior) {
   return results;
 }
 
-function formatLangUrls(org, site, sourceLocation, lang, urls) {
+function formatLangUrls(org, site, sourceLocation, lang, urls, snapshot) {
+  const snapshotPrefix = createSnapshotPrefix(snapshot);
   return urls.map((url) => {
     const convertConf = {
       path: url.suppliedPath,
       sourcePrefix: sourceLocation,
       destPrefix: lang.location,
+      snapshotPrefix,
     };
     const { daDestPath, aemBasePath, ext } = convertPath(convertConf);
     const source = `/${org}/${site}${daDestPath}`;
@@ -117,13 +119,20 @@ function formatLangUrls(org, site, sourceLocation, lang, urls) {
   });
 }
 
-function formatRolloutUrls(org, site, lang, urls) {
+function formatRolloutUrls(org, site, lang, urls, snapshot) {
+  const snapshotPrefix = createSnapshotPrefix(snapshot);
   return lang.locales.reduce((acc, locale) => {
     const localeUrls = urls.map((langUrl) => {
-      const { daDestPath } = convertPath({ path: langUrl.aemBasePath, destPrefix: locale.code });
+      const { daDestPath } = convertPath({
+        path: langUrl.aemBasePath,
+        sourcePrefix: snapshotPrefix,
+        destPrefix: locale.code,
+        snapshotPrefix,
+      });
       return {
         hasExt: langUrl.ext === 'json',
         sourceContent: langUrl.content,
+        source: `/${org}/${site}${langUrl.aemBasePath}`,
         destination: `/${org}/${site}${daDestPath}`,
       };
     });
@@ -135,6 +144,7 @@ function formatRolloutUrls(org, site, lang, urls) {
 export async function rolloutLang({
   org,
   site,
+  snapshot,
   title,
   options,
   lang,
@@ -148,12 +158,12 @@ export async function rolloutLang({
   const behavior = options['rollout.conflict.behavior'];
 
   // Determine all sources are valid before continuing
-  const langUrls = formatLangUrls(org, site, sourceLocation, lang, projectUrls);
+  const langUrls = formatLangUrls(org, site, sourceLocation, lang, projectUrls, snapshot);
   let { errors, message, urls } = await fetchLangSources(lang, langUrls);
   if (errors) return { errors, message };
 
   // Convert base lang urls to the full locale list
-  const urlsToSave = formatRolloutUrls(org, site, lang, urls);
+  const urlsToSave = formatRolloutUrls(org, site, lang, urls, snapshot);
 
   // Perform the actual rollout
   ({ errors, message, urls } = await rolloutLangLocales(title, lang, urlsToSave, behavior));

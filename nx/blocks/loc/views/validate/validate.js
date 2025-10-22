@@ -4,7 +4,7 @@ import { getConfig } from '../../../../scripts/nexter.js';
 import getStyle from '../../../../utils/styles.js';
 import { daFetch } from '../../../../utils/daFetch.js';
 import { Queue } from '../../../../public/utils/tree.js';
-import { convertPath, fetchConfig } from '../../utils/utils.js';
+import { convertPath, createSnapshotPrefix, fetchConfig } from '../../utils/utils.js';
 import { getFragmentUrls } from './validate-utils.js';
 
 const { nxBase } = getConfig();
@@ -19,6 +19,7 @@ class NxLocValidate extends LitElement {
     message: { attribute: false },
     _org: { state: true },
     _site: { state: true },
+    _snapshot: { state: true },
     _urls: { state: true },
     _configSheet: { state: true },
     _message: { state: true },
@@ -37,10 +38,11 @@ class NxLocValidate extends LitElement {
   }
 
   setupProject() {
-    const { org, site, urls } = this.project;
+    const { org, site, snapshot, urls } = this.project;
 
     this._org = org;
     this._site = site;
+    this._snapshot = snapshot;
     this._urls = urls.map((url) => new URL(url.suppliedPath, this.origin));
 
     this.checkUrls();
@@ -99,7 +101,8 @@ class NxLocValidate extends LitElement {
     pathname = pathname.endsWith('/') ? `${pathname}index` : pathname;
     const isSheet = pathname.endsWith('.json');
     const extPath = isSheet ? pathname : `${pathname}.html`;
-    const daUrl = `${DA_ORIGIN}/source/${this._org}/${this._site}${extPath}`;
+    const snapshotUrlFragment = createSnapshotPrefix(this._snapshot);
+    const daUrl = `${DA_ORIGIN}/source/${this._org}/${this._site}${snapshotUrlFragment}${extPath}`;
     const resp = await daFetch(daUrl);
     const text = await resp.text();
     const ok = resp.status === 200;
@@ -108,7 +111,7 @@ class NxLocValidate extends LitElement {
     url.sheet = isSheet;
     url.extPath = extPath;
     url.fragment = url.pathname.includes('/fragments/');
-    url.daEdit = `${DA_LIVE}/edit#/${this._org}/${this._site}${url.pathname}`;
+    url.daEdit = `${DA_LIVE}/edit#/${this._org}/${this._site}${snapshotUrlFragment}${url.pathname}`;
     if (ok) await this.findFragments(text);
     this.requestUpdate();
   }
@@ -186,12 +189,16 @@ class NxLocValidate extends LitElement {
     return checked.some((url) => url.status !== 'ready');
   }
 
+  get originPrefix() {
+    return `https://${this.project.snapshot ? `${this.project.snapshot}--` : ''}main`;
+  }
+
   get origin() {
-    return `https://main--${this.project.site}--${this.project.org}.aem.page`;
+    return `${this.originPrefix}--${this.project.site}--${this.project.org}.aem.${this.project.snapshot ? 'reviews' : 'page'}`;
   }
 
   get subOrigin() {
-    return `https://main--${this.project.site}--${this.project.org}`;
+    return `${this.originPrefix}--${this.project.site}--${this.project.org}`;
   }
 
   render() {
