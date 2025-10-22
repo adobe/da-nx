@@ -94,8 +94,14 @@ class NxSnapshot extends LitElement {
   }
 
   async handleSave(lock) {
-    this._action = 'Saving';
     const name = this.basics.name || this.getValue('[name="name"]');
+    if (!name) {
+      this._message = { heading: 'Note', message: 'Please enter a name for the snapshot.', open: true };
+      this.shadowRoot.querySelector('[name="name"]').classList.add('name-missing');
+      return;
+    }
+
+    this._action = 'Saving';
 
     // Set the name if it isn't already set
     if (!this.basics.name) this.basics.name = name;
@@ -316,7 +322,7 @@ class NxSnapshot extends LitElement {
   }
 
   renderEditName() {
-    return html`<input type="text" name="name" placeholder="Enter snapshot name" />`;
+    return html`<input type="text" name="name" placeholder="Enter snapshot name" @input=${() => this.shadowRoot.querySelector('[name="name"]')?.classList?.remove('name-missing')} />`;
   }
 
   renderName() {
