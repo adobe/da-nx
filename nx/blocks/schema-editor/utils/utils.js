@@ -10,11 +10,17 @@ import {
 } from '../../../../deps/codemirror/dist/index.js';
 
 const FORMS_BASE_PATH = '/.da/forms/schemas';
+const HTML_SHELL = '<body><header></header><main><div><pre><code>{{JSON}}</code></pre></div></main><footer></footer></body>';
 
 async function loadSchema(schema) {
   const resp = await daFetch(`${DA_ORIGIN}/source${schema.path}`);
   if (!resp.ok) return { error: 'Could not load current schema.' };
-  return resp.json();
+  const html = await resp.text();
+
+  const parser = new DOMParser();
+  const dom = parser.parseFromString(html, 'text/html');
+  const jsonStr = dom.querySelector('code').textContent;
+  return JSON.parse(jsonStr);
 }
 
 export async function loadSchemas(org, site) {
@@ -53,11 +59,13 @@ export async function loadSchemas(org, site) {
   return schemasObj;
 }
 
-export async function saveSchema(prefix, id, content) {
-  const path = `${prefix}${FORMS_BASE_PATH}/${id}.json`;
+export async function saveSchema(prefix, id, jsonStr) {
+  const path = `${prefix}${FORMS_BASE_PATH}/${id}.html`;
+
+  const content = HTML_SHELL.replace('{{JSON}}', jsonStr);
 
   const body = new FormData();
-  const data = new Blob([content], { type: 'application/json' });
+  const data = new Blob([content], { type: 'text/html' });
   body.append('data', data);
 
   const opts = { method: 'POST', body };
@@ -67,7 +75,7 @@ export async function saveSchema(prefix, id, content) {
 }
 
 export async function deleteSchema(prefix, id) {
-  const path = `${prefix}${FORMS_BASE_PATH}/${id}.json`;
+  const path = `${prefix}${FORMS_BASE_PATH}/${id}.html`;
 
   const opts = { method: 'DELETE' };
   const resp = await daFetch(`${DA_ORIGIN}/source${path}`, opts);
