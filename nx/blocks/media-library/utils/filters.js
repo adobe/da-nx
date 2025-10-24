@@ -180,23 +180,15 @@ export async function processMediaData(mediaData, onProgress = null) {
   }
 
   const hashToItemMap = new Map();
+  const groupingKeyToUrl = new Map();
+
   mediaData.forEach((item) => {
     if (item.hash) {
       hashToItemMap.set(item.hash, item);
     }
-  });
-
-  mediaData.forEach((item) => {
     if (item.url) {
       const groupingKey = getGroupingKey(item.url);
-      const usageInfo = processedData.usageData[groupingKey];
-      if (usageInfo) {
-        item.usageCount = usageInfo.count || 1;
-      } else {
-        item.usageCount = 1;
-      }
-    } else {
-      item.usageCount = 1;
+      groupingKeyToUrl.set(groupingKey, item.url);
     }
   });
 

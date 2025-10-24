@@ -20,7 +20,6 @@ class NxMediaScan extends LitElement {
   static properties = {
     sitePath: { attribute: false },
     _isScanning: { state: true },
-    _scanProgress: { state: true },
     _pollingInterval: { state: true },
     _pollingStarted: { state: true },
   };
@@ -29,11 +28,11 @@ class NxMediaScan extends LitElement {
     super();
     this.sitePath = null;
     this._isScanning = false;
-    this._scanProgress = { pages: 0, media: 0, duration: null, hasChanges: null };
     this._pollingInterval = null;
     this._pollingStarted = false;
     this._batchQueue = [];
     this._batchTimeout = null;
+    this._currentProgress = { pages: 0, media: 0 };
   }
 
   connectedCallback() {
@@ -112,7 +111,7 @@ class NxMediaScan extends LitElement {
     }
 
     this._isScanning = true;
-    this._scanProgress = { pages: 0, media: 0, duration: null, hasChanges: null };
+    this._currentProgress = { pages: 0, media: 0 };
 
     this.pausePolling();
     this.dispatchEvent(new CustomEvent('scanStart'));
@@ -124,31 +123,34 @@ class NxMediaScan extends LitElement {
         this.updateScanProgress.bind(this),
         this.updateProgressiveData.bind(this),
       );
-      this._scanProgress.hasChanges = result.hasChanges;
-      this._scanProgress.media = result.mediaData?.length || 0;
-      this._scanProgress.duration = result.duration;
 
-      if (this._scanProgress.hasChanges && result.mediaData) {
+      const finalProgress = {
+        hasChanges: result.hasChanges,
+        media: result.mediaData?.length || 0,
+        duration: result.duration,
+      };
+
+      if (finalProgress.hasChanges && result.mediaData) {
         this.dispatchEvent(new CustomEvent('scanComplete', {
           detail: {
             mediaData: result.mediaData,
-            hasChanges: this._scanProgress.hasChanges,
-            duration: this._scanProgress.duration,
+            hasChanges: finalProgress.hasChanges,
+            duration: finalProgress.duration,
           },
         }));
         window.dispatchEvent(new CustomEvent('scanComplete', {
           detail: {
             mediaData: result.mediaData,
-            hasChanges: this._scanProgress.hasChanges,
-            duration: this._scanProgress.duration,
+            hasChanges: finalProgress.hasChanges,
+            duration: finalProgress.duration,
           },
         }));
 
         this.dispatchEvent(new CustomEvent('mediaDataUpdated', {
           detail: {
             mediaData: result.mediaData,
-            hasChanges: this._scanProgress.hasChanges,
-            duration: this._scanProgress.duration,
+            hasChanges: finalProgress.hasChanges,
+            duration: finalProgress.duration,
           },
         }));
       } else {
@@ -178,14 +180,26 @@ class NxMediaScan extends LitElement {
 
   updateScanProgress(type, totalScanned) {
     if (type === 'page') {
-      this._scanProgress = { ...this._scanProgress, pages: totalScanned };
+      this._currentProgress.pages = totalScanned;
     }
     if (type === 'media') {
-      this._scanProgress = { ...this._scanProgress, media: totalScanned };
+      this._currentProgress.media = totalScanned;
     }
 
-    this.dispatchEvent(new CustomEvent('scanProgress', { detail: { type, totalScanned, progress: this._scanProgress } }));
-    this.requestUpdate();
+    const progressData = {
+      pages: this._currentProgress.pages,
+      media: this._currentProgress.media,
+      duration: null,
+      hasChanges: null,
+    };
+
+    this.dispatchEvent(new CustomEvent('scanProgress', {
+      detail: {
+        type,
+        totalScanned,
+        progress: progressData,
+      },
+    }));
   }
 
   updateProgressiveData(mediaItems) {
@@ -236,53 +250,6 @@ class NxMediaScan extends LitElement {
   }
 
   renderScanProgress() {
-    if (this._isScanning) {
-      return html`
-        <div class="scanning-indicator">
-          <svg class="spinner-icon">
-            <use href="#S2_Icon_Refresh_20_N"></use>
-          </svg>
-          <span class="scanning-text">
-            ${this._scanProgress?.pages || 0} pages, ${this._scanProgress?.media || 0} media
-          </span>
-        </div>
-      `;
-    }
-
-    if (this._scanProgress?.duration) {
-      const durationText = ` in ${this._scanProgress.duration}`;
-
-      if (this._scanProgress.hasChanges === false) {
-        return html`
-          <div class="scanning-indicator completed no-changes">
-            <span class="scanning-text">
-              No changes found${durationText}
-            </span>
-          </div>
-        `;
-      }
-
-      // Show success message only if hasChanges is explicitly true
-      if (this._scanProgress.hasChanges === true) {
-        return html`
-          <div class="scanning-indicator completed">
-            <span class="scanning-text">
-              Found ${this._scanProgress?.media || 0} media${durationText}
-            </span>
-          </div>
-        `;
-      }
-
-      // Default case
-      return html`
-        <div class="scanning-indicator completed">
-          <span class="scanning-text">
-            Scan completed${durationText}
-          </span>
-        </div>
-      `;
-    }
-
     return '';
   }
 

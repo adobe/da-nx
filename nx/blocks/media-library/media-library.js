@@ -1,6 +1,6 @@
 import { html, LitElement } from 'da-lit';
 import getStyle from '../../utils/styles.js';
-import { loadMediaSheet, buildUsageIndex } from './utils/processing.js';
+import { loadMediaSheet } from './utils/processing.js';
 import { copyMediaToClipboard } from './utils/utils.js';
 import {
   processMediaData,
@@ -262,6 +262,42 @@ class NxMediaLibrary extends LitElement {
     }
   }
 
+  buildDataStructures(mediaData) {
+    const uniqueItemsMap = new Map();
+    const usageIndex = new Map();
+
+    mediaData.forEach((item) => {
+      if (!item.url) return;
+
+      const groupingKey = getGroupingKey(item.url);
+
+      if (!uniqueItemsMap.has(groupingKey)) {
+        uniqueItemsMap.set(groupingKey, { ...item, usageCount: 1 });
+      } else {
+        const existingItem = uniqueItemsMap.get(groupingKey);
+        existingItem.usageCount += 1;
+      }
+
+      if (!usageIndex.has(groupingKey)) {
+        usageIndex.set(groupingKey, []);
+      }
+
+      usageIndex.get(groupingKey).push({
+        doc: item.doc,
+        alt: item.alt,
+        type: item.type,
+        firstUsedAt: item.firstUsedAt,
+        lastUsedAt: item.lastUsedAt,
+        hash: item.hash,
+      });
+    });
+
+    return {
+      uniqueItems: Array.from(uniqueItemsMap.values()),
+      usageIndex,
+    };
+  }
+
   async loadMediaData(org, repo) {
     try {
       const mediaData = await loadMediaSheet(org, repo);
@@ -269,21 +305,11 @@ class NxMediaLibrary extends LitElement {
       if (mediaData && mediaData.length > 0) {
         this._rawMediaData = mediaData;
 
-        this._usageIndex = buildUsageIndex(mediaData);
+        const { uniqueItems, usageIndex } = this.buildDataStructures(mediaData);
+        this._mediaData = uniqueItems;
+        this._usageIndex = usageIndex;
 
         this._processedData = await processMediaData(mediaData);
-        const uniqueItems = [];
-        const seenKeys = new Set();
-
-        mediaData.forEach((item) => {
-          const groupingKey = getGroupingKey(item.url);
-          if (!seenKeys.has(groupingKey)) {
-            seenKeys.add(groupingKey);
-            uniqueItems.push(item);
-          }
-        });
-
-        this._mediaData = uniqueItems;
         this._needsFilterRecalculation = true;
 
         this._filteredDataCache = null;
@@ -302,21 +328,11 @@ class NxMediaLibrary extends LitElement {
     if (mediaData && mediaData.length > 0) {
       this._rawMediaData = mediaData;
 
-      this._usageIndex = buildUsageIndex(mediaData);
-
-      const uniqueItems = [];
-      const seenKeys = new Set();
-
-      mediaData.forEach((item) => {
-        const groupingKey = getGroupingKey(item.url);
-        if (!seenKeys.has(groupingKey)) {
-          seenKeys.add(groupingKey);
-          uniqueItems.push(item);
-        }
-      });
-
+      const { uniqueItems, usageIndex } = this.buildDataStructures(mediaData);
       this._mediaData = uniqueItems;
-      this._processedData = await processMediaData(uniqueItems);
+      this._usageIndex = usageIndex;
+
+      this._processedData = await processMediaData(mediaData);
       this._needsFilterRecalculation = true;
       this._filteredDataCache = null;
       this._lastFilterParams = null;
@@ -523,6 +539,7 @@ class NxMediaLibrary extends LitElement {
           usageData,
           org: this.org,
           repo: this.repo,
+          isScanning: this._isScanning,
         },
       },
     }));
@@ -568,6 +585,7 @@ class NxMediaLibrary extends LitElement {
           usageData,
           org: this.org,
           repo: this.repo,
+          isScanning: this._isScanning,
         },
       },
     }));
@@ -671,8 +689,13 @@ class NxMediaLibrary extends LitElement {
   }
 
   handleScanProgress(e) {
-    this._scanProgress = { ...e.detail.progress };
-    this.requestUpdate('_scanProgress');
+    const { progress } = e.detail;
+    this._scanProgress = {
+      pages: progress.pages || 0,
+      media: progress.media || 0,
+      duration: progress.duration || null,
+      hasChanges: progress.hasChanges !== undefined ? progress.hasChanges : null,
+    };
   }
 
   handleScanError(e) {
@@ -712,25 +735,15 @@ class NxMediaLibrary extends LitElement {
             const duration = ((Date.now() - this._scanStartTime) / 1000).toFixed(1);
 
             if (mediaData && mediaData.length > 0) {
-              const uniqueItems = [];
-              const seenKeys = new Set();
-
-              mediaData.forEach((item) => {
-                const groupingKey = getGroupingKey(item.url);
-                if (!seenKeys.has(groupingKey)) {
-                  seenKeys.add(groupingKey);
-                  uniqueItems.push(item);
-                }
-              });
-
+              const { uniqueItems, usageIndex } = this.buildDataStructures(mediaData);
               const newDataLength = uniqueItems.length;
               const hasChanges = newDataLength !== previousDataLength;
 
               if (hasChanges) {
                 this._rawMediaData = mediaData;
-                this._usageIndex = buildUsageIndex(mediaData);
+                this._usageIndex = usageIndex;
                 this._mediaData = uniqueItems;
-                this._processedData = await processMediaData(uniqueItems);
+                this._processedData = await processMediaData(mediaData);
                 this._needsFilterRecalculation = true;
                 this._filteredDataCache = null;
                 this._lastFilterParams = null;
@@ -768,15 +781,7 @@ class NxMediaLibrary extends LitElement {
 
   handleProgressiveDataUpdate(e) {
     const { mediaItems } = e.detail;
-    this._realTimeStats.pages = e.detail.pages || this._realTimeStats.pages;
     this._realTimeStats.media += mediaItems.length;
-    this._scanProgress = {
-      pages: this._realTimeStats.pages,
-      media: this._realTimeStats.media,
-      duration: null,
-      hasChanges: null,
-    };
-    this.requestUpdate('_scanProgress');
     this.updateProgressiveData(mediaItems);
   }
 

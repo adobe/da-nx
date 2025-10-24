@@ -1,5 +1,3 @@
-// nx/blocks/media-library/utils/processing.js
-
 import { daFetch } from '../../../utils/daFetch.js';
 import { DA_ORIGIN } from '../../../public/utils/constants.js';
 
@@ -15,19 +13,9 @@ import {
   getMediaType,
   isSvgFile,
   getSubtype,
-  urlsMatch,
   sortMediaData,
 } from './utils.js';
 import { getGroupingKey } from './filters.js';
-
-// ============================================================================
-// PERSISTENCE FUNCTIONS
-// ============================================================================
-
-/**
- * Centralized path configuration for media-library module
- * All paths should be generated through these functions to avoid hardcoding
- */
 
 export function getMediaLibraryPath(org, repo) {
   return `/${org}/${repo}/.da/mediaindex`;
@@ -81,10 +69,6 @@ export async function loadMediaSheet(org, repo) {
   return [];
 }
 
-// ============================================================================
-// MEDIA PARSING FUNCTIONS
-// ============================================================================
-
 export function resolveMediaUrl(src, docPath) {
   if (!src) return null;
 
@@ -112,187 +96,103 @@ export function extractRelativePath(fullPath) {
   return url.pathname;
 }
 
-function extractSurroundingContext(element, maxLength = 100) {
-  const context = [];
-
-  let parent = element.parentElement;
-  let depth = 0;
-  while (parent && depth < 3) {
-    const text = parent.textContent?.trim();
-    if (text && text.length > 10) {
-      context.push(text.substring(0, maxLength));
-    }
-    parent = parent.parentElement;
-    depth += 1;
-  }
-
-  const siblings = Array.from(element.parentElement?.children || []);
-  siblings.forEach((sibling) => {
-    if (sibling !== element && sibling.textContent) {
-      const text = sibling.textContent.trim();
-      if (text && text.length > 5) {
-        context.push(text.substring(0, maxLength));
-      }
-    }
-  });
-
-  return context.slice(0, 3).join(' ').substring(0, maxLength);
-}
-
-function captureContext(element, type) {
-  const context = [];
-
-  context.push(type);
-
-  let divElement = element;
-  while (divElement && divElement !== document.body) {
-    if (divElement.tagName === 'DIV' && divElement.className) {
-      const classes = divElement.className.split(' ').filter((c) => c.trim());
-      if (classes.length > 0) {
-        context.push(`In div: ${classes.join(' ')}`);
-        break;
-      }
-    }
-    divElement = divElement.parentElement;
-  }
-
-  const surroundingText = extractSurroundingContext(element);
-  if (surroundingText) {
-    context.push(`text: ${surroundingText}`);
-  }
-
-  return context.join(' > ');
-}
-
-export function parseHtmlMedia(html, docPath, lastModified) {
+function processMediaElements(elements, config, docPath, docTimestamp) {
   const mediaItems = [];
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(html, 'text/html');
-  const docTimestamp = lastModified;
 
-  const images = doc.querySelectorAll('img');
-  images.forEach((img) => {
-    if (img.src && isMediaFile(extractFileExtension(img.src))) {
-      const resolvedUrl = resolveMediaUrl(img.src, docPath);
-      const fileExt = extractFileExtension(img.src);
-      const mediaType = detectMediaTypeFromExtension(fileExt);
-      const hash = createHash(`${img.src}|${img.hasAttribute('alt') ? img.alt : ''}|${docPath}`);
-      const context = captureContext(img, 'img');
+  elements.forEach((element) => {
+    const url = config.getUrl(element);
+    if (!url) return;
 
-      let altValue = null;
-      if (img.hasAttribute('alt') && img.alt !== 'null') {
-        altValue = img.alt;
-      }
+    const fileName = url.split('/').pop();
+    const fileExt = extractFileExtension(fileName);
 
-      mediaItems.push({
-        url: resolvedUrl,
-        name: img.src.split('/').pop(),
-        alt: altValue,
-        type: `${mediaType} > ${fileExt.toLowerCase()}`,
-        doc: docPath,
-        ctx: context,
-        hash,
-        firstUsedAt: docTimestamp,
-        lastUsedAt: docTimestamp,
-      });
-    }
-  });
+    if (!isMediaFile(fileExt)) return;
 
-  const videos = doc.querySelectorAll('video');
-  videos.forEach((video) => {
-    if (video.src && isMediaFile(extractFileExtension(video.src))) {
-      const resolvedUrl = resolveMediaUrl(video.src, docPath);
-      const fileExt = extractFileExtension(video.src);
-      const hash = createHash(`${video.src}|${''}|${docPath}`);
-      const context = captureContext(video, 'video');
+    const altText = config.getAlt(element);
+    const resolvedUrl = resolveMediaUrl(url, docPath);
+    const mediaType = detectMediaTypeFromExtension(fileExt);
+    const typeLabel = config.typeOverride || mediaType;
+    const hash = createHash(`${url}|${altText}|${docPath}`);
 
-      mediaItems.push({
-        url: resolvedUrl,
-        name: video.src.split('/').pop(),
-        alt: '',
-        type: `video > ${fileExt.toLowerCase()}`,
-        doc: docPath,
-        ctx: context,
-        hash,
-        firstUsedAt: docTimestamp,
-        lastUsedAt: docTimestamp,
-      });
-    }
-  });
-
-  const sources = doc.querySelectorAll('video source');
-  sources.forEach((source) => {
-    if (source.src && isMediaFile(extractFileExtension(source.src))) {
-      const resolvedUrl = resolveMediaUrl(source.src, docPath);
-      const fileExt = extractFileExtension(source.src);
-      const hash = createHash(`${source.src}|${''}|${docPath}`);
-      const context = captureContext(source, 'video-source');
-
-      mediaItems.push({
-        url: resolvedUrl,
-        name: source.src.split('/').pop(),
-        alt: '',
-        type: `video-source > ${fileExt.toLowerCase()}`,
-        doc: docPath,
-        ctx: context,
-        hash,
-        firstUsedAt: docTimestamp,
-        lastUsedAt: docTimestamp,
-      });
-    }
-  });
-
-  const links = doc.querySelectorAll('a[href]');
-  links.forEach((link) => {
-    const href = link.getAttribute('href');
-    if (href && isMediaFile(extractFileExtension(href))) {
-      const resolvedUrl = resolveMediaUrl(href, docPath);
-      const fileExt = extractFileExtension(href);
-      const hash = createHash(`${href}|${link.textContent || ''}|${docPath}`);
-      const context = captureContext(link, 'link');
-
-      mediaItems.push({
-        url: resolvedUrl,
-        name: href.split('/').pop(),
-        alt: link.textContent || '',
-        type: `link > ${fileExt.toLowerCase()}`,
-        doc: docPath,
-        ctx: context,
-        hash,
-        firstUsedAt: docTimestamp,
-        lastUsedAt: docTimestamp,
-      });
-    }
-  });
-
-  const fragmentLinks = doc.querySelectorAll('a[href*="/fragments"]');
-  fragmentLinks.forEach((link) => {
-    const href = link.getAttribute('href');
-    if (href && href.includes('/fragments')) {
-      const resolvedUrl = resolveMediaUrl(href, docPath);
-      const hash = createHash(`${href}|${link.textContent || ''}|${docPath}`);
-      const context = captureContext(link, 'fragment');
-
-      mediaItems.push({
-        url: resolvedUrl,
-        name: href.split('/').pop() || 'Fragment',
-        alt: link.textContent || '',
-        type: 'fragment > html',
-        doc: docPath,
-        ctx: context,
-        hash,
-        firstUsedAt: docTimestamp,
-        lastUsedAt: docTimestamp,
-      });
-    }
+    mediaItems.push({
+      url: resolvedUrl,
+      name: fileName,
+      alt: altText,
+      type: `${typeLabel} > ${fileExt.toLowerCase()}`,
+      doc: docPath,
+      hash,
+      firstUsedAt: docTimestamp,
+      lastUsedAt: docTimestamp,
+    });
   });
 
   return mediaItems;
 }
 
-// ============================================================================
-// MEDIA STATISTICS FUNCTIONS
-// ============================================================================
+function processFragments(elements, docPath, docTimestamp) {
+  const mediaItems = [];
+
+  elements.forEach((link) => {
+    const href = link.getAttribute('href');
+    if (!href || !href.includes('/fragments')) return;
+
+    const resolvedUrl = resolveMediaUrl(href, docPath);
+    const altText = link.textContent || '';
+    const hash = createHash(`${href}|${altText}|${docPath}`);
+
+    mediaItems.push({
+      url: resolvedUrl,
+      name: href.split('/').pop() || 'Fragment',
+      alt: altText,
+      type: 'fragment > html',
+      doc: docPath,
+      hash,
+      firstUsedAt: docTimestamp,
+      lastUsedAt: docTimestamp,
+    });
+  });
+
+  return mediaItems;
+}
+
+export function parseHtmlMedia(html, docPath, lastModified) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+  const docTimestamp = lastModified;
+
+  const imageConfig = {
+    getUrl: (el) => el.src,
+    getAlt: (el) => {
+      const hasAlt = el.hasAttribute('alt');
+      const alt = hasAlt ? el.alt : '';
+      return (hasAlt && alt !== 'null') ? alt : null;
+    },
+  };
+
+  const videoConfig = {
+    getUrl: (el) => el.src,
+    getAlt: () => '',
+  };
+
+  const sourceConfig = {
+    getUrl: (el) => el.src,
+    getAlt: () => '',
+    typeOverride: 'video-source',
+  };
+
+  const linkConfig = {
+    getUrl: (el) => el.getAttribute('href'),
+    getAlt: (el) => el.textContent || '',
+  };
+
+  return [
+    ...processMediaElements(doc.querySelectorAll('img'), imageConfig, docPath, docTimestamp),
+    ...processMediaElements(doc.querySelectorAll('video'), videoConfig, docPath, docTimestamp),
+    ...processMediaElements(doc.querySelectorAll('video source'), sourceConfig, docPath, docTimestamp),
+    ...processMediaElements(doc.querySelectorAll('a[href]'), linkConfig, docPath, docTimestamp),
+    ...processFragments(doc.querySelectorAll('a[href*="/fragments"]'), docPath, docTimestamp),
+  ];
+}
 
 export function getMediaCounts(mediaData) {
   if (!mediaData) return {};
@@ -395,10 +295,6 @@ export function getAvailableSubtypes(mediaData, activeFilter = 'links') {
     .sort((a, b) => a.subtype.localeCompare(b.subtype));
 }
 
-// ============================================================================
-// MEDIA SCANNING FUNCTIONS
-// ============================================================================
-
 async function getLastModifiedPath(org, repo, folderName = 'root') {
   return getLastModifiedDataPath(org, repo, folderName);
 }
@@ -438,7 +334,7 @@ async function loadAllLastModifiedData(org, repo) {
             });
           }
         } catch (error) {
-          // Continue with other files
+          // empty
         }
       }
     };
@@ -537,7 +433,6 @@ export async function checkMediaSheetModified(org, repo) {
 }
 
 export async function loadMediaSheetIfModified(org, repo) {
-  // Check if media.json has been modified
   const { hasChanged } = await checkMediaSheetModified(org, repo);
 
   if (hasChanged) {
@@ -672,7 +567,6 @@ export default async function runScan(path, updateTotal, updateProgressive = nul
           alt: '',
           type: `${mediaType} > ${item.ext.toLowerCase()}`,
           doc: '',
-          ctx: 'file',
           hash,
         };
 
@@ -715,17 +609,33 @@ export default async function runScan(path, updateTotal, updateProgressive = nul
     processedUrls.add(usage.url);
   });
 
+  const normalizedUrls = new Set();
+  const fileNames = new Set();
+
+  processedUrls.forEach((url) => {
+    const normalized = url.split('?')[0];
+    normalizedUrls.add(normalized);
+    normalizedUrls.add(normalized.startsWith('/') ? normalized : `/${normalized}`);
+
+    const fileName = normalized.split('/').pop();
+    if (fileName) fileNames.add(fileName);
+  });
+
   unusedMedia.forEach((item) => {
-    const isAlreadyProcessed = Array.from(processedUrls).some(
-      (processedUrl) => urlsMatch(processedUrl, item.url),
-    );
+    const normalized = item.url.split('?')[0];
+    const normalizedWithSlash = normalized.startsWith('/') ? normalized : `/${normalized}`;
+    const fileName = normalized.split('/').pop();
+
+    const isAlreadyProcessed = normalizedUrls.has(normalized)
+      || normalizedUrls.has(normalizedWithSlash)
+      || (fileName && fileNames.has(fileName));
+
     if (!isAlreadyProcessed) {
       allMediaEntries.push({
         ...item,
         doc: item.doc || '',
         alt: item.alt || 'null',
         type: item.type || '',
-        ctx: item.ctx || '',
       });
     }
   });
@@ -766,7 +676,7 @@ export default async function runScan(path, updateTotal, updateProgressive = nul
 
       savePromises.push(saveLastModifiedData(org, repo, 'root', mergedRootFiles));
     } catch (error) {
-      // Continue
+      // empty
     }
   }
 
@@ -793,7 +703,7 @@ export default async function runScan(path, updateTotal, updateProgressive = nul
 
         savePromises.push(saveLastModifiedData(org, repo, folderName, mergedFolderFiles));
       } catch (error) {
-        // Continue
+        // empty
       }
     }
   }
@@ -802,7 +712,7 @@ export default async function runScan(path, updateTotal, updateProgressive = nul
     try {
       await Promise.all(savePromises);
     } catch (error) {
-      // Continue
+      // empty
     }
   }
 
@@ -836,7 +746,6 @@ export function buildUsageIndex(rawData) {
       doc: item.doc,
       alt: item.alt,
       type: item.type,
-      ctx: item.ctx,
       firstUsedAt: item.firstUsedAt,
       lastUsedAt: item.lastUsedAt,
       hash: item.hash,

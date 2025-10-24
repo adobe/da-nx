@@ -24,10 +24,6 @@ class NxMediaSidebar extends LitElement {
     isIndexExpanded: { state: true },
   };
 
-  shouldUpdate() {
-    return true;
-  }
-
   static filterStructure = {
     main: [
       { key: 'all', label: 'All Media' },

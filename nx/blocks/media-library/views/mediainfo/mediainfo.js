@@ -2,7 +2,6 @@ import { html, LitElement } from 'da-lit';
 import getStyle from '../../../../utils/styles.js';
 import getSvg from '../../../../utils/svg.js';
 import {
-  getDisplayMediaType,
   getSubtype,
   formatFileSize,
   extractMediaLocation,
@@ -13,14 +12,18 @@ import {
   isImage,
   isVideo,
   isPdf,
-  EXIF_JS_URL,
+  EXIFR_URL,
   normalizeUrl,
+  getMediaType,
+  formatDateTime,
+  isExternalResource,
+  buildFullMediaUrl,
+  getImageOrientation,
+  fetchWithCorsProxy,
 } from '../../utils/utils.js';
 import loadScript from '../../../../utils/script.js';
 import { daFetch } from '../../../../utils/daFetch.js';
 import { DA_ORIGIN, SUPPORTED_FILES } from '../../../../public/utils/constants.js';
-
-const CORS_PROXY_URL = 'https://media-library-cors-proxy.aem-poc-lab.workers.dev/';
 
 const styles = await getStyle(import.meta.url);
 const nx = `${new URL(import.meta.url).origin}/nx`;
@@ -50,6 +53,7 @@ class NxMediaInfo extends LitElement {
     usageData: { attribute: false },
     org: { attribute: false },
     repo: { attribute: false },
+    isScanning: { type: Boolean },
     _activeTab: { state: true },
     _exifData: { state: true },
     _loading: { state: true },
@@ -61,6 +65,8 @@ class NxMediaInfo extends LitElement {
     _usageData: { state: true },
     _usageLoading: { state: true },
     _editingAltUsage: { state: true },
+    _imageDimensions: { state: true },
+    _comprehensiveMetadata: { state: true },
   };
 
   constructor() {
@@ -82,6 +88,8 @@ class NxMediaInfo extends LitElement {
     this._pdfBlobUrls = new Map();
     this._pendingRequests = new Set();
     this._cachedMetadata = new Map();
+    this._imageDimensions = null;
+    this._comprehensiveMetadata = null;
   }
 
   connectedCallback() {
@@ -109,10 +117,7 @@ class NxMediaInfo extends LitElement {
 
   updated(changedProperties) {
     if (changedProperties.has('media') && this.media) {
-      this.loadFileSize();
-      if (isImage(this.media.url)) {
-        this.loadExifData();
-      }
+      this.loadMetadata();
       if (isPdf(this.media.url)) {
         this.loadPdfWithDaFetch(this.media.url);
       }
@@ -128,55 +133,205 @@ class NxMediaInfo extends LitElement {
     }
   }
 
+  async loadMetadata() {
+    if (!this.media || !this.media.url) return;
+
+    if (isImage(this.media.url)) {
+      await this.loadExifData();
+    } else {
+      await this.loadFileSize();
+
+      if (isVideo(this.media.url)) {
+        await this.loadVideoDimensions();
+      }
+    }
+  }
+
+  async loadVideoDimensions() {
+    if (!this.media || !isVideo(this.media.url)) {
+      return;
+    }
+
+    const fullUrl = buildFullMediaUrl(this.media.url, this.org, this.repo);
+    const cacheKey = `video_dims_${fullUrl}`;
+
+    if (this._cachedMetadata.has(cacheKey)) {
+      this._imageDimensions = this._cachedMetadata.get(cacheKey);
+      return;
+    }
+
+    try {
+      const dimensions = await new Promise((resolve) => {
+        const video = document.createElement('video');
+        video.preload = 'metadata';
+
+        video.onloadedmetadata = () => {
+          const dims = {
+            width: video.videoWidth,
+            height: video.videoHeight,
+          };
+          resolve(dims);
+        };
+
+        video.onerror = () => {
+          resolve(null);
+        };
+
+        video.src = fullUrl;
+      });
+
+      if (dimensions) {
+        this._imageDimensions = dimensions;
+        this._cachedMetadata.set(cacheKey, dimensions);
+      }
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('[VIDEO] Error loading dimensions:', error);
+    }
+  }
+
   async loadExifData() {
     if (!this.media || !isImage(this.media.url)) {
       return;
     }
 
-    const fullUrl = this._getFullMediaUrl(this.media.url);
-    const cleanUrl = normalizeUrl(fullUrl);
-    const cacheKey = `exif_${cleanUrl}`;
+    const ext = this.media.url.split('.').pop()?.toLowerCase();
+    const isSvg = ext === 'svg';
+
+    const fullUrl = buildFullMediaUrl(this.media.url, this.org, this.repo);
+    const cacheKey = `metadata_${fullUrl}`;
+
+    const { origin, path } = extractMediaLocation(fullUrl);
+    this._mediaOrigin = origin || 'Unknown';
+    this._mediaPath = path || 'Unknown';
 
     if (this._cachedMetadata.has(cacheKey)) {
-      this._exifData = this._cachedMetadata.get(cacheKey);
+      const cached = this._cachedMetadata.get(cacheKey);
+      this._exifData = cached.exif;
+      this._imageDimensions = cached.dimensions;
+      this._comprehensiveMetadata = cached.comprehensive;
+      this._fileSize = cached.fileSize;
+      this._mimeType = cached.mimeType;
+      this._mediaOrigin = cached.mediaOrigin;
+      this._mediaPath = cached.mediaPath;
       this._loading = false;
       return;
     }
 
     this._loading = true;
     try {
-      await loadScript(EXIF_JS_URL);
+      await loadScript(EXIFR_URL);
 
-      const img = new Image();
+      if (typeof window.exifr === 'undefined') {
+        // eslint-disable-next-line no-console
+        console.error('[METADATA] exifr library failed to load');
+        this._loading = false;
+        return;
+      }
+
       const controller = new AbortController();
       this._pendingRequests.add(controller);
 
-      img.onload = () => {
-        this._pendingRequests.delete(controller);
-        if (typeof window.EXIF !== 'undefined') {
-          try {
-            window.EXIF.getData(img, () => {
-              this._exifData = window.EXIF.getAllTags(img);
-              this._cachedMetadata.set(cacheKey, this._exifData);
-              this._loading = false;
-            });
-          } catch (exifError) {
-            this._exifData = null;
-            this._loading = false;
-          }
-        } else {
-          this._loading = false;
-        }
-      };
-
-      img.onerror = () => {
+      let response;
+      try {
+        response = await fetchWithCorsProxy(fullUrl, {
+          method: 'GET',
+          signal: controller.signal,
+        });
+      } catch (error) {
         this._pendingRequests.delete(controller);
         this._loading = false;
-      };
+        return;
+      }
 
-      const corsProxyUrl = `${CORS_PROXY_URL}?url=${encodeURIComponent(cleanUrl)}`;
-      img.src = corsProxyUrl;
+      if (response && response.ok) {
+        const blob = await response.blob();
+        this._pendingRequests.delete(controller);
+
+        this._fileSize = formatFileSize(blob.size);
+        this._mimeType = blob.type;
+
+        let exifrData = null;
+        if (!isSvg) {
+          try {
+            exifrData = await window.exifr.parse(blob, {
+              tiff: true,
+              xmp: true,
+              iptc: true,
+              icc: true,
+            });
+          } catch {
+            // Silently fail if EXIF parsing not available
+          }
+        }
+
+        const dimensions = await new Promise((resolve) => {
+          const img = new Image();
+          img.onload = () => {
+            const dims = {
+              width: img.naturalWidth,
+              height: img.naturalHeight,
+            };
+            resolve(dims);
+          };
+          img.onerror = () => {
+            resolve(null);
+          };
+          img.src = URL.createObjectURL(blob);
+        });
+
+        const comprehensive = {
+          camera: exifrData?.Make || exifrData?.Model ? {
+            make: exifrData.Make,
+            model: exifrData.Model,
+            lens: exifrData.LensModel,
+          } : null,
+          settings: exifrData?.FNumber || exifrData?.ExposureTime ? {
+            iso: exifrData.ISO,
+            aperture: exifrData.FNumber,
+            shutterSpeed: exifrData.ExposureTime,
+            focalLength: exifrData.FocalLength,
+          } : null,
+          dateTime: exifrData?.DateTimeOriginal || exifrData?.DateTime || null,
+          gps: exifrData?.latitude && exifrData?.longitude ? {
+            latitude: exifrData.latitude,
+            longitude: exifrData.longitude,
+            altitude: exifrData.GPSAltitude,
+          } : null,
+          iptc: exifrData?.Keywords || exifrData?.Caption || exifrData?.Copyright ? {
+            keywords: exifrData.Keywords,
+            caption: exifrData.Caption,
+            copyright: exifrData.Copyright,
+            creator: exifrData.Creator,
+          } : null,
+          xmp: exifrData?.Rating || exifrData?.Subject ? {
+            rating: exifrData.Rating,
+            subject: exifrData.Subject,
+          } : null,
+        };
+
+        this._exifData = exifrData;
+        this._imageDimensions = dimensions;
+        this._comprehensiveMetadata = comprehensive;
+
+        this._cachedMetadata.set(cacheKey, {
+          exif: exifrData,
+          dimensions,
+          comprehensive,
+          fileSize: this._fileSize,
+          mimeType: this._mimeType,
+          mediaOrigin: this._mediaOrigin,
+          mediaPath: this._mediaPath,
+        });
+
+        this._loading = false;
+      } else {
+        this._pendingRequests.delete(controller);
+        this._loading = false;
+      }
     } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('[METADATA] Unexpected error:', error);
       this._loading = false;
     }
   }
@@ -263,19 +418,33 @@ class NxMediaInfo extends LitElement {
         },
       }));
     } catch (error) {
-      // Error handling
+      // eslint-disable-next-line no-console
+      console.error('Failed to save alt text:', error);
     }
   }
 
-  handleEditDocument(docPath) {
+  handleDocumentAction(docPath, mode = 'edit') {
     if (!docPath) return;
 
     const { org, repo } = this;
     if (!org || !repo) return;
 
-    const editUrl = getEditUrl(org, repo, docPath.replace('.html', ''));
-    if (editUrl) {
-      window.open(editUrl, '_blank');
+    const cleanPath = docPath.replace('.html', '');
+    let url;
+
+    if (mode === 'edit') {
+      url = getEditUrl(org, repo, cleanPath);
+    } else {
+      const viewUrl = getViewUrl(org, repo, cleanPath);
+      if (mode === 'publish') {
+        url = viewUrl?.replace('.aem.page', '.aem.live');
+      } else {
+        url = viewUrl;
+      }
+    }
+
+    if (url) {
+      window.open(url, '_blank');
     }
   }
 
@@ -292,7 +461,7 @@ class NxMediaInfo extends LitElement {
         const adminUrl = `${DA_ORIGIN}/source${path}`;
         response = await daFetch(adminUrl);
       } else {
-        response = await fetch(pdfUrl);
+        response = await fetchWithCorsProxy(pdfUrl);
       }
 
       if (response.ok) {
@@ -304,7 +473,8 @@ class NxMediaInfo extends LitElement {
         this.loadFileSize();
       }
     } catch (error) {
-      // Error handling
+      // eslint-disable-next-line no-console
+      console.error('Failed to load PDF:', error);
     }
   }
 
@@ -325,52 +495,16 @@ class NxMediaInfo extends LitElement {
     }
   }
 
-  handleViewDocument(docPath) {
-    if (!docPath) return;
-    const { org, repo } = this;
-    if (!org || !repo) return;
-    const viewUrl = getViewUrl(org, repo, docPath.replace('.html', ''));
-    if (viewUrl) {
-      window.open(viewUrl, '_blank');
-    }
-  }
-
-  handlePublishDocument(docPath) {
-    if (!docPath) return;
-    const { org, repo } = this;
-    if (!org || !repo) return;
-    const viewUrl = getViewUrl(org, repo, docPath.replace('.html', ''));
-    if (viewUrl) {
-      // Replace .aem.page with .aem.live for published version
-      const publishUrl = viewUrl.replace('.aem.page', '.aem.live');
-      window.open(publishUrl, '_blank');
-    }
-  }
-
-  _getFullMediaUrl(mediaUrl) {
-    if (!mediaUrl) return '';
-
-    try {
-      const url = new URL(mediaUrl);
-      return url.href;
-    } catch {
-      const { org, repo } = this;
-      if (org && repo) {
-        return `https://main--${repo}--${org}.aem.live${mediaUrl.startsWith('/') ? '' : '/'}${mediaUrl}`;
-      }
-      return mediaUrl;
-    }
-  }
-
   async loadFileSize() {
     if (!this.media || !this.media.url) {
       return;
     }
 
-    const fullUrl = this._getFullMediaUrl(this.media.url);
+    const fullUrl = buildFullMediaUrl(this.media.url, this.org, this.repo);
     const cacheKey = fullUrl;
 
-    // Set media origin and path immediately (synchronous)
+    const isExternal = isExternalResource(fullUrl);
+
     const { origin, path } = extractMediaLocation(fullUrl);
     this._mediaOrigin = origin || 'Unknown';
     this._mediaPath = path || 'Unknown';
@@ -402,76 +536,33 @@ class NxMediaInfo extends LitElement {
 
         try {
           const fetchUrl = fullUrl.toLowerCase().includes('.svg') ? normalizeUrl(fullUrl) : fullUrl;
-          let response;
-          let isCorsError = false;
 
-          // Try direct fetch first
-          try {
-            response = await fetch(fetchUrl, {
-              method: 'HEAD',
-              signal: controller.signal,
-            });
-          } catch (directError) {
-            // Check if it's a CORS error
-            if (directError.name === 'TypeError'
-                && (directError.message.includes('CORS')
-                || directError.message.includes('blocked')
-                || directError.message.includes('Access-Control-Allow-Origin'))) {
-              isCorsError = true;
-
-              // Try CORS proxy as fallback
-              try {
-                const corsProxyUrl = `${CORS_PROXY_URL}?url=${encodeURIComponent(fetchUrl)}`;
-                response = await fetch(corsProxyUrl, {
-                  method: 'HEAD',
-                  signal: controller.signal,
-                });
-              } catch (corsProxyError) {
-                this._fileSize = 'Unable to fetch file (CORS blocked)';
-                return;
-              }
-            } else {
-              // Other error (network, timeout, etc.)
-              this._fileSize = `Unable to fetch file (${directError.message})`;
-              return;
-            }
-          }
+          const response = await fetchWithCorsProxy(fetchUrl, {
+            method: 'HEAD',
+            signal: controller.signal,
+          });
 
           if (response.ok) {
             const contentLength = response.headers.get('content-length');
             if (contentLength) {
               this._fileSize = formatFileSize(parseInt(contentLength, 10));
             } else {
-              // Try GET request to get actual size
-              try {
-                let getResponse;
-                if (isCorsError) {
-                  const corsProxyUrl = `${CORS_PROXY_URL}?url=${encodeURIComponent(fetchUrl)}`;
-                  getResponse = await fetch(corsProxyUrl, {
-                    method: 'GET',
-                    signal: controller.signal,
-                  });
-                } else {
-                  getResponse = await fetch(fetchUrl, {
-                    method: 'GET',
-                    signal: controller.signal,
-                  });
-                }
-                if (getResponse.ok) {
-                  const blob = await getResponse.blob();
-                  this._fileSize = formatFileSize(blob.size);
-                } else {
-                  this._fileSize = `Unable to fetch file (HTTP ${getResponse.status})`;
-                }
-              } catch (getError) {
-                this._fileSize = `Unable to fetch file (${getError.message})`;
+              const getResponse = await fetchWithCorsProxy(fetchUrl, {
+                method: 'GET',
+                signal: controller.signal,
+              });
+              if (getResponse.ok) {
+                const blob = await getResponse.blob();
+                this._fileSize = formatFileSize(blob.size);
+              } else {
+                this._fileSize = isExternal ? 'External resource' : `Unable to fetch file (HTTP ${getResponse.status})`;
               }
             }
           } else {
-            this._fileSize = `Unable to fetch file (HTTP ${response.status})`;
+            this._fileSize = isExternal ? 'External resource' : `Unable to fetch file (HTTP ${response.status})`;
           }
         } catch (error) {
-          this._fileSize = `Unable to fetch file (${error.message})`;
+          this._fileSize = isExternal ? 'External resource' : `Unable to fetch file (${error.message})`;
         }
 
         this._pendingRequests.delete(controller);
@@ -488,28 +579,6 @@ class NxMediaInfo extends LitElement {
       this._mimeType = 'Unknown';
       this._mediaOrigin = 'Unknown';
       this._mediaPath = 'Unknown';
-    }
-  }
-
-  getFileType() {
-    return getDisplayMediaType(this.media);
-  }
-
-  formatDateTime(isoString) {
-    if (!isoString) return 'Unknown';
-
-    try {
-      const date = new Date(isoString);
-      return date.toLocaleString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true,
-      });
-    } catch (error) {
-      return 'Invalid Date';
     }
   }
 
@@ -577,39 +646,111 @@ class NxMediaInfo extends LitElement {
   }
 
   renderExifSection() {
-    if (isImage(this.media.url)) {
-      if (this._loading) {
-        return html`<div class="loading">Loading EXIF data...</div>`;
-      }
+    if (!isImage(this.media.url)) {
+      return '';
+    }
 
-      if (this._exifData && Object.keys(this._exifData).length > 0) {
-        return html`
-          <div class="exif-section">
-            <h4>EXIF Data</h4>
-            <div class="exif-table">
-              ${Object.entries(this._exifData).map(([key, value]) => html`
-                <div class="exif-row">
-                  <span class="exif-label">${key}:</span>
-                  <span class="exif-value">${value}</span>
-                </div>
-              `)}
-            </div>
-          </div>
-        `;
-      }
+    if (this._loading) {
+      return html`<div class="loading">Loading metadata...</div>`;
+    }
 
+    const hasExtendedMetadata = this._comprehensiveMetadata;
+
+    if (!hasExtendedMetadata) {
       return html`
-        <div class="exif-section">
-          <h4>EXIF Data</h4>
-          <div class="exif-table">
-            <div class="exif-row no-data">
-              <span class="exif-value">No data available</span>
+        <div class="metadata-section">
+          <div class="metadata-grid-container">
+            <div class="metadata-grid">
+              <div class="exif-row no-data">
+                <span class="exif-value">No extended metadata available</span>
+              </div>
             </div>
           </div>
         </div>
       `;
     }
-    return '';
+
+    return html`
+      <div class="metadata-section">
+        <div class="metadata-grid-container">
+          <div class="metadata-grid">
+            ${this._comprehensiveMetadata?.camera?.make ? html`
+              <div class="metadata-label">Camera Make</div>
+              <div class="metadata-value">${this._comprehensiveMetadata.camera.make}</div>
+            ` : ''}
+            ${this._comprehensiveMetadata?.camera?.model ? html`
+              <div class="metadata-label">Camera Model</div>
+              <div class="metadata-value">${this._comprehensiveMetadata.camera.model}</div>
+            ` : ''}
+            ${this._comprehensiveMetadata?.camera?.lens ? html`
+              <div class="metadata-label">Lens</div>
+              <div class="metadata-value">${this._comprehensiveMetadata.camera.lens}</div>
+            ` : ''}
+            
+            ${this._comprehensiveMetadata?.settings?.iso ? html`
+              <div class="metadata-label">ISO</div>
+              <div class="metadata-value">${this._comprehensiveMetadata.settings.iso}</div>
+            ` : ''}
+            ${this._comprehensiveMetadata?.settings?.aperture ? html`
+              <div class="metadata-label">Aperture</div>
+              <div class="metadata-value">f/${this._comprehensiveMetadata.settings.aperture}</div>
+            ` : ''}
+            ${this._comprehensiveMetadata?.settings?.shutterSpeed ? html`
+              <div class="metadata-label">Shutter Speed</div>
+              <div class="metadata-value">${this._comprehensiveMetadata.settings.shutterSpeed}s</div>
+            ` : ''}
+            ${this._comprehensiveMetadata?.settings?.focalLength ? html`
+              <div class="metadata-label">Focal Length</div>
+              <div class="metadata-value">${this._comprehensiveMetadata.settings.focalLength}mm</div>
+            ` : ''}
+            
+            ${this._comprehensiveMetadata?.dateTime ? html`
+              <div class="metadata-label">Date Captured</div>
+              <div class="metadata-value">${formatDateTime(this._comprehensiveMetadata.dateTime)}</div>
+            ` : ''}
+            
+            ${this._comprehensiveMetadata?.gps?.latitude ? html`
+              <div class="metadata-label">Latitude</div>
+              <div class="metadata-value">${this._comprehensiveMetadata.gps.latitude.toFixed(6)}</div>
+            ` : ''}
+            ${this._comprehensiveMetadata?.gps?.longitude ? html`
+              <div class="metadata-label">Longitude</div>
+              <div class="metadata-value">${this._comprehensiveMetadata.gps.longitude.toFixed(6)}</div>
+            ` : ''}
+            ${this._comprehensiveMetadata?.gps?.altitude ? html`
+              <div class="metadata-label">Altitude</div>
+              <div class="metadata-value">${this._comprehensiveMetadata.gps.altitude}m</div>
+            ` : ''}
+            
+            ${this._comprehensiveMetadata?.iptc?.keywords ? html`
+              <div class="metadata-label">Keywords</div>
+              <div class="metadata-value">${Array.isArray(this._comprehensiveMetadata.iptc.keywords) ? this._comprehensiveMetadata.iptc.keywords.join(', ') : this._comprehensiveMetadata.iptc.keywords}</div>
+            ` : ''}
+            ${this._comprehensiveMetadata?.iptc?.caption ? html`
+              <div class="metadata-label">Caption</div>
+              <div class="metadata-value">${this._comprehensiveMetadata.iptc.caption}</div>
+            ` : ''}
+            ${this._comprehensiveMetadata?.iptc?.copyright ? html`
+              <div class="metadata-label">Copyright</div>
+              <div class="metadata-value">${this._comprehensiveMetadata.iptc.copyright}</div>
+            ` : ''}
+            ${this._comprehensiveMetadata?.iptc?.creator ? html`
+              <div class="metadata-label">Creator</div>
+              <div class="metadata-value">${this._comprehensiveMetadata.iptc.creator}</div>
+            ` : ''}
+            
+            ${this._comprehensiveMetadata?.xmp?.rating ? html`
+              <div class="metadata-label">Rating</div>
+              <div class="metadata-value">${this._comprehensiveMetadata.xmp.rating}</div>
+            ` : ''}
+            ${this._comprehensiveMetadata?.xmp?.subject ? html`
+              <div class="metadata-label">Subject</div>
+              <div class="metadata-value">${this._comprehensiveMetadata.xmp.subject}</div>
+            ` : ''}
+          </div>
+        </div>
+      </div>
+    `;
   }
 
   renderUsageActions(usage, usageIndex) {
@@ -707,30 +848,23 @@ class NxMediaInfo extends LitElement {
     `;
   }
 
-  renderContextCell(usage) {
-    if (usage.ctx) {
-      return html`<div class="context-text">${usage.ctx}</div>`;
-    }
-    return html`<span class="context-none">-</span>`;
-  }
-
   renderActions(usage) {
     if (usage.doc) {
       return html`
         <div class="action-items">
-          <button type="button" size="small" class="icon-button" @click=${() => this.handleEditDocument(usage.doc)} title="Edit document">
+          <button type="button" size="small" class="icon-button" @click=${() => this.handleDocumentAction(usage.doc, 'edit')} title="Edit document">
             <svg class="icon" viewBox="0 0 22 20">
               <use href="#S2_Icon_OpenIn_20_N"></use>
             </svg>
             Document
           </button>
-          <button type="button" size="small" class="icon-button preview-button" @click=${() => this.handleViewDocument(usage.doc)} title="View document">
+          <button type="button" size="small" class="icon-button preview-button" @click=${() => this.handleDocumentAction(usage.doc, 'preview')} title="View document">
             <svg class="icon" viewBox="0 0 22 20">
               <use href="#S2_Icon_AdobeExpressSolid_20_N"></use>
             </svg>
             Preview
           </button>
-          <button type="button" size="small" class="icon-button publish-button" @click=${() => this.handlePublishDocument(usage.doc)} title="View published document">
+          <button type="button" size="small" class="icon-button publish-button" @click=${() => this.handleDocumentAction(usage.doc, 'publish')} title="View published document">
             <svg class="icon" viewBox="0 0 22 20">
               <use href="#S2_Icon_AdobeExpressSolid_20_N"></use>
             </svg>
@@ -743,6 +877,10 @@ class NxMediaInfo extends LitElement {
   }
 
   renderInfoTab() {
+    const mediaType = getMediaType(this.media);
+    const isFragment = mediaType === 'fragment';
+    const showMimeType = !isFragment && this._mimeType && this._mimeType !== 'Unknown';
+
     return html`
       <div class="tab-content">
         <div class="metadata-section">
@@ -750,16 +888,24 @@ class NxMediaInfo extends LitElement {
             <div class="metadata-grid">
               <div class="grid-heading">Property</div>
               <div class="grid-heading">Value</div>
-              <div class="metadata-label">MIME Type</div>
-              <div class="metadata-value">${this._mimeType || 'Loading...'}</div>
+              ${showMimeType ? html`
+                <div class="metadata-label">MIME Type</div>
+                <div class="metadata-value">${this._mimeType}</div>
+              ` : ''}
               <div class="metadata-label">File Size</div>
               <div class="metadata-value">${this._fileSize || 'Loading...'}</div>
-              <div class="metadata-label">Media Origin</div>
+              ${this._imageDimensions ? html`
+                <div class="metadata-label">Width</div>
+                <div class="metadata-value">${this._imageDimensions.width}px</div>
+                <div class="metadata-label">Height</div>
+                <div class="metadata-value">${this._imageDimensions.height}px</div>
+                <div class="metadata-label">Orientation</div>
+                <div class="metadata-value">${getImageOrientation(this._imageDimensions.width, this._imageDimensions.height)}</div>
+              ` : ''}
+              <div class="metadata-label">Origin</div>
               <div class="metadata-value">${this._mediaOrigin || 'Loading...'}</div>
-              <div class="metadata-label">Media Path</div>
+              <div class="metadata-label">Path</div>
               <div class="metadata-value">${this._mediaPath || 'Loading...'}</div>
-              <div class="metadata-label">Usage Count</div>
-              <div class="metadata-value">${this.media.folderUsageCount !== undefined ? this.media.folderUsageCount : (this.media.usageCount || 0)}</div>
             </div>
           </div>
 
@@ -777,6 +923,15 @@ class NxMediaInfo extends LitElement {
         <div class="loading-state">
           <div class="spinner"></div>
           <p>Loading usage details...</p>
+        </div>
+      `;
+    }
+
+    if (this.isScanning && this._usageData.length === 0 && this.media.usageCount > 0) {
+      return html`
+        <div class="loading-state">
+          <div class="spinner"></div>
+          <p>Scanning in progress...</p>
         </div>
       `;
     }
@@ -878,7 +1033,9 @@ class NxMediaInfo extends LitElement {
               <svg class="reference-icon icon" viewBox="0 0 22 20">
                 <use href="#S2_Icon_AIGenReferenceImage_20_N"></use>
               </svg>
-                ${this._usageData.length} ${this._usageData.length > 1 ? 'References' : 'Reference'}
+                ${this.isScanning && this._usageData.length === 0
+    ? 'References'
+    : `${this._usageData.length} ${this._usageData.length !== 1 ? 'References' : 'Reference'}`}
               </button>
               <button
                 type="button"

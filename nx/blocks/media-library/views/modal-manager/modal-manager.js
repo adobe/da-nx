@@ -81,6 +81,7 @@ class NxModalManager extends LitElement {
             .usageData=${this._modalData.usageData}
             .org=${this._modalData.org}
             .repo=${this._modalData.repo}
+            .isScanning=${this._modalData.isScanning}
             .isOpen=${true}
             @close=${this._onCloseModal}
             @altTextUpdated=${this._handleAltTextUpdated}

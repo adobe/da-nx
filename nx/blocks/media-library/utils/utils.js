@@ -3,10 +3,6 @@
 import { daFetch } from '../../../utils/daFetch.js';
 import { DA_ORIGIN } from '../../../public/utils/constants.js';
 
-// ============================================================================
-// MEDIA TYPE CONSTANTS AND UTILITIES
-// ============================================================================
-
 export const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'avif'];
 export const VIDEO_EXTENSIONS = ['mp4', 'webm', 'mov', 'avi'];
 export const DOCUMENT_EXTENSIONS = ['pdf'];
@@ -111,10 +107,6 @@ export function isMediaFile(ext) {
 
 export { isSvgFile, extractFileExtension };
 
-// ============================================================================
-// SORTING UTILITIES
-// ============================================================================
-
 /**
  * Sort media data by lastUsedAt (recent first) then alphabetically by name
  * @param {Array} mediaData - Media data to sort
@@ -135,10 +127,6 @@ export function sortMediaData(mediaData) {
     return nameA.localeCompare(nameB);
   });
 }
-
-// ============================================================================
-// VIDEO UTILITIES
-// ============================================================================
 
 export function getVideoThumbnail(videoUrl) {
   if (!videoUrl) return null;
@@ -187,11 +175,124 @@ export function isExternalVideoUrl(url) {
   return supportedPatterns.some((pattern) => pattern.test(url));
 }
 
-export const EXIF_JS_URL = 'https://cdn.jsdelivr.net/npm/exif-js@2.3.0/exif.js';
+export const EXIFR_URL = 'https://cdn.jsdelivr.net/npm/exifr@latest/dist/lite.umd.js';
 
-// ============================================================================
-// CORE UTILITIES
-// ============================================================================
+/**
+ * Get image/video orientation based on dimensions
+ * @param {number} width - Width in pixels
+ * @param {number} height - Height in pixels
+ * @returns {string} Orientation: 'Landscape', 'Portrait', or 'Square'
+ */
+export function getImageOrientation(width, height) {
+  // Square: width equals height (or very close)
+  if (Math.abs(width - height) < 5) {
+    return 'Square';
+  }
+
+  // Portrait: height > width
+  if (height > width) {
+    return 'Portrait';
+  }
+
+  // Landscape: width > height
+  return 'Landscape';
+}
+
+/**
+ * Format ISO date string to human-readable format
+ * @param {string} isoString - ISO date string
+ * @returns {string} Formatted date string
+ */
+export function formatDateTime(isoString) {
+  if (!isoString) return 'Unknown';
+
+  try {
+    const date = new Date(isoString);
+    return date.toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+    });
+  } catch (error) {
+    return 'Invalid Date';
+  }
+}
+
+const CORS_PROXY_URL = 'https://media-library-cors-proxy.aem-poc-lab.workers.dev/';
+
+/**
+ * Check if a URL is an external resource (not on AEM domains)
+ * @param {string} url - URL to check
+ * @returns {boolean} True if external
+ */
+export function isExternalResource(url) {
+  if (!url) return false;
+  return !url.includes('.aem.live') && !url.includes('.aem.page');
+}
+
+/**
+ * Build full media URL from relative or partial URL
+ * @param {string} mediaUrl - Media URL (can be relative or full)
+ * @param {string} org - Organization name
+ * @param {string} repo - Repository name
+ * @returns {string} Full URL
+ */
+export function buildFullMediaUrl(mediaUrl, org, repo) {
+  if (!mediaUrl) return '';
+
+  try {
+    // If already a valid absolute URL, return as is
+    const url = new URL(mediaUrl);
+    return url.href;
+  } catch {
+    // Build absolute URL from relative path
+    if (org && repo) {
+      const cleanUrl = mediaUrl.startsWith('/') ? mediaUrl : `/${mediaUrl}`;
+      return `https://main--${repo}--${org}.aem.live${cleanUrl}`;
+    }
+    return mediaUrl;
+  }
+}
+
+/**
+ * Fetch with CORS proxy fallback
+ * @param {string} url - URL to fetch
+ * @param {object} options - Fetch options
+ * @returns {Promise<Response>} Fetch response
+ */
+export async function fetchWithCorsProxy(url, options = {}) {
+  const corsProxyUrl = CORS_PROXY_URL;
+
+  try {
+    // Try direct fetch first
+    const response = await fetch(url, options);
+
+    // If response is not OK, try CORS proxy
+    if (!response.ok) {
+      const proxyUrl = `${corsProxyUrl}?url=${encodeURIComponent(url)}`;
+      return fetch(proxyUrl, options);
+    }
+
+    return response;
+  } catch (directError) {
+    // Check if it's a CORS-related error
+    if (directError.name === 'TypeError'
+        && (directError.message.includes('CORS')
+        || directError.message.includes('blocked')
+        || directError.message.includes('Access-Control-Allow-Origin')
+        || directError.message.includes('Failed to fetch'))) {
+      // Try CORS proxy as fallback
+      const proxyUrl = `${corsProxyUrl}?url=${encodeURIComponent(url)}`;
+      return fetch(proxyUrl, options);
+    }
+
+    // Re-throw non-CORS errors
+    throw directError;
+  }
+}
 
 export function createHash(str) {
   // Use a more robust hash algorithm
@@ -358,8 +459,6 @@ export function createElement(tag, attributes = {}, content = undefined) {
   return element;
 }
 
-const CORS_PROXY_URL = 'https://media-library-cors-proxy.aem-poc-lab.workers.dev/';
-
 export async function copyImageToClipboard(imageUrl) {
   // Use CORS proxy for external images to avoid CORS issues
   let fetchUrl = imageUrl;
@@ -444,7 +543,7 @@ export async function updateDocumentAltText(org, repo, docPath, mediaUrl, altTex
   // Find all img elements with matching src
   const imgElements = doc.querySelectorAll('img');
   const matchingImages = [];
-  
+
   imgElements.forEach((img) => {
     const imgSrc = img.getAttribute('src');
     if (imgSrc && urlsMatch(imgSrc, mediaUrl)) {
@@ -474,10 +573,6 @@ export async function updateDocumentAltText(org, repo, docPath, mediaUrl, altTex
     throw new Error('Failed to save document');
   }
 }
-
-// ============================================================================
-// SHARED UTILITIES
-// ============================================================================
 
 export async function createSheet(data, type = 'sheet') {
   const sheetMeta = {
@@ -572,10 +667,6 @@ export function getContentEnv(location, key, envs) {
 }
 
 export const CONTENT_ORIGIN = (() => getContentEnv(window.location, 'da-content', DA_CONTENT_ENVS))();
-
-// ============================================================================
-// URL PARSING UTILITIES
-// ============================================================================
 
 export function getOrgRepoFrmUrl(siteUrl) {
   if (!siteUrl) {
