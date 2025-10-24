@@ -586,7 +586,6 @@ class NxMediaLibrary extends LitElement {
     this._needsFilterRecalculation = true;
     this._filteredDataCache = null;
     this._lastFilterParams = null;
-    this._searchQuery = '';
   }
 
   async handleMediaClick(e) {
