@@ -677,7 +677,6 @@ export function getOrgRepoFrmUrl(siteUrl) {
     const url = new URL(siteUrl);
     const { hostname } = url;
 
-    // Parse AEM URL format: main--site--org.aem.page
     const match = hostname.match(/^main--([^--]+)--([^.]+)\.aem\.page$/);
 
     if (match) {
@@ -685,9 +684,139 @@ export function getOrgRepoFrmUrl(siteUrl) {
       return { org, repo };
     }
 
-    // Fallback: try to extract from path or other formats
     throw new Error(`Unable to parse AEM URL format from: ${siteUrl}`);
   } catch (error) {
     throw new Error(`Invalid URL format: ${siteUrl}. Expected format: https://main--site--org.aem.page`);
   }
+}
+
+export async function validateSitePath(sitePath) {
+  if (!sitePath) {
+    return { valid: false, error: 'No site path provided' };
+  }
+
+  const parts = sitePath.split('/').filter(Boolean);
+  
+  if (parts.length < 2) {
+    return { 
+      valid: false, 
+      error: 'Site path must have at least org and repo' 
+    };
+  }
+
+  const [org, repo, ...restPath] = parts;
+  
+  if (restPath.length === 0) {
+    try {
+      const listUrl = `${DA_ORIGIN}/list/${org}/${repo}`;
+      const resp = await daFetch(listUrl);
+      
+      if (resp.ok) {
+        const json = await resp.json();
+        
+        if (!json || (Array.isArray(json) && json.length === 0)) {
+          return { 
+            valid: false, 
+            error: `Site not found: ${org}/${repo}`,
+          };
+        }
+        
+        return { valid: true, org, repo };
+      }
+      
+      if (resp.status === 404) {
+        return { valid: false, error: `Site not found: ${org}/${repo}` };
+      }
+      
+      if (resp.status === 401 || resp.status === 403) {
+        return { 
+          valid: false, 
+          error: `Not authorized for: ${org}/${repo}`,
+          suggestion: 'Are you logged into the correct profile?',
+        };
+      }
+      
+      return { valid: false, error: `Validation failed: ${resp.status}` };
+    } catch (error) {
+      return { valid: false, error: error.message };
+    }
+  }
+
+  const lastSegment = restPath[restPath.length - 1];
+  const parentParts = [org, repo, ...restPath.slice(0, -1)];
+  const parentPath = `/${parentParts.join('/')}`;
+  
+  try {
+    const listUrl = `${DA_ORIGIN}/list${parentPath}`;
+    const resp = await daFetch(listUrl);
+    
+    if (!resp.ok) {
+      if (resp.status === 404) {
+        return { 
+          valid: false, 
+          error: `Parent path not found: ${parentPath}`,
+        };
+      }
+      
+      if (resp.status === 401 || resp.status === 403) {
+        return { 
+          valid: false, 
+          error: `Not authorized for: ${org}/${repo}`,
+          suggestion: 'Are you logged into the correct profile?',
+        };
+      }
+      
+      return { valid: false, error: `Validation failed: ${resp.status}` };
+    }
+    
+    const json = await resp.json();
+    
+    if (!json || (Array.isArray(json) && json.length === 0)) {
+      return {
+        valid: false,
+        error: `Parent path not found or empty: ${parentPath}`,
+      };
+    }
+    
+    const targetEntry = json.find(child => {
+      const childName = child.path.split('/').pop();
+      return childName === lastSegment;
+    });
+    
+    if (!targetEntry) {
+      return {
+        valid: false,
+        error: `Path not found: ${lastSegment}`,
+        suggestion: `Check that ${lastSegment} exists in ${parentPath}`,
+      };
+    }
+    
+    if (targetEntry.ext) {
+      return {
+        valid: false,
+        error: 'Site path cannot point to a file',
+        suggestion: parentPath,
+        isFile: true,
+        fileType: targetEntry.ext,
+        fileName: lastSegment,
+      };
+    }
+    
+    return { valid: true, org, repo };
+    
+  } catch (error) {
+    return { valid: false, error: error.message };
+  }
+}
+
+export function saveRecentSite(sitePath) {
+  const recentSites = JSON.parse(localStorage.getItem('da-sites')) || [];
+  
+  const filtered = recentSites.filter(site => site !== sitePath.substring(1));
+  
+  filtered.unshift(sitePath.substring(1));
+  
+  const limited = filtered.slice(0, 10);
+  
+  localStorage.setItem('da-sites', JSON.stringify(limited));
 }

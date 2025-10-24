@@ -70,18 +70,15 @@ class NxMediaScan extends LitElement {
   startPolling() {
     this._pollingInterval = setInterval(async () => {
       if (this.sitePath && !this._isScanning) {
-        const [org, repo] = this.sitePath.split('/').slice(1, 3);
-        if (org && repo) {
-          const { hasChanged, mediaData } = await loadMediaSheetIfModified(org, repo);
+        const { hasChanged, mediaData } = await loadMediaSheetIfModified(this.sitePath);
 
-          if (hasChanged && mediaData) {
-            this.dispatchEvent(new CustomEvent('mediaDataUpdated', {
-              detail: {
-                mediaData,
-                hasChanges: hasChanged,
-              },
-            }));
-          }
+        if (hasChanged && mediaData) {
+          this.dispatchEvent(new CustomEvent('mediaDataUpdated', {
+            detail: {
+              mediaData,
+              hasChanges: hasChanged,
+            },
+          }));
         }
       }
     }, CONFIG.POLLING_INTERVAL);

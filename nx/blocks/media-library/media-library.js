@@ -1,7 +1,7 @@
 import { html, LitElement } from 'da-lit';
 import getStyle from '../../utils/styles.js';
 import { loadMediaSheet } from './utils/processing.js';
-import { copyMediaToClipboard } from './utils/utils.js';
+import { copyMediaToClipboard, validateSitePath, saveRecentSite } from './utils/utils.js';
 import {
   processMediaData,
   applyFilter,
@@ -49,6 +49,10 @@ class NxMediaLibrary extends LitElement {
     _isScanning: { state: true },
     _scanProgress: { state: true },
     _resultSummary: { state: true },
+    _isValidating: { state: true },
+    _sitePathValid: { state: true },
+    _validationError: { state: true },
+    _validationSuggestion: { state: true },
   };
 
   constructor() {
@@ -107,12 +111,14 @@ class NxMediaLibrary extends LitElement {
     const filterProps = ['_searchQuery', '_selectedFilterType'];
     const uiProps = ['_currentView', 'sitePath'];
     const scanProps = ['_scanProgress'];
+    const validationProps = ['_isValidating', '_sitePathValid', '_validationError'];
     const hasDataChange = dataProps.some((prop) => changedProperties.has(prop));
     const hasFilterChange = filterProps.some((prop) => changedProperties.has(prop));
     const hasUIChange = uiProps.some((prop) => changedProperties.has(prop));
     const hasScanChange = scanProps.some((prop) => changedProperties.has(prop));
+    const hasValidationChange = validationProps.some((prop) => changedProperties.has(prop));
 
-    return hasDataChange || hasFilterChange || hasUIChange || hasScanChange;
+    return hasDataChange || hasFilterChange || hasUIChange || hasScanChange || hasValidationChange;
   }
 
   willUpdate(changedProperties) {
@@ -150,14 +156,15 @@ class NxMediaLibrary extends LitElement {
         this._filterCounts = {};
         this._processedData = null;
         this._filteredMediaData = null;
-        this.initialize();
       }
     }
     super.update(changedProperties);
   }
 
-  updated() {
-    this.updateComplete.then(() => {});
+  updated(changedProperties) {
+    if (changedProperties.has('sitePath') && this.sitePath) {
+      this.initialize();
+    }
   }
 
   get filteredMediaData() {
@@ -254,11 +261,41 @@ class NxMediaLibrary extends LitElement {
   }
 
   async initialize() {
-    if (this.sitePath) {
-      const [org, repo] = this.sitePath.split('/').slice(1, 3);
-      if (org && repo) {
-        await this.loadMediaData(org, repo);
+    if (!this.sitePath) return;
+
+    this._isValidating = true;
+    this._sitePathValid = false;
+    this._error = null;
+    this.requestUpdate();
+
+    try {
+      const validation = await validateSitePath(this.sitePath);
+
+      this._isValidating = false;
+
+      if (!validation.valid) {
+        this._validationError = validation.error;
+        this._validationSuggestion = validation.suggestion;
+        this._sitePathValid = false;
+        this._error = validation.error;
+        this.requestUpdate();
+        return;
       }
+
+      this._sitePathValid = true;
+      this._validationError = null;
+      this._validationSuggestion = null;
+
+      this.requestUpdate();
+
+      saveRecentSite(this.sitePath);
+      this.loadMediaData();
+    } catch (error) {
+      this._isValidating = false;
+      this._validationError = error.message;
+      this._sitePathValid = false;
+      this._error = error.message;
+      this.requestUpdate();
     }
   }
 
@@ -298,9 +335,9 @@ class NxMediaLibrary extends LitElement {
     };
   }
 
-  async loadMediaData(org, repo) {
+  async loadMediaData() {
     try {
-      const mediaData = await loadMediaSheet(org, repo);
+      const mediaData = await loadMediaSheet(this.sitePath);
 
       if (mediaData && mediaData.length > 0) {
         this._rawMediaData = mediaData;
@@ -368,9 +405,37 @@ class NxMediaLibrary extends LitElement {
     }
   }
 
+  renderErrorState() {
+    return html`
+      <div class="error-state">
+        <div class="error-content">
+          <p>${this._validationError}</p>
+          <a href="#" @click=${(e) => { e.preventDefault(); window.location.hash = ''; }}>
+            Go back to site selection
+          </a>
+        </div>
+      </div>
+    `;
+  }
+
   render() {
     if (!this.sitePath) {
       return html`<nx-media-onboard @site-selected=${this.handleSiteSelected}></nx-media-onboard>`;
+    }
+
+    if (this._isValidating) {
+      return html`
+        <div class="validation-state">
+          <div class="validation-content">
+            <div class="spinner"></div>
+            <p>Initializing...</p>
+          </div>
+        </div>
+      `;
+    }
+
+    if (!this._sitePathValid && this._validationError) {
+      return this.renderErrorState();
     }
 
     return html`

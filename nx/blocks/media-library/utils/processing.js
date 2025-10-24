@@ -17,24 +17,24 @@ import {
 } from './utils.js';
 import { getGroupingKey } from './filters.js';
 
-export function getMediaLibraryPath(org, repo) {
-  return `/${org}/${repo}/.da/mediaindex`;
+export function getMediaLibraryPath(sitePath) {
+  return `${sitePath}/.da/mediaindex`;
 }
 
-export function getMediaSheetPath(org, repo) {
-  return `${getMediaLibraryPath(org, repo)}/media.json`;
+export function getMediaSheetPath(sitePath) {
+  return `${getMediaLibraryPath(sitePath)}/media.json`;
 }
 
-export function getScanLockPath(org, repo) {
-  return `${getMediaLibraryPath(org, repo)}/scan-lock.json`;
+export function getScanLockPath(sitePath) {
+  return `${getMediaLibraryPath(sitePath)}/scan-lock.json`;
 }
 
-export function getLastModifiedDataPath(org, repo, folderName = 'root') {
-  return `${getMediaLibraryPath(org, repo)}/lastmodified-data/${folderName}.json`;
+export function getLastModifiedDataPath(sitePath, folderName = 'root') {
+  return `${getMediaLibraryPath(sitePath)}/lastmodified-data/${folderName}.json`;
 }
 
-export async function saveMediaSheet(data, org, repo) {
-  const path = getMediaSheetPath(org, repo);
+export async function saveMediaSheet(data, sitePath) {
+  const path = getMediaSheetPath(sitePath);
   const formData = await createSheet(data);
   return daFetch(`${DA_ORIGIN}/source${path}`, {
     method: 'PUT',
@@ -51,8 +51,8 @@ function normalizeMediaItem(item) {
   return item;
 }
 
-export async function loadMediaSheet(org, repo) {
-  const path = getMediaSheetPath(org, repo);
+export async function loadMediaSheet(sitePath) {
+  const path = getMediaSheetPath(sitePath);
 
   try {
     const resp = await daFetch(`${DA_ORIGIN}/source${path}`);
@@ -295,12 +295,12 @@ export function getAvailableSubtypes(mediaData, activeFilter = 'links') {
     .sort((a, b) => a.subtype.localeCompare(b.subtype));
 }
 
-async function getLastModifiedPath(org, repo, folderName = 'root') {
-  return getLastModifiedDataPath(org, repo, folderName);
+async function getLastModifiedPath(sitePath, folderName = 'root') {
+  return getLastModifiedDataPath(sitePath, folderName);
 }
 
-async function saveLastModifiedData(org, repo, folderName, data) {
-  const path = await getLastModifiedPath(org, repo, folderName);
+async function saveLastModifiedData(sitePath, folderName, data) {
+  const path = await getLastModifiedPath(sitePath, folderName);
 
   const formData = await createSheet(data);
   const response = await daFetch(`${DA_ORIGIN}/source${path}`, {
@@ -316,7 +316,7 @@ async function saveLastModifiedData(org, repo, folderName, data) {
   return response;
 }
 
-async function loadAllLastModifiedData(org, repo) {
+async function loadAllLastModifiedData(sitePath) {
   const lastModifiedMap = new Map();
 
   try {
@@ -339,7 +339,7 @@ async function loadAllLastModifiedData(org, repo) {
       }
     };
 
-    const lastModifiedDataPath = `${getMediaLibraryPath(org, repo)}/lastmodified-data`;
+    const lastModifiedDataPath = `${getMediaLibraryPath(sitePath)}/lastmodified-data`;
     const { results } = crawl({ path: lastModifiedDataPath, callback });
     await results;
 
@@ -381,27 +381,27 @@ function groupFilesByFolder(crawlItems) {
   return { rootFiles, folderFiles };
 }
 
-function getMediaSheetLastModifiedKey(org, repo) {
-  return `${org}-${repo}-media-lastupdated`;
+function getMediaSheetLastModifiedKey(sitePath) {
+  return `${sitePath.replace(/\//g, '-')}-media-lastupdated`;
 }
 
-function getMediaSheetLastModified(org, repo) {
-  const key = getMediaSheetLastModifiedKey(org, repo);
+function getMediaSheetLastModified(sitePath) {
+  const key = getMediaSheetLastModifiedKey(sitePath);
   const stored = localStorage.getItem(key);
   return stored ? parseInt(stored, 10) : null;
 }
 
-function setMediaSheetLastModified(org, repo, timestamp) {
-  const key = getMediaSheetLastModifiedKey(org, repo);
+function setMediaSheetLastModified(sitePath, timestamp) {
+  const key = getMediaSheetLastModifiedKey(sitePath);
   localStorage.setItem(key, timestamp.toString());
 }
 
-export async function checkMediaSheetModified(org, repo) {
+export async function checkMediaSheetModified(sitePath) {
   try {
-    const mediaFolderPath = getMediaLibraryPath(org, repo);
-    const mediaSheetPath = getMediaSheetPath(org, repo);
+    const mediaFolderPath = getMediaLibraryPath(sitePath);
+    const mediaSheetPath = getMediaSheetPath(sitePath);
 
-    const lastMediaSheetModified = getMediaSheetLastModified(org, repo);
+    const lastMediaSheetModified = getMediaSheetLastModified(sitePath);
 
     let mediaSheetEntry = null;
 
@@ -422,7 +422,7 @@ export async function checkMediaSheetModified(org, repo) {
 
     const hasChanged = !lastMediaSheetModified || lastModified > lastMediaSheetModified;
 
-    setMediaSheetLastModified(org, repo, lastModified);
+    setMediaSheetLastModified(sitePath, lastModified);
 
     return { hasChanged, fileTimestamp: lastModified };
   } catch (error) {
@@ -432,19 +432,19 @@ export async function checkMediaSheetModified(org, repo) {
   }
 }
 
-export async function loadMediaSheetIfModified(org, repo) {
-  const { hasChanged } = await checkMediaSheetModified(org, repo);
+export async function loadMediaSheetIfModified(sitePath) {
+  const { hasChanged } = await checkMediaSheetModified(sitePath);
 
   if (hasChanged) {
-    const mediaData = await loadMediaSheet(org, repo);
+    const mediaData = await loadMediaSheet(sitePath);
     return { hasChanged: true, mediaData };
   }
 
   return { hasChanged: false, mediaData: null };
 }
 
-export async function createScanLock(org, repo) {
-  const path = getScanLockPath(org, repo);
+export async function createScanLock(sitePath) {
+  const path = getScanLockPath(sitePath);
   const lockData = {
     timestamp: Date.now(),
     locked: true,
@@ -456,8 +456,8 @@ export async function createScanLock(org, repo) {
   });
 }
 
-export async function checkScanLock(org, repo) {
-  const path = getScanLockPath(org, repo);
+export async function checkScanLock(sitePath) {
+  const path = getScanLockPath(sitePath);
   try {
     const resp = await daFetch(`${DA_ORIGIN}/source${path}`);
     if (resp.ok) {
@@ -470,22 +470,19 @@ export async function checkScanLock(org, repo) {
   return { exists: false, locked: false, timestamp: null };
 }
 
-export async function removeScanLock(org, repo) {
-  const path = getScanLockPath(org, repo);
+export async function removeScanLock(sitePath) {
+  const path = getScanLockPath(sitePath);
   return daFetch(`${DA_ORIGIN}/source${path}`, { method: 'DELETE' });
 }
 
-export default async function runScan(path, updateTotal, updateProgressive = null) {
-  const pathParts = path.split('/').filter((part) => part);
-  const org = pathParts[0];
-  const repo = pathParts[1];
+export default async function runScan(sitePath, updateTotal, updateProgressive = null) {
   let totalPagesScanned = 0;
   let totalMediaFilesFound = 0;
   const allMediaUsage = [];
   const unusedMedia = [];
   const allCrawlItems = [];
 
-  const existingLock = await checkScanLock(org, repo);
+  const existingLock = await checkScanLock(sitePath);
   if (existingLock.exists && existingLock.locked) {
     const lockAge = Date.now() - existingLock.timestamp;
     const maxLockAge = 30 * 60 * 1000;
@@ -493,15 +490,15 @@ export default async function runScan(path, updateTotal, updateProgressive = nul
     if (lockAge < maxLockAge) {
       throw new Error(`Scan already in progress. Lock created ${Math.round(lockAge / 1000 / 60)} minutes ago.`);
     } else {
-      await removeScanLock(org, repo);
+      await removeScanLock(sitePath);
     }
   }
 
-  await createScanLock(org, repo);
+  await createScanLock(sitePath);
 
-  const existingMediaData = await loadMediaSheet(org, repo) || [];
+  const existingMediaData = await loadMediaSheet(sitePath) || [];
 
-  const lastModifiedMap = await loadAllLastModifiedData(org, repo);
+  const lastModifiedMap = await loadAllLastModifiedData(sitePath);
 
   const mediaInUse = new Set();
 
@@ -581,7 +578,7 @@ export default async function runScan(path, updateTotal, updateProgressive = nul
     allCrawlItems.push(item);
   };
 
-  const { results, getDuration } = crawl({ path, callback });
+  const { results, getDuration } = crawl({ path: sitePath, callback });
   await results;
 
   const allMediaEntries = [];
@@ -646,13 +643,13 @@ export default async function runScan(path, updateTotal, updateProgressive = nul
   const sortedMediaData = sortMediaData(mediaDataWithCount);
 
   if (hasChanges) {
-    await saveMediaSheet(sortedMediaData, org, repo);
+    await saveMediaSheet(sortedMediaData, sitePath);
   }
 
   const { rootFiles, folderFiles } = groupFilesByFolder(allCrawlItems);
   const savePromises = [];
 
-  const existingLastModifiedMap = await loadAllLastModifiedData(org, repo);
+  const existingLastModifiedMap = await loadAllLastModifiedData(sitePath);
 
   if (rootFiles.length > 0) {
     try {
@@ -674,7 +671,7 @@ export default async function runScan(path, updateTotal, updateProgressive = nul
         }
       });
 
-      savePromises.push(saveLastModifiedData(org, repo, 'root', mergedRootFiles));
+      savePromises.push(saveLastModifiedData(sitePath, 'root', mergedRootFiles));
     } catch (error) {
       // empty
     }
@@ -701,7 +698,7 @@ export default async function runScan(path, updateTotal, updateProgressive = nul
           }
         });
 
-        savePromises.push(saveLastModifiedData(org, repo, folderName, mergedFolderFiles));
+        savePromises.push(saveLastModifiedData(sitePath, folderName, mergedFolderFiles));
       } catch (error) {
         // empty
       }
@@ -716,7 +713,7 @@ export default async function runScan(path, updateTotal, updateProgressive = nul
     }
   }
 
-  await removeScanLock(org, repo);
+  await removeScanLock(sitePath);
 
   const duration = getDuration();
   return {
