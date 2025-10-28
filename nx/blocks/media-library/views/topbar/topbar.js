@@ -11,7 +11,8 @@ const nx = `${new URL(import.meta.url).origin}/nx`;
 const sl = await getStyle(`${nx}/public/sl/styles.css`);
 const slComponents = await getStyle(`${nx}/public/sl/components.css`);
 const ICONS = [
-  `${nx}/img/icons/S2IconFolder20N-icon.svg`,
+  `${nx}/public/icons/Smock_Folder_18_N.svg`,
+  `${nx}/public/icons/Smock_FileHTML_18_N.svg`,
   `${nx}/img/icons/S2IconClassicGridView20N-icon.svg`,
   `${nx}/public/icons/S2_Icon_ListBulleted_20_N.svg`,
   `${nx}/public/icons/S2_Icon_Close_20_N.svg`,
@@ -29,11 +30,13 @@ class NxMediaTopBar extends LitElement {
     scanProgress: { attribute: false },
 
     mediaData: { attribute: false },
+    folderPathsCache: { attribute: false },
     _currentView: { state: true },
     _suggestions: { state: true },
     _activeIndex: { state: true },
     _originalQuery: { state: true },
     _showSuggestions: { state: true },
+    _selectedType: { state: true },
   };
 
   constructor() {
@@ -44,6 +47,8 @@ class NxMediaTopBar extends LitElement {
     this._originalQuery = '';
     this._suppressSuggestions = false;
     this._showSuggestions = false;
+    this._debounceTimeout = null;
+    this._selectedType = null;
   }
 
   shouldUpdate(changedProperties) {
@@ -71,11 +76,30 @@ class NxMediaTopBar extends LitElement {
         this._suggestions = [];
         this._activeIndex = -1;
         this._originalQuery = '';
+        this._selectedType = null;
       }
+    }
+
+    if (changedProperties.has('_selectedType')) {
+      this.updateInputPadding();
     }
   }
 
-  connectedCallback() {
+  updateInputPadding() {
+    const slInput = this.shadowRoot.querySelector('sl-input');
+    if (!slInput) return;
+
+    const input = slInput.shadowRoot?.querySelector('input');
+    if (!input) return;
+
+    if (this._selectedType) {
+      input.style.paddingInlineStart = '36px';
+    } else {
+      input.style.paddingInlineStart = '';
+    }
+  }
+
+  async connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [sl, slComponents, styles];
 
@@ -83,11 +107,17 @@ class NxMediaTopBar extends LitElement {
 
     this.handleOutsideClick = this.handleOutsideClick.bind(this);
     document.addEventListener('click', this.handleOutsideClick);
+
+    await this.updateComplete;
+    this.updateInputPadding();
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
     document.removeEventListener('click', this.handleOutsideClick);
+    if (this._debounceTimeout) {
+      clearTimeout(this._debounceTimeout);
+    }
   }
 
   handleOutsideClick(e) {
@@ -107,7 +137,12 @@ class NxMediaTopBar extends LitElement {
   }
 
   getOnDemandSearchSuggestions(query) {
-    return generateSearchSuggestions(this.mediaData, query, createSearchSuggestion);
+    return generateSearchSuggestions(
+      this.mediaData,
+      query,
+      createSearchSuggestion,
+      this.folderPathsCache,
+    );
   }
 
   handleSearchInput(e) {
@@ -117,13 +152,24 @@ class NxMediaTopBar extends LitElement {
     this._originalQuery = query;
     this._activeIndex = -1;
 
-    if (!query || !query.trim() || this._suppressSuggestions) {
+    // Clear any pending debounce
+    if (this._debounceTimeout) {
+      clearTimeout(this._debounceTimeout);
+    }
+
+    if (!query || !query.trim()) {
       this._suggestions = [];
       this._showSuggestions = false;
       this._suppressSuggestions = false;
+      this._selectedType = null;
     } else {
-      this._suggestions = this.getOnDemandSearchSuggestions(query);
-      this._showSuggestions = this._suggestions.length > 0;
+      this._suppressSuggestions = false;
+
+      this._debounceTimeout = setTimeout(() => {
+        this._suggestions = this.getOnDemandSearchSuggestions(query);
+        this._showSuggestions = this._suggestions.length > 0;
+        this.requestUpdate();
+      }, 150);
     }
 
     this.dispatchEvent(new CustomEvent('search', { detail: { query } }));
@@ -167,21 +213,6 @@ class NxMediaTopBar extends LitElement {
         if (this._activeIndex >= 0) {
           this.selectSuggestion(this._suggestions[this._activeIndex]);
         } else {
-          if (this.searchQuery === '/') {
-            this.searchQuery = 'folder:/';
-            this._suggestions = [];
-            this._activeIndex = -1;
-            this._suppressSuggestions = true;
-            this.dispatchEvent(new CustomEvent('search', {
-              detail: {
-                query: this.searchQuery,
-                type: 'folder',
-                path: '',
-              },
-            }));
-            return;
-          }
-
           const colonSyntax = parseColonSyntax(this.searchQuery);
           if (colonSyntax) {
             this._suggestions = [];
@@ -210,10 +241,8 @@ class NxMediaTopBar extends LitElement {
   }
 
   getSuggestionText(suggestion) {
-    if (suggestion.type === 'doc') return `doc:${suggestion.value}`;
-    if (suggestion.type === 'folder') {
-      return suggestion.value === '' ? 'folder:/' : `folder:${suggestion.value}`;
-    }
+    if (suggestion.type === 'doc') return suggestion.value;
+    if (suggestion.type === 'folder') return suggestion.value;
     if (suggestion.type === 'media') {
       return suggestion.value.name || suggestion.value.url;
     }
@@ -225,23 +254,24 @@ class NxMediaTopBar extends LitElement {
     this._suggestions = [];
     this._activeIndex = -1;
     this._suppressSuggestions = true;
+    this._selectedType = suggestion.type;
 
     if (suggestion.type === 'doc') {
-      this.searchQuery = `doc:${suggestion.value}`;
+      this.searchQuery = suggestion.value;
       this.dispatchEvent(new CustomEvent('search', {
         detail: {
           query: this.searchQuery,
           type: 'doc',
-          path: suggestion.value,
+          path: suggestion.absolutePath || suggestion.value,
         },
       }));
     } else if (suggestion.type === 'folder') {
-      this.searchQuery = suggestion.value === '' ? 'folder:/' : `folder:${suggestion.value}`;
+      this.searchQuery = suggestion.value;
       this.dispatchEvent(new CustomEvent('search', {
         detail: {
           query: this.searchQuery,
           type: 'folder',
-          path: suggestion.value,
+          path: suggestion.absolutePath || suggestion.value,
         },
       }));
     } else {
@@ -263,6 +293,7 @@ class NxMediaTopBar extends LitElement {
     this._activeIndex = -1;
     this._suppressSuggestions = false;
     this._originalQuery = '';
+    this._selectedType = null;
     this.dispatchEvent(new CustomEvent('clear-search'));
   }
 
@@ -276,12 +307,35 @@ class NxMediaTopBar extends LitElement {
     this.dispatchEvent(new CustomEvent('search', { detail: { query: e.target.value } }));
   }
 
+  renderSearchIcon() {
+    if (this._selectedType === 'folder') {
+      return html`
+        <svg class="search-icon folder-icon">
+          <use href="#Smock_Folder_18_N"></use>
+        </svg>
+      `;
+    }
+    if (this._selectedType === 'doc') {
+      return html`
+        <svg class="search-icon doc-icon">
+          <use href="#Smock_FileHTML_18_N"></use>
+        </svg>
+      `;
+    }
+    return '';
+  }
+
   render() {
     return html`
       <div class="top-bar">
 
         <div class="search-container">
-          <div class="search-wrapper">
+          <div class="search-wrapper ${this._selectedType ? 'has-icon' : ''}">
+            ${this._selectedType ? html`
+              <div class="search-type-icon">
+                ${this.renderSearchIcon()}
+              </div>
+            ` : ''}
             <sl-input
               type="text"
               placeholder="Search"
@@ -300,22 +354,40 @@ class NxMediaTopBar extends LitElement {
               </button>
             ` : ''}
             <div class="suggestions-dropdown ${this._showSuggestions ? 'visible' : 'hidden'}">
-              ${this._suggestions.map((suggestion, index) => html`
-                <div 
-                  class="suggestion-item ${index === this._activeIndex ? 'active' : ''}"
-                  @click=${() => this.selectSuggestion(suggestion)}
-                >
-                  <div class="suggestion-main">
-                    <span class="suggestion-text" .innerHTML=${this.highlightMatch(suggestion.display, this._originalQuery)}></span>
-                  </div>
-                  ${suggestion.details ? html`
-                    <div class="suggestion-details">
-                      ${suggestion.details.alt ? html`<div class="detail-line">Alt: <span .innerHTML=${this.highlightMatch(suggestion.details.alt, this._originalQuery)}></span></div>` : ''}
-                      ${suggestion.details.doc ? html`<div class="detail-line">Doc: <span .innerHTML=${this.highlightMatch(suggestion.details.doc, this._originalQuery)}></span></div>` : ''}
-                    </div>
-                  ` : ''}
-                </div>
-              `)}
+              ${this._suggestions.map((suggestion, index) => {
+    let icon = '';
+    if (suggestion.type === 'folder') {
+      icon = html`
+        <svg class="suggestion-icon folder-icon">
+          <use href="#Smock_Folder_18_N"></use>
+        </svg>
+      `;
+    } else if (suggestion.type === 'doc') {
+      icon = html`
+        <svg class="suggestion-icon doc-icon">
+          <use href="#Smock_FileHTML_18_N"></use>
+        </svg>
+      `;
+    }
+
+    return html`
+      <div 
+        class="suggestion-item ${index === this._activeIndex ? 'active' : ''}"
+        @click=${() => this.selectSuggestion(suggestion)}
+      >
+        <div class="suggestion-main">
+          ${icon}
+          <span class="suggestion-text" .innerHTML=${this.highlightMatch(suggestion.display, this._originalQuery)}></span>
+        </div>
+        ${suggestion.details ? html`
+          <div class="suggestion-details">
+            ${suggestion.details.alt ? html`<div class="detail-line">Alt: <span .innerHTML=${this.highlightMatch(suggestion.details.alt, this._originalQuery)}></span></div>` : ''}
+            ${suggestion.details.doc ? html`<div class="detail-line">Doc: <span .innerHTML=${this.highlightMatch(suggestion.details.doc, this._originalQuery)}></span></div>` : ''}
+          </div>
+        ` : ''}
+      </div>
+    `;
+  })}
             </div>
           </div>
         </div>

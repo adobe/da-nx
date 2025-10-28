@@ -1,7 +1,7 @@
 import { html, LitElement } from 'da-lit';
 import getStyle from '../../utils/styles.js';
-import { loadMediaSheet } from './utils/processing.js';
-import { copyMediaToClipboard, validateSitePath, saveRecentSite } from './utils/utils.js';
+import { loadMediaSheet, buildDataStructures } from './utils/processing.js';
+import { copyMediaToClipboard, validateSitePath, saveRecentSite, getBasePath } from './utils/utils.js';
 import {
   processMediaData,
   applyFilter,
@@ -81,6 +81,7 @@ class NxMediaLibrary extends LitElement {
     this._statsInterval = null;
     this._selectedFolder = null;
     this._resultSummary = '';
+    this._folderPathsCache = new Set();
   }
 
   connectedCallback() {
@@ -299,54 +300,24 @@ class NxMediaLibrary extends LitElement {
     }
   }
 
-  buildDataStructures(mediaData) {
-    const uniqueItemsMap = new Map();
-    const usageIndex = new Map();
-
-    mediaData.forEach((item) => {
-      if (!item.url) return;
-
-      const groupingKey = getGroupingKey(item.url);
-
-      if (!uniqueItemsMap.has(groupingKey)) {
-        uniqueItemsMap.set(groupingKey, { ...item, usageCount: 1 });
-      } else {
-        const existingItem = uniqueItemsMap.get(groupingKey);
-        existingItem.usageCount += 1;
-      }
-
-      if (!usageIndex.has(groupingKey)) {
-        usageIndex.set(groupingKey, []);
-      }
-
-      usageIndex.get(groupingKey).push({
-        doc: item.doc,
-        alt: item.alt,
-        type: item.type,
-        firstUsedAt: item.firstUsedAt,
-        lastUsedAt: item.lastUsedAt,
-        hash: item.hash,
-      });
-    });
-
-    return {
-      uniqueItems: Array.from(uniqueItemsMap.values()),
-      usageIndex,
-    };
-  }
-
   async loadMediaData() {
     try {
       const mediaData = await loadMediaSheet(this.sitePath);
 
       if (mediaData && mediaData.length > 0) {
-        this._rawMediaData = mediaData;
+        const basePath = getBasePath();
+        const filteredMediaData = basePath
+          ? mediaData.filter((item) => item.doc && item.doc.startsWith(basePath))
+          : mediaData;
 
-        const { uniqueItems, usageIndex } = this.buildDataStructures(mediaData);
+        this._rawMediaData = filteredMediaData;
+
+        const { uniqueItems, usageIndex, folderPaths } = buildDataStructures(filteredMediaData);
         this._mediaData = uniqueItems;
         this._usageIndex = usageIndex;
+        this._folderPathsCache = folderPaths;
 
-        this._processedData = await processMediaData(mediaData);
+        this._processedData = await processMediaData(filteredMediaData);
         this._needsFilterRecalculation = true;
 
         this._filteredDataCache = null;
@@ -363,13 +334,19 @@ class NxMediaLibrary extends LitElement {
     const { mediaData } = e.detail;
 
     if (mediaData && mediaData.length > 0) {
-      this._rawMediaData = mediaData;
+      const basePath = getBasePath();
+      const filteredMediaData = basePath
+        ? mediaData.filter((item) => item.doc && item.doc.startsWith(basePath))
+        : mediaData;
 
-      const { uniqueItems, usageIndex } = this.buildDataStructures(mediaData);
+      this._rawMediaData = filteredMediaData;
+
+      const { uniqueItems, usageIndex, folderPaths } = buildDataStructures(filteredMediaData);
       this._mediaData = uniqueItems;
       this._usageIndex = usageIndex;
+      this._folderPathsCache = folderPaths;
 
-      this._processedData = await processMediaData(mediaData);
+      this._processedData = await processMediaData(filteredMediaData);
       this._needsFilterRecalculation = true;
       this._filteredDataCache = null;
       this._lastFilterParams = null;
@@ -396,7 +373,14 @@ class NxMediaLibrary extends LitElement {
 
   handleFolderNavigation(path) {
     if (path) {
-      this._selectedFolder = path;
+      const basePath = getBasePath();
+
+      let absolutePath = path;
+      if (basePath && !path.startsWith(basePath)) {
+        absolutePath = path === '/' ? basePath : `${basePath}${path}`;
+      }
+
+      this._selectedFolder = absolutePath;
       this._selectedFilterType = 'all';
       this._needsFilterRecalculation = true;
       this._filteredDataCache = null;
@@ -457,6 +441,7 @@ class NxMediaLibrary extends LitElement {
             .currentView=${this._currentView}
             .mediaData=${this._rawMediaData || this._mediaData}
             .resultSummary=${this._resultSummary}
+            .folderPathsCache=${this._folderPathsCache}
             @search=${this.handleSearch}
             @clear-search=${this.handleClearSearch}
           ></nx-media-topbar>
@@ -796,18 +781,28 @@ class NxMediaLibrary extends LitElement {
             const responseData = await response.json();
             const mediaData = responseData.data || responseData || [];
 
+            const basePath = getBasePath();
+            const filteredMediaData = basePath
+              ? mediaData.filter((item) => item.doc && item.doc.startsWith(basePath))
+              : mediaData;
+
             const duration = ((Date.now() - this._scanStartTime) / 1000).toFixed(1);
 
-            if (mediaData && mediaData.length > 0) {
-              const { uniqueItems, usageIndex } = this.buildDataStructures(mediaData);
+            if (filteredMediaData && filteredMediaData.length > 0) {
+              const {
+                uniqueItems,
+                usageIndex,
+                folderPaths,
+              } = buildDataStructures(filteredMediaData);
               const newDataLength = uniqueItems.length;
               const hasChanges = newDataLength !== previousDataLength;
 
               if (hasChanges) {
-                this._rawMediaData = mediaData;
+                this._rawMediaData = filteredMediaData;
                 this._usageIndex = usageIndex;
                 this._mediaData = uniqueItems;
-                this._processedData = await processMediaData(mediaData);
+                this._folderPathsCache = folderPaths;
+                this._processedData = await processMediaData(filteredMediaData);
                 this._needsFilterRecalculation = true;
                 this._filteredDataCache = null;
                 this._lastFilterParams = null;

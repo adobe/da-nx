@@ -1,4 +1,4 @@
-import { getMediaType, isSvgFile } from './utils.js';
+import { getMediaType, isSvgFile, getBasePath } from './utils.js';
 
 export const FILTER_CONFIG = {
   images: (item) => getMediaType(item) === 'image' && !isSvgFile(item),
@@ -274,14 +274,6 @@ export function parseColonSyntax(query) {
     };
   }
 
-  if (query.startsWith('/') || query.includes('/')) {
-    return {
-      field: 'folder',
-      value: query.toLowerCase().trim(),
-      originalQuery: query,
-    };
-  }
-
   return null;
 }
 
@@ -310,8 +302,14 @@ function filterByColonSyntax(mediaData, colonSyntax) {
 
         if (parts.length > 2) {
           const folderPath = parts.slice(0, -1).join('/');
-          const searchPath = value.startsWith('/') ? value : `/${value}`;
-          return folderPath === searchPath;
+          let searchPath = value.startsWith('/') ? value : `/${value}`;
+
+          const basePath = getBasePath();
+          if (basePath && !searchPath.startsWith(basePath)) {
+            searchPath = searchPath === '/' ? basePath : `${basePath}${searchPath}`;
+          }
+
+          return folderPath.startsWith(searchPath);
         }
 
         return false;
@@ -395,67 +393,162 @@ export function calculateFilteredMediaData(
   return filteredData;
 }
 
-function generateFolderSuggestions(mediaData, value) {
-  const folderPaths = new Set();
+function generateFolderSuggestions(folderPathsCache, value) {
+  const basePath = getBasePath();
+
+  if (!folderPathsCache || folderPathsCache.size === 0) {
+    return [];
+  }
+
+  let searchPath = value.startsWith('/') ? value : `/${value}`;
+
+  if (basePath && !searchPath.startsWith(basePath)) {
+    searchPath = searchPath === '/' ? basePath : `${basePath}${searchPath}`;
+  }
+
+  const filteredPaths = Array.from(folderPathsCache).filter((folderPath) => {
+    if (value === '' || value === '/') {
+      return true;
+    }
+
+    if (searchPath.endsWith('/')) {
+      return folderPath.startsWith(searchPath) && folderPath !== searchPath.slice(0, -1);
+    }
+
+    return folderPath.startsWith(searchPath);
+  });
+
+  const sortedPaths = filteredPaths.sort((a, b) => {
+    const depthA = (a.match(/\//g) || []).length;
+    const depthB = (b.match(/\//g) || []).length;
+    if (depthA !== depthB) {
+      return depthA - depthB;
+    }
+    return a.localeCompare(b);
+  });
+
+  const folderSuggestions = sortedPaths
+    .map((folderPath) => {
+      let displayPath = folderPath;
+      if (basePath && folderPath.startsWith(basePath)) {
+        displayPath = folderPath.substring(basePath.length) || '/';
+        if (displayPath && !displayPath.startsWith('/')) {
+          displayPath = `/${displayPath}`;
+        }
+      }
+      return {
+        type: 'folder',
+        value: displayPath,
+        display: displayPath,
+        absolutePath: folderPath,
+      };
+    })
+    .filter((suggestion) => {
+      if (basePath && suggestion.value === '/') {
+        return false;
+      }
+      return true;
+    });
+
+  return folderSuggestions;
+}
+
+function generateDocSuggestions(mediaData, value) {
+  const basePath = getBasePath();
+
+  if (!mediaData || mediaData.length === 0) {
+    return [];
+  }
+
+  let searchPath = value.startsWith('/') ? value : `/${value}`;
+
+  if (basePath && !searchPath.startsWith(basePath)) {
+    searchPath = searchPath === '/' ? basePath : `${basePath}${searchPath}`;
+  }
+
+  const matchingDocs = new Set();
 
   mediaData.forEach((item) => {
-    if (item.doc) {
+    if (!item.doc) return;
+
+    if (value === '' || value === '/') {
+      const cleanPath = item.doc.replace(/\.html$/, '');
+      if (!cleanPath.includes('/', 1)) {
+        matchingDocs.add(item.doc);
+      }
+    } else if (searchPath.endsWith('/')) {
       const cleanPath = item.doc.replace(/\.html$/, '');
       const parts = cleanPath.split('/');
-
-      if (parts.length > 2) {
-        for (let i = 1; i < parts.length - 1; i += 1) {
-          const folderPath = parts.slice(0, i + 1).join('/');
-          folderPaths.add(folderPath);
+      if (parts.length > 1) {
+        const folderPath = parts.slice(0, -1).join('/');
+        if (folderPath === searchPath.slice(0, -1)) {
+          matchingDocs.add(item.doc);
         }
-      } else if (parts.length === 2) {
-        folderPaths.add('/');
+      }
+    } else {
+      const cleanPath = item.doc.replace(/\.html$/, '');
+      if (cleanPath.startsWith(searchPath)) {
+        matchingDocs.add(item.doc);
       }
     }
   });
 
-  const filteredPaths = Array.from(folderPaths).filter((folderPath) => {
-    if (value === '' || value === '/') {
-      return true;
+  const sortedDocs = Array.from(matchingDocs).sort((a, b) => {
+    const depthA = (a.match(/\//g) || []).length;
+    const depthB = (b.match(/\//g) || []).length;
+    if (depthA !== depthB) {
+      return depthA - depthB;
     }
-    const searchPath = value.startsWith('/') ? value : `/${value}`;
-    return folderPath.startsWith(searchPath);
+    return a.localeCompare(b);
   });
 
-  const folderSuggestions = filteredPaths.map((folderPath) => ({
-    type: 'folder',
-    value: folderPath,
-    display: folderPath,
-  }));
+  const docSuggestions = sortedDocs.map((doc) => {
+    let displayPath = doc;
+    if (basePath && doc.startsWith(basePath)) {
+      displayPath = doc.substring(basePath.length) || '/';
+      if (displayPath && !displayPath.startsWith('/')) {
+        displayPath = `/${displayPath}`;
+      }
+    }
+    return {
+      type: 'doc',
+      value: displayPath,
+      display: displayPath,
+      absolutePath: doc,
+    };
+  });
 
-  return folderSuggestions.slice(0, 10);
+  return docSuggestions;
 }
 
-export function generateSearchSuggestions(mediaData, query, createSuggestionFn) {
+export function generateSearchSuggestions(
+  mediaData,
+  query,
+  createSuggestionFn,
+  folderPathsCache = null,
+) {
   if (!query || !query.trim() || !mediaData) {
     return [];
   }
 
-  const suggestions = [];
-  const matchingDocs = new Set();
-
+  const q = query.toLowerCase().trim();
   const colonSyntax = parseColonSyntax(query);
 
   if (colonSyntax) {
     const { field, value } = colonSyntax;
 
     if (field === 'folder') {
-      return generateFolderSuggestions(mediaData, value);
+      return generateFolderSuggestions(folderPathsCache, value).slice(0, 10);
     }
+
+    if (field === 'doc') {
+      return generateDocSuggestions(mediaData, value).slice(0, 10);
+    }
+
+    const suggestions = [];
 
     mediaData.forEach((item) => {
       switch (field) {
-        case 'doc': {
-          if (item.doc && item.doc.toLowerCase().includes(value)) {
-            matchingDocs.add(item.doc);
-          }
-          break;
-        }
         case 'alt': {
           if (item.alt && item.alt.toLowerCase().includes(value) && !isSvgFile(item)) {
             suggestions.push(createSuggestionFn(item));
@@ -479,25 +572,29 @@ export function generateSearchSuggestions(mediaData, query, createSuggestionFn) 
       }
     });
 
-    const docSuggestions = Array.from(matchingDocs).map((doc) => ({
-      type: 'doc',
-      value: doc,
-      display: doc,
-    }));
-
-    return [...docSuggestions, ...suggestions].slice(0, 10);
+    return [...suggestions].slice(0, 10);
   }
 
-  const q = query.toLowerCase().trim();
+  if (q.startsWith('/')) {
+    const folderSuggestions = generateFolderSuggestions(folderPathsCache, q);
+    const docSuggestions = generateDocSuggestions(mediaData, q);
 
-  if (q === '/') {
-    mediaData.forEach((item) => {
-      if (item.doc && !item.doc.includes('/', 1)) {
-        suggestions.push(createSuggestionFn(item));
+    const combined = [...folderSuggestions, ...docSuggestions];
+
+    combined.sort((a, b) => {
+      const depthA = (a.display.match(/\//g) || []).length;
+      const depthB = (b.display.match(/\//g) || []).length;
+      if (depthA !== depthB) {
+        return depthA - depthB;
       }
+      return a.display.localeCompare(b.display);
     });
-    return suggestions.slice(0, 10);
+
+    return combined.slice(0, 10);
   }
+
+  const suggestions = [];
+  const matchingDocs = new Set();
 
   mediaData.forEach((item) => {
     if (item.doc && item.doc.toLowerCase().includes(q)) {
@@ -581,6 +678,14 @@ export function getFolderFilteredItems(data, selectedFolder, usageIndex) {
     const mediaUrlsInFolder = new Set();
     const folderUsageCounts = new Map();
 
+    const groupingKeyToMediaItem = new Map();
+    data.forEach((item) => {
+      const key = getGroupingKey(item.url);
+      if (!groupingKeyToMediaItem.has(key)) {
+        groupingKeyToMediaItem.set(key, item);
+      }
+    });
+
     usageIndex.forEach((usageEntries, groupingKey) => {
       usageEntries.forEach((entry) => {
         if (!entry.doc) return;
@@ -597,14 +702,14 @@ export function getFolderFilteredItems(data, selectedFolder, usageIndex) {
           if (parts.length > 2) {
             const folderPath = parts.slice(0, -1).join('/');
             const searchPath = selectedFolder.startsWith('/') ? selectedFolder : `/${selectedFolder}`;
-            if (folderPath === searchPath) {
+            if (folderPath.startsWith(searchPath)) {
               isInFolder = true;
             }
           }
         }
 
         if (isInFolder) {
-          const mediaItem = data.find((item) => getGroupingKey(item.url) === groupingKey);
+          const mediaItem = groupingKeyToMediaItem.get(groupingKey);
           if (mediaItem) {
             mediaUrlsInFolder.add(mediaItem.url);
             const currentCount = folderUsageCounts.get(mediaItem.url) || 0;
@@ -637,7 +742,7 @@ export function getFolderFilteredItems(data, selectedFolder, usageIndex) {
     if (parts.length > 2) {
       const folderPath = parts.slice(0, -1).join('/');
       const searchPath = selectedFolder.startsWith('/') ? selectedFolder : `/${selectedFolder}`;
-      return folderPath === searchPath;
+      return folderPath.startsWith(searchPath);
     }
 
     return false;

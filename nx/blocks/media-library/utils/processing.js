@@ -17,6 +17,58 @@ import {
 } from './utils.js';
 import { getGroupingKey } from './filters.js';
 
+export function buildDataStructures(mediaData) {
+  const uniqueItemsMap = new Map();
+  const usageIndex = new Map();
+  const folderPaths = new Set();
+
+  mediaData.forEach((item) => {
+    if (!item.url) return;
+
+    const groupingKey = getGroupingKey(item.url);
+
+    if (!uniqueItemsMap.has(groupingKey)) {
+      uniqueItemsMap.set(groupingKey, { ...item, usageCount: 1 });
+    } else {
+      const existingItem = uniqueItemsMap.get(groupingKey);
+      existingItem.usageCount += 1;
+    }
+
+    if (!usageIndex.has(groupingKey)) {
+      usageIndex.set(groupingKey, []);
+    }
+
+    usageIndex.get(groupingKey).push({
+      doc: item.doc,
+      alt: item.alt,
+      type: item.type,
+      firstUsedAt: item.firstUsedAt,
+      lastUsedAt: item.lastUsedAt,
+      hash: item.hash,
+    });
+
+    if (item.doc) {
+      const cleanPath = item.doc.replace(/\.html$/, '');
+      const parts = cleanPath.split('/');
+
+      if (parts.length > 2) {
+        for (let i = 1; i < parts.length - 1; i += 1) {
+          const folderPath = parts.slice(0, i + 1).join('/');
+          folderPaths.add(folderPath);
+        }
+      } else if (parts.length === 2) {
+        folderPaths.add('/');
+      }
+    }
+  });
+
+  return {
+    uniqueItems: Array.from(uniqueItemsMap.values()),
+    usageIndex,
+    folderPaths,
+  };
+}
+
 export function getMediaLibraryPath(sitePath) {
   return `${sitePath}/.da/mediaindex`;
 }
