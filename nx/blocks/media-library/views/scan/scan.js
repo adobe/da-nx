@@ -1,14 +1,11 @@
 import { html, LitElement } from 'da-lit';
 import getStyle from '../../../../utils/styles.js';
-import getSvg from '../../../../public/utils/svg.js';
 import runScan, { loadMediaSheetIfModified } from '../../utils/processing.js';
 
 const styles = await getStyle(import.meta.url);
 const nx = `${new URL(import.meta.url).origin}/nx`;
 const sl = await getStyle(`${nx}/public/sl/styles.css`);
 const slComponents = await getStyle(`${nx}/public/sl/components.css`);
-
-const ICONS = [`${nx}/public/icons/S2_Icon_Refresh_20_N.svg`];
 
 const CONFIG = {
   POLLING_INTERVAL: 60000,
@@ -38,7 +35,6 @@ class NxMediaScan extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [sl, slComponents, styles];
-    getSvg({ parent: this.shadowRoot, paths: ICONS });
 
     if (this.sitePath && !this._pollingStarted) {
       this.startPolling();

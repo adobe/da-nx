@@ -106,7 +106,10 @@ class NxMediaOnboard extends LitElement {
   }
 
   renderSite(site) {
-    const [org, repo] = site.name.split('/');
+    const parts = site.name.split('/');
+    const [org, repo] = parts;
+    const basePath = parts.length > 2 ? `/${parts.slice(2).join('/')}` : null;
+
     return html`
       <div class="nx-card" @click=${() => this.handleSiteClick(site.name)}>
         <div class="nx-card-inner">
@@ -117,6 +120,7 @@ class NxMediaOnboard extends LitElement {
             <div class="nx-card-overlay">
               <h3>${repo}</h3>
               <p>${org}</p>
+              ${basePath ? html`<p class="base-path">${basePath}</p>` : nothing}
             </div>
           </div>
         </div>

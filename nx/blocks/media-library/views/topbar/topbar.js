@@ -14,16 +14,13 @@ const ICONS = [
   `${nx}/public/icons/Smock_Folder_18_N.svg`,
   `${nx}/public/icons/Smock_FileHTML_18_N.svg`,
   `${nx}/img/icons/S2IconClassicGridView20N-icon.svg`,
-  `${nx}/public/icons/S2_Icon_ListBulleted_20_N.svg`,
   `${nx}/public/icons/S2_Icon_Close_20_N.svg`,
-  `${nx}/public/icons/S2_Icon_Refresh_20_N.svg`,
   `${nx}/public/icons/S2_Icon_Properties_20_N.svg`,
 ];
 
 class NxMediaTopBar extends LitElement {
   static properties = {
     searchQuery: { attribute: false },
-    currentView: { attribute: false },
     sidebarVisible: { attribute: false },
     resultSummary: { attribute: false },
     isScanning: { attribute: false },
@@ -31,7 +28,6 @@ class NxMediaTopBar extends LitElement {
 
     mediaData: { attribute: false },
     folderPathsCache: { attribute: false },
-    _currentView: { state: true },
     _suggestions: { state: true },
     _activeIndex: { state: true },
     _originalQuery: { state: true },
@@ -41,7 +37,6 @@ class NxMediaTopBar extends LitElement {
 
   constructor() {
     super();
-    this._currentView = 'grid';
     this._suggestions = [];
     this._activeIndex = -1;
     this._originalQuery = '';
@@ -49,14 +44,14 @@ class NxMediaTopBar extends LitElement {
     this._showSuggestions = false;
     this._debounceTimeout = null;
     this._selectedType = null;
+    this._programmaticUpdate = false;
   }
 
   shouldUpdate(changedProperties) {
     const hasSearchChange = changedProperties.has('searchQuery');
-    const hasViewChange = changedProperties.has('currentView');
     const hasMediaDataChange = changedProperties.has('mediaData');
 
-    return hasSearchChange || hasViewChange
+    return hasSearchChange
       || hasMediaDataChange
       || changedProperties.has('resultSummary')
       || changedProperties.has('_showSuggestions')
@@ -65,10 +60,6 @@ class NxMediaTopBar extends LitElement {
 
   updated(changedProperties) {
     super.updated(changedProperties);
-
-    if (changedProperties.has('currentView') && this.currentView) {
-      this._currentView = this.currentView;
-    }
 
     if (changedProperties.has('searchQuery')) {
       if (!this.searchQuery) {
@@ -146,6 +137,11 @@ class NxMediaTopBar extends LitElement {
   }
 
   handleSearchInput(e) {
+    if (this._programmaticUpdate) {
+      this._programmaticUpdate = false;
+      return;
+    }
+
     const query = e.target.value;
 
     this.searchQuery = query;
@@ -195,6 +191,7 @@ class NxMediaTopBar extends LitElement {
           this._originalQuery = this.searchQuery;
         }
         this._activeIndex = (this._activeIndex + 1) % this._suggestions.length;
+        this._programmaticUpdate = true;
         this.searchQuery = this.getSuggestionText(this._suggestions[this._activeIndex]);
         break;
 
@@ -205,6 +202,7 @@ class NxMediaTopBar extends LitElement {
         }
         this._activeIndex = (this._activeIndex - 1 + this._suggestions.length)
           % this._suggestions.length;
+        this._programmaticUpdate = true;
         this.searchQuery = this.getSuggestionText(this._suggestions[this._activeIndex]);
         break;
 
@@ -255,6 +253,7 @@ class NxMediaTopBar extends LitElement {
     this._activeIndex = -1;
     this._suppressSuggestions = true;
     this._selectedType = suggestion.type;
+    this._programmaticUpdate = true;
 
     if (suggestion.type === 'doc') {
       this.searchQuery = suggestion.value;
@@ -287,6 +286,7 @@ class NxMediaTopBar extends LitElement {
   }
 
   handleClearSearch() {
+    this._programmaticUpdate = true;
     this.searchQuery = '';
     this._showSuggestions = false;
     this._suggestions = [];

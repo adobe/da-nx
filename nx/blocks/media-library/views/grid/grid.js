@@ -108,9 +108,7 @@ class NxMediaGrid extends LitElement {
       mediaClick: () => this.eventHandlers.handleMediaClick(media),
       copyClick: () => this.eventHandlers.handleMediaCopy(media),
     };
-    const usageCount = media.folderUsageCount !== undefined
-      ? media.folderUsageCount
-      : (media.usageCount || 0);
+    const usageCount = media.usageCount || 0;
 
     return html`
       <div class="media-card">

@@ -216,6 +216,13 @@ form button svg {
   color: rgba(255 255 255 / 80%);
 }
 
+.nx-card-overlay p.base-path {
+  margin-top: var(--spacing-100);
+  font-size: 12px;
+  font-style: italic;
+  color: rgba(255 255 255 / 60%);
+}
+
 /* Site-apps grid styles */
 .nx-site-apps {
   margin-top: var(--spacing-400);

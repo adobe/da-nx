@@ -282,8 +282,18 @@ function filterByColonSyntax(mediaData, colonSyntax) {
 
   const filteredResults = mediaData.filter((item) => {
     switch (field) {
-      case 'doc':
-        return item.doc && item.doc.toLowerCase().includes(value);
+      case 'doc': {
+        if (!item.doc) return false;
+
+        let searchPath = value.startsWith('/') ? value : `/${value}`;
+        const basePath = getBasePath();
+
+        if (basePath && !searchPath.startsWith(basePath)) {
+          searchPath = `${basePath}${searchPath}`;
+        }
+
+        return item.doc.toLowerCase().includes(searchPath);
+      }
       case 'name':
         return item.name && item.name.toLowerCase().includes(value);
       case 'alt':
@@ -293,7 +303,9 @@ function filterByColonSyntax(mediaData, colonSyntax) {
       case 'folder': {
         if (!item.doc) return false;
 
-        if (value === '' || value === '/') {
+        const normalizedValue = value === '/' ? '/' : value.replace(/\/$/, '');
+
+        if (normalizedValue === '' || normalizedValue === '/') {
           return !item.doc.includes('/', 1);
         }
 
@@ -302,7 +314,7 @@ function filterByColonSyntax(mediaData, colonSyntax) {
 
         if (parts.length > 2) {
           const folderPath = parts.slice(0, -1).join('/');
-          let searchPath = value.startsWith('/') ? value : `/${value}`;
+          let searchPath = normalizedValue.startsWith('/') ? normalizedValue : `/${normalizedValue}`;
 
           const basePath = getBasePath();
           if (basePath && !searchPath.startsWith(basePath)) {
@@ -648,19 +660,28 @@ export function getDocumentFilteredItems(
     return [];
   }
 
-  // Simple approach: filter mediaData directly by document
   const documentItems = mediaData.filter((item) => item.doc === selectedDocument);
 
-  // Deduplicate by URL
   const seenUrls = new Set();
   const uniqueDocumentItems = documentItems.filter((item) => {
     if (!item.url) return true;
     if (seenUrls.has(item.url)) return false;
     seenUrls.add(item.url);
     return true;
+  }).map((item) => {
+    const groupingKey = getGroupingKey(item.url);
+    let usageCount = item.usageCount || 1;
+    
+    if (processedData && processedData.usageData && processedData.usageData[groupingKey]) {
+      usageCount = processedData.usageData[groupingKey].count;
+    }
+    
+    return {
+      ...item,
+      usageCount,
+    };
   });
 
-  // Apply specific document filter if not documentTotal
   if (selectedFilterType && selectedFilterType !== 'documentTotal') {
     return applyFilter(uniqueDocumentItems, selectedFilterType, selectedDocument);
   }
@@ -674,9 +695,10 @@ export function getFolderFilteredItems(data, selectedFolder, usageIndex) {
     return data;
   }
 
+  const normalizedFolder = selectedFolder === '/' ? '/' : selectedFolder.replace(/\/$/, '');
+
   if (usageIndex && usageIndex.size > 0) {
     const mediaUrlsInFolder = new Set();
-    const folderUsageCounts = new Map();
 
     const groupingKeyToMediaItem = new Map();
     data.forEach((item) => {
@@ -691,7 +713,7 @@ export function getFolderFilteredItems(data, selectedFolder, usageIndex) {
         if (!entry.doc) return;
 
         let isInFolder = false;
-        if (selectedFolder === '/' || selectedFolder === '') {
+        if (normalizedFolder === '/' || normalizedFolder === '') {
           if (!entry.doc.includes('/', 1)) {
             isInFolder = true;
           }
@@ -701,7 +723,7 @@ export function getFolderFilteredItems(data, selectedFolder, usageIndex) {
 
           if (parts.length > 2) {
             const folderPath = parts.slice(0, -1).join('/');
-            const searchPath = selectedFolder.startsWith('/') ? selectedFolder : `/${selectedFolder}`;
+            const searchPath = normalizedFolder.startsWith('/') ? normalizedFolder : `/${normalizedFolder}`;
             if (folderPath.startsWith(searchPath)) {
               isInFolder = true;
             }
@@ -712,27 +734,18 @@ export function getFolderFilteredItems(data, selectedFolder, usageIndex) {
           const mediaItem = groupingKeyToMediaItem.get(groupingKey);
           if (mediaItem) {
             mediaUrlsInFolder.add(mediaItem.url);
-            const currentCount = folderUsageCounts.get(mediaItem.url) || 0;
-            folderUsageCounts.set(mediaItem.url, currentCount + 1);
           }
         }
       });
     });
 
-    const filteredData = data.filter((item) => mediaUrlsInFolder.has(item.url));
-
-    filteredData.forEach((item) => {
-      const folderCount = folderUsageCounts.get(item.url) || 0;
-      item.folderUsageCount = folderCount;
-    });
-
-    return filteredData;
+    return data.filter((item) => mediaUrlsInFolder.has(item.url));
   }
 
   return data.filter((item) => {
     if (!item.doc) return false;
 
-    if (selectedFolder === '/' || selectedFolder === '') {
+    if (normalizedFolder === '/' || normalizedFolder === '') {
       return !item.doc.includes('/', 1);
     }
 
@@ -741,7 +754,7 @@ export function getFolderFilteredItems(data, selectedFolder, usageIndex) {
 
     if (parts.length > 2) {
       const folderPath = parts.slice(0, -1).join('/');
-      const searchPath = selectedFolder.startsWith('/') ? selectedFolder : `/${selectedFolder}`;
+      const searchPath = normalizedFolder.startsWith('/') ? normalizedFolder : `/${normalizedFolder}`;
       return folderPath.startsWith(searchPath);
     }
 

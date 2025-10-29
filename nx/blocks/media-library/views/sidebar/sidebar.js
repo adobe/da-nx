@@ -8,7 +8,6 @@ const sl = await getStyle(`${nx}/public/sl/styles.css`);
 const slComponents = await getStyle(`${nx}/public/sl/components.css`);
 const ICONS = [
   `${nx}/img/icons/S2IconClassicGridView20N-icon.svg`,
-  `${nx}/public/icons/S2_Icon_ListBulleted_20_N.svg`,
   `${nx}/public/icons/S2_Icon_Properties_20_N.svg`,
   `${nx}/public/icons/S2_GraphBarVertical_18_N.svg`,
   `${nx}/public/icons/C_Icon_Filters_20.svg`,
@@ -17,7 +16,6 @@ const ICONS = [
 class NxMediaSidebar extends LitElement {
   static properties = {
     activeFilter: { attribute: false },
-    currentView: { attribute: false },
     isScanning: { attribute: false, type: Boolean },
     scanProgress: { attribute: false, type: Object },
     isExpanded: { state: true },
@@ -44,7 +42,6 @@ class NxMediaSidebar extends LitElement {
   constructor() {
     super();
     this.activeFilter = 'all';
-    this.currentView = 'grid';
     this.isExpanded = false;
     this.isIndexExpanded = false;
     this.isScanning = false;
