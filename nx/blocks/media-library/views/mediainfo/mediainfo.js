@@ -21,6 +21,7 @@ import {
   getImageOrientation,
   fetchWithCorsProxy,
 } from '../../utils/utils.js';
+import { extractImageContext, generateAltTextFromAI } from '../../utils/ai-alt-text.js';
 import loadScript from '../../../../utils/script.js';
 import { daFetch } from '../../../../utils/daFetch.js';
 import { DA_ORIGIN, SUPPORTED_FILES } from '../../../../public/utils/constants.js';
@@ -30,7 +31,7 @@ const nx = `${new URL(import.meta.url).origin}/nx`;
 
 const ICONS = [
   `${nx}/public/icons/S2_Icon_PDF_20_N.svg`,
-  `${nx}/public/icons/S2_Icon_AIGenReferenceImage_20_N.svg`,
+  `${nx}/public/icons/S2_Icon_Gears_Edit_20_N.svg`,
   `${nx}/public/icons/C_Icon_Image_Info.svg`,
   `${nx}/public/icons/S2_Icon_AlertDiamondOrange_20_N.svg`,
   `${nx}/public/icons/S2_Icon_InfoCircleBlue_20_N.svg`,
@@ -67,6 +68,8 @@ class NxMediaInfo extends LitElement {
     _editingAltUsage: { state: true },
     _imageDimensions: { state: true },
     _comprehensiveMetadata: { state: true },
+    _generatingAltFor: { state: true },
+    _generationError: { state: true },
   };
 
   constructor() {
@@ -90,6 +93,8 @@ class NxMediaInfo extends LitElement {
     this._cachedMetadata = new Map();
     this._imageDimensions = null;
     this._comprehensiveMetadata = null;
+    this._generatingAltFor = null;
+    this._generationError = null;
   }
 
   connectedCallback() {
@@ -383,8 +388,6 @@ class NxMediaInfo extends LitElement {
   }
 
   async saveAlt(usage, usageIndex) {
-    if (!this._newAltText.trim()) return;
-
     try {
       const { org, repo } = this;
 
@@ -418,8 +421,45 @@ class NxMediaInfo extends LitElement {
         },
       }));
     } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error('Failed to save alt text:', error);
+      // Error saving alt text
+    }
+  }
+
+  async generateAltText(usage, usageIndex) {
+    if (!this.media || !usage.doc) return;
+
+    const generatingKey = `${usage.doc}-${usageIndex}`;
+    this._generatingAltFor = generatingKey;
+    this._generationError = null;
+    this.requestUpdate();
+
+    try {
+      const { org, repo } = this;
+      if (!org || !repo) {
+        throw new Error('Missing org or repo information');
+      }
+
+      const docUrl = `${DA_ORIGIN}/source/${org}/${repo}${usage.doc}`;
+      const docResponse = await daFetch(docUrl);
+
+      if (!docResponse.ok) {
+        throw new Error(`Failed to fetch document: ${docResponse.status}`);
+      }
+
+      const htmlContent = await docResponse.text();
+      const context = extractImageContext(htmlContent, this.media.url);
+
+      const fullImageUrl = buildFullMediaUrl(this.media.url, org, repo);
+
+      const altText = await generateAltTextFromAI(fullImageUrl, context);
+
+      this._editingAltUsage = { doc: usage.doc, index: usageIndex };
+      this._newAltText = altText;
+    } catch (error) {
+      this._generationError = error.message;
+    } finally {
+      this._generatingAltFor = null;
+      this.requestUpdate();
     }
   }
 
@@ -769,6 +809,9 @@ class NxMediaInfo extends LitElement {
 
   // eslint-disable-next-line no-unused-vars
   renderAltText(usage, usageIndex, isEditingAlt, isMissingAlt) {
+    const generatingKey = `${usage.doc}-${usageIndex}`;
+    const isGenerating = this._generatingAltFor === generatingKey;
+
     if (isEditingAlt) {
       return html`
         <div class="alt-edit-form">
@@ -795,6 +838,17 @@ class NxMediaInfo extends LitElement {
       `;
     }
 
+    if (isGenerating) {
+      return html`
+        <div class="alt-text-container">
+          <div class="alt-text">
+            <div class="spinner" style="width: 16px; height: 16px; border-width: 2px; margin: 0;"></div>
+            Generating alt text...
+          </div>
+        </div>
+      `;
+    }
+
     if (usage.alt !== null && usage.alt !== '' && usage.alt !== 'null') {
       return html`
         <div class="alt-text-container">
@@ -804,11 +858,18 @@ class NxMediaInfo extends LitElement {
             </svg>
             ${usage.alt}
           </div>
-          <button type="button" size="small" class="icon-button" @click=${() => this.editAlt(usage, usageIndex)}>
-            <svg class="icon" viewBox="0 0 22 20">
-              <use href="#S2_Icon_Edit_20_N"></use>
-            </svg>
-          </button>
+          <div class="alt-actions">
+            <button type="button" size="small" class="icon-button" @click=${() => this.editAlt(usage, usageIndex)}>
+              <svg class="icon" viewBox="0 0 22 20">
+                <use href="#S2_Icon_Edit_20_N"></use>
+              </svg>
+            </button>
+            <button type="button" size="small" class="icon-button" @click=${() => this.generateAltText(usage, usageIndex)} title="Generate AI alt text">
+              <svg class="icon" viewBox="0 0 22 20">
+                <use href="#S2_Icon_Gears_Edit_20_N"></use>
+              </svg>
+            </button>
+          </div>
         </div>
       `;
     }
@@ -822,11 +883,18 @@ class NxMediaInfo extends LitElement {
             </svg>
             Missing alt text
           </div>
-          <button type="button" size="small" class="icon-button" @click=${() => this.editAlt(usage, usageIndex)}>
-            <svg class="icon" viewBox="0 0 22 20">
-              <use href="#S2_Icon_Edit_20_N"></use>
-            </svg>
-          </button>
+          <div class="alt-actions">
+            <button type="button" size="small" class="icon-button" @click=${() => this.editAlt(usage, usageIndex)}>
+              <svg class="icon" viewBox="0 0 22 20">
+                <use href="#S2_Icon_Edit_20_N"></use>
+              </svg>
+            </button>
+            <button type="button" size="small" class="icon-button" @click=${() => this.generateAltText(usage, usageIndex)} title="Generate AI alt text">
+              <svg class="icon" viewBox="0 0 22 20">
+                <use href="#S2_Icon_Gears_Edit_20_N"></use>
+              </svg>
+            </button>
+          </div>
         </div>
       `;
     }
@@ -839,11 +907,18 @@ class NxMediaInfo extends LitElement {
           </svg>
           Decorative
         </div>
-        <button type="button" size="small" class="icon-button" @click=${() => this.editAlt(usage, usageIndex)}>
-          <svg class="icon" viewBox="0 0 22 20">
-            <use href="#S2_Icon_Edit_20_N"></use>
-          </svg>
-        </button>
+        <div class="alt-actions">
+          <button type="button" size="small" class="icon-button" @click=${() => this.editAlt(usage, usageIndex)}>
+            <svg class="icon" viewBox="0 0 22 20">
+              <use href="#S2_Icon_Edit_20_N"></use>
+            </svg>
+          </button>
+          <button type="button" size="small" class="icon-button" @click=${() => this.generateAltText(usage, usageIndex)} title="Generate AI alt text">
+            <svg class="icon" viewBox="0 0 22 20">
+              <use href="#S2_Icon_Gears_Edit_20_N"></use>
+            </svg>
+          </button>
+        </div>
       </div>
     `;
   }

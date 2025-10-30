@@ -680,6 +680,11 @@ button {
     font-size: smaller;
     font-weight: normal;
   }
+
+  .alt-actions {
+    display: flex;
+    gap: 4px;
+  }
 }
 
 .alt-edit-form {
