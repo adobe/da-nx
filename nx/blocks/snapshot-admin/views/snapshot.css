@@ -56,6 +56,11 @@ svg.icon {
     gap: var(--spacing-400);
   }
 
+  .name-missing {
+    border: 2px dotted var(--s2-red-900);
+    padding-left: 3px;
+  }
+
   .nx-snapshot-expand {
     position: relative;
     display: block;
