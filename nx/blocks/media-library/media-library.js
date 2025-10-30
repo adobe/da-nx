@@ -53,23 +53,14 @@ class NxMediaLibrary extends LitElement {
     super();
     this._selectedFilterType = 'all';
     this._needsFilterUpdate = false;
-    this._updateStartTime = 0;
     this._processedData = null;
     this._filteredMediaData = null;
-    this._searchSuggestions = [];
     this._filteredDataCache = null;
-    this._lastProcessedData = null;
     this._progressiveMediaData = [];
-    this._progressiveGroupingKeys = new Set();
-    this._progressiveLimit = 500;
     this._isScanning = false;
     this._scanProgress = { pages: 0, media: 0, duration: null, hasChanges: null };
     this._scanStartTime = null;
-    this._scanCompleted = false;
-    this._scanInProgress = false;
     this._isProcessingData = false;
-    this._realTimeStats = { pages: 0, media: 0, elapsed: 0 };
-    this._statsInterval = null;
     this._selectedFolder = null;
     this._resultSummary = '';
     this._folderPathsCache = new Set();
@@ -80,9 +71,7 @@ class NxMediaLibrary extends LitElement {
     this.shadowRoot.adoptedStyleSheets = [sl, slComponents, topbarStyles, styles];
 
     this._boundHandleAltTextUpdated = this.handleAltTextUpdated.bind(this);
-    this._boundHandleMediaDataUpdated = this.handleMediaDataUpdated.bind(this);
     window.addEventListener('alt-text-updated', this._boundHandleAltTextUpdated);
-    window.addEventListener('mediaDataUpdated', this._boundHandleMediaDataUpdated);
   }
 
   disconnectedCallback() {
@@ -90,11 +79,7 @@ class NxMediaLibrary extends LitElement {
     if (this._messageTimeout) {
       clearTimeout(this._messageTimeout);
     }
-    if (this._statsInterval) {
-      clearInterval(this._statsInterval);
-    }
     window.removeEventListener('alt-text-updated', this._boundHandleAltTextUpdated);
-    window.removeEventListener('mediaDataUpdated', this._boundHandleMediaDataUpdated);
   }
 
   shouldUpdate(changedProperties) {
@@ -330,7 +315,6 @@ class NxMediaLibrary extends LitElement {
         this._processedData = await processMediaData(filteredMediaData);
 
         this._filteredDataCache = null;
-        this._lastProcessedData = null;
       }
     } catch (error) {
       // eslint-disable-next-line no-console
@@ -356,7 +340,6 @@ class NxMediaLibrary extends LitElement {
 
       this._processedData = await processMediaData(filteredMediaData);
       this._filteredDataCache = null;
-      this._lastProcessedData = null;
     }
   }
 
@@ -698,37 +681,11 @@ class NxMediaLibrary extends LitElement {
     `;
   }
 
-  startProgressiveScan() {
-    this._isScanning = true;
-    this._scanStartTime = Date.now();
-
-    this._progressiveMediaData = [];
-    this._progressiveGroupingKeys.clear();
-
-    this._realTimeStats = { pages: 0, media: 0, elapsed: 0 };
-
-    this._statsInterval = setInterval(() => {
-      this._realTimeStats.elapsed = ((Date.now() - this._scanStartTime) / 1000).toFixed(1);
-      this.requestUpdate();
-    }, 100);
-  }
-
-  stopProgressiveScan() {
-    this._isScanning = false;
-    if (this._statsInterval) {
-      clearInterval(this._statsInterval);
-      this._statsInterval = null;
-    }
-  }
-
   async handleScanStart() {
-    this._scanCompleted = false;
-    this._scanInProgress = true;
     this._isScanning = true;
     this._scanProgress = { pages: 0, media: 0, duration: null, hasChanges: null };
     this._scanStartTime = Date.now();
-
-    this.startProgressiveScan();
+    this._progressiveMediaData = [];
   }
 
   handleScanProgress(e) {
@@ -747,8 +704,6 @@ class NxMediaLibrary extends LitElement {
   }
 
   async handleScanComplete() {
-    this.stopProgressiveScan();
-
     if (this._isProcessingData) {
       return;
     }
@@ -756,10 +711,6 @@ class NxMediaLibrary extends LitElement {
     const previousDataLength = this._mediaData?.length || 0;
 
     this._progressiveMediaData = [];
-    this._progressiveGroupingKeys.clear();
-
-    this._scanCompleted = true;
-    this._scanInProgress = false;
     this._isProcessingData = true;
 
     try {
@@ -827,7 +778,6 @@ class NxMediaLibrary extends LitElement {
 
   handleProgressiveDataUpdate(e) {
     const { mediaItems } = e.detail;
-    this._realTimeStats.media += mediaItems.length;
     this.updateProgressiveData(mediaItems);
   }
 
@@ -860,7 +810,6 @@ class NxMediaLibrary extends LitElement {
 
     if (newUniqueItems.length > 0 || hasUpdates) {
       this._progressiveMediaData = [...this._progressiveMediaData, ...newUniqueItems];
-      this._realTimeStats.media = this._progressiveMediaData.length;
     }
 
     this.requestUpdate();
