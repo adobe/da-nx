@@ -154,7 +154,7 @@ svg.icon {
     outline-offset: 4px;
   }
 
-  select.has-error {
+  select.has-error { /* temporary */
     border-color: var(--s2-red-900);
   }
 
