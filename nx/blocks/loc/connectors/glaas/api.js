@@ -27,10 +27,27 @@ export async function checkSession({ origin, clientid, token }) {
   }
 }
 
+async function getSha256InHex(input) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(input);
+  const hashBuffer = await window.crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
 export async function createTask({ origin, clientid, token, task, service }) {
   const { name, workflowName, workflow, targetLocales, businessUnit } = task;
   const callbackConfig = [];
+  const projectKeyKV = [];
   if (service.preview) {
+    const [product = '', project = ''] = task?.workflow?.split('/') ?? [];
+    const projectHash = await getSha256InHex(`${product}-${project}-${task?.name}`);
+    projectKeyKV.push({
+      key: 'dalocProjectKey',
+      value: `v1/${projectHash}`,
+    });
     const hookUrl = `https://${service.preview}/api/v1/web/daloc/glaas-hook`;
     callbackConfig.push({ key: 'taskCallbackURL', value: hookUrl });
     callbackConfig.push({ key: 'assetCallbackURL', value: hookUrl });
@@ -45,7 +62,7 @@ export async function createTask({ origin, clientid, token, task, service }) {
     config: [{
       key: 'businessUnit',
       value: businessUnit,
-    }],
+    }, ...projectKeyKV],
   };
 
   const opts = getOpts(clientid, token, JSON.stringify(body), 'application/json', 'POST');
