@@ -1,10 +1,11 @@
-import { convertPath } from '../../utils/utils.js';
+import { convertPath, createSnapshotPrefix } from '../../utils/utils.js';
 
 function getFullPath(path, sourcePrefix, destPrefix) {
   return convertPath({ path, sourcePrefix, destPrefix });
 }
 
-export function getSyncUrls(org, site, location, urls) {
+export function getSyncUrls(org, site, location, urls, snapshot) {
+  const snapshotPrefix = createSnapshotPrefix(snapshot);
   return urls.map((url) => {
     const {
       daBasePath,
@@ -16,10 +17,10 @@ export function getSyncUrls(org, site, location, urls) {
 
     const opts = {
       ...url,
-      sourceView: aemBasePath,
-      destView: aemDestPath,
-      source: `/${org}/${site}${daBasePath}`,
-      destination: `/${org}/${site}${daDestPath}`,
+      sourceView: `${snapshotPrefix}${aemBasePath}`,
+      destView: `${snapshotPrefix}${aemDestPath}`,
+      source: `/${org}/${site}${snapshotPrefix}${daBasePath}`,
+      destination: `/${org}/${site}${snapshotPrefix}${daDestPath}`,
       hasExt: ext === 'json',
     };
 

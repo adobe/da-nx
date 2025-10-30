@@ -60,14 +60,24 @@ export function getBasePath({ prefix, path }) {
 }
 
 /**
+ * Create snapshot prefix path if snapshot is provided
+ * @param {string|undefined} snapshot - The snapshot name
+ * @returns {string} The snapshot prefix path
+ */
+export function createSnapshotPrefix(snapshot) {
+  return snapshot ? `/.snapshots/${snapshot}` : '';
+}
+
+/**
  * Convert a path to DA and AEM formatted w/ optional destination language prefix
  *
  * @param config The path config.
  * @param config.path An AEM-formatted (no org, site, index, .html) supplied path.
  * @param config.sourcePrefix The prefix to remove.
  * @param config.destPrefix The prefix to attach.
+ * @param config.snapshotPrefix The snapshot prefix to prepend to paths.
  */
-export function convertPath({ path, sourcePrefix, destPrefix }) {
+export function convertPath({ path, sourcePrefix, destPrefix, snapshotPrefix = '' }) {
   const prefix = sourcePrefix === '/' || !sourcePrefix ? '' : sourcePrefix;
 
   // Ensure the path doesn't already have the prefix
@@ -80,11 +90,11 @@ export function convertPath({ path, sourcePrefix, destPrefix }) {
   // We also use ext to determine things like conflict behavior
   const { path: daBasePath, ext } = getExtPath(aemBasePath);
 
-  const paths = { daBasePath, aemBasePath, ext };
+  const paths = { daBasePath: `${snapshotPrefix}${daBasePath}`, aemBasePath: `${snapshotPrefix}${aemBasePath}`, ext };
 
   if (destPrefix) {
-    paths.daDestPath = `${destPrefix}${daBasePath}`;
-    paths.aemDestPath = `${destPrefix}${aemBasePath}`;
+    paths.daDestPath = `${snapshotPrefix}${destPrefix}${daBasePath}`;
+    paths.aemDestPath = `${snapshotPrefix}${destPrefix}${aemBasePath}`;
   }
 
   return paths;
