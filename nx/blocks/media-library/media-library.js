@@ -52,9 +52,7 @@ class NxMediaLibrary extends LitElement {
   constructor() {
     super();
     this._selectedFilterType = 'all';
-    this._needsFilterUpdate = false;
     this._processedData = null;
-    this._filteredMediaData = null;
     this._filteredDataCache = null;
     this._progressiveMediaData = [];
     this._isScanning = false;
@@ -99,7 +97,6 @@ class NxMediaLibrary extends LitElement {
 
   willUpdate(changedProperties) {
     if (changedProperties.has('_mediaData') && this._mediaData) {
-      this._needsFilterUpdate = true;
       this._filteredDataCache = null;
     }
 
@@ -137,9 +134,7 @@ class NxMediaLibrary extends LitElement {
         this._selectedFilterType = 'all';
         this._selectedFolder = null;
         this._selectedDocument = null;
-        this._filterCounts = {};
         this._processedData = null;
-        this._filteredMediaData = null;
       }
     }
     super.update(changedProperties);
@@ -265,6 +260,18 @@ class NxMediaLibrary extends LitElement {
     this.requestUpdate();
 
     try {
+      // Check if user is authenticated before attempting validation
+      const { initIms } = await import('../../utils/daFetch.js');
+      const imsResult = await initIms();
+
+      if (!imsResult || imsResult.anonymous) {
+        // Trigger sign-in flow
+        const { loadIms, handleSignIn } = await import('../../utils/ims.js');
+        await loadIms();
+        handleSignIn();
+        return;
+      }
+
       const validation = await validateSitePath(this.sitePath);
 
       this._isValidating = false;
@@ -297,6 +304,18 @@ class NxMediaLibrary extends LitElement {
 
   async loadMediaData() {
     try {
+      // Verify authentication before attempting to load data
+      const { initIms } = await import('../../utils/daFetch.js');
+      const imsResult = await initIms();
+
+      if (!imsResult || imsResult.anonymous) {
+        // Trigger sign-in flow
+        const { loadIms, handleSignIn } = await import('../../utils/ims.js');
+        await loadIms();
+        handleSignIn();
+        return;
+      }
+
       const mediaData = await loadMediaSheet(this.sitePath);
 
       if (mediaData && mediaData.length > 0) {
@@ -319,6 +338,8 @@ class NxMediaLibrary extends LitElement {
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error('[MAIN] Failed to load media data:', error);
+      this._error = 'Failed to load media data. Please ensure you are signed in.';
+      this.requestUpdate();
     }
   }
 
@@ -386,9 +407,6 @@ class NxMediaLibrary extends LitElement {
       <div class="error-state">
         <div class="error-content">
           <p>${this._validationError}</p>
-          <a href="#" @click=${(e) => { e.preventDefault(); window.location.hash = ''; }}>
-            Go back to site selection
-          </a>
         </div>
       </div>
     `;
@@ -635,16 +653,6 @@ class NxMediaLibrary extends LitElement {
       <div class="scanning-state">
         <div class="scanning-spinner"></div>
         <h3>Discovering Media</h3>
-      </div>
-    `;
-  }
-
-  renderLoadingState() {
-    return html`
-      <div class="scanning-state">
-        <div class="scanning-spinner"></div>
-        <h3>Loading Media Library</h3>
-        <p>Processing existing media data...</p>
       </div>
     `;
   }

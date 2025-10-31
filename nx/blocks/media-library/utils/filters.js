@@ -209,58 +209,6 @@ export async function processMediaData(mediaData, onProgress = null) {
   return processedData;
 }
 
-export function calculateFilteredMediaDataFromIndex(
-  mediaData,
-  processedData,
-  filterName,
-  selectedDocument,
-) {
-  if (!processedData || !processedData.filterArrays) {
-    return [];
-  }
-
-  let filterHashes = [];
-
-  if (filterName.startsWith('document')) {
-    const baseFilterName = filterName.replace('document', '').toLowerCase();
-    if (baseFilterName === 'total') {
-      filterHashes = mediaData
-        .filter((item) => item.doc === selectedDocument)
-        .map((item) => item.hash);
-    } else {
-      const baseFilterFn = FILTER_CONFIG[`${baseFilterName}`];
-      if (baseFilterFn) {
-        filterHashes = mediaData
-          .filter((item) => baseFilterFn(item) && item.doc === selectedDocument)
-          .map((item) => item.hash);
-      }
-    }
-  } else {
-    filterHashes = processedData.filterArrays[filterName] || [];
-  }
-
-  const hashToItemMap = new Map();
-  mediaData.forEach((item) => {
-    if (item.hash) {
-      hashToItemMap.set(item.hash, item);
-    }
-  });
-
-  const filteredItems = filterHashes
-    .map((hash) => hashToItemMap.get(hash))
-    .filter((item) => item !== undefined);
-
-  const seenUrls = new Set();
-  const result = filteredItems.filter((item) => {
-    if (!item.url) return true;
-    if (seenUrls.has(item.url)) return false;
-    seenUrls.add(item.url);
-    return true;
-  });
-
-  return result;
-}
-
 export function parseColonSyntax(query) {
   if (!query) return null;
 
@@ -354,55 +302,6 @@ export function filterBySearch(mediaData, searchQuery) {
   }
 
   return filterByGeneralSearch(mediaData, query);
-}
-
-export function aggregateMediaData(mediaData) {
-  if (!mediaData) return [];
-
-  const aggregatedMedia = new Map();
-  mediaData.forEach((item) => {
-    const normalizedUrl = item.url.split('?')[0];
-    if (!aggregatedMedia.has(normalizedUrl)) {
-      aggregatedMedia.set(normalizedUrl, {
-        ...item,
-        url: normalizedUrl,
-        mediaUrl: item.url,
-        usageCount: 0,
-        isUsed: false,
-      });
-    }
-    const aggregated = aggregatedMedia.get(normalizedUrl);
-
-    if (item.doc && item.doc.trim()) {
-      aggregated.usageCount += 1;
-      aggregated.isUsed = true;
-    }
-  });
-
-  return Array.from(aggregatedMedia.values());
-}
-
-export function calculateFilteredMediaData(
-  mediaData,
-  selectedFilterType,
-  searchQuery,
-  selectedDocument,
-) {
-  if (!mediaData) {
-    return [];
-  }
-
-  let filteredData = [...mediaData];
-
-  if (searchQuery && searchQuery.trim()) {
-    filteredData = filterBySearch(filteredData, searchQuery);
-  }
-
-  if (selectedFilterType && selectedFilterType !== 'all') {
-    filteredData = applyFilter(filteredData, selectedFilterType, selectedDocument);
-  }
-
-  return filteredData;
 }
 
 function generateFolderSuggestions(folderPathsCache, value) {
