@@ -33,30 +33,30 @@ class NxModalManager extends LitElement {
     getSvg({ parent: this.shadowRoot, paths: ICONS });
 
     // Listen for modal open events
-    window.addEventListener('open-modal', this._onOpenModal);
-    window.addEventListener('close-modal', this._onCloseModal);
-    window.addEventListener('show-notification', this._onShowNotification);
+    window.addEventListener('open-modal', this.handleOpenModal);
+    window.addEventListener('close-modal', this.handleCloseModal);
+    window.addEventListener('show-notification', this.handleShowNotification);
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
-    window.removeEventListener('open-modal', this._onOpenModal);
-    window.removeEventListener('close-modal', this._onCloseModal);
-    window.removeEventListener('show-notification', this._onShowNotification);
+    window.removeEventListener('open-modal', this.handleOpenModal);
+    window.removeEventListener('close-modal', this.handleCloseModal);
+    window.removeEventListener('show-notification', this.handleShowNotification);
   }
 
-  _onOpenModal = (e) => {
+  handleOpenModal = (e) => {
     const { type, data } = e.detail;
     this._modalType = type;
     this._modalData = data;
   };
 
-  _onCloseModal = () => {
+  handleCloseModal = () => {
     this._modalType = null;
     this._modalData = null;
   };
 
-  _onShowNotification = (e) => {
+  handleShowNotification = (e) => {
     this._notification = e.detail;
 
     // Auto-hide notification after 3 seconds
@@ -83,8 +83,8 @@ class NxModalManager extends LitElement {
             .repo=${this._modalData.repo}
             .isScanning=${this._modalData.isScanning}
             .isOpen=${true}
-            @close=${this._onCloseModal}
-            @altTextUpdated=${this._handleAltTextUpdated}
+            @close=${this.handleCloseModal}
+            @altTextUpdated=${this.handleAltTextUpdated}
           ></nx-media-info>
         `;
       default:
@@ -112,7 +112,7 @@ class NxModalManager extends LitElement {
     `;
   }
 
-  _handleAltTextUpdated(e) {
+  handleAltTextUpdated(e) {
     // Forward the event to the main component
     window.dispatchEvent(new CustomEvent('alt-text-updated', { detail: e.detail }));
   }

@@ -68,7 +68,7 @@ form {
 form input {
   border: none;
   background: transparent;
-  border-bottom: 1px solid #a2a2a2;
+  border-bottom: 1px solid var(--s2-gray-400, #a2a2a2);
   font-family: var(--body-font-family);
   font-size: 16px;
   padding: 0 0 4px 4px;
@@ -78,7 +78,7 @@ form input {
 
 form input:focus-visible {
   padding: 0 0 3px 4px;
-  border-bottom: 2px solid #808080;
+  border-bottom: 2px solid var(--s2-gray-600, #808080);
   outline: none;
   outline-offset: 0;
 }
@@ -88,7 +88,7 @@ form input.error {
   transform: translate3d(0, 0, 0);
   backface-visibility: hidden;
   perspective: 1px;
-  border-bottom: 2px solid #f73b26;
+  border-bottom: 2px solid var(--s2-red);
   padding: 0 0 3px 4px;
 }
 
@@ -117,7 +117,7 @@ form input.error {
 
 form input::placeholder {
   font-style: italic;
-  color: #888;
+  color: var(--s2-gray-600, #888);
 }
 
 form button {
@@ -135,7 +135,7 @@ form button {
 
 form button:hover {
   background: var(--s2-blue-800);
-  color: #fff;
+  color: var(--s2-white, #fff);
 }
 
 form button svg {
@@ -152,7 +152,7 @@ form button svg {
   box-shadow: 0 1px 6px 0 rgba(0 0 0 / 12%);
   border-radius: var(--s2-radius-200);
   overflow: hidden;
-  background-color: #fff;
+  background-color: var(--s2-white, #fff);
   transition: all 0.25s ease-in-out;
   cursor: pointer;
 }

@@ -66,15 +66,27 @@ class NxMediaScan extends LitElement {
   startPolling() {
     this._pollingInterval = setInterval(async () => {
       if (this.sitePath && !this._isScanning) {
-        const { hasChanged, mediaData } = await loadMediaSheetIfModified(this.sitePath);
+        try {
+          // Verify authentication before polling
+          const { initIms } = await import('../../../../utils/daFetch.js');
+          const imsResult = await initIms();
 
-        if (hasChanged && mediaData) {
-          this.dispatchEvent(new CustomEvent('mediaDataUpdated', {
-            detail: {
-              mediaData,
-              hasChanges: hasChanged,
-            },
-          }));
+          if (!imsResult || imsResult.anonymous) {
+            return;
+          }
+
+          const { hasChanged, mediaData } = await loadMediaSheetIfModified(this.sitePath);
+
+          if (hasChanged && mediaData) {
+            this.dispatchEvent(new CustomEvent('mediaDataUpdated', {
+              detail: {
+                mediaData,
+                hasChanges: hasChanged,
+              },
+            }));
+          }
+        } catch (error) {
+          // Silent fail for polling - don't spam console
         }
       }
     }, CONFIG.POLLING_INTERVAL);
@@ -100,6 +112,24 @@ class NxMediaScan extends LitElement {
 
     const [org, repo] = this.sitePath.split('/').slice(1, 3);
     if (!(org && repo)) {
+      return;
+    }
+
+    try {
+      // Verify authentication before starting scan
+      const { initIms } = await import('../../../../utils/daFetch.js');
+      const imsResult = await initIms();
+
+      if (!imsResult || imsResult.anonymous) {
+        this.dispatchEvent(new CustomEvent('scanError', {
+          detail: { error: 'Authentication required to scan media library.' },
+        }));
+        return;
+      }
+    } catch (error) {
+      this.dispatchEvent(new CustomEvent('scanError', {
+        detail: { error: 'Failed to verify authentication.' },
+      }));
       return;
     }
 

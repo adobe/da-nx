@@ -2,7 +2,7 @@
 svg.icon {
   width: 20px;
   height: 20px;
-  color: #000;
+  color: var(--s2-gray-900, #000);
 }
 
 .icon-button {
@@ -34,7 +34,7 @@ svg.icon {
 .filled-alt-indicator svg.icon {
   width: 20px;
   height: 20px;
-  color: #fff;
+  color: var(--s2-white, #fff);
   fill: currentcolor;
 }
 
@@ -96,11 +96,6 @@ svg.icon {
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin-top: var(--spacing-200);
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
 }
 
 .media-main {
@@ -246,7 +241,7 @@ svg.icon {
 .pdf-icon {
   width: 48px;
   height: 48px;
-  color: #dc3545;
+  color: var(--s2-red);
   margin-bottom: 12px;
 }
 
@@ -296,11 +291,11 @@ svg.icon {
 }
 
 .media-type {
-  background: #ff6b35;
+  background: var(--s2-orange, #ff6b35);
 }
 
 .media-used {
-  background: #3fa9f5;
+  background: var(--s2-cyan, #3fa9f5);
 }
 
 .media-used-text {
@@ -325,13 +320,13 @@ svg.icon {
   }
 
   .share-button {
-    margin-left: auto;
+    margin-inline-start: auto;
     transform: translateX(1px);
     padding: 4px;
     border-radius: var(--s2-radius-100);
 
     &:hover {
-      background-color: #ffffffe7;
+      background-color: var(--s2-white, #fff)fffe7;
 
       svg.icon {
         color: initial;
@@ -357,13 +352,13 @@ svg.icon {
 .alert-icon {
   width: 20px;
   height: 20px;
-  color: #ff6b35;
+  color: var(--s2-orange, #ff6b35);
 }
 
 .info-icon {
   width: 20px;
   height: 20px;
-  color: #17a2b8;
+  color: var(--s2-cyan, #17a2b8);
 }
 
 .alt-present {
@@ -375,7 +370,7 @@ svg.icon {
 .checkmark-icon {
   width: 20px;
   height: 20px;
-  color: #28a745;
+  color: var(--s2-green);
 }
 
 /* Video Preview Styles */
@@ -385,7 +380,7 @@ svg.icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  background: linear-gradient(135deg, var(--s2-gray-50) 0%, var(--s2-gray-200) 100%);
   position: absolute;
   top: 0;
   left: 0;
@@ -461,7 +456,7 @@ svg.icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  background: linear-gradient(135deg, var(--s2-gray-50) 0%, var(--s2-gray-200) 100%);
   position: absolute;
   top: 0;
   left: 0;
@@ -510,7 +505,7 @@ svg.icon {
   align-items: center;
   justify-content: center;
   flex-direction: column;
-  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  background: linear-gradient(135deg, var(--s2-gray-50) 0%, var(--s2-gray-200) 100%);
 }
 
 .fragment-placeholder {
@@ -520,7 +515,7 @@ svg.icon {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: #b5ebfb;
+  background: var(--s2-cyan-light, #b5ebfb);
 }
 
 .pdf-placeholder {
@@ -530,7 +525,7 @@ svg.icon {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: #fbb5b5;
+  background: var(--s2-red-light, #fbb5b5);
 }
 
 .placeholder-icon {

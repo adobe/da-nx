@@ -1,5 +1,8 @@
 import { getMediaType, isSvgFile, getBasePath } from './utils.js';
 
+const processDataCache = new Map();
+const MAX_CACHE_SIZE = 5;
+
 export const FILTER_CONFIG = {
   images: (item) => getMediaType(item) === 'image' && !isSvgFile(item),
   videos: (item) => getMediaType(item) === 'video',
@@ -98,10 +101,17 @@ export function getGroupingKey(url) {
   }
 }
 
-// Process media data with batching and pre-calculation
 export async function processMediaData(mediaData, onProgress = null) {
   if (!mediaData || mediaData.length === 0) {
     return initializeProcessedData();
+  }
+
+  const cacheKey = `${mediaData.length}-${mediaData[0]?.hash || ''}-${mediaData[mediaData.length - 1]?.hash || ''}`;
+
+  if (processDataCache.has(cacheKey)) {
+    const cached = processDataCache.get(cacheKey);
+    if (onProgress) onProgress(100);
+    return cached;
   }
 
   const processedData = initializeProcessedData();
@@ -109,11 +119,16 @@ export async function processMediaData(mediaData, onProgress = null) {
   const uniqueNonSvgUrls = new Set();
 
   let batchSize = 1000;
+  const hasComplexData = mediaData.some((item) => item.doc || item.alt);
+
   if (mediaData.length > 100000) {
-    batchSize = 500;
+    batchSize = hasComplexData ? 300 : 500;
   } else if (mediaData.length > 10000) {
-    batchSize = 250;
+    batchSize = hasComplexData ? 200 : 250;
+  } else if (mediaData.length > 1000) {
+    batchSize = hasComplexData ? 100 : 200;
   }
+
   const batches = chunkArray(mediaData, batchSize);
   const totalBatches = batches.length;
 
@@ -206,59 +221,13 @@ export async function processMediaData(mediaData, onProgress = null) {
   processedData.filterCounts.all = uniqueNonSvgUrls.size;
   processedData.totalCount = uniqueMediaUrls.size;
 
+  if (processDataCache.size >= MAX_CACHE_SIZE) {
+    const firstKey = processDataCache.keys().next().value;
+    processDataCache.delete(firstKey);
+  }
+  processDataCache.set(cacheKey, processedData);
+
   return processedData;
-}
-
-export function calculateFilteredMediaDataFromIndex(
-  mediaData,
-  processedData,
-  filterName,
-  selectedDocument,
-) {
-  if (!processedData || !processedData.filterArrays) {
-    return [];
-  }
-
-  let filterHashes = [];
-
-  if (filterName.startsWith('document')) {
-    const baseFilterName = filterName.replace('document', '').toLowerCase();
-    if (baseFilterName === 'total') {
-      filterHashes = mediaData
-        .filter((item) => item.doc === selectedDocument)
-        .map((item) => item.hash);
-    } else {
-      const baseFilterFn = FILTER_CONFIG[`${baseFilterName}`];
-      if (baseFilterFn) {
-        filterHashes = mediaData
-          .filter((item) => baseFilterFn(item) && item.doc === selectedDocument)
-          .map((item) => item.hash);
-      }
-    }
-  } else {
-    filterHashes = processedData.filterArrays[filterName] || [];
-  }
-
-  const hashToItemMap = new Map();
-  mediaData.forEach((item) => {
-    if (item.hash) {
-      hashToItemMap.set(item.hash, item);
-    }
-  });
-
-  const filteredItems = filterHashes
-    .map((hash) => hashToItemMap.get(hash))
-    .filter((item) => item !== undefined);
-
-  const seenUrls = new Set();
-  const result = filteredItems.filter((item) => {
-    if (!item.url) return true;
-    if (seenUrls.has(item.url)) return false;
-    seenUrls.add(item.url);
-    return true;
-  });
-
-  return result;
 }
 
 export function parseColonSyntax(query) {
@@ -335,10 +304,17 @@ function filterByColonSyntax(mediaData, colonSyntax) {
 }
 
 function filterByGeneralSearch(mediaData, query) {
-  return mediaData.filter((item) => (item.name && item.name.toLowerCase().includes(query))
-    || (item.alt && item.alt.toLowerCase().includes(query))
-    || (item.doc && item.doc.toLowerCase().includes(query))
-            || (item.url && item.url.toLowerCase().includes(query)));
+  const results = [];
+  for (let i = 0; i < mediaData.length; i += 1) {
+    const item = mediaData[i];
+    if ((item.name && item.name.toLowerCase().includes(query))
+        || (item.url && item.url.toLowerCase().includes(query))
+        || (item.alt && item.alt.toLowerCase().includes(query))
+        || (item.doc && item.doc.toLowerCase().includes(query))) {
+      results.push(item);
+    }
+  }
+  return results;
 }
 
 export function filterBySearch(mediaData, searchQuery) {
@@ -354,55 +330,6 @@ export function filterBySearch(mediaData, searchQuery) {
   }
 
   return filterByGeneralSearch(mediaData, query);
-}
-
-export function aggregateMediaData(mediaData) {
-  if (!mediaData) return [];
-
-  const aggregatedMedia = new Map();
-  mediaData.forEach((item) => {
-    const normalizedUrl = item.url.split('?')[0];
-    if (!aggregatedMedia.has(normalizedUrl)) {
-      aggregatedMedia.set(normalizedUrl, {
-        ...item,
-        url: normalizedUrl,
-        mediaUrl: item.url,
-        usageCount: 0,
-        isUsed: false,
-      });
-    }
-    const aggregated = aggregatedMedia.get(normalizedUrl);
-
-    if (item.doc && item.doc.trim()) {
-      aggregated.usageCount += 1;
-      aggregated.isUsed = true;
-    }
-  });
-
-  return Array.from(aggregatedMedia.values());
-}
-
-export function calculateFilteredMediaData(
-  mediaData,
-  selectedFilterType,
-  searchQuery,
-  selectedDocument,
-) {
-  if (!mediaData) {
-    return [];
-  }
-
-  let filteredData = [...mediaData];
-
-  if (searchQuery && searchQuery.trim()) {
-    filteredData = filterBySearch(filteredData, searchQuery);
-  }
-
-  if (selectedFilterType && selectedFilterType !== 'all') {
-    filteredData = applyFilter(filteredData, selectedFilterType, selectedDocument);
-  }
-
-  return filteredData;
 }
 
 function generateFolderSuggestions(folderPathsCache, value) {

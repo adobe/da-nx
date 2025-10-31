@@ -126,6 +126,7 @@ class NxMediaGrid extends LitElement {
               class="icon-button share-button"
               @click=${(e) => { e.stopPropagation(); handlers.copyClick(); }}
               title="Copy to clipboard"
+              aria-label="Copy media URL to clipboard"
             >
               <svg class="icon" viewBox="0 0 20 20">
                 <use href="#S2_Icon_Share_20_N"></use>

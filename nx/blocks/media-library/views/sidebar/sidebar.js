@@ -151,6 +151,8 @@ class NxMediaSidebar extends LitElement {
             class="icon-btn ${this.isExpanded ? 'active' : ''}"
             @click=${this.handleFiltersToggle}
             title="Filters"
+            aria-label="Toggle filters panel"
+            aria-expanded="${this.isExpanded}"
           >
             <svg class="icon">
               <use href="#S2_Icon_Properties_20_N"></use>
@@ -185,6 +187,8 @@ class NxMediaSidebar extends LitElement {
             class="icon-btn ${this.isIndexExpanded ? 'active' : ''}"
             @click=${this.handleIndexToggle}
             title="Index"
+            aria-label="Toggle index panel"
+            aria-expanded="${this.isIndexExpanded}"
           >
             <svg class="icon">
               <use href="#S2_GraphBarVertical_18_N"></use>

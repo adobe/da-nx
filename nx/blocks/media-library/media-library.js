@@ -52,9 +52,7 @@ class NxMediaLibrary extends LitElement {
   constructor() {
     super();
     this._selectedFilterType = 'all';
-    this._needsFilterUpdate = false;
     this._processedData = null;
-    this._filteredMediaData = null;
     this._filteredDataCache = null;
     this._progressiveMediaData = [];
     this._isScanning = false;
@@ -83,34 +81,56 @@ class NxMediaLibrary extends LitElement {
   }
 
   shouldUpdate(changedProperties) {
+    if (changedProperties.size === 0) return false;
+
     const dataProps = ['_mediaData', '_error', '_progressiveMediaData', '_isScanning'];
     const filterProps = ['_searchQuery', '_selectedFilterType', '_selectedFolder', '_selectedDocument'];
     const uiProps = ['sitePath'];
     const scanProps = ['_scanProgress'];
     const validationProps = ['_isValidating', '_sitePathValid', '_validationError'];
-    const hasDataChange = dataProps.some((prop) => changedProperties.has(prop));
-    const hasFilterChange = filterProps.some((prop) => changedProperties.has(prop));
-    const hasUIChange = uiProps.some((prop) => changedProperties.has(prop));
-    const hasScanChange = scanProps.some((prop) => changedProperties.has(prop));
-    const hasValidationChange = validationProps.some((prop) => changedProperties.has(prop));
 
-    return hasDataChange || hasFilterChange || hasUIChange || hasScanChange || hasValidationChange;
+    for (const prop of changedProperties.keys()) {
+      if (dataProps.includes(prop) || filterProps.includes(prop)
+          || uiProps.includes(prop) || scanProps.includes(prop)
+          || validationProps.includes(prop)) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   willUpdate(changedProperties) {
-    if (changedProperties.has('_mediaData') && this._mediaData) {
-      this._needsFilterUpdate = true;
-      this._filteredDataCache = null;
-    }
-
     if (changedProperties.has('_searchQuery')
         || changedProperties.has('_selectedFilterType')
         || changedProperties.has('_selectedFolder')
         || changedProperties.has('_selectedDocument')
+        || changedProperties.has('_mediaData')
         || changedProperties.has('_rawMediaData')
         || changedProperties.has('_processedData')
     ) {
       this._filteredDataCache = null;
+    }
+  }
+
+  update(changedProperties) {
+    if (changedProperties.has('sitePath')) {
+      if (this.sitePath) {
+        this._mediaData = null;
+        this._error = null;
+        this._searchQuery = '';
+        this._selectedFilterType = 'all';
+        this._selectedFolder = null;
+        this._selectedDocument = null;
+        this._processedData = null;
+      }
+    }
+    super.update(changedProperties);
+  }
+
+  updated(changedProperties) {
+    if (changedProperties.has('sitePath') && this.sitePath) {
+      this.initialize();
     }
 
     if (changedProperties.has('_mediaData')
@@ -128,29 +148,6 @@ class NxMediaLibrary extends LitElement {
     }
   }
 
-  update(changedProperties) {
-    if (changedProperties.has('sitePath')) {
-      if (this.sitePath) {
-        this._mediaData = null;
-        this._error = null;
-        this._searchQuery = '';
-        this._selectedFilterType = 'all';
-        this._selectedFolder = null;
-        this._selectedDocument = null;
-        this._filterCounts = {};
-        this._processedData = null;
-        this._filteredMediaData = null;
-      }
-    }
-    super.update(changedProperties);
-  }
-
-  updated(changedProperties) {
-    if (changedProperties.has('sitePath') && this.sitePath) {
-      this.initialize();
-    }
-  }
-
   get filteredMediaData() {
     if (this._filteredDataCache !== null) {
       return this._filteredDataCache;
@@ -162,12 +159,21 @@ class NxMediaLibrary extends LitElement {
     }
 
     let result;
+    let sourceData = this._rawMediaData || this._mediaData;
+
+    if (this._searchQuery && this._searchQuery.trim()) {
+      sourceData = filterBySearch(sourceData, this._searchQuery);
+    }
+
+    if (this._selectedDocument) {
+      sourceData = sourceData.filter((item) => item.doc === this._selectedDocument);
+    }
 
     if (this._selectedFilterType && this._selectedFilterType.startsWith('document')
         && this._selectedFilterType !== 'documents' && this._processedData) {
       result = getDocumentFilteredItems(
         this._processedData,
-        this._rawMediaData || this._mediaData,
+        sourceData,
         this.selectedDocument,
         this._selectedFilterType,
       );
@@ -178,7 +184,7 @@ class NxMediaLibrary extends LitElement {
     const uniqueItems = [];
     const seenKeys = new Set();
 
-    this._mediaData.forEach((item) => {
+    sourceData.forEach((item) => {
       const groupingKey = getGroupingKey(item.url);
       if (!seenKeys.has(groupingKey)) {
         seenKeys.add(groupingKey);
@@ -203,16 +209,30 @@ class NxMediaLibrary extends LitElement {
         this._selectedFolder,
         this._usageIndex,
       );
-    }
+    } else if (this._selectedDocument && this._usageIndex) {
+      const docFilteredItems = [];
+      const groupingKeyToMediaItem = new Map();
 
-    let finalData = dataWithUsageCounts;
-    if (this._searchQuery && this._searchQuery.trim()) {
-      finalData = filterBySearch(dataWithUsageCounts, this._searchQuery);
+      uniqueItems.forEach((item) => {
+        const key = getGroupingKey(item.url);
+        if (!groupingKeyToMediaItem.has(key)) {
+          groupingKeyToMediaItem.set(key, item);
+        }
+      });
+
+      this._usageIndex.forEach((usageEntries, groupingKey) => {
+        const hasDocUsage = usageEntries.some((entry) => entry.doc === this._selectedDocument);
+        if (hasDocUsage && groupingKeyToMediaItem.has(groupingKey)) {
+          docFilteredItems.push(groupingKeyToMediaItem.get(groupingKey));
+        }
+      });
+
+      dataWithUsageCounts = docFilteredItems;
     }
 
     if (this._selectedFilterType && this._selectedFilterType !== 'all') {
       result = applyFilter(
-        finalData,
+        dataWithUsageCounts,
         this._selectedFilterType,
         this.selectedDocument,
       );
@@ -220,8 +240,8 @@ class NxMediaLibrary extends LitElement {
       return result;
     }
 
-    this._filteredDataCache = finalData;
-    return finalData;
+    this._filteredDataCache = dataWithUsageCounts;
+    return dataWithUsageCounts;
   }
 
   get selectedDocument() {
@@ -265,6 +285,18 @@ class NxMediaLibrary extends LitElement {
     this.requestUpdate();
 
     try {
+      // Check if user is authenticated before attempting validation
+      const { initIms } = await import('../../utils/daFetch.js');
+      const imsResult = await initIms();
+
+      if (!imsResult || imsResult.anonymous) {
+        // Trigger sign-in flow
+        const { loadIms, handleSignIn } = await import('../../utils/ims.js');
+        await loadIms();
+        handleSignIn();
+        return;
+      }
+
       const validation = await validateSitePath(this.sitePath);
 
       this._isValidating = false;
@@ -297,6 +329,18 @@ class NxMediaLibrary extends LitElement {
 
   async loadMediaData() {
     try {
+      // Verify authentication before attempting to load data
+      const { initIms } = await import('../../utils/daFetch.js');
+      const imsResult = await initIms();
+
+      if (!imsResult || imsResult.anonymous) {
+        // Trigger sign-in flow
+        const { loadIms, handleSignIn } = await import('../../utils/ims.js');
+        await loadIms();
+        handleSignIn();
+        return;
+      }
+
       const mediaData = await loadMediaSheet(this.sitePath);
 
       if (mediaData && mediaData.length > 0) {
@@ -319,6 +363,8 @@ class NxMediaLibrary extends LitElement {
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error('[MAIN] Failed to load media data:', error);
+      this._error = 'Failed to load media data. Please ensure you are signed in.';
+      this.requestUpdate();
     }
   }
 
@@ -386,9 +432,6 @@ class NxMediaLibrary extends LitElement {
       <div class="error-state">
         <div class="error-content">
           <p>${this._validationError}</p>
-          <a href="#" @click=${(e) => { e.preventDefault(); window.location.hash = ''; }}>
-            Go back to site selection
-          </a>
         </div>
       </div>
     `;
@@ -549,6 +592,7 @@ class NxMediaLibrary extends LitElement {
   handleFilter(e) {
     this._selectedFilterType = e.detail.type;
     this._filteredDataCache = null;
+    this.requestUpdate();
   }
 
   async handleMediaClick(e) {
@@ -635,16 +679,6 @@ class NxMediaLibrary extends LitElement {
       <div class="scanning-state">
         <div class="scanning-spinner"></div>
         <h3>Discovering Media</h3>
-      </div>
-    `;
-  }
-
-  renderLoadingState() {
-    return html`
-      <div class="scanning-state">
-        <div class="scanning-spinner"></div>
-        <h3>Loading Media Library</h3>
-        <p>Processing existing media data...</p>
       </div>
     `;
   }
@@ -755,7 +789,7 @@ class NxMediaLibrary extends LitElement {
             };
 
             this._isScanning = false;
-            this.requestUpdate('_scanProgress');
+            this.requestUpdate();
           } else {
             this._scanProgress = {
               ...this._scanProgress,
