@@ -90,22 +90,32 @@ class NxMediaInfo extends LitElement {
     this._cachedMetadata = new Map();
     this._imageDimensions = null;
     this._comprehensiveMetadata = null;
+    this.handleKeyDown = this.handleKeyDown.bind(this);
   }
 
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [styles];
     getSvg({ parent: this.shadowRoot, paths: ICONS });
+    document.addEventListener('keydown', this.handleKeyDown);
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
+    document.removeEventListener('keydown', this.handleKeyDown);
     this._cleanupPendingRequests();
     this._pdfBlobUrls.forEach((blobUrl) => {
       URL.revokeObjectURL(blobUrl);
     });
     this._pdfBlobUrls.clear();
     this._cachedMetadata.clear();
+  }
+
+  handleKeyDown(e) {
+    if (this.isOpen && e.key === 'Escape') {
+      e.preventDefault();
+      this.handleClose();
+    }
   }
 
   _cleanupPendingRequests() {
@@ -788,12 +798,12 @@ class NxMediaInfo extends LitElement {
             size="small"
           ></sl-input>
           <div class="alt-edit-actions">
-            <button type="button" class="icon-button save-alt-text-button" @click=${() => this.saveAlt(usage, usageIndex)}>
+            <button type="button" class="icon-button save-alt-text-button" @click=${() => this.saveAlt(usage, usageIndex)} aria-label="Save alt text">
               <svg class="icon" viewBox="0 0 20 20">
                 <use href="#S2_Icon_Checkmark_20_N"></use>
               </svg>
             </button>
-            <button type="button" class="icon-button cancel-alt-text-button" @click=${this.cancelAlt}>
+            <button type="button" class="icon-button cancel-alt-text-button" @click=${this.cancelAlt} aria-label="Cancel editing">
               <svg class="icon" viewBox="0 0 20 20">
                 <use href="#S2_Icon_Close_20_N"></use>
               </svg>
@@ -812,7 +822,7 @@ class NxMediaInfo extends LitElement {
             </svg>
             ${usage.alt}
           </div>
-          <button type="button" size="small" class="icon-button" @click=${() => this.editAlt(usage, usageIndex)}>
+          <button type="button" size="small" class="icon-button" @click=${() => this.editAlt(usage, usageIndex)} aria-label="Edit alt text">
             <svg class="icon" viewBox="0 0 22 20">
               <use href="#S2_Icon_Edit_20_N"></use>
             </svg>
@@ -830,7 +840,7 @@ class NxMediaInfo extends LitElement {
             </svg>
             Missing alt text
           </div>
-          <button type="button" size="small" class="icon-button" @click=${() => this.editAlt(usage, usageIndex)}>
+          <button type="button" size="small" class="icon-button" @click=${() => this.editAlt(usage, usageIndex)} aria-label="Add alt text">
             <svg class="icon" viewBox="0 0 22 20">
               <use href="#S2_Icon_Edit_20_N"></use>
             </svg>
@@ -1014,7 +1024,7 @@ class NxMediaInfo extends LitElement {
     const displayName = this.media.name || getFileName(this.media.url) || 'Media Details';
 
     return html`
-      <dialog class="modal-overlay" @click=${this.handleClose}>
+      <dialog class="modal-overlay" @click=${this.handleClose} role="dialog" aria-modal="true" aria-labelledby="modal-title">
         <div class="modal-content" @click=${(e) => e.stopPropagation()}>
           <div class="media-preview-section">
             ${this.renderMediaPreview()}
@@ -1024,7 +1034,7 @@ class NxMediaInfo extends LitElement {
             <div class="modal-header">
               <h2>${displayName}</h2>
               ${this.renderMediaOrigin()}
-              <button type="button" class="icon-button close-modal-button" @click=${this.handleClose} title="Close">
+              <button type="button" class="icon-button close-modal-button" @click=${this.handleClose} title="Close" aria-label="Close modal">
                 <svg class="icon" viewBox="0 0 20 20">
                   <use href="#S2_Icon_Close_20_N"></use>
                 </svg>

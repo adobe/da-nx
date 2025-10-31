@@ -171,8 +171,8 @@
 }
 
 .suggestion-details {
-  margin-left: 0;
-  margin-top: var(--spacing-100);
+  margin-inline-start: 0;
+  margin-block-start: var(--spacing-100);
   font-size: var(--s2-font-size-100);
   color: var(--s2-gray-600);
 }
@@ -258,7 +258,7 @@ mark {
 .view-btn.active {
   background: var(--s2-blue-800);
   border-color: var(--s2-blue-800);
-  color: #fff;
+  color: var(--s2-white, #fff);
 }
 
 .view-btn.active:hover {
@@ -279,12 +279,12 @@ mark {
 }
 
 .view-btn.active .icon {
-  color: #fff;
-  fill: #fff;
+  color: var(--s2-white, #fff);
+  fill: var(--s2-white, #fff);
 }
 
 .view-btn.active .icon use {
-  fill: #fff;
+  fill: var(--s2-white, #fff);
 }
 
 .folder-btn {
@@ -296,7 +296,7 @@ mark {
   top: -4px;
   right: -4px;
   background: var(--s2-blue-800);
-  color: #fff;
+  color: var(--s2-white, #fff);
   font-size: 12px;
   font-weight: 600;
   padding: 2px 4px;

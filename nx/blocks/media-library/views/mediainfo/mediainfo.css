@@ -10,7 +10,7 @@ svg.icon,
 .alt-text-icon {
   width: 20px;
   height: 20px;
-  color: #000;
+  color: var(--s2-gray-900, #000);
 }
 
 svg.fragment-icon {
@@ -38,7 +38,7 @@ button {
   }
 
   &:hover {
-    background-color: #ffffffe7;
+    background-color: rgb(255 255 255 / 90%);
 
     svg.icon {
       color: initial;
@@ -87,7 +87,7 @@ button {
   --row-spacing: 12px;
   --action-row-multiplier: 1;
 
-  background: #f8f9fa;
+  background: var(--s2-gray-50);
   border-radius: var(--s2-radius-100);
   box-shadow: 0 4px 20px rgb(0 0 0 / 15%);
   max-width: 1200px;
@@ -102,7 +102,7 @@ button {
     align-items: start;
     justify-content: space-between;
     padding: 24px 20px;
-    background: #f9fafb;
+    background: var(--s2-gray-50);
     position: relative;
 
     .media-origin {
@@ -114,12 +114,12 @@ button {
       margin: 0;
       font-size: 18px;
       font-weight: 600;
-      color: #111827;
+      color: var(--s2-gray-900);
       white-space: nowrap;
     }
 
     sl-button {
-      margin-left: auto;
+      margin-inline-start: auto;
     }
 
     .icon-button {
@@ -143,7 +143,7 @@ button {
   .modal-body {
     overflow-y: auto;
     flex: 1;
-    background: #f8f9fa;
+    background: var(--s2-gray-50);
     height: 460px;
   }
 }
@@ -161,14 +161,14 @@ button {
 
 .modal-tabs {
   display: flex;
-  background: #f8f9fa;
+  background: var(--s2-gray-50);
   gap: 0;
 
   .tab-button {
     padding: 12px 24px;
     border: none;
     background: transparent;
-    color: #414141;
+    color: var(--s2-gray-700);
     font-size: 16px;
     font-weight: 600;
     cursor: pointer;
@@ -186,12 +186,12 @@ button {
   }
 
   .tab-button:hover {
-    background: #e3e3e3;
+    background: var(--s2-gray-200);
     color: #000;
   }
 
   .tab-button.active {
-    color: #222;
+    color: var(--s2-gray-800);
     border-bottom-color: #000;
     border-bottom-width: 3px;
     transition: background-color 0.2s ease;
@@ -214,7 +214,7 @@ button {
 
 /* Media Preview Section */
 .media-preview-section {
-  background: #4d4d4d;
+  background: var(--s2-gray-700);
   padding-right: 1px;
   box-sizing: border-box;
   display: flex;
@@ -245,7 +245,7 @@ button {
   position: absolute;
   top: 18px;
   right: 38px;
-  background: #ff6b35;
+  background: var(--s2-orange, #ff6b35);
   color: white;
   padding: 4px 8px;
   border-radius: var(--s2-radius-100);
@@ -269,7 +269,7 @@ button {
 .pdf-preview {
   width: 100%;
   height: 600px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--s2-gray-200);
   border-radius: var(--s2-radius-100);
   box-shadow: 0 4px 16px rgb(0 0 0 / 15%);
 }
@@ -277,8 +277,8 @@ button {
 .pdf-preview-container {
   width: 100%;
   height: 600px;
-  background: #f8f9fa;
-  border: 1px solid #e5e7eb;
+  background: var(--s2-gray-50);
+  border: 1px solid var(--s2-gray-200);
   border-radius: var(--s2-radius-100);
   display: flex;
   align-items: center;
@@ -303,20 +303,20 @@ button {
 .pdf-name {
   display: block;
   font-weight: 600;
-  color: #111827;
+  color: var(--s2-gray-900);
   margin-bottom: 4px;
 }
 
 .pdf-type {
   display: block;
-  color: #6b7280;
+  color: var(--s2-gray-600, #6b7280);
   font-size: 14px;
   margin-bottom: 8px;
 }
 
 .pdf-loading {
   display: block;
-  color: #3b82f6;
+  color: var(--s2-blue-600, #3b82f6);
   font-size: 14px;
   font-weight: 500;
 }
@@ -325,7 +325,7 @@ button {
   width: 150px;
   height: 150px;
   margin: 0 auto;
-  background: #e9ecef;
+  background: var(--s2-gray-200);
   border-radius: var(--s2-radius-100);
   display: flex;
   align-items: center;
@@ -336,7 +336,7 @@ button {
 .document-icon {
   width: 64px;
   height: 64px;
-  color: #9ca3af;
+  color: var(--s2-gray-500, #9ca3af);
 }
 
 /* Metadata Section */
@@ -344,7 +344,7 @@ button {
   margin: 0 0 16px;
   font-size: 16px;
   font-weight: 600;
-  color: #111827;
+  color: var(--s2-gray-900);
 }
 
 .metadata-grid-container {
@@ -356,7 +356,7 @@ button {
     grid-template-columns: 25% 75%;
     gap: 12px 6px;
     font-size: 12px;
-    color: #374151;
+    color: var(--s2-gray-700);
 
     .grid-heading {
       font-weight: 600;
@@ -386,12 +386,12 @@ button {
 
 .metadata-label {
   font-weight: 500;
-  color: #374151;
+  color: var(--s2-gray-700);
   width: 120px;
 }
 
 .metadata-value {
-  color: #6b7280;
+  color: var(--s2-gray-600, #6b7280);
   word-break: break-all;
 }
 
@@ -403,12 +403,12 @@ button {
     margin: 0 0 12px;
     font-size: 14px;
     font-weight: 600;
-    color: #111827;
+    color: var(--s2-gray-900);
   }
 }
 
 .exif-table {
-  background: #f9fafb;
+  background: var(--s2-gray-50);
   border-radius: 6px;
   max-height: 200px;
   overflow-y: auto;
@@ -422,19 +422,19 @@ button {
 
 .exif-label {
   font-weight: 500;
-  color: #374151;
+  color: var(--s2-gray-700);
   width: 120px;
   flex-shrink: 0;
 }
 
 .exif-value {
-  color: #6b7280;
+  color: var(--s2-gray-600, #6b7280);
   flex: 1;
 }
 
 .exif-row.no-data {
   justify-content: center;
-  color: #9ca3af;
+  color: var(--s2-gray-500, #9ca3af);
   font-style: italic;
 }
 
@@ -442,14 +442,14 @@ button {
 .usage-summary {
   margin-bottom: 20px;
   padding-bottom: 16px;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--s2-gray-200);
 }
 
 .usage-count {
   margin: 0;
   font-size: 16px;
   font-weight: 500;
-  color: #374151;
+  color: var(--s2-gray-700);
 }
 
 .loading-state {
@@ -459,14 +459,14 @@ button {
   justify-content: center;
   gap: 8px;
   padding: 40px 20px;
-  color: var(--s2-gray-600, #6b7280);
+  color: var(--s2-gray-600, var(--s2-gray-600, #6b7280));
   font-size: 14px;
 }
 
 .spinner {
   width: 16px;
   height: 16px;
-  border: 2px solid var(--s2-gray-200, #e5e7eb);
+  border: 2px solid var(--s2-gray-200, var(--s2-gray-200));
   border-top: 2px solid var(--s2-blue-600, #2680eb);
   border-radius: 50%;
   animation: spin 1s linear infinite;
@@ -481,7 +481,7 @@ button {
 .no-usage {
   text-align: center;
   padding: 40px 20px;
-  color: #6b7280;
+  color: var(--s2-gray-600, #6b7280);
 }
 
 .usage-sections {
@@ -515,7 +515,7 @@ button {
 }
 
 .usage-section {
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--s2-gray-200);
   display: grid;
   align-items: start;
   padding: 24px;
@@ -535,7 +535,7 @@ button {
     margin: 0 0 4px;
     font-size: 16px;
     font-weight: 600;
-    color: #111827;
+    color: var(--s2-gray-900);
     word-break: break-all;
   }
 }
@@ -551,34 +551,34 @@ button {
 }
 
 .usage-table th {
-  background: #e9ecef;
+  background: var(--s2-gray-200);
   padding: 8px 12px;
   text-align: left;
   font-weight: 600;
-  color: #374151;
-  border-bottom: 1px solid #e5e7eb;
+  color: var(--s2-gray-700);
+  border-bottom: 1px solid var(--s2-gray-200);
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
 .usage-table tr:hover {
-  background: #f9fafb;
+  background: var(--s2-gray-50);
 }
 
 .type-badge {
-  background: #3b82f6;
+  background: var(--s2-blue-600, #3b82f6);
   color: white;
   padding: 4px 8px;
   border-radius: var(--s2-radius-100);
   font-size: 12px;
   font-weight: 500;
   text-transform: uppercase;
-  margin-right: 8px;
+  margin-inline-end: 8px;
 }
 
 .alt-warning-badge {
-  background: #f59e0b;
+  background: var(--s2-amber, #f59e0b);
   color: white;
   padding: 6px 12px;
   border-radius: var(--s2-radius-100);
@@ -657,14 +657,14 @@ button {
 }
 
 .alt-text-icon.has-text {
-  color: #109245;
-  fill: #109245;
+  color: var(--s2-green);
+  fill: var(--s2-green);
 }
 
 .alt-none,
 .context-none,
 .no-actions {
-  color: #9ca3af;
+  color: var(--s2-gray-500, #9ca3af);
   font-style: italic;
 }
 
@@ -696,11 +696,11 @@ button {
 }
 
 .context-text {
-  color: #374151;
-  background: #f9fafb;
+  color: var(--s2-gray-700);
+  background: var(--s2-gray-50);
   padding: 4px 8px;
   border-radius: var(--s2-radius-100);
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--s2-gray-200);
   font-size: 12px;
   line-height: 1.4;
   max-height: 60px;
@@ -716,7 +716,7 @@ button {
   list-style: none;
   font-size: 12px;
   margin-top: 5px;
-  background: #e1e1e1f1;
+  background: rgb(225 225 225 / 95%);
 }
 
 .date-details {
@@ -735,18 +735,18 @@ button {
 
 .date-label {
   font-weight: 600;
-  color: #374151;
+  color: var(--s2-gray-700);
   font-size: 13px;
 }
 
 .date-value {
-  color: #3b82f6;
+  color: var(--s2-blue-600, #3b82f6);
   font-weight: 500;
   font-size: 13px;
 }
 
 .date-separator {
-  color: #d1d5db;
+  color: var(--s2-gray-300, #d1d5db);
   font-weight: 300;
 }
 

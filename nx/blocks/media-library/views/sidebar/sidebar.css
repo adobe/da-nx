@@ -141,7 +141,7 @@
 
 .subtype-container {
   margin: var(--spacing-100) 0;
-  padding-left: var(--spacing-200);
+  padding-inline-start: var(--spacing-200);
 }
 
 .subtype-list {
@@ -163,7 +163,7 @@
   cursor: pointer;
   transition: background-color 0.2s ease;
   justify-content: space-between;
-  margin-left: var(--spacing-100);
+  margin-inline-start: var(--spacing-100);
 
   &:hover {
     background: var(--s2-gray-75);
