@@ -160,6 +160,7 @@ class SlSelect extends LitElement {
     value: { type: String },
     disabled: { type: Boolean },
     placeholder: { type: String },
+    error: { type: String },
   };
 
   connectedCallback() {
@@ -207,8 +208,9 @@ class SlSelect extends LitElement {
       <div class="sl-inputfield">
         ${this.label ? html`<label for="${this.name}">${this.label}</label>` : nothing}
         <div class="sl-inputfield-select-wrapper">
-          <select name=${this.name} value=${this.value} id="nx-input-exp-opt-for" @change=${this.handleChange} ?disabled="${this.disabled}"></select>
+          <select name=${this.name} value=${this.value} id="nx-input-exp-opt-for" @change=${this.handleChange} ?disabled="${this.disabled}" class="${this.error ? 'has-error' : ''}"></select>
         </div>
+        ${this.error ? html`<p class="sl-inputfield-error">${this.error}</p>` : nothing}
       </div>
     `;
   }
