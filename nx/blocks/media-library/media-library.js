@@ -81,47 +81,35 @@ class NxMediaLibrary extends LitElement {
   }
 
   shouldUpdate(changedProperties) {
+    if (changedProperties.size === 0) return false;
+
     const dataProps = ['_mediaData', '_error', '_progressiveMediaData', '_isScanning'];
     const filterProps = ['_searchQuery', '_selectedFilterType', '_selectedFolder', '_selectedDocument'];
     const uiProps = ['sitePath'];
     const scanProps = ['_scanProgress'];
     const validationProps = ['_isValidating', '_sitePathValid', '_validationError'];
-    const hasDataChange = dataProps.some((prop) => changedProperties.has(prop));
-    const hasFilterChange = filterProps.some((prop) => changedProperties.has(prop));
-    const hasUIChange = uiProps.some((prop) => changedProperties.has(prop));
-    const hasScanChange = scanProps.some((prop) => changedProperties.has(prop));
-    const hasValidationChange = validationProps.some((prop) => changedProperties.has(prop));
 
-    return hasDataChange || hasFilterChange || hasUIChange || hasScanChange || hasValidationChange;
+    for (const prop of changedProperties.keys()) {
+      if (dataProps.includes(prop) || filterProps.includes(prop)
+          || uiProps.includes(prop) || scanProps.includes(prop)
+          || validationProps.includes(prop)) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   willUpdate(changedProperties) {
-    if (changedProperties.has('_mediaData') && this._mediaData) {
-      this._filteredDataCache = null;
-    }
-
     if (changedProperties.has('_searchQuery')
         || changedProperties.has('_selectedFilterType')
         || changedProperties.has('_selectedFolder')
         || changedProperties.has('_selectedDocument')
+        || changedProperties.has('_mediaData')
         || changedProperties.has('_rawMediaData')
         || changedProperties.has('_processedData')
     ) {
       this._filteredDataCache = null;
-    }
-
-    if (changedProperties.has('_mediaData')
-        || changedProperties.has('_searchQuery')
-        || changedProperties.has('_selectedFilterType')
-        || changedProperties.has('_selectedFolder')
-        || changedProperties.has('_selectedDocument')
-    ) {
-      this._resultSummary = computeResultSummary(
-        this._mediaData,
-        this.filteredMediaData,
-        this._searchQuery,
-        this._selectedFilterType,
-      );
     }
   }
 
@@ -144,6 +132,20 @@ class NxMediaLibrary extends LitElement {
     if (changedProperties.has('sitePath') && this.sitePath) {
       this.initialize();
     }
+
+    if (changedProperties.has('_mediaData')
+        || changedProperties.has('_searchQuery')
+        || changedProperties.has('_selectedFilterType')
+        || changedProperties.has('_selectedFolder')
+        || changedProperties.has('_selectedDocument')
+    ) {
+      this._resultSummary = computeResultSummary(
+        this._mediaData,
+        this.filteredMediaData,
+        this._searchQuery,
+        this._selectedFilterType,
+      );
+    }
   }
 
   get filteredMediaData() {
@@ -157,12 +159,21 @@ class NxMediaLibrary extends LitElement {
     }
 
     let result;
+    let sourceData = this._rawMediaData || this._mediaData;
+
+    if (this._searchQuery && this._searchQuery.trim()) {
+      sourceData = filterBySearch(sourceData, this._searchQuery);
+    }
+
+    if (this._selectedDocument) {
+      sourceData = sourceData.filter((item) => item.doc === this._selectedDocument);
+    }
 
     if (this._selectedFilterType && this._selectedFilterType.startsWith('document')
         && this._selectedFilterType !== 'documents' && this._processedData) {
       result = getDocumentFilteredItems(
         this._processedData,
-        this._rawMediaData || this._mediaData,
+        sourceData,
         this.selectedDocument,
         this._selectedFilterType,
       );
@@ -173,7 +184,7 @@ class NxMediaLibrary extends LitElement {
     const uniqueItems = [];
     const seenKeys = new Set();
 
-    this._mediaData.forEach((item) => {
+    sourceData.forEach((item) => {
       const groupingKey = getGroupingKey(item.url);
       if (!seenKeys.has(groupingKey)) {
         seenKeys.add(groupingKey);
@@ -198,16 +209,30 @@ class NxMediaLibrary extends LitElement {
         this._selectedFolder,
         this._usageIndex,
       );
-    }
+    } else if (this._selectedDocument && this._usageIndex) {
+      const docFilteredItems = [];
+      const groupingKeyToMediaItem = new Map();
 
-    let finalData = dataWithUsageCounts;
-    if (this._searchQuery && this._searchQuery.trim()) {
-      finalData = filterBySearch(dataWithUsageCounts, this._searchQuery);
+      uniqueItems.forEach((item) => {
+        const key = getGroupingKey(item.url);
+        if (!groupingKeyToMediaItem.has(key)) {
+          groupingKeyToMediaItem.set(key, item);
+        }
+      });
+
+      this._usageIndex.forEach((usageEntries, groupingKey) => {
+        const hasDocUsage = usageEntries.some((entry) => entry.doc === this._selectedDocument);
+        if (hasDocUsage && groupingKeyToMediaItem.has(groupingKey)) {
+          docFilteredItems.push(groupingKeyToMediaItem.get(groupingKey));
+        }
+      });
+
+      dataWithUsageCounts = docFilteredItems;
     }
 
     if (this._selectedFilterType && this._selectedFilterType !== 'all') {
       result = applyFilter(
-        finalData,
+        dataWithUsageCounts,
         this._selectedFilterType,
         this.selectedDocument,
       );
@@ -215,8 +240,8 @@ class NxMediaLibrary extends LitElement {
       return result;
     }
 
-    this._filteredDataCache = finalData;
-    return finalData;
+    this._filteredDataCache = dataWithUsageCounts;
+    return dataWithUsageCounts;
   }
 
   get selectedDocument() {
@@ -567,6 +592,7 @@ class NxMediaLibrary extends LitElement {
   handleFilter(e) {
     this._selectedFilterType = e.detail.type;
     this._filteredDataCache = null;
+    this.requestUpdate();
   }
 
   async handleMediaClick(e) {
@@ -763,7 +789,7 @@ class NxMediaLibrary extends LitElement {
             };
 
             this._isScanning = false;
-            this.requestUpdate('_scanProgress');
+            this.requestUpdate();
           } else {
             this._scanProgress = {
               ...this._scanProgress,

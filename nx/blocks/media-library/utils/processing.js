@@ -285,7 +285,7 @@ async function loadAllLastModifiedData(sitePath) {
             });
           }
         } catch (error) {
-          // eslint-disable-next-line no-console -- Log failed lastModified data fetch for debugging
+          // eslint-disable-next-line no-console
           console.warn(`[LASTMOD] Failed to load lastModified data from ${item.path}:`, error);
         }
       }
@@ -625,7 +625,7 @@ export default async function runScan(sitePath, updateTotal, updateProgressive =
 
       savePromises.push(saveLastModifiedData(sitePath, 'root', mergedRootFiles));
     } catch (error) {
-      // eslint-disable-next-line no-console -- Log failed root file data merge for debugging
+      // eslint-disable-next-line no-console
       console.warn('[SCAN] Failed to merge root file lastModified data:', error);
     }
   }
@@ -653,7 +653,7 @@ export default async function runScan(sitePath, updateTotal, updateProgressive =
 
         savePromises.push(saveLastModifiedData(sitePath, folderName, mergedFolderFiles));
       } catch (error) {
-        // eslint-disable-next-line no-console -- Log failed folder data merge for debugging
+        // eslint-disable-next-line no-console
         console.warn(`[SCAN] Failed to merge folder lastModified data for ${folderName}:`, error);
       }
     }
@@ -663,7 +663,7 @@ export default async function runScan(sitePath, updateTotal, updateProgressive =
     try {
       await Promise.all(savePromises);
     } catch (error) {
-      // eslint-disable-next-line no-console -- Log failed lastModified data save operations
+      // eslint-disable-next-line no-console
       console.warn('[SCAN] Failed to save some lastModified data files:', error);
     }
   }

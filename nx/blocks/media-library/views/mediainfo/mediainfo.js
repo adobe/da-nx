@@ -117,19 +117,27 @@ class NxMediaInfo extends LitElement {
 
   updated(changedProperties) {
     if (changedProperties.has('media') && this.media) {
-      this.loadMetadata();
+      if (this._activeTab === 'metadata') {
+        this.loadMetadata();
+      }
       if (isPdf(this.media.url)) {
         this.loadPdfWithDaFetch(this.media.url);
       }
-      this.loadUsageData();
+      if (this._activeTab === 'usage') {
+        this.loadUsageData();
+      }
     }
 
     if (changedProperties.has('usageData') && this.usageData && this.media) {
       this.loadUsageData();
     }
 
-    if (changedProperties.has('_activeTab') && this._activeTab === 'usage') {
-      this.loadUsageData();
+    if (changedProperties.has('_activeTab')) {
+      if (this._activeTab === 'metadata' && !this._loading && !this._exifData) {
+        this.loadMetadata();
+      } else if (this._activeTab === 'usage') {
+        this.loadUsageData();
+      }
     }
   }
 

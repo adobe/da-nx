@@ -1,5 +1,8 @@
 import { getMediaType, isSvgFile, getBasePath } from './utils.js';
 
+const processDataCache = new Map();
+const MAX_CACHE_SIZE = 5;
+
 export const FILTER_CONFIG = {
   images: (item) => getMediaType(item) === 'image' && !isSvgFile(item),
   videos: (item) => getMediaType(item) === 'video',
@@ -98,10 +101,17 @@ export function getGroupingKey(url) {
   }
 }
 
-// Process media data with batching and pre-calculation
 export async function processMediaData(mediaData, onProgress = null) {
   if (!mediaData || mediaData.length === 0) {
     return initializeProcessedData();
+  }
+
+  const cacheKey = `${mediaData.length}-${mediaData[0]?.hash || ''}-${mediaData[mediaData.length - 1]?.hash || ''}`;
+
+  if (processDataCache.has(cacheKey)) {
+    const cached = processDataCache.get(cacheKey);
+    if (onProgress) onProgress(100);
+    return cached;
   }
 
   const processedData = initializeProcessedData();
@@ -109,11 +119,16 @@ export async function processMediaData(mediaData, onProgress = null) {
   const uniqueNonSvgUrls = new Set();
 
   let batchSize = 1000;
+  const hasComplexData = mediaData.some((item) => item.doc || item.alt);
+
   if (mediaData.length > 100000) {
-    batchSize = 500;
+    batchSize = hasComplexData ? 300 : 500;
   } else if (mediaData.length > 10000) {
-    batchSize = 250;
+    batchSize = hasComplexData ? 200 : 250;
+  } else if (mediaData.length > 1000) {
+    batchSize = hasComplexData ? 100 : 200;
   }
+
   const batches = chunkArray(mediaData, batchSize);
   const totalBatches = batches.length;
 
@@ -206,6 +221,12 @@ export async function processMediaData(mediaData, onProgress = null) {
   processedData.filterCounts.all = uniqueNonSvgUrls.size;
   processedData.totalCount = uniqueMediaUrls.size;
 
+  if (processDataCache.size >= MAX_CACHE_SIZE) {
+    const firstKey = processDataCache.keys().next().value;
+    processDataCache.delete(firstKey);
+  }
+  processDataCache.set(cacheKey, processedData);
+
   return processedData;
 }
 
@@ -283,10 +304,17 @@ function filterByColonSyntax(mediaData, colonSyntax) {
 }
 
 function filterByGeneralSearch(mediaData, query) {
-  return mediaData.filter((item) => (item.name && item.name.toLowerCase().includes(query))
-    || (item.alt && item.alt.toLowerCase().includes(query))
-    || (item.doc && item.doc.toLowerCase().includes(query))
-            || (item.url && item.url.toLowerCase().includes(query)));
+  const results = [];
+  for (let i = 0; i < mediaData.length; i += 1) {
+    const item = mediaData[i];
+    if ((item.name && item.name.toLowerCase().includes(query))
+        || (item.url && item.url.toLowerCase().includes(query))
+        || (item.alt && item.alt.toLowerCase().includes(query))
+        || (item.doc && item.doc.toLowerCase().includes(query))) {
+      results.push(item);
+    }
+  }
+  return results;
 }
 
 export function filterBySearch(mediaData, searchQuery) {
