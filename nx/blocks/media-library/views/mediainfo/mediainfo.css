@@ -454,21 +454,23 @@ button {
 
 .loading-state {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
+  gap: 8px;
   padding: 40px 20px;
-  color: #6b7280;
+  color: var(--s2-gray-600, #6b7280);
+  font-size: 14px;
 }
 
 .spinner {
-  width: 24px;
-  height: 24px;
-  border: 2px solid #e5e7eb;
-  border-top: 2px solid #3b82f6;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--s2-gray-200, #e5e7eb);
+  border-top: 2px solid var(--s2-blue-600, #2680eb);
   border-radius: 50%;
   animation: spin 1s linear infinite;
-  margin-bottom: 12px;
+  flex-shrink: 0;
 }
 
 @keyframes spin {

@@ -922,7 +922,7 @@ class NxMediaInfo extends LitElement {
       return html`
         <div class="loading-state">
           <div class="spinner"></div>
-          <p>Loading usage details...</p>
+          <span>Loading usage details...</span>
         </div>
       `;
     }
@@ -931,7 +931,7 @@ class NxMediaInfo extends LitElement {
       return html`
         <div class="loading-state">
           <div class="spinner"></div>
-          <p>Scanning in progress...</p>
+          <span>Scanning in progress...</span>
         </div>
       `;
     }

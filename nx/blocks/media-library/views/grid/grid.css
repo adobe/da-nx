@@ -98,11 +98,6 @@ svg.icon {
   margin-top: var(--spacing-200);
 }
 
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
 .media-main {
   height: calc(100vh - 130px);
   overflow-y: auto;
