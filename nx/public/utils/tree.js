@@ -56,6 +56,11 @@ async function getChildren(path) {
   if (resp.ok) {
     const json = await resp.json();
     json.forEach((child) => {
+      if (!child.name) {
+        // eslint-disable-next-line no-console
+        console.log(`This folder has a child with an empty name: ${child.path}`);
+        return;
+      }
       if (child.ext) {
         files.push(child);
       } else {
