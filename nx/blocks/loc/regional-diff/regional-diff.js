@@ -1,5 +1,4 @@
 /* global objectHash */
-import getElementMetadata from '../../../utils/getElementMetadata.js';
 import { getPathDetails, fetchConfig } from '../utils/utils.js';
 
 // eslint-disable-next-line import/no-unresolved
@@ -9,7 +8,6 @@ const HASH_LENGTH = 12;
 const MIN_LIST_ITEMS_IN_COMMON = 2;
 const ADDED = 'added';
 const ADDED_TAG = 'da-diff-added';
-const DA_METADATA_SELECTOR = 'body > .da-metadata';
 const DELETED = 'deleted';
 const DELETED_TAG = 'da-diff-deleted';
 const SAME = 'same';
@@ -311,13 +309,6 @@ function getBlockMap(dom) {
   });
 }
 
-function getPreviousHashes(doc) {
-  const metadata = getElementMetadata(doc.querySelector(DA_METADATA_SELECTOR));
-  const acceptedHashes = metadata.acceptedhashes?.text?.split(',') || [];
-  const rejectedHashes = metadata.rejectedhashes?.text?.split(',') || [];
-  return { acceptedHashes, rejectedHashes };
-}
-
 function htmldiff(originalDOM, modifiedDOM) {
   const original = getBlockMap(originalDOM);
   const modified = getBlockMap(modifiedDOM);
@@ -416,7 +407,7 @@ export const removeLocTags = (html) => {
   });
 };
 
-export async function regionalDiff(original, modified) {
+export async function regionalDiff(original, modified, acceptedHashes, rejectedHashes) {
   const { org, site } = getPathDetails();
   const translateConfig = await fetchConfig(org, site);
   const hostnames = findConfigValue(translateConfig, 'source.fragment.hostnames')?.split?.(',') || [];
@@ -425,7 +416,6 @@ export async function regionalDiff(original, modified) {
   const normalizedOriginal = await normalizeLinks(original, site, equivalentSites);
   const normalizedModified = await normalizeLinks(modified, site, equivalentSites);
   const diff = htmldiff(normalizedOriginal, normalizedModified);
-  const { acceptedHashes, rejectedHashes } = getPreviousHashes(normalizedModified);
   const output = buildHtmlFromDiff(diff, normalizedModified, acceptedHashes, rejectedHashes);
   return output.body.querySelector('main');
 }

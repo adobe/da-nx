@@ -3,7 +3,7 @@ import decorateTable from './decorateTable.js';
 import parseQuery from './parseQuery.js';
 import { processAltText, resetAltText } from './processAltText.js';
 
-const DNT_ELEMENTS = ['code'];
+const DNT_ELEMENTS = ['code', 'body > .da-metadata'];
 
 function removeDntAttributes(document) {
   const dntEls = document.querySelectorAll('[translate="no"]');
