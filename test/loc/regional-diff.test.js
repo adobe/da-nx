@@ -43,7 +43,9 @@ describe('Regional diff', () => {
     original.body.innerHTML = await readFile({ path: './mocks/lang-content.html' });
     const modified = document.implementation.createHTMLDocument();
     modified.body.innerHTML = await readFile({ path: './mocks/regional-content-metadata.html' });
-    const mainEl = await regionalDiff(original, modified);
+    const acceptedHashes = ['9cf95b80d46d'];
+    const rejectedHashes = ['66962da704a6', '89071ca4be97'];
+    const mainEl = await regionalDiff(original, modified, acceptedHashes, rejectedHashes);
     const expectedDiffedMain = await readFile({ path: './mocks/diffedMain-metadata.html' });
     expect(cleanHtmlWhitespace(mainEl.outerHTML))
       .to.equal(cleanHtmlWhitespace(expectedDiffedMain));
@@ -62,7 +64,7 @@ describe('Regional diff', () => {
         <div>9cf95b80d46d</div>
       </div>
     `;
-    const mainEl = await regionalDiff(original, modified);
+    const mainEl = await regionalDiff(original, modified, [], ['9cf95b80d46d']);
     // The block with hash 9cf95b80d46d should be removed from the output
     expect(mainEl.innerHTML).to.not.include('9cf95b80d46d');
   });

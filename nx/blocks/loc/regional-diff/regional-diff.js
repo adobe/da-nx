@@ -351,7 +351,7 @@ function getBlockgroupHtml(blockGroup, type) {
   return htmlText;
 }
 
-function buildHtmlFromDiff(diff, modified, acceptedHashes, rejectedHashes) {
+function buildHtmlFromDiff(diff, modified, acceptedHashes = [], rejectedHashes = []) {
   let htmlText = '<div>';
   diff.forEach((item, i) => {
     let modifiedBlock = item.block;
