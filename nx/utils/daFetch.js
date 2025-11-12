@@ -35,7 +35,7 @@ export const daFetch = async (url, opts = {}) => {
   return resp;
 };
 
-export function replaceHtml(text, fromOrg, fromRepo) {
+export function replaceHtml(text, fromOrg, fromRepo, { daMetadataEl = null } = {}) {
   let inner = text;
   if (fromOrg && fromRepo) {
     const fromOrigin = `https://main--${fromRepo}--${fromOrg}.aem.live`;
@@ -48,17 +48,18 @@ export function replaceHtml(text, fromOrg, fromRepo) {
     <body>
       <header></header>
       <main>${inner}</main>
+      ${daMetadataEl ? `<div class="da-metadata">${daMetadataEl.innerHTML}</div>` : ''}
       <footer></footer>
     </body>
   `;
 }
 
-export async function saveToDa(text, url) {
+export async function saveToDa(text, url, { daMetadataEl = null } = {}) {
   const daPath = `/${url.org}/${url.repo}${url.pathname}`;
   const daHref = `https://da.live/edit#${daPath}`;
   const { org, repo } = url;
 
-  const body = replaceHtml(text, org, repo);
+  const body = replaceHtml(text, org, repo, { daMetadataEl });
 
   const blob = new Blob([body], { type: 'text/html' });
   const formData = new FormData();

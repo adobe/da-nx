@@ -1,3 +1,5 @@
+import getElementMetadata from '../../utils/getElementMetadata.js';
+
 function handleBackground(content, section) {
   const pic = content.querySelector('picture');
   if (pic) {
@@ -31,21 +33,11 @@ function handleContainer(section) {
   section.insertAdjacentElement('afterbegin', container);
 }
 
-const getMetadata = (el) => [...el.childNodes].reduce((rdx, row) => {
-  if (row.children) {
-    const key = row.children[0].textContent.trim().toLowerCase();
-    const content = row.children[1];
-    const text = content.textContent.trim().toLowerCase();
-    if (key && content) rdx[key] = { content, text };
-  }
-  return rdx;
-}, {});
-
 export default async function init(el) {
   const section = el.closest('.section');
   if (!section) return;
   handleContainer(section);
-  const metadata = getMetadata(el);
+  const metadata = getElementMetadata(el);
   if (metadata.style?.text) await handleStyle(metadata.style.text, section);
   if (metadata.background?.content) handleBackground(metadata.background.content, section);
   if (metadata.grid?.text) handleLayout(metadata.grid.text, section, 'grid');
