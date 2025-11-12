@@ -4,6 +4,7 @@ import { getPathDetails, fetchConfig } from '../utils/utils.js';
 // eslint-disable-next-line import/no-unresolved
 import './object_hash.js';
 
+const HASH_LENGTH = 12;
 const MIN_LIST_ITEMS_IN_COMMON = 2;
 const ADDED = 'added';
 const ADDED_TAG = 'da-diff-added';
@@ -186,7 +187,7 @@ function checkLists(res) {
         const deletedListItems = listElToBlockMap(deletedList.block.children);
 
         // eslint-disable-next-line no-use-before-define
-        const mergedList = blockDiff(addedListItems, deletedListItems, true);
+        const mergedList = blockDiff(deletedListItems, addedListItems, { isListCheck: true });
         addedList.block.innerHTML = convertToHtmlList(mergedList);
         addedList.type = SAME;
       }
@@ -227,7 +228,7 @@ function addToResult(result, newItem, type) {
   return result;
 }
 
-function blockDiff(A, B, isListCheck = false) {
+function blockDiff(A, B, { isListCheck = false } = {}) {
   let result = [];
   const length = Math.min(A.length, B.length);
   let i = 0;
@@ -350,24 +351,31 @@ function getBlockgroupHtml(blockGroup, type) {
   return htmlText;
 }
 
-function buildHtmlFromDiff(diff, modified) {
+function buildHtmlFromDiff(diff, modified, acceptedHashes = [], rejectedHashes = []) {
   let htmlText = '<div>';
   diff.forEach((item, i) => {
     let modifiedBlock = item.block;
+    const hash = item.hash.substring(0, HASH_LENGTH);
     if (item.block.isSection && i !== 0) {
       htmlText += '</div><div>';
       return;
     }
 
     if (Array.isArray(item.block)) {
-      htmlText += getBlockgroupHtml(item.block, item.type);
+      htmlText += getBlockgroupHtml(item.block, item.type, acceptedHashes, rejectedHashes);
       return;
     }
 
     if (item.type === ADDED) {
-      modifiedBlock.setAttribute(ADDED_TAG, '');
+      if (rejectedHashes.includes(hash)) return;
+      if (!acceptedHashes.includes(hash)) {
+        modifiedBlock.setAttribute(ADDED_TAG, '');
+      }
     } else if (item.type === DELETED) {
-      modifiedBlock = wrapElement(item.block, DELETED_TAG);
+      if (rejectedHashes.includes(hash)) return;
+      if (!acceptedHashes.includes(hash)) {
+        modifiedBlock = wrapElement(item.block, DELETED_TAG);
+      }
     }
     htmlText += modifiedBlock.outerHTML;
   });
@@ -399,7 +407,7 @@ export const removeLocTags = (html) => {
   });
 };
 
-export async function regionalDiff(original, modified) {
+export async function regionalDiff(original, modified, acceptedHashes, rejectedHashes) {
   const { org, site } = getPathDetails();
   const translateConfig = await fetchConfig(org, site);
   const hostnames = findConfigValue(translateConfig, 'source.fragment.hostnames')?.split?.(',') || [];
@@ -408,6 +416,6 @@ export async function regionalDiff(original, modified) {
   const normalizedOriginal = await normalizeLinks(original, site, equivalentSites);
   const normalizedModified = await normalizeLinks(modified, site, equivalentSites);
   const diff = htmldiff(normalizedOriginal, normalizedModified);
-  const output = buildHtmlFromDiff(diff, normalizedModified);
+  const output = buildHtmlFromDiff(diff, normalizedModified, acceptedHashes, rejectedHashes);
   return output.body.querySelector('main');
 }

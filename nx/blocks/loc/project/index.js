@@ -1,8 +1,10 @@
+import getElementMetadata from '../../../utils/getElementMetadata.js';
 import { regionalDiff, removeLocTags } from '../regional-diff/regional-diff.js';
 import { daFetch, saveToDa } from '../../../utils/daFetch.js';
 import { DA_ORIGIN } from '../../../public/utils/constants.js';
 
 const DEFAULT_TIMEOUT = 20000; // ms
+const DA_METADATA_SELECTOR = 'body > .da-metadata';
 
 const PARSER = new DOMParser();
 
@@ -167,6 +169,12 @@ const getDaUrl = (url) => {
   return { org, repo, pathname };
 };
 
+function getPreviousHashes(metadata) {
+  const acceptedHashes = metadata.acceptedhashes?.text?.split(',') || [];
+  const rejectedHashes = metadata.rejectedhashes?.text?.split(',') || [];
+  return { acceptedHashes, rejectedHashes };
+}
+
 export async function rolloutCopy(url, projectTitle) {
   // if the regional folder has content that differs from langstore,
   // then a regional diff needs to be done
@@ -183,18 +191,21 @@ export async function rolloutCopy(url, projectTitle) {
 
     removeLocTags(regionalCopy);
 
-    if (langstoreCopy.querySelector('main').outerHTML === regionalCopy.querySelector('main').outerHTML) {
+    if (langstoreCopy.querySelector('body').outerHTML === regionalCopy.querySelector('body').outerHTML) {
       // No differences, don't need to do anything
       url.status = 'success';
       return Promise.resolve();
     }
 
-    // There are differences, upload the annotated loc file
-    const diffedMain = await regionalDiff(langstoreCopy, regionalCopy);
+    const daMetadataEl = regionalCopy.querySelector(DA_METADATA_SELECTOR);
+    const { acceptedHashes, rejectedHashes } = getPreviousHashes(getElementMetadata(daMetadataEl));
+
+    // There are differences, upload the diffed regional file
+    const diffed = await regionalDiff(langstoreCopy, regionalCopy, acceptedHashes, rejectedHashes);
 
     return new Promise((resolve) => {
       const daUrl = getDaUrl(url);
-      const savePromise = saveToDa(diffedMain.innerHTML, daUrl);
+      const savePromise = saveToDa(diffed.innerHTML, daUrl, { daMetadataEl });
 
       const timedout = setTimeout(() => {
         url.status = 'timeout';
@@ -231,17 +242,20 @@ export async function mergeCopy(url, projectTitle) {
 
     removeLocTags(regionalCopy);
 
-    if (langstoreCopy.querySelector('main').outerHTML === regionalCopy.querySelector('main').outerHTML) {
+    if (langstoreCopy.querySelector('body').outerHTML === regionalCopy.querySelector('body').outerHTML) {
       // No differences, don't need to do anything
       url.status = 'success';
       return { ok: true };
     }
 
+    const daMetadataEl = regionalCopy.querySelector(DA_METADATA_SELECTOR);
+    const { acceptedHashes, rejectedHashes } = getPreviousHashes(getElementMetadata(daMetadataEl));
+
     // There are differences, upload the annotated loc file
-    const diffedMain = await regionalDiff(langstoreCopy, regionalCopy);
+    const diffed = await regionalDiff(langstoreCopy, regionalCopy, acceptedHashes, rejectedHashes);
 
     const daUrl = getDaUrl(url);
-    const { daResp } = await saveToDa(diffedMain.innerHTML, daUrl);
+    const { daResp } = await saveToDa(diffed.innerHTML, daUrl, { daMetadataEl });
     if (daResp.ok) {
       url.status = 'success';
       saveVersion(url.destination, `${projectTitle} - Rolled Out`);
