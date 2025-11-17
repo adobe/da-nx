@@ -89,7 +89,7 @@ export function crawl({ path, callback, concurrent, throttle = 100 }) {
   let isCanceled = false;
   const files = [];
   const errors = [];
-  const folders = [path];
+  const folders = Array.isArray(path) ? [...path] : [path];
   const inProgress = [];
   const startTime = Date.now();
   const queue = new Queue(callback, concurrent, (item, err) => errors.push({ item, err }));

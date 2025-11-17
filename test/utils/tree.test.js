@@ -1,3 +1,4 @@
+/* eslint-disable max-len */
 import { expect } from '@esm-bundle/chai';
 import { Queue, crawl } from '../../nx/public/utils/tree.js';
 
@@ -28,8 +29,6 @@ const mockBasicResponse = [
     name: 'page-builder',
   },
 ];
-
-const mockEmptyResponse = [];
 
 const mockFilesOnlyResponse = [
   {
@@ -63,6 +62,68 @@ const mockNestedFolder2Response = [
   {
     path: '/test/nested/subfolder/deep.json',
     name: 'deep',
+    ext: 'json',
+    lastModified: 1762282196814,
+  },
+];
+
+const mockPath1Response = [
+  {
+    path: '/path1/file1.html',
+    name: 'file1',
+    ext: 'html',
+    lastModified: 1753691701858,
+  },
+];
+
+const mockPath2Response = [
+  {
+    path: '/path2/file2.json',
+    name: 'file2',
+    ext: 'json',
+    lastModified: 1762282196814,
+  },
+];
+
+const mockParent1Response = [
+  {
+    path: '/parent1/file1.html',
+    name: 'file1',
+    ext: 'html',
+    lastModified: 1753691701858,
+  },
+  {
+    path: '/parent1/child',
+    name: 'child',
+  },
+];
+
+const mockParent1ChildResponse = [
+  {
+    path: '/parent1/child/deep1.html',
+    name: 'deep1',
+    ext: 'html',
+    lastModified: 1753691701858,
+  },
+];
+
+const mockParent2Response = [
+  {
+    path: '/parent2/file2.json',
+    name: 'file2',
+    ext: 'json',
+    lastModified: 1762282196814,
+  },
+  {
+    path: '/parent2/subfolder',
+    name: 'subfolder',
+  },
+];
+
+const mockParent2SubfolderResponse = [
+  {
+    path: '/parent2/subfolder/deep2.json',
+    name: 'deep2',
     ext: 'json',
     lastModified: 1762282196814,
   },
@@ -495,5 +556,64 @@ describe('crawl', () => {
     expect(files.length).to.equal(2);
     expect(files.every((f) => f.name && f.ext)).to.equal(true);
   });
-});
 
+  it('Handles path as an array of multiple paths', async () => {
+    const mockResponses = {
+      '/path1': mockPath1Response,
+      '/path2': mockPath2Response,
+    };
+
+    window.fetch = async (url) => {
+      const matchingPath = Object.keys(mockResponses).find((path) => url.includes(path));
+      return {
+        ok: true,
+        json: async () => (matchingPath ? mockResponses[matchingPath] : []),
+        headers: { get: () => null },
+      };
+    };
+
+    const { results } = crawl({
+      path: ['/path1', '/path2'],
+      callback: null,
+      concurrent: 10,
+      throttle: 10,
+    });
+
+    const files = await results;
+    expect(files.length).to.equal(2);
+    expect(files.some((f) => f.name === 'file1' && f.ext === 'html')).to.equal(true);
+    expect(files.some((f) => f.name === 'file2' && f.ext === 'json')).to.equal(true);
+  });
+
+  it('Crawls children of paths when path is an array', async () => {
+    const mockResponses = {
+      '/parent1/child': mockParent1ChildResponse,
+      '/parent1': mockParent1Response,
+      '/parent2/subfolder': mockParent2SubfolderResponse,
+      '/parent2': mockParent2Response,
+    };
+
+    window.fetch = async (url) => {
+      const matchingPath = Object.keys(mockResponses).find((path) => url.includes(path));
+      return {
+        ok: true,
+        json: async () => (matchingPath ? mockResponses[matchingPath] : []),
+        headers: { get: () => null },
+      };
+    };
+
+    const { results } = crawl({
+      path: ['/parent1', '/parent2'],
+      callback: null,
+      concurrent: 10,
+      throttle: 10,
+    });
+
+    const files = await results;
+    expect(files.length).to.equal(4);
+    expect(files.some((f) => f.name === 'file1')).to.equal(true);
+    expect(files.some((f) => f.name === 'deep1')).to.equal(true);
+    expect(files.some((f) => f.name === 'file2')).to.equal(true);
+    expect(files.some((f) => f.name === 'deep2')).to.equal(true);
+  });
+});
