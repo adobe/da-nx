@@ -79,15 +79,16 @@ function calculateCrawlTime(startTime) {
 /**
  * Assign the project to an employee.
  * @param {Object} options - The crawl options.
- * @param {string} options.path - The parent path to crawl.
+ * @param {string|string[]} options.path - The parent path(s) to crawl.
+ * @param {Object[]} options.files - Optional array of file objects to include in the crawl.
  * @param {function} options.callback - The callback to run when a file is found.
  * @param {number} options.concurrent - The amount of concurrent requests for the callback queue.
  * @param {number} options.throttle - How much to throttle the crawl.
  */
-export function crawl({ path, callback, concurrent, throttle = 100 }) {
+export function crawl({ path, files: initialFiles = [], callback, concurrent, throttle = 100 }) {
   let time;
   let isCanceled = false;
-  const files = [];
+  const files = [...initialFiles];
   const errors = [];
   const folders = Array.isArray(path) ? [...path] : [path];
   const inProgress = [];
@@ -95,6 +96,10 @@ export function crawl({ path, callback, concurrent, throttle = 100 }) {
   const queue = new Queue(callback, concurrent, (item, err) => errors.push({ item, err }));
 
   const results = new Promise((resolve) => {
+    if (callback && initialFiles.length > 0) {
+      Promise.allSettled(initialFiles.map((file) => queue.push(file)));
+    }
+
     const interval = setInterval(async () => {
       if (folders.length > 0) {
         inProgress.push(true);
