@@ -248,7 +248,7 @@ export function getHashDetails(hash) {
   return { view: split[0], org: split[1], site: split[2], path: projPath };
 }
 
-async function fetchProject({ path, updates }) {
+async function fetchProject({ path, updates, updateDocTitle = true }) {
   // If there's no updates, and there's a cache, use it.
   if (!updates && PROJECT_CACHE[path]) return { project: PROJECT_CACHE[path] };
 
@@ -277,8 +277,10 @@ async function fetchProject({ path, updates }) {
   PROJECT_CACHE[path] = updates || await resp.json();
 
   // Set the title of the doc
-  const { title } = PROJECT_CACHE[path];
-  document.title = `${title} - DA Translation`;
+  if (updateDocTitle) {
+    const { title } = PROJECT_CACHE[path];
+    document.title = `${title} - DA Translation`;
+  }
 
   return { project: PROJECT_CACHE[path] };
 }
@@ -306,6 +308,6 @@ export async function updateProject({ path: suppliedPath, updates }) {
   return { message, hash, project };
 }
 
-export async function loadProject({ path }) {
-  return fetchProject({ path });
+export async function loadProject({ path, updateDocTitle }) {
+  return fetchProject({ path, updateDocTitle });
 }
