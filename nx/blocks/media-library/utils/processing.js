@@ -10,9 +10,6 @@ import {
   createSheet,
   splitPathParts,
   CONTENT_ORIGIN,
-  getMediaType,
-  isSvgFile,
-  getSubtype,
   sortMediaData,
 } from './utils.js';
 import { getGroupingKey } from './filters.js';
@@ -457,7 +454,12 @@ export default async function runScan(sitePath, updateTotal, updateProgressive =
   let hasChanges = false;
 
   const callback = async (item) => {
-    if (item.path.includes('/drafts/')) {
+    // Skip excluded folders: drafts, library, and hidden/config folders (starting with dot)
+    if (
+      item.path.includes('/drafts/')
+      || item.path.includes('/library/')
+      || item.path.split('/').some((segment) => segment.startsWith('.'))
+    ) {
       return;
     }
 
