@@ -13,6 +13,7 @@ import {
   getFilterLabel,
   computeResultSummary,
 } from './utils/filters.js';
+import { loadPinnedFolders, savePinnedFolders } from './utils/pin-folders.js';
 import '../../public/sl/components.js';
 import './views/topbar/topbar.js';
 import './views/sidebar/sidebar.js';
@@ -118,11 +119,8 @@ class NxMediaLibrary extends LitElement {
       if (this.sitePath) {
         this._mediaData = null;
         this._error = null;
-        this._searchQuery = '';
-        this._selectedFilterType = 'all';
-        this._selectedFolder = null;
-        this._selectedDocument = null;
         this._processedData = null;
+        this.resetSearchState();
       }
     }
     super.update(changedProperties);
@@ -285,12 +283,10 @@ class NxMediaLibrary extends LitElement {
     this.requestUpdate();
 
     try {
-      // Check if user is authenticated before attempting validation
       const { initIms } = await import('../../utils/daFetch.js');
       const imsResult = await initIms();
 
       if (!imsResult || imsResult.anonymous) {
-        // Trigger sign-in flow
         const { loadIms, handleSignIn } = await import('../../utils/ims.js');
         await loadIms();
         handleSignIn();
@@ -465,6 +461,7 @@ class NxMediaLibrary extends LitElement {
             .isScanning=${this._isScanning}
             .scanProgress=${this._scanProgress}
             @filter=${this.handleFilter}
+            @go-home=${this.handleGoHome}
           ></nx-media-sidebar>
         </div>
 
@@ -474,8 +471,11 @@ class NxMediaLibrary extends LitElement {
             .mediaData=${this._rawMediaData || this._mediaData}
             .resultSummary=${this._resultSummary}
             .folderPathsCache=${this._folderPathsCache}
+            .selectedFolder=${this._selectedFolder}
+            .selectedDocument=${this._selectedDocument}
             @search=${this.handleSearch}
             @clear-search=${this.handleClearSearch}
+            @pin-search=${this.handlePinFolder}
           ></nx-media-topbar>
         </div>
 
@@ -581,11 +581,7 @@ class NxMediaLibrary extends LitElement {
   }
 
   handleClearSearch() {
-    this._searchQuery = '';
-    this._selectedDocument = null;
-    this._selectedFolder = null;
-    this._selectedFilterType = 'all';
-    this._filteredDataCache = null;
+    this.resetSearchState();
     this.requestUpdate();
   }
 
@@ -593,6 +589,13 @@ class NxMediaLibrary extends LitElement {
     this._selectedFilterType = e.detail.type;
     this._filteredDataCache = null;
     this.requestUpdate();
+  }
+
+  handleGoHome() {
+    const url = new URL(window.location.href);
+    url.hash = '';
+    window.history.replaceState({}, '', url.toString());
+    this.sitePath = null;
   }
 
   async handleMediaClick(e) {
@@ -672,6 +675,47 @@ class NxMediaLibrary extends LitElement {
         this.requestUpdate();
       }
     }
+  }
+
+  resetSearchState() {
+    this._searchQuery = '';
+    this._selectedFilterType = 'all';
+    this._selectedFolder = null;
+    this._selectedDocument = null;
+    this._filteredDataCache = null;
+  }
+
+  showNotification(heading, message, type = 'success') {
+    window.dispatchEvent(new CustomEvent('show-notification', {
+      detail: {
+        heading,
+        message,
+        type,
+        open: true,
+      },
+    }));
+  }
+
+  handlePinFolder(e) {
+    const { folder } = e.detail || {};
+    if (!folder) return;
+
+    const pinnedFolders = loadPinnedFolders(this.org, this.repo);
+
+    const fullPath = `/${this.org}/${this.repo}${folder}`;
+    const alreadyPinned = pinnedFolders.some((pf) => pf.folder === folder && pf.path === fullPath);
+
+    if (alreadyPinned) {
+      this.showNotification('Already Pinned', `Folder :${folder} is already pinned`, 'info');
+      return;
+    }
+
+    const pinnedFolder = { path: fullPath };
+
+    const updatedPinnedFolders = [...pinnedFolders, pinnedFolder];
+    savePinnedFolders(updatedPinnedFolders, this.org, this.repo);
+
+    this.showNotification('Folder Pinned', `Folder :${folder} pinned`);
   }
 
   renderScanningState() {

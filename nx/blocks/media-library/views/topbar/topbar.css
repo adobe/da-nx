@@ -73,6 +73,50 @@
   fill: var(--s2-gray-700);
 }
 
+.pin-search-btn {
+  position: absolute;
+  top: 50%;
+  right: 36px;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 0;
+  transition: all 0.2s ease;
+  z-index: 10;
+  color: var(--s2-gray-600);
+}
+
+.pin-search-btn:hover {
+  color: var(--s2-gray-900);
+  transform: translateY(-50%) scale(1.1);
+}
+
+.pin-search-btn:active {
+  transform: translateY(-50%) scale(0.95);
+}
+
+.pin-search-btn.pinned {
+  color: var(--s2-blue-700);
+}
+
+.pin-search-btn.pinned:hover {
+  color: var(--s2-blue-900);
+}
+
+.pin-search-btn .pin-icon {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
 .clear-search-btn {
   position: absolute;
   top: 50%;

@@ -51,6 +51,8 @@
     flex-direction: column;
     gap: 8px;
     padding: 88px 8px 8px 16px;
+    position: relative;
+    z-index: 1;
 
     &.secondary {
       padding: 8px 8px 8px 16px;
@@ -59,6 +61,9 @@
     button {
       padding-inline-start: var(--spacing-200);
       padding-inline-end: var(--spacing-400);
+      position: relative;
+      z-index: 2;
+      pointer-events: all;
 
       &.active {
         background: transparent;
@@ -281,4 +286,15 @@
 .index-message.empty {
   color: var(--s2-gray-500);
   font-style: italic;
+}
+
+.badge {
+  display: inline-block;
+  background: var(--s2-blue-800);
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 10px;
+  margin-inline-start: 4px;
 }

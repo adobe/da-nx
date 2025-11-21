@@ -16,6 +16,8 @@ const ICONS = [
   `${nx}/img/icons/S2IconClassicGridView20N-icon.svg`,
   `${nx}/public/icons/S2_Icon_Close_20_N.svg`,
   `${nx}/public/icons/S2_Icon_Properties_20_N.svg`,
+  `${nx}/public/icons/Smock_PinOff_18_N.svg`,
+  `${nx}/public/icons/Smock_PinOn_18_N.svg`,
 ];
 
 class NxMediaTopBar extends LitElement {
@@ -28,11 +30,13 @@ class NxMediaTopBar extends LitElement {
 
     mediaData: { attribute: false },
     folderPathsCache: { attribute: false },
+    selectedType: { attribute: false },
+    selectedFolder: { attribute: false },
+    selectedDocument: { attribute: false },
     _suggestions: { state: true },
     _activeIndex: { state: true },
     _originalQuery: { state: true },
     _showSuggestions: { state: true },
-    _selectedType: { state: true },
   };
 
   constructor() {
@@ -43,7 +47,7 @@ class NxMediaTopBar extends LitElement {
     this._suppressSuggestions = false;
     this._showSuggestions = false;
     this._debounceTimeout = null;
-    this._selectedType = null;
+    this.selectedType = null;
     this._programmaticUpdate = false;
   }
 
@@ -67,11 +71,11 @@ class NxMediaTopBar extends LitElement {
         this._suggestions = [];
         this._activeIndex = -1;
         this._originalQuery = '';
-        this._selectedType = null;
+        this.selectedType = null;
       }
     }
 
-    if (changedProperties.has('_selectedType')) {
+    if (changedProperties.has('selectedType')) {
       this.updateInputPadding();
     }
   }
@@ -83,7 +87,7 @@ class NxMediaTopBar extends LitElement {
     const input = slInput.shadowRoot?.querySelector('input');
     if (!input) return;
 
-    if (this._selectedType) {
+    if (this.selectedType) {
       input.style.paddingInlineStart = '36px';
     } else {
       input.style.paddingInlineStart = '';
@@ -252,7 +256,7 @@ class NxMediaTopBar extends LitElement {
     this._suggestions = [];
     this._activeIndex = -1;
     this._suppressSuggestions = true;
-    this._selectedType = suggestion.type;
+    this.selectedType = suggestion.type;
     this._programmaticUpdate = true;
 
     if (suggestion.type === 'doc') {
@@ -293,8 +297,20 @@ class NxMediaTopBar extends LitElement {
     this._activeIndex = -1;
     this._suppressSuggestions = false;
     this._originalQuery = '';
-    this._selectedType = null;
+    this.selectedType = null;
     this.dispatchEvent(new CustomEvent('clear-search'));
+  }
+
+  get canPinSearch() {
+    return this.selectedFolder;
+  }
+
+  handlePinSearch() {
+    this.dispatchEvent(new CustomEvent('pin-search', {
+      detail: { folder: this.selectedFolder },
+      bubbles: true,
+      composed: true,
+    }));
   }
 
   highlightMatch(text, query) {
@@ -308,14 +324,14 @@ class NxMediaTopBar extends LitElement {
   }
 
   renderSearchIcon() {
-    if (this._selectedType === 'folder') {
+    if (this.selectedType === 'folder') {
       return html`
         <svg class="search-icon folder-icon">
           <use href="#Smock_Folder_18_N"></use>
         </svg>
       `;
     }
-    if (this._selectedType === 'doc') {
+    if (this.selectedType === 'doc') {
       return html`
         <svg class="search-icon doc-icon">
           <use href="#Smock_FileHTML_18_N"></use>
@@ -330,8 +346,8 @@ class NxMediaTopBar extends LitElement {
       <div class="top-bar">
 
         <div class="search-container">
-          <div class="search-wrapper ${this._selectedType ? 'has-icon' : ''}">
-            ${this._selectedType ? html`
+          <div class="search-wrapper ${this.selectedType ? 'has-icon' : ''}">
+            ${this.selectedType ? html`
               <div class="search-type-icon">
                 ${this.renderSearchIcon()}
               </div>
@@ -343,6 +359,16 @@ class NxMediaTopBar extends LitElement {
               @input=${this.handleSearchInput}
               @keydown=${this.handleKeyDown}
             ></sl-input>
+            ${this.canPinSearch ? html`
+              <button 
+                class="pin-search-btn" 
+                @click=${this.handlePinSearch}
+                title="Pin Folder"
+                aria-label="Pin Folder"
+              >
+                📌
+              </button>
+            ` : ''}
             ${this.searchQuery ? html`
               <button 
                 class="clear-search-btn" 

@@ -8,9 +8,9 @@
 }
 
 .da-site-container {
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
-  padding: var(--spacing-500);
+  padding: var(--spacing-600) var(--spacing-500);
 }
 
 .da-site-container + .da-site-container {
@@ -18,11 +18,38 @@
 }
 
 .error-title {
-  font-size: 2rem;
-  font-weight: 600;
+  font-size: 1.5rem;
+  font-weight: 700;
   color: var(--s2-gray-800);
-  margin: 0 0 var(--spacing-600) 0;
+  margin: 0 0 var(--spacing-500) 0;
   text-align: left;
+}
+
+/* Tabs */
+.tabs {
+  display: flex;
+  gap: var(--spacing-400);
+  margin-bottom: var(--spacing-500);
+}
+
+.tab {
+  padding: 0;
+  font-size: 1.5rem;
+  font-weight: 400;
+  color: var(--s2-gray-600);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tab:hover {
+  color: var(--s2-gray-800);
+}
+
+.tab.active {
+  color: var(--s2-gray-800);
+  font-weight: 700;
 }
 
 /* No site well styling */
@@ -155,6 +182,7 @@ form button svg {
   background-color: var(--s2-white, #fff);
   transition: all 0.25s ease-in-out;
   cursor: pointer;
+  perspective: 1000px;
 }
 
 .nx-card:hover {
@@ -163,8 +191,37 @@ form button svg {
 }
 
 .nx-card-inner {
-  height: 200px;
+  height: 240px;
   position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.6s ease;
+}
+
+.nx-card.flipped .nx-card-inner {
+  transform: rotateY(180deg);
+}
+
+.nx-card-front,
+.nx-card-back {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+}
+
+.nx-card-front {
+  z-index: 2;
+}
+
+.nx-card-back {
+  transform: rotateY(180deg);
+  background: linear-gradient(135deg, var(--s2-gray-50) 0%, var(--s2-gray-100) 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-300);
+  padding: var(--spacing-400);
 }
 
 .nx-card-picture-container {
@@ -205,28 +262,122 @@ form button svg {
 
 .nx-card-overlay h3 {
   margin: 0 0 var(--spacing-100) 0;
-  font-size: 18px;
-  font-weight: 600;
+  font-size: 20px;
+  font-weight: 700;
   color: white;
 }
 
 .nx-card-overlay p {
   margin: 0;
-  font-size: 14px;
+  font-size: 15px;
   color: rgba(255 255 255 / 80%);
 }
 
 .nx-card-overlay p.base-path {
   margin-top: var(--spacing-100);
-  font-size: 12px;
+  font-size: 13px;
   font-style: italic;
-  color: rgba(255 255 255 / 60%);
+  color: rgba(255 255 255 / 70%);
+}
+
+/* Card menu button */
+.card-menu-btn {
+  position: absolute;
+  top: var(--spacing-200);
+  right: var(--spacing-200);
+  background: rgba(0 0 0 / 40%);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease;
+  z-index: 10;
+  backdrop-filter: blur(4px);
+}
+
+.card-menu-btn:hover {
+  background: rgba(0 0 0 / 60%);
+}
+
+/* Card arrow indicator */
+.card-arrow {
+  position: absolute;
+  bottom: var(--spacing-200);
+  right: var(--spacing-200);
+  background: rgba(0 0 0 / 40%);
+  color: white;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  font-size: 18px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  backdrop-filter: blur(4px);
+}
+
+/* Card back buttons */
+.card-action-btn {
+  width: 100%;
+  max-width: 200px;
+  padding: var(--spacing-300) var(--spacing-400);
+  font-size: 16px;
+  font-weight: 600;
+  border: 2px solid var(--s2-gray-300);
+  border-radius: var(--border-radius-300);
+  background: var(--s2-white);
+  color: var(--s2-gray-800);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.card-action-btn:hover {
+  background: var(--s2-gray-800);
+  color: var(--s2-white);
+  border-color: var(--s2-gray-800);
+  transform: scale(1.05);
+}
+
+.card-action-btn.share-btn:hover {
+  background: var(--s2-blue-600);
+  border-color: var(--s2-blue-600);
+}
+
+.card-action-btn.hide-btn:hover {
+  background: var(--s2-red-600);
+  border-color: var(--s2-red-600);
+}
+
+.card-back-btn {
+  margin-top: var(--spacing-300);
+  padding: var(--spacing-200) var(--spacing-300);
+  font-size: 14px;
+  font-weight: 500;
+  background: transparent;
+  border: none;
+  color: var(--s2-gray-600);
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.card-back-btn:hover {
+  color: var(--s2-gray-800);
 }
 
 /* Site-apps grid styles */
 .nx-site-apps {
-  margin-top: var(--spacing-400);
+  margin-top: var(--spacing-500);
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: var(--spacing-400);
+  gap: var(--spacing-500);
 }
