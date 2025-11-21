@@ -291,9 +291,8 @@
 }
 
 .tags-panel-header {
-  padding: 8px 0 12px;
-  border-bottom: 1px solid var(--s2-gray-200);
-  margin-bottom: 12px;
+  padding: 8px 0;
+  margin-bottom: 8px;
 }
 
 .tag-media-button {
@@ -359,14 +358,16 @@
 }
 
 .tag-icon {
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   flex-shrink: 0;
-  opacity: 0.6;
+  opacity: 0.8;
+  color: var(--s2-gray-600);
 }
 
 .tags-list button.active .tag-icon {
   opacity: 1;
+  color: var(--s2-blue-700);
 }
 
 .tags-message {

@@ -12,7 +12,7 @@ const slComponents = await getStyle(`${nx}/public/sl/components.css`);
 const ICONS = [
   `${nx}/public/icons/S2_Icon_Close_20_N.svg`,
   `${nx}/public/icons/S2_Icon_Checkmark_20_N.svg`,
-  `${nx}/public/icons/S2_Icon_ListBulleted_20_N.svg`,
+  `${nx}/public/icons/S2_Icon_Tag_20_N.svg`,
 ];
 
 class NxTagModal extends LitElement {
@@ -204,7 +204,7 @@ class NxTagModal extends LitElement {
                 @click=${() => this.handleTagSuggestionClick(suggestion.value)}
               >
                 <svg class="tag-icon" viewBox="0 0 20 20">
-                  <use href="#S2_Icon_ListBulleted_20_N"></use>
+                  <use href="#S2_Icon_Tag_20_N"></use>
                 </svg>
                 ${suggestion.display}
                 ${suggestion.parent ? html`<span class="tag-parent">${suggestion.parent}</span>` : ''}

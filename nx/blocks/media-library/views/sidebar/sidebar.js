@@ -14,6 +14,8 @@ const ICONS = [
   `${nx}/public/icons/C_Icon_Filters_20.svg`,
   `${nx}/public/icons/S2_Icon_ListBulleted_20_N.svg`,
   `${nx}/public/icons/S2_Icon_Add_20_N.svg`,
+  `${nx}/public/icons/S2_Icon_Tag_20_N.svg`,
+  `${nx}/public/icons/S2_Icon_ViewAllTags_18_N.svg`,
 ];
 
 class NxMediaSidebar extends LitElement {
@@ -168,7 +170,7 @@ class NxMediaSidebar extends LitElement {
                 title="${tag.fullPath}"
               >
                 <svg class="tag-icon">
-                  <use href="#S2_Icon_ListBulleted_20_N"></use>
+                  <use href="#S2_Icon_Tag_20_N"></use>
                 </svg>
                 ${tag.name}
               </button>
@@ -259,7 +261,7 @@ class NxMediaSidebar extends LitElement {
             aria-expanded="${this.isTagsExpanded}"
           >
             <svg class="icon">
-              <use href="#S2_Icon_ListBulleted_20_N"></use>
+              <use href="#S2_Icon_ViewAllTags_18_N"></use>
             </svg>
             ${isAnyExpanded ? html`<span>Tags</span>` : ''}
           </button>

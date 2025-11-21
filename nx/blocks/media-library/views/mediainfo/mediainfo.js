@@ -44,6 +44,8 @@ const ICONS = [
   `${nx}/public/icons/S2_Icon_Close_20_N.svg`,
   `${nx}/public/icons/S2_Icon_CloseCircle_20_N.svg`,
   `${nx}/public/icons/S2_Icon_Checkmark_20_N.svg`,
+  `${nx}/public/icons/S2_Icon_Properties_20_N.svg`,
+  `${nx}/public/icons/S2_Icon_Tag_20_N.svg`,
   `${nx}/public/icons/C_Icon_Fragment.svg`,
   `${nx}/public/icons/S2_Icon_ListBulleted_20_N.svg`,
   `${nx}/public/icons/S2_Icon_Add_20_N.svg`,
@@ -1130,7 +1132,7 @@ class NxMediaInfo extends LitElement {
     return html`
                   <span class="tag-chip">
                     <svg class="tag-icon" viewBox="0 0 20 20">
-                      <use href="#S2_Icon_ListBulleted_20_N"></use>
+                      <use href="#S2_Icon_Tag_20_N"></use>
                     </svg>
                     ${leafName}
                     <button 
