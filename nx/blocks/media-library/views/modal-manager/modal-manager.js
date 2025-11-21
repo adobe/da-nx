@@ -3,6 +3,7 @@ import getStyle from '../../../../utils/styles.js';
 import getSvg from '../../../../public/utils/svg.js';
 import '../../../../public/sl/components.js';
 import '../mediainfo/mediainfo.js';
+import '../tag-modal/tag-modal.js';
 
 const styles = await getStyle(import.meta.url);
 const nx = `${new URL(import.meta.url).origin}/nx`;
@@ -82,14 +83,31 @@ class NxModalManager extends LitElement {
             .org=${this._modalData.org}
             .repo=${this._modalData.repo}
             .isScanning=${this._modalData.isScanning}
+            .tagConfig=${this._modalData.tagConfig}
+            .mediaTags=${this._modalData.mediaTags}
             .isOpen=${true}
             @close=${this.handleCloseModal}
             @altTextUpdated=${this.handleAltTextUpdated}
           ></nx-media-info>
         `;
+      case 'tag':
+        return html`
+          <nx-tag-modal
+            .selectedMedia=${this._modalData.selectedMedia}
+            .tagConfig=${this._modalData.tagConfig}
+            .isOpen=${true}
+            @close=${this.handleCloseModal}
+            @apply=${this.handleTagApply}
+          ></nx-tag-modal>
+        `;
       default:
         return null;
     }
+  }
+
+  handleTagApply(e) {
+    window.dispatchEvent(new CustomEvent('tag-apply', { detail: e.detail }));
+    this.handleCloseModal();
   }
 
   renderNotification() {

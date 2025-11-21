@@ -13,6 +13,12 @@ import {
   getFilterLabel,
   computeResultSummary,
 } from './utils/filters.js';
+import {
+  loadTagConfig,
+  loadTaggedMedia,
+  buildTagIndex,
+  getLeafTags,
+} from './utils/tags.js';
 import '../../public/sl/components.js';
 import './views/topbar/topbar.js';
 import './views/sidebar/sidebar.js';
@@ -47,6 +53,12 @@ class NxMediaLibrary extends LitElement {
     _sitePathValid: { state: true },
     _validationError: { state: true },
     _validationSuggestion: { state: true },
+    _tagConfig: { state: true },
+    _taggedMediaData: { state: true },
+    _tagIndex: { state: true },
+    _selectedTag: { state: true },
+    _isTaggingMode: { state: true },
+    _selectedMediaUrls: { state: true },
   };
 
   constructor() {
@@ -62,6 +74,12 @@ class NxMediaLibrary extends LitElement {
     this._selectedFolder = null;
     this._resultSummary = '';
     this._folderPathsCache = new Set();
+    this._tagConfig = null;
+    this._taggedMediaData = [];
+    this._tagIndex = { tagToMedia: new Map(), mediaToTags: new Map() };
+    this._selectedTag = null;
+    this._isTaggingMode = false;
+    this._selectedMediaUrls = new Set();
   }
 
   connectedCallback() {
@@ -69,7 +87,14 @@ class NxMediaLibrary extends LitElement {
     this.shadowRoot.adoptedStyleSheets = [sl, slComponents, topbarStyles, styles];
 
     this._boundHandleAltTextUpdated = this.handleAltTextUpdated.bind(this);
+    this._boundHandleTagAdded = this.handleTagAdded.bind(this);
+    this._boundHandleTagRemoved = this.handleTagRemoved.bind(this);
+    this._boundHandleTagApply = this.handleTagApply.bind(this);
     window.addEventListener('alt-text-updated', this._boundHandleAltTextUpdated);
+    window.addEventListener('tag-added', this._boundHandleTagAdded);
+    window.addEventListener('tag-removed', this._boundHandleTagRemoved);
+    window.addEventListener('tag-apply', this._boundHandleTagApply);
+    window.addEventListener('tag-cancel', this.handleTagCancel.bind(this));
   }
 
   disconnectedCallback() {
@@ -78,21 +103,25 @@ class NxMediaLibrary extends LitElement {
       clearTimeout(this._messageTimeout);
     }
     window.removeEventListener('alt-text-updated', this._boundHandleAltTextUpdated);
+    window.removeEventListener('tag-added', this._boundHandleTagAdded);
+    window.removeEventListener('tag-removed', this._boundHandleTagRemoved);
+    window.removeEventListener('tag-apply', this._boundHandleTagApply);
   }
 
   shouldUpdate(changedProperties) {
     if (changedProperties.size === 0) return false;
 
     const dataProps = ['_mediaData', '_error', '_progressiveMediaData', '_isScanning'];
-    const filterProps = ['_searchQuery', '_selectedFilterType', '_selectedFolder', '_selectedDocument'];
+    const filterProps = ['_searchQuery', '_selectedFilterType', '_selectedFolder', '_selectedDocument', '_selectedTag'];
     const uiProps = ['sitePath'];
     const scanProps = ['_scanProgress'];
     const validationProps = ['_isValidating', '_sitePathValid', '_validationError'];
+    const taggingProps = ['_isTaggingMode', '_selectedMediaUrls', '_tagConfig', '_taggedMediaData', '_tagIndex'];
 
     for (const prop of changedProperties.keys()) {
       if (dataProps.includes(prop) || filterProps.includes(prop)
           || uiProps.includes(prop) || scanProps.includes(prop)
-          || validationProps.includes(prop)) {
+          || validationProps.includes(prop) || taggingProps.includes(prop)) {
         return true;
       }
     }
@@ -167,6 +196,11 @@ class NxMediaLibrary extends LitElement {
 
     if (this._selectedDocument) {
       sourceData = sourceData.filter((item) => item.doc === this._selectedDocument);
+    }
+
+    if (this._selectedTag && this._tagIndex.tagToMedia) {
+      const taggedUrls = this._tagIndex.tagToMedia.get(this._selectedTag) || [];
+      sourceData = sourceData.filter((item) => taggedUrls.includes(item.url));
     }
 
     if (this._selectedFilterType && this._selectedFilterType.startsWith('document')
@@ -341,7 +375,15 @@ class NxMediaLibrary extends LitElement {
         return;
       }
 
-      const mediaData = await loadMediaSheet(this.sitePath);
+      const [mediaData, tagConfig, taggedMediaData] = await Promise.all([
+        loadMediaSheet(this.sitePath),
+        loadTagConfig(this.sitePath),
+        loadTaggedMedia(this.sitePath),
+      ]);
+
+      this._tagConfig = tagConfig;
+      this._taggedMediaData = taggedMediaData;
+      this._tagIndex = buildTagIndex(taggedMediaData);
 
       if (mediaData && mediaData.length > 0) {
         const basePath = getBasePath();
@@ -464,7 +506,12 @@ class NxMediaLibrary extends LitElement {
             .activeFilter=${this._selectedFilterType}
             .isScanning=${this._isScanning}
             .scanProgress=${this._scanProgress}
+            .tagConfig=${this._tagConfig}
+            .tagIndex=${this._tagIndex}
+            .selectedTag=${this._selectedTag}
             @filter=${this.handleFilter}
+            @tag-filter=${this.handleTagFilter}
+            @start-tagging=${this.handleStartTagging}
           ></nx-media-sidebar>
         </div>
 
@@ -500,6 +547,8 @@ class NxMediaLibrary extends LitElement {
   }
 
   renderCurrentView() {
+    console.log('[MEDIA-LIB renderCurrentView] _isTaggingMode:', this._isTaggingMode); // eslint-disable-line no-console
+    
     const hasData = this._mediaData && this._mediaData.length > 0;
     const hasFilteredData = this.filteredMediaData && this.filteredMediaData.length > 0;
     const hasProgressiveData = this._progressiveMediaData && this._progressiveMediaData.length > 0;
@@ -523,14 +572,19 @@ class NxMediaLibrary extends LitElement {
       displayData = this.filteredMediaData;
     }
 
+    console.log('[MEDIA-LIB] About to render grid with isTaggingMode:', this._isTaggingMode); // eslint-disable-line no-console
+
     return html`
       <nx-media-grid
         .mediaData=${displayData}
         .searchQuery=${this._searchQuery}
         .isScanning=${this._isScanning}
+        .isTaggingMode=${this._isTaggingMode}
+        .selectedMediaUrls=${this._selectedMediaUrls}
         @mediaClick=${this.handleMediaClick}
         @mediaCopy=${this.handleMediaCopy}
         @mediaUsage=${this.handleMediaUsage}
+        @media-select=${this.handleMediaSelect}
       ></nx-media-grid>
     `;
   }
@@ -595,12 +649,107 @@ class NxMediaLibrary extends LitElement {
     this.requestUpdate();
   }
 
+  handleTagFilter(e) {
+    const { tag } = e.detail;
+    this._selectedTag = tag;
+    this._selectedFilterType = 'all';
+    this._searchQuery = '';
+    this._selectedFolder = null;
+    this._selectedDocument = null;
+    this._filteredDataCache = null;
+    this.requestUpdate();
+  }
+
+  handleTagCancel() {
+    this._isTaggingMode = false;
+    this._selectedMediaUrls = new Set();
+    this.requestUpdate();
+  }
+
+  handleStartTagging() {
+    this._isTaggingMode = true;
+    this._selectedMediaUrls = new Set();
+    this.requestUpdate();
+
+    setTimeout(() => {
+      const selectedMedia = this._mediaData.filter((media) => this._selectedMediaUrls.has(media.url));
+
+      window.dispatchEvent(new CustomEvent('open-modal', {
+        detail: {
+          type: 'tag',
+          data: {
+            selectedMedia,
+            tagConfig: this._tagConfig,
+          },
+        },
+      }));
+    }, 100);
+  }
+
+  handleMediaSelect(e) {
+    const { mediaUrl, selected } = e.detail;
+    const newSet = new Set(this._selectedMediaUrls);
+    if (selected) {
+      newSet.add(mediaUrl);
+    } else {
+      newSet.delete(mediaUrl);
+    }
+    this._selectedMediaUrls = newSet;
+    this.requestUpdate();
+  }
+
+  async handleTagApply(e) {
+    const { tags, mode } = e.detail;
+    const mediaUrls = Array.from(this._selectedMediaUrls);
+    
+    if (mediaUrls.length === 0) return;
+    
+    const { updateMediaTags, saveTaggedMedia, buildTagIndex } = await import('./utils/tags.js');
+    
+    if (mode === 'replace') {
+      const updatedData = this._taggedMediaData.map((item) => {
+        if (mediaUrls.includes(item.url)) {
+          return { ...item, tags: tags.join(', ') };
+        }
+        return item;
+      });
+      
+      mediaUrls.forEach((url) => {
+        if (!updatedData.find((item) => item.url === url)) {
+          updatedData.push({
+            url,
+            tags: tags.join(', '),
+            'tagged-by': 'user',
+            'tagged-at': new Date().toISOString(),
+          });
+        }
+      });
+      
+      await saveTaggedMedia(this.sitePath, updatedData);
+      this._taggedMediaData = updatedData;
+    } else {
+      const updatedData = await updateMediaTags(
+        this.sitePath,
+        mediaUrls,
+        tags,
+        this._taggedMediaData,
+      );
+      this._taggedMediaData = updatedData;
+    }
+    
+    this._tagIndex = buildTagIndex(this._taggedMediaData);
+    this._isTaggingMode = false;
+    this._selectedMediaUrls = new Set();
+    this.requestUpdate();
+  }
+
   async handleMediaClick(e) {
     const { media } = e.detail;
     if (!media) return;
 
     const groupingKey = getGroupingKey(media.url);
     const usageData = this._usageIndex?.get(groupingKey) || [];
+    const mediaTags = this._tagIndex.mediaToTags.get(media.url) || [];
 
     window.dispatchEvent(new CustomEvent('open-modal', {
       detail: {
@@ -611,6 +760,8 @@ class NxMediaLibrary extends LitElement {
           org: this.org,
           repo: this.repo,
           isScanning: this._isScanning,
+          tagConfig: this._tagConfig,
+          mediaTags,
         },
       },
     }));
@@ -672,6 +823,48 @@ class NxMediaLibrary extends LitElement {
         this.requestUpdate();
       }
     }
+  }
+
+  async handleTagAdded(e) {
+    const { mediaUrl, tag } = e.detail;
+    const { updateMediaTags } = await import('./utils/tags.js');
+    
+    const updatedData = await updateMediaTags(
+      this.sitePath,
+      [mediaUrl],
+      [tag],
+      this._taggedMediaData,
+    );
+    
+    if (updatedData) {
+      const { buildTagIndex } = await import('./utils/tags.js');
+      this._taggedMediaData = updatedData;
+      this._tagIndex = buildTagIndex(updatedData);
+      this.requestUpdate();
+    }
+  }
+
+  async handleTagRemoved(e) {
+    const { mediaUrl, tag } = e.detail;
+    
+    const existingItem = this._taggedMediaData.find((item) => item.url === mediaUrl);
+    if (!existingItem) return;
+    
+    const currentTags = existingItem.tags.split(',').map((t) => t.trim()).filter(Boolean);
+    const newTags = currentTags.filter((t) => t !== tag);
+    
+    const { saveTaggedMedia, buildTagIndex } = await import('./utils/tags.js');
+    
+    if (newTags.length > 0) {
+      existingItem.tags = newTags.join(', ');
+    } else {
+      const index = this._taggedMediaData.indexOf(existingItem);
+      this._taggedMediaData.splice(index, 1);
+    }
+    
+    await saveTaggedMedia(this.sitePath, this._taggedMediaData);
+    this._tagIndex = buildTagIndex(this._taggedMediaData);
+    this.requestUpdate();
   }
 
   renderScanningState() {

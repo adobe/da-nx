@@ -41,12 +41,16 @@ class NxMediaGrid extends LitElement {
     mediaData: { type: Array },
     searchQuery: { type: String },
     isScanning: { type: Boolean },
+    isTaggingMode: { type: Boolean },
+    selectedMediaUrls: { type: Object },
   };
 
   constructor() {
     super();
     this.eventHandlers = createMediaEventHandlers(this);
     this.iconsLoaded = false;
+    this.isTaggingMode = false;
+    this.selectedMediaUrls = new Set();
   }
 
   connectedCallback() {
@@ -85,7 +89,7 @@ class NxMediaGrid extends LitElement {
     }
 
     return html`
-      <main class="media-main" id="grid-scroller">
+      <main class="media-main ${this.isTaggingMode ? 'tagging-mode' : ''}" id="grid-scroller">
         ${virtualize({
     items: this.mediaData,
     renderItem: (media) => this.renderMediaCard(media),
@@ -101,17 +105,34 @@ class NxMediaGrid extends LitElement {
     `;
   }
 
+  handleMediaSelection(media, e) {
+    e.stopPropagation();
+    const isSelected = this.selectedMediaUrls.has(media.url);
+    this.dispatchEvent(new CustomEvent('media-select', {
+      detail: { mediaUrl: media.url, selected: !isSelected },
+    }));
+  }
+
   renderMediaCard(media) {
     if (!media) return html``;
 
     const handlers = {
-      mediaClick: () => this.eventHandlers.handleMediaClick(media),
+      mediaClick: () => this.isTaggingMode ? this.handleMediaSelection(media, { stopPropagation: () => {} }) : this.eventHandlers.handleMediaClick(media),
       copyClick: () => this.eventHandlers.handleMediaCopy(media),
     };
     const usageCount = media.usageCount || 0;
+    const isSelected = this.selectedMediaUrls.has(media.url);
 
     return html`
-      <div class="media-card">
+      <div class="media-card ${isSelected ? 'selected' : ''}" data-url="${media.url}">
+        ${this.isTaggingMode ? html`
+          <input
+            type="checkbox"
+            class="media-checkbox"
+            .checked=${isSelected}
+            @click=${(e) => this.handleMediaSelection(media, e)}
+          />
+        ` : ''}
         <div class="media-preview clickable" @click=${handlers.mediaClick}>
           ${this.renderMediaPreview(media)}
         </div>
@@ -122,16 +143,18 @@ class NxMediaGrid extends LitElement {
           </div>
           <div class="media-actions">
             ${this.renderAltStatus(media)}
-            <button
-              class="icon-button share-button"
-              @click=${(e) => { e.stopPropagation(); handlers.copyClick(); }}
-              title="Copy to clipboard"
-              aria-label="Copy media URL to clipboard"
-            >
-              <svg class="icon" viewBox="0 0 20 20">
-                <use href="#S2_Icon_Share_20_N"></use>
-              </svg>
-            </button>
+            ${!this.isTaggingMode ? html`
+              <button
+                class="icon-button share-button"
+                @click=${(e) => { e.stopPropagation(); handlers.copyClick(); }}
+                title="Copy to clipboard"
+                aria-label="Copy media URL to clipboard"
+              >
+                <svg class="icon" viewBox="0 0 20 20">
+                  <use href="#S2_Icon_Share_20_N"></use>
+                </svg>
+              </button>
+            ` : ''}
           </div>
         </div>
       </div>

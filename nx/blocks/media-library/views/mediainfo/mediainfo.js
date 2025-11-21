@@ -21,6 +21,7 @@ import {
   getImageOrientation,
   fetchWithCorsProxy,
 } from '../../utils/utils.js';
+import { generateTagSuggestions } from '../../utils/tags.js';
 import loadScript from '../../../../utils/script.js';
 import { daFetch } from '../../../../utils/daFetch.js';
 import { DA_ORIGIN, SUPPORTED_FILES } from '../../../../public/utils/constants.js';
@@ -44,6 +45,8 @@ const ICONS = [
   `${nx}/public/icons/S2_Icon_CloseCircle_20_N.svg`,
   `${nx}/public/icons/S2_Icon_Checkmark_20_N.svg`,
   `${nx}/public/icons/C_Icon_Fragment.svg`,
+  `${nx}/public/icons/S2_Icon_ListBulleted_20_N.svg`,
+  `${nx}/public/icons/S2_Icon_Add_20_N.svg`,
 ];
 
 class NxMediaInfo extends LitElement {
@@ -54,6 +57,8 @@ class NxMediaInfo extends LitElement {
     org: { attribute: false },
     repo: { attribute: false },
     isScanning: { type: Boolean },
+    tagConfig: { attribute: false },
+    mediaTags: { attribute: false },
     _activeTab: { state: true },
     _exifData: { state: true },
     _loading: { state: true },
@@ -67,6 +72,9 @@ class NxMediaInfo extends LitElement {
     _editingAltUsage: { state: true },
     _imageDimensions: { state: true },
     _comprehensiveMetadata: { state: true },
+    _isEditingTags: { state: true },
+    _tagInput: { state: true },
+    _tagSuggestions: { state: true },
   };
 
   constructor() {
@@ -90,6 +98,11 @@ class NxMediaInfo extends LitElement {
     this._cachedMetadata = new Map();
     this._imageDimensions = null;
     this._comprehensiveMetadata = null;
+    this._isEditingTags = false;
+    this._tagInput = '';
+    this._tagSuggestions = [];
+    this.tagConfig = null;
+    this.mediaTags = [];
     this.handleKeyDown = this.handleKeyDown.bind(this);
   }
 
@@ -929,6 +942,8 @@ class NxMediaInfo extends LitElement {
 
           ${this.renderExifSection()}
         </div>
+
+        ${this.renderTagsField()}
       </div>
     `;
   }
@@ -1006,6 +1021,124 @@ class NxMediaInfo extends LitElement {
     return html`
       <div class="tab-content">
         ${this.renderUsageContent()}
+      </div>
+    `;
+  }
+
+  handleAddTags() {
+    this._isEditingTags = true;
+    this._tagInput = '';
+    this._tagSuggestions = [];
+  }
+
+  handleTagInput(e) {
+    this._tagInput = e.target.value;
+    if (this._tagInput && this.tagConfig) {
+      this._tagSuggestions = generateTagSuggestions(this.tagConfig.taxonomy, this._tagInput);
+    } else {
+      this._tagSuggestions = [];
+    }
+  }
+
+  handleTagSelect(tag) {
+    this._tagInput = '';
+    this._tagSuggestions = [];
+    this.dispatchEvent(new CustomEvent('tag-added', {
+      detail: { mediaUrl: this.media.url, tag },
+    }));
+  }
+
+  handleRemoveTag(tag) {
+    this.dispatchEvent(new CustomEvent('tag-removed', {
+      detail: { mediaUrl: this.media.url, tag },
+    }));
+  }
+
+  handleSaveTags() {
+    if (this._tagInput.trim() && this._tagSuggestions.length > 0) {
+      this.handleTagSelect(this._tagSuggestions[0].value);
+    }
+    this._isEditingTags = false;
+    this._tagInput = '';
+    this._tagSuggestions = [];
+  }
+
+  handleCancelTags() {
+    this._isEditingTags = false;
+    this._tagInput = '';
+    this._tagSuggestions = [];
+  }
+
+  renderTagsField() {
+    const currentTags = this.mediaTags || [];
+
+    if (this._isEditingTags) {
+      return html`
+        <div class="tags-edit-section">
+          <div class="tags-edit-form">
+            <sl-input
+              type="text"
+              placeholder="Search tags..."
+              .value=${this._tagInput}
+              @input=${this.handleTagInput}
+              size="small"
+            ></sl-input>
+            <button type="button" class="icon-button" @click=${this.handleSaveTags} aria-label="Done">
+              <svg class="icon" viewBox="0 0 20 20">
+                <use href="#S2_Icon_Checkmark_20_N"></use>
+              </svg>
+            </button>
+          </div>
+          ${this._tagSuggestions.length > 0 ? html`
+            <div class="tags-suggestions">
+              ${this._tagSuggestions.map((suggestion) => html`
+                <button 
+                  type="button" 
+                  class="tag-suggestion"
+                  @click=${() => this.handleTagSelect(suggestion.value)}
+                >
+                  ${suggestion.display}
+                  ${suggestion.parent ? html`<span class="tag-parent">${suggestion.parent}</span>` : ''}
+                </button>
+              `)}
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }
+
+    return html`
+      <div class="tags-field">
+        <div class="tags-label">Tags:</div>
+        <div class="tags-content">
+          ${currentTags.length > 0 ? html`
+            <div class="tags-chips">
+              ${currentTags.map((tag) => {
+    const parts = tag.split('/');
+    const leafName = parts[parts.length - 1];
+    return html`
+                  <span class="tag-chip">
+                    <svg class="tag-icon" viewBox="0 0 20 20">
+                      <use href="#S2_Icon_ListBulleted_20_N"></use>
+                    </svg>
+                    ${leafName}
+                    <button 
+                      type="button" 
+                      class="tag-remove" 
+                      @click=${() => this.handleRemoveTag(tag)}
+                      aria-label="Remove tag"
+                    >×</button>
+                  </span>
+                `;
+  })}
+            </div>
+          ` : html`<span class="no-tags">No tags</span>`}
+          <button type="button" class="icon-button add-tag-button" @click=${this.handleAddTags} aria-label="Add tags">
+            <svg class="icon" viewBox="0 0 20 20">
+              <use href="#S2_Icon_Add_20_N"></use>
+            </svg>
+          </button>
+        </div>
       </div>
     `;
   }

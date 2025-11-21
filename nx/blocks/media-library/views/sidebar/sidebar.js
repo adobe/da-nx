@@ -1,6 +1,7 @@
 import { html, LitElement } from 'da-lit';
 import getStyle from '../../../../utils/styles.js';
 import getSvg from '../../../../public/utils/svg.js';
+import { getLeafTags } from '../../utils/tags.js';
 
 const styles = await getStyle(import.meta.url);
 const nx = `${new URL(import.meta.url).origin}/nx`;
@@ -11,6 +12,8 @@ const ICONS = [
   `${nx}/public/icons/S2_Icon_Properties_20_N.svg`,
   `${nx}/public/icons/S2_GraphBarVertical_18_N.svg`,
   `${nx}/public/icons/C_Icon_Filters_20.svg`,
+  `${nx}/public/icons/S2_Icon_ListBulleted_20_N.svg`,
+  `${nx}/public/icons/S2_Icon_Add_20_N.svg`,
 ];
 
 class NxMediaSidebar extends LitElement {
@@ -18,7 +21,11 @@ class NxMediaSidebar extends LitElement {
     activeFilter: { attribute: false },
     isScanning: { attribute: false, type: Boolean },
     scanProgress: { attribute: false, type: Object },
+    tagConfig: { attribute: false },
+    tagIndex: { attribute: false },
+    selectedTag: { attribute: false },
     isExpanded: { state: true },
+    isTagsExpanded: { state: true },
     isIndexExpanded: { state: true },
   };
 
@@ -43,6 +50,7 @@ class NxMediaSidebar extends LitElement {
     super();
     this.activeFilter = 'all';
     this.isExpanded = false;
+    this.isTagsExpanded = false;
     this.isIndexExpanded = false;
     this.isScanning = false;
     this.scanProgress = { pages: 0, media: 0, duration: null, hasChanges: null };
@@ -55,6 +63,9 @@ class NxMediaSidebar extends LitElement {
   }
 
   handleFiltersToggle() {
+    if (this.isTagsExpanded) {
+      this.isTagsExpanded = false;
+    }
     if (this.isIndexExpanded) {
       this.isIndexExpanded = false;
     }
@@ -62,9 +73,22 @@ class NxMediaSidebar extends LitElement {
     this.dispatchEvent(new CustomEvent('sidebarToggle', { detail: { expanded: this.isExpanded } }));
   }
 
+  handleTagsToggle() {
+    if (this.isExpanded) {
+      this.isExpanded = false;
+    }
+    if (this.isIndexExpanded) {
+      this.isIndexExpanded = false;
+    }
+    this.isTagsExpanded = !this.isTagsExpanded;
+  }
+
   handleIndexToggle() {
     if (this.isExpanded) {
       this.isExpanded = false;
+    }
+    if (this.isTagsExpanded) {
+      this.isTagsExpanded = false;
     }
     this.isIndexExpanded = !this.isIndexExpanded;
   }
@@ -72,6 +96,11 @@ class NxMediaSidebar extends LitElement {
   handleFilter(e) {
     const filterType = e.target.dataset.filter;
     this.dispatchEvent(new CustomEvent('filter', { detail: { type: filterType } }));
+  }
+
+  handleTagClick(e) {
+    const tag = e.target.dataset.tag;
+    this.dispatchEvent(new CustomEvent('tag-filter', { detail: { tag } }));
   }
 
   renderFilterButton(filter) {
@@ -87,6 +116,66 @@ class NxMediaSidebar extends LitElement {
           ${filter.label}
         </button>
       </li>
+    `;
+  }
+
+  handleStartTagging() {
+    this.dispatchEvent(new CustomEvent('start-tagging', {
+      bubbles: true,
+      composed: true,
+    }));
+  }
+
+  renderTagsPanel() {
+    if (!this.tagConfig?.taxonomy) {
+      return html`
+        <div class="tags-panel">
+          <div class="tags-message empty">
+            No tags configured
+          </div>
+        </div>
+      `;
+    }
+
+    const leafTags = getLeafTags(this.tagConfig.taxonomy);
+    if (leafTags.length === 0) {
+      return html`
+        <div class="tags-panel">
+          <div class="tags-message empty">
+            No tags available
+          </div>
+        </div>
+      `;
+    }
+
+    return html`
+      <div class="tags-panel">
+        <div class="tags-panel-header">
+          <button class="tag-media-button" @click=${this.handleStartTagging}>
+            <svg class="icon" viewBox="0 0 20 20">
+              <use href="#S2_Icon_Add_20_N"></use>
+            </svg>
+            Tag Media
+          </button>
+        </div>
+        <ul class="tags-list">
+          ${leafTags.map((tag) => html`
+            <li>
+              <button
+                data-tag="${tag.path}"
+                @click=${this.handleTagClick}
+                class="${this.selectedTag === tag.path ? 'active' : ''}"
+                title="${tag.fullPath}"
+              >
+                <svg class="tag-icon">
+                  <use href="#S2_Icon_ListBulleted_20_N"></use>
+                </svg>
+                ${tag.name}
+              </button>
+            </li>
+          `)}
+        </ul>
+      </div>
     `;
   }
 
@@ -144,8 +233,10 @@ class NxMediaSidebar extends LitElement {
   }
 
   render() {
+    const isAnyExpanded = this.isExpanded || this.isTagsExpanded || this.isIndexExpanded;
+    
     return html`
-      <aside class="media-sidebar ${this.isExpanded || this.isIndexExpanded ? 'expanded' : 'collapsed'}">
+      <aside class="media-sidebar ${isAnyExpanded ? 'expanded' : 'collapsed'}">
         <div class="sidebar-icons">
           <button
             class="icon-btn ${this.isExpanded ? 'active' : ''}"
@@ -157,7 +248,20 @@ class NxMediaSidebar extends LitElement {
             <svg class="icon">
               <use href="#S2_Icon_Properties_20_N"></use>
             </svg>
-            ${this.isExpanded || this.isIndexExpanded ? html`<span>Filters</span>` : ''}
+            ${isAnyExpanded ? html`<span>Filters</span>` : ''}
+          </button>
+          
+          <button
+            class="icon-btn ${this.isTagsExpanded ? 'active' : ''}"
+            @click=${this.handleTagsToggle}
+            title="Tags"
+            aria-label="Toggle tags panel"
+            aria-expanded="${this.isTagsExpanded}"
+          >
+            <svg class="icon">
+              <use href="#S2_Icon_ListBulleted_20_N"></use>
+            </svg>
+            ${isAnyExpanded ? html`<span>Tags</span>` : ''}
           </button>
         </div>
 
@@ -182,6 +286,8 @@ class NxMediaSidebar extends LitElement {
           </div>
         ` : ''}
 
+        ${this.isTagsExpanded ? this.renderTagsPanel() : ''}
+
         <div class="sidebar-icons secondary">
           <button
             class="icon-btn ${this.isIndexExpanded ? 'active' : ''}"
@@ -193,7 +299,7 @@ class NxMediaSidebar extends LitElement {
             <svg class="icon">
               <use href="#S2_GraphBarVertical_18_N"></use>
             </svg>
-            ${this.isExpanded || this.isIndexExpanded ? html`<span>Index</span>` : ''}
+            ${isAnyExpanded ? html`<span>Index</span>` : ''}
           </button>
         </div>
 

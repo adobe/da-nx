@@ -1,0 +1,245 @@
+:host {
+  display: block;
+
+  > svg {
+    display: none;
+  }
+}
+
+svg.icon {
+  width: 20px;
+  height: 20px;
+  color: var(--s2-gray-900, #000);
+}
+
+.icon-button {
+  background: none;
+  border: none;
+  outline: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  padding: 0;
+}
+
+.modal-overlay {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 500;
+  width: 50%;
+  max-width: 800px;
+  min-width: 500px;
+}
+
+.modal-content {
+  padding: 10px 16px;
+  background: white;
+  border-radius: var(--s2-radius-100);
+  border: 1px solid var(--s2-gray-200);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 12%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.close-button {
+  padding: 4px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.modal-body {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.tag-input-section,
+.tag-mode-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.tag-input {
+  width: 220px;
+}
+
+.selected-tags-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.tag-suggestions-wrapper {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1001;
+  width: 50%;
+  max-width: 800px;
+  min-width: 500px;
+}
+
+.tag-suggestions {
+  max-height: 200px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid var(--s2-gray-200);
+  border-radius: var(--s2-radius-100);
+  box-shadow: 0 4px 12px rgb(0 0 0 / 15%);
+}
+
+.tag-suggestion {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 10px 14px;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.2s ease;
+}
+
+.tag-suggestion:hover {
+  background: var(--s2-gray-50);
+}
+
+.tag-icon {
+  width: 16px;
+  height: 16px;
+  opacity: 0.6;
+  flex-shrink: 0;
+}
+
+.tag-parent {
+  font-size: 12px;
+  color: var(--s2-gray-600);
+  margin-left: auto;
+}
+
+.selected-tags-chips {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: var(--s2-blue-100);
+  color: var(--s2-blue-900);
+  border-radius: var(--s2-radius-100);
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.tag-remove {
+  background: none;
+  border: none;
+  color: var(--s2-blue-700);
+  cursor: pointer;
+  padding: 0;
+  font-size: 18px;
+  line-height: 1;
+  font-weight: 600;
+  margin-left: 2px;
+}
+
+.tag-remove:hover {
+  color: var(--s2-blue-900);
+}
+
+.tag-mode-select {
+  width: 130px;
+  padding: 6px 12px;
+  border: 1px solid var(--s2-gray-300);
+  border-radius: var(--s2-radius-100);
+  background: white;
+  font-size: 14px;
+  color: var(--s2-gray-800);
+  cursor: pointer;
+}
+
+.tag-mode-select:hover {
+  border-color: var(--s2-gray-400);
+}
+
+.tag-mode-select:focus {
+  outline: 2px solid var(--s2-blue-500);
+  outline-offset: -1px;
+}
+
+.modal-footer {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.modal-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  border: none;
+  border-radius: var(--s2-radius-100);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  white-space: nowrap;
+}
+
+.modal-button .icon {
+  width: 14px;
+  height: 14px;
+}
+
+.modal-button.secondary {
+  background: var(--s2-gray-200);
+  color: var(--s2-gray-800);
+}
+
+.modal-button.secondary:hover {
+  background: var(--s2-gray-300);
+}
+
+.modal-button.primary {
+  background: var(--s2-blue-600);
+  color: #fff;
+}
+
+.modal-button.primary:hover:not(:disabled) {
+  background: var(--s2-blue-700);
+  color: #fff;
+}
+
+.modal-button.primary:disabled {
+  background: var(--s2-gray-300);
+  color: var(--s2-gray-500);
+  cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+  .modal-overlay {
+    width: 90%;
+    min-width: unset;
+  }
+}
+

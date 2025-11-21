@@ -556,3 +556,20 @@ mark {
   padding: 0 2px;
   border-radius: 2px;
 }
+
+/* Tagging Mode Styles */
+.media-card .media-checkbox {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  width: 24px;
+  height: 24px;
+  cursor: pointer;
+  z-index: 20;
+  accent-color: var(--s2-blue-600);
+}
+
+.media-card.selected {
+  outline: 3px solid var(--s2-blue-600);
+  outline-offset: -3px;
+}
