@@ -1043,15 +1043,28 @@ class NxMediaInfo extends LitElement {
   handleTagSelect(tag) {
     this._tagInput = '';
     this._tagSuggestions = [];
-    this.dispatchEvent(new CustomEvent('tag-added', {
+    
+    // Update local tags immediately for instant UI feedback
+    if (!this.mediaTags.includes(tag)) {
+      this.mediaTags = [...this.mediaTags, tag];
+    }
+    
+    window.dispatchEvent(new CustomEvent('tag-added', {
       detail: { mediaUrl: this.media.url, tag },
     }));
+    
+    this.requestUpdate();
   }
 
   handleRemoveTag(tag) {
-    this.dispatchEvent(new CustomEvent('tag-removed', {
+    // Update local tags immediately for instant UI feedback
+    this.mediaTags = this.mediaTags.filter((t) => t !== tag);
+    
+    window.dispatchEvent(new CustomEvent('tag-removed', {
       detail: { mediaUrl: this.media.url, tag },
     }));
+    
+    this.requestUpdate();
   }
 
   handleSaveTags() {
@@ -1072,45 +1085,43 @@ class NxMediaInfo extends LitElement {
   renderTagsField() {
     const currentTags = this.mediaTags || [];
 
-    if (this._isEditingTags) {
-      return html`
-        <div class="tags-edit-section">
-          <div class="tags-edit-form">
-            <sl-input
-              type="text"
-              placeholder="Search tags..."
-              .value=${this._tagInput}
-              @input=${this.handleTagInput}
-              size="small"
-            ></sl-input>
-            <button type="button" class="icon-button" @click=${this.handleSaveTags} aria-label="Done">
-              <svg class="icon" viewBox="0 0 20 20">
-                <use href="#S2_Icon_Checkmark_20_N"></use>
-              </svg>
-            </button>
-          </div>
-          ${this._tagSuggestions.length > 0 ? html`
-            <div class="tags-suggestions">
-              ${this._tagSuggestions.map((suggestion) => html`
-                <button 
-                  type="button" 
-                  class="tag-suggestion"
-                  @click=${() => this.handleTagSelect(suggestion.value)}
-                >
-                  ${suggestion.display}
-                  ${suggestion.parent ? html`<span class="tag-parent">${suggestion.parent}</span>` : ''}
-                </button>
-              `)}
-            </div>
-          ` : ''}
-        </div>
-      `;
-    }
-
     return html`
       <div class="tags-field">
         <div class="tags-label">Tags:</div>
         <div class="tags-content">
+          ${this._isEditingTags ? html`
+            <div class="tags-edit-section">
+              <div class="tags-edit-form">
+                <sl-input
+                  type="text"
+                  placeholder="Search tags..."
+                  .value=${this._tagInput}
+                  @input=${this.handleTagInput}
+                  size="small"
+                ></sl-input>
+                <button type="button" class="icon-button" @click=${this.handleSaveTags} aria-label="Done">
+                  <svg class="icon" viewBox="0 0 20 20">
+                    <use href="#S2_Icon_Checkmark_20_N"></use>
+                  </svg>
+                </button>
+              </div>
+              ${this._tagSuggestions.length > 0 ? html`
+                <div class="tags-suggestions">
+                  ${this._tagSuggestions.map((suggestion) => html`
+                    <button 
+                      type="button" 
+                      class="tag-suggestion"
+                      @click=${() => this.handleTagSelect(suggestion.value)}
+                    >
+                      ${suggestion.display}
+                      ${suggestion.parent ? html`<span class="tag-parent">${suggestion.parent}</span>` : ''}
+                    </button>
+                  `)}
+                </div>
+              ` : ''}
+            </div>
+          ` : ''}
+          
           ${currentTags.length > 0 ? html`
             <div class="tags-chips">
               ${currentTags.map((tag) => {
@@ -1132,12 +1143,15 @@ class NxMediaInfo extends LitElement {
                 `;
   })}
             </div>
-          ` : html`<span class="no-tags">No tags</span>`}
-          <button type="button" class="icon-button add-tag-button" @click=${this.handleAddTags} aria-label="Add tags">
-            <svg class="icon" viewBox="0 0 20 20">
-              <use href="#S2_Icon_Add_20_N"></use>
-            </svg>
-          </button>
+          ` : !this._isEditingTags ? html`<span class="no-tags">No tags</span>` : ''}
+          
+          ${!this._isEditingTags ? html`
+            <button type="button" class="icon-button add-tag-button" @click=${this.handleAddTags} aria-label="Add tags">
+              <svg class="icon" viewBox="0 0 20 20">
+                <use href="#S2_Icon_Add_20_N"></use>
+              </svg>
+            </button>
+          ` : ''}
         </div>
       </div>
     `;
