@@ -175,6 +175,9 @@ class NxSnapshot extends LitElement {
         // Schedule the publish instead of immediate approval
         this._action = 'Scheduling';
 
+        // Validate scheduled publish time before saving
+        this.validateSchedule(scheduledPublish);
+
         // Save the manifest first with the scheduled publish data
         const manifest = this.getUpdatedManifest();
         await this.handleEditUrls();
