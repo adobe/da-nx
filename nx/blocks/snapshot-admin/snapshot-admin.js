@@ -1,6 +1,6 @@
 import { html, LitElement, repeat, nothing } from 'da-lit';
 import getStyle from '../../utils/styles.js';
-import { fetchSnapshots, setOrgSite, isRegistered } from './utils/utils.js';
+import { fetchSnapshots, setOrgSite, isRegistered, getUserPublishPermission } from './utils/utils.js';
 
 import '../../public/sl/components.js';
 import './views/dialog.js';
@@ -56,7 +56,7 @@ class NxSnapshotAdmin extends LitElement {
 
     this._snapshots = result.snapshots;
     this._isRegistered = await isRegistered(org, site);
-    this._userPermissions = result.permissions || [];
+    this._userPermissions = await getUserPublishPermission();
   }
 
   handleSetSite(e) {

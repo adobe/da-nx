@@ -82,8 +82,8 @@ export async function fetchSnapshots() {
   const snapshots = json.snapshots.map((snapshot) => (
     { org, site, name: snapshot }
   ));
-  console.log('permissions', resp.permissions);
-  return { snapshots, permissions: resp.permissions };
+
+  return { snapshots };
 }
 
 export async function deleteSnapshot(name, paths = ['/*']) {
@@ -188,6 +188,22 @@ export async function updateSchedule(snapshotId, approved = false) {
   });
   const result = resp.headers.get('X-Error');
   return { status: resp.status, text: result };
+}
+
+export async function getUserPublishPermission(path = '/') {
+  try {
+    // Use the admin.hlx.page status endpoint to check permissions
+    const statusURL = `https://admin.hlx.page/status/${org}/${site}/main${path}`;
+    const resp = await daFetch(statusURL);
+    if (!resp.ok) return false;
+
+    const json = await resp.json();
+    // Check if 'write' is in the live.permissions array - this indicates publish permission
+    return json.live?.permissions?.includes('write') || false;
+  } catch (error) {
+    console.error('Error checking user publish permission', error);
+    return false;
+  }
 }
 
 export async function isRegistered() {
