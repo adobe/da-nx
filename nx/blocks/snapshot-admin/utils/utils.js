@@ -82,7 +82,7 @@ export async function fetchSnapshots() {
   const snapshots = json.snapshots.map((snapshot) => (
     { org, site, name: snapshot }
   ));
-
+  console.log('permissions', resp.permissions);
   return { snapshots, permissions: resp.permissions };
 }
 
