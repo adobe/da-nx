@@ -26,6 +26,7 @@ iframe {
 
 .nx-dialog {
   padding: 20px;
+  max-width: 600px;
 
   h2 {
     margin-bottom: 15px;
