@@ -259,7 +259,7 @@ class NxSnapshot extends LitElement {
   }
 
   get _hasPublishPermission() {
-    return this.userPermissions?.includes('publish') || this.userPermissions?.includes('basic_publish');
+    return this.userPermissions === true;
   }
 
   renderUrls() {
