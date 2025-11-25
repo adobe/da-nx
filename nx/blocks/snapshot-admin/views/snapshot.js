@@ -167,6 +167,48 @@ class NxSnapshot extends LitElement {
   }
 
   async handleReview(state) {
+    // Check if we're approving and have a scheduled publish date
+    if (state === 'approve') {
+      const scheduledPublish = this.getValue('[name="scheduler"]');
+      if (scheduledPublish && scheduledPublish !== '') {
+        // Schedule the publish instead of immediate approval
+        this._action = 'Scheduling';
+
+        // Save the manifest first with the scheduled publish data
+        const manifest = this.getUpdatedManifest();
+        await this.handleEditUrls();
+        const saveResult = await saveManifest(this.basics.name, manifest);
+
+        if (saveResult.error) {
+          this._action = undefined;
+          this._message = { heading: 'Note', message: saveResult.error, open: true };
+          return;
+        }
+
+        // Now schedule the publish
+        const scheduleResult = await updateSchedule(this.basics.name, true);
+        this._action = undefined;
+
+        if (scheduleResult.status !== 200) {
+          this._message = {
+            heading: 'Schedule Error',
+            message: scheduleResult.text || 'Failed to schedule publish',
+            open: true,
+          };
+          return;
+        }
+
+        this._message = {
+          heading: 'Scheduled',
+          message: 'Snapshot publish has been scheduled successfully.',
+          open: true,
+        };
+        this.loadManifest();
+        return;
+      }
+    }
+
+    // Normal review flow (request, reject, or approve without schedule)
     this._action = 'Saving';
     const result = await reviewSnapshot(this.basics.name, state);
     this._action = undefined;

@@ -172,12 +172,13 @@ export async function copyManifest(name, resources, direction) {
   await Promise.all(urls.map((url) => queue.push(url)));
 }
 
-export async function updateSchedule(snapshotId) {
+export async function updateSchedule(snapshotId, approved = false) {
   const adminURL = `${SNAPSHOT_SCHEDULER_URL}/schedule`;
   const body = {
     org,
     site,
     snapshotId,
+    approved,
   };
   const headers = { 'content-type': 'application/json' };
   const resp = await daFetch(`${adminURL}`, {
