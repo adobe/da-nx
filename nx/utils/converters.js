@@ -151,6 +151,7 @@ export function mdToDocDom(md) {
 
   let htmlText = toHtml(hast);
   htmlText = htmlText.replaceAll('.hlx.page', '.hlx.live');
+  htmlText = htmlText.replaceAll('.hlx.live', '.aem.live');
   htmlText = htmlText.replaceAll('.aem.page', '.aem.live');
 
   const parser = new DOMParser();
