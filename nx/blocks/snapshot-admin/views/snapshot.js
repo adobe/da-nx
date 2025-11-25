@@ -31,6 +31,7 @@ class NxSnapshot extends LitElement {
   static properties = {
     basics: { attribute: false },
     isRegistered: { attribute: false },
+    userPermissions: { attribute: false },
     _manifest: { state: true },
     _editUrls: { state: true },
     _message: { state: true },
@@ -257,6 +258,10 @@ class NxSnapshot extends LitElement {
     return undefined;
   }
 
+  get _hasPublishPermission() {
+    return this.userPermissions?.includes('publish') || this.userPermissions?.includes('basic_publish');
+  }
+
   renderUrls() {
     return html`
       <ul class="nx-snapshot-urls">
@@ -330,7 +335,7 @@ class NxSnapshot extends LitElement {
             <sl-textarea name="description" resize="none" .value="${this._manifest?.description}"></sl-textarea>
             <p class="nx-snapshot-sub-heading">Password</p>
             <sl-input type="password" name="password" .value=${this._manifest?.metadata?.reviewPassword}></sl-input>
-            ${this.isRegistered ? html`
+            ${this.isRegistered && this._hasPublishPermission ? html`
               <p class="nx-snapshot-sub-heading">Schedule Publish</p>
               <sl-input type="datetime-local" name="scheduler" .value=${formatLocalDate(this._manifest?.metadata?.scheduledPublish)}></sl-input>
             ` : nothing}

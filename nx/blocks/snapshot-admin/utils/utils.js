@@ -83,7 +83,7 @@ export async function fetchSnapshots() {
     { org, site, name: snapshot }
   ));
 
-  return { snapshots };
+  return { snapshots, permissions: resp.permissions };
 }
 
 export async function deleteSnapshot(name, paths = ['/*']) {
