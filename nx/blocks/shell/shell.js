@@ -10,6 +10,11 @@ const CHANNEL = new MessageChannel();
 
 await import('../../public/sl/components.js');
 
+const TRUSTED_ORGS = ['adobe'];
+const TRUSTED_APPS = [
+  'https://main--storefront-tools--adobe-commerce.aem.live/tools/site-creator/site-creator.html'
+];
+ 
 /**
  * Parses the current URL to extract view, organization, repository, reference, path, search, and hash information
  * @returns {Object} Object containing parsed URL components
@@ -84,6 +89,10 @@ function createIframe(el) {
 }
 
 function isAppTrusted(org, repo, ref) {
+  const url = getUrl();
+  if (TRUSTED_ORGS.includes(org)) return true;
+  if (TRUSTED_APPS.some(trustedApp => url.startsWith(trustedApp))) return true;
+  
   const trustedApps = JSON.parse(localStorage.getItem('trustedApps') || '{}');
   const appKey = `${org}/${repo}/${ref}`;
   return trustedApps[appKey] === true;
@@ -97,7 +106,8 @@ function trustApp(org, repo, ref) {
 }
 
 function showDisclaimer(el) {
-  const { org, repo, ref } = getParts();
+  const { org, repo, ref, path } = getParts();
+  const appName = path.split('/').pop();
   const devWarning = ref !== 'main' 
     ? `<p><b>Note:</b> You are accessing a development version of the app on branch <b>${ref}</b>.` 
     : '';
@@ -109,7 +119,7 @@ function showDisclaimer(el) {
         <h2>Warning</h2>
         <div>
         </div>
-        <p>You are about to access an app named <b>${repo}</b> distributed by <b>${org}</b>.<br>
+        <p>You are about to access an app named <b>${appName}</b> distributed by <b>${org}</b>.<br>
         Make sure you trust the distributor <b>${org}</b>. Their app may take any action on your behalf, including <b>deleting content</b> you have access to.</p>
         ${devWarning}
         <p><b>Are you sure you want to continue?</b></p>
@@ -142,6 +152,8 @@ function showDisclaimer(el) {
  */
 export default function init(el) {
   const { org, repo, ref } = getParts();
+  const url = getUrl();
+
   if (isAppTrusted(org, repo, ref)) {
     createIframe(el);
   } else {
