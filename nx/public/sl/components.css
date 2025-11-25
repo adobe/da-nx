@@ -224,6 +224,17 @@ svg.icon {
         background: var(--s2-red-800);
         border-color: var(--s2-red-800);
       }
+
+      &.outline {
+        background: transparent;
+        color: var(--s2-red-900);
+
+        &:hover {
+          background: transparent;
+          border-color: var(--s2-red-800);
+          color: var(--s2-red-800);
+        }
+      }
     }
 
     &.icon-only {
