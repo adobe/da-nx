@@ -16,3 +16,22 @@ iframe {
   width: 100%;
   height: 100%;
 }
+
+.nx-button-group {
+  display: flex;
+  gap: 10px;
+  justify-content: end;
+  margin-top: 20px;
+}
+
+.nx-dialog {
+  padding: 20px;
+
+  h2 {
+    margin-bottom: 15px;
+  }
+
+  p {
+    margin-bottom: 10px;
+  }
+}
