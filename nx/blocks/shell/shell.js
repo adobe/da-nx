@@ -83,25 +83,12 @@ function createIframe(el) {
   el.append(iframe);
 }
 
-/**
- * Checks if an app is trusted in localStorage
- * @param {string} org - Organization name
- * @param {string} repo - Repository name
- * @param {string} ref - Reference/branch name
- * @returns {boolean} Whether the app is trusted
- */
 function isAppTrusted(org, repo, ref) {
   const trustedApps = JSON.parse(localStorage.getItem('trustedApps') || '{}');
   const appKey = `${org}/${repo}/${ref}`;
   return trustedApps[appKey] === true;
 }
 
-/**
- * Saves the app as trusted in localStorage
- * @param {string} org - Organization name
- * @param {string} repo - Repository name
- * @param {string} ref - Reference/branch name
- */
 function trustApp(org, repo, ref) {
   const trustedApps = JSON.parse(localStorage.getItem('trustedApps') || '{}');
   const appKey = `${org}/${repo}/${ref}`;
