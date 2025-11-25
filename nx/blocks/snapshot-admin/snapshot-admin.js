@@ -1,6 +1,6 @@
 import { html, LitElement, repeat, nothing } from 'da-lit';
 import getStyle from '../../utils/styles.js';
-import { fetchSnapshots, setOrgSite, isRegistered } from './utils/utils.js';
+import { fetchSnapshots, setOrgSite, isRegistered, getUserPublishPermission } from './utils/utils.js';
 
 import '../../public/sl/components.js';
 import './views/dialog.js';
@@ -20,6 +20,7 @@ class NxSnapshotAdmin extends LitElement {
     _sitePathError: { state: true },
     _snapshots: { state: true },
     _isRegistered: { state: false },
+    _userPermissions: { state: true },
   };
 
   connectedCallback() {
@@ -55,6 +56,7 @@ class NxSnapshotAdmin extends LitElement {
 
     this._snapshots = result.snapshots;
     this._isRegistered = await isRegistered(org, site);
+    this._userPermissions = await getUserPublishPermission();
   }
 
   handleSetSite(e) {
@@ -97,7 +99,7 @@ class NxSnapshotAdmin extends LitElement {
         <div class="nx-snapshot-list">
           <ul>
             ${repeat(this._snapshots, (snapshot) => snapshot.name, (snapshot, idx) => html`
-              <li><nx-snapshot @delete=${() => this.handleDelete(idx)} .basics=${snapshot} .isRegistered=${this._isRegistered}></nx-snapshot></li>
+              <li><nx-snapshot @delete=${() => this.handleDelete(idx)} .basics=${snapshot} .isRegistered=${this._isRegistered} .userPermissions=${this._userPermissions}></nx-snapshot></li>
             `)}
           </ul>
         </div>
