@@ -172,12 +172,13 @@ export async function copyManifest(name, resources, direction) {
   await Promise.all(urls.map((url) => queue.push(url)));
 }
 
-export async function updateSchedule(snapshotId) {
+export async function updateSchedule(snapshotId, approved = false) {
   const adminURL = `${SNAPSHOT_SCHEDULER_URL}/schedule`;
   const body = {
     org,
     site,
     snapshotId,
+    approved,
   };
   const headers = { 'content-type': 'application/json' };
   const resp = await daFetch(`${adminURL}`, {
@@ -187,6 +188,22 @@ export async function updateSchedule(snapshotId) {
   });
   const result = resp.headers.get('X-Error');
   return { status: resp.status, text: result };
+}
+
+export async function getUserPublishPermission(path = '/') {
+  try {
+    // Use the admin.hlx.page status endpoint to check permissions
+    const statusURL = `https://admin.hlx.page/status/${org}/${site}/main${path}`;
+    const resp = await daFetch(statusURL);
+    if (!resp.ok) return false;
+
+    const json = await resp.json();
+    // Check if 'write' is in the live.permissions array - this indicates publish permission
+    return json.live?.permissions?.includes('write') || false;
+  } catch (error) {
+    console.error('Error checking user publish permission', error);
+    return false;
+  }
 }
 
 export async function isRegistered() {

@@ -31,6 +31,7 @@ class NxSnapshot extends LitElement {
   static properties = {
     basics: { attribute: false },
     isRegistered: { attribute: false },
+    userPermissions: { attribute: false },
     _manifest: { state: true },
     _editUrls: { state: true },
     _message: { state: true },
@@ -167,6 +168,51 @@ class NxSnapshot extends LitElement {
   }
 
   async handleReview(state) {
+    // Check if we're approving and have a scheduled publish date
+    if (state === 'approve') {
+      const scheduledPublish = this.getValue('[name="scheduler"]');
+      if (scheduledPublish && scheduledPublish !== '') {
+        // Schedule the publish instead of immediate approval
+        this._action = 'Scheduling';
+
+        // Validate scheduled publish time before saving
+        this.validateSchedule(scheduledPublish);
+
+        // Save the manifest first with the scheduled publish data
+        const manifest = this.getUpdatedManifest();
+        await this.handleEditUrls();
+        const saveResult = await saveManifest(this.basics.name, manifest);
+
+        if (saveResult.error) {
+          this._action = undefined;
+          this._message = { heading: 'Note', message: saveResult.error, open: true };
+          return;
+        }
+
+        // Now schedule the publish
+        const scheduleResult = await updateSchedule(this.basics.name, true);
+        this._action = undefined;
+
+        if (scheduleResult.status !== 200) {
+          this._message = {
+            heading: 'Schedule Error',
+            message: scheduleResult.text || 'Failed to schedule publish',
+            open: true,
+          };
+          return;
+        }
+
+        this._message = {
+          heading: 'Scheduled',
+          message: 'Snapshot publish has been scheduled successfully.',
+          open: true,
+        };
+        this.loadManifest();
+        return;
+      }
+    }
+
+    // Normal review flow (request, reject, or approve without schedule)
     this._action = 'Saving';
     const result = await reviewSnapshot(this.basics.name, state);
     this._action = undefined;
@@ -213,6 +259,10 @@ class NxSnapshot extends LitElement {
     if (this._manifest?.review === 'requested' && this._manifest?.locked) return 'Ready';
     if (this._manifest?.review === 'rejected') return 'Rejected';
     return undefined;
+  }
+
+  get _hasPublishPermission() {
+    return this.userPermissions === true;
   }
 
   renderUrls() {
@@ -288,7 +338,7 @@ class NxSnapshot extends LitElement {
             <sl-textarea name="description" resize="none" .value="${this._manifest?.description}"></sl-textarea>
             <p class="nx-snapshot-sub-heading">Password</p>
             <sl-input type="password" name="password" .value=${this._manifest?.metadata?.reviewPassword}></sl-input>
-            ${this.isRegistered ? html`
+            ${this.isRegistered && this._hasPublishPermission ? html`
               <p class="nx-snapshot-sub-heading">Schedule Publish</p>
               <sl-input type="datetime-local" name="scheduler" .value=${formatLocalDate(this._manifest?.metadata?.scheduledPublish)}></sl-input>
             ` : nothing}
