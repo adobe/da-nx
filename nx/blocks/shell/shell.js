@@ -119,8 +119,8 @@ function showDisclaimer(el) {
         <h2>Warning</h2>
         <div>
         </div>
-        <p>You are about to access an app named <b>${appName}</b> distributed by <b>${org}</b>.<br>
-        Make sure you trust the distributor <b>${org}</b>. Their app may take any action on your behalf, including <b>deleting content</b> you have access to.</p>
+        <p>You are about to access an app named <b>${appName}</b> hosted by <b>${org}/${repo}</b>.<br>
+        Make sure you trust the host <b>${org}/${repo}</b>. Their app may take any action on your behalf, including <b>deleting content</b> you have access to.</p>
         ${devWarning}
         <p><b>Are you sure you want to continue?</b></p>
         <div class="nx-button-group">
