@@ -1,106 +1,35 @@
 import { DA_ORIGIN } from '../../../../public/utils/constants.js';
 import { daFetch } from '../../../../utils/daFetch.js';
-import { formatDate } from '../../utils/utils.js';
 
-function getActionStatus(actionableLangs, action) {
-  const langsStatus = actionableLangs.reduce((acc, lang) => {
-    const status = lang[action]?.status || 'not started';
-    acc.push(status);
-    return acc;
-  }, []);
-  const successTotal = langsStatus.filter((status) => status === 'complete').length;
-  const notStartedTotal = langsStatus.filter((status) => status === 'not started').length;
-  const cancelledTotal = langsStatus.filter((status) => status === 'cancelled').length;
-  const waitingTotal = langsStatus.filter((status) => status === 'waiting').length;
-  if (successTotal === actionableLangs.length) return 'complete';
-  if (notStartedTotal === actionableLangs.length) return 'not started';
-  if (cancelledTotal === actionableLangs.length - waitingTotal) return 'cancelled';
-  return 'in progress';
-}
+const TRANSLATION_PATH_ACTIVE = 'translation/active';
+const TRANSLATION_PATH_ARCHIVE = 'translation/archive';
 
-function getRolloutStatus(langs) {
-  // Anything with locales is assumed to need rollout
-  const actionableLangs = langs.filter((lang) => lang.locales);
-  if (!actionableLangs.length) return null;
-  return getActionStatus(actionableLangs, 'rollout');
-}
+/**
+ * Fetch project JSON from the server
+ * @param {string} projectPath - The project path (e.g., '/.da/translation/active/123456.json')
+ * @param {Object} options - Optional fetch options
+ * @returns {Promise<{ok: boolean, status: number, data?: Object}>}
+ */
+export async function fetchProject(projectPath, options = {}) {
+  const resp = await daFetch(`${DA_ORIGIN}/source${projectPath}`, options);
 
-function getTranslationStatus(langs) {
-  const actionableLangs = langs.filter((lang) => lang.action === 'translate');
-  if (!actionableLangs.length) return null;
-  return getActionStatus(actionableLangs, 'translation');
-}
-
-function getLocalesTotal(langs) {
-  return langs.reduce((acc, lang) => {
-    if (lang.locales?.length) {
-      const total = acc + lang.locales.length;
-      return total;
-    }
-    return acc;
-  }, 0);
-}
-
-export async function fetchProjectList(org, site, type = 'active') {
-  const resp = await daFetch(`${DA_ORIGIN}/list/${org}/${site}/.da/translation/${type}`);
   if (!resp.ok) {
-    return {
-      message: {
-        message: `Not authorized for: ${org} / ${site}.`,
-        help: 'Are you logged into the correct profile?',
-        status: resp.status,
-      },
-    };
+    return { ok: false, status: resp.status, statusText: resp.statusText };
   }
-  const json = await resp.json();
-  return { projects: json.reverse() };
-}
 
-async function fetchProject(project) {
-  const resp = await daFetch(`${DA_ORIGIN}/source${project.path}`);
-  if (!resp.ok) return { ...project, error: `Error fetching project: ${resp.status}` };
-  return resp.json();
-}
-
-export async function fetchPagedDetails(projectList, pageCount) {
-  // Filter down to the first 50 projects that don't have a title.
-  const projectsToFetch = projectList.filter((item) => !item.title && !item.error)
-    .slice(0, pageCount);
-
-  return Promise.all(projectsToFetch.map(async (project) => {
-    const timestamp = project.path.split('/').pop().replace('.json', '');
-    const created = formatDate(Number(timestamp));
-    const json = await fetchProject(project);
-    const combined = {
-      ...project,
-      ...json,
-      created,
-      createdOn: Number(timestamp),
-      langsTotal: json.langs?.length || 0,
-    };
-
-    if (json.modifiedDate) {
-      combined.modified = formatDate(Number(json.modifiedDate));
-    }
-
-    if (json.langs) {
-      const localesTotal = getLocalesTotal(json.langs);
-      if (localesTotal) combined.localesTotal = localesTotal;
-
-      const translateStatus = getTranslationStatus(json.langs);
-      if (translateStatus) combined.translateStatus = translateStatus;
-      const rolloutStatus = getRolloutStatus(json.langs);
-      if (rolloutStatus) combined.rolloutStatus = rolloutStatus;
-    }
-
-    return combined;
-  }));
+  const data = await resp.json();
+  return { ok: true, status: resp.status, statusText: resp.statusText, data };
 }
 
 export async function copyProject(project, email) {
-  const { name, path } = project;
+  const { path } = project;
 
-  const json = await fetchProject({ name, path });
+  const result = await fetchProject(`${path}.json`);
+  if (!result.ok) {
+    throw new Error(`Error fetching project: ${result.status}`);
+  }
+
+  const json = result.data;
   if (json.langs) {
     json.langs.forEach((lang) => {
       delete lang.translation;
@@ -111,6 +40,7 @@ export async function copyProject(project, email) {
   const newProject = {
     org: json.org,
     site: json.site,
+    snapshot: json.snapshot,
     title: `${json.title}-copy`,
     createdBy: email,
     modifiedBy: email,
@@ -121,26 +51,26 @@ export async function copyProject(project, email) {
   };
 
   const body = new FormData();
-
   const data = new Blob([JSON.stringify(newProject)], { type: 'application/json' });
   body.append('data', data);
 
-  const opts = { body, method: 'POST' };
+  const newTimestamp = Date.now();
+  // Replace the last path segment (timestamp) with the new timestamp
+  const newPath = path.substring(0, path.lastIndexOf('/') + 1) + newTimestamp;
 
-  const newName = Date.now();
+  await daFetch(`${DA_ORIGIN}/source${newPath}.json`, { body, method: 'POST' });
 
-  const newPath = path.replace(name, newName);
-
-  await daFetch(`${DA_ORIGIN}/source${newPath}`, opts);
-
-  return fetchPagedDetails([{ path: newPath, name: newName, ext: 'json', lastModified: newName }]);
+  // Return just the path and timestamp for the new project
+  return { path: newPath, lastModified: newTimestamp, newProject };
 }
 
 export async function archiveProject(project) {
   const { path } = project;
 
   const formData = new FormData();
-  formData.append('destination', path.replace('translation/active', 'translation/archive'));
+  const newPath = path.replace(TRANSLATION_PATH_ACTIVE, TRANSLATION_PATH_ARCHIVE);
+  formData.append('destination', `${newPath}.json`);
   const opts = { body: formData, method: 'POST' };
-  await daFetch(`${DA_ORIGIN}/move${project.path}`, opts);
+  await daFetch(`${DA_ORIGIN}/move${path}.json`, opts);
+  return newPath;
 }
