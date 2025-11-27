@@ -25,7 +25,12 @@ export const daFetch = async (url, opts = {}) => {
       opts.headers.Authorization = `Bearer ${accessToken.token}`;
     }
   }
-  const resp = await fetch(url, opts);
+  let resp;
+  try {
+    resp = await fetch(url, opts);
+  } catch (err) {
+    resp = new Response(null, { status: 500, statusText: err.message });
+  }
   if (resp.status === 401) {
     const { loadIms, handleSignIn } = await import('./ims.js');
     await loadIms();
