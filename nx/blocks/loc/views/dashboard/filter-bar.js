@@ -1,10 +1,17 @@
-import { LitElement, html } from '../../../../deps/lit/lit-core.min.js';
+import { LitElement, html, nothing } from '../../../../deps/lit/lit-core.min.js';
 import { getConfig } from '../../../../scripts/nexter.js';
 import getStyle from '../../../../utils/styles.js';
+import getSvg from '../../../../utils/svg.js';
 
 const { nxBase } = getConfig();
 const style = await getStyle(import.meta.url);
 const buttons = await getStyle(`${nxBase}/styles/buttons.js`);
+
+const FILTER_BAR_ICONS = [
+  `${nxBase}/blocks/loc/img/clear.svg`,
+];
+
+const PROJECT_STATUSES = ['not started', 'in progress', 'complete', 'cancelled'];
 
 class NxFilterBar extends LitElement {
   static properties = {
@@ -25,13 +32,35 @@ class NxFilterBar extends LitElement {
     this.searchQuery = '';
     this.startDate = null;
     this.endDate = null;
-    this.translationStatuses = ['Error', 'Completed', 'Created', 'In Progress'];
-    this.rolloutStatuses = ['Error', 'Completed', 'Rollout Ready', 'In Progress'];
+    this.translationStatuses = PROJECT_STATUSES;
+    this.rolloutStatuses = PROJECT_STATUSES;
     this.selectedTranslationStatuses = [];
     this.selectedRolloutStatuses = [];
     this._showFilterPopup = false; // Track popup visibility
     this.viewAllProjects = true; // Default to "All Projects"
     this.showArchivedProjects = false; // Default to not showing archived projects
+    this._searchDebounceTimeout = null; // Debounce timeout for search input
+    this._boundHandleOutsideClick = (e) => this.handleOutsideClick(e);
+    this._popupPosition = { top: 0, left: 0 };
+  }
+
+  handleSearchInput(e) {
+    this.searchQuery = e.target.value;
+
+    // Clear existing timeout
+    if (this._searchDebounceTimeout) {
+      clearTimeout(this._searchDebounceTimeout);
+    }
+
+    // Set new timeout to emit change after 300ms
+    this._searchDebounceTimeout = setTimeout(() => {
+      this.emitFilterChange();
+    }, 300);
+  }
+
+  clearSearch() {
+    this.searchQuery = '';
+    this.emitFilterChange();
   }
 
   emitFilterChange() {
@@ -71,39 +100,38 @@ class NxFilterBar extends LitElement {
     }
   }
 
-  handleTranslationStatusChange(event) {
+  handleStatusChange(propertyName, event) {
     const { value, checked } = event.target;
     if (checked) {
-      this.selectedTranslationStatuses = [...this.selectedTranslationStatuses, value];
+      this[propertyName] = [...this[propertyName], value];
     } else {
-      this.selectedTranslationStatuses = this.selectedTranslationStatuses.filter(
-        (status) => status !== value,
-      );
+      this[propertyName] = this[propertyName].filter((status) => status !== value);
     }
     this.emitFilterChange();
   }
 
+  handleTranslationStatusChange(event) {
+    this.handleStatusChange('selectedTranslationStatuses', event);
+  }
+
   handleRolloutStatusChange(event) {
-    const { value, checked } = event.target;
-    if (checked) {
-      this.selectedRolloutStatuses = [...this.selectedRolloutStatuses, value];
-    } else {
-      this.selectedRolloutStatuses = this.selectedRolloutStatuses.filter(
-        (status) => status !== value,
-      );
-    }
-    this.emitFilterChange();
+    this.handleStatusChange('selectedRolloutStatuses', event);
   }
 
   connectedCallback() {
     super.connectedCallback();
-    window.addEventListener('click', (e) => this.handleOutsideClick(e));
+    window.addEventListener('click', this._boundHandleOutsideClick);
     this.shadowRoot.adoptedStyleSheets = [style, buttons];
+    getSvg({ parent: this.shadowRoot, paths: FILTER_BAR_ICONS });
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
-    window.removeEventListener('click', (e) => this.handleOutsideClick(e));
+    window.removeEventListener('click', this._boundHandleOutsideClick);
+    // Clear search debounce timeout on disconnect
+    if (this._searchDebounceTimeout) {
+      clearTimeout(this._searchDebounceTimeout);
+    }
   }
 
   toggleViewAllProjects() {
@@ -116,11 +144,29 @@ class NxFilterBar extends LitElement {
     this.emitFilterChange();
   }
 
+  handleStartDateChange(e) {
+    this.startDate = e.target.value;
+    this.emitFilterChange();
+  }
+
+  handleEndDateChange(e) {
+    this.endDate = e.target.value;
+    this.emitFilterChange();
+  }
+
+  applyFilters() {
+    this._showFilterPopup = false;
+    this.emitFilterChange();
+  }
+
   render() {
     return html`
       <div class="filter-bar">
-        <!-- Search Input -->
-        <input type="text" class="search-input" placeholder="Search projects..." .value=${this.searchQuery} @input=${(e) => { this.searchQuery = e.target.value; this.emitFilterChange(); }} />
+        <!-- Search Input with Clear Button -->
+        <div class="search-container">
+          <input type="text" class="search-input" placeholder="Search projects..." .value=${this.searchQuery} @input=${this.handleSearchInput} />
+          ${this.searchQuery ? html`<button class="clear-search-btn" @click=${this.clearSearch} title="Clear search"><svg class="icon"><use href="#da-loc-clear"/></svg></button>` : nothing}
+        </div>
 
         <!-- Filter Button -->
         <button class="filter-button" @click=${this.toggleFilterPopup}>Filters</button>
@@ -148,17 +194,17 @@ class NxFilterBar extends LitElement {
                             ${status}
                         </label>`)}
                     </div>
-                    <button class="apply-filter-button" @click=${() => { this._showFilterPopup = false; this.emitFilterChange(); }}>
+                    <button class="apply-filter-button" @click=${this.applyFilters}>
                       Apply
                     </button>
                 </div>
-              </div>` : ''}
+              </div>` : nothing}
           <!-- Filter Popup -->
 
         <!-- Date Range -->
-        <input type="date" class="date-picker" @change=${(e) => { this.startDate = e.target.value; this.emitFilterChange(); }} />
+        <input type="date" class="date-picker" .value=${this.startDate || ''} @change=${this.handleStartDateChange} />
         <span>to</span>
-        <input type="date" class="date-picker" @change=${(e) => { this.endDate = e.target.value; this.emitFilterChange(); }} />
+        <input type="date" class="date-picker" .value=${this.endDate || ''} @change=${this.handleEndDateChange} />
 
         <!-- Toggle Switch -->
         <div class="toggle-switch">
