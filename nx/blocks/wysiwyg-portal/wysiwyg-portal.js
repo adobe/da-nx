@@ -173,39 +173,12 @@ async function initProse(owner, repo, path) {
 
   const permissions = resp.permissions;
 
-  const daTitle = document.createElement("da-title");
-  const daContent = document.createElement("da-content");
-
-  const details = {
-    editor: "edit",
-    owner,
-    repo,
-    path,
-    sourceUrl,
-    permissions,
-  };
-
-  daTitle.permissions = permissions;
-  daContent.permissions = permissions;
-
-  daTitle.details = details;
-  daContent.details = details;
-
-  document.body.append(daTitle);
-  document.body.append(daContent);
-
   ({ proseEl, wsProvider } = prose.default({ 
     path: sourceUrl, 
     permissions, 
     rerenderPage: () => updateDocument(), 
     updateText: (text, cursorOffset) => updateText(text, cursorOffset),
   }));
-
-  daContent.proseEl = proseEl;
-  daContent.wsProvider = wsProvider;
-
-  daTitle.proseEl = proseEl;
-  daTitle.wsProvider = wsProvider;
 }
 
 export default async function decorate(el) {
