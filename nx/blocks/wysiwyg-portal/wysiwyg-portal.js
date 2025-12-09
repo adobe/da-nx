@@ -153,6 +153,10 @@ function updateDocument() {
   port.postMessage({ set: "body", body });
 }
 
+function updateText(text, cursorOffset) {
+  port.postMessage({ set: 'text', text, cursorOffset });
+}
+
 async function initProse(owner, repo, path) {
   prose = await import(
     "./prose.js"
@@ -188,7 +192,12 @@ async function initProse(owner, repo, path) {
   document.body.append(daTitle);
   document.body.append(daContent);
 
-  ({ proseEl, wsProvider } = prose.default({ path: sourceUrl, permissions, onChange: () => updateDocument() }));
+  ({ proseEl, wsProvider } = prose.default({ 
+    path: sourceUrl, 
+    permissions, 
+    rerenderPage: () => updateDocument(), 
+    updateText: (text, cursorOffset) => updateText(text, cursorOffset),
+  }));
 
   daContent.proseEl = proseEl;
   daContent.wsProvider = wsProvider;

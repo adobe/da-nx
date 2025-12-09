@@ -10,26 +10,7 @@ import {
 } from 'https://main--da-live--adobe.aem.live/deps/da-y-wrapper/dist/index.js';
 import { getSchema } from 'https://main--da-live--adobe.aem.live/blocks/edit/prose/schema.js';
 import { COLLAB_ORIGIN, DA_ORIGIN } from 'https://main--da-live--adobe.aem.live/blocks/shared/constants.js';
-
-function generateColor(name, hRange = [0, 360], sRange = [60, 80], lRange = [40, 60]) {
-  let hash = 0;
-  for (let i = 0; i < name.length; i += 1) {
-    // eslint-disable-next-line no-bitwise
-    hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  hash = Math.abs(hash);
-  const normalizeHash = (min, max) => Math.floor((hash % (max - min)) + min);
-  const h = normalizeHash(hRange[0], hRange[1]);
-  const s = normalizeHash(sRange[0], sRange[1]);
-  const l = normalizeHash(lRange[0], lRange[1]) / 100;
-  const a = (s * Math.min(l, 1 - l)) / 100;
-  const f = (n) => {
-    const k = (n + h / 30) % 12;
-    const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
-    return Math.round(255 * color).toString(16).padStart(2, '0');
-  };
-  return `#${f(0)}${f(8)}${f(4)}`;
-}
+import { findChangedNodes, generateColor } from './utils.js';
 
 function registerErrorHandler(ydoc) {
   ydoc.on('update', () => {
@@ -42,14 +23,33 @@ function registerErrorHandler(ydoc) {
   });
 }
 
-function trackCursorAndChanges(callback) {
+function trackCursorAndChanges(rerenderPage, updateText) {
   let updateTimeout = null;
+  let pendingTextChanges = [];
 
-  const scheduleUpdate = () => {
+  const scheduleTextUpdates = (textChanges) => {
     if (updateTimeout) clearTimeout(updateTimeout);
+    
+    // Accumulate text changes
+    pendingTextChanges = textChanges;
 
     updateTimeout = setTimeout(() => {
-      callback?.();
+      // Call updateText for each text change
+      pendingTextChanges.forEach((change) => {
+        updateText?.(change.newText, change.pos);
+      });
+      pendingTextChanges = [];
+      updateTimeout = null;
+    }, 500);
+  };
+
+  const schedulePageRerender = () => {
+    if (updateTimeout) clearTimeout(updateTimeout);
+    
+    pendingTextChanges = [];
+
+    updateTimeout = setTimeout(() => {
+      rerenderPage?.();
       updateTimeout = null;
     }, 500);
   };
@@ -61,8 +61,21 @@ function trackCursorAndChanges(callback) {
           const docChanged = view.state.doc !== prevState.doc;
 
           if (docChanged) {
-            // Document changed - schedule update after 500ms of no changes
-            scheduleUpdate();
+            // Traverse tree and find changed nodes
+            const changes = findChangedNodes(prevState.doc, view.state.doc);
+            
+            if (changes.length > 0) {
+              // Check if all changes are text-only changes
+              const allTextChanges = changes.every((change) => change.type === 'text');
+
+              if (allTextChanges) {
+                // All changes are text - schedule debounced text updates
+                scheduleTextUpdates(changes);
+              } else {
+                // Mixed or non-text changes - schedule page rerender
+                schedulePageRerender();
+              }
+            }
             return;
           }
         },
@@ -71,7 +84,7 @@ function trackCursorAndChanges(callback) {
   });
 }
 
-export default function initProse({ path, permissions, onChange }) {
+export default function initProse({ path, permissions, rerenderPage, updateText }) {
   // Destroy ProseMirror if it already exists - GH-212
   if (window.view) {
     window.view.destroy();
@@ -119,7 +132,7 @@ export default function initProse({ path, permissions, onChange }) {
 
   const plugins = [
     ySyncPlugin(yXmlFragment),
-    trackCursorAndChanges(onChange),
+    trackCursorAndChanges(rerenderPage, updateText),
   ];
 
   let state = EditorState.create({ schema, plugins });
