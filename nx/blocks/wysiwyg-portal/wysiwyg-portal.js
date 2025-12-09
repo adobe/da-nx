@@ -55,6 +55,13 @@ export function getHtmlWithCursor(view) {
     }
   });
 
+  editorClone.querySelectorAll('table').forEach((table) => {
+    const div = document.createElement('div');
+    div.className = 'tableWrapper';
+    table.insertAdjacentElement('afterend', div);
+    div.append(table);
+  });
+
   addEditorInstrumentation(editorClone);
 
   // Convert to an HTML string using prose2aem
@@ -130,22 +137,15 @@ function onMessage(e) {
   }
 }
 
-function createPreview(daContent) {
-  // TODO we probably want an official API to hook into updates vs hijacking setBody
-  const daPreview = document.createElement("da-preview");
-  daContent.shadowRoot.appendChild(daPreview);
-  daPreview.setBody = () => {
-    console.log(window.view);
-    console.log("setBody");
-    daPreview.body = getHtmlWithCursor(window.view);
-    port.postMessage({ set: "body", body: daPreview.body });
-  };
-  return daPreview;
+function updateDocument() {
+  const body = getHtmlWithCursor(window.view);
+  console.log(body);
+  port.postMessage({ set: "body", body });
 }
 
 async function initProse(owner, repo, path) {
   prose = await import(
-    "https://main--da-live--adobe.aem.live/blocks/edit/prose/index.js?ref=local"
+    "./prose.js"
   );
 
   const sourceUrl = `https://admin.da.live/source/${owner}/${repo}/${
@@ -178,15 +178,13 @@ async function initProse(owner, repo, path) {
   document.body.append(daTitle);
   document.body.append(daContent);
 
-  ({ proseEl, wsProvider } = prose.default({ path: sourceUrl, permissions }));
+  ({ proseEl, wsProvider } = prose.default({ path: sourceUrl, permissions, onChange: () => updateDocument() }));
 
   daContent.proseEl = proseEl;
   daContent.wsProvider = wsProvider;
 
   daTitle.proseEl = proseEl;
   daTitle.wsProvider = wsProvider;
-
-  createPreview(daContent);
 }
 
 export default async function decorate(el) {
