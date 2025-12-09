@@ -145,6 +145,8 @@ function onMessage(e) {
     handleContentUpdate(e.data);
   } else if (e.data.type === 'cursor-move') {
     handleCursorMove(e.data);
+  } else if (e.data.type === 'reload') {
+    updateDocument();
   }
 }
 
