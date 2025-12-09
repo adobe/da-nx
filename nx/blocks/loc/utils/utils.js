@@ -93,8 +93,9 @@ export function convertPath({ path, sourcePrefix, destPrefix, snapshotPrefix = '
   const paths = { daBasePath: `${snapshotPrefix}${daBasePath}`, aemBasePath: `${snapshotPrefix}${aemBasePath}`, ext };
 
   if (destPrefix) {
-    paths.daDestPath = `${snapshotPrefix}${destPrefix}${daBasePath}`;
-    paths.aemDestPath = `${snapshotPrefix}${destPrefix}${aemBasePath}`;
+    const normalizedDestPrefix = destPrefix.replace(/\/$/, '');
+    paths.daDestPath = `${snapshotPrefix}${normalizedDestPrefix}${daBasePath}`;
+    paths.aemDestPath = `${snapshotPrefix}${normalizedDestPrefix}${aemBasePath}`;
   }
 
   return paths;
