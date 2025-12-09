@@ -7,6 +7,7 @@ import {
   Y,
   WebsocketProvider,
   ySyncPlugin,
+  yCursorPlugin,
 } from 'https://main--da-live--adobe.aem.live/deps/da-y-wrapper/dist/index.js';
 import { getSchema } from 'https://main--da-live--adobe.aem.live/blocks/edit/prose/schema.js';
 import { COLLAB_ORIGIN, DA_ORIGIN } from 'https://main--da-live--adobe.aem.live/blocks/shared/constants.js';
@@ -132,6 +133,7 @@ export default function initProse({ path, permissions, rerenderPage, updateText 
 
   const plugins = [
     ySyncPlugin(yXmlFragment),
+    yCursorPlugin(wsProvider.awareness),
     trackCursorAndChanges(rerenderPage, updateText),
   ];
 

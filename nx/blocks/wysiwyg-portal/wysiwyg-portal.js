@@ -37,6 +37,9 @@ export function getInstrumentedHTML(view) {
   // Clone the editor first so we don't modify the real DOM
   const editorClone = view.dom.cloneNode(true);
 
+  console.log(editorClone);
+  console.log(editorClone.querySelector('.ProseMirror-yjs-cursor'));
+
   // Add data-cursor attribute to all h1 elements with their starting position
   const originalElements = view.dom.querySelectorAll(EDITABLE_SELECTORS);
   const clonedElements = editorClone.querySelectorAll(EDITABLE_SELECTORS);
@@ -63,6 +66,16 @@ export function getInstrumentedHTML(view) {
   });
 
   addEditorInstrumentation(editorClone);
+
+  const remoteCursors = editorClone.querySelectorAll('.ProseMirror-yjs-cursor');
+
+  remoteCursors.forEach((remoteCursor) => {
+    const closestEditable = remoteCursor.closest('[data-cursor]');
+    console.log(closestEditable);
+    if (closestEditable) {
+      closestEditable.setAttribute('data-cursor-remote', remoteCursor.innerText);
+    }
+  });
 
   // Convert to an HTML string using prose2aem
   return prose2aem(editorClone, true);
@@ -133,6 +146,7 @@ function handleContentUpdate({ newText, cursorOffset }) {
 function handleCursorMove({ cursorOffset, textCursorOffset }) {
   console.log("cursor move", cursorOffset, textCursorOffset);
   // TODO implement this
+  // window.view.doc;
   // wsProvider.awareness.setLocalStateField('cursor', {
   //   anchor: cursorOffset,
   //   head: cursorOffset,
@@ -151,6 +165,7 @@ function onMessage(e) {
 }
 
 function updateDocument() {
+  console.log(window.view);
   const body = getInstrumentedHTML(window.view);
   port.postMessage({ set: "body", body });
 }
