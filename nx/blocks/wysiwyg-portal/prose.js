@@ -43,37 +43,15 @@ function registerErrorHandler(ydoc) {
 }
 
 function trackCursorAndChanges(callback) {
-  let lastCursorPos = null;
-  let lastBlockPos = null;
   let updateTimeout = null;
-  let pendingDocChange = false;
 
-  const schedulePreviewUpdate = () => {
+  const scheduleUpdate = () => {
     if (updateTimeout) clearTimeout(updateTimeout);
 
     updateTimeout = setTimeout(() => {
       callback?.();
-      pendingDocChange = false;
       updateTimeout = null;
     }, 500);
-  };
-
-  const getBlockPosition = (state, pos) => {
-    // Resolve the position to get context about where it is in the document
-    const $pos = state.doc.resolve(pos);
-
-    // Find the depth of the nearest block-level node
-    // Start from the deepest position and walk up to find a block
-    for (let d = $pos.depth; d > 0; d -= 1) {
-      const node = $pos.node(d);
-      if (node.isBlock) {
-        // Return the position before this block node
-        return $pos.before(d);
-      }
-    }
-
-    // Fallback to the position itself
-    return pos;
   };
 
   return new Plugin({
@@ -84,34 +62,8 @@ function trackCursorAndChanges(callback) {
 
           if (docChanged) {
             // Document changed - schedule update after 500ms of no changes
-            pendingDocChange = true;
-            schedulePreviewUpdate();
+            scheduleUpdate();
             return;
-          }
-
-          // Only track cursor if no pending document changes
-          if (pendingDocChange) return;
-
-          const { from, to } = view.state.selection;
-          const isNodeSelection = view.state.selection instanceof NodeSelection;
-
-          // Don't update during text selection (when from !== to),
-          // but allow node selections (like images)
-          if (from !== to && !isNodeSelection) return;
-
-          const currentPos = `${from}-${to}`;
-          const currentBlockPos = getBlockPosition(view.state, from);
-
-          // Only update if cursor position actually changed
-          if (currentPos !== lastCursorPos) {
-            // Only set preview body if:
-            // 1. We had a lastCursorPos (not the first position)
-            // 2. AND the block changed (moved to a different block/row)
-            if (lastCursorPos && currentBlockPos !== lastBlockPos) {
-              callback?.();
-            }
-            lastCursorPos = currentPos;
-            lastBlockPos = currentBlockPos;
           }
         },
       };

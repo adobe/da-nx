@@ -33,7 +33,7 @@ function addEditorInstrumentation(editor) {
 }
 
 // TODO move to a utils
-export function getHtmlWithCursor(view) {
+export function getInstrumentedHTML(view) {
   // Clone the editor first so we don't modify the real DOM
   const editorClone = view.dom.cloneNode(true);
 
@@ -48,7 +48,7 @@ export function getHtmlWithCursor(view) {
         const editableElementStartPos = view.posAtDOM(originalElement, 0);
         clonedElements[index].setAttribute('data-cursor', editableElementStartPos);
       } catch (e) {
-        // If we can't find the position, skip this h1
+        // If we can't find the position, skip this element
         // eslint-disable-next-line no-console
         console.warn('Could not find position for element:', e);
       }
@@ -130,16 +130,26 @@ function handleContentUpdate({ newText, cursorOffset }) {
   }
 }
 
+function handleCursorMove({ cursorOffset, textCursorOffset }) {
+  console.log("cursor move", cursorOffset, textCursorOffset);
+  // TODO implement this
+  // wsProvider.awareness.setLocalStateField('cursor', {
+  //   anchor: cursorOffset,
+  //   head: cursorOffset,
+  // });
+}
+
 function onMessage(e) {
   console.log("message", e);
   if (e.data.type === "content-update") {
     handleContentUpdate(e.data);
+  } else if (e.data.type === 'cursor-move') {
+    handleCursorMove(e.data);
   }
 }
 
 function updateDocument() {
-  const body = getHtmlWithCursor(window.view);
-  console.log(body);
+  const body = getInstrumentedHTML(window.view);
   port.postMessage({ set: "body", body });
 }
 
