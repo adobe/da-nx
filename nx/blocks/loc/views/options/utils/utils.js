@@ -122,7 +122,16 @@ export function formatLangs(langs, config) {
     [lang.activeAction] = split;
 
     if (typeof lang.locales === 'string') {
-      lang.locales = lang.locales.split(',').map((value) => ({ code: value.trim(), active: true }));
+      const hasDefaultLocales = 'default locales' in lang;
+      const defaultLocales = lang['default locales']
+        ?.split(',')
+        .map((value) => value.trim())
+        .filter((v) => v);
+
+      lang.locales = lang.locales.split(',').map((value) => {
+        const code = value.trim();
+        return { code, active: hasDefaultLocales ? defaultLocales?.includes(code) ?? false : true };
+      });
     }
 
     if (lang['source language']) {
