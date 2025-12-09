@@ -704,7 +704,7 @@ class NxMediaInfo extends LitElement {
               <div class="metadata-label">Lens</div>
               <div class="metadata-value">${this._comprehensiveMetadata.camera.lens}</div>
             ` : ''}
-            
+
             ${this._comprehensiveMetadata?.settings?.iso ? html`
               <div class="metadata-label">ISO</div>
               <div class="metadata-value">${this._comprehensiveMetadata.settings.iso}</div>
@@ -721,12 +721,12 @@ class NxMediaInfo extends LitElement {
               <div class="metadata-label">Focal Length</div>
               <div class="metadata-value">${this._comprehensiveMetadata.settings.focalLength}mm</div>
             ` : ''}
-            
+
             ${this._comprehensiveMetadata?.dateTime ? html`
               <div class="metadata-label">Date Captured</div>
               <div class="metadata-value">${formatDateTime(this._comprehensiveMetadata.dateTime)}</div>
             ` : ''}
-            
+
             ${this._comprehensiveMetadata?.gps?.latitude ? html`
               <div class="metadata-label">Latitude</div>
               <div class="metadata-value">${this._comprehensiveMetadata.gps.latitude.toFixed(6)}</div>
@@ -739,7 +739,7 @@ class NxMediaInfo extends LitElement {
               <div class="metadata-label">Altitude</div>
               <div class="metadata-value">${this._comprehensiveMetadata.gps.altitude}m</div>
             ` : ''}
-            
+
             ${this._comprehensiveMetadata?.iptc?.keywords ? html`
               <div class="metadata-label">Keywords</div>
               <div class="metadata-value">${Array.isArray(this._comprehensiveMetadata.iptc.keywords) ? this._comprehensiveMetadata.iptc.keywords.join(', ') : this._comprehensiveMetadata.iptc.keywords}</div>
@@ -756,7 +756,7 @@ class NxMediaInfo extends LitElement {
               <div class="metadata-label">Creator</div>
               <div class="metadata-value">${this._comprehensiveMetadata.iptc.creator}</div>
             ` : ''}
-            
+
             ${this._comprehensiveMetadata?.xmp?.rating ? html`
               <div class="metadata-label">Rating</div>
               <div class="metadata-value">${this._comprehensiveMetadata.xmp.rating}</div>
@@ -970,8 +970,8 @@ class NxMediaInfo extends LitElement {
             <div class="usage-section">
               <div class="document-heading">
                 <div class="document-path">
+                  <p class="usage-path">${doc.split('.')[0]}</p>
                   <p class="usage-org">${org}</p>
-                  <p class="usage-path">${doc}</p>
                   <button type="button" size="small" class="icon-button toggle-actions" @click=${this.showActions}>
                     <svg class="icon" viewBox="0 0 22 20">
                       <use href="#S2_Icon_ChevronRight_20_N"></use>
@@ -1046,6 +1046,7 @@ class NxMediaInfo extends LitElement {
                 type="button"
                 class="tab-button ${this._activeTab === 'usage' ? 'active' : ''}"
                 data-tab="usage"
+                aria-selected=${this._activeTab === 'usage' ? 'true' : 'false'}
                 @click=${this.handleTabChange}
               >
               <svg class="reference-icon icon" viewBox="0 0 22 20">
@@ -1059,6 +1060,7 @@ class NxMediaInfo extends LitElement {
                 type="button"
                 class="tab-button ${this._activeTab === 'metadata' ? 'active' : ''}"
                 data-tab="metadata"
+                aria-selected=${this._activeTab === 'metadata' ? 'true' : 'false'}
                 @click=${this.handleTabChange}
               >
               <svg class="image-info-icon icon" viewBox="0 0 20 20">

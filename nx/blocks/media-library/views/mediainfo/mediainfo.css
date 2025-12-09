@@ -59,7 +59,7 @@ button {
 
   &.toggle-actions {
     position: absolute;
-    right: 0;
+    right: 24px;
     top: 12px;
     height: 42px;
     transform: translateY(-11px);
@@ -87,7 +87,6 @@ button {
   --row-spacing: 12px;
   --action-row-multiplier: 1;
 
-  background: var(--s2-gray-50);
   border-radius: var(--s2-radius-100);
   box-shadow: 0 4px 20px rgb(0 0 0 / 15%);
   max-width: 1200px;
@@ -102,7 +101,6 @@ button {
     align-items: start;
     justify-content: space-between;
     padding: 24px 20px;
-    background: var(--s2-gray-50);
     position: relative;
 
     .media-origin {
@@ -143,7 +141,6 @@ button {
   .modal-body {
     overflow-y: auto;
     flex: 1;
-    background: var(--s2-gray-50);
     height: 460px;
   }
 }
@@ -161,50 +158,53 @@ button {
 
 .modal-tabs {
   display: flex;
-  background: var(--s2-gray-50);
-  gap: 0;
+  gap: 18px;
+  margin: 0 24px;
 
-  .tab-button {
-    padding: 12px 24px;
+  button {
+    padding: 12px 0;
+    margin-bottom: 1px;
     border: none;
     background: transparent;
     color: var(--s2-gray-700);
     font-size: 16px;
     font-weight: 600;
     cursor: pointer;
-    transition: all 0.2s ease;
-    border-bottom: 3px solid transparent;
     position: relative;
-    border-radius: 0 6px 0 0;
     display: flex;
     gap: 5px;
+    text-transform: uppercase;
+    transition: color 0.2s ease;
+
+    &::after {
+      content: "";
+      opacity: 0;
+      position: absolute;
+      bottom: -1px;
+      left: 0;
+      right: 0;
+      height: 3px;
+      transition: opacity 0.2s ease-in-out;
+      background: rgb(19  19 19);
+      border-radius: 3px;
+    }
+
+    &[aria-selected="true"] {
+      color: var(--s2-gray-800);
+
+      &::after {
+        opacity: 1;
+      }
+    }
+
+    &:hover {
+      color: #000;
+    }
 
     svg.reference-icon,
     svg.image-info-icon {
       transform: translateY(3px);
     }
-  }
-
-  .tab-button:hover {
-    background: var(--s2-gray-200);
-    color: #000;
-  }
-
-  .tab-button.active {
-    color: var(--s2-gray-800);
-    border-bottom-color: #000;
-    border-bottom-width: 3px;
-    transition: background-color 0.2s ease;
-  }
-
-  .tab-button.active::after {
-    content: "";
-    position: absolute;
-    bottom: -1px;
-    left: 0;
-    right: 0;
-    height: 1px;
-    background: #fff;
   }
 
   .tab-content {
@@ -226,6 +226,7 @@ button {
 
 .modal-details {
   overflow: hidden;
+  background: white;
 }
 
 .image-preview-container {
@@ -504,26 +505,67 @@ button {
   }
 
   .usage-org {
-    font-weight: 600;
-  }
-
-  .usage-path {
     font-size: smaller;
     color: var(--s2-gray-500);
     width: 95%;
   }
+
+  .usage-path {
+    font-weight: 600;
+  }
 }
 
 .usage-section {
-  border-bottom: 1px solid var(--s2-gray-200);
   display: grid;
   align-items: start;
-  padding: 24px;
+  padding: 24px 0;
   box-sizing: border-box;
+  position: relative;
   transition: background 0.25s ease;
 
+  > * {
+    padding: 0 24px;
+  }
+
+  &::before {
+    content: "";
+    position: absolute;
+    top: -1px;
+    left: 0;
+    display: block;
+    width: 100%;
+    height: 1px;
+    background: transparent;
+  }
+
+  &::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 24px;
+    right: 24px;
+    display: block;
+    height: 1px;
+    background: rgb(209 209 209);
+  }
+
   &:hover {
-    background: var(--s2-blue-200);
+    background: rgb(228 240 255);
+    border-color: rgb(20 122 243);
+
+    &::before {
+      background-color: rgb(20 122 243);
+    }
+
+    &::after {
+      background: rgb(20 122 243);
+      left: 0;
+      right: 0;
+    }
+  }
+
+  &::before:hover {
+    background-color: rgb(20 122 243);
   }
 }
 
@@ -541,7 +583,7 @@ button {
 }
 
 .usage-container {
-  padding: 24px 0 0;
+  padding-top: 24px;
 }
 
 .usage-table {
