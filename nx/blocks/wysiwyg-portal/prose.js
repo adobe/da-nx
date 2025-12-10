@@ -24,7 +24,7 @@ function registerErrorHandler(ydoc) {
   });
 }
 
-function trackCursorAndChanges(rerenderPage, updateText) {
+function trackCursorAndChanges(rerenderPage, updateText, updateCursors) {
   let updateTimeout = null;
   let pendingTextChanges = [];
 
@@ -78,6 +78,8 @@ function trackCursorAndChanges(rerenderPage, updateText) {
               }
             }
             return;
+          } else {
+            updateCursors?.();
           }
         },
       };
@@ -85,7 +87,7 @@ function trackCursorAndChanges(rerenderPage, updateText) {
   });
 }
 
-export default function initProse({ path, permissions, rerenderPage, updateText }) {
+export default function initProse({ path, permissions, rerenderPage, updateText, updateCursors }) {
   // Destroy ProseMirror if it already exists - GH-212
   if (window.view) {
     window.view.destroy();
@@ -134,7 +136,7 @@ export default function initProse({ path, permissions, rerenderPage, updateText 
   const plugins = [
     ySyncPlugin(yXmlFragment),
     yCursorPlugin(wsProvider.awareness),
-    trackCursorAndChanges(rerenderPage, updateText),
+    trackCursorAndChanges(rerenderPage, updateText, updateCursors),
   ];
 
   let state = EditorState.create({ schema, plugins });

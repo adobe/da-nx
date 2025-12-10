@@ -1,5 +1,6 @@
 import { loadIms } from "../../utils/ims.js";
 import { default as prose2aem } from "https://main--da-live--adobe.aem.live/blocks/shared/prose2aem.js?ref=local";
+import { TextSelection } from "https://main--da-live--adobe.aem.live/deps/da-y-wrapper/dist/index.js";
 
 let port;
 
@@ -37,9 +38,6 @@ export function getInstrumentedHTML(view) {
   // Clone the editor first so we don't modify the real DOM
   const editorClone = view.dom.cloneNode(true);
 
-  console.log(editorClone);
-  console.log(editorClone.querySelector('.ProseMirror-yjs-cursor'));
-
   // Add data-cursor attribute to all h1 elements with their starting position
   const originalElements = view.dom.querySelectorAll(EDITABLE_SELECTORS);
   const clonedElements = editorClone.querySelectorAll(EDITABLE_SELECTORS);
@@ -71,7 +69,6 @@ export function getInstrumentedHTML(view) {
 
   remoteCursors.forEach((remoteCursor) => {
     const closestEditable = remoteCursor.closest('[data-cursor]');
-    console.log(closestEditable);
     if (closestEditable) {
       closestEditable.setAttribute('data-cursor-remote', remoteCursor.innerText);
     }
@@ -144,13 +141,40 @@ function handleContentUpdate({ newText, cursorOffset }) {
 }
 
 function handleCursorMove({ cursorOffset, textCursorOffset }) {
-  console.log("cursor move", cursorOffset, textCursorOffset);
-  // TODO implement this
-  // window.view.doc;
-  // wsProvider.awareness.setLocalStateField('cursor', {
-  //   anchor: cursorOffset,
-  //   head: cursorOffset,
-  // });
+  if (!window.view || !wsProvider) return;
+
+  if (cursorOffset == null || textCursorOffset == null) {
+    // Clear the cursor from awareness when no valid cursor position is provided
+    window.view.hasFocus = () => false;
+    wsProvider.awareness.setLocalStateField('cursor', null);
+    return;
+  }
+
+  const { state } = window.view;
+  const position = cursorOffset + textCursorOffset;
+
+  try {
+    // Ensure the position is valid within the document
+    if (position < 0 || position > state.doc.content.size) {
+      console.warn('Invalid cursor position:', position);
+      return;
+    }
+
+    // TODO: this is a hack. The cursor plugin expects focus. We should write our own version of the cursor plugin long term.
+    window.view.hasFocus = () => true;
+
+    // Create a transaction to update the selection
+    const tr = state.tr;
+    
+    // Set the selection to the calculated position
+    tr.setSelection(TextSelection.create(state.doc, position));
+
+    // Dispatch the transaction to update the editor state
+    window.view.dispatch(tr);
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error("Error moving cursor:", error);
+  }
 }
 
 function onMessage(e) {
@@ -165,7 +189,6 @@ function onMessage(e) {
 }
 
 function updateDocument() {
-  console.log(window.view);
   const body = getInstrumentedHTML(window.view);
   port.postMessage({ set: "body", body });
 }
@@ -174,7 +197,12 @@ function updateText(text, cursorOffset) {
   port.postMessage({ set: 'text', text, cursorOffset });
 }
 
-async function initProse(owner, repo, path) {
+function updateCursors() {
+  const body = getInstrumentedHTML(window.view);
+  port.postMessage({ set: 'cursors', body });
+}
+
+async function initProse(owner, repo, path, el) {
   prose = await import(
     "./prose.js"
   );
@@ -193,7 +221,10 @@ async function initProse(owner, repo, path) {
     permissions, 
     rerenderPage: () => updateDocument(), 
     updateText: (text, cursorOffset) => updateText(text, cursorOffset),
+    updateCursors: () => updateCursors(),
   }));
+
+  el.append(proseEl);
 }
 
 export default async function decorate(el) {
@@ -223,7 +254,7 @@ export default async function decorate(el) {
         const repo = pathSegments[1];
 
         if (owner && repo) {
-          initProse(owner, repo, path);
+          initProse(owner, repo, path, el);
         }
       }
     }
