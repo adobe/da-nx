@@ -71,6 +71,7 @@ export function getInstrumentedHTML(view) {
     const closestEditable = remoteCursor.closest('[data-cursor]');
     if (closestEditable) {
       closestEditable.setAttribute('data-cursor-remote', remoteCursor.innerText);
+      closestEditable.setAttribute('data-cursor-remote-color', remoteCursor.style['border-color']);
     }
   });
 
