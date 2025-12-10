@@ -26,29 +26,9 @@ function registerErrorHandler(ydoc) {
 
 function trackCursorAndChanges(rerenderPage, updateText, updateCursors) {
   let updateTimeout = null;
-  let pendingTextChanges = [];
-
-  const scheduleTextUpdates = (textChanges) => {
-    if (updateTimeout) clearTimeout(updateTimeout);
-    
-    // Accumulate text changes
-    pendingTextChanges = textChanges;
-
-    updateTimeout = setTimeout(() => {
-      // Call updateText for each text change
-      pendingTextChanges.forEach((change) => {
-        updateText?.(change.newText, change.pos);
-      });
-      pendingTextChanges = [];
-      updateTimeout = null;
-    }, 500);
-  };
-
   const schedulePageRerender = () => {
     if (updateTimeout) clearTimeout(updateTimeout);
     
-    pendingTextChanges = [];
-
     updateTimeout = setTimeout(() => {
       rerenderPage?.();
       updateTimeout = null;
@@ -71,7 +51,9 @@ function trackCursorAndChanges(rerenderPage, updateText, updateCursors) {
 
               if (allTextChanges) {
                 // All changes are text - schedule debounced text updates
-                scheduleTextUpdates(changes);
+                changes.forEach((change) => {
+                  updateText?.(change.newText, change.pos);
+                });
               } else {
                 // Mixed or non-text changes - schedule page rerender
                 schedulePageRerender();

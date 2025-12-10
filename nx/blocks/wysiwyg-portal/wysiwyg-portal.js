@@ -178,7 +178,6 @@ function handleCursorMove({ cursorOffset, textCursorOffset }) {
 }
 
 function onMessage(e) {
-  console.log("message", e);
   if (e.data.type === "content-update") {
     handleContentUpdate(e.data);
   } else if (e.data.type === 'cursor-move') {
