@@ -1,12 +1,20 @@
 import { loadIms } from "../../utils/ims.js";
+import { daFetch } from "../../utils/daFetch.js";
+import { DA_ORIGIN } from "../../public/utils/constants.js";
 import { default as prose2aem } from "https://main--da-live--adobe.aem.live/blocks/shared/prose2aem.js?ref=local";
 import { TextSelection } from "https://main--da-live--adobe.aem.live/deps/da-y-wrapper/dist/index.js";
 
 let port;
+let currentOwner;
+let currentRepo;
+let currentPath;
 
 let prose;
 let proseEl;
 let wsProvider;
+
+// Flag to suppress rerenderPage during internal updates
+let suppressRerender = false;
 
 const EDITABLES = [
   { selector: 'h1', nodeName: 'H1' },
@@ -166,7 +174,7 @@ function handleCursorMove({ cursorOffset, textCursorOffset }) {
 
     // Create a transaction to update the selection
     const tr = state.tr;
-    
+
     // Set the selection to the calculated position
     tr.setSelection(TextSelection.create(state.doc, position));
 
@@ -178,6 +186,147 @@ function handleCursorMove({ cursorOffset, textCursorOffset }) {
   }
 }
 
+/**
+ * Update image src in the ProseMirror document
+ * @param {string} originalSrc - The original image source to find
+ * @param {string} newSrc - The new image source to set
+ */
+function updateImageInDocument(originalSrc, newSrc) {
+  if (!window.view) return false;
+
+  const { state } = window.view;
+  const { tr } = state;
+  let updated = false;
+
+  // Traverse the document to find image nodes
+  state.doc.descendants((node, pos) => {
+    if (node.type.name === 'image') {
+      const currentSrc = node.attrs.src;
+
+      // Check if this is the image we're looking for
+      // Compare by exact match or by pathname
+      let isMatch = currentSrc === originalSrc;
+
+      if (!isMatch) {
+        try {
+          const currentUrl = new URL(currentSrc, window.location.href);
+          const originalUrl = new URL(originalSrc, window.location.href);
+          isMatch = currentUrl.pathname === originalUrl.pathname;
+        } catch {
+          // If URL parsing fails, try simple includes check
+          isMatch = currentSrc.includes(originalSrc) || originalSrc.includes(currentSrc);
+        }
+      }
+
+      if (isMatch) {
+        // Update the image node with new src
+        const newAttrs = { ...node.attrs, src: newSrc };
+        tr.setNodeMarkup(pos, null, newAttrs);
+        updated = true;
+      }
+    }
+  });
+
+  if (updated) {
+    window.view.dispatch(tr);
+  }
+
+  return updated;
+}
+
+/**
+ * Convert a base64 data URL to a Blob
+ * @param {string} dataUrl - The base64 data URL
+ * @returns {Blob} The converted Blob
+ */
+function dataUrlToBlob(dataUrl) {
+  const [header, base64Data] = dataUrl.split(',');
+  const mimeMatch = header.match(/:(.*?);/);
+  const mimeType = mimeMatch ? mimeMatch[1] : 'application/octet-stream';
+  const byteString = atob(base64Data);
+  const arrayBuffer = new ArrayBuffer(byteString.length);
+  const uint8Array = new Uint8Array(arrayBuffer);
+  for (let i = 0; i < byteString.length; i += 1) {
+    uint8Array[i] = byteString.charCodeAt(i);
+  }
+  return new Blob([uint8Array], { type: mimeType });
+}
+
+/**
+ * Get the page name from the current path (without extension)
+ * @returns {string} The page name
+ */
+function getPageName() {
+  if (currentPath === '/') return 'index';
+  // Remove leading slash and .html extension if present
+  return currentPath.replace(/^\//, '').replace(/\.html$/, '');
+}
+
+/**
+ * Handle image replacement from quick-edit
+ * @param {Object} data - The image data from quick-edit
+ */
+async function handleImageReplace({ imageData, fileName, originalSrc }) {
+  // Suppress rerender for the entire duration of image replacement
+  suppressRerender = true;
+
+  try {
+    // eslint-disable-next-line no-console
+    console.log('handleImageReplace', fileName, originalSrc);
+    // Convert base64 to Blob
+    const blob = dataUrlToBlob(imageData);
+
+    // Get the page name for the media folder
+    const pageName = getPageName();
+    const parentPath = currentPath === '/' ? '' : currentPath.replace(/\/[^/]+$/, '');
+
+    // Construct the upload URL: /source/{owner}/{repo}{parent}/.{pageName}/{fileName}
+    const uploadPath = `${parentPath}/.${pageName}/${fileName}`;
+    const uploadUrl = `${DA_ORIGIN}/source/${currentOwner}/${currentRepo}${uploadPath}`;
+
+    // Upload the image
+    const formData = new FormData();
+    formData.append('data', blob, fileName);
+    const opts = { method: 'PUT', body: formData };
+    const resp = await daFetch(uploadUrl, opts);
+
+    if (!resp.ok) {
+      port.postMessage({
+        set: 'image-error',
+        error: `Upload failed with status ${resp.status}`,
+        originalSrc,
+      });
+      return;
+    }
+
+    // Construct the new image URL (AEM delivery URL)
+    const newSrc = `https://content.da.live/${currentOwner}/${currentRepo}${uploadPath}`;
+
+    // Update the ProseMirror document with the new image src
+    updateImageInDocument(originalSrc, newSrc);
+
+    // Send back the new URL to update the quick-edit view
+    port.postMessage({
+      set: 'image',
+      newSrc,
+      originalSrc,
+    });
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Error replacing image:', error);
+    port.postMessage({
+      set: 'image-error',
+      error: error.message,
+      originalSrc,
+    });
+  } finally {
+    // Reset the suppress flag after a delay to catch any async callbacks
+    setTimeout(() => {
+      suppressRerender = false;
+    }, 500);
+  }
+}
+
 function onMessage(e) {
   if (e.data.type === "content-update") {
     handleContentUpdate(e.data);
@@ -185,10 +334,14 @@ function onMessage(e) {
     handleCursorMove(e.data);
   } else if (e.data.type === 'reload') {
     updateDocument();
+  } else if (e.data.type === 'image-replace') {
+    handleImageReplace(e.data);
   }
 }
 
 function updateDocument() {
+  // Skip rerender if suppressed (e.g., during image updates)
+  if (suppressRerender) return;
   const body = getInstrumentedHTML(window.view);
   port.postMessage({ set: "body", body });
 }
@@ -254,6 +407,11 @@ export default async function decorate(el) {
         const repo = pathSegments[1];
 
         if (owner && repo) {
+          // Store for use in image upload
+          currentOwner = owner;
+          currentRepo = repo;
+          currentPath = path;
+
           initProse(owner, repo, path, el);
         }
       }
