@@ -13,6 +13,7 @@ function rumWC(sampleRUM) {
 }
 
 (async function loadLazy() {
+  import('../utils/org-check.js');
   import('../utils/favicon.js');
   import('../utils/footer.js');
   import('../deps/rum.js').then(({ sampleRUM }) => {
