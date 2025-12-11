@@ -1,0 +1,40 @@
+.toast {
+  --s2-orange-200: #ffeccf;
+  --s2-orange-300: #ffda9e;
+  --s2-orange-400: #ffc15e;
+  --s2-orange-600: #fc7d00;
+  --s2-orange-700: #e86a00;
+  --s2-orange-800: #d45b00;
+  --s2-orange-900: #c24e00;
+
+  position: fixed;
+  inset: auto 0 68px 48px;
+  background: var(--s2-orange-700);
+  min-height: 54px;
+  border-radius: 10px;
+  width: var(--grid-container-width);
+  margin: 0 auto;
+  z-index: 400;
+  filter: drop-shadow(rgb(0 0 0 / 15%) 0 1px 4px);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px 8px 18px;
+  box-sizing: border-box;
+  color: #fff;
+  font-size: 14px;
+  line-height: 1;
+
+  .btn {
+    padding: 8px 16px;
+    font-weight: 700;
+    background-color: var(--s2-orange-600);
+    border-radius: 8px;
+    text-decoration: none;
+    color: #fff;
+
+    &:hover {
+      background-color: var(--s2-orange-800);
+    }
+  }
+}
