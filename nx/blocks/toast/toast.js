@@ -19,6 +19,6 @@ export default async function init(a) {
   }
 
   // Setup basic styles
-  toast.classList.add('toast', 'toast-warning');
+  toast.classList.add('toast', 'toast-warning', 'sandbox-org');
   document.body.append(toast);
 }

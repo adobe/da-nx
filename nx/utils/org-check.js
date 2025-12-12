@@ -1,6 +1,7 @@
 import { DA_ORIGIN } from '../public/utils/constants.js';
 import { loadBlock } from '../scripts/nexter.js';
 
+const DEF_SANDBOX = 'aem-sandbox';
 const TOAST_PATH = '/fragments/toasts/sandbox';
 
 async function getIsSandbox(org) {
@@ -16,9 +17,11 @@ async function getIsSandbox(org) {
   return json.length > 0;
 }
 
-(async function orgCheck() {
-  const { pathname, hash } = window.location;
+async function orgCheck() {
+  // Remove existing toast if it exists
+  document.querySelector('.toast.sandbox-org')?.remove();
 
+  const { pathname, hash } = window.location;
   // Do not show on app screens
   if (pathname.startsWith('/app')) return;
   if (!hash) return;
@@ -26,8 +29,8 @@ async function getIsSandbox(org) {
   // Do nothing if not a path
   if (!hashVal.startsWith('/')) return;
   const [org] = hashVal.substring(1).split('/');
-  // Do nothing if no org
-  if (!org) return;
+  // Do nothing if no org or known sandbox
+  if (!org || org === DEF_SANDBOX) return;
   const isSandbox = await getIsSandbox(org);
   // Do nothing if not a sandbox
   if (!isSandbox) return;
@@ -36,5 +39,9 @@ async function getIsSandbox(org) {
   const link = document.createElement('a');
   link.href = TOAST_PATH;
   link.className = 'nx-toast';
+  link.id = 'sandbox-org';
   loadBlock(link);
-}());
+}
+
+orgCheck();
+window.addEventListener('hashchange', orgCheck);
