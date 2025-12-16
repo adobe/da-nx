@@ -3,7 +3,8 @@
  * @module shell
  */
 
-import { loadIms } from '../../utils/ims.js';
+import { IMS_ORIGIN, loadIms } from '../../utils/ims.js';
+import { DA_ORIGIN } from '../../public/utils/constants.js';
 
 const IMS_DETAILS = await loadIms();
 const CHANNEL = new MessageChannel();
@@ -42,6 +43,8 @@ function getParts() {
     path: path.join('/'),
     search,
     hash,
+    daOrigin: DA_ORIGIN,
+    imsOrigin: IMS_ORIGIN,
   };
 }
 

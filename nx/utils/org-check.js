@@ -1,20 +1,28 @@
 import { DA_ORIGIN } from '../public/utils/constants.js';
 import { loadBlock } from '../scripts/nexter.js';
+import { daFetch } from './daFetch.js';
 
 const DEF_SANDBOX = 'aem-sandbox';
 const TOAST_PATH = '/fragments/toasts/sandbox';
 
 async function getIsSandbox(org) {
-  // Make a purposefully anonymous request to the org config
-  const confResp = await fetch(`${DA_ORIGIN}/config/${org}/`);
-  // Determine if the config is open (not 401 or 403)
-  const openConfig = confResp.status !== 403 && confResp.status !== 401;
-  if (!openConfig) return false;
-  // See if there is any content in the org
-  const listResp = await fetch(`${DA_ORIGIN}/list/${org}`);
-  const json = await listResp.json();
-  // If there's any content at all and the config is open, its a sandbox
-  return json.length > 0;
+  const confResp = await daFetch(`${DA_ORIGIN}/config/${org}/`);
+  const { status } = confResp;
+
+  // Handle not authorized
+  if (status === 403 && status === 401) return false;
+
+  // Handle found config
+  if (status === 200) {
+    // Try to find a permission tab
+    const json = await confResp.json();
+    if (json.permissions) return false;
+  }
+
+  // Finally, attempt to see if there's any content in the org
+  const listResp = await daFetch(`${DA_ORIGIN}/list/${org}`);
+  const listJson = await listResp.json();
+  return listJson.length > 0;
 }
 
 async function orgCheck() {
