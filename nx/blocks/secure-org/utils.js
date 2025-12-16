@@ -63,11 +63,8 @@ export async function saveConfig(org, email, existingConfig) {
   const defConfigStr = DEF_CONFIG.replaceAll('{{EMAIL}}', email);
   const defConfig = JSON.parse(defConfigStr);
 
-  if (existingConfig) {
-    defConfig.data = existingConfig.default
-      || existingConfig.data
-      || existingConfig;
-  }
+  // Preserve the existing config
+  if (existingConfig.data) defConfig.data = existingConfig;
 
   const body = new FormData();
   body.append('config', JSON.stringify(defConfig));

@@ -24,6 +24,8 @@ const IO_ENV = {
   prod: 'cc-collab.adobe.io',
 };
 
+export const IMS_ORIGIN = (() => `https://${IMS_ENDPOINT[env]}`)();
+
 export function handleSignIn() {
   localStorage.setItem('nx-ims', true);
   window.adobeIMS.signIn();
