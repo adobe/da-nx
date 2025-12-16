@@ -24,6 +24,8 @@ const EDITABLES = [
   { selector: 'h5', nodeName: 'H5' },
   { selector: 'h6', nodeName: 'H6' },
   { selector: 'p', nodeName: 'P' },
+  { selector: 'ol', nodeName: 'OL' },
+  { selector: 'ul', nodeName: 'UL' },
 ];
 const EDITABLE_SELECTORS = EDITABLES.map((edit) => edit.selector).join(', ');
 

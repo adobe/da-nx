@@ -13,7 +13,7 @@ import { getSchema } from 'https://main--da-live--adobe.aem.live/blocks/edit/pro
 import { COLLAB_ORIGIN, DA_ORIGIN } from 'https://main--da-live--adobe.aem.live/blocks/shared/constants.js';
 import { findChangedNodes, generateColor } from './utils.js';
 
-const EDITABLE_TYPES = ['heading', 'paragraph'];
+const EDITABLE_TYPES = ['heading', 'paragraph', 'ordered_list', 'bullet_list'];
 
 function registerErrorHandler(ydoc) {
   ydoc.on('update', () => {
@@ -82,7 +82,6 @@ function trackCursorAndChanges(rerenderPage, updateCursors, getEditor) {
           if (docChanged) {
             // Find changed nodes
             const changes = findChangedNodes(prevState.doc, view.state.doc);
-            console.log('changes', changes);
 
             if (changes.length > 0) {
               // Check if all changes share a common editable ancestor
