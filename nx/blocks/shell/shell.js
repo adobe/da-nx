@@ -12,7 +12,8 @@ await import('../../public/sl/components.js');
 
 const TRUSTED_ORGS = ['adobe'];
 const TRUSTED_APPS = [
-  'https://main--storefront-tools--adobe-commerce.aem.live/tools/site-creator/site-creator.html'
+  'https://main--storefront-tools--adobe-commerce.aem.live/tools/site-creator/site-creator.html',
+  'https://main--storefront-tools--adobe-commerce.aem.live/tools/config-generator/config-generator.html',
 ];
  
 /**
