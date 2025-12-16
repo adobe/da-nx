@@ -13,6 +13,8 @@ import { getSchema } from 'https://main--da-live--adobe.aem.live/blocks/edit/pro
 import { COLLAB_ORIGIN, DA_ORIGIN } from 'https://main--da-live--adobe.aem.live/blocks/shared/constants.js';
 import { findChangedNodes, generateColor } from './utils.js';
 
+const EDITABLE_TYPES = ['heading', 'paragraph'];
+
 function registerErrorHandler(ydoc) {
   ydoc.on('update', () => {
     const errorMap = ydoc.getMap('error');
@@ -24,16 +26,52 @@ function registerErrorHandler(ydoc) {
   });
 }
 
-function trackCursorAndChanges(rerenderPage, updateText, updateCursors) {
-  let updateTimeout = null;
-  const schedulePageRerender = () => {
-    if (updateTimeout) clearTimeout(updateTimeout);
+function trackCursorAndChanges(rerenderPage, updateCursors, getEditor) {
+  // Find the common editable ancestor for all changed nodes
+  function findCommonEditableAncestor(view, changes) {
+    if (changes.length === 0) return null;
+
+    // For each change, find its editable ancestor
+    const editableAncestors = [];
     
-    updateTimeout = setTimeout(() => {
-      rerenderPage?.();
-      updateTimeout = null;
-    }, 500);
-  };
+    for (const change of changes) {
+      try {
+        const $pos = view.state.doc.resolve(change.pos);
+        let editableAncestor = null;
+        
+        // Walk up the tree to find an editable node
+        for (let depth = $pos.depth; depth > 0; depth--) {
+          const node = $pos.node(depth);
+          if (EDITABLE_TYPES.includes(node.type.name)) {
+            editableAncestor = {
+              node,
+              pos: $pos.before(depth),
+            };
+            break;
+          }
+        }
+        
+        if (editableAncestor) {
+          editableAncestors.push(editableAncestor);
+        } else {
+          // If any change doesn't have an editable ancestor, return null
+          return null;
+        }
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.warn('Could not resolve position for change:', e);
+        return null;
+      }
+    }
+
+    // Check if all changes share the same editable ancestor
+    if (editableAncestors.length === 0) return null;
+    
+    const firstPos = editableAncestors[0].pos;
+    const allSameAncestor = editableAncestors.every((ancestor) => ancestor.pos === firstPos);
+    
+    return allSameAncestor ? editableAncestors[0] : null;
+  }
 
   return new Plugin({
     view() {
@@ -42,35 +80,33 @@ function trackCursorAndChanges(rerenderPage, updateText, updateCursors) {
           const docChanged = view.state.doc !== prevState.doc;
 
           if (docChanged) {
-            // Traverse tree and find changed nodes
+            // Find changed nodes
             const changes = findChangedNodes(prevState.doc, view.state.doc);
-            
-            if (changes.length > 0) {
-              // Check if all changes are text-only changes
-              const allTextChanges = changes.every((change) => change.type === 'text');
+            console.log('changes', changes);
 
-              if (allTextChanges) {
-                // All changes are text - schedule debounced text updates
-                changes.forEach((change) => {
-                  updateText?.(change.newText, change.pos);
-                });
+            if (changes.length > 0) {
+              // Check if all changes share a common editable ancestor
+              const commonEditable = findCommonEditableAncestor(view, changes);
+
+              if (commonEditable) {
+                // All changes are within a single editable element
+                getEditor?.({ cursorOffset: commonEditable.pos + 1 });
               } else {
-                // Mixed or non-text changes - schedule page rerender
-                schedulePageRerender();
+                // TODO don't force this, let the user decide when.
+                rerenderPage?.();
               }
             }
-            return;
-          } else {
-            updateCursors?.();
           }
+
+          updateCursors?.();
         },
       };
     },
   });
 }
 
-export default function initProse({ path, permissions, rerenderPage, updateText, updateCursors }) {
-  // Destroy ProseMirror if it already exists - GH-212
+export default function initProse({ path, permissions, rerenderPage, updateCursors, getEditor }) {
+  // Destroy ProseMirror if it already exists
   if (window.view) {
     window.view.destroy();
     delete window.view;
@@ -118,7 +154,7 @@ export default function initProse({ path, permissions, rerenderPage, updateText,
   const plugins = [
     ySyncPlugin(yXmlFragment),
     yCursorPlugin(wsProvider.awareness),
-    trackCursorAndChanges(rerenderPage, updateText, updateCursors),
+    trackCursorAndChanges(rerenderPage, updateCursors, getEditor),
   ];
 
   let state = EditorState.create({ schema, plugins });
