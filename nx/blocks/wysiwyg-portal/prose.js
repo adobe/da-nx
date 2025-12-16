@@ -47,7 +47,9 @@ function trackCursorAndChanges(rerenderPage, updateCursors, getEditor) {
               node,
               pos: $pos.before(depth),
             };
-            break;
+            // TODO consider adding this break back, to find the nearest.
+            // Problem is, for ul we can have ul > p where we want the ul.
+            // break;
           }
         }
         

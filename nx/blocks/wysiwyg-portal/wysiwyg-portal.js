@@ -69,10 +69,20 @@ export function getInstrumentedHTML(view) {
   const remoteCursors = editorClone.querySelectorAll('.ProseMirror-yjs-cursor');
 
   remoteCursors.forEach((remoteCursor) => {
-    const closestEditable = remoteCursor.closest('[data-cursor]');
-    if (closestEditable) {
-      closestEditable.setAttribute('data-cursor-remote', remoteCursor.innerText);
-      closestEditable.setAttribute('data-cursor-remote-color', remoteCursor.style['border-color']);
+    // Find the highest-level ancestor with data-cursor attribute
+    let highestEditable = null;
+    let current = remoteCursor.parentElement;
+    
+    while (current) {
+      if (current.hasAttribute('data-cursor')) {
+        highestEditable = current;
+      }
+      current = current.parentElement;
+    }
+    
+    if (highestEditable) {
+      highestEditable.setAttribute('data-cursor-remote', remoteCursor.innerText);
+      highestEditable.setAttribute('data-cursor-remote-color', remoteCursor.style['border-color']);
     }
   });
 
