@@ -257,7 +257,7 @@ function dataUrlToBlob(dataUrl) {
  * @returns {string} The page name
  */
 function getPageName() {
-  if (currentPath.endsWith('/')) return 'index';
+  if (currentPath.endsWith('/')) return `${currentPath.replace(/^\//, '')}index`;
   // Remove leading slash and .html extension if present
   return currentPath.replace(/^\//, '').replace(/\.html$/, '');
 }
@@ -361,7 +361,7 @@ async function initProse(owner, repo, path, el) {
   );
 
   const sourceUrl = `https://admin.da.live/source/${owner}/${repo}/${
-    path.endsWith('/') ? 'index.html' : `${path.replace(/^\//, '')}.html`
+    path.endsWith('/') ? `${path.replace(/^\//, '')}index.html` : `${path.replace(/^\//, '')}.html`
   }`;
 
   const resp = await checkPermissions(sourceUrl);
