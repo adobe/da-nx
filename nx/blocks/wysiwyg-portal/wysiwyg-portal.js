@@ -24,6 +24,8 @@ const EDITABLES = [
   { selector: 'h5', nodeName: 'H5' },
   { selector: 'h6', nodeName: 'H6' },
   { selector: 'p', nodeName: 'P' },
+  { selector: 'ol', nodeName: 'OL' },
+  { selector: 'ul', nodeName: 'UL' },
 ];
 const EDITABLE_SELECTORS = EDITABLES.map((edit) => edit.selector).join(', ');
 
@@ -32,13 +34,6 @@ async function getToken() {
   if (ims.anonymous) return null;
   const { token } = ims.accessToken;
   return token;
-}
-
-function addEditorInstrumentation(editor) {
-  const editableElements = editor.querySelectorAll(EDITABLE_SELECTORS);
-  editableElements.forEach((editableElement) => {
-    editableElement.setAttribute('contenteditable', 'true');
-  });
 }
 
 // TODO move to a utils
@@ -71,15 +66,23 @@ export function getInstrumentedHTML(view) {
     div.append(table);
   });
 
-  addEditorInstrumentation(editorClone);
-
   const remoteCursors = editorClone.querySelectorAll('.ProseMirror-yjs-cursor');
 
   remoteCursors.forEach((remoteCursor) => {
-    const closestEditable = remoteCursor.closest('[data-cursor]');
-    if (closestEditable) {
-      closestEditable.setAttribute('data-cursor-remote', remoteCursor.innerText);
-      closestEditable.setAttribute('data-cursor-remote-color', remoteCursor.style['border-color']);
+    // Find the highest-level ancestor with data-cursor attribute
+    let highestEditable = null;
+    let current = remoteCursor.parentElement;
+    
+    while (current) {
+      if (current.hasAttribute('data-cursor')) {
+        highestEditable = current;
+      }
+      current = current.parentElement;
+    }
+    
+    if (highestEditable) {
+      highestEditable.setAttribute('data-cursor-remote', remoteCursor.innerText);
+      highestEditable.setAttribute('data-cursor-remote-color', remoteCursor.style['border-color']);
     }
   });
 
@@ -120,35 +123,6 @@ async function checkPermissions(sourceUrl) {
   return resp;
 }
 
-function handleContentUpdate({ newText, cursorOffset }) {
-  if (!window.view) return;
-
-  const { state } = window.view;
-  const { tr } = state;
-
-  try {
-    // Find the node at the cursor offset
-    const $pos = state.doc.resolve(cursorOffset);
-    const node = $pos.parent;
-
-    // Check if this is a heading node
-    if (node.type.name === "heading" || node.type.name === "paragraph") {
-      // Calculate the start and end positions of the node content
-      const start = cursorOffset;
-      const end = start + node.content.size;
-
-      // Replace the content with the new text
-      tr.insertText(newText, start, end);
-
-      // Dispatch the transaction
-      window.view.dispatch(tr);
-    }
-  } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error("Error updating content:", error);
-  }
-}
-
 function handleCursorMove({ cursorOffset, textCursorOffset }) {
   if (!window.view || !wsProvider) return;
 
@@ -179,7 +153,9 @@ function handleCursorMove({ cursorOffset, textCursorOffset }) {
     tr.setSelection(TextSelection.create(state.doc, position));
 
     // Dispatch the transaction to update the editor state
+    suppressRerender = true;
     window.view.dispatch(tr);
+    suppressRerender = false;
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error("Error moving cursor:", error);
@@ -327,15 +303,49 @@ async function handleImageReplace({ imageData, fileName, originalSrc }) {
   }
 }
 
+function getEditor(data) {
+  if (suppressRerender) { return; }
+  const { cursorOffset } = data;
+
+  const pos = window.view.state.doc.resolve(cursorOffset);
+  const before = pos.before(pos.depth);
+  const beforePos = window.view.state.doc.resolve(before);
+  const nodeAtBefore = beforePos.nodeAfter;
+  port.postMessage({ set: 'editor', editor: nodeAtBefore.toJSON(), cursorOffset: before + 1 });
+}
+
+function updateState(data) {
+  const node = window.view.state.schema.nodeFromJSON(data.node);
+  const pos = window.view.state.doc.resolve(data.cursorOffset);
+  const docPos = window.view.state.selection.from;
+  
+  // Calculate the range that covers the entire node
+  const nodeStart = pos.before(pos.depth);
+  const nodeEnd = pos.after(pos.depth);
+
+  // Replace the entire node
+  const tr = window.view.state.tr;
+  tr.replaceWith(nodeStart, nodeEnd, node);
+  
+  // fix the selection
+  tr.setSelection(TextSelection.create(tr.doc, docPos));
+
+  suppressRerender = true;
+  window.view.dispatch(tr);
+  suppressRerender = false;
+}
+
 function onMessage(e) {
-  if (e.data.type === "content-update") {
-    handleContentUpdate(e.data);
-  } else if (e.data.type === 'cursor-move') {
+  if (e.data.type === 'cursor-move') {
     handleCursorMove(e.data);
   } else if (e.data.type === 'reload') {
     updateDocument();
   } else if (e.data.type === 'image-replace') {
     handleImageReplace(e.data);
+  } else if (e.data.type === 'get-editor') {
+    getEditor(e.data);
+  } else if (e.data.type === 'node-update') {
+    updateState(e.data);
   }
 }
 
@@ -344,10 +354,6 @@ function updateDocument() {
   if (suppressRerender) return;
   const body = getInstrumentedHTML(window.view);
   port.postMessage({ set: "body", body });
-}
-
-function updateText(text, cursorOffset) {
-  port.postMessage({ set: 'text', text, cursorOffset });
 }
 
 function updateCursors() {
@@ -373,8 +379,8 @@ async function initProse(owner, repo, path, el) {
     path: sourceUrl, 
     permissions, 
     rerenderPage: () => updateDocument(), 
-    updateText: (text, cursorOffset) => updateText(text, cursorOffset),
     updateCursors: () => updateCursors(),
+    getEditor: (data) => getEditor(data),
   }));
 
   el.append(proseEl);
