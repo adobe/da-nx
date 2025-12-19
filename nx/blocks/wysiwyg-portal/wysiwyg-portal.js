@@ -3,6 +3,7 @@ import { daFetch } from "../../utils/daFetch.js";
 import { DA_ORIGIN } from "../../public/utils/constants.js";
 import { default as prose2aem } from "https://main--da-live--adobe.aem.live/blocks/shared/prose2aem.js?ref=local";
 import { TextSelection } from "https://main--da-live--adobe.aem.live/deps/da-y-wrapper/dist/index.js";
+import { syncTrackedChanges } from "./prose.js";
 
 let port;
 let currentOwner;
@@ -311,7 +312,7 @@ function getEditor(data) {
   const before = pos.before(pos.depth);
   const beforePos = window.view.state.doc.resolve(before);
   const nodeAtBefore = beforePos.nodeAfter;
-  port.postMessage({ set: 'editor', editor: nodeAtBefore.toJSON(), cursorOffset: before + 1 });
+  port.postMessage({ set: 'editor', editor: nodeAtBefore.toJSON(), cursorOffset: before + 1, isSyncing: data.isSyncing });
 }
 
 function updateState(data) {
@@ -335,7 +336,12 @@ function updateState(data) {
   suppressRerender = false;
 }
 
+function syncDone() {
+  port.postMessage({ set: 'sync-done' });
+}
+
 function onMessage(e) {
+  console.log('onMessage', e.data);
   if (e.data.type === 'cursor-move') {
     handleCursorMove(e.data);
   } else if (e.data.type === 'reload') {
@@ -346,6 +352,9 @@ function onMessage(e) {
     getEditor(e.data);
   } else if (e.data.type === 'node-update') {
     updateState(e.data);
+  } else if (e.data.type === 'sync-changes') {
+    syncTrackedChanges(e.data);
+    syncDone();
   }
 }
 
