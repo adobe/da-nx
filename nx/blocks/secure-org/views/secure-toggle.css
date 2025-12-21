@@ -1,0 +1,40 @@
+.demo-toggle {
+  appearance: none;
+  width: 88px;
+  height: 46px;
+  display: inline-block;
+  position: relative;
+  border-radius: 50px;
+  overflow: hidden;
+  outline: none;
+  border: none;
+  cursor: pointer;
+  background-color: rgb(112 112 112);
+  transition: background-color 0.3s ease 0s;
+}
+
+.demo-toggle::before {
+  content: "";
+  display: block;
+  position: absolute;
+  z-index: 2;
+  width: 36px;
+  height: 36px;
+  background: rgb(255 255 255);
+  left: 5px;
+  top: 5px;
+  border-radius: 50%;
+  color: rgb(255 255 255);
+  text-shadow: rgba(0 0 0 15%) -1px -1px;
+  white-space: nowrap;
+  box-shadow: rgba(0 0 0 20%) 0 1px 2px;
+  transition: all 0.3s cubic-bezier(0.3, 1.5, 0.7, 1) 0s;
+}
+
+.demo-toggle:checked {
+  background-color: rgb(111 155 0);
+}
+
+.demo-toggle:checked::before {
+  left: 47px;
+}

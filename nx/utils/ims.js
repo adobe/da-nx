@@ -52,7 +52,7 @@ async function fetchWithToken(url, accessToken) {
   }
 }
 
-async function getAllOrgs() {
+export async function getAllOrgs() {
   if (allOrgs) return allOrgs;
   const orgData = await fetchWithToken(
     `https://${IMS_ENDPOINT[env]}/ims/account_cluster/v3?client_id=${imsClientId}`,
@@ -63,7 +63,7 @@ async function getAllOrgs() {
   return allOrgs;
 }
 
-async function getOrgs() {
+export async function getOrgs() {
   if (!orgDetails) {
     const orgData = await fetchWithToken(
       `https://${IMS_ENDPOINT[env]}/ims/organizations/v5?client_id=${imsClientId}`,
