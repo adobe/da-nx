@@ -68,7 +68,14 @@ class NxLocTranslate extends LitElement {
   }
 
   async handleSaveLangs(props) {
-    const data = props ? { langs: this._langs, ...props } : { langs: this._langs };
+    // Don't allow URLs to persist inside a lang
+    const langs = this._langs.map((lang) => {
+      const langToSave = { ...lang };
+      delete langToSave.urls;
+      return langToSave;
+    });
+
+    const data = props ? { langs, ...props } : { langs };
     const opts = { detail: { data }, bubbles: true, composed: true };
     const event = new CustomEvent('action', opts);
     this.dispatchEvent(event);
@@ -88,11 +95,35 @@ class NxLocTranslate extends LitElement {
     this._connected = await this._service.connector.connect(this._service);
   }
 
-  async fetchUrls(service, fetchContent) {
+  async fetchUrls(service, fetchContent, langs) {
     const { org, site, snapshot } = this.project;
-    const sourceLocation = this._options['source.language']?.location || '/';
 
-    return getUrls(org, site, service, sourceLocation, this._urls, fetchContent, snapshot);
+    // calculate the default source location
+    const defSrcLocation = this._options['source.language']?.location || '/';
+
+    // Find langs with custom sources
+    const customSourceLangs = langs.filter((lang) => lang.source);
+
+    // Load the URLs from custom sources for these langs
+    const customLangUrls = {};
+    if (customSourceLangs.length) {
+      await Promise.all(customSourceLangs.map(async (lang) => {
+        const { urls } = await getUrls(org, site, service, defSrcLocation, lang.source, this._urls, fetchContent, snapshot);
+        customLangUrls[lang.code] = urls;
+      }));
+    }
+
+    // Get the default source once for all langs that use the default location
+    // TODO: In some rare cases (regional sites), its unneccessary to always get the default URLs
+    const { urls } = await getUrls(org, site, service, defSrcLocation, defSrcLocation, this._urls, fetchContent, snapshot);
+
+    // Dangerously change the external lang object
+    langs.forEach((lang) => {
+      lang.urls = customLangUrls[lang.code] || urls;
+    });
+
+    // Return the default source langs w/ urls
+    return urls;
   }
 
   async getBaseTranslationConf(fetchContent) {
@@ -104,7 +135,8 @@ class NxLocTranslate extends LitElement {
     const { org, site, title, options, snapshot } = this.project;
     const { _service: service, _translateLangs: langs } = this;
 
-    const { urls } = await this.fetchUrls(service, fetchContent);
+    // Return default source urls for connector backwards compatibility
+    const urls = await this.fetchUrls(service, fetchContent, langs);
 
     return {
       org,
@@ -125,6 +157,8 @@ class NxLocTranslate extends LitElement {
     if (sendAll?.errors?.length) {
       this._urlErrors = sendAll.errors;
     }
+    // See if anything is finished immediately
+    this.checkAndSaveLangs(conf);
   }
 
   async checkAndSaveLangs(conf) {
