@@ -1,3 +1,10 @@
+import {
+  Y, absolutePositionToRelativePosition,
+  relativePositionToAbsolutePosition,
+  TextSelection,
+  NodeSelection,
+} from 'https://y-wrapper-update--da-live--hannessolo.aem.live/deps/da-y-wrapper/dist/index.js';
+
 export function findChangedNodes(oldDoc, newDoc) {
   const changes = [];
 
@@ -33,8 +40,8 @@ export function findChangedNodes(oldDoc, newDoc) {
     if (oldNode.isText || newNode.isText) {
       const oldMarks = oldNode.marks || [];
       const newMarks = newNode.marks || [];
-      if (oldMarks.length !== newMarks.length || 
-          !oldMarks.every((m, i) => m.eq(newMarks[i]))) {
+      if (oldMarks.length !== newMarks.length ||
+        !oldMarks.every((m, i) => m.eq(newMarks[i]))) {
         changes.push({
           type: 'marks',
           pos,
@@ -119,4 +126,98 @@ export function generateColor(name, hRange = [0, 360], sRange = [60, 80], lRange
     return Math.round(255 * color).toString(16).padStart(2, '0');
   };
   return `#${f(0)}${f(8)}${f(4)}`;
+}
+
+function cloneXmlNode(node, doc) {
+  if (node instanceof Y.XmlText) {
+    const text = new Y.XmlText()
+    text.insert(0, node.toString())
+    return text
+  }
+
+  if (node instanceof Y.XmlElement) {
+    const el = new Y.XmlElement(node.nodeName)
+
+    // ✅ correct attribute cloning
+    const attrs = node.getAttributes()
+    for (const [key, value] of Object.entries(attrs)) {
+      el.setAttribute(key, value)
+    }
+
+    // clone children
+    for (const child of node.toArray()) {
+      el.push([cloneXmlNode(child)])
+    }
+
+    return el
+  }
+
+
+  throw new Error('Unsupported XML node')
+}
+
+export function cloneXmlFragment(
+  source,
+  target,
+  doc
+) {
+  target.delete(0, target.length)
+
+  for (const node of source.toArray()) {
+    target.push([cloneXmlNode(node, doc)])
+  }
+}
+
+export const getRelativeSelection = (yXmlFragment, selection, mapping) => {
+  try {
+    return ({
+      type: (selection).jsonID,
+      anchor: absolutePositionToRelativePosition(
+        selection.anchor,
+        yXmlFragment,
+        mapping
+      ),
+      head: absolutePositionToRelativePosition(
+        selection.head,
+        yXmlFragment,
+        mapping
+      )
+    })
+  } catch (e) {
+    console.error('Error getting relative selection', e);
+    return null;
+  }
+}
+
+export const restoreRelativeSelection = (relSel, doc, yXmlFragment, mapping) => {
+  if (relSel !== null && relSel.anchor !== null && relSel.head !== null) {
+    if (relSel.type === 'all') {
+      return new AllSelection(tr.doc)
+    } else if (relSel.type === 'node') {
+      const anchor = relativePositionToAbsolutePosition(
+        doc,
+        yXmlFragment,
+        relSel.anchor,
+        mapping
+      )
+      return NodeSelection.create(tr.doc, anchor)
+    } else {
+      const anchor = relativePositionToAbsolutePosition(
+        doc,
+        yXmlFragment,
+        relSel.anchor,
+        mapping
+      )
+      const head = relativePositionToAbsolutePosition(
+        doc,
+        yXmlFragment,
+        relSel.head,
+        mapping
+      )
+      if (anchor !== null && head !== null) {
+        const sel = TextSelection.between(window.view.state.doc.resolve(anchor), window.view.state.doc.resolve(head));
+        return sel
+      }
+    }
+  }
 }
