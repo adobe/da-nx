@@ -3,7 +3,7 @@ import { daFetch } from "../../utils/daFetch.js";
 import { DA_ORIGIN } from "../../public/utils/constants.js";
 import { default as prose2aem } from "https://main--da-live--adobe.aem.live/blocks/shared/prose2aem.js?ref=local";
 import { TextSelection } from "https://main--da-live--adobe.aem.live/deps/da-y-wrapper/dist/index.js";
-import { syncTrackedChanges } from "./prose.js";
+import { syncTrackedChanges, setStateSnapshot } from "./prose.js";
 
 let port;
 let currentOwner;
@@ -345,7 +345,8 @@ function onMessage(e) {
   if (e.data.type === 'cursor-move') {
     handleCursorMove(e.data);
   } else if (e.data.type === 'reload') {
-    updateDocument();
+    const ts = setStateSnapshot();
+    updateDocument(ts);
   } else if (e.data.type === 'image-replace') {
     handleImageReplace(e.data);
   } else if (e.data.type === 'get-editor') {
@@ -358,11 +359,11 @@ function onMessage(e) {
   }
 }
 
-function updateDocument() {
+function updateDocument(ts) {
   // Skip rerender if suppressed (e.g., during image updates)
   if (suppressRerender) return;
   const body = getInstrumentedHTML(window.view);
-  port.postMessage({ set: "body", body });
+  port.postMessage({ set: "body", body, ts });
 }
 
 function updateCursors() {
@@ -387,7 +388,7 @@ async function initProse(owner, repo, path, el) {
   ({ proseEl, wsProvider } = prose.default({ 
     path: sourceUrl, 
     permissions, 
-    rerenderPage: () => updateDocument(), 
+    rerenderPage: (ts) => updateDocument(ts), 
     updateCursors: () => updateCursors(),
     getEditor: (data) => getEditor(data),
   }));

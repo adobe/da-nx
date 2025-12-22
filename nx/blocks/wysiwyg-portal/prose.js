@@ -14,9 +14,7 @@ import {
 import { Step } from 'https://cdn.jsdelivr.net/npm/prosemirror-transform@1.10.5/+esm'
 import { getSchema } from 'https://main--da-live--adobe.aem.live/blocks/edit/prose/schema.js';
 import { COLLAB_ORIGIN, DA_ORIGIN } from 'https://main--da-live--adobe.aem.live/blocks/shared/constants.js';
-import { findChangedNodes, generateColor, getRelativeSelection, restoreRelativeSelection } from './utils.js';
-
-const EDITABLE_TYPES = ['heading', 'paragraph', 'ordered_list', 'bullet_list'];
+import { findChangedNodes, generateColor, findCommonEditableAncestor } from './utils.js';
 
 function registerErrorHandler(ydoc) {
   ydoc.on('update', () => {
@@ -29,20 +27,35 @@ function registerErrorHandler(ydoc) {
   });
 }
 
-let shouldTrack = false;
 let syncing = false;
-let initialized = false;
-let stateSnapshot = null;
+let stateSnapshots = [];
+let stateSnapshotTs = 0;
 let ydoc = null;
 let yXmlFragment = null;
 
+export function setStateSnapshot() {
+  const ts = stateSnapshotTs++;
+  stateSnapshots.push({ state: window.view.state, ts });
+  console.log(JSON.stringify(stateSnapshots.map((s) => s.ts)));
+  return ts;
+}
+
 export function syncTrackedChanges(data) {
   syncing = true;
-  shouldTrack = false;
 
   const { view } = window;
 
-  const tr = stateSnapshot.tr;
+  let snapshot;
+  do {
+    snapshot = stateSnapshots.shift();
+  } while (snapshot && snapshot.ts < data.ts);
+
+  if (!snapshot) {
+    console.error('No snapshot found for ts', data.ts);
+    return;
+  }
+
+  const tr = snapshot.state.tr;
   const ySyncState = ySyncPluginKey.getState(view.state);
 
   if (data.changes && Array.isArray(data.changes)) {
@@ -52,10 +65,17 @@ export function syncTrackedChanges(data) {
       let mappedFrom = stepJSON.from !== undefined ? stepJSON.from + baseCursor : undefined;
       let mappedTo = stepJSON.to !== undefined ? stepJSON.to + baseCursor : undefined;
 
+      const docSize = view.state.doc.content.size;
+
       const offsetStep = Step.fromJSON(view.state.schema, stepJSON);
       const slice = offsetStep.slice;
       const fixedSlice = new Slice(slice.content, 0, 0);
-      const stateWithChanges = tr.replace(mappedFrom + 1, mappedTo + 1, fixedSlice);
+      // TODO: Improve this -1 and +1 logic. The issue is we aren't respecting that the document opening/closing is also 1 offset.
+      const stateWithChanges = tr.replace(
+        Math.min(docSize - 1, mappedFrom + 1), 
+        Math.min(docSize - 1, mappedTo + 1), 
+        fixedSlice
+      );
 
       updateYFragment(
         ydoc,
@@ -70,80 +90,35 @@ export function syncTrackedChanges(data) {
 }
 
 function trackCursorAndChanges(rerenderPage, updateCursors, getEditor) {
-  // Find the common editable ancestor for all changed nodes
-  function findCommonEditableAncestor(view, changes) {
-    if (changes.length === 0) return null;
-
-    // For each change, find its editable ancestor
-    const editableAncestors = [];
-    
-    for (const change of changes) {
-      try {
-        const $pos = view.state.doc.resolve(change.pos);
-        let editableAncestor = null;
-        
-        // Walk up the tree to find an editable node
-        for (let depth = $pos.depth; depth > 0; depth--) {
-          const node = $pos.node(depth);
-          if (EDITABLE_TYPES.includes(node.type.name)) {
-            editableAncestor = {
-              node,
-              pos: $pos.before(depth),
-            };
-            // TODO consider adding this break back, to find the nearest.
-            // Problem is, for ul we can have ul > p where we want the ul.
-            // break;
-          }
-        }
-        
-        if (editableAncestor) {
-          editableAncestors.push(editableAncestor);
-        } else {
-          // If any change doesn't have an editable ancestor, return null
-          return null;
-        }
-      } catch (e) {
-        // eslint-disable-next-line no-console
-        console.warn('Could not resolve position for change:', e);
-        return null;
-      }
-    }
-
-    // Check if all changes share the same editable ancestor
-    if (editableAncestors.length === 0) return null;
-    
-    const firstPos = editableAncestors[0].pos;
-    const allSameAncestor = editableAncestors.every((ancestor) => ancestor.pos === firstPos);
-    
-    return allSameAncestor ? editableAncestors[0] : null;
-  }
-
   return new Plugin({
     view() {
-      return {
+      return { 
         update(view, prevState) {
           if (syncing) {
+            console.log('syncing');
             return;
           }
           const docChanged = view.state.doc !== prevState.doc;
           if (docChanged) {
             // Find changed nodes
             const changes = findChangedNodes(prevState.doc, view.state.doc);
+            console.log('changes', changes);
             if (changes.length > 0) {
               // Check if all changes share a common editable ancestor
-              const commonEditable = findCommonEditableAncestor(view, changes);
-              if (commonEditable && initialized) {
+              const commonEditable = findCommonEditableAncestor(view, changes, prevState);
+              console.log('commonEditable', commonEditable);
+              if (commonEditable) {
                 // All changes are within a single editable element
-                getEditor?.({ cursorOffset: commonEditable.pos + 1 });
-              } else if (!initialized) {
-                initialized = true;
-                rerenderPage?.();
-              } else {
-                if (!shouldTrack) {
-                  shouldTrack = true;
-                  stateSnapshot = view.state;
+                try {
+                  getEditor?.({ cursorOffset: commonEditable.pos + 1 });
+                } catch (e) {
+                  console.error('Error updating editable', e);
+                  const ts = setStateSnapshot();
+                  rerenderPage?.(ts);
                 }
-                rerenderPage?.();
+              } else {
+                const ts = setStateSnapshot();
+                rerenderPage?.(ts);
               }
             }
           }
