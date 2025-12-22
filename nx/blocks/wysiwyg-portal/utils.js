@@ -25,8 +25,8 @@ export function findChangedNodes(oldDoc, newDoc) {
           oldText: oldNode.text,
           newText: newNode.text,
         });
+        return;
       }
-      return;
     }
 
     // Check if marks changed
@@ -99,6 +99,58 @@ export function findChangedNodes(oldDoc, newDoc) {
 
   traverse(oldDoc, newDoc, 0);
   return changes;
+}
+
+const EDITABLE_TYPES = ['heading', 'paragraph', 'ordered_list', 'bullet_list'];
+
+// Find the common editable ancestor for all changed nodes
+export function findCommonEditableAncestor(view, changes, prevState) {
+  if (changes.length === 0) return null;
+
+  // For each change, find its editable ancestor
+  const editableAncestors = [];
+  
+  for (const change of changes) {
+    const isDeletedNode = change.type === 'deleted';
+    try {
+      const doc = isDeletedNode ? prevState.doc : view.state.doc;
+      const $pos = doc.resolve(change.pos);
+      let editableAncestor = null;
+      
+      // Walk up the tree to find an editable node
+      for (let depth = $pos.depth; depth > 0; depth--) {
+        const node = $pos.node(depth);
+        if (EDITABLE_TYPES.includes(node.type.name)) {
+          editableAncestor = {
+            node,
+            pos: $pos.before(depth),
+          };
+          // TODO consider adding this break back, to find the nearest.
+          // Problem is, for ul we can have ul > p where we want the ul.
+          // break;
+        }
+      }
+      
+      if (editableAncestor) {
+        editableAncestors.push(editableAncestor);
+      } else if (!isDeletedNode) {
+        // If any change doesn't have an editable ancestor, return null
+        return null;
+      }
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.warn('Could not resolve position for change:', e);
+      return null;
+    }
+  }
+
+  // Check if all changes share the same editable ancestor
+  if (editableAncestors.length === 0) return null;
+  
+  const firstPos = editableAncestors[0].pos;
+  const allSameAncestor = editableAncestors.every((ancestor) => ancestor.pos === firstPos);
+  
+  return allSameAncestor ? editableAncestors[0] : null;
 }
 
 export function generateColor(name, hRange = [0, 360], sRange = [60, 80], lRange = [40, 60]) {

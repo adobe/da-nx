@@ -12,8 +12,7 @@ import {
 import { getSchema } from 'https://main--da-live--adobe.aem.live/blocks/edit/prose/schema.js';
 import { COLLAB_ORIGIN, DA_ORIGIN } from 'https://main--da-live--adobe.aem.live/blocks/shared/constants.js';
 import { findChangedNodes, generateColor } from './utils.js';
-
-const EDITABLE_TYPES = ['heading', 'paragraph', 'ordered_list', 'bullet_list'];
+import { findCommonEditableAncestor } from './utils.js';
 
 function registerErrorHandler(ydoc) {
   ydoc.on('update', () => {
@@ -27,54 +26,6 @@ function registerErrorHandler(ydoc) {
 }
 
 function trackCursorAndChanges(rerenderPage, updateCursors, getEditor) {
-  // Find the common editable ancestor for all changed nodes
-  function findCommonEditableAncestor(view, changes) {
-    if (changes.length === 0) return null;
-
-    // For each change, find its editable ancestor
-    const editableAncestors = [];
-    
-    for (const change of changes) {
-      try {
-        const $pos = view.state.doc.resolve(change.pos);
-        let editableAncestor = null;
-        
-        // Walk up the tree to find an editable node
-        for (let depth = $pos.depth; depth > 0; depth--) {
-          const node = $pos.node(depth);
-          if (EDITABLE_TYPES.includes(node.type.name)) {
-            editableAncestor = {
-              node,
-              pos: $pos.before(depth),
-            };
-            // TODO consider adding this break back, to find the nearest.
-            // Problem is, for ul we can have ul > p where we want the ul.
-            // break;
-          }
-        }
-        
-        if (editableAncestor) {
-          editableAncestors.push(editableAncestor);
-        } else {
-          // If any change doesn't have an editable ancestor, return null
-          return null;
-        }
-      } catch (e) {
-        // eslint-disable-next-line no-console
-        console.warn('Could not resolve position for change:', e);
-        return null;
-      }
-    }
-
-    // Check if all changes share the same editable ancestor
-    if (editableAncestors.length === 0) return null;
-    
-    const firstPos = editableAncestors[0].pos;
-    const allSameAncestor = editableAncestors.every((ancestor) => ancestor.pos === firstPos);
-    
-    return allSameAncestor ? editableAncestors[0] : null;
-  }
-
   return new Plugin({
     view() {
       return {
@@ -87,7 +38,7 @@ function trackCursorAndChanges(rerenderPage, updateCursors, getEditor) {
 
             if (changes.length > 0) {
               // Check if all changes share a common editable ancestor
-              const commonEditable = findCommonEditableAncestor(view, changes);
+              const commonEditable = findCommonEditableAncestor(view, changes, prevState);
 
               if (commonEditable) {
                 // All changes are within a single editable element
