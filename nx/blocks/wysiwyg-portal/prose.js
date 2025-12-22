@@ -2,17 +2,15 @@ import {
   EditorState,
   EditorView,
   fixTables,
-  NodeSelection, TextSelection, Plugin,
+  Plugin,
   Slice,
   Y,
   WebsocketProvider,
   ySyncPlugin,
   yCursorPlugin,
-  absolutePositionToRelativePosition,
-  relativePositionToAbsolutePosition,
   ySyncPluginKey,
+  updateYFragment,
 } from 'https://y-wrapper-update--da-live--hannessolo.aem.live/deps/da-y-wrapper/dist/index.js';
-// import { absolutePositionToRelativePosition, relativePositionToAbsolutePosition } from 'https://cdn.jsdelivr.net/npm/y-prosemirror@1.3.7/+esm';
 import { Step } from 'https://cdn.jsdelivr.net/npm/prosemirror-transform@1.10.5/+esm'
 import { getSchema } from 'https://main--da-live--adobe.aem.live/blocks/edit/prose/schema.js';
 import { COLLAB_ORIGIN, DA_ORIGIN } from 'https://main--da-live--adobe.aem.live/blocks/shared/constants.js';
@@ -31,7 +29,6 @@ function registerErrorHandler(ydoc) {
   });
 }
 
-let changesTracked = [];
 let shouldTrack = false;
 let syncing = false;
 let initialized = false;
@@ -42,62 +39,34 @@ let yXmlFragment = null;
 export function syncTrackedChanges(data) {
   syncing = true;
   shouldTrack = false;
-  
-  if (!window.view) {
-    changesTracked = [];
-    shouldTrack = false;
-    return;
-  }
 
   const { view } = window;
 
-  const tr = view.state.tr;
-
-  console.log('stateSnapshot', stateSnapshot);
-  const previousYState = ySyncPluginKey.getState(stateSnapshot);
+  const tr = stateSnapshot.tr;
   const ySyncState = ySyncPluginKey.getState(view.state);
 
   if (data.changes && Array.isArray(data.changes)) {
     data.changes.forEach((change) => {
       const { baseCursor, step: stepJSON } = change;
       
-      // Convert step to JSON, add baseCursor offset to positions, and recreate
-      // const stepJSON = step.toJSON();
       let mappedFrom = stepJSON.from !== undefined ? stepJSON.from + baseCursor : undefined;
       let mappedTo = stepJSON.to !== undefined ? stepJSON.to + baseCursor : undefined;
-
-      const selection = TextSelection.create(stateSnapshot.doc, stepJSON.from, stepJSON.to);
-
-      // Map offsets forward through all tracked changes
-      const relative = getRelativeSelection(previousYState.binding.type, selection, previousYState?.binding.mapping);
-      const restored = restoreRelativeSelection(relative, ydoc, yXmlFragment, ySyncState?.binding.mapping);
-      console.log('relative', relative);
-      console.log('restored', restored);
-
-      mappedFrom = restored.from;
-      mappedTo = restored.to;
-
-      console.log('Mapped change:', {
-        original: { from: stepJSON.from, to: stepJSON.to },
-        withBaseCursor: { 
-          from: stepJSON.from !== undefined ? stepJSON.from + baseCursor : undefined, 
-          to: stepJSON.to !== undefined ? stepJSON.to + baseCursor : undefined 
-        },
-        mapped: { from: mappedFrom, to: mappedTo },
-        stepType: stepJSON.stepType
-      });
 
       const offsetStep = Step.fromJSON(view.state.schema, stepJSON);
       const slice = offsetStep.slice;
       const fixedSlice = new Slice(slice.content, 0, 0);
-      tr.replace(mappedFrom, mappedTo, fixedSlice);
+      const stateWithChanges = tr.replace(mappedFrom + 1, mappedTo + 1, fixedSlice);
+
+      updateYFragment(
+        ydoc,
+        yXmlFragment,
+        stateWithChanges.doc,
+        ySyncState.binding.mapping
+      );
     });
   }
-
-  view.dispatch(tr);
   
   syncing = false;
-  changesTracked = [];
 }
 
 function trackCursorAndChanges(rerenderPage, updateCursors, getEditor) {
@@ -150,16 +119,6 @@ function trackCursorAndChanges(rerenderPage, updateCursors, getEditor) {
   }
 
   return new Plugin({
-    state: {
-      init() {
-        shouldTrack = false;
-      },
-      apply(tr, old) {
-        if (!syncing) {
-          changesTracked.push(tr);
-        }
-      }
-    },
     view() {
       return {
         update(view, prevState) {
@@ -187,10 +146,6 @@ function trackCursorAndChanges(rerenderPage, updateCursors, getEditor) {
                 rerenderPage?.();
               }
             }
-          }
-
-          if (!shouldTrack) {
-            changesTracked = [];
           }
 
           updateCursors?.();
@@ -261,43 +216,6 @@ export default function initProse({ path, permissions, rerenderPage, updateCurso
     state,
     editable() { return canWrite; },
   });
-
-//   ydoc.on('update', () => {
-//     // // console.log(yDocToProsemirrorJSON(ydoc));
-//     // const ySyncState = ySyncPluginKey.getState(window.view.state);
-//     // if (!ySyncState) return;
-
-//     // if (previousRelativeSelection) {
-//     //   console.log('ySyncState', ySyncState);
-
-//     //   console.log('previousRelativeSelection', previousRelativeSelection);
-//     //   console.log('mapping', plugins[0].spec.state.init().binding.mapping);
-//     //   const restored = restoreRelativeSelection(previousRelativeSelection, ydoc, yXmlFragment, ySyncState?.binding.mapping);
-//     //   console.log('restored', restored);
-//     // }
-//     // previousRelativeSelection = getRelativeSelection(yXmlFragment, window.view.state, ySyncState?.binding.mapping);
-
-//     if (previousState) {
-// // console.log('previous YXL', previousYXMLFragment.toString())
-// console.log('current YXL', yXmlFragment.toString())
-
-
-//       const previousYState = ySyncPluginKey.getState(previousState);
-//       console.log('previousYState', previousYState);
-//       console.log('previousYState binding type', previousYState.binding.type.toString());
-
-//       const relative = getRelativeSelection(previousYState.binding.type, previousState, previousYState?.binding.mapping);
-//       console.log('relative', relative);
-
-//       const ySyncState = ySyncPluginKey.getState(window.view.state);
-//       console.log('ySyncState', ySyncState);
-//       console.log('ySyncState type', ySyncState.binding.type.toString());
-//       const restored = restoreRelativeSelection(relative, ydoc, yXmlFragment, ySyncState?.binding.mapping);
-//       console.log('restored', restored);
-//     }
-//     previousState = window.view.state;
-//     // yjsSnapshot = ydoc.createSnapshot();
-//   });
 
   return { proseEl: editor, wsProvider };
 }

@@ -128,46 +128,6 @@ export function generateColor(name, hRange = [0, 360], sRange = [60, 80], lRange
   return `#${f(0)}${f(8)}${f(4)}`;
 }
 
-function cloneXmlNode(node, doc) {
-  if (node instanceof Y.XmlText) {
-    const text = new Y.XmlText()
-    text.insert(0, node.toString())
-    return text
-  }
-
-  if (node instanceof Y.XmlElement) {
-    const el = new Y.XmlElement(node.nodeName)
-
-    // ✅ correct attribute cloning
-    const attrs = node.getAttributes()
-    for (const [key, value] of Object.entries(attrs)) {
-      el.setAttribute(key, value)
-    }
-
-    // clone children
-    for (const child of node.toArray()) {
-      el.push([cloneXmlNode(child)])
-    }
-
-    return el
-  }
-
-
-  throw new Error('Unsupported XML node')
-}
-
-export function cloneXmlFragment(
-  source,
-  target,
-  doc
-) {
-  target.delete(0, target.length)
-
-  for (const node of source.toArray()) {
-    target.push([cloneXmlNode(node, doc)])
-  }
-}
-
 export const getRelativeSelection = (yXmlFragment, selection, mapping) => {
   try {
     return ({
