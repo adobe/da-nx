@@ -28,7 +28,7 @@ export async function isConnected() {
   return true;
 }
 
-export async function sendAllLanguages({ org, site, langs, urls, options, actions }) {
+export async function sendAllLanguages({ org, site, langs, options, actions }) {
   const { sendMessage, saveState } = actions;
   const sourceLanguage = options['source.language']?.location || '/';
 
@@ -39,7 +39,7 @@ export async function sendAllLanguages({ org, site, langs, urls, options, action
   for (const lang of langs) {
     sendMessage({ text: `Sending ${lang.name} for translation.` });
     const queue = new Queue(translateUrl, 50);
-    const langUrls = urls.map((url) => {
+    const langUrls = lang.urls.map((url) => {
       const conf = {
         path: url.suppliedPath,
         sourcePrefix: sourceLanguage,
@@ -54,9 +54,10 @@ export async function sendAllLanguages({ org, site, langs, urls, options, action
     });
 
     await Promise.all(langUrls.map((url) => queue.push(url)));
+
     lang.translation = {
-      sent: urls.length,
-      translated: urls.length,
+      sent: langUrls.length,
+      translated: langUrls.length,
       status: 'translated',
     };
     results[lang.code] = langUrls;

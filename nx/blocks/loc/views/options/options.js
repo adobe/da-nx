@@ -184,6 +184,8 @@ class NxLocOptions extends LitElement {
   }
 
   renderLocales(lang) {
+    if (!lang.locales) return nothing;
+
     return html`
       <div class="lang-locales">
         <p class="locale-heading">Locales</p>
