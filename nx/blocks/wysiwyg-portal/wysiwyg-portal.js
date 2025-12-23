@@ -1,4 +1,4 @@
-import { loadIms } from "../../utils/ims.js";
+import { loadIms, handleSignIn } from "../../utils/ims.js";
 import { daFetch } from "../../utils/daFetch.js";
 import { DA_ORIGIN } from "../../public/utils/constants.js";
 import { default as prose2aem } from "https://main--da-live--adobe.aem.live/blocks/shared/prose2aem.js?ref=local";
@@ -30,7 +30,7 @@ const EDITABLES = [
 const EDITABLE_SELECTORS = EDITABLES.map((edit) => edit.selector).join(', ');
 
 async function getToken() {
-  const ims = await loadIms();
+  const ims = await loadIms(true);
   if (ims.anonymous) return null;
   const { token } = ims.accessToken;
   return token;
@@ -386,8 +386,28 @@ async function initProse(owner, repo, path, el) {
   el.append(proseEl);
 }
 
+async function signIn() {
+  const token = await getToken();
+  if (!token) {
+    handleSignIn();
+    await new Promise(() => {
+      const signInListener = (e) => {
+        try {
+          const url = new URL(e.data);
+          if (url.hash.includes('from_ims')) {
+            window.location.reload();
+          }
+        } catch (e) {}
+      }
+      window.addEventListener('message', signInListener);
+    });
+  }
+}
+
 export default async function decorate(el) {
   el.innerHTML = "Waiting for connection...";
+
+  await signIn();
 
   function initPort(e) {
     console.log("initPort", e);
