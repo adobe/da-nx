@@ -121,7 +121,7 @@ export function formatLangs(langs, config) {
     lang.orderedActions = split;
     [lang.activeAction] = split;
 
-    if (typeof lang.locales === 'string') {
+    if (lang.locales && typeof lang.locales === 'string') {
       const hasDefaultLocales = 'default locales' in lang;
       const defaultLocales = lang['default locales']
         ?.split(',')

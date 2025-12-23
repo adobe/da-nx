@@ -12,7 +12,7 @@ export async function setupConnector(service) {
   return CONNECTOR;
 }
 
-export async function getUrls(org, site, service, sourceLocation, urls, fetchContent, snapshot) {
+export async function getUrls(org, site, service, sourceLocation, destLocation, urls, fetchContent, snapshot) {
   const { connector } = service;
   const snapshotPrefix = createSnapshotPrefix(snapshot);
 
@@ -21,7 +21,7 @@ export async function getUrls(org, site, service, sourceLocation, urls, fetchCon
     const converConf = {
       path: url.suppliedPath,
       sourcePrefix: sourceLocation,
-      destPrefix: sourceLocation,
+      destPrefix: destLocation,
       snapshotPrefix,
     };
     const formatted = convertPath(converConf);
@@ -171,10 +171,12 @@ export function removeWaitingLanguagesFromConf(conf) {
 }
 
 export async function sendAllForTranslation(conf, connector) {
-  const errors = conf.urls.filter((url) => url.error);
-  if (errors.length) {
-    return { errors };
-  }
+  const langErrors = conf.langs.reduce((acc, lang) => {
+    const errors = lang.urls.filter((url) => url.error);
+    if (errors.length) acc.push(...errors);
+    return acc;
+  }, []);
+  if (langErrors.length) return { errors: langErrors };
 
   conf.langs.filter((lang) => lang.waitingFor).forEach((lang) => {
     if (!lang.translation) {
@@ -195,7 +197,7 @@ async function sendLanguageForTranslation(conf, connector, lang, originalUrls, s
     };
   });
   const { org, site } = conf;
-  const { urls } = await getUrls(org, site, { connector }, newSourceLocation, baseUrls, true);
+  const { urls } = await getUrls(org, site, { connector }, newSourceLocation, newSourceLocation, baseUrls, true);
   lang.translation.status = 'not started';
   delete lang.waitingFor;
   return connector.sendAllLanguages({
