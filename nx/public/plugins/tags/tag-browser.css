@@ -1,0 +1,112 @@
+:host {
+    font-family: 'Adobe Clean', adobe-clean, sans-serif;
+  }
+  
+  .tag-browser {
+    display: block;
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+    height: 100vh;
+  }
+  
+  .tag-browser .search-details {
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    line-height: 36px;
+    font-size: 16px;
+    padding: 0 12px;
+  }
+  
+  .tag-browser .tag-search input[type="text"] {
+    flex: 1;
+    height: 32px;
+    padding: 0 8px;
+    font-size: 16px;
+    font-family: 'Adobe Clean', adobe-clean, sans-serif;
+    border: 1px solid #d1d1d1;
+    border-radius: 2px;
+    box-sizing: border-box;
+  }
+  
+  .tag-browser .tag-groups {
+    display: flex;
+    overflow: auto;
+    position: absolute;
+    width: 100%;
+    height: calc(100% - 36px);
+  }
+  
+  .tag-browser ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  
+  .tag-browser .tag-group-column {
+    flex-shrink: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    max-width: 280px;
+    padding: 0 12px;
+    box-sizing: border-box;
+  }
+  
+  .tag-browser .tag-group-column:first-child {
+    padding: 0 12px;
+  }
+  
+  .tag-browser .tag-group .tag-details {
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    line-height: 36px;
+  }
+  
+  .tag-browser .tag-group .tag-title {
+    flex: 1;
+    padding: 0 6px;
+    font-size: 16px;
+    font-family: 'Adobe Clean', adobe-clean, sans-serif;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    background: none;
+    border: none;
+    text-align: left;
+    cursor: pointer;
+  }
+  
+  .tag-browser .tag-search button,
+  .tag-browser .tag-details button {
+    cursor: pointer;
+    height: 32px;
+    width: 32px;
+    margin: 2px;
+    padding: 0;
+    border: none;
+    display: block;
+    border-radius: 2px;
+    background-color: #efefef;
+  }
+  
+  .tag-browser .tag-group .tag-title:hover {
+    background-color: #efefef;
+  }
+  
+  .tag-browser .tag-search button:hover,
+  .tag-browser .tag-group button:hover,
+  .tag-browser .tag-group .tag-title.active {
+    background-color: #e9e9e9;
+  }
+  
+  .tag-browser .tag-search::after,
+  .tag-browser .tag-group::after {
+    content: "";
+    display: block;
+    height: 1px;
+    background: #d1d1d1;
+  }
