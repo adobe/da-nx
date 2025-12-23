@@ -7,6 +7,7 @@ import { loadConfig, saveConfig } from './utils.js';
 
 import '../../public/sl/components.js';
 import '../shared/path/path.js';
+import './views/secure-toggle.js';
 
 const { nxBase: nx } = getConfig();
 
@@ -58,15 +59,6 @@ class SecureOrg extends LitElement {
       return;
     }
 
-    const user = await loadIms();
-    if (user.emailVerified !== 'true') {
-      this._alert = {
-        type: 'warning',
-        message: 'Email has not been verified.',
-      };
-      return;
-    }
-
     const { message, json } = await loadConfig(this._org);
     if (message) {
       this._alert = { type: 'warning', message };
@@ -82,8 +74,7 @@ class SecureOrg extends LitElement {
       this._existingConfig = json;
     }
 
-    // Set the user if email is verified.
-    this._user = user;
+    this._user = await loadIms();
   }
 
   async handleUpdateConfig() {
@@ -94,6 +85,10 @@ class SecureOrg extends LitElement {
 
   handleCheck() {
     this._authorized = !this._authorized;
+  }
+
+  handleToggle({ detail }) {
+    console.log(detail);
   }
 
   renderAlert() {
@@ -117,47 +112,25 @@ class SecureOrg extends LitElement {
     if (!this._user) return nothing;
 
     return html`
-      <p class="nx-detail">Update sandbox</p>
-      <h1>${this._org}</h1>
       <div class="config-preview">
-        <div class="config-preview-table">
-          <div class="table-row">
-            <div>Path</div>
-            <div>Groups</div>
-            <div>Actions</div>
-            <div>Comments</div>
+        <nx-secure-toggle @update=${this.handleToggle}></nx-secure-toggle>
+        <div class="action-wrapper">
+          <div>
+            <input type="checkbox" id="authorize" name="authorize" @change=${this.handleCheck} ?checked=${this._authorized} />
+            <label for="authorize">I am legally authorized to make decisions for this project.</label>
           </div>
-          <div class="table-row">
-            <div>CONFIG</div>
-            <div>${this._user.email}</div>
-            <div>write</div>
-            <div>The ability to set configurations for an org.</div>
-          </div>
-          <div class="table-row">
-            <div>/ + **</div>
-            <div>${this._user.email}</div>
-            <div>write</div>
-            <div>The ability to create content.</div>
-          </div>
+          <sl-button @click=${this.handleUpdateConfig} ?disabled=${this._saving || !this._authorized}>${this._actionText}</sl-button>
         </div>
-        <div class="config-preview-footer">
-          <a class="da-docs" href="https://docs.da.live/administrators/guides/permissions" target="_blank">
-            Read permission documentation
-          </a>
-          <div class="config-preview-action">
-            <div>
-              <input type="checkbox" id="authorize" name="authorize" @change=${this.handleCheck} ?checked=${this._authorized} />
-              <label for="authorize">I am legally authorized to make decisions for this organization.</label>
-            </div>
-            <sl-button @click=${this.handleUpdateConfig} ?disabled=${this._saving || !this._authorized}>${this._actionText}</sl-button>
-          </div>
-        </div>
+        <a class="da-docs" href="https://docs.da.live/administrators/guides/permissions" target="_blank">
+          Read permission documentation
+        </a>
       </div>
     `;
   }
 
   render() {
     return html`
+      <p class="nx-detail">Update sandbox</p>
       <nx-path label="Load organization" @details=${this.handleDetail}></nx-path>
       ${this.renderAlert()}
       ${this.renderPreview()}

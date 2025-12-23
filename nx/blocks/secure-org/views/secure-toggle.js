@@ -2,15 +2,16 @@ import { html, LitElement, nothing } from 'da-lit';
 import { loadIms, getOrgs, getAllOrgs } from '../../../utils/ims.js';
 import getStyle from '../../../utils/styles.js';
 
-import '../../public/sl/components.js';
+import '../../../public/sl/components.js';
 
 const styles = await getStyle(import.meta.url);
 
 class SecureToggle extends LitElement {
   static properties = {
-    _alert: { state: true },
+    title: { state: true },
     _user: { state: true },
-    _orgs: { state: true },
+    _org: { state: true },
+    _type: { state: true },
   };
 
   connectedCallback() {
@@ -29,38 +30,67 @@ class SecureToggle extends LitElement {
       return;
     }
 
-    // Set the user if email is verified.
     this._user = details;
 
     const org = await details.getOrgs();
-    console.log(org);
+
+    this._org = {
+      name: Object.keys(org)[0],
+      id: Object.values(org)[0].orgRef.ident,
+    };
   }
 
-  renderAlert() {
-    if (!this._alert) return nothing;
+  handleToggle(type) {
+    this._type = type;
+  }
 
-    const type2icon = {
-      info: 'InfoCircle',
-      warning: 'AlertDiamond',
-      success: 'CheckmarkCircle',
-    };
+  handleCheck({ target }) {
+    const type = target.checked ? 'org' : 'email';
+    this.handleToggle(type);
+  }
 
-    return html`
-      <div class="nx-alert ${this._alert.type || 'info'}">
-        <svg class="icon"><use href="#S2_Icon_${type2icon[this._alert.type || 'info']}_20_N"/></svg>
-        <p>${this._alert.message}</p>
-      </div>
-    `;
+  get groups() {
+    return this._type === 'org' ? this._org.id : this._user.email;
   }
 
   render() {
-    return html`
-      <div class="demo-wrapper">
-        <label for="demo-toggle">Demo content</label>
-        <input class="demo-toggle" id="demo-toggle" type="checkbox" .checked="${this._demoContent}" @click="${this.toggleDemo}" />
-      </div>
+    if (!this._user) return nothing;
 
-      ${this.renderAlert()}
+    return html`
+      <div class="toggle-wrapper">
+        <div class="toggle-inner">
+          <button
+            @click=${() => this.handleToggle('email')}
+            class="toggle-label toggle-label-email ${this._type === 'org' ? '' : 'is-active'}">
+            <p>Email</p>
+            <p>${this._user.email}</p>
+          </button>
+          <input class="demo-toggle" id="demo-toggle" type="checkbox" @click="${this.handleCheck}" ?checked=${this._type === 'org'} />
+          <button
+            @click=${() => this.handleToggle('org')}
+            class="toggle-label toggle-label-org ${this._type === 'org' ? 'is-active' : ''}">
+            <p>Organization</p>
+            <p>${this._org.name}</p>
+          </button>
+        </div>
+      </div>
+      <div class="config-preview-table">
+        <div class="table-row">
+          <div>Path</div>
+          <div>Groups</div>
+          <div>Actions</div>
+        </div>
+        <div class="table-row">
+          <div>CONFIG</div>
+          <div>${this.groups}</div>
+          <div>write</div>
+        </div>
+        <div class="table-row">
+          <div>/ + **</div>
+          <div>${this.groups}</div>
+          <div>write</div>
+        </div>
+      </div>
     `;
   }
 }

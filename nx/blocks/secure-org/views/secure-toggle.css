@@ -1,3 +1,70 @@
+:host {
+  display: block;
+  width: 640px;
+}
+
+.toggle-title {
+  font-weight: 700;
+  font-size: 24px;
+  text-align: center;
+  margin: 0 0 24px;
+}
+
+.toggle-wrapper {
+  display: flex;
+  justify-content: center;
+  margin: 0 0 12px;
+}
+
+.toggle-inner {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  width: 120px;
+
+  p {
+    font-weight: 700;
+    margin: 0;
+    line-height: 1;
+  }
+
+  .toggle-label {
+    border: none;
+    padding: 0;
+    background: transparent;
+    text-align: left;
+    font-family: var(--font-family);
+    position: absolute;
+    white-space: nowrap;
+    opacity: 0.3;
+    transition: opacity 0.3s ease 0s;
+
+    &.toggle-label-email {
+      left: 0;
+      transform: translateX(-100%);
+    }
+
+    &.is-active {
+      opacity: 1;
+    }
+
+    &.toggle-label-org {
+      right: 0;
+      transform: translateX(100%);
+    }
+
+    p:first-child {
+      text-transform: uppercase;
+      font-size: 12px;
+    }
+
+    p:last-child {
+      font-size: 18px;
+    }
+  }
+}
+
 .demo-toggle {
   appearance: none;
   width: 88px;
@@ -9,7 +76,7 @@
   outline: none;
   border: none;
   cursor: pointer;
-  background-color: rgb(112 112 112);
+  background-color: var(--s2-blue-700);
   transition: background-color 0.3s ease 0s;
 }
 
@@ -32,9 +99,37 @@
 }
 
 .demo-toggle:checked {
-  background-color: rgb(111 155 0);
+  background-color: var(--s2-green-600);
 }
 
 .demo-toggle:checked::before {
   left: 47px;
+}
+
+.config-preview-table {
+  display: grid;
+  gap: 4px;
+  overflow: hidden;
+  border-radius: 10px;
+  margin-bottom: 12px;
+
+  .table-row {
+    display: grid;
+    gap: 4px;
+    grid-template-columns: 1fr 1fr 1fr;
+
+    > div {
+      padding: 4px 8px;
+      background-color: var(--s2-gray-75);
+    }
+
+    &:first-child {
+      font-weight: 700;
+
+      > div {
+        padding: 8px;
+        background-color: var(--s2-gray-100);
+      }
+    }
+  }
 }

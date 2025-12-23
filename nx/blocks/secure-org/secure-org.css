@@ -1,6 +1,6 @@
 :host {
   display: block;
-  max-width: var(--grid-container-width);
+  max-width: 640px;
   margin: var(--spacing-800) auto var(--spacing-800) auto;
 
   > svg {
@@ -21,7 +21,7 @@
   font-weight: 700;
   font-size: 14px;
   line-height: 1;
-  margin: 0;
+  margin: 0 0 6px;
   text-transform: uppercase;
 }
 
@@ -63,47 +63,22 @@ h1 {
   }
 }
 
-.config-preview-table {
+.config-preview {
   display: grid;
-  gap: 4px;
-  overflow: hidden;
-  border-radius: 10px;
-  margin-bottom: 12px;
+  justify-content: center;
+  gap: 24px;
 
-  .table-row {
-    display: grid;
-    gap: 4px;
-    grid-template-columns: 1fr 1fr 1fr 1fr;
-
-    > div {
-      padding: 4px 8px;
-      background-color: var(--s2-gray-75);
-    }
-
-    &:first-child {
-      font-weight: 700;
-
-      > div {
-        padding: 8px;
-        background-color: var(--s2-gray-100);
-      }
-    }
+  .action-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 12px;
   }
-}
-
-.config-preview-footer {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
 
   .da-docs {
+    display: flex;
+    justify-content: center;
     color: var(--s2-gray-800);
     font-style: italic;
-  }
-
-  .config-preview-action {
-    display: flex;
-    align-items: center;
-    gap: 16px;
   }
 }
