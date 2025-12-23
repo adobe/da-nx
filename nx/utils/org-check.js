@@ -10,7 +10,7 @@ async function getIsSandbox(org) {
   const { status } = confResp;
 
   // Handle not authorized
-  if (status === 403 && status === 401) return false;
+  if (status === 403 || status === 401) return false;
 
   // Handle found config
   if (status === 200) {
