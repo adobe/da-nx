@@ -1,3 +1,5 @@
+import { handleSignIn, loadIms } from "../../utils/ims.js";
+
 export function findChangedNodes(oldDoc, newDoc) {
   const changes = [];
 
@@ -171,4 +173,62 @@ export function generateColor(name, hRange = [0, 360], sRange = [60, 80], lRange
     return Math.round(255 * color).toString(16).padStart(2, '0');
   };
   return `#${f(0)}${f(8)}${f(4)}`;
+}
+
+export async function checkPermissions(sourceUrl) {
+  const token = await getToken();
+  const resp = await fetch(sourceUrl, {
+    method: "HEAD",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  // If child actions header is present, use it.
+  // This is a hint as to what can be done with the children.
+  if (resp.headers?.get("x-da-child-actions")) {
+    resp.permissions = resp.headers
+      .get("x-da-child-actions")
+      .split("=")
+      .pop()
+      .split(",");
+    return resp;
+  }
+
+  // Use the self actions hint if child actions are not present.
+  if (resp.headers?.get("x-da-actions")) {
+    resp.permissions = resp.headers
+      ?.get("x-da-actions")
+      ?.split("=")
+      .pop()
+      .split(",");
+    return resp;
+  }
+
+  // Support legacy admin.role.all
+  resp.permissions = ["read", "write"];
+  return resp;
+}
+
+export async function getToken() {
+  const ims = await loadIms(true);
+  if (ims.anonymous) return null;
+  const { token } = ims.accessToken;
+  return token;
+}
+
+export async function signIn() {
+  const token = await getToken();
+  if (!token) {
+    handleSignIn();
+    await new Promise(() => {
+      const signInListener = (e) => {
+        try {
+          const url = new URL(e.data);
+          if (url.hash.includes('from_ims')) {
+            window.location.reload();
+          }
+        } catch (e) {}
+      }
+      window.addEventListener('message', signInListener);
+    });
+  }
 }
