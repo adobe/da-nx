@@ -85,6 +85,7 @@ async function saveLang({
   connector,
   behavior,
   lang,
+  langIndex,
   urls,
   sendMessage,
 }) {
@@ -108,6 +109,7 @@ async function saveLang({
     site,
     service,
     lang,
+    langIndex,
     urls: urlsToSave,
     saveToDa,
   });
@@ -121,10 +123,10 @@ export async function saveLangItemsToDa(options, conf, connector, sendMessage) {
 
   const saveLangConf = { ...conf, connector, behavior, sendMessage };
 
-  for (const lang of conf.langs) {
+  for (const [langIndex, lang] of conf.langs.entries()) {
     if (lang.translation.status !== 'complete') {
       sendMessage({ text: `Fetching ${conf.urls.length} items for ${lang.name}` });
-      const { savedCount } = await saveLang({ ...saveLangConf, lang });
+      const { savedCount } = await saveLang({ ...saveLangConf, lang, langIndex });
       lang.translation.saved = savedCount;
       lang.translation.status = savedCount === conf.urls.length ? 'complete' : 'error';
     }
@@ -171,13 +173,15 @@ export function removeWaitingLanguagesFromConf(conf) {
 }
 
 export async function sendAllForTranslation(conf, connector) {
-  const langErrors = conf.langs.reduce((acc, lang) => {
+  // Use langsWithUrls as our basis for checking for errors
+  const langErrors = conf.langsWithUrls.reduce((acc, lang) => {
     const errors = lang.urls.filter((url) => url.error);
     if (errors.length) acc.push(...errors);
     return acc;
   }, []);
   if (langErrors.length) return { errors: langErrors };
 
+  // Use langs here as this is what will persist to DA
   conf.langs.filter((lang) => lang.waitingFor).forEach((lang) => {
     if (!lang.translation) {
       lang.translation = {};
