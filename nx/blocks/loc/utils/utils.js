@@ -222,7 +222,7 @@ export async function fetchConfig(org, site) {
 
   // Fallback to zero config defaults
   if (options.error) {
-    options = await fetchConf(`${nx}/blocks/loc/connectors/google/translate-v2.json`);
+    options = await fetchConf(`${nx}/blocks/loc/connectors/google/translate.json`);
   }
 
   CONFIG_CACHE = options;
