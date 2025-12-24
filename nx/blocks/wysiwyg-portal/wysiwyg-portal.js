@@ -2,7 +2,7 @@ import { loadIms, handleSignIn } from "../../utils/ims.js";
 import { daFetch } from "../../utils/daFetch.js";
 import { DA_ORIGIN } from "../../public/utils/constants.js";
 import { default as prose2aem } from "https://main--da-live--adobe.aem.live/blocks/shared/prose2aem.js?ref=local";
-import { TextSelection } from "https://main--da-live--adobe.aem.live/deps/da-y-wrapper/dist/index.js";
+import { TextSelection, yUndo, yRedo } from "https://main--da-live--adobe.aem.live/deps/da-y-wrapper/dist/index.js";
 
 let port;
 let currentOwner;
@@ -335,6 +335,15 @@ function updateState(data) {
   suppressRerender = false;
 }
 
+function handleUndoRedo(data) {
+  const { action } = data;
+  if (action === 'undo') {
+    yUndo(window.view.state);
+  } else if (action === 'redo') {
+    yRedo(window.view.state);
+  }
+}
+
 function onMessage(e) {
   if (e.data.type === 'cursor-move') {
     handleCursorMove(e.data);
@@ -346,6 +355,8 @@ function onMessage(e) {
     getEditor(e.data);
   } else if (e.data.type === 'node-update') {
     updateState(e.data);
+  } else if (e.data.type === 'history') {
+    handleUndoRedo(e.data);
   }
 }
 
