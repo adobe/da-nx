@@ -5,12 +5,12 @@ export function updateDocument(ctx) {
   // Skip rerender if suppressed (e.g., during image updates)
   if (ctx.suppressRerender) return;
   const body = getInstrumentedHTML(window.view);
-  ctx.port.postMessage({ set: "body", body });
+  ctx.port.postMessage({ type: "set-body", body });
 }
 
 export function updateCursors(ctx) {
   const body = getInstrumentedHTML(window.view);
-  ctx.port.postMessage({ set: 'cursors', body });
+  ctx.port.postMessage({ type: 'set-cursors', body });
 }
 
 export function updateState(data, ctx) {
@@ -42,7 +42,7 @@ export function getEditor(data, ctx) {
   const before = pos.before(pos.depth);
   const beforePos = window.view.state.doc.resolve(before);
   const nodeAtBefore = beforePos.nodeAfter;
-  ctx.port.postMessage({ set: 'editor', editor: nodeAtBefore.toJSON(), cursorOffset: before + 1 });
+  ctx.port.postMessage({ type: 'set-editor-state', editorState: nodeAtBefore.toJSON(), cursorOffset: before + 1 });
 }
 
 export function handleCursorMove({ cursorOffset, textCursorOffset }, ctx) {

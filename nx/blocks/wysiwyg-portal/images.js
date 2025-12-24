@@ -89,7 +89,7 @@ export async function handleImageReplace({ imageData, fileName, originalSrc }, c
 
     if (!resp.ok) {
       ctx.port.postMessage({
-        set: 'image-error',
+        type: 'image-error',
         error: `Upload failed with status ${resp.status}`,
         originalSrc,
       });
@@ -104,7 +104,7 @@ export async function handleImageReplace({ imageData, fileName, originalSrc }, c
 
     // Send back the new URL to update the quick-edit view
     ctx.port.postMessage({
-      set: 'image',
+      type: 'update-image-src',
       newSrc,
       originalSrc,
     });
@@ -112,7 +112,7 @@ export async function handleImageReplace({ imageData, fileName, originalSrc }, c
     // eslint-disable-next-line no-console
     console.error('Error replacing image:', error);
     ctx.port.postMessage({
-      set: 'image-error',
+      type: 'image-error',
       error: error.message,
       originalSrc,
     });

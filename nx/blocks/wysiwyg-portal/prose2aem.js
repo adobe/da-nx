@@ -17,7 +17,7 @@ export function getInstrumentedHTML(view) {
   // Clone the editor first so we don't modify the real DOM
   const editorClone = view.dom.cloneNode(true);
 
-  // Add data-cursor attribute to all h1 elements with their starting position
+  // Add data-prose-index attribute to all h1 elements with their starting position
   const originalElements = view.dom.querySelectorAll(EDITABLE_SELECTORS);
   const clonedElements = editorClone.querySelectorAll(EDITABLE_SELECTORS);
 
@@ -26,7 +26,7 @@ export function getInstrumentedHTML(view) {
       try {
         // Get the ProseMirror position at the start of this editable element
         const editableElementStartPos = view.posAtDOM(originalElement, 0);
-        clonedElements[index].setAttribute('data-cursor', editableElementStartPos);
+        clonedElements[index].setAttribute('data-prose-index', editableElementStartPos);
       } catch (e) {
         // If we can't find the position, skip this element
         // eslint-disable-next-line no-console
@@ -45,12 +45,12 @@ export function getInstrumentedHTML(view) {
   const remoteCursors = editorClone.querySelectorAll('.ProseMirror-yjs-cursor');
 
   remoteCursors.forEach((remoteCursor) => {
-    // Find the highest-level ancestor with data-cursor attribute
+    // Find the highest-level ancestor with data-prose-index attribute
     let highestEditable = null;
     let current = remoteCursor.parentElement;
     
     while (current) {
-      if (current.hasAttribute('data-cursor')) {
+      if (current.hasAttribute('data-prose-index')) {
         highestEditable = current;
       }
       current = current.parentElement;
