@@ -117,7 +117,7 @@ export async function addAssets({
         assetName: glaasFilename,
         assetType: 'SOURCE',
         targetLocales,
-        metadata: { 'source-preview-url': item.aemHref },
+        metadata: { 'source-preview-url': item.aemHref.replace(/\/index$/, '/') },
       };
 
       // GLaaS v1.2
