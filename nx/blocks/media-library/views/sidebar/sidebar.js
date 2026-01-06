@@ -49,7 +49,6 @@ class NxMediaSidebar extends LitElement {
     this.scanProgress = { pages: 0, media: 0, duration: null, hasChanges: null };
   }
 
-
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [sl, slComponents, styles];
@@ -154,21 +153,9 @@ class NxMediaSidebar extends LitElement {
 
   render() {
     const isExpanded = this.isExpanded || this.isIndexExpanded;
-    
     return html`
       <aside class="media-sidebar ${isExpanded ? 'expanded' : 'collapsed'}">
         <div class="sidebar-icons">
-          <button
-            class="icon-btn home-btn"
-            @click=${this.handleHome}
-            title="Home"
-            aria-label="Go to home"
-          >
-            <svg class="icon">
-              <use href="#S2IconHome20N-icon"></use>
-            </svg>
-            ${isExpanded ? html`<span>Home</span>` : ''}
-          </button>
           <button
             class="icon-btn ${this.isExpanded ? 'active' : ''}"
             @click=${this.handleFiltersToggle}
@@ -179,7 +166,7 @@ class NxMediaSidebar extends LitElement {
             <svg class="icon">
               <use href="#S2_Icon_Properties_20_N"></use>
             </svg>
-            ${isExpanded ? html`<span>Filters</span>` : ''}
+            <span class="button-text">Filters</span>
           </button>
         </div>
 
@@ -212,10 +199,10 @@ class NxMediaSidebar extends LitElement {
             aria-label="Toggle index panel"
             aria-expanded="${this.isIndexExpanded}"
           >
-            <svg class="icon">
+            <svg class="icon" viewBox="0 0 20 18">
               <use href="#S2_GraphBarVertical_18_N"></use>
             </svg>
-            ${isExpanded ? html`<span>Index</span>` : ''}
+            <span class="button-text">Index</span>
           </button>
         </div>
 
