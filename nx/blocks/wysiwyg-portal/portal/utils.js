@@ -1,4 +1,4 @@
-import { handleSignIn, loadIms } from "../../utils/ims.js";
+import { handleSignIn, loadIms } from "../../../utils/ims.js";
 
 export function findChangedNodes(oldDoc, newDoc) {
   const changes = [];
