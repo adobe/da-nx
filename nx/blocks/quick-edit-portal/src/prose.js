@@ -8,9 +8,9 @@ import {
   ySyncPlugin,
   yCursorPlugin,
   yUndoPlugin,
-} from 'https://main--da-live--adobe.aem.live/deps/da-y-wrapper/dist/index.js';
-import { getSchema } from 'https://main--da-live--adobe.aem.live/blocks/edit/prose/schema.js';
-import { COLLAB_ORIGIN, DA_ORIGIN } from 'https://main--da-live--adobe.aem.live/blocks/shared/constants.js';
+} from 'https://da.live/deps/da-y-wrapper/dist/index.js';
+import { getSchema } from 'https://da.live/blocks/edit/prose/schema.js';
+import { COLLAB_ORIGIN, DA_ORIGIN } from 'https://da.live/blocks/shared/constants.js';
 import { findChangedNodes, generateColor, findCommonEditableAncestor } from './utils.js';
 
 function registerErrorHandler(ydoc) {
