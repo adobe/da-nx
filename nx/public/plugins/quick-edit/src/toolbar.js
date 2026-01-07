@@ -1,5 +1,5 @@
-import { linkItem, removeLinkItem } from 'https://main--da-live--adobe.aem.live/blocks/edit/prose/plugins/menu/linkItem.js';
-import { renderGrouped } from 'https://main--da-live--adobe.aem.live/deps/da-y-wrapper/dist/index.js';
+import { linkItem, removeLinkItem } from 'https://da.live/blocks/edit/prose/plugins/menu/linkItem.js';
+import { renderGrouped } from 'https://da.live/deps/da-y-wrapper/dist/index.js';
 
 let floatingToolbar = null;
 let currentEditorView = null;
@@ -10,7 +10,7 @@ let updateLinkMenu = null;
 let linkStylesheet = null;
 async function loadLinkStylesheet() {
   if (linkStylesheet) return linkStylesheet;
-  const resp = await fetch('https://main--da-live--adobe.aem.live/blocks/edit/da-palette/da-palette.css');
+  const resp = await fetch('https://da.live/blocks/edit/da-palette/da-palette.css');
   const text = await resp.text();
   const sheet = new CSSStyleSheet();
   sheet.replace(text);

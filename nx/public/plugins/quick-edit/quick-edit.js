@@ -48,6 +48,7 @@ function handleLoad(target, config, location, ctx) {
 function getQuickEditSrc() {
   const { search } = window.location;
   const ref = new URLSearchParams(search).get('quick-edit');
+  if (!ref) return 'https://da.live/plugins/quick-edit';
   return `https://main--da-live--adobe.aem.live/plugins/quick-edit?nx=${ref}`;
 }
 
@@ -68,6 +69,5 @@ export default async function loadQuickEdit({ detail: payload }, loadPage) {
     handleLoad(iframe, payload.config, payload.location, ctx);
   });
   document.documentElement.append(iframe);
-  iframe.id = 'quick-edit-iframe';
   iframe.style.visibility = 'hidden';
 }

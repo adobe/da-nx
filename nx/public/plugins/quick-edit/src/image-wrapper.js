@@ -1,4 +1,4 @@
-import { Plugin } from 'https://main--da-live--adobe.aem.live/deps/da-y-wrapper/dist/index.js';
+import { Plugin } from 'https://da.live/deps/da-y-wrapper/dist/index.js';
 
 export function createImageWrapperPlugin() {
   return new Plugin({

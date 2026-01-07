@@ -1,4 +1,4 @@
-import { Plugin } from 'https://main--da-live--adobe.aem.live/deps/da-y-wrapper/dist/index.js';
+import { Plugin } from 'https://da.live/deps/da-y-wrapper/dist/index.js';
 
 function handleListItem(view, event) {
   const { state, dispatch } = view;
