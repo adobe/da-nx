@@ -6,6 +6,20 @@ let currentEditorView = null;
 let scrollListener = null;
 let updateLinkMenu = null;
 
+// Holds the web component stylesheet for the link editor.
+let linkStylesheet = null;
+async function loadLinkStylesheet() {
+  if (linkStylesheet) return linkStylesheet;
+  const resp = await fetch('https://main--da-live--adobe.aem.live/blocks/edit/da-palette/da-palette.css');
+  const text = await resp.text();
+  const sheet = new CSSStyleSheet();
+  sheet.replace(text);
+  linkStylesheet = sheet;
+  return sheet;
+}
+
+// This reuses the DA code for link editing. Long term should use our own implementation,
+// or make DA's more reusable without hacks.
 function createLinkToolbar(view) {
   const { marks } = view.state.schema;
   const linkMenu = [linkItem(marks.link), removeLinkItem(marks.link)];
@@ -13,13 +27,36 @@ function createLinkToolbar(view) {
   const { dom, update } = renderGrouped(view, [linkMenu]);
   updateLinkMenu = update;
 
-  // Required by the modal. We should rewrite this.
+  // TODO: Super hacky. Modal code in da expects global window.view.
   window.view = view;
   // Also required by the modal.
   document.querySelector('.da-palettes')?.remove();
   const insertedElement = document.createElement('div');
   insertedElement.className = 'da-palettes';
+  insertedElement.style.display = 'none';
   window.view.dom.parentNode.insertBefore(insertedElement, window.view.dom.nextSibling);
+  
+  // TODO: Super hacky.
+  // We reuse the same link editor window from DA, and internally this expects window.view.dom.nextSibling
+  // Leaving it there may break the css styling, because in our dom the project can have css that affects this.
+  // So we leave it where it is until the da code has performed what it needs (add child), then move it away.
+  const observer = new MutationObserver((mutations) => {
+    mutations.forEach((mutation) => {
+      if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+        // Move the entire insertedElement to the end of document.body
+        document.body.appendChild(insertedElement);
+        observer.disconnect();
+        loadLinkStylesheet().then((sheet) => {
+          insertedElement.firstChild.shadowRoot.adoptedStyleSheets = [sheet];
+          insertedElement.style.display = 'flex';
+        });
+      }
+    });
+  });
+  
+  // Start observing the element for child additions
+  observer.observe(insertedElement, { childList: true });
+  
   updateLinkMenu(view.state);
 
   return dom;
