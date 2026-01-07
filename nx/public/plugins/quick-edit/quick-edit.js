@@ -45,11 +45,13 @@ function handleLoad(target, config, location, ctx) {
   ctx.port.onmessage = (e) => onMessage(e, ctx);
 }
 
-function getQuickEditSrc(ref) {
+function getQuickEditSrc() {
+  const { search } = window.location;
+  const ref = new URLSearchParams(search).get('quick-edit');
   return `https://main--da-live--adobe.aem.live/plugins/quick-edit?nx=${ref}`;
 }
 
-export default async function loadQuickEdit({ detail: payload }, ref, loadPage) {
+export default async function loadQuickEdit({ detail: payload }, loadPage) {
   if (document.getElementById(QUICK_EDIT_ID)) return;
 
   const ctx = {
@@ -59,7 +61,7 @@ export default async function loadQuickEdit({ detail: payload }, ref, loadPage) 
 
   const iframe = document.createElement("iframe");
   iframe.id = QUICK_EDIT_ID;
-  iframe.src = getQuickEditSrc(ref);
+  iframe.src = getQuickEditSrc();
   iframe.allow = "local-network-access *; clipboard-write *";
 
   pollConnection(ctx, () => {
