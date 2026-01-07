@@ -102,7 +102,7 @@ picture.image-uploading::after {
   width: 32px;
   height: 32px;
   padding: 0;
-  background: var(--color-blue-400, #5898ff);
+  background: var(--color-blue-500, rgb(19, 115, 230));
   border: none;
   border-radius: 50%;
   cursor: pointer;
