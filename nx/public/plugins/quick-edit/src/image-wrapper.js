@@ -11,7 +11,6 @@ export function createImageWrapperPlugin() {
           // Copy attributes from the node to the img element
           if (node.attrs.src) img.src = node.attrs.src;
           if (node.attrs.alt) img.alt = node.attrs.alt;
-          if (node.attrs.title) img.title = node.attrs.title;
           
           // Copy any data attributes
           Object.keys(node.attrs).forEach(key => {
@@ -31,7 +30,6 @@ export function createImageWrapperPlugin() {
               // Update img attributes
               if (updatedNode.attrs.src) img.src = updatedNode.attrs.src;
               if (updatedNode.attrs.alt) img.alt = updatedNode.attrs.alt;
-              if (updatedNode.attrs.title) img.title = updatedNode.attrs.title;
               
               return true;
             },
