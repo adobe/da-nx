@@ -1,12 +1,12 @@
-import { setupContentEditableListeners, setupImageDropListeners, updateImageSrc, handleImageError } from './host/images.js';
-import { setEditorState } from './host/prose.js';
-import { setCursors } from './host/cursors.js';
-import { pollConnection, setupCloseButton } from './host/utils.js';
+import { setupContentEditableListeners, setupImageDropListeners, updateImageSrc, handleImageError } from './src/images.js';
+import { setEditorState } from './src/prose.js';
+import { setCursors } from './src/cursors.js';
+import { pollConnection, setupCloseButton } from './src/utils.js';
 
-import { loadStyle } from "../../scripts/nexter.js";
+import { loadStyle } from "../../../scripts/nexter.js";
 
 const nx = `${new URL(import.meta.url).origin}/nx`;
-await loadStyle(`${nx}/blocks/wysiwyg-portal/wysiwyg-portal.css`);
+await loadStyle(`${nx}/public/plugins/quick-edit/quick-edit.css`);
 
 const QUICK_EDIT_ID = 'quick-edit-iframe';
 
@@ -46,7 +46,7 @@ function handleLoad(target, config, location, ctx) {
 }
 
 function getQuickEditSrc(ref) {
-  return `https://main--da-live--adobe.aem.live/drafts/wysiwyg/init?nx=${ref}`;
+  return `https://main--da-live--adobe.aem.live/plugins/quick-edit?nx=${ref}`;
 }
 
 export default async function loadQuickEdit({ detail: payload }, ref, loadPage) {

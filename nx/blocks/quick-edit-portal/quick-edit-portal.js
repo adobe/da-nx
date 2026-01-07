@@ -1,7 +1,7 @@
-import { checkPermissions, signIn } from "./portal/utils.js";
-import createProse from "./portal/prose.js";
-import { updateDocument, updateCursors, updateState, handleUndoRedo, getEditor, handleCursorMove } from "./portal/render.js";
-import { handleImageReplace } from "./portal/images.js";
+import { checkPermissions, signIn } from "./src/utils.js";
+import createProse from "./src/prose.js";
+import { updateDocument, updateCursors, updateState, handleUndoRedo, getEditor, handleCursorMove } from "./src/render.js";
+import { handleImageReplace } from "./src/images.js";
 
 function onMessage(e, ctx) {
   if (e.data.type === 'cursor-move') {
