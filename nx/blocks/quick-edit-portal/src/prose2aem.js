@@ -1,4 +1,4 @@
-import { default as prose2aem } from "https://da.live/blocks/shared/prose2aem.js?ref=local";
+import { default as prose2aem } from "https://da.live/blocks/shared/prose2aem.js";
 
 const EDITABLES = [
   { selector: 'h1', nodeName: 'H1' },

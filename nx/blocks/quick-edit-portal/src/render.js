@@ -1,4 +1,4 @@
-import { TextSelection, yUndo, yRedo } from "https://da.live/deps/da-y-wrapper/dist/index.js";
+import { TextSelection, yUndo, yRedo } from "da-y-wrapper";
 import { getInstrumentedHTML } from "./prose2aem.js";
 
 export function updateDocument(ctx) {

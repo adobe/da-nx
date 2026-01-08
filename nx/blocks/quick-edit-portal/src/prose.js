@@ -8,7 +8,7 @@ import {
   ySyncPlugin,
   yCursorPlugin,
   yUndoPlugin,
-} from 'https://da.live/deps/da-y-wrapper/dist/index.js';
+} from 'da-y-wrapper';
 import { getSchema } from 'https://da.live/blocks/edit/prose/schema.js';
 import { COLLAB_ORIGIN, DA_ORIGIN } from 'https://da.live/blocks/shared/constants.js';
 import { findChangedNodes, generateColor, findCommonEditableAncestor } from './utils.js';
