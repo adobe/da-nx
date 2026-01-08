@@ -175,13 +175,16 @@ picture.image-uploading::after {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 6px 12px;
   margin: 0 2px;
   border: 1px solid #ccc;
   background: white;
   cursor: pointer;
   border-radius: 6px;
   transition: background 0.2s ease;
+}
+
+.ProseMirror-menuitem > div {
+  padding: 6px 12px;
 }
 
 .ProseMirror-menuitem:has(.ProseMirror-menu-disabled) {
