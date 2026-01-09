@@ -61,6 +61,11 @@ svg.icon {
     padding-left: 3px;
   }
 
+  .name-invalid {
+    border: 2px solid var(--s2-red-900);
+    padding-left: 3px;
+  }
+
   .nx-snapshot-expand {
     position: relative;
     display: block;
@@ -285,5 +290,51 @@ svg.icon {
       background-color: #00000045;
       color: #000;
     }
+  }
+}
+
+/* Tooltip styles */
+[data-tooltip] {
+  position: relative;
+}
+
+[data-tooltip]:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 10px;
+  background: #333;
+  color: white;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 400;
+  text-transform: none;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 1000;
+  animation: tooltip-appear 0.15s ease-out;
+}
+
+[data-tooltip]:hover::before {
+  content: "";
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 4px solid transparent;
+  border-top-color: #333;
+  pointer-events: none;
+  z-index: 1000;
+  animation: tooltip-appear 0.15s ease-out;
+}
+
+@keyframes tooltip-appear {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
   }
 }

@@ -250,6 +250,24 @@ class NxSnapshot extends LitElement {
     return manifest;
   }
 
+  handleSnapshotNameInput(e) {
+    const input = e.target;
+    const originalValue = input.value;
+    // Only allow alphanumeric characters and hyphens
+    const sanitizedValue = originalValue.replace(/[^a-zA-Z0-9-]/g, '');
+
+    if (originalValue !== sanitizedValue) {
+      input.value = sanitizedValue;
+      this._message = {
+        heading: 'Invalid Characters',
+        message: 'Snapshot name can only contain letters, numbers, and hyphens.',
+        open: true,
+      };
+    }
+
+    input.classList.remove('name-missing');
+  }
+
   get _lockStatus() {
     if (!this._manifest?.locked) return { text: 'Unlocked', icon: '#S2_Icon_LockOpen_20_N' };
     return { text: 'Locked', icon: '#S2_Icon_Lock_20_N' };
@@ -296,7 +314,7 @@ class NxSnapshot extends LitElement {
   renderEditUrlBtn() {
     return html`
       <button
-        title=${this._manifest?.locked ? 'Unlock snapshot to edit URLs.' : nothing}
+        data-tooltip=${this._manifest?.locked ? 'Unlock snapshot to edit URLs.' : nothing}
         ?disabled=${this._manifest?.locked}
         @click=${this.handleUrls}>Edit</button>`;
   }
@@ -322,9 +340,9 @@ class NxSnapshot extends LitElement {
             ${showEdit ? nothing : html`
               <div class="nx-snapshot-sub-heading-actions">
                 <p>Sources:</p>
-                <button @click=${() => this.handleCopyUrls('fork')}>Sync</button>
+                <button data-tooltip="Sync Prod to Snapshots" @click=${() => this.handleCopyUrls('fork')}>Sync</button>
                 <p>|</p>
-                <button @click=${() => this.handleCopyUrls('promote')}>Promote</button>
+                <button data-tooltip="Promote Snapshots to Prod" @click=${() => this.handleCopyUrls('promote')}>Promote</button>
               </div>
             `}
           </div>
@@ -372,7 +390,7 @@ class NxSnapshot extends LitElement {
   }
 
   renderEditName() {
-    return html`<input type="text" name="name" placeholder="Enter snapshot name" @input=${() => this.shadowRoot.querySelector('[name="name"]')?.classList?.remove('name-missing')} />`;
+    return html`<input type="text" name="name" placeholder="Enter snapshot name" @input=${this.handleSnapshotNameInput} />`;
   }
 
   renderName() {
