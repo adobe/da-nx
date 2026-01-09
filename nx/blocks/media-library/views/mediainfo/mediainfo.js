@@ -49,7 +49,6 @@ const ICONS = [
 class NxMediaInfo extends LitElement {
   static properties = {
     media: { attribute: false },
-    isOpen: { attribute: false },
     usageData: { attribute: false },
     org: { attribute: false },
     repo: { attribute: false },
@@ -71,9 +70,8 @@ class NxMediaInfo extends LitElement {
 
   constructor() {
     super();
-    this.isOpen = false;
     this.media = null;
-    this._activeTab = 'metadata';
+    this._activeTab = 'usage';
     this._exifData = null;
     this._loading = false;
     this._fileSize = null;
@@ -90,19 +88,16 @@ class NxMediaInfo extends LitElement {
     this._cachedMetadata = new Map();
     this._imageDimensions = null;
     this._comprehensiveMetadata = null;
-    this.handleKeyDown = this.handleKeyDown.bind(this);
   }
 
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [styles];
     getSvg({ parent: this.shadowRoot, paths: ICONS });
-    document.addEventListener('keydown', this.handleKeyDown);
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
-    document.removeEventListener('keydown', this.handleKeyDown);
     this._cleanupPendingRequests();
     this._pdfBlobUrls.forEach((blobUrl) => {
       URL.revokeObjectURL(blobUrl);
@@ -111,11 +106,29 @@ class NxMediaInfo extends LitElement {
     this._cachedMetadata.clear();
   }
 
-  handleKeyDown(e) {
-    if (this.isOpen && e.key === 'Escape') {
-      e.preventDefault();
-      this.handleClose();
+  /**
+   * Native dialog.showModal() opens the media info dialog with the provided data.
+   */
+  show(data) {
+    this.media = data.media;
+    this.usageData = data.usageData;
+    this.org = data.org;
+    this.repo = data.repo;
+    this.isScanning = data.isScanning;
+
+    if (data.media?.url) {
+      const fullUrl = buildFullMediaUrl(data.media.url, data.org, data.repo);
+      const { origin, path } = extractMediaLocation(fullUrl);
+      this._mediaOrigin = origin || 'Unknown';
+      this._mediaPath = path || 'Unknown';
     }
+
+    this.updateComplete.then(() => {
+      const dialog = this.shadowRoot.querySelector('dialog');
+      if (dialog && !dialog.open) {
+        dialog.showModal();
+      }
+    });
   }
 
   _cleanupPendingRequests() {
@@ -127,14 +140,10 @@ class NxMediaInfo extends LitElement {
 
   updated(changedProperties) {
     if (changedProperties.has('media') && this.media) {
-      if (this._activeTab === 'metadata') {
-        this.loadMetadata();
-      }
+      this.loadUsageData();
+      this.loadMetadata();
       if (isPdf(this.media.url)) {
         this.loadPdfWithDaFetch(this.media.url);
-      }
-      if (this._activeTab === 'usage') {
-        this.loadUsageData();
       }
     }
 
@@ -360,18 +369,42 @@ class NxMediaInfo extends LitElement {
     this._usageLoading = true;
     try {
       this._usageData = this.usageData;
-
-      this._activeTab = 'usage';
     } catch (error) {
       this._usageData = [];
-      this._activeTab = 'metadata';
     } finally {
       this._usageLoading = false;
     }
   }
 
   handleClose() {
-    window.dispatchEvent(new Event('close-modal'));
+    const dialog = this.shadowRoot.querySelector('dialog');
+    if (dialog?.open) {
+      dialog.close();
+    }
+  }
+
+  handleDialogClose() {
+    this._resetState();
+    this.dispatchEvent(new CustomEvent('close'));
+  }
+
+  _resetState() {
+    this.media = null;
+    this._exifData = null;
+    this._fileSize = null;
+    this._mimeType = null;
+    this._mediaOrigin = null;
+    this._mediaPath = null;
+    this._usageData = [];
+    this._imageDimensions = null;
+    this._comprehensiveMetadata = null;
+    this._activeTab = 'usage';
+  }
+
+  handleBackdropClick(e) {
+    if (e.target === e.currentTarget) {
+      this.handleClose();
+    }
   }
 
   handleTabChange(e) {
@@ -1019,12 +1052,17 @@ class NxMediaInfo extends LitElement {
   }
 
   render() {
-    if (!this.isOpen || !this.media) return '';
-
-    const displayName = this.media.name || getFileName(this.media.url) || 'Media Details';
+    const displayName = this.media
+      ? (this.media.name || getFileName(this.media.url) || 'Media Details')
+      : '';
 
     return html`
-      <dialog class="modal-overlay" @click=${this.handleClose} role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <dialog
+        class="modal-overlay"
+        @click=${this.handleBackdropClick}
+        @close=${this.handleDialogClose}
+      >
+        ${this.media ? html`
         <div class="modal-content" @click=${(e) => e.stopPropagation()}>
           <div class="media-preview-section">
             ${this.renderMediaPreview()}
@@ -1077,6 +1115,7 @@ class NxMediaInfo extends LitElement {
           </div>
 
         </div>
+        ` : ''}
       </dialog>
     `;
   }

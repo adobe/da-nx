@@ -598,11 +598,11 @@ export function getDocumentFilteredItems(
   }).map((item) => {
     const groupingKey = getGroupingKey(item.url);
     let usageCount = item.usageCount || 1;
-    
+
     if (processedData && processedData.usageData && processedData.usageData[groupingKey]) {
       usageCount = processedData.usageData[groupingKey].count;
     }
-    
+
     return {
       ...item,
       usageCount,
@@ -735,8 +735,8 @@ export function computeResultSummary(mediaData, filteredData, searchQuery, filte
       return `${count} ${filterLabel} in ${docPath}`;
     }
 
-    return `${count} ${filterLabel} matching "${searchQuery}"`;
+    return `${count} ${filterLabel}`;
   }
 
-  return `${count} ${filterLabel} matching "${searchQuery}"`;
+  return `${count} ${filterLabel}`;
 }

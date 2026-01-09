@@ -18,7 +18,7 @@ import '../../public/sl/components.js';
 import './views/topbar/topbar.js';
 import './views/sidebar/sidebar.js';
 import './views/grid/grid.js';
-import './views/modal-manager/modal-manager.js';
+import './views/mediainfo/mediainfo.js';
 import './views/scan/scan.js';
 import './views/onboard/onboard.js';
 
@@ -48,6 +48,7 @@ class NxMediaLibrary extends LitElement {
     _sitePathValid: { state: true },
     _validationError: { state: true },
     _validationSuggestion: { state: true },
+    _notification: { state: true },
   };
 
   constructor() {
@@ -63,14 +64,13 @@ class NxMediaLibrary extends LitElement {
     this._selectedFolder = null;
     this._resultSummary = '';
     this._folderPathsCache = new Set();
+    this._notification = null;
   }
 
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [sl, slComponents, topbarStyles, styles];
-
-    this._boundHandleAltTextUpdated = this.handleAltTextUpdated.bind(this);
-    window.addEventListener('alt-text-updated', this._boundHandleAltTextUpdated);
+    window.addEventListener('show-notification', this.handleShowNotification);
   }
 
   disconnectedCallback() {
@@ -78,15 +78,28 @@ class NxMediaLibrary extends LitElement {
     if (this._messageTimeout) {
       clearTimeout(this._messageTimeout);
     }
-    window.removeEventListener('alt-text-updated', this._boundHandleAltTextUpdated);
+    if (this._notificationTimeout) {
+      clearTimeout(this._notificationTimeout);
+    }
+    window.removeEventListener('show-notification', this.handleShowNotification);
   }
+
+  handleShowNotification = (e) => {
+    if (this._notificationTimeout) {
+      clearTimeout(this._notificationTimeout);
+    }
+    this._notification = e.detail;
+    this._notificationTimeout = setTimeout(() => {
+      this._notification = null;
+    }, 3000);
+  };
 
   shouldUpdate(changedProperties) {
     if (changedProperties.size === 0) return false;
 
     const dataProps = ['_mediaData', '_error', '_progressiveMediaData', '_isScanning'];
     const filterProps = ['_searchQuery', '_selectedFilterType', '_selectedFolder', '_selectedDocument'];
-    const uiProps = ['sitePath'];
+    const uiProps = ['sitePath', '_notification'];
     const scanProps = ['_scanProgress'];
     const validationProps = ['_isValidating', '_sitePathValid', '_validationError'];
 
@@ -461,7 +474,6 @@ class NxMediaLibrary extends LitElement {
             .isScanning=${this._isScanning}
             .scanProgress=${this._scanProgress}
             @filter=${this.handleFilter}
-            @go-home=${this.handleGoHome}
           ></nx-media-sidebar>
         </div>
 
@@ -483,7 +495,16 @@ class NxMediaLibrary extends LitElement {
           ${this.renderCurrentView()}
         </div>
 
-        <nx-modal-manager></nx-modal-manager>
+        <nx-media-info @altTextUpdated=${this.handleAltTextUpdated}></nx-media-info>
+
+        ${this._notification ? html`
+          <div class="da-notification-status">
+            <div class="toast-notification ${this._notification.type || 'success'}">
+              <p class="da-notification-status-title">${this._notification.heading || 'Info'}</p>
+              <p class="da-notification-status-description">${this._notification.message}</p>
+            </div>
+          </div>
+        ` : ''}
 
         <nx-media-scan
           .sitePath=${this.sitePath}
@@ -582,6 +603,12 @@ class NxMediaLibrary extends LitElement {
 
   handleClearSearch() {
     this.resetSearchState();
+    this._resultSummary = computeResultSummary(
+      this._mediaData,
+      this.filteredMediaData,
+      this._searchQuery,
+      this._selectedFilterType,
+    );
     this.requestUpdate();
   }
 
@@ -591,13 +618,6 @@ class NxMediaLibrary extends LitElement {
     this.requestUpdate();
   }
 
-  handleGoHome() {
-    const url = new URL(window.location.href);
-    url.hash = '';
-    window.history.replaceState({}, '', url.toString());
-    this.sitePath = null;
-  }
-
   async handleMediaClick(e) {
     const { media } = e.detail;
     if (!media) return;
@@ -605,18 +625,13 @@ class NxMediaLibrary extends LitElement {
     const groupingKey = getGroupingKey(media.url);
     const usageData = this._usageIndex?.get(groupingKey) || [];
 
-    window.dispatchEvent(new CustomEvent('open-modal', {
-      detail: {
-        type: 'details',
-        data: {
-          media,
-          usageData,
-          org: this.org,
-          repo: this.repo,
-          isScanning: this._isScanning,
-        },
-      },
-    }));
+    this.shadowRoot.querySelector('nx-media-info').show({
+      media,
+      usageData,
+      org: this.org,
+      repo: this.repo,
+      isScanning: this._isScanning,
+    });
   }
 
   async handleMediaCopy(e) {
@@ -625,11 +640,12 @@ class NxMediaLibrary extends LitElement {
 
     try {
       const result = await copyMediaToClipboard(media);
+      const isError = result.heading === 'Error';
 
       window.dispatchEvent(new CustomEvent('show-notification', {
         detail: {
           ...result,
-          type: 'success',
+          type: isError ? 'danger' : 'success',
           open: true,
         },
       }));
@@ -651,18 +667,13 @@ class NxMediaLibrary extends LitElement {
     const groupingKey = getGroupingKey(media.url);
     const usageData = this._usageIndex?.get(groupingKey) || [];
 
-    window.dispatchEvent(new CustomEvent('open-modal', {
-      detail: {
-        type: 'details',
-        data: {
-          media,
-          usageData,
-          org: this.org,
-          repo: this.repo,
-          isScanning: this._isScanning,
-        },
-      },
-    }));
+    this.shadowRoot.querySelector('nx-media-info').show({
+      media,
+      usageData,
+      org: this.org,
+      repo: this.repo,
+      isScanning: this._isScanning,
+    });
   }
 
   handleAltTextUpdated(e) {
@@ -703,10 +714,10 @@ class NxMediaLibrary extends LitElement {
     const pinnedFolders = loadPinnedFolders(this.org, this.repo);
 
     const fullPath = `/${this.org}/${this.repo}${folder}`;
-    const alreadyPinned = pinnedFolders.some((pf) => pf.folder === folder && pf.path === fullPath);
+    const alreadyPinned = pinnedFolders.some((pf) => pf.path === fullPath);
 
     if (alreadyPinned) {
-      this.showNotification('Already Pinned', `Folder :${folder} is already pinned`, 'info');
+      this.showNotification('Already Pinned!', `Folder :${folder} is already pinned`, 'danger');
       return;
     }
 

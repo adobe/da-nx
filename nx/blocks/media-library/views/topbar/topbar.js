@@ -17,7 +17,7 @@ const ICONS = [
   `${nx}/public/icons/S2_Icon_Close_20_N.svg`,
   `${nx}/public/icons/S2_Icon_Properties_20_N.svg`,
   `${nx}/public/icons/Smock_PinOff_18_N.svg`,
-  `${nx}/public/icons/Smock_PinOn_18_N.svg`,
+  `${nx}/public/icons/S2_Icon_PinOff_20_N.svg`,
 ];
 
 class NxMediaTopBar extends LitElement {
@@ -74,17 +74,13 @@ class NxMediaTopBar extends LitElement {
         this.selectedType = null;
       }
     }
-
     if (changedProperties.has('selectedType')) {
       this.updateInputPadding();
     }
   }
 
   updateInputPadding() {
-    const slInput = this.shadowRoot.querySelector('sl-input');
-    if (!slInput) return;
-
-    const input = slInput.shadowRoot?.querySelector('input');
+    const input = this.shadowRoot.querySelector('input');
     if (!input) return;
 
     if (this.selectedType) {
@@ -176,7 +172,7 @@ class NxMediaTopBar extends LitElement {
   }
 
   handleKeyDown(e) {
-    if (e.key === 'Escape') {
+    if (e.key === 'Escape' || e.key === 'Enter') {
       e.preventDefault();
       e.stopPropagation();
       this._showSuggestions = false;
@@ -347,40 +343,46 @@ class NxMediaTopBar extends LitElement {
 
         <div class="search-container">
           <div class="search-wrapper ${this.selectedType ? 'has-icon' : ''}">
-            ${this.selectedType ? html`
-              <div class="search-type-icon">
-                ${this.renderSearchIcon()}
-              </div>
-            ` : ''}
-            <sl-input
-              type="text"
-              placeholder="Search"
-              .value=${this.searchQuery}
-              @input=${this.handleSearchInput}
-              @keydown=${this.handleKeyDown}
-            ></sl-input>
-            ${this.canPinSearch ? html`
-              <button 
-                class="pin-search-btn" 
-                @click=${this.handlePinSearch}
-                title="Pin Folder"
-                aria-label="Pin Folder"
-              >
-                📌
-              </button>
-            ` : ''}
-            ${this.searchQuery ? html`
-              <button 
-                class="clear-search-btn" 
-                @click=${this.handleClearSearch}
-                title="Clear search"
-                aria-label="Clear search"
-              >
-                ✕
-              </button>
-            ` : ''}
-            <div class="suggestions-dropdown ${this._showSuggestions ? 'visible' : 'hidden'}">
-              ${this._suggestions.map((suggestion, index) => {
+            <form>
+              ${this.selectedType ? html`
+                <div class="search-type-icon">
+                  ${this.renderSearchIcon()}
+                </div>
+              ` : ''}
+              <input
+                type="text"
+                id="search-input"
+                placeholder="Enter search"
+                .value=${this.searchQuery}
+                @input=${this.handleSearchInput}
+                @keydown=${this.handleKeyDown}
+              ></input>
+              ${this.canPinSearch ? html`
+                <button
+                  type="button"
+                  class="pin-search-btn"
+                  @click=${this.handlePinSearch}
+                  title="Pin Folder"
+                  aria-label="Pin Folder"
+                >
+                  <svg class="icon search-icon">
+                    <use href="#S2_Icon_PinOff_20_N"></use>
+                  </svg>
+                </button>
+              ` : ''}
+              ${this.searchQuery ? html`
+                <button
+                  type="button"
+                  class="clear-search-btn"
+                  @click=${this.handleClearSearch}
+                  title="Clear search"
+                  aria-label="Clear search"
+                >
+                  ✕
+                </button>
+              ` : ''}
+              <div class="suggestions-dropdown ${this._showSuggestions ? 'visible' : 'hidden'}">
+                ${this._suggestions.map((suggestion, index) => {
     let icon = '';
     if (suggestion.type === 'folder') {
       icon = html`
@@ -397,7 +399,7 @@ class NxMediaTopBar extends LitElement {
     }
 
     return html`
-      <div 
+      <div
         class="suggestion-item ${index === this._activeIndex ? 'active' : ''}"
         @click=${() => this.selectSuggestion(suggestion)}
       >
@@ -423,6 +425,7 @@ class NxMediaTopBar extends LitElement {
             ${this.resultSummary}
           </div>
         ` : ''}
+        </form>
       </div>
     `;
   }

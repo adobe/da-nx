@@ -11,6 +11,12 @@
   }
 }
 
+:root:has(.nx-media-library) .nx-app main {
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: inherit #eee;
+}
+
 .nx-site-path {
   display: grid;
   gap: var(--spacing-400);
@@ -35,12 +41,14 @@
 .sidebar {
   grid-area: sidebar;
   z-index: 1001;
+  border-right: 1px solid #eaeaea;
 }
 
 .top-bar {
   grid-area: topbar;
-  background: var(--s2-gray-50);
   z-index: 1000;
+  border-bottom: 1px solid #eaeaea;
+  padding-inline-start: 24px;
 }
 
 /* Grid areas */
@@ -103,14 +111,49 @@ nx-media-scan {
   height: 20px;
 }
 
-/* Toast message positioning */
-sl-alert {
+/* Toast notification */
+.da-notification-status {
   position: fixed;
-  top: 20px;
-  right: 20px;
-  z-index: 10000;
-  max-width: 400px;
-  box-shadow: 0 4px 12px rgb(0 0 0 / 15%);
+  inset: 0;
+  background: rgb(255 255 255 / 60%);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 500;
+}
+
+.toast-notification {
+  width: 280px;
+  border-radius: 6px;
+  filter: drop-shadow(rgb(0 0 0 / 15%) 0 1px 4px);
+  justify-content: space-between;
+  align-items: center;
+  box-sizing: border-box;
+  color: #fff;
+  font-size: 14px;
+  overflow: hidden;
+
+  .da-notification-status-title {
+    font-weight: 700;
+    margin: 0;
+    padding: 12px 16px 12px 40px;
+    background: transparent url("/blocks/browse/img/Smock_InfoOutline_18_N.svg") 12px 50% no-repeat;
+  }
+
+  .da-notification-status-description {
+    line-height: 1.6;
+    padding: 6px 12px;
+    margin: 0;
+    background: rgb(255 255 255 / 10%);
+  }
+
+  &.success {
+    background: var(--s2-blue-800);
+  }
+
+  &.danger {
+    background: var(--s2-red-900);
+  }
 }
 
 .view-btn .icon {
