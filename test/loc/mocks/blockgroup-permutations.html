@@ -1,0 +1,69 @@
+<body>
+  <header></header>
+  <main>
+    <!-- Permutation 1: Block group at very START of document (no content before) -->
+    <div>
+      <div class="block-group-start hide-block">
+        <div><div></div></div>
+      </div>
+      <p>Content inside first block group</p>
+      <div class="block-group-end hide-block">
+        <div><div></div></div>
+      </div>
+    </div>
+
+    <!-- Regular content between groups -->
+    <div>
+      <p>Regular content between block groups</p>
+    </div>
+
+    <!-- Permutation 2: Block group entirely in ONE section with content before AND after -->
+    <div>
+      <h2>Content before block group in same section</h2>
+      <div class="block-group-start hide-block">
+        <div><div></div></div>
+      </div>
+      <p>Content inside second block group</p>
+      <div class="block-group-end hide-block">
+        <div><div></div></div>
+      </div>
+      <h3>Content after block group in same section</h3>
+    </div>
+
+    <!-- Permutation 3: Two back-to-back block groups (no content between) -->
+    <div>
+      <div class="block-group-start hide-block">
+        <div><div></div></div>
+      </div>
+      <p>Content in third block group</p>
+    </div>
+    <div>
+      <div class="block-group-end hide-block">
+        <div><div></div></div>
+      </div>
+      <div class="block-group-start hide-block">
+        <div><div></div></div>
+      </div>
+      <p>Content in fourth block group (back-to-back)</p>
+      <div class="block-group-end hide-block">
+        <div><div></div></div>
+      </div>
+    </div>
+
+    <!-- Permutation 4: Block group at very END of document (no content after) -->
+    <div>
+      <p>Last regular content before final block group</p>
+    </div>
+    <div>
+      <div class="block-group-start hide-block">
+        <div><div></div></div>
+      </div>
+      <p>Content in final block group</p>
+      <div class="block-group-end hide-block">
+        <div><div></div></div>
+      </div>
+    </div>
+  </main>
+</body>
+
+

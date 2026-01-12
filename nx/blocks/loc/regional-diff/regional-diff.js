@@ -334,9 +334,22 @@ function getGroupInnerHtml(blockGroup) {
   return htmlText;
 }
 
-function getBlockgroupHtml(blockGroup, type) {
+function getBlockgroupHtml(blockGroup, type, sectionBreakBefore = false, sectionBreakAfter = false) {
+  const firstBlock = blockGroup[0];
+
+  // Add section break tracking classes to block-group-start
+  // These track what section boundaries were introduced by diff generation
+  if (firstBlock?.className?.toLowerCase().startsWith('block-group-start')) {
+    if (sectionBreakBefore) {
+      firstBlock.classList.add('da-section-break-before');
+    }
+    if (sectionBreakAfter) {
+      firstBlock.classList.add('da-section-break-after');
+    }
+  }
+
   if (type === ADDED) {
-    blockGroup[0]?.setAttribute(ADDED_TAG, '');
+    firstBlock?.setAttribute(ADDED_TAG, '');
   }
 
   // Modified block groups automatically get sections at start and end
@@ -346,24 +359,69 @@ function getBlockgroupHtml(blockGroup, type) {
     return `<div>${htmlText}</div>`;
   }
   if (type === DELETED) {
-    return `<${DELETED_TAG} class="da-group"><div>${htmlText}</div></${DELETED_TAG}>`;
+    return `<${DELETED_TAG}><div>${htmlText}</div></${DELETED_TAG}>`;
   }
-  return htmlText;
+  // SAME type also needs div wrapper since block groups are output at section boundaries
+  return `<div>${htmlText}</div>`;
 }
 
 function buildHtmlFromDiff(diff, modified, acceptedHashes = [], rejectedHashes = []) {
-  let htmlText = '<div>';
+  let htmlText = '';
+  // Track whether we're at a section boundary (no open section tag)
+  // Start true since no section is open yet
+  let atSectionBoundary = true;
+
   diff.forEach((item, i) => {
     let modifiedBlock = item.block;
     const hash = item.hash.substring(0, HASH_LENGTH);
-    if (item.block.isSection && i !== 0) {
-      htmlText += '</div><div>';
+
+    if (item.block.isSection) {
+      if (atSectionBoundary) {
+        // Already at boundary, skip redundant section marker
+        return;
+      }
+      htmlText += '</div>';
+      atSectionBoundary = true;
       return;
     }
 
     if (Array.isArray(item.block)) {
-      htmlText += getBlockgroupHtml(item.block, item.type, acceptedHashes, rejectedHashes);
+      // Determine if we're adding a section break before (closing an open section)
+      const sectionBreakBefore = !atSectionBoundary;
+
+      // Look ahead to determine if we'll need a section break after
+      // (if there's regular content coming that will need a new section opened)
+      let sectionBreakAfter = false;
+      for (let j = i + 1; j < diff.length; j += 1) {
+        const nextItem = diff[j];
+        if (nextItem.block.isSection) {
+          // Section marker - skip and keep looking
+          // eslint-disable-next-line no-continue
+          continue;
+        }
+        if (Array.isArray(nextItem.block)) {
+          // Next meaningful item is another block group - no break needed between them
+          break;
+        }
+        // Next meaningful item is a regular block - we'll need to open a section for it
+        sectionBreakAfter = true;
+        break;
+      }
+
+      // Close current section before block group (unless already at boundary)
+      if (sectionBreakBefore) {
+        htmlText += '</div>';
+      }
+      htmlText += getBlockgroupHtml(item.block, item.type, sectionBreakBefore, sectionBreakAfter);
+      // Block groups end at a section boundary
+      atSectionBoundary = true;
       return;
+    }
+
+    // Regular block - ensure we're in an open section
+    if (atSectionBoundary) {
+      htmlText += '<div>';
+      atSectionBoundary = false;
     }
 
     if (item.type === ADDED) {
@@ -379,7 +437,11 @@ function buildHtmlFromDiff(diff, modified, acceptedHashes = [], rejectedHashes =
     }
     htmlText += modifiedBlock.outerHTML;
   });
-  htmlText += '</div>';
+
+  // Close final section if one is open
+  if (!atSectionBoundary) {
+    htmlText += '</div>';
+  }
 
   modified.documentElement.querySelector('main').innerHTML = htmlText;
   return modified;
