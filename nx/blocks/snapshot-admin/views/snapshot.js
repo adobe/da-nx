@@ -262,22 +262,10 @@ class NxSnapshot extends LitElement {
     return manifest;
   }
 
-  handleSnapshotNameInput(e) {
-    const input = e.target;
-    const originalValue = input.value;
+  formatSnapshotName({ target }) {
     // Only allow alphanumeric characters and hyphens
-    const sanitizedValue = originalValue.replace(/[^a-zA-Z0-9-]/g, '');
-
-    if (originalValue !== sanitizedValue) {
-      input.value = sanitizedValue;
-      this._message = {
-        heading: 'Invalid Characters',
-        message: 'Snapshot name can only contain letters, numbers, and hyphens.',
-        open: true,
-      };
-    }
-
-    input.classList.remove('name-missing');
+    target.value = target.value.replaceAll(/[^a-zA-Z0-9-]/g, '-').toLowerCase();
+    this.shadowRoot.querySelector('[name="name"]')?.classList?.remove('name-missing');
   }
 
   get _lockStatus() {
@@ -409,7 +397,7 @@ class NxSnapshot extends LitElement {
   }
 
   renderEditName() {
-    return html`<input type="text" name="name" placeholder="Enter snapshot name" @input=${this.handleSnapshotNameInput} />`;
+    return html`<input type="text" name="name" placeholder="Enter snapshot name" @input=${this.formatSnapshotName} />`;
   }
 
   renderName() {
