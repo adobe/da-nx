@@ -385,6 +385,7 @@ function buildHtmlFromDiff(diff, modified, acceptedHashes = [], rejectedHashes =
   return modified;
 }
 
+// Remove all diff tags - document is updated to only keep local changes, upstream is deleted
 export const removeLocTags = (html) => {
   // TODO: Remove da-loc-deleted once we've migrated all regional edits to the new loc tags
   const locElsToRemove = html.querySelectorAll(`${DELETED_TAG}, [loc-temp-dom], da-loc-deleted`);
