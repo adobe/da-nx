@@ -1,7 +1,7 @@
 import sinon from 'sinon';
 import { expect } from '@esm-bundle/chai';
 import { readFile } from '@web/test-runner-commands';
-import { regionalDiff, normalizeLinks } from '../../nx/blocks/loc/regional-diff/regional-diff.js';
+import { regionalDiff, normalizeLinks, removeLocTags } from '../../nx/blocks/loc/regional-diff/regional-diff.js';
 
 function cleanHtmlWhitespace(html) {
   return html.replace(/>\s+</g, '><').trim().replace(/\s+/g, ' ').trim();
@@ -25,6 +25,22 @@ describe('Regional diff', () => {
   afterEach(() => {
     // Do not build up any test state - reset window.fetch to it's original state
     window.fetch = originalFetch;
+  });
+
+  it('Returns html with differences annotated when both have diffs', async () => {
+    const original = document.implementation.createHTMLDocument();
+    original.body.innerHTML = await readFile({ path: './mocks/diff-compare.html' });
+    const modified = document.implementation.createHTMLDocument();
+    modified.body.innerHTML = await readFile({ path: './mocks/diff-compare-modified.html' });
+
+    // Removal of diff tags happens in mergeCopy and rolloutCopy so we have to call it directly here
+    removeLocTags(modified);
+    removeLocTags(original);
+
+    const mainEl = await regionalDiff(original, modified);
+    const expectedDiffedMain = await readFile({ path: './mocks/diff-compare-diffed.html' });
+    expect(cleanHtmlWhitespace(mainEl.outerHTML))
+      .to.equal(cleanHtmlWhitespace(expectedDiffedMain));
   });
 
   it('Returns html with differences annotated', async () => {

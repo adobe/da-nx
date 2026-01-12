@@ -1,3 +1,4 @@
+/* stylelint-disable no-descending-specificity */
 :host {
   > svg {
     display: none;
@@ -58,6 +59,11 @@ svg.icon {
 
   .name-missing {
     border: 2px dotted var(--s2-red-900);
+    padding-left: 3px;
+  }
+
+  .name-invalid {
+    border: 2px solid var(--s2-red-900);
     padding-left: 3px;
   }
 
@@ -142,7 +148,7 @@ svg.icon {
   padding: 0;
   list-style: none;
   height: 388px;
-  overflow-y: scroll;
+  overflow-y: auto;
 
   a {
     padding: 4px 6px 4px 12px;
@@ -185,7 +191,8 @@ svg.icon {
   }
 }
 
-.nx-snapshot-sub-heading {
+.nx-snapshot-sub-heading,
+.nx-launch-sub-heading {
   font-weight: 700;
   text-transform: uppercase;
   font-size: var(--s2-body-s-size);
@@ -229,6 +236,27 @@ svg.icon {
   }
 }
 
+.nx-launch-sub-heading {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  user-select: none;
+
+  &::after {
+    content: "";
+    display: block;
+    width: 18px;
+    height: 18px;
+    background: no-repeat center / 18px url("https://da.live/nx/img/icons/Smock_ChevronRight_18_N.svg");
+    transition: transform 0.2s ease-in-out;
+  }
+
+  &.is-expanded::after {
+    transform: rotate(90deg);
+  }
+}
+
 .nx-snapshot-meta {
   sl-input,
   sl-textarea {
@@ -236,7 +264,8 @@ svg.icon {
   }
 }
 
-.nx-snapshot-action-group {
+.nx-snapshot-action-group,
+.nx-launch-action-group {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 6px;
@@ -257,6 +286,7 @@ svg.icon {
     padding: 16px 0;
     outline: none;
     text-align: center;
+    cursor: pointer;
 
     &.is-editing {
       background-color: var(--s2-blue-900);
@@ -275,6 +305,7 @@ svg.icon {
 
   button:disabled {
     background: #00000045;
+    cursor: not-allowed;
   }
 
   button:hover {
@@ -285,5 +316,65 @@ svg.icon {
       background-color: #00000045;
       color: #000;
     }
+  }
+}
+
+.nx-launch-action-group {
+  grid-template-columns: repeat(2, 1fr);
+  overflow: visible;
+
+  button:first-child {
+    border-radius: 8px 0 0 8px;
+  }
+
+  button:last-child {
+    border-radius: 0 8px 8px 0;
+  }
+}
+
+/* Tooltip styles */
+[data-tooltip] {
+  position: relative;
+}
+
+[data-tooltip]:hover::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 10px;
+  background: #333;
+  color: white;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 400;
+  text-transform: none;
+  white-space: nowrap;
+  pointer-events: none;
+  z-index: 1000;
+  animation: tooltip-appear 0.15s ease-out;
+}
+
+[data-tooltip]:hover::before {
+  content: "";
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 4px solid transparent;
+  border-top-color: #333;
+  pointer-events: none;
+  z-index: 1000;
+  animation: tooltip-appear 0.15s ease-out;
+}
+
+@keyframes tooltip-appear {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
   }
 }

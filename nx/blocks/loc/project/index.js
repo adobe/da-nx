@@ -190,6 +190,7 @@ export async function rolloutCopy(url, projectTitle) {
     }
 
     removeLocTags(regionalCopy);
+    removeLocTags(langstoreCopy);
 
     if (langstoreCopy.querySelector('body').outerHTML === regionalCopy.querySelector('body').outerHTML) {
       // No differences, don't need to do anything
@@ -241,6 +242,7 @@ export async function mergeCopy(url, projectTitle) {
     if (!langstoreCopy) throw new Error('No langstore content or error fetching');
 
     removeLocTags(regionalCopy);
+    removeLocTags(langstoreCopy);
 
     if (langstoreCopy.querySelector('body').outerHTML === regionalCopy.querySelector('body').outerHTML) {
       // No differences, don't need to do anything

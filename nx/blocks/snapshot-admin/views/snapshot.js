@@ -25,6 +25,8 @@ const ICONS = [
   `${nx}/public/icons/S2_Icon_OpenIn_20_N.svg`,
   `${nx}/public/icons/S2_Icon_PublishNo_20_N.svg`,
   `${nx}/public/icons/S2_Icon_Publish_20_N.svg`,
+  `${nx}/public/icons/S2_Icon_ArrowDown_20_N.svg`,
+  `${nx}/public/icons/S2_Icon_ArrowUp_20_N.svg`,
 ];
 
 class NxSnapshot extends LitElement {
@@ -37,7 +39,13 @@ class NxSnapshot extends LitElement {
     _message: { state: true },
     _isOpen: { state: true },
     _action: { state: true },
+    _launchesCollapsed: { state: true },
   };
+
+  constructor() {
+    super();
+    this._launchesCollapsed = true;
+  }
 
   async connectedCallback() {
     super.connectedCallback();
@@ -66,6 +74,10 @@ class NxSnapshot extends LitElement {
 
   handleUrls() {
     this._editUrls = !this._editUrls;
+  }
+
+  handleLaunchesToggle() {
+    this._launchesCollapsed = !this._launchesCollapsed;
   }
 
   async handleEditUrls() {
@@ -250,6 +262,12 @@ class NxSnapshot extends LitElement {
     return manifest;
   }
 
+  formatSnapshotName({ target }) {
+    // Only allow alphanumeric characters and hyphens
+    target.value = target.value.replaceAll(/[^a-zA-Z0-9-]/g, '-').toLowerCase();
+    this.shadowRoot.querySelector('[name="name"]')?.classList?.remove('name-missing');
+  }
+
   get _lockStatus() {
     if (!this._manifest?.locked) return { text: 'Unlocked', icon: '#S2_Icon_LockOpen_20_N' };
     return { text: 'Locked', icon: '#S2_Icon_Lock_20_N' };
@@ -296,7 +314,7 @@ class NxSnapshot extends LitElement {
   renderEditUrlBtn() {
     return html`
       <button
-        title=${this._manifest?.locked ? 'Unlock snapshot to edit URLs.' : nothing}
+        data-tooltip=${this._manifest?.locked ? 'Unlock snapshot to edit URLs.' : nothing}
         ?disabled=${this._manifest?.locked}
         @click=${this.handleUrls}>Edit</button>`;
   }
@@ -319,14 +337,6 @@ class NxSnapshot extends LitElement {
               ${showEdit ? this.renderCancelUrlBtn() : this.renderEditUrlBtn()}
               ${showEdit ? nothing : html`<button @click=${this.handleShare}>Share</button>`}
             </p>
-            ${showEdit ? nothing : html`
-              <div class="nx-snapshot-sub-heading-actions">
-                <p>Sources:</p>
-                <button @click=${() => this.handleCopyUrls('fork')}>Sync</button>
-                <p>|</p>
-                <button @click=${() => this.handleCopyUrls('promote')}>Promote</button>
-              </div>
-            `}
           </div>
           ${showEdit ? this.renderEditUrls() : this.renderUrls()}
         </div>
@@ -342,6 +352,21 @@ class NxSnapshot extends LitElement {
               <p class="nx-snapshot-sub-heading">Schedule Publish</p>
               <sl-input type="datetime-local" name="scheduler" .value=${formatLocalDate(this._manifest?.metadata?.scheduledPublish)}></sl-input>
             ` : nothing}
+          </div>
+          <div class="nx-launch-actions">
+            <p class="nx-launch-sub-heading ${this._launchesCollapsed ? '' : 'is-expanded'}" @click=${this.handleLaunchesToggle}>Launch</p>
+            ${this._launchesCollapsed ? nothing : html`
+              <div class="nx-launch-action-group">
+                <button data-tooltip="Create or sync launch content in DA" @click=${() => this.handleCopyUrls('fork')}>
+                  <svg class="icon"><use href="#S2_Icon_ArrowDown_20_N"/></svg>
+                  Sync
+                </button>
+                <button data-tooltip="Sync launch content back to the production tree" @click=${() => this.handleCopyUrls('promote')}>
+                  <svg class="icon"><use href="#S2_Icon_ArrowUp_20_N"/></svg>
+                  Promote
+                </button>
+              </div>
+            `}
           </div>
           <div class="nx-snapshot-actions">
             <p class="nx-snapshot-sub-heading">Snapshot</p>
@@ -372,7 +397,7 @@ class NxSnapshot extends LitElement {
   }
 
   renderEditName() {
-    return html`<input type="text" name="name" placeholder="Enter snapshot name" @input=${() => this.shadowRoot.querySelector('[name="name"]')?.classList?.remove('name-missing')} />`;
+    return html`<input type="text" name="name" placeholder="Enter snapshot name" @input=${this.formatSnapshotName} />`;
   }
 
   renderName() {
