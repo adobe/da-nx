@@ -14,6 +14,7 @@
     "test:file": "wtr --config ./web-test-runner.config.mjs --node-resolve --port=2000 --coverage",
     "test:file:watch": "wtr --config ./web-test-runner.config.mjs --node-resolve --port=2000 --coverage --watch",
     "build:mdast": "esbuild --format=esm --minify ./nx/deps/mdast/src/index.js --bundle --outfile=./nx/deps/mdast/dist/index.js",
+    "build:codemirror": "esbuild --format=esm --minify ./deps/codemirror/src/index.js --bundle --outfile=./deps/codemirror/dist/index.js",
     "build:da-lit": "esbuild --format=esm --minify ./deps/lit/src/index.js --bundle --outfile=./deps/lit/dist/index.js"
   },
   "repository": {
@@ -48,10 +49,13 @@
   "dependencies": {
     "@adobe/mdast-util-gridtables": "^4.0.6",
     "@adobe/remark-gridtables": "^3.0.6",
-    "lit": "^3.2.0",
+    "@codemirror/lang-json": "^6.0.2",
+    "@fsegurai/codemirror-theme-github-light": "^6.2.2",
+    "codemirror": "^6.0.2",
     "esbuild": ">=0.25.0",
     "hast-util-raw": "^9.0.4",
     "hast-util-to-html": "^9.0.3",
+    "lit": "^3.2.0",
     "mdast-util-to-hast": "^13.2.0",
     "remark-parse": "^11.0.0",
     "unified": "^11.0.5"
