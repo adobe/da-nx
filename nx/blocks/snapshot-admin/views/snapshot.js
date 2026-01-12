@@ -25,6 +25,8 @@ const ICONS = [
   `${nx}/public/icons/S2_Icon_OpenIn_20_N.svg`,
   `${nx}/public/icons/S2_Icon_PublishNo_20_N.svg`,
   `${nx}/public/icons/S2_Icon_Publish_20_N.svg`,
+  `${nx}/public/icons/S2_Icon_ArrowDown_20_N.svg`,
+  `${nx}/public/icons/S2_Icon_ArrowUp_20_N.svg`,
 ];
 
 class NxSnapshot extends LitElement {
@@ -37,7 +39,13 @@ class NxSnapshot extends LitElement {
     _message: { state: true },
     _isOpen: { state: true },
     _action: { state: true },
+    _launchesCollapsed: { state: true },
   };
+
+  constructor() {
+    super();
+    this._launchesCollapsed = true;
+  }
 
   async connectedCallback() {
     super.connectedCallback();
@@ -66,6 +74,10 @@ class NxSnapshot extends LitElement {
 
   handleUrls() {
     this._editUrls = !this._editUrls;
+  }
+
+  handleLaunchesToggle() {
+    this._launchesCollapsed = !this._launchesCollapsed;
   }
 
   async handleEditUrls() {
@@ -337,14 +349,6 @@ class NxSnapshot extends LitElement {
               ${showEdit ? this.renderCancelUrlBtn() : this.renderEditUrlBtn()}
               ${showEdit ? nothing : html`<button @click=${this.handleShare}>Share</button>`}
             </p>
-            ${showEdit ? nothing : html`
-              <div class="nx-snapshot-sub-heading-actions">
-                <p>Sources:</p>
-                <button data-tooltip="Sync Prod to Snapshots" @click=${() => this.handleCopyUrls('fork')}>Sync</button>
-                <p>|</p>
-                <button data-tooltip="Promote Snapshots to Prod" @click=${() => this.handleCopyUrls('promote')}>Promote</button>
-              </div>
-            `}
           </div>
           ${showEdit ? this.renderEditUrls() : this.renderUrls()}
         </div>
@@ -360,6 +364,21 @@ class NxSnapshot extends LitElement {
               <p class="nx-snapshot-sub-heading">Schedule Publish</p>
               <sl-input type="datetime-local" name="scheduler" .value=${formatLocalDate(this._manifest?.metadata?.scheduledPublish)}></sl-input>
             ` : nothing}
+          </div>
+          <div class="nx-launch-actions">
+            <p class="nx-launch-sub-heading ${this._launchesCollapsed ? '' : 'is-expanded'}" @click=${this.handleLaunchesToggle}>Launch</p>
+            ${this._launchesCollapsed ? nothing : html`
+              <div class="nx-launch-action-group">
+                <button data-tooltip="Create or sync launch content in DA" @click=${() => this.handleCopyUrls('fork')}>
+                  <svg class="icon"><use href="#S2_Icon_ArrowDown_20_N"/></svg>
+                  Sync
+                </button>
+                <button data-tooltip="Sync launch content back to the production tree" @click=${() => this.handleCopyUrls('promote')}>
+                  <svg class="icon"><use href="#S2_Icon_ArrowUp_20_N"/></svg>
+                  Promote
+                </button>
+              </div>
+            `}
           </div>
           <div class="nx-snapshot-actions">
             <p class="nx-snapshot-sub-heading">Snapshot</p>

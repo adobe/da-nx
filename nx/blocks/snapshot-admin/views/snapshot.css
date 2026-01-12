@@ -1,3 +1,4 @@
+/* stylelint-disable no-descending-specificity */
 :host {
   > svg {
     display: none;
@@ -147,7 +148,7 @@ svg.icon {
   padding: 0;
   list-style: none;
   height: 388px;
-  overflow-y: scroll;
+  overflow-y: auto;
 
   a {
     padding: 4px 6px 4px 12px;
@@ -190,7 +191,8 @@ svg.icon {
   }
 }
 
-.nx-snapshot-sub-heading {
+.nx-snapshot-sub-heading,
+.nx-launch-sub-heading {
   font-weight: 700;
   text-transform: uppercase;
   font-size: var(--s2-body-s-size);
@@ -234,6 +236,27 @@ svg.icon {
   }
 }
 
+.nx-launch-sub-heading {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  user-select: none;
+
+  &::after {
+    content: "";
+    display: block;
+    width: 18px;
+    height: 18px;
+    background: no-repeat center / 18px url("https://da.live/nx/img/icons/Smock_ChevronRight_18_N.svg");
+    transition: transform 0.2s ease-in-out;
+  }
+
+  &.is-expanded::after {
+    transform: rotate(90deg);
+  }
+}
+
 .nx-snapshot-meta {
   sl-input,
   sl-textarea {
@@ -241,7 +264,8 @@ svg.icon {
   }
 }
 
-.nx-snapshot-action-group {
+.nx-snapshot-action-group,
+.nx-launch-action-group {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 6px;
@@ -262,6 +286,7 @@ svg.icon {
     padding: 16px 0;
     outline: none;
     text-align: center;
+    cursor: pointer;
 
     &.is-editing {
       background-color: var(--s2-blue-900);
@@ -280,6 +305,7 @@ svg.icon {
 
   button:disabled {
     background: #00000045;
+    cursor: not-allowed;
   }
 
   button:hover {
@@ -290,6 +316,19 @@ svg.icon {
       background-color: #00000045;
       color: #000;
     }
+  }
+}
+
+.nx-launch-action-group {
+  grid-template-columns: repeat(2, 1fr);
+  overflow: visible;
+
+  button:first-child {
+    border-radius: 8px 0 0 8px;
+  }
+
+  button:last-child {
+    border-radius: 0 8px 8px 0;
   }
 }
 
@@ -334,6 +373,7 @@ svg.icon {
   from {
     opacity: 0;
   }
+
   to {
     opacity: 1;
   }
