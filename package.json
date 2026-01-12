@@ -14,7 +14,7 @@
     "test:file": "wtr --config ./web-test-runner.config.mjs --node-resolve --port=2000 --coverage",
     "test:file:watch": "wtr --config ./web-test-runner.config.mjs --node-resolve --port=2000 --coverage --watch",
     "build:mdast": "esbuild --format=esm --minify ./nx/deps/mdast/src/index.js --bundle --outfile=./nx/deps/mdast/dist/index.js",
-    "build:codemirror": "esbuild --format=esm --minify ./deps/codemirror/src/index.js --bundle --outfile=./deps/codemirror/dist/index.js",
+    "build:codemirror": "esbuild --format=esm --minify ./nx/deps/codemirror/src/index.js --bundle --outfile=./nx/deps/codemirror/dist/index.js",
     "build:da-lit": "esbuild --format=esm --minify ./deps/lit/src/index.js --bundle --outfile=./deps/lit/dist/index.js"
   },
   "repository": {
