@@ -16,6 +16,8 @@ const ICONS = [
   `${nx}/img/icons/S2IconClassicGridView20N-icon.svg`,
   `${nx}/public/icons/S2_Icon_Close_20_N.svg`,
   `${nx}/public/icons/S2_Icon_Properties_20_N.svg`,
+  `${nx}/public/icons/Smock_PinOff_18_N.svg`,
+  `${nx}/public/icons/S2_Icon_PinOff_20_N.svg`,
 ];
 
 class NxMediaTopBar extends LitElement {
@@ -28,11 +30,13 @@ class NxMediaTopBar extends LitElement {
 
     mediaData: { attribute: false },
     folderPathsCache: { attribute: false },
+    selectedType: { attribute: false },
+    selectedFolder: { attribute: false },
+    selectedDocument: { attribute: false },
     _suggestions: { state: true },
     _activeIndex: { state: true },
     _originalQuery: { state: true },
     _showSuggestions: { state: true },
-    _selectedType: { state: true },
   };
 
   constructor() {
@@ -43,7 +47,7 @@ class NxMediaTopBar extends LitElement {
     this._suppressSuggestions = false;
     this._showSuggestions = false;
     this._debounceTimeout = null;
-    this._selectedType = null;
+    this.selectedType = null;
     this._programmaticUpdate = false;
   }
 
@@ -67,23 +71,19 @@ class NxMediaTopBar extends LitElement {
         this._suggestions = [];
         this._activeIndex = -1;
         this._originalQuery = '';
-        this._selectedType = null;
+        this.selectedType = null;
       }
     }
-
-    if (changedProperties.has('_selectedType')) {
+    if (changedProperties.has('selectedType')) {
       this.updateInputPadding();
     }
   }
 
   updateInputPadding() {
-    const slInput = this.shadowRoot.querySelector('sl-input');
-    if (!slInput) return;
-
-    const input = slInput.shadowRoot?.querySelector('input');
+    const input = this.shadowRoot.querySelector('input');
     if (!input) return;
 
-    if (this._selectedType) {
+    if (this.selectedType) {
       input.style.paddingInlineStart = '36px';
     } else {
       input.style.paddingInlineStart = '';
@@ -172,7 +172,7 @@ class NxMediaTopBar extends LitElement {
   }
 
   handleKeyDown(e) {
-    if (e.key === 'Escape') {
+    if (e.key === 'Escape' || e.key === 'Enter') {
       e.preventDefault();
       e.stopPropagation();
       this._showSuggestions = false;
@@ -252,7 +252,7 @@ class NxMediaTopBar extends LitElement {
     this._suggestions = [];
     this._activeIndex = -1;
     this._suppressSuggestions = true;
-    this._selectedType = suggestion.type;
+    this.selectedType = suggestion.type;
     this._programmaticUpdate = true;
 
     if (suggestion.type === 'doc') {
@@ -293,8 +293,20 @@ class NxMediaTopBar extends LitElement {
     this._activeIndex = -1;
     this._suppressSuggestions = false;
     this._originalQuery = '';
-    this._selectedType = null;
+    this.selectedType = null;
     this.dispatchEvent(new CustomEvent('clear-search'));
+  }
+
+  get canPinSearch() {
+    return this.selectedFolder;
+  }
+
+  handlePinSearch() {
+    this.dispatchEvent(new CustomEvent('pin-search', {
+      detail: { folder: this.selectedFolder },
+      bubbles: true,
+      composed: true,
+    }));
   }
 
   highlightMatch(text, query) {
@@ -308,14 +320,14 @@ class NxMediaTopBar extends LitElement {
   }
 
   renderSearchIcon() {
-    if (this._selectedType === 'folder') {
+    if (this.selectedType === 'folder') {
       return html`
         <svg class="search-icon folder-icon">
           <use href="#Smock_Folder_18_N"></use>
         </svg>
       `;
     }
-    if (this._selectedType === 'doc') {
+    if (this.selectedType === 'doc') {
       return html`
         <svg class="search-icon doc-icon">
           <use href="#Smock_FileHTML_18_N"></use>
@@ -330,31 +342,47 @@ class NxMediaTopBar extends LitElement {
       <div class="top-bar">
 
         <div class="search-container">
-          <div class="search-wrapper ${this._selectedType ? 'has-icon' : ''}">
-            ${this._selectedType ? html`
-              <div class="search-type-icon">
-                ${this.renderSearchIcon()}
-              </div>
-            ` : ''}
-            <sl-input
-              type="text"
-              placeholder="Search"
-              .value=${this.searchQuery}
-              @input=${this.handleSearchInput}
-              @keydown=${this.handleKeyDown}
-            ></sl-input>
-            ${this.searchQuery ? html`
-              <button 
-                class="clear-search-btn" 
-                @click=${this.handleClearSearch}
-                title="Clear search"
-                aria-label="Clear search"
-              >
-                ✕
-              </button>
-            ` : ''}
-            <div class="suggestions-dropdown ${this._showSuggestions ? 'visible' : 'hidden'}">
-              ${this._suggestions.map((suggestion, index) => {
+          <div class="search-wrapper ${this.selectedType ? 'has-icon' : ''}">
+            <form>
+              ${this.selectedType ? html`
+                <div class="search-type-icon">
+                  ${this.renderSearchIcon()}
+                </div>
+              ` : ''}
+              <input
+                type="text"
+                id="search-input"
+                placeholder="Enter search"
+                .value=${this.searchQuery}
+                @input=${this.handleSearchInput}
+                @keydown=${this.handleKeyDown}
+              ></input>
+              ${this.canPinSearch ? html`
+                <button
+                  type="button"
+                  class="pin-search-btn"
+                  @click=${this.handlePinSearch}
+                  title="Pin Folder"
+                  aria-label="Pin Folder"
+                >
+                  <svg class="icon search-icon">
+                    <use href="#S2_Icon_PinOff_20_N"></use>
+                  </svg>
+                </button>
+              ` : ''}
+              ${this.searchQuery ? html`
+                <button
+                  type="button"
+                  class="clear-search-btn"
+                  @click=${this.handleClearSearch}
+                  title="Clear search"
+                  aria-label="Clear search"
+                >
+                  ✕
+                </button>
+              ` : ''}
+              <div class="suggestions-dropdown ${this._showSuggestions ? 'visible' : 'hidden'}">
+                ${this._suggestions.map((suggestion, index) => {
     let icon = '';
     if (suggestion.type === 'folder') {
       icon = html`
@@ -371,7 +399,7 @@ class NxMediaTopBar extends LitElement {
     }
 
     return html`
-      <div 
+      <div
         class="suggestion-item ${index === this._activeIndex ? 'active' : ''}"
         @click=${() => this.selectSuggestion(suggestion)}
       >
@@ -397,6 +425,7 @@ class NxMediaTopBar extends LitElement {
             ${this.resultSummary}
           </div>
         ` : ''}
+        </form>
       </div>
     `;
   }

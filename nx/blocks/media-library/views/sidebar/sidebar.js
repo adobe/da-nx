@@ -8,6 +8,7 @@ const sl = await getStyle(`${nx}/public/sl/styles.css`);
 const slComponents = await getStyle(`${nx}/public/sl/components.css`);
 const ICONS = [
   `${nx}/img/icons/S2IconClassicGridView20N-icon.svg`,
+  `${nx}/img/icons/S2IconHome20N-icon.svg`,
   `${nx}/public/icons/S2_Icon_Properties_20_N.svg`,
   `${nx}/public/icons/S2_GraphBarVertical_18_N.svg`,
   `${nx}/public/icons/C_Icon_Filters_20.svg`,
@@ -67,6 +68,13 @@ class NxMediaSidebar extends LitElement {
       this.isExpanded = false;
     }
     this.isIndexExpanded = !this.isIndexExpanded;
+  }
+
+  handleHome() {
+    this.dispatchEvent(new CustomEvent('go-home', {
+      bubbles: true,
+      composed: true,
+    }));
   }
 
   handleFilter(e) {
@@ -144,8 +152,9 @@ class NxMediaSidebar extends LitElement {
   }
 
   render() {
+    const isExpanded = this.isExpanded || this.isIndexExpanded;
     return html`
-      <aside class="media-sidebar ${this.isExpanded || this.isIndexExpanded ? 'expanded' : 'collapsed'}">
+      <aside class="media-sidebar ${isExpanded ? 'expanded' : 'collapsed'}">
         <div class="sidebar-icons">
           <button
             class="icon-btn ${this.isExpanded ? 'active' : ''}"
@@ -157,7 +166,7 @@ class NxMediaSidebar extends LitElement {
             <svg class="icon">
               <use href="#S2_Icon_Properties_20_N"></use>
             </svg>
-            ${this.isExpanded || this.isIndexExpanded ? html`<span>Filters</span>` : ''}
+            <span class="button-text">Filters</span>
           </button>
         </div>
 
@@ -190,10 +199,10 @@ class NxMediaSidebar extends LitElement {
             aria-label="Toggle index panel"
             aria-expanded="${this.isIndexExpanded}"
           >
-            <svg class="icon">
+            <svg class="icon" viewBox="0 0 20 18">
               <use href="#S2_GraphBarVertical_18_N"></use>
             </svg>
-            ${this.isExpanded || this.isIndexExpanded ? html`<span>Index</span>` : ''}
+            <span class="button-text">Index</span>
           </button>
         </div>
 

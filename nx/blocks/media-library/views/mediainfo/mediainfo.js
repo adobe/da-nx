@@ -49,7 +49,6 @@ const ICONS = [
 class NxMediaInfo extends LitElement {
   static properties = {
     media: { attribute: false },
-    isOpen: { attribute: false },
     usageData: { attribute: false },
     org: { attribute: false },
     repo: { attribute: false },
@@ -71,9 +70,8 @@ class NxMediaInfo extends LitElement {
 
   constructor() {
     super();
-    this.isOpen = false;
     this.media = null;
-    this._activeTab = 'metadata';
+    this._activeTab = 'usage';
     this._exifData = null;
     this._loading = false;
     this._fileSize = null;
@@ -90,19 +88,16 @@ class NxMediaInfo extends LitElement {
     this._cachedMetadata = new Map();
     this._imageDimensions = null;
     this._comprehensiveMetadata = null;
-    this.handleKeyDown = this.handleKeyDown.bind(this);
   }
 
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [styles];
     getSvg({ parent: this.shadowRoot, paths: ICONS });
-    document.addEventListener('keydown', this.handleKeyDown);
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
-    document.removeEventListener('keydown', this.handleKeyDown);
     this._cleanupPendingRequests();
     this._pdfBlobUrls.forEach((blobUrl) => {
       URL.revokeObjectURL(blobUrl);
@@ -111,11 +106,29 @@ class NxMediaInfo extends LitElement {
     this._cachedMetadata.clear();
   }
 
-  handleKeyDown(e) {
-    if (this.isOpen && e.key === 'Escape') {
-      e.preventDefault();
-      this.handleClose();
+  /**
+   * Native dialog.showModal() opens the media info dialog with the provided data.
+   */
+  show(data) {
+    this.media = data.media;
+    this.usageData = data.usageData;
+    this.org = data.org;
+    this.repo = data.repo;
+    this.isScanning = data.isScanning;
+
+    if (data.media?.url) {
+      const fullUrl = buildFullMediaUrl(data.media.url, data.org, data.repo);
+      const { origin, path } = extractMediaLocation(fullUrl);
+      this._mediaOrigin = origin || 'Unknown';
+      this._mediaPath = path || 'Unknown';
     }
+
+    this.updateComplete.then(() => {
+      const dialog = this.shadowRoot.querySelector('dialog');
+      if (dialog && !dialog.open) {
+        dialog.showModal();
+      }
+    });
   }
 
   _cleanupPendingRequests() {
@@ -127,14 +140,10 @@ class NxMediaInfo extends LitElement {
 
   updated(changedProperties) {
     if (changedProperties.has('media') && this.media) {
-      if (this._activeTab === 'metadata') {
-        this.loadMetadata();
-      }
+      this.loadUsageData();
+      this.loadMetadata();
       if (isPdf(this.media.url)) {
         this.loadPdfWithDaFetch(this.media.url);
-      }
-      if (this._activeTab === 'usage') {
-        this.loadUsageData();
       }
     }
 
@@ -360,18 +369,42 @@ class NxMediaInfo extends LitElement {
     this._usageLoading = true;
     try {
       this._usageData = this.usageData;
-
-      this._activeTab = 'usage';
     } catch (error) {
       this._usageData = [];
-      this._activeTab = 'metadata';
     } finally {
       this._usageLoading = false;
     }
   }
 
   handleClose() {
-    window.dispatchEvent(new Event('close-modal'));
+    const dialog = this.shadowRoot.querySelector('dialog');
+    if (dialog?.open) {
+      dialog.close();
+    }
+  }
+
+  handleDialogClose() {
+    this._resetState();
+    this.dispatchEvent(new CustomEvent('close'));
+  }
+
+  _resetState() {
+    this.media = null;
+    this._exifData = null;
+    this._fileSize = null;
+    this._mimeType = null;
+    this._mediaOrigin = null;
+    this._mediaPath = null;
+    this._usageData = [];
+    this._imageDimensions = null;
+    this._comprehensiveMetadata = null;
+    this._activeTab = 'usage';
+  }
+
+  handleBackdropClick(e) {
+    if (e.target === e.currentTarget) {
+      this.handleClose();
+    }
   }
 
   handleTabChange(e) {
@@ -704,7 +737,7 @@ class NxMediaInfo extends LitElement {
               <div class="metadata-label">Lens</div>
               <div class="metadata-value">${this._comprehensiveMetadata.camera.lens}</div>
             ` : ''}
-            
+
             ${this._comprehensiveMetadata?.settings?.iso ? html`
               <div class="metadata-label">ISO</div>
               <div class="metadata-value">${this._comprehensiveMetadata.settings.iso}</div>
@@ -721,12 +754,12 @@ class NxMediaInfo extends LitElement {
               <div class="metadata-label">Focal Length</div>
               <div class="metadata-value">${this._comprehensiveMetadata.settings.focalLength}mm</div>
             ` : ''}
-            
+
             ${this._comprehensiveMetadata?.dateTime ? html`
               <div class="metadata-label">Date Captured</div>
               <div class="metadata-value">${formatDateTime(this._comprehensiveMetadata.dateTime)}</div>
             ` : ''}
-            
+
             ${this._comprehensiveMetadata?.gps?.latitude ? html`
               <div class="metadata-label">Latitude</div>
               <div class="metadata-value">${this._comprehensiveMetadata.gps.latitude.toFixed(6)}</div>
@@ -739,7 +772,7 @@ class NxMediaInfo extends LitElement {
               <div class="metadata-label">Altitude</div>
               <div class="metadata-value">${this._comprehensiveMetadata.gps.altitude}m</div>
             ` : ''}
-            
+
             ${this._comprehensiveMetadata?.iptc?.keywords ? html`
               <div class="metadata-label">Keywords</div>
               <div class="metadata-value">${Array.isArray(this._comprehensiveMetadata.iptc.keywords) ? this._comprehensiveMetadata.iptc.keywords.join(', ') : this._comprehensiveMetadata.iptc.keywords}</div>
@@ -756,7 +789,7 @@ class NxMediaInfo extends LitElement {
               <div class="metadata-label">Creator</div>
               <div class="metadata-value">${this._comprehensiveMetadata.iptc.creator}</div>
             ` : ''}
-            
+
             ${this._comprehensiveMetadata?.xmp?.rating ? html`
               <div class="metadata-label">Rating</div>
               <div class="metadata-value">${this._comprehensiveMetadata.xmp.rating}</div>
@@ -970,8 +1003,8 @@ class NxMediaInfo extends LitElement {
             <div class="usage-section">
               <div class="document-heading">
                 <div class="document-path">
+                  <p class="usage-path">${doc.split('.')[0]}</p>
                   <p class="usage-org">${org}</p>
-                  <p class="usage-path">${doc}</p>
                   <button type="button" size="small" class="icon-button toggle-actions" @click=${this.showActions}>
                     <svg class="icon" viewBox="0 0 22 20">
                       <use href="#S2_Icon_ChevronRight_20_N"></use>
@@ -1019,12 +1052,17 @@ class NxMediaInfo extends LitElement {
   }
 
   render() {
-    if (!this.isOpen || !this.media) return '';
-
-    const displayName = this.media.name || getFileName(this.media.url) || 'Media Details';
+    const displayName = this.media
+      ? (this.media.name || getFileName(this.media.url) || 'Media Details')
+      : '';
 
     return html`
-      <dialog class="modal-overlay" @click=${this.handleClose} role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <dialog
+        class="modal-overlay"
+        @click=${this.handleBackdropClick}
+        @close=${this.handleDialogClose}
+      >
+        ${this.media ? html`
         <div class="modal-content" @click=${(e) => e.stopPropagation()}>
           <div class="media-preview-section">
             ${this.renderMediaPreview()}
@@ -1046,6 +1084,7 @@ class NxMediaInfo extends LitElement {
                 type="button"
                 class="tab-button ${this._activeTab === 'usage' ? 'active' : ''}"
                 data-tab="usage"
+                aria-selected=${this._activeTab === 'usage' ? 'true' : 'false'}
                 @click=${this.handleTabChange}
               >
               <svg class="reference-icon icon" viewBox="0 0 22 20">
@@ -1059,6 +1098,7 @@ class NxMediaInfo extends LitElement {
                 type="button"
                 class="tab-button ${this._activeTab === 'metadata' ? 'active' : ''}"
                 data-tab="metadata"
+                aria-selected=${this._activeTab === 'metadata' ? 'true' : 'false'}
                 @click=${this.handleTabChange}
               >
               <svg class="image-info-icon icon" viewBox="0 0 20 20">
@@ -1075,6 +1115,7 @@ class NxMediaInfo extends LitElement {
           </div>
 
         </div>
+        ` : ''}
       </dialog>
     `;
   }
