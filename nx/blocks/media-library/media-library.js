@@ -1,7 +1,14 @@
 import { html, LitElement } from 'da-lit';
 import getStyle from '../../utils/styles.js';
 import { loadMediaSheet, buildDataStructures, mergeProgressiveData } from './utils/processing.js';
-import { copyMediaToClipboard, validateSitePath, saveRecentSite, getBasePath, ensureAuthenticated } from './utils/utils.js';
+import {
+  copyMediaToClipboard,
+  validateSitePath,
+  saveRecentSite,
+  getBasePath,
+  resolveAbsolutePath,
+  ensureAuthenticated,
+} from './utils/utils.js';
 import {
   processMediaData,
   getGroupingKey,
@@ -259,28 +266,14 @@ class NxMediaLibrary extends LitElement {
 
   handleDocNavigation(path) {
     if (path) {
-      const basePath = getBasePath();
-
-      let absolutePath = path;
-      if (basePath && !path.startsWith(basePath)) {
-        absolutePath = `${basePath}${path}`;
-      }
-
-      this._selectedDocument = absolutePath;
+      this._selectedDocument = resolveAbsolutePath(path);
       this._selectedFilterType = FILTER_TYPES.DOCUMENT_TOTAL;
     }
   }
 
   handleFolderNavigation(path) {
     if (path) {
-      const basePath = getBasePath();
-
-      let absolutePath = path;
-      if (basePath && !path.startsWith(basePath)) {
-        absolutePath = path === '/' ? basePath : `${basePath}${path}`;
-      }
-
-      this._selectedFolder = absolutePath;
+      this._selectedFolder = resolveAbsolutePath(path, true);
       this._selectedFilterType = FILTER_TYPES.ALL;
     }
   }
