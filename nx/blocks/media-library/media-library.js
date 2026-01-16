@@ -236,24 +236,7 @@ class NxMediaLibrary extends LitElement {
       if (!isAuthenticated) return;
 
       const mediaData = await loadMediaSheet(this.sitePath);
-
-      if (mediaData && mediaData.length > 0) {
-        const basePath = getBasePath();
-        const filteredMediaData = basePath
-          ? mediaData.filter((item) => !item.doc || item.doc === '' || item.doc.startsWith(basePath))
-          : mediaData;
-
-        this._rawMediaData = filteredMediaData;
-
-        const { uniqueItems, usageIndex, folderPaths } = buildDataStructures(filteredMediaData);
-        this._mediaData = uniqueItems;
-        this._usageIndex = usageIndex;
-        this._folderPathsCache = folderPaths;
-
-        this._processedData = await processMediaData(filteredMediaData);
-
-        this._filteredDataCache = null;
-      }
+      await this.setMediaData(mediaData);
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error('[MEDIA-LIB:loadMediaData]', error);
@@ -265,23 +248,7 @@ class NxMediaLibrary extends LitElement {
 
   async handleMediaDataUpdated(e) {
     const { mediaData } = e.detail;
-
-    if (mediaData && mediaData.length > 0) {
-      const basePath = getBasePath();
-      const filteredMediaData = basePath
-        ? mediaData.filter((item) => !item.doc || item.doc === '' || item.doc.startsWith(basePath))
-        : mediaData;
-
-      this._rawMediaData = filteredMediaData;
-
-      const { uniqueItems, usageIndex, folderPaths } = buildDataStructures(filteredMediaData);
-      this._mediaData = uniqueItems;
-      this._usageIndex = usageIndex;
-      this._folderPathsCache = folderPaths;
-
-      this._processedData = await processMediaData(filteredMediaData);
-      this._filteredDataCache = null;
-    }
+    await this.setMediaData(mediaData);
   }
 
   handleSiteSelected(e) {
@@ -559,6 +526,25 @@ class NxMediaLibrary extends LitElement {
     });
   }
 
+  async setMediaData(rawData) {
+    if (!rawData || rawData.length === 0) return;
+
+    const basePath = getBasePath();
+    const filteredMediaData = basePath
+      ? rawData.filter((item) => !item.doc || item.doc === '' || item.doc.startsWith(basePath))
+      : rawData;
+
+    this._rawMediaData = filteredMediaData;
+
+    const { uniqueItems, usageIndex, folderPaths } = buildDataStructures(filteredMediaData);
+    this._mediaData = uniqueItems;
+    this._usageIndex = usageIndex;
+    this._folderPathsCache = folderPaths;
+
+    this._processedData = await processMediaData(filteredMediaData);
+    this._filteredDataCache = null;
+  }
+
   createScanProgress(
     pages = 0,
     mediaFiles = 0,
@@ -683,55 +669,39 @@ class NxMediaLibrary extends LitElement {
         const mediaData = await loadMediaSheet(this.sitePath);
 
         if (mediaData && mediaData.length > 0) {
-          const basePath = getBasePath();
-          const filteredMediaData = basePath
-            ? mediaData.filter((item) => !item.doc || item.doc === '' || item.doc.startsWith(basePath))
-            : mediaData;
-
           const duration = ((Date.now() - this._scanStartTime) / 1000).toFixed(1);
+          const scanResult = e?.detail || {};
+          const hasChanges = scanResult.hasChanges !== undefined
+            ? scanResult.hasChanges
+            : false;
 
-          if (filteredMediaData && filteredMediaData.length > 0) {
-            const {
-              uniqueItems,
-              usageIndex,
-              folderPaths,
-            } = buildDataStructures(filteredMediaData);
-
-            const scanResult = e?.detail || {};
-            const hasChanges = scanResult.hasChanges !== undefined
-              ? scanResult.hasChanges
-              : false;
-
-            if (hasChanges) {
-              this._rawMediaData = filteredMediaData;
-              this._usageIndex = usageIndex;
-              this._mediaData = uniqueItems;
-              this._folderPathsCache = folderPaths;
-              this._processedData = await processMediaData(filteredMediaData);
-              this._filteredDataCache = null;
-            }
-
-            this._scanProgress = this.createScanProgress(
-              scanResult.pages || this._scanProgress.pages,
-              scanResult.mediaFiles || this._scanProgress.mediaFiles,
-              uniqueItems.length,
-              `${duration}s`,
-              hasChanges,
-            );
-
-            this._isScanning = false;
-            this.requestUpdate();
-          } else {
-            this._scanProgress = this.createScanProgress(
-              this._scanProgress.pages,
-              this._scanProgress.mediaFiles,
-              0,
-              `${duration}s`,
-              false,
-            );
-            this._isScanning = false;
-            this.requestUpdate('_scanProgress');
+          if (hasChanges) {
+            await this.setMediaData(mediaData);
           }
+
+          const mediaCount = this._mediaData?.length || 0;
+
+          this._scanProgress = this.createScanProgress(
+            scanResult.pages || this._scanProgress.pages,
+            scanResult.mediaFiles || this._scanProgress.mediaFiles,
+            mediaCount,
+            `${duration}s`,
+            hasChanges,
+          );
+
+          this._isScanning = false;
+          this.requestUpdate();
+        } else {
+          const duration = ((Date.now() - this._scanStartTime) / 1000).toFixed(1);
+          this._scanProgress = this.createScanProgress(
+            this._scanProgress.pages,
+            this._scanProgress.mediaFiles,
+            0,
+            `${duration}s`,
+            false,
+          );
+          this._isScanning = false;
+          this.requestUpdate('_scanProgress');
         }
       }
     } catch (error) {
