@@ -63,7 +63,7 @@ class NxMediaLibrary extends LitElement {
     this._filteredDataCache = null;
     this._progressiveMediaData = [];
     this._isScanning = false;
-    this._scanProgress = { pages: 0, media: 0, duration: null, hasChanges: null };
+    this._scanProgress = this.createScanProgress();
     this._scanStartTime = null;
     this._isProcessingData = false;
     this._selectedFolder = null;
@@ -508,28 +508,25 @@ class NxMediaLibrary extends LitElement {
   }
 
   renderCurrentView() {
-    const hasData = this._mediaData && this._mediaData.length > 0;
-    const hasFilteredData = this.filteredMediaData && this.filteredMediaData.length > 0;
-    const hasProgressiveData = this._progressiveMediaData && this._progressiveMediaData.length > 0;
+    const hasData = this._mediaData?.length > 0;
+    const hasFilteredData = this.filteredMediaData?.length > 0;
+    const hasProgressiveData = this._progressiveMediaData?.length > 0;
 
     if (this._isScanning && !hasData && !hasProgressiveData) {
       return this.renderScanningState();
-    }
-
-    if (hasData && !hasFilteredData && !this._isScanning) {
-      return this.renderEmptyState();
     }
 
     if (!hasData && !this._isScanning) {
       return this.renderEmptyState();
     }
 
-    let displayData;
-    if (this._isScanning && this._progressiveMediaData.length > 0) {
-      displayData = this._progressiveMediaData;
-    } else {
-      displayData = this.filteredMediaData;
+    if (hasData && !hasFilteredData && !this._isScanning) {
+      return this.renderEmptyState();
     }
+
+    const displayData = (this._isScanning && hasProgressiveData)
+      ? this._progressiveMediaData
+      : this.filteredMediaData;
 
     return html`
       <nx-media-grid
@@ -653,9 +650,8 @@ class NxMediaLibrary extends LitElement {
     const { media } = e.detail;
 
     if (this._mediaData) {
-      this._mediaData = this._mediaData.map((item) =>
-        item.url === media.url ? { ...item, ...media } : item
-      );
+      this._mediaData = this._mediaData.map((item) => (
+        item.url === media.url ? { ...item, ...media } : item));
     }
   }
 
@@ -667,6 +663,10 @@ class NxMediaLibrary extends LitElement {
       _selectedDocument: null,
       _filteredDataCache: null,
     });
+  }
+
+  createScanProgress(pages = 0, media = 0, duration = null, hasChanges = null) {
+    return { pages, media, duration, hasChanges };
   }
 
   showNotification(heading, message, type = 'success') {
@@ -745,19 +745,19 @@ class NxMediaLibrary extends LitElement {
 
   async handleScanStart() {
     this._isScanning = true;
-    this._scanProgress = { pages: 0, media: 0, duration: null, hasChanges: null };
+    this._scanProgress = this.createScanProgress();
     this._scanStartTime = Date.now();
     this._progressiveMediaData = [];
   }
 
   handleScanProgress(e) {
     const { progress } = e.detail;
-    this._scanProgress = {
-      pages: progress.pages || 0,
-      media: progress.media || 0,
-      duration: progress.duration || null,
-      hasChanges: progress.hasChanges !== undefined ? progress.hasChanges : null,
-    };
+    this._scanProgress = this.createScanProgress(
+      progress.pages || 0,
+      progress.media || 0,
+      progress.duration,
+      progress.hasChanges !== undefined ? progress.hasChanges : null,
+    );
   }
 
   handleScanError(e) {
@@ -809,22 +809,22 @@ class NxMediaLibrary extends LitElement {
               this._filteredDataCache = null;
             }
 
-            this._scanProgress = {
-              ...this._scanProgress,
-              media: newDataLength,
-              duration: `${duration}s`,
+            this._scanProgress = this.createScanProgress(
+              this._scanProgress.pages,
+              newDataLength,
+              `${duration}s`,
               hasChanges,
-            };
+            );
 
             this._isScanning = false;
             this.requestUpdate();
           } else {
-            this._scanProgress = {
-              ...this._scanProgress,
-              media: 0,
-              duration: `${duration}s`,
-              hasChanges: false,
-            };
+            this._scanProgress = this.createScanProgress(
+              this._scanProgress.pages,
+              0,
+              `${duration}s`,
+              false,
+            );
             this._isScanning = false;
             this.requestUpdate('_scanProgress');
           }
