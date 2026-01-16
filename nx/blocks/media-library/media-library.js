@@ -48,7 +48,6 @@ class NxMediaLibrary extends LitElement {
     _progressiveMediaData: { state: true },
     _isScanning: { state: true },
     _scanProgress: { state: true },
-    _resultSummary: { state: true },
     _isValidating: { state: true },
     _sitePathValid: { state: true },
     _validationError: { state: true },
@@ -67,7 +66,6 @@ class NxMediaLibrary extends LitElement {
     this._scanStartTime = null;
     this._isProcessingData = false;
     this._selectedFolder = null;
-    this._resultSummary = '';
     this._folderPathsCache = new Set();
     this._notification = null;
   }
@@ -147,20 +145,15 @@ class NxMediaLibrary extends LitElement {
     if (changedProperties.has('sitePath') && this.sitePath) {
       this.initialize();
     }
+  }
 
-    if (changedProperties.has('_mediaData')
-        || changedProperties.has('_searchQuery')
-        || changedProperties.has('_selectedFilterType')
-        || changedProperties.has('_selectedFolder')
-        || changedProperties.has('_selectedDocument')
-    ) {
-      this._resultSummary = computeResultSummary(
-        this._mediaData,
-        this.filteredMediaData,
-        this._searchQuery,
-        this._selectedFilterType,
-      );
-    }
+  get resultSummary() {
+    return computeResultSummary(
+      this._mediaData,
+      this.filteredMediaData,
+      this._searchQuery,
+      this._selectedFilterType,
+    );
   }
 
   get filteredMediaData() {
@@ -468,7 +461,7 @@ class NxMediaLibrary extends LitElement {
           <nx-media-topbar
             .searchQuery=${this._searchQuery}
             .mediaData=${this._rawMediaData || this._mediaData}
-            .resultSummary=${this._resultSummary}
+            .resultSummary=${this.resultSummary}
             .folderPathsCache=${this._folderPathsCache}
             .selectedFolder=${this._selectedFolder}
             .selectedDocument=${this._selectedDocument}
@@ -588,12 +581,6 @@ class NxMediaLibrary extends LitElement {
 
   handleClearSearch() {
     this.resetSearchState();
-    this._resultSummary = computeResultSummary(
-      this._mediaData,
-      this.filteredMediaData,
-      this._searchQuery,
-      this._selectedFilterType,
-    );
     this.requestUpdate();
   }
 
