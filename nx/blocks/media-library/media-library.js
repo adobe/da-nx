@@ -29,6 +29,12 @@ const slComponents = await getStyle(`${nx}/public/sl/components.css`);
 const topbarStyles = await getStyle(`${nx}/blocks/media-library/views/topbar/topbar.css`);
 const styles = await getStyle(import.meta.url);
 
+const FILTER_TYPES = {
+  ALL: 'all',
+  DOCUMENTS: 'documents',
+  DOCUMENT_TOTAL: 'documentTotal',
+};
+
 class NxMediaLibrary extends LitElement {
   static properties = {
     sitePath: { state: true },
@@ -52,7 +58,7 @@ class NxMediaLibrary extends LitElement {
 
   constructor() {
     super();
-    this._selectedFilterType = 'all';
+    this._selectedFilterType = FILTER_TYPES.ALL;
     this._processedData = null;
     this._filteredDataCache = null;
     this._progressiveMediaData = [];
@@ -179,7 +185,7 @@ class NxMediaLibrary extends LitElement {
     }
 
     if (this._selectedFilterType && this._selectedFilterType.startsWith('document')
-        && this._selectedFilterType !== 'documents' && this._processedData) {
+        && this._selectedFilterType !== FILTER_TYPES.DOCUMENTS && this._processedData) {
       result = getDocumentFilteredItems(
         this._processedData,
         sourceData,
@@ -239,7 +245,7 @@ class NxMediaLibrary extends LitElement {
       dataWithUsageCounts = docFilteredItems;
     }
 
-    if (this._selectedFilterType && this._selectedFilterType !== 'all') {
+    if (this._selectedFilterType && this._selectedFilterType !== FILTER_TYPES.ALL) {
       result = applyFilter(
         dataWithUsageCounts,
         this._selectedFilterType,
@@ -395,7 +401,7 @@ class NxMediaLibrary extends LitElement {
       }
 
       this._selectedDocument = absolutePath;
-      this._selectedFilterType = 'documentTotal';
+      this._selectedFilterType = FILTER_TYPES.DOCUMENT_TOTAL;
       this._filteredDataCache = null;
       this.requestUpdate();
     }
@@ -411,7 +417,7 @@ class NxMediaLibrary extends LitElement {
       }
 
       this._selectedFolder = absolutePath;
-      this._selectedFilterType = 'all';
+      this._selectedFilterType = FILTER_TYPES.ALL;
       this._filteredDataCache = null;
       this.requestUpdate();
     }
@@ -546,7 +552,7 @@ class NxMediaLibrary extends LitElement {
       this._searchQuery = '';
       this._selectedDocument = null;
       this._selectedFolder = null;
-      this._selectedFilterType = 'all';
+      this._selectedFilterType = FILTER_TYPES.ALL;
       this.requestUpdate();
       return;
     }
@@ -622,23 +628,9 @@ class NxMediaLibrary extends LitElement {
     try {
       const result = await copyMediaToClipboard(media);
       const isError = result.heading === 'Error';
-
-      window.dispatchEvent(new CustomEvent('show-notification', {
-        detail: {
-          ...result,
-          type: isError ? 'danger' : 'success',
-          open: true,
-        },
-      }));
+      this.showNotification(result.heading, result.message, isError ? 'danger' : 'success');
     } catch (error) {
-      window.dispatchEvent(new CustomEvent('show-notification', {
-        detail: {
-          heading: 'Error',
-          message: 'Failed to copy Resource.',
-          type: 'danger',
-          open: true,
-        },
-      }));
+      this.showNotification('Error', 'Failed to copy Resource.', 'danger');
     }
   }
 
@@ -661,20 +653,20 @@ class NxMediaLibrary extends LitElement {
     const { media } = e.detail;
 
     if (this._mediaData) {
-      const index = this._mediaData.findIndex((item) => item.url === media.url);
-      if (index !== -1) {
-        this._mediaData[index] = { ...this._mediaData[index], ...media };
-        this.requestUpdate();
-      }
+      this._mediaData = this._mediaData.map((item) =>
+        item.url === media.url ? { ...item, ...media } : item
+      );
     }
   }
 
   resetSearchState() {
-    this._searchQuery = '';
-    this._selectedFilterType = 'all';
-    this._selectedFolder = null;
-    this._selectedDocument = null;
-    this._filteredDataCache = null;
+    Object.assign(this, {
+      _searchQuery: '',
+      _selectedFilterType: FILTER_TYPES.ALL,
+      _selectedFolder: null,
+      _selectedDocument: null,
+      _filteredDataCache: null,
+    });
   }
 
   showNotification(heading, message, type = 'success') {
