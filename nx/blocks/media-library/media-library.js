@@ -4,14 +4,11 @@ import { loadMediaSheet, buildDataStructures, mergeProgressiveData } from './uti
 import { copyMediaToClipboard, validateSitePath, saveRecentSite, getBasePath, ensureAuthenticated } from './utils/utils.js';
 import {
   processMediaData,
-  applyFilter,
-  filterBySearch,
   getGroupingKey,
-  getDocumentFilteredItems,
-  getFolderFilteredItems,
   parseColonSyntax,
   getFilterLabel,
   computeResultSummary,
+  createMediaFilterPipeline,
 } from './utils/filters.js';
 import { loadPinnedFolders, savePinnedFolders } from './utils/pin-folders.js';
 import '../../public/sl/components.js';
@@ -166,90 +163,19 @@ class NxMediaLibrary extends LitElement {
       return this._filteredDataCache;
     }
 
-    let result;
-    let sourceData = this._rawMediaData || this._mediaData;
+    this._filteredDataCache = createMediaFilterPipeline(
+      this._rawMediaData || this._mediaData,
+      {
+        searchQuery: this._searchQuery,
+        selectedDocument: this._selectedDocument,
+        selectedFolder: this._selectedFolder,
+        selectedFilterType: this._selectedFilterType,
+        usageIndex: this._usageIndex,
+        processedData: this._processedData,
+      },
+    );
 
-    if (this._searchQuery && this._searchQuery.trim()) {
-      sourceData = filterBySearch(sourceData, this._searchQuery);
-    }
-
-    if (this._selectedDocument) {
-      sourceData = sourceData.filter((item) => item.doc === this._selectedDocument);
-    }
-
-    if (this._selectedFilterType && this._selectedFilterType.startsWith('document')
-        && this._selectedFilterType !== FILTER_TYPES.DOCUMENTS && this._processedData) {
-      result = getDocumentFilteredItems(
-        this._processedData,
-        sourceData,
-        this.selectedDocument,
-        this._selectedFilterType,
-      );
-      this._filteredDataCache = result;
-      return result;
-    }
-
-    const uniqueItems = [];
-    const seenKeys = new Set();
-
-    sourceData.forEach((item) => {
-      const groupingKey = getGroupingKey(item.url);
-      if (!seenKeys.has(groupingKey)) {
-        seenKeys.add(groupingKey);
-
-        let usageCount = item.usageCount || 1;
-        if (this._processedData && this._processedData.usageData
-          && this._processedData.usageData[groupingKey]) {
-          usageCount = this._processedData.usageData[groupingKey].count;
-        }
-
-        uniqueItems.push({
-          ...item,
-          usageCount,
-        });
-      }
-    });
-
-    let dataWithUsageCounts = uniqueItems;
-    if (this._selectedFolder) {
-      dataWithUsageCounts = getFolderFilteredItems(
-        uniqueItems,
-        this._selectedFolder,
-        this._usageIndex,
-      );
-    } else if (this._selectedDocument && this._usageIndex) {
-      const docFilteredItems = [];
-      const groupingKeyToMediaItem = new Map();
-
-      uniqueItems.forEach((item) => {
-        const key = getGroupingKey(item.url);
-        if (!groupingKeyToMediaItem.has(key)) {
-          groupingKeyToMediaItem.set(key, item);
-        }
-      });
-
-      this._usageIndex.forEach((usageEntries, groupingKey) => {
-        const hasDocUsage = usageEntries.some((entry) => entry.doc === this._selectedDocument);
-        if (hasDocUsage && groupingKeyToMediaItem.has(groupingKey)) {
-          docFilteredItems.push(groupingKeyToMediaItem.get(groupingKey));
-        }
-      });
-
-      dataWithUsageCounts = docFilteredItems;
-    }
-
-    if (this._selectedFilterType && this._selectedFilterType !== FILTER_TYPES.ALL) {
-      result = applyFilter(
-        dataWithUsageCounts,
-        this._selectedFilterType,
-        this.selectedDocument,
-      );
-      this._filteredDataCache = result;
-      return result;
-    }
-
-    this._filteredDataCache = dataWithUsageCounts;
-    return dataWithUsageCounts;
+    return this._filteredDataCache;
   }
 
   get selectedDocument() {
