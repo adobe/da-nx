@@ -509,7 +509,8 @@ class NxMediaLibrary extends LitElement {
 
   renderCurrentView() {
     const hasData = this._mediaData?.length > 0;
-    const hasFilteredData = this.filteredMediaData?.length > 0;
+    const filteredData = this.filteredMediaData;
+    const hasFilteredData = filteredData?.length > 0;
     const hasProgressiveData = this._progressiveMediaData?.length > 0;
 
     if (this._isScanning && !hasData && !hasProgressiveData) {
@@ -526,7 +527,7 @@ class NxMediaLibrary extends LitElement {
 
     const displayData = (this._isScanning && hasProgressiveData)
       ? this._progressiveMediaData
-      : this.filteredMediaData;
+      : filteredData;
 
     return html`
       <nx-media-grid
