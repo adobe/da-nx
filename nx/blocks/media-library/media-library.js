@@ -94,26 +94,6 @@ class NxMediaLibrary extends LitElement {
     }, 3000);
   };
 
-  shouldUpdate(changedProperties) {
-    if (changedProperties.size === 0) return false;
-
-    const dataProps = ['_mediaData', '_progressiveMediaData', '_isScanning'];
-    const filterProps = ['_searchQuery', '_selectedFilterType', '_selectedFolder', '_selectedDocument'];
-    const uiProps = ['sitePath', '_notification'];
-    const scanProps = ['_scanProgress'];
-    const validationProps = ['_isValidating', '_sitePathValid', '_validationError'];
-
-    for (const prop of changedProperties.keys()) {
-      if (dataProps.includes(prop) || filterProps.includes(prop)
-          || uiProps.includes(prop) || scanProps.includes(prop)
-          || validationProps.includes(prop)) {
-        return true;
-      }
-    }
-
-    return false;
-  }
-
   willUpdate(changedProperties) {
     if (changedProperties.has('_searchQuery')
         || changedProperties.has('_selectedFilterType')
