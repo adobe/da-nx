@@ -35,7 +35,6 @@ class NxMediaLibrary extends LitElement {
     _mediaData: { state: true },
     _rawMediaData: { state: true },
     _usageIndex: { state: true },
-    _error: { state: true },
     _searchQuery: { state: true },
     _selectedFilterType: { state: true },
     _selectedFolder: { state: true },
@@ -97,7 +96,7 @@ class NxMediaLibrary extends LitElement {
   shouldUpdate(changedProperties) {
     if (changedProperties.size === 0) return false;
 
-    const dataProps = ['_mediaData', '_error', '_progressiveMediaData', '_isScanning'];
+    const dataProps = ['_mediaData', '_progressiveMediaData', '_isScanning'];
     const filterProps = ['_searchQuery', '_selectedFilterType', '_selectedFolder', '_selectedDocument'];
     const uiProps = ['sitePath', '_notification'];
     const scanProps = ['_scanProgress'];
@@ -131,7 +130,6 @@ class NxMediaLibrary extends LitElement {
     if (changedProperties.has('sitePath')) {
       if (this.sitePath) {
         this._mediaData = null;
-        this._error = null;
         this._processedData = null;
         this.resetSearchState();
       }
@@ -292,7 +290,7 @@ class NxMediaLibrary extends LitElement {
 
     this._isValidating = true;
     this._sitePathValid = false;
-    this._error = null;
+    this._validationError = null;
     this.requestUpdate();
 
     try {
@@ -307,7 +305,6 @@ class NxMediaLibrary extends LitElement {
         this._validationError = validation.error;
         this._validationSuggestion = validation.suggestion;
         this._sitePathValid = false;
-        this._error = validation.error;
         this.requestUpdate();
         return;
       }
@@ -324,7 +321,6 @@ class NxMediaLibrary extends LitElement {
       this._isValidating = false;
       this._validationError = error.message;
       this._sitePathValid = false;
-      this._error = error.message;
       this.requestUpdate();
     }
   }
@@ -355,8 +351,9 @@ class NxMediaLibrary extends LitElement {
       }
     } catch (error) {
       // eslint-disable-next-line no-console
-      console.error('[MAIN] Failed to load media data:', error);
-      this._error = 'Failed to load media data. Please ensure you are signed in.';
+      console.error('[MEDIA-LIB:loadMediaData]', error);
+      this._validationError = 'Failed to load media data. Please ensure you are signed in.';
+      this._sitePathValid = false;
       this.requestUpdate();
     }
   }
