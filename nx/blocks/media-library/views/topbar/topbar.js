@@ -1,9 +1,6 @@
 import { html, LitElement } from 'da-lit';
 import getStyle from '../../../../utils/styles.js';
 import getSvg from '../../../../public/utils/svg.js';
-// eslint-disable-next-line no-unused-vars
-import { getMediaType, isSvgFile } from '../../utils/utils.js';
-// eslint-disable-next-line no-unused-vars
 import { parseColonSyntax, generateSearchSuggestions, createSearchSuggestion } from '../../utils/filters.js';
 
 const styles = await getStyle(import.meta.url);
@@ -49,17 +46,6 @@ class NxMediaTopBar extends LitElement {
     this._debounceTimeout = null;
     this.selectedType = null;
     this._programmaticUpdate = false;
-  }
-
-  shouldUpdate(changedProperties) {
-    const hasSearchChange = changedProperties.has('searchQuery');
-    const hasMediaDataChange = changedProperties.has('mediaData');
-
-    return hasSearchChange
-      || hasMediaDataChange
-      || changedProperties.has('resultSummary')
-      || changedProperties.has('_showSuggestions')
-      || changedProperties.has('_suggestions');
   }
 
   updated(changedProperties) {
