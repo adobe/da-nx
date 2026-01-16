@@ -1,6 +1,6 @@
 import { html, LitElement } from 'da-lit';
 import getStyle from '../../utils/styles.js';
-import { loadMediaSheet, buildDataStructures } from './utils/processing.js';
+import { loadMediaSheet, buildDataStructures, mergeProgressiveData } from './utils/processing.js';
 import { copyMediaToClipboard, validateSitePath, saveRecentSite, getBasePath, ensureAuthenticated } from './utils/utils.js';
 import {
   processMediaData,
@@ -838,41 +838,7 @@ class NxMediaLibrary extends LitElement {
 
   handleProgressiveDataUpdate(e) {
     const { mediaItems } = e.detail;
-    this.updateProgressiveData(mediaItems);
-  }
-
-  updateProgressiveData(mediaItems) {
-    if (!mediaItems || mediaItems.length === 0) return;
-
-    let hasUpdates = false;
-
-    mediaItems.forEach((newItem) => {
-      const groupingKey = getGroupingKey(newItem.url);
-      const existingItem = this._progressiveMediaData.find(
-        (item) => getGroupingKey(item.url) === groupingKey,
-      );
-
-      if (existingItem) {
-        existingItem.usageCount = (existingItem.usageCount || 0) + 1;
-        hasUpdates = true;
-      }
-    });
-
-    const newUniqueItems = mediaItems.filter((newItem) => {
-      const groupingKey = getGroupingKey(newItem.url);
-      return !this._progressiveMediaData.some(
-        (item) => getGroupingKey(item.url) === groupingKey,
-      );
-    }).map((item) => ({
-      ...item,
-      usageCount: 1,
-    }));
-
-    if (newUniqueItems.length > 0 || hasUpdates) {
-      this._progressiveMediaData = [...this._progressiveMediaData, ...newUniqueItems];
-    }
-
-    this.requestUpdate();
+    this._progressiveMediaData = mergeProgressiveData(this._progressiveMediaData, mediaItems);
   }
 }
 

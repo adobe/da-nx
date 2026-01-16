@@ -682,3 +682,31 @@ export default async function runScan(sitePath, updateTotal, updateProgressive =
     mediaData: hasChanges ? sortedMediaData : null,
   };
 }
+
+export function mergeProgressiveData(existingData, newItems) {
+  if (!newItems || newItems.length === 0) return existingData;
+
+  const updatedData = [...existingData];
+  const seenKeys = new Set(
+    existingData.map((item) => getGroupingKey(item.url)),
+  );
+
+  newItems.forEach((newItem) => {
+    const groupingKey = getGroupingKey(newItem.url);
+    const existingIndex = updatedData.findIndex(
+      (item) => getGroupingKey(item.url) === groupingKey,
+    );
+
+    if (existingIndex !== -1) {
+      updatedData[existingIndex] = {
+        ...updatedData[existingIndex],
+        usageCount: (updatedData[existingIndex].usageCount || 0) + 1,
+      };
+    } else if (!seenKeys.has(groupingKey)) {
+      updatedData.push({ ...newItem, usageCount: 1 });
+      seenKeys.add(groupingKey);
+    }
+  });
+
+  return updatedData;
+}
