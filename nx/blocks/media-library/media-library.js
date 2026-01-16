@@ -268,8 +268,6 @@ class NxMediaLibrary extends LitElement {
 
       this._selectedDocument = absolutePath;
       this._selectedFilterType = FILTER_TYPES.DOCUMENT_TOTAL;
-      this._filteredDataCache = null;
-      this.requestUpdate();
     }
   }
 
@@ -284,8 +282,6 @@ class NxMediaLibrary extends LitElement {
 
       this._selectedFolder = absolutePath;
       this._selectedFilterType = FILTER_TYPES.ALL;
-      this._filteredDataCache = null;
-      this.requestUpdate();
     }
   }
 
@@ -410,14 +406,11 @@ class NxMediaLibrary extends LitElement {
   handleSearch(e) {
     const { query, type, path } = e.detail;
 
-    this._filteredDataCache = null;
-
     if (!query || !query.trim()) {
       this._searchQuery = '';
       this._selectedDocument = null;
       this._selectedFolder = null;
       this._selectedFilterType = FILTER_TYPES.ALL;
-      this.requestUpdate();
       return;
     }
 
@@ -448,19 +441,14 @@ class NxMediaLibrary extends LitElement {
       this._selectedFolder = null;
       this._selectedDocument = null;
     }
-
-    this.requestUpdate();
   }
 
   handleClearSearch() {
     this.resetSearchState();
-    this.requestUpdate();
   }
 
   handleFilter(e) {
     this._selectedFilterType = e.detail.type;
-    this._filteredDataCache = null;
-    this.requestUpdate();
   }
 
   async handleMediaClick(e) {
@@ -522,7 +510,6 @@ class NxMediaLibrary extends LitElement {
       _selectedFilterType: FILTER_TYPES.ALL,
       _selectedFolder: null,
       _selectedDocument: null,
-      _filteredDataCache: null,
     });
   }
 
