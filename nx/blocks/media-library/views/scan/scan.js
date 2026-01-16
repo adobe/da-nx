@@ -18,8 +18,6 @@ class NxMediaScan extends LitElement {
   static properties = {
     sitePath: { attribute: false },
     _isScanning: { state: true },
-    _pollingInterval: { state: true },
-    _pollingStarted: { state: true },
   };
 
   constructor() {
@@ -283,15 +281,9 @@ class NxMediaScan extends LitElement {
     }
   }
 
-  renderScanProgress() {
-    return '';
-  }
-
   render() {
     return html`
-      <div class="scan-container">
-        ${this.renderScanProgress()}
-      </div>
+      <div class="scan-container"></div>
     `;
   }
 }

@@ -20,7 +20,6 @@ const ICONS = [
 class NxMediaTopBar extends LitElement {
   static properties = {
     searchQuery: { attribute: false },
-    sidebarVisible: { attribute: false },
     resultSummary: { attribute: false },
     isScanning: { attribute: false },
     scanProgress: { attribute: false },
