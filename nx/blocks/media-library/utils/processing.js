@@ -427,6 +427,7 @@ export async function removeScanLock(sitePath) {
 export default async function runScan(sitePath, updateTotal, updateProgressive = null) {
   let totalPagesScanned = 0;
   let totalMediaFilesFound = 0;
+  let totalMediaReferences = 0;
   const allMediaUsage = [];
   const unusedMedia = [];
   const allCrawlItems = [];
@@ -474,7 +475,7 @@ export default async function runScan(sitePath, updateTotal, updateProgressive =
       updateTotal('page', totalPagesScanned);
     } else if (isMediaFile(ext)) {
       totalMediaFilesFound += 1;
-      updateTotal('media', totalMediaFilesFound);
+      updateTotal('mediaFile', totalMediaFilesFound);
     }
 
     const existingLastModified = lastModifiedMap.get(item.path);
@@ -500,6 +501,8 @@ export default async function runScan(sitePath, updateTotal, updateProgressive =
           mediaItems.forEach((mediaItem) => {
             mediaInUse.add(mediaItem.url);
             allMediaUsage.push(mediaItem);
+            totalMediaReferences += 1;
+            updateTotal('mediaReference', totalMediaReferences);
           });
         }
       } catch (error) {
@@ -678,4 +681,32 @@ export default async function runScan(sitePath, updateTotal, updateProgressive =
     hasChanges,
     mediaData: hasChanges ? sortedMediaData : null,
   };
+}
+
+export function mergeProgressiveData(existingData, newItems) {
+  if (!newItems || newItems.length === 0) return existingData;
+
+  const updatedData = [...existingData];
+  const seenKeys = new Set(
+    existingData.map((item) => getGroupingKey(item.url)),
+  );
+
+  newItems.forEach((newItem) => {
+    const groupingKey = getGroupingKey(newItem.url);
+    const existingIndex = updatedData.findIndex(
+      (item) => getGroupingKey(item.url) === groupingKey,
+    );
+
+    if (existingIndex !== -1) {
+      updatedData[existingIndex] = {
+        ...updatedData[existingIndex],
+        usageCount: (updatedData[existingIndex].usageCount || 0) + 1,
+      };
+    } else if (!seenKeys.has(groupingKey)) {
+      updatedData.push({ ...newItem, usageCount: 1 });
+      seenKeys.add(groupingKey);
+    }
+  });
+
+  return updatedData;
 }

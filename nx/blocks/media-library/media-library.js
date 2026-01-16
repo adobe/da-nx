@@ -1,17 +1,21 @@
 import { html, LitElement } from 'da-lit';
 import getStyle from '../../utils/styles.js';
-import { loadMediaSheet, buildDataStructures } from './utils/processing.js';
-import { copyMediaToClipboard, validateSitePath, saveRecentSite, getBasePath } from './utils/utils.js';
+import { loadMediaSheet, buildDataStructures, mergeProgressiveData } from './utils/processing.js';
+import {
+  copyMediaToClipboard,
+  validateSitePath,
+  saveRecentSite,
+  getBasePath,
+  resolveAbsolutePath,
+  ensureAuthenticated,
+} from './utils/utils.js';
 import {
   processMediaData,
-  applyFilter,
-  filterBySearch,
   getGroupingKey,
-  getDocumentFilteredItems,
-  getFolderFilteredItems,
   parseColonSyntax,
   getFilterLabel,
   computeResultSummary,
+  createMediaFilterPipeline,
 } from './utils/filters.js';
 import { loadPinnedFolders, savePinnedFolders } from './utils/pin-folders.js';
 import '../../public/sl/components.js';
@@ -29,13 +33,18 @@ const slComponents = await getStyle(`${nx}/public/sl/components.css`);
 const topbarStyles = await getStyle(`${nx}/blocks/media-library/views/topbar/topbar.css`);
 const styles = await getStyle(import.meta.url);
 
+const FILTER_TYPES = {
+  ALL: 'all',
+  DOCUMENTS: 'documents',
+  DOCUMENT_TOTAL: 'documentTotal',
+};
+
 class NxMediaLibrary extends LitElement {
   static properties = {
     sitePath: { state: true },
     _mediaData: { state: true },
     _rawMediaData: { state: true },
     _usageIndex: { state: true },
-    _error: { state: true },
     _searchQuery: { state: true },
     _selectedFilterType: { state: true },
     _selectedFolder: { state: true },
@@ -43,7 +52,6 @@ class NxMediaLibrary extends LitElement {
     _progressiveMediaData: { state: true },
     _isScanning: { state: true },
     _scanProgress: { state: true },
-    _resultSummary: { state: true },
     _isValidating: { state: true },
     _sitePathValid: { state: true },
     _validationError: { state: true },
@@ -53,16 +61,15 @@ class NxMediaLibrary extends LitElement {
 
   constructor() {
     super();
-    this._selectedFilterType = 'all';
+    this._selectedFilterType = FILTER_TYPES.ALL;
     this._processedData = null;
     this._filteredDataCache = null;
     this._progressiveMediaData = [];
     this._isScanning = false;
-    this._scanProgress = { pages: 0, media: 0, duration: null, hasChanges: null };
+    this._scanProgress = this.createScanProgress();
     this._scanStartTime = null;
     this._isProcessingData = false;
     this._selectedFolder = null;
-    this._resultSummary = '';
     this._folderPathsCache = new Set();
     this._notification = null;
   }
@@ -94,26 +101,6 @@ class NxMediaLibrary extends LitElement {
     }, 3000);
   };
 
-  shouldUpdate(changedProperties) {
-    if (changedProperties.size === 0) return false;
-
-    const dataProps = ['_mediaData', '_error', '_progressiveMediaData', '_isScanning'];
-    const filterProps = ['_searchQuery', '_selectedFilterType', '_selectedFolder', '_selectedDocument'];
-    const uiProps = ['sitePath', '_notification'];
-    const scanProps = ['_scanProgress'];
-    const validationProps = ['_isValidating', '_sitePathValid', '_validationError'];
-
-    for (const prop of changedProperties.keys()) {
-      if (dataProps.includes(prop) || filterProps.includes(prop)
-          || uiProps.includes(prop) || scanProps.includes(prop)
-          || validationProps.includes(prop)) {
-        return true;
-      }
-    }
-
-    return false;
-  }
-
   willUpdate(changedProperties) {
     if (changedProperties.has('_searchQuery')
         || changedProperties.has('_selectedFilterType')
@@ -131,7 +118,6 @@ class NxMediaLibrary extends LitElement {
     if (changedProperties.has('sitePath')) {
       if (this.sitePath) {
         this._mediaData = null;
-        this._error = null;
         this._processedData = null;
         this.resetSearchState();
       }
@@ -143,20 +129,15 @@ class NxMediaLibrary extends LitElement {
     if (changedProperties.has('sitePath') && this.sitePath) {
       this.initialize();
     }
+  }
 
-    if (changedProperties.has('_mediaData')
-        || changedProperties.has('_searchQuery')
-        || changedProperties.has('_selectedFilterType')
-        || changedProperties.has('_selectedFolder')
-        || changedProperties.has('_selectedDocument')
-    ) {
-      this._resultSummary = computeResultSummary(
-        this._mediaData,
-        this.filteredMediaData,
-        this._searchQuery,
-        this._selectedFilterType,
-      );
-    }
+  get resultSummary() {
+    return computeResultSummary(
+      this._mediaData,
+      this.filteredMediaData,
+      this._searchQuery,
+      this._selectedFilterType,
+    );
   }
 
   get filteredMediaData() {
@@ -169,110 +150,19 @@ class NxMediaLibrary extends LitElement {
       return this._filteredDataCache;
     }
 
-    let result;
-    let sourceData = this._rawMediaData || this._mediaData;
+    this._filteredDataCache = createMediaFilterPipeline(
+      this._rawMediaData || this._mediaData,
+      {
+        searchQuery: this._searchQuery,
+        selectedDocument: this._selectedDocument,
+        selectedFolder: this._selectedFolder,
+        selectedFilterType: this._selectedFilterType,
+        usageIndex: this._usageIndex,
+        processedData: this._processedData,
+      },
+    );
 
-    if (this._searchQuery && this._searchQuery.trim()) {
-      sourceData = filterBySearch(sourceData, this._searchQuery);
-    }
-
-    if (this._selectedDocument) {
-      sourceData = sourceData.filter((item) => item.doc === this._selectedDocument);
-    }
-
-    if (this._selectedFilterType && this._selectedFilterType.startsWith('document')
-        && this._selectedFilterType !== 'documents' && this._processedData) {
-      result = getDocumentFilteredItems(
-        this._processedData,
-        sourceData,
-        this.selectedDocument,
-        this._selectedFilterType,
-      );
-      this._filteredDataCache = result;
-      return result;
-    }
-
-    const uniqueItems = [];
-    const seenKeys = new Set();
-
-    sourceData.forEach((item) => {
-      const groupingKey = getGroupingKey(item.url);
-      if (!seenKeys.has(groupingKey)) {
-        seenKeys.add(groupingKey);
-
-        let usageCount = item.usageCount || 1;
-        if (this._processedData && this._processedData.usageData
-          && this._processedData.usageData[groupingKey]) {
-          usageCount = this._processedData.usageData[groupingKey].count;
-        }
-
-        uniqueItems.push({
-          ...item,
-          usageCount,
-        });
-      }
-    });
-
-    let dataWithUsageCounts = uniqueItems;
-    if (this._selectedFolder) {
-      dataWithUsageCounts = getFolderFilteredItems(
-        uniqueItems,
-        this._selectedFolder,
-        this._usageIndex,
-      );
-    } else if (this._selectedDocument && this._usageIndex) {
-      const docFilteredItems = [];
-      const groupingKeyToMediaItem = new Map();
-
-      uniqueItems.forEach((item) => {
-        const key = getGroupingKey(item.url);
-        if (!groupingKeyToMediaItem.has(key)) {
-          groupingKeyToMediaItem.set(key, item);
-        }
-      });
-
-      this._usageIndex.forEach((usageEntries, groupingKey) => {
-        const hasDocUsage = usageEntries.some((entry) => entry.doc === this._selectedDocument);
-        if (hasDocUsage && groupingKeyToMediaItem.has(groupingKey)) {
-          docFilteredItems.push(groupingKeyToMediaItem.get(groupingKey));
-        }
-      });
-
-      dataWithUsageCounts = docFilteredItems;
-    }
-
-    if (this._selectedFilterType && this._selectedFilterType !== 'all') {
-      result = applyFilter(
-        dataWithUsageCounts,
-        this._selectedFilterType,
-        this.selectedDocument,
-      );
-      this._filteredDataCache = result;
-      return result;
-    }
-
-    this._filteredDataCache = dataWithUsageCounts;
-    return dataWithUsageCounts;
-  }
-
-  get selectedDocument() {
-    if (this._selectedDocument) {
-      return this._selectedDocument;
-    }
-
-    if (this._mediaData && this._mediaData.length > 0) {
-      const indexDoc = this._mediaData.find((media) => media.doc === '/index.html');
-      if (indexDoc) {
-        return '/index.html';
-      }
-
-      const firstDoc = this._mediaData.find((media) => media.doc && media.doc.trim());
-      if (firstDoc) {
-        return firstDoc.doc;
-      }
-    }
-
-    return null;
+    return this._filteredDataCache;
   }
 
   get org() {
@@ -292,19 +182,11 @@ class NxMediaLibrary extends LitElement {
 
     this._isValidating = true;
     this._sitePathValid = false;
-    this._error = null;
-    this.requestUpdate();
+    this._validationError = null;
 
     try {
-      const { initIms } = await import('../../utils/daFetch.js');
-      const imsResult = await initIms();
-
-      if (!imsResult || imsResult.anonymous) {
-        const { loadIms, handleSignIn } = await import('../../utils/ims.js');
-        await loadIms();
-        handleSignIn();
-        return;
-      }
+      const isAuthenticated = await ensureAuthenticated();
+      if (!isAuthenticated) return;
 
       const validation = await validateSitePath(this.sitePath);
 
@@ -314,8 +196,6 @@ class NxMediaLibrary extends LitElement {
         this._validationError = validation.error;
         this._validationSuggestion = validation.suggestion;
         this._sitePathValid = false;
-        this._error = validation.error;
-        this.requestUpdate();
         return;
       }
 
@@ -323,79 +203,33 @@ class NxMediaLibrary extends LitElement {
       this._validationError = null;
       this._validationSuggestion = null;
 
-      this.requestUpdate();
-
       saveRecentSite(this.sitePath);
       this.loadMediaData();
     } catch (error) {
       this._isValidating = false;
       this._validationError = error.message;
       this._sitePathValid = false;
-      this._error = error.message;
-      this.requestUpdate();
     }
   }
 
   async loadMediaData() {
     try {
-      // Verify authentication before attempting to load data
-      const { initIms } = await import('../../utils/daFetch.js');
-      const imsResult = await initIms();
-
-      if (!imsResult || imsResult.anonymous) {
-        // Trigger sign-in flow
-        const { loadIms, handleSignIn } = await import('../../utils/ims.js');
-        await loadIms();
-        handleSignIn();
-        return;
-      }
+      const isAuthenticated = await ensureAuthenticated();
+      if (!isAuthenticated) return;
 
       const mediaData = await loadMediaSheet(this.sitePath);
-
-      if (mediaData && mediaData.length > 0) {
-        const basePath = getBasePath();
-        const filteredMediaData = basePath
-          ? mediaData.filter((item) => !item.doc || item.doc === '' || item.doc.startsWith(basePath))
-          : mediaData;
-
-        this._rawMediaData = filteredMediaData;
-
-        const { uniqueItems, usageIndex, folderPaths } = buildDataStructures(filteredMediaData);
-        this._mediaData = uniqueItems;
-        this._usageIndex = usageIndex;
-        this._folderPathsCache = folderPaths;
-
-        this._processedData = await processMediaData(filteredMediaData);
-
-        this._filteredDataCache = null;
-      }
+      await this.setMediaData(mediaData);
     } catch (error) {
       // eslint-disable-next-line no-console
-      console.error('[MAIN] Failed to load media data:', error);
-      this._error = 'Failed to load media data. Please ensure you are signed in.';
-      this.requestUpdate();
+      console.error('[MEDIA-LIB:loadMediaData]', error);
+      this._validationError = 'Failed to load media data. Please ensure you are signed in.';
+      this._sitePathValid = false;
     }
   }
 
   async handleMediaDataUpdated(e) {
     const { mediaData } = e.detail;
-
-    if (mediaData && mediaData.length > 0) {
-      const basePath = getBasePath();
-      const filteredMediaData = basePath
-        ? mediaData.filter((item) => !item.doc || item.doc === '' || item.doc.startsWith(basePath))
-        : mediaData;
-
-      this._rawMediaData = filteredMediaData;
-
-      const { uniqueItems, usageIndex, folderPaths } = buildDataStructures(filteredMediaData);
-      this._mediaData = uniqueItems;
-      this._usageIndex = usageIndex;
-      this._folderPathsCache = folderPaths;
-
-      this._processedData = await processMediaData(filteredMediaData);
-      this._filteredDataCache = null;
-    }
+    await this.setMediaData(mediaData);
   }
 
   handleSiteSelected(e) {
@@ -406,33 +240,15 @@ class NxMediaLibrary extends LitElement {
 
   handleDocNavigation(path) {
     if (path) {
-      const basePath = getBasePath();
-
-      let absolutePath = path;
-      if (basePath && !path.startsWith(basePath)) {
-        absolutePath = `${basePath}${path}`;
-      }
-
-      this._selectedDocument = absolutePath;
-      this._selectedFilterType = 'documentTotal';
-      this._filteredDataCache = null;
-      this.requestUpdate();
+      this._selectedDocument = resolveAbsolutePath(path);
+      this._selectedFilterType = FILTER_TYPES.DOCUMENT_TOTAL;
     }
   }
 
   handleFolderNavigation(path) {
     if (path) {
-      const basePath = getBasePath();
-
-      let absolutePath = path;
-      if (basePath && !path.startsWith(basePath)) {
-        absolutePath = path === '/' ? basePath : `${basePath}${path}`;
-      }
-
-      this._selectedFolder = absolutePath;
-      this._selectedFilterType = 'all';
-      this._filteredDataCache = null;
-      this.requestUpdate();
+      this._selectedFolder = resolveAbsolutePath(path, true);
+      this._selectedFilterType = FILTER_TYPES.ALL;
     }
   }
 
@@ -481,7 +297,7 @@ class NxMediaLibrary extends LitElement {
           <nx-media-topbar
             .searchQuery=${this._searchQuery}
             .mediaData=${this._rawMediaData || this._mediaData}
-            .resultSummary=${this._resultSummary}
+            .resultSummary=${this.resultSummary}
             .folderPathsCache=${this._folderPathsCache}
             .selectedFolder=${this._selectedFolder}
             .selectedDocument=${this._selectedDocument}
@@ -521,28 +337,26 @@ class NxMediaLibrary extends LitElement {
   }
 
   renderCurrentView() {
-    const hasData = this._mediaData && this._mediaData.length > 0;
-    const hasFilteredData = this.filteredMediaData && this.filteredMediaData.length > 0;
-    const hasProgressiveData = this._progressiveMediaData && this._progressiveMediaData.length > 0;
+    const hasData = this._mediaData?.length > 0;
+    const filteredData = this.filteredMediaData;
+    const hasFilteredData = filteredData?.length > 0;
+    const hasProgressiveData = this._progressiveMediaData?.length > 0;
 
     if (this._isScanning && !hasData && !hasProgressiveData) {
       return this.renderScanningState();
-    }
-
-    if (hasData && !hasFilteredData && !this._isScanning) {
-      return this.renderEmptyState();
     }
 
     if (!hasData && !this._isScanning) {
       return this.renderEmptyState();
     }
 
-    let displayData;
-    if (this._isScanning && this._progressiveMediaData.length > 0) {
-      displayData = this._progressiveMediaData;
-    } else {
-      displayData = this.filteredMediaData;
+    if (hasData && !hasFilteredData && !this._isScanning) {
+      return this.renderEmptyState();
     }
+
+    const displayData = (this._isScanning && hasProgressiveData)
+      ? this._progressiveMediaData
+      : filteredData;
 
     return html`
       <nx-media-grid
@@ -551,7 +365,6 @@ class NxMediaLibrary extends LitElement {
         .isScanning=${this._isScanning}
         @mediaClick=${this.handleMediaClick}
         @mediaCopy=${this.handleMediaCopy}
-        @mediaUsage=${this.handleMediaUsage}
       ></nx-media-grid>
     `;
   }
@@ -559,14 +372,11 @@ class NxMediaLibrary extends LitElement {
   handleSearch(e) {
     const { query, type, path } = e.detail;
 
-    this._filteredDataCache = null;
-
     if (!query || !query.trim()) {
       this._searchQuery = '';
       this._selectedDocument = null;
       this._selectedFolder = null;
-      this._selectedFilterType = 'all';
-      this.requestUpdate();
+      this._selectedFilterType = FILTER_TYPES.ALL;
       return;
     }
 
@@ -597,25 +407,14 @@ class NxMediaLibrary extends LitElement {
       this._selectedFolder = null;
       this._selectedDocument = null;
     }
-
-    this.requestUpdate();
   }
 
   handleClearSearch() {
     this.resetSearchState();
-    this._resultSummary = computeResultSummary(
-      this._mediaData,
-      this.filteredMediaData,
-      this._searchQuery,
-      this._selectedFilterType,
-    );
-    this.requestUpdate();
   }
 
   handleFilter(e) {
     this._selectedFilterType = e.detail.type;
-    this._filteredDataCache = null;
-    this.requestUpdate();
   }
 
   async handleMediaClick(e) {
@@ -625,7 +424,8 @@ class NxMediaLibrary extends LitElement {
     const groupingKey = getGroupingKey(media.url);
     const usageData = this._usageIndex?.get(groupingKey) || [];
 
-    this.shadowRoot.querySelector('nx-media-info').show({
+    const mediaInfo = this.shadowRoot.querySelector('nx-media-info');
+    mediaInfo?.show({
       media,
       usageData,
       org: this.org,
@@ -641,59 +441,57 @@ class NxMediaLibrary extends LitElement {
     try {
       const result = await copyMediaToClipboard(media);
       const isError = result.heading === 'Error';
-
-      window.dispatchEvent(new CustomEvent('show-notification', {
-        detail: {
-          ...result,
-          type: isError ? 'danger' : 'success',
-          open: true,
-        },
-      }));
+      this.showNotification(result.heading, result.message, isError ? 'danger' : 'success');
     } catch (error) {
-      window.dispatchEvent(new CustomEvent('show-notification', {
-        detail: {
-          heading: 'Error',
-          message: 'Failed to copy Resource.',
-          type: 'danger',
-          open: true,
-        },
-      }));
+      this.showNotification('Error', 'Failed to copy Resource.', 'danger');
     }
-  }
-
-  handleMediaUsage(e) {
-    const { media } = e.detail;
-
-    const groupingKey = getGroupingKey(media.url);
-    const usageData = this._usageIndex?.get(groupingKey) || [];
-
-    this.shadowRoot.querySelector('nx-media-info').show({
-      media,
-      usageData,
-      org: this.org,
-      repo: this.repo,
-      isScanning: this._isScanning,
-    });
   }
 
   handleAltTextUpdated(e) {
     const { media } = e.detail;
 
     if (this._mediaData) {
-      const index = this._mediaData.findIndex((item) => item.url === media.url);
-      if (index !== -1) {
-        this._mediaData[index] = { ...this._mediaData[index], ...media };
-        this.requestUpdate();
-      }
+      this._mediaData = this._mediaData.map((item) => (
+        item.url === media.url ? { ...item, ...media } : item));
     }
   }
 
   resetSearchState() {
-    this._searchQuery = '';
-    this._selectedFilterType = 'all';
-    this._selectedFolder = null;
-    this._selectedDocument = null;
+    Object.assign(this, {
+      _searchQuery: '',
+      _selectedFilterType: FILTER_TYPES.ALL,
+      _selectedFolder: null,
+      _selectedDocument: null,
+    });
+  }
+
+  async setMediaData(rawData) {
+    if (!rawData || rawData.length === 0) return;
+
+    const basePath = getBasePath();
+    const filteredMediaData = basePath
+      ? rawData.filter((item) => !item.doc || item.doc === '' || item.doc.startsWith(basePath))
+      : rawData;
+
+    this._rawMediaData = filteredMediaData;
+
+    const { uniqueItems, usageIndex, folderPaths } = buildDataStructures(filteredMediaData);
+    this._mediaData = uniqueItems;
+    this._usageIndex = usageIndex;
+    this._folderPathsCache = folderPaths;
+
+    this._processedData = await processMediaData(filteredMediaData);
     this._filteredDataCache = null;
+  }
+
+  createScanProgress(
+    pages = 0,
+    mediaFiles = 0,
+    mediaReferences = 0,
+    duration = null,
+    hasChanges = null,
+  ) {
+    return { pages, mediaFiles, mediaReferences, duration, hasChanges };
   }
 
   showNotification(heading, message, type = 'success') {
@@ -772,19 +570,20 @@ class NxMediaLibrary extends LitElement {
 
   async handleScanStart() {
     this._isScanning = true;
-    this._scanProgress = { pages: 0, media: 0, duration: null, hasChanges: null };
+    this._scanProgress = this.createScanProgress();
     this._scanStartTime = Date.now();
     this._progressiveMediaData = [];
   }
 
   handleScanProgress(e) {
     const { progress } = e.detail;
-    this._scanProgress = {
-      pages: progress.pages || 0,
-      media: progress.media || 0,
-      duration: progress.duration || null,
-      hasChanges: progress.hasChanges !== undefined ? progress.hasChanges : null,
-    };
+    this._scanProgress = this.createScanProgress(
+      progress.pages || 0,
+      progress.mediaFiles || 0,
+      progress.mediaReferences || 0,
+      progress.duration,
+      progress.hasChanges !== undefined ? progress.hasChanges : null,
+    );
   }
 
   handleScanError(e) {
@@ -792,18 +591,17 @@ class NxMediaLibrary extends LitElement {
     console.error('Scan error:', e.detail.error); // eslint-disable-line no-console
   }
 
-  async handleScanComplete() {
+  async handleScanComplete(e) {
     if (this._isProcessingData) {
       return;
     }
-
-    const previousDataLength = this._mediaData?.length || 0;
 
     this._progressiveMediaData = [];
     this._isProcessingData = true;
 
     try {
       if (this.sitePath) {
+        // Wait for backend to finish writing media.json after scan completes
         await new Promise((resolve) => {
           setTimeout(resolve, 500);
         });
@@ -811,50 +609,37 @@ class NxMediaLibrary extends LitElement {
         const mediaData = await loadMediaSheet(this.sitePath);
 
         if (mediaData && mediaData.length > 0) {
-          const basePath = getBasePath();
-          const filteredMediaData = basePath
-            ? mediaData.filter((item) => !item.doc || item.doc === '' || item.doc.startsWith(basePath))
-            : mediaData;
-
           const duration = ((Date.now() - this._scanStartTime) / 1000).toFixed(1);
+          const scanResult = e?.detail || {};
+          const hasChanges = scanResult.hasChanges !== undefined
+            ? scanResult.hasChanges
+            : false;
 
-          if (filteredMediaData && filteredMediaData.length > 0) {
-            const {
-              uniqueItems,
-              usageIndex,
-              folderPaths,
-            } = buildDataStructures(filteredMediaData);
-            const newDataLength = uniqueItems.length;
-            const hasChanges = newDataLength !== previousDataLength;
-
-            if (hasChanges) {
-              this._rawMediaData = filteredMediaData;
-              this._usageIndex = usageIndex;
-              this._mediaData = uniqueItems;
-              this._folderPathsCache = folderPaths;
-              this._processedData = await processMediaData(filteredMediaData);
-              this._filteredDataCache = null;
-            }
-
-            this._scanProgress = {
-              ...this._scanProgress,
-              media: newDataLength,
-              duration: `${duration}s`,
-              hasChanges,
-            };
-
-            this._isScanning = false;
-            this.requestUpdate();
-          } else {
-            this._scanProgress = {
-              ...this._scanProgress,
-              media: 0,
-              duration: `${duration}s`,
-              hasChanges: false,
-            };
-            this._isScanning = false;
-            this.requestUpdate('_scanProgress');
+          if (hasChanges) {
+            await this.setMediaData(mediaData);
           }
+
+          const mediaCount = this._mediaData?.length || 0;
+
+          this._scanProgress = this.createScanProgress(
+            scanResult.pages || this._scanProgress.pages,
+            scanResult.mediaFiles || this._scanProgress.mediaFiles,
+            mediaCount,
+            `${duration}s`,
+            hasChanges,
+          );
+
+          this._isScanning = false;
+        } else {
+          const duration = ((Date.now() - this._scanStartTime) / 1000).toFixed(1);
+          this._scanProgress = this.createScanProgress(
+            this._scanProgress.pages,
+            this._scanProgress.mediaFiles,
+            0,
+            `${duration}s`,
+            false,
+          );
+          this._isScanning = false;
         }
       }
     } catch (error) {
@@ -867,41 +652,7 @@ class NxMediaLibrary extends LitElement {
 
   handleProgressiveDataUpdate(e) {
     const { mediaItems } = e.detail;
-    this.updateProgressiveData(mediaItems);
-  }
-
-  updateProgressiveData(mediaItems) {
-    if (!mediaItems || mediaItems.length === 0) return;
-
-    let hasUpdates = false;
-
-    mediaItems.forEach((newItem) => {
-      const groupingKey = getGroupingKey(newItem.url);
-      const existingItem = this._progressiveMediaData.find(
-        (item) => getGroupingKey(item.url) === groupingKey,
-      );
-
-      if (existingItem) {
-        existingItem.usageCount = (existingItem.usageCount || 0) + 1;
-        hasUpdates = true;
-      }
-    });
-
-    const newUniqueItems = mediaItems.filter((newItem) => {
-      const groupingKey = getGroupingKey(newItem.url);
-      return !this._progressiveMediaData.some(
-        (item) => getGroupingKey(item.url) === groupingKey,
-      );
-    }).map((item) => ({
-      ...item,
-      usageCount: 1,
-    }));
-
-    if (newUniqueItems.length > 0 || hasUpdates) {
-      this._progressiveMediaData = [...this._progressiveMediaData, ...newUniqueItems];
-    }
-
-    this.requestUpdate();
+    this._progressiveMediaData = mergeProgressiveData(this._progressiveMediaData, mediaItems);
   }
 }
 

@@ -740,3 +740,111 @@ export function computeResultSummary(mediaData, filteredData, searchQuery, filte
 
   return `${count} ${filterLabel}`;
 }
+
+export function deduplicateAndEnrich(sourceData, processedData) {
+  const uniqueItems = [];
+  const seenKeys = new Set();
+
+  sourceData.forEach((item) => {
+    const groupingKey = getGroupingKey(item.url);
+    if (!seenKeys.has(groupingKey)) {
+      seenKeys.add(groupingKey);
+
+      let usageCount = item.usageCount || 1;
+      if (processedData && processedData.usageData
+        && processedData.usageData[groupingKey]) {
+        usageCount = processedData.usageData[groupingKey].count;
+      }
+
+      uniqueItems.push({
+        ...item,
+        usageCount,
+      });
+    }
+  });
+
+  return uniqueItems;
+}
+
+export function filterByDocumentUsage(uniqueItems, selectedDocument, usageIndex) {
+  if (!selectedDocument || !usageIndex) {
+    return uniqueItems;
+  }
+
+  const docFilteredItems = [];
+  const groupingKeyToMediaItem = new Map();
+
+  uniqueItems.forEach((item) => {
+    const key = getGroupingKey(item.url);
+    if (!groupingKeyToMediaItem.has(key)) {
+      groupingKeyToMediaItem.set(key, item);
+    }
+  });
+
+  usageIndex.forEach((usageEntries, groupingKey) => {
+    const hasDocUsage = usageEntries.some((entry) => entry.doc === selectedDocument);
+    if (hasDocUsage && groupingKeyToMediaItem.has(groupingKey)) {
+      docFilteredItems.push(groupingKeyToMediaItem.get(groupingKey));
+    }
+  });
+
+  return docFilteredItems;
+}
+
+export function createMediaFilterPipeline(sourceData, options) {
+  const {
+    searchQuery,
+    selectedDocument,
+    selectedFolder,
+    selectedFilterType,
+    usageIndex,
+    processedData,
+  } = options;
+
+  if (!sourceData || sourceData.length === 0) {
+    return [];
+  }
+
+  let data = sourceData;
+
+  if (searchQuery && searchQuery.trim()) {
+    data = filterBySearch(data, searchQuery);
+  }
+
+  if (selectedDocument) {
+    data = data.filter((item) => item.doc === selectedDocument);
+  }
+
+  if (selectedFilterType && selectedFilterType.startsWith('document')
+      && selectedFilterType !== 'documents' && processedData) {
+    return getDocumentFilteredItems(
+      processedData,
+      data,
+      selectedDocument,
+      selectedFilterType,
+    );
+  }
+
+  const uniqueItems = deduplicateAndEnrich(data, processedData);
+
+  let dataWithUsageCounts = uniqueItems;
+  if (selectedFolder) {
+    dataWithUsageCounts = getFolderFilteredItems(
+      uniqueItems,
+      selectedFolder,
+      usageIndex,
+    );
+  } else if (selectedDocument && usageIndex) {
+    dataWithUsageCounts = filterByDocumentUsage(uniqueItems, selectedDocument, usageIndex);
+  }
+
+  if (selectedFilterType && selectedFilterType !== 'all') {
+    return applyFilter(
+      dataWithUsageCounts,
+      selectedFilterType,
+      selectedDocument,
+    );
+  }
+
+  return dataWithUsageCounts;
+}

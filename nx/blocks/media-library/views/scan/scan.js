@@ -1,6 +1,7 @@
 import { html, LitElement } from 'da-lit';
 import getStyle from '../../../../utils/styles.js';
 import runScan, { loadMediaSheetIfModified } from '../../utils/processing.js';
+import { ensureAuthenticated } from '../../utils/utils.js';
 
 const styles = await getStyle(import.meta.url);
 const nx = `${new URL(import.meta.url).origin}/nx`;
@@ -17,8 +18,6 @@ class NxMediaScan extends LitElement {
   static properties = {
     sitePath: { attribute: false },
     _isScanning: { state: true },
-    _pollingInterval: { state: true },
-    _pollingStarted: { state: true },
   };
 
   constructor() {
@@ -29,7 +28,7 @@ class NxMediaScan extends LitElement {
     this._pollingStarted = false;
     this._batchQueue = [];
     this._batchTimeout = null;
-    this._currentProgress = { pages: 0, media: 0 };
+    this._currentProgress = { pages: 0, mediaFiles: 0, mediaReferences: 0 };
   }
 
   connectedCallback() {
@@ -67,13 +66,8 @@ class NxMediaScan extends LitElement {
     this._pollingInterval = setInterval(async () => {
       if (this.sitePath && !this._isScanning) {
         try {
-          // Verify authentication before polling
-          const { initIms } = await import('../../../../utils/daFetch.js');
-          const imsResult = await initIms();
-
-          if (!imsResult || imsResult.anonymous) {
-            return;
-          }
+          const isAuthenticated = await ensureAuthenticated();
+          if (!isAuthenticated) return;
 
           const { hasChanged, mediaData } = await loadMediaSheetIfModified(this.sitePath);
 
@@ -116,11 +110,8 @@ class NxMediaScan extends LitElement {
     }
 
     try {
-      // Verify authentication before starting scan
-      const { initIms } = await import('../../../../utils/daFetch.js');
-      const imsResult = await initIms();
-
-      if (!imsResult || imsResult.anonymous) {
+      const isAuthenticated = await ensureAuthenticated();
+      if (!isAuthenticated) {
         this.dispatchEvent(new CustomEvent('scanError', {
           detail: { error: 'Authentication required to scan media library.' },
         }));
@@ -134,7 +125,7 @@ class NxMediaScan extends LitElement {
     }
 
     this._isScanning = true;
-    this._currentProgress = { pages: 0, media: 0 };
+    this._currentProgress = { pages: 0, mediaFiles: 0, mediaReferences: 0 };
 
     this.pausePolling();
     this.dispatchEvent(new CustomEvent('scanStart'));
@@ -149,7 +140,9 @@ class NxMediaScan extends LitElement {
 
       const finalProgress = {
         hasChanges: result.hasChanges,
-        media: result.mediaData?.length || 0,
+        mediaFiles: this._currentProgress.mediaFiles,
+        mediaReferences: result.mediaData?.length || 0,
+        pages: this._currentProgress.pages,
         duration: result.duration,
       };
 
@@ -159,6 +152,9 @@ class NxMediaScan extends LitElement {
             mediaData: result.mediaData,
             hasChanges: finalProgress.hasChanges,
             duration: finalProgress.duration,
+            mediaFiles: finalProgress.mediaFiles,
+            mediaReferences: finalProgress.mediaReferences,
+            pages: finalProgress.pages,
           },
         }));
         window.dispatchEvent(new CustomEvent('scanComplete', {
@@ -166,6 +162,9 @@ class NxMediaScan extends LitElement {
             mediaData: result.mediaData,
             hasChanges: finalProgress.hasChanges,
             duration: finalProgress.duration,
+            mediaFiles: finalProgress.mediaFiles,
+            mediaReferences: finalProgress.mediaReferences,
+            pages: finalProgress.pages,
           },
         }));
 
@@ -174,6 +173,9 @@ class NxMediaScan extends LitElement {
             mediaData: result.mediaData,
             hasChanges: finalProgress.hasChanges,
             duration: finalProgress.duration,
+            mediaFiles: finalProgress.mediaFiles,
+            mediaReferences: finalProgress.mediaReferences,
+            pages: finalProgress.pages,
           },
         }));
       } else {
@@ -182,6 +184,9 @@ class NxMediaScan extends LitElement {
             mediaData: null,
             hasChanges: false,
             duration: result.duration,
+            mediaFiles: finalProgress.mediaFiles,
+            mediaReferences: 0,
+            pages: finalProgress.pages,
           },
         }));
       }
@@ -205,13 +210,17 @@ class NxMediaScan extends LitElement {
     if (type === 'page') {
       this._currentProgress.pages = totalScanned;
     }
-    if (type === 'media') {
-      this._currentProgress.media = totalScanned;
+    if (type === 'mediaFile') {
+      this._currentProgress.mediaFiles = totalScanned;
+    }
+    if (type === 'mediaReference') {
+      this._currentProgress.mediaReferences = totalScanned;
     }
 
     const progressData = {
       pages: this._currentProgress.pages,
-      media: this._currentProgress.media,
+      mediaFiles: this._currentProgress.mediaFiles,
+      mediaReferences: this._currentProgress.mediaReferences,
       duration: null,
       hasChanges: null,
     };
@@ -272,15 +281,9 @@ class NxMediaScan extends LitElement {
     }
   }
 
-  renderScanProgress() {
-    return '';
-  }
-
   render() {
     return html`
-      <div class="scan-container">
-        ${this.renderScanProgress()}
-      </div>
+      <div class="scan-container"></div>
     `;
   }
 }

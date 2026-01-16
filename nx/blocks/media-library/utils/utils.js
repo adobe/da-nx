@@ -831,6 +831,27 @@ export function getBasePath() {
   return `/${parts.join('/')}`;
 }
 
+export function resolveAbsolutePath(path, isFolder = false) {
+  const basePath = getBasePath();
+  if (!basePath || path.startsWith(basePath)) return path;
+  if (isFolder && path === '/') return basePath;
+  return `${basePath}${path}`;
+}
+
+export async function ensureAuthenticated() {
+  const { initIms } = await import('../../../utils/daFetch.js');
+  const imsResult = await initIms();
+
+  if (!imsResult || imsResult.anonymous) {
+    const { loadIms, handleSignIn } = await import('../../../utils/ims.js');
+    await loadIms();
+    handleSignIn();
+    return false;
+  }
+
+  return true;
+}
+
 export function getLocalStorageItem(key, defaultValue = null) {
   try {
     const stored = localStorage.getItem(key);
