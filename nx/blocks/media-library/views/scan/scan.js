@@ -1,6 +1,7 @@
 import { html, LitElement } from 'da-lit';
 import getStyle from '../../../../utils/styles.js';
 import runScan, { loadMediaSheetIfModified } from '../../utils/processing.js';
+import { ensureAuthenticated } from '../../utils/utils.js';
 
 const styles = await getStyle(import.meta.url);
 const nx = `${new URL(import.meta.url).origin}/nx`;
@@ -67,13 +68,8 @@ class NxMediaScan extends LitElement {
     this._pollingInterval = setInterval(async () => {
       if (this.sitePath && !this._isScanning) {
         try {
-          // Verify authentication before polling
-          const { initIms } = await import('../../../../utils/daFetch.js');
-          const imsResult = await initIms();
-
-          if (!imsResult || imsResult.anonymous) {
-            return;
-          }
+          const isAuthenticated = await ensureAuthenticated();
+          if (!isAuthenticated) return;
 
           const { hasChanged, mediaData } = await loadMediaSheetIfModified(this.sitePath);
 
@@ -116,11 +112,8 @@ class NxMediaScan extends LitElement {
     }
 
     try {
-      // Verify authentication before starting scan
-      const { initIms } = await import('../../../../utils/daFetch.js');
-      const imsResult = await initIms();
-
-      if (!imsResult || imsResult.anonymous) {
+      const isAuthenticated = await ensureAuthenticated();
+      if (!isAuthenticated) {
         this.dispatchEvent(new CustomEvent('scanError', {
           detail: { error: 'Authentication required to scan media library.' },
         }));

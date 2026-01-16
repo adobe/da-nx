@@ -1,7 +1,7 @@
 import { html, LitElement } from 'da-lit';
 import getStyle from '../../utils/styles.js';
 import { loadMediaSheet, buildDataStructures } from './utils/processing.js';
-import { copyMediaToClipboard, validateSitePath, saveRecentSite, getBasePath } from './utils/utils.js';
+import { copyMediaToClipboard, validateSitePath, saveRecentSite, getBasePath, ensureAuthenticated } from './utils/utils.js';
 import {
   processMediaData,
   applyFilter,
@@ -285,17 +285,8 @@ class NxMediaLibrary extends LitElement {
     this.requestUpdate();
 
     try {
-      // Check if user is authenticated before attempting validation
-      const { initIms } = await import('../../utils/daFetch.js');
-      const imsResult = await initIms();
-
-      if (!imsResult || imsResult.anonymous) {
-        // Trigger sign-in flow
-        const { loadIms, handleSignIn } = await import('../../utils/ims.js');
-        await loadIms();
-        handleSignIn();
-        return;
-      }
+      const isAuthenticated = await ensureAuthenticated();
+      if (!isAuthenticated) return;
 
       const validation = await validateSitePath(this.sitePath);
 
@@ -329,17 +320,8 @@ class NxMediaLibrary extends LitElement {
 
   async loadMediaData() {
     try {
-      // Verify authentication before attempting to load data
-      const { initIms } = await import('../../utils/daFetch.js');
-      const imsResult = await initIms();
-
-      if (!imsResult || imsResult.anonymous) {
-        // Trigger sign-in flow
-        const { loadIms, handleSignIn } = await import('../../utils/ims.js');
-        await loadIms();
-        handleSignIn();
-        return;
-      }
+      const isAuthenticated = await ensureAuthenticated();
+      if (!isAuthenticated) return;
 
       const mediaData = await loadMediaSheet(this.sitePath);
 

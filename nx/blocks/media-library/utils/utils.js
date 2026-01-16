@@ -826,3 +826,17 @@ export function getBasePath() {
   const parts = hash.split('/').slice(3);
   return `/${parts.join('/')}`;
 }
+
+export async function ensureAuthenticated() {
+  const { initIms } = await import('../../../utils/daFetch.js');
+  const imsResult = await initIms();
+
+  if (!imsResult || imsResult.anonymous) {
+    const { loadIms, handleSignIn } = await import('../../../utils/ims.js');
+    await loadIms();
+    handleSignIn();
+    return false;
+  }
+
+  return true;
+}
