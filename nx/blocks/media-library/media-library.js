@@ -665,8 +665,14 @@ class NxMediaLibrary extends LitElement {
     });
   }
 
-  createScanProgress(pages = 0, media = 0, duration = null, hasChanges = null) {
-    return { pages, media, duration, hasChanges };
+  createScanProgress(
+    pages = 0,
+    mediaFiles = 0,
+    mediaReferences = 0,
+    duration = null,
+    hasChanges = null,
+  ) {
+    return { pages, mediaFiles, mediaReferences, duration, hasChanges };
   }
 
   showNotification(heading, message, type = 'success') {
@@ -754,7 +760,8 @@ class NxMediaLibrary extends LitElement {
     const { progress } = e.detail;
     this._scanProgress = this.createScanProgress(
       progress.pages || 0,
-      progress.media || 0,
+      progress.mediaFiles || 0,
+      progress.mediaReferences || 0,
       progress.duration,
       progress.hasChanges !== undefined ? progress.hasChanges : null,
     );
@@ -765,12 +772,10 @@ class NxMediaLibrary extends LitElement {
     console.error('Scan error:', e.detail.error); // eslint-disable-line no-console
   }
 
-  async handleScanComplete() {
+  async handleScanComplete(e) {
     if (this._isProcessingData) {
       return;
     }
-
-    const previousDataLength = this._mediaData?.length || 0;
 
     this._progressiveMediaData = [];
     this._isProcessingData = true;
@@ -797,8 +802,11 @@ class NxMediaLibrary extends LitElement {
               usageIndex,
               folderPaths,
             } = buildDataStructures(filteredMediaData);
-            const newDataLength = uniqueItems.length;
-            const hasChanges = newDataLength !== previousDataLength;
+
+            const scanResult = e?.detail || {};
+            const hasChanges = scanResult.hasChanges !== undefined
+              ? scanResult.hasChanges
+              : false;
 
             if (hasChanges) {
               this._rawMediaData = filteredMediaData;
@@ -810,8 +818,9 @@ class NxMediaLibrary extends LitElement {
             }
 
             this._scanProgress = this.createScanProgress(
-              this._scanProgress.pages,
-              newDataLength,
+              scanResult.pages || this._scanProgress.pages,
+              scanResult.mediaFiles || this._scanProgress.mediaFiles,
+              uniqueItems.length,
               `${duration}s`,
               hasChanges,
             );
@@ -821,6 +830,7 @@ class NxMediaLibrary extends LitElement {
           } else {
             this._scanProgress = this.createScanProgress(
               this._scanProgress.pages,
+              this._scanProgress.mediaFiles,
               0,
               `${duration}s`,
               false,

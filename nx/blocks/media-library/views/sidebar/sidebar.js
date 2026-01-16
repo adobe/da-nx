@@ -46,7 +46,7 @@ class NxMediaSidebar extends LitElement {
     this.isExpanded = false;
     this.isIndexExpanded = false;
     this.isScanning = false;
-    this.scanProgress = { pages: 0, media: 0, duration: null, hasChanges: null };
+    this.scanProgress = { pages: 0, mediaFiles: 0, mediaReferences: 0, duration: null, hasChanges: null };
   }
 
   connectedCallback() {
@@ -100,43 +100,38 @@ class NxMediaSidebar extends LitElement {
 
   renderIndexPanel() {
     if (this.isScanning) {
+      const pages = this.scanProgress?.pages || 0;
+      const files = this.scanProgress?.mediaFiles || 0;
+      const refs = this.scanProgress?.mediaReferences || 0;
       return html`
         <div class="index-panel">
           <div class="index-message">
-            ${this.scanProgress?.pages || 0} pages, ${this.scanProgress?.media || 0} media
+            ${pages} docs, ${files} files, ${refs} refs
           </div>
         </div>
       `;
     }
 
     const hasCompletedScan = this.scanProgress?.duration
-      || (!this.isScanning && (this.scanProgress?.pages > 0 || this.scanProgress?.media > 0));
+      || (!this.isScanning && (this.scanProgress?.pages > 0 || this.scanProgress?.mediaReferences > 0));
 
-    if (hasCompletedScan) {
-      if (this.scanProgress.hasChanges === false) {
-        return html`
-          <div class="index-panel">
-            <div class="index-message">
-              No changes found
-            </div>
-          </div>
-        `;
-      }
-
-      if (this.scanProgress.hasChanges === true) {
-        return html`
-          <div class="index-panel">
-            <div class="index-message">
-              Found ${this.scanProgress?.media || 0} media
-            </div>
-          </div>
-        `;
-      }
-
+    if (hasCompletedScan && this.scanProgress.hasChanges === true) {
+      const items = this.scanProgress?.mediaReferences || 0;
+      const docs = this.scanProgress?.pages || 0;
       return html`
         <div class="index-panel">
           <div class="index-message">
-            Scan completed
+            ${items} items in ${docs} documents
+          </div>
+        </div>
+      `;
+    }
+
+    if (hasCompletedScan && this.scanProgress.hasChanges === false) {
+      return html`
+        <div class="index-panel">
+          <div class="index-message">
+            No changes found
           </div>
         </div>
       `;

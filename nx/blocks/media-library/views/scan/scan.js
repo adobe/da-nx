@@ -30,7 +30,7 @@ class NxMediaScan extends LitElement {
     this._pollingStarted = false;
     this._batchQueue = [];
     this._batchTimeout = null;
-    this._currentProgress = { pages: 0, media: 0 };
+    this._currentProgress = { pages: 0, mediaFiles: 0, mediaReferences: 0 };
   }
 
   connectedCallback() {
@@ -127,7 +127,7 @@ class NxMediaScan extends LitElement {
     }
 
     this._isScanning = true;
-    this._currentProgress = { pages: 0, media: 0 };
+    this._currentProgress = { pages: 0, mediaFiles: 0, mediaReferences: 0 };
 
     this.pausePolling();
     this.dispatchEvent(new CustomEvent('scanStart'));
@@ -142,7 +142,9 @@ class NxMediaScan extends LitElement {
 
       const finalProgress = {
         hasChanges: result.hasChanges,
-        media: result.mediaData?.length || 0,
+        mediaFiles: this._currentProgress.mediaFiles,
+        mediaReferences: result.mediaData?.length || 0,
+        pages: this._currentProgress.pages,
         duration: result.duration,
       };
 
@@ -152,6 +154,9 @@ class NxMediaScan extends LitElement {
             mediaData: result.mediaData,
             hasChanges: finalProgress.hasChanges,
             duration: finalProgress.duration,
+            mediaFiles: finalProgress.mediaFiles,
+            mediaReferences: finalProgress.mediaReferences,
+            pages: finalProgress.pages,
           },
         }));
         window.dispatchEvent(new CustomEvent('scanComplete', {
@@ -159,6 +164,9 @@ class NxMediaScan extends LitElement {
             mediaData: result.mediaData,
             hasChanges: finalProgress.hasChanges,
             duration: finalProgress.duration,
+            mediaFiles: finalProgress.mediaFiles,
+            mediaReferences: finalProgress.mediaReferences,
+            pages: finalProgress.pages,
           },
         }));
 
@@ -167,6 +175,9 @@ class NxMediaScan extends LitElement {
             mediaData: result.mediaData,
             hasChanges: finalProgress.hasChanges,
             duration: finalProgress.duration,
+            mediaFiles: finalProgress.mediaFiles,
+            mediaReferences: finalProgress.mediaReferences,
+            pages: finalProgress.pages,
           },
         }));
       } else {
@@ -175,6 +186,9 @@ class NxMediaScan extends LitElement {
             mediaData: null,
             hasChanges: false,
             duration: result.duration,
+            mediaFiles: finalProgress.mediaFiles,
+            mediaReferences: 0,
+            pages: finalProgress.pages,
           },
         }));
       }
@@ -198,13 +212,17 @@ class NxMediaScan extends LitElement {
     if (type === 'page') {
       this._currentProgress.pages = totalScanned;
     }
-    if (type === 'media') {
-      this._currentProgress.media = totalScanned;
+    if (type === 'mediaFile') {
+      this._currentProgress.mediaFiles = totalScanned;
+    }
+    if (type === 'mediaReference') {
+      this._currentProgress.mediaReferences = totalScanned;
     }
 
     const progressData = {
       pages: this._currentProgress.pages,
-      media: this._currentProgress.media,
+      mediaFiles: this._currentProgress.mediaFiles,
+      mediaReferences: this._currentProgress.mediaReferences,
       duration: null,
       hasChanges: null,
     };
