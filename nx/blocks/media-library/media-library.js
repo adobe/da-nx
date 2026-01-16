@@ -165,26 +165,6 @@ class NxMediaLibrary extends LitElement {
     return this._filteredDataCache;
   }
 
-  get selectedDocument() {
-    if (this._selectedDocument) {
-      return this._selectedDocument;
-    }
-
-    if (this._mediaData && this._mediaData.length > 0) {
-      const indexDoc = this._mediaData.find((media) => media.doc === '/index.html');
-      if (indexDoc) {
-        return '/index.html';
-      }
-
-      const firstDoc = this._mediaData.find((media) => media.doc && media.doc.trim());
-      if (firstDoc) {
-        return firstDoc.doc;
-      }
-    }
-
-    return null;
-  }
-
   get org() {
     if (!this.sitePath) return null;
     const [org] = this.sitePath.split('/').slice(1, 3);
@@ -203,7 +183,6 @@ class NxMediaLibrary extends LitElement {
     this._isValidating = true;
     this._sitePathValid = false;
     this._validationError = null;
-    this.requestUpdate();
 
     try {
       const isAuthenticated = await ensureAuthenticated();
@@ -217,7 +196,6 @@ class NxMediaLibrary extends LitElement {
         this._validationError = validation.error;
         this._validationSuggestion = validation.suggestion;
         this._sitePathValid = false;
-        this.requestUpdate();
         return;
       }
 
@@ -225,15 +203,12 @@ class NxMediaLibrary extends LitElement {
       this._validationError = null;
       this._validationSuggestion = null;
 
-      this.requestUpdate();
-
       saveRecentSite(this.sitePath);
       this.loadMediaData();
     } catch (error) {
       this._isValidating = false;
       this._validationError = error.message;
       this._sitePathValid = false;
-      this.requestUpdate();
     }
   }
 
@@ -249,7 +224,6 @@ class NxMediaLibrary extends LitElement {
       console.error('[MEDIA-LIB:loadMediaData]', error);
       this._validationError = 'Failed to load media data. Please ensure you are signed in.';
       this._sitePathValid = false;
-      this.requestUpdate();
     }
   }
 
@@ -450,7 +424,8 @@ class NxMediaLibrary extends LitElement {
     const groupingKey = getGroupingKey(media.url);
     const usageData = this._usageIndex?.get(groupingKey) || [];
 
-    this.shadowRoot.querySelector('nx-media-info').show({
+    const mediaInfo = this.shadowRoot.querySelector('nx-media-info');
+    mediaInfo?.show({
       media,
       usageData,
       org: this.org,
@@ -655,7 +630,6 @@ class NxMediaLibrary extends LitElement {
           );
 
           this._isScanning = false;
-          this.requestUpdate();
         } else {
           const duration = ((Date.now() - this._scanStartTime) / 1000).toFixed(1);
           this._scanProgress = this.createScanProgress(
@@ -666,7 +640,6 @@ class NxMediaLibrary extends LitElement {
             false,
           );
           this._isScanning = false;
-          this.requestUpdate('_scanProgress');
         }
       }
     } catch (error) {
