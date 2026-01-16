@@ -811,9 +811,13 @@ export async function validateSitePath(sitePath) {
 export function saveRecentSite(sitePath) {
   const recentSites = JSON.parse(localStorage.getItem('da-sites')) || [];
 
-  const filtered = recentSites.filter((site) => site !== sitePath.substring(1));
+  const pathWithoutSlash = sitePath.substring(1);
+  const parts = pathWithoutSlash.split('/');
+  const basePath = parts.length > 2 ? `${parts[0]}/${parts[1]}` : pathWithoutSlash;
 
-  filtered.unshift(sitePath.substring(1));
+  const filtered = recentSites.filter((site) => site !== basePath);
+
+  filtered.unshift(basePath);
 
   const limited = filtered.slice(0, 10);
 
@@ -839,4 +843,22 @@ export async function ensureAuthenticated() {
   }
 
   return true;
+}
+
+export function getLocalStorageItem(key, defaultValue = null) {
+  try {
+    const stored = localStorage.getItem(key);
+    return stored ? JSON.parse(stored) : defaultValue;
+  } catch (error) {
+    return defaultValue;
+  }
+}
+
+export function setLocalStorageItem(key, value) {
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  } catch (error) {
+    return false;
+  }
 }

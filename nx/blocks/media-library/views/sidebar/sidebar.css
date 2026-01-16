@@ -7,7 +7,6 @@
   flex-direction: column;
   background: var(--s2-gray-25);
   box-sizing: border-box;
-  transition: width 0.3s ease;
   font-size: var(--s2-font-size-100);
 
   button {
@@ -15,17 +14,16 @@
     display: flex;
     align-items: center;
     width: 100%;
-    padding: 6px var(--spacing-200) 8px var(--spacing-400);
+    padding: 8px var(--spacing-200) 8px var(--spacing-400);
     border: none;
     background: none;
     border-radius: var(--s2-radius-100);
     cursor: pointer;
-    text-align: left;
     transition: background-color 0.2s ease;
     gap: var(--spacing-75);
 
-    svg {
-      transform: translate(-4px, 1px);
+    &.icon-btn {
+      padding: 7px 12px;
     }
 
     &.active {
@@ -50,15 +48,18 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
-    padding: 88px 8px 8px 16px;
+    padding: 12px 8px 8px;
+    position: relative;
+    z-index: 1;
 
     &.secondary {
-      padding: 8px 8px 8px 16px;
+      padding: 8px;
     }
 
     button {
-      padding-inline-start: var(--spacing-200);
-      padding-inline-end: var(--spacing-400);
+      position: relative;
+      z-index: 2;
+      pointer-events: all;
 
       &.active {
         background: transparent;
@@ -68,10 +69,30 @@
 
   &.collapsed {
     width: 60px;
+
+    button {
+      justify-content: center;
+      flex-wrap: wrap;
+
+      .button-text {
+        font-size: smaller;
+        margin-top: 3px;
+      }
+    }
   }
 
   &.expanded {
     width: 180px;
+
+    .sidebar-icons {
+      padding: 12px 8px 4px;
+    }
+
+    button {
+      &.icon-btn {
+        padding: 7px 12px 4px;
+      }
+    }
   }
 }
 
@@ -105,7 +126,7 @@
 }
 
 .filter-panel {
-  padding: 0 16px;
+  padding: 0 8px;
   overflow-y: auto;
   scrollbar-color: var(--s2-gray-200) transparent;
   scrollbar-width: thin;
@@ -281,4 +302,15 @@
 .index-message.empty {
   color: var(--s2-gray-500);
   font-style: italic;
+}
+
+.badge {
+  display: inline-block;
+  background: var(--s2-blue-800);
+  color: white;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 10px;
+  margin-inline-start: 4px;
 }
