@@ -649,6 +649,7 @@ class NxMediaLibrary extends LitElement {
 
     try {
       if (this.sitePath) {
+        // Wait for backend to finish writing media.json after scan completes
         await new Promise((resolve) => {
           setTimeout(resolve, 500);
         });
