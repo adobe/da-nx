@@ -150,7 +150,6 @@ class NxMediaTopBar extends LitElement {
       this._debounceTimeout = setTimeout(() => {
         this._suggestions = this.getOnDemandSearchSuggestions(query);
         this._showSuggestions = this._suggestions.length > 0;
-        this.requestUpdate();
       }, 150);
     }
 
