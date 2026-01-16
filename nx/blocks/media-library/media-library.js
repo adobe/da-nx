@@ -391,7 +391,6 @@ class NxMediaLibrary extends LitElement {
         .isScanning=${this._isScanning}
         @mediaClick=${this.handleMediaClick}
         @mediaCopy=${this.handleMediaCopy}
-        @mediaUsage=${this.handleMediaUsage}
       ></nx-media-grid>
     `;
   }
@@ -471,21 +470,6 @@ class NxMediaLibrary extends LitElement {
     } catch (error) {
       this.showNotification('Error', 'Failed to copy Resource.', 'danger');
     }
-  }
-
-  handleMediaUsage(e) {
-    const { media } = e.detail;
-
-    const groupingKey = getGroupingKey(media.url);
-    const usageData = this._usageIndex?.get(groupingKey) || [];
-
-    this.shadowRoot.querySelector('nx-media-info').show({
-      media,
-      usageData,
-      org: this.org,
-      repo: this.repo,
-      isScanning: this._isScanning,
-    });
   }
 
   handleAltTextUpdated(e) {
