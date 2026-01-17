@@ -138,13 +138,6 @@ export function resolveMediaUrl(src, docPath) {
   return `${CONTENT_ORIGIN}${relativePath}`;
 }
 
-export function extractRelativePath(fullPath) {
-  if (!fullPath) return '';
-
-  const url = new URL(fullPath);
-  return url.pathname;
-}
-
 function processMediaElements(elements, config, docPath, docTimestamp) {
   const mediaItems = [];
 

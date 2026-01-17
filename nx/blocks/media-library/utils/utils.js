@@ -380,24 +380,6 @@ export function urlsMatch(url1, url2) {
   return fileName1 === fileName2 && fileName1 && fileName2;
 }
 
-export function groupUsagesByPath(usages) {
-  const grouped = new Map();
-
-  usages.forEach((usage) => {
-    const docPath = usage.doc || 'Unknown Document';
-    if (!grouped.has(docPath)) {
-      grouped.set(docPath, []);
-    }
-    grouped.get(docPath).push(usage);
-  });
-
-  return Array.from(grouped.entries()).map(([path, usageList]) => ({
-    path,
-    usages: usageList,
-    count: usageList.length,
-  }));
-}
-
 export function getEditUrl(org, repo, docPath) {
   // Remove .html extension if present
   const cleanPath = docPath.replace(/\.html$/, '');
@@ -410,56 +392,7 @@ export function getViewUrl(org, repo, docPath) {
   return `https://main--${repo}--${org}.aem.page${cleanPath}`;
 }
 
-export function createElement(tag, attributes = {}, content = undefined) {
-  const element = document.createElement(tag);
-
-  if (attributes) {
-    Object.entries(attributes).forEach(([key, val]) => {
-      switch (key) {
-        case 'className':
-          element.className = val;
-          break;
-        case 'dataset':
-          Object.assign(element.dataset, val);
-          break;
-        case 'textContent':
-          element.textContent = val;
-          break;
-        case 'innerHTML':
-          element.innerHTML = val;
-          break;
-        case 'style':
-          if (typeof val === 'object') {
-            Object.assign(element.style, val);
-          } else {
-            element.style.cssText = val;
-          }
-          break;
-        case 'events':
-          Object.entries(val).forEach(([event, handler]) => {
-            element.addEventListener(event, handler);
-          });
-          break;
-        default:
-          element.setAttribute(key, val);
-      }
-    });
-  }
-
-  if (content) {
-    if (Array.isArray(content)) {
-      element.append(...content);
-    } else if (content instanceof HTMLElement || content instanceof SVGElement) {
-      element.append(content);
-    } else {
-      element.insertAdjacentHTML('beforeend', content);
-    }
-  }
-
-  return element;
-}
-
-export async function copyImageToClipboard(imageUrl) {
+async function copyImageToClipboard(imageUrl) {
   // Use CORS proxy for external images to avoid CORS issues
   let fetchUrl = imageUrl;
   try {
@@ -603,27 +536,6 @@ export function getFileName(url) {
   } catch {
     return url.split('/').pop() || '';
   }
-}
-
-export function extractRelativePath(fullPath) {
-  if (!fullPath) return fullPath;
-
-  const pathParts = fullPath.split('/').filter(Boolean);
-  if (pathParts.length >= 2) {
-    return `/${pathParts.slice(2).join('/')}`;
-  }
-  return fullPath;
-}
-
-export function getDisplayName(fullPath) {
-  if (!fullPath) return '';
-
-  // Extract just the filename from the path
-  const pathParts = fullPath.split('/').filter(Boolean);
-  const fileName = pathParts[pathParts.length - 1];
-
-  // Remove file extension for cleaner display
-  return fileName.replace(/\.[^/.]+$/, '');
 }
 
 // File type detection utilities

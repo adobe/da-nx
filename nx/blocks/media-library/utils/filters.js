@@ -3,6 +3,20 @@ import { getMediaType, isSvgFile, getBasePath } from './utils.js';
 const processDataCache = new Map();
 const MAX_CACHE_SIZE = 5;
 
+// Helper: Normalize folder path (remove trailing slash, handle root)
+function normalizeFolderPath(path) {
+  return !path || path === '/' ? '/' : path.replace(/\/$/, '');
+}
+
+// Helper: Resolve search path with basePath
+function resolveSearchPath(value, basePath) {
+  let searchPath = value.startsWith('/') ? value : `/${value}`;
+  if (basePath && !searchPath.startsWith(basePath)) {
+    searchPath = searchPath === '/' ? basePath : `${basePath}${searchPath}`;
+  }
+  return searchPath;
+}
+
 export const FILTER_CONFIG = {
   images: (item) => getMediaType(item) === 'image' && !isSvgFile(item),
   videos: (item) => getMediaType(item) === 'video',
@@ -53,7 +67,7 @@ export function getAvailableFilters() {
   return Object.keys(FILTER_CONFIG);
 }
 
-// Chunk array utility for batch processing
+// Internal: Chunk array utility for batch processing
 function chunkArray(array, chunkSize) {
   const chunks = [];
   for (let i = 0; i < array.length; i += chunkSize) {
@@ -62,7 +76,7 @@ function chunkArray(array, chunkSize) {
   return chunks;
 }
 
-// Initialize processed data structure
+// Internal: Initialize processed data structure
 function initializeProcessedData() {
   const filterArrays = {};
   const usageData = {};
@@ -253,14 +267,7 @@ function filterByColonSyntax(mediaData, colonSyntax) {
     switch (field) {
       case 'doc': {
         if (!item.doc) return false;
-
-        let searchPath = value.startsWith('/') ? value : `/${value}`;
-        const basePath = getBasePath();
-
-        if (basePath && !searchPath.startsWith(basePath)) {
-          searchPath = `${basePath}${searchPath}`;
-        }
-
+        const searchPath = resolveSearchPath(value, getBasePath());
         return item.doc.toLowerCase().includes(searchPath);
       }
       case 'name':
@@ -272,7 +279,7 @@ function filterByColonSyntax(mediaData, colonSyntax) {
       case 'folder': {
         if (!item.doc) return false;
 
-        const normalizedValue = value === '/' ? '/' : value.replace(/\/$/, '');
+        const normalizedValue = normalizeFolderPath(value);
 
         if (normalizedValue === '' || normalizedValue === '/') {
           return !item.doc.includes('/', 1);
@@ -283,13 +290,7 @@ function filterByColonSyntax(mediaData, colonSyntax) {
 
         if (parts.length > 2) {
           const folderPath = parts.slice(0, -1).join('/');
-          let searchPath = normalizedValue.startsWith('/') ? normalizedValue : `/${normalizedValue}`;
-
-          const basePath = getBasePath();
-          if (basePath && !searchPath.startsWith(basePath)) {
-            searchPath = searchPath === '/' ? basePath : `${basePath}${searchPath}`;
-          }
-
+          const searchPath = resolveSearchPath(normalizedValue, getBasePath());
           return folderPath.startsWith(searchPath);
         }
 
@@ -339,11 +340,7 @@ function generateFolderSuggestions(folderPathsCache, value) {
     return [];
   }
 
-  let searchPath = value.startsWith('/') ? value : `/${value}`;
-
-  if (basePath && !searchPath.startsWith(basePath)) {
-    searchPath = searchPath === '/' ? basePath : `${basePath}${searchPath}`;
-  }
+  const searchPath = resolveSearchPath(value, basePath);
 
   const filteredPaths = Array.from(folderPathsCache).filter((folderPath) => {
     if (value === '' || value === '/') {
@@ -399,11 +396,7 @@ function generateDocSuggestions(mediaData, value) {
     return [];
   }
 
-  let searchPath = value.startsWith('/') ? value : `/${value}`;
-
-  if (basePath && !searchPath.startsWith(basePath)) {
-    searchPath = searchPath === '/' ? basePath : `${basePath}${searchPath}`;
-  }
+  const searchPath = resolveSearchPath(value, basePath);
 
   const matchingDocs = new Set();
 
@@ -622,7 +615,7 @@ export function getFolderFilteredItems(data, selectedFolder, usageIndex) {
     return data;
   }
 
-  const normalizedFolder = selectedFolder === '/' ? '/' : selectedFolder.replace(/\/$/, '');
+  const normalizedFolder = normalizeFolderPath(selectedFolder);
 
   if (usageIndex && usageIndex.size > 0) {
     const mediaUrlsInFolder = new Set();
