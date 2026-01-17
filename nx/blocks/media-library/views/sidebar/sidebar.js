@@ -1,6 +1,7 @@
 import { html, LitElement } from 'da-lit';
 import getStyle from '../../../../utils/styles.js';
 import getSvg from '../../../../public/utils/svg.js';
+import { getAppState, subscribeToAppState } from '../../utils/state.js';
 
 const styles = await getStyle(import.meta.url);
 const nx = `${new URL(import.meta.url).origin}/nx`;
@@ -16,9 +17,7 @@ const ICONS = [
 
 class NxMediaSidebar extends LitElement {
   static properties = {
-    activeFilter: { attribute: false },
-    isScanning: { attribute: false, type: Boolean },
-    scanProgress: { attribute: false, type: Object },
+    _appState: { state: true },
     isExpanded: { state: true },
     isIndexExpanded: { state: true },
   };
@@ -42,17 +41,27 @@ class NxMediaSidebar extends LitElement {
 
   constructor() {
     super();
-    this.activeFilter = 'all';
+    this._appState = getAppState();
     this.isExpanded = false;
     this.isIndexExpanded = false;
-    this.isScanning = false;
-    this.scanProgress = { pages: 0, mediaFiles: 0, mediaReferences: 0, duration: null, hasChanges: null };
+    this._unsubscribe = null;
   }
 
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [sl, slComponents, styles];
+    this._unsubscribe = subscribeToAppState((state) => {
+      this._appState = state;
+      this.requestUpdate();
+    });
     getSvg({ parent: this.shadowRoot, paths: ICONS });
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    if (this._unsubscribe) {
+      this._unsubscribe();
+    }
   }
 
   handleFiltersToggle() {
@@ -83,7 +92,7 @@ class NxMediaSidebar extends LitElement {
   }
 
   renderFilterButton(filter) {
-    const isActive = this.activeFilter === filter.key;
+    const isActive = this._appState.selectedFilterType === filter.key;
 
     return html`
       <li>
@@ -99,10 +108,10 @@ class NxMediaSidebar extends LitElement {
   }
 
   renderIndexPanel() {
-    if (this.isScanning) {
-      const pages = this.scanProgress?.pages || 0;
-      const files = this.scanProgress?.mediaFiles || 0;
-      const refs = this.scanProgress?.mediaReferences || 0;
+    if (this._appState.isScanning) {
+      const pages = this._appState.scanProgress?.pages || 0;
+      const files = this._appState.scanProgress?.mediaFiles || 0;
+      const refs = this._appState.scanProgress?.mediaReferences || 0;
       return html`
         <div class="index-panel">
           <div class="index-message">
@@ -112,12 +121,14 @@ class NxMediaSidebar extends LitElement {
       `;
     }
 
-    const hasCompletedScan = this.scanProgress?.duration
-      || (!this.isScanning && (this.scanProgress?.pages > 0 || this.scanProgress?.mediaReferences > 0));
+    const hasCompletedScan = this._appState.scanProgress?.duration
+      || (!this._appState.isScanning
+        && (this._appState.scanProgress?.pages > 0
+          || this._appState.scanProgress?.mediaReferences > 0));
 
-    if (hasCompletedScan && this.scanProgress.hasChanges === true) {
-      const items = this.scanProgress?.mediaReferences || 0;
-      const docs = this.scanProgress?.pages || 0;
+    if (hasCompletedScan && this._appState.scanProgress.hasChanges === true) {
+      const items = this._appState.scanProgress?.mediaReferences || 0;
+      const docs = this._appState.scanProgress?.pages || 0;
       return html`
         <div class="index-panel">
           <div class="index-message">
@@ -127,7 +138,7 @@ class NxMediaSidebar extends LitElement {
       `;
     }
 
-    if (hasCompletedScan && this.scanProgress.hasChanges === false) {
+    if (hasCompletedScan && this._appState.scanProgress.hasChanges === false) {
       return html`
         <div class="index-panel">
           <div class="index-message">
