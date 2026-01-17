@@ -50,12 +50,10 @@ class NxMediaSidebar extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [sl, slComponents, styles];
-    
     this._unsubscribe = subscribeToAppState((state) => {
       this._appState = state;
       this.requestUpdate();
     });
-    
     getSvg({ parent: this.shadowRoot, paths: ICONS });
   }
 
@@ -124,7 +122,9 @@ class NxMediaSidebar extends LitElement {
     }
 
     const hasCompletedScan = this._appState.scanProgress?.duration
-      || (!this._appState.isScanning && (this._appState.scanProgress?.pages > 0 || this._appState.scanProgress?.mediaReferences > 0));
+      || (!this._appState.isScanning
+        && (this._appState.scanProgress?.pages > 0
+          || this._appState.scanProgress?.mediaReferences > 0));
 
     if (hasCompletedScan && this._appState.scanProgress.hasChanges === true) {
       const items = this._appState.scanProgress?.mediaReferences || 0;
