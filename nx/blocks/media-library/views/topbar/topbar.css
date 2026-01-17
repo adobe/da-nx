@@ -56,6 +56,10 @@ svg.icon {
     height: 32px;
     box-sizing: border-box;
   }
+
+  &.has-icon input[type="text"] {
+    padding-left: 32px;
+  }
 }
 
 .search-wrapper sl-input {

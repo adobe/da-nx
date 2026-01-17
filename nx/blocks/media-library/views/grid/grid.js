@@ -11,6 +11,7 @@ import {
   isFragment,
   getDisplayMediaType,
 } from '../../utils/utils.js';
+import { getAppState, subscribeToAppState } from '../../utils/state.js';
 import '../../../../public/sl/components.js';
 import {
   createMediaEventHandlers,
@@ -38,39 +39,38 @@ const ICONS = [
 
 class NxMediaGrid extends LitElement {
   static properties = {
+    _appState: { state: true },
     mediaData: { type: Array },
-    searchQuery: { type: String },
-    isScanning: { type: Boolean },
   };
 
   constructor() {
     super();
+    this._appState = getAppState();
     this.eventHandlers = createMediaEventHandlers(this);
     this.iconsLoaded = false;
+    this._unsubscribe = null;
   }
 
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [sl, slComponents, styles];
+    this._unsubscribe = subscribeToAppState((state) => {
+      this._appState = state;
+      this.requestUpdate();
+    });
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    if (this._unsubscribe) {
+      this._unsubscribe();
+    }
   }
 
   updated(changedProperties) {
     if (changedProperties.has('mediaData') && this.mediaData?.length > 0 && !this.iconsLoaded) {
       this.loadIcons();
       this.iconsLoaded = true;
-    }
-  }
-
-  async loadIcons() {
-    const existingIcons = this.shadowRoot.querySelectorAll('svg[id]');
-    const loadedIconIds = Array.from(existingIcons).map((icon) => icon.id);
-    const missingIcons = ICONS.filter((iconPath) => {
-      const iconId = iconPath.split('/').pop().replace('.svg', '');
-      return !loadedIconIds.includes(iconId);
-    });
-
-    if (missingIcons.length > 0) {
-      await getSvg({ parent: this.shadowRoot, paths: missingIcons });
     }
   }
 
@@ -138,67 +138,6 @@ class NxMediaGrid extends LitElement {
     `;
   }
 
-  getHighlightedName(media) {
-    const name = getMediaName(media);
-    if (!this.searchQuery) return name;
-    return html`<span .innerHTML=${highlightMatch(name, this.searchQuery)}></span>`;
-  }
-
-  getDisplayType(media) {
-    if (media.type && media.type.includes(' > ')) {
-      const [baseType, subtype] = media.type.split(' > ');
-      if (baseType === 'fragment') {
-        return html`<strong>FRAGMENT</strong>`;
-      }
-      if (baseType === 'document' || (baseType === 'link' && subtype === 'pdf')) {
-        return html`<strong>PDF</strong>`;
-      }
-      return html`<strong>${subtype.toUpperCase()}</strong>`;
-    }
-    return html`<strong>${getDisplayMediaType(media)}</strong>`;
-  }
-
-  getDisplayTypeText(media) {
-    if (media.type && media.type.includes(' > ')) {
-      const [baseType, subtype] = media.type.split(' > ');
-      if (baseType === 'fragment') {
-        return 'FRAGMENT';
-      }
-      if (baseType === 'document' || (baseType === 'link' && subtype === 'pdf')) {
-        return 'PDF';
-      }
-      return subtype.toUpperCase();
-    }
-    return getDisplayMediaType(media).toUpperCase();
-  }
-
-  renderAltStatus(media) {
-    if (media.type && media.type.startsWith('img >') && !media.type.includes('svg')) {
-      if (media.alt && media.alt !== '') {
-        return html`
-          <div class="filled-alt-indicator">
-            <svg class="alt-text-icon icon" viewBox="0 0 22 20">
-              <use href="#S2_Icon_Accessibility_20_N"></use>
-            </svg>
-          </div>
-        `;
-      }
-    }
-    return '';
-  }
-
-  renderHighlightedAlt(media) {
-    if (!media.alt) return '';
-    const content = this.searchQuery ? highlightMatch(media.alt, this.searchQuery) : media.alt;
-    return html`<div class="media-alt" .innerHTML=${content}></div>`;
-  }
-
-  renderHighlightedDoc(media) {
-    if (!media.doc) return '';
-    const content = this.searchQuery ? highlightMatch(media.doc, this.searchQuery) : media.doc;
-    return html`<div class="media-doc" .innerHTML=${content}></div>`;
-  }
-
   renderMediaPreview(media) {
     if (isFragment(media)) {
       return html`
@@ -263,6 +202,82 @@ class NxMediaGrid extends LitElement {
     }
 
     return staticTemplates.unknownPlaceholder;
+  }
+
+  renderAltStatus(media) {
+    if (media.type && media.type.startsWith('img >') && !media.type.includes('svg')) {
+      if (media.alt && media.alt !== '') {
+        return html`
+          <div class="filled-alt-indicator">
+            <svg class="alt-text-icon icon" viewBox="0 0 22 20">
+              <use href="#S2_Icon_Accessibility_20_N"></use>
+            </svg>
+          </div>
+        `;
+      }
+    }
+    return '';
+  }
+
+  renderHighlightedAlt(media) {
+    if (!media.alt) return '';
+    const query = this._appState.searchQuery;
+    const content = query ? highlightMatch(media.alt, query) : media.alt;
+    return html`<div class="media-alt" .innerHTML=${content}></div>`;
+  }
+
+  renderHighlightedDoc(media) {
+    if (!media.doc) return '';
+    const query = this._appState.searchQuery;
+    const content = query ? highlightMatch(media.doc, query) : media.doc;
+    return html`<div class="media-doc" .innerHTML=${content}></div>`;
+  }
+
+  async loadIcons() {
+    const existingIcons = this.shadowRoot.querySelectorAll('svg[id]');
+    const loadedIconIds = Array.from(existingIcons).map((icon) => icon.id);
+    const missingIcons = ICONS.filter((iconPath) => {
+      const iconId = iconPath.split('/').pop().replace('.svg', '');
+      return !loadedIconIds.includes(iconId);
+    });
+
+    if (missingIcons.length > 0) {
+      await getSvg({ parent: this.shadowRoot, paths: missingIcons });
+    }
+  }
+
+  getHighlightedName(media) {
+    const name = getMediaName(media);
+    if (!this._appState.searchQuery) return name;
+    return html`<span .innerHTML=${highlightMatch(name, this._appState.searchQuery)}></span>`;
+  }
+
+  getDisplayType(media) {
+    if (media.type && media.type.includes(' > ')) {
+      const [baseType, subtype] = media.type.split(' > ');
+      if (baseType === 'fragment') {
+        return html`<strong>FRAGMENT</strong>`;
+      }
+      if (baseType === 'document' || (baseType === 'link' && subtype === 'pdf')) {
+        return html`<strong>PDF</strong>`;
+      }
+      return html`<strong>${subtype.toUpperCase()}</strong>`;
+    }
+    return html`<strong>${getDisplayMediaType(media)}</strong>`;
+  }
+
+  getDisplayTypeText(media) {
+    if (media.type && media.type.includes(' > ')) {
+      const [baseType, subtype] = media.type.split(' > ');
+      if (baseType === 'fragment') {
+        return 'FRAGMENT';
+      }
+      if (baseType === 'document' || (baseType === 'link' && subtype === 'pdf')) {
+        return 'PDF';
+      }
+      return subtype.toUpperCase();
+    }
+    return getDisplayMediaType(media).toUpperCase();
   }
 }
 

@@ -2,6 +2,7 @@ import { html, LitElement } from 'da-lit';
 import getStyle from '../../../../utils/styles.js';
 import getSvg from '../../../../public/utils/svg.js';
 import { parseColonSyntax, generateSearchSuggestions, createSearchSuggestion } from '../../utils/filters.js';
+import { getAppState, subscribeToAppState } from '../../utils/state.js';
 
 const styles = await getStyle(import.meta.url);
 const nx = `${new URL(import.meta.url).origin}/nx`;
@@ -19,24 +20,19 @@ const ICONS = [
 
 class NxMediaTopBar extends LitElement {
   static properties = {
-    searchQuery: { attribute: false },
-    resultSummary: { attribute: false },
-    isScanning: { attribute: false },
-    scanProgress: { attribute: false },
-
-    mediaData: { attribute: false },
-    folderPathsCache: { attribute: false },
-    selectedType: { attribute: false },
-    selectedFolder: { attribute: false },
-    selectedDocument: { attribute: false },
+    _appState: { state: true },
+    _inputValue: { state: true },
     _suggestions: { state: true },
     _activeIndex: { state: true },
     _originalQuery: { state: true },
     _showSuggestions: { state: true },
+    selectedType: { state: true },
   };
 
   constructor() {
     super();
+    this._appState = getAppState();
+    this._inputValue = '';
     this._suggestions = [];
     this._activeIndex = -1;
     this._originalQuery = '';
@@ -45,47 +41,22 @@ class NxMediaTopBar extends LitElement {
     this._debounceTimeout = null;
     this.selectedType = null;
     this._programmaticUpdate = false;
-  }
-
-  updated(changedProperties) {
-    super.updated(changedProperties);
-
-    if (changedProperties.has('searchQuery')) {
-      if (!this.searchQuery) {
-        this._showSuggestions = false;
-        this._suggestions = [];
-        this._activeIndex = -1;
-        this._originalQuery = '';
-        this.selectedType = null;
-      }
-    }
-    if (changedProperties.has('selectedType')) {
-      this.updateInputPadding();
-    }
-  }
-
-  updateInputPadding() {
-    const input = this.shadowRoot.querySelector('input');
-    if (!input) return;
-
-    if (this.selectedType) {
-      input.style.paddingInlineStart = '36px';
-    } else {
-      input.style.paddingInlineStart = '';
-    }
+    this._unsubscribe = null;
   }
 
   async connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [sl, slComponents, styles];
 
+    this._unsubscribe = subscribeToAppState((state) => {
+      this._appState = state;
+      this.requestUpdate();
+    });
+
     getSvg({ parent: this.shadowRoot, paths: ICONS });
 
     this.handleOutsideClick = this.handleOutsideClick.bind(this);
     document.addEventListener('click', this.handleOutsideClick);
-
-    await this.updateComplete;
-    this.updateInputPadding();
   }
 
   disconnectedCallback() {
@@ -94,231 +65,34 @@ class NxMediaTopBar extends LitElement {
     if (this._debounceTimeout) {
       clearTimeout(this._debounceTimeout);
     }
-  }
-
-  handleOutsideClick(e) {
-    const searchContainer = this.shadowRoot.querySelector('.search-container');
-    if (searchContainer && !searchContainer.contains(e.target)) {
-      this._showSuggestions = false;
-      this._suggestions = [];
-      this._activeIndex = -1;
-      this._suppressSuggestions = true;
+    if (this._unsubscribe) {
+      this._unsubscribe();
     }
   }
 
-  clearSuggestions() {
-    this._showSuggestions = false;
-    this._suggestions = [];
-    this._activeIndex = -1;
-  }
+  updated(changedProperties) {
+    super.updated(changedProperties);
 
-  getOnDemandSearchSuggestions(query) {
-    return generateSearchSuggestions(
-      this.mediaData,
-      query,
-      createSearchSuggestion,
-      this.folderPathsCache,
-    );
-  }
+    if (changedProperties.has('_appState')) {
+      const oldState = changedProperties.get('_appState') || {};
+      const newState = this._appState;
 
-  handleSearchInput(e) {
-    if (this._programmaticUpdate) {
-      this._programmaticUpdate = false;
-      return;
+      if (newState.searchQuery !== oldState.searchQuery) {
+        this._inputValue = newState.searchQuery || '';
+      }
+
+      if (oldState.searchQuery && !newState.searchQuery) {
+        this._showSuggestions = false;
+        this._suggestions = [];
+        this._activeIndex = -1;
+        this._originalQuery = '';
+        this.selectedType = null;
+      }
     }
-
-    const query = e.target.value;
-
-    this.searchQuery = query;
-    this._originalQuery = query;
-    this._activeIndex = -1;
-
-    // Clear any pending debounce
-    if (this._debounceTimeout) {
-      clearTimeout(this._debounceTimeout);
-    }
-
-    if (!query || !query.trim()) {
-      this._suggestions = [];
-      this._showSuggestions = false;
-      this._suppressSuggestions = false;
-      this._selectedType = null;
-    } else {
-      this._suppressSuggestions = false;
-
-      this._debounceTimeout = setTimeout(() => {
-        this._suggestions = this.getOnDemandSearchSuggestions(query);
-        this._showSuggestions = this._suggestions.length > 0;
-      }, 150);
-    }
-
-    this.dispatchEvent(new CustomEvent('search', { detail: { query } }));
-  }
-
-  handleKeyDown(e) {
-    if (e.key === 'Escape' || e.key === 'Enter') {
-      e.preventDefault();
-      e.stopPropagation();
-      this._showSuggestions = false;
-      this._suggestions = [];
-      this._activeIndex = -1;
-      this._suppressSuggestions = true;
-      return;
-    }
-
-    if (!this._suggestions.length) return;
-
-    switch (e.key) {
-      case 'ArrowDown':
-        e.preventDefault();
-        if (this._activeIndex === -1) {
-          this._originalQuery = this.searchQuery;
-        }
-        this._activeIndex = (this._activeIndex + 1) % this._suggestions.length;
-        this._programmaticUpdate = true;
-        this.searchQuery = this.getSuggestionText(this._suggestions[this._activeIndex]);
-        break;
-
-      case 'ArrowUp':
-        e.preventDefault();
-        if (this._activeIndex === -1) {
-          this._originalQuery = this.searchQuery;
-        }
-        this._activeIndex = (this._activeIndex - 1 + this._suggestions.length)
-          % this._suggestions.length;
-        this._programmaticUpdate = true;
-        this.searchQuery = this.getSuggestionText(this._suggestions[this._activeIndex]);
-        break;
-
-      case 'Enter':
-        e.preventDefault();
-        if (this._activeIndex >= 0) {
-          this.selectSuggestion(this._suggestions[this._activeIndex]);
-        } else {
-          const colonSyntax = parseColonSyntax(this.searchQuery);
-          if (colonSyntax) {
-            this._suggestions = [];
-            this._activeIndex = -1;
-            this._suppressSuggestions = true;
-            this.dispatchEvent(new CustomEvent('search', {
-              detail: {
-                query: this.searchQuery,
-                type: colonSyntax.field,
-                path: colonSyntax.value,
-              },
-            }));
-            return;
-          }
-
-          this._suggestions = [];
-          this._activeIndex = -1;
-          this._suppressSuggestions = true;
-          this.dispatchEvent(new CustomEvent('search', { detail: { query: this.searchQuery } }));
-        }
-        break;
-
-      default:
-        break;
-    }
-  }
-
-  getSuggestionText(suggestion) {
-    if (suggestion.type === 'doc') return suggestion.value;
-    if (suggestion.type === 'folder') return suggestion.value;
-    if (suggestion.type === 'media') {
-      return suggestion.value.name || suggestion.value.url;
-    }
-    return '';
-  }
-
-  selectSuggestion(suggestion) {
-    this._showSuggestions = false;
-    this._suggestions = [];
-    this._activeIndex = -1;
-    this._suppressSuggestions = true;
-    this.selectedType = suggestion.type;
-    this._programmaticUpdate = true;
-
-    if (suggestion.type === 'doc') {
-      this.searchQuery = suggestion.value;
-      this.dispatchEvent(new CustomEvent('search', {
-        detail: {
-          query: this.searchQuery,
-          type: 'doc',
-          path: suggestion.absolutePath || suggestion.value,
-        },
-      }));
-    } else if (suggestion.type === 'folder') {
-      this.searchQuery = suggestion.value;
-      this.dispatchEvent(new CustomEvent('search', {
-        detail: {
-          query: this.searchQuery,
-          type: 'folder',
-          path: suggestion.absolutePath || suggestion.value,
-        },
-      }));
-    } else {
-      this.searchQuery = suggestion.value.name;
-      this.dispatchEvent(new CustomEvent('search', {
-        detail: {
-          query: this.searchQuery,
-          type: 'media',
-          media: suggestion.value,
-        },
-      }));
-    }
-  }
-
-  handleClearSearch() {
-    this._programmaticUpdate = true;
-    this.searchQuery = '';
-    this._showSuggestions = false;
-    this._suggestions = [];
-    this._activeIndex = -1;
-    this._suppressSuggestions = false;
-    this._originalQuery = '';
-    this.selectedType = null;
-    this.dispatchEvent(new CustomEvent('clear-search'));
   }
 
   get canPinSearch() {
-    return this.selectedFolder;
-  }
-
-  handlePinSearch() {
-    this.dispatchEvent(new CustomEvent('pin-search', {
-      detail: { folder: this.selectedFolder },
-      bubbles: true,
-      composed: true,
-    }));
-  }
-
-  highlightMatch(text, query) {
-    if (!query || !text) return text;
-    const regex = new RegExp(`(${query})`, 'ig');
-    return text.replace(regex, '<mark>$1</mark>');
-  }
-
-  handleSearch(e) {
-    this.dispatchEvent(new CustomEvent('search', { detail: { query: e.target.value } }));
-  }
-
-  renderSearchIcon() {
-    if (this.selectedType === 'folder') {
-      return html`
-        <svg class="search-icon folder-icon">
-          <use href="#Smock_Folder_18_N"></use>
-        </svg>
-      `;
-    }
-    if (this.selectedType === 'doc') {
-      return html`
-        <svg class="search-icon doc-icon">
-          <use href="#Smock_FileHTML_18_N"></use>
-        </svg>
-      `;
-    }
-    return '';
+    return this._appState.selectedFolder;
   }
 
   render() {
@@ -337,7 +111,7 @@ class NxMediaTopBar extends LitElement {
                 type="text"
                 id="search-input"
                 placeholder="Enter search"
-                .value=${this.searchQuery}
+                .value=${this._inputValue}
                 @input=${this.handleSearchInput}
                 @keydown=${this.handleKeyDown}
               ></input>
@@ -354,7 +128,7 @@ class NxMediaTopBar extends LitElement {
                   </svg>
                 </button>
               ` : ''}
-              ${this.searchQuery ? html`
+              ${this._inputValue ? html`
                 <button
                   type="button"
                   class="clear-search-btn"
@@ -404,14 +178,231 @@ class NxMediaTopBar extends LitElement {
           </div>
         </div>
 
-        ${this.resultSummary ? html`
+        ${this._appState.resultSummary ? html`
           <div class="result-count">
-            ${this.resultSummary}
+            ${this._appState.resultSummary}
           </div>
         ` : ''}
         </form>
       </div>
     `;
+  }
+
+  renderSearchIcon() {
+    if (this.selectedType === 'folder') {
+      return html`
+        <svg class="search-icon folder-icon">
+          <use href="#Smock_Folder_18_N"></use>
+        </svg>
+      `;
+    }
+    if (this.selectedType === 'doc') {
+      return html`
+        <svg class="search-icon doc-icon">
+          <use href="#Smock_FileHTML_18_N"></use>
+        </svg>
+      `;
+    }
+    return '';
+  }
+
+  handleSearchInput(e) {
+    if (this._programmaticUpdate) {
+      this._programmaticUpdate = false;
+      return;
+    }
+
+    const query = e.target.value;
+
+    this._inputValue = query;
+    this._originalQuery = query;
+    this._activeIndex = -1;
+
+    if (this._debounceTimeout) {
+      clearTimeout(this._debounceTimeout);
+    }
+
+    if (!query || !query.trim()) {
+      this._suggestions = [];
+      this._showSuggestions = false;
+      this._suppressSuggestions = false;
+      this.selectedType = null;
+    } else {
+      this._suppressSuggestions = false;
+
+      this._debounceTimeout = setTimeout(() => {
+        this._suggestions = this.getOnDemandSearchSuggestions(query);
+        this._showSuggestions = this._suggestions.length > 0;
+      }, 150);
+    }
+
+    this.dispatchEvent(new CustomEvent('search', { detail: { query } }));
+  }
+
+  handleKeyDown(e) {
+    if (e.key === 'Escape' || e.key === 'Enter') {
+      e.preventDefault();
+      e.stopPropagation();
+      this._showSuggestions = false;
+      this._suggestions = [];
+      this._activeIndex = -1;
+      this._suppressSuggestions = true;
+      return;
+    }
+
+    if (!this._suggestions.length) return;
+
+    switch (e.key) {
+      case 'ArrowDown':
+        e.preventDefault();
+        if (this._activeIndex === -1) {
+          this._originalQuery = this._inputValue;
+        }
+        this._activeIndex = (this._activeIndex + 1) % this._suggestions.length;
+        this._programmaticUpdate = true;
+        this._inputValue = this.getSuggestionText(this._suggestions[this._activeIndex]);
+        break;
+
+      case 'ArrowUp':
+        e.preventDefault();
+        if (this._activeIndex === -1) {
+          this._originalQuery = this._inputValue;
+        }
+        this._activeIndex = (this._activeIndex - 1 + this._suggestions.length)
+          % this._suggestions.length;
+        this._programmaticUpdate = true;
+        this._inputValue = this.getSuggestionText(this._suggestions[this._activeIndex]);
+        break;
+
+      case 'Enter':
+        e.preventDefault();
+        if (this._activeIndex >= 0) {
+          this.selectSuggestion(this._suggestions[this._activeIndex]);
+        } else {
+          const colonSyntax = parseColonSyntax(this._inputValue);
+          if (colonSyntax) {
+            this._suggestions = [];
+            this._activeIndex = -1;
+            this._suppressSuggestions = true;
+            this.selectedType = colonSyntax.field;
+            this.dispatchEvent(new CustomEvent('search', {
+              detail: {
+                query: this._inputValue,
+                type: colonSyntax.field,
+                path: colonSyntax.value,
+              },
+            }));
+            return;
+          }
+
+          this._suggestions = [];
+          this._activeIndex = -1;
+          this._suppressSuggestions = true;
+          this.dispatchEvent(new CustomEvent('search', { detail: { query: this._inputValue } }));
+        }
+        break;
+
+      default:
+        break;
+    }
+  }
+
+  handleClearSearch() {
+    this._programmaticUpdate = true;
+    this._inputValue = '';
+    this._showSuggestions = false;
+    this._suggestions = [];
+    this._activeIndex = -1;
+    this._suppressSuggestions = false;
+    this._originalQuery = '';
+    this.selectedType = null;
+    this.dispatchEvent(new CustomEvent('clear-search'));
+  }
+
+  handlePinSearch() {
+    this.dispatchEvent(new CustomEvent('pin-search', {
+      detail: { folder: this._appState.selectedFolder },
+      bubbles: true,
+      composed: true,
+    }));
+  }
+
+  handleOutsideClick(e) {
+    const searchContainer = this.shadowRoot.querySelector('.search-container');
+    if (searchContainer && !searchContainer.contains(e.target)) {
+      this._showSuggestions = false;
+      this._suggestions = [];
+      this._activeIndex = -1;
+      this._suppressSuggestions = true;
+    }
+  }
+
+  selectSuggestion(suggestion) {
+    this._showSuggestions = false;
+    this._suggestions = [];
+    this._activeIndex = -1;
+    this._suppressSuggestions = true;
+    this.selectedType = suggestion.type;
+    this._programmaticUpdate = true;
+
+    if (suggestion.type === 'doc') {
+      this._inputValue = suggestion.value;
+      this.dispatchEvent(new CustomEvent('search', {
+        detail: {
+          query: this._inputValue,
+          type: 'doc',
+          path: suggestion.absolutePath || suggestion.value,
+        },
+      }));
+    } else if (suggestion.type === 'folder') {
+      this._inputValue = suggestion.value;
+      this.dispatchEvent(new CustomEvent('search', {
+        detail: {
+          query: this._inputValue,
+          type: 'folder',
+          path: suggestion.absolutePath || suggestion.value,
+        },
+      }));
+    } else {
+      this._inputValue = suggestion.value.name;
+      this.dispatchEvent(new CustomEvent('search', {
+        detail: {
+          query: this._inputValue,
+          type: 'media',
+          media: suggestion.value,
+        },
+      }));
+    }
+  }
+
+  clearSuggestions() {
+    this._showSuggestions = false;
+    this._suggestions = [];
+    this._activeIndex = -1;
+  }
+
+  getOnDemandSearchSuggestions(query) {
+    return generateSearchSuggestions(
+      this._appState.rawMediaData || this._appState.mediaData,
+      query,
+      createSearchSuggestion,
+      this._appState.folderPathsCache,
+    );
+  }
+
+  getSuggestionText(suggestion) {
+    if (suggestion.type === 'doc') return suggestion.value;
+    if (suggestion.type === 'folder') return suggestion.value;
+    if (suggestion.type === 'media') {
+      return suggestion.value.name || suggestion.value.url;
+    }
+    return '';
+  }
+
+  highlightMatch(text, query) {
+    if (!query || !text) return text;
+    const regex = new RegExp(`(${query})`, 'ig');
+    return text.replace(regex, '<mark>$1</mark>');
   }
 }
 

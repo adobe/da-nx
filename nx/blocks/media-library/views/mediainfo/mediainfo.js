@@ -106,6 +106,28 @@ class NxMediaInfo extends LitElement {
     this._cachedMetadata.clear();
   }
 
+  updated(changedProperties) {
+    if (changedProperties.has('media') && this.media) {
+      this.loadUsageData();
+      this.loadMetadata();
+      if (isPdf(this.media.url)) {
+        this.loadPdfWithDaFetch(this.media.url);
+      }
+    }
+
+    if (changedProperties.has('usageData') && this.usageData && this.media) {
+      this.loadUsageData();
+    }
+
+    if (changedProperties.has('_activeTab')) {
+      if (this._activeTab === 'metadata' && !this._loading && !this._exifData) {
+        this.loadMetadata();
+      } else if (this._activeTab === 'usage') {
+        this.loadUsageData();
+      }
+    }
+  }
+
   /**
    * Native dialog.showModal() opens the media info dialog with the provided data.
    */
@@ -129,35 +151,6 @@ class NxMediaInfo extends LitElement {
         dialog.showModal();
       }
     });
-  }
-
-  _cleanupPendingRequests() {
-    this._pendingRequests.forEach((controller) => {
-      controller.abort();
-    });
-    this._pendingRequests.clear();
-  }
-
-  updated(changedProperties) {
-    if (changedProperties.has('media') && this.media) {
-      this.loadUsageData();
-      this.loadMetadata();
-      if (isPdf(this.media.url)) {
-        this.loadPdfWithDaFetch(this.media.url);
-      }
-    }
-
-    if (changedProperties.has('usageData') && this.usageData && this.media) {
-      this.loadUsageData();
-    }
-
-    if (changedProperties.has('_activeTab')) {
-      if (this._activeTab === 'metadata' && !this._loading && !this._exifData) {
-        this.loadMetadata();
-      } else if (this._activeTab === 'usage') {
-        this.loadUsageData();
-      }
-    }
   }
 
   async loadMetadata() {
@@ -376,129 +369,6 @@ class NxMediaInfo extends LitElement {
     }
   }
 
-  handleClose() {
-    const dialog = this.shadowRoot.querySelector('dialog');
-    if (dialog?.open) {
-      dialog.close();
-    }
-  }
-
-  handleDialogClose() {
-    this._resetState();
-    this.dispatchEvent(new CustomEvent('close'));
-  }
-
-  _resetState() {
-    this.media = null;
-    this._exifData = null;
-    this._fileSize = null;
-    this._mimeType = null;
-    this._mediaOrigin = null;
-    this._mediaPath = null;
-    this._usageData = [];
-    this._imageDimensions = null;
-    this._comprehensiveMetadata = null;
-    this._activeTab = 'usage';
-  }
-
-  handleBackdropClick(e) {
-    if (e.target === e.currentTarget) {
-      this.handleClose();
-    }
-  }
-
-  handleTabChange(e) {
-    const { tab } = e.target.dataset;
-    this._activeTab = tab;
-  }
-
-  handleAltTextInput(e) {
-    this._newAltText = e.target.value;
-  }
-
-  editAlt(usage, usageIndex) {
-    this._editingAltUsage = { doc: usage.doc, index: usageIndex };
-    this._newAltText = '';
-  }
-
-  cancelAlt() {
-    this._editingAltUsage = null;
-    this._newAltText = '';
-  }
-
-  showActions(e) {
-    const documentHeading = e.target.closest('.document-heading');
-    if (documentHeading) {
-      documentHeading.classList.toggle('open');
-    }
-  }
-
-  async saveAlt(usage, usageIndex) {
-    if (!this._newAltText.trim()) return;
-
-    try {
-      const { org, repo } = this;
-
-      if (!org || !repo) {
-        throw new Error('Missing org or repo information');
-      }
-
-      await updateDocumentAltText(
-        org,
-        repo,
-        usage.doc,
-        this.media.url,
-        this._newAltText,
-        usageIndex,
-      );
-
-      const globalUsageIndex = this._usageData.indexOf(usage);
-      if (globalUsageIndex !== -1) {
-        this._usageData[globalUsageIndex].alt = this._newAltText;
-      }
-
-      const savedAltText = this._newAltText;
-      this._editingAltUsage = null;
-      this._newAltText = '';
-
-      this.dispatchEvent(new CustomEvent('altTextUpdated', {
-        detail: {
-          media: this.media,
-          usage,
-          newAltText: savedAltText,
-        },
-      }));
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error('Failed to save alt text:', error);
-    }
-  }
-
-  handleDocumentAction(docPath, mode = 'edit') {
-    if (!docPath) return;
-
-    const { org, repo } = this;
-    if (!org || !repo) return;
-
-    const cleanPath = docPath.replace('.html', '');
-    let url;
-
-    if (mode === 'edit') {
-      url = getEditUrl(org, repo, cleanPath);
-    } else {
-      const viewUrl = getViewUrl(org, repo, cleanPath);
-      if (mode === 'publish') {
-        url = viewUrl?.replace('.aem.page', '.aem.live');
-      } else {
-        url = viewUrl;
-      }
-    }
-
-    if (url) {
-      window.open(url, '_blank');
-    }
-  }
-
   async loadPdfWithDaFetch(pdfUrl) {
     if (this._pdfBlobUrls.has(pdfUrl)) return;
 
@@ -526,23 +396,6 @@ class NxMediaInfo extends LitElement {
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error('Failed to load PDF:', error);
-    }
-  }
-
-  handlePdfLoad(e) {
-    const iframe = e.target;
-    const placeholder = iframe.nextElementSibling;
-    if (placeholder && placeholder.classList.contains('document-placeholder')) {
-      placeholder.style.display = 'none';
-    }
-  }
-
-  handlePdfError(e) {
-    const iframe = e.target;
-    iframe.style.display = 'none';
-    const placeholder = iframe.nextElementSibling;
-    if (placeholder && placeholder.classList.contains('document-placeholder')) {
-      placeholder.style.display = 'flex';
     }
   }
 
@@ -631,6 +484,75 @@ class NxMediaInfo extends LitElement {
       this._mediaOrigin = 'Unknown';
       this._mediaPath = 'Unknown';
     }
+  }
+
+  render() {
+    const displayName = this.media
+      ? (this.media.name || getFileName(this.media.url) || 'Media Details')
+      : '';
+
+    return html`
+      <dialog
+        class="modal-overlay"
+        @click=${this.handleBackdropClick}
+        @close=${this.handleDialogClose}
+      >
+        ${this.media ? html`
+        <div class="modal-content" @click=${(e) => e.stopPropagation()}>
+          <div class="media-preview-section">
+            ${this.renderMediaPreview()}
+          </div>
+          <div class="modal-details">
+
+            <div class="modal-header">
+              <h2>${displayName}</h2>
+              ${this.renderMediaOrigin()}
+              <button type="button" class="icon-button close-modal-button" @click=${this.handleClose} title="Close" aria-label="Close modal">
+                <svg class="icon" viewBox="0 0 20 20">
+                  <use href="#S2_Icon_Close_20_N"></use>
+                </svg>
+              </button>
+            </div>
+
+            <div class="modal-tabs">
+              <button
+                type="button"
+                class="tab-button ${this._activeTab === 'usage' ? 'active' : ''}"
+                data-tab="usage"
+                aria-selected=${this._activeTab === 'usage' ? 'true' : 'false'}
+                @click=${this.handleTabChange}
+              >
+              <svg class="reference-icon icon" viewBox="0 0 22 20">
+                <use href="#S2_Icon_AIGenReferenceImage_20_N"></use>
+              </svg>
+                ${this.isScanning && this._usageData.length === 0
+    ? 'References'
+    : `${this._usageData.length} ${this._usageData.length !== 1 ? 'References' : 'Reference'}`}
+              </button>
+              <button
+                type="button"
+                class="tab-button ${this._activeTab === 'metadata' ? 'active' : ''}"
+                data-tab="metadata"
+                aria-selected=${this._activeTab === 'metadata' ? 'true' : 'false'}
+                @click=${this.handleTabChange}
+              >
+              <svg class="image-info-icon icon" viewBox="0 0 20 20">
+                <use href="#C_Icon_Image_Info"></use>
+              </svg>
+                Metadata
+              </button>
+            </div>
+
+            <div class="modal-body">
+              ${this._activeTab === 'usage' ? this.renderUsageTab() : this.renderInfoTab()}
+            </div>
+
+          </div>
+
+        </div>
+        ` : ''}
+      </dialog>
+    `;
   }
 
   renderMediaPreview() {
@@ -1051,73 +973,151 @@ class NxMediaInfo extends LitElement {
     `;
   }
 
-  render() {
-    const displayName = this.media
-      ? (this.media.name || getFileName(this.media.url) || 'Media Details')
-      : '';
+  handleClose() {
+    const dialog = this.shadowRoot.querySelector('dialog');
+    if (dialog?.open) {
+      dialog.close();
+    }
+  }
 
-    return html`
-      <dialog
-        class="modal-overlay"
-        @click=${this.handleBackdropClick}
-        @close=${this.handleDialogClose}
-      >
-        ${this.media ? html`
-        <div class="modal-content" @click=${(e) => e.stopPropagation()}>
-          <div class="media-preview-section">
-            ${this.renderMediaPreview()}
-          </div>
-          <div class="modal-details">
+  handleDialogClose() {
+    this._resetState();
+    this.dispatchEvent(new CustomEvent('close'));
+  }
 
-            <div class="modal-header">
-              <h2>${displayName}</h2>
-              ${this.renderMediaOrigin()}
-              <button type="button" class="icon-button close-modal-button" @click=${this.handleClose} title="Close" aria-label="Close modal">
-                <svg class="icon" viewBox="0 0 20 20">
-                  <use href="#S2_Icon_Close_20_N"></use>
-                </svg>
-              </button>
-            </div>
+  handleBackdropClick(e) {
+    if (e.target === e.currentTarget) {
+      this.handleClose();
+    }
+  }
 
-            <div class="modal-tabs">
-              <button
-                type="button"
-                class="tab-button ${this._activeTab === 'usage' ? 'active' : ''}"
-                data-tab="usage"
-                aria-selected=${this._activeTab === 'usage' ? 'true' : 'false'}
-                @click=${this.handleTabChange}
-              >
-              <svg class="reference-icon icon" viewBox="0 0 22 20">
-                <use href="#S2_Icon_AIGenReferenceImage_20_N"></use>
-              </svg>
-                ${this.isScanning && this._usageData.length === 0
-    ? 'References'
-    : `${this._usageData.length} ${this._usageData.length !== 1 ? 'References' : 'Reference'}`}
-              </button>
-              <button
-                type="button"
-                class="tab-button ${this._activeTab === 'metadata' ? 'active' : ''}"
-                data-tab="metadata"
-                aria-selected=${this._activeTab === 'metadata' ? 'true' : 'false'}
-                @click=${this.handleTabChange}
-              >
-              <svg class="image-info-icon icon" viewBox="0 0 20 20">
-                <use href="#C_Icon_Image_Info"></use>
-              </svg>
-                Metadata
-              </button>
-            </div>
+  handleTabChange(e) {
+    const { tab } = e.target.dataset;
+    this._activeTab = tab;
+  }
 
-            <div class="modal-body">
-              ${this._activeTab === 'usage' ? this.renderUsageTab() : this.renderInfoTab()}
-            </div>
+  handleAltTextInput(e) {
+    this._newAltText = e.target.value;
+  }
 
-          </div>
+  handleDocumentAction(docPath, mode = 'edit') {
+    if (!docPath) return;
 
-        </div>
-        ` : ''}
-      </dialog>
-    `;
+    const { org, repo } = this;
+    if (!org || !repo) return;
+
+    const cleanPath = docPath.replace('.html', '');
+    let url;
+
+    if (mode === 'edit') {
+      url = getEditUrl(org, repo, cleanPath);
+    } else {
+      const viewUrl = getViewUrl(org, repo, cleanPath);
+      if (mode === 'publish') {
+        url = viewUrl?.replace('.aem.page', '.aem.live');
+      } else {
+        url = viewUrl;
+      }
+    }
+
+    if (url) {
+      window.open(url, '_blank');
+    }
+  }
+
+  handlePdfLoad(e) {
+    const iframe = e.target;
+    const placeholder = iframe.nextElementSibling;
+    if (placeholder && placeholder.classList.contains('document-placeholder')) {
+      placeholder.style.display = 'none';
+    }
+  }
+
+  handlePdfError(e) {
+    const iframe = e.target;
+    iframe.style.display = 'none';
+    const placeholder = iframe.nextElementSibling;
+    if (placeholder && placeholder.classList.contains('document-placeholder')) {
+      placeholder.style.display = 'flex';
+    }
+  }
+
+  showActions(e) {
+    const documentHeading = e.target.closest('.document-heading');
+    if (documentHeading) {
+      documentHeading.classList.toggle('open');
+    }
+  }
+
+  editAlt(usage, usageIndex) {
+    this._editingAltUsage = { doc: usage.doc, index: usageIndex };
+    this._newAltText = '';
+  }
+
+  cancelAlt() {
+    this._editingAltUsage = null;
+    this._newAltText = '';
+  }
+
+  async saveAlt(usage, usageIndex) {
+    if (!this._newAltText.trim()) return;
+
+    try {
+      const { org, repo } = this;
+
+      if (!org || !repo) {
+        throw new Error('Missing org or repo information');
+      }
+
+      await updateDocumentAltText(
+        org,
+        repo,
+        usage.doc,
+        this.media.url,
+        this._newAltText,
+        usageIndex,
+      );
+
+      const globalUsageIndex = this._usageData.indexOf(usage);
+      if (globalUsageIndex !== -1) {
+        this._usageData[globalUsageIndex].alt = this._newAltText;
+      }
+
+      const savedAltText = this._newAltText;
+      this._editingAltUsage = null;
+      this._newAltText = '';
+
+      this.dispatchEvent(new CustomEvent('altTextUpdated', {
+        detail: {
+          media: this.media,
+          usage,
+          newAltText: savedAltText,
+        },
+      }));
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Failed to save alt text:', error);
+    }
+  }
+
+  _cleanupPendingRequests() {
+    this._pendingRequests.forEach((controller) => {
+      controller.abort();
+    });
+    this._pendingRequests.clear();
+  }
+
+  _resetState() {
+    this.media = null;
+    this._exifData = null;
+    this._fileSize = null;
+    this._mimeType = null;
+    this._mediaOrigin = null;
+    this._mediaPath = null;
+    this._usageData = [];
+    this._imageDimensions = null;
+    this._comprehensiveMetadata = null;
+    this._activeTab = 'usage';
   }
 }
 
