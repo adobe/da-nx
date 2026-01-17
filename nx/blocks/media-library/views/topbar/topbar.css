@@ -13,7 +13,7 @@ svg.icon {
 .top-bar {
   display: flex;
   align-items: center;
-  justify-content: start;
+  justify-content: center;
   gap: var(--spacing-300);
   padding: var(--spacing-100) var(--spacing-100) var(--spacing-100) 0;
   background: var(--s2-gray-50);
