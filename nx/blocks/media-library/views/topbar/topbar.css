@@ -25,6 +25,8 @@ svg.icon {
   font-style: italic;
   color: var(--s2-gray-500);
   white-space: nowrap;
+  min-width: 80px;
+  text-align: left;
 }
 
 .left-controls {
