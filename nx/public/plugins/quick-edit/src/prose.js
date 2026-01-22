@@ -1,5 +1,6 @@
 import { getSchema } from 'https://da.live/blocks/edit/prose/schema.js';
-import { EditorState, EditorView } from 'https://da.live/deps/da-y-wrapper/dist/index.js';
+import { EditorState } from 'https://da.live/deps/da-y-wrapper/dist/index.js';
+import { CustomEditorView } from './custom-editor-view.js';
 import { showToolbar, hideToolbar, setCurrentEditorView, updateToolbarState, handleToolbarKeydown, positionToolbar } from './toolbar.js';
 import { createSimpleKeymap } from './simple-keymap.js';
 import { createImageWrapperPlugin } from './image-wrapper.js';
@@ -21,22 +22,41 @@ function updateInstrumentation(lengthDiff, offset) {
   });
 }
 
-function handleTransaction(tr, ctx, editorView, editorParent) {
+function handleTransaction(tr, ctx, editorView, element) {
   const numChanges = tr.steps.length;
-  const currentCursorOffset = parseInt(editorParent.getAttribute('data-prose-index'));
-  const oldLength = editorView.state.doc.firstChild.nodeSize;
+  const currentCursorOffset = parseInt(element.getAttribute('data-prose-index'));
+  const nodeType = element.getAttribute('data-prose-node-type');
+  const oldLength = editorView.state.doc.content.size;
   const oldSelection = editorView.state.selection.from;
   const newState = editorView.state.apply(tr);
   editorView.updateState(newState);
-  updateInstrumentation(newState.doc.firstChild.nodeSize - oldLength, currentCursorOffset);
+  updateInstrumentation(newState.doc.content.size - oldLength, currentCursorOffset);
 
   if (ctx.remoteUpdate) { return; }
   
   if (numChanges > 0) {
-    const editedEl = newState.doc.firstChild;
+    // Extract content from the paragraph wrapper and wrap back in the original node type
+    const schema = editorView.state.schema;
+    const content = [];
+    
+    // The guest editor wraps content in a paragraph, so extract from it
+    const firstNode = newState.doc.firstChild;
+    if (firstNode) {
+      firstNode.forEach((child) => {
+        content.push(child);
+      });
+    }
+    
+    // Get the original node's attributes if they exist
+    const attrs = element.hasAttribute('data-prose-node-attrs') 
+      ? JSON.parse(element.getAttribute('data-prose-node-attrs'))
+      : null;
+    
+    const wrappedNode = schema.nodes[nodeType].create(attrs, content);
+    
     ctx.port.postMessage({
       type: 'node-update',
-      node: editedEl.toJSON(),
+      node: wrappedNode.toJSON(),
       cursorOffset: currentCursorOffset,
     });
   }
@@ -78,17 +98,24 @@ function keydown(view, event) {
 function createEditor(cursorOffset, state, ctx) {
   const schema = getSchema();
   const node = schema.nodeFromJSON(state);
-  const doc = schema.node('doc', null, [node]);
+  
+  // Create a doc that only contains the node's content (not the node itself)
+  // This way the guest editor only manages the inline content
+  const contentNodes = [];
+  node.forEach((child) => {
+    contentNodes.push(child);
+  });
+  
+  // Wrap inline content in a paragraph for the guest editor
+  // The doc node expects block content, not inline content
+  const paragraph = schema.nodes.paragraph.create(null, contentNodes);
+  const doc = schema.node('doc', null, [paragraph]);
 
   const editorState = EditorState.create({
     doc,
     schema,
     plugins: [createSimpleKeymap(ctx.port), createImageWrapperPlugin()],
   });
-
-  const editorParent = document.createElement('div');
-  editorParent.setAttribute('data-prose-index', cursorOffset);
-  editorParent.classList.add('prosemirror-editor');
 
   const element = document.querySelector(`[data-prose-index="${cursorOffset}"]`);
 
@@ -99,13 +126,23 @@ function createEditor(cursorOffset, state, ctx) {
     return;
   }
 
-  if (element.getAttribute('data-cursor-remote')) {
-    editorParent.setAttribute('data-cursor-remote', element.getAttribute('data-cursor-remote'));
-    editorParent.setAttribute('data-cursor-remote-color', element.getAttribute('data-cursor-remote-color'));
+  // Store the element type and attributes so we know what node to create when syncing back
+  const nodeType = node.type.name;
+  const nodeAttrs = node.attrs;
+  
+  // Mark this element as having an active editor
+  element.classList.add('prosemirror-editor-host');
+  element.setAttribute('data-prose-node-type', nodeType);
+  if (nodeAttrs && Object.keys(nodeAttrs).length > 0) {
+    element.setAttribute('data-prose-node-attrs', JSON.stringify(nodeAttrs));
   }
 
-  const editorView = new EditorView(
-    editorParent, { 
+  // Clear the element's content but keep the element itself
+  element.innerHTML = '';
+
+  // Use custom editor view that renders directly to the element
+  const editorView = new CustomEditorView(
+    element, { 
       state: editorState,
       handleDOMEvents: { 
         focus, 
@@ -113,39 +150,47 @@ function createEditor(cursorOffset, state, ctx) {
         blur: (view, event) => blur(view, event, ctx) 
       },
       dispatchTransaction: (tr) => {
-        handleTransaction(tr, ctx, editorView, editorParent);
+        handleTransaction(tr, ctx, editorView, element);
       }
     }
   );
 
-  element.replaceWith(editorParent);
-  editorParent.view = editorView;
-  setupImageDropListeners(ctx, editorParent);
+  element.view = editorView;
+  setupImageDropListeners(ctx, element);
   
   setRemoteCursors();
 }
 
-function updateEditor(editorEl, state, ctx) {
-  if (!editorEl) return;
+function updateEditor(element, state, ctx) {
+  if (!element || !element.view) return;
 
   // Editor already exists, update it with a transaction
-  const view = editorEl;
+  const view = element.view;
   const schema = view.state.schema;
   const node = schema.nodeFromJSON(state);
   
-  // Create transaction to replace the root node (first child of doc)
-  const tr = view.state.tr.replaceWith(0, view.state.doc.content.size, node);
+  // Extract the content from the node
+  const contentNodes = [];
+  node.forEach((child) => {
+    contentNodes.push(child);
+  });
+  
+  // Wrap inline content in a paragraph for the guest editor
+  const paragraph = schema.nodes.paragraph.create(null, contentNodes);
+  
+  // Create transaction to replace the entire document with the new paragraph
+  const tr = view.state.tr.replaceWith(0, view.state.doc.content.size, paragraph);
   ctx.remoteUpdate = true;
   view.dispatch(tr);
   ctx.remoteUpdate = false;
-  setupImageDropListeners(ctx, editorEl.parentElement);
+  setupImageDropListeners(ctx, element);
 }
 
 export function setEditorState(cursorOffset, state, ctx) {
-  const existingEditorParent = document.querySelector(`.prosemirror-editor[data-prose-index="${cursorOffset}"]`);
-  if (existingEditorParent) {
-    const editorEl = existingEditorParent.view;
-    updateEditor(editorEl, state, ctx);
+  const existingElement = document.querySelector(`.prosemirror-editor-host[data-prose-index="${cursorOffset}"]`);
+  if (existingElement) {
+    updateEditor(existingElement, state, ctx);
+    return;
   }
   createEditor(cursorOffset, state, ctx);
 }
