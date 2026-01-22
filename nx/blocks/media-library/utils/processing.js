@@ -471,6 +471,8 @@ export default async function runScan(sitePath, updateTotal, updateProgressive =
       updateTotal('mediaFile', totalMediaFilesFound);
     }
 
+    allCrawlItems.push(item);
+
     const existingLastModified = lastModifiedMap.get(item.path);
 
     if (existingLastModified && existingLastModified === item.lastModified) {
@@ -524,8 +526,6 @@ export default async function runScan(sitePath, updateTotal, updateProgressive =
     if (existingLastModified !== item.lastModified) {
       lastModifiedMap.set(item.path, item.lastModified);
     }
-
-    allCrawlItems.push(item);
   };
 
   const { results, getDuration } = crawl({ path: sitePath, callback });
@@ -535,6 +535,15 @@ export default async function runScan(sitePath, updateTotal, updateProgressive =
   const processedUrls = new Set();
 
   const changedDocPaths = new Set();
+  const currentDocPaths = new Set();
+
+  allCrawlItems.forEach((item) => {
+    const ext = extractFileExtension(item.path);
+    if (ext === 'html') {
+      const relativePath = item.path.split('/').slice(3).join('/');
+      currentDocPaths.add(`/${relativePath}`);
+    }
+  });
 
   allMediaUsage.forEach((usage) => {
     if (usage.doc) {
@@ -542,12 +551,21 @@ export default async function runScan(sitePath, updateTotal, updateProgressive =
     }
   });
 
+  let deletedItemsCount = 0;
   existingMediaData.forEach((item) => {
     if (!item.doc || !changedDocPaths.has(item.doc)) {
-      allMediaEntries.push(item);
-      processedUrls.add(item.url);
+      if (!item.doc || item.doc === '' || currentDocPaths.has(item.doc)) {
+        allMediaEntries.push(item);
+        processedUrls.add(item.url);
+      } else {
+        deletedItemsCount += 1;
+      }
     }
   });
+
+  if (deletedItemsCount > 0) {
+    hasChanges = true;
+  }
 
   const allMediaUsageInstances = allMediaUsage;
 
@@ -599,61 +617,37 @@ export default async function runScan(sitePath, updateTotal, updateProgressive =
   const { rootFiles, folderFiles } = groupFilesByFolder(allCrawlItems);
   const savePromises = [];
 
-  const existingLastModifiedMap = await loadAllLastModifiedData(sitePath);
+  const existingFolders = new Set();
+  lastModifiedMap.forEach((lastModified, filePath) => {
+    const { relativePathParts } = splitPathParts(filePath);
+    if (relativePathParts.length === 1) {
+      existingFolders.add('root');
+    } else if (relativePathParts.length > 1) {
+      existingFolders.add(relativePathParts[0]);
+    }
+  });
 
-  if (rootFiles.length > 0) {
+  if (rootFiles.length > 0 || existingFolders.has('root')) {
     try {
-      const existingRootFiles = [];
-      existingLastModifiedMap.forEach((lastModified, filePath) => {
-        const { relativePathParts } = splitPathParts(filePath);
-        if (relativePathParts.length === 1) {
-          existingRootFiles.push({ path: filePath, lastModified });
-        }
-      });
-
-      const mergedRootFiles = [...existingRootFiles];
-      rootFiles.forEach((newFile) => {
-        const existingIndex = mergedRootFiles.findIndex((f) => f.path === newFile.path);
-        if (existingIndex >= 0) {
-          mergedRootFiles[existingIndex] = newFile;
-        } else {
-          mergedRootFiles.push(newFile);
-        }
-      });
-
-      savePromises.push(saveLastModifiedData(sitePath, 'root', mergedRootFiles));
+      savePromises.push(saveLastModifiedData(sitePath, 'root', rootFiles));
     } catch (error) {
       // eslint-disable-next-line no-console
-      console.warn('[SCAN] Failed to merge root file lastModified data:', error);
+      console.warn('[SCAN] Failed to save root file lastModified data:', error);
     }
   }
 
-  for (const [folderName, files] of Object.entries(folderFiles)) {
-    if (files.length > 0) {
-      try {
-        const existingFolderFiles = [];
-        existingLastModifiedMap.forEach((lastModified, filePath) => {
-          const { relativePathParts } = splitPathParts(filePath);
-          if (relativePathParts.length > 1 && relativePathParts[0] === folderName) {
-            existingFolderFiles.push({ path: filePath, lastModified });
-          }
-        });
+  const allFolderNames = new Set([
+    ...Object.keys(folderFiles),
+    ...Array.from(existingFolders).filter((f) => f !== 'root'),
+  ]);
 
-        const mergedFolderFiles = [...existingFolderFiles];
-        files.forEach((newFile) => {
-          const existingIndex = mergedFolderFiles.findIndex((f) => f.path === newFile.path);
-          if (existingIndex >= 0) {
-            mergedFolderFiles[existingIndex] = newFile;
-          } else {
-            mergedFolderFiles.push(newFile);
-          }
-        });
-
-        savePromises.push(saveLastModifiedData(sitePath, folderName, mergedFolderFiles));
-      } catch (error) {
-        // eslint-disable-next-line no-console
-        console.warn(`[SCAN] Failed to merge folder lastModified data for ${folderName}:`, error);
-      }
+  for (const folderName of allFolderNames) {
+    try {
+      const files = folderFiles[folderName] || [];
+      savePromises.push(saveLastModifiedData(sitePath, folderName, files));
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn(`[SCAN] Failed to save folder lastModified data for ${folderName}:`, error);
     }
   }
 
