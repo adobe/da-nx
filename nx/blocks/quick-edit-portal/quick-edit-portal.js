@@ -1,4 +1,4 @@
-import { checkPermissions, signIn } from "./src/utils.js";
+import { checkPermissions, signIn, handlePreview } from "./src/utils.js";
 import createProse from "./src/prose.js";
 import { updateDocument, updateCursors, updateState, handleUndoRedo, getEditor, handleCursorMove } from "./src/render.js";
 import { handleImageReplace } from "./src/images.js";
@@ -16,6 +16,8 @@ function onMessage(e, ctx) {
     updateState(e.data, ctx);
   } else if (e.data.type === 'history') {
     handleUndoRedo(e.data, ctx);
+  } else if (e.data.type === 'preview') {
+    handlePreview(ctx);
   }
 }
 
