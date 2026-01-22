@@ -70,6 +70,8 @@ class NxMediaOnboard extends LitElement {
         img: `/blocks/browse/da-sites/img/cards/da-${getRandom()}.jpg`,
         cardStyle: `da-card-style-${getRandom()}`,
       }));
+    } else {
+      this._recents = [];
     }
   }
 
@@ -160,13 +162,30 @@ class NxMediaOnboard extends LitElement {
       localStorage.setItem(storageKey, JSON.stringify(updatedFolders));
 
       this.loadPinnedFolders();
+
+      // Switch to recents tab if no pinned folders left
+      if (this._pinnedFolders.length === 0 && this._recents.length > 0) {
+        this._activeTab = 'recents';
+      }
     } else {
       const recentSites = JSON.parse(localStorage.getItem('da-sites')) || [];
       const siteNameToRemove = removeLeadingSlash(siteName);
       const updatedSites = recentSites.filter((site) => site !== siteNameToRemove);
       localStorage.setItem('da-sites', JSON.stringify(updatedSites));
 
+      // Also remove pinned folders for this site
+      const parts = siteNameToRemove.split('/');
+      const [org, repo] = parts;
+      const storageKey = `media-library-pinned-folders-${org}-${repo}`;
+      localStorage.removeItem(storageKey);
+
       this.loadRecentSites();
+      this.loadPinnedFolders();
+
+      // Switch to pinned tab if no recents left but pinned folders exist
+      if (this._recents.length === 0 && this._pinnedFolders.length > 0) {
+        this._activeTab = 'pinned';
+      }
     }
 
     this._flippedCards.delete(siteName);

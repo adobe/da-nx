@@ -1,6 +1,6 @@
 import { html, LitElement } from 'da-lit';
 import getStyle from '../../utils/styles.js';
-import { loadMediaSheet, buildDataStructures, mergeProgressiveData } from './utils/processing.js';
+import { loadMediaSheet, buildDataStructures } from './utils/processing.js';
 import {
   copyMediaToClipboard,
   validateSitePath,
@@ -8,6 +8,7 @@ import {
   getBasePath,
   resolveAbsolutePath,
   ensureAuthenticated,
+  sortMediaData,
 } from './utils/utils.js';
 import {
   processMediaData,
@@ -180,6 +181,37 @@ class NxMediaLibrary extends LitElement {
     );
   }
 
+  mergeDataForDisplay(existingData, newItems) {
+    if (!newItems || newItems.length === 0) return existingData;
+
+    const updatedData = [...existingData];
+    const seenKeys = new Set(
+      existingData.map((item) => getGroupingKey(item.url)),
+    );
+
+    newItems.forEach((newItem) => {
+      const groupingKey = getGroupingKey(newItem.url);
+      const existingIndex = updatedData.findIndex(
+        (item) => getGroupingKey(item.url) === groupingKey,
+      );
+
+      if (existingIndex !== -1) {
+        // Update existing item with new timestamp but keep original usageCount
+        updatedData[existingIndex] = {
+          ...updatedData[existingIndex],
+          ...newItem,
+          usageCount: updatedData[existingIndex].usageCount,
+        };
+      } else if (!seenKeys.has(groupingKey)) {
+        // Add new item
+        updatedData.push({ ...newItem, usageCount: 1 });
+        seenKeys.add(groupingKey);
+      }
+    });
+
+    return updatedData;
+  }
+
   async initialize() {
     if (!this.sitePath) return;
 
@@ -338,9 +370,14 @@ class NxMediaLibrary extends LitElement {
       return this.renderEmptyState();
     }
 
-    const displayData = (this._appState.isScanning && hasProgressiveData)
-      ? this._appState.progressiveMediaData
-      : filteredData;
+    let displayData = filteredData;
+    if (this._appState.isScanning && hasProgressiveData) {
+      const mergedData = this.mergeDataForDisplay(
+        filteredData,
+        this._appState.progressiveMediaData,
+      );
+      displayData = sortMediaData(mergedData);
+    }
 
     return html`
       <nx-media-grid
@@ -639,11 +676,20 @@ class NxMediaLibrary extends LitElement {
 
   handleProgressiveDataUpdate = (e) => {
     const { mediaItems } = e.detail;
-    const progressiveMediaData = mergeProgressiveData(
-      this._appState.progressiveMediaData,
-      mediaItems,
+    const updatedData = [...this._appState.progressiveMediaData];
+    const seenKeys = new Set(
+      updatedData.map((item) => getGroupingKey(item.url)),
     );
-    updateAppState({ progressiveMediaData });
+
+    mediaItems.forEach((newItem) => {
+      const groupingKey = getGroupingKey(newItem.url);
+      if (!seenKeys.has(groupingKey)) {
+        updatedData.push({ ...newItem, usageCount: 1 });
+        seenKeys.add(groupingKey);
+      }
+    });
+
+    updateAppState({ progressiveMediaData: updatedData });
   };
 
   handleMediaDataUpdated = async (e) => {
