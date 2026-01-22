@@ -16,7 +16,7 @@ async function setBody(body, ctx) {
   await ctx.loadPage();
   setupContentEditableListeners(ctx);
   setupImageDropListeners(ctx, document.body.querySelector('main'));
-  setupCloseButton();
+  setupCloseButton(ctx);
 }
 
 function onMessage(e, ctx) {
