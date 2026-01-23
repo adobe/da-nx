@@ -29,7 +29,7 @@ async function handlePreview(ctx) {
   });  
 }
 
-export function setupCloseButton(ctx) {
+export function setupActions(ctx) {
   const createButton = (className, text, callback) => {
     const button = document.createElement('button');
     button.className = className;
@@ -43,7 +43,7 @@ export function setupCloseButton(ctx) {
   container.className = 'quick-edit-buttons';
   
   // Create exit button
-  const exitButton = createButton('quick-edit-exit', 'Exit without Preview', () => {
+  const exitButton = createButton('quick-edit-exit', 'Exit', () => {
     window.location.reload();
   });
   exitButton.style.display = 'none';
