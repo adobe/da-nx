@@ -94,11 +94,17 @@ picture.image-uploading::after {
   }
 }
 
-.quick-edit-close {
+.quick-edit-buttons {
   position: fixed;
   bottom: 20px;
   right: 20px;
   z-index: 9999;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.quick-edit-close {
   width: 32px;
   height: 32px;
   padding: 0;
@@ -124,10 +130,50 @@ picture.image-uploading::after {
   background-color: white;
   mask: url('/nx/img/icons/S2IconClose20N-icon.svg') no-repeat center / contain;
   -webkit-mask: url('/nx/img/icons/S2IconClose20N-icon.svg') no-repeat center / contain;
+  transition: transform 0.3s ease;
+}
+
+.quick-edit-close.toggled .icon-close {
+  transform: rotate(45deg);
+}
+
+.quick-edit-exit,
+.quick-edit-preview {
+  height: 32px;
+  padding: 0 16px;
+  background: white;
+  border: 1px solid var(--color-blue-500, rgb(19, 115, 230));
+  color: var(--color-blue-500, rgb(19, 115, 230));
+  border-radius: 16px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.quick-edit-preview {
+  background: var(--color-blue-500, rgb(19, 115, 230));
+  color: white;
+}
+
+.quick-edit-exit:hover {
+  background: var(--color-blue-50, #eff6ff);
+  border-color: var(--color-blue-600, #3b82f6);
+  color: var(--color-blue-600, #3b82f6);
+}
+
+.quick-edit-preview:hover {
+  background: var(--color-blue-600, #3b82f6);
 }
 
 /* Floating Toolbar Styles */
 .prosemirror-floating-toolbar {
+  color-scheme: light;
   display: flex;
   font-size: 13px;
   position: fixed;
@@ -138,6 +184,7 @@ picture.image-uploading::after {
   display: none;
   z-index: 1000;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  color: black;
 }
 
 .prosemirror-floating-toolbar .toolbar-btn {
@@ -192,6 +239,7 @@ picture.image-uploading::after {
 }
 
 .da-palettes:has(da-palette) {
+  color-scheme: light;
   position: fixed;
   top: 0;
   left: 0;
@@ -209,4 +257,8 @@ da-palette {
   padding: 30px;
   border-radius: 8px;
   box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.1);
+}
+
+da-palette .da-palette-field {
+  color: black;
 }
