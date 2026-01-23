@@ -1,7 +1,7 @@
 import { setupContentEditableListeners, setupImageDropListeners, updateImageSrc, handleImageError } from './src/images.js';
 import { setEditorState } from './src/prose.js';
 import { setCursors } from './src/cursors.js';
-import { pollConnection, setupCloseButton } from './src/utils.js';
+import { pollConnection, setupActions } from './src/utils.js';
 
 import { loadStyle } from "../../../scripts/nexter.js";
 
@@ -16,7 +16,7 @@ async function setBody(body, ctx) {
   await ctx.loadPage();
   setupContentEditableListeners(ctx);
   setupImageDropListeners(ctx, document.body.querySelector('main'));
-  setupCloseButton();
+  setupActions(ctx);
 }
 
 function onMessage(e, ctx) {

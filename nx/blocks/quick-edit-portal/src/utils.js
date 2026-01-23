@@ -232,3 +232,16 @@ export async function signIn() {
     });
   }
 }
+
+export async function handlePreview(ctx) {
+  const path = ctx.path.endsWith('/') ? `${ctx.path}index` : `${ctx.path}`;
+  const url = `https://admin.hlx.page/preview/${ctx.owner}/${ctx.repo}/main${path}`;
+  const token = await getToken();
+  const resp = await fetch(url, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` }});
+  if (!resp.ok) {
+    console.error('Failed to preview:', resp.statusText);
+    ctx.port.postMessage({ type: 'preview', ok: false, error: `Failed to preview: ${resp.statusText}`});
+  } else {
+    ctx.port.postMessage({ type: 'preview', ok: true });
+  }
+}

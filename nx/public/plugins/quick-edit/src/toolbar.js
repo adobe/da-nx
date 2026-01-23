@@ -13,7 +13,7 @@ async function loadLinkStylesheet() {
   const resp = await fetch('https://da.live/blocks/edit/da-palette/da-palette.css');
   const text = await resp.text();
   const sheet = new CSSStyleSheet();
-  sheet.replace(text);
+  sheet.replace(`${text} .da-palette-field { color: black; }`);
   linkStylesheet = sheet;
   return sheet;
 }
