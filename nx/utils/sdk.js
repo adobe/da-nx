@@ -26,6 +26,24 @@ function closeLibrary() {
   port2.postMessage({ action: 'closeLibrary' });
 }
 
+function getSelection() {
+  return new Promise((resolve, reject) => {
+    const listener = (e) => {
+      window.removeEventListener('message', listener);
+
+      if (e.data.action === 'sendSelection') {
+        resolve(e.data.details);
+      }
+
+      if (e.data.action === 'error') {
+        reject(e.data.details);
+      }
+    };
+    window.addEventListener('message', listener);
+    port2.postMessage({ action: 'getSelection' });
+  });
+}
+
 const DA_SDK = (() => new Promise((resolve) => {
   window.addEventListener('message', (e) => {
     if (e.data) {
@@ -45,6 +63,7 @@ const DA_SDK = (() => new Promise((resolve) => {
         setHref,
         setHash,
         closeLibrary,
+        getSelection,
       };
 
       resolve({ ...e.data, actions });
