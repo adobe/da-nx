@@ -26,7 +26,7 @@ function closeLibrary() {
   port2.postMessage({ action: 'closeLibrary' });
 }
 
-function readSelection() {
+function getSelection() {
   return new Promise((resolve, reject) => {
     const listener = (e) => {
       window.removeEventListener('message', listener);
@@ -40,7 +40,7 @@ function readSelection() {
       }
     };
     window.addEventListener('message', listener);
-    port2.postMessage({ action: 'readSelection' });
+    port2.postMessage({ action: 'getSelection' });
   });
 }
 
@@ -63,7 +63,7 @@ const DA_SDK = (() => new Promise((resolve) => {
         setHref,
         setHash,
         closeLibrary,
-        readSelection,
+        getSelection,
       };
 
       resolve({ ...e.data, actions });
