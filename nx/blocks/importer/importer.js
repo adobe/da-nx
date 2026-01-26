@@ -80,7 +80,8 @@ class NxImporter extends LitElement {
 
     if (data.index) {
       const { origin } = new URL(data.index);
-      const resp = await fetch(data.index);
+      const proxyUrl = `https://fcors.org/?url=${encodeURIComponent(data.index)}&key=jkac20jpW5Slkw9y`;
+      const resp = await fetch(proxyUrl);
       if (!resp.ok) this.setStatus('Query Index could not be downloaded. CORs error?');
       const json = await resp.json();
       this._urls = json.data.map(({ path }) => {
@@ -254,7 +255,7 @@ class NxImporter extends LitElement {
             </div>
           </div>
         </div>
-        <p class="cors-note"><strong>Note:</strong> The site must have <strong><code>https://da.live</code></strong> in access-control-allow-origin headers.</p>
+        <p class="cors-note"><strong>Note:</strong> CORS requests are proxied through <strong><code>fcors.org</code></strong>.</p>
         <div class="form-row">
           <input type="submit" value="${this._isImporting ? 'Importing' : 'Import'}" class="accent" ?disabled=${this._isImporting} />
         </div>
