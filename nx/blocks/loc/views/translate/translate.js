@@ -207,17 +207,26 @@ class NxLocTranslate extends LitElement {
   }
 
   async handleCopyAll() {
-    const { urls } = await this.fetchUrls({}, true);
+    const { _copyLangs: langs } = this;
 
-    const errors = urls.filter((url) => url.error);
-    if (errors.length) {
-      this._urlErrors = errors;
-      return;
-    }
+    // langsWithUrls is an in-memory object that contains all URL fetches.
+    const { langsWithUrls, urls } = await this.fetchUrls({}, true, langs);
+
+    langsWithUrls.forEach((lang) => {
+      const errors = lang.urls.filter((url) => url.error);
+      if (errors.length) {
+        // Create an errors array if it doesn't exist
+        this._urlErrors ??= [];
+        this._urlErrors.push(...errors);
+      }
+    });
+
+    // Do not continue if any errors
+    if (this._urlErrors.length) return;
 
     const { org, site, title, options } = this.project;
 
-    await copySourceLangs(org, site, title, options, this._copyLangs, urls);
+    await copySourceLangs(org, site, title, options, this._copyLangs, urls, langsWithUrls);
     this.handleSaveLangs();
     this.requestUpdate();
   }
