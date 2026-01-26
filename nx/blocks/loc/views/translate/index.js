@@ -133,7 +133,7 @@ export async function saveLangItemsToDa(options, conf, connector, sendMessage) {
   }
 }
 
-export async function copySourceLangs(org, site, title, options, langs, urls) {
+export async function copySourceLangs(org, site, title, options, langs, urls, langsWithUrls) {
   const behavior = options['copy.conflict.behavior'];
   const sourceLocation = options['source.language']?.location || '/';
 
@@ -148,16 +148,26 @@ export async function copySourceLangs(org, site, title, options, langs, urls) {
     url.status = resp.status;
   };
 
-  for (const lang of langs) {
+  for (const [idx, lang] of langs.entries()) {
     const queue = new Queue(copyUrl, 50);
 
-    const formatted = urls.map((url) => ({
-      ...url,
-      ...formatPath(org, site, sourceLocation, url.suppliedPath),
-    }));
+    // Find the URLs from the lang that has the URLs (custom source URLs)
+    const langUrls = langsWithUrls[idx].urls.map((url) => {
+      const conf = {
+        path: url.suppliedPath,
+        sourcePrefix: sourceLocation,
+        destPrefix: lang.location,
+      };
+      const converted = convertPath(conf);
+      return {
+        ...url,
+        ...converted,
+        code: lang.code,
+      };
+    });
 
-    await Promise.allSettled(formatted.map((url) => queue.push({ lang, url })));
-    const success = formatted.filter((url) => url.status === 200).length;
+    await Promise.allSettled(langUrls.map((url) => queue.push({ lang, url })));
+    const success = langUrls.filter((url) => url.status === 200).length;
     lang.copy = {
       saved: success,
       status: 'complete',
