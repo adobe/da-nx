@@ -1,7 +1,7 @@
 import { LitElement, html, nothing } from '../../deps/lit/lit-core.min.js';
 import { getConfig } from '../../scripts/nexter.js';
 import getStyle from '../../utils/styles.js';
-import { importAll, calculateTime } from './index.js';
+import { getOptions, importAll, calculateTime } from './index.js';
 import getSvg from '../../utils/svg.js';
 
 const { nxBase } = getConfig();
@@ -11,8 +11,6 @@ const buttons = await getStyle(`${nxBase}/styles/buttons.js`);
 const ICONS = [
   `${nxBase}/img/icons/Smock_ChevronRight_18_N.svg`,
 ];
-
-const MOCK_URLS = 'https://main--bacom--adobecom.aem.page/products/journey-optimizer\nhttps://main--bacom--adobecom.aem.page/products/marketo\nhttps://main--bacom--adobecom.aem.page/products/frameio-business\nhttps://main--bacom--adobecom.aem.page/products/magento\nhttps://main--bacom--adobecom.aem.page/products/mix-modeler\nhttps://main--bacom--adobecom.aem.page/products/genstudio-for-performance-marketing\nhttps://main--bacom--adobecom.aem.page/products/firefly-business\nhttps://main--bacom--adobecom.aem.page/products/brand-concierge\nhttps://main--bacom--adobecom.aem.page/products/workfront\nhttps://main--bacom--adobecom.aem.page/products/sensei/ai-assistant\nhttps://main--bacom--adobecom.aem.page/products/sensei/adobe-sensei-genai\nhttps://main--bacom--adobecom.aem.page/products/mix-modeler/marketing-scenario-planning\nhttps://main--bacom--adobecom.aem.page/products/real-time-customer-data-platform/data-governance-security-privacy\nhttps://main--bacom--adobecom.aem.page/products/genstudio-for-performance-marketing/brand-compliance\nhttps://main--bacom--adobecom.aem.page/products/real-time-customer-data-platform/collaboration\nhttps://main--bacom--adobecom.aem.page/products/experience-platform/offer-decisioning\nhttps://main--bacom--adobecom.aem.page/products/genstudio-for-performance-marketing/paid-social\nhttps://main--bacom--adobecom.aem.page/products/genstudio-for-performance-marketing/insights\nhttps://main--bacom--adobecom.aem.page/products/genstudio-for-performance-marketing/activation\nhttps://main--bacom--adobecom.aem.page/products/genstudio-for-performance-marketing/content\nhttps://main--bacom--adobecom.aem.page/products/real-time-customer-data-platform/rtcdp\nhttps://main--bacom--adobecom.aem.page/products/mix-modeler/marketing-measurement-models\nhttps://main--bacom--adobecom.aem.page/products/real-time-customer-data-platform/activation-anywhere\nhttps://main--bacom--adobecom.aem.page/products/genstudio-for-performance-marketing/creation\nhttps://main--bacom--adobecom.aem.page/products/experience-platform/agent-orchestrator\nhttps://main--bacom--adobecom.aem.page/products/magento/payment-services\nhttps://main--bacom--adobecom.aem.page/products/magento/magento-commerce\nhttps://main--bacom--adobecom.aem.page/products/journey-optimizer/adobe-journey-optimizer\nhttps://main--bacom--adobecom.aem.page/products/genstudio-for-performance-marketing/campaigns\nhttps://main--bacom--adobecom.aem.page/products/journey-optimizer/adobe-journey-optimizer-vs-competitors\nhttps://main--bacom--adobecom.aem.page/products/magento/scalable-commerce-operations\nhttps://main--bacom--adobecom.aem.page/products/real-time-customer-data-platform/audience-management\nhttps://main--bacom--adobecom.aem.page/products/marketo/financial-services\nhttps://main--bacom--adobecom.aem.page/products/magento/digital-storefront-experiences\nhttps://main--bacom--adobecom.aem.page/products/campaign/adobe-campaign\nhttps://main--bacom--adobecom.aem.page/products/journey-optimizer/benefits\nhttps://main--bacom--adobecom.aem.page/products/experience-manager/assets/asset-management\nhttps://main--bacom--adobecom.aem.page/products/marketo/adobe-marketo\nhttps://main--bacom--adobecom.aem.page/products/adobe-analytics/integrations\nhttps://main--bacom--adobecom.aem.page/products/magento/commerce-personalization\nhttps://main--bacom--adobecom.aem.page/products/experience-manager/assets/asset-insights\nhttps://main--bacom--adobecom.aem.page/products/advertising/adobe-advertising-cloud\nhttps://main--bacom--adobecom.aem.page/products/experience-manager/assets/asset-discovery\nhttps://main--bacom--adobecom.aem.page/products/magento/b2b-commerce-optimization\nhttps://main--bacom--adobecom.aem.page/products/adobe-analytics/customer-journey-analytics\nhttps://main--bacom--adobecom.aem.page/products/magento/composable-commerce-platform\nhttps://main--bacom--adobecom.aem.page/products/experience-manager/assets/smart-crop\nhttps://main--bacom--adobecom.aem.page/products/experience-manager/assets\nhttps://main--bacom--adobecom.aem.page/products/adobe-analytics/customer-journey-analytics/customer-level-analysis\nhttps://main--bacom--adobecom.aem.page/products/customer-journey-analytics/adobe-customer-journey-analytics\nhttps://main--bacom--adobecom.aem.page/products/experience-manager/assets/integrations\nhttps://main--bacom--adobecom.aem.page/products/experience-manager/assets/asset-activation';
 
 class NxImporter extends LitElement {
   static properties = {
@@ -79,9 +77,10 @@ class NxImporter extends LitElement {
     this._urls = [];
 
     if (data.index) {
+      const opts = getOptions();
       const { origin } = new URL(data.index);
-      const proxyUrl = `https://fcors.org/?url=${encodeURIComponent(data.index)}&key=jkac20jpW5Slkw9y`;
-      const resp = await fetch(proxyUrl);
+      const proxyUrl = `https://da-etc.adobeaem.workers.dev/cors?url=${encodeURIComponent(data.index)}`;
+      const resp = await fetch(proxyUrl, opts);
       if (!resp.ok) this.setStatus('Query Index could not be downloaded. CORs error?');
       const json = await resp.json();
       this._urls = json.data.map(({ path }) => {

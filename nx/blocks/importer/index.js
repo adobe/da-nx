@@ -1,8 +1,10 @@
 import { DA_ORIGIN } from '../../public/utils/constants.js';
+import { loadIms } from '../../utils/ims.js';
 import { replaceHtml, daFetch } from '../../utils/daFetch.js';
 import { mdToDocDom, docDomToAemHtml } from '../../utils/converters.js';
 import { Queue } from '../../public/utils/tree.js';
 
+const { accessToken } = await loadIms();
 const parser = new DOMParser();
 const EXTS = ['json', 'svg', 'png', 'jpg', 'jpeg', 'gif', 'mp4', 'pdf'];
 
@@ -17,6 +19,10 @@ const LINK_SELECTORS = [
 const LINK_SELECTOR_REGEX = /https:\/\/[^"'\s]+\.svg/g;
 
 let localUrls;
+
+export function getOptions() {
+  return { headers: { Authorization: `Bearer ${accessToken.token}` } };
+}
 
 async function findFragments(pageUrl, text, liveDomain) {
   // Determine commmon prefixes
@@ -75,7 +81,7 @@ async function getAemHtml(url, text) {
   return aemHtml;
 }
 
-function replaceLinks(html, fromOrg, fromRepo, liveDomain) {
+function replaceLinks(html) {
   return html;
 }
 
@@ -133,8 +139,9 @@ async function importUrl(url, findFragmentsFlag, liveDomain, setProcessed) {
   }
 
   try {
-    const proxyUrl = `https://fcors.org/?url=${encodeURIComponent(`${url.origin}${srcPath}`)}&key=jkac20jpW5Slkw9y`;
-    const resp = await fetch(proxyUrl);
+    const opts = getOptions();
+    const proxyUrl = `https://da-etc.adobeaem.workers.dev/cors?url=${encodeURIComponent(`${url.origin}${srcPath}`)}`;
+    const resp = await fetch(proxyUrl, opts);
     if (resp.redirected && !(srcPath.endsWith('.mp4') || srcPath.endsWith('.png') || srcPath.endsWith('.jpg'))) {
       url.status = 'redir';
       throw new Error('redir');
