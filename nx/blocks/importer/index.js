@@ -133,7 +133,8 @@ async function importUrl(url, findFragmentsFlag, liveDomain, setProcessed) {
   }
 
   try {
-    const resp = await fetch(`${url.origin}${srcPath}`);
+    const proxyUrl = `https://fcors.org/?url=${encodeURIComponent(`${url.origin}${srcPath}`)}&key=jkac20jpW5Slkw9y`;
+    const resp = await fetch(proxyUrl);
     if (resp.redirected && !(srcPath.endsWith('.mp4') || srcPath.endsWith('.png') || srcPath.endsWith('.jpg'))) {
       url.status = 'redir';
       throw new Error('redir');
