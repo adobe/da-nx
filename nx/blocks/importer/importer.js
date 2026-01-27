@@ -254,7 +254,6 @@ class NxImporter extends LitElement {
             </div>
           </div>
         </div>
-        <p class="cors-note"><strong>Note:</strong> CORS requests are proxied through <strong><code>fcors.org</code></strong>.</p>
         <div class="form-row">
           <input type="submit" value="${this._isImporting ? 'Importing' : 'Import'}" class="accent" ?disabled=${this._isImporting} />
         </div>
