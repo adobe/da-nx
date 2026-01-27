@@ -1,7 +1,8 @@
-import { checkPermissions, signIn, handlePreview } from "./src/utils.js";
+import { checkPermissions, signIn, handlePreview, readConfig } from "./src/utils.js";
 import createProse from "./src/prose.js";
 import { updateDocument, updateCursors, updateState, handleUndoRedo, getEditor, handleCursorMove } from "./src/render.js";
 import { handleImageReplace } from "./src/images.js";
+import { handleBlockLibraryRequest, insertBlockAt, deleteBlockAt, moveBlockAt } from "./src/block-library.js";
 
 function onMessage(e, ctx) {
   if (e.data.type === 'cursor-move') {
@@ -18,6 +19,14 @@ function onMessage(e, ctx) {
     handleUndoRedo(e.data, ctx);
   } else if (e.data.type === 'preview') {
     handlePreview(ctx);
+  } else if (e.data.type === 'block-library-request') {
+    handleBlockLibraryRequest(e.data, ctx);
+  } else if (e.data.type === 'insert-block-at') {
+    insertBlockAt(e.data, ctx);
+  } else if (e.data.type === 'delete-block-at') {
+    deleteBlockAt(e.data, ctx);
+  } else if (e.data.type === 'move-block') {
+    moveBlockAt(e.data, ctx);
   }
 }
 
@@ -86,13 +95,15 @@ export default async function decorate(el) {
       ctx.path = path;
       ctx.port = port;
 
+      const config = await readConfig(ctx);
+
       await initProse(owner, repo, path, el, ctx);
 
       // Going forward, all messages will be sent via the port
       port.onmessage = (e) => onMessage(e, ctx);
 
       // Tell the other side we are ready
-      port.postMessage({ ready: true });
+      port.postMessage({ type: 'ready', config });
     }
   }
   // set up message channel

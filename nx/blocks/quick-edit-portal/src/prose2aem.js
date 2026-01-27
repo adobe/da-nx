@@ -35,11 +35,18 @@ export function getInstrumentedHTML(view) {
     }
   });
 
-  editorClone.querySelectorAll('table').forEach((table) => {
+  const originalTables = view.dom.querySelectorAll('table');
+  const clonedTables = editorClone.querySelectorAll('table');
+  clonedTables.forEach((table, index) => {
     const div = document.createElement('div');
     div.className = 'tableWrapper';
     table.insertAdjacentElement('afterend', div);
     div.append(table);
+    const blockMarker = document.createElement('div');
+    blockMarker.className = 'block-marker';
+    const position = view.posAtDOM(originalTables[index], 0);
+    blockMarker.setAttribute('data-prose-index', position);
+    div.insertAdjacentElement('beforebegin', blockMarker);
   });
 
   const remoteCursors = editorClone.querySelectorAll('.ProseMirror-yjs-cursor');
@@ -63,5 +70,13 @@ export function getInstrumentedHTML(view) {
   });
 
   // Convert to an HTML string using prose2aem
-  return prose2aem(editorClone, true);
+  // use regex to move data-prose-index from block-marker to actual blocks
+  // faster but less readable than DOM manipulation
+  let htmlString = prose2aem(editorClone, true);
+  htmlString = htmlString.replace(
+    /<div class="block-marker" data-prose-index="(\d+)"><\/div>\s*<div([^>]*?)>/gi,
+    (match, proseIndex, divAttributes) => `<div${divAttributes} data-block-index="${proseIndex}">`
+  );
+
+  return htmlString;
 }

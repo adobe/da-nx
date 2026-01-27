@@ -262,3 +262,30 @@ da-palette {
 da-palette .da-palette-field {
   color: black;
 }
+
+/* Drop targets for block drag and drop */
+.qe-drop-target {
+  display: none;
+  height: 40px;
+  margin: 8px 0;
+  border: 2px dashed var(--color-blue-500, #1373e6);
+  border-radius: 8px;
+  background: rgba(19, 115, 230, 0.1);
+  color: var(--color-blue-600, #1373e6);
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  opacity: 0.6;
+  cursor: pointer;
+}
+
+.qe-drop-target.qe-drop-target-active {
+  opacity: 1;
+  background: rgba(19, 115, 230, 0.2);
+  border-color: var(--color-blue-600, #1373e6);
+  border-width: 3px;
+  transform: scaleY(1.1);
+}

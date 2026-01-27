@@ -19,6 +19,16 @@ function updateInstrumentation(lengthDiff, offset) {
       element.setAttribute('data-initial-length', element.textContent.length);
     }
   });
+
+  // Also update block indices
+  const blockElements = document.querySelectorAll('[data-block-index]');
+  blockElements.forEach((element) => {
+    const blockIndex = parseInt(element.getAttribute('data-block-index'), 10);
+    if (blockIndex > offset) {
+      const newBlockIndex = blockIndex + lengthDiff;
+      element.setAttribute('data-block-index', newBlockIndex);
+    }
+  });
 }
 
 function handleTransaction(tr, ctx, editorView, editorParent) {

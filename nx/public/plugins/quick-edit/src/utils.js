@@ -90,3 +90,12 @@ export function setupActions(ctx) {
   
   document.body.appendChild(container);
 }
+
+export const getSheetByIndex = (json, index = 0) => {
+  if (json[':type'] !== 'multi-sheet') {
+    return json.data;
+  }
+  return json[Object.keys(json)[index]]?.data;
+};
+
+export const getFirstSheet = (json) => getSheetByIndex(json, 0);

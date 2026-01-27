@@ -233,6 +233,17 @@ export async function signIn() {
   }
 }
 
+export async function readConfig(ctx) {
+  const configUrl = `https://admin.da.live/config/${ctx.owner}/${ctx.repo}/`;
+  const token = await getToken();
+  const resp = await fetch(configUrl, { headers: { 'Authorization': `Bearer ${token}` }});
+  if (!resp.ok) {
+    console.error('Failed to read config:', resp.statusText);
+    return null;
+  }
+  return resp.json();
+}
+
 export async function handlePreview(ctx) {
   const path = ctx.path.endsWith('/') ? `${ctx.path}index` : `${ctx.path}`;
   const url = `https://admin.hlx.page/preview/${ctx.owner}/${ctx.repo}/main${path}`;

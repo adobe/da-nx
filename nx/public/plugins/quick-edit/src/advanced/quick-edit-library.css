@@ -1,0 +1,249 @@
+:host {
+  display: block;
+  position: fixed;
+  right: 20px;
+  top: 20px;
+  width: 320px;
+  max-height: calc(100vh - 100px);
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  z-index: 9998;
+  color: #333;
+  color-scheme: light;
+}
+
+.qe-library-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  max-height: calc(100vh - 100px);
+}
+
+.qe-library-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px;
+  border-bottom: 1px solid #e0e0e0;
+  cursor: grab;
+  user-select: none;
+}
+
+.qe-library-header:active {
+  cursor: grabbing;
+}
+
+.qe-library-header h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #000;
+}
+
+.qe-library-close {
+  background: none;
+  border: none;
+  padding: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background 0.2s ease;
+}
+
+.qe-library-close:hover {
+  background: #f0f0f0;
+}
+
+.qe-library-close .icon {
+  width: 20px;
+  height: 20px;
+  color: #666;
+}
+
+.qe-library-search {
+  padding: 12px 16px;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.qe-library-search-input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #d0d0d0;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.qe-library-search-input:focus {
+  border-color: var(--color-blue-500, #1373e6);
+}
+
+.qe-library-search-input::placeholder {
+  color: #999;
+}
+
+.qe-library-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.qe-library-block-list {
+  margin: 0;
+  padding: 0;
+}
+
+.qe-library-block-item {
+  margin: 0;
+}
+
+.qe-library-block-header button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.2s ease;
+  font-size: 15px;
+  font-family: inherit;
+  color: #333;
+}
+
+.qe-library-block-header button:hover {
+  background: #f5f5f5;
+}
+
+.qe-library-block-item.is-open .qe-library-block-header button {
+  background: #f0f0f0;
+  font-weight: 500;
+}
+
+.qe-library-block-name {
+  flex: 1;
+  font-weight: 500;
+}
+
+.icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.icon-chevron {
+  transition: transform 0.2s ease;
+}
+
+.qe-library-block-item.is-open .icon-chevron {
+  transform: rotate(90deg);
+}
+
+.qe-library-block-variants {
+  background: #fafafa;
+  border-top: 1px solid #e0e0e0;
+  border-bottom: 1px solid #e0e0e0;
+  padding: 8px 0;
+}
+
+.qe-library-variant-list {
+  margin: 0;
+  padding: 0;
+}
+
+.qe-library-variant-drag {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 24px;
+  border: none;
+  background: none;
+  cursor: grab;
+  text-align: left;
+  transition: background 0.2s ease;
+  font-size: 14px;
+  font-family: inherit;
+  color: #333;
+  box-sizing: border-box;
+}
+
+.qe-library-variant-drag:active {
+  cursor: grabbing;
+}
+
+.qe-library-variant-drag:hover {
+  background: #e8f4ff;
+  color: var(--color-blue-600, #1373e6);
+}
+
+.qe-library-variant-name {
+  flex: 1;
+  font-weight: 400;
+}
+
+.qe-library-variant-subtitle {
+  font-size: 12px;
+  color: #666;
+  font-style: italic;
+}
+
+.qe-library-variant-drag:hover .qe-library-variant-subtitle {
+  color: #555;
+}
+
+.icon-drag {
+  opacity: 0.3;
+  transition: opacity 0.2s ease;
+}
+
+.qe-library-variant-drag:hover .icon-drag {
+  opacity: 1;
+  color: var(--color-blue-600, #1373e6);
+}
+
+.qe-library-empty,
+.qe-library-no-variants,
+.loading {
+  padding: 24px 16px;
+  text-align: center;
+  color: #999;
+  font-size: 14px;
+}
+
+.loading {
+  padding: 12px 24px;
+  font-style: italic;
+}
+
+/* Scrollbar styling */
+.qe-library-content::-webkit-scrollbar {
+  width: 8px;
+}
+
+.qe-library-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.qe-library-content::-webkit-scrollbar-thumb {
+  background: #d0d0d0;
+  border-radius: 4px;
+}
+
+.qe-library-content::-webkit-scrollbar-thumb:hover {
+  background: #b0b0b0;
+}

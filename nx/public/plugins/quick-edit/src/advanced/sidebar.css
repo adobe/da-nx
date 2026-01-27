@@ -1,0 +1,60 @@
+:host {
+  display: block;
+  position: fixed;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 9999;
+  color-scheme: light;
+}
+
+.qe-sidebar {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: white;
+  border-radius: 8px 0 0 8px;
+  box-shadow: -2px 0 8px rgba(0, 0, 0, 0.1);
+  padding: 8px;
+}
+
+.qe-sidebar-button {
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  background: white;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  color: #666;
+  margin-bottom: 8px;
+}
+
+.qe-sidebar-button:last-child {
+  margin-bottom: 0;
+}
+
+.qe-sidebar-button:hover {
+  background: #f5f5f5;
+  border-color: var(--color-blue-500, #1373e6);
+  color: var(--color-blue-600, #1373e6);
+}
+
+.qe-sidebar-button.active {
+  background: var(--color-blue-500, #1373e6);
+  border-color: var(--color-blue-600, #1373e6);
+  color: white;
+}
+
+.qe-sidebar-button.active:hover {
+  background: var(--color-blue-600, #1373e6);
+}
+
+.icon {
+  width: 24px;
+  height: 24px;
+}

@@ -1,7 +1,8 @@
 import { setupContentEditableListeners, setupImageDropListeners, updateImageSrc, handleImageError } from './src/images.js';
 import { setEditorState } from './src/prose.js';
 import { setCursors } from './src/cursors.js';
-import { pollConnection, setupActions } from './src/utils.js';
+import { pollConnection, setupActions, getFirstSheet } from './src/utils.js';
+import { handleBlockLibraryResponse } from './src/advanced/quick-edit-library.js';
 
 import { loadStyle } from "../../../scripts/nexter.js";
 
@@ -17,11 +18,19 @@ async function setBody(body, ctx) {
   setupContentEditableListeners(ctx);
   setupImageDropListeners(ctx, document.body.querySelector('main'));
   setupActions(ctx);
+
+  const quickEditType = getFirstSheet(ctx.config).find((item) => item.key === 'quick-edit')?.value;
+  if (quickEditType === 'advanced') {
+    const { default: setupAdvancedMode } = await import('./src/advanced/setup.js');
+    setupAdvancedMode(ctx);
+  }
 }
 
 function onMessage(e, ctx) {
-  ctx.initialized = true;
-  if (e.data.type === 'set-body') {
+  if (e.data.type === 'ready') {
+    ctx.initialized = true;
+    ctx.config = e.data.config;
+  } else if (e.data.type === 'set-body') {
     setBody(e.data.body, ctx);
   } else if (e.data.type === 'set-editor-state') {
     const { editorState, cursorOffset } = e.data;
@@ -33,6 +42,8 @@ function onMessage(e, ctx) {
     updateImageSrc(originalSrc, newSrc);
   } else if (e.data.type === 'image-error') {
     handleImageError(e.data.error);
+  } else if (e.data.type === 'block-library-response') {
+    handleBlockLibraryResponse(e.data);
   }
 } 
 

@@ -1,0 +1,148 @@
+:host {
+  position: fixed;
+  top: 100px;
+  right: 60px;
+  z-index: 999999;
+  font-family: adobe-clean, sans-serif;
+}
+
+.qe-outline-container {
+  background: white;
+  border: 1px solid #d3d3d3;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  width: 300px;
+  max-height: 500px;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+.qe-outline-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid #e1e1e1;
+  cursor: grab;
+  user-select: none;
+}
+
+.qe-outline-header:active {
+  cursor: grabbing;
+}
+
+.qe-outline-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #2c2c2c;
+}
+
+.qe-outline-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #6e6e6e;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.qe-outline-close:hover {
+  background-color: #f5f5f5;
+  color: #2c2c2c;
+}
+
+.qe-outline-content {
+  overflow-y: auto;
+  padding: 8px;
+  flex: 1;
+}
+
+.qe-outline-empty {
+  padding: 24px;
+  text-align: center;
+  color: #6e6e6e;
+  font-size: 14px;
+}
+
+.qe-outline-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.qe-outline-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+  border: 1px solid transparent;
+  cursor: move;
+}
+
+.qe-outline-item:hover {
+  background-color: #f5f5f5;
+  border-color: #e1e1e1;
+}
+
+.qe-outline-item-drag-over {
+  background-color: #e6f2ff;
+  border-color: #1473e6;
+  border-style: dashed;
+}
+
+.qe-outline-item-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex: 1;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.qe-outline-block-type {
+  font-size: 14px;
+  color: #2c2c2c;
+  font-weight: 500;
+  flex: 1;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.qe-outline-block-index {
+  font-size: 12px;
+  color: #6e6e6e;
+  background-color: #f0f0f0;
+  padding: 2px 6px;
+  border-radius: 3px;
+  margin-left: 8px;
+}
+
+.qe-outline-delete {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: #6e6e6e;
+  padding: 0 4px;
+  margin-left: 8px;
+  border-radius: 3px;
+  transition: background-color 0.2s, color 0.2s;
+  flex-shrink: 0;
+}
+
+.qe-outline-delete:hover {
+  background-color: #ffebeb;
+  color: #d7373f;
+}
