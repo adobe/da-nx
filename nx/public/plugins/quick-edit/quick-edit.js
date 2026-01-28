@@ -21,7 +21,8 @@ async function setBody(body, ctx) {
   setupActions(ctx);
 
   const quickEditType = getFirstSheet(ctx.config).find((item) => item.key === 'quick-edit')?.value;
-  if (quickEditType === 'advanced') {
+  // Enable advanced mode features for both 'advanced' and 'side-by-side' modes
+  if (quickEditType === 'advanced' || quickEditType === 'side-by-side') {
     const { default: setupAdvancedMode } = await import('./src/advanced/setup.js');
     setupAdvancedMode(ctx);
   }

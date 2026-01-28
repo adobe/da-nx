@@ -71,7 +71,39 @@ async function onMessage(e, ctx) {
     if (ctx.port) {
       ctx.port.postMessage({ type: 'open-library' });
     }
+  } else if (e.data.type === 'insert-block') {
+    // Handle block insertion at cursor position
+    insertBlock(e.data.html);
   }
+}
+
+async function insertBlock(html) {
+  if (!window.view) return;
+  
+  // Dynamic import to get DOMParser
+  const { DOMParser } = await import('da-y-wrapper');
+  
+  const { schema, tr } = window.view.state;
+  const insertPos = tr.selection.from;
+  
+  // Parse the HTML into a DOM element
+  const div = document.createElement('div');
+  div.innerHTML = html;
+  
+  // Convert DOM to ProseMirror nodes
+  const parsed = DOMParser.fromSchema(schema).parse(div);
+  
+  // Insert the block at the current cursor position
+  const newTr = tr.replaceSelectionWith(parsed);
+  const finalPos = Math.min(insertPos + parsed.nodeSize, newTr.doc.content.size);
+  
+  // Dispatch the transaction with selection update
+  const { TextSelection } = await import('da-y-wrapper');
+  window.view.dispatch(
+    newTr
+      .setSelection(TextSelection.create(newTr.doc, finalPos))
+      .scrollIntoView()
+  );
 }
 
 async function initProse(owner, repo, path, el, ctx) {
