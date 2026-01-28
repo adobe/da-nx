@@ -138,8 +138,41 @@ export async function addAssets({
       // Add fileDetails parameter for GLaaS v1.2
       const url = `${origin}/api/l10n/v1.2/tasks/${workflow}/${name}/assets?targetLanguages=${targetLocales.join(',')}&fileDetails=${encodeURIComponent(JSON.stringify(fileDetails))}`;
 
+      // Log GLaaS request details for debugging
+      console.log('=== GLaaS API Request ===');
+      console.log('URL:', url);
+      console.log('fileDetails:', JSON.stringify(fileDetails, null, 2));
+      console.log('_asset_metadata_:', JSON.stringify(assetMetadata, null, 2));
+
+      // Log HTML content with ITS attributes
+      const itsStorageSizeCount = (item.content.match(/its-storage-size/g) || []).length;
+      const itsLocNoteCount = (item.content.match(/its-loc-note="/g) || []).length;
+      console.log(`HTML ITS Attributes: ${itsStorageSizeCount} its-storage-size, ${itsLocNoteCount} its-loc-note`);
+      console.log(`HTML Length: ${item.content.length} characters`);
+
+      // Log full HTML (collapsible in console - expand to copy)
+      console.groupCollapsed('📄 Full HTML Content (click to expand, then copy)');
+      console.log(item.content);
+      console.groupEnd();
+
+      // Also log a snippet of ITS attributes for quick verification
+      const itsSnippets = [];
+      const itsRegex = /<div[^>]*its-loc-note="[^"]*"[^>]*>/g;
+      let match;
+      let count = 0;
+      while ((match = itsRegex.exec(item.content)) !== null && count < 3) {
+        itsSnippets.push(match[0]);
+        count++;
+      }
+      if (itsSnippets.length > 0) {
+        console.log('Sample ITS attributes (first 3):');
+        itsSnippets.forEach((snippet, i) => console.log(`  ${i + 1}. ${snippet}`));
+      }
+      console.log('=======================');
+
       try {
         const resp = await fetch(url, opts);
+        console.log(`GLaaS Response for ${glaasFilename}:`, resp.status, resp.statusText);
         if (!resp.ok) throw new Error(resp.status);
         return { status: resp.status };
       } catch (e) {
