@@ -1,5 +1,5 @@
 import { TextSelection, yUndo, yRedo } from "da-y-wrapper";
-import { getInstrumentedHTML } from "./prose2aem.js";
+import { getInstrumentedHTML } from "./prose2aem.js?v=2";
 
 export function updateDocument(ctx) {
   // Skip rerender if suppressed (e.g., during image updates)

@@ -16,7 +16,8 @@ async function setBody(body, ctx) {
   document.body.innerHTML = doc.body.innerHTML;
   await ctx.loadPage();
   setupContentEditableListeners(ctx);
-  setupImageDropListeners(ctx, document.body.querySelector('main'));
+  // Pass document.body since we no longer have a <main> wrapper
+  setupImageDropListeners(ctx, document.body);
   setupActions(ctx);
 
   const quickEditType = getFirstSheet(ctx.config).find((item) => item.key === 'quick-edit')?.value;
@@ -26,10 +27,71 @@ async function setBody(body, ctx) {
   }
 }
 
+function scrollToPosition(position) {
+  // Find the element with data-prose-index closest to this position
+  // We look for both exact match and the closest one before this position
+  const elements = document.querySelectorAll('[data-prose-index]');
+  let targetElement = null;
+  let closestDiff = Infinity;
+
+  elements.forEach((el) => {
+    const elPosition = parseInt(el.getAttribute('data-prose-index'), 10);
+    const diff = Math.abs(position - elPosition);
+    
+    // Prefer elements at or before the cursor position
+    if (elPosition <= position && diff < closestDiff) {
+      closestDiff = diff;
+      targetElement = el;
+    }
+  });
+
+  // Also check for block-level elements with data-block-index
+  const blockElements = document.querySelectorAll('[data-block-index]');
+  blockElements.forEach((el) => {
+    const elPosition = parseInt(el.getAttribute('data-block-index'), 10);
+    const diff = Math.abs(position - elPosition);
+    
+    if (elPosition <= position && diff < closestDiff) {
+      closestDiff = diff;
+      targetElement = el;
+    }
+  });
+
+  if (targetElement) {
+    // Calculate header height dynamically and set scroll-margin
+    const header = document.querySelector('header');
+    const headerHeight = header ? header.offsetHeight : 0;
+    const additionalPadding = 20;
+
+    // Set scroll-margin-top dynamically
+    targetElement.style.scrollMarginTop = `${headerHeight + additionalPadding}px`;
+
+    // Scroll the element into view
+    targetElement.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' });
+  }
+}
+
+function setupSideBySideMode(ctx) {
+  const quickEditType = getFirstSheet(ctx.config).find((item) => item.key === 'quick-edit')?.value;
+  console.log('quickEditType', quickEditType);
+  console.log('ctx.config', ctx.config);
+  
+  if (quickEditType === 'side-by-side') {
+    const iframe = document.getElementById(QUICK_EDIT_ID);
+    if (iframe) {
+      iframe.style.visibility = 'visible';
+      document.documentElement.classList.add('qe-side-by-side-mode');
+      // Tell the portal to enable side-by-side mode and load editor styles
+      ctx.port.postMessage({ type: 'enable-side-by-side' });
+    }
+  }
+}
+
 function onMessage(e, ctx) {
   if (e.data.type === 'ready') {
     ctx.initialized = true;
     ctx.config = e.data.config;
+    setupSideBySideMode(ctx);
   } else if (e.data.type === 'set-body') {
     setBody(e.data.body, ctx);
   } else if (e.data.type === 'set-editor-state') {
@@ -37,6 +99,8 @@ function onMessage(e, ctx) {
     setEditorState(cursorOffset, editorState, ctx);
   } else if (e.data.type === 'set-cursors') {
     setCursors(e.data.body, ctx);
+  } else if (e.data.type === 'scroll-to-position') {
+    scrollToPosition(e.data.position);
   } else if (e.data.type === 'update-image-src') {
     const { newSrc, originalSrc } = e.data;
     updateImageSrc(originalSrc, newSrc);

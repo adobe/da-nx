@@ -1,10 +1,20 @@
 import { checkPermissions, signIn, handlePreview, readConfig } from "./src/utils.js";
 import createProse from "./src/prose.js";
-import { updateDocument, updateCursors, updateState, handleUndoRedo, getEditor, handleCursorMove } from "./src/render.js";
+import { updateDocument, updateCursors, updateState, handleUndoRedo, getEditor, handleCursorMove } from "./src/render.js?v=2";
 import { handleImageReplace } from "./src/images.js";
 import { handleBlockLibraryRequest, insertBlockAt, deleteBlockAt, moveBlockAt } from "./src/block-library.js";
 
-function onMessage(e, ctx) {
+async function loadEditorStyles() {
+  // Load the local da-editor.css for proper ProseMirror styling
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  // Use relative path to load from local styles directory
+  const baseUrl = new URL(import.meta.url).href.replace('/quick-edit-portal.js', '');
+  link.href = `${baseUrl}/styles/da-editor.css`;
+  document.head.appendChild(link);
+}
+
+async function onMessage(e, ctx) {
   if (e.data.type === 'cursor-move') {
     handleCursorMove(e.data, ctx);
   } else if (e.data.type === 'reload') {
@@ -27,6 +37,40 @@ function onMessage(e, ctx) {
     deleteBlockAt(e.data, ctx);
   } else if (e.data.type === 'move-block') {
     moveBlockAt(e.data, ctx);
+  } else if (e.data.type === 'enable-side-by-side') {
+    // Enable full editor mode and reinitialize
+    ctx.enableFullEditor = true;
+    window.enableFullEditor = true;
+    await loadEditorStyles();
+    
+    // Properly clean up the old editor before reinitializing
+    const oldProseEl = document.querySelector('.da-prose-mirror');
+    const el = oldProseEl?.parentElement;
+    
+    if (el && ctx.owner && ctx.repo && ctx.path) {
+      // Disconnect old websocket provider
+      if (ctx.wsProvider) {
+        ctx.wsProvider.disconnect();
+        ctx.wsProvider = null;
+      }
+      
+      // Destroy old view (done inside createProse, but being explicit)
+      if (ctx.view) {
+        ctx.view.destroy();
+        ctx.view = null;
+      }
+      
+      // Clear the container completely
+      el.innerHTML = '';
+      
+      // Now reinitialize with full editor
+      await initProse(ctx.owner, ctx.repo, ctx.path, el, ctx);
+    }
+  } else if (e.data.type === 'open-library') {
+    // Handle library request from menu plugin
+    if (ctx.port) {
+      ctx.port.postMessage({ type: 'open-library' });
+    }
   }
 }
 
@@ -46,6 +90,8 @@ async function initProse(owner, repo, path, el, ctx) {
     rerenderPage: () => updateDocument(ctx), 
     updateCursors: () => updateCursors(ctx),
     getEditor: (data) => getEditor(data, ctx),
+    enableFullEditor: ctx.enableFullEditor || false,
+    ctx,
   });
 
   el.append(proseEl);
@@ -63,6 +109,7 @@ export default async function decorate(el) {
     path: null,
     port: null,
     suppressRerender: false,
+    enableFullEditor: false,
   };
 
   await signIn();
@@ -70,6 +117,8 @@ export default async function decorate(el) {
   async function initPort(e) {
     if (e.data?.init) {
       const [port] = e.ports;
+      
+      window.enableFullEditor = ctx.enableFullEditor || false;
 
       el.innerHTML = "";
 

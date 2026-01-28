@@ -88,12 +88,12 @@ export function setupImageDropListeners(ctx, dom = document) {
 
 export function updateImageSrc(originalSrc, newSrc) {
   // First, try to find by the uploading state (most reliable)
-  let picture = document.querySelector('main picture.image-uploading');
+  let picture = document.querySelector('picture.image-uploading');
   let targetImg = picture?.querySelector('img');
 
   // If not found by uploading state, try to match by src
   if (!targetImg) {
-    const images = document.querySelectorAll('main picture img');
+    const images = document.querySelectorAll('picture img');
     
     // Extract pathname from originalSrc for comparison
     let originalPath = originalSrc;
@@ -171,7 +171,7 @@ export function updateImageSrc(originalSrc, newSrc) {
 
 export function handleImageError(error) {
   // Remove loading state on error
-  const images = document.querySelectorAll('main picture.image-uploading');
+  const images = document.querySelectorAll('picture.image-uploading');
   images.forEach((picture) => {
     picture.classList.remove('image-uploading');
   });

@@ -289,3 +289,22 @@ da-palette .da-palette-field {
   border-width: 3px;
   transform: scaleY(1.1);
 }
+
+/* Side-by-side mode styles */
+.qe-side-by-side-mode #quick-edit-iframe {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: min(50%, 800px);
+  height: 100vh;
+  border: none;
+  border-right: 2px solid #e0e0e0;
+  z-index: 1000;
+}
+
+.qe-side-by-side-mode body {
+  margin-left: min(50%, 800px);
+  width: calc(100% - min(50%, 800px));
+  min-height: 100vh;
+  box-sizing: border-box;
+}
