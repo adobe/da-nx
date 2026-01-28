@@ -119,11 +119,20 @@ export async function addAssets({
         assetName: glaasFilename,
         assetType: 'SOURCE',
         targetLocales,
-        metadata: { 'source-preview-url': item.aemHref.replace(/\/index$/, '/') },
       };
 
       // GLaaS v1.2
       body.append('file', file, glaasFilename);
+
+      const assetMetadata = {
+        assetName: glaasFilename,
+        metadata: { 'source-preview-url': item.aemHref.replace(/\/index$/, '/') },
+        ...(item.translationMetadata && { langMetadata: item.translationMetadata }),
+      };
+      body.append('_asset_metadata_', new Blob(
+        [JSON.stringify(assetMetadata)],
+        { type: 'application/json' },
+      ));
 
       const opts = getOpts(clientid, token, body, null, 'POST');
       // Add fileDetails parameter for GLaaS v1.2
@@ -133,7 +142,8 @@ export async function addAssets({
         const resp = await fetch(url, opts);
         if (!resp.ok) throw new Error(resp.status);
         return { status: resp.status };
-      } catch {
+      } catch (e) {
+        console.error(`GLaaS Error for ${glaasFilename}:`, e);
         return { error: 'There was an error uploading' };
       }
     }));
