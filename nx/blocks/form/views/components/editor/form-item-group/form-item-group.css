@@ -1,0 +1,88 @@
+:host {
+  display: block;
+  position: relative;
+  /* Editor can override this to honor sticky header height */
+  scroll-margin-top: var(--form-group-offset, var(--editor-header-height, 0px));
+}
+
+/* Add spacing between groups, except for array items */
+:host(:not(.array-item)) {
+  margin-top: 12px;
+}
+
+/* Left-side active highlight */
+:host([active])::before {
+  content: "";
+  position: absolute;
+  left: var(--form-group-accent-offset, -48px);
+  top: 0;
+  bottom: 0;
+  width: var(--form-group-accent-width, 3px);
+  background-color: var(--s2-blue-700, #5989ff);
+  box-shadow: none;
+  z-index: 1;
+  border-top-right-radius: var(--form-group-accent-radius, 15px);
+  border-bottom-right-radius: var(--form-group-accent-radius, 15px);
+}
+
+/* Header container for title and actions */
+.item-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  position: relative;
+}
+
+/* Group title */
+.item-title {
+  font-weight: 600;
+  line-height: 1.5em;
+  padding-bottom: 15px;
+  position: relative;
+  margin-bottom: var(--form-group-title-mb, 20px);
+  margin-top: var(--form-group-title-mt, 0px);
+  font-size: var(--s2-body-m-size, 16px);
+  flex: 1;
+}
+
+/* Actions container */
+.item-actions {
+  position: absolute;
+  right: -36px;
+  top: 0;
+  display: flex;
+  align-items: center;
+}
+
+.item-title::before {
+  content: "";
+  position: absolute;
+  left: 0px;
+  bottom: 1px;
+  height: 3px;
+  width: 55px;
+  background-color: var(--s2-gray-800, #292929);
+}
+
+.item-title::after {
+  content: "";
+  position: absolute;
+  left: 0px;
+  bottom: 2px;
+  height: 1px;
+  width: 100%;
+  background-color: var(--s2-gray-800, #292929);
+}
+
+.form-children {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  /* Prevent grid expansion */
+  row-gap: var(--form-group-gap, 10px);
+  min-width: 0;
+}
+
+/* Ensure grid items can shrink below their content size */
+.form-children>* {
+  min-width: 0;
+}

@@ -1,0 +1,54 @@
+:host {
+  display: block;
+}
+
+sl-textarea {
+  height: 200px;
+}
+
+.da-form-wrapper {
+  width: 900px;
+  margin: 0 auto;
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 30px;
+
+  .da-schema-selector {
+    margin-bottom: 20px;
+    width: 100%;
+  }
+
+  .da-form-title {
+    line-height: 1;
+    font-weight: 700;
+    margin: 0 0 8px;
+  }
+
+  .da-form-editor {
+    width: 700px;
+    flex: 0 0 700px;
+  }
+
+  da-form-editor {
+    margin-bottom: 20px;
+  }
+
+  da-form-navigation {
+    position: sticky;
+    top: 0px;
+    width: 350px;
+    flex: 0 0 350px;
+    align-self: flex-start;
+  }
+
+  /** TODO: Remove this to move the preview to the end of the page */
+  da-form-preview {
+    position: fixed;
+    left: 80px;
+    top: 84px;
+    height: 100%;
+    border-radius: 43px;
+    width: 320px;
+  }
+}

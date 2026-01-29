@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Pure Inline Simple Form",
+  "description": "Simple form with all inline definitions - no $ref or $defs",
+  "type": "object",
+  "required": ["firstName", "lastName", "email"],
+  "properties": {
+    "firstName": {
+      "type": "string",
+      "title": "First Name",
+      "minLength": 1
+    },
+    "lastName": {
+      "type": "string",
+      "title": "Last Name",
+      "minLength": 1
+    },
+    "email": {
+      "type": "string",
+      "title": "Email",
+      "format": "email",
+      "minLength": 1
+    },
+    "age": {
+      "type": "integer",
+      "title": "Age",
+      "minimum": 18,
+      "maximum": 120
+    },
+    "country": {
+      "type": "string",
+      "title": "Country",
+      "enum": ["USA", "Canada", "UK", "Germany", "France", "Other"]
+    },
+    "newsletter": {
+      "type": "boolean",
+      "title": "Subscribe to Newsletter"
+    },
+    "interests": {
+      "type": "array",
+      "title": "Interests",
+      "items": {
+        "type": "string",
+        "title": "Interest"
+      }
+    },
+    "bio": {
+      "type": "string",
+      "title": "Biography",
+      "x-semantic-type": "long-text"
+    }
+  }
+}

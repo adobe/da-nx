@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Offer",
+  "$defs": {
+    "offer": {
+      "type": "object",
+      "title": "Offer",
+      "description": "Content offer with headline, detail, and call-to-action",
+      "additionalProperties": false,
+      "properties": {
+        "headline": {
+          "type": "string",
+          "title": "Headline",
+          "description": "Main headline for the offer"
+        },
+        "detail": {
+          "type": "string",
+          "title": "Detail",
+          "description": "Detailed content for the offer"
+        },
+        "cta": {
+          "type": "object",
+          "title": "Call to Action",
+          "description": "Call-to-action button configuration",
+          "properties": {
+            "label": {
+              "type": "string",
+              "title": "Label",
+              "description": "Button label text"
+            },
+            "url": {
+              "type": "string",
+              "title": "URL",
+              "description": "Button destination URL (relative or absolute)"
+            }
+          },
+          "required": [
+            "label",
+            "url"
+          ]
+        }
+      },
+      "required": [
+        "headline",
+        "detail",
+        "cta"
+      ]
+    }
+  },
+  "$ref": "#/$defs/offer",
+  "type": "object",
+  "required": [
+    "headline",
+    "detail",
+    "cta"
+  ]
+}

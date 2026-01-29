@@ -1,0 +1,171 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Edge Cases Test",
+  "description": "Testing edge cases and special scenarios",
+  "type": "object",
+  "properties": {
+    "emptyArray": {
+      "type": "array",
+      "title": "Empty Array (Optional)",
+      "description": "Optional array that starts empty",
+      "items": {
+        "type": "string",
+        "title": "Item"
+      }
+    },
+    "requiredArray": {
+      "type": "array",
+      "title": "Required Array",
+      "description": "Array that must have at least one item",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "title": "Required Item"
+      }
+    },
+    "limitedArray": {
+      "type": "array",
+      "title": "Limited Array",
+      "description": "Array with max 3 items",
+      "maxItems": 3,
+      "items": {
+        "type": "string",
+        "title": "Item"
+      }
+    },
+    "arrayOfArrays": {
+      "type": "array",
+      "title": "Array of Arrays",
+      "description": "Nested array structure",
+      "items": {
+        "type": "array",
+        "title": "Group",
+        "items": {
+          "type": "string",
+          "title": "Value"
+        }
+      }
+    },
+    "arrayOfObjects": {
+      "type": "array",
+      "title": "Array of Objects",
+      "items": {
+        "type": "object",
+        "title": "Record",
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "ID"
+          },
+          "value": {
+            "type": "number",
+            "title": "Value"
+          },
+          "active": {
+            "type": "boolean",
+            "title": "Active"
+          }
+        }
+      }
+    },
+    "deeplyNested": {
+      "type": "object",
+      "title": "Deeply Nested Object",
+      "description": "Testing deep nesting levels",
+      "properties": {
+        "level1": {
+          "type": "object",
+          "title": "Level 1",
+          "properties": {
+            "level2": {
+              "type": "object",
+              "title": "Level 2",
+              "properties": {
+                "level3": {
+                  "type": "object",
+                  "title": "Level 3",
+                  "properties": {
+                    "value": {
+                      "type": "string",
+                      "title": "Deep Value"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "allPrimitiveTypes": {
+      "type": "object",
+      "title": "All Primitive Types",
+      "properties": {
+        "stringField": {
+          "type": "string",
+          "title": "String"
+        },
+        "numberField": {
+          "type": "number",
+          "title": "Number"
+        },
+        "integerField": {
+          "type": "integer",
+          "title": "Integer"
+        },
+        "booleanField": {
+          "type": "boolean",
+          "title": "Boolean"
+        }
+      }
+    },
+    "enumVariations": {
+      "type": "object",
+      "title": "Enum Variations",
+      "properties": {
+        "stringEnum": {
+          "type": "string",
+          "title": "String Enum",
+          "enum": ["Option A", "Option B", "Option C"]
+        },
+        "numberEnum": {
+          "type": "number",
+          "title": "Number Enum",
+          "enum": [1, 2, 3, 4, 5]
+        }
+      }
+    },
+    "validationPatterns": {
+      "type": "object",
+      "title": "Validation Patterns",
+      "properties": {
+        "email": {
+          "type": "string",
+          "title": "Email",
+          "format": "email"
+        },
+        "date": {
+          "type": "string",
+          "title": "Date",
+          "format": "date"
+        },
+        "zipCode": {
+          "type": "string",
+          "title": "ZIP Code",
+          "pattern": "^[0-9]{5}(-[0-9]{4})?$"
+        },
+        "phone": {
+          "type": "string",
+          "title": "Phone",
+          "pattern": "^\\+?[1-9]\\d{1,14}$"
+        }
+      }
+    },
+    "emptyObject": {
+      "type": "object",
+      "title": "Empty Object",
+      "description": "Object with no defined properties",
+      "properties": {}
+    }
+  }
+}

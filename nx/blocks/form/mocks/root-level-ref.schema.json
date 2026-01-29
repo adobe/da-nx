@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Root Level $ref",
+  "description": "Schema using $ref at root level (common pattern)",
+  "$ref": "#/$defs/mainForm",
+  "$defs": {
+    "mainForm": {
+      "type": "object",
+      "title": "Contact Information Form",
+      "required": [
+        "firstName",
+        "lastName",
+        "contactMethod"
+      ],
+      "properties": {
+        "firstName": {
+          "type": "string",
+          "title": "First Name",
+          "minLength": 1
+        },
+        "lastName": {
+          "type": "string",
+          "title": "Last Name",
+          "minLength": 1
+        },
+        "contactMethod": {
+          "$ref": "#/$defs/contactInfo"
+        },
+        "alternateContact": {
+          "$ref": "#/$defs/contactInfo"
+        },
+        "addresses": {
+          "type": "array",
+          "title": "Addresses",
+          "items": {
+            "$ref": "#/$defs/address"
+          }
+        },
+        "preferences": {
+          "$ref": "#/$defs/preferences"
+        }
+      }
+    },
+    "contactInfo": {
+      "type": "object",
+      "title": "Contact Information",
+      "properties": {
+        "email": {
+          "type": "string",
+          "title": "Email",
+          "format": "email"
+        },
+        "phone": {
+          "type": "string",
+          "title": "Phone"
+        },
+        "preferredMethod": {
+          "type": "string",
+          "title": "Preferred Contact Method",
+          "enum": [
+            "Email",
+            "Phone",
+            "SMS"
+          ]
+        }
+      }
+    },
+    "address": {
+      "type": "object",
+      "title": "Address",
+      "properties": {
+        "type": {
+          "type": "string",
+          "title": "Address Type",
+          "enum": [
+            "Home",
+            "Work",
+            "Other"
+          ]
+        },
+        "street": {
+          "type": "string",
+          "title": "Street"
+        },
+        "city": {
+          "type": "string",
+          "title": "City"
+        },
+        "state": {
+          "type": "string",
+          "title": "State"
+        },
+        "zipCode": {
+          "type": "string",
+          "title": "ZIP Code"
+        }
+      }
+    },
+    "preferences": {
+      "type": "object",
+      "title": "Communication Preferences",
+      "properties": {
+        "emailNotifications": {
+          "type": "boolean",
+          "title": "Email Notifications"
+        },
+        "smsNotifications": {
+          "type": "boolean",
+          "title": "SMS Notifications"
+        },
+        "frequency": {
+          "type": "string",
+          "title": "Notification Frequency",
+          "enum": [
+            "Immediate",
+            "Daily Digest",
+            "Weekly Summary"
+          ]
+        }
+      }
+    }
+  }
+}

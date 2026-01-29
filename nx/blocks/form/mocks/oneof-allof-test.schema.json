@@ -1,0 +1,456 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "oneof-allof-test",
+  "title": "oneOf & allOf Test Schema",
+  "description": "Test schema to evaluate oneOf and allOf support in the form editor",
+  "type": "object",
+  "required": [
+    "basicInfo"
+  ],
+  "properties": {
+    "basicInfo": {
+      "type": "object",
+      "title": "Basic Information",
+      "properties": {
+        "name": {
+          "type": "string",
+          "title": "Name",
+          "description": "Simple string field (baseline test)"
+        }
+      }
+    },
+    "contactMethod": {
+      "title": "Contact Method (Property-level oneOf)",
+      "description": "Should allow either email OR phone format",
+      "oneOf": [
+        {
+          "type": "object",
+          "title": "Email Contact",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "email"
+            },
+            "emailAddress": {
+              "type": "string",
+              "format": "email",
+              "title": "Email Address"
+            }
+          },
+          "required": [
+            "type",
+            "emailAddress"
+          ]
+        },
+        {
+          "type": "object",
+          "title": "Phone Contact",
+          "properties": {
+            "type": {
+              "type": "string",
+              "const": "phone"
+            },
+            "phoneNumber": {
+              "type": "string",
+              "pattern": "^\\+?[1-9]\\d{1,14}$",
+              "title": "Phone Number"
+            }
+          },
+          "required": [
+            "type",
+            "phoneNumber"
+          ]
+        }
+      ]
+    },
+    "mixedItems": {
+      "type": "array",
+      "title": "Mixed Item Types (Array items with oneOf)",
+      "description": "Array that can contain either text items OR numeric items",
+      "items": {
+        "oneOf": [
+          {
+            "type": "object",
+            "title": "Text Item",
+            "properties": {
+              "itemType": {
+                "type": "string",
+                "const": "text"
+              },
+              "content": {
+                "type": "string",
+                "title": "Text Content"
+              }
+            },
+            "required": [
+              "itemType",
+              "content"
+            ]
+          },
+          {
+            "type": "object",
+            "title": "Number Item",
+            "properties": {
+              "itemType": {
+                "type": "string",
+                "const": "number"
+              },
+              "value": {
+                "type": "number",
+                "title": "Numeric Value"
+              }
+            },
+            "required": [
+              "itemType",
+              "value"
+            ]
+          }
+        ]
+      }
+    },
+    "simpleOneOfArray": {
+      "type": "array",
+      "title": "Simple oneOf Array",
+      "description": "Array with simple primitive type variants",
+      "items": {
+        "oneOf": [
+          {
+            "type": "string",
+            "title": "Text Value"
+          },
+          {
+            "type": "number",
+            "title": "Number Value"
+          }
+        ]
+      }
+    },
+    "person": {
+      "title": "Person (allOf composition)",
+      "description": "Uses allOf to compose from base schemas",
+      "allOf": [
+        {
+          "$ref": "#/$defs/baseEntity"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "firstName": {
+              "type": "string",
+              "title": "First Name"
+            },
+            "lastName": {
+              "type": "string",
+              "title": "Last Name"
+            },
+            "age": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 150,
+              "title": "Age"
+            }
+          },
+          "required": [
+            "firstName",
+            "lastName"
+          ]
+        }
+      ]
+    },
+    "product": {
+      "title": "Product (allOf with multiple refs)",
+      "description": "Combines multiple schema definitions",
+      "allOf": [
+        {
+          "$ref": "#/$defs/baseEntity"
+        },
+        {
+          "$ref": "#/$defs/priceable"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "title": "Product Name"
+            },
+            "sku": {
+              "type": "string",
+              "title": "SKU"
+            }
+          },
+          "required": [
+            "name",
+            "sku"
+          ]
+        }
+      ]
+    },
+    "notification": {
+      "title": "Notification Settings (oneOf with refs)",
+      "description": "Different notification types",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/emailNotification"
+        },
+        {
+          "$ref": "#/$defs/smsNotification"
+        },
+        {
+          "$ref": "#/$defs/pushNotification"
+        }
+      ]
+    },
+    "complexArray": {
+      "type": "array",
+      "title": "Complex Array (oneOf with refs)",
+      "description": "Array items can be different document types",
+      "items": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/imageDocument"
+          },
+          {
+            "$ref": "#/$defs/textDocument"
+          }
+        ]
+      }
+    },
+    "metadata": {
+      "title": "Metadata (allOf + oneOf combination)",
+      "description": "Combines base metadata with type-specific fields",
+      "allOf": [
+        {
+          "type": "object",
+          "properties": {
+            "createdAt": {
+              "type": "string",
+              "format": "date-time",
+              "title": "Created At"
+            },
+            "updatedAt": {
+              "type": "string",
+              "format": "date-time",
+              "title": "Updated At"
+            }
+          }
+        },
+        {
+          "oneOf": [
+            {
+              "type": "object",
+              "title": "Public Metadata",
+              "properties": {
+                "visibility": {
+                  "type": "string",
+                  "const": "public"
+                },
+                "publicUrl": {
+                  "type": "string",
+                  "format": "uri",
+                  "title": "Public URL"
+                }
+              }
+            },
+            {
+              "type": "object",
+              "title": "Private Metadata",
+              "properties": {
+                "visibility": {
+                  "type": "string",
+                  "const": "private"
+                },
+                "accessKey": {
+                  "type": "string",
+                  "title": "Access Key"
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "$defs": {
+    "baseEntity": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid",
+          "title": "ID"
+        },
+        "createdDate": {
+          "type": "string",
+          "format": "date-time",
+          "title": "Created Date"
+        }
+      },
+      "required": [
+        "id"
+      ]
+    },
+    "priceable": {
+      "type": "object",
+      "properties": {
+        "price": {
+          "type": "number",
+          "minimum": 0,
+          "title": "Price"
+        },
+        "currency": {
+          "type": "string",
+          "enum": [
+            "USD",
+            "EUR",
+            "GBP"
+          ],
+          "title": "Currency"
+        }
+      },
+      "required": [
+        "price",
+        "currency"
+      ]
+    },
+    "emailNotification": {
+      "type": "object",
+      "title": "Email Notification",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "email"
+        },
+        "to": {
+          "type": "string",
+          "format": "email",
+          "title": "To Email"
+        },
+        "subject": {
+          "type": "string",
+          "title": "Subject"
+        },
+        "body": {
+          "type": "string",
+          "title": "Body"
+        }
+      },
+      "required": [
+        "type",
+        "to",
+        "subject",
+        "body"
+      ]
+    },
+    "smsNotification": {
+      "type": "object",
+      "title": "SMS Notification",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "sms"
+        },
+        "phoneNumber": {
+          "type": "string",
+          "title": "Phone Number"
+        },
+        "message": {
+          "type": "string",
+          "maxLength": 160,
+          "title": "Message"
+        }
+      },
+      "required": [
+        "type",
+        "phoneNumber",
+        "message"
+      ]
+    },
+    "pushNotification": {
+      "type": "object",
+      "title": "Push Notification",
+      "properties": {
+        "type": {
+          "type": "string",
+          "const": "push"
+        },
+        "deviceId": {
+          "type": "string",
+          "title": "Device ID"
+        },
+        "title": {
+          "type": "string",
+          "title": "Title"
+        },
+        "body": {
+          "type": "string",
+          "title": "Body"
+        }
+      },
+      "required": [
+        "type",
+        "deviceId",
+        "title",
+        "body"
+      ]
+    },
+    "imageDocument": {
+      "type": "object",
+      "title": "Image Document",
+      "properties": {
+        "docType": {
+          "type": "string",
+          "const": "image"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "title": "Image URL"
+        },
+        "alt": {
+          "type": "string",
+          "title": "Alt Text"
+        },
+        "width": {
+          "type": "integer",
+          "title": "Width"
+        },
+        "height": {
+          "type": "integer",
+          "title": "Height"
+        }
+      },
+      "required": [
+        "docType",
+        "url"
+      ]
+    },
+    "textDocument": {
+      "type": "object",
+      "title": "Text Document",
+      "properties": {
+        "docType": {
+          "type": "string",
+          "const": "text"
+        },
+        "title": {
+          "type": "string",
+          "title": "Title"
+        },
+        "content": {
+          "type": "string",
+          "title": "Content"
+        },
+        "wordCount": {
+          "type": "integer",
+          "title": "Word Count"
+        }
+      },
+      "required": [
+        "docType",
+        "title",
+        "content"
+      ]
+    }
+  }
+}

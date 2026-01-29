@@ -1,0 +1,161 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Mixed Inline and $refs Test",
+  "description": "Schema combining inline definitions with $ref/$defs to test both patterns work together",
+  "type": "object",
+  "required": ["name", "email"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "title": "Full Name",
+      "minLength": 1
+    },
+    "email": {
+      "type": "string",
+      "title": "Email Address",
+      "format": "email",
+      "minLength": 1
+    },
+    "primaryAddress": {
+      "$ref": "#/$defs/address"
+    },
+    "billingAddress": {
+      "$ref": "#/$defs/address"
+    },
+    "quickNotes": {
+      "type": "array",
+      "title": "Quick Notes (Inline Array)",
+      "description": "Array of strings defined inline",
+      "items": {
+        "type": "string",
+        "title": "Note"
+      }
+    },
+    "emergencyContacts": {
+      "type": "array",
+      "title": "Emergency Contacts (Using $ref)",
+      "items": {
+        "$ref": "#/$defs/contact"
+      }
+    },
+    "preferences": {
+      "type": "object",
+      "title": "Preferences (Inline Object)",
+      "description": "Nested object defined inline",
+      "properties": {
+        "theme": {
+          "type": "string",
+          "title": "Theme",
+          "enum": ["Light", "Dark", "Auto"]
+        },
+        "notifications": {
+          "type": "boolean",
+          "title": "Enable Notifications"
+        }
+      }
+    },
+    "workHistory": {
+      "type": "array",
+      "title": "Work History (Using $ref)",
+      "items": {
+        "$ref": "#/$defs/job"
+      }
+    },
+    "socialMedia": {
+      "type": "object",
+      "title": "Social Media (Inline with nested)",
+      "properties": {
+        "twitter": {
+          "type": "string",
+          "title": "Twitter Handle"
+        },
+        "linkedin": {
+          "type": "string",
+          "title": "LinkedIn URL"
+        },
+        "settings": {
+          "type": "object",
+          "title": "Privacy Settings",
+          "properties": {
+            "public": {
+              "type": "boolean",
+              "title": "Public Profile"
+            },
+            "searchable": {
+              "type": "boolean",
+              "title": "Searchable"
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "address": {
+      "type": "object",
+      "title": "Address",
+      "properties": {
+        "street": {
+          "type": "string",
+          "title": "Street"
+        },
+        "city": {
+          "type": "string",
+          "title": "City"
+        },
+        "zipCode": {
+          "type": "string",
+          "title": "ZIP Code",
+          "pattern": "^[0-9]{5}$"
+        },
+        "country": {
+          "type": "string",
+          "title": "Country"
+        }
+      }
+    },
+    "contact": {
+      "type": "object",
+      "title": "Contact",
+      "properties": {
+        "name": {
+          "type": "string",
+          "title": "Name"
+        },
+        "phone": {
+          "type": "string",
+          "title": "Phone Number"
+        },
+        "relationship": {
+          "type": "string",
+          "title": "Relationship",
+          "enum": ["Family", "Friend", "Colleague", "Other"]
+        }
+      }
+    },
+    "job": {
+      "type": "object",
+      "title": "Job",
+      "properties": {
+        "company": {
+          "type": "string",
+          "title": "Company Name"
+        },
+        "position": {
+          "type": "string",
+          "title": "Position"
+        },
+        "startDate": {
+          "type": "string",
+          "title": "Start Date",
+          "format": "date"
+        },
+        "endDate": {
+          "type": "string",
+          "title": "End Date",
+          "format": "date"
+        }
+      }
+    }
+  }
+}

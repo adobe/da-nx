@@ -1,0 +1,157 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Pure Inline Complex Form",
+  "description": "Complex nested structures using only inline definitions",
+  "type": "object",
+  "required": [
+    "title"
+  ],
+  "properties": {
+    "title": {
+      "type": "string",
+      "title": "Project Title",
+      "minLength": 1
+    },
+    "description": {
+      "type": "string",
+      "title": "Description",
+      "x-semantic-type": "long-text"
+    },
+    "status": {
+      "type": "string",
+      "title": "Status",
+      "enum": [
+        "Planning",
+        "Active",
+        "On Hold",
+        "Completed",
+        "Cancelled"
+      ]
+    },
+    "priority": {
+      "type": "integer",
+      "title": "Priority (1-5)",
+      "minimum": 1,
+      "maximum": 5
+    },
+    "team": {
+      "type": "array",
+      "title": "Team Members",
+      "items": {
+        "type": "object",
+        "title": "Team Member",
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role",
+            "enum": [
+              "Developer",
+              "Designer",
+              "Manager",
+              "QA",
+              "Other"
+            ]
+          },
+          "email": {
+            "type": "string",
+            "title": "Email",
+            "format": "email"
+          },
+          "skills": {
+            "type": "array",
+            "title": "Skills",
+            "items": {
+              "type": "string",
+              "title": "Skill"
+            }
+          }
+        }
+      }
+    },
+    "milestones": {
+      "type": "array",
+      "title": "Milestones",
+      "items": {
+        "type": "object",
+        "title": "Milestone",
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Milestone Name"
+          },
+          "dueDate": {
+            "type": "string",
+            "title": "Due Date",
+            "format": "date"
+          },
+          "completed": {
+            "type": "boolean",
+            "title": "Completed"
+          },
+          "deliverables": {
+            "type": "array",
+            "title": "Deliverables",
+            "items": {
+              "type": "string",
+              "title": "Deliverable"
+            }
+          }
+        }
+      }
+    },
+    "budget": {
+      "type": "object",
+      "title": "Budget",
+      "properties": {
+        "total": {
+          "type": "number",
+          "title": "Total Budget"
+        },
+        "spent": {
+          "type": "number",
+          "title": "Amount Spent"
+        },
+        "currency": {
+          "type": "string",
+          "title": "Currency",
+          "enum": [
+            "USD",
+            "EUR",
+            "GBP",
+            "CAD"
+          ]
+        },
+        "breakdown": {
+          "type": "object",
+          "title": "Cost Breakdown",
+          "properties": {
+            "personnel": {
+              "type": "number",
+              "title": "Personnel Costs"
+            },
+            "equipment": {
+              "type": "number",
+              "title": "Equipment Costs"
+            },
+            "other": {
+              "type": "number",
+              "title": "Other Costs"
+            }
+          }
+        }
+      }
+    },
+    "tags": {
+      "type": "array",
+      "title": "Tags",
+      "items": {
+        "type": "string",
+        "title": "Tag"
+      }
+    }
+  }
+}
