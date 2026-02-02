@@ -1,6 +1,22 @@
-import { DA_ORIGIN } from '../../shared/constants.js';
-import getPathDetails from '../../shared/pathDetails.js';
-import { daFetch } from '../../shared/utils.js';
+import { DA_ORIGIN } from '../../../public/utils/constants.js';
+import { daFetch } from '../../../utils/daFetch.js';
+
+/**
+ * Parse URL hash to extract org/site (inline version for schema.js)
+ * Format: #/owner/repo/path
+ */
+function getPathDetails() {
+  const path = window.location.hash?.replace('#', '');
+
+  if (!path || !path.startsWith('/')) {
+    return { owner: '', repo: '' };
+  }
+
+  const parts = path.substring(1).split('/');
+  const [owner, repo] = parts;
+
+  return { owner: owner || '', repo: repo || '' };
+}
 
 // Constants
 const FORMS_BASE_PATH = '/.da/forms';

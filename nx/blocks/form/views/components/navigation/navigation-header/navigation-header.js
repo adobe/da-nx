@@ -1,8 +1,6 @@
 import { LitElement, html } from 'da-lit';
-import { getNx } from '../../../../../../scripts/utils.js';
-import '../../shared/error-badge/error-badge.js';
+import getStyle from '../../../../../../utils/styles.js';
 
-const { default: getStyle } = await import(`${getNx()}/utils/styles.js`);
 const componentStyle = await getStyle(new URL('./navigation-header.css', import.meta.url).href);
 
 /**

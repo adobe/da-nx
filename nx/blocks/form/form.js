@@ -1,6 +1,5 @@
 import { LitElement, html, nothing } from 'da-lit';
-import { getNx } from '../../../scripts/utils.js';
-import getPathDetails from '../shared/pathDetails.js';
+import getStyle from '../../utils/styles.js';
 
 import FormModel from './data/model.js';
 
@@ -10,7 +9,6 @@ import { loadJson, saveJson } from './utils/persist.js';
 import generateMinimalDataForSchema from './utils/data-generator.js';
 import applyOp from './utils/rfc6902-patch.js';
 
-import '../edit/da-title/da-title.js';
 import ScrollCoordinatorController from './controllers/scroll-coordinator-controller.js';
 import ActiveStateController from './controllers/active-state-controller.js';
 import ValidationStateModel from './validation/validation-state.js';
@@ -26,11 +24,43 @@ import './views/navigation.js';
 import './views/preview.js';
 
 // External Web Components
-await import(`${getNx()}/public/sl/components.js`);
+import '../../public/sl/components.js';
 
 // Styling
-const { default: getStyle } = await import(`${getNx()}/utils/styles.js`);
 const style = await getStyle(import.meta.url);
+
+/**
+ * Parses the URL hash to extract path details
+ * Expected format: #/owner/repo/path/to/resource
+ */
+function getPathDetails() {
+  const hash = window.location.hash?.replace('#', '');
+
+  if (!hash || !hash.startsWith('/')) {
+    return {
+      owner: '',
+      repo: '',
+      fullpath: '',
+      ref: 'main',
+      sourceUrl: '',
+    };
+  }
+
+  const segments = hash.substring(1).split('/');
+  const [owner, repo, ...rest] = segments;
+
+  const resourcePath = rest.join('/');
+  const fullpath = `/${owner}/${repo}${resourcePath ? `/${resourcePath}` : ''}`;
+  const sourceUrl = `/source${fullpath}`;
+
+  return {
+    owner: owner || '',
+    repo: repo || '',
+    fullpath,
+    ref: 'main',
+    sourceUrl,
+  };
+}
 
 const EL_NAME = 'da-form';
 const PREVIEW_ORIGIN = 'https://mhast-html-to-json.adobeaem.workers.dev/preview';
@@ -256,7 +286,11 @@ function setDetails(parent, name, details) {
 function setup(el) {
   el.replaceChildren();
   const details = getPathDetails();
-  setDetails(el, 'da-title', details);
+
+  // Note: da-title component is not available in da-nx
+  // Uncomment the line below if you add the da-title component
+  // setDetails(el, 'da-title', details);
+
   setDetails(el, EL_NAME, details);
 }
 

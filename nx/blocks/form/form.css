@@ -1,5 +1,7 @@
 :host {
   display: block;
+  max-width: var(--grid-container-width);
+  margin: var(--spacing-800) auto var(--spacing-800) auto;
 }
 
 sl-textarea {
@@ -7,7 +9,8 @@ sl-textarea {
 }
 
 .da-form-wrapper {
-  width: 900px;
+  width: 100%;
+  max-width: 1400px;
   margin: 0 auto;
   position: relative;
   display: flex;

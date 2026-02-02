@@ -1,8 +1,10 @@
-import { getNx } from '../../../../../../scripts/utils.js';
+import { getConfig } from '../../../../../../scripts/nexter.js';
+import getStyle from '../../../../../../utils/styles.js';
+
+const { nxBase: nx } = getConfig();
 
 // Ensure base sl-* components are registered before subclassing
-await import(`${getNx()}/public/sl/components.js`);
-const { default: getStyle } = await import(`${getNx()}/utils/styles.js`);
+await import(`${nx}/public/sl/components.js`);
 const globalStyle = await getStyle(new URL('../../../../../global.css', import.meta.url).href);
 const sharedStyle = await getStyle(new URL('../sl-shared.css', import.meta.url).href);
 

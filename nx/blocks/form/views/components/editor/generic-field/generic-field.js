@@ -1,6 +1,5 @@
 import { LitElement, html, nothing } from 'da-lit';
-import { getNx } from '../../../../../../scripts/utils.js';
-
+import getStyle from '../../../../../../utils/styles.js';
 // Import existing sl-* components
 import '../sl-checkbox/sl-checkbox.js';
 import '../sl-input-extended/sl-input-extended.js';
@@ -8,7 +7,6 @@ import '../sl-number-extended/sl-number-extended.js';
 import '../sl-select-extended/sl-select-extended.js';
 import '../sl-textarea-extended/sl-textarea-extended.js';
 
-const { default: getStyle } = await import(`${getNx()}/utils/styles.js`);
 const componentStyle = await getStyle(new URL('./generic-field.css', import.meta.url).href);
 
 /**

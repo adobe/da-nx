@@ -1,5 +1,5 @@
 import { LitElement, html, nothing } from 'da-lit';
-import { getNx } from '../../../scripts/utils.js';
+import getStyle from '../../../utils/styles.js';
 import './components/navigation/navigation-item/navigation-item.js';
 import './components/navigation/navigation-header/navigation-header.js';
 import './components/shared/error-badge/error-badge.js';
@@ -7,7 +7,7 @@ import './components/shared/action-menu/action-menu.js';
 import './components/shared/insert-button/insert-button.js';
 import './components/shared/remove-button/remove-button.js';
 import './components/shared/move-to-position-button/move-to-position-button.js';
-import { ref, createRef } from '../../../deps/lit/dist/index.js';
+import { ref, createRef } from '../../../../deps/lit/dist/index.js';
 import {
   EVENT_NAVIGATION_SCROLL_TO,
   TIMING,
@@ -21,8 +21,6 @@ import * as navigationHelper from '../utils/navigation-helper.js';
 import * as treeBuilder from '../utils/navigation-tree-builder.js';
 import { generateArrayItem } from '../utils/data-generator.js';
 import { parseArrayItemPointer, buildArrayItemPointer } from '../utils/pointer-utils.js';
-
-const { default: getStyle } = await import(`${getNx()}/utils/styles.js`);
 
 const style = await getStyle(import.meta.url);
 

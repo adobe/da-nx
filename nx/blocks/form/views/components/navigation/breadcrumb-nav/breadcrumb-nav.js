@@ -1,7 +1,6 @@
 import { LitElement, html, nothing } from 'da-lit';
-import { getNx } from '../../../../../../scripts/utils.js';
+import getStyle from '../../../../../../utils/styles.js';
 
-const { default: getStyle } = await import(`${getNx()}/utils/styles.js`);
 const globalStyle = await getStyle(new URL('../../../../global.css', import.meta.url).href);
 const componentStyle = await getStyle(new URL('./breadcrumb-nav.css', import.meta.url).href);
 

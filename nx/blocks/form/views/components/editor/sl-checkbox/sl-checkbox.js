@@ -1,8 +1,7 @@
 import { LitElement, html, nothing, spread } from 'da-lit';
-import { getNx } from '../../../../../../scripts/utils.js';
-import { ref, createRef } from '../../../../../../deps/lit/dist/index.js';
+import { ref, createRef } from '../../../../../../../deps/lit/dist/index.js';
+import getStyle from '../../../../../../utils/styles.js';
 
-const { default: getStyle } = await import(`${getNx()}/utils/styles.js`);
 const globalStyle = await getStyle(new URL('../../../../../global.css', import.meta.url).href);
 const sharedStyle = await getStyle(new URL('../sl-shared.css', import.meta.url).href);
 

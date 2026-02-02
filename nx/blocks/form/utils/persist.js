@@ -1,5 +1,5 @@
-import { daFetch } from '../../shared/utils.js';
-import { DA_ORIGIN } from '../../shared/constants.js';
+import { daFetch } from '../../../utils/daFetch.js';
+import { DA_ORIGIN } from '../../../public/utils/constants.js';
 import HTMLConverter from './html2json.js';
 import JSONConverter from './json2html.js';
 

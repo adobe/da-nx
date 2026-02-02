@@ -1,5 +1,5 @@
 import { LitElement, html, nothing } from 'da-lit';
-import { getNx } from '../../../scripts/utils.js';
+import getStyle from '../../../utils/styles.js';
 import './components/editor/generic-field/generic-field.js';
 import './components/editor/form-item-group/form-item-group.js';
 import './components/navigation/breadcrumb-nav/breadcrumb-nav.js';
@@ -8,7 +8,7 @@ import './components/shared/remove-button/remove-button.js';
 import './components/shared/insert-button/insert-button.js';
 import './components/shared/add-item-button/add-item-button.js';
 import './components/shared/move-to-position-button/move-to-position-button.js';
-import { ref, createRef } from '../../../deps/lit/dist/index.js';
+import { ref, createRef } from '../../../../deps/lit/dist/index.js';
 import {
   EVENT_EDITOR_SCROLL_TO,
   EVENT_FOCUS_ELEMENT,
@@ -26,8 +26,6 @@ import * as breadcrumbHelper from '../utils/breadcrumb-helper.js';
 import focusElement from '../utils/focus-helper.js';
 import { generateArrayItem } from '../utils/data-generator.js';
 import { parseArrayItemPointer, buildArrayItemPointer, getParentPointer, isPointerDefined } from '../utils/pointer-utils.js';
-
-const { default: getStyle } = await import(`${getNx()}/utils/styles.js`);
 
 const style = await getStyle(import.meta.url);
 
