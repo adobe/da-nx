@@ -102,7 +102,7 @@ class NxLocTranslate extends LitElement {
     const langsWithUrls = await Promise.all(langs.map(async (lang) => {
       const langUrl = { ...lang };
       if (lang.source) {
-        const customSources = await getUrls(org, site, service, defSrcLocation, lang.source, this._urls, fetchContent, snapshot);
+        const customSources = await getUrls(org, site, service, lang.source, lang.source, this._urls, fetchContent, snapshot);
         langUrl.urls = customSources.urls;
       } else {
         langUrl.urls = urls;
@@ -222,7 +222,7 @@ class NxLocTranslate extends LitElement {
     });
 
     // Do not continue if any errors
-    if (this._urlErrors.length) return;
+    if (this._urlErrors) return;
 
     const { org, site, title, options } = this.project;
 

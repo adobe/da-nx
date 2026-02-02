@@ -108,8 +108,8 @@ function formatLangUrls(org, site, sourceLocation, lang, urls, snapshot) {
   const snapshotPrefix = createSnapshotPrefix(snapshot);
   return urls.map((url) => {
     const convertConf = {
-      path: url.suppliedPath,
-      sourcePrefix: sourceLocation,
+      path: url.basePath,
+      sourcePrefix: lang.source || sourceLocation,
       destPrefix: lang.location,
       snapshotPrefix,
     };

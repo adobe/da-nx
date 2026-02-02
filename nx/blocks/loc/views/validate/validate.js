@@ -135,12 +135,35 @@ class NxLocValidate extends LitElement {
     }
   }
 
-  async getSourcePrefix() {
-    const sourceLang = await this.findConfigValue('source.language');
-    if (!sourceLang) return undefined;
-    const foundLang = this._configSheet.languages.data.find((row) => row.name === sourceLang);
-    if (!foundLang) return undefined;
-    return foundLang.location;
+  async getSourcePrefix(path) {
+    const configPrefixes = [];
+    // Get the site's single source of truth language name
+    const sourceLangName = await this.findConfigValue('source.language');
+    // If it exists, look it up in the list of languages
+    if (sourceLangName) {
+      const foundLang = this._configSheet.languages.data.find((row) => row.name === sourceLangName);
+      // If found in languages, push into the list to check against the pathname
+      if (foundLang) {
+        configPrefixes.push(foundLang.location);
+      }
+    }
+
+    // Loop through all languages and push source and destination paths in the prefix list to check against.
+    for (const lang of this._configSheet.languages.data) {
+      if (lang.source) configPrefixes.push(lang.source);
+      if (lang.location) configPrefixes.push(lang.location);
+    }
+
+    // Find the longest matching prefix
+    let matchedPrefix;
+    for (const prefix of configPrefixes) {
+      const isMatch = path === prefix || path.startsWith(`${prefix}/`);
+      if (isMatch && (!matchedPrefix || prefix.length > matchedPrefix.length)) {
+        matchedPrefix = prefix;
+      }
+    }
+
+    return matchedPrefix;
   }
 
   async getUpdates() {
@@ -152,15 +175,15 @@ class NxLocValidate extends LitElement {
       return { message: { type: 'error', text: 'Please select at least one URL.' } };
     }
 
-    const sourcePrefix = await this.getSourcePrefix();
-    const urls = checked.map((url) => {
+    const urls = await Promise.all(checked.map(async (url) => {
+      const sourcePrefix = await this.getSourcePrefix(url.pathname);
       const { aemBasePath } = convertPath({ path: url.pathname, sourcePrefix });
       return {
         basePath: aemBasePath,
         suppliedPath: url.pathname,
         checked: url.checked,
       };
-    });
+    }));
 
     return { updates: { urls } };
   }
@@ -173,6 +196,7 @@ class NxLocValidate extends LitElement {
       return;
     }
     const data = { view, ...updates };
+
     const opts = { detail: { data }, bubbles: true, composed: true };
     const event = new CustomEvent('action', opts);
     this.dispatchEvent(event);
