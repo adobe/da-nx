@@ -1,3 +1,9 @@
+function removeQuickEditParam() {
+  const url = new URL(window.location);
+  url.searchParams.delete('quick-edit');
+  window.history.replaceState({}, '', url);
+}
+
 export function pollConnection(ctx, action) {
   ctx.initialized = false;
   let count = 0;
@@ -18,6 +24,7 @@ async function handlePreview(ctx) {
       if (e.data.type === 'preview') {
         ctx.port.removeEventListener('message', previewListener);
         if (e.data.ok) {
+          removeQuickEditParam();
           window.location.reload();
         } else {
           alert(e.data.error);
@@ -44,6 +51,7 @@ export function setupActions(ctx) {
   
   // Create exit button
   const exitButton = createButton('quick-edit-exit', 'Exit', () => {
+    removeQuickEditParam();
     window.location.reload();
   });
   exitButton.style.display = 'none';
