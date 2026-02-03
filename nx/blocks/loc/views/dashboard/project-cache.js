@@ -196,7 +196,7 @@ const createProjectCache = (org, site, onError = null) => {
       if (!cached) return null;
 
       // Use cache if it exists and is still fresh
-      // eslint-disable-next-line @stylistic/max-len
+      // eslint-disable-next-line max-len
       if (cached.lastModified && Math.abs(cached.lastModified - listLastModified) < CACHE_TIMESTAMP_TOLERANCE) {
         return rehydrateCachedData(cached, key);
       }

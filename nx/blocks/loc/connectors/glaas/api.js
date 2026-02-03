@@ -1,7 +1,9 @@
 import makeBatches from '../../../../public/utils/batch.js';
 
 async function throttle(ms = 500) {
-  return new Promise((resolve) => { setTimeout(() => { resolve(); }, ms); });
+  return new Promise((resolve) => {
+    setTimeout(() => { resolve(); }, ms);
+  });
 }
 
 function getOpts(clientid, token, body, contentType, method = 'GET') {

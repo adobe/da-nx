@@ -94,7 +94,7 @@ const createProjectData = async ({
 
   const getProjectListForType = async (signal) => {
     if (projectListsByType[activeListType] === null) {
-      // eslint-disable-next-line @stylistic/max-len
+      // eslint-disable-next-line max-len
       projectListsByType[activeListType] = (await fetchProjectList(signal, activeListType)).projects;
       populateLastModifiedMap(projectListsByType[activeListType]);
     }

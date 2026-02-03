@@ -74,7 +74,7 @@ class NxLocDashboard extends LitElement {
 
   async updateProjectsToDisplay(signal) {
     try {
-      // eslint-disable-next-line @stylistic/max-len
+      // eslint-disable-next-line max-len
       this._projectsToDisplay = (await this._projectData?.getDetailsForProjects(this._showFrom, this._showTo, signal)) ?? [];
     } finally {
       this._isLoading = false;
