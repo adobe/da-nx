@@ -114,14 +114,24 @@ export { isSvgFile, extractFileExtension };
  */
 export function sortMediaData(mediaData) {
   return [...mediaData].sort((a, b) => {
-    // Sort by recently used first, then alphabetical
+    // Sort by recently used first
     const lastUsedA = new Date(a.lastUsedAt || 0);
     const lastUsedB = new Date(b.lastUsedAt || 0);
     const timeDiff = lastUsedB - lastUsedA;
 
     if (timeDiff !== 0) return timeDiff;
 
-    // Fallback to alphabetical
+    // Sort by doc path depth (shallow pages first)
+    const docPathA = a.doc || '';
+    const docPathB = b.doc || '';
+
+    const depthA = docPathA ? docPathA.split('/').filter((p) => p).length : 999;
+    const depthB = docPathB ? docPathB.split('/').filter((p) => p).length : 999;
+
+    const depthDiff = depthA - depthB;
+    if (depthDiff !== 0) return depthDiff;
+
+    // Fallback to alphabetical by name
     const nameA = (a.name || '').toLowerCase();
     const nameB = (b.name || '').toLowerCase();
     return nameA.localeCompare(nameB);
