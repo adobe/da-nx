@@ -1,6 +1,14 @@
+/* eslint-disable import/prefer-default-export */
 import { getSchema } from 'https://da.live/blocks/edit/prose/schema.js';
 import { EditorState, EditorView } from 'https://da.live/deps/da-y-wrapper/dist/index.js';
-import { showToolbar, hideToolbar, setCurrentEditorView, updateToolbarState, handleToolbarKeydown, positionToolbar } from './toolbar.js';
+import {
+  showToolbar,
+  hideToolbar,
+  setCurrentEditorView,
+  updateToolbarState,
+  handleToolbarKeydown,
+  positionToolbar,
+} from './toolbar.js';
 import { createSimpleKeymap } from './simple-keymap.js';
 import { createImageWrapperPlugin } from './image-wrapper.js';
 import { setupImageDropListeners } from './images.js';
@@ -23,7 +31,7 @@ function updateInstrumentation(lengthDiff, offset) {
 
 function handleTransaction(tr, ctx, editorView, editorParent) {
   const numChanges = tr.steps.length;
-  const currentCursorOffset = parseInt(editorParent.getAttribute('data-prose-index'));
+  const currentCursorOffset = parseInt(editorParent.getAttribute('data-prose-index'), 10);
   const oldLength = editorView.state.doc.firstChild.nodeSize;
   const oldSelection = editorView.state.selection.from;
   const newState = editorView.state.apply(tr);
@@ -31,7 +39,7 @@ function handleTransaction(tr, ctx, editorView, editorParent) {
   updateInstrumentation(newState.doc.firstChild.nodeSize - oldLength, currentCursorOffset);
 
   if (ctx.remoteUpdate) { return; }
-  
+
   if (numChanges > 0) {
     const editedEl = newState.doc.firstChild;
     ctx.port.postMessage({
@@ -50,13 +58,13 @@ function handleTransaction(tr, ctx, editorView, editorParent) {
       textCursorOffset: newSelection,
     });
   }
-  
+
   // Update toolbar button states and position
   updateToolbarState();
   positionToolbar();
 }
 
-function focus(view, event) {
+function focus(view) {
   setCurrentEditorView(view);
   showToolbar(view);
   return false;
@@ -65,9 +73,7 @@ function focus(view, event) {
 function blur(view, event, ctx) {
   hideToolbar(view);
   setCurrentEditorView(null);
-  ctx.port.postMessage({
-    type: 'cursor-move',
-  });
+  ctx.port.postMessage({ type: 'cursor-move' });
   return false; // Let other handlers run
 }
 
@@ -93,9 +99,7 @@ function createEditor(cursorOffset, state, ctx) {
   const element = document.querySelector(`[data-prose-index="${cursorOffset}"]`);
 
   if (!element) {
-    ctx.port.postMessage({
-      type: 'reload',
-    });
+    ctx.port.postMessage({ type: 'reload' });
     return;
   }
 
@@ -104,24 +108,22 @@ function createEditor(cursorOffset, state, ctx) {
     editorParent.setAttribute('data-cursor-remote-color', element.getAttribute('data-cursor-remote-color'));
   }
 
-  const editorView = new EditorView(
-    editorParent, { 
-      state: editorState,
-      handleDOMEvents: { 
-        focus, 
-        keydown, 
-        blur: (view, event) => blur(view, event, ctx) 
-      },
-      dispatchTransaction: (tr) => {
-        handleTransaction(tr, ctx, editorView, editorParent);
-      }
-    }
-  );
+  const editorView = new EditorView(editorParent, {
+    state: editorState,
+    handleDOMEvents: {
+      focus,
+      keydown,
+      blur: (view, event) => blur(view, event, ctx),
+    },
+    dispatchTransaction: (tr) => {
+      handleTransaction(tr, ctx, editorView, editorParent);
+    },
+  });
 
   element.replaceWith(editorParent);
   editorParent.view = editorView;
   setupImageDropListeners(ctx, editorParent);
-  
+
   setRemoteCursors();
 }
 
@@ -130,9 +132,9 @@ function updateEditor(editorEl, state, ctx) {
 
   // Editor already exists, update it with a transaction
   const view = editorEl;
-  const schema = view.state.schema;
+  const { schema } = view.state;
   const node = schema.nodeFromJSON(state);
-  
+
   // Create transaction to replace the root node (first child of doc)
   const tr = view.state.tr.replaceWith(0, view.state.doc.content.size, node);
   ctx.remoteUpdate = true;

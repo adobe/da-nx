@@ -1,4 +1,3 @@
-/* eslint-disable import/prefer-default-export */
 import { daFetch } from '../../utils/daFetch.js';
 import { DA_ORIGIN } from './constants.js';
 

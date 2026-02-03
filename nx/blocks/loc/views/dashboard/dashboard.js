@@ -74,6 +74,7 @@ class NxLocDashboard extends LitElement {
 
   async updateProjectsToDisplay(signal) {
     try {
+      // eslint-disable-next-line @stylistic/max-len
       this._projectsToDisplay = (await this._projectData?.getDetailsForProjects(this._showFrom, this._showTo, signal)) ?? [];
     } finally {
       this._isLoading = false;
@@ -192,7 +193,7 @@ class NxLocDashboard extends LitElement {
       this.updateShowRangeToFirstPage();
       await this.updateProjectsToDisplay();
       this.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    } catch (error) {
+    } catch (e) {
       this.setErrorMessage(`Failed to copy project: "${project.title}"`);
     } finally {
       this._isLoading = false;
@@ -211,7 +212,7 @@ class NxLocDashboard extends LitElement {
       // Stay on current page if possible, otherwise go to last page
       this.updateShowRangePreservingPage();
       await this.updateProjectsToDisplay();
-    } catch (error) {
+    } catch (e) {
       this.setErrorMessage(`Failed to archive project: "${project.title}"`);
     } finally {
       this._isLoading = false;
@@ -326,7 +327,9 @@ class NxLocDashboard extends LitElement {
   }
 
   render() {
-    const showNoResults = this._projectData?.hasFiltersWithNoResults() && !this._error && !this._isLoading;
+    const showNoResults = this._projectData?.hasFiltersWithNoResults()
+      && !this._error
+      && !this._isLoading;
 
     return html`
       <nx-loc-actions

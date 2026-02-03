@@ -95,14 +95,33 @@ class NxLocTranslate extends LitElement {
     const defSrcLocation = this._options['source.language']?.location || '/';
 
     // Get the default source once for all langs that use the default location
-    // TODO: In some rare cases (regional sites), it could be unneccessary to always get the default URLs.
-    const { urls } = await getUrls(org, site, service, defSrcLocation, defSrcLocation, this._urls, fetchContent, snapshot);
+    // TODO: In some rare cases (regional sites), it could be unneccessary
+    // to always get the default URLs.
+    const { urls } = await getUrls(
+      org,
+      site,
+      service,
+      defSrcLocation,
+      defSrcLocation,
+      this._urls,
+      fetchContent,
+      snapshot,
+    );
 
     // Check langs for custom source locations
     const langsWithUrls = await Promise.all(langs.map(async (lang) => {
       const langUrl = { ...lang };
       if (lang.source) {
-        const customSources = await getUrls(org, site, service, defSrcLocation, lang.source, this._urls, fetchContent, snapshot);
+        const customSources = await getUrls(
+          org,
+          site,
+          service,
+          defSrcLocation,
+          lang.source,
+          this._urls,
+          fetchContent,
+          snapshot,
+        );
         langUrl.urls = customSources.urls;
       } else {
         langUrl.urls = urls;

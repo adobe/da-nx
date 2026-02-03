@@ -33,7 +33,8 @@ class NxPagination extends LitElement {
   }
 
   get visiblePages() {
-    // Maximum visible elements: first page + ellipsis + (current ± surroundingPages) + ellipsis + last page
+    // Maximum visible elements: first page + ellipsis +
+    // (current ± surroundingPages) + ellipsis + last page
     const maxVisible = 3 + (this.surroundingPages * 2);
 
     // Show all pages if we have fewer than the maximum visible
@@ -46,8 +47,9 @@ class NxPagination extends LitElement {
 
   /**
    * Calculate which page numbers should be visible in the pagination control.
-   * Target: Always show first, last, and current page, plus surroundingPages on each side of current.
-   * When near boundaries, extend the range to maintain consistent button count.
+   * Target: Always show first, last, and current page, plus surroundingPages
+   * on each side of current. When near boundaries, extend the range to
+   * maintain consistent button count.
    */
   calculateVisiblePages() {
     const firstPage = 0;

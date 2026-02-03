@@ -20,13 +20,14 @@ async function handlePreview(ctx) {
         if (e.data.ok) {
           window.location.reload();
         } else {
+          // eslint-disable-next-line no-alert
           alert(e.data.error);
         }
         resolve();
       }
-    }
+    };
     ctx.port.addEventListener('message', previewListener);
-  });  
+  });
 }
 
 export function setupActions(ctx) {
@@ -41,13 +42,13 @@ export function setupActions(ctx) {
   // Create container
   const container = document.createElement('div');
   container.className = 'quick-edit-buttons';
-  
+
   // Create exit button
   const exitButton = createButton('quick-edit-exit', 'Exit', () => {
     window.location.reload();
   });
   exitButton.style.display = 'none';
-  
+
   // Create preview button
   const previewButton = createButton('quick-edit-preview', 'Preview', async () => {
     previewButton.textContent = 'Previewing...';
@@ -57,23 +58,23 @@ export function setupActions(ctx) {
     previewButton.disabled = false;
   });
   previewButton.style.display = 'none';
-  
+
   // Create close button
   const button = document.createElement('button');
   button.className = 'quick-edit-close';
   button.title = 'Close Quick Edit';
-  
+
   const icon = document.createElement('i');
   icon.className = 'icon-close';
   button.appendChild(icon);
-  
+
   // Add all buttons to container
   container.appendChild(exitButton);
   container.appendChild(previewButton);
   container.appendChild(button);
-  
+
   let buttonsVisible = false;
-  
+
   button.addEventListener('click', () => {
     if (!buttonsVisible) {
       exitButton.style.display = 'flex';
@@ -87,6 +88,6 @@ export function setupActions(ctx) {
       buttonsVisible = false;
     }
   });
-  
+
   document.body.appendChild(container);
 }

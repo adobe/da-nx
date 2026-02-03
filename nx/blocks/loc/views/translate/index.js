@@ -1,7 +1,7 @@
 import { DA_ORIGIN } from '../../../../public/utils/constants.js';
 import { Queue } from '../../../../public/utils/tree.js';
 import { daFetch } from '../../../../utils/daFetch.js';
-import { convertPath, createSnapshotPrefix, fetchConfig, formatPath } from '../../utils/utils.js';
+import { convertPath, createSnapshotPrefix, fetchConfig } from '../../utils/utils.js';
 import { mergeCopy, overwriteCopy } from '../../project/index.js';
 
 let CONNECTOR;
@@ -12,7 +12,16 @@ export async function setupConnector(service) {
   return CONNECTOR;
 }
 
-export async function getUrls(org, site, service, sourceLocation, destLocation, urls, fetchContent, snapshot) {
+export async function getUrls(
+  org,
+  site,
+  service,
+  sourceLocation,
+  destLocation,
+  urls,
+  fetchContent,
+  snapshot,
+) {
   const { connector } = service;
   const snapshotPrefix = createSnapshotPrefix(snapshot);
 
@@ -211,7 +220,15 @@ async function sendLanguageForTranslation(conf, connector, lang, originalUrls, s
     };
   });
   const { org, site } = conf;
-  const { urls } = await getUrls(org, site, { connector }, newSourceLocation, newSourceLocation, baseUrls, true);
+  const { urls } = await getUrls(
+    org,
+    site,
+    { connector },
+    newSourceLocation,
+    newSourceLocation,
+    baseUrls,
+    true,
+  );
   lang.translation.status = 'not started';
   delete lang.waitingFor;
   return connector.sendAllLanguages({
