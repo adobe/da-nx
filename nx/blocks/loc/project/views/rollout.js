@@ -73,6 +73,7 @@ class NxLocRollout extends LitElement {
 
             this.requestUpdate();
           } else {
+            // eslint-disable-next-line no-console
             console.log('there was an error');
             lang.errors.push({ source, destination });
           }

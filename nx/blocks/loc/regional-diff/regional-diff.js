@@ -1,7 +1,6 @@
 /* global objectHash */
 import { getPathDetails, fetchConfig } from '../utils/utils.js';
 
-// eslint-disable-next-line import/no-unresolved
 import './object_hash.js';
 
 const HASH_LENGTH = 12;

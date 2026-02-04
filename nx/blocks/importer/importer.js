@@ -68,6 +68,7 @@ class NxImporter extends LitElement {
     const data = Object.fromEntries(formData);
 
     if (!(data.org || data.repo)) {
+      // eslint-disable-next-line no-console
       console.log('No org or repo to import into');
       return;
     }

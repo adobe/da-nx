@@ -37,7 +37,9 @@ export async function detectService(config, env = 'stage') {
       canResave: true,
       origin: config[`translation.service.${env}.origin`].value,
       clientid: config[`translation.service.${env}.clientid`].value,
+      // eslint-disable-next-line import/no-unresolved
       actions: await import('../glaas/index.js'),
+      // eslint-disable-next-line import/no-unresolved
       dnt: await import('../glaas/dnt.js'),
       preview: config[`translation.service.${env}.preview`].value,
     };
@@ -47,7 +49,9 @@ export async function detectService(config, env = 'stage') {
       name,
       origin: 'http://localhost:8787/google/live',
       canResave: false,
+      // eslint-disable-next-line import/no-unresolved
       actions: await import('../google/index.js'),
+      // eslint-disable-next-line import/no-unresolved
       dnt: await import('../google/dnt.js'),
     };
   }

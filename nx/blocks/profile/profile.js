@@ -46,6 +46,7 @@ class NxProfile extends LitElement {
         const { user } = await this._details.getIo();
         this._avatar = user.avatar;
       } catch {
+        // eslint-disable-next-line no-console
         console.log('Could not get avatar');
         this._avatar = `${nxBase}/public/icons/S2_Icon_User_20_N.svg`;
       }
@@ -81,6 +82,7 @@ class NxProfile extends LitElement {
       this._notice.classList.toggle('is-visible');
       setTimeout(() => { this._notice.classList.toggle('is-visible'); }, 3000);
     } catch {
+      // eslint-disable-next-line no-console
       console.log('Could not copy to clipboard');
     }
   }

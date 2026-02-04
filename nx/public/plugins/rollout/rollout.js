@@ -1,5 +1,3 @@
-/* eslint-disable no-underscore-dangle */
-/* eslint-disable import/no-unresolved */
 import DA_SDK from 'https://da.live/nx/utils/sdk.js';
 import { LitElement, html, nothing } from 'https://da.live/nx/public/deps/lit/dist/index.js';
 import { mergeCopy, overwriteCopy } from 'https://da.live/nx/blocks/loc/project/index.js';
@@ -51,7 +49,6 @@ export default class DaRollout extends LitElement {
     });
   }
 
-  // eslint-disable-next-line class-methods-use-this
   open(prefix) {
     window.open(`https://da.live/edit#${prefix.edit}`, `_${prefix.edit}`);
   }

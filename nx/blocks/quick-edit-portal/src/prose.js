@@ -119,6 +119,5 @@ export default function initProse({ path, permissions, rerenderPage, updateCurso
     editable() { return canWrite; },
   });
 
-  return { proseEl: editor, wsProvider, view };
+  return { proseEl: editor, wsProvider, view: window.view };
 }
-

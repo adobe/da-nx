@@ -16,9 +16,10 @@ const TRUSTED_APPS = [
   'https://main--storefront-tools--adobe-commerce.aem.live/tools/site-creator/site-creator.html',
   'https://main--storefront-tools--adobe-commerce.aem.live/tools/config-generator/config-generator.html',
 ];
- 
+
 /**
- * Parses the current URL to extract view, organization, repository, reference, path, search, and hash information
+ * Parses the current URL to extract view, organization, repository, reference,
+ * path, search, and hash information
  * @returns {Object} Object containing parsed URL components
  * @property {string} view - The view type (defaults to 'fullscreen')
  * @property {string} org - Organization name from URL
@@ -55,7 +56,9 @@ function getParts() {
  * @returns {string} The constructed URL for the iframe
  */
 function getUrl() {
-  const { org, repo, ref, path, search, hash } = getParts();
+  const {
+    org, repo, ref, path, search, hash,
+  } = getParts();
   if (ref === 'local') return `http://localhost:3000/${path}.html${search}${hash}`;
   return `https://${ref}--${repo}--${org}.aem.live/${path}.html${search}${hash}`;
 }
@@ -95,8 +98,8 @@ function createIframe(el) {
 function isAppTrusted(org, repo, ref) {
   const url = getUrl();
   if (TRUSTED_ORGS.includes(org)) return true;
-  if (TRUSTED_APPS.some(trustedApp => url.startsWith(trustedApp))) return true;
-  
+  if (TRUSTED_APPS.some((trustedApp) => url.startsWith(trustedApp))) return true;
+
   const trustedApps = JSON.parse(localStorage.getItem('trustedApps') || '{}');
   const appKey = `${org}/${repo}/${ref}`;
   return trustedApps[appKey] === true;
@@ -112,8 +115,8 @@ function trustApp(org, repo, ref) {
 function showDisclaimer(el) {
   const { org, repo, ref, path } = getParts();
   const appName = path.split('/').pop();
-  const devWarning = ref !== 'main' 
-    ? `<p><b>Note:</b> You are accessing a development version of the app on branch <b>${ref}</b>.` 
+  const devWarning = ref !== 'main'
+    ? `<p><b>Note:</b> You are accessing a development version of the app on branch <b>${ref}</b>.`
     : '';
   const disclaimer = document.createElement('div');
   disclaimer.classList.add('disclaimer');
@@ -156,7 +159,6 @@ function showDisclaimer(el) {
  */
 export default function init(el) {
   const { org, repo, ref } = getParts();
-  const url = getUrl();
 
   if (isAppTrusted(org, repo, ref)) {
     createIframe(el);

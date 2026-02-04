@@ -1,5 +1,5 @@
 /* eslint-disable max-classes-per-file */
-/* eslint-disable-next-line import/no-unresolved */
+
 import { LitElement, html, nothing, spread } from 'https://da.live/deps/lit/dist/index.js';
 import { loadStyle } from '../../scripts/nexter.js';
 import getStyle from '../../utils/styles.js';

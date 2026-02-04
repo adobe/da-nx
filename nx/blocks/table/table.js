@@ -1,3 +1,1 @@
-export default function init(el) {
-
-}
+export default function init() {}

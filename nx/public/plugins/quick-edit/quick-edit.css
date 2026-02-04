@@ -29,7 +29,7 @@ picture.image-drop-target {
 }
 
 picture.image-drop-target::before {
-  content: '';
+  content: "";
   position: absolute;
   inset: 0;
   border: 3px dashed var(--color-blue-600, #3b82f6);
@@ -39,17 +39,17 @@ picture.image-drop-target::before {
 }
 
 picture.image-drop-target::after {
-  content: 'Drop to replace';
+  content: "Drop to replace";
   position: absolute;
   inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(59, 130, 246, 0.4);
+  background: rgb(59 130 246 / 40%);
   color: white;
   font-weight: 600;
   font-size: 14px;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  text-shadow: 0 1px 2px rgb(0 0 0 / 30%);
   pointer-events: none;
   z-index: 11;
   border-radius: 4px;
@@ -74,14 +74,14 @@ picture.image-uploading img {
 }
 
 picture.image-uploading::after {
-  content: '';
+  content: "";
   position: absolute;
   top: 50%;
   left: 50%;
   width: 32px;
   height: 32px;
   margin: -16px 0 0 -16px;
-  border: 3px solid rgba(59, 130, 246, 0.3);
+  border: 3px solid rgb(59 130 246 / 30%);
   border-top-color: var(--color-blue-600, #3b82f6);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
@@ -108,11 +108,11 @@ picture.image-uploading::after {
   width: 32px;
   height: 32px;
   padding: 0;
-  background: var(--color-blue-500, rgb(19, 115, 230));
+  background: var(--color-blue-500, rgb(19 115 230));
   border: none;
   border-radius: 50%;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 20%);
   transition: background 0.2s ease;
   display: flex;
   align-items: center;
@@ -128,8 +128,8 @@ picture.image-uploading::after {
   width: 16px;
   height: 16px;
   background-color: white;
-  mask: url('/nx/img/icons/S2IconClose20N-icon.svg') no-repeat center / contain;
-  -webkit-mask: url('/nx/img/icons/S2IconClose20N-icon.svg') no-repeat center / contain;
+  mask: url("/nx/img/icons/S2IconClose20N-icon.svg") no-repeat center / contain;
+  mask: url("/nx/img/icons/S2IconClose20N-icon.svg") no-repeat center / contain;
   transition: transform 0.3s ease;
 }
 
@@ -142,11 +142,11 @@ picture.image-uploading::after {
   height: 32px;
   padding: 0 16px;
   background: white;
-  border: 1px solid var(--color-blue-500, rgb(19, 115, 230));
-  color: var(--color-blue-500, rgb(19, 115, 230));
+  border: 1px solid var(--color-blue-500, rgb(19 115 230));
+  color: var(--color-blue-500, rgb(19 115 230));
   border-radius: 16px;
   cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 20%);
   transition: all 0.2s ease;
   display: flex;
   align-items: center;
@@ -157,7 +157,7 @@ picture.image-uploading::after {
 }
 
 .quick-edit-preview {
-  background: var(--color-blue-500, rgb(19, 115, 230));
+  background: var(--color-blue-500, rgb(19 115 230));
   color: white;
 }
 
@@ -183,7 +183,7 @@ picture.image-uploading::after {
   padding: 8px;
   display: none;
   z-index: 1000;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 15%);
   color: black;
 }
 
@@ -197,7 +197,8 @@ picture.image-uploading::after {
   transition: background 0.2s ease;
 }
 
-.prosemirror-floating-toolbar .toolbar-btn:hover, .ProseMirror-menuitem:hover {
+.prosemirror-floating-toolbar .toolbar-btn:hover,
+.ProseMirror-menuitem:hover {
   background: #f0f0f0;
 }
 
@@ -245,7 +246,7 @@ picture.image-uploading::after {
   left: 0;
   width: 100%;
   height: 100%;
-  background: rgba(0, 0, 0, 0.25);
+  background: rgb(0 0 0 / 25%);
   z-index: 1000;
   display: flex;
   align-items: center;
@@ -256,7 +257,7 @@ da-palette {
   background: white;
   padding: 30px;
   border-radius: 8px;
-  box-shadow: 0 0 10px 0 rgba(0, 0, 0, 0.1);
+  box-shadow: 0 0 10px 0 rgb(0 0 0 / 10%);
 }
 
 da-palette .da-palette-field {

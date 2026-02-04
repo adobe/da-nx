@@ -1,7 +1,9 @@
-import { checkPermissions, signIn, handlePreview } from "./src/utils.js";
-import createProse from "./src/prose.js";
-import { updateDocument, updateCursors, updateState, handleUndoRedo, getEditor, handleCursorMove } from "./src/render.js";
-import { handleImageReplace } from "./src/images.js";
+import { checkPermissions, signIn, handlePreview } from './src/utils.js';
+import createProse from './src/prose.js';
+import {
+  updateDocument, updateCursors, updateState, handleUndoRedo, getEditor, handleCursorMove,
+} from './src/render.js';
+import { handleImageReplace } from './src/images.js';
 
 function onMessage(e, ctx) {
   if (e.data.type === 'cursor-move') {
@@ -29,12 +31,12 @@ async function initProse(owner, repo, path, el, ctx) {
   const resp = await checkPermissions(sourceUrl);
   if (!resp.ok) return;
 
-  const permissions = resp.permissions;
+  const { permissions } = resp;
 
-  const { proseEl, wsProvider, view } = createProse({ 
-    path: sourceUrl, 
-    permissions, 
-    rerenderPage: () => updateDocument(ctx), 
+  const { proseEl, wsProvider, view } = createProse({
+    path: sourceUrl,
+    permissions,
+    rerenderPage: () => updateDocument(ctx),
     updateCursors: () => updateCursors(ctx),
     getEditor: (data) => getEditor(data, ctx),
   });
@@ -46,7 +48,7 @@ async function initProse(owner, repo, path, el, ctx) {
 }
 
 export default async function decorate(el) {
-  el.innerHTML = "Waiting for connection...";
+  el.innerHTML = 'Waiting for connection...';
 
   const ctx = {
     owner: null,
@@ -62,7 +64,7 @@ export default async function decorate(el) {
     if (e.data?.init) {
       const [port] = e.ports;
 
-      el.innerHTML = "";
+      el.innerHTML = '';
 
       const mountPoint = e.data.init.mountpoint;
       const path = e.data.location.pathname;
@@ -73,7 +75,7 @@ export default async function decorate(el) {
 
       // Parse the mountpoint URL to extract owner and repo
       const url = new URL(mountPoint);
-      const pathSegments = url.pathname.split("/").filter(Boolean);
+      const pathSegments = url.pathname.split('/').filter(Boolean);
       const owner = pathSegments[0];
       const repo = pathSegments[1];
 
@@ -89,12 +91,12 @@ export default async function decorate(el) {
       await initProse(owner, repo, path, el, ctx);
 
       // Going forward, all messages will be sent via the port
-      port.onmessage = (e) => onMessage(e, ctx);
+      port.onmessage = (event) => onMessage(event, ctx);
 
       // Tell the other side we are ready
       port.postMessage({ ready: true });
     }
   }
   // set up message channel
-  window.addEventListener("message", initPort);
+  window.addEventListener('message', initPort);
 }

@@ -74,6 +74,7 @@ export async function saveToDa(text, url, { daMetadataEl = null } = {}) {
     const daResp = await daFetch(`${DA_ORIGIN}/source${daPath}.html`, opts);
     return { daHref, daStatus: daResp.status, daResp, ok: daResp.ok };
   } catch {
+    // eslint-disable-next-line no-console
     console.log(`Couldn't save ${url.daUrl}`);
     return null;
   }
@@ -103,6 +104,7 @@ export async function saveAllToDa(url, content) {
     const resp = await daFetch(`${DA_ORIGIN}/source/${toOrg}/${toRepo}${destPath}`, opts);
     return resp.status;
   } catch {
+    // eslint-disable-next-line no-console
     console.log(`Couldn't save ${destPath}`);
     return 500;
   }

@@ -23,14 +23,11 @@
     gap: var(--spacing-800);
   }
 
-  .nx-columns.alternate
-  .row-content:nth-of-type(odd)
-  .columns-col-1 {
+  .nx-columns.alternate .row-content:nth-of-type(odd) .columns-col-1 {
     order: 2;
   }
 
-  .nx-columns.alternate
-  .columns-row.row-content .columns-col {
+  .nx-columns.alternate .columns-row.row-content .columns-col {
     display: grid;
     align-content: center;
   }

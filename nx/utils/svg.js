@@ -43,6 +43,7 @@ export async function link2svg(a) {
 
     return a;
   } catch (e) {
+    // eslint-disable-next-line no-console
     console.log('Failed to create SVG.', e.message);
     return a;
   }
