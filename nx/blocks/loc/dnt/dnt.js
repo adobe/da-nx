@@ -1,4 +1,3 @@
-/* eslint-disable max-len */
 import decorateTable from './decorateTable.js';
 import parseQuery from './parseQuery.js';
 import { processAltText, resetAltText } from './processAltText.js';

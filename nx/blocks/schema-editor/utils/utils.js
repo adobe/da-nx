@@ -34,12 +34,14 @@ export async function loadSchemas(org, site) {
   if (!resp.ok && site) resp = await daFetch(`${DA_ORIGIN}/list${orgPath}`);
 
   if (!resp.ok) {
+    // eslint-disable-next-line no-console
     console.log(`Cannot fetch schemas from ${path}.`);
     return {};
   }
 
   const json = await resp.json();
   if (!json) {
+    // eslint-disable-next-line no-console
     console.log('Cannot read schemas.');
     return {};
   }

@@ -35,9 +35,7 @@ describe('URL conversion', () => {
   });
 
   it('Handles no prefix', () => {
-    const url = convertPath({
-      path: '/my-cool/path',
-    });
+    const url = convertPath({ path: '/my-cool/path' });
     expect(url.daPath).to.equal('/my-cool/path.html');
   });
 

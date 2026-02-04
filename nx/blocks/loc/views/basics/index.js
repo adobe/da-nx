@@ -63,7 +63,7 @@ function extractUrlInformation(url) {
     const { site, org } = extractSiteAndOrg(hostname);
     const finalUrl = transformSnapshotUrl(url, site, org);
     const snapshot = extractSnapshotName(finalUrl.hostname);
-    
+
     return {
       hostname: finalUrl.hostname,
       site,

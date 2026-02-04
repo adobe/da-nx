@@ -1,5 +1,6 @@
-import { daFetch } from "../../../utils/daFetch.js";
-import { DA_ORIGIN } from "../../../public/utils/constants.js";
+/* eslint-disable import/prefer-default-export */
+import { daFetch } from '../../../utils/daFetch.js';
+import { DA_ORIGIN } from '../../../public/utils/constants.js';
 
 function updateImageInDocument(originalSrc, newSrc) {
   if (!window.view) return false;

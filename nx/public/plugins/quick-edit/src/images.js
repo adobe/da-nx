@@ -39,7 +39,7 @@ export function setupImageDropListeners(ctx, dom = document) {
         e.preventDefault();
         e.stopPropagation();
         // Only remove if we're actually leaving the picture element
-        const relatedTarget = e.relatedTarget;
+        const { relatedTarget } = e;
         if (!picture?.contains(relatedTarget)) {
           picture?.classList.remove('image-drop-target');
         }
@@ -48,17 +48,17 @@ export function setupImageDropListeners(ctx, dom = document) {
         e.preventDefault();
         e.stopPropagation();
         picture?.classList.remove('image-drop-target');
-  
+
         const file = e.dataTransfer.files[0];
         if (!file?.type.startsWith('image/')) return;
-  
+
         // Get tracking attributes
         const dataCursor = img.getAttribute('data-prose-index');
         const originalSrc = img.src;
-  
+
         // Show loading state
         picture?.classList.add('image-uploading');
-  
+
         // Read and send the image to DA editor for upload
         const reader = new FileReader();
         reader.onload = () => {
@@ -73,10 +73,11 @@ export function setupImageDropListeners(ctx, dom = document) {
         };
         reader.onerror = () => {
           picture?.classList.remove('image-uploading');
+          // eslint-disable-next-line no-console
           console.error('Failed to read image file');
         };
         reader.readAsDataURL(file);
-      }
+      },
     };
 
     img.addEventListener('dragenter', img.listeners.dragenter);
@@ -94,7 +95,7 @@ export function updateImageSrc(originalSrc, newSrc) {
   // If not found by uploading state, try to match by src
   if (!targetImg) {
     const images = document.querySelectorAll('main picture img');
-    
+
     // Extract pathname from originalSrc for comparison
     let originalPath = originalSrc;
     try {
@@ -128,6 +129,7 @@ export function updateImageSrc(originalSrc, newSrc) {
   }
 
   if (!targetImg) {
+    // eslint-disable-next-line no-console
     console.warn('Could not find image to update:', originalSrc);
     return;
   }
@@ -175,5 +177,6 @@ export function handleImageError(error) {
   images.forEach((picture) => {
     picture.classList.remove('image-uploading');
   });
+  // eslint-disable-next-line no-console
   console.error('Image upload failed:', error);
 }

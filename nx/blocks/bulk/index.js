@@ -21,6 +21,7 @@ export function formatUrls(urls, action, hasDelete) {
         });
       }
     } catch {
+      // eslint-disable-next-line no-console
       console.log('Could not make url.');
     }
     return acc;
@@ -40,6 +41,7 @@ export async function sendAction(url, label) {
     const aemUrl = `${origin}/${url.action}/${url.org}/${url.repo}${ref}${path}`;
     resp = await daFetch(aemUrl, opts);
   } catch {
+    // eslint-disable-next-line no-console
     console.log(`Error sending ${url.action} for ${url.href}`);
   } finally {
     url.ok = resp.ok;

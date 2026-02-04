@@ -94,6 +94,7 @@ const createProjectData = async ({
 
   const getProjectListForType = async (signal) => {
     if (projectListsByType[activeListType] === null) {
+      // eslint-disable-next-line max-len
       projectListsByType[activeListType] = (await fetchProjectList(signal, activeListType)).projects;
       populateLastModifiedMap(projectListsByType[activeListType]);
     }
@@ -132,7 +133,9 @@ const createProjectData = async ({
     return selectedStatuses.includes(projectStatus);
   };
 
-  const matchesOwnership = (project, viewAllProjects, user) => viewAllProjects || project.createdBy === user;
+  const matchesOwnership = (project, viewAllProjects, user) => (
+    viewAllProjects || project.createdBy === user
+  );
 
   const projectMatchesFilters = (project) => matchesSearchQuery(project, filters.searchQuery)
       && matchesDateRange(project, filters.startDate, filters.endDate)
@@ -202,7 +205,11 @@ const createProjectData = async ({
 
     if (projectData) {
       // Enrich and cache (returns enriched data)
-      const enrichedData = await cache.setCachedData(cleanPath, projectData, projectData.lastModified);
+      const enrichedData = await cache.setCachedData(
+        cleanPath,
+        projectData,
+        projectData.lastModified,
+      );
       if (hasAnyFilters) {
         if (projectMatchesFilters(enrichedData)) {
           filteredProjectList.unshift(enrichedData);
@@ -281,7 +288,9 @@ const createProjectData = async ({
     if (hasAnyFilters) {
       return filteredProjectList.slice(from, to);
     }
-    return Promise.all(projectList.slice(from, to).map((project) => fetchProjectDetails(project, signal)));
+    return Promise.all(
+      projectList.slice(from, to).map((project) => fetchProjectDetails(project, signal)),
+    );
   };
 
   const hasFiltersWithNoResults = () => hasAnyFilters && getTotalCount() === 0;

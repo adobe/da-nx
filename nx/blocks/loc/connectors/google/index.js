@@ -28,7 +28,9 @@ export async function isConnected() {
   return true;
 }
 
-export async function sendAllLanguages({ org, site, langs, langsWithUrls, options, actions }) {
+export async function sendAllLanguages({
+  org, site, langs, langsWithUrls, options, actions,
+}) {
   const { sendMessage, saveState } = actions;
   const sourceLanguage = options['source.language']?.location || '/';
 

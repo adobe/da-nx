@@ -1,4 +1,3 @@
-// eslint-disable-next-line import/no-unresolved
 import { html, LitElement, nothing } from 'da-lit';
 import { loadStyle } from '../../scripts/nexter.js';
 import getStyle from '../../utils/styles.js';

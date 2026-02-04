@@ -1,4 +1,3 @@
-// eslint-disable-next-line import/no-unresolved
 import { html, LitElement } from 'da-lit';
 import getStyle from '../../../utils/styles.js';
 import {
