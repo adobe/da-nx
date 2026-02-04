@@ -68,14 +68,16 @@ function calculateCrawlTime(startTime) {
 }
 
 /**
- * Assign the project to an employee.
+ * Crawl a directory tree with configurable traversal strategy.
  * @param {Object} options - The crawl options.
  * @param {string} options.path - The parent path to crawl.
  * @param {function} options.callback - The callback to run when a file is found.
  * @param {number} options.concurrent - The amount of concurrent requests for the callback queue.
  * @param {number} options.throttle - How much to throttle the crawl.
+ * @param {string} options.mode - Crawl mode: 'vertical' (depth-first, default)
+ *   or 'horizontal' (breadth-first).
  */
-export function crawl({ path, callback, concurrent, throttle = 100 }) {
+export function crawl({ path, callback, concurrent, throttle = 100, mode = 'vertical' }) {
   let time;
   let isCanceled = false;
   const files = [];
@@ -89,7 +91,7 @@ export function crawl({ path, callback, concurrent, throttle = 100 }) {
     const interval = setInterval(async () => {
       if (folders.length > 0) {
         inProgress.push(true);
-        const currentPath = folders.pop();
+        const currentPath = mode === 'horizontal' ? folders.shift() : folders.pop();
         const children = await getChildren(currentPath);
         files.push(...children.files);
         folders.push(...children.folders);

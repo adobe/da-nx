@@ -528,7 +528,7 @@ export default async function runScan(sitePath, updateTotal, updateProgressive =
     }
   };
 
-  const { results, getDuration } = crawl({ path: sitePath, callback });
+  const { results, getDuration } = crawl({ path: sitePath, callback, mode: 'horizontal' });
   await results;
 
   const allMediaEntries = [];
