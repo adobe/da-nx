@@ -1,5 +1,5 @@
 /* eslint-disable import/prefer-default-export */
-import { getSchema } from 'https://da.live/blocks/edit/prose/schema.js';
+import { getSchema } from 'https://da.live/deps/da-parser/dist/index.js';
 import { EditorState, EditorView } from 'https://da.live/deps/da-y-wrapper/dist/index.js';
 import {
   showToolbar,
