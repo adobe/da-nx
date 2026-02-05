@@ -59,6 +59,11 @@ main picture img {
   cursor: grab;
 }
 
+picture.image-uploading img {
+  opacity: 0.5;
+  filter: grayscale(0.3);
+}
+
 main picture img:hover {
   outline: 1px solid var(--color-blue-600, blue);
 }
@@ -66,11 +71,6 @@ main picture img:hover {
 /* Loading state during upload */
 picture.image-uploading {
   position: relative;
-}
-
-picture.image-uploading img {
-  opacity: 0.5;
-  filter: grayscale(0.3);
 }
 
 picture.image-uploading::after {
@@ -129,7 +129,6 @@ picture.image-uploading::after {
   height: 16px;
   background-color: white;
   mask: url("/nx/img/icons/S2IconClose20N-icon.svg") no-repeat center / contain;
-  mask: url("/nx/img/icons/S2IconClose20N-icon.svg") no-repeat center / contain;
   transition: transform 0.3s ease;
 }
 
@@ -174,7 +173,6 @@ picture.image-uploading::after {
 /* Floating Toolbar Styles */
 .prosemirror-floating-toolbar {
   color-scheme: light;
-  display: flex;
   font-size: 13px;
   position: fixed;
   background: white;
@@ -189,6 +187,18 @@ picture.image-uploading::after {
 
 .prosemirror-floating-toolbar .toolbar-btn {
   padding: 6px 12px;
+  margin: 0 2px;
+  border: 1px solid #ccc;
+  background: white;
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.2s ease;
+}
+
+.ProseMirror-menuitem {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   margin: 0 2px;
   border: 1px solid #ccc;
   background: white;
@@ -217,18 +227,6 @@ picture.image-uploading::after {
 
 .prosemirror-floating-toolbar .toolbar-btn-underline {
   text-decoration: underline;
-}
-
-.ProseMirror-menuitem {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: 0 2px;
-  border: 1px solid #ccc;
-  background: white;
-  cursor: pointer;
-  border-radius: 6px;
-  transition: background 0.2s ease;
 }
 
 .ProseMirror-menuitem > div {

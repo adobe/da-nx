@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "lint:js": "eslint .",
-    "lint:css": "stylelint nx/**/*.css",
+    "lint:css": "stylelint \"nx/**/*.css\"",
+    "lint:css:fix": "stylelint --fix \"nx/**/*.css\"",
     "lint": "npm run lint:js && npm run lint:css",
     "local": "aem up --port=6456",
     "test": "wtr --config ./web-test-runner.config.mjs \"./test/**/*.test.(js|html)\" --node-resolve --port=2000 --coverage --concurrent-browsers 4",
@@ -42,9 +43,8 @@
     "husky": "9.1.7",
     "lint-staged": "^16.2.7",
     "sinon": "13.0.2",
-    "stylelint": "14.6.0",
-    "stylelint-config-prettier": "9.0.5",
-    "stylelint-config-standard": "25.0.0"
+    "stylelint": "17.1.1",
+    "stylelint-config-standard": "40.0.0"
   },
   "dependencies": {
     "@adobe/mdast-util-gridtables": "^4.0.6",
