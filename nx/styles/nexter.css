@@ -107,7 +107,7 @@ body {
   font-family: var(--body-font-family);
   font-size: var(--s2-font-size-200);
   line-height: var(--spectrum-line-height-200);
-  word-wrap: break-word;
+  overflow-wrap: break-word;
   display: grid;
   grid-template-rows: auto 1fr;
   -webkit-font-smoothing: antialiased;
@@ -164,7 +164,6 @@ h6 {
 }
 
 .nx-app {
-  /* stylelint-disable-next-line unit-no-unknown */
   height: 100svh;
 }
 

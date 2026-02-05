@@ -10,14 +10,14 @@
   .nx-user-name {
     text-overflow: ellipsis;
     overflow: hidden;
-    word-wrap: initial;
+    overflow-wrap: initial;
 
     strong {
       display: block;
       max-width: 260px;
       text-overflow: ellipsis;
       overflow: hidden;
-      word-wrap: initial;
+      overflow-wrap: initial;
     }
 
     span {
@@ -26,7 +26,7 @@
       max-width: 260px;
       text-overflow: ellipsis;
       overflow: hidden;
-      word-wrap: initial;
+      overflow-wrap: initial;
     }
   }
 }
