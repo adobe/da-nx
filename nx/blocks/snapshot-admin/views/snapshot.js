@@ -27,6 +27,7 @@ const ICONS = [
   `${nx}/public/icons/S2_Icon_Publish_20_N.svg`,
   `${nx}/public/icons/S2_Icon_ArrowDown_20_N.svg`,
   `${nx}/public/icons/S2_Icon_ArrowUp_20_N.svg`,
+  `${nx}/public/icons/S2_Icon_Link_20_N.svg`,
 ];
 
 class NxSnapshot extends LitElement {
@@ -34,12 +35,13 @@ class NxSnapshot extends LitElement {
     basics: { attribute: false },
     isRegistered: { attribute: false },
     userPermissions: { attribute: false },
+    startOpen: { attribute: false },
     _manifest: { state: true },
     _editUrls: { state: true },
     _message: { state: true },
-    _isOpen: { state: true },
     _action: { state: true },
     _launchesCollapsed: { state: true },
+    _linkCopied: { state: true },
   };
 
   constructor() {
@@ -56,6 +58,9 @@ class NxSnapshot extends LitElement {
   update(props) {
     if (props.has('basics') && this.basics.name && !this._manifest) {
       this.loadManifest();
+    }
+    if (props.has('startOpen') && this.startOpen && this.basics) {
+      this.basics.open = true;
     }
     super.update();
   }
@@ -166,6 +171,15 @@ class NxSnapshot extends LitElement {
     const data = [new ClipboardItem({ [blob.type]: blob })];
     navigator.clipboard.write(data);
     this._message = { heading: 'Copied', message: 'URLs copied to clipboard.', open: true };
+  }
+
+  handleCopyLink(e) {
+    e.stopPropagation();
+    const url = new URL(window.location);
+    url.searchParams.set('snapshot', this.basics.name);
+    navigator.clipboard.writeText(url.toString());
+    this._linkCopied = true;
+    setTimeout(() => { this._linkCopied = false; }, 1500);
   }
 
   async handleDialog(e) {
@@ -358,7 +372,7 @@ class NxSnapshot extends LitElement {
 
   renderDetails() {
     const showEdit = !this._manifest?.resources || this._editUrls;
-    const count = this._manifest?.resources.length || 0;
+    const count = this._manifest?.resources?.length || 0;
     const s = count === 1 ? '' : 's';
 
     return html`
@@ -434,7 +448,19 @@ class NxSnapshot extends LitElement {
   }
 
   renderName() {
-    return html`<div class="nx-snapshot-header-title"><p>${this.basics.name}</p> <p>${this._reviewStatus}</p></div>`;
+    return html`
+      <div class="nx-snapshot-header-title">
+        <p>
+          ${this.basics.name}
+          ${this.basics.open ? html`
+            <button class="nx-snapshot-link" @click=${this.handleCopyLink}>
+              <svg class="icon" viewBox="0 0 20 20"><use href="#S2_Icon_Link_20_N"/></svg>
+              ${this._linkCopied ? html`<span class="copied">copied</span>` : nothing}
+            </button>
+          ` : nothing}
+        </p>
+        <p>${this._reviewStatus}</p>
+      </div>`;
   }
 
   render() {
