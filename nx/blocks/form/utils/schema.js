@@ -1,0 +1,61 @@
+import { DA_ORIGIN } from 'https://da.live/blocks/shared/constants.js';
+import getPathDetails from 'https://da.live/blocks/shared/pathDetails.js';
+import { daFetch } from 'https://da.live/blocks/shared/utils.js';
+
+const FORMS_BASE_PATH = '/.da/forms';
+
+async function loadCurrentSchema(schema) {
+  const resp = await daFetch(`${DA_ORIGIN}/source${schema.path}`);
+  if (!resp.ok) return { error: 'Could not load current schema.' };
+  const html = await resp.text();
+  const parser = new DOMParser();
+  const dom = parser.parseFromString(html, 'text/html');
+  const jsonStr = dom.querySelector('code').textContent;
+  return JSON.parse(jsonStr);
+}
+
+async function loadSchemas() {
+  const { owner: org, repo: site } = getPathDetails();
+
+  const path = `/${org}/${site}${FORMS_BASE_PATH}/schemas`;
+
+  const resp = await daFetch(`${DA_ORIGIN}/list${path}`);
+  if (!resp.ok) {
+    // eslint-disable-next-line no-console
+    console.log(`Cannot fetch schemas from ${path}.`);
+    return {};
+  }
+
+  const json = await resp.json();
+  if (!json) {
+    // eslint-disable-next-line no-console
+    console.log('Cannot read schemas.');
+    return {};
+  }
+
+  const schemas = await Promise.all(json.map(async (schema) => {
+    const loaded = await loadCurrentSchema(schema);
+    return { id: schema.name, ...loaded };
+  }));
+
+  const schemasObj = schemas.reduce((acc, schema) => {
+    acc[schema.id] = schema;
+    return acc;
+  }, {});
+
+  return schemasObj;
+}
+
+export const schemas = (() => new Promise((resolve) => {
+  let loadedSchemas;
+
+  // Load and cache schemas if needed
+  if (!loadedSchemas) {
+    loadSchemas().then((loaded) => {
+      loadedSchemas = loaded;
+      resolve(loadedSchemas);
+    });
+  } else {
+    resolve(loadedSchemas);
+  }
+}))();
