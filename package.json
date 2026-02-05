@@ -17,6 +17,7 @@
     "build:mdast": "esbuild --format=esm --minify ./nx/deps/mdast/src/index.js --bundle --outfile=./nx/deps/mdast/dist/index.js",
     "build:codemirror": "esbuild --format=esm --minify ./nx/deps/codemirror/src/index.js --bundle --outfile=./nx/deps/codemirror/dist/index.js",
     "build:da-lit": "esbuild --format=esm --minify ./deps/lit/src/index.js --bundle --outfile=./deps/lit/dist/index.js",
+    "build:da-form": "esbuild --format=esm --minify ./nx/deps/da-form/src/index.js --bundle --outfile=./nx/deps/da-form/dist/index.js",
     "prepare": "husky"
   },
   "repository": {
@@ -49,11 +50,14 @@
   "dependencies": {
     "@adobe/mdast-util-gridtables": "^4.0.6",
     "@adobe/remark-gridtables": "^3.0.6",
+    "@cfworker/json-schema": "^4.1.1",
     "@codemirror/lang-json": "^6.0.2",
     "@fsegurai/codemirror-theme-github-light": "^6.2.2",
     "codemirror": "^6.0.2",
     "esbuild": ">=0.25.0",
+    "hast-util-from-html-isomorphic": "^2.0.0",
     "hast-util-raw": "^9.0.4",
+    "hast-util-select": "^6.0.4",
     "hast-util-to-html": "^9.0.3",
     "lit": "^3.2.0",
     "mdast-util-to-hast": "^13.2.0",

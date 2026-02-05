@@ -1,0 +1,34 @@
+:host {
+  display: block;
+}
+
+sl-textarea {
+  height: 200px;
+}
+
+.da-form-wrapper {
+  width: 900px;
+  margin: 0 auto;
+  position: relative;
+
+  .da-form-title {
+    line-height: 1;
+    font-weight: 700;
+    margin: 0 0 8px;
+  }
+
+  .da-form-editor {
+    width: 700px;
+  }
+
+  da-form-editor {
+    margin-bottom: 20px;
+  }
+
+  da-form-sidebar {
+    position: absolute;
+    top: 0;
+    width: 300px;
+    right: -120px; /* 20px offset */
+  }
+}
