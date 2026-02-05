@@ -99,6 +99,7 @@ export default class HTMLConverter {
     return parent.map((listItem) => {
       const { value } = listItem.children[0];
       if (!value) {
+        // eslint-disable-next-line no-console
         console.log(key);
         return '';
       }
