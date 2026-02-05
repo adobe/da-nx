@@ -68,9 +68,20 @@ class NxSnapshotAdmin extends LitElement {
     this._snapshots = [{ open: true }, ...this._snapshots];
   }
 
-  handleDelete(idx) {
-    this._snapshots.splice(idx, 1);
-    this._snapshots = [...this._snapshots];
+  handleDelete(snapshot) {
+    const idx = this._snapshots.findIndex((s) => s.name === snapshot.name);
+    if (idx > -1) {
+      this._snapshots.splice(idx, 1);
+      this._snapshots = [...this._snapshots];
+    }
+  }
+
+  handleClearFilter() {
+    const url = new URL(window.location);
+    url.searchParams.delete('snapshot');
+    window.history.replaceState({}, '', url);
+    this._snapshots.forEach((s) => { s.open = false; });
+    this.requestUpdate();
   }
 
   handleDialog() {
@@ -82,25 +93,33 @@ class NxSnapshotAdmin extends LitElement {
   }
 
   renderSnapshots() {
-    const count = this._snapshots.filter((snapshot) => snapshot.name).length;
+    const filterName = new URLSearchParams(window.location.search).get('snapshot');
+    const snapshots = filterName
+      ? this._snapshots.filter((s) => s.name?.toLowerCase() === filterName.toLowerCase())
+      : this._snapshots;
+    const count = snapshots.filter((snapshot) => snapshot.name).length;
     const s = count === 1 ? '' : 's';
 
     return html`
       <hr/>
       <div class="nx-snapshot-list-header">
         <h2>${count} snapshot${s}</h2>
-        <sl-button @click=${this.handleNew}>Add new</sl-button>
+        ${filterName ? html`<sl-button size="small" @click=${this.handleClearFilter}>See All</sl-button>` : nothing}
+        ${filterName ? nothing : html`<sl-button @click=${this.handleNew}>Add new</sl-button>`}
       </div>
       <div class="nx-snapshot-list-labels">
         <p>Name</p>
         <p>Review</p>
       </div>
-      ${this._snapshots ? html`
+      ${snapshots ? html`
         <div class="nx-snapshot-list">
           <ul>
-            ${repeat(this._snapshots, (snapshot) => snapshot.name, (snapshot, idx) => html`
-              <li><nx-snapshot @delete=${() => this.handleDelete(idx)} .basics=${snapshot} .isRegistered=${this._isRegistered} .userPermissions=${this._userPermissions}></nx-snapshot></li>
-            `)}
+            ${repeat(
+              snapshots,
+              (snap) => snap.name,
+              (snap) => html`
+              <li><nx-snapshot @delete=${() => this.handleDelete(snap)} .basics=${snap} .isRegistered=${this._isRegistered} .userPermissions=${this._userPermissions} .startOpen=${!!filterName}></nx-snapshot></li>`,
+            )}
           </ul>
         </div>
       ` : nothing}
