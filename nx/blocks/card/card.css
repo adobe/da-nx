@@ -1,5 +1,5 @@
 .nx-card {
-  box-shadow: 0 1px 6px 0 rgba(0 0 0 / 12%);
+  box-shadow: 0 1px 6px 0 rgb(0 0 0 / 12%);
   border-radius: var(--s2-radius-200);
   overflow: hidden;
   background-color: #fff;
@@ -7,7 +7,7 @@
 
   &:hover {
     transform: scale(1.005);
-    box-shadow: 0 2px 8px 0 rgba(0 0 0 / 16%);
+    box-shadow: 0 2px 8px 0 rgb(0 0 0 / 16%);
   }
 }
 

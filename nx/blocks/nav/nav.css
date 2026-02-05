@@ -59,12 +59,12 @@ p {
   border-radius: 5px;
 }
 
-.nx-nav-help:has(+ [data-loaded]) {
-  display: flex;
-}
-
 .nx-nav-help:hover {
   background: #e1e1e1;
+}
+
+.nx-nav-help:has(+ [data-loaded]) {
+  display: flex;
 }
 
 .nx-nav-help svg {

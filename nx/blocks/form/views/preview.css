@@ -81,7 +81,7 @@ pre[class*="language-"] > code[class*="language-"] {
   position: absolute;
   left: 0;
   right: 0;
-  padding: inherit 0;
+  padding: 0;
   margin-top: 1em;
   background: #fff8c5;
   box-shadow: inset 5px 0 0 #eed888;
