@@ -215,8 +215,8 @@ svg.icon {
       padding: 4px;
       border-radius: 4px;
 
-      &:hover {
-        background: rgb(0 0 0 / 20%);
+      &:not(:disabled):hover {
+        background: var(--s2-gray-50);
       }
     }
   }
