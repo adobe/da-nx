@@ -8,6 +8,7 @@ async function personalize(fg) {
     nameSpan.textContent = profile.first_name;
     heading.replaceChildren('Welcome, ', nameSpan);
   } catch {
+    // eslint-disable-next-line no-console
     console.log('Personalization went south');
   }
 }

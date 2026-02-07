@@ -23,9 +23,7 @@ const sl = await getStyle(`${nx}/public/sl/styles.css`);
 const styles = await getStyle(import.meta.url);
 
 class NxDisaster extends LitElement {
-  static properties = {
-    _results: { state: true },
-  };
+  static properties = { _results: { state: true } };
 
   connectedCallback() {
     super.connectedCallback();

@@ -56,9 +56,8 @@
   padding: 0;
   background-color: transparent;
   display: flex;
-  justify-content: center;
+  place-content: center center;
   align-items: center;
-  align-content: center;
   flex-wrap: wrap;
   gap: 8px;
   width: 50px;

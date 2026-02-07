@@ -60,7 +60,10 @@ export async function loadBlock(block) {
     (async () => {
       try {
         await (await import(`${blockPath}.js`)).default(block);
-      } catch (e) { console.log(e); }
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.log(e);
+      }
       resolve();
     })();
   })];

@@ -130,7 +130,10 @@ const createProjectCache = (org, site, onError = null) => {
     isArchived: projectPath.includes('archive'),
   });
 
-  const getLocalesTotal = (langs) => langs.reduce((acc, lang) => acc + (lang.locales?.length || 0), 0);
+  const getLocalesTotal = (langs) => langs.reduce(
+    (acc, lang) => acc + (lang.locales?.length || 0),
+    0,
+  );
 
   const getActionStatus = (actionableLangs, action) => {
     const counts = actionableLangs.reduce((acc, lang) => {
@@ -193,6 +196,7 @@ const createProjectCache = (org, site, onError = null) => {
       if (!cached) return null;
 
       // Use cache if it exists and is still fresh
+      // eslint-disable-next-line max-len
       if (cached.lastModified && Math.abs(cached.lastModified - listLastModified) < CACHE_TIMESTAMP_TOLERANCE) {
         return rehydrateCachedData(cached, key);
       }

@@ -12,7 +12,16 @@ export async function setupConnector(service) {
   return CONNECTOR;
 }
 
-export async function getUrls(org, site, service, sourceLocation, destLocation, urls, fetchContent, snapshot) {
+export async function getUrls(
+  org,
+  site,
+  service,
+  sourceLocation,
+  destLocation,
+  urls,
+  fetchContent,
+  snapshot,
+) {
   const { connector } = service;
   const snapshotPrefix = createSnapshotPrefix(snapshot);
 
@@ -200,7 +209,15 @@ async function sendLanguageForTranslation(conf, connector, lang, originalUrls, s
     };
   });
   const { org, site } = conf;
-  const { urls } = await getUrls(org, site, { connector }, newSourceLocation, newSourceLocation, baseUrls, true);
+  const { urls } = await getUrls(
+    org,
+    site,
+    { connector },
+    newSourceLocation,
+    newSourceLocation,
+    baseUrls,
+    true,
+  );
   lang.translation.status = 'not started';
   delete lang.waitingFor;
   return connector.sendAllLanguages({
