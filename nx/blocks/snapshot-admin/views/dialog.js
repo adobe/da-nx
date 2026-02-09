@@ -27,8 +27,8 @@ class NxDialog extends LitElement {
     }
   }
 
-  handleAction() {
-    const opts = { bubbles: true, composed: true };
+  handleAction(value) {
+    const opts = { bubbles: true, composed: true, detail: value };
     const event = new CustomEvent('action', opts);
     this.dispatchEvent(event);
     this._dialog.close();
@@ -36,6 +36,20 @@ class NxDialog extends LitElement {
 
   get _dialog() {
     return this.shadowRoot.querySelector('sl-dialog');
+  }
+
+  renderActions() {
+    if (this.details?.actions) {
+      return this.details.actions.map((action) => html`
+        <sl-button
+          class="${action.variant || 'default'}"
+          @click=${() => this.handleAction(action.value)}
+        >
+          ${action.label}
+        </sl-button>
+      `);
+    }
+    return html`<sl-button @click=${() => this.handleAction()}>OK</sl-button>`;
   }
 
   render() {
@@ -46,7 +60,7 @@ class NxDialog extends LitElement {
             <p class="sl-heading-l">${this.details?.heading}</p>
             <button
               class="nx-dialog-close-btn"
-              @click=${this.handleAction}
+              @click=${() => this.handleAction()}
               aria-label="Close dialog">
               <svg class="icon"><use href="#S2IconClose20N-icon"/></svg>
             </button>
@@ -56,7 +70,7 @@ class NxDialog extends LitElement {
             <p class="sl-body-s">${this.details?.message}</p>
           </div>
           <div class="nx-dialog-action-group">
-            <sl-button @click=${this.handleAction}>OK</sl-button>
+            ${this.renderActions()}
           </div>
         </div>
       </sl-dialog>
