@@ -78,7 +78,9 @@ export default defineConfig([
     // Allow console in test files
     files: ['test/**/*.js'],
     rules: {
+      'max-classes-per-file': 0,
       'no-console': 'off',
+      'no-underscore-dangle': 0,
       'no-unused-expressions': 0,
     },
   }
