@@ -168,15 +168,34 @@ class NxSnapshot extends LitElement {
     this._message = { heading: 'Copied', message: 'URLs copied to clipboard.', open: true };
   }
 
-  async handleDelete() {
-    const result = await deleteSnapshot(this.basics.name);
-    if (result.error) {
-      this._message = { heading: 'Note', message: result.error, open: true };
+  async handleDialog(e) {
+    if (e.detail === 'delete') {
+      const result = await deleteSnapshot(this.basics.name);
+      if (result.error) {
+        this._message = { heading: 'Note', message: result.error, open: true };
+        return;
+      }
+      const opts = { bubbles: true, composed: true };
+      const event = new CustomEvent('delete', opts);
+      this.dispatchEvent(event);
+    } else if (e.detail === 'publish') {
+      this._message = undefined;
+      await this.executeReview('approve');
       return;
     }
-    const opts = { bubbles: true, composed: true };
-    const event = new CustomEvent('delete', opts);
-    this.dispatchEvent(event);
+    this._message = undefined;
+  }
+
+  handleDelete() {
+    this._message = {
+      heading: 'Delete Snapshot',
+      message: html`This will delete <b>${this.basics.name}</b>.<br/><br/>Are you sure?`,
+      open: true,
+      actions: [
+        { label: 'Cancel', value: 'cancel', variant: 'primary' },
+        { label: 'Delete', value: 'delete', variant: 'negative' },
+      ],
+    };
   }
 
   async handleReview(state) {
@@ -222,9 +241,23 @@ class NxSnapshot extends LitElement {
         this.loadManifest();
         return;
       }
+      this._message = {
+        heading: 'Approve & Publish Snapshot',
+        message: html`This will directly publish the snapshot content to production.<br/>Existing prod content will be overwritten.<br/><br/>Are you sure?`,
+        open: true,
+        actions: [
+          { label: 'Cancel', value: 'cancel', variant: 'primary' },
+          { label: 'Publish', value: 'publish' },
+        ],
+      };
+      return;
     }
 
-    // Normal review flow (request, reject, or approve without schedule)
+    // Normal review flow (request or reject)
+    await this.executeReview(state);
+  }
+
+  async executeReview(state) {
     this._action = 'Saving';
     const result = await reviewSnapshot(this.basics.name, state);
     this._action = undefined;
