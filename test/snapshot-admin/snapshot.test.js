@@ -268,6 +268,14 @@ describe('NxSnapshot', () => {
   });
 
   describe('handleDelete', () => {
+    it('Opens confirmation dialog', async () => {
+      const el = await createElement();
+      await el.handleDelete();
+      expect(el._message).to.not.be.undefined;
+      expect(el._message.heading).to.equal('Delete Snapshot');
+      expect(el._message.actions).to.have.length(2);
+    });
+
     it('Dispatches delete event on success', async () => {
       setupFetchMock(originalFetch, {
         'admin.hlx.page/snapshot/': (urlStr, opts) => {
@@ -282,7 +290,8 @@ describe('NxSnapshot', () => {
       let deleteEventFired = false;
       el.addEventListener('delete', () => { deleteEventFired = true; });
 
-      await el.handleDelete();
+      // Simulate confirmation from dialog
+      await el.handleDialog({ detail: 'delete' });
       expect(deleteEventFired).to.equal(true);
     });
 
@@ -297,7 +306,8 @@ describe('NxSnapshot', () => {
       });
 
       const el = await createElement();
-      await el.handleDelete();
+      // Simulate confirmation from dialog
+      await el.handleDialog({ detail: 'delete' });
       expect(el._message).to.not.be.undefined;
       expect(el._message.heading).to.equal('Note');
     });
