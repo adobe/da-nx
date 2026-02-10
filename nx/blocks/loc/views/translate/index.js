@@ -147,7 +147,7 @@ export async function copySourceLangs(org, site, title, options, langs, urls, la
   const sourceLocation = options['source.language']?.location || '/';
 
   const copyUrl = async ({ lang, url }) => {
-    const destination = `/${org}/${site}${url.langPath.replace(sourceLocation, lang.location)}`;
+    const destination = `/${org}/${site}${url.daDestPath.replace(sourceLocation, lang.location)}`;
 
     // If has an ext (sheet), force overwrite
     const overwrite = behavior === 'overwrite' || url.hasExt;
