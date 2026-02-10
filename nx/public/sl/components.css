@@ -224,6 +224,23 @@ svg.icon {
         background: var(--s2-red-800);
         border-color: var(--s2-red-800);
       }
+
+      &.outline {
+        background: transparent;
+        color: var(--s2-red-900);
+
+        &:hover {
+          background: var(--s2-red-200);
+          border-color: var(--s2-red-800);
+          color: var(--s2-red-800);
+        }
+
+        &:focus-visible {
+          color: #fff;
+          background: var(--s2-red-900);
+          border-color: var(--s2-red-900);
+        }
+      }
     }
 
     &.icon-only {

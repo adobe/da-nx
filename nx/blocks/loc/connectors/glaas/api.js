@@ -1,7 +1,9 @@
 import makeBatches from '../../../../public/utils/batch.js';
 
 async function throttle(ms = 500) {
-  return new Promise((resolve) => { setTimeout(() => { resolve(); }, ms); });
+  return new Promise((resolve) => {
+    setTimeout(() => { resolve(); }, ms);
+  });
 }
 
 function getOpts(clientid, token, body, contentType, method = 'GET') {
@@ -117,7 +119,7 @@ export async function addAssets({
         assetName: glaasFilename,
         assetType: 'SOURCE',
         targetLocales,
-        metadata: { 'source-preview-url': item.aemHref },
+        metadata: { 'source-preview-url': item.aemHref.replace(/\/index$/, '/') },
       };
 
       // GLaaS v1.2

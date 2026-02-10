@@ -1,8 +1,10 @@
 import { DA_ORIGIN } from '../../public/utils/constants.js';
+import { loadIms } from '../../utils/ims.js';
 import { replaceHtml, daFetch } from '../../utils/daFetch.js';
 import { mdToDocDom, docDomToAemHtml } from '../../utils/converters.js';
 import { Queue } from '../../public/utils/tree.js';
 
+const { accessToken } = await loadIms();
 const parser = new DOMParser();
 const EXTS = ['json', 'svg', 'png', 'jpg', 'jpeg', 'gif', 'mp4', 'pdf'];
 
@@ -17,6 +19,10 @@ const LINK_SELECTORS = [
 const LINK_SELECTOR_REGEX = /https:\/\/[^"'\s]+\.svg/g;
 
 let localUrls;
+
+export function getOptions() {
+  return { headers: { Authorization: `Bearer ${accessToken.token}` } };
+}
 
 async function findFragments(pageUrl, text, liveDomain) {
   // Determine commmon prefixes
@@ -75,7 +81,7 @@ async function getAemHtml(url, text) {
   return aemHtml;
 }
 
-function replaceLinks(html, fromOrg, fromRepo, liveDomain) {
+function replaceLinks(html) {
   return html;
 }
 
@@ -95,6 +101,7 @@ async function saveAllToDa(url, blob) {
     const resp = await daFetch(`${DA_ORIGIN}/source/${toOrg}/${toRepo}${formattedPath}`, opts);
     return resp.status;
   } catch {
+    // eslint-disable-next-line no-console
     console.log(`Couldn't save ${destPath}`);
     return 500;
   }
@@ -122,7 +129,12 @@ async function importUrl(url, findFragmentsFlag, liveDomain, setProcessed) {
 
   const isExt = EXTS.some((ext) => pathname.endsWith(`.${ext}`));
   const path = href.endsWith('/') ? `${pathname}index` : pathname;
-  const srcPath = pathname.endsWith('.json') ? `${pathname}${url.search}` : (isExt ? path : `${path}.md`);
+  let srcPath;
+  if (pathname.endsWith('.json')) {
+    srcPath = `${pathname}${url.search}`;
+  } else {
+    srcPath = isExt ? path : `${path}.md`;
+  }
   url.destPath = isExt ? path : `${path}.html`;
   url.editPath = href.endsWith('.json') ? path.replace('.json', '') : path;
 
@@ -133,7 +145,9 @@ async function importUrl(url, findFragmentsFlag, liveDomain, setProcessed) {
   }
 
   try {
-    const resp = await fetch(`${url.origin}${srcPath}`);
+    const opts = getOptions();
+    const proxyUrl = `https://da-etc.adobeaem.workers.dev/cors?url=${encodeURIComponent(`${url.origin}${srcPath}`)}`;
+    const resp = await fetch(proxyUrl, opts);
     if (resp.redirected && !(srcPath.endsWith('.mp4') || srcPath.endsWith('.png') || srcPath.endsWith('.jpg'))) {
       url.status = 'redir';
       throw new Error('redir');

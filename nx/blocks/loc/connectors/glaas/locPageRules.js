@@ -1,3 +1,4 @@
+/* eslint-disable import/prefer-default-export */
 function getPathLength(urlPattern) {
   const path = urlPattern.replace(/^https?:\/\/[^/]+/, '');
   return (path.match(/[^/]+/g) || []).length;
@@ -114,6 +115,7 @@ function buildLanguageUrlSets(assignments) {
   assignments.forEach((assignment) => {
     const { lang, url, workflow, workflowName } = assignment;
     if (!workflow || !workflowName) {
+      // eslint-disable-next-line no-console
       console.warn(`Skipping assignment with empty workflow/workflowName: lang=${lang}, url=${url}, workflow="${workflow}", workflowName="${workflowName}"`);
       return;
     }

@@ -4,8 +4,11 @@ async function personalize(fg) {
     const profile = await loadIms();
     if (profile.anonymous) return;
     const heading = fg.querySelector('h1, h2, h3, h4, h5, h6');
-    heading.innerHTML = `Welcome, <span>${profile.first_name}</span>`;
+    const nameSpan = document.createElement('span');
+    nameSpan.textContent = profile.first_name;
+    heading.replaceChildren('Welcome, ', nameSpan);
   } catch {
+    // eslint-disable-next-line no-console
     console.log('Personalization went south');
   }
 }

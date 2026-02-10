@@ -1,8 +1,5 @@
-/* eslint-disable max-len */
-
 let globalDntConfig;
 const ALT_TEXT_PLACEHOLDER = '*alt-placeholder*';
-const REGEXP_ICON = /(?<!(?:https?|urn)[^\s]*):(#?[a-z_-]+[a-z\d]*):/gi;
 
 const getHtmlSelector = (blockscope, blockConfig) => {
   const getChildSelector = (indexStr) => {

@@ -25,18 +25,29 @@ const ICONS = [
   `${nx}/public/icons/S2_Icon_OpenIn_20_N.svg`,
   `${nx}/public/icons/S2_Icon_PublishNo_20_N.svg`,
   `${nx}/public/icons/S2_Icon_Publish_20_N.svg`,
+  `${nx}/public/icons/S2_Icon_ArrowDown_20_N.svg`,
+  `${nx}/public/icons/S2_Icon_ArrowUp_20_N.svg`,
+  `${nx}/public/icons/S2_Icon_Link_20_N.svg`,
 ];
 
 class NxSnapshot extends LitElement {
   static properties = {
     basics: { attribute: false },
     isRegistered: { attribute: false },
+    userPermissions: { attribute: false },
+    startOpen: { attribute: false },
     _manifest: { state: true },
     _editUrls: { state: true },
     _message: { state: true },
-    _isOpen: { state: true },
     _action: { state: true },
+    _launchesCollapsed: { state: true },
+    _linkCopied: { state: true },
   };
+
+  constructor() {
+    super();
+    this._launchesCollapsed = true;
+  }
 
   async connectedCallback() {
     super.connectedCallback();
@@ -47,6 +58,9 @@ class NxSnapshot extends LitElement {
   update(props) {
     if (props.has('basics') && this.basics.name && !this._manifest) {
       this.loadManifest();
+    }
+    if (props.has('startOpen') && this.startOpen && this.basics) {
+      this.basics.open = true;
     }
     super.update();
   }
@@ -65,6 +79,10 @@ class NxSnapshot extends LitElement {
 
   handleUrls() {
     this._editUrls = !this._editUrls;
+  }
+
+  handleLaunchesToggle() {
+    this._launchesCollapsed = !this._launchesCollapsed;
   }
 
   async handleEditUrls() {
@@ -147,26 +165,113 @@ class NxSnapshot extends LitElement {
     this.handleSave(false);
   }
 
-  handleShare() {
-    const aemPaths = this._manifest.resources.map((res) => res.aemPreview);
+  handleShare(type = 'aemPreview') {
+    const aemPaths = this._manifest.resources.map((res) => res[type]);
     const blob = new Blob([aemPaths.join('\n')], { type: 'text/plain' });
     const data = [new ClipboardItem({ [blob.type]: blob })];
     navigator.clipboard.write(data);
     this._message = { heading: 'Copied', message: 'URLs copied to clipboard.', open: true };
   }
 
-  async handleDelete() {
-    const result = await deleteSnapshot(this.basics.name);
-    if (result.error) {
-      this._message = { heading: 'Note', message: result.error, open: true };
+  handleCopyLink(e) {
+    e.stopPropagation();
+    const url = new URL(window.location);
+    url.searchParams.set('snapshot', this.basics.name);
+    navigator.clipboard.writeText(url.toString());
+    this._linkCopied = true;
+    setTimeout(() => { this._linkCopied = false; }, 1500);
+  }
+
+  async handleDialog(e) {
+    if (e.detail === 'delete') {
+      const result = await deleteSnapshot(this.basics.name);
+      if (result.error) {
+        this._message = { heading: 'Note', message: result.error, open: true };
+        return;
+      }
+      const opts = { bubbles: true, composed: true };
+      const event = new CustomEvent('delete', opts);
+      this.dispatchEvent(event);
+    } else if (e.detail === 'publish') {
+      this._message = undefined;
+      await this.executeReview('approve');
       return;
     }
-    const opts = { bubbles: true, composed: true };
-    const event = new CustomEvent('delete', opts);
-    this.dispatchEvent(event);
+    this._message = undefined;
+  }
+
+  handleDelete() {
+    this._message = {
+      heading: 'Delete Snapshot',
+      message: html`This will delete <b>${this.basics.name}</b>.<br/><br/>Are you sure?`,
+      open: true,
+      actions: [
+        { label: 'Cancel', value: 'cancel', variant: 'primary' },
+        { label: 'Delete', value: 'delete', variant: 'negative' },
+      ],
+    };
   }
 
   async handleReview(state) {
+    // Check if we're approving and have a scheduled publish date
+    if (state === 'approve') {
+      const scheduledPublish = this.getValue('[name="scheduler"]');
+      if (scheduledPublish && scheduledPublish !== '') {
+        // Schedule the publish instead of immediate approval
+        this._action = 'Scheduling';
+
+        // Validate scheduled publish time before saving
+        this.validateSchedule(scheduledPublish);
+
+        // Save the manifest first with the scheduled publish data
+        const manifest = this.getUpdatedManifest();
+        await this.handleEditUrls();
+        const saveResult = await saveManifest(this.basics.name, manifest);
+
+        if (saveResult.error) {
+          this._action = undefined;
+          this._message = { heading: 'Note', message: saveResult.error, open: true };
+          return;
+        }
+
+        // Now schedule the publish
+        const scheduleResult = await updateSchedule(this.basics.name, true);
+        this._action = undefined;
+
+        if (scheduleResult.status !== 200) {
+          this._message = {
+            heading: 'Schedule Error',
+            message: scheduleResult.text || 'Failed to schedule publish',
+            open: true,
+          };
+          return;
+        }
+
+        this._message = {
+          heading: 'Scheduled',
+          message: 'Snapshot publish has been scheduled successfully.',
+          open: true,
+        };
+        this.loadManifest();
+        return;
+      }
+      this._message = {
+        heading: 'Approve & Publish Snapshot',
+        message: html`This will directly publish the snapshot content to production.<br/>Existing prod content will be overwritten.<br/><br/>Are you sure?`,
+        open: true,
+        actions: [
+          { label: 'Cancel', value: 'cancel', variant: 'primary' },
+          { label: 'Publish', value: 'publish' },
+        ],
+      };
+      return;
+    }
+
+    // Normal review flow (request or reject)
+    await this.executeReview(state);
+  }
+
+  async executeReview(state) {
     this._action = 'Saving';
     const result = await reviewSnapshot(this.basics.name, state);
     this._action = undefined;
@@ -204,6 +309,12 @@ class NxSnapshot extends LitElement {
     return manifest;
   }
 
+  formatSnapshotName({ target }) {
+    // Only allow alphanumeric characters and hyphens
+    target.value = target.value.replaceAll(/[^a-zA-Z0-9-]/g, '-').toLowerCase();
+    this.shadowRoot.querySelector('[name="name"]')?.classList?.remove('name-missing');
+  }
+
   get _lockStatus() {
     if (!this._manifest?.locked) return { text: 'Unlocked', icon: '#S2_Icon_LockOpen_20_N' };
     return { text: 'Locked', icon: '#S2_Icon_Lock_20_N' };
@@ -213,6 +324,10 @@ class NxSnapshot extends LitElement {
     if (this._manifest?.review === 'requested' && this._manifest?.locked) return 'Ready';
     if (this._manifest?.review === 'rejected') return 'Rejected';
     return undefined;
+  }
+
+  get _hasPublishPermission() {
+    return this.userPermissions === true;
   }
 
   renderUrls() {
@@ -246,7 +361,7 @@ class NxSnapshot extends LitElement {
   renderEditUrlBtn() {
     return html`
       <button
-        title=${this._manifest?.locked ? 'Unlock snapshot to edit URLs.' : nothing}
+        data-tooltip=${this._manifest?.locked ? 'Unlock snapshot to edit URLs.' : nothing}
         ?disabled=${this._manifest?.locked}
         @click=${this.handleUrls}>Edit</button>`;
   }
@@ -257,7 +372,7 @@ class NxSnapshot extends LitElement {
 
   renderDetails() {
     const showEdit = !this._manifest?.resources || this._editUrls;
-    const count = this._manifest?.resources.length || 0;
+    const count = this._manifest?.resources?.length || 0;
     const s = count === 1 ? '' : 's';
 
     return html`
@@ -267,16 +382,9 @@ class NxSnapshot extends LitElement {
             <p>
               ${showEdit ? html`URLs` : html`${count} URL${s}`}
               ${showEdit ? this.renderCancelUrlBtn() : this.renderEditUrlBtn()}
-              ${showEdit ? nothing : html`<button @click=${this.handleShare}>Share</button>`}
+              ${showEdit ? nothing : html`<button @click=${() => this.handleShare('aemPreview')}>Share URLs</button>`}
+              ${showEdit ? nothing : html`<button @click=${() => this.handleShare('url')}>Share Review URLs</button>`}
             </p>
-            ${showEdit ? nothing : html`
-              <div class="nx-snapshot-sub-heading-actions">
-                <p>Sources:</p>
-                <button @click=${() => this.handleCopyUrls('fork')}>Sync</button>
-                <p>|</p>
-                <button @click=${() => this.handleCopyUrls('promote')}>Promote</button>
-              </div>
-            `}
           </div>
           ${showEdit ? this.renderEditUrls() : this.renderUrls()}
         </div>
@@ -288,10 +396,25 @@ class NxSnapshot extends LitElement {
             <sl-textarea name="description" resize="none" .value="${this._manifest?.description}"></sl-textarea>
             <p class="nx-snapshot-sub-heading">Password</p>
             <sl-input type="password" name="password" .value=${this._manifest?.metadata?.reviewPassword}></sl-input>
-            ${this.isRegistered ? html`
+            ${this.isRegistered && this._hasPublishPermission ? html`
               <p class="nx-snapshot-sub-heading">Schedule Publish</p>
               <sl-input type="datetime-local" name="scheduler" .value=${formatLocalDate(this._manifest?.metadata?.scheduledPublish)}></sl-input>
             ` : nothing}
+          </div>
+          <div class="nx-launch-actions">
+            <p class="nx-launch-sub-heading ${this._launchesCollapsed ? '' : 'is-expanded'}" @click=${this.handleLaunchesToggle}>Launch</p>
+            ${this._launchesCollapsed ? nothing : html`
+              <div class="nx-launch-action-group">
+                <button data-tooltip="Create or sync launch content in DA" @click=${() => this.handleCopyUrls('fork')}>
+                  <svg class="icon"><use href="#S2_Icon_ArrowDown_20_N"/></svg>
+                  Sync
+                </button>
+                <button data-tooltip="Sync launch content back to the production tree" @click=${() => this.handleCopyUrls('promote')}>
+                  <svg class="icon"><use href="#S2_Icon_ArrowUp_20_N"/></svg>
+                  Promote
+                </button>
+              </div>
+            `}
           </div>
           <div class="nx-snapshot-actions">
             <p class="nx-snapshot-sub-heading">Snapshot</p>
@@ -322,11 +445,23 @@ class NxSnapshot extends LitElement {
   }
 
   renderEditName() {
-    return html`<input type="text" name="name" placeholder="Enter snapshot name" @input=${() => this.shadowRoot.querySelector('[name="name"]')?.classList?.remove('name-missing')} />`;
+    return html`<input type="text" name="name" placeholder="Enter snapshot name" @input=${this.formatSnapshotName} />`;
   }
 
   renderName() {
-    return html`<div class="nx-snapshot-header-title"><p>${this.basics.name}</p> <p>${this._reviewStatus}</p></div>`;
+    return html`
+      <div class="nx-snapshot-header-title">
+        <p>
+          ${this.basics.name}
+          ${this.basics.open ? html`
+            <button class="nx-snapshot-link" @click=${this.handleCopyLink}>
+              <svg class="icon" viewBox="0 0 20 20"><use href="#S2_Icon_Link_20_N"/></svg>
+              ${this._linkCopied ? html`<span class="copied">copied</span>` : nothing}
+            </button>
+          ` : nothing}
+        </p>
+        <p>${this._reviewStatus}</p>
+      </div>`;
   }
 
   render() {

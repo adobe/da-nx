@@ -2,7 +2,7 @@ import { addDnt, removeDnt } from '../../dnt/dnt.js';
 import { Queue } from '../../../../public/utils/tree.js';
 import { convertPath } from '../../utils/utils.js';
 
-const results = {};
+const results = [];
 
 async function sendForTranslation(org, site, url) {
   const body = new FormData();
@@ -28,7 +28,9 @@ export async function isConnected() {
   return true;
 }
 
-export async function sendAllLanguages({ org, site, langs, urls, options, actions }) {
+export async function sendAllLanguages({
+  org, site, langs, langsWithUrls, options, actions,
+}) {
   const { sendMessage, saveState } = actions;
   const sourceLanguage = options['source.language']?.location || '/';
 
@@ -36,10 +38,12 @@ export async function sendAllLanguages({ org, site, langs, urls, options, action
     await sendForTranslation(org, site, url);
   };
 
-  for (const lang of langs) {
+  for (const [idx, lang] of langs.entries()) {
     sendMessage({ text: `Sending ${lang.name} for translation.` });
     const queue = new Queue(translateUrl, 50);
-    const langUrls = urls.map((url) => {
+
+    // Find the URLs from the lang that has the URLs (custom source URLs)
+    const langUrls = langsWithUrls[idx].urls.map((url) => {
       const conf = {
         path: url.suppliedPath,
         sourcePrefix: sourceLanguage,
@@ -54,14 +58,15 @@ export async function sendAllLanguages({ org, site, langs, urls, options, action
     });
 
     await Promise.all(langUrls.map((url) => queue.push(url)));
+
     lang.translation = {
-      sent: urls.length,
-      translated: urls.length,
+      sent: langUrls.length,
+      translated: langUrls.length,
       status: 'translated',
     };
-    results[lang.code] = langUrls;
+    results.push(langUrls);
     sendMessage();
-    saveState();
+    await saveState();
   }
 }
 
@@ -69,12 +74,12 @@ export async function getStatusAll() {
   // Empty
 }
 
-export async function saveItems({ lang, saveToDa }) {
+export async function saveItems({ langIndex, saveToDa }) {
   const downloadCallback = async (url) => {
     await saveToDa(url);
   };
 
-  const langUrls = results[lang.code];
+  const langUrls = results[langIndex];
 
   const queue = new Queue(downloadCallback, 5);
   await Promise.all(langUrls.map((url) => queue.push(url)));

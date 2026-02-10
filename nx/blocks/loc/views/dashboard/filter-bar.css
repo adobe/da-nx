@@ -1,3 +1,13 @@
+svg {
+  display: none;
+}
+
+.icon {
+  display: block;
+  width: 20px;
+  height: 20px;
+}
+
 input {
   font-family: var(--body-font-family);
 }
@@ -8,12 +18,41 @@ input {
   gap: 1rem;
 }
 
+.search-container {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
 .search-input {
   flex: 1;
-  padding: 8px 12px;
+  padding: 8px 32px 8px 12px;
   border: 1px solid #ccc;
   border-radius: 4px;
   font-size: 1rem;
+}
+
+.clear-search-btn {
+  position: absolute;
+  right: 10px;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: transparent;
+}
+
+.clear-search-btn .icon {
+  color: var(--s2-gray-600);
+}
+
+.clear-search-btn:hover .icon {
+  color: var(--s2-gray-800);
 }
 
 .date-range {
@@ -79,6 +118,7 @@ input {
   align-items: center;
   margin-bottom: 8px;
   cursor: pointer;
+  text-transform: capitalize;
 }
 
 .filter-section input[type="checkbox"] {

@@ -1,11 +1,16 @@
 import observe from '../../utils/intOb.js';
 
 function decorate(el) {
-  el.innerHTML = `<iframe src="${el.dataset.src}" class="youtube"
-  webkitallowfullscreen mozallowfullscreen allowfullscreen
-  allow="encrypted-media; accelerometer; gyroscope; picture-in-picture"
-  scrolling="no"
-  title="Youtube Video">`;
+  const iframe = document.createElement('iframe');
+  iframe.setAttribute('src', el.dataset.src);
+  iframe.setAttribute('class', 'youtube');
+  iframe.setAttribute('webkitallowfullscreen', '');
+  iframe.setAttribute('mozallowfullscreen', '');
+  iframe.setAttribute('allowfullscreen', '');
+  iframe.setAttribute('allow', 'encrypted-media; accelerometer; gyroscope; picture-in-picture');
+  iframe.setAttribute('scrolling', 'no');
+  iframe.setAttribute('title', 'Youtube Video');
+  el.replaceChildren(iframe);
 }
 
 export default function init(a) {

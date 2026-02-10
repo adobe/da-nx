@@ -80,6 +80,7 @@ p {
 .nx-menu-btn {
   margin: -1px 0 0;
   font-size: 14px;
+  cursor: pointer;
 }
 
 .nx-menu-btn-details {
@@ -97,7 +98,7 @@ p {
 .nx-menu-btn::before,
 .nx-menu-all-orgs::before {
   position: absolute;
-  inset: 0 24px auto 24px;
+  inset: 0 24px auto;
   content: "";
   height: 1px;
   background: rgb(209 209 209);
@@ -107,7 +108,7 @@ p {
 .nx-menu-btn::after,
 .nx-menu-all-orgs::after {
   position: absolute;
-  inset: auto 24px 0 24px;
+  inset: auto 24px 0;
   content: "";
   height: 1px;
   background: rgb(209 209 209);
@@ -121,12 +122,12 @@ p {
 }
 
 .nx-menu-btn:hover::before {
-  inset: 0 0 auto 0;
+  inset: 0 0 auto;
   background: rgb(22 122 243);
 }
 
 .nx-menu-btn:hover::after {
-  inset: auto 0 0 0;
+  inset: auto 0 0;
   background: rgb(22 122 243);
 }
 
@@ -155,7 +156,7 @@ p {
   font-size: 22px;
   font-weight: 700;
   line-height: 1;
-  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .nx-email {
@@ -232,6 +233,7 @@ p {
   text-transform: uppercase;
   font-weight: 700;
   color: #676767;
+  cursor: pointer;
 }
 
 .nx-orgs-btn-switch {
@@ -244,6 +246,7 @@ p {
   padding: 0;
   color: rgb(22 122 243);
   margin-bottom: 8px;
+  cursor: pointer;
 }
 
 .nx-orgs-btn-switch:last-child {

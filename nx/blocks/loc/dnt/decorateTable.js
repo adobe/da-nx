@@ -74,6 +74,7 @@ export default function decorateTable(table, rule) {
 
   const target = rule.targets[0];
   if (!target) {
+    // eslint-disable-next-line no-console
     console.log('DNT Error: No target found');
     return;
   }

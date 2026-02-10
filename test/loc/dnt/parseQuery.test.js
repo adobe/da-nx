@@ -411,7 +411,7 @@ describe('parseQuery', () => {
       ],
     };
 
-    let result = parseQuery('row -2 dnt if any column hasElement "picture"');
+    const result = parseQuery('row -2 dnt if any column hasElement "picture"');
     expect(result).to.deep.equal(expected);
 
     // result = parseQuery('dnt row -2 if any col hasElement "picture"');

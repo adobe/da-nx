@@ -1,4 +1,3 @@
-/* eslint-disable import/prefer-default-export */
 import { daFetch } from '../../utils/daFetch.js';
 import { DA_ORIGIN } from './constants.js';
 
@@ -40,7 +39,9 @@ export class Queue {
       }
     } finally {
       if (this.throttle) {
-        await new Promise((resolve) => { setTimeout(() => { resolve(); }, this.throttle); });
+        await new Promise((resolve) => {
+          setTimeout(() => { resolve(); }, this.throttle);
+        });
       }
       this.activeCount -= 1;
       await this.processQueue();

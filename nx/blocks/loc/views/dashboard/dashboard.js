@@ -3,11 +3,11 @@ import { getConfig } from '../../../../scripts/nexter.js';
 import getStyle from '../../../../utils/styles.js';
 import getSvg from '../../../../utils/svg.js';
 import { loadIms } from '../../../../utils/ims.js';
-import { fetchProjectList, fetchPagedDetails, archiveProject, copyProject } from './index.js';
+import { archiveProject, copyProject } from './index.js';
 
 import './pagination.js';
 import './filter-bar.js';
-import './project-table.js';
+import createProjectData from './project-data.js';
 
 const style = await getStyle(import.meta.url);
 
@@ -18,127 +18,215 @@ const ICONS = [
   `${nx}/public/icons/S2_Icon_ProjectAddInto_20_N.svg`,
 ];
 
-const PAGE_COUNT = 600;
+const ITEMS_PER_PAGE = 25;
+const DRAFT_STATUS_HTML = html`<p class="draft-project"><strong>Draft</strong></p>`;
+const AUTO_CLEAR_MESSAGE_TIME = 6 * 1000;
+
+const hasNotStartedYet = (status) => !status || status === 'not started';
+
+const NO_RESULTS_MESSAGE = {
+  message: 'No projects match the current filters.',
+  help: 'Try adjusting your search criteria or clearing some filters.',
+};
 
 class NxLocDashboard extends LitElement {
   static properties = {
     view: { attribute: false },
     org: { attribute: false },
     site: { attribute: false },
-    _projectList: { state: true },
-    _filteredProjects: { state: true },
-    _hasAnyFilters: { state: true },
     _error: { state: true },
-    _useArchivedList: { state: true },
+    _showFrom: { state: true },
+    _showTo: { state: true },
+    _projectData: { state: true },
+    _projectsToDisplay: { state: true },
+    _currentPage: { state: true },
+    _isLoading: { state: true },
+    _message: { state: true },
   };
+
+  async getCurrentUser() {
+    if (!this._currentUser) {
+      const ims = await loadIms();
+      if (!ims) return;
+      this._currentUser = ims.email;
+    }
+  }
+
+  setErrorMessage(message) {
+    if (this._messageTimeout) {
+      clearTimeout(this._messageTimeout);
+    }
+    this._message = { text: message, type: 'error' };
+
+    this._messageTimeout = setTimeout(() => {
+      this._message = null;
+      this._messageTimeout = null;
+    }, AUTO_CLEAR_MESSAGE_TIME);
+  }
+
+  handleError({ criticalError, projectError }) {
+    if (criticalError) {
+      this._error = criticalError;
+    } else {
+      this.setErrorMessage(projectError);
+    }
+  }
+
+  async updateProjectsToDisplay(signal) {
+    try {
+      // eslint-disable-next-line max-len
+      this._projectsToDisplay = (await this._projectData?.getDetailsForProjects(this._showFrom, this._showTo, signal)) ?? [];
+    } finally {
+      this._isLoading = false;
+    }
+  }
+
+  /**
+   * Update the show range to display the first page
+   */
+  updateShowRangeToFirstPage() {
+    this._currentPage = 0;
+    this._showFrom = 0;
+    this._showTo = Math.min(ITEMS_PER_PAGE, this._projectData?.getTotalCount() ?? 0);
+  }
+
+  /**
+   * Update the show range while attempting to stay on the current page.
+   * If the current page no longer exists, go to the last available page.
+   */
+  updateShowRangePreservingPage() {
+    const totalProjects = this._projectData?.getTotalCount() ?? 0;
+    const maxPage = Math.max(0, Math.ceil(totalProjects / ITEMS_PER_PAGE) - 1);
+
+    if (this._currentPage > maxPage) {
+      this._currentPage = maxPage;
+    }
+
+    this._showFrom = this._currentPage * ITEMS_PER_PAGE;
+    this._showTo = Math.min((this._currentPage + 1) * ITEMS_PER_PAGE, totalProjects);
+  }
+
+  async initializeProjectsAndUser() {
+    if (!this._projectData) {
+      await this.getCurrentUser();
+      this.abortCurrentAndGetNewController();
+      this._projectData = await createProjectData({
+        org: this.org,
+        site: this.site,
+        currentUser: this._currentUser,
+        handleError: this.handleError.bind(this),
+        initialSignal: this._dataAbortController.signal,
+      });
+    }
+    await this.updateProjectsToDisplay();
+  }
+
+  abortCurrentAndGetNewController() {
+    if (this._dataAbortController) {
+      this._dataAbortController.abort();
+    }
+    this._dataAbortController = new AbortController();
+  }
 
   connectedCallback() {
     super.connectedCallback();
+    this._showFrom = 0;
+    this._showTo = ITEMS_PER_PAGE;
+    this._currentPage = 0;
+    this._isLoading = true;
     this.shadowRoot.adoptedStyleSheets = [style];
     getSvg({ parent: this.shadowRoot, paths: ICONS });
-    this.getCurrentUser();
-    this.getProjects();
+    // not awaiting to not block UI
+    this.ensureInitialized();
   }
 
-  async getCurrentUser() {
-    const ims = await loadIms();
-    if (!ims) return;
-    this._currentUser = ims.email;
-  }
-
-  getUpdates() {
-    return {};
-  }
-
-  async getProjects(type = 'active') {
-    const { projects, message } = await fetchProjectList(this.org, this.site, type);
-    if (message) {
-      this._error = message;
-      return;
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    // Clean up message timeout
+    if (this._messageTimeout) {
+      clearTimeout(this._messageTimeout);
     }
-    this._projectList = await fetchPagedDetails(projects, PAGE_COUNT);
   }
 
-  // Apply filters
-  async applyFilters(filters) {
-    const {
-      searchQuery,
-      startDate,
-      endDate,
-      selectedTranslationStatuses,
-      selectedRolloutStatuses,
-      viewAllProjects,
-      showArchivedProjects,
-    } = filters;
-
-    this._hasAnyFilters = searchQuery?.length
-      || startDate
-      || endDate
-      || selectedTranslationStatuses?.length
-      || selectedRolloutStatuses?.length
-      || !viewAllProjects
-      || !showArchivedProjects;
-
-    if (this._useArchivedList !== showArchivedProjects) {
-      this._projectList = [];
-      await this.getProjects(showArchivedProjects ? 'archive' : 'active');
-      this._useArchivedList = showArchivedProjects;
+  async ensureInitialized() {
+    if (!this._initPromise) {
+      this._initPromise = this.initializeProjectsAndUser();
     }
-
-    this._filteredProjects = this._projectList.filter((project) => {
-      // Match search query
-      const matchesSearch = searchQuery
-        ? project.title.toLowerCase().includes(searchQuery?.toLowerCase())
-        : true;
-
-      // Match date range
-      const projectDate = new Date(project.createdOn);
-      const matchesDate = (!startDate || projectDate >= new Date(startDate))
-                && (!endDate || projectDate <= new Date(endDate));
-
-      // Match translation statuses
-      const matchesTranslationStatus = selectedTranslationStatuses?.length === 0
-                || selectedTranslationStatuses?.includes(project.translationStatus);
-
-      // Match rollout statuses
-      const matchesRolloutStatus = selectedRolloutStatuses?.length === 0
-                || selectedRolloutStatuses?.includes(project.rolloutStatus);
-
-      // Match ownership statuses
-      const matchesOwnership = viewAllProjects || project.createdBy === this._currentUser;
-
-      // Combine all filters
-      return matchesSearch
-        && matchesDate
-        && matchesTranslationStatus
-        && matchesRolloutStatus
-        && matchesOwnership;
-    });
-
-    // Reset to the first page after applying filters
-    this._currentPage = 1;
+    await this._initPromise;
   }
 
-  getCurrentList() {
-    return this._hasAnyFilters ? this._filteredProjects : this._projectList;
+  async handleFilterChange(filters) {
+    this.abortCurrentAndGetNewController();
+
+    try {
+      await this.ensureInitialized();
+      this._isLoading = true;
+      await this._projectData.applyFilters(filters, this._dataAbortController.signal);
+      this.updateShowRangeToFirstPage();
+      await this.updateProjectsToDisplay(this._dataAbortController.signal);
+    } catch (error) {
+      if (error.name === 'AbortError') return; // ignore
+      this.setErrorMessage('Failed to apply filters. Please try again.');
+      this._isLoading = false;
+    }
   }
 
-  async handleAction({ detail }) {
+  handleAction({ detail }) {
     const opts = { detail, bubbles: true, composed: true };
     const event = new CustomEvent('action', opts);
     this.dispatchEvent(event);
   }
 
   async handleCopy(project) {
-    const [newProject] = await copyProject(project, this._currentUser);
-    this.getCurrentList().unshift(newProject);
-    this.requestUpdate();
+    // Do not copy if user information is not there
+    if (!this._currentUser) {
+      this.setErrorMessage('No user information present. Logged out?');
+      return;
+    }
+
+    this._isLoading = true;
+    try {
+      const { path, lastModified, newProject } = await copyProject(project, this._currentUser);
+      await this._projectData?.addNewProject(path, { ...newProject, lastModified });
+
+      // Reset to first page to show the new project (copies are added at the top)
+      this.updateShowRangeToFirstPage();
+      await this.updateProjectsToDisplay();
+      this.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (e) {
+      this.setErrorMessage(`Failed to copy project: "${project.title}"`);
+    } finally {
+      this._isLoading = false;
+    }
   }
 
-  handleArchive(project, idx) {
-    archiveProject(project);
-    this.getCurrentList().splice(idx, 1);
-    this.requestUpdate();
+  async handleArchive(project) {
+    this._isLoading = true;
+    try {
+      const oldPath = project.path;
+      const newPath = await archiveProject(project);
+
+      // Refresh the project list to reflect the removal
+      this._projectData?.archiveProject(oldPath, newPath);
+
+      // Stay on current page if possible, otherwise go to last page
+      this.updateShowRangePreservingPage();
+      await this.updateProjectsToDisplay();
+    } catch (e) {
+      this.setErrorMessage(`Failed to archive project: "${project.title}"`);
+    } finally {
+      this._isLoading = false;
+    }
+  }
+
+  async handlePagination({ detail }) {
+    await this.ensureInitialized();
+    this._currentPage = detail.page ?? 0;
+    this._showFrom = detail.showFrom ?? 0;
+    this._showTo = detail.showTo ?? ITEMS_PER_PAGE;
+    this._isLoading = true;
+    await this.updateProjectsToDisplay();
+    this.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   get _project() {
@@ -150,15 +238,66 @@ class NxLocDashboard extends LitElement {
   }
 
   renderStatus(project) {
-    const draft = () => html`<p class="draft-project"><strong>Draft</strong></p>`;
+    const { translateStatus, rolloutStatus, langsTotal, localesTotal } = project;
 
-    const { translateStatus, rolloutStatus } = project;
-    if (!translateStatus && !rolloutStatus) return draft();
+    if (
+      hasNotStartedYet(translateStatus)
+      && hasNotStartedYet(rolloutStatus)
+      && langsTotal === 0
+      && localesTotal === 0
+    ) {
+      return DRAFT_STATUS_HTML;
+    }
 
-    if (translateStatus === 'not started' && rolloutStatus === 'not started') return draft();
+    return html`${translateStatus ? html`<p><strong>Translation</strong> ${translateStatus}</p>` : nothing}
+                ${rolloutStatus ? html`<p><strong>Rollout</strong> ${rolloutStatus}</p>` : nothing}`;
+  }
 
-    return html`${project.translateStatus ? html`<p><strong>Translation</strong> ${project.translateStatus}</p>` : nothing}
-                ${project.rolloutStatus ? html`<p><strong>Rollout</strong> ${project.rolloutStatus}</p>` : nothing}`;
+  renderArchiveButton(project) {
+    if (project.isArchived) return nothing;
+    return html`<button class="archive-btn" @click=${() => this.handleArchive(project)}>
+      <svg class="icon">
+        <use href="#S2_Icon_ProjectAddInto_20_N"/>
+      </svg>
+    </button>`;
+  }
+
+  renderProjectRow(project) {
+    if (!project) return nothing;
+    if (project.failedToLoad) {
+      return html`<li>
+        <div class="inner">
+          <div class="project-title">
+            <p>${project.failedToLoad}</p>
+          </div>
+        </div>
+      </li>`;
+    }
+    return html`
+      <li>
+        <div class="inner">
+          <div class="project-title">
+            <p><a href="#/${project.view}${project.path.replace('.json', '')}">${project.title}</a></p>
+            <p>${project.created.date} ${project.created.time}</p>
+          </div>
+          <div class="project-modified">
+            <p>${project.modifiedBy}</p>
+            <p>${project.modified?.date} ${project.modified?.time}</p>
+          </div>
+          <div class="project-total">
+            <p><strong>Languages</strong><span>${project.langsTotal}</span></p>
+            <p>${project.localesTotal ? html`<strong>Locales</strong><span>${project.localesTotal}</span>` : nothing}</p>
+          </div>
+          <div class="project-status">
+            ${this.renderStatus(project)}
+          </div>
+          <div class="project-actions">
+            <button class="copy-btn" @click=${() => this.handleCopy(project)}><svg class="icon"><use href="#S2_Icon_Copy_20_N"/></svg></button>
+            ${this.renderArchiveButton(project)}
+          </div>
+        </div>
+      </li>
+    `;
   }
 
   renderProjects(projects) {
@@ -171,47 +310,26 @@ class NxLocDashboard extends LitElement {
         <p>Actions</p>
       </div>
       <ul>
-        ${projects.map((project, idx) => html`
-          <li>
-            <div class="inner">
-              <div class="project-title">
-                <p><a href="#/${project.view}${project.path.replace('.json', '')}">${project.title}</a></p>
-                <p>${project.created.date} ${project.created.time}</p>
-              </div>
-              <div class="project-modified">
-                <p>${project.modifiedBy}</p>
-                <p>${project.modified?.date} ${project.modified?.time}</p>
-              </div>
-              <div class="project-total">
-                <p><strong>Languages</strong><span>${project.langsTotal}</span></p>
-                <p>${project.localesTotal ? html`<strong>Locales</strong><span>${project.localesTotal}</span>` : nothing}</p>
-              </div>
-              <div class="project-status">
-                ${this.renderStatus(project)}
-              </div>
-              <div class="project-actions">
-                <button class="copy-btn" @click=${() => this.handleCopy(project)}><svg class="icon"><use href="#S2_Icon_Copy_20_N"/></svg></button>
-                ${this._useArchivedList ? nothing : html`<button class="archive-btn" @click=${() => this.handleArchive(project, idx)}><svg class="icon"><use href="#S2_Icon_ProjectAddInto_20_N"/></svg></button>`}
-              </div>
-            </div>
-          </li>
-        `)}
+        ${projects.map((project) => this.renderProjectRow(project))}
       </ul>
+      <nx-pagination .currentPage=${this._currentPage} .totalItems=${this._projectData?.getTotalCount()} .itemsPerPage=${ITEMS_PER_PAGE} @page-change=${this.handlePagination}></nx-pagination>
     `;
   }
 
-  renderError() {
+  renderMessage({ status, message, help }) {
     return html`
       <div class="nx-loc-step loc-error-step">
-        <p class="loc-error-code">${this._error.status}</p>
-        <p class="loc-error-message">${this._error.message}</p>
-        <p class="loc-error-help">${this._error.help}</p>
+        ${status ? html`<p class="loc-error-code">${status}</p>` : nothing}
+        <p class="loc-error-message">${message}</p>
+        ${help ? html`<p class="loc-error-help">${help}</p>` : nothing}
       </div>
     `;
   }
 
   render() {
-    const projects = this.getCurrentList();
+    const showNoResults = this._projectData?.hasFiltersWithNoResults()
+      && !this._error
+      && !this._isLoading;
 
     return html`
       <nx-loc-actions
@@ -219,9 +337,15 @@ class NxLocDashboard extends LitElement {
         .message=${this._message}
         @action=${this.handleAction}>
       </nx-loc-actions>
-      <nx-filter-bar @filter-change=${(e) => this.applyFilters(e.detail)}></nx-filter-bar>
-      ${this._error ? this.renderError() : nothing}
-      ${projects ? this.renderProjects(projects) : nothing}
+      <nx-filter-bar @filter-change=${(e) => this.handleFilterChange(e.detail)}></nx-filter-bar>
+      ${this._isLoading ? html`
+        <div class="loading-bar">
+          <div class="loading-bar-inner"></div>
+        </div>
+      ` : nothing}
+      ${this._error ? this.renderMessage(this._error) : nothing}
+      ${showNoResults ? this.renderMessage(NO_RESULTS_MESSAGE) : nothing}
+      ${this._projectsToDisplay?.length ? this.renderProjects(this._projectsToDisplay) : nothing}
     `;
   }
 }

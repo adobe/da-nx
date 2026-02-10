@@ -1,7 +1,7 @@
 import { DA_ORIGIN } from '../../../../public/utils/constants.js';
 import { Queue } from '../../../../public/utils/tree.js';
 import { daFetch } from '../../../../utils/daFetch.js';
-import { convertPath, createSnapshotPrefix, fetchConfig, formatPath } from '../../utils/utils.js';
+import { convertPath, createSnapshotPrefix, fetchConfig } from '../../utils/utils.js';
 import { mergeCopy, overwriteCopy } from '../../project/index.js';
 
 let CONNECTOR;
@@ -12,7 +12,16 @@ export async function setupConnector(service) {
   return CONNECTOR;
 }
 
-export async function getUrls(org, site, service, sourceLocation, urls, fetchContent, snapshot) {
+export async function getUrls(
+  org,
+  site,
+  service,
+  sourceLocation,
+  destLocation,
+  urls,
+  fetchContent,
+  snapshot,
+) {
   const { connector } = service;
   const snapshotPrefix = createSnapshotPrefix(snapshot);
 
@@ -21,7 +30,7 @@ export async function getUrls(org, site, service, sourceLocation, urls, fetchCon
     const converConf = {
       path: url.suppliedPath,
       sourcePrefix: sourceLocation,
-      destPrefix: sourceLocation,
+      destPrefix: destLocation,
       snapshotPrefix,
     };
     const formatted = convertPath(converConf);
@@ -85,6 +94,7 @@ async function saveLang({
   connector,
   behavior,
   lang,
+  langIndex,
   urls,
   sendMessage,
 }) {
@@ -108,6 +118,7 @@ async function saveLang({
     site,
     service,
     lang,
+    langIndex,
     urls: urlsToSave,
     saveToDa,
   });
@@ -121,17 +132,17 @@ export async function saveLangItemsToDa(options, conf, connector, sendMessage) {
 
   const saveLangConf = { ...conf, connector, behavior, sendMessage };
 
-  for (const lang of conf.langs) {
+  for (const [langIndex, lang] of conf.langs.entries()) {
     if (lang.translation.status !== 'complete') {
       sendMessage({ text: `Fetching ${conf.urls.length} items for ${lang.name}` });
-      const { savedCount } = await saveLang({ ...saveLangConf, lang });
+      const { savedCount } = await saveLang({ ...saveLangConf, lang, langIndex });
       lang.translation.saved = savedCount;
       lang.translation.status = savedCount === conf.urls.length ? 'complete' : 'error';
     }
   }
 }
 
-export async function copySourceLangs(org, site, title, options, langs, urls) {
+export async function copySourceLangs(org, site, title, options, langs, urls, langsWithUrls) {
   const behavior = options['copy.conflict.behavior'];
   const sourceLocation = options['source.language']?.location || '/';
 
@@ -146,16 +157,26 @@ export async function copySourceLangs(org, site, title, options, langs, urls) {
     url.status = resp.status;
   };
 
-  for (const lang of langs) {
+  for (const [idx, lang] of langs.entries()) {
     const queue = new Queue(copyUrl, 50);
 
-    const formatted = urls.map((url) => ({
-      ...url,
-      ...formatPath(org, site, sourceLocation, url.suppliedPath),
-    }));
+    // Find the URLs from the lang that has the URLs (custom source URLs)
+    const langUrls = langsWithUrls[idx].urls.map((url) => {
+      const conf = {
+        path: url.suppliedPath,
+        sourcePrefix: sourceLocation,
+        destPrefix: lang.location,
+      };
+      const converted = convertPath(conf);
+      return {
+        ...url,
+        ...converted,
+        code: lang.code,
+      };
+    });
 
-    await Promise.allSettled(formatted.map((url) => queue.push({ lang, url })));
-    const success = formatted.filter((url) => url.status === 200).length;
+    await Promise.allSettled(langUrls.map((url) => queue.push({ lang, url })));
+    const success = langUrls.filter((url) => url.status === 200).length;
     lang.copy = {
       saved: success,
       status: 'complete',
@@ -171,11 +192,15 @@ export function removeWaitingLanguagesFromConf(conf) {
 }
 
 export async function sendAllForTranslation(conf, connector) {
-  const errors = conf.urls.filter((url) => url.error);
-  if (errors.length) {
-    return { errors };
-  }
+  // Use langsWithUrls as our basis for checking for errors
+  const langErrors = conf.langsWithUrls.reduce((acc, lang) => {
+    const errors = lang.urls.filter((url) => url.error);
+    if (errors.length) acc.push(...errors);
+    return acc;
+  }, []);
+  if (langErrors.length) return { errors: langErrors };
 
+  // Use langs here as this is what will persist to DA
   conf.langs.filter((lang) => lang.waitingFor).forEach((lang) => {
     if (!lang.translation) {
       lang.translation = {};
@@ -195,7 +220,15 @@ async function sendLanguageForTranslation(conf, connector, lang, originalUrls, s
     };
   });
   const { org, site } = conf;
-  const { urls } = await getUrls(org, site, { connector }, newSourceLocation, baseUrls, true);
+  const { urls } = await getUrls(
+    org,
+    site,
+    { connector },
+    newSourceLocation,
+    newSourceLocation,
+    baseUrls,
+    true,
+  );
   lang.translation.status = 'not started';
   delete lang.waitingFor;
   return connector.sendAllLanguages({

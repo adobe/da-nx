@@ -88,11 +88,49 @@ class NxLocTranslate extends LitElement {
     this._connected = await this._service.connector.connect(this._service);
   }
 
-  async fetchUrls(service, fetchContent) {
+  async fetchUrls(service, fetchContent, langs) {
     const { org, site, snapshot } = this.project;
-    const sourceLocation = this._options['source.language']?.location || '/';
 
-    return getUrls(org, site, service, sourceLocation, this._urls, fetchContent, snapshot);
+    // calculate the default source location
+    const defSrcLocation = this._options['source.language']?.location || '/';
+
+    // Get the default source once for all langs that use the default location
+    // TODO: In some rare cases (regional sites), it could be unneccessary
+    // to always get the default URLs.
+    const { urls } = await getUrls(
+      org,
+      site,
+      service,
+      defSrcLocation,
+      defSrcLocation,
+      this._urls,
+      fetchContent,
+      snapshot,
+    );
+
+    // Check langs for custom source locations
+    const langsWithUrls = await Promise.all(langs.map(async (lang) => {
+      const langUrl = { ...lang };
+      if (lang.source) {
+        const customSources = await getUrls(
+          org,
+          site,
+          service,
+          defSrcLocation,
+          lang.source,
+          this._urls,
+          fetchContent,
+          snapshot,
+        );
+        langUrl.urls = customSources.urls;
+      } else {
+        langUrl.urls = urls;
+      }
+      return langUrl;
+    }));
+
+    // Return the default source langs w/ urls
+    return { langsWithUrls, urls };
   }
 
   async getBaseTranslationConf(fetchContent) {
@@ -104,7 +142,8 @@ class NxLocTranslate extends LitElement {
     const { org, site, title, options, snapshot } = this.project;
     const { _service: service, _translateLangs: langs } = this;
 
-    const { urls } = await this.fetchUrls(service, fetchContent);
+    // langsWithUrls is an in-memory object that contains all URL fetches.
+    const { langsWithUrls, urls } = await this.fetchUrls(service, fetchContent, langs);
 
     return {
       org,
@@ -115,6 +154,7 @@ class NxLocTranslate extends LitElement {
       options,
       langs,
       urls,
+      langsWithUrls,
       actions,
     };
   }
@@ -125,6 +165,8 @@ class NxLocTranslate extends LitElement {
     if (sendAll?.errors?.length) {
       this._urlErrors = sendAll.errors;
     }
+    // See if anything is finished immediately
+    this.checkAndSaveLangs(conf);
   }
 
   async checkAndSaveLangs(conf) {
@@ -184,17 +226,26 @@ class NxLocTranslate extends LitElement {
   }
 
   async handleCopyAll() {
-    const { urls } = await this.fetchUrls({}, true);
+    const { _copyLangs: langs } = this;
 
-    const errors = urls.filter((url) => url.error);
-    if (errors.length) {
-      this._urlErrors = errors;
-      return;
-    }
+    // langsWithUrls is an in-memory object that contains all URL fetches.
+    const { langsWithUrls, urls } = await this.fetchUrls({}, true, langs);
+
+    langsWithUrls.forEach((lang) => {
+      const errors = lang.urls.filter((url) => url.error);
+      if (errors.length) {
+        // Create an errors array if it doesn't exist
+        this._urlErrors ??= [];
+        this._urlErrors.push(...errors);
+      }
+    });
+
+    // Do not continue if any errors
+    if (this._urlErrors?.length) return;
 
     const { org, site, title, options } = this.project;
 
-    await copySourceLangs(org, site, title, options, this._copyLangs, urls);
+    await copySourceLangs(org, site, title, options, this._copyLangs, urls, langsWithUrls);
     this.handleSaveLangs();
     this.requestUpdate();
   }
