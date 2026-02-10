@@ -45,6 +45,14 @@ export default {
   testRunnerHtml: (testFramework) => `
     <html>
       <head>
+        <script type="importmap">
+          {
+            "imports": {
+              "da-lit": "/deps/lit/dist/index.js",
+              "/nx/public/sl/components.js": "/test/mocks/sl-components.js"
+            }
+          }
+        </script>
         <link rel="icon" href="/libs/img/favicons/favicon.ico" size="any">
         <script type='module'>
           const oldFetch = window.fetch;
