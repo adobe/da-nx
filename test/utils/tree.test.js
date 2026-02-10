@@ -641,6 +641,7 @@ describe('crawl', () => {
   });
 
   it('Includes initial files in results without crawling', async () => {
+    // eslint-disable-next-line no-unused-vars
     window.fetch = async (url) => ({
       ok: true,
       json: async () => [],
@@ -693,6 +694,7 @@ describe('crawl', () => {
   });
 
   it('Executes callback for initial files', async () => {
+    // eslint-disable-next-line no-unused-vars
     window.fetch = async (url) => ({
       ok: true,
       json: async () => [],
@@ -724,6 +726,7 @@ describe('crawl', () => {
   });
 
   it('Works without initial files parameter (backward compatibility)', async () => {
+    // eslint-disable-next-line no-unused-vars
     window.fetch = async (url) => ({
       ok: true,
       json: async () => mockFilesOnlyResponse,
