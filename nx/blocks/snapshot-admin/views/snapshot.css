@@ -237,6 +237,15 @@ svg.icon {
       align-items: center;
       gap: 8px;
     }
+
+    button {
+      padding: 4px 6px;
+      border-radius: 4px;
+
+      &:not(:disabled):hover {
+        background: var(--s2-gray-50);
+      }
+    }
   }
 
   .nx-snapshot-sub-heading-actions {

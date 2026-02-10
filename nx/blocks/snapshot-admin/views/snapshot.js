@@ -165,8 +165,8 @@ class NxSnapshot extends LitElement {
     this.handleSave(false);
   }
 
-  handleShare() {
-    const aemPaths = this._manifest.resources.map((res) => res.aemPreview);
+  handleShare(type = 'aemPreview') {
+    const aemPaths = this._manifest.resources.map((res) => res[type]);
     const blob = new Blob([aemPaths.join('\n')], { type: 'text/plain' });
     const data = [new ClipboardItem({ [blob.type]: blob })];
     navigator.clipboard.write(data);
@@ -382,7 +382,8 @@ class NxSnapshot extends LitElement {
             <p>
               ${showEdit ? html`URLs` : html`${count} URL${s}`}
               ${showEdit ? this.renderCancelUrlBtn() : this.renderEditUrlBtn()}
-              ${showEdit ? nothing : html`<button @click=${this.handleShare}>Share</button>`}
+              ${showEdit ? nothing : html`<button @click=${() => this.handleShare('aemPreview')}>Share URLs</button>`}
+              ${showEdit ? nothing : html`<button @click=${() => this.handleShare('url')}>Share Review URLs</button>`}
             </p>
           </div>
           ${showEdit ? this.renderEditUrls() : this.renderUrls()}
