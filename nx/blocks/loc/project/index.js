@@ -169,7 +169,7 @@ export async function overwriteCopy(url, title) {
       delete daMetadata?.rejectedhashes;
       resp = await saveToDa(
         srcHtml.querySelector('main').innerHTML,
-        getDaUrl(url.destination),
+        getDaUrl(url),
         daMetadata,
       );
     }
