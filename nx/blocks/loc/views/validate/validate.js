@@ -4,8 +4,8 @@ import { getConfig } from '../../../../scripts/nexter.js';
 import getStyle from '../../../../utils/styles.js';
 import { daFetch } from '../../../../utils/daFetch.js';
 import { Queue } from '../../../../public/utils/tree.js';
-import { convertPath, createSnapshotPrefix, fetchConfig } from '../../utils/utils.js';
-import { getFragmentUrls } from './validate-utils.js';
+import { convertPath, createSnapshotPrefix, fetchConfig, getSuppliedPrefix } from '../../utils/utils.js';
+import { getOriginMatches, getFragmentUrls } from './utils.js';
 
 const { nxBase } = getConfig();
 const style = await getStyle(import.meta.url);
@@ -37,7 +37,7 @@ class NxLocValidate extends LitElement {
     super.update();
   }
 
-  setupProject() {
+  async setupProject() {
     const { org, site, snapshot, urls } = this.project;
 
     this._org = org;
@@ -45,21 +45,10 @@ class NxLocValidate extends LitElement {
     this._snapshot = snapshot;
     this._urls = urls.map((url) => new URL(url.suppliedPath, this.origin));
 
+    // If there's an org and site, get the config for the project
+    if (org && site) this._configSheet = await fetchConfig(this._org, this._site);
+
     this.checkUrls();
-  }
-
-  async findConfigValue(key) {
-    if (!this._configSheet) this._configSheet = await fetchConfig(this._org, this._site);
-
-    const foundRow = this._configSheet.config.data.find((row) => row.key === key);
-
-    return foundRow?.value;
-  }
-
-  async getOriginMatches() {
-    const value = await this.findConfigValue('source.fragment.hostnames');
-
-    return value?.split(',').map((role) => `https://${role.trim()}`) || [];
   }
 
   checkDomain(href) {
@@ -119,7 +108,7 @@ class NxLocValidate extends LitElement {
   async checkUrls() {
     // See if there are any additional
     // origins to match fragments against
-    this._originMatches = await this.getOriginMatches();
+    this._originMatches = await getOriginMatches(this._configSheet);
 
     const checkUrl = this.checkUrl.bind(this);
 
@@ -135,37 +124,6 @@ class NxLocValidate extends LitElement {
     }
   }
 
-  async getSourcePrefix(path) {
-    const configPrefixes = [];
-    // Get the site's single source of truth language name
-    const sourceLangName = await this.findConfigValue('source.language');
-    // If it exists, look it up in the list of languages
-    if (sourceLangName) {
-      const foundLang = this._configSheet.languages.data.find((row) => row.name === sourceLangName);
-      // If found in languages, push into the list to check against the pathname
-      if (foundLang) {
-        configPrefixes.push(foundLang.location);
-      }
-    }
-
-    // Loop through all languages and push source and destination paths in the prefix list to check against.
-    for (const lang of this._configSheet.languages.data) {
-      if (lang.source) configPrefixes.push(lang.source);
-      if (lang.location) configPrefixes.push(lang.location);
-    }
-
-    // Find the longest matching prefix
-    let matchedPrefix;
-    for (const prefix of configPrefixes) {
-      const isMatch = path === prefix || path.startsWith(`${prefix}/`);
-      if (isMatch && (!matchedPrefix || prefix.length > matchedPrefix.length)) {
-        matchedPrefix = prefix;
-      }
-    }
-
-    return matchedPrefix;
-  }
-
   async getUpdates() {
     const checked = this._urls.filter((url) => url.checked);
     if (checked.some((url) => (url.status === 'error'))) {
@@ -176,12 +134,13 @@ class NxLocValidate extends LitElement {
     }
 
     const urls = await Promise.all(checked.map(async (url) => {
-      const sourcePrefix = await this.getSourcePrefix(url.pathname);
-      const { aemBasePath } = convertPath({ path: url.pathname, sourcePrefix });
+      const prefix = await getSuppliedPrefix(this.org, this.site, url.pathname);
+
+      const { aemBasePath } = convertPath({ path: url.pathname, sourcePrefix: prefix });
       return {
-        basePath: aemBasePath,
-        suppliedPath: url.pathname,
-        checked: url.checked,
+        suppliedPath: url.pathname, // The path as supplied (may or may not contain locale info)
+        basePath: aemBasePath, // A path without the supplied prefix
+        checked: url.checked, // Whether or not the URL is selected for localization project
       };
     }));
 

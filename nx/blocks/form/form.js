@@ -38,6 +38,7 @@ class FormEditor extends LitElement {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
     this.fetchDoc(this.details);
+    console.log('Hello from local');
   }
 
   async fetchDoc() {

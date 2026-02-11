@@ -3,7 +3,7 @@ import getStyle from '../../../../utils/styles.js';
 import { getConfig } from '../../../../scripts/nexter.js';
 import getSvg from '../../../../utils/svg.js';
 import { Queue } from '../../../../public/utils/tree.js';
-import { getSyncUrls } from './index.js';
+import { filterSyncUrls } from './index.js';
 import { mergeCopy, overwriteCopy } from '../../project/index.js';
 
 const { nxBase: nx } = getConfig();
@@ -20,7 +20,9 @@ class NxLocSync extends LitElement {
     project: { attribute: false },
     message: { attribute: false },
     _message: { state: true },
+    _allUrls: { state: true },
     _syncUrls: { state: true },
+    _syncSources: { state: true },
   };
 
   connectedCallback() {
@@ -38,18 +40,36 @@ class NxLocSync extends LitElement {
   }
 
   getSyncUrls() {
-    const { org, site, options, urls, snapshot } = this.project;
-    const sendLocation = options['source.language']?.location || '/';
-    this._syncUrls = getSyncUrls(org, site, sendLocation, urls, snapshot);
+    const {
+      org,
+      site,
+      options,
+      langs,
+      urls,
+      snapshot,
+    } = this.project;
+    const defaultSource = options['source.language']?.location || '/';
+
+    // Ensure all URLs remain available for persistence
+    this._allUrls = urls;
+
+    // Filter only the URLs that need a sync
+    this._syncSources = filterSyncUrls(org, site, defaultSource, langs, urls, snapshot);
   }
 
   getPersistedUrls() {
-    return this._syncUrls.map((url) => ({
+    const synced = this._syncUrls.map((url) => ({
       suppliedPath: url.suppliedPath,
       basePath: url.basePath,
       checked: url.checked,
       synced: url.synced,
     }));
+    const all = this._allUrls.map((url) => ({
+      ...url,
+      synced: true,
+    }));
+    const syncedPaths = new Set(synced.map((url) => url.basePath));
+    return [...synced, ...all.filter((url) => !syncedPaths.has(url.basePath))];
   }
 
   handleAction(e) {
@@ -104,7 +124,7 @@ class NxLocSync extends LitElement {
   get _project() {
     return {
       ...this.project,
-      urls: this.getPersistedUrls(),
+      // urls: this.getPersistedUrls(),
     };
   }
 
@@ -145,47 +165,55 @@ class NxLocSync extends LitElement {
         .message=${this._message}
         @action=${this.handleAction}>
       </nx-loc-actions>
-      <div class="nx-loc-list-actions">
-        <div>
-          <p class="nx-loc-list-actions-header">Sync</p>
-          <p>Supplied URLs are not from <strong>${this.project.options['source.language'].location}</strong>. Please sync them.</p>
-        </div>
-        <div class="actions">
-          <p><strong>Conflict behavior:</strong> ${this.project.options['sync.conflict.behavior']}</p>
-          <sl-button @click=${() => this.handleSyncAll('skip')} class="primary outline">Skip sync</sl-button>
-          <sl-button @click=${() => this.handleSyncAll('sync')} class="accent">Sync all</sl-button>
-        </div>
-      </div>
-      <div class="nx-loc-list-header">
-        <p>Source</p>
-        <p>Destination</p>
-        <p class="status-label">Status</p>
-      </div>
-      <ul>
-        ${this._syncUrls.map((url) => html`
-          <li class="${url.expand ? 'is-expanded' : ''}">
-            <div class="inner">
-              <p>${url.sourceView}</p>
-              <p>${url.destView}</p>
-              <div class="url-info">
-                <div class="url-status">
-                  ${this.renderStatus(url.synced)}
-                </div>
-                <button @click=${() => this.handleToggleExpand(url)} class="url-expand">Expand</button>
-              </div>
+        <p class="nx-loc-list-actions-header">Sync</p>
+        ${Object.keys(this._syncSources).map((sourcePath) => html`
+          <div class="nx-loc-list-actions">
+            <div>
+              <p>Supplied URLs are not from <strong>${sourcePath}</strong>. Please sync them.</p>
             </div>
-            ${url.expand ? html`
-              <div class="url-details">
-                <nx-loc-url-details
-                  .path="/${this.project.org}/${this.project.site}${url.sourceView}">
-                </nx-loc-url-details>
-                <nx-loc-url-details
-                  .path="/${this.project.org}/${this.project.site}${url.destView}">
-                </nx-loc-url-details>
-              </div>` : nothing}
-          </li>
+            <div class="actions">
+              <p><strong>Conflict behavior:</strong> ${this.project.options['sync.conflict.behavior']}</p>
+              <sl-button @click=${() => this.handleSyncAll('skip')} class="primary outline">Skip sync</sl-button>
+              <sl-button @click=${() => this.handleSyncAll('sync')} class="accent">Sync all</sl-button>
+            </div>
+          </div>
+          <div class="nx-loc-list-header">
+            <p>Source</p>
+            <p>Destination</p>
+            <p class="status-label">Status</p>
+          </div>
+          <ul>
+            ${this._syncSources[sourcePath].map((url) => html`
+              <li class="${url.expand ? 'is-expanded' : ''}">
+                <div class="inner">
+                  <p>${url.suppliedPath}</p>
+                  <p>${url.destPath}</p>
+                  <div class="url-info">
+                    <div class="url-status">
+                      ${this.renderStatus(url.synced)}
+                    </div>
+                    <button @click=${() => this.handleToggleExpand(url)} class="url-expand">Expand</button>
+                  </div>
+                </div>
+                ${url.expand ? html`
+                  <div class="url-details">
+                    <nx-loc-url-details
+                      .path="/${this.project.org}/${this.project.site}${url.suppliedPath}">
+                    </nx-loc-url-details>
+                    <nx-loc-url-details
+                      .path="/${this.project.org}/${this.project.site}${url.destPath}">
+                    </nx-loc-url-details>
+                  </div>` : nothing}
+              </li>
+            `)}
+          </ul>
         `)}
-      </ul>
+      
+        
+        
+      
+      
+      
     `;
   }
 }

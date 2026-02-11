@@ -188,11 +188,6 @@ class NxLocTranslate extends LitElement {
   }
 
   async handleGetStatus() {
-    // if (!this.incompleteLangs) {
-    //   this.handleMessage({ text: 'All languages complete or cancelled.' });
-    //   return;
-    // }
-
     const conf = await this.getBaseTranslationConf(false);
 
     await this._service.connector.getStatusAll(removeWaitingLanguagesFromConf(conf));
@@ -388,7 +383,7 @@ class NxLocTranslate extends LitElement {
 
     return html`
       <div class="nx-loc-list-actions">
-        <p class="nx-loc-list-actions-header">Copy (${this._options['source.language'].name})</p>
+        <p class="nx-loc-list-actions-header">Copy</p>
         <div class="actions">
           <p><strong>Conflict behavior:</strong> ${this._options['copy.conflict.behavior']}</p>
           <sl-button @click=${this.handleCopyAll} class="accent">Copy all</sl-button>
@@ -406,7 +401,7 @@ class NxLocTranslate extends LitElement {
         ${this._copyLangs.map((lang) => html`
           <li>
             <div class="inner">
-              <p>${lang.name} - ${this._options['source.language'].name} copy</p>
+              <p>${lang.name}</p>
               <p class="lang-count"></p>
               <p class="lang-count"></p>
               <p class="lang-count">${this._urls.length}</p>

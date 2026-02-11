@@ -1,3 +1,5 @@
+import { findConfigValue } from '../../utils/utils.js';
+
 const FRAGMENT_SELECTOR = 'a[href*="/fragments/"], .fragment a';
 
 /**
@@ -20,6 +22,11 @@ export function getImageAltFragmentUrls(dom) {
       return null;
     })
     .filter(Boolean);
+}
+
+export function getOriginMatches(config) {
+  const value = findConfigValue(config, 'source.fragment.hostnames');
+  return value?.split(',').map((role) => `https://${role.trim()}`) || [];
 }
 
 /**

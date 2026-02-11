@@ -153,8 +153,10 @@ class NxLocOptions extends LitElement {
     return this._siteLangs.reduce((acc, lang) => {
       let count = acc;
       if (lang.activeAction.value !== 'skip') {
-        const activeLocales = lang.locales?.filter((locale) => locale.active) || [];
-        count += activeLocales.length;
+        if (lang.locales) {
+          const activeLocales = lang.locales?.filter((locale) => locale.active) || [];
+          count += activeLocales.length;
+        }
       }
       return count;
     }, 0);

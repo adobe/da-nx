@@ -1,31 +1,44 @@
-import { convertPath, createSnapshotPrefix } from '../../utils/utils.js';
+export function filterSyncUrls(org, site, defaultSource, langs, urls) {
+  // Group URLs into langs with unique sources that need sync
+  return langs.reduce((acc, lang) => {
+    const source = lang.source || defaultSource;
 
-function getFullPath(path, sourcePrefix, destPrefix) {
-  return convertPath({ path, sourcePrefix, destPrefix });
-}
+    const syncUrls = urls.filter((url) => !url.suppliedPath.startsWith(source));
 
-export function getSyncUrls(org, site, location, urls, snapshot) {
-  const snapshotPrefix = createSnapshotPrefix(snapshot);
-  return urls.map((url) => {
-    const {
-      daBasePath,
-      aemBasePath,
-      daDestPath,
-      aemDestPath,
-      ext,
-    } = getFullPath(url.suppliedPath, undefined, location);
+    // If there are urls to sync, and they haven't already been captured
+    if (syncUrls && !acc[source]) {
+      acc[source] = syncUrls.map((url) => {
+        const prefixEnd = url.suppliedPath.length - url.basePath.length;
+        const suppliedPrefix = url.suppliedPath.slice(0, prefixEnd);
+        return {
+          ...url,
+          suppliedPrefix,
+          destPath: url.suppliedPath.replace(suppliedPrefix, source),
+        };
+      });
+    }
 
-    const opts = {
-      ...url,
-      sourceView: `${snapshotPrefix}${aemBasePath}`,
-      destView: `${snapshotPrefix}${aemDestPath}`,
-      source: `/${org}/${site}${snapshotPrefix}${daBasePath}`,
-      destination: `/${org}/${site}${snapshotPrefix}${daDestPath}`,
-      hasExt: ext === 'json',
-    };
+    return acc;
+  }, {});
 
-    return opts;
-  });
+  // return filteredUrls.map((url) => {
+  //   const {
+  //     daBasePath,
+  //     aemBasePath,
+  //     daDestPath,
+  //     aemDestPath,
+  //     ext,
+  //   } = getFullPath(url.suppliedPath, undefined, defaultSource);
+
+  //   return {
+  //     ...url,
+  //     sourceView: `${snapshotPrefix}${aemBasePath}`,
+  //     destView: `${snapshotPrefix}${aemDestPath}`,
+  //     source: `/${org}/${site}${snapshotPrefix}${daBasePath}`,
+  //     destination: `/${org}/${site}${snapshotPrefix}${daDestPath}`,
+  //     hasExt: ext === 'json',
+  //   };
+  // });
 }
 
 export function syncPath(source, destination) {

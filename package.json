@@ -18,8 +18,7 @@
     "build:mdast": "esbuild --format=esm --minify ./nx/deps/mdast/src/index.js --bundle --outfile=./nx/deps/mdast/dist/index.js",
     "build:codemirror": "esbuild --format=esm --minify ./nx/deps/codemirror/src/index.js --bundle --outfile=./nx/deps/codemirror/dist/index.js",
     "build:da-lit": "esbuild --format=esm --minify ./deps/lit/src/index.js --bundle --outfile=./deps/lit/dist/index.js",
-    "build:da-form": "esbuild --format=esm --minify ./nx/deps/da-form/src/index.js --bundle --outfile=./nx/deps/da-form/dist/index.js",
-    "prepare": "husky"
+    "build:da-form": "esbuild --format=esm --minify ./nx/deps/da-form/src/index.js --bundle --outfile=./nx/deps/da-form/dist/index.js"
   },
   "repository": {
     "type": "git",

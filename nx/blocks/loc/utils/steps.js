@@ -197,7 +197,7 @@ function optionsStep(project) {
   };
 
   const prev = { view: 'validate', text: 'Validate sources' };
-  const next = { ...getOptionsNext(project), text: 'Start project' };
+  const next = { ...getOptionsNext(project), text: 'Review & start' };
 
   return { step, prev, next };
 }
@@ -266,7 +266,7 @@ function startStep({ view }) {
     visible: VIEW_TYPES[view] === 'setup',
     style: false,
     icon: '#S2_Icon_GlobeGrid_20_N',
-    text: 'Start project',
+    text: 'Review & start',
   };
 
   const prev = { };

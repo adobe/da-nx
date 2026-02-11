@@ -9,16 +9,26 @@ const DEFAULT_PROPS = [
 /**
  * Determine what view should be next based on what URLs were added.
  *
- * @param {String} source the source path prefix from where translation is sent.
+ * @param {Object} options the options for the project.
  * @param {Object[]} langs the active languages on the localization project
  * @param {Object[]} urls the supplied URLs
  * @param {String} urls[].suppliedPath the originally supplied path
- * @param {Boolean} urls[].checked whether or not the URL was validated
+ * @param {Boolean} urls[].checked whether or not the URL was selected
  * @returns the view
  */
-function calculateView(source, langs, urls) {
-  const needsSync = urls.some((url) => !url.suppliedPath.startsWith(source));
-  if (needsSync && source !== '/') return 'sync';
+function calculateView(options, langs, urls) {
+  // Get this location as a legacy fallback in case
+  // `source` for each lang does not exist.
+  const defaultSource = options['source.language']?.location || '/';
+
+  // Loop through all URLs against selected languages to see if something needs a sync
+  // TODO: This should be more inteligent about rollout scenarios.
+  const needsSync = langs.some((lang) => {
+    const source = lang.source || defaultSource;
+    return urls.some((url) => !url.suppliedPath.startsWith(source));
+  });
+
+  if (needsSync) return 'sync';
 
   const needsCopy = langs.some((lang) => lang.action === 'copy');
   if (needsCopy) return 'translate';
@@ -107,44 +117,51 @@ export function getAllActions(langs) {
 }
 
 export function formatLangs(langs, config) {
-  return langs.map((lang) => {
-    // Format language actions
-    const split = lang.actions.split(',').map((action) => {
-      const value = action.trim().toLowerCase();
-      const name = `${String(value).charAt(0).toUpperCase()}${String(value).slice(1)}`;
-      return { value, name };
-    });
-
-    // Add skip if it doesn't exist
-    const hasSkip = split.some((action) => action.value === 'skip');
-    if (!hasSkip) split.push({ value: 'skip', name: 'Skip' });
-    lang.orderedActions = split;
-    [lang.activeAction] = split;
-
-    if (lang.locales && typeof lang.locales === 'string') {
-      const hasDefaultLocales = 'default locales' in lang;
-      const defaultLocales = lang['default locales']
-        ?.split(',')
-        .map((value) => value.trim())
-        .filter((v) => v);
-
-      lang.locales = lang.locales.split(',').map((value) => {
-        const code = value.trim();
-        return { code, active: hasDefaultLocales ? defaultLocales?.includes(code) ?? false : true };
+  return langs.reduce((acc, lang) => {
+    if (lang.name) {
+      // Format language actions
+      const split = lang.actions.split(',').map((action) => {
+        const value = action.trim().toLowerCase();
+        const name = `${String(value).charAt(0).toUpperCase()}${String(value).slice(1)}`;
+        return { value, name };
       });
-    }
 
-    if (lang['source language']) {
-      const found = findLanguageByName(langs, lang['source language']);
-      if (found) {
-        if (config['source.language'] !== found.name) {
-          lang.waitingFor = found;
+      // Add skip if it doesn't exist
+      const hasSkip = split.some((action) => action.value === 'skip');
+      if (!hasSkip) split.push({ value: 'skip', name: 'Skip' });
+      lang.orderedActions = split;
+      [lang.activeAction] = split;
+
+      if (lang.locales && typeof lang.locales === 'string') {
+        const hasDefaultLocales = 'default locales' in lang;
+        const defaultLocales = lang['default locales']
+          ?.split(',')
+          .map((value) => value.trim())
+          .filter((v) => v);
+
+        lang.locales = lang.locales.split(',').map((value) => {
+          const code = value.trim();
+          return {
+            code,
+            active: hasDefaultLocales ? defaultLocales?.includes(code) ?? false : true,
+          };
+        });
+      }
+
+      if (lang['source language']) {
+        const found = findLanguageByName(langs, lang['source language']);
+        if (found) {
+          if (config['source.language'] !== found.name) {
+            lang.waitingFor = found;
+          }
         }
       }
+
+      acc.push(lang);
     }
 
-    return lang;
-  });
+    return acc;
+  }, []);
 }
 
 export function finalizeOptions(config, suppliedOptions, suppliedLangs, suppliedUrls) {
@@ -171,7 +188,9 @@ export function finalizeOptions(config, suppliedOptions, suppliedLangs, supplied
       delete filteredProps.orderedActions;
       delete filteredProps.actions;
 
-      const locales = lang.locales?.filter((locale) => locale.active);
+      let locales;
+      if (lang.locales) locales = lang.locales.filter((locale) => locale.active);
+
       acc.push({
         ...filteredProps,
         action,
@@ -190,9 +209,7 @@ export function finalizeOptions(config, suppliedOptions, suppliedLangs, supplied
     };
   }
 
-  const sourceLocation = options['source.language']?.location || '/';
-
-  const view = calculateView(sourceLocation, langs, suppliedUrls);
+  const view = calculateView(options, langs, suppliedUrls);
 
   return { view, options, langs };
 }

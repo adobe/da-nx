@@ -230,6 +230,46 @@ export async function fetchConfig(org, site) {
   return options;
 }
 
+export function findConfigValue(config, key) {
+  const foundRow = config.config.data.find((row) => row.key === key);
+  return foundRow?.value;
+}
+
+export async function getSuppliedPrefix(org, site, suppliedPath) {
+  const configPrefixes = [];
+
+  const config = await fetchConfig(org, site);
+
+  // Get the site's single source of truth language name
+  const sourceLangName = findConfigValue(config, 'source.language');
+  // If it exists, look it up in the list of languages
+  if (sourceLangName) {
+    const foundLang = config.languages.data.find((row) => row.name === sourceLangName);
+    // If found in languages, push into the list to check against the pathname
+    if (foundLang) {
+      configPrefixes.push(foundLang.location);
+    }
+  }
+
+  // Loop through all languages and push source
+  // and destination paths in the prefix list to check against.
+  for (const lang of config.languages.data) {
+    if (lang.source) configPrefixes.push(lang.source);
+    if (lang.location) configPrefixes.push(lang.location);
+  }
+
+  // Find the longest matching prefix
+  let matchedPrefix;
+  for (const prefix of configPrefixes) {
+    const isMatch = suppliedPath === prefix || suppliedPath.startsWith(`${prefix}/`);
+    if (isMatch && (!matchedPrefix || prefix.length > matchedPrefix.length)) {
+      matchedPrefix = prefix;
+    }
+  }
+
+  return matchedPrefix || '';
+}
+
 // BEFORE TIMES
 
 export function getHashDetails(hash) {
