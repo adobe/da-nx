@@ -1,13 +1,13 @@
 import { expect } from '@esm-bundle/chai';
 import { readFile } from '@web/test-runner-commands';
-import { 
-  processSchemaKey, 
-  fieldNameToKey, 
-  languageNameToCode, 
+import {
+  processSchemaKey,
+  fieldNameToKey,
+  languageNameToCode,
   parseBlockSchema,
   annotateHTML,
   needsKeywordsMetadata,
-  buildLanguageMetadata
+  buildLanguageMetadata,
 } from '../../../nx/blocks/loc/connectors/glaas/translationMetadata.js';
 
 describe('translationMetadata', () => {
@@ -160,7 +160,7 @@ describe('translationMetadata', () => {
 
     it('should parse block schema and generate structured output', () => {
       const result = parseBlockSchema(mockSchema);
-      
+
       expect(result).to.have.property('aso-app_apple_listing');
       expect(result['aso-app_apple_listing']).to.have.property('selector', '.aso-app.apple.listing');
       expect(result['aso-app_apple_listing']).to.have.property('fields');
@@ -168,54 +168,54 @@ describe('translationMetadata', () => {
 
     it('should include fields with character count', () => {
       const result = parseBlockSchema(mockSchema);
-      const fields = result['aso-app_apple_listing'].fields;
-      
-      const subtitle = fields.find(f => f.fieldName === 'Subtitle');
+      const { fields } = result['aso-app_apple_listing'];
+
+      const subtitle = fields.find((f) => f.fieldName === 'Subtitle');
       expect(subtitle).to.exist;
       expect(subtitle.charCount).to.equal('30');
     });
 
     it('should include fields with keywords injection', () => {
       const result = parseBlockSchema(mockSchema);
-      const fields = result['aso-app_apple_listing'].fields;
-      
-      const subtitle = fields.find(f => f.fieldName === 'Subtitle');
+      const { fields } = result['aso-app_apple_listing'];
+
+      const subtitle = fields.find((f) => f.fieldName === 'Subtitle');
       expect(subtitle.keywordsInjection).to.be.true;
     });
 
     it('should exclude fields without character count and without keywords', () => {
       const result = parseBlockSchema(mockSchema);
-      const fields = result['aso-app_apple_listing'].fields;
-      
-      const icon = fields.find(f => f.fieldName === 'Icon');
+      const { fields } = result['aso-app_apple_listing'];
+
+      const icon = fields.find((f) => f.fieldName === 'Icon');
       expect(icon).to.be.undefined;
     });
 
     it('should handle case-insensitive "Yes" for keywords injection', () => {
       const result = parseBlockSchema(mockSchema);
-      const fields = result['aso-app_apple_listing'].fields;
-      
-      const description = fields.find(f => f.fieldName === 'Description');
+      const { fields } = result['aso-app_apple_listing'];
+
+      const description = fields.find((f) => f.fieldName === 'Description');
       expect(description.keywordsInjection).to.be.true;
     });
 
     it('should parse block without parentheses', () => {
       const result = parseBlockSchema(mockSchema);
-      
+
       expect(result).to.have.property('simple-block');
       expect(result['simple-block'].selector).to.equal('.simple-block');
     });
 
     it('should parse multiple block types', () => {
       const result = parseBlockSchema(mockSchema);
-      
+
       expect(result).to.have.property('aso-app_google_promo');
       expect(result['aso-app_google_promo'].selector).to.equal('.aso-app.google.promo');
     });
 
     it('should skip metadata keys starting with colon', () => {
       const result = parseBlockSchema(mockSchema);
-      
+
       expect(result).to.not.have.property(':version');
       expect(result).to.not.have.property(':test-coverage');
     });
@@ -270,13 +270,13 @@ describe('translationMetadata', () => {
 
     it('should check across multiple blocks', () => {
       const schema = {
-        'block1': {
+        block1: {
           selector: '.block1',
           fields: [
             { fieldName: 'Field1', fieldKey: 'field1', charCount: '30', keywordsInjection: false },
           ],
         },
-        'block2': {
+        block2: {
           selector: '.block2',
           fields: [
             { fieldName: 'Field2', fieldKey: 'field2', charCount: '30', keywordsInjection: true },
@@ -313,7 +313,7 @@ describe('translationMetadata', () => {
       `;
 
       const result = annotateHTML(html, parsedSchema);
-      
+
       expect(result).to.include('its-storage-size="30"');
       expect(result).to.include('its-loc-note="block-name=aso-app_apple_listing_1_subtitle|fieldName=Subtitle|apply-keywords=true"');
       expect(result).to.include('its-loc-note-type="description"');
@@ -353,7 +353,7 @@ describe('translationMetadata', () => {
       `;
 
       const result = annotateHTML(html, parsedSchema);
-      
+
       expect(result).to.include('block-name=aso-app_apple_listing_1_subtitle');
       expect(result).to.include('block-name=aso-app_apple_listing_2_subtitle');
     });
@@ -393,7 +393,7 @@ describe('translationMetadata', () => {
       `;
 
       const result = annotateHTML(html, schemaWithMultipleFields);
-      
+
       expect(result).to.include('block-name=aso-app_apple_listing_1_subtitle');
       expect(result).to.include('block-name=aso-app_apple_listing_1_description');
       expect(result).to.include('its-storage-size="30"');
@@ -425,7 +425,7 @@ describe('translationMetadata', () => {
       `;
 
       const result = annotateHTML(html, schemaKeywordsOnly);
-      
+
       expect(result).to.not.include('its-storage-size');
       expect(result).to.include('its-loc-note="block-name=aso-app_apple_listing_1_subtitle|fieldName=Subtitle|apply-keywords=true"');
     });
@@ -441,7 +441,7 @@ describe('translationMetadata', () => {
       `;
 
       const result = annotateHTML(html, parsedSchema);
-      
+
       expect(result).to.not.include('its-storage-size');
       expect(result).to.not.include('its-loc-note');
     });
@@ -457,7 +457,7 @@ describe('translationMetadata', () => {
       `;
 
       const result = annotateHTML(html, parsedSchema);
-      
+
       expect(result).to.not.include('its-storage-size');
       expect(result).to.not.include('its-loc-note');
     });
@@ -473,7 +473,7 @@ describe('translationMetadata', () => {
       `;
 
       const result = annotateHTML(html, parsedSchema);
-      
+
       // Should unwrap <p> tag
       expect(result).to.include('<div>Subtitle</div>');
       expect(result).to.not.include('<p>Subtitle</p>');
@@ -492,7 +492,7 @@ describe('translationMetadata', () => {
       `;
 
       const result = annotateHTML(html, parsedSchema);
-      
+
       // Should unwrap <p> tag
       expect(result).to.include('<div its-storage-size="30"');
       expect(result).to.include('>Adobe Firefly</div>');
@@ -510,7 +510,7 @@ describe('translationMetadata', () => {
       `;
 
       const result = annotateHTML(html, parsedSchema);
-      
+
       // Should keep multiple <p> tags
       expect(result).to.include('<p>Line 1</p>');
       expect(result).to.include('<p>Line 2</p>');
@@ -527,7 +527,7 @@ describe('translationMetadata', () => {
       `;
 
       const result = annotateHTML(html, null);
-      
+
       // Should unwrap <p> tags even without schema
       expect(result).to.include('<div>Label</div>');
       expect(result).to.include('<div>Content</div>');
@@ -548,7 +548,7 @@ describe('translationMetadata', () => {
       `;
 
       const result = annotateHTML(htmlWithPTags, parsedSchema);
-      
+
       // Even though input has <p> tags, attributes should be added
       // (after unwrapping, of course, but isExactMatch handles both cases)
       expect(result).to.include('its-storage-size="30"');
@@ -577,20 +577,20 @@ describe('translationMetadata', () => {
       `;
 
       const result = annotateHTML(htmlWithNestedElements, parsedSchema);
-      
+
       const parser = new DOMParser();
       const doc = parser.parseFromString(result, 'text/html');
-      
+
       // First two rows should NOT have attributes (nested elements in label)
       const rows = doc.querySelectorAll('.aso-app.listing.apple > div');
       const contentA = rows[0].querySelector(':scope > div:nth-child(2)');
       const contentB = rows[1].querySelector(':scope > div:nth-child(2)');
-      
+
       expect(contentA.hasAttribute('its-storage-size')).to.be.false;
       expect(contentA.hasAttribute('its-loc-note')).to.be.false;
       expect(contentB.hasAttribute('its-storage-size')).to.be.false;
       expect(contentB.hasAttribute('its-loc-note')).to.be.false;
-      
+
       // Third row SHOULD have attributes (valid label)
       const validContent = rows[2].querySelector(':scope > div:nth-child(2)');
       expect(validContent.getAttribute('its-storage-size')).to.equal('30');
@@ -608,19 +608,19 @@ describe('translationMetadata', () => {
       `;
 
       const result = annotateHTML(html, parsedSchema);
-      
+
       const parser = new DOMParser();
       const doc = parser.parseFromString(result, 'text/html');
-      
+
       const block = doc.querySelector('.aso-app.listing.apple');
       const row = block.querySelector(':scope > div');
       const labelDiv = row.querySelector(':scope > div:nth-child(1)');
       const contentDiv = row.querySelector(':scope > div:nth-child(2)');
-      
+
       // Label div should NOT have ITS attributes
       expect(labelDiv.hasAttribute('its-storage-size')).to.be.false;
       expect(labelDiv.hasAttribute('its-loc-note')).to.be.false;
-      
+
       // Content div SHOULD have ITS attributes
       expect(contentDiv.hasAttribute('its-storage-size')).to.be.true;
       expect(contentDiv.getAttribute('its-storage-size')).to.equal('30');
@@ -666,27 +666,27 @@ describe('translationMetadata', () => {
       };
 
       const result = annotateHTML(html, schemaWithDescription);
-      
+
       const parser = new DOMParser();
       const doc = parser.parseFromString(result, 'text/html');
-      
+
       const block = doc.querySelector('.aso-app.listing.apple');
       const rows = block.querySelectorAll(':scope > div');
-      
+
       // First row (Subtitle with empty content)
       const row1 = rows[0];
       expect(row1.hasAttribute('its-storage-size')).to.be.false;
       expect(row1.hasAttribute('its-loc-note')).to.be.false;
-      
+
       const row1Content = row1.querySelector(':scope > div:nth-child(2)');
       expect(row1Content.hasAttribute('its-storage-size')).to.be.true;
       expect(row1Content.getAttribute('its-storage-size')).to.equal('30');
-      
+
       // Second row (Description with content)
       const row2 = rows[1];
       expect(row2.hasAttribute('its-storage-size')).to.be.false;
       expect(row2.hasAttribute('its-loc-note')).to.be.false;
-      
+
       const row2Content = row2.querySelector(':scope > div:nth-child(2)');
       expect(row2Content.hasAttribute('its-storage-size')).to.be.true;
       expect(row2Content.getAttribute('its-storage-size')).to.equal('4000');
@@ -770,7 +770,7 @@ describe('translationMetadata', () => {
     it('should skip metadata keys starting with colon', () => {
       const targetLangs = [{ code: 'fr' }];
       const result = buildLanguageMetadata(mockKeywords, languageMapping, targetLangs);
-      
+
       const keys = Object.keys(result.fr || {});
       const hasDescriptionKey = keys.some((key) => key.includes('description'));
       expect(hasDescriptionKey).to.be.true;
@@ -787,18 +787,17 @@ describe('translationMetadata', () => {
       };
 
       const result = buildLanguageMetadata(keywordsWithUnknownLang, languageMapping);
-      
+
       expect(Object.keys(result)).to.have.lengthOf(0);
     });
 
     it('should exclude language field from metadata', () => {
       const frenchOnly = [{ name: 'French', code: 'fr' }];
       const result = buildLanguageMetadata(mockKeywords, frenchOnly);
-      
+
       const keys = Object.keys(result.fr || {});
       const hasLanguageKey = keys.some((key) => key.includes('language'));
       expect(hasLanguageKey).to.be.false;
     });
   });
 });
-

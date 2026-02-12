@@ -142,8 +142,7 @@ export async function addAssets({
         const resp = await fetch(url, opts);
         if (!resp.ok) throw new Error(resp.status);
         return { status: resp.status };
-      } catch (e) {
-        console.error(`GLaaS Error for ${glaasFilename}:`, e);
+      } catch {
         return { error: 'There was an error uploading' };
       }
     }));

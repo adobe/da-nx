@@ -15,9 +15,9 @@ export function processSchemaKey(schemaKey) {
   }
   const [, blockType, classesStr] = match;
   const classes = classesStr.split(',').map((c) => c.trim()).sort();
-  return { 
-    id : `${blockType}_${classes.join('_')}`, 
-    selector: `.${blockType}.${classes.join('.')}` 
+  return {
+    id: `${blockType}_${classes.join('_')}`,
+    selector: `.${blockType}.${classes.join('.')}`,
   };
 }
 
@@ -25,8 +25,8 @@ export function fieldNameToKey(fieldName) {
   return fieldName
     .toLowerCase()
     .replace(/[^\w\s-]/g, '') // Remove special chars except word chars, spaces, hyphens
-    .replace(/\s+/g, '-')      // Replace spaces with hyphens
-    .replace(/-+/g, '-');      // Collapse multiple hyphens
+    .replace(/\s+/g, '-') // Replace spaces with hyphens
+    .replace(/-+/g, '-'); // Collapse multiple hyphens
 }
 
 export function languageNameToCode(languageName, projectLangs) {
@@ -50,8 +50,8 @@ export function parseBlockSchema(schemaData) {
       const keywordsInjection = field['keywords injection'];
       if (!fieldName) return;
       const hasCharCount = charCount && charCount.trim() !== '';
-      const hasKeywordsInjection = !!(keywordsInjection && 
-        ['yes', 'true'].includes(keywordsInjection.toLowerCase()));
+      const hasKeywordsInjection = !!(keywordsInjection
+        && ['yes', 'true'].includes(keywordsInjection.toLowerCase()));
       if (hasCharCount || hasKeywordsInjection) {
         fields.push({
           fieldName,
@@ -82,6 +82,7 @@ export async function fetchBlockSchema(org, site, { reset = false } = {}) {
     BLOCK_SCHEMA_CACHE = parsedSchema;
     return parsedSchema;
   } catch (error) {
+    // eslint-disable-next-line no-console
     console.error('Error fetching block schema:', error);
     return null;
   }
@@ -89,9 +90,8 @@ export async function fetchBlockSchema(org, site, { reset = false } = {}) {
 
 export function needsKeywordsMetadata(parsedSchema) {
   if (!parsedSchema || Object.keys(parsedSchema).length === 0) return false;
-  return Object.values(parsedSchema).some((block) =>
-    block.fields.some((field) => field.keywordsInjection)
-  );
+  const hasKeywords = (block) => block.fields.some((f) => f.keywordsInjection);
+  return Object.values(parsedSchema).some(hasKeywords);
 }
 
 export async function fetchKeywordsFile(org, site, pagePath) {
@@ -116,6 +116,7 @@ export async function fetchKeywordsFile(org, site, pagePath) {
     }
     return null;
   } catch (error) {
+    // eslint-disable-next-line no-console
     console.error('Error fetching keywords file:', error);
     return null;
   }
@@ -179,12 +180,12 @@ export function annotateHTML(htmlContent, parsedSchema) {
 
     blockElements.forEach((blockElement, blockIndex) => {
       const blockId = Object.keys(parsedSchema).find(
-        (id) => parsedSchema[id].selector === selector
+        (id) => parsedSchema[id].selector === selector,
       );
       const rows = blockElement.querySelectorAll(':scope > div');
       rows.forEach((row) => {
         const labelDiv = row.querySelector(':scope > div:nth-child(1)');
-        const contentDiv = row.querySelector(':scope > div:nth-child(2)'); 
+        const contentDiv = row.querySelector(':scope > div:nth-child(2)');
         if (!labelDiv || !contentDiv) return;
         const field = fields.find((f) => isExactMatch(labelDiv, f.fieldName));
         if (!field) return;
@@ -208,7 +209,7 @@ export function buildLanguageMetadata(keywordsData, langs) {
   const targetLangCodes = new Set(langs.map((lang) => lang.code));
   const langMetadata = {};
   Object.keys(keywordsData).forEach((key) => {
-    if (key.startsWith(':')) return; 
+    if (key.startsWith(':')) return;
     const blockData = keywordsData[key];
     if (!blockData.data) return;
     // Parse the key: "aso-app (apple, listing) (1)" -> blockId + index
@@ -236,7 +237,7 @@ export function buildLanguageMetadata(keywordsData, langs) {
       });
     });
   });
-  
+
   return langMetadata;
 }
 
@@ -254,22 +255,21 @@ export async function addTranslationMetadata(org, site, langs, urls) {
   if (!blockSchema) {
     return; // No schema, no metadata
   }
-  
+
   const hasKeywords = needsKeywordsMetadata(blockSchema);
-  
+
   await Promise.all(urls.map(async (url) => {
     if (url.content && typeof url.content === 'string') {
       url.content = annotateHTML(url.content, blockSchema);
     }
-      if (hasKeywords) {
-        const keywordsData = await fetchKeywordsFile(org, site, url.suppliedPath);
-        if (keywordsData) {
-          const langMetadata = buildLanguageMetadata(keywordsData, langs);
-          if (langMetadata && Object.keys(langMetadata).length > 0) {
-            url.translationMetadata = langMetadata;
-          }
+    if (hasKeywords) {
+      const keywordsData = await fetchKeywordsFile(org, site, url.suppliedPath);
+      if (keywordsData) {
+        const langMetadata = buildLanguageMetadata(keywordsData, langs);
+        if (langMetadata && Object.keys(langMetadata).length > 0) {
+          url.translationMetadata = langMetadata;
         }
       }
+    }
   }));
 }
-
