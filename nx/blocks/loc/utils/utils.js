@@ -235,25 +235,13 @@ export function findConfigValue(config, key) {
   return foundRow?.value;
 }
 
-export async function getSuppliedPrefix(org, site, suppliedPath) {
+// Get a supplied using languages
+export function getSuppliedPrefix(langs, suppliedPath) {
   const configPrefixes = [];
-
-  const config = await fetchConfig(org, site);
-
-  // Get the site's single source of truth language name
-  const sourceLangName = findConfigValue(config, 'source.language');
-  // If it exists, look it up in the list of languages
-  if (sourceLangName) {
-    const foundLang = config.languages.data.find((row) => row.name === sourceLangName);
-    // If found in languages, push into the list to check against the pathname
-    if (foundLang) {
-      configPrefixes.push(foundLang.location);
-    }
-  }
 
   // Loop through all languages and push source
   // and destination paths in the prefix list to check against.
-  for (const lang of config.languages.data) {
+  for (const lang of langs) {
     if (lang.source) configPrefixes.push(lang.source);
     if (lang.location) configPrefixes.push(lang.location);
   }
@@ -268,6 +256,20 @@ export async function getSuppliedPrefix(org, site, suppliedPath) {
   }
 
   return matchedPrefix || '';
+}
+
+/**
+ * Get a supplied prefix using an org and site
+ * @param {*} org
+ * @param {*} site
+ * @param {*} suppliedPath
+ * @returns {String} the language prefix
+ */
+export async function getSuppliedPrefixConfig(org, site, suppliedPath) {
+  const config = await fetchConfig(org, site);
+  if (!config.languages) return '';
+
+  return getSuppliedPrefix(config.languages.data, suppliedPath);
 }
 
 // BEFORE TIMES

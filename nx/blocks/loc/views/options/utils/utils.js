@@ -1,3 +1,5 @@
+import DaUrl from '../../../utils/daUrl.js';
+
 const DEFAULT_PROPS = [
   { key: 'sync.conflict.behavior', value: 'overwrite, merge' },
   { key: 'translate.conflict.behavior', value: 'overwrite, merge' },
@@ -25,8 +27,14 @@ function calculateView(options, langs, urls) {
   // TODO: This should be more inteligent about rollout scenarios.
   const needsSync = langs.some((lang) => {
     const source = lang.source || defaultSource;
-    return urls.some((url) => !url.suppliedPath.startsWith(source));
-  });
+
+    return urls.find(({ href }) => {
+      const daUrl = new DaUrl(href);
+      if (daUrl.supplied.error) return false;
+      const { aemPath } = daUrl.supplied;
+      return !aemPath.startsWith(source);
+    });
+  }, {});
 
   if (needsSync) return 'sync';
 

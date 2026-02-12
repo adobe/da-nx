@@ -1,6 +1,6 @@
 import sinon from 'sinon';
 import { expect } from '@esm-bundle/chai';
-import URLModel from '../../../nx/blocks/loc/utils/LocURL.js';
+import URLModel from '../../../nx/blocks/loc/utils/daUrl.js';
 
 const mockConfig = {
   config: {
@@ -46,7 +46,7 @@ describe('URLModel', () => {
 
     it('Appends index for trailing slash paths', () => {
       const model = new URLModel('https://main--mysite--myorg.aem.live/en/my-page/');
-      expect(model.supplied.aemAdminPath).to.equal('/en/my-page/');
+      expect(model.supplied.aemAdminPath).to.equal('/en/my-page/index');
       expect(model.supplied.daPath).to.equal('/en/my-page/index');
       expect(model.supplied.daAdminPath).to.equal('/en/my-page/index.html');
     });
@@ -58,8 +58,8 @@ describe('URLModel', () => {
       expect(model.org).to.equal('myorg');
       expect(model.site).to.equal('mysite');
       expect(model.supplied.snapshot).to.equal('snap1');
-      expect(model.supplied.aemAdminPath).to.equal('/en/my-page');
-      expect(model.supplied.daAdminPath).to.equal('/en/my-page.html');
+      expect(model.supplied.aemAdminPath).to.equal('/.snapshot/snap1/en/my-page');
+      expect(model.supplied.daAdminPath).to.equal('/.snapshot/snap1/en/my-page.html');
     });
 
     it('Has undefined snapshot for non-snapshot AEM URLs', () => {
@@ -117,7 +117,7 @@ describe('URLModel', () => {
     it('Generates review view for a snapshot AEM URL', () => {
       const model = new URLModel('https://snap1--main--mysite--myorg.aem.reviews/en/my-page');
       expect(model.views.edit).to.equal('https://da.live/edit#/myorg/mysite/.snapshot/snap1/en/my-page');
-      expect(model.views.preview).to.equal('https://mysite--myorg.aem.page/en/my-page');
+      expect(model.views.preview).to.equal('https://mysite--myorg.aem.page/.snapshot/snap1/en/my-page');
       expect(model.views.review).to.equal('https://snap1--mysite--myorg.aem.reviews/en/my-page');
     });
 

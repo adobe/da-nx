@@ -28,6 +28,10 @@ ul {
       gap: 12px;
       align-items: center;
       min-height: 20px;
+
+      p {
+        line-height: 1.3;
+      }
     }
 
     &::before,
@@ -69,24 +73,27 @@ nx-loc-actions {
   margin-bottom: 24px;
 }
 
-.nx-loc-list-actions-header {
-  font-size: 22px;
-  font-weight: 700;
-  margin-bottom: 0;
-}
-
-.nx-loc-list-actions {
+.nx-loc-actions-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 12px;
-  padding-bottom: 12px;
 
   .actions {
     display: flex;
     align-items: center;
     gap: 12px;
   }
+}
+
+.nx-loc-list-actions-header {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 0;
+}
+
+.nx-loc-sync-source-title {
+  margin: 0 0 12px;
 }
 
 .nx-loc-list-header {

@@ -6,6 +6,7 @@ import { daFetch } from '../../../../utils/daFetch.js';
 import { Queue } from '../../../../public/utils/tree.js';
 import { convertPath, createSnapshotPrefix, fetchConfig, getSuppliedPrefix } from '../../utils/utils.js';
 import { getOriginMatches, getFragmentUrls } from './utils.js';
+import DaUrl from '../../utils/daUrl.js';
 
 const { nxBase } = getConfig();
 const style = await getStyle(import.meta.url);
@@ -43,7 +44,7 @@ class NxLocValidate extends LitElement {
     this._org = org;
     this._site = site;
     this._snapshot = snapshot;
-    this._urls = urls.map((url) => new URL(url.suppliedPath, this.origin));
+    this._urls = urls.map((url) => new DaUrl(url.href));
 
     // If there's an org and site, get the config for the project
     if (org && site) this._configSheet = await fetchConfig(this._org, this._site);
@@ -52,7 +53,7 @@ class NxLocValidate extends LitElement {
   }
 
   checkDomain(href) {
-    return [...this._originMatches, this.subOrigin].some((origin) => href?.startsWith(origin));
+    return [...this._originMatches].some((origin) => href?.startsWith(origin));
   }
 
   async findFragments(text) {
@@ -65,19 +66,25 @@ class NxLocValidate extends LitElement {
       if (!include) return acc;
 
       // Convert href to current project origin
-      let url;
+      let daUrl;
       try {
-        url = new URL(href, this.origin);
+        const parsed = new URL(href);
+        const url = new URL(parsed.pathname, this.origin);
+        daUrl = new DaUrl(url.href);
       } catch (e) {
         return acc;
       }
+
+      console.log(daUrl);
 
       // Combine what already exists with what we're currently iterating through
       const currentUrls = [...this._urls, ...acc];
 
       // Check if its already in our URL list
-      const found = currentUrls.some((existingUrl) => existingUrl.pathname === url.pathname);
-      if (!found) acc.push(url);
+      const found = currentUrls.some(
+        (existingUrl) => existingUrl.supplied.aemPath === daUrl.supplied.aemPath,
+      );
+      if (!found) acc.push(daUrl);
 
       return acc;
     }, []);
@@ -86,21 +93,16 @@ class NxLocValidate extends LitElement {
   }
 
   async checkUrl(url) {
-    let { pathname } = url;
-    pathname = pathname.endsWith('/') ? `${pathname}index` : pathname;
-    const isSheet = pathname.endsWith('.json');
-    const extPath = isSheet ? pathname : `${pathname}.html`;
-    const snapshotUrlFragment = createSnapshotPrefix(this._snapshot);
-    const daUrl = `${DA_ORIGIN}/source/${this._org}/${this._site}${snapshotUrlFragment}${extPath}`;
-    const resp = await daFetch(daUrl);
+    const { org, site, daAdminPath } = url.supplied;
+    const { edit } = url.views;
+    const resp = await daFetch(`${DA_ORIGIN}/source/${org}/${site}${daAdminPath}`);
     const text = await resp.text();
     const ok = resp.status === 200;
     url.status = ok ? 'ready' : 'error - not found';
     url.checked = ok;
-    url.sheet = isSheet;
-    url.extPath = extPath;
-    url.fragment = url.pathname.includes('/fragments/');
-    url.daEdit = `${DA_LIVE}/edit#/${this._org}/${this._site}${snapshotUrlFragment}${url.pathname}`;
+    url.isSheet = daAdminPath.endsWith('.json');
+    url.isFragment = daAdminPath.includes('/fragments/');
+    url.daEdit = edit;
     if (ok) await this.findFragments(text);
     this.requestUpdate();
   }
@@ -133,16 +135,8 @@ class NxLocValidate extends LitElement {
       return { message: { type: 'error', text: 'Please select at least one URL.' } };
     }
 
-    const urls = await Promise.all(checked.map(async (url) => {
-      const prefix = await getSuppliedPrefix(this.org, this.site, url.pathname);
-
-      const { aemBasePath } = convertPath({ path: url.pathname, sourcePrefix: prefix });
-      return {
-        suppliedPath: url.pathname, // The path as supplied (may or may not contain locale info)
-        basePath: aemBasePath, // A path without the supplied prefix
-        checked: url.checked, // Whether or not the URL is selected for localization project
-      };
-    }));
+    // Sanitize DaUrls to something we can persist
+    const urls = checked.map((daUrl) => ({ href: daUrl.href, checked: daUrl.checked }));
 
     return { updates: { urls } };
   }
@@ -177,7 +171,7 @@ class NxLocValidate extends LitElement {
   }
 
   get origin() {
-    return `${this.originPrefix}--${this.project.site}--${this.project.org}.aem.${this.project.snapshot ? 'reviews' : 'page'}`;
+    return `https://main--${this._site}--${this._org}.aem.page`;
   }
 
   get subOrigin() {
@@ -197,19 +191,19 @@ class NxLocValidate extends LitElement {
         <div class="details">
           <div class="detail-card detail-card-pages">
             <p>Docs</p>
-            <p>${this._urls.filter((url) => !url.fragment).length}</p>
+            <p>${this._urls.filter((url) => !url.isFragment && !url.isSheet).length}</p>
           </div>
           <div class="detail-card detail-card-fragments">
             <p>Fragments</p>
-            <p>${this._urls.filter((url) => url.fragment).length}</p>
+            <p>${this._urls.filter((url) => url.isFragment).length}</p>
           </div>
           <div class="detail-card detail-card-sheets">
             <p>Sheets</p>
-            <p>${this._urls.filter((url) => url.sheet).length}</p>
+            <p>${this._urls.filter((url) => url.isSheet).length}</p>
           </div>
           <div class="detail-card detail-card-errors">
             <p>Errors</p>
-            <p>${this._urls.filter((url) => url.status === 'error').length}</p>
+            <p>${this._urls.filter((url) => url.status?.includes('error')).length}</p>
           </div>
           <div class="detail-card detail-card-size">
             <p>Selected</p>
@@ -223,7 +217,7 @@ class NxLocValidate extends LitElement {
             <div class="checkbox-wrapper">
               <input type="checkbox" .checked=${url.checked} @change=${() => this.handleChanged(url)} />
             </div>
-            <a href=${url.daEdit} class="path" target="_blank">${url.pathname}</a>
+            <a href=${url.views.edit} class="path" target="_blank">${url.supplied.aemPath}</a>
             <div class="status status-${url.status}">${url.status}</div>
           </li>
         `) : nothing}

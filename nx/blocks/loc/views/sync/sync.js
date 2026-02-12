@@ -5,6 +5,7 @@ import getSvg from '../../../../utils/svg.js';
 import { Queue } from '../../../../public/utils/tree.js';
 import { filterSyncUrls } from './index.js';
 import { mergeCopy, overwriteCopy } from '../../project/index.js';
+import DaUrl from '../../utils/daUrl.js';
 
 const { nxBase: nx } = getConfig();
 
@@ -20,8 +21,6 @@ class NxLocSync extends LitElement {
     project: { attribute: false },
     message: { attribute: false },
     _message: { state: true },
-    _allUrls: { state: true },
-    _syncUrls: { state: true },
     _syncSources: { state: true },
   };
 
@@ -40,36 +39,24 @@ class NxLocSync extends LitElement {
   }
 
   getSyncUrls() {
-    const {
-      org,
-      site,
-      options,
-      langs,
-      urls,
-      snapshot,
-    } = this.project;
-    const defaultSource = options['source.language']?.location || '/';
+    const { options, langs, urls, sync } = this.project;
 
-    // Ensure all URLs remain available for persistence
-    this._allUrls = urls;
+    // Hydrate from an existing sync object
+    if (sync) {
+      this._syncSources = Object.keys(sync).reduce((acc, key) => {
+        acc[key] = sync[key].map((pair) => ({
+          source: new DaUrl(pair.source),
+          destination: new DaUrl(pair.destination),
+          synced: pair.synced,
+        }));
+        return acc;
+      }, {});
+      return;
+    }
 
-    // Filter only the URLs that need a sync
-    this._syncSources = filterSyncUrls(org, site, defaultSource, langs, urls, snapshot);
-  }
-
-  getPersistedUrls() {
-    const synced = this._syncUrls.map((url) => ({
-      suppliedPath: url.suppliedPath,
-      basePath: url.basePath,
-      checked: url.checked,
-      synced: url.synced,
-    }));
-    const all = this._allUrls.map((url) => ({
-      ...url,
-      synced: true,
-    }));
-    const syncedPaths = new Set(synced.map((url) => url.basePath));
-    return [...synced, ...all.filter((url) => !syncedPaths.has(url.basePath))];
+    // Fallback to parsing langs and URLs - new or legacy project
+    // Group and filter only the URLs that need a sync
+    this._syncSources = filterSyncUrls(options, langs, urls);
   }
 
   handleAction(e) {
@@ -81,15 +68,22 @@ class NxLocSync extends LitElement {
   }
 
   async syncUrl(url) {
-    const { source, destination, ext } = url;
+    const { source, destination } = url;
     const behavior = this.project.options['sync.conflict.behavior'];
 
+    const { org: sourceOrg, site: sourceSite, daAdminPath: sourceDaPath } = source.supplied;
+    const { org: destOrg, site: destSite, daAdminPath: destDaPath } = destination.supplied;
+
     // If its JSON, force overwrite
-    const overwrite = behavior === 'overwrite' || ext === 'json';
+    const overwrite = behavior === 'overwrite' || source.supplied.daAdminPath.endsWith('.json');
+
+    const copyConf = {
+      source: `/${sourceOrg}/${sourceSite}${sourceDaPath}`,
+      destination: `/${destOrg}/${destSite}${destDaPath}`,
+    };
 
     const copyFn = overwrite ? overwriteCopy : mergeCopy;
-    const resp = await copyFn({ source, destination }, this.title);
-
+    const resp = await copyFn(copyConf, this.title);
     url.synced = resp.ok ? 'synced' : 'error';
 
     this.requestUpdate();
@@ -97,21 +91,31 @@ class NxLocSync extends LitElement {
 
   async handleSyncAll(type) {
     // Forcefully drop the current sync status on the URLs
-    this._syncUrls.forEach((url) => { delete url.synced; });
+    this._flatUrls.forEach((url) => { delete url.synced; });
     this.requestUpdate();
 
     if (type === 'skip') {
-      this._syncUrls.forEach((url) => { url.synced = 'skipped'; });
+      this._flatUrls.forEach((url) => { url.synced = 'skipped'; });
       this.requestUpdate();
       return;
     }
 
     const syncUrl = this.syncUrl.bind(this);
     const queue = new Queue(syncUrl, 50);
-    await Promise.allSettled(this._syncUrls.map((url) => queue.push(url)));
+    await Promise.all(this._flatUrls.map((url) => queue.push(url)));
 
-    const urls = this.getPersistedUrls();
-    const opts = { detail: { data: { urls } }, bubbles: true, composed: true };
+    // Flatten down source and destination DaUrls to only hrefs and sync status
+    const toPersist = Object.keys(this._syncSources).reduce((acc, key) => {
+      const urls = this._syncSources[key].map(({ source, destination, synced }) => ({
+        source: source.href,
+        destination: destination.href,
+        synced,
+      }));
+      acc[key] = urls;
+      return acc;
+    }, {});
+
+    const opts = { detail: { data: { sync: toPersist } }, bubbles: true, composed: true };
     const event = new CustomEvent('action', opts);
     this.dispatchEvent(event);
   }
@@ -119,6 +123,15 @@ class NxLocSync extends LitElement {
   handleToggleExpand(url) {
     url.expand = !url.expand;
     this.requestUpdate();
+  }
+
+  // Get a truly flat list of sync source pairs
+  get _flatUrls() {
+    if (!this._syncSources?.length) return [];
+    return Object.keys(this._syncSources).reduce((acc, key) => {
+      acc.push(...this._syncSources[key]);
+      return acc;
+    }, []);
   }
 
   get _project() {
@@ -129,12 +142,13 @@ class NxLocSync extends LitElement {
   }
 
   get _defaultMessage() {
-    const { name, location } = this.project.options['source.language'];
-    return { text: `Sync sources to ${name} - ${location}` };
+    return { text: 'Some sources need to be synced.' };
   }
 
   get _allSynced() {
-    return this._syncUrls.every((url) => url.synced === 'synced' || url.synced === 'skipped');
+    const done = this._flatUrls.every((pair) => pair.synced);
+    console.log(done);
+    return done;
   }
 
   get _syncPrefix() {
@@ -165,18 +179,16 @@ class NxLocSync extends LitElement {
         .message=${this._message}
         @action=${this.handleAction}>
       </nx-loc-actions>
-        <p class="nx-loc-list-actions-header">Sync</p>
-        ${Object.keys(this._syncSources).map((sourcePath) => html`
-          <div class="nx-loc-list-actions">
-            <div>
-              <p>Supplied URLs are not from <strong>${sourcePath}</strong>. Please sync them.</p>
-            </div>
-            <div class="actions">
-              <p><strong>Conflict behavior:</strong> ${this.project.options['sync.conflict.behavior']}</p>
-              <sl-button @click=${() => this.handleSyncAll('skip')} class="primary outline">Skip sync</sl-button>
-              <sl-button @click=${() => this.handleSyncAll('sync')} class="accent">Sync all</sl-button>
-            </div>
+        <div class="nx-loc-actions-header">
+          <p class="nx-loc-list-actions-header">Sync</p>
+          <div class="actions">
+            <p><strong>Conflict behavior:</strong> ${this.project.options['sync.conflict.behavior']}</p>
+            <sl-button @click=${() => this.handleSyncAll('skip')} class="primary outline">Skip sync</sl-button>
+            <sl-button @click=${() => this.handleSyncAll('sync')} class="accent">Sync all</sl-button>
           </div>
+        </div>
+        ${Object.keys(this._syncSources).map((sourcePath) => html`
+          <p class="nx-loc-sync-source-title">Supplied URLs are not from <strong>${sourcePath}</strong>. Please sync them.</p>
           <div class="nx-loc-list-header">
             <p>Source</p>
             <p>Destination</p>
@@ -186,8 +198,8 @@ class NxLocSync extends LitElement {
             ${this._syncSources[sourcePath].map((url) => html`
               <li class="${url.expand ? 'is-expanded' : ''}">
                 <div class="inner">
-                  <p>${url.suppliedPath}</p>
-                  <p>${url.destPath}</p>
+                  <p>${url.source.supplied.aemPath}</p>
+                  <p>${url.destination.supplied.aemPath}</p>
                   <div class="url-info">
                     <div class="url-status">
                       ${this.renderStatus(url.synced)}
@@ -198,10 +210,10 @@ class NxLocSync extends LitElement {
                 ${url.expand ? html`
                   <div class="url-details">
                     <nx-loc-url-details
-                      .path="/${this.project.org}/${this.project.site}${url.suppliedPath}">
+                      .path="${url.source.aemPath}">
                     </nx-loc-url-details>
                     <nx-loc-url-details
-                      .path="/${this.project.org}/${this.project.site}${url.destPath}">
+                      .path="/${url.destination.aemPath}">
                     </nx-loc-url-details>
                   </div>` : nothing}
               </li>

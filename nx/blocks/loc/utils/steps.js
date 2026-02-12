@@ -1,3 +1,5 @@
+import DaUrl from './daUrl.js';
+
 const VIEW_TYPES = {
   dashboard: 'none',
   basics: 'setup',
@@ -9,10 +11,35 @@ const VIEW_TYPES = {
   complete: 'none',
 };
 
-function hasSync({ urls, options }) {
+function hasSync({ urls, options, langs, sync }) {
+  // If the project is not fully created, return false
   if (!urls || !options) return false;
-  const location = options['source.language']?.location || '/';
-  return urls.some((url) => !url.suppliedPath.startsWith(location));
+
+  if (sync) {
+    const thing = Object.keys(sync).reduce((acc, key) => {
+      const result = sync[key].some((pair) => ({
+        synced: pair.synced,
+      }));
+      return result || acc;
+    }, false);
+
+    return thing;
+  }
+
+  const defaultSource = options['source.language']?.location || '/';
+
+  const needsSync = langs.some((lang) => {
+    const source = lang.source || defaultSource;
+
+    return urls.find(({ href }) => {
+      const daUrl = new DaUrl(href);
+      if (daUrl.supplied.error) return false;
+      const { aemPath } = daUrl.supplied;
+      return !aemPath.startsWith(source);
+    });
+  }, {});
+
+  return needsSync;
 }
 
 function hasTranslate({ langs }) {
@@ -87,7 +114,12 @@ function getOptionsNext(project) {
 }
 
 function getSyncNext(project) {
-  const disabled = !project.urls?.every((url) => url.synced === 'synced' || url.synced === 'skipped');
+  const disabled = !Object.keys(project.sync).reduce((acc, key) => {
+    const result = project.sync[key].some((pair) => ({
+      synced: pair.synced,
+    }));
+    return result || acc;
+  }, false);
 
   const translate = getTranslateStep(project);
   if (translate) return { ...translate, disabled };
@@ -204,7 +236,12 @@ function optionsStep(project) {
 
 function syncStep(project) {
   const needsSync = hasSync(project);
-  const synced = project.urls?.every((url) => url.synced === 'synced' || url.synced === 'skipped');
+  const synced = Object.keys(project.sync).reduce((acc, key) => {
+    const result = project.sync[key].some((pair) => ({
+      synced: pair.synced,
+    }));
+    return result || acc;
+  }, false);
   const { style, icon } = getStyle(needsSync && synced, 'sync', project.view, '#S2_Icon_Refresh_20_N');
 
   const step = {

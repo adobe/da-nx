@@ -1,78 +1,7 @@
+import DaUrl from '../../utils/daUrl.js';
+
 function getMessage(text) {
   return { text, type: 'error' };
-}
-
-/**
- * Parse hostname into parts separated by '--'
- * @param {string} hostname - The hostname to parse
- * @returns {string[]} Array of hostname parts
- */
-function parseHostnameParts(hostname) {
-  return hostname.split('.')[0].split('--');
-}
-
-/**
- * Transform a snapshot URL to the proper reviews format
- * @param {string} url - The URL to transform
- * @param {string} site - The site name
- * @param {string} org - The organization name
- * @returns {URL} The transformed URL
- */
-function transformSnapshotUrl(url, site, org) {
-  const properUrl = new URL(url);
-  if (properUrl?.pathname.startsWith('/.snapshots/')) {
-    const pathFragments = properUrl.pathname.split('/');
-    if (pathFragments.length > 2) {
-      const snapshotName = pathFragments[2];
-      const newHostName = `${snapshotName}--main--${site}--${org}.aem.reviews`;
-      return new URL(`${properUrl.protocol}//${newHostName}/${pathFragments.slice(3).join('/')}`);
-    }
-  }
-  return properUrl;
-}
-
-/**
- * Extract site and organization from hostname
- * @param {string} hostname - The hostname to parse
- * @returns {Object} Object containing site and org
- */
-function extractSiteAndOrg(hostname) {
-  const parts = parseHostnameParts(hostname);
-  const [site, org] = parts.slice(-2);
-  return { site, org };
-}
-
-/**
- * Check if URL is a snapshot URL and extract snapshot name
- * @param {string} hostname - The hostname to check
- * @returns {string|undefined} The snapshot name or undefined
- */
-function extractSnapshotName(hostname) {
-  const parts = parseHostnameParts(hostname);
-  return parts.length === 4 && hostname.includes('.reviews') ? parts[0] : undefined;
-}
-
-/**
- * Extract all relevant information from a URL
- * @param {string} url - The URL to analyze
- * @returns {Object} Object containing hostname, site, org, and snapshot
- */
-function extractUrlInformation(url) {
-  try {
-    const { hostname } = new URL(url);
-    const { site, org } = extractSiteAndOrg(hostname);
-    const finalUrl = transformSnapshotUrl(url, site, org);
-    const snapshot = extractSnapshotName(finalUrl.hostname);
-
-    return {
-      hostname: finalUrl.hostname,
-      site,
-      org,
-      snapshot,
-    };
-  } catch (e) {
-    return {};
-  }
 }
 
 /**
@@ -91,43 +20,37 @@ export default function formatBasics(title, paths) {
   }
 
   // Split and de-dupe
-  let urls = [...new Set(paths.split('\n'))];
+  let hrefs = [...new Set(paths.split('\n'))];
 
   // Remove empties
-  urls = urls.filter((url) => url);
+  hrefs = hrefs.filter((href) => href);
 
-  // Get first hostname
-  const {
-    hostname,
-    site,
-    org,
-    snapshot,
-  } = extractUrlInformation(urls[0]);
+  // Map to DA URLs
+  const daUrls = hrefs.map((href) => new DaUrl(href));
 
+  // Pull the first URL
+  const { org, site } = daUrls[0].supplied;
+
+  // Check that they're compatible
   if (!(site || org)) {
     return { message: getMessage('Please use AEM URLs') };
   }
 
-  // Convert to proper URLs
-  urls = urls.map((url) => {
-    try {
-      return transformSnapshotUrl(url, site, org);
-    } catch (e) {
-      return { error: true };
-    }
-  });
-  const errors = urls.filter((url) => url.error);
-  if (errors.length > 0) {
-    return { message: getMessage('Please use AEM URLs.') };
-  }
+  // Check for any parsing errors
+  const urlError = daUrls.find((url) => url.error);
+  if (urlError) return { message: getMessage(urlError.supplied.error) };
 
-  // Ensure all URLs have same hostname
-  const filtered = urls.filter((url) => url.hostname === hostname);
-  if (filtered.length !== urls.length) return { message: getMessage('URLs are not from the same site.') };
+  // Ensure all other URLs match the project
+  const filtered = daUrls.filter(({ supplied }) => org === supplied.org && site === supplied.site);
+  if (filtered.length !== hrefs.length) return { message: getMessage('URLs are not from the same site.') };
 
-  // Flatten down to pure pathnames
-  const hrefs = urls.map((url) => ({ suppliedPath: url.pathname }));
+  // We only support a single snapshot for now.
+  const snapshotUrl = daUrls.find(({ supplied }) => supplied.snapshot);
+  const snapshot = snapshotUrl?.supplied.snapshot;
+
+  // Create an object for each href. We will store state with these.
+  const urls = hrefs.map((href) => ({ href }));
 
   // Return the updates we want to persist
-  return { updates: { org, site, snapshot, title, urls: hrefs } };
+  return { updates: { org, site, snapshot, title, urls } };
 }
