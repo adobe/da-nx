@@ -1,13 +1,19 @@
 import { daFetch } from 'https://da.live/blocks/shared/utils.js';
 
 function parsePath(path) {
-  return path.split('.').flatMap((part) => {
+  const parts = path.split('.').flatMap((part) => {
+    // Handle consecutive indices like "[0][0]" first (before arrayMatch grabs "[0]" as key)
+    if (part.startsWith('[')) {
+      const indices = part.match(/\[(\d+)\]/g);
+      if (indices) return indices.map((i) => parseInt(i.slice(1, -1), 10));
+    }
     const arrayMatch = part.match(/^(.+?)\[(\d+)\]$/);
     if (arrayMatch) return [arrayMatch[1], parseInt(arrayMatch[2], 10)];
     const indexMatch = part.match(/^\[(\d+)\]$/);
     if (indexMatch) return [parseInt(indexMatch[1], 10)];
     return part;
   });
+  return parts;
 }
 
 export async function loadHtml(details) {

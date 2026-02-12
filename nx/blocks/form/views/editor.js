@@ -87,8 +87,8 @@ class FormEditor extends LitElement {
   }
 
   handleAddItem(parent) {
-    const path = parent.path;
-    const itemsSchema = parent.schema?.properties?.items;
+    const { path, schema } = parent;
+    const itemsSchema = schema?.properties?.items;
     const opts = { detail: { path, itemsSchema }, bubbles: true, composed: true };
     this.dispatchEvent(new CustomEvent('add-item', opts));
   }
