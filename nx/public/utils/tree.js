@@ -8,11 +8,17 @@ export class Queue {
     this.maxConcurrent = maxConcurrent;
     this.throttle = throttle;
     this.callback = callback;
+    this.isPaused = false;
 
     this.push = this.push.bind(this);
     this.processQueue = this.processQueue.bind(this);
     this.processItem = this.processItem.bind(this);
     this.onError = onError;
+  }
+
+  togglePause() {
+    this.isPaused = !this.isPaused;
+    if (!this.isPaused) this.processQueue();
   }
 
   async push(data) {
@@ -21,7 +27,7 @@ export class Queue {
   }
 
   async processQueue() {
-    while (this.activeCount < this.maxConcurrent && this.queue.length > 0) {
+    while (!this.isPaused && this.activeCount < this.maxConcurrent && this.queue.length > 0) {
       const item = this.queue.shift();
       await this.processItem(item);
     }
@@ -89,6 +95,7 @@ function calculateCrawlTime(startTime) {
 export function crawl({ path, files: initialFiles = [], callback, concurrent, throttle = 100 }) {
   let time;
   let isCanceled = false;
+  let isPaused = false;
   const files = [...initialFiles];
   const errors = [];
   const folders = Array.isArray(path) ? [...path] : [path];
@@ -102,6 +109,13 @@ export function crawl({ path, files: initialFiles = [], callback, concurrent, th
     }
 
     const interval = setInterval(async () => {
+      if (isCanceled || (inProgress.length === 0 && folders.length === 0)) {
+        time = calculateCrawlTime(startTime);
+        clearInterval(interval);
+        resolve(files);
+        return;
+      }
+      if (isPaused) return;
       if (folders.length > 0) {
         inProgress.push(true);
         const currentPath = folders.pop();
@@ -113,21 +127,21 @@ export function crawl({ path, files: initialFiles = [], callback, concurrent, th
         }
         inProgress.pop();
       }
-      if ((inProgress.length === 0 && folders.length === 0) || isCanceled) {
-        time = calculateCrawlTime(startTime);
-        clearInterval(interval);
-        resolve(files);
-      }
     }, throttle);
   });
 
-  const getDuration = () => {
-    if (time) return time;
-    return calculateCrawlTime(startTime);
+  return {
+    results,
+    cancelCrawl: () => { isCanceled = true; },
+    getCallbackErrors: () => errors,
+    getDuration: () => {
+      if (time) return time;
+      return calculateCrawlTime(startTime);
+    },
+    isPaused: () => isPaused,
+    togglePause: () => {
+      isPaused = !isPaused;
+      queue.togglePause();
+    },
   };
-
-  const getCallbackErrors = () => errors;
-
-  const cancelCrawl = () => { isCanceled = true; };
-  return { results, getDuration, cancelCrawl, getCallbackErrors };
 }

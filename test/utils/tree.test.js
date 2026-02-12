@@ -212,6 +212,50 @@ describe('Queue', () => {
 
     expect(results).to.deep.equal(['first', 'second', 'third']);
   });
+
+  it('isPaused starts as false', () => {
+    const queue = new Queue(async () => {}, 1);
+    expect(queue.isPaused).to.equal(false);
+  });
+
+  it('togglePause stops processing queued items', async () => {
+    const processed = [];
+    const callback = async (item) => {
+      processed.push(item);
+    };
+    const queue = new Queue(callback, 1);
+
+    await queue.push('item1');
+    expect(processed).to.deep.equal(['item1']);
+
+    queue.togglePause();
+    expect(queue.isPaused).to.equal(true);
+
+    await queue.push('item2');
+    await queue.push('item3');
+    expect(processed).to.deep.equal(['item1']);
+  });
+
+  it('togglePause resumes processing after second toggle', async () => {
+    const processed = [];
+    const callback = async (item) => {
+      processed.push(item);
+    };
+    const queue = new Queue(callback, 1);
+
+    await queue.push('item1');
+    queue.togglePause();
+
+    await queue.push('item2');
+    await queue.push('item3');
+    expect(processed).to.deep.equal(['item1']);
+
+    queue.togglePause();
+    expect(queue.isPaused).to.equal(false);
+
+    await new Promise((resolve) => { setTimeout(resolve, 50); });
+    expect(processed).to.deep.equal(['item1', 'item2', 'item3']);
+  });
 });
 
 describe('getChildren (via crawl)', () => {
@@ -742,5 +786,141 @@ describe('crawl', () => {
 
     const files = await results;
     expect(files.length).to.equal(2);
+  });
+
+  it('isPaused returns correct state through toggles', async () => {
+    window.fetch = async () => ({
+      ok: true,
+      json: async () => mockFilesOnlyResponse,
+      headers: { get: () => null },
+    });
+
+    const { isPaused, togglePause, cancelCrawl, results } = crawl({
+      path: '/test',
+      callback: null,
+      concurrent: 10,
+      throttle: 20,
+    });
+
+    expect(isPaused()).to.equal(false);
+    togglePause();
+    expect(isPaused()).to.equal(true);
+    togglePause();
+    expect(isPaused()).to.equal(false);
+
+    cancelCrawl();
+    await results;
+  });
+
+  it('togglePause halts folder discovery and resumes on second toggle', async () => {
+    let fetchCount = 0;
+    window.fetch = async () => {
+      fetchCount += 1;
+      const count = fetchCount;
+      if (count <= 2) {
+        return {
+          ok: true,
+          json: async () => [{ path: `/test/sub${count}`, name: `sub${count}` }],
+          headers: { get: () => null },
+        };
+      }
+      return { ok: true, json: async () => [], headers: { get: () => null } };
+    };
+
+    const { results, togglePause } = crawl({
+      path: '/test',
+      callback: null,
+      concurrent: 10,
+      throttle: 40,
+    });
+
+    await new Promise((resolve) => { setTimeout(resolve, 80); });
+    togglePause();
+    const countAtPause = fetchCount;
+
+    await new Promise((resolve) => { setTimeout(resolve, 200); });
+    expect(fetchCount).to.equal(countAtPause);
+
+    togglePause();
+    const files = await results;
+    expect(fetchCount).to.be.greaterThan(countAtPause);
+    expect(files.length).to.equal(0);
+  });
+
+  it('togglePause pauses callback execution', async () => {
+    let fetchCount = 0;
+    window.fetch = async () => {
+      fetchCount += 1;
+      if (fetchCount === 1) {
+        return {
+          ok: true,
+          json: async () => [
+            { path: '/test/sub', name: 'sub' },
+            { path: '/test/a.html', name: 'a', ext: 'html', lastModified: 123 },
+          ],
+          headers: { get: () => null },
+        };
+      }
+      return {
+        ok: true,
+        json: async () => [
+          { path: '/test/sub/b.html', name: 'b', ext: 'html', lastModified: 456 },
+        ],
+        headers: { get: () => null },
+      };
+    };
+
+    const callbackFiles = [];
+    const callback = async (file) => {
+      await new Promise((resolve) => { setTimeout(resolve, 10); });
+      callbackFiles.push(file.name);
+    };
+
+    const { results, togglePause } = crawl({
+      path: '/test',
+      callback,
+      concurrent: 1,
+      throttle: 40,
+    });
+
+    await new Promise((resolve) => { setTimeout(resolve, 100); });
+    togglePause();
+    const countAtPause = callbackFiles.length;
+
+    await new Promise((resolve) => { setTimeout(resolve, 200); });
+    expect(callbackFiles.length).to.equal(countAtPause);
+
+    togglePause();
+    await results;
+    expect(callbackFiles.length).to.equal(2);
+  });
+
+  it('Cancels crawl while paused', async () => {
+    let fetchCount = 0;
+    window.fetch = async () => {
+      fetchCount += 1;
+      return {
+        ok: true,
+        json: async () => [{ path: `/test/folder${fetchCount}`, name: `folder${fetchCount}` }],
+        headers: { get: () => null },
+      };
+    };
+
+    const { results, togglePause, cancelCrawl } = crawl({
+      path: '/test',
+      callback: null,
+      concurrent: 10,
+      throttle: 40,
+    });
+
+    await new Promise((resolve) => { setTimeout(resolve, 80); });
+    togglePause();
+    const countAtPause = fetchCount;
+
+    cancelCrawl();
+    const files = await results;
+
+    expect(fetchCount).to.equal(countAtPause);
+    expect(Array.isArray(files)).to.equal(true);
   });
 });
