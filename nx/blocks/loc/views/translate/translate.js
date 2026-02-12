@@ -241,7 +241,7 @@ class NxLocTranslate extends LitElement {
     });
 
     // Do not continue if any errors
-    if (this._urlErrors.length) return;
+    if (this._urlErrors?.length) return;
 
     const { org, site, title, options } = this.project;
 

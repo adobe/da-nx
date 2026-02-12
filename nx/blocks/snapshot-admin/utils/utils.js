@@ -140,7 +140,10 @@ export async function copyManifest(name, resources, direction) {
   // The action to take
   const copyUrl = async (url) => {
     if (url.source.endsWith('.html')) {
-      await mergeCopy(url, `Snapshot ${direction}`);
+      const labels = (direction === 'fork')
+        ? { labelLocal: 'Snapshot', labelUpstream: 'Main' }
+        : { labelLocal: 'Main', labelUpstream: 'Snapshot' };
+      await mergeCopy(url, `Snapshot ${direction}`, labels);
     } else {
       await overwriteCopy(url, `Snapshot ${direction}`);
     }
