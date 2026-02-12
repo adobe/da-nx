@@ -86,9 +86,10 @@ class FormEditor extends LitElement {
     return nothing;
   }
 
-  handleAddItem(e) {
-    const { path } = e.detail;
-    const opts = { detail: { path }, bubbles: true, composed: true };
+  handleAddItem(parent) {
+    const path = parent.path;
+    const itemsSchema = parent.schema?.properties?.items;
+    const opts = { detail: { path, itemsSchema }, bubbles: true, composed: true };
     this.dispatchEvent(new CustomEvent('add-item', opts));
   }
 
@@ -101,7 +102,7 @@ class FormEditor extends LitElement {
       <button
         type="button"
         class="add-item-btn"
-        @click=${() => this.handleAddItem({ detail: { path: parent.path } })}
+        @click=${() => this.handleAddItem(parent)}
       >+ Add item</button>
     `;
   }

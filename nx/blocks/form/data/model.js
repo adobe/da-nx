@@ -3,7 +3,8 @@ import { daFetch } from 'https://da.live/blocks/shared/utils.js';
 import HTMLConverter from '../utils/html2json.js';
 import JSONConverter from '../utils/json2html.js';
 import { Validator } from '../../../deps/da-form/dist/index.js';
-import { annotateProp, setValueByPath } from '../utils/utils.js';
+import { annotateProp, getValueByPath, setValueByPath } from '../utils/utils.js';
+import generateEmptyObject from '../utils/generator.js';
 
 /**
  * A data model that represents a piece of structured content.
@@ -33,9 +34,8 @@ export default class FormModel {
   clone() {
     return new FormModel({
       path: this._path,
-      html: this._html,
-      json: JSON.parse(JSON.stringify(this._json)), // Deep copy of JSON
-      schemas: this._schemas, // or clone this too if needed
+      json: JSON.parse(JSON.stringify(this._json)),
+      schemas: this._schemas,
     });
   }
 
@@ -56,6 +56,14 @@ export default class FormModel {
 
   updateProperty({ name, value }) {
     setValueByPath(this._json, name, value);
+    this.updateHtml();
+  }
+
+  addArrayItem(path, itemsSchema) {
+    const array = getValueByPath(this._json, path) ?? [];
+    const newItem = generateEmptyObject(itemsSchema ?? {}, new Set(), this._schema);
+    const newIndex = array.length;
+    setValueByPath(this._json, `${path}[${newIndex}]`, newItem);
     this.updateHtml();
   }
 

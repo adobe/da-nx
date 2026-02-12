@@ -1,9 +1,35 @@
 import { daFetch } from 'https://da.live/blocks/shared/utils.js';
 
+function parsePath(path) {
+  return path.split('.').flatMap((part) => {
+    const arrayMatch = part.match(/^(.+?)\[(\d+)\]$/);
+    if (arrayMatch) return [arrayMatch[1], parseInt(arrayMatch[2], 10)];
+    const indexMatch = part.match(/^\[(\d+)\]$/);
+    if (indexMatch) return [parseInt(indexMatch[1], 10)];
+    return part;
+  });
+}
+
 export async function loadHtml(details) {
   const resp = await daFetch(details.sourceUrl);
   if (!resp.ok) return { error: 'Could not fetch doc' };
   return { html: (await resp.text()) };
+}
+
+/**
+ * Gets a value from an object using a path string.
+ * @param {Object} obj - The object to read from
+ * @param {string} path - The path string (e.g. "data.items[0].name")
+ * @returns {*} - The value at the path, or undefined
+ */
+export function getValueByPath(obj, path) {
+  const parts = parsePath(path);
+  let current = obj;
+  for (const part of parts) {
+    if (current == null) return undefined;
+    current = current[part];
+  }
+  return current;
 }
 
 /**
@@ -18,20 +44,7 @@ export async function loadHtml(details) {
  * // obj.data.items[0].name is now 'updated'
  */
 export function setValueByPath(obj, path, value) {
-  // Split the path into parts, handling both dots and brackets
-  const parts = path.split('.').flatMap((part) => {
-    // Handle array indices like "items[0]" -> ["items", "0"]
-    const arrayMatch = part.match(/^(.+?)\[(\d+)\]$/);
-    if (arrayMatch) {
-      return [arrayMatch[1], parseInt(arrayMatch[2], 10)];
-    }
-    // Handle standalone array index like "[0]"
-    const indexMatch = part.match(/^\[(\d+)\]$/);
-    if (indexMatch) {
-      return [parseInt(indexMatch[1], 10)];
-    }
-    return part;
-  });
+  const parts = parsePath(path);
 
   // Navigate to the parent of the final property
   let current = obj;

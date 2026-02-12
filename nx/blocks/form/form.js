@@ -80,6 +80,17 @@ class FormEditor extends LitElement {
     await this.formModel.saveHtml();
   }
 
+  async handleAddItem({ detail }) {
+    const { path, itemsSchema } = detail;
+    this.formModel.addArrayItem(path, itemsSchema);
+
+    // Update the view with the new values
+    this.formModel = this.formModel.clone();
+
+    // Persist the data
+    await this.formModel.saveHtml();
+  }
+
   renderSchemaSelector() {
     return html`
       <p class="da-form-title">Please select a schema to get started</p>
@@ -103,7 +114,11 @@ class FormEditor extends LitElement {
 
     return html`
       <div class="da-form-editor">
-        <da-form-editor @update=${this.handleUpdate} .formModel=${this.formModel}></da-form-editor>
+        <da-form-editor
+          @update=${this.handleUpdate}
+          @add-item=${this.handleAddItem}
+          .formModel=${this.formModel}
+        ></da-form-editor>
         <da-form-preview .formModel=${this.formModel}></da-form-preview>
       </div>`;
   }
