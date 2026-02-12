@@ -63,3 +63,9 @@
 p.primitive-item-title {
   margin-block: 16px 4px;
 }
+
+.add-item-btn {
+  margin-top: 8px;
+  padding: 4px 8px;
+  cursor: pointer;
+}

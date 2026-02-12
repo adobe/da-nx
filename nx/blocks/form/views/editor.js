@@ -86,8 +86,30 @@ class FormEditor extends LitElement {
     return nothing;
   }
 
+  handleAddItem(e) {
+    const { path } = e.detail;
+    const opts = { detail: { path }, bubbles: true, composed: true };
+    this.dispatchEvent(new CustomEvent('add-item', opts));
+  }
+
+  isArrayType(parent) {
+    return parent.schema?.properties?.type === 'array';
+  }
+
+  renderAddItemButton(parent) {
+    return html`
+      <button
+        type="button"
+        class="add-item-btn"
+        @click=${() => this.handleAddItem({ detail: { path: parent.path } })}
+      >+ Add item</button>
+    `;
+  }
+
   renderList(parent, isRoot) {
     if (!Array.isArray(parent.data)) return this.renderPrimitive(parent);
+
+    const showAddButton = this.isArrayType(parent);
 
     return html`
       <div class="item-group ${isRoot ? 'root-group' : 'child-group'}" data-key="${parent.key}">
@@ -96,10 +118,10 @@ class FormEditor extends LitElement {
             ${parent.schema.title}${parent.required ? html`<span class="is-required">*</span>` : ''}
           </p>
         </div>
-        ${parent.data ? html`
-          <div class="item-group-children">
-            ${parent.data.map((item) => this.renderList(item))}
-          </div>` : nothing}
+        <div class="item-group-children">
+          ${(parent.data ?? []).map((item) => this.renderList(item))}
+          ${showAddButton ? this.renderAddItemButton(parent) : nothing}
+        </div>
       </div>
     `;
   }
