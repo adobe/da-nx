@@ -3,7 +3,7 @@ import { daFetch } from 'https://da.live/blocks/shared/utils.js';
 import HTMLConverter from '../utils/html2json.js';
 import JSONConverter from '../utils/json2html.js';
 import { Validator } from '../../../deps/da-form/dist/index.js';
-import { annotateProp, getValueByPath, setValueByPath } from '../utils/utils.js';
+import { annotateProp, getValueByPath, setValueByPath, removeArrayItemByPath } from '../utils/utils.js';
 import generateEmptyObject from '../utils/generator.js';
 
 /**
@@ -65,6 +65,13 @@ export default class FormModel {
     const newIndex = array.length;
     setValueByPath(this._json, `${path}[${newIndex}]`, newItem);
     this.updateHtml();
+  }
+
+  removeArrayItem(path) {
+    if (!removeArrayItemByPath(this._json, path)) return false;
+    this._annotated = annotateProp('data', this._json.data, this._schema, this._schema);
+    this.updateHtml();
+    return true;
   }
 
   async saveHtml() {

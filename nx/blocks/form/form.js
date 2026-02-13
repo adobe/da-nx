@@ -91,6 +91,17 @@ class FormEditor extends LitElement {
     await this.formModel.saveHtml();
   }
 
+  async handleRemoveItem({ detail }) {
+    const { path } = detail;
+    if (!this.formModel.removeArrayItem(path)) return;
+
+    // Update the view with the new values
+    this.formModel = this.formModel.clone();
+
+    // Persist the data
+    await this.formModel.saveHtml();
+  }
+
   renderSchemaSelector() {
     return html`
       <p class="da-form-title">Please select a schema to get started</p>
@@ -117,6 +128,7 @@ class FormEditor extends LitElement {
         <da-form-editor
           @update=${this.handleUpdate}
           @add-item=${this.handleAddItem}
+          @confirm-remove=${this.handleRemoveItem}
           .formModel=${this.formModel}
         ></da-form-editor>
         <da-form-preview .formModel=${this.formModel}></da-form-preview>

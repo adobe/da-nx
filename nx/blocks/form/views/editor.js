@@ -54,7 +54,7 @@ class FormEditor extends LitElement {
     this.debouncedHandleChange({ target });
   }
 
-  handleConfirmRemove(e) {
+  handleRemoveItem(e) {
     e.stopPropagation();
     this.dispatchEvent(new CustomEvent('confirm-remove', {
       detail: { path: e.detail.path },
@@ -124,7 +124,7 @@ class FormEditor extends LitElement {
       <remove-button
         .path=${item.path}
         .index=${index}
-        @confirm-remove=${this.handleConfirmRemove}
+        @confirm-remove=${this.handleRemoveItem}
       ></remove-button>
     `;
   }

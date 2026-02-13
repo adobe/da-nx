@@ -39,6 +39,43 @@ export function getValueByPath(obj, path) {
 }
 
 /**
+ * Removes an array item at the given path by splicing it from its parent array.
+ * @param {Object} obj - The object to modify
+ * @param {string} path - The path to the array item (e.g., "data.items.[0]" or "data.items[0]")
+ * @returns {boolean} - True if the item was removed, false otherwise
+ */
+export function removeArrayItemByPath(obj, path) {
+  const parts = parsePath(path);
+  if (parts.length < 2) return false;
+
+  // Path must end with an array index (e.g. "data.items.[0]" → index 0)
+  const lastPart = parts[parts.length - 1];
+  if (typeof lastPart !== 'number') return false;
+
+  // Navigate to the parent of the target array
+  const parentParts = parts.slice(0, -1);
+  let current = obj;
+  for (let i = 0; i < parentParts.length - 1; i += 1) {
+    const part = parentParts[i];
+    if (current == null || !(part in current)) return false;
+    // Step into each segment (e.g. obj → obj.data → obj.data.items)
+    current = current[part];
+  }
+
+  // Key of the array (e.g. "items")
+  const parentKey = parentParts[parentParts.length - 1];
+  if (current == null || !(parentKey in current) || !Array.isArray(current[parentKey])) return false;
+
+  const array = current[parentKey];
+  const index = lastPart;
+  if (index < 0 || index >= array.length) return false;
+
+  // Remove the item in-place
+  array.splice(index, 1);
+  return true;
+}
+
+/**
  * Sets a value on an object using a path string.
  * Supports dot notation and array indices.
  * @param {Object} obj - The object to set the value on
