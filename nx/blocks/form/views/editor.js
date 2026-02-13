@@ -53,7 +53,7 @@ class FormEditor extends LitElement {
 
   handleRemoveItem(e) {
     e.stopPropagation();
-    this.dispatchEvent(new CustomEvent('confirm-remove', {
+    this.dispatchEvent(new CustomEvent('remove-item', {
       detail: { path: e.detail.path },
       bubbles: true,
       composed: true,
@@ -122,7 +122,7 @@ class FormEditor extends LitElement {
       <remove-button
         .path=${item.path}
         .index=${index}
-        @confirm-remove=${this.handleRemoveItem}
+        @remove-item=${this.handleRemoveItem}
       ></remove-button>
     `;
   }

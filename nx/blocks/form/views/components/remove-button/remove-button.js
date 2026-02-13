@@ -6,7 +6,7 @@ const style = await getStyle(import.meta.url);
 /**
  * A two-stage confirmation remove button.
  * First click: Shows checkmark (confirmation state)
- * Second click: Dispatches 'confirm-remove' event
+ * Second click: Dispatches 'remove-item' event
  * Auto-reverts to trash icon after 3 seconds if not confirmed
  */
 class RemoveButton extends LitElement {
@@ -47,7 +47,7 @@ class RemoveButton extends LitElement {
     if (this.confirmState) {
       this.clearConfirmTimeout();
       this.confirmState = false;
-      this.dispatchEvent(new CustomEvent('confirm-remove', {
+      this.dispatchEvent(new CustomEvent('remove-item', {
         detail: { path: this.path },
         bubbles: true,
         composed: true,

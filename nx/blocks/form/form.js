@@ -128,7 +128,7 @@ class FormEditor extends LitElement {
         <da-form-editor
           @update=${this.handleUpdate}
           @add-item=${this.handleAddItem}
-          @confirm-remove=${this.handleRemoveItem}
+          @remove-item=${this.handleRemoveItem}
           .formModel=${this.formModel}
         ></da-form-editor>
         <da-form-preview .formModel=${this.formModel}></da-form-preview>
