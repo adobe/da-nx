@@ -2,6 +2,7 @@ import { LitElement, html, nothing } from 'da-lit';
 
 const { default: getStyle } = await import('../../../utils/styles.js');
 
+const { resolvePropSchema } = await import('../utils/utils.js');
 const style = await getStyle(import.meta.url);
 
 function debounce(func, wait) {
@@ -97,13 +98,20 @@ class FormEditor extends LitElement {
     return parent.schema?.properties?.type === 'array';
   }
 
+  getAddItemLabel(parent) {
+    const itemsSchema = parent.schema?.properties?.items;
+    const resolved = itemsSchema && resolvePropSchema(itemsSchema, this.formModel?.schema);
+    const label = resolved?.title;
+    return label ? `+ Add ${label}` : '+ Add item';
+  }
+
   renderAddItemButton(parent) {
     return html`
       <button
         type="button"
         class="add-item-btn"
         @click=${() => this.handleAddItem(parent)}
-      >+ Add item</button>
+      >${this.getAddItemLabel(parent)}</button>
     `;
   }
 

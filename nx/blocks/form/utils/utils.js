@@ -68,17 +68,17 @@ export function setValueByPath(obj, path, value) {
   current[parts[parts.length - 1]] = value;
 }
 
-function resolvePropSchema(key, localSchema, fullSchema) {
+export function resolvePropSchema(localSchema, fullSchema) {
   const { title } = localSchema;
 
   if (localSchema.$ref) {
     const path = localSchema.$ref.substring(2).split('/')[1];
 
     // try local ref
-    let def = localSchema.$defs?.[path];
+    let def = localSchema?.$defs?.[path];
     // TODO: walk up the tree looking for the def
     // try global ref
-    if (!def) def = fullSchema.$defs?.[path];
+    if (!def) def = fullSchema?.$defs?.[path];
     if (def) {
       if (!title) return def;
       return { ...def, title };
@@ -101,10 +101,10 @@ export function annotateProp(key, propData, propSchema, fullSchema, path = '', r
   const currentPath = path ? `${path}.${key}` : key;
 
   // Will have schema.props
-  const resolvedSchema = resolvePropSchema(key, propSchema, fullSchema);
+  const resolvedSchema = resolvePropSchema(propSchema, fullSchema);
 
   if (Array.isArray(propData)) {
-    const resolvedItemsSchema = resolvePropSchema(key, propSchema.items, fullSchema);
+    const resolvedItemsSchema = resolvePropSchema(propSchema.items, fullSchema);
 
     // It's possible that items do not have a title, let them inherit from the parent
     resolvedItemsSchema.title ??= resolvedSchema.title;
