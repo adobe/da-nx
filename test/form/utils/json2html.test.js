@@ -1,5 +1,7 @@
 import { expect } from '@esm-bundle/chai';
+import { readFile } from '@web/test-runner-commands';
 import json2html from '../../../nx/blocks/form/utils/json2html.js';
+import { normalizeHtml } from './utils.js';
 
 describe('JSON to HTML Conversion', () => {
   it('should convert simple JSON to HTML', () => {
@@ -196,6 +198,92 @@ describe('JSON to HTML Conversion', () => {
     const rows = daForm.querySelectorAll(':scope > div');
     expect(rows.length).to.be.at.least(3);
   });
+
+  it('should handle arrays of arrays (primitives)', () => {
+    const json = {
+      metadata: {
+        schemaName: 'test-schema',
+      },
+      data: {
+        items: [
+          ['Item 1A', 'Item 1B', 'Item 1C'],
+          ['Item 2A', 'Item 2B'],
+        ],
+      },
+    };
+
+    const html = json2html(json);
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+
+    // Check main schema block
+    const testSchemaBlock = doc.querySelector('.test-schema');
+    expect(testSchemaBlock, 'The .test-schema block should exist').to.exist;
+
+    // Check that there are references to nested array blocks
+    const mainUl = testSchemaBlock.querySelector('ul');
+    expect(mainUl, 'Main ul should exist').to.exist;
+    const mainListItems = mainUl.querySelectorAll('li');
+    expect(mainListItems).to.have.lengthOf(2);
+    expect(mainListItems[0].textContent).to.match(/self:\/\/#items-/);
+
+    // Check that nested array blocks were created with @items key
+    const arrayBlocks = doc.querySelectorAll('[class*="items-"]');
+    expect(arrayBlocks.length).to.be.at.least(2);
+
+    // Verify @items key exists in array block
+    const firstArrayBlock = arrayBlocks[0];
+    const itemsKey = Array.from(firstArrayBlock.querySelectorAll('p')).find((p) => p.textContent === '@items');
+    expect(itemsKey, '@items key should exist in array block').to.exist;
+
+    // Verify the nested array contains the primitive values
+    const nestedUl = firstArrayBlock.querySelector('ul');
+    expect(nestedUl, 'Nested ul should exist').to.exist;
+    const nestedItems = nestedUl.querySelectorAll('li');
+    expect(nestedItems.length).to.be.at.least(1);
+  });
+
+  it('should handle arrays of arrays (objects)', () => {
+    const json = {
+      metadata: {
+        schemaName: 'test-schema',
+      },
+      data: {
+        groups: [
+          [
+            { name: 'Item 1', value: 'A' },
+            { name: 'Item 2', value: 'B' },
+          ],
+          [
+            { name: 'Item 3', value: 'C' },
+          ],
+        ],
+      },
+    };
+
+    const html = json2html(json);
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+
+    // Check main schema block
+    const testSchemaBlock = doc.querySelector('.test-schema');
+    expect(testSchemaBlock, 'The .test-schema block should exist').to.exist;
+
+    // Check that nested array blocks were created
+    const arrayBlocks = doc.querySelectorAll('[class*="groups-"]');
+    expect(arrayBlocks.length).to.be.at.least(2);
+
+    // Verify @items key exists in array blocks
+    const itemsKeys = Array.from(doc.querySelectorAll('p')).filter((p) => p.textContent === '@items');
+    expect(itemsKeys.length).to.be.at.least(2, '@items keys should exist for each array block');
+
+    // Verify object blocks were created for the items
+    const itemBlocks = Array.from(arrayBlocks).filter((block) => {
+      const rows = block.querySelectorAll(':scope > div');
+      // Object blocks have multiple rows with actual keys like 'name', 'value'
+      // Array blocks have just one row with '@items'
+      return rows.length > 1 || (rows.length === 1 && !block.innerHTML.includes('@items'));
+    });
+    expect(itemBlocks.length).to.be.at.least(1, 'Item object blocks should exist');
+  });
 });
 
 describe('Edge Cases', () => {
@@ -253,4 +341,36 @@ describe('Edge Cases', () => {
   //   expect(convertedJson.data.emptyString).to.equal('');
   //   expect(convertedJson.data.normalString).to.equal('not empty');
   // });
+});
+
+describe('Real-world Examples', () => {
+  it('should convert simpleForm.json to HTML', async () => {
+    const jsonContent = await readFile({ path: './mocks/simpleForm.json' });
+    const json = JSON.parse(jsonContent);
+
+    const generatedHtml = json2html(json);
+    const expectedHtml = await readFile({ path: './mocks/simpleForm.html' });
+
+    expect(normalizeHtml(generatedHtml)).to.equal(normalizeHtml(expectedHtml));
+  });
+
+  it('should convert nestedForm.json to HTML', async () => {
+    const jsonContent = await readFile({ path: './mocks/nestedForm.json' });
+    const json = JSON.parse(jsonContent);
+
+    const generatedHtml = json2html(json);
+    const expectedHtml = await readFile({ path: './mocks/nestedForm.html' });
+
+    expect(normalizeHtml(generatedHtml)).to.equal(normalizeHtml(expectedHtml));
+  });
+
+  it('should convert nestedArrays.json to HTML', async () => {
+    const jsonContent = await readFile({ path: './mocks/nestedArrays.json' });
+    const json = JSON.parse(jsonContent);
+
+    const generatedHtml = json2html(json);
+    const expectedHtml = await readFile({ path: './mocks/nestedArrays.html' });
+
+    expect(normalizeHtml(generatedHtml)).to.equal(normalizeHtml(expectedHtml));
+  });
 });

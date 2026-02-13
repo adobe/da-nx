@@ -1,10 +1,7 @@
 import { expect } from '@esm-bundle/chai';
 import { readFile } from '@web/test-runner-commands';
 import HTMLConverter from '../../../nx/blocks/form/utils/html2json.js';
-
-function cleanHtmlWhitespace(html) {
-  return html.replace(/>\s+</g, '><').trim().replace(/\s+/g, ' ').trim();
-}
+import { cleanHtmlWhitespace } from './utils.js';
 
 describe('HTML to JSON Conversion', () => {
   describe('HTMLConverter - Basic Conversions', () => {
@@ -112,6 +109,117 @@ describe('HTML to JSON Conversion', () => {
     });
   });
 
+  describe('Nested Arrays Conversion', () => {
+    it('should convert arrays of arrays (primitives) from HTML to JSON', () => {
+      const html = `
+        <main>
+          <div>
+            <div class="da-form">
+              <div><div><p>x-schema-name</p></div><div><p>test-schema</p></div></div>
+            </div>
+            <div class="test-schema">
+              <div><div><p>items</p></div><div><ul><li>self://#items-abc123</li><li>self://#items-def456</li></ul></div></div>
+            </div>
+            <div class="items items-abc123">
+              <div><div><p>@items</p></div><div><ul><li>Item 1A</li><li>Item 1B</li></ul></div></div>
+            </div>
+            <div class="items items-def456">
+              <div><div><p>@items</p></div><div><ul><li>Item 2A</li><li>Item 2B</li></ul></div></div>
+            </div>
+          </div>
+        </main>
+      `;
+
+      const converter = new HTMLConverter(html);
+      const { json } = converter;
+
+      expect(json.metadata.schemaName).to.equal('test-schema');
+      expect(json.data.items).to.be.an('array');
+      expect(json.data.items).to.have.lengthOf(2);
+      expect(json.data.items[0]).to.deep.equal(['Item 1A', 'Item 1B']);
+      expect(json.data.items[1]).to.deep.equal(['Item 2A', 'Item 2B']);
+    });
+
+    it('should convert arrays of arrays (objects) from HTML to JSON', () => {
+      const html = `
+        <main>
+          <div>
+            <div class="da-form">
+              <div><div><p>x-schema-name</p></div><div><p>test-schema</p></div></div>
+            </div>
+            <div class="test-schema">
+              <div><div><p>groups</p></div><div><ul><li>self://#groups-abc123</li><li>self://#groups-def456</li></ul></div></div>
+            </div>
+            <div class="groups groups-abc123">
+              <div><div><p>@items</p></div><div><ul><li>self://#groups-obj1</li><li>self://#groups-obj2</li></ul></div></div>
+            </div>
+            <div class="groups groups-def456">
+              <div><div><p>@items</p></div><div><ul><li>self://#groups-obj3</li></ul></div></div>
+            </div>
+            <div class="groups groups-obj1">
+              <div><div><p>name</p></div><div><p>Item 1</p></div></div>
+              <div><div><p>value</p></div><div><p>A</p></div></div>
+            </div>
+            <div class="groups groups-obj2">
+              <div><div><p>name</p></div><div><p>Item 2</p></div></div>
+              <div><div><p>value</p></div><div><p>B</p></div></div>
+            </div>
+            <div class="groups groups-obj3">
+              <div><div><p>name</p></div><div><p>Item 3</p></div></div>
+              <div><div><p>value</p></div><div><p>C</p></div></div>
+            </div>
+          </div>
+        </main>
+      `;
+
+      const converter = new HTMLConverter(html);
+      const { json } = converter;
+
+      expect(json.metadata.schemaName).to.equal('test-schema');
+      expect(json.data.groups).to.be.an('array');
+      expect(json.data.groups).to.have.lengthOf(2);
+      expect(json.data.groups[0]).to.be.an('array');
+      expect(json.data.groups[0]).to.have.lengthOf(2);
+      expect(json.data.groups[0][0]).to.deep.equal({ name: 'Item 1', value: 'A' });
+      expect(json.data.groups[0][1]).to.deep.equal({ name: 'Item 2', value: 'B' });
+      expect(json.data.groups[1][0]).to.deep.equal({ name: 'Item 3', value: 'C' });
+    });
+
+    it('should convert arrays within nested objects from HTML to JSON', () => {
+      const html = `
+        <main>
+          <div>
+            <div class="da-form">
+              <div><div><p>x-schema-name</p></div><div><p>test-schema</p></div></div>
+            </div>
+            <div class="test-schema">
+              <div><div><p>records</p></div><div><ul><li>self://#records-abc123</li><li>self://#records-def456</li></ul></div></div>
+            </div>
+            <div class="records records-abc123">
+              <div><div><p>name</p></div><div><p>Record 1</p></div></div>
+              <div><div><p>tags</p></div><div><ul><li>Tag 1A</li><li>Tag 1B</li><li>Tag 1C</li></ul></div></div>
+            </div>
+            <div class="records records-def456">
+              <div><div><p>name</p></div><div><p>Record 2</p></div></div>
+              <div><div><p>tags</p></div><div><ul><li>Tag 2A</li><li>Tag 2B</li></ul></div></div>
+            </div>
+          </div>
+        </main>
+      `;
+
+      const converter = new HTMLConverter(html);
+      const { json } = converter;
+
+      expect(json.metadata.schemaName).to.equal('test-schema');
+      expect(json.data.records).to.be.an('array');
+      expect(json.data.records).to.have.lengthOf(2);
+      expect(json.data.records[0].name).to.equal('Record 1');
+      expect(json.data.records[0].tags).to.deep.equal(['Tag 1A', 'Tag 1B', 'Tag 1C']);
+      expect(json.data.records[1].name).to.equal('Record 2');
+      expect(json.data.records[1].tags).to.deep.equal(['Tag 2A', 'Tag 2B']);
+    });
+  });
+
   describe('Real-world Examples', () => {
     it('should read simpleForm files', async () => {
       const html = await readFile({ path: './mocks/simpleForm.html' });
@@ -157,6 +265,20 @@ describe('HTML to JSON Conversion', () => {
 
       const nestedFormJson = await readFile({ path: './mocks/nestedForm.json' });
       const expectedJson = JSON.parse(nestedFormJson);
+
+      const converter = new HTMLConverter(html);
+      const convertedJson = converter.json;
+
+      expect(convertedJson.metadata).to.deep.equal(expectedJson.metadata);
+      expect(convertedJson.data).to.deep.equal(expectedJson.data);
+    });
+
+    it('should convert nestedArrays.html to expected JSON', async () => {
+      const htmlRaw = await readFile({ path: './mocks/nestedArrays.html' });
+      const html = cleanHtmlWhitespace(htmlRaw);
+
+      const nestedArraysJson = await readFile({ path: './mocks/nestedArrays.json' });
+      const expectedJson = JSON.parse(nestedArraysJson);
 
       const converter = new HTMLConverter(html);
       const convertedJson = converter.json;
