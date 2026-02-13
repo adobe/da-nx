@@ -56,12 +56,12 @@ function createValueCol(key, value, nestedBlocks) {
     if (typeof value === 'object') {
       // Check if value is an array and create multiple nested blocks if needed
       if (Array.isArray(value)) {
+        // Skip empty arrays - don't create any HTML
+        if (!value.length) {
+          return null;
+        }
         // If it's an array of objects, create a nested block for each object
         const ul = document.createElement('ul');
-        if (!value.length) {
-          const li = document.createElement('li');
-          ul.append(li);
-        }
         value.forEach((item) => {
           if (typeof item === 'object' && item !== null) {
             const guid = createNestedBlock(key, item, nestedBlocks);
@@ -80,7 +80,10 @@ function createValueCol(key, value, nestedBlocks) {
         return valCol;
       }
 
-      // handle objects
+      // handle objects - skip empty objects
+      if (Object.keys(value).length === 0) {
+        return null;
+      }
       const guid = createNestedBlock(key, value, nestedBlocks);
       valPara.textContent = `self://#${key}-${guid}`;
     } else {
@@ -96,13 +99,16 @@ function createValueCol(key, value, nestedBlocks) {
 function getFormBlock(metadata, nestedBlocks) {
   const daForm = createBlock('da-form');
 
-  const rows = Object.entries(metadata).map((entry) => {
+  const rows = Object.entries(metadata).flatMap((entry) => {
     const [key, value] = entry;
     const xKey = key === 'schemaName' ? 'x-schema-name' : key;
 
     const valCol = createValueCol(key, value, nestedBlocks);
 
-    return createRow(xKey, valCol);
+    // Skip if createValueCol returned null (empty array/object)
+    if (!valCol) return [];
+
+    return [createRow(xKey, valCol)];
   });
 
   daForm.append(...rows);
@@ -111,12 +117,15 @@ function getFormBlock(metadata, nestedBlocks) {
 
 function getDataBlock(schemaName, data, nestedBlocks) {
   const dataBlock = createBlock(schemaName);
-  const rows = Object.entries(data).map((entry) => {
+  const rows = Object.entries(data).flatMap((entry) => {
     const [key, value] = entry;
 
     const valCol = createValueCol(key, value, nestedBlocks);
 
-    return createRow(key, valCol);
+    // Skip if createValueCol returned null (empty array/object)
+    if (!valCol) return [];
+
+    return [createRow(key, valCol)];
   });
   dataBlock.append(...rows);
   return dataBlock;
