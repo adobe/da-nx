@@ -1,11 +1,8 @@
 import { LitElement, html, nothing } from 'da-lit';
-
-const { default: getStyle } = await import('../../../utils/styles.js');
-
-const { resolvePropSchema } = await import('../utils/utils.js');
-
 import './components/remove-button/remove-button.js';
 
+const { default: getStyle } = await import('../../../utils/styles.js');
+const { resolvePropSchema } = await import('../utils/utils.js');
 const style = await getStyle(import.meta.url);
 
 function debounce(func, wait) {
@@ -94,8 +91,8 @@ class FormEditor extends LitElement {
   }
 
   getPrimitiveType(item) {
-    if (item.schema.properties.enum) return 'select';
-    const type = item.schema.properties.type;
+    const { type, enum: enumVal } = item.schema.properties;
+    if (enumVal) return 'select';
     if (type === 'boolean') return 'checkbox';
     if (type === 'string') return 'text';
     if (type === 'number') return 'number';
@@ -110,6 +107,7 @@ class FormEditor extends LitElement {
       case 'select': inner = this.renderSelect(item); break;
       case 'text': inner = this.renderInput(item, 'text'); break;
       case 'number': inner = this.renderInput(item, 'number'); break;
+      default: break;
     }
     return !inner ? nothing : html`
       <div class="primitive-item-content">
@@ -150,7 +148,7 @@ class FormEditor extends LitElement {
   }
 
   isArrayType(parent) {
-    const schema = parent.schema;
+    const { schema } = parent;
     return schema?.type === 'array' || schema?.properties?.type === 'array';
   }
 
@@ -187,9 +185,7 @@ class FormEditor extends LitElement {
           ${this.renderDeleteButton(parent, parentIndex, isArrayItem)}
         </div>
         <div class="item-group-children">
-          ${(parent.data ?? []).map((item, index) =>
-      this.renderList(item, false, index + 1, this.isArrayType(parent))
-    )}
+          ${(parent.data ?? []).map((item, index) => this.renderList(item, false, index + 1, this.isArrayType(parent)))}
           ${showAddButton ? this.renderAddItemButton(parent) : nothing}
         </div>
       </div>

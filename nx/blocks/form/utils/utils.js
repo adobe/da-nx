@@ -64,7 +64,8 @@ export function removeArrayItemByPath(obj, path) {
 
   // Key of the array (e.g. "items")
   const parentKey = parentParts[parentParts.length - 1];
-  if (current == null || !(parentKey in current) || !Array.isArray(current[parentKey])) return false;
+  if (current == null || !(parentKey in current)
+    || !Array.isArray(current[parentKey])) return false;
 
   const array = current[parentKey];
   const index = lastPart;
