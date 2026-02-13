@@ -1,6 +1,160 @@
 import { expect } from '@esm-bundle/chai';
 import { addDnt, removeDnt, resetIcons, makeIconSpans } from '../../../nx/blocks/loc/dnt/dnt.js';
 
+describe('parseConfig with dnt sheet', () => {
+  it('should parse universal columns from dnt sheet', async () => {
+    const config = {
+      dnt: {
+        data: [
+          { 'dnt-sheet': '*', 'dnt-columns': 'key, id' },
+        ],
+      },
+    };
+
+    const json = JSON.stringify({
+      ':type': 'sheet',
+      total: 1,
+      offset: 0,
+      limit: 1,
+      data: [
+        { key: 'my-key', id: '123', title: 'Hello World' },
+      ],
+    });
+
+    const result = await addDnt(json, config, { fileType: 'json' });
+    const html = new DOMParser().parseFromString(result, 'text/html');
+
+    // Key and id columns should have translate="no"
+    const keyCol = html.querySelector('div[key="key"]');
+    const idCol = html.querySelector('div[key="id"]');
+    const titleCol = html.querySelector('div[key="title"]');
+
+    expect(keyCol.getAttribute('translate')).to.equal('no');
+    expect(idCol.getAttribute('translate')).to.equal('no');
+    expect(titleCol.getAttribute('translate')).to.be.null;
+  });
+
+  it('should parse sheet-specific columns from dnt sheet', async () => {
+    const config = {
+      dnt: {
+        data: [
+          { 'dnt-sheet': 'products', 'dnt-columns': 'sku' },
+        ],
+      },
+    };
+
+    const json = JSON.stringify({
+      ':type': 'multi-sheet',
+      ':names': ['products', 'categories'],
+      ':version': 1,
+      products: {
+        total: 1,
+        offset: 0,
+        limit: 1,
+        data: [{ sku: 'ABC123', name: 'Product' }],
+      },
+      categories: {
+        total: 1,
+        offset: 0,
+        limit: 1,
+        data: [{ sku: 'CAT-1', name: 'Category' }],
+      },
+    });
+
+    const result = await addDnt(json, config, { fileType: 'json' });
+    const html = new DOMParser().parseFromString(result, 'text/html');
+
+    // SKU in products should be DNT
+    const productsSheet = html.querySelector('div[name="products"]');
+    const productsSku = productsSheet.querySelector('div[key="sku"]');
+    expect(productsSku.getAttribute('translate')).to.equal('no');
+
+    // SKU in categories should NOT be DNT
+    const categoriesSheet = html.querySelector('div[name="categories"]');
+    const categoriesSku = categoriesSheet.querySelector('div[key="sku"]');
+    expect(categoriesSku.getAttribute('translate')).to.be.null;
+  });
+
+  it('should parse entire sheet DNT from dnt sheet', async () => {
+    const config = {
+      dnt: {
+        data: [
+          { 'dnt-sheet': 'config', 'dnt-columns': '*' },
+        ],
+      },
+    };
+
+    const json = JSON.stringify({
+      ':type': 'multi-sheet',
+      ':names': ['content', 'config'],
+      ':version': 1,
+      content: {
+        total: 1,
+        offset: 0,
+        limit: 1,
+        data: [{ text: 'Hello' }],
+      },
+      config: {
+        total: 1,
+        offset: 0,
+        limit: 1,
+        data: [{ setting: 'value' }],
+      },
+    });
+
+    const result = await addDnt(json, config, { fileType: 'json' });
+    const html = new DOMParser().parseFromString(result, 'text/html');
+
+    // Config sheet should have translate="no"
+    const configSheet = html.querySelector('div[name="config"]');
+    expect(configSheet.getAttribute('translate')).to.equal('no');
+
+    // Content sheet should NOT have translate="no"
+    const contentSheet = html.querySelector('div[name="content"]');
+    expect(contentSheet.getAttribute('translate')).to.be.null;
+  });
+
+  it('should combine dnt sheet rules with dnt-sheet-rules', async () => {
+    const config = {
+      dnt: {
+        data: [
+          { 'dnt-sheet': '*', 'dnt-columns': 'key' },
+        ],
+      },
+      'dnt-sheet-rules': {
+        data: [
+          { pattern: 'beginsWith(http://)', action: 'dnt' },
+        ],
+      },
+    };
+
+    const json = JSON.stringify({
+      ':type': 'sheet',
+      total: 1,
+      offset: 0,
+      limit: 1,
+      data: [
+        { key: 'my-key', link: 'http://example.com', title: 'Hello' },
+      ],
+    });
+
+    const result = await addDnt(json, config, { fileType: 'json' });
+    const html = new DOMParser().parseFromString(result, 'text/html');
+
+    // Key column should be DNT (from dnt sheet)
+    const keyCol = html.querySelector('div[key="key"]');
+    expect(keyCol.getAttribute('translate')).to.equal('no');
+
+    // Link column should be DNT (from dnt-sheet-rules pattern)
+    const linkCol = html.querySelector('div[key="link"]');
+    expect(linkCol.getAttribute('translate')).to.equal('no');
+
+    // Title should NOT be DNT
+    const titleCol = html.querySelector('div[key="title"]');
+    expect(titleCol.getAttribute('translate')).to.be.null;
+  });
+});
+
 describe('resetIcons', () => {
   let doc;
 
