@@ -3,6 +3,9 @@ import { LitElement, html, nothing } from 'da-lit';
 const { default: getStyle } = await import('../../../utils/styles.js');
 
 const { resolvePropSchema } = await import('../utils/utils.js');
+
+import './components/remove-button/remove-button.js';
+
 const style = await getStyle(import.meta.url);
 
 function debounce(func, wait) {
@@ -51,40 +54,13 @@ class FormEditor extends LitElement {
     this.debouncedHandleChange({ target });
   }
 
-  renderCheckbox(item) {
-    return html`
-      <div>
-        <input type="checkbox" name="${item.key}" value="${item.data}" ?checked=${item.data}>
-        <label class="primitive-item-title">${item.schema.title}</label>
-      </div>
-    `;
-  }
-
-  renderSelect(item) {
-    return html`
-      <div>
-        <p class="primitive-item-title">${item.schema.title}</p>
-        <sl-select name="${item.path}" value="${item.data}" @change=${this.handleChange}>
-          ${item.schema.properties.enum.map((val) => html`<option>${val}</option>`)}
-        </sl-select>
-      </div>
-    `;
-  }
-
-  renderPrimitive(item) {
-    if (item.schema.properties.enum) return this.renderSelect(item);
-
-    const primitives = ['string', 'boolean', 'number'];
-    const prim = primitives.find((type) => type === item.schema.properties.type);
-    if (prim) {
-      if (prim === 'boolean') return this.renderCheckbox(item);
-      return html`
-        <p class="primitive-item-title">${item.schema.title}${item.required ? html`<span class="is-required">*</span>` : ''}</p>
-        <sl-input type="text" name="${item.path}" value="${item.data}" @input=${this.handleInput}></sl-input>
-      `;
-    }
-
-    return nothing;
+  handleConfirmRemove(e) {
+    e.stopPropagation();
+    this.dispatchEvent(new CustomEvent('confirm-remove', {
+      detail: { path: e.detail.path },
+      bubbles: true,
+      composed: true,
+    }));
   }
 
   handleAddItem(parent) {
@@ -94,8 +70,88 @@ class FormEditor extends LitElement {
     this.dispatchEvent(new CustomEvent('add-item', opts));
   }
 
+  renderCheckbox(item) {
+    return html`
+        <input type="checkbox" name="${item.key}" value="${item.data}" ?checked=${item.data}>
+        <label class="primitive-item-title">${item.schema.title}</label>
+    `;
+  }
+
+  renderSelect(item) {
+    return html`
+      <p class="primitive-item-title">${item.schema.title}</p>
+      <sl-select name="${item.path}" value="${item.data}" @change=${this.handleChange}>
+        ${item.schema.properties.enum.map((val) => html`<option>${val}</option>`)}
+      </sl-select>
+    `;
+  }
+
+  renderInput(item, inputType = 'text') {
+    return html`
+      <p class="primitive-item-title">${item.schema.title}${item.required ? html`<span class="is-required">*</span>` : ''}</p>
+      <sl-input type="${inputType}" name="${item.path}" value="${item.data}" @input=${this.handleInput}></sl-input>
+    `;
+  }
+
+  getPrimitiveType(item) {
+    if (item.schema.properties.enum) return 'select';
+    const type = item.schema.properties.type;
+    if (type === 'boolean') return 'checkbox';
+    if (type === 'string') return 'text';
+    if (type === 'number') return 'number';
+    return null;
+  }
+
+  renderPrimitiveByType(item) {
+    const type = this.getPrimitiveType(item);
+    let inner = nothing;
+    switch (type) {
+      case 'checkbox': inner = this.renderCheckbox(item); break;
+      case 'select': inner = this.renderSelect(item); break;
+      case 'text': inner = this.renderInput(item, 'text'); break;
+      case 'number': inner = this.renderInput(item, 'number'); break;
+    }
+    return !inner ? nothing : html`
+      <div class="primitive-item-content">
+        ${inner}
+      </div>
+    `;
+  }
+
+  renderDeleteButton(item, index, isArrayItem) {
+    if (!isArrayItem) return nothing;
+    return html`
+      <remove-button
+        .path=${item.path}
+        .index=${index}
+        @confirm-remove=${this.handleConfirmRemove}
+      ></remove-button>
+    `;
+  }
+
+  renderPrimitiveAsArrayItem(control, item, index) {
+    return html`
+      <div class="primitive-item-row">
+        ${control}
+        ${this.renderDeleteButton(item, index, true)}
+      </div>
+    `;
+  }
+
+  renderPrimitive(item, index, isArrayItem) {
+    const control = this.renderPrimitiveByType(item);
+    if (!control) return nothing;
+
+    const inner = isArrayItem ? this.renderPrimitiveAsArrayItem(control, item, index) : control;
+
+    return html`
+        ${inner}
+    `;
+  }
+
   isArrayType(parent) {
-    return parent.schema?.properties?.type === 'array';
+    const schema = parent.schema;
+    return schema?.type === 'array' || schema?.properties?.type === 'array';
   }
 
   getAddItemLabel(parent) {
@@ -115,8 +171,10 @@ class FormEditor extends LitElement {
     `;
   }
 
-  renderList(parent, isRoot) {
-    if (!Array.isArray(parent.data)) return this.renderPrimitive(parent);
+  renderList(parent, isRoot, parentIndex = null, isArrayItem = false) {
+    if (!Array.isArray(parent.data)) {
+      return this.renderPrimitive(parent, parentIndex, isArrayItem);
+    }
 
     const showAddButton = this.isArrayType(parent);
 
@@ -126,9 +184,12 @@ class FormEditor extends LitElement {
           <p>
             ${parent.schema.title}${parent.required ? html`<span class="is-required">*</span>` : ''}
           </p>
+          ${this.renderDeleteButton(parent, parentIndex, isArrayItem)}
         </div>
         <div class="item-group-children">
-          ${(parent.data ?? []).map((item) => this.renderList(item))}
+          ${(parent.data ?? []).map((item, index) =>
+      this.renderList(item, false, index + 1, this.isArrayType(parent))
+    )}
           ${showAddButton ? this.renderAddItemButton(parent) : nothing}
         </div>
       </div>
