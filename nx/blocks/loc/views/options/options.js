@@ -100,6 +100,7 @@ class NxLocOptions extends LitElement {
   }
 
   handleChangeDate({ target }) {
+    if (!target?.value) return;
     const utcDate = new Date(target.value).toISOString();
     this._siteOptions[target.name] = utcDate;
     this.updateOptions();
