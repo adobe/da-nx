@@ -99,6 +99,12 @@ class NxLocOptions extends LitElement {
     this.updateOptions();
   }
 
+  handleChangeDate({ target }) {
+    const utcDate = new Date(target.value).toISOString();
+    this._siteOptions[target.name] = utcDate;
+    this.updateOptions();
+  }
+
   handleLocaleToggle(e, locale) {
     e.preventDefault();
     locale.active = !locale.active;
@@ -180,6 +186,15 @@ class NxLocOptions extends LitElement {
         <sl-select name="${property}" value="${values[0]}" @change=${this.handleChangeOption}>
           ${values.map((value) => html`<option>${value}</option>`)}
         </sl-select>
+      </div>`;
+  }
+
+  renderDateField(label, property) {
+    return html`
+      <div class="nx-loc-fieldgroup">
+        <p>${label}</p>
+        <sl-input type="datetime-local" name="${property}" @change=${this.handleChangeDate}>
+        </sl-input>
       </div>`;
   }
 
@@ -288,6 +303,7 @@ class NxLocOptions extends LitElement {
         <div class="nx-loc-options-panel">
           <div class="nx-loc-options-group">
             ${this.renderFieldgroup('Environment', 'translation.service.all.env')}
+            ${this._siteConfig['translation.service.supports.duedate'] ? this.renderDateField('Due date', 'project.due') : nothing}
           </div>
           <p class="nx-loc-options-panel-subhead">Conflict resolution</p>
           <div class="nx-loc-options-group">
