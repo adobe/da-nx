@@ -1,0 +1,41 @@
+{
+  "items": [
+    {
+      "id": "698f5c0a641b3318a8caf06f",
+      "status": "completed",
+      "taskType": {
+        "id": "696e31eeb360a50149c55a4b",
+        "key": "scan",
+        "name": "File Type Detection",
+        "apiInternalId": "scan"
+      },
+      "input": {
+        "type": "sourceFile",
+        "sourceFile": {
+          "id": "698f5c09641b3318a8caee9e",
+          "name": "agilent-trados-demo.html",
+          "role": "translatable"
+        }
+      }
+    },
+    {
+      "id": "698f5c0b93dfbc0f0e61d084",
+      "status": "canceled",
+      "taskType": {
+        "id": "696e31ef6c2a68053ac36386",
+        "key": "convert",
+        "name": "File Format Conversion",
+        "apiInternalId": "convert"
+      },
+      "input": {
+        "type": "sourceFile",
+        "sourceFile": {
+          "id": "698f5c09641b3318a8caee9e",
+          "name": "agilent-trados-demo.html",
+          "role": "translatable"
+        }
+      }
+    }
+  ],
+  "itemCount": 2
+}
