@@ -179,7 +179,7 @@ export async function sendAllLanguages({ title, options, langs, urls, actions })
   sendMessage();
 }
 
-function getSourceFileStatus(tasks) {
+export function getSourceFileStatus(tasks) {
   // If source file tasks fail, all langs fail
   const sourceTasks = tasks.filter((task) => (
     ['scan', 'convert', 'copy-to-target'].includes(task.taskType?.key)
@@ -191,7 +191,7 @@ function getSourceFileStatus(tasks) {
   return null;
 }
 
-function getLangStatus(tasks, langCode, fileCount) {
+export function getLangStatus(tasks, langCode, fileCount) {
   const langTasks = tasks.filter((task) => (
     task.input?.targetFile?.languageDirection?.targetLanguage?.languageCode === langCode
   ));
