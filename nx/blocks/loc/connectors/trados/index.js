@@ -18,6 +18,7 @@ export function connect(service) {
 async function getOpts(service, method = 'GET', body = null, contentType = 'application/json') {
   const { tenantId } = service;
   const token = await getAccessToken(service);
+  if (!token) throw new Error('Trados authentication failed');
 
   const opts = {
     method,
@@ -178,6 +179,36 @@ export async function sendAllLanguages({ title, options, langs, urls, actions })
   sendMessage();
 }
 
+function getSourceFileStatus(tasks) {
+  // If source file tasks fail, all langs fail
+  const sourceTasks = tasks.filter((task) => (
+    ['scan', 'convert', 'copy-to-target'].includes(task.taskType?.key)
+  ));
+  if (!sourceTasks.length) return null;
+  if (sourceTasks.some((t) => t.status === 'failed')) return 'error';
+  if (sourceTasks.some((t) => t.status === 'canceled')) return 'canceled';
+  if (sourceTasks.some((t) => t.status === 'skipped')) return 'skipped';
+  return null;
+}
+
+function getLangStatus(tasks, langCode, fileCount) {
+  const langTasks = tasks.filter((task) => (
+    task.input?.targetFile?.languageDirection?.targetLanguage?.languageCode === langCode
+  ));
+
+  // Translated file count for this lang
+  const translated = langTasks.filter((t) => (
+    t.taskType?.key === 'file-delivery' && t.status === 'completed'
+  )).length;
+
+  if (langTasks.some((t) => t.status === 'failed')) return { status: 'error', translated };
+  if (langTasks.some((t) => t.status === 'skipped')) return { status: 'skipped', translated };
+  if (langTasks.some((t) => t.status === 'canceled')) return { status: 'canceled', translated };
+  if (translated === fileCount) return { status: 'translated', translated };
+
+  return { status: 'in progress', translated };
+}
+
 export async function getStatusAll({ service, langs, urls, actions }) {
   const { sendMessage, saveState } = actions;
   const { apiEndpoint } = service;
@@ -190,7 +221,7 @@ export async function getStatusAll({ service, langs, urls, actions }) {
 
   const opts = await getOpts(service);
   const resp = await corsFetch(
-    `${apiEndpoint}/projects/${projectId}/tasks?fields=taskType,status`,
+    `${apiEndpoint}/projects/${projectId}/tasks?fields=taskType,status,input.targetFile`,
     opts,
   );
   if (!resp.ok) return;
@@ -198,14 +229,16 @@ export async function getStatusAll({ service, langs, urls, actions }) {
   const json = await resp.json();
   const tasks = json.items || [];
 
-  const allDone = tasks.length > 0
-    && tasks.every((t) => t.status === 'completed' || t.status === 'cancelled');
+  const sourceError = getSourceFileStatus(tasks);
 
   langs.forEach((lang) => {
     lang.translation ??= {};
-    if (allDone) {
-      lang.translation.translated = urls.length;
-      lang.translation.status = 'translated';
+    if (sourceError) {
+      lang.translation.status = sourceError;
+    } else {
+      const { status, translated } = getLangStatus(tasks, lang.code, urls.length);
+      lang.translation.status = status;
+      lang.translation.translated = translated;
     }
   });
 
