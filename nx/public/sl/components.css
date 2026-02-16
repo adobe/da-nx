@@ -184,6 +184,36 @@ svg.icon {
   }
 }
 
+.sl-checkbox {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: 8px;
+  row-gap: 0;
+
+  input[type="checkbox"] {
+    flex-shrink: 0;
+    margin: 0;
+  }
+
+  label {
+    font-family: var(--font-family);
+    font-size: var(--s2-body-xs-size);
+    color: rgb(80 80 80);
+    margin-bottom: 0;
+    order: 1;
+    cursor: pointer;
+  }
+
+  .sl-inputfield-error {
+    flex-basis: 100%;
+    order: 2;
+    font-size: var(--s2-body-xs-size);
+    color: var(--s2-red-900);
+    margin: 0;
+  }
+}
+
 .sl-button {
   button {
     display: flex;
