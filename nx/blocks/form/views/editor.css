@@ -35,6 +35,22 @@
   }
 }
 
+.primitive-item-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+
+  .primitive-item-content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  remove-button {
+    flex-shrink: 0;
+    margin-bottom: 2px;
+  }
+}
+
 .child-group.item-group {
   margin-block: 16px 4px;
 
@@ -68,22 +84,6 @@
 
 p.primitive-item-title {
   margin-block: 16px 4px;
-}
-
-.primitive-item-row {
-  display: flex;
-  align-items: flex-end;
-  gap: 8px;
-
-  .primitive-item-content {
-    flex: 1;
-    min-width: 0;
-  }
-
-  remove-button {
-    flex-shrink: 0;
-    margin-bottom: 2px;
-  }
 }
 
 .add-item-btn {
