@@ -188,8 +188,7 @@ svg.icon {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  column-gap: 8px;
-  row-gap: 0;
+  gap: 0 8px;
 
   input[type="checkbox"] {
     flex-shrink: 0;

@@ -17,6 +17,10 @@
   }
 }
 
+.primitive-item-content {
+  margin-block: 16px 4px;
+}
+
 .root-group.item-group {
   >.item-group-title {
     >p {
@@ -80,10 +84,6 @@
       order: 2;
     }
   }
-}
-
-.primitive-item-content {
-  margin-block: 16px 4px;
 }
 
 .add-item-btn {
