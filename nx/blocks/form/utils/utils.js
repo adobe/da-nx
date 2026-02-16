@@ -41,7 +41,7 @@ export function getValueByPointer(obj, pointer) {
 /**
  * Removes an array item at the given pointer by splicing it from its parent array.
  * @param {Object} obj - The object to modify
- * @param {string} pointer - The pointer to the array item (e.g., "data.items.[0]" or "data.items[0]")
+ * @param {string} pointer - Array item pointer (e.g. data.items[0])
  * @returns {boolean} - True if the item was removed, false otherwise
  */
 export function removeArrayItemByPointer(obj, pointer) {

@@ -28,7 +28,7 @@ export function jsonPointerToFormPointer(instanceLocation) {
 
   const segments = pointer.split('/').map(decodePointerSegment);
   const parts = segments.map((s) => (/^\d+$/.test(s) ? `[${s}]` : s));
-  return 'data.' + parts.join('.').replace(/\.\[/g, '[');
+  return `data.${parts.join('.').replace(/\.\[/g, '[')}`;
 }
 
 /**
@@ -64,9 +64,10 @@ export function validateJson(schema, data) {
 
   for (const err of result.errors) {
     const formPointer = normalizePointer(jsonPointerToFormPointer(err.instanceLocation));
-    if (seenPointers.has(formPointer)) continue;
-    seenPointers.add(formPointer);
-    errorsByPointer.set(formPointer, err.error);
+    if (!seenPointers.has(formPointer)) {
+      seenPointers.add(formPointer);
+      errorsByPointer.set(formPointer, err.error);
+    }
   }
 
   return { valid: false, errorsByPointer };
