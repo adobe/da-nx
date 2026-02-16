@@ -74,7 +74,7 @@ export default function generateEmptyObject(
       return schema.enum && schema.enum.length > 0 ? schema.enum[0] : 0;
 
     case 'boolean':
-      return schema.enum && schema.enum.length > 0 ? schema.enum[0] : false;
+      return false;
 
     case 'null':
       return null;

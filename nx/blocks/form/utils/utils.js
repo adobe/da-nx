@@ -1,7 +1,7 @@
 import { daFetch } from 'https://da.live/blocks/shared/utils.js';
 
-function parsePath(path) {
-  const parts = path.split('.').flatMap((part) => {
+function parsePointer(pointer) {
+  const parts = pointer.split('.').flatMap((part) => {
     // Handle consecutive indices like "[0][0]" first (before arrayMatch grabs "[0]" as key)
     if (part.startsWith('[')) {
       const indices = part.match(/\[(\d+)\]/g);
@@ -23,13 +23,13 @@ export async function loadHtml(details) {
 }
 
 /**
- * Gets a value from an object using a path string.
+ * Gets a value from an object using a pointer string (dot notation).
  * @param {Object} obj - The object to read from
- * @param {string} path - The path string (e.g. "data.items[0].name")
- * @returns {*} - The value at the path, or undefined
+ * @param {string} pointer - The pointer string (e.g. "data.items[0].name")
+ * @returns {*} - The value at the pointer, or undefined
  */
-export function getValueByPath(obj, path) {
-  const parts = parsePath(path);
+export function getValueByPointer(obj, pointer) {
+  const parts = parsePointer(pointer);
   let current = obj;
   for (const part of parts) {
     if (current == null) return undefined;
@@ -39,16 +39,16 @@ export function getValueByPath(obj, path) {
 }
 
 /**
- * Removes an array item at the given path by splicing it from its parent array.
+ * Removes an array item at the given pointer by splicing it from its parent array.
  * @param {Object} obj - The object to modify
- * @param {string} path - The path to the array item (e.g., "data.items.[0]" or "data.items[0]")
+ * @param {string} pointer - The pointer to the array item (e.g., "data.items.[0]" or "data.items[0]")
  * @returns {boolean} - True if the item was removed, false otherwise
  */
-export function removeArrayItemByPath(obj, path) {
-  const parts = parsePath(path);
+export function removeArrayItemByPointer(obj, pointer) {
+  const parts = parsePointer(pointer);
   if (parts.length < 2) return false;
 
-  // Path must end with an array index (e.g. "data.items.[0]" → index 0)
+  // Pointer must end with an array index (e.g. "data.items.[0]" → index 0)
   const lastPart = parts[parts.length - 1];
   if (typeof lastPart !== 'number') return false;
 
@@ -77,18 +77,18 @@ export function removeArrayItemByPath(obj, path) {
 }
 
 /**
- * Sets a value on an object using a path string.
+ * Sets a value on an object using a pointer string (dot notation).
  * Supports dot notation and array indices.
  * @param {Object} obj - The object to set the value on
- * @param {string} path - The path string (e.g., "data.parent[0].child")
+ * @param {string} pointer - The pointer string (e.g., "data.parent[0].child")
  * @param {*} value - The value to set
  * @example
  * const obj = { data: { items: [{ name: 'test' }] } };
- * setValueByPath(obj, 'data.items[0].name', 'updated');
+ * setValueByPointer(obj, 'data.items[0].name', 'updated');
  * // obj.data.items[0].name is now 'updated'
  */
-export function setValueByPath(obj, path, value) {
-  const parts = parsePath(path);
+export function setValueByPointer(obj, pointer, value) {
+  const parts = parsePointer(pointer);
 
   // Navigate to the parent of the final property
   let current = obj;
@@ -110,13 +110,13 @@ export function resolvePropSchema(localSchema, fullSchema) {
   const { title } = localSchema;
 
   if (localSchema.$ref) {
-    const path = localSchema.$ref.substring(2).split('/')[1];
+    const defKey = localSchema.$ref.substring(2).split('/')[1];
 
     // try local ref
-    let def = localSchema?.$defs?.[path];
+    let def = localSchema?.$defs?.[defKey];
     // TODO: walk up the tree looking for the def
     // try global ref
-    if (!def) def = fullSchema?.$defs?.[path];
+    if (!def) def = fullSchema?.$defs?.[defKey];
     if (def) {
       if (!title) return def;
       return { ...def, title };
@@ -124,7 +124,7 @@ export function resolvePropSchema(localSchema, fullSchema) {
   }
 
   // Normalize local props to the same format as referenced schema
-  return { title, properties: localSchema };
+  return { title, properties: localSchema, required: localSchema.required };
 }
 
 /**
@@ -132,11 +132,11 @@ export function resolvePropSchema(localSchema, fullSchema) {
  * @param {*} prop the current property being acted on
  * @param {*} propSchema the schema that applies to the current property
  * @param {*} fullSchema the full schema that applies to the form
- * @param {*} path the full path to this property (e.g., "grand.parent[0].child")
+ * @param {*} pointer the full pointer to this property (e.g., "grand.parent[0].child")
  */
-export function annotateProp(key, propData, propSchema, fullSchema, path = '', required = false) {
-  // Build the current path
-  const currentPath = path ? `${path}.${key}` : key;
+export function annotateProp(key, propData, propSchema, fullSchema, pointer = '', required = false) {
+  // Build the current pointer
+  const currentPointer = pointer ? `${pointer}.${key}` : key;
 
   // Will have schema.props
   const resolvedSchema = resolvePropSchema(propSchema, fullSchema);
@@ -155,15 +155,15 @@ export function annotateProp(key, propData, propSchema, fullSchema, path = '', r
         // TODO: Support one of schemas
         // propSchema.items.oneOf.forEach((oneOf) => {
         //   console.log(oneOf);
-        //   const arrayPath = `${currentPath}[${index}]`;
-        //   data.push(annotateProp(key, itemPropData, oneOf, fullSchema, arrayPath));
+        //   const arrayPointer = `${currentPointer}[${index}]`;
+        //   data.push(annotateProp(key, itemPropData, oneOf, fullSchema, arrayPointer));
         // });
       } else {
-        data.push(annotateProp(`[${index}]`, itemPropData, propSchema.items, fullSchema, currentPath));
+        data.push(annotateProp(`[${index}]`, itemPropData, propSchema.items, fullSchema, currentPointer));
       }
     });
 
-    return { key, data, schema: resolvedSchema, path: currentPath, required };
+    return { key, data, schema: resolvedSchema, pointer: currentPointer, required };
   }
 
   if (typeof propData === 'object') {
@@ -174,20 +174,20 @@ export function annotateProp(key, propData, propSchema, fullSchema, path = '', r
 
       if (resolvedSchema.properties[k]) {
         const childSchema = resolvedSchema.properties[k];
-        acc.push(annotateProp(k, pD, childSchema, fullSchema, currentPath, isRequired));
+        acc.push(annotateProp(k, pD, childSchema, fullSchema, currentPointer, isRequired));
       }
 
       // Look for sub-property schemas
       if (resolvedSchema.properties.properties?.[k]) {
         const subPropSchema = resolvedSchema.properties.properties[k];
-        acc.push(annotateProp(k, pD, subPropSchema, fullSchema, currentPath, isRequired));
+        acc.push(annotateProp(k, pD, subPropSchema, fullSchema, currentPointer, isRequired));
       }
 
       return acc;
     }, []);
 
-    return { key, data, schema: resolvedSchema, path: currentPath, required };
+    return { key, data, schema: resolvedSchema, pointer: currentPointer, required };
   }
 
-  return { key, data: propData, schema: resolvedSchema, path: currentPath, required };
+  return { key, data: propData, schema: resolvedSchema, pointer: currentPointer, required };
 }

@@ -2,8 +2,8 @@ import { DA_ORIGIN } from 'https://da.live/blocks/shared/constants.js';
 import { daFetch } from 'https://da.live/blocks/shared/utils.js';
 import HTMLConverter from '../utils/html2json.js';
 import JSONConverter from '../utils/json2html.js';
-import { Validator } from '../../../deps/da-form/dist/index.js';
-import { annotateProp, getValueByPath, setValueByPath, removeArrayItemByPath } from '../utils/utils.js';
+import { validateJson } from '../utils/validator.js';
+import { annotateProp, getValueByPointer, setValueByPointer, removeArrayItemByPointer } from '../utils/utils.js';
 import generateEmptyObject from '../utils/generator.js';
 
 /**
@@ -40,8 +40,7 @@ export default class FormModel {
   }
 
   validate() {
-    const validator = new Validator(this._schema, '2020-12');
-    return validator.validate(this._json.data);
+    return validateJson(this._schema, this._json.data);
   }
 
   updateJson() {
@@ -55,20 +54,20 @@ export default class FormModel {
   }
 
   updateProperty({ name, value }) {
-    setValueByPath(this._json, name, value);
+    setValueByPointer(this._json, name, value);
     this.updateHtml();
   }
 
-  addArrayItem(path, itemsSchema) {
-    const array = getValueByPath(this._json, path) ?? [];
+  addArrayItem(pointer, itemsSchema) {
+    const array = getValueByPointer(this._json, pointer) ?? [];
     const newItem = generateEmptyObject(itemsSchema ?? {}, new Set(), this._schema);
     const newIndex = array.length;
-    setValueByPath(this._json, `${path}[${newIndex}]`, newItem);
+    setValueByPointer(this._json, `${pointer}[${newIndex}]`, newItem);
     this.updateHtml();
   }
 
-  removeArrayItem(path) {
-    if (!removeArrayItemByPath(this._json, path)) return false;
+  removeArrayItem(pointer) {
+    if (!removeArrayItemByPointer(this._json, pointer)) return false;
     this._annotated = annotateProp('data', this._json.data, this._schema, this._schema);
     this.updateHtml();
     return true;
