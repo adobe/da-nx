@@ -3,7 +3,7 @@ import { daFetch } from '../../../../utils/daFetch.js';
 
 const BLOCK_SCHEMA_PATH = '/.da/block-schema.json';
 
-let BLOCK_SCHEMA_CACHE;
+let blockSchemaCache;
 
 export function processSchemaKey(schemaKey) {
   const match = schemaKey.match(/^([\w-]+)\s*\((.*)\)$/);
@@ -21,12 +21,18 @@ export function processSchemaKey(schemaKey) {
   };
 }
 
+const fieldKeyCache = new Map();
+
 export function fieldNameToKey(fieldName) {
-  return fieldName
+  let key = fieldKeyCache.get(fieldName);
+  if (key !== undefined) return key;
+  key = fieldName
     .toLowerCase()
     .replace(/[^\w\s-]/g, '') // Remove special chars except word chars, spaces, hyphens
     .replace(/\s+/g, '-') // Replace spaces with hyphens
     .replace(/-+/g, '-'); // Collapse multiple hyphens
+  fieldKeyCache.set(fieldName, key);
+  return key;
 }
 
 export function languageNameToCode(languageName, projectLangs) {
@@ -72,14 +78,14 @@ export function parseBlockSchema(schemaData) {
 }
 
 export async function fetchBlockSchema(org, site, { reset = false } = {}) {
-  if (BLOCK_SCHEMA_CACHE && !reset) return BLOCK_SCHEMA_CACHE;
+  if (blockSchemaCache && !reset) return blockSchemaCache;
   const url = `${DA_ORIGIN}/source/${org}/${site}${BLOCK_SCHEMA_PATH}`;
   try {
     const resp = await daFetch(url);
     if (!resp.ok) return null;
     const schemaData = await resp.json();
     const parsedSchema = parseBlockSchema(schemaData);
-    BLOCK_SCHEMA_CACHE = parsedSchema;
+    blockSchemaCache = parsedSchema;
     return parsedSchema;
   } catch (error) {
     // eslint-disable-next-line no-console
@@ -129,17 +135,11 @@ export async function fetchKeywordsFile(org, site, pagePath) {
  * @param {Document} doc - Parsed HTML document
  */
 function unwrapSoleParagraphs(doc) {
-  doc.querySelectorAll('div[class]').forEach((block) => {
-    const rows = block.querySelectorAll(':scope > div');
-    rows.forEach((row) => {
-      const columns = row.querySelectorAll(':scope > div');
-      columns.forEach((div) => {
-        if (div.children.length === 1 && div.children[0].tagName === 'P') {
-          const pTag = div.children[0];
-          div.replaceChildren(...pTag.childNodes);
-        }
-      });
-    });
+  doc.querySelectorAll('div[class] > div > div').forEach((div) => {
+    if (div.children.length === 1 && div.children[0].tagName === 'P') {
+      const pTag = div.children[0];
+      div.replaceChildren(...pTag.childNodes);
+    }
   });
 }
 
@@ -174,19 +174,17 @@ export function annotateHTML(htmlContent, parsedSchema) {
   if (!parsedSchema || Object.keys(parsedSchema).length === 0) {
     return doc.body.innerHTML;
   }
-  Object.values(parsedSchema).forEach((block) => {
+  Object.entries(parsedSchema).forEach(([blockId, block]) => {
     const { selector, fields } = block;
     const blockElements = doc.querySelectorAll(selector);
-
     blockElements.forEach((blockElement, blockIndex) => {
-      const blockId = Object.keys(parsedSchema).find(
-        (id) => parsedSchema[id].selector === selector,
-      );
       const rows = blockElement.querySelectorAll(':scope > div');
       rows.forEach((row) => {
-        const labelDiv = row.querySelector(':scope > div:nth-child(1)');
-        const contentDiv = row.querySelector(':scope > div:nth-child(2)');
-        if (!labelDiv || !contentDiv) return;
+        const labelDiv = row.children[0];
+        const contentDiv = row.children[1];
+        if (!labelDiv || !contentDiv || labelDiv.tagName !== 'DIV' || contentDiv.tagName !== 'DIV') {
+          return;
+        }
         const field = fields.find((f) => isExactMatch(labelDiv, f.fieldName));
         if (!field) return;
         const { fieldName, fieldKey, charCount, keywordsInjection } = field;
@@ -207,11 +205,19 @@ export function annotateHTML(htmlContent, parsedSchema) {
 export function buildLanguageMetadata(keywordsData, langs) {
   if (!keywordsData || !langs) return {};
   const targetLangCodes = new Set(langs.map((lang) => lang.code));
+  const langCodeByName = new Map();
+  const getLangCode = (languageName) => {
+    const normalizedName = languageName.toLowerCase();
+    let code = langCodeByName.get(normalizedName);
+    if (code === undefined) {
+      code = languageNameToCode(languageName, langs);
+      langCodeByName.set(normalizedName, code);
+    }
+    return code;
+  };
   const langMetadata = {};
-  Object.keys(keywordsData).forEach((key) => {
-    if (key.startsWith(':')) return;
-    const blockData = keywordsData[key];
-    if (!blockData.data) return;
+  Object.entries(keywordsData).forEach(([key, blockData]) => {
+    if (key.startsWith(':') || !blockData?.data) return;
     // Parse the key: "aso-app (apple, listing) (1)" -> blockId + index
     const indexMatch = key.match(/\((\d+)\)$/);
     if (!indexMatch) return;
@@ -222,7 +228,7 @@ export function buildLanguageMetadata(keywordsData, langs) {
     blockData.data.forEach((entry) => {
       const languageName = entry.language;
       if (!languageName) return;
-      const langCode = languageNameToCode(languageName, langs);
+      const langCode = getLangCode(languageName);
       if (!langCode || !targetLangCodes.has(langCode)) return;
       if (!langMetadata[langCode]) {
         langMetadata[langCode] = {};
@@ -262,14 +268,12 @@ export async function addTranslationMetadata(org, site, langs, urls) {
     if (url.content && typeof url.content === 'string') {
       url.content = annotateHTML(url.content, blockSchema);
     }
-    if (hasKeywords) {
-      const keywordsData = await fetchKeywordsFile(org, site, url.suppliedPath);
-      if (keywordsData) {
-        const langMetadata = buildLanguageMetadata(keywordsData, langs);
-        if (langMetadata && Object.keys(langMetadata).length > 0) {
-          url.translationMetadata = langMetadata;
-        }
-      }
+    if (!hasKeywords) return;
+    const keywordsData = await fetchKeywordsFile(org, site, url.suppliedPath);
+    if (!keywordsData) return;
+    const langMetadata = buildLanguageMetadata(keywordsData, langs);
+    if (langMetadata && Object.keys(langMetadata).length > 0) {
+      url.translationMetadata = langMetadata;
     }
   }));
 }
