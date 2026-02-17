@@ -45,6 +45,43 @@ function createNestedBlock(key, obj, nestedBlocks) {
   return guid;
 }
 
+function createArrayBlock(key, arr, nestedBlocks) {
+  const guid = Math.random().toString(36).substring(2, 8);
+  const arrayBlock = createBlock(`${key} ${key}-${guid}`);
+
+  // Create a row with @items key, but process array items with original key
+  const valCol = document.createElement('div');
+  const ul = document.createElement('ul');
+
+  arr.forEach((item) => {
+    if (Array.isArray(item)) {
+      // Nested array within array
+      const itemGuid = createArrayBlock(key, item, nestedBlocks);
+      const li = document.createElement('li');
+      li.textContent = `self://#${key}-${itemGuid}`;
+      ul.append(li);
+    } else if (typeof item === 'object' && item !== null) {
+      // Object within array - use original key, not '@items'
+      const itemGuid = createNestedBlock(key, item, nestedBlocks);
+      const li = document.createElement('li');
+      li.textContent = `self://#${key}-${itemGuid}`;
+      ul.append(li);
+    } else {
+      // Primitive within array
+      const li = document.createElement('li');
+      li.textContent = item;
+      ul.append(li);
+    }
+  });
+
+  valCol.append(ul);
+  const row = createRow('@items', valCol);
+
+  arrayBlock.append(row);
+  nestedBlocks.push(arrayBlock);
+  return guid;
+}
+
 function createValueCol(key, value, nestedBlocks) {
   const valCol = document.createElement('div');
 
@@ -56,20 +93,27 @@ function createValueCol(key, value, nestedBlocks) {
     if (typeof value === 'object') {
       // Check if value is an array and create multiple nested blocks if needed
       if (Array.isArray(value)) {
-        // If it's an array of objects, create a nested block for each object
-        const ul = document.createElement('ul');
+        // Skip empty arrays - don't create any HTML
         if (!value.length) {
-          const li = document.createElement('li');
-          ul.append(li);
+          return null;
         }
+        // Handle array items: could be arrays, objects, or primitives
+        const ul = document.createElement('ul');
         value.forEach((item) => {
-          if (typeof item === 'object' && item !== null) {
+          if (Array.isArray(item)) {
+            // Handle nested array (array within array)
+            const guid = createArrayBlock(key, item, nestedBlocks);
+            const li = document.createElement('li');
+            li.textContent = `self://#${key}-${guid}`;
+            ul.append(li);
+          } else if (typeof item === 'object' && item !== null) {
+            // Handle object within array
             const guid = createNestedBlock(key, item, nestedBlocks);
             const li = document.createElement('li');
             li.textContent = `self://#${key}-${guid}`;
             ul.append(li);
           } else {
-            // If the array entry is a primitive, treat accordingly
+            // Handle primitive within array
             const li = document.createElement('li');
             li.textContent = item;
             ul.append(li);
@@ -80,7 +124,10 @@ function createValueCol(key, value, nestedBlocks) {
         return valCol;
       }
 
-      // handle objects
+      // handle objects - skip empty objects
+      if (Object.keys(value).length === 0) {
+        return null;
+      }
       const guid = createNestedBlock(key, value, nestedBlocks);
       valPara.textContent = `self://#${key}-${guid}`;
     } else {
@@ -96,13 +143,16 @@ function createValueCol(key, value, nestedBlocks) {
 function getFormBlock(metadata, nestedBlocks) {
   const daForm = createBlock('da-form');
 
-  const rows = Object.entries(metadata).map((entry) => {
+  const rows = Object.entries(metadata).flatMap((entry) => {
     const [key, value] = entry;
     const xKey = key === 'schemaName' ? 'x-schema-name' : key;
 
     const valCol = createValueCol(key, value, nestedBlocks);
 
-    return createRow(xKey, valCol);
+    // Skip if createValueCol returned null (empty array/object)
+    if (!valCol) return [];
+
+    return [createRow(xKey, valCol)];
   });
 
   daForm.append(...rows);
@@ -111,12 +161,15 @@ function getFormBlock(metadata, nestedBlocks) {
 
 function getDataBlock(schemaName, data, nestedBlocks) {
   const dataBlock = createBlock(schemaName);
-  const rows = Object.entries(data).map((entry) => {
+  const rows = Object.entries(data).flatMap((entry) => {
     const [key, value] = entry;
 
     const valCol = createValueCol(key, value, nestedBlocks);
 
-    return createRow(key, valCol);
+    // Skip if createValueCol returned null (empty array/object)
+    if (!valCol) return [];
+
+    return [createRow(key, valCol)];
   });
   dataBlock.append(...rows);
   return dataBlock;
