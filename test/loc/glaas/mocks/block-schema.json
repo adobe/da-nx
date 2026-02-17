@@ -1,0 +1,156 @@
+{
+  ":version": 3,
+  ":names": ["aso-app"],
+  ":type": "multi-sheet",
+  ":test-coverage": {
+    "description": "Mock block schema for testing parsing logic",
+    "tests": {
+      "schema-key-parsing": "Tests alphabetical sorting, spaces, single class",
+      "schema-key-with-spaces": "aso-app ( listing, apple ) - spaces around commas",
+      "schema-key-single-class": "aso-app (listing) - single class in parentheses",
+      "field-inclusion": "Fields included if: charCount OR keywords=yes/Yes (case insensitive)",
+      "field-exclusion": "Fields excluded if: no charCount AND (no keywords OR keywords=no)",
+      "field-name-parsing": "Tests special chars, spaces, apostrophes → hyphenated lowercase",
+      "block-without-classes": "simple-block tests schema keys without parentheses"
+    }
+  },
+  "aso-app ( listing, apple )": {
+    ":description": "Tests alphabetical class sorting (listing, apple → apple_listing)",
+    "total": 6,
+    "offset": 0,
+    "limit": 6,
+    "data": [
+      {
+        "field name": "Subtitle",
+        "field key": "subtitle",
+        "character count": "30",
+        "keywords injection": "yes",
+        ":test": "charCount + keywords → INCLUDE"
+      },
+      {
+        "field name": "Description",
+        "field key": "description",
+        "character count": "4000",
+        "keywords injection": "Yes",
+        ":test": "charCount + keywords (capital Yes) → INCLUDE"
+      },
+      {
+        "field name": "What's New",
+        "field key": "releaseNotes",
+        "character count": "4000",
+        "keywords injection": "",
+        ":test": "charCount only, apostrophe in name → INCLUDE, apostrophe removed"
+      },
+      {
+        "field name": "App   Name",
+        "field key": "name",
+        "character count": "30",
+        "keywords injection": "",
+        ":test": "charCount only, multiple spaces → INCLUDE, spaces collapsed"
+      },
+      {
+        "field name": "Icon",
+        "field key": "icon",
+        "character count": "",
+        "keywords injection": "",
+        ":test": "Neither charCount nor keywords → EXCLUDE"
+      },
+      {
+        "field name": "Screenshots",
+        "field key": "screenshots",
+        "character count": "",
+        "keywords injection": "no",
+        ":test": "keywords=no (falsy) → EXCLUDE"
+      }
+    ]
+  },
+  "aso-app (google, promo)": {
+    ":description": "Tests different block type with different classes",
+    "total": 3,
+    "offset": 0,
+    "limit": 3,
+    "data": [
+      {
+        "field name": "Tagline",
+        "field key": "tagline",
+        "character count": "80",
+        "keywords injection": "Yes",
+        ":test": "charCount + keywords → INCLUDE"
+      },
+      {
+        "field name": "Description",
+        "field key": "description",
+        "character count": "500",
+        "keywords injection": "Yes",
+        ":test": "charCount + keywords → INCLUDE"
+      },
+      {
+        "field name": "Image",
+        "field key": "image",
+        "character count": "",
+        "keywords injection": "",
+        ":test": "Neither charCount nor keywords → EXCLUDE"
+      }
+    ]
+  },
+  "simple-block": {
+    ":description": "Tests schema key without parentheses (no classes)",
+    "total": 1,
+    "offset": 0,
+    "limit": 1,
+    "data": [
+      {
+        "field name": "Content",
+        "field key": "content",
+        "character count": "100",
+        "keywords injection": "yes",
+        ":test": "Block without classes → blockId: simple-block"
+      }
+    ]
+  },
+  "aso-app (apple, promo)": {
+    ":description": "Tests special characters and multiple spaces in field names",
+    "total": 2,
+    "offset": 0,
+    "limit": 2,
+    "data": [
+      {
+        "field name": "App's Title (v2.0)",
+        "field key": "eventName",
+        "character count": "30",
+        "keywords injection": "Yes",
+        ":test": "Special chars: apostrophe + parens → apps-title-v20"
+      },
+      {
+        "field name": "Screenshot   iPhone   Copy   1",
+        "field key": "screenshotsiPhoneCopy1",
+        "character count": "",
+        "keywords injection": "yes",
+        ":test": "Multiple spaces, keywords only → screenshot-iphone-copy-1"
+      }
+    ]
+  },
+  "aso-app (listing)": {
+    ":description": "Tests schema key with single class in parentheses",
+    "total": 2,
+    "offset": 0,
+    "limit": 2,
+    "data": [
+      {
+        "field name": "Title",
+        "field key": "title",
+        "character count": "30",
+        "keywords injection": "yes",
+        ":test": "Single class → blockId: aso-app_listing"
+      },
+      {
+        "field name": "Short Description",
+        "field key": "short-description",
+        "character count": "80",
+        "keywords injection": "yes",
+        ":test": "Spaces in field name → short-description"
+      }
+    ]
+  }
+}
+
