@@ -57,7 +57,7 @@ export default class HTMLConverter {
    * Find and convert a block to its basic JSON data
    * @param {String} searchTerm the block name or variation
    * @param {Boolean} searchRef if the variation should be used for search
-   * @returns {Object} the JSON Object representing pug
+   * @returns {Object|Array} the JSON Object or Array representing the block
    */
   findAndConvert(searchTerm, searchRef) {
     return this.blocks.reduce((acc, block) => {
@@ -65,7 +65,14 @@ export default class HTMLConverter {
       // use the variation, not the block name
       const idx = searchRef ? 1 : 0;
       if (block.properties.className[idx] === searchTerm) {
-        return this.getProperties(block);
+        const properties = this.getProperties(block);
+        // If the block contains only @items, it represents an array
+        // Return the array value directly instead of the object wrapper
+        const keys = Object.keys(properties);
+        if (keys.length === 1 && keys[0] === '@items') {
+          return properties['@items'];
+        }
+        return properties;
       }
       return acc;
     }, {});
