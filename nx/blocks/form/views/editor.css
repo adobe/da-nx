@@ -30,7 +30,7 @@
     }
   }
 
-  >.item-group-children {
+  > .item-group-children {
     padding: 0 48px 48px;
   }
 }
@@ -54,7 +54,7 @@
 .child-group.item-group {
   margin-block: 16px 4px;
 
-  >.item-group-title {
+  > .item-group-title {
     display: flex;
     justify-content: start;
     align-items: center;
