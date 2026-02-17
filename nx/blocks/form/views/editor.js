@@ -3,6 +3,7 @@ import './components/remove-button/remove-button.js';
 
 const { default: getStyle } = await import('../../../utils/styles.js');
 const { resolvePropSchema } = await import('../utils/utils.js');
+const { normalizePointer } = await import('../utils/validator.js');
 const style = await getStyle(import.meta.url);
 
 function debounce(func, wait) {
@@ -21,6 +22,7 @@ class FormEditor extends LitElement {
   static properties = {
     formModel: { state: true },
     _data: { state: true },
+    _errorsByPointer: { state: true },
   };
 
   connectedCallback() {
@@ -32,6 +34,7 @@ class FormEditor extends LitElement {
   update(props) {
     if (props.has('formModel') && this.formModel) {
       this.getData();
+      this.runValidation();
     }
     super.update(props);
   }
@@ -40,8 +43,28 @@ class FormEditor extends LitElement {
     this._data = this.formModel.annotated;
   }
 
+  runValidation() {
+    if (!this.formModel) return;
+    const { errorsByPointer } = this.formModel.validate();
+    this._errorsByPointer = errorsByPointer;
+  }
+
+  getError(pointer) {
+    if (!this._errorsByPointer) return null;
+    const key = normalizePointer(pointer);
+    return this._errorsByPointer.get?.(key) ?? this._errorsByPointer[key] ?? null;
+  }
+
   handleChange({ target }) {
-    const { name, value } = target;
+    const { name } = target;
+    let value;
+    switch (target.type) {
+      case 'checkbox':
+        value = target.checked;
+        break;
+      default:
+        value = target.value;
+    }
     const opts = { detail: { name, value }, bubbles: true, composed: true };
     const event = new CustomEvent('update', opts);
     this.dispatchEvent(event);
@@ -54,39 +77,60 @@ class FormEditor extends LitElement {
   handleRemoveItem(e) {
     e.stopPropagation();
     this.dispatchEvent(new CustomEvent('remove-item', {
-      detail: { path: e.detail.path },
+      detail: { pointer: e.detail.pointer },
       bubbles: true,
       composed: true,
     }));
   }
 
   handleAddItem(parent) {
-    const { path, schema } = parent;
+    const { pointer, schema } = parent;
     const itemsSchema = schema?.properties?.items;
-    const opts = { detail: { path, itemsSchema }, bubbles: true, composed: true };
+    const opts = { detail: { pointer, itemsSchema }, bubbles: true, composed: true };
     this.dispatchEvent(new CustomEvent('add-item', opts));
   }
 
   renderCheckbox(item) {
+    const error = this.getError(item.pointer);
+    const label = `${item.schema.title}${item.required ? ' *' : ''}`;
     return html`
-        <input type="checkbox" name="${item.key}" value="${item.data}" ?checked=${item.data}>
-        <label class="primitive-item-title">${item.schema.title}</label>
+      <sl-checkbox
+        name="${item.pointer}"
+        ?checked=${item.data}
+        .error=${error || ''}
+        @change=${this.handleChange}
+      >${label}</sl-checkbox>
     `;
   }
 
   renderSelect(item) {
+    const error = this.getError(item.pointer);
+    const label = `${item.schema.title}${item.required ? ' *' : ''}`;
     return html`
-      <p class="primitive-item-title">${item.schema.title}</p>
-      <sl-select name="${item.path}" value="${item.data}" @change=${this.handleChange}>
+      <sl-select
+        .label=${label}
+        name="${item.pointer}"
+        value="${item.data}"
+        .error=${error || ''}
+        @change=${this.handleChange}
+      >
         ${item.schema.properties.enum.map((val) => html`<option>${val}</option>`)}
       </sl-select>
     `;
   }
 
   renderInput(item, inputType = 'text') {
+    const error = this.getError(item.pointer);
+    const label = `${item.schema.title}${item.required ? ' *' : ''}`;
     return html`
-      <p class="primitive-item-title">${item.schema.title}${item.required ? html`<span class="is-required">*</span>` : ''}</p>
-      <sl-input type="${inputType}" name="${item.path}" value="${item.data}" @input=${this.handleInput}></sl-input>
+      <sl-input
+        .label=${label}
+        type="${inputType}"
+        name="${item.pointer}"
+        value="${item.data}"
+        .error=${error || ''}
+        @input=${this.handleInput}
+      ></sl-input>
     `;
   }
 
@@ -120,7 +164,7 @@ class FormEditor extends LitElement {
     if (!isArrayItem) return nothing;
     return html`
       <remove-button
-        .path=${item.path}
+        .pointer=${item.pointer}
         .index=${index}
         @remove-item=${this.handleRemoveItem}
       ></remove-button>

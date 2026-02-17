@@ -81,8 +81,8 @@ class FormEditor extends LitElement {
   }
 
   async handleAddItem({ detail }) {
-    const { path, itemsSchema } = detail;
-    this.formModel.addArrayItem(path, itemsSchema);
+    const { pointer, itemsSchema } = detail;
+    this.formModel.addArrayItem(pointer, itemsSchema);
 
     // Update the view with the new values
     this.formModel = this.formModel.clone();
@@ -92,8 +92,8 @@ class FormEditor extends LitElement {
   }
 
   async handleRemoveItem({ detail }) {
-    const { path } = detail;
-    if (!this.formModel.removeArrayItem(path)) return;
+    const { pointer } = detail;
+    if (!this.formModel.removeArrayItem(pointer)) return;
 
     // Update the view with the new values
     this.formModel = this.formModel.clone();
