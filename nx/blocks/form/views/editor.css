@@ -18,8 +18,8 @@
 }
 
 .root-group.item-group {
-  >.item-group-title {
-    >p {
+  > .item-group-title {
+    > p {
       font-size: 22px;
       font-weight: 700;
       line-height: 1;
