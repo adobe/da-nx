@@ -1,0 +1,91 @@
+{
+  "metadata": {
+    "schemaName": "array-tests-schema",
+    "title": "array tests"
+  },
+  "data": {
+    "emergencyContacts": [
+      {
+        "name": "Sarah Johnson",
+        "phone": "+1-555-0123",
+        "relationship": "Family"
+      },
+      {
+        "name": "Mike Chen",
+        "phone": "+1-555-0456",
+        "relationship": "Friend"
+      }
+    ],
+    "workHistory": [
+      {
+        "company": "Tech Innovations Inc",
+        "position": "Senior Developer",
+        "startDate": "2020-03-15",
+        "endDate": "2023-06-30",
+        "responsibilities": [
+          "Led development of microservices architecture",
+          "Mentored junior developers",
+          "Implemented CI/CD pipelines"
+        ]
+      },
+      {
+        "company": "Digital Solutions Ltd",
+        "position": "Software Engineer",
+        "startDate": "2018-01-10",
+        "endDate": "2020-02-28",
+        "responsibilities": [
+          "Developed front-end applications using React",
+          "Collaborated with design team on UX improvements",
+          "Maintained legacy codebases"
+        ]
+      }
+    ],
+    "skillCategories": [
+      [
+        "JavaScript",
+        "TypeScript",
+        "Python"
+      ],
+      [
+        "React",
+        "Vue.js",
+        "Angular"
+      ],
+      [
+        "AWS",
+        "Docker",
+        "Kubernetes"
+      ]
+    ],
+    "projectGroups": [
+      [
+        {
+          "name": "E-commerce Platform",
+          "description": "Built a scalable online shopping platform with payment integration",
+          "status": "Completed",
+          "priority": 5
+        },
+        {
+          "name": "Mobile App Development",
+          "description": "Created cross-platform mobile application for iOS and Android",
+          "status": "Active",
+          "priority": 4
+        }
+      ],
+      [
+        {
+          "name": "Data Analytics Dashboard",
+          "description": "Real-time analytics dashboard for business intelligence",
+          "status": "Planning",
+          "priority": 3
+        },
+        {
+          "name": "API Gateway Migration",
+          "description": "Migrating legacy APIs to new cloud-based gateway",
+          "status": "On Hold",
+          "priority": 2
+        }
+      ]
+    ]
+  }
+}

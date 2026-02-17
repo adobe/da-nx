@@ -7,6 +7,7 @@ import { getGlaasToken, connectToGlaas } from './auth.js';
 import { addDnt, removeDnt } from './dnt.js';
 import { groupUrlsByWorkflow } from './locPageRules.js';
 import { fetchConfig } from '../../utils/utils.js';
+import { addTranslationMetadata } from './translationMetadata.js';
 
 function determineStatus(translation) {
   if (translation.error > 0) return 'failed';
@@ -282,7 +283,7 @@ export async function sendAllLanguages({
 }) {
   const timestamp = Date.now();
   const tasks = await getTasks(org, site, title, langs, urls, timestamp);
-
+  await addTranslationMetadata(org, site, langs, urls);
   for (const key of Object.keys(tasks)) {
     await sendTask(service, tasks[key], urls, actions);
   }

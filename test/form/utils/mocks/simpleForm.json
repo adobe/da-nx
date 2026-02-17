@@ -1,0 +1,24 @@
+{
+  "metadata": {
+    "schemaName": "coffee-promotion",
+    "title": "coffee"
+  },
+  "data": {
+    "headline": "Coffee Promotion",
+    "detail": "Some Test Promotion",
+    "list": [
+      "Test 1",
+      "Test 2"
+    ],
+    "ctas": [
+      {
+        "ctaLabel": "Click Here 1",
+        "ctaUrl": "https://www.adobe.com"
+      },
+      {
+        "ctaLabel": "Click Here 2",
+        "ctaUrl": "https://www.adobe.com"
+      }
+    ]
+  }
+}
