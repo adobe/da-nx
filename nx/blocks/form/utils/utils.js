@@ -106,25 +106,50 @@ export function setValueByPath(obj, path, value) {
   current[parts[parts.length - 1]] = value;
 }
 
+/**
+ * Resolves a $ref to its definition from the schema.
+ * @param {string} ref - The $ref string (e.g. "#/$defs/project")
+ * @param {Object} schema - Schema containing $defs (local or full)
+ * @param {Object} fullSchema - The full schema for global $defs
+ * @returns {Object|undefined} The resolved definition or undefined
+ */
+function resolveRef(ref, schema, fullSchema) {
+  if (!ref || !ref.startsWith('#')) return undefined;
+  const parts = ref.substring(1).split('/').filter(Boolean);
+  const defKey = parts[parts.length - 1];
+  let def = schema?.$defs?.[defKey];
+  if (!def) def = fullSchema?.$defs?.[defKey];
+  return def;
+}
+
+/**
+ * Recursively resolves $ref in schema objects (items, properties, etc.)
+ * so the output schema contains inline definitions instead of references.
+ * @param {Object} schema - Schema object that may contain $ref or nested refs
+ * @param {Object} fullSchema - The full schema for resolving $defs
+ * @returns {Object} Schema with all $refs resolved
+ */
+function resolveSchemaRefsDeep(schema, fullSchema) {
+  if (!schema || typeof schema !== 'object') return schema;
+  if (schema.$ref) {
+    const def = resolveRef(schema.$ref, schema, fullSchema);
+    if (def) return resolveSchemaRefsDeep({ ...def, ...schema, $ref: undefined }, fullSchema);
+    return schema;
+  }
+  const result = { ...schema };
+  if (result.items) result.items = resolveSchemaRefsDeep(result.items, fullSchema);
+  if (result.properties) {
+    result.properties = Object.fromEntries(
+      Object.entries(result.properties).map(([k, v]) => [k, resolveSchemaRefsDeep(v, fullSchema)]),
+    );
+  }
+  return result;
+}
+
 export function resolvePropSchema(localSchema, fullSchema) {
   const { title } = localSchema;
-
-  if (localSchema.$ref) {
-    const path = localSchema.$ref.substring(2).split('/')[1];
-
-    // try local ref
-    let def = localSchema?.$defs?.[path];
-    // TODO: walk up the tree looking for the def
-    // try global ref
-    if (!def) def = fullSchema?.$defs?.[path];
-    if (def) {
-      if (!title) return def;
-      return { ...def, title };
-    }
-  }
-
-  // Normalize local props to the same format as referenced schema
-  return { title, properties: localSchema };
+  const resolved = resolveSchemaRefsDeep(localSchema, fullSchema);
+  return { title, properties: resolved };
 }
 
 /**
