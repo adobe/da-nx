@@ -2,7 +2,6 @@ import { LitElement, html, nothing } from 'da-lit';
 import './components/remove-button/remove-button.js';
 
 const { default: getStyle } = await import('../../../utils/styles.js');
-const { resolvePropSchema } = await import('../utils/utils.js');
 const style = await getStyle(import.meta.url);
 
 function debounce(func, wait) {
@@ -154,8 +153,7 @@ class FormEditor extends LitElement {
 
   getAddItemLabel(parent) {
     const itemsSchema = parent.schema?.properties?.items;
-    const resolved = itemsSchema && resolvePropSchema(itemsSchema, this.formModel?.schema);
-    const label = resolved?.title;
+    const label = itemsSchema?.title;
     return label ? `+ Add ${label}` : '+ Add item';
   }
 

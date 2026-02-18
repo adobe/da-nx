@@ -29,6 +29,8 @@ export default class FormModel {
     this._schemas = schemas;
     this._schema = schemas[this._json.metadata.schemaName];
     this._annotated = annotateProp('data', this._json.data, this._schema, this._schema);
+    // eslint-disable-next-line no-console
+    console.log('Annotation result:', JSON.stringify(this._annotated, null, 2));
   }
 
   clone() {
@@ -70,6 +72,8 @@ export default class FormModel {
   removeArrayItem(path) {
     if (!removeArrayItemByPath(this._json, path)) return false;
     this._annotated = annotateProp('data', this._json.data, this._schema, this._schema);
+    // eslint-disable-next-line no-console
+    console.log('Annotation result (after remove):', JSON.stringify(this._annotated, null, 2));
     this.updateHtml();
     return true;
   }
