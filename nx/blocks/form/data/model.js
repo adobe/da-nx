@@ -58,7 +58,6 @@ export default class FormModel {
 
   updateProperty({ name, value }) {
     setValueByPointer(this._json, name, value);
-    this.updateHtml();
   }
 
   addArrayItem(pointer, itemsSchema) {
@@ -66,13 +65,11 @@ export default class FormModel {
     const newItem = generateEmptyObject(itemsSchema ?? {}, new Set(), this._schema);
     array.push(newItem);
     setValueByPointer(this._json, pointer, array);
-    this.updateHtml();
   }
 
   removeArrayItem(pointer) {
     if (!removeArrayItemByPointer(this._json, pointer)) return false;
     this._annotated = annotateFromSchema('data', this._schema, this._schema, this._json.data, '', false);
-    this.updateHtml();
     return true;
   }
 
