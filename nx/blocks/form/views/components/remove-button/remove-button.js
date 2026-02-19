@@ -11,14 +11,14 @@ const style = await getStyle(import.meta.url);
  */
 class RemoveButton extends LitElement {
   static properties = {
-    path: { type: String },
+    pointer: { type: String },
     index: { type: Number },
     confirmState: { state: true },
   };
 
   constructor() {
     super();
-    this.path = '';
+    this.pointer = '';
     this.index = null;
     this.confirmState = false;
     this.timeoutId = null;
@@ -48,7 +48,7 @@ class RemoveButton extends LitElement {
       this.clearConfirmTimeout();
       this.confirmState = false;
       this.dispatchEvent(new CustomEvent('remove-item', {
-        detail: { path: this.path },
+        detail: { pointer: this.pointer },
         bubbles: true,
         composed: true,
       }));

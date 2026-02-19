@@ -40,7 +40,8 @@ class FormEditor extends LitElement {
   }
 
   handleChange({ target }) {
-    const { name, value } = target;
+    const name = target.name; // pointer
+    let value = target.type === 'checkbox' ? target.checked : target.value;
     const opts = { detail: { name, value }, bubbles: true, composed: true };
     const event = new CustomEvent('update', opts);
     this.dispatchEvent(event);
@@ -53,31 +54,34 @@ class FormEditor extends LitElement {
   handleRemoveItem(e) {
     e.stopPropagation();
     this.dispatchEvent(new CustomEvent('remove-item', {
-      detail: { path: e.detail.path },
+      detail: { pointer: e.detail.pointer },
       bubbles: true,
       composed: true,
     }));
   }
 
   handleAddItem(parent) {
-    const { path, schema } = parent;
+    const { pointer, schema } = parent;
     const itemsSchema = schema?.properties?.items;
-    const opts = { detail: { path, itemsSchema }, bubbles: true, composed: true };
+    const opts = { detail: { pointer, itemsSchema }, bubbles: true, composed: true };
     this.dispatchEvent(new CustomEvent('add-item', opts));
   }
 
   renderCheckbox(item) {
+    const checked = item.data ?? false;
     return html`
-        <input type="checkbox" name="${item.key}" value="${item.data}" ?checked=${item.data}>
+        <input type="checkbox" name="${item.pointer}" value="${checked}" ?checked=${checked}>
         <label class="primitive-item-title">${item.schema.title}</label>
     `;
   }
 
   renderSelect(item) {
+    const enumValues = item.schema?.properties?.enum ?? [];
     return html`
       <p class="primitive-item-title">${item.schema.title}</p>
-      <sl-select name="${item.path}" value="${item.data}" @change=${this.handleChange}>
-        ${item.schema.properties.enum.map((val) => html`<option>${val}</option>`)}
+      <sl-select name="${item.pointer}" value="${item.data ?? ''}" @change=${this.handleChange}>
+        <option value="" disabled>Please select</option>
+        ${enumValues.map((val) => html`<option value="${val}">${val}</option>`)}
       </sl-select>
     `;
   }
@@ -85,16 +89,16 @@ class FormEditor extends LitElement {
   renderInput(item, inputType = 'text') {
     return html`
       <p class="primitive-item-title">${item.schema.title}${item.required ? html`<span class="is-required">*</span>` : ''}</p>
-      <sl-input type="${inputType}" name="${item.path}" value="${item.data}" @input=${this.handleInput}></sl-input>
+      <sl-input type="${inputType}" name="${item.pointer}" value="${item.data ?? ''}" @input=${this.handleInput}></sl-input>
     `;
   }
 
   getPrimitiveType(item) {
-    const { type, enum: enumVal } = item.schema.properties;
+    const { type, enum: enumVal } = item.schema?.properties ?? {};
     if (enumVal) return 'select';
     if (type === 'boolean') return 'checkbox';
     if (type === 'string') return 'text';
-    if (type === 'number') return 'number';
+    if (type === 'number' || type === 'integer') return 'number';
     return null;
   }
 
@@ -119,7 +123,7 @@ class FormEditor extends LitElement {
     if (!isArrayItem) return nothing;
     return html`
       <remove-button
-        .path=${item.path}
+        .pointer=${item.pointer}
         .index=${index}
         @remove-item=${this.handleRemoveItem}
       ></remove-button>

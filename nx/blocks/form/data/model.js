@@ -3,7 +3,8 @@ import { daFetch } from 'https://da.live/blocks/shared/utils.js';
 import HTMLConverter from '../utils/html2json.js';
 import JSONConverter from '../utils/json2html.js';
 import { Validator } from '../../../deps/da-form/dist/index.js';
-import { annotateProp, getValueByPath, setValueByPath, removeArrayItemByPath } from '../utils/utils.js';
+import { annotateFromSchema, pruneRecursive } from '../utils/utils.js';
+import { getValueByPointer, setValueByPointer, removeArrayItemByPointer } from '../utils/pointer.js';
 import generateEmptyObject from '../utils/generator.js';
 
 /**
@@ -28,7 +29,7 @@ export default class FormModel {
     this._path = path;
     this._schemas = schemas;
     this._schema = schemas[this._json.metadata.schemaName];
-    this._annotated = annotateProp('data', this._json.data, this._schema, this._schema);
+    this._annotated = annotateFromSchema('data', this._schema, this._schema, this._json.data, '', false);
   }
 
   clone() {
@@ -50,26 +51,27 @@ export default class FormModel {
   }
 
   updateHtml() {
-    const html = JSONConverter(this._json);
-    this._html = html;
+    const prunedData = pruneRecursive(this._json.data);
+    const json = { ...this._json, data: prunedData ?? {} };
+    this._html = JSONConverter(json);
   }
 
   updateProperty({ name, value }) {
-    setValueByPath(this._json, name, value);
+    setValueByPointer(this._json, name, value);
     this.updateHtml();
   }
 
-  addArrayItem(path, itemsSchema) {
-    const array = getValueByPath(this._json, path) ?? [];
+  addArrayItem(pointer, itemsSchema) {
+    const array = getValueByPointer(this._json, pointer) ?? [];
     const newItem = generateEmptyObject(itemsSchema ?? {}, new Set(), this._schema);
-    const newIndex = array.length;
-    setValueByPath(this._json, `${path}[${newIndex}]`, newItem);
+    array.push(newItem);
+    setValueByPointer(this._json, pointer, array);
     this.updateHtml();
   }
 
-  removeArrayItem(path) {
-    if (!removeArrayItemByPath(this._json, path)) return false;
-    this._annotated = annotateProp('data', this._json.data, this._schema, this._schema);
+  removeArrayItem(pointer) {
+    if (!removeArrayItemByPointer(this._json, pointer)) return false;
+    this._annotated = annotateFromSchema('data', this._schema, this._schema, this._json.data, '', false);
     this.updateHtml();
     return true;
   }
