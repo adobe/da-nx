@@ -147,8 +147,14 @@ export function annotateFromSchema(key, propSchema, fullSchema, userData, parent
 
     for (let i = 0; i < itemCount; i += 1) {
       const itemData = userData[i];
-      const annotated = annotateFromSchema(String(i),
-        itemsSchema, fullSchema, itemData, currentPointer, false);
+      const annotated = annotateFromSchema(
+        String(i),
+        itemsSchema,
+        fullSchema,
+        itemData,
+        currentPointer,
+        false,
+      );
       data.push(annotated);
     }
 
@@ -164,8 +170,14 @@ export function annotateFromSchema(key, propSchema, fullSchema, userData, parent
       const isRequired = resolvedSchema.properties?.required?.includes(childKey) ?? false;
       const childValue = userData && typeof userData === 'object' && childKey in userData
         ? userData[childKey] : undefined;
-      const annotated = annotateFromSchema(childKey,
-        childSchema, fullSchema, childValue, currentPointer, isRequired);
+      const annotated = annotateFromSchema(
+        childKey,
+        childSchema,
+        fullSchema,
+        childValue,
+        currentPointer,
+        isRequired,
+      );
       data.push(annotated);
     }
 
