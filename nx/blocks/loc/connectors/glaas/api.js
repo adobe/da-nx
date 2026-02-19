@@ -127,6 +127,9 @@ export async function addAssets({
       const assetMetadata = {
         assetName: glaasFilename,
         metadata: { 'source-preview-url': item.aemHref.replace(/\/index$/, '/') },
+        // GLaaS backward compatibility issue for WS (En-GB) - hence adding here as well.
+        assetType: 'SOURCE',
+        targetLocales,
         ...(item.translationMetadata && { langMetadata: item.translationMetadata }),
       };
       body.append('_asset_metadata_', new Blob(

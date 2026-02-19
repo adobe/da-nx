@@ -273,6 +273,21 @@ describe('HTML to JSON Conversion', () => {
       expect(convertedJson.data).to.deep.equal(expectedJson.data);
     });
 
+    it('should convert simpleArray.html to expected JSON', async () => {
+      const htmlRaw = await readFile({ path: './mocks/simpleArray.html' });
+      const html = cleanHtmlWhitespace(htmlRaw);
+
+      const simpleArrayJson = await readFile({ path: './mocks/simpleArray.json' });
+      const expectedJson = JSON.parse(simpleArrayJson);
+
+      const converter = new HTMLConverter(html);
+
+      const convertedJson = converter.json;
+
+      expect(convertedJson.metadata).to.deep.equal(expectedJson.metadata);
+      expect(convertedJson.data).to.deep.equal(expectedJson.data);
+    });
+
     it('should convert nestedArrays.html to expected JSON', async () => {
       const htmlRaw = await readFile({ path: './mocks/nestedArrays.html' });
       const html = cleanHtmlWhitespace(htmlRaw);
