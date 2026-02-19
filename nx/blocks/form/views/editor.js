@@ -42,6 +42,7 @@ class FormEditor extends LitElement {
   handleChange({ target }) {
     const name = target.name; // pointer
     let value = target.type === 'checkbox' ? target.checked : target.value;
+    if (value === '' || value === null) value = undefined;
     const opts = { detail: { name, value }, bubbles: true, composed: true };
     const event = new CustomEvent('update', opts);
     this.dispatchEvent(event);
@@ -80,7 +81,7 @@ class FormEditor extends LitElement {
     return html`
       <p class="primitive-item-title">${item.schema.title}</p>
       <sl-select name="${item.pointer}" value="${item.data ?? ''}" @change=${this.handleChange}>
-        <option value="" disabled>Please select</option>
+        <option value="" disabled>Please Select</option>
         ${enumValues.map((val) => html`<option value="${val}">${val}</option>`)}
       </sl-select>
     `;

@@ -68,9 +68,7 @@ export default class FormModel {
   }
 
   removeArrayItem(pointer) {
-    if (!removeArrayItemByPointer(this._json, pointer)) return false;
-    this._annotated = annotateFromSchema('data', this._schema, this._schema, this._json.data, '', false);
-    return true;
+    return removeArrayItemByPointer(this._json, pointer);
   }
 
   async saveHtml() {
