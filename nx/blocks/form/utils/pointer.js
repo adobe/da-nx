@@ -104,9 +104,9 @@ export function removeArrayItemByPointer(obj, pointer) {
   }
 
   const parentKey = parentSegments[parentSegments.length - 1];
-  if (current == null || !(parentKey in current) || !Array.isArray(current[parentKey])) return false;
+  const array = current?.[parentKey];
+  if (current == null || !(parentKey in current) || !Array.isArray(array)) return false;
 
-  const array = current[parentKey];
   if (index < 0 || index >= array.length) return false;
 
   array.splice(index, 1);

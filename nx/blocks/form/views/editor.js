@@ -40,7 +40,7 @@ class FormEditor extends LitElement {
   }
 
   handleChange({ target }) {
-    const name = target.name; // pointer
+    const { name } = target; // pointer
     let value = target.type === 'checkbox' ? target.checked : target.value;
     if (value === '' || value === null) value = undefined;
     const opts = { detail: { name, value }, bubbles: true, composed: true };

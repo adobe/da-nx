@@ -83,7 +83,8 @@ function isEmpty(value) {
 /**
  * Recursively prunes null, undefined, empty strings, empty objects, and empty arrays.
  * For arrays: recurses into each item; drops empty items and returns undefined if result is empty.
- * For objects: recurses into each property; drops empty values and returns undefined if result is empty.
+ * For objects: recurses into each property; drops empty values and returns
+ * undefined if result is empty.
  * Schema defaults (e.g. enum "Planning") are kept — only truly empty values are pruned.
  *
  * @param {*} value - Value to prune (object, array, or primitive)
@@ -146,7 +147,9 @@ export function annotateFromSchema(key, propSchema, fullSchema, userData, parent
 
     for (let i = 0; i < itemCount; i += 1) {
       const itemData = userData[i];
-      data.push(annotateFromSchema(String(i), itemsSchema, fullSchema, itemData, currentPointer, false));
+      data.push(annotateFromSchema(
+        String(i), itemsSchema, fullSchema, itemData, currentPointer, false
+      ));
     }
 
     return { key, data, schema: resolvedSchema, pointer: currentPointer, required };
@@ -160,7 +163,9 @@ export function annotateFromSchema(key, propSchema, fullSchema, userData, parent
     for (const [k, childSchema] of Object.entries(childProps)) {
       const isRequired = resolvedSchema.properties?.required?.includes(k) ?? false;
       const childValue = userData && typeof userData === 'object' && k in userData ? userData[k] : undefined;
-      data.push(annotateFromSchema(k, childSchema, fullSchema, childValue, currentPointer, isRequired));
+      data.push(annotateFromSchema(
+        k, childSchema, fullSchema, childValue, currentPointer, isRequired
+      ));
     }
 
     return { key, data, schema: resolvedSchema, pointer: currentPointer, required };
