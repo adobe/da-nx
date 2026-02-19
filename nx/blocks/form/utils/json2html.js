@@ -28,7 +28,7 @@ function createRow(key, valCol) {
 
 function createBlock(name) {
   const block = document.createElement('div');
-  block.className = name;
+  block.className = name.toLowerCase();
   return block;
 }
 
@@ -58,13 +58,13 @@ function createArrayBlock(key, arr, nestedBlocks) {
       // Nested array within array
       const itemGuid = createArrayBlock(key, item, nestedBlocks);
       const li = document.createElement('li');
-      li.textContent = `self://#${key}-${itemGuid}`;
+      li.textContent = `self://#${key.toLowerCase()}-${itemGuid}`;
       ul.append(li);
     } else if (typeof item === 'object' && item !== null) {
       // Object within array - use original key, not '@items'
       const itemGuid = createNestedBlock(key, item, nestedBlocks);
       const li = document.createElement('li');
-      li.textContent = `self://#${key}-${itemGuid}`;
+      li.textContent = `self://#${key.toLowerCase()}-${itemGuid}`;
       ul.append(li);
     } else {
       // Primitive within array
@@ -104,13 +104,13 @@ function createValueCol(key, value, nestedBlocks) {
             // Handle nested array (array within array)
             const guid = createArrayBlock(key, item, nestedBlocks);
             const li = document.createElement('li');
-            li.textContent = `self://#${key}-${guid}`;
+            li.textContent = `self://#${key.toLowerCase()}-${guid}`;
             ul.append(li);
           } else if (typeof item === 'object' && item !== null) {
             // Handle object within array
             const guid = createNestedBlock(key, item, nestedBlocks);
             const li = document.createElement('li');
-            li.textContent = `self://#${key}-${guid}`;
+            li.textContent = `self://#${key.toLowerCase()}-${guid}`;
             ul.append(li);
           } else {
             // Handle primitive within array
@@ -129,7 +129,7 @@ function createValueCol(key, value, nestedBlocks) {
         return null;
       }
       const guid = createNestedBlock(key, value, nestedBlocks);
-      valPara.textContent = `self://#${key}-${guid}`;
+      valPara.textContent = `self://#${key.toLowerCase()}-${guid}`;
     } else {
       valPara.textContent = value;
     }

@@ -1,0 +1,16 @@
+{
+  "metadata": {
+    "schemaName": "undefined",
+    "title": "test-array-v-7"
+  },
+  "data": {
+    "name": "test",
+    "projectGroups": [
+      [
+        {
+          "name": "project 4"
+        }
+      ]
+    ]
+  }
+}

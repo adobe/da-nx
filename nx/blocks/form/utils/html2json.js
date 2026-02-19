@@ -64,7 +64,7 @@ export default class HTMLConverter {
       // If we are looking for a reference,
       // use the variation, not the block name
       const idx = searchRef ? 1 : 0;
-      if (block.properties.className[idx] === searchTerm) {
+      if (block.properties.className[idx]?.toLowerCase() === searchTerm.toLowerCase()) {
         const properties = this.getProperties(block);
         // If the block contains only @items, it represents an array
         // Return the array value directly instead of the object wrapper
