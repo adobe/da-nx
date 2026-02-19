@@ -33,17 +33,6 @@ function parsePointer(pointer) {
  * @param {string|number} segment - Segment to append (e.g. "items" or 0)
  * @returns {string} New pointer (e.g. "/data/items")
  */
-/**
- * Get parent pointer (one level up).
- * @param {string} pointer - e.g. "/data/metadata/tags/primary"
- * @returns {string|null} Parent pointer, e.g. "/data/metadata/tags", or null if root
- */
-export function getParentPointer(pointer) {
-  const segments = parsePointer(pointer);
-  if (segments.length < 2) return null;
-  return `/${segments.slice(0, -1).map((s) => escapeSegment(s)).join('/')}`;
-}
-
 export function append(pointer, segment) {
   const normalized = pointer === '' || pointer === '/' ? '' : pointer.replace(/\/$/, '');
   const escaped = escapeSegment(String(segment));
@@ -90,56 +79,6 @@ export function setValueByPointer(obj, pointer, value) {
 
   const lastSeg = segments[segments.length - 1];
   current[lastSeg] = value;
-}
-
-/**
- * Remove value at pointer (does not prune).
- *
- * @param {Object} obj - Root object to modify
- * @param {string} pointer - RFC 6901 pointer (e.g. "/data/metadata/tags/primary")
- */
-export function removeValueByPointer(obj, pointer) {
-  const segments = parsePointer(pointer);
-  if (segments.length < 2) return;
-
-  const lastSeg = segments[segments.length - 1];
-  let current = obj;
-  for (let i = 0; i < segments.length - 2; i += 1) {
-    const seg = segments[i];
-    if (current == null || !(seg in current)) return;
-    current = current[seg];
-  }
-
-  const parentKey = segments[segments.length - 2];
-  if (current == null || !(parentKey in current)) return;
-
-  const parent = current[parentKey];
-  delete parent[lastSeg];
-}
-
-/**
- * Prune empty ancestor objects at pointer.
- * Use after removeValueByPointer when the object at pointer may be empty.
- * Stops before removing the root "data" key.
- *
- * @param {Object} obj - Root object to modify
- * @param {string} pointer - Pointer to object that may be empty (e.g. "/data/metadata/tags")
- */
-export function pruneEmptyAncestors(obj, pointer) {
-  const segments = parsePointer(pointer);
-  if (segments.length < 2) return;
-
-  let pathToEmpty = [...segments];
-  let emptyObj = getValueByPointer(obj, pointer);
-  while (pathToEmpty.length > 1 && emptyObj && Object.keys(emptyObj).length === 0) {
-    const keyToDelete = pathToEmpty[pathToEmpty.length - 1];
-    if (keyToDelete === 'data') return;
-    pathToEmpty = pathToEmpty.slice(0, -1);
-    const ancestor = pathToEmpty.length > 0 ? getValueByPointer(obj, `/${pathToEmpty.join('/')}`) : obj;
-    if (!ancestor) return;
-    delete ancestor[keyToDelete];
-    emptyObj = ancestor;
-  }
 }
 
 /**
