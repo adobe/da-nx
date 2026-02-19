@@ -34,9 +34,11 @@ export default function generateEmptyObject(
     case 'object': {
       const obj = {};
       if (schema.properties) {
+        // Create a set of required fields for child properties
         const childRequired = new Set(schema.required || []);
 
         for (const [key, propSchema] of Object.entries(schema.properties)) {
+          // Pass down whether this specific field is required
           const isRequired = childRequired.has(key);
           const reqSet = isRequired ? new Set([key]) : new Set();
           obj[key] = generateEmptyObject(propSchema, reqSet, rootSchema);
