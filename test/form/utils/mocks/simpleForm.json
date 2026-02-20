@@ -10,6 +10,10 @@
       "Test 1",
       "Test 2"
     ],
+    "number1": 123,
+    "number2": 456.789,
+    "boolean1": true,
+    "boolean2": false,
     "ctas": [
       {
         "ctaLabel": "Click Here 1",
