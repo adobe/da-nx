@@ -26,7 +26,7 @@ export default function generateEmptyObject(
   }
 
   // Use schema default when present, otherwise undefined (no auto-picking enum[0] or 0)
-  const useDefault = (value) => value ?? undefined
+  const useDefault = (value) => value ?? undefined;
 
   const { type } = schema;
 
