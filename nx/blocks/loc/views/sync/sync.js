@@ -3,7 +3,7 @@ import getStyle from '../../../../utils/styles.js';
 import { getConfig } from '../../../../scripts/nexter.js';
 import getSvg from '../../../../utils/svg.js';
 import { Queue } from '../../../../public/utils/tree.js';
-import { filterSyncUrls } from './index.js';
+import { getUrlSources } from './index.js';
 import { mergeCopy, overwriteCopy } from '../../project/index.js';
 import DaUrl from '../../utils/daUrl.js';
 
@@ -21,7 +21,7 @@ class NxLocSync extends LitElement {
     project: { attribute: false },
     message: { attribute: false },
     _message: { state: true },
-    _syncSources: { state: true },
+    _sources: { state: true },
   };
 
   connectedCallback() {
@@ -38,13 +38,13 @@ class NxLocSync extends LitElement {
     super.update();
   }
 
-  getSyncUrls() {
-    const { options, langs, urls, sync } = this.project;
+  async getSyncUrls() {
+    const { sources } = this.project;
 
-    // Hydrate from an existing sync object
-    if (sync) {
-      this._syncSources = Object.keys(sync).reduce((acc, key) => {
-        acc[key] = sync[key].map((pair) => ({
+    // Hydrate from an existing sources object
+    if (sources) {
+      this._sources = Object.keys(sources).reduce((acc, key) => {
+        acc[key] = sources[key].map((pair) => ({
           source: new DaUrl(pair.source),
           destination: new DaUrl(pair.destination),
           synced: pair.synced,
@@ -56,7 +56,7 @@ class NxLocSync extends LitElement {
 
     // Fallback to parsing langs and URLs - new or legacy project
     // Group and filter only the URLs that need a sync
-    this._syncSources = filterSyncUrls(options, langs, urls);
+    this._sources = await getUrlSources(this.project);
   }
 
   handleAction(e) {
@@ -104,9 +104,9 @@ class NxLocSync extends LitElement {
     const queue = new Queue(syncUrl, 50);
     await Promise.all(this._flatUrls.map((url) => queue.push(url)));
 
-    // Flatten down source and destination DaUrls to only hrefs and sync status
-    const toPersist = Object.keys(this._syncSources).reduce((acc, key) => {
-      const urls = this._syncSources[key].map(({ source, destination, synced }) => ({
+    // Flatten down source and destination to only hrefs and sync status
+    const toPersist = Object.keys(this._sources).reduce((acc, key) => {
+      const urls = this._sources[key].map(({ source, destination, synced }) => ({
         source: source.href,
         destination: destination.href,
         synced,
@@ -115,7 +115,7 @@ class NxLocSync extends LitElement {
       return acc;
     }, {});
 
-    const opts = { detail: { data: { sync: toPersist } }, bubbles: true, composed: true };
+    const opts = { detail: { data: { sources: toPersist } }, bubbles: true, composed: true };
     const event = new CustomEvent('action', opts);
     this.dispatchEvent(event);
   }
@@ -125,13 +125,14 @@ class NxLocSync extends LitElement {
     this.requestUpdate();
   }
 
-  // Get a truly flat list of sync source pairs
+  // Get a flat list of sync source pairs
   get _flatUrls() {
-    if (!this._syncSources?.length) return [];
-    return Object.keys(this._syncSources).reduce((acc, key) => {
-      acc.push(...this._syncSources[key]);
+    const flat = Object.keys(this._sources).reduce((acc, key) => {
+      acc.push(...this._sources[key]);
       return acc;
     }, []);
+    console.log(flat);
+    return flat;
   }
 
   get _project() {
@@ -147,12 +148,7 @@ class NxLocSync extends LitElement {
 
   get _allSynced() {
     const done = this._flatUrls.every((pair) => pair.synced);
-    console.log(done);
     return done;
-  }
-
-  get _syncPrefix() {
-    return this.project.options['source.language'].location;
   }
 
   renderStatus(status) {
@@ -187,15 +183,15 @@ class NxLocSync extends LitElement {
             <sl-button @click=${() => this.handleSyncAll('sync')} class="accent">Sync all</sl-button>
           </div>
         </div>
-        ${Object.keys(this._syncSources).map((sourcePath) => html`
-          <p class="nx-loc-sync-source-title">Supplied URLs are not from <strong>${sourcePath}</strong>. Please sync them.</p>
+        ${this._sources ? Object.keys(this._sources).map((prefix) => html`
+          <p class="nx-loc-sync-source-title">Supplied URLs are not from <strong>${prefix}</strong>. Please sync them.</p>
           <div class="nx-loc-list-header">
             <p>Source</p>
             <p>Destination</p>
             <p class="status-label">Status</p>
           </div>
           <ul>
-            ${this._syncSources[sourcePath].map((url) => html`
+            ${this._sources[prefix].map((url) => html`
               <li class="${url.expand ? 'is-expanded' : ''}">
                 <div class="inner">
                   <p>${url.source.supplied.aemPath}</p>
@@ -219,13 +215,13 @@ class NxLocSync extends LitElement {
               </li>
             `)}
           </ul>
-        `)}
-      
-        
-        
-      
-      
-      
+        `) : nothing}
+
+
+
+
+
+
     `;
   }
 }

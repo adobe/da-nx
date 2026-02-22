@@ -58,6 +58,8 @@ describe('URLModel', () => {
       expect(model.org).to.equal('myorg');
       expect(model.site).to.equal('mysite');
       expect(model.supplied.snapshot).to.equal('snap1');
+      console.log(model.supplied.aemPath, 'AEM PATH');
+      expect(model.supplied.aemPath).to.equal('/en/my-page');
       expect(model.supplied.aemAdminPath).to.equal('/.snapshot/snap1/en/my-page');
       expect(model.supplied.daAdminPath).to.equal('/.snapshot/snap1/en/my-page.html');
     });
@@ -128,15 +130,17 @@ describe('URLModel', () => {
   });
 
   describe('getSuppliedPrefix', () => {
+    const langs = mockConfig.languages.data;
+
     it('Finds the matching language prefix', async () => {
       const model = new URLModel('https://main--mysite--myorg.aem.live/langstore/fr/my-page');
-      const prefix = await model.getSuppliedPrefix();
+      const prefix = model.getSuppliedPrefix(langs);
       expect(prefix).to.equal('/langstore/fr');
     });
 
     it('Returns empty when no prefix matches', async () => {
       const model = new URLModel('https://main--mysite--myorg.aem.live/some/other/page');
-      const prefix = await model.getSuppliedPrefix();
+      const prefix = model.getSuppliedPrefix(langs);
       expect(prefix).to.equal('');
     });
   });

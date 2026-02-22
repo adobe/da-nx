@@ -235,7 +235,7 @@ export function findConfigValue(config, key) {
   return foundRow?.value;
 }
 
-// Get a supplied using languages
+// Get a supplied prefix using a list of languages
 export function getSuppliedPrefix(langs, suppliedPath) {
   const configPrefixes = [];
 

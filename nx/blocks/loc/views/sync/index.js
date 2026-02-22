@@ -1,32 +1,45 @@
+import { fetchConfig } from '../../utils/utils.js';
 import DaUrl from '../../utils/daUrl.js';
 
-export function filterSyncUrls(options, langs, urls) {
+/**
+ * Group URLs based on requested language source locations
+ * @param {*} configLangs the langs available from the site's translation config
+ * @param {*} options
+ * @param {*} langs
+ * @param {*} urls
+ * @returns
+ */
+export async function getUrlSources({ org, site, options, langs, urls }) {
+  // Fetch *all* language data from the site
+  // to determine where URLs come from.
+  const config = await fetchConfig(org, site);
+  const { data: langData } = config.languages;
+
   const defaultSource = options['source.language']?.location || '/';
 
-  return langs.reduce((acc, lang) => {
+  return langs.reduce((sources, lang) => {
     const prefix = lang.source || defaultSource;
 
-    // If the source prefix has already been set, skip
+    // If the source prefix has already been setup, skip
     // the URLs since they've already been added.
-    if (acc[prefix]) return acc;
+    if (sources[prefix]) return sources;
 
-    const langUrlsToSync = urls.reduce((urlsAcc, { href }) => {
+    const sourceUrls = urls.reduce((acc, { href }) => {
       const source = new DaUrl(href);
       const { aemPath } = source.supplied;
 
       if (!aemPath.startsWith(prefix)) {
-        const destination = source.convertPrefix(langs, prefix);
+        const destination = source.convertPrefix(langData, prefix);
         // Push the source and destination
-        urlsAcc.push({ source, destination });
+        acc.push({ source, destination });
       }
 
-      return urlsAcc;
+      return acc;
     }, []);
 
-    // If there are URLs to sync, set them
-    if (urls.length) acc[prefix] = langUrlsToSync;
+    if (sourceUrls.length) sources[prefix] = sourceUrls;
 
-    return acc;
+    return sources;
   }, {});
 }
 

@@ -11,24 +11,32 @@ const VIEW_TYPES = {
   complete: 'none',
 };
 
-function hasSync({ urls, options, langs, sync }) {
+function getSyncStatus(sources) {
+  if (!sources) return false;
+  const status = Object.keys(sources).reduce((acc, key) => {
+    const result = sources[key].some((pair) => ({
+      synced: pair.synced,
+    }));
+    return result || acc;
+  }, false);
+  return status;
+}
+
+/**
+ * Determines whether or not a project needs a sync step.
+ * @param {Object} project the localization project
+ * @returns {Boolean} whether a sync is required
+ */
+function hasSync({ urls, options, langs }) {
   // If the project is not fully created, return false
   if (!urls || !options) return false;
 
-  if (sync) {
-    const thing = Object.keys(sync).reduce((acc, key) => {
-      const result = sync[key].some((pair) => ({
-        synced: pair.synced,
-      }));
-      return result || acc;
-    }, false);
-
-    return thing;
-  }
-
+  // Fallback to matching URLs against languages
   const defaultSource = options['source.language']?.location || '/';
 
-  const needsSync = langs.some((lang) => {
+  // TODO: this will only use the current project's langs.
+  // It needs to loop through all langs from a config
+  return langs.some((lang) => {
     const source = lang.source || defaultSource;
 
     return urls.find(({ href }) => {
@@ -38,8 +46,6 @@ function hasSync({ urls, options, langs, sync }) {
       return !aemPath.startsWith(source);
     });
   }, {});
-
-  return needsSync;
 }
 
 function hasTranslate({ langs }) {
@@ -114,12 +120,7 @@ function getOptionsNext(project) {
 }
 
 function getSyncNext(project) {
-  const disabled = !Object.keys(project.sync).reduce((acc, key) => {
-    const result = project.sync[key].some((pair) => ({
-      synced: pair.synced,
-    }));
-    return result || acc;
-  }, false);
+  const disabled = !getSyncStatus(project.sources);
 
   const translate = getTranslateStep(project);
   if (translate) return { ...translate, disabled };
@@ -236,13 +237,7 @@ function optionsStep(project) {
 
 function syncStep(project) {
   const needsSync = hasSync(project);
-  const synced = Object.keys(project.sync).reduce((acc, key) => {
-    const result = project.sync[key].some((pair) => ({
-      synced: pair.synced,
-    }));
-    return result || acc;
-  }, false);
-  const { style, icon } = getStyle(needsSync && synced, 'sync', project.view, '#S2_Icon_Refresh_20_N');
+  const { style, icon } = getStyle(needsSync, 'sync', project.view, '#S2_Icon_Refresh_20_N');
 
   const step = {
     style,

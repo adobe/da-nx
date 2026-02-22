@@ -32,14 +32,14 @@ export default class DaUrl {
   }
 
   _getViews() {
-    const { daPath, aemPath, aemReviewPath, snapshot } = this.supplied;
-    const route = this.supplied.aemAdminPath.endsWith('.json') ? 'sheet' : 'edit';
+    const { daPath, aemPath, aemAdminPath, snapshot } = this.supplied;
+    const route = aemAdminPath.endsWith('.json') ? 'sheet' : 'edit';
 
     return {
       route,
       edit: `https://da.live/${route}#/${this.org}/${this.site}${daPath}`,
-      preview: `https://${this.site}--${this.org}.aem.page${aemPath}`,
-      review: snapshot ? `https://${snapshot}--${this.site}--${this.org}.aem.reviews${aemReviewPath}` : undefined,
+      preview: `https://${this.site}--${this.org}.aem.page${aemAdminPath}`,
+      review: snapshot ? `https://${snapshot}--${this.site}--${this.org}.aem.reviews${aemPath}` : undefined,
     };
   }
 
@@ -66,16 +66,15 @@ export default class DaUrl {
         if (isSnapshot) rest.splice(0, 2);
 
         const restPath = `/${rest.join('/')}`;
-        const aemReviewPath = isJson ? `${restPath}.json` : restPath;
+        const aemPath = isJson ? `${restPath}.json` : restPath;
 
         return {
           org,
           site,
           daPath,
           daAdminPath,
-          aemPath: daPath.replace('.html', ''),
+          aemPath,
           aemAdminPath: daPath,
-          aemReviewPath,
           snapshot,
         };
       }
@@ -101,9 +100,8 @@ export default class DaUrl {
         site,
         daPath,
         daAdminPath,
-        aemPath: daAdminPath.replace('.html', ''),
+        aemPath: pathname,
         aemAdminPath: withSnapPath,
-        aemReviewPath: pathname,
         snapshot,
       };
     } catch (error) {
