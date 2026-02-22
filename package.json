@@ -9,7 +9,7 @@
     "lint:css": "stylelint \"nx/**/*.css\"",
     "lint:css:fix": "stylelint --fix \"nx/**/*.css\"",
     "lint": "npm run lint:js && npm run lint:css",
-    "local": "aem up --port=6456",
+    "local": "aem up --port=6456 --no-livereload",
     "test": "wtr --config ./web-test-runner.config.mjs \"./test/**/*.test.(js|html)\" --node-resolve --port=2000 --coverage --concurrent-browsers 4",
     "test:debug": "wtr --config ./web-test-runner.config.mjs \"./test/**/*.test.(js|html)\" --node-resolve --port=2000 --debug --watch",
     "test:watch": "npm test -- --watch",
