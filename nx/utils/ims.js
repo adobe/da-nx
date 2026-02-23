@@ -6,7 +6,7 @@ const { imsClientId, imsScope, env } = getConfig();
 const IMS_URL = 'https://auth.services.adobe.com/imslib/imslib.min.js';
 const DEFAULT_SCOPE = 'AdobeID,openid,gnav';
 const IMS_TIMEOUT = 5000;
-const HELIX_TOKEN_DELAY = 2000;
+const HELIX_TOKEN_DELAY = 3000;
 const IMS_ENV = {
   dev: 'stg1',
   stage: 'stg1',
@@ -84,7 +84,10 @@ export async function getIo() {
   return fetchWithToken(`https://${IO_ENV[env]}/profile`, imsProfile.accessToken);
 }
 
-async function setHelixToken(imsDetail) {
+/**
+ * Lazily post a window message with IMS details
+ */
+async function postImsMessage(imsDetail) {
   setTimeout(async () => {
     const { displayName, email, getIo: io, accessToken } = imsDetail;
     const { user } = await io();
@@ -93,7 +96,7 @@ async function setHelixToken(imsDetail) {
       displayName,
       email,
       avatar: user.avatar,
-      accessToken: accessToken.token,
+      accessToken,
     };
 
     window.postMessage({ type: 'set-ims-details', details }, window.location.origin);
@@ -103,7 +106,7 @@ async function setHelixToken(imsDetail) {
 async function getProfileDetails(accessToken, resolve) {
   const profile = await window.adobeIMS.getProfile();
   imsProfile = { ...profile, accessToken, getOrgs, getIo, getAllOrgs };
-  setHelixToken(imsProfile);
+  postImsMessage(imsProfile);
   resolve(imsProfile);
 }
 
