@@ -88,6 +88,7 @@ export async function getIo() {
  */
 async function postImsMessage(imsDetail) {
   const { displayName, email, accessToken } = imsDetail;
+  accessToken.expire = accessToken.expire.toISOString();
 
   const details = {
     accessToken,
