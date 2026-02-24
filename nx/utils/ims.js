@@ -6,7 +6,6 @@ const { imsClientId, imsScope, env } = getConfig();
 const IMS_URL = 'https://auth.services.adobe.com/imslib/imslib.min.js';
 const DEFAULT_SCOPE = 'AdobeID,openid,gnav';
 const IMS_TIMEOUT = 5000;
-const HELIX_TOKEN_DELAY = 3000;
 const IMS_ENV = {
   dev: 'stg1',
   stage: 'stg1',
@@ -88,19 +87,16 @@ export async function getIo() {
  * Lazily post a window message with IMS details
  */
 async function postImsMessage(imsDetail) {
-  setTimeout(async () => {
-    const { displayName, email, getIo: io, accessToken } = imsDetail;
-    const { user } = await io();
+  const { displayName, email, accessToken } = imsDetail;
 
-    const details = {
-      displayName,
-      email,
-      avatar: user.avatar,
-      accessToken,
-    };
+  const details = {
+    accessToken,
+    displayName,
+    email,
+    avatarApi: `https://${IO_ENV[env]}/profile`,
+  };
 
-    window.postMessage({ type: 'set-ims-details', details }, window.location.origin);
-  }, HELIX_TOKEN_DELAY);
+  window.postMessage({ type: 'set-ims-details', details }, window.location.origin);
 }
 
 async function getProfileDetails(accessToken, resolve) {
