@@ -16,7 +16,6 @@ import {
   IndexFiles,
   Paths,
 } from './constants.js';
-import { sortMediaData } from './utils.js';
 import { getDedupeKey } from './filters.js';
 
 /** Dedupe by url (keep newest timestamp) so mergeDataForDisplay gets correct order */
@@ -367,7 +366,16 @@ async function processLinkedContentIncremental(
   return { added, removed };
 }
 
-export async function buildIncrementalIndex(sitePath, org, repo, ref, onProgress, onLog = noop) {
+export async function buildIncrementalIndex(
+  sitePath,
+  org,
+  repo,
+  ref,
+  onProgress,
+  onLog = noop,
+  onProgressiveData = null,
+) {
+  const log = typeof onLog === 'function' ? onLog : noop;
   const metaPath = `${sitePath}/${IndexFiles.FOLDER}/${IndexFiles.MEDIA_INDEX_META}`;
   const indexPath = `${sitePath}/${IndexFiles.FOLDER}/${IndexFiles.MEDIA_INDEX}`;
   const meta = await loadIndexMeta(metaPath);
@@ -377,7 +385,7 @@ export async function buildIncrementalIndex(sitePath, org, repo, ref, onProgress
     throw new Error('Cannot run incremental: meta missing lastFetchTime');
   }
 
-  onLog(`lastFetchTime: ${lastFetchTime} (${new Date(lastFetchTime).toISOString()})`);
+  log(`lastFetchTime: ${lastFetchTime} (${new Date(lastFetchTime).toISOString()})`);
   onProgress({
     stage: 'starting',
     message: 'Mode: Incremental re-index (since last build)',
@@ -387,7 +395,11 @@ export async function buildIncrementalIndex(sitePath, org, repo, ref, onProgress
   onProgress({ stage: 'loading', message: 'Loading existing index...', percent: 8 });
   const existingIndex = await loadSheet(indexPath);
 
-  onLog(`Fetching auditlog since ${new Date(lastFetchTime).toISOString()}`);
+  if (onProgressiveData && existingIndex?.length > 0) {
+    onProgressiveData(existingIndex);
+  }
+
+  log(`Fetching auditlog since ${new Date(lastFetchTime).toISOString()}`);
   onProgress({ stage: 'fetching', message: 'Fetching new auditlog entries...', percent: 15 });
 
   const auditlogEntries = [];
@@ -424,8 +436,8 @@ export async function buildIncrementalIndex(sitePath, org, repo, ref, onProgress
     return existingIndex;
   }
 
-  onLog(`Auditlog: ${auditlogEntries.length} entries, ${pages.length} pages`);
-  onLog(`Medialog: ${medialogEntries.length} entries (all since lastFetchTime)`);
+  log(`Auditlog: ${auditlogEntries.length} entries, ${pages.length} pages`);
+  log(`Medialog: ${medialogEntries.length} entries (all since lastFetchTime)`);
   onProgress({
     stage: 'processing',
     message: `Processing ${pages.length} pages with ${medialogEntries.length} medialog entries...`,
@@ -444,11 +456,11 @@ export async function buildIncrementalIndex(sitePath, org, repo, ref, onProgress
   pagesByPath.forEach((events) => {
     events.sort((a, b) => b.timestamp - a.timestamp);
   });
-  onLog(`Time window: ${IndexConfig.INCREMENTAL_WINDOW_MS / 1000}s (medialog within window of latest preview)`);
-  onLog(`Pages to process: ${pagesByPath.size} (${[...pagesByPath.keys()].join(', ')})`);
-  onLog(`Medialog entries since lastFetch: ${medialogEntries.length}`);
+  log(`Time window: ${IndexConfig.INCREMENTAL_WINDOW_MS / 1000}s (medialog within window of latest preview)`);
+  log(`Pages to process: ${pagesByPath.size} (${[...pagesByPath.keys()].join(', ')})`);
+  log(`Medialog entries since lastFetch: ${medialogEntries.length}`);
 
-  const pageResults = processPageMediaUpdates(updatedIndex, pagesByPath, medialogEntries, onLog);
+  const pageResults = processPageMediaUpdates(updatedIndex, pagesByPath, medialogEntries, log);
   let { added, removed } = pageResults;
 
   const referencedHashes = new Set(
@@ -467,7 +479,7 @@ export async function buildIncrementalIndex(sitePath, org, repo, ref, onProgress
     repo,
     ref,
     onProgress,
-    onLog,
+    log,
   );
   added += linkedResults.added;
   removed += linkedResults.removed;
@@ -518,14 +530,31 @@ export async function buildFullIndex(sitePath, org, repo, ref, onProgress, onPro
   const filesByPath = new Map();
   const deletedPaths = new Set();
   let auditlogCount = 0;
+  let firstChunkLogged = false;
+
+  const earlyLinkedEntries = [];
+
+  const emitEarlyLinked = () => {
+    filesByPath.forEach((event, path) => {
+      if (isLinkedContentPath(path) && event.method === 'DELETE') {
+        deletedPaths.add(path);
+      }
+    });
+    earlyLinkedEntries.length = 0;
+    filesByPath.forEach((fileEvent, filePath) => {
+      if (deletedPaths.has(filePath) || !isLinkedContentPath(filePath)) return;
+      earlyLinkedEntries.push(toLinkedContentEntry(filePath, '', fileEvent, 'discovering', org, repo));
+    });
+    if (onProgressiveData && earlyLinkedEntries.length > 0) {
+      onProgressiveData(dedupeProgressiveItems(earlyLinkedEntries));
+    }
+  };
 
   await streamLog('log', org, repo, ref, null, IndexConfig.API_PAGE_SIZE, (chunk) => {
-    const rawCount = chunk.length;
-    const droppedNoPath = chunk.filter((e) => !e?.path).length;
-    const droppedRoute = chunk.filter((e) => e?.path && e.route !== 'preview').length;
-    if (droppedNoPath > 0 || droppedRoute > 0) {
+    if (!firstChunkLogged) {
+      firstChunkLogged = true;
       // eslint-disable-next-line no-console
-      console.log(`[MediaIndexer][auditlog chunk] raw=${rawCount}, dropped(no path)=${droppedNoPath}, dropped(route!==preview)=${droppedRoute}`);
+      console.log(`[MediaIndexer] First auditlog chunk: ${chunk.length} entries`);
     }
     chunk.forEach((e) => {
       if (!e?.path || e.route !== 'preview') return;
@@ -542,6 +571,7 @@ export async function buildFullIndex(sitePath, org, repo, ref, onProgress, onPro
         }
       }
     });
+    emitEarlyLinked();
     onProgress({
       stage: 'fetching',
       message: `Auditlog: ${auditlogCount} entries, ${pagesByPath.size} pages...`,
@@ -560,15 +590,6 @@ export async function buildFullIndex(sitePath, org, repo, ref, onProgress, onPro
     }
   });
 
-  const iconPathsFromAuditlog = [...filesByPath.keys()].filter((p) => p.includes('/icons/'));
-  const iconPathsInDeleted = [...deletedPaths].filter((p) => p.includes('/icons/'));
-  // eslint-disable-next-line no-console
-  console.log(`[MediaIndexer][auditlog done] total=${auditlogCount}, pages=${pagesByPath.size}, files=${filesByPath.size}, deleted=${deletedPaths.size}`);
-  // eslint-disable-next-line no-console
-  console.log(`[MediaIndexer]  icon paths from auditlog: [${iconPathsFromAuditlog.join(', ') || 'none'}]`);
-  // eslint-disable-next-line no-console
-  console.log(`[MediaIndexer]  icon paths in deletedPaths: [${iconPathsInDeleted.join(', ') || 'none'}]`);
-
   onProgress({
     stage: 'fetching',
     message: `Identified ${pages.length} page events, ${filesByPath.size} files`,
@@ -581,10 +602,16 @@ export async function buildFullIndex(sitePath, org, repo, ref, onProgress, onPro
   const referencedHashes = new Set();
   const standaloneBuffer = [];
   let medialogCount = 0;
+  const PROGRESSIVE_EMIT_INTERVAL = 100;
+
+  const emitProgressive = () => {
+    if (onProgressiveData && (entryMap.size > 0 || earlyLinkedEntries.length > 0)) {
+      const combined = [...earlyLinkedEntries, ...Array.from(entryMap.values())];
+      onProgressiveData(dedupeProgressiveItems(combined));
+    }
+  };
 
   await streamLog('medialog', org, repo, ref, null, IndexConfig.API_PAGE_SIZE, (chunk) => {
-    // eslint-disable-next-line no-console
-    console.log(`[MediaIndexer][medialog chunk] ${chunk.length} entries`);
     chunk.forEach((media) => {
       medialogCount += 1;
       if (media.resourcePath) {
@@ -612,7 +639,11 @@ export async function buildFullIndex(sitePath, org, repo, ref, onProgress, onPro
       } else if (media.originalFilename) {
         standaloneBuffer.push(media);
       }
+      if (medialogCount > 0 && medialogCount % PROGRESSIVE_EMIT_INTERVAL === 0) {
+        emitProgressive();
+      }
     });
+    emitProgressive();
     const mem = checkMemory();
     if (mem.warning) {
       onProgress({
@@ -626,9 +657,6 @@ export async function buildFullIndex(sitePath, org, repo, ref, onProgress, onPro
         message: `Medialog: ${medialogCount} entries processed...`,
         percent: 35,
       });
-    }
-    if (onProgressiveData && entryMap.size > 0) {
-      onProgressiveData(sortMediaData(dedupeProgressiveItems(Array.from(entryMap.values()))));
     }
   });
 
@@ -671,8 +699,9 @@ export async function buildFullIndex(sitePath, org, repo, ref, onProgress, onPro
     index.push(entry);
   });
 
-  if (onProgressiveData && index.length > 0) {
-    onProgressiveData(sortMediaData(dedupeProgressiveItems([...index])));
+  if (onProgressiveData && (index.length > 0 || earlyLinkedEntries.length > 0)) {
+    const combined = [...earlyLinkedEntries, ...index];
+    onProgressiveData(dedupeProgressiveItems(combined));
   }
 
   // Phase 5: Linked content (PDFs, SVGs, fragments) - parse pages for usage
@@ -696,18 +725,8 @@ export async function buildFullIndex(sitePath, org, repo, ref, onProgress, onPro
     usageMap[key]?.forEach((_, path) => allLinkedPaths.add(path));
   });
 
-  const iconPathsInAllLinked = [...allLinkedPaths].filter((p) => p.includes('/icons/'));
-  // eslint-disable-next-line no-console
-  console.log(`[MediaIndexer][linked content] linkedFilesByPath=${linkedFilesByPath.size}, allLinkedPaths=${allLinkedPaths.size} (after merge with usageMap) | icon paths: [${iconPathsInAllLinked.join(', ') || 'none'}]`);
-
   allLinkedPaths.forEach((filePath) => {
-    if (deletedPaths.has(filePath)) {
-      if (filePath.includes('/icons/')) {
-        // eslint-disable-next-line no-console
-        console.log(`[MediaIndexer][linked content] SKIP (in deletedPaths): ${filePath}`);
-      }
-      return;
-    }
+    if (deletedPaths.has(filePath)) return;
     const key = usageKey(filePath);
     const linkedPages = usageMap[key]?.get(filePath) || [];
     const status = linkedPages.length > 0 ? 'referenced' : 'unused';
@@ -734,16 +753,8 @@ export async function buildFullIndex(sitePath, org, repo, ref, onProgress, onPro
     }
   });
 
-  const linkedContentCount = index.length - entryMap.size;
-  const iconEntriesInIndex = index.filter((e) => e.hash?.includes?.('/icons/'));
-  const iconList = iconEntriesInIndex.map((e) => e.hash).join(', ') || 'none';
-  // eslint-disable-next-line no-console
-  console.log(`[MediaIndexer][full build done] media=${entryMap.size}, linked=${linkedContentCount}, total=${index.length} | icons: [${iconList}]`);
-
-  // Emit final progressive (linked + external) so correct order shows before complete
   if (onProgressiveData && index.length > 0) {
-    const final = sortMediaData(dedupeProgressiveItems([...index]));
-    onProgressiveData(final);
+    onProgressiveData(dedupeProgressiveItems([...index]));
   }
 
   onProgress({

@@ -47,7 +47,7 @@ class NxMediaSidebar extends LitElement {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [sl, slComponents, styles];
     this._unsubscribe = onStateChange(
-      ['selectedFilterType', 'isIndexing', 'indexProgress', 'mediaData'],
+      ['selectedFilterType', 'isIndexing', 'indexProgress', 'mediaData', 'indexLockedByOther'],
       (state) => {
         this._appState = state;
         this.requestUpdate();
@@ -130,7 +130,17 @@ class NxMediaSidebar extends LitElement {
   }
 
   renderIndexPanel() {
-    const { isIndexing, indexProgress } = this._appState;
+    const { isIndexing, indexProgress, indexLockedByOther } = this._appState;
+
+    if (indexLockedByOther) {
+      return html`
+        <div class="index-panel data-index-status">
+          <div class="index-message">
+            Discovery in progress (another session)
+          </div>
+        </div>
+      `;
+    }
 
     if (isIndexing) {
       const percent = indexProgress?.percent ?? 0;

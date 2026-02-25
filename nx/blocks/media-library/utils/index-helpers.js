@@ -247,8 +247,6 @@ export async function buildUsageMap(pageEntries, org, repo, ref, onProgress) {
   };
 
   const uniquePages = [...pagesByPath.keys()];
-  // eslint-disable-next-line no-console
-  console.log(`[MediaIndexer] Parsing ${uniquePages.length} unique pages for content usage`);
 
   const results = await processConcurrently(
     uniquePages,
@@ -259,12 +257,6 @@ export async function buildUsageMap(pageEntries, org, repo, ref, onProgress) {
     },
     IndexConfig.MAX_CONCURRENT_FETCHES,
   );
-
-  const failed = results.filter((r) => !r.md);
-  if (failed.length > 0) {
-    // eslint-disable-next-line no-console
-    console.warn(`[MediaIndexer] Failed to fetch markdown for ${failed.length} pages`);
-  }
 
   results.forEach(({ normalizedPath, md }) => {
     if (!md) return;
@@ -299,9 +291,6 @@ export async function buildUsageMap(pageEntries, org, repo, ref, onProgress) {
     icons.forEach((s) => addToMap(usageMap.svgs, s));
     externalUrls.forEach((u) => addToExternalMedia(u));
   });
-
-  // eslint-disable-next-line no-console
-  console.log(`[MediaIndexer] Content usage: ${usageMap.pdfs.size} PDFs, ${usageMap.svgs.size} SVGs, ${usageMap.fragments.size} fragments, ${usageMap.externalMedia.size} external media`);
 
   return usageMap;
 }

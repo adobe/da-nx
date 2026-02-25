@@ -99,7 +99,7 @@ export function sortMediaData(mediaData) {
 export function getVideoThumbnail(videoUrl) {
   if (!videoUrl) return null;
 
-  const youtubeMatch = videoUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/);
+  const youtubeMatch = videoUrl.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([^&\n?#]+)/);
   if (youtubeMatch) {
     return `https://img.youtube.com/vi/${youtubeMatch[1]}/maxresdefault.jpg`;
   }
@@ -133,7 +133,7 @@ export function isExternalVideoUrl(url) {
   if (!url) return false;
 
   const supportedPatterns = [
-    /(?:youtube\.com\/watch\?v=|youtu\.be\/)/,
+    /(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)/,
     /vimeo\.com\/(\d+)/,
     /(?:dailymotion\.com\/video\/|dai\.ly\/)/,
     /scene7\.com\/is\/content\//,
@@ -146,7 +146,7 @@ export function isExternalVideoUrl(url) {
 export function getVideoEmbedUrl(videoUrl) {
   if (!videoUrl) return null;
 
-  const youtubeMatch = videoUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/);
+  const youtubeMatch = videoUrl.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([^&\n?#]+)/);
   if (youtubeMatch) {
     return `https://www.youtube.com/embed/${youtubeMatch[1]}`;
   }

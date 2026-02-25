@@ -679,12 +679,12 @@ export function getFilterLabel(filterType, count = 0) {
   return pluralize(label.singular, label.plural, count);
 }
 
-export function computeResultSummary(mediaData, filteredData, searchQuery, filterType) {
-  if (!mediaData || mediaData.length === 0) {
+export function computeResultSummary(mediaData, filteredData, searchQuery, filterType, options = {}) {
+  const { displayCount } = options;
+  const count = displayCount !== undefined ? displayCount : (filteredData?.length || 0);
+  if (count === 0 && (!mediaData || mediaData.length === 0)) {
     return '';
   }
-
-  const count = filteredData?.length || 0;
   const filterLabel = getFilterLabel(filterType, count);
 
   if (!searchQuery) {

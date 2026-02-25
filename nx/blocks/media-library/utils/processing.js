@@ -8,6 +8,7 @@ import {
   getIndexStatus,
 } from './index-builder.js';
 import { getDedupeKey } from './filters.js';
+import { sortMediaData } from './utils.js';
 import {
   IndexFiles,
   MediaType,
@@ -182,32 +183,46 @@ export default async function buildMediaIndex(sitePath, org, repo, ref, onProgre
 
   await createIndexLock(sitePath);
 
+  // eslint-disable-next-line no-console
+  console.log(`[MediaIndexer] Index build started at ${new Date(startTime).toISOString()}`);
+
   try {
     const reindexCheck = await checkReindexEligibility(sitePath, org, repo);
     const useIncremental = reindexCheck.shouldReindex;
 
     let mediaData;
     if (useIncremental) {
-      // eslint-disable-next-line no-console
-      console.log('[MediaIndexer] Running incremental index build');
-      mediaData = await buildIncrementalIndex(sitePath, org, repo, ref, onProgress);
+      mediaData = await buildIncrementalIndex(
+        sitePath,
+        org,
+        repo,
+        ref,
+        onProgress,
+        undefined,
+        onProgressiveData,
+      );
     } else {
-      // eslint-disable-next-line no-console
-      console.log(`[MediaIndexer] Running full index build (reason: ${reindexCheck.reason || 'unknown'})`);
       mediaData = await buildFullIndex(sitePath, org, repo, ref, onProgress, onProgressiveData);
     }
 
-    await saveMediaSheet(mediaData, sitePath);
+    await saveMediaSheet(sortMediaData(mediaData), sitePath);
     await removeIndexLock(sitePath);
 
-    const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+    const endTime = Date.now();
+    const duration = ((endTime - startTime) / 1000).toFixed(1);
+    // eslint-disable-next-line no-console
+    console.log(`[MediaIndexer] Index build: start ${new Date(startTime).toISOString()}, end ${new Date(endTime).toISOString()}, duration ${duration}s`);
+    const sortedData = sortMediaData(mediaData);
     return {
       duration: `${duration}s`,
       hasChanges: true,
-      mediaData,
+      mediaData: sortedData,
     };
   } catch (error) {
     await removeIndexLock(sitePath);
+    const duration = ((Date.now() - startTime) / 1000).toFixed(1);
+    // eslint-disable-next-line no-console
+    console.log(`[MediaIndexer] Index build failed after ${duration}s:`, error.message);
     throw error;
   }
 }

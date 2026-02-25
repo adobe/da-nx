@@ -140,14 +140,14 @@ class NxMediaInfo extends LitElement {
   }
 
   async loadMetadata() {
-    if (!this.media || !this.media.url) return;
+    const media = this.media;
+    if (!media?.url) return;
 
-    if (isImage(this.media.url)) {
+    if (isImage(media.url)) {
       await this.loadExifData();
     } else {
       await this.loadFileSize();
-
-      if (isVideo(this.media.url)) {
+      if (this.media && isVideo(this.media.url)) {
         await this.loadVideoDimensions();
       }
     }
@@ -825,10 +825,13 @@ class NxMediaInfo extends LitElement {
     const latestUsage = usages.reduce((latest, current) => (
       current.timestamp > latest.timestamp ? current : latest
     ), usages[0]);
-    const modifiedBy = latestUsage.user || 'Unknown';
+    const modifiedBy = latestUsage.user?.trim();
     const modifiedDate = latestUsage.timestamp
       ? formatDateTime(latestUsage.timestamp)
       : 'Unknown date';
+    const modifiedText = (modifiedBy && modifiedBy.toLowerCase() !== 'unknown')
+      ? `Last modified by ${modifiedBy} on ${modifiedDate}`
+      : `Last modified on ${modifiedDate}`;
 
     return html`
               <div class="usage-section">
@@ -843,7 +846,7 @@ class NxMediaInfo extends LitElement {
                     </button>
                   </div>
                   <div class="actions-container">
-                    <p class="usage-modified">Last modified by ${modifiedBy} on ${modifiedDate}</p>
+                    <p class="usage-modified">${modifiedText}</p>
                     <h5 class="usage-title">Open</h5>
                     ${this.renderActions(usages[0])}
                   </div>

@@ -352,6 +352,12 @@ nx-media-sidebar {
   color: var(--s2-gray-600);
 }
 
+.indexing-hint {
+  margin: var(--spacing-200) 0 0;
+  font-size: var(--font-size-100);
+  color: var(--s2-gray-500);
+}
+
 .scanning-spinner {
   width: 40px;
   height: 40px;

@@ -2,9 +2,10 @@ import buildMediaIndex, { loadMediaIfUpdated } from './processing.js';
 import { ensureAuthenticated } from './utils.js';
 import { updateAppState, getAppState, showNotification } from './state.js';
 
-const CONFIG = { POLLING_INTERVAL: 60000 };
+const CONFIG = { POLLING_INTERVAL: 60000, LOCK_CHECK_INTERVAL: 5000 };
 
 let pollingInterval = null;
+let lockCheckInterval = null;
 let pollingStarted = false;
 let onMediaDataUpdated = null;
 
@@ -39,6 +40,34 @@ export function pausePolling() {
     clearInterval(pollingInterval);
     pollingInterval = null;
   }
+}
+
+function stopLockCheckPolling() {
+  if (lockCheckInterval) {
+    clearInterval(lockCheckInterval);
+    lockCheckInterval = null;
+  }
+}
+
+function startLockCheckPolling(sitePath, org, repo) {
+  stopLockCheckPolling();
+  lockCheckInterval = setInterval(async () => {
+    const state = getAppState();
+    if (!state.indexLockedByOther || !sitePath) {
+      stopLockCheckPolling();
+      return;
+    }
+    try {
+      const { hasChanged, mediaData } = await loadMediaIfUpdated(sitePath, org, repo);
+      if (hasChanged && mediaData && mediaData.length > 0 && onMediaDataUpdated) {
+        stopLockCheckPolling();
+        updateAppState({ indexLockedByOther: false });
+        onMediaDataUpdated(mediaData);
+      }
+    } catch {
+      // Ignore; will retry on next interval
+    }
+  }, CONFIG.LOCK_CHECK_INTERVAL);
 }
 
 export function resumePolling() {
@@ -86,9 +115,20 @@ export async function triggerBuild(sitePath, org, repo, ref = 'main') {
       });
     };
 
+    const PROGRESSIVE_DISPLAY_CAP = 3000;
     const onProgressiveData = (mediaData) => {
       if (mediaData && Array.isArray(mediaData) && mediaData.length > 0) {
-        updateAppState({ progressiveMediaData: mediaData });
+        const toRender = mediaData.length > PROGRESSIVE_DISPLAY_CAP
+          ? mediaData.slice(0, PROGRESSIVE_DISPLAY_CAP)
+          : mediaData;
+        if (mediaData.length > PROGRESSIVE_DISPLAY_CAP) {
+          // eslint-disable-next-line no-console
+          console.log(`[MediaIndexer] Emitting progressive data: ${toRender.length} items (capped from ${mediaData.length})`);
+        } else {
+          // eslint-disable-next-line no-console
+          console.log(`[MediaIndexer] Emitting progressive data: ${toRender.length} items to render`);
+        }
+        updateAppState({ progressiveMediaData: toRender });
       }
     };
 
@@ -134,10 +174,11 @@ export async function triggerBuild(sitePath, org, repo, ref = 'main') {
     if (!error.message?.includes('Index build already in progress')) {
       // eslint-disable-next-line no-console
       console.error('[MediaIndexer] Index build failed:', error);
-      updateAppState({ isIndexing: false });
+      updateAppState({ isIndexing: false, indexLockedByOther: false });
       showNotification('Error', error.message || 'Index build failed.', 'danger');
     } else {
-      updateAppState({ isIndexing: false });
+      updateAppState({ isIndexing: false, indexLockedByOther: true });
+      startLockCheckPolling(sitePath, org, repo);
     }
   } finally {
     resumePolling();
@@ -158,6 +199,7 @@ export function initService(sitePath, options = {}) {
 
 export function disposeService() {
   pausePolling();
+  stopLockCheckPolling();
   pollingStarted = false;
   onMediaDataUpdated = null;
 }

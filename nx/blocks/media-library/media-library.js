@@ -83,14 +83,25 @@ class NxMediaLibrary extends LitElement {
           || oldState.mediaData !== newState.mediaData
           || oldState.rawMediaData !== newState.rawMediaData
           || oldState.processedData !== newState.processedData
+          || oldState.progressiveMediaData !== newState.progressiveMediaData
+          || oldState.isIndexing !== newState.isIndexing
       ) {
         this._filteredDataCache = null;
 
+        let displayCount;
+        if (newState.isIndexing && newState.progressiveMediaData?.length > 0) {
+          const merged = this.mergeDataForDisplay(
+            this.filteredMediaData,
+            newState.progressiveMediaData,
+          );
+          displayCount = merged.length;
+        }
         const resultSummary = computeResultSummary(
           newState.mediaData,
           this.filteredMediaData,
           newState.searchQuery,
           newState.selectedFilterType,
+          displayCount !== undefined ? { displayCount } : {},
         );
 
         if (resultSummary !== newState.resultSummary) {
@@ -106,6 +117,7 @@ class NxMediaLibrary extends LitElement {
         updateAppState({
           mediaData: [],
           processedData: null,
+          indexLockedByOther: false,
         });
         this.resetSearchState();
       }
@@ -168,34 +180,32 @@ class NxMediaLibrary extends LitElement {
   mergeDataForDisplay(existingData, newItems) {
     if (!newItems || newItems.length === 0) return existingData;
 
-    const updatedData = [...existingData];
-    const seenKeys = new Set(
-      existingData.map((item) => getDedupeKey(item.url)),
-    );
+    const result = [...existingData];
+    const keyToIndex = new Map();
+    existingData.forEach((item, i) => {
+      keyToIndex.set(getDedupeKey(item.url), i);
+    });
 
     newItems.forEach((newItem) => {
-      const groupingKey = getDedupeKey(newItem.url);
-      const existingIndex = updatedData.findIndex(
-        (item) => getDedupeKey(item.url) === groupingKey,
-      );
-
-      if (existingIndex !== -1) {
-        const existingTs = updatedData[existingIndex].timestamp ?? 0;
+      const key = getDedupeKey(newItem.url);
+      const existingIndex = keyToIndex.get(key);
+      if (existingIndex !== undefined) {
+        const existingTs = result[existingIndex].timestamp ?? 0;
         const newTs = newItem.timestamp ?? 0;
         if (newTs >= existingTs) {
-          updatedData[existingIndex] = {
-            ...updatedData[existingIndex],
+          result[existingIndex] = {
+            ...result[existingIndex],
             ...newItem,
-            usageCount: updatedData[existingIndex].usageCount,
+            usageCount: result[existingIndex].usageCount,
           };
         }
-      } else if (!seenKeys.has(groupingKey)) {
-        updatedData.push({ ...newItem, usageCount: 1 });
-        seenKeys.add(groupingKey);
+      } else {
+        result.push({ ...newItem, usageCount: 1 });
+        keyToIndex.set(key, result.length - 1);
       }
     });
 
-    return updatedData;
+    return result;
   }
 
   async initialize() {
@@ -234,7 +244,7 @@ class NxMediaLibrary extends LitElement {
       });
 
       saveRecentSite(this.sitePath);
-      this.loadMediaData();
+      await this.loadMediaData();
       const onMediaDataUpdated = (mediaData) => this.setMediaData(mediaData);
       initService(this.sitePath, { onMediaDataUpdated });
     } catch (error) {
@@ -266,6 +276,7 @@ class NxMediaLibrary extends LitElement {
   async setMediaData(rawData) {
     if (!rawData || rawData.length === 0) return;
 
+    updateAppState({ indexLockedByOther: false });
     const basePath = getBasePath();
     const filteredMediaData = basePath
       ? rawData.filter((item) => !item.doc || item.doc === '' || item.doc.startsWith(basePath))
@@ -351,6 +362,9 @@ class NxMediaLibrary extends LitElement {
     }
 
     if (!hasData && !this._appState.isIndexing) {
+      if (this._appState.indexLockedByOther) {
+        return this.renderIndexLockedState();
+      }
       return this.renderEmptyState();
     }
 
@@ -359,12 +373,11 @@ class NxMediaLibrary extends LitElement {
     }
 
     let displayData = filteredData;
-    if (this._appState.isIndexing && hasProgressiveData) {
-      const mergedData = this.mergeDataForDisplay(
+    if (this._appState.isIndexing && hasProgressiveData && !hasData) {
+      displayData = this.mergeDataForDisplay(
         filteredData,
         this._appState.progressiveMediaData,
       );
-      displayData = sortMediaData(mergedData);
     } else if (displayData?.length > 0) {
       displayData = sortMediaData(displayData);
     }
@@ -393,6 +406,16 @@ class NxMediaLibrary extends LitElement {
       <div class="indexing-state">
         <div class="indexing-spinner"></div>
         <p class="indexing-message">Discovering</p>
+      </div>
+    `;
+  }
+
+  renderIndexLockedState() {
+    return html`
+      <div class="indexing-state index-locked-state">
+        <div class="indexing-spinner"></div>
+        <p class="indexing-message">Discovery session in progress</p>
+        <p class="indexing-hint">Media will appear automatically when discovery is complete.</p>
       </div>
     `;
   }
@@ -568,10 +591,10 @@ class NxMediaLibrary extends LitElement {
     const filteredData = this.filteredMediaData;
     let data = filteredData;
     if (this._appState.isIndexing && this._appState.progressiveMediaData?.length > 0) {
-      data = sortMediaData(this.mergeDataForDisplay(
+      data = this.mergeDataForDisplay(
         filteredData,
         this._appState.progressiveMediaData,
-      ));
+      );
     } else if (data?.length > 0) {
       data = sortMediaData(data);
     }

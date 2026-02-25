@@ -525,8 +525,16 @@ dialog.modal-overlay::backdrop {
     width: 95%;
   }
 
+  .document-path {
+    position: relative;
+    padding-right: 44px;
+    min-width: 0;
+  }
+
   .usage-path {
     font-weight: 600;
+    word-break: break-word;
+    overflow-wrap: break-word;
   }
 
   .usage-modified {

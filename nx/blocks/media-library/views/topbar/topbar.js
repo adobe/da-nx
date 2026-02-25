@@ -50,7 +50,8 @@ class NxMediaTopBar extends LitElement {
     this.shadowRoot.adoptedStyleSheets = [sl, slComponents, styles];
 
     this._unsubscribe = onStateChange(
-      ['searchQuery', 'resultSummary', 'selectedFolder', 'rawMediaData', 'mediaData', 'folderPathsCache'],
+      ['searchQuery', 'resultSummary', 'selectedFolder', 'rawMediaData', 'mediaData', 'folderPathsCache',
+        'progressiveMediaData', 'isIndexing'],
       (state) => {
         this._appState = state;
         this.requestUpdate();
@@ -183,6 +184,9 @@ class NxMediaTopBar extends LitElement {
 
         ${this._appState.resultSummary ? html`
           <div class="result-count">
+            ${this._appState.isIndexing ? html`
+              <span class="result-count-spinner" aria-hidden="true"></span>
+            ` : ''}
             ${this._appState.resultSummary}
           </div>
         ` : ''}
