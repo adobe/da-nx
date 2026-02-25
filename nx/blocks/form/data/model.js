@@ -67,7 +67,7 @@ export default class FormModel {
 
   addArrayItem(pointer, items) {
     const array = getValueByPointer(this._json, pointer) ?? [];
-    const newItem = generateValue(items ?? { type: 'string' }, { includeNodeDefaultValue: false });
+    const newItem = generateValue(items ?? { type: 'string' }, true);
     array.push(newItem);
     setValueByPointer(this._json, pointer, array);
   }

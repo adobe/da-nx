@@ -11,11 +11,10 @@ function getDefaultValue(node, includeNodeDefaultValue, fallbackValue) {
 /**
  * Generate value from annotated node. All values are written to json (no on-the-fly returns).
  * @param {Object} node - Annotated node: { type, key?, children?, default? }
- * @param {Object} opts - { includeDefaults } Schema default when true, type-based empty when false
- * @param {boolean} includeNodeDefaultValue - Whether to include the node's default value
+ * @param {boolean} [includeNodeDefaultValue=true] - Use schema default or type-based empty
  * @returns {*} - Value for the node
  */
-export function generateValue(node, { includeNodeDefaultValue = true } = {}) {
+export function generateValue(node, includeNodeDefaultValue = true) {
   if (!node || typeof node !== 'object') return null;
   const { type, children } = node;
 
@@ -25,7 +24,7 @@ export function generateValue(node, { includeNodeDefaultValue = true } = {}) {
       if (Array.isArray(children)) {
         for (const child of children) {
           if (child.key != null) {
-            obj[child.key] = generateValue(child, { includeNodeDefaultValue });
+            obj[child.key] = generateValue(child, includeNodeDefaultValue);
           }
         }
       }
@@ -45,16 +44,6 @@ export function generateValue(node, { includeNodeDefaultValue = true } = {}) {
   }
 }
 
-function getChildUserValue(userValue, childKey) {
-  return userValue != null && typeof userValue === 'object' && childKey in userValue
-    ? userValue[childKey]
-    : undefined;
-}
-
-function shouldIncludeProperty(val, child) {
-  return val !== undefined || child.required;
-}
-
 /**
  * Merge user data with schema defaults. User values override; missing keys get default.
  * @param {Object} node - Annotated node (object, array, or primitive)
@@ -72,9 +61,11 @@ export function mergeWithDefaults(node, userValue, includeNodeDefaultValue = tru
     const result = {};
     for (const child of children) {
       if (child.key != null) {
-        const childUserVal = getChildUserValue(userValue, child.key);
+        const childUserVal = userValue != null && typeof userValue === 'object' && child.key in userValue
+          ? userValue[child.key] : undefined;
         const val = mergeWithDefaults(child, childUserVal, includeNodeDefaultValue);
-        if (shouldIncludeProperty(val, child)) result[child.key] = val;
+        // Skip optional fields with no value; always include required fields
+        if (val !== undefined || child.required) result[child.key] = val;
       }
     }
     return result;
@@ -90,7 +81,7 @@ export function mergeWithDefaults(node, userValue, includeNodeDefaultValue = tru
   if (userValue !== undefined) return userValue;
   if (!node.required) {
     const hasDefault = includeNodeDefaultValue && node.default !== undefined;
-    return hasDefault ? generateValue(node, { includeNodeDefaultValue }) : undefined;
+    return hasDefault ? generateValue(node, includeNodeDefaultValue) : undefined;
   }
-  return generateValue(node, { includeNodeDefaultValue });
+  return generateValue(node, includeNodeDefaultValue);
 }

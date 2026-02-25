@@ -78,15 +78,27 @@ export function getSchemaType(schema, fullSchema) {
   return resolved?.type;
 }
 
+/** Extract title, type, enum, default. Shared by itemsSchemaToNode and propSchemaToNodeFields. */
+function schemaToBaseFields(resolved, props, type, fallbackTitle = '') {
+  const fields = {
+    title: resolved?.title ?? props?.title ?? fallbackTitle,
+    type: type || 'string',
+  };
+  if (Array.isArray(props?.enum)) fields.enum = props.enum;
+  if (props && Object.prototype.hasOwnProperty.call(props, 'default')) {
+    fields.default = props.default;
+  }
+  return fields;
+}
+
 /**
- * Convert items schema to annotated format (children not properties).
- * Never copies raw schema; always transforms to our node shape.
+ * Convert items schema to node (children not properties).
  * @param {Object} itemsSchema - Schema for array items (may have $ref)
  * @param {Object} fullSchema - Full schema for $ref resolution
  * @param {string} fallbackTitle - Title when schema has none
- * @returns {Object} { title, type, enum?, default?, children? } — no properties
+ * @returns {Object} { title, type, enum?, default?, children? }
  */
-function itemsSchemaToAnnotated(itemsSchema, fullSchema, fallbackTitle = '') {
+function itemsSchemaToNode(itemsSchema, fullSchema, fallbackTitle = '') {
   if (!itemsSchema || typeof itemsSchema !== 'object') {
     return { title: fallbackTitle, type: 'string' };
   }
@@ -95,20 +107,13 @@ function itemsSchemaToAnnotated(itemsSchema, fullSchema, fallbackTitle = '') {
   const props = resolved?.properties ?? resolved;
   const type = schemaType ?? props?.type ?? 'string';
 
-  const node = {
-    title: resolved?.title ?? props?.title ?? fallbackTitle,
-    type: type || 'string',
-  };
-  if (Array.isArray(props?.enum)) node.enum = props.enum;
-  if (props && Object.prototype.hasOwnProperty.call(props, 'default')) {
-    node.default = props.default;
-  }
+  const node = { ...schemaToBaseFields(resolved, props, type, fallbackTitle) };
 
   if (type === 'object' && props?.properties) {
     const childProps = props.properties;
     const required = new Set(props.required ?? []);
     node.children = Object.entries(childProps).map(([childKey, childSchema]) => {
-      const child = itemsSchemaToAnnotated(childSchema, fullSchema, '');
+      const child = itemsSchemaToNode(childSchema, fullSchema, '');
       child.key = childKey;
       child.required = required.has(childKey);
       return child;
@@ -121,26 +126,18 @@ function itemsSchemaToAnnotated(itemsSchema, fullSchema, fallbackTitle = '') {
 }
 
 /**
- * Convert schema to node fields for annotated nodes (Editor/Sidebar).
- * Never copies raw schema; items are transformed to annotated format.
+ * Convert property schema to node fields (Editor/Sidebar).
  * @param {Object} resolvedSchema - { title, properties } from resolvePropSchema
  * @param {string} schemaType - 'string'|'number'|'integer'|'boolean'|'object'|'array'
  * @param {Object} fullSchema - Full schema for $ref resolution (needed when type is array)
  * @returns {Object} { title, type, enum?, items?, default? }
  */
-function schemaToNodeFields(resolvedSchema, schemaType, fullSchema) {
+function propSchemaToNodeFields(resolvedSchema, schemaType, fullSchema) {
   const props = resolvedSchema?.properties ?? resolvedSchema;
   const type = schemaType ?? props?.type;
-  const fields = {
-    title: resolvedSchema?.title ?? props?.title ?? '',
-    type: type || 'string',
-  };
-  if (Array.isArray(props?.enum)) fields.enum = props.enum;
+  const fields = { ...schemaToBaseFields(resolvedSchema, props, type, '') };
   if (type === 'array' && props?.items && fullSchema) {
-    fields.items = itemsSchemaToAnnotated(props.items, fullSchema, fields.title);
-  }
-  if (props && Object.prototype.hasOwnProperty.call(props, 'default')) {
-    fields.default = props.default;
+    fields.items = itemsSchemaToNode(props.items, fullSchema, fields.title);
   }
   return fields;
 }
@@ -233,7 +230,7 @@ export function annotateFromSchema(key, propSchema, fullSchema, userData, parent
       children.push(child);
     }
 
-    const nodeFields = schemaToNodeFields(resolvedSchema, schemaType, fullSchema);
+    const nodeFields = propSchemaToNodeFields(resolvedSchema, schemaType, fullSchema);
     return { key, pointer: currentPointer, ...nodeFields, required, children };
   }
 
@@ -257,7 +254,7 @@ export function annotateFromSchema(key, propSchema, fullSchema, userData, parent
       children.push(child);
     }
 
-    const nodeFields = schemaToNodeFields(resolvedSchema, schemaType, fullSchema);
+    const nodeFields = propSchemaToNodeFields(resolvedSchema, schemaType, fullSchema);
     return { key, pointer: currentPointer, ...nodeFields, required, children };
   }
 
@@ -265,7 +262,7 @@ export function annotateFromSchema(key, propSchema, fullSchema, userData, parent
   return {
     key,
     pointer: currentPointer,
-    ...schemaToNodeFields(resolvedSchema, schemaType, fullSchema),
+    ...propSchemaToNodeFields(resolvedSchema, schemaType, fullSchema),
     required,
   };
 }
