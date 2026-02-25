@@ -40,8 +40,15 @@ class FormEditor extends LitElement {
   }
 
   handleChange({ target }) {
-    const { name } = target; // pointer
-    let value = target.type === 'checkbox' ? target.checked : target.value;
+    const { name } = target;
+    let value;
+    switch (target.type) {
+      case 'checkbox':
+        value = target.checked;
+        break;
+      default:
+        value = target.value;
+    }
     if (value === '' || value === null) value = undefined;
     const opts = { detail: { name, value }, bubbles: true, composed: true };
     const event = new CustomEvent('update', opts);
@@ -69,28 +76,42 @@ class FormEditor extends LitElement {
   }
 
   renderCheckbox(item) {
-    const checked = item.data ?? false;
+    const label = `${item.schema?.title ?? ''}${item.required ? ' *' : ''}`;
     return html`
-        <input type="checkbox" name="${item.pointer}" value="${checked}" ?checked=${checked}>
-        <label class="primitive-item-title">${item.schema.title}</label>
+      <sl-checkbox
+        name="${item.pointer}"
+        ?checked=${item.data ?? false}
+        @change=${this.handleChange}
+      >${label}</sl-checkbox>
     `;
   }
 
   renderSelect(item) {
+    const label = `${item.schema?.title ?? ''}${item.required ? ' *' : ''}`;
     const enumValues = item.schema?.properties?.enum ?? [];
     return html`
-      <p class="primitive-item-title">${item.schema.title}</p>
-      <sl-select name="${item.pointer}" value="${item.data ?? ''}" @change=${this.handleChange}>
+      <sl-select
+        .label=${label}
+        name="${item.pointer}"
+        value="${item.data ?? ''}"
+        @change=${this.handleChange}
+      >
         <option value="" disabled>Please Select</option>
-        ${enumValues.map((val) => html`<option value="${val}">${val}</option>`)}
+         ${enumValues.map((val) => html`<option value="${val}">${val}</option>`)}
       </sl-select>
     `;
   }
 
   renderInput(item, inputType = 'text') {
+    const label = `${item.schema?.title ?? ''}${item.required ? ' *' : ''}`;
     return html`
-      <p class="primitive-item-title">${item.schema.title}${item.required ? html`<span class="is-required">*</span>` : ''}</p>
-      <sl-input type="${inputType}" name="${item.pointer}" value="${item.data ?? ''}" @input=${this.handleInput}></sl-input>
+      <sl-input
+        .label=${label}
+        type="${inputType}"
+        name="${item.pointer}"
+        value="${item.data ?? ''}"
+        @input=${this.handleInput}
+      ></sl-input>
     `;
   }
 
