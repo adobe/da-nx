@@ -1,4 +1,116 @@
 import { daFetch } from 'https://da.live/blocks/shared/utils.js';
+import { append } from './pointer.js';
+
+// -----------------------------------------------------------------------------
+// Schema utilities (JSON Schema resolution and traversal)
+// -----------------------------------------------------------------------------
+
+/**
+ * Resolves a schema $ref to its definition.
+ * @param {string} ref - The $ref string (e.g. "#/$defs/project")
+ * @param {Object} schema - Schema containing $defs (local or full)
+ * @param {Object} fullSchema - The full schema for resolving $defs
+ * @returns {Object|undefined} The resolved definition or undefined
+ */
+function resolveRef(ref, schema, fullSchema) {
+  if (!ref || !ref.startsWith('#')) return undefined;
+  const parts = ref.substring(1).split('/').filter(Boolean);
+  const defKey = parts[parts.length - 1];
+  let def = schema?.$defs?.[defKey];
+  if (!def) def = fullSchema?.$defs?.[defKey];
+  return def;
+}
+
+/**
+ * Recursively resolves $ref in schema objects (items, properties, etc.)
+ * so the output schema contains inline definitions instead of references.
+ * @param {Object} schema - Schema object that may contain $ref or nested refs
+ * @param {Object} fullSchema - The full schema for resolving $defs
+ * @returns {Object} Schema with all $refs resolved
+ */
+export function resolveRefsDeep(schema, fullSchema) {
+  if (!schema || typeof schema !== 'object') return schema;
+  if (schema.$ref) {
+    const def = resolveRef(schema.$ref, schema, fullSchema);
+    if (def) return resolveRefsDeep({ ...def, ...schema, $ref: undefined }, fullSchema);
+    return schema;
+  }
+  const result = { ...schema };
+  if (result.items) result.items = resolveRefsDeep(result.items, fullSchema);
+  if (result.properties) {
+    result.properties = Object.fromEntries(
+      Object.entries(result.properties).map(([k, v]) => [k, resolveRefsDeep(v, fullSchema)]),
+    );
+  }
+  return result;
+}
+
+/**
+ * Resolves a property schema, handling $ref and normalizing output.
+ * @param {Object} localSchema - The property schema (may contain $ref)
+ * @param {Object} fullSchema - The full schema for resolving $defs
+ * @returns {Object} { title, properties } — properties is the resolved schema
+ */
+export function resolvePropSchema(localSchema, fullSchema) {
+  const { title } = localSchema ?? {};
+  const resolved = resolveRefsDeep(localSchema, fullSchema);
+  return { title, properties: resolved };
+}
+
+/**
+ * Returns the schema type (object, array, string, etc.).
+ * @param {Object} schema - Schema (may contain $ref)
+ * @param {Object} fullSchema - The full schema for resolving $defs
+ * @returns {string|undefined} The type or undefined
+ */
+export function getSchemaType(schema, fullSchema) {
+  const resolved = resolveRefsDeep(schema, fullSchema);
+  return resolved?.type;
+}
+
+// -----------------------------------------------------------------------------
+// Persist filter: prune empty values for user-only output
+// -----------------------------------------------------------------------------
+
+function isEmpty(value) {
+  if (value === null || value === undefined || value === '') return true;
+  if (typeof value === 'string' && value.trim() === '') return true;
+  if (Array.isArray(value)) return value.length === 0;
+  if (typeof value === 'object') return Object.keys(value).length === 0;
+  return false;
+}
+
+/**
+ * Recursively prunes null, undefined, empty strings, empty objects, and empty arrays.
+ * For arrays: recurses into each item; drops empty items and returns undefined if result is empty.
+ * For objects: recurses into each property; drops empty values and returns
+ * undefined if result is empty.
+ * Schema defaults (e.g. enum "Planning") are kept — only truly empty values are pruned.
+ *
+ * @param {*} value - Value to prune (object, array, or primitive)
+ * @returns {*} Pruned value (undefined for empty; empty branches omitted)
+ */
+export function pruneRecursive(value) {
+  if (value === null || value === undefined || value === '') return undefined;
+  if (typeof value === 'string' && value.trim() === '') return undefined;
+  if (Array.isArray(value)) {
+    const filtered = value.map(pruneRecursive).filter((item) => !isEmpty(item));
+    return filtered.length === 0 ? undefined : filtered;
+  }
+  if (typeof value === 'object') {
+    const result = {};
+    for (const [key, propertyValue] of Object.entries(value)) {
+      const filtered = pruneRecursive(propertyValue);
+      if (filtered !== undefined && !isEmpty(filtered)) result[key] = filtered;
+    }
+    return Object.keys(result).length === 0 ? undefined : result;
+  }
+  return value;
+}
+
+// -----------------------------------------------------------------------------
+// General utilities
+// -----------------------------------------------------------------------------
 
 export async function loadHtml(details) {
   const resp = await daFetch(details.sourceUrl);
@@ -7,130 +119,72 @@ export async function loadHtml(details) {
 }
 
 /**
- * Sets a value on an object using a path string.
- * Supports dot notation and array indices.
- * @param {Object} obj - The object to set the value on
- * @param {string} path - The path string (e.g., "data.parent[0].child")
- * @param {*} value - The value to set
- * @example
- * const obj = { data: { items: [{ name: 'test' }] } };
- * setValueByPath(obj, 'data.items[0].name', 'updated');
- * // obj.data.items[0].name is now 'updated'
+ * Schema-driven annotation: build annotated tree from schema structure.
+ * Model = user-entered + schema defaults only; no generated values.
+ * Output uses RFC 6901 pointer (not path).
+ *
+ * @param {string} key - Property key
+ * @param {Object} propSchema - Schema for this property
+ * @param {Object} fullSchema - Full schema for $ref resolution
+ * @param {*} userData - User data at this level (may be undefined)
+ * @param {string} parentPointer - Parent pointer (e.g. "/data")
+ * @param {boolean} required - Whether property is required
+ * @returns {Object} { key, data, schema, pointer, required }
  */
-export function setValueByPath(obj, path, value) {
-  // Split the path into parts, handling both dots and brackets
-  const parts = path.split('.').flatMap((part) => {
-    // Handle array indices like "items[0]" -> ["items", "0"]
-    const arrayMatch = part.match(/^(.+?)\[(\d+)\]$/);
-    if (arrayMatch) {
-      return [arrayMatch[1], parseInt(arrayMatch[2], 10)];
-    }
-    // Handle standalone array index like "[0]"
-    const indexMatch = part.match(/^\[(\d+)\]$/);
-    if (indexMatch) {
-      return [parseInt(indexMatch[1], 10)];
-    }
-    return part;
-  });
+export function annotateFromSchema(key, propSchema, fullSchema, userData, parentPointer = '', required = false) {
+  const currentPointer = parentPointer ? append(parentPointer, key) : append('', key);
+  const resolvedSchema = resolvePropSchema(propSchema, fullSchema);
+  const schemaType = getSchemaType(propSchema, fullSchema);
 
-  // Navigate to the parent of the final property
-  let current = obj;
-  for (let i = 0; i < parts.length - 1; i += 1) {
-    const part = parts[i];
-    if (!(part in current)) {
-      // Create missing intermediate objects/arrays
-      const nextPart = parts[i + 1];
-      current[part] = typeof nextPart === 'number' ? [] : {};
-    }
-    current = current[part];
-  }
-
-  // Set the final value
-  current[parts[parts.length - 1]] = value;
-}
-
-function resolvePropSchema(key, localSchema, fullSchema) {
-  const { title } = localSchema;
-
-  if (localSchema.$ref) {
-    const path = localSchema.$ref.substring(2).split('/')[1];
-
-    // try local ref
-    let def = localSchema.$defs?.[path];
-    // TODO: walk up the tree looking for the def
-    // try global ref
-    if (!def) def = fullSchema.$defs?.[path];
-    if (def) {
-      if (!title) return def;
-      return { ...def, title };
-    }
-  }
-
-  // Normalize local props to the same format as referenced schema
-  return { title, properties: localSchema };
-}
-
-/**
- * @param {*} key the key of the property
- * @param {*} prop the current property being acted on
- * @param {*} propSchema the schema that applies to the current property
- * @param {*} fullSchema the full schema that applies to the form
- * @param {*} path the full path to this property (e.g., "grand.parent[0].child")
- */
-export function annotateProp(key, propData, propSchema, fullSchema, path = '', required = false) {
-  // Build the current path
-  const currentPath = path ? `${path}.${key}` : key;
-
-  // Will have schema.props
-  const resolvedSchema = resolvePropSchema(key, propSchema, fullSchema);
-
-  if (Array.isArray(propData)) {
-    const resolvedItemsSchema = resolvePropSchema(key, propSchema.items, fullSchema);
-
-    // It's possible that items do not have a title, let them inherit from the parent
+  // Array: structure from schema, item count from user data
+  if (schemaType === 'array' || (propSchema?.items && !schemaType)) {
+    const itemsSchema = propSchema.items;
+    const resolvedItemsSchema = resolvePropSchema(itemsSchema, fullSchema);
     resolvedItemsSchema.title ??= resolvedSchema.title;
 
+    const itemCount = Array.isArray(userData) ? userData.length : 0;
     const data = [];
 
-    // Loop through the actual data and match it to the item schema
-    propData.forEach((itemPropData, index) => {
-      if (propSchema.items.oneOf) {
-        // TODO: Support one of schemas
-        // propSchema.items.oneOf.forEach((oneOf) => {
-        //   console.log(oneOf);
-        //   const arrayPath = `${currentPath}[${index}]`;
-        //   data.push(annotateProp(key, itemPropData, oneOf, fullSchema, arrayPath));
-        // });
-      } else {
-        data.push(annotateProp(`[${index}]`, itemPropData, propSchema.items, fullSchema, currentPath));
-      }
-    });
+    for (let i = 0; i < itemCount; i += 1) {
+      const itemData = userData[i];
+      const annotated = annotateFromSchema(
+        String(i),
+        itemsSchema,
+        fullSchema,
+        itemData,
+        currentPointer,
+        false,
+      );
+      data.push(annotated);
+    }
 
-    return { key, data, schema: resolvedSchema, path: currentPath, required };
+    return { key, data, schema: resolvedSchema, pointer: currentPointer, required };
   }
 
-  if (typeof propData === 'object') {
-    // Loop through the data and match it to the item schema
-    // return as array to keep consistent with upper array
-    const data = Object.entries(propData).reduce((acc, [k, pD]) => {
-      const isRequired = resolvedSchema.required?.includes(k) ?? false;
+  // Object: iterate schema.properties.properties (child property map)
+  if (schemaType === 'object' || resolvedSchema.properties?.properties) {
+    const childProps = resolvedSchema.properties?.properties ?? {};
+    const data = [];
 
-      if (resolvedSchema.properties[k]) {
-        const childSchema = resolvedSchema.properties[k];
-        acc.push(annotateProp(k, pD, childSchema, fullSchema, currentPath, isRequired));
-      }
+    for (const [childKey, childSchema] of Object.entries(childProps)) {
+      const isRequired = resolvedSchema.properties?.required?.includes(childKey) ?? false;
+      const childValue = userData && typeof userData === 'object' && childKey in userData
+        ? userData[childKey] : undefined;
+      const annotated = annotateFromSchema(
+        childKey,
+        childSchema,
+        fullSchema,
+        childValue,
+        currentPointer,
+        isRequired,
+      );
+      data.push(annotated);
+    }
 
-      // Look for sub-property schemas
-      if (resolvedSchema.properties.properties?.[k]) {
-        const subPropSchema = resolvedSchema.properties.properties[k];
-        acc.push(annotateProp(k, pD, subPropSchema, fullSchema, currentPath, isRequired));
-      }
-
-      return acc;
-    }, []);
-
-    return { key, data, schema: resolvedSchema, path: currentPath, required };
+    return { key, data, schema: resolvedSchema, pointer: currentPointer, required };
   }
 
-  return { key, data: propData, schema: resolvedSchema, path: currentPath, required };
+  // Primitive
+  const value = userData ?? resolvedSchema.properties?.default;
+  return { key, data: value, schema: resolvedSchema, pointer: currentPointer, required };
 }
