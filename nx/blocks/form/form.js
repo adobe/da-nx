@@ -14,8 +14,6 @@ import './views/editor.js';
 import './views/sidebar.js';
 import './views/preview.js';
 
-import generateEmptyObject from './utils/generator.js';
-
 // External Web Components
 await import('../../public/sl/components.js');
 
@@ -62,7 +60,7 @@ class FormEditor extends LitElement {
 
     const title = this.details.name;
 
-    const data = generateEmptyObject(this._schemas[schemaId]);
+    const data = {};
     const metadata = { title, schemaName: schemaId };
     const emptyForm = { data, metadata };
 
@@ -72,6 +70,28 @@ class FormEditor extends LitElement {
 
   async handleUpdate({ detail }) {
     this.formModel.updateProperty(detail);
+
+    // Update the view with the new values
+    this.formModel = this.formModel.clone();
+
+    // Persist the data
+    await this.formModel.saveHtml();
+  }
+
+  async handleAddItem({ detail }) {
+    const { pointer, itemsSchema } = detail;
+    this.formModel.addArrayItem(pointer, itemsSchema);
+
+    // Update the view with the new values
+    this.formModel = this.formModel.clone();
+
+    // Persist the data
+    await this.formModel.saveHtml();
+  }
+
+  async handleRemoveItem({ detail }) {
+    const { pointer } = detail;
+    if (!this.formModel.removeArrayItem(pointer)) return;
 
     // Update the view with the new values
     this.formModel = this.formModel.clone();
@@ -103,7 +123,12 @@ class FormEditor extends LitElement {
 
     return html`
       <div class="da-form-editor">
-        <da-form-editor @update=${this.handleUpdate} .formModel=${this.formModel}></da-form-editor>
+        <da-form-editor
+          @update=${this.handleUpdate}
+          @add-item=${this.handleAddItem}
+          @remove-item=${this.handleRemoveItem}
+          .formModel=${this.formModel}
+        ></da-form-editor>
         <da-form-preview .formModel=${this.formModel}></da-form-preview>
       </div>`;
   }

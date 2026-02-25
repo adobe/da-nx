@@ -1,0 +1,50 @@
+:host {
+  display: inline-block;
+}
+
+.remove-btn {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  color: var(--s2-gray-700, #374151);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, color 0.15s ease;
+
+  &:hover {
+    background: var(--s2-gray-200, #e5e7eb);
+  }
+
+  &.confirm-state {
+    background: var(--s2-red-600, #dc2626);
+    color: white;
+    border: none;
+
+    &:hover {
+      background: var(--s2-red-700, #b91c1c);
+      color: white;
+    }
+  }
+}
+
+.trash-icon,
+.check-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.check-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 600;
+}
