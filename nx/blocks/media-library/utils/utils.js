@@ -68,6 +68,7 @@ export function getSubtype(media) {
   const ext = extractFileExtension(media?.url || '');
   if (ext && ALLOWED_SUBTYPE_EXTENSIONS.has(ext)) return ext.toUpperCase();
   if (media?.type === MediaType.FRAGMENT) return 'Fragment';
+  if (media?.type === MediaType.VIDEO || isExternalVideoUrl(media?.url || '')) return 'Video';
   return 'External';
 }
 
@@ -99,9 +100,10 @@ export function sortMediaData(mediaData) {
 export function getVideoThumbnail(videoUrl) {
   if (!videoUrl) return null;
 
-  const youtubeMatch = videoUrl.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([^&\n?#]+)/);
+  const youtubeMatch = videoUrl.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/|)([^&\n?#\/]+)|youtu\.be\/([^&\n?#\/]+))/);
   if (youtubeMatch) {
-    return `https://img.youtube.com/vi/${youtubeMatch[1]}/maxresdefault.jpg`;
+    const id = youtubeMatch[1] || youtubeMatch[2];
+    return id ? `https://img.youtube.com/vi/${id}/hqdefault.jpg` : null;
   }
 
   const vimeoMatch = videoUrl.match(/vimeo\.com\/(\d+)/);
@@ -130,10 +132,11 @@ export function getVideoThumbnail(videoUrl) {
 }
 
 export function isExternalVideoUrl(url) {
-  if (!url) return false;
+  if (!url || typeof url !== 'string') return false;
 
   const supportedPatterns = [
-    /(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)/,
+    /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/|)[^&\n?#\/]+|youtu\.be\/[^&\n?#\/]+)/,
+    /(?:^https?:\/\/)?(?:www\.)?(?:youtube\.com|youtu\.be)(?:\/|$)/,
     /vimeo\.com\/(\d+)/,
     /(?:dailymotion\.com\/video\/|dai\.ly\/)/,
     /scene7\.com\/is\/content\//,
@@ -146,9 +149,10 @@ export function isExternalVideoUrl(url) {
 export function getVideoEmbedUrl(videoUrl) {
   if (!videoUrl) return null;
 
-  const youtubeMatch = videoUrl.match(/(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([^&\n?#]+)/);
+  const youtubeMatch = videoUrl.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/|)([^&\n?#\/]+)|youtu\.be\/([^&\n?#\/]+))/);
   if (youtubeMatch) {
-    return `https://www.youtube.com/embed/${youtubeMatch[1]}`;
+    const id = youtubeMatch[1] || youtubeMatch[2];
+    return id ? `https://www.youtube.com/embed/${id}` : null;
   }
 
   const vimeoMatch = videoUrl.match(/vimeo\.com\/(\d+)/);

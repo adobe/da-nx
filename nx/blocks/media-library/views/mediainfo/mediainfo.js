@@ -569,6 +569,18 @@ class NxMediaInfo extends LitElement {
           </div>
         `;
       }
+      if (isExternalVideoUrl(this.media.url)) {
+        return html`
+          <div class="video-preview-container">
+            <div class="placeholder-full video-placeholder">
+              <svg class="placeholder-icon" viewBox="0 0 20 20">
+                <use href="#S2_Icon_Play_20_N"></use>
+              </svg>
+              <span class="placeholder-label">Video</span>
+            </div>
+          </div>
+        `;
+      }
       return html`
         <video src="${this.media.url}" controls class="preview-video">
           Your browser does not support the video tag.

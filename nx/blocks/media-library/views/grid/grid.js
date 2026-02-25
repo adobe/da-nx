@@ -146,6 +146,29 @@ class NxMediaGrid extends LitElement {
   }
 
   renderMediaPreview(media) {
+    if (isExternalVideoUrl(media?.url)) {
+      const thumbnailUrl = getVideoThumbnail(media.url);
+      return html`
+        <div class="video-preview-container">
+          ${thumbnailUrl ? html`
+            <img src="${thumbnailUrl}" alt="Video thumbnail" class="video-thumbnail" loading="lazy" decoding="async">
+          ` : html`
+            <div class="placeholder-full video-placeholder">
+              <svg class="placeholder-icon" viewBox="0 0 20 20">
+                <use href="#S2_Icon_Play_20_N"></use>
+              </svg>
+              <span class="placeholder-label">Video</span>
+            </div>
+          `}
+          <div class="video-overlay">
+            <svg class="play-icon" viewBox="0 0 20 20">
+              <use href="#S2_Icon_Play_20_N"></use>
+            </svg>
+          </div>
+        </div>
+      `;
+    }
+
     if (isFragmentMedia(media)) {
       return html`
         <div class="placeholder-full fragment-placeholder">
@@ -170,22 +193,6 @@ class NxMediaGrid extends LitElement {
       return html`
         <img src="${media.url}" alt="${media.alt || ''}" loading="lazy" decoding="async">
       `;
-    }
-
-    if (isExternalVideoUrl(media.url)) {
-      const thumbnailUrl = getVideoThumbnail(media.url);
-      if (thumbnailUrl) {
-        return html`
-          <div class="video-preview-container">
-            <img src="${thumbnailUrl}" alt="Video thumbnail" class="video-thumbnail" loading="lazy" decoding="async">
-            <div class="video-overlay">
-              <svg class="play-icon" viewBox="0 0 20 20">
-                <use href="#S2_Icon_Play_20_N"></use>
-              </svg>
-            </div>
-          </div>
-        `;
-      }
     }
 
     if (isVideo(media.url)) {
