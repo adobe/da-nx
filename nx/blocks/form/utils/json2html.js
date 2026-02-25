@@ -85,7 +85,7 @@ function createArrayBlock(key, arr, nestedBlocks) {
 function createValueCol(key, value, nestedBlocks) {
   const valCol = document.createElement('div');
 
-  if (value) {
+  if (value || value === false) {
     // Create a paragraph to hold the property
     const valPara = document.createElement('p');
 
