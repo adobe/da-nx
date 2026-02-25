@@ -25,10 +25,8 @@ export default function generateEmptyObject(
     return generateEmptyObject(schema.oneOf[0], requiredFields, rootSchema);
   }
 
-  // If field has enum values, return the first one if it's required
-  if (schema.enum && schema.enum.length > 0 && requiredFields.size > 0) {
-    return schema.enum[0];
-  }
+  // Use schema default when present, otherwise undefined (no auto-picking enum[0] or 0)
+  const useDefault = (value) => value ?? undefined;
 
   const { type } = schema;
 
@@ -50,34 +48,19 @@ export default function generateEmptyObject(
     }
 
     case 'array': {
-      // If array items have enum and array is required, include first item
-      if (schema.items?.enum && requiredFields.size > 0) {
-        return [schema.items.enum[0]];
-      }
-      // If array items are objects and array is required, generate one empty object
-      if (requiredFields.size > 0 && schema.items
-          && (schema.items.type === 'object' || schema.items.properties)) {
-        return [generateEmptyObject(schema.items, new Set(), rootSchema)];
-      }
-      // If array items have a $ref, resolve it to check if it's an object
-      if (requiredFields.size > 0 && schema.items?.$ref) {
+      if (requiredFields.size > 0 && schema.items) {
         return [generateEmptyObject(schema.items, new Set(), rootSchema)];
       }
       return [];
     }
 
     case 'string':
-      return schema.enum && schema.enum.length > 0 ? schema.enum[0] : '';
-
     case 'number':
     case 'integer':
-      return schema.enum && schema.enum.length > 0 ? schema.enum[0] : 0;
+      return useDefault(schema.default);
 
     case 'boolean':
-      return schema.enum && schema.enum.length > 0 ? schema.enum[0] : false;
-
-    case 'null':
-      return null;
+      return schema.default ?? false;
 
     default:
       return null;
