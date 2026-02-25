@@ -322,15 +322,34 @@ nx-media-sidebar {
 
 /* Scanning state styles */
 .scanning-state,
-.empty-state {
+.empty-state,
+.indexing-state {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 100%;
+  flex: 1;
+  min-height: 0;
   padding: var(--spacing-600);
   text-align: center;
   background: var(--s2-gray-50);
+}
+
+.indexing-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--s2-gray-200);
+  border-top: 2px solid var(--s2-blue-500);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: var(--spacing-300);
+}
+
+.indexing-message {
+  margin: 0;
+  font-size: var(--font-size-300);
+  font-weight: 400;
+  color: var(--s2-gray-600);
 }
 
 .scanning-spinner {

@@ -171,6 +171,16 @@ svg.icon {
   border-bottom: 1px solid var(--s2-gray-200);
   position: relative;
 
+  & picture {
+    width: 100%;
+    height: 100%;
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 2;
+  }
+
   & video,
   & iframe,
   & img {

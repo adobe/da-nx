@@ -1,127 +1,86 @@
-// nx/blocks/media-library/utils/utils.js
-
 import { daFetch } from '../../../utils/daFetch.js';
 import { DA_ORIGIN } from '../../../public/utils/constants.js';
+import {
+  MediaType,
+  Domains,
+  Paths,
+  Storage,
+  DA_LIVE_EDIT_BASE,
+  CORS_PROXY_URL,
+} from './constants.js';
 
-export const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'avif'];
-export const VIDEO_EXTENSIONS = ['mp4', 'webm', 'mov', 'avi'];
-export const DOCUMENT_EXTENSIONS = ['pdf'];
-export const AUDIO_EXTENSIONS = ['mp3', 'wav'];
-export const MEDIA_EXTENSIONS = [
-  ...IMAGE_EXTENSIONS,
-  ...VIDEO_EXTENSIONS,
-  ...DOCUMENT_EXTENSIONS,
-  ...AUDIO_EXTENSIONS,
-];
+const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'avif'];
+const VIDEO_EXTENSIONS = ['mp4', 'webm', 'mov', 'avi'];
+const DOCUMENT_EXTENSIONS = ['pdf'];
+const AUDIO_EXTENSIONS = ['mp3', 'wav'];
 
 function extractFileExtension(filePath) {
-  return filePath?.split('.').pop()?.toLowerCase();
+  if (!filePath) return '';
+  const cleanPath = filePath.split(/[#?]/)[0];
+  return cleanPath.split('.').pop()?.toLowerCase() || '';
 }
 
 function isSvgFile(media) {
-  const type = media.type || '';
-  return type === 'img > svg' || type === 'link > svg';
+  const url = media?.url || '';
+  return extractFileExtension(url) === 'svg';
 }
 
-export function detectMediaTypeFromExtension(ext) {
-  if (IMAGE_EXTENSIONS.includes(ext)) return 'img';
-  if (VIDEO_EXTENSIONS.includes(ext)) return 'video';
-  if (DOCUMENT_EXTENSIONS.includes(ext)) return 'document';
+function typeFromExt(ext) {
+  if (IMAGE_EXTENSIONS.includes(ext)) return MediaType.IMAGE;
+  if (VIDEO_EXTENSIONS.includes(ext)) return MediaType.VIDEO;
+  if (DOCUMENT_EXTENSIONS.includes(ext)) return MediaType.DOCUMENT;
   if (AUDIO_EXTENSIONS.includes(ext)) return 'audio';
   return 'unknown';
 }
 
 export function getMediaType(media) {
-  const type = media.type || '';
-  if (type.startsWith('img >')) return 'image';
-  if (type.startsWith('video >') || type.startsWith('video-source >')) return 'video';
-  if (type.startsWith('document >')) return 'document';
-  if (type.startsWith('fragment >')) return 'fragment';
-  if (type.startsWith('link >')) {
-    const [, subtype] = type.split(' > ');
-    if (subtype) {
-      const detectedType = detectMediaTypeFromExtension(subtype);
-      if (detectedType === 'video') return 'video';
-      if (detectedType === 'document') return 'document';
-    }
-    return 'link';
+  const type = media?.type || '';
+  const semanticTypes = [
+    MediaType.IMAGE, MediaType.VIDEO, MediaType.DOCUMENT,
+    MediaType.FRAGMENT, MediaType.LINK,
+  ];
+  if (semanticTypes.includes(type)) return type;
+  if (type.includes(' > ')) {
+    const [baseType] = type.split(' > ');
+    const baseMap = {
+      img: MediaType.IMAGE,
+      image: MediaType.IMAGE,
+      video: MediaType.VIDEO,
+      document: MediaType.DOCUMENT,
+      fragment: MediaType.FRAGMENT,
+      content: MediaType.FRAGMENT,
+      link: MediaType.LINK,
+    };
+    return baseMap[baseType] || MediaType.LINK;
   }
-
-  const mediaUrl = media.url || '';
-  const ext = extractFileExtension(mediaUrl);
-  const result = detectMediaTypeFromExtension(ext);
-  return result;
+  const ext = extractFileExtension(media?.url || '');
+  return typeFromExt(ext);
 }
+
+const ALLOWED_SUBTYPE_EXTENSIONS = new Set([
+  ...IMAGE_EXTENSIONS,
+  ...VIDEO_EXTENSIONS,
+  ...DOCUMENT_EXTENSIONS,
+  ...AUDIO_EXTENSIONS,
+]);
 
 export function getSubtype(media) {
-  const type = media.type || '';
-  if (!type.includes(' > ')) return '';
-
-  const [, subtype] = type.split(' > ');
-  return subtype.toUpperCase();
-}
-
-export function getDisplayMediaType(media) {
-  if (media.type) {
-    if (media.type.includes(' > ')) {
-      const [baseType, subtype] = media.type.split(' > ');
-      const baseLabels = {
-        img: 'IMAGE',
-        video: 'VIDEO',
-        'video-source': 'VIDEO SOURCE',
-        link: 'LINK',
-        background: 'BACKGROUND',
-        fragment: 'FRAGMENT',
-      };
-      const baseLabel = baseLabels[baseType] || baseType.toUpperCase();
-      return `${baseLabel} (${subtype.toUpperCase()})`;
-    }
-
-    const typeLabels = {
-      img: 'IMAGE',
-      video: 'VIDEO',
-      'video-source': 'VIDEO SOURCE',
-      link: 'LINK',
-      background: 'BACKGROUND',
-      fragment: 'FRAGMENT',
-    };
-    return typeLabels[media.type] || media.type.toUpperCase();
-  }
-
-  const mediaUrl = media.url || '';
-  const ext = extractFileExtension(mediaUrl);
-  if (IMAGE_EXTENSIONS.includes(ext)) return 'IMAGE';
-  if (ext === 'mp4') return 'VIDEO';
-  if (ext === 'pdf') return 'DOCUMENT';
-  return 'UNKNOWN';
-}
-
-export function isMediaFile(ext) {
-  let cleanExt = ext;
-  if (cleanExt && cleanExt.startsWith('.')) {
-    cleanExt = cleanExt.substring(1);
-  }
-  const lowerExt = cleanExt?.toLowerCase();
-  return MEDIA_EXTENSIONS.includes(lowerExt);
+  const ext = extractFileExtension(media?.url || '');
+  if (ext && ALLOWED_SUBTYPE_EXTENSIONS.has(ext)) return ext.toUpperCase();
+  if (media?.type === MediaType.FRAGMENT) return 'Fragment';
+  return 'External';
 }
 
 export { isSvgFile, extractFileExtension };
 
-/**
- * Sort media data by lastUsedAt (recent first) then alphabetically by name
- * @param {Array} mediaData - Media data to sort
- * @returns {Array} Sorted media data
- */
 export function sortMediaData(mediaData) {
   return [...mediaData].sort((a, b) => {
-    // Sort by recently used first
-    const lastUsedA = new Date(a.lastUsedAt || 0);
-    const lastUsedB = new Date(b.lastUsedAt || 0);
-    const timeDiff = lastUsedB - lastUsedA;
+    const tsA = a.timestamp ?? 0;
+    const tsB = b.timestamp ?? 0;
+    const timeDiff = tsB - tsA;
 
     if (timeDiff !== 0) return timeDiff;
 
-    // Sort by doc path depth (shallow pages first)
     const docPathA = a.doc || '';
     const docPathB = b.doc || '';
 
@@ -131,7 +90,6 @@ export function sortMediaData(mediaData) {
     const depthDiff = depthA - depthB;
     if (depthDiff !== 0) return depthDiff;
 
-    // Fallback to alphabetical by name
     const nameA = (a.name || '').toLowerCase();
     const nameB = (b.name || '').toLowerCase();
     return nameA.localeCompare(nameB);
@@ -185,34 +143,39 @@ export function isExternalVideoUrl(url) {
   return supportedPatterns.some((pattern) => pattern.test(url));
 }
 
+export function getVideoEmbedUrl(videoUrl) {
+  if (!videoUrl) return null;
+
+  const youtubeMatch = videoUrl.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\n?#]+)/);
+  if (youtubeMatch) {
+    return `https://www.youtube.com/embed/${youtubeMatch[1]}`;
+  }
+
+  const vimeoMatch = videoUrl.match(/vimeo\.com\/(\d+)/);
+  if (vimeoMatch) {
+    return `https://player.vimeo.com/video/${vimeoMatch[1]}`;
+  }
+
+  const dailymotionMatch = videoUrl.match(/(?:dailymotion\.com\/video\/|dai\.ly\/)([^&\n?#]+)/);
+  if (dailymotionMatch) {
+    return `https://www.dailymotion.com/embed/video/${dailymotionMatch[1]}`;
+  }
+
+  return null;
+}
+
 export const EXIFR_URL = 'https://cdn.jsdelivr.net/npm/exifr@latest/dist/lite.umd.js';
 
-/**
- * Get image/video orientation based on dimensions
- * @param {number} width - Width in pixels
- * @param {number} height - Height in pixels
- * @returns {string} Orientation: 'Landscape', 'Portrait', or 'Square'
- */
 export function getImageOrientation(width, height) {
-  // Square: width equals height (or very close)
   if (Math.abs(width - height) < 5) {
     return 'Square';
   }
-
-  // Portrait: height > width
   if (height > width) {
     return 'Portrait';
   }
-
-  // Landscape: width > height
   return 'Landscape';
 }
 
-/**
- * Format ISO date string to human-readable format
- * @param {string} isoString - ISO date string
- * @returns {string} Formatted date string
- */
 export function formatDateTime(isoString) {
   if (!isoString) return 'Unknown';
 
@@ -231,92 +194,24 @@ export function formatDateTime(isoString) {
   }
 }
 
-const CORS_PROXY_URL = 'https://media-library-cors-proxy.aem-poc-lab.workers.dev/';
-
-/**
- * Check if a URL is an external resource (not on AEM domains)
- * @param {string} url - URL to check
- * @returns {boolean} True if external
- */
-export function isExternalResource(url) {
+export function isExternalUrl(url) {
   if (!url) return false;
-  return !url.includes('.aem.live') && !url.includes('.aem.page');
+  return !url.includes(Domains.AEM_LIVE) && !url.includes(Domains.AEM_PAGE);
 }
 
-/**
- * Build full media URL from relative or partial URL
- * @param {string} mediaUrl - Media URL (can be relative or full)
- * @param {string} org - Organization name
- * @param {string} repo - Repository name
- * @returns {string} Full URL
- */
-export function buildFullMediaUrl(mediaUrl, org, repo) {
+export function resolveMediaUrl(mediaUrl, org, repo) {
   if (!mediaUrl) return '';
 
   try {
-    // If already a valid absolute URL, return as is
     const url = new URL(mediaUrl);
     return url.href;
   } catch {
-    // Build absolute URL from relative path
     if (org && repo) {
       const cleanUrl = mediaUrl.startsWith('/') ? mediaUrl : `/${mediaUrl}`;
-      return `https://main--${repo}--${org}.aem.live${cleanUrl}`;
+      return `https://main--${repo}--${org}${Domains.AEM_LIVE}${cleanUrl}`;
     }
     return mediaUrl;
   }
-}
-
-/**
- * Fetch with CORS proxy fallback
- * @param {string} url - URL to fetch
- * @param {object} options - Fetch options
- * @returns {Promise<Response>} Fetch response
- */
-export async function fetchWithCorsProxy(url, options = {}) {
-  const corsProxyUrl = CORS_PROXY_URL;
-
-  try {
-    // Try direct fetch first
-    const response = await fetch(url, options);
-
-    // If response is not OK, try CORS proxy
-    if (!response.ok) {
-      const proxyUrl = `${corsProxyUrl}?url=${encodeURIComponent(url)}`;
-      return fetch(proxyUrl, options);
-    }
-
-    return response;
-  } catch (directError) {
-    // Check if it's a CORS-related error
-    if (directError.name === 'TypeError'
-        && (directError.message.includes('CORS')
-        || directError.message.includes('blocked')
-        || directError.message.includes('Access-Control-Allow-Origin')
-        || directError.message.includes('Failed to fetch'))) {
-      // Try CORS proxy as fallback
-      const proxyUrl = `${corsProxyUrl}?url=${encodeURIComponent(url)}`;
-      return fetch(proxyUrl, options);
-    }
-
-    // Re-throw non-CORS errors
-    throw directError;
-  }
-}
-
-export function createHash(str) {
-  // Use a more robust hash algorithm
-  let hash = 0;
-  if (str.length === 0) return hash.toString(36).padStart(10, '0');
-
-  for (let i = 0; i < str.length; i += 1) {
-    const char = str.charCodeAt(i);
-    hash = ((hash * 33) + char) % 2147483647;
-  }
-
-  // Convert to base36 and ensure minimum length of 10 characters
-  const base36 = Math.abs(hash).toString(36);
-  return base36.padStart(10, '0');
 }
 
 export function formatFileSize(bytes) {
@@ -329,7 +224,11 @@ export function formatFileSize(bytes) {
   return `${parseFloat((bytes / (k ** i)).toFixed(2))} ${sizes[i]}`;
 }
 
-export function extractMediaLocation(mediaUrl) {
+export function pluralize(singular, plural, count) {
+  return count === 1 ? singular : plural;
+}
+
+export function parseMediaUrl(mediaUrl) {
   try {
     const url = new URL(mediaUrl);
     return {
@@ -338,7 +237,6 @@ export function extractMediaLocation(mediaUrl) {
       fullUrl: mediaUrl,
     };
   } catch (error) {
-    // If it's not a valid URL, treat it as a relative path
     return {
       origin: '',
       path: mediaUrl,
@@ -353,16 +251,11 @@ export function normalizeUrl(url) {
   try {
     const urlObj = new URL(url);
     const { pathname } = urlObj;
-
-    // For SVG files, remove any query parameters and fragments
     if (pathname.toLowerCase().endsWith('.svg')) {
       return `${urlObj.protocol}//${urlObj.host}${pathname}`;
     }
-
-    // For other files, return just the pathname
     return urlObj.pathname;
   } catch {
-    // If it's not a valid URL, return as is (might be a relative path)
     return url;
   }
 }
@@ -370,49 +263,51 @@ export function normalizeUrl(url) {
 export function urlsMatch(url1, url2) {
   if (!url1 || !url2) return false;
 
-  // Normalize both URLs to just their paths
   const path1 = normalizeUrl(url1);
   const path2 = normalizeUrl(url2);
-
-  // Direct match
   if (path1 === path2) return true;
 
-  // Handle cases where one might have leading slash and other doesn't
   const normalizedPath1 = path1.startsWith('/') ? path1 : `/${path1}`;
   const normalizedPath2 = path2.startsWith('/') ? path2 : `/${path2}`;
 
   if (normalizedPath1 === normalizedPath2) return true;
 
-  // Handle relative paths by comparing file names
   const fileName1 = path1.split('/').pop();
   const fileName2 = path2.split('/').pop();
 
   return fileName1 === fileName2 && fileName1 && fileName2;
 }
 
+function normalizeDocPath(docPath) {
+  if (!docPath) return '';
+  return docPath.replace(new RegExp(`${Paths.EXT_HTML.replace('.', '\\.')}$`), '')
+    .replace(new RegExp(`${Paths.EXT_MD.replace('.', '\\.')}$`), '');
+}
+
+export function formatDocPath(docPath) {
+  const normalized = normalizeDocPath(docPath);
+  return normalized === Paths.INDEX || normalized === 'index' ? '/' : (normalized || '/');
+}
+
 export function getEditUrl(org, repo, docPath) {
-  // Remove .html extension if present
-  const cleanPath = docPath.replace(/\.html$/, '');
-  return `https://da.live/edit#/${org}/${repo}${cleanPath}`;
+  const cleanPath = normalizeDocPath(docPath);
+  return `${DA_LIVE_EDIT_BASE}${org}/${repo}${cleanPath}`;
 }
 
 export function getViewUrl(org, repo, docPath) {
-  // Remove .html extension and handle index pages
-  const cleanPath = docPath.replace(/\.html$/, '').replace(/\/index$/, '/');
-  return `https://main--${repo}--${org}.aem.page${cleanPath}`;
+  const normalized = normalizeDocPath(docPath);
+  const cleanPath = normalized === Paths.INDEX || normalized === 'index' ? '/' : normalized;
+  return `https://main--${repo}--${org}${Domains.AEM_PAGE}${cleanPath}`;
 }
 
 async function copyImageToClipboard(imageUrl) {
-  // Use CORS proxy for external images to avoid CORS issues
   let fetchUrl = imageUrl;
   try {
     const url = new URL(imageUrl);
-    // If it's an external URL (not same origin), use CORS proxy
     if (url.origin !== window.location.origin) {
       fetchUrl = `${CORS_PROXY_URL}?url=${encodeURIComponent(imageUrl)}`;
     }
   } catch (error) {
-    // If URL parsing fails, use original URL
     fetchUrl = imageUrl;
   }
 
@@ -459,11 +354,9 @@ export async function copyMediaToClipboard(media) {
 
   try {
     if (mediaType === 'image') {
-      // Copy actual image to clipboard
       await copyImageToClipboard(mediaUrl);
       return { heading: 'Copied', message: 'Resource Copied.' };
     }
-    // For non-images, copy the URL as text
     await navigator.clipboard.writeText(mediaUrl);
     return { heading: 'Copied', message: 'Resource URL Copied.' };
   } catch (error) {
@@ -473,71 +366,6 @@ export async function copyMediaToClipboard(media) {
   }
 }
 
-export async function updateDocumentAltText(org, repo, docPath, mediaUrl, altText, imageIndex = 0) {
-  const response = await daFetch(`${DA_ORIGIN}/source/${org}/${repo}${docPath}`);
-  if (!response.ok) {
-    throw new Error('Failed to fetch document');
-  }
-
-  const htmlContent = await response.text();
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(htmlContent, 'text/html');
-
-  // Find all img elements with matching src
-  const imgElements = doc.querySelectorAll('img');
-  const matchingImages = [];
-
-  imgElements.forEach((img) => {
-    const imgSrc = img.getAttribute('src');
-    if (imgSrc && urlsMatch(imgSrc, mediaUrl)) {
-      matchingImages.push(img);
-    }
-  });
-
-  // Update the specific image at the given index
-  if (!matchingImages[imageIndex]) {
-    throw new Error(`No matching image found at index ${imageIndex}`);
-  }
-
-  matchingImages[imageIndex].setAttribute('alt', altText);
-
-  // Save the entire document, not just the main content
-  const fullDocumentContent = doc.documentElement.outerHTML;
-  const blob = new Blob([fullDocumentContent], { type: 'text/html' });
-  const formData = new FormData();
-  formData.append('data', blob);
-
-  const saveResponse = await daFetch(`${DA_ORIGIN}/source/${org}/${repo}${docPath}`, {
-    method: 'PUT',
-    body: formData,
-  });
-
-  if (!saveResponse.ok) {
-    throw new Error('Failed to save document');
-  }
-}
-
-export async function createSheet(data, type = 'sheet') {
-  const sheetMeta = {
-    total: data.length,
-    limit: data.length,
-    offset: 0,
-    data,
-    ':type': type,
-  };
-  const blob = new Blob([JSON.stringify(sheetMeta, null, 2)], { type: 'application/json' });
-  const formData = new FormData();
-  formData.append('data', blob);
-  return formData;
-}
-
-export function splitPathParts(fullPath) {
-  const pathParts = fullPath.split('/').filter(Boolean);
-  const relativePathParts = pathParts.slice(2);
-  return { pathParts, relativePathParts };
-}
-
-// URL path extraction utilities
 export function getFileName(url) {
   try {
     const urlObj = new URL(url);
@@ -548,49 +376,58 @@ export function getFileName(url) {
   }
 }
 
-// File type detection utilities
 export function isImage(url) {
   const ext = extractFileExtension(url);
   return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'avif'].includes(ext);
 }
+
+const CARD_IMAGE_WIDTHS = [400, 500, 750];
+
+export function optimizeImageUrls(src, widths = CARD_IMAGE_WIDTHS) {
+  if (!src) return null;
+  try {
+    const url = src.startsWith('http') ? new URL(src) : new URL(src, window.location.href);
+    const base = `${url.origin}${url.pathname}`;
+    const ext = url.pathname.split('.').pop()?.toLowerCase() || 'jpg';
+    if (ext === 'svg') return null;
+
+    const w = Array.isArray(widths) ? widths : [widths];
+    const webpSrcset = w
+      .map((width) => `${base}?width=${width}&format=webply&optimize=medium ${width}w`)
+      .join(', ');
+    const fallbackSrcset = w
+      .map((width) => `${base}?width=${width}&format=${ext}&optimize=medium ${width}w`)
+      .join(', ');
+    const fallbackUrl = `${base}?width=${w[w.length - 1]}&format=${ext}&optimize=medium`;
+
+    return {
+      webpSrcset,
+      fallbackSrcset,
+      fallbackUrl,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export const CARD_IMAGE_SIZES = '(max-width: 480px) 100vw, (max-width: 768px) 50vw, 300px';
 
 export function isVideo(url) {
   const ext = extractFileExtension(url);
   return ['mp4', 'webm', 'mov', 'avi'].includes(ext);
 }
 
-export function isPdf(url) {
+export function isPdfUrl(url) {
   const ext = extractFileExtension(url);
   return ext === 'pdf';
 }
 
-export function isFragment(media) {
-  const type = media.type || '';
-  return type.startsWith('fragment >');
+export function isFragmentMedia(media) {
+  const type = media?.type || '';
+  return type === MediaType.FRAGMENT || type === 'content > fragment';
 }
 
-// Content environment detection
-export const DA_CONTENT_ENVS = {
-  local: 'http://localhost:8788',
-  stage: 'https://stage-content.da.live',
-  prod: 'https://content.da.live',
-};
-
-export function getContentEnv(location, key, envs) {
-  const { href } = location;
-  const query = new URL(href).searchParams.get(key);
-  if (query && query === 'reset') {
-    localStorage.removeItem(key);
-  } else if (query) {
-    localStorage.setItem(key, query);
-  }
-  const env = envs[localStorage.getItem(key) || 'prod'];
-  return location.origin === 'https://da.page' ? env.replace('.live', '.page') : env;
-}
-
-export const CONTENT_ORIGIN = (() => getContentEnv(window.location, 'da-content', DA_CONTENT_ENVS))();
-
-export function getOrgRepoFrmUrl(siteUrl) {
+export function parseOrgRepoFromUrl(siteUrl) {
   if (!siteUrl) {
     throw new Error('Site URL is required');
   }
@@ -731,7 +568,7 @@ export async function validateSitePath(sitePath) {
 }
 
 export function saveRecentSite(sitePath) {
-  const recentSites = JSON.parse(localStorage.getItem('da-sites')) || [];
+  const recentSites = JSON.parse(localStorage.getItem(Storage.DA_SITES)) || [];
 
   const pathWithoutSlash = sitePath.substring(1);
   const parts = pathWithoutSlash.split('/');
@@ -743,7 +580,7 @@ export function saveRecentSite(sitePath) {
 
   const limited = filtered.slice(0, 10);
 
-  localStorage.setItem('da-sites', JSON.stringify(limited));
+  localStorage.setItem(Storage.DA_SITES, JSON.stringify(limited));
 }
 
 export function getBasePath() {
@@ -772,6 +609,49 @@ export async function ensureAuthenticated() {
   }
 
   return true;
+}
+
+function escapeCsvCell(value) {
+  if (value == null) return '';
+  const str = String(value);
+  if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+}
+
+export function exportFilename(org, repo, filterName) {
+  const slug = (s) => (s || 'unknown').replace(/[^a-zA-Z0-9-]/g, '-').replace(/-+/g, '-');
+  const filterSlug = (filterName || 'all').replace(/([A-Z])/g, '-$1').toLowerCase().replace(/^-/, '');
+  const date = new Date().toISOString().slice(0, 10);
+  return `${slug(org)}-${slug(repo)}-media-${filterSlug || 'all'}-${date}.csv`;
+}
+
+export function exportToCsv(mediaData, options = {}) {
+  if (!mediaData || mediaData.length === 0) return;
+
+  const { org, repo, filterName } = options;
+  const filename = (org && repo)
+    ? exportFilename(org, repo, filterName)
+    : `media-export-${Date.now()}.csv`;
+
+  const headers = ['Name', 'URL', 'Type', 'References', 'Status', 'Usage Count', 'Alt'];
+  const rows = mediaData.map((item) => [
+    escapeCsvCell(item.name || ''),
+    escapeCsvCell(item.url || ''),
+    escapeCsvCell(getSubtype(item)),
+    escapeCsvCell(item.doc || ''),
+    escapeCsvCell(item.status || ''),
+    escapeCsvCell(item.usageCount ?? ''),
+    escapeCsvCell(item.alt ?? ''),
+  ]);
+  const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(link.href);
 }
 
 export function getLocalStorageItem(key, defaultValue = null) {

@@ -4,26 +4,30 @@ import getSvg from '../../../../utils/svg.js';
 import {
   getSubtype,
   formatFileSize,
-  extractMediaLocation,
+  parseMediaUrl,
   getEditUrl,
   getViewUrl,
-  updateDocumentAltText,
   getFileName,
+  formatDocPath,
   isImage,
   isVideo,
-  isPdf,
+  isPdfUrl,
+  isExternalVideoUrl,
+  getVideoEmbedUrl,
   EXIFR_URL,
   normalizeUrl,
   getMediaType,
   formatDateTime,
-  isExternalResource,
-  buildFullMediaUrl,
+  isExternalUrl,
+  resolveMediaUrl,
   getImageOrientation,
-  fetchWithCorsProxy,
+  optimizeImageUrls,
 } from '../../utils/utils.js';
+import { fetchWithCorsProxy } from '../../utils/admin-api.js';
 import loadScript from '../../../../utils/script.js';
 import { daFetch } from '../../../../utils/daFetch.js';
 import { DA_ORIGIN, SUPPORTED_FILES } from '../../../../public/utils/constants.js';
+import { Domains, MediaType } from '../../utils/constants.js';
 
 const styles = await getStyle(import.meta.url);
 const nx = `${new URL(import.meta.url).origin}/nx`;
@@ -52,7 +56,7 @@ class NxMediaInfo extends LitElement {
     usageData: { attribute: false },
     org: { attribute: false },
     repo: { attribute: false },
-    isScanning: { type: Boolean },
+    isIndexing: { type: Boolean },
     _activeTab: { state: true },
     _exifData: { state: true },
     _loading: { state: true },
@@ -60,10 +64,6 @@ class NxMediaInfo extends LitElement {
     _mimeType: { state: true },
     _mediaOrigin: { state: true },
     _mediaPath: { state: true },
-    _newAltText: { state: true },
-    _usageData: { state: true },
-    _usageLoading: { state: true },
-    _editingAltUsage: { state: true },
     _imageDimensions: { state: true },
     _comprehensiveMetadata: { state: true },
   };
@@ -78,10 +78,6 @@ class NxMediaInfo extends LitElement {
     this._mimeType = null;
     this._mediaOrigin = null;
     this._mediaPath = null;
-    this._newAltText = '';
-    this._usageData = [];
-    this._usageLoading = false;
-    this._editingAltUsage = null;
     this.usageData = [];
     this._pdfBlobUrls = new Map();
     this._pendingRequests = new Set();
@@ -108,39 +104,29 @@ class NxMediaInfo extends LitElement {
 
   updated(changedProperties) {
     if (changedProperties.has('media') && this.media) {
-      this.loadUsageData();
       this.loadMetadata();
-      if (isPdf(this.media.url)) {
+      if (isPdfUrl(this.media.url)) {
         this.loadPdfWithDaFetch(this.media.url);
       }
-    }
-
-    if (changedProperties.has('usageData') && this.usageData && this.media) {
-      this.loadUsageData();
     }
 
     if (changedProperties.has('_activeTab')) {
       if (this._activeTab === 'metadata' && !this._loading && !this._exifData) {
         this.loadMetadata();
-      } else if (this._activeTab === 'usage') {
-        this.loadUsageData();
       }
     }
   }
 
-  /**
-   * Native dialog.showModal() opens the media info dialog with the provided data.
-   */
   show(data) {
     this.media = data.media;
     this.usageData = data.usageData;
     this.org = data.org;
     this.repo = data.repo;
-    this.isScanning = data.isScanning;
+    this.isIndexing = data.isIndexing;
 
     if (data.media?.url) {
-      const fullUrl = buildFullMediaUrl(data.media.url, data.org, data.repo);
-      const { origin, path } = extractMediaLocation(fullUrl);
+      const fullUrl = resolveMediaUrl(data.media.url, data.org, data.repo);
+      const { origin, path } = parseMediaUrl(fullUrl);
       this._mediaOrigin = origin || 'Unknown';
       this._mediaPath = path || 'Unknown';
     }
@@ -172,7 +158,7 @@ class NxMediaInfo extends LitElement {
       return;
     }
 
-    const fullUrl = buildFullMediaUrl(this.media.url, this.org, this.repo);
+    const fullUrl = resolveMediaUrl(this.media.url, this.org, this.repo);
     const cacheKey = `video_dims_${fullUrl}`;
 
     if (this._cachedMetadata.has(cacheKey)) {
@@ -218,10 +204,10 @@ class NxMediaInfo extends LitElement {
     const ext = this.media.url.split('.').pop()?.toLowerCase();
     const isSvg = ext === 'svg';
 
-    const fullUrl = buildFullMediaUrl(this.media.url, this.org, this.repo);
+    const fullUrl = resolveMediaUrl(this.media.url, this.org, this.repo);
     const cacheKey = `metadata_${fullUrl}`;
 
-    const { origin, path } = extractMediaLocation(fullUrl);
+    const { origin, path } = parseMediaUrl(fullUrl);
     this._mediaOrigin = origin || 'Unknown';
     this._mediaPath = path || 'Unknown';
 
@@ -281,7 +267,7 @@ class NxMediaInfo extends LitElement {
               icc: true,
             });
           } catch {
-            // Silently fail if EXIF parsing not available
+            /* ignore */
           }
         }
 
@@ -356,19 +342,6 @@ class NxMediaInfo extends LitElement {
     }
   }
 
-  loadUsageData() {
-    if (!this.media || !this.media.url || !this.usageData) return;
-
-    this._usageLoading = true;
-    try {
-      this._usageData = this.usageData;
-    } catch (error) {
-      this._usageData = [];
-    } finally {
-      this._usageLoading = false;
-    }
-  }
-
   async loadPdfWithDaFetch(pdfUrl) {
     if (this._pdfBlobUrls.has(pdfUrl)) return;
 
@@ -404,12 +377,12 @@ class NxMediaInfo extends LitElement {
       return;
     }
 
-    const fullUrl = buildFullMediaUrl(this.media.url, this.org, this.repo);
+    const fullUrl = resolveMediaUrl(this.media.url, this.org, this.repo);
     const cacheKey = fullUrl;
 
-    const isExternal = isExternalResource(fullUrl);
+    const isExternal = isExternalUrl(fullUrl);
 
-    const { origin, path } = extractMediaLocation(fullUrl);
+    const { origin, path } = parseMediaUrl(fullUrl);
     this._mediaOrigin = origin || 'Unknown';
     this._mediaPath = path || 'Unknown';
 
@@ -423,7 +396,7 @@ class NxMediaInfo extends LitElement {
     }
 
     try {
-      if (isPdf(this.media.url) && this._pdfBlobUrls.has(this.media.url)) {
+      if (isPdfUrl(this.media.url) && this._pdfBlobUrls.has(this.media.url)) {
         const blobUrl = this._pdfBlobUrls.get(this.media.url);
         const response = await fetch(blobUrl);
         if (response.ok) {
@@ -525,9 +498,9 @@ class NxMediaInfo extends LitElement {
               <svg class="reference-icon icon" viewBox="0 0 22 20">
                 <use href="#S2_Icon_AIGenReferenceImage_20_N"></use>
               </svg>
-                ${this.isScanning && this._usageData.length === 0
+                ${this.isIndexing && (this.usageData?.length ?? 0) === 0
     ? 'References'
-    : `${this._usageData.length} ${this._usageData.length !== 1 ? 'References' : 'Reference'}`}
+    : `${(this.usageData?.length ?? 0)} ${(this.usageData?.length ?? 0) !== 1 ? 'References' : 'Reference'}`}
               </button>
               <button
                 type="button"
@@ -556,23 +529,53 @@ class NxMediaInfo extends LitElement {
   }
 
   renderMediaPreview() {
-    if (isImage(this.media.url)) {
+    if (isImage(this.media.url) || this.media.type === MediaType.IMAGE) {
       const subtype = getSubtype(this.media);
+      const fullUrl = resolveMediaUrl(this.media.url, this.org, this.repo);
+      const isExternal = isExternalUrl(fullUrl);
+      const optimized = !isExternal
+        ? optimizeImageUrls(this.media.url, [800, 1200, 1600])
+        : null;
+      if (optimized) {
+        return html`
+          <div class="image-preview-container">
+            <picture>
+              <source type="image/webp" srcset="${optimized.webpSrcset}" sizes="min(50vw, 600px)">
+              <img src="${optimized.fallbackUrl}" srcset="${optimized.fallbackSrcset}" sizes="min(50vw, 600px)" alt="${this.media.alt || ''}" class="preview-image">
+            </picture>
+            <div class="subtype-label">${subtype}</div>
+          </div>
+        `;
+      }
       return html`
         <div class="image-preview-container">
           <img src="${this.media.url}" alt="${this.media.alt || ''}" class="preview-image">
-          ${subtype ? html`<div class="subtype-label">${subtype}</div>` : ''}
+          <div class="subtype-label">${subtype}</div>
         </div>
       `;
     }
-    if (isVideo(this.media.url)) {
+    if (isVideo(this.media.url) || isExternalVideoUrl(this.media.url)) {
+      const embedUrl = getVideoEmbedUrl(this.media.url);
+      if (embedUrl) {
+        return html`
+          <div class="video-preview-container">
+            <iframe
+              src="${embedUrl}"
+              class="preview-video-iframe"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowfullscreen
+              title="Video embed"
+            ></iframe>
+          </div>
+        `;
+      }
       return html`
         <video src="${this.media.url}" controls class="preview-video">
           Your browser does not support the video tag.
         </video>
       `;
     }
-    if (isPdf(this.media.url)) {
+    if (isPdfUrl(this.media.url)) {
       const blobUrl = this._pdfBlobUrls.get(this.media.url);
 
       if (blobUrl) {
@@ -726,101 +729,6 @@ class NxMediaInfo extends LitElement {
     `;
   }
 
-  renderUsageActions(usage, usageIndex) {
-    const isMissingAlt = !usage.alt && usage.type && usage.type.trim().startsWith('img >');
-    const isEditingAlt = this._editingAltUsage?.doc === usage.doc
-                         && this._editingAltUsage?.index === usageIndex;
-
-    return html`
-      <div class="usage-row">
-        ${isImage(this.media.url) ? html`
-        ${this.renderAltText(usage, usageIndex, isEditingAlt, isMissingAlt)}
-        ` : ''}
-      </div>
-    `;
-  }
-
-  // eslint-disable-next-line no-unused-vars
-  renderAltText(usage, usageIndex, isEditingAlt, isMissingAlt) {
-    if (isEditingAlt) {
-      return html`
-        <div class="alt-edit-form">
-          <sl-input
-            type="text"
-            placeholder="Enter alt text..."
-            .value=${this._newAltText}
-            @input=${this.handleAltTextInput}
-            size="small"
-          ></sl-input>
-          <div class="alt-edit-actions">
-            <button type="button" class="icon-button save-alt-text-button" @click=${() => this.saveAlt(usage, usageIndex)} aria-label="Save alt text">
-              <svg class="icon" viewBox="0 0 20 20">
-                <use href="#S2_Icon_Checkmark_20_N"></use>
-              </svg>
-            </button>
-            <button type="button" class="icon-button cancel-alt-text-button" @click=${this.cancelAlt} aria-label="Cancel editing">
-              <svg class="icon" viewBox="0 0 20 20">
-                <use href="#S2_Icon_Close_20_N"></use>
-              </svg>
-            </button>
-          </div>
-        </div>
-      `;
-    }
-
-    if (usage.alt !== null && usage.alt !== '' && usage.alt !== 'null') {
-      return html`
-        <div class="alt-text-container">
-          <div class="alt-text">
-            <svg class="alt-text-icon has-text" viewBox="0 0 22 20">
-              <use href="#S2_Icon_Accessibility_20_N"></use>
-            </svg>
-            ${usage.alt}
-          </div>
-          <button type="button" size="small" class="icon-button" @click=${() => this.editAlt(usage, usageIndex)} aria-label="Edit alt text">
-            <svg class="icon" viewBox="0 0 22 20">
-              <use href="#S2_Icon_Edit_20_N"></use>
-            </svg>
-          </button>
-        </div>
-      `;
-    }
-
-    if (usage.alt === null || usage.alt === 'null') {
-      return html`
-        <div class="alt-text-container">
-          <div class="alt-text">
-            <svg class="image-reference-icon icon" viewBox="0 0 22 20">
-              <use href="#S2_Icon_AlertDiamondOrange_20_N"></use>
-            </svg>
-            Missing alt text
-          </div>
-          <button type="button" size="small" class="icon-button" @click=${() => this.editAlt(usage, usageIndex)} aria-label="Add alt text">
-            <svg class="icon" viewBox="0 0 22 20">
-              <use href="#S2_Icon_Edit_20_N"></use>
-            </svg>
-          </button>
-        </div>
-      `;
-    }
-
-    return html`
-      <div class="alt-text-container">
-        <div class="alt-text">
-          <svg class="icon decorative" viewBox="0 0 22 20">
-            <use href="#S2_Icon_Accessibility_20_N"></use>
-          </svg>
-          Decorative
-        </div>
-        <button type="button" size="small" class="icon-button" @click=${() => this.editAlt(usage, usageIndex)}>
-          <svg class="icon" viewBox="0 0 22 20">
-            <use href="#S2_Icon_Edit_20_N"></use>
-          </svg>
-        </button>
-      </div>
-    `;
-  }
-
   renderActions(usage) {
     if (usage.doc) {
       return html`
@@ -890,27 +798,19 @@ class NxMediaInfo extends LitElement {
 
   renderUsageContent() {
     const { org } = this;
+    const usageData = this.usageData ?? [];
 
-    if (this._usageLoading) {
+    if (this.isIndexing && usageData.length === 0 && this.media?.usageCount > 0) {
       return html`
         <div class="loading-state">
           <div class="spinner"></div>
-          <span>Loading usage details...</span>
+          <span>Discovering...</span>
         </div>
       `;
     }
 
-    if (this.isScanning && this._usageData.length === 0 && this.media.usageCount > 0) {
-      return html`
-        <div class="loading-state">
-          <div class="spinner"></div>
-          <span>Scanning in progress...</span>
-        </div>
-      `;
-    }
-
-    if (this._usageData.length > 0) {
-      const groupedUsages = this._usageData.reduce((groups, usage) => {
+    if (usageData.length > 0) {
+      const groupedUsages = usageData.reduce((groups, usage) => {
         const doc = usage.doc || 'Unknown Document';
         if (!groups[doc]) {
           groups[doc] = [];
@@ -921,38 +821,43 @@ class NxMediaInfo extends LitElement {
 
       return html`
         <div class="usage-sections">
-          ${Object.entries(groupedUsages).map(([doc, usages]) => html`
-            <div class="usage-section">
-              <div class="document-heading">
-                <div class="document-path">
-                  <p class="usage-path">${doc.split('.')[0]}</p>
-                  <p class="usage-org">${org}</p>
-                  <button type="button" size="small" class="icon-button toggle-actions" @click=${this.showActions}>
-                    <svg class="icon" viewBox="0 0 22 20">
-                      <use href="#S2_Icon_ChevronRight_20_N"></use>
-                    </svg>
-                  </button>
-                </div>
-                <div class="actions-container">
-                  <h5 class="usage-title">Open</h5>
-                  ${this.renderActions(usages[0])}
+          ${Object.entries(groupedUsages).map(([doc, usages]) => {
+    const latestUsage = usages.reduce((latest, current) => (
+      current.timestamp > latest.timestamp ? current : latest
+    ), usages[0]);
+    const modifiedBy = latestUsage.user || 'Unknown';
+    const modifiedDate = latestUsage.timestamp
+      ? formatDateTime(latestUsage.timestamp)
+      : 'Unknown date';
+
+    return html`
+              <div class="usage-section">
+                <div class="document-heading">
+                  <div class="document-path">
+                    <p class="usage-path">${formatDocPath(doc)}</p>
+                    <p class="usage-org">${org}</p>
+                    <button type="button" size="small" class="icon-button toggle-actions" @click=${this.showActions}>
+                      <svg class="icon" viewBox="0 0 22 20">
+                        <use href="#S2_Icon_ChevronRight_20_N"></use>
+                      </svg>
+                    </button>
+                  </div>
+                  <div class="actions-container">
+                    <p class="usage-modified">Last modified by ${modifiedBy} on ${modifiedDate}</p>
+                    <h5 class="usage-title">Open</h5>
+                    ${this.renderActions(usages[0])}
+                  </div>
                 </div>
               </div>
-              ${isImage(this.media.url) ? html`
-                <div class="usage-container">
-                  <h5 class="usage-title">Alt</h5>
-                  ${usages.map((usage, usageIndex) => this.renderUsageActions(usage, usageIndex))}
-                </div>
-              ` : ''}
-            </div>
-          `)}
+            `;
+  })}
         </div>
       `;
     }
 
     return html`
       <div class="no-usage">
-        <p>Not Used</p>
+        <p>Not Referenced</p>
       </div>
     `;
   }
@@ -996,25 +901,20 @@ class NxMediaInfo extends LitElement {
     this._activeTab = tab;
   }
 
-  handleAltTextInput(e) {
-    this._newAltText = e.target.value;
-  }
-
   handleDocumentAction(docPath, mode = 'edit') {
     if (!docPath) return;
 
     const { org, repo } = this;
     if (!org || !repo) return;
 
-    const cleanPath = docPath.replace('.html', '');
     let url;
 
     if (mode === 'edit') {
-      url = getEditUrl(org, repo, cleanPath);
+      url = getEditUrl(org, repo, docPath);
     } else {
-      const viewUrl = getViewUrl(org, repo, cleanPath);
+      const viewUrl = getViewUrl(org, repo, docPath);
       if (mode === 'publish') {
-        url = viewUrl?.replace('.aem.page', '.aem.live');
+        url = viewUrl?.replace(Domains.AEM_PAGE, Domains.AEM_LIVE);
       } else {
         url = viewUrl;
       }
@@ -1049,57 +949,6 @@ class NxMediaInfo extends LitElement {
     }
   }
 
-  editAlt(usage, usageIndex) {
-    this._editingAltUsage = { doc: usage.doc, index: usageIndex };
-    this._newAltText = '';
-  }
-
-  cancelAlt() {
-    this._editingAltUsage = null;
-    this._newAltText = '';
-  }
-
-  async saveAlt(usage, usageIndex) {
-    if (!this._newAltText.trim()) return;
-
-    try {
-      const { org, repo } = this;
-
-      if (!org || !repo) {
-        throw new Error('Missing org or repo information');
-      }
-
-      await updateDocumentAltText(
-        org,
-        repo,
-        usage.doc,
-        this.media.url,
-        this._newAltText,
-        usageIndex,
-      );
-
-      const globalUsageIndex = this._usageData.indexOf(usage);
-      if (globalUsageIndex !== -1) {
-        this._usageData[globalUsageIndex].alt = this._newAltText;
-      }
-
-      const savedAltText = this._newAltText;
-      this._editingAltUsage = null;
-      this._newAltText = '';
-
-      this.dispatchEvent(new CustomEvent('altTextUpdated', {
-        detail: {
-          media: this.media,
-          usage,
-          newAltText: savedAltText,
-        },
-      }));
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error('Failed to save alt text:', error);
-    }
-  }
-
   _cleanupPendingRequests() {
     this._pendingRequests.forEach((controller) => {
       controller.abort();
@@ -1114,7 +963,7 @@ class NxMediaInfo extends LitElement {
     this._mimeType = null;
     this._mediaOrigin = null;
     this._mediaPath = null;
-    this._usageData = [];
+    this.usageData = [];
     this._imageDimensions = null;
     this._comprehensiveMetadata = null;
     this._activeTab = 'usage';

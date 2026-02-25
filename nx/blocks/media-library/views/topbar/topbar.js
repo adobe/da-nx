@@ -2,7 +2,8 @@ import { html, LitElement } from 'da-lit';
 import getStyle from '../../../../utils/styles.js';
 import getSvg from '../../../../public/utils/svg.js';
 import { parseColonSyntax, generateSearchSuggestions, createSearchSuggestion } from '../../utils/filters.js';
-import { getAppState, subscribeToAppState } from '../../utils/state.js';
+import { highlightMatch } from '../../utils/templates.js';
+import { getAppState, onStateChange } from '../../utils/state.js';
 
 const styles = await getStyle(import.meta.url);
 const nx = `${new URL(import.meta.url).origin}/nx`;
@@ -48,10 +49,13 @@ class NxMediaTopBar extends LitElement {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [sl, slComponents, styles];
 
-    this._unsubscribe = subscribeToAppState((state) => {
-      this._appState = state;
-      this.requestUpdate();
-    });
+    this._unsubscribe = onStateChange(
+      ['searchQuery', 'resultSummary', 'selectedFolder', 'rawMediaData', 'mediaData', 'folderPathsCache'],
+      (state) => {
+        this._appState = state;
+        this.requestUpdate();
+      },
+    );
 
     getSvg({ parent: this.shadowRoot, paths: ICONS });
 
@@ -163,12 +167,11 @@ class NxMediaTopBar extends LitElement {
       >
         <div class="suggestion-main">
           ${icon}
-          <span class="suggestion-text" .innerHTML=${this.highlightMatch(suggestion.display, this._originalQuery)}></span>
+          <span class="suggestion-text" .innerHTML=${highlightMatch(suggestion.display, this._originalQuery)}></span>
         </div>
         ${suggestion.details ? html`
           <div class="suggestion-details">
-            ${suggestion.details.alt ? html`<div class="detail-line">Alt: <span .innerHTML=${this.highlightMatch(suggestion.details.alt, this._originalQuery)}></span></div>` : ''}
-            ${suggestion.details.doc ? html`<div class="detail-line">Doc: <span .innerHTML=${this.highlightMatch(suggestion.details.doc, this._originalQuery)}></span></div>` : ''}
+            ${suggestion.details.doc ? html`<div class="detail-line">Doc: <span .innerHTML=${highlightMatch(suggestion.details.doc, this._originalQuery)}></span></div>` : ''}
           </div>
         ` : ''}
       </div>
@@ -399,11 +402,6 @@ class NxMediaTopBar extends LitElement {
     return '';
   }
 
-  highlightMatch(text, query) {
-    if (!query || !text) return text;
-    const regex = new RegExp(`(${query})`, 'ig');
-    return text.replace(regex, '<mark>$1</mark>');
-  }
 }
 
 customElements.define('nx-media-topbar', NxMediaTopBar);

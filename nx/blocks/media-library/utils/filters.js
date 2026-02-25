@@ -1,14 +1,16 @@
-import { getMediaType, isSvgFile, getBasePath } from './utils.js';
+import { getMediaType, isSvgFile, getBasePath, formatDocPath, pluralize } from './utils.js';
+import {
+  Operation,
+  MEDIA_UNDERSCORE_PREFIX,
+} from './constants.js';
 
 const processDataCache = new Map();
 const MAX_CACHE_SIZE = 5;
 
-// Helper: Normalize folder path (remove trailing slash, handle root)
 function normalizeFolderPath(path) {
   return !path || path === '/' ? '/' : path.replace(/\/$/, '');
 }
 
-// Helper: Resolve search path with basePath
 function resolveSearchPath(value, basePath) {
   let searchPath = value.startsWith('/') ? value : `/${value}`;
   if (basePath && !searchPath.startsWith(basePath)) {
@@ -18,16 +20,15 @@ function resolveSearchPath(value, basePath) {
 }
 
 export const FILTER_CONFIG = {
-  images: (item) => getMediaType(item) === 'image' && !isSvgFile(item),
-  videos: (item) => getMediaType(item) === 'video',
+  all: (item) => !isSvgFile(item),
   documents: (item) => getMediaType(item) === 'document',
   fragments: (item) => getMediaType(item) === 'fragment',
-  links: (item) => getMediaType(item) === 'link',
+  images: (item) => getMediaType(item) === 'image' && !isSvgFile(item),
   icons: (item) => isSvgFile(item),
-
-  decorative: (item) => item.type?.startsWith('img >') && !item.type?.includes('svg') && item.alt === '',
-  filled: (item) => item.type?.startsWith('img >') && !item.type?.includes('svg') && item.alt && item.alt !== '',
-  empty: (item) => item.type?.startsWith('img >') && !item.type?.includes('svg') && item.alt === null,
+  links: (item) => item.operation === Operation.EXTLINKS
+    || item.operation === Operation.MARKDOWN_PARSED || getMediaType(item) === 'link',
+  noReferences: (item) => item.status === 'unused',
+  videos: (item) => getMediaType(item) === 'video',
 
   documentImages: (item, selectedDocument) => FILTER_CONFIG.images(item)
   && item.doc === selectedDocument,
@@ -41,13 +42,8 @@ export const FILTER_CONFIG = {
    && item.doc === selectedDocument,
   documentLinks: (item, selectedDocument) => FILTER_CONFIG.links(item)
    && item.doc === selectedDocument,
-  documentDecorative: (item, selectedDocument) => item.type?.startsWith('img >')
-   && !item.type?.includes('svg') && item.alt === '' && item.doc === selectedDocument,
-  documentFilled: (item, selectedDocument) => item.doc === selectedDocument && item.type?.startsWith('img >')
-   && !item.type?.includes('svg') && item.alt && item.alt !== '',
 
   documentTotal: (item, selectedDocument) => item.doc === selectedDocument,
-  all: (item) => !isSvgFile(item),
 };
 
 export function applyFilter(data, filterName, selectedDocument) {
@@ -63,11 +59,6 @@ export function applyFilter(data, filterName, selectedDocument) {
   return data;
 }
 
-export function getAvailableFilters() {
-  return Object.keys(FILTER_CONFIG);
-}
-
-// Internal: Chunk array utility for batch processing
 function chunkArray(array, chunkSize) {
   const chunks = [];
   for (let i = 0; i < array.length; i += chunkSize) {
@@ -76,7 +67,6 @@ function chunkArray(array, chunkSize) {
   return chunks;
 }
 
-// Internal: Initialize processed data structure
 function initializeProcessedData() {
   const filterArrays = {};
   const usageData = {};
@@ -96,8 +86,7 @@ function initializeProcessedData() {
   };
 }
 
-// Get grouping key for URL deduplication (moved from media-library.js)
-export function getGroupingKey(url) {
+export function getDedupeKey(url) {
   if (!url) return '';
 
   try {
@@ -105,7 +94,7 @@ export function getGroupingKey(url) {
     const { pathname } = urlObj;
     const filename = pathname.split('/').pop();
 
-    if (filename && filename.includes('media_')) {
+    if (filename && filename.includes(MEDIA_UNDERSCORE_PREFIX)) {
       return filename;
     }
 
@@ -133,7 +122,7 @@ export async function processMediaData(mediaData, onProgress = null) {
   const uniqueNonSvgUrls = new Set();
 
   let batchSize = 1000;
-  const hasComplexData = mediaData.some((item) => item.doc || item.alt);
+  const hasComplexData = mediaData.some((item) => item.doc);
 
   if (mediaData.length > 100000) {
     batchSize = hasComplexData ? 300 : 500;
@@ -153,7 +142,7 @@ export async function processMediaData(mediaData, onProgress = null) {
       if (!item.hash) return;
 
       if (item.url) {
-        const groupingKey = getGroupingKey(item.url);
+        const groupingKey = getDedupeKey(item.url);
         if (!processedData.usageData[groupingKey]) {
           processedData.usageData[groupingKey] = {
             hashes: [],
@@ -174,8 +163,8 @@ export async function processMediaData(mediaData, onProgress = null) {
           if (FILTER_CONFIG[filterName](item)) {
             processedData.filterArrays[filterName].push(item.hash);
           }
-        } catch (error) {
-          // Silently continue on filter error
+        } catch {
+          /* continue */
         }
       });
 
@@ -216,7 +205,7 @@ export async function processMediaData(mediaData, onProgress = null) {
       hashToItemMap.set(item.hash, item);
     }
     if (item.url) {
-      const groupingKey = getGroupingKey(item.url);
+      const groupingKey = getDedupeKey(item.url);
       groupingKeyToUrl.set(groupingKey, item.url);
     }
   });
@@ -272,8 +261,6 @@ function filterByColonSyntax(mediaData, colonSyntax) {
       }
       case 'name':
         return item.name && item.name.toLowerCase().includes(value);
-      case 'alt':
-        return item.alt && item.alt.toLowerCase().includes(value);
       case 'url':
         return item.url && item.url.toLowerCase().includes(value);
       case 'folder': {
@@ -310,7 +297,6 @@ function filterByGeneralSearch(mediaData, query) {
     const item = mediaData[i];
     if ((item.name && item.name.toLowerCase().includes(query))
         || (item.url && item.url.toLowerCase().includes(query))
-        || (item.alt && item.alt.toLowerCase().includes(query))
         || (item.doc && item.doc.toLowerCase().includes(query))) {
       results.push(item);
     }
@@ -403,24 +389,25 @@ function generateDocSuggestions(mediaData, value) {
   mediaData.forEach((item) => {
     if (!item.doc) return;
 
+    const docPath = item.doc.trim();
     if (value === '' || value === '/') {
-      const cleanPath = item.doc.replace(/\.html$/, '');
+      const cleanPath = docPath.replace(/\.html$/, '');
       if (!cleanPath.includes('/', 1)) {
-        matchingDocs.add(item.doc);
+        matchingDocs.add(docPath);
       }
     } else if (searchPath.endsWith('/')) {
-      const cleanPath = item.doc.replace(/\.html$/, '');
+      const cleanPath = docPath.replace(/\.html$/, '');
       const parts = cleanPath.split('/');
       if (parts.length > 1) {
         const folderPath = parts.slice(0, -1).join('/');
         if (folderPath === searchPath.slice(0, -1)) {
-          matchingDocs.add(item.doc);
+          matchingDocs.add(docPath);
         }
       }
     } else {
-      const cleanPath = item.doc.replace(/\.html$/, '');
+      const cleanPath = docPath.replace(/\.html$/, '');
       if (cleanPath.startsWith(searchPath)) {
-        matchingDocs.add(item.doc);
+        matchingDocs.add(docPath);
       }
     }
   });
@@ -435,9 +422,10 @@ function generateDocSuggestions(mediaData, value) {
   });
 
   const docSuggestions = sortedDocs.map((doc) => {
-    let displayPath = doc;
-    if (basePath && doc.startsWith(basePath)) {
-      displayPath = doc.substring(basePath.length) || '/';
+    const normalizedDoc = formatDocPath(doc);
+    let displayPath = normalizedDoc;
+    if (basePath && normalizedDoc.startsWith(basePath)) {
+      displayPath = normalizedDoc.substring(basePath.length) || '/';
       if (displayPath && !displayPath.startsWith('/')) {
         displayPath = `/${displayPath}`;
       }
@@ -481,12 +469,6 @@ export function generateSearchSuggestions(
 
     mediaData.forEach((item) => {
       switch (field) {
-        case 'alt': {
-          if (item.alt && item.alt.toLowerCase().includes(value) && !isSvgFile(item)) {
-            suggestions.push(createSuggestionFn(item));
-          }
-          break;
-        }
         case 'name': {
           if (item.name && item.name.toLowerCase().includes(value) && !isSvgFile(item)) {
             suggestions.push(createSuggestionFn(item));
@@ -535,7 +517,6 @@ export function generateSearchSuggestions(
 
     if (!isSvgFile(item) && (
       (item.name && item.name.toLowerCase().includes(q))
-        || (item.alt && item.alt.toLowerCase().includes(q))
         || (item.url && item.url.toLowerCase().includes(q))
     )) {
       suggestions.push(createSuggestionFn(item));
@@ -544,8 +525,9 @@ export function generateSearchSuggestions(
 
   const docSuggestions = Array.from(matchingDocs).map((doc) => ({
     type: 'doc',
-    value: doc,
-    display: doc,
+    value: formatDocPath(doc),
+    display: formatDocPath(doc),
+    absolutePath: doc,
   }));
 
   return [...docSuggestions, ...suggestions].slice(0, 10);
@@ -556,21 +538,21 @@ export function createSearchSuggestion(item) {
 
   if (isSvgFile(item)) return null;
 
+  const firstDoc = item.doc || null;
+
   return {
     type: 'media',
     value: item,
     display: item.name || item.url || 'Unnamed Media',
     details: {
-      alt: item.alt,
-      doc: item.doc,
+      doc: firstDoc ? formatDocPath(firstDoc) : null,
       url: item.url,
       type: getMediaType(item),
     },
   };
 }
 
-// Get document filtered items (moved from media-library.js)
-export function getDocumentFilteredItems(
+export function filterByDocument(
   processedData,
   mediaData,
   selectedDocument,
@@ -589,7 +571,7 @@ export function getDocumentFilteredItems(
     seenUrls.add(item.url);
     return true;
   }).map((item) => {
-    const groupingKey = getGroupingKey(item.url);
+    const groupingKey = getDedupeKey(item.url);
     let usageCount = item.usageCount || 1;
 
     if (processedData && processedData.usageData && processedData.usageData[groupingKey]) {
@@ -609,8 +591,7 @@ export function getDocumentFilteredItems(
   return uniqueDocumentItems;
 }
 
-// Get folder filtered items (moved from media-library.js)
-export function getFolderFilteredItems(data, selectedFolder, usageIndex) {
+export function filterByFolder(data, selectedFolder, usageIndex) {
   if (!selectedFolder || !data) {
     return data;
   }
@@ -622,7 +603,7 @@ export function getFolderFilteredItems(data, selectedFolder, usageIndex) {
 
     const groupingKeyToMediaItem = new Map();
     data.forEach((item) => {
-      const key = getGroupingKey(item.url);
+      const key = getDedupeKey(item.url);
       if (!groupingKeyToMediaItem.has(key)) {
         groupingKeyToMediaItem.set(key, item);
       }
@@ -682,19 +663,16 @@ export function getFolderFilteredItems(data, selectedFolder, usageIndex) {
   });
 }
 
-export function pluralize(singular, plural, count) {
-  return count === 1 ? singular : plural;
-}
-
 export function getFilterLabel(filterType, count = 0) {
   const labels = {
     all: { singular: 'item', plural: 'items' },
-    images: { singular: 'image', plural: 'images' },
-    icons: { singular: 'SVG', plural: 'SVGs' },
-    videos: { singular: 'video', plural: 'videos' },
     documents: { singular: 'PDF', plural: 'PDFs' },
     fragments: { singular: 'fragment', plural: 'fragments' },
+    images: { singular: 'image', plural: 'images' },
+    icons: { singular: 'SVG', plural: 'SVGs' },
     links: { singular: 'link', plural: 'links' },
+    noReferences: { singular: 'item', plural: 'items' },
+    videos: { singular: 'video', plural: 'videos' },
   };
 
   const label = labels[filterType] || labels.all;
@@ -739,7 +717,7 @@ export function deduplicateAndEnrich(sourceData, processedData) {
   const seenKeys = new Set();
 
   sourceData.forEach((item) => {
-    const groupingKey = getGroupingKey(item.url);
+    const groupingKey = getDedupeKey(item.url);
     if (!seenKeys.has(groupingKey)) {
       seenKeys.add(groupingKey);
 
@@ -768,7 +746,7 @@ export function filterByDocumentUsage(uniqueItems, selectedDocument, usageIndex)
   const groupingKeyToMediaItem = new Map();
 
   uniqueItems.forEach((item) => {
-    const key = getGroupingKey(item.url);
+    const key = getDedupeKey(item.url);
     if (!groupingKeyToMediaItem.has(key)) {
       groupingKeyToMediaItem.set(key, item);
     }
@@ -784,7 +762,12 @@ export function filterByDocumentUsage(uniqueItems, selectedDocument, usageIndex)
   return docFilteredItems;
 }
 
-export function createMediaFilterPipeline(sourceData, options) {
+/**
+ * Filters media by search, document, folder, and type.
+ * Order: search → document filter → dedupe → folder/doc-usage → type filter.
+ * When selectedDocument + document* filterType, filterByDocument handles both.
+ */
+export function filterMedia(sourceData, options) {
   const {
     searchQuery,
     selectedDocument,
@@ -810,7 +793,7 @@ export function createMediaFilterPipeline(sourceData, options) {
 
   if (selectedFilterType && selectedFilterType.startsWith('document')
       && selectedFilterType !== 'documents' && processedData) {
-    return getDocumentFilteredItems(
+    return filterByDocument(
       processedData,
       data,
       selectedDocument,
@@ -822,7 +805,7 @@ export function createMediaFilterPipeline(sourceData, options) {
 
   let dataWithUsageCounts = uniqueItems;
   if (selectedFolder) {
-    dataWithUsageCounts = getFolderFilteredItems(
+    dataWithUsageCounts = filterByFolder(
       uniqueItems,
       selectedFolder,
       usageIndex,

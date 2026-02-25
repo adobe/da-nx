@@ -1,7 +1,7 @@
 import { html, LitElement } from 'da-lit';
 import getStyle from '../../../../utils/styles.js';
 import getSvg from '../../../../public/utils/svg.js';
-import { getAppState, subscribeToAppState } from '../../utils/state.js';
+import { getAppState, onStateChange } from '../../utils/state.js';
 
 const styles = await getStyle(import.meta.url);
 const nx = `${new URL(import.meta.url).origin}/nx`;
@@ -25,17 +25,13 @@ class NxMediaSidebar extends LitElement {
   static filterStructure = {
     main: [
       { key: 'all', label: 'All Media' },
-      { key: 'images', label: 'Images' },
-      { key: 'icons', label: 'SVGs' },
-      { key: 'videos', label: 'Videos' },
       { key: 'documents', label: 'PDFs' },
       { key: 'fragments', label: 'Fragments' },
+      { key: 'images', label: 'Images' },
+      { key: 'icons', label: 'SVGs' },
       { key: 'links', label: 'Links' },
-    ],
-    accessibility: [
-      { key: 'filled', label: 'Filled' },
-      { key: 'decorative', label: 'Decorative' },
-      { key: 'empty', label: 'Empty' },
+      { key: 'videos', label: 'Videos' },
+      { key: 'noReferences', label: 'No References' },
     ],
   };
 
@@ -50,10 +46,13 @@ class NxMediaSidebar extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [sl, slComponents, styles];
-    this._unsubscribe = subscribeToAppState((state) => {
-      this._appState = state;
-      this.requestUpdate();
-    });
+    this._unsubscribe = onStateChange(
+      ['selectedFilterType', 'isIndexing', 'indexProgress', 'mediaData'],
+      (state) => {
+        this._appState = state;
+        this.requestUpdate();
+      },
+    );
     getSvg({ parent: this.shadowRoot, paths: ICONS });
   }
 
@@ -91,6 +90,29 @@ class NxMediaSidebar extends LitElement {
     this.dispatchEvent(new CustomEvent('filter', { detail: { type: filterType } }));
   }
 
+  handleExport() {
+    this.dispatchEvent(new CustomEvent('export-csv', {
+      bubbles: true,
+      composed: true,
+    }));
+  }
+
+  renderDataPanel() {
+    return html`
+      <div class="data-panel">
+        <button
+          class="export-btn"
+          @click=${this.handleExport}
+          title="Export as CSV"
+          ?disabled=${!this._appState.mediaData?.length}
+        >
+          Export
+        </button>
+        ${this.renderIndexPanel()}
+      </div>
+    `;
+  }
+
   renderFilterButton(filter) {
     const isActive = this._appState.selectedFilterType === filter.key;
 
@@ -108,50 +130,48 @@ class NxMediaSidebar extends LitElement {
   }
 
   renderIndexPanel() {
-    if (this._appState.isScanning) {
-      const pages = this._appState.scanProgress?.pages || 0;
-      const files = this._appState.scanProgress?.mediaFiles || 0;
-      const refs = this._appState.scanProgress?.mediaReferences || 0;
+    const { isIndexing, indexProgress } = this._appState;
+
+    if (isIndexing) {
+      const percent = indexProgress?.percent ?? 0;
       return html`
-        <div class="index-panel">
+        <div class="index-panel data-index-status">
           <div class="index-message">
-            ${pages} docs, ${files} files, ${refs} refs
+            Discovering...
+            ${percent > 0 && percent < 100 ? html`<span class="index-percent">${percent}%</span>` : ''}
           </div>
         </div>
       `;
     }
 
-    const hasCompletedScan = this._appState.scanProgress?.duration
-      || (!this._appState.isScanning
-        && (this._appState.scanProgress?.pages > 0
-          || this._appState.scanProgress?.mediaReferences > 0));
+    const hasCompleted = indexProgress?.stage === 'complete';
 
-    if (hasCompletedScan && this._appState.scanProgress.hasChanges === true) {
-      const items = this._appState.scanProgress?.mediaReferences || 0;
-      const docs = this._appState.scanProgress?.pages || 0;
+    if (hasCompleted && indexProgress?.hasChanges === true) {
+      const items = indexProgress?.mediaReferences ?? this._appState.mediaData?.length ?? 0;
       return html`
-        <div class="index-panel">
+        <div class="index-panel data-index-status">
           <div class="index-message">
-            ${items} items in ${docs} documents
+            ${items} items
+            ${indexProgress?.duration ? html`<span class="index-duration">(${indexProgress.duration})</span>` : ''}
           </div>
         </div>
       `;
     }
 
-    if (hasCompletedScan && this._appState.scanProgress.hasChanges === false) {
+    if (hasCompleted && indexProgress?.hasChanges === false) {
       return html`
-        <div class="index-panel">
+        <div class="index-panel data-index-status">
           <div class="index-message">
-            No changes found
+            Up to date
           </div>
         </div>
       `;
     }
 
     return html`
-      <div class="index-panel">
+      <div class="index-panel data-index-status">
         <div class="index-message empty">
-          Ready to index
+          Ready to discover
         </div>
       </div>
     `;
@@ -186,14 +206,6 @@ class NxMediaSidebar extends LitElement {
   )}
               </ul>
             </div>
-            <div class="filter-section">
-              <h3>Accessibility</h3>
-              <ul class="filter-list">
-                ${NxMediaSidebar.filterStructure.accessibility.map(
-    (filter) => this.renderFilterButton(filter),
-  )}
-              </ul>
-            </div>
           </div>
         ` : ''}
 
@@ -201,18 +213,18 @@ class NxMediaSidebar extends LitElement {
           <button
             class="icon-btn ${this.isIndexExpanded ? 'active' : ''}"
             @click=${this.handleIndexToggle}
-            title="Index"
-            aria-label="Toggle index panel"
+            title="Data"
+            aria-label="Toggle data panel"
             aria-expanded="${this.isIndexExpanded}"
           >
             <svg class="icon" viewBox="0 0 20 18">
               <use href="#S2_GraphBarVertical_18_N"></use>
             </svg>
-            <span class="button-text">Index</span>
+            <span class="button-text">Data</span>
           </button>
         </div>
 
-        ${this.isIndexExpanded ? this.renderIndexPanel() : ''}
+        ${this.isIndexExpanded ? this.renderDataPanel() : ''}
       </aside>
     `;
   }

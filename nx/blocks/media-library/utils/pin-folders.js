@@ -1,7 +1,8 @@
 import { getLocalStorageItem, setLocalStorageItem } from './utils.js';
+import { Storage } from './constants.js';
 
 function getStorageKey(org, repo) {
-  return `media-library-pinned-folders-${org}-${repo}`;
+  return `${Storage.PINNED_FOLDERS_PREFIX}${org}-${repo}`;
 }
 
 export function loadPinnedFolders(org, repo) {
@@ -15,4 +16,3 @@ export function savePinnedFolders(pinnedFolders, org, repo) {
   const key = getStorageKey(org, repo);
   setLocalStorageItem(key, pinnedFolders);
 }
-

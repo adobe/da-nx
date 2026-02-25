@@ -6,8 +6,7 @@
   }
 }
 
-svg.icon,
-.alt-text-icon {
+svg.icon {
   width: 20px;
   height: 20px;
   color: var(--s2-gray-900, #000);
@@ -21,29 +20,6 @@ svg.fragment-icon {
 
 button {
   font-family: var(--font-family);
-}
-
-.save-alt-text-button,
-.cancel-alt-text-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: 2px solid transparent;
-  border-radius: var(--s2-radius-100);
-
-  svg.icon {
-    color: var(--s2-gray-600);
-  }
-
-  &:hover {
-    background-color: rgb(255 255 255 / 90%);
-
-    svg.icon {
-      color: initial;
-    }
-  }
 }
 
 .icon-button {
@@ -244,15 +220,27 @@ dialog.modal-overlay::backdrop {
 
 .image-preview-container {
   display: flex;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
   max-height: 600px;
-  height: auto;
+  align-items: center;
+  justify-content: center;
+}
+
+.image-preview-container picture {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .preview-image {
-  max-width: 100%;
   width: 100%;
-  height: auto;
+  height: 100%;
   object-fit: contain;
+  display: block;
 }
 
 .subtype-label {
@@ -269,6 +257,20 @@ dialog.modal-overlay::backdrop {
   z-index: 100;
   pointer-events: none;
   white-space: nowrap;
+}
+
+.video-preview-container {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  max-height: 60vh;
+}
+
+.preview-video-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  border-radius: var(--s2-radius-100);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 15%);
 }
 
 .preview-video {
@@ -526,6 +528,16 @@ dialog.modal-overlay::backdrop {
   .usage-path {
     font-weight: 600;
   }
+
+  .usage-modified {
+    font-size: 12px;
+    color: var(--s2-gray-500);
+    margin: 0 0 12px;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    max-width: 100%;
+    line-height: 1.4;
+  }
 }
 
 .usage-section {
@@ -632,16 +644,6 @@ dialog.modal-overlay::backdrop {
   margin-inline-end: 8px;
 }
 
-.alt-warning-badge {
-  background: var(--s2-amber, #f59e0b);
-  color: white;
-  padding: 6px 12px;
-  border-radius: var(--s2-radius-100);
-  font-size: 12px;
-  font-weight: 500;
-  white-space: nowrap;
-}
-
 .type-cell {
   width: 120px;
 }
@@ -711,43 +713,10 @@ dialog.modal-overlay::backdrop {
   }
 }
 
-.alt-text-icon.has-text {
-  color: var(--s2-green);
-  fill: var(--s2-green);
-}
-
-.alt-none,
 .context-none,
 .no-actions {
   color: var(--s2-gray-500, #9ca3af);
   font-style: italic;
-}
-
-.alt-text-container {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  justify-content: space-between;
-
-  .alt-text {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    font-size: smaller;
-    font-weight: normal;
-  }
-}
-
-.alt-edit-form {
-  display: grid;
-  gap: 8px;
-  grid-template-columns: 6fr 1fr;
-}
-
-.alt-edit-actions {
-  display: flex;
-  gap: 2px;
 }
 
 .context-text {

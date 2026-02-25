@@ -1,6 +1,51 @@
 import { daFetch, initIms } from '../../../utils/daFetch.js';
 import { DA_ORIGIN } from '../../../public/utils/constants.js';
-import { createSheet } from './utils.js';
+import { CORS_PROXY_URL, IndexFiles } from './constants.js';
+
+export async function fetchWithCorsProxy(url, options = {}) {
+  const { proxyOnly = false, ...fetchOpts } = options;
+
+  const doProxyFetch = () => {
+    const proxyUrl = `${CORS_PROXY_URL}?url=${encodeURIComponent(url)}`;
+    return fetch(proxyUrl, fetchOpts);
+  };
+
+  if (proxyOnly) {
+    return doProxyFetch();
+  }
+
+  try {
+    const response = await fetch(url, fetchOpts);
+    if (!response.ok) {
+      return doProxyFetch();
+    }
+
+    return response;
+  } catch (directError) {
+    if (directError.name === 'TypeError'
+        && (directError.message.includes('CORS')
+        || directError.message.includes('blocked')
+        || directError.message.includes('Access-Control-Allow-Origin')
+        || directError.message.includes('Failed to fetch'))) {
+      return doProxyFetch();
+    }
+    throw directError;
+  }
+}
+
+export async function createSheet(data, type = 'sheet') {
+  const sheetMeta = {
+    total: data.length,
+    limit: data.length,
+    offset: 0,
+    data,
+    ':type': type,
+  };
+  const blob = new Blob([JSON.stringify(sheetMeta, null, 2)], { type: 'application/json' });
+  const formData = new FormData();
+  formData.append('data', blob);
+  return formData;
+}
 
 const DEFAULT_TIMEFRAME_DAYS = 90;
 
@@ -27,14 +72,14 @@ export function timestampToDuration(timestamp) {
   return `${Math.min(days, DEFAULT_TIMEFRAME_DAYS)}d`;
 }
 
-export function isMetaStale(meta, thresholdMs = 5 * 60 * 1000) {
+export function isMetadataStale(meta, thresholdMs = 5 * 60 * 1000) {
   if (!meta || !meta.lastFetchTime) return true;
 
   const age = Date.now() - meta.lastFetchTime;
   return age > thresholdMs;
 }
 
-export async function fetchFromAdminAPI(
+export async function fetchPaginated(
   endpoint,
   org,
   repo,
@@ -90,7 +135,7 @@ export async function fetchFromAdminAPI(
   return entries;
 }
 
-export async function loadDataSheet(path) {
+export async function loadSheet(path) {
   try {
     const resp = await daFetch(`${DA_ORIGIN}/source${path}`);
 
@@ -104,7 +149,7 @@ export async function loadDataSheet(path) {
   return [];
 }
 
-export async function saveDataSheet(data, path) {
+export async function saveSheet(data, path) {
   const formData = await createSheet(data);
   return daFetch(`${DA_ORIGIN}/source${path}`, {
     method: 'PUT',
@@ -112,13 +157,12 @@ export async function saveDataSheet(data, path) {
   });
 }
 
-export async function loadMeta(path) {
+export async function loadSheetMeta(path) {
   try {
     const resp = await daFetch(`${DA_ORIGIN}/source${path}`);
     if (resp.ok) {
       const data = await resp.json();
       const metaData = data.data || data || null;
-      // Meta is stored as single-row array, extract first element
       if (Array.isArray(metaData) && metaData.length > 0) {
         return metaData[0];
       }
@@ -130,7 +174,7 @@ export async function loadMeta(path) {
   return null;
 }
 
-export async function saveMeta(meta, path) {
+export async function saveSheetMeta(meta, path) {
   const metaArray = Array.isArray(meta) ? meta : [meta];
   const formData = await createSheet(metaArray);
 
@@ -141,5 +185,114 @@ export async function saveMeta(meta, path) {
 }
 
 export async function fetchAuditLog(org, repo, ref = 'main', since = null, limit = 1000) {
-  return fetchFromAdminAPI('log', org, repo, ref, since, limit);
+  return fetchPaginated('log', org, repo, ref, since, limit);
+}
+
+export async function streamLog(
+  endpoint,
+  org,
+  repo,
+  ref,
+  since,
+  limit,
+  onChunk,
+) {
+  const fetchParams = new URLSearchParams();
+  fetchParams.append('limit', limit.toString());
+  const sinceDuration = since != null ? timestampToDuration(since) : '36500d';
+  fetchParams.append('since', sinceDuration);
+
+  const baseUrl = `https://admin.hlx.page/${endpoint}/${org}/${repo}/${ref}`;
+  const separator = endpoint === 'medialog' ? '/' : '';
+  let nextUrl = `${baseUrl}${separator}?${fetchParams.toString()}`;
+
+  const sleep = (ms) => new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+
+  while (nextUrl) {
+    const resp = await fetchWithAuth(nextUrl);
+
+    if (!resp.ok) {
+      throw new Error(`${endpoint} API error: ${resp.status} ${resp.statusText}`);
+    }
+
+    const data = await resp.json();
+    const entries = data.entries || data.data || [];
+
+    if (entries.length > 0 && onChunk) {
+      await onChunk(entries);
+    }
+
+    const nextLink = data.links?.next;
+    const token = data.nextToken;
+
+    if (nextLink && typeof nextLink === 'string' && nextLink.trim()) {
+      const base = `${baseUrl}${separator}`;
+      nextUrl = nextLink.startsWith('http') ? nextLink : new URL(nextLink, base).href;
+    } else if (token) {
+      fetchParams.set('nextToken', token);
+      nextUrl = `${baseUrl}${separator}?${fetchParams.toString()}`;
+    } else {
+      nextUrl = null;
+    }
+
+    if (nextUrl) await sleep(100);
+  }
+}
+
+export async function fetchPageMarkdown(pagePath, org, repo, ref = 'main') {
+  try {
+    const path = pagePath.startsWith('/') ? pagePath : `/${pagePath}`;
+    const url = `https://${ref}--${repo}--${org}.aem.page${path}`;
+    const resp = await fetchWithCorsProxy(url, { proxyOnly: true });
+    if (!resp.ok) return null;
+    return resp.text();
+  } catch {
+    return null;
+  }
+}
+
+export async function listFolder(path, org, repo) {
+  const normalizedPath = path.replace(/^\//, '') || '';
+  const url = `${DA_ORIGIN}/list/${org}/${repo}/${normalizedPath}`;
+  const resp = await daFetch(url);
+  if (!resp.ok) return [];
+  const data = await resp.json();
+  return Array.isArray(data) ? data : (data.sources || []);
+}
+
+export async function checkIndex(folderPath, org, repo) {
+  const items = await listFolder(folderPath, org, repo);
+  const indexFile = items.find(
+    (item) => (item.name === 'media-index' && item.ext === 'json')
+      || (item.path && item.path.endsWith(`/${IndexFiles.MEDIA_INDEX}`)),
+  );
+  if (!indexFile) return { exists: false, lastModified: null };
+  const lastMod = indexFile.lastModified ?? indexFile.props?.lastModified;
+  const ts = lastMod != null && typeof lastMod === 'number' ? lastMod : null;
+  return { exists: true, lastModified: ts };
+}
+
+export async function loadIndexMeta(path) {
+  try {
+    const resp = await daFetch(`${DA_ORIGIN}/source${path}`);
+    if (resp.ok) {
+      const data = await resp.json();
+      return data.data?.[0] || data;
+    }
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error(`[MediaIndexer] Failed to load meta from ${path}:`, error.message);
+    return null;
+  }
+  return null;
+}
+
+export async function saveIndexMeta(meta, path) {
+  const formData = await createSheet([meta]);
+  return daFetch(`${DA_ORIGIN}/source${path}`, {
+    method: 'POST',
+    body: formData,
+  });
 }
