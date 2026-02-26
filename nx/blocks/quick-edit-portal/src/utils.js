@@ -1,4 +1,31 @@
 import { handleSignIn, loadIms } from '../../../utils/ims.js';
+import { daFetch } from '../../../utils/daFetch.js';
+import { DA_ORIGIN } from '../../../public/utils/constants.js';
+
+/**
+ * Checks if the lockdownImages flag is enabled for the given owner (same as da-live side-by-side).
+ * When enabled, images are served through the live preview URL with authentication.
+ * @param {string} owner - The owner identifier
+ * @returns {Promise<boolean>} True if lockdownImages flag is enabled, false otherwise
+ */
+export async function checkLockdownImages(owner) {
+  try {
+    const resp = await daFetch(`${DA_ORIGIN}/config/${owner}`);
+    if (!resp.ok) return false;
+
+    const config = await resp.json();
+
+    if (config.flags?.data) {
+      const lockdownFlag = config.flags.data.find(
+        (item) => item.key === 'lockdownImages' && item.value === 'true',
+      );
+      return !!lockdownFlag;
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
 
 export function findChangedNodes(oldDoc, newDoc) {
   const changes = [];

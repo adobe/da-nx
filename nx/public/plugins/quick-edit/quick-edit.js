@@ -53,6 +53,14 @@ function getQuickEditSrc() {
 }
 
 export default async function loadQuickEdit({ detail: payload }, loadPage) {
+  const currentUrl = new URL(window.location.href);
+  if (currentUrl.origin.endsWith('.aem.page')) {
+    const newOrigin = currentUrl.origin.replace('.aem.page', '.preview.da.live');
+    const newHref = `${newOrigin}${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`;
+    window.location.replace(newHref);
+    return;
+  }
+
   if (document.getElementById(QUICK_EDIT_ID)) return;
 
   const ctx = {
