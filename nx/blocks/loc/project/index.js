@@ -124,8 +124,8 @@ function collapseInnerTextSpaces(html) {
       return match;
     }
 
-    // Collapse multiple spaces to single space, trim padding
-    const cleaned = textContent.replace(/\s+/g, ' ').trim();
+    // Collapse multiple spaces to single space
+    const cleaned = textContent.replace(/\s+/g, ' ');
     return `>${cleaned}<`;
   });
 }
