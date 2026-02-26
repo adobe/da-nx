@@ -117,16 +117,20 @@ async function saveVersion(path, label) {
   return res;
 }
 
-function collapseInnerTextSpaces(html) {
-  return html.replace(/>([^<]*)</g, (match, textContent) => {
-    // Only process if there's actual text content
-    if (!textContent.trim()) {
-      return match;
-    }
+// Tag names that are inline; spaces adjacent to these are preserved when trimming
+const INLINE_TAGS = 'a,abbr,b,em,i,span,strong,sub,sup'.split(',');
 
-    // Collapse multiple spaces to single space, trim padding
-    const cleaned = textContent.replace(/\s+/g, ' ').trim();
-    return `>${cleaned}<`;
+function collapseInnerTextSpaces(html) {
+  return html.replace(/>([^<]*)</g, (match, text, offset, str) => {
+    if (!text.trim()) return match;
+    let s = text.replace(/\s+/g, ' ');
+    const prevClosed = str.slice(0, offset + 1).match(/<\/([a-z][a-z0-9-]*)\s*>$/i);
+    const nextOpens = str.slice(offset + match.length - 1).match(/^<([a-z][a-z0-9-]*)(?=[\s>])/i);
+    const keepStart = prevClosed && INLINE_TAGS.includes(prevClosed[1].toLowerCase());
+    const keepEnd = nextOpens && INLINE_TAGS.includes(nextOpens[1].toLowerCase());
+    if (!keepStart) s = s.trimStart();
+    if (!keepEnd) s = s.trimEnd();
+    return `>${s}<`;
   });
 }
 
