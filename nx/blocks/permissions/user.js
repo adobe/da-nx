@@ -104,7 +104,7 @@ class NxPermissionUser extends LitElement {
       <div class="nx-user-wrapper">
         <p class="nx-user-name">
           <strong>${this.user.displayName || this.user.email}</strong>
-          <span>${this.user.id}</span>
+          <span>${this.user.email}</span>
         </p>
         <div class="nx-roles role">${this._roles?.length ? this.renderRoles(this._roles) : nothing}</div>
         <div class="nx-roles requested">${this._requested?.length ? this.renderRoles(this._requested) : nothing}</div>
