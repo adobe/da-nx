@@ -223,6 +223,9 @@ export async function streamLog(
     const resp = await fetchWithAuth(nextUrl);
 
     if (!resp.ok) {
+      if (resp.status === 403) {
+        throw new Error('Access denied. You need at least "Author" permissions in EDS to run discovery.');
+      }
       throw new Error(`${endpoint} API error: ${resp.status} ${resp.statusText}`);
     }
 
