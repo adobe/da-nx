@@ -413,7 +413,17 @@ export async function buildIncrementalIndex(
   });
 
   const validEntries = auditlogEntries.filter((e) => e && e.path && e.route === 'preview');
-  const pages = validEntries.filter((e) => isPage(e.path));
+  const pagesFiltered = validEntries.filter((e) => isPage(e.path));
+  const pagesByPath = new Map();
+  pagesFiltered.forEach((e) => {
+    const p = normalizePath(e.path);
+    const existing = pagesByPath.get(p);
+    if (!existing || e.timestamp > existing[0].timestamp) {
+      pagesByPath.set(p, [e]);
+    }
+  });
+  const pages = [];
+  pagesByPath.forEach((events) => pages.push(...events));
 
   onProgress({ stage: 'fetching', message: 'Fetching new medialog entries...', percent: 35 });
 
@@ -446,16 +456,6 @@ export async function buildIncrementalIndex(
 
   const updatedIndex = [...existingIndex];
 
-  const pagesByPath = new Map();
-  pages.forEach((e) => {
-    const p = normalizePath(e.path);
-    if (!pagesByPath.has(p)) pagesByPath.set(p, []);
-    pagesByPath.get(p).push(e);
-  });
-
-  pagesByPath.forEach((events) => {
-    events.sort((a, b) => b.timestamp - a.timestamp);
-  });
   log(`Time window: ${IndexConfig.INCREMENTAL_WINDOW_MS / 1000}s (medialog within window of latest preview)`);
   log(`Pages to process: ${pagesByPath.size} (${[...pagesByPath.keys()].join(', ')})`);
   log(`Medialog entries since lastFetch: ${medialogEntries.length}`);
@@ -555,8 +555,10 @@ export async function buildFullIndex(sitePath, org, repo, ref, onProgress, onPro
       auditlogCount += 1;
       if (isPage(e.path)) {
         const p = normalizePath(e.path);
-        if (!pagesByPath.has(p)) pagesByPath.set(p, []);
-        pagesByPath.get(p).push(e);
+        const existing = pagesByPath.get(p);
+        if (!existing || e.timestamp > existing[0].timestamp) {
+          pagesByPath.set(p, [e]);
+        }
       } else {
         const fp = toAbsoluteFilePath(e.path);
         const existing = filesByPath.get(fp);
@@ -572,8 +574,6 @@ export async function buildFullIndex(sitePath, org, repo, ref, onProgress, onPro
       percent: 15,
     });
   });
-
-  pagesByPath.forEach((events) => events.sort((a, b) => b.timestamp - a.timestamp));
 
   const pages = [];
   pagesByPath.forEach((events) => pages.push(...events));

@@ -155,7 +155,7 @@ export async function processMediaData(mediaData, onProgress = null) {
           processedData.usageData[groupingKey].uniqueDocs.add(item.doc);
         }
         const usageData = processedData.usageData[groupingKey];
-        usageData.count = usageData.hashes.length;
+        usageData.count = usageData.uniqueDocs.size;
       }
 
       Object.keys(processedData.filterArrays).forEach((filterName) => {
