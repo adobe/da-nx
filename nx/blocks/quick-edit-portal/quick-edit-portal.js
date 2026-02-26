@@ -1,4 +1,4 @@
-import { checkPermissions, signIn, handlePreview } from './src/utils.js';
+import { checkPermissions, signIn, handlePreview, checkLockdownImages } from './src/utils.js';
 import createProse from './src/prose.js';
 import {
   updateDocument, updateCursors, updateState, handleUndoRedo, getEditor, handleCursorMove,
@@ -87,6 +87,7 @@ export default async function decorate(el) {
       ctx.repo = repo;
       ctx.path = path;
       ctx.port = port;
+      ctx.lockdownImages = await checkLockdownImages(owner);
 
       await initProse(owner, repo, path, el, ctx);
 

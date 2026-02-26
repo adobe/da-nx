@@ -1,7 +1,19 @@
 function removeQuickEditParam() {
-  const url = new URL(window.location);
+  const url = new URL(window.location.href);
   url.searchParams.delete('quick-edit');
   window.history.replaceState({}, '', url);
+}
+
+function navigateToAemPageOrReload() {
+  const currentUrl = new URL(window.location.href);
+  if (currentUrl.origin.endsWith('.preview.da.live')) {
+    const newOrigin = currentUrl.origin.replace('.preview.da.live', '.aem.page');
+    const newUrl = new URL(currentUrl.pathname + currentUrl.search + currentUrl.hash, newOrigin + '/');
+    newUrl.searchParams.delete('quick-edit');
+    window.location.replace(newUrl.href);
+  } else {
+    window.location.reload();
+  }
 }
 
 export function pollConnection(ctx, action) {
@@ -25,7 +37,7 @@ async function handlePreview(ctx) {
         ctx.port.removeEventListener('message', previewListener);
         if (e.data.ok) {
           removeQuickEditParam();
-          window.location.reload();
+          navigateToAemPageOrReload();
         } else {
           // eslint-disable-next-line no-alert
           alert(e.data.error);
@@ -53,7 +65,7 @@ export function setupActions(ctx) {
   // Create exit button
   const exitButton = createButton('quick-edit-exit', 'Exit', () => {
     removeQuickEditParam();
-    window.location.reload();
+    navigateToAemPageOrReload();
   });
   exitButton.style.display = 'none';
 
