@@ -120,7 +120,7 @@ async function saveVersion(path, label) {
 // Tag names that are inline; spaces adjacent to these are preserved when trimming
 const INLINE_TAGS = 'a,abbr,b,em,i,span,strong,sub,sup'.split(',');
 
-function collapseInnerTextSpaces(html) {
+export function collapseInnerTextSpaces(html) {
   return html.replace(/>([^<]*)</g, (match, text, offset, str) => {
     if (!text.trim()) return match;
     let s = text.replace(/\s+/g, ' ');
