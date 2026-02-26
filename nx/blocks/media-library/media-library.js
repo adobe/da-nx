@@ -226,10 +226,9 @@ class NxMediaLibrary extends LitElement {
 
       const validation = await validateSitePath(this.sitePath);
 
-      updateAppState({ isValidating: false });
-
       if (!validation.valid) {
         updateAppState({
+          isValidating: false,
           validationError: validation.error,
           validationSuggestion: validation.suggestion,
           sitePathValid: false,
@@ -245,6 +244,7 @@ class NxMediaLibrary extends LitElement {
 
       saveRecentSite(this.sitePath);
       await this.loadMediaData();
+      updateAppState({ isValidating: false });
       const onMediaDataUpdated = (mediaData) => this.setMediaData(mediaData);
       initService(this.sitePath, { onMediaDataUpdated });
     } catch (error) {

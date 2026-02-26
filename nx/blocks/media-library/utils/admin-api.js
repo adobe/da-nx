@@ -199,8 +199,17 @@ export async function streamLog(
 ) {
   const fetchParams = new URLSearchParams();
   fetchParams.append('limit', limit.toString());
-  const sinceDuration = since != null ? timestampToDuration(since) : '36500d';
-  fetchParams.append('since', sinceDuration);
+
+  if (since != null && typeof since === 'number') {
+    // Use from/to for precise incremental range (per admin API: from=start, to=end)
+    const fromIso = new Date(since).toISOString();
+    const toIso = new Date().toISOString();
+    fetchParams.append('from', fromIso);
+    fetchParams.append('to', toIso);
+  } else {
+    const sinceDuration = since != null ? timestampToDuration(since) : '36500d';
+    fetchParams.append('since', sinceDuration);
+  }
 
   const baseUrl = `https://admin.hlx.page/${endpoint}/${org}/${repo}/${ref}`;
   const separator = endpoint === 'medialog' ? '/' : '';

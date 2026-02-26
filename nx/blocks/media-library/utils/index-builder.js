@@ -530,7 +530,6 @@ export async function buildFullIndex(sitePath, org, repo, ref, onProgress, onPro
   const filesByPath = new Map();
   const deletedPaths = new Set();
   let auditlogCount = 0;
-  let firstChunkLogged = false;
 
   const earlyLinkedEntries = [];
 
@@ -551,11 +550,6 @@ export async function buildFullIndex(sitePath, org, repo, ref, onProgress, onPro
   };
 
   await streamLog('log', org, repo, ref, null, IndexConfig.API_PAGE_SIZE, (chunk) => {
-    if (!firstChunkLogged) {
-      firstChunkLogged = true;
-      // eslint-disable-next-line no-console
-      console.log(`[MediaIndexer] First auditlog chunk: ${chunk.length} entries`);
-    }
     chunk.forEach((e) => {
       if (!e?.path || e.route !== 'preview') return;
       auditlogCount += 1;

@@ -121,13 +121,6 @@ export async function triggerBuild(sitePath, org, repo, ref = 'main') {
         const toRender = mediaData.length > PROGRESSIVE_DISPLAY_CAP
           ? mediaData.slice(0, PROGRESSIVE_DISPLAY_CAP)
           : mediaData;
-        if (mediaData.length > PROGRESSIVE_DISPLAY_CAP) {
-          // eslint-disable-next-line no-console
-          console.log(`[MediaIndexer] Emitting progressive data: ${toRender.length} items (capped from ${mediaData.length})`);
-        } else {
-          // eslint-disable-next-line no-console
-          console.log(`[MediaIndexer] Emitting progressive data: ${toRender.length} items to render`);
-        }
         updateAppState({ progressiveMediaData: toRender });
       }
     };
