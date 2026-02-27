@@ -5,12 +5,12 @@ export function updateDocument(ctx) {
   // Skip rerender if suppressed (e.g., during image updates)
   if (ctx.suppressRerender) return;
   const body = getInstrumentedHTML(window.view, ctx);
-  ctx.port.postMessage({ type: 'set-body', body, lockdownImages: ctx.lockdownImages });
+  ctx.port.postMessage({ type: 'set-body', body });
 }
 
 export function updateCursors(ctx) {
   const body = getInstrumentedHTML(window.view, ctx);
-  ctx.port.postMessage({ type: 'set-cursors', body, lockdownImages: ctx.lockdownImages });
+  ctx.port.postMessage({ type: 'set-cursors', body });
 }
 
 export function updateState(data, ctx) {
