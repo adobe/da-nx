@@ -87,7 +87,7 @@ export default async function decorate(el) {
       ctx.repo = repo;
       ctx.path = path;
       ctx.port = port;
-      ctx.lockdownImages = await checkLockdownImages(owner);
+      ctx.lockdownImages = await checkLockdownImages(owner, repo);
 
       await initProse(owner, repo, path, el, ctx);
 
@@ -95,7 +95,7 @@ export default async function decorate(el) {
       port.onmessage = (event) => onMessage(event, ctx);
 
       // Tell the other side we are ready
-      port.postMessage({ ready: true });
+      port.postMessage({ type: 'ready', ready: true, lockdownImages: ctx.lockdownImages });
     }
   }
   // set up message channel
