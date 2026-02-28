@@ -58,6 +58,16 @@ export function resolvePropSchema(localSchema, fullSchema) {
 }
 
 /**
+ * Whether a property is required in an object schema.
+ * @param {Object} objectSchema - Resolved object schema with optional required array
+ * @param {string} key - Property key
+ * @returns {boolean}
+ */
+function isPropertyRequired(objectSchema, key) {
+  return objectSchema?.required?.includes(key) ?? false;
+}
+
+/**
  * Returns the schema type (object, array, string, etc.).
  * @param {Object} schema - Schema (may contain $ref)
  * @param {Object} fullSchema - The full schema for resolving $defs
@@ -68,11 +78,75 @@ export function getSchemaType(schema, fullSchema) {
   return resolved?.type;
 }
 
+/** Extract title, type, enum, default. Shared by itemsSchemaToNode and propSchemaToNodeFields. */
+function schemaToBaseFields(resolved, props, type, fallbackTitle = '') {
+  const fields = {
+    title: resolved?.title ?? props?.title ?? fallbackTitle,
+    type: type || 'string',
+  };
+  if (Array.isArray(props?.enum)) fields.enum = props.enum;
+  if (props && Object.prototype.hasOwnProperty.call(props, 'default')) {
+    fields.default = props.default;
+  }
+  return fields;
+}
+
+/**
+ * Convert items schema to node (children not properties).
+ * @param {Object} itemsSchema - Schema for array items (may have $ref)
+ * @param {Object} fullSchema - Full schema for $ref resolution
+ * @param {string} fallbackTitle - Title when schema has none
+ * @returns {Object} { title, type, enum?, default?, children? }
+ */
+function itemsSchemaToNode(itemsSchema, fullSchema, fallbackTitle = '') {
+  if (!itemsSchema || typeof itemsSchema !== 'object') {
+    return { title: fallbackTitle, type: 'string' };
+  }
+  const resolved = resolvePropSchema(itemsSchema, fullSchema);
+  const schemaType = getSchemaType(itemsSchema, fullSchema);
+  const props = resolved?.properties ?? resolved;
+  const type = schemaType ?? props?.type ?? 'string';
+
+  const node = { ...schemaToBaseFields(resolved, props, type, fallbackTitle) };
+
+  if (type === 'object' && props?.properties) {
+    const childProps = props.properties;
+    const required = new Set(props.required ?? []);
+    node.children = Object.entries(childProps).map(([childKey, childSchema]) => {
+      const child = itemsSchemaToNode(childSchema, fullSchema, '');
+      child.key = childKey;
+      child.required = required.has(childKey);
+      return child;
+    });
+  } else if (type === 'array') {
+    node.children = [];
+  }
+
+  return node;
+}
+
+/**
+ * Convert property schema to node fields (Editor/Sidebar).
+ * @param {Object} resolvedSchema - { title, properties } from resolvePropSchema
+ * @param {string} schemaType - 'string'|'number'|'integer'|'boolean'|'object'|'array'
+ * @param {Object} fullSchema - Full schema for $ref resolution (needed when type is array)
+ * @returns {Object} { title, type, enum?, items?, default? }
+ */
+function propSchemaToNodeFields(resolvedSchema, schemaType, fullSchema) {
+  const props = resolvedSchema?.properties ?? resolvedSchema;
+  const type = schemaType ?? props?.type;
+  const fields = { ...schemaToBaseFields(resolvedSchema, props, type, '') };
+  if (type === 'array' && props?.items && fullSchema) {
+    fields.items = itemsSchemaToNode(props.items, fullSchema, fields.title);
+  }
+  return fields;
+}
+
 // -----------------------------------------------------------------------------
 // Persist filter: prune empty values for user-only output
 // -----------------------------------------------------------------------------
 
-function isEmpty(value) {
+export function isEmpty(value) {
   if (value === null || value === undefined || value === '') return true;
   if (typeof value === 'string' && value.trim() === '') return true;
   if (Array.isArray(value)) return value.length === 0;
@@ -119,17 +193,15 @@ export async function loadHtml(details) {
 }
 
 /**
- * Schema-driven annotation: build annotated tree from schema structure.
- * Model = user-entered + schema defaults only; no generated values.
- * Output uses RFC 6901 pointer (not path).
+ * Annotated field tree from schema + data.
  *
  * @param {string} key - Property key
  * @param {Object} propSchema - Schema for this property
  * @param {Object} fullSchema - Full schema for $ref resolution
- * @param {*} userData - User data at this level (may be undefined)
+ * @param {*} userData - User data at this level (for array length; values not stored)
  * @param {string} parentPointer - Parent pointer (e.g. "/data")
  * @param {boolean} required - Whether property is required
- * @returns {Object} { key, data, schema, pointer, required }
+ * @returns {Object} { key, pointer, title, type, enum?, items?, required, children? }
  */
 export function annotateFromSchema(key, propSchema, fullSchema, userData, parentPointer = '', required = false) {
   const currentPointer = parentPointer ? append(parentPointer, key) : append('', key);
@@ -143,11 +215,11 @@ export function annotateFromSchema(key, propSchema, fullSchema, userData, parent
     resolvedItemsSchema.title ??= resolvedSchema.title;
 
     const itemCount = Array.isArray(userData) ? userData.length : 0;
-    const data = [];
+    const children = [];
 
     for (let i = 0; i < itemCount; i += 1) {
       const itemData = userData[i];
-      const annotated = annotateFromSchema(
+      const child = annotateFromSchema(
         String(i),
         itemsSchema,
         fullSchema,
@@ -155,22 +227,23 @@ export function annotateFromSchema(key, propSchema, fullSchema, userData, parent
         currentPointer,
         false,
       );
-      data.push(annotated);
+      children.push(child);
     }
 
-    return { key, data, schema: resolvedSchema, pointer: currentPointer, required };
+    const nodeFields = propSchemaToNodeFields(resolvedSchema, schemaType, fullSchema);
+    return { key, pointer: currentPointer, ...nodeFields, required, children };
   }
 
   // Object: iterate schema.properties.properties (child property map)
   if (schemaType === 'object' || resolvedSchema.properties?.properties) {
     const childProps = resolvedSchema.properties?.properties ?? {};
-    const data = [];
+    const children = [];
 
     for (const [childKey, childSchema] of Object.entries(childProps)) {
-      const isRequired = resolvedSchema.properties?.required?.includes(childKey) ?? false;
+      const isRequired = isPropertyRequired(resolvedSchema.properties, childKey);
       const childValue = userData && typeof userData === 'object' && childKey in userData
         ? userData[childKey] : undefined;
-      const annotated = annotateFromSchema(
+      const child = annotateFromSchema(
         childKey,
         childSchema,
         fullSchema,
@@ -178,13 +251,18 @@ export function annotateFromSchema(key, propSchema, fullSchema, userData, parent
         currentPointer,
         isRequired,
       );
-      data.push(annotated);
+      children.push(child);
     }
 
-    return { key, data, schema: resolvedSchema, pointer: currentPointer, required };
+    const nodeFields = propSchemaToNodeFields(resolvedSchema, schemaType, fullSchema);
+    return { key, pointer: currentPointer, ...nodeFields, required, children };
   }
 
-  // Primitive
-  const value = userData ?? resolvedSchema.properties?.default;
-  return { key, data: value, schema: resolvedSchema, pointer: currentPointer, required };
+  // Primitive: no value stored; use getValueByPointer(json, pointer) at render time
+  return {
+    key,
+    pointer: currentPointer,
+    ...propSchemaToNodeFields(resolvedSchema, schemaType, fullSchema),
+    required,
+  };
 }
