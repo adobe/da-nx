@@ -133,8 +133,9 @@ export async function triggerBuild(sitePath, org, repo, ref = 'main') {
         const existingTs = existing?.timestamp ?? 0;
 
         if (!existing) {
-          if (progressiveMap.size >= PROGRESSIVE_DISPLAY_CAP) continue;
-          progressiveMap.set(key, item);
+          if (progressiveMap.size < PROGRESSIVE_DISPLAY_CAP) {
+            progressiveMap.set(key, item);
+          }
         } else if (itemTs >= existingTs) {
           progressiveMap.set(key, item);
         }

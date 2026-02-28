@@ -34,7 +34,6 @@ const ICONS = [
   `${nx}/public/icons/S2_Icon_OpenIn_20_N.svg`,
   `${nx}/public/icons/S2_Icon_AdobeExpressSolid_20_N.svg`,
   `${nx}/public/icons/S2_Icon_Edit_20_N.svg`,
-  `${nx}/public/icons/S2_Icon_Accessibility_20_N.svg`,
   `${nx}/public/icons/S2_Icon_ChevronRight_20_N.svg`,
   `${nx}/public/icons/S2_Icon_CheckmarkCircleGreen_20_N.svg`,
   `${nx}/public/icons/S2_Icon_Close_20_N.svg`,
@@ -537,7 +536,7 @@ class NxMediaInfo extends LitElement {
           <div class="image-preview-container">
             <picture>
               <source type="image/webp" srcset="${optimized.webpSrcset}" sizes="min(50vw, 600px)">
-              <img src="${optimized.fallbackUrl}" srcset="${optimized.fallbackSrcset}" sizes="min(50vw, 600px)" alt="${this.media.alt || ''}" class="preview-image">
+              <img src="${optimized.fallbackUrl}" srcset="${optimized.fallbackSrcset}" sizes="min(50vw, 600px)" alt="" class="preview-image">
             </picture>
             <div class="subtype-label">${subtype}</div>
           </div>
@@ -545,7 +544,7 @@ class NxMediaInfo extends LitElement {
       }
       return html`
         <div class="image-preview-container">
-          <img src="${this.media.url}" alt="${this.media.alt || ''}" class="preview-image">
+          <img src="${this.media.url}" alt="" class="preview-image">
           <div class="subtype-label">${subtype}</div>
         </div>
       `;

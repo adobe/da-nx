@@ -1,8 +1,7 @@
 import { html, LitElement } from 'da-lit';
 import getStyle from '../../utils/styles.js';
 import { loadMediaSheet, buildMediaIndexStructures } from './indexing/load.js';
-import { copyMediaToClipboard } from './core/export.js';
-import { exportToCsv } from './core/export.js';
+import { copyMediaToClipboard, exportToCsv } from './core/export.js';
 import { validateSitePath, getBasePath, resolveAbsolutePath } from './core/paths.js';
 import { saveRecentSite } from './core/storage.js';
 import { ensureAuthenticated, sortMediaData } from './core/utils.js';
@@ -348,7 +347,7 @@ class NxMediaLibrary extends LitElement {
           ${this.renderCurrentView()}
         </div>
 
-        <nx-media-info @altTextUpdated=${this.handleAltTextUpdated}></nx-media-info>
+        <nx-media-info></nx-media-info>
 
         ${this._appState.notification ? html`
           <div class="da-notification-status">
@@ -624,19 +623,7 @@ class NxMediaLibrary extends LitElement {
       showNotification('Error', 'Failed to export.', 'danger');
     }
   };
-
-  handleAltTextUpdated(e) {
-    const { media } = e.detail;
-
-    if (this._appState.mediaData) {
-      updateAppState({
-        mediaData: this._appState.mediaData.map((item) => (
-          item.url === media.url ? { ...item, ...media } : item)),
-      });
-    }
-  }
 }
-
 customElements.define(EL_NAME, NxMediaLibrary);
 
 function setupMediaLibrary(el) {

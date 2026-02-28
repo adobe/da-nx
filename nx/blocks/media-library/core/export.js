@@ -25,7 +25,7 @@ export function exportToCsv(mediaData, options = {}) {
     ? exportFilename(org, repo, filterName)
     : `media-export-${Date.now()}.csv`;
 
-  const headers = ['Name', 'URL', 'Type', 'References', 'Status', 'Usage Count', 'Alt'];
+  const headers = ['Name', 'URL', 'Type', 'References', 'Status', 'Usage Count'];
   const rows = mediaData.map((item) => [
     escapeCsvCell(item.name || ''),
     escapeCsvCell(item.url || ''),
@@ -33,7 +33,6 @@ export function exportToCsv(mediaData, options = {}) {
     escapeCsvCell(item.doc || ''),
     escapeCsvCell(item.status || ''),
     escapeCsvCell(item.usageCount ?? ''),
-    escapeCsvCell(item.alt ?? ''),
   ]);
   const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
   const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });

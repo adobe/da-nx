@@ -7,11 +7,11 @@ import {
   isExternalVideoUrl,
   isPdfUrl,
   isFragmentMedia,
-  isSvgFile,
   getSubtype,
+  isImage,
+  isVideo,
 } from '../../core/media.js';
 import { isExternalUrl, getDedupeKey } from '../../core/urls.js';
-import { isImage, isVideo } from '../../core/media.js';
 import { optimizeImageUrls, CARD_IMAGE_SIZES } from '../../core/files.js';
 import { getAppState, onStateChange } from '../../core/state.js';
 import '../../../../public/sl/components.js';
@@ -36,7 +36,6 @@ const ICONS = [
   `${nx}/public/icons/Smock_DocumentFragment_18_N.svg`,
   `${nx}/public/icons/S2_Icon_Play_20_N.svg`,
   `${nx}/public/icons/C_Icon_Fragment.svg`,
-  `${nx}/public/icons/S2_Icon_Accessibility_20_N.svg`,
 ];
 
 class NxMediaGrid extends LitElement {
@@ -130,7 +129,6 @@ class NxMediaGrid extends LitElement {
             <span class="media-label media-type" title="${getSubtype(media)}">${this.getDisplayTypeText(media)}</span>
           </div>
           <div class="media-actions">
-            ${this.renderAltStatus(media)}
             <button
               class="icon-button share-button"
               @click=${(e) => { e.stopPropagation(); handlers.copyClick(); }}
@@ -188,12 +186,12 @@ class NxMediaGrid extends LitElement {
         return html`
           <picture>
             <source type="image/webp" srcset="${optimized.webpSrcset}" sizes="${CARD_IMAGE_SIZES}">
-            <img src="${optimized.fallbackUrl}" srcset="${optimized.fallbackSrcset}" sizes="${CARD_IMAGE_SIZES}" alt="${media.alt || ''}" loading="lazy" decoding="async">
+            <img src="${optimized.fallbackUrl}" srcset="${optimized.fallbackSrcset}" sizes="${CARD_IMAGE_SIZES}" alt="" loading="lazy" decoding="async">
           </picture>
         `;
       }
       return html`
-        <img src="${media.url}" alt="${media.alt || ''}" loading="lazy" decoding="async">
+        <img src="${media.url}" alt="" loading="lazy" decoding="async">
       `;
     }
 
@@ -226,21 +224,6 @@ class NxMediaGrid extends LitElement {
     }
 
     return staticTemplates.unknownPlaceholder;
-  }
-
-  renderAltStatus(media) {
-    if (media.type === MediaType.IMAGE && !isSvgFile(media)) {
-      if (media.alt && media.alt !== '') {
-        return html`
-          <div class="filled-alt-indicator">
-            <svg class="alt-text-icon icon" viewBox="0 0 22 20">
-              <use href="#S2_Icon_Accessibility_20_N"></use>
-            </svg>
-          </div>
-        `;
-      }
-    }
-    return '';
   }
 
   async loadIcons() {

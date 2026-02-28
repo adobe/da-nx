@@ -11,7 +11,6 @@ import { sortMediaData } from '../core/utils.js';
 import { getDedupeKey } from '../core/urls.js';
 import {
   IndexFiles,
-  MediaType,
   SheetNames,
 } from '../core/constants.js';
 
@@ -36,13 +35,6 @@ export async function saveMediaSheet(data, sitePath) {
   });
 }
 
-function normalizeMediaItem(item) {
-  if (item.type === MediaType.IMAGE && (item.alt === 'null' || item.alt === undefined)) {
-    return { ...item, alt: null };
-  }
-  return item;
-}
-
 export async function loadMediaSheet(sitePath) {
   const path = getMediaSheetPath(sitePath);
 
@@ -52,7 +44,7 @@ export async function loadMediaSheet(sitePath) {
     if (resp.ok) {
       const data = await resp.json();
       const result = data[SheetNames.MEDIA].data;
-      return result.map(normalizeMediaItem);
+      return result;
     }
   } catch (error) {
     console.error(`[MediaIndexer] Error loading ${IndexFiles.MEDIA_INDEX}:`, error); // eslint-disable-line no-console
