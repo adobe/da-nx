@@ -1,0 +1,171 @@
+{
+  "items": [
+    {
+      "id": "698f5c0a641b3318a8caf06f",
+      "status": "completed",
+      "taskType": {
+        "id": "696e31eeb360a50149c55a4b",
+        "key": "scan",
+        "name": "File Type Detection",
+        "apiInternalId": "scan"
+      },
+      "input": {
+        "type": "sourceFile",
+        "sourceFile": {
+          "id": "698f5c09641b3318a8caee9e",
+          "name": "agilent-trados-demo.html",
+          "role": "translatable"
+        }
+      }
+    },
+    {
+      "id": "698f5c0b93dfbc0f0e61d084",
+      "status": "completed",
+      "taskType": {
+        "id": "696e31ef6c2a68053ac36386",
+        "key": "convert",
+        "name": "File Format Conversion",
+        "apiInternalId": "convert"
+      },
+      "input": {
+        "type": "sourceFile",
+        "sourceFile": {
+          "id": "698f5c09641b3318a8caee9e",
+          "name": "agilent-trados-demo.html",
+          "role": "translatable"
+        }
+      }
+    },
+    {
+      "id": "698f5c0c6ac1504a447e9d36",
+      "status": "completed",
+      "taskType": {
+        "id": "696e31efb360a50149c56c63",
+        "key": "copy-to-target",
+        "name": "Copy Source to Target",
+        "apiInternalId": "copy-to-target"
+      },
+      "input": {
+        "type": "sourceFile",
+        "sourceFile": {
+          "id": "698f5c09641b3318a8caee9e",
+          "name": "agilent-trados-demo.html",
+          "role": "translatable"
+        }
+      }
+    },
+    {
+      "id": "698f5c0d5eb2610dc7b24b5c",
+      "status": "completed",
+      "taskType": {
+        "id": "696e31ef91e7c82c8244a89d",
+        "key": "apply-machine-translation",
+        "name": "Machine Translation",
+        "apiInternalId": "apply-machine-translation"
+      },
+      "input": {
+        "type": "targetFile",
+        "targetFile": {
+          "id": "698f5c0c641b3318a8caf5d4",
+          "name": "agilent-trados-demo.html",
+          "languageDirection": {
+            "sourceLanguage": {
+              "languageCode": "en-US",
+              "englishName": "English (United States)"
+            },
+            "targetLanguage": {
+              "languageCode": "de-DE",
+              "englishName": "German (Germany)"
+            },
+            "id": "698f5c0693dfbc0f0e61c023"
+          }
+        }
+      }
+    },
+    {
+      "id": "698f5c0d6ac1504a447e9e4a",
+      "status": "completed",
+      "taskType": {
+        "id": "696e31ef91e7c82c8244a89d",
+        "key": "apply-machine-translation",
+        "name": "Machine Translation",
+        "apiInternalId": "apply-machine-translation"
+      },
+      "input": {
+        "type": "targetFile",
+        "targetFile": {
+          "id": "698f5c0c641b3318a8caf5d7",
+          "name": "agilent-trados-demo.html",
+          "languageDirection": {
+            "sourceLanguage": {
+              "languageCode": "en-US",
+              "englishName": "English (United States)"
+            },
+            "targetLanguage": {
+              "languageCode": "fr-FR",
+              "englishName": "French (France)"
+            },
+            "id": "698f5c0693dfbc0f0e61c024"
+          }
+        }
+      }
+    },
+    {
+      "id": "698f5c15641b3318a8cb1755",
+      "status": "completed",
+      "taskType": {
+        "id": "696e31eeea8e8f457904fa4d",
+        "key": "generate-target",
+        "name": "Target File Generation",
+        "apiInternalId": "generate-target"
+      },
+      "input": {
+        "type": "targetFile",
+        "targetFile": {
+          "id": "698f5c0c641b3318a8caf5d4",
+          "name": "agilent-trados-demo.html",
+          "languageDirection": {
+            "sourceLanguage": {
+              "languageCode": "en-US",
+              "englishName": "English (United States)"
+            },
+            "targetLanguage": {
+              "languageCode": "de-DE",
+              "englishName": "German (Germany)"
+            },
+            "id": "698f5c0693dfbc0f0e61c023"
+          }
+        }
+      }
+    },
+    {
+      "id": "698f5c169166be4bda17c04e",
+      "status": "completed",
+      "taskType": {
+        "id": "696e31f00914dc609080e89c",
+        "key": "file-delivery",
+        "name": "File Delivery",
+        "apiInternalId": "file-delivery"
+      },
+      "input": {
+        "type": "targetFile",
+        "targetFile": {
+          "id": "698f5c0c641b3318a8caf5d4",
+          "name": "agilent-trados-demo.html",
+          "languageDirection": {
+            "sourceLanguage": {
+              "languageCode": "en-US",
+              "englishName": "English (United States)"
+            },
+            "targetLanguage": {
+              "languageCode": "de-DE",
+              "englishName": "German (Germany)"
+            },
+            "id": "698f5c0693dfbc0f0e61c023"
+          }
+        }
+      }
+    }
+  ],
+  "itemCount": 7
+}

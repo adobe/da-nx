@@ -126,11 +126,15 @@ function parseConfig(config) {
   const docRules = config['custom-doc-rules']?.data || [];
   const contentRules = config['dnt-content-rules']?.data || [];
   const sheetRules = config['dnt-sheet-rules']?.data || [];
+  const dntSheetData = config.dnt?.data || [];
 
   const rules = {
     docRules: new Map(),
     contentRules: [],
     sheetRules: [],
+    dntSheets: [],
+    dntSheetToColumns: new Map(),
+    dntUniversalColumns: [],
   };
 
   docRules.forEach((rule) => {
@@ -149,6 +153,21 @@ function parseConfig(config) {
   sheetRules.forEach((sheetRule) => {
     if (Object.keys(sheetRule).length > 0) {
       rules.sheetRules.push(extractPattern(sheetRule));
+    }
+  });
+
+  dntSheetData.forEach((row) => {
+    const dntSheet = row['dnt-sheet'];
+    const dntColumnsStr = row['dnt-columns'];
+    if (dntColumnsStr === '*') {
+      rules.dntSheets.push(dntSheet);
+    } else {
+      const dntColumns = dntColumnsStr.split(',').map((col) => col.trim());
+      if (dntSheet === '*') {
+        rules.dntUniversalColumns.push(...dntColumns);
+      } else {
+        rules.dntSheetToColumns.set(dntSheet, dntColumns);
+      }
     }
   });
 
