@@ -14,7 +14,8 @@ const EDITABLES = [
 ];
 const EDITABLE_SELECTORS = EDITABLES.map((edit) => edit.selector).join(', ');
 
-export function getInstrumentedHTML(view) {
+export function getInstrumentedHTML(view, ctx) {
+  const { lockdownImages } = ctx;
   // Clone the editor first so we don't modify the real DOM
   const editorClone = view.dom.cloneNode(true);
 
@@ -63,6 +64,8 @@ export function getInstrumentedHTML(view) {
     }
   });
 
-  // Convert to an HTML string using prose2aem
-  return prose2aem(editorClone, true);
+  // Convert to an HTML string using prose2aem.
+  // When lockdownImages is true, image and content.da.live URLs are made relative
+  // so they resolve against the preview proxy (e.g. preview.da.live) with auth.
+  return prose2aem(editorClone, true, false, lockdownImages);
 }

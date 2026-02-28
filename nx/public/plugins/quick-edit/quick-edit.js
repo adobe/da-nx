@@ -19,9 +19,23 @@ async function setBody(body, ctx) {
   setupActions(ctx);
 }
 
-function onMessage(e, ctx) {
+function handleReady(e, ctx) {
   ctx.initialized = true;
-  if (e.data.type === 'set-body') {
+  ctx.lockdownImages = e.data.lockdownImages;
+  if (ctx.lockdownImages) {
+    const currentUrl = new URL(window.location.href);
+    if (currentUrl.origin.endsWith('.aem.page')) {
+      const newOrigin = currentUrl.origin.replace('.aem.page', '.preview.da.live');
+      const newHref = `${newOrigin}${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`;
+      window.location.replace(newHref);
+    }
+  }
+}
+
+function onMessage(e, ctx) {
+  if (e.data.type === 'ready') {
+    handleReady(e, ctx);
+  } else if (e.data.type === 'set-body') {
     setBody(e.data.body, ctx);
   } else if (e.data.type === 'set-editor-state') {
     const { editorState, cursorOffset } = e.data;
