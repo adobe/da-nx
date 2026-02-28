@@ -34,10 +34,15 @@ export const Paths = Object.freeze({
 });
 
 export const IndexFiles = Object.freeze({
-  FOLDER: '.da/mediaindex',
-  MEDIA_INDEX: 'media-index.json',
-  MEDIA_INDEX_META: 'media-index-meta.json',
+  FOLDER: '.da/media-insights',
+  MEDIA_INDEX: 'index.json',
+  MEDIA_INDEX_META: 'index-meta.json',
   INDEX_LOCK: 'index-lock.json',
+});
+
+export const SheetNames = Object.freeze({
+  MEDIA: 'media',
+  USAGE: 'usage',
 });
 
 export const Storage = Object.freeze({

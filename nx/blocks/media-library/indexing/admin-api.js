@@ -1,6 +1,6 @@
 import { daFetch, initIms } from '../../../utils/daFetch.js';
 import { DA_ORIGIN } from '../../../public/utils/constants.js';
-import { CORS_PROXY_URL, IndexFiles } from './constants.js';
+import { CORS_PROXY_URL, IndexFiles } from '../core/constants.js';
 
 export async function fetchWithCorsProxy(url, options = {}) {
   const { proxyOnly = false, ...fetchOpts } = options;
@@ -42,6 +42,30 @@ export async function createSheet(data, type = 'sheet') {
     ':type': type,
   };
   const blob = new Blob([JSON.stringify(sheetMeta, null, 2)], { type: 'application/json' });
+  const formData = new FormData();
+  formData.append('data', blob);
+  return formData;
+}
+
+export async function createMultiSheet(sheets) {
+  const sheetNames = Object.keys(sheets);
+  const multiSheetData = {
+    ':version': 3,
+    ':type': 'multi-sheet',
+    ':names': sheetNames,
+  };
+
+  sheetNames.forEach((name) => {
+    const data = sheets[name];
+    multiSheetData[name] = {
+      total: data.length,
+      offset: 0,
+      limit: data.length,
+      data,
+    };
+  });
+
+  const blob = new Blob([JSON.stringify(multiSheetData, null, 2)], { type: 'application/json' });
   const formData = new FormData();
   formData.append('data', blob);
   return formData;
@@ -142,6 +166,20 @@ export async function loadSheet(path) {
     if (resp.ok) {
       const data = await resp.json();
       return data.data || data || [];
+    }
+  } catch {
+    return [];
+  }
+  return [];
+}
+
+export async function loadMultiSheet(path, sheetName) {
+  try {
+    const resp = await daFetch(`${DA_ORIGIN}/source${path}`);
+
+    if (resp.ok) {
+      const data = await resp.json();
+      return data[sheetName]?.data || [];
     }
   } catch {
     return [];

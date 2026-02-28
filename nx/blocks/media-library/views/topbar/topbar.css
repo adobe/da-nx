@@ -46,6 +46,12 @@ svg.icon {
   to { transform: rotate(360deg); }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .result-count-spinner {
+    animation: none;
+  }
+}
+
 .left-controls {
   display: flex;
   align-items: center;

@@ -5,24 +5,22 @@ import getSvg from '../../../../public/utils/svg.js';
 import {
   getVideoThumbnail,
   isExternalVideoUrl,
-  isExternalUrl,
-  isImage,
-  isVideo,
   isPdfUrl,
   isFragmentMedia,
   isSvgFile,
   getSubtype,
-  optimizeImageUrls,
-  CARD_IMAGE_SIZES,
-} from '../../utils/utils.js';
-import { getAppState, onStateChange } from '../../utils/state.js';
+} from '../../core/media.js';
+import { isExternalUrl, getDedupeKey } from '../../core/urls.js';
+import { isImage, isVideo } from '../../core/media.js';
+import { optimizeImageUrls, CARD_IMAGE_SIZES } from '../../core/files.js';
+import { getAppState, onStateChange } from '../../core/state.js';
 import '../../../../public/sl/components.js';
 import {
   createMediaEventHandlers,
   staticTemplates,
   getMediaName,
-} from '../../utils/templates.js';
-import { MediaType } from '../../utils/constants.js';
+} from '../../features/templates.js';
+import { MediaType } from '../../core/constants.js';
 
 const styles = await getStyle(import.meta.url);
 const nx = `${new URL(import.meta.url).origin}/nx`;
@@ -96,7 +94,11 @@ class NxMediaGrid extends LitElement {
         ${virtualize({
     items: this.mediaData,
     renderItem: (media) => this.renderMediaCard(media),
-    keyFunction: (media) => media?.url || '',
+    keyFunction: (media) => {
+      const key = media?.url ? getDedupeKey(media.url) : (media?.hash || '');
+      const doc = media?.doc ?? '';
+      return `${key}|${doc}`;
+    },
     scroller: true,
     layout: grid({
       gap: '24px',
@@ -115,7 +117,7 @@ class NxMediaGrid extends LitElement {
       mediaClick: () => this.eventHandlers.handleMediaClick(media),
       copyClick: () => this.eventHandlers.handleMediaCopy(media),
     };
-    const usageCount = media.usageCount || 0;
+    const usageCount = media.usageCount ?? '-';
 
     return html`
       <div class="media-card">

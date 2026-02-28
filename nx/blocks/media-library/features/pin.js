@@ -1,5 +1,5 @@
-import { getLocalStorageItem, setLocalStorageItem } from './utils.js';
-import { Storage } from './constants.js';
+import { getLocalStorageItem, setLocalStorageItem } from '../core/storage.js';
+import { Storage } from '../core/constants.js';
 
 function getStorageKey(org, repo) {
   return `${Storage.PINNED_FOLDERS_PREFIX}${org}-${repo}`;

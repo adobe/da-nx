@@ -1,13 +1,15 @@
 import {
-  streamLog, loadIndexMeta, saveIndexMeta, checkIndex, loadSheet, createSheet,
+  streamLog, loadIndexMeta, saveIndexMeta, checkIndex, loadSheet, createSheet, createMultiSheet, loadMultiSheet,
 } from './admin-api.js';
 import {
   normalizePath, isPage, extractName, detectMediaType,
   isPdf, isSvg, isFragmentDoc, isPdfOrSvg,
   isLinkedContentPath, toAbsoluteFilePath,
-  buildUsageMap, matchPageEvents,
+  buildUsageMap,
   toLinkedContentEntry, toExternalMediaEntry, checkMemory,
-} from './index-helpers.js';
+  getDedupeKey,
+} from './parse.js';
+import { buildMediaSheet, buildUsageSheet, buildUsageMap as buildUsageMapFromSheet } from './sheets.js';
 import { DA_ORIGIN } from '../../../public/utils/constants.js';
 import { daFetch } from '../../../utils/daFetch.js';
 import {
@@ -15,8 +17,41 @@ import {
   Operation,
   IndexFiles,
   Paths,
-} from './constants.js';
-import { getDedupeKey } from './filters.js';
+  SheetNames,
+} from '../core/constants.js';
+import { isPerfEnabled } from '../core/debug.js';
+
+/** Update PERF_TAG when making significant changes (e.g. phase3-parallel, after-page-media) */
+const PERF_TAG = 'phase3-split-sheets';
+
+function logPerf(perf) {
+  if (!isPerfEnabled()) return;
+
+  const mem = checkMemory();
+  if (mem.usedMB != null) {
+    perf.memoryUsedMB = Math.round(mem.usedMB * 10) / 10;
+  }
+  // Audit log: dropped = non-preview entries
+  if (perf.auditLog?.streamed != null && perf.auditLog?.previewOnly != null) {
+    perf.auditLog.dropped = perf.auditLog.streamed - perf.auditLog.previewOnly;
+  }
+  // Medialog: unmatched = resourcePath entries that consolidated (same hash|doc, kept latest)
+  if (perf.medialog?.resourcePathCount != null && perf.medialog?.matched != null) {
+    perf.medialog.unmatched = Math.max(0, perf.medialog.resourcePathCount - perf.medialog.matched);
+  }
+  // Throughput
+  if (perf.auditLog?.durationMs > 0 && perf.auditLog?.streamed != null) {
+    perf.auditLog.entriesPerSec = Math.round((perf.auditLog.streamed / perf.auditLog.durationMs) * 1000);
+  }
+  if (perf.medialog?.durationMs > 0 && perf.medialog?.streamed != null) {
+    perf.medialog.entriesPerSec = Math.round((perf.medialog.streamed / perf.medialog.durationMs) * 1000);
+  }
+  if (perf.markdownParse?.durationMs > 0 && perf.markdownParse?.pages != null) {
+    perf.markdownParse.pagesPerSec = Math.round((perf.markdownParse.pages / perf.markdownParse.durationMs) * 1000 * 10) / 10;
+  }
+  // eslint-disable-next-line no-console
+  console.log('[MediaIndexer:perf]', JSON.stringify(perf, null, 2));
+}
 
 /** Dedupe by url (keep newest timestamp) so mergeDataForDisplay gets correct order */
 function dedupeProgressiveItems(items) {
@@ -49,7 +84,7 @@ export async function getIndexStatus(sitePath, org, repo) {
 export async function checkReindexEligibility(sitePath, org, repo) {
   const metaPath = `${sitePath}/${IndexFiles.FOLDER}/${IndexFiles.MEDIA_INDEX_META}`;
   const meta = await loadIndexMeta(metaPath);
-  const { exists: indexExists, lastModified: indexLastModified } = await checkIndex('.da/mediaindex', org, repo);
+  const { exists: indexExists, lastModified: indexLastModified } = await checkIndex(IndexFiles.FOLDER, org, repo);
 
   if (!meta?.lastFetchTime) {
     return { shouldReindex: false, reason: 'No previous fetch (meta missing lastFetchTime)' };
@@ -75,115 +110,185 @@ export async function checkReindexEligibility(sitePath, org, repo) {
 
 function noop() {}
 
-function removeMediaMaybeAddOrphan(idx, entry, path, medialog) {
+/**
+ * Build page-media map from medialog entries (resourcePath-based, no 5s rule).
+ * Rule: same timestamp = same preview session, add to media; different timestamp = new preview, replace.
+ */
+function buildPageMediaFromMedialog(medialogEntries) {
+  const pageMediaMap = new Map(); // path -> { timestamp, entries: [{ hash, url, name, ... }] }
+  const standaloneBuffer = [];
+
+  medialogEntries.forEach((media) => {
+    if (media.originalFilename && !media.resourcePath) {
+      standaloneBuffer.push(media);
+      return;
+    }
+    if (!media.resourcePath) return;
+
+    const normPath = normalizePath(media.resourcePath);
+
+    // Check if resourcePath points to the media file itself (self-reference)
+    // media.path is the full URL, extract pathname for comparison
+    let mediaFilePath;
+    try {
+      const url = new URL(media.path);
+      // Remove query params and hash
+      mediaFilePath = normalizePath(url.pathname);
+    } catch {
+      // If not a URL, assume it's already a path
+      mediaFilePath = normalizePath(media.path);
+    }
+
+    // Self-reference check: resourcePath === media file path
+    // Example: resourcePath="/images/logo.png" and media.path="https://.../images/logo.png"
+    if (mediaFilePath === normPath) {
+      // Self-reference: media file previewed directly, not embedded in a page
+      standaloneBuffer.push(media);
+      return;
+    }
+
+    const entry = {
+      hash: media.mediaHash,
+      url: media.path,
+      name: extractName(media),
+      timestamp: media.timestamp,
+      user: media.user,
+      operation: media.operation,
+      type: detectMediaType(media),
+    };
+
+    const existing = pageMediaMap.get(normPath);
+    if (!existing || media.timestamp !== existing.timestamp) {
+      pageMediaMap.set(normPath, { timestamp: media.timestamp, entries: [entry] });
+    } else {
+      existing.entries.push(entry);
+    }
+  });
+
+  return { pageMediaMap, standaloneBuffer };
+}
+
+/**
+ * Convert page-media map to entryMap (hash|doc -> entry).
+ */
+function pageMediaToEntryMap(pageMediaMap) {
+  const entryMap = new Map();
+  const referencedHashes = new Set();
+
+  pageMediaMap.forEach(({ entries }, doc) => {
+    entries.forEach((e) => {
+      const key = `${e.hash}|${doc}`;
+      const existing = entryMap.get(key);
+      if (!existing || e.timestamp > existing.timestamp) {
+        entryMap.set(key, {
+          hash: e.hash,
+          url: e.url,
+          name: e.name,
+          timestamp: e.timestamp,
+          user: e.user,
+          operation: e.operation,
+          type: e.type,
+          doc,
+          status: 'referenced',
+        });
+        referencedHashes.add(e.hash);
+      }
+    });
+  });
+
+  return { entryMap, referencedHashes };
+}
+
+function removeOrOrphanMedia(idx, entry, path, medialog) {
   const i = idx.findIndex((e) => e.hash === entry.hash && e.doc === path);
   if (i === -1) return 0;
   const { hash } = entry;
-  const hasDelete = medialog.some((m) => m.mediaHash === hash && m.operation === 'delete');
+  const hasUnlink = medialog.some((m) => m.mediaHash === hash && (m.operation === 'unlink' || m.operation === 'delete'));
   idx.splice(i, 1);
   const stillHasEntry = idx.some((e) => e.hash === hash);
   const alreadyUnused = idx.some((e) => e.hash === hash && !e.doc);
-  if (!stillHasEntry && !hasDelete && !alreadyUnused) {
+  if (!stillHasEntry && !hasUnlink && !alreadyUnused) {
     idx.push({
       hash,
-      doc: '',
       url: entry.url,
       name: entry.name,
       timestamp: entry.timestamp,
       user: entry.user,
       operation: entry.operation,
       type: entry.type,
+      doc: '',
       status: 'unused',
     });
   }
   return 1;
 }
 
-function processPageMediaUpdates(updatedIndex, pagesByPath, medialogEntries, onLog) {
+/**
+ * Page-based incremental update: use resourcePath directly (no window).
+ * Processes union of pages from audit log and pages from medialog.
+ * Uses bypage map for O(1) lookups of existing page media.
+ */
+function processPageMediaUpdates(updatedIndex, pagesByPath, medialogEntries, usageMap, onLog) {
+  const { pageMediaMap } = buildPageMediaFromMedialog(medialogEntries);
+  const allPages = new Set([...pagesByPath.keys(), ...pageMediaMap.keys()]);
   let added = 0;
   let removed = 0;
 
-  pagesByPath.forEach((pageEvents, normalizedPath) => {
-    const latestEvent = pageEvents[0];
-    const latestTs = latestEvent.timestamp;
-    const windowStart = latestTs;
-    const windowEnd = latestTs + IndexConfig.INCREMENTAL_WINDOW_MS;
+  allPages.forEach((normalizedPath) => {
+    const oldHashes = usageMap.get(normalizedPath) || new Set();
+    const pageData = pageMediaMap.get(normalizedPath);
+    const newEntries = pageData ? pageData.entries : [];
 
     onLog(`--- Page: ${normalizedPath} ---`);
-    onLog(`  Latest preview: ${latestTs} (${new Date(latestTs).toISOString()})`);
-    onLog(`  Window: [${windowStart}-${windowEnd}] (${IndexConfig.INCREMENTAL_WINDOW_MS / 1000}s)`);
+    onLog(`  Old (bypage): ${oldHashes.size}, New (page-based): ${newEntries.length}`);
 
-    const matchesPage = (m) => m.resourcePath && m.resourcePath === normalizedPath;
-    const pageMedialogAll = medialogEntries.filter(matchesPage);
-    const inWindow = (m) => m.timestamp >= windowStart && m.timestamp < windowEnd;
-    const newPageMedia = pageMedialogAll.filter(inWindow);
-    const outsideWindow = pageMedialogAll.filter((m) => !newPageMedia.includes(m));
-
-    if (pageMedialogAll.length > 0) {
-      onLog(`  Medialog for page: ${pageMedialogAll.length} total, ${newPageMedia.length} in window, ${outsideWindow.length} outside`);
-      if (outsideWindow.length > 0) {
-        outsideWindow.slice(0, 3).forEach((m) => {
-          onLog(`    Outside: hash=${m.mediaHash} ts=${m.timestamp} (${new Date(m.timestamp).toISOString()})`);
-        });
-      }
-    }
-
-    const oldPageEntries = updatedIndex.filter((e) => e.doc === normalizedPath);
-    const oldHashes = new Set(oldPageEntries.map((e) => e.hash));
-    const newHashes = new Set(newPageMedia.map((m) => m.mediaHash));
-
-    onLog(`  Old (index): ${oldHashes.size} hashes ${[...oldHashes].slice(0, 5).join(', ')}${oldHashes.size > 5 ? '...' : ''}`);
-    onLog(`  New (medialog in window): ${newHashes.size} hashes ${[...newHashes].slice(0, 5).join(', ')}${newHashes.size > 5 ? '...' : ''}`);
-
-    if (newPageMedia.length === 0 && oldPageEntries.length > 0) {
-      onLog('  Edge case: Page previewed with no media in window - removing old entries');
-      const rm = removeMediaMaybeAddOrphan;
-      oldPageEntries.forEach((oldEntry) => {
-        removed += rm(updatedIndex, oldEntry, normalizedPath, medialogEntries);
+    if (newEntries.length === 0 && oldHashes.size > 0) {
+      onLog('  Edge case: Page previewed with no media - removing old entries');
+      oldHashes.forEach((hash) => {
+        const oldEntry = updatedIndex.find((e) => e.hash === hash && e.doc === normalizedPath);
+        if (oldEntry) {
+          removed += removeOrOrphanMedia(updatedIndex, oldEntry, normalizedPath, medialogEntries);
+        }
       });
       return;
     }
 
+    const newHashes = new Set(newEntries.map((e) => e.hash));
     const toRemove = [...oldHashes].filter((h) => !newHashes.has(h));
     const toAdd = [...newHashes].filter((h) => !oldHashes.has(h));
-    const unchanged = [...newHashes].filter((h) => oldHashes.has(h));
 
     if (toRemove.length || toAdd.length) {
-      onLog(`  Diff: remove ${toRemove.length} (${toRemove.slice(0, 3).join(', ')}${toRemove.length > 3 ? '...' : ''}), add ${toAdd.length}`);
+      onLog(`  Diff: remove ${toRemove.length}, add ${toAdd.length}`);
     }
 
-    const rm = removeMediaMaybeAddOrphan;
     toRemove.forEach((hash) => {
-      const oldEntry = oldPageEntries.find((e) => e.hash === hash);
+      const oldEntry = updatedIndex.find((e) => e.hash === hash && e.doc === normalizedPath);
       if (oldEntry) {
-        removed += rm(updatedIndex, oldEntry, normalizedPath, medialogEntries);
+        removed += removeOrOrphanMedia(updatedIndex, oldEntry, normalizedPath, medialogEntries);
       }
     });
 
     toAdd.forEach((hash) => {
-      const media = newPageMedia.find((m) => m.mediaHash === hash);
-      if (media) {
+      const entry = newEntries.find((e) => e.hash === hash);
+      if (entry) {
         updatedIndex.push({
-          hash: media.mediaHash,
+          hash: entry.hash,
+          url: entry.url,
+          name: entry.name,
+          timestamp: entry.timestamp,
+          user: entry.user,
+          operation: entry.operation,
+          type: entry.type,
           doc: normalizedPath,
-          url: media.path,
-          name: extractName(media),
-          timestamp: media.timestamp,
-          user: media.user,
-          operation: media.operation,
-          type: detectMediaType(media),
           status: 'referenced',
         });
         added += 1;
       }
     });
 
-    unchanged.forEach((hash) => {
-      const idx = updatedIndex.findIndex((e) => e.hash === hash && e.doc === normalizedPath);
-      const media = newPageMedia.find((m) => m.mediaHash === hash);
-      if (idx !== -1 && media) {
-        updatedIndex[idx].timestamp = media.timestamp;
-      }
+    newEntries.forEach((e) => {
+      const idx = updatedIndex.findIndex((x) => x.hash === e.hash && x.doc === normalizedPath);
+      if (idx !== -1) updatedIndex[idx].timestamp = e.timestamp;
     });
   });
 
@@ -200,13 +305,13 @@ function processStandaloneUploads(updatedIndex, medialogEntries, referencedHashe
       if (!exists) {
         updatedIndex.push({
           hash: media.mediaHash,
-          doc: '',
           url: media.path,
           name: media.originalFilename.split('/').pop(),
           timestamp: media.timestamp,
           user: media.user,
           operation: media.operation,
           type: detectMediaType(media),
+          doc: '',
           status: 'unused',
         });
         added += 1;
@@ -217,7 +322,7 @@ function processStandaloneUploads(updatedIndex, medialogEntries, referencedHashe
   return added;
 }
 
-async function processLinkedContentIncremental(
+async function processLinkedContent(
   updatedIndex,
   files,
   pages,
@@ -386,6 +491,23 @@ export async function buildIncrementalIndex(
   }
 
   log(`lastFetchTime: ${lastFetchTime} (${new Date(lastFetchTime).toISOString()})`);
+  const t0 = Date.now();
+  const perf = {
+    mode: 'incremental',
+    tag: PERF_TAG,
+    org,
+    repo,
+    ref,
+    sitePath,
+    loadExistingMs: 0,
+    auditLog: { streamed: 0, chunks: 0, previewOnly: 0, pagesForParsing: 0, filesCount: 0, durationMs: 0 },
+    medialog: { streamed: 0, chunks: 0, resourcePathCount: 0, matched: 0, standalone: 0, durationMs: 0 },
+    markdownParse: { pages: 0, durationMs: 0 },
+    saveDurationMs: 0,
+    indexEntries: 0,
+    totalDurationMs: 0,
+  };
+
   onProgress({
     stage: 'starting',
     message: 'Mode: Incremental re-index (since last build)',
@@ -393,51 +515,92 @@ export async function buildIncrementalIndex(
   });
 
   onProgress({ stage: 'loading', message: 'Loading existing index...', percent: 8 });
-  const existingIndex = await loadSheet(indexPath);
+  const loadStart = Date.now();
+  const existingIndex = await loadMultiSheet(indexPath, SheetNames.MEDIA);
+  const usageData = await loadMultiSheet(indexPath, SheetNames.USAGE);
+  perf.loadExistingMs = Date.now() - loadStart;
+
+  // Build bypage map for O(1) lookups: Map<page, Set<hash>>
+  const usageMap = new Map();
+  usageData.forEach((entry) => {
+    try {
+      const hashes = JSON.parse(entry.hashes);
+      usageMap.set(entry.page, new Set(hashes));
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn(`[MediaIndexer] Skipping malformed usage entry for page: ${entry.page}`, error);
+    }
+  });
 
   if (onProgressiveData && existingIndex?.length > 0) {
     onProgressiveData(existingIndex);
   }
 
-  log(`Fetching auditlog since ${new Date(lastFetchTime).toISOString()}`);
-  onProgress({ stage: 'fetching', message: 'Fetching new auditlog entries...', percent: 15 });
+  log(`Fetching auditlog + medialog since ${new Date(lastFetchTime).toISOString()} (parallel)`);
+  onProgress({ stage: 'fetching', message: 'Fetching audit log + medialog (parallel)...', percent: 15 });
 
+  const auditLogStart = Date.now();
+  const medialogStart = Date.now();
   const auditlogEntries = [];
-  await streamLog('log', org, repo, ref, lastFetchTime, IndexConfig.API_PAGE_SIZE, (entries) => {
-    auditlogEntries.push(...entries);
-    onProgress({
-      stage: 'fetching',
-      message: `Fetched ${auditlogEntries.length} auditlog entries...`,
-      percent: 25,
-    });
-  });
+  const medialogEntries = [];
+
+  await Promise.all([
+    streamLog('log', org, repo, ref, lastFetchTime, IndexConfig.API_PAGE_SIZE, (entries) => {
+      perf.auditLog.chunks += 1;
+      perf.auditLog.streamed += entries.length;
+      auditlogEntries.push(...entries);
+      onProgress({
+        stage: 'fetching',
+        message: `Audit: ${auditlogEntries.length}, Medialog: ${medialogEntries.length}...`,
+        percent: 25,
+      });
+    }),
+    streamLog('medialog', org, repo, ref, lastFetchTime, IndexConfig.API_PAGE_SIZE, (entries) => {
+      perf.medialog.chunks += 1;
+      perf.medialog.streamed += entries.length;
+      medialogEntries.push(...entries);
+      onProgress({
+        stage: 'fetching',
+        message: `Audit: ${auditlogEntries.length}, Medialog: ${medialogEntries.length}...`,
+        percent: 25,
+      });
+    }),
+  ]);
+
+  perf.auditLog.durationMs = Date.now() - auditLogStart;
+  perf.medialog.durationMs = Date.now() - medialogStart;
 
   const validEntries = auditlogEntries.filter((e) => e && e.path && e.route === 'preview');
   const pagesFiltered = validEntries.filter((e) => isPage(e.path));
   const pagesByPath = new Map();
+  const deletedPages = new Set();
   pagesFiltered.forEach((e) => {
     const p = normalizePath(e.path);
-    const existing = pagesByPath.get(p);
-    if (!existing || e.timestamp > existing[0].timestamp) {
-      pagesByPath.set(p, [e]);
+    if (e.method === 'DELETE') {
+      deletedPages.add(p);
+      pagesByPath.delete(p);
+    } else {
+      deletedPages.delete(p); // Clear from deletedPages if page was recreated
+      const existing = pagesByPath.get(p);
+      if (!existing || e.timestamp > existing[0].timestamp) {
+        pagesByPath.set(p, [e]);
+      }
     }
   });
   const pages = [];
   pagesByPath.forEach((events) => pages.push(...events));
 
-  onProgress({ stage: 'fetching', message: 'Fetching new medialog entries...', percent: 35 });
-
-  const medialogEntries = [];
-  await streamLog('medialog', org, repo, ref, lastFetchTime, IndexConfig.API_PAGE_SIZE, (entries) => {
-    medialogEntries.push(...entries);
-    onProgress({
-      stage: 'fetching',
-      message: `Fetched ${medialogEntries.length} medialog entries...`,
-      percent: 45,
-    });
-  });
+  perf.auditLog.previewOnly = validEntries.length;
+  perf.auditLog.pagesForParsing = pages.length;
+  perf.auditLog.filesCount = validEntries.filter((e) => !isPage(e.path)).length;
+  perf.medialog.resourcePathCount = medialogEntries.filter((m) => m?.resourcePath).length;
+  perf.medialog.standalone = medialogEntries.filter((m) => m?.originalFilename && !m?.resourcePath).length;
 
   if (pages.length === 0 && medialogEntries.length === 0) {
+    perf.indexEntries = existingIndex.length;
+    perf.totalDurationMs = Date.now() - t0;
+    perf.collectedAt = new Date().toISOString();
+    logPerf(perf);
     onProgress({
       stage: 'complete',
       message: 'No new activity since last build - index unchanged',
@@ -456,12 +619,20 @@ export async function buildIncrementalIndex(
 
   const updatedIndex = [...existingIndex];
 
-  log(`Time window: ${IndexConfig.INCREMENTAL_WINDOW_MS / 1000}s (medialog within window of latest preview)`);
+  log('Page-based medialog (resourcePath direct, no time window)');
   log(`Pages to process: ${pagesByPath.size} (${[...pagesByPath.keys()].join(', ')})`);
   log(`Medialog entries since lastFetch: ${medialogEntries.length}`);
 
-  const pageResults = processPageMediaUpdates(updatedIndex, pagesByPath, medialogEntries, log);
+  const pageResults = processPageMediaUpdates(updatedIndex, pagesByPath, medialogEntries, usageMap, log);
   let { added, removed } = pageResults;
+
+  // Remove media refs for deleted pages (DELETE preview = page gone)
+  deletedPages.forEach((doc) => {
+    const toRemove = updatedIndex.filter((e) => e.doc === doc);
+    toRemove.forEach((entry) => {
+      removed += removeOrOrphanMedia(updatedIndex, entry, doc, medialogEntries);
+    });
+  });
 
   const referencedHashes = new Set(
     updatedIndex.filter((e) => e.doc).flatMap((e) => e.hash),
@@ -471,7 +642,8 @@ export async function buildIncrementalIndex(
   added += standaloneAdded;
 
   const files = validEntries.filter((e) => !isPage(e.path));
-  const linkedResults = await processLinkedContentIncremental(
+  const markdownParseStart = Date.now();
+  const linkedResults = await processLinkedContent(
     updatedIndex,
     files,
     pages,
@@ -481,6 +653,8 @@ export async function buildIncrementalIndex(
     onProgress,
     log,
   );
+  perf.markdownParse.pages = pages.length;
+  perf.markdownParse.durationMs = Date.now() - markdownParseStart;
   added += linkedResults.added;
   removed += linkedResults.removed;
 
@@ -490,9 +664,22 @@ export async function buildIncrementalIndex(
     percent: 85,
   });
 
-  onProgress({ stage: 'saving', message: `Saving ${updatedIndex.length} entries...`, percent: 90 });
+  onProgress({ stage: 'saving', message: 'Building multi-sheet index (bymedia, bypage)...', percent: 87 });
 
-  const formData = await createSheet(updatedIndex);
+  const mediaSheet = buildMediaSheet(updatedIndex);
+  const usageSheet = buildUsageSheet(updatedIndex);
+
+  onProgress({
+    stage: 'saving',
+    message: `Saving ${mediaSheet.length} media entries, ${usageSheet.length} page-hash pairs...`,
+    percent: 90,
+  });
+
+  const saveStart = Date.now();
+  const formData = await createMultiSheet({
+    [SheetNames.MEDIA]: mediaSheet,
+    [SheetNames.USAGE]: usageSheet,
+  });
   await daFetch(`${DA_ORIGIN}/source${indexPath}`, {
     method: 'POST',
     body: formData,
@@ -501,15 +688,25 @@ export async function buildIncrementalIndex(
   await saveIndexMeta({
     lastFetchTime: Date.now(),
     entriesCount: updatedIndex.length,
+    mediaCount: mediaSheet.length,
+    usageCount: usageSheet.length,
     lastRefreshBy: 'media-indexer',
     lastBuildMode: 'incremental',
   }, metaPath);
+  perf.saveDurationMs = Date.now() - saveStart;
 
   onProgress({
     stage: 'complete',
-    message: `Incremental complete! ${updatedIndex.length} entries (${added} added, ${removed} removed)`,
+    message: `Incremental complete! ${mediaSheet.length} media, ${usageSheet.length} page refs (${added} added, ${removed} removed)`,
     percent: 100,
   });
+
+  perf.indexEntries = updatedIndex.length;
+  perf.mediaCount = mediaSheet.length;
+  perf.usageCount = usageSheet.length;
+  perf.totalDurationMs = Date.now() - t0;
+  perf.collectedAt = new Date().toISOString();
+  logPerf(perf);
 
   return updatedIndex;
 }
@@ -517,6 +714,21 @@ export async function buildIncrementalIndex(
 export async function buildFullIndex(sitePath, org, repo, ref, onProgress, onProgressiveData) {
   const index = [];
   const buildMode = 'full';
+  const t0 = Date.now();
+  const perf = {
+    mode: 'full',
+    tag: PERF_TAG,
+    org,
+    repo,
+    ref,
+    sitePath,
+    auditLog: { streamed: 0, chunks: 0, previewOnly: 0, pagesForParsing: 0, filesCount: 0, durationMs: 0 },
+    medialog: { streamed: 0, chunks: 0, resourcePathCount: 0, matched: 0, standalone: 0, durationMs: 0 },
+    markdownParse: { pages: 0, durationMs: 0 },
+    saveDurationMs: 0,
+    indexEntries: 0,
+    totalDurationMs: 0,
+  };
 
   onProgress({
     stage: 'starting',
@@ -524,12 +736,17 @@ export async function buildFullIndex(sitePath, org, repo, ref, onProgress, onPro
     percent: 5,
   });
 
-  onProgress({ stage: 'fetching', message: 'Fetching auditlog (streaming)...', percent: 10 });
+  onProgress({ stage: 'fetching', message: 'Fetching audit log + medialog (parallel)...', percent: 10 });
 
   const pagesByPath = new Map();
   const filesByPath = new Map();
   const deletedPaths = new Set();
+  const deletedPages = new Set();
   let auditlogCount = 0;
+  const auditLogStart = Date.now();
+  const medialogStart = Date.now();
+  const medialogChunks = [];
+  let medialogResourcePathCount = 0;
 
   const earlyLinkedEntries = [];
 
@@ -549,34 +766,64 @@ export async function buildFullIndex(sitePath, org, repo, ref, onProgress, onPro
     }
   };
 
-  await streamLog('log', org, repo, ref, null, IndexConfig.API_PAGE_SIZE, (chunk) => {
-    chunk.forEach((e) => {
-      if (!e?.path || e.route !== 'preview') return;
-      auditlogCount += 1;
-      if (isPage(e.path)) {
-        const p = normalizePath(e.path);
-        const existing = pagesByPath.get(p);
-        if (!existing || e.timestamp > existing[0].timestamp) {
-          pagesByPath.set(p, [e]);
+  await Promise.all([
+    streamLog('log', org, repo, ref, null, IndexConfig.API_PAGE_SIZE, (chunk) => {
+      perf.auditLog.chunks += 1;
+      perf.auditLog.streamed += chunk.length;
+      chunk.forEach((e) => {
+        if (!e?.path || e.route !== 'preview') return;
+        auditlogCount += 1;
+        if (isPage(e.path)) {
+          const p = normalizePath(e.path);
+          if (e.method === 'DELETE') {
+            deletedPages.add(p);
+            pagesByPath.delete(p);
+          } else {
+            deletedPages.delete(p); // Clear from deletedPages if page was recreated
+            const existing = pagesByPath.get(p);
+            if (!existing || e.timestamp > existing[0].timestamp) {
+              pagesByPath.set(p, [e]);
+            }
+          }
+        } else {
+          const fp = toAbsoluteFilePath(e.path);
+          const existing = filesByPath.get(fp);
+          if (!existing || e.timestamp > existing.timestamp) {
+            filesByPath.set(fp, e);
+          }
         }
-      } else {
-        const fp = toAbsoluteFilePath(e.path);
-        const existing = filesByPath.get(fp);
-        if (!existing || e.timestamp > existing.timestamp) {
-          filesByPath.set(fp, e);
-        }
-      }
-    });
-    emitEarlyLinked();
-    onProgress({
-      stage: 'fetching',
-      message: `Auditlog: ${auditlogCount} entries, ${pagesByPath.size} pages...`,
-      percent: 15,
-    });
-  });
+      });
+      emitEarlyLinked();
+      onProgress({
+        stage: 'fetching',
+        message: `Audit: ${auditlogCount} preview, Medialog: ${medialogChunks.reduce((s, c) => s + c.length, 0)} entries...`,
+        percent: 15,
+      });
+    }),
+    streamLog('medialog', org, repo, ref, null, IndexConfig.API_PAGE_SIZE, (chunk) => {
+      perf.medialog.chunks += 1;
+      chunk.forEach((m) => {
+        if (m.resourcePath) medialogResourcePathCount += 1;
+      });
+      medialogChunks.push(chunk);
+      onProgress({
+        stage: 'fetching',
+        message: `Audit: ${auditlogCount} preview, Medialog: ${medialogChunks.reduce((s, c) => s + c.length, 0)} entries...`,
+        percent: 15,
+      });
+    }),
+  ]);
+
+  perf.auditLog.previewOnly = auditlogCount;
+  perf.auditLog.filesCount = filesByPath.size;
+  perf.auditLog.durationMs = Date.now() - auditLogStart;
+  perf.medialog.streamed = medialogChunks.reduce((s, c) => s + c.length, 0);
+  perf.medialog.resourcePathCount = medialogResourcePathCount;
+  perf.medialog.durationMs = Date.now() - medialogStart;
 
   const pages = [];
   pagesByPath.forEach((events) => pages.push(...events));
+  perf.auditLog.pagesForParsing = pages.length;
 
   filesByPath.forEach((event, path) => {
     if (isLinkedContentPath(path) && event.method === 'DELETE') {
@@ -585,78 +832,20 @@ export async function buildFullIndex(sitePath, org, repo, ref, onProgress, onPro
   });
 
   onProgress({
-    stage: 'fetching',
-    message: `Identified ${pages.length} page events, ${filesByPath.size} files`,
-    percent: 25,
+    stage: 'processing',
+    message: `Building index from ${perf.medialog.streamed} medialog (page-based)...`,
+    percent: 35,
   });
 
-  onProgress({ stage: 'fetching', message: 'Fetching medialog (streaming)...', percent: 30 });
-
-  const entryMap = new Map();
-  const referencedHashes = new Set();
-  const standaloneBuffer = [];
-  let medialogCount = 0;
-  const PROGRESSIVE_EMIT_INTERVAL = 100;
-
-  const emitProgressive = () => {
-    if (onProgressiveData && (entryMap.size > 0 || earlyLinkedEntries.length > 0)) {
-      const combined = [...earlyLinkedEntries, ...Array.from(entryMap.values())];
-      onProgressiveData(dedupeProgressiveItems(combined));
-    }
-  };
-
-  await streamLog('medialog', org, repo, ref, null, IndexConfig.API_PAGE_SIZE, (chunk) => {
-    chunk.forEach((media) => {
-      medialogCount += 1;
-      if (media.resourcePath) {
-        const matches = matchPageEvents(pagesByPath, media.resourcePath, media.timestamp);
-        matches.forEach((pageEvent) => {
-          const normalizedPath = normalizePath(pageEvent.path);
-          const hash = media.mediaHash;
-          const key = `${hash}|${normalizedPath}`;
-          const existing = entryMap.get(key);
-          if (!existing || media.timestamp > existing.timestamp) {
-            entryMap.set(key, {
-              hash,
-              doc: normalizedPath,
-              url: media.path,
-              name: extractName(media),
-              timestamp: media.timestamp,
-              user: media.user,
-              operation: media.operation,
-              type: detectMediaType(media),
-              status: 'referenced',
-            });
-          }
-          referencedHashes.add(hash);
-        });
-      } else if (media.originalFilename) {
-        standaloneBuffer.push(media);
-      }
-      if (medialogCount > 0 && medialogCount % PROGRESSIVE_EMIT_INTERVAL === 0) {
-        emitProgressive();
-      }
-    });
-    emitProgressive();
-    const mem = checkMemory();
-    if (mem.warning) {
-      onProgress({
-        stage: 'processing',
-        message: `Memory: ${mem.usedMB.toFixed(0)}MB / ${mem.limitMB.toFixed(0)}MB`,
-        percent: 35,
-      });
-    } else {
-      onProgress({
-        stage: 'fetching',
-        message: `Medialog: ${medialogCount} entries processed...`,
-        percent: 35,
-      });
-    }
-  });
+  const medialogEntries = medialogChunks.flat();
+  const { pageMediaMap, standaloneBuffer } = buildPageMediaFromMedialog(medialogEntries);
+  const { entryMap, referencedHashes } = pageMediaToEntryMap(pageMediaMap);
+  perf.medialog.matched = entryMap.size;
+  perf.medialog.standalone = standaloneBuffer.length;
 
   onProgress({
     stage: 'processing',
-    message: `Processed ${medialogCount} medialog, ${entryMap.size} page refs`,
+    message: `Processed ${perf.medialog.streamed} medialog, ${entryMap.size} page refs`,
     percent: 60,
   });
 
@@ -669,13 +858,13 @@ export async function buildFullIndex(sitePath, org, repo, ref, onProgress, onPro
       if (!existing || media.timestamp > existing.timestamp) {
         entryMap.set(key, {
           hash,
-          doc: '',
           url: media.path,
           name: media.originalFilename.split('/').pop(),
           timestamp: media.timestamp,
           user: media.user,
           operation: media.operation,
           type: detectMediaType(media),
+          doc: '',
           status: 'unused',
         });
       }
@@ -693,6 +882,14 @@ export async function buildFullIndex(sitePath, org, repo, ref, onProgress, onPro
     index.push(entry);
   });
 
+  // Remove media refs for deleted pages (DELETE preview = page gone, no longer references media)
+  deletedPages.forEach((doc) => {
+    const toRemove = index.filter((e) => e.doc === doc);
+    toRemove.forEach((entry) => {
+      removeOrOrphanMedia(index, entry, doc, medialogEntries);
+    });
+  });
+
   if (onProgressiveData && (index.length > 0 || earlyLinkedEntries.length > 0)) {
     const combined = [...earlyLinkedEntries, ...index];
     onProgressiveData(dedupeProgressiveItems(combined));
@@ -700,7 +897,10 @@ export async function buildFullIndex(sitePath, org, repo, ref, onProgress, onPro
 
   // Phase 5: Linked content (PDFs, SVGs, fragments) - parse pages for usage
   onProgress({ stage: 'processing', message: 'Building content usage map (parsing pages)...', percent: 78 });
+  const markdownParseStart = Date.now();
   const usageMap = await buildUsageMap(pages, org, repo, ref, (p) => onProgress(p));
+  perf.markdownParse.pages = pages.length;
+  perf.markdownParse.durationMs = Date.now() - markdownParseStart;
 
   const linkedFilesByPath = new Map();
   filesByPath.forEach((e, p) => {
@@ -757,10 +957,23 @@ export async function buildFullIndex(sitePath, org, repo, ref, onProgress, onPro
     percent: 82,
   });
 
-  onProgress({ stage: 'saving', message: `Saving ${index.length} entries...`, percent: 90 });
+  onProgress({ stage: 'saving', message: 'Building multi-sheet index (bymedia, bypage)...', percent: 85 });
 
+  const mediaSheet = buildMediaSheet(index);
+  const usageSheet = buildUsageSheet(index);
+
+  onProgress({
+    stage: 'saving',
+    message: `Saving ${mediaSheet.length} media entries, ${usageSheet.length} page-hash pairs...`,
+    percent: 90,
+  });
+
+  const saveStart = Date.now();
   const indexPath = `${sitePath}/${IndexFiles.FOLDER}/${IndexFiles.MEDIA_INDEX}`;
-  const formData = await createSheet(index);
+  const formData = await createMultiSheet({
+    [SheetNames.MEDIA]: mediaSheet,
+    [SheetNames.USAGE]: usageSheet,
+  });
   await daFetch(`${DA_ORIGIN}/source${indexPath}`, {
     method: 'POST',
     body: formData,
@@ -769,11 +982,25 @@ export async function buildFullIndex(sitePath, org, repo, ref, onProgress, onPro
   await saveIndexMeta({
     lastFetchTime: Date.now(),
     entriesCount: index.length,
+    mediaCount: mediaSheet.length,
+    usageCount: usageSheet.length,
     lastRefreshBy: 'media-indexer',
     lastBuildMode: buildMode,
   }, `${sitePath}/${IndexFiles.FOLDER}/${IndexFiles.MEDIA_INDEX_META}`);
+  perf.saveDurationMs = Date.now() - saveStart;
 
-  onProgress({ stage: 'complete', message: `Complete! ${index.length} entries indexed`, percent: 100 });
+  onProgress({
+    stage: 'complete',
+    message: `Complete! ${mediaSheet.length} media, ${usageSheet.length} page refs`,
+    percent: 100,
+  });
+
+  perf.indexEntries = index.length;
+  perf.mediaCount = mediaSheet.length;
+  perf.usageCount = usageSheet.length;
+  perf.totalDurationMs = Date.now() - t0;
+  perf.collectedAt = new Date().toISOString();
+  logPerf(perf);
 
   return index;
 }

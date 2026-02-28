@@ -1,6 +1,8 @@
-import buildMediaIndex, { loadMediaIfUpdated } from './processing.js';
-import { ensureAuthenticated } from './utils.js';
-import { updateAppState, getAppState, showNotification } from './state.js';
+import buildMediaIndex, { loadMediaIfUpdated } from './load.js';
+import { ensureAuthenticated } from '../core/utils.js';
+import { updateAppState, getAppState, showNotification } from '../core/state.js';
+import { clearProcessDataCache } from '../features/filters.js';
+import { getDedupeKey } from '../core/urls.js';
 
 const CONFIG = { POLLING_INTERVAL: 60000, LOCK_CHECK_INTERVAL: 5000 };
 
@@ -22,8 +24,9 @@ export async function startPolling() {
         const [org, repo] = state.sitePath.split('/').slice(1, 3);
         const { hasChanged, mediaData } = await loadMediaIfUpdated(state.sitePath, org, repo);
 
-        if (hasChanged && mediaData && onMediaDataUpdated) {
-          onMediaDataUpdated(mediaData);
+        // Update on any change (including empty results)
+        if (hasChanged && onMediaDataUpdated) {
+          onMediaDataUpdated(mediaData || []);
         }
       } catch (error) {
         // eslint-disable-next-line no-console
@@ -59,10 +62,12 @@ function startLockCheckPolling(sitePath, org, repo) {
     }
     try {
       const { hasChanged, mediaData } = await loadMediaIfUpdated(sitePath, org, repo);
-      if (hasChanged && mediaData && mediaData.length > 0 && onMediaDataUpdated) {
+      // Clear lock on any valid completion (including empty results)
+      if (hasChanged && onMediaDataUpdated) {
         stopLockCheckPolling();
         updateAppState({ indexLockedByOther: false });
-        onMediaDataUpdated(mediaData);
+        // Update with data (empty array is valid)
+        onMediaDataUpdated(mediaData || []);
       }
     } catch {
       // Ignore; will retry on next interval
@@ -116,16 +121,33 @@ export async function triggerBuild(sitePath, org, repo, ref = 'main') {
     };
 
     const PROGRESSIVE_DISPLAY_CAP = 3000;
+    const progressiveMap = new Map();
+
     const onProgressiveData = (mediaData) => {
-      if (mediaData && Array.isArray(mediaData) && mediaData.length > 0) {
-        const toRender = mediaData.length > PROGRESSIVE_DISPLAY_CAP
-          ? mediaData.slice(0, PROGRESSIVE_DISPLAY_CAP)
-          : mediaData;
-        updateAppState({ progressiveMediaData: toRender });
+      if (!mediaData || !Array.isArray(mediaData) || mediaData.length === 0) return;
+
+      for (const item of mediaData) {
+        const key = item?.url ? getDedupeKey(item.url) : (item?.hash || '');
+        const existing = progressiveMap.get(key);
+        const itemTs = item?.timestamp ?? 0;
+        const existingTs = existing?.timestamp ?? 0;
+
+        if (!existing) {
+          if (progressiveMap.size >= PROGRESSIVE_DISPLAY_CAP) continue;
+          progressiveMap.set(key, item);
+        } else if (itemTs >= existingTs) {
+          progressiveMap.set(key, item);
+        }
       }
+
+      const toRender = Array.from(progressiveMap.values());
+      updateAppState({ progressiveMediaData: toRender });
     };
 
     const result = await buildMediaIndex(sitePath, org, repo, ref, onProgress, onProgressiveData);
+
+    // Clear cache after successful build to prevent stale derived data
+    clearProcessDataCache();
 
     const finalProgress = {
       hasChanges: result.hasChanges,

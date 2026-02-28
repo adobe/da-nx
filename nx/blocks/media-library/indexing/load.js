@@ -6,13 +6,14 @@ import {
   buildIncrementalIndex,
   checkReindexEligibility,
   getIndexStatus,
-} from './index-builder.js';
-import { getDedupeKey } from './filters.js';
-import { sortMediaData } from './utils.js';
+} from './build.js';
+import { sortMediaData } from '../core/utils.js';
+import { getDedupeKey } from '../core/urls.js';
 import {
   IndexFiles,
   MediaType,
-} from './constants.js';
+  SheetNames,
+} from '../core/constants.js';
 
 export function getMediaLibraryPath(sitePath) {
   return `${sitePath}/${IndexFiles.FOLDER}`;
@@ -50,7 +51,7 @@ export async function loadMediaSheet(sitePath) {
 
     if (resp.ok) {
       const data = await resp.json();
-      const result = data.data || data || [];
+      const result = data[SheetNames.MEDIA].data;
       return result.map(normalizeMediaItem);
     }
   } catch (error) {
@@ -139,13 +140,13 @@ export function buildMediaIndexStructures(mediaData) {
   const folderPaths = new Set();
 
   mediaData.forEach((item) => {
-    const groupingKey = item.url ? getDedupeKey(item.url) : item.hash || '';
+    const groupingKey = item.url ? getDedupeKey(item.url) : item.hash;
     const existingItem = uniqueItemsMap.get(groupingKey);
     if (!uniqueItemsMap.has(groupingKey) || item.timestamp > existingItem.timestamp) {
       uniqueItemsMap.set(groupingKey, item);
     }
 
-    if (item.doc && item.doc !== '') {
+    if (item.doc) {
       if (!usageIndex.has(groupingKey)) {
         usageIndex.set(groupingKey, []);
       }
@@ -202,7 +203,7 @@ export default async function buildMediaIndex(sitePath, org, repo, ref, onProgre
       mediaData = await buildFullIndex(sitePath, org, repo, ref, onProgress, onProgressiveData);
     }
 
-    await saveMediaSheet(sortMediaData(mediaData), sitePath);
+    // buildFullIndex and buildIncrementalIndex already save the multi-sheet structure
     await removeIndexLock(sitePath);
 
     const endTime = Date.now();

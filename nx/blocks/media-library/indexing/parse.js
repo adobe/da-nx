@@ -7,7 +7,10 @@ import {
   Paths,
   MediaType,
   ICON_DOC_EXCLUDE,
-} from './constants.js';
+} from '../core/constants.js';
+import { getDedupeKey } from '../core/urls.js';
+
+export { getDedupeKey };
 
 const MD_LINK_RE = /\[[^\]]*\]\(([^)]+)\)/gi;
 const MD_AUTOLINK_RE = /<(https?:\/\/[^>]+|\/[^>\s]*)>/g;
@@ -27,6 +30,12 @@ export function isPage(path) {
   return (path.endsWith('.md')
           || (!path.includes('.') && !path.startsWith(Paths.MEDIA)))
          && !path.includes(Paths.FRAGMENTS);
+}
+
+/** Skip paths in hidden folders (e.g. /.da/, /.git/) - not parseable as markdown. */
+export function isHiddenPath(path) {
+  if (!path || typeof path !== 'string') return false;
+  return path.includes('/.');
 }
 
 export function extractName(mediaEntry) {
@@ -246,7 +255,7 @@ export async function buildUsageMap(pageEntries, org, repo, ref, onProgress) {
     return events?.[0]?.timestamp ?? 0;
   };
 
-  const uniquePages = [...pagesByPath.keys()];
+  const uniquePages = [...pagesByPath.keys()].filter((p) => !isHiddenPath(p));
 
   const results = await processConcurrently(
     uniquePages,
@@ -295,28 +304,19 @@ export async function buildUsageMap(pageEntries, org, repo, ref, onProgress) {
   return usageMap;
 }
 
-export function matchPageEvents(pagesByPath, resourcePath, mediaTimestamp) {
-  const events = pagesByPath.get(resourcePath);
-  if (!events || events.length === 0) return [];
-  const minTs = mediaTimestamp - IndexConfig.MEDIA_ASSOCIATION_WINDOW_MS;
-  return events.filter(
-    (e) => e.timestamp <= mediaTimestamp && e.timestamp > minTs,
-  );
-}
-
 export function toExternalMediaEntry(url, doc, latestPageTimestamp = 0) {
   const info = getExternalMediaType(url);
   if (!info) return null;
 
   return {
     hash: url,
-    doc: doc || '',
     url,
     name: info.name,
     timestamp: latestPageTimestamp,
     user: '',
     operation: Operation.EXTLINKS,
     type: info.type,
+    doc: doc || '',
     status: 'referenced',
   };
 }
@@ -330,15 +330,14 @@ export function toLinkedContentEntry(filePath, doc, fileEvent, status, org, repo
 
   return {
     hash: filePath,
-    doc: doc || '',
     url,
     name: filePath.split('/').pop() || filePath,
     timestamp: fileEvent.timestamp,
     user: fileEvent.user || '',
     operation: 'auditlog-parsed',
     type: getLinkedContentType(filePath),
+    doc: doc || '',
     status,
-    source: 'auditlog-parsed',
   };
 }
 

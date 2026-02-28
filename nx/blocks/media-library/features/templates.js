@@ -1,14 +1,21 @@
 import { html } from 'da-lit';
-import { getFileName } from './utils.js';
+import { getFileName } from '../core/files.js';
 
 function escapeRegExp(string) {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
 export function highlightMatch(text, query) {
-  if (!query || !text) return text;
-  const regex = new RegExp(`(${escapeRegExp(query)})`, 'ig');
-  return text.replace(regex, '<mark>$1</mark>');
+  if (!query || !text) return escapeHtml(text);
+  const escapedText = escapeHtml(text);
+  const regex = new RegExp(`(${escapeRegExp(escapeHtml(query))})`, 'ig');
+  return escapedText.replace(regex, '<mark>$1</mark>');
 }
 
 export function getMediaName(media) {

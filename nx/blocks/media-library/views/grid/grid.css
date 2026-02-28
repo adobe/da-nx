@@ -17,6 +17,12 @@ svg.icon {
   padding: 0;
 }
 
+.icon-button:focus-visible {
+  outline: 2px solid var(--s2-blue-500);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
 /* Share button and alt indicator - inside media-actions */
 .share-button,
 .filled-alt-indicator {
@@ -43,7 +49,8 @@ svg.icon {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: calc(100vh - 200px);
+  height: calc(100vh - 200px); /* Fallback */
+  height: calc(100dvh - 200px);
   text-align: center;
   color: var(--s2-gray-700);
 }
@@ -66,7 +73,8 @@ svg.icon {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: calc(100vh - 200px);
+  height: calc(100vh - 200px); /* Fallback */
+  height: calc(100dvh - 200px);
   text-align: center;
   color: var(--s2-gray-700);
 }
@@ -88,6 +96,14 @@ svg.icon {
   margin-bottom: var(--spacing-200);
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .scanning-spinner,
+  .spinner {
+    animation: none;
+    opacity: 0.6;
+  }
+}
+
 .spinner {
   width: 24px;
   height: 24px;
@@ -99,7 +115,8 @@ svg.icon {
 }
 
 .media-main {
-  height: calc(100vh - 130px);
+  height: calc(100vh - 130px); /* Fallback */
+  height: calc(100dvh - 130px);
   overflow-y: auto;
   position: relative;
   contain: layout;

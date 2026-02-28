@@ -1,11 +1,16 @@
-import { getMediaType, isSvgFile, getBasePath, formatDocPath, pluralize } from './utils.js';
+import { getMediaType, isSvgFile } from '../core/media.js';
+import { getBasePath, formatDocPath } from '../core/paths.js';
+import { pluralize } from '../core/utils.js';
+import { getDedupeKey } from '../core/urls.js';
 import {
   Operation,
-  MEDIA_UNDERSCORE_PREFIX,
-} from './constants.js';
-
-const processDataCache = new Map();
-const MAX_CACHE_SIZE = 5;
+} from '../core/constants.js';
+import {
+  clearProcessDataCache as clearCache,
+  getCachedProcessData,
+  setCachedProcessData,
+  generateCacheKey,
+} from '../indexing/cache.js';
 
 function normalizeFolderPath(path) {
   return !path || path === '/' ? '/' : path.replace(/\/$/, '');
@@ -67,7 +72,7 @@ function chunkArray(array, chunkSize) {
   return chunks;
 }
 
-function initializeProcessedData() {
+export function initializeProcessedData() {
   const filterArrays = {};
   const usageData = {};
   const filterCounts = {};
@@ -86,22 +91,11 @@ function initializeProcessedData() {
   };
 }
 
-export function getDedupeKey(url) {
-  if (!url) return '';
-
-  try {
-    const urlObj = new URL(url);
-    const { pathname } = urlObj;
-    const filename = pathname.split('/').pop();
-
-    if (filename && filename.includes(MEDIA_UNDERSCORE_PREFIX)) {
-      return filename;
-    }
-
-    return pathname;
-  } catch (error) {
-    return url.split('?')[0];
-  }
+/**
+ * Clear the process data cache. Call after index builds to prevent stale data.
+ */
+export function clearProcessDataCache() {
+  clearCache();
 }
 
 export async function processMediaData(mediaData, onProgress = null) {
@@ -109,10 +103,10 @@ export async function processMediaData(mediaData, onProgress = null) {
     return initializeProcessedData();
   }
 
-  const cacheKey = `${mediaData.length}-${mediaData[0]?.hash || ''}-${mediaData[mediaData.length - 1]?.hash || ''}`;
+  const cacheKey = generateCacheKey(mediaData);
+  const cached = getCachedProcessData(cacheKey);
 
-  if (processDataCache.has(cacheKey)) {
-    const cached = processDataCache.get(cacheKey);
+  if (cached) {
     if (onProgress) onProgress(100);
     return cached;
   }
@@ -122,14 +116,12 @@ export async function processMediaData(mediaData, onProgress = null) {
   const uniqueNonSvgUrls = new Set();
 
   let batchSize = 1000;
-  const hasComplexData = mediaData.some((item) => item.doc);
-
   if (mediaData.length > 100000) {
-    batchSize = hasComplexData ? 300 : 500;
+    batchSize = 500;
   } else if (mediaData.length > 10000) {
-    batchSize = hasComplexData ? 200 : 250;
+    batchSize = 250;
   } else if (mediaData.length > 1000) {
-    batchSize = hasComplexData ? 100 : 200;
+    batchSize = 200;
   }
 
   const batches = chunkArray(mediaData, batchSize);
@@ -151,20 +143,17 @@ export async function processMediaData(mediaData, onProgress = null) {
           };
         }
         processedData.usageData[groupingKey].hashes.push(item.hash);
+
         if (item.doc) {
           processedData.usageData[groupingKey].uniqueDocs.add(item.doc);
         }
-        const usageData = processedData.usageData[groupingKey];
-        usageData.count = usageData.uniqueDocs.size;
+
+        processedData.usageData[groupingKey].count = processedData.usageData[groupingKey].uniqueDocs.size;
       }
 
       Object.keys(processedData.filterArrays).forEach((filterName) => {
-        try {
-          if (FILTER_CONFIG[filterName](item)) {
-            processedData.filterArrays[filterName].push(item.hash);
-          }
-        } catch {
-          /* continue */
+        if (FILTER_CONFIG[filterName](item)) {
+          processedData.filterArrays[filterName].push(item.hash);
         }
       });
 
@@ -224,11 +213,7 @@ export async function processMediaData(mediaData, onProgress = null) {
   processedData.filterCounts.all = uniqueNonSvgUrls.size;
   processedData.totalCount = uniqueMediaUrls.size;
 
-  if (processDataCache.size >= MAX_CACHE_SIZE) {
-    const firstKey = processDataCache.keys().next().value;
-    processDataCache.delete(firstKey);
-  }
-  processDataCache.set(cacheKey, processedData);
+  setCachedProcessData(cacheKey, processedData);
 
   return processedData;
 }
@@ -319,7 +304,7 @@ export function filterBySearch(mediaData, searchQuery) {
   return filterByGeneralSearch(mediaData, query);
 }
 
-function generateFolderSuggestions(folderPathsCache, value) {
+function getFolderSuggestions(folderPathsCache, value) {
   const basePath = getBasePath();
 
   if (!folderPathsCache || folderPathsCache.size === 0) {
@@ -375,7 +360,7 @@ function generateFolderSuggestions(folderPathsCache, value) {
   return folderSuggestions;
 }
 
-function generateDocSuggestions(mediaData, value) {
+function getDocSuggestions(mediaData, value) {
   const basePath = getBasePath();
 
   if (!mediaData || mediaData.length === 0) {
@@ -441,7 +426,7 @@ function generateDocSuggestions(mediaData, value) {
   return docSuggestions;
 }
 
-export function generateSearchSuggestions(
+export function getSearchSuggestions(
   mediaData,
   query,
   createSuggestionFn,
@@ -458,11 +443,11 @@ export function generateSearchSuggestions(
     const { field, value } = colonSyntax;
 
     if (field === 'folder') {
-      return generateFolderSuggestions(folderPathsCache, value).slice(0, 10);
+      return getFolderSuggestions(folderPathsCache, value).slice(0, 10);
     }
 
     if (field === 'doc') {
-      return generateDocSuggestions(mediaData, value).slice(0, 10);
+      return getDocSuggestions(mediaData, value).slice(0, 10);
     }
 
     const suggestions = [];
@@ -471,13 +456,15 @@ export function generateSearchSuggestions(
       switch (field) {
         case 'name': {
           if (item.name && item.name.toLowerCase().includes(value) && !isSvgFile(item)) {
-            suggestions.push(createSuggestionFn(item));
+            const suggestion = createSuggestionFn(item);
+            if (suggestion) suggestions.push(suggestion);
           }
           break;
         }
         case 'url': {
           if (item.url && item.url.toLowerCase().includes(value) && !isSvgFile(item)) {
-            suggestions.push(createSuggestionFn(item));
+            const suggestion = createSuggestionFn(item);
+            if (suggestion) suggestions.push(suggestion);
           }
           break;
         }
@@ -490,8 +477,8 @@ export function generateSearchSuggestions(
   }
 
   if (q.startsWith('/')) {
-    const folderSuggestions = generateFolderSuggestions(folderPathsCache, q);
-    const docSuggestions = generateDocSuggestions(mediaData, q);
+    const folderSuggestions = getFolderSuggestions(folderPathsCache, q);
+    const docSuggestions = getDocSuggestions(mediaData, q);
 
     const combined = [...folderSuggestions, ...docSuggestions];
 
@@ -519,7 +506,8 @@ export function generateSearchSuggestions(
       (item.name && item.name.toLowerCase().includes(q))
         || (item.url && item.url.toLowerCase().includes(q))
     )) {
-      suggestions.push(createSuggestionFn(item));
+      const suggestion = createSuggestionFn(item);
+      if (suggestion) suggestions.push(suggestion);
     }
   });
 
@@ -557,6 +545,7 @@ export function filterByDocument(
   mediaData,
   selectedDocument,
   selectedFilterType,
+  usageIndex = null,
 ) {
   if (!selectedDocument || !mediaData) {
     return [];
@@ -572,11 +561,9 @@ export function filterByDocument(
     return true;
   }).map((item) => {
     const groupingKey = getDedupeKey(item.url);
-    let usageCount = item.usageCount || 1;
-
-    if (processedData && processedData.usageData && processedData.usageData[groupingKey]) {
-      usageCount = processedData.usageData[groupingKey].count;
-    }
+    const fromIndex = getUsageCountFromIndex(usageIndex, groupingKey);
+    const fromProcessed = processedData?.usageData?.[groupingKey]?.count ?? null;
+    const usageCount = fromIndex ?? fromProcessed ?? 0;
 
     return {
       ...item,
@@ -712,7 +699,15 @@ export function computeResultSummary(mediaData, filteredData, searchQuery, filte
   return `${count} ${filterLabel}`;
 }
 
-export function deduplicateAndEnrich(sourceData, processedData) {
+function getUsageCountFromIndex(usageIndex, groupingKey) {
+  if (!usageIndex) return null;
+  const entries = usageIndex.get(groupingKey);
+  if (!entries?.length) return null;
+  const uniqueDocs = new Set(entries.map((e) => e.doc).filter(Boolean));
+  return uniqueDocs.size;
+}
+
+export function deduplicateAndEnrich(sourceData, processedData, usageIndex = null) {
   const uniqueItems = [];
   const seenKeys = new Set();
 
@@ -721,11 +716,10 @@ export function deduplicateAndEnrich(sourceData, processedData) {
     if (!seenKeys.has(groupingKey)) {
       seenKeys.add(groupingKey);
 
-      let usageCount = item.usageCount || 1;
-      if (processedData && processedData.usageData
-        && processedData.usageData[groupingKey]) {
-        usageCount = processedData.usageData[groupingKey].count;
-      }
+      // Prefer usageIndex (built fresh) over processedData (may be cached); fallback to processedData
+      const fromIndex = getUsageCountFromIndex(usageIndex, groupingKey);
+      const fromProcessed = processedData?.usageData?.[groupingKey]?.count ?? null;
+      const usageCount = fromIndex ?? fromProcessed ?? 0;
 
       uniqueItems.push({
         ...item,
@@ -798,10 +792,11 @@ export function filterMedia(sourceData, options) {
       data,
       selectedDocument,
       selectedFilterType,
+      usageIndex,
     );
   }
 
-  const uniqueItems = deduplicateAndEnrich(data, processedData);
+  const uniqueItems = deduplicateAndEnrich(data, processedData, usageIndex);
 
   let dataWithUsageCounts = uniqueItems;
   if (selectedFolder) {

@@ -1,27 +1,23 @@
 import { html, LitElement } from 'da-lit';
 import getStyle from '../../utils/styles.js';
-import { loadMediaSheet, buildMediaIndexStructures } from './utils/processing.js';
-import {
-  copyMediaToClipboard,
-  exportToCsv,
-  validateSitePath,
-  saveRecentSite,
-  getBasePath,
-  resolveAbsolutePath,
-  ensureAuthenticated,
-  sortMediaData,
-} from './utils/utils.js';
+import { loadMediaSheet, buildMediaIndexStructures } from './indexing/load.js';
+import { copyMediaToClipboard } from './core/export.js';
+import { exportToCsv } from './core/export.js';
+import { validateSitePath, getBasePath, resolveAbsolutePath } from './core/paths.js';
+import { saveRecentSite } from './core/storage.js';
+import { ensureAuthenticated, sortMediaData } from './core/utils.js';
+import { getDedupeKey } from './core/urls.js';
 import {
   processMediaData,
-  getDedupeKey,
   parseColonSyntax,
   getFilterLabel,
   computeResultSummary,
   filterMedia,
-} from './utils/filters.js';
-import { loadPinnedFolders, savePinnedFolders } from './utils/pin-folders.js';
-import { getAppState, updateAppState, onStateChange, showNotification, FILTER_TYPES } from './utils/state.js';
-import { initService, disposeService } from './utils/index-service.js';
+  initializeProcessedData,
+} from './features/filters.js';
+import { loadPinnedFolders, savePinnedFolders } from './features/pin.js';
+import { getAppState, updateAppState, onStateChange, showNotification, FILTER_TYPES } from './core/state.js';
+import { initService, disposeService } from './indexing/coordinator.js';
 import '../../public/sl/components.js';
 import './views/topbar/topbar.js';
 import './views/sidebar/sidebar.js';
@@ -200,7 +196,7 @@ class NxMediaLibrary extends LitElement {
           };
         }
       } else {
-        result.push({ ...newItem, usageCount: 1 });
+        result.push(newItem);
         keyToIndex.set(key, result.length - 1);
       }
     });
@@ -274,8 +270,23 @@ class NxMediaLibrary extends LitElement {
   }
 
   async setMediaData(rawData) {
-    if (!rawData || rawData.length === 0) return;
+    // Handle empty index: clear state instead of early return
+    const isEmpty = !rawData || rawData.length === 0;
 
+    if (isEmpty) {
+      updateAppState({
+        indexLockedByOther: false,
+        rawMediaData: [],
+        mediaData: [],
+        usageIndex: new Map(),
+        folderPathsCache: new Set(),
+        processedData: initializeProcessedData(),
+      });
+      this._filteredDataCache = null;
+      return;
+    }
+
+    // Normal flow for non-empty data
     updateAppState({ indexLockedByOther: false });
     const basePath = getBasePath();
     const filteredMediaData = basePath
@@ -639,11 +650,22 @@ function setupMediaLibrary(el) {
   cmp.sitePath = hash;
 }
 
+let hashChangeHandler = null;
+
 export default function init(el) {
   document.title = 'Media Library';
   el.innerHTML = '';
-  setupMediaLibrary(el);
-  window.addEventListener('hashchange', (e) => {
+
+  // Remove previous handler if it exists
+  if (hashChangeHandler) {
+    window.removeEventListener('hashchange', hashChangeHandler);
+  }
+
+  // Create new handler
+  hashChangeHandler = (e) => {
     setupMediaLibrary(el, e);
-  });
+  };
+
+  window.addEventListener('hashchange', hashChangeHandler);
+  setupMediaLibrary(el);
 }

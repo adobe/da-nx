@@ -3,31 +3,24 @@ import getStyle from '../../../../utils/styles.js';
 import getSvg from '../../../../utils/svg.js';
 import {
   getSubtype,
-  formatFileSize,
-  parseMediaUrl,
-  getEditUrl,
-  getViewUrl,
-  getFileName,
-  formatDocPath,
   isImage,
   isVideo,
   isPdfUrl,
   isExternalVideoUrl,
   getVideoEmbedUrl,
   EXIFR_URL,
-  normalizeUrl,
   getMediaType,
-  formatDateTime,
-  isExternalUrl,
-  resolveMediaUrl,
   getImageOrientation,
-  optimizeImageUrls,
-} from '../../utils/utils.js';
-import { fetchWithCorsProxy } from '../../utils/admin-api.js';
+} from '../../core/media.js';
+import { formatFileSize, getFileName, optimizeImageUrls } from '../../core/files.js';
+import { parseMediaUrl, normalizeUrl, isExternalUrl, resolveMediaUrl } from '../../core/urls.js';
+import { getEditUrl, getViewUrl, formatDocPath } from '../../core/paths.js';
+import { formatDateTime } from '../../core/utils.js';
+import { fetchWithCorsProxy } from '../../indexing/admin-api.js';
 import loadScript from '../../../../utils/script.js';
 import { daFetch } from '../../../../utils/daFetch.js';
 import { DA_ORIGIN, SUPPORTED_FILES } from '../../../../public/utils/constants.js';
-import { Domains, MediaType } from '../../utils/constants.js';
+import { Domains, MediaType } from '../../core/constants.js';
 
 const styles = await getStyle(import.meta.url);
 const nx = `${new URL(import.meta.url).origin}/nx`;
@@ -273,17 +266,20 @@ class NxMediaInfo extends LitElement {
 
         const dimensions = await new Promise((resolve) => {
           const img = new Image();
+          const blobUrl = URL.createObjectURL(blob);
           img.onload = () => {
             const dims = {
               width: img.naturalWidth,
               height: img.naturalHeight,
             };
+            URL.revokeObjectURL(blobUrl);
             resolve(dims);
           };
           img.onerror = () => {
+            URL.revokeObjectURL(blobUrl);
             resolve(null);
           };
-          img.src = URL.createObjectURL(blob);
+          img.src = blobUrl;
         });
 
         const comprehensive = {
@@ -833,7 +829,8 @@ class NxMediaInfo extends LitElement {
 
       return html`
         <div class="usage-sections">
-          ${Object.entries(groupedUsages).map(([doc, usages]) => {
+          ${Object.entries(groupedUsages).map(([doc, usages], idx) => {
+    const actionsId = `mediainfo-actions-${idx}`;
     const latestUsage = usages.reduce((latest, current) => (
       current.timestamp > latest.timestamp ? current : latest
     ), usages[0]);
@@ -851,13 +848,21 @@ class NxMediaInfo extends LitElement {
                   <div class="document-path">
                     <p class="usage-path">${formatDocPath(doc)}</p>
                     <p class="usage-org">${org}</p>
-                    <button type="button" size="small" class="icon-button toggle-actions" @click=${this.showActions}>
+                    <button
+                      type="button"
+                      size="small"
+                      class="icon-button toggle-actions"
+                      aria-expanded="false"
+                      aria-controls="${actionsId}"
+                      aria-label="Toggle document actions"
+                      @click=${this.showActions}
+                    >
                       <svg class="icon" viewBox="0 0 22 20">
                         <use href="#S2_Icon_ChevronRight_20_N"></use>
                       </svg>
                     </button>
                   </div>
-                  <div class="actions-container">
+                  <div class="actions-container" id="${actionsId}">
                     <p class="usage-modified">${modifiedText}</p>
                     <h5 class="usage-title">Open</h5>
                     ${this.renderActions(usages[0])}
@@ -958,9 +963,13 @@ class NxMediaInfo extends LitElement {
   }
 
   showActions(e) {
+    const button = e.target.closest('button.toggle-actions');
     const documentHeading = e.target.closest('.document-heading');
     if (documentHeading) {
-      documentHeading.classList.toggle('open');
+      const isOpen = documentHeading.classList.toggle('open');
+      if (button) {
+        button.setAttribute('aria-expanded', isOpen.toString());
+      }
     }
   }
 

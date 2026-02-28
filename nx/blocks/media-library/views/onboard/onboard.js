@@ -1,9 +1,9 @@
 import { html, LitElement, nothing } from 'da-lit';
 import getStyle from '../../../../utils/styles.js';
-import { parseOrgRepoFromUrl } from '../../utils/utils.js';
+import { parseOrgRepoFromUrl } from '../../core/urls.js';
 import getSvg from '../../../../utils/svg.js';
-import { Storage } from '../../utils/constants.js';
-import { showNotification } from '../../utils/state.js';
+import { Storage } from '../../core/constants.js';
+import { showNotification } from '../../core/state.js';
 
 const EL_NAME = 'nx-media-onboard';
 const styles = await getStyle(import.meta.url);
@@ -57,8 +57,20 @@ class NxMediaOnboard extends LitElement {
   }
 
   loadRecentSites() {
-    const recentSites = JSON.parse(localStorage.getItem(Storage.DA_SITES)) || [];
-    const recentOrgs = JSON.parse(localStorage.getItem(Storage.DA_ORGS)) || [];
+    let recentSites = [];
+    let recentOrgs = [];
+
+    try {
+      recentSites = JSON.parse(localStorage.getItem(Storage.DA_SITES)) || [];
+    } catch {
+      recentSites = [];
+    }
+
+    try {
+      recentOrgs = JSON.parse(localStorage.getItem(Storage.DA_ORGS)) || [];
+    } catch {
+      recentOrgs = [];
+    }
 
     if (recentSites.length > 0) {
       this._recents = recentSites.map((name) => ({
@@ -84,8 +96,12 @@ class NxMediaOnboard extends LitElement {
     );
 
     keys.forEach((key) => {
-      const folders = JSON.parse(localStorage.getItem(key)) || [];
-      allPinnedFolders.push(...folders);
+      try {
+        const folders = JSON.parse(localStorage.getItem(key)) || [];
+        allPinnedFolders.push(...folders);
+      } catch {
+        // Skip malformed storage entry
+      }
     });
 
     this._pinnedFolders = allPinnedFolders.map((folder) => ({
@@ -154,7 +170,12 @@ class NxMediaOnboard extends LitElement {
       const [org, repo] = parts;
 
       const storageKey = `${Storage.PINNED_FOLDERS_PREFIX}${org}-${repo}`;
-      const pinnedFolders = JSON.parse(localStorage.getItem(storageKey)) || [];
+      let pinnedFolders = [];
+      try {
+        pinnedFolders = JSON.parse(localStorage.getItem(storageKey)) || [];
+      } catch {
+        pinnedFolders = [];
+      }
       const updatedFolders = pinnedFolders.filter((folder) => folder.path !== siteName);
       localStorage.setItem(storageKey, JSON.stringify(updatedFolders));
 
@@ -164,7 +185,12 @@ class NxMediaOnboard extends LitElement {
         this._activeTab = 'recents';
       }
     } else {
-      const recentSites = JSON.parse(localStorage.getItem(Storage.DA_SITES)) || [];
+      let recentSites = [];
+      try {
+        recentSites = JSON.parse(localStorage.getItem(Storage.DA_SITES)) || [];
+      } catch {
+        recentSites = [];
+      }
       const siteNameToRemove = removeLeadingSlash(siteName);
       const updatedSites = recentSites.filter((site) => site !== siteNameToRemove);
       localStorage.setItem(Storage.DA_SITES, JSON.stringify(updatedSites));
@@ -189,12 +215,15 @@ class NxMediaOnboard extends LitElement {
   renderUrlInput() {
     return html`
       <form @submit=${this.handleUrlSubmit}>
+        <label for="site-url-input" class="visually-hidden">Site URL</label>
         <input
+          id="site-url-input"
           @keydown="${() => { this._urlError = false; }}"
           @change="${() => { this._urlError = false; }}"
           type="text"
           name="siteUrl"
           placeholder="https://main--site--org.aem.page"
+          aria-label="Enter site URL to explore media"
           class="${this._urlError ? 'error' : nothing}"
         />
         <div class="da-form-btn-offset">

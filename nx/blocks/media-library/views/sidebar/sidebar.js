@@ -1,7 +1,7 @@
 import { html, LitElement } from 'da-lit';
 import getStyle from '../../../../utils/styles.js';
 import getSvg from '../../../../public/utils/svg.js';
-import { getAppState, onStateChange } from '../../utils/state.js';
+import { getAppState, onStateChange } from '../../core/state.js';
 
 const styles = await getStyle(import.meta.url);
 const nx = `${new URL(import.meta.url).origin}/nx`;
@@ -122,6 +122,7 @@ class NxMediaSidebar extends LitElement {
           data-filter="${filter.key}"
           @click=${this.handleFilter}
           class="${isActive ? 'active' : ''}"
+          aria-pressed="${isActive}"
         >
           ${filter.label}
         </button>

@@ -1,6 +1,7 @@
 .media-sidebar {
   color: var(--s2-gray-800);
-  height: 100vh;
+  height: 100vh; /* Fallback for older browsers */
+  height: 100dvh; /* Dynamic viewport height for mobile */
   overflow-y: auto;
   overflow-x: hidden;
   display: flex;
@@ -38,7 +39,7 @@
       color: var(--s2-blue-800);
     }
 
-    & :focus {
+    &:focus-visible {
       outline: 2px solid var(--s2-blue-500);
       outline-offset: 2px;
     }
