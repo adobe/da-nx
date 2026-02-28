@@ -1,8 +1,9 @@
 import { html, LitElement } from 'da-lit';
 import getStyle from '../../../../utils/styles.js';
 import getSvg from '../../../../public/utils/svg.js';
-import { parseColonSyntax, generateSearchSuggestions, createSearchSuggestion } from '../../utils/filters.js';
-import { getAppState, subscribeToAppState } from '../../utils/state.js';
+import { parseColonSyntax, getSearchSuggestions, createSearchSuggestion } from '../../features/filters.js';
+import { highlightMatch } from '../../features/templates.js';
+import { getAppState, onStateChange } from '../../core/state.js';
 
 const styles = await getStyle(import.meta.url);
 const nx = `${new URL(import.meta.url).origin}/nx`;
@@ -48,10 +49,14 @@ class NxMediaTopBar extends LitElement {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [sl, slComponents, styles];
 
-    this._unsubscribe = subscribeToAppState((state) => {
-      this._appState = state;
-      this.requestUpdate();
-    });
+    this._unsubscribe = onStateChange(
+      ['searchQuery', 'resultSummary', 'selectedFolder', 'rawMediaData', 'mediaData', 'folderPathsCache',
+        'progressiveMediaData', 'isIndexing'],
+      (state) => {
+        this._appState = state;
+        this.requestUpdate();
+      },
+    );
 
     getSvg({ parent: this.shadowRoot, paths: ICONS });
 
@@ -110,6 +115,11 @@ class NxMediaTopBar extends LitElement {
               <input
                 type="text"
                 id="search-input"
+                role="combobox"
+                aria-autocomplete="list"
+                aria-expanded="${this._showSuggestions}"
+                aria-controls="suggestions-listbox"
+                aria-activedescendant="${this._activeIndex >= 0 ? `suggestion-${this._activeIndex}` : ''}"
                 placeholder="Enter search"
                 .value=${this._inputValue}
                 @input=${this.handleSearchInput}
@@ -139,7 +149,11 @@ class NxMediaTopBar extends LitElement {
                   ✕
                 </button>
               ` : ''}
-              <div class="suggestions-dropdown ${this._showSuggestions ? 'visible' : 'hidden'}">
+              <div
+                class="suggestions-dropdown ${this._showSuggestions ? 'visible' : 'hidden'}"
+                role="listbox"
+                id="suggestions-listbox"
+              >
                 ${this._suggestions.map((suggestion, index) => {
     let icon = '';
     if (suggestion.type === 'folder') {
@@ -159,16 +173,18 @@ class NxMediaTopBar extends LitElement {
     return html`
       <div
         class="suggestion-item ${index === this._activeIndex ? 'active' : ''}"
+        role="option"
+        id="suggestion-${index}"
+        aria-selected="${index === this._activeIndex}"
         @click=${() => this.selectSuggestion(suggestion)}
       >
         <div class="suggestion-main">
           ${icon}
-          <span class="suggestion-text" .innerHTML=${this.highlightMatch(suggestion.display, this._originalQuery)}></span>
+          <span class="suggestion-text" .innerHTML=${highlightMatch(suggestion.display, this._originalQuery)}></span>
         </div>
         ${suggestion.details ? html`
           <div class="suggestion-details">
-            ${suggestion.details.alt ? html`<div class="detail-line">Alt: <span .innerHTML=${this.highlightMatch(suggestion.details.alt, this._originalQuery)}></span></div>` : ''}
-            ${suggestion.details.doc ? html`<div class="detail-line">Doc: <span .innerHTML=${this.highlightMatch(suggestion.details.doc, this._originalQuery)}></span></div>` : ''}
+            ${suggestion.details.doc ? html`<div class="detail-line">Doc: <span .innerHTML=${highlightMatch(suggestion.details.doc, this._originalQuery)}></span></div>` : ''}
           </div>
         ` : ''}
       </div>
@@ -180,6 +196,9 @@ class NxMediaTopBar extends LitElement {
 
         ${this._appState.resultSummary ? html`
           <div class="result-count">
+            ${this._appState.isIndexing ? html`
+              <span class="result-count-spinner" aria-hidden="true"></span>
+            ` : ''}
             ${this._appState.resultSummary}
           </div>
         ` : ''}
@@ -240,7 +259,7 @@ class NxMediaTopBar extends LitElement {
   }
 
   handleKeyDown(e) {
-    if (e.key === 'Escape' || e.key === 'Enter') {
+    if (e.key === 'Escape') {
       e.preventDefault();
       e.stopPropagation();
       this._showSuggestions = false;
@@ -382,7 +401,7 @@ class NxMediaTopBar extends LitElement {
   }
 
   getOnDemandSearchSuggestions(query) {
-    return generateSearchSuggestions(
+    return getSearchSuggestions(
       this._appState.rawMediaData || this._appState.mediaData,
       query,
       createSearchSuggestion,
@@ -399,11 +418,6 @@ class NxMediaTopBar extends LitElement {
     return '';
   }
 
-  highlightMatch(text, query) {
-    if (!query || !text) return text;
-    const regex = new RegExp(`(${query})`, 'ig');
-    return text.replace(regex, '<mark>$1</mark>');
-  }
 }
 
 customElements.define('nx-media-topbar', NxMediaTopBar);

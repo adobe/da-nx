@@ -1,7 +1,9 @@
 import { html, LitElement, nothing } from 'da-lit';
 import getStyle from '../../../../utils/styles.js';
-import { getOrgRepoFrmUrl } from '../../utils/utils.js';
+import { parseOrgRepoFromUrl } from '../../core/urls.js';
 import getSvg from '../../../../utils/svg.js';
+import { Storage } from '../../core/constants.js';
+import { showNotification } from '../../core/state.js';
 
 const EL_NAME = 'nx-media-onboard';
 const styles = await getStyle(import.meta.url);
@@ -55,8 +57,20 @@ class NxMediaOnboard extends LitElement {
   }
 
   loadRecentSites() {
-    const recentSites = JSON.parse(localStorage.getItem('da-sites')) || [];
-    const recentOrgs = JSON.parse(localStorage.getItem('da-orgs')) || [];
+    let recentSites = [];
+    let recentOrgs = [];
+
+    try {
+      recentSites = JSON.parse(localStorage.getItem(Storage.DA_SITES)) || [];
+    } catch {
+      recentSites = [];
+    }
+
+    try {
+      recentOrgs = JSON.parse(localStorage.getItem(Storage.DA_ORGS)) || [];
+    } catch {
+      recentOrgs = [];
+    }
 
     if (recentSites.length > 0) {
       this._recents = recentSites.map((name) => ({
@@ -77,11 +91,17 @@ class NxMediaOnboard extends LitElement {
 
   loadPinnedFolders() {
     const allPinnedFolders = [];
-    const keys = Object.keys(localStorage).filter((key) => key.startsWith('media-library-pinned-folders-'));
+    const keys = Object.keys(localStorage).filter(
+      (key) => key.startsWith(Storage.PINNED_FOLDERS_PREFIX),
+    );
 
     keys.forEach((key) => {
-      const folders = JSON.parse(localStorage.getItem(key)) || [];
-      allPinnedFolders.push(...folders);
+      try {
+        const folders = JSON.parse(localStorage.getItem(key)) || [];
+        allPinnedFolders.push(...folders);
+      } catch {
+        // Skip malformed storage entry
+      }
     });
 
     this._pinnedFolders = allPinnedFolders.map((folder) => ({
@@ -100,7 +120,7 @@ class NxMediaOnboard extends LitElement {
     if (!siteUrl) return;
 
     try {
-      const { repo, org } = getOrgRepoFrmUrl(siteUrl);
+      const { repo, org } = parseOrgRepoFromUrl(siteUrl);
       const sitePath = `/${org}/${repo}`;
 
       this.dispatchEvent(new CustomEvent('site-selected', {
@@ -138,14 +158,7 @@ class NxMediaOnboard extends LitElement {
     const shareUrl = `${baseUrl}${window.location.search}#${sitePath}`;
 
     navigator.clipboard.writeText(shareUrl).then(() => {
-      window.dispatchEvent(new CustomEvent('show-notification', {
-        detail: {
-          heading: 'Link Copied',
-          message: 'Media library link copied to clipboard',
-          type: 'success',
-          open: true,
-        },
-      }));
+      showNotification('Link Copied', 'Media library link copied to clipboard', 'success');
     });
   }
 
@@ -156,33 +169,40 @@ class NxMediaOnboard extends LitElement {
       const parts = sitePath.split('/');
       const [org, repo] = parts;
 
-      const storageKey = `media-library-pinned-folders-${org}-${repo}`;
-      const pinnedFolders = JSON.parse(localStorage.getItem(storageKey)) || [];
+      const storageKey = `${Storage.PINNED_FOLDERS_PREFIX}${org}-${repo}`;
+      let pinnedFolders = [];
+      try {
+        pinnedFolders = JSON.parse(localStorage.getItem(storageKey)) || [];
+      } catch {
+        pinnedFolders = [];
+      }
       const updatedFolders = pinnedFolders.filter((folder) => folder.path !== siteName);
       localStorage.setItem(storageKey, JSON.stringify(updatedFolders));
 
       this.loadPinnedFolders();
 
-      // Switch to recents tab if no pinned folders left
       if (this._pinnedFolders.length === 0 && this._recents.length > 0) {
         this._activeTab = 'recents';
       }
     } else {
-      const recentSites = JSON.parse(localStorage.getItem('da-sites')) || [];
+      let recentSites = [];
+      try {
+        recentSites = JSON.parse(localStorage.getItem(Storage.DA_SITES)) || [];
+      } catch {
+        recentSites = [];
+      }
       const siteNameToRemove = removeLeadingSlash(siteName);
       const updatedSites = recentSites.filter((site) => site !== siteNameToRemove);
-      localStorage.setItem('da-sites', JSON.stringify(updatedSites));
+      localStorage.setItem(Storage.DA_SITES, JSON.stringify(updatedSites));
 
-      // Also remove pinned folders for this site
       const parts = siteNameToRemove.split('/');
       const [org, repo] = parts;
-      const storageKey = `media-library-pinned-folders-${org}-${repo}`;
+      const storageKey = `${Storage.PINNED_FOLDERS_PREFIX}${org}-${repo}`;
       localStorage.removeItem(storageKey);
 
       this.loadRecentSites();
       this.loadPinnedFolders();
 
-      // Switch to pinned tab if no recents left but pinned folders exist
       if (this._recents.length === 0 && this._pinnedFolders.length > 0) {
         this._activeTab = 'pinned';
       }
@@ -195,12 +215,15 @@ class NxMediaOnboard extends LitElement {
   renderUrlInput() {
     return html`
       <form @submit=${this.handleUrlSubmit}>
+        <label for="site-url-input" class="visually-hidden">Site URL</label>
         <input
+          id="site-url-input"
           @keydown="${() => { this._urlError = false; }}"
           @change="${() => { this._urlError = false; }}"
           type="text"
           name="siteUrl"
           placeholder="https://main--site--org.aem.page"
+          aria-label="Enter site URL to explore media"
           class="${this._urlError ? 'error' : nothing}"
         />
         <div class="da-form-btn-offset">

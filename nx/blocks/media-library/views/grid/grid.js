@@ -5,20 +5,22 @@ import getSvg from '../../../../public/utils/svg.js';
 import {
   getVideoThumbnail,
   isExternalVideoUrl,
+  isPdfUrl,
+  isFragmentMedia,
+  getSubtype,
   isImage,
   isVideo,
-  isPdf,
-  isFragment,
-  getDisplayMediaType,
-} from '../../utils/utils.js';
-import { getAppState, subscribeToAppState } from '../../utils/state.js';
+} from '../../core/media.js';
+import { isExternalUrl, getDedupeKey } from '../../core/urls.js';
+import { optimizeImageUrls, CARD_IMAGE_SIZES } from '../../core/files.js';
+import { getAppState, onStateChange } from '../../core/state.js';
 import '../../../../public/sl/components.js';
 import {
   createMediaEventHandlers,
   staticTemplates,
-  highlightMatch,
   getMediaName,
-} from '../../utils/templates.js';
+} from '../../features/templates.js';
+import { MediaType } from '../../core/constants.js';
 
 const styles = await getStyle(import.meta.url);
 const nx = `${new URL(import.meta.url).origin}/nx`;
@@ -34,7 +36,6 @@ const ICONS = [
   `${nx}/public/icons/Smock_DocumentFragment_18_N.svg`,
   `${nx}/public/icons/S2_Icon_Play_20_N.svg`,
   `${nx}/public/icons/C_Icon_Fragment.svg`,
-  `${nx}/public/icons/S2_Icon_Accessibility_20_N.svg`,
 ];
 
 class NxMediaGrid extends LitElement {
@@ -54,10 +55,13 @@ class NxMediaGrid extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [sl, slComponents, styles];
-    this._unsubscribe = subscribeToAppState((state) => {
-      this._appState = state;
-      this.requestUpdate();
-    });
+    this._unsubscribe = onStateChange(
+      ['searchQuery'],
+      (state) => {
+        this._appState = state;
+        this.requestUpdate();
+      },
+    );
   }
 
   disconnectedCallback() {
@@ -89,7 +93,11 @@ class NxMediaGrid extends LitElement {
         ${virtualize({
     items: this.mediaData,
     renderItem: (media) => this.renderMediaCard(media),
-    keyFunction: (media) => media?.url || '',
+    keyFunction: (media) => {
+      const key = media?.url ? getDedupeKey(media.url) : (media?.hash || '');
+      const doc = media?.doc ?? '';
+      return `${key}|${doc}`;
+    },
     scroller: true,
     layout: grid({
       gap: '24px',
@@ -108,7 +116,7 @@ class NxMediaGrid extends LitElement {
       mediaClick: () => this.eventHandlers.handleMediaClick(media),
       copyClick: () => this.eventHandlers.handleMediaCopy(media),
     };
-    const usageCount = media.usageCount || 0;
+    const usageCount = media.usageCount ?? '-';
 
     return html`
       <div class="media-card">
@@ -118,10 +126,9 @@ class NxMediaGrid extends LitElement {
         <div class="media-info clickable" @click=${handlers.mediaClick}>
           <div class="media-meta">
             <span class="media-label media-used">${usageCount}</span>
-            <span class="media-label media-type">${this.getDisplayTypeText(media)}</span>
+            <span class="media-label media-type" title="${getSubtype(media)}">${this.getDisplayTypeText(media)}</span>
           </div>
           <div class="media-actions">
-            ${this.renderAltStatus(media)}
             <button
               class="icon-button share-button"
               @click=${(e) => { e.stopPropagation(); handlers.copyClick(); }}
@@ -139,7 +146,30 @@ class NxMediaGrid extends LitElement {
   }
 
   renderMediaPreview(media) {
-    if (isFragment(media)) {
+    if (isExternalVideoUrl(media?.url)) {
+      const thumbnailUrl = getVideoThumbnail(media.url);
+      return html`
+        <div class="video-preview-container">
+          ${thumbnailUrl ? html`
+            <img src="${thumbnailUrl}" alt="Video thumbnail" class="video-thumbnail" loading="lazy" decoding="async">
+          ` : html`
+            <div class="placeholder-full video-placeholder">
+              <svg class="placeholder-icon" viewBox="0 0 20 20">
+                <use href="#S2_Icon_Play_20_N"></use>
+              </svg>
+              <span class="placeholder-label">Video</span>
+            </div>
+          `}
+          <div class="video-overlay">
+            <svg class="play-icon" viewBox="0 0 20 20">
+              <use href="#S2_Icon_Play_20_N"></use>
+            </svg>
+          </div>
+        </div>
+      `;
+    }
+
+    if (isFragmentMedia(media)) {
       return html`
         <div class="placeholder-full fragment-placeholder">
           <svg class="placeholder-icon fragment-icon" viewBox="0 0 60 60">
@@ -150,27 +180,19 @@ class NxMediaGrid extends LitElement {
       `;
     }
 
-    if (isImage(media.url)) {
-      const optimizedUrl = media.url.replace('format=jpeg', 'format=webply').replace('format=png', 'format=webply');
-      return html`
-        <img src="${optimizedUrl}" alt="${media.alt || ''}" loading="lazy">
-      `;
-    }
-
-    if (isExternalVideoUrl(media.url)) {
-      const thumbnailUrl = getVideoThumbnail(media.url);
-      if (thumbnailUrl) {
+    if (isImage(media.url) || (media.type === MediaType.IMAGE && isExternalUrl(media.url))) {
+      const optimized = !isExternalUrl(media.url) ? optimizeImageUrls(media.url) : null;
+      if (optimized) {
         return html`
-          <div class="video-preview-container">
-            <img src="${thumbnailUrl}" alt="Video thumbnail" class="video-thumbnail" loading="lazy">
-            <div class="video-overlay">
-              <svg class="play-icon" viewBox="0 0 20 20">
-                <use href="#S2_Icon_Play_20_N"></use>
-              </svg>
-            </div>
-          </div>
+          <picture>
+            <source type="image/webp" srcset="${optimized.webpSrcset}" sizes="${CARD_IMAGE_SIZES}">
+            <img src="${optimized.fallbackUrl}" srcset="${optimized.fallbackSrcset}" sizes="${CARD_IMAGE_SIZES}" alt="" loading="lazy" decoding="async">
+          </picture>
         `;
       }
+      return html`
+        <img src="${media.url}" alt="" loading="lazy" decoding="async">
+      `;
     }
 
     if (isVideo(media.url)) {
@@ -188,7 +210,7 @@ class NxMediaGrid extends LitElement {
       `;
     }
 
-    if (isPdf(media.url)) {
+    if (isPdfUrl(media.url)) {
       return html`
         <div class="placeholder-full pdf-placeholder">
           <svg class="placeholder-icon" viewBox="0 0 48 48" fill="none">
@@ -204,35 +226,6 @@ class NxMediaGrid extends LitElement {
     return staticTemplates.unknownPlaceholder;
   }
 
-  renderAltStatus(media) {
-    if (media.type && media.type.startsWith('img >') && !media.type.includes('svg')) {
-      if (media.alt && media.alt !== '') {
-        return html`
-          <div class="filled-alt-indicator">
-            <svg class="alt-text-icon icon" viewBox="0 0 22 20">
-              <use href="#S2_Icon_Accessibility_20_N"></use>
-            </svg>
-          </div>
-        `;
-      }
-    }
-    return '';
-  }
-
-  renderHighlightedAlt(media) {
-    if (!media.alt) return '';
-    const query = this._appState.searchQuery;
-    const content = query ? highlightMatch(media.alt, query) : media.alt;
-    return html`<div class="media-alt" .innerHTML=${content}></div>`;
-  }
-
-  renderHighlightedDoc(media) {
-    if (!media.doc) return '';
-    const query = this._appState.searchQuery;
-    const content = query ? highlightMatch(media.doc, query) : media.doc;
-    return html`<div class="media-doc" .innerHTML=${content}></div>`;
-  }
-
   async loadIcons() {
     const existingIcons = this.shadowRoot.querySelectorAll('svg[id]');
     const loadedIconIds = Array.from(existingIcons).map((icon) => icon.id);
@@ -246,38 +239,12 @@ class NxMediaGrid extends LitElement {
     }
   }
 
-  getHighlightedName(media) {
-    const name = getMediaName(media);
-    if (!this._appState.searchQuery) return name;
-    return html`<span .innerHTML=${highlightMatch(name, this._appState.searchQuery)}></span>`;
-  }
-
   getDisplayType(media) {
-    if (media.type && media.type.includes(' > ')) {
-      const [baseType, subtype] = media.type.split(' > ');
-      if (baseType === 'fragment') {
-        return html`<strong>FRAGMENT</strong>`;
-      }
-      if (baseType === 'document' || (baseType === 'link' && subtype === 'pdf')) {
-        return html`<strong>PDF</strong>`;
-      }
-      return html`<strong>${subtype.toUpperCase()}</strong>`;
-    }
-    return html`<strong>${getDisplayMediaType(media)}</strong>`;
+    return html`<strong>${getSubtype(media)}</strong>`;
   }
 
   getDisplayTypeText(media) {
-    if (media.type && media.type.includes(' > ')) {
-      const [baseType, subtype] = media.type.split(' > ');
-      if (baseType === 'fragment') {
-        return 'FRAGMENT';
-      }
-      if (baseType === 'document' || (baseType === 'link' && subtype === 'pdf')) {
-        return 'PDF';
-      }
-      return subtype.toUpperCase();
-    }
-    return getDisplayMediaType(media).toUpperCase();
+    return getSubtype(media);
   }
 }
 

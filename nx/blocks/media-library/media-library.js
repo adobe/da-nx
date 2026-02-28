@@ -1,26 +1,22 @@
 import { html, LitElement } from 'da-lit';
 import getStyle from '../../utils/styles.js';
-import { loadMediaSheet, buildDataStructures } from './utils/processing.js';
-import {
-  copyMediaToClipboard,
-  validateSitePath,
-  saveRecentSite,
-  getBasePath,
-  resolveAbsolutePath,
-  ensureAuthenticated,
-  sortMediaData,
-} from './utils/utils.js';
+import { loadMediaSheet, buildMediaIndexStructures } from './indexing/load.js';
+import { copyMediaToClipboard, exportToCsv } from './core/export.js';
+import { validateSitePath, getBasePath, resolveAbsolutePath } from './core/paths.js';
+import { saveRecentSite } from './core/storage.js';
+import { ensureAuthenticated, sortMediaData } from './core/utils.js';
+import { getDedupeKey } from './core/urls.js';
 import {
   processMediaData,
-  getGroupingKey,
   parseColonSyntax,
   getFilterLabel,
   computeResultSummary,
-  createMediaFilterPipeline,
-} from './utils/filters.js';
-import { loadPinnedFolders, savePinnedFolders } from './utils/pin-folders.js';
-import { getAppState, updateAppState, subscribeToAppState, FILTER_TYPES } from './utils/state.js';
-import { initializeScanService, cleanupScanService } from './utils/scan-service.js';
+  filterMedia,
+  initializeProcessedData,
+} from './features/filters.js';
+import { loadPinnedFolders, savePinnedFolders } from './features/pin.js';
+import { getAppState, updateAppState, onStateChange, showNotification, FILTER_TYPES } from './core/state.js';
+import { initService, disposeService } from './indexing/coordinator.js';
 import '../../public/sl/components.js';
 import './views/topbar/topbar.js';
 import './views/sidebar/sidebar.js';
@@ -51,15 +47,8 @@ class NxMediaLibrary extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [sl, slComponents, topbarStyles, styles];
-    window.addEventListener('show-notification', this.handleShowNotification);
-    window.addEventListener('scanStart', this.handleScanStart);
-    window.addEventListener('scanProgress', this.handleScanProgress);
-    window.addEventListener('scanComplete', this.handleScanComplete);
-    window.addEventListener('scanError', this.handleScanError);
-    window.addEventListener('progressiveDataUpdate', this.handleProgressiveDataUpdate);
-    window.addEventListener('mediaDataUpdated', this.handleMediaDataUpdated);
 
-    this._unsubscribe = subscribeToAppState((state) => {
+    this._unsubscribe = onStateChange((state) => {
       this._appState = state;
       this.requestUpdate();
     });
@@ -70,21 +59,11 @@ class NxMediaLibrary extends LitElement {
     if (this._messageTimeout) {
       clearTimeout(this._messageTimeout);
     }
-    if (this._notificationTimeout) {
-      clearTimeout(this._notificationTimeout);
-    }
-    window.removeEventListener('show-notification', this.handleShowNotification);
-    window.removeEventListener('scanStart', this.handleScanStart);
-    window.removeEventListener('scanProgress', this.handleScanProgress);
-    window.removeEventListener('scanComplete', this.handleScanComplete);
-    window.removeEventListener('scanError', this.handleScanError);
-    window.removeEventListener('progressiveDataUpdate', this.handleProgressiveDataUpdate);
-    window.removeEventListener('mediaDataUpdated', this.handleMediaDataUpdated);
 
     if (this._unsubscribe) {
       this._unsubscribe();
     }
-    cleanupScanService();
+    disposeService();
   }
 
   willUpdate(changedProperties) {
@@ -99,14 +78,25 @@ class NxMediaLibrary extends LitElement {
           || oldState.mediaData !== newState.mediaData
           || oldState.rawMediaData !== newState.rawMediaData
           || oldState.processedData !== newState.processedData
+          || oldState.progressiveMediaData !== newState.progressiveMediaData
+          || oldState.isIndexing !== newState.isIndexing
       ) {
         this._filteredDataCache = null;
 
+        let displayCount;
+        if (newState.isIndexing && newState.progressiveMediaData?.length > 0) {
+          const merged = this.mergeDataForDisplay(
+            this.filteredMediaData,
+            newState.progressiveMediaData,
+          );
+          displayCount = merged.length;
+        }
         const resultSummary = computeResultSummary(
           newState.mediaData,
           this.filteredMediaData,
           newState.searchQuery,
           newState.selectedFilterType,
+          displayCount !== undefined ? { displayCount } : {},
         );
 
         if (resultSummary !== newState.resultSummary) {
@@ -122,6 +112,7 @@ class NxMediaLibrary extends LitElement {
         updateAppState({
           mediaData: [],
           processedData: null,
+          indexLockedByOther: false,
         });
         this.resetSearchState();
       }
@@ -157,7 +148,7 @@ class NxMediaLibrary extends LitElement {
       return this._filteredDataCache;
     }
 
-    this._filteredDataCache = createMediaFilterPipeline(
+    this._filteredDataCache = filterMedia(
       this._appState.rawMediaData || this._appState.mediaData,
       {
         searchQuery: this._appState.searchQuery,
@@ -184,32 +175,32 @@ class NxMediaLibrary extends LitElement {
   mergeDataForDisplay(existingData, newItems) {
     if (!newItems || newItems.length === 0) return existingData;
 
-    const updatedData = [...existingData];
-    const seenKeys = new Set(
-      existingData.map((item) => getGroupingKey(item.url)),
-    );
+    const result = [...existingData];
+    const keyToIndex = new Map();
+    existingData.forEach((item, i) => {
+      keyToIndex.set(getDedupeKey(item.url), i);
+    });
 
     newItems.forEach((newItem) => {
-      const groupingKey = getGroupingKey(newItem.url);
-      const existingIndex = updatedData.findIndex(
-        (item) => getGroupingKey(item.url) === groupingKey,
-      );
-
-      if (existingIndex !== -1) {
-        // Update existing item with new timestamp but keep original usageCount
-        updatedData[existingIndex] = {
-          ...updatedData[existingIndex],
-          ...newItem,
-          usageCount: updatedData[existingIndex].usageCount,
-        };
-      } else if (!seenKeys.has(groupingKey)) {
-        // Add new item
-        updatedData.push({ ...newItem, usageCount: 1 });
-        seenKeys.add(groupingKey);
+      const key = getDedupeKey(newItem.url);
+      const existingIndex = keyToIndex.get(key);
+      if (existingIndex !== undefined) {
+        const existingTs = result[existingIndex].timestamp ?? 0;
+        const newTs = newItem.timestamp ?? 0;
+        if (newTs >= existingTs) {
+          result[existingIndex] = {
+            ...result[existingIndex],
+            ...newItem,
+            usageCount: result[existingIndex].usageCount,
+          };
+        }
+      } else {
+        result.push(newItem);
+        keyToIndex.set(key, result.length - 1);
       }
     });
 
-    return updatedData;
+    return result;
   }
 
   async initialize() {
@@ -230,10 +221,9 @@ class NxMediaLibrary extends LitElement {
 
       const validation = await validateSitePath(this.sitePath);
 
-      updateAppState({ isValidating: false });
-
       if (!validation.valid) {
         updateAppState({
+          isValidating: false,
           validationError: validation.error,
           validationSuggestion: validation.suggestion,
           sitePathValid: false,
@@ -248,8 +238,10 @@ class NxMediaLibrary extends LitElement {
       });
 
       saveRecentSite(this.sitePath);
-      this.loadMediaData();
-      initializeScanService(this.sitePath);
+      await this.loadMediaData();
+      updateAppState({ isValidating: false });
+      const onMediaDataUpdated = (mediaData) => this.setMediaData(mediaData);
+      initService(this.sitePath, { onMediaDataUpdated });
     } catch (error) {
       updateAppState({
         isValidating: false,
@@ -277,14 +269,30 @@ class NxMediaLibrary extends LitElement {
   }
 
   async setMediaData(rawData) {
-    if (!rawData || rawData.length === 0) return;
+    // Handle empty index: clear state instead of early return
+    const isEmpty = !rawData || rawData.length === 0;
 
+    if (isEmpty) {
+      updateAppState({
+        indexLockedByOther: false,
+        rawMediaData: [],
+        mediaData: [],
+        usageIndex: new Map(),
+        folderPathsCache: new Set(),
+        processedData: initializeProcessedData(),
+      });
+      this._filteredDataCache = null;
+      return;
+    }
+
+    // Normal flow for non-empty data
+    updateAppState({ indexLockedByOther: false });
     const basePath = getBasePath();
     const filteredMediaData = basePath
       ? rawData.filter((item) => !item.doc || item.doc === '' || item.doc.startsWith(basePath))
       : rawData;
 
-    const { uniqueItems, usageIndex, folderPaths } = buildDataStructures(filteredMediaData);
+    const { uniqueItems, usageIndex, folderPaths } = buildMediaIndexStructures(filteredMediaData);
     const processedData = await processMediaData(filteredMediaData);
 
     updateAppState({
@@ -306,9 +314,9 @@ class NxMediaLibrary extends LitElement {
     if (this._appState.isValidating) {
       return html`
         <div class="validation-state">
-          <div class="validation-content">
-            <div class="spinner"></div>
-            <p>Initializing...</p>
+          <div class="validation-content indexing-state">
+            <div class="indexing-spinner"></div>
+            <p class="indexing-message">Discovering</p>
           </div>
         </div>
       `;
@@ -323,6 +331,7 @@ class NxMediaLibrary extends LitElement {
         <div class="sidebar">
           <nx-media-sidebar
             @filter=${this.handleFilter}
+            @export-csv=${this.handleExportCsv}
           ></nx-media-sidebar>
         </div>
 
@@ -338,7 +347,7 @@ class NxMediaLibrary extends LitElement {
           ${this.renderCurrentView()}
         </div>
 
-        <nx-media-info @altTextUpdated=${this.handleAltTextUpdated}></nx-media-info>
+        <nx-media-info></nx-media-info>
 
         ${this._appState.notification ? html`
           <div class="da-notification-status">
@@ -358,25 +367,29 @@ class NxMediaLibrary extends LitElement {
     const hasFilteredData = filteredData?.length > 0;
     const hasProgressiveData = this._appState.progressiveMediaData?.length > 0;
 
-    if (this._appState.isScanning && !hasData && !hasProgressiveData) {
-      return this.renderScanningState();
+    if (this._appState.isIndexing && !hasData && !hasProgressiveData) {
+      return this.renderIndexingState();
     }
 
-    if (!hasData && !this._appState.isScanning) {
+    if (!hasData && !this._appState.isIndexing) {
+      if (this._appState.indexLockedByOther) {
+        return this.renderIndexLockedState();
+      }
       return this.renderEmptyState();
     }
 
-    if (hasData && !hasFilteredData && !this._appState.isScanning) {
+    if (hasData && !hasFilteredData && !this._appState.isIndexing) {
       return this.renderEmptyState();
     }
 
     let displayData = filteredData;
-    if (this._appState.isScanning && hasProgressiveData) {
-      const mergedData = this.mergeDataForDisplay(
+    if (this._appState.isIndexing && hasProgressiveData && !hasData) {
+      displayData = this.mergeDataForDisplay(
         filteredData,
         this._appState.progressiveMediaData,
       );
-      displayData = sortMediaData(mergedData);
+    } else if (displayData?.length > 0) {
+      displayData = sortMediaData(displayData);
     }
 
     return html`
@@ -398,11 +411,21 @@ class NxMediaLibrary extends LitElement {
     `;
   }
 
-  renderScanningState() {
+  renderIndexingState() {
     return html`
-      <div class="scanning-state">
-        <div class="scanning-spinner"></div>
-        <h3>Discovering Media</h3>
+      <div class="indexing-state">
+        <div class="indexing-spinner"></div>
+        <p class="indexing-message">Discovering</p>
+      </div>
+    `;
+  }
+
+  renderIndexLockedState() {
+    return html`
+      <div class="indexing-state index-locked-state">
+        <div class="indexing-spinner"></div>
+        <p class="indexing-message">Discovery session in progress</p>
+        <p class="indexing-hint">Media will appear automatically when discovery is complete.</p>
       </div>
     `;
   }
@@ -473,7 +496,7 @@ class NxMediaLibrary extends LitElement {
     const alreadyPinned = pinnedFolders.some((pf) => pf.path === fullPath);
 
     if (alreadyPinned) {
-      this.showNotification('Already Pinned!', `Folder :${folder} is already pinned`, 'danger');
+      showNotification('Already Pinned!', `Folder :${folder} is already pinned`, 'danger');
       return;
     }
 
@@ -482,7 +505,7 @@ class NxMediaLibrary extends LitElement {
     const updatedPinnedFolders = [...pinnedFolders, pinnedFolder];
     savePinnedFolders(updatedPinnedFolders, this.org, this.repo);
 
-    this.showNotification('Folder Pinned', `Folder :${folder} pinned`);
+    showNotification('Folder Pinned', `Folder :${folder} pinned`);
   }
 
   handleSearch(e) {
@@ -548,7 +571,7 @@ class NxMediaLibrary extends LitElement {
     const { media } = e.detail;
     if (!media) return;
 
-    const groupingKey = getGroupingKey(media.url);
+    const groupingKey = getDedupeKey(media.url);
     const usageData = this._appState.usageIndex?.get(groupingKey) || [];
 
     const mediaInfo = this.shadowRoot.querySelector('nx-media-info');
@@ -557,7 +580,7 @@ class NxMediaLibrary extends LitElement {
       usageData,
       org: this.org,
       repo: this.repo,
-      isScanning: this._appState.isScanning,
+      isIndexing: this._appState.isIndexing,
     });
   }
 
@@ -568,167 +591,39 @@ class NxMediaLibrary extends LitElement {
     try {
       const result = await copyMediaToClipboard(media);
       const isError = result.heading === 'Error';
-      this.showNotification(result.heading, result.message, isError ? 'danger' : 'success');
+      showNotification(result.heading, result.message, isError ? 'danger' : 'success');
     } catch (error) {
-      this.showNotification('Error', 'Failed to copy Resource.', 'danger');
+      showNotification('Error', 'Failed to copy Resource.', 'danger');
     }
   }
 
-  handleAltTextUpdated(e) {
-    const { media } = e.detail;
-
-    if (this._appState.mediaData) {
-      updateAppState({
-        mediaData: this._appState.mediaData.map((item) => (
-          item.url === media.url ? { ...item, ...media } : item)),
-      });
+  handleExportCsv = () => {
+    const filteredData = this.filteredMediaData;
+    let data = filteredData;
+    if (this._appState.isIndexing && this._appState.progressiveMediaData?.length > 0) {
+      data = this.mergeDataForDisplay(
+        filteredData,
+        this._appState.progressiveMediaData,
+      );
+    } else if (data?.length > 0) {
+      data = sortMediaData(data);
     }
-  }
-
-  handleScanStart = async () => {
-    updateAppState({
-      isScanning: true,
-      scanProgress: this.createScanProgress(),
-      scanStartTime: Date.now(),
-      progressiveMediaData: [],
-    });
-  };
-
-  handleScanProgress = (e) => {
-    const { progress } = e.detail;
-    updateAppState({
-      scanProgress: this.createScanProgress(
-        progress.pages || 0,
-        progress.mediaFiles || 0,
-        progress.mediaReferences || 0,
-        progress.duration,
-        progress.hasChanges !== undefined ? progress.hasChanges : null,
-      ),
-    });
-  };
-
-  handleScanComplete = async (e) => {
-    if (this._isProcessingData) {
+    if (!data || data.length === 0) {
+      showNotification('Info', 'No data to export.', 'info');
       return;
     }
-
-    updateAppState({ progressiveMediaData: [] });
-    this._isProcessingData = true;
-
     try {
-      if (this.sitePath) {
-        // Wait for backend to finish writing media.json after scan completes
-        await new Promise((resolve) => {
-          setTimeout(resolve, 500);
-        });
-
-        const mediaData = await loadMediaSheet(this.sitePath);
-
-        if (mediaData && mediaData.length > 0) {
-          const duration = ((Date.now() - this._appState.scanStartTime) / 1000).toFixed(1);
-          const scanResult = e?.detail || {};
-          const hasChanges = scanResult.hasChanges !== undefined
-            ? scanResult.hasChanges
-            : false;
-
-          if (hasChanges) {
-            await this.setMediaData(mediaData);
-          }
-
-          const mediaCount = this._appState.mediaData?.length || 0;
-
-          updateAppState({
-            scanProgress: this.createScanProgress(
-              scanResult.pages || this._appState.scanProgress.pages,
-              scanResult.mediaFiles || this._appState.scanProgress.mediaFiles,
-              mediaCount,
-              `${duration}s`,
-              hasChanges,
-            ),
-            isScanning: false,
-          });
-        } else {
-          const duration = ((Date.now() - this._appState.scanStartTime) / 1000).toFixed(1);
-          updateAppState({
-            scanProgress: this.createScanProgress(
-              this._appState.scanProgress.pages,
-              this._appState.scanProgress.mediaFiles,
-              0,
-              `${duration}s`,
-              false,
-            ),
-            isScanning: false,
-          });
-        }
-      }
+      exportToCsv(data, {
+        org: this.org,
+        repo: this.repo,
+        filterName: this._appState.selectedFilterType,
+      });
+      showNotification('Success', 'Export complete.', 'success');
     } catch (error) {
-      console.error('[MEDIA-LIB] Error in handleScanComplete:', error); // eslint-disable-line no-console
-    } finally {
-      this._isProcessingData = false;
-      updateAppState({ isScanning: false });
+      showNotification('Error', 'Failed to export.', 'danger');
     }
-  };
-
-  handleScanError = (e) => {
-    updateAppState({ isScanning: false });
-    console.error('Scan error:', e.detail.error); // eslint-disable-line no-console
-  };
-
-  handleProgressiveDataUpdate = (e) => {
-    const { mediaItems } = e.detail;
-    const updatedData = [...this._appState.progressiveMediaData];
-    const seenKeys = new Set(
-      updatedData.map((item) => getGroupingKey(item.url)),
-    );
-
-    mediaItems.forEach((newItem) => {
-      const groupingKey = getGroupingKey(newItem.url);
-      if (!seenKeys.has(groupingKey)) {
-        updatedData.push({ ...newItem, usageCount: 1 });
-        seenKeys.add(groupingKey);
-      }
-    });
-
-    updateAppState({ progressiveMediaData: updatedData });
-  };
-
-  handleMediaDataUpdated = async (e) => {
-    const { mediaData } = e.detail;
-    await this.setMediaData(mediaData);
-  };
-
-  createScanProgress(
-    pages = 0,
-    mediaFiles = 0,
-    mediaReferences = 0,
-    duration = null,
-    hasChanges = null,
-  ) {
-    return { pages, mediaFiles, mediaReferences, duration, hasChanges };
-  }
-
-  showNotification(heading, message, type = 'success') {
-    window.dispatchEvent(new CustomEvent('show-notification', {
-      detail: {
-        heading,
-        message,
-        type,
-        open: true,
-      },
-    }));
-  }
-
-  handleShowNotification = (e) => {
-    if (this._notificationTimeout) {
-      clearTimeout(this._notificationTimeout);
-    }
-    updateAppState({ notification: e.detail });
-    this._notificationTimeout = setTimeout(() => {
-      updateAppState({ notification: null });
-    }, 3000);
   };
 }
-
 customElements.define(EL_NAME, NxMediaLibrary);
 
 function setupMediaLibrary(el) {
@@ -742,11 +637,22 @@ function setupMediaLibrary(el) {
   cmp.sitePath = hash;
 }
 
+let hashChangeHandler = null;
+
 export default function init(el) {
   document.title = 'Media Library';
   el.innerHTML = '';
-  setupMediaLibrary(el);
-  window.addEventListener('hashchange', (e) => {
+
+  // Remove previous handler if it exists
+  if (hashChangeHandler) {
+    window.removeEventListener('hashchange', hashChangeHandler);
+  }
+
+  // Create new handler
+  hashChangeHandler = (e) => {
     setupMediaLibrary(el, e);
-  });
+  };
+
+  window.addEventListener('hashchange', hashChangeHandler);
+  setupMediaLibrary(el);
 }
