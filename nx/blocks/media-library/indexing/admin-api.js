@@ -71,7 +71,7 @@ export async function createMultiSheet(sheets) {
   return formData;
 }
 
-const DEFAULT_TIMEFRAME_DAYS = 90;
+const DEFAULT_TIMEFRAME_DAYS = 730; /* 2 years */
 
 export async function fetchWithAuth(url, opts = {}) {
   opts.headers ||= {};
@@ -245,7 +245,7 @@ export async function streamLog(
     fetchParams.append('from', fromIso);
     fetchParams.append('to', toIso);
   } else {
-    const sinceDuration = since != null ? timestampToDuration(since) : '36500d';
+    const sinceDuration = since != null ? timestampToDuration(since) : `${DEFAULT_TIMEFRAME_DAYS}d`;
     fetchParams.append('since', sinceDuration);
   }
 
@@ -289,6 +289,109 @@ export async function streamLog(
 
     if (nextUrl) await sleep(100);
   }
+}
+
+/**
+ * Create a bulk status job to discover all preview pages
+ * @param {string} org - Organization name
+ * @param {string} repo - Repository name
+ * @param {string} ref - Branch reference (e.g., 'main')
+ * @returns {Promise<{jobId: string, jobUrl: string}>}
+ */
+export async function createBulkStatusJob(org, repo, ref) {
+  const url = `https://admin.hlx.page/status/${org}/${repo}/${ref}/*`;
+
+  const resp = await fetchWithAuth(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      paths: ['/*'],
+      select: ['preview'],
+    }),
+  });
+
+  if (!resp.ok) {
+    const text = await resp.text();
+    throw new Error(`Failed to create bulk status job: ${resp.status} - ${text}`);
+  }
+
+  const data = await resp.json();
+
+  if (!data.job || data.job.state !== 'created') {
+    throw new Error('Bulk status job creation failed or returned unexpected state');
+  }
+
+  return {
+    jobId: data.job.name,
+    jobUrl: data.links?.self,
+  };
+}
+
+/** Known terminal states - unknown states are treated as in-progress (keeps polling) */
+const BULK_JOB_TERMINAL_SUCCESS = ['completed', 'stopped'];
+const BULK_JOB_TERMINAL_FAILURE = ['failed', 'error', 'cancelled'];
+
+/**
+ * Poll a bulk status job until completion
+ * @param {string} jobUrl - Job URL to poll
+ * @param {number} pollInterval - Interval in milliseconds between polls (default: 1000ms)
+ * @param {function} onProgress - Optional callback for progress updates
+ * @param {number} maxDurationMs - Max polling duration in ms (default: 30 min), 0 = no limit
+ * @param {number} startTime - Internal: when polling started (for timeout)
+ * @returns {Promise<string>} - Final job state ('completed' or 'stopped')
+ * @throws {Error} If job ends in a failure state or polling times out
+ */
+export async function pollStatusJob(jobUrl, pollInterval = 1000, onProgress = null, maxDurationMs = 0, startTime = null) {
+  const startedAt = startTime ?? Date.now();
+
+  const resp = await fetchWithAuth(jobUrl);
+
+  if (!resp.ok) {
+    throw new Error(`Failed to fetch job status: ${resp.status}`);
+  }
+
+  const { state, progress, error, cancelled } = await resp.json();
+
+  if (onProgress && progress) {
+    onProgress(progress);
+  }
+
+  if (BULK_JOB_TERMINAL_SUCCESS.includes(state)) {
+    if (state === 'stopped' && (error || cancelled)) {
+      throw new Error(error || 'Bulk status job was cancelled');
+    }
+    return state;
+  }
+
+  if (BULK_JOB_TERMINAL_FAILURE.includes(state)) {
+    throw new Error(`Bulk status job ended with state: ${state}`);
+  }
+
+  if (maxDurationMs > 0 && Date.now() - startedAt >= maxDurationMs) {
+    throw new Error(`Bulk status job polling timed out after ${Math.round(maxDurationMs / 60000)} minutes`);
+  }
+
+  await new Promise((resolve) => setTimeout(resolve, pollInterval));
+  return pollStatusJob(jobUrl, pollInterval, onProgress, maxDurationMs, startedAt);
+}
+
+/**
+ * Get the details (resources) from a completed bulk status job
+ * @param {string} jobUrl - Job URL
+ * @returns {Promise<Array>} - Array of resources with preview page paths
+ */
+export async function getStatusJobDetails(jobUrl) {
+  const detailsUrl = `${jobUrl}/details`;
+  const resp = await fetchWithAuth(detailsUrl);
+
+  if (!resp.ok) {
+    throw new Error(`Failed to fetch job details: ${resp.status}`);
+  }
+
+  const { data } = await resp.json();
+  return data?.resources || [];
 }
 
 export async function fetchPageMarkdown(pagePath, org, repo, ref = 'main') {

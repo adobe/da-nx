@@ -257,15 +257,40 @@ export async function buildUsageMap(pageEntries, org, repo, ref, onProgress) {
 
   const uniquePages = [...pagesByPath.keys()].filter((p) => !isHiddenPath(p));
 
+  let fetchSuccessCount = 0;
+  let fetchFailCount = 0;
+  const fetchTimes = [];
   const results = await processConcurrently(
     uniquePages,
     async (normalizedPath, i) => {
       onProgress?.({ message: `Parsing page ${i + 1}/${uniquePages.length}: ${normalizedPath}` });
+      const fetchStart = Date.now();
       const md = await fetchPageMarkdown(normalizedPath, org, repo, ref);
+      const fetchTime = Date.now() - fetchStart;
+      fetchTimes.push(fetchTime);
+      if (md) {
+        fetchSuccessCount += 1;
+      } else {
+        fetchFailCount += 1;
+      }
       return { normalizedPath, md };
     },
     IndexConfig.MAX_CONCURRENT_FETCHES,
   );
+
+  // Log fetch diagnostics
+  const avgFetchTime = fetchTimes.length > 0
+    ? Math.round(fetchTimes.reduce((sum, t) => sum + t, 0) / fetchTimes.length)
+    : 0;
+  const maxFetchTime = fetchTimes.length > 0 ? Math.max(...fetchTimes) : 0;
+  const minFetchTime = fetchTimes.length > 0 ? Math.min(...fetchTimes) : 0;
+
+  if (fetchFailCount > 0 || avgFetchTime > 20) {
+    // eslint-disable-next-line no-console
+    console.log(`[buildUsageMap] Fetch results: ${fetchSuccessCount} success, ${fetchFailCount} failed out of ${uniquePages.length} pages`);
+    // eslint-disable-next-line no-console
+    console.log(`[buildUsageMap] Fetch times: avg=${avgFetchTime}ms, min=${minFetchTime}ms, max=${maxFetchTime}ms`);
+  }
 
   results.forEach(({ normalizedPath, md }) => {
     if (!md) return;

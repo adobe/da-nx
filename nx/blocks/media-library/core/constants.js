@@ -4,6 +4,8 @@ export const IndexConfig = Object.freeze({
   INCREMENTAL_WINDOW_MS: 10000,
   API_PAGE_SIZE: 1000,
   MAX_CONCURRENT_FETCHES: 10,
+  STATUS_POLL_INTERVAL_MS: 1000,
+  STATUS_POLL_MAX_DURATION_MS: 30 * 60 * 1000, /* 30 minutes */
 });
 
 export const Operation = Object.freeze({

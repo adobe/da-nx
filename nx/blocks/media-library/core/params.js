@@ -30,3 +30,26 @@ export function isVerboseEnabled() {
   }
   return localStorage.getItem('debug:verbose') === '1';
 }
+
+export function isStatusApiEnabled() {
+  // 1. Check query param first (highest priority)
+  // Works with:
+  //   ?status=true
+  // Examples:
+  //   https://da.live/apps/media-library?status=true#/org/repo
+  //   https://da.live/apps/media-library?status=true&debug=perf#/org/repo
+  const params = new URLSearchParams(window.location.search);
+  const statusValue = params.get('status');
+  if (statusValue === 'true') {
+    return true;
+  }
+
+  // 2. Check localStorage as fallback (for convenience during dev)
+  // Enable via console: localStorage.setItem('indexing:status', '1')
+  if (localStorage.getItem('indexing:status') === '1') {
+    return true;
+  }
+
+  // 3. Default: disabled (use audit log)
+  return false;
+}
