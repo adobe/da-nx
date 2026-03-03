@@ -20,7 +20,7 @@ import {
   Paths,
   SheetNames,
 } from '../core/constants.js';
-import { isPerfEnabled, isStatusApiEnabled } from '../core/params.js';
+import { isPerfEnabled } from '../core/params.js';
 
 /** Update PERF_TAG when making significant changes (e.g. phase3-parallel, after-page-media) */
 const PERF_TAG = 'phase3-split-sheets';
@@ -720,8 +720,6 @@ export async function buildFullIndex(sitePath, org, repo, ref, onProgress, onPro
   const index = [];
   const buildMode = 'full';
   const t0 = Date.now();
-  const useStatusApi = isStatusApiEnabled();
-  const dataSource = useStatusApi ? 'statusAPI' : 'auditLog';
 
   const perf = {
     mode: 'full',
@@ -730,17 +728,13 @@ export async function buildFullIndex(sitePath, org, repo, ref, onProgress, onPro
     repo,
     ref,
     sitePath,
-    dataSource,
+    dataSource: 'statusAPI',
     medialog: { streamed: 0, chunks: 0, resourcePathCount: 0, matched: 0, standalone: 0, durationMs: 0 },
     markdownParse: { pages: 0, durationMs: 0 },
     saveDurationMs: 0,
     indexEntries: 0,
     totalDurationMs: 0,
-  };
-
-  // Add dataSource-specific metrics object
-  if (useStatusApi) {
-    perf.statusAPI = {
+    statusAPI: {
       jobCreationMs: 0,
       pollingMs: 0,
       pollCount: 0,
@@ -750,20 +744,16 @@ export async function buildFullIndex(sitePath, org, repo, ref, onProgress, onPro
       filesDiscovered: 0,
       payloadSizeKB: 0,
       totalDurationMs: 0,
-    };
-  } else {
-    perf.auditLog = { streamed: 0, chunks: 0, previewOnly: 0, pagesForParsing: 0, filesCount: 0, durationMs: 0 };
-  }
+    },
+  };
 
-  const buildMethod = useStatusApi ? 'status API + medialog' : 'auditlog + medialog';
   onProgress({
     stage: 'starting',
-    message: `Mode: Full build (rebuilding from ${buildMethod})`,
+    message: 'Mode: Full build (rebuilding from status API + medialog)',
     percent: 5,
   });
 
-  const fetchMessage = useStatusApi ? 'Creating bulk status job + fetching medialog...' : 'Fetching audit log + medialog (parallel)...';
-  onProgress({ stage: 'fetching', message: fetchMessage, percent: 10 });
+  onProgress({ stage: 'fetching', message: 'Creating bulk status job + fetching medialog...', percent: 10 });
 
   const pagesByPath = new Map();
   const filesByPath = new Map();
@@ -791,171 +781,104 @@ export async function buildFullIndex(sitePath, org, repo, ref, onProgress, onPro
     }
   };
 
-  // Conditional data fetching: Status API vs Audit Log
-  if (useStatusApi) {
-    // Status API approach
-    const statusStart = Date.now();
+  // Status API: create bulk job, poll for completion, get resources; medialog fetches in parallel
+  const statusStart = Date.now();
 
-    // Start medialog fetch in parallel
-    const medialogPromise = streamLog('medialog', org, repo, ref, null, IndexConfig.API_PAGE_SIZE, (chunk) => {
-      perf.medialog.chunks += 1;
-      chunk.forEach((m) => {
-        if (m.resourcePath) medialogResourcePathCount += 1;
-      });
-      medialogChunks.push(chunk);
-      onProgress({
-        stage: 'fetching',
-        message: `Status job polling, Medialog: ${medialogChunks.reduce((s, c) => s + c.length, 0)} entries...`,
-        percent: 15,
-      });
+  const medialogPromise = streamLog('medialog', org, repo, ref, null, IndexConfig.API_PAGE_SIZE, (chunk) => {
+    perf.medialog.chunks += 1;
+    chunk.forEach((m) => {
+      if (m.resourcePath) medialogResourcePathCount += 1;
+    });
+    medialogChunks.push(chunk);
+    onProgress({
+      stage: 'fetching',
+      message: `Status job polling, Medialog: ${medialogChunks.reduce((s, c) => s + c.length, 0)} entries...`,
+      percent: 15,
+    });
+  });
+
+  try {
+    const jobStart = Date.now();
+    const { jobUrl } = await createBulkStatusJob(org, repo, ref);
+    perf.statusAPI.jobCreationMs = Date.now() - jobStart;
+
+    onProgress({
+      stage: 'fetching',
+      message: 'Polling status job for completion...',
+      percent: 12,
     });
 
-    try {
-      // Create and poll status job
-      const jobStart = Date.now();
-      const { jobUrl } = await createBulkStatusJob(org, repo, ref);
-      perf.statusAPI.jobCreationMs = Date.now() - jobStart;
+    const pollStart = Date.now();
+    let pollCount = 0;
+    await pollStatusJob(
+      jobUrl,
+      IndexConfig.STATUS_POLL_INTERVAL_MS,
+      (progress) => {
+        pollCount += 1;
+        onProgress({
+          stage: 'fetching',
+          message: `Status job: ${progress.processed || 0}/${progress.total || 0} processed...`,
+          percent: 15,
+        });
+      },
+      IndexConfig.STATUS_POLL_MAX_DURATION_MS,
+    );
+    perf.statusAPI.pollingMs = Date.now() - pollStart;
+    perf.statusAPI.pollCount = pollCount;
+    perf.statusAPI.pollIntervalMs = IndexConfig.STATUS_POLL_INTERVAL_MS;
 
-      onProgress({
-        stage: 'fetching',
-        message: 'Polling status job for completion...',
-        percent: 12,
-      });
+    const resources = await getStatusJobDetails(jobUrl);
+    perf.statusAPI.totalDurationMs = Date.now() - statusStart;
+    perf.statusAPI.resourcesDiscovered = resources.length;
 
-      const pollStart = Date.now();
-      let pollCount = 0;
-      await pollStatusJob(
-        jobUrl,
-        IndexConfig.STATUS_POLL_INTERVAL_MS,
-        (progress) => {
-          pollCount += 1;
-          onProgress({
-            stage: 'fetching',
-            message: `Status job: ${progress.processed || 0}/${progress.total || 0} processed...`,
-            percent: 15,
-          });
-        },
-        IndexConfig.STATUS_POLL_MAX_DURATION_MS,
-      );
-      perf.statusAPI.pollingMs = Date.now() - pollStart;
-      perf.statusAPI.pollCount = pollCount;
-      perf.statusAPI.pollIntervalMs = IndexConfig.STATUS_POLL_INTERVAL_MS;
-
-      // Get job details
-      const resources = await getStatusJobDetails(jobUrl);
-      perf.statusAPI.totalDurationMs = Date.now() - statusStart;
-      perf.statusAPI.resourcesDiscovered = resources.length;
-
-      // Calculate payload size
-      const payloadJson = JSON.stringify(resources);
-      const payloadSizeKB = Math.round((payloadJson.length / 1024) * 10) / 10;
-      const payloadSizeMB = Math.round((payloadJson.length / (1024 * 1024)) * 100) / 100;
-      perf.statusAPI.payloadSizeKB = payloadSizeKB;
-      if (payloadSizeMB >= 1) {
-        perf.statusAPI.payloadSizeMB = payloadSizeMB;
-      }
-
-      // Convert status API resources to events (synthetic events with current timestamp)
-      // Match audit log behavior: pages → pagesByPath, non-pages → filesByPath
-      const currentTimestamp = Date.now();
-      let pageCount = 0;
-      let fileCount = 0;
-
-      resources.forEach((resource) => {
-        if (!resource.path) return;
-
-        // Create synthetic event (status API doesn't provide timestamp/user)
-        const syntheticEvent = {
-          path: resource.path,
-          timestamp: currentTimestamp,
-          method: 'UPDATE',
-          route: 'preview',
-          user: '',
-        };
-
-        if (isPage(resource.path)) {
-          // Pages
-          const p = normalizePath(resource.path);
-          pagesByPath.set(p, [syntheticEvent]);
-          pageCount += 1;
-        } else {
-          // Non-page files (PDFs, SVGs, fragments, etc.)
-          const fp = toAbsoluteFilePath(resource.path);
-          const existing = filesByPath.get(fp);
-          if (!existing || syntheticEvent.timestamp > existing.timestamp) {
-            filesByPath.set(fp, syntheticEvent);
-            fileCount += 1;
-          }
-        }
-      });
-
-      perf.statusAPI.pagesDiscovered = pageCount;
-      perf.statusAPI.filesDiscovered = fileCount;
-
-      // Wait for medialog to complete
-      await medialogPromise;
-    } finally {
-      await medialogPromise?.catch(() => {});
+    const payloadJson = JSON.stringify(resources);
+    const payloadSizeKB = Math.round((payloadJson.length / 1024) * 10) / 10;
+    const payloadSizeMB = Math.round((payloadJson.length / (1024 * 1024)) * 100) / 100;
+    perf.statusAPI.payloadSizeKB = payloadSizeKB;
+    if (payloadSizeMB >= 1) {
+      perf.statusAPI.payloadSizeMB = payloadSizeMB;
     }
-  } else {
-    // Audit log approach (existing logic)
-    let auditlogCount = 0;
-    const auditLogStart = Date.now();
 
-    await Promise.all([
-      streamLog('log', org, repo, ref, null, IndexConfig.API_PAGE_SIZE, (chunk) => {
-        perf.auditLog.chunks += 1;
-        perf.auditLog.streamed += chunk.length;
-        chunk.forEach((e) => {
-          if (!e?.path || e.route !== 'preview') return;
-          auditlogCount += 1;
-          if (isPage(e.path)) {
-            const p = normalizePath(e.path);
-            if (e.method === 'DELETE') {
-              deletedPages.add(p);
-              pagesByPath.delete(p);
-            } else {
-              deletedPages.delete(p); // Clear from deletedPages if page was recreated
-              const existing = pagesByPath.get(p);
-              if (!existing || e.timestamp > existing[0].timestamp) {
-                pagesByPath.set(p, [e]);
-              }
-            }
-          } else {
-            const fp = toAbsoluteFilePath(e.path);
-            const existing = filesByPath.get(fp);
-            if (!existing || e.timestamp > existing.timestamp) {
-              filesByPath.set(fp, e);
-            }
-          }
-        });
-        emitEarlyLinked();
-        onProgress({
-          stage: 'fetching',
-          message: `Audit: ${auditlogCount} preview, Medialog: ${medialogChunks.reduce((s, c) => s + c.length, 0)} entries...`,
-          percent: 15,
-        });
-      }),
-      streamLog('medialog', org, repo, ref, null, IndexConfig.API_PAGE_SIZE, (chunk) => {
-        perf.medialog.chunks += 1;
-        chunk.forEach((m) => {
-          if (m.resourcePath) medialogResourcePathCount += 1;
-        });
-        medialogChunks.push(chunk);
-        onProgress({
-          stage: 'fetching',
-          message: `Audit: ${auditlogCount} preview, Medialog: ${medialogChunks.reduce((s, c) => s + c.length, 0)} entries...`,
-          percent: 15,
-        });
-      }),
-    ]);
+    const currentTimestamp = Date.now();
+    let pageCount = 0;
+    let fileCount = 0;
 
-    perf.auditLog.previewOnly = auditlogCount;
-    perf.auditLog.filesCount = filesByPath.size;
-    perf.auditLog.durationMs = Date.now() - auditLogStart;
+    resources.forEach((resource) => {
+      if (!resource.path) return;
+
+      const syntheticEvent = {
+        path: resource.path,
+        timestamp: currentTimestamp,
+        method: 'UPDATE',
+        route: 'preview',
+        user: '',
+      };
+
+      if (isPage(resource.path)) {
+        const p = normalizePath(resource.path);
+        pagesByPath.set(p, [syntheticEvent]);
+        pageCount += 1;
+      } else {
+        const fp = toAbsoluteFilePath(resource.path);
+        const existing = filesByPath.get(fp);
+        if (!existing || syntheticEvent.timestamp > existing.timestamp) {
+          filesByPath.set(fp, syntheticEvent);
+          fileCount += 1;
+        }
+      }
+    });
+
+    perf.statusAPI.pagesDiscovered = pageCount;
+    perf.statusAPI.filesDiscovered = fileCount;
+
+    emitEarlyLinked();
+
+    await medialogPromise;
+  } finally {
+    await medialogPromise?.catch(() => {});
   }
 
-  // Common medialog metrics (applies to both approaches)
+  // Medialog metrics
   perf.medialog.streamed = medialogChunks.reduce((s, c) => s + c.length, 0);
   perf.medialog.resourcePathCount = medialogResourcePathCount;
   perf.medialog.durationMs = Date.now() - medialogStart;
@@ -963,12 +886,7 @@ export async function buildFullIndex(sitePath, org, repo, ref, onProgress, onPro
   const pages = [];
   pagesByPath.forEach((events) => pages.push(...events));
 
-  // Track pages for parsing in the appropriate metrics object
-  if (useStatusApi) {
-    perf.statusAPI.pagesForParsing = pages.length;
-  } else {
-    perf.auditLog.pagesForParsing = pages.length;
-  }
+  perf.statusAPI.pagesForParsing = pages.length;
 
   filesByPath.forEach((event, path) => {
     if (isLinkedContentPath(path) && event.method === 'DELETE') {
