@@ -112,7 +112,7 @@ function handleParagraphBr(view, event) {
   if (event.key === 'Enter') {
     event.preventDefault();
     const { tr } = state;
-    const pos = $from.pos;
+    const { pos } = $from;
     tr.insert(pos, hardBreakType.create());
     tr.setSelection(selection.constructor.near(tr.doc.resolve(pos + 1)));
     dispatch(tr);
@@ -124,7 +124,7 @@ function handleParagraphBr(view, event) {
       event.preventDefault();
       return true;
     }
-    const nodeBefore = $from.nodeBefore;
+    const { nodeBefore } = $from;
     if (nodeBefore && nodeBefore.type === hardBreakType) {
       event.preventDefault();
       const { tr } = state;
