@@ -98,6 +98,47 @@ function handleListItem(view, event) {
   return false;
 }
 
+function handleParagraphBr(view, event) {
+  const { state, dispatch } = view;
+  const { selection, schema } = state;
+  const { $from } = selection;
+
+  const paragraphType = schema.nodes.paragraph;
+  const hardBreakType = schema.nodes.hard_break;
+
+  if (!paragraphType || !hardBreakType) return false;
+  if ($from.parent.type !== paragraphType) return false;
+
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    const { tr } = state;
+    const pos = $from.pos;
+    tr.insert(pos, hardBreakType.create());
+    tr.setSelection(selection.constructor.near(tr.doc.resolve(pos + 1)));
+    dispatch(tr);
+    return true;
+  }
+
+  if (event.key === 'Backspace') {
+    if ($from.parentOffset === 0) {
+      event.preventDefault();
+      return true;
+    }
+    const nodeBefore = $from.nodeBefore;
+    if (nodeBefore && nodeBefore.type === hardBreakType) {
+      event.preventDefault();
+      const { tr } = state;
+      tr.delete($from.pos - 1, $from.pos);
+      tr.setSelection(selection.constructor.near(tr.doc.resolve($from.pos - 1)));
+      dispatch(tr);
+      return true;
+    }
+    return false;
+  }
+
+  return false;
+}
+
 function handleUndoRedo(view, event, port) {
   // Handle Ctrl+Z (undo) and Ctrl+Shift+Z (redo)
   if (event.ctrlKey || event.metaKey) {
@@ -124,6 +165,9 @@ export function createSimpleKeymap(port) {
       handleKeyDown(view, event) {
         const listItemHandled = handleListItem(view, event);
         if (listItemHandled) return true;
+
+        const paragraphBrHandled = handleParagraphBr(view, event);
+        if (paragraphBrHandled) return true;
 
         const undoRedoHandled = handleUndoRedo(view, event, port);
         if (undoRedoHandled) return true;
