@@ -21,6 +21,7 @@ import loadScript from '../../../../utils/script.js';
 import { daFetch } from '../../../../utils/daFetch.js';
 import { DA_ORIGIN, SUPPORTED_FILES } from '../../../../public/utils/constants.js';
 import { Domains, MediaType } from '../../core/constants.js';
+import { t } from '../../core/messages.js';
 
 const styles = await getStyle(import.meta.url);
 const nx = `${new URL(import.meta.url).origin}/nx`;
@@ -132,7 +133,7 @@ class NxMediaInfo extends LitElement {
   }
 
   async loadMetadata() {
-    const media = this.media;
+    const { media } = this;
     if (!media?.url) return;
 
     if (isImage(media.url)) {
@@ -427,14 +428,14 @@ class NxMediaInfo extends LitElement {
                 const blob = await getResponse.blob();
                 this._fileSize = formatFileSize(blob.size);
               } else {
-                this._fileSize = isExternal ? 'External resource' : `Unable to fetch file (HTTP ${getResponse.status})`;
+                this._fileSize = isExternal ? t('UI_EXTERNAL_RESOURCE') : t('UI_UNABLE_TO_FETCH_HTTP', { status: getResponse.status });
               }
             }
           } else {
-            this._fileSize = isExternal ? 'External resource' : `Unable to fetch file (HTTP ${response.status})`;
+            this._fileSize = isExternal ? t('UI_EXTERNAL_RESOURCE') : t('UI_UNABLE_TO_FETCH_HTTP', { status: response.status });
           }
         } catch (error) {
-          this._fileSize = isExternal ? 'External resource' : `Unable to fetch file (${error.message})`;
+          this._fileSize = isExternal ? t('UI_EXTERNAL_RESOURCE') : t('UI_UNABLE_TO_FETCH', { error: error.message });
         }
 
         this._pendingRequests.delete(controller);

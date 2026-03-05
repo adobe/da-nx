@@ -1,5 +1,6 @@
 import { CORS_PROXY_URL } from './constants.js';
 import { getMediaType, getSubtype } from './media.js';
+import { t } from './messages.js';
 
 function escapeCsvCell(value) {
   if (value == null) return '';
@@ -17,6 +18,7 @@ export function exportFilename(org, repo, filterName) {
   return `${slug(org)}-${slug(repo)}-media-${filterSlug || 'all'}-${date}.csv`;
 }
 
+// Exports media to CSV string; optionally filtered.
 export function exportToCsv(mediaData, options = {}) {
   if (!mediaData || mediaData.length === 0) return;
 
@@ -98,13 +100,13 @@ export async function copyMediaToClipboard(media) {
   try {
     if (mediaType === 'image') {
       await copyImageToClipboard(mediaUrl);
-      return { heading: 'Copied', message: 'Resource Copied.' };
+      return { heading: t('NOTIFY_COPIED'), message: t('NOTIFY_COPIED_IMAGE') };
     }
     await navigator.clipboard.writeText(mediaUrl);
-    return { heading: 'Copied', message: 'Resource URL Copied.' };
+    return { heading: t('NOTIFY_COPIED'), message: t('NOTIFY_COPIED_URL') };
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('Failed to copy to clipboard:', error);
-    return { heading: 'Error', message: 'Failed to copy Resource.' };
+    return { heading: t('NOTIFY_ERROR'), message: t('NOTIFY_COPY_ERROR') };
   }
 }

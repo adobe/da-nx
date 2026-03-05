@@ -16,6 +16,7 @@ const MD_LINK_RE = /\[[^\]]*\]\(([^)]+)\)/gi;
 const MD_AUTOLINK_RE = /<(https?:\/\/[^>]+|\/[^>\s]*)>/g;
 const ICON_RE = /:([a-zA-Z0-9-]+):/g;
 
+// Normalizes path (lowercase, no leading slash, / for dirs).
 export function normalizePath(path) {
   if (!path) return '';
   let cleanPath = path.split('?')[0].split('#')[0];
@@ -32,7 +33,6 @@ export function isPage(path) {
          && !path.includes(Paths.FRAGMENTS);
 }
 
-/** Skip paths in hidden folders (e.g. /.da/, /.git/) - not parseable as markdown. */
 export function isHiddenPath(path) {
   if (!path || typeof path !== 'string') return false;
   return path.includes('/.');
@@ -203,10 +203,7 @@ export function extractLinks(md, pattern) {
   )];
 }
 
-/**
- * Runs fn concurrently over items, limiting to `concurrency` in-flight promises.
- * When items.length < concurrency, all run in parallel (no limiting).
- */
+// Runs fn over items with concurrency limit; returns results in order.
 export async function processConcurrently(items, fn, concurrency) {
   const results = [];
   const executing = [];
@@ -232,6 +229,7 @@ export async function processConcurrently(items, fn, concurrency) {
   return Promise.all(results);
 }
 
+// Parses pages for PDF/SVG/fragment refs; returns usage map + external media.
 export async function buildUsageMap(pageEntries, org, repo, ref, onProgress) {
   const usageMap = {
     fragments: new Map(),
@@ -278,7 +276,6 @@ export async function buildUsageMap(pageEntries, org, repo, ref, onProgress) {
     IndexConfig.MAX_CONCURRENT_FETCHES,
   );
 
-  // Log fetch diagnostics
   const avgFetchTime = fetchTimes.length > 0
     ? Math.round(fetchTimes.reduce((sum, t) => sum + t, 0) / fetchTimes.length)
     : 0;

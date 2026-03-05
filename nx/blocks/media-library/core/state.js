@@ -33,6 +33,7 @@ let appState = {
   validationSuggestion: null,
 
   notification: null,
+  persistentError: null,
 
   pinnedFolders: [],
 };
@@ -40,14 +41,12 @@ let appState = {
 const listeners = new Set();
 let notificationTimeout = null;
 
+// Returns current app state snapshot.
 export function getAppState() {
   return appState;
 }
 
-/**
- * Updates app state and notifies listeners. Uses reference equality for change detection.
- * For objects/arrays, pass a new reference (e.g. [...array], { ...obj }) when content changes.
- */
+// Merges updates into state and notifies listeners for changed keys.
 export function updateAppState(updates) {
   const changedKeys = Object.keys(updates).filter((key) => appState[key] !== updates[key]);
   if (changedKeys.length === 0) return;
@@ -67,21 +66,31 @@ export function updateAppState(updates) {
   });
 }
 
-/**
- * Shows a toast notification. Auto-dismisses after 3 seconds.
- * Use this instead of window.dispatchEvent('show-notification') for state-driven UI.
- */
+const NOTIFICATION_DURATION = { success: 3000, warning: 5000, danger: 10000 };
+
+// Shows toast; auto-dismisses. Danger/warning stay longer; user can dismiss via close.
 export function showNotification(heading, message, type = 'success') {
   if (notificationTimeout) {
     clearTimeout(notificationTimeout);
   }
   updateAppState({ notification: { heading, message, type } });
+  const duration = NOTIFICATION_DURATION[type] ?? NOTIFICATION_DURATION.success;
   notificationTimeout = setTimeout(() => {
     updateAppState({ notification: null });
     notificationTimeout = null;
-  }, 3000);
+  }, duration);
 }
 
+// Dismiss notification immediately; clears auto-dismiss timer.
+export function dismissNotification() {
+  if (notificationTimeout) {
+    clearTimeout(notificationTimeout);
+    notificationTimeout = null;
+  }
+  updateAppState({ notification: null });
+}
+
+// Subscribes to state changes; returns unsubscribe fn.
 export function onStateChange(keysOrCallback, callback) {
   const keys = Array.isArray(keysOrCallback) ? keysOrCallback : null;
   const fn = callback || keysOrCallback;

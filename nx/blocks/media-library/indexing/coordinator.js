@@ -1,8 +1,10 @@
 import buildMediaIndex, { loadMediaIfUpdated } from './load.js';
 import { ensureAuthenticated } from '../core/utils.js';
 import { updateAppState, getAppState, showNotification } from '../core/state.js';
+import { t } from '../core/messages.js';
 import { clearProcessDataCache } from '../features/filters.js';
 import { getDedupeKey } from '../core/urls.js';
+import { MediaLibraryError, ErrorCodes, logMediaLibraryError } from '../core/errors.js';
 
 const CONFIG = { POLLING_INTERVAL: 60000, LOCK_CHECK_INTERVAL: 5000 };
 
@@ -11,6 +13,7 @@ let lockCheckInterval = null;
 let pollingStarted = false;
 let onMediaDataUpdated = null;
 
+// Starts polling for media updates when authenticated.
 export async function startPolling() {
   if (pollingInterval) return;
 
@@ -24,13 +27,16 @@ export async function startPolling() {
         const [org, repo] = state.sitePath.split('/').slice(1, 3);
         const { hasChanged, mediaData } = await loadMediaIfUpdated(state.sitePath, org, repo);
 
-        // Update on any change (including empty results)
         if (hasChanged && onMediaDataUpdated) {
           onMediaDataUpdated(mediaData || []);
         }
       } catch (error) {
-        // eslint-disable-next-line no-console
-        console.warn('[MediaIndexer] Polling failed:', error);
+        if (error?.code === ErrorCodes.INDEX_PARSE_ERROR) {
+          updateAppState({ persistentError: { message: error.message } });
+        } else {
+          logMediaLibraryError(ErrorCodes.POLLING_FAILED, { error: error?.message });
+          showNotification(t('NOTIFY_WARNING'), t('NOTIFY_POLLING_UNAVAILABLE'), 'danger');
+        }
       }
     }
   }, CONFIG.POLLING_INTERVAL);
@@ -62,16 +68,12 @@ function startLockCheckPolling(sitePath, org, repo) {
     }
     try {
       const { hasChanged, mediaData } = await loadMediaIfUpdated(sitePath, org, repo);
-      // Clear lock on any valid completion (including empty results)
       if (hasChanged && onMediaDataUpdated) {
         stopLockCheckPolling();
         updateAppState({ indexLockedByOther: false });
-        // Update with data (empty array is valid)
         onMediaDataUpdated(mediaData || []);
       }
-    } catch {
-      // Ignore; will retry on next interval
-    }
+    } catch { /* swallow */ }
   }, CONFIG.LOCK_CHECK_INTERVAL);
 }
 
@@ -82,6 +84,7 @@ export function resumePolling() {
   }
 }
 
+// Kicks off incremental or full index build; updates progress in state.
 export async function triggerBuild(sitePath, org, repo, ref = 'main') {
   if (!sitePath || !(org && repo)) {
     return;
@@ -91,12 +94,14 @@ export async function triggerBuild(sitePath, org, repo, ref = 'main') {
     const isAuthenticated = await ensureAuthenticated();
     if (!isAuthenticated) {
       updateAppState({ isIndexing: false });
-      showNotification('Error', 'Authentication required to build media index.', 'danger');
+      logMediaLibraryError(ErrorCodes.AUTH_REQUIRED, { context: 'build' });
+      showNotification(t('NOTIFY_ERROR'), t('NOTIFY_SIGN_IN'), 'danger');
       return;
     }
   } catch (error) {
     updateAppState({ isIndexing: false });
-    showNotification('Error', 'Failed to verify authentication.', 'danger');
+    logMediaLibraryError(ErrorCodes.AUTH_REQUIRED, { context: 'build', error: error?.message });
+    showNotification(t('NOTIFY_ERROR'), t('NOTIFY_VERIFY_AUTH'), 'danger');
     return;
   }
 
@@ -147,7 +152,6 @@ export async function triggerBuild(sitePath, org, repo, ref = 'main') {
 
     const result = await buildMediaIndex(sitePath, org, repo, ref, onProgress, onProgressiveData);
 
-    // Clear cache after successful build to prevent stale derived data
     clearProcessDataCache();
 
     const finalProgress = {
@@ -155,6 +159,10 @@ export async function triggerBuild(sitePath, org, repo, ref = 'main') {
       mediaReferences: result.mediaData?.length || 0,
       duration: result.duration,
     };
+
+    if (result.lockRemoveFailed) {
+      showNotification(t('NOTIFY_WARNING'), t('LOCK_REMOVE_FAILED'), 'danger');
+    }
 
     if (finalProgress.hasChanges && result.mediaData) {
       updateAppState({
@@ -168,6 +176,7 @@ export async function triggerBuild(sitePath, org, repo, ref = 'main') {
         },
         isIndexing: false,
         progressiveMediaData: [],
+        persistentError: null,
       });
       if (onMediaDataUpdated) {
         await onMediaDataUpdated(result.mediaData);
@@ -184,14 +193,38 @@ export async function triggerBuild(sitePath, org, repo, ref = 'main') {
         },
         isIndexing: false,
         progressiveMediaData: [],
+        persistentError: null,
       });
     }
   } catch (error) {
     if (!error.message?.includes('Index build already in progress')) {
-      // eslint-disable-next-line no-console
-      console.error('[MediaIndexer] Index build failed:', error);
-      updateAppState({ isIndexing: false, indexLockedByOther: false });
-      showNotification('Error', error.message || 'Index build failed.', 'danger');
+      const isMediaLibError = error instanceof MediaLibraryError;
+      const persistentCodes = [
+        ErrorCodes.DA_WRITE_DENIED,
+        ErrorCodes.DA_SAVE_FAILED,
+        ErrorCodes.PARTIAL_SAVE,
+        ErrorCodes.INDEX_PARSE_ERROR,
+        ErrorCodes.LOCK_CREATE_FAILED,
+        ErrorCodes.LOCK_REMOVE_FAILED,
+      ];
+      const isPersistent = isMediaLibError && persistentCodes.includes(error.code);
+
+      if (!isMediaLibError) {
+        logMediaLibraryError(ErrorCodes.BUILD_FAILED, { error: error?.message });
+      }
+
+      const updates = { isIndexing: false, indexLockedByOther: false };
+      if (isPersistent) {
+        updates.persistentError = { message: error.message };
+      } else {
+        updates.persistentError = null;
+      }
+      updateAppState(updates);
+
+      if (!isPersistent) {
+        const msg = error.message || t('NOTIFY_DISCOVERY_FAILED');
+        showNotification(t('NOTIFY_ERROR'), msg, 'danger');
+      }
     } else {
       updateAppState({ isIndexing: false, indexLockedByOther: true });
       startLockCheckPolling(sitePath, org, repo);

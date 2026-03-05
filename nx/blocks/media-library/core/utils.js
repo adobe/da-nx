@@ -16,6 +16,7 @@ export function formatDateTime(isoString) {
   }
 }
 
+// Returns singular or plural form based on count.
 export function pluralize(singular, plural, count) {
   return count === 1 ? singular : plural;
 }
@@ -43,6 +44,7 @@ export function sortMediaData(mediaData) {
   });
 }
 
+// Returns true if user has valid IMS auth for DA.
 export async function ensureAuthenticated() {
   const { initIms } = await import('../../../utils/daFetch.js');
   const imsResult = await initIms();

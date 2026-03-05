@@ -14,6 +14,7 @@ const ALLOWED_SUBTYPE_EXTENSIONS = new Set([
 
 export const EXIFR_URL = 'https://cdn.jsdelivr.net/npm/exifr@latest/dist/lite.umd.js';
 
+// Extracts lowercase extension from path (ignores query/hash).
 export function extractFileExtension(filePath) {
   if (!filePath) return '';
   const cleanPath = filePath.split(/[#?]/)[0];
@@ -28,6 +29,7 @@ function typeFromExt(ext) {
   return 'unknown';
 }
 
+// Returns media type: image, video, document, fragment, link, or from extension.
 export function getMediaType(media) {
   const type = media?.type || '';
   const semanticTypes = [
@@ -50,6 +52,22 @@ export function getMediaType(media) {
   }
   const ext = extractFileExtension(media?.url || '');
   return typeFromExt(ext);
+}
+
+// True for YouTube, Vimeo, Dailymotion, Scene7, Adobe Marketing.
+export function isExternalVideoUrl(url) {
+  if (!url || typeof url !== 'string') return false;
+
+  const supportedPatterns = [
+    /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/|)[^&\n?#/]+|youtu\.be\/[^&\n?#/]+)/,
+    /(?:^https?:\/\/)?(?:www\.)?(?:youtube\.com|youtu\.be)(?:\/|$)/,
+    /vimeo\.com\/(\d+)/,
+    /(?:dailymotion\.com\/video\/|dai\.ly\/)/,
+    /scene7\.com\/is\/content\//,
+    /marketing\.adobe\.com\/is\/content\//,
+  ];
+
+  return supportedPatterns.some((pattern) => pattern.test(url));
 }
 
 export function getSubtype(media) {
@@ -85,10 +103,11 @@ export function isFragmentMedia(media) {
   return type === MediaType.FRAGMENT || type === 'content > fragment';
 }
 
+// Returns thumbnail URL for YouTube/Vimeo/Dailymotion or null.
 export function getVideoThumbnail(videoUrl) {
   if (!videoUrl) return null;
 
-  const youtubeMatch = videoUrl.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/|)([^&\n?#\/]+)|youtu\.be\/([^&\n?#\/]+))/);
+  const youtubeMatch = videoUrl.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/|)([^&\n?#/]+)|youtu\.be\/([^&\n?#/]+))/);
   if (youtubeMatch) {
     const id = youtubeMatch[1] || youtubeMatch[2];
     return id ? `https://img.youtube.com/vi/${id}/hqdefault.jpg` : null;
@@ -119,25 +138,11 @@ export function getVideoThumbnail(videoUrl) {
   return null;
 }
 
-export function isExternalVideoUrl(url) {
-  if (!url || typeof url !== 'string') return false;
-
-  const supportedPatterns = [
-    /(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/|)[^&\n?#\/]+|youtu\.be\/[^&\n?#\/]+)/,
-    /(?:^https?:\/\/)?(?:www\.)?(?:youtube\.com|youtu\.be)(?:\/|$)/,
-    /vimeo\.com\/(\d+)/,
-    /(?:dailymotion\.com\/video\/|dai\.ly\/)/,
-    /scene7\.com\/is\/content\//,
-    /marketing\.adobe\.com\/is\/content\//,
-  ];
-
-  return supportedPatterns.some((pattern) => pattern.test(url));
-}
-
+// Returns embed URL for YouTube/Vimeo/Dailymotion or null.
 export function getVideoEmbedUrl(videoUrl) {
   if (!videoUrl) return null;
 
-  const youtubeMatch = videoUrl.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/|)([^&\n?#\/]+)|youtu\.be\/([^&\n?#\/]+))/);
+  const youtubeMatch = videoUrl.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/|)([^&\n?#/]+)|youtu\.be\/([^&\n?#/]+))/);
   if (youtubeMatch) {
     const id = youtubeMatch[1] || youtubeMatch[2];
     return id ? `https://www.youtube.com/embed/${id}` : null;

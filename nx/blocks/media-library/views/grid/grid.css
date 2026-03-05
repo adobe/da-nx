@@ -47,8 +47,7 @@ svg.icon {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: calc(100vh - 200px); /* Fallback */
-  height: calc(100dvh - 200px);
+  height: calc(100vh - 200px);
   text-align: center;
   color: var(--s2-gray-700);
 }
@@ -71,8 +70,7 @@ svg.icon {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: calc(100vh - 200px); /* Fallback */
-  height: calc(100dvh - 200px);
+  height: calc(100vh - 200px);
   text-align: center;
   color: var(--s2-gray-700);
 }
@@ -113,8 +111,7 @@ svg.icon {
 }
 
 .media-main {
-  height: calc(100vh - 130px); /* Fallback */
-  height: calc(100dvh - 130px);
+  height: calc(100vh - 130px);
   overflow-y: auto;
   position: relative;
   contain: layout;

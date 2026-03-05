@@ -1,3 +1,4 @@
+// True if ?debug=perf or localStorage debug:perf is set.
 export function isPerfEnabled() {
   // 1. Check query param first (highest priority)
   // Works with:

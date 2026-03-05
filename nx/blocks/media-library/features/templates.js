@@ -35,7 +35,6 @@ export function createMediaEventHandlers(component) {
 }
 
 export const staticTemplates = {
-  // Uses icon from grid's ICONS (grid.js loads S2_Icon_AlertCircle_18_N); change icon id if grid loads differ
   unknownPlaceholder: html`
     <div class="unknown-placeholder">
       <svg class="unknown-icon" viewBox="0 0 20 20">

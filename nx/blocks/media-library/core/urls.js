@@ -92,10 +92,7 @@ export function parseOrgRepoFromUrl(siteUrl) {
   }
 }
 
-/**
- * Get dedupe key for media URL.
- * Used by both indexing and features for consistent deduplication.
- */
+// Returns stable key for dedupe (filename or pathname).
 export function getDedupeKey(url) {
   if (!url) return '';
 

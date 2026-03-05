@@ -1,18 +1,4 @@
-/**
- * Sheet building utilities.
- * Follows helix-admin pattern: single-purpose, focused functions.
- */
-
-import { SheetNames } from '../core/constants.js';
-
-/**
- * Build 'media' sheet: flat structure, one row per (hash, doc) combination.
- * Columns: hash, url, name, timestamp, user, operation, type, doc, status
- * Each row preserves the specific timestamp and user for that page preview.
- *
- * @param {Array} flatIndex flat index array
- * @returns {Array} media sheet data
- */
+// Flattens index into media sheet rows (hash, url, name, timestamp, etc.).
 export function buildMediaSheet(flatIndex) {
   return flatIndex.map((entry) => ({
     hash: entry.hash,
@@ -27,14 +13,7 @@ export function buildMediaSheet(flatIndex) {
   }));
 }
 
-/**
- * Build 'usage' sheet: page-hash relationships.
- * Columns: page, hashes
- * One row per page, hashes stored as JSON array.
- *
- * @param {Array} flatIndex flat index array
- * @returns {Array} usage sheet data
- */
+// Aggregates page -> hashes for usage sheet; one row per page.
 export function buildUsageSheet(flatIndex) {
   const pageHashMap = new Map();
 
@@ -52,11 +31,7 @@ export function buildUsageSheet(flatIndex) {
   }));
 }
 
-/**
- * Build usage map for O(1) lookups.
- * @param {Array} usageData usage sheet data
- * @returns {Map<string, Set<string>>} page -> Set of hashes
- */
+// Parses usage sheet into Map<page, Set<hash>> for O(1) lookups.
 export function buildUsageMap(usageData) {
   const usageMap = new Map();
   usageData.forEach((entry) => {

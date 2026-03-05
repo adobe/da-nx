@@ -1,6 +1,8 @@
 import { daFetch } from '../../../utils/daFetch.js';
 import { DA_ORIGIN } from '../../../public/utils/constants.js';
 import { Paths, Domains, DA_LIVE_EDIT_BASE } from './constants.js';
+import { ErrorCodes, logMediaLibraryError } from './errors.js';
+import { t } from './messages.js';
 
 function normalizeDocPath(docPath) {
   if (!docPath) return '';
@@ -8,6 +10,7 @@ function normalizeDocPath(docPath) {
     .replace(new RegExp(`${Paths.EXT_MD.replace('.', '\\.')}$`), '');
 }
 
+// Shortens doc path for display (e.g. /docs/foo.html -> docs/foo).
 export function formatDocPath(docPath) {
   const normalized = normalizeDocPath(docPath);
   return normalized === Paths.INDEX || normalized === 'index' ? '/' : (normalized || '/');
@@ -38,17 +41,20 @@ export function resolveAbsolutePath(path, isFolder = false) {
   return `${basePath}${path}`;
 }
 
+// Validates sitePath exists via DA; returns org, repo, or throws.
 export async function validateSitePath(sitePath) {
   if (!sitePath) {
-    return { valid: false, error: 'No site path provided' };
+    logMediaLibraryError(ErrorCodes.VALIDATION_SITE_PATH_MISSING, {});
+    return { valid: false, error: t('VALIDATION_ENTER_SITE_URL') };
   }
 
   const parts = sitePath.split('/').filter(Boolean);
 
   if (parts.length < 2) {
+    logMediaLibraryError(ErrorCodes.VALIDATION_SITE_PATH_MISSING, {});
     return {
       valid: false,
-      error: 'Site path must have at least org and repo',
+      error: t('VALIDATION_ENTER_SITE_URL'),
     };
   }
 
@@ -63,9 +69,10 @@ export async function validateSitePath(sitePath) {
         const json = await resp.json();
 
         if (!json || (Array.isArray(json) && json.length === 0)) {
+          logMediaLibraryError(ErrorCodes.VALIDATION_SITE_NOT_FOUND, { path: `/${org}/${repo}`, status: 404 });
           return {
             valid: false,
-            error: `Site not found: ${org}/${repo}`,
+            error: t('VALIDATION_SITE_NOT_FOUND', { path: `/${org}/${repo}` }),
           };
         }
 
@@ -73,14 +80,16 @@ export async function validateSitePath(sitePath) {
       }
 
       if (resp.status === 404) {
-        return { valid: false, error: `Site not found: ${org}/${repo}` };
+        logMediaLibraryError(ErrorCodes.VALIDATION_SITE_NOT_FOUND, { path: `/${org}/${repo}`, status: 404 });
+        return { valid: false, error: t('VALIDATION_SITE_NOT_FOUND', { path: `/${org}/${repo}` }) };
       }
 
       if (resp.status === 401 || resp.status === 403) {
+        logMediaLibraryError(ErrorCodes.DA_READ_DENIED, { path: `/${org}/${repo}`, status: resp.status });
         return {
           valid: false,
-          error: `Not authorized for: ${org}/${repo}`,
-          suggestion: 'Are you logged into the correct profile?',
+          error: t('VALIDATION_SITE_403'),
+          suggestion: t('VALIDATION_SITE_403_SUGGESTION'),
         };
       }
 
@@ -100,17 +109,22 @@ export async function validateSitePath(sitePath) {
 
     if (!resp.ok) {
       if (resp.status === 404) {
+        logMediaLibraryError(ErrorCodes.VALIDATION_PATH_NOT_FOUND, {
+          path: parentPath,
+          status: 404,
+        });
         return {
           valid: false,
-          error: `Parent path not found: ${parentPath}`,
+          error: t('VALIDATION_PATH_NOT_FOUND', { path: parentPath }),
         };
       }
 
       if (resp.status === 401 || resp.status === 403) {
+        logMediaLibraryError(ErrorCodes.DA_READ_DENIED, { path: parentPath, status: resp.status });
         return {
           valid: false,
-          error: `Not authorized for: ${org}/${repo}`,
-          suggestion: 'Are you logged into the correct profile?',
+          error: t('VALIDATION_PATH_403'),
+          suggestion: t('VALIDATION_PATH_403_SUGGESTION'),
         };
       }
 
@@ -122,7 +136,7 @@ export async function validateSitePath(sitePath) {
     if (!json || (Array.isArray(json) && json.length === 0)) {
       return {
         valid: false,
-        error: `Parent path not found or empty: ${parentPath}`,
+        error: t('VALIDATION_PATH_EMPTY', { path: parentPath }),
       };
     }
 
@@ -132,17 +146,18 @@ export async function validateSitePath(sitePath) {
     });
 
     if (!targetEntry) {
+      logMediaLibraryError(ErrorCodes.VALIDATION_PATH_NOT_FOUND, { path: `${parentPath}/${lastSegment}`, status: 404 });
       return {
         valid: false,
-        error: `Path not found: ${lastSegment}`,
-        suggestion: `Check that ${lastSegment} exists in ${parentPath}`,
+        error: t('VALIDATION_PATH_NOT_FOUND_CHILD', { path: `/${[org, repo, ...restPath].join('/')}` }),
+        suggestion: t('VALIDATION_PATH_NOT_FOUND_SUGGESTION', { segment: lastSegment, parentPath }),
       };
     }
 
     if (targetEntry.ext) {
       return {
         valid: false,
-        error: 'Site path cannot point to a file',
+        error: t('VALIDATION_SITE_PATH_FILE'),
         suggestion: parentPath,
         isFile: true,
         fileType: targetEntry.ext,

@@ -1,14 +1,6 @@
-/**
- * Central factory for creating all entry types with consistent property order.
- * Follows helix-admin pattern: single source of truth for data structures.
- */
-
 import { Operation } from '../core/constants.js';
 
-/**
- * Property order for all entries: hash, url, name, timestamp, user, operation, type, doc, status
- */
-
+// Creates media entry with consistent property order.
 export function createMediaEntry({
   hash,
   url,
@@ -33,6 +25,7 @@ export function createMediaEntry({
   };
 }
 
+// Creates entry for external media (markdown refs).
 export function createExternalMediaEntry(url, doc, latestPageTimestamp, info) {
   return {
     hash: url,
@@ -47,6 +40,7 @@ export function createExternalMediaEntry(url, doc, latestPageTimestamp, info) {
   };
 }
 
+// Creates entry for linked content (PDFs, SVGs, fragments).
 export function createLinkedContentEntry(filePath, doc, fileEvent, status, type, url) {
   return {
     hash: filePath,
@@ -61,6 +55,7 @@ export function createLinkedContentEntry(filePath, doc, fileEvent, status, type,
   };
 }
 
+// Creates orphan/unused media entry (no doc reference).
 export function createUnusedEntry(hash, url, name, timestamp, user, operation, type) {
   return {
     hash,

@@ -4,6 +4,8 @@ import { parseOrgRepoFromUrl } from '../../core/urls.js';
 import getSvg from '../../../../utils/svg.js';
 import { Storage } from '../../core/constants.js';
 import { showNotification } from '../../core/state.js';
+import { t } from '../../core/messages.js';
+import { ErrorCodes, logMediaLibraryError } from '../../core/errors.js';
 
 const EL_NAME = 'nx-media-onboard';
 const styles = await getStyle(import.meta.url);
@@ -37,6 +39,7 @@ class NxMediaOnboard extends LitElement {
     _pinnedFolders: { state: true },
     _activeTab: { state: true },
     _urlError: { state: true },
+    _urlErrorMessage: { state: true },
   };
 
   constructor() {
@@ -45,6 +48,7 @@ class NxMediaOnboard extends LitElement {
     this._pinnedFolders = [];
     this._activeTab = 'recents';
     this._urlError = false;
+    this._urlErrorMessage = null;
     this._flippedCards = new Set();
   }
 
@@ -99,9 +103,7 @@ class NxMediaOnboard extends LitElement {
       try {
         const folders = JSON.parse(localStorage.getItem(key)) || [];
         allPinnedFolders.push(...folders);
-      } catch {
-        // Skip malformed storage entry
-      }
+      } catch { /* swallow */ }
     });
 
     this._pinnedFolders = allPinnedFolders.map((folder) => ({
@@ -128,8 +130,10 @@ class NxMediaOnboard extends LitElement {
         bubbles: true,
       }));
     } catch (error) {
+      logMediaLibraryError(ErrorCodes.ONBOARD_PARSE_ERROR, { expectedFormat: 'https://main--site--org.aem.page' });
       this._urlError = true;
-      setTimeout(() => { this._urlError = false; }, 3000);
+      this._urlErrorMessage = 'Enter a URL in format: https://main--site--org.aem.page';
+      setTimeout(() => { this._urlError = false; this._urlErrorMessage = null; }, 5000);
     }
   }
 
@@ -158,7 +162,7 @@ class NxMediaOnboard extends LitElement {
     const shareUrl = `${baseUrl}${window.location.search}#${sitePath}`;
 
     navigator.clipboard.writeText(shareUrl).then(() => {
-      showNotification('Link Copied', 'Media library link copied to clipboard', 'success');
+      showNotification(t('NOTIFY_LINK_COPIED'), t('NOTIFY_LINK_COPIED_MSG'), 'success');
     });
   }
 
@@ -218,14 +222,17 @@ class NxMediaOnboard extends LitElement {
         <label for="site-url-input" class="visually-hidden">Site URL</label>
         <input
           id="site-url-input"
-          @keydown="${() => { this._urlError = false; }}"
-          @change="${() => { this._urlError = false; }}"
+          @keydown="${() => { this._urlError = false; this._urlErrorMessage = null; }}"
+          @change="${() => { this._urlError = false; this._urlErrorMessage = null; }}"
           type="text"
           name="siteUrl"
           placeholder="https://main--site--org.aem.page"
           aria-label="Enter site URL to explore media"
           class="${this._urlError ? 'error' : nothing}"
+          aria-describedby="${this._urlErrorMessage ? 'site-url-error' : nothing}"
+          aria-invalid="${this._urlError ? 'true' : nothing}"
         />
+        ${this._urlErrorMessage ? html`<p id="site-url-error" class="url-error-message">${this._urlErrorMessage}</p>` : ''}
         <div class="da-form-btn-offset">
           <button type="submit" aria-label="Go to site">
           <svg class="icon" viewBox="0 0 26 26">

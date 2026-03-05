@@ -15,7 +15,10 @@ import {
   initializeProcessedData,
 } from './features/filters.js';
 import { loadPinnedFolders, savePinnedFolders } from './features/pin.js';
-import { getAppState, updateAppState, onStateChange, showNotification, FILTER_TYPES } from './core/state.js';
+import {
+  getAppState, updateAppState, onStateChange, showNotification, dismissNotification, FILTER_TYPES,
+} from './core/state.js';
+import { t } from './core/messages.js';
 import { initService, disposeService } from './indexing/coordinator.js';
 import '../../public/sl/components.js';
 import './views/topbar/topbar.js';
@@ -213,6 +216,8 @@ class NxMediaLibrary extends LitElement {
       isValidating: true,
       sitePathValid: false,
       validationError: null,
+      validationSuggestion: null,
+      persistentError: null,
     });
 
     try {
@@ -235,6 +240,7 @@ class NxMediaLibrary extends LitElement {
         sitePathValid: true,
         validationError: null,
         validationSuggestion: null,
+        persistentError: null,
       });
 
       saveRecentSite(this.sitePath);
@@ -257,19 +263,25 @@ class NxMediaLibrary extends LitElement {
       if (!isAuthenticated) return;
 
       const mediaData = await loadMediaSheet(this.sitePath);
+      updateAppState({ persistentError: null });
       await this.setMediaData(mediaData);
     } catch (error) {
-      // eslint-disable-next-line no-console
-      console.error('[MEDIA-LIB:loadMediaData]', error);
-      updateAppState({
-        validationError: 'Failed to load media data. Please ensure you are signed in.',
-        sitePathValid: false,
-      });
+      const { MediaLibraryError, ErrorCodes } = await import('./core/errors.js');
+      if (error instanceof MediaLibraryError && error.code === ErrorCodes.INDEX_PARSE_ERROR) {
+        updateAppState({ persistentError: { message: error.message }, sitePathValid: true });
+        await this.setMediaData([]);
+      } else {
+        // eslint-disable-next-line no-console
+        console.error('[MEDIA-LIB:loadMediaData]', error);
+        updateAppState({
+          validationError: 'Failed to load media data. Please ensure you are signed in.',
+          sitePathValid: false,
+        });
+      }
     }
   }
 
   async setMediaData(rawData) {
-    // Handle empty index: clear state instead of early return
     const isEmpty = !rawData || rawData.length === 0;
 
     if (isEmpty) {
@@ -285,7 +297,6 @@ class NxMediaLibrary extends LitElement {
       return;
     }
 
-    // Normal flow for non-empty data
     updateAppState({ indexLockedByOther: false });
     const basePath = getBasePath();
     const filteredMediaData = basePath
@@ -316,7 +327,7 @@ class NxMediaLibrary extends LitElement {
         <div class="validation-state">
           <div class="validation-content indexing-state">
             <div class="indexing-spinner"></div>
-            <p class="indexing-message">Discovering</p>
+            <p class="indexing-message">${t('UI_DISCOVERING')}</p>
           </div>
         </div>
       `;
@@ -344,6 +355,19 @@ class NxMediaLibrary extends LitElement {
         </div>
 
         <div class="content">
+          ${this._appState.persistentError ? html`
+            <div class="da-persistent-banner danger">
+              <p class="da-persistent-banner-message">${this._appState.persistentError.message}</p>
+              <button
+                type="button"
+                class="da-persistent-banner-close"
+                aria-label="${t('UI_DISMISS')}"
+                @click=${this.handleDismissBanner}
+              >
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </div>
+          ` : ''}
           ${this.renderCurrentView()}
         </div>
 
@@ -352,8 +376,18 @@ class NxMediaLibrary extends LitElement {
         ${this._appState.notification ? html`
           <div class="da-notification-status">
             <div class="toast-notification ${this._appState.notification.type || 'success'}">
-              <p class="da-notification-status-title">${this._appState.notification.heading || 'Info'}</p>
-              <p class="da-notification-status-description">${this._appState.notification.message}</p>
+              <div class="toast-notification-body">
+                <p class="da-notification-status-title">${this._appState.notification.heading || t('NOTIFY_INFO')}</p>
+                <p class="da-notification-status-description">${this._appState.notification.message}</p>
+              </div>
+              <button
+                type="button"
+                class="toast-notification-close"
+                aria-label="${t('UI_DISMISS')}"
+                @click=${this.handleDismissNotification}
+              >
+                <span aria-hidden="true">&times;</span>
+              </button>
             </div>
           </div>
         ` : ''}
@@ -406,6 +440,7 @@ class NxMediaLibrary extends LitElement {
       <div class="error-state">
         <div class="error-content">
           <p>${this._appState.validationError}</p>
+          ${this._appState.validationSuggestion ? html`<p class="error-suggestion">${this._appState.validationSuggestion}</p>` : ''}
         </div>
       </div>
     `;
@@ -415,7 +450,7 @@ class NxMediaLibrary extends LitElement {
     return html`
       <div class="indexing-state">
         <div class="indexing-spinner"></div>
-        <p class="indexing-message">Discovering</p>
+        <p class="indexing-message">${t('UI_DISCOVERING')}</p>
       </div>
     `;
   }
@@ -424,15 +459,15 @@ class NxMediaLibrary extends LitElement {
     return html`
       <div class="indexing-state index-locked-state">
         <div class="indexing-spinner"></div>
-        <p class="indexing-message">Discovery session in progress</p>
-        <p class="indexing-hint">Media will appear automatically when discovery is complete.</p>
+        <p class="indexing-message">${t('UI_DISCOVERY_IN_PROGRESS')}</p>
+        <p class="indexing-hint">${t('UI_DISCOVERY_HINT')}</p>
       </div>
     `;
   }
 
   renderEmptyState() {
     const filterLabel = getFilterLabel(this._appState.selectedFilterType, 0);
-    let message = `No ${filterLabel} found`;
+    let message = t('UI_NO_ITEMS_FOUND', { filterLabel });
 
     if (this._appState.searchQuery) {
       const colonSyntax = parseColonSyntax(this._appState.searchQuery);
@@ -442,22 +477,22 @@ class NxMediaLibrary extends LitElement {
 
         if (field === 'folder') {
           const folderPath = value || '/';
-          message = `No ${filterLabel} in ${folderPath}`;
+          message = t('UI_NO_ITEMS_IN_PATH', { filterLabel, path: folderPath });
         } else if (field === 'doc') {
           const docPath = value.replace(/\.html$/, '');
-          message = `No ${filterLabel} in ${docPath}`;
+          message = t('UI_NO_ITEMS_IN_PATH', { filterLabel, path: docPath });
         } else {
-          message = `No ${filterLabel} matching "${this._appState.searchQuery}"`;
+          message = t('UI_NO_ITEMS_MATCHING', { filterLabel, query: this._appState.searchQuery });
         }
       } else {
-        message = `No ${filterLabel} matching "${this._appState.searchQuery}"`;
+        message = t('UI_NO_ITEMS_MATCHING', { filterLabel, query: this._appState.searchQuery });
       }
     }
 
     return html`
       <div class="empty-state">
         <h3>${message}</h3>
-        <p>Try a different search or type selection</p>
+        <p>${t('UI_TRY_DIFFERENT_SEARCH')}</p>
       </div>
     `;
   }
@@ -466,6 +501,14 @@ class NxMediaLibrary extends LitElement {
     const { sitePath } = e.detail;
 
     window.location.hash = sitePath;
+  }
+
+  handleDismissNotification() {
+    dismissNotification();
+  }
+
+  handleDismissBanner() {
+    updateAppState({ persistentError: null });
   }
 
   handleDocNavigation(path) {
@@ -496,7 +539,7 @@ class NxMediaLibrary extends LitElement {
     const alreadyPinned = pinnedFolders.some((pf) => pf.path === fullPath);
 
     if (alreadyPinned) {
-      showNotification('Already Pinned!', `Folder :${folder} is already pinned`, 'danger');
+      showNotification(t('NOTIFY_ALREADY_PINNED'), t('NOTIFY_ALREADY_PINNED_MSG', { folder }), 'danger');
       return;
     }
 
@@ -505,7 +548,7 @@ class NxMediaLibrary extends LitElement {
     const updatedPinnedFolders = [...pinnedFolders, pinnedFolder];
     savePinnedFolders(updatedPinnedFolders, this.org, this.repo);
 
-    showNotification('Folder Pinned', `Folder :${folder} pinned`);
+    showNotification(t('NOTIFY_FOLDER_PINNED'), t('NOTIFY_FOLDER_PINNED_MSG', { folder }));
   }
 
   handleSearch(e) {
@@ -593,7 +636,7 @@ class NxMediaLibrary extends LitElement {
       const isError = result.heading === 'Error';
       showNotification(result.heading, result.message, isError ? 'danger' : 'success');
     } catch (error) {
-      showNotification('Error', 'Failed to copy Resource.', 'danger');
+      showNotification(t('NOTIFY_ERROR'), t('NOTIFY_COPY_ERROR'), 'danger');
     }
   }
 
@@ -609,7 +652,7 @@ class NxMediaLibrary extends LitElement {
       data = sortMediaData(data);
     }
     if (!data || data.length === 0) {
-      showNotification('Info', 'No data to export.', 'info');
+      showNotification(t('NOTIFY_INFO'), t('NOTIFY_EXPORT_NO_DATA'), 'info');
       return;
     }
     try {
@@ -618,9 +661,9 @@ class NxMediaLibrary extends LitElement {
         repo: this.repo,
         filterName: this._appState.selectedFilterType,
       });
-      showNotification('Success', 'Export complete.', 'success');
+      showNotification(t('NOTIFY_SUCCESS'), t('NOTIFY_EXPORT_SUCCESS'), 'success');
     } catch (error) {
-      showNotification('Error', 'Failed to export.', 'danger');
+      showNotification(t('NOTIFY_ERROR'), t('NOTIFY_EXPORT_ERROR'), 'danger');
     }
   };
 }
@@ -643,12 +686,10 @@ export default function init(el) {
   document.title = 'Media Library';
   el.innerHTML = '';
 
-  // Remove previous handler if it exists
   if (hashChangeHandler) {
     window.removeEventListener('hashchange', hashChangeHandler);
   }
 
-  // Create new handler
   hashChangeHandler = (e) => {
     setupMediaLibrary(el, e);
   };

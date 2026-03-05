@@ -417,7 +417,6 @@ class NxMediaTopBar extends LitElement {
     }
     return '';
   }
-
 }
 
 customElements.define('nx-media-topbar', NxMediaTopBar);

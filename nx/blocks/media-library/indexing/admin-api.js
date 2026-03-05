@@ -1,7 +1,10 @@
 import { daFetch, initIms } from '../../../utils/daFetch.js';
 import { DA_ORIGIN } from '../../../public/utils/constants.js';
 import { CORS_PROXY_URL, IndexFiles } from '../core/constants.js';
+import { MediaLibraryError, ErrorCodes, logMediaLibraryError } from '../core/errors.js';
+import { t } from '../core/messages.js';
 
+// Fetches url; falls back to CORS proxy when direct fetch fails.
 export async function fetchWithCorsProxy(url, options = {}) {
   const { proxyOnly = false, ...fetchOpts } = options;
 
@@ -33,6 +36,7 @@ export async function fetchWithCorsProxy(url, options = {}) {
   }
 }
 
+// Builds FormData blob for single-sheet upload.
 export async function createSheet(data, type = 'sheet') {
   const sheetMeta = {
     total: data.length,
@@ -47,6 +51,7 @@ export async function createSheet(data, type = 'sheet') {
   return formData;
 }
 
+// Builds FormData blob for multi-sheet (media + usage) upload.
 export async function createMultiSheet(sheets) {
   const sheetNames = Object.keys(sheets);
   const multiSheetData = {
@@ -73,6 +78,7 @@ export async function createMultiSheet(sheets) {
 
 const DEFAULT_TIMEFRAME_DAYS = 730; /* 2 years */
 
+// Fetches with Bearer token from IMS.
 export async function fetchWithAuth(url, opts = {}) {
   opts.headers ||= {};
   const { accessToken } = await initIms();
@@ -82,6 +88,7 @@ export async function fetchWithAuth(url, opts = {}) {
   return fetch(url, opts);
 }
 
+// Converts timestamp to admin API since param (e.g. "7d", "24h").
 export function timestampToDuration(timestamp) {
   if (!timestamp) return `${DEFAULT_TIMEFRAME_DAYS}d`;
 
@@ -96,6 +103,7 @@ export function timestampToDuration(timestamp) {
   return `${Math.min(days, DEFAULT_TIMEFRAME_DAYS)}d`;
 }
 
+// Returns true if meta.lastFetchTime is older than threshold.
 export function isMetadataStale(meta, thresholdMs = 5 * 60 * 1000) {
   if (!meta || !meta.lastFetchTime) return true;
 
@@ -159,6 +167,7 @@ export async function fetchPaginated(
   return entries;
 }
 
+// Loads sheet data from DA source path.
 export async function loadSheet(path) {
   try {
     const resp = await daFetch(`${DA_ORIGIN}/source${path}`);
@@ -173,6 +182,7 @@ export async function loadSheet(path) {
   return [];
 }
 
+// Loads named sheet from multi-sheet JSON in DA.
 export async function loadMultiSheet(path, sheetName) {
   try {
     const resp = await daFetch(`${DA_ORIGIN}/source${path}`);
@@ -226,6 +236,7 @@ export async function fetchAuditLog(org, repo, ref = 'main', since = null, limit
   return fetchPaginated('log', org, repo, ref, since, limit);
 }
 
+// Streams audit log or medialog pages; calls onChunk per page.
 export async function streamLog(
   endpoint,
   org,
@@ -239,7 +250,6 @@ export async function streamLog(
   fetchParams.append('limit', limit.toString());
 
   if (since != null && typeof since === 'number') {
-    // Use from/to for precise incremental range (per admin API: from=start, to=end)
     const fromIso = new Date(since).toISOString();
     const toIso = new Date().toISOString();
     fetchParams.append('from', fromIso);
@@ -262,7 +272,20 @@ export async function streamLog(
 
     if (!resp.ok) {
       if (resp.status === 403) {
-        throw new Error('Access denied. You need at least "Author" permissions in EDS to run discovery.');
+        logMediaLibraryError(ErrorCodes.EDS_LOG_DENIED, { status: 403, endpoint: nextUrl });
+        throw new MediaLibraryError(
+          ErrorCodes.EDS_LOG_DENIED,
+          t('EDS_LOG_DENIED'),
+          { status: 403, endpoint: nextUrl },
+        );
+      }
+      if (resp.status === 401) {
+        logMediaLibraryError(ErrorCodes.EDS_AUTH_EXPIRED, { status: 401, endpoint: nextUrl });
+        throw new MediaLibraryError(
+          ErrorCodes.EDS_AUTH_EXPIRED,
+          t('EDS_AUTH_EXPIRED'),
+          { status: 401, endpoint: nextUrl },
+        );
       }
       throw new Error(`${endpoint} API error: ${resp.status} ${resp.statusText}`);
     }
@@ -291,21 +314,13 @@ export async function streamLog(
   }
 }
 
-/**
- * Create a bulk status job to discover all preview pages
- * @param {string} org - Organization name
- * @param {string} repo - Repository name
- * @param {string} ref - Branch reference (e.g., 'main')
- * @returns {Promise<{jobId: string, jobUrl: string}>}
- */
+// Creates bulk status job to discover all preview pages.
 export async function createBulkStatusJob(org, repo, ref) {
   const url = `https://admin.hlx.page/status/${org}/${repo}/${ref}/*`;
 
   const resp = await fetchWithAuth(url, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       paths: ['/*'],
       select: ['preview'],
@@ -329,21 +344,17 @@ export async function createBulkStatusJob(org, repo, ref) {
   };
 }
 
-/** Known terminal states - unknown states are treated as in-progress (keeps polling) */
 const BULK_JOB_TERMINAL_SUCCESS = ['completed', 'stopped'];
 const BULK_JOB_TERMINAL_FAILURE = ['failed', 'error', 'cancelled'];
 
-/**
- * Poll a bulk status job until completion
- * @param {string} jobUrl - Job URL to poll
- * @param {number} pollInterval - Interval in milliseconds between polls (default: 1000ms)
- * @param {function} onProgress - Optional callback for progress updates
- * @param {number} maxDurationMs - Max polling duration in ms (default: 30 min), 0 = no limit
- * @param {number} startTime - Internal: when polling started (for timeout)
- * @returns {Promise<string>} - Final job state ('completed' or 'stopped')
- * @throws {Error} If job ends in a failure state or polling times out
- */
-export async function pollStatusJob(jobUrl, pollInterval = 1000, onProgress = null, maxDurationMs = 0, startTime = null) {
+// Polls job URL until completed, stopped, failed, or timeout.
+export async function pollStatusJob(
+  jobUrl,
+  pollInterval = 1000,
+  onProgress = null,
+  maxDurationMs = 0,
+  startTime = null,
+) {
   const startedAt = startTime ?? Date.now();
 
   const resp = await fetchWithAuth(jobUrl);
@@ -373,15 +384,13 @@ export async function pollStatusJob(jobUrl, pollInterval = 1000, onProgress = nu
     throw new Error(`Bulk status job polling timed out after ${Math.round(maxDurationMs / 60000)} minutes`);
   }
 
-  await new Promise((resolve) => setTimeout(resolve, pollInterval));
+  await new Promise((resolve) => {
+    setTimeout(resolve, pollInterval);
+  });
   return pollStatusJob(jobUrl, pollInterval, onProgress, maxDurationMs, startedAt);
 }
 
-/**
- * Get the details (resources) from a completed bulk status job
- * @param {string} jobUrl - Job URL
- * @returns {Promise<Array>} - Array of resources with preview page paths
- */
+// Returns resource list (page paths) from completed status job.
 export async function getStatusJobDetails(jobUrl) {
   const detailsUrl = `${jobUrl}/details`;
   const resp = await fetchWithAuth(detailsUrl);
@@ -394,6 +403,7 @@ export async function getStatusJobDetails(jobUrl) {
   return data?.resources || [];
 }
 
+// Fetches page HTML/markdown via CORS proxy.
 export async function fetchPageMarkdown(pagePath, org, repo, ref = 'main') {
   try {
     const path = pagePath.startsWith('/') ? pagePath : `/${pagePath}`;
@@ -406,6 +416,7 @@ export async function fetchPageMarkdown(pagePath, org, repo, ref = 'main') {
   }
 }
 
+// Lists folder contents via DA List API.
 export async function listFolder(path, org, repo) {
   const normalizedPath = path.replace(/^\//, '') || '';
   const url = `${DA_ORIGIN}/list/${org}/${repo}/${normalizedPath}`;
@@ -415,6 +426,7 @@ export async function listFolder(path, org, repo) {
   return Array.isArray(data) ? data : (data.sources || []);
 }
 
+// Returns { exists, lastModified } for index file in DA.
 export async function checkIndex(folderPath, org, repo) {
   const items = await listFolder(folderPath, org, repo);
   const indexFile = items.find(
@@ -427,6 +439,7 @@ export async function checkIndex(folderPath, org, repo) {
   return { exists: true, lastModified: ts };
 }
 
+// Loads index meta JSON (lastFetchTime, etc.) from DA.
 export async function loadIndexMeta(path) {
   try {
     const resp = await daFetch(`${DA_ORIGIN}/source${path}`);
@@ -442,6 +455,7 @@ export async function loadIndexMeta(path) {
   return null;
 }
 
+// Saves index meta to DA source path.
 export async function saveIndexMeta(meta, path) {
   const formData = await createSheet([meta]);
   return daFetch(`${DA_ORIGIN}/source${path}`, {

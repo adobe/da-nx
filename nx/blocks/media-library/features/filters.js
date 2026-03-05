@@ -2,9 +2,7 @@ import { getMediaType, isSvgFile } from '../core/media.js';
 import { getBasePath, formatDocPath } from '../core/paths.js';
 import { pluralize } from '../core/utils.js';
 import { getDedupeKey } from '../core/urls.js';
-import {
-  Operation,
-} from '../core/constants.js';
+import { Operation } from '../core/constants.js';
 import {
   clearProcessDataCache as clearCache,
   getCachedProcessData,
@@ -51,6 +49,7 @@ export const FILTER_CONFIG = {
   documentTotal: (item, selectedDocument) => item.doc === selectedDocument,
 };
 
+// Applies type filter (all, documents, images, etc.) to data.
 export function applyFilter(data, filterName, selectedDocument) {
   const filterFn = FILTER_CONFIG[filterName];
 
@@ -72,6 +71,7 @@ function chunkArray(array, chunkSize) {
   return chunks;
 }
 
+// Returns empty processed data structure for pipeline.
 export function initializeProcessedData() {
   const filterArrays = {};
   const usageData = {};
@@ -91,13 +91,12 @@ export function initializeProcessedData() {
   };
 }
 
-/**
- * Clear the process data cache. Call after index builds to prevent stale data.
- */
+// Clears cache; call after index builds.
 export function clearProcessDataCache() {
   clearCache();
 }
 
+// Builds filter counts, usage index, folder cache from raw data.
 export async function processMediaData(mediaData, onProgress = null) {
   if (!mediaData || mediaData.length === 0) {
     return initializeProcessedData();
@@ -148,7 +147,8 @@ export async function processMediaData(mediaData, onProgress = null) {
           processedData.usageData[groupingKey].uniqueDocs.add(item.doc);
         }
 
-        processedData.usageData[groupingKey].count = processedData.usageData[groupingKey].uniqueDocs.size;
+        const usage = processedData.usageData[groupingKey];
+        usage.count = usage.uniqueDocs.size;
       }
 
       Object.keys(processedData.filterArrays).forEach((filterName) => {
@@ -289,6 +289,7 @@ function filterByGeneralSearch(mediaData, query) {
   return results;
 }
 
+// Filters by name, url, or doc match.
 export function filterBySearch(mediaData, searchQuery) {
   if (!searchQuery || !searchQuery.trim() || !mediaData) {
     return mediaData;
@@ -521,6 +522,14 @@ export function getSearchSuggestions(
   return [...docSuggestions, ...suggestions].slice(0, 10);
 }
 
+function getUsageCountFromIndex(usageIndex, groupingKey) {
+  if (!usageIndex) return null;
+  const entries = usageIndex.get(groupingKey);
+  if (!entries?.length) return null;
+  const uniqueDocs = new Set(entries.map((e) => e.doc).filter(Boolean));
+  return uniqueDocs.size;
+}
+
 export function createSearchSuggestion(item) {
   if (!item.name && !item.url && !item.doc) return null;
 
@@ -540,6 +549,7 @@ export function createSearchSuggestion(item) {
   };
 }
 
+// Returns media for selected doc with usage counts.
 export function filterByDocument(
   processedData,
   mediaData,
@@ -578,6 +588,7 @@ export function filterByDocument(
   return uniqueDocumentItems;
 }
 
+// Filters to media in folder (or subfolders) via usage index.
 export function filterByFolder(data, selectedFolder, usageIndex) {
   if (!selectedFolder || !data) {
     return data;
@@ -666,8 +677,8 @@ export function getFilterLabel(filterType, count = 0) {
   return pluralize(label.singular, label.plural, count);
 }
 
-export function computeResultSummary(mediaData, filteredData, searchQuery, filterType, options = {}) {
-  const { displayCount } = options;
+export function computeResultSummary(mediaData, filteredData, searchQuery, filterType, opts = {}) {
+  const { displayCount } = opts;
   const count = displayCount !== undefined ? displayCount : (filteredData?.length || 0);
   if (count === 0 && (!mediaData || mediaData.length === 0)) {
     return '';
@@ -699,14 +710,7 @@ export function computeResultSummary(mediaData, filteredData, searchQuery, filte
   return `${count} ${filterLabel}`;
 }
 
-function getUsageCountFromIndex(usageIndex, groupingKey) {
-  if (!usageIndex) return null;
-  const entries = usageIndex.get(groupingKey);
-  if (!entries?.length) return null;
-  const uniqueDocs = new Set(entries.map((e) => e.doc).filter(Boolean));
-  return uniqueDocs.size;
-}
-
+// Dedupes by URL and adds usageCount from index or processedData.
 export function deduplicateAndEnrich(sourceData, processedData, usageIndex = null) {
   const uniqueItems = [];
   const seenKeys = new Set();
@@ -716,9 +720,9 @@ export function deduplicateAndEnrich(sourceData, processedData, usageIndex = nul
     if (!seenKeys.has(groupingKey)) {
       seenKeys.add(groupingKey);
 
-      // Prefer usageIndex (built fresh) over processedData (may be cached); fallback to processedData
       const fromIndex = getUsageCountFromIndex(usageIndex, groupingKey);
-      const fromProcessed = processedData?.usageData?.[groupingKey]?.count ?? null;
+      const usageData = processedData?.usageData?.[groupingKey];
+      const fromProcessed = usageData?.count ?? null;
       const usageCount = fromIndex ?? fromProcessed ?? 0;
 
       uniqueItems.push({
@@ -756,11 +760,7 @@ export function filterByDocumentUsage(uniqueItems, selectedDocument, usageIndex)
   return docFilteredItems;
 }
 
-/**
- * Filters media by search, document, folder, and type.
- * Order: search → document filter → dedupe → folder/doc-usage → type filter.
- * When selectedDocument + document* filterType, filterByDocument handles both.
- */
+// Applies search, document, folder, type filters in order.
 export function filterMedia(sourceData, options) {
   const {
     searchQuery,

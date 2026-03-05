@@ -1,6 +1,8 @@
 import { daFetch } from '../../../utils/daFetch.js';
 import { DA_ORIGIN } from '../../../public/utils/constants.js';
 import { createSheet } from './admin-api.js';
+import { MediaLibraryError, ErrorCodes, logMediaLibraryError } from '../core/errors.js';
+import { t } from '../core/messages.js';
 import {
   buildFullIndex,
   buildIncrementalIndex,
@@ -43,11 +45,17 @@ export async function loadMediaSheet(sitePath) {
 
     if (resp.ok) {
       const data = await resp.json();
-      const result = data[SheetNames.MEDIA].data;
+      const result = data[SheetNames.MEDIA]?.data;
+      if (!Array.isArray(result)) {
+        logMediaLibraryError(ErrorCodes.INDEX_PARSE_ERROR, { path, error: 'Invalid index shape' });
+        throw new MediaLibraryError(ErrorCodes.INDEX_PARSE_ERROR, t('INDEX_PARSE_ERROR'), { path });
+      }
       return result;
     }
   } catch (error) {
-    console.error(`[MediaIndexer] Error loading ${IndexFiles.MEDIA_INDEX}:`, error); // eslint-disable-line no-console
+    if (error instanceof MediaLibraryError) throw error;
+    logMediaLibraryError(ErrorCodes.INDEX_PARSE_ERROR, { path, error: error?.message });
+    throw new MediaLibraryError(ErrorCodes.INDEX_PARSE_ERROR, t('INDEX_PARSE_ERROR'), { path });
   }
   return [];
 }
@@ -78,6 +86,7 @@ export async function hasMediaSheetChanged(sitePath, org, repo) {
   }
 }
 
+// Loads media sheet if index changed; returns { hasChanged, mediaData }.
 export async function loadMediaIfUpdated(sitePath, org, repo) {
   const { hasChanged } = await hasMediaSheetChanged(sitePath, org, repo);
 
@@ -96,10 +105,17 @@ export async function createIndexLock(sitePath) {
     locked: true,
   }];
   const formData = await createSheet(lockData);
-  return daFetch(`${DA_ORIGIN}/source${path}`, {
+  const resp = await daFetch(`${DA_ORIGIN}/source${path}`, {
     method: 'PUT',
     body: formData,
   });
+  if (!resp.ok) {
+    logMediaLibraryError(ErrorCodes.LOCK_CREATE_FAILED, { status: resp.status, path });
+    const isDenied = resp.status === 401 || resp.status === 403;
+    const msg = isDenied ? t('LOCK_CREATE_FAILED_PERMISSION') : t('LOCK_CREATE_FAILED_GENERIC');
+    throw new MediaLibraryError(ErrorCodes.LOCK_CREATE_FAILED, msg, { status: resp.status, path });
+  }
+  return resp;
 }
 
 export async function checkIndexLock(sitePath) {
@@ -123,9 +139,15 @@ export async function checkIndexLock(sitePath) {
 
 export async function removeIndexLock(sitePath) {
   const path = getIndexLockPath(sitePath);
-  return daFetch(`${DA_ORIGIN}/source${path}`, { method: 'DELETE' });
+  const resp = await daFetch(`${DA_ORIGIN}/source${path}`, { method: 'DELETE' });
+  if (!resp.ok) {
+    logMediaLibraryError(ErrorCodes.LOCK_REMOVE_FAILED, { status: resp.status, path });
+    throw new MediaLibraryError(ErrorCodes.LOCK_REMOVE_FAILED, t('LOCK_REMOVE_FAILED'), { status: resp.status, path });
+  }
+  return resp;
 }
 
+// Builds uniqueItems, usageIndex, folderPaths from raw media data.
 export function buildMediaIndexStructures(mediaData) {
   const uniqueItemsMap = new Map();
   const usageIndex = new Map();
@@ -195,8 +217,16 @@ export default async function buildMediaIndex(sitePath, org, repo, ref, onProgre
       mediaData = await buildFullIndex(sitePath, org, repo, ref, onProgress, onProgressiveData);
     }
 
-    // buildFullIndex and buildIncrementalIndex already save the multi-sheet structure
-    await removeIndexLock(sitePath);
+    let lockRemoveFailed = false;
+    try {
+      await removeIndexLock(sitePath);
+    } catch (lockErr) {
+      if (lockErr.code === ErrorCodes.LOCK_REMOVE_FAILED) {
+        lockRemoveFailed = true;
+      } else {
+        throw lockErr;
+      }
+    }
 
     const endTime = Date.now();
     const duration = ((endTime - startTime) / 1000).toFixed(1);
@@ -205,9 +235,12 @@ export default async function buildMediaIndex(sitePath, org, repo, ref, onProgre
       duration: `${duration}s`,
       hasChanges: true,
       mediaData: sortedData,
+      lockRemoveFailed,
     };
   } catch (error) {
-    await removeIndexLock(sitePath);
+    try {
+      await removeIndexLock(sitePath);
+    } catch { /* swallow */ }
     throw error;
   }
 }
