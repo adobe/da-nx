@@ -17,9 +17,14 @@ svg.icon {
   padding: 0;
 }
 
-/* Share button and alt indicator - inside media-actions */
-.share-button,
-.filled-alt-indicator {
+.icon-button:focus-visible {
+  outline: 2px solid var(--s2-blue-500);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Share button - inside media-actions */
+.share-button {
   background: none;
   border: none;
   padding: 0;
@@ -30,8 +35,7 @@ svg.icon {
   justify-content: center;
 }
 
-.share-button svg.icon,
-.filled-alt-indicator svg.icon {
+.share-button svg.icon {
   width: 20px;
   height: 20px;
   color: var(--s2-white, #fff);
@@ -86,6 +90,14 @@ svg.icon {
   border-radius: 50%;
   animation: spin 1s linear infinite;
   margin-bottom: var(--spacing-200);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scanning-spinner,
+  .spinner {
+    animation: none;
+    opacity: 0.6;
+  }
 }
 
 .spinner {
@@ -170,6 +182,16 @@ svg.icon {
   overflow: hidden;
   border-bottom: 1px solid var(--s2-gray-200);
   position: relative;
+
+  & picture {
+    width: 100%;
+    height: 100%;
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 2;
+  }
 
   & video,
   & iframe,
@@ -320,8 +342,7 @@ svg.icon {
   pointer-events: none;
   z-index: 10;
 
-  button,
-  .media-actions .filled-alt-indicator {
+  button {
     pointer-events: auto;
   }
 
@@ -341,20 +362,6 @@ svg.icon {
   }
 }
 
-.missing-alt-indicator {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 4px;
-}
-
-.decorative-alt-indicator {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 4px;
-}
-
 .alert-icon {
   width: 20px;
   height: 20px;
@@ -365,12 +372,6 @@ svg.icon {
   width: 20px;
   height: 20px;
   color: var(--s2-cyan, #17a2b8);
-}
-
-.alt-present {
-  color: var(--s2-green-600);
-  font-weight: bold;
-  font-size: 1.2rem;
 }
 
 .checkmark-icon {

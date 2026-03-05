@@ -1,5 +1,23 @@
 /* nx/blocks/media-library/views/onboard/onboard.css */
 
+/* Accessibility utility */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+form button svg {
+  width: 26px;
+  height: 26px;
+}
+
 :host {
   display: block;
   width: 100%;
@@ -56,6 +74,41 @@ sl-alert {
   color: var(--s2-gray-800);
   margin: 0 0 var(--spacing-500) 0;
   text-align: left;
+}
+
+/* Card back buttons - before .tabs for specificity order */
+.card-action-btn {
+  padding: 0;
+  font-size: 16px;
+  font-weight: 700;
+  border: none;
+  background: transparent;
+  color: var(--s2-gray-800);
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  svg {
+    display: block;
+    width: 42px;
+    height: auto;
+    margin-bottom: 10px;
+  }
+}
+
+.card-action-btn:hover {
+  transform: scale(1.05);
+}
+
+.card-back-btn {
+  background: transparent;
+  border: none;
+  color: var(--s2-gray-600);
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.card-back-btn:hover {
+  color: var(--s2-gray-800);
 }
 
 /* Tabs */
@@ -182,6 +235,23 @@ form input.error {
   padding: 0 0 3px 4px;
 }
 
+.url-error-message {
+  font-size: 14px;
+  color: var(--s2-red, #c00);
+  margin: 8px 0 0;
+  padding: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  form input.error {
+    animation: none;
+  }
+
+  .nx-card-inner {
+    transition: none !important;
+  }
+}
+
 @keyframes shake {
   10%,
   90% {
@@ -228,48 +298,8 @@ form button:hover {
   color: var(--s2-white, #fff);
 }
 
-form button svg {
-  width: 26px;
-  height: 26px;
-}
-
 .da-form-btn-offset {
   position: relative;
-}
-
-/* Card back buttons */
-.card-action-btn {
-  padding: 0;
-  font-size: 16px;
-  font-weight: 700;
-  border: none;
-  background: transparent;
-  color: var(--s2-gray-800);
-  cursor: pointer;
-  transition: all 0.2s ease;
-
-  svg {
-    display: block;
-    width: 42px;
-    height: auto;
-    margin-bottom: 10px;
-  }
-}
-
-.card-action-btn:hover {
-  transform: scale(1.05);
-}
-
-.card-back-btn {
-  background: transparent;
-  border: none;
-  color: var(--s2-gray-600);
-  cursor: pointer;
-  transition: color 0.2s ease;
-}
-
-.card-back-btn:hover {
-  color: var(--s2-gray-800);
 }
 
 /* Card styles from card.css */
@@ -341,6 +371,25 @@ form button svg {
   .card-arrow svg {
     transform: translateX(4px);
   }
+}
+
+/* Card menu button - before .nx-card-back .card-menu-btn for specificity order */
+.card-menu-btn {
+  position: absolute;
+  left: var(--spacing-200);
+  background: none;
+  color: white;
+  border: none;
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: start;
+  transition: background 0.2s ease;
+  z-index: 10;
+  padding: 0;
+  margin-inline-start: 10px;
 }
 
 .nx-card-front,
@@ -437,23 +486,11 @@ form button svg {
   color: rgba(255 255 255 / 70%);
 }
 
-/* Card menu button */
-.card-menu-btn {
-  position: absolute;
-  left: var(--spacing-200);
-  background: none;
-  color: white;
-  border: none;
-  width: 32px;
-  height: 32px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: start;
-  transition: background 0.2s ease;
-  z-index: 10;
-  padding: 0;
-  margin-inline-start: 10px;
+.card-menu-btn:focus-visible,
+.card-action-btn:focus-visible {
+  outline: 2px solid var(--s2-blue-500);
+  outline-offset: 2px;
+  border-radius: 4px;
 
   svg.more {
     width: 20px;
