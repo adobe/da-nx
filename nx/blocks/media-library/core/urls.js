@@ -77,13 +77,14 @@ export function parseOrgRepoFromUrl(siteUrl) {
 
   try {
     const url = new URL(siteUrl);
-    const { hostname } = url;
+    const { hostname, pathname } = url;
 
     const match = hostname.match(/^main--(.+?)--([^.]+)\.aem\.page$/);
 
     if (match) {
       const [, repo, org] = match;
-      return { org, repo };
+      const path = pathname && pathname !== '/' ? pathname.replace(/\/+$/, '') : '';
+      return { org, repo, path };
     }
 
     throw new Error(`Unable to parse AEM URL format from: ${siteUrl}`);

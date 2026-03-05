@@ -314,15 +314,20 @@ export async function streamLog(
   }
 }
 
-// Creates bulk status job to discover all preview pages.
-export async function createBulkStatusJob(org, repo, ref) {
+// Creates bulk status job to discover preview pages. When contentPath is provided (e.g. "/en"),
+// discovery is scoped to that subtree; otherwise discovers whole site.
+export async function createBulkStatusJob(org, repo, ref, contentPath = null) {
   const url = `https://admin.hlx.page/status/${org}/${repo}/${ref}/*`;
+  const normalizedPath = contentPath && contentPath.trim()
+    ? contentPath.replace(/\/+$/, '').replace(/^(?!\/)/, '/')
+    : null;
+  const paths = normalizedPath ? [normalizedPath, `${normalizedPath}/*`] : ['/*'];
 
   const resp = await fetchWithAuth(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      paths: ['/*'],
+      paths,
       select: ['preview'],
     }),
   });

@@ -124,65 +124,71 @@ nx-media-scan {
 
 .toast-notification {
   display: flex;
+  flex-direction: column;
   width: 360px;
   max-width: 90vw;
   border-radius: 6px;
   filter: drop-shadow(rgb(0 0 0 / 15%) 0 1px 4px);
-  justify-content: space-between;
-  align-items: stretch;
   box-sizing: border-box;
   color: #fff;
   font-size: 14px;
   overflow: hidden;
+}
 
-  .toast-notification-body {
-    flex: 1;
-  }
+.toast-notification-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
 
-  .da-notification-status-title {
-    font-weight: 700;
-    margin: 0;
-    padding: 12px 16px 12px 40px;
-    background: transparent url("/blocks/browse/img/Smock_InfoOutline_18_N.svg") 12px 50% no-repeat;
-  }
+.toast-notification .da-notification-status-title {
+  flex: 1;
+  font-weight: 700;
+  margin: 0;
+  padding: 12px 16px 12px 40px;
+  background: transparent url("/blocks/browse/img/Smock_InfoOutline_18_N.svg") 12px 50% no-repeat;
+}
 
-  .da-notification-status-description {
-    line-height: 1.6;
-    padding: 6px 12px;
-    margin: 0;
-    background: rgb(255 255 255 / 10%);
-  }
+.toast-notification .da-notification-status-description {
+  line-height: 1.6;
+  padding: 6px 12px 12px;
+  margin: 0;
+  background: rgb(255 255 255 / 10%);
+}
 
-  .toast-notification-close {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    padding: 0;
-    border: none;
-    background: rgb(255 255 255 / 15%);
-    color: inherit;
-    font-size: 24px;
-    line-height: 1;
-    cursor: pointer;
-    flex-shrink: 0;
-  }
+.toast-notification-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  margin: 4px 4px 0 0;
+  border: none;
+  background: rgb(255 255 255 / 15%);
+  color: inherit;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+  border-radius: 4px;
+}
 
-  .toast-notification-close:hover {
-    background: rgb(255 255 255 / 25%);
-  }
+.toast-notification-close:hover {
+  background: rgb(255 255 255 / 25%);
+}
 
-  &.success {
-    background: var(--s2-blue-800);
-  }
+.toast-notification.success {
+  background: var(--s2-blue-800);
+}
 
-  &.danger {
-    background: var(--s2-red-900);
-  }
+.toast-notification.danger {
+  background: var(--s2-red-900);
+}
 
-  &.warning {
-    background: var(--s2-amber-800, #b45309);
-  }
+.toast-notification.warning {
+  background: var(--s2-amber-800, #b45309);
 }
 
 .view-btn .icon {

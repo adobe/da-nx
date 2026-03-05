@@ -1,6 +1,7 @@
 import { html, LitElement, nothing } from 'da-lit';
 import getStyle from '../../../../utils/styles.js';
 import { parseOrgRepoFromUrl } from '../../core/urls.js';
+import { normalizeSitePath } from '../../core/paths.js';
 import getSvg from '../../../../utils/svg.js';
 import { Storage } from '../../core/constants.js';
 import { showNotification } from '../../core/state.js';
@@ -122,8 +123,8 @@ class NxMediaOnboard extends LitElement {
     if (!siteUrl) return;
 
     try {
-      const { repo, org } = parseOrgRepoFromUrl(siteUrl);
-      const sitePath = `/${org}/${repo}`;
+      const { repo, org, path } = parseOrgRepoFromUrl(siteUrl);
+      const sitePath = normalizeSitePath(path ? `/${org}/${repo}${path}` : `/${org}/${repo}`);
 
       this.dispatchEvent(new CustomEvent('site-selected', {
         detail: { sitePath },
@@ -138,7 +139,7 @@ class NxMediaOnboard extends LitElement {
   }
 
   handleSiteClick(siteName) {
-    const sitePath = ensureLeadingSlash(siteName);
+    const sitePath = normalizeSitePath(ensureLeadingSlash(siteName));
     this.dispatchEvent(new CustomEvent('site-selected', {
       detail: { sitePath },
       bubbles: true,

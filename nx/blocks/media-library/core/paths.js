@@ -34,6 +34,22 @@ export function getBasePath() {
   return `/${parts.join('/')}`;
 }
 
+/** Normalizes sitePath: leading slash, no trailing slash (except root). */
+export function normalizeSitePath(sitePath) {
+  if (!sitePath || typeof sitePath !== 'string') return '';
+  const trimmed = sitePath.trim();
+  const withLeading = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+  return withLeading === '/' ? '/' : withLeading.replace(/\/+$/, '');
+}
+
+/** Returns content path from sitePath (part after /org/repo). Empty for root. */
+export function getContentPathFromSitePath(sitePath) {
+  const normalized = normalizeSitePath(sitePath);
+  const parts = normalized.split('/').filter(Boolean);
+  if (parts.length <= 2) return '';
+  return `/${parts.slice(2).join('/')}`;
+}
+
 export function resolveAbsolutePath(path, isFolder = false) {
   const basePath = getBasePath();
   if (!basePath || path.startsWith(basePath)) return path;

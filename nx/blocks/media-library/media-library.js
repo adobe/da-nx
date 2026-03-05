@@ -2,7 +2,7 @@ import { html, LitElement } from 'da-lit';
 import getStyle from '../../utils/styles.js';
 import { loadMediaSheet, buildMediaIndexStructures } from './indexing/load.js';
 import { copyMediaToClipboard, exportToCsv } from './core/export.js';
-import { validateSitePath, getBasePath, resolveAbsolutePath } from './core/paths.js';
+import { validateSitePath, getBasePath, resolveAbsolutePath, normalizeSitePath } from './core/paths.js';
 import { saveRecentSite } from './core/storage.js';
 import { ensureAuthenticated, sortMediaData } from './core/utils.js';
 import { getDedupeKey } from './core/urls.js';
@@ -391,18 +391,18 @@ class NxMediaLibrary extends LitElement {
         ${this._appState.notification ? html`
           <div class="da-notification-status">
             <div class="toast-notification ${this._appState.notification.type || 'success'}">
-              <div class="toast-notification-body">
+              <div class="toast-notification-header">
                 <p class="da-notification-status-title">${this._appState.notification.heading || t('NOTIFY_INFO')}</p>
-                <p class="da-notification-status-description">${this._appState.notification.message}</p>
+                <button
+                  type="button"
+                  class="toast-notification-close"
+                  aria-label="${t('UI_DISMISS')}"
+                  @click=${this.handleDismissNotification}
+                >
+                  <span aria-hidden="true">&times;</span>
+                </button>
               </div>
-              <button
-                type="button"
-                class="toast-notification-close"
-                aria-label="${t('UI_DISMISS')}"
-                @click=${this.handleDismissNotification}
-              >
-                <span aria-hidden="true">&times;</span>
-              </button>
+              <p class="da-notification-status-description">${this._appState.notification.message}</p>
             </div>
           </div>
         ` : ''}
@@ -699,8 +699,8 @@ function setupMediaLibrary(el) {
     el.append(cmp);
   }
 
-  const hash = window.location.hash?.replace('#', '');
-  cmp.sitePath = hash;
+  const hash = window.location.hash?.replace('#', '') || '';
+  cmp.sitePath = hash ? normalizeSitePath(hash) : '';
 }
 
 let hashChangeHandler = null;
