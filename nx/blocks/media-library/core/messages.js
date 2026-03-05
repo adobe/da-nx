@@ -1,5 +1,8 @@
 const MESSAGES = {
   INDEX_PARSE_ERROR: "Your media results couldn't be loaded. It may be damaged or in an unexpected format. Try refreshing the page.",
+  INDEX_LOAD_FAILED: 'Failed to load media index. Try again or run discovery.',
+  INDEX_MISSING: 'Not discovered yet. Run discovery to get started.',
+  INDEX_MISSING_HINT: 'Use Refresh to run discovery.',
   LOCK_CREATE_FAILED_PERMISSION: 'You need write access on the DA site to save the latest media data. You can still browse through existing data.',
   LOCK_CREATE_FAILED_GENERIC: "Couldn't start discovery. Try again.",
   LOCK_REMOVE_FAILED: "Couldn't clear the previous discovery session. Try again.",

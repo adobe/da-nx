@@ -26,6 +26,7 @@ let appState = {
   indexProgress: null,
   indexStartTime: null,
   indexLockedByOther: false,
+  indexMissing: false,
 
   isValidating: false,
   sitePathValid: false,

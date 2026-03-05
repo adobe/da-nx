@@ -262,14 +262,26 @@ class NxMediaLibrary extends LitElement {
       const isAuthenticated = await ensureAuthenticated();
       if (!isAuthenticated) return;
 
-      const mediaData = await loadMediaSheet(this.sitePath);
-      updateAppState({ persistentError: null });
-      await this.setMediaData(mediaData);
+      const { data, indexMissing } = await loadMediaSheet(this.sitePath);
+      updateAppState({ persistentError: null, indexMissing: !!indexMissing });
+      await this.setMediaData(data);
     } catch (error) {
       const { MediaLibraryError, ErrorCodes } = await import('./core/errors.js');
-      if (error instanceof MediaLibraryError && error.code === ErrorCodes.INDEX_PARSE_ERROR) {
-        updateAppState({ persistentError: { message: error.message }, sitePathValid: true });
+      if (error instanceof MediaLibraryError) {
+        const persistentCodes = [
+          ErrorCodes.INDEX_PARSE_ERROR,
+          ErrorCodes.DA_READ_DENIED,
+        ];
+        const isPersistent = persistentCodes.includes(error.code);
+        updateAppState({
+          persistentError: isPersistent ? { message: error.message } : null,
+          sitePathValid: true,
+          indexMissing: false,
+        });
         await this.setMediaData([]);
+        if (!isPersistent) {
+          showNotification(t('NOTIFY_ERROR'), error.message, 'danger');
+        }
       } else {
         // eslint-disable-next-line no-console
         console.error('[MEDIA-LIB:loadMediaData]', error);
@@ -357,15 +369,18 @@ class NxMediaLibrary extends LitElement {
         <div class="content">
           ${this._appState.persistentError ? html`
             <div class="da-persistent-banner danger">
+              <div class="da-persistent-banner-header">
+                <span class="da-persistent-banner-heading">${t('NOTIFY_ERROR')}</span>
+                <button
+                  type="button"
+                  class="da-persistent-banner-close"
+                  aria-label="${t('UI_DISMISS')}"
+                  @click=${this.handleDismissBanner}
+                >
+                  <span aria-hidden="true">&times;</span>
+                </button>
+              </div>
               <p class="da-persistent-banner-message">${this._appState.persistentError.message}</p>
-              <button
-                type="button"
-                class="da-persistent-banner-close"
-                aria-label="${t('UI_DISMISS')}"
-                @click=${this.handleDismissBanner}
-              >
-                <span aria-hidden="true">&times;</span>
-              </button>
             </div>
           ` : ''}
           ${this.renderCurrentView()}
@@ -466,6 +481,14 @@ class NxMediaLibrary extends LitElement {
   }
 
   renderEmptyState() {
+    if (this._appState.indexMissing) {
+      return html`
+        <div class="empty-state">
+          <h3>${t('INDEX_MISSING')}</h3>
+          <p>${t('INDEX_MISSING_HINT')}</p>
+        </div>
+      `;
+    }
     const filterLabel = getFilterLabel(this._appState.selectedFilterType, 0);
     let message = t('UI_NO_ITEMS_FOUND', { filterLabel });
 

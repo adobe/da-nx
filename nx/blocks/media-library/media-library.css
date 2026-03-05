@@ -493,41 +493,61 @@ nx-media-sidebar {
   left: 0;
   right: 0;
   z-index: 10;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
   box-sizing: border-box;
-  padding: 12px 16px;
+  padding: 0;
   border-radius: 0 0 8px 8px;
   font-size: 14px;
   line-height: 1.5;
   box-shadow: 0 4px 6px rgb(0 0 0 / 10%);
 }
 
-.da-persistent-banner-message {
-  flex: 1;
-  margin: 0;
+.da-persistent-banner-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  gap: 12px;
+}
+
+.da-persistent-banner.danger .da-persistent-banner-header {
+  background: var(--s2-red-400);
+  color: var(--s2-white, #fff);
+}
+
+.da-persistent-banner.warning .da-persistent-banner-header {
+  background: var(--s2-orange-400);
+  color: var(--s2-white, #fff);
+}
+
+.da-persistent-banner-heading {
+  font-weight: 600;
+  font-size: 14px;
 }
 
 .da-persistent-banner-close {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   padding: 0;
   border: none;
   background: transparent;
   border-radius: 4px;
-  font-size: 24px;
+  font-size: 20px;
   line-height: 1;
   cursor: pointer;
   flex-shrink: 0;
+  color: inherit;
 }
 
 .da-persistent-banner-close:hover {
-  background: rgb(0 0 0 / 8%);
+  background: rgb(255 255 255 / 20%);
+}
+
+.da-persistent-banner-message {
+  margin: 0;
+  padding: 12px 16px;
 }
 
 .da-persistent-banner.danger {

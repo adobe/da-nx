@@ -50,14 +50,31 @@ export async function loadMediaSheet(sitePath) {
         logMediaLibraryError(ErrorCodes.INDEX_PARSE_ERROR, { path, error: 'Invalid index shape' });
         throw new MediaLibraryError(ErrorCodes.INDEX_PARSE_ERROR, t('INDEX_PARSE_ERROR'), { path });
       }
-      return result;
+      return { data: result };
     }
+
+    if (resp.status === 401 || resp.status === 403) {
+      logMediaLibraryError(ErrorCodes.DA_READ_DENIED, { path, status: resp.status });
+      throw new MediaLibraryError(ErrorCodes.DA_READ_DENIED, t('DA_READ_DENIED'), { path });
+    }
+
+    if (resp.status === 404) {
+      return { data: [], indexMissing: true };
+    }
+
+    logMediaLibraryError(ErrorCodes.INDEX_LOAD_FAILED, { path, status: resp.status });
+    throw new MediaLibraryError(ErrorCodes.INDEX_LOAD_FAILED, t('INDEX_LOAD_FAILED'), { path });
   } catch (error) {
     if (error instanceof MediaLibraryError) throw error;
-    logMediaLibraryError(ErrorCodes.INDEX_PARSE_ERROR, { path, error: error?.message });
-    throw new MediaLibraryError(ErrorCodes.INDEX_PARSE_ERROR, t('INDEX_PARSE_ERROR'), { path });
+    const isParseLike = error instanceof SyntaxError
+      || (error?.message?.toLowerCase?.().includes('json') ?? false);
+    if (isParseLike) {
+      logMediaLibraryError(ErrorCodes.INDEX_PARSE_ERROR, { path, error: error?.message });
+      throw new MediaLibraryError(ErrorCodes.INDEX_PARSE_ERROR, t('INDEX_PARSE_ERROR'), { path });
+    }
+    logMediaLibraryError(ErrorCodes.NETWORK_TIMEOUT, { path, error: error?.message });
+    throw new MediaLibraryError(ErrorCodes.NETWORK_TIMEOUT, t('NOTIFY_DISCOVERY_FAILED'), { path });
   }
-  return [];
 }
 
 export async function hasMediaSheetChanged(sitePath, org, repo) {
@@ -86,16 +103,16 @@ export async function hasMediaSheetChanged(sitePath, org, repo) {
   }
 }
 
-// Loads media sheet if index changed; returns { hasChanged, mediaData }.
+// Loads media sheet if index changed; returns { hasChanged, mediaData, indexMissing }.
 export async function loadMediaIfUpdated(sitePath, org, repo) {
   const { hasChanged } = await hasMediaSheetChanged(sitePath, org, repo);
 
   if (hasChanged) {
-    const mediaData = await loadMediaSheet(sitePath);
-    return { hasChanged: true, mediaData };
+    const { data, indexMissing } = await loadMediaSheet(sitePath);
+    return { hasChanged: true, mediaData: data, indexMissing: !!indexMissing };
   }
 
-  return { hasChanged: false, mediaData: null };
+  return { hasChanged: false, mediaData: null, indexMissing: false };
 }
 
 export async function createIndexLock(sitePath) {
@@ -141,6 +158,7 @@ export async function removeIndexLock(sitePath) {
   const path = getIndexLockPath(sitePath);
   const resp = await daFetch(`${DA_ORIGIN}/source${path}`, { method: 'DELETE' });
   if (!resp.ok) {
+    if (resp.status === 404) return resp;
     logMediaLibraryError(ErrorCodes.LOCK_REMOVE_FAILED, { status: resp.status, path });
     throw new MediaLibraryError(ErrorCodes.LOCK_REMOVE_FAILED, t('LOCK_REMOVE_FAILED'), { status: resp.status, path });
   }

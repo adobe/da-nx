@@ -25,14 +25,20 @@ export async function startPolling() {
         if (!isAuthenticated) return;
 
         const [org, repo] = state.sitePath.split('/').slice(1, 3);
-        const { hasChanged, mediaData } = await loadMediaIfUpdated(state.sitePath, org, repo);
+        const result = await loadMediaIfUpdated(state.sitePath, org, repo);
+        const { hasChanged, mediaData, indexMissing } = result;
 
         if (hasChanged && onMediaDataUpdated) {
+          updateAppState({ indexMissing: !!indexMissing });
           onMediaDataUpdated(mediaData || []);
         }
       } catch (error) {
-        if (error?.code === ErrorCodes.INDEX_PARSE_ERROR) {
-          updateAppState({ persistentError: { message: error.message } });
+        const persistentCodes = [
+          ErrorCodes.INDEX_PARSE_ERROR,
+          ErrorCodes.DA_READ_DENIED,
+        ];
+        if (persistentCodes.includes(error?.code)) {
+          updateAppState({ persistentError: { message: error.message }, indexMissing: false });
         } else {
           logMediaLibraryError(ErrorCodes.POLLING_FAILED, { error: error?.message });
           showNotification(t('NOTIFY_WARNING'), t('NOTIFY_POLLING_UNAVAILABLE'), 'danger');
@@ -67,10 +73,10 @@ function startLockCheckPolling(sitePath, org, repo) {
       return;
     }
     try {
-      const { hasChanged, mediaData } = await loadMediaIfUpdated(sitePath, org, repo);
+      const { hasChanged, mediaData, indexMissing } = await loadMediaIfUpdated(sitePath, org, repo);
       if (hasChanged && onMediaDataUpdated) {
         stopLockCheckPolling();
-        updateAppState({ indexLockedByOther: false });
+        updateAppState({ indexLockedByOther: false, indexMissing: !!indexMissing });
         onMediaDataUpdated(mediaData || []);
       }
     } catch { /* swallow */ }
@@ -200,6 +206,7 @@ export async function triggerBuild(sitePath, org, repo, ref = 'main') {
     if (!error.message?.includes('Index build already in progress')) {
       const isMediaLibError = error instanceof MediaLibraryError;
       const persistentCodes = [
+        ErrorCodes.DA_READ_DENIED,
         ErrorCodes.DA_WRITE_DENIED,
         ErrorCodes.DA_SAVE_FAILED,
         ErrorCodes.PARTIAL_SAVE,
@@ -213,7 +220,7 @@ export async function triggerBuild(sitePath, org, repo, ref = 'main') {
         logMediaLibraryError(ErrorCodes.BUILD_FAILED, { error: error?.message });
       }
 
-      const updates = { isIndexing: false, indexLockedByOther: false };
+      const updates = { isIndexing: false, indexLockedByOther: false, indexMissing: false };
       if (isPersistent) {
         updates.persistentError = { message: error.message };
       } else {
