@@ -1,4 +1,58 @@
 import { handleSignIn, loadIms } from '../../../utils/ims.js';
+import { daFetch } from '../../../utils/daFetch.js';
+import { DA_ORIGIN } from '../../../public/utils/constants.js';
+
+const DA_LIVE_PREVIEW_ENVS = {
+  local: 'localhost:8000',
+  stage: 'stage-preview.da.live',
+  prod: 'preview.da.live',
+};
+
+function getLivePreviewDomain() {
+  const { href } = window.location;
+  const query = new URL(href).searchParams.get('da-live-preview');
+  if (query && query === 'reset') {
+    localStorage.removeItem('da-live-preview');
+  } else if (query) {
+    localStorage.setItem('da-live-preview', query);
+  }
+  const env = DA_LIVE_PREVIEW_ENVS[localStorage.getItem('da-live-preview') || 'prod'];
+  return window.location.origin === 'https://da.page' ? env.replace('.live', '.page') : env;
+}
+
+function getLivePreviewUrl(owner, repo) {
+  const domain = getLivePreviewDomain();
+  const protocol = domain.startsWith('localhost') ? 'http' : 'https';
+  return `${protocol}://main--${repo}--${owner}.${domain}`;
+}
+
+export async function checkLockdownImages(owner, repo) {
+  try {
+    const resp = await daFetch(`${DA_ORIGIN}/config/${owner}`);
+    if (!resp.ok) return false;
+
+    const config = await resp.json();
+
+    if (config.flags?.data) {
+      const lockdownFlag = config.flags.data.find(
+        (item) => item.key === 'lockdownImages' && item.value === 'true',
+      );
+      if (lockdownFlag) {
+        const token = await getToken();
+        if (token) {
+          await fetch(`${getLivePreviewUrl(owner, repo)}/gimme_cookie`, {
+            credentials: 'include',
+            headers: { Authorization: `Bearer ${token}` },
+          });
+        }
+        return true;
+      }
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
 
 export function findChangedNodes(oldDoc, newDoc) {
   const changes = [];

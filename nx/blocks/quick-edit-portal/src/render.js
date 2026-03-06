@@ -4,12 +4,12 @@ import { getInstrumentedHTML } from './prose2aem.js';
 export function updateDocument(ctx) {
   // Skip rerender if suppressed (e.g., during image updates)
   if (ctx.suppressRerender) return;
-  const body = getInstrumentedHTML(window.view);
+  const body = getInstrumentedHTML(window.view, ctx);
   ctx.port.postMessage({ type: 'set-body', body });
 }
 
 export function updateCursors(ctx) {
-  const body = getInstrumentedHTML(window.view);
+  const body = getInstrumentedHTML(window.view, ctx);
   ctx.port.postMessage({ type: 'set-cursors', body });
 }
 
