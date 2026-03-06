@@ -52,9 +52,15 @@ export class Queue {
 async function getChildren(path) {
   const files = [];
   const folders = [];
+  let continuationToken = null;
 
-  const resp = await daFetch(`${DA_ORIGIN}/list${path}`);
-  if (resp.ok) {
+  do {
+    const opts = continuationToken
+      ? { headers: { 'da-continuation-token': continuationToken } }
+      : {};
+    const resp = await daFetch(`${DA_ORIGIN}/list${path}`, opts);
+    if (!resp.ok) break;
+
     const json = await resp.json();
     json.forEach((child) => {
       if (!child.name) {
@@ -68,7 +74,10 @@ async function getChildren(path) {
         folders.push(child.path);
       }
     });
-  }
+
+    continuationToken = resp.headers.get('da-continuation-token');
+  } while (continuationToken);
+
   return { files, folders };
 }
 
