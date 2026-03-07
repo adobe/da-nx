@@ -79,8 +79,8 @@ class FormEditor extends LitElement {
   }
 
   async handleAddItem({ detail }) {
-    const { pointer, itemsSchema } = detail;
-    this.formModel.addArrayItem(pointer, itemsSchema);
+    const { pointer, items } = detail;
+    this.formModel.addArrayItem(pointer, items);
 
     // Update the view with the new values
     this.formModel = this.formModel.clone();

@@ -19,7 +19,8 @@ function debounce(func, wait) {
 class FormEditor extends LitElement {
   static properties = {
     formModel: { state: true },
-    _data: { state: true },
+    _annotated: { state: true },
+    _errorsByPointer: { state: true },
   };
 
   connectedCallback() {
@@ -30,22 +31,42 @@ class FormEditor extends LitElement {
 
   update(props) {
     if (props.has('formModel') && this.formModel) {
-      this.getData();
+      this.getAnnotated();
+      this.runValidation();
     }
     super.update(props);
   }
 
-  getData() {
-    this._data = this.formModel.annotated;
+  getAnnotated() {
+    this._annotated = this.formModel.annotated;
+  }
+
+  runValidation() {
+    if (!this.formModel) return;
+    const { errorsByPointer } = this.formModel.validate();
+    this._errorsByPointer = errorsByPointer;
+  }
+
+  getError(pointer) {
+    if (!this._errorsByPointer) return null;
+    const key = pointer || '/data';
+    return this._errorsByPointer.get?.(key) ?? null;
   }
 
   handleChange({ target }) {
     const { name } = target;
+    const inputType = target.type ?? target.getAttribute?.('type');
     let value;
-    switch (target.type) {
+    switch (inputType) {
       case 'checkbox':
         value = target.checked;
         break;
+      case 'number': {
+        const parsed = Number(target.value);
+        value = Number.isNaN(parsed) ? undefined : parsed;
+        break;
+      }
+
       default:
         value = target.value;
     }
@@ -69,54 +90,69 @@ class FormEditor extends LitElement {
   }
 
   handleAddItem(parent) {
-    const { pointer, schema } = parent;
-    const itemsSchema = schema?.properties?.items;
-    const opts = { detail: { pointer, itemsSchema }, bubbles: true, composed: true };
+    const { pointer, items } = parent;
+    const opts = { detail: { pointer, items }, bubbles: true, composed: true };
     this.dispatchEvent(new CustomEvent('add-item', opts));
   }
 
   renderCheckbox(item) {
-    const label = `${item.schema?.title ?? ''}${item.required ? ' *' : ''}`;
+    const error = this.getError(item.pointer);
+    const label = `${item.title ?? ''}${item.required ? ' *' : ''}`;
+    const value = this.formModel.getValue(item) ?? false;
     return html`
       <sl-checkbox
         name="${item.pointer}"
-        ?checked=${item.data ?? false}
+        ?checked=${value}
+        .error=${error || ''}
         @change=${this.handleChange}
       >${label}</sl-checkbox>
     `;
   }
 
   renderSelect(item) {
-    const label = `${item.schema?.title ?? ''}${item.required ? ' *' : ''}`;
-    const enumValues = item.schema?.properties?.enum ?? [];
+    const error = this.getError(item.pointer);
+    const label = `${item.title ?? ''}${item.required ? ' *' : ''}`;
+    const enumValues = item.enum ?? [];
+    const optional = !item.required;
+    const currentValue = this.formModel.getValue(item) ?? '';
+    const hasInvalidValue = currentValue && !enumValues.includes(currentValue);
+    const options = hasInvalidValue
+      ? [currentValue, ...enumValues]
+      : enumValues;
     return html`
       <sl-select
         .label=${label}
         name="${item.pointer}"
-        value="${item.data ?? ''}"
+        value="${currentValue}"
+        .error=${error || ''}
         @change=${this.handleChange}
       >
-        <option value="" disabled>Please Select</option>
-         ${enumValues.map((val) => html`<option value="${val}">${val}</option>`)}
+        ${optional
+        ? html`<option value="">None</option>`
+        : html`<option value="" disabled>Please Select</option>`}
+        ${options.map((val) => html`<option value="${val}">${val}</option>`)}
       </sl-select>
     `;
   }
 
   renderInput(item, inputType = 'text') {
-    const label = `${item.schema?.title ?? ''}${item.required ? ' *' : ''}`;
+    const error = this.getError(item.pointer);
+    const label = `${item.title ?? ''}${item.required ? ' *' : ''}`;
+    const value = this.formModel.getValue(item) ?? '';
     return html`
       <sl-input
         .label=${label}
         type="${inputType}"
         name="${item.pointer}"
-        value="${item.data ?? ''}"
+        value="${value}"
+        .error=${error || ''}
         @input=${this.handleInput}
       ></sl-input>
     `;
   }
 
   getPrimitiveType(item) {
-    const { type, enum: enumVal } = item.schema?.properties ?? {};
+    const { type, enum: enumVal } = item ?? {};
     if (enumVal) return 'select';
     if (type === 'boolean') return 'checkbox';
     if (type === 'string') return 'text';
@@ -173,13 +209,12 @@ class FormEditor extends LitElement {
   }
 
   isArrayType(parent) {
-    const { schema } = parent;
-    return schema?.type === 'array' || schema?.properties?.type === 'array';
+    return parent.type === 'array';
   }
 
   getAddItemLabel(parent) {
-    const itemsSchema = parent.schema?.properties?.items;
-    const label = itemsSchema?.title;
+    const { items } = parent;
+    const label = items?.title;
     return label ? `+ Add ${label}` : '+ Add item';
   }
 
@@ -194,7 +229,8 @@ class FormEditor extends LitElement {
   }
 
   renderList(parent, isRoot, parentIndex = null, isArrayItem = false) {
-    if (!Array.isArray(parent.data)) {
+    const { children } = parent;
+    if (!Array.isArray(children)) {
       return this.renderPrimitive(parent, parentIndex, isArrayItem);
     }
 
@@ -204,12 +240,12 @@ class FormEditor extends LitElement {
       <div class="item-group ${isRoot ? 'root-group' : 'child-group'}" data-key="${parent.key}">
         <div class="item-group-title">
           <p>
-            ${parent.schema.title}${parent.required ? html`<span class="is-required">*</span>` : ''}
+            ${parent.title ?? ''}${parent.required ? html`<span class="is-required">*</span>` : ''}
           </p>
           ${this.renderDeleteButton(parent, parentIndex, isArrayItem)}
         </div>
         <div class="item-group-children">
-          ${(parent.data ?? []).map((item, index) => this.renderList(item, false, index + 1, this.isArrayType(parent)))}
+          ${(children ?? []).map((item, index) => this.renderList(item, false, index + 1, this.isArrayType(parent)))}
           ${showAddButton ? this.renderAddItemButton(parent) : nothing}
         </div>
       </div>
@@ -217,12 +253,12 @@ class FormEditor extends LitElement {
   }
 
   render() {
-    if (!this._data) return nothing;
+    if (!this._annotated) return nothing;
 
     return html`
       <form>
         <div>
-          ${this.renderList(this._data, true)}
+          ${this.renderList(this._annotated, true)}
         </div>
       </form>
     `;
