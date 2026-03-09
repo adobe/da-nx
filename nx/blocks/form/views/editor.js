@@ -43,7 +43,8 @@ class FormEditor extends LitElement {
 
   runValidation() {
     if (!this.formModel) return;
-    const { errorsByPointer } = this.formModel.validate();
+    const result = this.formModel.validate();
+    const { errorsByPointer } = result;
     this._errorsByPointer = errorsByPointer;
   }
 
@@ -62,8 +63,12 @@ class FormEditor extends LitElement {
         value = target.checked;
         break;
       case 'number': {
-        const parsed = Number(target.value);
-        value = Number.isNaN(parsed) ? undefined : parsed;
+        if (target.value === '') {
+          value = undefined;
+        } else {
+          const parsed = Number(target.value);
+          value = Number.isNaN(parsed) ? undefined : parsed;
+        }
         break;
       }
 
@@ -98,7 +103,7 @@ class FormEditor extends LitElement {
   renderCheckbox(item) {
     const error = this.getError(item.pointer);
     const label = `${item.title ?? ''}${item.required ? ' *' : ''}`;
-    const value = this.formModel.getValue(item) ?? false;
+    const value = this.formModel.getValue(item) ?? this.getDisplayFallbackForInput(item);
     return html`
       <sl-checkbox
         name="${item.pointer}"
@@ -114,7 +119,7 @@ class FormEditor extends LitElement {
     const label = `${item.title ?? ''}${item.required ? ' *' : ''}`;
     const enumValues = item.enum ?? [];
     const optional = !item.required;
-    const currentValue = this.formModel.getValue(item) ?? '';
+    const currentValue = this.formModel.getValue(item) ?? this.getDisplayFallbackForInput(item);
     const hasInvalidValue = currentValue && !enumValues.includes(currentValue);
     const options = hasInvalidValue
       ? [currentValue, ...enumValues]
@@ -138,7 +143,7 @@ class FormEditor extends LitElement {
   renderInput(item, inputType = 'text') {
     const error = this.getError(item.pointer);
     const label = `${item.title ?? ''}${item.required ? ' *' : ''}`;
-    const value = this.formModel.getValue(item) ?? '';
+    const value = this.formModel.getValue(item) ?? this.getDisplayFallbackForInput(item);
     return html`
       <sl-input
         .label=${label}
@@ -158,6 +163,14 @@ class FormEditor extends LitElement {
     if (type === 'string') return 'text';
     if (type === 'number' || type === 'integer') return 'number';
     return null;
+  }
+
+  /** Display value when key is omitted. For HTML inputs only; never stored. */
+  getDisplayFallbackForInput(item) {
+    const type = this.getPrimitiveType(item);
+    if (type === 'checkbox') return false;
+    if (type === 'select' || type === 'text' || type === 'number') return '';
+    return '';
   }
 
   renderPrimitiveByType(item) {

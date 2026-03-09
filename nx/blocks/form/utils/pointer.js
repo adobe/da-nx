@@ -56,59 +56,77 @@ export function getValueByPointer(obj, pointer) {
 }
 
 /**
+ * Get parent object and last segment for pointer. Pure traversal, no creation.
+ * @param {Object} obj - Root object
+ * @param {string} pointer - RFC 6901 pointer (e.g. "/data/items/0/name")
+ * @returns {{ parent: Object, lastSeg: string } | null} Parent and lastSeg, or null
+ */
+function getParentForPointer(obj, pointer) {
+  const segments = parsePointer(pointer);
+  if (segments.length === 0) return null;
+  let current = obj;
+  for (let i = 0; i < segments.length - 1; i += 1) {
+    const seg = segments[i];
+    if (current == null || !(seg in current)) return null;
+    current = current[seg];
+  }
+  return { parent: current, lastSeg: segments[segments.length - 1] };
+}
+
+/**
+ * Ensure path to parent exists. Creates missing intermediates.
+ * @param {Object} obj - Root object
+ * @param {string} pointer - RFC 6901 pointer (e.g. "/data/items/0/name")
+ */
+function ensurePathToParent(obj, pointer) {
+  const segments = parsePointer(pointer);
+  if (segments.length <= 1) return;
+  let current = obj;
+  for (let i = 0; i < segments.length - 1; i += 1) {
+    const seg = segments[i];
+    const nextSeg = segments[i + 1];
+    const isNextArrayIndex = /^\d+$/.test(String(nextSeg));
+    if (!(seg in current)) {
+      current[seg] = isNextArrayIndex ? [] : {};
+    }
+    current = current[seg];
+  }
+}
+
+/**
  * Set value at pointer. Creates missing intermediate objects/arrays.
  * @param {Object} obj - Root object to modify
  * @param {string} pointer - RFC 6901 pointer (e.g. "/data/items/0/name")
  * @param {*} value - Value to set
  */
 export function setValueByPointer(obj, pointer, value) {
-  const segments = parsePointer(pointer);
-  if (segments.length === 0) return;
-
-  let current = obj;
-  for (let i = 0; i < segments.length - 1; i += 1) {
-    const seg = segments[i];
-    const nextSeg = segments[i + 1];
-    const isNextArrayIndex = /^\d+$/.test(String(nextSeg));
-
-    if (!(seg in current)) {
-      current[seg] = isNextArrayIndex ? [] : {};
-    }
-    current = current[seg];
-  }
-
-  const lastSeg = segments[segments.length - 1];
-  current[lastSeg] = value;
+  ensurePathToParent(obj, pointer);
+  const target = getParentForPointer(obj, pointer);
+  if (!target) return;
+  target.parent[target.lastSeg] = value;
 }
 
 /**
- * Remove array item at pointer. Pointer must point to an array element.
+ * Remove value at pointer.
  * @param {Object} obj - Root object to modify
- * @param {string} pointer - Pointer to array item (e.g. "/data/items/0")
- * @returns {boolean} True if removed, false otherwise
+ * @param {string} pointer - RFC 6901 pointer (e.g. "/data/items/0/name" or "/data/items/0")
+ * @returns {boolean} True if removed, false if path did not exist
  */
-export function removeArrayItemByPointer(obj, pointer) {
-  const segments = parsePointer(pointer);
-  if (segments.length < 2) return false;
+export function removeValueByPointer(obj, pointer) {
+  const target = getParentForPointer(obj, pointer);
+  if (!target) return false;
 
-  const lastSeg = segments[segments.length - 1];
+  const { parent, lastSeg } = target;
   const index = parseInt(lastSeg, 10);
-  if (!Number.isInteger(index) || index < 0) return false;
+  const isArrayIndex = Number.isInteger(index) && index >= 0;
 
-  const parentSegments = segments.slice(0, -1);
-  let current = obj;
-  for (let i = 0; i < parentSegments.length - 1; i += 1) {
-    const seg = parentSegments[i];
-    if (current == null || !(seg in current)) return false;
-    current = current[seg];
+  if (Array.isArray(parent) && isArrayIndex && index < parent.length) {
+    parent.splice(index, 1);
+    return true;
   }
-
-  const parentKey = parentSegments[parentSegments.length - 1];
-  const array = current?.[parentKey];
-  if (current == null || !(parentKey in current) || !Array.isArray(array)) return false;
-
-  if (index < 0 || index >= array.length) return false;
-
-  array.splice(index, 1);
-  return true;
+  if (lastSeg in parent) {
+    delete parent[lastSeg];
+    return true;
+  }
+  return false;
 }
