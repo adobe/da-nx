@@ -312,6 +312,40 @@ describe('getChildren (via crawl)', () => {
     const files = await results;
     expect(files.length).to.equal(0);
   });
+
+  it('Batches list results using da-continuation-token when >1000 children', async () => {
+    const page1 = [
+      { path: '/big/file1.html', name: 'file1', ext: 'html', lastModified: 1753691701858 },
+    ];
+    const page2 = [
+      { path: '/big/file2.json', name: 'file2', ext: 'json', lastModified: 1762282196814 },
+    ];
+    let callCount = 0;
+    window.fetch = async (url, opts = {}) => {
+      callCount += 1;
+      const hasToken = opts.headers?.['da-continuation-token'];
+      const json = hasToken ? page2 : page1;
+      const nextToken = hasToken ? null : 'token-page2';
+      return {
+        ok: true,
+        json: async () => json,
+        headers: { get: (name) => (name === 'da-continuation-token' ? nextToken : null) },
+      };
+    };
+
+    const { results } = crawl({
+      path: '/big',
+      callback: null,
+      concurrent: 10,
+      throttle: 10,
+    });
+
+    const files = await results;
+    expect(callCount).to.equal(2);
+    expect(files.length).to.equal(2);
+    expect(files.some((f) => f.name === 'file1')).to.equal(true);
+    expect(files.some((f) => f.name === 'file2')).to.equal(true);
+  });
 });
 
 describe('crawl', () => {

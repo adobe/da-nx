@@ -1,6 +1,8 @@
 let globalDntConfig;
 const ALT_TEXT_PLACEHOLDER = '*alt-placeholder*';
 
+const isAemHost = (hostname) => /\.(aem|hlx)\.(page|live)$/.test(hostname);
+
 const getHtmlSelector = (blockscope, blockConfig) => {
   const getChildSelector = (indexStr) => {
     if (indexStr === '*' || Number.isNaN(indexStr)) {
@@ -182,7 +184,7 @@ function makeHrefsRelative(document) {
 function makeUrlRelative(originalSrc) {
   try {
     const url = new URL(originalSrc);
-    return `.${url.pathname}${url.search}${url.hash}`;
+    return isAemHost(url.hostname) && !url.search ? `.${url.pathname}${url.hash}` : null;
   } catch (e) {
     return null;
   }
