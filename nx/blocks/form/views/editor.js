@@ -19,7 +19,6 @@ function debounce(func, wait) {
 class FormEditor extends LitElement {
   static properties = {
     formModel: { state: true },
-    _annotated: { state: true },
     _errorsByPointer: { state: true },
   };
 
@@ -31,14 +30,9 @@ class FormEditor extends LitElement {
 
   update(props) {
     if (props.has('formModel') && this.formModel) {
-      this.getAnnotated();
       this.runValidation();
     }
     super.update(props);
-  }
-
-  getAnnotated() {
-    this._annotated = this.formModel.annotated;
   }
 
   runValidation() {
@@ -266,12 +260,13 @@ class FormEditor extends LitElement {
   }
 
   render() {
-    if (!this._annotated) return nothing;
+    const annotated = this.formModel?.annotated;
+    if (!annotated) return nothing;
 
     return html`
       <form>
         <div>
-          ${this.renderList(this._annotated, true)}
+          ${this.renderList(annotated, true)}
         </div>
       </form>
     `;
