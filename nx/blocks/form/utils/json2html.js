@@ -83,9 +83,11 @@ function createArrayBlock(key, arr, nestedBlocks) {
 }
 
 function createValueCol(key, value, nestedBlocks) {
+  if (value === null) return null; // null values are not converted to HTML
+
   const valCol = document.createElement('div');
 
-  if (value || value === false) {
+  if (value !== undefined) {
     // Create a paragraph to hold the property
     const valPara = document.createElement('p');
 
