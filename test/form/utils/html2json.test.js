@@ -301,5 +301,19 @@ describe('HTML to JSON Conversion', () => {
       expect(convertedJson.metadata).to.deep.equal(expectedJson.metadata);
       expect(convertedJson.data).to.deep.equal(expectedJson.data);
     });
+
+    it('should convert invalidForm.html to expected JSON', async () => {
+      const htmlRaw = await readFile({ path: './mocks/invalidForm.html' });
+      const html = cleanHtmlWhitespace(htmlRaw);
+
+      const invalidFormJson = await readFile({ path: './mocks/invalidForm.json' });
+      const expectedJson = JSON.parse(invalidFormJson);
+
+      const converter = new HTMLConverter(html);
+      const convertedJson = converter.json;
+
+      expect(convertedJson.metadata).to.deep.equal(expectedJson.metadata);
+      expect(convertedJson.data).to.deep.equal(expectedJson.data);
+    });
   });
 });

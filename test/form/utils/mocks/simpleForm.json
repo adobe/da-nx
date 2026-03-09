@@ -6,12 +6,15 @@
   "data": {
     "headline": "Coffee Promotion",
     "detail": "Some Test Promotion",
+    "empty": "",
     "list": [
       "Test 1",
       "Test 2"
     ],
+    "number0": 0,
     "number1": 123,
     "number2": 456.789,
+    "number3": -123,
     "boolean1": true,
     "boolean2": false,
     "ctas": [

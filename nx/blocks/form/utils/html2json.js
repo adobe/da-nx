@@ -31,6 +31,8 @@ export default class HTMLConverter {
         // If there's absolutely no children in cell, return an empty string
         if (!valCol.children[0]) {
           rdx[key] = '';
+        } else if (valCol.children[0].children.length === 0) {
+          rdx[key] = '';
         } else if (valCol.children[0].children.length === 1) {
           // Li
           if (valCol.children[0].children[0].children?.length) {
