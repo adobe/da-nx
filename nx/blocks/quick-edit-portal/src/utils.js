@@ -1,12 +1,17 @@
 import { handleSignIn, loadIms } from '../../../utils/ims.js';
-import { daFetch } from '../../../utils/daFetch.js';
-import { DA_ORIGIN } from '../../../public/utils/constants.js';
 
 const DA_LIVE_PREVIEW_ENVS = {
   local: 'localhost:8000',
   stage: 'stage-preview.da.live',
   prod: 'preview.da.live',
 };
+
+export async function getToken() {
+  const ims = await loadIms(true);
+  if (ims.anonymous) return null;
+  const { token } = ims.accessToken;
+  return token;
+}
 
 function getLivePreviewDomain() {
   const { href } = window.location;
@@ -209,13 +214,6 @@ export function generateColor(name, hRange = [0, 360], sRange = [60, 80], lRange
     return Math.round(255 * color).toString(16).padStart(2, '0');
   };
   return `#${f(0)}${f(8)}${f(4)}`;
-}
-
-export async function getToken() {
-  const ims = await loadIms(true);
-  if (ims.anonymous) return null;
-  const { token } = ims.accessToken;
-  return token;
 }
 
 export async function checkPermissions(sourceUrl) {
