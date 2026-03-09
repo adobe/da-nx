@@ -21,14 +21,14 @@ async function setBody(body, ctx) {
 
 function handleReady(e, ctx) {
   ctx.initialized = true;
-  ctx.lockdownImages = e.data.lockdownImages;
-  if (ctx.lockdownImages) {
-    const currentUrl = new URL(window.location.href);
-    if (currentUrl.origin.endsWith('.aem.page')) {
-      const newOrigin = currentUrl.origin.replace('.aem.page', '.preview.da.live');
-      const newHref = `${newOrigin}${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`;
-      window.location.replace(newHref);
-    }
+}
+
+function checkDomain() {
+  const currentUrl = new URL(window.location.href);
+  if (currentUrl.origin.endsWith('.aem.page')) {
+    const newOrigin = currentUrl.origin.replace('.aem.page', '.preview.da.live');
+    const newHref = `${newOrigin}${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`;
+    window.location.replace(newHref);
   }
 }
 
@@ -68,6 +68,8 @@ function getQuickEditSrc() {
 
 export default async function loadQuickEdit({ detail: payload }, loadPage) {
   if (document.getElementById(QUICK_EDIT_ID)) return;
+
+  checkDomain();
 
   const ctx = {
     initialized: false,

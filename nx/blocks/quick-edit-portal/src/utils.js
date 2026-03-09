@@ -26,31 +26,13 @@ function getLivePreviewUrl(owner, repo) {
   return `${protocol}://main--${repo}--${owner}.${domain}`;
 }
 
-export async function checkLockdownImages(owner, repo) {
-  try {
-    const resp = await daFetch(`${DA_ORIGIN}/config/${owner}`);
-    if (!resp.ok) return false;
-
-    const config = await resp.json();
-
-    if (config.flags?.data) {
-      const lockdownFlag = config.flags.data.find(
-        (item) => item.key === 'lockdownImages' && item.value === 'true',
-      );
-      if (lockdownFlag) {
-        const token = await getToken();
-        if (token) {
-          await fetch(`${getLivePreviewUrl(owner, repo)}/gimme_cookie`, {
-            credentials: 'include',
-            headers: { Authorization: `Bearer ${token}` },
-          });
-        }
-        return true;
-      }
-    }
-    return false;
-  } catch {
-    return false;
+export async function getImageCookie(owner, repo) {
+  const token = await getToken();
+  if (token) {
+    await fetch(`${getLivePreviewUrl(owner, repo)}/gimme_cookie`, {
+      credentials: 'include',
+      headers: { Authorization: `Bearer ${token}` },
+    });
   }
 }
 
