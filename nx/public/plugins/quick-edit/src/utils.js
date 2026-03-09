@@ -8,7 +8,7 @@ function navigateToAemPageOrReload() {
   const currentUrl = new URL(window.location.href);
   if (currentUrl.origin.endsWith('.preview.da.live')) {
     const newOrigin = currentUrl.origin.replace('.preview.da.live', '.aem.page');
-    const newUrl = new URL(currentUrl.pathname + currentUrl.search + currentUrl.hash, newOrigin + '/');
+    const newUrl = new URL(`${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`, `${newOrigin}/`);
     newUrl.searchParams.delete('quick-edit');
     window.location.replace(newUrl.href);
   } else {
