@@ -18,9 +18,9 @@ function generateObject(node, useSchemaDefaults, generate) {
 
 /**
  * Generate value from annotated node (no user data).
- * @param {Object} node - Annotated node: { type, key?, children?, default? }
- * @param {boolean} [useSchemaDefaults=true] - Use schema default when true
- * @returns {*} - Value for the node (undefined = no value/omit)
+ * @param {Object} node - Annotated node { type, key?, children?, default? }
+ * @param {boolean} [useSchemaDefaults=true] - Apply schema default when true
+ * @returns {*} Resolved value (undefined = omit)
  */
 export function generateValue(node, useSchemaDefaults = true) {
   if (!node || typeof node !== 'object') return undefined;
@@ -69,12 +69,11 @@ function resolvePrimitive(node, userValue, fillDefaults) {
 }
 
 /**
- * Resolve user data against schema. Optionally fill missing values with schema defaults.
- * Omit keys when no user value and no schema default (don't decide for author).
+ * Resolve user data against schema; optionally fill schema defaults.
  * @param {Object} node - Annotated node (object, array, or primitive)
- * @param {*} userValue - User-provided value at this path
- * @param {boolean} [fillDefaults=true] - Fill schema defaults when true (new doc/item)
- * @returns {*} - Resolved value (undefined = omit key)
+ * @param {*} userValue - User value at this path
+ * @param {boolean} [fillDefaults=true] - Fill schema defaults when true
+ * @returns {*} Resolved value (undefined = omit key)
  */
 export function resolveValue(node, userValue, fillDefaults = true) {
   if (!node || typeof node !== 'object') return userValue ?? undefined;

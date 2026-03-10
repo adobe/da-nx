@@ -1,15 +1,14 @@
 import { Validator } from '../../../deps/da-form/dist/index.js';
-import { getValueByPointer } from './pointer.js';
+import { getValue } from './pointer.js';
 import { isEmpty } from './utils.js';
 
 const DRAFT = '2020-12';
 const SHORT_CIRCUIT = false; // Collect all errors, don't stop at first
 
 /**
- * Map validation error path to form pointer. Validation uses paths like #/items/0/name
- * (relative to the data root); the form uses /data/items/0/name because data is at /data.
- * @param {string} instancePath - Path from validation (e.g. #/items/0/name)
- * @returns {string} - Form data pointer (e.g. /data/items/0/name)
+ * Map validation path (#/items/0/name) to form pointer (/data/items/0/name).
+ * @param {string} instancePath - Validation instance path
+ * @returns {string} Form data pointer
  */
 function toFormDataPointer(instancePath) {
   const loc = (instancePath || '').replace(/^#\/?/, '/');
@@ -17,7 +16,7 @@ function toFormDataPointer(instancePath) {
 }
 
 /**
- * Schema validation: validate data against JSON Schema.
+ * Validate data against JSON Schema.
  * @param {Object} schema - JSON Schema
  * @param {*} data - Data to validate
  * @returns {{ valid: boolean, errorsByPointer: Map<string, string> }}
@@ -39,15 +38,14 @@ export function validateAgainstSchema(schema, data) {
 }
 
 /**
- * Add errors for required fields that are empty.
- * Uses dataRoot + pointer as the source of truth for values.
- * @param {Object} node - Field node from annotateFromSchema (pointer, required, children)
+ * Add errors for required empty fields.
+ * @param {Object} node - Field node from annotateFromSchema
  * @param {Map<string, string>} errorsByPointer - Map to add errors to
- * @param {Object} dataRoot - Object with data so pointer /data/quantity resolves
+ * @param {Object} dataRoot - Root object (data at /data)
  */
 export function validateRequiredEmpty(node, errorsByPointer, dataRoot) {
   if (!node || !dataRoot) return;
-  const value = getValueByPointer(dataRoot, node.pointer);
+  const value = getValue(dataRoot, node.pointer);
   if (node.required && isEmpty(value) && !errorsByPointer.has(node.pointer)) {
     errorsByPointer.set(node.pointer, 'This field is required.');
   }
@@ -57,10 +55,10 @@ export function validateRequiredEmpty(node, errorsByPointer, dataRoot) {
 }
 
 /**
- * Full validation: schema + custom. For each pointer, keeps only the first error.
+ * Validate data against schema and required fields; keep first error per pointer.
  * @param {Object} schema - JSON Schema
  * @param {*} data - Data to validate
- * @param {Object} annotated - Field tree from annotateFromSchema (pointer, required, children)
+ * @param {Object} annotated - Field tree from annotateFromSchema
  * @returns {{ valid: boolean, errorsByPointer: Map<string, string> }}
  */
 export function validateJson(schema, data, annotated) {

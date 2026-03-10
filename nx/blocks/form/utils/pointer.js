@@ -1,24 +1,21 @@
-/**
- * RFC 6901 JSON Pointer utilities.
- * No external dependencies — manual implementation.
- */
+/** RFC 6901 JSON Pointer utilities with no external dependencies. */
 
-/** Escape a segment for use in a pointer. ~ → ~0, / → ~1 */
+/** Escape segment for use in pointer. */
 function escapeSegment(segment) {
   if (typeof segment !== 'string') return String(segment);
   return segment.replace(/~/g, '~0').replace(/\//g, '~1');
 }
 
-/** Unescape a segment. ~1 → /, ~0 → ~ (order matters) */
+/** Unescape segment from pointer. */
 function unescapeSegment(segment) {
   if (typeof segment !== 'string') return segment;
   return segment.replace(/~1/g, '/').replace(/~0/g, '~');
 }
 
 /**
- * Parse a pointer into segments. /data/items/0 → ['data', 'items', '0']
+ * Parse pointer into segments.
  * @param {string} pointer - RFC 6901 pointer (e.g. "/data/items/0")
- * @returns {string[]} Unescaped segments (empty array for root)
+ * @returns {string[]} Unescaped segments (empty for root)
  */
 function parsePointer(pointer) {
   if (!pointer || typeof pointer !== 'string') return [];
@@ -28,10 +25,10 @@ function parsePointer(pointer) {
 }
 
 /**
- * Append a segment to a pointer.
- * @param {string} pointer - Base pointer (e.g. "/data")
- * @param {string|number} segment - Segment to append (e.g. "items" or 0)
- * @returns {string} New pointer (e.g. "/data/items")
+ * Append segment to pointer.
+ * @param {string} pointer - Base pointer
+ * @param {string|number} segment - Segment to append
+ * @returns {string}
  */
 export function append(pointer, segment) {
   const normalized = pointer === '' || pointer === '/' ? '' : pointer.replace(/\/$/, '');
@@ -40,92 +37,92 @@ export function append(pointer, segment) {
 }
 
 /**
- * Get value at pointer in object.
- * @param {Object} obj - Root object
- * @param {string} pointer - RFC 6901 pointer (e.g. "/data/items/0/name")
- * @returns {*} Value at path, or undefined
+ * Get value at pointer.
+ * @param {Object} data - Root object
+ * @param {string} pointer - RFC 6901 pointer
+ * @returns {*}
  */
-export function getValueByPointer(obj, pointer) {
+export function getValue(data, pointer) {
   const segments = parsePointer(pointer);
-  let current = obj;
-  for (const seg of segments) {
+  let current = data;
+  for (const segment of segments) {
     if (current == null) return undefined;
-    current = current[seg];
+    current = current[segment];
   }
   return current;
 }
 
 /**
- * Get parent object and last segment for pointer. Pure traversal, no creation.
- * @param {Object} obj - Root object
- * @param {string} pointer - RFC 6901 pointer (e.g. "/data/items/0/name")
- * @returns {{ parent: Object, lastSeg: string } | null} Parent and lastSeg, or null
+ * Get parent and last segment for pointer (traversal only).
+ * @param {Object} data - Root object
+ * @param {string} pointer - RFC 6901 pointer
+ * @returns {{ parent: Object, lastSegment: string } | null}
  */
-function getParentForPointer(obj, pointer) {
+function getParent(data, pointer) {
   const segments = parsePointer(pointer);
   if (segments.length === 0) return null;
-  let current = obj;
+  let current = data;
   for (let i = 0; i < segments.length - 1; i += 1) {
-    const seg = segments[i];
-    if (current == null || !(seg in current)) return null;
-    current = current[seg];
+    const segment = segments[i];
+    if (current == null || !(segment in current)) return null;
+    current = current[segment];
   }
-  return { parent: current, lastSeg: segments[segments.length - 1] };
+  return { parent: current, lastSegment: segments[segments.length - 1] };
 }
 
 /**
- * Ensure path to parent exists. Creates missing intermediates.
- * @param {Object} obj - Root object
- * @param {string} pointer - RFC 6901 pointer (e.g. "/data/items/0/name")
+ * Ensure path to parent exists (create missing intermediates).
+ * @param {Object} data - Root object
+ * @param {string} pointer - RFC 6901 pointer
  */
-function ensurePathToParent(obj, pointer) {
+function ensurePath(data, pointer) {
   const segments = parsePointer(pointer);
   if (segments.length <= 1) return;
-  let current = obj;
+  let current = data;
   for (let i = 0; i < segments.length - 1; i += 1) {
-    const seg = segments[i];
-    const nextSeg = segments[i + 1];
-    const isNextArrayIndex = /^\d+$/.test(String(nextSeg));
-    if (!(seg in current)) {
-      current[seg] = isNextArrayIndex ? [] : {};
+    const segment = segments[i];
+    const nextSegment = segments[i + 1];
+    const isNextArrayIndex = /^\d+$/.test(String(nextSegment));
+    if (!(segment in current)) {
+      current[segment] = isNextArrayIndex ? [] : {};
     }
-    current = current[seg];
+    current = current[segment];
   }
 }
 
 /**
- * Set value at pointer. Creates missing intermediate objects/arrays.
- * @param {Object} obj - Root object to modify
- * @param {string} pointer - RFC 6901 pointer (e.g. "/data/items/0/name")
+ * Set value at pointer (create missing intermediates).
+ * @param {Object} data - Root object
+ * @param {string} pointer - RFC 6901 pointer
  * @param {*} value - Value to set
  */
-export function setValueByPointer(obj, pointer, value) {
-  ensurePathToParent(obj, pointer);
-  const target = getParentForPointer(obj, pointer);
+export function setValue(data, pointer, value) {
+  ensurePath(data, pointer);
+  const target = getParent(data, pointer);
   if (!target) return;
-  target.parent[target.lastSeg] = value;
+  target.parent[target.lastSegment] = value;
 }
 
 /**
  * Remove value at pointer.
- * @param {Object} obj - Root object to modify
- * @param {string} pointer - RFC 6901 pointer (e.g. "/data/items/0/name" or "/data/items/0")
- * @returns {boolean} True if removed, false if path did not exist
+ * @param {Object} data - Root object
+ * @param {string} pointer - RFC 6901 pointer
+ * @returns {boolean} True if removed
  */
-export function removeValueByPointer(obj, pointer) {
-  const target = getParentForPointer(obj, pointer);
+export function removeValue(data, pointer) {
+  const target = getParent(data, pointer);
   if (!target) return false;
 
-  const { parent, lastSeg } = target;
-  const index = parseInt(lastSeg, 10);
+  const { parent, lastSegment } = target;
+  const index = parseInt(lastSegment, 10);
   const isArrayIndex = Number.isInteger(index) && index >= 0;
 
   if (Array.isArray(parent) && isArrayIndex && index < parent.length) {
     parent.splice(index, 1);
     return true;
   }
-  if (lastSeg in parent) {
-    delete parent[lastSeg];
+  if (lastSegment in parent) {
+    delete parent[lastSegment];
     return true;
   }
   return false;

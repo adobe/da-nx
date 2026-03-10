@@ -3,15 +3,15 @@ import { daFetch } from 'https://da.live/blocks/shared/utils.js';
 import HTMLConverter from '../utils/html2json.js';
 import JSONConverter from '../utils/json2html.js';
 import { validateJson } from '../utils/validator.js';
-import { annotateFromSchema, isEmpty, pruneRecursive } from '../utils/utils.js';
-import { getValueByPointer, setValueByPointer, removeValueByPointer } from '../utils/pointer.js';
+import { annotateFromSchema, dereferenceSchema, isEmpty, pruneRecursive } from '../utils/utils.js';
+import { getValue, setValue, removeValue } from '../utils/pointer.js';
 import { generateValue, resolveValue } from '../utils/value-resolver.js';
 
 /**
- * Find annotation node by pointer in the annotated tree.
+ * Find annotation node by pointer.
  * @param {Object} node - Annotation node
- * @param {string} pointer - Target pointer (e.g. "/data/title")
- * @returns {Object|null} - The node or null
+ * @param {string} pointer - Target pointer
+ * @returns {Object|null}
  */
 function findNodeByPointer(node, pointer) {
   if (!node) return null;
@@ -28,7 +28,7 @@ function findNodeByPointer(node, pointer) {
  * A data model that represents a piece of structured content.
  */
 export default class FormModel {
-  constructor({ path, html, json, schemas }) {
+  constructor({ path, html, json, schemas, dereferencedSchema }) {
     if (!(html || json)) {
       throw new Error('FormModel requires JSON or HTML');
     }
@@ -39,18 +39,20 @@ export default class FormModel {
     this._schema = this._schemas?.[htmlAsJson?.metadata?.schemaName];
 
     if (!this._schema) {
+      this._dereferencedSchema = null;
       this._annotated = null;
       this._json = {
         metadata: htmlAsJson?.metadata ?? {},
         data: htmlAsJson?.data ?? {},
       };
     } else {
-      const userData = htmlAsJson?.data ?? {};
-      this._annotated = annotateFromSchema('data', this._schema, this._schema, userData, '', false);
-      this._fillDefaults = isEmpty(userData);
+      const data = htmlAsJson?.data ?? {};
+      this._dereferencedSchema = dereferencedSchema ?? dereferenceSchema(this._schema);
+      this._annotated = annotateFromSchema('data', this._dereferencedSchema, data, '', false);
+      this._fillDefaults = isEmpty(data);
       this._json = {
         metadata: htmlAsJson?.metadata ?? {},
-        data: resolveValue(this._annotated, userData, this._fillDefaults),
+        data: resolveValue(this._annotated, data, this._fillDefaults),
       };
     }
   }
@@ -60,6 +62,7 @@ export default class FormModel {
       path: this._path,
       json: JSON.parse(JSON.stringify(this._json)),
       schemas: this._schemas,
+      dereferencedSchema: this._dereferencedSchema,
     });
   }
 
@@ -78,15 +81,15 @@ export default class FormModel {
     if (!node) return;
     const effectiveValue = resolveValue(node, value, false);
     if (isEmpty(effectiveValue)) {
-      removeValueByPointer(this._json, name);
+      removeValue(this._json, name);
     } else {
-      setValueByPointer(this._json, name, effectiveValue);
+      setValue(this._json, name, effectiveValue);
     }
   }
 
   getValue(item) {
     if (!item) return undefined;
-    const userVal = getValueByPointer(this._json, item.pointer);
+    const userVal = getValue(this._json, item.pointer);
     return resolveValue(item, userVal, this._fillDefaults);
   }
 
@@ -96,14 +99,14 @@ export default class FormModel {
       console.warn('The array schema has no items definition for pointer "%s"', pointer);
       return;
     }
-    const array = getValueByPointer(this._json, pointer) ?? [];
+    const array = getValue(this._json, pointer) ?? [];
     const newItem = generateValue(items, true);
     array.push(newItem);
-    setValueByPointer(this._json, pointer, array);
+    setValue(this._json, pointer, array);
   }
 
   removeArrayItem(pointer) {
-    return removeValueByPointer(this._json, pointer);
+    return removeValue(this._json, pointer);
   }
 
   async saveHtml() {
