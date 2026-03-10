@@ -16,10 +16,13 @@ const extractNonDataKeys = (obj) => {
 };
 
 const json2html = (json, dntConfig) => {
-  const defaultDntConfig = { sheets: [], sheetToColumns: new Map(), universalColumns: [] };
+  // Support both sheetRule config formats (plain object and Map-like)
+  const sheetRules = dntConfig?.sheetRules || dntConfig?.get?.('sheetRules');
 
-  // Support both sheetRule config formats (defaultDnt and glassDnt)
-  const sheetRules = dntConfig?.sheetRules || dntConfig?.get('sheetRules');
+  // Extract column-based DNT info from config
+  const configSheets = dntConfig?.dntSheets || [];
+  const configSheetToColumns = dntConfig?.dntSheetToColumns || new Map();
+  const configUniversalColumns = dntConfig?.dntUniversalColumns || [];
   const isTextInDntRules = (text) => sheetRules && sheetRules
     .some((rule) => {
       if (rule.condition === 'exists') {
@@ -83,8 +86,12 @@ const json2html = (json, dntConfig) => {
   };
 
   const getDntInfo = (dntJson) => {
-    const dntInfo = defaultDntConfig;
-    const { data } = dntJson;
+    const dntInfo = {
+      sheets: [...configSheets],
+      sheetToColumns: new Map(configSheetToColumns),
+      universalColumns: [...configUniversalColumns],
+    };
+    const { data } = dntJson || {};
     if (data?.length > 0) {
       dntInfo.sheets.push('dnt', 'non-default');
       dntInfo.universalColumns.push(...[':translate', ':rollout', ':uid', ':regional']);
@@ -113,13 +120,13 @@ const json2html = (json, dntConfig) => {
   const jsonCopy = { ...json };
 
   if (jsonCopy[':type'] === 'multi-sheet') {
-    const dntInfo = jsonCopy?.dnt ? getDntInfo(jsonCopy.dnt) : defaultDntConfig;
+    const dntInfo = getDntInfo(jsonCopy?.dnt);
     jsonCopy[':names'].sort().forEach((name) => {
       body.appendChild(createSheetDiv(jsonCopy[name], name, dntInfo));
       delete jsonCopy[name];
     });
   } else {
-    body.appendChild(createSheetDiv(jsonCopy, 'default', defaultDntConfig));
+    body.appendChild(createSheetDiv(jsonCopy, 'default', getDntInfo()));
     delete jsonCopy.data;
   }
 
