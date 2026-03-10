@@ -64,7 +64,5 @@ export function getInstrumentedHTML(view) {
   });
 
   // Convert to an HTML string using prose2aem.
-  // When lockdownImages is true, image and content.da.live URLs are made relative
-  // so they resolve against the preview proxy (e.g. preview.da.live) with auth.
   return prose2aem(editorClone, true, false, true);
 }
