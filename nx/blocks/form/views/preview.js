@@ -27,7 +27,7 @@ class FormPreview extends LitElement {
     code.classList.add('language-json');
     this.pre.append(code);
 
-    code.textContent = JSON.stringify(this.formModel.json, null, 2);
+    code.textContent = this.formModel.getSerializedJson();
     window.Prism.highlightElement(code);
     this.toggleVis();
   }

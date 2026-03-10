@@ -64,29 +64,25 @@ class FormSidebar extends LitElement {
 
   /**
    * Determine if the item should be rendered.
-   * Do not render primitves or arrays under certain conditions
+   * Render only object and array nodes.
    * @param {Object} item the form item
    * @returns {Boolean} whether or not something should render
    */
   canRender(item) {
-    const primitives = ['string', 'boolean', 'number'];
-    const isPrim = primitives.some((type) => type === item.schema.properties.type);
-    if (isPrim) return false;
-
-    if (Array.isArray(item.data)) return true;
-
-    return false;
+    return item.type === 'object' || item.type === 'array';
   }
 
   renderList(parent) {
     if (!this.canRender(parent)) return nothing;
 
+    const children = parent.children ?? [];
+
     return html`
       <li data-key="${parent.key}">
-        <span class="item">${parent.schema.title}</span>
-        ${parent.data
-          ? html`<ul>${parent.data.map((item) => this.renderList(item))}</ul>`
-          : nothing}
+        <span class="item">${parent.title ?? ''}</span>
+        ${children.length
+        ? html`<ul>${children.map((item) => this.renderList(item))}</ul>`
+        : nothing}
       </li>
     `;
   }
