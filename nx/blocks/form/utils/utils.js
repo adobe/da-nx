@@ -56,14 +56,14 @@ function isPropertyRequired(objectSchema, key) {
 }
 
 /** Produce annotation fields (title, type, enum, default) from schema. */
-function annotateFields(schema, definition, type, fallbackTitle = '') {
+function annotateFields(schema, fallbackTitle = '') {
   const fields = {
-    title: schema?.title ?? definition?.title ?? fallbackTitle,
-    type: type || 'string',
+    title: schema?.title ?? fallbackTitle,
+    type: schema.type,
   };
-  if (Array.isArray(definition?.enum)) fields.enum = definition.enum;
-  if (definition && Object.prototype.hasOwnProperty.call(definition, 'default')) {
-    fields.default = definition.default;
+  if (Array.isArray(schema?.enum)) fields.enum = schema.enum;
+  if (schema && Object.prototype.hasOwnProperty.call(schema, 'default')) {
+    fields.default = schema.default;
   }
   return fields;
 }
@@ -78,20 +78,19 @@ function annotateArrayItems(schema, fallbackTitle = '') {
   if (!schema || typeof schema !== 'object') {
     return { title: fallbackTitle, type: 'string' };
   }
-  const type = schema?.type ?? 'string';
 
-  const node = { ...annotateFields(schema, schema, type, fallbackTitle) };
+  const node = { ...annotateFields(schema, fallbackTitle) };
 
-  if (type === 'object' && schema?.properties) {
+  if (schema.type === 'object' && schema?.properties) {
     const childDefinitions = schema.properties;
     const required = new Set(schema.required ?? []);
     node.children = Object.entries(childDefinitions).map(([childKey, childSchema]) => {
-      const child = annotateArrayItems(childSchema, '');
+      const child = annotateArrayItems(childSchema);
       child.key = childKey;
       child.required = required.has(childKey);
       return child;
     });
-  } else if (type === 'array') {
+  } else if (schema.type === 'array') {
     node.children = [];
   }
 
@@ -104,9 +103,8 @@ function annotateArrayItems(schema, fallbackTitle = '') {
  * @returns {Object} { title, type, enum?, items?, default? }
  */
 function annotateProperty(schema) {
-  const type = schema?.type ?? (schema?.items ? 'array' : undefined) ?? 'string';
-  const fields = { ...annotateFields(schema, schema, type, '') };
-  if (type === 'array' && schema?.items) {
+  const fields = { ...annotateFields(schema) };
+  if (fields.type === 'array' && schema?.items) {
     fields.items = annotateArrayItems(schema.items, fields.title);
   }
   return fields;
@@ -173,7 +171,7 @@ export function annotateFromSchema(key, schema, data, parentPointer = '', requir
   const schemaType = schema?.type;
 
   // Array: structure from schema, item count from user data
-  if (schemaType === 'array' || (schema?.items && !schemaType)) {
+  if (schemaType === 'array') {
     const itemsSchema = schema.items;
     if (itemsSchema) itemsSchema.title ??= schema.title;
 

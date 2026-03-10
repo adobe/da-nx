@@ -48,7 +48,7 @@ export default class FormModel {
     } else {
       const data = htmlAsJson?.data ?? {};
       this._dereferencedSchema = dereferencedSchema ?? dereferenceSchema(this._schema);
-      this._annotated = annotateFromSchema('data', this._dereferencedSchema, data, '', false);
+      this._annotated = annotateFromSchema('data', this._dereferencedSchema, data);
       this._fillDefaults = isEmpty(data);
       this._json = {
         metadata: htmlAsJson?.metadata ?? {},
