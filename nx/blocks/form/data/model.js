@@ -4,7 +4,7 @@ import HTMLConverter from '../utils/html2json.js';
 import JSONConverter from '../utils/json2html.js';
 import { validateJson } from '../utils/validator.js';
 import { annotateFromSchema, dereferenceSchema, isEmpty, pruneRecursive } from '../utils/utils.js';
-import { getValue, setValue, removeValue } from '../utils/pointer.js';
+import { getValue, setValue, removeValue, moveToIndex } from '../utils/pointer.js';
 import { generateValue, resolveValue } from '../utils/value-resolver.js';
 
 /**
@@ -107,6 +107,10 @@ export default class FormModel {
 
   removeArrayItem(pointer) {
     return removeValue(this._json, pointer);
+  }
+
+  moveArrayItem(pointer, targetIndex) {
+    return moveToIndex(this._json, pointer, targetIndex);
   }
 
   async saveHtml() {

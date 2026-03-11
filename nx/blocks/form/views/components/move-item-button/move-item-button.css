@@ -1,0 +1,77 @@
+:host {
+  display: inline-block;
+}
+
+.move-item-wrapper {
+  position: relative;
+  display: inline-flex;
+
+  .move-btn {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    margin: 0;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s ease;
+
+    &:hover {
+      background: var(--s2-gray-200, #e5e7eb);
+    }
+
+    .move-icon {
+      width: 16px;
+      height: 16px;
+      color: var(--s2-gray-700, #374151);
+    }
+  }
+
+  .move-dropdown {
+    visibility: hidden;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 0;
+    padding: 4px;
+    background: white;
+    border: 1px solid var(--s2-gray-300, #d1d5db);
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgb(0 0 0 / 10%);
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+
+    .move-option {
+      min-width: 32px;
+      padding: 4px 8px;
+      font-size: 13px;
+      background: transparent;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      text-align: center;
+
+      &:hover {
+        background: var(--s2-gray-100, #f3f4f6);
+      }
+
+      &.move-option-current {
+        background: var(--s2-blue-200, #bfdbfe);
+      }
+    }
+  }
+
+  &:hover .move-dropdown {
+    visibility: visible;
+  }
+
+  &.move-dropdown-closed .move-dropdown {
+    visibility: hidden;
+  }
+}

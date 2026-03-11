@@ -17,11 +17,22 @@ function unescapeSegment(segment) {
  * @param {string} pointer - RFC 6901 pointer (e.g. "/data/items/0")
  * @returns {string[]} Unescaped segments (empty for root)
  */
-function parsePointer(pointer) {
+export function parsePointer(pointer) {
   if (!pointer || typeof pointer !== 'string') return [];
   const trimmed = pointer.startsWith('/') ? pointer.slice(1) : pointer;
   if (!trimmed) return [];
   return trimmed.split('/').map(unescapeSegment);
+}
+
+/**
+ * Get parent pointer (pointer without last segment).
+ * @param {string} pointer - RFC 6901 pointer (e.g. "/data/items/0")
+ * @returns {string} Parent pointer (e.g. "/data/items") or empty string for root
+ */
+export function getParentPointer(pointer) {
+  const segments = parsePointer(pointer);
+  if (segments.length <= 1) return '';
+  return `/${segments.slice(0, -1).map((s) => escapeSegment(String(s))).join('/')}`;
 }
 
 /**
@@ -126,4 +137,32 @@ export function removeValue(data, pointer) {
     return true;
   }
   return false;
+}
+
+/**
+ * Move array item to target index.
+ * @param {Object} data - Root object
+ * @param {string} pointer - RFC 6901 pointer
+ * @param {number} targetIndex - Target index
+ * @returns {boolean} True if moved
+ */
+export function moveToIndex(data, pointer, targetIndex) {
+  const parentPointer = getParentPointer(pointer);
+  if (!parentPointer) return false;
+
+  const array = getValue(data, parentPointer);
+  if (!Array.isArray(array)) return false;
+
+  const segments = parsePointer(pointer);
+  const currentIndex = parseInt(segments[segments.length - 1], 10);
+  if (!Number.isInteger(targetIndex)
+    || targetIndex === currentIndex
+    || targetIndex < 0
+    || targetIndex >= array.length) {
+    return false;
+  }
+
+  const [item] = array.splice(currentIndex, 1);
+  array.splice(targetIndex, 0, item);
+  return true;
 }

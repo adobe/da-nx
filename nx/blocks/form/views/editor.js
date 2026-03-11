@@ -1,5 +1,6 @@
 import { LitElement, html, nothing } from 'da-lit';
 import './components/remove-button/remove-button.js';
+import './components/move-item-button/move-item-button.js';
 
 const { default: getStyle } = await import('../../../utils/styles.js');
 const style = await getStyle(import.meta.url);
@@ -94,9 +95,14 @@ class FormEditor extends LitElement {
     this.dispatchEvent(new CustomEvent('add-item', opts));
   }
 
-  renderCheckbox(item) {
+  getItemLabel(item, arrayItemIndex = null) {
+    const base = `${item.title ?? ''}${item.required ? ' *' : ''}`;
+    return arrayItemIndex != null ? `#${arrayItemIndex} ${base}` : base;
+  }
+
+  renderCheckbox(item, arrayItemIndex = null) {
     const error = this.getError(item.pointer);
-    const label = `${item.title ?? ''}${item.required ? ' *' : ''}`;
+    const label = this.getItemLabel(item, arrayItemIndex);
     const value = this.formModel.getValue(item) ?? this.getDisplayFallbackForInput(item);
     return html`
       <sl-checkbox
@@ -108,9 +114,9 @@ class FormEditor extends LitElement {
     `;
   }
 
-  renderSelect(item) {
+  renderSelect(item, arrayItemIndex = null) {
     const error = this.getError(item.pointer);
-    const label = `${item.title ?? ''}${item.required ? ' *' : ''}`;
+    const label = this.getItemLabel(item, arrayItemIndex);
     const enumValues = item.enum ?? [];
     const optional = !item.required;
     const currentValue = this.formModel.getValue(item) ?? this.getDisplayFallbackForInput(item);
@@ -129,14 +135,14 @@ class FormEditor extends LitElement {
         ${optional
         ? html`<option value="">None</option>`
         : html`<option value="" disabled>Please Select</option>`}
-        ${options.map((val) => html`<option value="${val}">${val}</option>`)}
+        ${options.map((optionValue) => html`<option value="${optionValue}">${optionValue}</option>`)}
       </sl-select>
     `;
   }
 
-  renderInput(item, inputType = 'text') {
+  renderInput(item, inputType = 'text', arrayItemIndex = null) {
     const error = this.getError(item.pointer);
-    const label = `${item.title ?? ''}${item.required ? ' *' : ''}`;
+    const label = this.getItemLabel(item, arrayItemIndex);
     const value = this.formModel.getValue(item) ?? this.getDisplayFallbackForInput(item);
     return html`
       <sl-input
@@ -167,14 +173,14 @@ class FormEditor extends LitElement {
     return '';
   }
 
-  renderPrimitiveByType(item) {
+  renderPrimitiveByType(item, arrayItemIndex = null) {
     const type = this.getPrimitiveType(item);
     let inner = nothing;
     switch (type) {
-      case 'checkbox': inner = this.renderCheckbox(item); break;
-      case 'select': inner = this.renderSelect(item); break;
-      case 'text': inner = this.renderInput(item, 'text'); break;
-      case 'number': inner = this.renderInput(item, 'number'); break;
+      case 'checkbox': inner = this.renderCheckbox(item, arrayItemIndex); break;
+      case 'select': inner = this.renderSelect(item, arrayItemIndex); break;
+      case 'text': inner = this.renderInput(item, 'text', arrayItemIndex); break;
+      case 'number': inner = this.renderInput(item, 'number', arrayItemIndex); break;
       default: break;
     }
     return !inner ? nothing : html`
@@ -195,20 +201,36 @@ class FormEditor extends LitElement {
     `;
   }
 
-  renderPrimitiveAsArrayItem(control, item, index) {
+  renderMoveItemButton(item, index, arrayLength) {
+    if (!arrayLength || arrayLength < 2) return nothing;
+    return html`
+      <move-item-button
+        .pointer=${item.pointer}
+        .index=${index}
+        .arrayLength=${arrayLength}
+      ></move-item-button>
+    `;
+  }
+
+  renderPrimitiveAsArrayItem(control, item, index, arrayLength) {
     return html`
       <div class="primitive-item-row">
         ${control}
-        ${this.renderDeleteButton(item, index, true)}
+        <div class="primitive-item-actions">
+          ${this.renderMoveItemButton(item, index, arrayLength)}
+          ${this.renderDeleteButton(item, index, true)}
+        </div>
       </div>
     `;
   }
 
-  renderPrimitive(item, index, isArrayItem) {
-    const control = this.renderPrimitiveByType(item);
+  renderPrimitive(item, index, isArrayItem, arrayLength = 0) {
+    const control = this.renderPrimitiveByType(item, isArrayItem ? index : null);
     if (!control) return nothing;
 
-    const inner = isArrayItem ? this.renderPrimitiveAsArrayItem(control, item, index) : control;
+    const inner = isArrayItem
+      ? this.renderPrimitiveAsArrayItem(control, item, index, arrayLength)
+      : control;
 
     return html`
         ${inner}
@@ -235,24 +257,30 @@ class FormEditor extends LitElement {
     `;
   }
 
-  renderList(parent, isRoot, parentIndex = null, isArrayItem = false) {
+  renderList(parent, isRoot, parentIndex = null, isArrayItem = false, arrayLength = 0) {
     const { children } = parent;
     if (!Array.isArray(children)) {
-      return this.renderPrimitive(parent, parentIndex, isArrayItem);
+      return this.renderPrimitive(parent, parentIndex, isArrayItem, arrayLength);
     }
 
     const showAddButton = this.isArrayType(parent);
+    const items = children ?? [];
 
     return html`
       <div class="item-group ${isRoot ? 'root-group' : 'child-group'}" data-key="${parent.key}">
         <div class="item-group-title">
           <p>
-            ${parent.title ?? ''}${parent.required ? html`<span class="is-required">*</span>` : ''}
+            ${isArrayItem && parentIndex != null ? `#${parentIndex} ` : ''}${parent.title ?? ''}${parent.required ? html`<span class="is-required">*</span>` : ''}
           </p>
-          ${this.renderDeleteButton(parent, parentIndex, isArrayItem)}
+          ${isArrayItem
+        ? html`<div class="item-group-actions">
+              ${this.renderMoveItemButton(parent, parentIndex, items.length)}
+              ${this.renderDeleteButton(parent, parentIndex, true)}
+            </div>`
+        : nothing}
         </div>
         <div class="item-group-children">
-          ${(children ?? []).map((item, index) => this.renderList(item, false, index + 1, this.isArrayType(parent)))}
+          ${items.map((item, index) => this.renderList(item, false, index + 1, this.isArrayType(parent), this.isArrayType(parent) ? items.length : 0))}
           ${showAddButton ? this.renderAddItemButton(parent) : nothing}
         </div>
       </div>
