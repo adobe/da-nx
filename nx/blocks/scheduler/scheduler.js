@@ -339,9 +339,9 @@ class NxScheduler extends LitElement {
         <div class="schedule-list-header">
           <p><b>Type</b></p>
           <p><b>Item</b></p>
-          <p><b>Scheduled Publish</b></p>
-          <p><b>Scheduled By</b></p>
-          <p><b>Details</b></p>
+          <p><b>Publishes At</b></p>
+          <p><b>User</b></p>
+          <p><b>Actions</b></p>
         </div>
         ${this._scheduleEntries.map((entry, idx) => html`
           <div class="schedule-row">
@@ -378,8 +378,8 @@ class NxScheduler extends LitElement {
   render() {
     return html`
       <nx-path label="Load scheduler" @details=${this.handleDetail}></nx-path>
-      <h1>Scheduler</h1>
-      <p>View scheduled pages and snapshots for an org/site.</p>
+      <h1>Schedule Publish</h1>
+      <p>View scheduled pages and snapshots for a site.</p>
       ${this.renderAlert()}
       ${this.renderStatus()}
       ${this.renderSchedule()}
