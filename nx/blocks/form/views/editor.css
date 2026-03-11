@@ -41,7 +41,7 @@
 
 .primitive-item-row {
   display: flex;
-  align-items: flex-end;
+  align-items: flex-start;
   gap: 8px;
 
   .primitive-item-content {
@@ -51,7 +51,7 @@
 
   remove-button {
     flex-shrink: 0;
-    margin-bottom: 2px;
+    margin-top: calc(var(--s2-body-xs-size) + var(--sl-field-font-size) * 2);
   }
 }
 
