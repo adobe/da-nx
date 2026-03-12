@@ -75,6 +75,9 @@ function handleLoad({ target }) {
     if (e.data.action === 'setTitle') {
       document.title = e.data.details;
     }
+    if (e.data.action === 'setHash') {
+      window.location.hash = e.data.details;
+    }
   };
 
   const message = {
