@@ -23,9 +23,8 @@ function setupParentControllerListener() {
     const port = e.ports[0];
     parentControllerPort = port;
 
-    let loadPageFn = typeof window.__quickEditLoadPage === 'function' ? window.__quickEditLoadPage : null;
-    const aemPageOrigin = window.location.origin.replace('.preview.da.live', '.aem.page');
-    const scriptsUrl = `${aemPageOrigin}/scripts/scripts.js`;
+    let loadPageFn = null;
+    const scriptsUrl = `${window.location.origin}/scripts/scripts.js`;
 
     const loadPage = async () => {
       if (loadPageFn === null) {
