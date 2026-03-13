@@ -98,6 +98,9 @@ export default async function loadQuickEdit({ detail: payload }, loadPage) {
   if (document.getElementById(QUICK_EDIT_ID)) return;
   if (parentControllerPort != null) return;
 
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('controller') === 'parent') return;
+
   checkDomain();
 
   const ctx = {
