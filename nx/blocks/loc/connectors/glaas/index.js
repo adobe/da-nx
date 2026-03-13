@@ -376,7 +376,7 @@ export async function saveItems({
   service,
   lang,
   urls,
-  saveToDa,
+  saveFn,
 }) {
   normalizeLegacyStructure(lang, urls);
 
@@ -413,7 +413,7 @@ export async function saveItems({
 
     url.sourceContent = await removeDnt(text, org, site, { fileType });
 
-    await saveToDa(url);
+    await saveFn(url);
   };
 
   const queue = new Queue(downloadCallback, 5);

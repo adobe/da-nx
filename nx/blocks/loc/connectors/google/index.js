@@ -92,9 +92,9 @@ export async function getStatusAll() {
   // Empty
 }
 
-export async function saveItems({ langIndex, saveToDa }) {
+export async function saveItems({ langIndex, saveFn }) {
   const downloadCallback = async (url) => {
-    await saveToDa(url);
+    await saveFn(url);
   };
 
   const langUrls = results[langIndex];
