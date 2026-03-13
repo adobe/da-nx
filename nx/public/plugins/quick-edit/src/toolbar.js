@@ -142,22 +142,6 @@ function createFloatingToolbar(view) {
   return toolbar;
 }
 
-/**
- * Open the link editor (for parent toolbar "Link" in WYSIWYG mode).
- * Ensures the floating toolbar + link UI exist (hidden), then triggers the link menu.
- */
-export function openLinkEditor() {
-  if (!currentEditorView) return;
-  if (!floatingToolbar) {
-    createFloatingToolbar(currentEditorView);
-    floatingToolbar.style.display = 'none';
-  }
-  const linkPart = floatingToolbar.querySelector('.ProseMirror-menuitem');
-  if (linkPart && typeof linkPart.click === 'function') {
-    linkPart.click();
-  }
-}
-
 function updateToolbarState() {
   if (!currentEditorView || !floatingToolbar) return;
 
@@ -322,8 +306,6 @@ export function getToolbarStateFromView(view) {
  * Apply format from parent (apply-format message). Toggle mark or set block type.
  */
 export function applyFormatFromParent(data) {
-  // eslint-disable-next-line no-console
-  console.debug('[quick-edit toolbar] applyFormatFromParent', { data, hasView: !!currentEditorView });
   if (!currentEditorView) return;
   const { state, dispatch } = currentEditorView;
   const { schema } = state;
