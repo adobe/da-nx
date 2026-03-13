@@ -9,7 +9,7 @@ import {
   getValue,
   setValue,
   removeValue,
-  moveToIndex,
+  moveBefore,
   insertBefore,
 } from '../utils/pointer.js';
 import { generateValue, resolveValue } from '../utils/value-resolver.js';
@@ -108,8 +108,8 @@ export default class FormModel {
     return removeValue(this._json, pointer);
   }
 
-  moveArrayItem(pointer, targetIndex) {
-    return moveToIndex(this._json, pointer, targetIndex);
+  moveArrayItem(pointer, beforePointer) {
+    return moveBefore(this._json, pointer, beforePointer);
   }
 
   async saveHtml() {

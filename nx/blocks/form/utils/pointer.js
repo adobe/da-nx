@@ -140,27 +140,33 @@ export function removeValue(data, pointer) {
 }
 
 /**
- * Move array item to target index.
+ * Move array item before another item, or to end if beforePointer is empty.
  * @param {Object} data - Root object
- * @param {string} pointer - RFC 6901 pointer
- * @param {number} targetIndex - Target index
+ * @param {string} pointer - RFC 6901 pointer to the item to move
+ * @param {string} [beforePointer] - Pointer to the item before which to insert, or empty for append
  * @returns {boolean} True if moved
  */
-export function moveToIndex(data, pointer, targetIndex) {
+export function moveBefore(data, pointer, beforePointer) {
   const parentPointer = getParentPointer(pointer);
-  if (!parentPointer) return false;
-
   const array = getValue(data, parentPointer);
-  if (!Array.isArray(array)) return false;
+  if (!parentPointer || !Array.isArray(array)) return false;
 
-  const segments = parsePointer(pointer);
-  const currentIndex = parseInt(segments[segments.length - 1], 10);
-  if (!Number.isInteger(targetIndex)
-    || targetIndex === currentIndex
-    || targetIndex < 0
-    || targetIndex >= array.length) {
-    return false;
+  const currentIndex = parseInt(parsePointer(pointer).pop(), 10);
+  if (currentIndex < 0 || currentIndex >= array.length) return false;
+
+  const isEmpty = !beforePointer || !String(beforePointer).trim();
+  let targetIndex;
+  if (isEmpty) {
+    targetIndex = array.length;
+  } else {
+    if (getParentPointer(beforePointer) !== parentPointer) return false;
+    targetIndex = Math.max(0, Math.min(
+      parseInt(parsePointer(beforePointer).pop(), 10),
+      array.length,
+    ));
   }
+
+  if (currentIndex === targetIndex) return false;
 
   const [item] = array.splice(currentIndex, 1);
   array.splice(targetIndex, 0, item);

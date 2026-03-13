@@ -118,8 +118,8 @@ class FormEditor extends LitElement {
   }
 
   async handleMoveArrayItem({ detail }) {
-    const { pointer, targetIndex } = detail;
-    if (!this.formModel.moveArrayItem(pointer, targetIndex)) return;
+    const { pointer, beforePointer } = detail;
+    if (!this.formModel.moveArrayItem(pointer, beforePointer)) return;
 
     // Update the view with the new values
     this.formModel = this.formModel.clone();

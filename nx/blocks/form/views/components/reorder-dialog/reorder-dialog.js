@@ -50,7 +50,7 @@ class ReorderDialog extends LitElement {
       return;
     }
 
-    if (e.key === 'ArrowDown' && targetIndex < n - 1) {
+    if (e.key === 'ArrowDown' && targetIndex < n) {
       this._dispatch(e.shiftKey ? 'reorder-move-to-last' : 'reorder-move-down');
       e.preventDefault();
     }
@@ -63,9 +63,9 @@ class ReorderDialog extends LitElement {
   render() {
     const n = this.totalItems;
     const canMoveUp = this.targetIndex > 0;
-    const canMoveDown = this.targetIndex < n - 1;
+    const canMoveDown = this.targetIndex < n;
     const canMoveToFirst = this.targetIndex > 0;
-    const canMoveToLast = this.targetIndex < n - 1;
+    const canMoveToLast = this.targetIndex < n;
 
     return html`
       <div class="reorder-dialog" role="dialog" aria-label="Reorder item">

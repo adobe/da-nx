@@ -23,17 +23,23 @@ class ArrayItemMenu extends LitElement {
     this._open = false;
     this._deleteConfirm = false;
     this._closeTimeout = null;
+    this._onMenuOpen = (e) => {
+      // Another menu opened; close this one so only one stays open
+      if (e.detail?.menu !== this) this._close();
+    };
   }
 
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
+    document.addEventListener('menu-open', this._onMenuOpen);
   }
 
   disconnectedCallback() {
-    super.disconnectedCallback();
+    document.removeEventListener('menu-open', this._onMenuOpen);
     this._clearCloseTimeout();
     document.removeEventListener('click', this._boundHandleClickOutside);
+    super.disconnectedCallback();
   }
 
   _boundHandleClickOutside = (e) => {
@@ -54,6 +60,7 @@ class ArrayItemMenu extends LitElement {
     this._open = !this._open;
     this._deleteConfirm = false;
     if (this._open) {
+      this.dispatchEvent(new CustomEvent('menu-open', { detail: { menu: this }, bubbles: true, composed: true }));
       setTimeout(() => {
         document.addEventListener('click', this._boundHandleClickOutside);
       }, 0);
@@ -166,8 +173,8 @@ class ArrayItemMenu extends LitElement {
               @click=${this._handleDelete}
             >
               ${this._deleteConfirm
-                ? html`<span class="check-icon">✓</span>`
-                : html`
+          ? html`<span class="check-icon">✓</span>`
+          : html`
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                       <polyline points="3 6 5 6 21 6"/>
                       <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>

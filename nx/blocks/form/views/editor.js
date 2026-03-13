@@ -40,7 +40,12 @@ class FormEditor extends LitElement {
   _handleMoveActivate(e) {
     const { pointer, currentIndex } = e.detail;
     const parentPointer = getParentPointer(pointer);
-    this._moveActive = { pointer, currentIndex, parentPointer, targetIndex: currentIndex };
+    this._moveActive = {
+      pointer,
+      currentIndex,
+      parentPointer,
+      targetIndex: currentIndex,
+    };
   }
 
   _getArrayItems(parentPointer) {
@@ -57,20 +62,28 @@ class FormEditor extends LitElement {
     const items = this.formModel?.annotated
       ? this._getArrayItems(this._moveActive.parentPointer)
       : [];
-    const clamped = Math.max(0, Math.min(index, items.length - 1));
+    const clamped = Math.max(0, Math.min(index, items.length));
     this._moveActive = { ...this._moveActive, targetIndex: clamped };
   }
 
   _handleConfirmMove() {
     if (!this._moveActive) return;
     const { pointer, currentIndex, targetIndex } = this._moveActive;
-    if (targetIndex !== currentIndex) {
-      this.dispatchEvent(new CustomEvent('move-array-item', {
-        detail: { pointer, targetIndex },
-        bubbles: true,
-        composed: true,
-      }));
+    if (targetIndex === currentIndex) {
+      this._cancelMoveMode();
+      return;
     }
+    const items = this.formModel?.annotated
+      ? this._getArrayItems(this._moveActive.parentPointer)
+      : [];
+    const beforePointer = targetIndex >= items.length
+      ? undefined
+      : items[targetIndex].pointer;
+    this.dispatchEvent(new CustomEvent('move-array-item', {
+      detail: { pointer, beforePointer },
+      bubbles: true,
+      composed: true,
+    }));
     this._cancelMoveMode();
   }
 
@@ -87,7 +100,7 @@ class FormEditor extends LitElement {
         @reorder-move-up=${() => this._setTargetIndex(this._moveActive.targetIndex - 1)}
         @reorder-move-down=${() => this._setTargetIndex(this._moveActive.targetIndex + 1)}
         @reorder-move-to-first=${() => this._setTargetIndex(0)}
-        @reorder-move-to-last=${() => this._setTargetIndex(items.length - 1)}
+        @reorder-move-to-last=${() => this._setTargetIndex(items.length)}
         @reorder-confirm=${this._handleConfirmMove}
         @reorder-cancel=${this._cancelMoveMode}
       ></reorder-dialog>
@@ -153,15 +166,6 @@ class FormEditor extends LitElement {
 
   handleInput({ target }) {
     this.debouncedHandleChange({ target });
-  }
-
-  handleRemoveItem(e) {
-    e.stopPropagation();
-    this.dispatchEvent(new CustomEvent('remove-item', {
-      detail: { pointer: e.detail.pointer },
-      bubbles: true,
-      composed: true,
-    }));
   }
 
   handleAddItem(parent) {
@@ -372,7 +376,10 @@ class FormEditor extends LitElement {
     if (!annotated) return nothing;
 
     return html`
-      <form @move-activate=${this._handleMoveActivate}>
+      <form
+        @move-activate=${this._handleMoveActivate}
+        @menu-open=${this._cancelMoveMode}
+      >
         <div>
           ${this.renderList(annotated, true)}
         </div>
