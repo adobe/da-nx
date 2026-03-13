@@ -84,10 +84,11 @@ function focus(view, ctx) {
 function blur(view, event, ctx) {
   if (ctx.controllerMode === 'parent') {
     ctx.port.postMessage({ type: 'toolbar-blur' });
+    // Keep currentEditorView so apply-format from parent still has a view (focus left for toolbar click)
   } else {
     hideToolbar(view);
+    setCurrentEditorView(null);
   }
-  setCurrentEditorView(null);
   ctx.port.postMessage({ type: 'cursor-move' });
   return false; // Let other handlers run
 }
