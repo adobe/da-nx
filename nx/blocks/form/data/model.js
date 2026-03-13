@@ -4,7 +4,14 @@ import HTMLConverter from '../utils/html2json.js';
 import JSONConverter from '../utils/json2html.js';
 import { validateJson } from '../utils/validator.js';
 import { annotateFromSchema, dereferenceSchema, findNodeByPointer, isEmpty, pruneRecursive } from '../utils/utils.js';
-import { getValue, setValue, removeValue, moveToIndex } from '../utils/pointer.js';
+import {
+  append,
+  getValue,
+  setValue,
+  removeValue,
+  moveToIndex,
+  insertBefore,
+} from '../utils/pointer.js';
 import { generateValue, resolveValue } from '../utils/value-resolver.js';
 
 /**
@@ -84,8 +91,17 @@ export default class FormModel {
     }
     const array = getValue(this._json, pointer) ?? [];
     const newItem = generateValue(items, true);
-    array.push(newItem);
-    setValue(this._json, pointer, array);
+    insertBefore(this._json, append(pointer, array.length), newItem);
+  }
+
+  insertArrayItem(pointer, items) {
+    if (!items) {
+      // eslint-disable-next-line no-console
+      console.warn('The array schema has no items definition for pointer "%s"', pointer);
+      return false;
+    }
+    const newItem = generateValue(items, true);
+    return insertBefore(this._json, pointer, newItem);
   }
 
   removeArrayItem(pointer) {

@@ -278,25 +278,25 @@ class FormEditor extends LitElement {
     `;
   }
 
-  renderPrimitiveAsArrayItem(control, item, index, arrayLength) {
+  renderPrimitiveAsArrayItem(control, item, index, arrayLength, arrayParent) {
     const moveItemPicked = this._moveActive?.pointer === item.pointer;
     return html`
       <div class="primitive-item-row ${moveItemPicked ? 'move-item-picked' : ''}">
         ${control}
         <div class="primitive-item-actions">
-          ${this.renderArrayItemMenu(item, index, arrayLength)}
+          ${arrayParent ? this.renderArrayItemMenu(item, index, arrayLength) : nothing}
         </div>
         ${moveItemPicked ? this.renderReorderDialog() : nothing}
       </div>
     `;
   }
 
-  renderPrimitive(item, index, isArrayItem, arrayLength = 0) {
+  renderPrimitive(item, index, isArrayItem, arrayLength = 0, arrayParent = null) {
     const control = this.renderPrimitiveByType(item, isArrayItem ? index : null);
     if (!control) return nothing;
 
     const inner = isArrayItem
-      ? this.renderPrimitiveAsArrayItem(control, item, index, arrayLength)
+      ? this.renderPrimitiveAsArrayItem(control, item, index, arrayLength, arrayParent)
       : control;
 
     return html`
@@ -324,10 +324,17 @@ class FormEditor extends LitElement {
     `;
   }
 
-  renderList(parent, isRoot, parentIndex = null, isArrayItem = false, arrayLength = 0) {
+  renderList(
+    parent,
+    isRoot,
+    parentIndex = null,
+    isArrayItem = false,
+    arrayLength = 0,
+    arrayParent = null,
+  ) {
     const { children } = parent;
     if (!Array.isArray(children)) {
-      return this.renderPrimitive(parent, parentIndex, isArrayItem, arrayLength);
+      return this.renderPrimitive(parent, parentIndex, isArrayItem, arrayLength, arrayParent);
     }
 
     const showAddButton = this.isArrayType(parent);
@@ -340,7 +347,7 @@ class FormEditor extends LitElement {
           <p>
             ${isArrayItem && parentIndex != null ? `#${parentIndex} ` : ''}${parent.title ?? ''}${parent.required ? html`<span class="is-required">*</span>` : ''}
           </p>
-          ${isArrayItem
+          ${isArrayItem && arrayParent
         ? html`<div class="item-group-actions">
               ${this.renderArrayItemMenu(parent, parentIndex, items.length)}
             </div>`
@@ -351,7 +358,8 @@ class FormEditor extends LitElement {
           ${(this._getItemsInPreviewOrder(items, parent.pointer)).map((item, index) => {
           const isArray = this.isArrayType(parent);
           const arrayLen = isArray ? items.length : 0;
-          return this.renderList(item, false, index + 1, isArray, arrayLen);
+          const nextArrayParent = isArray ? parent : arrayParent;
+          return this.renderList(item, false, index + 1, isArray, arrayLen, nextArrayParent);
         })}
           ${showAddButton ? this.renderAddItemButton(parent) : nothing}
         </div>

@@ -166,3 +166,29 @@ export function moveToIndex(data, pointer, targetIndex) {
   array.splice(targetIndex, 0, item);
   return true;
 }
+
+/**
+ * Insert value before the item at pointer.
+ * @param {Object} data - Root object
+ * @param {string} pointer - RFC 6901 pointer to the item or append position
+ * @param {*} value - Value to insert
+ * @returns {boolean} True if inserted
+ */
+export function insertBefore(data, pointer, value) {
+  const parentPointer = getParentPointer(pointer);
+  if (!parentPointer) return false;
+
+  const segments = parsePointer(pointer);
+  const index = parseInt(segments[segments.length - 1], 10);
+  if (!Number.isInteger(index) || index < 0) return false;
+
+  let array = getValue(data, parentPointer);
+  if (!Array.isArray(array)) {
+    array = [];
+    setValue(data, parentPointer, array);
+  }
+
+  const clampedIndex = Math.max(0, Math.min(index, array.length));
+  array.splice(clampedIndex, 0, value);
+  return true;
+}

@@ -4,8 +4,9 @@ import getPathDetails from 'https://da.live/blocks/shared/pathDetails.js';
 import FormModel from './data/model.js';
 
 // Internal utils
+import { getParentPointer } from './utils/pointer.js';
 import { schemas as schemasPromise } from './utils/schema.js';
-import { loadHtml } from './utils/utils.js';
+import { findNodeByPointer, loadHtml } from './utils/utils.js';
 
 import 'https://da.live/blocks/edit/da-title/da-title.js';
 
@@ -89,6 +90,22 @@ class FormEditor extends LitElement {
     await this.formModel.saveHtml();
   }
 
+  async handleInsertItem({ detail }) {
+    const { pointer } = detail;
+    const parentPointer = getParentPointer(pointer);
+    const node = this.formModel?.annotated && parentPointer
+      ? findNodeByPointer(this.formModel.annotated, parentPointer)
+      : null;
+    const items = node?.items;
+    if (!this.formModel.insertArrayItem(pointer, items)) return;
+
+    // Update the view with the new values
+    this.formModel = this.formModel.clone();
+
+    // Persist the data
+    await this.formModel.saveHtml();
+  }
+
   async handleRemoveItem({ detail }) {
     const { pointer } = detail;
     if (!this.formModel.removeArrayItem(pointer)) return;
@@ -137,6 +154,7 @@ class FormEditor extends LitElement {
         <da-form-editor
           @update=${this.handleUpdate}
           @add-item=${this.handleAddItem}
+          @insert-item=${this.handleInsertItem}
           @remove-item=${this.handleRemoveItem}
           @move-array-item=${this.handleMoveArrayItem}
           .formModel=${this.formModel}

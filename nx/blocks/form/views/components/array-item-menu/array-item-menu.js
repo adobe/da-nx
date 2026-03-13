@@ -3,7 +3,7 @@ import { LitElement, html, nothing } from 'da-lit';
 const { default: getStyle } = await import('../../../../../utils/styles.js');
 const style = await getStyle(import.meta.url);
 
-/** Menu with Reorder and Delete options for array items. */
+/** Menu with Insert, Reorder and Delete options for array items. */
 class ArrayItemMenu extends LitElement {
   static properties = {
     pointer: { type: String },
@@ -69,6 +69,17 @@ class ArrayItemMenu extends LitElement {
     document.removeEventListener('click', this._boundHandleClickOutside);
   }
 
+  _handleInsert(e) {
+    e.stopPropagation();
+    if (!this.pointer) return;
+    this.dispatchEvent(new CustomEvent('insert-item', {
+      detail: { pointer: this.pointer },
+      bubbles: true,
+      composed: true,
+    }));
+    this._close();
+  }
+
   _handleReorder(e) {
     e.stopPropagation();
     if (this.arrayLength < 2) return;
@@ -102,6 +113,7 @@ class ArrayItemMenu extends LitElement {
 
   render() {
     const canReorder = this.arrayLength > 1;
+    const canInsert = !!this.pointer;
 
     return html`
       <div class="array-item-menu ${this._open ? 'open' : ''}">
@@ -122,6 +134,19 @@ class ArrayItemMenu extends LitElement {
         </button>
         ${this._open ? html`
           <div class="menu-dropdown" role="menu">
+            <button
+              type="button"
+              class="menu-item"
+              role="menuitem"
+              ?disabled=${!canInsert}
+              @click=${this._handleInsert}
+            >
+              <svg class="insert-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+              Insert before
+            </button>
             <button
               type="button"
               class="menu-item"
