@@ -23,7 +23,22 @@ function setupParentControllerListener() {
     const port = e.ports[0];
     parentControllerPort = port;
 
-    const loadPage = typeof window.__quickEditLoadPage === 'function' ? window.__quickEditLoadPage : () => {};
+    let loadPageFn = typeof window.__quickEditLoadPage === 'function' ? window.__quickEditLoadPage : null;
+    const aemPageOrigin = window.location.origin.replace('.preview.da.live', '.aem.page');
+    const scriptsUrl = `${aemPageOrigin}/scripts/scripts.js`;
+
+    const loadPage = async () => {
+      if (loadPageFn === null) {
+        try {
+          const mod = await import(/* webpackIgnore: true */ scriptsUrl);
+          loadPageFn = typeof mod?.loadPage === 'function' ? mod.loadPage : () => {};
+        } catch {
+          loadPageFn = () => {};
+        }
+      }
+      if (typeof loadPageFn === 'function') await loadPageFn();
+    };
+
     const ctx = {
       initialized: true,
       loadPage,
