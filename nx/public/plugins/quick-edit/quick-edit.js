@@ -10,6 +10,34 @@ await loadStyle(`${nx}/public/plugins/quick-edit/quick-edit.css`);
 
 const QUICK_EDIT_ID = 'quick-edit-iframe';
 
+/** When set, the preview page is using exp-workspace as controller; do not create the portal iframe. */
+let parentControllerPort = null;
+
+function setupParentControllerListener() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('controller') !== 'parent') return;
+
+  const listener = (e) => {
+    if (e.source !== window.parent || e.data?.init == null || !e.ports?.length) return;
+
+    const port = e.ports[0];
+    parentControllerPort = port;
+
+    const loadPage = typeof window.__quickEditLoadPage === 'function' ? window.__quickEditLoadPage : () => {};
+    const ctx = {
+      initialized: true,
+      loadPage,
+      port,
+    };
+    port.onmessage = (ev) => onMessage(ev, ctx);
+    port.postMessage({ ready: true });
+
+    window.removeEventListener('message', listener);
+  };
+  window.addEventListener('message', listener);
+}
+setupParentControllerListener();
+
 async function setBody(body, ctx) {
   const doc = new DOMParser().parseFromString(body, 'text/html');
   document.body.innerHTML = doc.body.innerHTML;
@@ -54,6 +82,7 @@ function getQuickEditSrc() {
 
 export default async function loadQuickEdit({ detail: payload }, loadPage) {
   if (document.getElementById(QUICK_EDIT_ID)) return;
+  if (parentControllerPort != null) return;
 
   const ctx = {
     initialized: false,
