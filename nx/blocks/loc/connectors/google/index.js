@@ -52,6 +52,8 @@ export async function sendAllLanguages({
   const { sendMessage, saveState } = actions;
   const sourceLanguage = options['source.language']?.location || '/';
 
+  results.length = 0;
+
   const translateUrl = async (url) => {
     await sendForTranslation(org, site, url);
   };
