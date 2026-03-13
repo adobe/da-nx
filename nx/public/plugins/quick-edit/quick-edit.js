@@ -1,7 +1,7 @@
 import { setupContentEditableListeners, setupImageDropListeners, updateImageSrc, handleImageError } from './src/images.js';
 import { setEditorState } from './src/prose.js';
 import { setCursors } from './src/cursors.js';
-import { applyFormatFromParent, openLinkEditor } from './src/toolbar.js';
+import { applyFormatFromParent } from './src/toolbar.js';
 import { pollConnection, setupActions } from './src/utils.js';
 
 import { loadStyle } from '../../../scripts/nexter.js';
@@ -93,8 +93,6 @@ function onMessage(e, ctx) {
     handleImageError(e.data.error);
   } else if (e.data.type === 'apply-format') {
     applyFormatFromParent(e.data);
-  } else if (e.data.type === 'open-link-editor') {
-    openLinkEditor();
   }
 }
 
