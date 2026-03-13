@@ -6,6 +6,7 @@ import {
   hideToolbar,
   setCurrentEditorView,
   updateToolbarState,
+  getToolbarStateFromView,
   handleToolbarKeydown,
   positionToolbar,
 } from './toolbar.js';
@@ -59,19 +60,33 @@ function handleTransaction(tr, ctx, editorView, editorParent) {
     });
   }
 
-  // Update toolbar button states and position
-  updateToolbarState();
-  positionToolbar();
+  // Update toolbar button states and position (or send state to parent when parent is controller)
+  if (ctx.controllerMode === 'parent') {
+    const payload = getToolbarStateFromView(editorView);
+    if (payload) ctx.port.postMessage({ type: 'toolbar-state', ...payload });
+  } else {
+    updateToolbarState();
+    positionToolbar();
+  }
 }
 
-function focus(view) {
+function focus(view, ctx) {
   setCurrentEditorView(view);
-  showToolbar(view);
+  if (ctx.controllerMode === 'parent') {
+    const payload = getToolbarStateFromView(view);
+    if (payload) ctx.port.postMessage({ type: 'toolbar-state', ...payload });
+  } else {
+    showToolbar(view);
+  }
   return false;
 }
 
 function blur(view, event, ctx) {
-  hideToolbar(view);
+  if (ctx.controllerMode === 'parent') {
+    ctx.port.postMessage({ type: 'toolbar-blur' });
+  } else {
+    hideToolbar(view);
+  }
   setCurrentEditorView(null);
   ctx.port.postMessage({ type: 'cursor-move' });
   return false; // Let other handlers run
@@ -111,7 +126,7 @@ function createEditor(cursorOffset, state, ctx) {
   const editorView = new EditorView(editorParent, {
     state: editorState,
     handleDOMEvents: {
-      focus,
+      focus: (view) => focus(view, ctx),
       keydown,
       blur: (view, event) => blur(view, event, ctx),
     },
