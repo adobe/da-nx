@@ -63,6 +63,6 @@ export function getInstrumentedHTML(view) {
     }
   });
 
-  // Convert to an HTML string using prose2aem
-  return prose2aem(editorClone, true);
+  // Convert to an HTML string using prose2aem.
+  return prose2aem(editorClone, true, false, true);
 }
