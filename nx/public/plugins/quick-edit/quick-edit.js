@@ -1,6 +1,7 @@
 import { setupContentEditableListeners, setupImageDropListeners, updateImageSrc, handleImageError } from './src/images.js';
 import { setEditorState } from './src/prose.js';
 import { setCursors } from './src/cursors.js';
+import { applyFormatFromParent } from './src/toolbar.js';
 import { pollConnection, setupActions } from './src/utils.js';
 
 import { loadStyle } from '../../../scripts/nexter.js';
@@ -42,6 +43,7 @@ function setupParentControllerListener() {
       initialized: true,
       loadPage,
       port,
+      controllerMode: 'parent',
     };
     port.onmessage = (ev) => onMessage(ev, ctx);
     port.postMessage({ ready: true });
@@ -89,6 +91,8 @@ function onMessage(e, ctx) {
     updateImageSrc(originalSrc, newSrc);
   } else if (e.data.type === 'image-error') {
     handleImageError(e.data.error);
+  } else if (e.data.type === 'apply-format') {
+    applyFormatFromParent(e.data);
   }
 }
 

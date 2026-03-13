@@ -1,5 +1,5 @@
 import { linkItem, removeLinkItem } from 'https://da.live/blocks/edit/prose/plugins/menu/linkItem.js';
-import { renderGrouped } from 'https://da.live/deps/da-y-wrapper/dist/index.js';
+import { renderGrouped, setBlockType, blockTypeItem, wrapItem } from 'https://da.live/deps/da-y-wrapper/dist/index.js';
 
 let floatingToolbar = null;
 let currentEditorView = null;
@@ -214,6 +214,7 @@ function positionToolbar() {
   floatingToolbar.style.transform = 'none';
 }
 
+/** Show floating toolbar. Caller (prose.js) must not call this when parent is controller (ctx.controllerMode === 'parent'). */
 export function showToolbar(view) {
   const toolbar = createFloatingToolbar(view);
   toolbar.style.display = 'flex';
@@ -272,3 +273,65 @@ export function handleToolbarKeydown(event) {
 }
 
 export { updateToolbarState, positionToolbar };
+
+/**
+ * Build toolbar-state payload for parent (marks + blockType/blockLevel).
+ * Used when controllerMode === 'parent' to sync the fixed toolbar.
+ */
+export function getToolbarStateFromView(view) {
+  if (!view) return null;
+  const { state } = view;
+  const { schema, selection, storedMarks } = state;
+  const activeMarks = storedMarks || selection.$from.marks();
+  const marks = {};
+  ['strong', 'em', 'u', 's', 'code', 'link'].forEach((name) => {
+    const mark = schema.marks[name];
+    if (!mark) return;
+    let has = false;
+    if (selection.empty) {
+      has = activeMarks.some((m) => m.type === mark);
+    } else {
+      has = state.doc.rangeHasMark(selection.from, selection.to, mark);
+    }
+    if (has) marks[name] = true;
+  });
+  const $pos = selection.$from;
+  const node = $pos.parent;
+  const blockType = node.type.name;
+  const blockLevel = blockType === 'heading' && node.attrs.level != null ? node.attrs.level : undefined;
+  return { marks, blockType, blockLevel };
+}
+
+/**
+ * Apply format from parent (apply-format message). Toggle mark or set block type.
+ */
+export function applyFormatFromParent(data) {
+  if (!currentEditorView) return;
+  const { state, dispatch } = currentEditorView;
+  const { schema } = state;
+  if (data.mark) {
+    const mark = schema.marks[data.mark];
+    if (mark) toggleMark(data.mark);
+    return;
+  }
+  if (data.blockType != null) {
+    const nodeType = schema.nodes[data.blockType];
+    if (!nodeType) return;
+    let run;
+    if (data.blockType === 'paragraph') {
+      run = setBlockType(nodeType);
+    } else if (data.blockType === 'heading') {
+      const level = data.level != null ? data.level : 1;
+      run = blockTypeItem(nodeType, { attrs: { level } }).spec.run;
+    } else if (data.blockType === 'blockquote') {
+      run = wrapItem(nodeType, {}).spec.run;
+    } else if (data.blockType === 'code_block') {
+      run = setBlockType(nodeType);
+    } else {
+      return;
+    }
+    if (run(state, dispatch)) {
+      currentEditorView.focus();
+    }
+  }
+}
