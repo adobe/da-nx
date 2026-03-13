@@ -72,16 +72,22 @@ class FormSidebar extends LitElement {
     return item.type === 'object' || item.type === 'array';
   }
 
-  renderList(parent) {
+  renderList(parent, isArrayItem = false, arrayIndex = null) {
     if (!this.canRender(parent)) return nothing;
 
     const children = parent.children ?? [];
+    const label = isArrayItem && arrayIndex != null
+      ? `#${arrayIndex} ${parent.title ?? ''}`
+      : (parent.title ?? '');
 
     return html`
       <li data-key="${parent.key}">
-        <span class="item">${parent.title ?? ''}</span>
+        <span class="item">${label}</span>
         ${children.length
-        ? html`<ul>${children.map((item) => this.renderList(item))}</ul>`
+        ? html`<ul>${children.map((item, i) => {
+          const isArray = parent.type === 'array';
+          return this.renderList(item, isArray, isArray ? i + 1 : null);
+        })}</ul>`
         : nothing}
       </li>
     `;

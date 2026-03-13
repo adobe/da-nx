@@ -1,6 +1,8 @@
 import { LitElement, html, nothing } from 'da-lit';
-import './components/remove-button/remove-button.js';
-import './components/move-item-button/move-item-button.js';
+import './components/array-item-menu/array-item-menu.js';
+import './components/reorder-dialog/reorder-dialog.js';
+import { getParentPointer } from '../utils/pointer.js';
+import { findNodeByPointer } from '../utils/utils.js';
 
 const { default: getStyle } = await import('../../../utils/styles.js');
 const style = await getStyle(import.meta.url);
@@ -21,12 +23,85 @@ class FormEditor extends LitElement {
   static properties = {
     formModel: { state: true },
     _errorsByPointer: { state: true },
+    _moveActive: { state: true },
   };
+
+  constructor() {
+    super();
+    this._moveActive = null;
+  }
 
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
     this.debouncedHandleChange = debounce(this.handleChange.bind(this), 1000);
+  }
+
+  _handleMoveActivate(e) {
+    const { pointer, currentIndex } = e.detail;
+    const parentPointer = getParentPointer(pointer);
+    this._moveActive = { pointer, currentIndex, parentPointer, targetIndex: currentIndex };
+  }
+
+  _getArrayItems(parentPointer) {
+    const node = findNodeByPointer(this.formModel.annotated, parentPointer);
+    return node?.children ?? [];
+  }
+
+  _cancelMoveMode() {
+    this._moveActive = null;
+  }
+
+  _setTargetIndex(index) {
+    if (!this._moveActive) return;
+    const items = this.formModel?.annotated
+      ? this._getArrayItems(this._moveActive.parentPointer)
+      : [];
+    const clamped = Math.max(0, Math.min(index, items.length - 1));
+    this._moveActive = { ...this._moveActive, targetIndex: clamped };
+  }
+
+  _handleConfirmMove() {
+    if (!this._moveActive) return;
+    const { pointer, currentIndex, targetIndex } = this._moveActive;
+    if (targetIndex !== currentIndex) {
+      this.dispatchEvent(new CustomEvent('move-array-item', {
+        detail: { pointer, targetIndex },
+        bubbles: true,
+        composed: true,
+      }));
+    }
+    this._cancelMoveMode();
+  }
+
+  renderReorderDialog() {
+    if (!this._moveActive) return nothing;
+    const { targetIndex } = this._moveActive;
+    const items = this.formModel?.annotated
+      ? this._getArrayItems(this._moveActive.parentPointer)
+      : [];
+    return html`
+      <reorder-dialog
+        .targetIndex=${targetIndex}
+        .totalItems=${items.length}
+        @reorder-move-up=${() => this._setTargetIndex(this._moveActive.targetIndex - 1)}
+        @reorder-move-down=${() => this._setTargetIndex(this._moveActive.targetIndex + 1)}
+        @reorder-move-to-first=${() => this._setTargetIndex(0)}
+        @reorder-move-to-last=${() => this._setTargetIndex(items.length - 1)}
+        @reorder-confirm=${this._handleConfirmMove}
+        @reorder-cancel=${this._cancelMoveMode}
+      ></reorder-dialog>
+    `;
+  }
+
+  _getItemsInPreviewOrder(items, parentPointer) {
+    if (!this._moveActive || this._moveActive.parentPointer !== parentPointer) return items;
+    const { currentIndex, targetIndex } = this._moveActive;
+    if (currentIndex === targetIndex) return items;
+    const reordered = items.slice();
+    const [item] = reordered.splice(currentIndex, 1);
+    reordered.splice(targetIndex, 0, item);
+    return reordered;
   }
 
   update(props) {
@@ -190,36 +265,28 @@ class FormEditor extends LitElement {
     `;
   }
 
-  renderDeleteButton(item, index, isArrayItem) {
-    if (!isArrayItem) return nothing;
+  renderArrayItemMenu(item, index, arrayLength) {
+    if (!arrayLength) return nothing;
+    const active = this._moveActive?.pointer === item.pointer;
     return html`
-      <remove-button
-        .pointer=${item.pointer}
-        .index=${index}
-        @remove-item=${this.handleRemoveItem}
-      ></remove-button>
-    `;
-  }
-
-  renderMoveItemButton(item, index, arrayLength) {
-    if (!arrayLength || arrayLength < 2) return nothing;
-    return html`
-      <move-item-button
+      <array-item-menu
         .pointer=${item.pointer}
         .index=${index}
         .arrayLength=${arrayLength}
-      ></move-item-button>
+        .active=${active}
+      ></array-item-menu>
     `;
   }
 
   renderPrimitiveAsArrayItem(control, item, index, arrayLength) {
+    const moveItemPicked = this._moveActive?.pointer === item.pointer;
     return html`
-      <div class="primitive-item-row">
+      <div class="primitive-item-row ${moveItemPicked ? 'move-item-picked' : ''}">
         ${control}
         <div class="primitive-item-actions">
-          ${this.renderMoveItemButton(item, index, arrayLength)}
-          ${this.renderDeleteButton(item, index, true)}
+          ${this.renderArrayItemMenu(item, index, arrayLength)}
         </div>
+        ${moveItemPicked ? this.renderReorderDialog() : nothing}
       </div>
     `;
   }
@@ -266,21 +333,26 @@ class FormEditor extends LitElement {
     const showAddButton = this.isArrayType(parent);
     const items = children ?? [];
 
+    const moveItemPicked = isArrayItem && this._moveActive?.pointer === parent.pointer;
     return html`
-      <div class="item-group ${isRoot ? 'root-group' : 'child-group'}" data-key="${parent.key}">
+      <div class="item-group ${isRoot ? 'root-group' : 'child-group'} ${moveItemPicked ? 'move-item-picked' : ''}" data-key="${parent.key}">
         <div class="item-group-title">
           <p>
             ${isArrayItem && parentIndex != null ? `#${parentIndex} ` : ''}${parent.title ?? ''}${parent.required ? html`<span class="is-required">*</span>` : ''}
           </p>
           ${isArrayItem
         ? html`<div class="item-group-actions">
-              ${this.renderMoveItemButton(parent, parentIndex, items.length)}
-              ${this.renderDeleteButton(parent, parentIndex, true)}
+              ${this.renderArrayItemMenu(parent, parentIndex, items.length)}
             </div>`
         : nothing}
+          ${moveItemPicked ? this.renderReorderDialog() : nothing}
         </div>
         <div class="item-group-children">
-          ${items.map((item, index) => this.renderList(item, false, index + 1, this.isArrayType(parent), this.isArrayType(parent) ? items.length : 0))}
+          ${(this._getItemsInPreviewOrder(items, parent.pointer)).map((item, index) => {
+          const isArray = this.isArrayType(parent);
+          const arrayLen = isArray ? items.length : 0;
+          return this.renderList(item, false, index + 1, isArray, arrayLen);
+        })}
           ${showAddButton ? this.renderAddItemButton(parent) : nothing}
         </div>
       </div>
@@ -292,7 +364,7 @@ class FormEditor extends LitElement {
     if (!annotated) return nothing;
 
     return html`
-      <form>
+      <form @move-activate=${this._handleMoveActivate}>
         <div>
           ${this.renderList(annotated, true)}
         </div>

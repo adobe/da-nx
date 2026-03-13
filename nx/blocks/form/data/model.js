@@ -3,26 +3,9 @@ import { daFetch } from 'https://da.live/blocks/shared/utils.js';
 import HTMLConverter from '../utils/html2json.js';
 import JSONConverter from '../utils/json2html.js';
 import { validateJson } from '../utils/validator.js';
-import { annotateFromSchema, dereferenceSchema, isEmpty, pruneRecursive } from '../utils/utils.js';
+import { annotateFromSchema, dereferenceSchema, findNodeByPointer, isEmpty, pruneRecursive } from '../utils/utils.js';
 import { getValue, setValue, removeValue, moveToIndex } from '../utils/pointer.js';
 import { generateValue, resolveValue } from '../utils/value-resolver.js';
-
-/**
- * Find annotation node by pointer.
- * @param {Object} node - Annotation node
- * @param {string} pointer - Target pointer
- * @returns {Object|null}
- */
-function findNodeByPointer(node, pointer) {
-  if (!node) return null;
-  if (node.pointer === pointer) return node;
-  const children = node.children ?? [];
-  for (const child of children) {
-    const found = findNodeByPointer(child, pointer);
-    if (found) return found;
-  }
-  return null;
-}
 
 /**
  * A data model that represents a piece of structured content.
