@@ -31,10 +31,6 @@ class NxProfile extends LitElement {
     this.handleLoaded();
   }
 
-  getHelixToken() {
-    window.postMessage({ type: 'set-token', token: 'Bearer ...' }, window.location.origin);
-  }
-
   setIcons() {
     getSvg({ parent: this.shadowRoot, paths: ICONS });
   }
@@ -57,7 +53,6 @@ class NxProfile extends LitElement {
       this._signedIn = true;
       this.getOrg();
       this.setIcons();
-      this.getHelixToken();
     } catch {
       this._signedIn = false;
     }

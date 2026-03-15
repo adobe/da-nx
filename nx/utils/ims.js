@@ -83,9 +83,27 @@ export async function getIo() {
   return fetchWithToken(`https://${IO_ENV[env]}/profile`, imsProfile.accessToken);
 }
 
+/**
+ * Lazily post a window message with IMS details
+ */
+async function postImsMessage(imsDetail) {
+  const { displayName, email, accessToken } = imsDetail;
+  accessToken.expire = accessToken.expire.toISOString();
+
+  const details = {
+    accessToken,
+    displayName,
+    email,
+    avatarApi: `https://${IO_ENV[env]}/profile`,
+  };
+
+  window.postMessage({ type: 'set-ims-details', details }, window.location.origin);
+}
+
 async function getProfileDetails(accessToken, resolve) {
   const profile = await window.adobeIMS.getProfile();
   imsProfile = { ...profile, accessToken, getOrgs, getIo, getAllOrgs };
+  postImsMessage(imsProfile);
   resolve(imsProfile);
 }
 
@@ -122,5 +140,6 @@ export async function loadIms(loginPopup) {
     }
     loadScript(IMS_URL);
   });
+
   return imsDetails;
 }
