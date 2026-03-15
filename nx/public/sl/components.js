@@ -259,6 +259,7 @@ class SlDialog extends LitElement {
   static properties = {
     open: { type: Boolean },
     modal: { type: Boolean },
+    overflow: { type: String },
     _showLazyModal: { state: true },
   };
 
@@ -300,7 +301,7 @@ class SlDialog extends LitElement {
 
   render() {
     return html`
-      <dialog class="sl-dialog" @close=${this.onClose}>
+      <dialog class="sl-dialog ${this.overflow ? `overflow-${this.overflow}` : ''}" @close=${this.onClose}>
         <slot></slot>
       </dialog>`;
   }
