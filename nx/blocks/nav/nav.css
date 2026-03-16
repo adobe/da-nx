@@ -47,6 +47,56 @@ p {
   gap: 6px;
 }
 
+.nx-nav-new-ui {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  font-size: 11px;
+  color: #333;
+  cursor: pointer;
+  font-family: var(--body-font-family);
+}
+
+.nx-nav-new-ui-track {
+  display: flex;
+  align-items: center;
+  width: 34px;
+  height: 18px;
+  padding: 0 2px;
+  border-radius: 999px;
+  background: #e1e1e1;
+  transition: background 0.3s ease;
+}
+
+.nx-nav-new-ui.is-on .nx-nav-new-ui-track {
+  background: #4262ff;
+}
+
+.nx-nav-new-ui-knob {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+  transition: transform 0.3s ease;
+}
+
+.nx-nav-new-ui.is-on .nx-nav-new-ui-knob {
+  transform: translateX(18.5px);
+}
+
+.nx-nav-new-ui-label {
+  color: #333;
+}
+
+.nx-nav-new-ui:disabled {
+  cursor: default;
+  opacity: 0.9;
+}
+
 .nx-nav-help {
   display: none;
   justify-content: center;
