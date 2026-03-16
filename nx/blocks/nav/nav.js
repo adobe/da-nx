@@ -36,7 +36,9 @@ class Nav extends HTMLElement {
 
     // Grab the first link as it will be the main branding
     const brandLink = doc.querySelector('a');
-    brandLink.innerHTML = `<span>Experience Workspace</span>`;
+    if (window.location.pathname.startsWith('/app/hannessolo/exp-workspace')) {
+      brandLink.innerHTML = `<span>Experience Workspace</span>`;
+    }
     brandLink.classList.add('nx-nav-brand');
     brandLink.insertAdjacentHTML('afterbegin', '<svg class="icon"><use href="#spectrum-ExperienceCloud"/></svg>');
 
@@ -44,6 +46,52 @@ class Nav extends HTMLElement {
     inner.className = 'nx-nav-inner';
     inner.append(...sections);
     return inner;
+  }
+
+  renderNewUiToggle() {
+    const { pathname, search, hash } = window.location;
+    const expWorkspacePrefix = '/app/hannessolo/exp-workspace';
+    const editPrefix = '/edit';
+    const isNewUi = pathname.startsWith(expWorkspacePrefix);
+    const showToggle = pathname.startsWith(expWorkspacePrefix) || pathname.startsWith(editPrefix);
+    if (!showToggle) return null;
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.classList.add('nx-nav-new-ui');
+    if (isNewUi) btn.classList.add('is-on');
+    btn.setAttribute('role', 'switch');
+    btn.setAttribute('aria-checked', isNewUi ? 'true' : 'false');
+    btn.setAttribute('aria-label', isNewUi ? 'Switch to classic UI' : 'Switch to new UI');
+    const track = document.createElement('span');
+    track.classList.add('nx-nav-new-ui-track');
+    track.innerHTML = '<span class="nx-nav-new-ui-knob"></span>';
+    const label = document.createElement('span');
+    label.classList.add('nx-nav-new-ui-label');
+    label.textContent = 'New UI';
+    btn.append(track, label);
+
+    const NAV_DELAY_MS = 300;
+
+    btn.addEventListener('click', () => {
+      const queryAndHash = (search || '') + (hash || '');
+      const goingToEdit = pathname.startsWith(expWorkspacePrefix);
+
+      // Animate the switch immediately, then navigate after delay
+      btn.classList.toggle('is-on', !goingToEdit);
+      btn.setAttribute('aria-checked', goingToEdit ? 'false' : 'true');
+      btn.setAttribute('aria-label', goingToEdit ? 'Switch to new UI' : 'Switch to classic UI');
+      btn.disabled = true;
+
+      setTimeout(() => {
+        if (goingToEdit) {
+          window.location.assign(editPrefix + queryAndHash);
+        } else {
+          window.location.assign(`${expWorkspacePrefix}/space${queryAndHash}`);
+        }
+      }, NAV_DELAY_MS);
+    });
+    return btn;
   }
 
   async renderHelp() {
@@ -68,10 +116,12 @@ class Nav extends HTMLElement {
     const navActions = document.createElement('div');
     navActions.classList.add('nx-nav-actions');
 
+    const newUiToggle = this.renderNewUiToggle();
     const help = this.renderHelp();
     const profile = this.getProfile();
 
     const [helpEl, profileEl] = await Promise.all([help, profile]);
+    if (newUiToggle) navActions.append(newUiToggle);
     navActions.append(helpEl, profileEl);
 
     return navActions;
