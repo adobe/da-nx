@@ -52,6 +52,8 @@ export async function sendAllLanguages({
   const { sendMessage, saveState } = actions;
   const sourceLanguage = options['source.language']?.location || '/';
 
+  results.length = 0;
+
   const translateUrl = async (url) => {
     await sendForTranslation(org, site, url);
   };
@@ -92,9 +94,9 @@ export async function getStatusAll() {
   // Empty
 }
 
-export async function saveItems({ langIndex, saveToDa }) {
+export async function saveItems({ langIndex, saveFn }) {
   const downloadCallback = async (url) => {
-    await saveToDa(url);
+    await saveFn(url);
   };
 
   const langUrls = results[langIndex];
