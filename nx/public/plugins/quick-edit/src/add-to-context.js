@@ -14,15 +14,27 @@ function getInstrumentedElement(target) {
   return target?.closest?.('[data-prose-index], [data-block-index]') ?? null;
 }
 
-function getDataItem(el) {
+/**
+ * Build payload for "add to chat": proseIndex, blockName (if block), innerText.
+ * @param {Element} el - Element with data-prose-index or data-block-index
+ * @returns {{ proseIndex: number, blockName?: string, innerText: string } | null}
+ */
+function getAddToChatPayload(el) {
   if (!el) return null;
-  const proseIndex = el.getAttribute('data-prose-index');
-  const blockIndex = el.getAttribute('data-block-index');
-  return {
-    proseIndex: proseIndex != null ? parseInt(proseIndex, 10) : null,
-    blockIndex: blockIndex != null ? parseInt(blockIndex, 10) : null,
-    element: el,
-  };
+  const proseIndexAttr = el.getAttribute('data-prose-index');
+  const blockIndexAttr = el.getAttribute('data-block-index');
+  const proseIndex = proseIndexAttr != null ? parseInt(proseIndexAttr, 10) : (blockIndexAttr != null ? parseInt(blockIndexAttr, 10) : null);
+  if (proseIndex == null || Number.isNaN(proseIndex)) return null;
+
+  const innerText = (el.innerText || el.textContent || '').trim().replace(/\s+/g, ' ') || '';
+  let blockName = undefined;
+  if (el.hasAttribute('data-block-index')) {
+    const table = el.querySelector('table');
+    const firstCell = table?.querySelector('tr:first-child td:first-child, tr:first-child th:first-child');
+    blockName = firstCell?.textContent?.trim() || undefined;
+  }
+
+  return { proseIndex, blockName, innerText };
 }
 
 function positionOverlay(overlay, el) {
@@ -61,8 +73,9 @@ function scheduleHide(overlay) {
 /**
  * Set up the "Add to context" overlay and event listeners. Call after setBody.
  * @param {HTMLElement} [root=document.body] - Root to attach overlay to and delegate from.
+ * @param {object} [ctx] - Quick-edit context with port for postMessage to parent controller.
  */
-export function setupAddToContext(root = document.body) {
+export function setupAddToContext(root = document.body, ctx = null) {
   let overlay = document.getElementById(OVERLAY_ID);
   if (!overlay) {
     overlay = document.createElement('div');
@@ -73,14 +86,13 @@ export function setupAddToContext(root = document.body) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'quick-edit-add-to-context-btn';
-    btn.textContent = 'Add to context';
+    btn.textContent = 'Add to chat';
     btn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
-      const data = getDataItem(currentElement);
-      if (data) {
-        // eslint-disable-next-line no-console
-        console.log('Add to context:', data);
+      const payload = getAddToChatPayload(currentElement);
+      if (payload && ctx?.port) {
+        ctx.port.postMessage({ type: 'quick-edit-add-to-chat', payload });
       }
       hideOverlay(overlay);
     });

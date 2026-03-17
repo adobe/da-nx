@@ -59,7 +59,7 @@ async function setBody(body, ctx) {
   await ctx.loadPage();
   setupContentEditableListeners(ctx);
   setupImageDropListeners(ctx, document.body.querySelector('main'));
-  setupAddToContext(document.body);
+  setupAddToContext(document.body, ctx);
   setupActions(ctx);
 }
 
