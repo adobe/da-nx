@@ -78,6 +78,9 @@ function handleLoad({ target }) {
     if (e.data.action === 'setHash') {
       window.location.hash = e.data.details;
     }
+    if (e.data.action === 'setHref') {
+      window.location.href = e.data.details;
+    }
   };
 
   const message = {
