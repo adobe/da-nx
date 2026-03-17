@@ -84,22 +84,14 @@ export default class FormModel {
   }
 
   addArrayItem(pointer, items) {
-    if (!items) {
-      // eslint-disable-next-line no-console
-      console.warn('The array schema has no items definition for pointer "%s"', pointer);
-      return;
-    }
+    if (!items) return;
     const array = getValue(this._json, pointer) ?? [];
     const newItem = generateValue(items, true);
     insertBefore(this._json, append(pointer, array.length), newItem);
   }
 
   insertArrayItem(pointer, items) {
-    if (!items) {
-      // eslint-disable-next-line no-console
-      console.warn('The array schema has no items definition for pointer "%s"', pointer);
-      return false;
-    }
+    if (!items) return false;
     const newItem = generateValue(items, true);
     return insertBefore(this._json, pointer, newItem);
   }
