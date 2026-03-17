@@ -52,8 +52,14 @@ class Nav extends HTMLElement {
     const { pathname, search, hash } = window.location;
     const expWorkspacePrefix = '/app/hannessolo/exp-workspace';
     const editPrefix = '/edit';
+    const oldBrowsePath = '/'; // old UI browse is at root
     const isNewUi = pathname.startsWith(expWorkspacePrefix);
-    const showToggle = pathname.startsWith(expWorkspacePrefix) || pathname.startsWith(editPrefix);
+    const isNewUiSpace = pathname.startsWith(`${expWorkspacePrefix}/space`);
+    const isNewUiBrowse = pathname.startsWith(`${expWorkspacePrefix}/browse`);
+    const isOldUiEdit = pathname.startsWith(editPrefix);
+    const isOldUiBrowse = pathname === '/' || pathname === '';
+    const showToggle =
+      pathname.startsWith(expWorkspacePrefix) || pathname.startsWith(editPrefix) || isOldUiBrowse;
     if (!showToggle) return null;
 
     const btn = document.createElement('button');
@@ -75,19 +81,29 @@ class Nav extends HTMLElement {
 
     btn.addEventListener('click', () => {
       const queryAndHash = (search || '') + (hash || '');
-      const goingToEdit = pathname.startsWith(expWorkspacePrefix);
+      const goingToOldUi = isNewUi;
 
       // Animate the switch immediately, then navigate after delay
-      btn.classList.toggle('is-on', !goingToEdit);
-      btn.setAttribute('aria-checked', goingToEdit ? 'false' : 'true');
-      btn.setAttribute('aria-label', goingToEdit ? 'Switch to new UI' : 'Switch to classic UI');
+      btn.classList.toggle('is-on', !goingToOldUi);
+      btn.setAttribute('aria-checked', goingToOldUi ? 'false' : 'true');
+      btn.setAttribute('aria-label', goingToOldUi ? 'Switch to new UI' : 'Switch to classic UI');
       btn.disabled = true;
 
       setTimeout(() => {
-        if (goingToEdit) {
-          window.location.assign(editPrefix + queryAndHash);
+        if (goingToOldUi) {
+          // New UI -> Old UI: space -> edit (only if hash has .html), else -> /; browse -> /
+          if (isNewUiBrowse) {
+            window.location.assign(oldBrowsePath + queryAndHash);
+          } else if (isNewUiSpace) {
+            const hashHasFile = hash && hash.replace(/^#/, '').trim().toLowerCase().endsWith('.html');
+            window.location.assign(hashHasFile ? editPrefix + queryAndHash : oldBrowsePath + queryAndHash);
+          } else {
+            window.location.assign(oldBrowsePath + queryAndHash);
+          }
         } else {
-          window.location.assign(`${expWorkspacePrefix}/space${queryAndHash}`);
+          // Old UI -> New UI: edit -> space, / (browse) -> browse
+          const targetPath = isOldUiEdit ? '/space' : '/browse';
+          window.location.assign(`${expWorkspacePrefix}${targetPath}${queryAndHash}`);
         }
       }, NAV_DELAY_MS);
     });

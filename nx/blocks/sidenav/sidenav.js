@@ -3,6 +3,8 @@ import loadStyle from '../../utils/styles.js';
 import { link2svg } from '../../utils/svg.js';
 
 const HASH_AWARE = ['Home', 'Apps'];
+const NEW_UI_PREFIX = '/app/hannessolo/exp-workspace';
+const NEW_UI_FRAGMENT_PATH = 'https://main--exp-workspace--hannessolo.aem.live/fragments/sidenav';
 
 function getDefaultPath() {
   const { nxBase } = getConfig();
@@ -29,7 +31,10 @@ class SideNav extends HTMLElement {
   }
 
   async fetchNav() {
-    const resp = await fetch(`${this.path}.plain.html`);
+    const path = window.location.pathname.startsWith(NEW_UI_PREFIX)
+      ? NEW_UI_FRAGMENT_PATH
+      : (getMetadata('sidenav-source') || getDefaultPath());
+    const resp = await fetch(`${path}.plain.html`);
     if (!resp.ok) return null;
     const html = await resp.text();
     const doc = new DOMParser().parseFromString(html, 'text/html');
