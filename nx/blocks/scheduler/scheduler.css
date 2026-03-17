@@ -94,7 +94,7 @@ p {
 }
 
 .schedule-row .item-id {
-  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .schedule-row .duration {
@@ -105,7 +105,7 @@ p {
 
 .schedule-row .scheduled-by {
   font-size: 13px;
-  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .schedule-row .meta {
