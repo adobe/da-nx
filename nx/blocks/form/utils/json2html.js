@@ -163,17 +163,26 @@ function getFormBlock(metadata, nestedBlocks) {
 
 function getDataBlock(schemaName, data, nestedBlocks) {
   const dataBlock = createBlock(schemaName);
-  const rows = Object.entries(data).flatMap((entry) => {
-    const [key, value] = entry;
 
-    const valCol = createValueCol(key, value, nestedBlocks);
+  if (Array.isArray(data)) {
+    const valCol = createValueCol(schemaName, data, nestedBlocks);
+    if (valCol) {
+      dataBlock.append(createRow('@items', valCol));
+    }
+  } else {
+    const rows = Object.entries(data).flatMap((entry) => {
+      const [key, value] = entry;
 
-    // Skip if createValueCol returned null (empty array/object)
-    if (!valCol) return [];
+      const valCol = createValueCol(key, value, nestedBlocks);
 
-    return [createRow(key, valCol)];
-  });
-  dataBlock.append(...rows);
+      // Skip if createValueCol returned null (empty array/object)
+      if (!valCol) return [];
+
+      return [createRow(key, valCol)];
+    });
+    dataBlock.append(...rows);
+  }
+
   return dataBlock;
 }
 

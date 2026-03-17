@@ -66,7 +66,12 @@ export default class HTMLConverter {
       // If we are looking for a reference,
       // use the variation, not the block name
       const idx = searchRef ? 1 : 0;
-      if (block.properties.className[idx]?.toLowerCase() === searchTerm.toLowerCase()) {
+      const matches = block.properties.className[idx]?.toLowerCase() === searchTerm.toLowerCase();
+      // Root block has a single class (e.g. "foo"); nested item blocks add a
+      // second class for refs (e.g. "foo foo-abcd"). Both match on className[0],
+      // so we require no second class to pick the root.
+      const isRootBlock = !searchRef && !block.properties.className[1];
+      if (matches && (searchRef || isRootBlock)) {
         const properties = this.getProperties(block);
         // If the block contains only @items, it represents an array
         // Return the array value directly instead of the object wrapper

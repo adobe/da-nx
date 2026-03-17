@@ -384,6 +384,16 @@ describe('Real-world Examples', () => {
     expect(normalizeHtml(generatedHtml)).to.equal(normalizeHtml(expectedHtml));
   });
 
+  it('should convert rootArray.json to HTML', async () => {
+    const jsonContent = await readFile({ path: './mocks/rootArray.json' });
+    const json = JSON.parse(jsonContent);
+
+    const generatedHtml = json2html(json);
+    const expectedHtml = await readFile({ path: './mocks/rootArray.html' });
+
+    expect(normalizeHtml(generatedHtml)).to.equal(normalizeHtml(expectedHtml));
+  });
+
   it('should convert invalidForm.json to HTML', async () => {
     const jsonContent = await readFile({ path: './mocks/invalidForm.json' });
     const json = JSON.parse(jsonContent);

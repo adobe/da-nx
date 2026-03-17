@@ -78,12 +78,11 @@ function resolvePrimitive(node, userValue, fillDefaults) {
 export function resolveValue(node, userValue, fillDefaults = true) {
   if (!node || typeof node !== 'object') return userValue ?? undefined;
 
-  const resolve = resolveValue;
   if (node.type === 'object' && Array.isArray(node.children)) {
-    return resolveObject(node, userValue, fillDefaults, resolve);
+    return resolveObject(node, userValue, fillDefaults, resolveValue);
   }
   if (node.type === 'array' && node.items) {
-    return resolveArray(node, userValue, fillDefaults, resolve);
+    return resolveArray(node, userValue, fillDefaults, resolveValue);
   }
   return resolvePrimitive(node, userValue, fillDefaults);
 }
