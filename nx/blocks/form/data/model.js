@@ -36,7 +36,13 @@ export default class FormModel {
         data: htmlAsJson?.data ?? {},
       };
     } else {
-      const data = htmlAsJson?.data ?? {};
+      let data = htmlAsJson?.data ?? {};
+
+      // TEMPORARY: remove after migration
+      if (html) {
+        data = this.fixRootArraySavedAsObject(data);
+      }
+
       this._dereferencedSchema = dereferencedSchema ?? dereferenceSchema(this._schema);
       this._annotated = annotateFromSchema('data', this._dereferencedSchema, data);
       this._fillDefaults = isEmpty(data);
@@ -45,6 +51,24 @@ export default class FormModel {
         data: resolveValue(this._annotated, data, this._fillDefaults),
       };
     }
+  }
+
+  /**
+   * TEMPORARY FIX: Root array was saved as object in old HTML format
+   * (e.g. { "0": {...}, "1": {...} }). Converts to array when schema expects array.
+   * Remove after customers have loaded and resaved.
+   * @param {object} data - The loaded data
+   * @returns {object|Array} - The data, converted to array if applicable
+   */
+  fixRootArraySavedAsObject(data) {
+    const notArraySchema = this._schema?.type !== 'array';
+    const alreadyArray = Array.isArray(data);
+    const notObject = !data || typeof data !== 'object';
+    if (notArraySchema || alreadyArray || notObject) return data;
+    const keys = Object.keys(data).sort((a, b) => Number(a) - Number(b));
+    const isNumericKeys = keys.length > 0 && keys.every((k, i) => k === String(i));
+    if (!isNumericKeys) return data;
+    return keys.map((k) => data[k]);
   }
 
   clone() {
