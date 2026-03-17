@@ -173,7 +173,7 @@ class NxScheduler extends LitElement {
     this._loadRunId = runId;
     this._isLoading = true;
     this._scheduleEntries = [];
-    this._alert = { type: 'info', message: 'Checking scheduler registration status.' };
+    this._alert = { type: 'info', message: 'Checking scheduler registration.' };
 
     const registration = await checkRegistration(org, site);
     if (this._loadRunId !== runId) return;
@@ -190,7 +190,7 @@ class NxScheduler extends LitElement {
       this._isLoading = false;
       this._alert = {
         type: 'info',
-        message: `${org}/${site} is not registered for snapshot scheduling. Register this site to enable scheduler actions.`,
+        message: `${org}/${site} is not registered for scheduling. Register this site to enable scheduler actions.`,
       };
       return;
     }
@@ -208,7 +208,7 @@ class NxScheduler extends LitElement {
     this._scheduleEntries = schedule.entries;
     const count = schedule.entries.length;
     this._alert = count
-      ? { type: 'success', message: `Loaded ${count} scheduled item${count === 1 ? '' : 's'}.` }
+      ? { type: 'success', message: `Found ${count} scheduled item${count === 1 ? '' : 's'}.` }
       : { type: 'info', message: 'No scheduled pages or snapshots found for this site.' };
   }
 
@@ -275,10 +275,7 @@ class NxScheduler extends LitElement {
     if (!this._isBusy) this.handleRegister();
   }
 
-  handleOpenItem(e) {
-    const idx = parseInt(e.currentTarget.dataset.idx, 10);
-    const entry = this._scheduleEntries[idx];
-    if (!entry) return;
+  handleOpenItem(entry) {
     const url = buildItemLink(this._org, this._site, entry.id, entry.type);
     window.open(url, '_blank');
   }
@@ -296,19 +293,22 @@ class NxScheduler extends LitElement {
     if (!this._org || !this._site) return nothing;
 
     if (this._registered === true) {
+      if (this._isLoading) return nothing;
+
       return html`
         <div class="status-card">
           <div class="status-actions">
             <sl-button class="primary outline" ?disabled=${this._isLoading} @click=${this.handleRefresh}>
-              ${this._isLoading ? 'Loading...' : 'Refresh Schedule'}
+              Refresh schedule
             </sl-button>
           </div>
-          <p class="status-note">Need a new scheduler key? <a href="#" @click=${this.handleReregisterClick}>${this._isBusy ? 'Re-registering...' : 'Re-register'}</a> rotates the publish API key.</p>
         </div>
       `;
     }
 
     const status = this._registered === undefined ? 'Unknown' : 'Not registered';
+
+    if (status === 'Unknown') return nothing;
 
     return html`
       <div class="status-card">
@@ -316,7 +316,7 @@ class NxScheduler extends LitElement {
         <p><b>Status:</b> ${status}</p>
         ${this._registered === false ? html`
           <sl-button ?disabled=${this._isBusy || this._isLoading} @click=${this.handleRegister}>
-            ${this._isBusy ? 'Registering...' : 'Register Site'}
+            ${this._isBusy ? 'Registering...' : 'Register site'}
           </sl-button>
         ` : nothing}
       </div>
@@ -326,24 +326,18 @@ class NxScheduler extends LitElement {
   renderSchedule() {
     if (this._registered !== true) return nothing;
 
-    if (this._isLoading) {
-      return html`<p>Loading schedule…</p>`;
-    }
-
-    if (!this._scheduleEntries?.length) {
-      return html`<p>No scheduled pages or snapshots.</p>`;
-    }
+    if (!this._scheduleEntries?.length) return nothing;
 
     return html`
       <div class="schedule-list">
         <div class="schedule-list-header">
-          <p><b>Type</b></p>
-          <p><b>Item</b></p>
-          <p><b>Publishes At</b></p>
-          <p><b>User</b></p>
-          <p><b>Actions</b></p>
+          <p>Type</p>
+          <p>Item</p>
+          <p>Publishes on</p>
+          <p>Requested by</p>
+          <p>Actions</p>
         </div>
-        ${this._scheduleEntries.map((entry, idx) => html`
+        ${this._scheduleEntries.map((entry) => html`
           <div class="schedule-row">
             <p>${entry.type === 'page' ? 'Page' : 'Snapshot'}</p>
             <p class="item-id">${entry.id}</p>
@@ -353,7 +347,7 @@ class NxScheduler extends LitElement {
             </p>
             <p class="scheduled-by">${entry.userId || '—'}</p>
             <p>
-              <button class="open-btn" data-idx=${idx} @click=${this.handleOpenItem}>Open</button>
+              <sl-button class="primary outline" @click=${() => this.handleOpenItem(entry)}>Open</sl-button>
             </p>
           </div>
         `)}
@@ -375,15 +369,25 @@ class NxScheduler extends LitElement {
     `;
   }
 
+  renderHelp() {
+    if (!this._registered || this._isLoading) return nothing;
+
+    return html`
+      <p class="status-note">Need a new scheduler key? <a href="#" @click=${this.handleReregisterClick}>${this._isBusy ? 'Re-registering...' : 'Re-register'}</a> rotates the publish API key.</p>`;
+  }
+
   render() {
     return html`
-      <nx-path label="Load scheduler" @details=${this.handleDetail}></nx-path>
-      <h1>Schedule Publish</h1>
-      <p>View scheduled pages and snapshots for a site.</p>
+      <nx-path label="Load schedules" @details=${this.handleDetail}></nx-path>
+      <div class="scheduler-header">
+        <h1>Schedule Publish</h1>
+        <p>View scheduled pages and snapshots for a site.</p>
+      </div>
       ${this.renderAlert()}
       ${this.renderStatus()}
       ${this.renderSchedule()}
       ${this.renderApiKey()}
+      ${this.renderHelp()}
     `;
   }
 }
