@@ -17,11 +17,22 @@ function unescapeSegment(segment) {
  * @param {string} pointer - RFC 6901 pointer (e.g. "/data/items/0")
  * @returns {string[]} Unescaped segments (empty for root)
  */
-function parsePointer(pointer) {
+export function parsePointer(pointer) {
   if (!pointer || typeof pointer !== 'string') return [];
   const trimmed = pointer.startsWith('/') ? pointer.slice(1) : pointer;
   if (!trimmed) return [];
   return trimmed.split('/').map(unescapeSegment);
+}
+
+/**
+ * Get parent pointer (pointer without last segment).
+ * @param {string} pointer - RFC 6901 pointer (e.g. "/data/items/0")
+ * @returns {string} Parent pointer (e.g. "/data/items") or empty string for root
+ */
+export function getParentPointer(pointer) {
+  const segments = parsePointer(pointer);
+  if (segments.length <= 1) return '';
+  return `/${segments.slice(0, -1).map((s) => escapeSegment(String(s))).join('/')}`;
 }
 
 /**
@@ -126,4 +137,64 @@ export function removeValue(data, pointer) {
     return true;
   }
   return false;
+}
+
+/**
+ * Move array item before another item, or to end if beforePointer is empty.
+ * @param {Object} data - Root object
+ * @param {string} pointer - RFC 6901 pointer to the item to move
+ * @param {string} [beforePointer] - Pointer to the item before which to insert, or empty for append
+ * @returns {boolean} True if moved
+ */
+export function moveBefore(data, pointer, beforePointer) {
+  const parentPointer = getParentPointer(pointer);
+  const array = getValue(data, parentPointer);
+  if (!parentPointer || !Array.isArray(array)) return false;
+
+  const currentIndex = parseInt(parsePointer(pointer).pop(), 10);
+  if (currentIndex < 0 || currentIndex >= array.length) return false;
+
+  const isEmpty = !beforePointer || !String(beforePointer).trim();
+  let targetIndex;
+  if (isEmpty) {
+    targetIndex = array.length;
+  } else {
+    if (getParentPointer(beforePointer) !== parentPointer) return false;
+    targetIndex = Math.max(0, Math.min(
+      parseInt(parsePointer(beforePointer).pop(), 10),
+      array.length,
+    ));
+  }
+
+  if (currentIndex === targetIndex) return false;
+
+  const [item] = array.splice(currentIndex, 1);
+  array.splice(targetIndex, 0, item);
+  return true;
+}
+
+/**
+ * Insert value before the item at pointer.
+ * @param {Object} data - Root object
+ * @param {string} pointer - RFC 6901 pointer to the item or append position
+ * @param {*} value - Value to insert
+ * @returns {boolean} True if inserted
+ */
+export function insertBefore(data, pointer, value) {
+  const parentPointer = getParentPointer(pointer);
+  if (!parentPointer) return false;
+
+  const segments = parsePointer(pointer);
+  const index = parseInt(segments[segments.length - 1], 10);
+  if (!Number.isInteger(index) || index < 0) return false;
+
+  let array = getValue(data, parentPointer);
+  if (!Array.isArray(array)) {
+    array = [];
+    setValue(data, parentPointer, array);
+  }
+
+  const clampedIndex = Math.max(0, Math.min(index, array.length));
+  array.splice(clampedIndex, 0, value);
+  return true;
 }
