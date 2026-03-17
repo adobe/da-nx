@@ -95,14 +95,33 @@ class NxLocTranslate extends LitElement {
     const defSrcLocation = this._options['source.language']?.location || '/';
 
     // Get the default source once for all langs that use the default location
-    // TODO: In some rare cases (regional sites), it could be unneccessary to always get the default URLs.
-    const { urls } = await getUrls(org, site, service, defSrcLocation, defSrcLocation, this._urls, fetchContent, snapshot);
+    // TODO: In some rare cases (regional sites), it could be unneccessary
+    // to always get the default URLs.
+    const { urls } = await getUrls(
+      org,
+      site,
+      service,
+      defSrcLocation,
+      defSrcLocation,
+      this._urls,
+      fetchContent,
+      snapshot,
+    );
 
     // Check langs for custom source locations
     const langsWithUrls = await Promise.all(langs.map(async (lang) => {
       const langUrl = { ...lang };
       if (lang.source) {
-        const customSources = await getUrls(org, site, service, defSrcLocation, lang.source, this._urls, fetchContent, snapshot);
+        const customSources = await getUrls(
+          org,
+          site,
+          service,
+          defSrcLocation,
+          lang.source,
+          this._urls,
+          fetchContent,
+          snapshot,
+        );
         langUrl.urls = customSources.urls;
       } else {
         langUrl.urls = urls;
@@ -207,17 +226,26 @@ class NxLocTranslate extends LitElement {
   }
 
   async handleCopyAll() {
-    const { urls } = await this.fetchUrls({}, true);
+    const { _copyLangs: langs } = this;
 
-    const errors = urls.filter((url) => url.error);
-    if (errors.length) {
-      this._urlErrors = errors;
-      return;
-    }
+    // langsWithUrls is an in-memory object that contains all URL fetches.
+    const { langsWithUrls, urls } = await this.fetchUrls({}, true, langs);
+
+    langsWithUrls.forEach((lang) => {
+      const errors = lang.urls.filter((url) => url.error);
+      if (errors.length) {
+        // Create an errors array if it doesn't exist
+        this._urlErrors ??= [];
+        this._urlErrors.push(...errors);
+      }
+    });
+
+    // Do not continue if any errors
+    if (this._urlErrors?.length) return;
 
     const { org, site, title, options } = this.project;
 
-    await copySourceLangs(org, site, title, options, this._copyLangs, urls);
+    await copySourceLangs(org, site, title, options, this._copyLangs, urls, langsWithUrls);
     this.handleSaveLangs();
     this.requestUpdate();
   }

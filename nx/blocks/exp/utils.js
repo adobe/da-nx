@@ -280,6 +280,7 @@ export async function getIsAllowed(page) {
     // We only care about 401 & 403. 404s could be net new pages.
     if (res.statusCode === 401 || res.statusCode === 403) return { ok: false };
   } catch (e) {
+    // eslint-disable-next-line no-console
     console.log(e);
   }
 

@@ -52,6 +52,7 @@ input[name="label"] {
   font-size: 14px;
   display: block;
 }
+
 .da-bulk-action-submit {
   display: flex;
   justify-content: end;

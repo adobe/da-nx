@@ -2,7 +2,7 @@ import { LitElement, html, nothing } from '../../../../deps/lit/dist/index.js';
 import { getConfig } from '../../../../scripts/nexter.js';
 import getStyle from '../../../../utils/styles.js';
 import getSvg from '../../../../utils/svg.js';
-import { convertUrl, overwriteCopy, rolloutCopy, formatDate, saveStatus } from '../index.js';
+import { overwriteCopy, rolloutCopy, formatDate, saveStatus } from '../index.js';
 
 const { nxBase } = getConfig();
 const style = await getStyle(import.meta.url);

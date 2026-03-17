@@ -1,5 +1,5 @@
-import { getToken } from './utils.js';
 import { TextSelection, DOMParser as proseDOMParser } from 'da-y-wrapper';
+import { getToken } from './utils.js';
 
 // Helper to get fetch headers with auth
 async function getFetchHeaders() {
@@ -16,11 +16,11 @@ function getBlockTableHtml(block) {
   const classes = block.className.split(' ');
   const name = classes.shift();
   const variants = classes.length > 0 ? classes.join(', ') : '';
-  
+
   const rows = [...block.children];
   const maxCols = rows.reduce((cols, row) => (
     row.children.length > cols ? row.children.length : cols), 0);
-  
+
   const table = document.createElement('table');
   table.setAttribute('border', 1);
   const headerRow = document.createElement('tr');
@@ -31,7 +31,7 @@ function getBlockTableHtml(block) {
 
   headerRow.append(th);
   table.append(headerRow);
-  
+
   rows.forEach((row) => {
     const tr = document.createElement('tr');
     [...row.children].forEach((col) => {
@@ -44,7 +44,7 @@ function getBlockTableHtml(block) {
     });
     table.append(tr);
   });
-  
+
   return table;
 }
 
@@ -54,21 +54,21 @@ async function getBlockVariants(path) {
     const headers = await getFetchHeaders();
     const resp = await fetch(path, { headers });
     if (!resp.ok) return [];
-    
+
     const html = await resp.text();
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
-    
+
     const blocks = [...doc.querySelectorAll('body > div > div, main > div > div')];
-    
+
     return blocks.map((block) => {
       const classes = block.className.split(' ');
       const name = classes.shift();
       const variants = classes.length > 0 ? classes.join(', ') : '';
-      
+
       // Convert div-based block to HTML table
       const table = getBlockTableHtml(block);
-      
+
       return {
         name: name || 'Default',
         variants,
@@ -95,7 +95,7 @@ async function getBlocks(sources) {
         } catch {
           return null;
         }
-      })
+      }),
     );
 
     const blockList = [];
@@ -115,7 +115,7 @@ async function getBlocks(sources) {
 
 export async function handleBlockLibraryRequest(data, ctx) {
   const { requestType, payload, requestId } = data;
-  
+
   try {
     if (requestType === 'get-blocks') {
       const blocks = await getBlocks(payload.sources);
@@ -144,27 +144,27 @@ export async function handleBlockLibraryRequest(data, ctx) {
   }
 }
 
-export function insertBlockAt(data, ctx) {
+export function insertBlockAt(data, _) {
   const { html, proseIndex, position } = data;
-  
+
   if (!window.view) return;
 
   // Parse the HTML string into a document
   const doc = new DOMParser().parseFromString(html, 'text/html');
-  
+
   // Extract the actual content from the body (same as da-library's parseDom)
   // Get the first child element from the body (usually a table or div)
   const blockElement = doc.body.firstElementChild;
-  
+
   if (!blockElement) return;
-  
+
   // Parse the DOM element into ProseMirror nodes
   const nodes = proseDOMParser.fromSchema(window.view.state.schema).parse(blockElement);
 
   // Calculate insertion position
   let insertPos;
   const pos = window.view.state.doc.resolve(proseIndex);
-  
+
   if (position === 'before') {
     // Insert before the element
     insertPos = pos.before(pos.depth);
@@ -174,7 +174,7 @@ export function insertBlockAt(data, ctx) {
   }
 
   // Create transaction and insert the content
-  const tr = window.view.state.tr;
+  const { tr } = window.view.state;
   tr.insert(insertPos, nodes.content);
 
   // Update selection to after the inserted content
@@ -185,43 +185,43 @@ export function insertBlockAt(data, ctx) {
   window.view.dispatch(tr.scrollIntoView());
 }
 
-export function deleteBlockAt(data, ctx) {
+export function deleteBlockAt(data, _) {
   const { proseIndex } = data;
-  
+
   if (!window.view) return;
 
   const { tr, doc } = window.view.state;
-  
+
   try {
     // Resolve the position to get a resolved position object
     const $pos = doc.resolve(proseIndex);
-    
+
     // Find the table node by traversing up the tree
     // Blocks are represented as tables, so we need to find the table ancestor
     let tableDepth = null;
-    for (let depth = $pos.depth; depth > 0; depth--) {
+    for (let { depth } = $pos; depth > 0; depth -= 1) {
       const node = $pos.node(depth);
       if (node.type.name === 'table') {
         tableDepth = depth;
         break;
       }
     }
-    
+
     if (tableDepth === null) {
       console.warn('No table found at position', proseIndex);
       return;
     }
-    
+
     // Get the table node and its position
     const tableNode = $pos.node(tableDepth);
     const from = $pos.before(tableDepth);
     const to = from + tableNode.nodeSize;
-    
+
     console.log(`Deleting table from ${from} to ${to} (size: ${tableNode.nodeSize})`);
-    
+
     // Delete the entire table
     tr.delete(from, to);
-    
+
     // Dispatch the transaction
     window.view.dispatch(tr.scrollIntoView());
   } catch (error) {
@@ -229,72 +229,72 @@ export function deleteBlockAt(data, ctx) {
   }
 }
 
-export function moveBlockAt(data, ctx) {
+export function moveBlockAt(data, _) {
   const { fromIndex, toIndex } = data;
-  
+
   if (!window.view) return;
 
-  const { tr, doc, schema } = window.view.state;
-  
+  const { tr, doc } = window.view.state;
+
   try {
     // Resolve the from position
     const $fromPos = doc.resolve(fromIndex);
-    
+
     // Find the table node at fromIndex
     let fromTableDepth = null;
-    for (let depth = $fromPos.depth; depth > 0; depth--) {
+    for (let { depth } = $fromPos; depth > 0; depth -= 1) {
       const node = $fromPos.node(depth);
       if (node.type.name === 'table') {
         fromTableDepth = depth;
         break;
       }
     }
-    
+
     if (fromTableDepth === null) {
       console.warn('No table found at fromIndex', fromIndex);
       return;
     }
-    
+
     // Get the table node and its position
     const tableNode = $fromPos.node(fromTableDepth);
     const fromStart = $fromPos.before(fromTableDepth);
     const fromEnd = fromStart + tableNode.nodeSize;
-    
+
     // Resolve the to position
     const $toPos = doc.resolve(toIndex);
-    
+
     // Find the table node at toIndex
     let toTableDepth = null;
-    for (let depth = $toPos.depth; depth > 0; depth--) {
+    for (let { depth } = $toPos; depth > 0; depth -= 1) {
       const node = $toPos.node(depth);
       if (node.type.name === 'table') {
         toTableDepth = depth;
         break;
       }
     }
-    
+
     if (toTableDepth === null) {
       console.warn('No table found at toIndex', toIndex);
       return;
     }
-    
+
     // Get the target position (before the target table)
     const toStart = $toPos.before(toTableDepth);
-    
+
     console.log(`Moving block from ${fromStart}-${fromEnd} to ${toStart}`);
-    
+
     // Delete from the original position first
     tr.delete(fromStart, fromEnd);
-    
+
     // Recalculate the insertion position if the target is after the deleted block
     let insertPos = toStart;
     if (toStart > fromStart) {
       insertPos = toStart - tableNode.nodeSize;
     }
-    
+
     // Insert at the new position
     tr.insert(insertPos, tableNode);
-    
+
     // Dispatch the transaction
     window.view.dispatch(tr.scrollIntoView());
   } catch (error) {

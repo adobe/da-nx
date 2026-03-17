@@ -49,11 +49,11 @@ function createDropTargets() {
 }
 
 function removeDropTargets(dropTargets) {
-  dropTargets.forEach(target => target.remove());
+  dropTargets.forEach((target) => target.remove());
 }
 
 function setupDropTargetHandlers(dropTargets, blockHtml, ctx) {
-  dropTargets.forEach(target => {
+  dropTargets.forEach((target) => {
     target.addEventListener('dragover', (e) => {
       e.preventDefault();
       e.dataTransfer.dropEffect = 'copy';
@@ -67,8 +67,8 @@ function setupDropTargetHandlers(dropTargets, blockHtml, ctx) {
     target.addEventListener('drop', (e) => {
       e.preventDefault();
       const proseIndex = parseInt(target.dataset.proseIndex, 10);
-      const position = target.dataset.position;
-      
+      const { position } = target.dataset;
+
       ctx.port.postMessage({
         type: 'insert-block-at',
         html: blockHtml,
@@ -87,11 +87,11 @@ export default function setupAdvancedMode(ctx) {
 
   // Create sidebar
   const sidebar = document.createElement('quick-edit-sidebar');
-  
+
   // Set properties on sidebar
   sidebar.config = ctx.config;
   sidebar.messagePort = ctx.port;
-  
+
   // Handle block drag start
   sidebar.addEventListener('block-drag-start', (e) => {
     currentBlockHtml = e.detail.html;
@@ -111,6 +111,6 @@ export default function setupAdvancedMode(ctx) {
     const { html } = e.detail;
     ctx.port.postMessage({ type: 'insert-block', html });
   });
-  
+
   document.body.appendChild(sidebar);
 }

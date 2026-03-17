@@ -175,6 +175,7 @@ ul {
     border: none;
     background: transparent;
 
+    /* stylelint-disable-next-line no-descending-specificity */
     &::after {
       display: none;
     }

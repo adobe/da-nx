@@ -79,7 +79,9 @@ export async function publishPages(pages) {
         nextUrl.inProgress = true;
         queue.push(nextUrl);
       } else {
+        // eslint-disable-next-line no-console
         console.log('out');
+        // eslint-disable-next-line no-console
         console.log(pages);
         const finished = pages.every((url) => url.status);
         if (finished) {

@@ -4,6 +4,7 @@ import { daFetch } from '../nx/utils/daFetch.js';
 async function run(urls) {
   const uiUpdater = async (url) => {
     const resp = await daFetch(url);
+    // eslint-disable-next-line no-console
     console.log(resp.ok);
   };
 

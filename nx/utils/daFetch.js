@@ -40,31 +40,41 @@ export const daFetch = async (url, opts = {}) => {
   return resp;
 };
 
-export function replaceHtml(text, fromOrg, fromRepo, { daMetadataEl = null } = {}) {
+export function replaceHtml(text, fromOrg, fromRepo, options = {}) {
+  const { daMetadata = {}, replaceRelative = true } = options;
   let inner = text;
-  if (fromOrg && fromRepo) {
+
+  if (fromOrg && fromRepo && replaceRelative) {
     const fromOrigin = `https://main--${fromRepo}--${fromOrg}.aem.live`;
     inner = text
       .replaceAll('./media', `${fromOrigin}/media`)
       .replaceAll('href="/', `href="${fromOrigin}/`);
   }
 
+  let metadataHTML = '';
+  if (Object.keys(daMetadata).length > 0) {
+    const daRows = Object.entries(daMetadata)
+      .map(([key, value]) => `<div><div>${key}</div><div>${value}</div></div>`)
+      .join('');
+    metadataHTML = `\n  <div class="da-metadata">${daRows}</div>\n`;
+  }
+
   return `
     <body>
       <header></header>
       <main>${inner}</main>
-      ${daMetadataEl ? `<div class="da-metadata">${daMetadataEl.innerHTML}</div>` : ''}
-      <footer></footer>
+      ${metadataHTML}<footer></footer>
     </body>
   `;
 }
 
-export async function saveToDa(text, url, { daMetadataEl = null } = {}) {
-  const daPath = `/${url.org}/${url.repo}${url.pathname}`;
+export async function saveToDa(text, url, options = {}) {
+  const { daMetadata = {}, replaceRelative = true } = options;
+  const { org, repo, pathname } = url;
+  const daPath = `/${org}/${repo}${pathname}`;
   const daHref = `https://da.live/edit#${daPath}`;
-  const { org, repo } = url;
 
-  const body = replaceHtml(text, org, repo, { daMetadataEl });
+  const body = replaceHtml(text, org, repo, { daMetadata, replaceRelative });
 
   const blob = new Blob([body], { type: 'text/html' });
   const formData = new FormData();
@@ -74,6 +84,7 @@ export async function saveToDa(text, url, { daMetadataEl = null } = {}) {
     const daResp = await daFetch(`${DA_ORIGIN}/source${daPath}.html`, opts);
     return { daHref, daStatus: daResp.status, daResp, ok: daResp.ok };
   } catch {
+    // eslint-disable-next-line no-console
     console.log(`Couldn't save ${url.daUrl}`);
     return null;
   }
@@ -103,6 +114,7 @@ export async function saveAllToDa(url, content) {
     const resp = await daFetch(`${DA_ORIGIN}/source/${toOrg}/${toRepo}${destPath}`, opts);
     return resp.status;
   } catch {
+    // eslint-disable-next-line no-console
     console.log(`Couldn't save ${destPath}`);
     return 500;
   }

@@ -1,7 +1,7 @@
 import { DA_ORIGIN } from '../../../../public/utils/constants.js';
 import { Queue } from '../../../../public/utils/tree.js';
 import { daFetch } from '../../../../utils/daFetch.js';
-import { convertPath, createSnapshotPrefix, fetchConfig, formatPath } from '../../utils/utils.js';
+import { convertPath, createSnapshotPrefix, fetchConfig } from '../../utils/utils.js';
 import { mergeCopy, overwriteCopy } from '../../project/index.js';
 
 let CONNECTOR;
@@ -12,7 +12,16 @@ export async function setupConnector(service) {
   return CONNECTOR;
 }
 
-export async function getUrls(org, site, service, sourceLocation, destLocation, urls, fetchContent, snapshot) {
+export async function getUrls(
+  org,
+  site,
+  service,
+  sourceLocation,
+  destLocation,
+  urls,
+  fetchContent,
+  snapshot,
+) {
   const { connector } = service;
   const snapshotPrefix = createSnapshotPrefix(snapshot);
 
@@ -96,7 +105,7 @@ async function saveLang({
     return { ...url, destination: `/${org}/${site}${daDestPath}` };
   });
 
-  const saveToDa = async (url) => {
+  const saveFn = async (url) => {
     const overwrite = behavior === 'overwrite' || url.hasExt || url.ext !== 'html';
     const copyFn = overwrite ? overwriteCopy : mergeCopy;
     await copyFn(url, title);
@@ -111,7 +120,7 @@ async function saveLang({
     lang,
     langIndex,
     urls: urlsToSave,
-    saveToDa,
+    saveFn,
   });
 
   const savedCount = saved.filter((url) => url.status === 'success').length;
@@ -133,12 +142,12 @@ export async function saveLangItemsToDa(options, conf, connector, sendMessage) {
   }
 }
 
-export async function copySourceLangs(org, site, title, options, langs, urls) {
+export async function copySourceLangs(org, site, title, options, langs, urls, langsWithUrls) {
   const behavior = options['copy.conflict.behavior'];
   const sourceLocation = options['source.language']?.location || '/';
 
   const copyUrl = async ({ lang, url }) => {
-    const destination = `/${org}/${site}${url.langPath.replace(sourceLocation, lang.location)}`;
+    const destination = `/${org}/${site}${url.daDestPath.replace(sourceLocation, lang.location)}`;
 
     // If has an ext (sheet), force overwrite
     const overwrite = behavior === 'overwrite' || url.hasExt;
@@ -148,16 +157,26 @@ export async function copySourceLangs(org, site, title, options, langs, urls) {
     url.status = resp.status;
   };
 
-  for (const lang of langs) {
+  for (const [idx, lang] of langs.entries()) {
     const queue = new Queue(copyUrl, 50);
 
-    const formatted = urls.map((url) => ({
-      ...url,
-      ...formatPath(org, site, sourceLocation, url.suppliedPath),
-    }));
+    // Find the URLs from the lang that has the URLs (custom source URLs)
+    const langUrls = langsWithUrls[idx].urls.map((url) => {
+      const conf = {
+        path: url.suppliedPath,
+        sourcePrefix: sourceLocation,
+        destPrefix: lang.location,
+      };
+      const converted = convertPath(conf);
+      return {
+        ...url,
+        ...converted,
+        code: lang.code,
+      };
+    });
 
-    await Promise.allSettled(formatted.map((url) => queue.push({ lang, url })));
-    const success = formatted.filter((url) => url.status === 200).length;
+    await Promise.allSettled(langUrls.map((url) => queue.push({ lang, url })));
+    const success = langUrls.filter((url) => url.status === 200).length;
     lang.copy = {
       saved: success,
       status: 'complete',
@@ -201,7 +220,15 @@ async function sendLanguageForTranslation(conf, connector, lang, originalUrls, s
     };
   });
   const { org, site } = conf;
-  const { urls } = await getUrls(org, site, { connector }, newSourceLocation, newSourceLocation, baseUrls, true);
+  const { urls } = await getUrls(
+    org,
+    site,
+    { connector },
+    newSourceLocation,
+    newSourceLocation,
+    baseUrls,
+    true,
+  );
   lang.translation.status = 'not started';
   delete lang.waitingFor;
   return connector.sendAllLanguages({

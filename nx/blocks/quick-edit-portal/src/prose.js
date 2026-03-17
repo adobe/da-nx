@@ -9,7 +9,7 @@ import {
   yCursorPlugin,
   yUndoPlugin,
 } from 'da-y-wrapper';
-import { getSchema } from 'https://da.live/blocks/edit/prose/schema.js';
+import { getSchema } from 'https://da.live/deps/da-parser/dist/index.js';
 import { COLLAB_ORIGIN, DA_ORIGIN } from 'https://da.live/blocks/shared/constants.js';
 import { findChangedNodes, generateColor, findCommonEditableAncestor } from './utils.js';
 
@@ -119,6 +119,5 @@ export default function initProse({ path, permissions, rerenderPage, updateCurso
     editable() { return canWrite; },
   });
 
-  return { proseEl: editor, wsProvider, view };
+  return { proseEl: editor, wsProvider, view: window.view };
 }
-

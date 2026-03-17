@@ -121,8 +121,6 @@
   margin-bottom: 0;
 }
 
-
-
 @media (width > 600px) {
   .section.grid-2 .nx-section-container {
     grid-template-columns: repeat(2, 1fr);

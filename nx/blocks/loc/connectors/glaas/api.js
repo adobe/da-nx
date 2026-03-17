@@ -1,7 +1,9 @@
 import makeBatches from '../../../../public/utils/batch.js';
 
 async function throttle(ms = 500) {
-  return new Promise((resolve) => { setTimeout(() => { resolve(); }, ms); });
+  return new Promise((resolve) => {
+    setTimeout(() => { resolve(); }, ms);
+  });
 }
 
 function getOpts(clientid, token, body, contentType, method = 'GET') {
@@ -117,11 +119,23 @@ export async function addAssets({
         assetName: glaasFilename,
         assetType: 'SOURCE',
         targetLocales,
-        metadata: { 'source-preview-url': item.aemHref.replace(/\/index$/, '/') },
       };
 
       // GLaaS v1.2
       body.append('file', file, glaasFilename);
+
+      const assetMetadata = {
+        assetName: glaasFilename,
+        metadata: { 'source-preview-url': item.aemHref.replace(/\/index$/, '/') },
+        // GLaaS backward compatibility issue for WS (En-GB) - hence adding here as well.
+        assetType: 'SOURCE',
+        targetLocales,
+        ...(item.translationMetadata && { langMetadata: item.translationMetadata }),
+      };
+      body.append('_asset_metadata_', new Blob(
+        [JSON.stringify(assetMetadata)],
+        { type: 'application/json' },
+      ));
 
       const opts = getOpts(clientid, token, body, null, 'POST');
       // Add fileDetails parameter for GLaaS v1.2

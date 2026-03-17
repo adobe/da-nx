@@ -140,7 +140,10 @@ export async function copyManifest(name, resources, direction) {
   // The action to take
   const copyUrl = async (url) => {
     if (url.source.endsWith('.html')) {
-      await mergeCopy(url, `Snapshot ${direction}`);
+      const labels = (direction === 'fork')
+        ? { labelLocal: 'Snapshot', labelUpstream: 'Main' }
+        : { labelLocal: 'Main', labelUpstream: 'Snapshot' };
+      await mergeCopy(url, `Snapshot ${direction}`, labels);
     } else {
       await overwriteCopy(url, `Snapshot ${direction}`);
     }
@@ -162,6 +165,7 @@ export async function copyManifest(name, resources, direction) {
 
       acc.push(url);
     } catch {
+      // eslint-disable-next-line no-console
       console.log('error making url from manifest path');
     }
     return acc;
@@ -201,6 +205,7 @@ export async function getUserPublishPermission(path = '/') {
     // Check if 'write' is in the live.permissions array - this indicates publish permission
     return json.live?.permissions?.includes('write') || false;
   } catch (error) {
+    // eslint-disable-next-line no-console
     console.error('Error checking user publish permission', error);
     return false;
   }
@@ -212,6 +217,7 @@ export async function isRegistered() {
     const resp = await daFetch(adminURL);
     return resp.status === 200;
   } catch (error) {
+    // eslint-disable-next-line no-console
     console.error('Error checking if registered for snapshot scheduler', error);
     return false;
   }

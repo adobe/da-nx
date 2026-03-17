@@ -46,7 +46,7 @@ class QuickEditSidebar extends LitElement {
 
   handleToggleLibrary() {
     this._libraryOpen = !this._libraryOpen;
-    
+
     if (this._libraryOpen) {
       this.createLibrary();
     } else {
@@ -58,7 +58,7 @@ class QuickEditSidebar extends LitElement {
     if (this.library) return;
 
     this.library = document.createElement('quick-edit-library');
-    
+
     // Handle block drag start - bubble up to parent
     this.library.addEventListener('block-drag-start', (e) => {
       this.dispatchEvent(new CustomEvent('block-drag-start', {
@@ -85,7 +85,7 @@ class QuickEditSidebar extends LitElement {
         composed: true,
       }));
     });
-    
+
     // Handle library close
     this.library.addEventListener('close', () => {
       this.removeLibrary();
@@ -95,7 +95,7 @@ class QuickEditSidebar extends LitElement {
     // Set properties on the component
     this.library.config = this.config;
     this.library.messagePort = this.messagePort;
-    
+
     document.body.appendChild(this.library);
   }
 
@@ -108,7 +108,7 @@ class QuickEditSidebar extends LitElement {
 
   handleToggleOutline() {
     this._outlineOpen = !this._outlineOpen;
-    
+
     if (this._outlineOpen) {
       this.createOutline();
     } else {
@@ -121,13 +121,13 @@ class QuickEditSidebar extends LitElement {
 
     this.outline = document.createElement('quick-edit-outline');
     this.outline.messagePort = this.messagePort;
-    
+
     // Handle outline close
     this.outline.addEventListener('close', () => {
       this.removeOutline();
       this._outlineOpen = false;
     });
-    
+
     document.body.appendChild(this.outline);
   }
 

@@ -14,7 +14,7 @@
   align-items: center;
   background: white;
   border-radius: 8px 0 0 8px;
-  box-shadow: -2px 0 8px rgba(0, 0, 0, 0.1);
+  box-shadow: -2px 0 8px rgb(0 0 0 / 10%);
   padding: 8px;
 }
 

@@ -1,4 +1,3 @@
-/* eslint-disable max-len */
 import { expect } from '@esm-bundle/chai';
 import { Queue, crawl } from '../../nx/public/utils/tree.js';
 
@@ -147,7 +146,7 @@ describe('Queue', () => {
   it('Respects maxConcurrent limit', async () => {
     let activeCount = 0;
     let maxActive = 0;
-    const callback = async (item) => {
+    const callback = async () => {
       activeCount += 1;
       maxActive = Math.max(maxActive, activeCount);
       await new Promise((resolve) => { setTimeout(resolve, 50); });
@@ -188,7 +187,7 @@ describe('Queue', () => {
 
   it('Applies throttle delay between items', async () => {
     const timestamps = [];
-    const callback = async (item) => {
+    const callback = async () => {
       timestamps.push(Date.now());
     };
     const queue = new Queue(callback, 1, null, 100);
@@ -297,7 +296,7 @@ describe('getChildren (via crawl)', () => {
   });
 
   it('Handles failed fetch gracefully', async () => {
-    window.fetch = async (url) => ({
+    window.fetch = async () => ({
       ok: false,
       status: 404,
       headers: { get: () => null },
@@ -313,6 +312,40 @@ describe('getChildren (via crawl)', () => {
     const files = await results;
     expect(files.length).to.equal(0);
   });
+
+  it('Batches list results using da-continuation-token when >1000 children', async () => {
+    const page1 = [
+      { path: '/big/file1.html', name: 'file1', ext: 'html', lastModified: 1753691701858 },
+    ];
+    const page2 = [
+      { path: '/big/file2.json', name: 'file2', ext: 'json', lastModified: 1762282196814 },
+    ];
+    let callCount = 0;
+    window.fetch = async (url, opts = {}) => {
+      callCount += 1;
+      const hasToken = opts.headers?.['da-continuation-token'];
+      const json = hasToken ? page2 : page1;
+      const nextToken = hasToken ? null : 'token-page2';
+      return {
+        ok: true,
+        json: async () => json,
+        headers: { get: (name) => (name === 'da-continuation-token' ? nextToken : null) },
+      };
+    };
+
+    const { results } = crawl({
+      path: '/big',
+      callback: null,
+      concurrent: 10,
+      throttle: 10,
+    });
+
+    const files = await results;
+    expect(callCount).to.equal(2);
+    expect(files.length).to.equal(2);
+    expect(files.some((f) => f.name === 'file1')).to.equal(true);
+    expect(files.some((f) => f.name === 'file2')).to.equal(true);
+  });
 });
 
 describe('crawl', () => {
@@ -327,7 +360,7 @@ describe('crawl', () => {
   });
 
   it('Crawls single folder with only files', async () => {
-    window.fetch = async (url) => ({
+    window.fetch = async () => ({
       ok: true,
       json: async () => mockFilesOnlyResponse,
       headers: { get: () => null },
@@ -349,12 +382,24 @@ describe('crawl', () => {
   it('Crawls nested folders recursively', async () => {
     window.fetch = async (url) => {
       if (url.includes('/test/nested/subfolder')) {
-        return { ok: true, json: async () => mockNestedFolder2Response, headers: { get: () => null } };
+        return {
+          ok: true,
+          json: async () => mockNestedFolder2Response,
+          headers: { get: () => null },
+        };
       }
       if (url.includes('/test/nested')) {
-        return { ok: true, json: async () => mockNestedFolder1Response, headers: { get: () => null } };
+        return {
+          ok: true,
+          json: async () => mockNestedFolder1Response,
+          headers: { get: () => null },
+        };
       }
-      return { ok: true, json: async () => [{ path: '/test/nested', name: 'nested' }], headers: { get: () => null } };
+      return {
+        ok: true,
+        json: async () => [{ path: '/test/nested', name: 'nested' }],
+        headers: { get: () => null },
+      };
     };
 
     const { results } = crawl({
@@ -389,7 +434,7 @@ describe('crawl', () => {
   });
 
   it('Executes callback for each file', async () => {
-    window.fetch = async (url) => ({
+    window.fetch = async () => ({
       ok: true,
       json: async () => mockFilesOnlyResponse,
       headers: { get: () => null },
@@ -412,7 +457,7 @@ describe('crawl', () => {
   });
 
   it('Captures callback errors', async () => {
-    window.fetch = async (url) => ({
+    window.fetch = async () => ({
       ok: true,
       json: async () => mockFilesOnlyResponse,
       headers: { get: () => null },
@@ -462,7 +507,7 @@ describe('crawl', () => {
   });
 
   it('Tracks duration correctly', async () => {
-    window.fetch = async (url) => ({
+    window.fetch = async () => ({
       ok: true,
       json: async () => mockFilesOnlyResponse,
       headers: { get: () => null },
@@ -485,7 +530,7 @@ describe('crawl', () => {
   });
 
   it('Works without callback', async () => {
-    window.fetch = async (url) => ({
+    window.fetch = async () => ({
       ok: true,
       json: async () => mockFilesOnlyResponse,
       headers: { get: () => null },
@@ -507,7 +552,7 @@ describe('crawl', () => {
     let secondFetchTime;
     let fetchCount = 0;
 
-    window.fetch = async (url) => {
+    window.fetch = async () => {
       fetchCount += 1;
       if (fetchCount === 1) {
         firstFetchTime = Date.now();
@@ -536,12 +581,24 @@ describe('crawl', () => {
   it('Resolves results promise with all files', async () => {
     window.fetch = async (url) => {
       if (url.includes('/test/nested/subfolder')) {
-        return { ok: true, json: async () => mockNestedFolder2Response, headers: { get: () => null } };
+        return {
+          ok: true,
+          json: async () => mockNestedFolder2Response,
+          headers: { get: () => null },
+        };
       }
       if (url.includes('/test/nested')) {
-        return { ok: true, json: async () => mockNestedFolder1Response, headers: { get: () => null } };
+        return {
+          ok: true,
+          json: async () => mockNestedFolder1Response,
+          headers: { get: () => null },
+        };
       }
-      return { ok: true, json: async () => [{ path: '/test/nested', name: 'nested' }], headers: { get: () => null } };
+      return {
+        ok: true,
+        json: async () => [{ path: '/test/nested', name: 'nested' }],
+        headers: { get: () => null },
+      };
     };
 
     const { results } = crawl({
@@ -615,5 +672,109 @@ describe('crawl', () => {
     expect(files.some((f) => f.name === 'deep1')).to.equal(true);
     expect(files.some((f) => f.name === 'file2')).to.equal(true);
     expect(files.some((f) => f.name === 'deep2')).to.equal(true);
+  });
+
+  it('Includes initial files in results without crawling', async () => {
+    // eslint-disable-next-line no-unused-vars
+    window.fetch = async (url) => ({
+      ok: true,
+      json: async () => [],
+      headers: { get: () => null },
+    });
+
+    const initialFiles = [
+      { path: '/custom/file1.html', name: 'file1', ext: 'html', lastModified: 123456789 },
+      { path: '/custom/file2.json', name: 'file2', ext: 'json', lastModified: 987654321 },
+    ];
+
+    const { results } = crawl({
+      path: '/empty',
+      files: initialFiles,
+      callback: null,
+      concurrent: 10,
+      throttle: 10,
+    });
+
+    const files = await results;
+    expect(files.length).to.equal(2);
+    expect(files.some((f) => f.name === 'file1' && f.path === '/custom/file1.html')).to.equal(true);
+    expect(files.some((f) => f.name === 'file2' && f.path === '/custom/file2.json')).to.equal(true);
+  });
+
+  it('Includes initial files and crawled files together', async () => {
+    window.fetch = async (url) => ({
+      ok: true,
+      json: async () => (url.includes('/folder') ? mockFilesOnlyResponse : []),
+      headers: { get: () => null },
+    });
+
+    const initialFiles = [
+      { path: '/custom/custom1.html', name: 'custom1', ext: 'html', lastModified: 123456789 },
+    ];
+
+    const { results } = crawl({
+      path: '/folder',
+      files: initialFiles,
+      callback: null,
+      concurrent: 10,
+      throttle: 10,
+    });
+
+    const files = await results;
+    expect(files.length).to.equal(3);
+    expect(files.some((f) => f.name === 'custom1')).to.equal(true);
+    expect(files.some((f) => f.name === 'file1')).to.equal(true);
+    expect(files.some((f) => f.name === 'file2')).to.equal(true);
+  });
+
+  it('Executes callback for initial files', async () => {
+    // eslint-disable-next-line no-unused-vars
+    window.fetch = async (url) => ({
+      ok: true,
+      json: async () => [],
+      headers: { get: () => null },
+    });
+
+    const initialFiles = [
+      { path: '/custom/file1.html', name: 'file1', ext: 'html', lastModified: 123456789 },
+      { path: '/custom/file2.json', name: 'file2', ext: 'json', lastModified: 987654321 },
+    ];
+
+    const callbackResults = [];
+    const callback = async (file) => {
+      callbackResults.push(file.name);
+    };
+
+    const { results } = crawl({
+      path: '/empty',
+      files: initialFiles,
+      callback,
+      concurrent: 10,
+      throttle: 10,
+    });
+
+    await results;
+    expect(callbackResults).to.include('file1');
+    expect(callbackResults).to.include('file2');
+    expect(callbackResults.length).to.equal(2);
+  });
+
+  it('Works without initial files parameter (backward compatibility)', async () => {
+    // eslint-disable-next-line no-unused-vars
+    window.fetch = async (url) => ({
+      ok: true,
+      json: async () => mockFilesOnlyResponse,
+      headers: { get: () => null },
+    });
+
+    const { results } = crawl({
+      path: '/test',
+      callback: null,
+      concurrent: 10,
+      throttle: 10,
+    });
+
+    const files = await results;
+    expect(files.length).to.equal(2);
   });
 });

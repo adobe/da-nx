@@ -1,6 +1,6 @@
 import { LitElement, html } from 'da-lit';
 
-const style = await fetch(new URL('./quick-edit-outline.css', import.meta.url)).then(res => res.text());
+const style = await fetch(new URL('./quick-edit-outline.css', import.meta.url)).then((res) => res.text());
 
 export class QuickEditOutline extends LitElement {
   static properties = {
@@ -48,15 +48,11 @@ export class QuickEditOutline extends LitElement {
   getBlockType(element) {
     // Try to find block type from class names
     const classes = Array.from(element.classList);
-    
+
     // Look for common block patterns
     for (const className of classes) {
       // Skip utility classes
-      if (className === 'tableWrapper' || className === 'block') {
-        continue;
-      }
-      // Return the first meaningful class name
-      if (className) {
+      if (className !== 'tableWrapper' && className !== 'block' && className) {
         return className;
       }
     }
@@ -68,7 +64,7 @@ export class QuickEditOutline extends LitElement {
   handleBlockClick(block) {
     // Scroll to the block
     block.element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    
+
     // Highlight the block briefly
     block.element.style.outline = '2px solid #1473e6';
     setTimeout(() => {
@@ -81,7 +77,7 @@ export class QuickEditOutline extends LitElement {
     if (confirm(`Delete block "${block.blockType}"?`)) {
       this.messagePort.postMessage({
         type: 'delete-block-at',
-        proseIndex: parseInt(block.proseIndex, 10)
+        proseIndex: parseInt(block.proseIndex, 10),
       });
     }
   }
@@ -102,7 +98,7 @@ export class QuickEditOutline extends LitElement {
     e.preventDefault();
     e.stopPropagation();
     e.dataTransfer.dropEffect = 'move';
-    
+
     // Add the drag-over class to the current target
     const item = e.currentTarget;
     if (item.classList.contains('qe-outline-item') && !item.classList.contains('qe-outline-item-drag-over')) {
@@ -118,8 +114,8 @@ export class QuickEditOutline extends LitElement {
   handleDragLeave(e) {
     e.stopPropagation();
     const item = e.currentTarget;
-    const relatedTarget = e.relatedTarget;
-    
+    const { relatedTarget } = e;
+
     // Only remove the class if we're actually leaving the item (not entering a child)
     if (item.classList.contains('qe-outline-item') && !item.contains(relatedTarget)) {
       item.classList.remove('qe-outline-item-drag-over');
@@ -129,10 +125,10 @@ export class QuickEditOutline extends LitElement {
   handleDrop(targetBlock, e) {
     e.preventDefault();
     e.stopPropagation();
-    
+
     // Remove drag-over class from all items
     const allItems = this.shadowRoot.querySelectorAll('.qe-outline-item');
-    allItems.forEach(item => item.classList.remove('qe-outline-item-drag-over'));
+    allItems.forEach((item) => item.classList.remove('qe-outline-item-drag-over'));
 
     if (!this._draggedBlock || this._draggedBlock === targetBlock) {
       return;
@@ -142,7 +138,7 @@ export class QuickEditOutline extends LitElement {
     this.messagePort.postMessage({
       type: 'move-block',
       fromIndex: parseInt(this._draggedBlock.proseIndex, 10),
-      toIndex: parseInt(targetBlock.proseIndex, 10)
+      toIndex: parseInt(targetBlock.proseIndex, 10),
     });
   }
 
@@ -155,7 +151,10 @@ export class QuickEditOutline extends LitElement {
       const handle = this.shadowRoot.querySelector('.qe-outline-header');
       if (!handle) return;
 
-      let pos1 = 0; let pos2 = 0; let pos3 = 0; let pos4 = 0;
+      let pos1 = 0;
+      let pos2 = 0;
+      let pos3 = 0;
+      let pos4 = 0;
 
       const closeDragElement = () => {
         document.onmouseup = null;

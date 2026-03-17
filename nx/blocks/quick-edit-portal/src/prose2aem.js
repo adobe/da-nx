@@ -1,4 +1,5 @@
-import { default as prose2aem } from "https://da.live/blocks/shared/prose2aem.js";
+/* eslint-disable import/prefer-default-export */
+import prose2aem from 'https://da.live/blocks/shared/prose2aem.js';
 
 const EDITABLES = [
   { selector: 'h1', nodeName: 'H1' },
@@ -55,14 +56,14 @@ export function getInstrumentedHTML(view) {
     // Find the highest-level ancestor with data-prose-index attribute
     let highestEditable = null;
     let current = remoteCursor.parentElement;
-    
+
     while (current) {
       if (current.hasAttribute('data-prose-index')) {
         highestEditable = current;
       }
       current = current.parentElement;
     }
-    
+
     if (highestEditable) {
       highestEditable.setAttribute('data-cursor-remote', remoteCursor.innerText);
       highestEditable.setAttribute('data-cursor-remote-color', remoteCursor.style['border-color']);
@@ -75,7 +76,7 @@ export function getInstrumentedHTML(view) {
   let htmlString = prose2aem(editorClone, true);
   htmlString = htmlString.replace(
     /<div class="block-marker" data-prose-index="(\d+)"><\/div>\s*<div([^>]*?)>/gi,
-    (match, proseIndex, divAttributes) => `<div${divAttributes} data-block-index="${proseIndex}">`
+    (match, proseIndex, divAttributes) => `<div${divAttributes} data-block-index="${proseIndex}">`,
   );
 
   return htmlString;

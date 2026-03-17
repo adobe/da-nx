@@ -1,4 +1,3 @@
-/* eslint-disable import/prefer-default-export */
 import { daFetch } from '../../utils/daFetch.js';
 import { DA_ORIGIN } from './constants.js';
 
@@ -40,7 +39,9 @@ export class Queue {
       }
     } finally {
       if (this.throttle) {
-        await new Promise((resolve) => { setTimeout(() => { resolve(); }, this.throttle); });
+        await new Promise((resolve) => {
+          setTimeout(() => { resolve(); }, this.throttle);
+        });
       }
       this.activeCount -= 1;
       await this.processQueue();
@@ -51,9 +52,15 @@ export class Queue {
 async function getChildren(path) {
   const files = [];
   const folders = [];
+  let continuationToken = null;
 
-  const resp = await daFetch(`${DA_ORIGIN}/list${path}`);
-  if (resp.ok) {
+  do {
+    const opts = continuationToken
+      ? { headers: { 'da-continuation-token': continuationToken } }
+      : {};
+    const resp = await daFetch(`${DA_ORIGIN}/list${path}`, opts);
+    if (!resp.ok) break;
+
     const json = await resp.json();
     json.forEach((child) => {
       if (!child.name) {
@@ -67,7 +74,10 @@ async function getChildren(path) {
         folders.push(child.path);
       }
     });
-  }
+
+    continuationToken = resp.headers.get('da-continuation-token');
+  } while (continuationToken);
+
   return { files, folders };
 }
 
@@ -79,15 +89,16 @@ function calculateCrawlTime(startTime) {
 /**
  * Assign the project to an employee.
  * @param {Object} options - The crawl options.
- * @param {string} options.path - The parent path to crawl.
+ * @param {string|string[]} options.path - The parent path(s) to crawl.
+ * @param {Object[]} options.files - Optional array of file objects to include in the crawl.
  * @param {function} options.callback - The callback to run when a file is found.
  * @param {number} options.concurrent - The amount of concurrent requests for the callback queue.
  * @param {number} options.throttle - How much to throttle the crawl.
  */
-export function crawl({ path, callback, concurrent, throttle = 100 }) {
+export function crawl({ path, files: initialFiles = [], callback, concurrent, throttle = 100 }) {
   let time;
   let isCanceled = false;
-  const files = [];
+  const files = [...initialFiles];
   const errors = [];
   const folders = Array.isArray(path) ? [...path] : [path];
   const inProgress = [];
@@ -95,6 +106,10 @@ export function crawl({ path, callback, concurrent, throttle = 100 }) {
   const queue = new Queue(callback, concurrent, (item, err) => errors.push({ item, err }));
 
   const results = new Promise((resolve) => {
+    if (callback && initialFiles.length > 0) {
+      Promise.allSettled(initialFiles.map((file) => queue.push(file)));
+    }
+
     const interval = setInterval(async () => {
       if (folders.length > 0) {
         inProgress.push(true);

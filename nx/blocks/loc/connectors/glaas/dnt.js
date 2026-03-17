@@ -1,8 +1,7 @@
-/* eslint-disable max-len */
-
 let globalDntConfig;
 const ALT_TEXT_PLACEHOLDER = '*alt-placeholder*';
-const REGEXP_ICON = /(?<!(?:https?|urn)[^\s]*):(#?[a-z_-]+[a-z\d]*):/gi;
+
+const isAemHost = (hostname) => /\.(aem|hlx)\.(page|live)$/.test(hostname);
 
 const getHtmlSelector = (blockscope, blockConfig) => {
   const getChildSelector = (indexStr) => {
@@ -185,7 +184,7 @@ function makeHrefsRelative(document) {
 function makeUrlRelative(originalSrc) {
   try {
     const url = new URL(originalSrc);
-    return `.${url.pathname}${url.search}${url.hash}`;
+    return isAemHost(url.hostname) && !url.search ? `.${url.pathname}${url.hash}` : null;
   } catch (e) {
     return null;
   }

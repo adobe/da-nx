@@ -1,7 +1,8 @@
 /*
-  This is a simple JSON to HTML converter that is used to convert the JSON data to HTML for translation.
-  The HTML format can then be modified by the different services to their own format.
-  This output format is the format used by GLAAS, so no transformation is needed for that service.
+  This is a simple JSON to HTML converter that is used to convert the JSON data
+  to HTML for translation. The HTML format can then be modified by the different
+  services to their own format. This output format is the format used by GLAAS,
+  so no transformation is needed for that service.
 */
 
 const setDntAttribute = (el) => {
@@ -9,15 +10,19 @@ const setDntAttribute = (el) => {
 };
 
 const extractNonDataKeys = (obj) => {
+  // eslint-disable-next-line no-unused-vars
   const { data, ...nonDataKeys } = obj; // Destructure to exclude 'data'
   return JSON.stringify(nonDataKeys); // Serialize the remaining keys
 };
 
 const json2html = (json, dntConfig) => {
-  const defaultDntConfig = { sheets: [], sheetToColumns: new Map(), universalColumns: [] };
+  // Support both sheetRule config formats (plain object and Map-like)
+  const sheetRules = dntConfig?.sheetRules || dntConfig?.get?.('sheetRules');
 
-  // Support both sheetRule config formats (defaultDnt and glassDnt)
-  const sheetRules = dntConfig?.sheetRules || dntConfig?.get('sheetRules');
+  // Extract column-based DNT info from config
+  const configSheets = dntConfig?.dntSheets || [];
+  const configSheetToColumns = dntConfig?.dntSheetToColumns || new Map();
+  const configUniversalColumns = dntConfig?.dntUniversalColumns || [];
   const isTextInDntRules = (text) => sheetRules && sheetRules
     .some((rule) => {
       if (rule.condition === 'exists') {
@@ -81,8 +86,12 @@ const json2html = (json, dntConfig) => {
   };
 
   const getDntInfo = (dntJson) => {
-    const dntInfo = defaultDntConfig;
-    const { data } = dntJson;
+    const dntInfo = {
+      sheets: [...configSheets],
+      sheetToColumns: new Map(configSheetToColumns),
+      universalColumns: [...configUniversalColumns],
+    };
+    const { data } = dntJson || {};
     if (data?.length > 0) {
       dntInfo.sheets.push('dnt', 'non-default');
       dntInfo.universalColumns.push(...[':translate', ':rollout', ':uid', ':regional']);
@@ -111,13 +120,13 @@ const json2html = (json, dntConfig) => {
   const jsonCopy = { ...json };
 
   if (jsonCopy[':type'] === 'multi-sheet') {
-    const dntInfo = jsonCopy?.dnt ? getDntInfo(jsonCopy.dnt) : defaultDntConfig;
+    const dntInfo = getDntInfo(jsonCopy?.dnt);
     jsonCopy[':names'].sort().forEach((name) => {
       body.appendChild(createSheetDiv(jsonCopy[name], name, dntInfo));
       delete jsonCopy[name];
     });
   } else {
-    body.appendChild(createSheetDiv(jsonCopy, 'default', defaultDntConfig));
+    body.appendChild(createSheetDiv(jsonCopy, 'default', getDntInfo()));
     delete jsonCopy.data;
   }
 

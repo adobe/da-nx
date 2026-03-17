@@ -30,7 +30,7 @@ input[type="submit"].accent {
   color: #000;
   border-radius: var(--s2-radius-300);
   outline-offset: 0;
-  transition: outline-offset .2s;
+  transition: outline-offset 0.2s;
   text-decoration: none;
   font-weight: 700;
   text-align: center;
@@ -41,7 +41,7 @@ input[type="submit"].accent {
   background: var(--s2-blue-900);
   border: 2px solid var(--s2-blue-900);
   outline-color: var(--s2-blue-900);
-  color: #FFF;
+  color: #fff;
 }
 
 .negative,
@@ -49,7 +49,7 @@ input[type="submit"].negative {
   background: var(--s2-red);
   border: 2px solid var(--s2-red);
   outline-color: var(--s2-red);
-  color: #FFF;
+  color: #fff;
 }
 
 .accent:focus-visible,

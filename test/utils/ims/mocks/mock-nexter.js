@@ -5,7 +5,7 @@ export const getConfig = () => ({
   env: 'prod',
 });
 
-export async function loadScript(src) {
+export async function loadScript() {
   window.adobeid.onReady();
 }
 /** End Mocked Functions */

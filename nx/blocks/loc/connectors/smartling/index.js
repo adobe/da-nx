@@ -156,7 +156,7 @@ export async function saveItems({
   service,
   lang,
   urls,
-  saveToDa,
+  saveFn,
 }) {
   const { origin, projectId } = service;
 
@@ -173,7 +173,7 @@ export async function saveItems({
 
     url.sourceContent = await removeDnt({ org, site, html: text, ext: url.ext });
 
-    await saveToDa(url);
+    await saveFn(url);
   };
 
   const queue = new Queue(downloadCallback, 5);

@@ -9,6 +9,7 @@ async function fetchConf(org, repo, token) {
     const resp = await fetch(`${DA_SOURCE}${org}/${repo}${DA_TRANSLATE}`, opts);
     return resp.json();
   } catch {
+    // eslint-disable-next-line no-console
     console.log('Error fetching translation info.');
     return null;
   }

@@ -4,7 +4,7 @@ import { setCursors } from './src/cursors.js';
 import { pollConnection, setupActions, getFirstSheet } from './src/utils.js';
 import { handleBlockLibraryResponse } from './src/advanced/quick-edit-library.js';
 
-import { loadStyle } from "../../../scripts/nexter.js";
+import { loadStyle } from '../../../scripts/nexter.js';
 
 const nx = `${new URL(import.meta.url).origin}/nx`;
 await loadStyle(`${nx}/public/plugins/quick-edit/quick-edit.css`);
@@ -45,21 +45,21 @@ function onMessage(e, ctx) {
   } else if (e.data.type === 'block-library-response') {
     handleBlockLibraryResponse(e.data);
   }
-} 
+}
 
 function handleLoad(target, config, location, ctx) {
   const CHANNEL = new MessageChannel();
   const { port1, port2 } = CHANNEL;
   ctx.port = port1;
 
-  target.contentWindow.postMessage({ init: config, location }, "*", [port2]);
+  target.contentWindow.postMessage({ init: config, location }, '*', [port2]);
   ctx.port.onmessage = (e) => onMessage(e, ctx);
 }
 
 function getQuickEditSrc() {
   const { search } = window.location;
   const ref = new URLSearchParams(search).get('quick-edit');
-  if (!ref) return 'https://da.live/plugins/quick-edit';
+  if (!ref || ref === 'on') return 'https://da.live/plugins/quick-edit';
   return `https://main--da-live--adobe.aem.live/plugins/quick-edit?nx=${ref}`;
 }
 
@@ -71,10 +71,10 @@ export default async function loadQuickEdit({ detail: payload }, loadPage) {
     loadPage,
   };
 
-  const iframe = document.createElement("iframe");
+  const iframe = document.createElement('iframe');
   iframe.id = QUICK_EDIT_ID;
   iframe.src = getQuickEditSrc();
-  iframe.allow = "local-network-access *; clipboard-write *";
+  iframe.allow = 'local-network-access *; clipboard-write *';
 
   pollConnection(ctx, () => {
     handleLoad(iframe, payload.config, payload.location, ctx);

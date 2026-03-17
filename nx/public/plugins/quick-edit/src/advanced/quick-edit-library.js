@@ -1,11 +1,8 @@
-import { LitElement, html, until, createRef, ref, nothing } from 'da-lit';
+import {
+  LitElement, html, until, createRef, ref, nothing,
+} from 'da-lit';
 
 const nx = `${new URL(import.meta.url).origin}/nx`;
-
-const ICONS = [
-  '/nx/img/icons/S2IconClose20N-icon.svg',
-  '/nx/img/icons/S2IconAdd20N-icon.svg',
-];
 
 // Cache for block details
 const blockDetailCache = new Map();
@@ -22,7 +19,8 @@ function sendRequest(port, type, payload) {
       return;
     }
 
-    const id = `block-library-${requestId++}`;
+    const id = `block-library-${requestId}`;
+    requestId += 1;
     pendingRequests.set(id, { resolve, reject });
 
     port.postMessage({
@@ -44,12 +42,12 @@ function sendRequest(port, type, payload) {
 
 // Handle responses from quick-edit-portal
 export function handleBlockLibraryResponse(data) {
-  const { requestId, data: responseData, error } = data;
-  
-  if (pendingRequests.has(requestId)) {
-    const { resolve, reject } = pendingRequests.get(requestId);
-    pendingRequests.delete(requestId);
-    
+  const { requestId: reqId, data: responseData, error } = data;
+
+  if (pendingRequests.has(reqId)) {
+    const { resolve, reject } = pendingRequests.get(reqId);
+    pendingRequests.delete(reqId);
+
     if (error) {
       reject(new Error(error));
     } else {
@@ -104,7 +102,7 @@ class QuickEditLibrary extends LitElement {
     this.loadStyles();
     this.loadBlocks();
     window.addEventListener('keydown', this.handleKeydown.bind(this));
-    
+
     // Make the library draggable after the component renders
     requestAnimationFrame(() => {
       this.makeDraggable();
@@ -121,7 +119,7 @@ class QuickEditLibrary extends LitElement {
     style.rel = 'stylesheet';
     style.href = `${nx}/public/plugins/quick-edit/src/advanced/quick-edit-library.css`;
     this.shadowRoot.appendChild(style);
-    style.onload = () => { this.style.display = 'block'; }
+    style.onload = () => { this.style.display = 'block'; };
   }
 
   async loadBlocks() {
@@ -170,7 +168,7 @@ class QuickEditLibrary extends LitElement {
     e.dataTransfer.effectAllowed = 'copy';
     e.dataTransfer.setData('text/html', variant.html);
     e.dataTransfer.setData('text/plain', variant.name);
-    
+
     // Notify the page that dragging has started
     this.dispatchEvent(new CustomEvent('block-drag-start', {
       detail: { html: variant.html, name: variant.name },
@@ -211,13 +209,13 @@ class QuickEditLibrary extends LitElement {
 
     const elementDrag = (e) => {
       e.preventDefault();
-      
+
       // Calculate new position
       pos1 = pos3 - e.clientX;
       pos2 = pos4 - e.clientY;
       pos3 = e.clientX;
       pos4 = e.clientY;
-      
+
       // Set the host element's new position
       this.style.top = `${this.offsetTop - pos2}px`;
       this.style.left = `${this.offsetLeft - pos1}px`;
@@ -227,13 +225,13 @@ class QuickEditLibrary extends LitElement {
     const dragMouseDown = (e) => {
       // Only drag if clicking on the header itself, not the close button
       if (e.target.closest('.qe-library-close')) return;
-      
+
       e.preventDefault();
       // Get mouse position at startup
       pos3 = e.clientX;
       pos4 = e.clientY;
       handle.style.cursor = 'grabbing';
-      
+
       // Add event listeners for mouse movement and release
       document.onmouseup = closeDragElement;
       document.onmousemove = elementDrag;
@@ -247,11 +245,11 @@ class QuickEditLibrary extends LitElement {
       blockDetailCache.set(path, await getBlockVariants(this.messagePort, path));
     }
     const variants = blockDetailCache.get(path);
-    
+
     if (variants.length === 0) {
       return html`<div class="qe-library-no-variants">No variants found</div>`;
     }
-    
+
     return html`
       <ul class="qe-library-variant-list">
         ${variants.map((variant) => html`
@@ -273,7 +271,7 @@ class QuickEditLibrary extends LitElement {
 
   renderBlock(block) {
     const isOpen = this._selectedBlock === block.name;
-    
+
     return html`
       <li class="qe-library-block-item ${isOpen ? 'is-open' : ''}">
         <div class="qe-library-block-header">
@@ -295,19 +293,17 @@ class QuickEditLibrary extends LitElement {
 
   getFilteredBlocks() {
     if (!this._searchStr) return this._blocks;
-    
-    return this._blocks.filter((block) => 
-      block.name.toLowerCase().includes(this._searchStr)
-    );
+
+    return this._blocks.filter((block) => block.name.toLowerCase().includes(this._searchStr));
   }
 
   renderBlocks() {
     const blocks = this.getFilteredBlocks();
-    
+
     if (blocks.length === 0) {
       return html`<div class="qe-library-empty">No blocks found</div>`;
     }
-    
+
     return html`
       <ul class="qe-library-block-list">
         ${blocks.map((block) => this.renderBlock(block))}

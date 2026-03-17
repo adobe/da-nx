@@ -7,7 +7,7 @@
   max-height: calc(100vh - 100px);
   background: white;
   border-radius: 12px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 20%);
   z-index: 9998;
   color: #333;
   color-scheme: light;
@@ -55,12 +55,6 @@
 
 .qe-library-close:hover {
   background: #f0f0f0;
-}
-
-.qe-library-close .icon {
-  width: 20px;
-  height: 20px;
-  color: #666;
 }
 
 .qe-library-search {
@@ -143,6 +137,12 @@ ul {
   width: 18px;
   height: 18px;
   flex-shrink: 0;
+}
+
+.qe-library-close .icon {
+  width: 20px;
+  height: 20px;
+  color: #666;
 }
 
 .icon-chevron {
