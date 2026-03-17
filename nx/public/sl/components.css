@@ -327,6 +327,10 @@ svg.icon {
     0 3px 20px 0 rgb(0 0 0 / 16%),
     0 4px 20px 0 rgb(0 0 0 / 24%);
 
+  &.overflow-hidden {
+    overflow: hidden;
+  }
+
   &[open] {
     visibility: visible;
     opacity: 1;
