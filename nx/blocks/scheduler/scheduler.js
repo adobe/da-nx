@@ -209,14 +209,7 @@ class NxScheduler extends LitElement {
 
   async handleRegister() {
     const { _org: org, _site: site } = this;
-    if (!org || !site || this._isBusy) return;
-
-    if (this._registered) {
-      const confirmText = `${org}/${site} is already registered.\n\nRe-registering will create a new publish API key and replace the current scheduler key. Continue?`;
-      // eslint-disable-next-line no-alert
-      const shouldProceed = window.confirm(confirmText);
-      if (!shouldProceed) return;
-    }
+    if (!org || !site || this._isBusy || this._registered) return;
 
     this._isBusy = true;
     this._alert = { type: 'info', message: 'Creating publish API key.' };
@@ -249,11 +242,6 @@ class NxScheduler extends LitElement {
 
   async handleRefresh() {
     await this.loadSiteState();
-  }
-
-  handleReregisterClick(e) {
-    e.preventDefault();
-    if (!this._isBusy) this.handleRegister();
   }
 
   handleOpenItem(entry) {
@@ -336,13 +324,6 @@ class NxScheduler extends LitElement {
     `;
   }
 
-  renderHelp() {
-    if (!this._registered || this._isLoading) return nothing;
-
-    return html`
-      <p class="status-note">Need a new scheduler key? <a href="#" @click=${this.handleReregisterClick}>${this._isBusy ? 'Re-registering...' : 'Re-register'}</a> rotates the publish API key.</p>`;
-  }
-
   render() {
     return html`
       <nx-path label="Load schedules" @details=${this.handleDetail}></nx-path>
@@ -353,7 +334,6 @@ class NxScheduler extends LitElement {
       ${this.renderAlert()}
       ${this.renderStatus()}
       ${this.renderSchedule()}
-      ${this.renderHelp()}
     `;
   }
 }
