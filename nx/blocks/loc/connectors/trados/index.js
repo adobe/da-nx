@@ -252,7 +252,7 @@ export async function saveItems({
   service,
   lang,
   urls,
-  saveToDa,
+  saveFn,
 }) {
   const { apiEndpoint } = service;
   const projectId = lang?.translation?.projectId;
@@ -297,7 +297,7 @@ export async function saveItems({
       const ext = url.daBasePath.includes('.json') ? 'json' : 'html';
       url.sourceContent = await removeDnt({ org, site, html: text, ext });
 
-      await saveToDa(url);
+      await saveFn(url);
     } catch {
       url.status = 'error';
     }

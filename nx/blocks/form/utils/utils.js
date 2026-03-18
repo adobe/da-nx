@@ -150,6 +150,22 @@ export function pruneRecursive(value) {
 // General utilities
 // -----------------------------------------------------------------------------
 
+/**
+ * Find annotation node by pointer.
+ * @param {Object} node - Annotation node
+ * @param {string} pointer - Target pointer
+ * @returns {Object|null}
+ */
+export function findNodeByPointer(node, pointer) {
+  if (!node) return null;
+  if (node.pointer === pointer) return node;
+  for (const child of node.children ?? []) {
+    const found = findNodeByPointer(child, pointer);
+    if (found) return found;
+  }
+  return null;
+}
+
 /** Fetch HTML from source URL. */
 export async function loadHtml(details) {
   const resp = await daFetch(details.sourceUrl);

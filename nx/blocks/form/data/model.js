@@ -3,26 +3,16 @@ import { daFetch } from 'https://da.live/blocks/shared/utils.js';
 import HTMLConverter from '../utils/html2json.js';
 import JSONConverter from '../utils/json2html.js';
 import { validateJson } from '../utils/validator.js';
-import { annotateFromSchema, dereferenceSchema, isEmpty, pruneRecursive } from '../utils/utils.js';
-import { getValue, setValue, removeValue } from '../utils/pointer.js';
+import { annotateFromSchema, dereferenceSchema, findNodeByPointer, isEmpty, pruneRecursive } from '../utils/utils.js';
+import {
+  append,
+  getValue,
+  setValue,
+  removeValue,
+  moveBefore,
+  insertBefore,
+} from '../utils/pointer.js';
 import { generateValue, resolveValue } from '../utils/value-resolver.js';
-
-/**
- * Find annotation node by pointer.
- * @param {Object} node - Annotation node
- * @param {string} pointer - Target pointer
- * @returns {Object|null}
- */
-function findNodeByPointer(node, pointer) {
-  if (!node) return null;
-  if (node.pointer === pointer) return node;
-  const children = node.children ?? [];
-  for (const child of children) {
-    const found = findNodeByPointer(child, pointer);
-    if (found) return found;
-  }
-  return null;
-}
 
 /**
  * A data model that represents a piece of structured content.
@@ -94,19 +84,24 @@ export default class FormModel {
   }
 
   addArrayItem(pointer, items) {
-    if (!items) {
-      // eslint-disable-next-line no-console
-      console.warn('The array schema has no items definition for pointer "%s"', pointer);
-      return;
-    }
+    if (!items) return;
     const array = getValue(this._json, pointer) ?? [];
     const newItem = generateValue(items, true);
-    array.push(newItem);
-    setValue(this._json, pointer, array);
+    insertBefore(this._json, append(pointer, array.length), newItem);
+  }
+
+  insertArrayItem(pointer, items) {
+    if (!items) return false;
+    const newItem = generateValue(items, true);
+    return insertBefore(this._json, pointer, newItem);
   }
 
   removeArrayItem(pointer) {
     return removeValue(this._json, pointer);
+  }
+
+  moveArrayItem(pointer, beforePointer) {
+    return moveBefore(this._json, pointer, beforePointer);
   }
 
   async saveHtml() {
