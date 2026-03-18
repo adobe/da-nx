@@ -134,8 +134,6 @@ class NxScheduler extends LitElement {
     _alert: { state: true },
     _isBusy: { state: true },
     _isLoading: { state: true },
-    _apiKey: { state: true },
-    _copied: { state: true },
   };
 
   connectedCallback() {
@@ -153,9 +151,6 @@ class NxScheduler extends LitElement {
     this._site = detail?.site;
     this._registered = undefined;
     this._scheduleEntries = [];
-    this._apiKey = undefined;
-    this._copied = false;
-
     if (!this._org || !this._site) {
       this._alert = { type: 'warning', message: 'Please enter an org/site path like /my-org/my-site.' };
       return;
@@ -224,8 +219,6 @@ class NxScheduler extends LitElement {
     }
 
     this._isBusy = true;
-    this._copied = false;
-    this._apiKey = undefined;
     this._alert = { type: 'info', message: 'Creating publish API key.' };
 
     const keyData = await createApiKey(org, site);
@@ -235,7 +228,6 @@ class NxScheduler extends LitElement {
       return;
     }
 
-    this._apiKey = keyData.value;
     this._alert = { type: 'info', message: 'Registering org/site with scheduler.' };
     const registration = await registerSite(org, site, keyData.value);
     this._isBusy = false;
@@ -250,20 +242,9 @@ class NxScheduler extends LitElement {
 
     this._alert = {
       type: 'success',
-      message: `${org}/${site} has been registered. Save the API key now; it will not be shown again.`,
+      message: `${org}/${site} has been registered.`,
     };
     await this.loadSiteState();
-  }
-
-  async handleCopy() {
-    if (!this._apiKey) return;
-    try {
-      await navigator.clipboard.writeText(this._apiKey);
-      this._copied = true;
-      setTimeout(() => { this._copied = false; }, 2000);
-    } catch {
-      this._alert = { type: 'warning', message: 'Could not copy API key to clipboard.' };
-    }
   }
 
   async handleRefresh() {
@@ -355,20 +336,6 @@ class NxScheduler extends LitElement {
     `;
   }
 
-  renderApiKey() {
-    if (!this._apiKey) return nothing;
-
-    return html`
-      <div class="api-key-box">
-        <p><b>New Publish API Key</b></p>
-        <code>${this._apiKey}</code>
-        <sl-button size="small" class="primary outline" @click=${this.handleCopy}>
-          ${this._copied ? 'Copied' : 'Copy'}
-        </sl-button>
-      </div>
-    `;
-  }
-
   renderHelp() {
     if (!this._registered || this._isLoading) return nothing;
 
@@ -386,7 +353,6 @@ class NxScheduler extends LitElement {
       ${this.renderAlert()}
       ${this.renderStatus()}
       ${this.renderSchedule()}
-      ${this.renderApiKey()}
       ${this.renderHelp()}
     `;
   }
