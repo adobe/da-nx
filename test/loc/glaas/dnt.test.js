@@ -83,4 +83,24 @@ describe('Glaas DNT', () => {
     const jsonWithoutDnt = `${await removeDnt(htmlWithDnt, 'adobecom', 'da-bacom', { fileType: 'json' })}\n`;
     expect(JSON.parse(jsonWithoutDnt)).to.deep.equal(JSON.parse(json));
   });
+
+  it('Does not convert URN-style URL segments to icon spans', async () => {
+    const config = JSON.parse((await readFile({ path: './mocks/hubspot/translate.json' })));
+    const html = `<body>
+  <main>
+    <div>
+      <p>Some text with a :happy: icon</p>
+    </div>
+    <div>
+      <a href="https://stage.acrobat.adobe.com/link/spaces/urn:aaid:sc:US:48c94977-9292-45e0-9564-0a68b795619b/?x_api_client_id=pdf_spaces&x_api_client_location=adobe">https://stage.acrobat.adobe.com/link/spaces/urn:aaid:sc:US:48c94977-9292-45e0-9564-0a68b795619b/?x_api_client_id=pdf_spaces&x_api_client_location=adobe</a>
+    </div>
+  </main>
+</body>`;
+    const htmlWithDnt = await addDnt(html, config, { reset: true });
+    expect(htmlWithDnt).to.include('<span class="icon icon-happy"></span>');
+    expect(htmlWithDnt).to.not.include('icon-aaid');
+    expect(htmlWithDnt).to.not.include('icon-sc');
+    expect(htmlWithDnt).to.not.include('icon-US');
+    expect(htmlWithDnt).to.include('urn:aaid:sc:US:48c94977');
+  });
 });
