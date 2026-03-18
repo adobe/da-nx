@@ -5,15 +5,11 @@ import globals from 'globals';
 import { recommended, source, test } from '@adobe/eslint-config-helix';
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 
 export default defineConfig([
   globalIgnores([
     'eslint.config.js',
     '**/deps',
-    '**/nx/blocks/loc/regional-diff/object_hash.js',
-    '**/nx/blocks/loc/views/complete/confetti.js',
-    '**/nx/blocks/loc/connectors/sample/index.js',
   ]),
   {
     languageOptions: {
@@ -27,7 +23,7 @@ export default defineConfig([
       },
     },
     settings: {
-      'import/core-modules': ['da-lit', 'da-y-wrapper'],
+      'import/core-modules': ['lit'],
     },
     rules: {
       'class-methods-use-this': 0,

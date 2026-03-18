@@ -1,0 +1,242 @@
+:root {
+  /* grid */
+  --grid-container-width: 83.4%;
+  --grid-column-width: calc(var(--grid-container-width) / 12);
+  --grid-gutter-width: 8.3%;
+
+  /* spacing */
+  --spacing-xxl: 48px;
+  --spacing-xl: 32px;
+  --spacing-l: 24px;
+  --spacing-m: 12px;
+  --spacing-s: 8px;
+  --spacing-xs: 4px;
+
+  /* color schemes */
+  color-scheme: light dark;
+
+  /* color tokens */
+  --color-gray-100: #f1f1f1;
+  --color-gray-200: #d3d3d3;
+  --color-gray-300: #b5b5b5;
+  --color-gray-400: #999;
+  --color-gray-500: #7d7d7d;
+  --color-gray-600: #636363;
+  --color-gray-700: #494949;
+  --color-gray-800: #313131;
+  --color-gray-900: #1b1b1b;
+  --color-green-100: #e1f5e3;
+  --color-green-200: #a3e1a8;
+  --color-green-300: #60cb6a;
+  --color-green-400: #24b032;
+  --color-green-500: #1e9029;
+  --color-green-600: #187220;
+  --color-green-700: #115418;
+  --color-green-800: #0c3910;
+  --color-green-900: #072009;
+  --color-teal-100: #e4f3f5;
+  --color-teal-200: #acdbdf;
+  --color-teal-300: #71c1c9;
+  --color-teal-400: #36a7b3;
+  --color-teal-500: #108a96;
+  --color-teal-600: #0d6d77;
+  --color-teal-700: #0a5158;
+  --color-teal-800: #06363b;
+  --color-teal-900: #041e21;
+  --color-blue-100: #eaf2ff;
+  --color-blue-200: #b9d4ff;
+  --color-blue-300: #88b6ff;
+  --color-blue-400: #5898ff;
+  --color-blue-500: #2176ff;
+  --color-blue-600: #0058e4;
+  --color-blue-700: #0041a9;
+  --color-blue-800: #002c74;
+  --color-blue-900: #001942;
+  --color-purple-100: #f4edfb;
+  --color-purple-200: #dfcbf2;
+  --color-purple-300: #c9a7ea;
+  --color-purple-400: #b385e1;
+  --color-purple-500: #9d60d8;
+  --color-purple-600: #843ccb;
+  --color-purple-700: #622c98;
+  --color-purple-800: #421e66;
+  --color-purple-900: #251139;
+  --color-magenta-100: #ffebf9;
+  --color-magenta-200: #ffc0ec;
+  --color-magenta-300: #ff8fde;
+  --color-magenta-400: #ff53cc;
+  --color-magenta-500: #eb00a5;
+  --color-magenta-600: #bd0084;
+  --color-magenta-700: #8e0064;
+  --color-magenta-800: #630045;
+  --color-magenta-900: #3b002a;
+  --color-red-100: #ffecea;
+  --color-red-200: #ffc4be;
+  --color-red-300: #ff9990;
+  --color-red-400: #ff6759;
+  --color-red-500: #f81400;
+  --color-red-600: #c71000;
+  --color-red-700: #950c00;
+  --color-red-800: #670800;
+  --color-red-900: #3c0500;
+  --color-orange-100: #ffeddc;
+  --color-orange-200: #ffc895;
+  --color-orange-300: #ff9e43;
+  --color-orange-400: #f37500;
+  --color-orange-500: #c76000;
+  --color-orange-600: #9e4c00;
+  --color-orange-700: #753800;
+  --color-orange-800: #4f2600;
+  --color-orange-900: #2d1500;
+  --color-yellow-100: #fff48e;
+  --color-yellow-200: #ebd400;
+  --color-yellow-300: #cab600;
+  --color-yellow-400: #ab9a00;
+  --color-yellow-500: #8c7e00;
+  --color-yellow-600: #6e6400;
+  --color-yellow-700: #514a00;
+  --color-yellow-800: #373100;
+  --color-yellow-900: #1e1b00;
+
+  /* fonts */
+  --font-family: 'Adobe Clean', adobe-clean, "Trebuchet MS", sans-serif;
+
+  /* headings */
+  --heading-font-size-xxl: 32.44px;
+  --heading-font-size-xl: 28.83px;
+  --heading-font-size-l: 25.63px;
+  --heading-font-size-m: 22.78px;
+  --heading-font-size-s: 20.25px;
+  --heading-font-size-xs: 18px;
+  --heading-line-height: 1.15;
+
+  /* body */
+  --body-font-size-xxxl: 25px;
+  --body-font-size-xxl: 22px;
+  --body-font-size-xl: 20px;
+  --body-font-size-l: 18px;
+  --body-font-size-m: 16px;
+  --body-font-size-s: 14px;
+  --body-font-size-xs: 12px;
+  --body-line-height: 1.6;
+
+  /* misc */
+  --header-height: 56px;
+  --nav-width: 56px;
+}
+
+.light-scheme {
+  color-scheme: light;
+}
+
+.dark-scheme {
+  color-scheme: dark;
+}
+
+body {
+  display: grid;
+  margin: 0;
+  background-color: var(--color-background);
+  color: var(--color-text);
+  font-family: var(--font-family);
+  font-size: var(--body-font-size-m);
+  line-height: var(--body-line-height);
+
+  &.no-header {
+    --header-height: 0;
+
+    margin: 0;
+  }
+}
+
+header {
+  height: var(--header-height);
+  position: fixed;
+  grid-area: header;
+}
+
+main {
+  grid-area: main;
+}
+
+a {
+  color: var(--color-link);
+}
+
+input,
+textarea,
+select,
+button {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+img {
+  width: 100%;
+  height: auto;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-weight: 700;
+  line-height: var(--heading-line-height);
+}
+
+h1 { font-size: var(--heading-font-size-xxl); }
+h2 { font-size: var(--heading-font-size-xl); }
+h3 { font-size: var(--heading-font-size-l); }
+h4 { font-size: var(--heading-font-size-m); }
+h5 { font-size: var(--heading-font-size-s); }
+h6 { font-size: var(--heading-font-size-xs); }
+
+strong {
+  font-weight: 700;
+}
+
+.section {
+  display: block;
+
+  > .default-content {
+    max-width: var(--grid-container-width);
+    margin: 0 auto;
+  }
+}
+
+@media (width >= 600px) {
+  body {
+    grid-template:
+      "header header" var(--header-height)
+      "sidenav main" 1fr / var(--nav-width) 1fr;
+    height: 100vh;
+  }
+}
+
+/* @media (width >= 900px) {} */
+
+/* @media (width >= 1200px) {} */
+
+@media (width >= 1440px) {
+  :root {
+    --grid-container-width: 1200px;
+  }
+}
+
+main > div,
+div[data-status] {
+  display: none;
+}
+
+aem-sidekick {
+  opacity: 0;
+
+  &[open="true"].is-ready {
+    opacity: 1;
+  }
+}

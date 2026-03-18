@@ -1,8 +1,0 @@
-form {
-  display: flex;
-  gap: 12px;
-
-  sl-input {
-    flex: 1 0 auto;
-  }
-}
