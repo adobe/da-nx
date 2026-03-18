@@ -1,5 +1,5 @@
 import { AEM_ORIGIN } from '../../../public/utils/constants.js';
-import { daFetch } from '../../../utils/daFetch.js';
+import { daFetch, initIms } from '../../../utils/daFetch.js';
 import { mergeCopy, overwriteCopy } from '../../loc/project/index.js';
 import { Queue } from '../../../public/utils/tree.js';
 
@@ -178,11 +178,13 @@ export async function copyManifest(name, resources, direction) {
 
 export async function updateSchedule(snapshotId, approved = false) {
   const adminURL = `${SNAPSHOT_SCHEDULER_URL}/schedule`;
+  const imsProfile = await initIms();
   const body = {
     org,
     site,
     snapshotId,
     approved,
+    userId: imsProfile?.email,
   };
   const headers = { 'content-type': 'application/json' };
   const resp = await daFetch(`${adminURL}`, {
