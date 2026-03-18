@@ -14,6 +14,7 @@ export default defineConfig([
   {
     languageOptions: {
       ...recommended.languageOptions,
+      ecmaVersion: 2025,
       globals: {
         ...globals.serviceworker,
         ...globals.browser,
