@@ -9,6 +9,7 @@ import {
   getValue,
   setValue,
   removeValue,
+  clearValue,
   moveBefore,
   insertBefore,
 } from '../utils/pointer.js';
@@ -57,8 +58,7 @@ export default class FormModel {
   }
 
   validate() {
-    const prunedData = pruneRecursive(this._json.data);
-    return validateJson(this._schema, prunedData ?? {}, this.annotated);
+    return validateJson(this._schema, this._json.data ?? {}, this.annotated);
   }
 
   htmlToJson(html) {
@@ -71,7 +71,7 @@ export default class FormModel {
     if (!node) return;
     const effectiveValue = resolveValue(node, value, false);
     if (isEmpty(effectiveValue)) {
-      removeValue(this._json, name);
+      clearValue(this._json, name, effectiveValue);
     } else {
       setValue(this._json, name, effectiveValue);
     }

@@ -16,6 +16,7 @@ function generateObject(node, useSchemaDefaults, generate) {
 
 /**
  * Generate value from annotated node (no user data).
+ * Returns value from schema; undefined = omit.
  * @param {Object} node - Annotated node { type, key?, children?, default? }
  * @param {boolean} [useSchemaDefaults=true] - Apply schema default when true
  * @returns {*} Resolved value (undefined = omit)
@@ -28,10 +29,12 @@ export function generateValue(node, useSchemaDefaults = true) {
     case 'array':
       return [];
     case 'string':
+      return (useSchemaDefaults && node.default !== undefined) ? node.default : '';
     case 'number':
     case 'integer':
-    case 'boolean':
       return (useSchemaDefaults && node.default !== undefined) ? node.default : undefined;
+    case 'boolean':
+      return (useSchemaDefaults && node.default !== undefined) ? node.default : false;
     default:
       return undefined;
   }
@@ -62,8 +65,7 @@ function resolveArray(node, userValue, fillDefaults, resolve) {
 
 function resolvePrimitive(node, userValue, fillDefaults) {
   if (userValue !== undefined) return userValue;
-  if (node.required) return generateValue(node, fillDefaults);
-  return (fillDefaults && node.default !== undefined) ? node.default : undefined;
+  return generateValue(node, fillDefaults);
 }
 
 /**

@@ -140,6 +140,30 @@ export function removeValue(data, pointer) {
 }
 
 /**
+ * Clear value at pointer. For array elements: sets to emptyValue (preserves slot).
+ * For object properties: removes.
+ * @param {Object} data - Root object
+ * @param {string} pointer - RFC 6901 pointer
+ * @param {*} [emptyValue=''] - Value to set when clearing an array element
+ * @returns {boolean} True if cleared
+ */
+export function clearValue(data, pointer, emptyValue = '') {
+  const target = getParent(data, pointer);
+  if (!target) return false;
+
+  const { parent, lastSegment } = target;
+  const index = parseInt(lastSegment, 10);
+  const isArrayElement = Array.isArray(parent)
+    && Number.isInteger(index) && index >= 0 && index < parent.length;
+
+  if (isArrayElement) {
+    setValue(data, pointer, emptyValue);
+    return true;
+  }
+  return removeValue(data, pointer);
+}
+
+/**
  * Move array item before another item, or to end if beforePointer is empty.
  * @param {Object} data - Root object
  * @param {string} pointer - RFC 6901 pointer to the item to move
