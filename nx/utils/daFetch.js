@@ -1,4 +1,4 @@
-import { DA_ORIGIN } from '../public/utils/constants.js';
+import { DA_ORIGIN, AEM_ORIGIN } from '../public/utils/constants.js';
 
 let imsDetails;
 
@@ -23,6 +23,10 @@ export const daFetch = async (url, opts = {}) => {
     const { accessToken } = await initIms();
     if (accessToken) {
       opts.headers.Authorization = `Bearer ${accessToken.token}`;
+
+      if (url.startsWith(AEM_ORIGIN)) {
+        opts.headers['x-content-source-authorization'] = `Bearer ${accessToken.token}`;
+      }
     }
   }
   let resp;
