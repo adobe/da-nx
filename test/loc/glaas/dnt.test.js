@@ -92,7 +92,7 @@ describe('Glaas DNT', () => {
       <p>Some text with a :happy: icon</p>
     </div>
     <div>
-      <a href="https://stage.acrobat.adobe.com/link/spaces/urn:aaid:sc:US:48c94977-9292-45e0-9564-0a68b795619b/?x_api_client_id=pdf_spaces&x_api_client_location=adobe">https://stage.acrobat.adobe.com/link/spaces/urn:aaid:sc:US:48c94977-9292-45e0-9564-0a68b795619b/?x_api_client_id=pdf_spaces&x_api_client_location=adobe</a>
+      <a href="https://stage.acrobat.adobe.com/link/spaces/urn:aaid:sc:US:48c94977-5619b/?x_api_client_id=pdf&x_api_client_location=adobe">https://stage.acrobat.adobe.com/link/spaces/urn:aaid:sc:US:48c94977-9292-45e0-9564-0a68b795619b/?x_api_client_id=pdf_spaces&x_api_client_location=adobe</a>
     </div>
   </main>
 </body>`;
