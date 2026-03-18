@@ -1,5 +1,3 @@
-const ARRAY_FALLBACK_VALUE = [];
-
 // -----------------------------------------------------------------------------
 // generateValue – schema-only value (new doc, new array item)
 // -----------------------------------------------------------------------------
@@ -28,7 +26,7 @@ export function generateValue(node, useSchemaDefaults = true) {
     case 'object':
       return generateObject(node, useSchemaDefaults, generateValue);
     case 'array':
-      return ARRAY_FALLBACK_VALUE;
+      return [];
     case 'string':
     case 'number':
     case 'integer':
@@ -78,12 +76,11 @@ function resolvePrimitive(node, userValue, fillDefaults) {
 export function resolveValue(node, userValue, fillDefaults = true) {
   if (!node || typeof node !== 'object') return userValue ?? undefined;
 
-  const resolve = resolveValue;
   if (node.type === 'object' && Array.isArray(node.children)) {
-    return resolveObject(node, userValue, fillDefaults, resolve);
+    return resolveObject(node, userValue, fillDefaults, resolveValue);
   }
   if (node.type === 'array' && node.items) {
-    return resolveArray(node, userValue, fillDefaults, resolve);
+    return resolveArray(node, userValue, fillDefaults, resolveValue);
   }
   return resolvePrimitive(node, userValue, fillDefaults);
 }
