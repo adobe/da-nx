@@ -1,5 +1,3 @@
-const ARRAY_FALLBACK_VALUE = [];
-
 // -----------------------------------------------------------------------------
 // generateValue – schema-only value (new doc, new array item)
 // -----------------------------------------------------------------------------
@@ -28,7 +26,7 @@ export function generateValue(node, useSchemaDefaults = true) {
     case 'object':
       return generateObject(node, useSchemaDefaults, generateValue);
     case 'array':
-      return ARRAY_FALLBACK_VALUE;
+      return [];
     case 'string':
     case 'number':
     case 'integer':
