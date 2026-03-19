@@ -57,7 +57,8 @@ async function createProject(options, service, title, langs) {
   const { apiEndpoint } = service;
 
   const location = langs[0]['trados location'];
-  const templateId = langs[0]['trados project template'];
+  const templateId = options['translation.service.custom.option.Template'] || langs[0]['trados project template'];
+  const notes = options['translation.service.custom.textarea.Notes'];
 
   const languageDirections = langs.map((lang) => ({
     sourceLanguage: { languageCode: sourceLanguage },
@@ -66,7 +67,7 @@ async function createProject(options, service, title, langs) {
 
   const body = JSON.stringify({
     name: `${title} - ${Date.now()}`,
-    description: `DA translation project: ${title}`,
+    description: notes || `DA translation project: ${title}`,
     dueBy,
     projectTemplate: {
       id: templateId,
