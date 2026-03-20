@@ -49,7 +49,10 @@
   --spacing-xs: 4px;
 
   /* radius */
-  --s2-radius-300: 16px;
+  --s2-radius-sm: 4px;
+  --s2-radius-md: 8px;
+  --s2-radius-lg: 10px;
+  --s2-radius-xl: 16px;
 
   /* color schemes */
   color-scheme: light dark;
@@ -308,6 +311,9 @@
   --s2-turquoise-1500: 0, 32, 35;
   --s2-turquoise-1600: 0, 15, 17;
 
+  /* Adobe brand */
+  --corporate-color: 235, 16, 0;
+
   /* fonts */
   --font-family: 'Adobe Clean', adobe-clean, "Trebuchet MS", sans-serif;
 
@@ -361,13 +367,12 @@ body {
 
 header {
   height: var(--header-height);
-  position: fixed;
-  width: 100%;
   grid-area: header;
 }
 
 main {
   grid-area: main;
+  margin: 0 12px 0 0;
   background-color: light-dark(#fff, #000);
   border-radius: var(--s2-radius-300) var(--s2-radius-300) 0 0;
   box-shadow: 0 0 8px 0 rgb(0 0 0 / 10%);
@@ -387,6 +392,7 @@ button {
 }
 
 button {
+  font-size: 14px;
   cursor: pointer;
 }
 

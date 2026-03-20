@@ -2,7 +2,6 @@ import { expect } from '@esm-bundle/chai';
 import {
   getMetadata,
   getLocale,
-  localizeUrl,
   decorateLink,
   setConfig,
   getConfig,
@@ -151,44 +150,6 @@ describe('loadBlock', () => {
     block.className = 'first-name second-name';
     await loadBlock(block);
     expect(block.dataset.blockName).to.equal('first-name');
-  });
-});
-
-// ─── localizeUrl ─────────────────────────────────────────────────────────────
-
-describe('localizeUrl', () => {
-  const deConfig = {
-    ...BASE_CONFIG,
-    locale: { prefix: '/de' },
-  };
-
-  it('returns null when in the root locale', () => {
-    const url = new URL('https://example.com/page');
-    expect(localizeUrl({ config: BASE_CONFIG, url })).to.be.null;
-  });
-
-  it('returns null when the link is already localized with the current prefix', () => {
-    const url = new URL('https://example.com/de/page');
-    expect(localizeUrl({ config: deConfig, url })).to.be.null;
-  });
-
-  it('returns null when the link uses a different known locale prefix', () => {
-    const config = { ...deConfig, locales: { '': {}, '/de': {}, '/fr': {} } };
-    const url = new URL('https://example.com/fr/page');
-    expect(localizeUrl({ config, url })).to.be.null;
-  });
-
-  it('returns a localized URL when the path has no locale prefix', () => {
-    const url = new URL('https://example.com/some/page');
-    const result = localizeUrl({ config: deConfig, url });
-    expect(result.pathname).to.equal('/de/some/page');
-  });
-
-  it('preserves query string and hash when localizing', () => {
-    const url = new URL('https://example.com/page?foo=bar#section');
-    const result = localizeUrl({ config: deConfig, url });
-    expect(result.href).to.include('?foo=bar');
-    expect(result.href).to.include('#section');
   });
 });
 

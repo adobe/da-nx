@@ -19,11 +19,9 @@ export function getMetadata(name) {
 }
 
 export function getLocale(locales = { '': {} }) {
-  const { pathname } = window.location;
-  const matches = Object.keys(locales).filter((locale) => pathname.startsWith(`${locale}/`));
-  const prefix = getMetadata('locale') || matches.sort((a, b) => b.length - a.length)?.[0] || '';
-  if (locales[prefix].lang) document.documentElement.lang = locales[prefix].lang;
-  return { prefix, ...locales[prefix] };
+  const key = getMetadata('lang') || localStorage.getItem('lang') || '';
+  if (locales[key].lang) document.documentElement.lang = locales[key].lang;
+  return { key, ...locales[key] };
 }
 
 export const [setConfig, getConfig] = (() => {
@@ -32,6 +30,7 @@ export const [setConfig, getConfig] = (() => {
     (conf = {}) => {
       config = {
         ...conf,
+        iconSize: conf.iconSize || '20',
         linkBlocks: conf.linkBlocks || [],
         log: conf.log || LOG,
         locale: getLocale(conf.locales),
@@ -71,64 +70,6 @@ function decoratePictures(el) {
   }
 }
 
-function decorateButton(link) {
-  const isEm = link.closest('em');
-  const isStrong = link.closest('strong');
-  const isStrike = link.closest('del');
-  const isUnder = link.querySelector('u');
-  if (!(isEm || isStrong || isStrike || isUnder)) return;
-  const trueParent = link.closest('p, li, div');
-  if (!trueParent) return;
-  const siblings = [...trueParent.childNodes];
-
-  const hasSibling = siblings.every(
-    (el) => el.nodeName === 'A'
-    || el.nodeName === 'EM'
-    || el.nodeName === 'STRONG'
-    || el.nodeName === 'DEL'
-    || !el.textContent.trim(),
-  );
-  if (!hasSibling) return;
-  if (siblings.length > 1) trueParent.classList.add('btn-group');
-
-  link.classList.add('btn');
-  if (isStrike) {
-    link.classList.add('btn-negative');
-  } else if (isEm && isStrong) {
-    link.classList.add('btn-accent');
-  } else if (isStrong) {
-    link.classList.add('btn-primary');
-  } else if (isEm) {
-    link.classList.add('btn-secondary');
-  }
-  if (isUnder) {
-    link.classList.add('btn-outline');
-    link.innerHTML = isUnder.innerHTML;
-    isUnder.remove();
-  }
-  const toReplace = [isEm, isStrong, isStrike].find((el) => el?.parentNode === trueParent);
-  if (toReplace) trueParent.replaceChild(link, toReplace);
-}
-
-export function localizeUrl({ config, url }) {
-  const { locales, locale } = config;
-
-  // If in root locale, do nothing
-  if (locale.prefix === '') return null;
-
-  const { origin, pathname, search, hash } = url;
-
-  // If the link is already localized, do nothing
-  if (pathname.startsWith(`${locale.prefix}/`)) return null;
-
-  const localized = Object.keys(locales).some(
-    (key) => key !== '' && pathname.startsWith(`${key}/`),
-  );
-  if (localized) return null;
-
-  return new URL(`${origin}${locale.prefix}${pathname}${search}${hash}`);
-}
-
 function decorateHash(a, url) {
   const { hash } = url;
   if (!hash || hash === '#') return {};
@@ -153,19 +94,14 @@ export function decorateLink(config, a) {
     const hostMatch = config.hostnames.some((host) => url.hostname.endsWith(host));
     if (hostMatch) a.href = a.href.replace(url.origin, '');
 
-    const isRelative = a.getAttribute('href').startsWith('/');
-    const { dnt, dnb } = decorateHash(a, url);
-    if (isRelative && !dnt) {
-      const localized = localizeUrl({ config, url });
-      if (localized) a.href = localized.href;
-    }
-    decorateButton(a);
+    const { dnb } = decorateHash(a, url);
     if (!dnb) {
-      const { href } = a;
+      const { href, hash } = a;
       const found = config.linkBlocks.some((pattern) => {
         const key = Object.keys(pattern)[0];
         if (!href.includes(pattern[key])) return false;
-        a.classList.add(key, 'auto-block');
+        const blockName = key === 'fragment' && hash ? 'dialog' : key;
+        a.classList.add(blockName, 'auto-block');
         return true;
       });
       if (found) return a;
@@ -238,6 +174,29 @@ function decorateHeader() {
   header.dataset.status = 'decorated';
 }
 
+async function decoratePlaceholders(area, isDoc) {
+  const parent = isDoc ? area.body : area;
+
+  const { SHOW_TEXT, FILTER_ACCEPT, FILTER_REJECT } = NodeFilter;
+  const opts = {
+    acceptNode: (node) => (node.textContent.includes('{') ? FILTER_ACCEPT : FILTER_REJECT),
+  };
+  const walker = document.createTreeWalker(parent, SHOW_TEXT, opts);
+
+  const { locale, locales } = getConfig();
+  const defaultLang = Object.values(locales)[0].lang;
+
+  const placeholders = locale.lang !== defaultLang
+    ? await (await import('./utils/placeholders.js')).getPlaceholders(locale.lang)
+    : new Map();
+
+  while (walker.nextNode()) {
+    const { currentNode } = walker;
+    const fn = (_, key) => placeholders.get(key) ?? key;
+    currentNode.textContent = currentNode.textContent.replace(/\{([^}]+)\}/g, fn);
+  }
+}
+
 function decorateDoc() {
   decorateHeader();
 
@@ -251,6 +210,7 @@ function decorateDoc() {
 export async function loadArea({ area } = { area: document }) {
   const isDoc = area === document;
   if (isDoc) decorateDoc();
+  await decoratePlaceholders(area, isDoc);
   decoratePictures(area);
   const { decorateArea } = getConfig();
   if (decorateArea) decorateArea({ area });
@@ -260,7 +220,11 @@ export async function loadArea({ area } = { area: document }) {
     await Promise.all(section.linkBlocks.map((block) => loadBlock(block)));
     await Promise.all(section.blocks.map((block) => loadBlock(block)));
     delete section.dataset.status;
-    if (isDoc && idx === 0) import('./postlcp.js').then((mod) => mod.default());
+    if (isDoc && idx === 0) {
+      // Post LCP
+      const header = document.querySelector('header');
+      if (header) await loadBlock(header);
+    }
   }
   if (isDoc) import('./lazy.js');
 }
