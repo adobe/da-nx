@@ -1,4 +1,4 @@
-export const getPlaceholders = (() => {
+export const loadPlaceholders = (() => {
   const cache = {};
 
   const fetchPlaceholders = async (lang) => {
@@ -14,6 +14,7 @@ export const getPlaceholders = (() => {
   };
 
   return (lang) => {
+    if (!lang) return new Map();
     cache[lang] ??= fetchPlaceholders(lang);
     return cache[lang];
   };

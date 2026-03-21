@@ -1,4 +1,4 @@
-import { getConfig } from '../nx.js';
+import { getConfig } from '../scripts/nx.js';
 
 const { imsClientId, imsScope, env } = getConfig();
 

@@ -26,7 +26,7 @@ const linkBlocks = [
 ];
 
 const imsClientId = 'nexter';
-const imsScope = 'ab.manage,AdobeID,gnav,openid,org.read,read_organizations,session,additional_info.ownerOrg';
+const imsScope = 'ab.manage,AdobeID,gnav,openid,org.read,read_organizations,session,additional_info.ownerOrg,additional_info.projectedProductContext,account_cluster.read';
 
 const env = (() => {
   const { host } = window.location;

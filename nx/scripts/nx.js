@@ -10,7 +10,7 @@
  * governing permissions and limitations under the License.
  */
 
-const LOG = async (ex, el) => (await import('./utils/error.js')).default(ex, el);
+const LOG = async (ex, el) => (await import('../utils/error.js')).default(ex, el);
 
 export function getMetadata(name) {
   const attr = name && name.includes(':') ? 'property' : 'name';
@@ -125,7 +125,7 @@ function decorateLinks(el) {
 function loadIcons(el) {
   const icons = el.querySelectorAll('span.icon');
   if (!icons.length) return;
-  import('./utils/icons.js').then((mod) => mod.default(icons));
+  import('../utils/icons.js').then((mod) => mod.default(icons));
 }
 
 function groupChildren(section) {
@@ -187,7 +187,7 @@ async function decoratePlaceholders(area, isDoc) {
   const defaultLang = Object.values(locales)[0].lang;
 
   const placeholders = locale.lang !== defaultLang
-    ? await (await import('./utils/placeholders.js')).getPlaceholders(locale.lang)
+    ? await (await import('../utils/placeholders.js')).getPlaceholders(locale.lang)
     : new Map();
 
   while (walker.nextNode()) {

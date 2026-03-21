@@ -1,9 +1,9 @@
 import { LitElement, html } from 'lit';
 import { getMetadata } from '../../scripts/nx.js';
 
-import { loadStyle } from '../../scripts/utils/style.js';
+import { loadStyle } from '../../utils/style.js';
 import { loadFragment } from '../fragment/fragment.js';
-import { loadHrefSvg } from '../../scripts/utils/icons.js';
+import { loadHrefSvg } from '../../utils/icons.js';
 
 const DEFAULT_NAV_PATH = '/fragments/nav/header';
 
@@ -60,22 +60,8 @@ class NXHeader extends LitElement {
     return ul;
   }
 
-  handleScheme() {
-    const { body } = document;
-
-    let currPref = localStorage.getItem('color-scheme');
-    if (!currPref) {
-      currPref = matchMedia('(prefers-color-scheme: dark)')
-        .matches ? 'dark-scheme' : 'light-scheme';
-    }
-
-    const theme = currPref === 'dark-scheme'
-      ? { add: 'light-scheme', remove: 'dark-scheme' }
-      : { add: 'dark-scheme', remove: 'light-scheme' };
-
-    body.classList.remove(theme.remove);
-    body.classList.add(theme.add);
-    localStorage.setItem('color-scheme', theme.add);
+  handleProfileReady() {
+    console.log('Ready!');
   }
 
   render() {
@@ -83,7 +69,7 @@ class NXHeader extends LitElement {
       <div class="brand-area">
         ${this._brand}
       </div>
-      <div class="action-area">
+      <div class="action-area" @loaded=${this.handleProfileReady}>
         ${this._actions}
       </div>
       `;
