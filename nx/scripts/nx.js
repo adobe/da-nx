@@ -24,16 +24,38 @@ export function getLocale(locales = { '': {} }) {
   return { key, ...locales[key] };
 }
 
+async function getStrings(locales, locale) {
+  const strings = new Map();
+
+  // If not the default lang, load localized strings
+  const defaultLang = Object.values(locales)[0].lang;
+  if (locale.lang !== defaultLang) {
+    const resp = await fetch(`/${locale.lang}/placeholders.json`);
+    if (resp.ok) {
+      const { data } = await resp.json();
+      for (const row of data) {
+        strings.set(row.key, row.value);
+      }
+    }
+  }
+
+  return strings;
+}
+
 export const [setConfig, getConfig] = (() => {
   let config;
   return [
-    (conf = {}) => {
+    async (conf = {}) => {
+      const locale = getLocale(conf.locales);
+      const strings = await getStrings(conf.locales, locale);
+
       config = {
         ...conf,
         iconSize: conf.iconSize || '20',
         linkBlocks: conf.linkBlocks || [],
         log: conf.log || LOG,
-        locale: getLocale(conf.locales),
+        locale,
+        strings,
         codeBase: `${import.meta.url.replace('/scripts/nx.js', '')}`,
       };
       return config;
@@ -41,6 +63,12 @@ export const [setConfig, getConfig] = (() => {
     () => (config || setConfig()),
   ];
 })();
+
+export const loc = ([first], ...values) => {
+  const key = values.length ? values[0] : first;
+  const { strings } = getConfig();
+  return strings.get(key) ?? key;
+};
 
 export async function loadBlock(block) {
   const { codeBase, log } = getConfig();
@@ -183,16 +211,9 @@ async function decoratePlaceholders(area, isDoc) {
   };
   const walker = document.createTreeWalker(parent, SHOW_TEXT, opts);
 
-  const { locale, locales } = getConfig();
-  const defaultLang = Object.values(locales)[0].lang;
-
-  const placeholders = locale.lang !== defaultLang
-    ? await (await import('../utils/placeholders.js')).getPlaceholders(locale.lang)
-    : new Map();
-
   while (walker.nextNode()) {
     const { currentNode } = walker;
-    const fn = (_, key) => placeholders.get(key) ?? key;
+    const fn = (_, key) => loc`${key}`;
     currentNode.textContent = currentNode.textContent.replace(/\{([^}]+)\}/g, fn);
   }
 }

@@ -1,7 +1,6 @@
 import { LitElement, html, nothing } from 'lit';
-import { getConfig } from '../../scripts/nx.js';
+import { getConfig, loc } from '../../scripts/nx.js';
 import { loadIms, handleSignOut, handleSignIn } from '../../utils/ims.js';
-import { loadPlaceholders } from '../../utils/placeholders.js';
 import { DA_ORIGIN, loadStyle, daFetch } from '../../utils/utils.js';
 
 const config = getConfig();
@@ -9,11 +8,10 @@ const config = getConfig();
 const style = await loadStyle(import.meta.url);
 class NxProfile extends LitElement {
   static properties = {
-    strings: { attribute: false },
     loginPopup: { type: Boolean },
     _ims: { state: true },
     _avatar: { state: true },
-    _org: { state: true },
+    _openOrgs: { state: true },
     _orgs: { state: true },
   };
 
@@ -47,7 +45,6 @@ class NxProfile extends LitElement {
     }
 
     this._orgs = (await this._ims.getOrgs()).data;
-    this._org = this._orgs.find((org) => org.userId === this._ims.userId);
 
     this.handleLoaded();
   }
@@ -66,8 +63,7 @@ class NxProfile extends LitElement {
       this._notice.classList.toggle('is-visible');
       setTimeout(() => { this._notice.classList.toggle('is-visible'); }, 3000);
     } catch {
-      // eslint-disable-next-line no-console
-      console.log('Could not copy to clipboard');
+      config.log('Could not copy to clipboard');
     }
   }
 
@@ -76,8 +72,8 @@ class NxProfile extends LitElement {
     window.location.reload();
   }
 
-  handleOrgCancel() {
-    this._orgs = undefined;
+  toggleOpenOrgs() {
+    this._openOrgs = !this._openOrgs;
   }
 
   async handleSignOut() {
@@ -110,13 +106,17 @@ class NxProfile extends LitElement {
     localStorage.setItem('color-scheme', theme.add);
   }
 
+  get _org() {
+    return this._orgs?.find((org) => org.userId === this._ims.userId);
+  }
+
   get _notice() {
     return this.shadowRoot.querySelector('.nx-menu-clipboard-notice');
   }
 
   renderOrg() {
     return html`
-      <button class="nx-menu-btn nx-menu-btn-org" @click=${this.getAllOrgs}>
+      <button class="nx-menu-btn nx-menu-btn-org" @click=${this.toggleOpenOrgs}>
         <p class="nx-org-title">Organization</p>
         <p class="nx-org-name">${this._org.description}</p>
         <svg class="icon" title="Switch organizations"><use href="#S2IconSwitch20N-icon"/></svg>
@@ -124,12 +124,12 @@ class NxProfile extends LitElement {
     `;
   }
 
-  renderOrgs() {
+  renderOrgSwitcher() {
     return html`
       <div class="nx-menu-all-orgs">
         <p class="nx-all-orgs-title">
           Switch Organization
-          <button class="nx-all-orgs-cancel" @click=${this.handleOrgCancel}>Cancel</button>
+          <button class="nx-all-orgs-cancel" @click=${this.toggleOpenOrgs}>Cancel</button>
         </p>
         <div class="nx-menu-all-orgs-inner">
           ${this._orgs.map((org) => html`
@@ -144,7 +144,7 @@ class NxProfile extends LitElement {
 
   renderSignIn() {
     return html`
-      <button class="signin-btn" @click=${handleSignIn}>Sign in</button>
+      <button class="signin-btn" @click=${handleSignIn}>${loc`Sign in`}</button>
     `;
   }
 
@@ -170,8 +170,8 @@ class NxProfile extends LitElement {
               <svg class="icon" title="Share profile"><use href="#S2IconShare20N-icon"/></svg>
             </button>
           </div>
-          ${this._org && !this._orgs ? this.renderOrg() : nothing}
-          ${this._orgs ? this.renderOrgs() : nothing}
+          ${this._org && !this._openOrgs ? this.renderOrg() : nothing}
+          ${this._openOrgs ? this.renderOrgSwitcher() : nothing}
           <div class="nx-menu-links">
             <p class="nx-menu-link-title">Links</p>
             <ul>
@@ -180,7 +180,7 @@ class NxProfile extends LitElement {
               <li><a href="https://adminconsole.adobe.com" target="_blank">Admin Console</a></li>
             </ul>
           </div>
-          <button class="nx-menu-btn nx-menu-btn-signout" @click=${this.handleSignOut}>Sign out</button>
+          <button class="nx-menu-btn nx-menu-btn-signout" @click=${this.handleSignOut}>${loc`Sign out`}</button>
         </div>
       </div>
     `;
@@ -191,7 +191,5 @@ customElements.define('nx-profile', NxProfile);
 
 export default async function init(a) {
   const cmp = document.createElement('nx-profile');
-  const placeholders = loadPlaceholders(config.locale.key);
-  cmp.strings = placeholders;
   a.parentElement.replaceChild(cmp, a);
 }

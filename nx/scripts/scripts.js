@@ -48,7 +48,7 @@ const decorateArea = ({ area = document }) => {
 };
 
 export async function loadPage() {
-  setConfig({
+  await setConfig({
     env, hostnames, locales, imsClientId, imsScope, linkBlocks, decorateArea,
   });
   await loadArea();

@@ -5,6 +5,11 @@
   button {
     font-family: var(--body-font-family);
   }
+
+  p {
+    line-height: 1;
+    margin: 0;
+  }
 }
 
 .icon {
@@ -15,24 +20,6 @@
   display: block;
   width: 20px;
   height: 20px;
-}
-
-p {
-  line-height: 1;
-  margin: 0;
-}
-
-.nx-btn-signin {
-  line-height: 32px;
-  padding: 0 12px;
-  border: none;
-  background: none;
-  font-weight: 700;
-  border-radius: var(--s2-radius-100);
-}
-
-.nx-btn-signin:hover {
-  background: #dfdfdf;
 }
 
 .nx-btn-profile {
@@ -297,7 +284,7 @@ p {
   justify-content: center;
   align-items: center;
   height: 32px;
-  border-radius: var(--s2-radius-md);
+  border-radius: var(--s2-radius-m);
   font-size: 14px;
   font-family: inherit;
   background: transparent;

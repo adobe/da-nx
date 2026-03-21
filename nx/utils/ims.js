@@ -81,11 +81,19 @@ const getIoFactory = (accessToken) => {
   };
 };
 
+const getTenantId = (profile) => {
+  const found = profile.projectedProductContext?.find(
+    (projected) => projected.prodCtx.serviceCode === 'dma_tartan',
+  );
+  return found?.prodCtx.serviceCode;
+};
+
 async function loadDetails(accessToken) {
   const profile = await window.adobeIMS.getProfile();
+  const tenantId = getTenantId(profile);
   const getIo = getIoFactory(accessToken);
   const getOrgs = getOrgsFactory(accessToken);
-  return { ...profile, accessToken, getIo, getOrgs };
+  return { ...profile, tenantId, accessToken, getIo, getOrgs };
 }
 
 export const loadIms = (() => {
