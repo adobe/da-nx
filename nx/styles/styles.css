@@ -1,3 +1,39 @@
+@font-face {
+  font-family: adobe-clean;
+  src: url("https://use.typekit.net/af/c0160f/00000000000000007735dac8/30/l?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n4&v=3") format("woff2");
+  font-display: optional;
+  font-style: normal;
+  font-weight: 400;
+  font-stretch: normal;
+}
+
+@font-face {
+  font-family: adobe-clean;
+  src: url("https://use.typekit.net/af/95bf80/00000000000000007735dacd/30/l?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=i4&v=3") format("woff2");
+  font-display: optional;
+  font-style: italic;
+  font-weight: 400;
+  font-stretch: normal;
+}
+
+@font-face {
+  font-family: adobe-clean;
+  src: url("https://use.typekit.net/af/5c07ba/00000000000000007735dad8/30/l?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3") format("woff2");
+  font-display: optional;
+  font-style: normal;
+  font-weight: 700;
+  font-stretch: normal;
+}
+
+@font-face {
+  font-family: adobe-clean;
+  src: url("https://use.typekit.net/af/650f2d/00000000000000007735dada/30/l?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=i7&v=3") format("woff2");
+  font-display: optional;
+  font-style: italic;
+  font-weight: 700;
+  font-stretch: normal;
+}
+
 :root {
   /* grid */
   --grid-container-width: 83.4%;
@@ -5,101 +41,281 @@
   --grid-gutter-width: 8.3%;
 
   /* spacing */
-  --spacing-xxl: 48px;
-  --spacing-xl: 32px;
-  --spacing-l: 24px;
-  --spacing-m: 12px;
-  --spacing-s: 8px;
-  --spacing-xs: 4px;
+  --spacing-4: 4px;
+  --spacing-8: 8px;
+  --spacing-12: 12px;
+  --spacing-16: 16px;
+  --spacing-24: 24px;
+  --spacing-32: 32px;
+
+  /* radius */
+  --s2-radius-s: 4px;
+  --s2-radius-m: 8px;
+  --s2-radius-l: 10px;
+  --s2-radius-xl: 16px;
 
   /* color schemes */
   color-scheme: light dark;
 
-  /* color tokens */
-  --color-gray-100: #f1f1f1;
-  --color-gray-200: #d3d3d3;
-  --color-gray-300: #b5b5b5;
-  --color-gray-400: #999;
-  --color-gray-500: #7d7d7d;
-  --color-gray-600: #636363;
-  --color-gray-700: #494949;
-  --color-gray-800: #313131;
-  --color-gray-900: #1b1b1b;
-  --color-green-100: #e1f5e3;
-  --color-green-200: #a3e1a8;
-  --color-green-300: #60cb6a;
-  --color-green-400: #24b032;
-  --color-green-500: #1e9029;
-  --color-green-600: #187220;
-  --color-green-700: #115418;
-  --color-green-800: #0c3910;
-  --color-green-900: #072009;
-  --color-teal-100: #e4f3f5;
-  --color-teal-200: #acdbdf;
-  --color-teal-300: #71c1c9;
-  --color-teal-400: #36a7b3;
-  --color-teal-500: #108a96;
-  --color-teal-600: #0d6d77;
-  --color-teal-700: #0a5158;
-  --color-teal-800: #06363b;
-  --color-teal-900: #041e21;
-  --color-blue-100: #eaf2ff;
-  --color-blue-200: #b9d4ff;
-  --color-blue-300: #88b6ff;
-  --color-blue-400: #5898ff;
-  --color-blue-500: #2176ff;
-  --color-blue-600: #0058e4;
-  --color-blue-700: #0041a9;
-  --color-blue-800: #002c74;
-  --color-blue-900: #001942;
-  --color-purple-100: #f4edfb;
-  --color-purple-200: #dfcbf2;
-  --color-purple-300: #c9a7ea;
-  --color-purple-400: #b385e1;
-  --color-purple-500: #9d60d8;
-  --color-purple-600: #843ccb;
-  --color-purple-700: #622c98;
-  --color-purple-800: #421e66;
-  --color-purple-900: #251139;
-  --color-magenta-100: #ffebf9;
-  --color-magenta-200: #ffc0ec;
-  --color-magenta-300: #ff8fde;
-  --color-magenta-400: #ff53cc;
-  --color-magenta-500: #eb00a5;
-  --color-magenta-600: #bd0084;
-  --color-magenta-700: #8e0064;
-  --color-magenta-800: #630045;
-  --color-magenta-900: #3b002a;
-  --color-red-100: #ffecea;
-  --color-red-200: #ffc4be;
-  --color-red-300: #ff9990;
-  --color-red-400: #ff6759;
-  --color-red-500: #f81400;
-  --color-red-600: #c71000;
-  --color-red-700: #950c00;
-  --color-red-800: #670800;
-  --color-red-900: #3c0500;
-  --color-orange-100: #ffeddc;
-  --color-orange-200: #ffc895;
-  --color-orange-300: #ff9e43;
-  --color-orange-400: #f37500;
-  --color-orange-500: #c76000;
-  --color-orange-600: #9e4c00;
-  --color-orange-700: #753800;
-  --color-orange-800: #4f2600;
-  --color-orange-900: #2d1500;
-  --color-yellow-100: #fff48e;
-  --color-yellow-200: #ebd400;
-  --color-yellow-300: #cab600;
-  --color-yellow-400: #ab9a00;
-  --color-yellow-500: #8c7e00;
-  --color-yellow-600: #6e6400;
-  --color-yellow-700: #514a00;
-  --color-yellow-800: #373100;
-  --color-yellow-900: #1e1b00;
+  --s2-gray-25: 255, 255, 255;
+  --s2-gray-50: 248, 248, 248;
+  --s2-gray-75: 243, 243, 243;
+  --s2-gray-100: 233, 233, 233;
+  --s2-gray-200: 225, 225, 225;
+  --s2-gray-300: 218, 218, 218;
+  --s2-gray-400: 198, 198, 198;
+  --s2-gray-500: 143, 143, 143;
+  --s2-gray-600: 113, 113, 113;
+  --s2-gray-700: 80, 80, 80;
+  --s2-gray-800: 41, 41, 41;
+  --s2-gray-900: 19, 19, 19;
+  --s2-gray-1000: 0, 0, 0;
+  --s2-blue-100: 245, 249, 255;
+  --s2-blue-200: 229, 240, 254;
+  --s2-blue-300: 203, 226, 254;
+  --s2-blue-400: 172, 207, 253;
+  --s2-blue-500: 142, 185, 252;
+  --s2-blue-600: 114, 158, 253;
+  --s2-blue-700: 93, 137, 255;
+  --s2-blue-800: 75, 117, 255;
+  --s2-blue-900: 59, 99, 251;
+  --s2-blue-1000: 39, 77, 234;
+  --s2-blue-1100: 29, 62, 207;
+  --s2-blue-1200: 21, 50, 173;
+  --s2-blue-1300: 16, 40, 140;
+  --s2-blue-1400: 12, 31, 105;
+  --s2-blue-1500: 14, 24, 67;
+  --s2-blue-1600: 7, 11, 30;
+  --s2-red-100: 255, 246, 245;
+  --s2-red-200: 255, 235, 232;
+  --s2-red-300: 255, 214, 209;
+  --s2-red-400: 255, 188, 180;
+  --s2-red-500: 255, 157, 145;
+  --s2-red-600: 255, 118, 101;
+  --s2-red-700: 255, 81, 61;
+  --s2-red-800: 240, 56, 35;
+  --s2-red-900: 215, 50, 32;
+  --s2-red-1000: 183, 40, 24;
+  --s2-red-1100: 156, 33, 19;
+  --s2-red-1200: 129, 27, 14;
+  --s2-red-1300: 104, 21, 10;
+  --s2-red-1400: 80, 16, 6;
+  --s2-red-1500: 59, 11, 4;
+  --s2-red-1600: 29, 5, 2;
+  --s2-orange-100: 255, 246, 231;
+  --s2-orange-200: 255, 236, 207;
+  --s2-orange-300: 255, 218, 158;
+  --s2-orange-400: 255, 193, 94;
+  --s2-orange-500: 255, 162, 19;
+  --s2-orange-600: 252, 125, 0;
+  --s2-orange-700: 232, 106, 0;
+  --s2-orange-800: 212, 91, 0;
+  --s2-orange-900: 194, 78, 0;
+  --s2-orange-1000: 167, 62, 0;
+  --s2-orange-1100: 144, 51, 0;
+  --s2-orange-1200: 118, 41, 0;
+  --s2-orange-1300: 95, 32, 0;
+  --s2-orange-1400: 73, 24, 0;
+  --s2-orange-1500: 52, 18, 0;
+  --s2-orange-1600: 25, 8, 0;
+  --s2-yellow-100: 255, 248, 204;
+  --s2-yellow-200: 255, 241, 151;
+  --s2-yellow-300: 255, 222, 44;
+  --s2-yellow-400: 245, 199, 0;
+  --s2-yellow-500: 230, 175, 0;
+  --s2-yellow-600: 210, 149, 0;
+  --s2-yellow-700: 193, 131, 0;
+  --s2-yellow-800: 175, 116, 0;
+  --s2-yellow-900: 158, 102, 0;
+  --s2-yellow-1000: 134, 85, 0;
+  --s2-yellow-1100: 114, 72, 0;
+  --s2-yellow-1200: 93, 59, 0;
+  --s2-yellow-1300: 75, 47, 0;
+  --s2-yellow-1400: 56, 35, 0;
+  --s2-yellow-1500: 40, 25, 0;
+  --s2-yellow-1600: 18, 11, 0;
+  --s2-chartreuse-100: 246, 251, 222;
+  --s2-chartreuse-200: 234, 246, 173;
+  --s2-chartreuse-300: 208, 236, 70;
+  --s2-chartreuse-400: 182, 219, 0;
+  --s2-chartreuse-500: 163, 196, 0;
+  --s2-chartreuse-600: 143, 172, 0;
+  --s2-chartreuse-700: 128, 153, 0;
+  --s2-chartreuse-800: 114, 137, 0;
+  --s2-chartreuse-900: 102, 122, 0;
+  --s2-chartreuse-1000: 86, 103, 0;
+  --s2-chartreuse-1100: 73, 87, 0;
+  --s2-chartreuse-1200: 60, 71, 0;
+  --s2-chartreuse-1300: 47, 57, 0;
+  --s2-chartreuse-1400: 35, 43, 0;
+  --s2-chartreuse-1500: 25, 30, 0;
+  --s2-chartreuse-1600: 11, 14, 0;
+  --s2-celery-100: 235, 255, 220;
+  --s2-celery-200: 197, 255, 156;
+  --s2-celery-300: 157, 247, 92;
+  --s2-celery-400: 129, 228, 58;
+  --s2-celery-500: 110, 206, 42;
+  --s2-celery-600: 93, 180, 31;
+  --s2-celery-700: 82, 161, 25;
+  --s2-celery-800: 72, 144, 20;
+  --s2-celery-900: 64, 129, 17;
+  --s2-celery-1000: 52, 109, 12;
+  --s2-celery-1100: 44, 92, 9;
+  --s2-celery-1200: 35, 75, 6;
+  --s2-celery-1300: 27, 60, 3;
+  --s2-celery-1400: 19, 46, 0;
+  --s2-celery-1500: 12, 33, 0;
+  --s2-celery-1600: 4, 15, 0;
+  --s2-green-100: 237, 252, 241;
+  --s2-green-200: 215, 247, 225;
+  --s2-green-300: 173, 238, 197;
+  --s2-green-400: 107, 227, 162;
+  --s2-green-500: 43, 209, 125;
+  --s2-green-600: 18, 184, 103;
+  --s2-green-700: 11, 164, 93;
+  --s2-green-800: 7, 147, 85;
+  --s2-green-900: 5, 131, 78;
+  --s2-green-1000: 3, 110, 69;
+  --s2-green-1100: 2, 93, 60;
+  --s2-green-1200: 1, 76, 52;
+  --s2-green-1300: 0, 61, 44;
+  --s2-green-1400: 0, 46, 34;
+  --s2-green-1500: 0, 33, 25;
+  --s2-green-1600: 0, 15, 12;
+  --s2-seafoam-100: 235, 251, 246;
+  --s2-seafoam-200: 211, 246, 234;
+  --s2-seafoam-300: 169, 237, 216;
+  --s2-seafoam-400: 92, 225, 194;
+  --s2-seafoam-500: 16, 207, 169;
+  --s2-seafoam-600: 13, 181, 149;
+  --s2-seafoam-700: 11, 162, 134;
+  --s2-seafoam-800: 9, 144, 120;
+  --s2-seafoam-900: 7, 129, 109;
+  --s2-seafoam-1000: 5, 108, 92;
+  --s2-seafoam-1100: 3, 92, 80;
+  --s2-seafoam-1200: 1, 75, 67;
+  --s2-seafoam-1300: 0, 60, 54;
+  --s2-seafoam-1400: 0, 46, 40;
+  --s2-seafoam-1500: 0, 33, 29;
+  --s2-seafoam-1600: 0, 15, 14;
+  --s2-cyan-100: 238, 250, 254;
+  --s2-cyan-200: 217, 244, 253;
+  --s2-cyan-300: 183, 231, 252;
+  --s2-cyan-400: 138, 213, 255;
+  --s2-cyan-500: 92, 192, 255;
+  --s2-cyan-600: 48, 167, 254;
+  --s2-cyan-700: 29, 149, 231;
+  --s2-cyan-800: 18, 134, 205;
+  --s2-cyan-900: 11, 120, 179;
+  --s2-cyan-1000: 4, 102, 145;
+  --s2-cyan-1100: 0, 87, 121;
+  --s2-cyan-1200: 0, 71, 98;
+  --s2-cyan-1300: 0, 57, 78;
+  --s2-cyan-1400: 0, 43, 59;
+  --s2-cyan-1500: 0, 31, 43;
+  --s2-cyan-1600: 0, 14, 20;
+  --s2-indigo-100: 247, 248, 255;
+  --s2-indigo-200: 235, 238, 255;
+  --s2-indigo-300: 216, 222, 255;
+  --s2-indigo-400: 192, 201, 255;
+  --s2-indigo-500: 167, 178, 255;
+  --s2-indigo-600: 145, 151, 254;
+  --s2-indigo-700: 132, 128, 254;
+  --s2-indigo-800: 122, 106, 253;
+  --s2-indigo-900: 113, 85, 250;
+  --s2-indigo-1000: 99, 56, 238;
+  --s2-indigo-1100: 84, 36, 219;
+  --s2-indigo-1200: 69, 19, 191;
+  --s2-indigo-1300: 55, 6, 160;
+  --s2-indigo-1400: 42, 0, 129;
+  --s2-indigo-1500: 31, 0, 98;
+  --s2-indigo-1600: 17, 0, 54;
+  --s2-purple-100: 251, 247, 254;
+  --s2-purple-200: 244, 235, 252;
+  --s2-purple-300: 235, 218, 249;
+  --s2-purple-400: 221, 193, 246;
+  --s2-purple-500: 208, 167, 243;
+  --s2-purple-600: 191, 138, 238;
+  --s2-purple-700: 178, 114, 235;
+  --s2-purple-800: 166, 92, 231;
+  --s2-purple-900: 154, 71, 226;
+  --s2-purple-1000: 134, 40, 217;
+  --s2-purple-1100: 115, 13, 204;
+  --s2-purple-1200: 93, 0, 177;
+  --s2-purple-1300: 75, 0, 144;
+  --s2-purple-1400: 59, 0, 111;
+  --s2-purple-1500: 44, 0, 84;
+  --s2-purple-1600: 23, 0, 45;
+  --s2-fuchsia-100: 254, 246, 255;
+  --s2-fuchsia-200: 253, 233, 255;
+  --s2-fuchsia-300: 250, 211, 255;
+  --s2-fuchsia-400: 247, 181, 255;
+  --s2-fuchsia-500: 243, 147, 255;
+  --s2-fuchsia-600: 236, 105, 255;
+  --s2-fuchsia-700: 223, 77, 245;
+  --s2-fuchsia-800: 200, 68, 220;
+  --s2-fuchsia-900: 181, 57, 200;
+  --s2-fuchsia-1000: 156, 40, 175;
+  --s2-fuchsia-1100: 135, 27, 154;
+  --s2-fuchsia-1200: 113, 15, 131;
+  --s2-fuchsia-1300: 92, 4, 109;
+  --s2-fuchsia-1400: 72, 0, 88;
+  --s2-fuchsia-1500: 54, 0, 66;
+  --s2-fuchsia-1600: 29, 0, 35;
+  --s2-magenta-100: 255, 245, 248;
+  --s2-magenta-200: 255, 232, 240;
+  --s2-magenta-300: 255, 213, 227;
+  --s2-magenta-400: 255, 185, 208;
+  --s2-magenta-500: 255, 152, 187;
+  --s2-magenta-600: 255, 112, 159;
+  --s2-magenta-700: 255, 72, 133;
+  --s2-magenta-800: 240, 45, 110;
+  --s2-magenta-900: 217, 35, 97;
+  --s2-magenta-1000: 186, 22, 80;
+  --s2-magenta-1100: 163, 5, 62;
+  --s2-magenta-1200: 136, 0, 51;
+  --s2-magenta-1300: 111, 0, 40;
+  --s2-magenta-1400: 86, 0, 30;
+  --s2-magenta-1500: 64, 0, 22;
+  --s2-magenta-1600: 35, 0, 12;
+  --s2-pink-100: 255, 246, 252;
+  --s2-pink-200: 255, 232, 247;
+  --s2-pink-300: 255, 211, 240;
+  --s2-pink-400: 255, 181, 230;
+  --s2-pink-500: 255, 148, 219;
+  --s2-pink-600: 255, 103, 204;
+  --s2-pink-700: 242, 76, 184;
+  --s2-pink-800: 228, 52, 163;
+  --s2-pink-900: 206, 42, 146;
+  --s2-pink-1000: 176, 31, 123;
+  --s2-pink-1100: 152, 22, 104;
+  --s2-pink-1200: 128, 12, 85;
+  --s2-pink-1300: 105, 3, 68;
+  --s2-pink-1400: 83, 0, 53;
+  --s2-pink-1500: 62, 0, 39;
+  --s2-pink-1600: 33, 0, 21;
+  --s2-turquoise-100: 238, 251, 251;
+  --s2-turquoise-200: 209, 245, 245;
+  --s2-turquoise-300: 169, 236, 237;
+  --s2-turquoise-400: 111, 221, 228;
+  --s2-turquoise-500: 39, 202, 216;
+  --s2-turquoise-600: 15, 177, 192;
+  --s2-turquoise-700: 12, 158, 171;
+  --s2-turquoise-800: 10, 141, 153;
+  --s2-turquoise-900: 8, 126, 137;
+  --s2-turquoise-1000: 5, 107, 116;
+  --s2-turquoise-1100: 3, 90, 98;
+  --s2-turquoise-1200: 1, 74, 81;
+  --s2-turquoise-1300: 0, 59, 65;
+  --s2-turquoise-1400: 0, 44, 49;
+  --s2-turquoise-1500: 0, 32, 35;
+  --s2-turquoise-1600: 0, 15, 17;
+
+  /* Adobe brand */
+  --corporate-color: 235, 16, 0;
 
   /* fonts */
-  --font-family: 'Adobe Clean', adobe-clean, "Trebuchet MS", sans-serif;
+  --font-family: 'Adobe Clean', adobe-clean, sans-serif;
 
   /* headings */
   --heading-font-size-xxl: 32.44px;
@@ -136,8 +352,8 @@
 body {
   display: grid;
   margin: 0;
-  background-color: var(--color-background);
-  color: var(--color-text);
+  background-color: light-dark(rgb(var(--s2-gray-50)), rgb(var(--s2-gray-900)));
+  color: light-dark(rgb(var(--s2-gray-1000)), rgb(var(--s2-gray-50)));
   font-family: var(--font-family);
   font-size: var(--body-font-size-m);
   line-height: var(--body-line-height);
@@ -151,12 +367,21 @@ body {
 
 header {
   height: var(--header-height);
-  position: fixed;
   grid-area: header;
+}
+
+nx-sidenav {
+  grid-area: sidenav;
 }
 
 main {
   grid-area: main;
+  margin: 0 12px 0 0;
+  background-color: light-dark(#fff, #000);
+  border-radius: var(--s2-radius-xl) var(--s2-radius-xl) 0 0;
+  box-shadow: 0 0 8px 0 rgb(0 0 0 / 10%);
+  overflow-y: scroll;
+  max-height: 100%;
 }
 
 a {
@@ -171,6 +396,7 @@ button {
 }
 
 button {
+  font-size: 14px;
   cursor: pointer;
 }
 

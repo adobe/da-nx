@@ -16,7 +16,23 @@ const hostnames = ['nx.live'];
 
 const locales = {
   '': { lang: 'en' },
+  de: { lang: 'de' },
+  fr: { lang: 'fr' },
 };
+
+const linkBlocks = [
+  { fragment: '/fragments/' },
+];
+
+const imsClientId = 'nexter';
+const imsScope = 'ab.manage,AdobeID,gnav,openid,org.read,read_organizations,session,additional_info.ownerOrg,additional_info.projectedProductContext,account_cluster.read';
+
+const env = (() => {
+  const { host } = window.location;
+  if (!['--', 'local'].some((check) => host.includes(check))) return 'prod';
+  if (['--'].some((check) => host.includes(check))) return 'stage';
+  return 'dev';
+})();
 
 // How to decorate an area before loading it
 const decorateArea = ({ area = document }) => {
@@ -30,8 +46,18 @@ const decorateArea = ({ area = document }) => {
   eagerLoad(area, 'img');
 };
 
+const conf = {
+  env,
+  hostnames,
+  locales,
+  imsClientId,
+  imsScope,
+  linkBlocks,
+  decorateArea,
+};
+
 export async function loadPage() {
-  setConfig({ hostnames, locales, decorateArea });
+  await setConfig(conf);
   await loadArea();
 }
 await loadPage();

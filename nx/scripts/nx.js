@@ -10,7 +10,7 @@
  * governing permissions and limitations under the License.
  */
 
-const LOG = async (ex, el) => (await import('./utils/error.js')).default(ex, el);
+const LOG = async (ex, el) => (await import('../utils/error.js')).default(ex, el);
 
 export function getMetadata(name) {
   const attr = name && name.includes(':') ? 'property' : 'name';
@@ -19,22 +19,43 @@ export function getMetadata(name) {
 }
 
 export function getLocale(locales = { '': {} }) {
-  const { pathname } = window.location;
-  const matches = Object.keys(locales).filter((locale) => pathname.startsWith(`${locale}/`));
-  const prefix = getMetadata('locale') || matches.sort((a, b) => b.length - a.length)?.[0] || '';
-  if (locales[prefix].lang) document.documentElement.lang = locales[prefix].lang;
-  return { prefix, ...locales[prefix] };
+  const key = getMetadata('lang') || localStorage.getItem('lang') || '';
+  if (locales[key].lang) document.documentElement.lang = locales[key].lang;
+  return { key, ...locales[key] };
+}
+
+async function getStrings(locales, locale) {
+  const strings = new Map();
+
+  // If not the default lang, load localized strings
+  const defaultLang = Object.values(locales)[0].lang;
+  if (locale.lang !== defaultLang) {
+    const resp = await fetch(`/${locale.lang}/placeholders.json`);
+    if (resp.ok) {
+      const { data } = await resp.json();
+      for (const row of data) {
+        strings.set(row.key, row.value);
+      }
+    }
+  }
+
+  return strings;
 }
 
 export const [setConfig, getConfig] = (() => {
   let config;
   return [
-    (conf = {}) => {
+    async (conf = {}) => {
+      const locale = getLocale(conf.locales);
+      const strings = await getStrings(conf.locales, locale);
+
       config = {
         ...conf,
+        iconSize: conf.iconSize || '20',
         linkBlocks: conf.linkBlocks || [],
         log: conf.log || LOG,
-        locale: getLocale(conf.locales),
+        locale,
+        strings,
         codeBase: `${import.meta.url.replace('/scripts/nx.js', '')}`,
       };
       return config;
@@ -42,6 +63,12 @@ export const [setConfig, getConfig] = (() => {
     () => (config || setConfig()),
   ];
 })();
+
+export const loc = ([first], ...values) => {
+  const key = values.length ? values[0] : first;
+  const { strings } = getConfig();
+  return strings.get(key) ?? key;
+};
 
 export async function loadBlock(block) {
   const { codeBase, log } = getConfig();
@@ -71,64 +98,6 @@ function decoratePictures(el) {
   }
 }
 
-function decorateButton(link) {
-  const isEm = link.closest('em');
-  const isStrong = link.closest('strong');
-  const isStrike = link.closest('del');
-  const isUnder = link.querySelector('u');
-  if (!(isEm || isStrong || isStrike || isUnder)) return;
-  const trueParent = link.closest('p, li, div');
-  if (!trueParent) return;
-  const siblings = [...trueParent.childNodes];
-
-  const hasSibling = siblings.every(
-    (el) => el.nodeName === 'A'
-    || el.nodeName === 'EM'
-    || el.nodeName === 'STRONG'
-    || el.nodeName === 'DEL'
-    || !el.textContent.trim(),
-  );
-  if (!hasSibling) return;
-  if (siblings.length > 1) trueParent.classList.add('btn-group');
-
-  link.classList.add('btn');
-  if (isStrike) {
-    link.classList.add('btn-negative');
-  } else if (isEm && isStrong) {
-    link.classList.add('btn-accent');
-  } else if (isStrong) {
-    link.classList.add('btn-primary');
-  } else if (isEm) {
-    link.classList.add('btn-secondary');
-  }
-  if (isUnder) {
-    link.classList.add('btn-outline');
-    link.innerHTML = isUnder.innerHTML;
-    isUnder.remove();
-  }
-  const toReplace = [isEm, isStrong, isStrike].find((el) => el?.parentNode === trueParent);
-  if (toReplace) trueParent.replaceChild(link, toReplace);
-}
-
-export function localizeUrl({ config, url }) {
-  const { locales, locale } = config;
-
-  // If in root locale, do nothing
-  if (locale.prefix === '') return null;
-
-  const { origin, pathname, search, hash } = url;
-
-  // If the link is already localized, do nothing
-  if (pathname.startsWith(`${locale.prefix}/`)) return null;
-
-  const localized = Object.keys(locales).some(
-    (key) => key !== '' && pathname.startsWith(`${key}/`),
-  );
-  if (localized) return null;
-
-  return new URL(`${origin}${locale.prefix}${pathname}${search}${hash}`);
-}
-
 function decorateHash(a, url) {
   const { hash } = url;
   if (!hash || hash === '#') return {};
@@ -153,19 +122,14 @@ export function decorateLink(config, a) {
     const hostMatch = config.hostnames.some((host) => url.hostname.endsWith(host));
     if (hostMatch) a.href = a.href.replace(url.origin, '');
 
-    const isRelative = a.getAttribute('href').startsWith('/');
-    const { dnt, dnb } = decorateHash(a, url);
-    if (isRelative && !dnt) {
-      const localized = localizeUrl({ config, url });
-      if (localized) a.href = localized.href;
-    }
-    decorateButton(a);
+    const { dnb } = decorateHash(a, url);
     if (!dnb) {
-      const { href } = a;
+      const { href, hash } = a;
       const found = config.linkBlocks.some((pattern) => {
         const key = Object.keys(pattern)[0];
         if (!href.includes(pattern[key])) return false;
-        a.classList.add(key, 'auto-block');
+        const blockName = key === 'fragment' && hash ? 'dialog' : key;
+        a.classList.add(blockName, 'auto-block');
         return true;
       });
       if (found) return a;
@@ -189,7 +153,7 @@ function decorateLinks(el) {
 function loadIcons(el) {
   const icons = el.querySelectorAll('span.icon');
   if (!icons.length) return;
-  import('./utils/icons.js').then((mod) => mod.default(icons));
+  import('../utils/svg.js').then((mod) => mod.default(icons));
 }
 
 function groupChildren(section) {
@@ -225,21 +189,43 @@ function decorateSections(parent, isDoc) {
   });
 }
 
-function decorateHeader() {
+function decorateNav() {
   const header = document.querySelector('header');
   if (!header) return;
-  const meta = getMetadata('header') || 'header';
+  const meta = getMetadata('header');
   if (meta === 'off') {
-    document.body.classList.add('no-header');
     header.remove();
     return;
   }
-  header.className = meta;
-  header.dataset.status = 'decorated';
+  const nxNav = document.createElement('nx-nav');
+  header.append(nxNav);
+  // Sidenav
+  const snmeta = getMetadata('sidenav');
+  if (snmeta === 'off') return;
+  const nav = document.createElement('nav');
+  const nxSidenav = document.createElement('nx-sidenav');
+  nav.append(nxSidenav);
+  header.after(nav);
+}
+
+async function decoratePlaceholders(area, isDoc) {
+  const parent = isDoc ? area.body : area;
+
+  const { SHOW_TEXT, FILTER_ACCEPT, FILTER_REJECT } = NodeFilter;
+  const opts = {
+    acceptNode: (node) => (node.textContent.includes('{') ? FILTER_ACCEPT : FILTER_REJECT),
+  };
+  const walker = document.createTreeWalker(parent, SHOW_TEXT, opts);
+
+  while (walker.nextNode()) {
+    const { currentNode } = walker;
+    const fn = (_, key) => loc`${key}`;
+    currentNode.textContent = currentNode.textContent.replace(/\{([^}]+)\}/g, fn);
+  }
 }
 
 function decorateDoc() {
-  decorateHeader();
+  decorateNav();
 
   const scheme = localStorage.getItem('color-scheme');
   if (scheme) document.body.classList.add(scheme);
@@ -248,19 +234,30 @@ function decorateDoc() {
   if (pageId) localStorage.setItem('lazyhash', pageId);
 }
 
+function loadNav() {
+  const header = document.querySelector('nx-nav');
+  if (header) import('../blocks/nav/nav.js');
+  const sidenav = document.querySelector('nx-sidenav');
+  if (sidenav) import('../blocks/sidenav/sidenav.js');
+  sessionStorage.setItem('session', true);
+}
+
 export async function loadArea({ area } = { area: document }) {
   const isDoc = area === document;
+  const isSession = sessionStorage.getItem('session');
   if (isDoc) decorateDoc();
+  await decoratePlaceholders(area, isDoc);
   decoratePictures(area);
   const { decorateArea } = getConfig();
   if (decorateArea) decorateArea({ area });
+  if (isDoc && isSession) loadNav();
   const sections = decorateSections(area, isDoc);
   for (const [idx, section] of sections.entries()) {
     loadIcons(section);
     await Promise.all(section.linkBlocks.map((block) => loadBlock(block)));
     await Promise.all(section.blocks.map((block) => loadBlock(block)));
     delete section.dataset.status;
-    if (isDoc && idx === 0) import('./postlcp.js').then((mod) => mod.default());
+    if (isDoc && idx === 0 && !isSession) loadNav();
   }
   if (isDoc) import('./lazy.js');
 }
