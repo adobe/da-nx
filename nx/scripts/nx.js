@@ -153,7 +153,7 @@ function decorateLinks(el) {
 function loadIcons(el) {
   const icons = el.querySelectorAll('span.icon');
   if (!icons.length) return;
-  import('../utils/icons.js').then((mod) => mod.default(icons));
+  import('../utils/svg.js').then((mod) => mod.default(icons));
 }
 
 function groupChildren(section) {
@@ -234,26 +234,30 @@ function decorateDoc() {
   if (pageId) localStorage.setItem('lazyhash', pageId);
 }
 
+function loadNav() {
+  const header = document.querySelector('nx-nav');
+  if (header) import('../blocks/nav/nav.js');
+  const sidenav = document.querySelector('nx-sidenav');
+  if (sidenav) import('../blocks/sidenav/sidenav.js');
+  sessionStorage.setItem('session', true);
+}
+
 export async function loadArea({ area } = { area: document }) {
   const isDoc = area === document;
+  const isSession = sessionStorage.getItem('session');
   if (isDoc) decorateDoc();
   await decoratePlaceholders(area, isDoc);
   decoratePictures(area);
   const { decorateArea } = getConfig();
   if (decorateArea) decorateArea({ area });
+  if (isDoc && isSession) loadNav();
   const sections = decorateSections(area, isDoc);
   for (const [idx, section] of sections.entries()) {
     loadIcons(section);
     await Promise.all(section.linkBlocks.map((block) => loadBlock(block)));
     await Promise.all(section.blocks.map((block) => loadBlock(block)));
     delete section.dataset.status;
-    if (isDoc && idx === 0) {
-      // Post LCP
-      const header = document.querySelector('nx-nav');
-      if (header) await import('../blocks/nav/nav.js');
-      const sidenav = document.querySelector('nx-sidenav');
-      if (sidenav) await import('../blocks/sidenav/sidenav.js');
-    }
+    if (isDoc && idx === 0 && !isSession) loadNav();
   }
   if (isDoc) import('./lazy.js');
 }

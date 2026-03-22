@@ -3,7 +3,7 @@ import { getMetadata } from '../../scripts/nx.js';
 
 import { loadStyle } from '../../utils/style.js';
 import { loadFragment } from '../fragment/fragment.js';
-import { loadHrefSvg } from '../../utils/icons.js';
+import { loadHrefSvg } from '../../utils/svg.js';
 
 const DEFAULT_NAV_PATH = '/nx/fragments/nav';
 

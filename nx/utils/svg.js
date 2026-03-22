@@ -4,9 +4,13 @@ const { codeBase, iconSize } = getConfig();
 
 export default function loadIcons(icons, size = iconSize) {
   for (const icon of icons) {
-    const name = icon.classList[1].substring(5);
+    const tmp = icon.classList[1].substring(5);
+    const name = tmp.split('-')
+      .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
+      .join('');
+    const id = name.toLowerCase();
     const svg = `<svg viewBox="0 0 ${size} ${size}">
-        <use href="${codeBase}/img/icons/${name}.svg#${name}"></use>
+        <use href="${codeBase}/img/icons/S2_Icon_${name}_20_N.svg#${id}"></use>
     </svg>`;
     icon.innerHTML = svg;
   }
