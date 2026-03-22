@@ -5,13 +5,13 @@ import { loadStyle } from '../../utils/style.js';
 import { loadFragment } from '../fragment/fragment.js';
 import { loadHrefSvg } from '../../utils/icons.js';
 
-const DEFAULT_NAV_PATH = '/fragments/nav/header';
+const DEFAULT_NAV_PATH = '/nx/fragments/nav';
 
 const style = await loadStyle(import.meta.url);
 
-class NXHeader extends LitElement {
+class NXNav extends LitElement {
   static properties = {
-    navPath: { attribute: false },
+    path: { attribute: false },
     _brand: { state: true },
     _actions: { state: true },
   };
@@ -23,16 +23,16 @@ class NXHeader extends LitElement {
   }
 
   change(props) {
-    if (props.has('navPath') && this.navPath) {
+    if (props.has('path') && this.path) {
       this.loadNav();
     }
   }
 
   async loadNav() {
-    const fragment = await loadFragment(this.navPath);
+    const fragment = await loadFragment(this._path);
     const sections = [...fragment.querySelectorAll('.section')];
     this._brand = await this.decorateBrand(sections[0]);
-    this._actions = this.decorateActions(sections.pop());
+    this._actions = await this.decorateActions(sections.pop());
   }
 
   async decorateBrand(brandSection) {
@@ -54,14 +54,22 @@ class NXHeader extends LitElement {
     return brandLink;
   }
 
-  decorateActions(section) {
+  async decorateActions(section) {
     const ul = section.querySelector('ul');
-    ul.className = 'actions-list';
+    for (const child of ul.children) {
+      const button = child.querySelector('button');
+      if (!button) {
+        const name = child.textContent;
+        await import(`../${name}/${name}.js`);
+        const cmp = document.createElement(`nx-${name}`);
+        child.replaceChildren(cmp);
+      }
+    }
     return ul;
   }
 
-  handleProfileReady() {
-    console.log('Ready!');
+  get _path() {
+    return getMetadata('nav-path') || this.path || DEFAULT_NAV_PATH;
   }
 
   render() {
@@ -69,19 +77,11 @@ class NXHeader extends LitElement {
       <div class="brand-area">
         ${this._brand}
       </div>
-      <div class="action-area" @loaded=${this.handleProfileReady}>
+      <div class="action-area">
         ${this._actions}
       </div>
       `;
   }
 }
 
-customElements.define('nx-header', NXHeader);
-
-export default function init(el) {
-  const navHref = getMetadata('nav');
-  const navPath = navHref ? new URL(navHref).pathname : DEFAULT_NAV_PATH;
-  const cmp = document.createElement('nx-header');
-  cmp.navPath = navPath;
-  el.append(cmp);
-}
+customElements.define('nx-nav', NXNav);

@@ -1,4 +1,6 @@
-import { loadArea } from '../../scripts/nx.js';
+import { loadArea, getConfig } from '../../scripts/nx.js';
+
+const config = getConfig();
 
 function replaceDotMedia(path, doc) {
   const resetAttributeBase = (tag, attr) => {
@@ -30,7 +32,10 @@ function applyPageStyles(fragment) {
  */
 export async function loadFragment(path) {
   const resp = await fetch(`${path}`);
-  if (!resp.ok) throw Error(`Couldn't fetch ${path}`);
+  if (!resp.ok) {
+    config.log(`Unable to load fragment. ${resp.status}`);
+    return null;
+  }
 
   const html = await resp.text();
   const doc = new DOMParser().parseFromString(html, 'text/html');

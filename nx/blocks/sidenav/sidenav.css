@@ -1,0 +1,31 @@
+:host {
+  a {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: inherit;
+    text-align: center;
+    font-size: 0;
+  }
+
+  ul {
+    display: grid;
+    gap: var(--spacing-8);
+    margin: var(--spacing-16) 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  svg {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+.icon {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 32px;
+  height: 32px;
+}

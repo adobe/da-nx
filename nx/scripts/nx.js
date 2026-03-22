@@ -189,17 +189,23 @@ function decorateSections(parent, isDoc) {
   });
 }
 
-function decorateHeader() {
+function decorateNav() {
   const header = document.querySelector('header');
   if (!header) return;
-  const meta = getMetadata('header') || 'header';
+  const meta = getMetadata('header');
   if (meta === 'off') {
-    document.body.classList.add('no-header');
     header.remove();
     return;
   }
-  header.className = meta;
-  header.dataset.status = 'decorated';
+  const nxNav = document.createElement('nx-nav');
+  header.append(nxNav);
+  // Sidenav
+  const snmeta = getMetadata('sidenav');
+  if (snmeta === 'off') return;
+  const nav = document.createElement('nav');
+  const nxSidenav = document.createElement('nx-sidenav');
+  nav.append(nxSidenav);
+  header.after(nav);
 }
 
 async function decoratePlaceholders(area, isDoc) {
@@ -219,7 +225,7 @@ async function decoratePlaceholders(area, isDoc) {
 }
 
 function decorateDoc() {
-  decorateHeader();
+  decorateNav();
 
   const scheme = localStorage.getItem('color-scheme');
   if (scheme) document.body.classList.add(scheme);
@@ -243,8 +249,10 @@ export async function loadArea({ area } = { area: document }) {
     delete section.dataset.status;
     if (isDoc && idx === 0) {
       // Post LCP
-      const header = document.querySelector('header');
-      if (header) await loadBlock(header);
+      const header = document.querySelector('nx-nav');
+      if (header) await import('../blocks/nav/nav.js');
+      const sidenav = document.querySelector('nx-sidenav');
+      if (sidenav) await import('../blocks/sidenav/sidenav.js');
     }
   }
   if (isDoc) import('./lazy.js');

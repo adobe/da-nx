@@ -22,7 +22,6 @@ const locales = {
 
 const linkBlocks = [
   { fragment: '/fragments/' },
-  { profile: '/blocks/profile' },
 ];
 
 const imsClientId = 'nexter';
@@ -47,10 +46,18 @@ const decorateArea = ({ area = document }) => {
   eagerLoad(area, 'img');
 };
 
+const conf = {
+  env,
+  hostnames,
+  locales,
+  imsClientId,
+  imsScope,
+  linkBlocks,
+  decorateArea,
+};
+
 export async function loadPage() {
-  await setConfig({
-    env, hostnames, locales, imsClientId, imsScope, linkBlocks, decorateArea,
-  });
+  await setConfig(conf);
   await loadArea();
 }
 await loadPage();

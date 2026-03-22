@@ -41,12 +41,12 @@
   --grid-gutter-width: 8.3%;
 
   /* spacing */
-  --spacing-xxl: 48px;
-  --spacing-xl: 32px;
-  --spacing-l: 24px;
-  --spacing-m: 12px;
-  --spacing-s: 8px;
-  --spacing-xs: 4px;
+  --spacing-4: 4px;
+  --spacing-8: 8px;
+  --spacing-12: 12px;
+  --spacing-16: 16px;
+  --spacing-24: 24px;
+  --spacing-32: 32px;
 
   /* radius */
   --s2-radius-s: 4px;
@@ -315,7 +315,7 @@
   --corporate-color: 235, 16, 0;
 
   /* fonts */
-  --font-family: 'Adobe Clean', adobe-clean, "Trebuchet MS", sans-serif;
+  --font-family: 'Adobe Clean', adobe-clean, sans-serif;
 
   /* headings */
   --heading-font-size-xxl: 32.44px;
@@ -368,6 +368,10 @@ body {
 header {
   height: var(--header-height);
   grid-area: header;
+}
+
+nx-sidenav {
+  grid-area: sidenav;
 }
 
 main {

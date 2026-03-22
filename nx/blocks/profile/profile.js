@@ -15,14 +15,10 @@ class NxProfile extends LitElement {
     _orgs: { state: true },
   };
 
-  constructor() {
-    super();
-    this.loadIms();
-  }
-
   async connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
+    this.loadIms();
   }
 
   async loadIms() {
@@ -45,14 +41,11 @@ class NxProfile extends LitElement {
     }
 
     this._orgs = (await this._ims.getOrgs()).data;
-
     this.handleLoaded();
   }
 
   handleLoaded() {
-    const opts = { bubbles: true, composed: true };
-    const event = new CustomEvent('loaded', opts);
-    this.dispatchEvent(event);
+    this.classList.add('is-loaded');
   }
 
   handleCopyUser() {

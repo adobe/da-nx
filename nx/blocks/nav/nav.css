@@ -30,6 +30,8 @@
 }
 
 .action-area {
+  display: none;
+
   ul {
     height: 100%;
     display: flex;
@@ -76,5 +78,9 @@
   svg {
     width: 20px;
     height: 20px;
+  }
+
+  &:has(nx-profile.is-loaded) {
+    display: unset;
   }
 }
