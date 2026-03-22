@@ -2,7 +2,13 @@
 Next generation shell for Edge Delivery Services.
 
 ## About
-Nexter provides a common set of styles, patterns, blocks, components, and libraries to accelerate building AEM Edge Delivery front-end applications. It's used heavily to build https://da.live.
+Nexter provides a common set of styles, patterns, blocks, components, and libraries to accelerate building AEM Edge Delivery applications. It's used heavily by https://da.live.
+
+### AGENTS.md
+The project's design decisions, conventions, and gotchas that aren't obvious from reading the code. Written for AI agents, but arguably **_more useful for humans_** onboarding to the project.
+
+### WORKLOG.md
+A living diary for context. Every session logs what was investigated, what changed, what was decided, and why.
 
 ## Run
 

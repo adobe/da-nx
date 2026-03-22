@@ -25,22 +25,22 @@ class NxProfile extends LitElement {
     // Attempt to load IMS
     try {
       this._ims = await loadIms(this.loginPopup);
-      if (this._ims.anonymous) return;
     } catch {
       config.log('Could not load IMS.');
-      return;
     }
 
-    // Attempt to get avatar
-    try {
-      const { user } = await this._ims.getIo();
-      this._avatar = user.avatar;
-    } catch {
-      config.log('Could not get avatar');
-      this._avatar = '/public/icons/S2_Icon_User_20_N.svg';
-    }
+    if (!this._ims.anonymous) {
+      // Attempt to get avatar
+      try {
+        const { user } = await this._ims.getIo();
+        this._avatar = user.avatar;
+      } catch {
+        config.log('Could not get avatar');
+        this._avatar = '/public/icons/S2_Icon_User_20_N.svg';
+      }
 
-    this._orgs = (await this._ims.getOrgs()).data;
+      this._orgs = (await this._ims.getOrgs()).data;
+    }
     this.handleLoaded();
   }
 
