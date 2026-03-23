@@ -3,10 +3,9 @@ import getStyle from 'https://da.live/nx/utils/styles.js';
 // eslint-disable-next-line import/no-unresolved
 import { LitElement, html } from 'da-lit';
 import { daFetch } from '../../../utils/daFetch.js';
+import { DA_ORIGIN } from '../../../public/utils/constants.js';
 
 const style = await getStyle(import.meta.url);
-
-const DA_ORIGIN = 'https://admin.da.live';
 
 /**
  * Parse hash to path segments and fullpath for DA API.

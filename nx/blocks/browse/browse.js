@@ -7,13 +7,13 @@ import { LitElement, html } from 'da-lit';
 // eslint-disable-next-line import/no-unresolved
 import { getNx } from 'https://da.live/scripts/utils.js';
 import { initIms, daFetch } from '../../utils/daFetch.js';
+import { DA_ORIGIN } from '../../public/utils/constants.js';
 // eslint-disable-next-line import/no-unresolved
 import '../canvas/src/chat.js';
 
 const style = await getStyle(import.meta.url);
 const nxBase = getNx();
 
-const DA_ORIGIN = 'https://admin.da.live';
 const AEM_ORIGIN = 'https://admin.hlx.page';
 
 /**

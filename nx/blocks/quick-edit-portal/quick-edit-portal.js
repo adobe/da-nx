@@ -1,3 +1,4 @@
+import { DA_ORIGIN } from '../../public/utils/constants.js';
 import { checkPermissions, signIn, handlePreview, getImageCookie } from './src/utils.js';
 import createProse from './src/prose.js';
 import {
@@ -24,7 +25,7 @@ function onMessage(e, ctx) {
 }
 
 async function initProse(owner, repo, path, el, ctx) {
-  const sourceUrl = `https://admin.da.live/source/${owner}/${repo}/${
+  const sourceUrl = `${DA_ORIGIN}/source/${owner}/${repo}/${
     path.endsWith('/') ? `${path.replace(/^\//, '')}index.html` : `${path.replace(/^\//, '')}.html`
   }`;
 
