@@ -56,12 +56,17 @@ class Nav extends HTMLElement {
     const expWorkspacePrefix = '/app/hannessolo/exp-workspace';
     const editPrefix = '/edit';
     const oldBrowsePath = '/'; // old UI browse is at root
-    const isNewUi = pathname.startsWith(expWorkspacePrefix);
-    const isNewUiSpace = pathname.startsWith(`${expWorkspacePrefix}/space`);
-    const isNewUiBrowse = pathname.startsWith(`${expWorkspacePrefix}/browse`);
+    const pathIsBrowse = pathname === '/browse' || pathname.startsWith('/browse/');
+    const pathIsCanvas = pathname === '/canvas' || pathname.startsWith('/canvas/');
+    const legacyBrowse = pathname.startsWith(`${expWorkspacePrefix}/browse`);
+    const legacySpace = pathname.startsWith(`${expWorkspacePrefix}/space`);
+    const isNewUiBrowse = pathIsBrowse || legacyBrowse;
+    const isNewUiCanvas = pathIsCanvas || legacySpace;
+    const isNewUi = pathIsBrowse || pathIsCanvas || pathname.startsWith(expWorkspacePrefix);
     const isOldUiEdit = pathname.startsWith(editPrefix);
     const isOldUiBrowse = pathname === '/' || pathname === '';
-    const showToggle = pathname.startsWith(expWorkspacePrefix)
+    const showToggle = pathIsBrowse || pathIsCanvas
+      || pathname.startsWith(expWorkspacePrefix)
       || pathname.startsWith(editPrefix)
       || isOldUiBrowse;
     if (!showToggle) return null;
@@ -98,7 +103,7 @@ class Nav extends HTMLElement {
           // New UI -> Old UI: space -> edit (only if hash has .html), else -> /; browse -> /
           if (isNewUiBrowse) {
             window.location.assign(oldBrowsePath + queryAndHash);
-          } else if (isNewUiSpace) {
+          } else if (isNewUiCanvas) {
             const hashTail = hash ? hash.replace(/^#/, '').trim().toLowerCase() : '';
             const hashHasFile = hashTail.endsWith('.html');
             const spaceDest = hashHasFile
@@ -109,9 +114,9 @@ class Nav extends HTMLElement {
             window.location.assign(oldBrowsePath + queryAndHash);
           }
         } else {
-          // Old UI -> New UI: edit -> space, / (browse) -> browse
-          const targetPath = isOldUiEdit ? '/space' : '/browse';
-          window.location.assign(`${expWorkspacePrefix}${targetPath}${queryAndHash}`);
+          // Old UI -> New UI: edit -> /canvas, / (browse) -> /browse
+          const targetPath = isOldUiEdit ? '/canvas' : '/browse';
+          window.location.assign(`${targetPath}${queryAndHash}`);
         }
       }, NAV_DELAY_MS);
     });
