@@ -1,0 +1,425 @@
+.space {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.space .space-top-nav {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--spectrum-global-color-gray-200, #e0e0e0);
+  background: var(--spectrum-global-color-gray-75, #f5f5f5);
+}
+
+.space .space-nav-left {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.space .space-breadcrumb-back {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 0.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font: inherit;
+  color: var(--spectrum-global-color-gray-700, #4b4b4b);
+  background: transparent;
+  border: none;
+  border-radius: 2px;
+  cursor: pointer;
+  appearance: none;
+}
+
+.space .space-breadcrumb-back:hover {
+  color: var(--spectrum-global-color-blue-700, #1473e6);
+  background: var(--spectrum-global-color-gray-100, #eaeaea);
+}
+
+.space .space-breadcrumb-back-icon {
+  display: block;
+}
+
+.space .space-nav-center {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.space .space-nav-right {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.space .space-collab-users {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin-right: 0.25rem;
+}
+
+.space .space-collab-user {
+  height: 24px;
+  min-width: 24px;
+  padding: 0 6px;
+  border-radius: 12px;
+  background: rgb(171 171 171 / 50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--spectrum-global-color-gray-700, #4b4b4b);
+  margin-left: -6px;
+  user-select: none;
+}
+
+.space .space-collab-user:first-of-type {
+  margin-left: 0;
+}
+
+.space .space-collab-user:hover {
+  background: rgb(150 150 150 / 50%);
+}
+
+.space .space-breadcrumbs {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.125rem;
+  font-size: 0.8125rem;
+  color: var(--spectrum-global-color-gray-700, #4b4b4b);
+}
+
+.space .space-breadcrumb-segment {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.space .space-breadcrumb-sep {
+  margin: 0 0.25rem;
+  color: var(--spectrum-global-color-gray-500, #737373);
+  user-select: none;
+}
+
+.space .space-breadcrumb-crumb {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 8rem;
+}
+
+.space .space-breadcrumb-disabled {
+  color: var(--spectrum-global-color-gray-600, #6b6b6b);
+  cursor: default;
+}
+
+.space .space-breadcrumb-link {
+  margin: 0;
+  padding: 0.125rem 0.25rem;
+  font: inherit;
+  font-size: inherit;
+  color: var(--spectrum-global-color-blue-700, #1473e6);
+  background: transparent;
+  border: none;
+  border-radius: 2px;
+  cursor: pointer;
+  appearance: none;
+}
+
+.space .space-breadcrumb-link:hover {
+  text-decoration: underline;
+  background: var(--spectrum-global-color-gray-100, #eaeaea);
+}
+
+.space .space-breadcrumb-current {
+  font-weight: 500;
+  color: var(--spectrum-global-color-gray-900, #2c2c2c);
+}
+
+.space .space-publish-menu-trigger {
+  flex-shrink: 0;
+}
+
+.space .space-publish-menu-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.space .space-publish-spinner {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.space .space-nav-toggle-btn {
+  flex-shrink: 0;
+}
+
+.space .space-nav-action-group {
+  flex-shrink: 0;
+}
+
+.space .space-nav-icon {
+  width: 18px;
+  height: 18px;
+  display: block;
+  pointer-events: none;
+}
+
+/* Selected buttons use a dark background; make icons light */
+.space .space-top-nav sp-action-button[selected] .space-nav-icon {
+  filter: brightness(0) invert(1);
+}
+
+.space .space-body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  flex-direction: column;
+  width: 100%;
+}
+
+.space .split-view {
+  height: 100%;
+  min-width: 0;
+}
+
+.space .split-view-outer {
+  width: 100%;
+}
+
+.space .space-body .split-view-outer {
+  flex: 1;
+  min-height: 0;
+}
+
+.space .split-view-inner,
+.space .split-view-main {
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Wrapper so the inner split-view’s first pane has a definite size and the chat splitter works */
+.space .inner-primary-wrap {
+  display: flex;
+  min-width: 0;
+  max-width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.space .space-body > .split-view-inner,
+.space .space-body > .inner-primary-wrap {
+  flex: 1;
+  min-height: 0;
+}
+
+.space .inner-primary-wrap .split-view-main {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Single-pane mode: one of doc or wysiwyg fills the middle */
+.space .main-single-pane {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* WYSIWYG-only view: hidden doc pane keeps da-inline-editor in DOM for controller=parent */
+.space .main-wysiwyg-with-controller {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+.space .space-doc-pane-hidden {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.space .main-wysiwyg-with-controller .main-single-pane {
+  flex: 1;
+  min-width: 0;
+}
+
+.space .space-sidebar,
+.space .space-details {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Tab bar at top of sidebar / details */
+.space .space-sidebar-tablist,
+.space .space-details-tablist {
+  flex-shrink: 0;
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--spectrum-global-color-gray-200, #e0e0e0);
+  padding: 0;
+}
+
+.space .space-sidebar-tab,
+.space .space-details-tab {
+  flex: 1;
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--spectrum-global-color-gray-700, #4b4b4b);
+  background: var(--spectrum-global-color-gray-75, #f5f5f5);
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  appearance: none;
+}
+
+.space .space-sidebar-tab:hover,
+.space .space-details-tab:hover {
+  color: var(--spectrum-global-color-gray-900, #2c2c2c);
+  background: var(--spectrum-global-color-gray-100, #eaeaea);
+}
+
+.space .space-sidebar-tab[aria-selected="true"],
+.space .space-details-tab[aria-selected="true"] {
+  color: var(--spectrum-global-color-blue-700, #1473e6);
+  background: #fff;
+  border-bottom-color: var(--spectrum-global-color-blue-700, #1473e6);
+}
+
+/* Content area: one visible panel that fills remaining height */
+.space .space-sidebar-panel,
+.space .space-details-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.space .space-sidebar-panel[hidden],
+.space .space-details-panel[hidden] {
+  display: none !important;
+}
+
+.space .space-file-browser,
+.space .space-page-outline {
+  display: block;
+  height: 100%;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.space .main-pane {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+  overflow: auto;
+  padding: 1rem;
+}
+
+.space .main-single-pane .main-pane {
+  flex: 1;
+  min-width: 0;
+}
+
+.space .main-pane-label {
+  flex-shrink: 0;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: #181818;
+  margin-bottom: 0.5rem;
+}
+
+.space .main-pane-doc-editor {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+}
+
+.space .main-pane-doc-editor da-inline-editor {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+.space .main-pane-wysiwyg-iframe-wrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+}
+
+.space .main-pane-wysiwyg-iframe {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  min-height: 0;
+}
+
+.space .main-pane-wysiwyg-placeholder {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #505050;
+  font-size: 0.875rem;
+  padding: 1rem;
+  text-align: center;
+}
+
+.space .main-pane-wysiwyg-placeholder code {
+  background: #e5e5e5;
+  padding: 0.125rem 0.375rem;
+  border-radius: 2px;
+}
+
+.space .space-chat-panel {
+  display: block;
+  height: 100%;
+  min-width: 0;
+  overflow: hidden;
+}

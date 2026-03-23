@@ -23,11 +23,16 @@ function getAddToChatPayload(el) {
   if (!el) return null;
   const proseIndexAttr = el.getAttribute('data-prose-index');
   const blockIndexAttr = el.getAttribute('data-block-index');
-  const proseIndex = proseIndexAttr != null ? parseInt(proseIndexAttr, 10) : (blockIndexAttr != null ? parseInt(blockIndexAttr, 10) : null);
+  let proseIndex = null;
+  if (proseIndexAttr != null) {
+    proseIndex = parseInt(proseIndexAttr, 10);
+  } else if (blockIndexAttr != null) {
+    proseIndex = parseInt(blockIndexAttr, 10);
+  }
   if (proseIndex == null || Number.isNaN(proseIndex)) return null;
 
   const innerText = (el.innerText || el.textContent || '').trim().replace(/\s+/g, ' ') || '';
-  let blockName = undefined;
+  let blockName;
   if (el.hasAttribute('data-block-index')) {
     const table = el.querySelector('table');
     const firstCell = table?.querySelector('tr:first-child td:first-child, tr:first-child th:first-child');
@@ -109,6 +114,7 @@ export function setupAddToContext(root = document.body, ctx = null) {
     overlay.addEventListener('mouseleave', () => hideOverlay(overlay));
   }
 
+  /* eslint-disable no-underscore-dangle -- listener refs on root for teardown before re-attach */
   root.removeEventListener('mouseover', root._addToContextMouseover);
   root.removeEventListener('mouseout', root._addToContextMouseout);
 
@@ -126,6 +132,7 @@ export function setupAddToContext(root = document.body, ctx = null) {
 
   root._addToContextMouseover = onMouseover;
   root._addToContextMouseout = onMouseout;
+  /* eslint-enable no-underscore-dangle */
   root.addEventListener('mouseover', onMouseover, true);
   root.addEventListener('mouseout', onMouseout, true);
 }
