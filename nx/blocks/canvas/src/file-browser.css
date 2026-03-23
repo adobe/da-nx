@@ -1,0 +1,124 @@
+:host {
+  display: block;
+  height: 100%;
+  min-height: 0;
+}
+
+.file-browser {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: #fff;
+  border-right: 1px solid #e0e0e0;
+}
+
+.file-browser .file-browser-header {
+  flex-shrink: 0;
+  padding: 0.75rem 1rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: #181818;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.file-browser .file-browser-tree {
+  flex: 1;
+  overflow: auto;
+  padding: 0.5rem 0;
+}
+
+.file-browser .file-browser-node {
+  line-height: 1.2;
+}
+
+.file-browser .file-browser-row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 2rem;
+  padding: 0.25rem 0.5rem;
+  border: none;
+  background: transparent;
+  color: #181818;
+  font-size: 0.8125rem;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  gap: 0.375rem;
+}
+
+.file-browser .file-browser-row:hover {
+  background: #f0f0f0;
+}
+
+.file-browser .file-browser-row-selected {
+  background: #e8f0fe;
+  color: #1473e6;
+}
+
+.file-browser .file-browser-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 0.75rem;
+  flex-shrink: 0;
+  color: #6b6b6b;
+}
+
+.file-browser .file-browser-chevron sp-icon-chevron200 {
+  width: 0.75rem;
+  height: 0.75rem;
+}
+
+.file-browser .file-browser-chevron.file-browser-chevron-expanded sp-icon-chevron200 {
+  transform: rotate(90deg);
+}
+
+.file-browser .file-browser-chevron-placeholder {
+  display: inline-block;
+  width: 0.75rem;
+}
+
+.file-browser .file-browser-icon {
+  flex-shrink: 0;
+  width: 1rem;
+  height: 1rem;
+}
+
+.file-browser .file-browser-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-browser .file-browser-children {
+  border: none;
+}
+
+.file-browser .file-browser-error {
+  padding: 0.5rem 1rem;
+  font-size: 0.8125rem;
+  color: #c00;
+  background: #fee;
+}
+
+.file-browser .file-browser-loading {
+  padding: 0.5rem 1rem;
+  font-size: 0.8125rem;
+  color: #6b6b6b;
+}
+
+.file-browser .file-browser-hint {
+  padding: 0.75rem 1rem;
+  font-size: 0.75rem;
+  color: #6b6b6b;
+  border-top: 1px solid #e0e0e0;
+}
+
+.file-browser .file-browser-hint code {
+  font-family: ui-monospace, monospace;
+  background: #f0f0f0;
+  padding: 0.1em 0.3em;
+  border-radius: 2px;
+}

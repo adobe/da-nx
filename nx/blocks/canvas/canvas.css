@@ -1,0 +1,7 @@
+da-space { 
+  display: block; 
+  height: calc(100vh - var(--nx-nav-height)); 
+  width: 100%; 
+  min-width: 0; 
+  overflow: hidden; 
+}

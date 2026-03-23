@@ -1,0 +1,74 @@
+/* File history panel – Spectrum-aligned list */
+
+:host {
+  display: block;
+  height: 100%;
+  min-height: 0;
+}
+
+.file-history {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--spectrum-global-color-gray-50, #fff);
+}
+
+.file-history-header {
+  flex-shrink: 0;
+  padding: var(--spectrum-global-dimension-size-200, 8px) var(--spectrum-global-dimension-size-250, 10px);
+  font-weight: var(--spectrum-heading-font-weight-regular, 600);
+  font-size: var(--spectrum-body-size-m, 14px);
+  color: var(--spectrum-global-color-gray-800, #2c2c2c);
+  border-bottom: 1px solid var(--spectrum-global-color-gray-200, #e0e0e0);
+}
+
+.file-history-list-wrap {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--spectrum-global-dimension-size-100, 4px) 0;
+}
+
+.file-history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.file-history-entry {
+  padding: var(--spectrum-global-dimension-size-150, 12px) var(--spectrum-global-dimension-size-250, 10px);
+  border-bottom: 1px solid var(--spectrum-global-color-gray-200, #e8e8e8);
+  font-size: var(--spectrum-body-size-s, 13px);
+  color: var(--spectrum-global-color-gray-800, #2c2c2c);
+}
+
+.file-history-entry:last-child {
+  border-bottom: none;
+}
+
+.file-history-entry.is-version {
+  background: var(--spectrum-global-color-gray-75, #fafafa);
+}
+
+.file-history-date {
+  font-weight: 600;
+  margin: 0 0 var(--spectrum-global-dimension-size-50, 2px);
+}
+
+.file-history-meta {
+  margin: 0;
+  font-size: var(--spectrum-body-size-xs, 12px);
+  color: var(--spectrum-global-color-gray-600, #6b6b6b);
+}
+
+.file-history-loading,
+.file-history-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spectrum-global-dimension-size-200, 8px);
+  padding: var(--spectrum-global-dimension-size-300, 16px);
+  color: var(--spectrum-global-color-gray-600, #6b6b6b);
+  font-size: var(--spectrum-body-size-s, 13px);
+}

@@ -1,0 +1,150 @@
+/* Page outline panel – Spectrum-aligned layout and typography */
+
+:host {
+  display: block;
+  height: 100%;
+  min-height: 0;
+}
+
+.page-outline {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--spectrum-global-color-gray-50, #fff);
+  border-right: 1px solid var(--spectrum-global-color-gray-200, #e0e0e0);
+}
+
+.page-outline .page-outline-header {
+  flex-shrink: 0;
+  padding: var(--spectrum-global-dimension-size-200, 8px) var(--spectrum-global-dimension-size-250, 10px);
+  font-weight: var(--spectrum-heading-font-weight-regular, 600);
+  font-size: var(--spectrum-body-size-m, 14px);
+  color: var(--spectrum-global-color-gray-800, #2c2c2c);
+  border-bottom: 1px solid var(--spectrum-global-color-gray-200, #e0e0e0);
+}
+
+.page-outline .page-outline-list-wrap {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--spectrum-global-dimension-size-100, 4px) 0;
+}
+
+.page-outline .page-outline-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.page-outline .page-outline-section {
+  margin: 0;
+  padding: 0;
+  border-bottom: 1px solid var(--spectrum-global-color-gray-200, #e8e8e8);
+}
+
+.page-outline .page-outline-section:last-child {
+  border-bottom: none;
+}
+
+.page-outline .page-outline-section-label {
+  display: block;
+  padding: var(--spectrum-global-dimension-size-150, 12px) var(--spectrum-global-dimension-size-200, 8px);
+  font-size: var(--spectrum-body-size-s, 13px);
+  font-weight: 600;
+  color: var(--spectrum-global-color-gray-800, #2c2c2c);
+  background: var(--spectrum-global-color-gray-100, #f5f5f5);
+}
+
+.page-outline .page-outline-block-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.page-outline .page-outline-block {
+  display: flex;
+  align-items: center;
+  padding: var(--spectrum-global-dimension-size-100, 4px) var(--spectrum-global-dimension-size-200, 8px);
+  padding-inline-start: var(--spectrum-global-dimension-size-300, 24px);
+  font-size: var(--spectrum-body-size-s, 13px);
+  color: var(--spectrum-global-color-gray-800, #2c2c2c);
+  min-height: var(--spectrum-global-dimension-size-400, 32px);
+  box-sizing: border-box;
+  border-bottom: 1px solid var(--spectrum-global-color-gray-100, #f5f5f5);
+}
+
+.page-outline .page-outline-block:last-child {
+  border-bottom: none;
+}
+
+.page-outline .page-outline-block:hover {
+  background: var(--spectrum-global-color-gray-75, #f5f5f5);
+}
+
+.page-outline .page-outline-block-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 500;
+  flex: 1;
+  min-width: 0;
+}
+
+.page-outline .page-outline-block-handle {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-inline-end: var(--spectrum-global-dimension-size-100, 4px);
+  padding: var(--spectrum-global-dimension-size-50, 4px);
+  color: var(--spectrum-global-color-gray-500, #6e6e6e);
+  cursor: grab;
+}
+
+.page-outline .page-outline-block-handle:active {
+  cursor: grabbing;
+}
+
+.page-outline .page-outline-block:not([draggable="true"]) .page-outline-block-handle {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.page-outline .page-outline-grip {
+  display: block;
+}
+
+.page-outline .page-outline-block[draggable="true"] {
+  cursor: grab;
+}
+
+.page-outline .page-outline-block.page-outline-block-dragging {
+  opacity: 0.6;
+}
+
+.page-outline .page-outline-block.page-outline-block-drop-target {
+  background: var(--spectrum-global-color-blue-100, #e0f0ff);
+  outline: 2px solid var(--spectrum-global-color-blue-500, #1473e6);
+  outline-offset: -2px;
+}
+
+.page-outline .page-outline-placeholder {
+  padding: var(--spectrum-global-dimension-size-300, 16px);
+  font-size: var(--spectrum-body-size-s, 13px);
+  color: var(--spectrum-global-color-gray-600, #6e6e6e);
+  text-align: center;
+}
+
+.page-outline .page-outline-placeholder code {
+  font-family: var(--spectrum-global-font-family-mono, ui-monospace, monospace);
+  background: var(--spectrum-global-color-gray-100, #f0f0f0);
+  padding: 0.1em 0.3em;
+  border-radius: var(--spectrum-global-dimension-size-25, 2px);
+}
+
+.page-outline .page-outline-error {
+  padding: var(--spectrum-global-dimension-size-200, 8px) var(--spectrum-global-dimension-size-250, 10px);
+  font-size: var(--spectrum-body-size-s, 13px);
+  color: var(--spectrum-global-color-red-600, #c00);
+  background: var(--spectrum-global-color-red-100, #fee);
+}

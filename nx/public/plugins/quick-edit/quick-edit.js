@@ -11,8 +11,43 @@ await loadStyle(`${nx}/public/plugins/quick-edit/quick-edit.css`);
 
 const QUICK_EDIT_ID = 'quick-edit-iframe';
 
-/** When set, the preview page is using exp-workspace as controller; do not create the portal iframe. */
+/**
+ * When set, the preview page is using exp-workspace as controller;
+ * do not create the portal iframe.
+ */
 let parentControllerPort = null;
+
+async function setBody(body, ctx) {
+  const doc = new DOMParser().parseFromString(body, 'text/html');
+  document.body.innerHTML = doc.body.innerHTML;
+  await ctx.loadPage();
+  setupContentEditableListeners(ctx);
+  setupImageDropListeners(ctx, document.body.querySelector('main'));
+  setupAddToContext(document.body, ctx);
+  setupActions(ctx);
+}
+
+function handleReady(e, ctx) {
+  ctx.initialized = true;
+}
+
+function onMessage(e, ctx) {
+  if (e.data.type === 'ready') {
+    handleReady(e, ctx);
+  } else if (e.data.type === 'set-body') {
+    setBody(e.data.body, ctx);
+  } else if (e.data.type === 'set-editor-state') {
+    const { editorState, cursorOffset } = e.data;
+    setEditorState(cursorOffset, editorState, ctx);
+  } else if (e.data.type === 'set-cursors') {
+    setCursors(e.data.body, ctx);
+  } else if (e.data.type === 'update-image-src') {
+    const { newSrc, originalSrc } = e.data;
+    updateImageSrc(originalSrc, newSrc);
+  } else if (e.data.type === 'image-error') {
+    handleImageError(e.data.error);
+  }
+}
 
 function setupParentControllerListener() {
   const params = new URLSearchParams(window.location.search);
@@ -53,44 +88,12 @@ function setupParentControllerListener() {
 }
 setupParentControllerListener();
 
-async function setBody(body, ctx) {
-  const doc = new DOMParser().parseFromString(body, 'text/html');
-  document.body.innerHTML = doc.body.innerHTML;
-  await ctx.loadPage();
-  setupContentEditableListeners(ctx);
-  setupImageDropListeners(ctx, document.body.querySelector('main'));
-  setupAddToContext(document.body, ctx);
-  setupActions(ctx);
-}
-
-function handleReady(e, ctx) {
-  ctx.initialized = true;
-}
-
 function checkDomain() {
   const currentUrl = new URL(window.location.href);
   if (currentUrl.origin.endsWith('.aem.page')) {
     const newOrigin = currentUrl.origin.replace('.aem.page', '.preview.da.live');
     const newHref = `${newOrigin}${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`;
     window.location.replace(newHref);
-  }
-}
-
-function onMessage(e, ctx) {
-  if (e.data.type === 'ready') {
-    handleReady(e, ctx);
-  } else if (e.data.type === 'set-body') {
-    setBody(e.data.body, ctx);
-  } else if (e.data.type === 'set-editor-state') {
-    const { editorState, cursorOffset } = e.data;
-    setEditorState(cursorOffset, editorState, ctx);
-  } else if (e.data.type === 'set-cursors') {
-    setCursors(e.data.body, ctx);
-  } else if (e.data.type === 'update-image-src') {
-    const { newSrc, originalSrc } = e.data;
-    updateImageSrc(originalSrc, newSrc);
-  } else if (e.data.type === 'image-error') {
-    handleImageError(e.data.error);
   }
 }
 

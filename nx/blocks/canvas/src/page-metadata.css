@@ -1,0 +1,84 @@
+/* Page metadata panel – Spectrum-aligned key/value display */
+
+:host {
+  display: block;
+  height: 100%;
+  min-height: 0;
+}
+
+.page-metadata {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--spectrum-global-color-gray-50, #fff);
+}
+
+.page-metadata-header {
+  flex-shrink: 0;
+  padding: var(--spectrum-global-dimension-size-200, 8px) var(--spectrum-global-dimension-size-250, 10px);
+  font-weight: var(--spectrum-heading-font-weight-regular, 600);
+  font-size: var(--spectrum-body-size-m, 14px);
+  color: var(--spectrum-global-color-gray-800, #2c2c2c);
+  border-bottom: 1px solid var(--spectrum-global-color-gray-200, #e0e0e0);
+}
+
+.page-metadata-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--spectrum-global-dimension-size-100, 4px) 0;
+}
+
+.page-metadata-section {
+  margin: 0 0 var(--spectrum-global-dimension-size-250, 20px);
+}
+
+.page-metadata-section:last-child {
+  margin-bottom: 0;
+}
+
+.page-metadata-section-title {
+  display: block;
+  padding: var(--spectrum-global-dimension-size-150, 12px) var(--spectrum-global-dimension-size-200, 8px);
+  font-size: var(--spectrum-body-size-s, 13px);
+  font-weight: 600;
+  color: var(--spectrum-global-color-gray-800, #2c2c2c);
+  background: var(--spectrum-global-color-gray-100, #f5f5f5);
+  border-bottom: 1px solid var(--spectrum-global-color-gray-200, #e8e8e8);
+}
+
+.page-metadata-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--spectrum-body-size-s, 13px);
+}
+
+.page-metadata-table th,
+.page-metadata-table td {
+  padding: var(--spectrum-global-dimension-size-100, 4px) var(--spectrum-global-dimension-size-200, 8px);
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--spectrum-global-color-gray-200, #e8e8e8);
+}
+
+.page-metadata-table th {
+  font-weight: 600;
+  color: var(--spectrum-global-color-gray-700, #4a4a4a);
+  width: 30%;
+  max-width: 140px;
+}
+
+.page-metadata-table td {
+  color: var(--spectrum-global-color-gray-800, #2c2c2c);
+}
+
+.page-metadata-table tr:last-child th,
+.page-metadata-table tr:last-child td {
+  border-bottom: none;
+}
+
+.page-metadata-empty {
+  padding: var(--spectrum-global-dimension-size-300, 16px);
+  color: var(--spectrum-global-color-gray-600, #6b6b6b);
+  font-size: var(--spectrum-body-size-s, 13px);
+}

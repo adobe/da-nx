@@ -36,8 +36,11 @@ class Nav extends HTMLElement {
 
     // Grab the first link as it will be the main branding
     const brandLink = doc.querySelector('a');
-    if (window.location.pathname.startsWith('/app/hannessolo/exp-workspace')) {
-      brandLink.innerHTML = `<span>Experience Workspace</span>`;
+    if (window.location.pathname.startsWith('/app/hannessolo/exp-workspace')
+    || window.location.pathname.startsWith('/canvas')
+  || window.location.pathname.startsWith('/browse')
+    ) {
+      brandLink.innerHTML = '<span>Experience Workspace</span>';
     }
     brandLink.classList.add('nx-nav-brand');
     brandLink.insertAdjacentHTML('afterbegin', '<svg class="icon"><use href="#spectrum-ExperienceCloud"/></svg>');
@@ -58,8 +61,9 @@ class Nav extends HTMLElement {
     const isNewUiBrowse = pathname.startsWith(`${expWorkspacePrefix}/browse`);
     const isOldUiEdit = pathname.startsWith(editPrefix);
     const isOldUiBrowse = pathname === '/' || pathname === '';
-    const showToggle =
-      pathname.startsWith(expWorkspacePrefix) || pathname.startsWith(editPrefix) || isOldUiBrowse;
+    const showToggle = pathname.startsWith(expWorkspacePrefix)
+      || pathname.startsWith(editPrefix)
+      || isOldUiBrowse;
     if (!showToggle) return null;
 
     const btn = document.createElement('button');
@@ -95,8 +99,12 @@ class Nav extends HTMLElement {
           if (isNewUiBrowse) {
             window.location.assign(oldBrowsePath + queryAndHash);
           } else if (isNewUiSpace) {
-            const hashHasFile = hash && hash.replace(/^#/, '').trim().toLowerCase().endsWith('.html');
-            window.location.assign(hashHasFile ? editPrefix + queryAndHash : oldBrowsePath + queryAndHash);
+            const hashTail = hash ? hash.replace(/^#/, '').trim().toLowerCase() : '';
+            const hashHasFile = hashTail.endsWith('.html');
+            const spaceDest = hashHasFile
+              ? editPrefix + queryAndHash
+              : oldBrowsePath + queryAndHash;
+            window.location.assign(spaceDest);
           } else {
             window.location.assign(oldBrowsePath + queryAndHash);
           }

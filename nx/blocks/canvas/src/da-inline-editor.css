@@ -1,0 +1,162 @@
+/* Minimal ProseMirror styles for inline editor (no toolbar). Based on da-live blocks/edit/da-editor.css */
+/* stylelint-disable selector-class-pattern -- ProseMirror and Yjs use their own class names */
+
+.da-inline-editor {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.da-inline-editor .da-inline-editor-mount {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.da-inline-editor .da-prose-mirror {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  position: relative;
+}
+
+.da-inline-editor .ProseMirror {
+  min-height: 200px;
+  background: #fff;
+  position: relative;
+  padding: 1rem;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  box-sizing: border-box;
+}
+
+.da-inline-editor .ProseMirror-focused {
+  outline: none;
+}
+
+.da-inline-editor .ProseMirror > *:first-child {
+  margin-top: 0;
+}
+
+.da-inline-editor .ProseMirror img {
+  max-width: 100%;
+  height: auto;
+}
+
+.da-inline-editor table {
+  width: 100%;
+  border-spacing: 0;
+  border-collapse: collapse;
+}
+
+.da-inline-editor table td {
+  border: 2px solid #b1b1b1;
+  vertical-align: top;
+  min-width: 100px;
+  padding: 8px;
+}
+
+.da-inline-editor p code,
+.da-inline-editor pre {
+  background: #e4ecfa;
+  border: 1px solid #becee9;
+  padding: 0 4px;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.da-inline-editor .ProseMirror pre {
+  white-space: pre-wrap;
+}
+
+.da-inline-editor blockquote {
+  position: relative;
+  padding: 0 0.5rem 0 1.5rem;
+  margin: 0;
+}
+
+.da-inline-editor blockquote::before {
+  position: absolute;
+  display: block;
+  content: '';
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 4px;
+  background: #848484;
+  border-radius: 2px;
+}
+
+.da-inline-editor .ProseMirror-hideselection *::selection {
+  background: transparent;
+}
+
+.da-inline-editor .ProseMirror-selectednode {
+  outline: 2px solid #8cf;
+}
+
+.da-inline-editor .ProseMirror-gapcursor::after {
+  content: "";
+  display: block;
+  position: absolute;
+  top: -2px;
+  width: 20px;
+  border-top: 1px solid black;
+  animation: da-pm-cursor-blink 1.1s steps(2, start) infinite;
+}
+
+@keyframes da-pm-cursor-blink {
+  to {
+    visibility: hidden;
+  }
+}
+
+.da-inline-editor .ProseMirror .tableWrapper {
+  overflow-x: auto;
+  border: 2px solid #b1b1b1;
+  border-radius: 6px;
+  margin: 2px 0;
+}
+
+.da-inline-editor .ProseMirror-yjs-cursor {
+  position: relative;
+  margin-left: -1px;
+  margin-right: -1px;
+  border-left: 1px solid black;
+  border-right: 1px solid black;
+  border-color: orange;
+  word-break: normal;
+  pointer-events: none;
+}
+
+.da-inline-editor .ProseMirror-yjs-cursor > div {
+  position: absolute;
+  top: -1.05em;
+  left: -1px;
+  font-size: 13px;
+  background-color: rgb(250 129 0);
+  border-radius: 2px;
+  padding: 0 3px;
+  white-space: nowrap;
+  color: white;
+}
+
+.da-inline-editor-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #505050;
+  font-size: 0.875rem;
+  padding: 1rem;
+  text-align: center;
+  height: 100%;
+  min-height: 200px;
+}
+
+.da-inline-editor-error {
+  color: #c00;
+  font-size: 0.875rem;
+  padding: 0.5rem;
+}
