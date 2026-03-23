@@ -29,7 +29,10 @@ let imsAccessTokenForCollab = token;
 
 /** Preview origin for gimme_cookie (mirrors da-nx getLivePreviewUrl). Uses prod by default. */
 function getPreviewOrigin(org, repo) {
-  const domain = 'preview.da.live';
+  const hostname = window?.location?.hostname ?? '';
+  const domain = hostname.endsWith('aem.page')
+    ? 'stage-preview.da.live'
+    : 'preview.da.live';
   return `https://main--${repo}--${org}.${domain}`;
 }
 
