@@ -14,6 +14,7 @@ import './page-outline.js';
 import './da-inline-editor.js';
 import './file-history.js';
 import './page-metadata.js';
+import { getPreviewOrigin } from './preview-origin.js';
 
 const style = await getStyle(import.meta.url);
 const nxBase = getNx();
@@ -225,7 +226,7 @@ class Space extends LitElement {
     const pathname = pathWithoutOrgRepo ? `/${pathWithoutOrgRepo}` : '/';
 
     const config = {
-      mountpoint: `https://main--${repo}--${org}.preview.da.live/${org}/${repo}`,
+      mountpoint: `${getPreviewOrigin(org, repo)}/${org}/${repo}`,
     };
     const location = { pathname };
 
@@ -284,7 +285,7 @@ class Space extends LitElement {
   async _fetchWysiwygCookie(requestKey) {
     if (!this._orgRepo || requestKey !== this._wysiwygCookieRequestKey) return;
     const { org, repo } = this._orgRepo;
-    const url = `https://main--${repo}--${org}.preview.da.live/gimme_cookie`;
+    const url = `${getPreviewOrigin(org, repo)}/gimme_cookie`;
     const resp = await daFetch(url, {
       method: 'GET',
       credentials: 'include',
@@ -407,7 +408,7 @@ class Space extends LitElement {
     const pathWithoutOrgRepo = segments.slice(2).join('/');
     const pathWithoutHtml = pathWithoutOrgRepo.replace(/\.html$/i, '');
     const encodedPath = pathWithoutHtml.split('/').map(encodeURIComponent).join('/');
-    const base = `https://main--${repo}--${org}.preview.da.live/${encodedPath}?nx=exp-workspace&quick-edit=exp-workspace`;
+    const base = `${getPreviewOrigin(org, repo)}/${encodedPath}?nx=exp-workspace&quick-edit=exp-workspace`;
     return `${base}&controller=parent`;
   }
 
