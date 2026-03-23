@@ -206,7 +206,7 @@ class BrowseView extends LitElement {
     const pathKey = this._singleSelectedPathKey;
     if (!pathKey) return;
     const search = window.location.search || '';
-    const href = `https://da.live/canvas${search}#/${pathKey}`;
+    const href = `${window.location.origin}/canvas${search}#/${pathKey}`;
     window.location.assign(href);
   }
 

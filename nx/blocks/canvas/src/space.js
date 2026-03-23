@@ -196,7 +196,7 @@ class Space extends LitElement {
     const folderPath = this._browseBackFolderPath;
     if (!folderPath) return;
     const search = window.location.search || '';
-    const base = 'https://da.live/browse';
+    const base = `${window.location.origin}/browse`;
     const href = `${base}${search}#/${folderPath}`;
     window.location.assign(href);
   }
