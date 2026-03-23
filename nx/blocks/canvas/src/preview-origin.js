@@ -7,7 +7,7 @@
  */
 export function getPreviewOrigin(org, repo) {
   const hostname = window?.location?.hostname ?? '';
-  const domain = hostname.endsWith('aem.page')
+  const domain = hostname.endsWith('aem.page') || hostname.endsWith('localhost')
     ? 'stage-preview.da.live'
     : 'preview.da.live';
   return `https://main--${repo}--${org}.${domain}`;
