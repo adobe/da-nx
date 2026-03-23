@@ -57,6 +57,7 @@ const conf = {
 };
 
 export async function loadPage() {
+  document.documentElement.classList.add('nx');
   await setConfig(conf);
   await loadArea();
 }

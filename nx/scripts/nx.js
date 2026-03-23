@@ -257,7 +257,10 @@ export async function loadArea({ area } = { area: document }) {
     await Promise.all(section.linkBlocks.map((block) => loadBlock(block)));
     await Promise.all(section.blocks.map((block) => loadBlock(block)));
     delete section.dataset.status;
-    if (isDoc && idx === 0 && !isSession) loadNav();
+    if (isDoc && idx === 0) {
+      if (!isSession) loadNav();
+      // import('../utils/favicon.js');
+    }
   }
   if (isDoc) import('./lazy.js');
 }

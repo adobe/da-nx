@@ -3,7 +3,7 @@
 import { importMapsPlugin } from '@web/dev-server-import-maps';
 import { defaultReporter, summaryReporter } from '@web/test-runner';
 // eslint-disable-next-line import/extensions
-import diffReporter from './tools/wtr/diffReporter.mjs';
+import diffReporter from './reporters/diffReporter.mjs';
 
 const GITHUB_ACTIONS = process.env.GITHUB_ACTIONS === 'true';
 

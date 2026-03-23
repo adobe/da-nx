@@ -47,7 +47,7 @@
     justify-content: center;
     align-items: center;
     height: 32px;
-    border-radius: var(--s2-radius-m);
+    border-radius: var(--s2-border-radius-sm);
 
     .icon {
       display: flex;
@@ -67,7 +67,7 @@
     }
 
     &:hover {
-      background-color: light-dark(rgb(var(--s2-gray-100)), rgb(var(--s2-gray-800)));
+      background-color: var(--s2-gray-100);
     }
   }
 

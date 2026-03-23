@@ -3,7 +3,7 @@
   display: block;
 
   button {
-    font-family: var(--body-font-family);
+    font-family: var(--s2-font-family);
   }
 
   p {
@@ -31,11 +31,11 @@
   height: 32px;
   border: none;
   padding: 4px;
-  border-radius: var(--s2-radius-m);
-}
+  border-radius: var(--s2-border-radius-md);
 
-.nx-btn-profile:hover {
-  background-color: light-dark(rgb(var(--s2-gray-100)), rgb(var(--s2-gray-800)));
+  &:hover {
+    background-color: var(--s2-gray-100);
+  }
 }
 
 .nx-btn-profile img {
@@ -47,7 +47,7 @@
 #nx-menu-profile {
   inset: 48px 12px auto auto;
   border: none;
-  border-radius: var(--s2-radius-l);
+  border-radius: var(--s2-border-radius-lg);
   width: 340px;
   padding: 0;
   background-color: light-dark(#fff, #000);
@@ -284,7 +284,7 @@
   justify-content: center;
   align-items: center;
   height: 32px;
-  border-radius: var(--s2-radius-m);
+  border-radius: var(--s2-border-radius-sm);
   font-size: 14px;
   font-family: inherit;
   background: transparent;
@@ -293,6 +293,6 @@
   box-sizing: border-box;
 
   &:hover {
-    background-color: light-dark(rgb(var(--s2-gray-100)), rgb(var(--s2-gray-800)));
+    background-color: var(--s2-gray-100);
   }
 }
