@@ -79,6 +79,7 @@ class Space extends LitElement {
     _blockPositions: { state: true },
     _pendingMove: { state: true },
     _chatContextItems: { state: true },
+    _docToolbar: { state: true },
   };
 
   constructor() {
@@ -99,6 +100,7 @@ class Space extends LitElement {
     this._quickEditPort = null;
     this._wysiwygCookieReady = false;
     this._wysiwygCookieRequestKey = null;
+    this._docToolbar = null;
   }
 
   _boundCollabUsers = (e) => {
@@ -348,6 +350,10 @@ class Space extends LitElement {
     }
   }
 
+  _onDocToolbarReady = (e) => {
+    this._docToolbar = e.detail.toolbar ?? null;
+  };
+
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
@@ -357,10 +363,17 @@ class Space extends LitElement {
     this.addEventListener('chat-context-remove', this._boundChatContextRemove);
     this.addEventListener('da-file-browser-select', this._boundFileSelect);
     this.addEventListener('da-collab-users', this._boundCollabUsers);
+    this.addEventListener('da-toolbar-ready', this._onDocToolbarReady);
   }
 
   updated(changed) {
     super.updated?.(changed);
+    if (this._docToolbar) {
+      const host = this.shadowRoot?.querySelector('.space-editor-toolbar-host');
+      if (host && !host.contains(this._docToolbar)) {
+        host.appendChild(this._docToolbar);
+      }
+    }
     if (changed.has('_viewMode') && this._viewMode !== 'split') {
       this._quickEditPort = null;
       if (this._quickEditInitRetryId) {
@@ -368,6 +381,7 @@ class Space extends LitElement {
         this._quickEditInitRetryId = null;
       }
     }
+
     if (changed.has('_selectedPath') && !isHtmlPath(this._selectedPath)) {
       if (this._sidebarTab === 'history' || this._sidebarTab === 'metadata') {
         this._sidebarTab = 'files';
@@ -397,6 +411,7 @@ class Space extends LitElement {
     this.removeEventListener('chat-context-remove', this._boundChatContextRemove);
     this.removeEventListener('da-file-browser-select', this._boundFileSelect);
     this.removeEventListener('da-collab-users', this._boundCollabUsers);
+    this.removeEventListener('da-toolbar-ready', this._onDocToolbarReady);
     super.disconnectedCallback();
   }
 
@@ -414,12 +429,12 @@ class Space extends LitElement {
   _renderDocPane() {
     return html`
       <div class="main-pane main-pane-doc">
-        <span class="main-pane-label">Editor</span>
         <div class="main-pane-doc-editor">
           <da-inline-editor
             .org="${this._orgRepo?.org ?? ''}"
             .repo="${this._orgRepo?.repo ?? ''}"
             .path="${this._selectedPath ?? ''}"
+            .autoFocus="${this._viewMode === 'doc'}"
             .quickEditPort="${this._quickEditPort ?? null}"
             .onEditorHtmlChange="${this._onEditorHtmlChange}"
             .onBlockPositions="${this._onBlockPositions}"
@@ -441,7 +456,6 @@ class Space extends LitElement {
         </div>`;
     return html`
       <div class="main-pane main-pane-wysiwyg">
-        <span class="main-pane-label">WYSIWYG</span>
         <div class="main-pane-wysiwyg-iframe-wrap">
           ${iframeSrc ? html`<iframe
             title="WYSIWYG preview"
@@ -497,9 +511,9 @@ class Space extends LitElement {
     return html`
       <div class="space-collab-users" aria-label="Connected users">
         ${this._collabUsers.map((user) => {
-    const initials = user.split(' ').map((name) => name.toString().substring(0, 1)).join('');
-    return html`<span class="space-collab-user" title="${user}">${initials}</span>`;
-  })}
+      const initials = user.split(' ').map((name) => name.toString().substring(0, 1)).join('');
+      return html`<span class="space-collab-user" title="${user}">${initials}</span>`;
+    })}
       </div>
     `;
   }
@@ -557,17 +571,17 @@ class Space extends LitElement {
     return html`
       <nav class="space-breadcrumbs" aria-label="File path">
         ${segments.map((name, i) => {
-    const pathKey = segments.slice(0, i + 1).join('/');
-    const isOrgOrRepo = i < 2;
-    const isLast = i === segments.length - 1;
-    const isFolder = !isLast;
-    return html`
+      const pathKey = segments.slice(0, i + 1).join('/');
+      const isOrgOrRepo = i < 2;
+      const isLast = i === segments.length - 1;
+      const isFolder = !isLast;
+      return html`
   <span class="space-breadcrumb-segment">
     ${i > 0 ? html`<span class="space-breadcrumb-sep" aria-hidden="true">/</span>` : ''}
     ${this._renderBreadcrumbCrumb(name, pathKey, isOrgOrRepo, isFolder)}
   </span>
 `;
-  })}
+    })}
       </nav>
     `;
   }
@@ -576,6 +590,7 @@ class Space extends LitElement {
     if (!this._detailsOpen) {
       return html`
         <div class="inner-primary-wrap">
+          <div class="space-editor-toolbar-host"></div>
           ${this._renderMiddleContent(iframeSrc)}
         </div>
       `;
@@ -590,6 +605,7 @@ class Space extends LitElement {
         label="Resize main and details panels"
       >
         <div class="inner-primary-wrap">
+          <div class="space-editor-toolbar-host"></div>
           ${this._renderMiddleContent(iframeSrc)}
         </div>
         <div class="space-details">

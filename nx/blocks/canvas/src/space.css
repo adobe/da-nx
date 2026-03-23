@@ -225,6 +225,7 @@
 /* Wrapper so the inner split-view’s first pane has a definite size and the chat splitter works */
 .space .inner-primary-wrap {
   display: flex;
+  flex-direction: column;
   min-width: 0;
   max-width: 100%;
   height: 100%;
@@ -275,6 +276,17 @@
 .space .main-wysiwyg-with-controller .main-single-pane {
   flex: 1;
   min-width: 0;
+}
+
+/* Toolbar host: sits above the canvas/wysiwyg/split content, inside inner-primary-wrap */
+.space .space-editor-toolbar-host {
+  display: flex;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.space .space-editor-toolbar-host:empty {
+  display: none;
 }
 
 .space .space-sidebar,
@@ -355,7 +367,7 @@
   height: 100%;
   min-width: 0;
   overflow: auto;
-  padding: 1rem;
+  padding: 0 1rem;
 }
 
 .space .main-single-pane .main-pane {
@@ -423,3 +435,117 @@
   min-width: 0;
   overflow: hidden;
 }
+
+/* ─── Prose formatting toolbar (lives in space DOM, above all view modes) ─── */
+/* stylelint-disable selector-class-pattern -- ProseMirror toolbar uses its own class names */
+
+.da-prose-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  padding: 4px 6px;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow:
+    0 2px 12px rgba(0 0 0 / 14%),
+    0 0 0 1px rgba(0 0 0 / 6%);
+  margin: 6px 0;
+  width: max-content;
+}
+
+.da-tb-block-select {
+  height: 30px;
+  padding: 0 22px 0 8px;
+  border: none;
+  border-radius: 6px;
+  /* stylelint-disable-next-line property-no-vendor-prefix */
+  -webkit-appearance: none;
+  appearance: none;
+  background-color: transparent;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23666'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 6px center;
+  background-size: 8px;
+  font-size: 0.8rem;
+  color: #2c2c2c;
+  cursor: pointer;
+  min-width: 90px;
+  transition: background-color 0.1s;
+}
+
+.da-tb-block-select:hover {
+  background-color: rgba(0 0 0 / 6%);
+}
+
+.da-tb-block-select:focus {
+  outline: 2px solid #1473e6;
+  outline-offset: -2px;
+  border-radius: 6px;
+}
+
+.da-tb-sep {
+  width: 1px;
+  height: 16px;
+  background: #d8d8d8;
+  margin: 0 5px;
+  flex-shrink: 0;
+}
+
+.da-tb-btn {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background-color: transparent;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 16px;
+  cursor: pointer;
+  transition: background-color 0.1s;
+  font-size: 0;
+  color: transparent;
+}
+
+.da-tb-btn:hover {
+  background-color: rgba(0 0 0 / 6%);
+}
+
+.da-tb-btn.da-tb-active {
+  background-color: #e4f0ff;
+}
+
+.da-tb-btn:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.da-tb-bold {
+  background-image: url("https://da.live/blocks/edit/img/Smock_TextBold_18_N.svg");
+}
+
+.da-tb-italic {
+  background-image: url("https://da.live/blocks/edit/img/Smock_TextItalic_18_N.svg");
+}
+
+.da-tb-underline {
+  background-image: url("https://da.live/blocks/edit/img/Smock_TextUnderline_18_N.svg");
+}
+
+.da-tb-strike {
+  background-image: url("https://da.live/blocks/edit/img/Smock_TextStrikethrough_18_N.svg");
+}
+
+.da-tb-sup {
+  background-image: url("https://da.live/blocks/edit/img/Smock_TextSuperscript_18_N.svg");
+}
+
+.da-tb-sub {
+  background-image: url("https://da.live/blocks/edit/img/Smock_TextSubscript_18_N.svg");
+}
+
+.da-tb-code {
+  background-image: url("https://da.live/blocks/edit/img/Smock_Code_18_N.svg");
+}
+
+/* stylelint-enable selector-class-pattern */

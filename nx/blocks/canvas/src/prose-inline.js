@@ -1,6 +1,6 @@
 /**
- * Minimal ProseMirror + Yjs collab. Same shape as da-nx quick-edit-portal prose.js.
- * Uses getToken for WebSocket auth (no adobeIMS). No preview, no da-title, no edit plugins.
+ * ProseMirror + Yjs collab editor. withToolbar adds the horizontal formatting
+ * toolbar and editing plugins (input rules, keyboard shortcuts, table editing).
  */
 /* eslint-disable import/no-unresolved */
 import {
@@ -15,11 +15,18 @@ import {
   ySyncPlugin,
   yCursorPlugin,
   yUndoPlugin,
+  buildKeymap,
+  tableEditing,
+  columnResizing,
+  gapCursor,
+  liftListItem,
+  sinkListItem,
 } from 'da-y-wrapper';
 
 import { getSchema } from 'da-parser';
 import { COLLAB_ORIGIN, DA_ORIGIN } from 'https://da.live/blocks/shared/constants.js';
 import { findChangedNodes, findCommonEditableAncestor } from './prose-controller-utils.js';
+import proseToolbar from './prose-toolbar.js';
 /* eslint-enable import/no-unresolved */
 
 function trackCursorAndChanges(rerenderPage, updateCursors, getEditor) {
@@ -94,18 +101,20 @@ function addSyncedListener(wsProvider, canWrite, setEditable) {
 }
 
 /**
- * Initialize minimal ProseMirror + Yjs for the given document path.
+ * Initialize ProseMirror + Yjs for the given document path.
  * getToken: () => token — used for WebSocket auth; required (no adobeIMS).
  * Optional rerenderPage, updateCursors, getEditor enable quick-edit controller mode
- * (trackCursorAndChanges).
+ * (trackCursorAndChanges). withToolbar adds the full da-live formatting toolbar and
+ * editing plugins (input rules, keyboard shortcuts, table editing).
  * @param {{ path: string, permissions: string[], setEditable?: (editable: boolean) => void,
  *   getToken?: () => string, rerenderPage?: () => void, updateCursors?: () => void,
- *   getEditor?: (data: { cursorOffset: number }) => void }} opts
- * @returns {{ proseEl: HTMLElement, wsProvider: WebsocketProvider, view: EditorView }}
+ *   getEditor?: (data: { cursorOffset: number }) => void, withToolbar?: boolean }} opts
+ * @returns {Promise<{ proseEl: HTMLElement, wsProvider: WebsocketProvider, view: EditorView }>}
  */
-export default function initProse({
+export default async function initProse({
   path, permissions, setEditable, getToken,
   rerenderPage, updateCursors, getEditor,
+  withToolbar = false, onToolbar,
 }) {
   if (window.view) {
     window.view.destroy();
@@ -157,6 +166,54 @@ export default function initProse({
     yUndoPlugin(),
     keymap(baseKeymap),
   ];
+
+  if (withToolbar && canWrite) {
+    /* eslint-disable import/no-unresolved */
+    const [
+      {
+        getEnterInputRulesPlugin,
+        getURLInputRulesPlugin,
+        getListInputRulesPlugin,
+        handleTableBackspace,
+        handleTableTab,
+        handleUndo,
+        handleRedo,
+      },
+      { getHeadingKeymap },
+    ] = await Promise.all([
+      import('https://da.live/blocks/edit/prose/plugins/keyHandlers.js'),
+      import('https://da.live/blocks/edit/prose/plugins/menu/menu.js'),
+    ]);
+    /* eslint-enable import/no-unresolved */
+
+    const dispatch = (tr) => { if (window.view) window.view.dispatch(tr); };
+
+    plugins.push(
+      proseToolbar(onToolbar),
+      columnResizing(),
+      getEnterInputRulesPlugin(dispatch),
+      getURLInputRulesPlugin(),
+      getListInputRulesPlugin(schema),
+      keymap(buildKeymap(schema)),
+      keymap({ Backspace: handleTableBackspace }),
+      keymap({
+        'Mod-z': handleUndo,
+        'Mod-y': handleRedo,
+        'Mod-Shift-z': handleRedo,
+        ...getHeadingKeymap(schema),
+      }),
+      keymap({
+        Tab: handleTableTab(1),
+        'Shift-Tab': handleTableTab(-1),
+      }),
+      keymap({
+        Tab: sinkListItem(schema.nodes.list_item),
+        'Shift-Tab': liftListItem(schema.nodes.list_item),
+      }),
+      gapCursor(),
+      tableEditing({ allowTableNodeSelection: true }),
+    );
+  }
 
   if (typeof rerenderPage === 'function' && typeof updateCursors === 'function' && typeof getEditor === 'function') {
     plugins.push(trackCursorAndChanges(rerenderPage, updateCursors, getEditor));
