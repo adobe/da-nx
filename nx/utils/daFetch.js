@@ -1,5 +1,9 @@
 import { DA_ORIGIN } from '../public/utils/constants.js';
 
+function getAppOrigin() {
+  return typeof window !== 'undefined' ? window.location.origin : 'https://da.live';
+}
+
 let imsDetails;
 
 export function setImsDetails(token) {
@@ -69,7 +73,7 @@ export function replaceHtml(text, fromOrg, fromRepo, daMetadata = {}) {
 export async function saveToDa(text, url, daMetadata = {}) {
   const { org, repo, pathname } = url;
   const daPath = `/${org}/${repo}${pathname}`;
-  const daHref = `https://da.live/edit#${daPath}`;
+  const daHref = `${getAppOrigin()}/edit#${daPath}`;
 
   const body = replaceHtml(text, org, repo, daMetadata);
 
@@ -100,7 +104,7 @@ export async function saveAllToDa(url, content) {
   const { toOrg, toRepo, destPath, editPath, type } = url;
 
   const route = type === 'json' ? '/sheet' : '/edit';
-  url.daHref = `https://da.live${route}#/${toOrg}/${toRepo}${editPath}`;
+  url.daHref = `${getAppOrigin()}${route}#/${toOrg}/${toRepo}${editPath}`;
 
   const blob = getBlob(url, content);
   const body = new FormData();
