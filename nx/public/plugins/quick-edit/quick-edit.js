@@ -24,7 +24,9 @@ async function setBody(body, ctx) {
   setupContentEditableListeners(ctx);
   setupImageDropListeners(ctx, document.body.querySelector('main'));
   setupAddToContext(document.body, ctx);
-  setupActions(ctx);
+  if (!parentControllerPort) {
+    setupActions(ctx);
+  }
 }
 
 function handleReady(e, ctx) {
