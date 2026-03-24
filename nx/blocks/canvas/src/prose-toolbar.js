@@ -36,11 +36,20 @@ function applyLinkTransaction(view, { href, text, title }, rangeStart, rangeEnd)
   const linkMarkType = schema.marks.link;
   const newHref = href?.trim();
   const newTitle = title?.trim() || null;
-  const displayText = text?.trim() || newHref;
-
-  if (!newHref) return;
 
   let { tr } = state;
+
+  if (!newHref) {
+    // Empty href: remove existing link mark
+    tr = tr.removeMark(rangeStart, rangeEnd, linkMarkType);
+    view.dispatch(tr);
+    if (!view.hasFocus()) view.focus();
+    return;
+  }
+
+  // Empty display text falls back to the URL (mirrors da-live behavior)
+  const displayText = text?.trim() || newHref;
+
   let end = rangeEnd;
   const originalText = state.doc.textBetween(rangeStart, rangeEnd);
   const textChanged = displayText !== originalText || (rangeStart === rangeEnd && displayText);
@@ -87,9 +96,18 @@ let textField = null;
 let titleField = null;
 let okBtn = null;
 let pendingConfirm = null;
+let dialogHasExistingLink = false;
+
+function isOkEnabled() {
+  return !!(hrefField?.value?.trim() || dialogHasExistingLink);
+}
 
 function setOkEnabled(enabled) {
   if (okBtn) okBtn.disabled = !enabled;
+}
+
+function syncOkState() {
+  setOkEnabled(isOkEnabled());
 }
 
 function closeLinkDialog() {
@@ -134,8 +152,30 @@ function ensureLinkDialog() {
         gap: var(--spectrum-spacing-300, 12px);
         padding-block-end: var(--spectrum-spacing-300, 12px);
       }
-      .da-link-dialog-fields sp-textfield {
-        width: 100%;
+      .da-link-field {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .da-link-field label {
+        font-size: 0.8125rem;
+        font-weight: 500;
+        color: var(--spectrum-gray-700, #4b4b4b);
+      }
+      .da-link-field input {
+        height: 32px;
+        padding: 0 8px;
+        border: 1px solid var(--spectrum-gray-400, #b3b3b3);
+        border-radius: var(--spectrum-corner-radius-100, 4px);
+        font-size: 0.875rem;
+        font-family: inherit;
+        color: var(--spectrum-gray-900, #1d1d1d);
+        background: var(--spectrum-white, #fff);
+        outline: none;
+      }
+      .da-link-field input:focus {
+        border-color: var(--spectrum-blue-700, #1473e6);
+        box-shadow: 0 0 0 2px rgb(20 115 230 / 25%);
       }
       .da-link-dialog-footer {
         display: flex;
@@ -159,19 +199,28 @@ function ensureLinkDialog() {
   const fieldGroup = document.createElement('div');
   fieldGroup.className = 'da-link-dialog-fields';
 
-  hrefField = document.createElement('sp-textfield');
-  hrefField.setAttribute('label', 'URL');
-  hrefField.setAttribute('placeholder', 'https://...');
+  function makeField(labelText, placeholder) {
+    const wrap = document.createElement('div');
+    wrap.className = 'da-link-field';
+    const lbl = document.createElement('label');
+    lbl.textContent = labelText;
+    const inp = document.createElement('input');
+    inp.type = 'text';
+    inp.placeholder = placeholder;
+    wrap.append(lbl, inp);
+    return { wrap, inp };
+  }
 
-  textField = document.createElement('sp-textfield');
-  textField.setAttribute('label', 'Display text');
-  textField.setAttribute('placeholder', 'Enter display text');
+  const hrefWrap = makeField('URL', 'https://...');
+  hrefField = hrefWrap.inp;
 
-  titleField = document.createElement('sp-textfield');
-  titleField.setAttribute('label', 'Title');
-  titleField.setAttribute('placeholder', 'title');
+  const textWrap = makeField('Display text', 'Enter display text');
+  textField = textWrap.inp;
 
-  fieldGroup.append(hrefField, textField, titleField);
+  const titleWrap = makeField('Title', 'title');
+  titleField = titleWrap.inp;
+
+  fieldGroup.append(hrefWrap.wrap, textWrap.wrap, titleWrap.wrap);
 
   const footer = document.createElement('div');
   footer.className = 'da-link-dialog-footer';
@@ -187,7 +236,7 @@ function ensureLinkDialog() {
   okBtn.textContent = 'OK';
   okBtn.disabled = true;
   okBtn.addEventListener('click', () => {
-    if (hrefField.value?.trim()) pendingConfirm?.();
+    pendingConfirm?.();
     pendingConfirm = null;
     closeLinkDialog();
   });
@@ -197,7 +246,8 @@ function ensureLinkDialog() {
   // Append inside sp-theme so Spectrum CSS custom properties are inherited
   (document.querySelector('sp-theme') ?? document.body).appendChild(linkDialogEl);
 
-  textField.addEventListener('input', () => setOkEnabled(!!textField.value?.trim()));
+  hrefField.addEventListener('input', syncOkState);
+  textField.addEventListener('input', syncOkState);
 
   // Native <dialog> fires 'cancel' on Escape — prevent default close, handle ourselves
   linkDialogEl.addEventListener('cancel', (e) => {
@@ -213,9 +263,9 @@ function ensureLinkDialog() {
     }
   });
 
-  // Enter submits when URL is filled
+  // Enter submits when OK is enabled
   linkDialogEl.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && hrefField.value?.trim()) {
+    if (e.key === 'Enter' && isOkEnabled()) {
       e.preventDefault();
       pendingConfirm?.();
       pendingConfirm = null;
@@ -243,15 +293,17 @@ function openLinkDialog(view) {
     hrefField.value = existingMark.attrs.href || '';
     titleField.value = existingMark.attrs.title || '';
     textField.value = found.link.textContent || '';
+    dialogHasExistingLink = true;
   } else {
     const selText = state.selection.empty ? '' : state.doc.textBetween(rangeStart, rangeEnd);
     const trimmed = selText.trim();
     textField.value = selText;
     hrefField.value = /^(https?|mailto):/.test(trimmed) ? trimmed : '';
     titleField.value = '';
+    dialogHasExistingLink = false;
   }
 
-  setOkEnabled(!!textField.value?.trim());
+  syncOkState();
   pendingConfirm = () => applyLinkTransaction(view, {
     href: hrefField.value,
     text: textField.value,
@@ -372,6 +424,25 @@ function buildToolbar(view) {
   });
   bar.appendChild(linkBtn);
 
+  const unlinkBtn = document.createElement('button');
+  unlinkBtn.type = 'button';
+  unlinkBtn.className = 'da-tb-btn da-tb-unlink';
+  unlinkBtn.title = 'Remove link';
+  unlinkBtn.setAttribute('aria-label', 'Remove link');
+  unlinkBtn.disabled = true;
+  unlinkBtn.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    const { state } = view;
+    const linkMarkType = state.schema.marks.link;
+    if (!linkMarkType || !isMarkActive(state, linkMarkType)) return;
+    const found = findExistingLink(state, linkMarkType);
+    if (!found?.link) return;
+    const { start, end } = calculateLinkPosition(state, found.link, found.offset);
+    view.dispatch(state.tr.removeMark(start, end, linkMarkType));
+    view.focus();
+  });
+  bar.appendChild(unlinkBtn);
+
   function update(state) {
     select.value = getActiveBlock(state);
     for (const { btn, key } of markBtns) {
@@ -381,9 +452,11 @@ function buildToolbar(view) {
       }
     }
     const linkMarkType = state.schema.marks.link;
+    const linkActive = !!(linkMarkType && isMarkActive(state, linkMarkType));
     if (linkMarkType) {
-      linkBtn.classList.toggle('da-tb-active', isMarkActive(state, linkMarkType));
+      linkBtn.classList.toggle('da-tb-active', linkActive);
     }
+    unlinkBtn.disabled = !linkActive;
   }
 
   return { bar, update };
