@@ -66,6 +66,7 @@ export default class DaInlineEditor extends LitElement {
     org: { type: String },
     repo: { type: String },
     path: { type: String },
+    autoFocus: { type: Boolean },
     quickEditPort: { type: Object },
     onEditorHtmlChange: { type: Function },
     onBlockPositions: { type: Function },
@@ -275,7 +276,15 @@ export default class DaInlineEditor extends LitElement {
         if (this._controllerCtx) getEditor(data, this._controllerCtx);
       };
 
-      const { proseEl, wsProvider, view } = initProse({
+      const onToolbar = (toolbar) => {
+        this.dispatchEvent(new CustomEvent('da-toolbar-ready', {
+          bubbles: true,
+          composed: true,
+          detail: { toolbar },
+        }));
+      };
+
+      const { proseEl, wsProvider, view } = await initProse({
         path: sourceUrl,
         permissions,
         setEditable,
@@ -283,6 +292,8 @@ export default class DaInlineEditor extends LitElement {
         rerenderPage,
         updateCursors: updateCursorsCb,
         getEditor: getEditorCb,
+        withToolbar: true,
+        onToolbar,
       });
 
       this._proseEl = proseEl;
@@ -314,6 +325,18 @@ export default class DaInlineEditor extends LitElement {
 
     this._loading = false;
     this.requestUpdate();
+    if (this.autoFocus && this._view && this._wsProvider) {
+      const focusWhenSynced = (isSynced) => {
+        if (!isSynced) return;
+        this._wsProvider?.off('synced', focusWhenSynced);
+        requestAnimationFrame(() => this._view?.focus());
+      };
+      this._wsProvider.on('synced', focusWhenSynced);
+    }
+  }
+
+  focusEditor() {
+    this._view?.focus();
   }
 
   connectedCallback() {
@@ -325,6 +348,9 @@ export default class DaInlineEditor extends LitElement {
     super.updated?.(changed);
     if (changed.has('org') || changed.has('repo') || changed.has('path')) {
       this._loadEditor();
+    }
+    if (changed.has('autoFocus') && this.autoFocus && this._view) {
+      requestAnimationFrame(() => this._view?.focus());
     }
     if (changed.has('quickEditPort')) {
       if (this.quickEditPort && this._view) {

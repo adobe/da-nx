@@ -385,6 +385,24 @@ export function moveBlockAt(data, ctx) {
   }
 }
 
+export function handleSelectionChange({ anchor, head }, ctx) {
+  const { view } = ctx;
+  if (!view) return;
+  const { state } = view;
+  try {
+    const a = Math.max(0, Math.min(anchor, state.doc.content.size));
+    const h = Math.max(0, Math.min(head, state.doc.content.size));
+    const { tr } = state;
+    tr.setSelection(TextSelection.create(state.doc, a, h));
+    ctx.suppressRerender = true;
+    view.dispatch(tr);
+    ctx.suppressRerender = false;
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error('[quick-edit-controller] handleSelectionChange failed', e?.message);
+  }
+}
+
 /**
  * Create the onmessage handler for the controller port.
  * @param {MessageEvent} e
@@ -410,6 +428,8 @@ export function createControllerOnMessage(ctx) {
       moveBlockAt(e.data, ctx);
     } else if (e.data.type === 'quick-edit-add-to-chat') {
       ctx.onAddToChat?.(e.data.payload);
+    } else if (e.data.type === 'selection-change') {
+      handleSelectionChange(e.data, ctx);
     }
   };
 }
