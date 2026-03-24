@@ -556,4 +556,8 @@
   background-image: url("https://da.live/blocks/edit/img/Smock_Unlink_18_N.svg");
 }
 
+.da-tb-image {
+  background-image: url("https://da.live/blocks/edit/img/Smock_Image_18_N.svg");
+}
+
 /* stylelint-enable selector-class-pattern */
