@@ -24,6 +24,14 @@
   outline: 1px solid var(--color-blue-600, blue);
 }
 
+[data-prose-index]:has(.ProseMirror-focused) {
+  outline: 2px solid var(--color-blue-600, blue);
+
+  .ProseMirror-focused {
+    outline: none;
+  }
+}
+
 /* Image drop zone styles */
 picture.image-drop-target {
   position: relative;
