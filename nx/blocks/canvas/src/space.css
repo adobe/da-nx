@@ -100,6 +100,22 @@
   background: rgb(150 150 150 / 50%);
 }
 
+.space .space-collab-user-ai {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  font-size: 14px;
+  animation: sparkle-pulse 2s ease-in-out infinite;
+}
+
+.space .space-collab-user-ai:hover {
+  background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+}
+
+@keyframes sparkle-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
+}
+
 .space .space-breadcrumbs {
   flex: 1;
   min-width: 0;
