@@ -447,8 +447,8 @@
   background: #fff;
   border-radius: 10px;
   box-shadow:
-    0 2px 12px rgba(0 0 0 / 14%),
-    0 0 0 1px rgba(0 0 0 / 6%);
+    0 2px 12px rgb(0 0 0 / 14%),
+    0 0 0 1px rgb(0 0 0 / 6%);
   margin: 6px 0;
   width: max-content;
 }
@@ -474,7 +474,7 @@
 }
 
 .da-tb-block-select:hover {
-  background-color: rgba(0 0 0 / 6%);
+  background-color: rgb(0 0 0 / 6%);
 }
 
 .da-tb-block-select:focus {
@@ -508,7 +508,7 @@
 }
 
 .da-tb-btn:hover {
-  background-color: rgba(0 0 0 / 6%);
+  background-color: rgb(0 0 0 / 6%);
 }
 
 .da-tb-btn.da-tb-active {
@@ -546,6 +546,10 @@
 
 .da-tb-code {
   background-image: url("https://da.live/blocks/edit/img/Smock_Code_18_N.svg");
+}
+
+.da-tb-link {
+  background-image: url("https://da.live/blocks/edit/img/Smock_Link_18_N.svg");
 }
 
 /* stylelint-enable selector-class-pattern */

@@ -513,9 +513,9 @@ class Space extends LitElement {
     return html`
       <div class="space-collab-users" aria-label="Connected users">
         ${this._collabUsers.map((user) => {
-    const initials = user.split(' ').map((name) => name.toString().substring(0, 1)).join('');
-    return html`<span class="space-collab-user" title="${user}">${initials}</span>`;
-  })}
+      const initials = user.split(' ').map((name) => name.toString().substring(0, 1)).join('');
+      return html`<span class="space-collab-user" title="${user}">${initials}</span>`;
+    })}
       </div>
     `;
   }
@@ -573,17 +573,17 @@ class Space extends LitElement {
     return html`
       <nav class="space-breadcrumbs" aria-label="File path">
         ${segments.map((name, i) => {
-    const pathKey = segments.slice(0, i + 1).join('/');
-    const isOrgOrRepo = i < 2;
-    const isLast = i === segments.length - 1;
-    const isFolder = !isLast;
-    return html`
+      const pathKey = segments.slice(0, i + 1).join('/');
+      const isOrgOrRepo = i < 2;
+      const isLast = i === segments.length - 1;
+      const isFolder = !isLast;
+      return html`
   <span class="space-breadcrumb-segment">
     ${i > 0 ? html`<span class="space-breadcrumb-sep" aria-hidden="true">/</span>` : ''}
     ${this._renderBreadcrumbCrumb(name, pathKey, isOrgOrRepo, isFolder)}
   </span>
 `;
-  })}
+    })}
       </nav>
     `;
   }
