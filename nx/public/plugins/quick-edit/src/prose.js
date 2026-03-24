@@ -1,6 +1,6 @@
 /* eslint-disable import/prefer-default-export */
 import { getSchema } from 'https://da.live/deps/da-parser/dist/index.js';
-import { EditorState, EditorView } from 'https://da.live/deps/da-y-wrapper/dist/index.js';
+import { EditorState, EditorView, TextSelection } from 'https://da.live/deps/da-y-wrapper/dist/index.js';
 import {
   showToolbar,
   hideToolbar,
@@ -33,7 +33,7 @@ function handleTransaction(tr, ctx, editorView, editorParent) {
   const numChanges = tr.steps.length;
   const currentCursorOffset = parseInt(editorParent.getAttribute('data-prose-index'), 10);
   const oldLength = editorView.state.doc.firstChild.nodeSize;
-  const oldSelection = editorView.state.selection.from;
+  const oldSel = editorView.state.selection;
   const newState = editorView.state.apply(tr);
   editorView.updateState(newState);
   updateInstrumentation(newState.doc.firstChild.nodeSize - oldLength, currentCursorOffset);
@@ -49,14 +49,22 @@ function handleTransaction(tr, ctx, editorView, editorParent) {
     });
   }
 
-  // Check if selection changed
-  const newSelection = newState.selection.from;
-  if (oldSelection !== newSelection) {
-    ctx.port.postMessage({
-      type: 'cursor-move',
-      cursorOffset: currentCursorOffset - 1,
-      textCursorOffset: newSelection,
-    });
+  const newSel = newState.selection;
+  if (oldSel.anchor !== newSel.anchor || oldSel.head !== newSel.head) {
+    const base = currentCursorOffset - 1;
+    if (newSel.anchor !== newSel.head) {
+      ctx.port.postMessage({
+        type: 'selection-change',
+        anchor: base + newSel.anchor,
+        head: base + newSel.head,
+      });
+    } else {
+      ctx.port.postMessage({
+        type: 'cursor-move',
+        cursorOffset: base,
+        textCursorOffset: newSel.from,
+      });
+    }
   }
 
   // Update toolbar button states and position
@@ -66,14 +74,22 @@ function handleTransaction(tr, ctx, editorView, editorParent) {
 
 function focus(view) {
   setCurrentEditorView(view);
-  showToolbar(view);
+  // showToolbar(view);
   return false;
 }
+
+let blurClearTimeout = null;
+let blurredView = null;
 
 function blur(view, event, ctx) {
   hideToolbar(view);
   setCurrentEditorView(null);
-  ctx.port.postMessage({ type: 'cursor-move' });
+  blurredView = view;
+  blurClearTimeout = setTimeout(() => {
+    ctx.port.postMessage({ type: 'cursor-move' });
+    blurClearTimeout = null;
+    blurredView = null;
+  }, 150);
   return false; // Let other handlers run
 }
 
@@ -123,8 +139,15 @@ function createEditor(cursorOffset, state, ctx) {
   element.replaceWith(editorParent);
   editorParent.view = editorView;
   setupImageDropListeners(ctx, editorParent);
-
   setRemoteCursors();
+
+  if (blurClearTimeout !== null) {
+    clearTimeout(blurClearTimeout);
+    blurClearTimeout = null;
+    blurredView = null;
+    setCurrentEditorView(editorView);
+    editorView.focus();
+  }
 }
 
 function updateEditor(editorEl, state, ctx) {
@@ -135,19 +158,39 @@ function updateEditor(editorEl, state, ctx) {
   const { schema } = view.state;
   const node = schema.nodeFromJSON(state);
 
+  // Save selection to restore after the content replacement.
+  // Marks don't change node structure, so positions are identical in the new doc.
+  const { anchor, head } = view.state.selection;
+
   // Create transaction to replace the root node (first child of doc)
   const tr = view.state.tr.replaceWith(0, view.state.doc.content.size, node);
+  const newSize = tr.doc.content.size;
+  try {
+    const a = Math.min(anchor, newSize);
+    const h = Math.min(head, newSize);
+    tr.setSelection(TextSelection.create(tr.doc, a, h));
+  } catch {
+    // If positions are invalid in new doc, leave selection as-is
+  }
   ctx.remoteUpdate = true;
   view.dispatch(tr);
   ctx.remoteUpdate = false;
   setupImageDropListeners(ctx, editorEl.parentElement);
+
+  if (blurClearTimeout !== null) {
+    clearTimeout(blurClearTimeout);
+    blurClearTimeout = null;
+    blurredView = null;
+    setCurrentEditorView(view);
+    view.focus();
+  }
 }
 
 export function setEditorState(cursorOffset, state, ctx) {
   const existingEditorParent = document.querySelector(`.prosemirror-editor[data-prose-index="${cursorOffset}"]`);
   if (existingEditorParent) {
-    const editorEl = existingEditorParent.view;
-    updateEditor(editorEl, state, ctx);
+    updateEditor(existingEditorParent.view, state, ctx);
+    return;
   }
   createEditor(cursorOffset, state, ctx);
 }

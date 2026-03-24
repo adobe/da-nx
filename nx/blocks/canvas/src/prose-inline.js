@@ -116,13 +116,15 @@ export default async function initProse({
   rerenderPage, updateCursors, getEditor,
   withToolbar = false, onToolbar,
 }) {
-  if (window.view) {
+  if (window.view && !window.view.destroyed) {
     window.view.destroy();
-    delete window.view;
   }
+  delete window.view;
 
   const editor = document.createElement('div');
   editor.className = 'da-prose-mirror';
+  editor.setAttribute('data-gramm', 'false');
+  editor.setAttribute('data-gramm_editor', 'false');
 
   const schema = getSchema();
   const ydoc = new Y.Doc();

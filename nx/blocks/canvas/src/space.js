@@ -368,10 +368,18 @@ class Space extends LitElement {
 
   updated(changed) {
     super.updated?.(changed);
-    if (this._docToolbar) {
-      const host = this.shadowRoot?.querySelector('.space-editor-toolbar-host');
-      if (host && !host.contains(this._docToolbar)) {
-        host.appendChild(this._docToolbar);
+    if (changed.has('_viewMode')) {
+      const prevMode = changed.get('_viewMode');
+      if (prevMode === 'split' || this._viewMode === 'split') {
+        this._docToolbar = null;
+      }
+    }
+    const host = this.shadowRoot?.querySelector('.space-editor-toolbar-host');
+    if (host) {
+      if (this._docToolbar && !host.contains(this._docToolbar)) {
+        host.replaceChildren(this._docToolbar);
+      } else if (!this._docToolbar) {
+        host.replaceChildren();
       }
     }
     if (changed.has('_viewMode') && this._viewMode !== 'split') {
@@ -422,7 +430,8 @@ class Space extends LitElement {
     const pathWithoutOrgRepo = segments.slice(2).join('/');
     const pathWithoutHtml = pathWithoutOrgRepo.replace(/\.html$/i, '');
     const encodedPath = pathWithoutHtml.split('/').map(encodeURIComponent).join('/');
-    const base = `https://main--${repo}--${org}.preview.da.live/${encodedPath}?nx=exp-workspace&quick-edit=exp-workspace`;
+    const nxRef = new URLSearchParams(window.location.search).get('nx') || 'local';
+    const base = `https://main--${repo}--${org}.preview.da.live/${encodedPath}?nx=local&quick-edit=${nxRef}`;
     return `${base}&controller=parent`;
   }
 
@@ -470,30 +479,29 @@ class Space extends LitElement {
   }
 
   _renderMiddleContent(iframeSrc) {
-    if (this._viewMode === 'doc') {
-      return html`<div class="main-single-pane">${this._renderDocPane()}</div>`;
-    }
-    if (this._viewMode === 'wysiwyg') {
+    // Split mode uses its own layout — da-inline-editor instance differs here
+    if (this._viewMode === 'split') {
       return html`
-        <div class="main-wysiwyg-with-controller">
-          <div class="space-doc-pane-hidden" aria-hidden="true">
-            ${this._renderDocPane()}
-          </div>
-          <div class="main-single-pane">${this._renderWysiwygPane(iframeSrc)}</div>
-        </div>
+        <sp-split-view
+          class="split-view split-view-main"
+          resizable
+          primary-size="40%"
+          secondary-min="200"
+          label="Resize doc and wysiwyg panels"
+        >
+          ${this._renderDocPane()}
+          ${this._renderWysiwygPane(iframeSrc)}
+        </sp-split-view>
       `;
     }
+    // Doc and wysiwyg share the same da-inline-editor at the same template
+    // position so Lit never destroys/recreates it — prevents Yjs connection churn
+    const isWysiwyg = this._viewMode === 'wysiwyg';
     return html`
-      <sp-split-view
-        class="split-view split-view-main"
-        resizable
-        primary-size="40%"
-        secondary-min="200"
-        label="Resize doc and wysiwyg panels"
-      >
+      <div class="main-doc-wysiwyg-wrap ${isWysiwyg ? 'view-wysiwyg' : 'view-doc'}">
         ${this._renderDocPane()}
-        ${this._renderWysiwygPane(iframeSrc)}
-      </sp-split-view>
+        ${isWysiwyg ? this._renderWysiwygPane(iframeSrc) : ''}
+      </div>
     `;
   }
 

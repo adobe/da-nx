@@ -227,8 +227,12 @@ export default class DaInlineEditor extends LitElement {
       this._awarenessOff();
       this._awarenessOff = null;
     }
+    if (this._view) {
+      this._view.destroy();
+      if (window.view === this._view) delete window.view;
+    }
     if (this._wsProvider) {
-      this._wsProvider.disconnect({ data: 'Path changed' });
+      this._wsProvider.destroy();
       this._wsProvider = undefined;
     }
     this.dispatchEvent(new CustomEvent('da-collab-users', { bubbles: true, composed: true, detail: { users: [] } }));
@@ -386,8 +390,12 @@ export default class DaInlineEditor extends LitElement {
       this._awarenessOff();
       this._awarenessOff = null;
     }
+    if (this._view) {
+      this._view.destroy();
+      if (window.view === this._view) delete window.view;
+    }
     if (this._wsProvider) {
-      this._wsProvider.disconnect({ data: 'Component unmount' });
+      this._wsProvider.destroy();
       this._wsProvider = undefined;
     }
     this._proseEl = null;
