@@ -35,6 +35,8 @@ export class ChatController {
     // In-flight assistant text (committed to messages on text-end).
     this.streamingText = '';
 
+    // Active agent preset ID (null = default assistant).
+    this.agentId = null;
     // toolCallId → approvalId for tools awaiting user decision.
     this._pendingApprovals = new Map();
     // toolCallId → toolName (tool-output-available events lack toolName).
@@ -346,6 +348,7 @@ export class ChatController {
           pageContext: this.getContext(),
           imsToken,
           room: this.room,
+          ...(this.agentId ? { agentId: this.agentId } : {}),
         }),
         signal: this._abortController.signal,
       });
