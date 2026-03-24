@@ -103,6 +103,10 @@ class Space extends LitElement {
     this._docToolbar = null;
   }
 
+  _onDocToolbarReady = (e) => {
+    this._docToolbar = e.detail.toolbar ?? null;
+  };
+
   _boundCollabUsers = (e) => {
     const users = e.detail?.users;
     this._collabUsers = Array.isArray(users) ? users : [];
@@ -350,10 +354,6 @@ class Space extends LitElement {
     }
   }
 
-  _onDocToolbarReady = (e) => {
-    this._docToolbar = e.detail.toolbar ?? null;
-  };
-
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
@@ -368,19 +368,14 @@ class Space extends LitElement {
 
   updated(changed) {
     super.updated?.(changed);
-    if (changed.has('_viewMode')) {
-      const prevMode = changed.get('_viewMode');
-      if (prevMode === 'split' || this._viewMode === 'split') {
-        this._docToolbar = null;
+    if (this._docToolbar) {
+      const host = this.shadowRoot?.querySelector('.space-editor-toolbar-host');
+      if (host && !host.contains(this._docToolbar)) {
+        host.appendChild(this._docToolbar);
       }
     }
-    const host = this.shadowRoot?.querySelector('.space-editor-toolbar-host');
-    if (host) {
-      if (this._docToolbar && !host.contains(this._docToolbar)) {
-        host.replaceChildren(this._docToolbar);
-      } else if (!this._docToolbar) {
-        host.replaceChildren();
-      }
+    if (changed.has('_viewMode') && this._viewMode === 'split') {
+      this._docToolbar = null;
     }
     if (changed.has('_viewMode') && this._viewMode !== 'split') {
       this._quickEditPort = null;
@@ -389,7 +384,6 @@ class Space extends LitElement {
         this._quickEditInitRetryId = null;
       }
     }
-
     if (changed.has('_selectedPath') && !isHtmlPath(this._selectedPath)) {
       if (this._sidebarTab === 'history' || this._sidebarTab === 'metadata') {
         this._sidebarTab = 'files';
@@ -430,8 +424,7 @@ class Space extends LitElement {
     const pathWithoutOrgRepo = segments.slice(2).join('/');
     const pathWithoutHtml = pathWithoutOrgRepo.replace(/\.html$/i, '');
     const encodedPath = pathWithoutHtml.split('/').map(encodeURIComponent).join('/');
-    const nxRef = new URLSearchParams(window.location.search).get('nx') || 'local';
-    const base = `https://main--${repo}--${org}.preview.da.live/${encodedPath}?nx=local&quick-edit=${nxRef}`;
+    const base = `https://main--${repo}--${org}.preview.da.live/${encodedPath}?nx=exp-workspace&quick-edit=exp-workspace`;
     return `${base}&controller=parent`;
   }
 
@@ -479,29 +472,30 @@ class Space extends LitElement {
   }
 
   _renderMiddleContent(iframeSrc) {
-    // Split mode uses its own layout — da-inline-editor instance differs here
-    if (this._viewMode === 'split') {
+    if (this._viewMode === 'doc') {
+      return html`<div class="main-single-pane">${this._renderDocPane()}</div>`;
+    }
+    if (this._viewMode === 'wysiwyg') {
       return html`
-        <sp-split-view
-          class="split-view split-view-main"
-          resizable
-          primary-size="40%"
-          secondary-min="200"
-          label="Resize doc and wysiwyg panels"
-        >
-          ${this._renderDocPane()}
-          ${this._renderWysiwygPane(iframeSrc)}
-        </sp-split-view>
+        <div class="main-wysiwyg-with-controller">
+          <div class="space-doc-pane-hidden" aria-hidden="true">
+            ${this._renderDocPane()}
+          </div>
+          <div class="main-single-pane">${this._renderWysiwygPane(iframeSrc)}</div>
+        </div>
       `;
     }
-    // Doc and wysiwyg share the same da-inline-editor at the same template
-    // position so Lit never destroys/recreates it — prevents Yjs connection churn
-    const isWysiwyg = this._viewMode === 'wysiwyg';
     return html`
-      <div class="main-doc-wysiwyg-wrap ${isWysiwyg ? 'view-wysiwyg' : 'view-doc'}">
+      <sp-split-view
+        class="split-view split-view-main"
+        resizable
+        primary-size="40%"
+        secondary-min="200"
+        label="Resize doc and wysiwyg panels"
+      >
         ${this._renderDocPane()}
-        ${isWysiwyg ? this._renderWysiwygPane(iframeSrc) : ''}
-      </div>
+        ${this._renderWysiwygPane(iframeSrc)}
+      </sp-split-view>
     `;
   }
 
@@ -519,9 +513,9 @@ class Space extends LitElement {
     return html`
       <div class="space-collab-users" aria-label="Connected users">
         ${this._collabUsers.map((user) => {
-      const initials = user.split(' ').map((name) => name.toString().substring(0, 1)).join('');
-      return html`<span class="space-collab-user" title="${user}">${initials}</span>`;
-    })}
+    const initials = user.split(' ').map((name) => name.toString().substring(0, 1)).join('');
+    return html`<span class="space-collab-user" title="${user}">${initials}</span>`;
+  })}
       </div>
     `;
   }
@@ -579,17 +573,17 @@ class Space extends LitElement {
     return html`
       <nav class="space-breadcrumbs" aria-label="File path">
         ${segments.map((name, i) => {
-      const pathKey = segments.slice(0, i + 1).join('/');
-      const isOrgOrRepo = i < 2;
-      const isLast = i === segments.length - 1;
-      const isFolder = !isLast;
-      return html`
+    const pathKey = segments.slice(0, i + 1).join('/');
+    const isOrgOrRepo = i < 2;
+    const isLast = i === segments.length - 1;
+    const isFolder = !isLast;
+    return html`
   <span class="space-breadcrumb-segment">
     ${i > 0 ? html`<span class="space-breadcrumb-sep" aria-hidden="true">/</span>` : ''}
     ${this._renderBreadcrumbCrumb(name, pathKey, isOrgOrRepo, isFolder)}
   </span>
 `;
-    })}
+  })}
       </nav>
     `;
   }

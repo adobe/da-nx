@@ -80,7 +80,7 @@
 .da-inline-editor blockquote::before {
   position: absolute;
   display: block;
-  content: "";
+  content: '';
   top: 0;
   bottom: 0;
   left: 0;
@@ -160,4 +160,3 @@
   font-size: 0.875rem;
   padding: 0.5rem;
 }
-

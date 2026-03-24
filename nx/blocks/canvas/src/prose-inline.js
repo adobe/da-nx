@@ -1,6 +1,10 @@
 /**
  * ProseMirror + Yjs collab editor. withToolbar adds the horizontal formatting
  * toolbar and editing plugins (input rules, keyboard shortcuts, table editing).
+ *
+ * columnResizing() is intentionally omitted: it uses prosemirror-tables TableView
+ * (div.tableWrapper around tables) and breaks quick-edit getInstrumentedHTML → prose2aem
+ * → WYSIWYG iframe. Tables still work via tableEditing.
  */
 /* eslint-disable import/no-unresolved */
 import {
@@ -17,7 +21,6 @@ import {
   yUndoPlugin,
   buildKeymap,
   tableEditing,
-  columnResizing,
   gapCursor,
   liftListItem,
   sinkListItem,
@@ -102,13 +105,13 @@ function addSyncedListener(wsProvider, canWrite, setEditable) {
 
 /**
  * Initialize ProseMirror + Yjs for the given document path.
- * getToken: () => token — used for WebSocket auth; required (no adobeIMS).
+ * getToken: () => token — used for WebSocket auth (required, no adobeIMS).
  * Optional rerenderPage, updateCursors, getEditor enable quick-edit controller mode
- * (trackCursorAndChanges). withToolbar adds the full da-live formatting toolbar and
- * editing plugins (input rules, keyboard shortcuts, table editing).
+ * (trackCursorAndChanges). withToolbar adds da-live-style toolbar and edit plugins.
  * @param {{ path: string, permissions: string[], setEditable?: (editable: boolean) => void,
  *   getToken?: () => string, rerenderPage?: () => void, updateCursors?: () => void,
- *   getEditor?: (data: { cursorOffset: number }) => void, withToolbar?: boolean }} opts
+ *   getEditor?: (data: { cursorOffset: number }) => void, withToolbar?: boolean,
+ *   onToolbar?: (el: HTMLElement | null) => void }} opts
  * @returns {Promise<{ proseEl: HTMLElement, wsProvider: WebsocketProvider, view: EditorView }>}
  */
 export default async function initProse({
@@ -192,7 +195,6 @@ export default async function initProse({
 
     plugins.push(
       proseToolbar(onToolbar),
-      columnResizing(),
       getEnterInputRulesPlugin(dispatch),
       getURLInputRulesPlugin(),
       getListInputRulesPlugin(schema),

@@ -252,22 +252,17 @@
   overflow: hidden;
 }
 
-/* Doc/wysiwyg share a single da-inline-editor instance — switching modes only
-   changes CSS, not the element, so no Yjs reconnect on mode switch */
-.space .main-doc-wysiwyg-wrap {
+/* WYSIWYG-only view: hidden doc pane keeps da-inline-editor in DOM for controller=parent */
+.space .main-wysiwyg-with-controller {
   display: flex;
   flex: 1;
-  min-height: 0;
+  min-width: 0;
   height: 100%;
   position: relative;
   overflow: hidden;
 }
 
-.space .main-doc-wysiwyg-wrap.view-doc .main-pane-doc {
-  flex: 1;
-}
-
-.space .main-doc-wysiwyg-wrap.view-wysiwyg .main-pane-doc {
+.space .space-doc-pane-hidden {
   position: absolute;
   left: -9999px;
   top: 0;
@@ -278,8 +273,9 @@
   pointer-events: none;
 }
 
-.space .main-doc-wysiwyg-wrap.view-wysiwyg .main-pane-wysiwyg {
+.space .main-wysiwyg-with-controller .main-single-pane {
   flex: 1;
+  min-width: 0;
 }
 
 /* Toolbar host: sits above the canvas/wysiwyg/split content, inside inner-primary-wrap */
@@ -371,7 +367,7 @@
   height: 100%;
   min-width: 0;
   overflow: auto;
-  padding: 0 1rem;
+  padding: 1rem;
 }
 
 .space .main-single-pane .main-pane {
