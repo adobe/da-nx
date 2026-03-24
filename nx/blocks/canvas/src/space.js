@@ -514,7 +514,7 @@ class Space extends LitElement {
     return html`
       <div class="space-collab-users" aria-label="Connected users">
         ${this._collabUsers.map((user) => {
-      const isAI = user.includes('AI Assistant') || user.startsWith('🤖');
+      const isAI = user.includes('AI Assistant');
       if (isAI) {
         return html`<span class="space-collab-user space-collab-user-ai" title="AI Assistant">✨</span>`;
       }
