@@ -30,8 +30,10 @@ async function orgCheck() {
   document.querySelector('.toast.sandbox-org')?.remove();
 
   const { pathname, hash } = window.location;
-  // Do not show on app screens
+  // Do not show on app screens or canvas / browse (hash-based org context only)
   if (pathname.startsWith('/app')) return;
+  if (pathname.startsWith('/canvas')) return;
+  if (pathname.startsWith('/browse')) return;
   if (!hash) return;
   const hashVal = hash.replace('#', '');
   // Do nothing if not a path
