@@ -272,23 +272,37 @@ da-palette .da-palette-field {
   color: black;
 }
 
+/* Anchor for absolutely positioned quick-edit UI (document space, scrolls with content) */
+html {
+  position: relative;
+}
+
 /* Add to context overlay (instrumented elements hover) */
 .quick-edit-add-to-context-overlay {
-  position: fixed;
+  position: absolute;
   z-index: 10000;
   pointer-events: auto;
 }
 
 .quick-edit-add-to-context-btn {
-  padding: 4px 10px;
-  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
   background: var(--color-blue-600, #2563eb);
-  color: white;
   border: none;
   border-radius: 4px;
   cursor: pointer;
   box-shadow: 0 1px 3px rgb(0 0 0 / 20%);
-  white-space: nowrap;
+}
+
+.quick-edit-add-to-context-btn-icon {
+  display: block;
+  width: 20px;
+  height: 20px;
+  
+  /* SVG uses dark fills; invert for contrast on blue button */
+  filter: brightness(0) invert(1);
 }
 
 .quick-edit-add-to-context-btn:hover {

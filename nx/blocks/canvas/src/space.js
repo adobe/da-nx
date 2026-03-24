@@ -463,6 +463,7 @@ class Space extends LitElement {
           ${iframeSrc ? html`<iframe
             title="WYSIWYG preview"
             src="${iframeSrc}"
+            allow="local-network-access"
             class="main-pane-wysiwyg-iframe"
             @load="${this._onWysiwygIframeLoad}"
             @error="${this._onWysiwygIframeError}"

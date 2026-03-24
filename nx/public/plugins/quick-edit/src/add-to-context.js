@@ -1,14 +1,20 @@
 /**
- * "Add to context" overlay: shows a button at the top-left of instrumented elements
+ * "Add to context" overlay: shows a button above the top-left of instrumented elements
  * ([data-prose-index], [data-block-index]) on hover. Uses an overlay so the button
  * stays visible when the user moves the mouse to click it.
  */
 
 const OVERLAY_ID = 'quick-edit-add-to-context-overlay';
 const HIDE_DELAY_MS = 150;
+const ABOVE_GAP_PX = 6;
+/** When the position leaves the control above the viewport, clamp to inset from viewport top. */
+const VIEWPORT_TOP_MIN_PX = ABOVE_GAP_PX;
+
+const ADD_TO_CHAT_ICON_URL = new URL('../../../../img/icons/addtochat.svg', import.meta.url).href;
 
 let hideTimeout = null;
 let currentElement = null;
+let positionListener = null;
 
 function getInstrumentedElement(target) {
   return target?.closest?.('[data-prose-index], [data-block-index]') ?? null;
@@ -42,11 +48,57 @@ function getAddToChatPayload(el) {
   return { proseIndex, blockName, innerText };
 }
 
+function documentOffsets() {
+  const sx = window.scrollX ?? document.documentElement.scrollLeft ?? 0;
+  const sy = window.scrollY ?? document.documentElement.scrollTop ?? 0;
+  return { sx, sy };
+}
+
 function positionOverlay(overlay, el) {
   const rect = el.getBoundingClientRect();
-  overlay.style.left = `${rect.left}px`;
-  overlay.style.top = `${rect.top}px`;
+  const { sx, sy } = documentOffsets();
+
+  const prevDisplay = overlay.style.display;
+  const prevVisibility = overlay.style.visibility;
+  if (prevDisplay === 'none') {
+    overlay.style.visibility = 'hidden';
+    overlay.style.display = 'block';
+  }
+  const btn = overlay.querySelector('.quick-edit-add-to-context-btn');
+  const controlHeight = btn?.offsetHeight || 28;
+  overlay.style.visibility = prevVisibility;
+  overlay.style.display = prevDisplay;
+
+  overlay.style.left = `${rect.left + sx}px`;
+  overlay.style.top = `${rect.top + sy - controlHeight - ABOVE_GAP_PX}px`;
   overlay.style.display = '';
+
+  const { top: overlayViewportTop } = overlay.getBoundingClientRect();
+  if (overlayViewportTop < VIEWPORT_TOP_MIN_PX) {
+    const shift = VIEWPORT_TOP_MIN_PX - overlayViewportTop;
+    const docTop = parseFloat(overlay.style.top);
+    if (!Number.isNaN(docTop)) {
+      overlay.style.top = `${docTop + shift}px`;
+    }
+  }
+}
+
+function attachPositionListeners(overlay) {
+  if (positionListener) return;
+  positionListener = () => {
+    if (currentElement && overlay.style.display !== 'none') {
+      positionOverlay(overlay, currentElement);
+    }
+  };
+  window.addEventListener('scroll', positionListener, true);
+  window.addEventListener('resize', positionListener);
+}
+
+function detachPositionListeners() {
+  if (!positionListener) return;
+  window.removeEventListener('scroll', positionListener, true);
+  window.removeEventListener('resize', positionListener);
+  positionListener = null;
 }
 
 function showOverlay(overlay, el) {
@@ -56,11 +108,13 @@ function showOverlay(overlay, el) {
     hideTimeout = null;
   }
   positionOverlay(overlay, el);
+  attachPositionListeners(overlay);
 }
 
 function hideOverlay(overlay) {
   overlay.style.display = 'none';
   currentElement = null;
+  detachPositionListeners();
   if (hideTimeout) {
     clearTimeout(hideTimeout);
     hideTimeout = null;
@@ -91,7 +145,14 @@ export function setupAddToContext(root = document.body, ctx = null) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'quick-edit-add-to-context-btn';
-    btn.textContent = 'Add to chat';
+    btn.setAttribute('aria-label', 'Add to chat');
+    const icon = document.createElement('img');
+    icon.src = ADD_TO_CHAT_ICON_URL;
+    icon.alt = '';
+    icon.className = 'quick-edit-add-to-context-btn-icon';
+    icon.width = 20;
+    icon.height = 20;
+    btn.appendChild(icon);
     btn.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
