@@ -47,7 +47,7 @@
     justify-content: center;
     align-items: center;
     height: 32px;
-    border-radius: var(--s2-border-radius-sm);
+    border-radius: var(--s2-corner-radius-500);
 
     .icon {
       display: flex;

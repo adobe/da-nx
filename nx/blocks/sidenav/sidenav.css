@@ -10,8 +10,8 @@
 
   ul {
     display: grid;
-    gap: var(--s2-spacing-xs);
-    margin: var(--s2-spacing-md) 0 0;
+    gap: var(--s2-spacing-100);
+    margin: var(--s2-spacing-300) 0 0;
     padding: 0;
     list-style: none;
   }

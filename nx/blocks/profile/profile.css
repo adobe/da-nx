@@ -8,7 +8,6 @@
 
   p {
     line-height: 1;
-    margin: 0;
   }
 }
 
@@ -31,7 +30,7 @@
   height: 32px;
   border: none;
   padding: 4px;
-  border-radius: var(--s2-border-radius-md);
+  border-radius: var(--s2-corner-radius-500);
 
   &:hover {
     background-color: var(--s2-gray-100);
@@ -47,7 +46,7 @@
 #nx-menu-profile {
   inset: 48px 12px auto auto;
   border: none;
-  border-radius: var(--s2-border-radius-lg);
+  border-radius: var(--s2-corner-radius-700);
   width: 340px;
   padding: 0;
   background-color: light-dark(#fff, #000);
@@ -85,7 +84,7 @@
   inset: 0 24px auto;
   content: "";
   height: 1px;
-  background: rgb(209 209 209);
+  background: var(--s2-gray-100);
   transition: all 0.2s ease-in-out;
 }
 
@@ -95,24 +94,24 @@
   inset: auto 24px 0;
   content: "";
   height: 1px;
-  background: rgb(209 209 209);
+  background: var(--s2-gray-100);
   transition: all 0.2s ease-in-out;
 }
 
 .nx-menu-btn:hover {
-  color: rgb(22 122 243);
-  background: rgb(228 240 255);
+  color: var(--s2-blue-900);
+  background: var(--s2-blue-200);
   z-index: 2;
 }
 
 .nx-menu-btn:hover::before {
   inset: 0 0 auto;
-  background: rgb(22 122 243);
+  background: var(--s2-blue-900);
 }
 
 .nx-menu-btn:hover::after {
   inset: auto 0 0;
-  background: rgb(22 122 243);
+  background: var(--s2-blue-900);
 }
 
 .nx-menu-btn-details picture {
@@ -158,8 +157,8 @@
   align-items: center;
   position: absolute;
   inset: 0;
-  color: rgb(22 122 243);
-  background: rgb(228 240 255);
+  color: var(--s2-blue-900);
+  background: var(--s2-blue-200);
   border-bottom: 1px solid;
   opacity: 0;
   transition: opacity 0.2s ease-in-out;
@@ -228,7 +227,7 @@
   background: transparent;
   border: none;
   padding: 0;
-  color: rgb(22 122 243);
+  color: var(--s2-blue-900);
   margin-bottom: 8px;
   cursor: pointer;
 }
@@ -261,7 +260,7 @@
 
 .nx-menu-links a {
   text-decoration: none;
-  color: rgb(22 122 243);
+  color: var(--s2-blue-900);
 }
 
 .nx-menu-links a:hover {
@@ -284,7 +283,7 @@
   justify-content: center;
   align-items: center;
   height: 32px;
-  border-radius: var(--s2-border-radius-sm);
+  border-radius: var(--s2-corner-radius-500);
   font-size: 14px;
   font-family: inherit;
   background: transparent;

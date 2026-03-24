@@ -234,7 +234,8 @@ function decorateDoc() {
   if (pageId) localStorage.setItem('lazyhash', pageId);
 }
 
-function loadNav() {
+function loadSession() {
+  document.body.classList.add('session');
   const header = document.querySelector('nx-nav');
   if (header) import('../blocks/nav/nav.js');
   const sidenav = document.querySelector('nx-sidenav');
@@ -250,7 +251,7 @@ export async function loadArea({ area } = { area: document }) {
   decoratePictures(area);
   const { decorateArea } = getConfig();
   if (decorateArea) decorateArea({ area });
-  if (isDoc && isSession) loadNav();
+  if (isDoc && isSession) loadSession();
   const sections = decorateSections(area, isDoc);
   for (const [idx, section] of sections.entries()) {
     loadIcons(section);
@@ -258,7 +259,7 @@ export async function loadArea({ area } = { area: document }) {
     await Promise.all(section.blocks.map((block) => loadBlock(block)));
     delete section.dataset.status;
     if (isDoc && idx === 0) {
-      if (!isSession) loadNav();
+      if (!isSession) loadSession();
       // import('../utils/favicon.js');
     }
   }
