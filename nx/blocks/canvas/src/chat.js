@@ -1,10 +1,11 @@
 // eslint-disable-next-line import/no-unresolved
 import getStyle from 'https://da.live/nx/utils/styles.js';
 // eslint-disable-next-line import/no-unresolved
-import { LitElement, html } from 'da-lit';
+import { LitElement, html, nothing } from 'da-lit';
 // eslint-disable-next-line import/no-named-as-default
 import ChatController from './chat-controller.js';
 import { initIms } from '../../../utils/daFetch.js';
+import { loadSkills, saveSkill, deleteSkill } from '../../skills-editor/utils/utils.js';
 
 const style = await getStyle(import.meta.url);
 const imsInitial = await initIms();
@@ -53,6 +54,19 @@ class Chat extends LitElement {
     _statusText: { state: true },
     _skillsLibraryTab: { state: true },
     _openToolCards: { state: true },
+    _mcpServers: { state: true },
+    _mcpLoading: { state: true },
+    _mcpScannedAt: { state: true },
+    _skills: { state: true },
+    _skillsLoading: { state: true },
+    _selectedSkill: { state: true },
+    _newSkillMode: { state: true },
+    _newSkillName: { state: true },
+    _agents: { state: true },
+    _agentsLoading: { state: true },
+    _activeAgentId: { state: true },
+    _newAgentMode: { state: true },
+    _selectedAgent: { state: true },
   };
 
   constructor() {
@@ -69,6 +83,20 @@ class Chat extends LitElement {
     this._streamingText = '';
     this._skillsLibraryTab = 'skills';
     this._openToolCards = new Set();
+    this._mcpServers = null;
+    this._mcpLoading = false;
+    this._mcpScannedAt = null;
+    this._mcpPollTimer = null;
+    this._skills = null;
+    this._skillsLoading = false;
+    this._selectedSkill = null;
+    this._newSkillMode = false;
+    this._newSkillName = '';
+    this._agents = null;
+    this._agentsLoading = false;
+    this._activeAgentId = null;
+    this._newAgentMode = false;
+    this._selectedAgent = null;
     this._chatController = null;
   }
 
@@ -81,6 +109,7 @@ class Chat extends LitElement {
 
   disconnectedCallback() {
     this._chatController?.disconnect();
+    this._stopMcpPoll();
     super.disconnectedCallback();
   }
 
@@ -169,6 +198,437 @@ class Chat extends LitElement {
   _onSkillsNavChange(e) {
     const { value } = e.target;
     if (value) this._skillsLibraryTab = value;
+    if (value === 'mcp') {
+      if (!this._mcpServers && !this._mcpLoading) this._fetchMcpServers();
+      this._startMcpPoll();
+    } else {
+      this._stopMcpPoll();
+    }
+    if (value === 'skills' && !this._skills && !this._skillsLoading) {
+      this._fetchSkills();
+    }
+    if (value === 'agents' && !this._agents && !this._agentsLoading) {
+      this._fetchAgents();
+    }
+  }
+
+  // eslint-disable-next-line class-methods-use-this
+  _formatTimeAgo(isoString) {
+    const delta = Date.now() - new Date(isoString).getTime();
+    if (delta < 60000) return 'just now';
+    if (delta < 3600000) return `${Math.floor(delta / 60000)}m ago`;
+    if (delta < 86400000) return `${Math.floor(delta / 3600000)}h ago`;
+    return `${Math.floor(delta / 86400000)}d ago`;
+  }
+
+  _startMcpPoll() {
+    this._stopMcpPoll();
+    this._mcpPollTimer = setInterval(() => {
+      if (!this._mcpLoading) this._fetchMcpServers();
+    }, 60000);
+  }
+
+  _stopMcpPoll() {
+    if (this._mcpPollTimer) {
+      clearInterval(this._mcpPollTimer);
+      this._mcpPollTimer = null;
+    }
+  }
+
+  async _fetchMcpServers() {
+    const { org, site } = getContextFromHash();
+    if (!org || !site) return;
+    this._mcpLoading = true;
+    try {
+      const imsToken = (await initIms())?.accessToken?.token;
+      const headers = imsToken ? { Authorization: `Bearer ${imsToken}` } : {};
+      const DA_ORIGIN = localStorage.getItem('da-admin')
+        || 'https://admin.da.live';
+      const resp = await fetch(
+        `${DA_ORIGIN}/mcp-discovery/${org}/${site}`,
+        { headers },
+      );
+      if (resp.ok) {
+        const data = await resp.json();
+        this._mcpServers = data;
+        this._mcpScannedAt = data.scannedAt || data.readAt || null;
+      } else {
+        this._mcpServers = { mcpServers: {}, warnings: [], servers: [] };
+      }
+    } catch {
+      this._mcpServers = { mcpServers: {}, warnings: [], servers: [] };
+    } finally {
+      this._mcpLoading = false;
+    }
+  }
+
+  _refreshMcpServers() {
+    this._mcpServers = null;
+    this._fetchMcpServers();
+  }
+
+  async _fetchSkills() {
+    const { org, site } = getContextFromHash();
+    if (!org) return;
+    this._skillsLoading = true;
+    try {
+      const skills = await loadSkills(org, site);
+      this._skills = skills;
+      const ids = Object.keys(skills);
+      if (ids.length > 0 && !this._selectedSkill) {
+        [this._selectedSkill] = ids;
+      }
+    } catch {
+      this._skills = {};
+    } finally {
+      this._skillsLoading = false;
+    }
+  }
+
+  _refreshSkills() {
+    this._skills = null;
+    this._selectedSkill = null;
+    this._newSkillMode = false;
+    this._fetchSkills();
+  }
+
+  _onSkillSelect(e) {
+    const { value } = e.target;
+    if (value === '__new__') {
+      this._newSkillMode = true;
+      this._selectedSkill = null;
+      this._newSkillName = '';
+      return;
+    }
+    this._newSkillMode = false;
+    this._selectedSkill = value;
+  }
+
+  _onNewSkillNameInput(e) {
+    this._newSkillName = e.target.value.replaceAll(/[^a-zA-Z0-9]/g, '-').toLowerCase();
+  }
+
+  async _saveCurrentSkill() {
+    const { org, site } = getContextFromHash();
+    const prefix = site ? `/${org}/${site}` : `/${org}`;
+    const textarea = this.shadowRoot?.querySelector('.skill-editor-textarea');
+    const content = textarea?.value ?? '';
+
+    if (this._newSkillMode) {
+      const id = this._newSkillName.trim();
+      if (!id) return;
+      const result = await saveSkill(prefix, id, content);
+      if (result.error) return;
+      this._skills = { ...this._skills, [id]: content };
+      this._selectedSkill = id;
+      this._newSkillMode = false;
+    } else if (this._selectedSkill) {
+      const result = await saveSkill(prefix, this._selectedSkill, content);
+      if (result.error) return;
+      this._skills = { ...this._skills, [this._selectedSkill]: content };
+    }
+  }
+
+  async _deleteCurrentSkill() {
+    if (!this._selectedSkill) return;
+    const { org, site } = getContextFromHash();
+    const prefix = site ? `/${org}/${site}` : `/${org}`;
+    const result = await deleteSkill(prefix, this._selectedSkill);
+    if (result.error) return;
+    const next = { ...this._skills };
+    delete next[this._selectedSkill];
+    this._skills = next;
+    const ids = Object.keys(next);
+    this._selectedSkill = ids.length > 0 ? ids[0] : null;
+  }
+
+  _renderSkillsContent() {
+    if (this._skillsLoading) {
+      return html`<div class="chat-skills-empty"><p class="chat-skills-empty-text">Loading skills...</p></div>`;
+    }
+
+    if (!this._skills) {
+      return html`
+        <div class="chat-skills-empty">
+          <p class="chat-skills-empty-text">Select a site to view skills.</p>
+        </div>`;
+    }
+
+    const ids = Object.keys(this._skills);
+
+    if (ids.length === 0 && !this._newSkillMode) {
+      return html`
+        <div class="chat-skills-empty">
+          <p class="chat-skills-empty-text">No skills found.</p>
+          <p class="chat-skills-empty-text">Skills are markdown documents under <code>.da/skills/</code> that teach the assistant reusable workflows.</p>
+          <sp-button variant="accent" size="s" @click=${() => { this._newSkillMode = true; }}>Create skill</sp-button>
+          <sp-button variant="secondary" size="s" @click=${() => this._refreshSkills()}>Refresh</sp-button>
+        </div>`;
+    }
+
+    const editorContent = this._newSkillMode
+      ? '# New Skill\n\nDescribe this skill here.\n'
+      : (this._skills[this._selectedSkill] ?? '');
+
+    return html`
+      <div class="skills-panel">
+        <div class="skills-toolbar">
+          <select class="skills-select" @change=${this._onSkillSelect}>
+            ${ids.map((id) => html`
+              <option value="${id}" ?selected=${id === this._selectedSkill}>${id}</option>
+            `)}
+            <option value="__new__" ?selected=${this._newSkillMode}>+ New skill</option>
+          </select>
+          <sp-button variant="secondary" size="s" @click=${() => this._refreshSkills()}>Refresh</sp-button>
+        </div>
+        ${this._newSkillMode ? html`
+          <div class="skills-new-row">
+            <sp-textfield
+              class="skills-new-name"
+              placeholder="skill-name"
+              size="s"
+              .value=${this._newSkillName}
+              @input=${this._onNewSkillNameInput}
+            ></sp-textfield>
+          </div>
+        ` : nothing}
+        <textarea class="skill-editor-textarea" .value=${editorContent}></textarea>
+        <div class="skills-actions">
+          ${this._newSkillMode ? html`
+            <sp-button variant="secondary" size="s" @click=${() => { this._newSkillMode = false; if (ids.length > 0) [this._selectedSkill] = ids; }}>Cancel</sp-button>
+          ` : html`
+            <sp-button variant="negative" size="s" @click=${this._deleteCurrentSkill}>Delete</sp-button>
+          `}
+          <sp-button variant="accent" size="s" @click=${this._saveCurrentSkill}>Save</sp-button>
+        </div>
+      </div>`;
+  }
+
+  async _fetchAgents() {
+    const { org, site } = getContextFromHash();
+    if (!org) return;
+    this._agentsLoading = true;
+    try {
+      const imsToken = (await initIms())?.accessToken?.token;
+      const headers = imsToken ? { Authorization: `Bearer ${imsToken}` } : {};
+      const DA_ORIGIN = localStorage.getItem('da-admin') || 'https://admin.da.live';
+      const path = site ? `/${org}/${site}/.da/agents` : `/${org}/.da/agents`;
+      const resp = await fetch(`${DA_ORIGIN}/list${path}`, { headers });
+      if (resp.ok) {
+        const items = await resp.json();
+        const jsonItems = (Array.isArray(items) ? items : []).filter((i) => i.ext === 'json');
+        const agents = {};
+        await Promise.all(jsonItems.map(async (item) => {
+          try {
+            const srcResp = await fetch(`${DA_ORIGIN}/source${item.path}`, { headers });
+            if (srcResp.ok) {
+              const text = await srcResp.text();
+              agents[item.name.replace(/\.json$/, '')] = JSON.parse(text);
+            }
+          } catch { /* skip invalid */ }
+        }));
+        this._agents = agents;
+      } else {
+        this._agents = {};
+      }
+    } catch {
+      this._agents = {};
+    } finally {
+      this._agentsLoading = false;
+    }
+  }
+
+  _refreshAgents() {
+    this._agents = null;
+    this._selectedAgent = null;
+    this._newAgentMode = false;
+    this._fetchAgents();
+  }
+
+  _onAgentSelect(e) {
+    const { value } = e.target;
+    if (value === '__new__') {
+      this._newAgentMode = true;
+      this._selectedAgent = null;
+      return;
+    }
+    this._newAgentMode = false;
+    this._selectedAgent = value;
+  }
+
+  _activateAgent(agentId) {
+    this._activeAgentId = agentId || null;
+    if (this._chatController) {
+      this._chatController.agentId = this._activeAgentId;
+    }
+  }
+
+  async _saveAgent() {
+    const { org, site } = getContextFromHash();
+    const prefix = site ? `/${org}/${site}` : `/${org}`;
+    const form = this.shadowRoot?.querySelector('.agent-editor-form');
+    if (!form) return;
+
+    const id = this._newAgentMode
+      ? form.querySelector('[name="agent-id"]')?.value?.trim()
+      : this._selectedAgent;
+    if (!id) return;
+
+    const preset = {
+      name: form.querySelector('[name="agent-name"]')?.value || id,
+      description: form.querySelector('[name="agent-description"]')?.value || '',
+      systemPrompt: form.querySelector('[name="agent-prompt"]')?.value || '',
+      skills: (form.querySelector('[name="agent-skills"]')?.value || '').split(',').map((s) => s.trim()).filter(Boolean),
+      mcpServers: (form.querySelector('[name="agent-mcpservers"]')?.value || '').split(',').map((s) => s.trim()).filter(Boolean),
+    };
+
+    const imsToken = (await initIms())?.accessToken?.token;
+    const headers = imsToken ? { Authorization: `Bearer ${imsToken}` } : {};
+    const DA_ORIGIN = localStorage.getItem('da-admin') || 'https://admin.da.live';
+    const body = new FormData();
+    body.append('data', new Blob([JSON.stringify(preset, null, 2)], { type: 'application/json' }));
+    await fetch(`${DA_ORIGIN}/source${prefix}/.da/agents/${id}.json`, { method: 'POST', headers, body });
+
+    this._agents = { ...this._agents, [id]: preset };
+    this._selectedAgent = id;
+    this._newAgentMode = false;
+  }
+
+  async _deleteAgent() {
+    if (!this._selectedAgent) return;
+    const { org, site } = getContextFromHash();
+    const prefix = site ? `/${org}/${site}` : `/${org}`;
+    const imsToken = (await initIms())?.accessToken?.token;
+    const headers = imsToken ? { Authorization: `Bearer ${imsToken}` } : {};
+    const DA_ORIGIN = localStorage.getItem('da-admin') || 'https://admin.da.live';
+    await fetch(`${DA_ORIGIN}/source${prefix}/.da/agents/${this._selectedAgent}.json`, { method: 'DELETE', headers });
+
+    if (this._activeAgentId === this._selectedAgent) this._activateAgent(null);
+    const next = { ...this._agents };
+    delete next[this._selectedAgent];
+    this._agents = next;
+    const ids = Object.keys(next);
+    this._selectedAgent = ids.length > 0 ? ids[0] : null;
+  }
+
+  _renderAgentsContent() {
+    if (this._agentsLoading) {
+      return html`<div class="chat-skills-empty"><p class="chat-skills-empty-text">Loading agents...</p></div>`;
+    }
+
+    if (!this._agents) {
+      return html`<div class="chat-skills-empty"><p class="chat-skills-empty-text">Select a site to view agents.</p></div>`;
+    }
+
+    const ids = Object.keys(this._agents);
+
+    if (ids.length === 0 && !this._newAgentMode) {
+      return html`
+        <div class="chat-skills-empty">
+          <p class="chat-skills-empty-text">No agent presets found.</p>
+          <p class="chat-skills-empty-text">Agent presets bundle a system prompt, skills, and MCP servers into a reusable persona.</p>
+          <sp-button variant="accent" size="s" @click=${() => { this._newAgentMode = true; }}>Create agent</sp-button>
+          <sp-button variant="secondary" size="s" @click=${() => this._refreshAgents()}>Refresh</sp-button>
+        </div>`;
+    }
+
+    const selected = this._newAgentMode ? null : (this._agents[this._selectedAgent] ?? null);
+    const isActive = this._selectedAgent && this._activeAgentId === this._selectedAgent;
+
+    return html`
+      <div class="agents-panel">
+        <div class="agents-toolbar">
+          <select class="agents-select" @change=${this._onAgentSelect}>
+            ${ids.map((id) => html`
+              <option value="${id}" ?selected=${id === this._selectedAgent}>${this._agents[id]?.name || id}</option>
+            `)}
+            <option value="__new__" ?selected=${this._newAgentMode}>+ New agent</option>
+          </select>
+          <sp-button variant="secondary" size="s" @click=${() => this._refreshAgents()}>Refresh</sp-button>
+        </div>
+        <div class="agent-editor-form">
+          ${this._newAgentMode ? html`
+            <label class="agent-field-label">ID</label>
+            <sp-textfield name="agent-id" placeholder="seo-agent" size="s"></sp-textfield>
+          ` : nothing}
+          <label class="agent-field-label">Name</label>
+          <sp-textfield name="agent-name" size="s" .value=${selected?.name ?? ''}></sp-textfield>
+          <label class="agent-field-label">Description</label>
+          <sp-textfield name="agent-description" size="s" .value=${selected?.description ?? ''}></sp-textfield>
+          <label class="agent-field-label">System Prompt</label>
+          <textarea name="agent-prompt" class="agent-prompt-textarea" .value=${selected?.systemPrompt ?? ''}></textarea>
+          <label class="agent-field-label">Skills (comma-separated IDs)</label>
+          <sp-textfield name="agent-skills" size="s" .value=${(selected?.skills ?? []).join(', ')}></sp-textfield>
+          <label class="agent-field-label">MCP Servers (comma-separated IDs)</label>
+          <sp-textfield name="agent-mcpservers" size="s" .value=${(selected?.mcpServers ?? []).join(', ')}></sp-textfield>
+        </div>
+        <div class="agents-actions">
+          ${this._newAgentMode ? html`
+            <sp-button variant="secondary" size="s" @click=${() => { this._newAgentMode = false; if (ids.length > 0) [this._selectedAgent] = ids; }}>Cancel</sp-button>
+          ` : html`
+            <sp-button variant="negative" size="s" @click=${this._deleteAgent}>Delete</sp-button>
+            <sp-button variant="${isActive ? 'secondary' : 'primary'}" size="s"
+              @click=${() => this._activateAgent(isActive ? null : this._selectedAgent)}>
+              ${isActive ? 'Deactivate' : 'Activate'}
+            </sp-button>
+          `}
+          <sp-button variant="accent" size="s" @click=${this._saveAgent}>Save</sp-button>
+        </div>
+      </div>`;
+  }
+
+  _renderMcpContent() {
+    if (this._mcpLoading) {
+      return html`<div class="chat-skills-empty"><p class="chat-skills-empty-text">Loading MCP servers...</p></div>`;
+    }
+
+    const servers = this._mcpServers?.servers || [];
+    const warnings = this._mcpServers?.warnings || [];
+    const hasServers = servers.length > 0;
+
+    if (!hasServers && warnings.length === 0) {
+      return html`
+        <div class="chat-skills-empty">
+          <p class="chat-skills-empty-text">No MCP servers found.</p>
+          <p class="chat-skills-empty-text">Add servers under <code>mcp-servers/&lt;id&gt;/mcp.json</code> in your repository.</p>
+          <sp-button variant="secondary" size="s" @click=${() => this._refreshMcpServers()}>Refresh</sp-button>
+        </div>`;
+    }
+
+    const scannedAgo = this._mcpScannedAt ? this._formatTimeAgo(this._mcpScannedAt) : null;
+    const staleThreshold = 5 * 60 * 1000;
+    const elapsed = this._mcpScannedAt
+      ? Date.now() - new Date(this._mcpScannedAt).getTime()
+      : 0;
+    const isStale = this._mcpScannedAt && elapsed > staleThreshold;
+
+    return html`
+      <div class="mcp-server-list">
+        <div class="mcp-header">
+          <div class="mcp-header-left">
+            <span class="mcp-header-title">Discovered Servers</span>
+            ${scannedAgo ? html`<span class="mcp-scanned-at ${isStale ? 'stale' : ''}">Scanned ${scannedAgo}</span>` : nothing}
+          </div>
+          <sp-button variant="secondary" size="s" @click=${() => this._refreshMcpServers()}>Refresh</sp-button>
+        </div>
+        ${servers.map((s) => html`
+          <div class="mcp-server-item ${s.status}">
+            <span class="mcp-server-id">${s.id}</span>
+            <span class="mcp-server-status ${s.status}">${s.status}</span>
+          </div>
+        `)}
+        ${warnings.length > 0 ? html`
+          <div class="mcp-warnings">
+            <div class="mcp-warnings-title">Warnings</div>
+            ${warnings.map((w) => html`
+              <div class="mcp-warning-item">
+                <span class="mcp-warning-id">${w.serverId}</span>
+                <span class="mcp-warning-msg">${w.message}</span>
+              </div>
+            `)}
+          </div>
+        ` : ''}
+      </div>`;
   }
 
   _toggleToolCard(toolCallId) {
@@ -298,9 +758,15 @@ class Chat extends LitElement {
     `;
   }
 
+  _onSkillsModalOpen() {
+    if (this._skillsLibraryTab === 'skills' && !this._skills && !this._skillsLoading) {
+      this._fetchSkills();
+    }
+  }
+
   _renderSkillsButton() {
     return html`
-      <overlay-trigger type="modal" triggered-by="click">
+      <overlay-trigger type="modal" triggered-by="click" @sp-opened=${this._onSkillsModalOpen}>
         <sp-dialog-wrapper slot="click-content" headline="Skills library" dismissable underlay>
           <div class="chat-skills-modal-body">
             <sp-sidenav
@@ -313,12 +779,7 @@ class Chat extends LitElement {
               <sp-sidenav-item value="agents" label="Agents" ?selected="${this._skillsLibraryTab === 'agents'}"></sp-sidenav-item>
             </sp-sidenav>
             <div class="chat-skills-content">
-              <div class="chat-skills-empty">
-                <svg class="chat-skills-empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
-                  <path d="M2 12h4v8H2zM10 6h4v14h-4zM18 2h4v20h-4z"/>
-                </svg>
-                <p class="chat-skills-empty-text">Nothing here yet.</p>
-              </div>
+              ${this._renderActiveTab()}
             </div>
           </div>
         </sp-dialog-wrapper>
@@ -329,11 +790,22 @@ class Chat extends LitElement {
     `;
   }
 
+  _renderActiveTab() {
+    switch (this._skillsLibraryTab) {
+      case 'skills': return this._renderSkillsContent();
+      case 'mcp': return this._renderMcpContent();
+      case 'agents': return this._renderAgentsContent();
+      default: return nothing;
+    }
+  }
+
   render() {
     return html`
       <div class="chat">
         <div class="chat-header">
-          <span class="chat-header-title">${this.header}</span>
+          <span class="chat-header-title">${this._activeAgentId
+    ? html`${this.header} <span class="agent-badge" title="Agent: ${this._activeAgentId}">${this._agents?.[this._activeAgentId]?.name ?? this._activeAgentId}</span>`
+    : this.header}</span>
           <div class="chat-header-actions">
             <span class="status-pill ${this._connected ? 'connected' : 'disconnected'}">
               ${this._connected ? 'Connected' : 'Disconnected'}
@@ -363,9 +835,13 @@ class Chat extends LitElement {
 
     // Assistant message: either a plain string (text) or an array (tool calls).
     if (typeof message.content === 'string' && message.content) {
+      const isSkillSuggestion = message.content.includes('[SKILL_SUGGESTION]');
+      const displayContent = isSkillSuggestion
+        ? message.content.replace(/\*?\*?\[SKILL_SUGGESTION\]\*?\*?\s*/g, '')
+        : message.content;
       return html`
               <div class="message-row assistant">
-                <div class="message-bubble">${message.content}</div>
+                <div class="message-bubble ${isSkillSuggestion ? 'skill-suggestion' : ''}">${isSkillSuggestion ? html`<span class="skill-suggestion-badge">Skill Suggestion</span>` : nothing}${displayContent}</div>
               </div>`;
     }
     if (Array.isArray(message.content)) {
@@ -377,7 +853,7 @@ class Chat extends LitElement {
   })}
           ${this._streamingText ? html`
             <div class="message-row assistant">
-              <div class="message-bubble">${this._streamingText}</div>
+              <div class="message-bubble ${this._streamingText.includes('[SKILL_SUGGESTION]') ? 'skill-suggestion' : ''}">${this._streamingText.includes('[SKILL_SUGGESTION]') ? html`<span class="skill-suggestion-badge">Skill Suggestion</span>` : nothing}${this._streamingText.replace(/\*?\*?\[SKILL_SUGGESTION\]\*?\*?\s*/g, '')}</div>
             </div>` : ''}
         </div>
 

@@ -20,18 +20,13 @@ import {
   moveBlockAt,
   createControllerOnMessage,
 } from './quick-edit-controller.js';
+import { getPreviewOrigin } from './preview-origin.js';
 
 const style = await getStyle(import.meta.url);
 const imsInitial = await initIms();
 const token = imsInitial?.accessToken?.token ?? null;
 /** Refreshed before Yjs WebSocket init; sync getter required by prose-inline. */
 let imsAccessTokenForCollab = token;
-
-/** Preview origin for gimme_cookie (mirrors da-nx getLivePreviewUrl). Uses prod by default. */
-function getPreviewOrigin(org, repo) {
-  const domain = 'preview.da.live';
-  return `https://main--${repo}--${org}.${domain}`;
-}
 
 /** Set cookie on preview domain so the iframe can load images (mirrors da-nx getImageCookie). */
 function setImageCookie(owner, repo) {

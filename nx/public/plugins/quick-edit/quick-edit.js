@@ -24,7 +24,9 @@ async function setBody(body, ctx) {
   setupContentEditableListeners(ctx);
   setupImageDropListeners(ctx, document.body.querySelector('main'));
   setupAddToContext(document.body, ctx);
-  setupActions(ctx);
+  if (!parentControllerPort) {
+    setupActions(ctx);
+  }
 }
 
 function handleReady(e, ctx) {
@@ -109,7 +111,7 @@ function handleLoad(target, config, location, ctx) {
 function getQuickEditSrc() {
   const { search } = window.location;
   const ref = new URLSearchParams(search).get('quick-edit');
-  if (!ref || ref === 'on') return 'https://da.live/plugins/quick-edit';
+  if (!ref || ref === 'on') return `${window.location.origin}/plugins/quick-edit`;
   return `https://main--da-live--adobe.aem.live/plugins/quick-edit?nx=${ref}`;
 }
 
