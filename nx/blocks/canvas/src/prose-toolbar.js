@@ -9,6 +9,32 @@
 import { Plugin, toggleMark, setBlockType } from 'da-y-wrapper';
 /* eslint-enable import/no-unresolved */
 
+// --- AEM Assets ---
+
+async function openAssetsDialog() {
+  // da-assets.js mounts the dialog after <main>; ensure one exists in da-nx.
+  if (!document.body.querySelector('main')) {
+    const main = document.createElement('main');
+    main.hidden = true;
+    document.body.appendChild(main);
+  }
+  /* eslint-disable import/no-unresolved */
+  const { openAssets } = await import('https://da.live/blocks/edit/da-assets/da-assets.js');
+  /* eslint-enable import/no-unresolved */
+  await openAssets();
+
+  // The AEM asset selector (PureJSSelectors) is a React app that may render
+  // portal content outside the <dialog>, so dialog.close() alone does not
+  // fully unmount the selector UI.  Removing the dialog element on close
+  // forces a full teardown; the next open re-creates it from scratch via
+  // openAssets' own "not found → create" branch.
+  const dialog = document.querySelector('.da-dialog-asset');
+  if (dialog && !dialog.dataset.nxManaged) {
+    dialog.dataset.nxManaged = '1';
+    dialog.addEventListener('close', () => dialog.remove(), { once: true });
+  }
+}
+
 // --- Link helpers (logic mirrored from da-live linkItem.js, not exported there) ---
 
 function findExistingLink(state, linkMarkType) {
@@ -442,6 +468,22 @@ function buildToolbar(view) {
     view.focus();
   });
   bar.appendChild(unlinkBtn);
+
+  // Image / AEM Assets button
+  const imgSep = document.createElement('span');
+  imgSep.className = 'da-tb-sep';
+  bar.appendChild(imgSep);
+
+  const imgBtn = document.createElement('button');
+  imgBtn.type = 'button';
+  imgBtn.className = 'da-tb-btn da-tb-image';
+  imgBtn.title = 'Insert image';
+  imgBtn.setAttribute('aria-label', 'Insert image');
+  imgBtn.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    openAssetsDialog();
+  });
+  bar.appendChild(imgBtn);
 
   function update(state) {
     select.value = getActiveBlock(state);
