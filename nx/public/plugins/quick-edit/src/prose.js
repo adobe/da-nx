@@ -2,7 +2,7 @@
 import { getSchema } from 'https://da.live/deps/da-parser/dist/index.js';
 import { EditorState, EditorView, TextSelection } from 'https://da.live/deps/da-y-wrapper/dist/index.js';
 import {
-  showToolbar,
+  // showToolbar,
   hideToolbar,
   setCurrentEditorView,
   updateToolbarState,
@@ -79,16 +79,13 @@ function focus(view) {
 }
 
 let blurClearTimeout = null;
-let blurredView = null;
 
 function blur(view, event, ctx) {
   hideToolbar(view);
   setCurrentEditorView(null);
-  blurredView = view;
   blurClearTimeout = setTimeout(() => {
     ctx.port.postMessage({ type: 'cursor-move' });
     blurClearTimeout = null;
-    blurredView = null;
   }, 150);
   return false; // Let other handlers run
 }
@@ -144,7 +141,6 @@ function createEditor(cursorOffset, state, ctx) {
   if (blurClearTimeout !== null) {
     clearTimeout(blurClearTimeout);
     blurClearTimeout = null;
-    blurredView = null;
     setCurrentEditorView(editorView);
     editorView.focus();
   }
@@ -180,7 +176,6 @@ function updateEditor(editorEl, state, ctx) {
   if (blurClearTimeout !== null) {
     clearTimeout(blurClearTimeout);
     blurClearTimeout = null;
-    blurredView = null;
     setCurrentEditorView(view);
     view.focus();
   }
