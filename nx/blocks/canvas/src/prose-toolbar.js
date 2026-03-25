@@ -8,8 +8,18 @@
 /* eslint-disable import/no-unresolved */
 import { Plugin, toggleMark, setBlockType } from 'da-y-wrapper';
 /* eslint-enable import/no-unresolved */
-
 // --- AEM Assets ---
+
+/**
+ * Image button is enabled only when there is a document path in the hash
+ * (org + repo at minimum). openAssets() uses getPathDetails() internally;
+ * if the path isn't there it cannot open the picker regardless of config.
+ */
+function hasDocumentPath() {
+  const hash = window.location.hash || '';
+  const segments = hash.replace(/^#\/?/, '').split('/').filter(Boolean);
+  return segments.length >= 2;
+}
 
 async function openAssetsDialog() {
   // da-assets.js mounts the dialog after <main>; ensure one exists in da-nx.
@@ -386,6 +396,23 @@ function getActiveBlock(state) {
 }
 
 function buildToolbar(view) {
+  // ProseMirror's hasFocus() uses document.activeElement which, inside a shadow DOM,
+  // returns the shadow host — not the contenteditable.  Track real doc-editor focus
+  // explicitly so split-view behaves the same as doc-only view.
+  let docEditorFocused = false;
+  /* eslint-disable no-use-before-define */
+  const onDocFocus = () => {
+    docEditorFocused = true;
+    update(view.state);
+  };
+  const onDocBlur = () => {
+    docEditorFocused = false;
+    update(view.state);
+  };
+  /* eslint-enable no-use-before-define */
+  view.dom.addEventListener('focus', onDocFocus);
+  view.dom.addEventListener('blur', onDocBlur);
+
   const bar = document.createElement('div');
   bar.className = 'da-prose-toolbar';
 
@@ -483,36 +510,52 @@ function buildToolbar(view) {
     e.preventDefault();
     openAssetsDialog();
   });
+  const docPathAvailable = hasDocumentPath();
+  if (!docPathAvailable) imgBtn.title = 'Open a document to insert images';
   bar.appendChild(imgBtn);
 
   function update(state) {
+    const hasCursor = view.hasFocus() || docEditorFocused;
+    select.disabled = !hasCursor;
     select.value = getActiveBlock(state);
     for (const { btn, key } of markBtns) {
       const markType = state.schema.marks[key];
       if (markType) {
-        btn.classList.toggle('da-tb-active', isMarkActive(state, markType));
+        btn.classList.toggle('da-tb-active', hasCursor && isMarkActive(state, markType));
+        btn.disabled = !hasCursor;
       }
     }
     const linkMarkType = state.schema.marks.link;
-    const linkActive = !!(linkMarkType && isMarkActive(state, linkMarkType));
+    const linkActive = !!(hasCursor && linkMarkType && isMarkActive(state, linkMarkType));
     if (linkMarkType) {
       linkBtn.classList.toggle('da-tb-active', linkActive);
+      linkBtn.disabled = !hasCursor;
     }
-    unlinkBtn.disabled = !linkActive;
+    unlinkBtn.disabled = !hasCursor || !linkActive;
+    imgBtn.disabled = !hasCursor || !docPathAvailable;
   }
 
-  return { bar, update };
+  function destroy() {
+    view.dom.removeEventListener('focus', onDocFocus);
+    view.dom.removeEventListener('blur', onDocBlur);
+  }
+
+  return { bar, update, destroy };
 }
 
 export default function proseToolbar(onToolbar) {
   return new Plugin({
     view(editorView) {
-      const { bar, update } = buildToolbar(editorView);
+      const { bar, update, destroy } = buildToolbar(editorView);
       onToolbar?.(bar);
       update(editorView.state);
       return {
         update(v) { update(v.state); },
-        destroy() { bar.remove(); onToolbar?.(null); },
+        destroy() {
+          destroy();
+          bar.remove();
+          onToolbar?.(null);
+        },
       };
     },
   });

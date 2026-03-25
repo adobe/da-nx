@@ -33,7 +33,7 @@ import { findChangedNodes, findCommonEditableAncestor } from './prose-controller
 import proseToolbar from './prose-toolbar.js';
 /* eslint-enable import/no-unresolved */
 
-function trackCursorAndChanges(rerenderPage, updateCursors, getEditor) {
+function trackCursorAndChanges(rerenderPage, updateCursors, getEditor, onSelectionChange) {
   return new Plugin({
     view() {
       return {
@@ -55,6 +55,10 @@ function trackCursorAndChanges(rerenderPage, updateCursors, getEditor) {
           }
 
           updateCursors?.();
+
+          if (view.state.selection !== prevState.selection) {
+            onSelectionChange?.(view);
+          }
         },
       };
     },
@@ -135,7 +139,7 @@ async function getCollabIdentity() {
  */
 export default async function initProse({
   path, permissions, setEditable, getToken,
-  rerenderPage, updateCursors, getEditor,
+  rerenderPage, updateCursors, getEditor, onSelectionChange,
   withToolbar = false, onToolbar,
 }) {
   if (window.view && !window.view.destroyed) {
@@ -240,7 +244,7 @@ export default async function initProse({
   }
 
   if (typeof rerenderPage === 'function' && typeof updateCursors === 'function' && typeof getEditor === 'function') {
-    plugins.push(trackCursorAndChanges(rerenderPage, updateCursors, getEditor));
+    plugins.push(trackCursorAndChanges(rerenderPage, updateCursors, getEditor, onSelectionChange));
   }
 
   let state = EditorState.create({ schema, plugins });

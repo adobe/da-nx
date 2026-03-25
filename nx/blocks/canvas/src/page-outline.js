@@ -63,6 +63,7 @@ export default class PageOutline extends LitElement {
     repo: { type: String },
     plainHtml: { type: String },
     blockPositions: { type: Array },
+    activeBlockIndex: { type: Number },
     _blocks: { state: true },
     _dragOverIndex: { state: true },
   };
@@ -74,6 +75,7 @@ export default class PageOutline extends LitElement {
     this.repo = '';
     this.plainHtml = '';
     this.blockPositions = [];
+    this.activeBlockIndex = -1;
     this._blocks = [];
     this._dragOverIndex = -1;
     this._draggedFlatIndex = -1;
@@ -208,8 +210,9 @@ export default class PageOutline extends LitElement {
     const flatIndex = flatIndexCounter;
     flatIndexCounter += 1;
     const isDropTarget = canReorder && this._dragOverIndex === flatIndex;
+    const isActive = this.activeBlockIndex === flatIndex;
     return html`
-<li class="page-outline-block ${isDropTarget ? 'page-outline-block-drop-target' : ''}"
+<li class="page-outline-block ${isDropTarget ? 'page-outline-block-drop-target' : ''} ${isActive ? 'page-outline-block-active' : ''}"
   role="treeitem"
   draggable="${canReorder}"
   @dragstart="${(ev) => this._onDragStart(ev, flatIndex)}"

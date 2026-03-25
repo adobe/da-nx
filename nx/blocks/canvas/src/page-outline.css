@@ -128,6 +128,11 @@
   outline-offset: -2px;
 }
 
+.page-outline .page-outline-block.page-outline-block-active {
+  background: var(--spectrum-global-color-blue-100, #e0f0ff);
+  border-inline-start: 3px solid var(--spectrum-global-color-blue-500, #1473e6);
+}
+
 .page-outline .page-outline-placeholder {
   padding: var(--spectrum-global-dimension-size-300, 16px);
   font-size: var(--spectrum-body-size-s, 13px);

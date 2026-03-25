@@ -85,15 +85,15 @@ export function getInstrumentedHTML(view) {
   let htmlString = prose2aem(editorClone, true, false, true);
   htmlString = htmlString.replace(
     /<div class="block-marker" data-prose-index="(\d+)"><\/div>\s*<div([^>]*?)>/gi,
-    (match, proseIndex, divAttributes) => `<div${divAttributes} data-block-index="${proseIndex}">`,
+    (_match, proseIndex, divAttributes) => `<div${divAttributes} data-block-index="${proseIndex}">`,
   );
   return htmlString;
 }
 
-export function updateDocument(ctx) {
+export function updateDocument(ctx, scrollTarget = null) {
   if (ctx.suppressRerender) return;
   const body = getInstrumentedHTML(ctx.view);
-  ctx.port.postMessage({ type: 'set-body', body });
+  ctx.port.postMessage({ type: 'set-body', body, scrollTarget });
 }
 
 export function updateCursors(ctx) {
@@ -101,8 +101,26 @@ export function updateCursors(ctx) {
   ctx.port.postMessage({ type: 'set-cursors', body });
 }
 
+/**
+ * Find where characters were inserted by comparing old and new text.
+ * Returns { start, end } as text offsets within the string, or null if
+ * no net insertion occurred.
+ */
+function findInsertedRange(oldText, newText) {
+  if (newText.length <= oldText.length) return null;
+  let prefixLen = 0;
+  const maxPrefix = Math.min(oldText.length, newText.length);
+  while (prefixLen < maxPrefix && oldText[prefixLen] === newText[prefixLen]) prefixLen += 1;
+  return { start: prefixLen, end: prefixLen + (newText.length - oldText.length) };
+}
+
 export function updateState(data, ctx) {
   const { view } = ctx;
+  // Capture stored marks before the transaction — these are marks the user toggled
+  // (e.g. Bold) that ProseMirror is holding for the next character typed.  In
+  // WYSIWYG mode, keystrokes go to the iframe so ProseMirror's normal mark
+  // application on input never runs; we must apply them ourselves here.
+  const { storedMarks } = view.state;
   const node = view.state.schema.nodeFromJSON(data.node);
   const pos = view.state.doc.resolve(data.cursorOffset);
   const docPos = view.state.selection.from;
@@ -112,11 +130,49 @@ export function updateState(data, ctx) {
 
   const { tr } = view.state;
   tr.replaceWith(nodeStart, nodeEnd, node);
+
+  let appliedMarks = false;
+  if (storedMarks?.length) {
+    const oldText = view.state.doc.textBetween(nodeStart, nodeEnd);
+    const inserted = findInsertedRange(oldText, node.textContent);
+    if (inserted) {
+      // In ProseMirror each text character occupies one position unit, so
+      // text offset i maps to doc position nodeStart + 1 + i.
+      const markFrom = nodeStart + 1 + inserted.start;
+      const markTo = nodeStart + 1 + inserted.end;
+      storedMarks.forEach((mark) => tr.addMark(markFrom, markTo, mark));
+      // Preserve stored marks so continued typing stays in the same formatting state.
+      tr.setStoredMarks(storedMarks);
+      appliedMarks = true;
+    }
+  }
+
   tr.setSelection(TextSelection.create(tr.doc, docPos));
 
   ctx.suppressRerender = true;
   view.dispatch(tr);
   ctx.suppressRerender = false;
+
+  // Sync the updated node (with marks applied) back to the portal's mini editor.
+  // Without this, the portal's editor retains the plain-text version, so the next
+  // character typed would send a node-update that overwrites the marks we just added
+  // (replaceWith replaces the whole paragraph with the portal's plain content).
+  if (appliedMarks && ctx.port) {
+    try {
+      const syncPos = view.state.doc.resolve(data.cursorOffset);
+      const syncNodeStart = syncPos.before(syncPos.depth);
+      const syncNode = view.state.doc.resolve(syncNodeStart).nodeAfter;
+      if (syncNode) {
+        ctx.port.postMessage({
+          type: 'set-editor-state',
+          editorState: syncNode.toJSON(),
+          cursorOffset: data.cursorOffset,
+        });
+      }
+    } catch {
+      // Non-fatal: position errors after structural changes
+    }
+  }
 }
 
 export function getEditor(data, ctx) {
@@ -129,6 +185,62 @@ export function getEditor(data, ctx) {
   const beforePos = view.state.doc.resolve(before);
   const nodeAtBefore = beforePos.nodeAfter;
   ctx.port.postMessage({ type: 'set-editor-state', editorState: nodeAtBefore.toJSON(), cursorOffset: before + 1 });
+}
+
+/**
+ * Block name from a ProseMirror table (first row, first cell text). Matches prose2aem block naming.
+ * @param {import('prosemirror-model').Node} tableNode
+ * @returns {string}
+ */
+function getTableBlockName(tableNode) {
+  const firstRow = tableNode.firstChild;
+  if (!firstRow) return '';
+  const firstCell = firstRow.firstChild;
+  if (!firstCell) return '';
+  const raw = firstCell.textContent?.trim() ?? '';
+  const match = raw.match(/^([a-zA-Z0-9_\s-]+)(?:\s*\([^)]*\))?$/);
+  return match ? match[1].trim().toLowerCase() : raw.toLowerCase();
+}
+
+/**
+ * Collect start positions of all block nodes (tables) in document order, excluding the root
+ * "metadata" block (it is stripped by prose2aem in live preview so it has no corresponding
+ * block in the outline HTML).
+ * @param {import('prosemirror-view').EditorView} view
+ * @returns {number[]}
+ */
+export function getBlockPositions(view) {
+  if (!view?.state?.doc) return [];
+  const positions = [];
+  const { doc } = view.state;
+  doc.descendants((node, pos) => {
+    if (node.type.name === 'table') {
+      const blockName = getTableBlockName(node);
+      if (blockName === 'metadata') return;
+      positions.push(pos);
+    }
+  });
+  return positions;
+}
+
+/**
+ * Return the flat block index (matching getBlockPositions order) that the cursor is currently
+ * inside, or -1 if the cursor is not within any block.
+ * @param {import('prosemirror-view').EditorView} view
+ * @returns {number}
+ */
+export function getActiveBlockFlatIndex(view) {
+  if (!view?.state) return -1;
+  const { state } = view;
+  const cursorPos = state.selection.from;
+  const positions = getBlockPositions(view);
+  for (let i = 0; i < positions.length; i += 1) {
+    const start = positions[i];
+    const node = state.doc.resolve(start).nodeAfter;
+    if (!node) continue; // eslint-disable-line no-continue
+    if (cursorPos >= start && cursorPos < start + node.nodeSize) return i;
+  }
+  return -1;
 }
 
 export function handleCursorMove({ cursorOffset, textCursorOffset }, ctx) {
@@ -156,9 +268,34 @@ export function handleCursorMove({ cursorOffset, textCursorOffset }, ctx) {
     const { tr } = state;
     tr.setSelection(TextSelection.create(state.doc, position));
 
+    // Sync stored marks so the toolbar reflects the marks active at the cursor.
+    // Two problems this solves:
+    // 1. ProseMirror clears storedMarks whenever selection.anchor changes, which
+    //    happens on every cursor-move — that wipes toolbar-toggled marks before the
+    //    first keystroke arrives.
+    // 2. marksAcross() returns Mark.none when the cursor is at the end of a mark
+    //    run (nothing to the right), so the toolbar shows the mark as inactive even
+    //    though the text is marked.  nodeBefore/nodeAfter covers both sides.
+    const $pos = state.doc.resolve(position);
+    const marksBefore = $pos.nodeBefore?.marks;
+    const marksAfter = $pos.nodeAfter?.marks;
+    const marksAtCursor = (marksBefore?.length ? marksBefore : null)
+      ?? (marksAfter?.length ? marksAfter : null);
+
+    if (marksAtCursor) {
+      // Cursor is adjacent to marked text — use those marks (handles Cmd+B case).
+      tr.setStoredMarks(marksAtCursor);
+    } else if (state.storedMarks?.length) {
+      // No marked text at this position, but user explicitly toggled a mark via
+      // the toolbar — preserve it so it survives cursor-move events before typing.
+      tr.setStoredMarks(state.storedMarks);
+    }
+
     ctx.suppressRerender = true;
     view.dispatch(tr);
     ctx.suppressRerender = false;
+
+    ctx.onActiveBlockChange?.(getActiveBlockFlatIndex(view));
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('Error moving cursor:', error);
@@ -314,42 +451,6 @@ export async function handlePreview(ctx) {
 }
 
 /**
- * Block name from a ProseMirror table (first row, first cell text). Matches prose2aem block naming.
- * @param {import('prosemirror-model').Node} tableNode
- * @returns {string}
- */
-function getTableBlockName(tableNode) {
-  const firstRow = tableNode.firstChild;
-  if (!firstRow) return '';
-  const firstCell = firstRow.firstChild;
-  if (!firstCell) return '';
-  const raw = firstCell.textContent?.trim() ?? '';
-  const match = raw.match(/^([a-zA-Z0-9_\s-]+)(?:\s*\([^)]*\))?$/);
-  return match ? match[1].trim().toLowerCase() : raw.toLowerCase();
-}
-
-/**
- * Collect start positions of all block nodes (tables) in document order, excluding the root
- * "metadata" block (it is stripped by prose2aem in live preview so it has no corresponding
- * block in the outline HTML).
- * @param {import('prosemirror-view').EditorView} view
- * @returns {number[]}
- */
-export function getBlockPositions(view) {
-  if (!view?.state?.doc) return [];
-  const positions = [];
-  const { doc } = view.state;
-  doc.descendants((node, pos) => {
-    if (node.type.name === 'table') {
-      const blockName = getTableBlockName(node);
-      if (blockName === 'metadata') return;
-      positions.push(pos);
-    }
-  });
-  return positions;
-}
-
-/**
  * Move the block (table) at fromIndex to before the block at toIndex.
  * Indices are the position before each table (from getBlockPositions), so the table is nodeAfter.
  * @param {{ fromIndex: number, toIndex: number }} data - ProseMirror positions
@@ -382,6 +483,36 @@ export function moveBlockAt(data, ctx) {
   } catch (e) {
     // eslint-disable-next-line no-console
     console.error('[quick-edit-controller] moveBlockAt failed', e?.message);
+  }
+}
+
+/**
+ * Sync stored marks from the WYSIWYG portal to the doc editor so the toolbar
+ * reflects mark toggles (e.g. Cmd+B) made via keyboard in the portal immediately,
+ * without waiting for a character to be typed.
+ * @param {{ marks: object[] }} data - serialised ProseMirror mark JSON
+ * @param {{ view: import('prosemirror-view').EditorView }} ctx
+ */
+export function handleStoredMarks({ marks }, ctx) {
+  const { view } = ctx;
+  if (!view) return;
+  const { state } = view;
+  const { schema } = state;
+  try {
+    const parsedMarks = marks
+      .map((m) => {
+        const markType = schema.marks[m.type];
+        return markType ? markType.create(m.attrs) : null;
+      })
+      .filter(Boolean);
+    const { tr } = state;
+    tr.setStoredMarks(parsedMarks);
+    ctx.suppressRerender = true;
+    view.dispatch(tr);
+    ctx.suppressRerender = false;
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error('[quick-edit-controller] handleStoredMarks failed', e?.message);
   }
 }
 
@@ -430,6 +561,8 @@ export function createControllerOnMessage(ctx) {
       ctx.onAddToChat?.(e.data.payload);
     } else if (e.data.type === 'selection-change') {
       handleSelectionChange(e.data, ctx);
+    } else if (e.data.type === 'stored-marks') {
+      handleStoredMarks(e.data, ctx);
     }
   };
 }
