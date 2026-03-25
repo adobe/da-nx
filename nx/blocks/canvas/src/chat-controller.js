@@ -195,8 +195,9 @@ export class ChatController {
   // ---------- stream reading ----------
 
   _processStreamLine(rawLine) {
-    const line = rawLine.startsWith('data: ') ? rawLine.slice(6) : rawLine;
-    if (!line.trim() || line === '[DONE]') return;
+    const normalized = String(rawLine).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    const line = normalized.startsWith('data: ') ? normalized.slice(6).trimEnd() : normalized.trimEnd();
+    if (!line || line === '[DONE]') return;
 
     let event;
     try {
@@ -307,12 +308,15 @@ export class ChatController {
         this._onFinish();
         break;
 
-      case 'error':
+      case 'error': {
         this.isThinking = false;
+        const msg = typeof event.errorText === 'string' ? event.errorText : (event.error?.message ?? 'Chat stream error');
         this.statusText = 'Error';
+        this.messages = [...this.messages, { role: 'assistant', content: `Error: ${msg}` }];
         this.onStatusChange(this.statusText);
         this.onUpdate();
         break;
+      }
 
       default:
         break;
