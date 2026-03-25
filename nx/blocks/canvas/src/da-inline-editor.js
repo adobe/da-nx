@@ -127,6 +127,14 @@ export default class DaInlineEditor extends LitElement {
     });
   }
 
+  _dispatchAddToChat = (payload) => {
+    this.dispatchEvent(new CustomEvent('quick-edit-add-to-chat', {
+      bubbles: true,
+      composed: true,
+      detail: { payload },
+    }));
+  };
+
   _teardownController() {
     if (this._controllerCtx?.port) {
       this._controllerCtx.port.onmessage = null;
@@ -150,13 +158,7 @@ export default class DaInlineEditor extends LitElement {
       repo: this.repo,
       path: this._controllerPathname,
       getToken,
-      onAddToChat: (payload) => {
-        this.dispatchEvent(new CustomEvent('quick-edit-add-to-chat', {
-          bubbles: true,
-          composed: true,
-          detail: { payload },
-        }));
-      },
+      onAddToChat: this._dispatchAddToChat,
       onActiveBlockChange: (index) => {
         this.onActiveBlockChange?.(index);
       },
@@ -310,6 +312,7 @@ export default class DaInlineEditor extends LitElement {
         onSelectionChange: onSelectionChangeCb,
         withToolbar: true,
         onToolbar,
+        onAddToChat: this._dispatchAddToChat,
       });
 
       this._proseEl = proseEl;

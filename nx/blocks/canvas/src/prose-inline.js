@@ -35,6 +35,7 @@ import { initIms } from '../../../utils/daFetch.js';
 import { findChangedNodes, findCommonEditableAncestor } from './prose-controller-utils.js';
 import proseToolbar from './prose-toolbar.js';
 import tableSelectHandle from './table-select-handle.js';
+import addToChatHandle from './add-to-chat-handle.js';
 /* eslint-enable import/no-unresolved */
 
 function trackCursorAndChanges(rerenderPage, updateCursors, getEditor, onSelectionChange) {
@@ -144,7 +145,7 @@ async function getCollabIdentity() {
 export default async function initProse({
   path, permissions, setEditable, getToken,
   rerenderPage, updateCursors, getEditor, onSelectionChange,
-  withToolbar = false, onToolbar,
+  withToolbar = false, onToolbar, onAddToChat,
 }) {
   if (window.view && !window.view.destroyed) {
     window.view.destroy();
@@ -261,6 +262,10 @@ export default async function initProse({
       gapCursor(),
       tableEditing({ allowTableNodeSelection: true }),
     );
+  }
+
+  if (withToolbar && typeof onAddToChat === 'function') {
+    plugins.push(addToChatHandle(onAddToChat));
   }
 
   if (typeof rerenderPage === 'function' && typeof updateCursors === 'function' && typeof getEditor === 'function') {
