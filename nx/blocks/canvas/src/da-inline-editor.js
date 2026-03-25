@@ -20,6 +20,7 @@ import {
   getActiveBlockFlatIndex,
   moveBlockAt,
   insertSectionAfter,
+  insertBlockAtSection,
   createControllerOnMessage,
 } from './quick-edit-controller.js';
 import { getPreviewOrigin } from './preview-origin.js';
@@ -77,6 +78,8 @@ export default class DaInlineEditor extends LitElement {
     onMoveBlockDone: { type: Function },
     pendingAddSection: { type: Object },
     onAddSectionDone: { type: Function },
+    pendingAddBlock: { type: Object },
+    onAddBlockDone: { type: Function },
     _proseEl: { state: true },
     _wsProvider: { state: true },
     _view: { state: true },
@@ -388,10 +391,24 @@ export default class DaInlineEditor extends LitElement {
         this.onAddSectionDone();
       }
     }
+    if (changed.has('pendingAddBlock') && this.pendingAddBlock?.sectionIndex != null && (this.pendingAddBlock?.parsedNode || this.pendingAddBlock?.blockName)) {
+      if (this._view) {
+        insertBlockAtSection(this.pendingAddBlock, { view: this._view });
+      }
+      if (typeof this.onAddBlockDone === 'function') {
+        this.onAddBlockDone();
+      }
+    }
     if (this._proseEl) {
       const mount = this.shadowRoot?.querySelector('.da-inline-editor-mount');
       if (mount && !mount.contains(this._proseEl)) {
         mount.appendChild(this._proseEl);
+        // y-prosemirror's _isDomSelectionInView calls _root.createRange() and
+        // _root.getSelection(), but ShadowRoot doesn't have these methods.
+        // Patch them onto the shadow root so undo/_typeChanged works correctly.
+        const sr = this.shadowRoot;
+        if (sr && !sr.createRange) sr.createRange = () => document.createRange();
+        if (sr && !sr.getSelection) sr.getSelection = () => document.getSelection();
       }
     }
   }

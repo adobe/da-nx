@@ -4,7 +4,7 @@
  * Mirrors da-nx blocks/quick-edit-portal render, prose2aem, images, and handlePreview.
  */
 /* eslint-disable import/no-unresolved */
-import { TextSelection, yUndo, yRedo } from 'da-y-wrapper';
+import { TextSelection, Fragment, yUndo, yRedo } from 'da-y-wrapper';
 import { DA_ORIGIN } from 'https://da.live/blocks/shared/constants.js';
 import prose2aem from 'https://da.live/blocks/shared/prose2aem.js';
 /* eslint-enable import/no-unresolved */
@@ -487,6 +487,58 @@ export function insertSectionAfter(data, ctx) {
   } catch (e) {
     // eslint-disable-next-line no-console
     console.error('[quick-edit-controller] insertSectionAfter failed', e?.message);
+  }
+}
+
+/**
+ * Insert a block from the library into the section at sectionIndex.
+ * When parsedNode is provided (a ProseMirror doc from the da-live library) its content
+ * Fragment is inserted directly. When only blockName is provided (standalone block with
+ * no library page) a minimal skeleton table is created instead.
+ * @param {{ sectionIndex: number, parsedNode?: object, blockName?: string }} data
+ * @param {{ view: import('prosemirror-view').EditorView }} ctx
+ */
+export function insertBlockAtSection({ sectionIndex, parsedNode, blockName }, ctx) {
+  const { view } = ctx || {};
+  if (!view?.state || (!parsedNode && !blockName)) return;
+
+  const { tr, schema, doc } = view.state;
+
+  // Collect positions of section separators (horizontal_rule nodes)
+  const hrPositions = [];
+  doc.descendants((node, pos) => {
+    if (node.type.name === 'horizontal_rule') hrPositions.push(pos);
+  });
+
+  // Section N ends just before hr[N], or at doc end for the last section
+  const insertPos = sectionIndex < hrPositions.length
+    ? hrPositions[sectionIndex]
+    : doc.content.size;
+
+  try {
+    let content;
+    if (parsedNode) {
+      // parsedNode is a doc — use its content Fragment (strips the doc wrapper)
+      content = parsedNode.content;
+    } else {
+      // Skeleton fallback: header cell with block name + one empty content row
+      const { table, paragraph } = schema.nodes;
+      const tableRow = schema.nodes.table_row;
+      const tableCell = schema.nodes.table_cell;
+      const headingCell = tableCell.create(
+        { colspan: 2 },
+        paragraph.create(null, schema.text(blockName)),
+      );
+      const headingRow = tableRow.create(null, Fragment.from(headingCell));
+      const contentCell = tableCell.createAndFill();
+      const contentRow = tableRow.create(null, Fragment.fromArray([contentCell, contentCell]));
+      content = Fragment.from(table.create(null, Fragment.fromArray([headingRow, contentRow])));
+    }
+    tr.insert(insertPos, content);
+    view.dispatch(tr.scrollIntoView());
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error('[quick-edit-controller] insertBlockAtSection failed', e?.message);
   }
 }
 

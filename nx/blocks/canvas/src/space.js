@@ -82,6 +82,7 @@ class Space extends LitElement {
     _activeBlockIndex: { state: true },
     _pendingMove: { state: true },
     _pendingAddSection: { state: true },
+    _pendingAddBlock: { state: true },
     _chatContextItems: { state: true },
     _docToolbar: { state: true },
   };
@@ -97,6 +98,7 @@ class Space extends LitElement {
     this._pendingMove = null;
     this._chatContextItems = [];
     this._pendingAddSection = null;
+    this._pendingAddBlock = null;
     this._sidebarTab = 'files';
     this._viewMode = 'wysiwyg';
     this._chatOpen = true;
@@ -176,6 +178,16 @@ class Space extends LitElement {
 
   _onAddSectionDone = () => {
     this._pendingAddSection = null;
+  };
+
+  _onOutlineAddBlock = (e) => {
+    const { sectionIndex, parsedNode, blockName } = e.detail ?? {};
+    if (typeof sectionIndex !== 'number' || (!parsedNode && !blockName)) return;
+    this._pendingAddBlock = { sectionIndex, parsedNode, blockName };
+  };
+
+  _onAddBlockDone = () => {
+    this._pendingAddBlock = null;
   };
 
   _boundQuickEditAddToChat = (e) => {
@@ -481,6 +493,8 @@ class Space extends LitElement {
             .onMoveBlockDone="${this._onMoveBlockDone}"
             .pendingAddSection="${this._pendingAddSection}"
             .onAddSectionDone="${this._onAddSectionDone}"
+            .pendingAddBlock="${this._pendingAddBlock}"
+            .onAddBlockDone="${this._onAddBlockDone}"
           ></da-inline-editor>
         </div>
       </div>
@@ -723,6 +737,7 @@ class Space extends LitElement {
               .activeBlockIndex="${this._activeBlockIndex}"
               @da-outline-move-block="${this._onOutlineMoveBlock}"
               @da-outline-add-section="${this._onOutlineAddSection}"
+              @da-outline-add-block="${this._onOutlineAddBlock}"
             ></da-page-outline>
           </div>
           <div
