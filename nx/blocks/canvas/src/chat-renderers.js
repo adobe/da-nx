@@ -191,6 +191,65 @@ function renderAlert(content, variant) {
     </div>`;
 }
 
+// ── Inline markdown: **bold**, `code` ────────────────────────
+
+function renderInline(text) {
+  const INLINE_RE = /\*\*([\s\S]*?)\*\*|`([^`\n]+)`/g;
+  const parts = [];
+  let last = 0;
+  let m;
+  INLINE_RE.lastIndex = 0;
+  // eslint-disable-next-line no-cond-assign
+  while ((m = INLINE_RE.exec(text))) {
+    if (m.index > last) parts.push(text.slice(last, m.index));
+    if (m[1] !== undefined) parts.push(html`<strong>${m[1]}</strong>`);
+    else parts.push(html`<code class="cr-inline-code">${m[2]}</code>`);
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  if (parts.length === 0 || (parts.length === 1 && typeof parts[0] === 'string')) return text;
+  return parts;
+}
+
+// ── Text segment: headings, bullet lists, inline formatting ──
+
+function renderTextSegment(text) {
+  const lines = text.split('\n');
+  const result = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+
+    // ATX headings: # H1 through #### H4
+    const hMatch = line.match(/^(#{1,4})\s+(.+)/);
+    if (hMatch) {
+      const level = hMatch[1].length;
+      result.push(html`<div class="cr-heading cr-h${level}">${renderInline(hMatch[2])}</div>`);
+      i += 1;
+      continue; // eslint-disable-line no-continue
+    }
+
+    // Bullet list — collect consecutive bullet lines
+    if (/^\s*[-*+]\s+/.test(line)) {
+      const items = [];
+      while (i < lines.length && /^\s*[-*+]\s+/.test(lines[i])) {
+        items.push(lines[i].replace(/^\s*[-*+]\s+/, '').trim());
+        i += 1;
+      }
+      result.push(html`<ul class="cr-md-list">${items.map((item) => html`<li class="cr-md-list-item">${renderInline(item)}</li>`)}</ul>`);
+      continue; // eslint-disable-line no-continue
+    }
+
+    result.push(renderInline(line));
+    if (i < lines.length - 1) result.push('\n');
+    i += 1;
+  }
+
+  if (result.every((r) => typeof r === 'string')) return text;
+  return result;
+}
+
 // ── Renderer dispatch ─────────────────────────────────────────
 
 const RENDERERS = {
@@ -222,7 +281,7 @@ export function renderMessageContent(text) {
   // eslint-disable-next-line no-cond-assign
   while ((match = BLOCK_RE.exec(text))) {
     const before = text.slice(lastIndex, match.index);
-    if (before) segments.push(before);
+    if (before) segments.push(renderTextSegment(before));
 
     const [, type, rawAttrs, content] = match;
     const renderer = RENDERERS[type];
@@ -235,8 +294,9 @@ export function renderMessageContent(text) {
   }
 
   const tail = text.slice(lastIndex);
-  if (tail) segments.push(tail);
+  if (tail) segments.push(renderTextSegment(tail));
 
-  if (segments.length <= 1 && typeof segments[0] === 'string') return text;
+  if (segments.length === 0) return nothing;
+  if (segments.length === 1) return segments[0];
   return segments;
 }
