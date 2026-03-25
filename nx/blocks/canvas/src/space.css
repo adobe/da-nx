@@ -238,6 +238,12 @@
   overflow: hidden;
 }
 
+/* Editor fills remaining space. Details uses the split-view variable (editor width from left)
+   inverted via calc, so drag still works. flex:none overrides ::slotted flex:1 on details
+   so that width:calc(...) is respected instead of being ignored by flex-basis. */
+.space .split-view-inner .inner-primary-wrap { flex: 1; min-width: 600px; }
+.space .split-view-inner .space-details { flex: none; width: calc(100% - var(--spectrum-split-view-first-pane-size)); max-width: 400px; min-width: 150px; }
+
 /* Wrapper so the inner split-view’s first pane has a definite size and the chat splitter works */
 .space .inner-primary-wrap {
   display: flex;
