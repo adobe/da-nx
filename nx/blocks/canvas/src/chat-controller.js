@@ -90,6 +90,8 @@ export class ChatController {
 
     // Active agent preset ID (null = default assistant).
     this.agentId = null;
+    // Skill IDs to inject into next request's system prompt.
+    this.requestedSkills = [];
     // toolCallId → approvalId for tools awaiting user decision.
     this._pendingApprovals = new Map();
     // toolCallId → toolName (tool-output-available events lack toolName).
@@ -514,6 +516,7 @@ export class ChatController {
           imsToken,
           room: this.room,
           ...(this.agentId ? { agentId: this.agentId } : {}),
+          ...(this.requestedSkills.length > 0 ? { requestedSkills: this.requestedSkills } : {}),
         }),
         signal: this._abortController.signal,
       });
