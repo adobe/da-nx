@@ -69,6 +69,16 @@ const CLIENT_ONLY_TOOLS = new Set([
   'da_bulk_delete',
 ]);
 
+/** Wire names for content update tools (client may inject revert snapshot on input). */
+const REVERT_SNAPSHOT_UPDATE_TOOLS = new Set([
+  'content_update',
+  'da_update_source',
+]);
+
+/** Client-only tool input key; stripped server-side (da-agent). */
+// eslint-disable-next-line no-underscore-dangle -- protocol key name
+const DA_REVERT_SNAPSHOT_KEY = '_daRevertSnapshot';
+
 /**
  * @param {Array<{ role: string, content?: unknown }>} messages
  * @returns {Array<{ toolCallId: string, toolName: string, input: object }>}
@@ -132,6 +142,10 @@ export class ChatController {
     this.onDocumentUpdated = options.onDocumentUpdated || (() => {});
     this.onRepoFilesChanged = options.onRepoFilesChanged || (() => {});
     this.onClientToolRequest = options.onClientToolRequest || (() => {});
+    /** @type {((toolInput: object) => string | null) | null} */
+    this.getRevertSnapshotAemHtml = options.getRevertSnapshotAemHtml ?? null;
+    /** @type {((detail: { html: string }) => void) | null} */
+    this.onRevertCollabAemHtml = options.onRevertCollabAemHtml ?? null;
 
     // Conversation history; user messages may include selectionContext (page excerpts).
     // The server expands selectionContext into model-facing text before streamText.
@@ -249,8 +263,21 @@ export class ChatController {
       case 'tool-call':
       case 'tool-input-available': {
         const { toolCallId, toolName } = event;
-        const input = event.input ?? event.args ?? {};
+        let input = { ...(event.input ?? event.args ?? {}) };
         this._toolNameById[toolCallId] = toolName;
+        if (REVERT_SNAPSHOT_UPDATE_TOOLS.has(toolName) && typeof this.getRevertSnapshotAemHtml === 'function') {
+          const messageIndexBeforeToolCall = this.messages.length;
+          const aemHtml = this.getRevertSnapshotAemHtml(input);
+          if (typeof aemHtml === 'string' && aemHtml.length > 0) {
+            input = {
+              ...input,
+              [DA_REVERT_SNAPSHOT_KEY]: {
+                html: aemHtml,
+                messageIndexBeforeToolCall,
+              },
+            };
+          }
+        }
         // Push CoreMessage directly — same format as the server expects.
         this.messages = [
           ...this.messages,
@@ -509,6 +536,53 @@ export class ChatController {
   }
 
   // ---------- public API ----------
+
+  /**
+   * Truncate chat to before this update tool-call and restore collab doc from snapshot HTML.
+   * @param {string} toolCallId
+   * @returns {boolean} Whether revert ran (snapshot found).
+   */
+  revertUpdateToolCall(toolCallId) {
+    if (!toolCallId) return false;
+    let snapshot = null;
+    for (let i = 0; i < this.messages.length; i += 1) {
+      const msg = this.messages[i];
+      if (msg.role === 'assistant' && Array.isArray(msg.content)) {
+        const part = msg.content.find((p) => p.type === 'tool-call' && p.toolCallId === toolCallId);
+        const rev = part?.input?.[DA_REVERT_SNAPSHOT_KEY];
+        if (rev && typeof rev.messageIndexBeforeToolCall === 'number') {
+          snapshot = rev;
+          break;
+        }
+      }
+    }
+    if (!snapshot) return false;
+
+    const { html, messageIndexBeforeToolCall } = snapshot;
+    this._abortController?.abort();
+    this._abortController = null;
+    this.messages = this.messages.slice(0, messageIndexBeforeToolCall);
+    this.toolCards = this._rebuildToolCards(this.messages);
+    this._processedUpdateToolCalls.clear();
+    this._pendingApprovals.clear();
+    this._activeClientToolCall = null;
+    this.isAwaitingApproval = false;
+    this.isAwaitingClientTool = false;
+    this.streamingText = '';
+    this.isThinking = false;
+    this.statusText = '';
+    this._approvedRepoToolsPendingResume = [];
+    this._postApprovalRepoRefreshQueue = [];
+
+    saveMessages(this.room, this.messages);
+    this.onStatusChange(this.statusText);
+    this.onUpdate();
+
+    if (typeof html === 'string' && html.length > 0 && typeof this.onRevertCollabAemHtml === 'function') {
+      this.onRevertCollabAemHtml({ html });
+    }
+    return true;
+  }
 
   async sendMessage(text, selectionContext = []) {
     const content = (text || '').trim();

@@ -23,6 +23,7 @@ import {
   insertBlockAtSection,
   createControllerOnMessage,
 } from './quick-edit-controller.js';
+import { applyAemHtmlToYdoc, snapshotAemHtmlFromYdoc } from './yjs-aem-apply.js';
 import { getPreviewOrigin } from './preview-origin.js';
 
 const style = await getStyle(import.meta.url);
@@ -64,6 +65,17 @@ async function checkDoc(sourceUrl) {
   return parsePermissions(resp);
 }
 
+/** Match chat-controller / _notifyDocumentUpdated path normalization. */
+function normalizeRepoPath(path) {
+  if (typeof path !== 'string') return '';
+  return path
+    .trim()
+    .split('?')[0]
+    .split('#')[0]
+    .replace(/^\/+/, '')
+    .replace(/\.html$/i, '');
+}
+
 export default class DaInlineEditor extends LitElement {
   static properties = {
     org: { type: String },
@@ -97,10 +109,57 @@ export default class DaInlineEditor extends LitElement {
     this._proseEl = null;
     this._wsProvider = null;
     this._view = null;
+    /** @type {import('yjs').Doc | null} */
+    this._ydoc = null;
     this._loading = false;
     this._error = null;
     /** Controller ctx for quick-edit; set when quickEditPort and _view are both set. */
     this._controllerCtx = null;
+  }
+
+  /**
+   * @param {{ org?: string, repo?: string, path?: string }} toolInput
+   * @returns {boolean}
+   */
+  _editorPathMatchesToolInput(toolInput) {
+    const o = String(toolInput?.org ?? '').trim();
+    const r = String(toolInput?.repo ?? '').trim();
+    if (!o || !r || o !== this.org || r !== this.repo) return false;
+    const segments = (this.path || '').replace(/^\//, '').split('/').filter(Boolean);
+    const relPath = segments.slice(2).join('/');
+    return normalizeRepoPath(relPath) === normalizeRepoPath(String(toolInput?.path ?? ''));
+  }
+
+  /**
+   * EDS HTML from live Y.Doc for revert snapshot (when this file is the tool target).
+   * @param {{ org?: string, repo?: string, path?: string }} toolInput
+   * @returns {string | null}
+   */
+  getRevertSnapshotAemHtml(toolInput) {
+    if (!this._ydoc || !toolInput || !this._editorPathMatchesToolInput(toolInput)) return null;
+    return snapshotAemHtmlFromYdoc(this._ydoc);
+  }
+
+  /**
+   * Restore document from stored EDS HTML (collab Y.Doc update).
+   * @param {string} aemHtml
+   */
+  applyRevertSnapshotAemHtml(aemHtml) {
+    if (!this._ydoc || typeof aemHtml !== 'string' || !aemHtml.trim()) return;
+    applyAemHtmlToYdoc(this._ydoc, aemHtml);
+    requestAnimationFrame(() => {
+      if (!this._view) return;
+      if (typeof this.onEditorHtmlChange === 'function') {
+        this.onEditorHtmlChange(getInstrumentedHTML(this._view));
+      }
+      if (typeof this.onBlockPositions === 'function') {
+        this.onBlockPositions(getBlockPositions(this._view));
+      }
+      if (this._controllerCtx?.port) {
+        updateDocument(this._controllerCtx);
+        updateCursors(this._controllerCtx);
+      }
+    });
   }
 
   get _sourceUrl() {
@@ -240,6 +299,7 @@ export default class DaInlineEditor extends LitElement {
       this._wsProvider.disconnect({ data: 'Path changed' });
       this._wsProvider = undefined;
     }
+    this._ydoc = null;
     this.dispatchEvent(new CustomEvent('da-collab-users', { bubbles: true, composed: true, detail: { users: [] } }));
     if (this._proseEl && this._proseEl.parentNode) {
       this._proseEl.remove();
@@ -301,7 +361,7 @@ export default class DaInlineEditor extends LitElement {
         }));
       };
 
-      const { proseEl, wsProvider, view } = await initProse({
+      const { proseEl, wsProvider, view, ydoc } = await initProse({
         path: sourceUrl,
         permissions,
         setEditable,
@@ -318,6 +378,7 @@ export default class DaInlineEditor extends LitElement {
       this._proseEl = proseEl;
       this._wsProvider = wsProvider;
       this._view = view;
+      this._ydoc = ydoc ?? null;
       this._setupAwarenessUpdates(wsProvider);
       this._setupController();
       // Push initial HTML and block positions. Doc can have 0 tables at first (before Y sync);
@@ -340,6 +401,7 @@ export default class DaInlineEditor extends LitElement {
       this._error = e?.message || 'Failed to load editor';
       this._proseEl = null;
       this._wsProvider = null;
+      this._ydoc = null;
     }
 
     this._loading = false;
@@ -428,6 +490,7 @@ export default class DaInlineEditor extends LitElement {
     }
     this._proseEl = null;
     this._view = null;
+    this._ydoc = null;
     super.disconnectedCallback();
   }
 

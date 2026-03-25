@@ -19,6 +19,7 @@ import { DA_BULK_AEM_OPEN, DA_BULK_AEM_SETTLED } from './bulk-aem-modal.js';
 const style = await getStyle(import.meta.url);
 const nxBase = getNx();
 const TOOL_CARD_ARROW_ICON_SRC = `${nxBase}/img/icons/arrowcurved.svg`;
+const TOOL_CARD_REVERT_ICON_SRC = `${nxBase}/img/icons/revert.svg`;
 const imsInitial = await initIms();
 const token = imsInitial?.accessToken?.token ?? null;
 
@@ -163,6 +164,13 @@ class Chat extends LitElement {
     _slashMenuOpen: { state: true },
     _slashFilter: { state: true },
     _slashSelectedIndex: { state: true },
+    _revertConfirmOpen: { state: true },
+    /** @type {string | null} */
+    _revertPendingToolCallId: { state: true },
+    /** Snapshot HTML for the open doc in edit view (space → inline editor). */
+    getRevertSnapshotAemHtml: { type: Function, attribute: false },
+    /** Apply reverted EDS HTML to collab (space → inline editor). */
+    revertCollabDoc: { type: Function, attribute: false },
   };
 
   constructor() {
@@ -197,6 +205,10 @@ class Chat extends LitElement {
     this._slashMenuOpen = false;
     this._slashFilter = '';
     this._slashSelectedIndex = 0;
+    this._revertConfirmOpen = false;
+    this._revertPendingToolCallId = null;
+    this.getRevertSnapshotAemHtml = null;
+    this.revertCollabDoc = null;
     this._chatController = null;
     /** @type {{ toolCallId: string, toolName: string } | null} */
     this._bulkPreviewSession = null;
@@ -297,6 +309,15 @@ class Chat extends LitElement {
         window.dispatchEvent(new CustomEvent(REPO_FILES_CHANGED_EVENT, {
           detail: { ...detail, ts: Date.now() },
         }));
+      },
+      getRevertSnapshotAemHtml: (toolInput) => {
+        if (this._pageContextForAgent().view !== 'edit') return null;
+        const fn = this.getRevertSnapshotAemHtml;
+        return typeof fn === 'function' ? fn(toolInput) : null;
+      },
+      onRevertCollabAemHtml: (detail) => {
+        const fn = this.revertCollabDoc;
+        if (typeof fn === 'function') fn(detail);
       },
     });
   }
@@ -907,6 +928,82 @@ class Chat extends LitElement {
     }));
   }
 
+  /** Omit client-only snapshot from expanded JSON (avoids huge HTML in UI). */
+  _inputForToolCardDisplay(input) {
+    if (!input || typeof input !== 'object') return input;
+    const rest = { ...input };
+    // eslint-disable-next-line no-underscore-dangle
+    if ('_daRevertSnapshot' in rest) delete rest._daRevertSnapshot;
+    return rest;
+  }
+
+  _onRevertToolCall(e, toolCallId) {
+    e?.stopPropagation?.();
+    e?.preventDefault?.();
+    if (!this._chatController || !toolCallId) return;
+    this._revertPendingToolCallId = toolCallId;
+    this._revertConfirmOpen = true;
+    this.requestUpdate();
+  }
+
+  _onRevertDialogClosed() {
+    this._revertPendingToolCallId = null;
+    this._revertConfirmOpen = false;
+    this.requestUpdate();
+  }
+
+  _closeRevertDialog() {
+    this._revertPendingToolCallId = null;
+    this._revertConfirmOpen = false;
+    this.requestUpdate();
+  }
+
+  _confirmRevertDialog() {
+    const id = this._revertPendingToolCallId;
+    this._revertPendingToolCallId = null;
+    this._revertConfirmOpen = false;
+    this.requestUpdate();
+    if (id && this._chatController) this._chatController.revertUpdateToolCall(id);
+  }
+
+  _renderRevertConfirmDialog() {
+    return html`
+      <div class="chat-revert-dialog-host">
+        <overlay-trigger
+          type="modal"
+          triggered-by="click"
+          .open="${this._revertConfirmOpen ? 'click' : undefined}"
+          @sp-closed=${this._onRevertDialogClosed}
+        >
+          <sp-dialog-wrapper
+            slot="click-content"
+            headline="Revert update?"
+            dismissable
+            underlay
+          >
+            <div class="chat-revert-dialog-body">
+              <p class="chat-revert-dialog-text">
+                Revert this update? Chat will go back to before this tool call and the page will be
+                restored to the saved version.
+              </p>
+              <div class="chat-revert-dialog-actions">
+                <sp-button variant="secondary" @click=${this._closeRevertDialog}>Cancel</sp-button>
+                <sp-button variant="negative" @click=${this._confirmRevertDialog}>Revert</sp-button>
+              </div>
+            </div>
+          </sp-dialog-wrapper>
+          <button
+            type="button"
+            slot="trigger"
+            class="chat-revert-dialog-trigger-hidden"
+            tabindex="-1"
+            aria-hidden="true"
+          ></button>
+        </overlay-trigger>
+      </div>
+    `;
+  }
+
   _renderToolCard(toolCallId) {
     const card = this._toolCards?.get(toolCallId);
     if (!card) return '';
@@ -950,7 +1047,8 @@ class Chat extends LitElement {
       || getToolDisplayTitle(toolName)
       || toolName;
 
-    const inputText = !friendly && input && typeof input === 'object' ? JSON.stringify(input, null, 2) : null;
+    const inputText = !friendly && input && typeof input === 'object'
+      ? JSON.stringify(this._inputForToolCardDisplay(input), null, 2) : null;
     const outputText = !friendly && output ? JSON.stringify(output, null, 2) : null;
 
     const renderDetailRows = (rows, sectionLabel) => {
@@ -967,6 +1065,12 @@ class Chat extends LitElement {
     };
 
     const inputSectionLabel = isApproval && isUpdateTool(toolName) ? 'Review' : 'Action';
+    // Client snapshot field from chat-controller (underscore prefix = not for model).
+    // eslint-disable-next-line no-underscore-dangle
+    const revertSnap = input && typeof input === 'object' ? input._daRevertSnapshot : null;
+    const canRevert = isUpdateTool(toolName)
+      && typeof revertSnap?.html === 'string'
+      && revertSnap.html.length > 0;
 
     return html`
       <div class="tool-card ${cardStateClass} ${isOpen ? 'open' : ''}">
@@ -978,6 +1082,17 @@ class Chat extends LitElement {
             height="20"
             alt=""
           />
+          ${canRevert ? html`
+            <button
+              type="button"
+              class="tool-card-revert-btn"
+              title="Revert chat and page to before this update"
+              aria-label="Revert chat and page to before this update"
+              @click=${(e) => this._onRevertToolCall(e, toolCallId)}
+            >
+              <img src="${TOOL_CARD_REVERT_ICON_SRC}" width="18" height="18" alt="" />
+            </button>
+          ` : ''}
           <span class="tool-name-label" title="${headerParts?.titleAttr ?? ''}">${titleLabel}</span>
           <span class="tool-status ${statusClass}">${statusText}</span>
           <span class="tool-chevron">▶</span>
@@ -1210,6 +1325,7 @@ class Chat extends LitElement {
         </div>
 
         <div class="chat-status">${this._statusText}</div>
+        ${this._renderRevertConfirmDialog()}
       </div>
     `;
   }

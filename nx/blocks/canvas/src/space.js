@@ -212,6 +212,18 @@ class Space extends LitElement {
     this._chatContextItems = [];
   };
 
+  _getRevertSnapshotAemHtml = (toolInput) => {
+    const editor = this.shadowRoot?.querySelector('da-inline-editor');
+    if (!editor || typeof editor.getRevertSnapshotAemHtml !== 'function') return null;
+    return editor.getRevertSnapshotAemHtml(toolInput);
+  };
+
+  _onRevertCollabDoc = (detail) => {
+    const editor = this.shadowRoot?.querySelector('da-inline-editor');
+    if (!editor || typeof editor.applyRevertSnapshotAemHtml !== 'function') return;
+    editor.applyRevertSnapshotAemHtml(detail?.html ?? '');
+  };
+
   _onViewModeChange = (e) => {
     const { selected } = e.target;
     const value = Array.isArray(selected) && selected.length > 0 ? selected[0] : 'split';
@@ -829,7 +841,13 @@ class Space extends LitElement {
             secondary-min="400"
             label="Resize chat panel"
           >
-            <da-chat class="space-chat-panel" .onPageContextItems="${this._chatContextItems ?? []}" @da-chat-message-sent=${this._onChatMessageSent}></da-chat>
+            <da-chat
+              class="space-chat-panel"
+              .onPageContextItems="${this._chatContextItems ?? []}"
+              .getRevertSnapshotAemHtml="${this._getRevertSnapshotAemHtml}"
+              .revertCollabDoc="${this._onRevertCollabDoc}"
+              @da-chat-message-sent=${this._onChatMessageSent}
+            ></da-chat>
             ${this._renderInnerSplit(iframeSrc)}
           </sp-split-view>
           ` : this._renderInnerSplit(iframeSrc)}
