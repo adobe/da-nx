@@ -1,4 +1,6 @@
 import '../../../deps/swc/dist/index.js';
+import './components/sl-browse-breadcrumbs/sl-browse-breadcrumbs.js';
+import './components/sl-browse-new/sl-browse-new.js';
 import './components/sl-content-browser/sl-content-browser.js';
 
 export { SlBrowseFolder } from './components/sl-browse-folder/sl-browse-folder.js';
@@ -35,6 +37,8 @@ export {
 } from './api/da-browse-api.js';
 export {
   itemRowKey,
+  relativePathKeyFromFolder,
+  displayNameWithoutExtension,
   findItemByRowKey,
   daSourcePathForItem,
   daRenameDestinationPath,

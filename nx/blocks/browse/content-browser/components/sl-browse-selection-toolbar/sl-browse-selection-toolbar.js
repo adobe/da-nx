@@ -6,46 +6,32 @@ import { LitElement, html } from 'da-lit';
 const style = await getStyle(import.meta.url);
 
 function toolbarIconEdit() {
-  return html`<sp-icon-edit class="sl-browse-selection-icon" size="s"></sp-icon-edit>`;
-}
-
-function toolbarIconClose() {
-  return html`
-    <sp-icon-cross75
-      class="sl-browse-selection-icon sl-browse-selection-clear-icon"
-      size="xs"
-    ></sp-icon-cross75>
-  `;
+  return html`<sp-icon-edit slot="icon" class="sl-browse-selection-icon"></sp-icon-edit>`;
 }
 
 function toolbarIconPlay() {
-  return html`<sp-icon-play class="sl-browse-selection-icon" size="s"></sp-icon-play>`;
+  return html`<sp-icon-play slot="icon" class="sl-browse-selection-icon"></sp-icon-play>`;
 }
 
 function toolbarIconPublish() {
-  return html`<sp-icon-publish class="sl-browse-selection-icon" size="s"></sp-icon-publish>`;
+  return html`<sp-icon-publish slot="icon" class="sl-browse-selection-icon"></sp-icon-publish>`;
 }
 
 function toolbarIconRename() {
-  return html`<sp-icon-rename class="sl-browse-selection-icon" size="s"></sp-icon-rename>`;
-}
-
-function toolbarIconMove() {
-  return html`<sp-icon-move class="sl-browse-selection-icon" size="s"></sp-icon-move>`;
+  return html`<sp-icon-rename slot="icon" class="sl-browse-selection-icon"></sp-icon-rename>`;
 }
 
 function toolbarIconDelete() {
-  return html`<sp-icon-delete class="sl-browse-selection-icon" size="s"></sp-icon-delete>`;
+  return html`<sp-icon-delete slot="icon" class="sl-browse-selection-icon"></sp-icon-delete>`;
 }
 
 /**
- * Bulk actions for a multi-select file list (clear, preview/publish, rename, move, delete, edit).
+ * Bulk actions for a multi-select file list (clear, preview/publish, rename, delete, edit).
  * Host decides which actions apply; this element only renders and re-dispatches intent events.
- * @fires sl-action-bar-close
+ * @fires sl-action-bar-close - From Spectrum `sp-action-bar` clear (close) control.
  * @fires sl-file-request-preview
  * @fires sl-file-request-publish
  * @fires sl-file-request-rename
- * @fires sl-file-request-move
  * @fires sl-file-request-delete
  * @fires sl-file-request-edit
  * @customElement sl-browse-selection-toolbar
@@ -65,8 +51,6 @@ export class SlBrowseSelectionToolbar extends LitElement {
     deleteLoading: { type: Boolean, attribute: 'delete-loading' },
     /** Emphasized Edit (e.g. single HTML file). */
     showEditAction: { type: Boolean, attribute: 'show-edit-action' },
-    /** Bulk Move: host must handle `sl-file-request-move` when true. */
-    moveEnabled: { type: Boolean, attribute: 'move-enabled' },
   };
 
   constructor() {
@@ -79,7 +63,6 @@ export class SlBrowseSelectionToolbar extends LitElement {
     this.deleteEnabled = false;
     this.deleteLoading = false;
     this.showEditAction = false;
-    this.moveEnabled = false;
   }
 
   connectedCallback() {
@@ -99,34 +82,36 @@ export class SlBrowseSelectionToolbar extends LitElement {
     const count = this.selectedCount;
     const showRename = count === 1 && this.renameEnabled;
     return html`
-      <div class="sl-browse-selection-toolbar" role="toolbar" aria-label="Selection actions">
-        <sp-action-button
-          size="s"
-          quiet
-          label="Clear selection"
-          @click="${() => this._emitIntent('sl-action-bar-close')}"
+      <sp-theme
+        class="sl-browse-selection-theme"
+        system="spectrum-two"
+        scale="medium"
+        color="light"
+      >
+        <sp-action-bar
+          class="sl-browse-selection-action-bar"
+          open
+          @close="${() => this._emitIntent('sl-action-bar-close')}"
         >
-          <span slot="icon">${toolbarIconClose()}</span>
-        </sp-action-button>
-        <span class="sl-browse-selection-count">${count} selected</span>
-        ${this.showPublishActions
+          ${count} selected
+          ${this.showPublishActions
           ? html`
               <sp-action-button
-                size="s"
+                slot="buttons"
                 quiet
                 ?disabled="${this.publishLoading}"
                 @click="${() => this._emitIntent('sl-file-request-preview')}"
               >
-                <span slot="icon">${toolbarIconPlay()}</span>
+                ${toolbarIconPlay()}
                 Preview
               </sp-action-button>
               <sp-action-button
-                size="s"
+                slot="buttons"
                 quiet
                 ?disabled="${this.publishLoading}"
                 @click="${() => this._emitIntent('sl-file-request-publish')}"
               >
-                <span slot="icon">${toolbarIconPublish()}</span>
+                ${toolbarIconPublish()}
                 Publish
               </sp-action-button>
             `
@@ -134,35 +119,25 @@ export class SlBrowseSelectionToolbar extends LitElement {
         ${showRename
           ? html`
               <sp-action-button
-                size="s"
+                slot="buttons"
                 quiet
                 ?disabled="${this.renameLoading}"
                 @click="${() => this._emitIntent('sl-file-request-rename')}"
               >
-                <span slot="icon">${toolbarIconRename()}</span>
+                ${toolbarIconRename()}
                 Rename
               </sp-action-button>
             `
           : ''}
-        <sp-action-button
-          size="s"
-          quiet
-          label="Move"
-          ?disabled="${!this.moveEnabled}"
-          @click="${() => this.moveEnabled && this._emitIntent('sl-file-request-move')}"
-        >
-          <span slot="icon">${toolbarIconMove()}</span>
-          Move
-        </sp-action-button>
         ${this.deleteEnabled
           ? html`
               <sp-action-button
-                size="s"
+                slot="buttons"
                 quiet
                 ?disabled="${this.deleteLoading}"
                 @click="${() => this._emitIntent('sl-file-request-delete')}"
               >
-                <span slot="icon">${toolbarIconDelete()}</span>
+                ${toolbarIconDelete()}
                 Delete
               </sp-action-button>
             `
@@ -170,16 +145,17 @@ export class SlBrowseSelectionToolbar extends LitElement {
         ${this.showEditAction
           ? html`
               <sp-action-button
-                size="s"
+                slot="buttons"
                 emphasized
                 @click="${() => this._emitIntent('sl-file-request-edit')}"
               >
-                <span slot="icon">${toolbarIconEdit()}</span>
+                ${toolbarIconEdit()}
                 Edit
               </sp-action-button>
             `
           : ''}
-      </div>
+        </sp-action-bar>
+      </sp-theme>
     `;
   }
 }

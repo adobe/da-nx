@@ -5,7 +5,11 @@
   --cb-text-muted: #737373;
   --cb-hover: #f7f7f7;
   --cb-selected: #f0f0f0;
-  --cb-font: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', roboto, sans-serif;
+
+  /** Min width for name column when subtree search shows paths (wider + scroll). */
+  --cb-search-name-col-min: min(60vw, 36rem);
+  --cb-font:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", roboto, sans-serif;
 
   display: block;
   height: 100%;
@@ -66,6 +70,22 @@
   border-collapse: collapse;
   font-size: 0.875rem;
   line-height: 1.45;
+}
+
+.sl-col-name {
+  min-width: 6rem;
+}
+
+/* Long relative paths: give the name column a floor width and let the table extend horizontally. */
+.sl-data-table-search-paths {
+  table-layout: auto;
+  width: max(100%, 52rem);
+  min-width: max(100%, 52rem);
+}
+
+.sl-data-table-search-paths .sl-col-name {
+  min-width: var(--cb-search-name-col-min, 22rem);
+  width: 42%;
 }
 
 .sl-data-table thead {
@@ -160,10 +180,6 @@
 .sl-col-icon {
   width: 2.25rem;
   text-align: center;
-}
-
-.sl-col-name {
-  min-width: 6rem;
 }
 
 .sl-col-modified {

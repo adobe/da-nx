@@ -575,7 +575,8 @@ describe('crawl', () => {
     await results;
 
     const timeDiff = secondFetchTime - firstFetchTime;
-    expect(timeDiff).to.be.at.least(50);
+    /* Two `setInterval(throttle)` ticks; allow a few ms jitter (e.g. 49 vs 50). */
+    expect(timeDiff).to.be.at.least(45);
   });
 
   it('Resolves results promise with all files', async () => {
@@ -776,5 +777,51 @@ describe('crawl', () => {
 
     const files = await results;
     expect(files.length).to.equal(2);
+  });
+
+  it('Omits folders from results and callback by default', async () => {
+    const seen = [];
+    window.fetch = async (url) => {
+      if (url.includes('/tools/bulk-publish') || url.includes('/tools/page-builder')) {
+        return { ok: true, json: async () => [], headers: { get: () => null } };
+      }
+      return { ok: true, json: async () => mockBasicResponse, headers: { get: () => null } };
+    };
+
+    const { results } = crawl({
+      path: '/adobecom/da-bacom/tools',
+      callback: (item) => { seen.push(item.name); },
+      concurrent: 10,
+      throttle: 10,
+    });
+
+    const items = await results;
+    expect(items.every((f) => f.ext)).to.equal(true);
+    expect(seen.includes('bulk-publish')).to.equal(false);
+    expect(seen.includes('page-builder')).to.equal(false);
+  });
+
+  it('Includes folders in results and callback when includeFolders is true', async () => {
+    const seen = [];
+    window.fetch = async (url) => {
+      if (url.includes('/tools/bulk-publish') || url.includes('/tools/page-builder')) {
+        return { ok: true, json: async () => [], headers: { get: () => null } };
+      }
+      return { ok: true, json: async () => mockBasicResponse, headers: { get: () => null } };
+    };
+
+    const { results } = crawl({
+      path: '/adobecom/da-bacom/tools',
+      callback: (item) => { seen.push(item.name); },
+      concurrent: 10,
+      throttle: 10,
+      includeFolders: true,
+    });
+
+    const items = await results;
+    expect(items.some((f) => f.name === 'bulk-publish' && !f.ext)).to.equal(true);
+    expect(items.some((f) => f.name === 'page-builder' && !f.ext)).to.equal(true);
+    expect(seen).to.include('bulk-publish');
+    expect(seen).to.include('page-builder');
   });
 });

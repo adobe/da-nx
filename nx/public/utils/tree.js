@@ -52,6 +52,8 @@ export class Queue {
 async function getChildren(path) {
   const files = [];
   const folders = [];
+  /** @type {object[]} */
+  const folderEntries = [];
   let continuationToken = null;
 
   do {
@@ -70,15 +72,16 @@ async function getChildren(path) {
       }
       if (child.ext) {
         files.push(child);
-      } else {
+      } else if (child.path) {
         folders.push(child.path);
+        folderEntries.push(child);
       }
     });
 
     continuationToken = resp.headers.get('da-continuation-token');
   } while (continuationToken);
 
-  return { files, folders };
+  return { files, folders, folderEntries };
 }
 
 function calculateCrawlTime(startTime) {
@@ -87,15 +90,24 @@ function calculateCrawlTime(startTime) {
 }
 
 /**
- * Assign the project to an employee.
+ * Depth-first tree walk of DA list API results.
  * @param {Object} options - The crawl options.
  * @param {string|string[]} options.path - The parent path(s) to crawl.
  * @param {Object[]} options.files - Optional array of file objects to include in the crawl.
- * @param {function} options.callback - The callback to run when a file is found.
+ * @param {function} options.callback - The callback to run when a file or folder is found.
  * @param {number} options.concurrent - The amount of concurrent requests for the callback queue.
  * @param {number} options.throttle - How much to throttle the crawl.
+ * @param {boolean} [options.includeFolders=false] - When true, folder list rows (no `ext`) are
+ *   included in `results` and passed to `callback`. Default stays file-only for existing callers.
  */
-export function crawl({ path, files: initialFiles = [], callback, concurrent, throttle = 100 }) {
+export function crawl({
+  path,
+  files: initialFiles = [],
+  callback,
+  concurrent,
+  throttle = 100,
+  includeFolders = false,
+}) {
   let time;
   let isCanceled = false;
   const files = [...initialFiles];
@@ -116,9 +128,17 @@ export function crawl({ path, files: initialFiles = [], callback, concurrent, th
         const currentPath = folders.pop();
         const children = await getChildren(currentPath);
         files.push(...children.files);
+        if (includeFolders && children.folderEntries.length > 0) {
+          files.push(...children.folderEntries);
+        }
         folders.push(...children.folders);
         if (callback && children.files.length > 0) {
           await Promise.allSettled(children.files.map((file) => queue.push(file)));
+        }
+        if (callback && includeFolders && children.folderEntries.length > 0) {
+          await Promise.allSettled(
+            children.folderEntries.map((entry) => queue.push(entry)),
+          );
         }
         inProgress.pop();
       }

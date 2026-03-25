@@ -15,6 +15,41 @@ export function itemRowKey(item, currentPathKey) {
 }
 
 /**
+ * Repo path of an item relative to the open folder (for subtree search labels).
+ * @param {string} fullPathKey - {@link itemRowKey} value, no leading slash.
+ * @param {string} folderPathKey - Current folder path key.
+ * @returns {string} e.g. `notes/page.html`; empty if inputs missing.
+ */
+export function relativePathKeyFromFolder(fullPathKey, folderPathKey) {
+  const full = String(fullPathKey || '').replace(/^\/+/, '').replace(/\/+$/, '');
+  const folder = String(folderPathKey || '').replace(/^\/+/, '').replace(/\/+$/, '');
+  if (!full) return '';
+  if (!folder) return full;
+  const prefix = `${folder}/`;
+  if (full.startsWith(prefix)) return full.slice(prefix.length);
+  return full;
+}
+
+/**
+ * Table label: strip list `ext` from the end of a path or file name (folders unchanged).
+ * @param {string} pathOrName
+ * @param {{ ext?: string } | null | undefined} item
+ * @returns {string}
+ */
+export function displayNameWithoutExtension(pathOrName, item) {
+  const raw = pathOrName || '';
+  if (!raw || !item?.ext) return raw;
+  const ext = String(item.ext).replace(/^\./, '').toLowerCase();
+  if (!ext) return raw;
+  const suffix = `.${ext}`;
+  const lower = raw.toLowerCase();
+  if (lower.endsWith(suffix) && raw.length > suffix.length) {
+    return raw.slice(0, -suffix.length);
+  }
+  return raw;
+}
+
+/**
  * @param {string} rowKey
  * @param {Array<{ name: string, path?: string, ext?: string }>} items
  * @param {string} currentPathKey
@@ -324,8 +359,8 @@ export function lastModifiedByCell(item) {
 export function aemEnvStatusCell(ok, isFolder) {
   if (isFolder) return { label: '—' };
   if (ok === true) return { label: 'Yes', title: 'Available (status 200)' };
-  if (ok === false) return { label: 'No', title: 'Not available or status not 200' };
-  return { label: '—', title: 'Pending' };
+  if (ok === false) return { label: 'Never', title: 'Not available or status not 200' };
+  return { label: 'Checking', title: 'Status loading' };
 }
 
 /**
@@ -345,7 +380,7 @@ export function aemEnvLastModifiedCell(ok, lastModifiedRaw, isFolder) {
 
 /**
  * Preview / Published columns: short relative time when available (with full datetime on hover);
- * em dash otherwise.
+ * otherwise Never, Checking, or em dash where not applicable.
  * @param {boolean | undefined} ok
  * @param {string | undefined | null} lastModifiedRaw
  * @param {boolean} isFolder
@@ -374,10 +409,10 @@ export function aemEnvDeployRelativeCell(ok, lastModifiedRaw, isFolder, env) {
     return { label: '—', title: isLive ? 'Published' : 'Previewed' };
   }
   if (ok === false) {
-    return { label: '—', title: notVerb };
+    return { label: 'Never', title: notVerb };
   }
 
-  return { label: '—', title: 'Status loading' };
+  return { label: 'Checking', title: 'Status loading' };
 }
 
 /**

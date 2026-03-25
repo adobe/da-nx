@@ -4,11 +4,13 @@ import getStyle from 'https://da.live/nx/utils/styles.js';
 import { LitElement, html } from 'da-lit';
 import {
   aemEnvDeployRelativeCell,
+  displayNameWithoutExtension,
   fileKindFromExtension,
   itemLastModifiedRaw,
   itemRowKey,
   lastModifiedByCell,
   lastModifiedRelativeCell,
+  relativePathKeyFromFolder,
 } from '../../lib/content-browser-utils.js';
 
 const style = await getStyle(import.meta.url);
@@ -82,6 +84,10 @@ export class SlBrowseBody extends LitElement {
      * First fetch: skeleton rows until items load (avoids “Loading…” layout swap).
      */
     initialLoading: { type: Boolean, attribute: 'initial-loading' },
+    /**
+     * When true (e.g. subtree search), show each file’s path under {@link currentPathKey}.
+     */
+    showRelativePath: { type: Boolean, attribute: 'show-relative-path' },
   };
 
   constructor() {
@@ -90,6 +96,7 @@ export class SlBrowseBody extends LitElement {
     this.currentPathKey = '';
     this.selectedRows = [];
     this.initialLoading = false;
+    this.showRelativePath = false;
   }
 
   connectedCallback() {
@@ -224,7 +231,7 @@ export class SlBrowseBody extends LitElement {
         <div class="sl-table-card ${showSkeleton ? 'sl-table-card-initial-loading' : ''}">
           <div class="sl-table-scroll">
             <table
-              class="sl-data-table"
+              class="sl-data-table ${this.showRelativePath ? 'sl-data-table-search-paths' : ''}"
               role="grid"
               aria-busy="${showSkeleton}"
               aria-rowcount="${bodyRowCount + 1}"
@@ -243,7 +250,7 @@ export class SlBrowseBody extends LitElement {
                     />
                   </th>
                   <th class="sl-col-icon" scope="col"><span class="sl-sr-only">Kind</span></th>
-                  <th scope="col">Name</th>
+                  <th class="sl-col-name" scope="col">Name</th>
                   <th scope="col">Last modified</th>
                   <th scope="col">Modified by</th>
                   <th class="sl-col-aem-status" scope="col">Previewed</th>
@@ -252,26 +259,30 @@ export class SlBrowseBody extends LitElement {
               </thead>
               <tbody>
                 ${showSkeleton
-                  ? skeletonRowsTemplate()
-                  : items.map((item, rowIndex) => {
-                      const fullPathKey = itemRowKey(item, folderPathKey);
-                      const isFolder = !item.ext;
-                      const modified = lastModifiedRelativeCell(itemLastModifiedRaw(item));
-                      const modifiedBy = lastModifiedByCell(item);
-                      const previewed = aemEnvDeployRelativeCell(
-                        item.aemPreviewOk,
-                        item.aemPreviewLastModified,
-                        isFolder,
-                        'preview',
-                      );
-                      const published = aemEnvDeployRelativeCell(
-                        item.aemLiveOk,
-                        item.aemLiveLastModified,
-                        isFolder,
-                        'live',
-                      );
-                      const rowSelected = this.selectedRows.includes(fullPathKey);
-                      return html`
+        ? skeletonRowsTemplate()
+        : items.map((item, rowIndex) => {
+          const fullPathKey = itemRowKey(item, folderPathKey);
+          const isFolder = !item.ext;
+          const modified = lastModifiedRelativeCell(itemLastModifiedRaw(item));
+          const modifiedBy = lastModifiedByCell(item);
+          const previewed = aemEnvDeployRelativeCell(
+            item.aemPreviewOk,
+            item.aemPreviewLastModified,
+            isFolder,
+            'preview',
+          );
+          const published = aemEnvDeployRelativeCell(
+            item.aemLiveOk,
+            item.aemLiveLastModified,
+            isFolder,
+            'live',
+          );
+          const rowSelected = this.selectedRows.includes(fullPathKey);
+          const relPath = relativePathKeyFromFolder(fullPathKey, folderPathKey);
+          const nameStr = item.name || '';
+          const rawDisplayName = this.showRelativePath && relPath ? relPath : nameStr;
+          const displayName = displayNameWithoutExtension(rawDisplayName, item);
+          return html`
                         <tr
                           class="sl-data-row ${rowSelected ? 'sl-data-row-selected' : ''}"
                           role="row"
@@ -286,14 +297,14 @@ export class SlBrowseBody extends LitElement {
                             <input
                               type="checkbox"
                               class="sl-checkbox"
-                              aria-label="Select ${item.name}"
+                              aria-label="Select ${displayName}"
                               .checked="${rowSelected}"
                               @change="${() => this._toggleRowSelection(fullPathKey)}"
                             />
                           </td>
                           <td class="sl-col-icon">${rowKindIcon(item)}</td>
                           <td class="sl-col-name">
-                            <span class="sl-name-text">${item.name}</span>
+                            <span class="sl-name-text" title="${rawDisplayName}">${displayName}</span>
                           </td>
                           <td class="sl-col-modified" title=${modified.title ?? undefined}>
                             ${modified.label}
@@ -309,7 +320,7 @@ export class SlBrowseBody extends LitElement {
                           </td>
                         </tr>
                       `;
-                    })}
+        })}
               </tbody>
             </table>
           </div>

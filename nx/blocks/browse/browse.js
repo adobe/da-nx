@@ -16,10 +16,14 @@ import {
   createDeleteItem,
   createRenameItem,
   enrichListItemsWithAemStatus,
+  parseHashToPathContext,
   saveToAem as postSaveToAem,
 } from './content-browser/api/da-browse-api.js';
 import { DA_BULK_AEM_OPEN } from '../canvas/src/bulk-aem-modal.js';
-import { SL_CONTENT_BROWSER_CHAT_CONTEXT } from './content-browser/lib/content-browser-actions.js';
+import {
+  SL_CONTENT_BROWSER_CHAT_CONTEXT,
+  SL_CONTENT_BROWSER_LIST_PERMISSIONS,
+} from './content-browser/lib/content-browser-actions.js';
 
 const style = await getStyle(import.meta.url);
 const nxBase = getNx();
@@ -43,34 +47,76 @@ class BrowseView extends LitElement {
   static properties = {
     _chatOpen: { state: true },
     _chatContextItems: { state: true },
+    /** Toolbar breadcrumb segments from `location.hash` (same source as `sl-content-browser`). */
+    _browsePathSegments: { state: true },
+    /** Current folder fullpath for toolbar `sl-browse-new` (from hash). */
+    _browseFolderFullpath: { state: true },
+    /** List API `permissions` for toolbar New (from `sl-content-browser`). */
+    _browseListPermissions: { state: true },
   };
 
   constructor() {
     super();
     this._chatOpen = true;
     this._chatContextItems = [];
+    this._browsePathSegments = [];
+    this._browseFolderFullpath = '';
+    this._browseListPermissions = undefined;
     this._boundWindowBulkAemOpen = (e) => this._onBulkAemOpen(e);
     this._boundBrowseSelectionChatContext = (e) => this._onBrowseSelectionChatContext(e);
+    this._boundBrowseListPermissions = (e) => this._onBrowseListPermissions(e);
     this._boundChatContextRemove = (e) => this._onChatContextRemove(e);
+    this._boundBrowseHashChange = () => this._syncBrowsePathFromHash();
     this._onChatMessageSent = this._onChatMessageSent.bind(this);
   }
 
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
+    this._syncBrowsePathFromHash();
+    window.addEventListener('hashchange', this._boundBrowseHashChange);
     window.addEventListener(DA_BULK_AEM_OPEN, this._boundWindowBulkAemOpen);
     this.addEventListener(SL_CONTENT_BROWSER_CHAT_CONTEXT, this._boundBrowseSelectionChatContext);
+    this.addEventListener(SL_CONTENT_BROWSER_LIST_PERMISSIONS, this._boundBrowseListPermissions);
     this.addEventListener('chat-context-remove', this._boundChatContextRemove);
   }
 
   disconnectedCallback() {
+    window.removeEventListener('hashchange', this._boundBrowseHashChange);
     window.removeEventListener(DA_BULK_AEM_OPEN, this._boundWindowBulkAemOpen);
     this.removeEventListener(
       SL_CONTENT_BROWSER_CHAT_CONTEXT,
       this._boundBrowseSelectionChatContext,
     );
+    this.removeEventListener(SL_CONTENT_BROWSER_LIST_PERMISSIONS, this._boundBrowseListPermissions);
     this.removeEventListener('chat-context-remove', this._boundChatContextRemove);
     super.disconnectedCallback();
+  }
+
+  _syncBrowsePathFromHash() {
+    const ctx = parseHashToPathContext(window.location.hash);
+    const next = ctx?.pathSegments ?? [];
+    this._browsePathSegments = [...next];
+    this._browseFolderFullpath = ctx?.fullpath ?? '';
+  }
+
+  _onBrowseListPermissions(e) {
+    this._browseListPermissions = e.detail?.permissions;
+  }
+
+  _onBrowseToolbarNewItem() {
+    this.shadowRoot?.querySelector('sl-content-browser')?.refreshFolder?.();
+  }
+
+  _onBrowseToolbarNewError(e) {
+    const msg = e.detail?.message || 'Create failed';
+    this.shadowRoot?.querySelector('sl-content-browser')?.showToast?.(msg, 'negative');
+  }
+
+  _onBrowseToolbarNavigate(event) {
+    const pathKey = event.detail?.pathKey;
+    if (!pathKey) return;
+    window.location.hash = `#/${pathKey}`;
   }
 
   _onBrowseSelectionChatContext(e) {
@@ -101,41 +147,60 @@ class BrowseView extends LitElement {
     modal.show(files, mode);
   }
 
-  _renderMainPane() {
+  _renderToolbar() {
     return html`
-      <div class="browse-view-main">
-        <div class="browse-view-toolbar">
-          <sp-action-button
-            class="browse-view-chat-toggle"
-            label="Toggle chat panel"
-            ?selected="${this._chatOpen}"
-            @click="${() => { this._chatOpen = !this._chatOpen; }}"
-          >
-            <img src="${nxBase}/img/icons/aichat.svg" slot="icon" alt="" class="browse-view-nav-icon" />
-          </sp-action-button>
-        </div>
-        <sl-content-browser
-          class="browse-view-content-browser"
-          navigate-with-hash
+      <div class="browse-view-toolbar">
+        <sp-action-button
+          class="browse-view-chat-toggle"
+          label="Toggle chat panel"
+          ?selected="${this._chatOpen}"
+          @click="${() => { this._chatOpen = !this._chatOpen; }}"
+        >
+          <img src="${nxBase}/img/icons/aichat.svg" slot="icon" alt="" class="browse-view-nav-icon" />
+        </sp-action-button>
+        <sl-browse-breadcrumbs
+          class="browse-view-breadcrumbs"
+          .segments="${this._browsePathSegments}"
+          @sl-browse-navigate="${this._onBrowseToolbarNavigate}"
+        ></sl-browse-breadcrumbs>
+        <sl-browse-new
+          class="browse-view-new"
+          folder-fullpath="${this._browseFolderFullpath}"
           canvas-edit-base="https://da.live/canvas"
           sheet-edit-base="https://da.live/sheet"
-          .listFolder="${listFolder}"
-          .aemEnrichListItems="${aemEnrichListItems}"
-          .deleteItem="${deleteItem}"
-          .renameItem="${renameItem}"
+          .permissions="${this._browseListPermissions}"
           .saveToSource="${saveToSource}"
-          .saveToAem="${saveToAem}"
-        ></sl-content-browser>
+          @sl-browse-new-item="${this._onBrowseToolbarNewItem}"
+          @sl-browse-new-error="${this._onBrowseToolbarNewError}"
+        ></sl-browse-new>
       </div>
+    `;
+  }
+
+  _renderContentBrowser() {
+    return html`
+      <sl-content-browser
+        class="browse-view-content-browser"
+        navigate-with-hash
+        canvas-edit-base="https://da.live/canvas"
+        sheet-edit-base="https://da.live/sheet"
+        .listFolder="${listFolder}"
+        .aemEnrichListItems="${aemEnrichListItems}"
+        .deleteItem="${deleteItem}"
+        .renameItem="${renameItem}"
+        .saveToSource="${saveToSource}"
+        .saveToAem="${saveToAem}"
+      ></sl-content-browser>
     `;
   }
 
   render() {
     return html`
       <div class="browse-view">
+        ${this._renderToolbar()}
         <div class="browse-view-body">
           ${this._chatOpen
-        ? html`
+            ? html`
                 <sp-split-view
                   class="browse-view-split split-view-outer"
                   resizable
@@ -150,10 +215,10 @@ class BrowseView extends LitElement {
                     .onPageContextItems="${this._chatContextItems ?? []}"
                     @da-chat-message-sent="${this._onChatMessageSent}"
                   ></da-chat>
-                  ${this._renderMainPane()}
+                  <div class="browse-view-main">${this._renderContentBrowser()}</div>
                 </sp-split-view>
               `
-        : this._renderMainPane()}
+            : html`<div class="browse-view-main">${this._renderContentBrowser()}</div>`}
         </div>
       </div>
       <da-bulk-aem-modal></da-bulk-aem-modal>
