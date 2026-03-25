@@ -19,6 +19,7 @@ import {
   getBlockPositions,
   getActiveBlockFlatIndex,
   moveBlockAt,
+  insertSectionAfter,
   createControllerOnMessage,
 } from './quick-edit-controller.js';
 import { getPreviewOrigin } from './preview-origin.js';
@@ -74,6 +75,8 @@ export default class DaInlineEditor extends LitElement {
     onActiveBlockChange: { type: Function },
     pendingMove: { type: Object },
     onMoveBlockDone: { type: Function },
+    pendingAddSection: { type: Object },
+    onAddSectionDone: { type: Function },
     _proseEl: { state: true },
     _wsProvider: { state: true },
     _view: { state: true },
@@ -375,6 +378,14 @@ export default class DaInlineEditor extends LitElement {
       }
       if (typeof this.onMoveBlockDone === 'function') {
         this.onMoveBlockDone();
+      }
+    }
+    if (changed.has('pendingAddSection') && this.pendingAddSection?.sectionIndex != null) {
+      if (this._view) {
+        insertSectionAfter(this.pendingAddSection, { view: this._view });
+      }
+      if (typeof this.onAddSectionDone === 'function') {
+        this.onAddSectionDone();
       }
     }
     if (this._proseEl) {

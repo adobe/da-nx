@@ -497,9 +497,6 @@ function buildToolbar(view) {
   bar.appendChild(unlinkBtn);
 
   // Image / AEM Assets button
-  const imgSep = document.createElement('span');
-  imgSep.className = 'da-tb-sep';
-  bar.appendChild(imgSep);
 
   const imgBtn = document.createElement('button');
   imgBtn.type = 'button';
@@ -513,6 +510,35 @@ function buildToolbar(view) {
   const docPathAvailable = hasDocumentPath();
   if (!docPathAvailable) imgBtn.title = 'Open a document to insert images';
   bar.appendChild(imgBtn);
+
+  // Section break button
+  const hrSep = document.createElement('span');
+  hrSep.className = 'da-tb-sep';
+  bar.appendChild(hrSep);
+
+  const hrBtn = document.createElement('button');
+  hrBtn.type = 'button';
+  hrBtn.className = 'da-tb-btn da-tb-hr';
+  hrBtn.title = 'Insert section break';
+  hrBtn.setAttribute('aria-label', 'Insert section break');
+  hrBtn.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    const { state } = view;
+    const { schema } = state;
+    const hrType = schema.nodes.horizontal_rule;
+    const pType = schema.nodes.paragraph;
+    if (!hrType || !pType) return;
+    try {
+      const { $from } = state.selection;
+      const insertPos = $from.depth >= 1 ? $from.after(1) : state.doc.content.size;
+      view.dispatch(state.tr.insert(insertPos, [hrType.create(), pType.create()]).scrollIntoView());
+      view.focus();
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('[prose-toolbar] insertSectionBreak failed', err?.message);
+    }
+  });
+  bar.appendChild(hrBtn);
 
   function update(state) {
     const hasCursor = view.hasFocus() || docEditorFocused;
@@ -533,6 +559,7 @@ function buildToolbar(view) {
     }
     unlinkBtn.disabled = !hasCursor || !linkActive;
     imgBtn.disabled = !hasCursor || !docPathAvailable;
+    hrBtn.disabled = !hasCursor;
   }
 
   function destroy() {
