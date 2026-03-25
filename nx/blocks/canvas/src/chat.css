@@ -1296,6 +1296,7 @@
   --mod-textfield-border-color-focus-hover: transparent;
   --mod-textfield-border-color-keyboard-focus: transparent;
   --mod-textfield-focus-indicator-color: transparent;
+
   outline: none;
 }
 

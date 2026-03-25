@@ -154,10 +154,14 @@ function renderFile(content, attrs) {
     xls: html`<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="3" y="1" width="14" height="18" rx="2" stroke="currentColor" stroke-width="1.5" fill="#D1FAE5"/><text x="10" y="13" text-anchor="middle" font-size="6" font-weight="700" fill="#059669">XLS</text></svg>`,
     default: html`<svg width="20" height="20" viewBox="0 0 20 20" fill="none"><rect x="3" y="1" width="14" height="18" rx="2" stroke="currentColor" stroke-width="1.5" fill="#F3F4F6"/><path d="M7 7h6M7 10h6M7 13h4" stroke="#9CA3AF" stroke-width="1" stroke-linecap="round"/></svg>`,
   };
-  const resolvedType = ['pdf'].includes(type) ? 'pdf'
-    : ['doc', 'docx'].includes(type) ? 'doc'
-      : ['xls', 'xlsx', 'csv'].includes(type) ? 'xls'
-        : 'default';
+  let resolvedType = 'default';
+  if (type === 'pdf') {
+    resolvedType = 'pdf';
+  } else if (['doc', 'docx'].includes(type)) {
+    resolvedType = 'doc';
+  } else if (['xls', 'xlsx', 'csv'].includes(type)) {
+    resolvedType = 'xls';
+  }
   const icon = iconMap[resolvedType];
 
   return html`
