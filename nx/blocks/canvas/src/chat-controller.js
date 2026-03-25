@@ -62,6 +62,19 @@ const REPO_FILE_TOOLS = new Set([
   'da_move_content',
 ]);
 
+/** Legacy MCP names (see tool-card-summaries COPY_TOOLS, etc.) → da_* ids for refresh logic. */
+function canonicalRepoToolName(toolName) {
+  if (!toolName || typeof toolName !== 'string') return '';
+  switch (toolName) {
+    case 'content_copy': return 'da_copy_content';
+    case 'content_move': return 'da_move_content';
+    case 'content_create': return 'da_create_source';
+    case 'content_delete': return 'da_delete_source';
+    case 'content_update': return 'da_update_source';
+    default: return toolName;
+  }
+}
+
 /** Server registers these without `execute`; the canvas completes them and POSTs tool-result. */
 const CLIENT_ONLY_TOOLS = new Set([
   'da_bulk_preview',
@@ -331,7 +344,8 @@ export class ChatController {
       case 'tool-result':
       case 'tool-output-available': {
         const { toolCallId } = event;
-        const toolName = event.toolName ?? this._toolNameById[toolCallId];
+        const priorCard = this.toolCards.get(toolCallId);
+        const toolName = event.toolName ?? this._toolNameById[toolCallId] ?? priorCard?.toolName;
         const raw = event.output ?? event.result;
         const isError = raw && typeof raw === 'object' && 'error' in raw;
         const output = typeof raw === 'string'
@@ -452,13 +466,21 @@ export class ChatController {
    * Paths align with DA list API / hash segments: org/repo/path/to/file.html
    */
   _emitRepoFilesChanged(toolCallId, toolName, output) {
-    if (!REPO_FILE_TOOLS.has(toolName)) return;
-    if (!output || typeof output !== 'object' || 'error' in output) return;
-    if ('success' in output && output.success === false) return;
+    const canonical = canonicalRepoToolName(toolName);
+    if (!REPO_FILE_TOOLS.has(canonical)) return;
+
+    let normalizedOut = output;
+    if (typeof normalizedOut === 'string') {
+      normalizedOut = { success: true, message: normalizedOut };
+    }
+    if (!normalizedOut || typeof normalizedOut !== 'object' || 'error' in normalizedOut) return;
+    if ('success' in normalizedOut && normalizedOut.success === false) return;
 
     const card = this.toolCards.get(toolCallId);
     const input = card?.input ?? {};
-    const { org, repo } = input;
+    const ctx = typeof this.getContext === 'function' ? this.getContext() : {};
+    const org = String(input.org ?? ctx.org ?? '').trim();
+    const repo = String(input.repo ?? ctx.site ?? ctx.repo ?? '').trim();
     if (!org || !repo) return;
 
     const listFullpaths = new Set();
@@ -469,9 +491,9 @@ export class ChatController {
       listFullpathsTouchingFile(pk).forEach((fp) => listFullpaths.add(fp));
     };
 
-    switch (toolName) {
+    switch (canonical) {
       case 'da_update_source': {
-        const rel = output.path || input.path;
+        const rel = normalizedOut.path || input.path;
         if (!rel) return;
         const pk = repoFilePathKey(org, repo, rel);
         addRefreshForPathKey(pk);
@@ -479,7 +501,7 @@ export class ChatController {
         break;
       }
       case 'da_create_source': {
-        const rel = output.path || input.path;
+        const rel = normalizedOut.path || input.path;
         if (!rel) return;
         const pk = repoFilePathKey(org, repo, rel);
         addRefreshForPathKey(pk);
@@ -487,7 +509,7 @@ export class ChatController {
         break;
       }
       case 'da_delete_source': {
-        const rel = output.path || input.path;
+        const rel = normalizedOut.path || input.path;
         if (!rel) return;
         const pk = repoFilePathKey(org, repo, rel);
         addRefreshForPathKey(pk);
@@ -616,7 +638,9 @@ export class ChatController {
       this.toolCards = nextCards;
     }
 
-    if (approved && card?.toolName && REPO_FILE_TOOLS.has(card.toolName)) {
+    if (approved
+      && card?.toolName
+      && REPO_FILE_TOOLS.has(canonicalRepoToolName(card.toolName))) {
       this._approvedRepoToolsPendingResume.push({ toolCallId, toolName: card.toolName });
     }
 
@@ -826,6 +850,15 @@ export class ChatController {
         }
         this.messages = cached;
         this.toolCards = this._rebuildToolCards(cached);
+        this._toolNameById = {};
+        cached.forEach((msg) => {
+          if (msg.role !== 'assistant' || !Array.isArray(msg.content)) return;
+          msg.content.forEach((part) => {
+            if (part.type === 'tool-call' && part.toolCallId && part.toolName) {
+              this._toolNameById[part.toolCallId] = part.toolName;
+            }
+          });
+        });
         this.onUpdate();
         this._maybeFlushPendingClientTools();
       }
