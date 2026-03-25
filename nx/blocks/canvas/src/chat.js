@@ -463,7 +463,7 @@ class Chat extends LitElement {
     if (!org) return {};
     try {
       const path = site ? `${org}/${site}` : org;
-      const resp = await daFetch(`${DA_ORIGIN}/config/${path}/`);
+      const resp = await daFetch(`${DA_ORIGIN}/config/${path}`);
       if (!resp.ok) return {};
       const json = await resp.json();
       const entries = json?.data?.data || [];
