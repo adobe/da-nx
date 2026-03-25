@@ -171,8 +171,9 @@ class Chat extends LitElement {
   _sendMessage() {
     const content = this._inputValue.trim();
     if (!content || this._isThinking || this._isAwaitingApproval || !this._chatController) return;
+    const contextSnapshot = [...(this.onPageContextItems ?? [])];
     this._inputValue = '';
-    this._chatController.sendMessage(content, this.onPageContextItems ?? []);
+    this._chatController.sendMessage(content, contextSnapshot);
     this.dispatchEvent(new CustomEvent('da-chat-message-sent', { bubbles: true }));
   }
 
@@ -191,7 +192,8 @@ class Chat extends LitElement {
 
   _sendPrompt(prompt) {
     if (!prompt || this._isThinking || this._isAwaitingApproval || !this._connected) return;
-    this._chatController?.sendMessage(prompt, this.onPageContextItems ?? []);
+    const contextSnapshot = [...(this.onPageContextItems ?? [])];
+    this._chatController?.sendMessage(prompt, contextSnapshot);
     this.dispatchEvent(new CustomEvent('da-chat-message-sent', { bubbles: true }));
   }
 
@@ -643,17 +645,44 @@ class Chat extends LitElement {
   }
 
   /**
-   * Label for a context item pill: block name if block, else first 20 chars + '...'
+   * Label for a context item pill: blocks show "Name (inner text)", prose shows truncated text.
    * @param {{ blockName?: string, innerText: string }} item
    * @returns {string}
    */
   // eslint-disable-next-line class-methods-use-this
   _contextPillLabel(item) {
     if (!item) return '';
-    if (item.blockName && item.blockName.trim()) return item.blockName.trim();
     const text = (item.innerText || '').trim();
+    const name = item.blockName?.trim();
+    if (name) {
+      const innerMax = 40;
+      const inner = text.length <= innerMax ? text : `${text.slice(0, innerMax)}…`;
+      return inner ? `${name} (${inner})` : name;
+    }
     if (text.length <= 20) return text;
     return `${text.slice(0, 20)}...`;
+  }
+
+  /** Pills for context baked into a sent user message (read-only). */
+  _renderAttachedContextPills(items) {
+    if (!items?.length) return nothing;
+    return html`
+      <div class="message-attached-context" aria-label="Page context included with this message">
+        <span class="message-attached-context-hint">Context</span>
+        <div class="chat-context-pills chat-context-pills-sent">
+          ${items.map(
+      (item) => html`
+            <span
+              class="chat-context-pill chat-context-pill-sent"
+              title="${(item.innerText || '').slice(0, 100)}${(item.innerText?.length ?? 0) > 100 ? '…' : ''}"
+            >
+              <span class="chat-context-pill-label">${this._contextPillLabel(item)}</span>
+            </span>
+          `,
+    )}
+        </div>
+      </div>
+    `;
   }
 
   _removeContextItem(index) {
@@ -825,11 +854,16 @@ class Chat extends LitElement {
     // Skip protocol-only tool messages (tool-result, tool-approval-response).
     if (message.role === 'tool') return '';
 
-    // User message — always a plain string.
+    // User message — plain string; optional selectionContext from add-to-chat.
     if (message.role === 'user') {
+      const text = typeof message.content === 'string' ? message.content : String(message.content ?? '');
+      const attached = message.selectionContext;
       return html`
               <div class="message-row user">
-                <div class="message-bubble">${message.content}</div>
+                <div class="message-user-column">
+                  ${this._renderAttachedContextPills(attached)}
+                  <div class="message-bubble">${text}</div>
+                </div>
               </div>`;
     }
 

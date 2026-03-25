@@ -1,23 +1,40 @@
 /**
- * "Add to context" overlay: shows a button above the top-left of instrumented elements
- * ([data-prose-index], [data-block-index]) on hover. Uses an overlay so the button
- * stays visible when the user moves the mouse to click it.
+ * "Add to context" overlay: shows a button above an instrumented element
+ * ([data-prose-index], [data-block-index]) after the user clicks inside that element.
+ * Click outside the overlay and instrumented regions dismisses it.
  */
 
 const OVERLAY_ID = 'quick-edit-add-to-context-overlay';
-const HIDE_DELAY_MS = 150;
 const ABOVE_GAP_PX = 6;
 /** When the position leaves the control above the viewport, clamp to inset from viewport top. */
 const VIEWPORT_TOP_MIN_PX = ABOVE_GAP_PX;
 
 const ADD_TO_CHAT_ICON_URL = new URL('../../../../img/icons/addtochat.svg', import.meta.url).href;
 
-let hideTimeout = null;
 let currentElement = null;
 let positionListener = null;
 
 function getInstrumentedElement(target) {
   return target?.closest?.('[data-prose-index], [data-block-index]') ?? null;
+}
+
+/** Class names on the block wrapper that are not useful as a display label. */
+const BLOCK_NAME_SKIP_CLASSES = new Set(['tableWrapper', 'block-marker']);
+
+/**
+ * Table blocks: first header/cell text. Div-based blocks (e.g. hero): first meaningful class.
+ * @param {Element} el - Element with data-block-index
+ * @returns {string | undefined}
+ */
+function getBlockDisplayName(el) {
+  const table = el.querySelector('table');
+  const firstCell = table?.querySelector('tr:first-child td:first-child, tr:first-child th:first-child');
+  const fromCell = firstCell?.textContent?.trim();
+  if (fromCell) return fromCell;
+
+  const classes = (el.getAttribute('class') || '').trim().split(/\s+/).filter(Boolean);
+  const fromClass = classes.find((c) => !BLOCK_NAME_SKIP_CLASSES.has(c));
+  return fromClass || undefined;
 }
 
 /**
@@ -40,9 +57,7 @@ function getAddToChatPayload(el) {
   const innerText = (el.innerText || el.textContent || '').trim().replace(/\s+/g, ' ') || '';
   let blockName;
   if (el.hasAttribute('data-block-index')) {
-    const table = el.querySelector('table');
-    const firstCell = table?.querySelector('tr:first-child td:first-child, tr:first-child th:first-child');
-    blockName = firstCell?.textContent?.trim() || undefined;
+    blockName = getBlockDisplayName(el);
   }
 
   return { proseIndex, blockName, innerText };
@@ -103,10 +118,6 @@ function detachPositionListeners() {
 
 function showOverlay(overlay, el) {
   currentElement = el;
-  if (hideTimeout) {
-    clearTimeout(hideTimeout);
-    hideTimeout = null;
-  }
   positionOverlay(overlay, el);
   attachPositionListeners(overlay);
 }
@@ -115,18 +126,6 @@ function hideOverlay(overlay) {
   overlay.style.display = 'none';
   currentElement = null;
   detachPositionListeners();
-  if (hideTimeout) {
-    clearTimeout(hideTimeout);
-    hideTimeout = null;
-  }
-}
-
-function scheduleHide(overlay) {
-  if (hideTimeout) clearTimeout(hideTimeout);
-  hideTimeout = setTimeout(() => {
-    hideOverlay(overlay);
-    hideTimeout = null;
-  }, HIDE_DELAY_MS);
 }
 
 /**
@@ -165,35 +164,32 @@ export function setupAddToContext(root = document.body, ctx = null) {
 
     overlay.appendChild(btn);
     root.appendChild(overlay);
-
-    overlay.addEventListener('mouseenter', () => {
-      if (hideTimeout) {
-        clearTimeout(hideTimeout);
-        hideTimeout = null;
-      }
-    });
-    overlay.addEventListener('mouseleave', () => hideOverlay(overlay));
   }
 
   /* eslint-disable no-underscore-dangle -- listener refs on root for teardown before re-attach */
-  root.removeEventListener('mouseover', root._addToContextMouseover);
-  root.removeEventListener('mouseout', root._addToContextMouseout);
+  if (typeof root._addToContextClick === 'function') {
+    root.removeEventListener('click', root._addToContextClick, true);
+  }
+  if (typeof root._addToContextMouseover === 'function') {
+    root.removeEventListener('mouseover', root._addToContextMouseover, true);
+  }
+  if (typeof root._addToContextMouseout === 'function') {
+    root.removeEventListener('mouseout', root._addToContextMouseout, true);
+  }
 
-  function onMouseover(e) {
+  function onClickCapture(e) {
+    if (e.button !== 0 && e.button !== undefined) return;
+    if (overlay.contains(e.target)) return;
+
     const el = getInstrumentedElement(e.target);
-    if (el) showOverlay(overlay, el);
+    if (el) {
+      showOverlay(overlay, el);
+      return;
+    }
+    hideOverlay(overlay);
   }
 
-  function onMouseout(e) {
-    const fromEl = getInstrumentedElement(e.target);
-    if (!fromEl) return;
-    if (e.relatedTarget && overlay.contains(e.relatedTarget)) return;
-    scheduleHide(overlay);
-  }
-
-  root._addToContextMouseover = onMouseover;
-  root._addToContextMouseout = onMouseout;
+  root._addToContextClick = onClickCapture;
   /* eslint-enable no-underscore-dangle */
-  root.addEventListener('mouseover', onMouseover, true);
-  root.addEventListener('mouseout', onMouseout, true);
+  root.addEventListener('click', onClickCapture, true);
 }

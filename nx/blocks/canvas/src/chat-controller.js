@@ -1,5 +1,22 @@
 import { loadMessages, saveMessages, clearMessages } from './chat-idb-store.js';
 
+/** Clone add-to-chat payloads for storage / API (minimal serializable fields). */
+function sanitizeSelectionContext(items) {
+  if (!Array.isArray(items) || items.length === 0) return undefined;
+  const out = items.map((it) => {
+    const proseIndex = typeof it?.proseIndex === 'number' ? it.proseIndex : NaN;
+    const innerText = typeof it?.innerText === 'string' ? it.innerText : '';
+    const blockName = typeof it?.blockName === 'string' && it.blockName.trim()
+      ? it.blockName.trim()
+      : undefined;
+    if (Number.isNaN(proseIndex)) return null;
+    return blockName != null
+      ? { proseIndex, blockName, innerText }
+      : { proseIndex, innerText };
+  }).filter(Boolean);
+  return out.length ? out : undefined;
+}
+
 function normalizePath(path) {
   if (typeof path !== 'string') return '';
   return path
@@ -23,7 +40,8 @@ export class ChatController {
     this.onConnectionChange = options.onConnectionChange || (() => {});
     this.onDocumentUpdated = options.onDocumentUpdated || (() => {});
 
-    // CoreMessage[] — exactly what gets sent to the server, no transformation needed.
+    // Conversation history; user messages may include selectionContext (page excerpts).
+    // The server expands selectionContext into model-facing text before streamText.
     this.messages = [];
     // Map<toolCallId, { toolName, input, state, approvalId, output }> — UI display state.
     this.toolCards = new Map();
@@ -286,11 +304,14 @@ export class ChatController {
 
   // ---------- public API ----------
 
-  async sendMessage(text) {
+  async sendMessage(text, selectionContext = []) {
     const content = (text || '').trim();
     if (!content || this.isThinking || this.isAwaitingApproval || !this.connected) return;
 
-    this.messages = [...this.messages, { role: 'user', content }];
+    const ctx = sanitizeSelectionContext(selectionContext);
+    const userMsg = { role: 'user', content };
+    if (ctx?.length) userMsg.selectionContext = ctx;
+    this.messages = [...this.messages, userMsg];
     this.isThinking = true;
     this.statusText = 'Thinking...';
     this.onStatusChange(this.statusText);
