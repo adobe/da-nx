@@ -42,6 +42,43 @@ const REPO_FILE_TOOLS = new Set([
   'da_move_content',
 ]);
 
+/** Server registers these without `execute`; the canvas completes them and POSTs tool-result. */
+const CLIENT_ONLY_TOOLS = new Set([
+  'da_bulk_preview',
+  'da_bulk_publish',
+  'da_bulk_delete',
+]);
+
+/**
+ * @param {Array<{ role: string, content?: unknown }>} messages
+ * @returns {Array<{ toolCallId: string, toolName: string, input: object }>}
+ */
+function findPendingClientToolCalls(messages) {
+  const withResult = new Set();
+  messages.forEach((msg) => {
+    if (msg.role !== 'tool' || !Array.isArray(msg.content)) return;
+    msg.content.forEach((p) => {
+      if (p.type === 'tool-result' && p.toolCallId) withResult.add(p.toolCallId);
+    });
+  });
+  const pending = [];
+  messages.forEach((msg) => {
+    if (msg.role !== 'assistant' || !Array.isArray(msg.content)) return;
+    msg.content.forEach((p) => {
+      if (p.type === 'tool-call'
+          && CLIENT_ONLY_TOOLS.has(p.toolName)
+          && !withResult.has(p.toolCallId)) {
+        pending.push({
+          toolCallId: p.toolCallId,
+          toolName: p.toolName,
+          input: p.input ?? {},
+        });
+      }
+    });
+  });
+  return pending;
+}
+
 function repoFilePathKey(org, repo, relativePath) {
   const rel = ensureContentPath(String(relativePath).replace(/^\/+/, ''));
   return `${org}/${repo}/${rel}`.replace(/\/{2,}/g, '/');
@@ -74,6 +111,7 @@ export class ChatController {
     this.onConnectionChange = options.onConnectionChange || (() => {});
     this.onDocumentUpdated = options.onDocumentUpdated || (() => {});
     this.onRepoFilesChanged = options.onRepoFilesChanged || (() => {});
+    this.onClientToolRequest = options.onClientToolRequest || (() => {});
 
     // Conversation history; user messages may include selectionContext (page excerpts).
     // The server expands selectionContext into model-facing text before streamText.
@@ -84,6 +122,7 @@ export class ChatController {
     this.connected = false;
     this.isThinking = false;
     this.isAwaitingApproval = false;
+    this.isAwaitingClientTool = false;
     this.statusText = '';
     // In-flight assistant text (committed to messages on text-end).
     this.streamingText = '';
@@ -102,6 +141,8 @@ export class ChatController {
     this._approvedRepoToolsPendingResume = [];
     /** Defer repo refresh until after POST returns (avoid refetch before server write). */
     this._postApprovalRepoRefreshQueue = [];
+    /** @type {{ toolCallId: string, toolName: string } | null} */
+    this._activeClientToolCall = null;
   }
 
   get _chatUrl() {
@@ -138,6 +179,8 @@ export class ChatController {
     this.connected = false;
     this.isThinking = false;
     this.isAwaitingApproval = false;
+    this.isAwaitingClientTool = false;
+    this._activeClientToolCall = null;
     this._pendingApprovals.clear();
     this.streamingText = '';
     this.statusText = 'Disconnected';
@@ -436,7 +479,8 @@ export class ChatController {
 
   async sendMessage(text, selectionContext = []) {
     const content = (text || '').trim();
-    if (!content || this.isThinking || this.isAwaitingApproval || !this.connected) return;
+    if (!content || this.isThinking || this.isAwaitingApproval || this.isAwaitingClientTool
+        || !this.connected) return;
 
     const ctx = sanitizeSelectionContext(selectionContext);
     const userMsg = { role: 'user', content };
@@ -502,6 +546,55 @@ export class ChatController {
     });
   }
 
+  _maybeFlushPendingClientTools() {
+    if (this.isAwaitingApproval || this.isAwaitingClientTool) return;
+    const pending = findPendingClientToolCalls(this.messages);
+    if (pending.length === 0) return;
+    const { toolCallId, toolName, input } = pending[0];
+    this._activeClientToolCall = { toolCallId, toolName };
+    this.isAwaitingClientTool = true;
+    this.isThinking = false;
+    this.statusText = 'Action required in the workspace';
+    this.onStatusChange(this.statusText);
+    this.onClientToolRequest({ toolCallId, toolName, input });
+    this.onUpdate();
+  }
+
+  /**
+   * @param {{ toolCallId: string, toolName: string, output: unknown }} param0
+   */
+  async submitClientToolResult({ toolCallId, toolName, output }) {
+    if (!toolCallId || !toolName) return;
+    if (this._activeClientToolCall?.toolCallId !== toolCallId) return;
+    this._activeClientToolCall = null;
+    this.isAwaitingClientTool = false;
+
+    const isError = output && typeof output === 'object' && 'error' in output;
+    const wrappedOutput = typeof output === 'string'
+      ? { type: 'text', value: output }
+      : { type: 'json', value: output };
+    this.messages = [
+      ...this.messages,
+      {
+        role: 'tool',
+        content: [{
+          type: 'tool-result', toolCallId, toolName, output: wrappedOutput,
+        }],
+      },
+    ];
+    const nextCards = new Map(this.toolCards);
+    const existing = nextCards.get(toolCallId) || { toolName, input: {} };
+    nextCards.set(toolCallId, { ...existing, state: isError ? 'error' : 'done', output });
+    this.toolCards = nextCards;
+
+    this.isThinking = true;
+    this.statusText = 'Thinking...';
+    this.onStatusChange(this.statusText);
+    this.onUpdate();
+
+    await this._resumeWithMessages();
+  }
+
   async _resumeWithMessages() {
     this._abortController = new AbortController();
 
@@ -529,7 +622,9 @@ export class ChatController {
 
       await this._readStream(response.body.getReader());
 
-      if (!this.isAwaitingApproval) {
+      this._maybeFlushPendingClientTools();
+
+      if (!this.isAwaitingApproval && !this.isAwaitingClientTool) {
         saveMessages(this.room, this.messages);
       }
     } catch (e) {
@@ -556,6 +651,26 @@ export class ChatController {
   }
 
   stop() {
+    if (this._activeClientToolCall) {
+      const { toolCallId, toolName } = this._activeClientToolCall;
+      this._activeClientToolCall = null;
+      const output = { cancelled: true, reason: 'user_stopped' };
+      const wrappedOutput = { type: 'json', value: output };
+      this.messages = [
+        ...this.messages,
+        {
+          role: 'tool',
+          content: [{
+            type: 'tool-result', toolCallId, toolName, output: wrappedOutput,
+          }],
+        },
+      ];
+      const nextCards = new Map(this.toolCards);
+      const existing = nextCards.get(toolCallId) || { toolName, input: {} };
+      nextCards.set(toolCallId, { ...existing, state: 'error', output });
+      this.toolCards = nextCards;
+      this.isAwaitingClientTool = false;
+    }
     this._abortController?.abort();
     this._abortController = null;
     this.isThinking = false;
@@ -580,6 +695,8 @@ export class ChatController {
     this.streamingText = '';
     this.isThinking = false;
     this.isAwaitingApproval = false;
+    this.isAwaitingClientTool = false;
+    this._activeClientToolCall = null;
     this.statusText = '';
     this._processedUpdateToolCalls.clear();
     this._approvedRepoToolsPendingResume = [];
@@ -602,6 +719,7 @@ export class ChatController {
         this.messages = cached;
         this.toolCards = this._rebuildToolCards(cached);
         this.onUpdate();
+        this._maybeFlushPendingClientTools();
       }
     } catch {
       // IDB unavailable — start with empty history.
