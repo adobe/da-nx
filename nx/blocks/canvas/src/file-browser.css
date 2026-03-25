@@ -87,9 +87,20 @@
 }
 
 .file-browser .file-browser-label {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.file-browser .file-browser-mod-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #1473e6;
+  flex-shrink: 0;
+  margin-left: 0.25rem;
 }
 
 .file-browser .file-browser-children {

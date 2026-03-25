@@ -27,6 +27,40 @@ function normalizePath(path) {
     .replace(/\.html$/i, '');
 }
 
+/** Match da-agent ensureHtmlExtension: add extension only when basename has none. */
+function ensureContentPath(path) {
+  if (typeof path !== 'string' || !path) return path;
+  const last = path.split('/').pop() ?? '';
+  return last.includes('.') ? path : `${path}.html`;
+}
+
+const REPO_FILE_TOOLS = new Set([
+  'da_create_source',
+  'da_update_source',
+  'da_delete_source',
+  'da_copy_content',
+  'da_move_content',
+]);
+
+function repoFilePathKey(org, repo, relativePath) {
+  const rel = ensureContentPath(String(relativePath).replace(/^\/+/, ''));
+  return `${org}/${repo}/${rel}`.replace(/\/{2,}/g, '/');
+}
+
+/**
+ * Directory fullpaths (/org/repo, …) to refetch after a file under the repo changes.
+ */
+function listFullpathsTouchingFile(pathKey) {
+  const parts = pathKey.split('/').filter(Boolean);
+  if (parts.length < 3) return [];
+  const out = new Set();
+  out.add(`/${parts[0]}/${parts[1]}`);
+  for (let n = 3; n < parts.length; n += 1) {
+    out.add(`/${parts.slice(0, n).join('/')}`);
+  }
+  return [...out];
+}
+
 export class ChatController {
   constructor(options = {}) {
     const isLocal = new URLSearchParams(window.location.search).get('ref') === 'local';
@@ -39,6 +73,7 @@ export class ChatController {
     this.onStatusChange = options.onStatusChange || (() => {});
     this.onConnectionChange = options.onConnectionChange || (() => {});
     this.onDocumentUpdated = options.onDocumentUpdated || (() => {});
+    this.onRepoFilesChanged = options.onRepoFilesChanged || (() => {});
 
     // Conversation history; user messages may include selectionContext (page excerpts).
     // The server expands selectionContext into model-facing text before streamText.
@@ -61,6 +96,10 @@ export class ChatController {
     this._toolNameById = {};
     this._abortController = null;
     this._processedUpdateToolCalls = new Set();
+    /** Approved mutating tools; server runs them in resolveApprovals (no tool-result SSE). */
+    this._approvedRepoToolsPendingResume = [];
+    /** Defer repo refresh until after POST returns (avoid refetch before server write). */
+    this._postApprovalRepoRefreshQueue = [];
   }
 
   get _chatUrl() {
@@ -211,6 +250,7 @@ export class ChatController {
         this.toolCards = nextCards;
         this._pendingApprovals.delete(toolCallId);
         this._notifyDocumentUpdated(toolCallId, toolName, raw);
+        this._emitRepoFilesChanged(toolCallId, toolName, raw);
         this.onUpdate();
         break;
       }
@@ -302,6 +342,94 @@ export class ChatController {
     this.onDocumentUpdated({ toolName, toolCallId, path: targetPath });
   }
 
+  /**
+   * Notify listeners (e.g. file browser) when agent tools change repo files.
+   * Paths align with DA list API / hash segments: org/repo/path/to/file.html
+   */
+  _emitRepoFilesChanged(toolCallId, toolName, output) {
+    if (!REPO_FILE_TOOLS.has(toolName)) return;
+    if (!output || typeof output !== 'object' || 'error' in output) return;
+    if ('success' in output && output.success === false) return;
+
+    const card = this.toolCards.get(toolCallId);
+    const input = card?.input ?? {};
+    const { org, repo } = input;
+    if (!org || !repo) return;
+
+    const listFullpaths = new Set();
+    const modifiedPathKeys = [];
+    const clearModifiedPathKeys = [];
+
+    const addRefreshForPathKey = (pk) => {
+      listFullpathsTouchingFile(pk).forEach((fp) => listFullpaths.add(fp));
+    };
+
+    switch (toolName) {
+      case 'da_update_source': {
+        const rel = output.path || input.path;
+        if (!rel) return;
+        const pk = repoFilePathKey(org, repo, rel);
+        addRefreshForPathKey(pk);
+        modifiedPathKeys.push(pk);
+        break;
+      }
+      case 'da_create_source': {
+        const rel = output.path || input.path;
+        if (!rel) return;
+        const pk = repoFilePathKey(org, repo, rel);
+        addRefreshForPathKey(pk);
+        modifiedPathKeys.push(pk);
+        break;
+      }
+      case 'da_delete_source': {
+        const rel = output.path || input.path;
+        if (!rel) return;
+        const pk = repoFilePathKey(org, repo, rel);
+        addRefreshForPathKey(pk);
+        clearModifiedPathKeys.push(pk);
+        break;
+      }
+      case 'da_copy_content': {
+        const src = input.sourcePath;
+        const dest = input.destinationPath;
+        if (src) addRefreshForPathKey(repoFilePathKey(org, repo, src));
+        if (dest) {
+          const dpk = repoFilePathKey(org, repo, dest);
+          addRefreshForPathKey(dpk);
+          modifiedPathKeys.push(dpk);
+        }
+        break;
+      }
+      case 'da_move_content': {
+        const src = input.sourcePath;
+        const dest = input.destinationPath;
+        if (src) {
+          const spk = repoFilePathKey(org, repo, src);
+          addRefreshForPathKey(spk);
+          clearModifiedPathKeys.push(spk);
+        }
+        if (dest) {
+          const dpk = repoFilePathKey(org, repo, dest);
+          addRefreshForPathKey(dpk);
+          modifiedPathKeys.push(dpk);
+        }
+        break;
+      }
+      default:
+        break;
+    }
+
+    if (listFullpaths.size === 0) return;
+
+    this.onRepoFilesChanged({
+      org,
+      repo,
+      listFullpaths: [...listFullpaths],
+      modifiedPathKeys,
+      clearModifiedPathKeys,
+    });
+  }
+
   // ---------- public API ----------
 
   async sendMessage(text, selectionContext = []) {
@@ -311,6 +439,8 @@ export class ChatController {
     const ctx = sanitizeSelectionContext(selectionContext);
     const userMsg = { role: 'user', content };
     if (ctx?.length) userMsg.selectionContext = ctx;
+    this._approvedRepoToolsPendingResume = [];
+    this._postApprovalRepoRefreshQueue = [];
     this.messages = [...this.messages, userMsg];
     this.isThinking = true;
     this.statusText = 'Thinking...';
@@ -333,6 +463,10 @@ export class ChatController {
       this.toolCards = nextCards;
     }
 
+    if (approved && card?.toolName && REPO_FILE_TOOLS.has(card.toolName)) {
+      this._approvedRepoToolsPendingResume.push({ toolCallId, toolName: card.toolName });
+    }
+
     this.messages = [
       ...this.messages,
       { role: 'tool', content: [{ type: 'tool-approval-response', approvalId, approved }] },
@@ -351,12 +485,22 @@ export class ChatController {
     this.onStatusChange(this.statusText);
     this.onUpdate();
 
+    this._postApprovalRepoRefreshQueue = [...this._approvedRepoToolsPendingResume];
+    this._approvedRepoToolsPendingResume = [];
+
     await this._resumeWithMessages();
   }
 
+  _flushPostApprovalRepoRefresh() {
+    const pending = this._postApprovalRepoRefreshQueue;
+    if (!pending?.length) return;
+    this._postApprovalRepoRefreshQueue = [];
+    pending.forEach(({ toolCallId: id, toolName: name }) => {
+      this._emitRepoFilesChanged(id, name, { success: true });
+    });
+  }
+
   async _resumeWithMessages() {
-    // eslint-disable-next-line no-console
-    console.debug('[da-chat] sending', this.messages.length, 'messages');
     this._abortController = new AbortController();
 
     try {
@@ -376,12 +520,17 @@ export class ChatController {
 
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
+      // resolveApprovals() on the server finishes before streamText sends bytes; refresh list now
+      // so the UI updates without waiting for the full assistant stream.
+      this._flushPostApprovalRepoRefresh();
+
       await this._readStream(response.body.getReader());
 
       if (!this.isAwaitingApproval) {
         saveMessages(this.room, this.messages);
       }
     } catch (e) {
+      this._postApprovalRepoRefreshQueue = [];
       if (e.name === 'AbortError') return;
       this.isThinking = false;
       this.isAwaitingApproval = false;
@@ -408,6 +557,8 @@ export class ChatController {
     this._abortController = null;
     this.isThinking = false;
     this.isAwaitingApproval = false;
+    this._approvedRepoToolsPendingResume = [];
+    this._postApprovalRepoRefreshQueue = [];
     this._pendingApprovals.clear();
     this.streamingText = '';
     this.statusText = 'Stopped';
@@ -428,6 +579,8 @@ export class ChatController {
     this.isAwaitingApproval = false;
     this.statusText = '';
     this._processedUpdateToolCalls.clear();
+    this._approvedRepoToolsPendingResume = [];
+    this._postApprovalRepoRefreshQueue = [];
     this.onStatusChange(this.statusText);
     this.onUpdate();
   }

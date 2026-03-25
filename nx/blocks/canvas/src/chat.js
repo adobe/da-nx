@@ -13,6 +13,7 @@ const imsInitial = await initIms();
 const token = imsInitial?.accessToken?.token ?? null;
 
 const DOCUMENT_UPDATED_EVENT = 'da:agent-content-updated';
+const REPO_FILES_CHANGED_EVENT = 'da:chat-repo-files-changed';
 
 const BUILTIN_MCP_SERVERS = [
   {
@@ -183,6 +184,11 @@ class Chat extends LitElement {
       onDocumentUpdated: (payload) => {
         window.dispatchEvent(new CustomEvent(DOCUMENT_UPDATED_EVENT, {
           detail: { ...payload, ts: Date.now() },
+        }));
+      },
+      onRepoFilesChanged: (detail) => {
+        window.dispatchEvent(new CustomEvent(REPO_FILES_CHANGED_EVENT, {
+          detail: { ...detail, ts: Date.now() },
         }));
       },
     });

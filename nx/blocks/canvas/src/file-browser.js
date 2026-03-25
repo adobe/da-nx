@@ -1,11 +1,14 @@
 // eslint-disable-next-line import/no-unresolved
 import getStyle from 'https://da.live/nx/utils/styles.js';
 // eslint-disable-next-line import/no-unresolved
-import { LitElement, html } from 'da-lit';
+import { LitElement, html, nothing } from 'da-lit';
 import { daFetch } from '../../../utils/daFetch.js';
 import { DA_ORIGIN } from '../../../public/utils/constants.js';
 
 const style = await getStyle(import.meta.url);
+
+/** Dispatched from da-chat when agent tools create/update/delete (or copy/move) sources. */
+const REPO_FILES_CHANGED_EVENT = 'da:chat-repo-files-changed';
 
 /**
  * Parse hash to path segments and fullpath for DA API.
@@ -107,6 +110,7 @@ class FileBrowser extends LitElement {
     _loading: { state: true },
     _error: { state: true },
     _expanded: { state: true },
+    _modifiedPathKeys: { state: true },
   };
 
   constructor() {
@@ -118,20 +122,70 @@ class FileBrowser extends LitElement {
     this._loading = false;
     this._error = null;
     this._expanded = new Set();
+    this._modifiedPathKeys = new Set();
   }
 
   _boundSyncFromHash = () => this._syncFromHash();
+
+  _boundRepoFilesChanged = (e) => {
+    this._onRepoFilesChanged(e);
+  };
 
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
     this._syncFromHash();
     window.addEventListener('hashchange', this._boundSyncFromHash);
+    window.addEventListener(REPO_FILES_CHANGED_EVENT, this._boundRepoFilesChanged);
   }
 
   disconnectedCallback() {
     window.removeEventListener('hashchange', this._boundSyncFromHash);
+    window.removeEventListener(REPO_FILES_CHANGED_EVENT, this._boundRepoFilesChanged);
     super.disconnectedCallback();
+  }
+
+  /**
+   * React to successful da_create_source / da_update_source / da_delete_source (and copy/move)
+   * from the chat agent: refresh cached lists for this org/repo and mark updated files.
+   */
+  async _onRepoFilesChanged(ev) {
+    const {
+      org, repo, listFullpaths, modifiedPathKeys, clearModifiedPathKeys,
+    } = ev.detail || {};
+    const pathInfo = this._hashPath;
+    if (!pathInfo) return;
+    const [hashOrg, hashRepo] = pathInfo.pathSegments;
+    if (hashOrg !== org || hashRepo !== repo) return;
+    if (modifiedPathKeys?.length || clearModifiedPathKeys?.length) {
+      const next = new Set(this._modifiedPathKeys);
+      clearModifiedPathKeys?.forEach((p) => next.delete(p));
+      modifiedPathKeys?.forEach((p) => next.add(p));
+      this._modifiedPathKeys = next;
+    }
+    if (listFullpaths?.length) {
+      await this._refetchListFullpaths(listFullpaths);
+    }
+  }
+
+  async _refetchListFullpaths(fullpaths) {
+    const unique = [...new Set(fullpaths)].filter(Boolean);
+    if (!unique.length) return;
+    const cache = { ...this._cache };
+    unique.forEach((fp) => { delete cache[fp]; });
+    this._loading = true;
+    try {
+      await Promise.all(unique.map(async (fp) => {
+        const items = await fetchList(fp);
+        cache[fp] = items;
+      }));
+      this._cache = cache;
+      this._error = null;
+    } catch (e) {
+      this._error = e.message || 'Failed to load';
+    } finally {
+      this._loading = false;
+    }
   }
 
   async _syncFromHash() {
@@ -220,6 +274,11 @@ class FileBrowser extends LitElement {
 
   _select(item, path) {
     this.selectedPath = path;
+    if (this._modifiedPathKeys.has(path)) {
+      const next = new Set(this._modifiedPathKeys);
+      next.delete(path);
+      this._modifiedPathKeys = next;
+    }
     this._navigateToPath(path);
     const detail = { item: { ...item, path } };
     this.dispatchEvent(
@@ -289,6 +348,9 @@ class FileBrowser extends LitElement {
           </span>
           <sp-icon-file size="s" class="file-browser-icon"></sp-icon-file>
           <span class="file-browser-label">${item.name}</span>
+          ${this._modifiedPathKeys.has(path)
+    ? html`<span class="file-browser-mod-dot" title="New or updated by assistant" aria-hidden="true"></span>`
+    : nothing}
         </button>
       </div>
     `;
