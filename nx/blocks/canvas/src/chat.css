@@ -1217,7 +1217,8 @@
 }
 
 .chat-footer-row:focus-within {
-  border-color: #a8c7fa;
+  border-color: #1473e6;
+  box-shadow: 0 0 0 1px #1473e6;
 }
 
 /* Animated gradient border when agent is thinking */
@@ -1276,7 +1277,14 @@
   --spectrum-textfield-border-color: transparent;
   --spectrum-textfield-border-color-hover: transparent;
   --spectrum-textfield-border-color-focus: transparent;
+  --spectrum-textfield-border-color-key-focus: transparent;
   --spectrum-textfield-focus-indicator-color: transparent;
+  --spectrum-focus-indicator-color: transparent;
+  outline: none;
+}
+
+.chat-input:focus-within {
+  outline: none;
 }
 
 /* Circular send button */
