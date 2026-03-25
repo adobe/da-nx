@@ -180,8 +180,8 @@
   max-width: 88%;
   padding: 8px 10px;
   border-radius: 10px;
-  font-size: 13px;
-  line-height: 1.45;
+  font-size: 14px;
+  line-height: 1.5;
   white-space: pre-wrap;
   overflow-wrap: break-word;
 }
@@ -1395,8 +1395,8 @@
 .cr-list-item {
   position: relative;
   padding: 5px 10px 5px 22px;
-  font-size: 13px;
-  line-height: 1.45;
+  font-size: 13.5px;
+  line-height: 1.5;
   color: #222;
   border-radius: 6px;
   transition: background 0.1s;
@@ -1717,4 +1717,70 @@
 
 .cr-alert-error .cr-alert-icon {
   color: #ef4444;
+}
+
+/* ── Markdown headings ─────────────────────────────────────── */
+
+.cr-heading {
+  display: block;
+  font-weight: 700;
+  line-height: 1.3;
+  margin: 10px 0 3px;
+  color: #111;
+}
+
+.cr-heading:first-child {
+  margin-top: 2px;
+}
+
+.cr-h1 { font-size: 17px; }
+
+.cr-h2 { font-size: 15px; }
+
+.cr-h3 { font-size: 13.5px; }
+
+.cr-h4 {
+  font-size: 13px;
+  color: #333;
+}
+
+/* ── Markdown inline bullet list (- item) ──────────────────── */
+
+.cr-md-list {
+  list-style: none;
+  margin: 4px 0 6px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cr-md-list-item {
+  position: relative;
+  padding: 4px 8px 4px 20px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: #222;
+}
+
+.cr-md-list-item::before {
+  content: '';
+  position: absolute;
+  left: 7px;
+  top: 11px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #888;
+}
+
+/* ── Inline code ────────────────────────────────────────────── */
+
+.cr-inline-code {
+  font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+  font-size: 0.875em;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: rgb(0 0 0 / 7%);
+  color: #c0392b;
 }
