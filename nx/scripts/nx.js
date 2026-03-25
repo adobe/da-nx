@@ -230,6 +230,9 @@ function decorateDoc() {
   const scheme = localStorage.getItem('color-scheme');
   if (scheme) document.body.classList.add(scheme);
 
+  const nxFrame = getMetadata('nx-frame');
+  if (nxFrame) document.body.classList.add(`nx-frame-${nxFrame}`);
+
   const pageId = window.location.hash?.replace('#', '');
   if (pageId) localStorage.setItem('lazyhash', pageId);
 }

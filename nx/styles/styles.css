@@ -345,6 +345,13 @@ main > div, div[data-status] {
       max-height: 100%;
     }
 
+    body.nx-frame-frameless main {
+      margin: 0;
+      background-color: transparent;
+      border-radius: 0;
+      overflow: hidden;
+    }
+
     h1 { font-size: var(--s2-heading-size-xxl); }
     h2 { font-size: var(--s2-heading-size-xl); }
     h3 { font-size: var(--s2-heading-size-l); }
