@@ -312,13 +312,11 @@ class FileBrowser extends LitElement {
             class="file-browser-row ${selected ? 'file-browser-row-selected' : ''}"
             style="padding-left: ${0.5 + depth * 1}rem"
             @click="${onFolderClick}"
-            aria-expanded="${hasChildren ? expanded : undefined}"
+            aria-expanded="${expanded}"
             aria-label="${expanded ? 'Collapse' : 'Expand'} ${item.name}"
           >
-            <span class="file-browser-chevron ${hasChildren && expanded ? 'file-browser-chevron-expanded' : ''}" aria-hidden="true">
-              ${hasChildren
-    ? html`<sp-icon-chevron200 size="s"></sp-icon-chevron200>`
-    : html`<span class="file-browser-chevron-placeholder"></span>`}
+            <span class="file-browser-chevron ${expanded ? 'file-browser-chevron-expanded' : ''}" aria-hidden="true">
+              <sp-icon-chevron200 size="s"></sp-icon-chevron200>
             </span>
             <sp-icon-folder size="s" class="file-browser-icon"></sp-icon-folder>
             <span class="file-browser-label">${item.name}</span>

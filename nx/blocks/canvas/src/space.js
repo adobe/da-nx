@@ -14,6 +14,7 @@ import './page-outline.js';
 import './da-inline-editor.js';
 import './file-history.js';
 import './page-metadata.js';
+import { DA_BULK_AEM_OPEN } from './bulk-aem-modal.js';
 import { getPreviewOrigin } from './preview-origin.js';
 
 const style = await getStyle(import.meta.url);
@@ -111,6 +112,15 @@ class Space extends LitElement {
   _onDocToolbarReady = (e) => {
     this._docToolbar = e.detail.toolbar ?? null;
   };
+
+  _onBulkAemOpen = (e) => {
+    const { files, mode } = e.detail ?? {};
+    const modal = this.shadowRoot?.querySelector('da-bulk-aem-modal');
+    if (!modal || typeof modal.show !== 'function') return;
+    modal.show(files, mode);
+  };
+
+  _boundWindowBulkAemOpen = (e) => this._onBulkAemOpen(e);
 
   _boundCollabUsers = (e) => {
     const users = e.detail?.users;
@@ -388,6 +398,7 @@ class Space extends LitElement {
     this.addEventListener('da-file-browser-select', this._boundFileSelect);
     this.addEventListener('da-collab-users', this._boundCollabUsers);
     this.addEventListener('da-toolbar-ready', this._onDocToolbarReady);
+    window.addEventListener(DA_BULK_AEM_OPEN, this._boundWindowBulkAemOpen);
   }
 
   updated(changed) {
@@ -438,6 +449,7 @@ class Space extends LitElement {
     this.removeEventListener('da-file-browser-select', this._boundFileSelect);
     this.removeEventListener('da-collab-users', this._boundCollabUsers);
     this.removeEventListener('da-toolbar-ready', this._onDocToolbarReady);
+    window.removeEventListener(DA_BULK_AEM_OPEN, this._boundWindowBulkAemOpen);
     super.disconnectedCallback();
   }
 
@@ -808,6 +820,7 @@ class Space extends LitElement {
           ` : this._renderInnerSplit(iframeSrc)}
         </div>
       </div>
+      <da-bulk-aem-modal></da-bulk-aem-modal>
     `;
   }
 }

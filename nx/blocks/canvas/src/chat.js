@@ -8,6 +8,7 @@ import { renderMessageContent } from './chat-renderers.js';
 import { initIms, daFetch } from '../../../utils/daFetch.js';
 import { DA_ORIGIN } from '../../../public/utils/constants.js';
 import { loadSkills, saveSkill, deleteSkill } from '../../skills-editor/utils/utils.js';
+import { DA_BULK_AEM_OPEN, DA_BULK_AEM_SETTLED } from './bulk-aem-modal.js';
 
 const style = await getStyle(import.meta.url);
 const imsInitial = await initIms();
@@ -105,6 +106,28 @@ function getAgentOrigin() {
   return isLocal ? 'http://localhost:5173' : 'https://da-agent.adobeaem.workers.dev';
 }
 
+/** @param {unknown[]} pages @param {string} org @param {string} site */
+/** Maps agent tool name → bulk modal mode. */
+const BULK_AEM_TOOL_MODES = {
+  da_bulk_preview: 'preview',
+  da_bulk_publish: 'publish',
+  da_bulk_delete: 'delete',
+};
+
+function normalizeBulkPreviewPaths(pages, org, site) {
+  const o = String(org ?? '').trim();
+  const s = String(site ?? '').trim();
+  return (Array.isArray(pages) ? pages : [])
+    .map((p) => String(p).replace(/^\/+/, '').trim())
+    .filter(Boolean)
+    .map((t) => {
+      const parts = t.split('/').filter(Boolean);
+      if (parts.length >= 2 && parts[0] === o && parts[1] === s) return t;
+      if (o && s) return `${o}/${s}/${t}`;
+      return t;
+    });
+}
+
 /**
  * Chat panel component with real AI agent connection.
  * Self-contained: reads org/repo/path from the URL hash; IMS token via initIms (nx).
@@ -121,6 +144,7 @@ class Chat extends LitElement {
     _inputValue: { state: true },
     _isThinking: { state: true },
     _isAwaitingApproval: { state: true },
+    _isAwaitingClientTool: { state: true },
     _statusText: { state: true },
     _skillsLibraryTab: { state: true },
     _openToolCards: { state: true },
@@ -153,6 +177,7 @@ class Chat extends LitElement {
     this._inputValue = '';
     this._isThinking = false;
     this._isAwaitingApproval = false;
+    this._isAwaitingClientTool = false;
     this._statusText = '';
     this._toolCards = new Map();
     this._streamingText = '';
@@ -180,11 +205,31 @@ class Chat extends LitElement {
     this._slashFilter = '';
     this._slashSelectedIndex = 0;
     this._chatController = null;
+    /** @type {{ toolCallId: string, toolName: string } | null} */
+    this._bulkPreviewSession = null;
   }
+
+  _boundBulkAemSettled = (e) => {
+    if (!this._bulkPreviewSession || !this._chatController) return;
+    const { toolCallId, toolName } = this._bulkPreviewSession;
+    const d = e.detail ?? {};
+    if (d.kind !== 'completed' && d.kind !== 'cancelled') return;
+    this._bulkPreviewSession = null;
+    const output = {
+      cancelled: !!d.cancelled || d.kind === 'cancelled',
+      okCount: d.okCount,
+      failCount: d.failCount,
+      results: d.results,
+      message: d.message,
+      kind: d.kind,
+    };
+    this._chatController.submitClientToolResult({ toolCallId, toolName, output });
+  };
 
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
+    window.addEventListener(DA_BULK_AEM_SETTLED, this._boundBulkAemSettled);
     this._ensureController();
     this._chatController?.connect();
     if (!this._mcpServers && !this._mcpLoading) this._fetchMcpServers();
@@ -193,6 +238,7 @@ class Chat extends LitElement {
   }
 
   disconnectedCallback() {
+    window.removeEventListener(DA_BULK_AEM_SETTLED, this._boundBulkAemSettled);
     this._chatController?.disconnect();
     this._stopMcpPoll();
     super.disconnectedCallback();
@@ -219,7 +265,19 @@ class Chat extends LitElement {
         this._streamingText = this._chatController.streamingText;
         this._isThinking = this._chatController.isThinking;
         this._isAwaitingApproval = this._chatController.isAwaitingApproval;
+        this._isAwaitingClientTool = this._chatController.isAwaitingClientTool;
         this._scrollMessagesToBottom();
+      },
+      onClientToolRequest: ({ toolCallId, toolName, input }) => {
+        const mode = BULK_AEM_TOOL_MODES[toolName];
+        if (!mode) return;
+        const ctx = getContextFromHash();
+        const pages = Array.isArray(input?.pages) ? input.pages : [];
+        const files = normalizeBulkPreviewPaths(pages, ctx.org, ctx.site);
+        this._bulkPreviewSession = { toolCallId, toolName };
+        window.dispatchEvent(new CustomEvent(DA_BULK_AEM_OPEN, {
+          detail: { files, mode },
+        }));
       },
       onStatusChange: (statusText) => {
         this._statusText = statusText || '';
@@ -296,7 +354,8 @@ class Chat extends LitElement {
 
   _sendMessage() {
     const content = this._inputValue.trim();
-    if (!content || this._isThinking || this._isAwaitingApproval || !this._chatController) return;
+    if (!content || this._isThinking || this._isAwaitingApproval || this._isAwaitingClientTool
+        || !this._chatController) return;
     const contextSnapshot = [...(this.onPageContextItems ?? [])];
     this._inputValue = '';
     if (this._pendingSkillIds?.length > 0) {
@@ -310,6 +369,7 @@ class Chat extends LitElement {
   }
 
   _stopRequest() {
+    this._bulkPreviewSession = null;
     this._chatController?.stop();
   }
 
@@ -323,7 +383,8 @@ class Chat extends LitElement {
   }
 
   _sendPrompt(prompt) {
-    if (!prompt || this._isThinking || this._isAwaitingApproval || !this._connected) return;
+    if (!prompt || this._isThinking || this._isAwaitingApproval || this._isAwaitingClientTool
+        || !this._connected) return;
     const contextSnapshot = [...(this.onPageContextItems ?? [])];
     this._chatController?.sendMessage(prompt, contextSnapshot);
     this.dispatchEvent(new CustomEvent('da-chat-message-sent', { bubbles: true }));
@@ -1316,7 +1377,8 @@ class Chat extends LitElement {
             label="Message"
             placeholder="Send a message... (type / for tools)"
             .value=${this._inputValue}
-            ?disabled=${this._isThinking || this._isAwaitingApproval || !this._connected}
+            ?disabled=${this._isThinking || this._isAwaitingApproval || this._isAwaitingClientTool
+              || !this._connected}
             @input=${this._handleInput}
             @keydown=${this._handleKeyDown}
           ></sp-textfield>
@@ -1325,7 +1387,8 @@ class Chat extends LitElement {
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><rect x="1" y="1" width="12" height="12" rx="2" fill="currentColor"/></svg>
             </button>`
     : html`<button type="button" class="chat-btn-send" title="Send message" aria-label="Send message"
-                ?disabled=${!this._inputValue.trim() || !this._connected || this._isAwaitingApproval}
+                ?disabled=${!this._inputValue.trim() || !this._connected || this._isAwaitingApproval
+                  || this._isAwaitingClientTool}
                 @click=${this._sendMessage}>
               <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M3.11 1.05a1 1 0 0 1 1.04-.13l14 7a1 1 0 0 1 0 1.79l-14 7A1 1 0 0 1 2.72 15.6L5.37 10 2.72 4.4a1 1 0 0 1 .39-1.35ZM6.63 10.75l-2.12 4.47L16.38 10 4.51 4.78l2.12 4.47h4.62a.75.75 0 0 1 0 1.5H6.63Z" fill="currentColor"/></svg>
             </button>`}
