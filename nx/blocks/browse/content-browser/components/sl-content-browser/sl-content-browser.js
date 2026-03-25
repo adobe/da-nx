@@ -327,6 +327,44 @@ class SlContentBrowser extends LitElement {
   }
 
   /**
+   * Fetches AEM preview/publish status for search hits (see `sl-browse-folder` for folder list).
+   * @param {object[]} items
+   * @param {string} fullpath
+   * @param {number} crawlGen
+   */
+  _scheduleSearchAemEnrich(items, fullpath, crawlGen) {
+    const enrich = this.aemEnrichListItems;
+    if (!enrich || !fullpath || items.length === 0) return;
+    Promise.resolve(enrich(items, fullpath))
+      .then((enriched) => {
+        if (crawlGen !== this._searchCrawlGen) return;
+        if ((this._searchQuery || '').trim() === '') return;
+        if (!Array.isArray(enriched)) return;
+        this._searchCrawlItems = enriched;
+        this.requestUpdate();
+      })
+      .catch((err) => {
+        // eslint-disable-next-line no-console
+        console.error('[sl-content-browser] search aemEnrichListItems failed', err);
+      });
+  }
+
+  /**
+   * @param {number} crawlGen
+   */
+  _onSearchCrawlSettled(crawlGen) {
+    if (crawlGen !== this._searchCrawlGen) return;
+    this._searchCrawlLoading = false;
+    this._cancelSearchCrawl = null;
+    const items = this._searchCrawlItems;
+    const fullpath = this._effectivePath?.fullpath;
+    if (fullpath && items.length > 0) {
+      this._scheduleSearchAemEnrich([...items], fullpath, crawlGen);
+    }
+    this.requestUpdate();
+  }
+
+  /**
    * Subtree file search using {@link crawl} (DA SDK recipe: stream list under a path).
    * @see https://docs.da.live/developers/reference/sdk-recipes#stream-list-of-pages-under-a-path
    */
@@ -372,18 +410,8 @@ class SlContentBrowser extends LitElement {
     this._cancelSearchCrawl = cancelCrawl;
 
     results
-      .then(() => {
-        if (gen !== this._searchCrawlGen) return;
-        this._searchCrawlLoading = false;
-        this._cancelSearchCrawl = null;
-        this.requestUpdate();
-      })
-      .catch(() => {
-        if (gen !== this._searchCrawlGen) return;
-        this._searchCrawlLoading = false;
-        this._cancelSearchCrawl = null;
-        this.requestUpdate();
-      });
+      .then(() => this._onSearchCrawlSettled(gen))
+      .catch(() => this._onSearchCrawlSettled(gen));
   }
 
   _closeRenameDialogIfOpen() {
