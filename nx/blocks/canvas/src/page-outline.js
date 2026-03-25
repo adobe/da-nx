@@ -7,6 +7,7 @@
 import getStyle from 'https://da.live/nx/utils/styles.js';
 // eslint-disable-next-line import/no-unresolved
 import { LitElement, html } from 'da-lit';
+import { openBlockPicker } from './block-picker-dialog.js';
 
 const style = await getStyle(import.meta.url);
 
@@ -183,6 +184,16 @@ export default class PageOutline extends LitElement {
     }));
   }
 
+  async _onAddBlockToSection(sectionIndex) {
+    const item = await openBlockPicker();
+    if (!item) return;
+    this.dispatchEvent(new CustomEvent('da-outline-add-block', {
+      bubbles: true,
+      composed: true,
+      detail: { sectionIndex, parsedNode: item.parsed, blockName: item.name },
+    }));
+  }
+
   render() {
     if (!this.org || !this.repo) {
       return html`
@@ -230,7 +241,16 @@ export default class PageOutline extends LitElement {
 <ul class="page-outline-list" role="tree" aria-label="Page outline">
   ${sections.map((sec) => html`
 <li class="page-outline-section" role="treeitem" aria-expanded="true">
-  <span class="page-outline-section-label">Section ${sec.sectionIndex + 1}</span>
+  <div class="page-outline-section-header">
+    <span class="page-outline-section-label">Section ${sec.sectionIndex + 1}</span>
+    <button
+      type="button"
+      class="page-outline-section-add-btn"
+      title="Insert block into section ${sec.sectionIndex + 1}"
+      aria-label="Insert block into section ${sec.sectionIndex + 1}"
+      @click="${() => this._onAddBlockToSection(sec.sectionIndex)}"
+    ></button>
+  </div>
   <ul class="page-outline-block-list" role="group">
     ${sec.blocks.length === 0 ? html`
 <li class="page-outline-block page-outline-block-empty" role="treeitem">

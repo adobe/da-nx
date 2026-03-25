@@ -576,8 +576,20 @@
   background-image: url("https://da.live/blocks/edit/img/Smock_Image_18_N.svg");
 }
 
+.da-tb-block {
+  background-image: url("https://da.live/blocks/edit/img/S2_Icon_TableAdd_20_N.svg");
+}
+
 .da-tb-hr {
   background-image: url("https://da.live/blocks/edit/img/S2_Icon_Separator_20_N.svg");
+}
+
+.da-tb-undo {
+  background-image: url("https://da.live/blocks/edit/img/S2_Icon_Undo_20_N.svg");
+}
+
+.da-tb-redo {
+  background-image: url("https://da.live/blocks/edit/img/S2_Icon_Redo_20_N.svg");
 }
 
 /* stylelint-enable selector-class-pattern */
