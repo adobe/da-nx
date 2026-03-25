@@ -1018,6 +1018,11 @@
   color: #880e4f;
 }
 
+.mcp-category-pill.configured {
+  background: #e0f2f1;
+  color: #00695c;
+}
+
 .mcp-category-count {
   font-size: 10px;
   background: rgb(0 0 0 / 10%);
