@@ -7,7 +7,6 @@ import { LitElement, html } from 'da-lit';
 // eslint-disable-next-line import/no-unresolved
 import { getNx } from 'https://da.live/scripts/utils.js';
 import { initIms, daFetch } from '../../utils/daFetch.js';
-import { DA_ORIGIN } from '../../public/utils/constants.js';
 // eslint-disable-next-line import/no-unresolved
 import '../canvas/src/chat.js';
 import './content-browser/index.js';
@@ -109,10 +108,70 @@ class BrowseView extends LitElement {
 
 customElements.define('da-browse-view', BrowseView);
 
+/**
+ * Nearest ancestor that can scroll vertically (e.g. `<main>`), or null.
+ * @param {Element | null} el
+ * @returns {Element | null}
+ */
+function nearestVerticalScrollAncestor(el) {
+  let p = el?.parentElement ?? null;
+  while (p) {
+    const oy = getComputedStyle(p).overflowY;
+    if (oy === 'auto' || oy === 'scroll') return p;
+    p = p.parentElement;
+  }
+  return null;
+}
+
+/**
+ * Size the browse block to the viewport space below its top edge so `<main>` does not need to
+ * scroll for `100vh` + header/siblings. Updates on resize, visualViewport, and scroll of the
+ * nearest scrollable ancestor.
+ * @param {HTMLElement} block
+ */
+function bindBrowseBlockViewportFit(block) {
+  const sync = () => {
+    const vp = window.visualViewport;
+    const vpH = vp?.height ?? window.innerHeight;
+    const top = Math.max(0, Math.round(block.getBoundingClientRect().top));
+    const h = Math.max(240, vpH - top);
+    block.style.height = `${h}px`;
+    block.style.minHeight = '0';
+    block.style.maxHeight = `${h}px`;
+    block.style.overflow = 'hidden';
+  };
+
+  sync();
+  window.addEventListener('resize', sync, { passive: true });
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', sync, { passive: true });
+    window.visualViewport.addEventListener('scroll', sync, { passive: true });
+  }
+  const scrollRoot = nearestVerticalScrollAncestor(block);
+  scrollRoot?.addEventListener('scroll', sync, { passive: true });
+}
+
 export default function decorate(block) {
   block.innerHTML = `
     <sp-theme system="spectrum-two" scale="medium" color="light">
       <da-browse-view></da-browse-view>
     </sp-theme>
   `;
+  block.style.display = 'flex';
+  block.style.flexDirection = 'column';
+  block.style.minHeight = '0';
+
+  const theme = block.querySelector('sp-theme');
+  if (theme) {
+    theme.style.display = 'flex';
+    theme.style.flexDirection = 'column';
+    theme.style.flex = '1';
+    theme.style.minHeight = '0';
+    theme.style.height = '100%';
+    theme.style.overflow = 'hidden';
+  }
+
+  requestAnimationFrame(() => {
+    bindBrowseBlockViewportFit(block);
+  });
 }

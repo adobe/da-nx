@@ -1,13 +1,19 @@
 :host {
   display: block;
+  box-sizing: border-box;
+
+  /* Fills the decorated block; block height is set from remaining viewport (see browse.js decorate). */
   height: 100%;
+  max-height: 100%;
   min-height: 0;
+  overflow: hidden;
 }
 
 .browse-view {
   display: flex;
   flex-direction: column;
   height: 100%;
+  min-height: 0;
   min-width: 0;
   overflow: hidden;
 }
@@ -16,12 +22,17 @@
   display: flex;
   flex: 1;
   min-height: 0;
+  min-width: 0;
   overflow: hidden;
 }
 
 .browse-view .split-view-outer {
-  height: 100%;
+  display: flex;
+  flex: 1;
+  min-height: 0;
   min-width: 0;
+  width: 100%;
+  height: 100%;
 }
 
 .browse-view .browse-view-body > .split-view-outer {
@@ -30,12 +41,21 @@
   width: 100%;
 }
 
+.browse-view .browse-view-split {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  width: 100%;
+  height: 100%;
+}
+
 .browse-view .browse-view-chat-panel {
   display: block;
-  height: 100vh;
-  min-height: 100vh;
+  height: 100%;
+  min-height: 0;
   min-width: 0;
   overflow: hidden;
+  align-self: stretch;
 }
 
 .browse-view .browse-view-main {
@@ -43,7 +63,16 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
+  height: 100%;
   overflow: hidden;
+}
+
+/* Chat closed: main pane is the only child of the body */
+.browse-view .browse-view-body > .browse-view-main {
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
 }
 
 .browse-view .browse-view-toolbar {
