@@ -18,6 +18,8 @@ import {
   enrichListItemsWithAemStatus,
   saveToAem as postSaveToAem,
 } from './content-browser/api/da-browse-api.js';
+import { DA_BULK_AEM_OPEN } from '../canvas/src/bulk-aem-modal.js';
+import { SL_CONTENT_BROWSER_CHAT_CONTEXT } from './content-browser/lib/content-browser-actions.js';
 
 const style = await getStyle(import.meta.url);
 const nxBase = getNx();
@@ -40,16 +42,63 @@ const saveToAem = (path, action) => postSaveToAem(path, action, { getIms: initIm
 class BrowseView extends LitElement {
   static properties = {
     _chatOpen: { state: true },
+    _chatContextItems: { state: true },
   };
 
   constructor() {
     super();
     this._chatOpen = true;
+    this._chatContextItems = [];
+    this._boundWindowBulkAemOpen = (e) => this._onBulkAemOpen(e);
+    this._boundBrowseSelectionChatContext = (e) => this._onBrowseSelectionChatContext(e);
+    this._boundChatContextRemove = (e) => this._onChatContextRemove(e);
+    this._onChatMessageSent = this._onChatMessageSent.bind(this);
   }
 
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
+    window.addEventListener(DA_BULK_AEM_OPEN, this._boundWindowBulkAemOpen);
+    this.addEventListener(SL_CONTENT_BROWSER_CHAT_CONTEXT, this._boundBrowseSelectionChatContext);
+    this.addEventListener('chat-context-remove', this._boundChatContextRemove);
+  }
+
+  disconnectedCallback() {
+    window.removeEventListener(DA_BULK_AEM_OPEN, this._boundWindowBulkAemOpen);
+    this.removeEventListener(
+      SL_CONTENT_BROWSER_CHAT_CONTEXT,
+      this._boundBrowseSelectionChatContext,
+    );
+    this.removeEventListener('chat-context-remove', this._boundChatContextRemove);
+    super.disconnectedCallback();
+  }
+
+  _onBrowseSelectionChatContext(e) {
+    const items = e.detail?.items;
+    this._chatContextItems = Array.isArray(items) ? [...items] : [];
+  }
+
+  _onChatContextRemove(e) {
+    const { index } = e.detail ?? {};
+    if (typeof index !== 'number' || index < 0) return;
+    const pathKey = this._chatContextItems[index]?.pathKey;
+    if (!pathKey) return;
+    this.shadowRoot?.querySelector('sl-content-browser')?.removeSelectionPathKey?.(pathKey);
+  }
+
+  /** Match canvas `da-space`: clear pending context after send; resync from table selection. */
+  _onChatMessageSent() {
+    this._chatContextItems = [];
+    queueMicrotask(() => {
+      this.shadowRoot?.querySelector('sl-content-browser')?.resyncChatContextAfterMessage?.();
+    });
+  }
+
+  _onBulkAemOpen(e) {
+    const { files, mode } = e.detail ?? {};
+    const modal = this.shadowRoot?.querySelector('da-bulk-aem-modal');
+    if (!modal || typeof modal.show !== 'function') return;
+    modal.show(files, mode);
   }
 
   _renderMainPane() {
@@ -95,13 +144,19 @@ class BrowseView extends LitElement {
                   secondary-min="400"
                   label="Resize chat panel"
                 >
-                  <da-chat class="browse-view-chat-panel"></da-chat>
+                  <da-chat
+                    class="browse-view-chat-panel"
+                    context-view="browse"
+                    .onPageContextItems="${this._chatContextItems ?? []}"
+                    @da-chat-message-sent="${this._onChatMessageSent}"
+                  ></da-chat>
                   ${this._renderMainPane()}
                 </sp-split-view>
               `
         : this._renderMainPane()}
         </div>
       </div>
+      <da-bulk-aem-modal></da-bulk-aem-modal>
     `;
   }
 }

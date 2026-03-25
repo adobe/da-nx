@@ -1,9 +1,11 @@
 /**
  * DA admin list and AEM preview/publish helpers for the content browser.
- * Pure functions and factories — no DOM or global location reads.
+ * DA admin base URL matches canvas file-browser: `DA_ORIGIN` from shared constants
+ * (env from `da-admin` query/localStorage and da.page vs da.live).
  */
 
-const DEFAULT_DA_ORIGIN = 'https://admin.da.live';
+import { DA_ORIGIN } from '../../../../public/utils/constants.js';
+
 const DEFAULT_AEM_ORIGIN = 'https://admin.hlx.page';
 
 /**
@@ -29,7 +31,7 @@ export function parseHashToPathContext(locationHash) {
  *   object[] | { items: object[], permissions?: string[] }>}
  *   Default factory returns `{ items, permissions }` (see `sl-browse-folder`).
  */
-export function createListFetcher({ daFetch, daOrigin = DEFAULT_DA_ORIGIN }) {
+export function createListFetcher({ daFetch, daOrigin = DA_ORIGIN }) {
   /**
    * Fetches the JSON list payload for one folder path.
    * @param {string} fullpath - Absolute folder path (e.g. `/org/site/subfolder`).
@@ -54,7 +56,7 @@ export function createListFetcher({ daFetch, daOrigin = DEFAULT_DA_ORIGIN }) {
  * @returns {(daPath: string, formData?: FormData) => Promise<
  *   { ok: boolean, error?: string, status?: number }>}
  */
-export function createSaveToSource({ daFetch, daOrigin = DEFAULT_DA_ORIGIN }) {
+export function createSaveToSource({ daFetch, daOrigin = DA_ORIGIN }) {
   return async function saveToSource(daPath, formData) {
     const normalized = daPath.startsWith('/') ? daPath : `/${daPath}`;
     /** @type {RequestInit} */
@@ -78,7 +80,7 @@ export function createSaveToSource({ daFetch, daOrigin = DEFAULT_DA_ORIGIN }) {
  * @param {string} [options.daOrigin]
  * @returns {(fullpath: string) => Promise<{ ok: boolean, status?: number, error?: string }>}
  */
-export function createDeleteItem({ daFetch, daOrigin = DEFAULT_DA_ORIGIN }) {
+export function createDeleteItem({ daFetch, daOrigin = DA_ORIGIN }) {
   /**
    * Deletes the item at the given DA path.
    * @param {string} fullpath - Absolute path to the file or folder.
@@ -106,7 +108,7 @@ export function createDeleteItem({ daFetch, daOrigin = DEFAULT_DA_ORIGIN }) {
  * @param {string} [options.daOrigin]
  * @returns Rename function; resolves to `{ ok, status?, error? }`.
  */
-export function createRenameItem({ daFetch, daOrigin = DEFAULT_DA_ORIGIN }) {
+export function createRenameItem({ daFetch, daOrigin = DA_ORIGIN }) {
   /**
    * Moves `sourceDaPath` to `destinationDaPath` (multipart `destination` field).
    * @param {string} sourceDaPath - Current DA path (leading `/` stripped for the move URL).
@@ -289,4 +291,4 @@ export async function saveToAem(path, action, { getIms, aemOrigin = DEFAULT_AEM_
   return response.json();
 }
 
-export { DEFAULT_DA_ORIGIN, DEFAULT_AEM_ORIGIN };
+export { DA_ORIGIN as DEFAULT_DA_ORIGIN, DEFAULT_AEM_ORIGIN };

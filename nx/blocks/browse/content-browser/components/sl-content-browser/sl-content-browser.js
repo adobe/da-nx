@@ -4,9 +4,12 @@ import getStyle from 'https://da.live/nx/utils/styles.js';
 import { LitElement, html, createRef, ref } from 'da-lit';
 import { parseHashToPathContext } from '../../api/da-browse-api.js';
 import {
+  SL_CONTENT_BROWSER_CHAT_CONTEXT,
+  buildBrowseChatContextItems,
   buildCanvasEditHref,
   buildDeleteDialogContent,
   createBrowseActions,
+  dispatchBulkAemOpen,
   getAemPathsForSelection,
   resolveCanvasEditPathKey,
   resolveDeleteTargets,
@@ -55,6 +58,7 @@ const FORMAT_FILTER_VALUES = new Set(FORMAT_FILTER_OPTIONS.map((o) => o.value));
  * Search-first folder browser: composes header, `sl-browse-folder` sync, table, dialogs.
  *
  * @fires sl-content-browser-navigate - detail: { pathKey: string }
+ * @fires sl-content-browser-chat-context - detail: { items: object[] } for `da-chat` context pills
  * @customElement sl-content-browser
  */
 class SlContentBrowser extends LitElement {
@@ -277,6 +281,7 @@ class SlContentBrowser extends LitElement {
     this._closeRenameDialogIfOpen();
     this._closeDeleteDialogIfOpen();
     this._selectedRows = [];
+    this._emitChatContextFromSelection();
   }
 
   /**
@@ -349,10 +354,51 @@ class SlContentBrowser extends LitElement {
 
   _onTableSelection(event) {
     this._selectedRows = event.detail?.selected ?? [];
+    this._emitChatContextFromSelection();
   }
 
   _onActionBarClose() {
     this._selectedRows = [];
+    this._emitChatContextFromSelection();
+  }
+
+  /**
+   * Maps the current file selection to `da-chat` footer pills (same contract as canvas
+   * `onPageContextItems`). Dispatches `sl-content-browser-chat-context` upward.
+   */
+  _emitChatContextFromSelection() {
+    const items = buildBrowseChatContextItems(
+      this._selectedRows,
+      this._rawItems,
+      this._currentPathKey,
+    );
+    this.dispatchEvent(
+      new CustomEvent(SL_CONTENT_BROWSER_CHAT_CONTEXT, {
+        bubbles: true,
+        composed: true,
+        detail: { items },
+      }),
+    );
+  }
+
+  /**
+   * Removes one row key from the table selection (e.g. user removed a chat context pill).
+   * @param {string} pathKey - Repo path key (`org/site/...`), with or without leading `/`.
+   */
+  removeSelectionPathKey(pathKey) {
+    const norm = String(pathKey || '').replace(/^\/+/, '').trim();
+    if (!norm) return;
+    this._selectedRows = this._selectedRows.filter(
+      (k) => String(k).replace(/^\/+/, '').trim() !== norm,
+    );
+    this._emitChatContextFromSelection();
+  }
+
+  /**
+   * Rebuilds browse → chat context from the current selection (after a message is sent).
+   */
+  resyncChatContextAfterMessage() {
+    this._emitChatContextFromSelection();
   }
 
   _emitBulkFileAction(eventName) {
@@ -440,7 +486,7 @@ class SlContentBrowser extends LitElement {
     `;
   }
 
-  async _onPreview(event) {
+  _onPreview(event) {
     if (!this.saveToAem) return;
     const paths = getAemPathsForSelection(event.detail?.pathKey, {
       selectedRows: this._selectedRows,
@@ -448,15 +494,10 @@ class SlContentBrowser extends LitElement {
       folderPathKey: this._currentPathKey,
     });
     if (paths.length === 0) return;
-    this._publishLoading = true;
-    try {
-      await this._browseActions.preview(paths);
-    } finally {
-      this._publishLoading = false;
-    }
+    dispatchBulkAemOpen(paths, 'preview');
   }
 
-  async _onPublish(event) {
+  _onPublish(event) {
     if (!this.saveToAem) return;
     const paths = getAemPathsForSelection(event.detail?.pathKey, {
       selectedRows: this._selectedRows,
@@ -464,12 +505,7 @@ class SlContentBrowser extends LitElement {
       folderPathKey: this._currentPathKey,
     });
     if (paths.length === 0) return;
-    this._publishLoading = true;
-    try {
-      await this._browseActions.publish(paths);
-    } finally {
-      this._publishLoading = false;
-    }
+    dispatchBulkAemOpen(paths, 'publish');
   }
 
   _onEdit(event) {
@@ -532,6 +568,7 @@ class SlContentBrowser extends LitElement {
       }
       this._resetRenameDialog();
       this._selectedRows = [];
+      this._emitChatContextFromSelection();
       await this._refreshFolder();
     } finally {
       this._renameLoading = false;
@@ -600,6 +637,7 @@ class SlContentBrowser extends LitElement {
       const result = await this._browseActions.batchDelete(daPaths);
       this._resetDeleteDialog();
       this._selectedRows = [];
+      this._emitChatContextFromSelection();
       await this._refreshFolder();
       if (result.ok) {
         const n = daPaths.length;

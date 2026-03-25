@@ -137,6 +137,11 @@ class Chat extends LitElement {
   static properties = {
     header: { type: String },
     onPageContextItems: { type: Array },
+    /**
+     * When set (e.g. `browse`), sent as `pageContext.view` to the agent. Canvas defaults to `edit`
+     * via hash context; the browse block should set `context-view="browse"`.
+     */
+    contextView: { type: String, attribute: 'context-view' },
     _connected: { state: true },
     _messages: { state: true },
     _toolCards: { state: true },
@@ -170,6 +175,7 @@ class Chat extends LitElement {
     super();
     this.header = 'Assistant';
     this.onPageContextItems = [];
+    this.contextView = '';
     this._connected = false;
     this._messages = [];
     this._inputValue = '';
@@ -242,12 +248,20 @@ class Chat extends LitElement {
     super.disconnectedCallback();
   }
 
+  /** @returns {{ org: string, site: string, path: string, view: string }} */
+  _pageContextForAgent() {
+    const ctx = getContextFromHash();
+    const v = (this.contextView && String(this.contextView).trim()) || '';
+    if (v) return { ...ctx, view: v };
+    return ctx;
+  }
+
   _ensureController() {
     if (this._chatController) return;
 
     // Use a unique room per user per project so each person gets their own
     // isolated Durable Object instance with separate conversation history.
-    const { org, site } = getContextFromHash();
+    const { org, site } = this._pageContextForAgent();
     const userId = getUserIdFromToken(token);
     const agentRoom = org && site && userId
       ? `${org}--${site}--${userId}`
@@ -255,7 +269,7 @@ class Chat extends LitElement {
 
     this._chatController = new ChatController({
       name: agentRoom,
-      getContext: getContextFromHash,
+      getContext: () => this._pageContextForAgent(),
       getImsToken: async () => (await initIms())?.accessToken?.token ?? null,
       onUpdate: () => {
         this._messages = [...this._chatController.messages];
@@ -269,7 +283,7 @@ class Chat extends LitElement {
       onClientToolRequest: ({ toolCallId, toolName, input }) => {
         const mode = BULK_AEM_TOOL_MODES[toolName];
         if (!mode) return;
-        const ctx = getContextFromHash();
+        const ctx = this._pageContextForAgent();
         const pages = Array.isArray(input?.pages) ? input.pages : [];
         const files = normalizeBulkPreviewPaths(pages, ctx.org, ctx.site);
         this._bulkPreviewSession = { toolCallId, toolName };
@@ -353,7 +367,7 @@ class Chat extends LitElement {
   _sendMessage() {
     const content = this._inputValue.trim();
     if (!content || this._isThinking || this._isAwaitingApproval || this._isAwaitingClientTool
-        || !this._chatController) return;
+      || !this._chatController) return;
     const contextSnapshot = [...(this.onPageContextItems ?? [])];
     this._inputValue = '';
     if (this._pendingSkillIds?.length > 0) {
@@ -383,7 +397,7 @@ class Chat extends LitElement {
 
   _sendPrompt(prompt) {
     if (!prompt || this._isThinking || this._isAwaitingApproval || this._isAwaitingClientTool
-        || !this._connected) return;
+      || !this._connected) return;
     const contextSnapshot = [...(this.onPageContextItems ?? [])];
     this._chatController?.sendMessage(prompt, contextSnapshot);
     this.dispatchEvent(new CustomEvent('da-chat-message-sent', { bubbles: true }));
@@ -1190,9 +1204,9 @@ class Chat extends LitElement {
     return html`
       <div class="slash-menu" role="listbox" aria-label="Available tools">
         ${items.map((item, i) => {
-    const showGroup = item.group !== currentGroup;
-    if (showGroup) currentGroup = item.group;
-    return html`
+      const showGroup = item.group !== currentGroup;
+      if (showGroup) currentGroup = item.group;
+      return html`
             ${showGroup ? html`<div class="slash-menu-group">${item.group}</div>` : ''}
             <div class="slash-menu-item ${i === this._slashSelectedIndex ? 'selected' : ''}"
               role="option"
@@ -1202,7 +1216,7 @@ class Chat extends LitElement {
               <span class="slash-menu-item-id">/${item.label}</span>
               <span class="slash-menu-item-desc">${item.description}</span>
             </div>`;
-  })}
+    })}
       </div>`;
   }
 
@@ -1220,8 +1234,8 @@ class Chat extends LitElement {
       <div class="chat">
         <div class="chat-header">
           <span class="chat-header-title">${this._activeAgentId
-    ? html`${this.header} <span class="agent-badge" title="Agent: ${this._activeAgentId}">${this._agents?.[this._activeAgentId]?.name ?? BUILTIN_AGENTS.find((a) => a.id === this._activeAgentId)?.name ?? this._activeAgentId}</span>`
-    : this.header}</span>
+        ? html`${this.header} <span class="agent-badge" title="Agent: ${this._activeAgentId}">${this._agents?.[this._activeAgentId]?.name ?? BUILTIN_AGENTS.find((a) => a.id === this._activeAgentId)?.name ?? this._activeAgentId}</span>`
+        : this.header}</span>
           <div class="chat-header-actions">
             <span class="status-pill ${this._connected ? 'connected' : 'disconnected'}">
               ${this._connected ? 'Connected' : 'Disconnected'}
@@ -1238,41 +1252,41 @@ class Chat extends LitElement {
         <div class="chat-messages" role="log" aria-live="polite">
           ${this._messages.length === 0 && !this._streamingText ? this._renderWelcome() : ''}
           ${this._messages.map((message) => {
-    // Skip protocol-only tool messages (tool-result, tool-approval-response).
-    if (message.role === 'tool') return '';
+          // Skip protocol-only tool messages (tool-result, tool-approval-response).
+          if (message.role === 'tool') return '';
 
-    // User message — plain string; optional selectionContext from add-to-chat.
-    if (message.role === 'user') {
-      const text = typeof message.content === 'string' ? message.content : String(message.content ?? '');
-      const attached = message.selectionContext;
-      return html`
+          // User message — plain string; optional selectionContext from add-to-chat.
+          if (message.role === 'user') {
+            const text = typeof message.content === 'string' ? message.content : String(message.content ?? '');
+            const attached = message.selectionContext;
+            return html`
               <div class="message-row user">
                 <div class="message-user-column">
                   ${this._renderAttachedContextPills(attached)}
                   <div class="message-bubble">${text}</div>
                 </div>
               </div>`;
-    }
+          }
 
-    // Assistant message: either a plain string (text) or an array (tool calls).
-    if (typeof message.content === 'string' && message.content) {
-      const isSkillSuggestion = message.content.includes('[SKILL_SUGGESTION]');
-      const displayContent = isSkillSuggestion
-        ? message.content.replace(/\*?\*?\[SKILL_SUGGESTION\]\*?\*?\s*/g, '')
-        : message.content;
-      const rendered = renderMessageContent(displayContent);
-      return html`
+          // Assistant message: either a plain string (text) or an array (tool calls).
+          if (typeof message.content === 'string' && message.content) {
+            const isSkillSuggestion = message.content.includes('[SKILL_SUGGESTION]');
+            const displayContent = isSkillSuggestion
+              ? message.content.replace(/\*?\*?\[SKILL_SUGGESTION\]\*?\*?\s*/g, '')
+              : message.content;
+            const rendered = renderMessageContent(displayContent);
+            return html`
               <div class="message-row assistant">
                 <div class="message-bubble ${isSkillSuggestion ? 'skill-suggestion' : ''}">${isSkillSuggestion ? html`<span class="skill-suggestion-badge">Skill Suggestion</span>` : nothing}${rendered}</div>
               </div>`;
-    }
-    if (Array.isArray(message.content)) {
-      return html`${message.content
-        .filter((p) => p.type === 'tool-call')
-        .map((p) => this._renderToolCard(p.toolCallId))}`;
-    }
-    return '';
-  })}
+          }
+          if (Array.isArray(message.content)) {
+            return html`${message.content
+              .filter((p) => p.type === 'tool-call')
+              .map((p) => this._renderToolCard(p.toolCallId))}`;
+          }
+          return '';
+        })}
           ${this._streamingText ? html`
             <div class="message-row assistant">
               <div class="message-bubble ${this._streamingText.includes('[SKILL_SUGGESTION]') ? 'skill-suggestion' : ''}">${this._streamingText.includes('[SKILL_SUGGESTION]') ? html`<span class="skill-suggestion-badge">Skill Suggestion</span>` : nothing}${renderMessageContent(this._streamingText.replace(/\*?\*?\[SKILL_SUGGESTION\]\*?\*?\s*/g, ''))}</div>
@@ -1299,17 +1313,17 @@ class Chat extends LitElement {
             placeholder="Send a message... (type / for tools)"
             .value=${this._inputValue}
             ?disabled=${this._isThinking || this._isAwaitingApproval || this._isAwaitingClientTool
-              || !this._connected}
+      || !this._connected}
             @input=${this._handleInput}
             @keydown=${this._handleKeyDown}
           ></sp-textfield>
           ${this._isThinking
-    ? html`<button type="button" class="chat-btn-stop" title="Stop generating" aria-label="Stop generating" @click=${this._stopRequest}>
+        ? html`<button type="button" class="chat-btn-stop" title="Stop generating" aria-label="Stop generating" @click=${this._stopRequest}>
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><rect x="1" y="1" width="12" height="12" rx="2" fill="currentColor"/></svg>
             </button>`
-    : html`<button type="button" class="chat-btn-send" title="Send message" aria-label="Send message"
+        : html`<button type="button" class="chat-btn-send" title="Send message" aria-label="Send message"
                 ?disabled=${!this._inputValue.trim() || !this._connected || this._isAwaitingApproval
-                  || this._isAwaitingClientTool}
+          || this._isAwaitingClientTool}
                 @click=${this._sendMessage}>
               <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M3.11 1.05a1 1 0 0 1 1.04-.13l14 7a1 1 0 0 1 0 1.79l-14 7A1 1 0 0 1 2.72 15.6L5.37 10 2.72 4.4a1 1 0 0 1 .39-1.35ZM6.63 10.75l-2.12 4.47L16.38 10 4.51 4.78l2.12 4.47h4.62a.75.75 0 0 1 0 1.5H6.63Z" fill="currentColor"/></svg>
             </button>`}
