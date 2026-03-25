@@ -17,6 +17,7 @@ import {
   getEditor,
   getInstrumentedHTML,
   getBlockPositions,
+  getActiveBlockFlatIndex,
   moveBlockAt,
   createControllerOnMessage,
 } from './quick-edit-controller.js';
@@ -70,6 +71,7 @@ export default class DaInlineEditor extends LitElement {
     quickEditPort: { type: Object },
     onEditorHtmlChange: { type: Function },
     onBlockPositions: { type: Function },
+    onActiveBlockChange: { type: Function },
     pendingMove: { type: Object },
     onMoveBlockDone: { type: Function },
     _proseEl: { state: true },
@@ -85,6 +87,7 @@ export default class DaInlineEditor extends LitElement {
     this.repo = '';
     this.path = '';
     this.quickEditPort = null;
+    this.onActiveBlockChange = null;
     this._proseEl = null;
     this._wsProvider = null;
     this._view = null;
@@ -147,6 +150,9 @@ export default class DaInlineEditor extends LitElement {
           composed: true,
           detail: { payload },
         }));
+      },
+      onActiveBlockChange: (index) => {
+        this.onActiveBlockChange?.(index);
       },
     };
 
@@ -275,6 +281,9 @@ export default class DaInlineEditor extends LitElement {
       const getEditorCb = (data) => {
         if (this._controllerCtx) getEditor(data, this._controllerCtx);
       };
+      const onSelectionChangeCb = (view) => {
+        this.onActiveBlockChange?.(getActiveBlockFlatIndex(view));
+      };
 
       const onToolbar = (toolbar) => {
         this.dispatchEvent(new CustomEvent('da-toolbar-ready', {
@@ -292,6 +301,7 @@ export default class DaInlineEditor extends LitElement {
         rerenderPage,
         updateCursors: updateCursorsCb,
         getEditor: getEditorCb,
+        onSelectionChange: onSelectionChangeCb,
         withToolbar: true,
         onToolbar,
       });

@@ -78,6 +78,7 @@ class Space extends LitElement {
     _wysiwygCookieReady: { state: true },
     _outlineHtml: { state: true },
     _blockPositions: { state: true },
+    _activeBlockIndex: { state: true },
     _pendingMove: { state: true },
     _chatContextItems: { state: true },
     _docToolbar: { state: true },
@@ -90,6 +91,7 @@ class Space extends LitElement {
     this._orgRepo = null;
     this._outlineHtml = '';
     this._blockPositions = [];
+    this._activeBlockIndex = -1;
     this._pendingMove = null;
     this._chatContextItems = [];
     this._sidebarTab = 'files';
@@ -121,6 +123,7 @@ class Space extends LitElement {
     this._selectedPath = pathSegments.length > 2 ? path : '';
     this._outlineHtml = '';
     this._blockPositions = [];
+    this._activeBlockIndex = -1;
   };
 
   _boundFileSelect = (e) => {
@@ -128,6 +131,7 @@ class Space extends LitElement {
     this._selectedPath = typeof path === 'string' ? path.replace(/^\//, '') : '';
     this._outlineHtml = '';
     this._blockPositions = [];
+    this._activeBlockIndex = -1;
   };
 
   _onEditorHtmlChange = (body) => {
@@ -136,6 +140,10 @@ class Space extends LitElement {
 
   _onBlockPositions = (positions) => {
     this._blockPositions = Array.isArray(positions) ? positions : [];
+  };
+
+  _onActiveBlockChange = (index) => {
+    this._activeBlockIndex = typeof index === 'number' ? index : -1;
   };
 
   _onOutlineMoveBlock = (e) => {
@@ -444,6 +452,7 @@ class Space extends LitElement {
             .quickEditPort="${this._quickEditPort ?? null}"
             .onEditorHtmlChange="${this._onEditorHtmlChange}"
             .onBlockPositions="${this._onBlockPositions}"
+            .onActiveBlockChange="${this._onActiveBlockChange}"
             .pendingMove="${this._pendingMove}"
             .onMoveBlockDone="${this._onMoveBlockDone}"
           ></da-inline-editor>
@@ -685,6 +694,7 @@ class Space extends LitElement {
               .repo="${this._orgRepo?.repo ?? ''}"
               .plainHtml="${this._outlineHtml ?? ''}"
               .blockPositions="${this._blockPositions}"
+              .activeBlockIndex="${this._activeBlockIndex}"
               @da-outline-move-block="${this._onOutlineMoveBlock}"
             ></da-page-outline>
           </div>
