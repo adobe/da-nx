@@ -5,6 +5,7 @@ import { LitElement, html, nothing } from 'da-lit';
 // eslint-disable-next-line import/no-named-as-default
 import ChatController from './chat-controller.js';
 import { initIms } from '../../../utils/daFetch.js';
+import { DA_ORIGIN } from '../../../public/utils/constants.js';
 import { loadSkills, saveSkill, deleteSkill } from '../../skills-editor/utils/utils.js';
 
 const style = await getStyle(import.meta.url);
@@ -12,6 +13,25 @@ const imsInitial = await initIms();
 const token = imsInitial?.accessToken?.token ?? null;
 
 const DOCUMENT_UPDATED_EVENT = 'da:agent-content-updated';
+
+const BUILTIN_MCP_SERVERS = [
+  {
+    id: 'da-tools',
+    description: 'Core DA authoring tools — read, write, list, copy, and manage content',
+    transport: 'built-in',
+    status: 'ok',
+    statusDetail: 'Always available',
+    category: 'built-in',
+  },
+  {
+    id: 'eds-preview',
+    description: 'Preview and publish content to Edge Delivery Services',
+    transport: 'built-in',
+    status: 'ok',
+    statusDetail: 'Always available',
+    category: 'built-in',
+  },
+];
 
 function getUserIdFromToken(jwtToken) {
   try {
@@ -33,6 +53,23 @@ function getContextFromHash() {
     path: rest.join('/'),
     view: 'edit',
   };
+}
+
+function getDaOrigin() {
+  const stored = localStorage.getItem('da-admin');
+  if (stored === 'local' || stored === '/local') return 'http://localhost:8787';
+  if (stored === 'stage') return 'https://stage-admin.da.live';
+  if (stored === 'prod') return 'https://admin.da.live';
+  if (stored?.startsWith('http://') || stored?.startsWith('https://')) return stored;
+  if (stored?.startsWith('/')) return `${window.location.origin}${stored}`;
+  if (new URLSearchParams(window.location.search).get('nx') === 'local') return 'http://localhost:8787';
+  return DA_ORIGIN;
+}
+
+function getAgentOrigin() {
+  const params = new URLSearchParams(window.location.search);
+  const isLocal = params.get('ref') === 'local' || params.get('nx') === 'local';
+  return isLocal ? 'http://localhost:5173' : 'https://da-agent.adobeaem.workers.dev';
 }
 
 /**
@@ -87,6 +124,7 @@ class Chat extends LitElement {
     this._mcpLoading = false;
     this._mcpScannedAt = null;
     this._mcpPollTimer = null;
+    this._mcpToggles = JSON.parse(localStorage.getItem('da-mcp-toggles') || '{}');
     this._skills = null;
     this._skillsLoading = false;
     this._selectedSkill = null;
@@ -244,10 +282,9 @@ class Chat extends LitElement {
     try {
       const imsToken = (await initIms())?.accessToken?.token;
       const headers = imsToken ? { Authorization: `Bearer ${imsToken}` } : {};
-      const DA_ORIGIN = localStorage.getItem('da-admin')
-        || 'https://admin.da.live';
+      const endpoint = `${getAgentOrigin()}/mcp-discovery/${org}/${site}`;
       const resp = await fetch(
-        `${DA_ORIGIN}/mcp-discovery/${org}/${site}`,
+        endpoint,
         { headers },
       );
       if (resp.ok) {
@@ -267,6 +304,18 @@ class Chat extends LitElement {
   _refreshMcpServers() {
     this._mcpServers = null;
     this._fetchMcpServers();
+  }
+
+  _isMcpServerEnabled(serverId) {
+    return this._mcpToggles[serverId]?.enabled !== false;
+  }
+
+  _toggleMcpServer(serverId) {
+    const current = this._mcpToggles[serverId] || {};
+    current.enabled = current.enabled === false;
+    this._mcpToggles = { ...this._mcpToggles, [serverId]: current };
+    localStorage.setItem('da-mcp-toggles', JSON.stringify(this._mcpToggles));
+    this.requestUpdate();
   }
 
   async _fetchSkills() {
@@ -413,16 +462,16 @@ class Chat extends LitElement {
     try {
       const imsToken = (await initIms())?.accessToken?.token;
       const headers = imsToken ? { Authorization: `Bearer ${imsToken}` } : {};
-      const DA_ORIGIN = localStorage.getItem('da-admin') || 'https://admin.da.live';
+      const adminOrigin = getDaOrigin();
       const path = site ? `/${org}/${site}/.da/agents` : `/${org}/.da/agents`;
-      const resp = await fetch(`${DA_ORIGIN}/list${path}`, { headers });
+      const resp = await fetch(`${adminOrigin}/list${path}`, { headers });
       if (resp.ok) {
         const items = await resp.json();
         const jsonItems = (Array.isArray(items) ? items : []).filter((i) => i.ext === 'json');
         const agents = {};
         await Promise.all(jsonItems.map(async (item) => {
           try {
-            const srcResp = await fetch(`${DA_ORIGIN}/source${item.path}`, { headers });
+            const srcResp = await fetch(`${adminOrigin}/source${item.path}`, { headers });
             if (srcResp.ok) {
               const text = await srcResp.text();
               agents[item.name.replace(/\.json$/, '')] = JSON.parse(text);
@@ -486,10 +535,10 @@ class Chat extends LitElement {
 
     const imsToken = (await initIms())?.accessToken?.token;
     const headers = imsToken ? { Authorization: `Bearer ${imsToken}` } : {};
-    const DA_ORIGIN = localStorage.getItem('da-admin') || 'https://admin.da.live';
+    const adminOrigin = getDaOrigin();
     const body = new FormData();
     body.append('data', new Blob([JSON.stringify(preset, null, 2)], { type: 'application/json' }));
-    await fetch(`${DA_ORIGIN}/source${prefix}/.da/agents/${id}.json`, { method: 'POST', headers, body });
+    await fetch(`${adminOrigin}/source${prefix}/.da/agents/${id}.json`, { method: 'POST', headers, body });
 
     this._agents = { ...this._agents, [id]: preset };
     this._selectedAgent = id;
@@ -502,8 +551,8 @@ class Chat extends LitElement {
     const prefix = site ? `/${org}/${site}` : `/${org}`;
     const imsToken = (await initIms())?.accessToken?.token;
     const headers = imsToken ? { Authorization: `Bearer ${imsToken}` } : {};
-    const DA_ORIGIN = localStorage.getItem('da-admin') || 'https://admin.da.live';
-    await fetch(`${DA_ORIGIN}/source${prefix}/.da/agents/${this._selectedAgent}.json`, { method: 'DELETE', headers });
+    const adminOrigin = getDaOrigin();
+    await fetch(`${adminOrigin}/source${prefix}/.da/agents/${this._selectedAgent}.json`, { method: 'DELETE', headers });
 
     if (this._activeAgentId === this._selectedAgent) this._activateAgent(null);
     const next = { ...this._agents };
@@ -579,23 +628,36 @@ class Chat extends LitElement {
       </div>`;
   }
 
+  _renderMcpServerCard(s, toggleable = true) {
+    const enabled = this._isMcpServerEnabled(s.id);
+    const disabledClass = !enabled ? 'disabled' : '';
+    return html`
+      <div class="mcp-server-item ${s.status} ${disabledClass}">
+        <div class="mcp-server-header">
+          <span class="mcp-server-id">${s.id}</span>
+          <div class="mcp-server-actions">
+            <span class="mcp-server-status ${s.status}">${s.status}</span>
+            ${toggleable ? html`
+              <label class="mcp-toggle">
+                <input type="checkbox" .checked=${enabled} @change=${() => this._toggleMcpServer(s.id)} />
+                <span class="mcp-toggle-slider"></span>
+              </label>
+            ` : ''}
+          </div>
+        </div>
+        ${s.description ? html`<div class="mcp-server-desc">${s.description}</div>` : ''}
+        ${s.transport ? html`<div class="mcp-server-meta"><span class="mcp-server-transport">${s.transport}</span>${s.endpoint ? html` <code class="mcp-server-endpoint">${s.endpoint}</code>` : ''}</div>` : ''}
+        ${s.statusDetail ? html`<div class="mcp-server-detail">${s.statusDetail}</div>` : ''}
+      </div>`;
+  }
+
   _renderMcpContent() {
     if (this._mcpLoading) {
       return html`<div class="chat-skills-empty"><p class="chat-skills-empty-text">Loading MCP servers...</p></div>`;
     }
 
-    const servers = this._mcpServers?.servers || [];
-    const warnings = this._mcpServers?.warnings || [];
-    const hasServers = servers.length > 0;
-
-    if (!hasServers && warnings.length === 0) {
-      return html`
-        <div class="chat-skills-empty">
-          <p class="chat-skills-empty-text">No MCP servers found.</p>
-          <p class="chat-skills-empty-text">Add servers under <code>mcp-servers/&lt;id&gt;/mcp.json</code> in your repository.</p>
-          <sp-button variant="secondary" size="s" @click=${() => this._refreshMcpServers()}>Refresh</sp-button>
-        </div>`;
-    }
+    const customServers = this._mcpServers?.servers || [];
+    const warnings = (this._mcpServers?.warnings || []).filter((w) => w.serverId !== '*' || !w.message.includes('Discovered MCP'));
 
     const scannedAgo = this._mcpScannedAt ? this._formatTimeAgo(this._mcpScannedAt) : null;
     const staleThreshold = 5 * 60 * 1000;
@@ -608,26 +670,34 @@ class Chat extends LitElement {
       <div class="mcp-server-list">
         <div class="mcp-header">
           <div class="mcp-header-left">
-            <span class="mcp-header-title">Discovered Servers</span>
+            <span class="mcp-header-title">MCP Servers</span>
             ${scannedAgo ? html`<span class="mcp-scanned-at ${isStale ? 'stale' : ''}">Scanned ${scannedAgo}</span>` : nothing}
           </div>
           <sp-button variant="secondary" size="s" @click=${() => this._refreshMcpServers()}>Refresh</sp-button>
         </div>
-        ${servers.map((s) => html`
-          <div class="mcp-server-item ${s.status}">
-            <span class="mcp-server-id">${s.id}</span>
-            <span class="mcp-server-status ${s.status}">${s.status}</span>
-          </div>
-        `)}
+
+        <div class="mcp-category">
+          <span class="mcp-category-pill built-in">Built-in</span>
+          ${BUILTIN_MCP_SERVERS.map((s) => this._renderMcpServerCard(s, false))}
+        </div>
+
+        <div class="mcp-category">
+          <span class="mcp-category-pill custom">Custom <span class="mcp-category-count">${customServers.length}</span></span>
+          ${customServers.length > 0
+    ? customServers.map((s) => this._renderMcpServerCard(s))
+    : html`<div class="mcp-category-empty">No custom servers found. Add <code>mcp-servers/&lt;id&gt;/mcp.json</code> or <code>*-mcp</code> folders to your repo.</div>`}
+        </div>
+
         ${warnings.length > 0 ? html`
-          <div class="mcp-warnings">
-            <div class="mcp-warnings-title">Warnings</div>
-            ${warnings.map((w) => html`
-              <div class="mcp-warning-item">
-                <span class="mcp-warning-id">${w.serverId}</span>
-                <span class="mcp-warning-msg">${w.message}</span>
-              </div>
-            `)}
+          <div class="mcp-inline-alert">
+            <div class="mcp-inline-alert-icon">
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM8 4a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 8 4Zm0 8a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z" fill="currentColor"/></svg>
+            </div>
+            <div class="mcp-inline-alert-body">
+              ${warnings.map((w) => html`
+                <div class="mcp-inline-alert-msg">${w.serverId !== '*' ? html`<strong>${w.serverId}:</strong> ` : ''}${w.message}</div>
+              `)}
+            </div>
           </div>
         ` : ''}
       </div>`;

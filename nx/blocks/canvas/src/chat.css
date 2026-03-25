@@ -419,7 +419,9 @@
 
 .chat-skills-modal-body {
   display: flex;
-  min-height: 320px;
+  width: 75vw;
+  height: 60vh;
+  margin: 0 auto;
 }
 
 .chat-skills-sidenav {
@@ -432,11 +434,11 @@
 .chat-skills-content {
   flex: 1;
   min-width: 0;
-  overflow: auto;
+  overflow-y: auto;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2rem;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: 1.5rem 2rem;
 }
 
 .chat-skills-empty {
@@ -659,8 +661,8 @@
 
 .mcp-server-item {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 4px;
   padding: 8px 12px;
   border: 1px solid #e0e0e0;
   border-radius: 8px;
@@ -692,37 +694,199 @@
   color: #c62828;
 }
 
-.mcp-warnings {
+.mcp-server-status.reachable {
+  background: #e0f2f1;
+  color: #00695c;
+}
+
+.mcp-server-status.unreachable {
+  background: #fff3e0;
+  color: #e65100;
+}
+
+.mcp-server-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.mcp-server-desc {
+  font-size: 12px;
+  color: #555;
+  line-height: 1.3;
+}
+
+.mcp-server-meta {
+  font-size: 11px;
+  color: #777;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.mcp-server-transport {
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  color: #666;
+}
+
+.mcp-server-endpoint {
+  font-size: 11px;
+  color: #888;
+  word-break: break-all;
+}
+
+.mcp-server-detail {
+  font-size: 11px;
+  color: #999;
+  font-style: italic;
+}
+
+/* ── MCP categories ─────────────────────────────────────── */
+
+.mcp-category {
   margin-top: 16px;
 }
 
-.mcp-warnings-title {
-  font-size: 12px;
-  font-weight: 600;
+.mcp-category-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: #999;
-  margin-bottom: 6px;
+  letter-spacing: 0.6px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  margin-bottom: 10px;
 }
 
-.mcp-warning-item {
-  display: flex;
-  gap: 8px;
-  align-items: baseline;
+.mcp-category-pill.built-in {
+  background: #e8eaf6;
+  color: #283593;
+}
+
+.mcp-category-pill.custom {
+  background: #fce4ec;
+  color: #880e4f;
+}
+
+.mcp-category-count {
+  font-size: 10px;
+  background: rgb(0 0 0 / 10%);
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-weight: 600;
+}
+
+.mcp-category-empty {
   font-size: 12px;
-  color: #666;
-  padding: 4px 0;
+  color: #999;
+  padding: 10px 12px;
+  background: #fafafa;
+  border-radius: 6px;
+  border: 1px dashed #ddd;
 }
 
-.mcp-warning-id {
-  font-family: monospace;
-  font-weight: 500;
-  color: #444;
+.mcp-category-empty code {
+  font-size: 11px;
+  background: #f0f0f0;
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+/* ── MCP inline alert ───────────────────────────────────── */
+
+.mcp-inline-alert {
+  display: flex;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 6px;
+  border-left: 3px solid #f0ad4e;
+  background: #fff8e1;
+  margin-top: 16px;
+  font-size: 12px;
+  color: #5d4037;
+  align-items: flex-start;
+}
+
+.mcp-inline-alert-icon {
   flex-shrink: 0;
+  color: #e65100;
+  margin-top: 1px;
 }
 
-.mcp-warning-msg {
-  color: #888;
+.mcp-inline-alert-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.mcp-inline-alert-msg {
+  line-height: 1.4;
+  overflow-wrap: break-word;
+}
+
+.mcp-inline-alert-msg strong {
+  font-family: monospace;
+  font-size: 11px;
+}
+
+/* ── MCP server actions & toggle ────────────────────────── */
+
+.mcp-server-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mcp-server-item.disabled {
+  opacity: 0.5;
+}
+
+.mcp-toggle {
+  position: relative;
+  display: inline-block;
+  width: 32px;
+  height: 18px;
+  cursor: pointer;
+}
+
+.mcp-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.mcp-toggle-slider {
+  position: absolute;
+  inset: 0;
+  background: #ccc;
+  border-radius: 18px;
+  transition: background 0.2s;
+}
+
+.mcp-toggle-slider::before {
+  content: '';
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  left: 2px;
+  bottom: 2px;
+  background: #fff;
+  border-radius: 50%;
+  transition: transform 0.2s;
+}
+
+.mcp-toggle input:checked + .mcp-toggle-slider {
+  background: #1473e6;
+}
+
+.mcp-toggle input:checked + .mcp-toggle-slider::before {
+  transform: translateX(14px);
 }
 
 /* ── Footer (composer) ────────────────────────────────────── */
