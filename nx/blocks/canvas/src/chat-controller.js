@@ -1,4 +1,5 @@
 import { loadMessages, saveMessages, clearMessages } from './chat-idb-store.js';
+import { isToolAutoApproved } from './tool-auto-approve.js';
 
 /** Clone add-to-chat payloads for storage / API (minimal serializable fields). */
 function sanitizeSelectionContext(items) {
@@ -290,6 +291,13 @@ export class ChatController {
         this.toolCards = nextCards;
         this._pendingApprovals.set(toolCallId, approvalId ?? toolCallId);
         this.onUpdate();
+
+        const nameForPolicy = existing.toolName || this._toolNameById[toolCallId] || event.toolName;
+        if (nameForPolicy && isToolAutoApproved(nameForPolicy)) {
+          queueMicrotask(() => {
+            this.approveToolCall({ toolCallId, approved: true }).catch(() => {});
+          });
+        }
         break;
       }
 

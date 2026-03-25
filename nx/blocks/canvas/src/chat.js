@@ -2,8 +2,14 @@
 import getStyle from 'https://da.live/nx/utils/styles.js';
 // eslint-disable-next-line import/no-unresolved
 import { LitElement, html, nothing } from 'da-lit';
+// eslint-disable-next-line import/no-unresolved
+import { getNx } from 'https://da.live/scripts/utils.js';
 // eslint-disable-next-line import/no-named-as-default
 import ChatController from './chat-controller.js';
+import { addAutoApprovedTool } from './tool-auto-approve.js';
+import {
+  getFriendlyToolDetails, getToolCardHeaderParts, getToolDisplayTitle, isUpdateTool,
+} from './tool-card-summaries.js';
 import { renderMessageContent } from './chat-renderers.js';
 import { initIms, daFetch } from '../../../utils/daFetch.js';
 import { DA_ORIGIN } from '../../../public/utils/constants.js';
@@ -11,6 +17,8 @@ import { loadSkills, saveSkill, deleteSkill } from '../../skills-editor/utils/ut
 import { DA_BULK_AEM_OPEN, DA_BULK_AEM_SETTLED } from './bulk-aem-modal.js';
 
 const style = await getStyle(import.meta.url);
+const nxBase = getNx();
+const TOOL_CARD_ARROW_ICON_SRC = `${nxBase}/img/icons/arrowcurved.svg`;
 const imsInitial = await initIms();
 const token = imsInitial?.accessToken?.token ?? null;
 
@@ -376,6 +384,13 @@ class Chat extends LitElement {
   _sendToolApproval(toolCallId, approved) {
     if (!toolCallId || !this._chatController) return;
     this._chatController.approveToolCall({ toolCallId, approved });
+  }
+
+  _sendToolApprovalAndRemember(toolCallId) {
+    if (!toolCallId || !this._chatController) return;
+    const card = this._toolCards?.get(toolCallId);
+    if (card?.toolName) addAutoApprovedTool(card.toolName);
+    this._chatController.approveToolCall({ toolCallId, approved: true });
   }
 
   _sendPrompt(prompt) {
@@ -905,8 +920,6 @@ class Chat extends LitElement {
     const isError = state === 'error';
     const isOpen = this._openToolCards?.has(toolCallId);
 
-    const icon = isApproval ? '⚠️' : '🔧';
-
     let statusText = 'running';
     let statusClass = 'running';
     if (isApproval) {
@@ -929,18 +942,53 @@ class Chat extends LitElement {
     // eslint-disable-next-line no-nested-ternary
     const cardStateClass = isApproval ? 'needs-approval' : (isError || isRejected ? 'error' : (isDone ? 'done' : ''));
 
-    const inputText = input && typeof input === 'object' ? JSON.stringify(input, null, 2) : null;
-    const outputText = output ? JSON.stringify(output, null, 2) : null;
+    const friendly = getFriendlyToolDetails(toolName, input, output, {
+      updateApprovalOnly: isApproval && isUpdateTool(toolName),
+    });
+    const headerParts = getToolCardHeaderParts(toolName, input);
+    const titleLabel = headerParts?.primary
+      || getToolDisplayTitle(toolName)
+      || toolName;
+
+    const inputText = !friendly && input && typeof input === 'object' ? JSON.stringify(input, null, 2) : null;
+    const outputText = !friendly && output ? JSON.stringify(output, null, 2) : null;
+
+    const renderDetailRows = (rows, sectionLabel) => {
+      if (!rows?.length) return nothing;
+      return html`
+        <div class="tool-section-label">${sectionLabel}</div>
+        <dl class="tool-friendly-details">
+          ${rows.map((row) => html`
+            <dt class="tool-detail-label">${row.label}</dt>
+            <dd class="tool-detail-value tool-detail-value-multiline">${row.value}</dd>
+          `)}
+        </dl>
+      `;
+    };
+
+    const inputSectionLabel = isApproval && isUpdateTool(toolName) ? 'Review' : 'Action';
 
     return html`
       <div class="tool-card ${cardStateClass} ${isOpen ? 'open' : ''}">
         <div class="tool-summary" @click=${() => this._toggleToolCard(toolCallId)}>
-          <span class="tool-icon">${icon}</span>
-          <span class="tool-name-label">${toolName}</span>
+          <img
+            class="tool-card-arrow-icon"
+            src="${TOOL_CARD_ARROW_ICON_SRC}"
+            width="20"
+            height="20"
+            alt=""
+          />
+          <span class="tool-name-label" title="${headerParts?.titleAttr ?? ''}">${titleLabel}</span>
           <span class="tool-status ${statusClass}">${statusText}</span>
           <span class="tool-chevron">▶</span>
         </div>
         <div class="tool-body">
+          ${friendly
+    ? html`
+            ${renderDetailRows(friendly.inputRows, inputSectionLabel)}
+            ${renderDetailRows(friendly.outputRows, 'Result')}
+          `
+    : ''}
           ${inputText ? html`
             <div class="tool-section-label">Input</div>
             <pre class="tool-code">${inputText}</pre>
@@ -952,8 +1000,12 @@ class Chat extends LitElement {
         </div>
         ${isApproval ? html`
           <div class="approval-footer">
-            <button class="btn-approve" @click=${() => this._sendToolApproval(toolCallId, true)}>Approve</button>
-            <button class="btn-reject" @click=${() => this._sendToolApproval(toolCallId, false)}>Reject</button>
+            <button type="button" class="btn-approve" @click=${() => this._sendToolApproval(toolCallId, true)}>Approve</button>
+            <button type="button" class="btn-approve-always" title="Approve now and skip this prompt for this tool in the future on this browser"
+              @click=${() => this._sendToolApprovalAndRemember(toolCallId)}>
+              Approve &amp; always allow
+            </button>
+            <button type="button" class="btn-reject" @click=${() => this._sendToolApproval(toolCallId, false)}>Reject</button>
           </div>
         ` : ''}
       </div>
