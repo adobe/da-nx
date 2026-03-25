@@ -28,6 +28,7 @@ import {
 
 import { getSchema } from 'da-parser';
 import { COLLAB_ORIGIN, DA_ORIGIN } from 'https://da.live/blocks/shared/constants.js';
+import { initIms } from '../../../utils/daFetch.js';
 import { findChangedNodes, findCommonEditableAncestor } from './prose-controller-utils.js';
 import proseToolbar from './prose-toolbar.js';
 /* eslint-enable import/no-unresolved */
@@ -103,6 +104,24 @@ function addSyncedListener(wsProvider, canWrite, setEditable) {
   wsProvider.on('synced', handleSynced);
 }
 
+async function getCollabIdentity() {
+  try {
+    const ims = await initIms();
+    const name = ims?.displayName?.trim();
+    const id = ims?.userId || ims?.email;
+    if (name && id) {
+      return {
+        name,
+        id,
+        colorSeed: ims?.email || ims?.userId || name,
+      };
+    }
+  } catch {
+    // Ignore IMS failures and use anonymous fallback below.
+  }
+  return null;
+}
+
 /**
  * Initialize ProseMirror + Yjs for the given document path.
  * getToken: () => token — used for WebSocket auth (required, no adobeIMS).
@@ -151,11 +170,12 @@ export default async function initProse({
 
   const yXmlFragment = ydoc.getXmlFragment('prosemirror');
 
-  if (typeof getToken === 'function' && getToken()) {
+  const identity = await getCollabIdentity();
+  if (typeof getToken === 'function' && getToken() && identity) {
     wsProvider.awareness.setLocalStateField('user', {
-      color: generateColor(`${wsProvider.awareness.clientID}`),
-      name: 'User',
-      id: `user-${wsProvider.awareness.clientID}`,
+      color: generateColor(identity.colorSeed),
+      name: identity.name,
+      id: identity.id,
     });
   } else {
     wsProvider.awareness.setLocalStateField('user', {
