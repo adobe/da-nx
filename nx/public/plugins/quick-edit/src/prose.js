@@ -14,6 +14,13 @@ import { createImageWrapperPlugin } from './image-wrapper.js';
 import { setupImageDropListeners } from './images.js';
 import { setRemoteCursors } from './cursors.js';
 
+function marksEqual(a, b) {
+  if (!a && !b) return true;
+  if (!a || !b) return false;
+  if (a.length !== b.length) return false;
+  return a.every((m, i) => m.eq(b[i]));
+}
+
 function updateInstrumentation(lengthDiff, offset) {
   const editableElements = document.querySelectorAll('[data-prose-index]');
   editableElements.forEach((element) => {
@@ -34,6 +41,7 @@ function handleTransaction(tr, ctx, editorView, editorParent) {
   const currentCursorOffset = parseInt(editorParent.getAttribute('data-prose-index'), 10);
   const oldLength = editorView.state.doc.firstChild.nodeSize;
   const oldSel = editorView.state.selection;
+  const oldStoredMarks = editorView.state.storedMarks;
   const newState = editorView.state.apply(tr);
   editorView.updateState(newState);
   updateInstrumentation(newState.doc.firstChild.nodeSize - oldLength, currentCursorOffset);
@@ -67,18 +75,32 @@ function handleTransaction(tr, ctx, editorView, editorParent) {
     }
   }
 
+  // Notify the controller when stored marks change (e.g. Cmd+B keyboard shortcut).
+  // This lets the da-nx toolbar reflect mark toggles immediately without waiting
+  // for the next character to be typed.
+  if (!marksEqual(oldStoredMarks, newState.storedMarks)) {
+    ctx.port.postMessage({
+      type: 'stored-marks',
+      marks: newState.storedMarks ? newState.storedMarks.map((m) => m.toJSON()) : [],
+    });
+  }
+
   // Update toolbar button states and position
   updateToolbarState();
   positionToolbar();
 }
 
+let blurClearTimeout = null;
+
 function focus(view) {
+  if (blurClearTimeout !== null) {
+    clearTimeout(blurClearTimeout);
+    blurClearTimeout = null;
+  }
   setCurrentEditorView(view);
   // showToolbar(view);
   return false;
 }
-
-let blurClearTimeout = null;
 
 function blur(view, event, ctx) {
   hideToolbar(view);
