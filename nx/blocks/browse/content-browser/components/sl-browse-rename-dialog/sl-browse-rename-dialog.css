@@ -1,0 +1,35 @@
+:host {
+  --cb-font: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', roboto, sans-serif;
+  --cb-text: #1a1a1a;
+
+  /* Sit above header controls (e.g. New menus) so modal actions receive clicks. */
+  z-index: 1000;
+  position: relative;
+}
+
+.sl-browse-rename-dialog {
+  font-family: var(--cb-font);
+  color: var(--cb-text);
+}
+
+.sl-browse-rename-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: min(18rem, calc(100vw - 3rem));
+  box-sizing: border-box;
+}
+
+.sl-browse-rename-textfield {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.sl-browse-rename-error {
+  margin: 0;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  color: #b42318;
+}

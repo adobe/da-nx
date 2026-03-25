@@ -1,0 +1,36 @@
+:host {
+  display: block;
+  min-width: 0;
+  font-family: var(
+    --cb-font,
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    sans-serif
+  );
+}
+
+.sl-crumb-bar {
+  display: flex;
+  align-items: stretch;
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  padding: 0.1rem 0;
+
+  /* When the trail is wider than the column, scroll instead of relying only on Spectrum overflow hiding. */
+  overflow: auto hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Spectrum `#list` pads inline-start (`--spectrum-breadcrumbs-start-edge-to-text`); column already has gutter. */
+.sl-crumb-sp {
+  --mod-breadcrumbs-inline-start: 0;
+
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 100%;
+}
