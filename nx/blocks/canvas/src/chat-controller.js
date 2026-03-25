@@ -4,6 +4,25 @@ import { loadMessages, saveMessages, clearMessages } from './chat-idb-store.js';
 function sanitizeSelectionContext(items) {
   if (!Array.isArray(items) || items.length === 0) return undefined;
   const out = items.map((it) => {
+    if (it?.kind === 'da-browse-source' && typeof it?.pathKey === 'string' && it.pathKey.trim()) {
+      const pathKey = it.pathKey.trim().replace(/^\/+/, '');
+      const proseIndex = typeof it.proseIndex === 'number' && !Number.isNaN(it.proseIndex)
+        ? it.proseIndex
+        : 0;
+      const name = (typeof it.name === 'string' && it.name.trim())
+        ? it.name.trim()
+        : (pathKey.split('/').pop() || pathKey);
+      const innerText = (typeof it.innerText === 'string' && it.innerText.trim())
+        ? it.innerText.trim()
+        : `Selected repository path: ${pathKey}`;
+      return {
+        proseIndex,
+        blockName: name,
+        innerText,
+        pathKey,
+        source: 'da-browse',
+      };
+    }
     const proseIndex = typeof it?.proseIndex === 'number' ? it.proseIndex : NaN;
     const innerText = typeof it?.innerText === 'string' ? it.innerText : '';
     const blockName = typeof it?.blockName === 'string' && it.blockName.trim()

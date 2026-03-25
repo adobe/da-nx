@@ -3,6 +3,7 @@
  * and batch delete. The host is typically `sl-content-browser`; callbacks are read at call time.
  */
 
+import { DA_BULK_AEM_OPEN } from '../../../canvas/src/bulk-aem-modal.js';
 import { daSourcePathForItem, findItemByRowKey } from './content-browser-utils.js';
 
 function openAemUrlWithNoCache(href) {
@@ -48,6 +49,71 @@ export function getAemPathsForSelection(pathKeyFromEvent, { selectedRows, items,
     }
   }
   return paths;
+}
+
+/**
+ * Normalize `/org/site/...` paths to the shape expected by `da-bulk-aem-modal` (no leading slash).
+ * @param {string[]} paths
+ * @returns {string[]}
+ */
+export function pathsToBulkAemFileList(paths) {
+  return (Array.isArray(paths) ? paths : [])
+    .map((p) => String(p).replace(/^\/+/, '').trim())
+    .filter(Boolean);
+}
+
+/**
+ * Opens the bulk AEM modal (same as canvas chat). The host page must mount
+ * `<da-bulk-aem-modal>` and register a `window` listener — see `browse.js`.
+ * @param {string[]} paths - Paths from {@link getAemPathsForSelection} (`/org/site/...`).
+ * @param {'preview'|'publish'} mode
+ */
+export function dispatchBulkAemOpen(paths, mode) {
+  const files = pathsToBulkAemFileList(paths);
+  if (files.length === 0) return;
+  window.dispatchEvent(new CustomEvent(DA_BULK_AEM_OPEN, {
+    detail: { files, mode },
+  }));
+}
+
+/** @see BrowseView — syncs table selection into `da-chat` `.onPageContextItems`. */
+export const SL_CONTENT_BROWSER_CHAT_CONTEXT = 'sl-content-browser-chat-context';
+
+/**
+ * Chat context items for selected repo files (same pipeline as canvas `onPageContextItems`).
+ * Skips folder rows. Sanitized in `chat-controller.js` before send.
+ *
+ * @param {string[]} selectedRows - Row keys from the table.
+ * @param {object[]} items - Raw list rows.
+ * @param {string} folderPathKey - Current folder path key.
+ * @returns {Array<object>} Browse chat context item payloads.
+ */
+export function buildBrowseChatContextItems(selectedRows, items, folderPathKey) {
+  /** @type {Array<object>} */
+  const out = [];
+  let proseIndex = 0;
+  for (const rowKey of selectedRows || []) {
+    const rowItem = findItemByRowKey(rowKey, items, folderPathKey);
+    if (rowItem?.ext) {
+      const pathKey = String(rowKey).replace(/^\/+/, '').trim();
+      if (pathKey) {
+        const name = (rowItem.name && String(rowItem.name).trim())
+          || pathKey.split('/').pop()
+          || pathKey;
+        const innerText = `Selected repository path: ${pathKey}`;
+        out.push({
+          kind: 'da-browse-source',
+          pathKey,
+          name,
+          proseIndex,
+          innerText,
+          blockName: name,
+        });
+        proseIndex += 1;
+      }
+    }
+  }
+  return out;
 }
 
 /**
