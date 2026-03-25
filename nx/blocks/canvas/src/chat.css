@@ -200,6 +200,16 @@
   margin-bottom: 0;
 }
 
+.attachment-pill {
+  background: #f1f8ff;
+  border-color: #bfdfff;
+  color: #0d66d0;
+}
+
+.attachment-pill-remove {
+  color: #0d66d0;
+}
+
 .chat-context-pill-sent {
   padding: 2px 10px;
 }
@@ -1328,6 +1338,38 @@
 .chat-footer-row:focus-within {
   border-color: #1473e6;
   box-shadow: 0 0 0 1px #1473e6;
+}
+
+.chat-btn-attach {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border: 1px solid #d0d5dd;
+  border-radius: 50%;
+  background: #fff;
+  color: #4b5563;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: border-color 0.15s, color 0.15s, background-color 0.15s, opacity 0.15s;
+  padding: 0;
+}
+
+.chat-btn-attach:hover {
+  border-color: #1473e6;
+  color: #1473e6;
+  background: #f8fbff;
+}
+
+.chat-btn-attach:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.chat-btn-attach:focus-visible {
+  outline: 2px solid #1473e6;
+  outline-offset: 2px;
 }
 
 /* Animated gradient border when agent is thinking */
