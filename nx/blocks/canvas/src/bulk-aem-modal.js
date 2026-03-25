@@ -210,50 +210,60 @@ class DaBulkAemModal extends LitElement {
     this._onGo();
   }
 
-  async _runOne(path) {
+  /**
+   * Patch the row for `path` using current `_rows` so concurrent `_runOne` calls
+   * do not overwrite each other (stale snapshot after await was the bug).
+   * @param {(row: { path: string, state: string, message: string }) =>
+   *   { path: string, state: string, message: string }} fn
+   * @returns {boolean}
+   */
+  _patchRow(path, fn) {
     const idx = this._rows.findIndex((r) => r.path === path);
-    if (idx < 0) return;
-    const next = [...this._rows];
-    next[idx] = { ...next[idx], state: 'running', message: '' };
-    this._rows = next;
+    if (idx < 0) return false;
+    this._rows = this._rows.map((r, i) => (i === idx ? fn(r) : r));
+    return true;
+  }
+
+  async _runOne(path) {
+    if (!this._patchRow(path, (r) => ({ ...r, state: 'running', message: '' }))) return;
 
     const fullPath = path.startsWith('/') ? path : `/${path}`;
 
     if (this.mode === 'preview') {
-      const r = await aemRequest(fullPath, 'preview', 'POST');
-      next[idx] = {
-        ...next[idx],
-        state: r.ok ? 'ok' : 'error',
-        message: r.ok ? 'OK' : (r.message || 'Failed'),
-      };
-      this._rows = [...next];
+      const res = await aemRequest(fullPath, 'preview', 'POST');
+      this._patchRow(path, (r) => ({
+        ...r,
+        state: res.ok ? 'ok' : 'error',
+        message: res.ok ? 'OK' : (res.message || 'Failed'),
+      }));
       return;
     }
 
     if (this.mode === 'publish') {
       const p1 = await aemRequest(fullPath, 'preview', 'POST');
       if (!p1.ok) {
-        next[idx] = { ...next[idx], state: 'error', message: p1.message || 'Preview failed' };
-        this._rows = [...next];
+        this._patchRow(path, (r) => ({
+          ...r,
+          state: 'error',
+          message: p1.message || 'Preview failed',
+        }));
         return;
       }
       const p2 = await aemRequest(fullPath, 'live', 'POST');
-      next[idx] = {
-        ...next[idx],
+      this._patchRow(path, (r) => ({
+        ...r,
         state: p2.ok ? 'ok' : 'error',
         message: p2.ok ? 'OK' : (p2.message || 'Publish failed'),
-      };
-      this._rows = [...next];
+      }));
       return;
     }
 
     const d = await aemRequest(fullPath, 'live', 'DELETE');
-    next[idx] = {
-      ...next[idx],
+    this._patchRow(path, (r) => ({
+      ...r,
       state: d.ok ? 'ok' : 'error',
       message: d.ok ? 'OK' : (d.message || 'Failed'),
-    };
-    this._rows = [...next];
+    }));
   }
 
   async _onGo() {
