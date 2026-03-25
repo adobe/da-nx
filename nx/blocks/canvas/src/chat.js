@@ -472,10 +472,14 @@ class Chat extends LitElement {
     try {
       await this._fetchDaConfig();
       const mcpPath = this._getConfigValue('mcp-servers-path', '');
+      const mcpServersJson = this._getConfigValue('mcp-servers', '');
       const imsToken = (await initIms())?.accessToken?.token;
       const headers = imsToken ? { Authorization: `Bearer ${imsToken}` } : {};
-      const params = mcpPath ? `?mcpPath=${encodeURIComponent(mcpPath)}` : '';
-      const endpoint = `${getAgentOrigin()}/mcp-discovery/${org}/${site}${params}`;
+      const qp = new URLSearchParams();
+      if (mcpPath) qp.set('mcpPath', mcpPath);
+      if (mcpServersJson) qp.set('configServers', mcpServersJson);
+      const qs = qp.toString() ? `?${qp.toString()}` : '';
+      const endpoint = `${getAgentOrigin()}/mcp-discovery/${org}/${site}${qs}`;
       const resp = await fetch(
         endpoint,
         { headers },
@@ -507,10 +511,14 @@ class Chat extends LitElement {
     try {
       await this._fetchDaConfig();
       const mcpPath = this._getConfigValue('mcp-servers-path', '');
+      const mcpServersJson = this._getConfigValue('mcp-servers', '');
       const imsToken = (await initIms())?.accessToken?.token;
       const headers = imsToken ? { Authorization: `Bearer ${imsToken}` } : {};
-      const params = mcpPath ? `?mcpPath=${encodeURIComponent(mcpPath)}` : '';
-      const endpoint = `${getAgentOrigin()}/mcp-tools/${org}/${site}${params}`;
+      const qp = new URLSearchParams();
+      if (mcpPath) qp.set('mcpPath', mcpPath);
+      if (mcpServersJson) qp.set('configServers', mcpServersJson);
+      const qs = qp.toString() ? `?${qp.toString()}` : '';
+      const endpoint = `${getAgentOrigin()}/mcp-tools/${org}/${site}${qs}`;
       const resp = await fetch(endpoint, { headers });
       if (resp.ok) {
         this._mcpTools = await resp.json();
@@ -944,7 +952,9 @@ class Chat extends LitElement {
       return html`<div class="chat-skills-empty"><p class="chat-skills-empty-text">Loading MCP servers...</p></div>`;
     }
 
-    const customServers = this._mcpServers?.servers || [];
+    const allServers = this._mcpServers?.servers || [];
+    const configuredServers = allServers.filter((s) => s.sourcePath === 'da-config');
+    const repoServers = allServers.filter((s) => s.sourcePath !== 'da-config');
     const warnings = (this._mcpServers?.warnings || []).filter((w) => w.serverId !== '*' || !w.message.includes('Discovered MCP'));
 
     const scannedAgo = this._mcpScannedAt ? this._formatTimeAgo(this._mcpScannedAt) : null;
@@ -971,11 +981,17 @@ class Chat extends LitElement {
           ${BUILTIN_MCP_SERVERS.map((s) => this._renderMcpServerCard(s, false))}
         </div>
 
+        ${configuredServers.length > 0 ? html`
         <div class="mcp-category">
-          <span class="mcp-category-pill custom">Custom <span class="mcp-category-count">${customServers.length}</span></span>
-          ${customServers.length > 0
-    ? customServers.map((s) => this._renderMcpServerCard(s))
-    : html`<div class="mcp-category-empty">No custom servers found. Add <code>mcp-servers/&lt;id&gt;/mcp.json</code> or <code>*-mcp</code> folders to your repo.</div>`}
+          <span class="mcp-category-pill configured">Configured <span class="mcp-category-count">${configuredServers.length}</span></span>
+          ${configuredServers.map((s) => this._renderMcpServerCard(s))}
+        </div>` : ''}
+
+        <div class="mcp-category">
+          <span class="mcp-category-pill custom">Repo <span class="mcp-category-count">${repoServers.length}</span></span>
+          ${repoServers.length > 0
+    ? repoServers.map((s) => this._renderMcpServerCard(s))
+    : html`<div class="mcp-category-empty">No repo servers found. Add <code>mcp-servers/&lt;id&gt;/mcp.json</code> or <code>*-mcp</code> folders to your repo.</div>`}
         </div>
 
         ${warnings.length > 0 ? html`
