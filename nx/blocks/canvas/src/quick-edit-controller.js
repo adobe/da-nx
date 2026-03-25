@@ -90,10 +90,10 @@ export function getInstrumentedHTML(view) {
   return htmlString;
 }
 
-export function updateDocument(ctx, scrollTarget = null) {
+export function updateDocument(ctx) {
   if (ctx.suppressRerender) return;
   const body = getInstrumentedHTML(ctx.view);
-  ctx.port.postMessage({ type: 'set-body', body, scrollTarget });
+  ctx.port.postMessage({ type: 'set-body', body });
 }
 
 export function updateCursors(ctx) {
@@ -447,6 +447,46 @@ export async function handlePreview(ctx) {
     ctx.port.postMessage({ type: 'preview', ok: false, error: `Failed to preview: ${resp.statusText}` });
   } else {
     ctx.port.postMessage({ type: 'preview', ok: true });
+  }
+}
+
+/**
+ * Insert a new section (horizontal_rule + empty paragraph) after the section at sectionIndex.
+ * Sections are 0-indexed and map to the div children of main/body in the AEM HTML.
+ * Section N is followed by the N-th horizontal_rule in the ProseMirror document.
+ * @param {{ sectionIndex: number }} data
+ * @param {{ view: import('prosemirror-view').EditorView }} ctx
+ */
+export function insertSectionAfter(data, ctx) {
+  const { sectionIndex } = data;
+  const { view } = ctx || {};
+  if (!view?.state) return;
+
+  const { tr, schema, doc } = view.state;
+  const hrType = schema.nodes.horizontal_rule;
+  const pType = schema.nodes.paragraph;
+  if (!hrType || !pType) return;
+
+  // Collect positions of all horizontal_rule nodes (section separators), in document order
+  const hrPositions = [];
+  doc.descendants((node, pos) => {
+    if (node.type.name === 'horizontal_rule') {
+      hrPositions.push(pos);
+    }
+  });
+
+  // Section N is followed by hr[N]. Insert [hr][p] just before hr[N],
+  // or at the end of the doc when sectionIndex is the last section.
+  const insertPos = sectionIndex < hrPositions.length
+    ? hrPositions[sectionIndex]
+    : doc.content.size;
+
+  try {
+    tr.insert(insertPos, [hrType.create(), pType.create()]);
+    view.dispatch(tr.scrollIntoView());
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error('[quick-edit-controller] insertSectionAfter failed', e?.message);
   }
 }
 
