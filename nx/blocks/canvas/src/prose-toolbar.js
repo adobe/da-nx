@@ -6,7 +6,9 @@
  * and a link button (always shown, Spectrum dialog for editing).
  */
 /* eslint-disable import/no-unresolved */
-import { Plugin, toggleMark, setBlockType } from 'da-y-wrapper';
+import {
+  Plugin, toggleMark, setBlockType, Fragment, yUndo, yRedo, yUndoPluginKey,
+} from 'da-y-wrapper';
 /* eslint-enable import/no-unresolved */
 // --- AEM Assets ---
 
@@ -351,6 +353,14 @@ function openLinkDialog(view) {
 
 // --- Toolbar ---
 
+function isInsideTable(state) {
+  const { $from } = state.selection;
+  for (let d = $from.depth; d > 0; d -= 1) {
+    if ($from.node(d).type.name === 'table') return true;
+  }
+  return false;
+}
+
 function isMarkActive(state, markType) {
   const { from, to, $from, $to, empty } = state.selection;
   if (empty) return !!markType.isInSet(state.storedMarks || $from.marksAcross($to) || []);
@@ -400,12 +410,18 @@ function buildToolbar(view) {
   // returns the shadow host — not the contenteditable.  Track real doc-editor focus
   // explicitly so split-view behaves the same as doc-only view.
   let docEditorFocused = false;
+  // When the user clicks a toolbar control (e.g. the block-type <select>),
+  // the editor fires blur before the control becomes interactive.  Ignore
+  // that blur so the controls stay enabled for the interaction.
+  let ignoreNextBlur = false;
+
   /* eslint-disable no-use-before-define */
   const onDocFocus = () => {
     docEditorFocused = true;
     update(view.state);
   };
   const onDocBlur = () => {
+    if (ignoreNextBlur) return;
     docEditorFocused = false;
     update(view.state);
   };
@@ -415,6 +431,14 @@ function buildToolbar(view) {
 
   const bar = document.createElement('div');
   bar.className = 'da-prose-toolbar';
+
+  // Set ignoreNextBlur on mousedown so the editor blur that follows
+  // (triggered by clicking any toolbar control) doesn't disable the controls.
+  // The flag is cleared in the next task, after blur has already fired.
+  bar.addEventListener('mousedown', () => {
+    ignoreNextBlur = true;
+    setTimeout(() => { ignoreNextBlur = false; }, 0);
+  });
 
   // Block type <select>
   const select = document.createElement('select');
@@ -426,8 +450,13 @@ function buildToolbar(view) {
     option.textContent = opt.label;
     select.appendChild(option);
   }
-  // mousedown stop-prop prevents editor blur before change fires
-  select.addEventListener('mousedown', (e) => e.stopPropagation());
+  // mousedown: set ignoreNextBlur before stop-prop so the editor blur
+  // triggered by clicking the select doesn't disable the toolbar controls.
+  select.addEventListener('mousedown', (e) => {
+    e.stopPropagation();
+    ignoreNextBlur = true;
+    setTimeout(() => { ignoreNextBlur = false; }, 0);
+  });
   select.addEventListener('change', () => {
     const found = BLOCK_OPTIONS.find((o) => blockOptionKey(o) === select.value);
     if (!found) return;
@@ -511,11 +540,42 @@ function buildToolbar(view) {
   if (!docPathAvailable) imgBtn.title = 'Open a document to insert images';
   bar.appendChild(imgBtn);
 
-  // Section break button
-  const hrSep = document.createElement('span');
-  hrSep.className = 'da-tb-sep';
-  bar.appendChild(hrSep);
+  // Insert block button
+  const blockSep = document.createElement('span');
+  blockSep.className = 'da-tb-sep';
+  bar.appendChild(blockSep);
 
+  const blockBtn = document.createElement('button');
+  blockBtn.type = 'button';
+  blockBtn.className = 'da-tb-btn da-tb-block';
+  blockBtn.title = 'Insert block';
+  blockBtn.setAttribute('aria-label', 'Insert block');
+  blockBtn.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    const { state } = view;
+    const { schema } = state;
+    const { table, paragraph } = schema.nodes;
+    const tableRow = schema.nodes.table_row;
+    const tableCell = schema.nodes.table_cell;
+    if (!table || !tableRow || !tableCell || !paragraph) return;
+    try {
+      const headingCell = tableCell.create({ colspan: 2 }, paragraph.create(null, schema.text('columns')));
+      const heading = tableRow.create(null, Fragment.from(headingCell));
+      const contentCell = tableCell.createAndFill();
+      const content = tableRow.create(null, Fragment.fromArray([contentCell, contentCell]));
+      const tableNode = table.create(null, Fragment.fromArray([heading, content]));
+      const { $from } = state.selection;
+      const insertPos = $from.depth >= 1 ? $from.after(1) : state.doc.content.size;
+      view.dispatch(state.tr.insert(insertPos, [paragraph.create(), tableNode]).scrollIntoView());
+      view.focus();
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('[prose-toolbar] insertBlock failed', err?.message);
+    }
+  });
+  bar.appendChild(blockBtn);
+
+  // Section break button
   const hrBtn = document.createElement('button');
   hrBtn.type = 'button';
   hrBtn.className = 'da-tb-btn da-tb-hr';
@@ -540,6 +600,39 @@ function buildToolbar(view) {
   });
   bar.appendChild(hrBtn);
 
+  // Undo / Redo buttons
+  const undoRedoSep = document.createElement('span');
+  undoRedoSep.className = 'da-tb-sep';
+  bar.appendChild(undoRedoSep);
+
+  const undoBtn = document.createElement('button');
+  undoBtn.type = 'button';
+  undoBtn.className = 'da-tb-btn da-tb-undo';
+  undoBtn.title = 'Undo';
+  undoBtn.setAttribute('aria-label', 'Undo');
+  undoBtn.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    const mgr = yUndoPluginKey.getState(view.state)?.undoManager;
+    if (mgr?.undoStack?.length > 0) mgr.undo();
+    else yUndo(view.state);
+    view.focus();
+  });
+  bar.appendChild(undoBtn);
+
+  const redoBtn = document.createElement('button');
+  redoBtn.type = 'button';
+  redoBtn.className = 'da-tb-btn da-tb-redo';
+  redoBtn.title = 'Redo';
+  redoBtn.setAttribute('aria-label', 'Redo');
+  redoBtn.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    const mgr = yUndoPluginKey.getState(view.state)?.undoManager;
+    if (mgr?.redoStack?.length > 0) mgr.redo();
+    else yRedo(view.state);
+    view.focus();
+  });
+  bar.appendChild(redoBtn);
+
   function update(state) {
     const hasCursor = view.hasFocus() || docEditorFocused;
     select.disabled = !hasCursor;
@@ -559,7 +652,14 @@ function buildToolbar(view) {
     }
     unlinkBtn.disabled = !hasCursor || !linkActive;
     imgBtn.disabled = !hasCursor || !docPathAvailable;
-    hrBtn.disabled = !hasCursor;
+    blockBtn.disabled = !docEditorFocused || isInsideTable(state);
+    hrBtn.disabled = !docEditorFocused;
+    // hasUndoOps in PM state lags one transaction behind the UndoManager
+    // (yUndoPlugin.apply runs before ySyncPlugin captures the Yjs transaction).
+    // Read the live stack length directly for accurate enabled/disabled state.
+    const undoMgr = yUndoPluginKey.getState(state)?.undoManager;
+    undoBtn.disabled = !docEditorFocused || !(undoMgr?.undoStack?.length > 0);
+    redoBtn.disabled = !docEditorFocused || !(undoMgr?.redoStack?.length > 0);
   }
 
   function destroy() {
@@ -576,9 +676,32 @@ export default function proseToolbar(onToolbar) {
       const { bar, update, destroy } = buildToolbar(editorView);
       onToolbar?.(bar);
       update(editorView.state);
+
+      // yUndoPlugin.apply runs before the ySyncPlugin.view.update hook that
+      // actually captures changes into the UndoManager.  Subscribe to
+      // stack-item-added / stack-item-popped so the toolbar refreshes its
+      // enabled state once the Yjs capture has completed.
+      const undoManager = yUndoPluginKey.getState(editorView.state)?.undoManager;
+      let refreshTimer = null;
+      const scheduleRefresh = () => {
+        clearTimeout(refreshTimer);
+        refreshTimer = setTimeout(() => {
+          if (!editorView.destroyed) update(editorView.state);
+        }, 0);
+      };
+      if (undoManager) {
+        undoManager.on('stack-item-added', scheduleRefresh);
+        undoManager.on('stack-item-popped', scheduleRefresh);
+      }
+
       return {
         update(v) { update(v.state); },
         destroy() {
+          clearTimeout(refreshTimer);
+          if (undoManager) {
+            undoManager.off('stack-item-added', scheduleRefresh);
+            undoManager.off('stack-item-popped', scheduleRefresh);
+          }
           destroy();
           bar.remove();
           onToolbar?.(null);

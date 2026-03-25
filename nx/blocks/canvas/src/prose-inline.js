@@ -19,6 +19,9 @@ import {
   ySyncPlugin,
   yCursorPlugin,
   yUndoPlugin,
+  yUndoPluginKey,
+  yUndo,
+  yRedo,
   buildKeymap,
   tableEditing,
   gapCursor,
@@ -31,6 +34,7 @@ import { COLLAB_ORIGIN, DA_ORIGIN } from 'https://da.live/blocks/shared/constant
 import { initIms } from '../../../utils/daFetch.js';
 import { findChangedNodes, findCommonEditableAncestor } from './prose-controller-utils.js';
 import proseToolbar from './prose-toolbar.js';
+import tableSelectHandle from './table-select-handle.js';
 /* eslint-enable import/no-unresolved */
 
 function trackCursorAndChanges(rerenderPage, updateCursors, getEditor, onSelectionChange) {
@@ -205,8 +209,6 @@ export default async function initProse({
         getListInputRulesPlugin,
         handleTableBackspace,
         handleTableTab,
-        handleUndo,
-        handleRedo,
       },
       { getHeadingKeymap },
     ] = await Promise.all([
@@ -217,8 +219,26 @@ export default async function initProse({
 
     const dispatch = (tr) => { if (window.view) window.view.dispatch(tr); };
 
+    const handleUndo = (state) => {
+      const mgr = yUndoPluginKey.getState(state)?.undoManager;
+      if (mgr?.undoStack?.length > 0) {
+        mgr.undo();
+        return true;
+      }
+      return yUndo(state) || false;
+    };
+    const handleRedo = (state) => {
+      const mgr = yUndoPluginKey.getState(state)?.undoManager;
+      if (mgr?.redoStack?.length > 0) {
+        mgr.redo();
+        return true;
+      }
+      return yRedo(state) || false;
+    };
+
     plugins.push(
       proseToolbar(onToolbar),
+      tableSelectHandle(),
       getEnterInputRulesPlugin(dispatch),
       getURLInputRulesPlugin(),
       getListInputRulesPlugin(schema),
