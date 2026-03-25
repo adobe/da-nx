@@ -1340,36 +1340,54 @@
   box-shadow: 0 0 0 1px #1473e6;
 }
 
-.chat-btn-attach {
-  width: 36px;
-  height: 36px;
+.chat-toolbar-icon-group {
+  display: flex;
+  align-items: center;
+  gap: 0;
   flex-shrink: 0;
-  border: 1px solid #d0d5dd;
-  border-radius: 50%;
-  background: #fff;
+}
+
+.chat-toolbar-icon-group overlay-trigger {
+  display: inline-flex;
+  align-items: center;
+  line-height: 0;
+}
+
+/* Skills + attach: quiet icon buttons (like sp-action-button quiet) */
+.chat-toolbar-icon-btn {
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
   color: #4b5563;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  transition: border-color 0.15s, color 0.15s, background-color 0.15s, opacity 0.15s;
+  transition: color 0.15s, background-color 0.15s, opacity 0.15s;
   padding: 0;
 }
 
-.chat-btn-attach:hover {
-  border-color: #1473e6;
-  color: #1473e6;
-  background: #f8fbff;
-}
-
-.chat-btn-attach:disabled {
+.chat-toolbar-icon-btn:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
 
-.chat-btn-attach:focus-visible {
+.chat-toolbar-icon-btn:focus-visible {
   outline: 2px solid #1473e6;
   outline-offset: 2px;
+}
+
+.chat-toolbar-icon-btn:hover:not(:disabled) {
+  background: #eceff1;
+  color: #292929;
+}
+
+.chat-toolbar-icon-btn svg {
+  display: block;
+  flex-shrink: 0;
 }
 
 /* Animated gradient border when agent is thinking */
@@ -1480,6 +1498,10 @@
 .chat-btn-send:focus-visible {
   outline: 2px solid #1473e6;
   outline-offset: 2px;
+}
+
+.chat-btn-send svg {
+  display: block;
 }
 
 /* Circular stop button */
