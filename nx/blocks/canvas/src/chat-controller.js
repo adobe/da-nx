@@ -37,6 +37,38 @@ function sanitizeSelectionContext(items) {
   return out.length ? out : undefined;
 }
 
+function sanitizeOutgoingAttachments(items) {
+  if (!Array.isArray(items) || items.length === 0) return { request: [], meta: [] };
+  const request = [];
+  const meta = [];
+  items.forEach((it, index) => {
+    const id = typeof it?.id === 'string' && it.id.trim() ? it.id.trim() : `att-${index + 1}`;
+    const fileName = typeof it?.fileName === 'string' && it.fileName.trim()
+      ? it.fileName.trim()
+      : 'attachment';
+    const mediaType = typeof it?.mediaType === 'string' && it.mediaType.trim()
+      ? it.mediaType.trim()
+      : 'application/octet-stream';
+    const dataBase64 = typeof it?.dataBase64 === 'string' ? it.dataBase64.trim() : '';
+    const sizeBytes = Number.isFinite(it?.sizeBytes) ? Number(it.sizeBytes) : undefined;
+    if (!dataBase64) return;
+    request.push({
+      id,
+      fileName,
+      mediaType,
+      dataBase64,
+      ...(typeof sizeBytes === 'number' ? { sizeBytes } : {}),
+    });
+    meta.push({
+      id,
+      fileName,
+      mediaType,
+      ...(typeof sizeBytes === 'number' ? { sizeBytes } : {}),
+    });
+  });
+  return { request, meta };
+}
+
 function normalizePath(path) {
   if (typeof path !== 'string') return '';
   return path
@@ -192,6 +224,8 @@ export class ChatController {
     this._postApprovalRepoRefreshQueue = [];
     /** @type {{ toolCallId: string, toolName: string } | null} */
     this._activeClientToolCall = null;
+    /** Binary attachment payloads sent only with the next /chat request. */
+    this._pendingRequestAttachments = [];
   }
 
   get _chatUrl() {
@@ -606,14 +640,24 @@ export class ChatController {
     return true;
   }
 
-  async sendMessage(text, selectionContext = []) {
+  async sendMessage(text, selectionContext = [], attachments = []) {
     const content = (text || '').trim();
-    if (!content || this.isThinking || this.isAwaitingApproval || this.isAwaitingClientTool
+    const {
+      request: requestAttachments,
+      meta: attachmentMeta,
+    } = sanitizeOutgoingAttachments(attachments);
+    if ((!content && attachmentMeta.length === 0)
+      || this.isThinking || this.isAwaitingApproval || this.isAwaitingClientTool
         || !this.connected) return;
 
     const ctx = sanitizeSelectionContext(selectionContext);
-    const userMsg = { role: 'user', content };
+    const userMsg = {
+      role: 'user',
+      content: content || (attachmentMeta.length > 1 ? 'Attached files' : 'Attached file'),
+    };
     if (ctx?.length) userMsg.selectionContext = ctx;
+    if (attachmentMeta.length > 0) userMsg.attachmentsMeta = attachmentMeta;
+    this._pendingRequestAttachments = requestAttachments;
     this._approvedRepoToolsPendingResume = [];
     this._postApprovalRepoRefreshQueue = [];
     this.messages = [...this.messages, userMsg];
@@ -738,6 +782,9 @@ export class ChatController {
           messages: this.messages,
           pageContext: this.getContext(),
           imsToken,
+          ...(this._pendingRequestAttachments.length > 0
+            ? { attachments: this._pendingRequestAttachments }
+            : {}),
           room: this.room,
           ...(this.agentId ? { agentId: this.agentId } : {}),
           ...(this.requestedSkills.length > 0 ? { requestedSkills: this.requestedSkills } : {}),
@@ -760,6 +807,7 @@ export class ChatController {
         saveMessages(this.room, this.messages);
       }
     } catch (e) {
+      this._pendingRequestAttachments = [];
       this._postApprovalRepoRefreshQueue = [];
       if (e.name === 'AbortError') return;
       this.isThinking = false;
@@ -778,6 +826,7 @@ export class ChatController {
       this.onStatusChange(this.statusText);
       this.onUpdate();
     } finally {
+      this._pendingRequestAttachments = [];
       this._abortController = null;
     }
   }

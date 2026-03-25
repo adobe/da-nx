@@ -165,6 +165,7 @@ class Chat extends LitElement {
     _slashFilter: { state: true },
     _slashSelectedIndex: { state: true },
     _revertConfirmOpen: { state: true },
+    _pendingAttachments: { state: true },
     /** @type {string | null} */
     _revertPendingToolCallId: { state: true },
     /** Snapshot HTML for the open doc in edit view (space → inline editor). */
@@ -206,10 +207,12 @@ class Chat extends LitElement {
     this._slashFilter = '';
     this._slashSelectedIndex = 0;
     this._revertConfirmOpen = false;
+    this._pendingAttachments = [];
     this._revertPendingToolCallId = null;
     this.getRevertSnapshotAemHtml = null;
     this.revertCollabDoc = null;
     this._chatController = null;
+    this._fileInput = null;
     /** @type {{ toolCallId: string, toolName: string } | null} */
     this._bulkPreviewSession = null;
   }
@@ -247,6 +250,7 @@ class Chat extends LitElement {
 
   disconnectedCallback() {
     window.removeEventListener(DA_BULK_AEM_SETTLED, this._boundBulkAemSettled);
+    this._clearPendingAttachments();
     this._chatController?.disconnect();
     super.disconnectedCallback();
   }
@@ -341,6 +345,88 @@ class Chat extends LitElement {
     }
   }
 
+  // eslint-disable-next-line class-methods-use-this
+  async _fileToAttachment(file) {
+    const id = (globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`);
+    const mediaType = file.type || 'application/octet-stream';
+    const dataUrl = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result || ''));
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.readAsDataURL(file);
+    });
+    const base64 = dataUrl.includes(',') ? dataUrl.split(',')[1] : '';
+    return {
+      id,
+      fileName: file.name || 'attachment',
+      mediaType,
+      sizeBytes: Number.isFinite(file.size) ? Number(file.size) : undefined,
+      dataBase64: base64,
+      previewUrl: mediaType.startsWith('image/') ? URL.createObjectURL(file) : '',
+    };
+  }
+
+  async _onAttachmentFilesSelected(fileList) {
+    const files = Array.from(fileList || []).filter((f) => f && f.type?.startsWith('image/'));
+    if (files.length === 0) return;
+    const next = [...this._pendingAttachments];
+    // Keep request payload bounded in the UI; can be lifted later.
+    const maxFiles = 5;
+    const available = Math.max(0, maxFiles - next.length);
+    const picked = files.slice(0, available);
+    // eslint-disable-next-line no-restricted-syntax
+    for (const file of picked) {
+      // eslint-disable-next-line no-await-in-loop
+      const attachment = await this._fileToAttachment(file);
+      if (attachment.dataBase64) next.push(attachment);
+    }
+    this._pendingAttachments = next;
+  }
+
+  _openAttachmentPicker() {
+    if (!this._fileInput) {
+      this._fileInput = document.createElement('input');
+      this._fileInput.type = 'file';
+      this._fileInput.accept = 'image/*';
+      this._fileInput.multiple = true;
+      this._fileInput.style.display = 'none';
+      this._fileInput.addEventListener('change', async (e) => {
+        await this._onAttachmentFilesSelected(e.target?.files);
+        this._fileInput.value = '';
+      });
+      this.renderRoot.appendChild(this._fileInput);
+    }
+    this._fileInput.click();
+  }
+
+  _removePendingAttachment(id) {
+    const removed = this._pendingAttachments.find((a) => a.id === id);
+    if (removed?.previewUrl) URL.revokeObjectURL(removed.previewUrl);
+    this._pendingAttachments = this._pendingAttachments.filter((a) => a.id !== id);
+  }
+
+  _clearPendingAttachments() {
+    this._pendingAttachments.forEach((a) => {
+      if (a.previewUrl) URL.revokeObjectURL(a.previewUrl);
+    });
+    this._pendingAttachments = [];
+  }
+
+  async _handlePaste(e) {
+    const dt = e.clipboardData;
+    if (!dt?.items?.length) return;
+    const files = [];
+    for (const item of dt.items) {
+      if (item.kind === 'file') {
+        const file = item.getAsFile();
+        if (file) files.push(file);
+      }
+    }
+    if (files.length === 0) return;
+    e.preventDefault();
+    await this._onAttachmentFilesSelected(files);
+  }
+
   _handleKeyDown(e) {
     if (this._slashMenuOpen) {
       const items = this._getFilteredSlashItems();
@@ -378,10 +464,23 @@ class Chat extends LitElement {
 
   _sendMessage() {
     const content = this._inputValue.trim();
-    if (!content || this._isThinking || this._isAwaitingApproval || this._isAwaitingClientTool
+    if ((!content && this._pendingAttachments.length === 0)
+      || this._isThinking || this._isAwaitingApproval || this._isAwaitingClientTool
       || !this._chatController) return;
     const contextSnapshot = [...(this.onPageContextItems ?? [])];
+    const pendingRaw = [...this._pendingAttachments];
+    const pending = pendingRaw.map((a) => ({
+      id: a.id,
+      fileName: a.fileName,
+      mediaType: a.mediaType,
+      sizeBytes: a.sizeBytes,
+      dataBase64: a.dataBase64,
+    }));
     this._inputValue = '';
+    pendingRaw.forEach((a) => {
+      if (a.previewUrl) URL.revokeObjectURL(a.previewUrl);
+    });
+    this._pendingAttachments = [];
     if (this._pendingSkillIds?.length > 0) {
       this._chatController.requestedSkills = [...this._pendingSkillIds];
       this._pendingSkillIds = [];
@@ -389,7 +488,7 @@ class Chat extends LitElement {
       this._chatController.requestedSkills = [];
     }
     this._chatController.mcpServers = this._configuredMcpServers || {};
-    this._chatController.sendMessage(content, contextSnapshot);
+    this._chatController.sendMessage(content, contextSnapshot, pending);
     this.dispatchEvent(new CustomEvent('da-chat-message-sent', { bubbles: true }));
   }
 
@@ -920,6 +1019,33 @@ class Chat extends LitElement {
     `;
   }
 
+  _renderAttachmentPills(items, removable = false) {
+    if (!items?.length) return nothing;
+    return html`
+      <div class="message-attached-context" aria-label="Attachments included with this message">
+        <span class="message-attached-context-hint">Attachments</span>
+        <div class="chat-context-pills chat-context-pills-sent">
+          ${items.map((item) => {
+      const title = `${item.fileName || 'attachment'} (${item.mediaType || 'application/octet-stream'})`;
+      return html`
+              <span class="chat-context-pill chat-context-pill-sent attachment-pill" title="${title}">
+                ${removable
+      ? html`<button
+                      type="button"
+                      class="chat-context-pill-remove attachment-pill-remove"
+                      aria-label="Remove attachment"
+                      @click=${() => this._removePendingAttachment(item.id)}
+                    >×</button>`
+      : nothing}
+                <span class="chat-context-pill-label">${item.fileName || 'attachment'}</span>
+              </span>
+            `;
+    })}
+        </div>
+      </div>
+    `;
+  }
+
   _removeContextItem(index) {
     this.dispatchEvent(new CustomEvent('chat-context-remove', {
       bubbles: true,
@@ -1253,10 +1379,13 @@ class Chat extends LitElement {
           if (message.role === 'user') {
             const text = typeof message.content === 'string' ? message.content : String(message.content ?? '');
             const attached = message.selectionContext;
+            const attachmentMeta = Array.isArray(message.attachmentsMeta)
+              ? message.attachmentsMeta : [];
             return html`
               <div class="message-row user">
                 <div class="message-user-column">
                   ${this._renderAttachedContextPills(attached)}
+                  ${this._renderAttachmentPills(attachmentMeta)}
                   <div class="message-bubble">${text}</div>
                 </div>
               </div>`;
@@ -1298,9 +1427,22 @@ class Chat extends LitElement {
             `)}
           </div>
           ` : ''}
+          ${this._pendingAttachments.length > 0
+    ? this._renderAttachmentPills(this._pendingAttachments, true)
+    : ''}
           ${this._renderSlashMenu()}
           <div class="chat-footer-row ${this._isThinking ? 'thinking' : ''}">
           ${this._renderSkillsButton()}
+          <button
+            type="button"
+            class="chat-btn-attach"
+            title="Attach image"
+            aria-label="Attach image"
+            ?disabled=${this._isThinking || this._isAwaitingApproval || this._isAwaitingClientTool || !this._connected}
+            @click=${this._openAttachmentPicker}
+          >
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M6.5 10.75V6.5a3.5 3.5 0 1 1 7 0v6.75a5 5 0 0 1-10 0V5.75a.75.75 0 0 1 1.5 0v7.5a3.5 3.5 0 0 0 7 0V6.5a2 2 0 1 0-4 0v4.25a.75.75 0 0 0 1.5 0V7a.75.75 0 0 1 1.5 0v3.75a2.25 2.25 0 0 1-4.5 0Z" fill="currentColor"/></svg>
+          </button>
           <sp-textfield
             class="chat-input"
             label="Message"
@@ -1310,13 +1452,14 @@ class Chat extends LitElement {
       || !this._connected}
             @input=${this._handleInput}
             @keydown=${this._handleKeyDown}
+            @paste=${this._handlePaste}
           ></sp-textfield>
           ${this._isThinking
         ? html`<button type="button" class="chat-btn-stop" title="Stop generating" aria-label="Stop generating" @click=${this._stopRequest}>
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><rect x="1" y="1" width="12" height="12" rx="2" fill="currentColor"/></svg>
             </button>`
         : html`<button type="button" class="chat-btn-send" title="Send message" aria-label="Send message"
-                ?disabled=${!this._inputValue.trim() || !this._connected || this._isAwaitingApproval
+                ?disabled=${(!this._inputValue.trim() && this._pendingAttachments.length === 0) || !this._connected || this._isAwaitingApproval
           || this._isAwaitingClientTool}
                 @click=${this._sendMessage}>
               <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M3.11 1.05a1 1 0 0 1 1.04-.13l14 7a1 1 0 0 1 0 1.79l-14 7A1 1 0 0 1 2.72 15.6L5.37 10 2.72 4.4a1 1 0 0 1 .39-1.35ZM6.63 10.75l-2.12 4.47L16.38 10 4.51 4.78l2.12 4.47h4.62a.75.75 0 0 1 0 1.5H6.63Z" fill="currentColor"/></svg>
