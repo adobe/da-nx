@@ -42,12 +42,17 @@ function parseBlockStructure(htmlText) {
 
     const sections = container.querySelectorAll(':scope > div');
     sections.forEach((section, sectionIndex) => {
+      let hasBlock = false;
       section.querySelectorAll(':scope > div[class]').forEach((blockEl) => {
         const blockName = blockEl.classList[0];
         if (blockName && blockName !== 'default-content-wrapper') {
           blocks.push({ sectionIndex, blockName });
+          hasBlock = true;
         }
       });
+      if (!hasBlock) {
+        blocks.push({ sectionIndex, blockName: null });
+      }
     });
   } catch (e) {
     // eslint-disable-next-line no-console
@@ -166,6 +171,18 @@ export default class PageOutline extends LitElement {
     this.requestUpdate();
   }
 
+  _onAddSectionAtEnd() {
+    const sections = this._sectionsWithBlocks;
+    const sectionIndex = sections.length > 0
+      ? sections[sections.length - 1].sectionIndex
+      : 0;
+    this.dispatchEvent(new CustomEvent('da-outline-add-section', {
+      bubbles: true,
+      composed: true,
+      detail: { sectionIndex },
+    }));
+  }
+
   render() {
     if (!this.org || !this.repo) {
       return html`
@@ -196,7 +213,16 @@ export default class PageOutline extends LitElement {
 
     return html`
 <div class="page-outline">
-  <div class="page-outline-header">Page outline</div>
+  <div class="page-outline-header">
+    <span class="page-outline-header-label">Page outline</span>
+    <button
+      type="button"
+      class="page-outline-header-btn"
+      title="Insert section"
+      aria-label="Insert section at end"
+      @click="${this._onAddSectionAtEnd}"
+    ></button>
+  </div>
   <div class="page-outline-list-wrap">
     ${sections.length === 0
     ? html`<div class="page-outline-placeholder">No blocks found.</div>`
@@ -206,7 +232,10 @@ export default class PageOutline extends LitElement {
 <li class="page-outline-section" role="treeitem" aria-expanded="true">
   <span class="page-outline-section-label">Section ${sec.sectionIndex + 1}</span>
   <ul class="page-outline-block-list" role="group">
-    ${sec.blocks.map((blockName) => {
+    ${sec.blocks.length === 0 ? html`
+<li class="page-outline-block page-outline-block-empty" role="treeitem">
+  <span class="page-outline-block-name page-outline-empty-label">No blocks</span>
+</li>` : sec.blocks.map((blockName) => {
     const flatIndex = flatIndexCounter;
     flatIndexCounter += 1;
     const isDropTarget = canReorder && this._dragOverIndex === flatIndex;
@@ -243,12 +272,12 @@ export default class PageOutline extends LitElement {
   get _sectionsWithBlocks() {
     const bySection = new Map();
     this._blocks.forEach((entry) => {
-      let blocks = bySection.get(entry.sectionIndex);
-      if (!blocks) {
-        blocks = [];
-        bySection.set(entry.sectionIndex, blocks);
+      if (!bySection.has(entry.sectionIndex)) {
+        bySection.set(entry.sectionIndex, []);
       }
-      blocks.push(entry.blockName);
+      if (entry.blockName !== null) {
+        bySection.get(entry.sectionIndex).push(entry.blockName);
+      }
     });
     return Array.from(bySection.entries())
       .sort((a, b) => a[0] - b[0])
