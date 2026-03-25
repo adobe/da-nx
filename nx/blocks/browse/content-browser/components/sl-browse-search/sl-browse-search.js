@@ -47,7 +47,7 @@ export class SlBrowseSearch extends LitElement {
   constructor() {
     super();
     this.value = '';
-    this.placeholder = 'Search in folder';
+    this.placeholder = 'Search in this folder and below';
     this.label = 'Search';
     this.debounceMs = 200;
     /** @type {ReturnType<typeof setTimeout> | null} */
@@ -118,8 +118,7 @@ export class SlBrowseSearch extends LitElement {
       <div class="sl-search-shell">
         <sp-search
           class="sl-browse-search-control"
-          size="l"
-          quiet
+          size="m"
           placeholder="${this.placeholder}"
           label="${this.label}"
           .value="${this.value}"

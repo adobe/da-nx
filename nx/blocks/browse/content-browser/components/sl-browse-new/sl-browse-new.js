@@ -62,7 +62,36 @@ export class SlBrowseNew extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
+    document.addEventListener('pointerdown', this._onDocumentPointerDown, true);
+    document.addEventListener('keydown', this._onDocumentKeydown, true);
   }
+
+  disconnectedCallback() {
+    document.removeEventListener('pointerdown', this._onDocumentPointerDown, true);
+    document.removeEventListener('keydown', this._onDocumentKeydown, true);
+    super.disconnectedCallback();
+  }
+
+  /**
+   * Close menu / create panel when the user clicks or taps outside this element.
+   * @param {PointerEvent} e
+   */
+  _onDocumentPointerDown = (e) => {
+    if (!this._menuOpen && !this._mode) return;
+    if (e.composedPath().includes(this)) return;
+    this._menuOpen = false;
+    this._resetPanels();
+  };
+
+  /**
+   * Dismiss overlays with Escape (including when focus is outside the name field).
+   * @param {KeyboardEvent} e
+   */
+  _onDocumentKeydown = (e) => {
+    if (e.key !== 'Escape' || (!this._menuOpen && !this._mode)) return;
+    this._menuOpen = false;
+    this._resetPanels();
+  };
 
   get _hasWrite() {
     if (this.permissions == null) return true;
@@ -296,7 +325,7 @@ export class SlBrowseNew extends LitElement {
     return html`
       <div class="${this._rootClass()}">
         <sp-button
-          size="s"
+          size="m"
           variant="accent"
           ?disabled="${this._controlDisabled}"
           @click="${this._toggleMenu}"

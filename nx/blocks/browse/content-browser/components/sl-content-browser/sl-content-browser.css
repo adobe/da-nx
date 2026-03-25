@@ -3,7 +3,8 @@
   --cb-border: #e8e8e8;
   --cb-text: #1a1a1a;
   --cb-text-muted: #737373;
-  --cb-font: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', roboto, sans-serif;
+  --cb-font:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", roboto, sans-serif;
 
   /** Search underline (inherits into `sl-browse-search`) */
   --sl-header-rule: rgb(0 0 0 / 8%);
@@ -15,10 +16,10 @@
   --sl-content-browser-column-padding-inline: clamp(0.75rem, 2.5vw, 1.5rem);
   --sl-content-browser-column-padding-block: clamp(0.75rem, 2vw, 1.25rem);
 
-  /** Selection toolbar (bulk action buttons) only — not the Kind/Format filter row */
-  --sl-cb-selection-toolbar-bg: rgb(0 0 0 / 4.5%);
-  --sl-cb-selection-toolbar-border: rgb(0 0 0 / 6%);
-  --sl-cb-toolbar-slot-height: 2.25rem;
+  /**
+   * Single header band: search + filters OR selection action bar (same height to avoid body jump).
+   */
+  --sl-cb-control-row-height: 3.5rem;
 
   display: flex;
   flex-direction: column;
@@ -66,42 +67,85 @@
 
 .sl-content-browser-header {
   flex-shrink: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
   padding: 0.35rem 0;
 }
 
-.sl-content-browser-search-row {
-  display: flex;
-  justify-content: center;
-  align-items: flex-end;
-  min-width: 0;
-  width: 100%;
-}
-
-.sl-content-browser-search {
-  flex: 0 1 auto;
-  min-width: 0;
-  width: 100%;
-  max-width: min(48rem, 100%);
-}
-
-.sl-content-browser-toolbar-slot {
+.sl-content-browser-control-row {
   flex-shrink: 0;
-  min-width: 0;
-  height: var(--sl-cb-toolbar-slot-height);
-  min-height: var(--sl-cb-toolbar-slot-height);
   display: flex;
-  align-items: stretch;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  height: var(--sl-cb-control-row-height);
+  min-height: var(--sl-cb-control-row-height);
+  max-height: var(--sl-cb-control-row-height);
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.sl-content-browser-search-filter-row {
+  display: flex;
+  flex-flow: row nowrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.5rem 1rem;
+  min-width: 0;
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  overflow: hidden auto;
   box-sizing: border-box;
 }
 
-.sl-content-browser-toolbar-slot > * {
+/* ~80 characters wide (`ch` ≈ glyph width; caps on narrow rows via 100%). */
+.sl-content-browser-search {
+  flex: 0 1 auto;
+  min-width: 0;
+  width: min(80ch, 100%);
+  max-width: 100%;
+  max-height: 100%;
+  align-self: center;
+}
+
+.sl-content-browser-kind-filter-slot {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  justify-content: flex-end;
+  min-width: 0;
+  max-height: 100%;
+  margin-inline-start: auto;
+}
+
+.sl-content-browser-kind-filter-slot sp-field-label {
+  flex-shrink: 0;
+}
+
+.sl-content-browser-kind-filter-picker {
+  flex-shrink: 0;
+  min-width: 0;
+  max-width: 11rem;
+  max-height: 2.75rem;
+}
+
+.sl-content-browser-action-slot {
   flex: 1;
   min-width: 0;
   min-height: 0;
-  align-self: stretch;
+  height: 100%;
+  max-height: 100%;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+}
+
+.sl-content-browser-action-slot > * {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  max-height: 100%;
+  align-self: center;
   box-sizing: border-box;
 }
 
@@ -115,40 +159,6 @@
   clip-path: inset(50%);
   white-space: nowrap;
   border: 0;
-}
-
-.sl-content-browser-type-filter-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 0.5rem 0.75rem;
-  min-width: 0;
-  width: 100%;
-}
-
-.sl-content-browser-clear-filters {
-  margin-inline-start: auto;
-}
-
-.sl-content-browser-breadcrumb-row {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  min-width: 0;
-  padding-bottom: 0;
-  box-sizing: border-box;
-}
-
-.sl-content-browser-breadcrumbs {
-  display: block;
-  flex: 1;
-  min-width: 0;
-}
-
-.sl-content-browser-new {
-  flex-shrink: 0;
-  align-self: center;
 }
 
 .sl-content-browser-body {
@@ -189,7 +199,7 @@
 }
 
 .sl-content-browser-hint code {
-  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
   font-size: 0.9em;
   color: var(--cb-text);
 }

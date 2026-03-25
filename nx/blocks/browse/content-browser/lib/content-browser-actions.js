@@ -79,6 +79,9 @@ export function dispatchBulkAemOpen(paths, mode) {
 /** @see BrowseView — syncs table selection into `da-chat` `.onPageContextItems`. */
 export const SL_CONTENT_BROWSER_CHAT_CONTEXT = 'sl-content-browser-chat-context';
 
+/** @see BrowseView — toolbar `sl-browse-new` list `write` permission from folder list. */
+export const SL_CONTENT_BROWSER_LIST_PERMISSIONS = 'sl-content-browser-list-permissions';
+
 /**
  * Chat context items for selected repo files (same pipeline as canvas `onPageContextItems`).
  * Skips folder rows. Sanitized in `chat-controller.js` before send.

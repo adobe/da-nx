@@ -3,8 +3,10 @@ import getStyle from 'https://da.live/nx/utils/styles.js';
 // eslint-disable-next-line import/no-unresolved
 import { LitElement, html, createRef, ref } from 'da-lit';
 import { parseHashToPathContext } from '../../api/da-browse-api.js';
+import { crawl } from '../../../../../public/utils/tree.js';
 import {
   SL_CONTENT_BROWSER_CHAT_CONTEXT,
+  SL_CONTENT_BROWSER_LIST_PERMISSIONS,
   buildBrowseChatContextItems,
   buildCanvasEditHref,
   buildDeleteDialogContent,
@@ -22,37 +24,62 @@ import {
   fileKindFromExtension,
   filterItemsByFormatKind,
   filterItemsByKind,
-  filterItemsByQuery,
   findItemByRowKey,
 } from '../../lib/content-browser-utils.js';
-import '../sl-browse-breadcrumbs/sl-browse-breadcrumbs.js';
 import '../sl-browse-body/sl-browse-body.js';
 import '../sl-browse-delete-dialog/sl-browse-delete-dialog.js';
 import '../sl-browse-folder/sl-browse-folder.js';
-import '../sl-browse-new/sl-browse-new.js';
 import '../sl-browse-rename-dialog/sl-browse-rename-dialog.js';
 import '../sl-browse-search/sl-browse-search.js';
 import '../sl-browse-selection-toolbar/sl-browse-selection-toolbar.js';
 import '../sl-browse-toast-host/sl-browse-toast-host.js';
-import '../sl-filter-chip/sl-filter-chip.js';
 
 const style = await getStyle(import.meta.url);
 
-/** Options for type filter `<sl-filter-chip>` (folders vs files). */
-const TYPE_FILTER_OPTIONS = [
-  { value: 'all', label: 'All' },
-  { value: 'folder', label: 'Folder' },
-  { value: 'file', label: 'File' },
+const FORMAT_FILTER_VALUES = new Set(['all', 'document', 'sheet', 'media']);
+
+/** Single-picker model for kind + format (toolbar). */
+const COMBINED_FILTER_OPTIONS = [
+  { value: 'all', typeFilter: 'all', formatFilter: 'all', label: 'All', icon: 'all' },
+  { value: 'folder', typeFilter: 'folder', formatFilter: 'all', label: 'Folders', icon: 'folder' },
+  {
+    value: 'file-document',
+    typeFilter: 'file',
+    formatFilter: 'document',
+    label: FILE_KIND_LABEL.document,
+    icon: 'document',
+  },
+  {
+    value: 'file-sheet',
+    typeFilter: 'file',
+    formatFilter: 'sheet',
+    label: FILE_KIND_LABEL.sheet,
+    icon: 'sheet',
+  },
+  {
+    value: 'file-media',
+    typeFilter: 'file',
+    formatFilter: 'media',
+    label: FILE_KIND_LABEL.media,
+    icon: 'media',
+  },
 ];
 
-const FORMAT_FILTER_OPTIONS = [
-  { value: 'all', label: 'All' },
-  { value: 'document', label: FILE_KIND_LABEL.document },
-  { value: 'sheet', label: FILE_KIND_LABEL.sheet },
-  { value: 'media', label: FILE_KIND_LABEL.media },
-];
-
-const FORMAT_FILTER_VALUES = new Set(FORMAT_FILTER_OPTIONS.map((o) => o.value));
+/** @param {'all' | 'folder' | 'document' | 'sheet' | 'media'} iconKind */
+function combinedFilterMenuItemIcon(iconKind) {
+  switch (iconKind) {
+    case 'folder':
+      return html`<sp-icon-folder slot="icon" size="s"></sp-icon-folder>`;
+    case 'document':
+      return html`<sp-icon-file-text slot="icon" size="s"></sp-icon-file-text>`;
+    case 'sheet':
+      return html`<sp-icon-table slot="icon" size="s"></sp-icon-table>`;
+    case 'media':
+      return html`<sp-icon-image slot="icon" size="s"></sp-icon-image>`;
+    default:
+      return html`<sp-icon-table slot="icon" size="s"></sp-icon-table>`;
+  }
+}
 
 /**
  * Search-first folder browser: composes header, `sl-browse-folder` sync, table, dialogs.
@@ -91,11 +118,13 @@ class SlContentBrowser extends LitElement {
      * @type {((daPath: string, formData?: FormData) => Promise<{ ok: boolean, error?: string }>) | undefined}
      */
     saveToSource: { attribute: false },
-    moveEnabled: { type: Boolean, attribute: 'move-enabled' },
     _rawItems: { state: true },
     _loading: { state: true },
     _error: { state: true },
     _searchQuery: { state: true },
+    /** Files under the current folder whose names match {@link _searchQuery} (via {@link crawl}). */
+    _searchCrawlItems: { state: true },
+    _searchCrawlLoading: { state: true },
     _typeFilter: { state: true },
     _formatFilter: { state: true },
     _selectedRows: { state: true },
@@ -116,8 +145,6 @@ class SlContentBrowser extends LitElement {
     _toastText: { state: true },
     /** @type {'info' | 'positive' | 'negative'} */
     _toastVariant: { state: true },
-    /** @type {string[] | undefined} */
-    _listPermissions: { state: true },
   };
   /* eslint-enable max-len */
 
@@ -134,11 +161,12 @@ class SlContentBrowser extends LitElement {
     this.deleteItem = undefined;
     this.renameItem = undefined;
     this.saveToSource = undefined;
-    this.moveEnabled = false;
     this._rawItems = [];
     this._loading = false;
     this._error = null;
     this._searchQuery = '';
+    this._searchCrawlItems = [];
+    this._searchCrawlLoading = false;
     this._typeFilter = 'all';
     this._formatFilter = 'all';
     this._selectedRows = [];
@@ -160,9 +188,14 @@ class SlContentBrowser extends LitElement {
     this._toastOpen = false;
     this._toastText = '';
     this._toastVariant = 'info';
-    this._listPermissions = undefined;
     this._browseActions = createBrowseActions(this);
     this._folderRef = createRef();
+    /** @type {(() => void) | null} */
+    this._cancelSearchCrawl = null;
+    /** @type {number} */
+    this._searchCrawlGen = 0;
+    /** @type {string | undefined} Last path key for clearing search on navigation. */
+    this._browsePathKeyPrevious = undefined;
   }
 
   get _effectivePath() {
@@ -172,42 +205,52 @@ class SlContentBrowser extends LitElement {
     return this.pathContext ?? null;
   }
 
-  get _breadcrumbSegments() {
-    const p = this._effectivePath;
-    return p?.pathSegments ?? [];
-  }
-
   get _currentPathKey() {
     const p = this._effectivePath;
     if (!p) return '';
     return p.pathSegments.join('/');
   }
 
+  /** Items used to resolve row keys (current folder list or subtree crawl matches). */
+  get _itemsForRowLookup() {
+    return (this._searchQuery || '').trim() ? this._searchCrawlItems : this._rawItems;
+  }
+
   get _displayItems() {
-    const q = this._searchQuery;
-    const byName = filterItemsByQuery(this._rawItems, q);
+    const q = (this._searchQuery || '').trim();
+    const byName = q ? this._searchCrawlItems : this._rawItems;
     const byKind = filterItemsByKind(byName, this._typeFilter);
     return filterItemsByFormatKind(byKind, this._formatFilter);
   }
 
-  get _activeFilterChipCount() {
-    let count = 0;
-    if (this._typeFilter !== 'all') count += 1;
-    if (this._formatFilter !== 'all') count += 1;
-    return count;
+  /** `sp-picker` value derived from `_typeFilter` + `_formatFilter`. */
+  get _combinedFilterValue() {
+    const t = this._typeFilter;
+    const f = this._formatFilter;
+    if (t === 'folder') return 'folder';
+    if (t === 'file') {
+      if (f === 'document') return 'file-document';
+      if (f === 'sheet') return 'file-sheet';
+      if (f === 'media') return 'file-media';
+    }
+    if (t === 'all' && f === 'all') return 'all';
+    if (f === 'document') return 'file-document';
+    if (f === 'sheet') return 'file-sheet';
+    if (f === 'media') return 'file-media';
+    return 'all';
   }
 
   get _isSingleHtmlSelected() {
     if (this._selectedRows.length !== 1) return false;
     const pathKey = this._selectedRows[0];
-    const item = findItemByRowKey(pathKey, this._rawItems, this._currentPathKey);
+    const item = findItemByRowKey(pathKey, this._itemsForRowLookup, this._currentPathKey);
     return item && (item.ext === 'html' || (item.name || '').toLowerCase().endsWith('.html'));
   }
 
   get _hasFolderSelected() {
     const pathKey = this._currentPathKey;
     return this._selectedRows.some((pathValue) => {
-      const item = findItemByRowKey(pathValue, this._rawItems, pathKey);
+      const item = findItemByRowKey(pathValue, this._itemsForRowLookup, pathKey);
       return item && !item.ext;
     });
   }
@@ -230,6 +273,7 @@ class SlContentBrowser extends LitElement {
   }
 
   disconnectedCallback() {
+    this._cancelActiveSearchCrawl();
     window.removeEventListener('hashchange', this._boundHash);
     super.disconnectedCallback();
   }
@@ -250,6 +294,96 @@ class SlContentBrowser extends LitElement {
     if (changedProperties.has('navigateWithHash')) {
       this._updateHashNavigationSubscription();
     }
+    if (this._typeFilter === 'file' && this._formatFilter === 'all') {
+      this._typeFilter = 'all';
+      this._formatFilter = 'all';
+    }
+    const pathAffected = changedProperties.has('pathContext')
+      || changedProperties.has('navigateWithHash')
+      || changedProperties.has('_locationHash');
+    if (pathAffected) {
+      const key = this._currentPathKey;
+      const prev = this._browsePathKeyPrevious;
+      if (prev !== undefined && prev !== '' && key !== prev) {
+        if ((this._searchQuery || '').trim()) {
+          this._typeFilter = 'all';
+          this._formatFilter = 'all';
+        }
+        this._searchQuery = '';
+      }
+      this._browsePathKeyPrevious = key;
+    }
+    const searchAffected = changedProperties.has('_searchQuery');
+    if (pathAffected || searchAffected) {
+      this._syncSubtreeSearchWithCrawl();
+    }
+  }
+
+  _cancelActiveSearchCrawl() {
+    if (this._cancelSearchCrawl) {
+      this._cancelSearchCrawl();
+      this._cancelSearchCrawl = null;
+    }
+  }
+
+  /**
+   * Subtree file search using {@link crawl} (DA SDK recipe: stream list under a path).
+   * @see https://docs.da.live/developers/reference/sdk-recipes#stream-list-of-pages-under-a-path
+   */
+  _syncSubtreeSearchWithCrawl() {
+    const q = (this._searchQuery || '').trim();
+    const pathInfo = this._effectivePath;
+    if (!q || !pathInfo?.fullpath) {
+      this._cancelActiveSearchCrawl();
+      this._searchCrawlItems = [];
+      this._searchCrawlLoading = false;
+      this._searchCrawlGen += 1;
+      return;
+    }
+
+    this._cancelActiveSearchCrawl();
+    this._searchCrawlGen += 1;
+    const gen = this._searchCrawlGen;
+    this._searchCrawlItems = [];
+    this._searchCrawlLoading = true;
+
+    const qLower = q.toLowerCase();
+    /** @type {Map<string, object>} */
+    const matched = new Map();
+
+    const callback = (file) => {
+      if (gen !== this._searchCrawlGen) return;
+      const name = (file.name || '').toLowerCase();
+      if (!name.includes(qLower)) return;
+      const key = ((file.path || '').replace(/^\//, '') || `${this._currentPathKey}/${file.name}`)
+        .replace(/\/+/g, '/');
+      if (matched.has(key)) return;
+      matched.set(key, file);
+      this._searchCrawlItems = [...matched.values()];
+      this.requestUpdate();
+    };
+
+    const { results, cancelCrawl } = crawl({
+      path: pathInfo.fullpath,
+      callback,
+      throttle: 10,
+      includeFolders: true,
+    });
+    this._cancelSearchCrawl = cancelCrawl;
+
+    results
+      .then(() => {
+        if (gen !== this._searchCrawlGen) return;
+        this._searchCrawlLoading = false;
+        this._cancelSearchCrawl = null;
+        this.requestUpdate();
+      })
+      .catch(() => {
+        if (gen !== this._searchCrawlGen) return;
+        this._searchCrawlLoading = false;
+        this._cancelSearchCrawl = null;
+        this.requestUpdate();
+      });
   }
 
   _closeRenameDialogIfOpen() {
@@ -294,17 +428,14 @@ class SlContentBrowser extends LitElement {
     this._rawItems = d.rawItems ?? [];
     this._loading = !!d.loading;
     this._error = d.error ?? null;
-    this._listPermissions = d.permissions;
     this._normalizeFormatFilter();
-  }
-
-  async _onBrowseNewItem() {
-    await this._refreshFolder();
-  }
-
-  _onBrowseNewError(event) {
-    const msg = event.detail?.message || 'Create failed';
-    this._showToast(msg, 'negative');
+    this.dispatchEvent(
+      new CustomEvent(SL_CONTENT_BROWSER_LIST_PERMISSIONS, {
+        bubbles: true,
+        composed: true,
+        detail: { permissions: d.permissions },
+      }),
+    );
   }
 
   _normalizeFormatFilter() {
@@ -314,7 +445,8 @@ class SlContentBrowser extends LitElement {
     }
     if (this._formatFilter === 'all') return;
     const wantedKind = this._formatFilter;
-    const hasMatch = this._rawItems.some(
+    const pool = (this._searchQuery || '').trim() ? this._searchCrawlItems : this._rawItems;
+    const hasMatch = pool.some(
       (row) => row.ext && fileKindFromExtension(row.ext) === wantedKind,
     );
     if (!hasMatch) this._formatFilter = 'all';
@@ -338,18 +470,20 @@ class SlContentBrowser extends LitElement {
     }
   }
 
-  _onBreadcrumbNavigate(event) {
-    const pathKey = event.detail?.pathKey;
-    if (pathKey) this._emitNavigate(pathKey);
-  }
-
   _onOpenFolder(event) {
     const pathKey = event.detail?.pathKey;
     if (pathKey) this._emitNavigate(pathKey);
   }
 
   _onSearchChange(event) {
-    this._searchQuery = event.detail?.value ?? '';
+    const next = event.detail?.value ?? '';
+    const prevTrim = (this._searchQuery || '').trim();
+    const nextTrim = (next || '').trim();
+    this._searchQuery = next;
+    if (prevTrim !== nextTrim) {
+      this._typeFilter = 'all';
+      this._formatFilter = 'all';
+    }
   }
 
   _onTableSelection(event) {
@@ -369,7 +503,7 @@ class SlContentBrowser extends LitElement {
   _emitChatContextFromSelection() {
     const items = buildBrowseChatContextItems(
       this._selectedRows,
-      this._rawItems,
+      this._itemsForRowLookup,
       this._currentPathKey,
     );
     this.dispatchEvent(
@@ -401,14 +535,6 @@ class SlContentBrowser extends LitElement {
     this._emitChatContextFromSelection();
   }
 
-  _emitBulkFileAction(eventName) {
-    this.dispatchEvent(new CustomEvent(eventName, { bubbles: true, composed: true }));
-  }
-
-  _onBulkMoveRequest() {
-    this._emitBulkFileAction('sl-file-request-move');
-  }
-
   _renderSelectionToolbar() {
     return html`
       <sl-browse-selection-toolbar
@@ -419,70 +545,45 @@ class SlContentBrowser extends LitElement {
         ?rename-loading="${this._renameLoading}"
         ?delete-enabled="${!!this.deleteItem}"
         ?delete-loading="${this._deleteLoading}"
-        ?move-enabled="${this.moveEnabled}"
         ?show-edit-action="${this._isSingleHtmlSelected}"
         @sl-action-bar-close="${this._onActionBarClose}"
         @sl-file-request-preview="${this._onPreview}"
         @sl-file-request-publish="${this._onPublish}"
         @sl-file-request-rename="${this._onRename}"
-        @sl-file-request-move="${this._onBulkMoveRequest}"
         @sl-file-request-delete="${this._onDelete}"
         @sl-file-request-edit="${this._onEdit}"
       ></sl-browse-selection-toolbar>
     `;
   }
 
-  _onTypeFilterChipChange(event) {
-    const value = event.detail?.value;
-    if (value) this._typeFilter = value;
+  _onCombinedKindFilterChange(event) {
+    const v = /** @type {HTMLElement & { value?: string }} */ (event.target)?.value;
+    const opt = COMBINED_FILTER_OPTIONS.find((o) => o.value === v);
+    if (!opt) return;
+    this._typeFilter = opt.typeFilter;
+    this._formatFilter = opt.formatFilter;
   }
 
-  _onFormatFilterChipChange(event) {
-    const value = event.detail?.value;
-    if (value) this._formatFilter = value;
-  }
-
-  _onClearAllFilters() {
-    this._typeFilter = 'all';
-    this._formatFilter = 'all';
-  }
-
-  _renderFilterRow() {
-    const showClearAll = this._activeFilterChipCount > 0;
+  _renderKindFilterPicker() {
     return html`
-      <div class="sl-content-browser-type-filter-row">
-        <sl-filter-chip
-          placeholder="Kind"
-          clear-value="all"
-          accessible-name="Kind filter"
-          clear-label="Clear kind filter"
-          .value="${this._typeFilter}"
-          .options="${TYPE_FILTER_OPTIONS}"
-          @sl-filter-chip-change="${this._onTypeFilterChipChange}"
-        ></sl-filter-chip>
-        <sl-filter-chip
-          placeholder="Format"
-          clear-value="all"
-          accessible-name="Format filter"
-          clear-label="Clear format filter"
-          .value="${this._formatFilter}"
-          .options="${FORMAT_FILTER_OPTIONS}"
-          @sl-filter-chip-change="${this._onFormatFilterChipChange}"
-        ></sl-filter-chip>
-        ${showClearAll
-        ? html`
-              <sp-action-button
-                class="sl-content-browser-clear-filters"
-                size="s"
-                quiet
-                label="Clear all filters"
-                @click="${this._onClearAllFilters}"
-              >
-                Clear filters
-              </sp-action-button>
-            `
-        : ''}
-      </div>
+      <sp-field-label for="sl-cb-combined-filter" side-aligned="start">Kind</sp-field-label>
+      <sp-picker
+        id="sl-cb-combined-filter"
+        class="sl-content-browser-kind-filter-picker"
+        quiet
+        size="m"
+        .value="${this._combinedFilterValue}"
+        @change="${this._onCombinedKindFilterChange}"
+      >
+        ${COMBINED_FILTER_OPTIONS.map(
+          (o) => html`
+            <sp-menu-item value="${o.value}">
+              ${combinedFilterMenuItemIcon(o.icon)}
+              ${o.label}
+            </sp-menu-item>
+          `,
+        )}
+      </sp-picker>
     `;
   }
 
@@ -490,7 +591,7 @@ class SlContentBrowser extends LitElement {
     if (!this.saveToAem) return;
     const paths = getAemPathsForSelection(event.detail?.pathKey, {
       selectedRows: this._selectedRows,
-      items: this._rawItems,
+      items: this._itemsForRowLookup,
       folderPathKey: this._currentPathKey,
     });
     if (paths.length === 0) return;
@@ -501,7 +602,7 @@ class SlContentBrowser extends LitElement {
     if (!this.saveToAem) return;
     const paths = getAemPathsForSelection(event.detail?.pathKey, {
       selectedRows: this._selectedRows,
-      items: this._rawItems,
+      items: this._itemsForRowLookup,
       folderPathKey: this._currentPathKey,
     });
     if (paths.length === 0) return;
@@ -511,7 +612,7 @@ class SlContentBrowser extends LitElement {
   _onEdit(event) {
     const targetPathKey = resolveCanvasEditPathKey(event.detail?.pathKey, {
       selectedRows: this._selectedRows,
-      items: this._rawItems,
+      items: this._itemsForRowLookup,
       folderPathKey: this._currentPathKey,
       isSingleHtmlSelected: this._isSingleHtmlSelected,
     });
@@ -583,7 +684,7 @@ class SlContentBrowser extends LitElement {
 
     const folderPathKey = this._currentPathKey;
     const [rowKey] = rowKeys;
-    const item = findItemByRowKey(rowKey, this._rawItems, folderPathKey);
+    const item = findItemByRowKey(rowKey, this._itemsForRowLookup, folderPathKey);
     if (!item) return;
 
     const sourceDaPath = daSourcePathForItem(item, rowKey, folderPathKey);
@@ -604,7 +705,7 @@ class SlContentBrowser extends LitElement {
     if (rowKeys.length === 0) return;
 
     const folderPathKey = this._currentPathKey;
-    const resolved = resolveDeleteTargets(rowKeys, this._rawItems, folderPathKey);
+    const resolved = resolveDeleteTargets(rowKeys, this._itemsForRowLookup, folderPathKey);
     if (resolved.length === 0) return;
 
     const { intro, paths } = buildDeleteDialogContent(resolved);
@@ -660,6 +761,16 @@ class SlContentBrowser extends LitElement {
     this._toastOpen = true;
   }
 
+  /** @public — e.g. browse toolbar `sl-browse-new` errors. */
+  showToast(text, variant = 'info') {
+    this._showToast(text, variant);
+  }
+
+  /** @public — after create from toolbar `sl-browse-new`. */
+  refreshFolder() {
+    return this._refreshFolder();
+  }
+
   _onToastClose() {
     this._toastOpen = false;
   }
@@ -680,13 +791,16 @@ class SlContentBrowser extends LitElement {
       return html`<div class="sl-content-browser-error" role="alert">${this._error}</div>`;
     }
 
-    const initialLoading = this._loading && this._rawItems.length === 0;
+    const hasQuery = (this._searchQuery || '').trim().length > 0;
+    const initialLoading = (!hasQuery && this._loading && this._rawItems.length === 0)
+      || (hasQuery && this._searchCrawlLoading && items.length === 0);
 
     return html`
       <sl-browse-body
         class="sl-content-browser-body-host"
         .items="${items}"
         ?initial-loading="${initialLoading}"
+        ?show-relative-path="${hasQuery}"
         current-path-key="${this._currentPathKey}"
         .selectedRows="${this._selectedRows}"
         @sl-table-selection-change="${this._onTableSelection}"
@@ -710,34 +824,27 @@ class SlContentBrowser extends LitElement {
         <div class="sl-content-browser">
           <div class="sl-content-browser-column">
             <div class="sl-content-browser-header">
-              <div class="sl-content-browser-search-row">
-                <sl-browse-search
-                  class="sl-content-browser-search"
-                  .value="${this._searchQuery}"
-                  placeholder="Search in folder"
-                  label="Search"
-                  @sl-search-change="${this._onSearchChange}"
-                ></sl-browse-search>
-              </div>
-              <div class="sl-content-browser-breadcrumb-row">
-                <sl-browse-breadcrumbs
-                  class="sl-content-browser-breadcrumbs"
-                  .segments="${this._breadcrumbSegments}"
-                  @sl-browse-navigate="${this._onBreadcrumbNavigate}"
-                ></sl-browse-breadcrumbs>
-                <sl-browse-new
-                  class="sl-content-browser-new"
-                  folder-fullpath="${this._effectivePath?.fullpath ?? ''}"
-                  canvas-edit-base="${this.canvasEditBase}"
-                  sheet-edit-base="${this.sheetEditBase}"
-                  .permissions="${this._listPermissions}"
-                  .saveToSource="${this.saveToSource}"
-                  @sl-browse-new-item="${this._onBrowseNewItem}"
-                  @sl-browse-new-error="${this._onBrowseNewError}"
-                ></sl-browse-new>
-              </div>
-              <div class="sl-content-browser-toolbar-slot">
-                ${this._selectedRows.length > 0 ? this._renderSelectionToolbar() : this._renderFilterRow()}
+              <div class="sl-content-browser-control-row">
+                ${this._selectedRows.length > 0
+                  ? html`
+                      <div class="sl-content-browser-action-slot">
+                        ${this._renderSelectionToolbar()}
+                      </div>
+                    `
+                  : html`
+                      <div class="sl-content-browser-search-filter-row">
+                        <sl-browse-search
+                          class="sl-content-browser-search sl-content-browser-header-search"
+                          .value="${this._searchQuery}"
+                          placeholder="Search in this folder and below"
+                          label="Search"
+                          @sl-search-change="${this._onSearchChange}"
+                        ></sl-browse-search>
+                        <div class="sl-content-browser-kind-filter-slot">
+                          ${this._renderKindFilterPicker()}
+                        </div>
+                      </div>
+                    `}
               </div>
             </div>
             <div class="sl-content-browser-body">${this._renderFilesPanel()}</div>
