@@ -428,7 +428,7 @@ class Space extends LitElement {
     const pathWithoutOrgRepo = segments.slice(2).join('/');
     const pathWithoutHtml = pathWithoutOrgRepo.replace(/\.html$/i, '');
     const encodedPath = pathWithoutHtml.split('/').map(encodeURIComponent).join('/');
-    const base = `${getPreviewOrigin(org, repo)}/${encodedPath}?nx=local&quick-edit=local`;
+    const base = `${getPreviewOrigin(org, repo)}/${encodedPath}?nx=exp-workspace&quick-edit=exp-workspace`;
     return `${base}&controller=parent`;
   }
 
