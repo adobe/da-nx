@@ -148,9 +148,7 @@ class Chat extends LitElement {
     _statusText: { state: true },
     _skillsLibraryTab: { state: true },
     _openToolCards: { state: true },
-    _mcpServers: { state: true },
-    _mcpLoading: { state: true },
-    _mcpScannedAt: { state: true },
+    _configuredMcpRows: { state: true },
     _skills: { state: true },
     _skillsLoading: { state: true },
     _selectedSkill: { state: true },
@@ -183,11 +181,9 @@ class Chat extends LitElement {
     this._streamingText = '';
     this._skillsLibraryTab = 'skills';
     this._openToolCards = new Set();
-    this._mcpServers = null;
-    this._mcpLoading = false;
-    this._mcpScannedAt = null;
-    this._mcpPollTimer = null;
     this._mcpToggles = JSON.parse(localStorage.getItem('da-mcp-toggles') || '{}');
+    this._configuredMcpServers = {};
+    this._configuredMcpRows = [];
     this._skills = null;
     this._skillsLoading = false;
     this._selectedSkill = null;
@@ -232,15 +228,17 @@ class Chat extends LitElement {
     window.addEventListener(DA_BULK_AEM_SETTLED, this._boundBulkAemSettled);
     this._ensureController();
     this._chatController?.connect();
-    if (!this._mcpServers && !this._mcpLoading) this._fetchMcpServers();
-    if (!this._mcpTools) this._fetchMcpTools();
+    this._fetchDaConfig().then(() => {
+      if (Object.keys(this._configuredMcpServers || {}).length > 0 && !this._mcpTools) {
+        this._fetchMcpTools();
+      }
+    });
     if (!this._skills && !this._skillsLoading) this._fetchSkills();
   }
 
   disconnectedCallback() {
     window.removeEventListener(DA_BULK_AEM_SETTLED, this._boundBulkAemSettled);
     this._chatController?.disconnect();
-    this._stopMcpPoll();
     super.disconnectedCallback();
   }
 
@@ -364,6 +362,7 @@ class Chat extends LitElement {
     } else {
       this._chatController.requestedSkills = [];
     }
+    this._chatController.mcpServers = this._configuredMcpServers || {};
     this._chatController.sendMessage(content, contextSnapshot);
     this.dispatchEvent(new CustomEvent('da-chat-message-sent', { bubbles: true }));
   }
@@ -476,6 +475,20 @@ class Chat extends LitElement {
         return acc;
       }, {});
       this._daConfig = cfg;
+
+      // Extract mcp-servers sheet: each row has { key, url }
+      const mcpRows = json?.['mcp-servers']?.data || [];
+      const servers = {};
+      const rows = [];
+      mcpRows.forEach((row) => {
+        if (row.key && row.url) {
+          servers[row.key] = row.url;
+          rows.push(row);
+        }
+      });
+      this._configuredMcpServers = servers;
+      this._configuredMcpRows = rows;
+
       return cfg;
     } catch {
       return {};
@@ -490,10 +503,9 @@ class Chat extends LitElement {
     const { value } = e.target;
     if (value) this._skillsLibraryTab = value;
     if (value === 'mcp') {
-      if (!this._mcpServers && !this._mcpLoading) this._fetchMcpServers();
-      this._startMcpPoll();
-    } else {
-      this._stopMcpPoll();
+      if (!this._mcpTools && Object.keys(this._configuredMcpServers || {}).length > 0) {
+        this._fetchMcpTools();
+      }
     }
     if (value === 'skills' && !this._skills && !this._skillsLoading) {
       this._fetchSkills();
@@ -503,84 +515,20 @@ class Chat extends LitElement {
     }
   }
 
-  // eslint-disable-next-line class-methods-use-this
-  _formatTimeAgo(isoString) {
-    const delta = Date.now() - new Date(isoString).getTime();
-    if (delta < 60000) return 'just now';
-    if (delta < 3600000) return `${Math.floor(delta / 60000)}m ago`;
-    if (delta < 86400000) return `${Math.floor(delta / 3600000)}h ago`;
-    return `${Math.floor(delta / 86400000)}d ago`;
-  }
-
-  _startMcpPoll() {
-    this._stopMcpPoll();
-    this._mcpPollTimer = setInterval(() => {
-      if (!this._mcpLoading) this._fetchMcpServers();
-    }, 60000);
-  }
-
-  _stopMcpPoll() {
-    if (this._mcpPollTimer) {
-      clearInterval(this._mcpPollTimer);
-      this._mcpPollTimer = null;
-    }
-  }
-
-  async _fetchMcpServers() {
-    const { org, site } = getContextFromHash();
-    if (!org || !site) return;
-    this._mcpLoading = true;
-    try {
-      await this._fetchDaConfig();
-      const mcpPath = this._getConfigValue('mcp-servers-path', '');
-      const mcpServersJson = this._getConfigValue('mcp-servers', '');
-      const imsToken = (await initIms())?.accessToken?.token;
-      const headers = imsToken ? { Authorization: `Bearer ${imsToken}` } : {};
-      const qp = new URLSearchParams();
-      if (mcpPath) qp.set('mcpPath', mcpPath);
-      if (mcpServersJson) qp.set('configServers', mcpServersJson);
-      const qs = qp.toString() ? `?${qp.toString()}` : '';
-      const endpoint = `${getAgentOrigin()}/mcp-discovery/${org}/${site}${qs}`;
-      const resp = await fetch(
-        endpoint,
-        { headers },
-      );
-      if (resp.ok) {
-        const data = await resp.json();
-        this._mcpServers = data;
-        this._mcpScannedAt = data.scannedAt || data.readAt || null;
-      } else {
-        this._mcpServers = { mcpServers: {}, warnings: [], servers: [] };
-      }
-    } catch {
-      this._mcpServers = { mcpServers: {}, warnings: [], servers: [] };
-    } finally {
-      this._mcpLoading = false;
-    }
-  }
-
-  _refreshMcpServers() {
-    this._mcpServers = null;
+  _refreshMcpTools() {
     this._mcpTools = null;
-    this._fetchMcpServers();
     this._fetchMcpTools();
   }
 
   async _fetchMcpTools() {
-    const { org, site } = getContextFromHash();
-    if (!org || !site) return;
+    const servers = this._configuredMcpServers || {};
+    if (Object.keys(servers).length === 0) return;
     try {
-      await this._fetchDaConfig();
-      const mcpPath = this._getConfigValue('mcp-servers-path', '');
-      const mcpServersJson = this._getConfigValue('mcp-servers', '');
-      const imsToken = (await initIms())?.accessToken?.token;
-      const headers = imsToken ? { Authorization: `Bearer ${imsToken}` } : {};
-      const qp = new URLSearchParams();
-      if (mcpPath) qp.set('mcpPath', mcpPath);
-      if (mcpServersJson) qp.set('configServers', mcpServersJson);
-      const qs = qp.toString() ? `?${qp.toString()}` : '';
-      const endpoint = `${getAgentOrigin()}/mcp-tools/${org}/${site}${qs}`;
-      const resp = await fetch(endpoint, { headers });
+      const resp = await fetch(`${getAgentOrigin()}/mcp-tools`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ servers }),
+      });
       if (resp.ok) {
         this._mcpTools = await resp.json();
       }
@@ -1009,32 +957,24 @@ class Chat extends LitElement {
   }
 
   _renderMcpContent() {
-    if (this._mcpLoading) {
-      return html`<div class="chat-skills-empty"><p class="chat-skills-empty-text">Loading MCP servers...</p></div>`;
-    }
-
-    const allServers = this._mcpServers?.servers || [];
-    const configuredServers = allServers.filter((s) => s.sourcePath === 'da-config');
-    const repoServers = allServers.filter((s) => s.sourcePath !== 'da-config');
-    const warnings = (this._mcpServers?.warnings || []).filter((w) => w.serverId !== '*' || !w.message.includes('Discovered MCP'));
-
-    const scannedAgo = this._mcpScannedAt ? this._formatTimeAgo(this._mcpScannedAt) : null;
-    const staleThreshold = 5 * 60 * 1000;
-    const elapsed = this._mcpScannedAt
-      ? Date.now() - new Date(this._mcpScannedAt).getTime()
-      : 0;
-    const isStale = this._mcpScannedAt && elapsed > staleThreshold;
+    const configuredRows = this._configuredMcpRows || [];
+    const configuredAsCards = configuredRows.map((row) => ({
+      id: row.key,
+      status: 'configured',
+      transport: 'sse',
+      endpoint: row.url,
+    }));
 
     return html`
       <div class="mcp-server-list">
         <div class="mcp-header">
           <div class="mcp-header-left">
             <span class="mcp-header-title">MCP Servers</span>
-            ${scannedAgo ? html`<span class="mcp-scanned-at ${isStale ? 'stale' : ''}">Scanned ${scannedAgo}</span>` : nothing}
           </div>
-          <sp-action-button size="s" quiet title="Refresh MCP servers" aria-label="Refresh MCP servers" @click=${() => this._refreshMcpServers()}>
+          ${configuredRows.length > 0 ? html`
+          <sp-action-button size="s" quiet title="Refresh MCP tools" aria-label="Refresh MCP tools" @click=${() => this._refreshMcpTools()}>
             <svg slot="icon" width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M17.65 6.35a8 8 0 0 0-14.3 1.4M2.35 13.65a8 8 0 0 0 14.3-1.4M1 4v4h4M19 16v-4h-4" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </sp-action-button>
+          </sp-action-button>` : ''}
         </div>
 
         <div class="mcp-category">
@@ -1042,31 +982,12 @@ class Chat extends LitElement {
           ${BUILTIN_MCP_SERVERS.map((s) => this._renderMcpServerCard(s, false))}
         </div>
 
-        ${configuredServers.length > 0 ? html`
         <div class="mcp-category">
-          <span class="mcp-category-pill configured">Configured <span class="mcp-category-count">${configuredServers.length}</span></span>
-          ${configuredServers.map((s) => this._renderMcpServerCard(s))}
-        </div>` : ''}
-
-        <div class="mcp-category">
-          <span class="mcp-category-pill custom">Repo <span class="mcp-category-count">${repoServers.length}</span></span>
-          ${repoServers.length > 0
-    ? repoServers.map((s) => this._renderMcpServerCard(s))
-    : html`<div class="mcp-category-empty">No repo servers found. Add <code>mcp-servers/&lt;id&gt;/mcp.json</code> or <code>*-mcp</code> folders to your repo.</div>`}
+          <span class="mcp-category-pill configured">Configured <span class="mcp-category-count">${configuredRows.length}</span></span>
+          ${configuredRows.length > 0
+    ? configuredAsCards.map((s) => this._renderMcpServerCard(s))
+    : html`<div class="mcp-category-empty">No MCP servers configured. Add an <code>mcp-servers</code> sheet to your DA config with <code>key</code> and <code>url</code> columns.</div>`}
         </div>
-
-        ${warnings.length > 0 ? html`
-          <div class="mcp-inline-alert">
-            <div class="mcp-inline-alert-icon">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 1.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM8 4a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 8 4Zm0 8a.75.75 0 1 1 0-1.5.75.75 0 0 1 0 1.5Z" fill="currentColor"/></svg>
-            </div>
-            <div class="mcp-inline-alert-body">
-              ${warnings.map((w) => html`
-                <div class="mcp-inline-alert-msg">${w.serverId !== '*' ? html`<strong>${w.serverId}:</strong> ` : ''}${w.message}</div>
-              `)}
-            </div>
-          </div>
-        ` : ''}
       </div>`;
   }
 

@@ -131,6 +131,8 @@ export class ChatController {
     this.agentId = null;
     // Skill IDs to inject into next request's system prompt.
     this.requestedSkills = [];
+    // MCP server configs { id: url } from DA config sheet.
+    this.mcpServers = {};
     // toolCallId → approvalId for tools awaiting user decision.
     this._pendingApprovals = new Map();
     // toolCallId → toolName (tool-output-available events lack toolName).
@@ -610,6 +612,7 @@ export class ChatController {
           room: this.room,
           ...(this.agentId ? { agentId: this.agentId } : {}),
           ...(this.requestedSkills.length > 0 ? { requestedSkills: this.requestedSkills } : {}),
+          ...(Object.keys(this.mcpServers).length > 0 ? { mcpServers: this.mcpServers } : {}),
         }),
         signal: this._abortController.signal,
       });
