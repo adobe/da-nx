@@ -89,17 +89,6 @@ function getContextFromHash() {
   };
 }
 
-function getDaOrigin() {
-  const stored = localStorage.getItem('da-admin');
-  if (stored === 'local' || stored === '/local') return 'http://localhost:8787';
-  if (stored === 'stage') return 'https://stage-admin.da.live';
-  if (stored === 'prod') return 'https://admin.da.live';
-  if (stored?.startsWith('http://') || stored?.startsWith('https://')) return stored;
-  if (stored?.startsWith('/')) return `${window.location.origin}${stored}`;
-  if (new URLSearchParams(window.location.search).get('nx') === 'local') return 'http://localhost:8787';
-  return DA_ORIGIN;
-}
-
 function getAgentOrigin() {
   const params = new URLSearchParams(window.location.search);
   const isLocal = params.get('ref') === 'local' || params.get('nx') === 'local';
@@ -154,16 +143,13 @@ class Chat extends LitElement {
     _skillsLibraryTab: { state: true },
     _openToolCards: { state: true },
     _configuredMcpRows: { state: true },
+    _configuredAgentRows: { state: true },
     _skills: { state: true },
     _skillsLoading: { state: true },
     _selectedSkill: { state: true },
     _newSkillMode: { state: true },
     _newSkillName: { state: true },
-    _agents: { state: true },
-    _agentsLoading: { state: true },
     _activeAgentId: { state: true },
-    _newAgentMode: { state: true },
-    _selectedAgent: { state: true },
     _daConfig: { state: true },
     _mcpTools: { state: true },
     _slashMenuOpen: { state: true },
@@ -190,16 +176,13 @@ class Chat extends LitElement {
     this._mcpToggles = JSON.parse(localStorage.getItem('da-mcp-toggles') || '{}');
     this._configuredMcpServers = {};
     this._configuredMcpRows = [];
+    this._configuredAgentRows = [];
     this._skills = null;
     this._skillsLoading = false;
     this._selectedSkill = null;
     this._newSkillMode = false;
     this._newSkillName = '';
-    this._agents = null;
-    this._agentsLoading = false;
     this._activeAgentId = null;
-    this._newAgentMode = false;
-    this._selectedAgent = null;
     this._daConfig = null;
     this._mcpTools = null;
     this._pendingSkillIds = [];
@@ -503,6 +486,10 @@ class Chat extends LitElement {
       this._configuredMcpServers = servers;
       this._configuredMcpRows = rows;
 
+      // Extract agents sheet: each row has { key, url }
+      const agentRows = json?.agents?.data || [];
+      this._configuredAgentRows = agentRows.filter((r) => r.key && r.url);
+
       return cfg;
     } catch {
       return {};
@@ -523,9 +510,6 @@ class Chat extends LitElement {
     }
     if (value === 'skills' && !this._skills && !this._skillsLoading) {
       this._fetchSkills();
-    }
-    if (value === 'agents' && !this._agents && !this._agentsLoading) {
-      this._fetchAgents();
     }
   }
 
@@ -714,60 +698,6 @@ class Chat extends LitElement {
       </div>`;
   }
 
-  async _fetchAgents() {
-    const { org, site } = getContextFromHash();
-    if (!org) return;
-    this._agentsLoading = true;
-    try {
-      await this._fetchDaConfig();
-      const agentsDir = this._getConfigValue('agents-path', '.da/agents');
-      const imsToken = (await initIms())?.accessToken?.token;
-      const headers = imsToken ? { Authorization: `Bearer ${imsToken}` } : {};
-      const adminOrigin = getDaOrigin();
-      const path = site ? `/${org}/${site}/${agentsDir}` : `/${org}/${agentsDir}`;
-      const resp = await fetch(`${adminOrigin}/list${path}`, { headers });
-      if (resp.ok) {
-        const items = await resp.json();
-        const jsonItems = (Array.isArray(items) ? items : []).filter((i) => i.ext === 'json');
-        const agents = {};
-        await Promise.all(jsonItems.map(async (item) => {
-          try {
-            const srcResp = await fetch(`${adminOrigin}/source${item.path}`, { headers });
-            if (srcResp.ok) {
-              const text = await srcResp.text();
-              agents[item.name.replace(/\.json$/, '')] = JSON.parse(text);
-            }
-          } catch { /* skip invalid */ }
-        }));
-        this._agents = agents;
-      } else {
-        this._agents = {};
-      }
-    } catch {
-      this._agents = {};
-    } finally {
-      this._agentsLoading = false;
-    }
-  }
-
-  _refreshAgents() {
-    this._agents = null;
-    this._selectedAgent = null;
-    this._newAgentMode = false;
-    this._fetchAgents();
-  }
-
-  _onAgentSelect(e) {
-    const { value } = e.target;
-    if (value === '__new__') {
-      this._newAgentMode = true;
-      this._selectedAgent = null;
-      return;
-    }
-    this._newAgentMode = false;
-    this._selectedAgent = value;
-  }
-
   _activateAgent(agentId) {
     const builtinIds = BUILTIN_AGENTS.map((a) => a.id);
     if (builtinIds.includes(agentId)) {
@@ -777,56 +707,6 @@ class Chat extends LitElement {
       this._activeAgentId = agentId || null;
       if (this._chatController) this._chatController.agentId = this._activeAgentId;
     }
-  }
-
-  async _saveAgent() {
-    const { org, site } = getContextFromHash();
-    const prefix = site ? `/${org}/${site}` : `/${org}`;
-    const agentsDir = this._getConfigValue('agents-path', '.da/agents');
-    const form = this.shadowRoot?.querySelector('.agent-editor-form');
-    if (!form) return;
-
-    const id = this._newAgentMode
-      ? form.querySelector('[name="agent-id"]')?.value?.trim()
-      : this._selectedAgent;
-    if (!id) return;
-
-    const preset = {
-      name: form.querySelector('[name="agent-name"]')?.value || id,
-      description: form.querySelector('[name="agent-description"]')?.value || '',
-      systemPrompt: form.querySelector('[name="agent-prompt"]')?.value || '',
-      skills: (form.querySelector('[name="agent-skills"]')?.value || '').split(',').map((s) => s.trim()).filter(Boolean),
-      mcpServers: (form.querySelector('[name="agent-mcpservers"]')?.value || '').split(',').map((s) => s.trim()).filter(Boolean),
-    };
-
-    const imsToken = (await initIms())?.accessToken?.token;
-    const headers = imsToken ? { Authorization: `Bearer ${imsToken}` } : {};
-    const adminOrigin = getDaOrigin();
-    const body = new FormData();
-    body.append('data', new Blob([JSON.stringify(preset, null, 2)], { type: 'application/json' }));
-    await fetch(`${adminOrigin}/source${prefix}/${agentsDir}/${id}.json`, { method: 'POST', headers, body });
-
-    this._agents = { ...this._agents, [id]: preset };
-    this._selectedAgent = id;
-    this._newAgentMode = false;
-  }
-
-  async _deleteAgent() {
-    if (!this._selectedAgent) return;
-    const { org, site } = getContextFromHash();
-    const prefix = site ? `/${org}/${site}` : `/${org}`;
-    const agentsDir = this._getConfigValue('agents-path', '.da/agents');
-    const imsToken = (await initIms())?.accessToken?.token;
-    const headers = imsToken ? { Authorization: `Bearer ${imsToken}` } : {};
-    const adminOrigin = getDaOrigin();
-    await fetch(`${adminOrigin}/source${prefix}/${agentsDir}/${this._selectedAgent}.json`, { method: 'DELETE', headers });
-
-    if (this._activeAgentId === this._selectedAgent) this._activateAgent(null);
-    const next = { ...this._agents };
-    delete next[this._selectedAgent];
-    this._agents = next;
-    const ids = Object.keys(next);
-    this._selectedAgent = ids.length > 0 ? ids[0] : null;
   }
 
   _renderBuiltinAgentCard(agent) {
@@ -858,17 +738,7 @@ class Chat extends LitElement {
   }
 
   _renderAgentsContent() {
-    if (this._agentsLoading) {
-      return html`<div class="chat-skills-empty"><p class="chat-skills-empty-text">Loading agents...</p></div>`;
-    }
-
-    if (!this._agents) {
-      return html`<div class="chat-skills-empty"><p class="chat-skills-empty-text">Select a site to view agents.</p></div>`;
-    }
-
-    const ids = Object.keys(this._agents);
-    const selected = this._newAgentMode ? null : (this._agents[this._selectedAgent] ?? null);
-    const isActive = this._selectedAgent && this._activeAgentId === this._selectedAgent;
+    const configuredRows = this._configuredAgentRows || [];
 
     return html`
       <div class="agents-panel">
@@ -878,71 +748,28 @@ class Chat extends LitElement {
         </div>
 
         <div class="mcp-category">
-          <span class="mcp-category-pill custom">Custom <span class="mcp-category-count">${ids.length}</span></span>
-
-          ${ids.length === 0 && !this._newAgentMode ? html`
-            <div class="mcp-category-empty">
-              No custom agent presets found. Agent presets bundle a system prompt, skills, and MCP servers into a reusable persona.
-              <div style="margin-top: 8px; display: flex; gap: 8px;">
-                <sp-button variant="accent" size="s" title="Create a new agent preset" aria-label="Create a new agent preset" @click=${() => { this._newAgentMode = true; }}>Create agent</sp-button>
-                <sp-button variant="secondary" size="s" title="Refresh agents list" aria-label="Refresh agents list" @click=${() => this._refreshAgents()}>Refresh</sp-button>
-              </div>
-            </div>
-          ` : html`
-            <div class="agents-toolbar">
-              <select class="agents-select" @change=${this._onAgentSelect} aria-label="Select an agent preset">
-                ${ids.map((id) => html`
-                  <option value="${id}" ?selected=${id === this._selectedAgent}>${this._agents[id]?.name || id}</option>
-                `)}
-                <option value="__new__" ?selected=${this._newAgentMode}>+ New agent</option>
-              </select>
-              <sp-action-button size="s" quiet title="Refresh agents" aria-label="Refresh agents" @click=${() => this._refreshAgents()}>
-                <svg slot="icon" width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M17.65 6.35a8 8 0 0 0-14.3 1.4M2.35 13.65a8 8 0 0 0 14.3-1.4M1 4v4h4M19 16v-4h-4" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              </sp-action-button>
-            </div>
-            <div class="agent-editor-form">
-              ${this._newAgentMode ? html`
-                <label class="agent-field-label">ID</label>
-                <sp-textfield name="agent-id" placeholder="seo-agent" size="s"></sp-textfield>
-              ` : nothing}
-              <label class="agent-field-label">Name</label>
-              <sp-textfield name="agent-name" size="s" .value=${selected?.name ?? ''}></sp-textfield>
-              <label class="agent-field-label">Description</label>
-              <sp-textfield name="agent-description" size="s" .value=${selected?.description ?? ''}></sp-textfield>
-              <label class="agent-field-label">System Prompt</label>
-              <textarea name="agent-prompt" class="agent-prompt-textarea" .value=${selected?.systemPrompt ?? ''}></textarea>
-              <label class="agent-field-label">Skills (comma-separated IDs)</label>
-              <sp-textfield name="agent-skills" size="s" .value=${(selected?.skills ?? []).join(', ')}></sp-textfield>
-              <label class="agent-field-label">MCP Servers (comma-separated IDs)</label>
-              <sp-textfield name="agent-mcpservers" size="s" .value=${(selected?.mcpServers ?? []).join(', ')}></sp-textfield>
-            </div>
-            <div class="agents-actions">
-              ${this._newAgentMode ? html`
-                <sp-button variant="secondary" size="s" title="Cancel new agent" aria-label="Cancel new agent" @click=${() => { this._newAgentMode = false; if (ids.length > 0) [this._selectedAgent] = ids; }}>Cancel</sp-button>
-              ` : html`
-                <button type="button" class="skill-tb-btn skill-tb-delete" title="Delete this agent" aria-label="Delete this agent" @click=${this._deleteAgent}>
-                  <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M8.25 15.02a.75.75 0 0 1-.75-.72l-.25-6.5a.75.75 0 0 1 1.5-.06l.25 6.5a.75.75 0 0 1-.72.78Zm3.5 0a.75.75 0 0 1-.72-.78l.25-6.5a.75.75 0 0 1 1.5.06l-.25 6.5a.75.75 0 0 1-.78.72ZM17 4h-3.5v-.75A2.25 2.25 0 0 0 11.25 1h-2.5A2.25 2.25 0 0 0 6.5 3.25V4H3a.75.75 0 0 0 0 1.5h.52l.42 10.34A2.25 2.25 0 0 0 6.19 18h7.62a2.25 2.25 0 0 0 2.25-2.16L16.48 5.5H17a.75.75 0 0 0 0-1.5ZM8 3.25A.75.75 0 0 1 8.75 2.5h2.5a.75.75 0 0 1 .75.75V4H8V3.25Zm6.56 12.53a.75.75 0 0 1-.75.72H6.19a.75.75 0 0 1-.75-.72L5.02 5.5h9.96l-.42 10.28Z" fill="currentColor"/></svg>
-                </button>
-                <sp-button variant="${isActive ? 'secondary' : 'primary'}" size="s"
-                  title="${isActive ? 'Deactivate agent' : 'Activate agent'}"
-                  aria-label="${isActive ? 'Deactivate agent' : 'Activate agent'}"
-                  @click=${() => this._activateAgent(isActive ? null : this._selectedAgent)}>
-                  ${isActive ? 'Deactivate' : 'Activate'}
-                </sp-button>
-              `}
-              <button type="button" class="skill-tb-btn skill-tb-save" title="Save agent" aria-label="Save agent" @click=${this._saveAgent}>
-                <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M17.41 4.1 15.9 2.59A1.75 1.75 0 0 0 14.48 2H4.25A2.25 2.25 0 0 0 2 4.25v11.5A2.25 2.25 0 0 0 4.25 18h11.5A2.25 2.25 0 0 0 18 15.75V5.52c0-.53-.21-1.04-.59-1.42ZM7.75 3.5h4.5v3h-4.5v-3Zm5.5 13H6.75V12h6.5v4.5Zm3.25-1.75a.75.75 0 0 1-.75.75h-1V12a1.75 1.75 0 0 0-1.75-1.75h-6.5A1.75 1.75 0 0 0 5.25 12v4.5h-1a.75.75 0 0 1-.75-.75V4.25a.75.75 0 0 1 .75-.75h2v3A1.75 1.75 0 0 0 7.75 8h4.5a1.75 1.75 0 0 0 1.75-1.75v-3h.48a.25.25 0 0 1 .18.07l1.52 1.52a.25.25 0 0 1 .07.18v11.23Z" fill="currentColor"/></svg>
-              </button>
-            </div>
-          `}
-        </div>
-
-        <div class="agents-how-to">
-          <div class="agents-how-to-title">How to add custom agents</div>
-          <p class="agents-how-to-text">
-            Agent presets are JSON files stored at <code>${this._getConfigValue('agents-path', '.da/agents')}/&lt;id&gt;.json</code> in your repo.
-            Each preset can define a name, description, system prompt, skill IDs, and MCP server IDs.
-          </p>
+          <span class="mcp-category-pill configured">Configured <span class="mcp-category-count">${configuredRows.length}</span></span>
+          ${configuredRows.length > 0
+    ? configuredRows.map((row) => {
+      const isActive = this._activeAgentId === row.key;
+      return html`
+                <div class="agent-config-item ${isActive ? 'active' : ''}">
+                  <div class="agent-config-header">
+                    <div class="agent-config-info">
+                      <span class="agent-config-id">${row.key}</span>
+                      <code class="agent-config-url">${row.url}</code>
+                    </div>
+                    <sp-button
+                      variant="${isActive ? 'secondary' : 'primary'}" size="s"
+                      title="${isActive ? 'Deactivate' : 'Activate'} ${row.key}"
+                      aria-label="${isActive ? 'Deactivate' : 'Activate'} ${row.key}"
+                      @click=${() => this._activateAgent(isActive ? null : row.key)}>
+                      ${isActive ? 'Active' : 'Activate'}
+                    </sp-button>
+                  </div>
+                </div>`;
+    })
+    : html`<div class="mcp-category-empty">No agents configured. Add an <code>agents</code> sheet to your DA config with <code>key</code> and <code>url</code> columns.</div>`}
         </div>
       </div>`;
   }
