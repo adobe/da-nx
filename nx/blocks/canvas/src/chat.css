@@ -149,6 +149,29 @@
   justify-content: flex-end;
 }
 
+.message-user-column {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  max-width: 88%;
+}
+
+.message-attached-context {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.message-attached-context-hint {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #666;
+}
+
 .message-row.assistant {
   justify-content: flex-start;
 }
@@ -163,9 +186,22 @@
   overflow-wrap: break-word;
 }
 
+.message-user-column .message-bubble {
+  max-width: 100%;
+}
+
 .message-row.user .message-bubble {
   background: #1473e6;
   color: #fff;
+}
+
+.chat-context-pills-sent {
+  justify-content: flex-end;
+  margin-bottom: 0;
+}
+
+.chat-context-pill-sent {
+  padding: 2px 10px;
 }
 
 .message-row.assistant .message-bubble {

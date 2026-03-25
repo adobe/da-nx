@@ -151,7 +151,10 @@ class Space extends LitElement {
   _boundQuickEditAddToChat = (e) => {
     const { payload } = e?.detail ?? {};
     if (!payload || typeof payload.proseIndex !== 'number' || typeof payload.innerText !== 'string') return;
-    this._chatContextItems = [...(this._chatContextItems || []), payload];
+    const next = [...(this._chatContextItems || []), payload];
+    // eslint-disable-next-line no-console -- debug add-to-chat payloads
+    console.log('[quick-edit-add-to-chat]', { payload, contextItemCount: next.length });
+    this._chatContextItems = next;
   };
 
   _boundChatContextRemove = (e) => {
@@ -425,7 +428,7 @@ class Space extends LitElement {
     const pathWithoutOrgRepo = segments.slice(2).join('/');
     const pathWithoutHtml = pathWithoutOrgRepo.replace(/\.html$/i, '');
     const encodedPath = pathWithoutHtml.split('/').map(encodeURIComponent).join('/');
-    const base = `${getPreviewOrigin(org, repo)}/${encodedPath}?nx=exp-workspace&quick-edit=exp-workspace`;
+    const base = `${getPreviewOrigin(org, repo)}/${encodedPath}?nx=local&quick-edit=local`;
     return `${base}&controller=parent`;
   }
 
