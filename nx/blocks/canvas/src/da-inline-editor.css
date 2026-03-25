@@ -126,7 +126,7 @@
 }
 
 .da-inline-editor .ProseMirror-selectednode {
-  outline: 2px solid #8cf;
+  outline: 2px solid #1473e6;
 }
 
 .da-inline-editor .ProseMirror-gapcursor::after {
