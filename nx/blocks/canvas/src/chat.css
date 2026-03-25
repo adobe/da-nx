@@ -1278,8 +1278,19 @@
   --spectrum-textfield-border-color-hover: transparent;
   --spectrum-textfield-border-color-focus: transparent;
   --spectrum-textfield-border-color-key-focus: transparent;
+  --spectrum-textfield-border-color-keyboard-focus: transparent;
   --spectrum-textfield-focus-indicator-color: transparent;
   --spectrum-focus-indicator-color: transparent;
+  --spectrum-textfield-border-width: 0;
+  --spectrum-textfield-focus-indicator-width: 0;
+  --mod-textfield-border-width: 0;
+  --mod-textfield-focus-indicator-width: 0;
+  --mod-textfield-border-color: transparent;
+  --mod-textfield-border-color-hover: transparent;
+  --mod-textfield-border-color-focus: transparent;
+  --mod-textfield-border-color-focus-hover: transparent;
+  --mod-textfield-border-color-keyboard-focus: transparent;
+  --mod-textfield-focus-indicator-color: transparent;
   outline: none;
 }
 
