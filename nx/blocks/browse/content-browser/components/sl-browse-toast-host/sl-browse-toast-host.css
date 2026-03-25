@@ -1,0 +1,19 @@
+/* Fixed so toast is visible above `sp-dialog-wrapper` underlay */
+:host {
+  display: block;
+}
+
+.sl-browse-toast-host {
+  position: fixed;
+  bottom: 1.25rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100001;
+  pointer-events: none;
+  display: flex;
+  justify-content: center;
+}
+
+.sl-browse-toast-host sp-toast {
+  pointer-events: auto;
+}

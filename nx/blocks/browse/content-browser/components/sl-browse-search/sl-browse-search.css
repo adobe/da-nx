@@ -1,0 +1,22 @@
+:host {
+  --cb-border: #d8d8d8;
+  --cb-text: #1a1a1a;
+  --cb-text-muted: #737373;
+  --cb-font: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', roboto, sans-serif;
+
+  display: block;
+  min-width: 0;
+  flex: 1;
+  font-family: var(--cb-font);
+}
+
+.sl-search-shell {
+  min-width: 0;
+  width: 100%;
+}
+
+.sl-browse-search-control {
+  display: block;
+  width: 100%;
+  min-width: 0;
+}

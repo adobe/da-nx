@@ -1,0 +1,160 @@
+:host {
+  display: inline-block;
+  vertical-align: middle;
+
+  --sl-fc-radius: 5px;
+}
+
+.sl-fc-chip {
+  display: inline-flex;
+  align-items: stretch;
+  flex-shrink: 0;
+  border: 1px solid var(--cb-border, #e4e4e7);
+  border-radius: var(--sl-fc-radius);
+  background: var(--cb-bg, #fff);
+  font-size: 0.6875rem;
+  line-height: 1.2;
+  overflow: visible;
+}
+
+.sl-fc-chip:hover {
+  border-color: #d0d0d4;
+}
+
+.sl-fc-dd {
+  position: relative;
+  display: block;
+}
+
+.sl-fc-trigger {
+  list-style: none;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  min-height: 1.2rem;
+  padding: 0.08rem 0.35rem 0.08rem 0.45rem;
+  margin: 0;
+  font: inherit;
+  color: var(--cb-text, #18181b);
+  background: transparent;
+  border: none;
+  border-radius: var(--sl-fc-radius);
+  transition: background-color 0.1s ease;
+}
+
+.sl-fc-chip-active .sl-fc-trigger {
+  border-radius: var(--sl-fc-radius) 0 0 var(--sl-fc-radius);
+  padding-right: 0.28rem;
+}
+
+.sl-fc-trigger::-webkit-details-marker {
+  display: none;
+}
+
+.sl-fc-trigger::marker {
+  display: none;
+}
+
+.sl-fc-trigger:hover {
+  background: rgb(0 0 0 / 4%);
+}
+
+.sl-fc-trigger:focus-visible {
+  outline: 2px solid var(--cb-text, #18181b);
+  outline-offset: 1px;
+}
+
+.sl-fc-dd[open] > .sl-fc-trigger {
+  background: rgb(0 0 0 / 5%);
+}
+
+.sl-fc-trigger-text {
+  font-weight: 500;
+  max-width: 8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sl-fc-trigger-text.sl-fc-trigger-text-placeholder {
+  font-weight: 400;
+  color: var(--cb-text-muted, #71717a);
+}
+
+.sl-fc-chevron-icon {
+  flex-shrink: 0;
+  color: var(--cb-text-muted, #71717a);
+  opacity: 0.9;
+}
+
+.sl-fc-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  min-width: 10.5rem;
+  padding: 0.35rem 0;
+  margin: 0;
+  background: var(--cb-bg, #fff);
+  border: 1px solid var(--cb-border, #e4e4e7);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgb(0 0 0 / 8%);
+  z-index: 30;
+}
+
+.sl-fc-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  font-size: 0.75rem;
+  padding: 0.35rem 0.65rem;
+  border: none;
+  background: transparent;
+  color: var(--cb-text, #18181b);
+  cursor: pointer;
+}
+
+.sl-fc-option:hover {
+  background: #f4f4f5;
+}
+
+.sl-fc-option-current {
+  font-weight: 500;
+  background: #f0f0f2;
+}
+
+.sl-fc-clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.3rem;
+  margin: 0;
+  border: none;
+  border-left: 1px solid var(--cb-border, #e4e4e7);
+  border-radius: 0 var(--sl-fc-radius) var(--sl-fc-radius) 0;
+  background: transparent;
+  color: var(--cb-text-muted, #71717a);
+  cursor: pointer;
+  transition:
+    background-color 0.1s ease,
+    color 0.1s ease;
+}
+
+.sl-fc-clear:hover {
+  background: rgb(0 0 0 / 5%);
+  color: var(--cb-text, #18181b);
+}
+
+.sl-fc-clear:focus-visible {
+  outline: 2px solid var(--cb-text, #18181b);
+  outline-offset: -2px;
+}
+
+.sl-fc-close-icon {
+  flex-shrink: 0;
+  color: inherit;
+
+  /* Tighter than default xs in the compact chip chrome */
+  --mod-icon-size: 10px;
+}
