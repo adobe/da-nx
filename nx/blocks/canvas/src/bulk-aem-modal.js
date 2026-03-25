@@ -302,9 +302,9 @@ class DaBulkAemModal extends LitElement {
   }
 
   _statusClass(row) {
-    if (row.state === 'ok') return 'bulk-aem-modal-status bulk-aem-modal-status--ok';
-    if (row.state === 'error') return 'bulk-aem-modal-status bulk-aem-modal-status--error';
-    return 'bulk-aem-modal-status bulk-aem-modal-status--pending';
+    if (row.state === 'ok') return 'bulk-aem-modal-status bulk-aem-modal-status-ok';
+    if (row.state === 'error') return 'bulk-aem-modal-status bulk-aem-modal-status-error';
+    return 'bulk-aem-modal-status bulk-aem-modal-status-pending';
   }
 
   _statusText(row) {
@@ -365,7 +365,7 @@ class DaBulkAemModal extends LitElement {
               ${count > 0 && !showErrorPanel ? html`
                 <ul class="bulk-aem-modal-list" aria-label="Files">
                   ${this._rows.map((row) => html`
-                    <li class="bulk-aem-modal-row ${row.state === 'error' ? 'bulk-aem-modal-row--error' : ''}">
+                    <li class="bulk-aem-modal-row ${row.state === 'error' ? 'bulk-aem-modal-row-error' : ''}">
                       <span class="bulk-aem-modal-path">${row.path}</span>
                       <span class="${this._statusClass(row)}">${this._statusText(row)}</span>
                     </li>

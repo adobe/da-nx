@@ -140,7 +140,8 @@ async function getCollabIdentity() {
  *   getToken?: () => string, rerenderPage?: () => void, updateCursors?: () => void,
  *   getEditor?: (data: { cursorOffset: number }) => void, withToolbar?: boolean,
  *   onToolbar?: (el: HTMLElement | null) => void }} opts
- * @returns {Promise<{ proseEl: HTMLElement, wsProvider: WebsocketProvider, view: EditorView }>}
+ * @returns {Promise<{ proseEl: HTMLElement, wsProvider: WebsocketProvider, view: EditorView,
+ *   ydoc: import('yjs').Doc }>}
  */
 export default async function initProse({
   path, permissions, setEditable, getToken,
@@ -282,5 +283,5 @@ export default async function initProse({
     editable() { return canWrite; },
   });
 
-  return { proseEl: editor, wsProvider, view: window.view };
+  return { proseEl: editor, wsProvider, view: window.view, ydoc };
 }

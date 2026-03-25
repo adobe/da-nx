@@ -40,15 +40,15 @@
   border-bottom: none;
 }
 
-.bulk-aem-modal-row--error {
-  background: var(--spectrum-negative-subdued-background-color, rgba(215, 55, 63, 0.08));
+.bulk-aem-modal-row-error {
+  background: var(--spectrum-negative-subdued-background-color, rgb(215 55 63 / 8%));
 }
 
 .bulk-aem-modal-error-panel {
   padding: var(--spectrum-spacing-200, 12px) var(--spectrum-spacing-300, 16px);
   border-radius: var(--spectrum-corner-radius-100, 4px);
   border: 1px solid var(--spectrum-negative-visual-color, #d7373f);
-  background: var(--spectrum-negative-subdued-background-color, rgba(215, 55, 63, 0.06));
+  background: var(--spectrum-negative-subdued-background-color, rgb(215 55 63 / 6%));
 }
 
 .bulk-aem-modal-error-panel-title {
@@ -101,15 +101,15 @@
   font-size: var(--spectrum-font-size-75, 12px);
 }
 
-.bulk-aem-modal-status--pending {
+.bulk-aem-modal-status-pending {
   color: var(--spectrum-gray-600, #6e6e6e);
 }
 
-.bulk-aem-modal-status--ok {
+.bulk-aem-modal-status-ok {
   color: var(--spectrum-positive-visual-color, #268e6c);
 }
 
-.bulk-aem-modal-status--error {
+.bulk-aem-modal-status-error {
   color: var(--spectrum-negative-visual-color, #d7373f);
 }
 
@@ -126,7 +126,7 @@
   padding: 0;
   margin: -1px;
   overflow: hidden;
-  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
   white-space: nowrap;
   border: 0;
 }
