@@ -67,8 +67,9 @@ function getOrgRepoFromHash() {
   return { org: pathSegments[0], repo: pathSegments[1] };
 }
 
-const CHAT_PANEL_SIZE_KEY = 'da-chat-panel-size';
 const WINDOW_LAYOUT_STATE_KEY = 'da-window-layout-state';
+/** Fixed chat column width for demo stability (persistence disabled; revisit later). */
+const CHAT_SPLIT_PRIMARY_SIZE = '25%';
 /** Must match `secondary-min` on the outer chat split-view. */
 const CHAT_SPLIT_SECONDARY_MIN = 400;
 const CHAT_SPLIT_PRIMARY_MIN = 280;
@@ -91,34 +92,6 @@ function writeWindowLayoutState(nextPatch) {
   } catch {
     // Ignore storage errors (private mode/quota).
   }
-}
-
-/**
- * Clamp a stored chat panel size so a bad or stale value cannot consume the whole canvas.
- * @param {string | null} raw
- * @returns {string}
- */
-function sanitizeStoredChatPanelSize(raw) {
-  if (!raw || typeof raw !== 'string') return '25%';
-  const trimmed = raw.trim();
-  const pxMatch = /^(\d+)px$/i.exec(trimmed);
-  if (pxMatch) {
-    const n = Number(pxMatch[1]);
-    let vw = 1440;
-    if (typeof window !== 'undefined' && Number.isFinite(window.innerWidth)) {
-      vw = window.innerWidth;
-    }
-    const maxPx = Math.max(CHAT_SPLIT_PRIMARY_MIN + 40, Math.floor(vw * 0.58));
-    const clamped = Math.max(CHAT_SPLIT_PRIMARY_MIN, Math.min(n, maxPx));
-    return `${clamped}px`;
-  }
-  const pctMatch = /^(\d+)%$/.exec(trimmed);
-  if (pctMatch) {
-    const p = Number(pctMatch[1]);
-    const clamped = Math.max(18, Math.min(p, 55));
-    return `${clamped}%`;
-  }
-  return '25%';
 }
 
 class Space extends LitElement {
@@ -162,15 +135,6 @@ class Space extends LitElement {
     this._chatOpen = typeof persisted.chatOpen === 'boolean' ? persisted.chatOpen : true;
     this._detailsOpen = typeof persisted.detailsOpen === 'boolean' ? persisted.detailsOpen : true;
     this._publishLoading = false;
-    let rawChatPanel = localStorage.getItem(CHAT_PANEL_SIZE_KEY);
-    if (typeof persisted.chatPanelSize === 'string' && persisted.chatPanelSize.trim()) {
-      rawChatPanel = persisted.chatPanelSize.trim();
-    }
-    try {
-      this._chatPanelSize = sanitizeStoredChatPanelSize(rawChatPanel || '25%');
-    } catch {
-      this._chatPanelSize = '25%';
-    }
     if (SIDEBAR_TABS.has(persisted.sidebarTab)) {
       this._sidebarTab = persisted.sidebarTab;
     }
@@ -283,55 +247,6 @@ class Space extends LitElement {
 
   _onChatMessageSent = () => {
     this._chatContextItems = [];
-  };
-
-  /**
-   * Read split-view state and persist chat width (localStorage + window layout).
-   * Call only after explicit splitter interaction — not on sp-split-view `change`
-   * (that also runs on ResizeObserver / unrelated reflow).
-   */
-  _persistChatPanelSizeFromSplit(split) {
-    if (!split || split.tagName?.toLowerCase() !== 'sp-split-view') return;
-    let raw = Number(split.getAttribute('splitter-pos'));
-    if (typeof split.splitterPos === 'number') {
-      raw = split.splitterPos;
-    }
-    if (!Number.isFinite(raw) || raw < CHAT_SPLIT_PRIMARY_MIN) return;
-    const total = split.getBoundingClientRect().width;
-    if (!(total > 0)) return;
-    const maxPrimary = Math.max(
-      CHAT_SPLIT_PRIMARY_MIN,
-      total - CHAT_SPLIT_SECONDARY_MIN - 6,
-    );
-    const pos = Math.min(raw, maxPrimary);
-    const size = `${Math.round(pos)}px`;
-    if (size === this._chatPanelSize) return;
-    this._chatPanelSize = size;
-    try {
-      localStorage.setItem(CHAT_PANEL_SIZE_KEY, size);
-      writeWindowLayoutState({ chatPanelSize: size });
-    } catch {
-      /* ignore quota / private mode */
-    }
-  }
-
-  _onChatSplitPointerUp = (e) => {
-    const split = e.currentTarget;
-    const fromSplitter = e.composedPath().some((n) => n instanceof HTMLElement && n.id === 'splitter');
-    if (!fromSplitter) return;
-    this._persistChatPanelSizeFromSplit(split);
-  };
-
-  /** Keyboard resize on the focused splitter (change event is layout-noisy). */
-  _onChatSplitKeyDown = (e) => {
-    const keys = new Set(['ArrowLeft', 'ArrowRight', 'Home', 'End', 'PageUp', 'PageDown']);
-    if (!keys.has(e.key)) return;
-    const split = e.currentTarget;
-    const fromSplitter = e.composedPath().some((n) => n instanceof HTMLElement && n.id === 'splitter');
-    if (!fromSplitter) return;
-    requestAnimationFrame(() => {
-      this._persistChatPanelSizeFromSplit(split);
-    });
   };
 
   _getRevertSnapshotAemHtml = (toolInput) => {
@@ -537,22 +452,6 @@ class Space extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    try {
-      const raw = localStorage.getItem(CHAT_PANEL_SIZE_KEY);
-      const fixed = sanitizeStoredChatPanelSize(raw);
-      if (raw !== fixed) {
-        localStorage.setItem(CHAT_PANEL_SIZE_KEY, fixed);
-      }
-      const persisted = readWindowLayoutState();
-      if (typeof persisted.chatPanelSize === 'string') {
-        const pfixed = sanitizeStoredChatPanelSize(persisted.chatPanelSize);
-        if (pfixed !== persisted.chatPanelSize) {
-          writeWindowLayoutState({ chatPanelSize: pfixed });
-        }
-      }
-    } catch {
-      /* ignore */
-    }
     this.shadowRoot.adoptedStyleSheets = [style];
     this._boundHashChange();
     window.addEventListener('hashchange', this._boundHashChange);
@@ -988,12 +887,10 @@ class Space extends LitElement {
           <sp-split-view
             class="split-view split-view-outer"
             resizable
-            primary-size="${this._chatPanelSize}"
+            primary-size="${CHAT_SPLIT_PRIMARY_SIZE}"
             primary-min="${CHAT_SPLIT_PRIMARY_MIN}"
             secondary-min="${CHAT_SPLIT_SECONDARY_MIN}"
             label="Resize chat panel"
-            @pointerup="${this._onChatSplitPointerUp}"
-            @keydown="${this._onChatSplitKeyDown}"
           >
             <da-chat
               class="space-chat-panel"
