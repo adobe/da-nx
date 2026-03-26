@@ -46,6 +46,10 @@
   min-height: min(42vh, 22rem);
 }
 
+.sl-table-card.sl-table-card-empty {
+  min-height: min(42vh, 22rem);
+}
+
 .sl-table-card {
   flex: 1;
   min-height: 200px;
@@ -56,6 +60,28 @@
   overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+
+.sl-table-list-toolbar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 0.35rem 0 0.5rem;
+  border-bottom: 1px solid var(--cb-border);
+  background: var(--cb-bg);
+}
+
+.sl-browse-up-button {
+  --mod-actionbutton-edge-to-text: 6px;
+  --mod-actionbutton-text-label-padding-left: 4px;
+
+  font-size: 0.8125rem;
+  color: var(--cb-text);
+}
+
+.sl-browse-up-button:not(:disabled):hover {
+  color: var(--cb-text);
 }
 
 .sl-table-scroll {
@@ -229,5 +255,72 @@
 .sl-browse-kind-icon {
   display: block;
   margin: 0 auto;
+  color: var(--cb-text-muted);
+}
+
+/* Full-width tbody row: no hover/cursor like data rows */
+.sl-browse-empty-row {
+  cursor: default;
+}
+
+.sl-browse-empty-row:hover {
+  background: transparent;
+}
+
+.sl-browse-empty-cell {
+  padding: 0;
+  border-bottom: none;
+  vertical-align: middle;
+}
+
+/* Centered empty state (no rows after load, or no search hits). */
+.sl-browse-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 2rem 1.5rem min(3rem, 8vh);
+  box-sizing: border-box;
+  min-height: min(40vh, 24rem);
+}
+
+.sl-browse-empty-icon-wrap {
+  width: 4.25rem;
+  height: 4.25rem;
+  border-radius: 50%;
+  background: linear-gradient(
+    160deg,
+    var(--cb-selected) 0%,
+    var(--cb-bg) 55%,
+    var(--cb-hover) 100%
+  );
+  border: 1px solid var(--cb-border);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 4%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1.25rem;
+}
+
+.sl-browse-empty-icon {
+  color: var(--cb-text-muted);
+  opacity: 0.92;
+}
+
+.sl-browse-empty-title {
+  margin: 0 0 0.5rem;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--cb-text);
+  letter-spacing: -0.015em;
+}
+
+.sl-browse-empty-hint {
+  margin: 0;
+  max-width: 22rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
   color: var(--cb-text-muted);
 }

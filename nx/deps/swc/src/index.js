@@ -39,6 +39,7 @@ import '@spectrum-web-components/dialog/sp-dialog.js';
 import '@spectrum-web-components/dialog/sp-dialog-wrapper.js';
 import '@spectrum-web-components/toast/sp-toast.js';
 import '@spectrum-web-components/overlay/overlay-trigger.js';
+import '@spectrum-web-components/popover/sp-popover.js';
 import '@spectrum-web-components/table/sp-table.js';
 import '@spectrum-web-components/table/sp-table-body.js';
 import '@spectrum-web-components/table/sp-table-cell.js';

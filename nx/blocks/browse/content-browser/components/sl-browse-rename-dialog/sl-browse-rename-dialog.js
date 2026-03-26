@@ -123,7 +123,8 @@ export class SlBrowseRenameDialog extends LitElement {
           <sp-textfield
             ${ref(this._textfieldRef)}
             class="sl-browse-rename-textfield"
-            label="New name"
+            label="File name"
+            placeholder="Enter a file name"
             autocomplete="off"
             .value="${this._draft}"
             @input="${this._onInput}"

@@ -149,6 +149,7 @@ export class SlBrowseSearch extends LitElement {
         <sp-switch
           class="sl-search-file-contents"
           size="m"
+          ?emphasized="${true}"
           ?checked="${this.searchFileContents}"
           @change="${this._onFileContentsChange}"
         >

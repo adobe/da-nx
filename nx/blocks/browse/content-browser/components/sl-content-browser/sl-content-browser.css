@@ -99,9 +99,8 @@
 
   /* Reserve full header height so toggling search ↔ selection does not move the table. */
   min-height: calc(
-    var(--sl-cb-control-row-height)
-      + var(--sl-cb-header-stack-gap)
-      + var(--sl-cb-filter-row-height)
+    var(--sl-cb-control-row-height) + var(--sl-cb-header-stack-gap) +
+      var(--sl-cb-filter-row-height)
   );
 }
 

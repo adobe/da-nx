@@ -31,6 +31,19 @@ export function relativePathKeyFromFolder(fullPathKey, folderPathKey) {
 }
 
 /**
+ * Parent folder path key, or empty when already at repo root (`org/site`).
+ * @param {string} pathKey - Current folder key, no leading slash.
+ * @returns {string}
+ */
+export function parentFolderPathKey(pathKey) {
+  const raw = String(pathKey || '').replace(/^\/+/, '').trim();
+  if (!raw) return '';
+  const parts = raw.split('/').filter(Boolean);
+  if (parts.length <= 2) return '';
+  return parts.slice(0, -1).join('/');
+}
+
+/**
  * Table label: strip list `ext` from the end of a path or file name (folders unchanged).
  * @param {string} pathOrName
  * @param {{ ext?: string } | null | undefined} item
