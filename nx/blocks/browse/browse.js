@@ -27,6 +27,28 @@ import {
 
 const style = await getStyle(import.meta.url);
 const nxBase = getNx();
+const CHAT_PANEL_SIZE_KEY = 'da-chat-panel-size';
+const WINDOW_LAYOUT_STATE_KEY = 'da-window-layout-state';
+
+function readWindowLayoutState() {
+  try {
+    const raw = localStorage.getItem(WINDOW_LAYOUT_STATE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeWindowLayoutState(nextPatch) {
+  try {
+    const current = readWindowLayoutState();
+    localStorage.setItem(WINDOW_LAYOUT_STATE_KEY, JSON.stringify({ ...current, ...nextPatch }));
+  } catch {
+    // Ignore storage errors.
+  }
+}
 
 const listFolder = createListFetcher({ daFetch });
 const saveToSource = createSaveToSource({ daFetch });
@@ -57,11 +79,13 @@ class BrowseView extends LitElement {
 
   constructor() {
     super();
-    this._chatOpen = true;
+    const persisted = readWindowLayoutState();
+    this._chatOpen = typeof persisted.chatOpen === 'boolean' ? persisted.chatOpen : true;
     this._chatContextItems = [];
     this._browsePathSegments = [];
     this._browseFolderFullpath = '';
     this._browseListPermissions = undefined;
+    this._chatPanelSize = persisted.chatPanelSize || localStorage.getItem(CHAT_PANEL_SIZE_KEY) || '25%';
     this._boundWindowBulkAemOpen = (e) => this._onBulkAemOpen(e);
     this._boundBrowseSelectionChatContext = (e) => this._onBrowseSelectionChatContext(e);
     this._boundBrowseListPermissions = (e) => this._onBrowseListPermissions(e);
@@ -91,6 +115,13 @@ class BrowseView extends LitElement {
     this.removeEventListener(SL_CONTENT_BROWSER_LIST_PERMISSIONS, this._boundBrowseListPermissions);
     this.removeEventListener('chat-context-remove', this._boundChatContextRemove);
     super.disconnectedCallback();
+  }
+
+  updated(changed) {
+    super.updated?.(changed);
+    if (changed.has('_chatOpen')) {
+      writeWindowLayoutState({ chatOpen: this._chatOpen });
+    }
   }
 
   _syncBrowsePathFromHash() {
@@ -146,6 +177,18 @@ class BrowseView extends LitElement {
     if (!modal || typeof modal.show !== 'function') return;
     modal.show(files, mode);
   }
+
+  _onChatPanelResize = () => {
+    const chatPanel = this.shadowRoot?.querySelector('.browse-view-chat-panel');
+    if (!chatPanel) return;
+    const { width } = chatPanel.getBoundingClientRect();
+    if (width > 0) {
+      const size = `${Math.round(width)}px`;
+      this._chatPanelSize = size;
+      localStorage.setItem(CHAT_PANEL_SIZE_KEY, size);
+      writeWindowLayoutState({ chatPanelSize: size });
+    }
+  };
 
   _renderToolbar() {
     return html`
@@ -204,10 +247,11 @@ class BrowseView extends LitElement {
                 <sp-split-view
                   class="browse-view-split split-view-outer"
                   resizable
-                  primary-size="25%"
+                  primary-size="${this._chatPanelSize}"
                   primary-min="280"
                   secondary-min="400"
                   label="Resize chat panel"
+                  @change="${this._onChatPanelResize}"
                 >
                   <da-chat
                     class="browse-view-chat-panel"
