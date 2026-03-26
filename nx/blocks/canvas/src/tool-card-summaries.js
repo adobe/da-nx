@@ -391,6 +391,11 @@ function summarizeBulkClientOutput(output) {
   }
   if (typeof o.okCount === 'number') rows.push({ label: 'Succeeded', value: str(o.okCount) });
   if (typeof o.failCount === 'number') rows.push({ label: 'Failed', value: str(o.failCount) });
+  if (Array.isArray(o.publishedUrls) && o.publishedUrls.length > 0) {
+    const preview = o.publishedUrls.slice(0, 6).map((u) => str(u)).join('\n');
+    const more = o.publishedUrls.length > 6 ? `\n… +${o.publishedUrls.length - 6} more` : '';
+    rows.push({ label: 'Published URLs', value: preview + more });
+  }
   if (o.message) rows.push({ label: 'Message', value: str(o.message) });
   if (rows.length === 0) return summarizeOutput(output);
   return rows;
