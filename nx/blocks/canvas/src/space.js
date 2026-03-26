@@ -99,8 +99,8 @@ class Space extends LitElement {
     this._chatContextItems = [];
     this._pendingAddSection = null;
     this._pendingAddBlock = null;
-    this._sidebarTab = 'files';
-    this._viewMode = 'wysiwyg';
+    this._sidebarTab = sessionStorage.getItem('da-nx-sidebar-tab') || 'files';
+    this._viewMode = sessionStorage.getItem('da-nx-view-mode') || 'wysiwyg';
     this._chatOpen = true;
     this._detailsOpen = true;
     this._publishLoading = false;
@@ -229,6 +229,7 @@ class Space extends LitElement {
     const value = Array.isArray(selected) && selected.length > 0 ? selected[0] : 'split';
     if (value === 'doc' || value === 'wysiwyg' || value === 'split') {
       this._viewMode = value;
+      sessionStorage.setItem('da-nx-view-mode', value);
     }
   };
 
@@ -446,6 +447,7 @@ class Space extends LitElement {
     if (changed.has('_selectedPath') && !isHtmlPath(this._selectedPath)) {
       if (this._sidebarTab === 'history' || this._sidebarTab === 'metadata') {
         this._sidebarTab = 'files';
+        sessionStorage.setItem('da-nx-sidebar-tab', 'files');
       }
     }
     if (changed.has('_orgRepo') || changed.has('_selectedPath')) {
@@ -689,7 +691,7 @@ class Space extends LitElement {
               aria-selected="${this._sidebarTab === 'files'}"
               aria-controls="space-details-panel-files"
               id="space-details-tab-files"
-              @click="${() => { this._sidebarTab = 'files'; }}"
+              @click="${() => { this._sidebarTab = 'files'; sessionStorage.setItem('da-nx-sidebar-tab', 'files'); }}"
             >Files</button>
             <button
               type="button"
@@ -698,7 +700,7 @@ class Space extends LitElement {
               aria-selected="${this._sidebarTab === 'outline'}"
               aria-controls="space-details-panel-outline"
               id="space-details-tab-outline"
-              @click="${() => { this._sidebarTab = 'outline'; }}"
+              @click="${() => { this._sidebarTab = 'outline'; sessionStorage.setItem('da-nx-sidebar-tab', 'outline'); }}"
             >Outline</button>
             ${isHtmlPath(this._selectedPath) ? html`
             <button
@@ -708,7 +710,7 @@ class Space extends LitElement {
               aria-selected="${this._sidebarTab === 'metadata'}"
               aria-controls="space-details-panel-metadata"
               id="space-details-tab-metadata"
-              @click="${() => { this._sidebarTab = 'metadata'; }}"
+              @click="${() => { this._sidebarTab = 'metadata'; sessionStorage.setItem('da-nx-sidebar-tab', 'metadata'); }}"
             >Metadata</button>
             ` : ''}
             ${isHtmlPath(this._selectedPath) ? html`
@@ -719,7 +721,7 @@ class Space extends LitElement {
               aria-selected="${this._sidebarTab === 'history'}"
               aria-controls="space-details-panel-history"
               id="space-details-tab-history"
-              @click="${() => { this._sidebarTab = 'history'; }}"
+              @click="${() => { this._sidebarTab = 'history'; sessionStorage.setItem('da-nx-sidebar-tab', 'history'); }}"
             >History</button>
             ` : ''}
           </div>
