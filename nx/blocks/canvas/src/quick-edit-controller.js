@@ -179,12 +179,22 @@ export function getEditor(data, ctx) {
   if (ctx.suppressRerender) return;
   const { view } = ctx;
   const { cursorOffset } = data;
+  if (typeof cursorOffset !== 'number') return;
 
-  const pos = view.state.doc.resolve(cursorOffset);
-  const before = pos.before(pos.depth);
-  const beforePos = view.state.doc.resolve(before);
-  const nodeAtBefore = beforePos.nodeAfter;
-  ctx.port.postMessage({ type: 'set-editor-state', editorState: nodeAtBefore.toJSON(), cursorOffset: before + 1 });
+  const { doc } = view.state;
+  const maxPos = doc.content.size;
+  if (cursorOffset < 0 || cursorOffset > maxPos) return;
+
+  try {
+    const pos = doc.resolve(cursorOffset);
+    const before = pos.before(pos.depth);
+    const beforePos = doc.resolve(before);
+    const nodeAtBefore = beforePos.nodeAfter;
+    if (!nodeAtBefore) return;
+    ctx.port.postMessage({ type: 'set-editor-state', editorState: nodeAtBefore.toJSON(), cursorOffset: before + 1 });
+  } catch {
+    // Stale iframe cursor after structural replace (e.g. chat revert, remote sync).
+  }
 }
 
 /**
