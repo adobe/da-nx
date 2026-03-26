@@ -57,6 +57,25 @@ const BUILTIN_AGENTS = [
   },
 ];
 
+const DUMMY_PROMPT_CARDS = [
+  {
+    id: 'summarize',
+    title: 'Summarize page',
+    description: 'Get a concise summary of the current page content',
+    icon: `${nxBase}/img/icons/file.svg`,
+    prompt: 'Please summarize the content of this page in a few sentences.',
+    area: 'edit',
+  },
+  {
+    id: 'improve-tone',
+    title: 'Improve clarity & tone',
+    description: 'Rewrite for better readability and a professional tone',
+    icon: `${nxBase}/img/icons/S2IconLightbulb20N-icon.svg`,
+    prompt: 'Please review this page and suggest improvements for clarity and tone.',
+    area: 'edit',
+  },
+];
+
 const BUILTIN_TOOLS = [
   { id: 'da_list_sources', label: 'List sources', description: 'List files and folders in a DA repo path', group: 'DA Tools' },
   { id: 'da_get_source', label: 'Get source', description: 'Read a source file\'s content', group: 'DA Tools' },
@@ -1252,13 +1271,13 @@ class Chat extends LitElement {
     `;
   }
 
+  _openPromptsLibrary() {
+    this.shadowRoot.querySelector('.chat-toolbar-icon-btn[aria-label="Open Skills Quick Editing"]')?.click();
+  }
+
   _renderWelcome() {
-    const prompts = [
-      'Summarize this page',
-      'Suggest better headings',
-      'Improve clarity and tone',
-      'Find accessibility issues',
-    ];
+    const { view } = this._pageContextForAgent();
+    const cards = DUMMY_PROMPT_CARDS.filter((c) => !c.area || c.area === 'all' || c.area === view);
 
     const firstName = imsInitial?.first_name ?? imsInitial?.displayName?.split(' ')[0];
     const title = firstName ? `Welcome, ${firstName}` : 'Start a conversation';
@@ -1267,15 +1286,20 @@ class Chat extends LitElement {
       <div class="chat-empty-state">
         <h2 class="chat-empty-title">${title}</h2>
         <div class="chat-empty-actions">
-          ${prompts.map((prompt) => html`
+          ${cards.map((card) => html`
             <button
-              class="chat-welcome-btn"
+              class="prompt-card"
               ?disabled=${this._isThinking || !this._connected}
-              @click=${() => this._sendPrompt(prompt)}
+              @click=${() => this._sendPrompt(card.prompt)}
             >
-              ${prompt}
+              <div class="prompt-card-header">
+                <img class="prompt-card-icon" src="${card.icon}" alt="" aria-hidden="true" />
+                <span class="prompt-card-title">${card.title}</span>
+              </div>
+              <div class="mcp-server-desc">${card.description}</div>
             </button>
           `)}
+          <button class="prompt-more-link" @click=${this._openPromptsLibrary}>More prompts</button>
         </div>
       </div>
     `;
