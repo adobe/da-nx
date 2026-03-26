@@ -660,7 +660,7 @@
 .chat-skills-modal-body {
   display: flex;
   width: 75vw;
-  height: 80vh;
+  height: 100%;
   margin: 0 auto;
 }
 

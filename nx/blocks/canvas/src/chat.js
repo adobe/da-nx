@@ -1341,6 +1341,11 @@ class Chat extends LitElement {
     this.shadowRoot.querySelector('.chat-toolbar-icon-btn[aria-label="Open Tools Quick Editing"]')?.click();
   }
 
+  _closeSkillsModal() {
+    const trigger = this.shadowRoot.querySelector('overlay-trigger');
+    if (trigger) trigger.open = undefined;
+  }
+
   _openSkillModalWithSuggestion(id, content, suggestionKey = null) {
     this._pendingSkillSuggestionKey = typeof suggestionKey === 'string' ? suggestionKey : null;
     this._newSkillMode = true;
@@ -1395,7 +1400,7 @@ class Chat extends LitElement {
   _renderSkillsButton() {
     return html`
       <overlay-trigger type="modal" triggered-by="click" @sp-opened=${this._onSkillsModalOpen}>
-        <sp-dialog-wrapper slot="click-content" headline="Tools Quick Editing" dismissable underlay>
+        <sp-dialog-wrapper slot="click-content" headline="Tools Quick Editing" dismissable underlay style="--mod-dialog-confirm-max-block-size: 90vh; max-block-size: 90vh;">
           <div class="chat-skills-modal-body">
             <sp-sidenav
               class="chat-skills-sidenav"
@@ -1484,11 +1489,11 @@ class Chat extends LitElement {
               <div class="prompts-lib-card-title">${p.title}</div>
               <div class="prompts-lib-card-prompt">${p.prompt}</div>
               <div class="prompts-lib-card-actions">
-                <button type="button" class="prompts-lib-add-btn" title="Add to chat input" @click=${() => this._insertPrompt(p.prompt)}>
+                <button type="button" class="prompts-lib-add-btn" title="Add to chat input" @click=${() => { this._insertPrompt(p.prompt); this._closeSkillsModal(); }}>
                   <svg width="13" height="13" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M17.41 4.1 15.9 2.59A1.75 1.75 0 0 0 14.48 2H4.25A2.25 2.25 0 0 0 2 4.25v11.5A2.25 2.25 0 0 0 4.25 18h11.5A2.25 2.25 0 0 0 18 15.75V5.52c0-.53-.21-1.04-.59-1.42ZM7.75 3.5h4.5v3h-4.5v-3Zm5.5 13H6.75V12h6.5v4.5Zm3.25-1.75a.75.75 0 0 1-.75.75h-1V12a1.75 1.75 0 0 0-1.75-1.75h-6.5A1.75 1.75 0 0 0 5.25 12v4.5h-1a.75.75 0 0 1-.75-.75V4.25a.75.75 0 0 1 .75-.75h2v3A1.75 1.75 0 0 0 7.75 8h4.5a1.75 1.75 0 0 0 1.75-1.75v-3h.48a.25.25 0 0 1 .18.07l1.52 1.52a.25.25 0 0 1 .07.18v11.23Z" fill="currentColor"/></svg>
                   Add to chat
                 </button>
-                <button type="button" class="prompts-lib-send-btn" title="Send immediately" ?disabled=${!canSend} @click=${() => this._sendPrompt(p.prompt)}>
+                <button type="button" class="prompts-lib-send-btn" title="Send immediately" ?disabled=${!canSend} @click=${() => { this._sendPrompt(p.prompt); this._closeSkillsModal(); }}>
                   <svg width="13" height="13" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M18.6485 9.9735C18.6482 9.67899 18.4769 9.41106 18.2059 9.29056L4.05752 2.93282C3.80133 2.8175 3.50129 2.85583 3.28171 3.03122C3.06178 3.20765 2.95889 3.49146 3.01516 3.76733L4.28678 10.008L3.06488 16.2384C3.0162 16.4852 3.09492 16.738 3.27031 16.9134C3.29068 16.9337 3.31278 16.9531 3.33522 16.9714C3.55619 17.1454 3.85519 17.182 4.11069 17.066L18.2086 10.6578C18.4773 10.5356 18.6489 10.268 18.6485 9.9735Z" fill="currentColor"/></svg>
                   Send
                 </button>
