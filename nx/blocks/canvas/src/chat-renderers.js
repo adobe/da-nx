@@ -71,7 +71,7 @@ function sanitizeHref(rawHref) {
 }
 
 function renderInline(text) {
-  const INLINE_RE = /\[([^\]]+)\]\(([^)\s]+)\)|\*\*([\s\S]*?)\*\*|`([^`\n]+)`/g;
+  const INLINE_RE = /\[([^\]]+)\]\(([^)\s]+)\)|\*\*([\s\S]*?)\*\*|\*([^*\n][\s\S]*?)\*|`([^`\n]+)`/g;
   const parts = [];
   let last = 0;
   let m;
@@ -84,15 +84,17 @@ function renderInline(text) {
       if (safeHref) {
         const openInNewTab = /^https?:\/\//.test(safeHref);
         parts.push(openInNewTab
-          ? html`<a href="${safeHref}" target="_blank" rel="noopener noreferrer">${m[1]}</a>`
-          : html`<a href="${safeHref}">${m[1]}</a>`);
+          ? html`<a href="${safeHref}" target="_blank" rel="noopener noreferrer">${renderInline(m[1])}</a>`
+          : html`<a href="${safeHref}">${renderInline(m[1])}</a>`);
       } else {
         parts.push(m[0]);
       }
     } else if (m[3] !== undefined) {
-      parts.push(html`<strong>${m[3]}</strong>`);
+      parts.push(html`<strong>${renderInline(m[3])}</strong>`);
+    } else if (m[4] !== undefined) {
+      parts.push(html`<em>${renderInline(m[4])}</em>`);
     } else {
-      parts.push(html`<code class="cr-inline-code">${m[4]}</code>`);
+      parts.push(html`<code class="cr-inline-code">${m[5]}</code>`);
     }
     last = m.index + m[0].length;
   }
