@@ -3,6 +3,8 @@ import getStyle from 'https://da.live/nx/utils/styles.js';
 // eslint-disable-next-line import/no-unresolved
 import { LitElement, html, createRef, ref } from 'da-lit';
 import { parseHashToPathContext } from '../../api/da-browse-api.js';
+import { daFetch } from '../../../../../utils/daFetch.js';
+import { DA_ORIGIN } from '../../../../../public/utils/constants.js';
 import { crawl } from '../../../../../public/utils/tree.js';
 import {
   SL_CONTENT_BROWSER_CHAT_CONTEXT,
@@ -37,6 +39,19 @@ import '../sl-browse-toast-host/sl-browse-toast-host.js';
 const style = await getStyle(import.meta.url);
 
 const FORMAT_FILTER_VALUES = new Set(['all', 'document', 'sheet', 'media']);
+
+/** Match inside file body via GET /source (same subset as legacy `da-search`). */
+const CONTENT_SEARCH_SOURCE_SUFFIXES = ['.html', '.json', '.svg'];
+const CONTENT_SEARCH_CRAWL_CONCURRENT = 20;
+
+/**
+ * @param {{ path?: string, name?: string }} entry
+ * @param {string} currentPathKey
+ */
+function crawlItemRowKey(entry, currentPathKey) {
+  return ((entry.path || '').replace(/^\//, '') || `${currentPathKey}/${entry.name}`)
+    .replace(/\/+/g, '/');
+}
 
 /** Single-picker model for kind + format (toolbar). */
 const COMBINED_FILTER_OPTIONS = [
@@ -122,7 +137,9 @@ class SlContentBrowser extends LitElement {
     _loading: { state: true },
     _error: { state: true },
     _searchQuery: { state: true },
-    /** Files under the current folder whose names match {@link _searchQuery} (via {@link crawl}). */
+    /** When true, search also loads `.html` / `.json` / `.svg` source and matches query in body. */
+    _searchFileContents: { state: true },
+    /** Files under the current folder matching {@link _searchQuery} (via {@link crawl}). */
     _searchCrawlItems: { state: true },
     _searchCrawlLoading: { state: true },
     _typeFilter: { state: true },
@@ -165,6 +182,7 @@ class SlContentBrowser extends LitElement {
     this._loading = false;
     this._error = null;
     this._searchQuery = '';
+    this._searchFileContents = false;
     this._searchCrawlItems = [];
     this._searchCrawlLoading = false;
     this._typeFilter = 'all';
@@ -313,7 +331,8 @@ class SlContentBrowser extends LitElement {
       }
       this._browsePathKeyPrevious = key;
     }
-    const searchAffected = changedProperties.has('_searchQuery');
+    const searchAffected = changedProperties.has('_searchQuery')
+      || changedProperties.has('_searchFileContents');
     if (pathAffected || searchAffected) {
       this._syncSubtreeSearchWithCrawl();
     }
@@ -388,25 +407,69 @@ class SlContentBrowser extends LitElement {
     const qLower = q.toLowerCase();
     /** @type {Map<string, object>} */
     const matched = new Map();
+    const rowPathKey = this._currentPathKey;
 
-    const callback = (file) => {
+    const pushMatch = (entry) => {
       if (gen !== this._searchCrawlGen) return;
-      const name = (file.name || '').toLowerCase();
-      if (!name.includes(qLower)) return;
-      const key = ((file.path || '').replace(/^\//, '') || `${this._currentPathKey}/${file.name}`)
-        .replace(/\/+/g, '/');
+      const key = crawlItemRowKey(entry, rowPathKey);
       if (matched.has(key)) return;
-      matched.set(key, file);
+      matched.set(key, entry);
       this._searchCrawlItems = [...matched.values()];
       this.requestUpdate();
     };
 
-    const { results, cancelCrawl } = crawl({
+    const nameMatches = (entry) => (entry.name || '').toLowerCase().includes(qLower);
+
+    /** @type {(entry: object) => void | Promise<void>} */
+    let callback;
+
+    if (!this._searchFileContents) {
+      callback = (file) => {
+        if (gen !== this._searchCrawlGen) return;
+        if (nameMatches(file)) pushMatch(file);
+      };
+    } else {
+      callback = async (entry) => {
+        if (gen !== this._searchCrawlGen) return;
+        const isFolder = !entry.ext;
+        if (isFolder) {
+          if (nameMatches(entry)) pushMatch(entry);
+          return;
+        }
+        const pathStr = entry.path || '';
+        const canScanBody = CONTENT_SEARCH_SOURCE_SUFFIXES.some((s) => pathStr.endsWith(s));
+        if (!canScanBody) {
+          if (nameMatches(entry)) pushMatch(entry);
+          return;
+        }
+        if (nameMatches(entry)) {
+          pushMatch(entry);
+          return;
+        }
+        try {
+          const resp = await daFetch(`${DA_ORIGIN}/source${pathStr}`);
+          if (!resp.ok) return;
+          const text = await resp.text();
+          if (gen !== this._searchCrawlGen) return;
+          if (text.toLowerCase().includes(qLower)) pushMatch(entry);
+        } catch {
+          /* skip failed reads */
+        }
+      };
+    }
+
+    /** @type {Parameters<typeof crawl>[0]} */
+    const crawlOpts = {
       path: pathInfo.fullpath,
       callback,
       throttle: 10,
       includeFolders: true,
-    });
+    };
+    if (this._searchFileContents) {
+      crawlOpts.concurrent = CONTENT_SEARCH_CRAWL_CONCURRENT;
+    }
+
+    const { results, cancelCrawl } = crawl(crawlOpts);
     this._cancelSearchCrawl = cancelCrawl;
 
     results
@@ -512,6 +575,13 @@ class SlContentBrowser extends LitElement {
       this._typeFilter = 'all';
       this._formatFilter = 'all';
     }
+  }
+
+  /**
+   * @param {CustomEvent<{ value?: boolean }>} event
+   */
+  _onSearchFileContentsChange(event) {
+    this._searchFileContents = !!event.detail?.value;
   }
 
   _onTableSelection(event) {
@@ -853,26 +923,35 @@ class SlContentBrowser extends LitElement {
           <div class="sl-content-browser-column">
             <div class="sl-content-browser-header">
               <div class="sl-content-browser-control-row">
-                ${this._selectedRows.length > 0
-                  ? html`
-                      <div class="sl-content-browser-action-slot">
-                        ${this._renderSelectionToolbar()}
-                      </div>
-                    `
-                  : html`
-                      <div class="sl-content-browser-search-filter-row">
-                        <sl-browse-search
-                          class="sl-content-browser-search sl-content-browser-header-search"
-                          .value="${this._searchQuery}"
-                          placeholder="Search in this folder and below"
-                          label="Search"
-                          @sl-search-change="${this._onSearchChange}"
-                        ></sl-browse-search>
-                        <div class="sl-content-browser-kind-filter-slot">
-                          ${this._renderKindFilterPicker()}
+                <div class="sl-content-browser-search-filter-stack">
+                  ${this._selectedRows.length > 0
+                    ? html`
+                        <div class="sl-content-browser-action-row">
+                          <div class="sl-content-browser-action-slot">
+                            ${this._renderSelectionToolbar()}
+                          </div>
                         </div>
-                      </div>
-                    `}
+                      `
+                    : html`
+                        <div class="sl-content-browser-search-row">
+                          <sl-browse-search
+                            class="sl-content-browser-search sl-content-browser-header-search"
+                            .value="${this._searchQuery}"
+                            .searchFileContents="${this._searchFileContents}"
+                            .debounceMs="${this._searchFileContents ? 480 : 200}"
+                            placeholder="${this._searchFileContents
+                              ? 'Search in this folder and below, including file contents'
+                              : 'Search in this folder and below'}"
+                            label="Search"
+                            @sl-search-change="${this._onSearchChange}"
+                            @sl-search-file-contents-change="${this._onSearchFileContentsChange}"
+                          ></sl-browse-search>
+                        </div>
+                      `}
+                  <div class="sl-content-browser-kind-filter-slot">
+                    ${this._renderKindFilterPicker()}
+                  </div>
+                </div>
               </div>
             </div>
             <div class="sl-content-browser-body">${this._renderFilesPanel()}</div>

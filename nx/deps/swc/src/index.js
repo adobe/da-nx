@@ -12,6 +12,7 @@ import '@spectrum-web-components/button/sp-button.js';
 import '@spectrum-web-components/field-label/sp-field-label.js';
 import '@spectrum-web-components/textfield/sp-textfield.js';
 import '@spectrum-web-components/search/sp-search.js';
+import '@spectrum-web-components/switch/sp-switch.js';
 import '@spectrum-web-components/split-view/sp-split-view.js';
 import '@spectrum-web-components/icons-ui/icons/sp-icon-chevron200.js';
 import '@spectrum-web-components/icons-ui/icons/sp-icon-chevron75.js';
