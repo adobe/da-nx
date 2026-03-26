@@ -27,6 +27,7 @@ import {
   filterItemsByFormatKind,
   filterItemsByKind,
   findItemByRowKey,
+  parentFolderPathKey,
 } from '../../lib/content-browser-utils.js';
 import '../sl-browse-body/sl-browse-body.js';
 import '../sl-browse-delete-dialog/sl-browse-delete-dialog.js';
@@ -227,6 +228,11 @@ class SlContentBrowser extends LitElement {
     const p = this._effectivePath;
     if (!p) return '';
     return p.pathSegments.join('/');
+  }
+
+  /** Parent folder key, or empty at `org/site` (same rule as breadcrumbs root). */
+  get _parentPathKey() {
+    return parentFolderPathKey(this._currentPathKey);
   }
 
   /** Items used to resolve row keys (current folder list or subtree crawl matches). */
@@ -674,13 +680,13 @@ class SlContentBrowser extends LitElement {
         @change="${this._onCombinedKindFilterChange}"
       >
         ${COMBINED_FILTER_OPTIONS.map(
-          (o) => html`
+      (o) => html`
             <sp-menu-item value="${o.value}">
               ${combinedFilterMenuItemIcon(o.icon)}
               ${o.label}
             </sp-menu-item>
           `,
-        )}
+    )}
       </sp-picker>
     `;
   }
@@ -737,7 +743,7 @@ class SlContentBrowser extends LitElement {
     this._renameError = '';
 
     if (!trimmed) {
-      this._renameError = 'Enter a name.';
+      this._renameError = 'Enter a file name.';
       return;
     }
     if (trimmed.includes('/')) {
@@ -900,6 +906,7 @@ class SlContentBrowser extends LitElement {
         ?initial-loading="${initialLoading}"
         ?show-relative-path="${hasQuery}"
         current-path-key="${this._currentPathKey}"
+        parent-path-key="${this._parentPathKey}"
         .selectedRows="${this._selectedRows}"
         @sl-table-selection-change="${this._onTableSelection}"
         @sl-open-folder="${this._onOpenFolder}"
@@ -925,14 +932,14 @@ class SlContentBrowser extends LitElement {
               <div class="sl-content-browser-control-row">
                 <div class="sl-content-browser-search-filter-stack">
                   ${this._selectedRows.length > 0
-                    ? html`
+        ? html`
                         <div class="sl-content-browser-action-row">
                           <div class="sl-content-browser-action-slot">
                             ${this._renderSelectionToolbar()}
                           </div>
                         </div>
                       `
-                    : html`
+        : html`
                         <div class="sl-content-browser-search-row">
                           <sl-browse-search
                             class="sl-content-browser-search sl-content-browser-header-search"
@@ -940,8 +947,8 @@ class SlContentBrowser extends LitElement {
                             .searchFileContents="${this._searchFileContents}"
                             .debounceMs="${this._searchFileContents ? 480 : 200}"
                             placeholder="${this._searchFileContents
-                              ? 'Search in this folder and below, including file contents'
-                              : 'Search in this folder and below'}"
+            ? 'Search in this folder and below, including file contents'
+            : 'Search in this folder and below'}"
                             label="Search"
                             @sl-search-change="${this._onSearchChange}"
                             @sl-search-file-contents-change="${this._onSearchFileContentsChange}"

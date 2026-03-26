@@ -1,7 +1,8 @@
 // eslint-disable-next-line import/no-unresolved
 import getStyle from 'https://da.live/nx/utils/styles.js';
 // eslint-disable-next-line import/no-unresolved
-import { LitElement, html } from 'da-lit';
+import { LitElement, html, createRef, ref } from 'da-lit';
+import { readSearchControlValueFromInputEvent } from '../sl-browse-search/sl-browse-search.js';
 import {
   buildCanvasEditHref,
   buildSheetEditHref,
@@ -14,6 +15,9 @@ const INPUT_ERROR = 'sl-bn-input-error';
 
 /**
  * Create folder / document / sheet / media / link (legacy da-new behavior, Spectrum-friendly).
+ *
+ * Uses `overlay-trigger` + `sp-popover` + `sp-dialog` for the create step
+ * (Spectrum overlay pattern).
  *
  * @fires sl-browse-new-item - detail `{ item }` after server-side create
  * @fires sl-browse-new-error - detail: { message: string }
@@ -33,14 +37,16 @@ export class SlBrowseNew extends LitElement {
      *   { ok: boolean, error?: string }>) | undefined}
      */
     saveToSource: { attribute: false },
-    _menuOpen: { state: true },
-    /** `'menu' | 'input' | 'upload' | ''` */
+    /**
+     * `'menu' | 'input' | 'upload' | ''` — `input` / `upload` shows `sp-dialog` in the popover.
+     */
     _mode: { state: true },
     _createType: { state: true },
     _createName: { state: true },
     _externalUrl: { state: true },
     _fileLabel: { state: true },
     _busy: { state: true },
+    _nameInvalid: { state: true },
   };
 
   constructor() {
@@ -50,48 +56,47 @@ export class SlBrowseNew extends LitElement {
     this.sheetEditBase = 'https://da.live/sheet';
     this.permissions = undefined;
     this.saveToSource = undefined;
-    this._menuOpen = false;
     this._mode = '';
     this._createType = '';
     this._createName = '';
     this._externalUrl = '';
     this._fileLabel = 'Select file';
     this._busy = false;
+    this._nameInvalid = false;
+    this._nameInputRef = createRef();
+    this._overlayTriggerRef = createRef();
+  }
+
+  get _createDialogOpen() {
+    return this._mode === 'input' || this._mode === 'upload';
+  }
+
+  /** e.g. New Document — matches the type picked from the New menu. */
+  get _createDialogHeading() {
+    const labels = {
+      folder: 'New Folder',
+      document: 'New Document',
+      sheet: 'New Sheet',
+      media: 'New Media',
+      link: 'New Link',
+    };
+    return labels[this._createType] ?? 'New';
   }
 
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
-    document.addEventListener('pointerdown', this._onDocumentPointerDown, true);
-    document.addEventListener('keydown', this._onDocumentKeydown, true);
-  }
-
-  disconnectedCallback() {
-    document.removeEventListener('pointerdown', this._onDocumentPointerDown, true);
-    document.removeEventListener('keydown', this._onDocumentKeydown, true);
-    super.disconnectedCallback();
   }
 
   /**
-   * Close menu / create panel when the user clicks or taps outside this element.
-   * @param {PointerEvent} e
+   * @param {Map<PropertyKey, unknown>} changedProperties
    */
-  _onDocumentPointerDown = (e) => {
-    if (!this._menuOpen && !this._mode) return;
-    if (e.composedPath().includes(this)) return;
-    this._menuOpen = false;
-    this._resetPanels();
-  };
-
-  /**
-   * Dismiss overlays with Escape (including when focus is outside the name field).
-   * @param {KeyboardEvent} e
-   */
-  _onDocumentKeydown = (e) => {
-    if (e.key !== 'Escape' || (!this._menuOpen && !this._mode)) return;
-    this._menuOpen = false;
-    this._resetPanels();
-  };
+  updated(changedProperties) {
+    super.updated(changedProperties);
+    if (changedProperties.has('_mode') && this._createDialogOpen) {
+      queueMicrotask(() => this._focusCreateDialogFirstField());
+    }
+  }
 
   get _hasWrite() {
     if (this.permissions == null) return true;
@@ -102,18 +107,16 @@ export class SlBrowseNew extends LitElement {
     return this._busy || !this._hasWrite;
   }
 
-  _rootClass() {
-    const parts = ['sl-bn-root'];
-    if (this._menuOpen) parts.push('menu-open');
-    if (this._mode === 'input') parts.push('panel-input');
-    if (this._mode === 'upload') parts.push('panel-upload');
-    return parts.join(' ');
+  /** Close the overlay (fires `sp-closed` → `onOverlayClosed`). */
+  _closeOverlay() {
+    const ot = this._overlayTriggerRef.value;
+    if (ot != null && 'open' in ot) {
+      /** @type {{ open?: string }} */ (ot).open = undefined;
+    }
   }
 
-  _toggleMenu() {
-    if (!this.saveToSource || !this.folderFullpath || this._controlDisabled) return;
-    this._menuOpen = !this._menuOpen;
-    if (!this._menuOpen) this._resetPanels();
+  _onOverlayClosed() {
+    this._resetPanels();
   }
 
   _resetPanels() {
@@ -122,7 +125,10 @@ export class SlBrowseNew extends LitElement {
     this._createName = '';
     this._externalUrl = '';
     this._fileLabel = 'Select file';
+    this._nameInvalid = false;
     this._clearInputErrors();
+    const fileInput = this.shadowRoot?.querySelector('#sl-bn-file');
+    if (fileInput) /** @type {HTMLInputElement} */ (fileInput).value = '';
   }
 
   _clearInputErrors() {
@@ -140,31 +146,32 @@ export class SlBrowseNew extends LitElement {
     const { type } = btn.dataset;
     if (!type) return;
     this._createType = type;
-    this._menuOpen = false;
     this._mode = type === 'media' ? 'upload' : 'input';
-    queueMicrotask(() => {
-      const input = this.shadowRoot?.querySelector('.sl-bn-input-name');
-      if (input) input.focus();
-    });
   }
 
-  /**
-   * @param {Event} e
-   */
-  _onNameInput(e) {
-    const t = /** @type {HTMLInputElement} */ (e.target);
-    this._createName = t.value.replaceAll(/[^a-zA-Z0-9]/g, '-').toLowerCase();
-    if (t.classList.contains('sl-bn-input-name')) {
-      t.classList.remove(INPUT_ERROR);
+  async _focusCreateDialogFirstField() {
+    if (this._mode === 'input') {
+      const el = this._nameInputRef.value;
+      if (!el) return;
+      await el.updateComplete;
+      el.focus();
     }
   }
 
   /**
    * @param {Event} e
    */
+  _onNameInput(e) {
+    const raw = readSearchControlValueFromInputEvent(e);
+    this._createName = raw.replaceAll(/[^a-zA-Z0-9]/g, '-').toLowerCase();
+    this._nameInvalid = false;
+  }
+
+  /**
+   * @param {Event} e
+   */
   _onUrlInput(e) {
-    const t = /** @type {HTMLInputElement} */ (e.target);
-    this._externalUrl = t.value;
+    this._externalUrl = readSearchControlValueFromInputEvent(e);
   }
 
   _emitNewItem(item) {
@@ -187,13 +194,31 @@ export class SlBrowseNew extends LitElement {
     );
   }
 
-  async _onCreateClick() {
-    const nameInput = this.shadowRoot?.querySelector('.sl-bn-input-name');
-    if (!this._createName) {
-      if (nameInput) nameInput.classList.add(INPUT_ERROR);
+  _onCreateDialogClose() {
+    if (this._busy) return;
+    this._closeOverlay();
+  }
+
+  _onCreateDialogCancel() {
+    if (this._busy) return;
+    this._closeOverlay();
+  }
+
+  async _onCreateDialogConfirm() {
+    if (this._busy) return;
+    if (this._mode === 'upload') {
+      await this._submitUpload();
       return;
     }
-    if (nameInput) nameInput.classList.remove(INPUT_ERROR);
+    await this._onCreateClick();
+  }
+
+  async _onCreateClick() {
+    if (!this._createName) {
+      this._nameInvalid = true;
+      return;
+    }
+    this._nameInvalid = false;
 
     const base = this.folderFullpath.replace(/\/$/, '');
     let ext;
@@ -233,7 +258,7 @@ export class SlBrowseNew extends LitElement {
       const href = ext === 'html'
         ? buildCanvasEditHref(this.canvasEditBase, pathKey, qs)
         : buildSheetEditHref(this.sheetEditBase, pathKey, qs);
-      this._resetPanels();
+      this._closeOverlay();
       window.location.assign(href);
       return;
     }
@@ -249,23 +274,27 @@ export class SlBrowseNew extends LitElement {
       const item = { name: this._createName, path: daPath };
       if (ext) item.ext = ext;
       this._emitNewItem(item);
-      this._resetPanels();
+      this._closeOverlay();
     } finally {
       this._busy = false;
     }
   }
 
   /**
-   * @param {Event} e
+   * @param {SubmitEvent} e
    */
-  async _onUploadSubmit(e) {
+  _onUploadFormSubmit(e) {
     e.preventDefault();
+  }
+
+  async _submitUpload() {
     if (this._fileLabel === 'Select file') {
       const label = this.shadowRoot?.querySelector('.sl-bn-file-label');
       if (label) label.classList.add(INPUT_ERROR);
       return;
     }
-    const form = /** @type {HTMLFormElement} */ (e.target);
+    const form = this.shadowRoot?.querySelector('.sl-bn-upload-form');
+    if (!(form instanceof HTMLFormElement) || !this.saveToSource) return;
     const formData = new FormData(form);
     const split = this._fileLabel.split('.');
     const fileExt = split.pop();
@@ -274,7 +303,6 @@ export class SlBrowseNew extends LitElement {
     const base = this.folderFullpath.replace(/\/$/, '');
     const daPath = `${base}/${filename}`;
 
-    if (!this.saveToSource) return;
     this._busy = true;
     try {
       const result = await this.saveToSource(daPath, formData);
@@ -284,7 +312,7 @@ export class SlBrowseNew extends LitElement {
       }
       const item = { name: stem, path: daPath, ext: fileExt };
       this._emitNewItem(item);
-      this._resetPanels();
+      this._closeOverlay();
     } finally {
       this._busy = false;
     }
@@ -304,17 +332,11 @@ export class SlBrowseNew extends LitElement {
   /**
    * @param {KeyboardEvent} e
    */
-  _onNameKeydown(e) {
+  _onCreateNameKeydown(e) {
     if (e.key === 'Enter') {
       e.preventDefault();
-      this._onCreateClick();
-    } else if (e.key === 'Escape') {
-      this._resetPanels();
+      this._onCreateDialogConfirm();
     }
-  }
-
-  _onCancel() {
-    this._resetPanels();
   }
 
   render() {
@@ -323,84 +345,121 @@ export class SlBrowseNew extends LitElement {
     }
 
     return html`
-      <div class="${this._rootClass()}">
-        <sp-button
-          size="m"
-          variant="accent"
-          ?disabled="${this._controlDisabled}"
-          @click="${this._toggleMenu}"
+      <div class="sl-bn-root">
+        <overlay-trigger
+          ${ref(this._overlayTriggerRef)}
+          placement="top"
+          type="auto"
+          triggered-by="click"
+          @sp-closed="${this._onOverlayClosed}"
         >
-          New
-        </sp-button>
-        <ul class="sl-bn-menu" @click="${this._onPickType}">
-          <li class="sl-bn-menu-item">
-            <button type="button" data-type="folder" ?disabled="${this._busy}">Folder</button>
-          </li>
-          <li class="sl-bn-menu-item">
-            <button type="button" data-type="document" ?disabled="${this._busy}">Document</button>
-          </li>
-          <li class="sl-bn-menu-item">
-            <button type="button" data-type="sheet" ?disabled="${this._busy}">Sheet</button>
-          </li>
-          <li class="sl-bn-menu-item">
-            <button type="button" data-type="media" ?disabled="${this._busy}">Media</button>
-          </li>
-          <li class="sl-bn-menu-item">
-            <button type="button" data-type="link" ?disabled="${this._busy}">Link</button>
-          </li>
-        </ul>
-        <div class="sl-bn-panel sl-bn-panel-input">
-          <input
-            type="text"
-            class="sl-bn-input sl-bn-input-name"
-            placeholder="name"
-            .value="${this._createName}"
-            @input="${this._onNameInput}"
-            @keydown="${this._onNameKeydown}"
-            ?disabled="${this._busy}"
-          />
-          ${this._createType === 'link'
+          <sp-button
+            slot="trigger"
+            size="m"
+            variant="accent"
+            ?disabled="${this._controlDisabled}"
+          >
+            New
+          </sp-button>
+          <sp-popover slot="click-content">
+            ${!this._createDialogOpen
         ? html`
-                <input
-                  type="text"
-                  class="sl-bn-input"
-                  placeholder="url"
-                  .value="${this._externalUrl}"
-                  @input="${this._onUrlInput}"
-                  ?disabled="${this._busy}"
-                />
-              `
-        : ''}
-          <div class="sl-bn-actions">
-            <sp-button
-              variant="accent"
-              ?disabled="${this._busy}"
-              @click="${this._onCreateClick}"
-            >
-              Create ${this._createType}
-            </sp-button>
-            <sp-button variant="secondary" ?disabled="${this._busy}" @click="${this._onCancel}">
-              Cancel
-            </sp-button>
-          </div>
-        </div>
-        <form class="sl-bn-panel sl-bn-panel-upload" enctype="multipart/form-data" @submit="${this._onUploadSubmit}">
-          <label for="sl-bn-file" class="sl-bn-file-label">${this._fileLabel}</label>
-          <input
-            type="file"
-            id="sl-bn-file"
-            class="sl-bn-file"
-            name="data"
-            @change="${this._onFileChange}"
-            ?disabled="${this._busy}"
-          />
-          <div class="sl-bn-actions">
-            <sp-button variant="accent" type="submit" ?disabled="${this._busy}">Upload</sp-button>
-            <sp-button variant="secondary" type="button" ?disabled="${this._busy}" @click="${this._onCancel}">
-              Cancel
-            </sp-button>
-          </div>
-        </form>
+                  <ul class="sl-bn-menu" @click="${this._onPickType}">
+                    <li class="sl-bn-menu-item">
+                      <button type="button" data-type="folder" ?disabled="${this._busy}">Folder</button>
+                    </li>
+                    <li class="sl-bn-menu-item">
+                      <button type="button" data-type="document" ?disabled="${this._busy}">Document</button>
+                    </li>
+                    <li class="sl-bn-menu-item">
+                      <button type="button" data-type="sheet" ?disabled="${this._busy}">Sheet</button>
+                    </li>
+                    <li class="sl-bn-menu-item">
+                      <button type="button" data-type="media" ?disabled="${this._busy}">Media</button>
+                    </li>
+                    <li class="sl-bn-menu-item">
+                      <button type="button" data-type="link" ?disabled="${this._busy}">Link</button>
+                    </li>
+                  </ul>
+                `
+        : html`
+                  <sp-dialog
+                    class="sl-browse-create-dialog"
+                    size="s"
+                    dismissable
+                    @close="${this._onCreateDialogClose}"
+                  >
+                    <h2 slot="heading">${this._createDialogHeading}</h2>
+                    <div class="sl-browse-create-dialog-body">
+                      ${this._mode === 'input'
+            ? html`
+                            <sp-textfield
+                              ${ref(this._nameInputRef)}
+                              class="sl-browse-create-textfield"
+                              label="File name"
+                              placeholder="Enter a file name"
+                              autocomplete="off"
+                              .value="${this._createName}"
+                              ?invalid="${this._nameInvalid}"
+                              ?disabled="${this._busy}"
+                              @input="${this._onNameInput}"
+                              @keydown="${this._onCreateNameKeydown}"
+                            ></sp-textfield>
+                            ${this._createType === 'link'
+              ? html`
+                                  <sp-textfield
+                                    class="sl-browse-create-textfield"
+                                    label="URL"
+                                    placeholder="Enter a URL"
+                                    autocomplete="off"
+                                    .value="${this._externalUrl}"
+                                    ?disabled="${this._busy}"
+                                    @input="${this._onUrlInput}"
+                                  ></sp-textfield>
+                                `
+              : ''}
+                          `
+            : ''}
+                      ${this._mode === 'upload'
+            ? html`
+                            <form
+                              class="sl-bn-upload-form"
+                              enctype="multipart/form-data"
+                              @submit="${this._onUploadFormSubmit}"
+                            >
+                              <label for="sl-bn-file" class="sl-bn-file-label">${this._fileLabel}</label>
+                              <input
+                                type="file"
+                                id="sl-bn-file"
+                                class="sl-bn-file"
+                                name="data"
+                                @change="${this._onFileChange}"
+                                ?disabled="${this._busy}"
+                              />
+                            </form>
+                          `
+            : ''}
+                    </div>
+                    <div class="sl-browse-create-dialog-footer" slot="footer">
+                      <sp-button
+                        variant="secondary"
+                        ?disabled="${this._busy}"
+                        @click="${this._onCreateDialogCancel}"
+                      >
+                        Cancel
+                      </sp-button>
+                      <sp-button
+                        variant="accent"
+                        ?disabled="${this._busy}"
+                        @click="${this._onCreateDialogConfirm}"
+                      >
+                        Create
+                      </sp-button>
+                    </div>
+                  </sp-dialog>
+                `}
+          </sp-popover>
+        </overlay-trigger>
       </div>
     `;
   }
