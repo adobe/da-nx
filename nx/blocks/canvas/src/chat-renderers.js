@@ -55,6 +55,52 @@ function parseToggleItems(content) {
   return items;
 }
 
+// ── Inline markdown: links, **bold**, `code` ─────────────────
+
+function sanitizeHref(rawHref) {
+  const href = String(rawHref || '').trim();
+  if (!href) return '';
+  if (href.startsWith('/')) return href;
+  try {
+    const parsed = new URL(href, window.location.origin);
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') return href;
+  } catch {
+    return '';
+  }
+  return '';
+}
+
+function renderInline(text) {
+  const INLINE_RE = /\[([^\]]+)\]\(([^)\s]+)\)|\*\*([\s\S]*?)\*\*|`([^`\n]+)`/g;
+  const parts = [];
+  let last = 0;
+  let m;
+  INLINE_RE.lastIndex = 0;
+  // eslint-disable-next-line no-cond-assign
+  while ((m = INLINE_RE.exec(text))) {
+    if (m.index > last) parts.push(text.slice(last, m.index));
+    if (m[1] !== undefined && m[2] !== undefined) {
+      const safeHref = sanitizeHref(m[2]);
+      if (safeHref) {
+        const openInNewTab = /^https?:\/\//.test(safeHref);
+        parts.push(openInNewTab
+          ? html`<a href="${safeHref}" target="_blank" rel="noopener noreferrer">${m[1]}</a>`
+          : html`<a href="${safeHref}">${m[1]}</a>`);
+      } else {
+        parts.push(m[0]);
+      }
+    } else if (m[3] !== undefined) {
+      parts.push(html`<strong>${m[3]}</strong>`);
+    } else {
+      parts.push(html`<code class="cr-inline-code">${m[4]}</code>`);
+    }
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) parts.push(text.slice(last));
+  if (parts.length === 0 || (parts.length === 1 && typeof parts[0] === 'string')) return text;
+  return parts;
+}
+
 // ── Individual renderers ──────────────────────────────────────
 
 function renderList(content) {
@@ -63,7 +109,7 @@ function renderList(content) {
   return html`
     <div class="cr-list">
       <ul class="cr-list-ul">
-        ${items.map((item) => html`<li class="cr-list-item">${item}</li>`)}
+        ${items.map((item) => html`<li class="cr-list-item">${renderInline(item)}</li>`)}
       </ul>
     </div>`;
 }
@@ -76,7 +122,7 @@ function renderTodoList(content) {
       ${items.map((item) => html`
         <label class="cr-todo-item">
           <input type="checkbox" .checked=${item.checked} disabled />
-          <span class="cr-todo-text ${item.checked ? 'done' : ''}">${item.text}</span>
+          <span class="cr-todo-text ${item.checked ? 'done' : ''}">${renderInline(item.text)}</span>
         </label>
       `)}
     </div>`;
@@ -89,8 +135,8 @@ function renderToggleList(content) {
     <div class="cr-toggle-list">
       ${items.map((item) => html`
         <details class="cr-toggle-item">
-          <summary class="cr-toggle-summary">${item.summary}</summary>
-          <div class="cr-toggle-detail">${item.detail}</div>
+          <summary class="cr-toggle-summary">${renderInline(item.summary)}</summary>
+          <div class="cr-toggle-detail">${renderInline(item.detail)}</div>
         </details>
       `)}
     </div>`;
@@ -108,7 +154,7 @@ function renderChecklist(content) {
     ? html`<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M13.25 4.75 6 12 2.75 8.75" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`
     : nothing}
           </span>
-          <span class="cr-checklist-text ${item.checked ? 'done' : ''}">${item.text}</span>
+          <span class="cr-checklist-text ${item.checked ? 'done' : ''}">${renderInline(item.text)}</span>
         </label>
       `)}
     </div>`;
@@ -189,52 +235,6 @@ function renderAlert(content, variant) {
       <span class="cr-alert-icon">${icons[variant] || icons.info}</span>
       <span class="cr-alert-text">${text}</span>
     </div>`;
-}
-
-// ── Inline markdown: links, **bold**, `code` ─────────────────
-
-function sanitizeHref(rawHref) {
-  const href = String(rawHref || '').trim();
-  if (!href) return '';
-  if (href.startsWith('/')) return href;
-  try {
-    const parsed = new URL(href, window.location.origin);
-    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') return href;
-  } catch {
-    return '';
-  }
-  return '';
-}
-
-function renderInline(text) {
-  const INLINE_RE = /\[([^\]]+)\]\(([^)\s]+)\)|\*\*([\s\S]*?)\*\*|`([^`\n]+)`/g;
-  const parts = [];
-  let last = 0;
-  let m;
-  INLINE_RE.lastIndex = 0;
-  // eslint-disable-next-line no-cond-assign
-  while ((m = INLINE_RE.exec(text))) {
-    if (m.index > last) parts.push(text.slice(last, m.index));
-    if (m[1] !== undefined && m[2] !== undefined) {
-      const safeHref = sanitizeHref(m[2]);
-      if (safeHref) {
-        const openInNewTab = /^https?:\/\//.test(safeHref);
-        parts.push(openInNewTab
-          ? html`<a href="${safeHref}" target="_blank" rel="noopener noreferrer">${m[1]}</a>`
-          : html`<a href="${safeHref}">${m[1]}</a>`);
-      } else {
-        parts.push(m[0]);
-      }
-    } else if (m[3] !== undefined) {
-      parts.push(html`<strong>${m[3]}</strong>`);
-    } else {
-      parts.push(html`<code class="cr-inline-code">${m[4]}</code>`);
-    }
-    last = m.index + m[0].length;
-  }
-  if (last < text.length) parts.push(text.slice(last));
-  if (parts.length === 0 || (parts.length === 1 && typeof parts[0] === 'string')) return text;
-  return parts;
 }
 
 // ── Text segment: headings, lists, inline formatting ─────────
