@@ -146,7 +146,19 @@ export default class DaInlineEditor extends LitElement {
    */
   applyRevertSnapshotAemHtml(aemHtml) {
     if (!this._ydoc || typeof aemHtml !== 'string' || !aemHtml.trim()) return;
-    applyAemHtmlToYdoc(this._ydoc, aemHtml);
+    // While Y→ProseMirror applies the replace, the iframe may still report a pre-revert
+    // cursor; prose-inline's getEditor would resolve a stale offset and throw. Suppress
+    // during the transaction; we push fresh HTML to the iframe in rAF below.
+    if (this._controllerCtx) {
+      this._controllerCtx.suppressRerender = true;
+    }
+    try {
+      applyAemHtmlToYdoc(this._ydoc, aemHtml);
+    } finally {
+      if (this._controllerCtx) {
+        this._controllerCtx.suppressRerender = false;
+      }
+    }
     requestAnimationFrame(() => {
       if (!this._view) return;
       if (typeof this.onEditorHtmlChange === 'function') {
