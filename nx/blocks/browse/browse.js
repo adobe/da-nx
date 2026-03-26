@@ -29,6 +29,7 @@ const style = await getStyle(import.meta.url);
 const nxBase = getNx();
 const CHAT_PANEL_SIZE_KEY = 'da-chat-panel-size';
 const WINDOW_LAYOUT_STATE_KEY = 'da-window-layout-state';
+const REPO_FILES_CHANGED_EVENT = 'da:chat-repo-files-changed';
 
 function readWindowLayoutState() {
   try {
@@ -91,6 +92,7 @@ class BrowseView extends LitElement {
     this._boundBrowseListPermissions = (e) => this._onBrowseListPermissions(e);
     this._boundChatContextRemove = (e) => this._onChatContextRemove(e);
     this._boundBrowseHashChange = () => this._syncBrowsePathFromHash();
+    this._boundRepoFilesChanged = (e) => this._onRepoFilesChanged(e);
     this._onChatMessageSent = this._onChatMessageSent.bind(this);
   }
 
@@ -100,6 +102,7 @@ class BrowseView extends LitElement {
     this._syncBrowsePathFromHash();
     window.addEventListener('hashchange', this._boundBrowseHashChange);
     window.addEventListener(DA_BULK_AEM_OPEN, this._boundWindowBulkAemOpen);
+    window.addEventListener(REPO_FILES_CHANGED_EVENT, this._boundRepoFilesChanged);
     this.addEventListener(SL_CONTENT_BROWSER_CHAT_CONTEXT, this._boundBrowseSelectionChatContext);
     this.addEventListener(SL_CONTENT_BROWSER_LIST_PERMISSIONS, this._boundBrowseListPermissions);
     this.addEventListener('chat-context-remove', this._boundChatContextRemove);
@@ -108,6 +111,7 @@ class BrowseView extends LitElement {
   disconnectedCallback() {
     window.removeEventListener('hashchange', this._boundBrowseHashChange);
     window.removeEventListener(DA_BULK_AEM_OPEN, this._boundWindowBulkAemOpen);
+    window.removeEventListener(REPO_FILES_CHANGED_EVENT, this._boundRepoFilesChanged);
     this.removeEventListener(
       SL_CONTENT_BROWSER_CHAT_CONTEXT,
       this._boundBrowseSelectionChatContext,
@@ -133,6 +137,17 @@ class BrowseView extends LitElement {
 
   _onBrowseListPermissions(e) {
     this._browseListPermissions = e.detail?.permissions;
+  }
+
+  /**
+   * Refresh the active folder after successful chat-driven repo mutations.
+   */
+  _onRepoFilesChanged(e) {
+    const { org, repo } = e.detail || {};
+    const [hashOrg, hashRepo] = this._browsePathSegments;
+    if (!hashOrg || !hashRepo) return;
+    if (org !== hashOrg || repo !== hashRepo) return;
+    this.shadowRoot?.querySelector('sl-content-browser')?.refreshFolder?.();
   }
 
   _onBrowseToolbarNewItem() {
