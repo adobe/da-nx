@@ -62,28 +62,6 @@
   flex-direction: column;
 }
 
-.sl-table-list-toolbar {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  padding: 0.35rem 0 0.5rem;
-  border-bottom: 1px solid var(--cb-border);
-  background: var(--cb-bg);
-}
-
-.sl-browse-up-button {
-  --mod-actionbutton-edge-to-text: 6px;
-  --mod-actionbutton-text-label-padding-left: 4px;
-
-  font-size: 0.8125rem;
-  color: var(--cb-text);
-}
-
-.sl-browse-up-button:not(:disabled):hover {
-  color: var(--cb-text);
-}
-
 .sl-table-scroll {
   flex: 1;
   overflow: auto;

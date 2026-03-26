@@ -28,7 +28,6 @@ import {
   filterItemsByFormatKind,
   filterItemsByKind,
   findItemByRowKey,
-  parentFolderPathKey,
 } from '../../lib/content-browser-utils.js';
 import '../sl-browse-body/sl-browse-body.js';
 import '../sl-browse-delete-dialog/sl-browse-delete-dialog.js';
@@ -235,11 +234,6 @@ class SlContentBrowser extends LitElement {
     const p = this._effectivePath;
     if (!p) return '';
     return p.pathSegments.join('/');
-  }
-
-  /** Parent folder key, or empty at `org/site` (same rule as breadcrumbs root). */
-  get _parentPathKey() {
-    return parentFolderPathKey(this._currentPathKey);
   }
 
   /** Items used to resolve row keys (current folder list or subtree crawl matches). */
@@ -941,7 +935,6 @@ class SlContentBrowser extends LitElement {
         ?initial-loading="${initialLoading}"
         ?show-relative-path="${hasQuery}"
         current-path-key="${this._currentPathKey}"
-        parent-path-key="${this._parentPathKey}"
         .selectedRows="${this._selectedRows}"
         @sl-table-selection-change="${this._onTableSelection}"
         @sl-open-folder="${this._onOpenFolder}"
