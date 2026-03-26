@@ -285,8 +285,12 @@ class Space extends LitElement {
     this._chatContextItems = [];
   };
 
-  _onChatPanelResize = (e) => {
-    const split = e?.currentTarget;
+  /**
+   * Read split-view state and persist chat width (localStorage + window layout).
+   * Call only after explicit splitter interaction — not on sp-split-view `change`
+   * (that also runs on ResizeObserver / unrelated reflow).
+   */
+  _persistChatPanelSizeFromSplit(split) {
     if (!split || split.tagName?.toLowerCase() !== 'sp-split-view') return;
     let raw = Number(split.getAttribute('splitter-pos'));
     if (typeof split.splitterPos === 'number') {
@@ -309,6 +313,25 @@ class Space extends LitElement {
     } catch {
       /* ignore quota / private mode */
     }
+  }
+
+  _onChatSplitPointerUp = (e) => {
+    const split = e.currentTarget;
+    const fromSplitter = e.composedPath().some((n) => n instanceof HTMLElement && n.id === 'splitter');
+    if (!fromSplitter) return;
+    this._persistChatPanelSizeFromSplit(split);
+  };
+
+  /** Keyboard resize on the focused splitter (change event is layout-noisy). */
+  _onChatSplitKeyDown = (e) => {
+    const keys = new Set(['ArrowLeft', 'ArrowRight', 'Home', 'End', 'PageUp', 'PageDown']);
+    if (!keys.has(e.key)) return;
+    const split = e.currentTarget;
+    const fromSplitter = e.composedPath().some((n) => n instanceof HTMLElement && n.id === 'splitter');
+    if (!fromSplitter) return;
+    requestAnimationFrame(() => {
+      this._persistChatPanelSizeFromSplit(split);
+    });
   };
 
   _getRevertSnapshotAemHtml = (toolInput) => {
@@ -969,7 +992,8 @@ class Space extends LitElement {
             primary-min="${CHAT_SPLIT_PRIMARY_MIN}"
             secondary-min="${CHAT_SPLIT_SECONDARY_MIN}"
             label="Resize chat panel"
-            @change="${this._onChatPanelResize}"
+            @pointerup="${this._onChatSplitPointerUp}"
+            @keydown="${this._onChatSplitKeyDown}"
           >
             <da-chat
               class="space-chat-panel"
