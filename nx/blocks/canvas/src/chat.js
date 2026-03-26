@@ -608,22 +608,25 @@ class Chat extends LitElement {
       }, {});
       this._daConfig = cfg;
 
-      // Extract mcp-servers sheet: each row has { key, url }
+      // Extract mcp-servers sheet: each row has { key, url } or { key, value }
       const mcpRows = json?.['mcp-servers']?.data || [];
       const servers = {};
       const rows = [];
       mcpRows.forEach((row) => {
-        if (row.key && row.url) {
-          servers[row.key] = row.url;
-          rows.push(row);
+        const url = row.url || row.value;
+        if (row.key && url) {
+          servers[row.key] = url;
+          rows.push({ ...row, url });
         }
       });
       this._configuredMcpServers = servers;
       this._configuredMcpRows = rows;
 
-      // Extract agents sheet: each row has { key, url }
+      // Extract agents sheet: each row has { key, url } or { key, value }
       const agentRows = json?.agents?.data || [];
-      this._configuredAgentRows = agentRows.filter((r) => r.key && r.url);
+      this._configuredAgentRows = agentRows
+        .filter((r) => r.key && (r.url || r.value))
+        .map((r) => ({ ...r, url: r.url || r.value }));
 
       return cfg;
     } catch {
@@ -795,8 +798,11 @@ class Chat extends LitElement {
             ${ids.map((id) => html`
               <option value="${id}" ?selected=${id === this._selectedSkill}>${id}</option>
             `)}
-            <option value="__new__" ?selected=${this._newSkillMode}>+ New skill</option>
           </select>
+          <button type="button" class="skill-tb-btn skill-tb-add" title="Create new skill" aria-label="Create new skill"
+            @click=${() => { this._newSkillMode = true; this._newSkillName = ''; }}>
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 3.75a.75.75 0 0 1 .75.75v4.75h4.75a.75.75 0 0 1 0 1.5h-4.75v4.75a.75.75 0 0 1-1.5 0v-4.75H4.5a.75.75 0 0 1 0-1.5h4.75V4.5a.75.75 0 0 1 .75-.75Z" fill="currentColor"/></svg>
+          </button>
           <sp-action-button size="s" quiet title="Refresh skills list" aria-label="Refresh skills list" @click=${() => this._refreshSkills()}>
             <svg slot="icon" width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M17.65 6.35a8 8 0 0 0-14.3 1.4M2.35 13.65a8 8 0 0 0 14.3-1.4M1 4v4h4M19 16v-4h-4" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </sp-action-button>
@@ -845,22 +851,15 @@ class Chat extends LitElement {
   }
 
   _renderBuiltinAgentCard(agent) {
-    const isActive = this._activeAgentId === agent.id;
     return html`
-      <div class="builtin-agent-card ${isActive ? 'active' : ''}">
+      <div class="builtin-agent-card">
         <div class="builtin-agent-header">
           <div class="builtin-agent-info">
             <span class="builtin-agent-name">${agent.name}</span>
             <span class="builtin-agent-desc">${agent.description}</span>
           </div>
           <div class="builtin-agent-actions">
-            <span class="mcp-server-status ok">built-in</span>
-            <sp-button variant="${isActive ? 'secondary' : 'primary'}" size="s"
-              title="${isActive ? 'Deactivate' : 'Activate'} ${agent.name}"
-              aria-label="${isActive ? 'Deactivate' : 'Activate'} ${agent.name}"
-              @click=${() => this._activateAgent(isActive ? null : agent.id)}>
-              ${isActive ? 'Active' : 'Activate'}
-            </sp-button>
+            <span class="mcp-server-status ok">always active</span>
           </div>
         </div>
         ${agent.mcpServers?.length ? html`

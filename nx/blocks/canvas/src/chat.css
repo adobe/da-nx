@@ -642,18 +642,23 @@
 .skills-select {
   flex: 1;
   min-width: 0;
-  padding: 6px 10px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
+  padding: 0 10px;
+  height: 34px;
+  border: 1.5px solid #d0d5dd;
+  border-radius: 8px;
   font-size: 13px;
   font-family: inherit;
+  font-weight: 500;
+  color: #222;
   background: #fff;
   cursor: pointer;
+  transition: border-color 0.15s;
 }
 
 .skills-select:focus {
-  outline: 2px solid #1473e6;
-  outline-offset: -1px;
+  outline: none;
+  border-color: #1473e6;
+  box-shadow: 0 0 0 1px #1473e6;
 }
 
 .skills-new-row {
@@ -733,6 +738,19 @@
 .skill-tb-save:hover {
   background-color: #e4f0ff;
   color: #1473e6;
+}
+
+.skill-tb-add {
+  color: #1473e6;
+  border: 1.5px solid #d0d5dd;
+  border-radius: 8px;
+  width: 34px;
+  height: 34px;
+}
+
+.skill-tb-add:hover {
+  background-color: #e4f0ff;
+  border-color: #1473e6;
 }
 
 .skill-tb-delete {
@@ -1549,6 +1567,10 @@
 
 .cr-list {
   margin: 6px 0;
+  background: #f8f9fb;
+  border: 1px solid #e2e5ea;
+  border-radius: 10px;
+  padding: 4px 0;
 }
 
 .cr-list-ul {
@@ -1916,16 +1938,19 @@
 
 .cr-md-list {
   list-style: none;
-  margin: 4px 0 6px;
-  padding: 0;
+  margin: 6px 0;
+  padding: 8px 10px 8px 24px;
   display: flex;
   flex-direction: column;
   gap: 2px;
+  background: #f8f9fb;
+  border: 1px solid #e2e5ea;
+  border-radius: 10px;
 }
 
 .cr-md-list-item {
   position: relative;
-  padding: 4px 8px 4px 20px;
+  padding: 3px 4px 3px 0;
   font-size: 13.5px;
   line-height: 1.5;
   color: #222;
@@ -1934,12 +1959,38 @@
 .cr-md-list-item::before {
   content: '';
   position: absolute;
-  left: 7px;
-  top: 11px;
+  left: -14px;
+  top: 10px;
   width: 4px;
   height: 4px;
   border-radius: 50%;
   background: #888;
+}
+
+/* ── Markdown numbered list (1. item) ──────────────────────── */
+
+.cr-md-ol {
+  list-style: decimal;
+  margin: 6px 0;
+  padding: 8px 10px 8px 36px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: #f8f9fb;
+  border: 1px solid #e2e5ea;
+  border-radius: 10px;
+}
+
+.cr-md-ol-item {
+  padding: 3px 4px;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: #222;
+}
+
+.cr-md-ol-item::marker {
+  font-weight: 700;
+  color: #444;
 }
 
 /* ── Inline code ────────────────────────────────────────────── */
