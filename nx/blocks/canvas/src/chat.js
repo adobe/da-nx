@@ -1338,7 +1338,10 @@ class Chat extends LitElement {
   }
 
   _openPromptsLibrary() {
-    this.shadowRoot.querySelector('.chat-toolbar-icon-btn[aria-label="Open Tools Quick Editing"]')?.click();
+    this._skillsLibraryTab = 'prompts';
+    this.updateComplete.then(() => {
+      this.shadowRoot?.querySelector('.chat-toolbar-icon-btn[aria-label="Open Tools Quick Editing"]')?.click();
+    });
   }
 
   _closeSkillsModal() {
