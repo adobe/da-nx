@@ -240,6 +240,13 @@ class FileBrowser extends LitElement {
     window.location.hash = `/${normalized}`;
   }
 
+  /* eslint-disable-next-line class-methods-use-this */
+  _openPathInNewTab(pathKeyOrPath) {
+    const normalized = pathKeyOrPath.startsWith('/') ? pathKeyOrPath.slice(1) : pathKeyOrPath;
+    const url = `${window.location.origin}${window.location.pathname}${window.location.search}#/${normalized}`;
+    window.open(url, '_blank', 'noopener');
+  }
+
   _toggle(path) {
     const next = new Set(this._expanded);
     if (next.has(path)) next.delete(path);
@@ -272,7 +279,11 @@ class FileBrowser extends LitElement {
     }
   }
 
-  _select(item, path) {
+  _select(item, path, event) {
+    if (event?.metaKey || event?.ctrlKey) {
+      this._openPathInNewTab(path);
+      return;
+    }
     this.selectedPath = path;
     if (this._modifiedPathKeys.has(path)) {
       const next = new Set(this._modifiedPathKeys);
@@ -338,7 +349,7 @@ class FileBrowser extends LitElement {
           type="button"
           class="file-browser-row ${selected ? 'file-browser-row-selected' : ''}"
           style="padding-left: ${0.5 + depth * 1}rem"
-          @click="${() => { this._select(item, path); }}"
+          @click="${(e) => { this._select(item, path, e); }}"
           aria-label="Open ${item.name}"
         >
           <span class="file-browser-chevron" aria-hidden="true">
