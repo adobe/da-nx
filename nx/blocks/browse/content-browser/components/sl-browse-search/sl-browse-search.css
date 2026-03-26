@@ -11,13 +11,24 @@
 }
 
 .sl-search-shell {
+  display: flex;
+  flex-flow: row nowrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
   min-width: 0;
   width: 100%;
 }
 
 .sl-browse-search-control {
   display: block;
+  flex: 1;
+  min-width: 0;
   width: 100%;
+}
+
+.sl-search-file-contents {
+  flex: 0 0 auto;
+  max-width: min(52vw, 15rem);
   min-width: 0;
 }
 
