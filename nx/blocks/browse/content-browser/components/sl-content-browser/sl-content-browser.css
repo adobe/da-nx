@@ -24,9 +24,6 @@
   /** Kind filter row — matches picker / action-bar control height. */
   --sl-cb-filter-row-height: 2.75rem;
 
-  /** Space between primary row and filter row. */
-  --sl-cb-header-stack-gap: 0.5rem;
-
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -90,7 +87,6 @@
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: var(--sl-cb-header-stack-gap);
   flex: 1;
   width: 100%;
   min-width: 0;
@@ -99,8 +95,7 @@
 
   /* Reserve full header height so toggling search ↔ selection does not move the table. */
   min-height: calc(
-    var(--sl-cb-control-row-height) + var(--sl-cb-header-stack-gap) +
-      var(--sl-cb-filter-row-height)
+    var(--sl-cb-control-row-height) + var(--sl-cb-filter-row-height)
   );
 }
 
