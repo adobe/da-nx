@@ -49,9 +49,9 @@ class SideNav extends HTMLElement {
       a.addEventListener('click', (e) => {
         if (window.location.hash?.startsWith('#/')) {
           e.preventDefault();
-          const [org, repo] = window.location.hash.slice(2).split('/');
-          if (org && repo) {
-            const hash = `#/${org}/${repo}`;
+          const hashPath = window.location.hash.slice(2);
+          if (hashPath) {
+            const hash = `#/${hashPath}`;
             window.open(`${a.href}${hash}`, `${a.href}${hash}`);
             return;
           }
