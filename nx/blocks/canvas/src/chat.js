@@ -57,51 +57,6 @@ const BUILTIN_AGENTS = [
   },
 ];
 
-const BUILTIN_PROMPTS = [
-  {
-    id: 'summarize',
-    category: 'Review',
-    emoji: '📋',
-    title: 'Summarize page',
-    prompt: 'Summarize this page in 3-5 bullet points covering the main topics.',
-  },
-  {
-    id: 'accessibility',
-    category: 'Review',
-    emoji: '♿',
-    title: 'Accessibility check',
-    prompt: 'Check this content for accessibility issues: missing image alt text, poor heading hierarchy, or hard-to-read text.',
-  },
-  {
-    id: 'clarity',
-    category: 'Review',
-    emoji: '✨',
-    title: 'Improve clarity',
-    prompt: 'Improve the clarity and readability of this content. Simplify long or complex sentences without changing the meaning.',
-  },
-  {
-    id: 'headings',
-    category: 'SEO',
-    emoji: '🔤',
-    title: 'Better headings',
-    prompt: 'Suggest better, more SEO-friendly headings for this page. Keep them concise and keyword-rich.',
-  },
-  {
-    id: 'tone',
-    category: 'Style',
-    emoji: '🎯',
-    title: 'Check tone',
-    prompt: 'Review the tone of this content. Make it consistent and ensure it aligns with a professional, approachable brand voice.',
-  },
-  {
-    id: 'cta',
-    category: 'Structure',
-    emoji: '👆',
-    title: 'Add call to action',
-    prompt: 'Write a compelling call-to-action for this page. It should be short, action-oriented, and relevant to the content.',
-  },
-];
-
 const BUILTIN_TOOLS = [
   { id: 'da_list_sources', label: 'List sources', description: 'List files and folders in a DA repo path', group: 'DA Tools' },
   { id: 'da_get_source', label: 'Get source', description: 'Read a source file\'s content', group: 'DA Tools' },
@@ -1392,11 +1347,12 @@ class Chat extends LitElement {
               ?disabled=${this._isThinking || !this._connected}
               @click=${() => this._sendPrompt(card.prompt)}
             >
-              <div class="prompt-card-header">
-                <img class="prompt-card-icon" src="${card.icon || `${nxBase}/img/icons/aichat.svg`}" alt="" aria-hidden="true" />
-                <span class="prompt-card-title">${card.title}</span>
+              <div class="prompts-lib-card-top">
+                <img class="prompts-lib-card-icon" src="${card.icon || `${nxBase}/img/icons/aichat.svg`}" alt="" aria-hidden="true" />
+                <span class="prompts-lib-card-category">${card.category}</span>
               </div>
-              <div class="mcp-server-desc">${card.description}</div>
+              <div class="prompts-lib-card-title">${card.title}</div>
+              ${card.description ? html`<div class="prompts-lib-card-prompt">${card.description}</div>` : ''}
             </button>
           `)}
           <button class="prompt-more-link" @click=${this._openPromptsLibrary}>More prompts</button>
@@ -1494,10 +1450,10 @@ class Chat extends LitElement {
       <div class="prompts-panel">
         <p class="prompts-intro">Click <strong>Add to chat</strong> to edit before sending, or <strong>Send</strong> to run immediately.</p>
         <div class="prompts-grid">
-          ${BUILTIN_PROMPTS.map((p) => html`
+          ${this._promptCards.map((p) => html`
             <div class="prompts-lib-card">
               <div class="prompts-lib-card-top">
-                <span class="prompts-lib-card-emoji">${p.emoji}</span>
+                <img class="prompts-lib-card-icon" src="${p.icon || `${nxBase}/img/icons/aichat.svg`}" alt="" aria-hidden="true" />
                 <span class="prompts-lib-card-category">${p.category}</span>
               </div>
               <div class="prompts-lib-card-title">${p.title}</div>
