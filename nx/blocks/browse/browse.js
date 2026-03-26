@@ -197,7 +197,7 @@ class BrowseView extends LitElement {
           class="browse-view-chat-toggle"
           label="Toggle chat panel"
           ?selected="${this._chatOpen}"
-          @click="${() => { this._chatOpen = !this._chatOpen; }}"
+          @click="${() => { this._chatOpen = !this._chatOpen; localStorage.setItem('da-nx-chat-open', this._chatOpen); }}"
         >
           <img src="${nxBase}/img/icons/aichat.svg" slot="icon" alt="" class="browse-view-nav-icon" />
         </sp-action-button>
@@ -243,7 +243,7 @@ class BrowseView extends LitElement {
         ${this._renderToolbar()}
         <div class="browse-view-body">
           ${this._chatOpen
-            ? html`
+        ? html`
                 <sp-split-view
                   class="browse-view-split split-view-outer"
                   resizable
@@ -262,7 +262,7 @@ class BrowseView extends LitElement {
                   <div class="browse-view-main">${this._renderContentBrowser()}</div>
                 </sp-split-view>
               `
-            : html`<div class="browse-view-main">${this._renderContentBrowser()}</div>`}
+        : html`<div class="browse-view-main">${this._renderContentBrowser()}</div>`}
         </div>
       </div>
       <da-bulk-aem-modal></da-bulk-aem-modal>

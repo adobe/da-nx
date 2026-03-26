@@ -4,7 +4,7 @@
  * Mirrors da-nx blocks/quick-edit-portal render, prose2aem, images, and handlePreview.
  */
 /* eslint-disable import/no-unresolved */
-import { TextSelection, Fragment, yUndo, yRedo } from 'da-y-wrapper';
+import { TextSelection, NodeSelection, Fragment, yUndo, yRedo } from 'da-y-wrapper';
 import { DA_ORIGIN } from 'https://da.live/blocks/shared/constants.js';
 import prose2aem from 'https://da.live/blocks/shared/prose2aem.js';
 /* eslint-enable import/no-unresolved */
@@ -251,6 +251,24 @@ export function getActiveBlockFlatIndex(view) {
     if (cursorPos >= start && cursorPos < start + node.nodeSize) return i;
   }
   return -1;
+}
+
+/**
+ * Apply a NodeSelection to the table block at the given flat index.
+ * Used to restore selection when the editor is recreated (e.g. on view-mode switch).
+ * @param {import('prosemirror-view').EditorView} view
+ * @param {number} blockIndex
+ */
+export function applyBlockSelection(view, blockIndex) {
+  if (!view || blockIndex < 0) return;
+  const positions = getBlockPositions(view);
+  if (blockIndex >= positions.length) return;
+  try {
+    const sel = NodeSelection.create(view.state.doc, positions[blockIndex]);
+    view.dispatch(view.state.tr.setSelection(sel).scrollIntoView());
+  } catch (e) {
+    // Block may not be selectable (e.g. position out of range); ignore silently.
+  }
 }
 
 export function handleCursorMove({ cursorOffset, textCursorOffset }, ctx) {
