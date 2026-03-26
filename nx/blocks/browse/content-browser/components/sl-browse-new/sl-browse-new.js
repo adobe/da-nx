@@ -8,6 +8,7 @@ import {
   buildSheetEditHref,
   daPathToPathKey,
 } from '../../lib/content-browser-actions.js';
+import { browseRenameNameFieldCopy } from '../../lib/content-browser-utils.js';
 
 const style = await getStyle(import.meta.url);
 
@@ -81,6 +82,24 @@ export class SlBrowseNew extends LitElement {
       link: 'New Link',
     };
     return labels[this._createType] ?? 'New';
+  }
+
+  /**
+   * Strings for the primary name field (same copy helper as the rename dialog).
+   */
+  get _createNameFieldCopy() {
+    /** @type {Record<string, string>} */
+    const extByType = {
+      folder: '',
+      document: 'html',
+      sheet: 'json',
+      link: 'link',
+    };
+    const t = this._createType;
+    const ext = Object.prototype.hasOwnProperty.call(extByType, t)
+      ? extByType[t]
+      : 'x';
+    return browseRenameNameFieldCopy(ext);
   }
 
   connectedCallback() {
@@ -396,8 +415,8 @@ export class SlBrowseNew extends LitElement {
                             <sp-textfield
                               ${ref(this._nameInputRef)}
                               class="sl-browse-create-textfield"
-                              label="File name"
-                              placeholder="Enter a file name"
+                              label="${this._createNameFieldCopy.label}"
+                              placeholder="${this._createNameFieldCopy.placeholder}"
                               autocomplete="off"
                               .value="${this._createName}"
                               ?invalid="${this._nameInvalid}"

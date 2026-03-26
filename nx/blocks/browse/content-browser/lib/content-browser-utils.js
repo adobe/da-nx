@@ -202,6 +202,59 @@ export function fileTypeLabel(item) {
 }
 
 /**
+ * Label, dialog headline, placeholder, and validation strings for renaming by list `ext`.
+ * @param {string | undefined | null} ext - Extension without leading dot; empty / null = folder.
+ * @returns {{ headline: string, label: string, placeholder: string, emptyNameError: string,
+ *   slashError: string }}
+ */
+export function browseRenameNameFieldCopy(ext) {
+  const e = String(ext ?? '').replace(/^\./, '').toLowerCase();
+  if (!e) {
+    return {
+      headline: 'Rename Folder',
+      label: 'Folder name',
+      placeholder: 'Enter a folder name',
+      emptyNameError: 'Enter a folder name.',
+      slashError: 'Use a folder name only (no slashes).',
+    };
+  }
+  if (e === 'html') {
+    return {
+      headline: 'Rename Document',
+      label: 'Document name',
+      placeholder: 'Enter a document name',
+      emptyNameError: 'Enter a document name.',
+      slashError: 'Use a file name only (no slashes).',
+    };
+  }
+  if (e === 'json') {
+    return {
+      headline: 'Rename Sheet',
+      label: 'Sheet name',
+      placeholder: 'Enter a sheet name',
+      emptyNameError: 'Enter a sheet name.',
+      slashError: 'Use a file name only (no slashes).',
+    };
+  }
+  if (e === 'link') {
+    return {
+      headline: 'Rename Link',
+      label: 'Link name',
+      placeholder: 'Enter a link name',
+      emptyNameError: 'Enter a link name.',
+      slashError: 'Use a link name only (no slashes).',
+    };
+  }
+  return {
+    headline: 'Rename File',
+    label: 'File name',
+    placeholder: 'Enter a file name',
+    emptyNameError: 'Enter a file name.',
+    slashError: 'Use a file name only (no slashes).',
+  };
+}
+
+/**
  * Parse list API `lastModified` (ms, unix seconds, ISO string, or numeric string).
  * @param {string | number | undefined | null} raw
  * @returns {Date | null}
