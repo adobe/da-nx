@@ -17,6 +17,22 @@ const QUICK_EDIT_ID = 'quick-edit-iframe';
  */
 let parentControllerPort = null;
 
+function scrollToBlock(prosePos) {
+  if (prosePos == null) return;
+  const MAX_ATTEMPTS = 20;
+  let attempt = 0;
+  const tryScroll = () => {
+    const el = document.querySelector(`[data-block-index="${(prosePos + 1)}"]`);
+    if (el) {
+      el.scrollIntoView({ block: 'center', behavior: 'instant' });
+      return;
+    }
+    attempt += 1;
+    if (attempt < MAX_ATTEMPTS) requestAnimationFrame(tryScroll);
+  };
+  requestAnimationFrame(tryScroll);
+}
+
 async function setBody(body, ctx) {
   const doc = new DOMParser().parseFromString(body, 'text/html');
   document.body.innerHTML = doc.body.innerHTML;
@@ -48,6 +64,10 @@ function onMessage(e, ctx) {
     updateImageSrc(originalSrc, newSrc);
   } else if (e.data.type === 'image-error') {
     handleImageError(e.data.error);
+  } else if (e.data.type === 'scroll-to-block') {
+    // eslint-disable-next-line no-console
+    console.log('[quick-edit] scroll-to-block received', e.data.prosePos);
+    scrollToBlock(e.data.prosePos);
   }
 }
 
@@ -68,9 +88,9 @@ function setupParentControllerListener() {
       if (loadPageFn === null) {
         try {
           const mod = await import(/* webpackIgnore: true */ scriptsUrl);
-          loadPageFn = typeof mod?.loadPage === 'function' ? mod.loadPage : () => {};
+          loadPageFn = typeof mod?.loadPage === 'function' ? mod.loadPage : () => { };
         } catch {
-          loadPageFn = () => {};
+          loadPageFn = () => { };
         }
       }
       if (typeof loadPageFn === 'function') await loadPageFn();

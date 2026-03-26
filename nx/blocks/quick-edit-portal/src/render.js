@@ -86,6 +86,22 @@ export function handleCursorMove({ cursorOffset, textCursorOffset }, ctx) {
   }
 }
 
+export function scrollToBlock({ prosePos }) {
+  if (prosePos == null) return;
+  const MAX_ATTEMPTS = 20;
+  let attempt = 0;
+  const tryScroll = () => {
+    const el = document.querySelector(`[data-block-index="${prosePos}"]`);
+    if (el) {
+      el.scrollIntoView({ block: 'center', behavior: 'instant' });
+      return;
+    }
+    attempt += 1;
+    if (attempt < MAX_ATTEMPTS) requestAnimationFrame(tryScroll);
+  };
+  requestAnimationFrame(tryScroll);
+}
+
 export function handleUndoRedo(data) {
   const { action } = data;
   if (action === 'undo') {

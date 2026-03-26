@@ -87,6 +87,7 @@ export default class DaInlineEditor extends LitElement {
     onEditorHtmlChange: { type: Function },
     onBlockPositions: { type: Function },
     onActiveBlockChange: { type: Function },
+    onActiveBlockScrollRequest: { type: Function },
     pendingMove: { type: Object },
     onMoveBlockDone: { type: Function },
     pendingAddSection: { type: Object },
@@ -108,6 +109,7 @@ export default class DaInlineEditor extends LitElement {
     this.path = '';
     this.quickEditPort = null;
     this.onActiveBlockChange = null;
+    this.onActiveBlockScrollRequest = null;
     this.activeBlockIndex = -1;
     this._suppressSelectionChange = false;
     this._proseEl = null;
@@ -235,7 +237,10 @@ export default class DaInlineEditor extends LitElement {
       getToken,
       onAddToChat: this._dispatchAddToChat,
       onActiveBlockChange: (index) => {
-        this.onActiveBlockChange?.(index);
+        if (!this._controllerCtx?.suppressScrollSync) {
+          this.onActiveBlockChange?.(index);
+          this.onActiveBlockScrollRequest?.(index);
+        }
       },
     };
 
@@ -370,7 +375,10 @@ export default class DaInlineEditor extends LitElement {
       };
       const onSelectionChangeCb = (view) => {
         if (this._suppressSelectionChange) return;
-        this.onActiveBlockChange?.(getActiveBlockFlatIndex(view));
+        if (this._controllerCtx?.suppressScrollSync) return;
+        const blockIndex = getActiveBlockFlatIndex(view);
+        this.onActiveBlockChange?.(blockIndex);
+        this.onActiveBlockScrollRequest?.(blockIndex);
       };
 
       const onToolbar = (toolbar) => {
