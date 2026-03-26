@@ -1355,7 +1355,7 @@ class Chat extends LitElement {
               ${card.description ? html`<div class="prompts-lib-card-prompt">${card.description}</div>` : ''}
             </button>
           `)}
-          <button class="prompt-more-link" @click=${this._openPromptsLibrary}>More prompts</button>
+          ${this._promptCards.length > 0 ? html`<button class="prompt-more-link" @click=${this._openPromptsLibrary}>More prompts</button>` : ''}
         </div>
       </div>
     `;
@@ -1471,6 +1471,10 @@ class Chat extends LitElement {
             </div>
           `)}
         </div>
+        <a class="skills-lab-link" href="https://da.live/config#/${getContextFromHash().org}/${getContextFromHash().site}" target="_blank" rel="noopener noreferrer" title="Edit prompts in DA config">
+          Edit prompts
+          <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M11 3a.75.75 0 0 1 .75-.75h5.5a.75.75 0 0 1 .75.75v5.5a.75.75 0 0 1-1.5 0V5.06l-7.22 7.22a.75.75 0 1 1-1.06-1.06L15.44 4h-3.69A.75.75 0 0 1 11 3ZM4.25 5A.75.75 0 0 0 3.5 5.75v10A.75.75 0 0 0 4.25 16.5h10a.75.75 0 0 0 .75-.75V11a.75.75 0 0 1 1.5 0v4.75A2.25 2.25 0 0 1 14.25 18h-10A2.25 2.25 0 0 1 2 15.75v-10A2.25 2.25 0 0 1 4.25 3.5H9a.75.75 0 0 1 0 1.5H4.25Z" fill="currentColor"/></svg>
+        </a>
       </div>
     `;
   }
