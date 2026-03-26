@@ -28,6 +28,7 @@ import {
   filterItemsByFormatKind,
   filterItemsByKind,
   findItemByRowKey,
+  browseRenameNameFieldCopy,
 } from '../../lib/content-browser-utils.js';
 import '../sl-browse-body/sl-browse-body.js';
 import '../sl-browse-delete-dialog/sl-browse-delete-dialog.js';
@@ -771,12 +772,13 @@ class SlContentBrowser extends LitElement {
     const trimmed = (event.detail?.value ?? this._renameDraft ?? '').trim();
     this._renameError = '';
 
+    const nameCopy = browseRenameNameFieldCopy(this._renameSourceFileExt);
     if (!trimmed) {
-      this._renameError = 'Enter a file name.';
+      this._renameError = nameCopy.emptyNameError;
       return;
     }
     if (trimmed.includes('/')) {
-      this._renameError = 'Use a file name only (no slashes).';
+      this._renameError = nameCopy.slashError;
       return;
     }
     const ext = this._renameSourceFileExt || '';
@@ -997,6 +999,7 @@ class SlContentBrowser extends LitElement {
           .loading="${this._renameLoading}"
           .error="${this._renameError}"
           .value="${this._renameDraft}"
+          .sourceExt="${this._renameSourceFileExt}"
           @sl-browse-rename-dialog-close="${this._onRenameDialogClose}"
           @sl-browse-rename-dialog-cancel="${this._onRenameDialogCancel}"
           @sl-browse-rename-dialog-confirm="${this._onRenameDialogConfirm}"
