@@ -110,33 +110,70 @@
 
 .chat-empty-actions {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  justify-content: center;
-  max-width: 280px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  width: 100%;
+  max-width: 300px;
 }
 
-.chat-welcome-btn {
-  border: 1px solid #d7d7d7;
-  background: #fff;
-  color: #333;
-  border-radius: 12px;
-  padding: 7px 12px;
-  font-size: 12px;
+.prompt-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  background: #fafafa;
   cursor: pointer;
+  text-align: left;
+  width: 100%;
   transition:
     background-color 0.15s ease,
     border-color 0.15s ease;
 }
 
-.chat-welcome-btn:hover {
-  background: #f8f8f8;
-  border-color: #c8c8c8;
-}
-
-.chat-welcome-btn:disabled {
+.prompt-card:disabled {
   opacity: 0.55;
   cursor: not-allowed;
+}
+
+.prompt-card:hover:not(:disabled) {
+  background: #f0f0f0;
+  border-color: #bbb;
+}
+
+.prompt-card-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.prompt-card-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.prompt-card-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: #222;
+}
+
+.prompt-more-link {
+  background: none;
+  border: none;
+  color: #0265dc;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 0;
+  text-align: center;
+  text-decoration: underline;
+}
+
+.prompt-more-link:hover {
+  color: #0150a3;
 }
 
 .message-row {
