@@ -57,25 +57,6 @@ const BUILTIN_AGENTS = [
   },
 ];
 
-const DUMMY_PROMPT_CARDS = [
-  {
-    id: 'summarize',
-    title: 'Summarize page',
-    description: 'Get a concise summary of the current page content',
-    icon: `${nxBase}/img/icons/file.svg`,
-    prompt: 'Please summarize the content of this page in a few sentences.',
-    area: 'edit',
-  },
-  {
-    id: 'improve-tone',
-    title: 'Improve clarity & tone',
-    description: 'Rewrite for better readability and a professional tone',
-    icon: `${nxBase}/img/icons/S2IconLightbulb20N-icon.svg`,
-    prompt: 'Please review this page and suggest improvements for clarity and tone.',
-    area: 'edit',
-  },
-];
-
 const BUILTIN_PROMPTS = [
   {
     id: 'summarize',
@@ -225,6 +206,7 @@ class Chat extends LitElement {
     _skillEditorDirty: { state: true },
     _activeAgentId: { state: true },
     _daConfig: { state: true },
+    _promptCards: { state: true },
     _mcpTools: { state: true },
     _slashMenuOpen: { state: true },
     _slashFilter: { state: true },
@@ -267,6 +249,7 @@ class Chat extends LitElement {
     this._skillEditorDirty = false;
     this._activeAgentId = null;
     this._daConfig = null;
+    this._promptCards = [];
     this._mcpTools = null;
     this._pendingSkillIds = [];
     this._slashMenuOpen = false;
@@ -711,6 +694,10 @@ class Chat extends LitElement {
       this._configuredAgentRows = agentRows
         .filter((r) => r.key && (r.url || r.value))
         .map((r) => ({ ...r, url: r.url || r.value }));
+
+      // Extract prompts sheet
+      this._promptCards = (json?.prompts?.data || [])
+        .filter((r) => r.title && r.prompt);
 
       return cfg;
     } catch {
@@ -1353,7 +1340,9 @@ class Chat extends LitElement {
 
   _renderWelcome() {
     const { view } = this._pageContextForAgent();
-    const cards = DUMMY_PROMPT_CARDS.filter((c) => !c.area || c.area === 'all' || c.area === view);
+    const cards = this._promptCards
+      .filter((c) => c.area === view || c.area === 'all')
+      .slice(0, 3);
 
     const firstName = imsInitial?.first_name ?? imsInitial?.displayName?.split(' ')[0];
     const title = firstName ? `Welcome, ${firstName}` : 'Start a conversation';
@@ -1369,7 +1358,7 @@ class Chat extends LitElement {
               @click=${() => this._sendPrompt(card.prompt)}
             >
               <div class="prompt-card-header">
-                <img class="prompt-card-icon" src="${card.icon}" alt="" aria-hidden="true" />
+                <img class="prompt-card-icon" src="${card.icon || `${nxBase}/img/icons/aichat.svg`}" alt="" aria-hidden="true" />
                 <span class="prompt-card-title">${card.title}</span>
               </div>
               <div class="mcp-server-desc">${card.description}</div>
