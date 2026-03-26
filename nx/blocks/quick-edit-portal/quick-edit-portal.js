@@ -2,7 +2,9 @@ import { DA_ORIGIN } from '../../public/utils/constants.js';
 import { checkPermissions, signIn, handlePreview, getImageCookie } from './src/utils.js';
 import createProse from './src/prose.js';
 import {
-  updateDocument, updateCursors, updateState, handleUndoRedo, getEditor, handleCursorMove,
+  updateDocument,
+  updateCursors,
+  updateState, handleUndoRedo, getEditor, handleCursorMove, scrollToBlock,
 } from './src/render.js';
 import { handleImageReplace } from './src/images.js';
 
@@ -21,13 +23,14 @@ function onMessage(e, ctx) {
     handleUndoRedo(e.data, ctx);
   } else if (e.data.type === 'preview') {
     handlePreview(ctx);
+  } else if (e.data.type === 'scroll-to-block') {
+    scrollToBlock(e.data);
   }
 }
 
 async function initProse(owner, repo, path, el, ctx) {
-  const sourceUrl = `${DA_ORIGIN}/source/${owner}/${repo}/${
-    path.endsWith('/') ? `${path.replace(/^\//, '')}index.html` : `${path.replace(/^\//, '')}.html`
-  }`;
+  const sourceUrl = `${DA_ORIGIN}/source/${owner}/${repo}/${path.endsWith('/') ? `${path.replace(/^\//, '')}index.html` : `${path.replace(/^\//, '')}.html`
+    }`;
 
   const resp = await checkPermissions(sourceUrl);
   if (!resp.ok) return;
@@ -62,6 +65,12 @@ export default async function decorate(el) {
   await signIn();
 
   async function initPort(e) {
+    if (e.data?.type === 'scroll-to-block') {
+      // eslint-disable-next-line no-console
+      console.log('[quick-edit-portal] received scroll-to-block', e.data);
+      scrollToBlock(e.data);
+      return;
+    }
     if (e.data?.init) {
       const [port] = e.ports;
 

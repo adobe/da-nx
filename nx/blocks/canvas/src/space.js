@@ -194,8 +194,22 @@ class Space extends LitElement {
     this._blockPositions = Array.isArray(positions) ? positions : [];
   };
 
+  _sendWysiwygScrollIfReady() {
+    if (!this._quickEditPort) return false;
+    const blockIndex = this._activeBlockIndex;
+    if (blockIndex < 0 || blockIndex >= this._blockPositions.length) return false;
+    const prosePos = this._blockPositions[blockIndex];
+    this._quickEditPort.postMessage({ type: 'scroll-to-block', prosePos });
+    return true;
+  }
+
   _onActiveBlockChange = (index) => {
     this._activeBlockIndex = typeof index === 'number' ? index : -1;
+  };
+
+  _onActiveBlockScrollRequest = () => {
+    if (this._viewMode !== 'split') return;
+    this._sendWysiwygScrollIfReady();
   };
 
   _onOutlineMoveBlock = (e) => {
@@ -318,6 +332,7 @@ class Space extends LitElement {
     const iframe = e?.target;
     if (!iframe?.contentWindow || !this._orgRepo || !this._selectedPath) return;
 
+    this._wysiwygIframe = iframe;
     this._quickEditPort = null;
     if (this._quickEditInitRetryId) {
       clearInterval(this._quickEditInitRetryId);
@@ -478,11 +493,33 @@ class Space extends LitElement {
     }
     if (changed.has('_viewMode') && this._viewMode !== 'split') {
       this._quickEditPort = null;
+      this._wysiwygIframe = null;
       if (this._quickEditInitRetryId) {
         clearInterval(this._quickEditInitRetryId);
         this._quickEditInitRetryId = null;
       }
     }
+    // Entering split or wysiwyg-only view with an active selection — mark a scroll as needed.
+    if (changed.has('_viewMode') && (this._viewMode === 'split' || this._viewMode === 'wysiwyg') && this._activeBlockIndex >= 0) {
+      // eslint-disable-next-line no-console
+      console.log('[da-space] entering split/wysiwyg view, pending scroll', { blockIndex: this._activeBlockIndex });
+      this._pendingWysiwygScroll = true;
+    }
+    // Port just became ready — try to scroll (positions may or may not be ready yet).
+    if (changed.has('_quickEditPort') && this._quickEditPort) {
+      // eslint-disable-next-line no-console
+      console.log('[da-space] port ready, pendingScroll:', this._pendingWysiwygScroll);
+      if (this._pendingWysiwygScroll) {
+        if (this._sendWysiwygScrollIfReady()) this._pendingWysiwygScroll = false;
+      }
+    }
+    // Block positions updated — flush any pending scroll from the view-switch.
+    if (changed.has('_blockPositions') && this._pendingWysiwygScroll) {
+      // eslint-disable-next-line no-console
+      console.log('[da-space] blockPositions updated, flushing pending scroll');
+      if (this._sendWysiwygScrollIfReady()) this._pendingWysiwygScroll = false;
+    }
+
     if (changed.has('_selectedPath') && !isHtmlPath(this._selectedPath)) {
       if (this._sidebarTab === 'history' || this._sidebarTab === 'metadata') {
         this._sidebarTab = 'files';
@@ -554,6 +591,7 @@ class Space extends LitElement {
             .onEditorHtmlChange="${this._onEditorHtmlChange}"
             .onBlockPositions="${this._onBlockPositions}"
             .onActiveBlockChange="${this._onActiveBlockChange}"
+            .onActiveBlockScrollRequest="${this._onActiveBlockScrollRequest}"
             .pendingMove="${this._pendingMove}"
             .onMoveBlockDone="${this._onMoveBlockDone}"
             .pendingAddSection="${this._pendingAddSection}"

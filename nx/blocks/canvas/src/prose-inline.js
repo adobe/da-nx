@@ -283,5 +283,15 @@ export default async function initProse({
     editable() { return canWrite; },
   });
 
+  // ProseMirror skips dispatching a transaction when the clicked position
+  // resolves to the same selection (e.g. after handleCursorMove placed the
+  // cursor there). Use a click listener to always fire onSelectionChange so
+  // the outline and block-index stay in sync with the actual click position.
+  if (typeof onSelectionChange === 'function') {
+    window.view.dom.addEventListener('click', () => {
+      onSelectionChange(window.view);
+    });
+  }
+
   return { proseEl: editor, wsProvider, view: window.view, ydoc };
 }

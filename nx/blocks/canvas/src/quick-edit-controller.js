@@ -271,6 +271,17 @@ export function applyBlockSelection(view, blockIndex) {
   }
 }
 
+export function sendScrollToBlock(ctx, blockIndex) {
+  // eslint-disable-next-line no-console
+  console.log('[sendScrollToBlock]', { hasPort: !!ctx?.port, blockIndex });
+  if (!ctx?.port || blockIndex < 0) return;
+  const positions = getBlockPositions(ctx.view);
+  // eslint-disable-next-line no-console
+  console.log('[sendScrollToBlock] positions', positions, 'prosePos', positions[blockIndex]);
+  if (blockIndex >= positions.length) return;
+  ctx.port.postMessage({ type: 'scroll-to-block', prosePos: positions[blockIndex] });
+}
+
 export function handleCursorMove({ cursorOffset, textCursorOffset }, ctx) {
   const { view, wsProvider } = ctx;
   if (!view || !wsProvider) return;
@@ -320,9 +331,11 @@ export function handleCursorMove({ cursorOffset, textCursorOffset }, ctx) {
     }
 
     ctx.suppressRerender = true;
-    view.dispatch(tr);
+    view.dispatch(tr.scrollIntoView());
     ctx.suppressRerender = false;
-
+    // Restore the original hasFocus so ProseMirror correctly handles focus/click
+    // events when the user returns to the NX doc after clicking in the WYSIWYG.
+    delete view.hasFocus;
     ctx.onActiveBlockChange?.(getActiveBlockFlatIndex(view));
   } catch (error) {
     // eslint-disable-next-line no-console
@@ -661,6 +674,7 @@ export function handleSelectionChange({ anchor, head }, ctx) {
  */
 export function createControllerOnMessage(ctx) {
   return function onMessage(e) {
+    ctx.suppressScrollSync = true;
     if (e.data.type === 'cursor-move') {
       handleCursorMove(e.data, ctx);
     } else if (e.data.type === 'reload') {
@@ -684,5 +698,6 @@ export function createControllerOnMessage(ctx) {
     } else if (e.data.type === 'stored-marks') {
       handleStoredMarks(e.data, ctx);
     }
+    ctx.suppressScrollSync = false;
   };
 }
