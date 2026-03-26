@@ -64,6 +64,8 @@ function getOrgRepoFromHash() {
   return { org: pathSegments[0], repo: pathSegments[1] };
 }
 
+const CHAT_PANEL_SIZE_KEY = 'da-chat-panel-size';
+
 class Space extends LitElement {
   static properties = {
     projects: { type: Array },
@@ -104,6 +106,7 @@ class Space extends LitElement {
     this._chatOpen = true;
     this._detailsOpen = true;
     this._publishLoading = false;
+    this._chatPanelSize = localStorage.getItem(CHAT_PANEL_SIZE_KEY) || '25%';
     this._collabUsers = [];
     this._quickEditPort = null;
     this._wysiwygCookieReady = false;
@@ -210,6 +213,17 @@ class Space extends LitElement {
 
   _onChatMessageSent = () => {
     this._chatContextItems = [];
+  };
+
+  _onChatPanelResize = () => {
+    const chatPanel = this.shadowRoot?.querySelector('.space-chat-panel');
+    if (!chatPanel) return;
+    const { width } = chatPanel.getBoundingClientRect();
+    if (width > 0) {
+      const size = `${Math.round(width)}px`;
+      this._chatPanelSize = size;
+      localStorage.setItem(CHAT_PANEL_SIZE_KEY, size);
+    }
   };
 
   _getRevertSnapshotAemHtml = (toolInput) => {
@@ -836,10 +850,11 @@ class Space extends LitElement {
           <sp-split-view
             class="split-view split-view-outer"
             resizable
-            primary-size="25%"
+            primary-size="${this._chatPanelSize}"
             primary-min="280"
             secondary-min="400"
             label="Resize chat panel"
+            @change="${this._onChatPanelResize}"
           >
             <da-chat
               class="space-chat-panel"
