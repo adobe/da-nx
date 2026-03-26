@@ -191,10 +191,23 @@ function renderAlert(content, variant) {
     </div>`;
 }
 
-// ── Inline markdown: **bold**, `code` ────────────────────────
+// ── Inline markdown: links, **bold**, `code` ─────────────────
+
+function sanitizeHref(rawHref) {
+  const href = String(rawHref || '').trim();
+  if (!href) return '';
+  if (href.startsWith('/')) return href;
+  try {
+    const parsed = new URL(href, window.location.origin);
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') return href;
+  } catch {
+    return '';
+  }
+  return '';
+}
 
 function renderInline(text) {
-  const INLINE_RE = /\*\*([\s\S]*?)\*\*|`([^`\n]+)`/g;
+  const INLINE_RE = /\[([^\]]+)\]\(([^)\s]+)\)|\*\*([\s\S]*?)\*\*|`([^`\n]+)`/g;
   const parts = [];
   let last = 0;
   let m;
@@ -202,8 +215,21 @@ function renderInline(text) {
   // eslint-disable-next-line no-cond-assign
   while ((m = INLINE_RE.exec(text))) {
     if (m.index > last) parts.push(text.slice(last, m.index));
-    if (m[1] !== undefined) parts.push(html`<strong>${m[1]}</strong>`);
-    else parts.push(html`<code class="cr-inline-code">${m[2]}</code>`);
+    if (m[1] !== undefined && m[2] !== undefined) {
+      const safeHref = sanitizeHref(m[2]);
+      if (safeHref) {
+        const openInNewTab = /^https?:\/\//.test(safeHref);
+        parts.push(openInNewTab
+          ? html`<a href="${safeHref}" target="_blank" rel="noopener noreferrer">${m[1]}</a>`
+          : html`<a href="${safeHref}">${m[1]}</a>`);
+      } else {
+        parts.push(m[0]);
+      }
+    } else if (m[3] !== undefined) {
+      parts.push(html`<strong>${m[3]}</strong>`);
+    } else {
+      parts.push(html`<code class="cr-inline-code">${m[4]}</code>`);
+    }
     last = m.index + m[0].length;
   }
   if (last < text.length) parts.push(text.slice(last));

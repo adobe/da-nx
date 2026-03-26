@@ -26,6 +26,9 @@ function isHtmlPath(path) {
   return typeof path === 'string' && path.toLowerCase().trim().endsWith('.html');
 }
 
+const VIEW_MODES = new Set(['doc', 'wysiwyg', 'split']);
+const SIDEBAR_TABS = new Set(['files', 'outline', 'metadata', 'history']);
+
 /**
  * POST to AEM admin to preview or publish. Same contract as da-title in da-live.
  * @param {string} path - Full pathname e.g. /org/site/path/to/page
@@ -65,6 +68,27 @@ function getOrgRepoFromHash() {
 }
 
 const CHAT_PANEL_SIZE_KEY = 'da-chat-panel-size';
+const WINDOW_LAYOUT_STATE_KEY = 'da-window-layout-state';
+
+function readWindowLayoutState() {
+  try {
+    const raw = localStorage.getItem(WINDOW_LAYOUT_STATE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeWindowLayoutState(nextPatch) {
+  try {
+    const current = readWindowLayoutState();
+    localStorage.setItem(WINDOW_LAYOUT_STATE_KEY, JSON.stringify({ ...current, ...nextPatch }));
+  } catch {
+    // Ignore storage errors (private mode/quota).
+  }
+}
 
 class Space extends LitElement {
   static properties = {
@@ -91,6 +115,7 @@ class Space extends LitElement {
 
   constructor() {
     super();
+    const persisted = readWindowLayoutState();
     this.projects = [];
     this._selectedPath = '';
     this._orgRepo = null;
@@ -102,11 +127,14 @@ class Space extends LitElement {
     this._pendingAddSection = null;
     this._pendingAddBlock = null;
     this._sidebarTab = 'files';
-    this._viewMode = 'wysiwyg';
-    this._chatOpen = true;
-    this._detailsOpen = true;
+    this._viewMode = VIEW_MODES.has(persisted.canvasViewMode) ? persisted.canvasViewMode : 'wysiwyg';
+    this._chatOpen = typeof persisted.chatOpen === 'boolean' ? persisted.chatOpen : true;
+    this._detailsOpen = typeof persisted.detailsOpen === 'boolean' ? persisted.detailsOpen : true;
     this._publishLoading = false;
-    this._chatPanelSize = localStorage.getItem(CHAT_PANEL_SIZE_KEY) || '25%';
+    this._chatPanelSize = persisted.chatPanelSize || localStorage.getItem(CHAT_PANEL_SIZE_KEY) || '25%';
+    if (SIDEBAR_TABS.has(persisted.sidebarTab)) {
+      this._sidebarTab = persisted.sidebarTab;
+    }
     this._collabUsers = [];
     this._quickEditPort = null;
     this._wysiwygCookieReady = false;
@@ -223,6 +251,7 @@ class Space extends LitElement {
       const size = `${Math.round(width)}px`;
       this._chatPanelSize = size;
       localStorage.setItem(CHAT_PANEL_SIZE_KEY, size);
+      writeWindowLayoutState({ chatPanelSize: size });
     }
   };
 
@@ -461,6 +490,17 @@ class Space extends LitElement {
       if (this._sidebarTab === 'history' || this._sidebarTab === 'metadata') {
         this._sidebarTab = 'files';
       }
+    }
+    if (changed.has('_chatOpen')
+      || changed.has('_detailsOpen')
+      || changed.has('_viewMode')
+      || changed.has('_sidebarTab')) {
+      writeWindowLayoutState({
+        chatOpen: this._chatOpen,
+        detailsOpen: this._detailsOpen,
+        canvasViewMode: this._viewMode,
+        sidebarTab: this._sidebarTab,
+      });
     }
     if (changed.has('_orgRepo') || changed.has('_selectedPath')) {
       if (!this._orgRepo || !this._selectedPath) {
