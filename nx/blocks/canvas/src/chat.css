@@ -308,7 +308,13 @@
   transition: background 0.15s;
 }
 
-.skill-suggestion-card-btn:hover {
+.skill-suggestion-card-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #94b8e8;
+}
+
+.skill-suggestion-card-btn:hover:not(:disabled) {
   background: #0d66d0;
 }
 
