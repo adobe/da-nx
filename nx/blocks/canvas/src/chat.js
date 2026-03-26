@@ -179,6 +179,10 @@ class Chat extends LitElement {
     _newSkillName: { state: true },
     _skillEditorDirty: { state: true },
     _pendingSuggestionContent: { state: true },
+    /** Set when opening the modal from a suggestion card; disables button after save. */
+    _pendingSkillSuggestionKey: { state: true },
+    /** Keys `skill-sugg-${messageIndex}` for which Create Skill was completed. */
+    _consumedSkillSuggestionKeys: { state: true },
     _activeAgentId: { state: true },
     _daConfig: { state: true },
     _promptCards: { state: true },
@@ -223,6 +227,8 @@ class Chat extends LitElement {
     this._newSkillName = '';
     this._skillEditorDirty = false;
     this._pendingSuggestionContent = null;
+    this._pendingSkillSuggestionKey = null;
+    this._consumedSkillSuggestionKeys = {};
     this._activeAgentId = null;
     this._daConfig = null;
     this._promptCards = [];
@@ -525,6 +531,8 @@ class Chat extends LitElement {
 
   _clearChat() {
     this._chatController?.clearHistory();
+    this._consumedSkillSuggestionKeys = {};
+    this._pendingSkillSuggestionKey = null;
   }
 
   _sendToolApproval(toolCallId, approved) {
@@ -765,6 +773,7 @@ class Chat extends LitElement {
       this._selectedSkill = null;
       this._newSkillName = '';
       this._skillEditorDirty = false;
+      this._pendingSkillSuggestionKey = null;
       return;
     }
     this._newSkillMode = false;
@@ -792,6 +801,13 @@ class Chat extends LitElement {
       this._newSkillMode = false;
       this._skillEditorDirty = false;
       this._pendingSuggestionContent = null;
+      if (this._pendingSkillSuggestionKey) {
+        this._consumedSkillSuggestionKeys = {
+          ...this._consumedSkillSuggestionKeys,
+          [this._pendingSkillSuggestionKey]: true,
+        };
+        this._pendingSkillSuggestionKey = null;
+      }
     } else if (this._selectedSkill) {
       const result = await saveSkill(prefix, this._selectedSkill, content);
       if (result.error) return;
@@ -832,7 +848,10 @@ class Chat extends LitElement {
         <div class="chat-skills-empty">
           <p class="chat-skills-empty-text">No skills found.</p>
           <p class="chat-skills-empty-text">Skills are markdown documents under <code>.da/skills/</code> that teach the assistant reusable workflows.</p>
-          <sp-button variant="accent" size="s" title="Create a new skill" aria-label="Create a new skill" @click=${() => { this._newSkillMode = true; }}>Create skill</sp-button>
+          <sp-button variant="accent" size="s" title="Create a new skill" aria-label="Create a new skill" @click=${() => {
+            this._newSkillMode = true;
+            this._pendingSkillSuggestionKey = null;
+          }}>Create skill</sp-button>
           <sp-button variant="secondary" size="s" title="Refresh skills list" aria-label="Refresh skills list" @click=${() => this._refreshSkills()}>Refresh</sp-button>
         </div>`;
     }
@@ -853,7 +872,11 @@ class Chat extends LitElement {
             `)}
           </select>
           <button type="button" class="skill-tb-btn skill-tb-add" title="Create new skill" aria-label="Create new skill"
-            @click=${() => { this._newSkillMode = true; this._newSkillName = ''; }}>
+            @click=${() => {
+              this._newSkillMode = true;
+              this._newSkillName = '';
+              this._pendingSkillSuggestionKey = null;
+            }}>
             <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 3.75a.75.75 0 0 1 .75.75v4.75h4.75a.75.75 0 0 1 0 1.5h-4.75v4.75a.75.75 0 0 1-1.5 0v-4.75H4.5a.75.75 0 0 1 0-1.5h4.75V4.5a.75.75 0 0 1 .75-.75Z" fill="currentColor"/></svg>
           </button>
           <sp-action-button size="s" quiet title="Refresh skills list" aria-label="Refresh skills list" @click=${() => this._refreshSkills()}>
@@ -880,6 +903,7 @@ class Chat extends LitElement {
                 this._newSkillMode = false;
                 this._skillEditorDirty = false;
                 this._pendingSuggestionContent = null;
+                this._pendingSkillSuggestionKey = null;
                 if (ids.length > 0) [this._selectedSkill] = ids;
               }}>Cancel</sp-button>
           ` : html`
@@ -1317,7 +1341,8 @@ class Chat extends LitElement {
     this.shadowRoot.querySelector('.chat-toolbar-icon-btn[aria-label="Open Tools Quick Editing"]')?.click();
   }
 
-  _openSkillModalWithSuggestion(id, content) {
+  _openSkillModalWithSuggestion(id, content, suggestionKey = null) {
+    this._pendingSkillSuggestionKey = typeof suggestionKey === 'string' ? suggestionKey : null;
     this._newSkillMode = true;
     this._newSkillName = id;
     this._pendingSuggestionContent = content;
@@ -1501,7 +1526,7 @@ class Chat extends LitElement {
 
         <div class="chat-messages" role="log" aria-live="polite">
           ${this._messages.length === 0 && !this._streamingText ? this._renderWelcome() : ''}
-          ${this._messages.map((message) => {
+          ${this._messages.map((message, msgIndex) => {
           // Skip protocol-only tool messages (tool-result, tool-approval-response).
           if (message.role === 'tool') return '';
 
@@ -1528,6 +1553,8 @@ class Chat extends LitElement {
               ? stripSkillSuggestionMeta(message.content)
               : message.content;
             const rendered = renderMessageContent(displayContent);
+            const skillSuggKey = `skill-sugg-${msgIndex}`;
+            const skillSuggDone = !!(suggestion && this._consumedSkillSuggestionKeys[skillSuggKey]);
             return html`
               <div class="message-row assistant">
                 <div class="message-bubble ${suggestion ? 'skill-suggestion' : ''}">${rendered}${suggestion ? html`
@@ -1537,9 +1564,16 @@ class Chat extends LitElement {
                       <code class="skill-suggestion-card-id">${suggestion.id}</code>
                     </div>
                     <button type="button" class="skill-suggestion-card-btn"
-                      @click=${() => this._openSkillModalWithSuggestion(suggestion.id, suggestion.content)}>
+                      title="${skillSuggDone ? 'Skill created from this suggestion' : 'Open editor to create skill'}"
+                      aria-label="${skillSuggDone ? 'Skill already created' : 'Create skill from suggestion'}"
+                      ?disabled=${skillSuggDone}
+                      @click=${() => this._openSkillModalWithSuggestion(
+                        suggestion.id,
+                        suggestion.content,
+                        skillSuggKey,
+                      )}>
                       <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 3.75a.75.75 0 0 1 .75.75v4.75h4.75a.75.75 0 0 1 0 1.5h-4.75v4.75a.75.75 0 0 1-1.5 0v-4.75H4.5a.75.75 0 0 1 0-1.5h4.75V4.5a.75.75 0 0 1 .75-.75Z" fill="currentColor"/></svg>
-                      Create Skill
+                      ${skillSuggDone ? 'Skill created' : 'Create Skill'}
                     </button>
                   </div>` : nothing}</div>
               </div>`;
