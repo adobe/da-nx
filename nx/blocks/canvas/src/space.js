@@ -274,9 +274,9 @@ class Space extends LitElement {
   _onCanvasBreadcrumbNavigate(event) {
     const pathKey = event.detail?.pathKey;
     if (!pathKey) return;
-    this._detailsOpen = true;
-    this._sidebarTab = 'files';
-    window.location.hash = `#/${pathKey}`;
+    const search = window.location.search || '';
+    const href = `${window.location.origin}/browse${search}#/${pathKey}`;
+    window.location.assign(href);
   }
 
   /** Folder path for "back to browse": parent if file selected, else current folder. */
