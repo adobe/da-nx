@@ -1260,9 +1260,12 @@ class Chat extends LitElement {
       'Find accessibility issues',
     ];
 
+    const firstName = imsInitial?.first_name ?? imsInitial?.displayName?.split(' ')[0];
+    const title = firstName ? `Welcome, ${firstName}` : 'Start a conversation';
+
     return html`
       <div class="chat-empty-state">
-        <div class="chat-empty-title">Start a conversation</div>
+        <h2 class="chat-empty-title">${title}</h2>
         <div class="chat-empty-actions">
           ${prompts.map((prompt) => html`
             <button
