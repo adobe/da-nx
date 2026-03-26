@@ -73,7 +73,7 @@
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.5rem 1rem;
+  padding: 0.1rem 0.75rem;
   border-bottom: 1px solid var(--spectrum-global-color-gray-200, #e0e0e0);
   background: var(--spectrum-global-color-gray-75, #f5f5f5);
 }

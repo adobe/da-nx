@@ -618,15 +618,6 @@ class Space extends LitElement {
     `;
   }
 
-  /* eslint-disable-next-line class-methods-use-this */
-  _renderPlayIcon() {
-    return html`
-      <svg class="space-nav-icon" slot="icon" width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-        <path d="M8 5v14l11-7z"/>
-      </svg>
-    `;
-  }
-
   _renderCollabUsers() {
     if (!this._collabUsers?.length) return '';
     return html`
@@ -648,7 +639,7 @@ class Space extends LitElement {
       <sp-action-menu label="Publish menu" class="space-publish-menu-trigger">
         <span class="space-publish-menu-content" slot="icon">
           ${this._publishLoading ? html`<sp-progress-circle class="space-publish-spinner" indeterminate size="s" aria-label="Loading"></sp-progress-circle>` : ''}
-          ${this._renderPlayIcon()}
+          <sp-icon-publish class="space-publish-icon"></sp-icon-publish>
         </span>
         <sp-menu-item @click="${this._onPreview}">Preview</sp-menu-item>
         <sp-menu-item @click="${this._onPublish}">Publish</sp-menu-item>
