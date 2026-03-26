@@ -4,6 +4,8 @@
  */
 
 import { DA_BULK_AEM_OPEN } from '../../../canvas/src/bulk-aem-modal.js';
+import { crawl } from '../../../../public/utils/tree.js';
+import { daItemToAdminPath } from '../api/da-browse-api.js';
 import { daSourcePathForItem, findItemByRowKey } from './content-browser-utils.js';
 
 function openAemUrlWithNoCache(href) {
@@ -29,7 +31,8 @@ export function pathKeyToAemPath(pathKey) {
 }
 
 /**
- * Collects AEM paths for preview/publish from a menu row or the current file selection.
+ * Collects AEM paths for preview/publish from a menu row or the current table selection.
+ * Includes both files and folders.
  * @param {string | undefined} pathKeyFromEvent - Optional single-row key from a menu event.
  * @param {{ selectedRows: string[], items: object[], folderPathKey: string }} ctx
  * @returns {string[]} Paths ready for `saveToAem`.
@@ -43,12 +46,108 @@ export function getAemPathsForSelection(pathKeyFromEvent, { selectedRows, items,
   const paths = [];
   for (const rowKey of selectedRows) {
     const item = findItemByRowKey(rowKey, items, folderPathKey);
-    if (item?.ext) {
+    if (item) {
       const aemPath = pathKeyToAemPath(rowKey);
       if (aemPath) paths.push(aemPath);
     }
   }
   return paths;
+}
+
+/**
+ * @param {string | undefined} pathKeyFromEvent
+ * @param {{ selectedRows: string[], items: object[], folderPathKey: string }} ctx
+ * @returns {{ filePaths: string[], folderPaths: string[] }} Absolute `/org/site/...` paths.
+ */
+function categorizeAemBulkSelection(pathKeyFromEvent, { selectedRows, items, folderPathKey }) {
+  /** @type {string[]} */
+  const filePaths = [];
+  /** @type {string[]} */
+  const folderPaths = [];
+
+  const classify = (rowKey, item) => {
+    const aemPath = pathKeyToAemPath(rowKey);
+    if (!aemPath || !item) return;
+    if (item.ext) filePaths.push(aemPath);
+    else folderPaths.push(aemPath);
+  };
+
+  if (pathKeyFromEvent) {
+    const item = findItemByRowKey(pathKeyFromEvent, items, folderPathKey);
+    classify(pathKeyFromEvent, item);
+    return { filePaths, folderPaths };
+  }
+  for (const rowKey of selectedRows) {
+    const item = findItemByRowKey(rowKey, items, folderPathKey);
+    classify(rowKey, item);
+  }
+  return { filePaths, folderPaths };
+}
+
+/**
+ * Recursively lists files under the given folder path(s) via DA list crawl (folders excluded).
+ * @param {string[]} folderDaPaths - Absolute paths like `/org/site/subfolder`.
+ * @returns {Promise<string[]>}
+ */
+async function expandFolderDaPathsToFileAemPaths(folderDaPaths) {
+  const roots = (folderDaPaths || [])
+    .map((p) => String(p).trim())
+    .filter((p) => p.startsWith('/'));
+  if (roots.length === 0) return [];
+
+  const { results } = crawl({
+    path: roots.length === 1 ? roots[0] : roots,
+    throttle: 10,
+  });
+  const fileItems = await results;
+  /** @type {string[]} */
+  const out = [];
+  const seen = new Set();
+  for (const item of fileItems) {
+    if (item?.ext) {
+      const abs = daItemToAdminPath(item, '');
+      if (abs) {
+        const norm = abs.replace(/\/+/g, '/');
+        if (!seen.has(norm)) {
+          seen.add(norm);
+          out.push(norm);
+        }
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * @param {string[]} paths
+ * @returns {string[]}
+ */
+function dedupeAemAbsolutePaths(paths) {
+  const seen = new Set();
+  /** @type {string[]} */
+  const out = [];
+  for (const p of paths) {
+    const norm = String(p).replace(/\/+/g, '/');
+    if (norm.startsWith('/') && !seen.has(norm)) {
+      seen.add(norm);
+      out.push(norm);
+    }
+  }
+  return out;
+}
+
+/**
+ * Resolves paths for bulk preview/publish: selected files are kept; each selected folder is crawled
+ * recursively and only descendant file paths are included (folder paths themselves are omitted).
+ *
+ * @param {string | undefined} pathKeyFromEvent - Optional single-row key from a menu event.
+ * @param {{ selectedRows: string[], items: object[], folderPathKey: string }} ctx
+ * @returns {Promise<string[]>} Unique absolute DA paths ready for `saveToAem` / bulk modal.
+ */
+export async function resolveBulkAemPathsExpandingFolders(pathKeyFromEvent, ctx) {
+  const { filePaths, folderPaths } = categorizeAemBulkSelection(pathKeyFromEvent, ctx);
+  const fromTrees = await expandFolderDaPathsToFileAemPaths(folderPaths);
+  return dedupeAemAbsolutePaths([...filePaths, ...fromTrees]);
 }
 
 /**
@@ -83,8 +182,37 @@ export const SL_CONTENT_BROWSER_CHAT_CONTEXT = 'sl-content-browser-chat-context'
 export const SL_CONTENT_BROWSER_LIST_PERMISSIONS = 'sl-content-browser-list-permissions';
 
 /**
- * Chat context items for selected repo files (same pipeline as canvas `onPageContextItems`).
- * Skips folder rows. Sanitized in `chat-controller.js` before send.
+ * Dedupes by `pathKey`, keeps first-seen order, renumbers `proseIndex`.
+ * @param {Array<object>} a
+ * @param {Array<object>} b
+ * @returns {Array<object>}
+ */
+export function mergeBrowseChatContextItems(a, b) {
+  const seen = new Set();
+  /** @type {Array<object>} */
+  const out = [];
+  let proseIndex = 0;
+  for (const it of [...(a || []), ...(b || [])]) {
+    const raw = it && typeof it.pathKey === 'string' ? it.pathKey : '';
+    const pk = raw.replace(/^\/+/, '').trim();
+    if (pk && !seen.has(pk)) {
+      seen.add(pk);
+      out.push({
+        ...it,
+        proseIndex,
+      });
+      proseIndex += 1;
+    }
+  }
+  return out;
+}
+
+/**
+ * Chat context items for selected repo paths (files and folders; same pipeline as canvas
+ * `onPageContextItems`). Sanitized in `chat-controller.js` before send.
+ *
+ * Rows not found in `items` still produce an item when `pathKey` looks like a repo path
+ * (`org/site/...`) so chat context survives list/search lookup gaps.
  *
  * @param {string[]} selectedRows - Row keys from the table.
  * @param {object[]} items - Raw list rows.
@@ -96,11 +224,12 @@ export function buildBrowseChatContextItems(selectedRows, items, folderPathKey) 
   const out = [];
   let proseIndex = 0;
   for (const rowKey of selectedRows || []) {
-    const rowItem = findItemByRowKey(rowKey, items, folderPathKey);
-    if (rowItem?.ext) {
-      const pathKey = String(rowKey).replace(/^\/+/, '').trim();
-      if (pathKey) {
-        const name = (rowItem.name && String(rowItem.name).trim())
+    const pathKey = String(rowKey).replace(/^\/+/, '').trim();
+    if (pathKey) {
+      const rowItem = findItemByRowKey(rowKey, items, folderPathKey);
+      const segments = pathKey.split('/').filter(Boolean);
+      if (rowItem || segments.length >= 2) {
+        const name = (rowItem?.name && String(rowItem.name).trim())
           || pathKey.split('/').pop()
           || pathKey;
         const innerText = `Selected repository path: ${pathKey}`;
