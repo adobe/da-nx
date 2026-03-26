@@ -16,6 +16,7 @@ import './file-history.js';
 import './page-metadata.js';
 import { DA_BULK_AEM_OPEN } from './bulk-aem-modal.js';
 import { getPreviewOrigin } from './preview-origin.js';
+import '../../browse/content-browser/components/sl-browse-breadcrumbs/sl-browse-breadcrumbs.js';
 
 const style = await getStyle(import.meta.url);
 const nxBase = getNx();
@@ -270,11 +271,12 @@ class Space extends LitElement {
     }
   };
 
-  _onBreadcrumbFolderClick(pathKey) {
+  _onCanvasBreadcrumbNavigate(event) {
+    const pathKey = event.detail?.pathKey;
+    if (!pathKey) return;
     this._detailsOpen = true;
     this._sidebarTab = 'files';
-    const hash = pathKey.startsWith('/') ? pathKey : `/${pathKey}`;
-    window.location.hash = `#${hash}`;
+    window.location.hash = `#/${pathKey}`;
   }
 
   /** Folder path for "back to browse": parent if file selected, else current folder. */
@@ -654,22 +656,6 @@ class Space extends LitElement {
     `;
   }
 
-  _renderBreadcrumbCrumb(name, pathKey, isOrgOrRepo, isFolder) {
-    if (isOrgOrRepo) {
-      return html`<span class="space-breadcrumb-crumb space-breadcrumb-disabled">${name}</span>`;
-    }
-    if (isFolder) {
-      return html`
-        <button
-          type="button"
-          class="space-breadcrumb-crumb space-breadcrumb-link"
-          @click="${() => this._onBreadcrumbFolderClick(pathKey)}"
-        >${name}</button>
-      `;
-    }
-    return html`<span class="space-breadcrumb-crumb space-breadcrumb-current">${name}</span>`;
-  }
-
   _renderBreadcrumbBackButton() {
     if (!this._browseBackFolderPath) return '';
     return html`
@@ -687,25 +673,12 @@ class Space extends LitElement {
   }
 
   _renderBreadcrumbs() {
-    const segments = this._breadcrumbSegments;
-    if (segments.length === 0) {
-      return html`<nav class="space-breadcrumbs" aria-label="File path"></nav>`;
-    }
     return html`
-      <nav class="space-breadcrumbs" aria-label="File path">
-        ${segments.map((name, i) => {
-      const pathKey = segments.slice(0, i + 1).join('/');
-      const isOrgOrRepo = i < 2;
-      const isLast = i === segments.length - 1;
-      const isFolder = !isLast;
-      return html`
-  <span class="space-breadcrumb-segment">
-    ${i > 0 ? html`<span class="space-breadcrumb-sep" aria-hidden="true">/</span>` : ''}
-    ${this._renderBreadcrumbCrumb(name, pathKey, isOrgOrRepo, isFolder)}
-  </span>
-`;
-    })}
-      </nav>
+      <sl-browse-breadcrumbs
+        class="space-nav-breadcrumbs"
+        .segments="${this._breadcrumbSegments}"
+        @sl-browse-navigate="${this._onCanvasBreadcrumbNavigate}"
+      ></sl-browse-breadcrumbs>
     `;
   }
 
