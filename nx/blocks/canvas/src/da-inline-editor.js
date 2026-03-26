@@ -18,6 +18,7 @@ import {
   getInstrumentedHTML,
   getBlockPositions,
   getActiveBlockFlatIndex,
+  applyBlockSelection,
   moveBlockAt,
   insertSectionAfter,
   insertBlockAtSection,
@@ -92,6 +93,7 @@ export default class DaInlineEditor extends LitElement {
     onAddSectionDone: { type: Function },
     pendingAddBlock: { type: Object },
     onAddBlockDone: { type: Function },
+    activeBlockIndex: { type: Number },
     _proseEl: { state: true },
     _wsProvider: { state: true },
     _view: { state: true },
@@ -106,6 +108,8 @@ export default class DaInlineEditor extends LitElement {
     this.path = '';
     this.quickEditPort = null;
     this.onActiveBlockChange = null;
+    this.activeBlockIndex = -1;
+    this._suppressSelectionChange = false;
     this._proseEl = null;
     this._wsProvider = null;
     this._view = null;
@@ -302,6 +306,9 @@ export default class DaInlineEditor extends LitElement {
     if (!this._canLoad) return;
 
     const sourceUrl = this._sourceUrl;
+    // Capture before any async work — this.activeBlockIndex may be reset to -1
+    // by intermediate onSelectionChange(-1) callbacks as the new editor initialises.
+    const initialBlockIndex = this.activeBlockIndex;
 
     if (this._awarenessOff) {
       this._awarenessOff();
@@ -362,6 +369,7 @@ export default class DaInlineEditor extends LitElement {
         if (this._controllerCtx) getEditor(data, this._controllerCtx);
       };
       const onSelectionChangeCb = (view) => {
+        if (this._suppressSelectionChange) return;
         this.onActiveBlockChange?.(getActiveBlockFlatIndex(view));
       };
 
@@ -418,13 +426,27 @@ export default class DaInlineEditor extends LitElement {
 
     this._loading = false;
     this.requestUpdate();
-    if (this.autoFocus && this._view && this._wsProvider) {
-      const focusWhenSynced = (isSynced) => {
+    if (this._view && this._wsProvider) {
+      // Suppress onSelectionChange propagation until we've restored the selection.
+      // Without this, Yjs sync triggers onSelectionChange(-1) which resets
+      // _activeBlockIndex in space.js before restoration can run.
+      this._suppressSelectionChange = initialBlockIndex >= 0;
+      const restoreOnSynced = (isSynced) => {
         if (!isSynced) return;
-        this._wsProvider?.off('synced', focusWhenSynced);
-        requestAnimationFrame(() => this._view?.focus());
+        this._wsProvider?.off('synced', restoreOnSynced);
+        requestAnimationFrame(() => {
+          if (this.autoFocus) this._view?.focus();
+          if (initialBlockIndex >= 0 && this._view) {
+            applyBlockSelection(this._view, initialBlockIndex);
+          }
+          this._suppressSelectionChange = false;
+          // Notify space.js of the final active index (restored or natural -1).
+          if (this._view) {
+            this.onActiveBlockChange?.(getActiveBlockFlatIndex(this._view));
+          }
+        });
       };
-      this._wsProvider.on('synced', focusWhenSynced);
+      this._wsProvider.on('synced', restoreOnSynced);
     }
   }
 

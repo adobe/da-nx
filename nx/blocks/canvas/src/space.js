@@ -100,15 +100,18 @@ class Space extends LitElement {
     this._pendingAddSection = null;
     this._pendingAddBlock = null;
     this._sidebarTab = sessionStorage.getItem('da-nx-sidebar-tab') || 'files';
-    this._viewMode = sessionStorage.getItem('da-nx-view-mode') || 'wysiwyg';
-    this._chatOpen = true;
-    this._detailsOpen = true;
+    this._viewMode = 'wysiwyg';
+    this._chatOpen = localStorage.getItem('da-nx-chat-open') === 'true';
+    this._detailsOpen = localStorage.getItem('da-nx-details-open') === 'true';
     this._publishLoading = false;
     this._collabUsers = [];
     this._quickEditPort = null;
     this._wysiwygCookieReady = false;
     this._wysiwygCookieRequestKey = null;
     this._docToolbar = null;
+    this._wysiwygIframe = null;
+    // Set when entering split view with a selection; cleared once scroll is sent.
+    this._pendingWysiwygScroll = false;
   }
 
   _onDocToolbarReady = (e) => {
@@ -499,6 +502,7 @@ class Space extends LitElement {
             .repo="${this._orgRepo?.repo ?? ''}"
             .path="${this._selectedPath ?? ''}"
             .autoFocus="${this._viewMode === 'doc'}"
+            .activeBlockIndex="${this._activeBlockIndex}"
             .quickEditPort="${this._quickEditPort ?? null}"
             .onEditorHtmlChange="${this._onEditorHtmlChange}"
             .onBlockPositions="${this._onBlockPositions}"
@@ -797,7 +801,7 @@ class Space extends LitElement {
               class="space-nav-toggle-btn"
               label="Toggle chat panel"
               ?selected="${this._chatOpen}"
-              @click="${() => { this._chatOpen = !this._chatOpen; }}"
+              @click="${() => { this._chatOpen = !this._chatOpen; localStorage.setItem('da-nx-chat-open', this._chatOpen); }}"
             >
               <img src="${nxBase}/img/icons/aichat.svg" slot="icon" alt="" class="space-nav-icon" />
             </sp-action-button>
@@ -823,7 +827,7 @@ class Space extends LitElement {
               class="space-nav-toggle-btn"
               label="Toggle details panel"
               ?selected="${this._detailsOpen}"
-              @click="${() => { this._detailsOpen = !this._detailsOpen; }}"
+              @click="${() => { this._detailsOpen = !this._detailsOpen; localStorage.setItem('da-nx-details-open', this._detailsOpen); }}"
             >
               <img src="${nxBase}/img/icons/details.svg" slot="icon" alt="" class="space-nav-icon" />
             </sp-action-button>

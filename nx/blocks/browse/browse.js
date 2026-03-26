@@ -57,7 +57,7 @@ class BrowseView extends LitElement {
 
   constructor() {
     super();
-    this._chatOpen = true;
+    this._chatOpen = localStorage.getItem('da-nx-chat-open') === 'true';
     this._chatContextItems = [];
     this._browsePathSegments = [];
     this._browseFolderFullpath = '';
@@ -154,7 +154,7 @@ class BrowseView extends LitElement {
           class="browse-view-chat-toggle"
           label="Toggle chat panel"
           ?selected="${this._chatOpen}"
-          @click="${() => { this._chatOpen = !this._chatOpen; }}"
+          @click="${() => { this._chatOpen = !this._chatOpen; localStorage.setItem('da-nx-chat-open', this._chatOpen); }}"
         >
           <img src="${nxBase}/img/icons/aichat.svg" slot="icon" alt="" class="browse-view-nav-icon" />
         </sp-action-button>
