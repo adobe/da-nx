@@ -13,7 +13,7 @@
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.5rem 0.75rem;
+  padding: 0.1rem 0.75rem;
   border-bottom: 1px solid var(--spectrum-global-color-gray-200, #e0e0e0);
   background: var(--spectrum-global-color-gray-75, #f5f5f5);
 }
@@ -144,6 +144,11 @@
 .space .space-publish-spinner {
   width: 18px;
   height: 18px;
+  flex-shrink: 0;
+}
+
+/* Match browse selection toolbar publish control (`sl-browse-selection-icon`). */
+.space .space-publish-icon {
   flex-shrink: 0;
 }
 
