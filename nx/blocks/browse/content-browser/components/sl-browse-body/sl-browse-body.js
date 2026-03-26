@@ -78,8 +78,6 @@ export class SlBrowseBody extends LitElement {
     /** @type {Array<object>} List rows (`name`, `path`, `ext`, AEM fields, etc.). */
     items: { type: Array },
     currentPathKey: { type: String, attribute: 'current-path-key' },
-    /** Parent folder path key; empty at repo root (`org/site`). Drives “up” control. */
-    parentPathKey: { type: String, attribute: 'parent-path-key' },
     /** @type {string[]} */
     selectedRows: { type: Array },
     /**
@@ -96,7 +94,6 @@ export class SlBrowseBody extends LitElement {
     super();
     this.items = [];
     this.currentPathKey = '';
-    this.parentPathKey = '';
     this.selectedRows = [];
     this.initialLoading = false;
     this.showRelativePath = false;
@@ -221,18 +218,6 @@ export class SlBrowseBody extends LitElement {
     );
   }
 
-  _onNavigateUp() {
-    const pathKey = (this.parentPathKey || '').replace(/^\/+/, '').trim();
-    if (!pathKey) return;
-    this.dispatchEvent(
-      new CustomEvent('sl-open-folder', {
-        detail: { pathKey },
-        bubbles: true,
-        composed: true,
-      }),
-    );
-  }
-
   /** Empty list message (still under the same column headers as data rows). */
   _emptyBodyTemplate() {
     const searchMode = this.showRelativePath;
@@ -341,25 +326,9 @@ export class SlBrowseBody extends LitElement {
       });
     }
 
-    const showUpControl = !!(this.parentPathKey || '').replace(/^\/+/, '').trim();
-
     return html`
       <div class="sl-browse-files-panel">
         <div class="${tableCardClass}">
-          ${showUpControl ? html`
-            <div class="sl-table-list-toolbar">
-              <sp-action-button
-                class="sl-browse-up-button"
-                quiet
-                title="Open parent folder"
-                label="Up to parent folder"
-                @click="${this._onNavigateUp}"
-              >
-                <sp-icon-arrow-left slot="icon" size="s"></sp-icon-arrow-left>
-                Up
-              </sp-action-button>
-            </div>
-          ` : ''}
           <div class="sl-table-scroll">
             <table
               class="sl-data-table ${this.showRelativePath ? 'sl-data-table-search-paths' : ''}"
