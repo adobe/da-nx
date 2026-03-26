@@ -20,7 +20,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--spectrum-global-dimension-size-200, 8px) var(--spectrum-global-dimension-size-250, 10px);
+  padding: var(--spectrum-global-dimension-size-200, 8px)
+    var(--spectrum-global-dimension-size-250, 10px);
   font-weight: var(--spectrum-heading-font-weight-regular, 600);
   font-size: var(--spectrum-body-size-m, 14px);
   color: var(--spectrum-global-color-gray-800, #2c2c2c);
@@ -40,21 +41,20 @@
   width: 24px;
   height: 24px;
   padding: 0;
-  background: transparent url("https://da.live/blocks/edit/img/S2_Icon_Separator_20_N.svg") center / 18px no-repeat;
+  background: transparent
+    url("https://da.live/blocks/edit/img/S2_Icon_Separator_20_N.svg") center /
+    18px no-repeat;
   border: 1px solid transparent;
   border-radius: var(--spectrum-global-dimension-size-50, 4px);
   cursor: pointer;
-  opacity: 0.6;
-  transition: opacity 0.15s, background-color 0.15s;
+  transition: background-color 0.15s;
 }
 
 .page-outline .page-outline-header-btn:hover {
-  opacity: 1;
   background-color: var(--spectrum-global-color-gray-200, #e0e0e0);
 }
 
 .page-outline .page-outline-header-btn:focus-visible {
-  opacity: 1;
   outline: 2px solid var(--spectrum-global-color-blue-500, #1473e6);
   outline-offset: 1px;
 }
@@ -91,7 +91,8 @@
 .page-outline .page-outline-section-label {
   flex: 1;
   min-width: 0;
-  padding: var(--spectrum-global-dimension-size-150, 12px) var(--spectrum-global-dimension-size-200, 8px);
+  padding: var(--spectrum-global-dimension-size-150, 12px)
+    var(--spectrum-global-dimension-size-200, 8px);
   font-size: var(--spectrum-body-size-s, 13px);
   font-weight: 600;
   color: var(--spectrum-global-color-gray-800, #2c2c2c);
@@ -105,27 +106,24 @@
   width: 22px;
   height: 22px;
   padding: 0;
-  background: transparent url("https://da.live/blocks/edit/img/S2_Icon_TableAdd_20_N.svg") center / 16px no-repeat;
+  background: transparent
+    url("https://da.live/blocks/edit/img/S2_Icon_TableAdd_20_N.svg") center /
+    16px no-repeat;
   border: 1px solid transparent;
   border-radius: var(--spectrum-global-dimension-size-50, 4px);
   cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.15s, background-color 0.15s;
+  transition:
+    opacity 0.15s,
+    background-color 0.15s;
 }
 
 .page-outline .page-outline-section-add-btn:hover {
-  opacity: 1 !important;
   background-color: var(--spectrum-global-color-gray-200, #e0e0e0);
 }
 
 .page-outline .page-outline-section-add-btn:focus-visible {
-  opacity: 1 !important;
   outline: 2px solid var(--spectrum-global-color-blue-500, #1473e6);
   outline-offset: 1px;
-}
-
-.page-outline .page-outline-section:hover .page-outline-section-add-btn {
-  opacity: 0.6;
 }
 
 .page-outline .page-outline-block-list {
@@ -137,7 +135,8 @@
 .page-outline .page-outline-block {
   display: flex;
   align-items: center;
-  padding: var(--spectrum-global-dimension-size-100, 4px) var(--spectrum-global-dimension-size-200, 8px);
+  padding: var(--spectrum-global-dimension-size-100, 4px)
+    var(--spectrum-global-dimension-size-200, 8px);
   padding-inline-start: var(--spectrum-global-dimension-size-300, 24px);
   font-size: var(--spectrum-body-size-s, 13px);
   color: var(--spectrum-global-color-gray-800, #2c2c2c);
@@ -178,7 +177,9 @@
   cursor: grabbing;
 }
 
-.page-outline .page-outline-block:not([draggable="true"]) .page-outline-block-handle {
+.page-outline
+  .page-outline-block:not([draggable="true"])
+  .page-outline-block-handle {
   opacity: 0.5;
   cursor: default;
 }
@@ -227,7 +228,8 @@
 }
 
 .page-outline .page-outline-error {
-  padding: var(--spectrum-global-dimension-size-200, 8px) var(--spectrum-global-dimension-size-250, 10px);
+  padding: var(--spectrum-global-dimension-size-200, 8px)
+    var(--spectrum-global-dimension-size-250, 10px);
   font-size: var(--spectrum-body-size-s, 13px);
   color: var(--spectrum-global-color-red-600, #c00);
   background: var(--spectrum-global-color-red-100, #fee);
