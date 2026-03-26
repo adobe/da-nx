@@ -27,6 +27,25 @@ function normalizeAemPath(path) {
 }
 
 /**
+ * Build canonical live URL for a repo page path.
+ * Input path format: /org/site/path/to/page(.html)
+ * Output format: https://main--site--org.aem.page/path/to/page
+ * @param {string} path
+ * @returns {string | null}
+ */
+function toPublishedUrl(path) {
+  const norm = normalizeAemPath(path);
+  if (!norm) return null;
+  const [org, site, ...parts] = norm.slice(1).split('/').filter(Boolean);
+  if (!org || !site) return null;
+  const pagePath = parts.join('/');
+  const cleanPath = pagePath
+    .replace(/\.html$/i, '')
+    .replace(/\/index$/i, '');
+  return `https://main--${site}--${org}.aem.page/${cleanPath}`.replace(/\/+$/, '');
+}
+
+/**
  * @param {string} path
  * @param {'preview'|'live'} action
  * @param {'POST'|'DELETE'} method
@@ -283,7 +302,15 @@ class DaBulkAemModal extends LitElement {
       ok: row.state === 'ok',
       status: row.state,
       message: row.message,
+      ...(this.mode === 'publish' && row.state === 'ok'
+        ? { publishedUrl: toPublishedUrl(row.path) }
+        : {}),
     }));
+    const publishedUrls = this.mode === 'publish'
+      ? results
+        .filter((r) => r.ok && typeof r.publishedUrl === 'string' && r.publishedUrl)
+        .map((r) => r.publishedUrl)
+      : [];
     const okCount = results.filter((r) => r.ok).length;
     const failCount = results.length - okCount;
     this._postRun = true;
@@ -294,6 +321,7 @@ class DaBulkAemModal extends LitElement {
       okCount,
       failCount,
       results,
+      ...(publishedUrls.length > 0 ? { publishedUrls } : {}),
       message: failCount > 0
         ? `Bulk ${this.mode}: ${okCount} succeeded, ${failCount} failed.`
         : `Bulk ${this.mode}: completed ${okCount} page(s).`,

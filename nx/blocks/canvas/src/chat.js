@@ -277,6 +277,7 @@ class Chat extends LitElement {
       okCount: d.okCount,
       failCount: d.failCount,
       results: d.results,
+      publishedUrls: d.publishedUrls,
       message: d.message,
       kind: d.kind,
     };
