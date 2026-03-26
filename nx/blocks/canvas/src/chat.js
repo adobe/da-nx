@@ -171,6 +171,25 @@ function normalizeBulkPreviewPaths(pages, org, site) {
     });
 }
 
+function parseSkillSuggestion(text) {
+  if (!text.includes('[SKILL_SUGGESTION]')) return null;
+  const idMatch = text.match(/SKILL_ID:\s*([^\n\r]+)/);
+  const contentMatch = text.match(/---SKILL_CONTENT_START---\r?\n([\s\S]*?)\r?\n---SKILL_CONTENT_END---/);
+  if (!idMatch && !contentMatch) return null;
+  return {
+    id: idMatch ? idMatch[1].trim() : 'new-skill',
+    content: contentMatch ? contentMatch[1] : '',
+  };
+}
+
+function stripSkillSuggestionMeta(text) {
+  return text
+    .replace(/\*?\*?\[SKILL_SUGGESTION\]\*?\*?\s*\n?/g, '')
+    .replace(/SKILL_ID:[^\n]*\n?/g, '')
+    .replace(/---SKILL_CONTENT_START---[\s\S]*?---SKILL_CONTENT_END---\n?/g, '')
+    .trim();
+}
+
 /**
  * Chat panel component with real AI agent connection.
  * Self-contained: reads org/repo/path from the URL hash; IMS token via initIms (nx).
@@ -204,6 +223,7 @@ class Chat extends LitElement {
     _newSkillMode: { state: true },
     _newSkillName: { state: true },
     _skillEditorDirty: { state: true },
+    _pendingSuggestionContent: { state: true },
     _activeAgentId: { state: true },
     _daConfig: { state: true },
     _promptCards: { state: true },
@@ -247,6 +267,7 @@ class Chat extends LitElement {
     this._newSkillMode = false;
     this._newSkillName = '';
     this._skillEditorDirty = false;
+    this._pendingSuggestionContent = null;
     this._activeAgentId = null;
     this._daConfig = null;
     this._promptCards = [];
@@ -815,6 +836,7 @@ class Chat extends LitElement {
       this._selectedSkill = id;
       this._newSkillMode = false;
       this._skillEditorDirty = false;
+      this._pendingSuggestionContent = null;
     } else if (this._selectedSkill) {
       const result = await saveSkill(prefix, this._selectedSkill, content);
       if (result.error) return;
@@ -861,7 +883,7 @@ class Chat extends LitElement {
     }
 
     const editorContent = this._newSkillMode
-      ? '# New Skill\n\nDescribe this skill here.\n'
+      ? (this._pendingSuggestionContent ?? '# New Skill\n\nDescribe this skill here.\n')
       : (this._skills[this._selectedSkill] ?? '');
 
     const { org, site } = getContextFromHash();
@@ -902,6 +924,7 @@ class Chat extends LitElement {
               @click=${() => {
                 this._newSkillMode = false;
                 this._skillEditorDirty = false;
+                this._pendingSuggestionContent = null;
                 if (ids.length > 0) [this._selectedSkill] = ids;
               }}>Cancel</sp-button>
           ` : html`
@@ -1339,6 +1362,17 @@ class Chat extends LitElement {
     this.shadowRoot.querySelector('.chat-toolbar-icon-btn[aria-label="Open Tools Quick Editing"]')?.click();
   }
 
+  _openSkillModalWithSuggestion(id, content) {
+    this._newSkillMode = true;
+    this._newSkillName = id;
+    this._pendingSuggestionContent = content;
+    this._skillEditorDirty = true;
+    this._skillsLibraryTab = 'skills';
+    this.updateComplete.then(() => {
+      this.shadowRoot?.querySelector('.chat-toolbar-icon-btn[aria-label="Open Tools Quick Editing"]')?.click();
+    });
+  }
+
   _renderWelcome() {
     const { view } = this._pageContextForAgent();
     const cards = this._promptCards
@@ -1529,14 +1563,25 @@ class Chat extends LitElement {
 
           // Assistant message: either a plain string (text) or an array (tool calls).
           if (typeof message.content === 'string' && message.content) {
-            const isSkillSuggestion = message.content.includes('[SKILL_SUGGESTION]');
-            const displayContent = isSkillSuggestion
-              ? message.content.replace(/\*?\*?\[SKILL_SUGGESTION\]\*?\*?\s*/g, '')
+            const suggestion = parseSkillSuggestion(message.content);
+            const displayContent = suggestion
+              ? stripSkillSuggestionMeta(message.content)
               : message.content;
             const rendered = renderMessageContent(displayContent);
             return html`
               <div class="message-row assistant">
-                <div class="message-bubble ${isSkillSuggestion ? 'skill-suggestion' : ''}">${isSkillSuggestion ? html`<span class="skill-suggestion-badge">Skill Suggestion</span>` : nothing}${rendered}</div>
+                <div class="message-bubble ${suggestion ? 'skill-suggestion' : ''}">${rendered}${suggestion ? html`
+                  <div class="skill-suggestion-card">
+                    <div class="skill-suggestion-card-info">
+                      <span class="skill-suggestion-card-label">Pattern detected</span>
+                      <code class="skill-suggestion-card-id">${suggestion.id}</code>
+                    </div>
+                    <button type="button" class="skill-suggestion-card-btn"
+                      @click=${() => this._openSkillModalWithSuggestion(suggestion.id, suggestion.content)}>
+                      <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 3.75a.75.75 0 0 1 .75.75v4.75h4.75a.75.75 0 0 1 0 1.5h-4.75v4.75a.75.75 0 0 1-1.5 0v-4.75H4.5a.75.75 0 0 1 0-1.5h4.75V4.5a.75.75 0 0 1 .75-.75Z" fill="currentColor"/></svg>
+                      Create Skill
+                    </button>
+                  </div>` : nothing}</div>
               </div>`;
           }
           if (Array.isArray(message.content)) {
@@ -1548,7 +1593,7 @@ class Chat extends LitElement {
         })}
           ${this._streamingText ? html`
             <div class="message-row assistant">
-              <div class="message-bubble ${this._streamingText.includes('[SKILL_SUGGESTION]') ? 'skill-suggestion' : ''}">${this._streamingText.includes('[SKILL_SUGGESTION]') ? html`<span class="skill-suggestion-badge">Skill Suggestion</span>` : nothing}${renderMessageContent(this._streamingText.replace(/\*?\*?\[SKILL_SUGGESTION\]\*?\*?\s*/g, ''))}</div>
+              <div class="message-bubble ${parseSkillSuggestion(this._streamingText) ? 'skill-suggestion' : ''}">${renderMessageContent(stripSkillSuggestionMeta(this._streamingText))}</div>
             </div>` : ''}
         </div>
 

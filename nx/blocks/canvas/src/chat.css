@@ -277,6 +277,61 @@
   vertical-align: middle;
 }
 
+.skill-suggestion-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+  padding: 8px 12px;
+  background: #fff;
+  border: 1.5px solid #f5c518;
+  border-radius: 8px;
+}
+
+.skill-suggestion-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.skill-suggestion-card-label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #7a5700;
+}
+
+.skill-suggestion-card-id {
+  font-size: 12px;
+  font-weight: 600;
+  color: #333;
+  background: #f4f4f4;
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+.skill-suggestion-card-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  background: #1473e6;
+  border: none;
+  border-radius: 16px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+
+.skill-suggestion-card-btn:hover {
+  background: #0d66d0;
+}
+
 /* ── Tool cards (expandable, chip / suggestion style) ───────── */
 
 .tool-card {
