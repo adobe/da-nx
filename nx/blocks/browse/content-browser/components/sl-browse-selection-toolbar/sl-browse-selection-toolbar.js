@@ -40,7 +40,7 @@ export class SlBrowseSelectionToolbar extends LitElement {
   static properties = {
     /** Number of selected rows (drives label and rename visibility). */
     selectedCount: { type: Number, attribute: 'selected-count' },
-    /** When true, show Preview / Publish (host decides, e.g. no folder-only selection + AEM). */
+    /** When true, show Preview / Publish (host enables when AEM save is available). */
     showPublishActions: { type: Boolean, attribute: 'show-publish-actions' },
     publishLoading: { type: Boolean, attribute: 'publish-loading' },
     /** Host exposes rename API. */

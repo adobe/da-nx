@@ -32,6 +32,7 @@ export function readSearchControlValueFromInputEvent(event) {
 /**
  * Debounced search control; forwards typed text as `sl-search-change`.
  * @fires sl-search-change - detail: { value: string }
+ * @fires sl-search-file-contents-change - detail: { value: boolean }
  * @customElement sl-browse-search
  */
 export class SlBrowseSearch extends LitElement {
@@ -40,6 +41,8 @@ export class SlBrowseSearch extends LitElement {
     value: { type: String },
     placeholder: { type: String },
     label: { type: String },
+    /** When true, parent may scan file bodies (slower). Two-way with `sp-switch`. */
+    searchFileContents: { type: Boolean, attribute: 'search-file-contents' },
     /** Delay before emitting after input (ms). */
     debounceMs: { type: Number, attribute: 'debounce-ms' },
   };
@@ -49,6 +52,7 @@ export class SlBrowseSearch extends LitElement {
     this.value = '';
     this.placeholder = 'Search in this folder and below';
     this.label = 'Search';
+    this.searchFileContents = false;
     this.debounceMs = 200;
     /** @type {ReturnType<typeof setTimeout> | null} */
     this._debounceTimerId = null;
@@ -99,6 +103,23 @@ export class SlBrowseSearch extends LitElement {
   }
 
   /**
+   * @param {Event} event - `change` from `sp-switch`.
+   */
+  _onFileContentsChange(event) {
+    const { target } = event;
+    const checked = !!(/** @type {HTMLElement & { checked?: boolean }} */ (target)?.checked);
+    if (this.searchFileContents === checked) return;
+    this.searchFileContents = checked;
+    this.dispatchEvent(
+      new CustomEvent('sl-search-file-contents-change', {
+        detail: { value: checked },
+        bubbles: true,
+        composed: true,
+      }),
+    );
+  }
+
+  /**
    * Debounces input and updates `value` plus {@link emitSearchChangeEvent}.
    * @param {Event} event - Input from `sp-search`.
    */
@@ -125,6 +146,15 @@ export class SlBrowseSearch extends LitElement {
           @input="${this._handleSearchInput}"
           @submit="${this._preventWrappedFormSubmit}"
         ></sp-search>
+        <sp-switch
+          class="sl-search-file-contents"
+          size="m"
+          ?emphasized="${true}"
+          ?checked="${this.searchFileContents}"
+          @change="${this._onFileContentsChange}"
+        >
+          Full-text search
+        </sp-switch>
       </div>
     `;
   }

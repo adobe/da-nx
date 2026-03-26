@@ -3,6 +3,7 @@ import getStyle from 'https://da.live/nx/utils/styles.js';
 // eslint-disable-next-line import/no-unresolved
 import { LitElement, html, createRef, ref } from 'da-lit';
 import { readSearchControlValueFromInputEvent } from '../sl-browse-search/sl-browse-search.js';
+import { browseRenameNameFieldCopy } from '../../lib/content-browser-utils.js';
 
 const style = await getStyle(import.meta.url);
 
@@ -24,6 +25,8 @@ export class SlBrowseRenameDialog extends LitElement {
     error: { type: String },
     /** Initial name when `open` becomes true (from host). */
     value: { type: String },
+    /** List item `ext` (no dot); empty when renaming a folder. */
+    sourceExt: { type: String, attribute: 'source-ext' },
     _draft: { state: true },
   };
 
@@ -33,8 +36,13 @@ export class SlBrowseRenameDialog extends LitElement {
     this.loading = false;
     this.error = '';
     this.value = '';
+    this.sourceExt = '';
     this._draft = '';
     this._textfieldRef = createRef();
+  }
+
+  get _nameFieldCopy() {
+    return browseRenameNameFieldCopy(this.sourceExt);
   }
 
   connectedCallback() {
@@ -109,7 +117,7 @@ export class SlBrowseRenameDialog extends LitElement {
       <sp-dialog-wrapper
         class="sl-browse-rename-dialog"
         size="s"
-        headline="Rename"
+        headline="${this._nameFieldCopy.headline}"
         cancel-label="Cancel"
         confirm-label="OK"
         underlay
@@ -123,7 +131,8 @@ export class SlBrowseRenameDialog extends LitElement {
           <sp-textfield
             ${ref(this._textfieldRef)}
             class="sl-browse-rename-textfield"
-            label="New name"
+            label="${this._nameFieldCopy.label}"
+            placeholder="${this._nameFieldCopy.placeholder}"
             autocomplete="off"
             .value="${this._draft}"
             @input="${this._onInput}"

@@ -191,10 +191,23 @@ function renderAlert(content, variant) {
     </div>`;
 }
 
-// ── Inline markdown: **bold**, `code` ────────────────────────
+// ── Inline markdown: links, **bold**, `code` ─────────────────
+
+function sanitizeHref(rawHref) {
+  const href = String(rawHref || '').trim();
+  if (!href) return '';
+  if (href.startsWith('/')) return href;
+  try {
+    const parsed = new URL(href, window.location.origin);
+    if (parsed.protocol === 'http:' || parsed.protocol === 'https:') return href;
+  } catch {
+    return '';
+  }
+  return '';
+}
 
 function renderInline(text) {
-  const INLINE_RE = /\*\*([\s\S]*?)\*\*|`([^`\n]+)`/g;
+  const INLINE_RE = /\[([^\]]+)\]\(([^)\s]+)\)|\*\*([\s\S]*?)\*\*|`([^`\n]+)`/g;
   const parts = [];
   let last = 0;
   let m;
@@ -202,8 +215,21 @@ function renderInline(text) {
   // eslint-disable-next-line no-cond-assign
   while ((m = INLINE_RE.exec(text))) {
     if (m.index > last) parts.push(text.slice(last, m.index));
-    if (m[1] !== undefined) parts.push(html`<strong>${m[1]}</strong>`);
-    else parts.push(html`<code class="cr-inline-code">${m[2]}</code>`);
+    if (m[1] !== undefined && m[2] !== undefined) {
+      const safeHref = sanitizeHref(m[2]);
+      if (safeHref) {
+        const openInNewTab = /^https?:\/\//.test(safeHref);
+        parts.push(openInNewTab
+          ? html`<a href="${safeHref}" target="_blank" rel="noopener noreferrer">${m[1]}</a>`
+          : html`<a href="${safeHref}">${m[1]}</a>`);
+      } else {
+        parts.push(m[0]);
+      }
+    } else if (m[3] !== undefined) {
+      parts.push(html`<strong>${m[3]}</strong>`);
+    } else {
+      parts.push(html`<code class="cr-inline-code">${m[4]}</code>`);
+    }
     last = m.index + m[0].length;
   }
   if (last < text.length) parts.push(text.slice(last));
@@ -211,15 +237,29 @@ function renderInline(text) {
   return parts;
 }
 
-// ── Text segment: headings, bullet lists, inline formatting ──
+// ── Text segment: headings, lists, inline formatting ─────────
 
 function renderTextSegment(text) {
   const lines = text.split('\n');
   const result = [];
   let i = 0;
+  let lastWasBlock = false;
 
   while (i < lines.length) {
     const line = lines[i];
+
+    // Horizontal rules (--- / *** / ___) — skip entirely
+    if (/^[-*_]{3,}\s*$/.test(line.trim())) {
+      i += 1;
+      continue; // eslint-disable-line no-continue
+    }
+
+    // Blank lines — skip; block elements provide their own spacing via CSS
+    if (line.trim() === '') {
+      i += 1;
+      lastWasBlock = false;
+      continue; // eslint-disable-line no-continue
+    }
 
     // ATX headings: # H1 through #### H4
     const hMatch = line.match(/^(#{1,4})\s+(.+)/);
@@ -227,6 +267,19 @@ function renderTextSegment(text) {
       const level = hMatch[1].length;
       result.push(html`<div class="cr-heading cr-h${level}">${renderInline(hMatch[2])}</div>`);
       i += 1;
+      lastWasBlock = true;
+      continue; // eslint-disable-line no-continue
+    }
+
+    // Numbered list — collect consecutive numbered lines
+    if (/^\s*\d+\.\s+/.test(line)) {
+      const items = [];
+      while (i < lines.length && /^\s*\d+\.\s+/.test(lines[i])) {
+        items.push(lines[i].replace(/^\s*\d+\.\s+/, '').trim());
+        i += 1;
+      }
+      result.push(html`<ol class="cr-md-ol">${items.map((item) => html`<li class="cr-md-ol-item">${renderInline(item)}</li>`)}</ol>`);
+      lastWasBlock = true;
       continue; // eslint-disable-line no-continue
     }
 
@@ -238,11 +291,14 @@ function renderTextSegment(text) {
         i += 1;
       }
       result.push(html`<ul class="cr-md-list">${items.map((item) => html`<li class="cr-md-list-item">${renderInline(item)}</li>`)}</ul>`);
+      lastWasBlock = true;
       continue; // eslint-disable-line no-continue
     }
 
+    // Regular text — add a line break before if previous was a block element
+    if (lastWasBlock && result.length > 0) result.push(html`<br />`);
     result.push(renderInline(line));
-    if (i < lines.length - 1) result.push('\n');
+    lastWasBlock = false;
     i += 1;
   }
 

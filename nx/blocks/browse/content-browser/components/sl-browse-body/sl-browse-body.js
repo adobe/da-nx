@@ -218,71 +218,74 @@ export class SlBrowseBody extends LitElement {
     );
   }
 
+  /** Empty list message (still under the same column headers as data rows). */
+  _emptyBodyTemplate() {
+    const searchMode = this.showRelativePath;
+    const emptyTitle = searchMode ? 'No results' : 'This folder is empty';
+    const emptyHint = searchMode
+      ? 'Nothing matched your search in this folder or its subfolders. Try other words.'
+      : 'Add content with New — documents, sheets, folders, or uploads.';
+    return html`
+      <tr class="sl-browse-empty-row" role="row">
+        <td class="sl-browse-empty-cell" colspan="7" role="gridcell">
+          <div class="sl-browse-empty" role="status" aria-live="polite">
+            <div class="sl-browse-empty-icon-wrap" aria-hidden="true">
+              ${searchMode
+        ? html`<sp-icon-search class="sl-browse-empty-icon" size="l"></sp-icon-search>`
+        : html`<sp-icon-folder class="sl-browse-empty-icon" size="l"></sp-icon-folder>`}
+            </div>
+            <h2 class="sl-browse-empty-title">${emptyTitle}</h2>
+            <p class="sl-browse-empty-hint">${emptyHint}</p>
+          </div>
+        </td>
+      </tr>
+    `;
+  }
+
   /** Table body and optional skeleton rows. */
   render() {
     const folderPathKey = this.currentPathKey;
     const items = this.items || [];
     const showSkeleton = this.initialLoading && items.length === 0;
-    const bodyRowCount = showSkeleton ? SKELETON_ROW_COUNT : items.length;
+    const showEmpty = !showSkeleton && items.length === 0;
+    let bodyRowCount = items.length;
+    if (showSkeleton) bodyRowCount = SKELETON_ROW_COUNT;
+    else if (showEmpty) bodyRowCount = 1;
+    const ariaRowCount = bodyRowCount + 1;
     const selectAllBinding = this._selectAllCheckboxBinding();
+    const tableCardClass = [
+      'sl-table-card',
+      showSkeleton && 'sl-table-card-initial-loading',
+      showEmpty && 'sl-table-card-empty',
+    ].filter(Boolean).join(' ');
 
-    return html`
-      <div class="sl-browse-files-panel">
-        <div class="sl-table-card ${showSkeleton ? 'sl-table-card-initial-loading' : ''}">
-          <div class="sl-table-scroll">
-            <table
-              class="sl-data-table ${this.showRelativePath ? 'sl-data-table-search-paths' : ''}"
-              role="grid"
-              aria-busy="${showSkeleton}"
-              aria-rowcount="${bodyRowCount + 1}"
-            >
-              <thead>
-                <tr>
-                  <th class="sl-col-check" scope="col">
-                    <input
-                      type="checkbox"
-                      class="sl-table-select-all sl-checkbox"
-                      aria-label="Select all"
-                      .checked="${selectAllBinding.checked}"
-                      .indeterminate="${selectAllBinding.indeterminate}"
-                      ?disabled="${showSkeleton}"
-                      @change="${this._onSelectAllChange}"
-                    />
-                  </th>
-                  <th class="sl-col-icon" scope="col"><span class="sl-sr-only">Kind</span></th>
-                  <th class="sl-col-name" scope="col">Name</th>
-                  <th scope="col">Last modified</th>
-                  <th scope="col">Modified by</th>
-                  <th class="sl-col-aem-status" scope="col">Previewed</th>
-                  <th class="sl-col-aem-status" scope="col">Published</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${showSkeleton
-        ? skeletonRowsTemplate()
-        : items.map((item, rowIndex) => {
-          const fullPathKey = itemRowKey(item, folderPathKey);
-          const isFolder = !item.ext;
-          const modified = lastModifiedRelativeCell(itemLastModifiedRaw(item));
-          const modifiedBy = lastModifiedByCell(item);
-          const previewed = aemEnvDeployRelativeCell(
-            item.aemPreviewOk,
-            item.aemPreviewLastModified,
-            isFolder,
-            'preview',
-          );
-          const published = aemEnvDeployRelativeCell(
-            item.aemLiveOk,
-            item.aemLiveLastModified,
-            isFolder,
-            'live',
-          );
-          const rowSelected = this.selectedRows.includes(fullPathKey);
-          const relPath = relativePathKeyFromFolder(fullPathKey, folderPathKey);
-          const nameStr = item.name || '';
-          const rawDisplayName = this.showRelativePath && relPath ? relPath : nameStr;
-          const displayName = displayNameWithoutExtension(rawDisplayName, item);
-          return html`
+    let bodyMain;
+    if (showSkeleton) bodyMain = skeletonRowsTemplate();
+    else if (showEmpty) bodyMain = this._emptyBodyTemplate();
+    else {
+      bodyMain = items.map((item, rowIndex) => {
+        const fullPathKey = itemRowKey(item, folderPathKey);
+        const isFolder = !item.ext;
+        const modified = lastModifiedRelativeCell(itemLastModifiedRaw(item));
+        const modifiedBy = lastModifiedByCell(item);
+        const previewed = aemEnvDeployRelativeCell(
+          item.aemPreviewOk,
+          item.aemPreviewLastModified,
+          isFolder,
+          'preview',
+        );
+        const published = aemEnvDeployRelativeCell(
+          item.aemLiveOk,
+          item.aemLiveLastModified,
+          isFolder,
+          'live',
+        );
+        const rowSelected = this.selectedRows.includes(fullPathKey);
+        const relPath = relativePathKeyFromFolder(fullPathKey, folderPathKey);
+        const nameStr = item.name || '';
+        const rawDisplayName = this.showRelativePath && relPath ? relPath : nameStr;
+        const displayName = displayNameWithoutExtension(rawDisplayName, item);
+        return html`
                         <tr
                           class="sl-data-row ${rowSelected ? 'sl-data-row-selected' : ''}"
                           role="row"
@@ -320,7 +323,42 @@ export class SlBrowseBody extends LitElement {
                           </td>
                         </tr>
                       `;
-        })}
+      });
+    }
+
+    return html`
+      <div class="sl-browse-files-panel">
+        <div class="${tableCardClass}">
+          <div class="sl-table-scroll">
+            <table
+              class="sl-data-table ${this.showRelativePath ? 'sl-data-table-search-paths' : ''}"
+              role="grid"
+              aria-busy="${showSkeleton}"
+              aria-rowcount="${ariaRowCount}"
+            >
+              <thead>
+                <tr>
+                  <th class="sl-col-check" scope="col">
+                    <input
+                      type="checkbox"
+                      class="sl-table-select-all sl-checkbox"
+                      aria-label="Select all"
+                      .checked="${selectAllBinding.checked}"
+                      .indeterminate="${selectAllBinding.indeterminate}"
+                      ?disabled="${showSkeleton || showEmpty}"
+                      @change="${this._onSelectAllChange}"
+                    />
+                  </th>
+                  <th class="sl-col-icon" scope="col"><span class="sl-sr-only">Kind</span></th>
+                  <th class="sl-col-name" scope="col">Name</th>
+                  <th scope="col">Last modified</th>
+                  <th scope="col">Modified by</th>
+                  <th class="sl-col-aem-status" scope="col">Previewed</th>
+                  <th class="sl-col-aem-status" scope="col">Published</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${bodyMain}
               </tbody>
             </table>
           </div>

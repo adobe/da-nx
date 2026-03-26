@@ -17,9 +17,12 @@
   --sl-content-browser-column-padding-block: clamp(0.75rem, 2vw, 1.25rem);
 
   /**
-   * Single header band: search + filters OR selection action bar (same height to avoid body jump).
+   * Primary header band (search or selection toolbar). Matched in both modes to avoid layout jump.
    */
   --sl-cb-control-row-height: 3.5rem;
+
+  /** Kind filter row — matches picker / action-bar control height. */
+  --sl-cb-filter-row-height: 2.75rem;
 
   display: flex;
   flex-direction: column;
@@ -73,28 +76,52 @@
 .sl-content-browser-control-row {
   flex-shrink: 0;
   display: flex;
-  align-items: center;
+  align-items: stretch;
   width: 100%;
   min-width: 0;
-  height: var(--sl-cb-control-row-height);
-  min-height: var(--sl-cb-control-row-height);
-  max-height: var(--sl-cb-control-row-height);
   box-sizing: border-box;
-  overflow: hidden;
+  overflow: visible;
 }
 
-.sl-content-browser-search-filter-row {
+.sl-content-browser-search-filter-stack {
   display: flex;
-  flex-flow: row nowrap;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 0.5rem 1rem;
-  min-width: 0;
+  flex-direction: column;
+  align-items: stretch;
   flex: 1;
   width: 100%;
-  height: 100%;
-  overflow: hidden auto;
+  min-width: 0;
+  flex-shrink: 0;
   box-sizing: border-box;
+
+  /* Reserve full header height so toggling search ↔ selection does not move the table. */
+  min-height: calc(
+    var(--sl-cb-control-row-height) + var(--sl-cb-filter-row-height)
+  );
+}
+
+.sl-content-browser-search-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  min-height: var(--sl-cb-control-row-height);
+  max-height: var(--sl-cb-control-row-height);
+  flex-shrink: 0;
+  box-sizing: border-box;
+  overflow: visible;
+}
+
+.sl-content-browser-action-row {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  min-height: var(--sl-cb-control-row-height);
+  max-height: var(--sl-cb-control-row-height);
+  flex-shrink: 0;
+  box-sizing: border-box;
+  overflow: visible;
 }
 
 /* ~80 characters wide (`ch` ≈ glyph width; caps on narrow rows via 100%). */
@@ -103,7 +130,7 @@
   min-width: 0;
   width: min(80ch, 100%);
   max-width: 100%;
-  max-height: 100%;
+  max-height: var(--sl-cb-control-row-height);
   align-self: center;
 }
 
@@ -113,9 +140,12 @@
   align-items: center;
   gap: 0.35rem;
   justify-content: flex-end;
+  width: 100%;
   min-width: 0;
-  max-height: 100%;
-  margin-inline-start: auto;
+  min-height: var(--sl-cb-filter-row-height);
+  flex-shrink: 0;
+  box-sizing: border-box;
+  overflow: visible;
 }
 
 .sl-content-browser-kind-filter-slot sp-field-label {
@@ -133,8 +163,6 @@
   flex: 1;
   min-width: 0;
   min-height: 0;
-  height: 100%;
-  max-height: 100%;
   display: flex;
   align-items: center;
   box-sizing: border-box;
@@ -144,7 +172,7 @@
   flex: 1;
   min-width: 0;
   min-height: 0;
-  max-height: 100%;
+  max-height: 2.75rem;
   align-self: center;
   box-sizing: border-box;
 }

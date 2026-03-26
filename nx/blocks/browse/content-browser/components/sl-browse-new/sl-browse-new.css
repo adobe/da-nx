@@ -7,14 +7,11 @@
   position: relative;
   z-index: 20;
   font-family: var(--sl-bn-font);
-
-  /* Only the trigger button sizes the row; panels are absolutely positioned. */
   width: fit-content;
   height: fit-content;
 }
 
 .sl-bn-root {
-  position: relative;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -22,22 +19,13 @@
   width: fit-content;
 }
 
+/* Type picker inside `sp-popover` (open only when overlay is open). */
 .sl-bn-menu {
-  display: none;
-  position: absolute;
-  right: 0;
-  top: 100%;
-  margin-top: 4px;
   list-style: none;
-  background: #fff;
-  box-shadow: 0 0 5px 0 #b5b5b5;
-  border-radius: 4px;
+  margin: 0;
   padding: 6px;
-  z-index: 100;
   min-width: 120px;
-}
-
-.sl-bn-root.menu-open .sl-bn-menu {
+  box-sizing: border-box;
   display: grid;
   gap: 6px;
 }
@@ -60,46 +48,36 @@
   background: #efefef;
 }
 
-.sl-bn-panel {
-  display: none;
-  position: absolute;
-  right: 0;
-  top: 100%;
-  margin-top: 6px;
-  flex-direction: column;
-  gap: 10px;
-  padding: 10px;
-  background: #fff;
-  border: 1px solid var(--spectrum-gray-300, #d5d5d5);
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgb(0 0 0 / 8%);
-  min-width: min(20rem, calc(100vw - 2rem));
-  max-width: min(24rem, calc(100vw - 2rem));
-  box-sizing: border-box;
-  z-index: 101;
+.sl-browse-create-dialog {
+  font-family: var(--sl-bn-font);
+  color: var(--spectrum-gray-900, #1a1a1a);
 }
 
-.sl-bn-panel-input,
-.sl-bn-panel-upload {
-  flex-direction: column;
-  gap: 8px;
-}
-
-.sl-bn-root.panel-input .sl-bn-panel-input,
-.sl-bn-root.panel-upload .sl-bn-panel-upload {
+.sl-browse-create-dialog-body {
   display: flex;
-}
-
-.sl-bn-input {
-  border: 3px solid #fff;
-  border-radius: 6px;
-  padding: 6px 8px;
-  font: inherit;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: min(18rem, calc(100vw - 3rem));
   box-sizing: border-box;
-  width: 100%;
 }
 
-.sl-bn-input.sl-bn-input-error,
+/* `sp-dialog[dismissable]` hides `slot="button"`; actions must use `slot="footer"`. */
+.sl-browse-create-dialog-footer {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.sl-browse-create-textfield {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
 .sl-bn-file-label.sl-bn-input-error {
   border-color: #c00 !important;
   background-color: #ffebee;
@@ -121,20 +99,4 @@
 
 .sl-bn-file {
   display: none;
-}
-
-.sl-bn-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 4px;
-}
-
-.sl-bn-input::placeholder {
-  color: var(--spectrum-gray-600, #666);
-}
-
-.sl-bn-input.sl-bn-input-error::placeholder {
-  color: #b42318;
-  opacity: 0.85;
 }

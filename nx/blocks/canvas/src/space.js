@@ -26,6 +26,9 @@ function isHtmlPath(path) {
   return typeof path === 'string' && path.toLowerCase().trim().endsWith('.html');
 }
 
+const VIEW_MODES = new Set(['doc', 'wysiwyg', 'split']);
+const SIDEBAR_TABS = new Set(['files', 'outline', 'metadata', 'history']);
+
 /**
  * POST to AEM admin to preview or publish. Same contract as da-title in da-live.
  * @param {string} path - Full pathname e.g. /org/site/path/to/page
@@ -64,6 +67,29 @@ function getOrgRepoFromHash() {
   return { org: pathSegments[0], repo: pathSegments[1] };
 }
 
+const CHAT_PANEL_SIZE_KEY = 'da-chat-panel-size';
+const WINDOW_LAYOUT_STATE_KEY = 'da-window-layout-state';
+
+function readWindowLayoutState() {
+  try {
+    const raw = localStorage.getItem(WINDOW_LAYOUT_STATE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function writeWindowLayoutState(nextPatch) {
+  try {
+    const current = readWindowLayoutState();
+    localStorage.setItem(WINDOW_LAYOUT_STATE_KEY, JSON.stringify({ ...current, ...nextPatch }));
+  } catch {
+    // Ignore storage errors (private mode/quota).
+  }
+}
+
 class Space extends LitElement {
   static properties = {
     projects: { type: Array },
@@ -89,6 +115,7 @@ class Space extends LitElement {
 
   constructor() {
     super();
+    const persisted = readWindowLayoutState();
     this.projects = [];
     this._selectedPath = '';
     this._orgRepo = null;
@@ -99,11 +126,15 @@ class Space extends LitElement {
     this._chatContextItems = [];
     this._pendingAddSection = null;
     this._pendingAddBlock = null;
-    this._sidebarTab = sessionStorage.getItem('da-nx-sidebar-tab') || 'files';
-    this._viewMode = 'wysiwyg';
-    this._chatOpen = localStorage.getItem('da-nx-chat-open') === 'true';
-    this._detailsOpen = localStorage.getItem('da-nx-details-open') === 'true';
+    this._sidebarTab = persisted.sidebarTab || 'files';
+    this._viewMode = VIEW_MODES.has(persisted.canvasViewMode) ? persisted.canvasViewMode : 'wysiwyg';
+    this._chatOpen = typeof persisted.chatOpen === 'boolean' ? persisted.chatOpen : true;
+    this._detailsOpen = typeof persisted.detailsOpen === 'boolean' ? persisted.detailsOpen : true;
     this._publishLoading = false;
+    this._chatPanelSize = persisted.chatPanelSize || localStorage.getItem(CHAT_PANEL_SIZE_KEY) || '25%';
+    if (SIDEBAR_TABS.has(persisted.sidebarTab)) {
+      this._sidebarTab = persisted.sidebarTab;
+    }
     this._collabUsers = [];
     this._quickEditPort = null;
     this._wysiwygCookieReady = false;
@@ -213,6 +244,18 @@ class Space extends LitElement {
 
   _onChatMessageSent = () => {
     this._chatContextItems = [];
+  };
+
+  _onChatPanelResize = () => {
+    const chatPanel = this.shadowRoot?.querySelector('.space-chat-panel');
+    if (!chatPanel) return;
+    const { width } = chatPanel.getBoundingClientRect();
+    if (width > 0) {
+      const size = `${Math.round(width)}px`;
+      this._chatPanelSize = size;
+      localStorage.setItem(CHAT_PANEL_SIZE_KEY, size);
+      writeWindowLayoutState({ chatPanelSize: size });
+    }
   };
 
   _getRevertSnapshotAemHtml = (toolInput) => {
@@ -452,6 +495,17 @@ class Space extends LitElement {
         this._sidebarTab = 'files';
         sessionStorage.setItem('da-nx-sidebar-tab', 'files');
       }
+    }
+    if (changed.has('_chatOpen')
+      || changed.has('_detailsOpen')
+      || changed.has('_viewMode')
+      || changed.has('_sidebarTab')) {
+      writeWindowLayoutState({
+        chatOpen: this._chatOpen,
+        detailsOpen: this._detailsOpen,
+        canvasViewMode: this._viewMode,
+        sidebarTab: this._sidebarTab,
+      });
     }
     if (changed.has('_orgRepo') || changed.has('_selectedPath')) {
       if (!this._orgRepo || !this._selectedPath) {
@@ -842,10 +896,11 @@ class Space extends LitElement {
           <sp-split-view
             class="split-view split-view-outer"
             resizable
-            primary-size="25%"
+            primary-size="${this._chatPanelSize}"
             primary-min="280"
             secondary-min="400"
             label="Resize chat panel"
+            @change="${this._onChatPanelResize}"
           >
             <da-chat
               class="space-chat-panel"

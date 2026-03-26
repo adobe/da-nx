@@ -57,6 +57,51 @@ const BUILTIN_AGENTS = [
   },
 ];
 
+const BUILTIN_PROMPTS = [
+  {
+    id: 'summarize',
+    category: 'Review',
+    emoji: '📋',
+    title: 'Summarize page',
+    prompt: 'Summarize this page in 3-5 bullet points covering the main topics.',
+  },
+  {
+    id: 'accessibility',
+    category: 'Review',
+    emoji: '♿',
+    title: 'Accessibility check',
+    prompt: 'Check this content for accessibility issues: missing image alt text, poor heading hierarchy, or hard-to-read text.',
+  },
+  {
+    id: 'clarity',
+    category: 'Review',
+    emoji: '✨',
+    title: 'Improve clarity',
+    prompt: 'Improve the clarity and readability of this content. Simplify long or complex sentences without changing the meaning.',
+  },
+  {
+    id: 'headings',
+    category: 'SEO',
+    emoji: '🔤',
+    title: 'Better headings',
+    prompt: 'Suggest better, more SEO-friendly headings for this page. Keep them concise and keyword-rich.',
+  },
+  {
+    id: 'tone',
+    category: 'Style',
+    emoji: '🎯',
+    title: 'Check tone',
+    prompt: 'Review the tone of this content. Make it consistent and ensure it aligns with a professional, approachable brand voice.',
+  },
+  {
+    id: 'cta',
+    category: 'Structure',
+    emoji: '👆',
+    title: 'Add call to action',
+    prompt: 'Write a compelling call-to-action for this page. It should be short, action-oriented, and relevant to the content.',
+  },
+];
+
 const BUILTIN_TOOLS = [
   { id: 'da_list_sources', label: 'List sources', description: 'List files and folders in a DA repo path', group: 'DA Tools' },
   { id: 'da_get_source', label: 'Get source', description: 'Read a source file\'s content', group: 'DA Tools' },
@@ -126,6 +171,25 @@ function normalizeBulkPreviewPaths(pages, org, site) {
     });
 }
 
+function parseSkillSuggestion(text) {
+  if (!text.includes('[SKILL_SUGGESTION]')) return null;
+  const idMatch = text.match(/SKILL_ID:\s*([^\n\r]+)/);
+  const contentMatch = text.match(/---SKILL_CONTENT_START---\r?\n([\s\S]*?)\r?\n---SKILL_CONTENT_END---/);
+  if (!idMatch && !contentMatch) return null;
+  return {
+    id: idMatch ? idMatch[1].trim() : 'new-skill',
+    content: contentMatch ? contentMatch[1] : '',
+  };
+}
+
+function stripSkillSuggestionMeta(text) {
+  return text
+    .replace(/\*?\*?\[SKILL_SUGGESTION\]\*?\*?\s*\n?/g, '')
+    .replace(/SKILL_ID:[^\n]*\n?/g, '')
+    .replace(/---SKILL_CONTENT_START---[\s\S]*?---SKILL_CONTENT_END---\n?/g, '')
+    .trim();
+}
+
 /**
  * Chat panel component with real AI agent connection.
  * Self-contained: reads org/repo/path from the URL hash; IMS token via initIms (nx).
@@ -158,8 +222,11 @@ class Chat extends LitElement {
     _selectedSkill: { state: true },
     _newSkillMode: { state: true },
     _newSkillName: { state: true },
+    _skillEditorDirty: { state: true },
+    _pendingSuggestionContent: { state: true },
     _activeAgentId: { state: true },
     _daConfig: { state: true },
+    _promptCards: { state: true },
     _mcpTools: { state: true },
     _slashMenuOpen: { state: true },
     _slashFilter: { state: true },
@@ -199,8 +266,11 @@ class Chat extends LitElement {
     this._selectedSkill = null;
     this._newSkillMode = false;
     this._newSkillName = '';
+    this._skillEditorDirty = false;
+    this._pendingSuggestionContent = null;
     this._activeAgentId = null;
     this._daConfig = null;
+    this._promptCards = [];
     this._mcpTools = null;
     this._pendingSkillIds = [];
     this._slashMenuOpen = false;
@@ -228,6 +298,7 @@ class Chat extends LitElement {
       okCount: d.okCount,
       failCount: d.failCount,
       results: d.results,
+      publishedUrls: d.publishedUrls,
       message: d.message,
       kind: d.kind,
     };
@@ -521,6 +592,24 @@ class Chat extends LitElement {
     this.dispatchEvent(new CustomEvent('da-chat-message-sent', { bubbles: true }));
   }
 
+  _insertPrompt(prompt) {
+    this._inputValue = prompt;
+    this.updateComplete.then(() => {
+      const input = this.shadowRoot?.querySelector('.chat-input');
+      if (input?.focus) input.focus();
+    });
+  }
+
+  _onSkillEditorInput(e) {
+    const current = e.target?.value ?? '';
+    if (this._newSkillMode) {
+      this._skillEditorDirty = current.trim() !== '';
+    } else {
+      const original = this._selectedSkill ? (this._skills?.[this._selectedSkill] ?? '') : '';
+      this._skillEditorDirty = current !== original;
+    }
+  }
+
   _getFilteredSlashItems() {
     const allItems = [...BUILTIN_TOOLS];
 
@@ -608,22 +697,29 @@ class Chat extends LitElement {
       }, {});
       this._daConfig = cfg;
 
-      // Extract mcp-servers sheet: each row has { key, url }
+      // Extract mcp-servers sheet: each row has { key, url } or { key, value }
       const mcpRows = json?.['mcp-servers']?.data || [];
       const servers = {};
       const rows = [];
       mcpRows.forEach((row) => {
-        if (row.key && row.url) {
-          servers[row.key] = row.url;
-          rows.push(row);
+        const url = row.url || row.value;
+        if (row.key && url) {
+          servers[row.key] = url;
+          rows.push({ ...row, url });
         }
       });
       this._configuredMcpServers = servers;
       this._configuredMcpRows = rows;
 
-      // Extract agents sheet: each row has { key, url }
+      // Extract agents sheet: each row has { key, url } or { key, value }
       const agentRows = json?.agents?.data || [];
-      this._configuredAgentRows = agentRows.filter((r) => r.key && r.url);
+      this._configuredAgentRows = agentRows
+        .filter((r) => r.key && (r.url || r.value))
+        .map((r) => ({ ...r, url: r.url || r.value }));
+
+      // Extract prompts sheet
+      this._promptCards = (json?.prompts?.data || [])
+        .filter((r) => r.title && r.prompt);
 
       return cfg;
     } catch {
@@ -713,10 +809,12 @@ class Chat extends LitElement {
       this._newSkillMode = true;
       this._selectedSkill = null;
       this._newSkillName = '';
+      this._skillEditorDirty = false;
       return;
     }
     this._newSkillMode = false;
     this._selectedSkill = value;
+    this._skillEditorDirty = false;
   }
 
   _onNewSkillNameInput(e) {
@@ -737,10 +835,13 @@ class Chat extends LitElement {
       this._skills = { ...this._skills, [id]: content };
       this._selectedSkill = id;
       this._newSkillMode = false;
+      this._skillEditorDirty = false;
+      this._pendingSuggestionContent = null;
     } else if (this._selectedSkill) {
       const result = await saveSkill(prefix, this._selectedSkill, content);
       if (result.error) return;
       this._skills = { ...this._skills, [this._selectedSkill]: content };
+      this._skillEditorDirty = false;
     }
   }
 
@@ -782,7 +883,7 @@ class Chat extends LitElement {
     }
 
     const editorContent = this._newSkillMode
-      ? '# New Skill\n\nDescribe this skill here.\n'
+      ? (this._pendingSuggestionContent ?? '# New Skill\n\nDescribe this skill here.\n')
       : (this._skills[this._selectedSkill] ?? '');
 
     const { org, site } = getContextFromHash();
@@ -795,34 +896,45 @@ class Chat extends LitElement {
             ${ids.map((id) => html`
               <option value="${id}" ?selected=${id === this._selectedSkill}>${id}</option>
             `)}
-            <option value="__new__" ?selected=${this._newSkillMode}>+ New skill</option>
           </select>
+          <button type="button" class="skill-tb-btn skill-tb-add" title="Create new skill" aria-label="Create new skill"
+            @click=${() => { this._newSkillMode = true; this._newSkillName = ''; }}>
+            <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 3.75a.75.75 0 0 1 .75.75v4.75h4.75a.75.75 0 0 1 0 1.5h-4.75v4.75a.75.75 0 0 1-1.5 0v-4.75H4.5a.75.75 0 0 1 0-1.5h4.75V4.5a.75.75 0 0 1 .75-.75Z" fill="currentColor"/></svg>
+          </button>
           <sp-action-button size="s" quiet title="Refresh skills list" aria-label="Refresh skills list" @click=${() => this._refreshSkills()}>
             <svg slot="icon" width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M17.65 6.35a8 8 0 0 0-14.3 1.4M2.35 13.65a8 8 0 0 0 14.3-1.4M1 4v4h4M19 16v-4h-4" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </sp-action-button>
         </div>
         ${this._newSkillMode ? html`
           <div class="skills-new-row">
-            <sp-textfield
+            <input
+              type="text"
               class="skills-new-name"
-              placeholder="skill-name"
-              size="s"
-              label="New skill ID"
+              placeholder="skill-name (e.g. check-tone)"
               .value=${this._newSkillName}
               @input=${this._onNewSkillNameInput}
-            ></sp-textfield>
+              aria-label="New skill ID"
+            />
           </div>
         ` : nothing}
-        <textarea class="skill-editor-textarea" .value=${editorContent} aria-label="Skill content editor"></textarea>
+        <textarea class="skill-editor-textarea" .value=${editorContent} aria-label="Skill content editor" @input=${this._onSkillEditorInput}></textarea>
         <div class="skills-actions">
           ${this._newSkillMode ? html`
-            <sp-button variant="secondary" size="s" title="Cancel new skill" aria-label="Cancel new skill" @click=${() => { this._newSkillMode = false; if (ids.length > 0) [this._selectedSkill] = ids; }}>Cancel</sp-button>
+            <sp-button variant="secondary" size="s" title="Cancel new skill" aria-label="Cancel new skill"
+              @click=${() => {
+                this._newSkillMode = false;
+                this._skillEditorDirty = false;
+                this._pendingSuggestionContent = null;
+                if (ids.length > 0) [this._selectedSkill] = ids;
+              }}>Cancel</sp-button>
           ` : html`
             <button type="button" class="skill-tb-btn skill-tb-delete" title="Delete this skill" aria-label="Delete this skill" @click=${this._deleteCurrentSkill}>
               <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M8.25 15.02a.75.75 0 0 1-.75-.72l-.25-6.5a.75.75 0 0 1 1.5-.06l.25 6.5a.75.75 0 0 1-.72.78Zm3.5 0a.75.75 0 0 1-.72-.78l.25-6.5a.75.75 0 0 1 1.5.06l-.25 6.5a.75.75 0 0 1-.78.72ZM17 4h-3.5v-.75A2.25 2.25 0 0 0 11.25 1h-2.5A2.25 2.25 0 0 0 6.5 3.25V4H3a.75.75 0 0 0 0 1.5h.52l.42 10.34A2.25 2.25 0 0 0 6.19 18h7.62a2.25 2.25 0 0 0 2.25-2.16L16.48 5.5H17a.75.75 0 0 0 0-1.5ZM8 3.25A.75.75 0 0 1 8.75 2.5h2.5a.75.75 0 0 1 .75.75V4H8V3.25Zm6.56 12.53a.75.75 0 0 1-.75.72H6.19a.75.75 0 0 1-.75-.72L5.02 5.5h9.96l-.42 10.28Z" fill="currentColor"/></svg>
             </button>
           `}
-          <button type="button" class="skill-tb-btn skill-tb-save" title="Save skill" aria-label="Save skill" @click=${this._saveCurrentSkill}>
+          <button type="button" class="skill-tb-btn skill-tb-save" title="Save skill" aria-label="Save skill"
+            ?disabled=${this._newSkillMode ? !this._newSkillName.trim() : !this._skillEditorDirty}
+            @click=${this._saveCurrentSkill}>
             <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M17.41 4.1 15.9 2.59A1.75 1.75 0 0 0 14.48 2H4.25A2.25 2.25 0 0 0 2 4.25v11.5A2.25 2.25 0 0 0 4.25 18h11.5A2.25 2.25 0 0 0 18 15.75V5.52c0-.53-.21-1.04-.59-1.42ZM7.75 3.5h4.5v3h-4.5v-3Zm5.5 13H6.75V12h6.5v4.5Zm3.25-1.75a.75.75 0 0 1-.75.75h-1V12a1.75 1.75 0 0 0-1.75-1.75h-6.5A1.75 1.75 0 0 0 5.25 12v4.5h-1a.75.75 0 0 1-.75-.75V4.25a.75.75 0 0 1 .75-.75h2v3A1.75 1.75 0 0 0 7.75 8h4.5a1.75 1.75 0 0 0 1.75-1.75v-3h.48a.25.25 0 0 1 .18.07l1.52 1.52a.25.25 0 0 1 .07.18v11.23Z" fill="currentColor"/></svg>
           </button>
         </div>
@@ -845,22 +957,15 @@ class Chat extends LitElement {
   }
 
   _renderBuiltinAgentCard(agent) {
-    const isActive = this._activeAgentId === agent.id;
     return html`
-      <div class="builtin-agent-card ${isActive ? 'active' : ''}">
+      <div class="builtin-agent-card">
         <div class="builtin-agent-header">
           <div class="builtin-agent-info">
             <span class="builtin-agent-name">${agent.name}</span>
             <span class="builtin-agent-desc">${agent.description}</span>
           </div>
           <div class="builtin-agent-actions">
-            <span class="mcp-server-status ok">built-in</span>
-            <sp-button variant="${isActive ? 'secondary' : 'primary'}" size="s"
-              title="${isActive ? 'Deactivate' : 'Activate'} ${agent.name}"
-              aria-label="${isActive ? 'Deactivate' : 'Activate'} ${agent.name}"
-              @click=${() => this._activateAgent(isActive ? null : agent.id)}>
-              ${isActive ? 'Active' : 'Activate'}
-            </sp-button>
+            <span class="mcp-server-status ok">always active</span>
           </div>
         </div>
         ${agent.mcpServers?.length ? html`
@@ -1253,27 +1358,48 @@ class Chat extends LitElement {
     `;
   }
 
+  _openPromptsLibrary() {
+    this.shadowRoot.querySelector('.chat-toolbar-icon-btn[aria-label="Open Tools Quick Editing"]')?.click();
+  }
+
+  _openSkillModalWithSuggestion(id, content) {
+    this._newSkillMode = true;
+    this._newSkillName = id;
+    this._pendingSuggestionContent = content;
+    this._skillEditorDirty = true;
+    this._skillsLibraryTab = 'skills';
+    this.updateComplete.then(() => {
+      this.shadowRoot?.querySelector('.chat-toolbar-icon-btn[aria-label="Open Tools Quick Editing"]')?.click();
+    });
+  }
+
   _renderWelcome() {
-    const prompts = [
-      'Summarize this page',
-      'Suggest better headings',
-      'Improve clarity and tone',
-      'Find accessibility issues',
-    ];
+    const { view } = this._pageContextForAgent();
+    const cards = this._promptCards
+      .filter((c) => c.area === view || c.area === 'all')
+      .slice(0, 3);
+
+    const firstName = imsInitial?.first_name ?? imsInitial?.displayName?.split(' ')[0];
+    const title = firstName ? `Welcome, ${firstName}` : 'Start a conversation';
 
     return html`
       <div class="chat-empty-state">
-        <div class="chat-empty-title">Start a conversation</div>
+        <h2 class="chat-empty-title">${title}</h2>
         <div class="chat-empty-actions">
-          ${prompts.map((prompt) => html`
+          ${cards.map((card) => html`
             <button
-              class="chat-welcome-btn"
+              class="prompt-card"
               ?disabled=${this._isThinking || !this._connected}
-              @click=${() => this._sendPrompt(prompt)}
+              @click=${() => this._sendPrompt(card.prompt)}
             >
-              ${prompt}
+              <div class="prompt-card-header">
+                <img class="prompt-card-icon" src="${card.icon || `${nxBase}/img/icons/aichat.svg`}" alt="" aria-hidden="true" />
+                <span class="prompt-card-title">${card.title}</span>
+              </div>
+              <div class="mcp-server-desc">${card.description}</div>
             </button>
           `)}
+          <button class="prompt-more-link" @click=${this._openPromptsLibrary}>More prompts</button>
         </div>
       </div>
     `;
@@ -1288,7 +1414,7 @@ class Chat extends LitElement {
   _renderSkillsButton() {
     return html`
       <overlay-trigger type="modal" triggered-by="click" @sp-opened=${this._onSkillsModalOpen}>
-        <sp-dialog-wrapper slot="click-content" headline="Skills Quick Editing" dismissable underlay>
+        <sp-dialog-wrapper slot="click-content" headline="Tools Quick Editing" dismissable underlay>
           <div class="chat-skills-modal-body">
             <sp-sidenav
               class="chat-skills-sidenav"
@@ -1296,6 +1422,7 @@ class Chat extends LitElement {
               @change="${this._onSkillsNavChange}"
             >
               <sp-sidenav-item value="skills" label="Skills" ?selected="${this._skillsLibraryTab === 'skills'}"></sp-sidenav-item>
+              <sp-sidenav-item value="prompts" label="Prompts" ?selected="${this._skillsLibraryTab === 'prompts'}"></sp-sidenav-item>
               <sp-sidenav-item value="mcp" label="MCP" ?selected="${this._skillsLibraryTab === 'mcp'}"></sp-sidenav-item>
               <sp-sidenav-item value="agents" label="Agents" ?selected="${this._skillsLibraryTab === 'agents'}"></sp-sidenav-item>
             </sp-sidenav>
@@ -1308,8 +1435,8 @@ class Chat extends LitElement {
           type="button"
           slot="trigger"
           class="chat-toolbar-icon-btn"
-          title="Skills Quick Editing"
-          aria-label="Open Skills Quick Editing"
+          title="Tools Quick Editing"
+          aria-label="Open Tools Quick Editing"
           ?disabled=${this._isThinking || this._isAwaitingApproval || this._isAwaitingClientTool || !this._connected}
         >
           <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -1353,10 +1480,43 @@ class Chat extends LitElement {
   _renderActiveTab() {
     switch (this._skillsLibraryTab) {
       case 'skills': return this._renderSkillsContent();
+      case 'prompts': return this._renderPromptsContent();
       case 'mcp': return this._renderMcpContent();
       case 'agents': return this._renderAgentsContent();
       default: return nothing;
     }
+  }
+
+  _renderPromptsContent() {
+    const canSend = !this._isThinking && !this._isAwaitingApproval
+      && !this._isAwaitingClientTool && this._connected;
+    return html`
+      <div class="prompts-panel">
+        <p class="prompts-intro">Click <strong>Add to chat</strong> to edit before sending, or <strong>Send</strong> to run immediately.</p>
+        <div class="prompts-grid">
+          ${BUILTIN_PROMPTS.map((p) => html`
+            <div class="prompts-lib-card">
+              <div class="prompts-lib-card-top">
+                <span class="prompts-lib-card-emoji">${p.emoji}</span>
+                <span class="prompts-lib-card-category">${p.category}</span>
+              </div>
+              <div class="prompts-lib-card-title">${p.title}</div>
+              <div class="prompts-lib-card-prompt">${p.prompt}</div>
+              <div class="prompts-lib-card-actions">
+                <button type="button" class="prompts-lib-add-btn" title="Add to chat input" @click=${() => this._insertPrompt(p.prompt)}>
+                  <svg width="13" height="13" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M17.41 4.1 15.9 2.59A1.75 1.75 0 0 0 14.48 2H4.25A2.25 2.25 0 0 0 2 4.25v11.5A2.25 2.25 0 0 0 4.25 18h11.5A2.25 2.25 0 0 0 18 15.75V5.52c0-.53-.21-1.04-.59-1.42ZM7.75 3.5h4.5v3h-4.5v-3Zm5.5 13H6.75V12h6.5v4.5Zm3.25-1.75a.75.75 0 0 1-.75.75h-1V12a1.75 1.75 0 0 0-1.75-1.75h-6.5A1.75 1.75 0 0 0 5.25 12v4.5h-1a.75.75 0 0 1-.75-.75V4.25a.75.75 0 0 1 .75-.75h2v3A1.75 1.75 0 0 0 7.75 8h4.5a1.75 1.75 0 0 0 1.75-1.75v-3h.48a.25.25 0 0 1 .18.07l1.52 1.52a.25.25 0 0 1 .07.18v11.23Z" fill="currentColor"/></svg>
+                  Add to chat
+                </button>
+                <button type="button" class="prompts-lib-send-btn" title="Send immediately" ?disabled=${!canSend} @click=${() => this._sendPrompt(p.prompt)}>
+                  <svg width="13" height="13" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M18.6485 9.9735C18.6482 9.67899 18.4769 9.41106 18.2059 9.29056L4.05752 2.93282C3.80133 2.8175 3.50129 2.85583 3.28171 3.03122C3.06178 3.20765 2.95889 3.49146 3.01516 3.76733L4.28678 10.008L3.06488 16.2384C3.0162 16.4852 3.09492 16.738 3.27031 16.9134C3.29068 16.9337 3.31278 16.9531 3.33522 16.9714C3.55619 17.1454 3.85519 17.182 4.11069 17.066L18.2086 10.6578C18.4773 10.5356 18.6489 10.268 18.6485 9.9735Z" fill="currentColor"/></svg>
+                  Send
+                </button>
+              </div>
+            </div>
+          `)}
+        </div>
+      </div>
+    `;
   }
 
   render() {
@@ -1403,14 +1563,25 @@ class Chat extends LitElement {
 
           // Assistant message: either a plain string (text) or an array (tool calls).
           if (typeof message.content === 'string' && message.content) {
-            const isSkillSuggestion = message.content.includes('[SKILL_SUGGESTION]');
-            const displayContent = isSkillSuggestion
-              ? message.content.replace(/\*?\*?\[SKILL_SUGGESTION\]\*?\*?\s*/g, '')
+            const suggestion = parseSkillSuggestion(message.content);
+            const displayContent = suggestion
+              ? stripSkillSuggestionMeta(message.content)
               : message.content;
             const rendered = renderMessageContent(displayContent);
             return html`
               <div class="message-row assistant">
-                <div class="message-bubble ${isSkillSuggestion ? 'skill-suggestion' : ''}">${isSkillSuggestion ? html`<span class="skill-suggestion-badge">Skill Suggestion</span>` : nothing}${rendered}</div>
+                <div class="message-bubble ${suggestion ? 'skill-suggestion' : ''}">${rendered}${suggestion ? html`
+                  <div class="skill-suggestion-card">
+                    <div class="skill-suggestion-card-info">
+                      <span class="skill-suggestion-card-label">Pattern detected</span>
+                      <code class="skill-suggestion-card-id">${suggestion.id}</code>
+                    </div>
+                    <button type="button" class="skill-suggestion-card-btn"
+                      @click=${() => this._openSkillModalWithSuggestion(suggestion.id, suggestion.content)}>
+                      <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 3.75a.75.75 0 0 1 .75.75v4.75h4.75a.75.75 0 0 1 0 1.5h-4.75v4.75a.75.75 0 0 1-1.5 0v-4.75H4.5a.75.75 0 0 1 0-1.5h4.75V4.5a.75.75 0 0 1 .75-.75Z" fill="currentColor"/></svg>
+                      Create Skill
+                    </button>
+                  </div>` : nothing}</div>
               </div>`;
           }
           if (Array.isArray(message.content)) {
@@ -1422,7 +1593,7 @@ class Chat extends LitElement {
         })}
           ${this._streamingText ? html`
             <div class="message-row assistant">
-              <div class="message-bubble ${this._streamingText.includes('[SKILL_SUGGESTION]') ? 'skill-suggestion' : ''}">${this._streamingText.includes('[SKILL_SUGGESTION]') ? html`<span class="skill-suggestion-badge">Skill Suggestion</span>` : nothing}${renderMessageContent(this._streamingText.replace(/\*?\*?\[SKILL_SUGGESTION\]\*?\*?\s*/g, ''))}</div>
+              <div class="message-bubble ${parseSkillSuggestion(this._streamingText) ? 'skill-suggestion' : ''}">${renderMessageContent(stripSkillSuggestionMeta(this._streamingText))}</div>
             </div>` : ''}
         </div>
 
