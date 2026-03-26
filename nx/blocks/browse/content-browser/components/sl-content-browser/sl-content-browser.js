@@ -10,11 +10,12 @@ import {
   SL_CONTENT_BROWSER_CHAT_CONTEXT,
   SL_CONTENT_BROWSER_LIST_PERMISSIONS,
   buildBrowseChatContextItems,
+  mergeBrowseChatContextItems,
   buildCanvasEditHref,
   buildDeleteDialogContent,
   createBrowseActions,
   dispatchBulkAemOpen,
-  getAemPathsForSelection,
+  resolveBulkAemPathsExpandingFolders,
   resolveCanvasEditPathKey,
   resolveDeleteTargets,
 } from '../../lib/content-browser-actions.js';
@@ -146,6 +147,11 @@ class SlContentBrowser extends LitElement {
     _typeFilter: { state: true },
     _formatFilter: { state: true },
     _selectedRows: { state: true },
+    /**
+     * Folder path opened via row click (before sync clears selection). Fed into chat context on
+     * `sl-browse-folder-sync-start` together with the pre-clear selection.
+     */
+    _pendingOpenedFolderPathKey: { state: true },
     _publishLoading: { state: true },
     _deleteLoading: { state: true },
     _renameLoading: { state: true },
@@ -189,6 +195,7 @@ class SlContentBrowser extends LitElement {
     this._typeFilter = 'all';
     this._formatFilter = 'all';
     this._selectedRows = [];
+    this._pendingOpenedFolderPathKey = null;
     this._publishLoading = false;
     this._deleteLoading = false;
     this._renameLoading = false;
@@ -269,14 +276,6 @@ class SlContentBrowser extends LitElement {
     const pathKey = this._selectedRows[0];
     const item = findItemByRowKey(pathKey, this._itemsForRowLookup, this._currentPathKey);
     return item && (item.ext === 'html' || (item.name || '').toLowerCase().endsWith('.html'));
-  }
-
-  get _hasFolderSelected() {
-    const pathKey = this._currentPathKey;
-    return this._selectedRows.some((pathValue) => {
-      const item = findItemByRowKey(pathValue, this._itemsForRowLookup, pathKey);
-      return item && !item.ext;
-    });
   }
 
   _boundHash = () => {
@@ -511,8 +510,15 @@ class SlContentBrowser extends LitElement {
   _onFolderSyncStart() {
     this._closeRenameDialogIfOpen();
     this._closeDeleteDialogIfOpen();
+    const prevSelected = [...this._selectedRows];
+    const openedFolderKey = this._pendingOpenedFolderPathKey;
+    this._pendingOpenedFolderPathKey = null;
     this._selectedRows = [];
-    this._emitChatContextFromSelection();
+    if (openedFolderKey) {
+      this._emitBrowseChatContextFromRows(prevSelected, openedFolderKey);
+    } else {
+      this._emitChatContextFromSelection();
+    }
   }
 
   /**
@@ -569,7 +575,11 @@ class SlContentBrowser extends LitElement {
 
   _onOpenFolder(event) {
     const pathKey = event.detail?.pathKey;
-    if (pathKey) this._emitNavigate(pathKey);
+    if (!pathKey) return;
+    const norm = String(pathKey).replace(/^\/+/, '').trim();
+    const rowItem = findItemByRowKey(norm, this._itemsForRowLookup, this._currentPathKey);
+    this._pendingOpenedFolderPathKey = rowItem && !rowItem.ext ? norm : null;
+    this._emitNavigate(pathKey);
   }
 
   _onSearchChange(event) {
@@ -601,15 +611,20 @@ class SlContentBrowser extends LitElement {
   }
 
   /**
-   * Maps the current file selection to `da-chat` footer pills (same contract as canvas
-   * `onPageContextItems`). Dispatches `sl-content-browser-chat-context` upward.
+   * Maps the current selection (files and folders) to `da-chat` footer pills (same contract as
+   * canvas `onPageContextItems`). Dispatches `sl-content-browser-chat-context` upward.
+   *
+   * @param {string[]} selectedRows - Row keys before any sync-time reset.
+   * @param {string | null} extraOpenedFolderPathKey - Normalized path key from folder row open.
    */
-  _emitChatContextFromSelection() {
-    const items = buildBrowseChatContextItems(
-      this._selectedRows,
-      this._itemsForRowLookup,
-      this._currentPathKey,
-    );
+  _emitBrowseChatContextFromRows(selectedRows, extraOpenedFolderPathKey) {
+    const folderPathKey = this._currentPathKey;
+    const pool = this._itemsForRowLookup;
+    let items = buildBrowseChatContextItems(selectedRows, pool, folderPathKey);
+    if (extraOpenedFolderPathKey) {
+      const extra = buildBrowseChatContextItems([extraOpenedFolderPathKey], pool, folderPathKey);
+      items = mergeBrowseChatContextItems(items, extra);
+    }
     this.dispatchEvent(
       new CustomEvent(SL_CONTENT_BROWSER_CHAT_CONTEXT, {
         bubbles: true,
@@ -617,6 +632,10 @@ class SlContentBrowser extends LitElement {
         detail: { items },
       }),
     );
+  }
+
+  _emitChatContextFromSelection() {
+    this._emitBrowseChatContextFromRows(this._selectedRows, null);
   }
 
   /**
@@ -643,7 +662,7 @@ class SlContentBrowser extends LitElement {
     return html`
       <sl-browse-selection-toolbar
         .selectedCount="${this._selectedRows.length}"
-        ?show-publish-actions="${!this._hasFolderSelected && !!this.saveToAem}"
+        ?show-publish-actions="${!!this.saveToAem}"
         ?publish-loading="${this._publishLoading}"
         ?rename-enabled="${!!this.renameItem}"
         ?rename-loading="${this._renameLoading}"
@@ -691,26 +710,42 @@ class SlContentBrowser extends LitElement {
     `;
   }
 
-  _onPreview(event) {
+  /**
+   * @param {CustomEvent} event
+   * @param {'preview'|'publish'} mode
+   */
+  async _onBulkAemPreviewOrPublish(event, mode) {
     if (!this.saveToAem) return;
-    const paths = getAemPathsForSelection(event.detail?.pathKey, {
+    const pathKeyFromEvent = event.detail?.pathKey;
+    const ctx = {
       selectedRows: this._selectedRows,
       items: this._itemsForRowLookup,
       folderPathKey: this._currentPathKey,
-    });
-    if (paths.length === 0) return;
-    dispatchBulkAemOpen(paths, 'preview');
+    };
+    if (!pathKeyFromEvent && ctx.selectedRows.length === 0) return;
+
+    this._publishLoading = true;
+    try {
+      const paths = await resolveBulkAemPathsExpandingFolders(pathKeyFromEvent, ctx);
+      if (paths.length === 0) {
+        const msg = mode === 'publish'
+          ? 'No files found to publish.'
+          : 'No files found to preview.';
+        this._showToast(msg, 'info');
+        return;
+      }
+      dispatchBulkAemOpen(paths, mode);
+    } finally {
+      this._publishLoading = false;
+    }
+  }
+
+  _onPreview(event) {
+    return this._onBulkAemPreviewOrPublish(event, 'preview');
   }
 
   _onPublish(event) {
-    if (!this.saveToAem) return;
-    const paths = getAemPathsForSelection(event.detail?.pathKey, {
-      selectedRows: this._selectedRows,
-      items: this._itemsForRowLookup,
-      folderPathKey: this._currentPathKey,
-    });
-    if (paths.length === 0) return;
-    dispatchBulkAemOpen(paths, 'publish');
+    return this._onBulkAemPreviewOrPublish(event, 'publish');
   }
 
   _onEdit(event) {
