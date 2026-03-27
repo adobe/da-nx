@@ -164,6 +164,7 @@ class Chat extends LitElement {
     _toolCards: { state: true },
     _streamingText: { state: true },
     _inputValue: { state: true },
+    _isRecording: { state: true },
     _isThinking: { state: true },
     _isAwaitingApproval: { state: true },
     _isAwaitingClientTool: { state: true },
@@ -208,6 +209,9 @@ class Chat extends LitElement {
     this._connected = false;
     this._messages = [];
     this._inputValue = '';
+    this._isRecording = false;
+    this._recognition = null;
+    this._recordingAutoSubmitTimer = null;
     this._isThinking = false;
     this._isAwaitingApproval = false;
     this._isAwaitingClientTool = false;
@@ -492,6 +496,48 @@ class Chat extends LitElement {
       e.preventDefault();
       this._sendMessage();
     }
+  }
+
+  _toggleRecording() {
+    if (this._isRecording) {
+      this._recognition?.stop();
+      return;
+    }
+    // eslint-disable-next-line no-undef
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
+
+    this._recognition = new SpeechRecognition();
+    this._recognition.continuous = true;
+    this._recognition.interimResults = true;
+    this._recognition.lang = navigator.language || navigator.languages?.[0] || document.documentElement.lang || 'en-US';
+
+    this._recognition.onstart = () => { this._isRecording = true; };
+    this._recognition.onresult = (e) => {
+      let transcript = '';
+      for (let i = 0; i < e.results.length; i += 1) {
+        transcript += e.results[i][0].transcript;
+      }
+      this._inputValue = transcript;
+      // sp-textfield needs the native input updated directly
+      const native = this.shadowRoot?.querySelector('.chat-input')?.shadowRoot?.querySelector('input,textarea');
+      if (native) {
+        native.value = transcript;
+        native.dispatchEvent(new Event('input', { bubbles: true }));
+      }
+      // Reset auto-submit timer on each result
+      clearTimeout(this._recordingAutoSubmitTimer);
+      this._recordingAutoSubmitTimer = setTimeout(() => {
+        this._recognition?.stop();
+        if (this._inputValue.trim()) this._sendMessage();
+      }, 2000);
+    };
+    this._recognition.onerror = () => { this._isRecording = false; };
+    this._recognition.onend = () => {
+      this._isRecording = false;
+      clearTimeout(this._recordingAutoSubmitTimer);
+    };
+    this._recognition.start();
   }
 
   _sendMessage() {
@@ -1627,6 +1673,17 @@ class Chat extends LitElement {
             >
               <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M6.5 10.75V6.5a3.5 3.5 0 1 1 7 0v6.75a5 5 0 0 1-10 0V5.75a.75.75 0 0 1 1.5 0v7.5a3.5 3.5 0 0 0 7 0V6.5a2 2 0 1 0-4 0v4.25a.75.75 0 0 0 1.5 0V7a.75.75 0 0 1 1.5 0v3.75a2.25 2.25 0 0 1-4.5 0Z" fill="currentColor"/></svg>
             </button>
+            ${(window.SpeechRecognition || window.webkitSpeechRecognition) ? html`
+            <button
+              type="button"
+              class="chat-toolbar-icon-btn ${this._isRecording ? 'recording' : ''}"
+              title="${this._isRecording ? 'Stop recording' : 'Voice input'}"
+              aria-label="${this._isRecording ? 'Stop recording' : 'Start voice input'}"
+              ?disabled=${this._isThinking || this._isAwaitingApproval || this._isAwaitingClientTool || !this._connected}
+              @click=${this._toggleRecording}
+            >
+              <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 1a3.5 3.5 0 0 0-3.5 3.5v6a3.5 3.5 0 0 0 7 0v-6A3.5 3.5 0 0 0 10 1Zm-2 3.5a2 2 0 0 1 4 0v6a2 2 0 0 1-4 0v-6ZM5.25 9a.75.75 0 0 1 .75.75 4 4 0 0 0 8 0 .75.75 0 0 1 1.5 0 5.5 5.5 0 0 1-4.75 5.45V17h2a.75.75 0 0 1 0 1.5h-5.5a.75.75 0 0 1 0-1.5h2v-1.8A5.5 5.5 0 0 1 4.5 9.75.75.75 0 0 1 5.25 9Z" fill="currentColor"/></svg>
+            </button>` : ''}
           </div>
           <sp-textfield
             class="chat-input"
