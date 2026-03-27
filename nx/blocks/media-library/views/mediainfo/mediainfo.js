@@ -34,7 +34,7 @@ import { Domains, MediaType } from '../../core/constants.js';
 import { t } from '../../core/messages.js';
 
 const styles = await getStyle(import.meta.url);
-const iconsBase = new URL('../../icons/', import.meta.url).href;
+const iconsBase = new URL('../../../../img/icons/', import.meta.url).href;
 
 const ICONS = [
   `${iconsBase}S2_Icon_PDF_20_N.svg`,

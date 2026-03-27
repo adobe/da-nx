@@ -1,5 +1,5 @@
-import { html, LitElement } from '../../deps/lit/dist/index.js';
-import { virtualize, grid } from '../../deps/virtualizer/dist/index.js';
+import { html, LitElement } from '../../../../deps/ml-lit/dist/index.js';
+import { virtualize, grid } from '../../../../deps/virtualizer/dist/index.js';
 import getStyle from '../../../../utils/styles.js';
 import getSvg from '../../../../public/utils/svg.js';
 import {
@@ -32,7 +32,7 @@ const styles = await getStyle(import.meta.url);
 const nx = `${new URL(import.meta.url).origin}/nx`;
 const sl = await getStyle(`${nx}/public/sl/styles.css`);
 const slComponents = await getStyle(`${nx}/public/sl/components.css`);
-const iconsBase = new URL('../../icons/', import.meta.url).href;
+const iconsBase = new URL('../../../../img/icons/', import.meta.url).href;
 
 const ICONS = [
   `${iconsBase}Smock_Copy_18_N.svg`,

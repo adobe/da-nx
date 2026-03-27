@@ -141,7 +141,7 @@ nx-media-scan {
   font-weight: 700;
   margin: 0;
   padding: 12px 16px 12px 40px;
-  background: transparent url("./assets/icons/Smock_InfoOutline_18_N.svg") 12px 50% no-repeat;
+  background: transparent url("/nx/img/icons/Smock_InfoOutline_18_N.svg") 12px 50% no-repeat;
 }
 
 .toast-notification .da-notification-status-description {

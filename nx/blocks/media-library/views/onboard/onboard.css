@@ -310,20 +310,6 @@ form button:hover {
   cursor: pointer;
   perspective: 1000px;
 
-  picture {
-    position: absolute;
-    inset: 0;
-    opacity: 0.85;
-    transition: opacity 0.25s ease-in-out;
-
-    img {
-      height: 100%;
-      width: 100%;
-      object-fit: cover;
-      transform: scale(1);
-      transition: transform 0.25s ease-in-out;
-    }
-  }
 
   .card-arrow {
     color: white;
@@ -362,10 +348,6 @@ form button:hover {
 
   .nx-card-inner {
     box-shadow: rgb(0 0 0 / 15%) 0 6px 32px, rgb(0 0 0 / 25%) 0 3px 12px;
-  }
-
-  .nx-card-front img {
-    transform: scale(1.08);
   }
 
   .card-arrow svg {
@@ -450,10 +432,6 @@ form button:hover {
   background: rgb(0 0 0);
   border-radius: var(--s2-radius-200);
   overflow: hidden;
-}
-
-.nx-card:hover picture {
-  opacity: 1;
 }
 
 .nx-card-overlay {

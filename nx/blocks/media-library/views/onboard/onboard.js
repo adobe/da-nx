@@ -11,14 +11,14 @@ import { ErrorCodes, logMediaLibraryError } from '../../core/errors.js';
 const EL_NAME = 'nx-media-onboard';
 const styles = await getStyle(import.meta.url);
 const RANDOM_MAX = 8;
-const iconsBase = new URL('../../icons/', import.meta.url).href;
+const iconsBase = new URL('../../../../img/icons/', import.meta.url).href;
 const assetsBase = new URL('../../assets/', import.meta.url).href;
 
 const ICONS = [
   `${iconsBase}C_Icon_Arrow_Next.svg`,
   `${iconsBase}S2_Icon_PinOff_20_N.svg`,
   `${iconsBase}S2_Icon_More_20_N.svg`,
-  `${iconsBase}Smock_Copy_18_N.svg`,
+  `${iconsBase}S2_Icon_Share_20_N.svg`,
   `${iconsBase}S2_Icon_VisibilityOff_20_N.svg`,
   `${iconsBase}S2_Icon_Clock_20_N.svg`,
 ];
@@ -81,13 +81,11 @@ class NxMediaOnboard extends LitElement {
     if (recentSites.length > 0) {
       this._recents = recentSites.map((name) => ({
         name,
-        img: `${assetsBase}cards/da-${getRandom()}.jpg`,
         cardStyle: `da-card-style-${getRandom()}`,
       }));
     } else if (recentOrgs.length > 0) {
       this._recents = recentOrgs.map((name) => ({
         name,
-        img: `${assetsBase}cards/da-${getRandom()}.jpg`,
         cardStyle: `da-card-style-${getRandom()}`,
       }));
     } else {
@@ -110,7 +108,6 @@ class NxMediaOnboard extends LitElement {
 
     this._pinnedFolders = allPinnedFolders.map((folder) => ({
       name: folder.path,
-      img: `${assetsBase}cards/da-${getRandom()}.jpg`,
       cardStyle: `da-card-style-${getRandom()}`,
     }));
   }
@@ -261,9 +258,6 @@ class NxMediaOnboard extends LitElement {
         <div class="nx-card-inner">
           <div class="nx-card-front">
             <div class="nx-card-picture-container">
-              <picture>
-                <img loading="lazy" src="${site.img}" alt="">
-              </picture>
               <div class="nx-card-overlay ${site.cardStyle}">
                 <h3>${repo}</h3>
                 <p>${org}${basePath ? html`<span class="base-path">${basePath}</span>` : nothing}</p>
@@ -291,7 +285,7 @@ class NxMediaOnboard extends LitElement {
               @click=${(e) => this.handleShare(e, site.name)}
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20">
-                <use href="#Smock_Copy_18_N"></use>
+                <use href="#S2_Icon_Share_20_N"></use>
               </svg>
               <span>Share</span>
             </button>
