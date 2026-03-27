@@ -762,6 +762,7 @@ class NxMediaLibrary extends LitElement {
 
     return html`
       <div class="media-library">
+        <h1 class="sr-only">Media Library</h1>
         <div class="sidebar">
           <nx-media-sidebar
             @filter=${this.handleFilter}

@@ -61,6 +61,53 @@ class NxMediaGrid extends LitElement {
     this.shadowRoot.adoptedStyleSheets = [sl, slComponents, styles];
   }
 
+  handleKeyDown(e) {
+    const scroller = e.currentTarget;
+    if (!scroller) return;
+
+    const scrollAmount = 100; // pixels
+    const pageScrollAmount = scroller.clientHeight - 50; // leave some overlap
+
+    let handled = false;
+
+    switch (e.key) {
+      case 'ArrowDown':
+        scroller.scrollBy({ top: scrollAmount, behavior: 'smooth' });
+        handled = true;
+        break;
+      case 'ArrowUp':
+        scroller.scrollBy({ top: -scrollAmount, behavior: 'smooth' });
+        handled = true;
+        break;
+      case 'PageDown':
+        scroller.scrollBy({ top: pageScrollAmount, behavior: 'smooth' });
+        handled = true;
+        break;
+      case 'PageUp':
+        scroller.scrollBy({ top: -pageScrollAmount, behavior: 'smooth' });
+        handled = true;
+        break;
+      case 'Home':
+        if (e.ctrlKey || e.metaKey) {
+          scroller.scrollTo({ top: 0, behavior: 'smooth' });
+          handled = true;
+        }
+        break;
+      case 'End':
+        if (e.ctrlKey || e.metaKey) {
+          scroller.scrollTo({ top: scroller.scrollHeight, behavior: 'smooth' });
+          handled = true;
+        }
+        break;
+      default:
+        break;
+    }
+
+    if (handled) {
+      e.preventDefault();
+    }
+  }
+
   updated(changedProperties) {
     if (changedProperties.has('mediaData') && this.mediaData?.length > 0 && !this.iconsLoaded) {
       this.loadIcons();
@@ -87,9 +134,10 @@ class NxMediaGrid extends LitElement {
       <main
         class="media-main"
         id="grid-scroller"
-        role="list"
         aria-label="${t('UI_MEDIA_RESULTS')}"
         aria-busy="${this.resultsBusy}"
+        tabindex="0"
+        @keydown=${this.handleKeyDown}
       >
         ${virtualize({
     items: this.mediaData,

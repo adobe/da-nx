@@ -119,6 +119,11 @@ svg.icon {
   margin-top: 0;
 }
 
+.media-main:focus-visible {
+  outline: 2px solid var(--s2-blue-500);
+  outline-offset: -2px;
+}
+
 .media-main > * {
   margin-top: 0;
   padding-top: 0;
