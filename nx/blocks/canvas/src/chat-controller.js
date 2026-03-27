@@ -1,5 +1,7 @@
 import { loadMessages, saveMessages, clearMessages } from './chat-idb-store.js';
 import { isToolAutoApproved } from './tool-auto-approve.js';
+import { daFetch } from '../../../utils/daFetch.js';
+import { DA_ORIGIN } from '../../../public/utils/constants.js';
 
 /** Clone add-to-chat payloads for storage / API (minimal serializable fields). */
 function sanitizeSelectionContext(items) {
@@ -123,6 +125,25 @@ const REVERT_SNAPSHOT_UPDATE_TOOLS = new Set([
 /** Client-only tool input key; stripped server-side (da-agent). */
 // eslint-disable-next-line no-underscore-dangle -- protocol key name
 const DA_REVERT_SNAPSHOT_KEY = '_daRevertSnapshot';
+const DA_MEMORY_START = '<!--DA_MEMORY_START-->';
+const DA_MEMORY_END = '<!--DA_MEMORY_END-->';
+const DA_MEMORY_RELATIVE_PATH = '.da/memory';
+
+function extractMemoryFromAssistantText(text) {
+  const value = typeof text === 'string' ? text : String(text ?? '');
+  const start = value.indexOf(DA_MEMORY_START);
+  const end = value.indexOf(DA_MEMORY_END, start + DA_MEMORY_START.length);
+  if (start < 0 || end < 0 || end < start) {
+    return { visibleText: value, memoryText: '' };
+  }
+  const rawMemory = value
+    .slice(start + DA_MEMORY_START.length, end)
+    .trim()
+    .replace(/^update memory:\s*/i, '')
+    .trim();
+  const visibleText = `${value.slice(0, start)}${value.slice(end + DA_MEMORY_END.length)}`.trim();
+  return { visibleText, memoryText: rawMemory };
+}
 
 /**
  * @param {Array<{ role: string, content?: unknown }>} messages
@@ -226,6 +247,8 @@ export class ChatController {
     this._activeClientToolCall = null;
     /** Binary attachment payloads sent only with the next /chat request. */
     this._pendingRequestAttachments = [];
+    this.chatMemory = '';
+    this._memoryLoaded = false;
   }
 
   get _chatUrl() {
@@ -273,6 +296,54 @@ export class ChatController {
     this.onUpdate();
   }
 
+  _memorySourcePath() {
+    const ctx = typeof this.getContext === 'function' ? this.getContext() : {};
+    const org = String(ctx?.org ?? '').trim();
+    const site = String(ctx?.site ?? '').trim();
+    if (!org || !site) return '';
+    return `/${org}/${site}/${DA_MEMORY_RELATIVE_PATH}`;
+  }
+
+  async _loadMemoryFromSource() {
+    const path = this._memorySourcePath();
+    if (!path) {
+      this.chatMemory = '';
+      this._memoryLoaded = true;
+      return '';
+    }
+    try {
+      const resp = await daFetch(`${DA_ORIGIN}/source${path}`);
+      if (!resp.ok) {
+        this.chatMemory = '';
+        this._memoryLoaded = true;
+        return '';
+      }
+      const text = (await resp.text()).trim();
+      this.chatMemory = text;
+      this._memoryLoaded = true;
+      return text;
+    } catch {
+      this.chatMemory = '';
+      this._memoryLoaded = true;
+      return '';
+    }
+  }
+
+  async _saveMemoryToSource(memoryText) {
+    const normalized = typeof memoryText === 'string' ? memoryText.trim() : '';
+    if (!normalized) return;
+    const path = this._memorySourcePath();
+    if (!path) return;
+    const body = new FormData();
+    body.append('data', new Blob([normalized], { type: 'text/markdown' }));
+    try {
+      const resp = await daFetch(`${DA_ORIGIN}/source${path}`, { method: 'POST', body });
+      if (resp.ok) this.chatMemory = normalized;
+    } catch {
+      // best effort
+    }
+  }
+
   // ---------- stream reading ----------
 
   _processStreamLine(rawLine) {
@@ -301,7 +372,11 @@ export class ChatController {
 
       case 'text-end':
         if (this.streamingText) {
-          this.messages = [...this.messages, { role: 'assistant', content: this.streamingText }];
+          const { visibleText, memoryText } = extractMemoryFromAssistantText(this.streamingText);
+          if (visibleText) {
+            this.messages = [...this.messages, { role: 'assistant', content: visibleText }];
+          }
+          if (memoryText) this._saveMemoryToSource(memoryText);
         }
         this.streamingText = '';
         this.onUpdate();
@@ -428,7 +503,11 @@ export class ChatController {
   _onFinish() {
     // Flush any text not yet committed (no text-end received).
     if (this.streamingText) {
-      this.messages = [...this.messages, { role: 'assistant', content: this.streamingText }];
+      const { visibleText, memoryText } = extractMemoryFromAssistantText(this.streamingText);
+      if (visibleText) {
+        this.messages = [...this.messages, { role: 'assistant', content: visibleText }];
+      }
+      if (memoryText) this._saveMemoryToSource(memoryText);
       this.streamingText = '';
     }
     if (this.isThinking) {
@@ -774,12 +853,22 @@ export class ChatController {
     this._abortController = new AbortController();
 
     try {
+      if (!this._memoryLoaded && this.messages.length <= 1) {
+        await this._loadMemoryFromSource();
+      }
       const imsToken = await this.getImsToken();
+      const memoryContext = this.chatMemory
+        ? [{
+          role: 'system',
+          content: `Shared site memory (recent site modifications):\n${this.chatMemory}`,
+        }]
+        : [];
+      const outgoingMessages = [...memoryContext, ...this.messages];
       const response = await fetch(this._chatUrl, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
-          messages: this.messages,
+          messages: outgoingMessages,
           pageContext: this.getContext(),
           imsToken,
           ...(this._pendingRequestAttachments.length > 0
@@ -882,8 +971,11 @@ export class ChatController {
     this._processedUpdateToolCalls.clear();
     this._approvedRepoToolsPendingResume = [];
     this._postApprovalRepoRefreshQueue = [];
+    this.chatMemory = '';
+    this._memoryLoaded = false;
     this.onStatusChange(this.statusText);
     this.onUpdate();
+    this._loadMemoryFromSource().catch(() => {});
   }
 
   async loadInitialMessages() {
@@ -910,9 +1002,14 @@ export class ChatController {
         });
         this.onUpdate();
         this._maybeFlushPendingClientTools();
+        this.chatMemory = '';
+        this._memoryLoaded = false;
+      } else {
+        await this._loadMemoryFromSource();
       }
     } catch {
       // IDB unavailable — start with empty history.
+      await this._loadMemoryFromSource();
     }
   }
 
