@@ -507,7 +507,7 @@ class Chat extends LitElement {
     if (!SpeechRecognition) return;
 
     this._recognition = new SpeechRecognition();
-    this._recognition.continuous = false;
+    this._recognition.continuous = true;
     this._recognition.interimResults = true;
     this._recognition.lang = document.documentElement.lang || 'en-US';
 
