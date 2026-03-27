@@ -18,6 +18,12 @@ const DA_ADMIN_ENVS = {
   prod: 'https://admin.da.live',
 };
 
+const DA_CONTENT_ENVS = {
+  local: 'http://localhost:8788',
+  stage: 'https://stage-content.da.live',
+  prod: 'https://content.da.live',
+};
+
 function getDaEnv(location, key, envs) {
   const { href } = location;
   const query = new URL(href).searchParams.get(key);
@@ -41,3 +47,4 @@ export const getDaAdmin = (() => {
 })();
 
 export const DA_ORIGIN = (() => getDaEnv(window.location, 'da-admin', DA_ADMIN_ENVS))();
+export const CON_ORIGIN = (() => getDaEnv(window.location, 'da-content', DA_CONTENT_ENVS))();

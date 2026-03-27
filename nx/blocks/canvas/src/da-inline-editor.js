@@ -8,7 +8,7 @@ import getStyle from 'https://da.live/nx/utils/styles.js';
 // eslint-disable-next-line import/no-unresolved
 import { LitElement, html } from 'da-lit';
 // eslint-disable-next-line import/no-unresolved
-import { DA_ORIGIN } from 'https://da.live/blocks/shared/constants.js';
+import { DA_ORIGIN, CON_ORIGIN } from '../../../public/utils/constants.js';
 import { initIms, daFetch } from '../../../utils/daFetch.js';
 import initProse from './prose-inline.js';
 import {
@@ -33,11 +33,15 @@ const token = imsInitial?.accessToken?.token ?? null;
 /** Refreshed before Yjs WebSocket init; sync getter required by prose-inline. */
 let imsAccessTokenForCollab = token;
 
-/** Set cookie on preview domain so the iframe can load images (mirrors da-nx getImageCookie). */
+/** Set cookies on preview + content */
 function setImageCookie(owner, repo) {
   if (!owner || !repo) return;
-  const url = `${getPreviewOrigin(owner, repo)}/gimme_cookie`;
-  daFetch(url, { credentials: 'include' }).catch(() => {});
+  const previewUrl = `${getPreviewOrigin(owner, repo)}/gimme_cookie`;
+  const contentUrl = `${CON_ORIGIN}/${owner}/${repo}/.gimme_cookie`;
+  Promise.all([
+    daFetch(previewUrl, { credentials: 'include' }),
+    daFetch(contentUrl, { credentials: 'include' }),
+  ]).catch(() => {});
 }
 
 function afterRender(cb) {
