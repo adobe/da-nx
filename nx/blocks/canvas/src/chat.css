@@ -1501,6 +1501,16 @@
   color: #292929;
 }
 
+.chat-toolbar-icon-btn.recording {
+  color: #c00;
+  animation: recording-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes recording-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
 .chat-toolbar-icon-btn svg {
   display: block;
   flex-shrink: 0;
