@@ -513,8 +513,17 @@ class Chat extends LitElement {
 
     this._recognition.onstart = () => { this._isRecording = true; };
     this._recognition.onresult = (e) => {
-      const transcript = Array.from(e.results).map((r) => r[0].transcript).join('');
+      let transcript = '';
+      for (let i = 0; i < e.results.length; i += 1) {
+        transcript += e.results[i][0].transcript;
+      }
       this._inputValue = transcript;
+      // sp-textfield needs the native input updated directly
+      const native = this.shadowRoot?.querySelector('.chat-input')?.shadowRoot?.querySelector('input,textarea');
+      if (native) {
+        native.value = transcript;
+        native.dispatchEvent(new Event('input', { bubbles: true }));
+      }
     };
     this._recognition.onerror = () => { this._isRecording = false; };
     this._recognition.onend = () => { this._isRecording = false; };
