@@ -1,5 +1,5 @@
 import { html, LitElement } from '../../deps/lit/dist/index.js';
-import { virtualize, grid } from '../../deps/virtualizer/index.js';
+import { virtualize, grid } from '../../deps/virtualizer/dist/index.js';
 import getStyle from '../../../../utils/styles.js';
 import getSvg from '../../../../public/utils/svg.js';
 import {
