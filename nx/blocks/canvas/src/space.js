@@ -1,10 +1,11 @@
 // eslint-disable-next-line import/no-unresolved
 import getStyle from 'https://da.live/nx/utils/styles.js';
 // eslint-disable-next-line import/no-unresolved
-import { LitElement, html } from 'da-lit';
+import { LitElement, html, nothing } from 'da-lit';
 // eslint-disable-next-line import/no-unresolved
 import { getNx } from 'https://da.live/scripts/utils.js';
 import { initIms, daFetch } from '../../../utils/daFetch.js';
+import { DA_ORIGIN } from '../../../public/utils/constants.js';
 // eslint-disable-next-line import/no-unresolved
 import './chat.js';
 // eslint-disable-next-line import/no-unresolved
@@ -22,6 +23,32 @@ const style = await getStyle(import.meta.url);
 const nxBase = getNx();
 
 const AEM_ORIGIN = 'https://admin.hlx.page';
+const DA_LIVE = 'https://da.live';
+
+const OOTB_ACTIONS = [
+  {
+    title: 'Preflight',
+    render: async (details) => (await import(`${DA_LIVE}/blocks/edit/da-prepare/actions/preflight/preflight.js`)).default(details),
+    icon: `${DA_LIVE}/blocks/edit/img/S2_Icon_FileFold_20_N.svg#S2_Icon_FileFold`,
+  },
+  {
+    title: 'Schedule Publish',
+    render: async (details) => (await import(`${DA_LIVE}/blocks/edit/da-prepare/actions/scheduler/scheduler.js`)).default(details),
+    icon: `${DA_LIVE}/blocks/edit/img/S2_Icon_ClockPending_20_N.svg#S2_Icon_ClockPending`,
+    optional: true,
+  },
+  {
+    title: 'Unpublish',
+    render: async (details) => (await import(`${DA_LIVE}/blocks/edit/da-prepare/actions/unpublish/unpublish.js`)).default(details),
+    icon: `${DA_LIVE}/blocks/edit/img/S2_Icon_PublishNo_20_N.svg#S2_Icon_PublishNo`,
+  },
+  {
+    title: 'Send to Adobe Target',
+    render: async (details) => (await import(`${DA_LIVE}/blocks/edit/da-prepare/actions/target/target.js`)).default(details),
+    icon: `${DA_LIVE}/blocks/edit/img/S2_Icon_Target_20_N.svg#S2_Icon_Target`,
+    optional: true,
+  },
+];
 
 function isHtmlPath(path) {
   return typeof path === 'string' && path.toLowerCase().trim().endsWith('.html');
@@ -116,6 +143,9 @@ class Space extends LitElement {
     _pendingAddBlock: { state: true },
     _chatContextItems: { state: true },
     _docToolbar: { state: true },
+    _extensions: { state: true },
+    _extensionsOpen: { state: true },
+    _extensionsDialog: { state: true },
   };
 
   constructor() {
@@ -142,6 +172,9 @@ class Space extends LitElement {
     this._collabUsers = [];
     this._quickEditPort = null;
     this._wysiwygCookieReady = false;
+    this._extensions = null;
+    this._extensionsOpen = false;
+    this._extensionsDialog = null;
     this._wysiwygCookieRequestKey = null;
     this._docToolbar = null;
     this._wysiwygIframe = null;
@@ -537,6 +570,12 @@ class Space extends LitElement {
         sidebarTab: this._sidebarTab,
       });
     }
+    if (changed.has('_orgRepo')) {
+      this._extensions = null;
+      this._extensionsOpen = false;
+      this._extensionsDialog = null;
+      this._loadExtensions();
+    }
     if (changed.has('_orgRepo') || changed.has('_selectedPath')) {
       if (!this._orgRepo || !this._selectedPath) {
         this._wysiwygCookieReady = false;
@@ -555,6 +594,157 @@ class Space extends LitElement {
     }
   }
 
+  async _loadExtensions() {
+    if (!this._orgRepo) {
+      this._extensions = null;
+      return;
+    }
+    const { org, repo } = this._orgRepo;
+    try {
+      const [orgResp, siteResp] = await Promise.all([
+        daFetch(`${DA_ORIGIN}/config/${org}/`),
+        daFetch(`${DA_ORIGIN}/config/${org}/${repo}/`),
+      ]);
+      const [orgCfg, siteCfg] = await Promise.all([
+        orgResp.ok ? orgResp.json() : {},
+        siteResp.ok ? siteResp.json() : {},
+      ]);
+
+      const ootbLookup = new Map(OOTB_ACTIONS.map((item) => [item.title, item]));
+
+      // Priority: ootb (non-optional) → org → site (later overrides earlier)
+      const configs = [
+        OOTB_ACTIONS.filter((item) => !item.optional),
+        orgCfg?.prepare?.data || [],
+        siteCfg?.prepare?.data || [],
+      ];
+
+      const merged = new Map(
+        configs.flatMap((items) => items.map((item) => [item.title, item])),
+      );
+
+      // Config items without path or render fall back to OOTB if available
+      this._extensions = [...merged.values()].map(
+        (item) => (item.path || item.render ? item : ootbLookup.get(item.title) || item),
+      );
+    } catch {
+      this._extensions = [];
+    }
+  }
+
+  get _extensionsDetails() {
+    if (!this._orgRepo) return null;
+    const { org, repo } = this._orgRepo;
+    const pathParts = (this._selectedPath || '').split('/').filter(Boolean);
+    const path = pathParts.length > 2 ? `/${pathParts.slice(2).join('/')}` : '';
+    return { org, site: repo, path, view: this._viewMode };
+  }
+
+  _handleExtensionsToggle() {
+    this._extensionsOpen = !this._extensionsOpen;
+    if (this._extensionsOpen) {
+      document.addEventListener('pointerdown', this._handleExtensionsOutsideClick);
+    } else {
+      document.removeEventListener('pointerdown', this._handleExtensionsOutsideClick);
+    }
+  }
+
+  _handleExtensionsOutsideClick = (e) => {
+    if (e.composedPath().includes(this)) return;
+    document.removeEventListener('pointerdown', this._handleExtensionsOutsideClick);
+    this._extensionsOpen = false;
+  };
+
+  async _handleExtensionClick(item) {
+    this._extensionsOpen = false;
+    document.removeEventListener('pointerdown', this._handleExtensionsOutsideClick);
+    if (item.render) {
+      if (!customElements.get('sl-button')) {
+        await import('../../../public/sl/components.js');
+      }
+      const cmp = await item.render(this._extensionsDetails);
+      this._extensionsDialog = { ...item, cmp };
+      return;
+    }
+    this._extensionsDialog = item;
+  }
+
+  _handleExtensionsDialogClose() {
+    this._extensionsDialog = null;
+  }
+
+  _handleExtensionIframeLoad({ target }) {
+    setTimeout(() => {
+      if (!target.contentWindow || !this._orgRepo) return;
+      const { org, repo } = this._orgRepo;
+      const path = this._selectedPath ? `/${this._selectedPath}` : '';
+      const context = { org, site: repo, ref: 'main', path };
+      const token = window.adobeIMS?.getAccessToken()?.token;
+      const message = { ready: true, context, ...(token ? { token } : {}) };
+      target.contentWindow.postMessage(message, '*');
+    }, 750);
+  }
+
+  _renderExtensionsMenu() {
+    if (!this._extensionsOpen || !this._extensions?.length) return nothing;
+    return html`
+      <div class="space-extensions-menu">
+        <ul class="space-extensions-menu-list">
+          ${this._extensions.map((item) => html`
+            <li class="space-extensions-menu-item">
+              <button @click=${() => this._handleExtensionClick(item)}>
+                ${item.icon ? html`<svg class="space-extensions-icon" viewBox="0 0 20 20" aria-hidden="true"><use href="${item.icon}"/></svg>` : ''}
+                <span>${item.title}</span>
+              </button>
+            </li>
+          `)}
+        </ul>
+      </div>
+    `;
+  }
+
+  _renderExtensionsDialog() {
+    if (!this._extensionsDialog) return nothing;
+    return html`
+      <div class="space-extensions-dialog-overlay" @pointerdown=${this._handleExtensionsDialogClose}>
+        <div class="space-extensions-dialog" @pointerdown=${(e) => e.stopPropagation()}>
+          <div class="space-extensions-dialog-header">
+            <span>${this._extensionsDialog.title}</span>
+            <button class="space-extensions-dialog-close" @click=${this._handleExtensionsDialogClose} aria-label="Close">
+              <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+                <path d="M14 4L4 14M4 4l10 10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+            </button>
+          </div>
+          ${this._extensionsDialog.cmp || html`<iframe
+            src=${this._extensionsDialog.path}
+            @load=${this._handleExtensionIframeLoad}
+            allow="clipboard-write *"
+          ></iframe>`}
+        </div>
+      </div>
+    `;
+  }
+
+  _renderExtensionsButton() {
+    if (!this._extensions?.length) return nothing;
+    return html`
+      <div class="space-extensions-wrap">
+        <button
+          class="space-extensions-toggle"
+          aria-label="Extensions"
+          aria-expanded=${this._extensionsOpen}
+          @click=${this._handleExtensionsToggle}
+        >
+          <svg class="space-extensions-toggle-icon" viewBox="0 0 20 20" aria-hidden="true">
+            <use href="https://da.live/blocks/edit/img/S2_Icon_FileFold_20_N.svg#S2_Icon_FileFold"/>
+          </svg>
+        </button>
+        ${this._renderExtensionsMenu()}
+      </div>
+    `;
+  }
+
   disconnectedCallback() {
     window.removeEventListener('hashchange', this._boundHashChange);
     this.removeEventListener('quick-edit-add-to-chat', this._boundQuickEditAddToChat);
@@ -563,6 +753,7 @@ class Space extends LitElement {
     this.removeEventListener('da-collab-users', this._boundCollabUsers);
     this.removeEventListener('da-toolbar-ready', this._onDocToolbarReady);
     window.removeEventListener(DA_BULK_AEM_OPEN, this._boundWindowBulkAemOpen);
+    document.removeEventListener('pointerdown', this._handleExtensionsOutsideClick);
     super.disconnectedCallback();
   }
 
@@ -881,6 +1072,7 @@ class Space extends LitElement {
           </div>
           <div class="space-nav-right">
             ${this._renderCollabUsers()}
+            ${this._renderExtensionsButton()}
             ${this._renderPublishMenu()}
           </div>
         </nav>
@@ -907,6 +1099,7 @@ class Space extends LitElement {
         </div>
       </div>
       <da-bulk-aem-modal></da-bulk-aem-modal>
+      ${this._renderExtensionsDialog()}
     `;
   }
 }
