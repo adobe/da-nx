@@ -5,7 +5,7 @@ import { LitElement, html, nothing } from 'da-lit';
 // eslint-disable-next-line import/no-unresolved
 import { getNx } from 'https://da.live/scripts/utils.js';
 import { initIms, daFetch } from '../../../utils/daFetch.js';
-import { DA_ORIGIN } from '../../../public/utils/constants.js';
+import { DA_ORIGIN, CON_ORIGIN } from '../../../public/utils/constants.js';
 // eslint-disable-next-line import/no-unresolved
 import './chat.js';
 // eslint-disable-next-line import/no-unresolved
@@ -429,20 +429,23 @@ class Space extends LitElement {
   };
 
   /**
-   * Fetches gimme_cookie for the preview domain so the iframe can load with auth.
+   * Fetches gimme_cookie for preview and content (da-live edit: preview + content login).
    * @param {string} requestKey - `${org}/${repo}` to ignore stale responses
    * @returns {Promise<void>}
    */
   async _fetchWysiwygCookie(requestKey) {
     if (!this._orgRepo || requestKey !== this._wysiwygCookieRequestKey) return;
     const { org, repo } = this._orgRepo;
-    const url = `${getPreviewOrigin(org, repo)}/gimme_cookie`;
-    const resp = await daFetch(url, {
-      method: 'GET',
-      credentials: 'include',
-    });
-    if (!resp.ok) {
-      throw new Error(`gimme_cookie failed: ${resp.status} ${resp.statusText}`);
+    const previewUrl = `${getPreviewOrigin(org, repo)}/gimme_cookie`;
+    const contentUrl = `${CON_ORIGIN}/${org}/${repo}/.gimme_cookie`;
+    const [previewResp, contentResp] = await Promise.all([
+      daFetch(previewUrl, { method: 'GET', credentials: 'include' }),
+      daFetch(contentUrl, { method: 'GET', credentials: 'include' }),
+    ]);
+    if (!previewResp.ok || !contentResp.ok) {
+      throw new Error(
+        `gimme_cookie failed: preview ${previewResp.status}, content ${contentResp.status}`,
+      );
     }
     if (this._wysiwygCookieRequestKey === requestKey) {
       this._wysiwygCookieReady = true;
