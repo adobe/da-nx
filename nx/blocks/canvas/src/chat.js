@@ -211,6 +211,7 @@ class Chat extends LitElement {
     this._inputValue = '';
     this._isRecording = false;
     this._recognition = null;
+    this._recordingAutoSubmitTimer = null;
     this._isThinking = false;
     this._isAwaitingApproval = false;
     this._isAwaitingClientTool = false;
@@ -509,7 +510,7 @@ class Chat extends LitElement {
     this._recognition = new SpeechRecognition();
     this._recognition.continuous = true;
     this._recognition.interimResults = true;
-    this._recognition.lang = document.documentElement.lang || 'en-US';
+    this._recognition.lang = navigator.language || navigator.languages?.[0] || document.documentElement.lang || 'en-US';
 
     this._recognition.onstart = () => { this._isRecording = true; };
     this._recognition.onresult = (e) => {
@@ -524,9 +525,18 @@ class Chat extends LitElement {
         native.value = transcript;
         native.dispatchEvent(new Event('input', { bubbles: true }));
       }
+      // Reset auto-submit timer on each result
+      clearTimeout(this._recordingAutoSubmitTimer);
+      this._recordingAutoSubmitTimer = setTimeout(() => {
+        this._recognition?.stop();
+        if (this._inputValue.trim()) this._sendMessage();
+      }, 2000);
     };
     this._recognition.onerror = () => { this._isRecording = false; };
-    this._recognition.onend = () => { this._isRecording = false; };
+    this._recognition.onend = () => {
+      this._isRecording = false;
+      clearTimeout(this._recordingAutoSubmitTimer);
+    };
     this._recognition.start();
   }
 
