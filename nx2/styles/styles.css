@@ -313,7 +313,7 @@ html:has(meta[content="edge-delivery"]) {
       margin: 0;
       background-color: light-dark(#fff, #000);
       color: var(--s2-gray-1000);
-      font-family: sans-serif;
+      font-family: 'Adobe Clean', sans-serif;
       font-size: var(--s2-body-size-m);
       line-height: var(--s2-body-line-height);
 
