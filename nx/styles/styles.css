@@ -305,44 +305,57 @@ main > div, div[data-status] {
   }
 }
 
-/* --- Nexter Default Page Styles --- */
-@layer nx {
-  html.nx {
+/* --- Spectrum Light Default Page Styles --- */
+@layer spectrum {
+  html.spectrum {
     body {
-      display: grid;
       margin: 0;
-      background-color: light-dark(rgb(240 240 240), rgb(17 17 17));
+      background-color: light-dark(#fff, #000);
       color: var(--s2-gray-1000);
       font-family: sans-serif;
       font-size: var(--s2-body-size-m);
       line-height: var(--s2-body-line-height);
 
-      &.no-header {
-        --s2-nav-height: 0;
+      header {
+        height: var(--s2-nav-height);
+      }
+
+      nav {
+        display: none;
       }
 
       /* Don't let fonts load unless there's a session */
       &.session {
         font-family: var(--s2-font-family);
       }
-    }
 
-    header {
-      height: var(--s2-nav-height);
-      grid-area: header;
-    }
+      &.no-header {
+        --s2-nav-height: 0;
+      }
 
-    nx-sidenav {
-      grid-area: sidenav;
-    }
+      /* Everything for the app frame */
+      &.app-frame {
+        display: grid;
+        background-color: light-dark(rgb(240 240 240), rgb(17 17 17));
 
-    main {
-      grid-area: main;
-      margin: 0 12px 0 0;
-      background-color: light-dark(#fff, #000);
-      border-radius: 32px 32px 0 0;
-      overflow-y: scroll;
-      max-height: 100%;
+        header {
+          grid-area: header;
+        }
+
+        nav {
+          display: unset;
+          grid-area: sidenav;
+        }
+
+        main {
+          grid-area: main;
+          margin: 0 12px 0 0;
+          background-color: light-dark(#fff, #000);
+          border-radius: 32px 32px 0 0;
+          overflow-y: scroll;
+          max-height: 100%;
+        }
+      }
     }
 
     h1 { font-size: var(--s2-heading-size-xxl); }
@@ -402,10 +415,11 @@ main > div, div[data-status] {
   }
 
   @media (width >= 600px) {
-    html.nx {
-      body {
+    html.spectrum {
+      body.app-frame {
         grid-template:
-          "header header" var(--s2-nav-height) "sidenav main" 1fr / var(--s2-nav-width) 1fr;
+          "header header" var(--s2-nav-height)
+          "sidenav  main" 1fr / var(--s2-nav-width) 1fr;
         height: 100vh;
       }
     }

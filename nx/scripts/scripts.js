@@ -15,9 +15,9 @@ import { loadArea, setConfig } from './nx.js';
 const hostnames = ['nx.live'];
 
 const locales = {
-  '': { lang: 'en' },
-  de: { lang: 'de' },
-  fr: { lang: 'fr' },
+  '': { title: 'English', lang: 'en' },
+  de: { title: 'Deutsch', lang: 'de' },
+  fr: { title: 'French', lang: 'fr' },
 };
 
 const linkBlocks = [
@@ -57,7 +57,7 @@ const conf = {
 };
 
 export async function loadPage() {
-  document.documentElement.classList.add('nx');
+  document.documentElement.classList.add('spectrum-light');
   await setConfig(conf);
   await loadArea();
 }

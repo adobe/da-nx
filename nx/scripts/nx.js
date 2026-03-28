@@ -199,7 +199,9 @@ function decorateNav() {
   }
   const nxNav = document.createElement('nx-nav');
   header.append(nxNav);
-  // Sidenav
+  // Sidenav for app frame
+  const appFrame = getMetadata('template') === 'app-frame';
+  if (!appFrame) return;
   const snmeta = getMetadata('sidenav');
   if (snmeta === 'off') return;
   const nav = document.createElement('nav');
@@ -227,6 +229,9 @@ async function decoratePlaceholders(area, isDoc) {
 function decorateDoc() {
   decorateNav();
 
+  const template = getMetadata('template');
+  if (template) document.body.classList.add(template);
+
   const scheme = localStorage.getItem('color-scheme');
   if (scheme) document.body.classList.add(scheme);
 
@@ -235,12 +240,15 @@ function decorateDoc() {
 }
 
 function loadSession() {
+  sessionStorage.setItem('session', true);
+  const appFrame = document.body.classList.contains('app-frame');
   document.body.classList.add('session');
   const header = document.querySelector('nx-nav');
-  if (header) import('../blocks/nav/nav.js');
+  if (!header) return;
+  import('../blocks/nav/nav.js');
+  if (!appFrame) return;
   const sidenav = document.querySelector('nx-sidenav');
   if (sidenav) import('../blocks/sidenav/sidenav.js');
-  sessionStorage.setItem('session', true);
 }
 
 export async function loadArea({ area } = { area: document }) {
@@ -260,7 +268,7 @@ export async function loadArea({ area } = { area: document }) {
     delete section.dataset.status;
     if (isDoc && idx === 0) {
       if (!isSession) loadSession();
-      // import('../utils/favicon.js');
+      import('../utils/favicon.js');
     }
   }
   if (isDoc) import('./lazy.js');
