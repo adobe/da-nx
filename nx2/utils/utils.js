@@ -12,28 +12,28 @@ export const loadStyle = (() => {
   };
 })();
 
+const parse = (location = window.location) => {
+  const pathView = location.pathname.slice(1);
+  const view = pathView === '' ? 'browse' : pathView;
+
+  const hashPath = location.hash.slice(2);
+  const [org, site, ...parts] = hashPath.split('/');
+  // split can result in empty strings,
+  // so force them to undefined
+  return {
+    view,
+    org: org || undefined,
+    site: site || undefined,
+    path: parts?.join('/') || undefined,
+  };
+};
+
 /**
  * Shared observable for hash changes.
  * @type {{ subscribe: (fn: (hash: string) => void) => (() => void) }}
  */
 export const hashChange = (() => {
   const listeners = new Set();
-
-  const parse = () => {
-    const viewRaw = window.location.pathname.slice(1);
-    const view = viewRaw === '' ? 'browse' : viewRaw;
-
-    const hashPath = window.location.hash.slice(2);
-    const [org, site, ...parts] = hashPath.split('/');
-    // split can result in empty strings,
-    // so force them to undefined
-    return {
-      view,
-      org: org || undefined,
-      site,
-      path: parts.join('/') || undefined,
-    };
-  };
 
   window.addEventListener('hashchange', () => {
     const state = parse();
