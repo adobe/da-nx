@@ -26,12 +26,10 @@ const IO_ENV = {
 export const IMS_ORIGIN = (() => `https://${IMS_ENDPOINT[env]}`)();
 
 export function handleSignIn() {
-  localStorage.setItem('nx-ims', true);
   window.adobeIMS.signIn();
 }
 
 export function handleSignOut() {
-  localStorage.removeItem('nx-ims');
   window.adobeIMS.signOut();
 }
 
