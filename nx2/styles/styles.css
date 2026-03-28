@@ -290,21 +290,23 @@
   }
 }
 
-/* --- edge delivery decoration hiding --- */
-main > div, div[data-status] {
-  display: none;
-}
+/* --- Edge Delivery-specific decoration hiding --- */
+html:has(meta[content="edge-delivery"]) {
+  main > div, div[data-status] {
+    display: none;
+  }
 
-.section {
-  display: block;
+  .section {
+    display: block;
 
-  > .default-content {
-    max-width: var(--se-grid-container-width);
-    margin: 0 auto;
+    > .default-content {
+      max-width: var(--se-grid-container-width);
+      margin: 0 auto;
+    }
   }
 }
 
-/* --- Spectrum Eco Default Page Styles --- */
+/* --- Spectrum Eco default styles --- */
 @layer spectrum-eco {
   html.spectrum-eco {
     body {
