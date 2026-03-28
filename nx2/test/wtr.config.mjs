@@ -48,12 +48,12 @@ export default {
         <script type="importmap">
           {
             "imports": {
-              "da-lit": "/deps/lit/dist/index.js",
-              "/nx/public/sl/components.js": "/test/mocks/sl-components.js"
+              "da-lit": "/nx2/deps/lit/dist/index.js",
+              "/nx2/public/sl/components.js": "/nx2/test/mocks/sl-components.js"
             }
           }
         </script>
-        <link rel="icon" href="/libs/img/favicons/favicon.ico" size="any">
+        <link rel="icon" href="/nx2/img/favicons/favicon.ico" size="any">
         <script type='module'>
           const oldFetch = window.fetch;
           window.fetch = async (resource, options) => {

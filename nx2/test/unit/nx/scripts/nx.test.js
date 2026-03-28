@@ -7,7 +7,7 @@ import {
   decorateLink,
   loadBlock,
   loadArea,
-} from '../../../../nx/scripts/nx.js';
+} from '../../../../scripts/nx.js';
 
 const BASE_CONFIG = {
   hostnames: ['adobe.com'],

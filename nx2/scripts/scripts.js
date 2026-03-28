@@ -27,13 +27,6 @@ const linkBlocks = [
 const imsClientId = 'nexter';
 const imsScope = 'ab.manage,AdobeID,gnav,openid,org.read,read_organizations,session,additional_info.ownerOrg,additional_info.projectedProductContext,account_cluster.read';
 
-const env = (() => {
-  const { host } = window.location;
-  if (!['--', 'local'].some((check) => host.includes(check))) return 'prod';
-  if (['--'].some((check) => host.includes(check))) return 'stage';
-  return 'dev';
-})();
-
 // How to decorate an area before loading it
 const decorateArea = ({ area = document }) => {
   const eagerLoad = (parent, selector) => {
@@ -47,7 +40,6 @@ const decorateArea = ({ area = document }) => {
 };
 
 const conf = {
-  env,
   hostnames,
   locales,
   imsClientId,
@@ -57,7 +49,7 @@ const conf = {
 };
 
 export async function loadPage() {
-  document.documentElement.classList.add('spectrum-light');
+  document.documentElement.classList.add('spectrum-eco');
   await setConfig(conf);
   await loadArea();
 }

@@ -14,8 +14,7 @@
 
 @font-face {
   font-family: adobe-clean;
-  src: url("https://use.typekit.net/af/c0160f/00000000000000007735dac8/30/l?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n4&v=3") format("woff2");
-  font-display: swap;
+  src: url("fonts/adobe-clean-regular.woff2") format("woff2");
   font-style: normal;
   font-weight: 400;
   font-stretch: normal;
@@ -23,8 +22,7 @@
 
 @font-face {
   font-family: adobe-clean;
-  src: url("https://use.typekit.net/af/95bf80/00000000000000007735dacd/30/l?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=i4&v=3") format("woff2");
-  font-display: swap;
+  src: url("fonts/adobe-clean-italic.woff2") format("woff2");
   font-style: italic;
   font-weight: 400;
   font-stretch: normal;
@@ -32,8 +30,7 @@
 
 @font-face {
   font-family: adobe-clean;
-  src: url("https://use.typekit.net/af/5c07ba/00000000000000007735dad8/30/l?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3") format("woff2");
-  font-display: swap;
+  src: url("fonts/adobe-clean-bold.woff2") format("woff2");
   font-style: normal;
   font-weight: 700;
   font-stretch: normal;
@@ -41,8 +38,7 @@
 
 @font-face {
   font-family: adobe-clean;
-  src: url("https://use.typekit.net/af/650f2d/00000000000000007735dada/30/l?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=i7&v=3") format("woff2");
-  font-display: swap;
+  src: url("fonts/adobe-clean-bold-italic.woff2") format("woff2");
   font-style: italic;
   font-weight: 700;
   font-stretch: normal;
@@ -266,14 +262,6 @@
 
   /* --- End generated --- */
 
-  /* grid */
-  --nx-grid-container-width: 83.4%;
-  --nx-grid-column-width: calc(var(--nx-grid-container-width) / 12);
-  --nx-grid-gutter-width: 8.3%;
-
-  /* color conveniences */
-  --corporate-color: 235, 16, 0;
-
   /* fonts */
   --s2-font-family: 'Adobe Clean', adobe-clean, sans-serif;
 
@@ -281,17 +269,24 @@
   --s2-nav-height: 56px;
   --s2-nav-width: 56px;
 
+  /* grid */
+  --se-grid-container-width: 83.4%;
+  --se-grid-gutter-width: 8.3%;
+
+  /* color conveniences */
+  --adobe-corporate-color: rgb(235 16 0);
+
   /* color schemes */
   color-scheme: light dark;
 }
 
 @media (width >= 1440px) {
   :root {
-    --nx-grid-container-width: 1200px;
+    --se-grid-container-width: 1200px;
   }
 }
 
-/* --- Decoration Hiding --- */
+/* --- edge delivery decoration hiding --- */
 main > div, div[data-status] {
   display: none;
 }
@@ -299,15 +294,15 @@ main > div, div[data-status] {
 .section {
   display: block;
 
-  >.default-content {
-    max-width: var(--nx-grid-container-width);
+  > .default-content {
+    max-width: var(--se-grid-container-width);
     margin: 0 auto;
   }
 }
 
-/* --- Spectrum Light Default Page Styles --- */
-@layer spectrum {
-  html.spectrum {
+/* --- Spectrum Eco Default Page Styles --- */
+@layer spectrum-eco {
+  html.spectrum-eco {
     body {
       margin: 0;
       background-color: light-dark(#fff, #000);
@@ -336,6 +331,10 @@ main > div, div[data-status] {
       /* Everything for the app frame */
       &.app-frame {
         display: grid;
+        height: 100dvh;
+        grid-template:
+          "header" var(--s2-nav-height)
+          "main" 1fr;
         background-color: light-dark(rgb(240 240 240), rgb(17 17 17));
 
         header {
@@ -343,15 +342,12 @@ main > div, div[data-status] {
         }
 
         nav {
-          display: unset;
           grid-area: sidenav;
         }
 
         main {
           grid-area: main;
-          margin: 0 12px 0 0;
           background-color: light-dark(#fff, #000);
-          border-radius: 32px 32px 0 0;
           overflow-y: scroll;
           max-height: 100%;
         }
@@ -415,12 +411,23 @@ main > div, div[data-status] {
   }
 
   @media (width >= 600px) {
-    html.spectrum {
+    html.spectrum-eco {
       body.app-frame {
         grid-template:
           "header header" var(--s2-nav-height)
           "sidenav  main" 1fr / var(--s2-nav-width) 1fr;
-        height: 100vh;
+        height: 100dvh;
+
+        nav {
+          display: unset;
+        }
+
+        main {
+          margin: 0 12px 0 0;
+          border-radius: 32px 32px 0 0;
+          overflow-y: scroll;
+          max-height: 100%;
+        }
       }
     }
   }

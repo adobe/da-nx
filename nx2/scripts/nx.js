@@ -24,6 +24,13 @@ export function getLocale(locales = { '': {} }) {
   return { key, ...locales[key] };
 }
 
+const env = (() => {
+  const { host } = window.location;
+  if (!['--', 'local'].some((check) => host.includes(check))) return 'prod';
+  if (['--'].some((check) => host.includes(check))) return 'stage';
+  return 'dev';
+})();
+
 async function getStrings(locales, locale) {
   const strings = new Map();
 
@@ -51,6 +58,7 @@ export const [setConfig, getConfig] = (() => {
 
       config = {
         ...conf,
+        env: conf.env || env,
         iconSize: conf.iconSize || '20',
         linkBlocks: conf.linkBlocks || [],
         log: conf.log || LOG,
@@ -226,6 +234,18 @@ async function decoratePlaceholders(area, isDoc) {
   }
 }
 
+function loadSession() {
+  // sessionStorage.setItem('session', true);
+  document.body.classList.add('session');
+  const header = document.querySelector('nx-nav');
+  if (!header) return;
+  import('../blocks/nav/nav.js');
+  const appFrame = document.body.classList.contains('app-frame');
+  if (!appFrame) return;
+  const sidenav = document.querySelector('nx-sidenav');
+  if (sidenav) import('../blocks/sidenav/sidenav.js');
+}
+
 function decorateDoc() {
   decorateNav();
 
@@ -237,18 +257,6 @@ function decorateDoc() {
 
   const pageId = window.location.hash?.replace('#', '');
   if (pageId) localStorage.setItem('lazyhash', pageId);
-}
-
-function loadSession() {
-  sessionStorage.setItem('session', true);
-  const appFrame = document.body.classList.contains('app-frame');
-  document.body.classList.add('session');
-  const header = document.querySelector('nx-nav');
-  if (!header) return;
-  import('../blocks/nav/nav.js');
-  if (!appFrame) return;
-  const sidenav = document.querySelector('nx-sidenav');
-  if (sidenav) import('../blocks/sidenav/sidenav.js');
 }
 
 export async function loadArea({ area } = { area: document }) {
