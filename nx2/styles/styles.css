@@ -15,6 +15,7 @@
 @font-face {
   font-family: adobe-clean;
   src: url("fonts/adobe-clean-regular.woff2") format("woff2");
+  font-display: optional;
   font-style: normal;
   font-weight: 400;
   font-stretch: normal;
@@ -23,6 +24,7 @@
 @font-face {
   font-family: adobe-clean;
   src: url("fonts/adobe-clean-italic.woff2") format("woff2");
+  font-display: optional;
   font-style: italic;
   font-weight: 400;
   font-stretch: normal;
@@ -31,6 +33,7 @@
 @font-face {
   font-family: adobe-clean;
   src: url("fonts/adobe-clean-bold.woff2") format("woff2");
+  font-display: optional;
   font-style: normal;
   font-weight: 700;
   font-stretch: normal;
@@ -39,6 +42,7 @@
 @font-face {
   font-family: adobe-clean;
   src: url("fonts/adobe-clean-bold-italic.woff2") format("woff2");
+  font-display: optional;
   font-style: italic;
   font-weight: 700;
   font-stretch: normal;
