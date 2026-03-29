@@ -138,6 +138,41 @@ dialog.modal-overlay::backdrop {
   right: 0;
 }
 
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  padding: 0 24px 12px;
+
+  .action-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px;
+    border: none;
+    background: transparent;
+    color: var(--s2-gray-700);
+    cursor: pointer;
+    border-radius: var(--s2-radius-100);
+    transition: background-color 0.2s ease, color 0.2s ease;
+
+    svg.icon {
+      width: 20px;
+      height: 20px;
+      fill: currentcolor;
+    }
+
+    &:hover {
+      background-color: var(--s2-gray-100);
+      color: var(--s2-gray-900);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--s2-blue-500);
+      outline-offset: 2px;
+    }
+  }
+}
+
 .modal-tabs {
   display: flex;
   gap: 18px;

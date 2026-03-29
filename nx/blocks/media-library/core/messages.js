@@ -67,6 +67,7 @@ const MESSAGES = {
   UI_MEDIA_PREV: 'Previous media',
   UI_MEDIA_NEXT: 'Next media',
   UI_MEDIA_POSITION: '{current} of {total}',
+  UI_OPEN_IN_NEW_TAB: 'Open in new tab',
 };
 
 export function t(key, params = {}) {

@@ -91,6 +91,7 @@ class NxMediaInfo extends LitElement {
     this._navigationItems = null;
     this._navigationIndex = -1;
     this._navBusy = false;
+    this._lastNavDirection = null;
   }
 
   connectedCallback() {
@@ -228,10 +229,12 @@ class NxMediaInfo extends LitElement {
   }
 
   handleMediaNavPrev() {
+    this._lastNavDirection = 'prev';
     this.navigateMedia(-1);
   }
 
   handleMediaNavNext() {
+    this._lastNavDirection = 'next';
     this.navigateMedia(1);
   }
 
@@ -260,9 +263,11 @@ class NxMediaInfo extends LitElement {
 
     if (e.key === 'ArrowLeft') {
       e.preventDefault();
+      this._lastNavDirection = 'prev';
       if (this.navigateMedia(-1)) this._focusMediaNavButton('prev');
     } else if (e.key === 'ArrowRight') {
       e.preventDefault();
+      this._lastNavDirection = 'next';
       if (this.navigateMedia(1)) this._focusMediaNavButton('next');
     }
   }
@@ -741,6 +746,20 @@ class NxMediaInfo extends LitElement {
               <button type="button" class="icon-button close-modal-button" @click=${this.handleClose} title="Close" aria-label="Close modal">
                 <svg class="icon" viewBox="0 0 20 20">
                   <use href="#S2_Icon_Close_20_N"></use>
+                </svg>
+              </button>
+            </div>
+
+            <div class="modal-actions">
+              <button
+                type="button"
+                class="action-button open-button"
+                @click=${this.handleOpenInTab}
+                title="${t('UI_OPEN_IN_NEW_TAB')}"
+                aria-label="${t('UI_OPEN_IN_NEW_TAB')}"
+              >
+                <svg class="icon" viewBox="0 0 20 20">
+                  <use href="#S2_Icon_OpenIn_20_N"></use>
                 </svg>
               </button>
             </div>
@@ -1234,6 +1253,14 @@ class NxMediaInfo extends LitElement {
     }
   }
 
+  handleOpenInTab(e) {
+    if (!this.media?.url) return;
+    const fullUrl = resolveMediaUrl(this.media.url, this.org, this.repo);
+    window.open(fullUrl, '_blank', 'noopener,noreferrer');
+    const direction = this._lastNavDirection || 'next';
+    this._focusMediaNavButton(direction);
+  }
+
   handleTabChange(e) {
     const { tab } = e.target.dataset;
     this.activeTab = tab;
@@ -1327,6 +1354,7 @@ class NxMediaInfo extends LitElement {
     this._navigationItems = null;
     this._navigationIndex = -1;
     this._navBusy = false;
+    this._lastNavDirection = null;
   }
 }
 
