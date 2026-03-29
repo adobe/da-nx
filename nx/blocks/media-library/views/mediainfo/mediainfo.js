@@ -45,6 +45,7 @@ const ICONS = [
   `${iconsBase}S2_Icon_ChevronRight_20_N.svg`,
   `${iconsBase}S2_Icon_Close_20_N.svg`,
   `${iconsBase}C_Icon_Fragment.svg`,
+  `${iconsBase}Smock_Copy_18_N.svg`,
 ];
 
 const SUPPORTED_TABS = ['usage', 'metadata'];
@@ -66,6 +67,7 @@ class NxMediaInfo extends LitElement {
     _mediaPath: { state: true },
     _imageDimensions: { state: true },
     _comprehensiveMetadata: { state: true },
+    _modalNotification: { state: true },
   };
 
   constructor() {
@@ -92,6 +94,8 @@ class NxMediaInfo extends LitElement {
     this._navigationIndex = -1;
     this._navBusy = false;
     this._lastNavDirection = null;
+    this._modalNotification = null;
+    this._modalNotificationTimeout = null;
   }
 
   connectedCallback() {
@@ -753,6 +757,18 @@ class NxMediaInfo extends LitElement {
             <div class="modal-actions">
               <button
                 type="button"
+                class="action-button copy-button"
+                @click=${this.handleCopyUrl}
+                title="${t('UI_COPY_URL')}"
+                aria-label="${t('UI_COPY_URL')}"
+              >
+                <svg class="icon" viewBox="0 0 18 18">
+                  <use href="#Smock_Copy_18_N"></use>
+                </svg>
+                Copy
+              </button>
+              <button
+                type="button"
                 class="action-button open-button"
                 @click=${this.handleOpenInTab}
                 title="${t('UI_OPEN_IN_NEW_TAB')}"
@@ -761,6 +777,7 @@ class NxMediaInfo extends LitElement {
                 <svg class="icon" viewBox="0 0 20 20">
                   <use href="#S2_Icon_OpenIn_20_N"></use>
                 </svg>
+                Open
               </button>
             </div>
 
@@ -800,6 +817,25 @@ class NxMediaInfo extends LitElement {
           </div>
 
         </div>
+        ` : ''}
+
+        ${this._modalNotification ? html`
+          <div class="modal-notification-overlay">
+            <div class="modal-toast ${this._modalNotification.type || 'success'}">
+              <div class="modal-toast-header">
+                <p class="modal-toast-title">${this._modalNotification.heading || t('NOTIFY_INFO')}</p>
+                <button
+                  type="button"
+                  class="modal-toast-close"
+                  aria-label="${t('UI_DISMISS')}"
+                  @click=${this.dismissModalNotification}
+                >
+                  <span aria-hidden="true">&times;</span>
+                </button>
+              </div>
+              <p class="modal-toast-message">${this._modalNotification.message}</p>
+            </div>
+          </div>
         ` : ''}
       </dialog>
     `;
@@ -1115,8 +1151,10 @@ class NxMediaInfo extends LitElement {
                 <div class="metadata-label">MIME Type</div>
                 <div class="metadata-value">${this._mimeType}</div>
               ` : ''}
-              <div class="metadata-label">File Size</div>
-              <div class="metadata-value">${this._fileSize || 'Loading...'}</div>
+              ${this._fileSize && this._fileSize !== '0 Bytes' && this._fileSize !== 'External resource' ? html`
+                <div class="metadata-label">File Size</div>
+                <div class="metadata-value">${this._fileSize}</div>
+              ` : ''}
               ${this._imageDimensions ? html`
                 <div class="metadata-label">Width</div>
                 <div class="metadata-value">${this._imageDimensions.width}px</div>
@@ -1253,6 +1291,41 @@ class NxMediaInfo extends LitElement {
     }
   }
 
+  showModalNotification(heading, message, type = 'success') {
+    if (this._modalNotificationTimeout) {
+      clearTimeout(this._modalNotificationTimeout);
+    }
+    this._modalNotification = { heading, message, type };
+    let duration = 3000;
+    if (type === 'danger') {
+      duration = 10000;
+    } else if (type === 'warning') {
+      duration = 5000;
+    }
+    this._modalNotificationTimeout = setTimeout(() => {
+      this._modalNotification = null;
+      this._modalNotificationTimeout = null;
+    }, duration);
+  }
+
+  dismissModalNotification() {
+    if (this._modalNotificationTimeout) {
+      clearTimeout(this._modalNotificationTimeout);
+      this._modalNotificationTimeout = null;
+    }
+    this._modalNotification = null;
+  }
+
+  handleCopyUrl() {
+    if (!this.media?.url) return;
+    const fullUrl = resolveMediaUrl(this.media.url, this.org, this.repo);
+    navigator.clipboard.writeText(fullUrl).then(() => {
+      this.showModalNotification(t('NOTIFY_COPIED'), t('NOTIFY_COPIED_URL'), 'success');
+    }).catch(() => {
+      this.showModalNotification(t('NOTIFY_ERROR'), t('NOTIFY_COPY_ERROR'), 'danger');
+    });
+  }
+
   handleOpenInTab(e) {
     if (!this.media?.url) return;
     const fullUrl = resolveMediaUrl(this.media.url, this.org, this.repo);
@@ -1346,6 +1419,11 @@ class NxMediaInfo extends LitElement {
   _resetState() {
     this._resetLoadedMetadata();
     this._revokeAllPdfBlobEntries();
+    if (this._modalNotificationTimeout) {
+      clearTimeout(this._modalNotificationTimeout);
+      this._modalNotificationTimeout = null;
+    }
+    this._modalNotification = null;
     this.media = null;
     this._mediaOrigin = null;
     this._mediaPath = null;

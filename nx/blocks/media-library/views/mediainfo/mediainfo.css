@@ -140,17 +140,18 @@ dialog.modal-overlay::backdrop {
 
 .modal-actions {
   display: flex;
-  gap: 12px;
-  padding: 0 24px 12px;
+  padding: 0 24px 12px 12px;
 
   .action-button {
     display: flex;
     align-items: center;
-    justify-content: center;
-    padding: 6px;
+    gap: 6px;
+    padding: 6px 8px;
     border: none;
     background: transparent;
     color: var(--s2-gray-700);
+    font-size: 14px;
+    font-weight: 500;
     cursor: pointer;
     border-radius: var(--s2-radius-100);
     transition: background-color 0.2s ease, color 0.2s ease;
@@ -998,4 +999,84 @@ dialog.modal-overlay::backdrop {
   .date-separator {
     display: none;
   }
+}
+
+.modal-notification-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgb(255 255 255 / 60%);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  border-radius: var(--s2-radius-100);
+}
+
+.modal-toast {
+  display: flex;
+  flex-direction: column;
+  width: 360px;
+  max-width: 90%;
+  border-radius: 6px;
+  filter: drop-shadow(rgb(0 0 0 / 15%) 0 1px 4px);
+  box-sizing: border-box;
+  color: #fff;
+  font-size: 14px;
+  overflow: hidden;
+}
+
+.modal-toast.success {
+  background: var(--s2-blue-800);
+}
+
+.modal-toast.danger {
+  background: var(--s2-red-900);
+}
+
+.modal-toast.warning {
+  background: var(--s2-amber-800, #b45309);
+}
+
+.modal-toast-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.modal-toast-title {
+  flex: 1;
+  font-weight: 700;
+  margin: 0;
+  padding: 12px 16px;
+  background: transparent;
+}
+
+.modal-toast-message {
+  line-height: 1.6;
+  padding: 6px 16px 12px;
+  margin: 0;
+  background: rgb(255 255 255 / 10%);
+}
+
+.modal-toast-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  margin: 4px 4px 0 0;
+  border: none;
+  background: rgb(255 255 255 / 15%);
+  color: inherit;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+  border-radius: 4px;
+}
+
+.modal-toast-close:hover {
+  background: rgb(255 255 255 / 25%);
 }
