@@ -284,6 +284,28 @@ export function getVideoEmbedUrl(videoUrl) {
   return null;
 }
 
+// Converts embed URLs back to watch URLs for opening in new tabs.
+export function convertEmbedToWatchUrl(url) {
+  if (!url) return url;
+
+  const youtubeEmbedMatch = url.match(/youtube\.com\/embed\/([^?]+)/);
+  if (youtubeEmbedMatch) {
+    return `https://www.youtube.com/watch?v=${youtubeEmbedMatch[1]}`;
+  }
+
+  const vimeoEmbedMatch = url.match(/player\.vimeo\.com\/video\/(\d+)/);
+  if (vimeoEmbedMatch) {
+    return `https://vimeo.com/${vimeoEmbedMatch[1]}`;
+  }
+
+  const dailymotionEmbedMatch = url.match(/dailymotion\.com\/embed\/video\/([^?]+)/);
+  if (dailymotionEmbedMatch) {
+    return `https://www.dailymotion.com/video/${dailymotionEmbedMatch[1]}`;
+  }
+
+  return url;
+}
+
 export function getImageOrientation(width, height) {
   if (Math.abs(width - height) < 5) {
     return 'Square';

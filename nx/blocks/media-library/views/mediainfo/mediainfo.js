@@ -8,6 +8,7 @@ import {
   isPdfUrl,
   isExternalVideoUrl,
   getVideoEmbedUrl,
+  convertEmbedToWatchUrl,
   EXIFR_URL,
   getMediaType,
   getImageOrientation,
@@ -1328,7 +1329,8 @@ class NxMediaInfo extends LitElement {
 
   handleOpenInTab(e) {
     if (!this.media?.url) return;
-    const fullUrl = resolveMediaUrl(this.media.url, this.org, this.repo);
+    let fullUrl = resolveMediaUrl(this.media.url, this.org, this.repo);
+    fullUrl = convertEmbedToWatchUrl(fullUrl);
     window.open(fullUrl, '_blank', 'noopener,noreferrer');
     const direction = this._lastNavDirection || 'next';
     this._focusMediaNavButton(direction);
