@@ -94,8 +94,9 @@ describe('NxWorkspace personalization', () => {
     document.body.appendChild(el);
     await el.updateComplete;
     el._ims = { first_name: 'Alice' };
+    el._imsLoaded = true;
     await el.updateComplete;
-    const h1 = el.shadowRoot.querySelector('.workspace-hero-title');
+    const h1 = el.shadowRoot.querySelector('.workspace-hero-title-loaded');
     expect(h1).to.exist;
     expect(h1.textContent).to.include('Alice');
     const subtitle = el.shadowRoot.querySelector('.workspace-hero-subtitle');
@@ -107,14 +108,26 @@ describe('NxWorkspace personalization', () => {
     document.body.appendChild(el);
     await el.updateComplete;
     el._ims = { displayName: 'Bob Smith' };
+    el._imsLoaded = true;
     await el.updateComplete;
-    const h1 = el.shadowRoot.querySelector('.workspace-hero-title');
+    const h1 = el.shadowRoot.querySelector('.workspace-hero-title-loaded');
     expect(h1.textContent).to.include('Bob');
   });
 
-  it('shows only subtitle when _ims is null', async () => {
+  it('shows pending placeholder before IMS loads', async () => {
     el = document.createElement('nx-workspace');
     document.body.appendChild(el);
+    await el.updateComplete;
+    const pending = el.shadowRoot.querySelector('.workspace-hero-title-pending');
+    expect(pending).to.exist;
+  });
+
+  it('shows only subtitle when IMS loads with no name (anonymous)', async () => {
+    el = document.createElement('nx-workspace');
+    document.body.appendChild(el);
+    await el.updateComplete;
+    el._ims = { anonymous: true };
+    el._imsLoaded = true;
     await el.updateComplete;
     const h1 = el.shadowRoot.querySelector('.workspace-hero-title');
     expect(h1).to.not.exist;

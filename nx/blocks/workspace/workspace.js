@@ -25,6 +25,7 @@ const styles = await getStyle(import.meta.url);
 class NxWorkspace extends LitElement {
   static properties = {
     _ims: { state: true },
+    _imsLoaded: { state: true },
     _promptCards: { state: true },
     _activeTab: { state: true },
     _recentPages: { state: true },
@@ -34,6 +35,7 @@ class NxWorkspace extends LitElement {
 
   constructor() {
     super();
+    this._imsLoaded = false;
     this._promptCards = [];
     this._activeTab = 'recent';
     this._recentPages = [];
@@ -69,6 +71,7 @@ class NxWorkspace extends LitElement {
 
   _onProfileLoad(e) {
     this._ims = e.detail;
+    this._imsLoaded = true;
   }
 
   _clickPromptCard(prompt) {
@@ -208,12 +211,22 @@ class NxWorkspace extends LitElement {
   _renderHero() {
     const firstName = this._ims?.first_name ?? this._ims?.displayName?.split(' ')[0];
 
+    // Before IMS resolves: invisible placeholder reserves the h1 space to prevent layout shift.
+    // After IMS resolves with a name: real heading fades in.
+    // After IMS resolves anonymous: placeholder removed (only subtitle shown).
+    let titleEl = nothing;
+    if (!this._imsLoaded) {
+      titleEl = html`<h1 class="workspace-hero-title workspace-hero-title-pending" aria-hidden="true">&nbsp;</h1>`;
+    } else if (firstName) {
+      titleEl = html`<h1 class="workspace-hero-title workspace-hero-title-loaded">Welcome, <strong>${firstName}</strong>!</h1>`;
+    }
+
     return html`
       <nx-profile @loaded=${this._onProfileLoad.bind(this)} class="workspace-profile"></nx-profile>
       <div class="workspace-hero">
         <div class="workspace-hero-inner">
           <div class="workspace-hero-text">
-            ${firstName ? html`<h1 class="workspace-hero-title">Welcome, <strong>${firstName}</strong>!</h1>` : ''}
+            ${titleEl}
             <p class="workspace-hero-subtitle">Your AI-powered content workspace</p>
           </div>
           <div class="workspace-chat-launcher">
