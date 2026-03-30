@@ -354,7 +354,6 @@ html:has(meta[content="edge-delivery"]) {
         main {
           grid-area: main;
           background-color: light-dark(#fff, #000);
-          overflow-y: scroll;
           max-height: 100%;
         }
       }
@@ -431,7 +430,6 @@ html:has(meta[content="edge-delivery"]) {
         main {
           margin: 0 12px 0 0;
           border-radius: 32px 32px 0 0;
-          overflow-y: scroll;
           max-height: 100%;
         }
       }
