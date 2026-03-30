@@ -1,4 +1,5 @@
 import { expect } from '@esm-bundle/chai';
+import sinon from 'sinon';
 import init from '../../../nx/blocks/workspace/workspace.js';
 
 describe('NxWorkspace block init', () => {
@@ -99,5 +100,52 @@ describe('NxWorkspace personalization', () => {
     expect(label).to.not.exist;
     const h1 = el.shadowRoot.querySelector('.workspace-hero-title');
     expect(h1.textContent).to.include('AI-powered');
+  });
+});
+
+describe('NxWorkspace prompt cards', () => {
+  let el;
+
+  beforeEach(async () => {
+    el = document.createElement('nx-workspace');
+    document.body.appendChild(el);
+    await el.updateComplete;
+  });
+
+  afterEach(() => {
+    el.remove();
+    sinon.restore();
+  });
+
+  it('renders prompt cards section when cards are available', async () => {
+    el._promptCards = [
+      { title: 'Card 1', description: 'Desc 1', prompt: 'Do X' },
+      { title: 'Card 2', description: 'Desc 2', prompt: 'Do Y' },
+      { title: 'Card 3', description: 'Desc 3', prompt: 'Do Z' },
+    ];
+    await el.updateComplete;
+
+    const section = el.shadowRoot.querySelector('.workspace-prompts');
+    expect(section).to.exist;
+  });
+
+  it('renders exactly 3 prompt cards', async () => {
+    el._promptCards = [
+      { title: 'A', description: 'a', prompt: 'pa' },
+      { title: 'B', description: 'b', prompt: 'pb' },
+      { title: 'C', description: 'c', prompt: 'pc' },
+    ];
+    await el.updateComplete;
+
+    const cards = el.shadowRoot.querySelectorAll('.workspace-prompt-card');
+    expect(cards.length).to.equal(3);
+  });
+
+  it('does not render prompts section when no cards are available', async () => {
+    el._promptCards = [];
+    await el.updateComplete;
+
+    const section = el.shadowRoot.querySelector('.workspace-prompts');
+    expect(section).to.be.null;
   });
 });

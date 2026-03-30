@@ -75,3 +75,80 @@
   height: 100%;
   min-height: 220px;
 }
+
+/* Matches AEM Experience Manager panel headings: 18px, 700 weight */
+.workspace-section-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--s2-gray-800, #292929);
+  margin: 0 0 20px;
+  line-height: 1.3;
+}
+
+.workspace-prompts {
+  width: 100%;
+}
+
+.workspace-prompts-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+
+.workspace-prompt-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+
+  /* AEM Experience Manager card: white, no border, 10px radius, 3-layer shadow */
+  background: #fff;
+  border: none;
+  border-radius: var(--s2-radius-200, 10px);
+  box-shadow: rgb(0 0 0 / 8%) 0 2px 8px 0, rgb(0 0 0 / 4%) 0 1px 4px 0, rgb(0 0 0 / 8%) 0 0 1px 0;
+  cursor: pointer;
+  text-align: left;
+  transition: box-shadow 0.15s ease, transform 0.1s ease;
+  font-family: var(--font-family, inherit);
+}
+
+.workspace-prompt-card:hover {
+  box-shadow: rgb(59 99 251 / 20%) 0 4px 16px 0, rgb(0 0 0 / 8%) 0 0 1px 0;
+  transform: translateY(-1px);
+}
+
+.workspace-prompt-icon {
+  width: 24px;
+  height: 24px;
+}
+
+/* AEM Experience Manager chip: 12px, teal/cyan pill */
+.workspace-prompt-category {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--s2-cyan-800, #0086b4);
+  background: var(--s2-cyan-300, #b7e7fc);
+  border-radius: 20px;
+  padding: 2px 8px;
+  align-self: flex-start;
+  margin-top: auto;
+}
+
+.workspace-prompt-title {
+  font-size: var(--s2-body-s-size, 14px);
+  font-weight: 700;
+  color: var(--s2-gray-800, #292929);
+}
+
+.workspace-prompt-desc {
+  font-size: var(--s2-body-xs-size, 12px);
+  color: var(--s2-gray-600, #717171);
+  line-height: var(--s2-line-height-200, 1.5);
+}
+
+@media (width <= 768px) {
+  .workspace-prompts-grid {
+    grid-template-columns: 1fr;
+  }
+}
