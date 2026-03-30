@@ -12,11 +12,15 @@
 
   .da-sidebar-section {
     margin-bottom: 16px;
-  }
 
-  .da-sidebar-title {
-    font-weight: 700;
-    margin: 0 0 8px;
+    & .da-sidebar-title {
+      font-weight: 700;
+      font-size: var(--sl-font-size-medium, 1rem);
+      line-height: 1.3;
+      margin: 0 0 14px;
+      padding: 19px 12px 12px;
+      border-bottom: 1px solid var(--sl-color-neutral-200, #e5e7eb);
+    }
   }
 }
 
@@ -28,7 +32,10 @@
 
 .nav-list {
   line-height: 28px;
-  max-height: calc(100vh - 6rem);
+
+  /* Reserve top chrome + nav title (padding + margin) so the list scrolls inside the viewport */
+  max-height: calc(100vh - 6rem - 24px - 5.5rem);
+  max-height: calc(100dvh - 6rem - 24px - 5.5rem);
   overflow-y: auto;
   overscroll-behavior: contain;
   padding-right: 4px;
@@ -36,6 +43,7 @@
 
   ul {
     list-style: none;
+    margin: 0;
     padding-left: 22px;
   }
 
