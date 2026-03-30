@@ -115,6 +115,8 @@
   margin-top: 8px;
   padding: 4px 8px;
   cursor: pointer;
+  border-radius: var(--s2-radius-100, 8px);
+  border: solid 1px;
 }
 
 .item-group.move-item-picked > .item-group-title,
