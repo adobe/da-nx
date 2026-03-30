@@ -111,7 +111,7 @@ function chunkMediaSheet(mediaData, chunkSize) {
   return chunks;
 }
 
-const DEFAULT_TIMEFRAME_DAYS = 730; /* 2 years */
+const DEFAULT_TIMEFRAME_DAYS = 3650; /* 10 years */
 
 export async function fetchWithAuth(url, opts = {}) {
   return fetchWithAuthRaw(url, opts);
@@ -427,11 +427,15 @@ export async function streamLog(
   since,
   limit,
   onChunk,
+  options = {},
 ) {
   const fetchParams = new URLSearchParams();
   fetchParams.append('limit', limit.toString());
 
-  if (since != null && typeof since === 'number') {
+  if (options.fullHistory) {
+    fetchParams.append('from', '2015-01-01T00:00:00.000Z');
+    fetchParams.append('to', new Date().toISOString());
+  } else if (since != null && typeof since === 'number') {
     const fromIso = new Date(since).toISOString();
     const toIso = new Date().toISOString();
     fetchParams.append('from', fromIso);
