@@ -32,6 +32,7 @@ class FormEditor extends LitElement {
     formModel: { state: true },
     _schemas: { state: true },
     _activeNavPointer: { state: true },
+    _navPointerScroll: { state: true },
   };
 
   connectedCallback() {
@@ -50,11 +51,13 @@ class FormEditor extends LitElement {
     if (!result.html) {
       this.formModel = null;
       this._activeNavPointer = undefined;
+      this._navPointerScroll = undefined;
       return;
     }
 
     const path = this.details.fullpath;
     this._activeNavPointer = undefined;
+    this._navPointerScroll = undefined;
     this.formModel = new FormModel({ path, html: result.html, schemas });
   }
 
@@ -70,13 +73,22 @@ class FormEditor extends LitElement {
 
     const path = this.details.fullpath;
     this._activeNavPointer = undefined;
+    this._navPointerScroll = undefined;
     this.formModel = new FormModel({ path, json: emptyForm, schemas: this._schemas });
   }
 
-  _handleNavPointerSelect(e) {
+  _handleNavPointerSelectFromSidebar(e) {
     const { pointer } = e.detail ?? {};
     if (!pointer) return;
     this._activeNavPointer = pointer;
+    this._navPointerScroll = { scrollEditor: true, scrollNavigation: false };
+  }
+
+  _handleNavPointerSelectFromEditor(e) {
+    const { pointer } = e.detail ?? {};
+    if (!pointer) return;
+    this._activeNavPointer = pointer;
+    this._navPointerScroll = { scrollEditor: false, scrollNavigation: true };
   }
 
   async handleUpdate({ detail }) {
@@ -167,8 +179,10 @@ class FormEditor extends LitElement {
           @insert-item=${this.handleInsertItem}
           @remove-item=${this.handleRemoveItem}
           @move-array-item=${this.handleMoveArrayItem}
+          @nav-pointer-select=${this._handleNavPointerSelectFromEditor}
           .formModel=${this.formModel}
           .activeNavPointer=${this._activeNavPointer}
+          .navPointerScroll=${this._navPointerScroll}
         ></da-form-editor>
         <da-form-preview .formModel=${this.formModel}></da-form-preview>
       </div>`;
@@ -181,7 +195,8 @@ class FormEditor extends LitElement {
         <da-form-sidebar
           .formModel=${this.formModel}
           .activeNavPointer=${this._activeNavPointer}
-          @nav-pointer-select=${this._handleNavPointerSelect}
+          .navPointerScroll=${this._navPointerScroll}
+          @nav-pointer-select=${this._handleNavPointerSelectFromSidebar}
         ></da-form-sidebar>
       </div>
     `;

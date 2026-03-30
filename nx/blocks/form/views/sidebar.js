@@ -1,4 +1,4 @@
-import { LitElement, html, nothing } from 'da-lit';
+import { LitElement, html, nothing, ref } from 'da-lit';
 
 const { default: getStyle } = await import('../../../utils/styles.js');
 
@@ -15,9 +15,15 @@ class FormSidebar extends LitElement {
   static properties = {
     formModel: { attribute: false },
     activeNavPointer: { attribute: false },
+    navPointerScroll: { attribute: false },
     _schemas: { attribute: false },
     _nav: { state: true },
   };
+
+  constructor() {
+    super();
+    this._navButtonByPointer = new Map();
+  }
 
   connectedCallback() {
     super.connectedCallback();
@@ -33,6 +39,20 @@ class FormSidebar extends LitElement {
 
   getNav() {
     this._nav = this.formModel.annotated;
+  }
+
+  _bindNavButtonRef(pointer, el) {
+    if (el) this._navButtonByPointer.set(pointer, el);
+    else this._navButtonByPointer.delete(pointer);
+  }
+
+  updated(changed) {
+    super.updated(changed);
+    if (!changed.has('activeNavPointer') || !this.activeNavPointer) return;
+    if (this.navPointerScroll?.scrollNavigation !== true) return;
+    const btn = this._navButtonByPointer.get(this.activeNavPointer);
+    if (!btn) return;
+    btn.scrollIntoView({ block: 'nearest', behavior: 'auto' });
   }
 
   renderNoSchemas() {
@@ -97,6 +117,7 @@ class FormSidebar extends LitElement {
           class="item nav-item ${isActive ? 'is-active' : ''}"
           aria-current=${isActive ? 'location' : undefined}
           @click=${() => this._emitNavSelect(parent.pointer)}
+          ${ref((el) => this._bindNavButtonRef(parent.pointer, el))}
         >${label}</button>
         ${children.length
         ? html`<ul>${children.map((item, i) => {

@@ -23,6 +23,7 @@ class FormEditor extends LitElement {
   static properties = {
     formModel: { state: true },
     activeNavPointer: { attribute: false },
+    navPointerScroll: { attribute: false },
     _errorsByPointer: { state: true },
     _moveActive: { state: true },
   };
@@ -129,6 +130,7 @@ class FormEditor extends LitElement {
   updated(changed) {
     super.updated(changed);
     if (!changed.has('activeNavPointer') || !this.activeNavPointer) return;
+    if (this.navPointerScroll?.scrollEditor === false) return;
     const el = this._sectionElByPointer.get(this.activeNavPointer);
     if (!el) return;
     el.scrollIntoView({ block: 'start', behavior: 'auto' });
@@ -137,6 +139,19 @@ class FormEditor extends LitElement {
   _bindSectionRef(pointer, el) {
     if (el) this._sectionElByPointer.set(pointer, el);
     else this._sectionElByPointer.delete(pointer);
+  }
+
+  _onGroupPointerActivate(e, pointer) {
+    if (e.button !== 0) return;
+    const innermost = e.composedPath().find(
+      (n) => n instanceof HTMLElement && n.classList.contains('item-group'),
+    );
+    if (innermost !== e.currentTarget) return;
+    this.dispatchEvent(new CustomEvent('nav-pointer-select', {
+      detail: { pointer },
+      bubbles: true,
+      composed: true,
+    }));
   }
 
   runValidation() {
@@ -364,6 +379,7 @@ class FormEditor extends LitElement {
       <div
         class="item-group ${isRoot ? 'root-group' : 'child-group'} ${moveItemPicked ? 'move-item-picked' : ''}"
         data-key="${parent.key}"
+        @click=${(e) => this._onGroupPointerActivate(e, parent.pointer)}
         ${ref((el) => this._bindSectionRef(parent.pointer, el))}
       >
         <div class="item-group-title">
