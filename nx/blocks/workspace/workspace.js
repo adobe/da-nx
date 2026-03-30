@@ -2,7 +2,6 @@ import { LitElement, html, nothing } from 'da-lit';
 import getStyle from '../../utils/styles.js';
 import { daFetch } from '../../utils/daFetch.js';
 import { DA_ORIGIN } from '../../public/utils/constants.js';
-import '../canvas/src/chat.js';
 
 const DA_PROJECTS_KEY = 'da-projects';
 
@@ -29,6 +28,7 @@ class NxWorkspace extends LitElement {
     _activeTab: { state: true },
     _recentPages: { state: true },
     _projects: { state: true },
+    _prompt: { state: true },
   };
 
   constructor() {
@@ -37,6 +37,7 @@ class NxWorkspace extends LitElement {
     this._activeTab = 'recent';
     this._recentPages = [];
     this._projects = [];
+    this._prompt = '';
   }
 
   async connectedCallback() {
@@ -66,8 +67,19 @@ class NxWorkspace extends LitElement {
   }
 
   _clickPromptCard(prompt) {
-    const chat = this.shadowRoot.querySelector('da-chat');
-    if (chat?.sendPrompt) chat.sendPrompt(prompt);
+    this._prompt = prompt;
+    this._launchChat();
+  }
+
+  _launchChat() {
+    const prompt = this._prompt.trim();
+    if (!prompt) return;
+    sessionStorage.setItem('da-pending-prompt', prompt);
+    const hash = window.location.hash || '';
+    const path = hash.replace(/^#\/?/, '').trim();
+    const [org, repo] = path.split('/').filter(Boolean);
+    const dest = org && repo ? `/#/${org}/${repo}` : '/';
+    window.location.assign(`${window.location.origin}${dest}`);
   }
 
   _loadProjects() {
@@ -193,15 +205,31 @@ class NxWorkspace extends LitElement {
 
     return html`
       <div class="workspace-hero">
-        <div class="workspace-hero-text">
-          ${firstName ? html`<h1 class="workspace-hero-title">Welcome, <strong>${firstName}</strong>!</h1>` : ''}
-          <p class="workspace-hero-subtitle">Your AI-powered content workspace</p>
-        </div>
-        <div class="workspace-chat-container">
-          <da-chat
-            context-view="workspace"
-            .onPageContextItems="${[]}"
-          ></da-chat>
+        <div class="workspace-hero-inner">
+          <div class="workspace-hero-text">
+            ${firstName ? html`<h1 class="workspace-hero-title">Welcome, <strong>${firstName}</strong>!</h1>` : ''}
+            <p class="workspace-hero-subtitle">Your AI-powered content workspace</p>
+          </div>
+          <div class="workspace-chat-launcher">
+            <input
+              class="workspace-chat-input"
+              type="text"
+              placeholder="Ask DA AI anything"
+              .value="${this._prompt}"
+              @input="${(e) => { this._prompt = e.target.value; }}"
+              @keydown="${(e) => { if (e.key === 'Enter') this._launchChat(); }}"
+            />
+            <button
+              class="workspace-chat-send"
+              aria-label="Send"
+              ?disabled="${!this._prompt.trim()}"
+              @click="${() => this._launchChat()}"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" focusable="false" aria-hidden="true">
+                <path d="M15.5 8a.5.5 0 0 0-.5-.5H2.707l3.647-3.646a.5.5 0 0 0-.708-.708l-4.5 4.5a.5.5 0 0 0 0 .708l4.5 4.5a.5.5 0 0 0 .708-.708L2.707 8.5H15a.5.5 0 0 0 .5-.5Z"/>
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
     `;
@@ -211,17 +239,17 @@ class NxWorkspace extends LitElement {
     if (!this._promptCards.length) return nothing;
     return html`
       <section class="workspace-prompts">
-        <h2 class="workspace-section-title">Get started</h2>
-        <div class="workspace-prompts-grid">
+        <h2 class="workspace-section-title">Suggested prompts</h2>
+        <div class="workspace-prompts-row">
           ${this._promptCards.map((card) => html`
             <button
               class="workspace-prompt-card"
               @click=${() => this._clickPromptCard(card.prompt)}
             >
               ${card.icon ? html`<img class="workspace-prompt-icon" src="${card.icon}" alt="" aria-hidden="true" />` : ''}
-              <span class="workspace-prompt-category">${card.category || ''}</span>
               <span class="workspace-prompt-title">${card.title}</span>
               <span class="workspace-prompt-desc">${card.description || ''}</span>
+              ${card.category ? html`<span class="workspace-prompt-category">${card.category}</span>` : ''}
             </button>
           `)}
         </div>
@@ -246,6 +274,8 @@ customElements.define('nx-workspace', NxWorkspace);
 
 export default async function init(el) {
   const workspace = document.createElement('nx-workspace');
+  document.body.style.margin = '0';
+  document.body.style.padding = '0';
   document.body.append(workspace);
   el.remove();
 }

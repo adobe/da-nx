@@ -1,6 +1,8 @@
 /* Uses Spectrum 2 tokens from nx/public/sl/styles.css */
 :host {
   display: block;
+  margin: 0;
+  padding: 0;
 }
 
 .workspace {
@@ -9,16 +11,23 @@
   min-height: 100vh;
   background: var(--s2-gray-50, #f8f8f8);
   font-family: var(--font-family, "Adobe Clean", adobe-clean, "Trebuchet MS", sans-serif);
+  margin: 0;
+  padding: 0;
 }
 
 .workspace-hero {
   /* Matches AEM Experience Manager hero: soft purple-lavender → fuchsia gradient */
   background: linear-gradient(125deg, #bdb0e8 0%, #ddb8f0 55%, var(--s2-fuchsia-300, #fad3ff) 100%);
-  padding: 64px 24px 56px;
+  padding: 48px 24px 56px;
+}
+
+.workspace-hero-inner {
+  max-width: 760px;
+  margin: 0 auto;
+  width: 100%;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 32px;
+  gap: 28px;
 }
 
 .workspace-sections {
@@ -33,7 +42,6 @@
 }
 
 .workspace-hero-text {
-  text-align: center;
   color: var(--s2-gray-800, #292929);
 }
 
@@ -57,23 +65,62 @@
   color: var(--s2-gray-600, #717171);
 }
 
-.workspace-chat-container {
-  width: 100%;
-  max-width: 760px;
+.workspace-chat-launcher {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   background: #fff;
-  border-radius: var(--s2-radius-200, 10px);
-
-  /* AEM Experience Manager exact 3-layer shadow */
+  border-radius: 28px;
+  padding: 8px 8px 8px 20px;
   box-shadow: rgb(0 0 0 / 8%) 0 2px 8px 0, rgb(0 0 0 / 4%) 0 1px 4px 0, rgb(0 0 0 / 8%) 0 0 1px 0;
-  overflow: hidden;
-  min-height: 220px;
 }
 
-.workspace-chat-container da-chat {
-  display: block;
-  width: 100%;
-  height: 100%;
-  min-height: 220px;
+.workspace-chat-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: var(--s2-body-m-size, 16px);
+  font-family: var(--font-family, inherit);
+  color: var(--s2-gray-800, #292929);
+  min-width: 0;
+  line-height: 1.5;
+}
+
+.workspace-chat-input::placeholder {
+  color: var(--s2-gray-500, #8f8f8f);
+}
+
+.workspace-chat-send {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: none;
+  background: var(--s2-blue-900, #3b63fb);
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease;
+  padding: 0;
+}
+
+.workspace-chat-send svg {
+  width: 16px;
+  height: 16px;
+  fill: #fff;
+  transform: rotate(180deg);
+}
+
+.workspace-chat-send:hover {
+  background: var(--s2-blue-1000, #274dea);
+}
+
+.workspace-chat-send:disabled {
+  background: var(--s2-gray-300, #dadada);
+  cursor: default;
 }
 
 /* Matches AEM Experience Manager panel headings: 18px, 700 weight */
@@ -89,10 +136,16 @@
   width: 100%;
 }
 
-.workspace-prompts-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
+.workspace-prompts-row {
+  display: flex;
   gap: 16px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 4px;
+}
+
+.workspace-prompts-row::-webkit-scrollbar {
+  display: none;
 }
 
 .workspace-prompt-card {
@@ -100,6 +153,7 @@
   flex-direction: column;
   gap: 8px;
   padding: 16px;
+  flex: 0 0 240px;
 
   /* AEM Experience Manager card: white, no border, 10px radius, 3-layer shadow */
   background: #fff;
@@ -147,11 +201,7 @@
   line-height: var(--s2-line-height-200, 1.5);
 }
 
-@media (width <= 768px) {
-  .workspace-prompts-grid {
-    grid-template-columns: 1fr;
-  }
-}
+
 
 .workspace-tabs-section {
   width: 100%;

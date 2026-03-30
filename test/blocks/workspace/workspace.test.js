@@ -54,14 +54,31 @@ describe('NxWorkspace hero content', () => {
 
   afterEach(() => { el.remove(); });
 
-  it('renders the chat container in the hero', async () => {
-    const container = el.shadowRoot.querySelector('.workspace-chat-container');
-    expect(container).to.exist;
+  it('renders the chat launcher in the hero', async () => {
+    const launcher = el.shadowRoot.querySelector('.workspace-chat-launcher');
+    expect(launcher).to.exist;
   });
 
-  it('renders da-chat element', async () => {
-    const chat = el.shadowRoot.querySelector('da-chat');
-    expect(chat).to.exist;
+  it('renders the chat input', async () => {
+    const input = el.shadowRoot.querySelector('.workspace-chat-input');
+    expect(input).to.exist;
+  });
+
+  it('renders the send button', async () => {
+    const btn = el.shadowRoot.querySelector('.workspace-chat-send');
+    expect(btn).to.exist;
+  });
+
+  it('send button is disabled when input is empty', async () => {
+    const btn = el.shadowRoot.querySelector('.workspace-chat-send');
+    expect(btn.disabled).to.be.true;
+  });
+
+  it('send button is enabled when input has text', async () => {
+    el._prompt = 'Hello';
+    await el.updateComplete;
+    const btn = el.shadowRoot.querySelector('.workspace-chat-send');
+    expect(btn.disabled).to.be.false;
   });
 });
 
@@ -150,29 +167,18 @@ describe('NxWorkspace prompt cards', () => {
     expect(section).to.be.null;
   });
 
-  it('forwards prompt to da-chat.sendPrompt on card click', async () => {
+  it('clicking a card sets _prompt to the card prompt', async () => {
     el._promptCards = [{ title: 'T', description: 'D', prompt: 'my prompt' }];
     await el.updateComplete;
 
-    const chat = el.shadowRoot.querySelector('da-chat');
-    const stub = sinon.stub(chat, 'sendPrompt');
+    // Stub _launchChat to prevent navigation in tests
+    const stub = sinon.stub(el, '_launchChat');
 
     const card = el.shadowRoot.querySelector('.workspace-prompt-card');
     card.click();
 
+    expect(el._prompt).to.equal('my prompt');
     expect(stub.calledOnce).to.be.true;
-    expect(stub.calledWith('my prompt')).to.be.true;
-  });
-
-  it('does not throw when da-chat has no sendPrompt', async () => {
-    el._promptCards = [{ title: 'T', description: 'D', prompt: 'p' }];
-    await el.updateComplete;
-
-    const chat = el.shadowRoot.querySelector('da-chat');
-    delete chat.sendPrompt;
-
-    const card = el.shadowRoot.querySelector('.workspace-prompt-card');
-    expect(() => card.click()).to.not.throw();
   });
 });
 
