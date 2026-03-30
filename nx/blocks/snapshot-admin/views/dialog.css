@@ -57,3 +57,52 @@ svg.icon {
     gap: 12px;
   }
 }
+
+/* Fragment modal styles */
+.nx-fragment-loading {
+  padding: 24px 0;
+  text-align: center;
+  color: var(--s2-gray-600);
+  font-style: italic;
+}
+
+.nx-fragment-empty {
+  padding: 24px 0;
+  text-align: center;
+  color: var(--s2-gray-600);
+}
+
+.nx-fragment-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 400px;
+  overflow-y: auto;
+
+  li {
+    border-bottom: 1px solid var(--s2-gray-200);
+
+    &:last-child {
+      border-bottom: none;
+    }
+  }
+
+  label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 4px;
+    cursor: pointer;
+    font-size: 14px;
+
+    &:hover {
+      background: rgb(0 0 0 / 2%);
+    }
+  }
+
+  input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+  }
+}
