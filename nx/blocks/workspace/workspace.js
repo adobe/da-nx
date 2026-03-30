@@ -1,10 +1,8 @@
 import { LitElement, html } from 'da-lit';
-import { loadStyle } from '../../scripts/nexter.js';
 import getStyle from '../../utils/styles.js';
 import '../canvas/src/chat.js';
 
 const nx = `${new URL(import.meta.url).origin}/nx`;
-await loadStyle(`${nx}/public/sl/styles.css`);
 const sl = await getStyle(`${nx}/public/sl/styles.css`);
 const styles = await getStyle(import.meta.url);
 
@@ -20,14 +18,13 @@ class NxWorkspace extends LitElement {
 
   _renderHero() {
     const firstName = this._ims?.first_name ?? this._ims?.displayName?.split(' ')[0];
-    const title = firstName ? 'Your AI-powered content workspace' : 'Your AI-powered content workspace';
 
     return html`
       <div class="workspace-hero">
         <div class="workspace-hero-text">
           ${firstName ? html`<p class="workspace-welcome-label">Welcome back</p>` : ''}
           <h1 class="workspace-hero-title">
-            ${firstName ? html`Welcome, <strong>${firstName}</strong>!` : title}
+            ${firstName ? html`Welcome, <strong>${firstName}</strong>!` : 'Your AI-powered content workspace'}
           </h1>
         </div>
         <div class="workspace-chat-container">

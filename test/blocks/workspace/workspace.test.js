@@ -63,3 +63,41 @@ describe('NxWorkspace hero content', () => {
     expect(chat).to.exist;
   });
 });
+
+describe('NxWorkspace personalization', () => {
+  let el;
+
+  afterEach(() => { el?.remove(); });
+
+  it('shows welcome label and first name when _ims.first_name is set', async () => {
+    el = document.createElement('nx-workspace');
+    document.body.appendChild(el);
+    await el.updateComplete;
+    el._ims = { first_name: 'Alice' };
+    await el.updateComplete;
+    const label = el.shadowRoot.querySelector('.workspace-welcome-label');
+    expect(label).to.exist;
+    const h1 = el.shadowRoot.querySelector('.workspace-hero-title');
+    expect(h1.textContent).to.include('Alice');
+  });
+
+  it('falls back to displayName first word when first_name is absent', async () => {
+    el = document.createElement('nx-workspace');
+    document.body.appendChild(el);
+    await el.updateComplete;
+    el._ims = { displayName: 'Bob Smith' };
+    await el.updateComplete;
+    const h1 = el.shadowRoot.querySelector('.workspace-hero-title');
+    expect(h1.textContent).to.include('Bob');
+  });
+
+  it('shows generic title when _ims is null', async () => {
+    el = document.createElement('nx-workspace');
+    document.body.appendChild(el);
+    await el.updateComplete;
+    const label = el.shadowRoot.querySelector('.workspace-welcome-label');
+    expect(label).to.not.exist;
+    const h1 = el.shadowRoot.querySelector('.workspace-hero-title');
+    expect(h1.textContent).to.include('AI-powered');
+  });
+});
