@@ -31,6 +31,7 @@ class FormEditor extends LitElement {
     details: { attribute: false },
     formModel: { state: true },
     _schemas: { state: true },
+    _activeNavPointer: { state: true },
   };
 
   connectedCallback() {
@@ -48,10 +49,12 @@ class FormEditor extends LitElement {
 
     if (!result.html) {
       this.formModel = null;
+      this._activeNavPointer = undefined;
       return;
     }
 
     const path = this.details.fullpath;
+    this._activeNavPointer = undefined;
     this.formModel = new FormModel({ path, html: result.html, schemas });
   }
 
@@ -66,7 +69,14 @@ class FormEditor extends LitElement {
     const emptyForm = { data, metadata };
 
     const path = this.details.fullpath;
+    this._activeNavPointer = undefined;
     this.formModel = new FormModel({ path, json: emptyForm, schemas: this._schemas });
+  }
+
+  _handleNavPointerSelect(e) {
+    const { pointer } = e.detail ?? {};
+    if (!pointer) return;
+    this._activeNavPointer = pointer;
   }
 
   async handleUpdate({ detail }) {
@@ -158,6 +168,7 @@ class FormEditor extends LitElement {
           @remove-item=${this.handleRemoveItem}
           @move-array-item=${this.handleMoveArrayItem}
           .formModel=${this.formModel}
+          .activeNavPointer=${this._activeNavPointer}
         ></da-form-editor>
         <da-form-preview .formModel=${this.formModel}></da-form-preview>
       </div>`;
@@ -167,7 +178,11 @@ class FormEditor extends LitElement {
     return html`
       <div class="da-form-wrapper">
         ${this.formModel !== undefined ? this.renderFormEditor() : nothing}
-        <da-form-sidebar .formModel=${this.formModel}></da-form-sidebar>
+        <da-form-sidebar
+          .formModel=${this.formModel}
+          .activeNavPointer=${this._activeNavPointer}
+          @nav-pointer-select=${this._handleNavPointerSelect}
+        ></da-form-sidebar>
       </div>
     `;
   }

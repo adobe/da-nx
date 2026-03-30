@@ -1,4 +1,4 @@
-import { LitElement, html, nothing } from 'da-lit';
+import { LitElement, html, nothing, ref } from 'da-lit';
 import './components/array-item-menu/array-item-menu.js';
 import './components/reorder-dialog/reorder-dialog.js';
 import { getParentPointer } from '../utils/pointer.js';
@@ -22,6 +22,7 @@ function debounce(func, wait) {
 class FormEditor extends LitElement {
   static properties = {
     formModel: { state: true },
+    activeNavPointer: { attribute: false },
     _errorsByPointer: { state: true },
     _moveActive: { state: true },
   };
@@ -29,6 +30,7 @@ class FormEditor extends LitElement {
   constructor() {
     super();
     this._moveActive = null;
+    this._sectionElByPointer = new Map();
   }
 
   connectedCallback() {
@@ -122,6 +124,19 @@ class FormEditor extends LitElement {
       this.runValidation();
     }
     super.update(props);
+  }
+
+  updated(changed) {
+    super.updated(changed);
+    if (!changed.has('activeNavPointer') || !this.activeNavPointer) return;
+    const el = this._sectionElByPointer.get(this.activeNavPointer);
+    if (!el) return;
+    el.scrollIntoView({ block: 'start', behavior: 'auto' });
+  }
+
+  _bindSectionRef(pointer, el) {
+    if (el) this._sectionElByPointer.set(pointer, el);
+    else this._sectionElByPointer.delete(pointer);
   }
 
   runValidation() {
@@ -346,7 +361,11 @@ class FormEditor extends LitElement {
 
     const moveItemPicked = isArrayItem && this._moveActive?.pointer === parent.pointer;
     return html`
-      <div class="item-group ${isRoot ? 'root-group' : 'child-group'} ${moveItemPicked ? 'move-item-picked' : ''}" data-key="${parent.key}">
+      <div
+        class="item-group ${isRoot ? 'root-group' : 'child-group'} ${moveItemPicked ? 'move-item-picked' : ''}"
+        data-key="${parent.key}"
+        ${ref((el) => this._bindSectionRef(parent.pointer, el))}
+      >
         <div class="item-group-title">
           <p>
             ${isArrayItem && parentIndex != null ? `#${parentIndex} ` : ''}${parent.title ?? ''}${parent.required ? html`<span class="is-required">*</span>` : ''}

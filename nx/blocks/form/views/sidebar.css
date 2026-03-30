@@ -31,15 +31,33 @@
     padding-left: 22px;
   }
 
-  span {
+  button.item {
     display: inline-block;
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: none;
+    font: inherit;
+    color: inherit;
+    text-align: inherit;
+    cursor: pointer;
+    width: 100%;
 
     &:first-child {
       margin-left: 4px;
     }
   }
 
-  span::before {
+  button.item:hover {
+    text-decoration: underline;
+  }
+
+  button.item.is-active {
+    font-weight: 700;
+    color: var(--s2-blue-800, #1d4ed8);
+  }
+
+  button.item::before {
     content: "";
     position: absolute;
     top: 11px;
@@ -48,6 +66,10 @@
     height: 7px;
     border-radius: 4px;
     background-color: #dadfe6;
+  }
+
+  button.item.is-active::before {
+    background-color: var(--s2-blue-400, #60a5fa);
   }
 
   li::before,
