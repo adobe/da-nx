@@ -32,7 +32,8 @@ class FormEditor extends LitElement {
     formModel: { state: true },
     _schemas: { state: true },
     _activeNavPointer: { state: true },
-    _navPointerScroll: { state: true },
+    _scrollEditorIntoView: { state: true },
+    _scrollNavItemIntoView: { state: true },
   };
 
   connectedCallback() {
@@ -51,13 +52,15 @@ class FormEditor extends LitElement {
     if (!result.html) {
       this.formModel = null;
       this._activeNavPointer = undefined;
-      this._navPointerScroll = undefined;
+      this._scrollEditorIntoView = undefined;
+      this._scrollNavItemIntoView = undefined;
       return;
     }
 
     const path = this.details.fullpath;
     this._activeNavPointer = undefined;
-    this._navPointerScroll = undefined;
+    this._scrollEditorIntoView = undefined;
+    this._scrollNavItemIntoView = undefined;
     this.formModel = new FormModel({ path, html: result.html, schemas });
   }
 
@@ -73,22 +76,25 @@ class FormEditor extends LitElement {
 
     const path = this.details.fullpath;
     this._activeNavPointer = undefined;
-    this._navPointerScroll = undefined;
+    this._scrollEditorIntoView = undefined;
+    this._scrollNavItemIntoView = undefined;
     this.formModel = new FormModel({ path, json: emptyForm, schemas: this._schemas });
   }
 
   _handleNavPointerSelectFromSidebar(e) {
     const { pointer } = e.detail ?? {};
-    if (!pointer) return;
+    if (!pointer || pointer === this._activeNavPointer) return;
     this._activeNavPointer = pointer;
-    this._navPointerScroll = { scrollEditor: true, scrollNavigation: false };
+    this._scrollEditorIntoView = true;
+    this._scrollNavItemIntoView = false;
   }
 
   _handleNavPointerSelectFromEditor(e) {
     const { pointer } = e.detail ?? {};
-    if (!pointer) return;
+    if (!pointer || pointer === this._activeNavPointer) return;
     this._activeNavPointer = pointer;
-    this._navPointerScroll = { scrollEditor: false, scrollNavigation: true };
+    this._scrollEditorIntoView = false;
+    this._scrollNavItemIntoView = true;
   }
 
   async handleUpdate({ detail }) {
@@ -182,7 +188,7 @@ class FormEditor extends LitElement {
           @nav-pointer-select=${this._handleNavPointerSelectFromEditor}
           .formModel=${this.formModel}
           .activeNavPointer=${this._activeNavPointer}
-          .navPointerScroll=${this._navPointerScroll}
+          .scrollEditorIntoView=${this._scrollEditorIntoView}
         ></da-form-editor>
         <da-form-preview .formModel=${this.formModel}></da-form-preview>
       </div>`;
@@ -195,7 +201,7 @@ class FormEditor extends LitElement {
         <da-form-sidebar
           .formModel=${this.formModel}
           .activeNavPointer=${this._activeNavPointer}
-          .navPointerScroll=${this._navPointerScroll}
+          .scrollNavItemIntoView=${this._scrollNavItemIntoView}
           @nav-pointer-select=${this._handleNavPointerSelectFromSidebar}
         ></da-form-sidebar>
       </div>

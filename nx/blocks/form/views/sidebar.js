@@ -15,7 +15,7 @@ class FormSidebar extends LitElement {
   static properties = {
     formModel: { attribute: false },
     activeNavPointer: { attribute: false },
-    navPointerScroll: { attribute: false },
+    scrollNavItemIntoView: { attribute: false },
     _schemas: { attribute: false },
     _nav: { state: true },
   };
@@ -48,8 +48,13 @@ class FormSidebar extends LitElement {
 
   updated(changed) {
     super.updated(changed);
-    if (!changed.has('activeNavPointer') || !this.activeNavPointer) return;
-    if (this.navPointerScroll?.scrollNavigation !== true) return;
+    if (changed.has('activeNavPointer')) {
+      this._scrollNavToActivePointer();
+    }
+  }
+
+  _scrollNavToActivePointer() {
+    if (!this.scrollNavItemIntoView) return;
     const btn = this._navButtonByPointer.get(this.activeNavPointer);
     if (!btn) return;
     btn.scrollIntoView({ block: 'nearest', behavior: 'auto' });

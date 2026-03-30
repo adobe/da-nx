@@ -23,7 +23,7 @@ class FormEditor extends LitElement {
   static properties = {
     formModel: { state: true },
     activeNavPointer: { attribute: false },
-    navPointerScroll: { attribute: false },
+    scrollEditorIntoView: { attribute: false },
     _errorsByPointer: { state: true },
     _moveActive: { state: true },
   };
@@ -129,8 +129,13 @@ class FormEditor extends LitElement {
 
   updated(changed) {
     super.updated(changed);
-    if (!changed.has('activeNavPointer') || !this.activeNavPointer) return;
-    if (this.navPointerScroll?.scrollEditor === false) return;
+    if (changed.has('activeNavPointer')) {
+      this._scrollEditorToActivePointer();
+    }
+  }
+
+  _scrollEditorToActivePointer() {
+    if (!this.scrollEditorIntoView) return;
     const el = this._sectionElByPointer.get(this.activeNavPointer);
     if (!el) return;
     el.scrollIntoView({ block: 'start', behavior: 'auto' });
@@ -141,17 +146,37 @@ class FormEditor extends LitElement {
     else this._sectionElByPointer.delete(pointer);
   }
 
+  _emitNavPointerSelect(pointer) {
+    if (pointer == null) return;
+    this.dispatchEvent(new CustomEvent('nav-pointer-select', {
+      detail: { pointer },
+      bubbles: true,
+      composed: true,
+    }));
+  }
+
+  _navPointerFromComposedPath(event) {
+    const path = event.composedPath();
+    for (let i = 0; i < path.length; i += 1) {
+      const n = path[i];
+      if (n instanceof HTMLElement && n.dataset.navPointer != null) {
+        return n.dataset.navPointer;
+      }
+    }
+    return null;
+  }
+
+  _onFormFocusIn(e) {
+    this._emitNavPointerSelect(this._navPointerFromComposedPath(e));
+  }
+
   _onGroupPointerActivate(e, pointer) {
     if (e.button !== 0) return;
     const innermost = e.composedPath().find(
       (n) => n instanceof HTMLElement && n.classList.contains('item-group'),
     );
     if (innermost !== e.currentTarget) return;
-    this.dispatchEvent(new CustomEvent('nav-pointer-select', {
-      detail: { pointer },
-      bubbles: true,
-      composed: true,
-    }));
+    this._emitNavPointerSelect(pointer);
   }
 
   runValidation() {
@@ -379,6 +404,7 @@ class FormEditor extends LitElement {
       <div
         class="item-group ${isRoot ? 'root-group' : 'child-group'} ${moveItemPicked ? 'move-item-picked' : ''}"
         data-key="${parent.key}"
+        data-nav-pointer="${parent.pointer}"
         @click=${(e) => this._onGroupPointerActivate(e, parent.pointer)}
         ${ref((el) => this._bindSectionRef(parent.pointer, el))}
       >
@@ -412,6 +438,7 @@ class FormEditor extends LitElement {
 
     return html`
       <form
+        @focusin=${this._onFormFocusIn}
         @move-activate=${this._handleMoveActivate}
         @menu-open=${this._cancelMoveMode}
       >
