@@ -1001,6 +1001,7 @@ dialog.modal-overlay::backdrop {
   }
 }
 
+/* Modal notification overlay - scoped to modal */
 .modal-notification-overlay {
   position: absolute;
   inset: 0;
@@ -1012,11 +1013,12 @@ dialog.modal-overlay::backdrop {
   border-radius: var(--s2-radius-100);
 }
 
-.modal-toast {
+/* Reuse grid notification styles - exact copy from media-library.css */
+.modal-notification-overlay .toast-notification {
   display: flex;
   flex-direction: column;
   width: 360px;
-  max-width: 90%;
+  max-width: 90vw;
   border-radius: 6px;
   filter: drop-shadow(rgb(0 0 0 / 15%) 0 1px 4px);
   box-sizing: border-box;
@@ -1025,41 +1027,42 @@ dialog.modal-overlay::backdrop {
   overflow: hidden;
 }
 
-.modal-toast.success {
-  background: var(--s2-blue-800);
-}
-
-.modal-toast.danger {
-  background: var(--s2-red-900);
-}
-
-.modal-toast.warning {
-  background: var(--s2-amber-800, #b45309);
-}
-
-.modal-toast-header {
+.modal-notification-overlay .toast-notification-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
 }
 
-.modal-toast-title {
+.modal-notification-overlay .toast-notification .da-notification-status-title {
   flex: 1;
   font-weight: 700;
   margin: 0;
-  padding: 12px 16px;
-  background: transparent;
+  padding: 12px 16px 12px 40px;
+  position: relative;
 }
 
-.modal-toast-message {
+.modal-notification-overlay .toast-notification .da-notification-status-title::before {
+  content: "";
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  background: url("/nx/img/icons/Smock_InfoOutline_18_N.svg") center center no-repeat;
+  background-size: 18px 18px;
+  filter: brightness(0) invert(1);
+}
+
+.modal-notification-overlay .toast-notification .da-notification-status-description {
   line-height: 1.6;
-  padding: 6px 16px 12px;
+  padding: 6px 12px 12px;
   margin: 0;
   background: rgb(255 255 255 / 10%);
 }
 
-.modal-toast-close {
+.modal-notification-overlay .toast-notification-close {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1077,6 +1080,18 @@ dialog.modal-overlay::backdrop {
   border-radius: 4px;
 }
 
-.modal-toast-close:hover {
+.modal-notification-overlay .toast-notification-close:hover {
   background: rgb(255 255 255 / 25%);
+}
+
+.modal-notification-overlay .toast-notification.success {
+  background: var(--s2-blue-800);
+}
+
+.modal-notification-overlay .toast-notification.danger {
+  background: var(--s2-red-900);
+}
+
+.modal-notification-overlay .toast-notification.warning {
+  background: var(--s2-amber-800, #b45309);
 }

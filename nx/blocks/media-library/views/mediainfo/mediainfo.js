@@ -15,6 +15,7 @@ import {
 } from '../../core/media.js';
 import { formatFileSize, getFileName, optimizeImageUrls } from '../../core/files.js';
 import { getMediaCardLabel } from '../../features/templates.js';
+import { copyMediaToClipboard } from '../../core/export.js';
 import {
   parseMediaUrl,
   normalizeUrl,
@@ -822,19 +823,19 @@ class NxMediaInfo extends LitElement {
 
         ${this._modalNotification ? html`
           <div class="modal-notification-overlay">
-            <div class="modal-toast ${this._modalNotification.type || 'success'}">
-              <div class="modal-toast-header">
-                <p class="modal-toast-title">${this._modalNotification.heading || t('NOTIFY_INFO')}</p>
+            <div class="toast-notification ${this._modalNotification.type || 'success'}">
+              <div class="toast-notification-header">
+                <p class="da-notification-status-title">${this._modalNotification.heading || t('NOTIFY_INFO')}</p>
                 <button
                   type="button"
-                  class="modal-toast-close"
+                  class="toast-notification-close"
                   aria-label="${t('UI_DISMISS')}"
                   @click=${this.dismissModalNotification}
                 >
                   <span aria-hidden="true">&times;</span>
                 </button>
               </div>
-              <p class="modal-toast-message">${this._modalNotification.message}</p>
+              <p class="da-notification-status-description">${this._modalNotification.message}</p>
             </div>
           </div>
         ` : ''}
@@ -1317,14 +1318,15 @@ class NxMediaInfo extends LitElement {
     this._modalNotification = null;
   }
 
-  handleCopyUrl() {
+  async handleCopyUrl() {
     if (!this.media?.url) return;
-    const fullUrl = resolveMediaUrl(this.media.url, this.org, this.repo);
-    navigator.clipboard.writeText(fullUrl).then(() => {
-      this.showModalNotification(t('NOTIFY_COPIED'), t('NOTIFY_COPIED_URL'), 'success');
-    }).catch(() => {
+    try {
+      const result = await copyMediaToClipboard(this.media);
+      const isError = result.heading === 'Error';
+      this.showModalNotification(result.heading, result.message, isError ? 'danger' : 'success');
+    } catch (_) {
       this.showModalNotification(t('NOTIFY_ERROR'), t('NOTIFY_COPY_ERROR'), 'danger');
-    });
+    }
   }
 
   handleOpenInTab(e) {
