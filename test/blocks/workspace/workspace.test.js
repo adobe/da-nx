@@ -211,3 +211,45 @@ describe('NxWorkspace tabs', () => {
     expect(activeBtn.dataset.tab).to.equal('projects');
   });
 });
+
+describe('NxWorkspace recent pages', () => {
+  let el;
+
+  beforeEach(async () => {
+    el = document.createElement('nx-workspace');
+    document.body.appendChild(el);
+    await el.updateComplete;
+  });
+
+  afterEach(() => { el.remove(); });
+
+  it('renders recent page cards when data is available', async () => {
+    el._recentPages = [
+      { title: 'Home', path: '/en/', lastModified: '2026-03-29T10:00:00Z', status: 'published' },
+      { title: 'About', path: '/en/about', lastModified: '2026-03-28T10:00:00Z', status: 'draft' },
+    ];
+    await el.updateComplete;
+
+    const cards = el.shadowRoot.querySelectorAll('.workspace-page-card');
+    expect(cards.length).to.equal(2);
+  });
+
+  it('shows empty message when no recent pages', async () => {
+    el._recentPages = [];
+    await el.updateComplete;
+
+    const empty = el.shadowRoot.querySelector('.workspace-empty');
+    expect(empty).to.exist;
+  });
+
+  it('displays page title in card', async () => {
+    el._recentPages = [
+      { title: 'My Page', path: '/en/my-page', lastModified: '2026-03-29T10:00:00Z', status: 'published' },
+    ];
+    el._activeTab = 'recent';
+    await el.updateComplete;
+
+    const title = el.shadowRoot.querySelector('.workspace-page-title');
+    expect(title.textContent.trim()).to.equal('My Page');
+  });
+});

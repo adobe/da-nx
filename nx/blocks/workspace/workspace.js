@@ -13,18 +13,21 @@ class NxWorkspace extends LitElement {
     _ims: { state: true },
     _promptCards: { state: true },
     _activeTab: { state: true },
+    _recentPages: { state: true },
   };
 
   constructor() {
     super();
     this._promptCards = [];
     this._activeTab = 'recent';
+    this._recentPages = [];
   }
 
   async connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [sl, styles];
     await this._loadConfig();
+    await this._loadRecentPages();
   }
 
   async _loadConfig() {
@@ -48,6 +51,17 @@ class NxWorkspace extends LitElement {
   _clickPromptCard(prompt) {
     const chat = this.shadowRoot.querySelector('da-chat');
     if (chat?.sendPrompt) chat.sendPrompt(prompt);
+  }
+
+  async _loadRecentPages() {
+    try {
+      const base = new URL(import.meta.url).href.replace('/workspace.js', '');
+      const resp = await fetch(`${base}/mocks/recent-pages.json`);
+      if (!resp.ok) return;
+      this._recentPages = await resp.json();
+    } catch {
+      // Silent fail — recent pages section stays empty.
+    }
   }
 
   _switchTab(tab) {
@@ -81,7 +95,36 @@ class NxWorkspace extends LitElement {
   }
 
   _renderRecentPages() {
-    return html`<div class="workspace-tab-panel" role="tabpanel"><!-- recent pages placeholder --></div>`;
+    if (!this._recentPages.length) {
+      return html`
+        <div class="workspace-tab-panel" role="tabpanel">
+          <p class="workspace-empty">No recent pages found.</p>
+        </div>`;
+    }
+    return html`
+      <div class="workspace-tab-panel workspace-pages-grid" role="tabpanel">
+        ${this._recentPages.map((page) => html`
+          <a class="workspace-page-card" href="${page.path}" title="${page.title}">
+            <div class="workspace-page-card-body">
+              <span class="workspace-page-title">${page.title}</span>
+              <span class="workspace-page-path">${page.path}</span>
+            </div>
+            <div class="workspace-page-card-footer">
+              <span class="workspace-page-date">${this._formatDate(page.lastModified)}</span>
+              <span class="workspace-page-status ${page.status}">${page.status}</span>
+            </div>
+          </a>
+        `)}
+      </div>
+    `;
+  }
+
+  _formatDate(iso) {
+    try {
+      return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    } catch {
+      return iso;
+    }
   }
 
   _renderProjects() {

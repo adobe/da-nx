@@ -192,3 +192,90 @@
 .workspace-tab-panel {
   min-height: 120px;
 }
+
+.workspace-pages-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.workspace-page-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px;
+  background: #fff;
+  border: none;
+  border-radius: var(--s2-radius-200, 10px);
+  box-shadow: rgb(0 0 0 / 8%) 0 2px 8px 0, rgb(0 0 0 / 4%) 0 1px 4px 0, rgb(0 0 0 / 8%) 0 0 1px 0;
+  text-decoration: none;
+  color: inherit;
+  transition: box-shadow 0.15s ease, transform 0.1s ease;
+  min-height: 100px;
+}
+
+.workspace-page-card:hover {
+  box-shadow: rgb(59 99 251 / 20%) 0 4px 16px 0, rgb(0 0 0 / 8%) 0 0 1px 0;
+  transform: translateY(-1px);
+}
+
+.workspace-page-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.workspace-page-title {
+  font-size: var(--s2-body-s-size, 14px);
+  font-weight: 700;
+  color: var(--s2-gray-800, #292929);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.workspace-page-path {
+  font-size: var(--s2-body-xs-size, 12px);
+  color: var(--s2-gray-600, #717171);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.workspace-page-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.workspace-page-date {
+  font-size: var(--s2-body-xxs-size, 11px);
+  color: var(--s2-gray-500, #8f8f8f);
+}
+
+.workspace-page-status {
+  font-size: var(--s2-body-xxs-size, 11px);
+  font-weight: 700;
+  padding: 2px 10px;
+  border-radius: var(--s2-border-radius, 16px);
+  text-transform: capitalize;
+}
+
+/* Spectrum 2 semantic colors */
+.workspace-page-status.published {
+  background: var(--s2-green-200, #d7f7e1);
+  color: var(--s2-green-900, #05834e);
+}
+
+.workspace-page-status.draft {
+  background: var(--s2-orange-200, #ffeccf);
+  color: var(--s2-orange-800, #d45b00);
+}
+
+.workspace-empty {
+  color: var(--s2-gray-600, #717171);
+  font-size: var(--s2-body-s-size, 14px);
+  text-align: center;
+  padding: 40px 0;
+}
