@@ -6,6 +6,18 @@ import '../canvas/src/chat.js';
 
 const DA_PROJECTS_KEY = 'da-projects';
 
+/**
+ * Returns the URL if it is a safe relative path or http/https URL.
+ * Rejects javascript: and other non-http schemes to prevent XSS.
+ * @param {string} url
+ * @returns {string}
+ */
+function safeUrl(url) {
+  if (!url) return '#';
+  if (/^javascript:/i.test(url.trim())) return '#';
+  return url;
+}
+
 const nx = `${new URL(import.meta.url).origin}/nx`;
 const sl = await getStyle(`${nx}/public/sl/styles.css`);
 const styles = await getStyle(import.meta.url);
@@ -107,12 +119,14 @@ class NxWorkspace extends LitElement {
         <div class="workspace-tabs-body">
           <div
             id="workspace-panel-recent"
+            class="workspace-tab-panel"
             role="tabpanel"
             aria-labelledby="workspace-tab-recent"
             ?hidden="${this._activeTab !== 'recent'}"
           >${this._renderRecentPages()}</div>
           <div
             id="workspace-panel-projects"
+            class="workspace-tab-panel"
             role="tabpanel"
             aria-labelledby="workspace-tab-projects"
             ?hidden="${this._activeTab !== 'projects'}"
@@ -129,7 +143,7 @@ class NxWorkspace extends LitElement {
     return html`
       <div class="workspace-pages-grid">
         ${this._recentPages.map((page) => html`
-          <a class="workspace-page-card" href="${page.path}" title="${page.title}">
+          <a class="workspace-page-card" href="${safeUrl(page.path)}" title="${page.title}">
             <div class="workspace-page-card-body">
               <span class="workspace-page-title">${page.title}</span>
               <span class="workspace-page-path">${page.path}</span>
@@ -145,11 +159,9 @@ class NxWorkspace extends LitElement {
   }
 
   _formatDate(iso) {
-    try {
-      return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-    } catch {
-      return iso;
-    }
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   }
 
   _renderProjects() {
@@ -159,7 +171,7 @@ class NxWorkspace extends LitElement {
     return html`
       <div class="workspace-projects-grid">
         ${this._projects.map((project) => {
-          const href = project.url || `https://da.live/#/${project.org}/${project.site}`;
+          const href = safeUrl(project.url || `https://da.live/#/${project.org}/${project.site}`);
           return html`
             <a class="workspace-project-card" href="${href}" title="${project.name}">
               <div class="workspace-project-icon" aria-hidden="true">
