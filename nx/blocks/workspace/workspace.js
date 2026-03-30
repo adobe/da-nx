@@ -4,12 +4,13 @@ import getStyle from '../../utils/styles.js';
 
 const nx = `${new URL(import.meta.url).origin}/nx`;
 await loadStyle(`${nx}/public/sl/styles.css`);
+const sl = await getStyle(`${nx}/public/sl/styles.css`);
 const styles = await getStyle(import.meta.url);
 
 class NxWorkspace extends LitElement {
   connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [styles];
+    this.shadowRoot.adoptedStyleSheets = [sl, styles];
   }
 
   render() {
