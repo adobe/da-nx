@@ -3,6 +3,10 @@
   display: block;
 }
 
+.workspace-profile {
+  display: none;
+}
+
 .workspace {
   display: flex;
   flex-direction: column;

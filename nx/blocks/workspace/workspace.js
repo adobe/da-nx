@@ -2,6 +2,7 @@ import { LitElement, html, nothing } from 'da-lit';
 import getStyle from '../../utils/styles.js';
 import { daFetch } from '../../utils/daFetch.js';
 import { DA_ORIGIN } from '../../public/utils/constants.js';
+import '../profile/profile.js';
 
 const DA_PROJECTS_KEY = 'da-projects';
 
@@ -64,6 +65,10 @@ class NxWorkspace extends LitElement {
     } catch {
       // Config unavailable — show no prompt cards.
     }
+  }
+
+  _onProfileLoad(e) {
+    this._ims = e.detail;
   }
 
   _clickPromptCard(prompt) {
@@ -204,6 +209,7 @@ class NxWorkspace extends LitElement {
     const firstName = this._ims?.first_name ?? this._ims?.displayName?.split(' ')[0];
 
     return html`
+      <nx-profile @loaded=${this._onProfileLoad.bind(this)} class="workspace-profile"></nx-profile>
       <div class="workspace-hero">
         <div class="workspace-hero-inner">
           <div class="workspace-hero-text">
