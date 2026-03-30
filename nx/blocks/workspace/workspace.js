@@ -274,8 +274,5 @@ customElements.define('nx-workspace', NxWorkspace);
 
 export default async function init(el) {
   const workspace = document.createElement('nx-workspace');
-  document.body.style.margin = '0';
-  document.body.style.padding = '0';
-  document.body.append(workspace);
-  el.remove();
+  el.replaceWith(workspace);
 }

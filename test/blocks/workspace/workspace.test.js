@@ -32,14 +32,16 @@ describe('NxWorkspace block init', () => {
 });
 
 describe('NxWorkspace init()', () => {
-  it('appends nx-workspace to body and removes original el', async () => {
+  it('replaces block element with nx-workspace in place', async () => {
+    const container = document.createElement('div');
     const placeholder = document.createElement('div');
-    document.body.appendChild(placeholder);
+    container.appendChild(placeholder);
+    document.body.appendChild(container);
     await init(placeholder);
-    const appended = document.body.querySelector('nx-workspace');
-    expect(appended).to.exist;
+    const workspace = container.querySelector('nx-workspace');
+    expect(workspace).to.exist;
     expect(placeholder.isConnected).to.be.false;
-    appended.remove();
+    container.remove();
   });
 });
 
