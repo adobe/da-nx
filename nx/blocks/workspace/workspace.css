@@ -1,4 +1,8 @@
 /* Uses Spectrum 2 tokens from nx/public/sl/styles.css */
+:host {
+  display: block;
+}
+
 .workspace {
   display: flex;
   flex-direction: column;

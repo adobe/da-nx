@@ -1,5 +1,5 @@
 import { expect } from '@esm-bundle/chai';
-import '../../../nx/blocks/workspace/workspace.js';
+import init from '../../../nx/blocks/workspace/workspace.js';
 
 describe('NxWorkspace block init', () => {
   let el;
@@ -27,5 +27,17 @@ describe('NxWorkspace block init', () => {
   it('renders the sections container', async () => {
     const sections = el.shadowRoot.querySelector('.workspace-sections');
     expect(sections).to.exist;
+  });
+});
+
+describe('NxWorkspace init()', () => {
+  it('appends nx-workspace to body and removes original el', async () => {
+    const placeholder = document.createElement('div');
+    document.body.appendChild(placeholder);
+    await init(placeholder);
+    const appended = document.body.querySelector('nx-workspace');
+    expect(appended).to.exist;
+    expect(placeholder.isConnected).to.be.false;
+    appended.remove();
   });
 });
