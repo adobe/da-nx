@@ -1,5 +1,7 @@
 import { LitElement, html, nothing } from 'da-lit';
 import getStyle from '../../utils/styles.js';
+import { daFetch } from '../../utils/daFetch.js';
+import { DA_ORIGIN } from '../../public/utils/constants.js';
 import '../canvas/src/chat.js';
 
 const nx = `${new URL(import.meta.url).origin}/nx`;
@@ -27,12 +29,9 @@ class NxWorkspace extends LitElement {
     const hash = window.location.hash || '';
     const path = hash.replace(/^#\/?/, '').trim();
     const [org = '', repo = ''] = path.split('/').filter(Boolean);
-    if (!org) return;
+    if (!org || !repo) return;
     try {
-      const { daFetch } = await import('../../utils/daFetch.js');
-      const { DA_ORIGIN } = await import('../../public/utils/constants.js');
-      const apiPath = repo ? `${org}/${repo}` : org;
-      const resp = await daFetch(`${DA_ORIGIN}/config/${apiPath}`);
+      const resp = await daFetch(`${DA_ORIGIN}/config/${org}/${repo}`);
       if (!resp.ok) return;
       const json = await resp.json();
       const cards = (json?.['workspace-prompts']?.data || [])

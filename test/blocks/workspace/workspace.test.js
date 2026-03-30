@@ -148,4 +148,29 @@ describe('NxWorkspace prompt cards', () => {
     const section = el.shadowRoot.querySelector('.workspace-prompts');
     expect(section).to.be.null;
   });
+
+  it('forwards prompt to da-chat.sendPrompt on card click', async () => {
+    el._promptCards = [{ title: 'T', description: 'D', prompt: 'my prompt' }];
+    await el.updateComplete;
+
+    const chat = el.shadowRoot.querySelector('da-chat');
+    const stub = sinon.stub(chat, 'sendPrompt');
+
+    const card = el.shadowRoot.querySelector('.workspace-prompt-card');
+    card.click();
+
+    expect(stub.calledOnce).to.be.true;
+    expect(stub.calledWith('my prompt')).to.be.true;
+  });
+
+  it('does not throw when da-chat has no sendPrompt', async () => {
+    el._promptCards = [{ title: 'T', description: 'D', prompt: 'p' }];
+    await el.updateComplete;
+
+    const chat = el.shadowRoot.querySelector('da-chat');
+    delete chat.sendPrompt;
+
+    const card = el.shadowRoot.querySelector('.workspace-prompt-card');
+    expect(() => card.click()).to.not.throw();
+  });
 });
