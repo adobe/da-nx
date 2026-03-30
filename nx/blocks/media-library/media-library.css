@@ -141,7 +141,20 @@ nx-media-scan {
   font-weight: 700;
   margin: 0;
   padding: 12px 16px 12px 40px;
-  background: transparent url("/nx/img/icons/Smock_InfoOutline_18_N.svg") 12px 50% no-repeat;
+  position: relative;
+}
+
+.toast-notification .da-notification-status-title::before {
+  content: "";
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  background: url("/nx/img/icons/Smock_InfoOutline_18_N.svg") center center no-repeat;
+  background-size: 18px 18px;
+  filter: brightness(0) invert(1);
 }
 
 .toast-notification .da-notification-status-description {
