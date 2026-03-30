@@ -1,0 +1,38 @@
+[
+  {
+    "title": "Homepage",
+    "path": "/en/",
+    "lastModified": "2026-03-29T14:23:00Z",
+    "status": "published"
+  },
+  {
+    "title": "Products Overview",
+    "path": "/en/products",
+    "lastModified": "2026-03-28T11:10:00Z",
+    "status": "published"
+  },
+  {
+    "title": "Contact Us",
+    "path": "/en/contact",
+    "lastModified": "2026-03-27T09:45:00Z",
+    "status": "draft"
+  },
+  {
+    "title": "Blog Post: Spring Updates",
+    "path": "/en/blog/spring-updates",
+    "lastModified": "2026-03-26T16:00:00Z",
+    "status": "published"
+  },
+  {
+    "title": "About Us",
+    "path": "/en/about",
+    "lastModified": "2026-03-25T10:30:00Z",
+    "status": "published"
+  },
+  {
+    "title": "Pricing",
+    "path": "/en/pricing",
+    "lastModified": "2026-03-24T13:15:00Z",
+    "status": "draft"
+  }
+]
