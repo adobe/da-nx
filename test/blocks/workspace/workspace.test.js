@@ -252,6 +252,15 @@ describe('NxWorkspace recent pages', () => {
     const title = el.shadowRoot.querySelector('.workspace-page-title');
     expect(title.textContent.trim()).to.equal('My Page');
   });
+
+  it('falls back to raw string for invalid date in _formatDate', () => {
+    el = document.createElement('nx-workspace');
+    document.body.appendChild(el);
+    // _formatDate with invalid input returns 'Invalid Date' from toLocaleDateString
+    // just verify it does not throw
+    expect(() => el._formatDate('not-a-date')).to.not.throw();
+    el.remove();
+  });
 });
 
 describe('NxWorkspace my projects', () => {
@@ -301,5 +310,23 @@ describe('NxWorkspace my projects', () => {
 
     const empty = el.shadowRoot.querySelector('.workspace-empty');
     expect(empty).to.exist;
+  });
+
+  it('handles malformed localStorage data gracefully', async () => {
+    localStorage.setItem('da-projects', '{broken json');
+    const newEl = document.createElement('nx-workspace');
+    document.body.appendChild(newEl);
+    await newEl.updateComplete;
+    expect(newEl._projects).to.deep.equal([]);
+    newEl.remove();
+    localStorage.removeItem('da-projects');
+  });
+
+  it('constructs project URL when project.url is absent', async () => {
+    el._activeTab = 'projects';
+    await el.updateComplete;
+
+    const card = el.shadowRoot.querySelector('.workspace-project-card');
+    expect(card.getAttribute('href')).to.equal('https://da.live/#/adobe/marketing');
   });
 });

@@ -25,12 +25,12 @@ class NxWorkspace extends LitElement {
     this._activeTab = 'recent';
     this._recentPages = [];
     this._projects = [];
-    this._loadProjects();
   }
 
   async connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [sl, styles];
+    this._loadProjects();
     await this._loadConfig();
     await this._loadRecentPages();
   }
@@ -69,8 +69,7 @@ class NxWorkspace extends LitElement {
 
   async _loadRecentPages() {
     try {
-      const base = new URL(import.meta.url).href.replace('/workspace.js', '');
-      const resp = await fetch(`${base}/mocks/recent-pages.json`);
+      const resp = await fetch(new URL('./mocks/recent-pages.json', import.meta.url).href);
       if (!resp.ok) return;
       this._recentPages = await resp.json();
     } catch {
@@ -85,24 +84,39 @@ class NxWorkspace extends LitElement {
   _renderTabs() {
     return html`
       <section class="workspace-tabs-section">
-        <div class="workspace-tabs-header" role="tablist">
+        <div class="workspace-tabs-header" role="tablist" aria-label="Content views">
           <button
+            id="workspace-tab-recent"
             class="workspace-tab-btn ${this._activeTab === 'recent' ? 'active' : ''}"
             role="tab"
             aria-selected="${this._activeTab === 'recent'}"
+            aria-controls="workspace-panel-recent"
             data-tab="recent"
             @click=${() => this._switchTab('recent')}
           >Recent Pages</button>
           <button
+            id="workspace-tab-projects"
             class="workspace-tab-btn ${this._activeTab === 'projects' ? 'active' : ''}"
             role="tab"
             aria-selected="${this._activeTab === 'projects'}"
+            aria-controls="workspace-panel-projects"
             data-tab="projects"
             @click=${() => this._switchTab('projects')}
           >My Projects</button>
         </div>
         <div class="workspace-tabs-body">
-          ${this._activeTab === 'recent' ? this._renderRecentPages() : this._renderProjects()}
+          <div
+            id="workspace-panel-recent"
+            role="tabpanel"
+            aria-labelledby="workspace-tab-recent"
+            ?hidden="${this._activeTab !== 'recent'}"
+          >${this._renderRecentPages()}</div>
+          <div
+            id="workspace-panel-projects"
+            role="tabpanel"
+            aria-labelledby="workspace-tab-projects"
+            ?hidden="${this._activeTab !== 'projects'}"
+          >${this._renderProjects()}</div>
         </div>
       </section>
     `;
@@ -110,13 +124,10 @@ class NxWorkspace extends LitElement {
 
   _renderRecentPages() {
     if (!this._recentPages.length) {
-      return html`
-        <div class="workspace-tab-panel" role="tabpanel">
-          <p class="workspace-empty">No recent pages found.</p>
-        </div>`;
+      return html`<p class="workspace-empty">No recent pages found.</p>`;
     }
     return html`
-      <div class="workspace-tab-panel workspace-pages-grid" role="tabpanel">
+      <div class="workspace-pages-grid">
         ${this._recentPages.map((page) => html`
           <a class="workspace-page-card" href="${page.path}" title="${page.title}">
             <div class="workspace-page-card-body">
@@ -143,13 +154,10 @@ class NxWorkspace extends LitElement {
 
   _renderProjects() {
     if (!this._projects.length) {
-      return html`
-        <div class="workspace-tab-panel" role="tabpanel">
-          <p class="workspace-empty">No projects found. Open a project in DA to see it here.</p>
-        </div>`;
+      return html`<p class="workspace-empty">No projects found. Open a project in DA to see it here.</p>`;
     }
     return html`
-      <div class="workspace-tab-panel workspace-projects-grid" role="tabpanel">
+      <div class="workspace-projects-grid">
         ${this._projects.map((project) => {
           const href = project.url || `https://da.live/#/${project.org}/${project.site}`;
           return html`
