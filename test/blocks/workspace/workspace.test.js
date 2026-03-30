@@ -70,16 +70,17 @@ describe('NxWorkspace personalization', () => {
 
   afterEach(() => { el?.remove(); });
 
-  it('shows welcome label and first name when _ims.first_name is set', async () => {
+  it('shows welcome heading and subtitle when _ims.first_name is set', async () => {
     el = document.createElement('nx-workspace');
     document.body.appendChild(el);
     await el.updateComplete;
     el._ims = { first_name: 'Alice' };
     await el.updateComplete;
-    const label = el.shadowRoot.querySelector('.workspace-welcome-label');
-    expect(label).to.exist;
     const h1 = el.shadowRoot.querySelector('.workspace-hero-title');
+    expect(h1).to.exist;
     expect(h1.textContent).to.include('Alice');
+    const subtitle = el.shadowRoot.querySelector('.workspace-hero-subtitle');
+    expect(subtitle.textContent).to.include('AI-powered');
   });
 
   it('falls back to displayName first word when first_name is absent', async () => {
@@ -92,14 +93,14 @@ describe('NxWorkspace personalization', () => {
     expect(h1.textContent).to.include('Bob');
   });
 
-  it('shows generic title when _ims is null', async () => {
+  it('shows only subtitle when _ims is null', async () => {
     el = document.createElement('nx-workspace');
     document.body.appendChild(el);
     await el.updateComplete;
-    const label = el.shadowRoot.querySelector('.workspace-welcome-label');
-    expect(label).to.not.exist;
     const h1 = el.shadowRoot.querySelector('.workspace-hero-title');
-    expect(h1.textContent).to.include('AI-powered');
+    expect(h1).to.not.exist;
+    const subtitle = el.shadowRoot.querySelector('.workspace-hero-subtitle');
+    expect(subtitle.textContent).to.include('AI-powered');
   });
 });
 

@@ -194,10 +194,8 @@ class NxWorkspace extends LitElement {
     return html`
       <div class="workspace-hero">
         <div class="workspace-hero-text">
-          ${firstName ? html`<p class="workspace-welcome-label">Welcome back</p>` : ''}
-          <h1 class="workspace-hero-title">
-            ${firstName ? html`Welcome, <strong>${firstName}</strong>!` : 'Your AI-powered content workspace'}
-          </h1>
+          ${firstName ? html`<h1 class="workspace-hero-title">Welcome, <strong>${firstName}</strong>!</h1>` : ''}
+          <p class="workspace-hero-subtitle">Your AI-powered content workspace</p>
         </div>
         <div class="workspace-chat-container">
           <da-chat
