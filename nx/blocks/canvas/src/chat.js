@@ -601,6 +601,11 @@ class Chat extends LitElement {
     this.dispatchEvent(new CustomEvent('da-chat-message-sent', { bubbles: true }));
   }
 
+  /** Public API: called by external components (e.g. workspace prompt cards) */
+  sendPrompt(text) {
+    this._sendPrompt(text);
+  }
+
   _insertPrompt(prompt) {
     this._inputValue = prompt;
     this.updateComplete.then(() => {
