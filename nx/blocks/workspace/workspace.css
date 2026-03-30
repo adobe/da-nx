@@ -1,0 +1,29 @@
+/* Uses Spectrum 2 tokens from nx/public/sl/styles.css */
+.workspace {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--s2-gray-50, #f8f8f8);
+  font-family: var(--font-family, "Adobe Clean", adobe-clean, "Trebuchet MS", sans-serif);
+}
+
+.workspace-hero {
+  /* Matches AEM Experience Manager hero: soft purple-lavender → fuchsia gradient */
+  background: linear-gradient(125deg, #bdb0e8 0%, #ddb8f0 55%, var(--s2-fuchsia-300, #fad3ff) 100%);
+  padding: 64px 24px 56px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 32px;
+}
+
+.workspace-sections {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 56px;
+  padding: 56px 24px;
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+}
