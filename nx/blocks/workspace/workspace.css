@@ -103,6 +103,37 @@
   color: var(--s2-gray-500, #8f8f8f);
 }
 
+.workspace-chat-icon-btn {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  color: var(--s2-gray-500, #8f8f8f);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  padding: 0;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.workspace-chat-icon-btn:hover {
+  background: var(--s2-gray-100, #f5f5f5);
+  color: var(--s2-gray-800, #292929);
+}
+
+.workspace-chat-icon-btn.recording {
+  color: var(--s2-red-700, #e02f00);
+  animation: workspace-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes workspace-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
 .workspace-chat-send {
   width: 36px;
   height: 36px;

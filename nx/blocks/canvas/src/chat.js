@@ -345,6 +345,11 @@ class Chat extends LitElement {
             sessionStorage.removeItem('da-pending-prompt');
             this._sendPrompt(pending);
           }
+          const openLibrary = sessionStorage.getItem('da-open-prompts-library');
+          if (openLibrary) {
+            sessionStorage.removeItem('da-open-prompts-library');
+            this._openPromptsLibrary();
+          }
         }
       },
       onDocumentUpdated: (payload) => {
