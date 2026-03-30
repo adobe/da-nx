@@ -12,11 +12,13 @@ class NxWorkspace extends LitElement {
   static properties = {
     _ims: { state: true },
     _promptCards: { state: true },
+    _activeTab: { state: true },
   };
 
   constructor() {
     super();
     this._promptCards = [];
+    this._activeTab = 'recent';
   }
 
   async connectedCallback() {
@@ -46,6 +48,44 @@ class NxWorkspace extends LitElement {
   _clickPromptCard(prompt) {
     const chat = this.shadowRoot.querySelector('da-chat');
     if (chat?.sendPrompt) chat.sendPrompt(prompt);
+  }
+
+  _switchTab(tab) {
+    this._activeTab = tab;
+  }
+
+  _renderTabs() {
+    return html`
+      <section class="workspace-tabs-section">
+        <div class="workspace-tabs-header" role="tablist">
+          <button
+            class="workspace-tab-btn ${this._activeTab === 'recent' ? 'active' : ''}"
+            role="tab"
+            aria-selected="${this._activeTab === 'recent'}"
+            data-tab="recent"
+            @click=${() => this._switchTab('recent')}
+          >Recent Pages</button>
+          <button
+            class="workspace-tab-btn ${this._activeTab === 'projects' ? 'active' : ''}"
+            role="tab"
+            aria-selected="${this._activeTab === 'projects'}"
+            data-tab="projects"
+            @click=${() => this._switchTab('projects')}
+          >My Projects</button>
+        </div>
+        <div class="workspace-tabs-body">
+          ${this._activeTab === 'recent' ? this._renderRecentPages() : this._renderProjects()}
+        </div>
+      </section>
+    `;
+  }
+
+  _renderRecentPages() {
+    return html`<div class="workspace-tab-panel" role="tabpanel"><!-- recent pages placeholder --></div>`;
+  }
+
+  _renderProjects() {
+    return html`<div class="workspace-tab-panel" role="tabpanel"><!-- projects placeholder --></div>`;
   }
 
   _renderHero() {
@@ -97,6 +137,7 @@ class NxWorkspace extends LitElement {
         ${this._renderHero()}
         <div class="workspace-sections">
           ${this._renderPromptCards()}
+          ${this._renderTabs()}
         </div>
       </div>
     `;

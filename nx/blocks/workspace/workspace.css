@@ -152,3 +152,43 @@
     grid-template-columns: 1fr;
   }
 }
+
+.workspace-tabs-section {
+  width: 100%;
+}
+
+.workspace-tabs-header {
+  display: flex;
+  gap: 4px;
+  border-bottom: 2px solid var(--s2-gray-200, #e1e1e1);
+  margin-bottom: 24px;
+}
+
+/* Matches Firefly button style: 16px radius, 14px, 700 weight */
+.workspace-tab-btn {
+  padding: 8px 20px 10px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  font-size: var(--s2-body-s-size, 14px);
+  font-weight: 700;
+  color: var(--s2-gray-600, #717171);
+  cursor: pointer;
+  border-radius: var(--s2-border-radius, 16px) var(--s2-border-radius, 16px) 0 0;
+  transition: color 0.15s ease, border-color 0.15s ease;
+  font-family: var(--font-family, inherit);
+}
+
+.workspace-tab-btn:hover {
+  color: var(--s2-gray-800, #292929);
+}
+
+.workspace-tab-btn.active {
+  color: var(--s2-blue-900, #3b63fb);
+  border-bottom-color: var(--s2-blue-900, #3b63fb);
+}
+
+.workspace-tab-panel {
+  min-height: 120px;
+}

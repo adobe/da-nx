@@ -174,3 +174,40 @@ describe('NxWorkspace prompt cards', () => {
     expect(() => card.click()).to.not.throw();
   });
 });
+
+describe('NxWorkspace tabs', () => {
+  let el;
+
+  beforeEach(async () => {
+    el = document.createElement('nx-workspace');
+    document.body.appendChild(el);
+    await el.updateComplete;
+  });
+
+  afterEach(() => { el.remove(); });
+
+  it('renders the tabs section', async () => {
+    const tabs = el.shadowRoot.querySelector('.workspace-tabs-section');
+    expect(tabs).to.exist;
+  });
+
+  it('renders two tab buttons', async () => {
+    const buttons = el.shadowRoot.querySelectorAll('.workspace-tab-btn');
+    expect(buttons.length).to.equal(2);
+  });
+
+  it('defaults to recent tab active', async () => {
+    const activeBtn = el.shadowRoot.querySelector('.workspace-tab-btn[aria-selected="true"]');
+    expect(activeBtn).to.exist;
+    expect(activeBtn.dataset.tab).to.equal('recent');
+  });
+
+  it('switches to projects tab on click', async () => {
+    const projectsBtn = el.shadowRoot.querySelector('.workspace-tab-btn[data-tab="projects"]');
+    projectsBtn.click();
+    await el.updateComplete;
+
+    const activeBtn = el.shadowRoot.querySelector('.workspace-tab-btn[aria-selected="true"]');
+    expect(activeBtn.dataset.tab).to.equal('projects');
+  });
+});
