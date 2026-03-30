@@ -249,6 +249,7 @@ class NxWorkspace extends LitElement {
               </svg>
             </button>
           </div>
+          ${this._renderPromptCards()}
         </div>
       </div>
     `;
@@ -257,8 +258,7 @@ class NxWorkspace extends LitElement {
   _renderPromptCards() {
     if (!this._promptCards.length) return nothing;
     return html`
-      <section class="workspace-prompts">
-        <h2 class="workspace-section-title">Suggested prompts</h2>
+      <div class="workspace-prompts">
         <div class="workspace-prompts-row">
           ${this._promptCards.map((card) => html`
             <button
@@ -272,7 +272,7 @@ class NxWorkspace extends LitElement {
             </button>
           `)}
         </div>
-      </section>
+      </div>
     `;
   }
 
@@ -281,7 +281,6 @@ class NxWorkspace extends LitElement {
       <div class="workspace">
         ${this._renderHero()}
         <div class="workspace-sections">
-          ${this._renderPromptCards()}
           ${this._renderTabs()}
         </div>
       </div>

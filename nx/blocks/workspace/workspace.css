@@ -150,10 +150,9 @@
 
 .workspace-prompts-row {
   display: flex;
-  gap: 16px;
+  gap: 12px;
   overflow-x: auto;
   scrollbar-width: none;
-  padding-bottom: 4px;
 }
 
 .workspace-prompts-row::-webkit-scrollbar {
@@ -164,22 +163,20 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 16px;
-  flex: 0 0 240px;
-
-  /* AEM Experience Manager card: white, no border, 10px radius, 3-layer shadow */
-  background: #fff;
-  border: none;
+  padding: 14px 16px;
+  flex: 0 0 220px;
+  background: rgb(255 255 255 / 70%);
+  border: 1px solid rgb(255 255 255 / 60%);
   border-radius: var(--s2-radius-200, 10px);
-  box-shadow: rgb(0 0 0 / 8%) 0 2px 8px 0, rgb(0 0 0 / 4%) 0 1px 4px 0, rgb(0 0 0 / 8%) 0 0 1px 0;
+  box-shadow: rgb(0 0 0 / 6%) 0 1px 4px 0;
   cursor: pointer;
   text-align: left;
-  transition: box-shadow 0.15s ease, transform 0.1s ease;
+  transition: background 0.15s ease, transform 0.1s ease;
   font-family: var(--font-family, inherit);
 }
 
 .workspace-prompt-card:hover {
-  box-shadow: rgb(59 99 251 / 20%) 0 4px 16px 0, rgb(0 0 0 / 8%) 0 0 1px 0;
+  background: rgb(255 255 255 / 90%);
   transform: translateY(-1px);
 }
 
