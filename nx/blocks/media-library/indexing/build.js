@@ -619,7 +619,7 @@ export async function buildFullIndex(sitePath, org, repo, ref, onProgress, onPro
       stage: 'fetching',
       message: `Status job polling, Medialog: ${medialogChunks.reduce((s, c) => s + c.length, 0)} entries...`,
     });
-  });
+  }, { fullHistory: true });
 
   // Fetch auditlog for fragment/PDF/SVG file discovery (like helix-tools does)
   const auditlogPromise = streamLog('log', org, repo, ref, null, IndexConfig.API_PAGE_SIZE, (chunk) => {
