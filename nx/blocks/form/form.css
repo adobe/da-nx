@@ -7,9 +7,14 @@ sl-textarea {
 }
 
 .da-form-wrapper {
-  width: 900px;
+  width: min(1020px, 100%);
+  max-width: 1020px;
   margin: 0 auto;
   position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+  box-sizing: border-box;
 
   .da-form-title {
     line-height: 1;
@@ -18,7 +23,10 @@ sl-textarea {
   }
 
   .da-form-editor {
+    flex: 1 1 700px;
     width: 700px;
+    min-width: 0;
+    max-width: 700px;
   }
 
   da-form-editor {
@@ -26,9 +34,11 @@ sl-textarea {
   }
 
   da-form-sidebar {
-    position: absolute;
-    top: 0;
+    position: sticky;
+    top: 16px;
+    flex: 0 0 300px;
     width: 300px;
-    right: -120px; /* 20px offset */
+    max-width: 300px;
+    align-self: flex-start;
   }
 }
