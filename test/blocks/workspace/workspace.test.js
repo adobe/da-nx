@@ -41,3 +41,25 @@ describe('NxWorkspace init()', () => {
     appended.remove();
   });
 });
+
+describe('NxWorkspace hero content', () => {
+  let el;
+
+  beforeEach(async () => {
+    el = document.createElement('nx-workspace');
+    document.body.appendChild(el);
+    await el.updateComplete;
+  });
+
+  afterEach(() => { el.remove(); });
+
+  it('renders the chat container in the hero', async () => {
+    const container = el.shadowRoot.querySelector('.workspace-chat-container');
+    expect(container).to.exist;
+  });
+
+  it('renders da-chat element', async () => {
+    const chat = el.shadowRoot.querySelector('da-chat');
+    expect(chat).to.exist;
+  });
+});
