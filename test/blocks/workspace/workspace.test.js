@@ -253,3 +253,53 @@ describe('NxWorkspace recent pages', () => {
     expect(title.textContent.trim()).to.equal('My Page');
   });
 });
+
+describe('NxWorkspace my projects', () => {
+  let el;
+  const mockProjects = [
+    { name: 'Marketing Site', org: 'adobe', site: 'marketing' },
+    { name: 'Internal Tools', org: 'adobe', site: 'internal' },
+  ];
+
+  beforeEach(async () => {
+    localStorage.setItem('da-projects', JSON.stringify(mockProjects));
+    el = document.createElement('nx-workspace');
+    document.body.appendChild(el);
+    await el.updateComplete;
+  });
+
+  afterEach(() => {
+    el.remove();
+    localStorage.removeItem('da-projects');
+  });
+
+  it('loads projects from localStorage', async () => {
+    expect(el._projects.length).to.equal(2);
+  });
+
+  it('renders project cards when projects tab is active', async () => {
+    el._activeTab = 'projects';
+    await el.updateComplete;
+
+    const cards = el.shadowRoot.querySelectorAll('.workspace-project-card');
+    expect(cards.length).to.equal(2);
+  });
+
+  it('shows project name in card', async () => {
+    el._activeTab = 'projects';
+    await el.updateComplete;
+
+    const firstName = el.shadowRoot.querySelector('.workspace-project-name');
+    expect(firstName.textContent.trim()).to.equal('Marketing Site');
+  });
+
+  it('shows empty message when no projects in localStorage', async () => {
+    localStorage.removeItem('da-projects');
+    el._projects = [];
+    el._activeTab = 'projects';
+    await el.updateComplete;
+
+    const empty = el.shadowRoot.querySelector('.workspace-empty');
+    expect(empty).to.exist;
+  });
+});

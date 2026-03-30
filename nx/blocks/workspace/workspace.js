@@ -4,6 +4,8 @@ import { daFetch } from '../../utils/daFetch.js';
 import { DA_ORIGIN } from '../../public/utils/constants.js';
 import '../canvas/src/chat.js';
 
+const DA_PROJECTS_KEY = 'da-projects';
+
 const nx = `${new URL(import.meta.url).origin}/nx`;
 const sl = await getStyle(`${nx}/public/sl/styles.css`);
 const styles = await getStyle(import.meta.url);
@@ -14,6 +16,7 @@ class NxWorkspace extends LitElement {
     _promptCards: { state: true },
     _activeTab: { state: true },
     _recentPages: { state: true },
+    _projects: { state: true },
   };
 
   constructor() {
@@ -21,6 +24,8 @@ class NxWorkspace extends LitElement {
     this._promptCards = [];
     this._activeTab = 'recent';
     this._recentPages = [];
+    this._projects = [];
+    this._loadProjects();
   }
 
   async connectedCallback() {
@@ -51,6 +56,15 @@ class NxWorkspace extends LitElement {
   _clickPromptCard(prompt) {
     const chat = this.shadowRoot.querySelector('da-chat');
     if (chat?.sendPrompt) chat.sendPrompt(prompt);
+  }
+
+  _loadProjects() {
+    try {
+      const raw = localStorage.getItem(DA_PROJECTS_KEY);
+      this._projects = raw ? JSON.parse(raw) : [];
+    } catch {
+      this._projects = [];
+    }
   }
 
   async _loadRecentPages() {
@@ -128,7 +142,30 @@ class NxWorkspace extends LitElement {
   }
 
   _renderProjects() {
-    return html`<div class="workspace-tab-panel" role="tabpanel"><!-- projects placeholder --></div>`;
+    if (!this._projects.length) {
+      return html`
+        <div class="workspace-tab-panel" role="tabpanel">
+          <p class="workspace-empty">No projects found. Open a project in DA to see it here.</p>
+        </div>`;
+    }
+    return html`
+      <div class="workspace-tab-panel workspace-projects-grid" role="tabpanel">
+        ${this._projects.map((project) => {
+          const href = project.url || `https://da.live/#/${project.org}/${project.site}`;
+          return html`
+            <a class="workspace-project-card" href="${href}" title="${project.name}">
+              <div class="workspace-project-icon" aria-hidden="true">
+                ${(project.name || '?')[0].toUpperCase()}
+              </div>
+              <div class="workspace-project-info">
+                <span class="workspace-project-name">${project.name}</span>
+                <span class="workspace-project-org">${project.org}/${project.site}</span>
+              </div>
+            </a>
+          `;
+        })}
+      </div>
+    `;
   }
 
   _renderHero() {
