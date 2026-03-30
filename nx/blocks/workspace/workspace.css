@@ -58,7 +58,7 @@
 }
 
 .workspace-hero-subtitle {
-  font-size: var(--s2-body-s-size, 14px);
+  font-size: var(--s2-body-m-size, 16px);
   font-weight: 400;
   margin: 0;
   color: var(--s2-gray-600, #717171);
