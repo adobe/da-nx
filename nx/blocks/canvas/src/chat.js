@@ -339,6 +339,13 @@ class Chat extends LitElement {
       },
       onConnectionChange: (connected) => {
         this._connected = connected;
+        if (connected) {
+          const pending = sessionStorage.getItem('da-pending-prompt');
+          if (pending) {
+            sessionStorage.removeItem('da-pending-prompt');
+            this._sendPrompt(pending);
+          }
+        }
       },
       onDocumentUpdated: (payload) => {
         window.dispatchEvent(new CustomEvent(DOCUMENT_UPDATED_EVENT, {

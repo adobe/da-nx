@@ -4,7 +4,7 @@ import { daFetch } from '../../utils/daFetch.js';
 import { DA_ORIGIN } from '../../public/utils/constants.js';
 import '../profile/profile.js';
 
-const DA_PROJECTS_KEY = 'da-projects';
+const DA_PROJECTS_KEY = 'da-sites';
 
 /**
  * Returns the URL if it is a safe relative path or http/https URL.
@@ -60,9 +60,8 @@ class NxWorkspace extends LitElement {
       const resp = await daFetch(`${DA_ORIGIN}/config/${org}/${repo}`);
       if (!resp.ok) return;
       const json = await resp.json();
-      const cards = (json?.['workspace-prompts']?.data || [])
-        .filter((r) => r.title && r.prompt)
-        .slice(0, 3);
+      const cards = (json?.prompts?.data || [])
+        .filter((r) => r.area?.toLowerCase() === 'welcome' && r.title && r.prompt);
       this._promptCards = cards;
     } catch {
       // Config unavailable — show no prompt cards.
@@ -83,17 +82,19 @@ class NxWorkspace extends LitElement {
     const prompt = this._prompt.trim();
     if (!prompt) return;
     sessionStorage.setItem('da-pending-prompt', prompt);
-    const hash = window.location.hash || '';
-    const path = hash.replace(/^#\/?/, '').trim();
-    const [org, repo] = path.split('/').filter(Boolean);
-    const dest = org && repo ? `/#/${org}/${repo}` : '/';
-    window.location.assign(`${window.location.origin}${dest}`);
+    const { search } = window.location;
+    const hash = window.location.hash.replace(/\/[^/]+\.html$/, '');
+    window.location.assign(`${window.location.origin}/browse${search}${hash}`);
   }
 
   _loadProjects() {
     try {
       const raw = localStorage.getItem(DA_PROJECTS_KEY);
-      this._projects = raw ? JSON.parse(raw) : [];
+      const sites = raw ? JSON.parse(raw).filter((s) => typeof s === 'string' && s.includes('/')) : [];
+      this._projects = sites.map((name) => ({
+        name,
+        img: `/blocks/browse/da-sites/img/cards/da-${Math.floor(Math.random() * 8)}.jpg`,
+      }));
     } catch {
       this._projects = [];
     }
@@ -163,7 +164,7 @@ class NxWorkspace extends LitElement {
     return html`
       <div class="workspace-pages-grid">
         ${this._recentPages.map((page) => html`
-          <a class="workspace-page-card" href="${safeUrl(page.path)}" title="${page.title}">
+          <a class="workspace-page-card" href="${this._pageHref(page.path)}" title="${page.title}">
             <div class="workspace-page-card-body">
               <span class="workspace-page-title">${page.title}</span>
               <span class="workspace-page-path">${page.path}</span>
@@ -178,10 +179,34 @@ class NxWorkspace extends LitElement {
     `;
   }
 
+  _pageHref(path) {
+    const normalized = path.endsWith('/')
+      ? `${path}index.html`
+      : `${path.replace(/\.html$/, '')}.html`;
+    return safeUrl(`/canvas${window.location.search}#${normalized}`);
+  }
+
   _formatDate(iso) {
     const d = new Date(iso);
     if (Number.isNaN(d.getTime())) return iso;
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  _flipProject(e, project) {
+    e.preventDefault();
+    e.stopPropagation();
+    project.flipped = !project.flipped;
+    this.requestUpdate();
+  }
+
+  _hideProject(project) {
+    this._projects = this._projects.filter((p) => p.name !== project.name);
+    localStorage.setItem(DA_PROJECTS_KEY, JSON.stringify(this._projects.map((p) => p.name)));
+  }
+
+  _shareProject(name) {
+    const url = `${window.location.origin}/browse#/${name}`;
+    navigator.clipboard.writeText(url);
   }
 
   _renderProjects() {
@@ -191,17 +216,39 @@ class NxWorkspace extends LitElement {
     return html`
       <div class="workspace-projects-grid">
         ${this._projects.map((project) => {
-          const href = safeUrl(project.url || `https://da.live/#/${project.org}/${project.site}`);
+          const [org, site] = project.name.split('/');
+          const href = safeUrl(`/browse${window.location.search}#/${project.name}`);
           return html`
-            <a class="workspace-project-card" href="${href}" title="${project.name}">
-              <div class="workspace-project-icon" aria-hidden="true">
-                ${(project.name || '?')[0].toUpperCase()}
+            <div class="workspace-project-outer">
+              <div class="workspace-project-flip ${project.flipped ? 'is-flipped' : ''}">
+                <div class="workspace-project-front">
+                  <a class="workspace-project-card" href="${href}" title="${project.name}">
+                    <div class="workspace-project-icon" aria-hidden="true">
+                      <img src="${project.img}" alt="" width="64" height="64" />
+                    </div>
+                    <div class="workspace-project-info">
+                      <span class="workspace-project-name">${site}</span>
+                      <span class="workspace-project-org">${org}</span>
+                    </div>
+                  </a>
+                </div>
+                <div class="workspace-project-back">
+                  <button class="workspace-project-back-action" @click=${() => this._shareProject(project.name)}>
+                    <span>Share</span>
+                  </button>
+                  <button class="workspace-project-back-action workspace-project-back-action-hide" @click=${() => this._hideProject(project)}>
+                    <span>Hide</span>
+                  </button>
+                </div>
+                <button class="workspace-project-more" aria-label="More options" @click=${(e) => this._flipProject(e, project)}>
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" aria-hidden="true">
+                    <circle cx="16" cy="9" r="2" fill="currentColor"/>
+                    <circle cx="16" cy="16" r="2" fill="currentColor"/>
+                    <circle cx="16" cy="23" r="2" fill="currentColor"/>
+                  </svg>
+                </button>
               </div>
-              <div class="workspace-project-info">
-                <span class="workspace-project-name">${project.name}</span>
-                <span class="workspace-project-org">${project.org}/${project.site}</span>
-              </div>
-            </a>
+            </div>
           `;
         })}
       </div>
