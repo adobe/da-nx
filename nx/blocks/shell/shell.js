@@ -80,6 +80,7 @@ function handleLoad({ target }) {
   const message = {
     ready: true,
     token: IMS_DETAILS.accessToken?.token,
+    email: IMS_DETAILS.email,
     context: getParts(),
   };
 
