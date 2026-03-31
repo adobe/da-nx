@@ -3,10 +3,11 @@
 ## Architectural Principles
 
 - Context comes from global browser state (URL is the source of truth)
-- Features do not import or call each other (see [Component Communication](#component-communication)) - instead communicate via events
-- Views (eg Browse, Edit) are composed of components that provide the behaviour - the views themselves don't implement functionality.
+- Features do not import or call each other (see [Component Communication](#component-communication)) - they communicate via events
+- Blocks (e.g. Browse, Edit) compose components that implement behavior; blocks define composition, not feature logic
 - Each feature should be removable without touching others
-- nx provides an extension framework for third party extensions. Core features don't use this extension framework.
+- nx provides an extension framework for third-party extensions. Core features do not use this extension framework.
+- Components are built as web components using bundled Lit
 
 ---
 
@@ -16,8 +17,8 @@
 nx
 │
 ├── blocks
-│   ├── Browse View
-│   ├── Edit View
+│   ├── Browse
+│   ├── Edit
 │   ├── Chat
 │   └── Shared
 │       ├── Content Tree (reusable file/folder CRUD utilities)
@@ -39,16 +40,16 @@ Skills Lab — external app at da.live/apps/skills, linked from Chat
 - Provides derived context getters to features
 - Does NOT contain business logic or feature wiring
 
-### Browse View
+### Browse Block
 - Owns breadcrumbs, folder presentation, and management toolbar
 - Full management affordances: flat list with drill-down, bulk select, search
 - Consumes workspace context; no location or file state of its own
 
-### Edit View
+### Edit Block
 - Owns breadcrumbs, view mode (doc/wysiwyg/split), and layout state
 - Composes features into editing-focused layouts
 
-### Chat (core, standalone)
+### Chat Block (core, standalone)
 - Owns conversation state, tool execution, agent communication, and context item accumulator
 - Consumes workspace context (org, site, path, view) as read-only
 - Runs in Browse and Edit with the same UI; only view context sent to the backend changes
@@ -57,8 +58,8 @@ Skills Lab — external app at da.live/apps/skills, linked from Chat
 ### Content Navigation (core, standalone)
 - Owns file/folder hierarchy, file state (create/delete/rename), and transient selection state
 - Two surfaces on the same core:
-  - **Full surface** (Browse View) — flat list, drill-down, management affordances
-  - **Tree surface** (Edit View panel) — persistent tree, lightweight, context-switching only
+  - **Full surface** (Browse Block) — flat list, drill-down, management affordances
+  - **Tree surface** (Edit panel) — persistent tree, lightweight, context-switching only
 - Single source of truth for file state — Chat applies changes here via `postMessage` (or the agreed cross-block channel); surfaces reflect automatically
 
 ### Extensions Host (shared service)
@@ -101,12 +102,13 @@ The API for third-party extensions is defined by the extensions SDK.
 - The nx repo provides URL/state utilities and auth helpers
 - Feature code lives in `blocks/canvas`, `blocks/browse`, `blocks/chat`, and `blocks/shared`
 - `blocks/shared` should contain small, reusable pieces that make no assumptions about where they are invoked from
+- Root `Utils` contains helpers such as the extension SDK client
 
 ### Component Communication
 These rules apply workspace-wide.
 - Components communicate using events
 - Web components communicate with their parents by emitting events on themselves; parents listen via event listeners
-- Sibling blocks (e.g. Chat and Canvas/Browse) communicate via `window.postMessage()`
+- Sibling blocks (e.g. Chat and Browse/Edit) communicate via `window.postMessage()`
 
 ### Version Control
 - Make small commits with meaningful commit messages
