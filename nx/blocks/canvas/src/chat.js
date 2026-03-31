@@ -339,6 +339,18 @@ class Chat extends LitElement {
       },
       onConnectionChange: (connected) => {
         this._connected = connected;
+        if (connected) {
+          const pending = sessionStorage.getItem('da-pending-prompt');
+          if (pending) {
+            sessionStorage.removeItem('da-pending-prompt');
+            this._sendPrompt(pending);
+          }
+          const openLibrary = sessionStorage.getItem('da-open-prompts-library');
+          if (openLibrary) {
+            sessionStorage.removeItem('da-open-prompts-library');
+            this._openPromptsLibrary();
+          }
+        }
       },
       onDocumentUpdated: (payload) => {
         window.dispatchEvent(new CustomEvent(DOCUMENT_UPDATED_EVENT, {
@@ -599,6 +611,11 @@ class Chat extends LitElement {
     const contextSnapshot = [...(this.onPageContextItems ?? [])];
     this._chatController?.sendMessage(prompt, contextSnapshot);
     this.dispatchEvent(new CustomEvent('da-chat-message-sent', { bubbles: true }));
+  }
+
+  /** Public API: called by external components (e.g. workspace prompt cards) */
+  sendPrompt(text) {
+    this._sendPrompt(text);
   }
 
   _insertPrompt(prompt) {

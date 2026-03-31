@@ -1,0 +1,552 @@
+/* Uses Spectrum 2 tokens from nx/public/sl/styles.css */
+:host {
+  display: block;
+}
+
+.welcome-profile {
+  display: none;
+}
+
+.welcome {
+  display: flex;
+  flex-direction: column;
+  background: var(--s2-gray-50, #f8f8f8);
+  font-family: var(--font-family, "Adobe Clean", adobe-clean, "Trebuchet MS", sans-serif);
+}
+
+.welcome-hero {
+  /* Matches AEM Experience Manager hero: soft purple-lavender → fuchsia gradient */
+  background: linear-gradient(125deg, #bdb0e8 0%, #ddb8f0 55%, var(--s2-fuchsia-300, #fad3ff) 100%);
+  padding: 48px 24px 56px;
+}
+
+.welcome-hero-inner {
+  max-width: 760px;
+  margin: 0 auto;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.welcome-sections {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 56px;
+  padding: 56px 24px;
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.welcome-hero-text {
+  color: var(--s2-gray-800, #292929);
+}
+
+.welcome-hero-title {
+  /* Matches AEM Experience Manager: 32px, font-weight 300, bold name via <strong> */
+  font-size: 32px;
+  font-weight: 300;
+  line-height: 1.3;
+  margin: 0 0 8px;
+  color: var(--s2-gray-800, #292929);
+}
+
+.welcome-hero-title strong {
+  font-weight: 700;
+}
+
+.welcome-hero-title-pending {
+  visibility: hidden;
+}
+
+.welcome-hero-title-loaded {
+  animation: welcome-fade-in 0.4s ease;
+}
+
+@keyframes welcome-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.welcome-hero-subtitle {
+  font-size: var(--s2-body-m-size, 16px);
+  font-weight: 400;
+  margin: 0;
+  color: var(--s2-gray-600, #717171);
+}
+
+.welcome-chat-launcher {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+  border-radius: 28px;
+  padding: 8px 8px 8px 20px;
+  box-shadow: rgb(0 0 0 / 8%) 0 2px 8px 0, rgb(0 0 0 / 4%) 0 1px 4px 0, rgb(0 0 0 / 8%) 0 0 1px 0;
+}
+
+.welcome-chat-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: var(--s2-body-m-size, 16px);
+  font-family: var(--font-family, inherit);
+  color: var(--s2-gray-800, #292929);
+  min-width: 0;
+  line-height: 1.5;
+}
+
+.welcome-chat-input::placeholder {
+  color: var(--s2-gray-500, #8f8f8f);
+}
+
+.welcome-chat-icon-btn {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  color: var(--s2-gray-500, #8f8f8f);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  padding: 0;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.welcome-chat-icon-btn:hover {
+  background: var(--s2-gray-100, #f5f5f5);
+  color: var(--s2-gray-800, #292929);
+}
+
+.welcome-chat-icon-btn.recording {
+  color: var(--s2-red-700, #e02f00);
+  animation: welcome-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes welcome-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.welcome-chat-send {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  border: none;
+  background: var(--s2-blue-900, #3b63fb);
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease;
+  padding: 0;
+}
+
+.welcome-chat-send svg {
+  width: 16px;
+  height: 16px;
+  fill: #fff;
+  transform: rotate(180deg);
+}
+
+.welcome-chat-send:hover {
+  background: var(--s2-blue-1000, #274dea);
+}
+
+.welcome-chat-send:disabled {
+  background: var(--s2-gray-300, #dadada);
+  cursor: default;
+}
+
+/* Matches AEM Experience Manager panel headings: 18px, 700 weight */
+.welcome-section-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--s2-gray-800, #292929);
+  margin: 0 0 20px;
+  line-height: 1.3;
+}
+
+.welcome-prompts {
+  width: 100%;
+}
+
+.welcome-prompts-row {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.welcome-prompts-row::-webkit-scrollbar {
+  display: none;
+}
+
+.welcome-prompt-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  flex: 0 0 220px;
+  background: rgb(255 255 255 / 70%);
+  border: 1px solid rgb(255 255 255 / 60%);
+  border-radius: var(--s2-radius-200, 10px);
+  box-shadow: rgb(0 0 0 / 6%) 0 1px 4px 0;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s ease, transform 0.1s ease;
+  font-family: var(--font-family, inherit);
+}
+
+.welcome-prompt-card:hover {
+  background: rgb(255 255 255 / 90%);
+  transform: translateY(-1px);
+}
+
+.welcome-prompt-icon {
+  width: 24px;
+  height: 24px;
+}
+
+/* AEM Experience Manager chip: 12px, teal/cyan pill */
+.welcome-prompt-category {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--s2-cyan-800, #0086b4);
+  background: var(--s2-cyan-300, #b7e7fc);
+  border-radius: 20px;
+  padding: 2px 8px;
+  align-self: flex-start;
+  margin-top: auto;
+}
+
+.welcome-prompt-title {
+  font-size: var(--s2-body-s-size, 14px);
+  font-weight: 700;
+  color: var(--s2-gray-800, #292929);
+}
+
+.welcome-prompt-desc {
+  font-size: var(--s2-body-xs-size, 12px);
+  color: var(--s2-gray-600, #717171);
+  line-height: var(--s2-line-height-200, 1.5);
+}
+
+
+
+.welcome-tabs-section {
+  width: 100%;
+}
+
+.welcome-tabs-header {
+  display: flex;
+  gap: 4px;
+  border-bottom: 2px solid var(--s2-gray-200, #e1e1e1);
+  margin-bottom: 24px;
+}
+
+/* Matches Firefly button style: 16px radius, 14px, 700 weight */
+.welcome-tab-btn {
+  padding: 8px 20px 10px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  font-size: var(--s2-body-s-size, 14px);
+  font-weight: 700;
+  color: var(--s2-gray-600, #717171);
+  cursor: pointer;
+  border-radius: var(--s2-border-radius, 16px) var(--s2-border-radius, 16px) 0 0;
+  transition: color 0.15s ease, border-color 0.15s ease;
+  font-family: var(--font-family, inherit);
+}
+
+.welcome-tab-btn:hover {
+  color: var(--s2-gray-800, #292929);
+}
+
+.welcome-tab-btn.active {
+  color: var(--s2-blue-900, #3b63fb);
+  border-bottom-color: var(--s2-blue-900, #3b63fb);
+}
+
+.welcome-tab-panel {
+  min-height: 120px;
+}
+
+.welcome-pages-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.welcome-page-card {
+  position: relative;
+  overflow: hidden;
+  border: none;
+  border-radius: var(--s2-radius-200, 10px);
+  box-shadow: rgb(0 0 0 / 8%) 0 2px 8px 0, rgb(0 0 0 / 4%) 0 1px 4px 0, rgb(0 0 0 / 8%) 0 0 1px 0;
+  text-decoration: none;
+  color: #fff;
+  transition: box-shadow 0.15s ease, transform 0.1s ease;
+  min-height: 180px;
+}
+
+.welcome-page-card:hover {
+  box-shadow: rgb(0 0 0 / 30%) 0 6px 24px 0, rgb(0 0 0 / 12%) 0 2px 8px 0;
+  transform: translateY(-2px);
+}
+
+.welcome-page-card-bg {
+  position: absolute;
+  inset: 0;
+}
+
+.welcome-page-card-bg img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.25s ease;
+}
+
+.welcome-project-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.welcome-page-card:hover .welcome-page-card-bg img {
+  transform: scale(1.05);
+}
+
+.welcome-page-card-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(0deg, rgb(0 0 0 / 92%) 0%, rgb(0 0 0 / 20%) 65%);
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 16px;
+  gap: 8px;
+}
+
+.welcome-page-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.welcome-page-title {
+  font-size: var(--s2-body-s-size, 14px);
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.welcome-page-summary {
+  font-size: var(--s2-body-xs-size, 12px);
+  color: rgb(255 255 255 / 80%);
+  line-height: var(--s2-line-height-200, 1.5);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.welcome-page-card-footer {
+  display: flex;
+  align-items: center;
+}
+
+.welcome-page-date {
+  font-size: var(--s2-body-xxs-size, 11px);
+  color: rgb(255 255 255 / 70%);
+}
+
+.welcome-empty {
+  color: var(--s2-gray-600, #717171);
+  font-size: var(--s2-body-s-size, 14px);
+  text-align: center;
+  padding: 40px 0;
+}
+
+.welcome-projects-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+
+.welcome-project-outer {
+  min-height: 96px;
+  perspective: 800px;
+}
+
+.welcome-project-flip {
+  width: 100%;
+  height: 100%;
+  min-height: 96px;
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.4s ease;
+}
+
+.welcome-project-flip.is-flipped {
+  transform: rotateY(180deg);
+}
+
+.welcome-project-front {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  border-radius: var(--s2-radius-200, 10px);
+  overflow: hidden;
+}
+
+.welcome-project-card {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  background: #fff;
+  border: none;
+  border-radius: var(--s2-radius-200, 10px);
+  box-shadow: rgb(0 0 0 / 8%) 0 2px 8px 0, rgb(0 0 0 / 4%) 0 1px 4px 0, rgb(0 0 0 / 8%) 0 0 1px 0;
+  text-decoration: none;
+  color: inherit;
+  transition: box-shadow 0.15s ease;
+  width: 100%;
+  height: 100%;
+  min-height: 96px;
+  box-sizing: border-box;
+}
+
+.welcome-project-card:hover {
+  box-shadow: rgb(59 99 251 / 20%) 0 4px 16px 0, rgb(0 0 0 / 8%) 0 0 1px 0;
+}
+
+.welcome-project-back {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  transform: rotateY(180deg);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  background: #fff;
+  border-radius: var(--s2-radius-200, 10px);
+  box-shadow: rgb(0 0 0 / 8%) 0 2px 8px 0, rgb(0 0 0 / 4%) 0 1px 4px 0, rgb(0 0 0 / 8%) 0 0 1px 0;
+}
+
+.welcome-project-flip.is-flipped .welcome-project-back {
+  display: flex;
+}
+
+.welcome-project-back-action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: var(--s2-body-s-size, 14px);
+  font-weight: 700;
+  color: var(--s2-gray-700, #505050);
+  font-family: var(--font-family, inherit);
+  padding: 8px 16px;
+  border-radius: var(--s2-radius-100, 8px);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.welcome-project-back-action:hover {
+  background: var(--s2-gray-100, #f5f5f5);
+  color: var(--s2-gray-800, #292929);
+}
+
+.welcome-project-back-action-hide:hover {
+  background: var(--s2-red-100, #ffebe7);
+  color: var(--s2-red-900, #c41b00);
+}
+
+.welcome-project-more {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--s2-gray-500, #8f8f8f);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--s2-radius-100, 8px);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.welcome-project-more:hover {
+  background: var(--s2-gray-100, #f5f5f5);
+  color: var(--s2-gray-800, #292929);
+}
+
+.welcome-project-more svg {
+  width: 16px;
+  height: 16px;
+}
+
+.welcome-project-flip.is-flipped .welcome-project-more {
+  color: var(--s2-gray-800, #292929);
+}
+
+.welcome-project-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: var(--s2-radius-100, 8px);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.welcome-project-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.welcome-project-name {
+  font-size: var(--s2-body-s-size, 14px);
+  font-weight: 700;
+  color: var(--s2-gray-800, #292929);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.welcome-project-org {
+  font-size: var(--s2-body-xs-size, 12px);
+  color: var(--s2-gray-600, #717171);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.welcome-tabs-body [role="tabpanel"][hidden] {
+  display: none;
+}
