@@ -58,7 +58,13 @@ class NxWelcome extends LitElement {
     const hash = window.location.hash || '';
     const path = hash.replace(/^#\/?/, '').trim();
     const [org = '', repo = ''] = path.split('/').filter(Boolean);
-    return { org, repo };
+    if (org && repo) return { org, repo };
+    const latest = this._projects[0]?.name;
+    if (latest) {
+      const [pOrg = '', pRepo = ''] = latest.split('/');
+      return { org: pOrg, repo: pRepo };
+    }
+    return { org: '', repo: '' };
   }
 
   async _loadConfig() {
@@ -86,13 +92,18 @@ class NxWelcome extends LitElement {
     this._launchChat();
   }
 
+  _browseHash() {
+    const hash = window.location.hash.replace(/\/[^/]+\.html$/, '');
+    if (hash) return hash;
+    const { org, repo } = this._getOrgRepo();
+    return org && repo ? `#/${org}/${repo}` : '';
+  }
+
   _launchChat() {
     const prompt = this._prompt.trim();
     if (!prompt) return;
     sessionStorage.setItem('da-pending-prompt', prompt);
-    const { search } = window.location;
-    const hash = window.location.hash.replace(/\/[^/]+\.html$/, '');
-    window.location.assign(`${window.location.origin}/browse${search}${hash}`);
+    window.location.assign(`${window.location.origin}/browse${window.location.search}${this._browseHash()}`);
   }
 
   _loadProjects() {
@@ -130,9 +141,7 @@ class NxWelcome extends LitElement {
 
   _openPromptsLibrary() {
     sessionStorage.setItem('da-open-prompts-library', '1');
-    const { search } = window.location;
-    const hash = window.location.hash.replace(/\/[^/]+\.html$/, '');
-    window.location.assign(`${window.location.origin}/browse${search}${hash}`);
+    window.location.assign(`${window.location.origin}/browse${window.location.search}${this._browseHash()}`);
   }
 
   _toggleRecording() {
