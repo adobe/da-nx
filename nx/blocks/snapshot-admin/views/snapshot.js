@@ -10,7 +10,9 @@ import {
   reviewSnapshot,
   updateSchedule,
   formatLocalDate,
+  checkSnapshotSource,
 } from '../utils/utils.js';
+import { findFragments } from '../utils/fragments.js';
 
 const nx = `${new URL(import.meta.url).origin}/nx`;
 const style = await getStyle(import.meta.url);
@@ -35,6 +37,7 @@ class NxSnapshot extends LitElement {
     basics: { attribute: false },
     isRegistered: { attribute: false },
     userPermissions: { attribute: false },
+    hasLaunchPermission: { attribute: false },
     startOpen: { attribute: false },
     _manifest: { state: true },
     _editUrls: { state: true },
@@ -42,11 +45,18 @@ class NxSnapshot extends LitElement {
     _action: { state: true },
     _launchesCollapsed: { state: true },
     _linkCopied: { state: true },
+    _expandedUrl: { state: true },
+    _discoveredFragments: { state: true },
+    _findingFragments: { state: true },
+    _fragmentDetails: { state: true },
+    _copyModeDetails: { state: true },
+    _snapshotExists: { state: true },
   };
 
   constructor() {
     super();
     this._launchesCollapsed = true;
+    this._snapshotExists = {};
   }
 
   async connectedCallback() {
@@ -282,12 +292,146 @@ class NxSnapshot extends LitElement {
     this.loadManifest();
   }
 
-  async handleCopyUrls(direction) {
+  promptCopyMode(resources, direction) {
+    const label = direction === 'fork' ? 'Sync Down' : 'Promote Up';
+    this._pendingCopy = { resources, direction };
+    this._copyModeDetails = {
+      heading: `${label}: Merge or Overwrite?`,
+      message: html`<b>Merge</b> will merge the files and show a diff.<br/><b>Overwrite</b> will replace the destination content entirely.`,
+      open: true,
+      actions: [
+        { label: 'Cancel', value: 'cancel', variant: 'primary' },
+        { label: 'Merge', value: 'merge' },
+        { label: 'Overwrite', value: 'overwrite' },
+      ],
+    };
+  }
+
+  async handleCopyModeDialog(e) {
+    const mode = e.detail;
+    const pending = this._pendingCopy;
+    this._copyModeDetails = undefined;
+    this._pendingCopy = undefined;
+
+    if (!pending || mode === 'cancel' || !mode) return;
+
+    const { resources, direction } = pending;
     this._action = direction === 'fork'
-      ? 'Forking content into snapshot.'
+      ? 'Syncing content into snapshot.'
       : 'Promoting content from snapshot.';
-    await copyManifest(this.basics.name, this._manifest.resources, direction);
+    await copyManifest(this.basics.name, resources, direction, mode);
+    if (direction === 'fork') {
+      const updated = { ...this._snapshotExists };
+      resources.forEach((res) => { updated[res.path] = true; });
+      this._snapshotExists = updated;
+    }
     this._action = undefined;
+  }
+
+  handleCopyUrls(direction) {
+    this.promptCopyMode(this._manifest.resources, direction);
+  }
+
+  handleCopySingleUrl(res, direction) {
+    this.promptCopyMode([res], direction);
+  }
+
+  async openFindFragments() {
+    this._findingFragments = true;
+    this._discoveredFragments = [];
+    this.updateFragmentDialog();
+
+    const { org, site } = this.basics;
+    const fragments = await findFragments(this._manifest.resources, org, site);
+    this._discoveredFragments = fragments;
+    this._findingFragments = false;
+    this.updateFragmentDialog();
+  }
+
+  updateFragmentDialog() {
+    const loading = this._findingFragments;
+    const fragments = this._discoveredFragments || [];
+    const hasSelected = fragments.some((f) => f.selected);
+
+    let message;
+    if (loading) {
+      message = html`<p class="nx-fragment-loading">Scanning for fragments...</p>`;
+    } else if (fragments.length > 0) {
+      message = html`
+        <ul class="nx-fragment-list">
+          ${fragments.map((fragment) => html`
+            <li>
+              <label>
+                <input
+                  type="checkbox"
+                  .checked=${fragment.selected}
+                  @change=${() => this.handleFragmentToggle(fragment)} />
+                ${fragment.path}
+              </label>
+            </li>
+          `)}
+        </ul>`;
+    } else {
+      message = html`<p class="nx-fragment-empty">No new fragments found.</p>`;
+    }
+
+    this._fragmentDetails = {
+      heading: 'Find Fragments',
+      message,
+      open: true,
+      actions: [
+        { label: 'Cancel', value: 'cancel', variant: 'primary' },
+        ...(!loading && fragments.length > 0 && hasSelected
+          ? [{ label: 'Add to URLs', value: 'add' }]
+          : []),
+      ],
+    };
+  }
+
+  handleFragmentToggle(fragment) {
+    fragment.selected = !fragment.selected;
+    this._discoveredFragments = [...this._discoveredFragments];
+    this.updateFragmentDialog();
+  }
+
+  async handleFragmentDialog(e) {
+    if (e.detail === 'add') {
+      await this.handleAddFragments();
+      return;
+    }
+    this._fragmentDetails = undefined;
+  }
+
+  async handleAddFragments() {
+    const selected = this._discoveredFragments.filter((f) => f.selected);
+    if (!selected.length) return;
+
+    this._fragmentDetails = undefined;
+    this._action = 'Adding fragments';
+    const currPaths = this._manifest.resources.map((res) => res.path);
+    const newHrefs = [
+      ...this._manifest.resources.map((res) => res.aemPreview),
+      ...selected.map((f) => `https://placeholder.com${f.path}`),
+    ];
+    const result = await updatePaths(this.basics.name, currPaths, newHrefs);
+    if (result.error) {
+      this._message = { heading: 'Note', message: result.error, open: true };
+    }
+    this._action = undefined;
+    this._discoveredFragments = [];
+    await this.loadManifest();
+  }
+
+  async handleToggleAccordion(path) {
+    if (this._expandedUrl === path) {
+      this._expandedUrl = null;
+      return;
+    }
+    this._expandedUrl = path;
+    if (this._snapshotExists[path] === undefined && this.basics.name) {
+      const exists = await checkSnapshotSource(this.basics.name, path);
+      this._snapshotExists = { ...this._snapshotExists, [path]: exists };
+    }
   }
 
   getValue(selector) {
@@ -330,16 +474,41 @@ class NxSnapshot extends LitElement {
     return this.userPermissions === true;
   }
 
+  renderAccordionPanel(res) {
+    const snapshotExists = this._snapshotExists[res.path] === true;
+    return html`
+      <div class="nx-url-accordion">
+        <a href="${res.url}" target="_blank">Open on aem.reviews</a>
+        <a href="${res.aemLive}" target="_blank">Open on aem.live</a>
+        <a href="${res.daEdit}" target="_blank">Edit in DA</a>
+        ${snapshotExists ? html`
+          <a href="${res.daSnapshotEdit}" target="_blank">Edit Snapshot in DA</a>
+        ` : nothing}
+        ${this.hasLaunchPermission ? html`
+          <button @click=${() => this.handleCopySingleUrl(res, 'fork')}>
+            <svg class="icon"><use href="#S2_Icon_ArrowDown_20_N"/></svg>
+            Sync Down
+          </button>
+          ${snapshotExists ? html`
+            <button @click=${() => this.handleCopySingleUrl(res, 'promote')}>
+              <svg class="icon"><use href="#S2_Icon_ArrowUp_20_N"/></svg>
+              Promote Up
+            </button>
+          ` : nothing}
+        ` : nothing}
+      </div>
+    `;
+  }
+
   renderUrls() {
     return html`
       <ul class="nx-snapshot-urls">
         ${this._manifest.resources.map((res) => html`
-          <li>
-            <a href="${res.url}" target="${res.url}"><span>${res.path}</span>
-              <div class="icon-wrap">
-                <svg class="icon"><use href="#S2_Icon_OpenIn_20_N"/></svg>
-              </div>
-            </a>
+          <li class="${this._expandedUrl === res.path ? 'is-expanded' : ''}">
+            <div class="nx-url-row" @click=${() => this.handleToggleAccordion(res.path)}>
+              <span>${res.path}</span>
+            </div>
+            ${this._expandedUrl === res.path ? this.renderAccordionPanel(res) : nothing}
           </li>
         `)}
       </ul>
@@ -384,6 +553,7 @@ class NxSnapshot extends LitElement {
               ${showEdit ? this.renderCancelUrlBtn() : this.renderEditUrlBtn()}
               ${showEdit ? nothing : html`<button @click=${() => this.handleShare('aemPreview')}>Share URLs</button>`}
               ${showEdit ? nothing : html`<button @click=${() => this.handleShare('url')}>Share Review URLs</button>`}
+              ${showEdit ? nothing : html`<button @click=${() => this.openFindFragments()}>Find Fragments</button>`}
             </p>
           </div>
           ${showEdit ? this.renderEditUrls() : this.renderUrls()}
@@ -401,21 +571,23 @@ class NxSnapshot extends LitElement {
               <sl-input type="datetime-local" name="scheduler" .value=${formatLocalDate(this._manifest?.metadata?.scheduledPublish)}></sl-input>
             ` : nothing}
           </div>
-          <div class="nx-launch-actions">
-            <p class="nx-launch-sub-heading ${this._launchesCollapsed ? '' : 'is-expanded'}" @click=${this.handleLaunchesToggle}>Launch</p>
-            ${this._launchesCollapsed ? nothing : html`
-              <div class="nx-launch-action-group">
-                <button data-tooltip="Create or sync launch content in DA" @click=${() => this.handleCopyUrls('fork')}>
-                  <svg class="icon"><use href="#S2_Icon_ArrowDown_20_N"/></svg>
-                  Sync
-                </button>
-                <button data-tooltip="Sync launch content back to the production tree" @click=${() => this.handleCopyUrls('promote')}>
-                  <svg class="icon"><use href="#S2_Icon_ArrowUp_20_N"/></svg>
-                  Promote
-                </button>
-              </div>
-            `}
-          </div>
+          ${this.hasLaunchPermission ? html`
+            <div class="nx-launch-actions">
+              <p class="nx-launch-sub-heading ${this._launchesCollapsed ? '' : 'is-expanded'}" @click=${this.handleLaunchesToggle}>Launch</p>
+              ${this._launchesCollapsed ? nothing : html`
+                <div class="nx-launch-action-group">
+                  <button data-tooltip="Create or sync launch content in DA" @click=${() => this.handleCopyUrls('fork')}>
+                    <svg class="icon"><use href="#S2_Icon_ArrowDown_20_N"/></svg>
+                    Sync
+                  </button>
+                  <button data-tooltip="Sync launch content back to the production tree" @click=${() => this.handleCopyUrls('promote')}>
+                    <svg class="icon"><use href="#S2_Icon_ArrowUp_20_N"/></svg>
+                    Promote
+                  </button>
+                </div>
+              `}
+            </div>
+          ` : nothing}
           <div class="nx-snapshot-actions">
             <p class="nx-snapshot-sub-heading">Snapshot</p>
             <div class="nx-snapshot-action-group">
@@ -474,6 +646,8 @@ class NxSnapshot extends LitElement {
         ${this.renderDetails()}
       </div>
       <nx-dialog @action=${this.handleDialog} .details=${this._message}></nx-dialog>
+      <nx-dialog @action=${this.handleFragmentDialog} .details=${this._fragmentDetails}></nx-dialog>
+      <nx-dialog @action=${this.handleCopyModeDialog} .details=${this._copyModeDetails}></nx-dialog>
     `;
   }
 }
