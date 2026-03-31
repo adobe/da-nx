@@ -92,8 +92,11 @@ function getHierarchicalFoldersFromFolderPath(path) {
 
 /** No-doc rows with asset-derived folder metadata (same-site delivery URLs in processMediaData). */
 function noDocDeliveryAssetFoldersMatch(item, usageInfo, normalizedFolderValue, searchPathLower) {
-  if (item.doc || !usageInfo?.folders?.length) return false;
-  if (!normalizedFolderValue || normalizedFolderValue === '/') return true;
+  if (item.doc) return false;
+  if (!normalizedFolderValue || normalizedFolderValue === '/') {
+    return !!item.originalPath || !!usageInfo?.folders?.length;
+  }
+  if (!usageInfo?.folders?.length) return false;
   return usageInfo.folders.some((fp) => fp.toLowerCase().startsWith(searchPathLower));
 }
 
@@ -130,6 +133,9 @@ const isReferenced = (item) => item.status !== 'unused';
 function applyReferenceFilterForSuggestions(item, selectedFilterType) {
   if (selectedFilterType === 'noReferences') {
     return item.status === 'unused';
+  }
+  if (selectedFilterType === 'links') {
+    return item.status !== 'unused';
   }
   return true;
 }

@@ -439,6 +439,33 @@ describe('filters', () => {
       });
     });
 
+    it('external suggestions exclude unused external items', () => {
+      const mixed = [
+        ...sampleData,
+        {
+          url: 'https://cdn.example.com/orphan.mp4',
+          name: 'orphan.mp4',
+          displayName: 'Orphan Video',
+          doc: '',
+          status: 'unused',
+          hash: 'orphan-ext',
+          type: 'video',
+        },
+      ];
+      const suggestions = getSearchSuggestions(
+        mixed,
+        'video',
+        createSuggestion,
+        null,
+        'links',
+        'adobe',
+        'blog',
+      );
+      suggestions.forEach((suggestion) => {
+        expect(suggestion.value.status).to.not.equal('unused');
+      });
+    });
+
     it('images filter suggestions include unused items that match', () => {
       const suggestions = getSearchSuggestions(
         sampleData,
@@ -606,6 +633,29 @@ describe('filters', () => {
         repo: 'blog',
       });
       expect(filtered.map((i) => i.hash)).to.include('media_deep.png');
+    });
+
+    it('filterMedia with root folder includes root-level no-doc assets', async () => {
+      clearProcessDataCache();
+      const noDocItem = {
+        url: 'https://main--blog--adobe.aem.live/root.png',
+        originalPath: '/root.png',
+        name: 'root.png',
+        doc: '',
+        status: 'unused',
+        hash: 'media_root.png',
+        type: 'image',
+      };
+      const processedData = await processMediaData([noDocItem], null, 'adobe', 'blog');
+      const filtered = filterMedia([noDocItem], {
+        selectedFolder: '/',
+        processedData,
+        selectedFilterType: 'all',
+        org: 'adobe',
+        repo: 'blog',
+      });
+      expect(filtered).to.have.lengthOf(1);
+      expect(filtered[0].hash).to.equal('media_root.png');
     });
 
     it('filterMedia folder: query matches no-doc item by original asset path', async () => {
