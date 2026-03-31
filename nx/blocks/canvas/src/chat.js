@@ -343,12 +343,12 @@ class Chat extends LitElement {
           const pending = sessionStorage.getItem('da-pending-prompt');
           if (pending) {
             sessionStorage.removeItem('da-pending-prompt');
-            this._sendPrompt(pending);
+            setTimeout(() => this._sendPrompt(pending), 0);
           }
           const openLibrary = sessionStorage.getItem('da-open-prompts-library');
           if (openLibrary) {
             sessionStorage.removeItem('da-open-prompts-library');
-            this._openPromptsLibrary();
+            setTimeout(() => this._openPromptsLibrary(), 0);
           }
         }
       },
