@@ -22,6 +22,39 @@ const EDITABLES = [
 ];
 const EDITABLE_SELECTORS = EDITABLES.map((edit) => edit.selector).join(', ');
 
+export function extractCursors(view) {
+  const remoteCursors = view.dom.querySelectorAll('.ProseMirror-yjs-cursor');
+  const cursorMap = new Map();
+
+  remoteCursors.forEach((remoteCursor) => {
+    let highestEditable = null;
+    let current = remoteCursor.parentElement;
+
+    while (current) {
+      if (current.matches?.(EDITABLE_SELECTORS)) {
+        highestEditable = current;
+      }
+      current = current.parentElement;
+    }
+
+    if (!highestEditable) return;
+
+    try {
+      const proseIndex = view.posAtDOM(highestEditable, 0);
+      cursorMap.set(proseIndex, {
+        proseIndex,
+        remote: remoteCursor.innerText,
+        color: remoteCursor.style['border-color'],
+      });
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.warn('Could not find position for remote cursor:', e);
+    }
+  });
+
+  return [...cursorMap.values()];
+}
+
 export function getInstrumentedHTML(view) {
   const editorClone = view.dom.cloneNode(true);
 
@@ -97,8 +130,8 @@ export function updateDocument(ctx) {
 }
 
 export function updateCursors(ctx) {
-  const body = getInstrumentedHTML(ctx.view);
-  ctx.port.postMessage({ type: 'set-cursors', body });
+  const cursors = extractCursors(ctx.view);
+  ctx.port.postMessage({ type: 'set-cursors', cursors });
 }
 
 /**
@@ -287,7 +320,7 @@ export function handleCursorMove({ cursorOffset, textCursorOffset }, ctx) {
   if (!view || !wsProvider) return;
 
   if (cursorOffset == null || textCursorOffset == null) {
-    view.hasFocus = () => false;
+    delete view.hasFocus;
     wsProvider.awareness.setLocalStateField('cursor', null);
     return;
   }
@@ -333,9 +366,6 @@ export function handleCursorMove({ cursorOffset, textCursorOffset }, ctx) {
     ctx.suppressRerender = true;
     view.dispatch(tr.scrollIntoView());
     ctx.suppressRerender = false;
-    // Restore the original hasFocus so ProseMirror correctly handles focus/click
-    // events when the user returns to the NX doc after clicking in the WYSIWYG.
-    delete view.hasFocus;
     ctx.onActiveBlockChange?.(getActiveBlockFlatIndex(view));
   } catch (error) {
     // eslint-disable-next-line no-console
