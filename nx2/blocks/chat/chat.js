@@ -1,0 +1,83 @@
+import { LitElement, html, nothing } from 'lit';
+import { loadStyle } from '../../utils/utils.js';
+import loadIcons from '../../utils/svg.js';
+
+const styles = await loadStyle(import.meta.url);
+
+export default class DaChat extends LitElement {
+  static properties = {
+    messages: { type: Array },
+    thinking: { type: Boolean },
+  };
+
+  async connectedCallback() {
+    super.connectedCallback();
+    this.shadowRoot.adoptedStyleSheets = [styles];
+  }
+
+  firstUpdated() {
+    loadIcons({ icons: this.shadowRoot.querySelectorAll('.icon') });
+  }
+
+  _handleInput(e) {
+    this._input = e.target.value;
+  }
+
+  _handleKeydown(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      this._submit();
+    }
+  }
+
+  _submit() {
+    const message = (this._input ?? '').trim();
+    if (!message || this.thinking) return;
+    this.dispatchEvent(new CustomEvent('da-chat-submit', {
+      bubbles: true,
+      composed: true,
+      detail: { message },
+    }));
+    this._input = '';
+    this.shadowRoot.querySelector('.chat-input').value = '';
+  }
+
+  _renderMessage(msg) {
+    if (msg.role === 'tool') return nothing;
+    return html`
+      <div class="message message-${msg.role}">
+        <div class="message-content">${msg.content}</div>
+      </div>
+    `;
+  }
+
+  render() {
+    return html`
+      <div class="chat-messages-container">
+        ${this.messages?.map((msg) => this._renderMessage(msg))}
+        ${this.thinking ? html`
+          <div class="chat-thinking">
+            <span></span><span></span><span></span>
+            <span class="chat-thinking-label">Gathering insights...</span>
+          </div>` : nothing}
+      </div>
+      <div class="chat-footer">
+        <textarea
+          class="chat-input"
+          .value=${this._input ?? ''}
+          ?disabled=${this.thinking}
+          @input=${this._handleInput}
+          @keydown=${this._handleKeydown}
+        ></textarea>
+        <div class="chat-actions">
+          <div class="chat-actions-start"></div>
+          <button class="chat-send" ?disabled=${this.thinking} @click=${this._submit} aria-label="Send">
+            <span class="icon icon-send"></span>
+          </button>
+        </div>
+      </div>
+    `;
+  }
+}
+
+customElements.define('da-chat', DaChat);
