@@ -101,7 +101,7 @@ const addDntAttribute = (selector, operations, document) => {
         setDntAttribute(dntElement);
       } else {
         const matchTexts = operation.match;
-        const elementText = element.textContent.toLowerCase();
+        const elementText = element.textContent.trim().toLowerCase();
         if (
           (operation.condition === 'except' && !matchTexts.includes(elementText))
           || (operation.condition === 'equals' && matchTexts.includes(elementText))
