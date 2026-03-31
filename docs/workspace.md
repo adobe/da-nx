@@ -112,6 +112,11 @@ These rules apply workspace-wide.
 - Web components communicate with their parents by emitting events on themselves; parents listen via event listeners
 - Sibling blocks (e.g. Chat and Browse/Edit) communicate via `window.postMessage()`
 
+### Backend communication
+- Use da-fetch to fetch data from the backend
+- Da Admin documentation: https://opensource.adobe.com/da-admin/
+- Helix Admin documentation: https://www.aem.live/docs/admin.html
+
 ### Version Control
 - Make small commits with meaningful commit messages
 - Keep PRs to the minimum required for a feature; iterate in follow-up PRs
