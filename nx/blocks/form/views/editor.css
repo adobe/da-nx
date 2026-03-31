@@ -1,6 +1,8 @@
 :host {
   display: block;
+  box-sizing: border-box;
   min-height: 400px;
+  padding-top: 48px;
   box-shadow: rgb(181 181 181 / 50%) 0 0 10px;
   border-radius: 8px;
   overflow: hidden;
@@ -64,7 +66,7 @@
 
 .root-group.item-group {
   > .item-group-title {
-    padding: 24px 48px 0;
+    padding: 0 48px;
   }
 
   > .item-group-children {

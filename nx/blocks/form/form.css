@@ -40,7 +40,7 @@ sl-textarea {
 
   da-form-sidebar {
     position: sticky;
-    top: 16px;
+    top: -24px;
     flex: 0 0 300px;
     width: 300px;
     max-width: 300px;
