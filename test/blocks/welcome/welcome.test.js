@@ -1,12 +1,12 @@
 import { expect } from '@esm-bundle/chai';
 import sinon from 'sinon';
-import init from '../../../nx/blocks/workspace/workspace.js';
+import init from '../../../nx/blocks/welcome/welcome.js';
 
-describe('NxWorkspace block init', () => {
+describe('NxWelcome block init', () => {
   let el;
 
   beforeEach(async () => {
-    el = document.createElement('nx-workspace');
+    el = document.createElement('nx-welcome');
     document.body.appendChild(el);
     await el.updateComplete;
   });
@@ -15,41 +15,41 @@ describe('NxWorkspace block init', () => {
     el.remove();
   });
 
-  it('renders the workspace root element', async () => {
-    const root = el.shadowRoot.querySelector('.workspace');
+  it('renders the welcome root element', async () => {
+    const root = el.shadowRoot.querySelector('.welcome');
     expect(root).to.exist;
   });
 
   it('renders the hero section', async () => {
-    const hero = el.shadowRoot.querySelector('.workspace-hero');
+    const hero = el.shadowRoot.querySelector('.welcome-hero');
     expect(hero).to.exist;
   });
 
   it('renders the sections container', async () => {
-    const sections = el.shadowRoot.querySelector('.workspace-sections');
+    const sections = el.shadowRoot.querySelector('.welcome-sections');
     expect(sections).to.exist;
   });
 });
 
-describe('NxWorkspace init()', () => {
-  it('replaces block element with nx-workspace in place', async () => {
+describe('NxWelcome init()', () => {
+  it('replaces block element with nx-welcome in place', async () => {
     const container = document.createElement('div');
     const placeholder = document.createElement('div');
     container.appendChild(placeholder);
     document.body.appendChild(container);
     await init(placeholder);
-    const workspace = container.querySelector('nx-workspace');
-    expect(workspace).to.exist;
+    const welcome = container.querySelector('nx-welcome');
+    expect(welcome).to.exist;
     expect(placeholder.isConnected).to.be.false;
     container.remove();
   });
 });
 
-describe('NxWorkspace hero content', () => {
+describe('NxWelcome hero content', () => {
   let el;
 
   beforeEach(async () => {
-    el = document.createElement('nx-workspace');
+    el = document.createElement('nx-welcome');
     document.body.appendChild(el);
     await el.updateComplete;
   });
@@ -57,90 +57,90 @@ describe('NxWorkspace hero content', () => {
   afterEach(() => { el.remove(); });
 
   it('renders the chat launcher in the hero', async () => {
-    const launcher = el.shadowRoot.querySelector('.workspace-chat-launcher');
+    const launcher = el.shadowRoot.querySelector('.welcome-chat-launcher');
     expect(launcher).to.exist;
   });
 
   it('renders the chat input', async () => {
-    const input = el.shadowRoot.querySelector('.workspace-chat-input');
+    const input = el.shadowRoot.querySelector('.welcome-chat-input');
     expect(input).to.exist;
   });
 
   it('renders the send button', async () => {
-    const btn = el.shadowRoot.querySelector('.workspace-chat-send');
+    const btn = el.shadowRoot.querySelector('.welcome-chat-send');
     expect(btn).to.exist;
   });
 
   it('send button is disabled when input is empty', async () => {
-    const btn = el.shadowRoot.querySelector('.workspace-chat-send');
+    const btn = el.shadowRoot.querySelector('.welcome-chat-send');
     expect(btn.disabled).to.be.true;
   });
 
   it('send button is enabled when input has text', async () => {
     el._prompt = 'Hello';
     await el.updateComplete;
-    const btn = el.shadowRoot.querySelector('.workspace-chat-send');
+    const btn = el.shadowRoot.querySelector('.welcome-chat-send');
     expect(btn.disabled).to.be.false;
   });
 });
 
-describe('NxWorkspace personalization', () => {
+describe('NxWelcome personalization', () => {
   let el;
 
   afterEach(() => { el?.remove(); });
 
   it('shows welcome heading and subtitle when _ims.first_name is set', async () => {
-    el = document.createElement('nx-workspace');
+    el = document.createElement('nx-welcome');
     document.body.appendChild(el);
     await el.updateComplete;
     el._ims = { first_name: 'Alice' };
     el._imsLoaded = true;
     await el.updateComplete;
-    const h1 = el.shadowRoot.querySelector('.workspace-hero-title-loaded');
+    const h1 = el.shadowRoot.querySelector('.welcome-hero-title-loaded');
     expect(h1).to.exist;
     expect(h1.textContent).to.include('Alice');
-    const subtitle = el.shadowRoot.querySelector('.workspace-hero-subtitle');
+    const subtitle = el.shadowRoot.querySelector('.welcome-hero-subtitle');
     expect(subtitle.textContent).to.include('AI-powered');
   });
 
   it('falls back to displayName first word when first_name is absent', async () => {
-    el = document.createElement('nx-workspace');
+    el = document.createElement('nx-welcome');
     document.body.appendChild(el);
     await el.updateComplete;
     el._ims = { displayName: 'Bob Smith' };
     el._imsLoaded = true;
     await el.updateComplete;
-    const h1 = el.shadowRoot.querySelector('.workspace-hero-title-loaded');
+    const h1 = el.shadowRoot.querySelector('.welcome-hero-title-loaded');
     expect(h1.textContent).to.include('Bob');
   });
 
   it('shows pending placeholder before IMS loads', async () => {
-    el = document.createElement('nx-workspace');
+    el = document.createElement('nx-welcome');
     document.body.appendChild(el);
     await el.updateComplete;
-    const pending = el.shadowRoot.querySelector('.workspace-hero-title-pending');
+    const pending = el.shadowRoot.querySelector('.welcome-hero-title-pending');
     expect(pending).to.exist;
   });
 
   it('shows only subtitle when IMS loads with no name (anonymous)', async () => {
-    el = document.createElement('nx-workspace');
+    el = document.createElement('nx-welcome');
     document.body.appendChild(el);
     await el.updateComplete;
     el._ims = { anonymous: true };
     el._imsLoaded = true;
     await el.updateComplete;
-    const h1 = el.shadowRoot.querySelector('.workspace-hero-title');
+    const h1 = el.shadowRoot.querySelector('.welcome-hero-title');
     expect(h1).to.not.exist;
-    const subtitle = el.shadowRoot.querySelector('.workspace-hero-subtitle');
+    const subtitle = el.shadowRoot.querySelector('.welcome-hero-subtitle');
     expect(subtitle.textContent).to.include('AI-powered');
   });
 });
 
-describe('NxWorkspace prompt cards', () => {
+describe('NxWelcome prompt cards', () => {
   let el;
 
   beforeEach(async () => {
-    el = document.createElement('nx-workspace');
+    el = document.createElement('nx-welcome');
     document.body.appendChild(el);
     await el.updateComplete;
   });
@@ -158,7 +158,7 @@ describe('NxWorkspace prompt cards', () => {
     ];
     await el.updateComplete;
 
-    const section = el.shadowRoot.querySelector('.workspace-prompts');
+    const section = el.shadowRoot.querySelector('.welcome-prompts');
     expect(section).to.exist;
   });
 
@@ -170,7 +170,7 @@ describe('NxWorkspace prompt cards', () => {
     ];
     await el.updateComplete;
 
-    const cards = el.shadowRoot.querySelectorAll('.workspace-prompt-card');
+    const cards = el.shadowRoot.querySelectorAll('.welcome-prompt-card');
     expect(cards.length).to.equal(3);
   });
 
@@ -178,7 +178,7 @@ describe('NxWorkspace prompt cards', () => {
     el._promptCards = [];
     await el.updateComplete;
 
-    const section = el.shadowRoot.querySelector('.workspace-prompts');
+    const section = el.shadowRoot.querySelector('.welcome-prompts');
     expect(section).to.be.null;
   });
 
@@ -189,7 +189,7 @@ describe('NxWorkspace prompt cards', () => {
     // Stub _launchChat to prevent navigation in tests
     const stub = sinon.stub(el, '_launchChat');
 
-    const card = el.shadowRoot.querySelector('.workspace-prompt-card');
+    const card = el.shadowRoot.querySelector('.welcome-prompt-card');
     card.click();
 
     expect(el._prompt).to.equal('my prompt');
@@ -197,11 +197,11 @@ describe('NxWorkspace prompt cards', () => {
   });
 });
 
-describe('NxWorkspace tabs', () => {
+describe('NxWelcome tabs', () => {
   let el;
 
   beforeEach(async () => {
-    el = document.createElement('nx-workspace');
+    el = document.createElement('nx-welcome');
     document.body.appendChild(el);
     await el.updateComplete;
   });
@@ -209,36 +209,36 @@ describe('NxWorkspace tabs', () => {
   afterEach(() => { el.remove(); });
 
   it('renders the tabs section', async () => {
-    const tabs = el.shadowRoot.querySelector('.workspace-tabs-section');
+    const tabs = el.shadowRoot.querySelector('.welcome-tabs-section');
     expect(tabs).to.exist;
   });
 
   it('renders two tab buttons', async () => {
-    const buttons = el.shadowRoot.querySelectorAll('.workspace-tab-btn');
+    const buttons = el.shadowRoot.querySelectorAll('.welcome-tab-btn');
     expect(buttons.length).to.equal(2);
   });
 
   it('defaults to recent tab active', async () => {
-    const activeBtn = el.shadowRoot.querySelector('.workspace-tab-btn[aria-selected="true"]');
+    const activeBtn = el.shadowRoot.querySelector('.welcome-tab-btn[aria-selected="true"]');
     expect(activeBtn).to.exist;
     expect(activeBtn.dataset.tab).to.equal('recent');
   });
 
   it('switches to projects tab on click', async () => {
-    const projectsBtn = el.shadowRoot.querySelector('.workspace-tab-btn[data-tab="projects"]');
+    const projectsBtn = el.shadowRoot.querySelector('.welcome-tab-btn[data-tab="projects"]');
     projectsBtn.click();
     await el.updateComplete;
 
-    const activeBtn = el.shadowRoot.querySelector('.workspace-tab-btn[aria-selected="true"]');
+    const activeBtn = el.shadowRoot.querySelector('.welcome-tab-btn[aria-selected="true"]');
     expect(activeBtn.dataset.tab).to.equal('projects');
   });
 });
 
-describe('NxWorkspace recent pages', () => {
+describe('NxWelcome recent pages', () => {
   let el;
 
   beforeEach(async () => {
-    el = document.createElement('nx-workspace');
+    el = document.createElement('nx-welcome');
     document.body.appendChild(el);
     await el.updateComplete;
   });
@@ -247,12 +247,12 @@ describe('NxWorkspace recent pages', () => {
 
   it('renders recent page cards when data is available', async () => {
     el._recentPages = [
-      { title: 'Home', path: '/en/', lastModified: '2026-03-29T10:00:00Z', status: 'published' },
-      { title: 'About', path: '/en/about', lastModified: '2026-03-28T10:00:00Z', status: 'draft' },
+      { path: '/en/index.html', date: '2026-03-29T10:00:00Z', summary: 'Updated hero' },
+      { path: '/en/about.html', date: '2026-03-28T10:00:00Z', summary: 'Rewrote intro' },
     ];
     await el.updateComplete;
 
-    const cards = el.shadowRoot.querySelectorAll('.workspace-page-card');
+    const cards = el.shadowRoot.querySelectorAll('.welcome-page-card');
     expect(cards.length).to.equal(2);
   });
 
@@ -260,38 +260,58 @@ describe('NxWorkspace recent pages', () => {
     el._recentPages = [];
     await el.updateComplete;
 
-    const empty = el.shadowRoot.querySelector('.workspace-empty');
+    const empty = el.shadowRoot.querySelector('.welcome-empty');
     expect(empty).to.exist;
   });
 
-  it('displays page title in card', async () => {
+  it('derives title from path when no title field', async () => {
     el._recentPages = [
-      { title: 'My Page', path: '/en/my-page', lastModified: '2026-03-29T10:00:00Z', status: 'published' },
+      { path: '/en/my-page.html', date: '2026-03-29T10:00:00Z', summary: 'Some changes' },
     ];
     el._activeTab = 'recent';
     await el.updateComplete;
 
-    const title = el.shadowRoot.querySelector('.workspace-page-title');
+    const title = el.shadowRoot.querySelector('.welcome-page-title');
+    expect(title.textContent.trim()).to.equal('My page');
+  });
+
+  it('uses explicit title when provided', async () => {
+    el._recentPages = [
+      { title: 'My Page', path: '/en/my-page.html', date: '2026-03-29T10:00:00Z' },
+    ];
+    el._activeTab = 'recent';
+    await el.updateComplete;
+
+    const title = el.shadowRoot.querySelector('.welcome-page-title');
     expect(title.textContent.trim()).to.equal('My Page');
   });
 
+  it('shows summary when available', async () => {
+    el._recentPages = [
+      { path: '/en/about.html', date: '2026-03-29T10:00:00Z', summary: 'Rewrote the intro paragraph' },
+    ];
+    el._activeTab = 'recent';
+    await el.updateComplete;
+
+    const summary = el.shadowRoot.querySelector('.welcome-page-summary');
+    expect(summary.textContent.trim()).to.equal('Rewrote the intro paragraph');
+  });
+
   it('falls back to raw string for invalid date in _formatDate', () => {
-    el = document.createElement('nx-workspace');
+    el = document.createElement('nx-welcome');
     document.body.appendChild(el);
-    // _formatDate with invalid input returns 'Invalid Date' from toLocaleDateString
-    // just verify it does not throw
     expect(() => el._formatDate('not-a-date')).to.not.throw();
     el.remove();
   });
 });
 
-describe('NxWorkspace my projects', () => {
+describe('NxWelcome my projects', () => {
   let el;
   const mockProjects = ['adobe/marketing', 'adobe/internal'];
 
   beforeEach(async () => {
     localStorage.setItem('da-sites', JSON.stringify(mockProjects));
-    el = document.createElement('nx-workspace');
+    el = document.createElement('nx-welcome');
     document.body.appendChild(el);
     await el.updateComplete;
   });
@@ -311,7 +331,7 @@ describe('NxWorkspace my projects', () => {
     el._activeTab = 'projects';
     await el.updateComplete;
 
-    const cards = el.shadowRoot.querySelectorAll('.workspace-project-card');
+    const cards = el.shadowRoot.querySelectorAll('.welcome-project-card');
     expect(cards.length).to.equal(2);
   });
 
@@ -319,7 +339,7 @@ describe('NxWorkspace my projects', () => {
     el._activeTab = 'projects';
     await el.updateComplete;
 
-    const name = el.shadowRoot.querySelector('.workspace-project-name');
+    const name = el.shadowRoot.querySelector('.welcome-project-name');
     expect(name.textContent.trim()).to.equal('marketing');
   });
 
@@ -327,7 +347,7 @@ describe('NxWorkspace my projects', () => {
     el._activeTab = 'projects';
     await el.updateComplete;
 
-    const org = el.shadowRoot.querySelector('.workspace-project-org');
+    const org = el.shadowRoot.querySelector('.welcome-project-org');
     expect(org.textContent.trim()).to.equal('adobe');
   });
 
@@ -337,13 +357,13 @@ describe('NxWorkspace my projects', () => {
     el._activeTab = 'projects';
     await el.updateComplete;
 
-    const empty = el.shadowRoot.querySelector('.workspace-empty');
+    const empty = el.shadowRoot.querySelector('.welcome-empty');
     expect(empty).to.exist;
   });
 
   it('handles malformed localStorage data gracefully', async () => {
     localStorage.setItem('da-sites', '{broken json');
-    const newEl = document.createElement('nx-workspace');
+    const newEl = document.createElement('nx-welcome');
     document.body.appendChild(newEl);
     await newEl.updateComplete;
     expect(newEl._projects).to.deep.equal([]);
@@ -355,7 +375,7 @@ describe('NxWorkspace my projects', () => {
     el._activeTab = 'projects';
     await el.updateComplete;
 
-    const card = el.shadowRoot.querySelector('.workspace-project-card');
+    const card = el.shadowRoot.querySelector('.welcome-project-card');
     const href = card.getAttribute('href');
     expect(href).to.match(/^\/browse.*#\/adobe\/marketing$/);
   });

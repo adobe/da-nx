@@ -22,7 +22,7 @@ const nx = `${new URL(import.meta.url).origin}/nx`;
 const sl = await getStyle(`${nx}/public/sl/styles.css`);
 const styles = await getStyle(import.meta.url);
 
-class NxWorkspace extends LitElement {
+class NxWelcome extends LitElement {
   static properties = {
     _ims: { state: true },
     _imsLoaded: { state: true },
@@ -54,10 +54,15 @@ class NxWorkspace extends LitElement {
     await this._loadRecentPages();
   }
 
-  async _loadConfig() {
+  _getOrgRepo() {
     const hash = window.location.hash || '';
     const path = hash.replace(/^#\/?/, '').trim();
     const [org = '', repo = ''] = path.split('/').filter(Boolean);
+    return { org, repo };
+  }
+
+  async _loadConfig() {
+    const { org, repo } = this._getOrgRepo();
     if (!org || !repo) return;
     try {
       const resp = await daFetch(`${DA_ORIGIN}/config/${org}/${repo}`);
@@ -104,10 +109,16 @@ class NxWorkspace extends LitElement {
   }
 
   async _loadRecentPages() {
+    const { org, repo } = this._getOrgRepo();
+    if (!org || !repo) return;
     try {
-      const resp = await fetch(new URL('./mocks/recent-pages.json', import.meta.url).href);
+      const resp = await daFetch(`${DA_ORIGIN}/source/${org}/${repo}/.da/agent/recent-pages.json`);
       if (!resp.ok) return;
-      this._recentPages = await resp.json();
+      const pages = await resp.json();
+      this._recentPages = pages.map((page) => ({
+        ...page,
+        img: `/blocks/browse/da-sites/img/cards/da-${Math.floor(Math.random() * 8)}.jpg`,
+      }));
     } catch {
       // Silent fail — recent pages section stays empty.
     }
@@ -161,40 +172,40 @@ class NxWorkspace extends LitElement {
 
   _renderTabs() {
     return html`
-      <section class="workspace-tabs-section">
-        <div class="workspace-tabs-header" role="tablist" aria-label="Content views">
+      <section class="welcome-tabs-section">
+        <div class="welcome-tabs-header" role="tablist" aria-label="Content views">
           <button
-            id="workspace-tab-recent"
-            class="workspace-tab-btn ${this._activeTab === 'recent' ? 'active' : ''}"
+            id="welcome-tab-recent"
+            class="welcome-tab-btn ${this._activeTab === 'recent' ? 'active' : ''}"
             role="tab"
             aria-selected="${this._activeTab === 'recent'}"
-            aria-controls="workspace-panel-recent"
+            aria-controls="welcome-panel-recent"
             data-tab="recent"
             @click=${() => this._switchTab('recent')}
           >Recent Pages</button>
           <button
-            id="workspace-tab-projects"
-            class="workspace-tab-btn ${this._activeTab === 'projects' ? 'active' : ''}"
+            id="welcome-tab-projects"
+            class="welcome-tab-btn ${this._activeTab === 'projects' ? 'active' : ''}"
             role="tab"
             aria-selected="${this._activeTab === 'projects'}"
-            aria-controls="workspace-panel-projects"
+            aria-controls="welcome-panel-projects"
             data-tab="projects"
             @click=${() => this._switchTab('projects')}
           >My Projects</button>
         </div>
-        <div class="workspace-tabs-body">
+        <div class="welcome-tabs-body">
           <div
-            id="workspace-panel-recent"
-            class="workspace-tab-panel"
+            id="welcome-panel-recent"
+            class="welcome-tab-panel"
             role="tabpanel"
-            aria-labelledby="workspace-tab-recent"
+            aria-labelledby="welcome-tab-recent"
             ?hidden="${this._activeTab !== 'recent'}"
           >${this._renderRecentPages()}</div>
           <div
-            id="workspace-panel-projects"
-            class="workspace-tab-panel"
+            id="welcome-panel-projects"
+            class="welcome-tab-panel"
             role="tabpanel"
-            aria-labelledby="workspace-tab-projects"
+            aria-labelledby="welcome-tab-projects"
             ?hidden="${this._activeTab !== 'projects'}"
           >${this._renderProjects()}</div>
         </div>
@@ -202,24 +213,38 @@ class NxWorkspace extends LitElement {
     `;
   }
 
+  _pageTitle(path) {
+    const segment = path.replace(/\.html$/, '').split('/').filter(Boolean).pop() || path;
+    return segment.replace(/[-_]/g, ' ').replace(/^\w/, (c) => c.toUpperCase());
+  }
+
   _renderRecentPages() {
     if (!this._recentPages.length) {
-      return html`<p class="workspace-empty">No recent pages found.</p>`;
+      return html`<p class="welcome-empty">No recent pages found.</p>`;
     }
     return html`
-      <div class="workspace-pages-grid">
-        ${this._recentPages.map((page) => html`
-          <a class="workspace-page-card" href="${this._pageHref(page.path)}" title="${page.title}">
-            <div class="workspace-page-card-body">
-              <span class="workspace-page-title">${page.title}</span>
-              <span class="workspace-page-path">${page.path}</span>
-            </div>
-            <div class="workspace-page-card-footer">
-              <span class="workspace-page-date">${this._formatDate(page.lastModified)}</span>
-              <span class="workspace-page-status ${page.status}">${page.status}</span>
-            </div>
-          </a>
-        `)}
+      <div class="welcome-pages-grid">
+        ${this._recentPages.map((page) => {
+          const { org, repo } = this._getOrgRepo();
+          const fullPath = `/${org}/${repo}/${page.path.replace(/^\//, '')}`;
+          const title = page.title || this._pageTitle(page.path);
+          return html`
+            <a class="welcome-page-card" href="${this._pageHref(fullPath)}" title="${title}">
+              <picture class="welcome-page-card-bg">
+                <img src="${page.img}" alt="" width="480" height="672" />
+              </picture>
+              <div class="welcome-page-card-overlay">
+                <div class="welcome-page-card-body">
+                  <span class="welcome-page-title">${title}</span>
+                  ${page.summary ? html`<span class="welcome-page-summary">${page.summary}</span>` : ''}
+                </div>
+                <div class="welcome-page-card-footer">
+                  <span class="welcome-page-date">${this._formatDate(page.date || page.lastModified)}</span>
+                </div>
+              </div>
+            </a>
+          `;
+        })}
       </div>
     `;
   }
@@ -256,36 +281,36 @@ class NxWorkspace extends LitElement {
 
   _renderProjects() {
     if (!this._projects.length) {
-      return html`<p class="workspace-empty">No projects found. Open a project in DA to see it here.</p>`;
+      return html`<p class="welcome-empty">No projects found. Open a project in DA to see it here.</p>`;
     }
     return html`
-      <div class="workspace-projects-grid">
+      <div class="welcome-projects-grid">
         ${this._projects.map((project) => {
           const [org, site] = project.name.split('/');
           const href = safeUrl(`/browse${window.location.search}#/${project.name}`);
           return html`
-            <div class="workspace-project-outer">
-              <div class="workspace-project-flip ${project.flipped ? 'is-flipped' : ''}">
-                <div class="workspace-project-front">
-                  <a class="workspace-project-card" href="${href}" title="${project.name}">
-                    <div class="workspace-project-icon" aria-hidden="true">
+            <div class="welcome-project-outer">
+              <div class="welcome-project-flip ${project.flipped ? 'is-flipped' : ''}">
+                <div class="welcome-project-front">
+                  <a class="welcome-project-card" href="${href}" title="${project.name}">
+                    <div class="welcome-project-icon" aria-hidden="true">
                       <img src="${project.img}" alt="" width="64" height="64" />
                     </div>
-                    <div class="workspace-project-info">
-                      <span class="workspace-project-name">${site}</span>
-                      <span class="workspace-project-org">${org}</span>
+                    <div class="welcome-project-info">
+                      <span class="welcome-project-name">${site}</span>
+                      <span class="welcome-project-org">${org}</span>
                     </div>
                   </a>
                 </div>
-                <div class="workspace-project-back">
-                  <button class="workspace-project-back-action" @click=${() => this._shareProject(project.name)}>
+                <div class="welcome-project-back">
+                  <button class="welcome-project-back-action" @click=${() => this._shareProject(project.name)}>
                     <span>Share</span>
                   </button>
-                  <button class="workspace-project-back-action workspace-project-back-action-hide" @click=${() => this._hideProject(project)}>
+                  <button class="welcome-project-back-action welcome-project-back-action-hide" @click=${() => this._hideProject(project)}>
                     <span>Hide</span>
                   </button>
                 </div>
-                <button class="workspace-project-more" aria-label="More options" @click=${(e) => this._flipProject(e, project)}>
+                <button class="welcome-project-more" aria-label="More options" @click=${(e) => this._flipProject(e, project)}>
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" aria-hidden="true">
                     <circle cx="16" cy="9" r="2" fill="currentColor"/>
                     <circle cx="16" cy="16" r="2" fill="currentColor"/>
@@ -308,22 +333,22 @@ class NxWorkspace extends LitElement {
     // After IMS resolves anonymous: placeholder removed (only subtitle shown).
     let titleEl = nothing;
     if (!this._imsLoaded) {
-      titleEl = html`<h1 class="workspace-hero-title workspace-hero-title-pending" aria-hidden="true">&nbsp;</h1>`;
+      titleEl = html`<h1 class="welcome-hero-title welcome-hero-title-pending" aria-hidden="true">&nbsp;</h1>`;
     } else if (firstName) {
-      titleEl = html`<h1 class="workspace-hero-title workspace-hero-title-loaded">Welcome, <strong>${firstName}</strong>!</h1>`;
+      titleEl = html`<h1 class="welcome-hero-title welcome-hero-title-loaded">Welcome, <strong>${firstName}</strong>!</h1>`;
     }
 
     return html`
-      <nx-profile @loaded=${this._onProfileLoad.bind(this)} class="workspace-profile"></nx-profile>
-      <div class="workspace-hero">
-        <div class="workspace-hero-inner">
-          <div class="workspace-hero-text">
+      <nx-profile @loaded=${this._onProfileLoad.bind(this)} class="welcome-profile"></nx-profile>
+      <div class="welcome-hero">
+        <div class="welcome-hero-inner">
+          <div class="welcome-hero-text">
             ${titleEl}
-            <p class="workspace-hero-subtitle">Your AI-powered content workspace</p>
+            <p class="welcome-hero-subtitle">Your AI-powered content welcome</p>
           </div>
-          <div class="workspace-chat-launcher">
+          <div class="welcome-chat-launcher">
             <input
-              class="workspace-chat-input"
+              class="welcome-chat-input"
               type="text"
               placeholder="Ask AI anything…"
               .value="${this._prompt}"
@@ -331,7 +356,7 @@ class NxWorkspace extends LitElement {
               @keydown="${(e) => { if (e.key === 'Enter') this._launchChat(); }}"
             />
             <button
-              class="workspace-chat-icon-btn"
+              class="welcome-chat-icon-btn"
               aria-label="Open prompt library"
               title="Prompt library"
               @click="${() => this._openPromptsLibrary()}"
@@ -343,7 +368,7 @@ class NxWorkspace extends LitElement {
             </button>
             ${(window.SpeechRecognition || window.webkitSpeechRecognition) ? html`
             <button
-              class="workspace-chat-icon-btn ${this._isRecording ? 'recording' : ''}"
+              class="welcome-chat-icon-btn ${this._isRecording ? 'recording' : ''}"
               aria-label="${this._isRecording ? 'Stop recording' : 'Start voice input'}"
               title="${this._isRecording ? 'Stop recording' : 'Voice input'}"
               @click="${() => this._toggleRecording()}"
@@ -351,7 +376,7 @@ class NxWorkspace extends LitElement {
               <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 1a3.5 3.5 0 0 0-3.5 3.5v6a3.5 3.5 0 0 0 7 0v-6A3.5 3.5 0 0 0 10 1Zm-2 3.5a2 2 0 0 1 4 0v6a2 2 0 0 1-4 0v-6ZM5.25 9a.75.75 0 0 1 .75.75 4 4 0 0 0 8 0 .75.75 0 0 1 1.5 0 5.5 5.5 0 0 1-4.75 5.45V17h2a.75.75 0 0 1 0 1.5h-5.5a.75.75 0 0 1 0-1.5h2v-1.8A5.5 5.5 0 0 1 4.5 9.75.75.75 0 0 1 5.25 9Z" fill="currentColor"/></svg>
             </button>` : nothing}
             <button
-              class="workspace-chat-send"
+              class="welcome-chat-send"
               aria-label="Send"
               ?disabled="${!this._prompt.trim()}"
               @click="${() => this._launchChat()}"
@@ -370,17 +395,17 @@ class NxWorkspace extends LitElement {
   _renderPromptCards() {
     if (!this._promptCards.length) return nothing;
     return html`
-      <div class="workspace-prompts">
-        <div class="workspace-prompts-row">
+      <div class="welcome-prompts">
+        <div class="welcome-prompts-row">
           ${this._promptCards.map((card) => html`
             <button
-              class="workspace-prompt-card"
+              class="welcome-prompt-card"
               @click=${() => this._clickPromptCard(card.prompt)}
             >
-              ${card.icon ? html`<img class="workspace-prompt-icon" src="${card.icon}" alt="" aria-hidden="true" />` : ''}
-              <span class="workspace-prompt-title">${card.title}</span>
-              <span class="workspace-prompt-desc">${card.description || ''}</span>
-              ${card.category ? html`<span class="workspace-prompt-category">${card.category}</span>` : ''}
+              ${card.icon ? html`<img class="welcome-prompt-icon" src="${card.icon}" alt="" aria-hidden="true" />` : ''}
+              <span class="welcome-prompt-title">${card.title}</span>
+              <span class="welcome-prompt-desc">${card.description || ''}</span>
+              ${card.category ? html`<span class="welcome-prompt-category">${card.category}</span>` : ''}
             </button>
           `)}
         </div>
@@ -390,9 +415,9 @@ class NxWorkspace extends LitElement {
 
   render() {
     return html`
-      <div class="workspace">
+      <div class="welcome">
         ${this._renderHero()}
-        <div class="workspace-sections">
+        <div class="welcome-sections">
           ${this._renderTabs()}
         </div>
       </div>
@@ -400,9 +425,9 @@ class NxWorkspace extends LitElement {
   }
 }
 
-customElements.define('nx-workspace', NxWorkspace);
+customElements.define('nx-welcome', NxWelcome);
 
 export default async function init(el) {
-  const workspace = document.createElement('nx-workspace');
-  el.replaceWith(workspace);
+  const welcome = document.createElement('nx-welcome');
+  el.replaceWith(welcome);
 }
