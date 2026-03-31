@@ -41,33 +41,35 @@ Skills Lab — external app at da.live/apps/skills, linked from Chat
 - Does NOT contain business logic or feature wiring
 
 ### Browse Block
-- Owns breadcrumbs, folder presentation, and management toolbar
+- Implements file browser
 - Full management affordances: flat list with drill-down, bulk select, search
 - Consumes workspace context; no location or file state of its own
 
 ### Edit Block
 - Owns breadcrumbs, view mode (doc/wysiwyg/split), and layout state
 - Composes features into editing-focused layouts
+- Has a collapsible panel on the right side that can display content as needed. Non-exhaustive examples:
+  - In-context file browser to switch files quickly without using full browse view
+  - Page edit history to show how page changed over time
+  - Page metadata to allow viewing and editing
+  - Page outline to present overview of sections and blocks on the page
 
-### Chat Block (core, standalone)
+### Chat Block
 - Owns conversation state, tool execution, agent communication, and context item accumulator
 - Consumes workspace context (org, site, path, view) as read-only
 - Runs in Browse and Edit with the same UI; only view context sent to the backend changes
-- Links out to Skills Lab as an external app — does not own or embed it
 
-### Content Navigation (core, standalone)
-- Owns file/folder hierarchy, file state (create/delete/rename), and transient selection state
-- Two surfaces on the same core:
-  - **Full surface** (Browse Block) — flat list, drill-down, management affordances
-  - **Tree surface** (Edit panel) — persistent tree, lightweight, context-switching only
-- Single source of truth for file state — Chat applies changes here via `postMessage` (or the agreed cross-block channel); surfaces reflect automatically
+### Shared Block
+Provides shared functionality for Browse, Edit and Chat. Examples, non-exhaustive:
 
-### Extensions Host (shared service)
-- Responsible for mounting, sandboxing, contract enforcement, and lifecycle management of configured extensions
-- Surfaced differently per view, but the host and protocol are singular
-- **Edit surface** — triggered from document context; extensions receive current document path and view mode
-- **Browse surface** — triggered from file selection context; extensions receive a snapshot of the current folder and selected items at invocation time
-- Extensions never interact with core features directly
+- Breadcrumbs
+  - Used across views to present the current selected path
+- File browser API
+  - Exposes APIs used by both browse and the file panel in edit to list files and folders
+- Extension host
+  - Responsible for mounting, sandboxing, contract enforcement, and lifecycle management of configured extensions
+  - Surfaced differently per view, but the host and protocol are singular
+  - Extensions communicate with the host through the sdk
 
 ---
 
