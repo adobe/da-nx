@@ -81,6 +81,7 @@ const MEDIA_LIBRARY_STATE_KEYS = [
   'progressiveTotalCount',
   'progressiveCountCapped',
   'isIndexing',
+  'isBackgroundRefreshInProgress',
   'isValidating',
   'isLoadingData',
   'isProgressiveLoading',
@@ -209,6 +210,7 @@ class NxMediaLibrary extends LitElement {
           mediaData: [],
           processedData: null,
           indexLockedByOther: false,
+          isBackgroundRefreshInProgress: false,
         });
         this.resetSearchState();
       }
@@ -565,6 +567,9 @@ class NxMediaLibrary extends LitElement {
       sitePath: this.sitePath,
       org: this.org,
       repo: this.repo,
+      isIndexing: false,
+      isBackgroundRefreshInProgress: false,
+      indexLockedByOther: false,
       isValidating: true,
       sitePathValid: false,
       validationError: null,
@@ -647,7 +652,9 @@ class NxMediaLibrary extends LitElement {
         }
       };
 
-      const { data, indexMissing, indexing } = await loadMediaSheet(
+      const {
+        data, indexMissing, indexing, lockFresh,
+      } = await loadMediaSheet(
         this.sitePath,
         onProgressiveChunk,
       );
@@ -656,19 +663,31 @@ class NxMediaLibrary extends LitElement {
         updateAppState({
           isLoadingData: false,
           isProgressiveLoading: false,
-          isIndexing: true,
+          isIndexing: false,
+          isBackgroundRefreshInProgress: false,
+          indexLockedByOther: true,
+          indexMissing: true,
           persistentError: null,
         });
         return;
       }
 
-      updateAppState({ persistentError: null, indexMissing: !!indexMissing });
+      updateAppState({
+        persistentError: null,
+        indexMissing: !!indexMissing,
+        indexLockedByOther: false,
+        isBackgroundRefreshInProgress: !!(data?.length > 0) && !!lockFresh,
+      });
 
       const finalData = accumulatedData.length > 0 ? accumulatedData : data;
       await this.setMediaData(finalData);
       updateAppState({ isLoadingData: false, isProgressiveLoading: false });
     } catch (error) {
-      updateAppState({ isLoadingData: false, isProgressiveLoading: false });
+      updateAppState({
+        isLoadingData: false,
+        isProgressiveLoading: false,
+        isBackgroundRefreshInProgress: false,
+      });
 
       const { MediaLibraryError, ErrorCodes } = await import('./core/errors.js');
       if (error instanceof MediaLibraryError) {
@@ -702,7 +721,6 @@ class NxMediaLibrary extends LitElement {
 
     if (isEmpty) {
       updateAppState({
-        indexLockedByOther: false,
         mediaData: [],
         usageIndex: new Map(),
         processedData: initializeProcessedData(),
@@ -785,6 +803,7 @@ class NxMediaLibrary extends LitElement {
             .mediaData=${this._appState.mediaData}
             .processedData=${this._appState.processedData}
             .isIndexing=${this._appState.isIndexing}
+            .isBackgroundRefreshInProgress=${this._appState.isBackgroundRefreshInProgress}
             .isProgressiveLoading=${this._appState.isProgressiveLoading}
             .org=${this._appState.org}
             .repo=${this._appState.repo}
@@ -887,6 +906,7 @@ class NxMediaLibrary extends LitElement {
     const displayData = this.displayMediaData;
 
     const resultsBusy = !!(this._appState.isIndexing
+      || this._appState.isBackgroundRefreshInProgress
       || this._appState.isProgressiveLoading
       || this._appState.isLoadingData);
 
