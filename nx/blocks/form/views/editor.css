@@ -99,6 +99,11 @@
   margin-top: calc(var(--s2-body-xs-size) + var(--sl-field-font-size) * 2);
 }
 
+/* Offset for nav-driven scrollIntoView(block: start) so the group title isn’t flush to the top */
+.item-group {
+  scroll-margin-top: calc(var(--sl-spacing-x-large, 16px) + var(--sl-spacing-small, 8px));
+}
+
 .child-group.item-group {
   margin-block: 24px 4px;
 }
