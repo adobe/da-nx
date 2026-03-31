@@ -726,7 +726,12 @@ class NxMediaLibrary extends LitElement {
 
     const { uniqueItems, usageIndex } = buildMediaIndexStructures(filteredMediaData);
 
-    const processedData = await processMediaData(filteredMediaData);
+    const processedData = await processMediaData(
+      filteredMediaData,
+      null,
+      this.org,
+      this.repo,
+    );
     const enrichedMediaData = enrichMediaItemsWithUsage(uniqueItems, processedData);
 
     updateAppState({

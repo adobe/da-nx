@@ -3,6 +3,7 @@ export function buildMediaSheet(flatIndex) {
   return flatIndex.map((entry) => ({
     hash: entry.hash,
     url: entry.url || '',
+    originalPath: entry.originalPath || '',
     name: entry.name || '',
     timestamp: entry.timestamp || 0,
     user: entry.user || '',
