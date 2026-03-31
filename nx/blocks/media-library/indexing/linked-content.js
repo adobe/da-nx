@@ -27,17 +27,27 @@ function classifyExternalMediaValidation(entry, headInfo) {
   const originalUrl = entry?.url || '';
   const finalUrl = headInfo?.finalUrl || '';
   const redirectedAway = !!(headInfo?.redirected && finalUrl && finalUrl !== originalUrl);
+  const contentType = headInfo?.contentType || '';
+  const hasContentType = !!contentType;
 
   if (status === 404 || status === 410) {
     return { discard: true, reason: `http-${status}`, lastModified: null };
   }
 
-  if (redirectedAway && !getExternalMediaTypeInfo(finalUrl) && !isExternalVideoUrl(originalUrl)) {
-    return { discard: true, reason: 'redirect-non-media', lastModified: null };
+  if (headInfo?.ok && isHtmlContentType(contentType) && !isExternalVideoUrl(entry?.url || '')) {
+    return { discard: true, reason: 'html-response', lastModified: null };
   }
 
-  if (headInfo?.ok && isHtmlContentType(headInfo.contentType) && !isExternalVideoUrl(entry?.url || '')) {
-    return { discard: true, reason: 'html-response', lastModified: null };
+  if (headInfo?.ok && hasContentType) {
+    return {
+      discard: false,
+      reason: 'ok',
+      lastModified: headInfo.lastModified,
+    };
+  }
+
+  if (redirectedAway && !getExternalMediaTypeInfo(finalUrl) && !isExternalVideoUrl(originalUrl)) {
+    return { discard: true, reason: 'redirect-non-media', lastModified: null };
   }
 
   if (status === 401 || status === 403) {
