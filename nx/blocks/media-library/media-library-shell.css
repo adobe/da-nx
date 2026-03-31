@@ -1,0 +1,5 @@
+@media (width > 600px) {
+  body.nx-app.has-media-library main {
+    overflow: hidden;
+  }
+}

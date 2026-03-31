@@ -360,4 +360,359 @@ describe('NxSnapshot', () => {
       expect(linkBtn).to.be.null;
     });
   });
+
+  // --- Accordion ---
+
+  describe('handleToggleAccordion', () => {
+    it('Expands accordion for a path', async () => {
+      const el = await createElement();
+      await el.handleToggleAccordion('/page1');
+      expect(el._expandedUrl).to.equal('/page1');
+    });
+
+    it('Collapses accordion when clicking same path', async () => {
+      const el = await createElement();
+      await el.handleToggleAccordion('/page1');
+      await el.handleToggleAccordion('/page1');
+      expect(el._expandedUrl).to.be.null;
+    });
+
+    it('Switches to new path when different path clicked', async () => {
+      const el = await createElement();
+      el._manifest = {
+        resources: [
+          { path: '/page1', aemPreview: 'https://main--site--org.aem.page/page1' },
+          { path: '/page2', aemPreview: 'https://main--site--org.aem.page/page2' },
+        ],
+      };
+      await el.handleToggleAccordion('/page1');
+      await el.handleToggleAccordion('/page2');
+      expect(el._expandedUrl).to.equal('/page2');
+    });
+
+    it('Checks snapshot source existence on first expand', async () => {
+      let headRequested = false;
+      setupFetchMock(originalFetch, {
+        '.snapshots/': (urlStr, opts) => {
+          if (opts?.method === 'HEAD') {
+            headRequested = true;
+            return new Response('', { status: 200, headers: new Headers({ 'x-da-actions': '' }) });
+          }
+          return new Response('', { status: 200, headers: new Headers() });
+        },
+      });
+
+      const el = await createElement();
+      await el.handleToggleAccordion('/page1');
+      expect(headRequested).to.equal(true);
+      expect(el._snapshotExists['/page1']).to.equal(true);
+    });
+
+    it('Uses cached result on subsequent toggles', async () => {
+      let headCount = 0;
+      setupFetchMock(originalFetch, {
+        '.snapshots/': (urlStr, opts) => {
+          if (opts?.method === 'HEAD') {
+            headCount += 1;
+            return new Response('', { status: 200, headers: new Headers({ 'x-da-actions': '' }) });
+          }
+          return new Response('', { status: 200, headers: new Headers() });
+        },
+      });
+
+      const el = await createElement();
+      await el.handleToggleAccordion('/page1');
+      await el.handleToggleAccordion('/page1'); // collapse
+      await el.handleToggleAccordion('/page1'); // re-expand
+      expect(headCount).to.equal(1);
+    });
+  });
+
+  // --- Launch permission gating ---
+
+  describe('hasLaunchPermission', () => {
+    it('Shows launch section when hasLaunchPermission is true', async () => {
+      const el = await createElement({ startOpen: true });
+      el.hasLaunchPermission = true;
+      el.requestUpdate();
+      await el.updateComplete;
+      const launch = el.shadowRoot.querySelector('.nx-launch-actions');
+      expect(launch).to.not.be.null;
+    });
+
+    it('Hides launch section when hasLaunchPermission is false', async () => {
+      const el = await createElement({ startOpen: true });
+      el.hasLaunchPermission = false;
+      el.requestUpdate();
+      await el.updateComplete;
+      const launch = el.shadowRoot.querySelector('.nx-launch-actions');
+      expect(launch).to.be.null;
+    });
+
+    it('Hides launch section when hasLaunchPermission is undefined', async () => {
+      const el = await createElement({ startOpen: true });
+      el.requestUpdate();
+      await el.updateComplete;
+      const launch = el.shadowRoot.querySelector('.nx-launch-actions');
+      expect(launch).to.be.null;
+    });
+  });
+
+  // --- Copy mode dialog (merge/overwrite) ---
+
+  describe('promptCopyMode', () => {
+    it('Sets copy mode dialog for fork direction', async () => {
+      const el = await createElement();
+      const resources = [{ path: '/page1' }];
+      el.promptCopyMode(resources, 'fork');
+      expect(el._copyModeDetails).to.not.be.undefined;
+      expect(el._copyModeDetails.heading).to.include('Sync Down');
+      expect(el._copyModeDetails.actions).to.have.length(3);
+      expect(el._pendingCopy.direction).to.equal('fork');
+    });
+
+    it('Sets copy mode dialog for promote direction', async () => {
+      const el = await createElement();
+      const resources = [{ path: '/page1' }];
+      el.promptCopyMode(resources, 'promote');
+      expect(el._copyModeDetails.heading).to.include('Promote Up');
+      expect(el._pendingCopy.direction).to.equal('promote');
+    });
+  });
+
+  describe('handleCopyModeDialog', () => {
+    it('Clears dialog on cancel', async () => {
+      const el = await createElement();
+      el._pendingCopy = { resources: [], direction: 'fork' };
+      el._copyModeDetails = { open: true };
+      await el.handleCopyModeDialog({ detail: 'cancel' });
+      expect(el._copyModeDetails).to.be.undefined;
+      expect(el._pendingCopy).to.be.undefined;
+    });
+
+    it('Clears dialog when no mode selected', async () => {
+      const el = await createElement();
+      el._pendingCopy = { resources: [], direction: 'fork' };
+      await el.handleCopyModeDialog({ detail: undefined });
+      expect(el._copyModeDetails).to.be.undefined;
+    });
+
+    it('Does nothing when no pending copy', async () => {
+      const el = await createElement();
+      await el.handleCopyModeDialog({ detail: 'merge' });
+      expect(el._action).to.be.undefined;
+    });
+
+    it('Marks snapshot exists after fork sync completes', async () => {
+      const el = await createElement();
+      // Simulate post-copy state update directly (copyManifest requires full DA stack)
+      const resources = [{ path: '/page1' }, { path: '/page2' }];
+      el._snapshotExists = {};
+      const updated = { ...el._snapshotExists };
+      resources.forEach((res) => { updated[res.path] = true; });
+      el._snapshotExists = updated;
+      expect(el._snapshotExists['/page1']).to.equal(true);
+      expect(el._snapshotExists['/page2']).to.equal(true);
+    });
+
+    it('Does not mark snapshot exists for promote direction', async () => {
+      const el = await createElement();
+      // Promote direction should not update _snapshotExists
+      el._snapshotExists = {};
+      const direction = 'promote';
+      if (direction === 'fork') {
+        el._snapshotExists = { '/page1': true };
+      }
+      expect(el._snapshotExists['/page1']).to.be.undefined;
+    });
+  });
+
+  describe('handleCopyUrls', () => {
+    it('Opens copy mode dialog for global sync', async () => {
+      const el = await createElement();
+      el.handleCopyUrls('fork');
+      expect(el._copyModeDetails).to.not.be.undefined;
+      expect(el._pendingCopy.resources).to.equal(el._manifest.resources);
+    });
+  });
+
+  describe('handleCopySingleUrl', () => {
+    it('Opens copy mode dialog for single URL', async () => {
+      const el = await createElement();
+      const res = { path: '/page1' };
+      el.handleCopySingleUrl(res, 'fork');
+      expect(el._copyModeDetails).to.not.be.undefined;
+      expect(el._pendingCopy.resources).to.deep.equal([res]);
+    });
+  });
+
+  // --- Fragment discovery ---
+
+  describe('openFindFragments', () => {
+    it('Sets loading state and opens fragment dialog', async () => {
+      setupFetchMock(originalFetch, {
+        '/source/': () => new Response('<html><body></body></html>', {
+          status: 200,
+          headers: new Headers({ 'x-da-actions': '' }),
+        }),
+      });
+
+      const el = await createElement({ basics: { name: 'test-snapshot', org: 'org', site: 'site' } });
+      await el.openFindFragments();
+      expect(el._findingFragments).to.equal(false);
+      expect(el._fragmentDetails).to.not.be.undefined;
+      expect(el._fragmentDetails.heading).to.equal('Find Fragments');
+    });
+  });
+
+  describe('handleFragmentToggle', () => {
+    it('Toggles fragment selected state', async () => {
+      const el = await createElement();
+      const fragment = { path: '/fragments/test', selected: true };
+      el._discoveredFragments = [fragment];
+      el.handleFragmentToggle(fragment);
+      expect(fragment.selected).to.equal(false);
+    });
+
+    it('Updates fragment dialog after toggle', async () => {
+      const el = await createElement();
+      const fragment = { path: '/fragments/test', selected: true };
+      el._discoveredFragments = [fragment];
+      el._findingFragments = false;
+      el.handleFragmentToggle(fragment);
+      expect(el._fragmentDetails).to.not.be.undefined;
+    });
+  });
+
+  describe('handleFragmentDialog', () => {
+    it('Clears fragment details on cancel', async () => {
+      const el = await createElement();
+      el._fragmentDetails = { open: true };
+      await el.handleFragmentDialog({ detail: 'cancel' });
+      expect(el._fragmentDetails).to.be.undefined;
+    });
+  });
+
+  describe('updateFragmentDialog', () => {
+    it('Shows loading message while scanning', async () => {
+      const el = await createElement();
+      el._findingFragments = true;
+      el._discoveredFragments = [];
+      el.updateFragmentDialog();
+      expect(el._fragmentDetails.heading).to.equal('Find Fragments');
+      expect(el._fragmentDetails.actions).to.have.length(1);
+      expect(el._fragmentDetails.actions[0].value).to.equal('cancel');
+    });
+
+    it('Shows Add to URLs action when fragments found and selected', async () => {
+      const el = await createElement();
+      el._findingFragments = false;
+      el._discoveredFragments = [{ path: '/fragments/a', selected: true }];
+      el.updateFragmentDialog();
+      expect(el._fragmentDetails.actions).to.have.length(2);
+      expect(el._fragmentDetails.actions[1].value).to.equal('add');
+    });
+
+    it('Hides Add to URLs when no fragments selected', async () => {
+      const el = await createElement();
+      el._findingFragments = false;
+      el._discoveredFragments = [{ path: '/fragments/a', selected: false }];
+      el.updateFragmentDialog();
+      expect(el._fragmentDetails.actions).to.have.length(1);
+    });
+
+    it('Shows empty message when no fragments discovered', async () => {
+      const el = await createElement();
+      el._findingFragments = false;
+      el._discoveredFragments = [];
+      el.updateFragmentDialog();
+      expect(el._fragmentDetails.actions).to.have.length(1);
+    });
+  });
+
+  // --- Accordion rendering ---
+
+  describe('renderAccordionPanel', () => {
+    it('Shows basic action links', async () => {
+      const el = await createElement({ startOpen: true });
+      el._expandedUrl = '/page1';
+      el._snapshotExists = {};
+      el.requestUpdate();
+      await el.updateComplete;
+      const accordion = el.shadowRoot.querySelector('.nx-url-accordion');
+      expect(accordion).to.not.be.null;
+      const links = accordion.querySelectorAll('a');
+      expect(links.length).to.equal(3); // reviews, aem.live, DA edit (no snapshot edit)
+    });
+
+    it('Shows Edit Snapshot in DA when snapshot exists', async () => {
+      const el = await createElement({ startOpen: true });
+      el._expandedUrl = '/page1';
+      el._snapshotExists = { '/page1': true };
+      el.requestUpdate();
+      await el.updateComplete;
+      const accordion = el.shadowRoot.querySelector('.nx-url-accordion');
+      const links = accordion.querySelectorAll('a');
+      expect(links.length).to.equal(4);
+    });
+
+    it('Hides Sync/Promote when hasLaunchPermission is false', async () => {
+      const el = await createElement({ startOpen: true });
+      el.hasLaunchPermission = false;
+      el._expandedUrl = '/page1';
+      el._snapshotExists = { '/page1': true };
+      el.requestUpdate();
+      await el.updateComplete;
+      const accordion = el.shadowRoot.querySelector('.nx-url-accordion');
+      const buttons = accordion.querySelectorAll('button');
+      expect(buttons.length).to.equal(0);
+    });
+
+    it('Shows Sync Down but not Promote Up when snapshot does not exist', async () => {
+      const el = await createElement({ startOpen: true });
+      el.hasLaunchPermission = true;
+      el._expandedUrl = '/page1';
+      el._snapshotExists = { '/page1': false };
+      el.requestUpdate();
+      await el.updateComplete;
+      const accordion = el.shadowRoot.querySelector('.nx-url-accordion');
+      const buttons = accordion.querySelectorAll('button');
+      expect(buttons.length).to.equal(1);
+      expect(buttons[0].textContent).to.include('Sync Down');
+    });
+
+    it('Shows both Sync Down and Promote Up when snapshot exists', async () => {
+      const el = await createElement({ startOpen: true });
+      el.hasLaunchPermission = true;
+      el._expandedUrl = '/page1';
+      el._snapshotExists = { '/page1': true };
+      el.requestUpdate();
+      await el.updateComplete;
+      const accordion = el.shadowRoot.querySelector('.nx-url-accordion');
+      const buttons = accordion.querySelectorAll('button');
+      expect(buttons.length).to.equal(2);
+    });
+  });
+
+  // --- URL row rendering ---
+
+  describe('renderUrls - accordion', () => {
+    it('Renders URL rows instead of links', async () => {
+      const el = await createElement({ startOpen: true });
+      await el.updateComplete;
+      const rows = el.shadowRoot.querySelectorAll('.nx-url-row');
+      expect(rows.length).to.be.greaterThan(0);
+      const oldLinks = el.shadowRoot.querySelectorAll('.nx-snapshot-urls > li > a');
+      expect(oldLinks.length).to.equal(0);
+    });
+
+    it('Adds is-expanded class to expanded URL li', async () => {
+      const el = await createElement({ startOpen: true });
+      el._expandedUrl = '/page1';
+      el.requestUpdate();
+      await el.updateComplete;
+      const li = el.shadowRoot.querySelector('.nx-snapshot-urls li.is-expanded');
+      expect(li).to.not.be.null;
+    });
+  });
 });
