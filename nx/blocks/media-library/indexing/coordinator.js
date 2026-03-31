@@ -1,6 +1,9 @@
 import buildMediaIndex, {
   loadMediaIfUpdated,
   checkIndexLock,
+  isFreshIndexLock,
+  getIndexLockOwnerId,
+  loadMediaSheet,
 } from './load.js';
 import { ensureAuthenticated, getCanonicalMediaTimestamp } from '../core/utils.js';
 import { updateAppState, getAppState, showNotification } from '../core/state.js';
@@ -16,6 +19,10 @@ let pollingInterval = null;
 let lockCheckInterval = null;
 let pollingStarted = false;
 let onMediaDataUpdated = null;
+
+function stateHasMediaData() {
+  return (getAppState().mediaData?.length || 0) > 0;
+}
 
 // Starts polling for media updates when authenticated.
 export async function startPolling() {
@@ -33,7 +40,11 @@ export async function startPolling() {
         const { hasChanged, mediaData, indexMissing } = result;
 
         if (hasChanged && onMediaDataUpdated) {
-          updateAppState({ indexMissing: !!indexMissing });
+          updateAppState({
+            indexMissing: !!indexMissing,
+            isBackgroundRefreshInProgress: false,
+            indexLockedByOther: false,
+          });
           onMediaDataUpdated(mediaData || []);
         }
       } catch (error) {
@@ -72,15 +83,72 @@ function startLockCheckPolling(sitePath, org, repo) {
   stopLockCheckPolling();
   lockCheckInterval = setInterval(async () => {
     const state = getAppState();
-    if (!state.indexLockedByOther || !sitePath) {
+    if ((!state.indexLockedByOther && !state.isBackgroundRefreshInProgress) || !sitePath) {
       stopLockCheckPolling();
       return;
     }
     try {
+      const lock = await checkIndexLock(sitePath);
+      const stateHasData = stateHasMediaData();
+      if (!isFreshIndexLock(lock)) {
+        stopLockCheckPolling();
+
+        if (!stateHasData) {
+          const {
+            data,
+            indexMissing,
+            indexing,
+          } = await loadMediaSheet(sitePath);
+
+          if (!indexing && onMediaDataUpdated) {
+            if (indexMissing) {
+              updateAppState({
+                indexLockedByOther: true,
+                isBackgroundRefreshInProgress: false,
+                indexMissing: false,
+              });
+              return;
+            }
+            updateAppState({
+              indexLockedByOther: false,
+              isBackgroundRefreshInProgress: false,
+              indexMissing: !!indexMissing,
+            });
+            onMediaDataUpdated(data || []);
+            return;
+          }
+        }
+
+        const {
+          hasChanged,
+          mediaData,
+          indexMissing,
+        } = await loadMediaIfUpdated(sitePath, org, repo);
+        if (hasChanged && onMediaDataUpdated) {
+          updateAppState({
+            indexLockedByOther: false,
+            isBackgroundRefreshInProgress: false,
+            indexMissing: !!indexMissing,
+          });
+          onMediaDataUpdated(mediaData || []);
+          return;
+        }
+
+        updateAppState({
+          indexLockedByOther: false,
+          isBackgroundRefreshInProgress: false,
+        });
+        return;
+      }
+
       const { hasChanged, mediaData, indexMissing } = await loadMediaIfUpdated(sitePath, org, repo);
       if (hasChanged && onMediaDataUpdated) {
         stopLockCheckPolling();
-        updateAppState({ indexLockedByOther: false, indexMissing: !!indexMissing });
+        updateAppState({
+          indexLockedByOther: false,
+          isBackgroundRefreshInProgress: false,
+          indexMissing: !!indexMissing,
+        });
         onMediaDataUpdated(mediaData || []);
       }
     } catch { /* swallow */ }
@@ -117,6 +185,8 @@ export async function triggerBuild(sitePath, org, repo, ref = 'main') {
 
   updateAppState({
     isIndexing: true,
+    isBackgroundRefreshInProgress: false,
+    indexLockedByOther: false,
     indexProgress: { stage: 'starting', message: '', duration: null },
     indexStartTime: Date.now(),
     progressiveMediaData: [],
@@ -217,6 +287,7 @@ export async function triggerBuild(sitePath, org, repo, ref = 'main') {
           mediaReferences: finalProgress.mediaReferences,
         },
         isIndexing: false,
+        isBackgroundRefreshInProgress: false,
         progressiveMediaData: [],
         progressiveTotalCount: null,
         progressiveCountCapped: false,
@@ -235,6 +306,7 @@ export async function triggerBuild(sitePath, org, repo, ref = 'main') {
           mediaReferences: 0,
         },
         isIndexing: false,
+        isBackgroundRefreshInProgress: false,
         progressiveMediaData: [],
         progressiveTotalCount: null,
         progressiveCountCapped: false,
@@ -269,6 +341,7 @@ export async function triggerBuild(sitePath, org, repo, ref = 'main') {
       const updates = {
         isIndexing: false,
         indexLockedByOther: false,
+        isBackgroundRefreshInProgress: false,
         indexMissing: false,
         progressiveTotalCount: null,
         progressiveCountCapped: false,
@@ -285,7 +358,11 @@ export async function triggerBuild(sitePath, org, repo, ref = 'main') {
         showNotification(t('NOTIFY_ERROR'), msg, 'danger');
       }
     } else {
-      updateAppState({ isIndexing: false, indexLockedByOther: true });
+      updateAppState({
+        isIndexing: false,
+        indexLockedByOther: true,
+        isBackgroundRefreshInProgress: stateHasMediaData(),
+      });
       startLockCheckPolling(sitePath, org, repo);
     }
 
@@ -311,10 +388,16 @@ export async function initService(sitePath, options = {}) {
   try {
     // Check if someone else is building
     const lock = await checkIndexLock(sitePath);
+    const ownerId = getIndexLockOwnerId();
+    const ownsLock = lock.ownerId && lock.ownerId === ownerId;
+    const freshLock = isFreshIndexLock(lock);
 
-    if (lock.exists && lock.locked) {
-      // Someone else is building - do nothing, just wait
-      // Polling will automatically reload when they finish (timestamp will change)
+    if (freshLock && !ownsLock) {
+      updateAppState({
+        isBackgroundRefreshInProgress: stateHasMediaData(),
+        indexLockedByOther: !stateHasMediaData(),
+      });
+      startLockCheckPolling(sitePath, org, repo);
       return;
     }
 

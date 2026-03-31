@@ -26,6 +26,7 @@ let appState = {
   selectedMediaTab: 'usage',
 
   isIndexing: false,
+  isBackgroundRefreshInProgress: false,
   indexProgress: null,
   indexStartTime: null,
   indexLockedByOther: false,

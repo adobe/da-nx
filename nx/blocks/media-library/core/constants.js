@@ -16,6 +16,8 @@ export const IndexConfig = Object.freeze({
   USAGE_MAP_PROGRESSIVE_BATCH_SIZE: 1000,
   /* Index chunking configuration */
   MEDIA_INDEX_CHUNK_SIZE: 20_000, /* Entries per chunk (~15-20MB per chunk) */
+  LOCK_HEARTBEAT_INTERVAL_MS: 60_000,
+  LOCK_STALE_THRESHOLD_MS: 10 * 60_000,
 });
 
 export const Operation = Object.freeze({

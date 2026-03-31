@@ -1,7 +1,7 @@
 import { daFetch, initIms } from '../../../utils/daFetch.js';
 import { etcFetch } from '../core/urls.js';
 import { AEM_ORIGIN, DA_ORIGIN } from '../../../public/utils/constants.js';
-import { IndexFiles, ExternalMedia } from '../core/constants.js';
+import { IndexFiles, ExternalMedia, DA_ETC_ORIGIN } from '../core/constants.js';
 import { MediaLibraryError, ErrorCodes, logMediaLibraryError } from '../core/errors.js';
 import { isPerfEnabled } from '../core/params.js';
 import { t } from '../core/messages.js';
@@ -1148,37 +1148,202 @@ export async function saveIndexMeta(meta, path) {
   });
 }
 
-// Fetches Last-Modified timestamp for absolute URLs (PDFs, SVGs, fragments)
-export async function fetchFileLastModified(url, timeoutMs = 5000) {
-  if (!url) return null;
+function isProtectedSiteAssetUrl(url, org, repo, ref = 'main') {
+  if (!url || !org || !repo) return false;
+
+  try {
+    const parsed = new URL(url);
+    return parsed.hostname === `${ref}--${repo}--${org}.aem.page`;
+  } catch {
+    return false;
+  }
+}
+
+function sanitizeValidationUrl(url) {
+  if (!url) return url;
+
+  try {
+    const parsed = new URL(url);
+    parsed.hash = '';
+    return parsed.toString();
+  } catch {
+    return url.split('#')[0];
+  }
+}
+
+async function fetchFileResponse(url, {
+  method = 'HEAD',
+  redirectMode = 'manual',
+  org = '',
+  repo = '',
+  ref = 'main',
+  signal,
+} = {}) {
+  const requestUrl = sanitizeValidationUrl(url);
+  const opts = {
+    method,
+    signal,
+    redirect: redirectMode,
+  };
+  const isProtectedSiteAsset = isProtectedSiteAssetUrl(requestUrl, org, repo, ref);
+  const cachedSiteHeaders = isProtectedSiteAsset ? getCachedSiteTokenHeaders(org, repo, ref) : null;
+
+  if (cachedSiteHeaders) {
+    opts.headers = cachedSiteHeaders;
+  }
+
+  const response = await etcFetch(appendNoCacheParam(requestUrl), 'cors', opts);
+
+  if (!isProtectedSiteAsset || !AEM_SITE_AUTH_DENIED.has(response.status)) {
+    return response;
+  }
+
+  if (cachedSiteHeaders) {
+    clearCachedAemSiteToken(org, repo, ref);
+  }
+
+  const siteTokenHeaders = await getSiteTokenHeaders(org, repo, ref);
+  if (!siteTokenHeaders) {
+    return response;
+  }
+
+  return etcFetch(appendNoCacheParam(requestUrl), 'cors', {
+    method,
+    signal,
+    redirect: redirectMode,
+    headers: siteTokenHeaders,
+  });
+}
+
+function resolveProxyRedirectUrl(originalUrl, response) {
+  try {
+    const originalUrlObj = new URL(sanitizeValidationUrl(originalUrl));
+    const etcHostname = new URL(DA_ETC_ORIGIN).hostname;
+    const location = (response.headers.get('location') || '').trim();
+
+    if (location && response.status >= 300 && response.status < 400) {
+      const locationUrl = new URL(location, originalUrlObj.origin);
+      if (locationUrl.hostname === etcHostname) {
+        return `${originalUrlObj.origin}${locationUrl.pathname}${locationUrl.search}`;
+      }
+      return locationUrl.toString();
+    }
+  } catch {
+    // ignore malformed URL/redirects
+  }
+
+  return '';
+}
+
+async function followFileRedirects(requestUrl, response, options = {}, redirectCount = 0) {
+  const redirectUrl = resolveProxyRedirectUrl(requestUrl, response);
+  if (!redirectUrl || redirectUrl === requestUrl || redirectCount >= 5) {
+    return {
+      requestUrl,
+      response,
+    };
+  }
+
+  const nextResponse = await fetchFileResponse(redirectUrl, options);
+  return followFileRedirects(redirectUrl, nextResponse, options, redirectCount + 1);
+}
+
+async function fetchFileResponseInfo(url, {
+  method = 'HEAD',
+  redirectMode = 'manual',
+  timeoutMs = 5000,
+  org = '',
+  repo = '',
+  ref = 'main',
+} = {}) {
+  if (!url) {
+    return {
+      ok: false,
+      status: 0,
+      contentType: '',
+      finalUrl: '',
+      lastModified: null,
+    };
+  }
 
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
-    const response = await etcFetch(url, 'cors', {
-      method: 'HEAD',
+    const response = await fetchFileResponse(url, {
+      method,
+      redirectMode,
+      org,
+      repo,
+      ref,
+      signal: controller.signal,
+    });
+    const {
+      requestUrl,
+      response: finalResponse,
+    } = await followFileRedirects(url, response, {
+      method,
+      redirectMode,
+      org,
+      repo,
+      ref,
       signal: controller.signal,
     });
 
     clearTimeout(timeoutId);
 
-    if (response.ok) {
-      const lastModified = response.headers.get('last-modified');
-      if (lastModified) {
-        const timestamp = new Date(lastModified).getTime();
-        if (!Number.isNaN(timestamp)) {
-          return timestamp;
-        }
-      }
-    }
+    const rawLastModified = finalResponse.headers.get('last-modified');
+    const parsedLastModified = rawLastModified ? new Date(rawLastModified).getTime() : Number.NaN;
+
+    return {
+      ok: finalResponse.ok,
+      status: finalResponse.status,
+      contentType: finalResponse.headers.get('content-type') || '',
+      finalUrl: requestUrl,
+      redirected: finalResponse.redirected || requestUrl !== url,
+      lastModified: Number.isNaN(parsedLastModified) ? null : parsedLastModified,
+    };
   } catch (error) {
-    // Timeout or network error - return null
     if (isPerfEnabled()) {
       // eslint-disable-next-line no-console
-      console.log(`[fetchFileLastModified] Failed for ${url}:`, error.message);
+      console.log(`[fetchFileResponseInfo:${method}] Failed for ${url}:`, error.message);
     }
-  }
 
-  return null;
+    return {
+      ok: false,
+      status: 0,
+      contentType: '',
+      finalUrl: '',
+      redirected: false,
+      lastModified: null,
+      error: error.message,
+    };
+  }
+}
+
+export async function fetchFileHeadInfo(url, options = {}) {
+  return fetchFileResponseInfo(url, {
+    ...options,
+    method: 'HEAD',
+    redirectMode: 'manual',
+  });
+}
+
+export async function fetchFileGetInfo(url, options = {}) {
+  return fetchFileResponseInfo(url, {
+    ...options,
+    method: 'GET',
+    redirectMode: 'follow',
+  });
+}
+
+// Fetches Last-Modified timestamp for absolute URLs (PDFs, SVGs, fragments)
+export async function fetchFileLastModified(url, timeoutMs = 5000, org = '', repo = '', ref = 'main') {
+  const headInfo = await fetchFileHeadInfo(url, {
+    timeoutMs,
+    org,
+    repo,
+    ref,
+  });
+  return headInfo.lastModified;
 }
