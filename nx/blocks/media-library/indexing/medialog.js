@@ -154,6 +154,7 @@ export function mergeMedialogChunkIntoMap(
       mediaMap.set(key, {
         hash: media.mediaHash || key,
         url: canonicalizeMediaUrl(media.path, org, repo),
+        originalPath: media.originalFilename || '',
         name: extractName(media),
         timestamp: media.timestamp ?? 0,
         user: media.user ?? '',
@@ -176,6 +177,9 @@ export function mergeMedialogChunkIntoMap(
       existing.timestamp = media.timestamp;
       existing.user = media.user ?? existing.user;
       existing.operation = media.operation ?? existing.operation;
+    }
+    if (media.originalFilename) {
+      existing.originalPath = media.originalFilename;
     }
     existing.lastMedialog = media;
   });
@@ -202,6 +206,7 @@ export function mergeMedialogChunkIntoMap(
         const row = {
           hash: media.hash,
           url: media.url,
+          originalPath: media.originalPath || '',
           name: media.name,
           timestamp: media.timestamp,
           user: media.user,
@@ -217,6 +222,7 @@ export function mergeMedialogChunkIntoMap(
       const row = {
         hash: media.hash,
         url: media.url,
+        originalPath: media.originalPath || '',
         name: media.name,
         timestamp: media.timestamp,
         user: media.user,
@@ -251,6 +257,7 @@ export function pageMediaToEntryMap(pageMediaMap) {
         entryMap.set(key, {
           hash: e.hash,
           url: e.url,
+          originalPath: e.originalPath || '',
           name: e.name,
           timestamp: e.timestamp,
           user: e.user,
@@ -283,11 +290,12 @@ export function removeOrOrphanMedia(idx, entry, path, medialog) {
   const hasUnlink = medialog.some((m) => m.mediaHash === hash && (m.operation === 'unlink' || m.operation === 'delete'));
   idx.splice(i, 1);
   const stillHasEntry = idx.some((e) => e.hash === hash);
-  const alreadyUnused = idx.some((e) => e.hash === hash && !e.doc);
-  if (!stillHasEntry && !hasUnlink && !alreadyUnused) {
-    const unused = {
+  const alreadyOrphan = idx.some((e) => e.hash === hash && !e.doc);
+  if (!stillHasEntry && !hasUnlink && !alreadyOrphan) {
+    const orphan = {
       hash,
       url: entry.url,
+      originalPath: entry.originalPath || '',
       name: entry.name,
       timestamp: entry.timestamp,
       user: entry.user,
@@ -296,8 +304,8 @@ export function removeOrOrphanMedia(idx, entry, path, medialog) {
       doc: '',
       status: 'unused',
     };
-    copyCanonicalMetadataFields(unused, entry);
-    idx.push(unused);
+    copyCanonicalMetadataFields(orphan, entry);
+    idx.push(orphan);
   }
   return 1;
 }
@@ -341,7 +349,12 @@ export function processPageMediaUpdates(
       oldHashes.forEach((hash) => {
         const oldEntry = updatedIndex.find((e) => e.hash === hash && e.doc === normalizedPath);
         if (oldEntry) {
-          removed += removeOrOrphanMedia(updatedIndex, oldEntry, normalizedPath, medialogEntries);
+          removed += removeOrOrphanMedia(
+            updatedIndex,
+            oldEntry,
+            normalizedPath,
+            medialogEntries,
+          );
         }
       });
       return;
@@ -358,7 +371,12 @@ export function processPageMediaUpdates(
     toRemove.forEach((hash) => {
       const oldEntry = updatedIndex.find((e) => e.hash === hash && e.doc === normalizedPath);
       if (oldEntry) {
-        removed += removeOrOrphanMedia(updatedIndex, oldEntry, normalizedPath, medialogEntries);
+        removed += removeOrOrphanMedia(
+          updatedIndex,
+          oldEntry,
+          normalizedPath,
+          medialogEntries,
+        );
       }
     });
 
@@ -396,7 +414,7 @@ export function processPageMediaUpdates(
 
 /**
  * Processes standalone uploads (media not linked to any page) from medialog.
- * Adds unused entries for uploads that aren't already referenced.
+ * Adds unused rows for uploads that aren't already referenced.
  */
 export function processStandaloneUploads(
   updatedIndex,
@@ -421,6 +439,7 @@ export function processStandaloneUploads(
         const row = {
           hash: media.mediaHash,
           url,
+          originalPath: media.originalFilename || '',
           name: extractName(media),
           timestamp: media.timestamp,
           user: media.user,

@@ -3,6 +3,8 @@ import {
   parseColonSyntax,
   filterMedia,
   getSearchSuggestions,
+  processMediaData,
+  clearProcessDataCache,
 } from '../../../nx/blocks/media-library/features/filters.js';
 
 describe('filters', () => {
@@ -143,15 +145,16 @@ describe('filters', () => {
     ];
 
     describe('type filters', () => {
-      it('filters images (excludes SVGs)', () => {
+      it('filters images (excludes SVGs, includes unused)', () => {
         const options = {
           selectedFilterType: 'images',
           org: 'adobe',
           repo: 'blog',
         };
         const filtered = filterMedia(sampleData, options);
-        expect(filtered).to.have.lengthOf(1);
-        expect(filtered[0].name).to.equal('image1.png');
+        expect(filtered).to.have.lengthOf(2);
+        const names = filtered.map((i) => i.name).sort();
+        expect(names).to.deep.equal(['image1.png', 'unused.png']);
       });
 
       it('filters videos', () => {
@@ -224,20 +227,19 @@ describe('filters', () => {
       });
     });
 
-    describe('referenced filter behavior', () => {
-      it('excludes unused items from images filter', () => {
+    describe('type filters include unused (except External)', () => {
+      it('includes unused images alongside referenced', () => {
         const options = {
           selectedFilterType: 'images',
           org: 'adobe',
           repo: 'blog',
         };
         const filtered = filterMedia(sampleData, options);
-        const hasUnused = filtered.some((item) => item.status === 'unused');
-        expect(hasUnused).to.be.false;
+        expect(filtered.some((item) => item.status === 'unused')).to.be.true;
       });
 
-      it('excludes unused items from all non-noReferences filters', () => {
-        const filterTypes = ['images', 'videos', 'icons', 'documents', 'fragments', 'links'];
+      it('keeps External tab to referenced off-site links only', () => {
+        const filterTypes = ['links'];
         filterTypes.forEach((filterType) => {
           const options = {
             selectedFilterType: filterType,
@@ -319,8 +321,8 @@ describe('filters', () => {
           repo: 'blog',
         };
         const filtered = filterMedia(sampleData, options);
-        expect(filtered).to.have.lengthOf(1);
-        expect(filtered[0].name).to.equal('image1.png');
+        const names = filtered.map((i) => i.name).sort();
+        expect(names).to.deep.equal(['image1.png', 'unused.png']);
       });
     });
 
@@ -437,7 +439,34 @@ describe('filters', () => {
       });
     });
 
-    it('other filters exclude unused items', () => {
+    it('external suggestions exclude unused external items', () => {
+      const mixed = [
+        ...sampleData,
+        {
+          url: 'https://cdn.example.com/orphan.mp4',
+          name: 'orphan.mp4',
+          displayName: 'Orphan Video',
+          doc: '',
+          status: 'unused',
+          hash: 'orphan-ext',
+          type: 'video',
+        },
+      ];
+      const suggestions = getSearchSuggestions(
+        mixed,
+        'video',
+        createSuggestion,
+        null,
+        'links',
+        'adobe',
+        'blog',
+      );
+      suggestions.forEach((suggestion) => {
+        expect(suggestion.value.status).to.not.equal('unused');
+      });
+    });
+
+    it('images filter suggestions include unused items that match', () => {
       const suggestions = getSearchSuggestions(
         sampleData,
         'image',
@@ -447,10 +476,8 @@ describe('filters', () => {
         'adobe',
         'blog',
       );
-      suggestions.forEach((suggestion) => {
-        const item = suggestion.value;
-        expect(item.status).to.not.equal('unused');
-      });
+      const statuses = suggestions.map((s) => s.value.status);
+      expect(statuses).to.include('unused');
     });
 
     it('limits suggestions to 10 results', () => {
@@ -489,6 +516,169 @@ describe('filters', () => {
     it('returns empty array for null/undefined data', () => {
       expect(getSearchSuggestions(null, 'test', createSuggestion)).to.be.empty;
       expect(getSearchSuggestions(undefined, 'test', createSuggestion)).to.be.empty;
+    });
+
+    it('slash suggestions include folders from original no-doc asset paths', async () => {
+      clearProcessDataCache();
+      const noDocItem = {
+        url: 'https://main--blog--adobe.aem.live/media/assets-deep/file.png',
+        originalPath: '/assets/products/ascent-x2/ascent-x2-mood.jpg',
+        name: 'file.png',
+        displayName: 'File',
+        doc: '',
+        status: 'unused',
+        hash: 'media_file.png',
+        type: 'image',
+      };
+      const processedData = await processMediaData([noDocItem], null, 'adobe', 'blog');
+      expect(processedData.folderPaths).to.include('/assets');
+      expect(processedData.folderPaths).to.include('/assets/products');
+      expect(processedData.folderPaths).to.include('/assets/products/ascent-x2');
+
+      const suggestions = getSearchSuggestions(
+        [noDocItem],
+        '/assets',
+        createSuggestion,
+        processedData,
+        'all',
+        'adobe',
+        'blog',
+      );
+      expect(suggestions.some((s) => s.type === 'folder')).to.be.true;
+    });
+  });
+
+  describe('no-doc same-site assets appear in type filters and No References', () => {
+    const org = 'adobe';
+    const repo = 'blog';
+    const data = [
+      {
+        url: 'https://main--blog--adobe.aem.live/media/ref.png',
+        name: 'ref.png',
+        doc: '/docs/a',
+        status: 'referenced',
+        hash: 'hash-ref',
+        type: 'image',
+      },
+      {
+        url: 'https://main--blog--adobe.aem.live/media/alone.png',
+        originalPath: '/assets/products/alone.png',
+        name: 'alone.png',
+        doc: '',
+        status: 'unused',
+        hash: 'media_alone.png',
+        type: 'image',
+      },
+      {
+        url: 'https://cdn.example/unused.png',
+        name: 'unused.png',
+        doc: '',
+        status: 'unused',
+        hash: 'ext-u',
+        type: 'image',
+      },
+    ];
+
+    it('Images filter includes same-site unused and referenced', () => {
+      const filtered = filterMedia(data, { selectedFilterType: 'images', org, repo });
+      const hashes = filtered.map((i) => i.hash).sort();
+      expect(hashes).to.deep.equal(['ext-u', 'hash-ref', 'media_alone.png']);
+    });
+
+    it('No References filter lists every item with no document refs', () => {
+      const filtered = filterMedia(data, { selectedFilterType: 'noReferences', org, repo });
+      expect(filtered).to.have.lengthOf(2);
+      const hashes = filtered.map((i) => i.hash).sort();
+      expect(hashes).to.deep.equal(['ext-u', 'media_alone.png']);
+    });
+
+    it('getSearchSuggestions with No References lists only unused', async () => {
+      clearProcessDataCache();
+      const processedData = await processMediaData(data, null, org, repo);
+      const createSugg = (item) => ({ type: 'media', value: item, display: item.name });
+      const suggestions = getSearchSuggestions(
+        data,
+        'png',
+        createSugg,
+        processedData,
+        'noReferences',
+        org,
+        repo,
+      );
+      expect(suggestions.length).to.be.greaterThan(0);
+      suggestions.forEach((s) => {
+        expect(s.value.status).to.equal('unused');
+      });
+    });
+  });
+
+  describe('folder filter for no-doc delivery assets', () => {
+    it('filterMedia with root folder includes unused items that have asset folders', async () => {
+      clearProcessDataCache();
+      const noDocItem = {
+        url: 'https://main--blog--adobe.aem.live/media/deep/file.png',
+        originalPath: '/assets/products/ascent-x2/ascent-x2-mood.jpg',
+        name: 'file.png',
+        doc: '',
+        status: 'unused',
+        hash: 'media_deep.png',
+        type: 'image',
+      };
+      const processedData = await processMediaData([noDocItem], null, 'adobe', 'blog');
+      const filtered = filterMedia([noDocItem], {
+        selectedFolder: '/',
+        processedData,
+        selectedFilterType: 'all',
+        org: 'adobe',
+        repo: 'blog',
+      });
+      expect(filtered.map((i) => i.hash)).to.include('media_deep.png');
+    });
+
+    it('filterMedia with root folder includes root-level no-doc assets', async () => {
+      clearProcessDataCache();
+      const noDocItem = {
+        url: 'https://main--blog--adobe.aem.live/root.png',
+        originalPath: '/root.png',
+        name: 'root.png',
+        doc: '',
+        status: 'unused',
+        hash: 'media_root.png',
+        type: 'image',
+      };
+      const processedData = await processMediaData([noDocItem], null, 'adobe', 'blog');
+      const filtered = filterMedia([noDocItem], {
+        selectedFolder: '/',
+        processedData,
+        selectedFilterType: 'all',
+        org: 'adobe',
+        repo: 'blog',
+      });
+      expect(filtered).to.have.lengthOf(1);
+      expect(filtered[0].hash).to.equal('media_root.png');
+    });
+
+    it('filterMedia folder: query matches no-doc item by original asset path', async () => {
+      clearProcessDataCache();
+      const noDocItem = {
+        url: 'https://main--blog--adobe.aem.live/media/nested/file.png',
+        originalPath: '/assets/products/ascent-x2/ascent-x2-mood.jpg',
+        name: 'file.png',
+        doc: '',
+        status: 'unused',
+        hash: 'media_nested.png',
+        type: 'image',
+      };
+      const processedData = await processMediaData([noDocItem], null, 'adobe', 'blog');
+      const filtered = filterMedia([noDocItem], {
+        searchQuery: 'folder:/assets/products',
+        processedData,
+        selectedFilterType: 'all',
+        org: 'adobe',
+        repo: 'blog',
+      });
+      expect(filtered).to.have.lengthOf(1);
+      expect(filtered[0].hash).to.equal('media_nested.png');
     });
   });
 });

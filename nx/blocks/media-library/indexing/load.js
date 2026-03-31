@@ -230,6 +230,25 @@ export async function removeIndexLock(sitePath) {
   return resp;
 }
 
+function statusRankForUniqueCard(item) {
+  return item.doc ? 2 : 0;
+}
+
+function shouldReplaceUniqueItem(existingItem, item) {
+  if (!existingItem) return true;
+
+  const itemHasDoc = !!(item.doc && item.doc !== '');
+  const existingHasDoc = !!(existingItem.doc && existingItem.doc !== '');
+  if (itemHasDoc && !existingHasDoc) return true;
+  if (!itemHasDoc && existingHasDoc) return false;
+
+  const itemTs = getCanonicalMediaTimestamp(item);
+  const existingTs = getCanonicalMediaTimestamp(existingItem);
+  if (itemTs !== existingTs) return itemTs > existingTs;
+
+  return statusRankForUniqueCard(item) > statusRankForUniqueCard(existingItem);
+}
+
 // Builds uniqueItems and usageIndex from raw media data.
 export function buildMediaIndexStructures(mediaData) {
   const uniqueItemsMap = new Map();
@@ -238,11 +257,11 @@ export function buildMediaIndexStructures(mediaData) {
   mediaData.forEach((item) => {
     const groupingKey = item.url ? getDedupeKey(item.url) : item.hash;
     const existingItem = uniqueItemsMap.get(groupingKey);
-    if (!uniqueItemsMap.has(groupingKey)
-      || getCanonicalMediaTimestamp(item) > getCanonicalMediaTimestamp(existingItem)) {
+    if (!uniqueItemsMap.has(groupingKey) || shouldReplaceUniqueItem(existingItem, item)) {
       const merged = { ...item };
 
       if (existingItem) {
+        merged.originalPath = item.originalPath || existingItem.originalPath || '';
         merged.displayName = item.displayName || existingItem.displayName || item.name;
         const hasModified = item.modifiedTimestamp !== undefined
           && item.modifiedTimestamp !== null;

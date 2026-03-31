@@ -1,4 +1,4 @@
-import { AEM_ORIGIN } from '../../../public/utils/constants.js';
+import { AEM_ORIGIN, DA_ORIGIN } from '../../../public/utils/constants.js';
 import { daFetch, initIms } from '../../../utils/daFetch.js';
 import { mergeCopy, overwriteCopy } from '../../loc/project/index.js';
 import { Queue } from '../../../public/utils/tree.js';
@@ -20,6 +20,9 @@ function formatResources(name, resources) {
     path: res.path,
     aemPreview: `https://main--${site}--${org}.aem.page${res.path}`,
     url: `https://${name}--main--${site}--${org}.aem.reviews${res.path}`,
+    aemLive: `https://main--${site}--${org}.aem.live${res.path}`,
+    daEdit: `https://da.live/edit#/${org}/${site}${res.path}`,
+    daSnapshotEdit: `https://da.live/edit#/${org}/${site}/.snapshots/${name}${res.path}`,
   }));
 }
 
@@ -136,16 +139,15 @@ export async function updatePaths(name, currPaths, editedHrefs) {
   return formatResources(name, toFormat);
 }
 
-export async function copyManifest(name, resources, direction) {
-  // The action to take
+export async function copyManifest(name, resources, direction, mode = 'merge') {
   const copyUrl = async (url) => {
-    if (url.source.endsWith('.html')) {
+    if (mode === 'overwrite' || !url.source.endsWith('.html')) {
+      await overwriteCopy(url, `Snapshot ${direction}`);
+    } else {
       const labels = (direction === 'fork')
         ? { labelLocal: 'Snapshot', labelUpstream: 'Main' }
         : { labelLocal: 'Main', labelUpstream: 'Snapshot' };
       await mergeCopy(url, `Snapshot ${direction}`, labels);
-    } else {
-      await overwriteCopy(url, `Snapshot ${direction}`);
     }
   };
 
@@ -221,6 +223,67 @@ export async function isRegistered() {
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('Error checking if registered for snapshot scheduler', error);
+    return false;
+  }
+}
+
+const fetchDaConfigs = (() => {
+  const configCache = {};
+
+  const fetchConfig = async (pathname) => {
+    const resp = await daFetch(`${DA_ORIGIN}/config${pathname}/`);
+    if (!resp.ok) return { error: `Error loading ${pathname}`, status: resp.status };
+    return resp.json();
+  };
+
+  return ({ org: _org, site: _site }) => {
+    // Set the org config promise if it does not exist
+    configCache[`/${_org}`] ??= fetchConfig(`/${_org}`);
+
+    if (_site) {
+      // Set the _site config promise if it does not exist
+      configCache[`/${_org}/${_site}`] ??= fetchConfig(`/${_org}/${_site}`);
+    }
+
+    // return array of cached configs (_org = 0, _site = 1)
+    const configs = [configCache[`/${_org}`]];
+    if (_site) configs.push(configCache[`/${_org}/${_site}`]);
+
+    return configs;
+  };
+})();
+
+export const getSheetByIndex = (json, index = 0) => {
+  if (json[':type'] !== 'multi-sheet') {
+    return json.data;
+  }
+  return json[Object.keys(json)[index]]?.data;
+};
+
+export const getFirstSheet = (json) => getSheetByIndex(json, 0);
+
+const getConfig = async (_org, _site) => {
+  const configs = await Promise.all(fetchDaConfigs({ org: _org, site: _site }));
+  return configs.flatMap((c) => getFirstSheet(c) || [])
+    .reduce((o, entry) => { o[entry.key] = entry.value; return o; }, {});
+};
+
+export async function checkSnapshotSource(name, path) {
+  const extPath = path.endsWith('.json') ? path : `${path}.html`;
+  const url = `${DA_ORIGIN}/source/${org}/${site}/.snapshots/${name}${extPath}`;
+  try {
+    const resp = await daFetch(url, { method: 'HEAD' });
+    return resp.ok;
+  } catch {
+    return false;
+  }
+}
+
+export async function fetchLaunchPermission() {
+  try {
+    const config = await getConfig(org, site);
+    return config['snapshot.launch'] === 'true';
+  } catch {
     return false;
   }
 }
