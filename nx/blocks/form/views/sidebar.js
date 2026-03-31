@@ -1,4 +1,4 @@
-import { LitElement, html, nothing } from 'da-lit';
+import { LitElement, html, nothing, ref } from 'da-lit';
 
 const { default: getStyle } = await import('../../../utils/styles.js');
 
@@ -14,9 +14,16 @@ const style = await getStyle(import.meta.url);
 class FormSidebar extends LitElement {
   static properties = {
     formModel: { attribute: false },
+    activeNavPointer: { attribute: false },
+    scrollNavItemIntoView: { attribute: false },
     _schemas: { attribute: false },
     _nav: { state: true },
   };
+
+  constructor() {
+    super();
+    this._navButtonByPointer = new Map();
+  }
 
   connectedCallback() {
     super.connectedCallback();
@@ -32,6 +39,25 @@ class FormSidebar extends LitElement {
 
   getNav() {
     this._nav = this.formModel.annotated;
+  }
+
+  _bindNavButtonRef(pointer, el) {
+    if (el) this._navButtonByPointer.set(pointer, el);
+    else this._navButtonByPointer.delete(pointer);
+  }
+
+  updated(changed) {
+    super.updated(changed);
+    if (changed.has('activeNavPointer')) {
+      this._scrollNavToActivePointer();
+    }
+  }
+
+  _scrollNavToActivePointer() {
+    if (!this.scrollNavItemIntoView) return;
+    const btn = this._navButtonByPointer.get(this.activeNavPointer);
+    if (!btn) return;
+    btn.scrollIntoView({ block: 'nearest', behavior: 'auto' });
   }
 
   renderNoSchemas() {
@@ -72,6 +98,14 @@ class FormSidebar extends LitElement {
     return item.type === 'object' || item.type === 'array';
   }
 
+  _emitNavSelect(pointer) {
+    this.dispatchEvent(new CustomEvent('nav-pointer-select', {
+      detail: { pointer },
+      bubbles: true,
+      composed: true,
+    }));
+  }
+
   renderList(parent, isArrayItem = false, arrayIndex = null) {
     if (!this.canRender(parent)) return nothing;
 
@@ -79,10 +113,17 @@ class FormSidebar extends LitElement {
     const label = isArrayItem && arrayIndex != null
       ? `#${arrayIndex} ${parent.title ?? ''}`
       : (parent.title ?? '');
+    const isActive = this.activeNavPointer === parent.pointer;
 
     return html`
       <li data-key="${parent.key}">
-        <span class="item">${label}</span>
+        <button
+          type="button"
+          class="item nav-item ${isActive ? 'is-active' : ''}"
+          aria-current=${isActive ? 'location' : undefined}
+          @click=${() => this._emitNavSelect(parent.pointer)}
+          ${ref((el) => this._bindNavButtonRef(parent.pointer, el))}
+        >${label}</button>
         ${children.length
         ? html`<ul>${children.map((item, i) => {
           const isArray = parent.type === 'array';

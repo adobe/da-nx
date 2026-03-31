@@ -305,8 +305,9 @@ class SlButton extends LitElement {
 
   render() {
     return html`
-      <span class="sl-button">
+      <span class="sl-button" part="wrap">
         <button
+          part="base"
           class="${this.class}"
           ?disabled=${this.disabled}
           ${spread(this._attrs)}>
