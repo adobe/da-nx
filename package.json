@@ -5,6 +5,7 @@
   "description": "Next generation unified shell for Edge Delivery applications.",
   "type": "module",
   "scripts": {
+    "nx": "NX1_BELOW_HERE",
     "lint:js": "eslint .",
     "lint:css": "stylelint \"nx/**/*.css\"",
     "lint:css:fix": "stylelint --fix \"nx/**/*.css\"",
@@ -19,7 +20,21 @@
     "build:codemirror": "esbuild --format=esm --minify ./nx/deps/codemirror/src/index.js --bundle --outfile=./nx/deps/codemirror/dist/index.js",
     "build:da-lit": "esbuild --format=esm --minify ./deps/lit/src/index.js --bundle --outfile=./deps/lit/dist/index.js",
     "build:da-form": "esbuild --format=esm --minify ./nx/deps/da-form/src/index.js --bundle --outfile=./nx/deps/da-form/dist/index.js",
-    "prepare": "husky"
+    "build:ml-lit": "esbuild --format=esm --minify ./nx/deps/ml-lit/src/index.js --bundle --outfile=./nx/deps/ml-lit/dist/index.js",
+    "build:virtualizer": "esbuild --format=esm --minify ./nx/deps/virtualizer/src/index.js --bundle --outfile=./nx/deps/virtualizer/dist/index.js",
+    "prepare": "husky",
+
+    "nx2": "NX2_BELOW_HERE",
+    "nx2:lint:css": "stylelint \"nx2/**/*.css\"",
+    "nx2:lint:css:fix": "npm run nx2:lint:css -- --fix",
+    "nx2:lint": "npm run lint:js && npm run nx2:lint:css",
+    "nx2:test": "wtr --config ./nx2/test/wtr.config.mjs \"./nx2/test/**/*.test.(js|html)\" --node-resolve --port=2000 --coverage --concurrent-browsers 4",
+    "nx2:test:debug": "wtr --config ./nx2/test/wtr.config.mjs \"./nx2/test/**/*.test.(js|html)\" --node-resolve --port=2000 --debug --watch",
+    "nx2:test:watch": "npm test -- --watch",
+    "nx2:test:file": "wtr --config ./nx2/test/wtr.config.mjs --node-resolve --port=2000 --coverage",
+    "nx2:test:file:watch": "wtr --config ./nx2/test/wtr.config.mjs --node-resolve --port=2000 --coverage --watch",
+    "nx2:build:lit": "esbuild --format=esm --minify ./nx2/deps/lit/src/index.js --bundle --outfile=./nx2/deps/lit/dist/index.js",
+    "nx2:build:spectrum": "node nx2/deps/spectrum/build.js"
   },
   "repository": {
     "type": "git",
@@ -28,16 +43,16 @@
   "author": "Adobe",
   "license": "Apache License 2.0",
   "bugs": {
-    "url": "https://github.com/adobe/aem-nx/issues"
+    "url": "https://github.com/adobe/da-nx/issues"
   },
-  "homepage": "https://github.com/adobe/aem-nx#readme",
+  "homepage": "https://github.com/adobe/da-nx#readme",
   "devDependencies": {
     "@adobe/eslint-config-helix": "^3.0.17",
+    "@adobe/spectrum-tokens": "^14.2.2",
     "@esm-bundle/chai": "4.3.4-fix.0",
     "@web/dev-server-import-maps": "^0.2.0",
     "@web/test-runner": "^0.18.0",
     "@web/test-runner-commands": "0.9.0",
-    "airbnb-eslint9": "^1.0.3",
     "chai": "4.4.1",
     "eslint": "9.39.2",
     "globals": "^17.3.0",
@@ -53,6 +68,7 @@
     "@cfworker/json-schema": "^4.1.1",
     "@codemirror/lang-json": "^6.0.2",
     "@fsegurai/codemirror-theme-github-light": "^6.2.2",
+    "@lit-labs/virtualizer": "^2.0.16",
     "codemirror": "^6.0.2",
     "esbuild": ">=0.25.0",
     "hast-util-from-html-isomorphic": "^2.0.0",

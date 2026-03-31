@@ -31,7 +31,16 @@ class FormEditor extends LitElement {
     details: { attribute: false },
     formModel: { state: true },
     _schemas: { state: true },
+    _activeNavPointer: { state: true },
+    _scrollEditorIntoView: { state: true },
+    _scrollNavItemIntoView: { state: true },
+    _pendingSchemaId: { state: true },
   };
+
+  constructor() {
+    super();
+    this._pendingSchemaId = '';
+  }
 
   connectedCallback() {
     super.connectedCallback();
@@ -48,15 +57,26 @@ class FormEditor extends LitElement {
 
     if (!result.html) {
       this.formModel = null;
+      this._pendingSchemaId = '';
+      this._activeNavPointer = undefined;
+      this._scrollEditorIntoView = undefined;
+      this._scrollNavItemIntoView = undefined;
       return;
     }
 
     const path = this.details.fullpath;
+    this._activeNavPointer = undefined;
+    this._scrollEditorIntoView = undefined;
+    this._scrollNavItemIntoView = undefined;
     this.formModel = new FormModel({ path, html: result.html, schemas });
   }
 
-  async handleSelectSchema(e) {
-    const schemaId = e.target.value;
+  _onPendingSchemaChange(e) {
+    const v = e.currentTarget?.value ?? '';
+    this._pendingSchemaId = v;
+  }
+
+  _applySelectedSchema(schemaId) {
     if (!schemaId) return;
 
     const title = this.details.name;
@@ -66,7 +86,30 @@ class FormEditor extends LitElement {
     const emptyForm = { data, metadata };
 
     const path = this.details.fullpath;
+    this._activeNavPointer = undefined;
+    this._scrollEditorIntoView = undefined;
+    this._scrollNavItemIntoView = undefined;
     this.formModel = new FormModel({ path, json: emptyForm, schemas: this._schemas });
+  }
+
+  _confirmSchemaStart() {
+    this._applySelectedSchema(this._pendingSchemaId);
+  }
+
+  _handleNavPointerSelectFromSidebar(e) {
+    const { pointer } = e.detail ?? {};
+    if (!pointer || pointer === this._activeNavPointer) return;
+    this._activeNavPointer = pointer;
+    this._scrollEditorIntoView = true;
+    this._scrollNavItemIntoView = false;
+  }
+
+  _handleNavPointerSelectFromEditor(e) {
+    const { pointer } = e.detail ?? {};
+    if (!pointer || pointer === this._activeNavPointer) return;
+    this._activeNavPointer = pointer;
+    this._scrollEditorIntoView = false;
+    this._scrollNavItemIntoView = true;
   }
 
   async handleUpdate({ detail }) {
@@ -130,13 +173,31 @@ class FormEditor extends LitElement {
 
   renderSchemaSelector() {
     return html`
-      <p class="da-form-title">Please select a schema to get started</p>
-      <sl-select @change=${this.handleSelectSchema}>
-        <option value="">Select schema</option>
-        ${Object.entries(this._schemas).map(([key, value]) => html`
-          <option value="${key}">${value.title}</option>
-        `)}
-      </sl-select>`;
+      <div class="da-form-schema-shell">
+        <div class="da-form-schema-card">
+          <h2 class="da-form-schema-heading">Choose a schema</h2>
+          <div class="da-form-schema-form">
+            <sl-select
+              hoist
+              class="da-form-schema-select"
+              label="Schema"
+              placeholder="Select a schema"
+              .value=${this._pendingSchemaId}
+              @change=${this._onPendingSchemaChange}
+            >
+              <option value="">Select a schema</option>
+              ${Object.entries(this._schemas).map(([key, value]) => html`
+                <option value="${key}">${value.title}</option>
+              `)}
+            </sl-select>
+            <sl-button
+              class="da-form-schema-start"
+              ?disabled=${!this._pendingSchemaId}
+              @click=${this._confirmSchemaStart}
+            >Start</sl-button>
+          </div>
+        </div>
+      </div>`;
   }
 
   renderFormEditor() {
@@ -144,8 +205,20 @@ class FormEditor extends LitElement {
       if (this._schemas) return this.renderSchemaSelector();
 
       return html`
-        <p class="da-form-title">Please create a schema</p>
-        <a href="https://main--da-live--adobe.aem.live/apps/schema?nx=schema#/${this.details.owner}/${this.details.repo}">Schema Editor</a>
+        <div class="da-form-schema-shell">
+          <div class="da-form-schema-card">
+            <p class="da-form-title">Please create a schema</p>
+            <p class="da-form-schema-hint">
+              This project has no schemas yet. Open the schema editor to add one, then return here.
+            </p>
+            <div class="da-form-schema-field da-form-schema-field-link">
+              <a
+                class="da-form-schema-cta"
+                href="https://main--da-live--adobe.aem.live/apps/schema?nx=schema#/${this.details.owner}/${this.details.repo}"
+              >Open schema editor</a>
+            </div>
+          </div>
+        </div>
       `;
     }
 
@@ -157,17 +230,29 @@ class FormEditor extends LitElement {
           @insert-item=${this.handleInsertItem}
           @remove-item=${this.handleRemoveItem}
           @move-array-item=${this.handleMoveArrayItem}
+          @nav-pointer-select=${this._handleNavPointerSelectFromEditor}
           .formModel=${this.formModel}
+          .activeNavPointer=${this._activeNavPointer}
+          .scrollEditorIntoView=${this._scrollEditorIntoView}
         ></da-form-editor>
         <da-form-preview .formModel=${this.formModel}></da-form-preview>
       </div>`;
   }
 
   render() {
+    const hasForm = this.formModel != null;
+    const wrapperClass = `da-form-wrapper${hasForm ? '' : ' da-form-wrapper-centered'}`;
     return html`
-      <div class="da-form-wrapper">
+      <div class=${wrapperClass}>
         ${this.formModel !== undefined ? this.renderFormEditor() : nothing}
-        <da-form-sidebar .formModel=${this.formModel}></da-form-sidebar>
+        ${hasForm
+        ? html`<da-form-sidebar
+            .formModel=${this.formModel}
+            .activeNavPointer=${this._activeNavPointer}
+            .scrollNavItemIntoView=${this._scrollNavItemIntoView}
+            @nav-pointer-select=${this._handleNavPointerSelectFromSidebar}
+          ></da-form-sidebar>`
+        : nothing}
       </div>
     `;
   }
