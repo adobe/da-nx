@@ -1,11 +1,11 @@
-# da-chat
+# nx-chat
 
 A self-contained, reusable chat block. Designed to be mounted by Browse and Edit views without either knowing about the other.
 
 ## How to mount
 
 ```js
-const chat = document.createElement("da-chat");
+const chat = document.createElement("nx-chat");
 container.append(chat);
 
 // Inject view-specific context and callbacks via properties
@@ -34,12 +34,12 @@ The component manages its own controller internally. No external wiring needed.
 
 | Event            | Detail                | Description              |
 | ---------------- | --------------------- | ------------------------ |
-| `da-chat-submit` | `{ message: string }` | User submitted a message |
+| `nx-chat-submit` | `{ message: string }` | User submitted a message |
 
 ## Boundaries
 
 - **UI (`chat.js`)** — rendering only. No API calls, no auth, no view-specific logic.
 - **Controller (`chat-controller.js`)** — agent communication, message state, persistence. No DOM access.
-- **Host view** — mounts `<da-chat>`, injects context and view-specific callbacks as properties. Never reaches into chat internals.
+- **Host view** — mounts `<nx-chat>`, injects context and view-specific callbacks as properties. Never reaches into chat internals.
 
 View-specific callbacks (e.g. document revert for Edit) are injected as properties on the controller — not as component properties. The view owns what to inject; chat owns how to use it.

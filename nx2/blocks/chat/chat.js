@@ -5,7 +5,7 @@ import ChatController from './chat-controller.js';
 
 const styles = await loadStyle(import.meta.url);
 
-class DaChat extends LitElement {
+class NxChat extends LitElement {
   static properties = {
     messages: { type: Array },
     thinking: { type: Boolean },
@@ -89,9 +89,9 @@ class DaChat extends LitElement {
   }
 }
 
-customElements.define('da-chat', DaChat);
+customElements.define('nx-chat', NxChat);
 
 export default async function init(el) {
-  const chat = document.createElement('da-chat');
+  const chat = document.createElement('nx-chat');
   el.replaceWith(chat);
 }
