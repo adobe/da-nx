@@ -82,7 +82,8 @@ class NxChat extends LitElement {
         <div class="chat-actions">
           <div class="chat-actions-start"></div>
           <button class="chat-send" @click=${this._submit} aria-label=${this.thinking ? 'Stop' : 'Send'}>
-            <span class="icon ${this.thinking ? 'icon-stop' : 'icon-send'}"></span>
+            <span class="icon icon-send" ?hidden=${this.thinking}></span>
+            <span class="icon icon-stop" ?hidden=${!this.thinking}></span>
           </button>
         </div>
       </div>

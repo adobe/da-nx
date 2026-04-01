@@ -3,6 +3,8 @@
   flex-direction: column;
   background-color: var(--s2-gray-25);
   font-family: var(--s2-font-family);
+
+  [hidden] { display: none; }
 }
 
 .chat-messages-container {
