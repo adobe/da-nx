@@ -30,6 +30,7 @@ const ICONS = [
   `${nx}/public/icons/S2_Icon_ArrowDown_20_N.svg`,
   `${nx}/public/icons/S2_Icon_ArrowUp_20_N.svg`,
   `${nx}/public/icons/S2_Icon_Link_20_N.svg`,
+  `${nx}/public/icons/S2_Icon_Exposure_20_N.svg`,
 ];
 
 class NxSnapshot extends LitElement {
@@ -44,18 +45,21 @@ class NxSnapshot extends LitElement {
     _message: { state: true },
     _action: { state: true },
     _launchesCollapsed: { state: true },
+    _launchEnabled: { state: true },
     _linkCopied: { state: true },
     _expandedUrl: { state: true },
     _discoveredFragments: { state: true },
     _findingFragments: { state: true },
     _fragmentDetails: { state: true },
     _copyModeDetails: { state: true },
+    _launchDetails: { state: true },
     _snapshotExists: { state: true },
   };
 
   constructor() {
     super();
     this._launchesCollapsed = true;
+    this._launchEnabled = false;
     this._snapshotExists = {};
   }
 
@@ -66,22 +70,24 @@ class NxSnapshot extends LitElement {
   }
 
   update(props) {
-    if (props.has('basics') && this.basics.name && !this._manifest) {
-      this.loadManifest();
-    }
     if (props.has('startOpen') && this.startOpen && this.basics) {
       this.basics.open = true;
+      if (!this._manifest) this.loadManifest();
     }
     super.update();
   }
 
   async loadManifest() {
     this._manifest = await fetchManifest(this.basics.name);
+    this._launchEnabled = this._manifest?.metadata?.launchEnabled === true;
+    this.requestUpdate();
   }
 
   handleExpand() {
     // Do not allow closing if there is no name
     if (this.basics.open && !this.basics.name) return;
+
+    if (!this.basics.open && !this._manifest) this.loadManifest();
 
     this.basics.open = !this.basics.open;
     this.requestUpdate();
@@ -93,6 +99,27 @@ class NxSnapshot extends LitElement {
 
   handleLaunchesToggle() {
     this._launchesCollapsed = !this._launchesCollapsed;
+  }
+
+  handleEnableLaunch() {
+    this._launchDetails = {
+      heading: 'Enable Launch',
+      message: html`Launch allows you to stage and edit content in <code>.snapshots</code> directories, so your snapshot can evolve over time rather than being a single moment-in-time capture.<br/><br/>Once enabled, you can <b>sync</b> content down for editing and <b>promote</b> changes back to the main tree.`,
+      width: '500px',
+      open: true,
+      actions: [
+        { label: 'Cancel', value: 'cancel', variant: 'primary' },
+        { label: 'OK', value: 'enable' },
+      ],
+    };
+  }
+
+  handleLaunchDialog(e) {
+    if (e.detail === 'enable') {
+      this._launchEnabled = true;
+      this.handleSave();
+    }
+    this._launchDetails = undefined;
   }
 
   async handleEditUrls() {
@@ -194,7 +221,12 @@ class NxSnapshot extends LitElement {
 
   async handleDialog(e) {
     if (e.detail === 'delete') {
-      const result = await deleteSnapshot(this.basics.name);
+      this._action = true;
+      const result = await deleteSnapshot(
+        this.basics.name,
+        this._manifest.resources.map((res) => res.path),
+      );
+      this._action = undefined;
       if (result.error) {
         this._message = { heading: 'Note', message: result.error, open: true };
         return;
@@ -213,7 +245,7 @@ class NxSnapshot extends LitElement {
   handleDelete() {
     this._message = {
       heading: 'Delete Snapshot',
-      message: html`This will delete <b>${this.basics.name}</b>.<br/><br/>Are you sure?`,
+      message: html`This will delete <b>${this.basics.name}</b>.<br/>Any files in the <b>.snapshots</b> directory will also be deleted.<br/><br/>Are you sure?`,
       open: true,
       actions: [
         { label: 'Cancel', value: 'cancel', variant: 'primary' },
@@ -307,15 +339,7 @@ class NxSnapshot extends LitElement {
     };
   }
 
-  async handleCopyModeDialog(e) {
-    const mode = e.detail;
-    const pending = this._pendingCopy;
-    this._copyModeDetails = undefined;
-    this._pendingCopy = undefined;
-
-    if (!pending || mode === 'cancel' || !mode) return;
-
-    const { resources, direction } = pending;
+  async executeCopy(resources, direction, mode) {
     this._action = direction === 'fork'
       ? 'Syncing content into snapshot.'
       : 'Promoting content from snapshot.';
@@ -328,11 +352,25 @@ class NxSnapshot extends LitElement {
     this._action = undefined;
   }
 
+  async handleCopyModeDialog(e) {
+    const mode = e.detail;
+    const pending = this._pendingCopy;
+    this._copyModeDetails = undefined;
+    this._pendingCopy = undefined;
+
+    if (!pending || mode === 'cancel' || !mode) return;
+    await this.executeCopy(pending.resources, pending.direction, mode);
+  }
+
   handleCopyUrls(direction) {
     this.promptCopyMode(this._manifest.resources, direction);
   }
 
   handleCopySingleUrl(res, direction) {
+    if (direction === 'fork' && !this._snapshotExists[res.path]) {
+      this.executeCopy([res], direction, 'overwrite');
+      return;
+    }
     this.promptCopyMode([res], direction);
   }
 
@@ -445,6 +483,11 @@ class NxSnapshot extends LitElement {
       description: this.getValue('[name="description"]'),
       metadata: { reviewPassword: this.getValue('[name="password"]') },
     };
+
+    if (this._launchEnabled) {
+      manifest.metadata.launchEnabled = true;
+    }
+
     // Add scheduled publish to metadata if it exists
     const scheduledPublish = this.getValue('[name="scheduler"]');
     if (scheduledPublish) {
@@ -484,15 +527,15 @@ class NxSnapshot extends LitElement {
         ${snapshotExists ? html`
           <a href="${res.daSnapshotEdit}" target="_blank">Edit Snapshot in DA</a>
         ` : nothing}
-        ${this.hasLaunchPermission ? html`
+        ${this.hasLaunchPermission && this._launchEnabled ? html`
           <button @click=${() => this.handleCopySingleUrl(res, 'fork')}>
             <svg class="icon"><use href="#S2_Icon_ArrowDown_20_N"/></svg>
-            Sync Down
+            Sync to .snapshots
           </button>
           ${snapshotExists ? html`
             <button @click=${() => this.handleCopySingleUrl(res, 'promote')}>
               <svg class="icon"><use href="#S2_Icon_ArrowUp_20_N"/></svg>
-              Promote Up
+              Promote to main
             </button>
           ` : nothing}
         ` : nothing}
@@ -503,7 +546,7 @@ class NxSnapshot extends LitElement {
   renderUrls() {
     return html`
       <ul class="nx-snapshot-urls">
-        ${this._manifest.resources.map((res) => html`
+        ${(this._manifest?.resources || []).map((res) => html`
           <li class="${this._expandedUrl === res.path ? 'is-expanded' : ''}">
             <div class="nx-url-row" @click=${() => this.handleToggleAccordion(res.path)}>
               <span>${res.path}</span>
@@ -540,7 +583,7 @@ class NxSnapshot extends LitElement {
   }
 
   renderDetails() {
-    const showEdit = !this._manifest?.resources || this._editUrls;
+    const showEdit = (!this.basics.name && !this._manifest?.resources) || this._editUrls;
     const count = this._manifest?.resources?.length || 0;
     const s = count === 1 ? '' : 's';
 
@@ -575,16 +618,22 @@ class NxSnapshot extends LitElement {
             <div class="nx-launch-actions">
               <p class="nx-launch-sub-heading ${this._launchesCollapsed ? '' : 'is-expanded'}" @click=${this.handleLaunchesToggle}>Launch</p>
               ${this._launchesCollapsed ? nothing : html`
-                <div class="nx-launch-action-group">
-                  <button data-tooltip="Create or sync launch content in DA" @click=${() => this.handleCopyUrls('fork')}>
-                    <svg class="icon"><use href="#S2_Icon_ArrowDown_20_N"/></svg>
-                    Sync
-                  </button>
-                  <button data-tooltip="Sync launch content back to the production tree" @click=${() => this.handleCopyUrls('promote')}>
-                    <svg class="icon"><use href="#S2_Icon_ArrowUp_20_N"/></svg>
-                    Promote
-                  </button>
-                </div>
+                ${this._launchEnabled ? html`
+                  <div class="nx-launch-action-group">
+                    <button data-tooltip="Create or sync launch content in DA" @click=${() => this.handleCopyUrls('fork')}>
+                      <svg class="icon"><use href="#S2_Icon_ArrowDown_20_N"/></svg>
+                      Sync
+                    </button>
+                    <button data-tooltip="Sync launch content back to the production tree" @click=${() => this.handleCopyUrls('promote')}>
+                      <svg class="icon"><use href="#S2_Icon_ArrowUp_20_N"/></svg>
+                      Promote
+                    </button>
+                  </div>
+                ` : html`
+                  <div class="nx-launch-action-group">
+                    <button @click=${this.handleEnableLaunch}>Enable Launch for this snapshot</button>
+                  </div>
+                `}
               `}
             </div>
           ` : nothing}
@@ -616,8 +665,13 @@ class NxSnapshot extends LitElement {
     `;
   }
 
+  get _maxNameLength() {
+    const { org, site } = this.basics;
+    return 64 - `--main--${site}--${org}`.length;
+  }
+
   renderEditName() {
-    return html`<input type="text" name="name" placeholder="Enter snapshot name" @input=${this.formatSnapshotName} />`;
+    return html`<input type="text" name="name" placeholder="Enter snapshot name" maxlength=${this._maxNameLength} @input=${this.formatSnapshotName} />`;
   }
 
   renderName() {
@@ -638,7 +692,11 @@ class NxSnapshot extends LitElement {
 
   render() {
     return html`
-      <div class="nx-snapshot-wrapper ${this.basics.open ? 'is-open' : ''} ${this._action ? 'is-saving' : ''}" data-action=${this._action}>
+      <div class="nx-snapshot-wrapper ${this.basics.open ? 'is-open' : ''} ${this._action ? 'is-saving' : ''}">
+        ${this._action ? html`<div class="nx-snapshot-overlay">
+          ${typeof this._action === 'string' ? html`<span>${this._action}</span>` : nothing}
+          <svg class="nx-snapshot-spinner" viewBox="0 0 20 20"><use href="#S2_Icon_Exposure_20_N"/></svg>
+        </div>` : nothing}
         <div class="nx-snapshot-header" @click=${this.handleExpand}>
           ${this.basics.name ? this.renderName() : this.renderEditName()}
           <button class="nx-snapshot-expand">Expand</button>
@@ -648,6 +706,7 @@ class NxSnapshot extends LitElement {
       <nx-dialog @action=${this.handleDialog} .details=${this._message}></nx-dialog>
       <nx-dialog @action=${this.handleFragmentDialog} .details=${this._fragmentDetails}></nx-dialog>
       <nx-dialog @action=${this.handleCopyModeDialog} .details=${this._copyModeDetails}></nx-dialog>
+      <nx-dialog @action=${this.handleLaunchDialog} .details=${this._launchDetails}></nx-dialog>
     `;
   }
 }

@@ -5,6 +5,7 @@ function mockManifestResponse(manifest = {}) {
   const defaults = {
     title: 'Test Snapshot',
     description: 'A test snapshot',
+    metadata: {},
     resources: [{ path: '/page1' }],
     ...manifest,
   };
@@ -279,14 +280,16 @@ describe('NxSnapshot', () => {
     it('Dispatches delete event on success', async () => {
       setupFetchMock(originalFetch, {
         'admin.hlx.page/snapshot/': (urlStr, opts) => {
-          if (opts?.method === 'DELETE') {
+          if (opts?.method === 'POST' || opts?.method === 'DELETE') {
             return new Response('{}', { status: 200, headers: new Headers({ 'x-da-actions': '' }) });
           }
           return mockManifestResponse();
         },
+        '/source/': () => new Response('', { status: 200, headers: new Headers({ 'x-da-actions': '' }) }),
       });
 
       const el = await createElement();
+      el._manifest = { resources: [{ path: '/page1' }], metadata: {} };
       let deleteEventFired = false;
       el.addEventListener('delete', () => { deleteEventFired = true; });
 
@@ -298,7 +301,7 @@ describe('NxSnapshot', () => {
     it('Sets error message on API failure', async () => {
       setupFetchMock(originalFetch, {
         'admin.hlx.page/snapshot/': (urlStr, opts) => {
-          if (opts?.method === 'DELETE') {
+          if (opts?.method === 'POST') {
             return new Response('{}', { status: 403, headers: new Headers() });
           }
           return mockManifestResponse();
@@ -306,6 +309,7 @@ describe('NxSnapshot', () => {
       });
 
       const el = await createElement();
+      el._manifest = { resources: [{ path: '/page1' }], metadata: {} };
       // Simulate confirmation from dialog
       await el.handleDialog({ detail: 'delete' });
       expect(el._message).to.not.be.undefined;
@@ -530,6 +534,7 @@ describe('NxSnapshot', () => {
   describe('handleCopyUrls', () => {
     it('Opens copy mode dialog for global sync', async () => {
       const el = await createElement();
+      el._manifest = { resources: [{ path: '/page1' }], metadata: {} };
       el.handleCopyUrls('fork');
       expect(el._copyModeDetails).to.not.be.undefined;
       expect(el._pendingCopy.resources).to.equal(el._manifest.resources);
@@ -537,12 +542,33 @@ describe('NxSnapshot', () => {
   });
 
   describe('handleCopySingleUrl', () => {
-    it('Opens copy mode dialog for single URL', async () => {
+    it('Auto-overwrites fork when snapshot does not exist', async () => {
       const el = await createElement();
-      const res = { path: '/page1' };
+      const res = { path: '/page1', aemPreview: 'https://main--site--org.aem.page/page1' };
+      el._snapshotExists = {};
+      // Stub executeCopy to avoid actual copy operations
+      let executedMode;
+      el.executeCopy = async (resources, direction, mode) => { executedMode = mode; };
+      el.handleCopySingleUrl(res, 'fork');
+      expect(el._copyModeDetails).to.be.undefined;
+      expect(executedMode).to.equal('overwrite');
+    });
+
+    it('Opens copy mode dialog for fork when snapshot exists', async () => {
+      const el = await createElement();
+      const res = { path: '/page1', aemPreview: 'https://main--site--org.aem.page/page1' };
+      el._snapshotExists = { '/page1': true };
       el.handleCopySingleUrl(res, 'fork');
       expect(el._copyModeDetails).to.not.be.undefined;
       expect(el._pendingCopy.resources).to.deep.equal([res]);
+    });
+
+    it('Opens copy mode dialog for promote', async () => {
+      const el = await createElement();
+      const res = { path: '/page1', aemPreview: 'https://main--site--org.aem.page/page1' };
+      el.handleCopySingleUrl(res, 'promote');
+      expect(el._copyModeDetails).to.not.be.undefined;
+      expect(el._pendingCopy.direction).to.equal('promote');
     });
   });
 
@@ -558,6 +584,7 @@ describe('NxSnapshot', () => {
       });
 
       const el = await createElement({ basics: { name: 'test-snapshot', org: 'org', site: 'site' } });
+      el._manifest = { resources: [{ path: '/page1' }], metadata: {} };
       await el.openFindFragments();
       expect(el._findingFragments).to.equal(false);
       expect(el._fragmentDetails).to.not.be.undefined;
@@ -671,6 +698,7 @@ describe('NxSnapshot', () => {
     it('Shows Sync Down but not Promote Up when snapshot does not exist', async () => {
       const el = await createElement({ startOpen: true });
       el.hasLaunchPermission = true;
+      el._launchEnabled = true;
       el._expandedUrl = '/page1';
       el._snapshotExists = { '/page1': false };
       el.requestUpdate();
@@ -678,12 +706,13 @@ describe('NxSnapshot', () => {
       const accordion = el.shadowRoot.querySelector('.nx-url-accordion');
       const buttons = accordion.querySelectorAll('button');
       expect(buttons.length).to.equal(1);
-      expect(buttons[0].textContent).to.include('Sync Down');
+      expect(buttons[0].textContent).to.include('Sync');
     });
 
     it('Shows both Sync Down and Promote Up when snapshot exists', async () => {
       const el = await createElement({ startOpen: true });
       el.hasLaunchPermission = true;
+      el._launchEnabled = true;
       el._expandedUrl = '/page1';
       el._snapshotExists = { '/page1': true };
       el.requestUpdate();
@@ -691,6 +720,19 @@ describe('NxSnapshot', () => {
       const accordion = el.shadowRoot.querySelector('.nx-url-accordion');
       const buttons = accordion.querySelectorAll('button');
       expect(buttons.length).to.equal(2);
+    });
+
+    it('Hides Sync/Promote when launchEnabled is false', async () => {
+      const el = await createElement({ startOpen: true });
+      el.hasLaunchPermission = true;
+      el._launchEnabled = false;
+      el._expandedUrl = '/page1';
+      el._snapshotExists = { '/page1': true };
+      el.requestUpdate();
+      await el.updateComplete;
+      const accordion = el.shadowRoot.querySelector('.nx-url-accordion');
+      const buttons = accordion.querySelectorAll('button');
+      expect(buttons.length).to.equal(0);
     });
   });
 
@@ -713,6 +755,159 @@ describe('NxSnapshot', () => {
       await el.updateComplete;
       const li = el.shadowRoot.querySelector('.nx-snapshot-urls li.is-expanded');
       expect(li).to.not.be.null;
+    });
+  });
+
+  // --- Overlay / spinner ---
+
+  describe('overlay', () => {
+    it('Shows overlay with text when _action is a string', async () => {
+      const el = await createElement({ startOpen: true });
+      el._action = 'Saving';
+      el.requestUpdate();
+      await el.updateComplete;
+      const overlay = el.shadowRoot.querySelector('.nx-snapshot-overlay');
+      expect(overlay).to.not.be.null;
+      const span = overlay.querySelector('span');
+      expect(span).to.not.be.null;
+      expect(span.textContent).to.equal('Saving');
+      const spinner = overlay.querySelector('.nx-snapshot-spinner');
+      expect(spinner).to.not.be.null;
+    });
+
+    it('Shows overlay with spinner only when _action is true', async () => {
+      const el = await createElement({ startOpen: true });
+      el._action = true;
+      el.requestUpdate();
+      await el.updateComplete;
+      const overlay = el.shadowRoot.querySelector('.nx-snapshot-overlay');
+      expect(overlay).to.not.be.null;
+      const span = overlay.querySelector('span');
+      expect(span).to.be.null;
+      const spinner = overlay.querySelector('.nx-snapshot-spinner');
+      expect(spinner).to.not.be.null;
+    });
+
+    it('Hides overlay when _action is undefined', async () => {
+      const el = await createElement({ startOpen: true });
+      el._action = undefined;
+      el.requestUpdate();
+      await el.updateComplete;
+      const overlay = el.shadowRoot.querySelector('.nx-snapshot-overlay');
+      expect(overlay).to.be.null;
+    });
+  });
+
+  // --- Max name length ---
+
+  describe('_maxNameLength', () => {
+    it('Computes max name length from org and site', async () => {
+      const el = await createElement();
+      el.basics.org = 'myorg';
+      el.basics.site = 'mysite';
+      const expected = 64 - '--main--mysite--myorg'.length;
+      expect(el._maxNameLength).to.equal(expected);
+    });
+
+    it('Accounts for longer org/site names', async () => {
+      const el = await createElement();
+      el.basics.org = 'a-very-long-org-name';
+      el.basics.site = 'a-very-long-site-name';
+      const expected = 64 - '--main--a-very-long-site-name--a-very-long-org-name'.length;
+      expect(el._maxNameLength).to.equal(expected);
+    });
+  });
+
+  // --- Enable launch ---
+
+  describe('handleEnableLaunch', () => {
+    it('Opens launch enable dialog', async () => {
+      const el = await createElement();
+      el.handleEnableLaunch();
+      expect(el._launchDetails).to.not.be.undefined;
+      expect(el._launchDetails.heading).to.equal('Enable Launch');
+      expect(el._launchDetails.open).to.equal(true);
+      expect(el._launchDetails.actions).to.have.length(2);
+    });
+  });
+
+  describe('handleLaunchDialog', () => {
+    it('Enables launch on OK', async () => {
+      const el = await createElement();
+      el._manifest = { resources: [{ path: '/page1' }], metadata: {} };
+      // Stub handleSave to avoid actual save
+      el.handleSave = async () => {};
+      el.handleLaunchDialog({ detail: 'enable' });
+      expect(el._launchEnabled).to.equal(true);
+      expect(el._launchDetails).to.be.undefined;
+    });
+
+    it('Does not enable launch on cancel', async () => {
+      const el = await createElement();
+      el._launchEnabled = false;
+      el.handleLaunchDialog({ detail: 'cancel' });
+      expect(el._launchEnabled).to.equal(false);
+      expect(el._launchDetails).to.be.undefined;
+    });
+  });
+
+  describe('launch section rendering', () => {
+    it('Shows enable button when launch is not enabled', async () => {
+      const el = await createElement({ startOpen: true });
+      el.hasLaunchPermission = true;
+      el._launchEnabled = false;
+      el._launchesCollapsed = false;
+      el.requestUpdate();
+      await el.updateComplete;
+      const group = el.shadowRoot.querySelector('.nx-launch-action-group');
+      expect(group).to.not.be.null;
+      const buttons = group.querySelectorAll('button');
+      expect(buttons.length).to.equal(1);
+      expect(buttons[0].textContent).to.include('Enable Launch');
+    });
+
+    it('Shows sync/promote when launch is enabled', async () => {
+      const el = await createElement({ startOpen: true });
+      el.hasLaunchPermission = true;
+      el._launchEnabled = true;
+      el._launchesCollapsed = false;
+      el.requestUpdate();
+      await el.updateComplete;
+      const group = el.shadowRoot.querySelector('.nx-launch-action-group');
+      const buttons = group.querySelectorAll('button');
+      expect(buttons.length).to.equal(2);
+    });
+  });
+
+  // --- 202 async job polling ---
+
+  describe('updatePaths - 202 polling', () => {
+    it('Polls job URL until state is stopped', async () => {
+      let pollCount = 0;
+      setupFetchMock(originalFetch, {
+        'admin.hlx.page/snapshot/': (urlStr, opts) => {
+          if (opts?.method === 'POST') {
+            return new Response(JSON.stringify({
+              links: { self: 'https://admin.hlx.page/job/org/site/main/snapshot/job-123' },
+            }), { status: 202, headers: new Headers({ 'x-da-actions': '' }) });
+          }
+          return mockManifestResponse();
+        },
+        'admin.hlx.page/job/': () => {
+          pollCount += 1;
+          const state = pollCount >= 2 ? 'stopped' : 'running';
+          return new Response(JSON.stringify({ state }), {
+            status: 200,
+            headers: new Headers({ 'x-da-actions': '' }),
+          });
+        },
+      });
+
+      const { updatePaths: updatePathsFn } = await import('../../nx/blocks/snapshot-admin/utils/utils.js');
+      const { setOrgSite } = await import('../../nx/blocks/snapshot-admin/utils/utils.js');
+      setOrgSite('org', 'site');
+      await updatePathsFn('test-snap', [], ['https://example.com/new-page']);
+      expect(pollCount).to.be.greaterThanOrEqual(2);
     });
   });
 });
