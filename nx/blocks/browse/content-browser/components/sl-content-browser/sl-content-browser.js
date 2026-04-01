@@ -59,7 +59,7 @@ function crawlItemRowKey(entry, currentPathKey) {
 
 /** Single-picker model for kind + format (toolbar). */
 const COMBINED_FILTER_OPTIONS = [
-  { value: 'all', typeFilter: 'all', formatFilter: 'all', label: 'All', icon: 'all' },
+  { value: 'all', typeFilter: 'all', formatFilter: 'all', label: 'All' },
   { value: 'folder', typeFilter: 'folder', formatFilter: 'all', label: 'Folders', icon: 'folder' },
   {
     value: 'file-document',
@@ -84,8 +84,9 @@ const COMBINED_FILTER_OPTIONS = [
   },
 ];
 
-/** @param {'all' | 'folder' | 'document' | 'sheet' | 'media'} iconKind */
+/** @param {'folder' | 'document' | 'sheet' | 'media' | undefined} iconKind */
 function combinedFilterMenuItemIcon(iconKind) {
+  if (!iconKind) return html``;
   switch (iconKind) {
     case 'folder':
       return html`<sp-icon-folder slot="icon" size="s"></sp-icon-folder>`;
@@ -96,7 +97,7 @@ function combinedFilterMenuItemIcon(iconKind) {
     case 'media':
       return html`<sp-icon-image slot="icon" size="s"></sp-icon-image>`;
     default:
-      return html`<sp-icon-table slot="icon" size="s"></sp-icon-table>`;
+      return html``;
   }
 }
 
@@ -693,12 +694,12 @@ class SlContentBrowser extends LitElement {
 
   _renderKindFilterPicker() {
     return html`
-      <sp-field-label for="sl-cb-combined-filter" side-aligned="start">Kind</sp-field-label>
       <sp-picker
         id="sl-cb-combined-filter"
         class="sl-content-browser-kind-filter-picker"
         quiet
         size="m"
+        aria-label="Filter content type"
         .value="${this._combinedFilterValue}"
         @change="${this._onCombinedKindFilterChange}"
       >

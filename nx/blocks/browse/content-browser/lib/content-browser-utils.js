@@ -111,7 +111,6 @@ const DOCUMENT_EXTS = new Set([
   'htm',
   'md',
   'markdown',
-  'json',
   'xml',
   'txt',
   'text',
@@ -123,8 +122,11 @@ const DOCUMENT_EXTS = new Set([
   'pptx',
 ]);
 
-/** @type {Set<string>} */
-const SHEET_EXTS = new Set(['xls', 'xlsx', 'csv']);
+/**
+ * Sheet-like list extensions. `json` is DA sheet source (see sl-browse-new, sheet editor).
+ * @type {Set<string>}
+ */
+const SHEET_EXTS = new Set(['json', 'xls', 'xlsx', 'csv']);
 
 /** @type {Set<string>} */
 const MEDIA_EXTS = new Set([

@@ -148,10 +148,6 @@
   overflow: visible;
 }
 
-.sl-content-browser-kind-filter-slot sp-field-label {
-  flex-shrink: 0;
-}
-
 .sl-content-browser-kind-filter-picker {
   flex-shrink: 0;
   min-width: 0;
