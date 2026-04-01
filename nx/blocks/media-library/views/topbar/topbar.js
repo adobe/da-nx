@@ -33,6 +33,7 @@ class NxMediaTopBar extends LitElement {
     mediaData: { attribute: false },
     processedData: { attribute: false },
     isIndexing: { type: Boolean },
+    isBackgroundRefreshInProgress: { type: Boolean },
     isProgressiveLoading: { type: Boolean },
     org: { attribute: false },
     repo: { attribute: false },
@@ -57,6 +58,7 @@ class NxMediaTopBar extends LitElement {
     this.mediaData = [];
     this.processedData = null;
     this.isIndexing = false;
+    this.isBackgroundRefreshInProgress = false;
     this.isProgressiveLoading = false;
     this.org = null;
     this.repo = null;
@@ -283,7 +285,7 @@ class NxMediaTopBar extends LitElement {
 
         ${this.resultSummary ? html`
           <div class="result-count" aria-live="polite" aria-atomic="true">
-            ${this.isIndexing || this.isProgressiveLoading ? html`
+            ${this.isIndexing || this.isBackgroundRefreshInProgress || this.isProgressiveLoading ? html`
               <span class="result-count-spinner" aria-hidden="true"></span>
             ` : ''}
             ${this.resultSummary}
