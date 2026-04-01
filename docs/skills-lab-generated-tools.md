@@ -343,6 +343,151 @@ Both files are otherwise architecturally sound; only the storage layer needs rep
 - [x] Security and operational risks documented
 - [x] Consistent vocabulary: `generated tools`, `sandboxed execution`, `dynamic tool synthesis`, `untrusted generated code`
 
+## Motivating scenarios — Phase 1 client-side tools
+
+The following scenarios illustrate how the agent identifies a recurring user pattern, proposes a generated tool, and runs it entirely in the browser. Each replaces repeated, expensive, non-deterministic LLM round-trips with a one-time approval and instant local execution.
+
+### Scenario 1: Readability scorer (`client-wasm`)
+
+**Pattern the agent detects:**
+A content author asks variations of "is this page too complex?", "can a non-technical reader understand this?", or "simplify this for me" three or more times across sessions. Each time the agent reads the page with `da_get_source`, sends the full HTML into the LLM context, and the model subjectively estimates the reading level. This is slow, costly, and inconsistent.
+
+**What the agent proposes:**
+A `readability-score` tool (capability: `client-wasm`) that computes a Flesch-Kincaid score on the page text.
+
+**Why no existing tool covers it:**
+Built-in tools can read and write content, but there is no structural text-analysis tool. The LLM can approximate readability, but the answer varies between calls and burns a full Bedrock round-trip each time.
+
+**Implementation (~40 lines, runs in a Web Worker):**
+
+```js
+export function execute({ html }) {
+  const text = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  const sentences = text.split(/[.!?]+/).filter(Boolean);
+  const words = text.split(/\s+/);
+  const syllables = words.reduce((n, w) => n + countSyllables(w), 0);
+
+  const score = 206.835
+    - 1.015 * (words.length / sentences.length)
+    - 84.6 * (syllables / words.length);
+
+  const level = score >= 80 ? 'Easy'
+    : score >= 60 ? 'Standard'
+    : score >= 40 ? 'Difficult'
+    : 'Very difficult';
+
+  return { score: Math.round(score), level, words: words.length, sentences: sentences.length };
+}
+
+function countSyllables(word) {
+  word = word.toLowerCase().replace(/(?:[^laeiouy]es|ed|[^laeiouy]e)$/, '');
+  const m = word.match(/[aeiouy]{1,2}/g);
+  return m ? m.length : 1;
+}
+```
+
+**User experience after approval:**
+The author types `/gen__readability-score` in chat. The agent passes the current page HTML. The tool returns `{ score: 62, level: "Standard", words: 847, sentences: 41 }` instantly — no LLM call, no network, deterministic.
+
+---
+
+### Scenario 2: Heading hierarchy validator (`client-wasm`)
+
+**Pattern the agent detects:**
+An author managing a multi-page site asks "are my headings correct?", "does this page have proper heading order?", or "is there an h1?" repeatedly. Each time the agent reads the page source, scans the HTML in-context, and sometimes misses issues — the LLM is unreliable at counting nesting levels and tends to hallucinate "looks good" when there is an `h2` → `h4` skip.
+
+**What the agent proposes:**
+A `validate-headings` tool (capability: `client-wasm`) that parses heading tags and reports structural issues.
+
+**Why no existing tool covers it:**
+Built-in tools can read and write content but have no structural validator. The LLM makes counting errors on deeply nested heading hierarchies.
+
+**Implementation (~30 lines, runs in a Web Worker):**
+
+```js
+export function execute({ html }) {
+  const headingRe = /<h([1-6])[^>]*>(.*?)<\/h\1>/gi;
+  const headings = [];
+  let match;
+  while ((match = headingRe.exec(html))) {
+    headings.push({ level: Number(match[1]), text: match[2].replace(/<[^>]+>/g, '').trim() });
+  }
+
+  const issues = [];
+  if (!headings.length) return { valid: false, issues: ['No headings found'] };
+  if (headings[0].level !== 1) issues.push(`First heading is h${headings[0].level}, expected h1`);
+  if (headings.filter((h) => h.level === 1).length > 1) issues.push('Multiple h1 tags found');
+
+  for (let i = 1; i < headings.length; i++) {
+    const jump = headings[i].level - headings[i - 1].level;
+    if (jump > 1) {
+      issues.push(`h${headings[i - 1].level} → h${headings[i].level} skip at "${headings[i].text}"`);
+    }
+  }
+
+  return { valid: issues.length === 0, headings: headings.length, issues };
+}
+```
+
+**User experience after approval:**
+Instant, deterministic report: `{ valid: false, issues: ["h2 → h4 skip at 'Pricing Details'"] }`. The agent can then offer to fix the heading levels in the page.
+
+---
+
+### Scenario 3: Alt text suggester (`client-ai`)
+
+**Pattern the agent detects:**
+An accessibility-conscious author keeps selecting images and asking "suggest alt text for this", "what should the alt be?", or "describe this image for screen readers". Each request burns a full Bedrock LLM call with the entire page context, when only the image filename and surrounding text are relevant.
+
+**What the agent proposes:**
+A `suggest-alt-text` tool (capability: `client-ai`) that uses Chrome's Built-in AI Prompt API to generate alt text on-device.
+
+**Why no existing tool covers it:**
+Built-in tools can update content but cannot generate alt text. Today each suggestion costs a full server round-trip. Chrome's on-device model handles this locally with zero cost and near-instant latency.
+
+**Implementation (~25 lines, uses Chrome Built-in AI Prompt API):**
+
+```js
+export async function execute({ imageContext, surroundingText }) {
+  if (!('ai' in self) || !ai.languageModel) {
+    return { error: 'Chrome Built-in AI not available in this browser' };
+  }
+
+  const session = await ai.languageModel.create({
+    systemPrompt: 'You write concise, descriptive alt text for images on web pages. '
+      + 'Output ONLY the alt text, no quotes, no explanation. Max 125 characters.',
+  });
+
+  const prompt = surroundingText
+    ? `Image filename/URL: ${imageContext}\nSurrounding page text: ${surroundingText}\n\nAlt text:`
+    : `Image filename/URL: ${imageContext}\n\nAlt text:`;
+
+  const altText = await session.prompt(prompt);
+  session.destroy();
+
+  return { altText: altText.trim() };
+}
+```
+
+**User experience after approval:**
+The author selects an image, types `/gen__suggest-alt-text`, and gets a suggested alt text in under a second — generated on-device, content never leaves the browser, works offline. Falls back gracefully with an explanatory message on non-Chrome browsers.
+
+---
+
+### Why these scenarios matter
+
+Each scenario replaces **repeated, expensive, non-deterministic LLM round-trips** with **a one-time approval and instant local execution**:
+
+| Scenario | Today (without generated tools) | With generated tools |
+|----------|------|------|
+| Readability | Full Bedrock call, subjective answer, ~3s | Local JS, deterministic score, <50ms |
+| Heading validation | LLM scans HTML, misses edge cases | Regex parser, 100% accurate, <10ms |
+| Alt text suggestion | Full Bedrock call per image | On-device Chrome AI, <1s, zero cost |
+
+No new infrastructure is needed for any of these — they all run in the browser.
+
+---
+
 ## Definition of Done
 
 - [ ] Architecture proposal reviewed by platform, agent, and security stakeholders
