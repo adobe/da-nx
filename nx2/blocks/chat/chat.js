@@ -66,11 +66,12 @@ class NxChat extends LitElement {
         ${this.thinking ? html`
           <div class="chat-thinking">
             <span></span><span></span><span></span>
-            <span class="chat-thinking-label">Gathering insights...</span>
+            <span class="chat-thinking-label">Thinking...</span>
           </div>` : nothing}
       </div>
       <div class="chat-footer">
         <textarea
+          name="chat-input"
           class="chat-input"
           placeholder="Ask something..."
           .value=${this._input ?? ''}
@@ -80,8 +81,8 @@ class NxChat extends LitElement {
         ></textarea>
         <div class="chat-actions">
           <div class="chat-actions-start"></div>
-          <button class="chat-send" ?disabled=${this.thinking} @click=${this._submit} aria-label="Send">
-            <span class="icon icon-send"></span>
+          <button class="chat-send" @click=${this._submit} aria-label=${this.thinking ? 'Stop' : 'Send'}>
+            <span class="icon ${this.thinking ? 'icon-stop' : 'icon-send'}"></span>
           </button>
         </div>
       </div>
