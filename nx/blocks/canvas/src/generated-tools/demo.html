@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DA Skills Lab — Generated Tools PoC</title>
+  <script type="importmap">
+    { "imports": { "lit": "/nx/deps/lit/dist/index.js" } }
+  </script>
+  <link rel="stylesheet" href="/nx/styles/styles.css">
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: light-dark(#f5f5f5, #111);
+      font-family: adobe-clean, sans-serif;
+      color-scheme: light dark;
+    }
+
+    .demo-shell {
+      width: 100%;
+      max-width: 720px;
+      padding: 40px 24px 80px;
+      box-sizing: border-box;
+    }
+
+    .demo-header {
+      margin-bottom: 32px;
+    }
+
+    .demo-header h1 {
+      font-size: 22px;
+      font-weight: 700;
+      margin: 0 0 6px;
+      color: light-dark(#111, #eee);
+    }
+
+    .demo-header p {
+      margin: 0;
+      font-size: 14px;
+      color: light-dark(#666, #999);
+      line-height: 1.5;
+    }
+
+    .demo-chat-stub {
+      margin-bottom: 28px;
+      padding: 16px 18px;
+      border-radius: 10px;
+      background: light-dark(#fff, #1a1a1a);
+      border: 1px solid light-dark(#e0e0e0, #2a2a2a);
+      font-size: 13px;
+      line-height: 1.6;
+      color: light-dark(#333, #ccc);
+    }
+
+    .demo-chat-stub .agent-msg {
+      background: light-dark(#f0f4ff, #1a2040);
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-bottom: 8px;
+      border-left: 3px solid light-dark(#1473e6, #4d9dff);
+    }
+
+    .demo-chat-stub .agent-msg strong {
+      display: block;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: light-dark(#1473e6, #4d9dff);
+      margin-bottom: 4px;
+    }
+
+    .demo-panel-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: light-dark(#888, #666);
+      margin-bottom: 10px;
+    }
+
+    nx-generated-tools {
+      display: block;
+      border-radius: 10px;
+      overflow: hidden;
+      background: light-dark(#fff, #1a1a1a);
+      border: 1px solid light-dark(#e0e0e0, #2a2a2a);
+    }
+  </style>
+</head>
+<body>
+  <div class="demo-shell">
+
+    <div class="demo-header">
+      <h1>Skills Lab — Generated Tools</h1>
+      <p>The agent identified repetitive tasks and proposed the following tools. Review the proposals and approve them to make them available in chat.</p>
+    </div>
+
+    <div class="demo-chat-stub">
+      <div class="agent-msg">
+        <strong>Assistant</strong>
+        I noticed you've asked me to check page readability three times this week. I've drafted a tool that computes a Flesch-Kincaid readability score locally — no server call needed. I also noticed repeated heading structure questions and accessibility alt-text requests, so I've drafted two more tools. You can review and approve them in the Generated Tools tab below.
+      </div>
+    </div>
+
+    <div class="demo-panel-label">Generated Tools tab</div>
+    <nx-generated-tools id="gt-panel"></nx-generated-tools>
+
+  </div>
+
+  <script type="module">
+    import '/nx/blocks/canvas/src/generated-tools/generated-tools.js';
+
+    // ── Mock tool proposals (what the agent would write to the config sheet) ──
+
+    const MOCK_TOOLS = [
+      {
+        id: 'readability-score',
+        name: 'Readability Scorer',
+        description: 'Computes a Flesch-Kincaid readability score for a page. Returns score (0–100), reading level, word count, and sentence count. Runs entirely in the browser — no server call.',
+        status: 'draft',
+        capability: 'client-wasm',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            html: { type: 'string', description: 'Page HTML or plain text to analyse' },
+          },
+          required: ['html'],
+        },
+        implementation: { type: 'client-wasm' },
+        createdBy: 'model',
+        createdAt: new Date().toISOString(),
+        approvedBy: null,
+        approvedAt: null,
+        promotedToSkill: null,
+      },
+      {
+        id: 'validate-headings',
+        name: 'Heading Hierarchy Validator',
+        description: 'Checks heading tag order in HTML — finds missing h1, multiple h1 tags, and level skips (e.g. h2 → h4). Returns a list of issues. Runs in the browser.',
+        status: 'draft',
+        capability: 'client-wasm',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            html: { type: 'string', description: 'Page HTML to validate' },
+          },
+          required: ['html'],
+        },
+        implementation: { type: 'client-wasm' },
+        createdBy: 'model',
+        createdAt: new Date().toISOString(),
+        approvedBy: null,
+        approvedAt: null,
+        promotedToSkill: null,
+      },
+      {
+        id: 'suggest-alt-text',
+        name: 'Alt Text Suggester',
+        description: 'Generates descriptive alt text for an image using Chrome Built-in AI (on-device Prompt API). Content never leaves the device. Falls back gracefully on non-Chrome browsers.',
+        status: 'draft',
+        capability: 'client-ai',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            imageContext: { type: 'string', description: 'Image filename or URL' },
+            surroundingText: { type: 'string', description: 'Text near the image on the page' },
+          },
+          required: ['imageContext'],
+        },
+        implementation: { type: 'client-ai', promptTemplate: 'Describe this image for screen readers in 125 chars max: {{imageContext}}. Context: {{surroundingText}}' },
+        createdBy: 'model',
+        createdAt: new Date().toISOString(),
+        approvedBy: null,
+        approvedAt: null,
+        promotedToSkill: null,
+      },
+    ];
+
+    // ── Executor implementations (run in the browser) ──────────────────────
+
+    function countSyllables(word) {
+      const w = word.toLowerCase().replace(/(?:[^laeiouy]es|ed|[^laeiouy]e)$/, '');
+      const m = w.match(/[aeiouy]{1,2}/g);
+      return m ? m.length : 1;
+    }
+
+    function readabilityExecute({ html }) {
+      const text = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+      if (!text) return { error: 'No text content found.' };
+      const sentences = text.split(/[.!?]+/).filter((s) => s.trim().length > 0);
+      const words = text.split(/\s+/).filter(Boolean);
+      if (words.length < 5) return { error: 'Too short to score (need at least 5 words).' };
+      const syllables = words.reduce((n, w) => n + countSyllables(w), 0);
+      const score = 206.835
+        - 1.015 * (words.length / Math.max(sentences.length, 1))
+        - 84.6 * (syllables / words.length);
+      const clamped = Math.max(0, Math.min(100, Math.round(score)));
+      const level = clamped >= 80 ? 'Easy (6th grade)'
+        : clamped >= 60 ? 'Standard (8th–9th grade)'
+        : clamped >= 40 ? 'Difficult (college level)'
+        : 'Very difficult (academic)';
+      return {
+        score: clamped,
+        level,
+        words: words.length,
+        sentences: sentences.length,
+        avgWordsPerSentence: Math.round(words.length / Math.max(sentences.length, 1)),
+      };
+    }
+
+    function validateHeadingsExecute({ html }) {
+      const headingRe = /<h([1-6])[^>]*>([\s\S]*?)<\/h\1>/gi;
+      const headings = [];
+      let match;
+      while ((match = headingRe.exec(html)) !== null) {
+        headings.push({
+          level: Number(match[1]),
+          text: match[2].replace(/<[^>]+>/g, '').trim(),
+        });
+      }
+      if (!headings.length) return { valid: false, headings: 0, issues: ['No heading tags found'] };
+
+      const issues = [];
+      if (headings[0].level !== 1) issues.push(`Starts with h${headings[0].level} — expected h1`);
+      const h1Count = headings.filter((h) => h.level === 1).length;
+      if (h1Count > 1) issues.push(`${h1Count} h1 tags found — should have exactly one`);
+
+      for (let i = 1; i < headings.length; i++) {
+        const jump = headings[i].level - headings[i - 1].level;
+        if (jump > 1) {
+          issues.push(`Level skip: h${headings[i - 1].level} → h${headings[i].level} before "${headings[i].text}"`);
+        }
+      }
+
+      return { valid: issues.length === 0, headings: headings.length, issues };
+    }
+
+    async function altTextExecute({ html, text }) {
+      const imageContext = html || text || '';
+      if (!('ai' in self) || !(await self.ai?.languageModel?.availability?.().catch(() => 'no') !== 'no')) {
+        return {
+          note: 'Chrome Built-in AI not available in this browser.',
+          suggestion: `For "${imageContext}", a human-written description would describe the subject, action, and context in under 125 characters.`,
+        };
+      }
+      try {
+        const session = await self.ai.languageModel.create({
+          systemPrompt: 'You write concise, descriptive alt text. Output only the alt text, no quotes, max 125 characters.',
+        });
+        const result = await session.prompt(`Image: ${imageContext}\nAlt text:`);
+        session.destroy();
+        return { altText: result.trim() };
+      } catch (e) {
+        return { error: e.message };
+      }
+    }
+
+    // ── Wire up the component ─────────────────────────────────────────────
+
+    const panel = document.getElementById('gt-panel');
+    panel.staticTools = MOCK_TOOLS;
+    panel.executors = {
+      'readability-score': readabilityExecute,
+      'validate-headings': validateHeadingsExecute,
+      'suggest-alt-text': altTextExecute,
+    };
+  </script>
+</body>
+</html>
