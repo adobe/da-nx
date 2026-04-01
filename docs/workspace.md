@@ -2,12 +2,40 @@
 
 ## Architectural Principles
 
+The following general principles apply:
+
 - Context comes from global browser state (URL is the source of truth)
-- Features do not import or call each other (see [Component Communication](#component-communication)) - they communicate via events
+- Components communicate by passing down props, and sending up events
 - Blocks (e.g. Browse, Edit) compose components that implement behavior; blocks define composition, not feature logic
 - Each feature should be removable without touching others
 - nx provides an extension framework for third-party extensions. Core features do not use this extension framework.
 - Components are built as web components using bundled Lit
+
+The following sections highilight some principles in more detail.
+
+### Repository Layout
+- The nx repo provides URL/state utilities and auth helpers
+- Feature code lives in `blocks/canvas`, `blocks/browse`, `blocks/chat`, and `blocks/shared`
+- `blocks/shared` should contain small, reusable pieces that make no assumptions about where they are invoked from
+- Root `Utils` contains helpers such as the extension SDK client
+
+### Component Communication
+- Components pass props down to their children
+- Components add event listeners to their children to recieve data
+- Communicating with a component further outside of the parent/child relationship is also done via props and events, obtaining the component using document.querySelector(...).
+
+### Backend communication
+- Use da-fetch to fetch data from the backend
+- Da Admin documentation: https://opensource.adobe.com/da-admin/
+- Helix Admin documentation: https://www.aem.live/docs/admin.html
+
+### Version Control
+- Make small commits with meaningful commit messages
+- Keep PRs to the minimum required for a feature; iterate in follow-up PRs
+
+### General Best Practices
+- Follow project-wide best practices in `AGENTS.md`
+- Implement the minimum code required to make a feature work, and iterate later if needed
 
 ---
 
@@ -24,6 +52,7 @@ nx
 │       ├── Content Tree (reusable file/folder CRUD utilities)
 │       └── Extension Host
 └── Utils
+    ├── da-fetch
     └── sdk.js (Extension Client SDK)
 
 Skills Lab — external app at da.live/apps/skills, linked from Chat
@@ -95,32 +124,3 @@ Chat receives host-pushed context (URL-derived workspace state + accumulated ite
 **Configured extensions** — we did not author them. Absent by default, sandboxed, minimal contract only.
 
 The API for third-party extensions is defined by the extensions SDK.
-
----
-
-## Code Structure & Working Practices
-
-### Repository Layout
-- The nx repo provides URL/state utilities and auth helpers
-- Feature code lives in `blocks/canvas`, `blocks/browse`, `blocks/chat`, and `blocks/shared`
-- `blocks/shared` should contain small, reusable pieces that make no assumptions about where they are invoked from
-- Root `Utils` contains helpers such as the extension SDK client
-
-### Component Communication
-These rules apply workspace-wide.
-- Components communicate using events
-- Web components communicate with their parents by emitting events on themselves; parents listen via event listeners
-- Sibling blocks (e.g. Chat and Browse/Edit) communicate via `window.postMessage()`
-
-### Backend communication
-- Use da-fetch to fetch data from the backend
-- Da Admin documentation: https://opensource.adobe.com/da-admin/
-- Helix Admin documentation: https://www.aem.live/docs/admin.html
-
-### Version Control
-- Make small commits with meaningful commit messages
-- Keep PRs to the minimum required for a feature; iterate in follow-up PRs
-
-### General Best Practices
-- Follow project-wide best practices in `AGENTS.md`
-- Implement the minimum code required to make a feature work, and iterate later if needed
