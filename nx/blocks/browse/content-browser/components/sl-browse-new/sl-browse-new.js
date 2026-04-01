@@ -5,7 +5,6 @@ import { LitElement, html, createRef, ref } from 'da-lit';
 import { readSearchControlValueFromInputEvent } from '../sl-browse-search/sl-browse-search.js';
 import {
   buildCanvasEditHref,
-  buildSheetEditHref,
   daPathToPathKey,
 } from '../../lib/content-browser-actions.js';
 import { browseRenameNameFieldCopy } from '../../lib/content-browser-utils.js';
@@ -14,6 +13,15 @@ import { replaceHtml } from '../../../../../utils/daFetch.js';
 const style = await getStyle(import.meta.url);
 
 const INPUT_ERROR = 'sl-bn-input-error';
+
+// DA list-style sheet shell (see test/loc/glaas/mocks/testData.js singleSheetJson).
+const NEW_SHEET_JSON = JSON.stringify({
+  ':type': 'sheet',
+  total: '0',
+  offset: '0',
+  limit: '0',
+  data: [],
+});
 
 /**
  * Create folder / document / sheet / media / link (legacy da-new behavior, Spectrum-friendly).
@@ -271,10 +279,7 @@ export class SlBrowseNew extends LitElement {
     let daPath = `${base}/${this._createName}`;
     if (ext) daPath += `.${ext}`;
 
-    const pathKey = daPathToPathKey(daPath);
-    const qs = typeof window !== 'undefined' ? window.location.search || '' : '';
-
-    // PUT create first, then navigate (same contract as folder/link/upload).
+    // PUT create: new document opens canvas; new sheet stays in browse (list refresh via event).
     if (ext === 'html' || ext === 'json') {
       if (!this.saveToSource) return;
       this._busy = true;
@@ -287,19 +292,25 @@ export class SlBrowseNew extends LitElement {
           const body = replaceHtml('', org, repo);
           putFormData.append('data', new Blob([body], { type: 'text/html' }));
         } else {
-          putFormData.append('data', new Blob(['{}'], { type: 'application/json' }));
+          putFormData.append(
+            'data',
+            new Blob([NEW_SHEET_JSON], { type: 'application/json' }),
+          );
         }
         const result = await this.saveToSource(daPath, putFormData);
         if (!result?.ok) {
           this._emitError(result?.error || 'Create failed');
           return;
         }
-        const href = ext === 'html'
-          ? buildCanvasEditHref(this.canvasEditBase, pathKey, qs)
-          : buildSheetEditHref(this.sheetEditBase, pathKey, qs);
         this._emitNewItem({ name: this._createName, path: daPath, ext });
         this._closeOverlay();
-        window.location.assign(href);
+        if (ext === 'html') {
+          const pathKey = daPathToPathKey(daPath);
+          const qs = typeof window !== 'undefined' ? window.location.search || '' : '';
+          window.location.assign(
+            buildCanvasEditHref(this.canvasEditBase, pathKey, qs),
+          );
+        }
       } finally {
         this._busy = false;
       }

@@ -347,6 +347,31 @@ export function resolveCanvasEditPathKey(pathKeyFromMenu, ctx) {
 }
 
 /**
+ * Resolves sheet editor path key (DA `.json` sources) from menu detail or single-json selection.
+ * @param {string | undefined} pathKeyFromMenu
+ * @param {object} ctx
+ * @param {string[]} ctx.selectedRows
+ * @param {object[]} ctx.items
+ * @param {string} ctx.folderPathKey
+ * @param {boolean} ctx.isSingleJsonSelected
+ * @returns {string | null}
+ */
+export function resolveSheetEditPathKey(pathKeyFromMenu, ctx) {
+  const { selectedRows, items, folderPathKey, isSingleJsonSelected } = ctx;
+  let targetPathKey = pathKeyFromMenu;
+  if (!targetPathKey) {
+    if (selectedRows.length !== 1 || !isSingleJsonSelected) return null;
+    [targetPathKey] = selectedRows;
+  } else {
+    const item = findItemByRowKey(pathKeyFromMenu, items, folderPathKey);
+    const lowerName = (item?.name || '').toLowerCase();
+    const isJson = item && (item.ext === 'json' || lowerName.endsWith('.json'));
+    if (!isJson) return null;
+  }
+  return targetPathKey || null;
+}
+
+/**
  * @param {string} canvasEditBase
  * @param {string} pathKey
  * @param {string} [queryString] - include leading `?` if non-empty
