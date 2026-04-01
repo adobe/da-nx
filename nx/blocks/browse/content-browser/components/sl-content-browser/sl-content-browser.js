@@ -13,11 +13,13 @@ import {
   mergeBrowseChatContextItems,
   buildCanvasEditHref,
   buildDeleteDialogContent,
+  buildSheetEditHref,
   createBrowseActions,
   dispatchBulkAemOpen,
   resolveBulkAemPathsExpandingFolders,
   resolveCanvasEditPathKey,
   resolveDeleteTargets,
+  resolveSheetEditPathKey,
 } from '../../lib/content-browser-actions.js';
 import {
   daRenameDestinationBasename,
@@ -271,6 +273,13 @@ class SlContentBrowser extends LitElement {
     const pathKey = this._selectedRows[0];
     const item = findItemByRowKey(pathKey, this._itemsForRowLookup, this._currentPathKey);
     return item && (item.ext === 'html' || (item.name || '').toLowerCase().endsWith('.html'));
+  }
+
+  get _isSingleJsonSelected() {
+    if (this._selectedRows.length !== 1) return false;
+    const pathKey = this._selectedRows[0];
+    const item = findItemByRowKey(pathKey, this._itemsForRowLookup, this._currentPathKey);
+    return item && (item.ext === 'json' || (item.name || '').toLowerCase().endsWith('.json'));
   }
 
   _boundHash = () => {
@@ -663,7 +672,7 @@ class SlContentBrowser extends LitElement {
         ?rename-loading="${this._renameLoading}"
         ?delete-enabled="${!!this.deleteItem}"
         ?delete-loading="${this._deleteLoading}"
-        ?show-edit-action="${this._isSingleHtmlSelected}"
+        ?show-edit-action="${this._isSingleHtmlSelected || this._isSingleJsonSelected}"
         @sl-action-bar-close="${this._onActionBarClose}"
         @sl-file-request-preview="${this._onPreview}"
         @sl-file-request-publish="${this._onPublish}"
@@ -744,15 +753,36 @@ class SlContentBrowser extends LitElement {
   }
 
   _onEdit(event) {
-    const targetPathKey = resolveCanvasEditPathKey(event.detail?.pathKey, {
+    const pathKeyFromEvent = event.detail?.pathKey;
+    const ctxBase = {
       selectedRows: this._selectedRows,
       items: this._itemsForRowLookup,
       folderPathKey: this._currentPathKey,
+    };
+    const htmlKey = resolveCanvasEditPathKey(pathKeyFromEvent, {
+      ...ctxBase,
       isSingleHtmlSelected: this._isSingleHtmlSelected,
     });
-    if (!targetPathKey) return;
-    const href = buildCanvasEditHref(this.canvasEditBase, targetPathKey, window.location.search || '');
-    window.location.assign(href);
+    if (htmlKey) {
+      const href = buildCanvasEditHref(
+        this.canvasEditBase,
+        htmlKey,
+        window.location.search || '',
+      );
+      window.location.assign(href);
+      return;
+    }
+    const sheetKey = resolveSheetEditPathKey(pathKeyFromEvent, {
+      ...ctxBase,
+      isSingleJsonSelected: this._isSingleJsonSelected,
+    });
+    if (!sheetKey) return;
+    const sheetHref = buildSheetEditHref(
+      this.sheetEditBase,
+      sheetKey,
+      window.location.search || '',
+    );
+    window.open(sheetHref, '_blank', 'noopener,noreferrer');
   }
 
   _onRenameDialogClose() {
