@@ -11,6 +11,7 @@
  */
 
 import { loadArea, setConfig } from './nx.js';
+import { closePanel, showPanel } from './panels.js';
 
 const hostnames = ['nx.live'];
 
@@ -51,5 +52,20 @@ const conf = {
 export async function loadPage() {
   await setConfig(conf);
   await loadArea();
+
+  showPanel('test', { width: '300px' });
+  showPanel('test2', { width: '200px', beforeMain: true });
+
+  const button = document.createElement('button');
+  button.innerText = 'Toggle Panel';
+  button.addEventListener('click', () => {
+    const panel = document.querySelector('aside.panel.test');
+    if (panel && panel.style.display === 'block') {
+      closePanel('test');
+    } else {
+      showPanel('test', { width: '300px' });
+    }
+  });
+  document.querySelector('main').appendChild(button);
 }
 await loadPage();

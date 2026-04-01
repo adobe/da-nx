@@ -416,11 +416,14 @@ html:has(meta[content="edge-delivery"]) {
   }
 
   @media (width >= 600px) {
+    :root {
+      --app-frame-areas: "header header" var(--s2-nav-height) "sidenav  main" 1fr;
+      --app-frame-columns: var(--s2-nav-width) 1fr;
+    }
+
     html.spectrum-eco {
       body.app-frame {
-        grid-template:
-          "header header" var(--s2-nav-height)
-          "sidenav  main" 1fr / var(--s2-nav-width) 1fr;
+        grid-template: var(--app-frame-areas) / var(--app-frame-columns);
         height: 100dvh;
 
         nav {
@@ -431,6 +434,63 @@ html:has(meta[content="edge-delivery"]) {
           margin: 0 12px 0 0;
           border-radius: 32px 32px 0 0;
           max-height: 100%;
+        }
+
+        aside.panel {
+          --panel-bottom-margin: 12px;
+
+          position: relative;
+          height: calc(100dvh - var(--s2-nav-height) - var(--panel-bottom-margin));
+          background-color: light-dark(#fff, #000);
+          border-radius: 32px;
+          margin: 0 12px var(--panel-bottom-margin) 0;
+        }
+
+        aside.panel .panel-resize-handle {
+          position: absolute;
+          top: 50%;
+          translate: 0 -50%;
+          z-index: 2;
+          box-sizing: border-box;
+          width: 12px;
+          height: 56px;
+          padding: 0;
+          margin: 0;
+          border: none;
+          cursor: ew-resize;
+          touch-action: none;
+          background: transparent;
+          color: inherit;
+        }
+
+        aside.panel .panel-resize-handle::before {
+          content: '';
+          position: absolute;
+          left: 50%;
+          top: 50%;
+          translate: -50% -50%;
+          width: 4px;
+          height: 48px;
+          border-radius: 999px;
+          background-color: var(--s2-gray-800);
+        }
+
+        aside.panel .panel-resize-handle:hover::before,
+        aside.panel .panel-resize-handle:focus-visible::before {
+          background-color: var(--s2-gray-900);
+        }
+
+        aside.panel .panel-resize-handle:focus-visible {
+          outline: 2px solid var(--s2-blue-800);
+          outline-offset: 2px;
+        }
+
+        aside.panel .panel-resize-handle-trailing {
+          right: -12px;
+        }
+
+        aside.panel .panel-resize-handle-leading {
+          left: -12px;
         }
       }
     }
