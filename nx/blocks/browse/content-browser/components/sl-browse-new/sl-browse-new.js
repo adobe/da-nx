@@ -9,6 +9,7 @@ import {
   daPathToPathKey,
 } from '../../lib/content-browser-actions.js';
 import { browseRenameNameFieldCopy } from '../../lib/content-browser-utils.js';
+import { replaceHtml } from '../../../../../utils/daFetch.js';
 
 const style = await getStyle(import.meta.url);
 
@@ -273,12 +274,35 @@ export class SlBrowseNew extends LitElement {
     const pathKey = daPathToPathKey(daPath);
     const qs = typeof window !== 'undefined' ? window.location.search || '' : '';
 
-    if (ext && ext !== 'link') {
-      const href = ext === 'html'
-        ? buildCanvasEditHref(this.canvasEditBase, pathKey, qs)
-        : buildSheetEditHref(this.sheetEditBase, pathKey, qs);
-      this._closeOverlay();
-      window.location.assign(href);
+    // PUT create first, then navigate (same contract as folder/link/upload).
+    if (ext === 'html' || ext === 'json') {
+      if (!this.saveToSource) return;
+      this._busy = true;
+      try {
+        const segments = daPath.replace(/^\/+/, '').split('/').filter(Boolean);
+        const org = segments[0];
+        const repo = segments[1];
+        const putFormData = new FormData();
+        if (ext === 'html') {
+          const body = replaceHtml('', org, repo);
+          putFormData.append('data', new Blob([body], { type: 'text/html' }));
+        } else {
+          putFormData.append('data', new Blob(['{}'], { type: 'application/json' }));
+        }
+        const result = await this.saveToSource(daPath, putFormData);
+        if (!result?.ok) {
+          this._emitError(result?.error || 'Create failed');
+          return;
+        }
+        const href = ext === 'html'
+          ? buildCanvasEditHref(this.canvasEditBase, pathKey, qs)
+          : buildSheetEditHref(this.sheetEditBase, pathKey, qs);
+        this._emitNewItem({ name: this._createName, path: daPath, ext });
+        this._closeOverlay();
+        window.location.assign(href);
+      } finally {
+        this._busy = false;
+      }
       return;
     }
 
