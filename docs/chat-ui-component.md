@@ -62,13 +62,13 @@ Follows the same pattern as other nx2 blocks (e.g. `profile/`) — self-containe
 ### View (Browse / Edit) — Host layer
 **Owns:**
 - Mounting `<da-chat>` in its layout
-- Instantiating and configuring `chat-controller.js`
-- Pushing shell context into chat (org, site, path, view)
-- Injecting view-specific callbacks into the controller (e.g. document revert for Edit)
+- Pushing shell context into chat (org, site, path, view) via properties
+- Injecting view-specific callbacks (e.g. document revert for Edit) via properties
 - Managing chat panel visibility and dimensions
 
 **Does NOT own:**
 - Chat state
+- Controller instantiation — `da-chat` creates and manages its own controller
 - Agent communication
 - Message rendering
 

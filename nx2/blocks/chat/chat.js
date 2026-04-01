@@ -1,6 +1,7 @@
 import { LitElement, html, nothing } from 'lit';
 import { loadStyle } from '../../utils/utils.js';
 import loadIcons from '../../utils/svg.js';
+import ChatController from './chat-controller.js';
 
 const styles = await loadStyle(import.meta.url);
 
@@ -13,6 +14,12 @@ export default class DaChat extends LitElement {
   async connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [styles];
+    this._controller = new ChatController({
+      onUpdate: ({ messages, thinking }) => {
+        this.messages = messages;
+        this.thinking = thinking;
+      },
+    });
   }
 
   firstUpdated() {
@@ -33,11 +40,7 @@ export default class DaChat extends LitElement {
   _submit() {
     const message = (this._input ?? '').trim();
     if (!message || this.thinking) return;
-    this.dispatchEvent(new CustomEvent('da-chat-submit', {
-      bubbles: true,
-      composed: true,
-      detail: { message },
-    }));
+    this._controller.sendMessage(message);
     this._input = '';
     this.shadowRoot.querySelector('.chat-input').value = '';
   }
@@ -51,9 +54,14 @@ export default class DaChat extends LitElement {
     `;
   }
 
+  _renderEmpty() {
+    return html`<div class="chat-empty">Start a conversation</div>`;
+  }
+
   render() {
     return html`
-      <div class="chat-messages-container">
+      <div class="chat-messages-container" role="log" aria-live="polite">
+        ${!this.messages?.length && !this.thinking ? this._renderEmpty() : nothing}
         ${this.messages?.map((msg) => this._renderMessage(msg))}
         ${this.thinking ? html`
           <div class="chat-thinking">
@@ -64,6 +72,7 @@ export default class DaChat extends LitElement {
       <div class="chat-footer">
         <textarea
           class="chat-input"
+          placeholder="Ask something..."
           .value=${this._input ?? ''}
           ?disabled=${this.thinking}
           @input=${this._handleInput}
