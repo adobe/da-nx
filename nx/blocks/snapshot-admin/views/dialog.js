@@ -1,4 +1,4 @@
-import { html, LitElement } from 'da-lit';
+import { html, LitElement, nothing } from 'da-lit';
 import getStyle from '../../../utils/styles.js';
 import getSvg from '../../../utils/svg.js';
 
@@ -55,7 +55,7 @@ class NxDialog extends LitElement {
   render() {
     return html`
       <sl-dialog class="nx-snapshots-error">
-        <div class="nx-dialog">
+        <div class="nx-dialog" style=${this.details?.width ? `width:${this.details.width}` : nothing}>
           <div class="nx-dialog-header-area">
             <p class="sl-heading-l">${this.details?.heading}</p>
             <button
