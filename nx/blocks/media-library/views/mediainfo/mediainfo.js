@@ -971,7 +971,15 @@ class NxMediaInfo extends LitElement {
               <span class="pdf-name">${getMediaCardLabel(this.media)}</span>
               <span class="pdf-type">PDF Document</span>
               ${pdfError
-                ? html`<span class="pdf-error">${pdfError}</span>`
+                ? html`
+                    <span class="pdf-error">${pdfError}</span>
+                    <a
+                      class="pdf-open-link"
+                      href="${fullUrl}"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >${t('UI_PDF_OPEN_IN_NEW_TAB')}</a>
+                  `
                 : html`<span class="pdf-loading">Loading...</span>`}
             </div>
             <div class="subtype-label">PDF</div>

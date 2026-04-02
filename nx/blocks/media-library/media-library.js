@@ -604,14 +604,17 @@ class NxMediaLibrary extends LitElement {
       this.siteAuthInfo = siteAuthInfo;
 
       if (siteAuthInfo.requiresAuth) {
-        await livePreviewLogin(org, repo);
+        const authSuccess = await livePreviewLogin(org, repo);
+        this.siteAuthInfo.authFailed = !authSuccess;
       }
 
       updateAppState({
         sitePathValid: true,
         validationError: null,
         validationSuggestion: null,
-        persistentError: null,
+        persistentError: this.siteAuthInfo?.authFailed
+          ? 'Protected site - some images may not load, refresh or login into site in a new tab using sidekick'
+          : null,
         isValidating: false,
       });
 
