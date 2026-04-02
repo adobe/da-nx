@@ -45,13 +45,13 @@ The following sections highilight some principles in more detail.
 nx
 │
 ├── blocks
-│   ├── Browse
-│   ├── Edit
-│   ├── Chat
-│   └── Shared
+│   ├── browse
+│   ├── edit
+│   ├── chat
+│   └── shared
 │       ├── Content Tree (reusable file/folder CRUD utilities)
 │       └── Extension Host
-└── Utils
+└── utils
     ├── da-fetch
     └── sdk.js (Extension Client SDK)
 
