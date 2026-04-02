@@ -48,7 +48,7 @@ nx
 │   ├── browse
 │   ├── edit
 │   ├── chat
-│   └── shared
+│   └── workspace-shared
 │       ├── Content Tree (reusable file/folder CRUD utilities)
 │       └── Extension Host
 └── utils
