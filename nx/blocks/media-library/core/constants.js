@@ -33,10 +33,15 @@ export const MediaType = Object.freeze({
   LINK: 'link',
 });
 
+const AEM_PAGE = '.aem.page';
+const AEM_LIVE = '.aem.live';
+const PREVIEW_DA_LIVE = '.preview.da.live';
+
 export const Domains = Object.freeze({
-  AEM_PAGE: '.aem.page',
-  AEM_LIVE: '.aem.live',
-  SAME_ORIGIN: ['.aem.page', '.aem.live'],
+  AEM_PAGE,
+  AEM_LIVE,
+  PREVIEW_DA_LIVE,
+  SAME_ORIGIN: [AEM_PAGE, AEM_LIVE],
 });
 
 export const Paths = Object.freeze({
