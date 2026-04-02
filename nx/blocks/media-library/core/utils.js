@@ -122,3 +122,56 @@ export async function ensureAuthenticated() {
 
   return true;
 }
+
+function shouldDebugLog() {
+  const params = new URLSearchParams(window.location.search);
+  const debugValue = params.get('debug');
+  return debugValue?.split(',').includes('perf') || localStorage.getItem('debug:perf') === '1';
+}
+
+export function debugLog(message, data) {
+  if (shouldDebugLog()) {
+    // eslint-disable-next-line no-console
+    console.log(`[MediaLibrary:Auth] ${message}`, data);
+  }
+}
+
+export async function checkSiteAuthRequired(org, repo) {
+  const { Domains } = await import('./constants.js');
+  const indexUrl = `https://main--${repo}--${org}${Domains.AEM_PAGE}/index.md`;
+
+  debugLog('Checking site auth requirement', { org, repo, indexUrl });
+
+  try {
+    const { etcFetch } = await import('./urls.js');
+    const response = await etcFetch(indexUrl, 'cors', { method: 'HEAD' });
+    const requiresAuth = response.status === 401 || response.status === 403;
+    const result = { requiresAuth, status: response.status };
+
+    debugLog('Site auth check result', result);
+    return result;
+  } catch (error) {
+    debugLog('Site auth check error', error);
+    return { requiresAuth: false, status: 0 };
+  }
+}
+
+export async function livePreviewLogin(owner, repo) {
+  try {
+    const { initIms } = await import('../../../utils/daFetch.js');
+    const { getLivePreviewUrl } = await import('./urls.js');
+    const { accessToken } = await initIms();
+    const url = `${getLivePreviewUrl(owner, repo)}/gimme_cookie`;
+
+    debugLog('Setting preview.da.live cookie', { owner, repo, url });
+
+    await fetch(url, {
+      credentials: 'include',
+      headers: { Authorization: `Bearer ${accessToken.token}` },
+    });
+
+    debugLog('Preview.da.live cookie set successfully');
+  } catch (error) {
+    debugLog('Preview.da.live login failed', error);
+  }
+}
