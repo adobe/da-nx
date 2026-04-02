@@ -9,6 +9,7 @@
   margin: 0;
   border-radius: 24px;
   background-color: light-dark(#fff, #000);
+  overflow: hidden;
 }
 
 .panel-shell {
