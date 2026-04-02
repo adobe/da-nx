@@ -34,3 +34,10 @@ Decided to wrap nav and sidenav in semantic HTML elements:
 
 ### README.md updated
 - Added "Context" section linking to AGENTS.md and WORKLOG.md with descriptions.
+
+## 2026-04-02
+
+### nx2 `blocks/panel/` (app-frame side panels)
+- Added `panel.js`: Lit `nx-panel` (shadow shell, default slot, resize handle in shadow), `createPanel` / `showPanel` (`{ width, beforeMain }`), `setPanelsGrid` for app-frame column/area CSS vars. Shell is `aside.panel` with `data-position` before/after main; `createPanel` / `showPanel` return the `nx-panel` element. Empty `aside` after removing `nx-panel` is dropped in `disconnectedCallback`.
+- `decorate(block)`: if the block has an anchor → `loadFragment(a.href)` → `createPanel`, move fragment children onto `nx-panel` with DOM APIs, remove the block.
+- Styling split: `styles.css` keeps app-frame grid (`--app-frame-*`, `body.app-frame` row); `panel.css` holds panel surface and resize affordance.

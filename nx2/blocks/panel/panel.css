@@ -1,0 +1,82 @@
+:host {
+  --panel-bottom-margin: 12px;
+
+  display: block;
+  position: relative;
+  box-sizing: border-box;
+  height: calc(100dvh - var(--s2-nav-height) - var(--panel-bottom-margin));
+  margin: 0 12px var(--panel-bottom-margin) 0;
+  background-color: light-dark(#fff, #000);
+  border-radius: 32px;
+}
+
+.panel-shell {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  min-height: 0;
+  height: 100%;
+  padding: 0 12px;
+}
+
+.panel-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.panel-body slot::slotted(h2) {
+  flex-shrink: 0;
+  margin: 12px 0 8px;
+  font-size: var(--s2-heading-size-xl, 1.25rem);
+  font-weight: var(--s2-heading-font-weight, 700);
+}
+
+.panel-resize-handle {
+  position: absolute;
+  top: 50%;
+  translate: 0 -50%;
+  z-index: 2;
+  box-sizing: border-box;
+  width: 12px;
+  height: 56px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  cursor: ew-resize;
+  touch-action: none;
+  background: transparent;
+  color: inherit;
+}
+
+.panel-resize-handle::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  translate: -50% -50%;
+  width: 4px;
+  height: 48px;
+  border-radius: 999px;
+  background-color: var(--s2-gray-600);
+}
+
+.panel-resize-handle:hover::before,
+.panel-resize-handle:focus-visible::before {
+  background-color: var(--s2-gray-900);
+}
+
+.panel-resize-handle:focus-visible {
+  outline: 2px solid var(--s2-blue-800);
+  outline-offset: 2px;
+}
+
+.panel-resize-handle-trailing {
+  right: -12px;
+}
+
+.panel-resize-handle-leading {
+  left: -12px;
+}
