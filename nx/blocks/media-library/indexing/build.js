@@ -439,7 +439,13 @@ export async function buildIncrementalIndex(
     updatedIndex.filter((e) => e.doc).flatMap((e) => e.hash),
   );
 
-  const standaloneAdded = processStandaloneUploads(updatedIndex, medialogScoped, referencedHashes);
+  const standaloneAdded = processStandaloneUploads(
+    updatedIndex,
+    medialogScoped,
+    referencedHashes,
+    org,
+    repo,
+  );
   added += standaloneAdded;
 
   const files = validEntries.filter((e) => !isPage(e.path));
@@ -808,6 +814,7 @@ export async function buildFullIndex(sitePath, org, repo, ref, onProgress, onPro
         entryMap.set(key, {
           hash,
           url,
+          originalPath: media.originalFilename || '',
           name: extractName(media),
           timestamp: media.timestamp, // Can be 0 (unknown time → sorts to end)
           user: media.user,

@@ -131,6 +131,7 @@ export async function addAssets({
         assetType: 'SOURCE',
         targetLocales,
         ...(item.translationMetadata && { langMetadata: item.translationMetadata }),
+        ...(item.languageContext && { languageContext: item.languageContext }),
       };
       body.append('_asset_metadata_', new Blob(
         [JSON.stringify(assetMetadata)],
@@ -140,6 +141,22 @@ export async function addAssets({
       const opts = getOpts(clientid, token, body, null, 'POST');
       // Add fileDetails parameter for GLaaS v1.2
       const url = `${origin}/api/l10n/v1.2/tasks/${workflow}/${name}/assets?targetLanguages=${targetLocales.join(',')}&fileDetails=${encodeURIComponent(JSON.stringify(fileDetails))}`;
+      // eslint-disable-next-line no-console -- intentional upload debug
+      console.info('[GLaaS addAssets]', {
+        url,
+        workflow,
+        taskName: name,
+        targetLocales,
+        fileDetails,
+        assetMetadata: {
+          assetName: assetMetadata.assetName,
+          assetType: assetMetadata.assetType,
+          targetLocales: assetMetadata.targetLocales,
+          'source-preview-url': assetMetadata.metadata?.['source-preview-url'],
+          ...(assetMetadata.langMetadata && { langMetadata: assetMetadata.langMetadata }),
+          ...(assetMetadata.languageContext && { languageContext: assetMetadata.languageContext }),
+        },
+      });
 
       try {
         const resp = await fetch(url, opts);

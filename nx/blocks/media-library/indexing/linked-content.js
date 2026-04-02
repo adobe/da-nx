@@ -1,4 +1,4 @@
-import { fetchFileLastModified } from './admin-api.js';
+import { fetchFileGetInfo, fetchFileHeadInfo } from './admin-api.js';
 import {
   normalizePath,
   isPdf,
@@ -10,13 +10,83 @@ import {
   toExternalMediaEntry,
 } from './parse.js';
 import { Operation } from '../core/constants.js';
-import { isIndexedExternalMediaOperation, isIndexedExternalMediaEntry } from '../core/media.js';
+import {
+  isIndexedExternalMediaOperation,
+  isIndexedExternalMediaEntry,
+  isExternalVideoUrl,
+  getExternalMediaTypeInfo,
+} from '../core/media.js';
+
+function isHtmlContentType(contentType = '') {
+  const normalized = contentType.toLowerCase();
+  return normalized.includes('text/html') || normalized.includes('application/xhtml+xml');
+}
+
+function classifyExternalMediaValidation(entry, headInfo) {
+  const status = headInfo?.status || 0;
+  const originalUrl = entry?.url || '';
+  const finalUrl = headInfo?.finalUrl || '';
+  const redirectedAway = !!(headInfo?.redirected && finalUrl && finalUrl !== originalUrl);
+  const contentType = headInfo?.contentType || '';
+  const hasContentType = !!contentType;
+
+  if (status === 404 || status === 410) {
+    return { discard: true, reason: `http-${status}`, lastModified: null };
+  }
+
+  if (headInfo?.ok && isHtmlContentType(contentType) && !isExternalVideoUrl(entry?.url || '')) {
+    return { discard: true, reason: 'html-response', lastModified: null };
+  }
+
+  if (headInfo?.ok && hasContentType) {
+    return {
+      discard: false,
+      reason: 'ok',
+      lastModified: headInfo.lastModified,
+    };
+  }
+
+  if (redirectedAway && !getExternalMediaTypeInfo(finalUrl) && !isExternalVideoUrl(originalUrl)) {
+    return { discard: true, reason: 'redirect-non-media', lastModified: null };
+  }
+
+  if (status === 401 || status === 403) {
+    return { discard: false, reason: `auth-${status}`, lastModified: null };
+  }
+
+  const reason = headInfo?.ok ? 'ok' : 'unresolved';
+  if (!headInfo?.ok && status) {
+    return { discard: false, reason: `http-${status}`, lastModified: null };
+  }
+
+  return {
+    discard: false,
+    reason,
+    lastModified: headInfo?.ok ? headInfo.lastModified : null,
+  };
+}
+
+function shouldProbeWithGet(entry, headInfo, classified) {
+  if (classified?.discard || classified?.reason.startsWith('auth-')) {
+    return false;
+  }
+
+  if (isExternalVideoUrl(entry?.url || '')) {
+    return false;
+  }
+
+  if (!headInfo?.ok) {
+    return true;
+  }
+
+  return !headInfo.contentType;
+}
 
 /**
  * Enriches linked content entries with Last-Modified timestamps from HTTP HEAD requests.
  * Processes entries in batches with controlled concurrency.
  */
-export async function enrichLinkedContentBatch(entries, concurrency = 10) {
+export async function enrichLinkedContentBatch(entries, org, repo, ref, concurrency = 10) {
   if (!entries || entries.length === 0) return entries;
 
   const enriched = [...entries];
@@ -26,9 +96,13 @@ export async function enrichLinkedContentBatch(entries, concurrency = 10) {
     const entry = enriched[i];
     if (entry.url) {
       tasks.push(
-        fetchFileLastModified(entry.url).then((lastModified) => {
-          if (lastModified) {
-            entry.modifiedTimestamp = lastModified;
+        fetchFileHeadInfo(entry.url, {
+          org,
+          repo,
+          ref,
+        }).then((headInfo) => {
+          if (headInfo?.lastModified) {
+            entry.modifiedTimestamp = headInfo.lastModified;
             entry.timestampSource = 'http-head';
           }
         }),
@@ -45,6 +119,97 @@ export async function enrichLinkedContentBatch(entries, concurrency = 10) {
   }
 
   return enriched;
+}
+
+async function validateExternalMediaEntries(
+  index,
+  externalUrls,
+  org,
+  repo,
+  ref,
+  onLog,
+  concurrency = 10,
+) {
+  if (!externalUrls?.length) {
+    return { discarded: 0, timestampUpdated: 0 };
+  }
+
+  const candidateUrls = new Set(externalUrls);
+  const entriesByHash = new Map();
+  index.forEach((entry) => {
+    if (!isIndexedExternalMediaOperation(entry) || !candidateUrls.has(entry.url)) return;
+    if (!entriesByHash.has(entry.hash)) {
+      entriesByHash.set(entry.hash, entry);
+    }
+  });
+
+  if (entriesByHash.size === 0) {
+    return { discarded: 0, timestampUpdated: 0 };
+  }
+
+  const hashes = [...entriesByHash.keys()];
+  const resultsByHash = new Map();
+
+  for (let i = 0; i < hashes.length; i += concurrency) {
+    const batch = hashes.slice(i, i + concurrency);
+    await Promise.allSettled(batch.map(async (hash) => {
+      const entry = entriesByHash.get(hash);
+      const requestOptions = {
+        org,
+        repo,
+        ref,
+        timeoutMs: 8000,
+      };
+      const headInfo = await fetchFileHeadInfo(entry.url, requestOptions);
+      let classified = classifyExternalMediaValidation(entry, headInfo);
+      const shouldProbeGet = shouldProbeWithGet(entry, headInfo, classified);
+
+      if (shouldProbeGet) {
+        const getInfo = await fetchFileGetInfo(entry.url, {
+          ...requestOptions,
+          timeoutMs: 15000,
+        });
+        classified = classifyExternalMediaValidation(entry, getInfo);
+      }
+
+      resultsByHash.set(hash, classified);
+    }));
+  }
+
+  let discarded = 0;
+  let timestampUpdated = 0;
+  let authBlocked = 0;
+  let unresolved = 0;
+
+  resultsByHash.forEach((result) => {
+    if (result.reason.startsWith('auth-')) authBlocked += 1;
+    else if (!result.discard && result.reason !== 'ok') unresolved += 1;
+    else if (result.lastModified) timestampUpdated += 1;
+  });
+
+  for (let i = index.length - 1; i >= 0; i -= 1) {
+    const entry = index[i];
+    const shouldValidate = isIndexedExternalMediaOperation(entry) && candidateUrls.has(entry.url);
+    const result = shouldValidate ? resultsByHash.get(entry.hash) : null;
+
+    if (result?.discard) {
+      index.splice(i, 1);
+      discarded += 1;
+    } else if (result?.lastModified) {
+      entry.modifiedTimestamp = result.lastModified;
+      entry.timestampSource = 'http-head';
+    }
+  }
+
+  if (discarded || timestampUpdated || authBlocked || unresolved) {
+    onLog(
+      `Validated ${hashes.length} external media URLs: `
+      + `${discarded} discarded, ${timestampUpdated} timestamped, `
+      + `${authBlocked} auth-blocked, ${unresolved} unresolved`,
+    );
+  }
+
+  return { discarded, timestampUpdated };
 }
 
 /**
@@ -225,13 +390,23 @@ export async function processLinkedContent(
     });
   });
 
+  const validationResults = await validateExternalMediaEntries(
+    updatedIndex,
+    externalUrls,
+    org,
+    repo,
+    ref,
+    onLog,
+  );
+  removed += validationResults.discarded;
+
   // Enrich linked content with Last-Modified timestamps
   onProgress({ stage: 'processing', message: 'Enriching linked content with Last-Modified...' });
   const linkedContentEntries = updatedIndex.filter(
     (e) => e.operation === 'auditlog-parsed' || e.source === 'auditlog-parsed',
   );
   if (linkedContentEntries.length > 0) {
-    await enrichLinkedContentBatch(linkedContentEntries);
+    await enrichLinkedContentBatch(linkedContentEntries, org, repo, ref);
     onLog(`Enriched ${linkedContentEntries.length} linked content entries with Last-Modified`);
   }
 

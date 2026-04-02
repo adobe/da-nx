@@ -207,6 +207,40 @@ export function isPreviewPreferredForMediaUrl(mediaUrl) {
   return !!key && previewPreferredMediaKeys.has(key);
 }
 
+/** Normalize HLX hostnames to AEM delivery suffixes for comparison. */
+function hlxToAemHost(hostname) {
+  if (!hostname) return '';
+  return hostname
+    .replace('.hlx.page', Domains.AEM_PAGE)
+    .replace('.hlx.live', Domains.AEM_LIVE);
+}
+
+function matchesRepoDeliveryHost(hostname, org, repo) {
+  const h = hlxToAemHost(hostname);
+  return h === `main--${repo}--${org}.aem.page` || h === `main--${repo}--${org}.aem.live`;
+}
+
+/**
+ * True for this site's preview/live delivery URLs or repo-relative paths only.
+ * Pass the **raw** path/URL from medialog or audit — not a value already passed through
+ * canonicalizeMediaUrl(), which rewrites some internal marketing URLs onto the delivery host.
+ */
+export function isDeliveryStandaloneUrl(mediaUrl, org, repo) {
+  if (!mediaUrl || !org || !repo) return false;
+
+  const raw = String(mediaUrl).trim();
+  if (raw.startsWith('/') && !raw.startsWith('//')) {
+    return true;
+  }
+
+  try {
+    const url = new URL(raw.startsWith('http') ? raw : `https://invalid.local${raw}`);
+    return matchesRepoDeliveryHost(url.hostname, org, repo);
+  } catch {
+    return false;
+  }
+}
+
 export function isInternalToSite(urlString, org, repo) {
   if (!org || !repo || !urlString) return false;
 
@@ -273,6 +307,23 @@ export function canonicalizeMediaUrl(mediaUrl, org, repo) {
       return `https://main--${repo}--${org}${defaultDomain}${cleanUrl}`;
     }
     return mediaUrl;
+  }
+}
+
+/** Parent folder path (pathname minus filename) after canonicalizeMediaUrl. */
+export function folderPathFromAssetUrl(mediaUrl, org, repo) {
+  if (!mediaUrl || !org || !repo) return '';
+
+  try {
+    const resolved = canonicalizeMediaUrl(mediaUrl, org, repo);
+    const url = new URL(resolved);
+    let { pathname } = url;
+    pathname = pathname.replace(/\/$/, '');
+    const lastSlash = pathname.lastIndexOf('/');
+    if (lastSlash <= 0) return '';
+    return pathname.slice(0, lastSlash);
+  } catch {
+    return '';
   }
 }
 

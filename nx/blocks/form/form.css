@@ -7,9 +7,19 @@ sl-textarea {
 }
 
 .da-form-wrapper {
-  width: 900px;
+  width: min(1020px, 100%);
+  max-width: 1020px;
   margin: 0 auto;
   position: relative;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: 20px;
+  box-sizing: border-box;
+
+  &.da-form-wrapper-centered {
+    justify-content: center;
+  }
 
   .da-form-title {
     line-height: 1;
@@ -18,7 +28,10 @@ sl-textarea {
   }
 
   .da-form-editor {
+    flex: 1 1 700px;
     width: 700px;
+    min-width: 0;
+    max-width: 700px;
   }
 
   da-form-editor {
@@ -26,9 +39,128 @@ sl-textarea {
   }
 
   da-form-sidebar {
-    position: absolute;
-    top: 0;
+    position: sticky;
+    top: -24px;
+    flex: 0 0 300px;
     width: 300px;
-    right: -120px; /* 20px offset */
+    max-width: 300px;
+    align-self: flex-start;
+  }
+
+  /* Schema picker — centered card: title, labeled select, full-width Start */
+  .da-form-schema-shell {
+    flex: 1 1 700px;
+    width: 700px;
+    min-width: 0;
+    max-width: 700px;
+  }
+
+  &.da-form-wrapper-centered .da-form-schema-shell {
+    flex: 0 1 480px;
+    width: min(480px, 100%);
+    max-width: 480px;
+  }
+
+  .da-form-schema-card {
+    box-sizing: border-box;
+    border-radius: var(--sl-border-radius-x-large, 12px);
+    background: var(--sl-color-neutral-0, #fff);
+    box-shadow:
+      rgb(0 0 0 / 8%) 0 4px 24px,
+      rgb(0 0 0 / 6%) 0 1px 3px;
+    padding: var(--sl-spacing-3x-large, 36px);
+  }
+
+  .da-form-schema-card .da-form-title {
+    margin: 0 0 var(--sl-spacing-2x-small, 4px);
+  }
+
+  .da-form-schema-hint {
+    margin: 0 0 var(--sl-spacing-medium, 12px);
+    font-size: var(--sl-font-size-small, 0.875rem);
+    line-height: var(--sl-line-height-normal, 1.5);
+    color: var(--sl-color-neutral-600, #64748b);
+  }
+
+  .da-form-schema-heading {
+    margin: 0 0 var(--sl-spacing-x-large, 16px);
+    font-size: var(--sl-font-size-x-large, 1.25rem);
+    font-weight: 700;
+    line-height: 1.3;
+    color: var(--sl-color-neutral-900, #0f172a);
+  }
+
+  .da-form-schema-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sl-spacing-x-large, 16px);
+    align-items: stretch;
+  }
+
+  /* Empty-state CTA only (no schemas) */
+  .da-form-schema-field {
+    padding: var(--sl-spacing-large, 16px) var(--sl-spacing-medium, 12px);
+    margin: 0;
+    border: 2px dashed var(--sl-color-neutral-300, #cbd5e1);
+    border-radius: var(--sl-border-radius-large, 8px);
+    text-align: left;
+    background: var(--sl-color-neutral-50, #f8fafc);
+    transition:
+      border-color 0.15s ease,
+      background-color 0.15s ease;
+
+    &:hover {
+      border-color: var(--sl-color-primary-600, #2563eb);
+      background: var(--sl-color-primary-50, #eff6ff);
+    }
+  }
+
+  .da-form-schema-field-link {
+    text-align: center;
+    padding: var(--sl-spacing-large, 16px);
+  }
+
+  .da-form-schema-select {
+    display: block;
+    width: 100%;
+  }
+
+  sl-button.da-form-schema-start {
+    display: block;
+    width: 100%;
+  }
+
+  sl-button.da-form-schema-start::part(wrap) {
+    display: block;
+    width: 100%;
+  }
+
+  sl-button.da-form-schema-start::part(base) {
+    width: 100%;
+    box-sizing: border-box;
+    justify-content: center;
+    border-radius: var(--s2-radius-100, 8px);
+  }
+
+  .da-form-schema-cta {
+    display: inline-block;
+    padding: var(--sl-spacing-small, 8px) var(--sl-spacing-large, 16px);
+    background: var(--sl-color-primary-600, #2563eb);
+    color: var(--sl-color-neutral-0, #fff);
+    border: none;
+    border-radius: var(--sl-border-radius-medium, 6px);
+    font-weight: var(--sl-font-weight-semibold, 600);
+    font-size: var(--sl-font-size-small, 0.875rem);
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.15s ease;
+
+    &:hover {
+      background: var(--sl-color-primary-700, #1d4ed8);
+    }
+
+    &:active {
+      background: var(--sl-color-primary-800, #1e40af);
+    }
   }
 }

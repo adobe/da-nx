@@ -2,8 +2,10 @@ import { DA_ORIGIN } from '../../../../public/utils/constants.js';
 import { daFetch } from '../../../../utils/daFetch.js';
 
 const BLOCK_SCHEMA_PATH = '/.da/block-schema.json';
+const SEO_GLOSSARY_PATH = '/.da/seo/glossary.json';
 
 let blockSchemaCache;
+let seoGlossaryLookupCache;
 
 export function processSchemaKey(schemaKey) {
   const match = schemaKey.match(/^([\w-]+)\s*\((.*)\)$/);
@@ -77,21 +79,26 @@ export function parseBlockSchema(schemaData) {
   return parsedSchema;
 }
 
-export async function fetchBlockSchema(org, site, { reset = false } = {}) {
-  if (blockSchemaCache && !reset) return blockSchemaCache;
-  const url = `${DA_ORIGIN}/source/${org}/${site}${BLOCK_SCHEMA_PATH}`;
+async function fetchJson(org, site, relativePath) {
+  const url = `${DA_ORIGIN}/source/${org}/${site}${relativePath}`;
   try {
     const resp = await daFetch(url);
     if (!resp.ok) return null;
-    const schemaData = await resp.json();
-    const parsedSchema = parseBlockSchema(schemaData);
-    blockSchemaCache = parsedSchema;
-    return parsedSchema;
+    return resp.json();
   } catch (error) {
     // eslint-disable-next-line no-console
-    console.error('Error fetching block schema:', error);
+    console.error('Error fetching site JSON:', relativePath, error);
     return null;
   }
+}
+
+export async function fetchBlockSchema(org, site, { reset = false } = {}) {
+  if (blockSchemaCache && !reset) return blockSchemaCache;
+  const schemaData = await fetchJson(org, site, BLOCK_SCHEMA_PATH);
+  if (!schemaData) return null;
+  const parsedSchema = parseBlockSchema(schemaData);
+  blockSchemaCache = parsedSchema;
+  return parsedSchema;
 }
 
 export function needsKeywordsMetadata(parsedSchema) {
@@ -247,33 +254,153 @@ export function buildLanguageMetadata(keywordsData, langs) {
   return langMetadata;
 }
 
+function normalizeGlossaryPath(urlOrPath) {
+  if (!urlOrPath || typeof urlOrPath !== 'string') return '';
+  const path = urlOrPath
+    .replace(/^https?:\/\/[^/]+/, '')
+    .replace(/\/langstore\/en\//g, '/')
+    .replace(/\.html$/i, '')
+    .replace(/\/index$/, '')
+    .trim();
+  return path.startsWith('/') ? path : `/${path}`;
+}
+
+function extractGlossaryPathPrefixes(raw) {
+  const rows = raw?.[':private']?.['private-stage-prefixes']?.data;
+  if (!Array.isArray(rows)) return [];
+  const pathPrefixes = [];
+  rows.forEach((row) => {
+    const trimmedPrefix = typeof row.prefixes === 'string' ? row.prefixes.trim() : '';
+    if (!trimmedPrefix) return;
+    pathPrefixes.push(trimmedPrefix.endsWith('/') ? trimmedPrefix : `${trimmedPrefix}/`);
+  });
+  return [...new Set(pathPrefixes)].sort((a, b) => b.length - a.length);
+}
+
+export function buildSeoGlossaryLookup(raw) {
+  const pathPrefixes = extractGlossaryPathPrefixes(raw);
+  const byLocale = new Map();
+  Object.keys(raw).forEach((key) => {
+    if (key.startsWith(':')) return;
+    const sheet = raw[key];
+    if (!sheet?.data || !Array.isArray(sheet.data)) return;
+    const pathMap = new Map();
+    sheet.data.forEach((row) => {
+      const path = normalizeGlossaryPath(row.URL || '');
+      if (!path) return;
+      if (!pathMap.has(path)) pathMap.set(path, []);
+      pathMap.get(path).push(row);
+    });
+    byLocale.set(key, pathMap);
+  });
+  return { pathPrefixes, byLocale };
+}
+
+function glossaryPagePathForLookup(pagePathNormalized, pathPrefixes) {
+  for (const prefix of pathPrefixes) {
+    if (prefix && pagePathNormalized.startsWith(prefix)) {
+      const rest = pagePathNormalized.slice(prefix.length);
+      if (!rest) return pagePathNormalized;
+      return rest.startsWith('/') ? rest : `/${rest}`;
+    }
+  }
+  return pagePathNormalized;
+}
+
+function buildLanguageContextForUrl(glossaryLookup, pagePathNormalized, targetLocales) {
+  if (!glossaryLookup?.byLocale || !pagePathNormalized || !targetLocales?.length) return null;
+  const lookupPath = glossaryPagePathForLookup(pagePathNormalized, glossaryLookup.pathPrefixes);
+  const context = {};
+  const targetSet = new Set(targetLocales);
+  for (const locale of targetSet) {
+    const pathMap = glossaryLookup.byLocale.get(locale);
+    if (pathMap) {
+      const rowsForUrl = pathMap.get(lookupPath) ?? [];
+      if (rowsForUrl.length > 0) {
+        const bySource = new Map();
+        for (const row of rowsForUrl) {
+          const sourceKeyword = String(row['EN KEYWORDS'] ?? '').trim();
+          const keyword = String(row['TRANSLATED KEYWORDS'] ?? '').trim();
+          if (sourceKeyword && keyword) {
+            const msv = String(row['LOCAL MSV'] ?? '').trim();
+            const priority = String(row['LOCAL PRIORITY'] ?? '').trim();
+            const targetEntry = { keyword, msv, priority };
+            if (!bySource.has(sourceKeyword)) {
+              bySource.set(sourceKeyword, []);
+            }
+            bySource.get(sourceKeyword).push(targetEntry);
+          }
+        }
+        const keywords = Array.from(bySource.entries()).map(([sourceKeyword, targetKeywords]) => ({
+          sourceKeyword,
+          targetKeywords,
+        }));
+        if (keywords.length > 0) {
+          context[locale] = { keywords };
+        }
+      }
+    }
+  }
+  return Object.keys(context).length > 0 ? context : null;
+}
+
+export async function loadSeoGlossary(org, site, { reset = false } = {}) {
+  if (reset) {
+    seoGlossaryLookupCache = undefined;
+  }
+  if (seoGlossaryLookupCache !== undefined) return;
+  const raw = await fetchJson(org, site, SEO_GLOSSARY_PATH);
+  seoGlossaryLookupCache = raw ? buildSeoGlossaryLookup(raw) : null;
+}
+
+export function addSeoGlossary(urls, langs) {
+  if (!urls?.length || !langs?.length) return;
+  const glossaryLookup = seoGlossaryLookupCache;
+  if (!glossaryLookup) return;
+  const targetLocales = langs.map((lang) => lang.code);
+  urls.forEach((url) => {
+    const pagePath = url.suppliedPath ?? url.daBasePath ?? '';
+    const pagePathNormalized = normalizeGlossaryPath(pagePath);
+    if (!pagePathNormalized) return;
+    const languageContext = buildLanguageContextForUrl(
+      glossaryLookup,
+      pagePathNormalized,
+      targetLocales,
+    );
+    if (languageContext) {
+      url.languageContext = languageContext;
+    }
+  });
+}
+
 /**
- * Add translation metadata to URLs (HTML annotation + keywords)
- * Modifies url.content and url.translationMetadata in place
+ * Add translation metadata to URLs (HTML annotation + keywords + SEO glossary languageContext)
+ * Modifies url.content, url.translationMetadata, and url.languageContext in place
  * @param {string} org - Organization name
  * @param {string} site - Site name
  * @param {Array} langs - Array of language objects with .name and .code
  * @param {Array} urls - Array of URL objects with .content and .suppliedPath
  */
 export async function addTranslationMetadata(org, site, langs, urls) {
-  // Fetch block schema (cached)
+  // Block schema flow (HTML annotation + per-page keywords)
   const blockSchema = await fetchBlockSchema(org, site);
-  if (!blockSchema) {
-    return; // No schema, no metadata
+  if (blockSchema) {
+    const hasKeywords = needsKeywordsMetadata(blockSchema);
+    await Promise.all(urls.map(async (url) => {
+      if (url.content && typeof url.content === 'string') {
+        url.content = annotateHTML(url.content, blockSchema);
+      }
+      if (!hasKeywords) return;
+      const keywordsData = await fetchKeywordsFile(org, site, url.suppliedPath);
+      if (!keywordsData) return;
+      const langMetadata = buildLanguageMetadata(keywordsData, langs);
+      if (langMetadata && Object.keys(langMetadata).length > 0) {
+        url.translationMetadata = langMetadata;
+      }
+    }));
   }
 
-  const hasKeywords = needsKeywordsMetadata(blockSchema);
-
-  await Promise.all(urls.map(async (url) => {
-    if (url.content && typeof url.content === 'string') {
-      url.content = annotateHTML(url.content, blockSchema);
-    }
-    if (!hasKeywords) return;
-    const keywordsData = await fetchKeywordsFile(org, site, url.suppliedPath);
-    if (!keywordsData) return;
-    const langMetadata = buildLanguageMetadata(keywordsData, langs);
-    if (langMetadata && Object.keys(langMetadata).length > 0) {
-      url.translationMetadata = langMetadata;
-    }
-  }));
+  // SEO glossary: if /.da/seo/glossary.json exists, add languageContext for GLaaS
+  await loadSeoGlossary(org, site);
+  addSeoGlossary(urls, langs);
 }
