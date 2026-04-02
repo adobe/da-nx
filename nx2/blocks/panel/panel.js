@@ -153,10 +153,7 @@ export default async function decorate(block) {
 
   const fragment = await loadFragment(a.href);
 
-  const beforeMain = block.dataset.beforeMain === 'true';
-  const width = block.dataset.width?.trim() || '400px';
-
-  const nx = createPanel({ width, beforeMain });
+  const nx = createPanel({ width: '400px', beforeMain: false });
   if (fragment && nx) {
     nx.replaceChildren();
     while (fragment.firstChild) {
