@@ -117,13 +117,14 @@
   .chat-send {
     width: 32px;
     height: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     border: none;
     border-radius: var(--s2-corner-radius-800);
     background-color: var(--s2-gray-200);
     cursor: pointer;
+
+    .icon {
+      display: flex;
+    }
   }
 
   .chat-input:disabled,
