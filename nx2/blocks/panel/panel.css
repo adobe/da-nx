@@ -4,10 +4,11 @@
   display: block;
   position: relative;
   box-sizing: border-box;
-  height: calc(100dvh - var(--s2-nav-height) - var(--panel-bottom-margin));
-  margin: 0 12px var(--panel-bottom-margin) 0;
+  height: 100%;
+  max-height: 100%;
+  margin: 0;
+  border-radius: 24px;
   background-color: light-dark(#fff, #000);
-  border-radius: 32px;
 }
 
 .panel-shell {
@@ -17,12 +18,12 @@
   min-height: 0;
   height: 100%;
   padding: 0 12px;
+  overflow-y: auto;;
 }
 
 .panel-body {
   flex: 1 1 auto;
   min-height: 0;
-  overflow: auto;
   display: flex;
   flex-direction: column;
 }
@@ -35,6 +36,7 @@
 }
 
 .panel-resize-handle {
+  display: none;
   position: absolute;
   top: 50%;
   translate: 0 -50%;
@@ -79,4 +81,17 @@
 
 .panel-resize-handle-leading {
   left: -12px;
+}
+
+@media (width >= 600px) {
+  :host {
+    height: calc(100dvh - var(--s2-nav-height) - var(--panel-bottom-margin));
+    max-height: none;
+    margin: 0 12px var(--panel-bottom-margin) 0;
+    border-radius: 32px;
+  }
+
+  .panel-resize-handle {
+    display: block;
+  }
 }

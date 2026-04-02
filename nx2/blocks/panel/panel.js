@@ -141,7 +141,7 @@ function createPanel({ width, beforeMain }) {
   return nx;
 }
 
-export function showPanel({ width = '200px', beforeMain = false } = {}) {
+export function showPanel({ width = '400px', beforeMain = false } = {}) {
   const nx = createPanel({ width, beforeMain });
   setPanelsGrid();
   return nx;
@@ -154,7 +154,7 @@ export default async function decorate(block) {
   const fragment = await loadFragment(a.href);
 
   const beforeMain = block.dataset.beforeMain === 'true';
-  const width = block.dataset.width?.trim() || '200px';
+  const width = block.dataset.width?.trim() || '400px';
 
   const nx = createPanel({ width, beforeMain });
   if (fragment && nx) {
