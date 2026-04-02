@@ -434,6 +434,7 @@ html:has(meta[content="edge-delivery"]) {
           margin: 0 12px 0 0;
           border-radius: 32px 32px 0 0;
           max-height: 100%;
+          overflow-y: auto;
         }
       }
     }

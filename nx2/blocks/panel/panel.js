@@ -1,15 +1,3 @@
-/*
- * Copyright 2026 Adobe. All rights reserved.
- * This file is licensed to you under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License. You may obtain a copy
- * of the License at http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software distributed under
- * the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR REPRESENTATIONS
- * OF ANY KIND, either express or implied. See the License for the specific language
- * governing permissions and limitations under the License.
- */
-
 import { LitElement, html } from 'lit';
 
 import { loadFragment } from '../fragment/fragment.js';
@@ -25,27 +13,27 @@ export function setPanelsGrid() {
   const beforeMain = [...body.querySelectorAll('aside.panel[data-position="before"]')];
   const afterMain = [...body.querySelectorAll('aside.panel[data-position="after"]')];
 
-  beforeMain.forEach((el, i) => { el.style.gridArea = `nx-pb-${i}`; });
-  afterMain.forEach((el, i) => { el.style.gridArea = `nx-pa-${i}`; });
+  beforeMain.forEach((el, i) => { el.style.gridArea = `nx-panel-before-${i}`; });
+  afterMain.forEach((el, i) => { el.style.gridArea = `nx-panel-after-${i}`; });
 
   const colCount = 1 + beforeMain.length + 1 + afterMain.length;
   const headerRow = Array(colCount).fill('header').join(' ');
   const contentRow = [
     'sidenav',
-    ...beforeMain.map((_, i) => `nx-pb-${i}`),
+    ...beforeMain.map((_, i) => `nx-panel-before-${i}`),
     'main',
-    ...afterMain.map((_, i) => `nx-pa-${i}`),
+    ...afterMain.map((_, i) => `nx-panel-after-${i}`),
   ].join(' ');
 
-  const track = (el) => {
+  const getWidth = (el) => {
     const w = el.dataset.width?.trim();
     return w ? `min(${w}, 40vw)` : 'minmax(0, auto)';
   };
   const columns = [
     'var(--s2-nav-width)',
-    ...beforeMain.map(track),
+    ...beforeMain.map(getWidth),
     '1fr',
-    ...afterMain.map(track),
+    ...afterMain.map(getWidth),
   ].join(' ');
 
   body.style.setProperty('--app-frame-areas', `"${headerRow}" var(--s2-nav-height) "${contentRow}" 1fr`);
@@ -135,7 +123,7 @@ class NXPanel extends LitElement {
 
 customElements.define('nx-panel', NXPanel);
 
-export function createPanel({ width = '200px', beforeMain = false } = {}) {
+function createPanel({ width, beforeMain }) {
   const aside = document.createElement('aside');
   aside.classList.add('panel');
   aside.dataset.width = width;
