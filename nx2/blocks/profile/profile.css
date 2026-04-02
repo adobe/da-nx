@@ -21,6 +21,10 @@
   height: 20px;
 }
 
+#profile-btn {
+  anchor-name: --my-anchor;
+}
+
 .nx-btn-profile {
   background: none;
   display: flex;
@@ -44,7 +48,10 @@
 }
 
 #nx-menu-profile {
-  inset: 48px 12px auto auto;
+  position: fixed;
+  position-anchor: --my-anchor;
+  margin: 0;
+  inset: calc(anchor(bottom) + 6px) anchor(right) auto auto;
   border: none;
   border-radius: var(--s2-corner-radius-700);
   width: 340px;

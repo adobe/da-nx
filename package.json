@@ -33,7 +33,7 @@
     "nx2:test:watch": "npm test -- --watch",
     "nx2:test:file": "wtr --config ./nx2/test/wtr.config.mjs --node-resolve --port=2000 --coverage",
     "nx2:test:file:watch": "wtr --config ./nx2/test/wtr.config.mjs --node-resolve --port=2000 --coverage --watch",
-    "nx2:build:lit": "esbuild --format=esm --minify ./nx2/deps/lit/src/index.js --bundle --outfile=./nx2/deps/lit/dist/index.js",
+    "nx2:build:da-lit": "esbuild --format=esm --minify ./nx2/deps/lit/src/index.js --bundle --outfile=./nx2/deps/lit/dist/index.js",
     "nx2:build:spectrum": "node nx2/deps/spectrum/build.js"
   },
   "repository": {
