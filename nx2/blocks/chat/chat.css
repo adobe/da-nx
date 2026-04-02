@@ -4,7 +4,9 @@
   background-color: var(--s2-gray-25);
   font-family: var(--s2-font-family);
 
-  [hidden] { display: none; }
+  [hidden] {
+    display: none;
+  }
 }
 
 .chat-messages-container {
@@ -115,6 +117,9 @@
   .chat-send {
     width: 32px;
     height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     border: none;
     border-radius: var(--s2-corner-radius-800);
     background-color: var(--s2-gray-200);
