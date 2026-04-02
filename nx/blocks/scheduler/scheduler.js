@@ -364,12 +364,12 @@ class NxScheduler extends LitElement {
               <span class="duration">${formatDuration(entry.scheduledPublish)}</span>
             </p>
             <p class="scheduled-by">${entry.userId || '—'}</p>
-            <p>
+            <div class="schedule-actions">
               <sl-button class="primary outline" @click=${() => this.handleOpenItem(entry)}>Open</sl-button>
-              <sl-button class="warning outline" ?disabled=${this._deletingId === entry.id} @click=${() => this.handleDeleteItem(entry)}>
+              <sl-button class="negative outline" ?disabled=${this._deletingId === entry.id} @click=${() => this.handleDeleteItem(entry)}>
                 ${this._deletingId === entry.id ? 'Deleting...' : 'Delete'}
               </sl-button>
-            </p>
+            </div>
           </div>
         `)}
       </div>
