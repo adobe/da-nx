@@ -1,14 +1,22 @@
-import { LitElement, html, nothing } from 'lit';
+import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../utils/utils.js';
-import loadIcons from '../../utils/svg.js';
+import { loadHrefSvg } from '../../utils/svg.js';
 import ChatController from './chat-controller.js';
 
 const styles = await loadStyle(import.meta.url);
+
+const ICONS_BASE = new URL('../../img/icons/', import.meta.url).href;
+
+const ICONS = {
+  send: `${ICONS_BASE}S2_Icon_Send_20_N.svg`,
+  stop: `${ICONS_BASE}S2_Icon_Stop_20_N.svg`,
+};
 
 class NxChat extends LitElement {
   static properties = {
     messages: { type: Array },
     thinking: { type: Boolean },
+    _icons: { state: true },
   };
 
   async connectedCallback() {
@@ -22,8 +30,12 @@ class NxChat extends LitElement {
     });
   }
 
-  firstUpdated() {
-    loadIcons({ icons: this.shadowRoot.querySelectorAll('.icon') });
+  async firstUpdated() {
+    const entries = Object.entries(ICONS);
+    const svgs = await Promise.all(entries.map(([, href]) => loadHrefSvg(href)));
+    const icons = {};
+    entries.forEach(([key], i) => { icons[key] = svgs[i]; });
+    this._icons = icons;
   }
 
   _handleInput(e) {
@@ -58,6 +70,11 @@ class NxChat extends LitElement {
     return html`<div class="chat-empty">Start a conversation</div>`;
   }
 
+  _renderIcon(name) {
+    const svg = this._icons?.[name];
+    return svg ?? nothing;
+  }
+
   render() {
     return html`
       <div class="chat-messages-container" role="log" aria-live="polite">
@@ -82,8 +99,8 @@ class NxChat extends LitElement {
         <div class="chat-actions">
           <div class="chat-actions-start"></div>
           <button class="chat-send" @click=${this._submit} aria-label=${this.thinking ? 'Stop' : 'Send'}>
-            <span class="icon icon-send" ?hidden=${this.thinking}></span>
-            <span class="icon icon-stop" ?hidden=${!this.thinking}></span>
+            <span class="icon" ?hidden=${this.thinking}>${this._renderIcon('send')}</span>
+            <span class="icon" ?hidden=${!this.thinking}>${this._renderIcon('stop')}</span>
           </button>
         </div>
       </div>
