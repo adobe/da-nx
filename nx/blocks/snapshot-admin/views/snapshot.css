@@ -30,17 +30,27 @@ svg.icon {
     background-color: var(--s2-blue-200);
   }
 
-  &.is-saving::after {
+  .nx-snapshot-overlay {
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
-    content: attr(data-action);
+    gap: 12px;
     font-size: 24px;
     font-weight: 700;
     position: absolute;
     inset: 0;
     background: rgb(255 255 255 / 60%);
     z-index: 10;
+  }
+
+  .nx-snapshot-spinner {
+    display: block;
+    width: 32px;
+    height: 32px;
+    animation: spin 1.5s linear infinite;
+    transform-box: fill-box;
+    transform-origin: center;
   }
 }
 
@@ -167,36 +177,37 @@ svg.icon {
 }
 
 .nx-snapshot-edit-urls {
-  height: 388px;
+  height: 500px;
 }
 
 .nx-snapshot-urls {
   margin: 0;
   padding: 0;
   list-style: none;
-  height: 388px;
+  height: 500px;
   overflow-y: auto;
 
-  a {
+  .nx-url-row {
     padding: 4px 6px 4px 12px;
     color: var(--s2-gray-800);
-    text-decoration: none;
-    display: grid;
+    cursor: pointer;
+    display: flex;
     align-items: center;
-    grid-template-columns: 1fr auto;
-    gap: 12px;
     border-radius: 8px;
 
     span {
       line-height: 40px;
     }
 
-    .icon-wrap {
-      display: none;
-      justify-content: center;
-      align-items: center;
-      width: 32px;
-      height: 32px;
+    &::after {
+      content: "";
+      display: block;
+      width: 18px;
+      height: 18px;
+      margin-left: auto;
+      background: no-repeat center / 14px url("https://da.live/nx/img/icons/Smock_ChevronRight_18_N.svg");
+      transition: transform 0.2s ease-in-out;
+      opacity: 0;
     }
   }
 
@@ -208,12 +219,51 @@ svg.icon {
       margin-bottom: 24px;
     }
 
-    &:hover {
-      background: rgb(0 0 0 / 2%);
+    &:hover .nx-url-row::after {
+      opacity: 1;
+    }
 
-      .icon-wrap {
-        display: flex;
-      }
+    &.is-expanded .nx-url-row::after {
+      opacity: 1;
+      transform: rotate(90deg);
+    }
+  }
+}
+
+.nx-url-accordion {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 12px 12px;
+
+  a,
+  button {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--s2-gray-800);
+    background: #0000000d;
+    border: none;
+    border-radius: 6px;
+    text-decoration: none;
+    cursor: pointer;
+    font-family: var(--font-family);
+
+    &:hover {
+      background-color: var(--s2-blue-1000);
+      color: #fff;
+    }
+
+    svg.icon {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      vertical-align: middle;
+      flex-shrink: 0;
+      overflow: visible;
     }
   }
 }
@@ -366,6 +416,15 @@ svg.icon {
   button:last-child {
     border-radius: 0 8px 8px 0;
   }
+
+  &:has(button:only-child) {
+    grid-template-columns: 1fr;
+    margin: 0 auto 8px;
+
+    button:only-child {
+      border-radius: 8px;
+    }
+  }
 }
 
 /* Tooltip styles */
@@ -412,6 +471,16 @@ svg.icon {
 
   to {
     opacity: 1;
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
   }
 }
 

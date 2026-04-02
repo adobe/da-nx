@@ -1,4 +1,4 @@
-import { LitElement, html, nothing } from 'lit';
+import { LitElement, html, nothing } from 'da-lit';
 
 import { loadFragment } from '../fragment/fragment.js';
 import { loadStyle, HashController } from '../../utils/utils.js';

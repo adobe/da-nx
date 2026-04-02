@@ -1,7 +1,12 @@
 import { getMediaType, isSvgFile, isUiExcludedMediaItem } from '../core/media.js';
 import { getBasePath, formatDocPath } from '../core/paths.js';
 import { pluralize } from '../core/utils.js';
-import { getDedupeKey, isInternalToSite } from '../core/urls.js';
+import {
+  getDedupeKey,
+  isInternalToSite,
+  folderPathFromAssetUrl,
+  isDeliveryStandaloneUrl,
+} from '../core/urls.js';
 import {
   clearProcessDataCache as clearCache,
   getCachedProcessData,
@@ -57,6 +62,44 @@ function getUsageInfo(processedData, item) {
   return processedData.usageData[getDedupeKey(item.url)] || null;
 }
 
+function normalizeAssetSourcePath(path) {
+  if (!path) return '';
+  const cleanPath = String(path).split('?')[0].split('#')[0].trim();
+  if (!cleanPath || cleanPath === '/') return '';
+  const withLeading = cleanPath.startsWith('/') ? cleanPath : `/${cleanPath}`;
+  return withLeading.replace(/\/+$/, '');
+}
+
+function getAncestorFoldersFromAssetPath(path) {
+  const normalized = normalizeAssetSourcePath(path);
+  if (!normalized) return [];
+
+  const parts = normalized.split('/').filter(Boolean);
+  if (parts.length <= 1) return [];
+
+  return parts.slice(0, -1).map((_, i) => `/${parts.slice(0, i + 1).join('/')}`);
+}
+
+function getHierarchicalFoldersFromFolderPath(path) {
+  const normalized = normalizeAssetSourcePath(path);
+  if (!normalized) return [];
+
+  const parts = normalized.split('/').filter(Boolean);
+  if (parts.length === 0) return [];
+
+  return parts.map((_, i) => `/${parts.slice(0, i + 1).join('/')}`);
+}
+
+/** No-doc rows with asset-derived folder metadata (same-site delivery URLs in processMediaData). */
+function noDocDeliveryAssetFoldersMatch(item, usageInfo, normalizedFolderValue, searchPathLower) {
+  if (item.doc) return false;
+  if (!normalizedFolderValue || normalizedFolderValue === '/') {
+    return !!item.originalPath || !!usageInfo?.folders?.length;
+  }
+  if (!usageInfo?.folders?.length) return false;
+  return usageInfo.folders.some((fp) => fp.toLowerCase().startsWith(searchPathLower));
+}
+
 function findMatchingDocForFolder(usageInfo, searchPath) {
   if (!usageInfo?.docs?.length) {
     return null;
@@ -83,26 +126,29 @@ function withRepresentativeDoc(item, doc) {
   };
 }
 
-/** Sidebar type filters (except No References) show only indexed referenced rows. */
+/** External tab: only referenced off-site links (unchanged). */
 const isReferenced = (item) => item.status !== 'unused';
 
-/** Search suggestions: same referenced vs unused rules as the sidebar filters. */
+/** No References tab: suggestions only; type tabs include unused assets in suggestions too. */
 function applyReferenceFilterForSuggestions(item, selectedFilterType) {
   if (selectedFilterType === 'noReferences') {
     return item.status === 'unused';
   }
-  return item.status !== 'unused';
+  if (selectedFilterType === 'links') {
+    return item.status !== 'unused';
+  }
+  return true;
 }
 
 export const FILTER_CONFIG = {
-  all: (item) => isReferenced(item) && !isSvgFile(item),
-  documents: (item) => isReferenced(item) && getMediaType(item) === 'document',
-  fragments: (item) => isReferenced(item) && getMediaType(item) === 'fragment',
-  images: (item) => isReferenced(item) && getMediaType(item) === 'image' && !isSvgFile(item),
-  icons: (item) => isReferenced(item) && isSvgFile(item),
+  all: (item) => !isSvgFile(item),
+  documents: (item) => getMediaType(item) === 'document',
+  fragments: (item) => getMediaType(item) === 'fragment',
+  images: (item) => getMediaType(item) === 'image' && !isSvgFile(item),
+  icons: (item) => isSvgFile(item),
   links: (item, org, repo) => isReferenced(item) && !isInternalToSite(item.url, org, repo),
   noReferences: (item) => item.status === 'unused',
-  videos: (item) => isReferenced(item) && getMediaType(item) === 'video',
+  videos: (item) => getMediaType(item) === 'video',
 
   documentImages: (item, selectedDocument) => FILTER_CONFIG.images(item)
   && item.doc === selectedDocument,
@@ -160,12 +206,12 @@ export function clearProcessDataCache() {
 }
 
 // Builds the lean derived data needed by the current UI.
-export async function processMediaData(mediaData, onProgress = null) {
+export async function processMediaData(mediaData, onProgress = null, org = null, repo = null) {
   if (!mediaData || mediaData.length === 0) {
     return initializeProcessedData();
   }
 
-  const cacheKey = generateCacheKey(mediaData);
+  const cacheKey = `${org || ''}\0${repo || ''}\0${generateCacheKey(mediaData)}`;
   const cached = getCachedProcessData(cacheKey);
 
   if (cached) {
@@ -208,11 +254,26 @@ export async function processMediaData(mediaData, onProgress = null) {
         };
       }
 
+      const usage = processedData.usageData[groupingKey];
+
       if (!item.doc) {
+        let assetFolders = [];
+        if (item.originalPath) {
+          assetFolders = getAncestorFoldersFromAssetPath(item.originalPath);
+        } else if (org && repo && isDeliveryStandaloneUrl(item.url, org, repo)) {
+          assetFolders = getHierarchicalFoldersFromFolderPath(
+            folderPathFromAssetUrl(item.url, org, repo),
+          );
+        }
+        assetFolders.forEach((assetFolder) => {
+          usage.uniqueFolders.add(assetFolder);
+          uniqueFolderPaths.add(assetFolder);
+        });
+        if (assetFolders.length > 0) {
+          usage.count = usage.uniqueDocs.size;
+        }
         return;
       }
-
-      const usage = processedData.usageData[groupingKey];
       if (usage.uniqueDocs.has(item.doc)) {
         return;
       }
@@ -345,7 +406,13 @@ function filterByColonSyntax(mediaData, colonSyntax, processedData) {
           }
         }
 
-        if (matchedDoc) {
+        const includeNoDocFolders = noDocDeliveryAssetFoldersMatch(
+          item,
+          usageInfo,
+          normalizedValue,
+          searchPath,
+        );
+        if (matchedDoc || includeNoDocFolders) {
           filteredResults.push(withRepresentativeDoc(item, matchedDoc));
         }
         break;
@@ -882,6 +949,8 @@ export function filterByFolder(data, selectedFolder, processedData) {
         folderItems.push(enrichWithUsageData(item, processedData, rootDoc));
       } else if (item.doc && isRootDocPath(item.doc)) {
         folderItems.push(enrichWithUsageData(item, processedData, item.doc));
+      } else if (noDocDeliveryAssetFoldersMatch(item, usageInfo, '/', searchPath)) {
+        folderItems.push(enrichWithUsageData(item, processedData, null));
       }
       return folderItems;
     }

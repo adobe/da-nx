@@ -18,7 +18,10 @@ import { getDedupeKey, canonicalizeMediaUrl } from '../core/urls.js';
 import {
   IndexFiles,
   SheetNames,
+  IndexConfig,
 } from '../core/constants.js';
+
+const LOCK_OWNER_STORAGE_KEY = 'media-library-lock-owner-id';
 
 function getOrgRepoFromSitePath(sitePath) {
   if (!sitePath) return { org: null, repo: null };
@@ -52,12 +55,50 @@ export async function checkIndexLock(sitePath) {
         exists: true,
         locked: lockData.locked || false,
         timestamp: lockData.timestamp || null,
+        startedAt: lockData.startedAt || lockData.timestamp || null,
+        lastUpdated: lockData.lastUpdated || lockData.timestamp || null,
+        ownerId: lockData.ownerId || '',
+        mode: lockData.mode || '',
       };
     }
   } catch (e) {
-    return { exists: false, locked: false, timestamp: null };
+    return {
+      exists: false,
+      locked: false,
+      timestamp: null,
+      startedAt: null,
+      lastUpdated: null,
+      ownerId: '',
+      mode: '',
+    };
   }
-  return { exists: false, locked: false, timestamp: null };
+  return {
+    exists: false,
+    locked: false,
+    timestamp: null,
+    startedAt: null,
+    lastUpdated: null,
+    ownerId: '',
+    mode: '',
+  };
+}
+
+export function getIndexLockOwnerId() {
+  if (typeof window === 'undefined' || !window.sessionStorage) return '';
+
+  let ownerId = window.sessionStorage.getItem(LOCK_OWNER_STORAGE_KEY);
+  if (ownerId) return ownerId;
+
+  ownerId = `ml-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  window.sessionStorage.setItem(LOCK_OWNER_STORAGE_KEY, ownerId);
+  return ownerId;
+}
+
+export function isFreshIndexLock(lock, now = Date.now()) {
+  if (!(lock?.exists && lock?.locked)) return false;
+  const heartbeat = lock.lastUpdated || lock.timestamp || lock.startedAt;
+  if (!heartbeat) return false;
+  return (now - heartbeat) < IndexConfig.LOCK_STALE_THRESHOLD_MS;
 }
 
 export async function saveMediaSheet(data, sitePath) {
@@ -74,11 +115,8 @@ export async function loadMediaSheet(sitePath, onProgressiveChunk) {
   const basePath = getMediaLibraryPath(sitePath);
   const metaPath = `${basePath}/${IndexFiles.MEDIA_INDEX_META}`;
   const { org, repo } = getOrgRepoFromSitePath(sitePath);
-
   const lock = await checkIndexLock(sitePath);
-  if (lock.exists && lock.locked) {
-    return { data: [], indexing: true };
-  }
+  const lockFresh = isFreshIndexLock(lock);
 
   try {
     // Check if index is chunked by loading meta
@@ -87,7 +125,7 @@ export async function loadMediaSheet(sitePath, onProgressiveChunk) {
     if (meta?.chunked === true) {
       const chunkCount = meta.chunkCount || 0;
       if (chunkCount === 0) {
-        return { data: [] };
+        return { data: [], lockFresh };
       }
 
       try {
@@ -107,6 +145,7 @@ export async function loadMediaSheet(sitePath, onProgressiveChunk) {
         }));
         return {
           data: mappedData,
+          lockFresh,
         };
       } catch (chunkError) {
         // eslint-disable-next-line no-console
@@ -128,6 +167,7 @@ export async function loadMediaSheet(sitePath, onProgressiveChunk) {
           ...item,
           url: canonicalizeMediaUrl(item.url, org, repo),
         })),
+        lockFresh,
       };
     }
 
@@ -137,7 +177,12 @@ export async function loadMediaSheet(sitePath, onProgressiveChunk) {
     }
 
     if (resp.status === 404) {
-      return { data: [], indexMissing: true };
+      return {
+        data: [],
+        indexMissing: true,
+        indexing: lockFresh,
+        lockFresh,
+      };
     }
 
     logMediaLibraryError(ErrorCodes.INDEX_LOAD_FAILED, { path, status: resp.status });
@@ -201,11 +246,40 @@ export async function loadMediaIfUpdated(sitePath, org, repo) {
 
 export async function createIndexLock(sitePath) {
   const path = getIndexLockPath(sitePath);
+  const ownerId = getIndexLockOwnerId();
+  const now = Date.now();
   const lockData = [{
-    timestamp: Date.now(),
+    timestamp: now,
+    startedAt: now,
+    lastUpdated: now,
+    ownerId,
     locked: true,
   }];
   const formData = await createSheet(lockData);
+  const resp = await daFetch(`${DA_ORIGIN}/source${path}`, {
+    method: 'PUT',
+    body: formData,
+  });
+  if (!resp.ok) {
+    logMediaLibraryError(ErrorCodes.LOCK_CREATE_FAILED, { status: resp.status, path });
+    const isDenied = resp.status === 401 || resp.status === 403;
+    const msg = isDenied ? t('LOCK_CREATE_FAILED_PERMISSION') : t('LOCK_CREATE_FAILED_GENERIC');
+    throw new MediaLibraryError(ErrorCodes.LOCK_CREATE_FAILED, msg, { status: resp.status, path });
+  }
+  return resp;
+}
+
+export async function refreshIndexLock(sitePath, lockData = {}) {
+  const path = getIndexLockPath(sitePath);
+  const now = Date.now();
+  const formData = await createSheet([{
+    locked: true,
+    timestamp: lockData.timestamp || lockData.startedAt || now,
+    startedAt: lockData.startedAt || lockData.timestamp || now,
+    lastUpdated: now,
+    ownerId: lockData.ownerId || getIndexLockOwnerId(),
+    mode: lockData.mode || '',
+  }]);
   const resp = await daFetch(`${DA_ORIGIN}/source${path}`, {
     method: 'PUT',
     body: formData,
@@ -230,6 +304,25 @@ export async function removeIndexLock(sitePath) {
   return resp;
 }
 
+function statusRankForUniqueCard(item) {
+  return item.doc ? 2 : 0;
+}
+
+function shouldReplaceUniqueItem(existingItem, item) {
+  if (!existingItem) return true;
+
+  const itemHasDoc = !!(item.doc && item.doc !== '');
+  const existingHasDoc = !!(existingItem.doc && existingItem.doc !== '');
+  if (itemHasDoc && !existingHasDoc) return true;
+  if (!itemHasDoc && existingHasDoc) return false;
+
+  const itemTs = getCanonicalMediaTimestamp(item);
+  const existingTs = getCanonicalMediaTimestamp(existingItem);
+  if (itemTs !== existingTs) return itemTs > existingTs;
+
+  return statusRankForUniqueCard(item) > statusRankForUniqueCard(existingItem);
+}
+
 // Builds uniqueItems and usageIndex from raw media data.
 export function buildMediaIndexStructures(mediaData) {
   const uniqueItemsMap = new Map();
@@ -238,11 +331,11 @@ export function buildMediaIndexStructures(mediaData) {
   mediaData.forEach((item) => {
     const groupingKey = item.url ? getDedupeKey(item.url) : item.hash;
     const existingItem = uniqueItemsMap.get(groupingKey);
-    if (!uniqueItemsMap.has(groupingKey)
-      || getCanonicalMediaTimestamp(item) > getCanonicalMediaTimestamp(existingItem)) {
+    if (!uniqueItemsMap.has(groupingKey) || shouldReplaceUniqueItem(existingItem, item)) {
       const merged = { ...item };
 
       if (existingItem) {
+        merged.originalPath = item.originalPath || existingItem.originalPath || '';
         merged.displayName = item.displayName || existingItem.displayName || item.name;
         const hasModified = item.modifiedTimestamp !== undefined
           && item.modifiedTimestamp !== null;
@@ -288,17 +381,41 @@ export default async function buildMediaIndex(
   const startTime = Date.now();
 
   const existingLock = await checkIndexLock(sitePath);
-  if (existingLock.exists && existingLock.locked) {
-    const lockAge = Date.now() - existingLock.timestamp;
-    const maxLockAge = 30 * 60 * 1000; // 30 minutes
-
-    if (lockAge < maxLockAge) {
-      throw new Error(`Index build already in progress. Lock created ${Math.round(lockAge / 1000 / 60)} minutes ago.`);
-    }
+  const ownerId = getIndexLockOwnerId();
+  const ownsExistingLock = existingLock.ownerId && existingLock.ownerId === ownerId;
+  if (isFreshIndexLock(existingLock) && !ownsExistingLock) {
+    const heartbeat = existingLock.lastUpdated
+      || existingLock.timestamp
+      || existingLock.startedAt
+      || Date.now();
+    const lockAge = Date.now() - heartbeat;
+    throw new Error(
+      `Index build already in progress. Lock updated ${Math.round(lockAge / 1000 / 60)} minutes ago.`,
+    );
+  }
+  if (
+    existingLock.exists
+    && existingLock.locked
+    && !isFreshIndexLock(existingLock)
+    && !ownsExistingLock
+  ) {
     await removeIndexLock(sitePath);
   }
 
   await createIndexLock(sitePath);
+  const heartbeatLockData = {
+    startedAt: ownsExistingLock
+      ? (existingLock.startedAt || existingLock.timestamp || Date.now())
+      : Date.now(),
+    timestamp: ownsExistingLock
+      ? (existingLock.timestamp || existingLock.startedAt || Date.now())
+      : Date.now(),
+    ownerId,
+    mode: forceFull ? 'full' : 'incremental',
+  };
+  const heartbeatTimer = setInterval(() => {
+    refreshIndexLock(sitePath, heartbeatLockData).catch(() => {});
+  }, IndexConfig.LOCK_HEARTBEAT_INTERVAL_MS);
 
   try {
     const reindexCheck = await checkReindexEligibility(sitePath, org, repo);
@@ -344,5 +461,7 @@ export default async function buildMediaIndex(
       await removeIndexLock(sitePath);
     } catch { /* swallow */ }
     throw error;
+  } finally {
+    clearInterval(heartbeatTimer);
   }
 }

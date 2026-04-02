@@ -1,6 +1,6 @@
 import { html, LitElement, repeat, nothing } from 'da-lit';
 import getStyle from '../../utils/styles.js';
-import { fetchSnapshots, setOrgSite, isRegistered, getUserPublishPermission } from './utils/utils.js';
+import { fetchSnapshots, setOrgSite, isRegistered, getUserPublishPermission, fetchLaunchPermission } from './utils/utils.js';
 
 import '../../public/sl/components.js';
 import './views/dialog.js';
@@ -21,6 +21,7 @@ class NxSnapshotAdmin extends LitElement {
     _snapshots: { state: true },
     _isRegistered: { state: false },
     _userPermissions: { state: true },
+    _hasLaunchPermission: { state: true },
   };
 
   connectedCallback() {
@@ -57,6 +58,7 @@ class NxSnapshotAdmin extends LitElement {
     this._snapshots = result.snapshots;
     this._isRegistered = await isRegistered(org, site);
     this._userPermissions = await getUserPublishPermission();
+    this._hasLaunchPermission = await fetchLaunchPermission();
   }
 
   handleSetSite(e) {
@@ -118,7 +120,7 @@ class NxSnapshotAdmin extends LitElement {
               snapshots,
               (snap) => snap.name,
               (snap) => html`
-              <li><nx-snapshot @delete=${() => this.handleDelete(snap)} .basics=${snap} .isRegistered=${this._isRegistered} .userPermissions=${this._userPermissions} .startOpen=${!!filterName}></nx-snapshot></li>`,
+              <li><nx-snapshot @delete=${() => this.handleDelete(snap)} .basics=${snap} .isRegistered=${this._isRegistered} .userPermissions=${this._userPermissions} .hasLaunchPermission=${this._hasLaunchPermission} .startOpen=${!!filterName}></nx-snapshot></li>`,
             )}
           </ul>
         </div>

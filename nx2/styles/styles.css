@@ -15,7 +15,7 @@
 @font-face {
   font-family: adobe-clean;
   src: url("fonts/adobe-clean-regular.woff2") format("woff2");
-  font-display: optional;
+  font-display: swap;
   font-style: normal;
   font-weight: 400;
   font-stretch: normal;
@@ -24,7 +24,7 @@
 @font-face {
   font-family: adobe-clean;
   src: url("fonts/adobe-clean-italic.woff2") format("woff2");
-  font-display: optional;
+  font-display: swap;
   font-style: italic;
   font-weight: 400;
   font-stretch: normal;
@@ -33,7 +33,7 @@
 @font-face {
   font-family: adobe-clean;
   src: url("fonts/adobe-clean-bold.woff2") format("woff2");
-  font-display: optional;
+  font-display: swap;
   font-style: normal;
   font-weight: 700;
   font-stretch: normal;
@@ -42,10 +42,28 @@
 @font-face {
   font-family: adobe-clean;
   src: url("fonts/adobe-clean-bold-italic.woff2") format("woff2");
-  font-display: optional;
+  font-display: swap;
   font-style: italic;
   font-weight: 700;
   font-stretch: normal;
+}
+
+@font-face {
+  font-family: "Trebuchet MS";
+  src: local("Trebuchet MS");
+  font-weight: 400;
+  size-adjust: 88%;
+  ascent-override: 92%;
+  descent-override: 18%;
+}
+
+@font-face {
+  font-family: "Trebuchet MS";
+  src: local("Trebuchet MS Bold"), local("Trebuchet MS");
+  font-weight: 700;
+  size-adjust: 90%;
+  ascent-override: 92%;
+  descent-override: 18%;
 }
 
 /* --- Variables --- */
@@ -267,7 +285,7 @@
   /* --- End generated --- */
 
   /* fonts */
-  --s2-font-family: 'Adobe Clean', adobe-clean, sans-serif;
+  --s2-font-family: 'Adobe Clean', adobe-clean, 'Trebuchet MS', sans-serif;
 
   /* nav */
   --s2-nav-height: 56px;
@@ -307,13 +325,13 @@ html:has(meta[content="edge-delivery"]) {
 }
 
 /* --- Spectrum Eco default styles --- */
-@layer spectrum-eco {
-  html.spectrum-eco {
+@layer spectrum-edge {
+  html.spectrum-edge {
     body {
       margin: 0;
       background-color: light-dark(#fff, #000);
       color: var(--s2-gray-1000);
-      font-family: 'Adobe Clean', sans-serif;
+      font-family: 'Adobe Clean', 'Trebuchet MS', sans-serif;
       font-size: var(--s2-body-size-m);
       line-height: var(--s2-body-line-height);
 
@@ -440,7 +458,7 @@ html:has(meta[content="edge-delivery"]) {
       --app-frame-columns: var(--s2-nav-width) 1fr;
     }
 
-    html.spectrum-eco {
+    html.spectrum-edge {
       body.app-frame {
         grid-template: var(--app-frame-areas) / var(--app-frame-columns);
         height: 100dvh;

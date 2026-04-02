@@ -244,21 +244,14 @@ async function decoratePlaceholders(area, isDoc) {
 }
 
 function loadSession() {
-  // sessionStorage.setItem('session', true);
+  sessionStorage.setItem('session', true);
   document.body.classList.add('session');
-  const header = document.querySelector('nx-nav');
-  if (!header) return;
-  import('../blocks/nav/nav.js');
-  const appFrame = document.body.classList.contains('app-frame');
-  if (!appFrame) return;
-  const sidenav = document.querySelector('nx-sidenav');
-  if (sidenav) import('../blocks/sidenav/sidenav.js');
 }
 
 function decorateDoc() {
   decorateNav();
 
-  document.documentElement.classList.add('spectrum-eco');
+  document.documentElement.classList.add('spectrum-edge');
 
   const template = getMetadata('template');
   if (template) document.body.classList.add(template);
@@ -286,6 +279,14 @@ export async function loadArea({ area } = { area: document }) {
     await Promise.all(section.blocks.map((block) => loadBlock(block)));
     delete section.dataset.status;
     if (isDoc && idx === 0) {
+      const header = document.querySelector('nx-nav');
+      if (!header) return;
+      import('../blocks/nav/nav.js');
+      const appFrame = document.body.classList.contains('app-frame');
+      if (!appFrame) return;
+      const sidenav = document.querySelector('nx-sidenav');
+      if (sidenav) import('../blocks/sidenav/sidenav.js');
+
       if (!isSession) loadSession();
       import('../utils/favicon.js');
     }

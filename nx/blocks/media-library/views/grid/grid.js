@@ -122,12 +122,7 @@ class NxMediaGrid extends LitElement {
 
   render() {
     if (!this.mediaData || this.mediaData.length === 0) {
-      return html`
-        <div class="empty-state">
-          <h3>No results found</h3>
-          <p>Try a different search or type selection</p>
-        </div>
-      `;
+      return html``;
     }
 
     return html`
