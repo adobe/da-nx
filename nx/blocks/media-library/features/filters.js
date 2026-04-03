@@ -149,38 +149,22 @@ export const FILTER_CONFIG = {
   links: (item, org, repo) => isReferenced(item) && !isInternalToSite(item.url, org, repo),
   noReferences: (item) => getItemStatus(item) === 'unused',
   videos: (item) => getMediaType(item) === 'video',
-
-  documentImages: (item, selectedDocument) => FILTER_CONFIG.images(item)
-  && item.doc === selectedDocument,
-  documentIcons: (item, selectedDocument) => FILTER_CONFIG.icons(item)
-  && item.doc === selectedDocument,
-  documentVideos: (item, selectedDocument) => FILTER_CONFIG.videos(item)
-   && item.doc === selectedDocument,
-  documentDocuments: (item, selectedDocument) => FILTER_CONFIG.documents(item)
-   && item.doc === selectedDocument,
-  documentFragments: (item, selectedDocument) => FILTER_CONFIG.fragments(item)
-   && item.doc === selectedDocument,
-  documentLinks: (item, selectedDocument, org, repo) => FILTER_CONFIG.links(item, org, repo)
-   && item.doc === selectedDocument,
-
   documentTotal: (item, selectedDocument) => item.doc === selectedDocument,
 };
 
 // Applies type filter (all, documents, images, etc.) to data.
-export function applyFilter(data, filterName, selectedDocument, org, repo) {
+export function applyFilter(data, filterName, org, repo) {
   const filterFn = FILTER_CONFIG[filterName];
 
-  if (filterFn) {
-    if (filterName.startsWith('document')) {
-      return data.filter((item) => filterFn(item, selectedDocument, org, repo));
-    }
-    if (filterName === 'links') {
-      return data.filter((item) => filterFn(item, org, repo));
-    }
-    return data.filter(filterFn);
+  if (!filterFn) {
+    return data;
   }
 
-  return data;
+  if (filterName === 'links') {
+    return data.filter((item) => filterFn(item, org, repo));
+  }
+
+  return data.filter(filterFn);
 }
 
 function chunkArray(array, chunkSize) {
@@ -1056,13 +1040,7 @@ export function filterMedia(sourceData, options) {
   }
 
   if (selectedFilterType && selectedFilterType !== 'all' && selectedFilterType !== 'documentTotal') {
-    return applyFilter(
-      data,
-      selectedFilterType,
-      selectedDocument,
-      org,
-      repo,
-    );
+    return applyFilter(data, selectedFilterType, org, repo);
   }
 
   return data;
