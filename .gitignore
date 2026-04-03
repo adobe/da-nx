@@ -7,3 +7,4 @@ helix-importer-ui
 .DS_Store
 *.bak
 .idea
+.claude/settings.local.json
