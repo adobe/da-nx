@@ -16,8 +16,11 @@ function formatDate(isoDate) {
   const parsed = new Date(isoDate);
   if (Number.isNaN(parsed.getTime())) return isoDate;
   return parsed.toLocaleString(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
     timeZoneName: 'short',
   });
 }
