@@ -115,7 +115,8 @@ async function clearSnapshotScheduledPublish(org, site, snapshotId) {
 
 async function deleteScheduleEntry(org, site, entry) {
   const type = entry.type === 'page' ? 'page' : 'snapshot';
-  const url = `${SCHEDULER_BASE}/schedule/${type}/${org}/${site}${entry.id}`;
+  const idPath = entry.id.startsWith('/') ? entry.id : `/${entry.id}`;
+  const url = `${SCHEDULER_BASE}/schedule/${type}/${org}/${site}${idPath}`;
   const resp = await daFetch(url, { method: 'DELETE' });
   if (resp.ok) return { ok: true };
   return { ok: false, error: await getError(resp, `Failed to delete scheduled ${type}.`) };
