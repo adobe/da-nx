@@ -492,3 +492,7 @@ main > div,
 main > div[data-status] {
   display: none;
 }
+
+helix-sidekick, aem-sidekick {
+  display: none !important;
+}

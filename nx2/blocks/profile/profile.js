@@ -1,4 +1,4 @@
-import { LitElement, html, nothing } from 'lit';
+import { LitElement, html, nothing } from 'da-lit';
 import { getConfig, loc } from '../../scripts/nx.js';
 import { loadIms, handleSignOut, handleSignIn } from '../../utils/ims.js';
 import { DA_ORIGIN, loadStyle, daFetch } from '../../utils/utils.js';
@@ -146,7 +146,7 @@ class NxProfile extends LitElement {
     if (this._ims.anonymous) return this.renderSignIn();
     return html`
       <div class="nx-profile">
-        <button class="nx-btn-profile" aria-label="Open profile menu" popovertarget="nx-menu-profile">
+        <button id="profile-btn" class="nx-btn-profile" aria-label="Open profile menu" popovertarget="nx-menu-profile">
           <img src="${this._avatar}" alt="" />
         </button>
         <div id="nx-menu-profile" popover>

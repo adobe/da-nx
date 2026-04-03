@@ -12,7 +12,19 @@ function formatError(resp) {
   if (resp.status === 401 || resp.status === 403) {
     return { error: 'You do not have privledges to take this snapshot action.' };
   }
-  return { error: 'Not a valid project.' };
+  const xErr = resp.headers.get('X-Error');
+  if (xErr) return { error: xErr };
+  return { error: `Unknown error. Status: ${resp.status}` };
+}
+
+async function pollJob(jobUrl, interval = 750) {
+  while (true) {
+    const resp = await daFetch(jobUrl);
+    if (!resp.ok) return;
+    const job = await resp.json();
+    if (job.state === 'stopped') return;
+    await new Promise((resolve) => { setTimeout(resolve, interval); });
+  }
 }
 
 function formatResources(name, resources) {
@@ -89,16 +101,41 @@ export async function fetchSnapshots() {
   return { snapshots };
 }
 
-export async function deleteSnapshot(name, paths = ['/*']) {
-  const results = await Promise.all(paths.map(async (path) => {
-    const opts = { method: 'DELETE' };
-    const resp = await daFetch(`${AEM_ORIGIN}/snapshot/${org}/${site}/main/${name}${path}`, opts);
-    if (!resp.ok) return formatError(resp);
-    return { success: resp.status };
-  }));
-  const firstError = results.find((result) => result.error);
-  if (firstError) return firstError;
-  // once all resources are deleted, delete the snapshot as well
+async function deleteDaSnapshotDirectory(name) {
+  const opts = { method: 'DELETE' };
+  const resp = await daFetch(`${DA_ORIGIN}/source/${org}/${site}/.snapshots/${name}`, opts);
+  if (!resp.ok) return formatError(resp);
+  return { success: true };
+}
+
+export async function deleteSnapshotFiles(name, paths = ['/*']) {
+  const opts = {
+    method: 'POST',
+    body: JSON.stringify({ delete: true, paths }),
+    headers: { 'Content-Type': 'application/json' },
+  };
+  const resp = await daFetch(`${AEM_ORIGIN}/snapshot/${org}/${site}/main/${name}/*`, opts);
+  if (!resp.ok && resp.status !== 404) return formatError(resp);
+
+  // Handle async job (202) by polling until complete
+  if (resp.status === 202) {
+    const { links } = await resp.json();
+    if (links?.self) {
+      await pollJob(links.self);
+    }
+  }
+
+  return { success: true };
+}
+
+export async function deleteSnapshot(name, paths = []) {
+  const result = await deleteSnapshotFiles(name, paths);
+  if (!result.success) return result;
+
+  // delete any files in the .snapshots directory
+  deleteDaSnapshotDirectory(name);
+
+  // once all resources are deleted, delete the snapshot
   const opts = { method: 'DELETE' };
   const resp = await daFetch(`${AEM_ORIGIN}/snapshot/${org}/${site}/main/${name}`, opts);
   if (!resp.ok) return formatError(resp);
@@ -116,8 +153,8 @@ export async function updatePaths(name, currPaths, editedHrefs) {
 
   // Handle deletes
   if (removed.length > 0) {
-    const deleteResult = await deleteSnapshot(name, removed);
-    if (deleteResult.error) return deleteResult;
+    const deleteResult = await deleteSnapshotFiles(name, removed);
+    if (!deleteResult.success) return deleteResult;
   }
 
   // Handle adds
@@ -131,6 +168,14 @@ export async function updatePaths(name, currPaths, editedHrefs) {
     // This is technically a bulk ops request
     const resp = await daFetch(`${AEM_ORIGIN}/snapshot/${org}/${site}/main/${name}/*`, opts);
     if (!resp.ok) return formatError(resp);
+
+    // Handle async job (202) by polling until complete
+    if (resp.status === 202) {
+      const { links } = await resp.json();
+      if (links?.self) {
+        await pollJob(links.self);
+      }
+    }
   }
 
   // The formatting of the response will be bulk job-like,

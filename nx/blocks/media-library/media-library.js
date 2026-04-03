@@ -12,6 +12,8 @@ import {
   getCanonicalMediaTimestamp,
   sortMediaData,
   deduplicateMediaByHash,
+  checkSiteAuthRequired,
+  livePreviewLogin,
 } from './core/utils.js';
 import {
   getDedupeKey, setMediaHashRuntimeHosts, clearMediaHashRuntimeHost,
@@ -593,16 +595,26 @@ class NxMediaLibrary extends LitElement {
         return;
       }
 
-      await this.initializeMediaHashRuntimeHost(
-        validation.org || this.org,
-        validation.repo || this.repo,
-      );
+      const org = validation.org || this.org;
+      const repo = validation.repo || this.repo;
+
+      await this.initializeMediaHashRuntimeHost(org, repo);
+
+      const siteAuthInfo = await checkSiteAuthRequired(org, repo);
+      this.siteAuthInfo = siteAuthInfo;
+
+      if (siteAuthInfo.requiresAuth) {
+        const authSuccess = await livePreviewLogin(org, repo);
+        this.siteAuthInfo.authFailed = !authSuccess;
+      }
 
       updateAppState({
         sitePathValid: true,
         validationError: null,
         validationSuggestion: null,
-        persistentError: null,
+        persistentError: this.siteAuthInfo?.authFailed
+          ? 'Protected site - some images may not load, refresh or login into site in a new tab using sidekick'
+          : null,
         isValidating: false,
       });
 
@@ -915,6 +927,7 @@ class NxMediaLibrary extends LitElement {
         .mediaData=${displayData}
         .org=${this.org}
         .repo=${this.repo}
+        .usePreviewDaLive=${this.siteAuthInfo?.requiresAuth || false}
         .resultsBusy=${resultsBusy}
         @mediaClick=${this.handleMediaClick}
         @mediaCopy=${this.handleMediaCopy}
@@ -1120,6 +1133,7 @@ class NxMediaLibrary extends LitElement {
       usageData,
       org: this.org,
       repo: this.repo,
+      usePreviewDaLive: this.siteAuthInfo?.requiresAuth || false,
       isIndexing: this._appState.isIndexing,
     };
     if (idx >= 0 && snapshot.length > 1) {
