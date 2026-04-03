@@ -1,22 +1,17 @@
-// Flattens index into media sheet rows (hash, url, name, timestamp, etc.).
+// Flattens index into media sheet rows (hash, url, timestamp, etc.).
 export function buildMediaSheet(flatIndex) {
   return flatIndex.map((entry) => ({
     hash: entry.hash,
     url: entry.url || '',
     originalPath: entry.originalPath || '',
-    name: entry.name || '',
     timestamp: entry.timestamp || 0,
     user: entry.user || '',
     operation: entry.operation || '',
     type: entry.type || '',
     doc: entry.doc || '',
-    status: entry.status || '',
     displayName: entry.displayName || '',
     // Convert empty string to null for proper timestamp fallback
     modifiedTimestamp: entry.modifiedTimestamp || null,
-    latestUsageTimestamp: entry.latestUsageTimestamp || null,
-    nameSource: entry.nameSource || '',
-    timestampSource: entry.timestampSource || '',
   }));
 }
 

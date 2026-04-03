@@ -1,10 +1,10 @@
 import {
   normalizePath,
-  extractName,
-  detectMediaType,
   getDedupeKey,
-  computeCanonicalMetadata,
   computeCanonicalModifiedTimestamp,
+  createMedialogEntry,
+  detectMediaType,
+  computeCanonicalMetadata,
 } from './parse.js';
 import { canonicalizeMediaUrl } from '../core/urls.js';
 
@@ -15,9 +15,6 @@ function copyCanonicalMetadataFields(target, source) {
   if (!source) return;
   target.displayName = source.displayName;
   target.modifiedTimestamp = source.modifiedTimestamp;
-  target.latestUsageTimestamp = source.latestUsageTimestamp;
-  target.nameSource = source.nameSource;
-  target.timestampSource = source.timestampSource;
 }
 
 /**
@@ -82,30 +79,18 @@ export function buildPageMediaFromMedialog(
       return;
     }
 
-    const url = canonicalizeMediaUrl(media.path, org, repo);
-    const dedupeKey = getDedupeKey(url);
+    const dedupeKey = getDedupeKey(canonicalizeMediaUrl(media.path, org, repo));
     const existingMetadata = existingIndex.get(dedupeKey);
-
-    const canonical = computeCanonicalMetadata(media, existingMetadata);
-
-    // Use canonical timestamp from hash grouping (aggregated from all entries for this hash)
     const hash = media.mediaHash || dedupeKey;
-    const canonicalModifiedTimestamp = canonicalTimestamps.get(hash) || canonical.modifiedTimestamp;
+    const canonicalModifiedTimestamp = canonicalTimestamps.get(hash);
 
-    const entry = {
-      hash,
-      url,
-      name: extractName(media),
-      timestamp: media.timestamp, // Can be 0 (unknown time → sorts to end)
-      user: media.user,
-      operation: media.operation,
-      type: detectMediaType(media),
-      displayName: canonical.displayName,
-      modifiedTimestamp: canonicalModifiedTimestamp,
-      latestUsageTimestamp: canonical.latestUsageTimestamp,
-      nameSource: canonical.nameSource,
-      timestampSource: canonical.timestampSource,
-    };
+    const entry = createMedialogEntry(media, {
+      doc: normPath,
+      existingMeta: existingMetadata,
+      org,
+      repo,
+      canonicalModifiedTimestamp,
+    });
 
     const existing = pageMediaMap.get(normPath);
     if (!existing) {
@@ -155,7 +140,6 @@ export function mergeMedialogChunkIntoMap(
         hash: media.mediaHash || key,
         url: canonicalizeMediaUrl(media.path, org, repo),
         originalPath: media.originalFilename || '',
-        name: extractName(media),
         timestamp: media.timestamp ?? 0,
         user: media.user ?? '',
         operation: media.operation ?? '',
@@ -207,13 +191,11 @@ export function mergeMedialogChunkIntoMap(
           hash: media.hash,
           url: media.url,
           originalPath: media.originalPath || '',
-          name: media.name,
           timestamp: media.timestamp,
           user: media.user,
           operation: media.operation,
           type: media.type,
           doc,
-          status: 'referenced',
         };
         copyCanonicalMetadataFields(row, media);
         flattened.push(row);
@@ -223,13 +205,11 @@ export function mergeMedialogChunkIntoMap(
         hash: media.hash,
         url: media.url,
         originalPath: media.originalPath || '',
-        name: media.name,
         timestamp: media.timestamp,
         user: media.user,
         operation: media.operation,
         type: media.type,
         doc: '',
-        status: 'unused',
       };
       copyCanonicalMetadataFields(row, media);
       flattened.push(row);
@@ -258,18 +238,13 @@ export function pageMediaToEntryMap(pageMediaMap) {
           hash: e.hash,
           url: e.url,
           originalPath: e.originalPath || '',
-          name: e.name,
           timestamp: e.timestamp,
           user: e.user,
           operation: e.operation,
           type: e.type,
           doc,
-          status: 'referenced',
           displayName: e.displayName,
           modifiedTimestamp: e.modifiedTimestamp,
-          latestUsageTimestamp: e.latestUsageTimestamp,
-          nameSource: e.nameSource,
-          timestampSource: e.timestampSource,
         });
         referencedHashes.add(e.hash);
       }
@@ -296,13 +271,11 @@ export function removeOrOrphanMedia(idx, entry, path, medialog) {
       hash,
       url: entry.url,
       originalPath: entry.originalPath || '',
-      name: entry.name,
       timestamp: entry.timestamp,
       user: entry.user,
       operation: entry.operation,
       type: entry.type,
       doc: '',
-      status: 'unused',
     };
     copyCanonicalMetadataFields(orphan, entry);
     idx.push(orphan);
@@ -386,13 +359,12 @@ export function processPageMediaUpdates(
         const row = {
           hash: entry.hash,
           url: entry.url,
-          name: entry.name,
+          originalPath: entry.originalPath || '',
           timestamp: entry.timestamp,
           user: entry.user,
           operation: entry.operation,
           type: entry.type,
           doc: normalizedPath,
-          status: 'referenced',
         };
         copyCanonicalMetadataFields(row, entry);
         updatedIndex.push(row);
@@ -440,13 +412,11 @@ export function processStandaloneUploads(
           hash: media.mediaHash,
           url,
           originalPath: media.originalFilename || '',
-          name: extractName(media),
           timestamp: media.timestamp,
           user: media.user,
           operation: media.operation,
           type: detectMediaType(media),
           doc: '',
-          status: 'unused',
         };
         copyCanonicalMetadataFields(row, canonical);
         updatedIndex.push(row);

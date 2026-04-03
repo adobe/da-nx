@@ -43,6 +43,18 @@ export function getCanonicalMediaTimestamp(item) {
   return toFiniteTimestamp(item.modifiedTimestamp || item.timestamp);
 }
 
+/**
+ * Computes status from doc field (referenced if doc present, unused if empty).
+ * Includes backward compatibility fallback for old index entries with status field.
+ */
+export function getItemStatus(item) {
+  if (!item) return 'unused';
+  // Backward compatibility: prefer persisted status during transition
+  if (item.status) return item.status;
+  // Compute from doc field
+  return item.doc ? 'referenced' : 'unused';
+}
+
 export function sortMediaData(mediaData) {
   return [...mediaData].sort((a, b) => {
     const tsA = getCanonicalMediaTimestamp(a);
