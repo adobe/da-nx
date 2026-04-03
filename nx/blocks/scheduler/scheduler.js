@@ -14,7 +14,12 @@ const styles = await getStyle(import.meta.url);
 function formatDate(isoDate) {
   if (!isoDate) return 'No schedule date';
   const parsed = new Date(isoDate);
-  return Number.isNaN(parsed.getTime()) ? isoDate : parsed.toLocaleString();
+  if (Number.isNaN(parsed.getTime())) return isoDate;
+  return parsed.toLocaleString(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZoneName: 'short',
+  });
 }
 
 function buildItemLink(org, site, id, type) {
