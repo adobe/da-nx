@@ -103,7 +103,6 @@ export async function enrichLinkedContentBatch(entries, org, repo, ref, concurre
         }).then((headInfo) => {
           if (headInfo?.lastModified) {
             entry.modifiedTimestamp = headInfo.lastModified;
-            entry.timestampSource = 'http-head';
           }
         }),
       );
@@ -197,7 +196,6 @@ async function validateExternalMediaEntries(
       discarded += 1;
     } else if (result?.lastModified) {
       entry.modifiedTimestamp = result.lastModified;
-      entry.timestampSource = 'http-head';
     }
   }
 
@@ -313,7 +311,6 @@ export async function processLinkedContent(
     if (isPdf(filePath)) key = 'pdfs';
     else if (isSvg(filePath)) key = 'svgs';
     const linkedPages = usageMap[key]?.get(filePath) || [];
-    const status = linkedPages.length > 0 ? 'referenced' : 'unused';
     const fileEvent = filesByPath.get(filePath) || { timestamp: 0, user: '' };
 
     const isLinkedContent = (e) => (e.operation === 'auditlog-parsed' || e.source === 'auditlog-parsed')
@@ -328,7 +325,7 @@ export async function processLinkedContent(
       });
       const stillHasUnused = updatedIndex.some((e) => isLinkedContent(e) && !e.doc);
       if (!stillHasUnused) {
-        updatedIndex.push(toLinkedContentEntry(filePath, '', fileEvent, status, org, repo));
+        updatedIndex.push(toLinkedContentEntry(filePath, '', fileEvent, org, repo));
         added += 1;
       }
     } else {
@@ -339,7 +336,7 @@ export async function processLinkedContent(
       });
       linkedPages.forEach((doc) => {
         const existingIdx = updatedIndex.findIndex(isLinkedForDoc(doc));
-        const freshEntry = toLinkedContentEntry(filePath, doc, fileEvent, status, org, repo);
+        const freshEntry = toLinkedContentEntry(filePath, doc, fileEvent, org, repo);
         if (existingIdx !== -1) {
           updatedIndex[existingIdx] = freshEntry;
         } else {

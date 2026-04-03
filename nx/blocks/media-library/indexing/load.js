@@ -342,12 +342,6 @@ export function buildMediaIndexStructures(mediaData) {
         merged.modifiedTimestamp = hasModified
           ? Math.max(item.modifiedTimestamp, existingItem.modifiedTimestamp ?? 0)
           : existingItem.modifiedTimestamp;
-        merged.latestUsageTimestamp = Math.max(
-          item.latestUsageTimestamp ?? item.timestamp ?? 0,
-          existingItem.latestUsageTimestamp ?? existingItem.timestamp ?? 0,
-        );
-        merged.nameSource = item.nameSource || existingItem.nameSource;
-        merged.timestampSource = item.timestampSource || existingItem.timestampSource;
       }
 
       uniqueItemsMap.set(groupingKey, merged);

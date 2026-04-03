@@ -14,7 +14,7 @@ import {
   getImageOrientation,
 } from '../../core/media.js';
 import { formatFileSize, getFileName, optimizeImageUrls } from '../../core/files.js';
-import { getMediaCardLabel } from '../../features/templates.js';
+import { getMediaName } from '../../features/templates.js';
 import { copyMediaToClipboard } from '../../core/export.js';
 import {
   parseMediaUrl,
@@ -734,7 +734,7 @@ class NxMediaInfo extends LitElement {
   render() {
     let displayName = '';
     if (this.media) {
-      const label = getMediaCardLabel(this.media);
+      const label = getMediaName(this.media);
       if (label && label !== 'Unknown') {
         displayName = label;
       } else {
@@ -968,7 +968,7 @@ class NxMediaInfo extends LitElement {
               <use href="#S2_Icon_PDF_20_N"></use>
             </svg>
             <div class="pdf-info">
-              <span class="pdf-name">${getMediaCardLabel(this.media)}</span>
+              <span class="pdf-name">${getMediaName(this.media)}</span>
               <span class="pdf-type">PDF Document</span>
               ${pdfError
                 ? html`
