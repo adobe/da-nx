@@ -584,23 +584,35 @@ export async function buildUsageMap(pageEntries, org, repo, ref, onProgress, onB
   return usageMap;
 }
 
-export function toExternalMediaEntry(url, doc, firstDiscoveredTimestamp = 0) {
+export function toExternalMediaEntry(
+  url,
+  doc,
+  firstDiscoveredTimestamp = 0,
+  org = null,
+  repo = null,
+) {
   const info = getExternalMediaType(url);
   if (!info) return null;
 
-  // Normalize external video URLs for consistent hashing
-  // (e.g., youtube.com/watch?v=X and youtu.be/X get same hash)
-  const normalizedUrl = normalizeExternalVideoUrl(url);
+  const canonicalUrl = canonicalizeMediaUrl(url, org, repo);
+  const normalizedUrl = normalizeExternalVideoUrl(canonicalUrl);
+
+  let displayName = info.name;
+  try {
+    displayName = decodeURIComponent(info.name);
+  } catch {
+    // Keep original if decode fails
+  }
 
   return {
-    hash: normalizedUrl, // Use normalized URL as dedupe key for external media
-    url, // Keep original URL for display
+    hash: normalizedUrl,
+    url: canonicalUrl,
     timestamp: firstDiscoveredTimestamp,
     user: '',
     operation: Operation.EXTLINKS,
     type: info.type,
     doc: doc || '',
-    displayName: info.name, // Use extracted name for display
+    displayName,
     modifiedTimestamp: firstDiscoveredTimestamp,
   };
 }
@@ -667,7 +679,7 @@ export function createLinkedContentEntries(usageMap, linkedFilesByPath, deletedP
     const { pages: linkedPages, firstDiscoveredTimestamp } = data;
     if (linkedPages.length > 0) {
       linkedPages.forEach((doc) => {
-        const entry = toExternalMediaEntry(url, doc, firstDiscoveredTimestamp);
+        const entry = toExternalMediaEntry(url, doc, firstDiscoveredTimestamp, org, repo);
         if (entry) entries.push(entry);
       });
     }
