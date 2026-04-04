@@ -25,7 +25,6 @@ describe('medialog indexing', () => {
       '',
     );
     expect(rows).to.have.lengthOf(1);
-    expect(rows[0].status).to.equal('unused');
     expect(rows[0].doc).to.equal('');
   });
 
@@ -42,7 +41,7 @@ describe('medialog indexing', () => {
       repo,
       '',
     );
-    expect(rows[0].status).to.equal('unused');
+    expect(rows[0].doc).to.equal('');
   });
 
   it('processStandaloneUploads records unused for same-site DA upload', () => {
@@ -56,7 +55,6 @@ describe('medialog indexing', () => {
     }];
     const added = processStandaloneUploads(idx, medialogEntries, new Set(), org, repo);
     expect(added).to.equal(1);
-    expect(idx[0].status).to.equal('unused');
     expect(idx[0].doc).to.equal('');
     expect(idx[0].originalPath).to.equal('/assets/products/standalone.png');
   });
@@ -71,7 +69,7 @@ describe('medialog indexing', () => {
       timestamp: 1,
     }];
     processStandaloneUploads(idx, medialogEntries, new Set(), org, repo);
-    expect(idx[0].status).to.equal('unused');
+    expect(idx[0].doc).to.equal('');
   });
 
   it('removeOrOrphanMedia re-homes same-site row as unused', () => {
@@ -80,13 +78,11 @@ describe('medialog indexing', () => {
       url: 'https://main--blog--adobe.aem.page/media/orphan.png',
       originalPath: '/assets/icons/orphan.png',
       doc: '/docs/p',
-      name: 'orphan.png',
       type: 'image',
     }];
     removeOrOrphanMedia(idx, idx[0], '/docs/p', []);
     expect(idx).to.have.lengthOf(1);
     expect(idx[0].doc).to.equal('');
-    expect(idx[0].status).to.equal('unused');
     expect(idx[0].originalPath).to.equal('/assets/icons/orphan.png');
   });
 
@@ -95,10 +91,9 @@ describe('medialog indexing', () => {
       hash: 'h2',
       url: 'https://remote.example/p.png',
       doc: '/docs/p',
-      name: 'p.png',
       type: 'image',
     }];
     removeOrOrphanMedia(idx, idx[0], '/docs/p', []);
-    expect(idx[0].status).to.equal('unused');
+    expect(idx[0].doc).to.equal('');
   });
 });

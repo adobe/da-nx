@@ -46,6 +46,7 @@ class NxMediaGrid extends LitElement {
     mediaData: { type: Array },
     org: { type: String },
     repo: { type: String },
+    usePreviewDaLive: { type: Boolean },
     resultsBusy: { type: Boolean },
   };
 
@@ -53,6 +54,7 @@ class NxMediaGrid extends LitElement {
     super();
     this.eventHandlers = createMediaEventHandlers(this);
     this.iconsLoaded = false;
+    this.usePreviewDaLive = false;
     this.resultsBusy = false;
   }
 
@@ -191,7 +193,7 @@ class NxMediaGrid extends LitElement {
   }
 
   renderMediaPreview(media) {
-    const resolvedUrl = resolveMediaUrl(media?.url, this.org, this.repo);
+    const resolvedUrl = resolveMediaUrl(media?.url, this.org, this.repo, this.usePreviewDaLive);
 
     if (isExternalVideoUrl(resolvedUrl)) {
       const thumbnailUrl = getVideoThumbnail(resolvedUrl);

@@ -14,7 +14,15 @@ const styles = await getStyle(import.meta.url);
 function formatDate(isoDate) {
   if (!isoDate) return 'No schedule date';
   const parsed = new Date(isoDate);
-  return Number.isNaN(parsed.getTime()) ? isoDate : parsed.toLocaleString();
+  if (Number.isNaN(parsed.getTime())) return isoDate;
+  return parsed.toLocaleString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZoneName: 'short',
+  });
 }
 
 function buildItemLink(org, site, id, type) {
@@ -97,6 +105,31 @@ async function registerSite(org, site, apiKey) {
   return { ok: false, error: await getError(resp, 'Failed to register site with scheduler.') };
 }
 
+async function clearSnapshotScheduledPublish(org, site, snapshotId) {
+  const name = snapshotId.startsWith('/') ? snapshotId.slice(1) : snapshotId;
+  const url = `${AEM_ORIGIN}/snapshot/${org}/${site}/main/${name}`;
+  const fetchResp = await daFetch(url);
+  if (!fetchResp.ok) return { ok: false, error: await getError(fetchResp, 'Could not fetch snapshot manifest.') };
+  const { manifest } = await fetchResp.json();
+  delete manifest.metadata.scheduledPublish;
+  const saveResp = await daFetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(manifest),
+  });
+  if (saveResp.ok) return { ok: true };
+  return { ok: false, error: await getError(saveResp, 'Could not update snapshot metadata.') };
+}
+
+async function deleteScheduleEntry(org, site, entry) {
+  const type = entry.type === 'page' ? 'page' : 'snapshot';
+  const idPath = entry.id.startsWith('/') ? entry.id : `/${entry.id}`;
+  const url = `${SCHEDULER_BASE}/schedule/${type}/${org}/${site}${idPath}`;
+  const resp = await daFetch(url, { method: 'DELETE' });
+  if (resp.ok) return { ok: true };
+  return { ok: false, error: await getError(resp, `Failed to delete scheduled ${type}.`) };
+}
+
 async function fetchSchedule(org, site) {
   const resp = await daFetch(`${SCHEDULER_BASE}/schedule/${org}/${site}`);
   if (!resp.ok) {
@@ -134,6 +167,7 @@ class NxScheduler extends LitElement {
     _alert: { state: true },
     _isBusy: { state: true },
     _isLoading: { state: true },
+    _deletingId: { state: true },
   };
 
   connectedCallback() {
@@ -249,6 +283,30 @@ class NxScheduler extends LitElement {
     window.open(url, '_blank');
   }
 
+  async handleDeleteItem(entry) {
+    if (this._deletingId) return;
+    this._deletingId = entry.id;
+    if (entry.type === 'snapshot') {
+      const clearResult = await clearSnapshotScheduledPublish(this._org, this._site, entry.id);
+      if (!clearResult.ok) {
+        this._deletingId = undefined;
+        this._alert = { type: 'warning', message: clearResult.error };
+        return;
+      }
+    }
+    const result = await deleteScheduleEntry(this._org, this._site, entry);
+    this._deletingId = undefined;
+    if (!result.ok) {
+      this._alert = { type: 'warning', message: result.error };
+      return;
+    }
+    this._scheduleEntries = this._scheduleEntries.filter((e) => e.id !== entry.id);
+    const count = this._scheduleEntries.length;
+    this._alert = count
+      ? { type: 'success', message: `Schedule deleted. ${count} scheduled item${count === 1 ? '' : 's'} remaining.` }
+      : { type: 'info', message: 'No scheduled pages or snapshots found for this site.' };
+  }
+
   renderAlert() {
     if (!this._alert) return nothing;
     return html`
@@ -315,9 +373,12 @@ class NxScheduler extends LitElement {
               <span class="duration">${formatDuration(entry.scheduledPublish)}</span>
             </p>
             <p class="scheduled-by">${entry.userId || '—'}</p>
-            <p>
+            <div class="schedule-actions">
               <sl-button class="primary outline" @click=${() => this.handleOpenItem(entry)}>Open</sl-button>
-            </p>
+              <sl-button class="negative outline" ?disabled=${this._deletingId === entry.id} @click=${() => this.handleDeleteItem(entry)}>
+                ${this._deletingId === entry.id ? 'Deleting...' : 'Delete'}
+              </sl-button>
+            </div>
           </div>
         `)}
       </div>

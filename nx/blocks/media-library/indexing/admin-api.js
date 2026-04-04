@@ -850,7 +850,7 @@ function getCachedSiteTokenHeaders(org, site, ref = 'main') {
   return { Authorization: `token ${cached.siteToken}` };
 }
 
-async function getSiteTokenHeaders(org, site, ref = 'main') {
+export async function getSiteTokenHeaders(org, site, ref = 'main') {
   const json = await getAemSiteToken({ org, site, ref });
   const { siteToken } = json;
   if (!siteToken) return null;
