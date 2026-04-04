@@ -120,7 +120,7 @@ export async function loadIms(loginPopup) {
       window.adobeid.modalMode = true;
       window.adobeid.modalSettings = { allowedOrigin: window.location.origin };
     }
-    loadScript(IMS_URL);
+    loadScript(IMS_URL, 'high');
   });
   return imsDetails;
 }
