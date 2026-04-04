@@ -105,9 +105,9 @@ describe('setConfig / getConfig', () => {
     expect(config.hostnames).to.deep.equal(['example.com']);
   });
 
-  it('defaults linkBlocks to an empty array when not provided', async () => {
+  it('defaults linkBlocks to fragment block when not provided', async () => {
     const config = await setConfig({ locales: { '': {} } });
-    expect(config.linkBlocks).to.deep.equal([]);
+    expect(config.linkBlocks).to.deep.equal([{ fragment: '/fragments/' }]);
   });
 
   it('preserves provided linkBlocks', async () => {

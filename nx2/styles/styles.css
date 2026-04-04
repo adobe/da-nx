@@ -308,8 +308,10 @@
   }
 }
 
-/* --- Edge Delivery-specific decoration hiding --- */
+/* --- Spectrum Edge pre-decoration hiding --- */
 html:has(meta[content="edge-delivery"]) {
+  display: block;
+
   main > div, div[data-status] {
     display: none;
   }
@@ -324,9 +326,9 @@ html:has(meta[content="edge-delivery"]) {
   }
 }
 
-/* --- Spectrum Eco default styles --- */
+/* --- Spectrum Edge default styles --- */
 @layer spectrum-edge {
-  html.spectrum-edge {
+  html:has(meta[content="edge-delivery"]) {
     body {
       margin: 0;
       background-color: light-dark(#fff, #000);
@@ -343,38 +345,12 @@ html:has(meta[content="edge-delivery"]) {
         display: none;
       }
 
-      /* Don't let fonts load unless there's a session */
       &.session {
         font-family: var(--s2-font-family);
       }
 
       &.no-header {
         --s2-nav-height: 0;
-      }
-
-      /* Everything for the app frame */
-      &.app-frame {
-        display: grid;
-        height: 100dvh;
-        grid-template:
-          "header" var(--s2-nav-height)
-          "main" 1fr;
-        background-color: light-dark(rgb(240 240 240), rgb(17 17 17));
-
-        header {
-          grid-area: header;
-        }
-
-        nav {
-          grid-area: sidenav;
-        }
-
-        main {
-          grid-area: main;
-          background-color: light-dark(#fff, #000);
-          overflow-y: scroll;
-          max-height: 100%;
-        }
       }
     }
 
@@ -434,13 +410,47 @@ html:has(meta[content="edge-delivery"]) {
     }
   }
 
+  html:has(meta[content="app-frame"]) {
+    body {
+      display: grid;
+      height: 100vh;
+      grid-template:
+        "header" var(--s2-nav-height)
+        "main" 1fr;
+      background-color: light-dark(rgb(240 240 240), rgb(17 17 17));
+
+      header {
+        grid-area: header;
+      }
+
+      nav {
+        grid-area: sidenav;
+      }
+
+      main {
+        grid-area: main;
+        background-color: light-dark(#fff, #000);
+        overflow-y: scroll;
+        max-height: 100%;
+      }
+
+      footer {
+        display: none;
+      }
+    }
+
+    helix-sidekick, aem-sidekick {
+      display: none !important;
+    }
+  }
+
   @media (width >= 600px) {
-    html.spectrum-edge {
-      body.app-frame {
+    html:has(meta[content="app-frame"]) {
+      body {
         grid-template:
           "header header" var(--s2-nav-height)
           "sidenav  main" 1fr / var(--s2-nav-width) 1fr;
-        height: 100dvh;
+        height: 100vh;
 
         nav {
           display: unset;
@@ -448,9 +458,7 @@ html:has(meta[content="edge-delivery"]) {
 
         main {
           margin: 0 12px 0 0;
-          border-radius: 32px 32px 0 0;
-          overflow-y: scroll;
-          max-height: 100%;
+          border-radius: var(--s2-corner-radius-800) var(--s2-corner-radius-800) 0 0;
         }
       }
     }
