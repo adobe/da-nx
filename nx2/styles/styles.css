@@ -372,8 +372,26 @@ html:has(meta[content="edge-delivery"]) {
         main {
           grid-area: main;
           background-color: light-dark(#fff, #000);
-          overflow-y: scroll;
           max-height: 100%;
+        }
+
+        &:has(aside.panel)::before {
+          content: '';
+          position: fixed;
+          inset: 0;
+          z-index: 50;
+          background-color: light-dark(rgb(0 0 0 / 40%), rgb(0 0 0 / 55%));
+          pointer-events: auto;
+        }
+
+        aside.panel {
+          position: fixed;
+          inset: calc(var(--s2-nav-height) + 12px) 12px 12px;
+          z-index: 70;
+          width: auto;
+          height: auto;
+          margin: 0;
+          max-height: none;
         }
       }
     }
@@ -435,11 +453,14 @@ html:has(meta[content="edge-delivery"]) {
   }
 
   @media (width >= 600px) {
+    :root {
+      --app-frame-areas: "header header" var(--s2-nav-height) "sidenav  main" 1fr;
+      --app-frame-columns: var(--s2-nav-width) 1fr;
+    }
+
     html.spectrum-edge {
       body.app-frame {
-        grid-template:
-          "header header" var(--s2-nav-height)
-          "sidenav  main" 1fr / var(--s2-nav-width) 1fr;
+        grid-template: var(--app-frame-areas) / var(--app-frame-columns);
         height: 100dvh;
 
         nav {
@@ -449,8 +470,17 @@ html:has(meta[content="edge-delivery"]) {
         main {
           margin: 0 12px 0 0;
           border-radius: 32px 32px 0 0;
-          overflow-y: scroll;
           max-height: 100%;
+          overflow-y: auto;
+        }
+
+        &:has(aside.panel)::before {
+          display: none;
+          pointer-events: none;
+        }
+
+        aside.panel {
+          position: static;
         }
       }
     }
