@@ -6,7 +6,6 @@ import buildMediaIndex, {
   loadMediaSheet,
 } from './load.js';
 import { ensureAuthenticated, getCanonicalMediaTimestamp } from '../core/utils.js';
-import { updateAppState, getAppState, showNotification } from '../core/state.js';
 import { t } from '../core/messages.js';
 import { clearProcessDataCache } from '../features/filters.js';
 import { getDedupeKey } from '../core/urls.js';
@@ -18,34 +17,29 @@ const CONFIG = { POLLING_INTERVAL: 60000, LOCK_CHECK_INTERVAL: 5000 };
 let pollingInterval = null;
 let lockCheckInterval = null;
 let pollingStarted = false;
-let onMediaDataUpdated = null;
-
-function stateHasMediaData() {
-  return (getAppState().mediaData?.length || 0) > 0;
-}
+let context = null; // Component context with state accessors and methods
 
 // Starts polling for media updates when authenticated.
 export async function startPolling() {
-  if (pollingInterval) return;
+  if (pollingInterval || !context) return;
 
   pollingInterval = setInterval(async () => {
-    const state = getAppState();
-    if (state.sitePath && !state.isIndexing) {
+    if (context.sitePath && !context.isIndexing) {
       try {
         const isAuthenticated = await ensureAuthenticated();
         if (!isAuthenticated) return;
 
-        const [org, repo] = state.sitePath.split('/').slice(1, 3);
-        const result = await loadMediaIfUpdated(state.sitePath, org, repo);
+        const [org, repo] = context.sitePath.split('/').slice(1, 3);
+        const result = await loadMediaIfUpdated(context.sitePath, org, repo);
         const { hasChanged, mediaData, indexMissing } = result;
 
-        if (hasChanged && onMediaDataUpdated) {
-          updateAppState({
+        if (hasChanged && context.onMediaDataUpdated) {
+          context.setIndexFlags({
             indexMissing: !!indexMissing,
-            isBackgroundRefreshInProgress: false,
-            indexLockedByOther: false,
+            isRefreshing: false,
+            indexLocked: false,
           });
-          onMediaDataUpdated(mediaData || []);
+          context.onMediaDataUpdated(mediaData || []);
         }
       } catch (error) {
         const persistentCodes = [
@@ -53,10 +47,11 @@ export async function startPolling() {
           ErrorCodes.DA_READ_DENIED,
         ];
         if (persistentCodes.includes(error?.code)) {
-          updateAppState({ persistentError: { message: error.message }, indexMissing: false });
+          context.setPersistentError(error.message);
+          context.setIndexFlags({ indexMissing: false });
         } else {
           logMediaLibraryError(ErrorCodes.POLLING_FAILED, { error: error?.message });
-          showNotification(t('NOTIFY_WARNING'), t('NOTIFY_POLLING_UNAVAILABLE'), 'danger');
+          context.showNotification(t('NOTIFY_WARNING'), t('NOTIFY_POLLING_UNAVAILABLE'), 'danger');
         }
       }
     }
@@ -80,41 +75,43 @@ function stopLockCheckPolling() {
 }
 
 function startLockCheckPolling(sitePath, org, repo) {
+  if (!context) return;
+
   stopLockCheckPolling();
   lockCheckInterval = setInterval(async () => {
-    const state = getAppState();
-    if ((!state.indexLockedByOther && !state.isBackgroundRefreshInProgress) || !sitePath) {
+    if ((!context.indexLocked && !context.isRefreshing) || !sitePath) {
       stopLockCheckPolling();
       return;
     }
     try {
       const lock = await checkIndexLock(sitePath);
-      const stateHasData = stateHasMediaData();
+      const hasData = (context.mediaData?.length || 0) > 0;
+
       if (!isFreshIndexLock(lock)) {
         stopLockCheckPolling();
 
-        if (!stateHasData) {
+        if (!hasData) {
           const {
             data,
             indexMissing,
             indexing,
           } = await loadMediaSheet(sitePath);
 
-          if (!indexing && onMediaDataUpdated) {
+          if (!indexing && context.onMediaDataUpdated) {
             if (indexMissing) {
-              updateAppState({
-                indexLockedByOther: true,
-                isBackgroundRefreshInProgress: false,
+              context.setIndexFlags({
+                indexLocked: true,
+                isRefreshing: false,
                 indexMissing: false,
               });
               return;
             }
-            updateAppState({
-              indexLockedByOther: false,
-              isBackgroundRefreshInProgress: false,
+            context.setIndexFlags({
+              indexLocked: false,
+              isRefreshing: false,
               indexMissing: !!indexMissing,
             });
-            onMediaDataUpdated(data || []);
+            context.onMediaDataUpdated(data || []);
             return;
           }
         }
@@ -124,75 +121,71 @@ function startLockCheckPolling(sitePath, org, repo) {
           mediaData,
           indexMissing,
         } = await loadMediaIfUpdated(sitePath, org, repo);
-        if (hasChanged && onMediaDataUpdated) {
-          updateAppState({
-            indexLockedByOther: false,
-            isBackgroundRefreshInProgress: false,
+        if (hasChanged && context.onMediaDataUpdated) {
+          context.setIndexFlags({
+            indexLocked: false,
+            isRefreshing: false,
             indexMissing: !!indexMissing,
           });
-          onMediaDataUpdated(mediaData || []);
+          context.onMediaDataUpdated(mediaData || []);
           return;
         }
 
-        updateAppState({
-          indexLockedByOther: false,
-          isBackgroundRefreshInProgress: false,
+        context.setIndexFlags({
+          indexLocked: false,
+          isRefreshing: false,
         });
         return;
       }
 
       const { hasChanged, mediaData, indexMissing } = await loadMediaIfUpdated(sitePath, org, repo);
-      if (hasChanged && onMediaDataUpdated) {
+      if (hasChanged && context.onMediaDataUpdated) {
         stopLockCheckPolling();
-        updateAppState({
-          indexLockedByOther: false,
-          isBackgroundRefreshInProgress: false,
+        context.setIndexFlags({
+          indexLocked: false,
+          isRefreshing: false,
           indexMissing: !!indexMissing,
         });
-        onMediaDataUpdated(mediaData || []);
+        context.onMediaDataUpdated(mediaData || []);
       }
     } catch { /* swallow */ }
   }, CONFIG.LOCK_CHECK_INTERVAL);
 }
 
 export function resumePolling() {
-  const state = getAppState();
-  if (!pollingInterval && pollingStarted && !state.isIndexing) {
-    startPolling();
-  }
+  if (!context || pollingInterval || !pollingStarted || context.isIndexing) return;
+  startPolling();
 }
 
 // Kicks off incremental or full index build; updates progress in state.
 export async function triggerBuild(sitePath, org, repo, ref = 'main') {
-  if (!sitePath || !(org && repo)) {
+  if (!sitePath || !(org && repo) || !context) {
     return;
   }
 
   try {
     const isAuthenticated = await ensureAuthenticated();
     if (!isAuthenticated) {
-      updateAppState({ isIndexing: false });
+      context.setIndexing(false);
       logMediaLibraryError(ErrorCodes.AUTH_REQUIRED, { context: 'build' });
-      showNotification(t('NOTIFY_ERROR'), t('NOTIFY_SIGN_IN'), 'danger');
+      context.showNotification(t('NOTIFY_ERROR'), t('NOTIFY_SIGN_IN'), 'danger');
       return;
     }
   } catch (error) {
-    updateAppState({ isIndexing: false });
+    context.setIndexing(false);
     logMediaLibraryError(ErrorCodes.AUTH_REQUIRED, { context: 'build', error: error?.message });
-    showNotification(t('NOTIFY_ERROR'), t('NOTIFY_VERIFY_AUTH'), 'danger');
+    context.showNotification(t('NOTIFY_ERROR'), t('NOTIFY_VERIFY_AUTH'), 'danger');
     return;
   }
 
-  updateAppState({
+  context.setIndexFlags({
     isIndexing: true,
-    isBackgroundRefreshInProgress: false,
-    indexLockedByOther: false,
-    indexProgress: { stage: 'starting', message: '', duration: null },
-    indexStartTime: Date.now(),
-    progressiveMediaData: [],
-    progressiveTotalCount: null,
-    progressiveCountCapped: false,
+    isRefreshing: false,
+    indexLocked: false,
   });
+  context.setIndexProgress('starting', '');
+  context.clearStreamData();
+  context.setIndexStartTime(Date.now());
 
   pausePolling();
 
@@ -207,12 +200,7 @@ export async function triggerBuild(sitePath, org, repo, ref = 'main') {
 
   try {
     const onProgress = (progressInfo) => {
-      updateAppState({
-        indexProgress: {
-          stage: progressInfo.stage,
-          message: progressInfo.message,
-        },
-      });
+      context.setIndexProgress(progressInfo.stage, progressInfo.message);
     };
 
     const onProgressiveData = (mediaData) => {
@@ -247,11 +235,7 @@ export async function triggerBuild(sitePath, org, repo, ref = 'main') {
       const toRender = Array.from(progressiveMap.values());
       if (maxProgressiveCount === prevMax && toRender.length === 0) return;
 
-      updateAppState({
-        progressiveMediaData: toRender,
-        progressiveTotalCount: maxProgressiveCount,
-        progressiveCountCapped: countCapped,
-      });
+      context.setStreamData(toRender, maxProgressiveCount, countCapped);
     };
 
     const forceFull = isFullRebuildRequested();
@@ -274,44 +258,30 @@ export async function triggerBuild(sitePath, org, repo, ref = 'main') {
     };
 
     if (result.lockRemoveFailed) {
-      showNotification(t('NOTIFY_WARNING'), t('LOCK_REMOVE_FAILED'), 'danger');
+      context.showNotification(t('NOTIFY_WARNING'), t('LOCK_REMOVE_FAILED'), 'danger');
     }
 
     if (finalProgress.hasChanges && result.mediaData) {
-      updateAppState({
-        indexProgress: {
-          stage: 'complete',
-          message: `${finalProgress.mediaReferences} items`,
-          duration: finalProgress.duration || '0s',
-          hasChanges: true,
-          mediaReferences: finalProgress.mediaReferences,
-        },
-        isIndexing: false,
-        isBackgroundRefreshInProgress: false,
-        progressiveMediaData: [],
-        progressiveTotalCount: null,
-        progressiveCountCapped: false,
-        persistentError: null,
+      context.setIndexProgress('complete', `${finalProgress.mediaReferences} items`, {
+        duration: finalProgress.duration || '0s',
+        hasChanges: true,
+        mediaReferences: finalProgress.mediaReferences,
       });
-      if (onMediaDataUpdated) {
-        await onMediaDataUpdated(result.mediaData);
+      context.setIndexFlags({ isIndexing: false, isRefreshing: false });
+      context.clearStreamData();
+      context.setPersistentError(null);
+      if (context.onMediaDataUpdated) {
+        await context.onMediaDataUpdated(result.mediaData);
       }
     } else {
-      updateAppState({
-        indexProgress: {
-          stage: 'complete',
-          message: 'No items found',
-          duration: finalProgress.duration || '0s',
-          hasChanges: false,
-          mediaReferences: 0,
-        },
-        isIndexing: false,
-        isBackgroundRefreshInProgress: false,
-        progressiveMediaData: [],
-        progressiveTotalCount: null,
-        progressiveCountCapped: false,
-        persistentError: null,
+      context.setIndexProgress('complete', 'No items found', {
+        duration: finalProgress.duration || '0s',
+        hasChanges: false,
+        mediaReferences: 0,
       });
+      context.setIndexFlags({ isIndexing: false, isRefreshing: false });
+      context.clearStreamData();
+      context.setPersistentError(null);
     }
 
     // Clear progressive data structures to prevent memory leak
@@ -338,30 +308,25 @@ export async function triggerBuild(sitePath, org, repo, ref = 'main') {
         logMediaLibraryError(ErrorCodes.BUILD_FAILED, { error: error?.message });
       }
 
-      const updates = {
+      context.setIndexFlags({
         isIndexing: false,
-        indexLockedByOther: false,
-        isBackgroundRefreshInProgress: false,
+        indexLocked: false,
+        isRefreshing: false,
         indexMissing: false,
-        progressiveTotalCount: null,
-        progressiveCountCapped: false,
-      };
-      if (isPersistent) {
-        updates.persistentError = { message: error.message };
-      } else {
-        updates.persistentError = null;
-      }
-      updateAppState(updates);
+      });
+      context.clearStreamData();
+      context.setPersistentError(isPersistent ? error.message : null);
 
       if (!isPersistent) {
         const msg = error.message || t('NOTIFY_DISCOVERY_FAILED');
-        showNotification(t('NOTIFY_ERROR'), msg, 'danger');
+        context.showNotification(t('NOTIFY_ERROR'), msg, 'danger');
       }
     } else {
-      updateAppState({
+      const hasData = (context.mediaData?.length || 0) > 0;
+      context.setIndexFlags({
         isIndexing: false,
-        indexLockedByOther: true,
-        isBackgroundRefreshInProgress: stateHasMediaData(),
+        indexLocked: true,
+        isRefreshing: hasData,
       });
       startLockCheckPolling(sitePath, org, repo);
     }
@@ -375,8 +340,14 @@ export async function triggerBuild(sitePath, org, repo, ref = 'main') {
 }
 
 export async function initService(sitePath, options = {}) {
-  const { onMediaDataUpdated: callback } = options;
-  onMediaDataUpdated = callback;
+  const { onMediaDataUpdated: callback, componentContext } = options;
+
+  if (!componentContext) {
+    throw new Error('initService requires componentContext');
+  }
+
+  context = componentContext;
+  context.onMediaDataUpdated = callback;
 
   if (!sitePath || pollingStarted) return;
 
@@ -393,9 +364,10 @@ export async function initService(sitePath, options = {}) {
     const freshLock = isFreshIndexLock(lock);
 
     if (freshLock && !ownsLock) {
-      updateAppState({
-        isBackgroundRefreshInProgress: stateHasMediaData(),
-        indexLockedByOther: !stateHasMediaData(),
+      const hasData = (context.mediaData?.length || 0) > 0;
+      context.setIndexFlags({
+        isRefreshing: hasData,
+        indexLocked: !hasData,
       });
       startLockCheckPolling(sitePath, org, repo);
       return;
@@ -433,5 +405,5 @@ export function disposeService() {
   pausePolling();
   stopLockCheckPolling();
   pollingStarted = false;
-  onMediaDataUpdated = null;
+  context = null;
 }

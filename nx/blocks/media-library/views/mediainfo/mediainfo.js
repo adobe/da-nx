@@ -27,7 +27,6 @@ import {
   etcFetch,
   convertToAemPage,
 } from '../../core/urls.js';
-import { getAppState } from '../../core/state.js';
 import { getEditUrl, getViewUrl, formatDocPath } from '../../core/paths.js';
 import { formatDateTime } from '../../core/utils.js';
 import loadScript from '../../../../utils/script.js';
@@ -58,6 +57,7 @@ class NxMediaInfo extends LitElement {
   static properties = {
     media: { attribute: false },
     usageData: { attribute: false },
+    usageIndex: { attribute: false },
     org: { attribute: false },
     repo: { attribute: false },
     isIndexing: { type: Boolean },
@@ -207,7 +207,7 @@ class NxMediaInfo extends LitElement {
 
       this.show({
         media,
-        usageData: getAppState().usageIndex?.get(getDedupeKey(media.url)) || [],
+        usageData: this.usageIndex?.get(getDedupeKey(media.url)) || [],
         org: this.org,
         repo: this.repo,
         usePreviewDaLive: this.usePreviewDaLive,

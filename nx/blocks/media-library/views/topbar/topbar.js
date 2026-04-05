@@ -33,8 +33,8 @@ class NxMediaTopBar extends LitElement {
     mediaData: { attribute: false },
     processedData: { attribute: false },
     isIndexing: { type: Boolean },
-    isBackgroundRefreshInProgress: { type: Boolean },
-    isProgressiveLoading: { type: Boolean },
+    isRefreshing: { type: Boolean },
+    isStreaming: { type: Boolean },
     org: { attribute: false },
     repo: { attribute: false },
   };
@@ -58,8 +58,8 @@ class NxMediaTopBar extends LitElement {
     this.mediaData = [];
     this.processedData = null;
     this.isIndexing = false;
-    this.isBackgroundRefreshInProgress = false;
-    this.isProgressiveLoading = false;
+    this.isRefreshing = false;
+    this.isStreaming = false;
     this.org = null;
     this.repo = null;
   }
@@ -285,7 +285,7 @@ class NxMediaTopBar extends LitElement {
 
         ${this.resultSummary ? html`
           <div class="result-count" aria-live="polite" aria-atomic="true">
-            ${this.isIndexing || this.isBackgroundRefreshInProgress || this.isProgressiveLoading ? html`
+            ${this.isIndexing || this.isRefreshing || this.isStreaming ? html`
               <span class="result-count-spinner" aria-hidden="true"></span>
             ` : ''}
             ${this.resultSummary}
@@ -469,9 +469,9 @@ class NxMediaTopBar extends LitElement {
     this._suppressSuggestions = true;
     this.selectedType = suggestion.type;
     this._programmaticUpdate = true;
+    this._inputValue = this.getSuggestionText(suggestion);
 
     if (suggestion.type === 'doc') {
-      this._inputValue = suggestion.value;
       this.dispatchEvent(new CustomEvent('search', {
         detail: {
           query: this._inputValue,
@@ -480,7 +480,6 @@ class NxMediaTopBar extends LitElement {
         },
       }));
     } else if (suggestion.type === 'folder') {
-      this._inputValue = suggestion.value;
       this.dispatchEvent(new CustomEvent('search', {
         detail: {
           query: this._inputValue,
@@ -489,7 +488,6 @@ class NxMediaTopBar extends LitElement {
         },
       }));
     } else {
-      this._inputValue = suggestion.value.displayName || suggestion.value.url;
       this.dispatchEvent(new CustomEvent('search', {
         detail: {
           query: this._inputValue,
