@@ -1,7 +1,6 @@
 import { html, LitElement } from 'da-lit';
 import getStyle from '../../../../utils/styles.js';
 import getSvg from '../../../../public/utils/svg.js';
-import { getAppState, onStateChange } from '../../core/state.js';
 import { t } from '../../core/messages.js';
 
 const styles = await getStyle(import.meta.url);
@@ -16,7 +15,8 @@ const ICONS = [
 
 class NxMediaSidebar extends LitElement {
   static properties = {
-    _appState: { state: true },
+    selectedFilterType: { type: String },
+    mediaData: { attribute: false },
     isExpanded: { state: true },
     isIndexExpanded: { state: true },
   };
@@ -34,30 +34,14 @@ class NxMediaSidebar extends LitElement {
 
   constructor() {
     super();
-    this._appState = getAppState();
     this.isExpanded = false;
     this.isIndexExpanded = false;
-    this._unsubscribe = null;
   }
 
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [sl, slComponents, styles];
-    this._unsubscribe = onStateChange(
-      ['selectedFilterType', 'mediaData'],
-      (state) => {
-        this._appState = state;
-        this.requestUpdate();
-      },
-    );
     getSvg({ parent: this.shadowRoot, paths: ICONS });
-  }
-
-  disconnectedCallback() {
-    super.disconnectedCallback();
-    if (this._unsubscribe) {
-      this._unsubscribe();
-    }
   }
 
   handleFiltersToggle() {
@@ -65,7 +49,6 @@ class NxMediaSidebar extends LitElement {
       this.isIndexExpanded = false;
     }
     this.isExpanded = !this.isExpanded;
-    this.dispatchEvent(new CustomEvent('sidebarToggle', { detail: { expanded: this.isExpanded } }));
   }
 
   handleIndexToggle() {
@@ -76,10 +59,7 @@ class NxMediaSidebar extends LitElement {
   }
 
   handleHome() {
-    this.dispatchEvent(new CustomEvent('go-home', {
-      bubbles: true,
-      composed: true,
-    }));
+    window.location.hash = '';
   }
 
   handleFilter(e) {
@@ -99,7 +79,7 @@ class NxMediaSidebar extends LitElement {
   }
 
   renderDataPanel() {
-    const isNoRefsActive = this._appState.selectedFilterType === 'noReferences';
+    const isNoRefsActive = this.selectedFilterType === 'noReferences';
 
     return html`
       <div class="data-panel">
@@ -115,7 +95,7 @@ class NxMediaSidebar extends LitElement {
           class="export-btn"
           @click=${this.handleExport}
           title="Export as CSV"
-          ?disabled=${!this._appState.mediaData?.length}
+          ?disabled=${!this.mediaData?.length}
         >
           Export
         </button>
@@ -124,7 +104,7 @@ class NxMediaSidebar extends LitElement {
   }
 
   renderFilterButton(filter) {
-    const isActive = this._appState.selectedFilterType === filter.key;
+    const isActive = this.selectedFilterType === filter.key;
 
     return html`
       <li>
