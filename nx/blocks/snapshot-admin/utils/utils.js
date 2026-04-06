@@ -38,10 +38,19 @@ function formatResources(name, resources) {
   }));
 }
 
+function pathnameAllowedForSnapshot(pathname) {
+  if (pathname.endsWith('.html')
+    || pathname.endsWith('.json')
+    || pathname.endsWith('.svg')) return true;
+  const basename = pathname.slice(pathname.lastIndexOf('/') + 1);
+  return !/\.[^./]+$/.test(basename);
+}
+
 function filterPaths(hrefs) {
   return hrefs.reduce((acc, href) => {
     try {
       const { pathname } = new URL(href);
+      if (!pathnameAllowedForSnapshot(pathname)) return acc;
       acc.push(pathname.endsWith('.html') ? pathname.replace('.html', '') : pathname);
     } catch {
       // do nothing
@@ -189,9 +198,34 @@ export function appendHtmlUnlessExtension(pathname) {
   return /\.[^./]+$/.test(basename) ? pathname : `${pathname}.html`;
 }
 
+async function directDaCopy(url) {
+  const srcResp = await daFetch(`${DA_ORIGIN}/source${url.source}`);
+  if (!srcResp.ok) {
+    url.status = 'error';
+    return;
+  }
+  const data = await srcResp.arrayBuffer();
+  let type = srcResp.headers.get('content-type')?.split(';')[0]?.trim() || '';
+  if (!type || type === 'text/plain') {
+    type = url.destination.includes('.json') ? 'application/json' : 'application/octet-stream';
+  }
+  const blob = new Blob([data], { type });
+  const body = new FormData();
+  body.append('data', blob);
+  const resp = await daFetch(`${DA_ORIGIN}/source${url.destination}`, {
+    method: 'POST',
+    body,
+  });
+  url.status = resp.ok ? 'success' : 'error';
+}
+
 export async function copyManifest(name, resources, direction, mode = 'merge') {
   const copyUrl = async (url) => {
-    if (mode === 'overwrite' || !url.source.endsWith('.html')) {
+    if (!url.source.endsWith('.html')) {
+      await directDaCopy(url);
+      return;
+    }
+    if (mode === 'overwrite') {
       await overwriteCopy(url, `Snapshot ${direction}`);
     } else {
       const labels = (direction === 'fork')

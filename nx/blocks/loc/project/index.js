@@ -139,6 +139,7 @@ const getHtml = async (path, html) => {
   };
 
   const str = html || await fetchHtml(path);
+  if (!str) return null;
   return PARSER.parseFromString(collapseInnerTextSpaces(str), 'text/html');
 };
 
