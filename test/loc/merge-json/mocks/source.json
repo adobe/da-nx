@@ -1,0 +1,32 @@
+{
+  ":version": 1,
+  ":type": "multi-sheet",
+  ":names": ["default", "dnt", "non-default"],
+  "default": {
+    "total": 3,
+    "offset": 0,
+    "limit": 3,
+    "data": [
+      { "key": "Field", "value": "Content", ":translate": "yes", ":rollout": "yes", ":uid": "key" },
+      { "key": "source-wins", "value": "Source value", ":translate": "yes", ":rollout": "yes", ":uid": "" },
+      { "key": "dest-wins", "value": "Source side", ":translate": "yes", ":rollout": "no", ":uid": "" },
+      { "key": "source-only", "value": "Source only", ":translate": "", ":rollout": "", ":uid": "" }
+    ]
+  },
+  "dnt": {
+    "total": 1,
+    "offset": 0,
+    "limit": 1,
+    "data": [
+      { "dnt-sheet": "default", "dnt-columns": "key" }
+    ]
+  },
+  "non-default": {
+    "total": 1,
+    "offset": 0,
+    "limit": 1,
+    "data": [
+      { "sheetname": "default" }
+    ]
+  }
+}

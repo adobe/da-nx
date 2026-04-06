@@ -75,7 +75,7 @@ async function fetchLangSources(lang, urls) {
 
 async function rolloutLangLocales(title, lang, urls, behavior) {
   const rolloutUrl = async (url) => {
-    const overwrite = behavior === 'overwrite' || url.hasExt;
+    const overwrite = behavior === 'overwrite';
     const copyFn = overwrite ? overwriteCopy : mergeCopy;
     await copyFn(url, title);
   };

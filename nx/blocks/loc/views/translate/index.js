@@ -106,7 +106,7 @@ async function saveLang({
   });
 
   const saveFn = async (url) => {
-    const overwrite = behavior === 'overwrite' || url.hasExt || url.ext !== 'html';
+    const overwrite = behavior === 'overwrite';
     const copyFn = overwrite ? overwriteCopy : mergeCopy;
     await copyFn(url, title);
     const remaining = urlsToSave.filter((urlToSave) => !urlToSave.sourceContent).length;
@@ -149,8 +149,7 @@ export async function copySourceLangs(org, site, title, options, langs, urls, la
   const copyUrl = async ({ lang, url }) => {
     const destination = `/${org}/${site}${url.daDestPath.replace(sourceLocation, lang.location)}`;
 
-    // If has an ext (sheet), force overwrite
-    const overwrite = behavior === 'overwrite' || url.hasExt;
+    const overwrite = behavior === 'overwrite';
 
     const copyFn = overwrite ? overwriteCopy : mergeCopy;
     const resp = await copyFn({ sourceContent: url.content, destination }, title);
