@@ -184,6 +184,11 @@ export async function updatePaths(name, currPaths, editedHrefs) {
   return formatResources(name, toFormat);
 }
 
+export function appendHtmlUnlessExtension(pathname) {
+  const basename = pathname.slice(pathname.lastIndexOf('/') + 1);
+  return /\.[^./]+$/.test(basename) ? pathname : `${pathname}.html`;
+}
+
 export async function copyManifest(name, resources, direction, mode = 'merge') {
   const copyUrl = async (url) => {
     if (mode === 'overwrite' || !url.source.endsWith('.html')) {
@@ -202,7 +207,7 @@ export async function copyManifest(name, resources, direction, mode = 'merge') {
 
       const path = url.pathname.endsWith('/') ? `${url.pathname}index` : url.pathname;
 
-      const extPath = path.endsWith('.json') ? path : `${path}.html`;
+      const extPath = appendHtmlUnlessExtension(path);
 
       const main = `/${org}/${site}${extPath}`;
       const fork = `/${org}/${site}/.snapshots/${name}${extPath}`;
@@ -314,7 +319,7 @@ const getConfig = async (_org, _site) => {
 };
 
 export async function checkSnapshotSource(name, path) {
-  const extPath = path.endsWith('.json') ? path : `${path}.html`;
+  const extPath = appendHtmlUnlessExtension(path);
   const url = `${DA_ORIGIN}/source/${org}/${site}/.snapshots/${name}${extPath}`;
   try {
     const resp = await daFetch(url, { method: 'HEAD' });
