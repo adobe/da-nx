@@ -62,7 +62,7 @@ class NxLocRollout extends LitElement {
           } else {
             resp = await mergeCopy({ source, destination }, this.title);
           }
-          if (resp.ok || resp.error === 'timeout') {
+          if (resp?.ok || resp?.error === 'timeout') {
             lang.rolledOut += 1;
 
             if (lang.rolledOut === items.length) {

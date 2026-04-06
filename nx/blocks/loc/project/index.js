@@ -2,6 +2,7 @@ import getElementMetadata from '../../../utils/getElementMetadata.js';
 import { regionalDiff, removeLocTags } from '../regional-diff/regional-diff.js';
 import { daFetch, saveToDa } from '../../../utils/daFetch.js';
 import { DA_ORIGIN } from '../../../public/utils/constants.js';
+import { getMergedJson } from './merge-json/merge-json.js';
 
 const DEFAULT_TIMEOUT = 20000; // ms
 const DA_METADATA_SELECTOR = 'body > .da-metadata';
@@ -149,6 +150,10 @@ const getDaUrl = (url) => {
   return { org, repo, pathname };
 };
 
+function isSheetJsonDestination(url) {
+  return url.destination?.endsWith('.json');
+}
+
 export async function overwriteCopy(url, title) {
   let resp;
   if (url.sourceContent) {
@@ -161,6 +166,16 @@ export async function overwriteCopy(url, title) {
     };
     opts.body.append('data', blob);
     resp = await daFetch(`${DA_ORIGIN}/source${url.destination}`, opts);
+  } else if (isSheetJsonDestination(url)) {
+    const srcResp = await daFetch(`${DA_ORIGIN}/source${url.source}`);
+    if (!srcResp.ok) {
+      url.status = 'error';
+      return null;
+    }
+    const blob = await srcResp.blob();
+    const body = new FormData();
+    body.append('data', blob);
+    resp = await daFetch(`${DA_ORIGIN}/source${url.destination}`, { method: 'POST', body });
   } else {
     const srcHtml = await getHtml(url.source);
     if (srcHtml) {
@@ -184,6 +199,60 @@ export async function overwriteCopy(url, title) {
   url.status = 'success';
   // Don't wait for the version save
   saveVersion(url.destination, `${title} - Rolled Out`);
+  return resp;
+}
+
+async function postJsonBlob(destinationPath, jsonObject) {
+  const blob = new Blob([JSON.stringify(jsonObject)], { type: 'application/json' });
+  const body = new FormData();
+  body.append('data', blob);
+  return daFetch(`${DA_ORIGIN}/source${destinationPath}`, { method: 'POST', body });
+}
+
+async function mergeCopySheetJson(url, projectTitle) {
+  let sourceJson;
+  if (url.sourceContent) {
+    try {
+      sourceJson = JSON.parse(url.sourceContent);
+    } catch {
+      throw new Error('Invalid source JSON');
+    }
+  } else {
+    const srcRes = await daFetch(`${DA_ORIGIN}/source${url.source}`);
+    if (!srcRes.ok) throw new Error('No langstore JSON or error fetching');
+    sourceJson = JSON.parse(await srcRes.text());
+  }
+
+  const destRes = await daFetch(`${DA_ORIGIN}/source${url.destination}`);
+  let destObj = {};
+  if (destRes.ok) {
+    const text = await destRes.text();
+    if (text.trim()) {
+      try {
+        destObj = JSON.parse(text);
+      } catch {
+        throw new Error('Invalid destination JSON');
+      }
+    }
+  }
+
+  if (JSON.stringify(sourceJson) === JSON.stringify(destObj)) {
+    url.status = 'success';
+    return new Response(null, { status: 200 });
+  }
+
+  const { error, finalJson } = getMergedJson(sourceJson, destObj);
+  if (error) {
+    return overwriteCopy(url, projectTitle);
+  }
+
+  const resp = await postJsonBlob(url.destination, finalJson);
+  if (resp.ok) {
+    url.status = 'success';
+    saveVersion(url.destination, `${projectTitle} - Rolled Out`);
+  } else {
+    url.status = 'error';
+  }
   return resp;
 }
 
@@ -262,6 +331,14 @@ export async function mergeCopy(
   projectTitle,
   { labelLocal = null, labelUpstream = null } = {},
 ) {
+  if (isSheetJsonDestination(url)) {
+    try {
+      return await mergeCopySheetJson(url, projectTitle);
+    } catch (e) {
+      return overwriteCopy(url, projectTitle);
+    }
+  }
+
   try {
     const regionalCopy = await getHtml(url.destination);
     const regionalMain = regionalCopy?.querySelector('body > main').innerHTML;
