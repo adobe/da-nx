@@ -24,7 +24,7 @@ export function getLocale(locales) {
   return { key, ...locales[key] };
 }
 
-const env = (() => {
+export const env = (() => {
   const { host } = window.location;
   if (host.endsWith('.aem.live')) return 'prod';
   if (!['--', 'local'].some((check) => host.includes(check))) return 'prod';
@@ -248,10 +248,14 @@ function loadSession() {
   document.body.classList.add('session');
 }
 
-function decorateDoc() {
-  decorateNav();
+async function decorateDoc() {
+  // Fast track IMS if returning from sign in
+  if (window.location.hash.startsWith('#old_hash')) {
+    const { loadIms } = await import('../utils/ims.js');
+    await loadIms();
+  }
 
-  document.documentElement.classList.add('spectrum-edge');
+  decorateNav();
 
   const template = getMetadata('template');
   if (template) document.body.classList.add(template);
@@ -261,12 +265,17 @@ function decorateDoc() {
 
   const pageId = window.location.hash?.replace('#', '');
   if (pageId) localStorage.setItem('lazyhash', pageId);
+
+  if (localStorage.getItem('nx-panels')) {
+    const { restorePanels } = await import('../utils/panel.js');
+    await restorePanels();
+  }
 }
 
 export async function loadArea({ area } = { area: document }) {
   const isDoc = area === document;
   const isSession = sessionStorage.getItem('session');
-  if (isDoc) decorateDoc();
+  if (isDoc) await decorateDoc();
   await decoratePlaceholders(area, isDoc);
   decoratePictures(area);
   const { decorateArea } = getConfig();
