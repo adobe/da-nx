@@ -1,12 +1,14 @@
 import { loadIms } from '../../utils/ims.js';
-import { hashChange } from '../../utils/utils.js';
 
 const AGENT_URL = 'https://da-agent.adobeaem.workers.dev/chat';
 
 export default class ChatController {
   constructor({ onUpdate }) {
     this._onUpdate = onUpdate;
-    this._unsubscribe = hashChange.subscribe((state) => { this._context = state; });
+  }
+
+  setContext(context) {
+    this._context = context;
   }
 
   get state() {
@@ -29,14 +31,18 @@ export default class ChatController {
   }
 
   destroy() {
-    this._unsubscribe?.();
     this.stop();
   }
 
   _processEvent(event, streaming) {
+    if (event.type === 'error') {
+      throw new Error(event.errorText ?? event.error?.message ?? 'Agent error');
+    }
+
     if (event.type === 'text-delta') {
       return { streaming: streaming + (event.delta ?? event.textDelta ?? event.text ?? ''), done: false };
     }
+
     if (event.type === 'text-end') {
       if (streaming) {
         this._messages = [...this._messages, { role: 'assistant', content: streaming }];
@@ -44,12 +50,11 @@ export default class ChatController {
       }
       return { streaming: '', done: false };
     }
+
     if (event.type === 'finish-message' || event.type === 'finish') {
       return { streaming, done: true };
     }
-    if (event.type === 'error') {
-      throw new Error(event.errorText ?? event.error?.message ?? 'Agent error');
-    }
+
     return { streaming, done: false };
   }
 
@@ -63,21 +68,21 @@ export default class ChatController {
       if (finished) break;
       buffer += decoder.decode(chunk, { stream: true });
       const lines = buffer.split('\n');
-      buffer = lines.pop();
+      buffer = lines.pop() ?? '';
 
       for (const line of lines) {
         const raw = line.startsWith('data: ') ? line.slice(6).trim() : line.trim();
         if (raw && raw !== '[DONE]') {
           let event;
+
           try {
             event = JSON.parse(raw);
           } catch {
             event = null;
           }
+
           if (event) {
-            const result = this._processEvent(event, streaming);
-            streaming = result.streaming;
-            finished = result.done;
+            ({ streaming, done: finished } = this._processEvent(event, streaming));
           }
         }
       }
@@ -91,14 +96,20 @@ export default class ChatController {
 
   async _post(body) {
     const { accessToken } = await loadIms();
+
     this._abortController = new AbortController();
+
     const resp = await fetch(AGENT_URL, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ ...body, imsToken: accessToken?.token, room: 'default' }),
+      body: JSON.stringify({ ...body, imsToken: accessToken?.token ?? null, room: 'default' }),
       signal: this._abortController.signal,
     });
-    if (!resp.ok) throw new Error(`Agent responded with ${resp.status}`);
+
+    if (!resp.ok) {
+      throw new Error(`Agent responded with ${resp.status}: ${await resp.text()}`);
+    }
+
     return resp;
   }
 
@@ -110,7 +121,9 @@ export default class ChatController {
     this._update();
 
     try {
-      const resp = await this._post({ messages: this._messages, pageContext: this._context });
+      const { org, site, path, view } = this._context ?? {};
+      const pageContext = org && site ? { org, site, path, view } : undefined;
+      const resp = await this._post({ messages: this._messages, pageContext });
       await this._readStream(resp.body);
     } catch (err) {
       if (err.name !== 'AbortError') {

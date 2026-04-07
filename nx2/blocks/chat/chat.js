@@ -1,5 +1,5 @@
 import { LitElement, html, nothing } from 'da-lit';
-import { loadStyle } from '../../utils/utils.js';
+import { loadStyle, hashChange } from '../../utils/utils.js';
 import loadIcons from '../../utils/svg.js';
 import ChatController from './chat-controller.js';
 
@@ -9,7 +9,13 @@ class NxChat extends LitElement {
   static properties = {
     messages: { type: Array },
     thinking: { type: Boolean },
+    context: { type: Object },
   };
+
+  set context(value) {
+    this._explicitContext = true;
+    this._controller?.setContext(value);
+  }
 
   async connectedCallback() {
     super.connectedCallback();
@@ -20,6 +26,18 @@ class NxChat extends LitElement {
         this.thinking = thinking;
       },
     });
+
+    this._unsubscribeHash = hashChange.subscribe((state) => {
+      if (!this._explicitContext) {
+        this._controller.setContext(state);
+      }
+    });
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    this._unsubscribeHash?.();
+    this._controller?.destroy();
   }
 
   firstUpdated() {
