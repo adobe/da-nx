@@ -10,8 +10,7 @@ class NxChat extends LitElement {
   static properties = {
     messages: { type: Array },
     thinking: { type: Boolean },
-    streamingText: { type: String },
-    context: { type: Object },
+    connected: { type: Boolean },
   };
 
   set context(value) {
@@ -23,10 +22,12 @@ class NxChat extends LitElement {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [styles];
     this._controller = new ChatController({
-      onUpdate: ({ messages, thinking, streamingText }) => {
-        this.messages = messages;
+      onUpdate: ({ messages, thinking, streamingText, connected }) => {
+        this.messages = streamingText
+          ? [...(messages ?? []), { role: 'assistant', content: streamingText, streaming: true }]
+          : messages;
         this.thinking = thinking;
-        this.streamingText = streamingText;
+        this.connected = connected;
       },
     });
 
@@ -88,11 +89,7 @@ class NxChat extends LitElement {
       <div class="chat-messages-container" role="log" aria-live="polite">
         ${!this.messages?.length && !this.thinking ? this._renderEmpty() : nothing}
         ${this.messages?.map((msg) => this._renderMessage(msg))}
-        ${this.streamingText ? html`
-          <div class="message message-assistant">
-            <div class="message-content">${this.streamingText}</div>
-          </div>` : nothing}
-        ${this.thinking && !this.streamingText ? html`
+        ${this.thinking && !this.messages?.at(-1)?.streaming ? html`
           <div class="chat-thinking">
             <span></span><span></span><span></span>
             <span class="chat-thinking-label">Thinking...</span>
