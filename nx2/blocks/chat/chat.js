@@ -1,4 +1,4 @@
-import { LitElement, html, nothing } from 'lit';
+import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../utils/utils.js';
 import loadIcons from '../../utils/svg.js';
 import ChatController from './chat-controller.js';
@@ -38,8 +38,12 @@ class NxChat extends LitElement {
   }
 
   _submit() {
+    if (this.thinking) {
+      this._controller.stop();
+      return;
+    }
     const message = (this._input ?? '').trim();
-    if (!message || this.thinking) return;
+    if (!message) return;
     this._controller.sendMessage(message);
     this._input = '';
     this.shadowRoot.querySelector('.chat-input').value = '';
