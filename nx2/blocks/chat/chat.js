@@ -1,7 +1,8 @@
 import { LitElement, html, nothing } from 'da-lit';
-import { loadStyle } from '../../utils/utils.js';
+import { loadStyle, hashChange } from '../../utils/utils.js';
 import loadIcons from '../../utils/svg.js';
 import ChatController from './chat-controller.js';
+import { renderMessageContent } from './renderers.js';
 
 const styles = await loadStyle(import.meta.url);
 
@@ -9,17 +10,38 @@ class NxChat extends LitElement {
   static properties = {
     messages: { type: Array },
     thinking: { type: Boolean },
+    connected: { type: Boolean },
   };
+
+  set context(value) {
+    this._explicitContext = true;
+    this._controller?.setContext(value);
+  }
 
   async connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [styles];
     this._controller = new ChatController({
-      onUpdate: ({ messages, thinking }) => {
-        this.messages = messages;
+      onUpdate: ({ messages, thinking, streamingText, connected }) => {
+        this.messages = streamingText
+          ? [...(messages ?? []), { role: 'assistant', content: streamingText, streaming: true }]
+          : messages;
         this.thinking = thinking;
+        this.connected = connected;
       },
     });
+
+    this._unsubscribeHash = hashChange.subscribe((state) => {
+      if (!this._explicitContext) {
+        this._controller.setContext(state);
+      }
+    });
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    this._unsubscribeHash?.();
+    this._controller?.destroy();
   }
 
   firstUpdated() {
@@ -38,8 +60,12 @@ class NxChat extends LitElement {
   }
 
   _submit() {
+    if (this.thinking) {
+      this._controller.stop();
+      return;
+    }
     const message = (this._input ?? '').trim();
-    if (!message || this.thinking) return;
+    if (!message) return;
     this._controller.sendMessage(message);
     this._input = '';
     this.shadowRoot.querySelector('.chat-input').value = '';
@@ -49,7 +75,7 @@ class NxChat extends LitElement {
     if (msg.role === 'tool') return nothing;
     return html`
       <div class="message message-${msg.role}">
-        <div class="message-content">${msg.content}</div>
+        <div class="message-content ${msg.role === 'assistant' ? 'chat-md' : ''}">${msg.role === 'assistant' ? renderMessageContent(msg.content) : msg.content}</div>
       </div>
     `;
   }
@@ -63,7 +89,7 @@ class NxChat extends LitElement {
       <div class="chat-messages-container" role="log" aria-live="polite">
         ${!this.messages?.length && !this.thinking ? this._renderEmpty() : nothing}
         ${this.messages?.map((msg) => this._renderMessage(msg))}
-        ${this.thinking ? html`
+        ${this.thinking && !this.messages?.at(-1)?.streaming ? html`
           <div class="chat-thinking">
             <span></span><span></span><span></span>
             <span class="chat-thinking-label">Thinking...</span>
