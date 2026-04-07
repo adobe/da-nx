@@ -1,6 +1,6 @@
 import { getConfig } from '../scripts/nx.js';
 
-const { imsClientId, imsScope, env } = getConfig();
+const { imsClientId, imsScope, imsEnv, env } = getConfig();
 
 const IMS_URL = 'https://auth.services.adobe.com/imslib/imslib.min.js';
 const DEFAULT_SCOPE = 'AdobeID,openid,gnav';
@@ -23,7 +23,7 @@ const IO_ENV = {
   prod: 'cc-collab.adobe.io',
 };
 
-export const IMS_ORIGIN = (() => `https://${IMS_ENDPOINT[env]}`)();
+export const IMS_ORIGIN = (() => `https://${IMS_ENDPOINT[imsEnv || env]}`)();
 
 export function handleSignIn() {
   window.adobeIMS.signIn();
