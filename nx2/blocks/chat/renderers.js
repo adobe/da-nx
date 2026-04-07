@@ -1,99 +1,49 @@
 import { html, nothing } from 'da-lit';
+import { unified, remarkParse } from '../../deps/mdast/dist/index.js';
 
-const BLOCK_RE = /^:::(\w[\w-]*)\n([\s\S]*?)^:::\s*$/gm;
-const INLINE_RE = /\*\*([\s\S]*?)\*\*|\*([^*\n]+)\*|`([^`\n]+)`|\[([^\]]+)\]\(([^)]+)\)/g;
-
-function renderInline(text) {
-  const parts = [];
-  let last = 0;
-  for (const m of text.matchAll(INLINE_RE)) {
-    if (m.index > last) {
-      parts.push(text.slice(last, m.index));
-    }
-    if (m[1] !== undefined) {
-      parts.push(html`<strong>${m[1]}</strong>`);
-    } else if (m[2] !== undefined) {
-      parts.push(html`<em>${m[2]}</em>`);
-    } else if (m[3] !== undefined) {
-      parts.push(html`<code>${m[3]}</code>`);
-    } else {
-      parts.push(html`<a href="${m[5]}" target="_blank" rel="noopener noreferrer">${m[4]}</a>`);
-    }
-    last = m.index + m[0].length;
-  }
-  if (last < text.length) { parts.push(text.slice(last)); }
-  return parts.length > 1 ? parts : text;
+// Pre-process agent-specific :::block::: syntax into standard markdown
+function preprocess(text) {
+  return text.replace(/^:::list\n/gm, '').replace(/^:::\s*$/gm, '');
 }
 
-function renderBlock(type, content) {
-  if (type === 'list') {
-    const items = content.split('\n')
-      .map((l) => l.replace(/^\s*[-*]\s+/, '').trim())
-      .filter(Boolean);
-    return html`<ul class="chat-list">${items.map((item) => html`<li>${renderInline(item)}</li>`)}</ul>`;
-  }
-
-  return nothing;
-}
-
-function renderText(text) {
-  const lines = text.split('\n');
-  const result = [];
-  let i = 0;
-
-  while (i < lines.length) {
-    const line = lines[i];
-    const trimmed = line.trim();
-
-    if (!trimmed || /^[-*_]{3,}$/.test(trimmed)) {
-      i += 1;
-    } else if (/^(#{1,4})\s+(.+)/.test(trimmed)) {
-      const [, hashes, content] = trimmed.match(/^(#{1,4})\s+(.+)/);
-      result.push(html`<h${hashes.length}>${renderInline(content)}</h${hashes.length}>`);
-      i += 1;
-    } else if (/^\d+\.\s+/.test(line)) {
-      const items = [];
-      while (i < lines.length && /^\d+\.\s+/.test(lines[i])) {
-        items.push(lines[i].replace(/^\d+\.\s+/, '').trim());
-        i += 1;
-      }
-      result.push(html`<ol>${items.map((item) => html`<li>${renderInline(item)}</li>`)}</ol>`);
-    } else if (/^\s*[-*+]\s+/.test(line)) {
-      const items = [];
-      while (i < lines.length && /^\s*[-*+]\s+/.test(lines[i])) {
-        items.push(lines[i].replace(/^\s*[-*+]\s+/, '').trim());
-        i += 1;
-      }
-      result.push(html`<ul>${items.map((item) => html`<li>${renderInline(item)}</li>`)}</ul>`);
-    } else {
-      result.push(html`<p>${renderInline(trimmed)}</p>`);
-      i += 1;
+function renderNode(node) {
+  switch (node.type) {
+    case 'root':
+      return node.children.map(renderNode);
+    case 'paragraph':
+      return html`<p>${node.children.map(renderNode)}</p>`;
+    case 'heading':
+      return html`<h${node.depth}>${node.children.map(renderNode)}</h${node.depth}>`;
+    case 'list':
+      return node.ordered
+        ? html`<ol>${node.children.map(renderNode)}</ol>`
+        : html`<ul>${node.children.map(renderNode)}</ul>`;
+    case 'listItem': {
+      // remark wraps inline content in a paragraph — unwrap for tight lists
+      const children = node.spread
+        ? node.children.map(renderNode)
+        : node.children.flatMap((c) => (c.type === 'paragraph' ? c.children.map(renderNode) : [renderNode(c)]));
+      return html`<li>${children}</li>`;
     }
+    case 'strong':
+      return html`<strong>${node.children.map(renderNode)}</strong>`;
+    case 'emphasis':
+      return html`<em>${node.children.map(renderNode)}</em>`;
+    case 'inlineCode':
+      return html`<code>${node.value}</code>`;
+    case 'link':
+      return html`<a href="${node.url}" target="_blank" rel="noopener noreferrer">${node.children.map(renderNode)}</a>`;
+    case 'text':
+      return node.value;
+    default:
+      return nothing;
   }
-
-  return result;
 }
+
+const parser = unified().use(remarkParse);
 
 export function renderMessageContent(text) {
-  if (!text) {
-    return nothing;
-  }
-
-  const segments = [];
-  let last = 0;
-
-  for (const m of text.matchAll(BLOCK_RE)) {
-    if (m.index > last) {
-      segments.push(...renderText(text.slice(last, m.index)));
-    }
-
-    segments.push(renderBlock(m[1], m[2]));
-    last = m.index + m[0].length;
-  }
-
-  if (last < text.length) {
-    segments.push(...renderText(text.slice(last)));
-  }
-
-  return segments;
+  if (!text) return nothing;
+  const tree = parser.parse(preprocess(text));
+  return renderNode(tree);
 }

@@ -49,6 +49,12 @@ A shell/framework for Adobe AEM Edge Delivery Services. Provides shared blocks, 
   - Functions and styles in the public SDK cannot be broken in any way, they must always maintain backwards compatibility or provide an in-place upgrade of existing functionality.
   - Any commits to `/nx/public` must be intentional as they may be used in the wild.
 
+## Reuse before building
+
+- Before implementing a utility, parser, or helper, check whether an equivalent already exists in the codebase — search both `nx/` and `nx2/`. Common examples: markdown parsing (`nx/deps/mdast`), IMS auth (`nx2/utils/ims.js`), hash routing (`nx2/utils/utils.js`).
+- Also check `package.json` dependencies before reaching for a third-party package. The project already bundles remark, unified, mdast utilities, Lit, CodeMirror, and others that can be reused rather than re-implemented.
+- Regex-based parsing of structured formats (markdown, HTML, markup) is fragile and hard to maintain — prefer a proper AST-based parser where one is available.
+
 ## JavaScript conventions not enforced by lint
 
 - As a project purposefully avoiding TypeScript and build tools, be mindful of how variables and properties are named. If you see `somethingUrl`, this should be a proper URL object. If you see `href` this would imply a string that has all parts of a url: origin, pathname, search, hash, etc. but is not an actual URL object.
