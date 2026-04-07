@@ -1,11 +1,6 @@
 import { html, nothing } from 'da-lit';
 import { unified, remarkParse } from '../../deps/mdast/dist/index.js';
 
-// Pre-process agent-specific :::block::: syntax into standard markdown
-function preprocess(text) {
-  return text.replace(/^:::list\n/gm, '').replace(/^:::\s*$/gm, '');
-}
-
 function renderNode(node) {
   switch (node.type) {
     case 'root':
@@ -44,6 +39,6 @@ const parser = unified().use(remarkParse);
 
 export function renderMessageContent(text) {
   if (!text) return nothing;
-  const tree = parser.parse(preprocess(text));
+  const tree = parser.parse(text);
   return renderNode(tree);
 }
