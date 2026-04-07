@@ -1,6 +1,6 @@
 import { getMediaType, isSvgFile, isUiExcludedMediaItem } from '../core/media.js';
 import { getBasePath, formatDocPath } from '../core/paths.js';
-import { pluralize } from '../core/utils.js';
+import { pluralize, getItemStatus } from '../core/utils.js';
 import {
   getDedupeKey,
   isInternalToSite,
@@ -13,7 +13,7 @@ import {
   setCachedProcessData,
   generateCacheKey,
 } from '../indexing/cache.js';
-import { getMediaCardLabel } from './templates.js';
+import { getMediaName } from './templates.js';
 
 function normalizeFolderPath(path) {
   return !path || path === '/' ? '/' : path.replace(/\/$/, '');
@@ -127,15 +127,15 @@ function withRepresentativeDoc(item, doc) {
 }
 
 /** External tab: only referenced off-site links (unchanged). */
-const isReferenced = (item) => item.status !== 'unused';
+const isReferenced = (item) => getItemStatus(item) !== 'unused';
 
 /** No References tab: suggestions only; type tabs include unused assets in suggestions too. */
 function applyReferenceFilterForSuggestions(item, selectedFilterType) {
   if (selectedFilterType === 'noReferences') {
-    return item.status === 'unused';
+    return getItemStatus(item) === 'unused';
   }
   if (selectedFilterType === 'links') {
-    return item.status !== 'unused';
+    return getItemStatus(item) !== 'unused';
   }
   return true;
 }
@@ -147,7 +147,7 @@ export const FILTER_CONFIG = {
   images: (item) => getMediaType(item) === 'image' && !isSvgFile(item),
   icons: (item) => isSvgFile(item),
   links: (item, org, repo) => isReferenced(item) && !isInternalToSite(item.url, org, repo),
-  noReferences: (item) => item.status === 'unused',
+  noReferences: (item) => getItemStatus(item) === 'unused',
   videos: (item) => getMediaType(item) === 'video',
 
   documentImages: (item, selectedDocument) => FILTER_CONFIG.images(item)
@@ -851,7 +851,7 @@ export function createSearchSuggestion(item, processedData = null, query = '') {
 
   const firstDoc = getUsageInfo(processedData, item)?.firstDoc || item.doc || null;
 
-  let displayName = getMediaCardLabel(item);
+  let displayName = getMediaName(item);
   if (!displayName || displayName === 'Unknown') {
     displayName = item.displayName || item.name || item.url || 'Unnamed Media';
   }

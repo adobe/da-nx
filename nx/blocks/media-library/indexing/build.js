@@ -28,7 +28,7 @@ import {
   buildUsageMap,
   createLinkedContentEntries,
   toLinkedContentEntry, checkMemory,
-  getDedupeKey, extractName, detectMediaType, computeCanonicalMetadata,
+  getDedupeKey, createMedialogEntry,
 } from './parse.js';
 import { buildMediaSheet, buildUsageSheet } from './sheets.js';
 import { canonicalizeMediaUrl } from '../core/urls.js';
@@ -107,12 +107,6 @@ function dedupeProgressiveItems(items) {
         merged.modifiedTimestamp = hasModified
           ? Math.max(item.modifiedTimestamp, existing.modifiedTimestamp ?? 0)
           : existing.modifiedTimestamp;
-        merged.latestUsageTimestamp = Math.max(
-          item.latestUsageTimestamp ?? item.timestamp ?? 0,
-          existing.latestUsageTimestamp ?? existing.timestamp ?? 0,
-        );
-        merged.nameSource = item.nameSource || existing.nameSource;
-        merged.timestampSource = item.timestampSource || existing.timestampSource;
       }
 
       byKey.set(key, merged);
@@ -598,7 +592,7 @@ export async function buildFullIndex(sitePath, org, repo, ref, onProgress, onPro
     earlyLinkedEntries.length = 0;
     filesByPath.forEach((fileEvent, filePath) => {
       if (deletedPaths.has(filePath) || !isLinkedContentPath(filePath)) return;
-      earlyLinkedEntries.push(toLinkedContentEntry(filePath, '', fileEvent, 'discovering', org, repo));
+      earlyLinkedEntries.push(toLinkedContentEntry(filePath, '', fileEvent, org, repo));
     });
     if (onProgressiveData && earlyLinkedEntries.length > 0) {
       onProgressiveData(dedupeProgressiveItems(earlyLinkedEntries));
@@ -799,35 +793,17 @@ export async function buildFullIndex(sitePath, org, repo, ref, onProgress, onPro
       const key = `${hash}|`;
       const existing = entryMap.get(key);
       if (!existing || media.timestamp > existing.timestamp) {
-        const existingMetadata = new Map();
-        if (existing) {
-          existingMetadata.set(dedupeKey, existing);
-        }
+        const canonicalModifiedTimestamp = canonicalTimestamps.get(hash);
 
-        const canonical = computeCanonicalMetadata(media, existingMetadata.get(dedupeKey));
-
-        // Use canonical timestamp from hash grouping
-        // (aggregated from all entries for this hash)
-        const canonicalModifiedTimestamp = canonicalTimestamps.get(hash)
-          || canonical.modifiedTimestamp;
-
-        entryMap.set(key, {
-          hash,
-          url,
-          originalPath: media.originalFilename || '',
-          name: extractName(media),
-          timestamp: media.timestamp, // Can be 0 (unknown time → sorts to end)
-          user: media.user,
-          operation: media.operation,
-          type: detectMediaType(media),
+        const entry = createMedialogEntry(media, {
           doc: '',
-          status: 'unused',
-          displayName: canonical.displayName,
-          modifiedTimestamp: canonicalModifiedTimestamp,
-          latestUsageTimestamp: canonical.latestUsageTimestamp,
-          nameSource: canonical.nameSource,
-          timestampSource: canonical.timestampSource,
+          existingMeta: existing,
+          org,
+          repo,
+          canonicalModifiedTimestamp,
         });
+
+        entryMap.set(key, entry);
       }
     }
   });
