@@ -2,6 +2,7 @@ import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle, hashChange } from '../../utils/utils.js';
 import loadIcons from '../../utils/svg.js';
 import ChatController from './chat-controller.js';
+import { renderMessageContent } from './renderers.js';
 
 const styles = await loadStyle(import.meta.url);
 
@@ -73,7 +74,7 @@ class NxChat extends LitElement {
     if (msg.role === 'tool') return nothing;
     return html`
       <div class="message message-${msg.role}">
-        <div class="message-content">${msg.content}</div>
+        <div class="message-content ${msg.role === 'assistant' ? 'chat-md' : ''}">${msg.role === 'assistant' ? renderMessageContent(msg.content) : msg.content}</div>
       </div>
     `;
   }
