@@ -141,10 +141,10 @@ export function decorateLink(config, a) {
 
     const { dnb } = decorateHash(a, url);
     if (!dnb) {
-      const { href, hash } = a;
+      const { pathname, hash } = a;
       const found = config.linkBlocks.some((pattern) => {
         const key = Object.keys(pattern)[0];
-        if (!href.includes(pattern[key])) return false;
+        if (!pathname.includes(pattern[key])) return false;
         const blockName = key === 'fragment' && hash ? 'dialog' : key;
         a.classList.add(blockName, 'auto-block');
         return true;

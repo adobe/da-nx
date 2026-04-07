@@ -41,34 +41,38 @@ export function setPanelsGrid() {
   const { body } = document;
   if (getMetadata('template') !== 'app-frame') return;
 
-  const beforeMain = [...body.querySelectorAll('aside.panel[data-position="before"]:not([hidden])')];
-  const afterMain = [...body.querySelectorAll('aside.panel[data-position="after"]:not([hidden])')];
-
-  beforeMain.forEach((el, i) => { el.style.gridArea = `nx-panel-before-${i}`; });
-  afterMain.forEach((el, i) => { el.style.gridArea = `nx-panel-after-${i}`; });
-
-  const colCount = 1 + beforeMain.length + 1 + afterMain.length;
-  const headerRow = Array(colCount).fill('header').join(' ');
-  const contentRow = [
-    'sidenav',
-    ...beforeMain.map((_, i) => `nx-panel-before-${i}`),
-    'main',
-    ...afterMain.map((_, i) => `nx-panel-after-${i}`),
-  ].join(' ');
+  const before = body.querySelector('aside.panel[data-position="before"]:not([hidden])');
+  const after = body.querySelector('aside.panel[data-position="after"]:not([hidden])');
 
   const getWidth = (el) => {
-    const w = el.dataset.width?.trim();
+    const w = el?.dataset.width?.trim();
     return w ? `min(${w}, 40vw)` : 'minmax(0, auto)';
   };
-  const columns = [
-    'var(--s2-nav-width)',
-    ...beforeMain.map(getWidth),
-    '1fr',
-    ...afterMain.map(getWidth),
-  ].join(' ');
 
-  body.style.setProperty('--app-frame-areas', `"${headerRow}" var(--s2-nav-height) "${contentRow}" 1fr`);
-  body.style.setProperty('--app-frame-columns', columns);
+  const header = ['header'];
+  const content = ['sidenav'];
+  const columns = ['var(--s2-nav-width)'];
+
+  if (before) {
+    before.style.gridArea = 'panel-before';
+    header.push('header');
+    content.push('panel-before');
+    columns.push(getWidth(before));
+  }
+
+  header.push('header');
+  content.push('main');
+  columns.push('1fr');
+
+  if (after) {
+    after.style.gridArea = 'panel-after';
+    header.push('header');
+    content.push('panel-after');
+    columns.push(getWidth(after));
+  }
+
+  body.style.setProperty('--app-frame-areas', `"${header.join(' ')}" var(--s2-nav-height) "${content.join(' ')}" 1fr`);
+  body.style.setProperty('--app-frame-columns', columns.join(' '));
 }
 
 function resizePointerDown(downEvent) {
