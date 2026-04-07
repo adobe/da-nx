@@ -6,4 +6,4 @@
 // eslint-disable-next-line import/no-unresolved
 import { setNx } from 'https://da.live/scripts/utils.js';
 
-setNx('https://main--da-nx--adobe.aem.live/nx', window.location);
+setNx('/nx', window.location);
