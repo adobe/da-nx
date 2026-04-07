@@ -1,4 +1,5 @@
 # Nexter (da-nx)
+
 A shell/framework for Adobe AEM Edge Delivery Services. Provides shared blocks, styles, scripts, and utilities consumed by Adobe sites like da.live.
 
 ## Decisions & rationale
@@ -53,7 +54,6 @@ A shell/framework for Adobe AEM Edge Delivery Services. Provides shared blocks, 
 
 - Before implementing a utility, parser, or helper, check whether an equivalent already exists in the codebase — search both `nx/` and `nx2/`. Common examples: markdown parsing (`nx/deps/mdast`), IMS auth (`nx2/utils/ims.js`), hash routing (`nx2/utils/utils.js`).
 - Also check `package.json` dependencies before reaching for a third-party package. The project already bundles remark, unified, mdast utilities, Lit, CodeMirror, and others that can be reused rather than re-implemented.
-- Regex-based parsing of structured formats (markdown, HTML, markup) is fragile and hard to maintain — prefer a proper AST-based parser where one is available.
 
 ## JavaScript conventions not enforced by lint
 
