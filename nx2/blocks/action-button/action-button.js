@@ -1,21 +1,3 @@
-async function togglePanel(position) {
-  const existing = document.querySelector(`aside.panel[data-position="${position}"]`);
-  if (!existing) return false;
-  const { hidePanel, unhidePanel } = await import('../../utils/panel.js');
-  if (existing.hidden) unhidePanel(existing);
-  else hidePanel(existing);
-  return true;
-}
-
-async function loadPanelContent(value) {
-  if (value.includes('/fragments/')) {
-    const { loadFragment } = await import('../fragment/fragment.js');
-    return { content: await loadFragment(value), fragment: value };
-  }
-  const mod = await import(`../../../nx/blocks/${value}/${value}.js`);
-  return { content: await mod.getPanel() };
-}
-
 function decoratePanel(a, hash) {
   const match = hash.match(/^#_(before|after)=(.+)$/);
   if (!match) return;
@@ -24,11 +6,14 @@ function decoratePanel(a, hash) {
 
   a.addEventListener('click', async (e) => {
     e.preventDefault();
-    if (await togglePanel(position)) return;
-    const { content, fragment } = await loadPanelContent(value);
-    if (!content) return;
-    const { showPanel } = await import('../../utils/panel.js');
-    showPanel({ width: '400px', beforeMain, content, fragment });
+    const panel = await import('../../utils/panel.js');
+    const existing = document.querySelector(`aside.panel[data-position="${position}"]`);
+    if (existing) {
+      if (existing.hidden) panel.unhidePanel(existing);
+      else panel.hidePanel(existing);
+      return;
+    }
+    await panel.openPanelWithFragment({ width: '400px', beforeMain, fragment: value });
   });
 }
 

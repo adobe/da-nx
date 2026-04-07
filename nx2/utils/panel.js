@@ -180,15 +180,33 @@ export function showPanel(opts) {
   return aside;
 }
 
+export async function loadPanelContent(value) {
+  if (!value) return { content: null, fragment: undefined };
+  if (value.includes('/fragments/')) {
+    const { loadFragment } = await import('../blocks/fragment/fragment.js');
+    const content = await loadFragment(value);
+    return { content, fragment: value };
+  }
+  const mod = await import(`../../nx/blocks/${value}/${value}.js`);
+  return { content: await mod.getPanel(), fragment: undefined };
+}
+
+export async function openPanelWithFragment({ width = '400px', beforeMain = false, fragment } = {}) {
+  const { content, fragment: persistedFragment } = await loadPanelContent(fragment);
+  if (!content) return undefined;
+  return showPanel({ width, beforeMain, content, fragment: persistedFragment });
+}
+
 export async function restorePanels() {
   const panels = getPanelStore();
   if (!panels.before && !panels.after) return;
-  const { loadFragment } = await import('../blocks/fragment/fragment.js');
   for (const [position, { width, fragment }] of Object.entries(panels)) {
-    const content = await loadFragment(fragment);
-    if (content) {
-      const beforeMain = position === 'before';
-      showPanel({ width, beforeMain, content, fragment });
+    if (fragment) {
+      const { content, fragment: frag } = await loadPanelContent(fragment);
+      if (content) {
+        const beforeMain = position === 'before';
+        showPanel({ width, beforeMain, content, fragment: frag });
+      }
     }
   }
 }
