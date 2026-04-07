@@ -62,7 +62,11 @@ export async function loadBlock(block) {
         await (await import(`${blockPath}.js`)).default(block);
       } catch (e) {
         // eslint-disable-next-line no-console
-        console.log(e);
+        console.log(`Error loading block ${name}:`, e);
+        if (e.message.includes('does not provide an export named')) {
+          // rethrow the error so da-live attempts to reload without cache
+          throw e;
+        }
       }
       resolve();
     })();
