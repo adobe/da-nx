@@ -1,6 +1,8 @@
 import { loadIms } from '../../utils/ims.js';
+import { readStream } from './utils.js';
 
-const AGENT_URL = 'https://da-agent.adobeaem.workers.dev/chat';
+const isLocal = new URLSearchParams(window.location.search).get('ref') === 'local';
+const AGENT_URL = isLocal ? 'http://localhost:5173/chat' : 'https://da-agent.adobeaem.workers.dev/chat';
 
 export default class ChatController {
   constructor({ onUpdate }) {
@@ -11,12 +13,9 @@ export default class ChatController {
     this._context = context;
   }
 
-  get state() {
-    return { messages: this._messages, thinking: this._thinking };
-  }
-
   _update() {
-    this._onUpdate(this.state);
+    const { _messages: messages, _thinking: thinking, _streamingText: streamingText } = this;
+    this._onUpdate({ messages, thinking, streamingText });
   }
 
   _done() {
@@ -32,66 +31,6 @@ export default class ChatController {
 
   destroy() {
     this.stop();
-  }
-
-  _processEvent(event, streaming) {
-    if (event.type === 'error') {
-      throw new Error(event.errorText ?? event.error?.message ?? 'Agent error');
-    }
-
-    if (event.type === 'text-delta') {
-      return { streaming: streaming + (event.delta ?? event.textDelta ?? event.text ?? ''), done: false };
-    }
-
-    if (event.type === 'text-end') {
-      if (streaming) {
-        this._messages = [...this._messages, { role: 'assistant', content: streaming }];
-        this._update();
-      }
-      return { streaming: '', done: false };
-    }
-
-    if (event.type === 'finish-message' || event.type === 'finish') {
-      return { streaming, done: true };
-    }
-
-    return { streaming, done: false };
-  }
-
-  async _readStream(body) {
-    const decoder = new TextDecoder();
-    let buffer = '';
-    let streaming = '';
-    let finished = false;
-
-    for await (const chunk of body) {
-      if (finished) break;
-      buffer += decoder.decode(chunk, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop() ?? '';
-
-      for (const line of lines) {
-        const raw = line.startsWith('data: ') ? line.slice(6).trim() : line.trim();
-        if (raw && raw !== '[DONE]') {
-          let event;
-
-          try {
-            event = JSON.parse(raw);
-          } catch {
-            event = null;
-          }
-
-          if (event) {
-            ({ streaming, done: finished } = this._processEvent(event, streaming));
-          }
-        }
-      }
-    }
-
-    if (streaming) {
-      this._messages = [...this._messages, { role: 'assistant', content: streaming }];
-      this._update();
-    }
   }
 
   async _post(body) {
@@ -124,10 +63,22 @@ export default class ChatController {
       const { org, site, path, view } = this._context ?? {};
       const pageContext = org && site ? { org, site, path, view } : undefined;
       const resp = await this._post({ messages: this._messages, pageContext });
-      await this._readStream(resp.body);
+
+      await readStream(
+        resp.body,
+        (next) => { this._streamingText = next; this._update(); },
+        (text) => {
+          this._messages = [...this._messages, { role: 'assistant', content: text }];
+          this._streamingText = '';
+          this._update();
+        },
+      );
     } catch (err) {
       if (err.name !== 'AbortError') {
-        this._messages = [...(this._messages ?? []), { role: 'assistant', content: `Error: ${err.message}` }];
+        this._messages = [
+          ...(this._messages ?? []),
+          { role: 'assistant', content: `Error: ${err.message}` },
+        ];
       }
     } finally {
       this._done();
