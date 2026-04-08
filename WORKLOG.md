@@ -71,6 +71,9 @@ Decided to wrap nav and sidenav in semantic HTML elements:
 - `parseWindowPath` is the canonical example: returns a clean `{ view, org, site, path }` or `null`.
 ## 2026-04-08
 
+### nx2 canvas — split toggle moved into panel chrome
+- Canvas chat/tool panels get the same split-left / split-right control as `nx-canvas-header`, placed top-right inside `.panel-body`; the header copy is hidden while that side’s panel is visible. `restorePanels` still fires `nx-panels-restored` so restored panels get the bar.
+
 ### nx2 canvas — panel toggling owned by `canvas.js`
 - `toggleCanvasPanel` and fragment URLs live in `blocks/canvas/canvas.js`; `nx-canvas-header` dispatches `nx-canvas-toggle-panel` (`detail.position`: `before` | `after`, aligned with `aside.panel[data-position]`) and the decorate step listens on the host.
 

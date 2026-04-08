@@ -1,11 +1,9 @@
 import { LitElement, html, nothing } from 'da-lit';
 
 import { loadStyle } from '../../../utils/utils.js';
-import { loadHrefSvg } from '../../../utils/svg.js';
+import { loadHrefSvg, ICONS_BASE } from '../../../utils/svg.js';
 
 const style = await loadStyle(import.meta.url);
-
-const ICONS_BASE = new URL('../../../img/icons/', import.meta.url).href;
 
 const ICONS = {
   undo: `${ICONS_BASE}S2_Icon_Undo_20_N.svg`,
@@ -32,9 +30,9 @@ class NXCanvasHeader extends LitElement {
     this._icons = icons;
   }
 
-  _togglePanel(position) {
+  _openPanel(position) {
     this.dispatchEvent(
-      new CustomEvent('nx-canvas-toggle-panel', {
+      new CustomEvent('nx-canvas-open-panel', {
         bubbles: true,
         composed: true,
         detail: { position },
@@ -51,7 +49,7 @@ class NXCanvasHeader extends LitElement {
     return html`
       <header class="bar" part="bar">
         <div class="group group-start" part="group-start">
-          <button type="button" class="icon-btn" part="btn" data-action="toggle-panel-before" aria-label="Toggle before panel" @click=${() => this._togglePanel('before')}>
+          <button type="button" class="icon-btn" part="btn toggle-before" data-action="open-panel-before" aria-label="Open before panel" @click=${() => this._openPanel('before')}>
             ${this._renderIcon('splitLeft')}
           </button>
           <button type="button" class="icon-btn" part="btn" data-action="undo" aria-label="Undo">
@@ -70,7 +68,7 @@ class NXCanvasHeader extends LitElement {
         </div>
 
         <div class="group group-end" part="group-end">
-          <button type="button" class="icon-btn" part="btn" data-action="toggle-panel-after" aria-label="Toggle after panel" @click=${() => this._togglePanel('after')}>
+          <button type="button" class="icon-btn" part="btn toggle-after" data-action="open-panel-after" aria-label="Open after panel" @click=${() => this._openPanel('after')}>
             ${this._renderIcon('splitRight')}
           </button>
         </div>

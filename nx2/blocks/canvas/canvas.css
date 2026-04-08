@@ -1,3 +1,11 @@
+html:has(aside.panel[data-position="before"]:not([hidden])) nx-canvas-header::part(toggle-before) {
+  display: none;
+}
+
+html:has(aside.panel[data-position="after"]:not([hidden])) nx-canvas-header::part(toggle-after) {
+  display: none;
+}
+
 .fragment-content:has(nx-chat) {
   height: 100%;
 

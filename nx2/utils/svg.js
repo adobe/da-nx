@@ -2,6 +2,8 @@ import { getConfig } from '../scripts/nx.js';
 
 const { codeBase, iconSize } = getConfig();
 
+export const ICONS_BASE = new URL('../img/icons/', import.meta.url).href;
+
 export default function loadIcons({ icons, size = iconSize }) {
   for (const icon of icons) {
     const tmp = icon.classList[1].substring(5);
