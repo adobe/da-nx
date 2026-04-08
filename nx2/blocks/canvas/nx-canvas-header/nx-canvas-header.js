@@ -14,21 +14,10 @@ const ICONS = {
   splitRight: `${ICONS_BASE}S2_Icon_SplitRight_20_N.svg`,
 };
 
-/** @typedef {'layout' | 'content'} CanvasHeaderMode */
-
 class NXCanvasHeader extends LitElement {
   static properties = {
-    mode: { type: String, reflect: true },
-    redoAvailable: { type: Boolean, attribute: 'redo-available' },
     _icons: { state: true },
   };
-
-  constructor() {
-    super();
-    /** @type {CanvasHeaderMode} */
-    this.mode = 'content';
-    this.redoAvailable = false;
-  }
 
   connectedCallback() {
     super.connectedCallback();
@@ -43,45 +32,14 @@ class NXCanvasHeader extends LitElement {
     this._icons = icons;
   }
 
-  _setMode(next) {
-    if (this.mode === next) return;
-    this.mode = next;
+  _togglePanel(position) {
     this.dispatchEvent(
-      new CustomEvent('nx-canvas-mode-change', {
+      new CustomEvent('nx-canvas-toggle-panel', {
         bubbles: true,
         composed: true,
-        detail: { mode: next },
+        detail: { position },
       }),
     );
-  }
-
-  async _togglePanel(side) {
-    const prop = side === 'left' ? '_leftPanel' : '_rightPanel';
-    const existing = this[prop];
-
-    if (existing?.isConnected) {
-      const aside = existing.closest('aside.panel');
-      aside?.remove();
-      const { setPanelsGrid } = await import('../../panel/panel.js');
-      setPanelsGrid();
-      this[prop] = undefined;
-      return;
-    }
-
-    const { showPanel } = await import('../../panel/panel.js');
-    const beforeMain = side === 'left';
-    const nx = showPanel({ width: '400px', beforeMain });
-    this[prop] = nx;
-
-    if (side === 'left') {
-      await import('../../chat/chat.js');
-      const fragment = new DOMParser().parseFromString(`
-        <div class="chat-wrapper">
-          <nx-chat></nx-chat>
-        </div>
-      `, 'text/html').body.firstChild;
-      nx.append(fragment);
-    }
   }
 
   _renderIcon(name) {
@@ -93,7 +51,7 @@ class NXCanvasHeader extends LitElement {
     return html`
       <header class="bar" part="bar">
         <div class="group group-start" part="group-start">
-          <button type="button" class="icon-btn" part="btn" data-action="toggle-left-sidebar" aria-label="Toggle left sidebar" @click=${() => this._togglePanel('left')}>
+          <button type="button" class="icon-btn" part="btn" data-action="toggle-panel-before" aria-label="Toggle before panel" @click=${() => this._togglePanel('before')}>
             ${this._renderIcon('splitLeft')}
           </button>
           <button type="button" class="icon-btn" part="btn" data-action="undo" aria-label="Undo">
@@ -111,31 +69,8 @@ class NXCanvasHeader extends LitElement {
           </button>
         </div>
 
-        <div class="segmented" part="segmented" role="tablist" aria-label="Canvas view">
-          <button
-            type="button"
-            class="segment ${this.mode === 'layout' ? 'is-selected' : ''}"
-            part="segment"
-            role="tab"
-            aria-selected=${this.mode === 'layout'}
-            @click=${() => this._setMode('layout')}
-          >
-            Layout
-          </button>
-          <button
-            type="button"
-            class="segment ${this.mode === 'content' ? 'is-selected' : ''}"
-            part="segment"
-            role="tab"
-            aria-selected=${this.mode === 'content'}
-            @click=${() => this._setMode('content')}
-          >
-            Content
-          </button>
-        </div>
-
         <div class="group group-end" part="group-end">
-          <button type="button" class="icon-btn" part="btn" data-action="toggle-right-sidebar" aria-label="Toggle right sidebar" @click=${() => this._togglePanel('right')}>
+          <button type="button" class="icon-btn" part="btn" data-action="toggle-panel-after" aria-label="Toggle after panel" @click=${() => this._togglePanel('after')}>
             ${this._renderIcon('splitRight')}
           </button>
         </div>

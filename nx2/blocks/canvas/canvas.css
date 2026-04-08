@@ -1,0 +1,15 @@
+.fragment-content:has(nx-chat) {
+  height: 100%;
+
+  & .section {
+    height: 100%;
+  }
+
+  & .block-content {
+    height: 100%;
+  }
+}
+
+nx-chat {
+  height: 100%;
+}
