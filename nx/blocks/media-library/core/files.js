@@ -1,5 +1,3 @@
-import { canonicalizeMediaUrl } from './urls.js';
-
 const CARD_IMAGE_WIDTHS = [400, 500, 750];
 
 export const CARD_IMAGE_SIZES = '(max-width: 480px) 100vw, (max-width: 768px) 50vw, 300px';
@@ -52,10 +50,9 @@ export function getFileName(url) {
 export function optimizeImageUrls(src, widths = CARD_IMAGE_WIDTHS) {
   if (!src) return null;
   try {
-    const normalizedSrc = canonicalizeMediaUrl(src);
-    const url = normalizedSrc.startsWith('http')
-      ? new URL(normalizedSrc)
-      : new URL(normalizedSrc, window.location.href);
+    const url = src.startsWith('http')
+      ? new URL(src)
+      : new URL(src, window.location.href);
     const base = `${url.origin}${url.pathname}`;
     const ext = url.pathname.split('.').pop()?.toLowerCase() || 'jpg';
     if (ext === 'svg') return null;

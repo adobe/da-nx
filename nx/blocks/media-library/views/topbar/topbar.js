@@ -489,7 +489,7 @@ class NxMediaTopBar extends LitElement {
         },
       }));
     } else {
-      this._inputValue = suggestion.value.name;
+      this._inputValue = suggestion.value.displayName || suggestion.value.url;
       this.dispatchEvent(new CustomEvent('search', {
         detail: {
           query: this._inputValue,
@@ -516,7 +516,7 @@ class NxMediaTopBar extends LitElement {
     if (suggestion.type === 'doc') return suggestion.value;
     if (suggestion.type === 'folder') return suggestion.value;
     if (suggestion.type === 'media') {
-      return suggestion.value.name || suggestion.value.url;
+      return suggestion.value.displayName || suggestion.value.url;
     }
     return '';
   }

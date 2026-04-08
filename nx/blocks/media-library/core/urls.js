@@ -333,8 +333,19 @@ export function isExternalUrl(url) {
   return !normalizedUrl.includes(Domains.AEM_LIVE) && !normalizedUrl.includes(Domains.AEM_PAGE);
 }
 
-export function resolveMediaUrl(mediaUrl, org, repo) {
-  return canonicalizeMediaUrl(mediaUrl, org, repo);
+export function convertToPreviewDaLive(aemPageUrl) {
+  if (!aemPageUrl || typeof aemPageUrl !== 'string') return aemPageUrl;
+  return aemPageUrl.replace(Domains.AEM_PAGE, Domains.PREVIEW_DA_LIVE);
+}
+
+export function convertToAemPage(url) {
+  if (!url || typeof url !== 'string') return url;
+  return url.replace(Domains.PREVIEW_DA_LIVE, Domains.AEM_PAGE);
+}
+
+export function resolveMediaUrl(mediaUrl, org, repo, usePreviewDaLive = false) {
+  const canonicalUrl = canonicalizeMediaUrl(mediaUrl, org, repo);
+  return usePreviewDaLive ? convertToPreviewDaLive(canonicalUrl) : canonicalUrl;
 }
 
 export function parseMediaUrl(mediaUrl) {
@@ -416,4 +427,9 @@ export function etcFetch(href, api, options) {
   const url = `${DA_ETC_ORIGIN}/${api}?url=${encodeURIComponent(href)}`;
   const opts = options || {};
   return fetch(url, opts);
+}
+
+// Preview.da.live URL helper
+export function getLivePreviewUrl(owner, repo) {
+  return `https://main--${repo}--${owner}${Domains.PREVIEW_DA_LIVE}`;
 }

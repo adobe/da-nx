@@ -14,7 +14,7 @@ import {
   getImageOrientation,
 } from '../../core/media.js';
 import { formatFileSize, getFileName, optimizeImageUrls } from '../../core/files.js';
-import { getMediaCardLabel } from '../../features/templates.js';
+import { getMediaName } from '../../features/templates.js';
 import { copyMediaToClipboard } from '../../core/export.js';
 import {
   parseMediaUrl,
@@ -25,6 +25,7 @@ import {
   isPreviewPreferredForMediaUrl,
   getDedupeKey,
   etcFetch,
+  convertToAemPage,
 } from '../../core/urls.js';
 import { getAppState } from '../../core/state.js';
 import { getEditUrl, getViewUrl, formatDocPath } from '../../core/paths.js';
@@ -123,7 +124,8 @@ class NxMediaInfo extends LitElement {
       this._resetLoadedMetadata();
       this._updateMediaLocation();
       if (isPdfUrl(this.media.url)) {
-        this.loadPdfWithDaFetch(resolveMediaUrl(this.media.url, this.org, this.repo));
+        const pdfUrl = resolveMediaUrl(this.media.url, this.org, this.repo, this.usePreviewDaLive);
+        this.loadPdfWithDaFetch(pdfUrl);
       }
     }
 
@@ -141,6 +143,7 @@ class NxMediaInfo extends LitElement {
     this.usageData = data.usageData;
     this.org = data.org;
     this.repo = data.repo;
+    this.usePreviewDaLive = data.usePreviewDaLive || false;
     this.isIndexing = data.isIndexing;
 
     if (data.initialTab && SUPPORTED_TABS.includes(data.initialTab)) {
@@ -159,7 +162,7 @@ class NxMediaInfo extends LitElement {
     }
 
     if (data.media?.url) {
-      const fullUrl = resolveMediaUrl(data.media.url, data.org, data.repo);
+      const fullUrl = resolveMediaUrl(data.media.url, data.org, data.repo, data.usePreviewDaLive);
       const { origin, path } = parseMediaUrl(fullUrl);
       this._mediaOrigin = origin || 'Unknown';
       this._mediaPath = path || 'Unknown';
@@ -196,7 +199,7 @@ class NxMediaInfo extends LitElement {
       const prevMedia = this.media;
       const media = items[next];
       const prevResolved = prevMedia?.url
-        ? resolveMediaUrl(prevMedia.url, this.org, this.repo)
+        ? resolveMediaUrl(prevMedia.url, this.org, this.repo, this.usePreviewDaLive)
         : null;
       if (prevMedia && isPdfUrl(prevMedia.url) && prevResolved) {
         this._revokePdfEntryForResolvedUrl(prevResolved);
@@ -207,6 +210,7 @@ class NxMediaInfo extends LitElement {
         usageData: getAppState().usageIndex?.get(getDedupeKey(media.url)) || [],
         org: this.org,
         repo: this.repo,
+        usePreviewDaLive: this.usePreviewDaLive,
         isIndexing: this.isIndexing,
         navigationItems: items,
         navigationIndex: next,
@@ -297,6 +301,17 @@ class NxMediaInfo extends LitElement {
     this._pdfLoadErrors.clear();
   }
 
+  async _prepareFetchOptionsWithAuth(baseOpts = {}) {
+    if (!this.usePreviewDaLive) return baseOpts;
+
+    const { getSiteTokenHeaders } = await import('../../indexing/admin-api.js');
+    const headers = await getSiteTokenHeaders(this.org, this.repo);
+    if (headers) {
+      return { ...baseOpts, headers: { ...baseOpts.headers, ...headers } };
+    }
+    return baseOpts;
+  }
+
   renderMediaNavChrome() {
     if (!this._hasMediaNavigation) return html``;
 
@@ -344,7 +359,7 @@ class NxMediaInfo extends LitElement {
   _updateMediaLocation() {
     if (!this.media?.url) return;
 
-    const fullUrl = resolveMediaUrl(this.media.url, this.org, this.repo);
+    const fullUrl = resolveMediaUrl(this.media.url, this.org, this.repo, this.usePreviewDaLive);
     const { origin, path } = parseMediaUrl(fullUrl);
     this._mediaOrigin = origin || 'Unknown';
     this._mediaPath = path || 'Unknown';
@@ -354,7 +369,7 @@ class NxMediaInfo extends LitElement {
     const { media } = this;
     if (!media?.url) return;
 
-    const fullUrl = resolveMediaUrl(media.url, this.org, this.repo);
+    const fullUrl = resolveMediaUrl(media.url, this.org, this.repo, this.usePreviewDaLive);
     if (this._metadataUrl === fullUrl
       && (this._metadataStatus === 'loading' || this._metadataStatus === 'loaded')) {
       return;
@@ -379,12 +394,15 @@ class NxMediaInfo extends LitElement {
     }
   }
 
-  async loadVideoDimensions(fullUrl = resolveMediaUrl(this.media?.url, this.org, this.repo)) {
+  async loadVideoDimensions(fullUrl) {
     if (!this.media || !isVideo(this.media.url)) {
       return;
     }
 
-    const cacheKey = `video_dims_${fullUrl}`;
+    const defaultUrl = resolveMediaUrl(this.media.url, this.org, this.repo, this.usePreviewDaLive);
+    const resolvedUrl = fullUrl || defaultUrl;
+
+    const cacheKey = `video_dims_${resolvedUrl}`;
 
     if (this._cachedMetadata.has(cacheKey)) {
       this._imageDimensions = this._cachedMetadata.get(cacheKey);
@@ -408,7 +426,7 @@ class NxMediaInfo extends LitElement {
           resolve(null);
         };
 
-        video.src = fullUrl;
+        video.src = resolvedUrl;
       });
 
       if (dimensions) {
@@ -421,15 +439,18 @@ class NxMediaInfo extends LitElement {
     }
   }
 
-  async loadExifData(fullUrl = resolveMediaUrl(this.media?.url, this.org, this.repo)) {
+  async loadExifData(fullUrl) {
     if (!this.media || !isImage(this.media.url)) {
       return;
     }
 
+    const defaultUrl = resolveMediaUrl(this.media.url, this.org, this.repo, this.usePreviewDaLive);
+    const resolvedUrl = fullUrl || defaultUrl;
+
     const ext = this.media.url.split('.').pop()?.toLowerCase();
     const isSvg = ext === 'svg';
 
-    const cacheKey = `metadata_${fullUrl}`;
+    const cacheKey = `metadata_${resolvedUrl}`;
     this._updateMediaLocation();
 
     if (this._cachedMetadata.has(cacheKey)) {
@@ -461,10 +482,12 @@ class NxMediaInfo extends LitElement {
 
       let response;
       try {
-        response = await etcFetch(fullUrl, 'cors', {
+        const fetchUrl = convertToAemPage(resolvedUrl);
+        const opts = await this._prepareFetchOptionsWithAuth({
           method: 'GET',
           signal: controller.signal,
         });
+        response = await etcFetch(fetchUrl, 'cors', opts);
       } catch (e) {
         this._pendingRequests.delete(controller);
         this._loading = false;
@@ -581,35 +604,28 @@ class NxMediaInfo extends LitElement {
 
         let response;
 
-        // Use daFetch only for content.da.live
         if (url.hostname.includes('content.da.live')) {
           const path = url.pathname;
           const adminUrl = `${DA_ORIGIN}/source${path}`;
           response = await daFetch(adminUrl);
         } else {
-          // Use etcFetch for all other domains (.aem.live, .aem.page, public domains)
-          response = await etcFetch(pdfUrl, 'cors');
+          const fetchUrl = convertToAemPage(pdfUrl);
+          const opts = await this._prepareFetchOptionsWithAuth();
+          response = await etcFetch(fetchUrl, 'cors', opts);
         }
 
         if (!response.ok) {
-          this._pdfLoadErrors.set(
-            pdfUrl,
-            t('UI_UNABLE_TO_FETCH_HTTP', { status: response.status }),
-          );
+          this._pdfLoadErrors.set(pdfUrl, t('UI_PDF_NETWORK'));
           return;
         }
 
         const blob = await response.blob();
         const blobUrl = URL.createObjectURL(blob);
         this._pdfBlobUrls.set(pdfUrl, blobUrl);
-      } catch (error) {
+      } catch (e) {
         // eslint-disable-next-line no-console
-        console.error('Failed to load PDF:', error);
-        const msg = error instanceof Error ? error.message : String(error);
-        const friendly = msg === 'Failed to fetch' || msg === 'Load failed'
-          ? t('UI_PDF_NETWORK')
-          : t('UI_UNABLE_TO_FETCH', { error: msg });
-        this._pdfLoadErrors.set(pdfUrl, friendly);
+        console.error('Failed to load PDF:', e);
+        this._pdfLoadErrors.set(pdfUrl, t('UI_PDF_NETWORK'));
       } finally {
         this.requestUpdate();
       }
@@ -621,13 +637,16 @@ class NxMediaInfo extends LitElement {
     await loadPromise;
   }
 
-  async loadFileSize(fullUrl = resolveMediaUrl(this.media?.url, this.org, this.repo)) {
+  async loadFileSize(fullUrl) {
     if (!this.media || !this.media.url) {
       return;
     }
-    const cacheKey = fullUrl;
 
-    const isExternal = isExternalUrl(fullUrl);
+    const defaultUrl = resolveMediaUrl(this.media.url, this.org, this.repo, this.usePreviewDaLive);
+    const resolvedUrl = fullUrl || defaultUrl;
+    const cacheKey = resolvedUrl;
+
+    const isExternal = isExternalUrl(resolvedUrl);
     this._updateMediaLocation();
 
     if (this._cachedMetadata.has(cacheKey)) {
@@ -640,12 +659,12 @@ class NxMediaInfo extends LitElement {
     }
 
     try {
-      if (isPdfUrl(this.media.url) && this._pdfBlobLoadPromises.has(fullUrl)) {
-        await this._pdfBlobLoadPromises.get(fullUrl);
+      if (isPdfUrl(this.media.url) && this._pdfBlobLoadPromises.has(resolvedUrl)) {
+        await this._pdfBlobLoadPromises.get(resolvedUrl);
       }
 
-      if (isPdfUrl(this.media.url) && this._pdfBlobUrls.has(fullUrl)) {
-        const blobUrl = this._pdfBlobUrls.get(fullUrl);
+      if (isPdfUrl(this.media.url) && this._pdfBlobUrls.has(resolvedUrl)) {
+        const blobUrl = this._pdfBlobUrls.get(resolvedUrl);
         const response = await fetch(blobUrl);
         if (response.ok) {
           const blob = await response.blob();
@@ -653,41 +672,46 @@ class NxMediaInfo extends LitElement {
           this._mimeType = blob.type || 'application/pdf';
         }
       } else {
-        const ext = fullUrl.split('.').pop()?.toLowerCase();
+        const ext = resolvedUrl.split('.').pop()?.toLowerCase();
         this._mimeType = SUPPORTED_FILES[ext] || 'Unknown';
 
         const controller = new AbortController();
         this._pendingRequests.add(controller);
 
         try {
-          const fetchUrl = fullUrl.toLowerCase().includes('.svg') ? normalizeUrl(fullUrl) : fullUrl;
+          let fetchUrl = resolvedUrl.toLowerCase().includes('.svg')
+            ? normalizeUrl(resolvedUrl) : resolvedUrl;
+          fetchUrl = convertToAemPage(fetchUrl);
 
-          const response = await etcFetch(fetchUrl, 'cors', {
+          const opts = await this._prepareFetchOptionsWithAuth({
             method: 'HEAD',
             signal: controller.signal,
           });
+
+          const response = await etcFetch(fetchUrl, 'cors', opts);
 
           if (response.ok) {
             const contentLength = response.headers.get('content-length');
             if (contentLength) {
               this._fileSize = formatFileSize(parseInt(contentLength, 10));
             } else {
-              const getResponse = await etcFetch(fetchUrl, 'cors', {
+              const getOpts = await this._prepareFetchOptionsWithAuth({
                 method: 'GET',
                 signal: controller.signal,
               });
+              const getResponse = await etcFetch(fetchUrl, 'cors', getOpts);
               if (getResponse.ok) {
                 const blob = await getResponse.blob();
                 this._fileSize = formatFileSize(blob.size);
               } else {
-                this._fileSize = isExternal ? t('UI_EXTERNAL_RESOURCE') : t('UI_UNABLE_TO_FETCH_HTTP', { status: getResponse.status });
+                this._fileSize = isExternal ? t('UI_EXTERNAL_RESOURCE') : t('UI_UNABLE_TO_FETCH');
               }
             }
           } else {
-            this._fileSize = isExternal ? t('UI_EXTERNAL_RESOURCE') : t('UI_UNABLE_TO_FETCH_HTTP', { status: response.status });
+            this._fileSize = isExternal ? t('UI_EXTERNAL_RESOURCE') : t('UI_UNABLE_TO_FETCH');
           }
-        } catch (error) {
-          this._fileSize = isExternal ? t('UI_EXTERNAL_RESOURCE') : t('UI_UNABLE_TO_FETCH', { error: error.message });
+        } catch {
+          this._fileSize = isExternal ? t('UI_EXTERNAL_RESOURCE') : t('UI_UNABLE_TO_FETCH');
         }
 
         this._pendingRequests.delete(controller);
@@ -710,7 +734,7 @@ class NxMediaInfo extends LitElement {
   render() {
     let displayName = '';
     if (this.media) {
-      const label = getMediaCardLabel(this.media);
+      const label = getMediaName(this.media);
       if (label && label !== 'Unknown') {
         displayName = label;
       } else {
@@ -844,7 +868,7 @@ class NxMediaInfo extends LitElement {
   }
 
   renderMediaPreview() {
-    const fullUrl = resolveMediaUrl(this.media.url, this.org, this.repo);
+    const fullUrl = resolveMediaUrl(this.media.url, this.org, this.repo, this.usePreviewDaLive);
 
     if (isImage(this.media.url) || this.media.type === MediaType.IMAGE) {
       const subtype = getSubtype(this.media);
@@ -944,7 +968,7 @@ class NxMediaInfo extends LitElement {
               <use href="#S2_Icon_PDF_20_N"></use>
             </svg>
             <div class="pdf-info">
-              <span class="pdf-name">${getMediaCardLabel(this.media)}</span>
+              <span class="pdf-name">${getMediaName(this.media)}</span>
               <span class="pdf-type">PDF Document</span>
               ${pdfError
                 ? html`

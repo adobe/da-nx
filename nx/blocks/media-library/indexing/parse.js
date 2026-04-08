@@ -8,7 +8,7 @@ import {
 } from '../core/constants.js';
 import { isPerfEnabled } from '../core/params.js';
 import { getExternalMediaTypeInfo, normalizeExternalVideoUrl } from '../core/media.js';
-import { getDedupeKey } from '../core/urls.js';
+import { getDedupeKey, canonicalizeMediaUrl } from '../core/urls.js';
 
 export { getDedupeKey };
 
@@ -160,16 +160,45 @@ export function computeCanonicalMetadata(mediaEntry, existingMetadata = null) {
       : existingMetadata?.displayName || extractBestFilename(mediaEntry),
 
     modifiedTimestamp,
+  };
+}
 
-    latestUsageTimestamp: Math.max(
-      mediaEntry.timestamp,
-      existingMetadata?.latestUsageTimestamp || 0,
-    ),
+export function detectMediaType(mediaEntry) {
+  const contentType = mediaEntry.contentType || '';
+  if (contentType.startsWith('image/')) return MediaType.IMAGE;
+  if (contentType.startsWith('video/')) return MediaType.VIDEO;
+  return 'unknown';
+}
 
-    nameSource: isIngest && hasOriginalFilename ? 'originalFilename'
-      : existingMetadata?.nameSource || 'path',
-    timestampSource: isIngest ? 'medialog-ingest'
-      : existingMetadata?.timestampSource || 'medialog',
+/**
+ * Factory function to create standardized medialog index entries.
+ * Centralizes entry creation logic to ensure consistency across the codebase.
+ */
+export function createMedialogEntry(media, options = {}) {
+  const {
+    doc = '',
+    existingMeta = null,
+    org,
+    repo,
+    canonicalModifiedTimestamp = null,
+  } = options;
+
+  const url = canonicalizeMediaUrl(media.path, org, repo);
+  const dedupeKey = getDedupeKey(url);
+  const hash = media.mediaHash || dedupeKey;
+  const canonical = computeCanonicalMetadata(media, existingMeta);
+
+  return {
+    hash,
+    url,
+    originalPath: media.originalPath || media.originalFilename || '',
+    timestamp: media.timestamp || 0,
+    user: media.user || '',
+    operation: media.operation || '',
+    type: detectMediaType(media),
+    doc,
+    displayName: canonical.displayName,
+    modifiedTimestamp: canonicalModifiedTimestamp ?? canonical.modifiedTimestamp,
   };
 }
 
@@ -203,13 +232,6 @@ export function getLinkedContentType(path) {
   if (isPdf(path)) return MediaType.DOCUMENT;
   if (isSvg(path)) return MediaType.IMAGE;
   if (isFragmentDoc(path)) return MediaType.FRAGMENT;
-  return 'unknown';
-}
-
-export function detectMediaType(mediaEntry) {
-  const contentType = mediaEntry.contentType || '';
-  if (contentType.startsWith('image/')) return MediaType.IMAGE;
-  if (contentType.startsWith('video/')) return MediaType.VIDEO;
   return 'unknown';
 }
 
@@ -573,19 +595,13 @@ export function toExternalMediaEntry(url, doc, firstDiscoveredTimestamp = 0) {
   return {
     hash: normalizedUrl, // Use normalized URL as dedupe key for external media
     url, // Keep original URL for display
-    name: info.name,
     timestamp: firstDiscoveredTimestamp,
     user: '',
     operation: Operation.EXTLINKS,
     type: info.type,
     doc: doc || '',
-    status: 'referenced',
     displayName: info.name, // Use extracted name for display
-    // Use first discovered time (oldest usage) as modified time
     modifiedTimestamp: firstDiscoveredTimestamp,
-    latestUsageTimestamp: firstDiscoveredTimestamp,
-    nameSource: 'url',
-    timestampSource: 'markdown-parse',
   };
 }
 
@@ -593,7 +609,6 @@ export function toLinkedContentEntry(
   filePath,
   doc,
   fileEvent,
-  status,
   org,
   repo,
   lastModified = null,
@@ -608,18 +623,13 @@ export function toLinkedContentEntry(
   return {
     hash: filePath, // Path used as dedupe key for linked content
     url,
-    name: fileName,
     timestamp: fileEvent.timestamp,
     user: fileEvent.user || '',
     operation: 'auditlog-parsed',
     type: getLinkedContentType(filePath),
     doc: doc || '',
-    status,
     displayName: fileName, // Use filename for display
     modifiedTimestamp: lastModified || fileEvent.timestamp,
-    latestUsageTimestamp: fileEvent.timestamp,
-    nameSource: 'path',
-    timestampSource: lastModified ? 'http-head' : 'auditlog',
   };
 }
 
@@ -639,13 +649,12 @@ export function createLinkedContentEntries(usageMap, linkedFilesByPath, deletedP
     if (deletedPaths.has(filePath)) return;
     const key = usageKey(filePath);
     const linkedPages = usageMap[key]?.get(filePath) || [];
-    const status = linkedPages.length > 0 ? 'referenced' : 'unused';
     const fileEvent = linkedFilesByPath.get(filePath) || { timestamp: 0, user: '' };
     if (linkedPages.length === 0) {
-      entries.push(toLinkedContentEntry(filePath, '', fileEvent, status, org, repo));
+      entries.push(toLinkedContentEntry(filePath, '', fileEvent, org, repo));
     } else {
       linkedPages.forEach((doc) => {
-        entries.push(toLinkedContentEntry(filePath, doc, fileEvent, status, org, repo));
+        entries.push(toLinkedContentEntry(filePath, doc, fileEvent, org, repo));
       });
     }
   });
