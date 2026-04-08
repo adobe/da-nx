@@ -100,7 +100,7 @@
     background-color: var(--s2-blue-900);
 
     path {
-      fill: var(--s2-gray-25);
+      fill: white;
     }
   }
 
