@@ -1,6 +1,3 @@
-export const DA_ORIGIN = (() => 'https://admin.da.live')();
-export const daFetch = (() => 'https://admin.da.live')();
-
 const parse = (location = window.location) => {
   const pathView = location.pathname.slice(1);
   const view = pathView === '' ? 'browse' : pathView;
