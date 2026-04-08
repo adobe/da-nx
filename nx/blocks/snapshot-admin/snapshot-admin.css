@@ -1,4 +1,21 @@
 :host {
+  color-scheme: light dark;
+
+  --s2-gray-25: light-dark(rgb(255 255 255), rgb(17 17 17));
+  --s2-gray-50: light-dark(rgb(248 248 248), rgb(27 27 27));
+  --s2-gray-200: light-dark(rgb(225 225 225), rgb(50 50 50));
+  --s2-gray-300: light-dark(rgb(218 218 218), rgb(57 57 57));
+  --s2-gray-400: light-dark(rgb(198 198 198), rgb(68 68 68));
+  --s2-gray-600: light-dark(rgb(113 113 113), rgb(138 138 138));
+  --s2-gray-800: light-dark(rgb(41 41 41), rgb(219 219 219));
+  --s2-blue-200: light-dark(rgb(229 240 254), rgb(15 28 82));
+  --s2-blue-900: light-dark(rgb(59 99 251), rgb(86 129 255));
+  --s2-blue-1000: light-dark(rgb(39 77 234), rgb(105 149 254));
+  --s2-red-900: light-dark(rgb(215 50 32), rgb(252 67 46));
+  --s2-green-900: light-dark(rgb(5 131 78), rgb(9 157 89));
+  --sl-field-border: 2px solid var(--s2-gray-300);
+
+  color: var(--s2-gray-800);
   display: block;
   max-width: var(--grid-container-width);
   margin: var(--spacing-800) auto var(--spacing-800) auto;
@@ -14,6 +31,7 @@ button {
 }
 
 hr {
+  border-color: var(--s2-gray-300);
   margin-bottom: var(--spacing-400);
 }
 

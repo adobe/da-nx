@@ -32,7 +32,7 @@ class NxSnapshotAdmin extends LitElement {
 
   update(props) {
     if (props.has('sitePath') && this.sitePath) this.getSnapshots();
-    super.update();
+    super.update(props);
   }
 
   async getSnapshots() {
@@ -56,7 +56,7 @@ class NxSnapshotAdmin extends LitElement {
     }
 
     this._snapshots = result.snapshots;
-    this._isRegistered = await isRegistered(org, site);
+    this._isRegistered = await isRegistered();
     this._userPermissions = await getUserPublishPermission();
     this._hasLaunchPermission = await fetchLaunchPermission();
   }
@@ -67,7 +67,7 @@ class NxSnapshotAdmin extends LitElement {
   }
 
   handleNew() {
-    this._snapshots = [{ open: true }, ...this._snapshots];
+    this._snapshots = [{ open: true, tempId: crypto.randomUUID() }, ...this._snapshots];
   }
 
   handleDelete(snapshot) {
@@ -118,7 +118,7 @@ class NxSnapshotAdmin extends LitElement {
           <ul>
             ${repeat(
               snapshots,
-              (snap) => snap.name,
+              (snap) => snap.name || snap.tempId,
               (snap) => html`
               <li><nx-snapshot @delete=${() => this.handleDelete(snap)} .basics=${snap} .isRegistered=${this._isRegistered} .userPermissions=${this._userPermissions} .hasLaunchPermission=${this._hasLaunchPermission} .startOpen=${!!filterName}></nx-snapshot></li>`,
             )}
@@ -161,6 +161,11 @@ function setupSnapshots(el) {
 
 export default function init(el) {
   el.innerHTML = '';
+
+  const style = document.createElement('style');
+  style.textContent = '@media(prefers-color-scheme:dark){body{background:rgb(17 17 17);color:rgb(219 219 219)}.nx-app main{background-color:rgb(17 17 17)}}';
+  document.head.append(style);
+
   setupSnapshots(el);
   window.addEventListener('hashchange', (e) => {
     setupSnapshots(el, e);

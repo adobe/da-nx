@@ -10,7 +10,7 @@ let site;
 
 function formatError(resp) {
   if (resp.status === 401 || resp.status === 403) {
-    return { error: 'You do not have privledges to take this snapshot action.' };
+    return { error: 'You do not have privileges to take this snapshot action.' };
   }
   const xErr = resp.headers.get('X-Error');
   if (xErr) return { error: xErr };
@@ -284,8 +284,7 @@ export async function updateSchedule(snapshotId, approved = false) {
 
 export async function getUserPublishPermission(path = '/') {
   try {
-    // Use the admin.hlx.page status endpoint to check permissions
-    const statusURL = `https://admin.hlx.page/status/${org}/${site}/main${path}`;
+    const statusURL = `${AEM_ORIGIN}/status/${org}/${site}/main${path}`;
     const resp = await daFetch(statusURL);
     if (!resp.ok) return false;
 
@@ -341,7 +340,8 @@ export const getSheetByIndex = (json, index = 0) => {
   if (json[':type'] !== 'multi-sheet') {
     return json.data;
   }
-  return json[Object.keys(json)[index]]?.data;
+  const sheetKeys = Object.keys(json).filter((k) => !k.startsWith(':'));
+  return json[sheetKeys[index]]?.data;
 };
 
 export const getFirstSheet = (json) => getSheetByIndex(json, 0);
