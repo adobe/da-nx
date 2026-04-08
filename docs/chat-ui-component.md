@@ -9,7 +9,7 @@ const chat = document.createElement("nx-chat");
 container.append(chat);
 
 // Inject view-specific context and callbacks via properties
-chat.context = { org, site, path };
+chat.context = { org, site, path, view }; // view: 'browse' | 'edit'
 ```
 
 The component manages its own controller internally. No external wiring needed.
@@ -20,7 +20,7 @@ The component manages its own controller internally. No external wiring needed.
 | ---------- | --------- | ---------------------------------------------------------------------- |
 | `messages` | `Array`   | Conversation history. Read-only from outside — controller owns writes. |
 | `thinking` | `Boolean` | Agent is processing. Disables input.                                   |
-| `context`  | `Object`  | Shell context: `{ org, site, path }`. Set by the host view.            |
+| `context`  | `Object`  | Page context: `{ org, site, path, view }`. Required — set by the host view. `view` must be `browse` or `edit`. |
 
 **Message shape:**
 
