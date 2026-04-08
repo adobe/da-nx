@@ -66,8 +66,6 @@ export default class ChatController {
     this._messages = undefined;
     this._streamingText = undefined;
     this._update();
-    // const room = await this._getRoom();
-    // clearMessages(room);
   }
 
   destroy() {
