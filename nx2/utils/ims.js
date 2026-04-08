@@ -98,6 +98,10 @@ export const loadIms = (() => {
   let ims;
 
   const setup = () => new Promise((resolve, reject) => {
+    if (!imsClientId) {
+      reject(new Error('Missing IMS Client ID'));
+      return;
+    }
     const timeout = setTimeout(() => reject(new Error('IMS timeout')), IMS_TIMEOUT);
 
     window.adobeid = {
