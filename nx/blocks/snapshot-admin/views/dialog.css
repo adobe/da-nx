@@ -1,4 +1,6 @@
 :host {
+  color-scheme: light dark;
+
   > svg {
     display: none;
   }
@@ -44,6 +46,7 @@ svg.icon {
   }
 
   hr {
+    border-color: var(--s2-gray-300);
     margin: 0 0 20px;
   }
 
@@ -96,7 +99,7 @@ svg.icon {
     font-size: 14px;
 
     &:hover {
-      background: rgb(0 0 0 / 2%);
+      background: light-dark(rgb(0 0 0 / 2%), rgb(255 255 255 / 2%));
     }
   }
 

@@ -74,7 +74,7 @@ class NxSnapshot extends LitElement {
       this.basics.open = true;
       if (!this._manifest) this.loadManifest();
     }
-    super.update();
+    super.update(props);
   }
 
   async loadManifest() {
@@ -145,7 +145,9 @@ class NxSnapshot extends LitElement {
         message: 'Scheduled publish date must be at least 5 minutes from now',
         open: true,
       };
+      return false;
     }
+    return true;
   }
 
   async handleSave(lock) {
@@ -161,9 +163,8 @@ class NxSnapshot extends LitElement {
     // Set the name if it isn't already set
     if (!this.basics.name) this.basics.name = name;
 
-    // Validate scheduled publish time before saving
     const scheduledPublish = this.getValue('[name="scheduler"]');
-    if (scheduledPublish && scheduledPublish !== '') this.validateSchedule(scheduledPublish);
+    if (scheduledPublish && scheduledPublish !== '' && !this.validateSchedule(scheduledPublish)) return;
 
     const manifest = this.getUpdatedManifest();
 
@@ -182,13 +183,12 @@ class NxSnapshot extends LitElement {
     }
     this._manifest = result;
 
-    // Handle scheduled publish if the field exists and has a value
     if (!scheduledPublish || scheduledPublish === '') return;
     const scheduleResult = await updateSchedule(name);
     if (scheduleResult.status !== 200) {
       this._message = {
         heading: 'Schedule Error',
-        message: scheduleResult.headers.get('X-Error') || 'Failed to schedule publish',
+        message: scheduleResult.text || 'Failed to schedule publish',
         open: true,
       };
     }
@@ -262,8 +262,7 @@ class NxSnapshot extends LitElement {
         // Schedule the publish instead of immediate approval
         this._action = 'Scheduling';
 
-        // Validate scheduled publish time before saving
-        this.validateSchedule(scheduledPublish);
+        if (!this.validateSchedule(scheduledPublish)) return;
 
         // Save the manifest first with the scheduled publish data
         const manifest = this.getUpdatedManifest();
