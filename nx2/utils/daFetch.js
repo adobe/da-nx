@@ -1,6 +1,22 @@
-// move to public constants
-export const DA_ORIGIN = 'https://admin.da.live';
 export const AEM_ORIGIN = 'https://admin.hlx.page';
+
+const DA_ADMIN_ENVS = {
+  local: 'http://localhost:8787',
+  stage: 'https://stage-admin.da.live',
+  prod: 'https://admin.da.live',
+};
+
+function getDaEnv(key, envs) {
+  const query = new URL(window.location.href).searchParams.get(key);
+  if (query === 'reset') {
+    localStorage.removeItem(key);
+  } else if (query) {
+    localStorage.setItem(key, query);
+  }
+  return envs[localStorage.getItem(key) || 'prod'];
+}
+
+export const DA_ORIGIN = (() => getDaEnv('da-admin', DA_ADMIN_ENVS))();
 
 let imsDetails;
 
