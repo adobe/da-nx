@@ -1,7 +1,7 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle, hashChange } from '../../utils/utils.js';
 import ChatController from './chat-controller.js';
-import { renderMessageContent } from './renderers.js';
+import { renderMessage, renderThinking } from './renderers.js';
 import './welcome/welcome.js';
 import { loadChatIcons } from './utils.js';
 
@@ -34,13 +34,35 @@ class NxChat extends LitElement {
     this._controller?.clear();
   }
 
+  // Runs when both icons and the panel header slot are ready
+  _mountClearBtn() {
+    if (!this._icons || !this._panelSlot || this._clearBtn) return;
+    const btn = document.createElement('button');
+    btn.className = 'panel-header-action';
+    btn.setAttribute('aria-label', 'Clear chat');
+    btn.hidden = !this.messages?.length;
+    if (this._icons.clear) btn.append(this._icons.clear.cloneNode(true));
+    btn.append(Object.assign(document.createElement('span'), { textContent: 'Clear' }));
+    btn.addEventListener('click', () => this.clear());
+
+    this._clearBtn = btn;
+    this._panelSlot.append(btn);
+  }
+
   async firstUpdated() {
     this._icons = await loadChatIcons(ICONS);
+    this._mountClearBtn();
   }
 
   async connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [styles];
+
+    this.closest('.panel-body')?.addEventListener('nx-panel-slot', (e) => {
+      this._panelSlot = e.detail.slot;
+      this._mountClearBtn();
+    }, { once: true });
+
     this._controller = new ChatController({
       onUpdate: ({ messages, thinking, streamingText, connected }) => {
         this.messages = streamingText
@@ -73,11 +95,7 @@ class NxChat extends LitElement {
     if (changed.has('thinking') && !this.thinking && changed.get('thinking')) {
       this.shadowRoot.querySelector('.chat-input')?.focus();
     }
-  }
-
-  _renderIcon(name) {
-    const svg = this._icons?.[name];
-    return svg ? svg.cloneNode(true) : nothing;
+    if (this._clearBtn) this._clearBtn.hidden = !this.messages?.length;
   }
 
   _handleKeydown(e) {
@@ -87,23 +105,15 @@ class NxChat extends LitElement {
     }
   }
 
-  _onSubmit(e) {
-    e.preventDefault();
-    this._submit();
-  }
-
   _submit() {
     if (this.thinking) {
       this._controller.stop();
       return;
     }
-
     const input = this.shadowRoot.querySelector('.chat-input');
     const message = input.value.trim();
-
     if (!message) return;
     this._controller.sendMessage(message);
-
     input.value = '';
   }
 
@@ -112,50 +122,16 @@ class NxChat extends LitElement {
     this._controller.sendMessage(prompt);
   }
 
-  _copy(content) {
-    navigator.clipboard.writeText(content);
-  }
-
-  _renderThinking() {
-    return html`
-      <div class="chat-thinking">
-        <span></span><span></span><span></span>
-        <span class="chat-thinking-label">Thinking...</span>
-      </div>
-    `;
-  }
-
-  _renderMessage(msg) {
-    if (msg.role === 'tool') return nothing;
-    const isAssistant = msg.role === 'assistant';
-
-    return html`
-      <div class="message message-${msg.role}">
-        <div class="message-content">${isAssistant ? renderMessageContent(msg.content) : msg.content}</div>
-        ${isAssistant && !msg.streaming ? html`
-          <button class="message-action-copy" @click=${() => this._copy(msg.content)} aria-label="Copy">
-            ${this._renderIcon('copy')}
-          </button>
-        ` : nothing}
-      </div>
-    `;
-  }
-
   render() {
     return html`
-      <div class="chat-header">
-        ${this.messages?.length ? html`
-          <button class="chat-clear" type="button" aria-label="Clear" @click=${this.clear}>${this._renderIcon('clear')}Clear</button>
-        ` : nothing}
-      </div>
       <div class="chat-messages-container" role="log" aria-live="polite">
         ${!this.messages?.length && !this.thinking
         ? html`<nx-chat-welcome .context=${this._context} .onSend=${(p) => this._sendPrompt(p)}></nx-chat-welcome>`
         : nothing}
-        ${this.messages?.map((msg) => this._renderMessage(msg))}
-        ${this.thinking && !this.messages?.at(-1)?.streaming ? this._renderThinking() : nothing}
+        ${this.messages?.map((msg) => renderMessage(msg, this._icons))}
+        ${this.thinking && !this.messages?.at(-1)?.streaming ? renderThinking() : nothing}
       </div>
-      <form class="chat-form" autocomplete="off" @submit=${this._onSubmit}>
+      <form class="chat-form" autocomplete="off" @submit=${(e) => { e.preventDefault(); this._submit(); }}>
         <textarea
           name="chat-input"
           class="chat-input"
@@ -164,8 +140,8 @@ class NxChat extends LitElement {
           @keydown=${this._handleKeydown}
         ></textarea>
         <div class="chat-actions ${this.thinking ? 'chat-thinking' : ''}">
-          <button class="chat-stop" type = "button" aria-label="Stop" @click=${this._submit}> ${this._renderIcon('stop')}</button > 
-          <button class="chat-send" type = "submit" aria-label="Send" > ${this._renderIcon('send')}</button >
+          <button class="chat-stop" type="button" aria-label="Stop" @click=${this._submit}>${this._icons?.stop?.cloneNode(true)}</button>
+          <button class="chat-send" type="submit" aria-label="Send">${this._icons?.send?.cloneNode(true)}</button>
         </div>
       </form>
     `;
