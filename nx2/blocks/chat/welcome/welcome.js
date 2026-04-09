@@ -45,13 +45,15 @@ class NxChatWelcome extends LitElement {
   }
 
   async _loadPrompts({ org, site }) {
-    const defaults = { org: 'aem-sandbox', site: 'block-collection' }; // todo: remove defaults once we have context
-    // if (!org || !site) return;
+    // const defaults = { org: 'aem-sandbox', site: 'block-collection' };
+    // todo: remove defaults once we have context
+
+    if (!org || !site) return;
     const key = `${org}/${site}`;
     if (this._promptsKey === key) return;
     this._promptsKey = key;
     try {
-      const resp = await daFetch(`${DA_ORIGIN}/config/${org ?? defaults.org}/${site ?? defaults.site}`);
+      const resp = await daFetch(`${DA_ORIGIN}/config/${org}/${site}`);
       if (!resp.ok) return;
       const json = await resp.json();
       this._promptCards = (json?.prompts?.data ?? []).filter((r) => r.title && r.prompt);
