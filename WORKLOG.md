@@ -69,6 +69,17 @@ Decided to wrap nav and sidenav in semantic HTML elements:
 - Added to JS conventions section. Core idea: push validation to the boundary where data enters, return `null` or a well-formed result — no ambiguous middle ground. Downstream code trusts the shape without re-checking.
 - Codifies the distinct meaning of `null` (absent), `undefined` (not yet loaded), and `''` (explicitly cleared).
 - `parseWindowPath` is the canonical example: returns a clean `{ view, org, site, path }` or `null`.
+## 2026-04-08
+
+### nx2 canvas — split toggle moved into panel chrome
+- Canvas chat/tool panels get the same split-left / split-right control as `nx-canvas-header`, placed top-right inside `.panel-body`; the header copy is hidden while that side’s panel is visible. `restorePanels` still fires `nx-panels-restored` so restored panels get the bar.
+
+### nx2 canvas — panel toggling owned by `canvas.js`
+- `toggleCanvasPanel` and fragment URLs live in `blocks/canvas/canvas.js`; `nx-canvas-header` dispatches `nx-canvas-toggle-panel` (`detail.position`: `before` | `after`, aligned with `aside.panel[data-position]`) and the decorate step listens on the host.
+
+### nx2 canvas block — load `canvas.css`
+- `canvas.js` now calls `loadStyle(import.meta.url)` and adopts the sheet on `document` once (deduped), matching nx’s automatic block CSS for light-DOM rules (e.g. `.fragment-content`).
+
 ## 2026-04-04
 
 ### Panel-aware default-content max-width

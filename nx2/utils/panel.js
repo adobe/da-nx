@@ -209,4 +209,5 @@ export async function restorePanels() {
       }
     }
   }
+  document.dispatchEvent(new CustomEvent('nx-panels-restored'));
 }

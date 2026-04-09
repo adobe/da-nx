@@ -17,6 +17,7 @@ class NxChat extends LitElement {
   static properties = {
     messages: { type: Array },
     thinking: { type: Boolean },
+    _icons: { state: true },
     connected: { type: Boolean },
   };
 

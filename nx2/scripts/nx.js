@@ -265,11 +265,6 @@ async function decorateDoc() {
 
   const pageId = window.location.hash?.replace('#', '');
   if (pageId) localStorage.setItem('lazyhash', pageId);
-
-  if (localStorage.getItem('nx-panels')) {
-    const { restorePanels } = await import('../utils/panel.js');
-    await restorePanels();
-  }
 }
 
 export async function loadArea({ area } = { area: document }) {
@@ -299,5 +294,10 @@ export async function loadArea({ area } = { area: document }) {
       if (!isSession) loadSession();
       import('../utils/favicon.js');
     }
+  }
+
+  if (isDoc && localStorage.getItem('nx-panels')) {
+    const { restorePanels } = await import('../utils/panel.js');
+    await restorePanels();
   }
 }
