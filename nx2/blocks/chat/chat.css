@@ -19,12 +19,30 @@
     background: none;
     padding: 0;
     cursor: pointer;
+    font-family: inherit;
   }
 
   textarea {
     resize: none;
     border: none;
     outline: none;
+  }
+}
+
+.chat-header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: var(--s2-spacing-75) 0;
+
+  .chat-clear {
+    display: flex;
+    align-items: center;
+    gap: var(--s2-spacing-75);
+  }
+
+  span {
+    line-height: 20px;
   }
 }
 
