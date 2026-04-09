@@ -1,7 +1,8 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { getConfig, loc } from '../../scripts/nx.js';
 import { loadIms, handleSignOut, handleSignIn } from '../../utils/ims.js';
-import { DA_ORIGIN, loadStyle, daFetch } from '../../utils/utils.js';
+import { loadStyle } from '../../utils/utils.js';
+import { DA_ORIGIN, daFetch } from '../../utils/daFetch.js';
 
 const config = getConfig();
 
