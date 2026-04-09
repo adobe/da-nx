@@ -2,29 +2,13 @@ import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../utils/utils.js';
 import { DA_ORIGIN, daFetch } from '../../../utils/daFetch.js';
 import { loadIms } from '../../../utils/ims.js';
-import { loadChatIcons } from '../utils.js';
 
 const styles = await loadStyle(import.meta.url);
-
-const ICONS = {
-  workflow: 'Send',
-  review: 'FileText',
-  style: 'Edit',
-  // to be modified once designs are available
-  seo: 'Microphone',
-  all: 'Microphone',
-  content: 'Microphone',
-};
 
 class NxChatWelcome extends LitElement {
   static properties = {
     context: { attribute: false },
-    _icons: { state: true },
   };
-
-  async firstUpdated() {
-    this._icons = await loadChatIcons(ICONS);
-  }
 
   connectedCallback() {
     super.connectedCallback();
@@ -45,9 +29,6 @@ class NxChatWelcome extends LitElement {
   }
 
   async _loadPrompts({ org, site }) {
-    // const defaults = { org: 'aem-sandbox', site: 'block-collection' };
-    // todo: remove defaults once we have context
-
     if (!org || !site) return;
     const key = `${org}/${site}`;
     if (this._promptsKey === key) return;
@@ -65,7 +46,7 @@ class NxChatWelcome extends LitElement {
     const greeting = `Welcome${this._firstName ? `, ${this._firstName}` : ''}`;
     const view = this.context?.view;
 
-    const filtered = (this._promptCards ?? [])
+    const filtered = (this._promptCards ?? [{ description: 'What are we working on today?', prompt: 'test' }, { description: 'Time is an illusion', prompt: 'test2' }, { description: 'Lunchtime doubly so', prompt: 'test3' }, { description: 'Lunchtime doubly so', prompt: 'test4' }])
       .filter((c) => !c.area || c.area === 'all' || c.area === view);
 
     return html`
@@ -77,7 +58,6 @@ class NxChatWelcome extends LitElement {
         <div class="prompt-cards">
           ${filtered.slice(0, 3).map((card) => html`
             <button class="prompt-card" @click=${() => this.onSend?.(card.prompt)}>
-              ${this._renderIcon(card.category?.toLowerCase())}
               <span class="prompt-card-description">${card.description}</span>
             </button>
           `)}

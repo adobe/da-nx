@@ -8,8 +8,9 @@ import { loadChatIcons } from './utils.js';
 const styles = await loadStyle(import.meta.url);
 
 const ICONS = {
+  add: 'Add',
   copy: 'Copy',
-  send: 'Send',
+  send: 'ArrowUpSend',
   stop: 'Stop',
 };
 

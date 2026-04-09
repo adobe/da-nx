@@ -1,5 +1,6 @@
 import { loadIms } from '../../utils/ims.js';
 import { readStream } from './utils.js';
+import { loadMessages, saveMessages, clearMessages } from './persistence.js';
 
 const isLocal = new URLSearchParams(window.location.search).get('ref') === 'local';
 const AGENT_URL = isLocal ? 'http://localhost:5173/chat' : 'https://da-agent.adobeaem.workers.dev/chat';
@@ -24,6 +25,10 @@ export default class ChatController {
 
   async loadInitialMessages() {
     this._messages = [];
+    const room = await this._getRoom();
+    const cached = await loadMessages(room);
+    if (!cached.length) return;
+    this._messages = cached;
     this._update();
   }
 
@@ -66,6 +71,8 @@ export default class ChatController {
     this._messages = undefined;
     this._streamingText = undefined;
     this._update();
+    const room = await this._getRoom();
+    clearMessages(room);
   }
 
   destroy() {
@@ -103,6 +110,7 @@ export default class ChatController {
       const { org, site, path, view } = this._context ?? {};
       const pageContext = org && site ? { org, site, path, view } : undefined;
       const resp = await this._post({ messages: this._messages, pageContext });
+      const room = await this._getRoom();
 
       await readStream(
         resp.body,
@@ -111,6 +119,7 @@ export default class ChatController {
           this._messages = [...this._messages, { role: 'assistant', content: text }];
           this._streamingText = '';
           this._update();
+          saveMessages(room, this._messages);
         },
       );
     } catch (err) {

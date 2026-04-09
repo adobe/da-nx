@@ -59,6 +59,18 @@
   path {
     fill: currentcolor;
   }
+
+  &::before {
+    content: "";
+    display: block;
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    background-color: currentcolor;
+    mask-image: url("/nx2/img/icons/S2_Icon_AIChat_20_N.svg");
+    mask-size: contain;
+    mask-repeat: no-repeat;
+  }
 }
 
 .prompt-more {
