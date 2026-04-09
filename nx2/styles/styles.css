@@ -547,7 +547,7 @@ html:has(meta[content="edge-delivery"]) {
             border-radius: 999px;
             background-color: var(--s2-gray-400);
             opacity: 0;
-            transition: opacity 0.12s ease;
+            transition: opacity 0.12s ease 0s;
           }
 
           .panel-resize-handle:focus-visible {
@@ -566,9 +566,11 @@ html:has(meta[content="edge-delivery"]) {
 
           /* Show gutter pill only when pointer is in the handle hit zone (between main & panel) */
           @media (hover: hover) {
+            /* Short dwell so the pill doesn’t flash on fast pointer moves across the hit zone */
             .panel-resize-handle:hover::before {
               opacity: 1;
               background-color: var(--s2-gray-400);
+              transition: opacity 0.12s ease 0.2s;
             }
           }
 

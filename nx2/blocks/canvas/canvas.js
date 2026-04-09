@@ -1,6 +1,6 @@
 import { loadStyle } from '../../utils/utils.js';
 import {
-  DEFAULT_PANEL_WIDTH_CSS,
+  getDefaultPanelWidthCss,
   hidePanel,
   unhidePanel,
   openPanelWithFragment,
@@ -35,7 +35,7 @@ async function openCanvasPanel(position) {
 
   // Case 3: Panel does not exist yet
   const aside = await openPanelWithFragment({
-    width: DEFAULT_PANEL_WIDTH_CSS,
+    width: getDefaultPanelWidthCss(),
     beforeMain: position === 'before',
     fragment: FRAGMENTS[position],
   });

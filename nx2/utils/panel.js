@@ -1,8 +1,7 @@
 import { getMetadata } from '../scripts/nx.js';
 
-/** Default opening width for a new panel (`400px` on the `aside` / grid track). */
-const PANEL_WIDTH_DEFAULT_PX = 400;
-export const DEFAULT_PANEL_WIDTH_CSS = `${PANEL_WIDTH_DEFAULT_PX}px`;
+/** Default painted panel surface width (the white column users see inside wrapper margins). */
+const PANEL_SURFACE_DEFAULT_PX = 400;
 /** Minimum width of the painted panel surface (inside `.panel-wrapper` margins). */
 const PANEL_SURFACE_MIN_PX = 240;
 /**
@@ -10,6 +9,23 @@ const PANEL_SURFACE_MIN_PX = 240;
  * track min = surface min + those insets (otherwise ~216px “looks” like the minimum).
  */
 const PANEL_WRAPPER_MARGIN_INLINE_PX = 12;
+
+/**
+ * Default grid track width (`aside` column): on desktop includes wrapper side margins so
+ * the painted surface matches `PANEL_SURFACE_DEFAULT_PX`; on small viewports margins are 0.
+ */
+export function getDefaultPanelTrackWidthPx() {
+  if (typeof window === 'undefined') {
+    return PANEL_SURFACE_DEFAULT_PX + 2 * PANEL_WRAPPER_MARGIN_INLINE_PX;
+  }
+  return window.matchMedia('(min-width: 600px)').matches
+    ? PANEL_SURFACE_DEFAULT_PX + 2 * PANEL_WRAPPER_MARGIN_INLINE_PX
+    : PANEL_SURFACE_DEFAULT_PX;
+}
+
+export function getDefaultPanelWidthCss() {
+  return `${getDefaultPanelTrackWidthPx()}px`;
+}
 /** Desktop grid track min so the painted surface is still `PANEL_SURFACE_MIN_PX` after margins. */
 const DESKTOP_PANEL_TRACK_MIN_PX = PANEL_SURFACE_MIN_PX + 2 * PANEL_WRAPPER_MARGIN_INLINE_PX;
 /** `main` and any peer side panel **track** each stay at least this wide when you resize. */
@@ -209,7 +225,7 @@ function resizePointerDown(downEvent) {
 }
 
 function resetPanelTrackToDefaultWidth(aside) {
-  applyPanelWidth(aside, PANEL_WIDTH_DEFAULT_PX);
+  applyPanelWidth(aside, getDefaultPanelTrackWidthPx());
   setPanelsGrid();
   savePanelState(aside.dataset.position, {
     width: aside.dataset.width,
@@ -384,7 +400,7 @@ function buildPanelDOM(aside) {
 }
 
 export function createPanel({
-  width = DEFAULT_PANEL_WIDTH_CSS,
+  width = getDefaultPanelWidthCss(),
   beforeMain = false,
   content,
   fragment,
@@ -460,7 +476,7 @@ export async function loadPanelContent(value) {
 }
 
 export async function openPanelWithFragment({
-  width = DEFAULT_PANEL_WIDTH_CSS,
+  width = getDefaultPanelWidthCss(),
   beforeMain = false,
   fragment,
 } = {}) {

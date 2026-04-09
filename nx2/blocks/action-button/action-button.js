@@ -14,7 +14,7 @@ function decoratePanel(a, hash) {
       return;
     }
     await panel.openPanelWithFragment({
-      width: panel.DEFAULT_PANEL_WIDTH_CSS,
+      width: panel.getDefaultPanelWidthCss(),
       beforeMain,
       fragment: value,
     });
