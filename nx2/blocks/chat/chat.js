@@ -177,6 +177,4 @@ customElements.define('nx-chat', NxChat);
 export default async function init(el) {
   const chat = document.createElement('nx-chat');
   el.replaceWith(chat);
-  // todo: remove once integrated with context
-  chat.context = { view: 'edit' };
 }
