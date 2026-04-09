@@ -212,6 +212,8 @@ export class ChatController {
     this.requestedSkills = [];
     // MCP server configs { id: url } from DA config sheet.
     this.mcpServers = {};
+    // Per-server HTTP headers for remote MCP (from config sheet `header-*` columns).
+    this.mcpServerHeaders = {};
     // toolCallId → approvalId for tools awaiting user decision.
     this._pendingApprovals = new Map();
     // toolCallId → toolName (tool-output-available events lack toolName).
@@ -789,6 +791,9 @@ export class ChatController {
           ...(this.agentId ? { agentId: this.agentId } : {}),
           ...(this.requestedSkills.length > 0 ? { requestedSkills: this.requestedSkills } : {}),
           ...(Object.keys(this.mcpServers).length > 0 ? { mcpServers: this.mcpServers } : {}),
+          ...(Object.keys(this.mcpServerHeaders || {}).length > 0
+            ? { mcpServerHeaders: this.mcpServerHeaders }
+            : {}),
         }),
         signal: this._abortController.signal,
       });
