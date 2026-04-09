@@ -4,7 +4,6 @@ import { parseOrgRepoFromUrl } from '../../core/urls.js';
 import { normalizeSitePath } from '../../core/paths.js';
 import getSvg from '../../../../utils/svg.js';
 import { Storage } from '../../core/constants.js';
-import { showNotification } from '../../core/state.js';
 import { t } from '../../core/messages.js';
 import { ErrorCodes, logMediaLibraryError } from '../../core/errors.js';
 
@@ -164,8 +163,32 @@ class NxMediaOnboard extends LitElement {
     const shareUrl = `${baseUrl}${window.location.search}#${sitePath}`;
 
     navigator.clipboard.writeText(shareUrl).then(() => {
-      showNotification(t('NOTIFY_LINK_COPIED'), t('NOTIFY_LINK_COPIED_MSG'), 'success');
+      this._showTempMessage(t('NOTIFY_LINK_COPIED_MSG'));
     });
+  }
+
+  _showTempMessage(message) {
+    const existing = this.shadowRoot.querySelector('.temp-notification');
+    if (existing) existing.remove();
+
+    const notification = document.createElement('div');
+    notification.className = 'temp-notification';
+    notification.textContent = message;
+    notification.style.cssText = `
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--color-success, #2d7d46);
+      color: white;
+      padding: 12px 24px;
+      border-radius: 4px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      z-index: 10000;
+    `;
+    this.shadowRoot.appendChild(notification);
+
+    setTimeout(() => notification.remove(), 3000);
   }
 
   handleHide(e, siteName, isPinned = false) {
