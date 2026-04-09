@@ -13,7 +13,7 @@ class NXCanvasActions extends LitElement {
   render() {
     return html`
       <div class="canvas-actions">
-        <button>Publish</button>
+        <button type="button" class="publish-btn">Publish</button>
       </div>
     `;
   }

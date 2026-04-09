@@ -260,6 +260,15 @@ async function decorateDoc() {
   const template = getMetadata('template');
   if (template) document.body.classList.add(template);
 
+  if (template === 'app-frame') {
+    if (sessionStorage.getItem('nx-sidenav-visible') !== 'true') {
+      document.body.classList.add('sidenav-collapsed');
+    }
+    const { setPanelsGrid, ensureAppFrameSurfaceElevation } = await import('../utils/panel.js');
+    setPanelsGrid();
+    ensureAppFrameSurfaceElevation();
+  }
+
   const scheme = localStorage.getItem('color-scheme');
   if (scheme) document.body.classList.add(scheme);
 

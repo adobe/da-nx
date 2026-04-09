@@ -5,9 +5,16 @@ import getSvg from '../../utils/svg.js';
 const { nxBase } = getConfig();
 
 const ICONS = [
-  `${nxBase}/img/logos/aec.svg`,
   `${nxBase}/img/icons/S2IconHelp20N-icon.svg`,
 ];
+
+async function loadBrandLogoSvg() {
+  const resp = await fetch(`${nxBase}/img/logos/adobe-branding.svg`);
+  if (!resp.ok) return null;
+  const text = await resp.text();
+  const doc = new DOMParser().parseFromString(text, 'image/svg+xml');
+  return doc.querySelector('svg');
+}
 
 function getDefaultPath() {
   const { origin } = new URL(import.meta.url);
@@ -34,11 +41,17 @@ class Nav extends HTMLElement {
     await loadArea(doc.body);
     const sections = doc.querySelectorAll('body > .section');
 
-    // Grab the first link as it will be the main branding
     const brandLink = doc.querySelector('a');
-    brandLink.innerHTML = `<span>${brandLink.innerHTML}</span>`;
     brandLink.classList.add('nx-nav-brand');
-    brandLink.insertAdjacentHTML('afterbegin', '<svg class="icon"><use href="#spectrum-ExperienceCloud"/></svg>');
+    brandLink.setAttribute('aria-label', 'Home');
+    brandLink.textContent = '';
+    const brandSvg = await loadBrandLogoSvg();
+    if (brandSvg) {
+      const svg = brandSvg.cloneNode(true);
+      svg.classList.add('icon');
+      svg.setAttribute('aria-hidden', 'true');
+      brandLink.append(svg);
+    }
 
     const inner = document.createElement('div');
     inner.className = 'nx-nav-inner';

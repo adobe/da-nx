@@ -1,5 +1,10 @@
 import { loadStyle } from '../../utils/utils.js';
-import { hidePanel, unhidePanel, openPanelWithFragment } from '../../utils/panel.js';
+import {
+  DEFAULT_PANEL_WIDTH_CSS,
+  hidePanel,
+  unhidePanel,
+  openPanelWithFragment,
+} from '../../utils/panel.js';
 import './nx-canvas-header/nx-canvas-header.js';
 
 const style = await loadStyle(import.meta.url);
@@ -30,7 +35,7 @@ async function openCanvasPanel(position) {
 
   // Case 3: Panel does not exist yet
   const aside = await openPanelWithFragment({
-    width: '400px',
+    width: DEFAULT_PANEL_WIDTH_CSS,
     beforeMain: position === 'before',
     fragment: FRAGMENTS[position],
   });

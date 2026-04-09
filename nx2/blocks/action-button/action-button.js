@@ -13,7 +13,11 @@ function decoratePanel(a, hash) {
       else panel.hidePanel(existing);
       return;
     }
-    await panel.openPanelWithFragment({ width: '400px', beforeMain, fragment: value });
+    await panel.openPanelWithFragment({
+      width: panel.DEFAULT_PANEL_WIDTH_CSS,
+      beforeMain,
+      fragment: value,
+    });
   });
 }
 
