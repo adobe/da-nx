@@ -26,6 +26,28 @@ const token = imsInitial?.accessToken?.token ?? null;
 const DOCUMENT_UPDATED_EVENT = 'da:agent-content-updated';
 const REPO_FILES_CHANGED_EVENT = 'da:chat-repo-files-changed';
 
+/**
+ * From an `mcp-servers` sheet row, collect outbound HTTP headers for the da-agent MCP client.
+ * Any column key starting with `header-` becomes an HTTP header: the name is the rest of the key
+ * after `header-` (e.g. `header-authorization` → header name `authorization`).
+ */
+function mcpConfigRowHeaders(row) {
+  if (!row || typeof row !== 'object') return {};
+  /** @type {Record<string, string>} */
+  const out = {};
+  Object.keys(row).forEach((k) => {
+    if (!k.startsWith('header-')) return;
+    const headerName = k.slice('header-'.length);
+    if (!headerName) return;
+    const v = row[k];
+    if (v == null) return;
+    const s = String(v).trim();
+    if (!s) return;
+    out[headerName] = s;
+  });
+  return out;
+}
+
 const BUILTIN_MCP_SERVERS = [
   {
     id: 'da-tools',
@@ -578,6 +600,7 @@ class Chat extends LitElement {
       this._chatController.requestedSkills = [];
     }
     this._chatController.mcpServers = this._configuredMcpServers || {};
+    this._chatController.mcpServerHeaders = this._mcpServerHeadersForAgent();
     this._chatController.sendMessage(content, contextSnapshot, pending);
     this.dispatchEvent(new CustomEvent('da-chat-message-sent', { bubbles: true }));
   }
@@ -609,7 +632,11 @@ class Chat extends LitElement {
     if (!prompt || this._isThinking || this._isAwaitingApproval || this._isAwaitingClientTool
       || !this._connected) return;
     const contextSnapshot = [...(this.onPageContextItems ?? [])];
-    this._chatController?.sendMessage(prompt, contextSnapshot);
+    if (this._chatController) {
+      this._chatController.mcpServers = this._configuredMcpServers || {};
+      this._chatController.mcpServerHeaders = this._mcpServerHeadersForAgent();
+      this._chatController.sendMessage(prompt, contextSnapshot);
+    }
     this.dispatchEvent(new CustomEvent('da-chat-message-sent', { bubbles: true }));
   }
 
@@ -731,7 +758,7 @@ class Chat extends LitElement {
         const url = row.url || row.value;
         if (row.key && url) {
           servers[row.key] = url;
-          rows.push({ ...row, url });
+          rows.push({ ...row, url, mcpHeaders: mcpConfigRowHeaders(row) });
         }
       });
       this._configuredMcpServers = servers;
@@ -775,17 +802,36 @@ class Chat extends LitElement {
     this._fetchMcpTools();
   }
 
+  /** @returns {Record<string, Record<string, string>>} */
+  _mcpServerHeadersForAgent() {
+    /** @type {Record<string, Record<string, string>>} */
+    const out = {};
+    (this._configuredMcpRows || []).forEach((row) => {
+      if (!row.key) return;
+      const fromRow = row.mcpHeaders ?? mcpConfigRowHeaders(row);
+      if (Object.keys(fromRow).length > 0) out[row.key] = fromRow;
+    });
+    return out;
+  }
+
   async _fetchMcpTools() {
     const servers = this._configuredMcpServers || {};
     if (Object.keys(servers).length === 0) return;
+    const serverHeaders = this._mcpServerHeadersForAgent();
+    const payload = {
+      servers,
+      ...(Object.keys(serverHeaders).length > 0 ? { serverHeaders } : {}),
+    };
     try {
       const resp = await fetch(`${getAgentOrigin()}/mcp-tools`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ servers }),
+        body: JSON.stringify(payload),
       });
       if (resp.ok) {
         this._mcpTools = await resp.json();
+      } else {
+        this._mcpTools = null;
       }
     } catch {
       this._mcpTools = null;
