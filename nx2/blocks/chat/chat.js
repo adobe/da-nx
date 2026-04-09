@@ -143,7 +143,9 @@ class NxChat extends LitElement {
   render() {
     return html`
       <div class="chat-header">
-      ${this.messages?.length ? html`<button class="chat-clear" type="button" aria-label="Clear chat" @click=${this.clear}>${this._renderIcon('delete')} Clear chat</button>` : nothing}
+      ${this.messages?.length
+        ? html`<button class="chat-clear" type="button" aria-label="Clear chat" @click=${this.clear}>${this._renderIcon('delete')} Clear chat</button>`
+        : nothing}
       </div>
       <div class="chat-messages-container" role="log" aria-live="polite">
         ${!this.messages?.length && !this.thinking
@@ -161,8 +163,8 @@ class NxChat extends LitElement {
           @keydown=${this._handleKeydown}
         ></textarea>
         <div class="chat-actions ${this.thinking ? 'chat-thinking' : ''}">
-          <button class="chat-stop" type = "button" aria - label="Stop" @click=${this._submit}> ${this._renderIcon('stop')}</button > 
-          <button class="chat-send" type = "submit" aria - label="Send" > ${this._renderIcon('send')}</button >
+          <button class="chat-stop" type = "button" aria-label="Stop" @click=${this._submit}> ${this._renderIcon('stop')}</button > 
+          <button class="chat-send" type = "submit" aria-label="Send" > ${this._renderIcon('send')}</button >
         </div>
       </form>
     `;
