@@ -93,7 +93,8 @@ class NxChat extends LitElement {
     }
   }
 
-  _submit() {
+  _submit(e) {
+    e?.preventDefault();
     if (this.thinking) {
       this._controller.stop();
       return;
@@ -123,7 +124,7 @@ class NxChat extends LitElement {
         ${this.messages?.map((msg) => renderMessage(msg, icons))}
         ${this.thinking && !this.messages?.at(-1)?.streaming ? renderThinking() : nothing}
       </div>
-      <form class="chat-form" autocomplete="off" @submit=${(e) => { e.preventDefault(); this._submit(); }}>
+      <form class="chat-form" autocomplete="off" @submit=${this._submit}>
         <textarea
           name="chat-input"
           class="chat-input"
