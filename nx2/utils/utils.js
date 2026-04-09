@@ -1,3 +1,5 @@
+export { DA_ORIGIN, daFetch } from './daFetch.js';
+
 const parse = (location = window.location) => {
   const pathView = location.pathname.slice(1);
   const view = pathView === '' ? 'browse' : pathView;
