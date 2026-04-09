@@ -1,3 +1,15 @@
+import { loadHrefSvg } from '../../utils/svg.js';
+
+const ICONS_PREFIX = new URL('../../img/icons/', import.meta.url).href;
+
+export async function loadChatIcons(iconMap) {
+  const entries = Object.entries(iconMap);
+  const svgs = await Promise.all(
+    entries.map(([, name]) => loadHrefSvg(`${ICONS_PREFIX}S2_Icon_${name}_20_N.svg`)),
+  );
+  return Object.fromEntries(entries.map(([key], i) => [key, svgs[i]]));
+}
+
 export function processEvent(event, streaming, onDelta, onText) {
   if (event.type === 'error') {
     throw new Error(event.errorText ?? event.error?.message ?? 'Agent error');
