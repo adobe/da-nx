@@ -10,6 +10,7 @@ const styles = await loadStyle(import.meta.url);
 const ICONS = {
   add: 'Add',
   copy: 'Copy',
+  delete: 'Delete',
   send: 'ArrowUpSend',
   stop: 'Stop',
 };
@@ -141,6 +142,9 @@ class NxChat extends LitElement {
 
   render() {
     return html`
+      <div class="chat-header">
+      ${this.messages?.length ? html`<button class="chat-clear" type="button" aria-label="Clear chat" @click=${this.clear}>${this._renderIcon('delete')} Clear chat</button>` : nothing}
+      </div>
       <div class="chat-messages-container" role="log" aria-live="polite">
         ${!this.messages?.length && !this.thinking
         ? html`<nx-chat-welcome .context=${this._context} .onSend=${(p) => this._sendPrompt(p)}></nx-chat-welcome>`
