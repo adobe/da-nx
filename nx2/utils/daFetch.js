@@ -27,9 +27,10 @@ const DA_CONTENT_ENVS = {
 /**
  * @param {string} storageKey
  * @param {Record<string, string>} envs
+ * @param {{ pageLiveToPage?: boolean }} [options]
  * @returns {string}
  */
-function resolveDaServiceOrigin(storageKey, envs) {
+function resolveDaServiceOrigin(storageKey, envs, options = {}) {
   try {
     const q = new URL(window.location.href).searchParams.get(storageKey);
     if (q === 'reset') {
@@ -41,13 +42,21 @@ function resolveDaServiceOrigin(storageKey, envs) {
     /* ignore */
   }
   const stored = localStorage.getItem(storageKey);
-  if (stored && envs[stored]) return envs[stored];
-  const fallbackKey = env === 'prod' ? 'prod' : 'stage';
-  return envs[fallbackKey];
+  let resolved;
+  if (stored && envs[stored]) {
+    resolved = envs[stored];
+  } else {
+    const fallbackKey = env === 'prod' ? 'prod' : 'stage';
+    resolved = envs[fallbackKey];
+  }
+  if (options.pageLiveToPage && typeof location !== 'undefined' && location.origin === 'https://da.page') {
+    return resolved.replace('.live', '.page');
+  }
+  return resolved;
 }
 
 export const DA_ORIGIN = (() => resolveDaServiceOrigin('da-admin', DA_ADMIN_ENVS))();
-export const COLLAB_ORIGIN = (() => resolveDaServiceOrigin('da-collab', DA_COLLAB_ENVS))();
+export const COLLAB_ORIGIN = (() => resolveDaServiceOrigin('da-collab', DA_COLLAB_ENVS, { pageLiveToPage: true }))();
 export const CON_ORIGIN = (() => resolveDaServiceOrigin('da-content', DA_CONTENT_ENVS))();
 
 /** Origins that may receive a bearer token (align with da-live daFetch rules). */

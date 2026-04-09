@@ -14,7 +14,6 @@ function renderNode(node) {
         ? html`<ol>${node.children.map(renderNode)}</ol>`
         : html`<ul>${node.children.map(renderNode)}</ul>`;
     case 'listItem': {
-      // remark wraps inline content in a paragraph — unwrap for tight lists
       const children = node.spread
         ? node.children.map(renderNode)
         : node.children.flatMap((c) => (c.type === 'paragraph' ? c.children.map(renderNode) : [renderNode(c)]));
