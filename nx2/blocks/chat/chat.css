@@ -22,6 +22,9 @@
     font-family: inherit;
   }
 
+  path {
+    fill: currentcolor;
+  }
 
   textarea {
     resize: none;
@@ -29,7 +32,6 @@
     outline: none;
   }
 }
-
 
 .chat-messages-container {
   flex: 1 1 0;

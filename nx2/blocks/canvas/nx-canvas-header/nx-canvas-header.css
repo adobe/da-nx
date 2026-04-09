@@ -4,6 +4,10 @@
   font-family: var(--s2-font-family, adobe-clean, 'Source Sans Pro', 'Trebuchet MS', sans-serif);
   font-size: var(--s2-body-size-s, 0.875rem);
   color: var(--s2-gray-800);
+
+  path {
+    fill: currentcolor;
+  }
 }
 
 .bar {
