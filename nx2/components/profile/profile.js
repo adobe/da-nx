@@ -181,8 +181,3 @@ class NxProfile extends LitElement {
 }
 
 customElements.define('nx-profile', NxProfile);
-
-export default async function init(a) {
-  const cmp = document.createElement('nx-profile');
-  a.parentElement.replaceChild(cmp, a);
-}

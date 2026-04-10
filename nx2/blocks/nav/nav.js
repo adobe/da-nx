@@ -61,7 +61,7 @@ class NXNav extends LitElement {
       const button = child.querySelector('button');
       if (!button) {
         const name = child.textContent.trim();
-        await import(`../${name}/${name}.js`);
+        await import(`../../components/${name}/${name}.js`);
         const cmp = document.createElement(`nx-${name}`);
         child.replaceChildren(cmp);
       }
