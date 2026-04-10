@@ -1,5 +1,10 @@
 import { loadStyle } from '../../utils/utils.js';
-import { hidePanel, unhidePanel, openPanelWithFragment } from '../../utils/panel.js';
+import {
+  getDefaultPanelWidthCss,
+  hidePanel,
+  unhidePanel,
+  openPanelWithFragment,
+} from '../../utils/panel.js';
 import './nx-canvas-header/nx-canvas-header.js';
 
 const style = await loadStyle(import.meta.url);
@@ -11,16 +16,9 @@ const FRAGMENTS = {
 
 async function addPanelHeader(aside) {
   const { default: createPanelHeader } = await import('./nx-panel-header/nx-panel-header.js');
-  const header = await createPanelHeader({
+  aside.querySelector('.panel-body').prepend(await createPanelHeader({
     position: aside.dataset.position,
     onClose: () => hidePanel(aside),
-  });
-  const panelBody = aside.querySelector('.panel-body');
-  panelBody.prepend(header);
-
-  // to enable adding actions to the header
-  panelBody.dispatchEvent(new CustomEvent('nx-panel-slot', {
-    detail: { slot: header.querySelector('.panel-header-custom') },
   }));
 }
 
@@ -37,7 +35,7 @@ async function openCanvasPanel(position) {
 
   // Case 3: Panel does not exist yet
   const aside = await openPanelWithFragment({
-    width: '400px',
+    width: getDefaultPanelWidthCss(),
     beforeMain: position === 'before',
     fragment: FRAGMENTS[position],
   });
