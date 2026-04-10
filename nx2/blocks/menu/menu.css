@@ -1,6 +1,12 @@
 :host {
   display: contents;
   font-family: var(--s2-font-family);
+
+  ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
 }
 
 .menu-section {
