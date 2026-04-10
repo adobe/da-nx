@@ -1,17 +1,3 @@
-/*
- * Copyright 2026 Adobe. All rights reserved.
- * This file is licensed to you under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License. You may obtain a copy
- * of the License at http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software distributed under
- * the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR REPRESENTATIONS
- * OF ANY KIND, either express or implied. See the License for the specific language
- * governing permissions and limitations under the License.
- */
-
-/** Browse shell: list fetch + nx-browse-list; context matches nx-chat (hash or host `context`). */
-
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle, hashChange } from '../../utils/utils.js';
 import { listFolder } from './browse-api.js';
@@ -24,11 +10,6 @@ class NxBrowse extends LitElement {
   static properties = {
     _items: { state: true },
   };
-
-  constructor() {
-    super();
-    this._items = [];
-  }
 
   set context(value) {
     this._explicitContext = true;
@@ -43,6 +24,7 @@ class NxBrowse extends LitElement {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [styles];
     this._unsubscribeHash = hashChange.subscribe((hashState) => {
+      console.log('hashChange', hashState);
       if (!this._explicitContext) {
         this._context = hashState;
         this._syncList();
@@ -99,7 +81,7 @@ class NxBrowse extends LitElement {
       `;
     }
 
-    if (this._items.length === 0) {
+    if (!this._items?.length) {
       return nothing;
     }
 
