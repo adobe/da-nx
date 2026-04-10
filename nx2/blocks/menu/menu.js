@@ -125,6 +125,7 @@ class NxMenu extends LitElement {
         aria-label=${item.label}
         @click=${() => this._select(item)}
         @mouseenter=${() => { this._active = item.id; }}
+        @focus=${() => { this._active = item.id; }}
       >
         ${item.icon && this._icons?.[item.icon] ? html`<span class="menu-item-icon">${this._icons[item.icon].cloneNode(true)}</span>` : nothing}
         <span class="menu-item-label">${item.label}</span>
