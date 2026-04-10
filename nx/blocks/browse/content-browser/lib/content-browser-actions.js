@@ -391,12 +391,15 @@ export function daPathToPathKey(daPath) {
 
 /**
  * @param {string} sheetEditBase - e.g. `https://da.live/sheet`
- * @param {string} pathKey - No leading slash
+ * @param {string} pathKey - No leading slash (may include `.json`; hash omits it for da.live)
  * @param {string} [queryString] - include leading `?` if non-empty
  */
 export function buildSheetEditHref(sheetEditBase, pathKey, queryString = '') {
   const base = (sheetEditBase || 'https://da.live/sheet').replace(/\/$/, '');
-  return `${base}${queryString}#/${pathKey}`;
+  const key = String(pathKey || '')
+    .replace(/^\/+/, '')
+    .replace(/\.json$/i, '');
+  return `${base}${queryString}#/${key}`;
 }
 
 /**
