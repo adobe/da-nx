@@ -24,7 +24,6 @@ class NxBrowse extends LitElement {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [styles];
     this._unsubscribeHash = hashChange.subscribe((hashState) => {
-      console.log('hashChange', hashState);
       if (!this._explicitContext) {
         this._context = hashState;
         this._syncList();
@@ -91,7 +90,6 @@ class NxBrowse extends LitElement {
       <nx-browse-list
         .items=${this._items}
         .currentPathKey=${currentPathKey}
-        .context=${this._context}
         @nx-browse-open-folder=${this._onBrowseOpenFolder}
       ></nx-browse-list>
     `;
