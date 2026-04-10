@@ -40,6 +40,10 @@
   flex-shrink: 0;
   width: 16px;
   height: 16px;
+
+  path {
+    fill: var(--s2-gray-800);
+  }
 }
 
 .menu-divider {
