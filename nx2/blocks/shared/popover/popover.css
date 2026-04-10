@@ -13,7 +13,8 @@
   box-shadow: 0 4px 16px rgb(0 0 0 / 12%);
 }
 
-:host([open]) {
+:host([open]),
+:host(:popover-open) {
   display: block;
 }
 
