@@ -39,7 +39,7 @@ export class NxBrowseList extends LitElement {
     }
   }
 
-  async connectedCallback() {
+  connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [styles];
   }
