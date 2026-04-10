@@ -1,6 +1,6 @@
 # nx-popover
 
-A lightweight floating container that positions itself relative to an anchor element or fixed coordinates. Closes on outside click or Escape.
+A floating container that positions itself relative to an anchor element or fixed coordinates. Closes on outside click or Escape. Only one popover can be open at a time.
 
 ## Usage
 
@@ -10,13 +10,15 @@ A lightweight floating container that positions itself relative to an anchor ele
 import '/path/to/shared/popover/popover.js';
 
 const popover = document.createElement('nx-popover');
-document.body.append(popover);
+someContainer.append(popover);
 popover.innerHTML = '<p>Popover content</p>';
 
 button.addEventListener('click', () => {
   popover.show({ anchor: button });
 });
 ```
+
+> **Trigger element:** Use a `<button>` or `<input>` as the trigger. These are the only elements that support `popoverTargetElement`, which tells the browser not to dismiss the popover when the trigger itself is clicked. Using other element types will break toggle behaviour in modern browsers.
 
 ### Fixed coordinates
 
@@ -38,6 +40,7 @@ popover.show({ x: 100, y: 200 });
 | Property | Type | Description |
 |----------|------|-------------|
 | `open` | `Boolean` | Whether the popover is currently visible. Reflects to attribute. |
+| `anchor` | `Element\|null` | The current anchor element. Read-only. |
 
 ### Placement
 
@@ -53,7 +56,7 @@ The `placement` option controls which side of the anchor the popover appears on.
 
 | Event | Description |
 |-------|-------------|
-| `close` | Fired when the popover closes (Escape key, outside click, or `close()` call). Bubbles and crosses shadow DOM. |
+| `close` | Fired when the popover closes for any reason. |
 
 ## Slots
 

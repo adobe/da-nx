@@ -9,6 +9,8 @@ class NxPopover extends LitElement {
     open: { type: Boolean, reflect: true },
   };
 
+  _placement = 'below';
+
   get anchor() { return this._anchor; }
 
   set anchor(val) {
@@ -16,7 +18,10 @@ class NxPopover extends LitElement {
     if (this.open) this._position();
   }
 
-  _onToggle = (e) => { if (e.newState === 'closed') this._doClose(); };
+  _onToggle = (e) => {
+    if (e.newState === 'closed') this._doClose();
+    else if (!this.open) this.open = true;
+  };
 
   _onKeydown = (e) => { if (e.key === 'Escape') this.close(); };
 
@@ -53,7 +58,7 @@ class NxPopover extends LitElement {
   updated(changed) {
     if (!changed.has('open')) return;
     if (this.open) {
-      if (SUPPORTS_POPOVER) this.showPopover();
+      if (SUPPORTS_POPOVER) this.togglePopover(true);
       else this._addListeners();
       this._position();
     } else if (!SUPPORTS_POPOVER) {
