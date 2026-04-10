@@ -1,14 +1,25 @@
 import { LitElement, html, nothing } from 'da-lit';
-import { loadStyle, hashChange } from '../../utils/utils.js';
 import ChatController from './chat-controller.js';
 import { renderMessage, renderThinking } from './renderers.js';
 import './welcome/welcome.js';
-import { loadChatIcons } from './utils.js';
+import '../menu/menu.js';
+import { loadSvgIcons } from '../../utils/svg.js';
+import { loadStyle, hashChange } from '../../utils/utils.js';
 
 const styles = await loadStyle(import.meta.url);
-const icons = await loadChatIcons({ add: 'Add', clear: 'RemoveCircle', copy: 'Copy', send: 'ArrowUpSend', stop: 'Stop' });
+const icons = await loadSvgIcons({ add: 'Add', clear: 'RemoveCircle', copy: 'Copy', send: 'ArrowUpSend', stop: 'Stop' });
 
 const icon = (name) => icons?.[name]?.cloneNode(true);
+
+const ADD_MENU_ITEMS = [
+  { section: 'Add' },
+  { id: 'files', label: 'Files or images', icon: 'Link' },
+  { id: 'prompt', label: 'Prompt', icon: 'CommentText' },
+  { id: 'command', label: '"/" Command', icon: 'Prompt' },
+  { divider: true },
+  { id: 'prompts', label: 'Manage Prompts' },
+  { id: 'skills', label: 'Manage Skills' },
+];
 
 class NxChat extends LitElement {
   static properties = {
@@ -93,6 +104,11 @@ class NxChat extends LitElement {
     }
   }
 
+  _onMenuSelect(e) {
+    const { id } = e.detail;
+    console.log(id);
+  }
+
   _submit(e) {
     e?.preventDefault();
     if (this.thinking) {
@@ -133,6 +149,9 @@ class NxChat extends LitElement {
           @keydown=${this._handleKeydown}
         ></textarea>
         <div class="chat-actions ${this.thinking ? 'chat-thinking' : ''}">
+          <nx-menu .items=${ADD_MENU_ITEMS} placement="above" @select=${this._onMenuSelect}>
+            <button slot="trigger" class="chat-add" type="button" aria-label="Add">${icon('add')}</button>
+          </nx-menu>
           <button class="chat-stop" type="button" aria-label="Stop" @click=${this._submit}>${icon('stop')}</button>
           <button class="chat-send" type="submit" aria-label="Send">${icon('send')}</button>
         </div>
