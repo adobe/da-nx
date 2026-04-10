@@ -21,8 +21,6 @@ class NxMenu extends LitElement {
     _icons: { state: true },
   };
 
-  _active = -1;
-
   get _popover() { return this.shadowRoot.querySelector('nx-popover'); }
 
   connectedCallback() {
@@ -58,12 +56,12 @@ class NxMenu extends LitElement {
 
   _onMenuToggle(e) {
     if (e.newState !== 'open') return;
-    this._active = -1;
+    this._active = undefined;
     this._trigger?.toggleAttribute('data-active', true);
   }
 
   show({ anchor, placement } = {}) {
-    this._active = -1;
+    this._active = undefined;
     this._popover.show({
       anchor,
       placement: placement ?? this.getAttribute('placement') ?? 'below',
@@ -100,31 +98,33 @@ class NxMenu extends LitElement {
     const selectable = this.items?.filter((i) => !i.divider && !i.section) ?? [];
     if (!selectable.length) return;
 
+    const curIdx = selectable.findIndex((i) => i.id === this._active);
+
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      this._active = (this._active + 1) % selectable.length;
+      this._active = selectable[(curIdx + 1) % selectable.length].id;
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      this._active = (this._active - 1 + selectable.length) % selectable.length;
-    } else if (e.key === 'Enter' && this._active >= 0) {
+      this._active = selectable[(curIdx - 1 + selectable.length) % selectable.length].id;
+    } else if (e.key === 'Enter' && this._active !== undefined) {
       e.preventDefault();
-      this._select(selectable[this._active]);
+      this._select(selectable.find((i) => i.id === this._active));
     }
   }
 
-  _renderItem(item, idx) {
+  _renderItem(item) {
     if (item.divider) return html`<hr class="menu-divider">`;
     if (item.section) return html`<span class="menu-section">${item.section}</span>`;
-    if (!item.label) return nothing;
+    if (!item.label || !item.id) return nothing;
 
     return html`
       <button
-        class="menu-item ${idx === this._active ? 'menu-item-active' : ''}"
+        class="menu-item ${item.id === this._active ? 'menu-item-active' : ''}"
         type="button"
         title=""
         aria-label=${item.label}
         @click=${() => this._select(item)}
-        @mouseenter=${() => { this._active = idx; }}
+        @mouseenter=${() => { this._active = item.id; }}
       >
         ${item.icon && this._icons?.[item.icon] ? html`<span class="menu-item-icon">${this._icons[item.icon].cloneNode(true)}</span>` : nothing}
         <span class="menu-item-label">${item.label}</span>
@@ -133,14 +133,10 @@ class NxMenu extends LitElement {
   }
 
   render() {
-    let selectableIdx = -1;
     return html`
       <slot name="trigger" @slotchange=${this._onTriggerSlotChange}></slot>
       <nx-popover @toggle=${this._onMenuToggle} @keydown=${this._onKeydown} @close=${this._onClose}>
-        ${this.items?.map((item) => {
-      if (!item.divider && !item.section) selectableIdx += 1;
-      return this._renderItem(item, item.divider || item.section ? -1 : selectableIdx);
-    })}
+        ${this.items?.map((item) => this._renderItem(item))}
       </nx-popover>
     `;
   }
