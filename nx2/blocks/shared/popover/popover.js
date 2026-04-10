@@ -26,7 +26,7 @@ class NxPopover extends LitElement {
   };
 
   _onToggle = (e) => {
-    if (e.newState === 'closed') this._doClose();
+    if (e.newState === 'closed') this.close();
   };
 
   connectedCallback() {
@@ -63,7 +63,8 @@ class NxPopover extends LitElement {
     }
   }
 
-  _doClose() {
+  close() {
+    if (!this.open) return;
     this.open = false;
     this.dispatchEvent(new CustomEvent('close', { bubbles: true, composed: true }));
   }
@@ -110,10 +111,6 @@ class NxPopover extends LitElement {
   _removeListeners() {
     document.removeEventListener('keydown', this._onKeydown);
     document.removeEventListener('pointerdown', this._onOutsideClick);
-  }
-
-  close() {
-    this._doClose();
   }
 
   render() {
