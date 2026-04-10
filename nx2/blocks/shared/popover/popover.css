@@ -4,6 +4,8 @@
   position: fixed;
   z-index: 100;
   display: none;
+  right: auto;
+  bottom: auto;
   flex-direction: column;
   padding: var(--s2-spacing-100);
   min-width: 160px;

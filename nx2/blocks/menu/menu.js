@@ -2,21 +2,17 @@ import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../utils/utils.js';
 import '../shared/popover/popover.js';
 import { loadHrefSvg } from '../../utils/svg.js';
-import { getConfig } from '../../scripts/nx.js';
 
+const ICONS_BASE = new URL('../../img/icons/', import.meta.url).href;
 const styles = await loadStyle(import.meta.url);
 
 // todo: remove once changes from ew are available with reusable utils
-const loadSvgIcons = async (names) => {
-  const { codeBase } = getConfig();
-  const entries = await Promise.all(
-    names.map(async (name) => {
-      const svg = await loadHrefSvg(`${codeBase}/img/icons/S2_Icon_${name}_20_N.svg`);
-      return [name, svg];
-    }),
+export async function loadSvgIcons(names) {
+  const svgs = await Promise.all(
+    names.map((name) => loadHrefSvg(`${ICONS_BASE}S2_Icon_${name}_20_N.svg`)),
   );
-  return Object.fromEntries(entries.filter(([, svg]) => svg));
-};
+  return Object.fromEntries(names.map((name, i) => [name, svgs[i]]));
+}
 
 class NxMenu extends LitElement {
   static properties = {
@@ -34,6 +30,10 @@ class NxMenu extends LitElement {
     this.shadowRoot.adoptedStyleSheets = [styles];
   }
 
+  firstUpdated() {
+    this._wireTrigger(this.shadowRoot.querySelector('slot[name="trigger"]'));
+  }
+
   updated(changed) {
     if (changed.has('items')) this._loadIcons();
   }
@@ -44,18 +44,16 @@ class NxMenu extends LitElement {
     this._icons = await loadSvgIcons(names);
   }
 
-  _onTriggerSlotChange(e) {
-    const [trigger] = e.target.assignedElements();
-    if (!trigger) return;
+  _wireTrigger(slot) {
+    const [trigger] = slot.assignedElements();
+    if (!trigger || trigger === this._trigger) return;
     this._trigger = trigger;
-    const popover = this._popover;
-    if (typeof trigger.popoverTargetElement !== 'undefined') {
-      trigger.popoverTargetElement = popover;
-      trigger.popoverTargetAction = 'toggle';
-      popover.anchor = trigger;
-    } else {
-      trigger.addEventListener('click', () => this._toggle(trigger));
-    }
+    this._popover.anchor = trigger;
+    trigger.addEventListener('click', () => this._toggle(trigger));
+  }
+
+  _onTriggerSlotChange(e) {
+    this._wireTrigger(e.target);
   }
 
   _onMenuToggle(e) {
@@ -140,10 +138,10 @@ class NxMenu extends LitElement {
       <slot name="trigger" @slotchange=${this._onTriggerSlotChange}></slot>
       <nx-popover @toggle=${this._onMenuToggle} @keydown=${this._onKeydown} @close=${this._onClose}>
         ${this.items?.map((item) => {
-          if (!item.divider && !item.section) selectableIdx += 1;
-          return this._renderItem(item, item.divider || item.section ? -1 : selectableIdx);
-        })}
-      </nx-popover> 
+      if (!item.divider && !item.section) selectableIdx += 1;
+      return this._renderItem(item, item.divider || item.section ? -1 : selectableIdx);
+    })}
+      </nx-popover>
     `;
   }
 }

@@ -18,11 +18,6 @@ class NxPopover extends LitElement {
     if (this.open) this._position();
   }
 
-  _onToggle = (e) => {
-    if (e.newState === 'closed') this._doClose();
-    else if (!this.open) this.open = true;
-  };
-
   _onKeydown = (e) => { if (e.key === 'Escape') this.close(); };
 
   _onOutsideClick = (e) => {
@@ -30,22 +25,23 @@ class NxPopover extends LitElement {
     if (!path.includes(this) && !path.includes(this._anchor)) this.close();
   };
 
+  _onToggle = (e) => {
+    if (e.newState === 'closed') this._doClose();
+  };
+
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [styles];
     if (SUPPORTS_POPOVER) {
-      this.setAttribute('popover', 'auto');
+      this.setAttribute('popover', 'manual');
       this.addEventListener('toggle', this._onToggle);
     }
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
-    if (SUPPORTS_POPOVER) {
-      this.removeEventListener('toggle', this._onToggle);
-    } else {
-      this._removeListeners();
-    }
+    if (SUPPORTS_POPOVER) this.removeEventListener('toggle', this._onToggle);
+    this._removeListeners();
   }
 
   show({ anchor, x, y, placement } = {}) {
@@ -58,11 +54,12 @@ class NxPopover extends LitElement {
   updated(changed) {
     if (!changed.has('open')) return;
     if (this.open) {
-      if (SUPPORTS_POPOVER) this.togglePopover(true);
-      else this._addListeners();
+      this._addListeners();
       this._position();
-    } else if (!SUPPORTS_POPOVER) {
+      if (SUPPORTS_POPOVER) this.togglePopover(true);
+    } else {
       this._removeListeners();
+      if (SUPPORTS_POPOVER) this.togglePopover(false);
     }
   }
 
@@ -74,37 +71,34 @@ class NxPopover extends LitElement {
   _position() {
     if (this._coords) {
       const { x, y } = this._coords;
-      this.style.top = `${y}px`;
-      this.style.bottom = 'auto';
       this.style.left = `${x}px`;
+      this.style.top = `${y}px`;
       return;
     }
 
     if (!this._anchor) return;
     const rect = this._anchor.getBoundingClientRect();
-    this.style.left = `${rect.left}px`;
+    const gap = parseFloat(getComputedStyle(this).getPropertyValue('--popover-gap')) ?? 0;
 
+    this.style.visibility = 'hidden';
     requestAnimationFrame(() => {
-      const gap = parseFloat(getComputedStyle(this).getPropertyValue('--popover-gap')) || 0;
       const pop = this.getBoundingClientRect();
-      const above = rect.top - pop.height - gap;
-      const below = rect.bottom + gap;
+      let { left } = rect;
       let placement = this._placement;
       if (placement === 'auto') {
-        placement = (below + pop.height > window.innerHeight && above >= 0) ? 'above' : 'below';
+        placement = (pop.bottom > window.innerHeight && rect.top - pop.height - gap >= 0) ? 'above' : 'below';
       }
+      if (left + pop.width > window.innerWidth) left = rect.right - pop.width;
 
+      this.style.left = `${left}px`;
       if (placement === 'above') {
         this.style.top = 'auto';
         this.style.bottom = `${window.innerHeight - rect.top + gap}px`;
       } else {
+        this.style.top = `${rect.bottom + gap}px`;
         this.style.bottom = 'auto';
-        this.style.top = `${below}px`;
       }
-
-      if (pop.right > window.innerWidth) {
-        this.style.left = `${rect.right - pop.width}px`;
-      }
+      this.style.visibility = '';
     });
   }
 
@@ -119,8 +113,7 @@ class NxPopover extends LitElement {
   }
 
   close() {
-    if (SUPPORTS_POPOVER) this.togglePopover(false);
-    else this._doClose();
+    this._doClose();
   }
 
   render() {
