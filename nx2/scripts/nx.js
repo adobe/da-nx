@@ -62,7 +62,6 @@ export const [setConfig, getConfig] = (() => {
       config = {
         ...conf,
         env: conf.env || env,
-        iconSize: conf.iconSize || '20',
         linkBlocks: conf.linkBlocks || [{ fragment: '/fragments/' }],
         providers: conf.providers || {},
         codeBase: conf.codeBase || nxBase,
@@ -170,7 +169,7 @@ function decorateLinks(el) {
 function loadIcons(el) {
   const icons = el.querySelectorAll('span.icon');
   if (!icons.length) return;
-  import('../utils/svg.js').then((mod) => mod.default({ icons }));
+  import('../utils/svg.js').then((mod) => mod.default(icons));
 }
 
 function groupChildren(section) {
