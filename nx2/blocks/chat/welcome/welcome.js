@@ -46,9 +46,7 @@ class NxChatWelcome extends LitElement {
     const greeting = `Welcome${this._firstName ? `, ${this._firstName}` : ''}`;
     const view = this.context?.view;
 
-    // todo: remove this once the prompts are loaded from the backend
-    const filtered = (this._promptCards ?? [{ description: 'What are we working on today?', prompt: 'test' }, { description: 'Time is an illusion', prompt: 'test2' }, { description: 'Lunchtime doubly so', prompt: 'test3' }, { description: 'Lunchtime doubly so', prompt: 'test4' }])
-      .filter((c) => !c.area || c.area === 'all' || c.area === view);
+    const filtered = (this._promptCards ?? []).filter((c) => !c.area || c.area === 'all' || c.area === view);
 
     return html`
       <div class="chat-welcome-message">

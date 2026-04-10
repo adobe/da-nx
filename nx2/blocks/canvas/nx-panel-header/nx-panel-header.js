@@ -13,13 +13,16 @@ export default async function createPanelHeader({ position, onClose }) {
   const bar = document.createElement('div');
   bar.className = 'panel-header';
 
-  const btn = document.createElement('button');
-  btn.type = 'button';
-  btn.className = 'panel-header-toggle';
-  btn.setAttribute('aria-label', `Toggle ${position} panel`);
-  if (svg) btn.append(svg);
-  btn.addEventListener('click', onClose);
+  const start = document.createElement('div');
+  start.className = 'panel-header-custom';
 
-  bar.append(btn);
+  const toggleBtn = document.createElement('button');
+  toggleBtn.type = 'button';
+  toggleBtn.className = 'panel-header-toggle';
+  toggleBtn.setAttribute('aria-label', `Toggle ${position} panel`);
+  if (svg) toggleBtn.append(svg);
+  toggleBtn.addEventListener('click', onClose);
+
+  bar.append(start, toggleBtn);
   return bar;
 }

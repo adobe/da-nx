@@ -69,6 +69,28 @@ Skills Lab — external app at da.live/apps/skills, linked from Chat
 - **`hidePanel` / `unhidePanel`** toggle visibility without removing the node; hidden panels are omitted from the grid.
 - **`localStorage`** key **`nx-panels`** stores `{ before?, after? }` with width and fragment URL. **`restorePanels()`** is invoked from **`loadArea`** in **`nx2/scripts/nx.js`** when that key is present so panels return across reloads.
 
+### Panel header and custom actions
+
+When a panel is opened via `canvas.js`, **`addPanelHeader`** prepends a header bar (`.panel-header`) to `.panel-body` and fires an **`nx-panel-slot`** event on `.panel-body`:
+
+```js
+panelBody.dispatchEvent(new CustomEvent('nx-panel-slot', {
+  detail: { slot: header.querySelector('.panel-header-custom') },
+}));
+```
+
+Fragment content loaded into a panel can listen for this event in `connectedCallback` to register buttons into the header's left-side container:
+
+```js
+// in connectedCallback
+this.closest('.panel-body')?.addEventListener('nx-panel-slot', (e) => {
+  this._panelSlot = e.detail.slot;
+  this._mountActions(); // called once both slot and icons are ready
+}, { once: true });
+```
+
+Buttons appended to the slot should use `className = 'panel-header-action'` to pick up the shared button styling defined in `nx-panel-header.css`. The `[hidden]` attribute is respected — set `btn.hidden = true/false` to show/hide conditionally.
+
 ---
 
 ## Feature Responsibilities
