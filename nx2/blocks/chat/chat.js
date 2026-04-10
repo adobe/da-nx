@@ -3,11 +3,11 @@ import ChatController from './chat-controller.js';
 import { renderMessage, renderThinking } from './renderers.js';
 import './welcome/welcome.js';
 import '../menu/menu.js';
-import { loadSvgIcons } from '../../utils/svg.js';
 import { loadStyle, hashChange } from '../../utils/utils.js';
+import { loadChatIcons } from './utils.js';
 
 const styles = await loadStyle(import.meta.url);
-const icons = await loadSvgIcons({ add: 'Add', clear: 'RemoveCircle', copy: 'Copy', send: 'ArrowUpSend', stop: 'Stop' });
+const icons = await loadChatIcons({ add: 'Add', clear: 'RemoveCircle', copy: 'Copy', send: 'ArrowUpSend', stop: 'Stop' });
 
 const icon = (name) => icons?.[name]?.cloneNode(true);
 
