@@ -1,5 +1,5 @@
 :host {
-  --popover-gap: 4;
+  --popover-gap: 4px;
 
   position: fixed;
   z-index: 100;
