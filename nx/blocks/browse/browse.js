@@ -193,16 +193,14 @@ class BrowseView extends LitElement {
     modal.show(files, mode);
   }
 
-  _onChatPanelResize = () => {
-    const chatPanel = this.shadowRoot?.querySelector('.browse-view-chat-panel');
-    if (!chatPanel) return;
-    const { width } = chatPanel.getBoundingClientRect();
-    if (width > 0) {
-      const size = `${Math.round(width)}px`;
-      this._chatPanelSize = size;
-      localStorage.setItem(CHAT_PANEL_SIZE_KEY, size);
-      writeWindowLayoutState({ chatPanelSize: size });
-    }
+  _onChatPanelResize = (e) => {
+    const splitView = e.currentTarget;
+    const pos = splitView?.splitterPos;
+    if (typeof pos !== 'number' || pos <= 0) return;
+    const size = `${Math.round(pos)}px`;
+    this._chatPanelSize = size;
+    localStorage.setItem(CHAT_PANEL_SIZE_KEY, size);
+    writeWindowLayoutState({ chatPanelSize: size });
   };
 
   _renderToolbar() {
