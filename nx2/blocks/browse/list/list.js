@@ -12,13 +12,6 @@ export class NxBrowseList extends LitElement {
     _selectedKeys: { state: true },
   };
 
-  constructor() {
-    super();
-    this.items = [];
-    this.currentPathKey = '';
-    this._selectedKeys = [];
-  }
-
   willUpdate(changedProperties) {
     if (changedProperties.has('currentPathKey')) {
       this._selectedKeys = [];
@@ -28,10 +21,16 @@ export class NxBrowseList extends LitElement {
 
   updated() {
     const input = this.shadowRoot?.getElementById('browse-select-all');
-    if (!(input instanceof HTMLInputElement)) return;
-    const items = this.items || [];
+    if (!(input instanceof HTMLInputElement)) {
+      return;
+    }
+    if (this.items === undefined) {
+      return;
+    }
+    const { items } = this;
+    const selectedKeys = this._selectedKeys ?? [];
     const keys = items.map((item) => itemRowPathKey(this.currentPathKey, item));
-    const selectedCount = keys.filter((rowKey) => this._selectedKeys.includes(rowKey)).length;
+    const selectedCount = keys.filter((rowKey) => selectedKeys.includes(rowKey)).length;
     input.indeterminate = selectedCount > 0 && selectedCount < keys.length;
     if (keys.length === 0) {
       input.checked = false;
@@ -54,7 +53,9 @@ export class NxBrowseList extends LitElement {
   }
 
   _onRowActivate(event, item) {
-    if (item.ext) return;
+    if (item.ext) {
+      return;
+    }
     const pathKey = itemRowPathKey(this.currentPathKey, item);
     event.stopPropagation();
     this.dispatchEvent(
@@ -69,7 +70,7 @@ export class NxBrowseList extends LitElement {
   _emitSelectionChange() {
     this.dispatchEvent(
       new CustomEvent('nx-browse-selection-change', {
-        detail: { selectedKeys: [...this._selectedKeys] },
+        detail: { selectedKeys: [...(this._selectedKeys ?? [])] },
         bubbles: true,
         composed: true,
       }),
@@ -77,14 +78,19 @@ export class NxBrowseList extends LitElement {
   }
 
   _isRowSelected(key) {
-    return this._selectedKeys.includes(key);
+    return (this._selectedKeys ?? []).includes(key);
   }
 
   _onSelectAllChange(event) {
     event.stopPropagation();
     const input = event.target;
-    if (!(input instanceof HTMLInputElement)) return;
-    const items = this.items || [];
+    if (!(input instanceof HTMLInputElement)) {
+      return;
+    }
+    if (this.items === undefined) {
+      return;
+    }
+    const { items } = this;
     const keys = items.map((item) => itemRowPathKey(this.currentPathKey, item));
     this._selectedKeys = input.checked ? [...keys] : [];
     this._emitSelectionChange();
@@ -93,22 +99,29 @@ export class NxBrowseList extends LitElement {
   _onRowCheckboxChange(event, item) {
     event.stopPropagation();
     const input = event.target;
-    if (!(input instanceof HTMLInputElement)) return;
+    if (!(input instanceof HTMLInputElement)) {
+      return;
+    }
     const key = itemRowPathKey(this.currentPathKey, item);
+    const selectedKeys = this._selectedKeys ?? [];
     if (input.checked) {
-      this._selectedKeys = this._selectedKeys.includes(key)
-        ? this._selectedKeys
-        : [...this._selectedKeys, key];
+      this._selectedKeys = selectedKeys.includes(key)
+        ? selectedKeys
+        : [...selectedKeys, key];
     } else {
-      this._selectedKeys = this._selectedKeys.filter((selectedKey) => selectedKey !== key);
+      this._selectedKeys = selectedKeys.filter((selectedKey) => selectedKey !== key);
     }
     this._emitSelectionChange();
   }
 
   render() {
-    const items = this.items || [];
+    if (this.items === undefined) {
+      return nothing;
+    }
+    const { items } = this;
+    const selectedKeys = this._selectedKeys ?? [];
     const rowKeys = items.map((item) => itemRowPathKey(this.currentPathKey, item));
-    const selectedCount = rowKeys.filter((rowKey) => this._selectedKeys.includes(rowKey)).length;
+    const selectedCount = rowKeys.filter((rowKey) => selectedKeys.includes(rowKey)).length;
     const allSelected = items.length > 0 && selectedCount === items.length;
 
     return html`
