@@ -9,6 +9,7 @@ const styles = await loadStyle(import.meta.url);
 class NxBrowse extends LitElement {
   static properties = {
     _items: { state: true },
+    _listError: { state: true },
   };
 
   set context(value) {
@@ -46,23 +47,28 @@ class NxBrowse extends LitElement {
   async _syncList() {
     const ctx = this._pathContext;
     if (!ctx) {
-      this._items = [];
+      this._items = undefined;
+      this._listError = undefined;
       this.requestUpdate();
       return;
     }
 
-    try {
-      const { items } = await listFolder(ctx.fullpath);
-      this._items = items;
-    } catch {
-      this._items = [];
+    const result = await listFolder(ctx.fullpath);
+    if ('error' in result) {
+      this._items = undefined;
+      this._listError = result.error;
+    } else {
+      this._listError = undefined;
+      this._items = result.items;
     }
     this.requestUpdate();
   }
 
   _onBrowseOpenFolder(event) {
     const { pathKey } = event.detail;
-    if (!pathKey) return;
+    if (!pathKey) {
+      return;
+    }
     window.location.hash = `#/${pathKey}`;
   }
 
@@ -80,7 +86,16 @@ class NxBrowse extends LitElement {
       `;
     }
 
-    if (!this._items?.length) {
+    if (this._listError) {
+      return html`
+        <div class="browse-hint browse-hint-error" role="alert">
+          <p class="browse-hint-title">Could not load this folder</p>
+          <p class="browse-hint-detail">${this._listError}</p>
+        </div>
+      `;
+    }
+
+    if (this._items === undefined) {
       return nothing;
     }
 
@@ -96,7 +111,9 @@ class NxBrowse extends LitElement {
   }
 }
 
-customElements.define('nx-browse', NxBrowse);
+if (!customElements.get('nx-browse')) {
+  customElements.define('nx-browse', NxBrowse);
+}
 
 export default function decorate(block) {
   block.textContent = '';

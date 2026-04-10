@@ -27,4 +27,16 @@
     margin: 0;
     color: var(--s2-gray-700);
   }
+
+  .browse-hint-error {
+    background-color: var(--s2-red-200);
+  }
+
+  .browse-hint-error .browse-hint-title {
+    color: var(--s2-red-1100);
+  }
+
+  .browse-hint-error .browse-hint-detail {
+    color: var(--s2-red-1000);
+  }
 }
