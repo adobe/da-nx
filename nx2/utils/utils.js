@@ -113,6 +113,19 @@ export const hashChange = (() => {
   };
 })();
 
+export const loadPageStyle = (href) => new Promise((resolve) => {
+  if (!document.querySelector(`head > link[href="${href}"]`)) {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = href;
+    link.onload = resolve;
+    link.onerror = resolve;
+    document.head.append(link);
+  } else {
+    resolve();
+  }
+});
+
 export const loadStyle = (() => {
   const cache = {};
 

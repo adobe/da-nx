@@ -2,7 +2,26 @@ import { getConfig } from '../scripts/nx.js';
 
 const { codeBase, iconSize } = getConfig();
 
-export default function loadIcons({ icons, size = iconSize }) {
+export const loadHrefSvg = (() => {
+  const cache = {};
+
+  return (href) => {
+    cache[href] ??= (async () => {
+      const resp = await fetch(href);
+      if (!resp.ok) return null;
+      const text = await resp.text();
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(text, 'image/svg+xml');
+      return doc.querySelector('svg');
+    })();
+    return cache[href];
+  };
+})();
+
+export default function loadIcons({ paths, icons, size = iconSize }) {
+  // Support legacy paths pattern
+  if (paths) return Promise.all(paths.map((path) => loadHrefSvg(path)));
+
   for (const icon of icons) {
     const tmp = icon.classList[1].substring(5);
     const name = tmp.split('-')
@@ -15,13 +34,6 @@ export default function loadIcons({ icons, size = iconSize }) {
     </svg>`;
     icon.innerHTML = svg;
   }
-}
 
-export const loadHrefSvg = async (href) => {
-  const resp = await fetch(href);
-  if (!resp.ok) return null;
-  const text = await resp.text();
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(text, 'image/svg+xml');
-  return doc.querySelector('svg');
-};
+  return icons;
+}
