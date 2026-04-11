@@ -1,4 +1,4 @@
-import { env } from '../scripts/nx.js';
+import { env } from '../scripts/nexter.js';
 
 export const SUPPORTED_FILES = {
   html: 'text/html',
