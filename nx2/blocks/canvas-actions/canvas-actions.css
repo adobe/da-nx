@@ -6,7 +6,14 @@
   color: var(--s2-gray-800);
 }
 
-.canvas-actions button {
+.canvas-actions {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+
+.canvas-actions .publish-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -25,22 +32,21 @@
   cursor: pointer;
 }
 
-.canvas-actions button:focus-visible {
+.canvas-actions .publish-btn:focus-visible {
   outline: 2px solid var(--s2-blue-800);
   outline-offset: 2px;
 }
 
-.canvas-actions button:disabled {
+.canvas-actions .publish-btn:disabled {
   color: var(--s2-gray-400);
   background-color: var(--s2-gray-200);
   cursor: not-allowed;
 }
 
-.canvas-actions button:hover:not(:disabled) {
+.canvas-actions .publish-btn:hover:not(:disabled) {
   background-color: var(--s2-blue-1000);
 }
 
-.canvas-actions button:active:not(:disabled) {
+.canvas-actions .publish-btn:active:not(:disabled) {
   background-color: var(--s2-blue-1100);
 }
-
