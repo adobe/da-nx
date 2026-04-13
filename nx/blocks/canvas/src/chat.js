@@ -225,7 +225,7 @@ class Chat extends LitElement {
 
   constructor() {
     super();
-    this.header = 'Assistant';
+    this.header = 'Coworker';
     this.onPageContextItems = [];
     this.contextView = '';
     this._connected = false;
@@ -958,9 +958,9 @@ class Chat extends LitElement {
           <p class="chat-skills-empty-text">No skills found.</p>
           <p class="chat-skills-empty-text">Skills are markdown documents under <code>.da/skills/</code> that teach the assistant reusable workflows.</p>
           <sp-button variant="accent" size="s" title="Create a new skill" aria-label="Create a new skill" @click=${() => {
-            this._newSkillMode = true;
-            this._pendingSkillSuggestionKey = null;
-          }}>Create skill</sp-button>
+          this._newSkillMode = true;
+          this._pendingSkillSuggestionKey = null;
+        }}>Create skill</sp-button>
           <sp-button variant="secondary" size="s" title="Refresh skills list" aria-label="Refresh skills list" @click=${() => this._refreshSkills()}>Refresh</sp-button>
         </div>`;
     }
@@ -982,10 +982,10 @@ class Chat extends LitElement {
           </select>
           <button type="button" class="skill-tb-btn skill-tb-add" title="Create new skill" aria-label="Create new skill"
             @click=${() => {
-              this._newSkillMode = true;
-              this._newSkillName = '';
-              this._pendingSkillSuggestionKey = null;
-            }}>
+        this._newSkillMode = true;
+        this._newSkillName = '';
+        this._pendingSkillSuggestionKey = null;
+      }}>
             <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 3.75a.75.75 0 0 1 .75.75v4.75h4.75a.75.75 0 0 1 0 1.5h-4.75v4.75a.75.75 0 0 1-1.5 0v-4.75H4.5a.75.75 0 0 1 0-1.5h4.75V4.5a.75.75 0 0 1 .75-.75Z" fill="currentColor"/></svg>
           </button>
           <sp-action-button size="s" quiet title="Refresh skills list" aria-label="Refresh skills list" @click=${() => this._refreshSkills()}>
@@ -1009,12 +1009,12 @@ class Chat extends LitElement {
           ${this._newSkillMode ? html`
             <sp-button variant="secondary" size="s" title="Cancel new skill" aria-label="Cancel new skill"
               @click=${() => {
-                this._newSkillMode = false;
-                this._skillEditorDirty = false;
-                this._pendingSuggestionContent = null;
-                this._pendingSkillSuggestionKey = null;
-                if (ids.length > 0) [this._selectedSkill] = ids;
-              }}>Cancel</sp-button>
+          this._newSkillMode = false;
+          this._skillEditorDirty = false;
+          this._pendingSuggestionContent = null;
+          this._pendingSkillSuggestionKey = null;
+          if (ids.length > 0) [this._selectedSkill] = ids;
+        }}>Cancel</sp-button>
           ` : html`
             <button type="button" class="skill-tb-btn skill-tb-delete" title="Delete this skill" aria-label="Delete this skill" @click=${this._deleteCurrentSkill}>
               <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M8.25 15.02a.75.75 0 0 1-.75-.72l-.25-6.5a.75.75 0 0 1 1.5-.06l.25 6.5a.75.75 0 0 1-.72.78Zm3.5 0a.75.75 0 0 1-.72-.78l.25-6.5a.75.75 0 0 1 1.5.06l-.25 6.5a.75.75 0 0 1-.78.72ZM17 4h-3.5v-.75A2.25 2.25 0 0 0 11.25 1h-2.5A2.25 2.25 0 0 0 6.5 3.25V4H3a.75.75 0 0 0 0 1.5h.52l.42 10.34A2.25 2.25 0 0 0 6.19 18h7.62a2.25 2.25 0 0 0 2.25-2.16L16.48 5.5H17a.75.75 0 0 0 0-1.5ZM8 3.25A.75.75 0 0 1 8.75 2.5h2.5a.75.75 0 0 1 .75.75V4H8V3.25Zm6.56 12.53a.75.75 0 0 1-.75.72H6.19a.75.75 0 0 1-.75-.72L5.02 5.5h9.96l-.42 10.28Z" fill="currentColor"/></svg>
@@ -1078,9 +1078,9 @@ class Chat extends LitElement {
         <div class="mcp-category">
           <span class="mcp-category-pill configured">Configured <span class="mcp-category-count">${configuredRows.length}</span></span>
           ${configuredRows.length > 0
-    ? configuredRows.map((row) => {
-      const isActive = this._activeAgentId === row.key;
-      return html`
+        ? configuredRows.map((row) => {
+          const isActive = this._activeAgentId === row.key;
+          return html`
                 <div class="agent-config-item ${isActive ? 'active' : ''}">
                   <div class="agent-config-header">
                     <div class="agent-config-info">
@@ -1096,8 +1096,8 @@ class Chat extends LitElement {
                     </sp-button>
                   </div>
                 </div>`;
-    })
-    : html`<div class="mcp-category-empty">No agents configured. Add an <code>agents</code> sheet to your DA config with <code>key</code> and <code>url</code> columns.</div>`}
+        })
+        : html`<div class="mcp-category-empty">No agents configured. Add an <code>agents</code> sheet to your DA config with <code>key</code> and <code>url</code> columns.</div>`}
         </div>
       </div>`;
   }
@@ -1154,8 +1154,8 @@ class Chat extends LitElement {
         <div class="mcp-category">
           <span class="mcp-category-pill configured">Configured <span class="mcp-category-count">${configuredRows.length}</span></span>
           ${configuredRows.length > 0
-    ? configuredAsCards.map((s) => this._renderMcpServerCard(s))
-    : html`<div class="mcp-category-empty">No MCP servers configured. Add an <code>mcp-servers</code> sheet to your DA config with <code>key</code> and <code>url</code> columns.</div>`}
+        ? configuredAsCards.map((s) => this._renderMcpServerCard(s))
+        : html`<div class="mcp-category-empty">No MCP servers configured. Add an <code>mcp-servers</code> sheet to your DA config with <code>key</code> and <code>url</code> columns.</div>`}
         </div>
       </div>`;
   }
@@ -1223,13 +1223,13 @@ class Chat extends LitElement {
       return html`
               <span class="chat-context-pill chat-context-pill-sent attachment-pill" title="${title}">
                 ${removable
-      ? html`<button
+          ? html`<button
                       type="button"
                       class="chat-context-pill-remove attachment-pill-remove"
                       aria-label="Remove attachment"
                       @click=${() => this._removePendingAttachment(item.id)}
                     >×</button>`
-      : nothing}
+          : nothing}
                 <span class="chat-context-pill-label">${item.fileName || 'attachment'}</span>
               </span>
             `;
@@ -1418,11 +1418,11 @@ class Chat extends LitElement {
         </div>
         <div class="tool-body">
           ${friendly
-    ? html`
+        ? html`
             ${renderDetailRows(friendly.inputRows, inputSectionLabel)}
             ${renderDetailRows(friendly.outputRows, 'Result')}
           `
-    : ''}
+        : ''}
           ${inputText ? html`
             <div class="tool-section-label">Input</div>
             <pre class="tool-code">${inputText}</pre>
@@ -1685,10 +1685,10 @@ class Chat extends LitElement {
                       aria-label="${skillSuggDone ? 'Skill already created' : 'Create skill from suggestion'}"
                       ?disabled=${skillSuggDone}
                       @click=${() => this._openSkillModalWithSuggestion(
-                        suggestion.id,
-                        suggestion.content,
-                        skillSuggKey,
-                      )}>
+              suggestion.id,
+              suggestion.content,
+              skillSuggKey,
+            )}>
                       <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 3.75a.75.75 0 0 1 .75.75v4.75h4.75a.75.75 0 0 1 0 1.5h-4.75v4.75a.75.75 0 0 1-1.5 0v-4.75H4.5a.75.75 0 0 1 0-1.5h4.75V4.5a.75.75 0 0 1 .75-.75Z" fill="currentColor"/></svg>
                       ${skillSuggDone ? 'Skill created' : 'Create Skill'}
                     </button>
@@ -1720,8 +1720,8 @@ class Chat extends LitElement {
           </div>
           ` : ''}
           ${this._pendingAttachments.length > 0
-    ? this._renderAttachmentPills(this._pendingAttachments, true)
-    : ''}
+        ? this._renderAttachmentPills(this._pendingAttachments, true)
+        : ''}
           ${this._renderSlashMenu()}
           <div class="chat-footer-row ${this._isThinking ? 'thinking' : ''}">
           <div class="chat-toolbar-icon-group">
