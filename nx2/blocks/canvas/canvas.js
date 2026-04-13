@@ -1,6 +1,8 @@
 import { loadStyle, hashChange } from '../../utils/utils.js';
 import { hidePanel, unhidePanel, openPanelWithFragment } from '../../utils/panel.js';
 import './nx-canvas-header/nx-canvas-header.js';
+import './nx-editor-doc/nx-editor-doc.js';
+import './nx-editor-wysiwyg/nx-editor-wysiwyg.js';
 
 const style = await loadStyle(import.meta.url);
 
@@ -25,12 +27,93 @@ function normalizeCanvasEditorView(view) {
   return view === 'content' ? 'content' : 'layout';
 }
 
+const WYSIWYG_PORT_READY_ATTR = 'data-nx-wysiwyg-port-ready';
+
 function applyCanvasEditorView(mountRoot, view) {
   const v = normalizeCanvasEditorView(view);
   const doc = mountRoot.querySelector('nx-editor-doc');
   const frame = mountRoot.querySelector('nx-editor-wysiwyg');
   if (doc) doc.hidden = v !== 'content';
-  if (frame) frame.hidden = v !== 'layout';
+  if (frame) {
+    const portReady = frame.hasAttribute(WYSIWYG_PORT_READY_ATTR);
+    frame.hidden = v !== 'layout' || !portReady;
+  }
+}
+
+function readPersistedCanvasEditorView() {
+  try {
+    return normalizeCanvasEditorView(sessionStorage.getItem(CANVAS_EDITOR_VIEW_KEY));
+  } catch {
+    return 'layout';
+  }
+}
+
+function persistCanvasEditorView(view) {
+  try {
+    sessionStorage.setItem(CANVAS_EDITOR_VIEW_KEY, normalizeCanvasEditorView(view));
+  } catch {
+    /* ignore if browser disallows session storage */
+  }
+}
+
+function canvasEditorMountRoot(block) {
+  return block.querySelector('.default-content') || block;
+}
+
+function canvasHeaderApplyTarget(block) {
+  return block.querySelector('.nx-canvas-editor-mount')
+    || block.querySelector('.default-content')
+    || block;
+}
+
+function wireQuickEditPortToDoc(mountRoot, header) {
+  mountRoot.addEventListener('nx-wysiwyg-port-ready', (e) => {
+    const editor = mountRoot.querySelector('nx-editor-doc');
+    const port = e.detail?.port;
+    if (editor && port) {
+      editor.quickEditPort = port;
+    }
+    applyCanvasEditorView(mountRoot, header.editorView);
+  });
+}
+
+function removeCanvasEditors(mountRoot) {
+  mountRoot.querySelector('nx-editor-doc')?.remove();
+  mountRoot.querySelector('nx-editor-wysiwyg')?.remove();
+}
+
+function ensureNxEditorDoc(mountRoot) {
+  let el = mountRoot.querySelector('nx-editor-doc');
+  if (!el) {
+    el = document.createElement('nx-editor-doc');
+    mountRoot.append(el);
+  }
+  return el;
+}
+
+function ensureNxEditorWysiwyg(mountRoot) {
+  let frame = mountRoot.querySelector('nx-editor-wysiwyg');
+  if (!frame) {
+    frame = document.createElement('nx-editor-wysiwyg');
+    mountRoot.append(frame);
+  }
+  return frame;
+}
+
+function editorCtxFromHashState(state, fullPath) {
+  return { org: state.org, repo: state.site, path: fullPath };
+}
+
+function syncCanvasEditorsToHash({ mountRoot, header, state }) {
+  const fullPath = buildCanvasDocPath(state);
+  if (!fullPath) {
+    removeCanvasEditors(mountRoot);
+    return;
+  }
+  const ctx = editorCtxFromHashState(state, fullPath);
+  ensureNxEditorDoc(mountRoot).ctx = ctx;
+  ensureNxEditorWysiwyg(mountRoot).ctx = ctx;
+  applyCanvasEditorView(mountRoot, header.editorView);
 }
 
 async function addPanelHeader(aside) {
@@ -70,73 +153,35 @@ async function openCanvasPanel(position) {
   addPanelHeader(aside);
 }
 
-export default async function decorate(block) {
-  if (!document.adoptedStyleSheets.includes(style)) {
-    document.adoptedStyleSheets = [...document.adoptedStyleSheets, style];
-  }
-
+function installCanvasHeader(block) {
   const header = document.createElement('nx-canvas-header');
-  try {
-    header.editorView = normalizeCanvasEditorView(sessionStorage.getItem(CANVAS_EDITOR_VIEW_KEY));
-  } catch {
-    header.editorView = 'layout';
-  }
+  header.editorView = readPersistedCanvasEditorView();
   header.addEventListener('nx-canvas-open-panel', (e) => {
     openCanvasPanel(e.detail.position);
   });
   header.addEventListener('nx-canvas-editor-view', (e) => {
     const view = normalizeCanvasEditorView(e.detail?.view);
-    try {
-      sessionStorage.setItem(CANVAS_EDITOR_VIEW_KEY, view);
-    } catch {
-      /* ignore quota / private mode */
-    }
-    const root = block.querySelector('.nx-canvas-editor-mount') || block.querySelector('.default-content') || block;
-    applyCanvasEditorView(root, view);
+    persistCanvasEditorView(view);
+    applyCanvasEditorView(canvasHeaderApplyTarget(block), view);
   });
   block.before(header);
+  return header;
+}
 
-  const mountRoot = block.querySelector('.default-content') || block;
+export default async function decorate(block) {
+  if (!document.adoptedStyleSheets.includes(style)) {
+    document.adoptedStyleSheets = [...document.adoptedStyleSheets, style];
+  }
+
+  const header = installCanvasHeader(block);
+
+  const mountRoot = canvasEditorMountRoot(block);
   mountRoot.classList.add('nx-canvas-editor-mount');
 
-  mountRoot.addEventListener('nx-wysiwyg-port-ready', (e) => {
-    const editor = mountRoot.querySelector('nx-editor-doc');
-    const port = e.detail?.port;
-    if (editor && port) {
-      editor.quickEditPort = port;
-    }
-  });
+  wireQuickEditPortToDoc(mountRoot, header);
 
-  let docEditorModule = null;
-  let wysiwygFrameModule = null;
   hashChange.subscribe((state) => {
-    const fullPath = buildCanvasDocPath(state);
-    if (!fullPath) {
-      mountRoot.querySelector('nx-editor-doc')?.remove();
-      mountRoot.querySelector('nx-editor-wysiwyg')?.remove();
-      return;
-    }
-    docEditorModule ??= import('./nx-editor-doc/nx-editor-doc.js');
-    wysiwygFrameModule ??= import('./nx-editor-wysiwyg/nx-editor-wysiwyg.js');
-    Promise.all([docEditorModule, wysiwygFrameModule]).then(() => {
-      let el = mountRoot.querySelector('nx-editor-doc');
-      if (!el) {
-        el = document.createElement('nx-editor-doc');
-        mountRoot.append(el);
-      }
-      const editorCtx = { org: state.org, repo: state.site, path: fullPath };
-      el.ctx = editorCtx;
-
-      let frame = mountRoot.querySelector('nx-editor-wysiwyg');
-      if (!frame) {
-        frame = document.createElement('nx-editor-wysiwyg');
-        mountRoot.append(frame);
-      }
-      frame.ctx = editorCtx;
-
-      const view = normalizeCanvasEditorView(header.editorView);
-      applyCanvasEditorView(mountRoot, view);
-    });
+    syncCanvasEditorsToHash({ mountRoot, header, state });
   });
 
   document.addEventListener('nx-panels-restored', () => {

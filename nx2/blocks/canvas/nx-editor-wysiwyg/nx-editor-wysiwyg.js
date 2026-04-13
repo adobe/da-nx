@@ -8,6 +8,8 @@ const style = await loadStyle(import.meta.url);
 const QUICK_EDIT_INIT_INTERVAL_MS = 400;
 const QUICK_EDIT_INIT_MAX_ATTEMPTS = 25;
 
+const WYSIWYG_PORT_READY_ATTR = 'data-nx-wysiwyg-port-ready';
+
 function buildQuickEditInitPayload({ org, repo, path }) {
   const pathWithoutOrgRepo = path.split('/').slice(2).join('/').replace(/\.html$/i, '');
   const pathname = pathWithoutOrgRepo ? `/${pathWithoutOrgRepo}` : '/';
@@ -97,6 +99,7 @@ export class NxEditorWysiwyg extends LitElement {
   updated(changed) {
     super.updated(changed);
     if (!changed.has('ctx')) return;
+    this.removeAttribute(WYSIWYG_PORT_READY_ATTR);
     this._resetCookieStateForCtxChange();
     const { org, repo, path } = this.ctx ?? {};
     if (!org || !repo || !path) return;
@@ -115,6 +118,7 @@ export class NxEditorWysiwyg extends LitElement {
 
   _dispatchWysiwygPortReady(port) {
     this._clearQuickEditRetry();
+    this.setAttribute(WYSIWYG_PORT_READY_ATTR, '');
     this.dispatchEvent(new CustomEvent('nx-wysiwyg-port-ready', {
       bubbles: true,
       composed: true,
@@ -139,6 +143,7 @@ export class NxEditorWysiwyg extends LitElement {
     const { org, repo, path } = this.ctx ?? {};
     if (!iframe?.contentWindow || !org || !repo || !path) return;
 
+    this.removeAttribute(WYSIWYG_PORT_READY_ATTR);
     this._clearQuickEditRetry();
 
     const { config, location } = buildQuickEditInitPayload({ org, repo, path });
