@@ -60,7 +60,7 @@ class NXNav extends LitElement {
     for (const child of ul.children) {
       const button = child.querySelector('button');
       if (!button) {
-        const name = child.textContent.trim();
+        const name = child.textContent.trim().toLowerCase();
         await import(`../../components/${name}/${name}.js`);
         const cmp = document.createElement(`nx-${name}`);
         child.replaceChildren(cmp);
