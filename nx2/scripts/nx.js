@@ -12,6 +12,11 @@
 
 const LOG = async (ex, el) => (await import('../utils/error.js')).default(ex, el);
 
+export function getColorScheme() {
+  return localStorage.getItem('color-scheme')
+    || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark-scheme' : 'light-scheme');
+}
+
 export function getMetadata(name) {
   const attr = name && name.includes(':') ? 'property' : 'name';
   const meta = document.head.querySelector(`meta[${attr}="${name}"]`);
@@ -20,7 +25,7 @@ export function getMetadata(name) {
 
 export function getLocale(locales) {
   const key = getMetadata('lang') || localStorage.getItem('lang') || '';
-  if (locales[key].lang) document.documentElement.lang = locales[key].lang;
+  if (locales[key]?.lang) document.documentElement.lang = locales[key].lang;
   return { key, ...locales[key] };
 }
 
@@ -32,18 +37,22 @@ export const env = (() => {
   return 'dev';
 })();
 
-async function getStrings(locales, locale) {
+async function getStrings(locales, locale, log) {
   const strings = new Map();
 
   // If not the default lang, load localized strings
-  const defaultLang = Object.values(locales)[0].lang;
-  if (locale.lang !== defaultLang) {
-    const resp = await fetch(`/${locale.lang}/placeholders.json`);
-    if (resp.ok) {
-      const { data } = await resp.json();
-      for (const row of data) {
-        strings.set(row.key, row.value);
+  const defaultLang = Object.values(locales)[0]?.lang;
+  if (locale.lang && locale.lang !== defaultLang) {
+    try {
+      const resp = await fetch(`/${locale.lang}/placeholders.json`);
+      if (resp.ok) {
+        const { data } = await resp.json();
+        for (const row of data) {
+          strings.set(row.key, row.value);
+        }
       }
+    } catch {
+      log(`Could not load strings for ${locale.lang}.`);
     }
   }
 
@@ -54,9 +63,10 @@ export const [setConfig, getConfig] = (() => {
   let config;
   return [
     async (conf = {}) => {
+      const log = conf.log || LOG;
       const locales = conf.locales || { '': {} };
       const locale = getLocale(locales);
-      const strings = await getStrings(locales, locale);
+      const strings = await getStrings(locales, locale, log);
       const nxBase = `${import.meta.url.replace('/scripts/nx.js', '')}`;
 
       config = {
@@ -66,7 +76,7 @@ export const [setConfig, getConfig] = (() => {
         linkBlocks: conf.linkBlocks || [{ fragment: '/fragments/' }],
         providers: conf.providers || {},
         codeBase: conf.codeBase || nxBase,
-        log: conf.log || LOG,
+        log,
         locales,
         locale,
         strings,
@@ -85,14 +95,15 @@ export const loc = ([first], ...values) => {
 };
 
 export async function loadBlock(block) {
-  const { providers, nxBase, log } = getConfig();
+  const { nxBase, codeBase, log } = getConfig();
   const { classList } = block;
-  const name = classList[0];
-  const [ns, ...rest] = name.split('-');
-  const base = providers[ns] || nxBase;
-  const basedName = base === nxBase ? name : rest.join('-');
+  let name = classList[0];
+  const isNx = name.startsWith('nx-');
+  name = isNx ? name.replace('nx-', '') : name;
   block.dataset.blockName = name;
-  const blockPath = `${base}/blocks/${basedName}/${basedName}`;
+  const path = isNx ? `${nxBase}/blocks` : `${codeBase}/blocks`;
+  const blockPath = `${path}/${name}/${name}`;
+  block.dataset.blockName = name;
   try {
     await (await import(`${blockPath}.js`)).default(block);
   } catch (ex) {
@@ -145,7 +156,7 @@ export function decorateLink(config, a) {
       const found = config.linkBlocks.some((pattern) => {
         const key = Object.keys(pattern)[0];
         if (!pathname.includes(pattern[key])) return false;
-        const blockName = key === 'fragment' && hash ? 'dialog' : key;
+        const blockName = key === 'fragment' && hash ? 'nx-dialog' : key;
         a.classList.add(blockName, 'auto-block');
         return true;
       });
