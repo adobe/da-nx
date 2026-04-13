@@ -5,7 +5,7 @@ import { pathSegmentsToCrumbs } from './utils.js';
 
 const styles = await loadStyle(import.meta.url);
 
-const CHEVRON_HREF = new URL('../../img/icons/S2_Icon_ChevronRight_20_N.svg', import.meta.url).href;
+const CHEVRON_HREF = new URL('../../img/icons/Icon_Breadcrumb_Chevron.svg', import.meta.url).href;
 
 class NxBreadcrumb extends LitElement {
   static properties = {
@@ -44,18 +44,16 @@ class NxBreadcrumb extends LitElement {
         <ol>
           ${crumbs.map((crumb, i) => html`
               <li class="crumb">
-                ${i > 0
-                  ? html`
+                ${i > 0 && this._chevronSvg
+        ? html`
                       <span class="crumb-separator" aria-hidden="true">
-                        ${this._chevronSvg
-                          ? this._chevronSvg.cloneNode(true)
-                          : html`<span class="crumb-chevron-fallback" aria-hidden="true">›</span>`}
+                        ${this._chevronSvg.cloneNode(true)}
                       </span>
                     `
-                  : nothing}
+        : nothing}
                 ${crumb.href
-                  ? html`<a class="crumb-label" href=${crumb.href}>${crumb.label}</a>`
-                  : html`
+        ? html`<a class="crumb-label" href=${crumb.href}>${crumb.label}</a>`
+        : html`
                       <span class="crumb-label current" aria-current="page">${crumb.label}</span>
                     `}
               </li>

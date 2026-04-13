@@ -34,7 +34,7 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  margin-inline: 4px 6px;
+  margin-inline: 5px;
   color: var(--s2-gray-700);
   pointer-events: none;
   user-select: none;
@@ -43,21 +43,12 @@
 .crumb-chevron {
   display: block;
   flex-shrink: 0;
-  transform: translateY(1px);
-  width: 16px;
-  height: 16px;
+  width: 3.69px;
+  height: 5.91px;
 }
 
 .crumb-chevron :is(path, circle, rect, ellipse, line, polyline, polygon) {
   fill: currentcolor;
-}
-
-.crumb-chevron-fallback {
-  display: block;
-  transform: translateY(1px);
-  font-size: var(--s2-component-m-regular-font-size);
-  line-height: 1;
-  color: inherit;
 }
 
 .crumb-label {
