@@ -1,7 +1,7 @@
 import { LitElement, html, nothing } from 'da-lit';
-import { loadStyle } from '../../utils/utils.js';
-import '../shared/popover/popover.js';
-import { loadHrefSvg } from '../../utils/svg.js';
+import { loadStyle } from '../../../utils/utils.js';
+import '../popover/popover.js';
+import { loadHrefSvg } from '../../../utils/svg.js';
 
 const ICONS_BASE = new URL('../../img/icons/', import.meta.url).href;
 const styles = await loadStyle(import.meta.url);
