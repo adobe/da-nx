@@ -39,4 +39,26 @@
   .browse-hint-error .browse-hint-detail {
     color: var(--s2-red-1000);
   }
+
+  .browse-header {
+    margin-bottom: var(--s2-spacing-300);
+  }
+
+  nx-breadcrumb {
+    display: block;
+    margin-bottom: var(--s2-spacing-100);
+  }
+
+  .browse-title {
+    margin: 0;
+    font-weight: var(--s2-component-xl-bold-font-weight);
+    font-size: var(--s2-component-xl-bold-font-size);
+    line-height: var(--s2-component-xl-bold-line-height);
+    color: var(--s2-gray-900);
+  }
+
+  .browse-loading {
+    margin: 0;
+    color: var(--s2-gray-700);
+  }
 }
