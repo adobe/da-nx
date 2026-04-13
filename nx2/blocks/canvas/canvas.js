@@ -35,9 +35,16 @@ function applyCanvasEditorView(mountRoot, view) {
 
 async function addPanelHeader(aside) {
   const { default: createPanelHeader } = await import('./nx-panel-header/nx-panel-header.js');
-  aside.querySelector('.panel-body').prepend(await createPanelHeader({
+  const header = await createPanelHeader({
     position: aside.dataset.position,
     onClose: () => hidePanel(aside),
+  });
+  const panelBody = aside.querySelector('.panel-body');
+  panelBody.prepend(header);
+
+  // to enable adding actions to the header
+  panelBody.dispatchEvent(new CustomEvent('nx-panel-slot', {
+    detail: { slot: header.querySelector('.panel-header-custom') },
   }));
 }
 

@@ -36,8 +36,33 @@ function renderNode(node) {
 
 const parser = unified().use(remarkParse);
 
-export function renderMessageContent(text) {
+function renderMessageContent(text) {
   if (!text) return nothing;
   const tree = parser.parse(text);
   return renderNode(tree);
+}
+
+export function renderThinking() {
+  return html`
+    <div class="chat-thinking">
+      <span></span><span></span><span></span>
+      <span class="chat-thinking-label">Thinking...</span>
+    </div>
+  `;
+}
+
+export function renderMessage(msg, icons) {
+  if (msg.role === 'tool') return nothing;
+  const isAssistant = msg.role === 'assistant';
+  const copy = isAssistant && !msg.streaming
+    ? html`<button class="message-action-copy" @click=${() => navigator.clipboard.writeText(msg.content)} aria-label="Copy">
+        ${icons?.copy?.cloneNode(true)}
+      </button>`
+    : nothing;
+  return html`
+    <div class="message message-${msg.role}">
+      <div class="message-content">${isAssistant ? renderMessageContent(msg.content) : msg.content}</div>
+      ${copy}
+    </div>
+  `;
 }

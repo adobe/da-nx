@@ -465,6 +465,10 @@ html:has(meta[content="edge-delivery"]) {
         margin: 0;
         max-height: none;
 
+        path {
+          fill: currentcolor;
+        }
+
         .panel-wrapper {
           --panel-bottom-margin: 12px;
 
