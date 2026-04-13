@@ -1,0 +1,88 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+
+.breadcrumb {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.breadcrumb ol {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  gap: 0;
+  font-family: var(--s2-font-family);
+  font-size: var(--s2-component-s-regular-font-size);
+  line-height: var(--s2-component-s-regular-line-height);
+  font-weight: var(--s2-component-s-regular-font-weight);
+  color: var(--s2-gray-700);
+}
+
+.crumb {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.crumb-separator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-inline: 4px 6px;
+  color: var(--s2-gray-700);
+  pointer-events: none;
+  user-select: none;
+}
+
+.crumb-chevron {
+  display: block;
+  flex-shrink: 0;
+  transform: translateY(1px);
+  width: 16px;
+  height: 16px;
+}
+
+.crumb-chevron :is(path, circle, rect, ellipse, line, polyline, polygon) {
+  fill: currentcolor;
+}
+
+.crumb-chevron-fallback {
+  display: block;
+  transform: translateY(1px);
+  font-size: var(--s2-component-m-regular-font-size);
+  line-height: 1;
+  color: inherit;
+}
+
+.crumb-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  font-weight: inherit;
+  color: var(--s2-gray-700);
+  text-decoration: none;
+}
+
+.crumb > .crumb-label {
+  flex: 1 1 auto;
+}
+
+a.crumb-label:hover {
+  color: var(--s2-gray-800);
+}
+
+.crumb-label.current {
+  cursor: default;
+  color: var(--s2-gray-800);
+  font-weight: var(--s2-component-m-bold-font-weight);
+}
