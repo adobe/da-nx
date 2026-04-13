@@ -23,7 +23,3 @@
   font: var(--nx-font-body, 14px/1.4 system-ui, sans-serif);
   text-align: center;
 }
-
-.nx-editor-wysiwyg-error {
-  color: light-dark(#b00020, #ff8a80);
-}

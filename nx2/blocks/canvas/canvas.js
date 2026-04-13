@@ -124,18 +124,15 @@ export default async function decorate(block) {
         el = document.createElement('nx-editor-doc');
         mountRoot.append(el);
       }
-      el.org = state.org;
-      el.repo = state.site;
-      el.path = fullPath;
+      const editorCtx = { org: state.org, repo: state.site, path: fullPath };
+      el.ctx = editorCtx;
 
       let frame = mountRoot.querySelector('nx-editor-wysiwyg');
       if (!frame) {
         frame = document.createElement('nx-editor-wysiwyg');
         mountRoot.append(frame);
       }
-      frame.org = state.org;
-      frame.repo = state.site;
-      frame.path = fullPath;
+      frame.ctx = editorCtx;
 
       const view = normalizeCanvasEditorView(header.editorView);
       applyCanvasEditorView(mountRoot, view);

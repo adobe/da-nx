@@ -1,31 +1,65 @@
 import { LitElement, html } from 'da-lit';
 import { loadStyle } from '../../../utils/utils.js';
 import { getPreviewOrigin, fetchWysiwygCookie } from './utils/preview.js';
+import { loadIms } from '../../../utils/ims.js';
 
 const style = await loadStyle(import.meta.url);
 
 const QUICK_EDIT_INIT_INTERVAL_MS = 400;
 const QUICK_EDIT_INIT_MAX_ATTEMPTS = 25;
 
+function buildQuickEditInitPayload({ org, repo, path }) {
+  const pathWithoutOrgRepo = path.split('/').slice(2).join('/').replace(/\.html$/i, '');
+  const pathname = pathWithoutOrgRepo ? `/${pathWithoutOrgRepo}` : '/';
+  return {
+    config: {
+      mountpoint: `${getPreviewOrigin(org, repo)}/${org}/${repo}`,
+    },
+    location: { pathname },
+  };
+}
+
+function postQuickEditInitToIframe({ iframe, config, location, onReady }) {
+  const { port1, port2 } = new MessageChannel();
+  port1.onmessage = (ev) => {
+    if (ev.data?.ready !== true) return;
+    onReady(port1);
+  };
+  try {
+    const targetOrigin = new URL(iframe.src).origin;
+    iframe.contentWindow.postMessage({ init: config, location }, targetOrigin, [port2]);
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error('[nx-editor-wysiwyg] Error posting init to iframe', err);
+  }
+}
+
+async function tryLoadWysiwygPreviewCookies({ org, repo, path, getCurrentCtx }) {
+  try {
+    const token = (await loadIms())?.accessToken?.token;
+    if (!token) {
+      // eslint-disable-next-line no-console
+      console.error('[nx-editor-wysiwyg] Preview cookies: no auth token (sign in required)');
+      return false;
+    }
+    await fetchWysiwygCookie({ org, repo, token });
+    const cur = getCurrentCtx();
+    if (cur?.org !== org || cur?.repo !== repo || cur?.path !== path) {
+      return false;
+    }
+    return true;
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error('[nx-editor-wysiwyg] Preview cookies failed', e);
+    return false;
+  }
+}
+
 export class NxEditorWysiwyg extends LitElement {
   static properties = {
-    org: { type: String },
-    repo: { type: String },
-    path: { type: String },
+    ctx: { type: Object },
     _cookieReady: { state: true },
-    _cookieError: { state: true },
   };
-
-  constructor() {
-    super();
-    this.org = '';
-    this.repo = '';
-    this.path = '';
-    this._cookieReady = false;
-    this._cookieError = null;
-    /** @type {ReturnType<typeof setInterval> | null} */
-    this._quickEditInitRetryId = null;
-  }
 
   connectedCallback() {
     super.connectedCallback();
@@ -38,117 +72,96 @@ export class NxEditorWysiwyg extends LitElement {
   }
 
   get _iframeSrc() {
-    if (!this.org || !this.repo || !this.path || !this._cookieReady) return null;
-    const segments = this.path.split('/');
+    const { org, repo, path } = this.ctx ?? {};
+    if (!org || !repo || !path || !this._cookieReady) return null;
+    const segments = path.split('/');
     const pathWithoutOrgRepo = segments.slice(2).join('/');
     const pathWithoutHtml = pathWithoutOrgRepo.replace(/\.html$/i, '');
     const encodedPath = pathWithoutHtml.split('/').map(encodeURIComponent).join('/');
-    const base = `${getPreviewOrigin(this.org, this.repo)}/${encodedPath}?nx=exp-workspace&quick-edit=exp-workspace`;
+    const base = `${getPreviewOrigin(org, repo)}/${encodedPath}?nx=exp-workspace&quick-edit=exp-workspace`;
     return `${base}&controller=parent`;
   }
 
   _clearQuickEditRetry() {
-    if (this._quickEditInitRetryId != null) {
+    if (this._quickEditInitRetryId) {
       clearInterval(this._quickEditInitRetryId);
       this._quickEditInitRetryId = null;
     }
   }
 
-  updated(changed) {
-    super.updated(changed);
-    if (changed.has('org') || changed.has('repo') || changed.has('path')) {
-      this._clearQuickEditRetry();
-      this._cookieReady = false;
-      this._cookieError = null;
-      if (!this.org || !this.repo || !this.path) {
-        return;
-      }
-      const { org, repo } = this;
-      (async () => {
-        try {
-          const { loadIms } = await import('../../../utils/ims.js');
-          const token = (await loadIms())?.accessToken?.token;
-          if (!token) {
-            this._cookieError = 'Sign in required';
-            this.requestUpdate();
-            return;
-          }
-          await fetchWysiwygCookie({ org, repo, token });
-          if (this.org !== org || this.repo !== repo) return;
-          this._cookieReady = true;
-          this._cookieError = null;
-        } catch (e) {
-          this._cookieError = e?.message ?? 'Failed to load preview cookies';
-        }
-        this.requestUpdate();
-      })().catch(() => {});
-    }
+  _resetCookieStateForCtxChange() {
+    this._clearQuickEditRetry();
+    this._cookieReady = false;
   }
 
-  /**
-   * @param {Event & { target: HTMLIFrameElement }} e
-   */
-  _onIframeLoad(e) {
-    const iframe = e?.target;
-    if (!iframe?.contentWindow || !this.org || !this.repo || !this.path) return;
+  updated(changed) {
+    super.updated(changed);
+    if (!changed.has('ctx')) return;
+    this._resetCookieStateForCtxChange();
+    const { org, repo, path } = this.ctx ?? {};
+    if (!org || !repo || !path) return;
 
+    tryLoadWysiwygPreviewCookies({
+      org,
+      repo,
+      path,
+      getCurrentCtx: () => this.ctx,
+    }).then((ok) => {
+      if (!ok) return;
+      this._cookieReady = true;
+      this.requestUpdate();
+    });
+  }
+
+  _dispatchWysiwygPortReady(port) {
     this._clearQuickEditRetry();
+    this.dispatchEvent(new CustomEvent('nx-wysiwyg-port-ready', {
+      bubbles: true,
+      composed: true,
+      detail: { port },
+    }));
+  }
 
-    const pathWithoutOrgRepo = this.path.split('/').slice(2).join('/').replace(/\.html$/i, '');
-    const pathname = pathWithoutOrgRepo ? `/${pathWithoutOrgRepo}` : '/';
-
-    const config = {
-      mountpoint: `${getPreviewOrigin(this.org, this.repo)}/${this.org}/${this.repo}`,
-    };
-    const location = { pathname };
-
-    const trySendInit = () => {
-      const { port1, port2 } = new MessageChannel();
-
-      port1.onmessage = (ev) => {
-        if (ev.data?.ready !== true) return;
-        this._clearQuickEditRetry();
-        this.dispatchEvent(new CustomEvent('nx-wysiwyg-port-ready', {
-          bubbles: true,
-          composed: true,
-          detail: { port: port1 },
-        }));
-      };
-
-      try {
-        const targetOrigin = new URL(iframe.src).origin;
-        iframe.contentWindow.postMessage({ init: config, location }, targetOrigin, [port2]);
-      } catch (err) {
-        // eslint-disable-next-line no-console
-        console.error('[nx-editor-wysiwyg] Error posting init to iframe', err);
-      }
-    };
-
+  _scheduleQuickEditInitRetries(send) {
     let attempts = 0;
-    trySendInit();
     this._quickEditInitRetryId = setInterval(() => {
       attempts += 1;
       if (attempts >= QUICK_EDIT_INIT_MAX_ATTEMPTS) {
         this._clearQuickEditRetry();
         return;
       }
-      trySendInit();
+      send();
     }, QUICK_EDIT_INIT_INTERVAL_MS);
   }
 
+  _onIframeLoad(e) {
+    const iframe = e?.target;
+    const { org, repo, path } = this.ctx ?? {};
+    if (!iframe?.contentWindow || !org || !repo || !path) return;
+
+    this._clearQuickEditRetry();
+
+    const { config, location } = buildQuickEditInitPayload({ org, repo, path });
+    const send = () => postQuickEditInitToIframe({
+      iframe,
+      config,
+      location,
+      onReady: (port) => this._dispatchWysiwygPortReady(port),
+    });
+
+    send();
+    this._scheduleQuickEditInitRetries(send);
+  }
+
   render() {
-    const hasPath = this.org && this.repo && this.path;
+    const { org, repo, path } = this.ctx ?? {};
+    const hasPath = org && repo && path;
     if (!hasPath) {
       return html`
         <div class="nx-editor-wysiwyg-placeholder">Select an HTML file for WYSIWYG preview.</div>
       `;
     }
     if (!this._cookieReady) {
-      if (this._cookieError) {
-        return html`
-          <div class="nx-editor-wysiwyg-placeholder nx-editor-wysiwyg-error">${this._cookieError}</div>
-        `;
-      }
       return html`<div class="nx-editor-wysiwyg-placeholder">Loading preview…</div>`;
     }
     const src = this._iframeSrc;
