@@ -270,3 +270,7 @@ main > div,
 main > div[data-status] {
   display: none;
 }
+
+html {
+  display: block;
+}
