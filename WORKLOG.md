@@ -34,3 +34,44 @@ Decided to wrap nav and sidenav in semantic HTML elements:
 
 ### README.md updated
 - Added "Context" section linking to AGENTS.md and WORKLOG.md with descriptions.
+
+## 2026-04-02
+
+### nx2 `blocks/panel/` (app-frame side panels)
+- Added `panel.js`: Lit `nx-panel` (shadow shell, default slot, resize handle in shadow), `createPanel` / `showPanel` (`{ width, beforeMain }`), `setPanelsGrid` for app-frame column/area CSS vars. Shell is `aside.panel` with `data-position` before/after main; `createPanel` / `showPanel` return the `nx-panel` element. Empty `aside` after removing `nx-panel` is dropped in `disconnectedCallback`.
+- `decorate(block)`: if the block has an anchor → `loadFragment(a.href)` → `createPanel`, move fragment children onto `nx-panel` with DOM APIs, remove the block.
+- Styling split: `styles.css` keeps app-frame grid (`--app-frame-*`, `body.app-frame` row); `panel.css` holds panel surface and resize affordance.
+- Mobile-first: default `body.app-frame` uses fixed panel insets + `:has(aside.panel)::before` scrim; `@media (width >= 600px)` restores grid layout and clears modal positioning. `setPanelsGrid` always sets `--app-frame-*` (only applied at 600px+).
+
+## 2026-04-03
+
+### utils.js rewrite — multi-environment DA service config
+- Replaced stub `DA_ORIGIN`/`daFetch` exports with real environment-aware origins for DA services (admin, collab, content, preview, etc.).
+- `getEnv(key, envs)` resolves origin per service: checks query param → localStorage → default (stage for dev/stage, prod for prod).
+- Removed `HashController` reactive controller; sidenav no longer uses it.
+- `parseWindowPath` now returns `null` for missing/invalid hashes and strips trailing `/index` from hash.
+
+### New api.js — extracted API layer
+- `daFetch` handles auth token injection, checks URL against `ALLOWED_TOKEN` origins before attaching bearer.
+- `ping`, `source`, `list`, `signout` — thin wrappers for DA/AEM endpoints.
+- Profile block now imports `signout` from api.js instead of inlining the fetch.
+
+### CSS: class selectors → meta-content selectors
+- Spectrum Edge and app-frame layouts no longer rely on JS adding classes (`spectrum-edge`, `app-frame`).
+- Replaced with `html:has(meta[content="edge-delivery"])` and `html:has(meta[content="app-frame"])` — pure CSS, no JS decoration needed.
+- Removed `spectrum-edge` class addition from `decorateDoc` in nx.js.
+- App-frame grid extracted to its own top-level rule block.
+
+### profile.js — handleScheme simplification
+- Color scheme toggle simplified: remove both classes, add the toggled one. No intermediate object.
+
+### AGENTS.md — "parse, don't validate" convention
+- Added to JS conventions section. Core idea: push validation to the boundary where data enters, return `null` or a well-formed result — no ambiguous middle ground. Downstream code trusts the shape without re-checking.
+- Codifies the distinct meaning of `null` (absent), `undefined` (not yet loaded), and `''` (explicitly cleared).
+- `parseWindowPath` is the canonical example: returns a clean `{ view, org, site, path }` or `null`.
+## 2026-04-04
+
+### Panel-aware default-content max-width
+- When either side panel is visible (`aside.panel:not([hidden])`), `.default-content` inside `main` now uses `max-width: 83.4%` instead of the fixed `--se-grid-container-width` value.
+- Uses sibling selectors: `main:has(~ aside.panel:not([hidden]))` for panels after main, `aside.panel:not([hidden]) ~ main` for panels before main.
+- The fixed `1200px` media query (`@media (width >= 1440px)`) remains for the no-panel case.

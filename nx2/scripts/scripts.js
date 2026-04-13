@@ -22,6 +22,7 @@ const locales = {
 
 const linkBlocks = [
   { fragment: '/fragments/' },
+  { 'action-button': '/tools/widgets/panel' },
 ];
 
 const imsClientId = 'nexter';
