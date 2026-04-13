@@ -70,29 +70,6 @@ export function handleUndoRedo(data, ctx) {
   }
 }
 
-export async function handlePreview(ctx) {
-  const path = ctx.path.endsWith('/') ? `${ctx.path}index` : `${ctx.path}`;
-  const url = `https://admin.hlx.page/preview/${ctx.owner}/${ctx.repo}/main${path}`;
-  const token = typeof ctx.getToken === 'function' ? await Promise.resolve(ctx.getToken()) : null;
-  const headers = {};
-  if (token) headers.Authorization = `Bearer ${token}`;
-
-  const resp = await fetch(url, { method: 'POST', headers });
-
-  if (!resp.ok) {
-    ctx.port.postMessage({ type: 'preview', ok: false, error: `Failed to preview: ${resp.statusText}` });
-  } else {
-    ctx.port.postMessage({ type: 'preview', ok: true });
-  }
-}
-
-/**
- * Sync stored marks from the WYSIWYG portal to the doc editor so the toolbar
- * reflects mark toggles (e.g. Cmd+B) made via keyboard in the portal immediately,
- * without waiting for a character to be typed.
- * @param {{ marks: object[] }} data - serialised ProseMirror mark JSON
- * @param {{ view: import('prosemirror-view').EditorView }} ctx
- */
 export function handleStoredMarks({ marks }, ctx) {
   const { view } = ctx;
   if (!view) return;

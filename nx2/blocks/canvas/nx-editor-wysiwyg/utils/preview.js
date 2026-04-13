@@ -8,9 +8,6 @@ export function getPreviewOrigin(org, repo) {
   return `https://main--${repo}--${org}.${domain}`;
 }
 
-/**
- * @param {{ org: string, repo: string, token: string }} params
- */
 export async function fetchWysiwygCookie({ org, repo, token }) {
   if (!org || !repo || !token) {
     throw new Error('fetchWysiwygCookie: org, repo, and token required');

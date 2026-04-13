@@ -139,13 +139,6 @@ export function findCommonEditableAncestor(view, changes, prevState) {
   return allSameAncestor ? editableAncestors[0] : null;
 }
 
-/**
- * ProseMirror plugin: sync doc changes / selection to the WYSIWYG iframe (quick-edit).
- * @param {() => void} rerenderPage
- * @param {() => void} updateCursors
- * @param {(data: { cursorOffset: number }) => void} getEditor
- * @param {(view: import('prosemirror-view').EditorView) => void} [onSelectionChange]
- */
 export function createTrackingPlugin(rerenderPage, updateCursors, getEditor, onSelectionChange) {
   return new Plugin({
     view() {
