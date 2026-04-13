@@ -65,14 +65,14 @@ class NxMenu extends LitElement {
 
   show({ anchor, placement } = {}) {
     this._active = undefined;
-    this._popover.show({
+    this._popover?.show({
       anchor,
       placement: placement ?? this.getAttribute('placement') ?? 'below',
     });
   }
 
   close() {
-    this._popover.close();
+    this._popover?.close();
   }
 
   get open() {
@@ -111,7 +111,7 @@ class NxMenu extends LitElement {
       this.shadowRoot.querySelector(`[data-id="${this._active}"]`)?.focus();
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      this._active = selectable[(curIdx - 1 + selectable.length) % selectable.length].id;
+      this._active = selectable[(curIdx <= 0 ? selectable.length : curIdx) - 1].id;
       this.shadowRoot.querySelector(`[data-id="${this._active}"]`)?.focus();
     } else if (e.key === 'Enter' && this._active !== undefined) {
       e.preventDefault();
