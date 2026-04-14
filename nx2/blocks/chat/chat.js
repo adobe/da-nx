@@ -1,15 +1,16 @@
 import { LitElement, html, nothing } from 'da-lit';
-import { loadStyle, hashChange } from '../../utils/utils.js';
 import ChatController from './chat-controller.js';
 import { renderMessage, renderThinking } from './renderers.js';
 import './welcome/welcome.js';
+import '../shared/menu/menu.js';
+import { loadStyle, hashChange } from '../../utils/utils.js';
 import { loadChatIcons } from './utils.js';
+import { ADD_MENU_ITEMS, CHAT_ICONS } from './constants.js';
 
 const styles = await loadStyle(import.meta.url);
-const icons = await loadChatIcons({ add: 'Add', clear: 'RemoveCircle', copy: 'Copy', send: 'ArrowUpSend', stop: 'Stop' });
+const icons = await loadChatIcons(CHAT_ICONS);
 
 const icon = (name) => icons?.[name]?.cloneNode(true);
-
 class NxChat extends LitElement {
   static properties = {
     messages: { type: Array },
@@ -133,6 +134,9 @@ class NxChat extends LitElement {
           @keydown=${this._handleKeydown}
         ></textarea>
         <div class="chat-actions ${this.thinking ? 'chat-thinking' : ''}">
+          <nx-menu .items=${ADD_MENU_ITEMS} placement="above">
+            <button slot="trigger" class="chat-add" type="button" aria-label="Add">${icon('add')}</button>
+          </nx-menu>
           <button class="chat-stop" type="button" aria-label="Stop" @click=${this._submit}>${icon('stop')}</button>
           <button class="chat-send" type="submit" aria-label="Send">${icon('send')}</button>
         </div>

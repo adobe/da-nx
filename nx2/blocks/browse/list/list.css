@@ -1,0 +1,196 @@
+:host {
+  display: block;
+  min-height: 12rem;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  background-color: var(--s2-gray-25);
+  font-family: var(--s2-font-family);
+  font-size: var(--s2-component-s-regular-font-size);
+  line-height: var(--s2-component-s-regular-line-height);
+  color: var(--s2-gray-900);
+
+  .browse-sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+    border: 0;
+    pointer-events: none;
+  }
+}
+
+.browse-data-table {
+  --browse-rule: var(--s2-gray-300);
+
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: separate;
+  border-spacing: 0;
+
+  & thead {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background-color: var(--s2-gray-25);
+  }
+
+  & :is(th, td) {
+    box-sizing: border-box;
+    height: 40px;
+    vertical-align: middle;
+  }
+
+  & th {
+    text-align: left;
+    white-space: nowrap;
+    font-weight: var(--s2-component-s-medium-font-weight);
+    font-size: var(--s2-component-s-medium-font-size);
+    line-height: var(--s2-component-s-medium-line-height);
+    color: var(--s2-gray-700);
+  }
+
+  & :is(th, td).browse-col-select {
+    width: 48px;
+    padding-right: var(--s2-spacing-100);
+    text-align: center;
+  }
+
+  & :is(th, td).browse-col-icon {
+    width: 32px;
+    padding-left: var(--s2-spacing-100);
+    text-align: center;
+  }
+
+  & :is(th, td).browse-col-name {
+    min-width: 3rem;
+    padding: 0 var(--s2-spacing-300) 0 var(--s2-spacing-100);
+  }
+
+  & tbody {
+    & td {
+      border-bottom: 1px solid var(--browse-rule);
+    }
+
+    & td:first-child {
+      border-left: 1px solid var(--browse-rule);
+    }
+
+    & td:last-child {
+      border-right: 1px solid var(--browse-rule);
+    }
+
+    & tr:first-child td {
+      border-top: 1px solid var(--browse-rule);
+    }
+
+    & tr:first-child td:first-child {
+      border-top-left-radius: var(--s2-corner-radius-500);
+    }
+
+    & tr:first-child td:last-child {
+      border-top-right-radius: var(--s2-corner-radius-500);
+    }
+
+    & tr:last-child td:first-child {
+      border-bottom-left-radius: var(--s2-corner-radius-500);
+    }
+
+    & tr:last-child td:last-child {
+      border-bottom-right-radius: var(--s2-corner-radius-500);
+    }
+
+    & tr.browse-data-row {
+      &:hover {
+        background-color: var(--s2-gray-75);
+      }
+    }
+
+    & tr.browse-data-row-folder {
+      cursor: pointer;
+    }
+  }
+
+  .browse-checkbox-label {
+    margin: 0;
+    cursor: pointer;
+    vertical-align: middle;
+
+    & input {
+      appearance: none;
+      box-sizing: border-box;
+      width: 16px;
+      height: 16px;
+      margin: 0;
+      flex-shrink: 0;
+      border: 2px solid var(--s2-gray-900);
+      border-radius: var(--s2-corner-radius-75);
+      background-color: var(--s2-gray-25);
+      cursor: pointer;
+    }
+
+    & input:checked {
+      border-color: var(--s2-blue-900);
+      background-color: var(--s2-blue-900);
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none'%3E%3Cpath stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' d='M2.5 6l2.5 3 4.5-5'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: center;
+      background-size: 10px 10px;
+    }
+
+    & input:indeterminate {
+      background-color: var(--s2-gray-25);
+      border-color: var(--s2-gray-900);
+      background-image: linear-gradient(var(--s2-gray-900), var(--s2-gray-900));
+      background-size: 8px 2px;
+      background-position: center;
+      background-repeat: no-repeat;
+    }
+
+    & input:focus-visible {
+      outline: 2px solid var(--s2-blue-900);
+      outline-offset: 2px;
+    }
+  }
+
+  /* Fill the select column so the whole hit area toggles the checkbox (label wraps input). */
+  & :is(th, td).browse-col-select .browse-checkbox-label {
+    display: flex;
+    box-sizing: border-box;
+    width: 100%;
+    height: 100%;
+    min-height: 40px;
+    align-items: center;
+    justify-content: center;
+    margin: 0;
+    cursor: pointer;
+    vertical-align: middle;
+  }
+
+  .browse-col-icon svg {
+    display: block;
+    width: 16px;
+    height: 16px;
+
+    /* S2 SVGs ship with fill="#292929"; tie shapes to theme tokens via currentColor. */
+    color: var(--s2-gray-700);
+  }
+
+  .browse-col-icon svg :is(path, circle, rect, ellipse, line, polyline, polygon) {
+    fill: currentcolor;
+  }
+}
+
+.browse-name-text {
+  display: block;
+  font-size: var(--s2-component-s-regular-font-size);
+  line-height: var(--s2-component-s-regular-line-height);
+  font-weight: var(--s2-component-s-bold-font-weight);
+  color: var(--s2-gray-900);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
