@@ -446,6 +446,10 @@ dialog.modal-overlay::backdrop {
   text-align: center;
 }
 
+.pdf-loading-container sl-spinner {
+  font-size: 3rem;
+}
+
 .pdf-error-message {
   margin-top: 16px;
   color: var(--s2-gray-700);

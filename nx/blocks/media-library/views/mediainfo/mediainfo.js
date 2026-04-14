@@ -53,6 +53,7 @@ const ICONS = [
 
 const SUPPORTED_TABS = ['usage', 'metadata'];
 const DEFAULT_TAB = 'usage';
+const MAX_PDF_CACHE_SIZE = 5;
 
 class NxMediaInfo extends LitElement {
   static properties = {
@@ -73,6 +74,7 @@ class NxMediaInfo extends LitElement {
     _modalNotification: { state: true },
     _pdfState: { state: true },
     _pdfError: { state: true },
+    _pdfBlobUrl: { state: true },
   };
 
   constructor() {
@@ -130,6 +132,17 @@ class NxMediaInfo extends LitElement {
     this._pdfBlobCache.clear();
     this._pdfBlobUrl = null;
     this._pdfCurrentUrl = null;
+  }
+
+  _evictOldestPdfBlob() {
+    if (this._pdfBlobCache.size >= MAX_PDF_CACHE_SIZE) {
+      const oldestKey = this._pdfBlobCache.keys().next().value;
+      const oldestBlobUrl = this._pdfBlobCache.get(oldestKey);
+      if (oldestBlobUrl) {
+        URL.revokeObjectURL(oldestBlobUrl);
+      }
+      this._pdfBlobCache.delete(oldestKey);
+    }
   }
 
   updated(changedProperties) {
@@ -415,14 +428,14 @@ class NxMediaInfo extends LitElement {
 
       if (!response.ok) {
         this._pdfState = 'error';
-        this._pdfError = `Unable to load PDF (${response.status})`;
+        this._pdfError = t('UI_PDF_HTTP_ERROR', { status: response.status });
         return;
       }
 
       const contentType = response.headers.get('content-type');
       if (contentType && !contentType.includes('application/pdf') && !contentType.includes('application/octet-stream')) {
         this._pdfState = 'error';
-        this._pdfError = 'Server did not return a PDF file';
+        this._pdfError = t('UI_PDF_INVALID_TYPE');
         return;
       }
 
@@ -434,6 +447,7 @@ class NxMediaInfo extends LitElement {
 
       const blobUrl = URL.createObjectURL(blob);
 
+      this._evictOldestPdfBlob();
       this._pdfBlobUrl = blobUrl;
       this._pdfBlobCache.set(pdfUrl, blobUrl);
       this._pdfState = 'loaded';
@@ -444,7 +458,7 @@ class NxMediaInfo extends LitElement {
       }
       if (this._pdfCurrentUrl === pdfUrl) {
         this._pdfState = 'error';
-        this._pdfError = 'Failed to load PDF. It may be inaccessible.';
+        this._pdfError = t('UI_PDF_INACCESSIBLE');
       }
     }
   }
@@ -729,7 +743,7 @@ class NxMediaInfo extends LitElement {
     if (this.media) {
       const label = getMediaName(this.media);
       if (label && label !== 'Unknown') {
-        displayName = decodeDisplayName(label);
+        displayName = label;
       } else {
         const name = this.media.displayName || this.media.name || getFileName(this.media.url) || 'Media Details';
         if (name && name !== 'Media Details') {
@@ -934,8 +948,8 @@ class NxMediaInfo extends LitElement {
       if (this._pdfState === 'loading') {
         return html`
           <div class="pdf-loading-container" role="status" aria-live="polite">
-            <sl-spinner style="font-size: 3rem;" aria-label="Loading PDF"></sl-spinner>
-            <p class="pdf-error-message">Loading PDF preview...</p>
+            <sl-spinner aria-label="${t('UI_PDF_LOADING_ARIA')}"></sl-spinner>
+            <p class="pdf-error-message">${t('UI_PDF_LOADING')}</p>
           </div>
         `;
       }
@@ -947,10 +961,10 @@ class NxMediaInfo extends LitElement {
               <use href="#S2_Icon_PDF_20_N"></use>
             </svg>
             <p class="pdf-error-message">
-              ${this._pdfError || 'Failed to load PDF'}
+              ${this._pdfError || t('UI_PDF_FAILED')}
             </p>
             <a href="${pdfUrl}" target="_blank" rel="noopener noreferrer" class="pdf-error-link">
-              Open PDF in new tab
+              ${t('UI_PDF_OPEN_IN_NEW_TAB')}
             </a>
           </div>
         `;
@@ -958,13 +972,13 @@ class NxMediaInfo extends LitElement {
 
       if (this._pdfBlobUrl) {
         return html`
-          <iframe src="${this._pdfBlobUrl}" class="pdf-preview" title="PDF Preview" frameborder="0" aria-label="PDF document preview"></iframe>
+          <iframe src="${this._pdfBlobUrl}" class="pdf-preview" title="PDF Preview" aria-label="PDF document preview"></iframe>
         `;
       }
 
       return html`
         <div class="pdf-loading-container" role="status" aria-live="polite">
-          <sl-spinner style="font-size: 3rem;" aria-label="Loading PDF"></sl-spinner>
+          <sl-spinner aria-label="${t('UI_PDF_LOADING_ARIA')}"></sl-spinner>
         </div>
       `;
     }
