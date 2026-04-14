@@ -4,7 +4,7 @@ export function buildSourceUrl(path) {
   if (!path || typeof path !== 'string') return null;
   const trimmed = path.replace(/^\//, '').trim();
   if (!trimmed) return null;
-  return `${DA_ORIGIN}/source/${trimmed}`;
+  return `${DA_ORIGIN}/source/${trimmed}.html`;
 }
 
 export function parsePermissions(resp) {
