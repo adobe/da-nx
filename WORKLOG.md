@@ -88,11 +88,19 @@ Decided to wrap nav and sidenav in semantic HTML elements:
 ### nx2 canvas — quick-edit (controller=parent) WYSIWYG
 - **Superseded 2026-04-09** — structure was `nx-doc-editor` + `nx-wysiwyg-frame`; see next section.
 
+## 2026-04-14
+
+### nx2 canvas — PR #351 review follow-up
+- **`canvas.js`**: `nx-canvas-editor-active` on the mount root replaces direct `hidden` toggling on `nx-editor-doc` / `nx-editor-wysiwyg`; each editor listens on `parentElement` and updates its own visibility (wysiwyg still gates on `data-nx-wysiwyg-port-ready`).
+- **`nx-editor-wysiwyg`**: close unused parent-side `MessageChannel` ports before each init retry and on disconnect; keep the port handed to `nx-editor-doc` open.
+- **`nx-editor-doc`**: `port.close()` when clearing the quick-edit controller port.
+
 ## 2026-04-09
 
 ### nx2 canvas — editor layout rename + file split
 - **`nx2/blocks/canvas/nx-editor-doc/`**: `nx-editor-doc` Lit element + CSS; **`prose.js`** — Yjs + ProseMirror init only, `extraPlugins` for injected plugins; **`utils/source.js`** (source URL, HEAD permissions); **`utils/collab.js`** (awareness color + identity).
-- **`nx2/blocks/canvas/nx-editor-wysiwyg/`**: `nx-editor-wysiwyg` Lit iframe + cookie + MessageChannel; **`quick-edit-controller.js`** (MessagePort → ProseMirror); **`utils/preview.js`** (`getPreviewOrigin`, `fetchWysiwygCookie`); **`utils/prose-diff.js`** (`createTrackingPlugin` + doc diff helpers for iframe sync).
+- **`nx2/blocks/canvas/nx-editor-wysiwyg/`**: `nx-editor-wysiwyg` Lit iframe + cookie + MessageChannel; **`quick-edit-controller.js`** (MessagePort → ProseMirror).
+- **`nx2/blocks/canvas/editor-utils/`** (2026-04-14): shared editor plumbing — **`preview.js`**, **`document.js`**, **`state.js`**; **`prose-diff.js`** (`createTrackingPlugin`, doc diff helpers for ProseMirror → iframe sync; consumed by `load-editor-doc.js` only).
 - **`canvas.js` / `canvas.css`**: lazy-import `nx-editor-doc` + `nx-editor-wysiwyg`; `nx-wysiwyg-port-ready` → `nx-editor-doc.quickEditPort`.
 
 ## 2026-04-04

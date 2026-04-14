@@ -1,6 +1,6 @@
 import { LitElement, html } from 'da-lit';
 import { loadStyle } from '../../../utils/utils.js';
-import { getPreviewOrigin, fetchWysiwygCookie } from './utils/preview.js';
+import { getPreviewOrigin, fetchWysiwygCookie } from '../editor-utils/preview.js';
 import { loadIms } from '../../../utils/ims.js';
 
 const style = await loadStyle(import.meta.url);
@@ -19,21 +19,6 @@ function buildQuickEditInitPayload({ org, repo, path }) {
     },
     location: { pathname },
   };
-}
-
-function postQuickEditInitToIframe({ iframe, config, location, onReady }) {
-  const { port1, port2 } = new MessageChannel();
-  port1.onmessage = (ev) => {
-    if (ev.data?.ready !== true) return;
-    onReady(port1);
-  };
-  try {
-    const targetOrigin = new URL(iframe.src).origin;
-    iframe.contentWindow.postMessage({ init: config, location }, targetOrigin, [port2]);
-  } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error('[nx-editor-wysiwyg] Error posting init to iframe', err);
-  }
 }
 
 async function tryLoadWysiwygPreviewCookies({ org, repo, path, getCurrentCtx }) {
@@ -66,10 +51,17 @@ export class NxEditorWysiwyg extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
+    this._onCanvasEditorActive = (e) => {
+      this._canvasActiveView = e.detail?.view === 'content' ? 'content' : 'layout';
+      this._syncCanvasVisibility();
+    };
+    this.parentElement?.addEventListener('nx-canvas-editor-active', this._onCanvasEditorActive);
   }
 
   disconnectedCallback() {
+    this.parentElement?.removeEventListener('nx-canvas-editor-active', this._onCanvasEditorActive);
     this._clearQuickEditRetry();
+    this._disposeQuickEditLocalPort();
     super.disconnectedCallback();
   }
 
@@ -84,6 +76,17 @@ export class NxEditorWysiwyg extends LitElement {
     return `${base}&controller=parent`;
   }
 
+  _disposeQuickEditLocalPort() {
+    if (!this._quickEditLocalPort) return;
+    try {
+      this._quickEditLocalPort.onmessage = null;
+      this._quickEditLocalPort.close();
+    } catch {
+      /* ignore */
+    }
+    this._quickEditLocalPort = null;
+  }
+
   _clearQuickEditRetry() {
     if (this._quickEditInitRetryId) {
       clearInterval(this._quickEditInitRetryId);
@@ -91,8 +94,15 @@ export class NxEditorWysiwyg extends LitElement {
     }
   }
 
+  _syncCanvasVisibility() {
+    const view = this._canvasActiveView ?? 'layout';
+    const portReady = this.hasAttribute(WYSIWYG_PORT_READY_ATTR);
+    this.hidden = view !== 'layout' || !portReady;
+  }
+
   _resetCookieStateForCtxChange() {
     this._clearQuickEditRetry();
+    this._disposeQuickEditLocalPort();
     this._cookieReady = false;
   }
 
@@ -101,6 +111,7 @@ export class NxEditorWysiwyg extends LitElement {
     if (!changed.has('ctx')) return;
     this.removeAttribute(WYSIWYG_PORT_READY_ATTR);
     this._resetCookieStateForCtxChange();
+    this._syncCanvasVisibility();
     const { org, repo, path } = this.ctx ?? {};
     if (!org || !repo || !path) return;
 
@@ -119,6 +130,7 @@ export class NxEditorWysiwyg extends LitElement {
   _dispatchWysiwygPortReady(port) {
     this._clearQuickEditRetry();
     this.setAttribute(WYSIWYG_PORT_READY_ATTR, '');
+    this._syncCanvasVisibility();
     this.dispatchEvent(new CustomEvent('nx-wysiwyg-port-ready', {
       bubbles: true,
       composed: true,
@@ -138,6 +150,25 @@ export class NxEditorWysiwyg extends LitElement {
     }, QUICK_EDIT_INIT_INTERVAL_MS);
   }
 
+  _postQuickEditInitToIframe({ iframe, config, location, onReady }) {
+    this._disposeQuickEditLocalPort();
+    const { port1, port2 } = new MessageChannel();
+    this._quickEditLocalPort = port1;
+    port1.onmessage = (ev) => {
+      if (ev.data?.ready !== true) return;
+      this._quickEditLocalPort = null;
+      onReady(port1);
+    };
+    try {
+      const targetOrigin = new URL(iframe.src).origin;
+      iframe.contentWindow.postMessage({ init: config, location }, targetOrigin, [port2]);
+    } catch (err) {
+      this._disposeQuickEditLocalPort();
+      // eslint-disable-next-line no-console
+      console.error('[nx-editor-wysiwyg] Error posting init to iframe', err);
+    }
+  }
+
   _onIframeLoad(e) {
     const iframe = e?.target;
     const { org, repo, path } = this.ctx ?? {};
@@ -145,9 +176,10 @@ export class NxEditorWysiwyg extends LitElement {
 
     this.removeAttribute(WYSIWYG_PORT_READY_ATTR);
     this._clearQuickEditRetry();
+    this._syncCanvasVisibility();
 
     const { config, location } = buildQuickEditInitPayload({ org, repo, path });
-    const send = () => postQuickEditInitToIframe({
+    const send = () => this._postQuickEditInitToIframe({
       iframe,
       config,
       location,

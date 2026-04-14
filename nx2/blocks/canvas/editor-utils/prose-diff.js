@@ -139,7 +139,7 @@ export function findCommonEditableAncestor(view, changes, prevState) {
   return allSameAncestor ? editableAncestors[0] : null;
 }
 
-export function createTrackingPlugin(rerenderPage, updateCursors, getEditor, onSelectionChange) {
+export function createTrackingPlugin(rerenderPage, updateCursors, getEditor) {
   return new Plugin({
     view() {
       return {
@@ -161,10 +161,6 @@ export function createTrackingPlugin(rerenderPage, updateCursors, getEditor, onS
           }
 
           updateCursors?.();
-
-          if (view.state.selection !== prevState.selection) {
-            onSelectionChange?.(view);
-          }
         },
       };
     },

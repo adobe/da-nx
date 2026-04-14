@@ -1,7 +1,7 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../utils/utils.js';
-import { updateDocument, updateCursors } from '../nx-editor-wysiwyg/utils/document.js';
-import { getEditor } from '../nx-editor-wysiwyg/utils/state.js';
+import { updateDocument, updateCursors } from '../editor-utils/document.js';
+import { getEditor } from '../editor-utils/state.js';
 import {
   editorDocCanLoad,
   sourceUrlFromEditorCtx,
@@ -37,8 +37,10 @@ export class NxEditorDoc extends LitElement {
   }
 
   _clearControllerPort() {
-    if (this._controllerCtx?.port) {
-      this._controllerCtx.port.onmessage = null;
+    const port = this._controllerCtx?.port;
+    if (port) {
+      port.onmessage = null;
+      port.close();
     }
     this._controllerCtx = undefined;
   }
@@ -126,16 +128,9 @@ export class NxEditorDoc extends LitElement {
 
     try {
       const trackingCallbacks = {
-        rerenderPage: () => {
-          if (this._controllerCtx) updateDocument(this._controllerCtx);
-        },
-        updateCursorsCb: () => {
-          if (this._controllerCtx) updateCursors(this._controllerCtx);
-        },
-        getEditorCb: (data) => {
-          if (this._controllerCtx) getEditor(data, this._controllerCtx);
-        },
-        onSelectionChangeCb: () => {},
+        rerenderPage: () => updateDocument(this._controllerCtx),
+        updateCursorsCb: () => updateCursors(this._controllerCtx),
+        getEditorCb: (data) => getEditor(data, this._controllerCtx),
       };
 
       const { proseEl, wsProvider, view, ydoc } = await createProseEditorInstance({
@@ -166,9 +161,15 @@ export class NxEditorDoc extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
+    this._onCanvasEditorActive = (e) => {
+      const view = e.detail?.view === 'content' ? 'content' : 'layout';
+      this.hidden = view !== 'content';
+    };
+    this.parentElement?.addEventListener('nx-canvas-editor-active', this._onCanvasEditorActive);
   }
 
   disconnectedCallback() {
+    this.parentElement?.removeEventListener('nx-canvas-editor-active', this._onCanvasEditorActive);
     this._teardown();
     super.disconnectedCallback();
   }

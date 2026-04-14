@@ -1,3 +1,5 @@
+import initProse from '../prose.js';
+import { createTrackingPlugin } from '../../editor-utils/prose-diff.js';
 import { checkDoc } from './source.js';
 
 export async function resolveEditorDocSession(sourceUrl) {
@@ -25,20 +27,14 @@ export async function createProseEditorInstance({
   setEditable,
   trackingCallbacks,
 }) {
-  const [{ default: initProse }, { createTrackingPlugin }] = await Promise.all([
-    import('../prose.js'),
-    import('../../nx-editor-wysiwyg/utils/prose-diff.js'),
-  ]);
-
   const {
     rerenderPage,
     updateCursorsCb,
     getEditorCb,
-    onSelectionChangeCb,
   } = trackingCallbacks;
 
   const extraPlugins = [
-    createTrackingPlugin(rerenderPage, updateCursorsCb, getEditorCb, onSelectionChangeCb),
+    createTrackingPlugin(rerenderPage, updateCursorsCb, getEditorCb),
   ];
 
   const getToken = () => token;

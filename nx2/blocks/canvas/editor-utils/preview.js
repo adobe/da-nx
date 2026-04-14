@@ -1,4 +1,4 @@
-import { CON_ORIGIN, daFetch } from '../../../../utils/daFetch.js';
+import { CON_ORIGIN, daFetch } from '../../../utils/daFetch.js';
 
 export function getPreviewOrigin(org, repo) {
   const hostname = window?.location?.hostname ?? '';

@@ -27,17 +27,12 @@ function normalizeCanvasEditorView(view) {
   return view === 'content' ? 'content' : 'layout';
 }
 
-const WYSIWYG_PORT_READY_ATTR = 'data-nx-wysiwyg-port-ready';
-
-function applyCanvasEditorView(mountRoot, view) {
+function notifyCanvasEditorActive(mountRoot, view) {
   const v = normalizeCanvasEditorView(view);
-  const doc = mountRoot.querySelector('nx-editor-doc');
-  const frame = mountRoot.querySelector('nx-editor-wysiwyg');
-  if (doc) doc.hidden = v !== 'content';
-  if (frame) {
-    const portReady = frame.hasAttribute(WYSIWYG_PORT_READY_ATTR);
-    frame.hidden = v !== 'layout' || !portReady;
-  }
+  mountRoot.dispatchEvent(new CustomEvent('nx-canvas-editor-active', {
+    bubbles: false,
+    detail: { view: v },
+  }));
 }
 
 function readPersistedCanvasEditorView() {
@@ -73,7 +68,7 @@ function wireQuickEditPortToDoc(mountRoot, header) {
     if (editor && port) {
       editor.quickEditPort = port;
     }
-    applyCanvasEditorView(mountRoot, header.editorView);
+    notifyCanvasEditorActive(mountRoot, header.editorView);
   });
 }
 
@@ -113,7 +108,7 @@ function syncCanvasEditorsToHash({ mountRoot, header, state }) {
   const ctx = editorCtxFromHashState(state, fullPath);
   ensureNxEditorDoc(mountRoot).ctx = ctx;
   ensureNxEditorWysiwyg(mountRoot).ctx = ctx;
-  applyCanvasEditorView(mountRoot, header.editorView);
+  notifyCanvasEditorActive(mountRoot, header.editorView);
 }
 
 async function addPanelHeader(aside) {
@@ -162,7 +157,7 @@ function installCanvasHeader(block) {
   header.addEventListener('nx-canvas-editor-view', (e) => {
     const view = normalizeCanvasEditorView(e.detail?.view);
     persistCanvasEditorView(view);
-    applyCanvasEditorView(canvasHeaderApplyTarget(block), view);
+    notifyCanvasEditorActive(canvasHeaderApplyTarget(block), view);
   });
   block.before(header);
   return header;

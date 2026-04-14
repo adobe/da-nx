@@ -1,5 +1,5 @@
-import { updateDocument } from './utils/document.js';
-import { updateState, getEditor } from './utils/state.js';
+import { updateDocument } from '../editor-utils/document.js';
+import { updateState, getEditor } from '../editor-utils/state.js';
 import { handleImageReplace } from './utils/image.js';
 import {
   handleCursorMove, handleUndoRedo,

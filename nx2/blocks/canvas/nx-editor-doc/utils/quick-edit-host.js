@@ -1,6 +1,6 @@
 import { createControllerOnMessage } from '../../nx-editor-wysiwyg/quick-edit-controller.js';
-import { updateDocument, updateCursors } from '../../nx-editor-wysiwyg/utils/document.js';
-import { fetchWysiwygCookie } from '../../nx-editor-wysiwyg/utils/preview.js';
+import { updateDocument, updateCursors } from '../../editor-utils/document.js';
+import { fetchWysiwygCookie } from '../../editor-utils/preview.js';
 
 export function prefetchWysiwygCookiesIfSignedIn(ctx) {
   const { org, repo } = ctx ?? {};
