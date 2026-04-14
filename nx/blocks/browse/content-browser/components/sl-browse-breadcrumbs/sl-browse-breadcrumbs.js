@@ -95,13 +95,16 @@ export class SlBrowseBreadcrumbs extends LitElement {
 
   render() {
     const crumbItems = buildBreadcrumbItemsFromPathSegments(this.segments);
+    /* Few crumbs: avoid Spectrum overflow math (`adjustOverflow` / isVisible) which can throw. */
+    const crumbCount = crumbItems.length || 1;
+    const maxVisibleItems = crumbCount <= 3 ? 99 : this.visiblePathTailCount;
     return html`
       <div class="sl-crumb-bar">
         <sp-breadcrumbs
           class="sl-crumb-sp"
           label="Folder path"
           menu-label="${BREADCRUMB_OVERFLOW_MENU_LABEL}"
-          max-visible-items="${this.visiblePathTailCount}"
+          max-visible-items="${maxVisibleItems}"
           @change="${this._handleBreadcrumbsChange}"
         >
           ${crumbItems.length === 0
