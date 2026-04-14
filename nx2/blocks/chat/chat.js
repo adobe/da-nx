@@ -83,6 +83,7 @@ class NxChat extends LitElement {
     super.disconnectedCallback();
     this._unsubscribeHash?.();
     this._controller?.destroy();
+    document.removeEventListener('keydown', this._onApprovalKeydown);
   }
 
   _pendingApproval() {
@@ -92,6 +93,21 @@ class NxChat extends LitElement {
     }
     return null;
   }
+
+  _onApprovalKeydown = (e) => {
+    const pending = this._pendingApproval();
+    if (!pending) return;
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      this._controller.approveToolCall(pending.toolCallId, false);
+    } else if (e.key === 'Enter' && e.metaKey) {
+      e.preventDefault();
+      this._controller.approveToolCall(pending.toolCallId, true, true);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      this._controller.approveToolCall(pending.toolCallId, true);
+    }
+  };
 
   updated(changed) {
     if (changed.has('thinking') && !this.thinking && changed.get('thinking')) {
@@ -108,8 +124,10 @@ class NxChat extends LitElement {
         popover.style.right = `${window.innerWidth - right}px`;
         popover.style.bottom = `${window.innerHeight - bottom + 16}px`;
         popover.open = true;
+        document.addEventListener('keydown', this._onApprovalKeydown);
       } else {
         popover?.close();
+        document.removeEventListener('keydown', this._onApprovalKeydown);
       }
     }
   }
