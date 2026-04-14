@@ -62,17 +62,6 @@ function canvasHeaderApplyTarget(block) {
     || block;
 }
 
-function wireQuickEditPortToDoc(mountRoot, header) {
-  mountRoot.addEventListener('nx-wysiwyg-port-ready', (e) => {
-    const editor = mountRoot.querySelector('nx-editor-doc');
-    const port = e.detail?.port;
-    if (editor && port) {
-      editor.quickEditPort = port;
-    }
-    notifyCanvasEditorActive(mountRoot, header.editorView);
-  });
-}
-
 function removeCanvasEditors(mountRoot) {
   mountRoot.querySelector('nx-editor-doc')?.remove();
   mountRoot.querySelector('nx-editor-wysiwyg')?.remove();
@@ -169,8 +158,6 @@ export default async function decorate(block) {
 
   const mountRoot = canvasEditorMountRoot(block);
   mountRoot.classList.add('nx-canvas-editor-mount');
-
-  wireQuickEditPortToDoc(mountRoot, header);
 
   hashChange.subscribe((state) => {
     syncCanvasEditorsToHash({ mountRoot, header, state });

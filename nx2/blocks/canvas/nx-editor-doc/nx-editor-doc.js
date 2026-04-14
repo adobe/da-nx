@@ -33,6 +33,7 @@ export class NxEditorDoc extends LitElement {
   willUpdate(changed) {
     super.willUpdate(changed);
     if (changed.has('ctx')) {
+      this.quickEditPort = undefined;
       this._teardown();
       this._error = undefined;
     }
@@ -160,10 +161,16 @@ export class NxEditorDoc extends LitElement {
       this.hidden = view !== 'content';
     };
     this.parentElement?.addEventListener('nx-canvas-editor-active', this._onCanvasEditorActive);
+    this._onWysiwygPortReady = (e) => {
+      const port = e.detail?.port;
+      if (port) this.quickEditPort = port;
+    };
+    this.parentElement?.addEventListener('nx-wysiwyg-port-ready', this._onWysiwygPortReady);
   }
 
   disconnectedCallback() {
     this.parentElement?.removeEventListener('nx-canvas-editor-active', this._onCanvasEditorActive);
+    this.parentElement?.removeEventListener('nx-wysiwyg-port-ready', this._onWysiwygPortReady);
     this._teardown();
     super.disconnectedCallback();
   }
