@@ -229,6 +229,7 @@
 
 .approval-popover {
   top: auto;
+  margin: 0;
 }
 
 .approval-actions {
@@ -236,7 +237,6 @@
   flex-direction: column;
   gap: var(--s2-spacing-100);
   padding: var(--s2-spacing-75);
-  min-width: 200px;
 
   .approval-tool-name {
     font-weight: bold;
@@ -247,6 +247,7 @@
   .approval-summary {
     font-size: var(--s2-body-size-xs);
     color: var(--s2-gray-600);
+    overflow-wrap: break-word;
   }
 
   .approval-buttons {

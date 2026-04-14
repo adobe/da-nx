@@ -31,7 +31,12 @@ export default class ChatController {
     const room = await this._getRoom();
     const cached = await loadMessages(room);
     if (!cached.length) return;
-    this._messages = cached;
+    // Strip orphaned tool sequences — assistant messages with array content (tool-call parts)
+    // and TOOL role messages (approval responses) that may be incomplete from prior sessions.
+    // The agent errors if it sees a tool-call with no matching tool-result in history.
+    this._messages = cached.filter(
+      (m) => !(m.role === ROLE.TOOL || (m.role === ROLE.ASSISTANT && Array.isArray(m.content))),
+    );
     this._update();
   }
 
@@ -92,17 +97,31 @@ export default class ChatController {
     const next = new Map(this._toolCards ?? []);
 
     if (type === AGENT_EVENT.TOOL_CALL) {
+      // Hold in toolCards only — not in _messages. Tool-calls are only added to message
+      // history if they require approval; non-approval tool-calls have no matching
+      // tool-result in client history, so sending them would error ("Tool result is missing").
+      next.set(toolCallId, { toolName, input, state: TOOL_STATE.RUNNING });
+    } else if (type === AGENT_EVENT.TOOL_APPROVAL_REQUEST) {
+      const autoApprove = this._autoApprovedTools?.has(toolName);
+      // Promote to _messages now that we know approval is needed.
+      // Both parts go in one message — resolveApprovals() matches tool-approval-request
+      // to tool-call by toolCallId within the same assistant message.
+      const prior = next.get(toolCallId) ?? { toolName, input: {} };
       this._messages = [
         ...this._messages,
         {
           role: ROLE.ASSISTANT,
-          content: [{ type: AGENT_EVENT.TOOL_CALL, toolCallId, toolName, input }],
+          content: [
+            {
+              type: AGENT_EVENT.TOOL_CALL,
+              toolCallId,
+              toolName: prior.toolName,
+              input: prior.input,
+            },
+            { type: AGENT_EVENT.TOOL_APPROVAL_REQUEST, approvalId, toolCallId },
+          ],
         },
       ];
-      next.set(toolCallId, { toolName, input, state: TOOL_STATE.RUNNING });
-    } else if (type === AGENT_EVENT.TOOL_APPROVAL_REQUEST) {
-      const autoApprove = this._autoApprovedTools?.has(toolName);
-      const prior = next.get(toolCallId) ?? { toolName, input: {} };
       const state = autoApprove ? TOOL_STATE.APPROVED : TOOL_STATE.APPROVAL_REQUESTED;
       next.set(toolCallId, { ...prior, state, approvalId });
       this._toolCards = next;

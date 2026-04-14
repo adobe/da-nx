@@ -110,6 +110,10 @@ class NxChat extends LitElement {
   };
 
   updated(changed) {
+    if (changed.has('messages')) {
+      const log = this.shadowRoot.querySelector('.chat-messages-container');
+      if (log) log.scrollTop = log.scrollHeight;
+    }
     if (changed.has('thinking') && !this.thinking && changed.get('thinking')) {
       this.shadowRoot.querySelector('.chat-input')?.focus();
     }
@@ -120,8 +124,8 @@ class NxChat extends LitElement {
       const pending = this._pendingApproval();
       if (pending && popover) {
         const { left, right, bottom } = this.getBoundingClientRect();
-        popover.style.left = `${left}px`;
-        popover.style.right = `${window.innerWidth - right}px`;
+        popover.style.left = `${left + 8}px`;
+        popover.style.right = `${window.innerWidth - right + 8}px`;
         popover.style.bottom = `${window.innerHeight - bottom + 16}px`;
         popover.open = true;
         document.addEventListener('keydown', this._onApprovalKeydown);
