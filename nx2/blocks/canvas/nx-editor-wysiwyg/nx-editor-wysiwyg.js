@@ -61,7 +61,6 @@ export class NxEditorWysiwyg extends LitElement {
   disconnectedCallback() {
     this.parentElement?.removeEventListener('nx-canvas-editor-active', this._onCanvasEditorActive);
     this._clearQuickEditRetry();
-    this._disposeQuickEditLocalPort();
     super.disconnectedCallback();
   }
 
@@ -92,6 +91,7 @@ export class NxEditorWysiwyg extends LitElement {
       clearInterval(this._quickEditInitRetryId);
       this._quickEditInitRetryId = null;
     }
+    this._disposeQuickEditLocalPort();
   }
 
   _syncCanvasVisibility() {
@@ -102,7 +102,6 @@ export class NxEditorWysiwyg extends LitElement {
 
   _resetCookieStateForCtxChange() {
     this._clearQuickEditRetry();
-    this._disposeQuickEditLocalPort();
     this._cookieReady = false;
   }
 
