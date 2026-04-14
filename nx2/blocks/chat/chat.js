@@ -6,7 +6,6 @@ import '../shared/menu/menu.js';
 import { loadStyle, hashChange } from '../../utils/utils.js';
 import { loadChatIcons } from './utils.js';
 import { ADD_MENU_ITEMS, CHAT_ICONS, ROLE, TOOL_STATE } from './constants.js';
-import '../shared/popover/popover.js';
 
 const styles = await loadStyle(import.meta.url);
 const icons = await loadChatIcons(CHAT_ICONS);
@@ -120,17 +119,9 @@ class NxChat extends LitElement {
     if (this._clearBtn) this._clearBtn.hidden = !this.messages?.length;
 
     if (changed.has('toolCards')) {
-      const popover = this.shadowRoot.querySelector('.approval-popover');
-      const pending = this._pendingApproval();
-      if (pending && popover) {
-        const { left, right, bottom } = this.getBoundingClientRect();
-        popover.style.left = `${left + 8}px`;
-        popover.style.right = `${window.innerWidth - right + 8}px`;
-        popover.style.bottom = `${window.innerHeight - bottom + 16}px`;
-        popover.open = true;
+      if (this._pendingApproval()) {
         document.addEventListener('keydown', this._onApprovalKeydown);
       } else {
-        popover?.close();
         document.removeEventListener('keydown', this._onApprovalKeydown);
       }
     }
@@ -174,10 +165,9 @@ class NxChat extends LitElement {
         ${this.messages?.map((msg) => renderMessage(msg, icons, this.toolCards))}
         ${this.thinking && !this.messages?.at(-1)?.streaming ? html`<div class="chat-thinking">Thinking...</div>` : nothing}
       </div>
-      <nx-popover class="approval-popover" persistent>
+      <div class="chat-form-wrap">
         ${renderApprovalCard(this._pendingApproval(), this._controller.approveToolCall)}
-      </nx-popover>
-      <form class="chat-form" autocomplete="off" @submit=${this._submit}>
+        <form class="chat-form" autocomplete="off" @submit=${this._submit}>
         <textarea
           name="chat-input"
           class="chat-input"
@@ -192,7 +182,8 @@ class NxChat extends LitElement {
           <button class="chat-stop action-btn" type="button" aria-label="Stop" @click=${this._submit}>${icon('stop')}</button>
           <button class="chat-send action-btn" type="submit" aria-label="Send">${icon('send')}</button>
         </div>
-      </form>
+        </form>
+      </div>
     `;
   }
 }

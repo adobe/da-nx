@@ -227,12 +227,19 @@
   }
 }
 
-.approval-popover {
-  top: auto;
-  margin: 0;
+.chat-form-wrap {
+  position: relative;
 }
 
 .approval-actions {
+  position: absolute;
+  bottom: 10px;
+  left: -4px;
+  right: -4px;
+  background: var(--s2-gray-25);
+  border: 1px solid var(--s2-gray-200);
+  border-radius: var(--s2-corner-radius-500);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 12%);
   display: flex;
   flex-direction: column;
   gap: var(--s2-spacing-100);
