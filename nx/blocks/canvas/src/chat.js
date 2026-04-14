@@ -154,11 +154,14 @@ function normalizeBulkPreviewPaths(pages, org, site) {
 function parseSkillSuggestion(text) {
   if (!text.includes('[SKILL_SUGGESTION]')) return null;
   const idMatch = text.match(/SKILL_ID:\s*([^\n\r]+)/);
-  const contentMatch = text.match(/---SKILL_CONTENT_START---\r?\n([\s\S]*?)\r?\n---SKILL_CONTENT_END---/);
+  // Allow optional blank line after START / before END (models sometimes vary spacing).
+  const contentMatch = text.match(
+    /---SKILL_CONTENT_START---\s*\r?\n([\s\S]*?)\r?\n\s*---SKILL_CONTENT_END---/,
+  );
   if (!idMatch && !contentMatch) return null;
   return {
     id: idMatch ? idMatch[1].trim() : 'new-skill',
-    content: contentMatch ? contentMatch[1] : '',
+    content: contentMatch ? contentMatch[1].trim() : '',
   };
 }
 
@@ -166,7 +169,10 @@ function stripSkillSuggestionMeta(text) {
   return text
     .replace(/\*?\*?\[SKILL_SUGGESTION\]\*?\*?\s*\n?/g, '')
     .replace(/SKILL_ID:[^\n]*\n?/g, '')
-    .replace(/---SKILL_CONTENT_START---[\s\S]*?---SKILL_CONTENT_END---\n?/g, '')
+    .replace(
+      /---SKILL_CONTENT_START---\s*\r?\n[\s\S]*?\r?\n\s*---SKILL_CONTENT_END---\n?/g,
+      '',
+    )
     .trim();
 }
 
