@@ -50,6 +50,7 @@ function addSyncedListener(wsProvider, canWrite, setEditable) {
 export default async function initProse({
   path, permissions, setEditable, getToken,
   extraPlugins = [],
+  writableExtraPlugins = [],
 }) {
   const editor = document.createElement('div');
   editor.className = 'da-prose-mirror';
@@ -162,6 +163,10 @@ export default async function initProse({
       gapCursor(),
       tableEditing({ allowTableNodeSelection: true }),
     );
+
+    if (writableExtraPlugins.length > 0) {
+      plugins.push(...writableExtraPlugins);
+    }
   }
 
   if (extraPlugins.length > 0) {
