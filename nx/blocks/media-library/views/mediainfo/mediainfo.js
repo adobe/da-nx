@@ -1,6 +1,6 @@
 import { html, LitElement } from 'da-lit';
 import getStyle from '../../../../utils/styles.js';
-import getSvg from '../../../../utils/svg.js';
+import loadSvgIcons from '../../../../utils/svg.js';
 import {
   getSubtype,
   isImage,
@@ -71,6 +71,8 @@ class NxMediaInfo extends LitElement {
     _imageDimensions: { state: true },
     _comprehensiveMetadata: { state: true },
     _modalNotification: { state: true },
+    _pdfState: { state: true },
+    _pdfError: { state: true },
   };
 
   constructor() {
@@ -96,24 +98,50 @@ class NxMediaInfo extends LitElement {
     this._lastNavDirection = null;
     this._modalNotification = null;
     this._modalNotificationTimeout = null;
+    this._pdfState = 'idle';
+    this._pdfError = null;
+    this._pdfBlobUrl = null;
+    this._pdfBlobCache = new Map();
+    this._pdfAbortController = null;
+    this._pdfCurrentUrl = null;
   }
 
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [styles];
-    getSvg({ parent: this.shadowRoot, paths: ICONS });
+    loadSvgIcons({ parent: this.shadowRoot, paths: ICONS });
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
     this._cleanupPendingRequests();
     this._cachedMetadata.clear();
+    this._cleanupPdfBlobs();
+  }
+
+  _cleanupPdfBlobs() {
+    if (this._pdfAbortController) {
+      this._pdfAbortController.abort();
+      this._pdfAbortController = null;
+    }
+    this._pdfBlobCache.forEach((blobUrl) => {
+      URL.revokeObjectURL(blobUrl);
+    });
+    this._pdfBlobCache.clear();
+    this._pdfBlobUrl = null;
+    this._pdfCurrentUrl = null;
   }
 
   updated(changedProperties) {
     if (changedProperties.has('media') && this.media) {
       this._resetLoadedMetadata();
       this._updateMediaLocation();
+
+      if (isPdfUrl(this.media.url)) {
+        this._pdfState = 'loading';
+        const pdfUrl = resolveMediaUrl(this.media.url, this.org, this.repo, this.usePreviewDaLive);
+        this.loadPdfBlob(pdfUrl);
+      }
     }
 
     if ((changedProperties.has('media') || changedProperties.has('activeTab'))
@@ -351,6 +379,72 @@ class NxMediaInfo extends LitElement {
     } finally {
       if (this._metadataUrl === fullUrl) {
         this._metadataStatus = 'loaded';
+      }
+    }
+  }
+
+  async loadPdfBlob(pdfUrl) {
+    if (!pdfUrl) return;
+
+    if (this._pdfBlobCache.has(pdfUrl)) {
+      this._pdfCurrentUrl = pdfUrl;
+      this._pdfBlobUrl = this._pdfBlobCache.get(pdfUrl);
+      this._pdfState = 'loaded';
+      return;
+    }
+
+    if (this._pdfAbortController) {
+      this._pdfAbortController.abort();
+    }
+
+    this._pdfAbortController = new AbortController();
+    this._pdfCurrentUrl = pdfUrl;
+    this._pdfState = 'loading';
+    this._pdfError = null;
+    this._pdfBlobUrl = null;
+
+    try {
+      const opts = await this._prepareFetchOptionsWithAuth({
+        signal: this._pdfAbortController.signal,
+      });
+      const response = await etcFetch(pdfUrl, 'cors', opts);
+
+      if (this._pdfCurrentUrl !== pdfUrl) {
+        return;
+      }
+
+      if (!response.ok) {
+        this._pdfState = 'error';
+        this._pdfError = `Unable to load PDF (${response.status})`;
+        return;
+      }
+
+      const contentType = response.headers.get('content-type');
+      if (contentType && !contentType.includes('application/pdf') && !contentType.includes('application/octet-stream')) {
+        this._pdfState = 'error';
+        this._pdfError = 'Server did not return a PDF file';
+        return;
+      }
+
+      const blob = await response.blob();
+
+      if (this._pdfCurrentUrl !== pdfUrl) {
+        return;
+      }
+
+      const blobUrl = URL.createObjectURL(blob);
+
+      this._pdfBlobUrl = blobUrl;
+      this._pdfBlobCache.set(pdfUrl, blobUrl);
+      this._pdfState = 'loaded';
+      this._pdfAbortController = null;
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        return;
+      }
+      if (this._pdfCurrentUrl === pdfUrl) {
+        this._pdfState = 'error';
+        this._pdfError = 'Failed to load PDF. It may be inaccessible.';
       }
     }
   }
@@ -835,12 +929,42 @@ class NxMediaInfo extends LitElement {
       `;
     }
     if (isPdfUrl(this.media.url)) {
+      const pdfUrl = resolveMediaUrl(this.media.url, this.org, this.repo, this.usePreviewDaLive);
+
+      if (this._pdfState === 'loading') {
+        return html`
+          <div class="pdf-loading-container" role="status" aria-live="polite">
+            <sl-spinner style="font-size: 3rem;" aria-label="Loading PDF"></sl-spinner>
+            <p class="pdf-error-message">Loading PDF preview...</p>
+          </div>
+        `;
+      }
+
+      if (this._pdfState === 'error') {
+        return html`
+          <div class="pdf-error-container" role="alert">
+            <svg class="icon pdf-icon" viewBox="0 0 20 20" aria-hidden="true">
+              <use href="#S2_Icon_PDF_20_N"></use>
+            </svg>
+            <p class="pdf-error-message">
+              ${this._pdfError || 'Failed to load PDF'}
+            </p>
+            <a href="${pdfUrl}" target="_blank" rel="noopener noreferrer" class="pdf-error-link">
+              Open PDF in new tab
+            </a>
+          </div>
+        `;
+      }
+
+      if (this._pdfBlobUrl) {
+        return html`
+          <iframe src="${this._pdfBlobUrl}" class="pdf-preview" title="PDF Preview" frameborder="0" aria-label="PDF document preview"></iframe>
+        `;
+      }
+
       return html`
-        <div class="preview-placeholder pdf">
-          <svg class="icon pdf-icon" viewBox="0 0 20 20">
-            <use href="#S2_Icon_PDF_20_N"></use>
-          </svg>
-          <div class="subtype-label">PDF</div>
+        <div class="pdf-loading-container" role="status" aria-live="polite">
+          <sl-spinner style="font-size: 3rem;" aria-label="Loading PDF"></sl-spinner>
         </div>
       `;
     }
@@ -1282,10 +1406,19 @@ class NxMediaInfo extends LitElement {
     this._comprehensiveMetadata = null;
     this._metadataStatus = 'idle';
     this._metadataUrl = null;
+    this._pdfState = 'idle';
+    this._pdfError = null;
+    this._pdfBlobUrl = null;
+    if (this._pdfAbortController) {
+      this._pdfAbortController.abort();
+      this._pdfAbortController = null;
+    }
+    this._pdfCurrentUrl = null;
   }
 
   _resetState() {
     this._resetLoadedMetadata();
+    this._cleanupPdfBlobs();
     if (this._modalNotificationTimeout) {
       clearTimeout(this._modalNotificationTimeout);
       this._modalNotificationTimeout = null;
