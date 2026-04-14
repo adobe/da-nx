@@ -125,7 +125,8 @@ function getContextFromHash() {
 function getAgentOrigin() {
   const params = new URLSearchParams(window.location.search);
   const isLocal = params.get('ref') === 'local' || params.get('nx') === 'local';
-  return isLocal ? 'http://localhost:5173' : 'https://da-agent.adobeaem.workers.dev';
+  /* Local da-agent default port (see `da start` / ew-devs-cli); was 5173 (wrong for this stack). */
+  return isLocal ? 'http://localhost:4002' : 'https://da-agent.adobeaem.workers.dev';
 }
 
 /** @param {unknown[]} pages @param {string} org @param {string} site */

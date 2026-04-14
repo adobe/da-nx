@@ -176,7 +176,7 @@ function listFullpathsTouchingFile(pathKey) {
 export class ChatController {
   constructor(options = {}) {
     const isLocal = new URLSearchParams(window.location.search).get('ref') === 'local';
-    this.host = options.host || (isLocal ? 'localhost:5173' : 'da-agent.adobeaem.workers.dev');
+    this.host = options.host || (isLocal ? 'localhost:4002' : 'da-agent.adobeaem.workers.dev');
     this.room = options.name || 'default';
     this.getContext = options.getContext || (() => ({}));
     this.getImsToken = options.getImsToken || (() => null);
