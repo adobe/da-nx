@@ -61,32 +61,48 @@
 
 .gt-card-header {
   display: flex;
-  gap: 12px;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
   padding: 12px 14px;
 }
 
-.gt-card-toggle {
+/* Title on its own row (full width) so long names wrap instead of squeezing one letter per line. */
+.gt-card-title-btn {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
   border: none;
   background: transparent;
   padding: 0;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex: 1;
-  min-width: 0;
-  text-align: left;
   cursor: pointer;
   color: inherit;
+  text-align: left;
 }
 
 .gt-card-name {
   font-weight: 700;
+  font-size: 15px;
+  flex: 1;
   min-width: 0;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+}
+
+.gt-card-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  justify-content: flex-end;
 }
 
 .gt-card-arrow {
+  flex-shrink: 0;
+  margin-top: 2px;
   color: var(--spectrum-gray-700, #5c5c5c);
 }
 
@@ -227,7 +243,7 @@
 .gt-result pre {
   margin: 0;
   white-space: pre-wrap;
-  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .gt-result-error {

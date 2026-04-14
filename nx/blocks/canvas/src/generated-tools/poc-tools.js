@@ -206,12 +206,13 @@ export function executeHeadingValidationTool(args = {}) {
 
   const headingRe = /<h([1-6])[^>]*>([\s\S]*?)<\/h\1>/gi;
   const headings = [];
-  let match;
-  while ((match = headingRe.exec(html)) !== null) {
+  let match = headingRe.exec(html);
+  while (match !== null) {
     headings.push({
       level: Number(match[1]),
       text: normalizeWhitespace(stripHtml(match[2])),
     });
+    match = headingRe.exec(html);
   }
 
   if (!headings.length) {
