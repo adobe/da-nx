@@ -90,6 +90,11 @@ Decided to wrap nav and sidenav in semantic HTML elements:
 
 ## 2026-04-14
 
+### nx2 canvas — slash menu in nx-editor-doc
+- **`nx2/blocks/canvas/nx-editor-doc/slash-menu/`**: Ported ProseMirror slash plugin from da-live (`slashMenu.js`, `slashMenuItems.js`, `keyAutocomplete.js`, `loremIpsum.js`, `tableUtils.js`, `insertTable.js`). UI is **`nx-slash-popover`** (`slash-popover.js`) using shared **`nx-popover`** + `menu.css` tokens; no da-live `slash-menu` / `InContextMenu`. Table context uses a **flat** command list (no “Edit Block” submenu). **Library** item omitted for canvas.
+- **`prose.js`**: `writableExtraPlugins` merged only when `canWrite` (with other write plugins). **`nx-editor-doc.js`**: passes `writableExtraPlugins: [slashMenu()]`.
+- **`keyAutocomplete`**: module holds a `Map` (`getAutocompleteData` / `setKeyAutocomplete`); `fetchKeyAutocompleteData` still available for library-driven table key data.
+
 ### nx2 canvas — PR #351 review follow-up
 - **`canvas.js`**: `nx-canvas-editor-active` on the mount root replaces direct `hidden` toggling on `nx-editor-doc` / `nx-editor-wysiwyg`; each editor listens on `parentElement` and updates its own visibility (wysiwyg still gates on `data-nx-wysiwyg-port-ready`).
 - **`nx-editor-wysiwyg`**: close unused parent-side `MessageChannel` ports before each init retry and on disconnect; keep the port handed to `nx-editor-doc` open.
