@@ -253,7 +253,7 @@
   .approval-buttons {
     display: flex;
     gap: var(--s2-spacing-100);
-    justify-content: space-between;
+    justify-content: flex-end;
     padding-top: var(--s2-spacing-100);
   }
 
@@ -264,7 +264,7 @@
     gap: var(--s2-spacing-75);
     border-radius: var(--s2-corner-radius-400);
     font-size: var(--s2-body-size-s);
-    padding: var(--s2-spacing-100) var(--s2-spacing-75) var(--s2-spacing-100)
+    padding: var(--s2-spacing-75) var(--s2-spacing-75) var(--s2-spacing-75)
       var(--s2-spacing-100);
   }
 }
