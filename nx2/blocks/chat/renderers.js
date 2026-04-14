@@ -1,4 +1,5 @@
 import { html, nothing } from 'da-lit';
+import { AGENT_EVENT, ROLE, TOOL_INPUT, TOOL_STATE } from './constants.js';
 import { unified, remarkParse } from '../../deps/mdast/dist/index.js';
 
 function renderNode(node) {
@@ -42,23 +43,71 @@ function renderMessageContent(text) {
   return renderNode(tree);
 }
 
-export function renderThinking() {
+// todo: placeholder renderer for toolcard - to be cleaned up once we have mocks
+function renderToolCard(toolCallId, toolCards) {
+  const card = toolCards?.get(toolCallId);
+
+  if (!card) return nothing;
+  const { toolName, state } = card;
+
+  return state !== TOOL_STATE.APPROVAL_REQUESTED ? html`
+    <div class="tool-card tool-card-${state}">
+      <span class="tool-card-name">${toolName}</span>
+      <span class="tool-card-status">${state}</span>
+    </div>
+  ` : nothing;
+}
+
+function approvalSummary(input) {
+  if (!input) return null;
+  const {
+    HUMAN_READABLE_SUMMARY, SOURCE_PATH, DESTINATION_PATH, PATH, SKILL_ID, NAME,
+  } = TOOL_INPUT;
+  return input[HUMAN_READABLE_SUMMARY]
+    ?? (input[SOURCE_PATH] && input[DESTINATION_PATH] ? `${input[SOURCE_PATH]} → ${input[DESTINATION_PATH]}` : null)
+    ?? input[PATH] ?? input[SKILL_ID] ?? input[NAME] ?? null;
+}
+
+function renderApprovalCard(pending, onApprove) {
+  if (!pending) return nothing;
+  const { toolCallId, toolName, input } = pending;
+  const summary = approvalSummary(input);
   return html`
-    <div class="chat-thinking">
-      <span></span><span></span><span></span>
-      <span class="chat-thinking-label">Thinking...</span>
+    <div class="approval-actions">
+      <span class="approval-tool-name">${toolName}</span>
+      ${summary ? html`<span class="approval-summary">${summary}</span>` : nothing}
+      <div class="approval-buttons">
+        <button type="button" class="secondary-btn" @click=${() => onApprove(toolCallId, false)}>
+          <span>Reject</span><kbd>Esc</kbd>
+        </button>
+        <button type="button" class="secondary-btn" @click=${() => onApprove(toolCallId, true, true)}>
+          <span>Always approve</span><kbd>⌘↵</kbd>
+        </button>
+        <button type="button" class="action-btn" @click=${() => onApprove(toolCallId, true)}>
+          <span>Approve</span><kbd>↵</kbd>
+        </button>
+      </div>
     </div>
   `;
 }
 
-export function renderMessage(msg, icons) {
-  if (msg.role === 'tool') return nothing;
-  const isAssistant = msg.role === 'assistant';
+function renderMessage(msg, icons, toolCards) {
+  if (msg.role === ROLE.TOOL) return nothing;
+  const isAssistant = msg.role === ROLE.ASSISTANT;
+
+  // Assistant message with tool-call parts (array content)
+  if (isAssistant && Array.isArray(msg.content)) {
+    return html`${msg.content.map((part) => (part.type === AGENT_EVENT.TOOL_CALL
+      ? renderToolCard(part.toolCallId, toolCards)
+      : nothing))}`;
+  }
+
   const copy = isAssistant && !msg.streaming
     ? html`<button class="message-action-copy" @click=${() => navigator.clipboard.writeText(msg.content)} aria-label="Copy">
         ${icons?.copy?.cloneNode(true)}
       </button>`
     : nothing;
+
   return html`
     <div class="message message-${msg.role}">
       <div class="message-content">${isAssistant ? renderMessageContent(msg.content) : msg.content}</div>
@@ -66,3 +115,5 @@ export function renderMessage(msg, icons) {
     </div>
   `;
 }
+
+export { renderMessage, renderApprovalCard };
