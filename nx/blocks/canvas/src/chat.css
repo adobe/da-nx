@@ -2233,3 +2233,93 @@
   background: #0d66d0;
   border-color: #0d66d0;
 }
+
+/* ── Generated Tools panel (Tools Quick Editing) ─────────────────────────── */
+
+.generated-tools-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 12px 0;
+}
+
+.gt-empty-msg {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--color-text-muted, #767676);
+  line-height: 1.5;
+  padding: 10px 12px;
+  border: 1px dashed var(--color-border, #d0d0d0);
+  border-radius: 6px;
+}
+
+.gt-proposal-card {
+  padding: 10px 12px;
+  border: 1px solid var(--color-border, #e0e0e0);
+  border-radius: 8px;
+  margin-top: 6px;
+  background: var(--color-surface, #fafafa);
+}
+
+.gt-proposal-card-approved {
+  border-color: #4caf50;
+  background: #f6faf6;
+}
+
+.gt-proposal-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.gt-proposal-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text, #222);
+  flex: 1;
+}
+
+.gt-badge {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.gt-badge-draft {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.gt-badge-approved {
+  background: #d4edda;
+  color: #155724;
+}
+
+.gt-proposal-desc {
+  margin: 0 0 6px;
+  font-size: 12px;
+  color: var(--color-text-muted, #555);
+  line-height: 1.5;
+}
+
+.gt-proposal-meta {
+  font-size: 11px;
+  color: var(--color-text-muted, #767676);
+  margin-bottom: 8px;
+}
+
+.gt-proposal-meta code {
+  background: #f0f0f0;
+  border-radius: 3px;
+  padding: 1px 4px;
+  font-size: 11px;
+}
+
+.gt-proposal-actions {
+  display: flex;
+  gap: 6px;
+}

@@ -14,6 +14,11 @@ import { renderMessageContent } from './chat-renderers.js';
 import { initIms, daFetch } from '../../../utils/daFetch.js';
 import { DA_ORIGIN } from '../../../public/utils/constants.js';
 import { loadSkills, saveSkill, deleteSkill } from '../../skills-editor/utils/utils.js';
+import {
+  approveGeneratedTool,
+  deprecateGeneratedTool,
+  loadGeneratedTools,
+} from './generated-tools/utils.js';
 import { DA_BULK_AEM_OPEN, DA_BULK_AEM_SETTLED } from './bulk-aem-modal.js';
 
 const style = await getStyle(import.meta.url);
@@ -202,6 +207,7 @@ class Chat extends LitElement {
     _newSkillName: { state: true },
     _skillEditorDirty: { state: true },
     _pendingSuggestionContent: { state: true },
+    _generatedTools: { state: true },
     /** Set when opening the modal from a suggestion card; disables button after save. */
     _pendingSkillSuggestionKey: { state: true },
     /** Keys `skill-sugg-${messageIndex}` for which Create Skill was completed. */
@@ -253,6 +259,7 @@ class Chat extends LitElement {
     this._newSkillName = '';
     this._skillEditorDirty = false;
     this._pendingSuggestionContent = null;
+    this._generatedTools = undefined;
     this._pendingSkillSuggestionKey = null;
     this._consumedSkillSuggestionKeys = {};
     this._activeAgentId = null;
@@ -795,6 +802,9 @@ class Chat extends LitElement {
     if (value === 'skills' && !this._skills && !this._skillsLoading) {
       this._fetchSkills();
     }
+    if (value === 'generated-tools' && !this._generatedTools) {
+      this._fetchGeneratedTools();
+    }
   }
 
   _refreshMcpTools() {
@@ -866,6 +876,89 @@ class Chat extends LitElement {
     } finally {
       this._skillsLoading = false;
     }
+  }
+
+  async _fetchGeneratedTools() {
+    const { org, site } = getContextFromHash();
+    if (!org) return;
+    try {
+      const tools = await loadGeneratedTools(org, site);
+      this._generatedTools = tools;
+    } catch {
+      this._generatedTools = [];
+    }
+  }
+
+  async _approveGeneratedTool(def) {
+    const { org, site } = getContextFromHash();
+    if (!org) return;
+    const prefix = site ? `/${org}/${site}` : `/${org}`;
+    const approvedBy = imsInitial?.email || imsInitial?.displayName || 'user';
+    const result = await approveGeneratedTool(prefix, def, approvedBy);
+    if (!result.error) {
+      this._generatedTools = (this._generatedTools || []).map((t) => (t.id === def.id
+        ? { ...t, status: 'approved', approvedBy }
+        : t));
+    }
+  }
+
+  async _rejectGeneratedTool(def) {
+    const { org, site } = getContextFromHash();
+    if (!org) return;
+    const prefix = site ? `/${org}/${site}` : `/${org}`;
+    const result = await deprecateGeneratedTool(prefix, def);
+    if (!result.error) {
+      this._generatedTools = (this._generatedTools || []).map((t) => (t.id === def.id
+        ? { ...t, status: 'deprecated' }
+        : t));
+    }
+  }
+
+  _renderGeneratedToolsContent() {
+    const tools = this._generatedTools;
+    if (!tools) {
+      return html`<div class="mcp-loading">Loading generated tools…</div>`;
+    }
+
+    const drafts = tools.filter((t) => t.status === 'draft');
+    const approved = tools.filter((t) => t.status === 'approved');
+
+    return html`
+      <div class="generated-tools-panel">
+        <div class="mcp-category">
+          <span class="mcp-category-pill">Proposals <span class="mcp-category-count">${drafts.length}</span></span>
+          ${drafts.length === 0
+        ? html`<p class="gt-empty-msg">No pending proposals. The assistant will suggest tools here when it encounters a task that existing tools don't cover.</p>`
+        : drafts.map((def) => html`
+              <div class="gt-proposal-card">
+                <div class="gt-proposal-header">
+                  <span class="gt-proposal-name">${def.name}</span>
+                  <span class="gt-badge gt-badge-draft">draft</span>
+                </div>
+                <p class="gt-proposal-desc">${def.description}</p>
+                <div class="gt-proposal-meta">Capability: <code>${def.capability}</code></div>
+                <div class="gt-proposal-actions">
+                  <button class="chat-btn" @click=${() => this._approveGeneratedTool(def)}>Approve</button>
+                  <button class="chat-btn chat-btn-secondary" @click=${() => this._rejectGeneratedTool(def)}>Reject</button>
+                </div>
+              </div>`)}
+        </div>
+
+        <div class="mcp-category">
+          <span class="mcp-category-pill configured">Approved <span class="mcp-category-count">${approved.length}</span></span>
+          ${approved.length === 0
+        ? html`<p class="gt-empty-msg">No approved tools yet.</p>`
+        : approved.map((def) => html`
+              <div class="gt-proposal-card gt-proposal-card-approved">
+                <div class="gt-proposal-header">
+                  <span class="gt-proposal-name">${def.name}</span>
+                  <span class="gt-badge gt-badge-approved">approved</span>
+                </div>
+                <p class="gt-proposal-desc">${def.description}</p>
+                <div class="gt-proposal-meta">Capability: <code>${def.capability}</code></div>
+              </div>`)}
+        </div>
+      </div>`;
   }
 
   _refreshSkills() {
@@ -1507,6 +1600,9 @@ class Chat extends LitElement {
     if (this._skillsLibraryTab === 'skills' && !this._skills && !this._skillsLoading) {
       this._fetchSkills();
     }
+    if (this._skillsLibraryTab === 'generated-tools' && !this._generatedTools) {
+      this._fetchGeneratedTools();
+    }
   }
 
   _renderSkillsButton() {
@@ -1523,6 +1619,7 @@ class Chat extends LitElement {
               <sp-sidenav-item value="prompts" label="Prompts" ?selected="${this._skillsLibraryTab === 'prompts'}"></sp-sidenav-item>
               <sp-sidenav-item value="mcp" label="MCP" ?selected="${this._skillsLibraryTab === 'mcp'}"></sp-sidenav-item>
               <sp-sidenav-item value="agents" label="Agents" ?selected="${this._skillsLibraryTab === 'agents'}"></sp-sidenav-item>
+              <sp-sidenav-item value="generated-tools" label="Generated Tools" ?selected="${this._skillsLibraryTab === 'generated-tools'}"></sp-sidenav-item>
             </sp-sidenav>
             <div class="chat-skills-content">
               ${this._renderActiveTab()}
@@ -1581,6 +1678,7 @@ class Chat extends LitElement {
       case 'prompts': return this._renderPromptsContent();
       case 'mcp': return this._renderMcpContent();
       case 'agents': return this._renderAgentsContent();
+      case 'generated-tools': return this._renderGeneratedToolsContent();
       default: return nothing;
     }
   }
