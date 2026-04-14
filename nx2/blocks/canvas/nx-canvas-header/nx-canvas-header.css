@@ -14,9 +14,9 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
   box-sizing: border-box;
-  min-height: 48px;
+  height: var(--nx-canvas-header-height);
   padding: 0 12px;
   background-color: light-dark(#fff, var(--s2-gray-25));
   border-bottom: 1px solid var(--s2-gray-200);
@@ -27,6 +27,51 @@
   align-items: center;
   gap: 4px;
   flex-shrink: 0;
+}
+
+.group-center {
+  flex: 1;
+  justify-content: center;
+  min-width: 0;
+}
+
+.segmented {
+  display: inline-flex;
+  align-items: stretch;
+  box-sizing: border-box;
+  padding: 3px;
+  border-radius: 999px;
+  background: light-dark(#e8e8e8, var(--s2-gray-200));
+  gap: 2px;
+}
+
+.segment {
+  margin: 0;
+  padding: 6px 18px;
+  border: none;
+  border-radius: 999px;
+  font: inherit;
+  font-size: var(--s2-body-size-s, 0.875rem);
+  font-weight: 500;
+  color: light-dark(#505050, var(--s2-gray-700));
+  background: transparent;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.segment:focus-visible {
+  outline: 2px solid var(--s2-blue-800);
+  outline-offset: 2px;
+}
+
+.segment:hover:not(.is-selected) {
+  color: light-dark(#222, var(--s2-gray-900));
+}
+
+.segment.is-selected {
+  color: light-dark(#222, var(--s2-gray-900));
+  background: light-dark(#fff, var(--s2-gray-75));
+  box-shadow: 0 1px 3px light-dark(rgb(0 0 0 / 12%), rgb(0 0 0 / 35%));
 }
 
 .icon-btn {
@@ -77,6 +122,13 @@
     flex-wrap: wrap;
     justify-content: center;
     padding-block: 8px;
+    row-gap: 8px;
+  }
+
+  .group-center {
+    order: 0;
+    flex: 1 1 100%;
+    justify-content: center;
   }
 
   .group-start,

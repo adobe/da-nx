@@ -97,6 +97,32 @@ Decided to wrap nav and sidenav in semantic HTML elements:
 
 - `canvas.js` now calls `loadStyle(import.meta.url)` and adopts the sheet on `document` once (deduped), matching nx's automatic block CSS for light-DOM rules (e.g. `.fragment-content`).
 
+### nx2 doc editor (canvas migration, no toolbar / no quick-edit)
+- **`nx2/utils/daFetch.js`**: `DA_ORIGIN`, `COLLAB_ORIGIN`, `CON_ORIGIN`, `AEM_ORIGIN` with `?da-admin=` / localStorage overrides (aligned with da-live); `daFetch` attaches bearer for allowlisted admin/content/AEM URLs. **`utils.js`** re-exports `DA_ORIGIN` and `daFetch`; **profile** imports from `daFetch.js`.
+- **Deps**: `da-y-wrapper` + `da-parser` dist copied from da-live into `nx2/deps/…`; **`head.html`** importmap; **`npm run nx2:copy:editor-deps`** (`nx2/scripts/copy-editor-deps.mjs`, optional `DA_LIVE_ROOT`).
+- **Superseded 2026-04-09** — see **nx-editor-doc** / **nx-editor-wysiwyg** below (renamed from `nx-doc-editor` / `nx-wysiwyg-frame`; `prose.js` + `extraPlugins`; quick-edit + preview utils under wysiwyg).
+
+### nx2 canvas — quick-edit (controller=parent) WYSIWYG
+- **Superseded 2026-04-09** — structure was `nx-doc-editor` + `nx-wysiwyg-frame`; see next section.
+
+## 2026-04-14
+
+### nx2 canvas — PR #351 review follow-up
+- **`canvas.js`**: `nx-canvas-editor-active` on the mount root replaces direct `hidden` toggling on `nx-editor-doc` / `nx-editor-wysiwyg`; each editor listens on `parentElement` and updates its own visibility (wysiwyg still gates on `data-nx-wysiwyg-port-ready`).
+- **`nx-editor-wysiwyg`**: close unused parent-side `MessageChannel` ports before each init retry and on disconnect; keep the port handed to `nx-editor-doc` open.
+- **`nx-editor-doc`**: `port.close()` when clearing the quick-edit controller port.
+
+### nx2 canvas — document paths without `.html`
+- Hash / `ctx.path` is `org/site/...` with no `.html` suffix; **`buildSourceUrl`** no longer appends `.html`**. Quick-edit pathname / iframe URL / controller pathname use the path segments as-is (removed `.replace(/\.html$/i)`); **`image.js`** `getPageName` no longer strips `.html`.
+
+## 2026-04-09
+
+### nx2 canvas — editor layout rename + file split
+- **`nx2/blocks/canvas/nx-editor-doc/`**: `nx-editor-doc` Lit element + CSS; **`prose.js`** — Yjs + ProseMirror init only, `extraPlugins` for injected plugins; **`utils/source.js`** (source URL, HEAD permissions); **`utils/collab.js`** (awareness color + identity).
+- **`nx2/blocks/canvas/nx-editor-wysiwyg/`**: `nx-editor-wysiwyg` Lit iframe + cookie + MessageChannel; **`quick-edit-controller.js`** (MessagePort → ProseMirror).
+- **`nx2/blocks/canvas/editor-utils/`** (2026-04-14): shared editor plumbing — **`preview.js`**, **`document.js`**, **`state.js`**; **`prose-diff.js`** (`createTrackingPlugin`, doc diff helpers for ProseMirror → iframe sync; wired from `nx-editor-doc.js` into `initProse`).
+- **`canvas.js` / `canvas.css`**: lazy-import `nx-editor-doc` + `nx-editor-wysiwyg`; `nx-editor-doc` listens on `parentElement` for `nx-wysiwyg-port-ready` and sets `quickEditPort`.
+
 ## 2026-04-04
 
 ### Panel-aware default-content max-width
