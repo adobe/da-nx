@@ -24,6 +24,7 @@ import {
   SL_CONTENT_BROWSER_CHAT_CONTEXT,
   SL_CONTENT_BROWSER_LIST_PERMISSIONS,
 } from './content-browser/lib/content-browser-actions.js';
+import './da-skills-lab-view.js';
 
 const style = await getStyle(import.meta.url);
 const nxBase = getNx();
@@ -68,6 +69,8 @@ const saveToAem = (path, action) => postSaveToAem(path, action, { getIms: initIm
  */
 class BrowseView extends LitElement {
   static properties = {
+    /** When true, render Skills Lab catalog (`da-skills-lab-view`) instead of the file browser. */
+    appsSkills: { type: Boolean, attribute: 'apps-skills' },
     _chatOpen: { state: true },
     _chatContextItems: { state: true },
     /** Toolbar breadcrumb segments from `location.hash` (same source as `sl-content-browser`). */
@@ -80,6 +83,7 @@ class BrowseView extends LitElement {
 
   constructor() {
     super();
+    this.appsSkills = false;
     const persisted = readWindowLayoutState();
     this._chatOpen = typeof persisted.chatOpen === 'boolean' ? persisted.chatOpen : true;
     this._chatContextItems = [];
@@ -251,6 +255,46 @@ class BrowseView extends LitElement {
   }
 
   render() {
+    if (this.appsSkills) {
+      const org = this._browsePathSegments?.[0] || '';
+      const site = this._browsePathSegments?.[1] || '';
+      return html`
+      <div class="browse-view browse-view--skills-lab">
+        ${this._renderToolbar()}
+        <div class="browse-view-body">
+          ${this._chatOpen
+        ? html`
+                <sp-split-view
+                  class="browse-view-split split-view-outer"
+                  resizable
+                  primary-size="${this._chatPanelSize}"
+                  primary-min="280"
+                  secondary-min="400"
+                  label="Resize chat panel"
+                  @change="${this._onChatPanelResize}"
+                >
+                  <da-chat
+                    class="browse-view-chat-panel"
+                    context-view="browse"
+                    .onPageContextItems="${this._chatContextItems ?? []}"
+                    @da-chat-message-sent="${this._onChatMessageSent}"
+                  ></da-chat>
+                  <div class="browse-view-main browse-view-main--skills-lab">
+                    <da-skills-lab-view .org=${org} .site=${site}></da-skills-lab-view>
+                  </div>
+                </sp-split-view>
+              `
+        : html`
+                <div class="browse-view-main browse-view-main--skills-lab">
+                  <da-skills-lab-view .org=${org} .site=${site}></da-skills-lab-view>
+                </div>
+              `}
+        </div>
+      </div>
+      <da-bulk-aem-modal></da-bulk-aem-modal>
+    `;
+    }
+
     return html`
       <div class="browse-view">
         ${this._renderToolbar()}
@@ -327,6 +371,8 @@ function bindBrowseBlockViewportFit(block) {
   const scrollRoot = nearestVerticalScrollAncestor(block);
   scrollRoot?.addEventListener('scroll', sync, { passive: true });
 }
+
+export { bindBrowseBlockViewportFit };
 
 export default function decorate(block) {
   block.innerHTML = `
