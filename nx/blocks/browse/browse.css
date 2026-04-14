@@ -118,3 +118,20 @@
   flex-direction: column;
   overflow: hidden;
 }
+
+/* Skills Lab: below 1024px chat stacks above the lab; split-view uses `vertical` on `sp-split-view`. */
+@media (width <= 1023px) {
+  .browse-view-skills-lab .browse-view-body {
+    min-height: 0;
+  }
+
+  .browse-view-skills-lab .browse-view-chat-panel {
+    max-height: min(420px, 45vh);
+    min-height: 160px;
+  }
+
+  .browse-view-skills-lab .browse-view-main-skills-lab {
+    flex: 1;
+    min-height: 240px;
+  }
+}
