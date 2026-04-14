@@ -189,6 +189,7 @@
   );
   background-size: 300% 100%;
   background-clip: text;
+  color: transparent;
   animation: chat-fade 2s linear infinite;
 }
 
