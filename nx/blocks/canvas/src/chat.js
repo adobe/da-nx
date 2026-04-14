@@ -14,11 +14,8 @@ import { renderMessageContent } from './chat-renderers.js';
 import { initIms, daFetch } from '../../../utils/daFetch.js';
 import { DA_ORIGIN } from '../../../public/utils/constants.js';
 import { loadSkills, saveSkill, deleteSkill } from '../../skills-editor/utils/utils.js';
-import {
-  approveGeneratedTool,
-  deprecateGeneratedTool,
-  loadGeneratedTools,
-} from './generated-tools/utils.js';
+import { loadGeneratedTools } from './generated-tools/utils.js';
+import './generated-tools/generated-tools.js';
 import { DA_BULK_AEM_OPEN, DA_BULK_AEM_SETTLED } from './bulk-aem-modal.js';
 
 const style = await getStyle(import.meta.url);
@@ -707,6 +704,17 @@ class Chat extends LitElement {
       }
     });
 
+    (this._generatedTools || [])
+      .filter((tool) => tool?.status === 'approved')
+      .forEach((tool) => {
+        allItems.push({
+          id: `gen__${tool.id}`,
+          label: tool.id,
+          description: tool.description || tool.name || 'Generated tool',
+          group: 'Generated Tools',
+        });
+      });
+
     if (!this._slashFilter) return allItems;
     return allItems.filter(
       (t) => t.id.toLowerCase().includes(this._slashFilter)
@@ -889,76 +897,19 @@ class Chat extends LitElement {
     }
   }
 
-  async _approveGeneratedTool(def) {
-    const { org, site } = getContextFromHash();
-    if (!org) return;
-    const prefix = site ? `/${org}/${site}` : `/${org}`;
-    const approvedBy = imsInitial?.email || imsInitial?.displayName || 'user';
-    const result = await approveGeneratedTool(prefix, def, approvedBy);
-    if (!result.error) {
-      this._generatedTools = (this._generatedTools || []).map((t) => (t.id === def.id
-        ? { ...t, status: 'approved', approvedBy }
-        : t));
-    }
-  }
-
-  async _rejectGeneratedTool(def) {
-    const { org, site } = getContextFromHash();
-    if (!org) return;
-    const prefix = site ? `/${org}/${site}` : `/${org}`;
-    const result = await deprecateGeneratedTool(prefix, def);
-    if (!result.error) {
-      this._generatedTools = (this._generatedTools || []).map((t) => (t.id === def.id
-        ? { ...t, status: 'deprecated' }
-        : t));
-    }
-  }
+  _handleGeneratedToolsChanged = async () => {
+    await this._fetchGeneratedTools();
+  };
 
   _renderGeneratedToolsContent() {
-    const tools = this._generatedTools;
-    if (!tools) {
-      return html`<div class="mcp-loading">Loading generated tools…</div>`;
-    }
-
-    const drafts = tools.filter((t) => t.status === 'draft');
-    const approved = tools.filter((t) => t.status === 'approved');
-
     return html`
-      <div class="generated-tools-panel">
-        <div class="mcp-category">
-          <span class="mcp-category-pill">Proposals <span class="mcp-category-count">${drafts.length}</span></span>
-          ${drafts.length === 0
-        ? html`<p class="gt-empty-msg">No pending proposals. The assistant will suggest tools here when it encounters a task that existing tools don't cover.</p>`
-        : drafts.map((def) => html`
-              <div class="gt-proposal-card">
-                <div class="gt-proposal-header">
-                  <span class="gt-proposal-name">${def.name}</span>
-                  <span class="gt-badge gt-badge-draft">draft</span>
-                </div>
-                <p class="gt-proposal-desc">${def.description}</p>
-                <div class="gt-proposal-meta">Capability: <code>${def.capability}</code></div>
-                <div class="gt-proposal-actions">
-                  <button class="chat-btn" @click=${() => this._approveGeneratedTool(def)}>Approve</button>
-                  <button class="chat-btn chat-btn-secondary" @click=${() => this._rejectGeneratedTool(def)}>Reject</button>
-                </div>
-              </div>`)}
-        </div>
-
-        <div class="mcp-category">
-          <span class="mcp-category-pill configured">Approved <span class="mcp-category-count">${approved.length}</span></span>
-          ${approved.length === 0
-        ? html`<p class="gt-empty-msg">No approved tools yet.</p>`
-        : approved.map((def) => html`
-              <div class="gt-proposal-card gt-proposal-card-approved">
-                <div class="gt-proposal-header">
-                  <span class="gt-proposal-name">${def.name}</span>
-                  <span class="gt-badge gt-badge-approved">approved</span>
-                </div>
-                <p class="gt-proposal-desc">${def.description}</p>
-                <div class="gt-proposal-meta">Capability: <code>${def.capability}</code></div>
-              </div>`)}
-        </div>
-      </div>`;
+      <nx-generated-tools
+        .org=${getContextFromHash().org}
+        .site=${getContextFromHash().site}
+        approved-by=${imsInitial?.email || imsInitial?.displayName || 'user'}
+        @da-tool-approved=${this._handleGeneratedToolsChanged}
+        @da-tool-rejected=${this._handleGeneratedToolsChanged}>
+      </nx-generated-tools>`;
   }
 
   _refreshSkills() {

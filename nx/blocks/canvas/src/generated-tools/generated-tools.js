@@ -2,11 +2,13 @@ import { LitElement, html, nothing } from 'da-lit';
 // eslint-disable-next-line import/no-unresolved
 import getStyle from 'https://da.live/nx/utils/styles.js';
 import {
+  findBestGeneratedTool,
   loadGeneratedTools,
   approveGeneratedTool,
   deprecateGeneratedTool,
   deleteGeneratedTool,
 } from './utils.js';
+import { runGeneratedToolInWorker } from './client-executor.js';
 
 const style = await getStyle(import.meta.url);
 
@@ -28,6 +30,7 @@ class NXGeneratedTools extends LitElement {
   static properties = {
     org: { type: String },
     site: { type: String },
+    approvedBy: { type: String, attribute: 'approved-by' },
     _tools: { state: true },
     _busy: { state: true },
     _error: { state: true },
@@ -35,6 +38,11 @@ class NXGeneratedTools extends LitElement {
     _tryId: { state: true },
     _runResult: { state: true },
     _runBusy: { state: true },
+    _matchQuery: { state: true },
+    _matchInput: { state: true },
+    _matchResult: { state: true },
+    _matchRunBusy: { state: true },
+    _matchRunResult: { state: true },
   };
 
   /**
@@ -49,6 +57,23 @@ class NXGeneratedTools extends LitElement {
    * @type {Record<string, (args: Record<string, unknown>) => Promise<unknown>> | undefined}
    */
   executors = undefined;
+
+  constructor() {
+    super();
+    this.approvedBy = 'user';
+    this._tools = undefined;
+    this._busy = undefined;
+    this._error = '';
+    this._expandedId = undefined;
+    this._tryId = undefined;
+    this._runResult = undefined;
+    this._runBusy = undefined;
+    this._matchQuery = '';
+    this._matchInput = '';
+    this._matchResult = null;
+    this._matchRunBusy = false;
+    this._matchRunResult = undefined;
+  }
 
   connectedCallback() {
     super.connectedCallback();
@@ -82,23 +107,29 @@ class NXGeneratedTools extends LitElement {
 
   async _approve(def) {
     this._busy = def.id;
+    const approver = this.approvedBy || 'user';
     if (this.staticTools) {
       await new Promise((resolve) => { setTimeout(resolve, 400); });
       this._tools = this._tools.map((t) => (t.id === def.id
-        ? { ...t, status: 'approved', approvedBy: 'you', approvedAt: new Date().toISOString() }
+        ? { ...t, status: 'approved', approvedBy: approver, approvedAt: new Date().toISOString() }
         : t));
       this._busy = undefined;
       this._expandedId = def.id;
       this.dispatchEvent(new CustomEvent('da-tool-approved', { detail: { id: def.id }, bubbles: true }));
       return;
     }
-    const result = await approveGeneratedTool(this._prefix, def, 'user');
+    const result = await approveGeneratedTool(this._prefix, def, approver);
     this._busy = undefined;
     if (result.error) {
       this._error = result.error;
       return;
     }
-    this._tools = this._tools.map((t) => (t.id === def.id ? { ...t, status: 'approved', approvedBy: 'user' } : t));
+    this._tools = this._tools.map((t) => (t.id === def.id ? {
+      ...t,
+      status: 'approved',
+      approvedBy: approver,
+      approvedAt: new Date().toISOString(),
+    } : t));
     this.dispatchEvent(new CustomEvent('da-tool-approved', { detail: { id: def.id }, bubbles: true }));
   }
 
@@ -147,8 +178,15 @@ class NXGeneratedTools extends LitElement {
     this._runResult = undefined;
   }
 
+  _getExecutor(def) {
+    return this.executors?.[def.id]
+      || (def?.implementation?.type === 'web-worker'
+        ? (args) => runGeneratedToolInWorker(def, args)
+        : null);
+  }
+
   async _runTool(def) {
-    const executor = this.executors?.[def.id];
+    const executor = this._getExecutor(def);
     if (!executor) return;
 
     this._runBusy = def.id;
@@ -165,6 +203,35 @@ class NXGeneratedTools extends LitElement {
       this._runResult = { id: def.id, data: null, error: e.message ?? String(e) };
     }
     this._runBusy = undefined;
+  }
+
+  _findMatch() {
+    const query = this._matchQuery.trim();
+    this._matchRunResult = undefined;
+    this._matchResult = query ? findBestGeneratedTool(query, this._tools || []) : null;
+  }
+
+  async _runMatchedTool() {
+    const match = this._matchResult;
+    if (!match?.tool) return;
+    const executor = this._getExecutor(match.tool);
+    if (!executor) return;
+
+    this._matchRunBusy = true;
+    this._matchRunResult = undefined;
+    try {
+      const args = {
+        html: this._matchInput,
+        text: this._matchInput,
+        content: this._matchInput,
+      };
+      const result = await executor(args);
+      this._matchRunResult = { data: result, error: null };
+    } catch (e) {
+      this._matchRunResult = { data: null, error: e.message ?? String(e) };
+    } finally {
+      this._matchRunBusy = false;
+    }
   }
 
   _renderSchema(schema) {
@@ -189,7 +256,7 @@ class NXGeneratedTools extends LitElement {
   }
 
   _renderTryPanel(def) {
-    if (!this.executors?.[def.id]) return nothing;
+    if (!this._getExecutor(def)) return nothing;
     if (this._tryId !== def.id) {
       return html`
         <button class="gt-btn gt-btn-try" @click=${() => this._toggleTry(def.id)}>
@@ -216,6 +283,75 @@ class NXGeneratedTools extends LitElement {
         </div>
         ${this._renderResult(def)}
       </div>`;
+  }
+
+  _renderMatchResult() {
+    if (!this._matchResult) {
+      if (!this._matchQuery.trim()) return nothing;
+      return html`<div class="gt-match-empty">No approved tool matched this request yet.</div>`;
+    }
+
+    const { tool, score, matchedTerms } = this._matchResult;
+    return html`
+      <div class="gt-match-result">
+        <div class="gt-match-result-top">
+          <div>
+            <div class="gt-match-title">${tool.name}</div>
+            <div class="gt-match-meta">Best local match · score ${score}</div>
+          </div>
+          <span class="gt-badge gt-badge-approved">${tool.status}</span>
+        </div>
+        <p class="gt-desc">${tool.description}</p>
+        ${matchedTerms?.length ? html`
+          <div class="gt-match-tags">
+            ${matchedTerms.map((term) => html`<span class="gt-match-tag">${term}</span>`)}
+          </div>
+        ` : nothing}
+        <div class="gt-try-actions">
+          <button class="gt-btn gt-btn-approve" ?disabled=${this._matchRunBusy} @click=${() => this._runMatchedTool()}>
+            ${this._matchRunBusy ? 'Running…' : 'Run matched tool'}
+          </button>
+        </div>
+        ${this._matchRunResult
+          ? html`
+            <div class="gt-result ${this._matchRunResult.error ? 'gt-result-error' : ''}" role="status">
+              ${this._matchRunResult.error
+                ? this._matchRunResult.error
+                : html`<pre>${JSON.stringify(this._matchRunResult.data, null, 2)}</pre>`}
+            </div>
+          `
+          : nothing}
+      </div>
+    `;
+  }
+
+  _renderFinder(approved) {
+    if (!approved.length) return nothing;
+    return html`
+      <section class="gt-section gt-section-finder" aria-label="Find matching tool">
+        <h3 class="gt-section-title">Find a matching tool</h3>
+        <p class="gt-empty">Reuse an approved tool by matching against its name, description, tags, and example prompts.</p>
+        <label class="gt-try-label" for="gt-match-query">What do you want to do?</label>
+        <input
+          id="gt-match-query"
+          class="gt-match-input"
+          .value=${this._matchQuery}
+          @input=${(e) => { this._matchQuery = e.target.value; }}
+          placeholder="e.g. check heading structure for accessibility" />
+        <label class="gt-try-label" for="gt-match-content">HTML to run against</label>
+        <textarea
+          id="gt-match-content"
+          class="gt-try-input"
+          rows="6"
+          .value=${this._matchInput}
+          @input=${(e) => { this._matchInput = e.target.value; }}
+          placeholder="<h1>Title</h1><h2>Section</h2><h4>Skipped level</h4>"></textarea>
+        <div class="gt-try-actions">
+          <button class="gt-btn gt-btn-try" @click=${this._findMatch}>Find best match</button>
+        </div>
+        ${this._renderMatchResult()}
+      </section>
+    `;
   }
 
   _renderActions(def) {
@@ -306,6 +442,8 @@ class NXGeneratedTools extends LitElement {
             ? html`<p class="gt-empty">No approved tools yet. Approve a proposal above to make it available in chat.</p>`
             : approved.map((def) => this._renderToolCard(def))}
         </section>
+
+        ${this._renderFinder(approved)}
 
         ${deprecated.length > 0 ? html`
           <section class="gt-section gt-section-deprecated" aria-label="Deprecated tools">

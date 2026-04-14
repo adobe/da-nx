@@ -1,0 +1,271 @@
+:host {
+  display: block;
+  color: var(--spectrum-gray-900, #2c2c2c);
+}
+
+.gt-panel {
+  display: grid;
+  gap: 20px;
+}
+
+.gt-section {
+  display: grid;
+  gap: 12px;
+  padding-left: 16px;
+  padding-right: 16px;
+  box-sizing: border-box;
+}
+
+.gt-section-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.gt-count {
+  color: var(--spectrum-gray-600, #707070);
+}
+
+.gt-empty,
+.gt-loading,
+.gt-match-empty {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--spectrum-gray-700, #5c5c5c);
+}
+
+.gt-error {
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #fff1f0;
+  border: 1px solid #f7b7b2;
+  color: #a63a33;
+  font-size: 13px;
+}
+
+.gt-card {
+  border: 1px solid var(--spectrum-gray-300, #d7d7d7);
+  border-radius: 12px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.gt-card-approved {
+  border-color: #92d1b2;
+}
+
+.gt-card-deprecated {
+  opacity: 0.75;
+}
+
+.gt-card-header {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+}
+
+.gt-card-toggle {
+  border: none;
+  background: transparent;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+}
+
+.gt-card-name {
+  font-weight: 700;
+  min-width: 0;
+}
+
+.gt-card-arrow {
+  color: var(--spectrum-gray-700, #5c5c5c);
+}
+
+.gt-card-detail,
+.gt-match-result {
+  padding: 0 14px 14px;
+}
+
+/* Keep horizontal padding from `.gt-section`; only add bottom inset for the finder block. */
+.gt-section.gt-section-finder {
+  padding-bottom: 14px;
+}
+
+.gt-desc,
+.gt-meta,
+.gt-try-label {
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.gt-desc {
+  margin: 0 0 8px;
+}
+
+.gt-meta {
+  color: var(--spectrum-gray-700, #5c5c5c);
+  margin: 6px 0;
+}
+
+.gt-actions,
+.gt-try-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.gt-btn {
+  border: 1px solid var(--spectrum-gray-300, #d7d7d7);
+  background: #fff;
+  border-radius: 999px;
+  padding: 7px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.gt-btn:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.gt-btn-approve {
+  background: #1473e6;
+  border-color: #1473e6;
+  color: #fff;
+}
+
+.gt-btn-try {
+  background: #eef5ff;
+  border-color: #b8d4fb;
+  color: #0d66d0;
+}
+
+.gt-btn-reject,
+.gt-btn-danger {
+  background: #fff;
+  color: #a63a33;
+  border-color: #e2b3ae;
+}
+
+.gt-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.gt-badge-draft {
+  background: #fff3db;
+  color: #8a5a00;
+}
+
+.gt-badge-approved {
+  background: #e6f6ec;
+  color: #0f6f3a;
+}
+
+.gt-badge-deprecated {
+  background: #f2f2f2;
+  color: #666;
+}
+
+.gt-schema-list {
+  margin: 0 0 12px 18px;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.gt-try-panel {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.gt-try-input,
+.gt-match-input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--spectrum-gray-300, #d7d7d7);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font: inherit;
+  background: #fff;
+  color: inherit;
+}
+
+.gt-try-input {
+  resize: vertical;
+  min-height: 120px;
+}
+
+.gt-result {
+  margin-top: 4px;
+  padding: 12px;
+  border-radius: 10px;
+  background: #f7f7f8;
+  border: 1px solid #e4e4e7;
+  font-size: 12px;
+  overflow: auto;
+}
+
+.gt-result pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.gt-result-error {
+  background: #fff1f0;
+  border-color: #f7b7b2;
+  color: #a63a33;
+}
+
+.gt-match-result-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.gt-match-title {
+  font-weight: 700;
+  font-size: 14px;
+}
+
+.gt-match-meta {
+  font-size: 12px;
+  color: var(--spectrum-gray-700, #5c5c5c);
+}
+
+.gt-match-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0 12px;
+}
+
+.gt-match-tag {
+  display: inline-flex;
+  border-radius: 999px;
+  background: #eef5ff;
+  color: #0d66d0;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 700;
+}
