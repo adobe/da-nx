@@ -2,7 +2,7 @@ import { html, LitElement, nothing } from 'da-lit';
 import getStyle from '../../../../utils/styles.js';
 import { parseOrgRepoFromUrl } from '../../core/urls.js';
 import { normalizeSitePath } from '../../core/paths.js';
-import getSvg from '../../../../utils/svg.js';
+import loadSvgIcons from '../../../../utils/svg.js';
 import { Storage } from '../../core/constants.js';
 import { showNotification } from '../../core/state.js';
 import { t } from '../../core/messages.js';
@@ -57,7 +57,7 @@ class NxMediaOnboard extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [styles];
-    getSvg({ parent: this.shadowRoot, paths: ICONS });
+    loadSvgIcons({ parent: this.shadowRoot, paths: ICONS });
     this.loadRecentSites();
     this.loadPinnedFolders();
   }
