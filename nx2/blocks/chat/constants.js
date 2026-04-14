@@ -6,6 +6,7 @@ export const ADD_MENU_ITEMS = [
   { divider: true },
   { id: 'prompts', label: 'Manage Prompts' },
   { id: 'skills', label: 'Manage Skills' },
+  { id: 'generated-tools', label: 'Skills Lab', icon: 'Apps' },
 ];
 
 export const CHAT_ICONS = { add: 'Add', clear: 'RemoveCircle', copy: 'Copy', send: 'ArrowUpSend', stop: 'Stop' };

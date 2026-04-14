@@ -116,6 +116,24 @@ class NxChat extends LitElement {
     navigator.clipboard.writeText(content);
   }
 
+  /**
+   * Open full Skills Lab (browse shell + catalog) for the current org/site hash.
+   * @param {CustomEvent} e
+   */
+  _onAddMenuSelect(e) {
+    const id = e.detail?.id;
+    if (id !== 'generated-tools') return;
+    const hashPath = window.location.hash.startsWith('#')
+      ? window.location.hash.slice(2)
+      : '';
+    const parts = hashPath.split('/').filter(Boolean);
+    const org = parts[0];
+    if (!org) return;
+    const site = parts[1];
+    const tail = site ? `${org}/${site}` : org;
+    window.location.assign(`/apps/skills${window.location.search}#/${tail}/skills-lab`);
+  }
+
   render() {
     return html`
       <div class="chat-messages-container" role="log" aria-live="polite">
@@ -134,7 +152,7 @@ class NxChat extends LitElement {
           @keydown=${this._handleKeydown}
         ></textarea>
         <div class="chat-actions ${this.thinking ? 'chat-thinking' : ''}">
-          <nx-menu .items=${ADD_MENU_ITEMS} placement="above">
+          <nx-menu .items=${ADD_MENU_ITEMS} placement="above" @select=${this._onAddMenuSelect}>
             <button slot="trigger" class="chat-add" type="button" aria-label="Add">${icon('add')}</button>
           </nx-menu>
           <button class="chat-stop" type="button" aria-label="Stop" @click=${this._submit}>${icon('stop')}</button>

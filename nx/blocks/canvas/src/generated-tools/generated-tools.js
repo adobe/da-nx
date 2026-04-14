@@ -1,6 +1,6 @@
-import { LitElement, html, nothing } from 'lit';
-
-import { loadStyle } from '../../../../utils/style.js';
+import { LitElement, html, nothing } from 'da-lit';
+// eslint-disable-next-line import/no-unresolved
+import getStyle from 'https://da.live/nx/utils/styles.js';
 import {
   loadGeneratedTools,
   approveGeneratedTool,
@@ -8,7 +8,7 @@ import {
   deleteGeneratedTool,
 } from './utils.js';
 
-const style = await loadStyle(import.meta.url);
+const style = await getStyle(import.meta.url);
 
 /**
  * Generated Tools panel for the DA Skills Lab.

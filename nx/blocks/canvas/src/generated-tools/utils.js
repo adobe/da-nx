@@ -1,4 +1,5 @@
-import { DA_ORIGIN, daFetch } from '../../../../utils/utils.js';
+import { DA_ORIGIN } from '../../../../public/utils/constants.js';
+import { daFetch } from '../../../../utils/daFetch.js';
 
 export const GENERATED_TOOLS_BASE_PATH = '/.da/generated-tools';
 
