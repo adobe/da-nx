@@ -78,6 +78,13 @@ export function getInstrumentedHTML(view) {
   const originalTables = view.dom.querySelectorAll('table');
   const clonedTables = editorClone.querySelectorAll('table');
   clonedTables.forEach((table, index) => {
+    // If this is an EDS metadata table, skip marker instrumentation and hide the table.
+    const firstRow = table.querySelector('tr');
+    const firstCellText = firstRow?.cells?.[0]?.textContent?.trim().toLowerCase();
+    if (firstCellText === 'metadata') {
+      table.style.display = 'none';
+      return;
+    }
     const div = document.createElement('div');
     div.className = 'tableWrapper';
     table.insertAdjacentElement('afterend', div);
