@@ -134,9 +134,18 @@ class BrowseView extends LitElement {
 
   _syncBrowsePathFromHash() {
     const ctx = parseHashToPathContext(window.location.hash);
-    const next = ctx?.pathSegments ?? [];
+    let next = ctx?.pathSegments ?? [];
+    let fullpath = ctx?.fullpath ?? '';
+    if (
+      this.appsSkills
+      && next.length >= 3
+      && next[next.length - 1] === 'skills-lab'
+    ) {
+      next = next.slice(0, -1);
+      fullpath = `/${next.join('/')}`;
+    }
     this._browsePathSegments = [...next];
-    this._browseFolderFullpath = ctx?.fullpath ?? '';
+    this._browseFolderFullpath = fullpath;
   }
 
   _onBrowseListPermissions(e) {
