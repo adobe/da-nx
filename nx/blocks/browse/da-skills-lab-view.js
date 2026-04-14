@@ -153,9 +153,38 @@ class DaSkillsLabView extends LitElement {
     return r;
   }
 
+  connectedCallback() {
+    super.connectedCallback();
+    this._collapsibleVpMql = window.matchMedia('(max-width: 1023px)');
+    this._onCollapsibleVp = () => {
+      const narrow = this._collapsibleVpMql.matches;
+      this.renderRoot?.querySelectorAll('details[data-sl-collapsible]').forEach((el) => {
+        if (narrow) el.removeAttribute('open');
+        else el.setAttribute('open', '');
+      });
+    };
+    this._collapsibleVpMql.addEventListener('change', this._onCollapsibleVp);
+  }
+
+  disconnectedCallback() {
+    this._collapsibleVpMql?.removeEventListener('change', this._onCollapsibleVp);
+    super.disconnectedCallback();
+  }
+
+  firstUpdated(changedProperties) {
+    super.firstUpdated(changedProperties);
+    this._onCollapsibleVp();
+  }
+
   updated(changed) {
+    super.updated(changed);
     if ((changed.has('org') || changed.has('site')) && this.org && this.site) {
       this._reload();
+    }
+    /* `firstUpdated` runs while `_loading` may still be true (spinner only), so `<details>` are
+     * not in the tree yet — re-apply open/closed when the catalog finishes loading. */
+    if (changed.has('_loading') && !this._loading) {
+      queueMicrotask(() => this._onCollapsibleVp());
     }
   }
 
@@ -449,49 +478,61 @@ class DaSkillsLabView extends LitElement {
           </div>`
         : nothing}
         <div class="skills-lab-columns">
-          <div class="skills-lab-col skills-lab-col-narrow">
-            <div class="skills-lab-col-scroll">
-              <div class="skills-lab-back">
-                <a href="${browseHash}">← Back to browse</a>
+          <div class="skills-lab-col skills-lab-col-editor skills-lab-col-narrow">
+            <div class="skills-lab-col-scroll skills-lab-col-scroll-stack">
+              <div class="skills-lab-order-back">
+                <div class="skills-lab-back">
+                  <a href="${browseHash}">← Back to browse</a>
+                </div>
               </div>
-              <h3 class="skills-lab-section-h">Discover / register</h3>
-              <form class="skills-lab-form" @submit=${this._onRegisterMcp}>
-                <label>Add MCP server (config sheet)</label>
-                <input class="skills-lab-input" .value=${this._registerKey} @input=${(e) => { this._registerKey = e.target.value; }} placeholder="server-id" />
-                <input class="skills-lab-input" .value=${this._registerUrl} @input=${(e) => { this._registerUrl = e.target.value; }} placeholder="https://…/sse" />
-                <sp-button type="submit" variant="accent" ?disabled=${this._registerBusy}>Register MCP</sp-button>
-              </form>
-              <div class="skills-lab-editor-heading">
-                <h3 class="skills-lab-section-h skills-lab-section-h--inline">Skills Editor</h3>
-                ${this._editingSkillId
+              <div class="skills-lab-order-editor">
+                <div class="skills-lab-editor-heading">
+                  <h3 class="skills-lab-section-h skills-lab-section-h-inline">Skills Editor</h3>
+                  ${this._editingSkillId
         ? html`<button type="button" class="skills-lab-link-btn" @click=${this._clearSkillEditor}>New skill</button>`
         : nothing}
+                </div>
+                <form class="skills-lab-form" @submit=${this._onSaveSkill}>
+                  <input
+                    class="skills-lab-input"
+                    .value=${this._newSkillId}
+                    @input=${(e) => { this._newSkillId = e.target.value; }}
+                    placeholder="skill-id"
+                    ?readonly=${Boolean(this._editingSkillId)}
+                  />
+                  <textarea class="skills-lab-textarea" .value=${this._newSkillBody} @input=${(e) => { this._newSkillBody = e.target.value; }}></textarea>
+                  <sp-button type="submit" variant="primary" ?disabled=${this._skillSaveBusy}>Save skill</sp-button>
+                </form>
               </div>
-              <form class="skills-lab-form" @submit=${this._onSaveSkill}>
-                <input
-                  class="skills-lab-input"
-                  .value=${this._newSkillId}
-                  @input=${(e) => { this._newSkillId = e.target.value; }}
-                  placeholder="skill-id"
-                  ?readonly=${Boolean(this._editingSkillId)}
-                />
-                <textarea class="skills-lab-textarea" .value=${this._newSkillBody} @input=${(e) => { this._newSkillBody = e.target.value; }}></textarea>
-                <sp-button type="submit" variant="primary" ?disabled=${this._skillSaveBusy}>Save skill</sp-button>
-              </form>
-              <h3 class="skills-lab-section-h">Create agent stub</h3>
-              <form class="skills-lab-form" @submit=${this._onSaveAgent}>
-                <input class="skills-lab-input" .value=${this._newAgentId} @input=${(e) => { this._newAgentId = e.target.value; }} placeholder="agent-id" />
-                <input class="skills-lab-input" .value=${this._newAgentName} @input=${(e) => { this._newAgentName = e.target.value; }} placeholder="Display name" />
-                <sp-button type="submit" variant="secondary" ?disabled=${this._agentSaveBusy}>Save preset</sp-button>
-              </form>
+              <div class="skills-lab-order-discover">
+                <h3 class="skills-lab-section-h">Discover / register</h3>
+                <form class="skills-lab-form" @submit=${this._onRegisterMcp}>
+                  <label>Add MCP server (config sheet)</label>
+                  <input class="skills-lab-input" .value=${this._registerKey} @input=${(e) => { this._registerKey = e.target.value; }} placeholder="server-id" />
+                  <input class="skills-lab-input" .value=${this._registerUrl} @input=${(e) => { this._registerUrl = e.target.value; }} placeholder="https://…/sse" />
+                  <sp-button type="submit" variant="accent" ?disabled=${this._registerBusy}>Register MCP</sp-button>
+                </form>
+              </div>
+              <details data-sl-collapsible class="skills-lab-mobile-wrap skills-lab-order-agent">
+                <summary class="skills-lab-mobile-summary">Create agent stub</summary>
+                <div class="skills-lab-mobile-body">
+                  <form class="skills-lab-form" @submit=${this._onSaveAgent}>
+                    <input class="skills-lab-input" .value=${this._newAgentId} @input=${(e) => { this._newAgentId = e.target.value; }} placeholder="agent-id" />
+                    <input class="skills-lab-input" .value=${this._newAgentName} @input=${(e) => { this._newAgentName = e.target.value; }} placeholder="Display name" />
+                    <sp-button type="submit" variant="secondary" ?disabled=${this._agentSaveBusy}>Save preset</sp-button>
+                  </form>
+                </div>
+              </details>
               ${this._formMsg
-        ? html`<div class="skills-lab-msg ${this._formMsg.includes('fail') || this._formMsg.includes('required') ? 'skills-lab-msg-err' : 'skills-lab-msg-ok'}">${this._formMsg}</div>`
+        ? html`<div class="skills-lab-order-msgs skills-lab-msg ${this._formMsg.includes('fail') || this._formMsg.includes('required') ? 'skills-lab-msg-err' : 'skills-lab-msg-ok'}">${this._formMsg}</div>`
         : nothing}
-              ${this._error ? html`<div class="skills-lab-msg skills-lab-msg-err">${this._error}</div>` : nothing}
+              ${this._error ? html`<div class="skills-lab-order-msgs skills-lab-msg skills-lab-msg-err">${this._error}</div>` : nothing}
             </div>
           </div>
           <div class="skills-lab-col skills-lab-col-mid">
-            <div class="skills-lab-col-scroll">
+            <details data-sl-collapsible class="skills-lab-mobile-wrap skills-lab-mid-wrap">
+              <summary class="skills-lab-mobile-summary">Catalogs · agents, skills, MCP</summary>
+              <div class="skills-lab-col-scroll">
               <h3 class="skills-lab-section-h">Agents (${1 + this._customAgents.length})</h3>
               ${BUILTIN_AGENTS.map(
         (a) => html`
@@ -524,7 +565,7 @@ class DaSkillsLabView extends LitElement {
               ${skillIds.map(
         (sid) => html`
                 <div
-                  class="skills-lab-card skills-lab-card--skill ${this._capHighlighted('skill', sid) ? 'sl-highlight' : ''}"
+                  class="skills-lab-card skills-lab-card-skill ${this._capHighlighted('skill', sid) ? 'sl-highlight' : ''}"
                 >
                   <div class="skills-lab-card-row" @click=${() => this._selectCap('skill', sid)}>
                     <span class="skills-lab-type-badge skill">skill</span>
@@ -584,10 +625,13 @@ class DaSkillsLabView extends LitElement {
                 </div>`,
       )}
             </div>
+            </details>
           </div>
           <div class="skills-lab-col skills-lab-col-wide">
-            <div class="skills-lab-col-scroll">
-              <h3 class="skills-lab-section-h">Generated Tools</h3>
+            <details data-sl-collapsible class="skills-lab-mobile-wrap skills-lab-wide-wrap">
+              <summary class="skills-lab-mobile-summary">Generated tools · Tools Registry</summary>
+              <div class="skills-lab-col-scroll">
+              <h3 class="skills-lab-section-h skills-lab-section-h-tools-generated">Generated Tools</h3>
               <nx-generated-tools .org=${this.org} .site=${this.site}></nx-generated-tools>
               <h3 class="skills-lab-section-h">Tools Registry (${toolRows.length})</h3>
               ${toolRows.map(
@@ -606,6 +650,7 @@ class DaSkillsLabView extends LitElement {
         },
       )}
             </div>
+            </details>
           </div>
         </div>
       </div>

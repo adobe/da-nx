@@ -79,11 +79,14 @@ class BrowseView extends LitElement {
     _browseFolderFullpath: { state: true },
     /** List API `permissions` for toolbar New (from `sl-content-browser`). */
     _browseListPermissions: { state: true },
+    /** Skills Lab: stack chat above main below 1024px. */
+    _skillsLabNarrowVp: { state: true },
   };
 
   constructor() {
     super();
     this.appsSkills = false;
+    this._skillsLabNarrowVp = false;
     const persisted = readWindowLayoutState();
     this._chatOpen = typeof persisted.chatOpen === 'boolean' ? persisted.chatOpen : true;
     this._chatContextItems = [];
@@ -98,11 +101,18 @@ class BrowseView extends LitElement {
     this._boundBrowseHashChange = () => this._syncBrowsePathFromHash();
     this._boundRepoFilesChanged = (e) => this._onRepoFilesChanged(e);
     this._onChatMessageSent = this._onChatMessageSent.bind(this);
+    this._skillsLabVpMql = null;
+    this._onSkillsLabVp = () => {
+      this._skillsLabNarrowVp = this._skillsLabVpMql?.matches ?? false;
+    };
   }
 
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
+    this._skillsLabVpMql = window.matchMedia('(max-width: 1023px)');
+    this._skillsLabNarrowVp = this._skillsLabVpMql.matches;
+    this._skillsLabVpMql.addEventListener('change', this._onSkillsLabVp);
     this._syncBrowsePathFromHash();
     window.addEventListener('hashchange', this._boundBrowseHashChange);
     window.addEventListener(DA_BULK_AEM_OPEN, this._boundWindowBulkAemOpen);
@@ -113,6 +123,7 @@ class BrowseView extends LitElement {
   }
 
   disconnectedCallback() {
+    this._skillsLabVpMql?.removeEventListener('change', this._onSkillsLabVp);
     window.removeEventListener('hashchange', this._boundBrowseHashChange);
     window.removeEventListener(DA_BULK_AEM_OPEN, this._boundWindowBulkAemOpen);
     window.removeEventListener(REPO_FILES_CHANGED_EVENT, this._boundRepoFilesChanged);
@@ -271,17 +282,18 @@ class BrowseView extends LitElement {
       const org = this._browsePathSegments?.[0] || '';
       const site = this._browsePathSegments?.[1] || '';
       return html`
-      <div class="browse-view browse-view--skills-lab">
+      <div class="browse-view browse-view-skills-lab">
         ${this._renderToolbar()}
         <div class="browse-view-body">
           ${this._chatOpen
         ? html`
                 <sp-split-view
                   class="browse-view-split split-view-outer"
+                  ?vertical="${this._skillsLabNarrowVp}"
                   resizable
-                  primary-size="${this._chatPanelSize}"
-                  primary-min="280"
-                  secondary-min="400"
+                  primary-size="${this._skillsLabNarrowVp ? '40%' : this._chatPanelSize}"
+                  primary-min="${this._skillsLabNarrowVp ? 200 : 280}"
+                  secondary-min="${this._skillsLabNarrowVp ? 240 : 400}"
                   label="Resize chat panel"
                   @change="${this._onChatPanelResize}"
                 >
@@ -291,13 +303,13 @@ class BrowseView extends LitElement {
                     .onPageContextItems="${this._chatContextItems ?? []}"
                     @da-chat-message-sent="${this._onChatMessageSent}"
                   ></da-chat>
-                  <div class="browse-view-main browse-view-main--skills-lab">
+                  <div class="browse-view-main browse-view-main-skills-lab">
                     <da-skills-lab-view .org=${org} .site=${site}></da-skills-lab-view>
                   </div>
                 </sp-split-view>
               `
         : html`
-                <div class="browse-view-main browse-view-main--skills-lab">
+                <div class="browse-view-main browse-view-main-skills-lab">
                   <da-skills-lab-view .org=${org} .site=${site}></da-skills-lab-view>
                 </div>
               `}

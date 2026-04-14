@@ -58,17 +58,23 @@
   border-right: none;
 }
 
+/* Editor column: widest (≥ ~2× previous fixed width at typical desktop widths). */
+.skills-lab-col-editor.skills-lab-col-narrow,
 .skills-lab-col-narrow {
-  flex: 0 0 280px;
-  max-width: 320px;
+  flex: 2.4 1 54%;
+  min-width: min(680px, 100%);
+  max-width: none;
 }
 
 .skills-lab-col-mid {
-  flex: 1 1 36%;
+  flex: 1 1 23%;
+  min-width: 200px;
+  max-width: 30%;
 }
 
 .skills-lab-col-wide {
-  flex: 1 1 40%;
+  flex: 1 1 23%;
+  min-width: 220px;
 }
 
 .skills-lab-col-scroll {
@@ -101,7 +107,7 @@
   padding: 6px 12px 0;
 }
 
-.skills-lab-section-h--inline {
+.skills-lab-section-h-inline {
   position: static;
   border-bottom: none;
   padding: 4px 0;
@@ -142,7 +148,7 @@
   box-shadow: 0 0 0 1px #1473e6;
 }
 
-.skills-lab-card--skill {
+.skills-lab-card-skill {
   cursor: default;
 }
 
@@ -341,4 +347,112 @@
   text-align: center;
   color: #888;
   font-size: 14px;
+}
+
+/* ---- Mobile / narrow viewport (chat + editor + discover first; collapsible catalogs) ---- */
+.skills-lab-col-scroll-stack {
+  display: block;
+}
+
+.skills-lab-mobile-summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 10px 12px;
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #333;
+  background: linear-gradient(to bottom, #f5f5f5 70%, rgb(245 245 245 / 92%));
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.skills-lab-mobile-summary::-webkit-details-marker {
+  display: none;
+}
+
+.skills-lab-mobile-body {
+  padding: 0;
+}
+
+@media (width <= 1023px) {
+  .skills-lab-columns {
+    flex-direction: column;
+  }
+
+  .skills-lab-col {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    border-right: none;
+    border-bottom: 1px solid var(--spectrum-global-color-gray-200, #e0e0e0);
+  }
+
+  .skills-lab-col:last-child {
+    border-bottom: none;
+  }
+
+  .skills-lab-col-scroll-stack {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .skills-lab-order-back {
+    order: 1;
+  }
+
+  .skills-lab-order-editor {
+    order: 2;
+  }
+
+  .skills-lab-order-discover {
+    order: 3;
+  }
+
+  .skills-lab-order-agent {
+    order: 4;
+  }
+
+  .skills-lab-order-msgs {
+    order: 5;
+  }
+
+  /* Summary already labels this block */
+  .skills-lab-wide-wrap .skills-lab-section-h-tools-generated {
+    display: none;
+  }
+}
+
+@media (width >= 1024px) {
+  /*
+   * Do NOT use `display: contents` on `<details>` — it breaks disclosure / slot behavior in
+   * several browsers, so catalog content stays hidden even when `open` is set.
+   * Hide the summary and let `<details>` fill the column like the original scroll pane.
+   */
+  .skills-lab-mobile-summary {
+    display: none !important;
+  }
+
+  .skills-lab-mid-wrap,
+  .skills-lab-wide-wrap {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border: none;
+  }
+
+  .skills-lab-mid-wrap > .skills-lab-col-scroll,
+  .skills-lab-wide-wrap > .skills-lab-col-scroll {
+    flex: 1;
+    min-height: 0;
+  }
+
+  /* Create agent stub: not a column filler; keep normal block flow */
+  .skills-lab-order-agent.skills-lab-mobile-wrap {
+    display: block;
+    overflow: visible;
+  }
 }
