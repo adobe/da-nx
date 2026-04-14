@@ -70,7 +70,7 @@ export class NxEditorWysiwyg extends LitElement {
     const segments = path.split('/');
     const pathWithoutOrgRepo = segments.slice(2).join('/');
     const encodedPath = pathWithoutOrgRepo.split('/').map(encodeURIComponent).join('/');
-    const base = `${getPreviewOrigin(org, repo)}/${encodedPath}?nx=exp-workspace&quick-edit=exp-workspace`;
+    const base = `${getPreviewOrigin(org, repo)}/${encodedPath}?nx=ew&quick-edit=ew`;
     return `${base}&controller=parent`;
   }
 
