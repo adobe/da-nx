@@ -57,7 +57,7 @@ A tool card transitions through these states as events arrive:
 
 ```
 tool-call → running
-tool-approval-request → approval-requested
+tool-approval-request → approval-requested  (or → approved directly if auto-approved)
 (user approves) → approved → done
 (user rejects) → rejected
 tool-result (success) → done
@@ -65,6 +65,8 @@ tool-result (error) → error
 ```
 
 `approval-requested` is the only state that requires user action. All other states are informational.
+
+The approval popover accepts keyboard shortcuts: `Esc` = Reject, `↵` = Approve, `⌘↵` = Always approve.
 
 **If the agent team adds or renames event types, `processEvent` in `utils.js` must be updated to match.**
 
