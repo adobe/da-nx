@@ -7,13 +7,9 @@ import './nx-editor-wysiwyg/nx-editor-wysiwyg.js';
 const style = await loadStyle(import.meta.url);
 document.adoptedStyleSheets = [...document.adoptedStyleSheets, style];
 
-function isHtmlPath(path) {
-  return typeof path === 'string' && path.toLowerCase().trim().endsWith('.html');
-}
-
 function buildCanvasDocPath(state) {
   const { org, site, path } = state || {};
-  if (!org || !site || !path || !isHtmlPath(path)) return null;
+  if (!org || !site || !path) return null;
   return `${org}/${site}/${path}`;
 }
 

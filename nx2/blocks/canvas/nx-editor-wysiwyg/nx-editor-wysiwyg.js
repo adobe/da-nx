@@ -11,7 +11,7 @@ const QUICK_EDIT_INIT_MAX_ATTEMPTS = 25;
 const WYSIWYG_PORT_READY_ATTR = 'data-nx-wysiwyg-port-ready';
 
 function buildQuickEditInitPayload({ org, repo, path }) {
-  const pathWithoutOrgRepo = path.split('/').slice(2).join('/').replace(/\.html$/i, '');
+  const pathWithoutOrgRepo = path.split('/').slice(2).join('/');
   const pathname = pathWithoutOrgRepo ? `/${pathWithoutOrgRepo}` : '/';
   return {
     config: {
@@ -69,8 +69,7 @@ export class NxEditorWysiwyg extends LitElement {
     if (!org || !repo || !path || !this._cookieReady) return null;
     const segments = path.split('/');
     const pathWithoutOrgRepo = segments.slice(2).join('/');
-    const pathWithoutHtml = pathWithoutOrgRepo.replace(/\.html$/i, '');
-    const encodedPath = pathWithoutHtml.split('/').map(encodeURIComponent).join('/');
+    const encodedPath = pathWithoutOrgRepo.split('/').map(encodeURIComponent).join('/');
     const base = `${getPreviewOrigin(org, repo)}/${encodedPath}?nx=exp-workspace&quick-edit=exp-workspace`;
     return `${base}&controller=parent`;
   }

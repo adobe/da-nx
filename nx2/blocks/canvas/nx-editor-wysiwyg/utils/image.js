@@ -52,7 +52,7 @@ function dataUrlToBlob(dataUrl) {
 
 function getPageName(currentPath) {
   if (currentPath.endsWith('/')) return `${currentPath.replace(/^\//, '')}index`;
-  return currentPath.replace(/^\//, '').replace(/\.html$/, '');
+  return currentPath.replace(/^\//, '');
 }
 
 export async function handleImageReplace({ imageData, fileName, originalSrc }, ctx) {

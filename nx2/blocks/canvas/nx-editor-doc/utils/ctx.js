@@ -17,7 +17,7 @@ export function controllerPathnameFromEditorCtx(ctx) {
   const docPath = ctx?.path;
   if (!docPath || typeof docPath !== 'string') return '/';
   const segments = docPath.replace(/^\//, '').split('/').filter(Boolean);
-  const withoutOrgRepo = segments.slice(2).join('/').replace(/\.html$/i, '');
+  const withoutOrgRepo = segments.slice(2).join('/');
   return withoutOrgRepo ? `/${withoutOrgRepo}` : '/';
 }
 

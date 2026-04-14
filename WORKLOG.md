@@ -95,6 +95,9 @@ Decided to wrap nav and sidenav in semantic HTML elements:
 - **`nx-editor-wysiwyg`**: close unused parent-side `MessageChannel` ports before each init retry and on disconnect; keep the port handed to `nx-editor-doc` open.
 - **`nx-editor-doc`**: `port.close()` when clearing the quick-edit controller port.
 
+### nx2 canvas — document paths without `.html`
+- Hash / `ctx.path` is `org/site/...` with no `.html` suffix; **`buildSourceUrl`** no longer appends `.html`**. Quick-edit pathname / iframe URL / controller pathname use the path segments as-is (removed `.replace(/\.html$/i)`); **`image.js`** `getPageName` no longer strips `.html`.
+
 ## 2026-04-09
 
 ### nx2 canvas — editor layout rename + file split
