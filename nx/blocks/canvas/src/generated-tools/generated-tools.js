@@ -392,15 +392,20 @@ class NXGeneratedTools extends LitElement {
     return html`
       <div class="gt-card gt-card-${def.status}">
         <div class="gt-card-header">
-          <button class="gt-card-toggle"
+          <button
+            type="button"
+            class="gt-card-title-btn"
             aria-expanded=${isExpanded}
             aria-controls="gt-detail-${def.id}"
-            @click=${() => this._toggleExpand(def.id)}>
+            @click=${() => this._toggleExpand(def.id)}
+          >
             <span class="gt-card-name">${def.name}</span>
-            <span class="gt-badge gt-badge-${def.status}">${def.status}</span>
             <span class="gt-card-arrow" aria-hidden="true">${isExpanded ? '▲' : '▼'}</span>
           </button>
-          ${this._renderActions(def)}
+          <div class="gt-card-toolbar">
+            <span class="gt-badge gt-badge-${def.status}">${def.status}</span>
+            ${this._renderActions(def)}
+          </div>
         </div>
         ${isExpanded ? html`
           <div class="gt-card-detail" id="gt-detail-${def.id}">
