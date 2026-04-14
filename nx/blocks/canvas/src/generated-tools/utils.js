@@ -1,7 +1,13 @@
 import { DA_ORIGIN } from '../../../../public/utils/constants.js';
 import { daFetch } from '../../../../utils/daFetch.js';
+import {
+  SEEDED_GENERATED_TOOLS,
+  findBestGeneratedTool,
+  mergeWithSeededGeneratedTools,
+} from './poc-tools.js';
 
 export const GENERATED_TOOLS_BASE_PATH = '/.da/generated-tools';
+export { SEEDED_GENERATED_TOOLS, findBestGeneratedTool };
 
 /**
  * Build the storage path for a generated tool definition.
@@ -27,10 +33,10 @@ export async function loadGeneratedTools(org, site) {
 
   let resp = await daFetch(`${DA_ORIGIN}/list${path}`);
   if (!resp.ok && site) resp = await daFetch(`${DA_ORIGIN}/list${orgPath}`);
-  if (!resp.ok) return [];
+  if (!resp.ok) return mergeWithSeededGeneratedTools([]);
 
   const json = await resp.json();
-  if (!Array.isArray(json)) return [];
+  if (!Array.isArray(json)) return mergeWithSeededGeneratedTools([]);
 
   const jsonFiles = json.filter((item) => item.ext === 'json');
   const defs = await Promise.all(jsonFiles.map(async (item) => {
@@ -43,7 +49,7 @@ export async function loadGeneratedTools(org, site) {
     }
   }));
 
-  return defs.filter(Boolean);
+  return mergeWithSeededGeneratedTools(defs.filter(Boolean));
 }
 
 /**
