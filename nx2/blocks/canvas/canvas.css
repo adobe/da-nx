@@ -1,3 +1,7 @@
+:root {
+  --nx-canvas-header-height: 48px;
+}
+
 html:has(aside.panel[data-position="before"]:not([hidden])) nx-canvas-header::part(toggle-before) {
   display: none;
 }
@@ -21,3 +25,27 @@ html:has(aside.panel[data-position="after"]:not([hidden])) nx-canvas-header::par
 nx-chat {
   height: 100%;
 }
+
+/* Single visible editor: Layout (doc) or Content (WYSIWYG); inactive uses [hidden] */
+.nx-canvas-editor-mount {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  gap: 0;
+  height: calc(100vh - var(--nx-canvas-header-height) - var(--s2-nav-height));
+}
+
+nx-editor-doc {
+  display: block;
+  flex: 1;
+  min-height: 0;
+  max-height: calc(100vh - var(--nx-canvas-header-height) - var(--s2-nav-height));
+  overflow-y: auto;
+}
+
+nx-editor-doc[hidden],
+nx-editor-wysiwyg[hidden] {
+  display: none !important;
+}
+
