@@ -165,6 +165,9 @@ class BrowseView extends LitElement {
 
   _onBrowseToolbarNewItem() {
     this.shadowRoot?.querySelector('sl-content-browser')?.refreshFolder?.();
+    if (this.appsSkills) {
+      this.shadowRoot?.querySelector('da-skills-lab-view')?.refresh?.();
+    }
   }
 
   _onBrowseToolbarNewError(e) {

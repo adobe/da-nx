@@ -93,6 +93,36 @@
   border-bottom: 1px solid #e8e8e8;
 }
 
+.skills-lab-editor-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 12px 0;
+}
+
+.skills-lab-section-h--inline {
+  position: static;
+  border-bottom: none;
+  padding: 4px 0;
+  flex: 1;
+}
+
+.skills-lab-link-btn {
+  border: none;
+  background: transparent;
+  color: #1473e6;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+
+.skills-lab-link-btn:hover {
+  background: #eef5ff;
+}
+
 .skills-lab-card {
   margin: 6px 10px;
   padding: 10px 12px;
@@ -110,6 +140,42 @@
   border-color: #1473e6;
   background: #f0f6ff;
   box-shadow: 0 0 0 1px #1473e6;
+}
+
+.skills-lab-card--skill {
+  cursor: default;
+}
+
+.skills-lab-card-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.skills-lab-card-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.skills-lab-skill-edit {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid #d0d0d0;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  margin-top: 2px;
+}
+
+.skills-lab-skill-edit:hover {
+  background: #f0f0f0;
+  border-color: #b0b0b0;
 }
 
 .skills-lab-card-title {
