@@ -15,7 +15,9 @@ import {
   buildQuickEditControllerCtx,
   wireQuickEditControllerPort,
 } from './utils/quick-edit-host.js';
-import { resolveEditorDocSession, createProseEditorInstance } from './utils/load-editor-doc.js';
+import initProse from './prose.js';
+import { createTrackingPlugin } from '../editor-utils/prose-diff.js';
+import { resolveEditorDocSession } from './utils/load-editor-doc.js';
 import { afterNextPaint, ensureProseMountedInShadow } from './utils/shadow-mount.js';
 import { teardownEditorDocResources } from './utils/teardown.js';
 
@@ -54,7 +56,8 @@ export class NxEditorDoc extends LitElement {
   }
 
   _setupController() {
-    if (!this.quickEditPort || !this._view || !this._wsProvider) return;
+    const { view, wsProvider } = this._proseContext ?? {};
+    if (!this.quickEditPort || !view || !wsProvider) return;
     if (this._controllerCtx?.port === this.quickEditPort) return;
 
     this._clearControllerPort();
@@ -63,8 +66,8 @@ export class NxEditorDoc extends LitElement {
     const { org, repo } = this.ctx ?? {};
     const getToken = createQuickEditGetToken();
     this._controllerCtx = buildQuickEditControllerCtx({
-      view: this._view,
-      wsProvider: this._wsProvider,
+      view,
+      wsProvider,
       port: this.quickEditPort,
       owner: org,
       repo,
@@ -93,66 +96,57 @@ export class NxEditorDoc extends LitElement {
   }
 
   _teardown() {
+    const { wsProvider, view, proseEl } = this._proseContext ?? {};
     teardownEditorDocResources({
       clearPortHandler: () => this._clearControllerPort(),
       awarenessOff: this._awarenessOff,
-      wsProvider: this._wsProvider,
-      view: this._view,
-      proseEl: this._proseEl,
+      wsProvider,
+      view,
+      proseEl,
       onCollabUsersCleared: () => this._emitCollabUsers([]),
     });
     this._awarenessOff = undefined;
-    this._wsProvider = undefined;
-    this._view = undefined;
-    this._ydoc = undefined;
-    this._proseEl = undefined;
+    this._proseContext = undefined;
   }
 
   async _loadEditor() {
     if (!editorDocCanLoad(this.ctx)) {
-      this.requestUpdate();
       return;
     }
 
     const sourceUrl = sourceUrlFromEditorCtx(this.ctx);
-    this._teardown();
-    this._error = undefined;
-    this.requestUpdate();
 
     const session = await resolveEditorDocSession(sourceUrl);
     if (!session.ok) {
       this._error = session.error;
-      this.requestUpdate();
       return;
     }
 
     try {
-      const trackingCallbacks = {
-        rerenderPage: () => updateDocument(this._controllerCtx),
-        updateCursorsCb: () => updateCursors(this._controllerCtx),
-        getEditorCb: (data) => getEditor(data, this._controllerCtx),
-      };
-
-      const { proseEl, wsProvider, view, ydoc } = await createProseEditorInstance({
-        sourceUrl,
-        permissions: session.permissions,
-        token: session.token,
+      const { token, permissions } = session;
+      const { proseEl, wsProvider, view, ydoc } = await initProse({
+        path: sourceUrl,
+        permissions,
         setEditable: (editable) => this._setEditable(editable),
-        trackingCallbacks,
+        getToken: () => token,
+        extraPlugins: [
+          // controllerCtx is only initialized after setupController
+          createTrackingPlugin(
+            () => { if (this._controllerCtx) updateDocument(this._controllerCtx); },
+            () => { if (this._controllerCtx) updateCursors(this._controllerCtx); },
+            (data) => { if (this._controllerCtx) getEditor(data, this._controllerCtx); },
+          ),
+        ],
       });
 
-      this._proseEl = proseEl;
-      this._wsProvider = wsProvider;
-      this._view = view;
-      this._ydoc = ydoc;
+      this._proseContext = { proseEl, wsProvider, view, ydoc };
       this._setupAwareness(wsProvider);
+
       this._setupController();
     } catch (e) {
       this._error = e?.message || 'Failed to load editor';
-      this._proseEl = undefined;
-      this._wsProvider = undefined;
-      this._view = undefined;
-      this._ydoc = undefined;
+      this._proseContext = undefined;
+      return;
     }
 
     this.requestUpdate();
@@ -180,21 +174,22 @@ export class NxEditorDoc extends LitElement {
       this._loadEditor();
     }
     if (changed.has('quickEditPort')) {
-      if (this.quickEditPort && this._view) {
+      if (this.quickEditPort && this._proseContext?.view) {
         this._setupController();
       } else if (!this.quickEditPort) {
         this._clearControllerPort();
       }
     }
-    if (this._proseEl) {
-      ensureProseMountedInShadow({ shadowRoot: this.shadowRoot, proseEl: this._proseEl });
+    const { proseEl } = this._proseContext ?? {};
+    if (proseEl) {
+      ensureProseMountedInShadow({ shadowRoot: this.shadowRoot, proseEl });
     }
   }
 
   render() {
     const phase = editorDocRenderPhase(this.ctx, {
       error: this._error,
-      hasEditorView: Boolean(this._view),
+      hasEditorView: Boolean(this._proseContext?.view),
     });
     if (phase === 'incomplete') {
       return html`

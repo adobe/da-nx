@@ -1,5 +1,3 @@
-import initProse from '../prose.js';
-import { createTrackingPlugin } from '../../editor-utils/prose-diff.js';
 import { checkDoc } from './source.js';
 
 export async function resolveEditorDocSession(sourceUrl) {
@@ -18,32 +16,4 @@ export async function resolveEditorDocSession(sourceUrl) {
 
   const permissions = resp.permissions || ['read'];
   return { ok: true, token, permissions };
-}
-
-export async function createProseEditorInstance({
-  sourceUrl,
-  permissions,
-  token,
-  setEditable,
-  trackingCallbacks,
-}) {
-  const {
-    rerenderPage,
-    updateCursorsCb,
-    getEditorCb,
-  } = trackingCallbacks;
-
-  const extraPlugins = [
-    createTrackingPlugin(rerenderPage, updateCursorsCb, getEditorCb),
-  ];
-
-  const getToken = () => token;
-
-  return initProse({
-    path: sourceUrl,
-    permissions,
-    setEditable,
-    getToken,
-    extraPlugins,
-  });
 }

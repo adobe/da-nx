@@ -5,6 +5,7 @@ import './nx-editor-doc/nx-editor-doc.js';
 import './nx-editor-wysiwyg/nx-editor-wysiwyg.js';
 
 const style = await loadStyle(import.meta.url);
+document.adoptedStyleSheets = [...document.adoptedStyleSheets, style];
 
 function isHtmlPath(path) {
   return typeof path === 'string' && path.toLowerCase().trim().endsWith('.html');
@@ -164,10 +165,6 @@ function installCanvasHeader(block) {
 }
 
 export default async function decorate(block) {
-  if (!document.adoptedStyleSheets.includes(style)) {
-    document.adoptedStyleSheets = [...document.adoptedStyleSheets, style];
-  }
-
   const header = installCanvasHeader(block);
 
   const mountRoot = canvasEditorMountRoot(block);
