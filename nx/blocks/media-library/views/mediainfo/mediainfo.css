@@ -18,6 +18,12 @@ svg.fragment-icon {
   height: 60px;
 }
 
+svg.pdf-icon {
+  opacity: 0.5;
+  width: 60px;
+  height: 60px;
+}
+
 button {
   font-family: var(--font-family);
 }
@@ -423,79 +429,49 @@ dialog.modal-overlay::backdrop {
 
 .pdf-preview {
   width: 100%;
-  height: 600px;
-  border: 1px solid var(--s2-gray-200);
-  border-radius: var(--s2-radius-100);
-  box-shadow: 0 4px 16px rgb(0 0 0 / 15%);
+  height: 100%;
+  border: none;
 }
 
-.pdf-preview-container {
+.pdf-error-container,
+.pdf-loading-container {
   width: 100%;
-  height: 600px;
-  background: var(--s2-gray-50);
-  border: 1px solid var(--s2-gray-200);
-  border-radius: var(--s2-radius-100);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-}
-
-.document-placeholder {
+  height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  text-align: center;
+  background: var(--s2-gray-50, #fafafa);
   padding: 40px;
-}
-
-.pdf-info {
-  margin-top: 16px;
   text-align: center;
 }
 
-.pdf-name {
-  display: block;
-  font-weight: 600;
-  color: var(--s2-gray-900);
-  margin-bottom: 4px;
+.pdf-loading-container sl-spinner {
+  font-size: 3rem;
 }
 
-.pdf-type {
-  display: block;
-  color: var(--s2-gray-600, #6b7280);
-  font-size: 14px;
-  margin-bottom: 8px;
+.pdf-error-message {
+  margin-top: 16px;
+  color: var(--s2-gray-700);
+  max-width: 400px;
+  line-height: 1.5;
 }
 
-.pdf-loading {
-  display: block;
-  color: var(--s2-blue-600, #3b82f6);
-  font-size: 14px;
+.pdf-error-link {
+  margin-top: 16px;
+  color: var(--s2-blue-600);
+  text-decoration: underline;
   font-weight: 500;
 }
 
-.pdf-error {
-  display: block;
-  color: var(--s2-red-700, #b91c1c);
-  font-size: 14px;
-  line-height: 1.4;
-  margin-bottom: 8px;
-  max-width: 420px;
+.pdf-error-link:hover {
+  color: var(--s2-blue-700);
 }
 
-.pdf-open-link {
-  display: inline-block;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--s2-blue-600, #3b82f6);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.pdf-open-link:hover {
-  color: var(--s2-blue-700, #2563eb);
+.pdf-error-link:focus {
+  outline: 2px solid var(--s2-blue-600);
+  outline-offset: 2px;
+  border-radius: var(--s2-radius-100);
 }
 
 .preview-placeholder {
@@ -505,9 +481,18 @@ dialog.modal-overlay::backdrop {
   background: var(--s2-gray-200);
   border-radius: var(--s2-radius-100);
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   box-shadow: 0 2px 8px rgb(0 0 0 / 10%);
+}
+
+.preview-placeholder.pdf {
+  background: var(--s2-red-light, #fbb5b5);
+}
+
+.preview-placeholder.fragment {
+  background: var(--s2-cyan-light, #b5ebfb);
 }
 
 .document-icon {

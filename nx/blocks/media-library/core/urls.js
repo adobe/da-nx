@@ -273,13 +273,24 @@ export function canonicalizeMediaUrl(mediaUrl, org, repo) {
 
   try {
     const url = new URL(mediaUrl);
+
+    if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') {
+      const previewHostUrl = getMediaHashRuntimeHostUrl(org, repo, true);
+      if (previewHostUrl) {
+        url.hostname = previewHostUrl.hostname;
+        url.port = previewHostUrl.port || '';
+        url.protocol = previewHostUrl.protocol;
+      } else if (org && repo) {
+        url.hostname = `main--${repo}--${org}${Domains.AEM_PAGE}`;
+        url.port = '';
+      }
+      return url.toString();
+    }
+
     url.hostname = toAemRuntimeHostname(url.hostname);
 
-    // Normalize internal absolute URLs to .aem.page (matches audit log content)
     if (org && repo && isInternalToSite(url.toString(), org, repo)) {
       url.hostname = `main--${repo}--${org}${Domains.AEM_PAGE}`;
-
-      // Remove /{org}/{repo}/ prefix from path
       url.pathname = url.pathname.replace(`/${org}/${repo}`, '');
     }
 
