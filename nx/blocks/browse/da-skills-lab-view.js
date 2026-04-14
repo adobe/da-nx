@@ -2,10 +2,12 @@
 import getStyle from 'https://da.live/nx/utils/styles.js';
 // eslint-disable-next-line import/no-unresolved
 import { LitElement, html, nothing } from 'da-lit';
+import { getConfig } from '../../scripts/nexter.js';
 import { DA_ORIGIN } from '../../public/utils/constants.js';
 import { daFetch } from '../../utils/daFetch.js';
 import { loadSkills, saveSkill } from '../skills-editor/utils/utils.js';
 import { loadGeneratedTools } from '../canvas/src/generated-tools/utils.js';
+import '../canvas/src/generated-tools/generated-tools.js';
 import {
   extractToolRefsFromSkillMarkdown,
   fetchDaConfigSheets,
@@ -108,6 +110,8 @@ class DaSkillsLabView extends LitElement {
     _registerBusy: { state: true },
     _newSkillId: { state: true },
     _newSkillBody: { state: true },
+    /** When set, the Skills Editor is updating this skill id (id field is read-only). */
+    _editingSkillId: { state: true },
     _skillSaveBusy: { state: true },
     _newAgentId: { state: true },
     _newAgentName: { state: true },
@@ -135,6 +139,7 @@ class DaSkillsLabView extends LitElement {
     this._registerBusy = false;
     this._newSkillId = '';
     this._newSkillBody = '# New skill\n\n';
+    this._editingSkillId = null;
     this._skillSaveBusy = false;
     this._newAgentId = '';
     this._newAgentName = '';
@@ -334,9 +339,30 @@ class DaSkillsLabView extends LitElement {
     this._formMsg = 'Saved to DA config.';
   }
 
+  _onEditSkill(sid, e) {
+    e.stopPropagation();
+    this._editingSkillId = sid;
+    this._newSkillId = sid;
+    this._newSkillBody = this._skills[sid] ?? '';
+    this._formMsg = '';
+    this._selectCap('skill', sid);
+  }
+
+  _clearSkillEditor = () => {
+    this._editingSkillId = null;
+    this._newSkillId = '';
+    this._newSkillBody = '# New skill\n\n';
+    this._formMsg = '';
+  };
+
+  /** @public — refresh catalog after toolbar “New” creates a skill file. */
+  refresh() {
+    return this._reload();
+  }
+
   async _onSaveSkill(e) {
     e.preventDefault();
-    const id = this._newSkillId.trim();
+    const id = (this._editingSkillId || this._newSkillId).trim();
     if (!id) {
       this._formMsg = 'Skill id required';
       return;
@@ -350,8 +376,15 @@ class DaSkillsLabView extends LitElement {
       this._formMsg = res.error;
       return;
     }
-    this._newSkillId = '';
+    const wasNew = !this._editingSkillId;
+    if (wasNew) {
+      this._newSkillId = '';
+      this._newSkillBody = '# New skill\n\n';
+    }
     await this._reload();
+    if (this._editingSkillId) {
+      this._newSkillBody = this._skills[this._editingSkillId] ?? this._newSkillBody;
+    }
     this._formMsg = 'Skill saved.';
   }
 
@@ -403,6 +436,8 @@ class DaSkillsLabView extends LitElement {
     const skillIds = Object.keys(this._skills || {});
     const toolRows = this._allToolRows();
     const browseHash = `#/${this.org}/${this.site}`;
+    const { nxBase } = getConfig();
+    const editIconSrc = `${nxBase}/public/icons/S2_Icon_Edit_20_N.svg`;
 
     return html`
       <div class="skills-lab-root">
@@ -426,9 +461,20 @@ class DaSkillsLabView extends LitElement {
                 <input class="skills-lab-input" .value=${this._registerUrl} @input=${(e) => { this._registerUrl = e.target.value; }} placeholder="https://…/sse" />
                 <sp-button type="submit" variant="accent" ?disabled=${this._registerBusy}>Register MCP</sp-button>
               </form>
-              <h3 class="skills-lab-section-h">Create skill</h3>
+              <div class="skills-lab-editor-heading">
+                <h3 class="skills-lab-section-h skills-lab-section-h--inline">Skills Editor</h3>
+                ${this._editingSkillId
+        ? html`<button type="button" class="skills-lab-link-btn" @click=${this._clearSkillEditor}>New skill</button>`
+        : nothing}
+              </div>
               <form class="skills-lab-form" @submit=${this._onSaveSkill}>
-                <input class="skills-lab-input" .value=${this._newSkillId} @input=${(e) => { this._newSkillId = e.target.value; }} placeholder="skill-id" />
+                <input
+                  class="skills-lab-input"
+                  .value=${this._newSkillId}
+                  @input=${(e) => { this._newSkillId = e.target.value; }}
+                  placeholder="skill-id"
+                  ?readonly=${Boolean(this._editingSkillId)}
+                />
                 <textarea class="skills-lab-textarea" .value=${this._newSkillBody} @input=${(e) => { this._newSkillBody = e.target.value; }}></textarea>
                 <sp-button type="submit" variant="primary" ?disabled=${this._skillSaveBusy}>Save skill</sp-button>
               </form>
@@ -478,12 +524,24 @@ class DaSkillsLabView extends LitElement {
               ${skillIds.map(
         (sid) => html`
                 <div
-                  class="skills-lab-card ${this._capHighlighted('skill', sid) ? 'sl-highlight' : ''}"
-                  @click=${() => this._selectCap('skill', sid)}
+                  class="skills-lab-card skills-lab-card--skill ${this._capHighlighted('skill', sid) ? 'sl-highlight' : ''}"
                 >
-                  <span class="skills-lab-type-badge skill">skill</span>
-                  <div class="skills-lab-card-title">${sid}</div>
-                  <div class="skills-lab-card-meta">/.da/skills/${sid}.md</div>
+                  <div class="skills-lab-card-row" @click=${() => this._selectCap('skill', sid)}>
+                    <span class="skills-lab-type-badge skill">skill</span>
+                    <div class="skills-lab-card-main">
+                      <div class="skills-lab-card-title">${sid}</div>
+                      <div class="skills-lab-card-meta">/.da/skills/${sid}.md</div>
+                    </div>
+                    <button
+                      type="button"
+                      class="skills-lab-skill-edit"
+                      title="Edit Skill"
+                      aria-label="Edit Skill"
+                      @click=${(e) => this._onEditSkill(sid, e)}
+                    >
+                      <img src="${editIconSrc}" width="18" height="18" alt="" />
+                    </button>
+                  </div>
                 </div>`,
       )}
               ${(this._agentRows || []).length
@@ -529,7 +587,9 @@ class DaSkillsLabView extends LitElement {
           </div>
           <div class="skills-lab-col skills-lab-col-wide">
             <div class="skills-lab-col-scroll">
-              <h3 class="skills-lab-section-h">Tools (${toolRows.length})</h3>
+              <h3 class="skills-lab-section-h">Generated Tools</h3>
+              <nx-generated-tools .org=${this.org} .site=${this.site}></nx-generated-tools>
+              <h3 class="skills-lab-section-h">Tools Registry (${toolRows.length})</h3>
               ${toolRows.map(
         (t) => {
           const hi = this._toolHighlighted(t.id);

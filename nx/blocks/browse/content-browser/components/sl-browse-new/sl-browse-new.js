@@ -89,6 +89,7 @@ export class SlBrowseNew extends LitElement {
       sheet: 'New Sheet',
       media: 'New Media',
       link: 'New Link',
+      skill: 'New Skill',
     };
     return labels[this._createType] ?? 'New';
   }
@@ -103,6 +104,7 @@ export class SlBrowseNew extends LitElement {
       document: 'html',
       sheet: 'json',
       link: 'link',
+      skill: 'md',
     };
     const t = this._createType;
     const ext = Object.prototype.hasOwnProperty.call(extByType, t)
@@ -249,6 +251,30 @@ export class SlBrowseNew extends LitElement {
     this._nameInvalid = false;
 
     const base = this.folderFullpath.replace(/\/$/, '');
+
+    if (this._createType === 'skill') {
+      if (!this.saveToSource) return;
+      const daPath = `${base}/.da/skills/${this._createName}.md`;
+      const putFormData = new FormData();
+      putFormData.append(
+        'data',
+        new Blob(['# New skill\n\nDescribe this skill here.\n'], { type: 'text/markdown' }),
+      );
+      this._busy = true;
+      try {
+        const result = await this.saveToSource(daPath, putFormData);
+        if (!result?.ok) {
+          this._emitError(result?.error || 'Create failed');
+          return;
+        }
+        this._emitNewItem({ name: this._createName, path: daPath, ext: 'md' });
+        this._closeOverlay();
+      } finally {
+        this._busy = false;
+      }
+      return;
+    }
+
     let ext;
     /** @type {FormData | undefined} */
     let formData;
@@ -433,6 +459,9 @@ export class SlBrowseNew extends LitElement {
                     </li>
                     <li class="sl-bn-menu-item">
                       <button type="button" data-type="link" ?disabled="${this._busy}">Link</button>
+                    </li>
+                    <li class="sl-bn-menu-item">
+                      <button type="button" data-type="skill" ?disabled="${this._busy}">Skill</button>
                     </li>
                   </ul>
                 `
