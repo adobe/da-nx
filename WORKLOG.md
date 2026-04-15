@@ -88,11 +88,16 @@ Decided to wrap nav and sidenav in semantic HTML elements:
 ### nx2 canvas — quick-edit (controller=parent) WYSIWYG
 - **Superseded 2026-04-09** — structure was `nx-doc-editor` + `nx-wysiwyg-frame`; see next section.
 
+## 2026-04-15
+
+### nx2 canvas — ProseMirror plugin order (`prose.js`)
+- Matched da-live ordering for `handleKeyDown` precedence (`someProp` walks plugins in array order): **`slashMenu()`** immediately after Yjs plugins (before input rules and all `keymap` plugins); **`keymap(baseKeymap)`** after **`keymap(buildKeymap(schema))`** and table Backspace. Fixes Enter in the slash popover and Enter for new list items. Slash is no longer passed via **`writableExtraPlugins`** from **`nx-editor-doc.js`**.
+
 ## 2026-04-14
 
 ### nx2 canvas — slash menu in nx-editor-doc
 - **`nx2/blocks/canvas/nx-editor-doc/slash-menu/`**: Ported ProseMirror slash plugin from da-live (`slashMenu.js`, `slashMenuItems.js`, `keyAutocomplete.js`, `loremIpsum.js`, `tableUtils.js`, `insertTable.js`). UI is **`nx-slash-popover`** (`slash-popover.js`) using shared **`nx-popover`** + `menu.css` tokens; no da-live `slash-menu` / `InContextMenu`. Table context uses a **flat** command list (no “Edit Block” submenu). **Library** item omitted for canvas.
-- **`prose.js`**: `writableExtraPlugins` merged only when `canWrite` (with other write plugins). **`nx-editor-doc.js`**: passes `writableExtraPlugins: [slashMenu()]`.
+- **`prose.js`**: `writableExtraPlugins` merged only when `canWrite` (with other write plugins). (Slash menu wiring moved to **`prose.js`** on 2026-04-15 — see that date.)
 - **`keyAutocomplete`**: module holds a `Map` (`getAutocompleteData` / `setKeyAutocomplete`); `fetchKeyAutocompleteData` still available for library-driven table key data.
 
 ### nx2 canvas — PR #351 review follow-up

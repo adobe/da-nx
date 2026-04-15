@@ -23,6 +23,7 @@ import {
 import { getSchema } from 'da-parser';
 import { COLLAB_ORIGIN, DA_ORIGIN } from '../../../utils/daFetch.js';
 import { generateColor, getCollabIdentity } from './utils/collab.js';
+import slashMenu from './slash-menu/slashMenu.js';
 
 function registerErrorHandler(ydoc) {
   ydoc.on('update', () => {
@@ -98,10 +99,8 @@ export default async function initProse({
     ySyncPlugin(yXmlFragment),
     yCursorPlugin(wsProvider.awareness),
     yUndoPlugin(),
-    keymap(baseKeymap),
   ];
 
-  /** @type {import('prosemirror-view').EditorView | null} */
   let viewRef = null;
 
   if (canWrite) {
@@ -141,11 +140,13 @@ export default async function initProse({
     };
 
     plugins.push(
+      slashMenu(),
       getEnterInputRulesPlugin(dispatch),
       getURLInputRulesPlugin(),
       getListInputRulesPlugin(schema),
       keymap(buildKeymap(schema)),
       keymap({ Backspace: handleTableBackspace }),
+      keymap(baseKeymap),
       keymap({
         'Mod-z': handleUndo,
         'Mod-y': handleRedo,

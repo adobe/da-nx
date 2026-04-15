@@ -16,7 +16,6 @@ import {
   wireQuickEditControllerPort,
 } from './utils/quick-edit-host.js';
 import initProse from './prose.js';
-import slashMenu from './slash-menu/slashMenu.js';
 import { createTrackingPlugin } from '../editor-utils/prose-diff.js';
 import { resolveEditorDocSession } from './utils/load-editor-doc.js';
 import { afterNextPaint, ensureProseMountedInShadow } from './utils/shadow-mount.js';
@@ -131,7 +130,6 @@ export class NxEditorDoc extends LitElement {
         permissions,
         setEditable: (editable) => this._setEditable(editable),
         getToken: () => token,
-        writableExtraPlugins: [slashMenu()],
         extraPlugins: [
           // controllerCtx is only initialized after setupController
           createTrackingPlugin(
