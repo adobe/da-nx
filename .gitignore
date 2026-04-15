@@ -8,5 +8,5 @@ helix-importer-ui
 *.bak
 .idea
 
-# Session-generated POC writeups; keep out of upstream PRs
-docs/poc-generated-tools-architecture.md
+# Session-generated feature docs; keep out of upstream PRs
+private-docs/feature-notes/

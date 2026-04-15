@@ -9,7 +9,12 @@ import { saveSkill, deleteSkill } from '../skills-editor/utils/utils.js';
 import { loadGeneratedTools } from '../canvas/src/generated-tools/utils.js';
 import '../canvas/src/generated-tools/generated-tools.js';
 import {
-  consumeSkillsLabSkillChatProse,
+  consumeSkillsLabSuggestionHandoff,
+  DA_SKILLS_LAB_CLEAR_FORM_FROM_CHAT_EVENT,
+  DA_SKILLS_LAB_FORM_COLUMN_DISMISS_EVENT,
+  DA_SKILLS_LAB_PROMPT_ADD_TO_CHAT,
+  DA_SKILLS_LAB_PROMPT_SEND,
+  DA_SKILLS_LAB_SUGGESTION_HANDOFF_EVENT,
   extractToolRefsFromSkillMarkdown,
   fetchDaConfigSheets,
   fetchMcpToolsFromAgent,
@@ -17,8 +22,8 @@ import {
   registerMcpServer,
   skillRowStatus,
   skillsRowsToMapAndStatuses,
+  upsertPromptRowInConfig,
 } from './skills-lab-api.js';
-import { renderMessageContent } from '../canvas/src/chat-renderers.js';
 
 const BANNER_KEY = 'da-skills-lab-banner-text';
 
@@ -129,11 +134,11 @@ class DaSkillsLabView extends LitElement {
     _catalogFilter: { state: true },
     /** Tools column: generated | available */
     _toolsTab: { state: true },
-    /**
-     * Assistant prose captured from chat (same as message bubble)
-     * when creating from suggestion.
-     */
-    _skillChatProvenance: { state: true },
+    /** True after chat “Create Skill” handoff until dismiss, save, or edit another skill. */
+    _skillEditorFromChatHandoff: { state: true },
+    /** When set, column 1 edits a config prompt instead of a skill. */
+    _promptEdit: { state: true },
+    _promptSaveBusy: { state: true },
     _newAgentId: { state: true },
     _newAgentName: { state: true },
     _agentSaveBusy: { state: true },
@@ -168,11 +173,20 @@ class DaSkillsLabView extends LitElement {
     this._catalogTab = 'skills';
     this._catalogFilter = 'all';
     this._toolsTab = 'available';
-    this._skillChatProvenance = '';
+    this._skillEditorFromChatHandoff = false;
+    this._promptEdit = null;
+    this._promptSaveBusy = false;
     this._newAgentId = '';
     this._newAgentName = '';
     this._agentSaveBusy = false;
     this._formMsg = '';
+    /** Same-tab handoff when chat sets session but hash stays `#/…/skills-lab`. */
+    this._onWindowSuggestHandoff = () => {
+      this._applySuggestionHandoff(consumeSkillsLabSuggestionHandoff());
+    };
+    this._onClearFormFromChat = () => {
+      this._clearSkillEditor();
+    };
   }
 
   createRenderRoot() {
@@ -183,10 +197,14 @@ class DaSkillsLabView extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    const prose = consumeSkillsLabSkillChatProse();
-    if (prose) this._skillChatProvenance = prose;
-    this._onHashForContext = () => this.requestUpdate();
+    this._applySuggestionHandoff(consumeSkillsLabSuggestionHandoff());
+    this._onHashForContext = () => {
+      this.requestUpdate();
+      this._applySuggestionHandoff(consumeSkillsLabSuggestionHandoff());
+    };
     window.addEventListener('hashchange', this._onHashForContext);
+    window.addEventListener(DA_SKILLS_LAB_SUGGESTION_HANDOFF_EVENT, this._onWindowSuggestHandoff);
+    window.addEventListener(DA_SKILLS_LAB_CLEAR_FORM_FROM_CHAT_EVENT, this._onClearFormFromChat);
     this._collapsibleVpMql = window.matchMedia('(max-width: 1023px)');
     this._onCollapsibleVp = () => {
       const narrow = this._collapsibleVpMql.matches;
@@ -200,6 +218,11 @@ class DaSkillsLabView extends LitElement {
 
   disconnectedCallback() {
     window.removeEventListener('hashchange', this._onHashForContext);
+    window.removeEventListener(
+      DA_SKILLS_LAB_SUGGESTION_HANDOFF_EVENT,
+      this._onWindowSuggestHandoff,
+    );
+    window.removeEventListener(DA_SKILLS_LAB_CLEAR_FORM_FROM_CHAT_EVENT, this._onClearFormFromChat);
     this._collapsibleVpMql?.removeEventListener('change', this._onCollapsibleVp);
     super.disconnectedCallback();
   }
@@ -426,11 +449,93 @@ class DaSkillsLabView extends LitElement {
 
   _onEditMcp(row, e) {
     e.stopPropagation();
+    this._promptEdit = null;
     this._editingMcpKey = row.key;
     this._registerKey = row.key;
     this._registerUrl = row.url || '';
     this._formMsg = '';
     this._selectCap('mcp', row.key);
+  }
+
+  _dispatchPromptAddToChat(text) {
+    window.dispatchEvent(new CustomEvent(DA_SKILLS_LAB_PROMPT_ADD_TO_CHAT, {
+      bubbles: true,
+      composed: true,
+      detail: { prompt: text },
+    }));
+  }
+
+  _dispatchPromptSend(text) {
+    window.dispatchEvent(new CustomEvent(DA_SKILLS_LAB_PROMPT_SEND, {
+      bubbles: true,
+      composed: true,
+      detail: { prompt: text },
+    }));
+  }
+
+  _openPromptEditor(p, e) {
+    e.stopPropagation();
+    this._promptEdit = {
+      title: String(p.title || ''),
+      prompt: String(p.prompt || ''),
+      category: String(p.category || ''),
+      icon: String(p.icon || ''),
+      originalTitle: String(p.title || '').trim(),
+    };
+    this._formMsg = '';
+    this._skillEditorFromChatHandoff = false;
+    this._selectCap('prompt', String(p.title || '').trim());
+  }
+
+  _backToSkillFromPrompt = () => {
+    this._promptEdit = null;
+    this._formMsg = '';
+  };
+
+  _dismissPromptFormFromColumn() {
+    this._promptEdit = null;
+    this._formMsg = '';
+    window.dispatchEvent(new CustomEvent(DA_SKILLS_LAB_FORM_COLUMN_DISMISS_EVENT));
+  }
+
+  /**
+   * @param {Event} e
+   * @param {'draft'|'approved'} status
+   */
+  async _onSavePromptWithStatus(e, status) {
+    e.preventDefault();
+    const pe = this._promptEdit;
+    if (!pe) return;
+    const title = String(pe.title || '').trim();
+    const promptText = String(pe.prompt || '').trim();
+    if (!title || !promptText) {
+      this._formMsg = 'Title and prompt are required';
+      return;
+    }
+    this._promptSaveBusy = true;
+    this._formMsg = '';
+    const res = await upsertPromptRowInConfig(this.org, this.site, {
+      title,
+      prompt: promptText,
+      category: pe.category,
+      icon: pe.icon,
+    }, {
+      status,
+      originalTitle: pe.originalTitle?.trim() || undefined,
+    });
+    this._promptSaveBusy = false;
+    if (res.error) {
+      this._formMsg = res.error;
+      return;
+    }
+    await this._reload();
+    this._promptEdit = {
+      ...pe,
+      title,
+      prompt: promptText,
+      originalTitle: title,
+    };
+    this._formMsg = status === 'approved' ? 'Prompt saved and approved.' : 'Prompt saved as draft.';
   }
 
   _clearMcpRegisterForm() {
@@ -452,11 +557,12 @@ class DaSkillsLabView extends LitElement {
 
   _onEditSkill(sid, e) {
     e.stopPropagation();
+    this._promptEdit = null;
     this._editingSkillId = sid;
     this._newSkillId = sid;
     this._newSkillBody = this._skills[sid] ?? '';
     this._formMsg = '';
-    this._skillChatProvenance = '';
+    this._skillEditorFromChatHandoff = false;
     this._selectCap('skill', sid);
   }
 
@@ -465,8 +571,45 @@ class DaSkillsLabView extends LitElement {
     this._newSkillId = '';
     this._newSkillBody = '# New skill\n\n';
     this._formMsg = '';
-    this._skillChatProvenance = '';
+    this._skillEditorFromChatHandoff = false;
+    this._promptEdit = null;
   };
+
+  _dismissSkillFormFromColumn() {
+    this._clearSkillEditor();
+    window.dispatchEvent(new CustomEvent(DA_SKILLS_LAB_FORM_COLUMN_DISMISS_EVENT));
+  }
+
+  /**
+   * Prefill Skills Lab from chat “Create Skill” (session handoff).
+   * @param {{ prose: string, id: string, body: string } | null} handoff
+   */
+  _applySuggestionHandoff(handoff) {
+    if (!handoff) return;
+    const prose = String(handoff.prose || '');
+    const id = String(handoff.id || '').trim();
+    const body = String(handoff.body || '');
+    const hasProse = Boolean(prose.trim());
+    const hasBody = Boolean(body.trim());
+    const hasId = Boolean(id);
+    if (!hasProse && !hasBody && !hasId) return;
+    this._promptEdit = null;
+    this._editingSkillId = null;
+    if (hasId) {
+      this._newSkillId = id.replaceAll(/[^a-zA-Z0-9]/g, '-').toLowerCase();
+    }
+    if (hasBody) {
+      this._newSkillBody = body;
+    } else if (hasId || hasProse) {
+      this._newSkillBody = '# New skill\n\n';
+    }
+    this._skillEditorFromChatHandoff = true;
+    this._catalogTab = 'skills';
+    this._capSel = null;
+    this._toolSel = null;
+    this._formMsg = '';
+    this.requestUpdate();
+  }
 
   /** @public — refresh catalog after toolbar “New” creates a skill file. */
   refresh() {
@@ -500,6 +643,8 @@ class DaSkillsLabView extends LitElement {
     if (wasNew) {
       this._newSkillId = '';
       this._newSkillBody = '# New skill\n\n';
+      this._skillEditorFromChatHandoff = false;
+      window.dispatchEvent(new CustomEvent(DA_SKILLS_LAB_FORM_COLUMN_DISMISS_EVENT));
     }
     await this._reload();
     if (this._editingSkillId) {
@@ -672,21 +817,51 @@ class DaSkillsLabView extends LitElement {
               </form>
         `;
 
+    const defaultPromptIcon = `${nxBase}/img/icons/aichat.svg`;
     const catalogPrompts = html`
               <p class="skills-lab-form-hint">Prompts from the DA config <code>prompts</code> sheet. <a href="${configHash}" target="_blank" rel="noopener">Edit in config</a></p>
               <h3 class="skills-lab-section-h">Prompts (${filteredPrompts.length})</h3>
               ${filteredPrompts.length === 0
         ? html`<p class="skills-lab-form-hint">No prompts for this filter.</p>`
-        : filteredPrompts.map((p) => {
+        : html`
+              <div class="skills-lab-prompts-catalog-grid">
+                ${filteredPrompts.map((p) => {
           const pst = skillRowStatus(p);
+          const iconSrc = p.icon || defaultPromptIcon;
+          const catLabel = (p.category && String(p.category).trim()) || 'Prompt';
+          const titleKey = String(p.title || '').trim();
           return html`
-                  <div class="skills-lab-card">
-                    <span class="skills-lab-type-badge skill">prompt</span>
-                    <div class="skills-lab-card-title">${p.title}</div>
-                    <div class="skills-lab-card-meta">${pst === 'draft' ? 'draft' : 'approved'}</div>
-                    <div class="skills-lab-card-desc">${p.prompt}</div>
-                  </div>`;
+                <div class="skills-lab-prompts-lib-card ${this._capHighlighted('prompt', titleKey) ? 'sl-highlight' : ''}">
+                  <div class="skills-lab-prompt-card-header">
+                    <div class="skills-lab-prompt-card-head-main" @click=${() => this._selectCap('prompt', titleKey)}>
+                      <div class="skills-lab-prompts-lib-card-top">
+                        <img class="skills-lab-prompts-lib-card-icon" src="${iconSrc}" alt="" aria-hidden="true" />
+                        <span class="skills-lab-prompts-lib-card-category">${catLabel}</span>
+                      </div>
+                      <div class="skills-lab-prompts-lib-card-title">${p.title}</div>
+                      <div class="skills-lab-card-meta">${pst === 'draft' ? 'draft' : 'approved'}</div>
+                      <div class="skills-lab-prompts-lib-card-prompt">${p.prompt}</div>
+                    </div>
+                    <button type="button" class="skills-lab-skill-edit" title="Edit prompt" aria-label="Edit prompt"
+                      @click=${(e) => this._openPromptEditor(p, e)}>
+                      <img src="${editIconSrc}" width="18" height="18" alt="" />
+                    </button>
+                  </div>
+                  <div class="skills-lab-prompts-lib-card-actions">
+                    <button type="button" class="skills-lab-prompts-add-btn" title="Add to chat input"
+                      @click=${() => this._dispatchPromptAddToChat(p.prompt)}>
+                      <svg width="13" height="13" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M17.41 4.1 15.9 2.59A1.75 1.75 0 0 0 14.48 2H4.25A2.25 2.25 0 0 0 2 4.25v11.5A2.25 2.25 0 0 0 4.25 18h11.5A2.25 2.25 0 0 0 18 15.75V5.52c0-.53-.21-1.04-.59-1.42ZM7.75 3.5h4.5v3h-4.5v-3Zm5.5 13H6.75V12h6.5v4.5Zm3.25-1.75a.75.75 0 0 1-.75.75h-1V12a1.75 1.75 0 0 0-1.75-1.75h-6.5A1.75 1.75 0 0 0 5.25 12v4.5h-1a.75.75 0 0 1-.75-.75V4.25a.75.75 0 0 1 .75-.75h2v3A1.75 1.75 0 0 0 7.75 8h4.5a1.75 1.75 0 0 0 1.75-1.75v-3h.48a.25.25 0 0 1 .18.07l1.52 1.52a.25.25 0 0 1 .07.18v11.23Z" fill="currentColor"/></svg>
+                      Add to chat
+                    </button>
+                    <button type="button" class="skills-lab-prompts-send-btn" title="Send immediately"
+                      @click=${() => this._dispatchPromptSend(p.prompt)}>
+                      <svg width="13" height="13" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M18.6485 9.9735C18.6482 9.67899 18.4769 9.41106 18.2059 9.29056L4.05752 2.93282C3.80133 2.8175 3.50129 2.85583 3.28171 3.03122C3.06178 3.20765 2.95889 3.49146 3.01516 3.76733L4.28678 10.008L3.06488 16.2384C3.0162 16.4852 3.09492 16.738 3.27031 16.9134C3.29068 16.9337 3.31278 16.9531 3.33522 16.9714C3.55619 17.1454 3.85519 17.182 4.11069 17.066L18.2086 10.6578C18.4773 10.5356 18.6489 10.268 18.6485 9.9735Z" fill="currentColor"/></svg>
+                      Send
+                    </button>
+                  </div>
+                </div>`;
         })}
+              </div>`}
             `;
 
     const catalogMcps = html`
@@ -762,35 +937,72 @@ class DaSkillsLabView extends LitElement {
               </div>
               <div class="skills-lab-order-editor">
                 <div class="skills-lab-editor-heading">
-                  <h3 class="skills-lab-section-h skills-lab-section-h-inline">Skill</h3>
-                  ${this._editingSkillId
+                  <h3 class="skills-lab-section-h skills-lab-section-h-inline">Tool Editor</h3>
+                  ${this._promptEdit
+        ? html`<button type="button" class="skills-lab-link-btn" @click=${this._backToSkillFromPrompt}>Back to skill</button>`
+        : nothing}
+                  ${!this._promptEdit && this._editingSkillId
         ? html`<button type="button" class="skills-lab-link-btn" @click=${this._clearSkillEditor}>New skill</button>`
         : nothing}
                 </div>
+                ${this._promptEdit
+        ? html`
+                <div class="skills-lab-form">
+                  <label>Title</label>
+                  <input class="skills-lab-input" .value=${this._promptEdit.title}
+                    @input=${(e) => {
+            this._promptEdit = { ...this._promptEdit, title: e.target.value };
+          }}
+                    placeholder="Prompt title" />
+                  <label>Category</label>
+                  <input class="skills-lab-input" .value=${this._promptEdit.category}
+                    @input=${(e) => {
+            this._promptEdit = { ...this._promptEdit, category: e.target.value };
+          }}
+                    placeholder="Category label" />
+                  <label>Icon URL</label>
+                  <input class="skills-lab-input" .value=${this._promptEdit.icon}
+                    @input=${(e) => {
+            this._promptEdit = { ...this._promptEdit, icon: e.target.value };
+          }}
+                    placeholder="https://…" />
+                  <label>Prompt</label>
+                  <textarea class="skills-lab-textarea skills-lab-textarea-tall" .value=${this._promptEdit.prompt}
+                    aria-label="Prompt text"
+                    @input=${(e) => {
+            this._promptEdit = { ...this._promptEdit, prompt: e.target.value };
+          }}></textarea>
+                  <div class="skills-lab-save-row">
+                    <sp-button type="button" variant="secondary" ?disabled=${this._promptSaveBusy}
+                      @click=${this._dismissPromptFormFromColumn}>
+                      Dismiss
+                    </sp-button>
+                    <sp-button type="button" variant="secondary" ?disabled=${this._promptSaveBusy}
+                      @click=${(e) => this._onSavePromptWithStatus(e, 'draft')}>Save as Draft</sp-button>
+                    <sp-button type="button" variant="accent" ?disabled=${this._promptSaveBusy}
+                      @click=${(e) => this._onSavePromptWithStatus(e, 'approved')}>Save</sp-button>
+                  </div>
+                  <p class="skills-lab-form-hint">Draft prompts are hidden from the chat library until approved.</p>
+                </div>`
+        : html`
                 <div class="skills-lab-form">
                   <input class="skills-lab-input" .value=${this._newSkillId}
                     @input=${(e) => { this._newSkillId = e.target.value; }}
                     placeholder="skill-id" ?readonly=${Boolean(this._editingSkillId)} />
-                  <textarea class="skills-lab-textarea skills-lab-textarea-tall" .value=${this._newSkillBody}
-                    aria-label="Skill markdown"
-                    @input=${(e) => { this._newSkillBody = e.target.value; }}></textarea>
-                  <details class="skills-lab-skill-render-details">
-                    <summary class="skills-lab-skill-render-summary">
-                      ${this._skillChatProvenance?.trim()
-        ? 'Assistant message (as in chat)'
-        : 'Assistant-style view (same formatting as chat)'}
-                    </summary>
-                    <div class="skills-lab-skill-render-body">
-                      <div class="skills-lab-chat-rendered">
-                        ${renderMessageContent(
-        (this._skillChatProvenance && String(this._skillChatProvenance).trim())
-          ? this._skillChatProvenance
-          : this._newSkillBody,
-      )}
-                      </div>
-                    </div>
-                  </details>
+                  <div
+                    class="skills-lab-skill-editor-wrap ${this._skillEditorFromChatHandoff
+        ? 'skills-lab-skill-editor-wrap-handoff'
+        : ''}"
+                  >
+                    <textarea class="skills-lab-textarea skills-lab-textarea-tall" .value=${this._newSkillBody}
+                      aria-label="Skill markdown"
+                      @input=${(e) => { this._newSkillBody = e.target.value; }}></textarea>
+                  </div>
                   <div class="skills-lab-save-row">
+                    <sp-button type="button" variant="secondary" ?disabled=${this._skillSaveBusy}
+                      @click=${this._dismissSkillFormFromColumn}>
+                      Dismiss
+                    </sp-button>
                     <sp-button type="button" variant="secondary" ?disabled=${this._skillSaveBusy}
                       @click=${(e) => this._onSaveSkillWithStatus(e, 'draft')}>Save as Draft</sp-button>
                     <sp-button type="button" variant="accent" ?disabled=${this._skillSaveBusy}
@@ -801,7 +1013,7 @@ class DaSkillsLabView extends LitElement {
         : nothing}
                   </div>
                   <p class="skills-lab-form-hint">Draft skills are hidden from chat until you use <strong>Save</strong> (approved).</p>
-                </div>
+                </div>`}
               </div>
               ${this._formMsg
         ? html`<div class="skills-lab-order-msgs skills-lab-msg ${this._formMsg.includes('fail') || this._formMsg.includes('required') ? 'skills-lab-msg-err' : 'skills-lab-msg-ok'}">${this._formMsg}</div>`
