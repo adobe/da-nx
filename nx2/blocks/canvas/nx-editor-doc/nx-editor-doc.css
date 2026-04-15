@@ -21,6 +21,20 @@
   position: relative;
 }
 
+/* Slash plugin: empty-line hint (sibling of .ProseMirror inside .da-prose-mirror) */
+.nx-editor-doc .nx-editor-doc-slash-hint {
+  position: absolute;
+  z-index: 1;
+  margin: 0;
+  padding: 0;
+  font-size: 1em;
+  line-height: 1.4;
+  color: light-dark(var(--s2-gray-500), var(--s2-gray-500));
+  white-space: nowrap;
+  pointer-events: none;
+  user-select: none;
+}
+
 .nx-editor-doc .ProseMirror {
   min-height: 200px;
   background: light-dark(#fff, var(--s2-gray-75, #2c2c2c));

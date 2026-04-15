@@ -17,15 +17,54 @@ function extractArgument(title, command) {
 
 const hasCellAreaSelected = (state) => state.selection.content().size > 0;
 
+function shouldShowEmptyLineSlashHint(state, menuVisible) {
+  if (menuVisible) return false;
+  const { $cursor } = state.selection;
+  if (!$cursor) return false;
+  if ($cursor.parentOffset !== 0) return false;
+  const { parent } = $cursor;
+  if (!parent.isTextblock) return false;
+  return parent.content.size === 0;
+}
+
+function createSlashHintEl() {
+  const hintEl = document.createElement('span');
+  hintEl.className = 'nx-editor-doc-slash-hint';
+  hintEl.textContent = 'Tap \'/\' to insert';
+  hintEl.setAttribute('aria-hidden', 'true');
+  hintEl.hidden = true;
+  return hintEl;
+}
+
 class SlashMenuView {
   constructor(view) {
     this.view = view;
     this.menu = document.createElement('nx-slash-popover');
     this.menu.items = getDefaultItems() || [];
 
+    this.hintEl = createSlashHintEl();
+
     this.menu.addEventListener('item-selected', (e) => {
       this.selectItem(e.detail);
     });
+  }
+
+  syncSlashHint(view, state) {
+    const mount = view.dom.parentElement;
+    if (!mount || !this.hintEl) return;
+
+    const show = shouldShowEmptyLineSlashHint(state, this.menu.visible);
+    if (!show) {
+      this.hintEl.hidden = true;
+      return;
+    }
+
+    const { $cursor } = state.selection;
+    const coords = view.coordsAtPos($cursor.pos);
+    const mr = mount.getBoundingClientRect();
+    this.hintEl.style.left = `${coords.left - mr.left + mount.scrollLeft}px`;
+    this.hintEl.style.top = `${coords.top - mr.top + mount.scrollTop}px`;
+    this.hintEl.hidden = false;
   }
 
   updateSlashMenuItems(pluginState, state) {
@@ -94,27 +133,31 @@ class SlashMenuView {
     this.view = view;
 
     const { state } = view;
-    const { $cursor } = state.selection;
+    try {
+      const { $cursor } = state.selection;
 
-    if (!$cursor) {
-      if (!hasCellAreaSelected(state) || !this.menu.visible) {
+      if (!$cursor) {
+        if (!hasCellAreaSelected(state) || !this.menu.visible) {
+          this.hide();
+        }
+        return;
+      }
+
+      const textBefore = $cursor.parent.textContent.slice(0, $cursor.parentOffset);
+      if (!this.cellHasMenuItems(slashMenuKey.getState(state), state, $cursor) && !textBefore?.startsWith('/')) {
+        if (this.menu.visible) this.hide();
+        return;
+      }
+
+      const match = textBefore.match(SLASH_COMMAND_REGEX);
+      if (match) {
+        this.showMenu(match[1]);
+      } else if (this.menu.visible) {
+        this.menu.command = '';
         this.hide();
       }
-      return;
-    }
-
-    const textBefore = $cursor.parent.textContent.slice(0, $cursor.parentOffset);
-    if (!this.cellHasMenuItems(slashMenuKey.getState(state), state, $cursor) && !textBefore?.startsWith('/')) {
-      if (this.menu.visible) this.hide();
-      return;
-    }
-
-    const match = textBefore.match(SLASH_COMMAND_REGEX);
-    if (match) {
-      this.showMenu(match[1]);
-    } else if (this.menu.visible) {
-      this.menu.command = '';
-      this.hide();
+    } finally {
+      this.syncSlashHint(view, view.state);
     }
   }
 
@@ -146,6 +189,12 @@ class SlashMenuView {
   }
 
   destroy() {
+    if (this.hintScrollRoot && this.hintScrollListener) {
+      this.hintScrollRoot.removeEventListener('scroll', this.hintScrollListener);
+      this.hintScrollRoot = undefined;
+      this.hintScrollListener = undefined;
+    }
+    this.hintEl.remove();
     this.menu.remove();
   }
 }
@@ -200,7 +249,19 @@ export default function slashMenu() {
     },
     view(editorView) {
       pluginView = new SlashMenuView(editorView);
-      editorView.dom.parentNode.appendChild(pluginView.menu);
+      const mount = editorView.dom.parentNode;
+      mount.appendChild(pluginView.menu);
+      mount.appendChild(pluginView.hintEl);
+
+      const scrollRoot = mount?.closest?.('.nx-editor-doc');
+      if (scrollRoot) {
+        pluginView.hintScrollRoot = scrollRoot;
+        pluginView.hintScrollListener = () => {
+          if (!pluginView.view || pluginView.hintEl.hidden) return;
+          pluginView.syncSlashHint(pluginView.view, pluginView.view.state);
+        };
+        scrollRoot.addEventListener('scroll', pluginView.hintScrollListener, { passive: true });
+      }
 
       editorView.dispatch(
         editorView.state.tr

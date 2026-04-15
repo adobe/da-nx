@@ -90,6 +90,9 @@ Decided to wrap nav and sidenav in semantic HTML elements:
 
 ## 2026-04-15
 
+### nx2 canvas — empty-line slash hint
+- **`slashMenu.js`**: When the caret is at the start of an empty textblock and the slash popover is closed, a muted **`hit / to insert`** label is positioned beside the caret (absolute inside `.da-prose-mirror`); re-sync on `.nx-editor-doc` scroll. **`nx-editor-doc.css`**: `.nx-editor-doc-slash-hint` styles.
+
 ### nx2 canvas — ProseMirror plugin order (`prose.js`)
 - Matched da-live ordering for `handleKeyDown` precedence (`someProp` walks plugins in array order): **`slashMenu()`** immediately after Yjs plugins (before input rules and all `keymap` plugins); **`keymap(baseKeymap)`** after **`keymap(buildKeymap(schema))`** and table Backspace. Fixes Enter in the slash popover and Enter for new list items. Slash is no longer passed via **`writableExtraPlugins`** from **`nx-editor-doc.js`**.
 
