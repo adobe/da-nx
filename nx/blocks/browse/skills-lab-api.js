@@ -407,6 +407,34 @@ export async function loadAgentPresetsFromRepo(org, site) {
   return out;
 }
 
+/**
+ * GET page/source HTML (or any text body) for a path under org/site.
+ * @param {string} org
+ * @param {string} site
+ * @param {string} pathUnderSite - e.g. `drafts/article.html` or `/drafts/article.html`
+ * @returns {Promise<{ text?: string, error?: string }>}
+ */
+export async function fetchSiteSourceText(org, site, pathUnderSite) {
+  const o = String(org || '').trim();
+  const s = String(site || '').trim();
+  let p = String(pathUnderSite || '').trim();
+  if (!o || !s || !p) {
+    return { error: 'Org, site, and page path are required' };
+  }
+  if (!p.startsWith('/')) p = `/${p}`;
+  const url = `${DA_ORIGIN}/source/${o}/${s}${p}`;
+  try {
+    const resp = await daFetch(url);
+    if (!resp.ok) {
+      return { error: `Could not load page (${resp.status})` };
+    }
+    const text = await resp.text();
+    return { text };
+  } catch (e) {
+    return { error: String(e?.message || e) };
+  }
+}
+
 /** Extract tool-like references from skill markdown. */
 export function extractToolRefsFromSkillMarkdown(md) {
   const text = String(md || '');
