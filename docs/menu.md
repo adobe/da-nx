@@ -1,6 +1,6 @@
 # nx-menu
 
-A dropdown menu with keyboard navigation. Supports section headers, dividers, and optional icons per item.
+A dropdown menu with keyboard navigation. Supports section headers, dividers, and optional icons per item. Implementation: `nx2/blocks/shared/menu/menu.js` (styles: `menu.css` next to it).
 
 ## Usage
 
@@ -15,7 +15,7 @@ Place a `<button>` with `slot="trigger"` inside. The menu handles open/close and
 ```
 
 ```js
-import "/path/to/menu/menu.js";
+import "/path/to/nx2/blocks/shared/menu/menu.js";
 
 const menu = document.querySelector("#my-menu");
 menu.items = [
@@ -32,10 +32,21 @@ menu.addEventListener("select", (e) => {
 
 Omit the trigger slot and call `show()` / `close()` manually.
 
+**Anchor** — open next to an element (e.g. toolbar control):
+
 ```js
 menu.show({ anchor: someButton, placement: "below" });
 menu.close();
 ```
+
+**Coordinates** — open at viewport `x` / `y` when there is no suitable anchor element (e.g. ProseMirror caret). Values are CSS pixels in the viewport coordinate system (same as `Element.getBoundingClientRect()` or `MouseEvent.clientX` / `clientY`). Both `x` and `y` must be finite numbers; otherwise the menu uses anchor-only behavior.
+
+```js
+const { left, bottom } = view.coordsAtPos(pos);
+menu.show({ x: left, y: bottom + 4, placement: "below" });
+```
+
+Do not rely on passing both `anchor` and `x`/`y`: when both `x` and `y` are finite, the implementation opens with coordinates and ignores `anchor`.
 
 ## Item shapes
 
@@ -52,7 +63,7 @@ Each entry in the `items` array is one of:
 { divider: true }
 ```
 
-`icon` values map to S2 icon names (e.g. `'Edit'`, `'Delete'`, `'Copy'`).
+`icon` values map to S2 icon asset names (e.g. `'Edit'`, `'Delete'`, `'Copy'`) resolved under `nx2/blocks/img/icons/` as `S2_Icon_{name}_20_N.svg`.
 
 ## API
 
@@ -66,10 +77,10 @@ Each entry in the `items` array is one of:
 
 ### Methods
 
-| Method  | Signature                   | Description                                                                    |
-| ------- | --------------------------- | ------------------------------------------------------------------------------ |
-| `show`  | `({ anchor?, placement? })` | Opens the menu anchored to `anchor`. `placement` overrides the property value. |
-| `close` | `()`                        | Closes the menu.                                                               |
+| Method  | Signature | Description |
+| ------- | --------- | ----------- |
+| `show`  | `({ anchor?, x?, y?, placement? })` | Opens the menu. Use **either** `anchor` (an `Element`) **or** both `x` and `y` (finite viewport numbers). Optional `placement` overrides the element attribute. |
+| `close` | `()` | Closes the menu. |
 
 ### Events
 
@@ -79,4 +90,6 @@ Each entry in the `items` array is one of:
 
 ## Keyboard behaviour
 
-When the menu is open, arrow keys move focus between items and Enter selects the active item.
+When the menu is open and focus is **inside** the popover, arrow keys move focus between items and Enter selects the active item.
+
+If focus stays elsewhere (e.g. a ProseMirror surface), callers must forward keyboard handling themselves or use a different surface; `nx-menu` does not expose a remote key handler by default.

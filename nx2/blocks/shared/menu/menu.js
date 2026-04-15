@@ -63,10 +63,13 @@ class NxMenu extends LitElement {
     this._trigger?.setAttribute('aria-expanded', 'true');
   }
 
-  show({ anchor, placement } = {}) {
+  show({ anchor, x, y, placement } = {}) {
     this._active = undefined;
+    const useCoords = Number.isFinite(x) && Number.isFinite(y);
     this._popover?.show({
-      anchor,
+      anchor: useCoords ? null : anchor,
+      x: useCoords ? x : undefined,
+      y: useCoords ? y : undefined,
       placement: placement ?? this.getAttribute('placement') ?? 'below',
     });
   }

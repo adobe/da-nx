@@ -4,7 +4,7 @@ import '../../../shared/popover/popover.js';
 
 const menuStyles = await loadStyle(new URL('../../../shared/menu/menu.js', import.meta.url).href);
 
-function getFilteredItems(items, command) {
+function getFilteredFlatItems(items, command) {
   const searchText = command.toLowerCase().trim();
   const inputText = searchText.split(' ')[0];
 
@@ -33,6 +33,7 @@ function getFilteredItems(items, command) {
 export class NxSlashPopover extends LitElement {
   static properties = {
     items: { type: Array, attribute: false },
+    groups: { type: Array, attribute: false },
     command: { type: String },
     _selectedIndex: { state: true },
   };
@@ -40,6 +41,7 @@ export class NxSlashPopover extends LitElement {
   constructor() {
     super();
     this.items = [];
+    this.groups = undefined;
     this.command = '';
     this._selectedIndex = 0;
   }
@@ -52,6 +54,16 @@ export class NxSlashPopover extends LitElement {
     return Boolean(this._popover?.open);
   }
 
+  get navigableItems() {
+    const cmd = (this.command ?? '').trim();
+    if (this.groups?.length) {
+      const flat = this.groups.flatMap((g) => g.items);
+      if (!cmd) return flat;
+      return getFilteredFlatItems(flat, this.command ?? '');
+    }
+    return getFilteredFlatItems(this.items ?? [], this.command ?? '');
+  }
+
   connectedCallback() {
     super.connectedCallback();
     this.style.display = 'contents';
@@ -60,15 +72,15 @@ export class NxSlashPopover extends LitElement {
 
   willUpdate(changed) {
     super.willUpdate(changed);
-    if (changed.has('command') || changed.has('items')) {
+    if (changed.has('command') || changed.has('items') || changed.has('groups')) {
       this._selectedIndex = 0;
     }
   }
 
   updated(changed) {
     super.updated(changed);
-    if (changed.has('command') || changed.has('items') || changed.has('_selectedIndex')) {
-      const row = this.getFilteredItems()[this._selectedIndex];
+    if (changed.has('command') || changed.has('items') || changed.has('groups') || changed.has('_selectedIndex')) {
+      const row = this.navigableItems[this._selectedIndex];
       this.updateComplete.then(() => {
         if (row) {
           this.shadowRoot.querySelector(`[data-slash-idx="${this._selectedIndex}"]`)?.scrollIntoView({
@@ -77,19 +89,14 @@ export class NxSlashPopover extends LitElement {
         }
       });
     }
-    if (this._popover?.open && this.getFilteredItems().length === 0) {
+    if (this._popover?.open && this.navigableItems.length === 0) {
       this._popover.close();
     }
   }
 
-  getFilteredItems() {
-    return getFilteredItems(this.items ?? [], this.command ?? '');
-  }
-
   show({ x, y }) {
     this.updateComplete.then(() => {
-      const filtered = this.getFilteredItems();
-      if (!filtered.length) return;
+      if (!this.navigableItems.length) return;
       this._selectedIndex = 0;
       this._popover?.show({ x, y });
     });
@@ -113,7 +120,7 @@ export class NxSlashPopover extends LitElement {
   }
 
   _onKeydown(e) {
-    const filtered = this.getFilteredItems();
+    const filtered = this.navigableItems;
     if (!filtered.length) return;
 
     if (e.key === 'ArrowDown') {
@@ -136,8 +143,51 @@ export class NxSlashPopover extends LitElement {
     this._onKeydown(event);
   }
 
+  _renderSectionRow(label) {
+    return html`
+      <li role="presentation"><span class="menu-section">${label}</span></li>
+    `;
+  }
+
+  _renderItemButton(item, index) {
+    return html`
+      <li role="none">
+        <button
+          type="button"
+          role="menuitem"
+          data-slash-idx=${index}
+          class="menu-item ${index === this._selectedIndex ? 'menu-item-active' : ''}"
+          @mousedown=${(ev) => { ev.preventDefault(); }}
+          @click=${() => this._emitSelect(item)}
+          @mouseenter=${() => { this._selectedIndex = index; }}
+        >
+          <span class="menu-item-label">${item.title}</span>
+        </button>
+      </li>
+    `;
+  }
+
   render() {
-    const filtered = this.getFilteredItems();
+    const cmd = (this.command ?? '').trim();
+    const useGrouped = this.groups?.length && !cmd;
+
+    if (useGrouped) {
+      return html`
+        <nx-popover @close=${this._onClose} @keydown=${this._onKeydown}>
+          <ul role="menu">
+            ${this.groups.map((g, gIdx) => {
+              const start = this.groups.slice(0, gIdx).reduce((n, x) => n + x.items.length, 0);
+              return html`
+                ${this._renderSectionRow(g.label)}
+                ${g.items.map((item, itemIdx) => this._renderItemButton(item, start + itemIdx))}
+              `;
+            })}
+          </ul>
+        </nx-popover>
+      `;
+    }
+
+    const filtered = this.navigableItems;
     if (!filtered.length) {
       return html`<nx-popover @close=${this._onClose} @keydown=${this._onKeydown}></nx-popover>`;
     }
@@ -145,21 +195,7 @@ export class NxSlashPopover extends LitElement {
     return html`
       <nx-popover @close=${this._onClose} @keydown=${this._onKeydown}>
         <ul role="menu">
-          ${filtered.map((item, index) => html`
-            <li role="none">
-              <button
-                type="button"
-                role="menuitem"
-                data-slash-idx=${index}
-                class="menu-item ${index === this._selectedIndex ? 'menu-item-active' : ''}"
-                @mousedown=${(ev) => { ev.preventDefault(); }}
-                @click=${() => this._emitSelect(item)}
-                @mouseenter=${() => { this._selectedIndex = index; }}
-              >
-                <span class="menu-item-label">${item.title}</span>
-              </button>
-            </li>
-          `)}
+          ${filtered.map((item, index) => this._renderItemButton(item, index))}
         </ul>
       </nx-popover>
     `;

@@ -1,7 +1,11 @@
 /* eslint-disable max-len */
 import { Plugin, PluginKey } from 'da-y-wrapper';
 import { getKeyAutocomplete, getAutocompleteData, normalizeForSlashMenu, createKeyMenuItems } from './keyAutocomplete.js';
-import { getDefaultItems, getTableCellItems, getTableItems } from './slashMenuItems.js';
+import {
+  getDefaultSlashGroups,
+  getTableCellItems,
+  getTableItems,
+} from './slashMenuItems.js';
 import { getTableInfo } from './tableUtils.js';
 import './slash-popover.js';
 
@@ -17,14 +21,31 @@ function extractArgument(title, command) {
 
 const hasCellAreaSelected = (state) => state.selection.content().size > 0;
 
+function setSlashMenuGrouped(menu) {
+  menu.groups = getDefaultSlashGroups();
+  menu.items = [];
+}
+
+function setSlashMenuFlat(menu, items) {
+  menu.groups = undefined;
+  menu.items = items;
+}
+
+/** Only top-level `doc > paragraph` (depth 1); not lists, quotes, cells, etc. */
+function isTopLevelParagraphCursor($cursor) {
+  return $cursor.depth === 1 && $cursor.node(0)?.type?.name === 'doc';
+}
+
 function shouldShowEmptyLineSlashHint(state, menuVisible) {
   if (menuVisible) return false;
   const { $cursor } = state.selection;
   if (!$cursor) return false;
   if ($cursor.parentOffset !== 0) return false;
   const { parent } = $cursor;
-  if (!parent.isTextblock) return false;
-  return parent.content.size === 0;
+  if (!parent.isTextblock || parent.type.name !== 'paragraph') return false;
+  if (parent.content.size !== 0) return false;
+  if (!isTopLevelParagraphCursor($cursor)) return false;
+  return true;
 }
 
 function createSlashHintEl() {
@@ -40,7 +61,7 @@ class SlashMenuView {
   constructor(view) {
     this.view = view;
     this.menu = document.createElement('nx-slash-popover');
-    this.menu.items = getDefaultItems() || [];
+    setSlashMenuGrouped(this.menu);
 
     this.hintEl = createSlashHintEl();
 
@@ -62,7 +83,7 @@ class SlashMenuView {
     const { $cursor } = state.selection;
     const coords = view.coordsAtPos($cursor.pos);
     const mr = mount.getBoundingClientRect();
-    this.hintEl.style.left = `${coords.left - mr.left + mount.scrollLeft}px`;
+    this.hintEl.style.left = `${coords.left - mr.left + mount.scrollLeft + 3}px`;
     this.hintEl.style.top = `${coords.top - mr.top + mount.scrollTop}px`;
     this.hintEl.hidden = false;
   }
@@ -71,18 +92,18 @@ class SlashMenuView {
     const { $cursor } = state.selection;
 
     if (hasCellAreaSelected(state)) {
-      this.menu.items = getTableCellItems(state);
+      setSlashMenuFlat(this.menu, getTableCellItems(state));
       return;
     }
 
     if (!$cursor) {
-      this.menu.items = getDefaultItems();
+      setSlashMenuGrouped(this.menu);
       return;
     }
 
     const tableInfo = getTableInfo(state, $cursor.pos);
     if (!tableInfo) {
-      this.menu.items = getDefaultItems();
+      setSlashMenuGrouped(this.menu);
       return;
     }
 
@@ -90,17 +111,17 @@ class SlashMenuView {
     const keyData = pluginState.autocompleteData?.get(tableName);
 
     if (!keyData) {
-      this.menu.items = getTableItems(state);
+      setSlashMenuFlat(this.menu, getTableItems(state));
       return;
     }
 
     if (isFirstColumn && columnsInRow === 2) {
-      this.menu.items = createKeyMenuItems(keyData);
+      setSlashMenuFlat(this.menu, createKeyMenuItems(keyData));
       return;
     }
 
     const normalizedKey = normalizeForSlashMenu(keyValue);
-    this.menu.items = keyData.get(normalizedKey) || getTableItems(state);
+    setSlashMenuFlat(this.menu, keyData.get(normalizedKey) || getTableItems(state));
   }
 
   cellHasMenuItems(pluginState, state, $cursor) {
@@ -175,7 +196,7 @@ class SlashMenuView {
     const argument = extractArgument(item.title, this.menu.command);
 
     dispatch(tr);
-    item.command(newState, dispatch, argument);
+    item.command(newState, dispatch, argument, this.view);
 
     this.hide();
   }

@@ -39,7 +39,34 @@ const wrapInCodeBlock = (state, dispatch) => {
   return setBlockType(code_block)(state, dispatch);
 };
 
-const items = [
+/** Opens the canvas after (right) panel — event bubbles to `canvas` block listener. */
+function openLibraryPanel(state, dispatch, _argument, view) {
+  const dom = view?.dom;
+  if (!dom) return false;
+  dom.dispatchEvent(new CustomEvent('nx-canvas-open-panel', {
+    bubbles: true,
+    composed: true,
+    detail: { position: 'after' },
+  }));
+  return true;
+}
+
+const insertBlockItem = {
+  title: 'Insert block',
+  command: insertTable,
+  class: 'insert-table',
+  excludeFromTable: true,
+};
+
+const openLibraryItem = {
+  title: 'Open library',
+  command: openLibraryPanel,
+  class: 'menu-item-open-library',
+};
+
+const blockGroupItems = [insertBlockItem, openLibraryItem];
+
+const textItems = [
   {
     title: 'Heading 1',
     command: (state, dispatch) => setHeading(state, dispatch, 1),
@@ -87,12 +114,6 @@ const items = [
     class: 'lorem-ipsum',
     argument: true,
   },
-  {
-    title: 'Block',
-    command: insertTable,
-    class: 'insert-table',
-    excludeFromTable: true,
-  },
 ];
 
 const tableItems = [
@@ -133,10 +154,21 @@ const tableItems = [
   },
 ];
 
+export function getDefaultSlashGroups() {
+  return [
+    { label: 'Block', items: blockGroupItems },
+    { label: 'Text', items: textItems },
+  ];
+}
+
+/** Flat list (e.g. search, tests) — block items first, then text. */
+export const getDefaultItems = () => [...blockGroupItems, ...textItems];
+
 export const getTableItems = (state) => {
   const availableTable = tableItems.filter((item) => item.command(state));
-  const rest = items.filter((item) => !item.excludeFromTable);
-  return [...availableTable, ...rest];
+  const rest = textItems.filter((item) => !item.excludeFromTable);
+  const inTableBlockRow = blockGroupItems.filter((item) => !item.excludeFromTable);
+  return [...availableTable, ...inTableBlockRow, ...rest];
 };
 
 export const getTableCellItems = (state) => ([
@@ -147,5 +179,3 @@ export const getTableCellItems = (state) => ([
     enabled: mergeCells(state),
   },
 ].filter((x) => x.enabled !== false));
-
-export const getDefaultItems = () => items;

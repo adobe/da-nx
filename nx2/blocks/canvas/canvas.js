@@ -152,6 +152,11 @@ function installCanvasHeader(block) {
 export default async function decorate(block) {
   const header = installCanvasHeader(block);
 
+  block.addEventListener('nx-canvas-open-panel', (e) => {
+    const pos = e.detail?.position === 'before' ? 'before' : 'after';
+    openCanvasPanel(pos);
+  });
+
   const mountRoot = canvasEditorMountRoot(block);
   mountRoot.classList.add('nx-canvas-editor-mount');
 

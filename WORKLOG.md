@@ -90,8 +90,14 @@ Decided to wrap nav and sidenav in semantic HTML elements:
 
 ## 2026-04-15
 
+### nx2 shared — `nx-menu` coordinate `show`
+- **`menu.js`**: `show({ x, y, placement })` forwards to **`nx-popover`** when both `x` and `y` are finite (viewport pixels); otherwise `show({ anchor, placement })` unchanged. **`docs/menu.md`**: canonical `nx-menu` docs; **`shared/menu/README.md`** points there; **`menu.js`** `@see` links to **`docs/menu.md`**.
+
+### nx2 canvas — slash menu groups + open library
+- **`slashMenuItems.js`**: Default menu is grouped — **Block** (`Insert block`, `Open library`) and **Text** (headings, blockquote, lists, etc.). `Open library` dispatches `nx-canvas-open-panel` (`after`) from the editor view. **`slash-popover.js`**: **`nx-popover`** + shared **`menu.css`** (same section / row markup as **`nx-menu`**); grouped when the filter is empty, flat when filtering. **`slashMenu.js`**: grouped vs flat model; passes **`view`** as a fourth argument to item commands. **`canvas.js`**: `block` listens for `nx-canvas-open-panel` so events from the doc (composed from shadow) open the side panel.
+
 ### nx2 canvas — empty-line slash hint
-- **`slashMenu.js`**: When the caret is at the start of an empty textblock and the slash popover is closed, a muted **`hit / to insert`** label is positioned beside the caret (absolute inside `.da-prose-mirror`); re-sync on `.nx-editor-doc` scroll. **`nx-editor-doc.css`**: `.nx-editor-doc-slash-hint` styles.
+- **`slashMenu.js`**: Slash hint only on **empty top-level paragraphs** (`doc > paragraph`, resolved depth `1`); start of block, popover closed; positioned beside caret; re-sync on `.nx-editor-doc` scroll. **`nx-editor-doc.css`**: `.nx-editor-doc-slash-hint`.
 
 ### nx2 canvas — ProseMirror plugin order (`prose.js`)
 - Matched da-live ordering for `handleKeyDown` precedence (`someProp` walks plugins in array order): **`slashMenu()`** immediately after Yjs plugins (before input rules and all `keymap` plugins); **`keymap(baseKeymap)`** after **`keymap(buildKeymap(schema))`** and table Backspace. Fixes Enter in the slash popover and Enter for new list items. Slash is no longer passed via **`writableExtraPlugins`** from **`nx-editor-doc.js`**.
