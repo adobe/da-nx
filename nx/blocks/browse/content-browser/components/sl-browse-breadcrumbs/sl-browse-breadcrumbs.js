@@ -1,18 +1,12 @@
 // eslint-disable-next-line import/no-unresolved
 import getStyle from 'https://da.live/nx/utils/styles.js';
 // eslint-disable-next-line import/no-unresolved
-import { LitElement, html } from 'da-lit';
+import { LitElement, html, nothing } from 'da-lit';
 
 const style = await getStyle(import.meta.url);
 
 /**
- * Screen-reader label for the ellipsis overflow menu (hidden middle path segments).
- */
-const BREADCRUMB_OVERFLOW_MENU_LABEL = 'Hidden path';
-
-/**
- * Default count of trailing crumbs shown after the root when the path is long (Spectrum
- * `max-visible-items`). Middle segments appear in the overflow menu (ellipsis).
+ * Default for `visible-path-tail-count` (kept for API compatibility; custom trail is scrollable).
  */
 const DEFAULT_VISIBLE_PATH_TAIL_COUNT = 3;
 
@@ -43,7 +37,8 @@ export function buildBreadcrumbItemsFromPathSegments(pathSegments) {
 }
 
 /**
- * Folder-path breadcrumbs; forwards `sp-breadcrumbs` selection as `sl-browse-navigate`.
+ * Folder-path breadcrumbs; dispatches `sl-browse-navigate` when a segment is activated.
+ * Implemented without Spectrum `sp-breadcrumbs` to avoid `adjustOverflow` / overflow-menu crashes.
  * @fires sl-browse-navigate - detail: { pathKey: string }
  * @customElement sl-browse-breadcrumbs
  */
@@ -51,10 +46,7 @@ export class SlBrowseBreadcrumbs extends LitElement {
   static properties = {
     /** Path segments under org/site (e.g. `['org','site','folder']`). */
     segments: { type: Array },
-    /**
-     * How many non-root crumbs stay visible at the trail end; others use the overflow menu.
-     * Root stays visible via `slot="root"` on the first item.
-     */
+    /** @deprecated No longer affects rendering; trail scrolls horizontally when long. */
     visiblePathTailCount: { type: Number, attribute: 'visible-path-tail-count' },
   };
 
@@ -83,57 +75,35 @@ export class SlBrowseBreadcrumbs extends LitElement {
     );
   }
 
-  /**
-   * Forwards `sp-breadcrumbs` `change` to {@link SlBrowseBreadcrumbs#emitNavigateEvent}.
-   * @param {CustomEvent<{ value?: string }>} event - Spectrum breadcrumbs `change`.
-   */
-  _handleBreadcrumbsChange(event) {
-    const pathKey = event.detail?.value;
-    if (!pathKey) return;
-    this.emitNavigateEvent(String(pathKey));
-  }
-
   render() {
     const crumbItems = buildBreadcrumbItemsFromPathSegments(this.segments);
-    /* Few crumbs: avoid Spectrum overflow math (`adjustOverflow` / isVisible) which can throw. */
-    const crumbCount = crumbItems.length || 1;
-    const maxVisibleItems = crumbCount <= 3 ? 99 : this.visiblePathTailCount;
     return html`
       <div class="sl-crumb-bar">
-        <sp-breadcrumbs
-          class="sl-crumb-sp"
-          label="Folder path"
-          menu-label="${BREADCRUMB_OVERFLOW_MENU_LABEL}"
-          max-visible-items="${maxVisibleItems}"
-          @change="${this._handleBreadcrumbsChange}"
-        >
+        <nav class="sl-crumb-nav" aria-label="Folder path">
           ${crumbItems.length === 0
-            ? html`<sp-breadcrumb-item isLastOfType>Browse</sp-breadcrumb-item>`
+            ? html`<span class="sl-crumb-current">Browse</span>`
             : crumbItems.map((crumb, crumbIndex) => {
-                const isLastItem = crumbIndex === crumbItems.length - 1;
-                const isRootCrumb = crumbIndex === 0;
-                return isRootCrumb
+                const isLast = crumbIndex === crumbItems.length - 1;
+                const sep = crumbIndex > 0
+                  ? html`<span class="sl-crumb-sep" aria-hidden="true">›</span>`
+                  : nothing;
+                const segment = isLast
                   ? html`
-                      <sp-breadcrumb-item
-                        slot="root"
-                        .value="${crumb.value}"
-                        ?isLastOfType="${isLastItem}"
-                        title="${crumb.label}"
-                      >
-                        ${crumb.label}
-                      </sp-breadcrumb-item>
+                      <span class="sl-crumb-current" title="${crumb.label}">${crumb.label}</span>
                     `
                   : html`
-                      <sp-breadcrumb-item
-                        .value="${crumb.value}"
-                        ?isLastOfType="${isLastItem}"
+                      <button
+                        type="button"
+                        class="sl-crumb-btn"
                         title="${crumb.label}"
+                        @click=${() => this.emitNavigateEvent(crumb.value)}
                       >
                         ${crumb.label}
-                      </sp-breadcrumb-item>
+                      </button>
                     `;
+                return html`${sep}${segment}`;
               })}
-        </sp-breadcrumbs>
+        </nav>
       </div>
     `;
   }

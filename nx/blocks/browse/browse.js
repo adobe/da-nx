@@ -172,6 +172,9 @@ class BrowseView extends LitElement {
     if (!hashOrg || !hashRepo) return;
     if (org !== hashOrg || repo !== hashRepo) return;
     this.shadowRoot?.querySelector('sl-content-browser')?.refreshFolder?.();
+    if (this.appsSkills) {
+      this.shadowRoot?.querySelector('da-skills-lab-view')?.refresh?.();
+    }
   }
 
   _onBrowseToolbarNewItem() {
@@ -416,6 +419,15 @@ export default function decorate(block) {
     theme.style.minHeight = '0';
     theme.style.height = '100%';
     theme.style.overflow = 'hidden';
+  }
+
+  const browse = block.querySelector('da-browse-view');
+  if (browse) {
+    browse.style.flex = '1';
+    browse.style.minHeight = '0';
+    browse.style.minWidth = '0';
+    browse.style.width = '100%';
+    browse.style.overflow = 'hidden';
   }
 
   requestAnimationFrame(() => {

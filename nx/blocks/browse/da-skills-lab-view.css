@@ -1,8 +1,10 @@
 :host {
-  display: block;
-  height: 100%;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
   min-height: 0;
   min-width: 0;
+  max-height: 100%;
   overflow: hidden;
   box-sizing: border-box;
 }
@@ -10,7 +12,7 @@
 .skills-lab-root {
   display: flex;
   flex-direction: column;
-  height: 100%;
+  flex: 1 1 0;
   min-height: 0;
   background: var(--spectrum-global-color-gray-50, #fafafa);
 }
@@ -41,6 +43,7 @@
   display: flex;
   flex: 1;
   min-height: 0;
+  align-items: stretch;
   gap: 0;
   border-top: 1px solid var(--spectrum-global-color-gray-200, #e0e0e0);
 }
@@ -67,14 +70,24 @@
 }
 
 .skills-lab-col-mid {
-  flex: 1 1 23%;
+  flex: 1 1 0%;
   min-width: 200px;
   max-width: 30%;
+  min-height: 0;
+
+  /* Column is the scroll container (see `.skills-lab-col-scroll` — `<details>` breaks nested flex). */
+  overflow: hidden auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .skills-lab-col-wide {
-  flex: 1 1 23%;
+  flex: 1 1 0%;
   min-width: 220px;
+  min-height: 0;
+  overflow: hidden auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 .skills-lab-col-scroll {
@@ -82,6 +95,14 @@
   overflow-y: auto;
   min-height: 0;
   padding: 0 0 12px;
+}
+
+/* Mid / wide: single scrollbar on the column; inner pane must not create a competing overflow box. */
+.skills-lab-col-mid .skills-lab-col-scroll,
+.skills-lab-col-wide .skills-lab-col-scroll {
+  flex: 0 1 auto;
+  overflow: visible;
+  min-height: 0;
 }
 
 .skills-lab-section-h {
@@ -436,17 +457,15 @@
 
   .skills-lab-mid-wrap,
   .skills-lab-wide-wrap {
-    flex: 1;
-    min-height: 0;
     display: flex;
     flex-direction: column;
-    overflow: hidden;
+    min-height: min-content;
+    overflow: visible;
     border: none;
   }
 
-  .skills-lab-mid-wrap > .skills-lab-col-scroll,
-  .skills-lab-wide-wrap > .skills-lab-col-scroll {
-    flex: 1;
+  .skills-lab-wide-wrap .skills-lab-col-scroll nx-generated-tools {
+    display: block;
     min-height: 0;
   }
 
