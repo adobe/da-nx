@@ -92,6 +92,7 @@ const REPO_FILE_TOOLS = new Set([
   'da_delete_source',
   'da_copy_content',
   'da_move_content',
+  'da_create_skill',
 ]);
 
 /** Legacy MCP names (see tool-card-summaries COPY_TOOLS, etc.) → da_* ids for refresh logic. */
@@ -576,6 +577,17 @@ export class ChatController {
           addRefreshForPathKey(dpk);
           modifiedPathKeys.push(dpk);
         }
+        break;
+      }
+      case 'da_create_skill': {
+        const sid = String(
+          (normalizedOut && normalizedOut.skillId) || input.skillId || '',
+        ).trim();
+        if (!sid) return;
+        const rel = `config/skills/${sid.replace(/\.md$/i, '')}.md`;
+        const pk = repoFilePathKey(org, repo, rel);
+        addRefreshForPathKey(pk);
+        modifiedPathKeys.push(pk);
         break;
       }
       default:

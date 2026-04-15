@@ -14,6 +14,7 @@ import { renderMessageContent } from './chat-renderers.js';
 import { initIms, daFetch } from '../../../utils/daFetch.js';
 import { DA_ORIGIN } from '../../../public/utils/constants.js';
 import { loadSkills, saveSkill, deleteSkill } from '../../skills-editor/utils/utils.js';
+import { materializeDaConfigAfter404 } from '../../browse/skills-lab-api.js';
 import { loadGeneratedTools } from './generated-tools/utils.js';
 import './generated-tools/generated-tools.js';
 import { DA_BULK_AEM_OPEN, DA_BULK_AEM_SETTLED } from './bulk-aem-modal.js';
@@ -762,8 +763,39 @@ class Chat extends LitElement {
     if (!org) return {};
     try {
       const path = site ? `${org}/${site}` : org;
-      const resp = await daFetch(`${DA_ORIGIN}/config/${path}`);
-      if (!resp.ok) return {};
+      const configUrl = `${DA_ORIGIN}/config/${path}/`;
+      let resp = await daFetch(configUrl);
+      if (resp.status === 401) {
+        this._daConfig = {};
+        this._configuredMcpServers = {};
+        this._configuredMcpRows = [];
+        this._configuredAgentRows = [];
+        this._promptCards = [];
+        return this._daConfig;
+      }
+      if (resp.status === 404) {
+        await materializeDaConfigAfter404(org, site);
+        resp = await daFetch(configUrl);
+        if (resp.status === 401) {
+          this._daConfig = {};
+          this._configuredMcpServers = {};
+          this._configuredMcpRows = [];
+          this._configuredAgentRows = [];
+          this._promptCards = [];
+          return this._daConfig;
+        }
+      }
+      if (!resp.ok) {
+        if (resp.status === 404) {
+          this._daConfig = {};
+          this._configuredMcpServers = {};
+          this._configuredMcpRows = [];
+          this._configuredAgentRows = [];
+          this._promptCards = [];
+          return this._daConfig;
+        }
+        return {};
+      }
       const json = await resp.json();
       const entries = json?.data?.data || [];
       const cfg = entries.reduce((acc, row) => {
@@ -968,11 +1000,13 @@ class Chat extends LitElement {
         };
         this._pendingSkillSuggestionKey = null;
       }
+      this._dispatchRepoFilesChangedForSite();
     } else if (this._selectedSkill) {
       const result = await saveSkill(prefix, this._selectedSkill, content);
       if (result.error) return;
       this._skills = { ...this._skills, [this._selectedSkill]: content };
       this._skillEditorDirty = false;
+      this._dispatchRepoFilesChangedForSite();
     }
   }
 
@@ -987,6 +1021,16 @@ class Chat extends LitElement {
     this._skills = next;
     const ids = Object.keys(next);
     this._selectedSkill = ids.length > 0 ? ids[0] : null;
+    this._dispatchRepoFilesChangedForSite();
+  }
+
+  /** Lets browse / Skills Lab refresh lists after config sheet skill changes from this panel. */
+  _dispatchRepoFilesChangedForSite() {
+    const { org, site } = getContextFromHash();
+    if (!org || !site) return;
+    window.dispatchEvent(new CustomEvent(REPO_FILES_CHANGED_EVENT, {
+      detail: { org, repo: site, ts: Date.now() },
+    }));
   }
 
   _renderSkillsContent() {
@@ -1007,7 +1051,7 @@ class Chat extends LitElement {
       return html`
         <div class="chat-skills-empty">
           <p class="chat-skills-empty-text">No skills found.</p>
-          <p class="chat-skills-empty-text">Skills are markdown documents under <code>.da/skills/</code> that teach the assistant reusable workflows.</p>
+          <p class="chat-skills-empty-text">Skills are stored in the DA config <code>skills</code> sheet (per site) and teach the assistant reusable workflows.</p>
           <sp-button variant="accent" size="s" title="Create a new skill" aria-label="Create a new skill" @click=${() => {
           this._newSkillMode = true;
           this._pendingSkillSuggestionKey = null;
@@ -1521,6 +1565,19 @@ class Chat extends LitElement {
     });
   }
 
+  /**
+   * Whether the suggested skill id already exists in the site config `skills` sheet
+   * (persists across reloads).
+   * @param {string} suggestionId
+   */
+  _skillExistsForSuggestion(suggestionId) {
+    const sid = String(suggestionId ?? '')
+      .trim()
+      .replace(/\.md$/i, '');
+    if (!sid || this._skills == null) return false;
+    return Object.prototype.hasOwnProperty.call(this._skills, sid);
+  }
+
   _renderWelcome() {
     const { view } = this._pageContextForAgent();
     const cards = this._promptCards
@@ -1727,7 +1784,10 @@ class Chat extends LitElement {
               : message.content;
             const rendered = renderMessageContent(displayContent);
             const skillSuggKey = `skill-sugg-${msgIndex}`;
-            const skillSuggDone = !!(suggestion && this._consumedSkillSuggestionKeys[skillSuggKey]);
+            const skillSuggDone = !!(suggestion && (
+              this._consumedSkillSuggestionKeys[skillSuggKey]
+              || this._skillExistsForSuggestion(suggestion.id)
+            ));
             return html`
               <div class="message-row assistant">
                 <div class="message-bubble ${suggestion ? 'skill-suggestion' : ''}">${rendered}${suggestion ? html`

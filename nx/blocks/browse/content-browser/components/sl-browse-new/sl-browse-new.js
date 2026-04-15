@@ -9,6 +9,7 @@ import {
 } from '../../lib/content-browser-actions.js';
 import { browseRenameNameFieldCopy } from '../../lib/content-browser-utils.js';
 import { replaceHtml } from '../../../../../utils/daFetch.js';
+import { upsertSkillInConfig } from '../../../skills-lab-api.js';
 
 const style = await getStyle(import.meta.url);
 
@@ -253,21 +254,30 @@ export class SlBrowseNew extends LitElement {
     const base = this.folderFullpath.replace(/\/$/, '');
 
     if (this._createType === 'skill') {
-      if (!this.saveToSource) return;
-      const daPath = `${base}/.da/skills/${this._createName}.md`;
-      const putFormData = new FormData();
-      putFormData.append(
-        'data',
-        new Blob(['# New skill\n\nDescribe this skill here.\n'], { type: 'text/markdown' }),
-      );
+      const segments = base.replace(/^\/+/, '').split('/').filter(Boolean);
+      const org = segments[0];
+      const site = segments[1];
+      if (!org || !site) {
+        this._emitError('Create skill from the site root (org/site) so it can be saved to config.');
+        return;
+      }
       this._busy = true;
       try {
-        const result = await this.saveToSource(daPath, putFormData);
-        if (!result?.ok) {
-          this._emitError(result?.error || 'Create failed');
+        const result = await upsertSkillInConfig(
+          org,
+          site,
+          this._createName,
+          '# New skill\n\nDescribe this skill here.\n',
+        );
+        if (result.error) {
+          this._emitError(result.error);
           return;
         }
-        this._emitNewItem({ name: this._createName, path: daPath, ext: 'md' });
+        this._emitNewItem({
+          name: this._createName,
+          path: `/${org}/${site}/config/skills/${this._createName}`,
+          ext: 'md',
+        });
         this._closeOverlay();
       } finally {
         this._busy = false;

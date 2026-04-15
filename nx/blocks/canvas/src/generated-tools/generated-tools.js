@@ -95,14 +95,13 @@ class NXGeneratedTools extends LitElement {
     }
   }
 
-  get _prefix() {
-    return this.site ? `/${this.org}/${this.site}` : `/${this.org}`;
-  }
-
   async _loadTools() {
     if (!this.org) return;
-    const tools = await loadGeneratedTools(this.org, this.site);
-    this._tools = tools;
+    try {
+      this._tools = await loadGeneratedTools(this.org, this.site);
+    } catch {
+      this._tools = [];
+    }
   }
 
   async _approve(def) {
@@ -118,7 +117,7 @@ class NXGeneratedTools extends LitElement {
       this.dispatchEvent(new CustomEvent('da-tool-approved', { detail: { id: def.id }, bubbles: true }));
       return;
     }
-    const result = await approveGeneratedTool(this._prefix, def, approver);
+    const result = await approveGeneratedTool(this.org, this.site, def, approver);
     this._busy = undefined;
     if (result.error) {
       this._error = result.error;
@@ -141,7 +140,7 @@ class NXGeneratedTools extends LitElement {
       this._busy = undefined;
       return;
     }
-    const result = await deprecateGeneratedTool(this._prefix, def);
+    const result = await deprecateGeneratedTool(this.org, this.site, def);
     this._busy = undefined;
     if (result.error) {
       this._error = result.error;
@@ -159,7 +158,7 @@ class NXGeneratedTools extends LitElement {
       this._busy = undefined;
       return;
     }
-    const result = await deleteGeneratedTool(this._prefix, def.id);
+    const result = await deleteGeneratedTool(this.org, this.site, def.id);
     this._busy = undefined;
     if (result.error) {
       this._error = result.error;

@@ -1,109 +1,83 @@
-import { DA_ORIGIN } from '../../../../public/utils/constants.js';
-import { daFetch } from '../../../../utils/daFetch.js';
+import {
+  deleteGeneratedToolFromConfig,
+  loadGeneratedToolsFromConfig,
+  upsertGeneratedToolInConfig,
+} from '../../../browse/skills-lab-api.js';
 import {
   SEEDED_GENERATED_TOOLS,
   findBestGeneratedTool,
   mergeWithSeededGeneratedTools,
 } from './poc-tools.js';
 
-export const GENERATED_TOOLS_BASE_PATH = '/.da/generated-tools';
 export { SEEDED_GENERATED_TOOLS, findBestGeneratedTool };
 
 /**
- * Build the storage path for a generated tool definition.
- * Site-scoped takes priority; falls back to org-scoped on load.
- * @param {string} prefix  e.g. "/org" or "/org/site"
- * @param {string} id      slugified tool id
+ * Human-readable location for UI copy (storage is DA config `generated-tools` sheet).
  */
-function toolPath(prefix, id) {
-  return `${prefix}${GENERATED_TOOLS_BASE_PATH}/${id}.json`;
-}
+export const GENERATED_TOOLS_STORAGE_HINT = 'DA config · generated-tools sheet';
 
 /**
- * List all generated tool definitions for an org/site.
- * Falls back to org-level if the site path returns nothing.
+ * List all generated tool definitions for an org/site from config sheets.
  * @param {string} org
  * @param {string} [site]
  * @returns {Promise<Array<GeneratedToolDef>>}
  */
 export async function loadGeneratedTools(org, site) {
-  const orgPath = `/${org}${GENERATED_TOOLS_BASE_PATH}`;
-  const sitePath = `/${org}/${site}${GENERATED_TOOLS_BASE_PATH}`;
-  const path = site ? sitePath : orgPath;
-
-  let resp = await daFetch(`${DA_ORIGIN}/list${path}`);
-  if (!resp.ok && site) resp = await daFetch(`${DA_ORIGIN}/list${orgPath}`);
-  if (!resp.ok) return mergeWithSeededGeneratedTools([]);
-
-  const json = await resp.json();
-  if (!Array.isArray(json)) return mergeWithSeededGeneratedTools([]);
-
-  const jsonFiles = json.filter((item) => item.ext === 'json');
-  const defs = await Promise.all(jsonFiles.map(async (item) => {
-    const defResp = await daFetch(`${DA_ORIGIN}/source${item.path}`);
-    if (!defResp.ok) return null;
-    try {
-      return JSON.parse(await defResp.text());
-    } catch {
-      return null;
-    }
-  }));
-
-  return mergeWithSeededGeneratedTools(defs.filter(Boolean));
+  try {
+    if (!org) return mergeWithSeededGeneratedTools([]);
+    const fromConfig = await loadGeneratedToolsFromConfig(org, site);
+    return mergeWithSeededGeneratedTools(fromConfig);
+  } catch {
+    return mergeWithSeededGeneratedTools([]);
+  }
 }
 
 /**
- * Save (create or update) a generated tool definition.
- * @param {string} prefix  "/org" or "/org/site"
+ * Save (create or update) a generated tool definition in the `generated-tools` config sheet.
+ * @param {string} org
+ * @param {string} site
  * @param {GeneratedToolDef} def
  */
-export async function saveGeneratedTool(prefix, def) {
-  const path = toolPath(prefix, def.id);
-  const body = new FormData();
-  const data = new Blob([JSON.stringify(def, null, 2)], { type: 'application/json' });
-  body.append('data', data);
-
-  const resp = await daFetch(`${DA_ORIGIN}/source${path}`, { method: 'POST', body });
-  if (!resp.ok) return { error: `Error saving generated tool. Status: ${resp.status}` };
-  return { status: resp.status };
+export async function saveGeneratedTool(org, site, def) {
+  return upsertGeneratedToolInConfig(org, site, def);
 }
 
 /**
  * Set the status of a generated tool to "approved".
- * @param {string} prefix
+ * @param {string} org
+ * @param {string} site
  * @param {GeneratedToolDef} def
  * @param {string} approvedBy  user email or id
  */
-export async function approveGeneratedTool(prefix, def, approvedBy) {
+export async function approveGeneratedTool(org, site, def, approvedBy) {
   const updated = {
     ...def,
     status: 'approved',
     approvedBy,
     approvedAt: new Date().toISOString(),
   };
-  return saveGeneratedTool(prefix, updated);
+  return saveGeneratedTool(org, site, updated);
 }
 
 /**
  * Set the status of a generated tool to "deprecated" (reject / disable).
- * @param {string} prefix
+ * @param {string} org
+ * @param {string} site
  * @param {GeneratedToolDef} def
  */
-export async function deprecateGeneratedTool(prefix, def) {
+export async function deprecateGeneratedTool(org, site, def) {
   const updated = { ...def, status: 'deprecated' };
-  return saveGeneratedTool(prefix, updated);
+  return saveGeneratedTool(org, site, updated);
 }
 
 /**
- * Permanently delete a generated tool definition.
- * @param {string} prefix
+ * Permanently delete a generated tool definition from the sheet.
+ * @param {string} org
+ * @param {string} site
  * @param {string} id
  */
-export async function deleteGeneratedTool(prefix, id) {
-  const path = toolPath(prefix, id);
-  const resp = await daFetch(`${DA_ORIGIN}/source${path}`, { method: 'DELETE' });
-  if (!resp.ok) return { error: `Error deleting generated tool. Status: ${resp.status}` };
-  return { status: resp.status };
+export async function deleteGeneratedTool(org, site, id) {
+  return deleteGeneratedToolFromConfig(org, site, id);
 }
 
 /**

@@ -270,7 +270,7 @@ class DaSkillsLabView extends LitElement {
           id: `gen__${def.id}`,
           label: def.name || def.id,
           group: 'Generated',
-          wrap: `/.da/generated-tools/${def.id}.json`,
+          wrap: `DA config · generated-tools sheet · ${def.id}`,
         });
       }
     });
@@ -571,7 +571,7 @@ class DaSkillsLabView extends LitElement {
                     <span class="skills-lab-type-badge skill">skill</span>
                     <div class="skills-lab-card-main">
                       <div class="skills-lab-card-title">${sid}</div>
-                      <div class="skills-lab-card-meta">/.da/skills/${sid}.md</div>
+                      <div class="skills-lab-card-meta">DA config · skills sheet · ${sid}</div>
                     </div>
                     <button
                       type="button"

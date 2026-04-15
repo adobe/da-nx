@@ -28,5 +28,14 @@ export default function decorate(block) {
     theme.style.overflow = 'hidden';
   }
 
+  const browse = block.querySelector('da-browse-view');
+  if (browse) {
+    browse.style.flex = '1';
+    browse.style.minHeight = '0';
+    browse.style.minWidth = '0';
+    browse.style.width = '100%';
+    browse.style.overflow = 'hidden';
+  }
+
   requestAnimationFrame(() => bindBrowseBlockViewportFit(block));
 }
