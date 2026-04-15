@@ -71,7 +71,7 @@ function sanitizeHref(rawHref) {
 }
 
 function renderInline(text) {
-  const INLINE_RE = /\[([^\]]+)\]\(([^)\s]+)\)|\*\*([\s\S]*?)\*\*|\*([^*\n][\s\S]*?)\*|`([^`\n]+)`/g;
+  const INLINE_RE = /\[([^\]]+)\]\(([^)\s]+)\)|\*\*([\s\S]*?)\*\*|\*([^*\n][\s\S]*?)\*|`([^`\n]+)`|(https?:\/\/[^\s<>"')\]]+[^\s<>"')\].,!?])/g;
   const parts = [];
   let last = 0;
   let m;
@@ -93,8 +93,10 @@ function renderInline(text) {
       parts.push(html`<strong>${renderInline(m[3])}</strong>`);
     } else if (m[4] !== undefined) {
       parts.push(html`<em>${renderInline(m[4])}</em>`);
-    } else {
+    } else if (m[5] !== undefined) {
       parts.push(html`<code class="cr-inline-code">${m[5]}</code>`);
+    } else {
+      parts.push(html`<a href="${m[6]}" target="_blank" rel="noopener noreferrer">${m[6]}</a>`);
     }
     last = m.index + m[0].length;
   }
