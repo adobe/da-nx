@@ -44,7 +44,6 @@ const BUILTIN_TOOLS = [
   { id: 'da_create_skill', label: 'Create skill', group: 'Skills & Agents' },
   { id: 'da_list_agents', label: 'List agents', group: 'Skills & Agents' },
   { id: 'da_create_agent', label: 'Create agent', group: 'Skills & Agents' },
-  { id: 'aem_shift_left_content_create', label: 'AEM shift-left create', group: 'AEM Shift Left' },
 ];
 
 const BUILTIN_MCP_SERVERS = [
