@@ -103,6 +103,13 @@
   .message-action-copy {
     align-self: flex-end;
     visibility: hidden;
+    box-sizing: border-box;
+    width: 20px;
+    height: 20px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
   }
 
   &:hover .message-action-copy {
@@ -156,6 +163,24 @@
   }
 }
 
+.message .message-action-copy::before {
+  content: '';
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  display: block;
+  background-color: var(--s2-gray-500);
+  mask: url("../../img/icons/S2_Icon_Paste_20_N.svg") center / contain no-repeat;
+}
+
+.message .message-action-copy:focus::before {
+  mask: url("../../img/icons/S2_Icon_Checkmark_20_N.svg") center / contain no-repeat;
+}
+
+.message .message-action-copy svg {
+  display: none;
+}
+
 .chat-input {
   field-sizing: content;
   padding: var(--s2-spacing-100) 0;
@@ -181,16 +206,26 @@
 .chat-thinking {
   padding: var(--s2-spacing-75) var(--s2-spacing-100);
   font-size: var(--s2-body-size-xs);
+  font-weight: var(--s2-component-m-regular-font-weight);
+  letter-spacing: 0.02em;
+
+  /* Sweeping highlight: gray-600 base, gray-400 band (background-clip text) */
   background: linear-gradient(
     90deg,
-    var(--s2-gray-600) 33%,
+    var(--s2-gray-600) 0%,
+    var(--s2-gray-600) 32%,
     var(--s2-gray-400) 50%,
-    var(--s2-gray-600) 67%
+    var(--s2-gray-600) 68%,
+    var(--s2-gray-600) 100%
   );
-  background-size: 300% 100%;
+  background-size: 240% 100%;
+
+  /* stylelint-disable-next-line property-no-vendor-prefix -- Safari: gradient text clip */
+  -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-  animation: chat-fade 2s linear infinite;
+  -webkit-text-fill-color: transparent;
+  animation: chat-thinking-shimmer 2.2s ease-in-out infinite;
 }
 
 /* todo: no available design for tool cards, so using a placeholder */
@@ -276,12 +311,12 @@
   }
 }
 
-@keyframes chat-fade {
-  from {
-    background-position: 100% 0;
+@keyframes chat-thinking-shimmer {
+  0% {
+    background-position: 100% 50%;
   }
 
-  to {
-    background-position: 0% 0;
+  100% {
+    background-position: 0% 50%;
   }
 }
