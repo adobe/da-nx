@@ -12,6 +12,37 @@ export function getAgentOrigin() {
 }
 
 /**
+ * Session copy of assistant text (chat-formatted) when opening Skills Lab
+ * from a skill suggestion.
+ */
+const SKILL_LAB_CHAT_PROSE_KEY = 'da-skills-lab-skill-chat-prose';
+
+/**
+ * Stash prose the chat assistant showed (same string passed to `renderMessageContent` there).
+ * Skills Lab reads it once on load via `consumeSkillsLabSkillChatProse()`.
+ * @param {string} [text]
+ */
+export function setSkillsLabSkillChatProse(text) {
+  try {
+    if (text && String(text).trim()) sessionStorage.setItem(SKILL_LAB_CHAT_PROSE_KEY, String(text));
+    else sessionStorage.removeItem(SKILL_LAB_CHAT_PROSE_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+/** @returns {string} */
+export function consumeSkillsLabSkillChatProse() {
+  try {
+    const t = sessionStorage.getItem(SKILL_LAB_CHAT_PROSE_KEY);
+    sessionStorage.removeItem(SKILL_LAB_CHAT_PROSE_KEY);
+    return t && String(t).trim() ? String(t) : '';
+  } catch {
+    return '';
+  }
+}
+
+/**
  * POST merged config back (preserves existing sheets; adds/updates mcp-servers).
  * @param {string} org
  * @param {string} site
@@ -122,6 +153,19 @@ export async function fetchDaConfigSheets(org, site) {
 const SKILLS_SHEET_KEY = 'skills';
 
 /**
+ * @param {Record<string, unknown> | undefined} row
+ * @returns {'draft'|'approved'}
+ */
+export function skillRowStatus(row) {
+  if (!row || typeof row !== 'object') return 'approved';
+  const s = String(row.status ?? '')
+    .trim()
+    .toLowerCase();
+  if (s === 'draft') return 'draft';
+  return 'approved';
+}
+
+/**
  * Map `skills` sheet rows to id → markdown (columns: key, content; value/body supported).
  * @param {unknown[]} rows
  * @returns {Record<string, string>}
@@ -140,6 +184,30 @@ export function skillsRowsToMap(rows) {
 }
 
 /**
+ * Same rows as the skills sheet, plus id → lifecycle status for admin UI.
+ * @param {unknown[]} rows
+ * @returns {{ map: Record<string, string>, statuses: Record<string, 'draft'|'approved'> }}
+ */
+export function skillsRowsToMapAndStatuses(rows) {
+  /** @type {Record<string, string>} */
+  const map = {};
+  /** @type {Record<string, 'draft'|'approved'>} */
+  const statuses = {};
+  (Array.isArray(rows) ? rows : []).forEach((r) => {
+    if (!r || typeof r !== 'object') return;
+    const key = String(r.key ?? r.id ?? '')
+      .trim()
+      .replace(/\.md$/i, '');
+    const content = String(r.content ?? r.value ?? r.body ?? '');
+    if (key && content) {
+      map[key] = content;
+      statuses[key] = skillRowStatus(r);
+    }
+  });
+  return { map, statuses };
+}
+
+/**
  * Load all skills from the site config `skills` sheet.
  * @param {string} org
  * @param {string} site
@@ -153,13 +221,27 @@ export async function loadSkillsFromConfig(org, site) {
 }
 
 /**
+ * Skills markdown plus draft/approved flags (for Skills Lab filters).
+ * @param {string} org
+ * @param {string} site
+ * @returns {Promise<{ map: Record<string, string>, statuses: Record<string, 'draft'|'approved'> }>}
+ */
+export async function loadSkillsFromConfigWithStatuses(org, site) {
+  const loaded = await fetchDaConfigSheets(org, site);
+  if (!loaded.ok || !loaded.json) return { map: {}, statuses: {} };
+  const rows = loaded.json[SKILLS_SHEET_KEY]?.data;
+  return skillsRowsToMapAndStatuses(rows);
+}
+
+/**
  * Create or update one skill row in the `skills` sheet.
  * @param {string} org
  * @param {string} site
  * @param {string} skillId
  * @param {string} content
+ * @param {{ status?: 'draft'|'approved' }} [options]
  */
-export async function upsertSkillInConfig(org, site, skillId, content) {
+export async function upsertSkillInConfig(org, site, skillId, content, options = {}) {
   const trimmedId = String(skillId || '')
     .trim()
     .replace(/\.md$/i, '');
@@ -180,8 +262,12 @@ export async function upsertSkillInConfig(org, site, skillId, content) {
       .trim()
       .replace(/\.md$/i, '') === trimmedId,
   );
-  const row = { key: trimmedId, content };
-  if (idx >= 0) data[idx] = { ...data[idx], ...row };
+  const prev = idx >= 0 ? data[idx] : {};
+  const nextStatus = options.status === 'draft' || options.status === 'approved'
+    ? options.status
+    : skillRowStatus(prev);
+  const row = { ...prev, key: trimmedId, content, status: nextStatus };
+  if (idx >= 0) data[idx] = row;
   else data.push(row);
   cfg[SKILLS_SHEET_KEY] = { ...sheet, data, total: data.length };
 

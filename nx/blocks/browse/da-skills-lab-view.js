@@ -5,16 +5,20 @@ import { LitElement, html, nothing } from 'da-lit';
 import { getConfig } from '../../scripts/nexter.js';
 import { DA_ORIGIN } from '../../public/utils/constants.js';
 import { daFetch } from '../../utils/daFetch.js';
-import { loadSkills, saveSkill } from '../skills-editor/utils/utils.js';
+import { saveSkill, deleteSkill } from '../skills-editor/utils/utils.js';
 import { loadGeneratedTools } from '../canvas/src/generated-tools/utils.js';
 import '../canvas/src/generated-tools/generated-tools.js';
 import {
+  consumeSkillsLabSkillChatProse,
   extractToolRefsFromSkillMarkdown,
   fetchDaConfigSheets,
   fetchMcpToolsFromAgent,
   loadAgentPresetsFromRepo,
   registerMcpServer,
+  skillRowStatus,
+  skillsRowsToMapAndStatuses,
 } from './skills-lab-api.js';
+import { renderMessageContent } from '../canvas/src/chat-renderers.js';
 
 const BANNER_KEY = 'da-skills-lab-banner-text';
 
@@ -115,6 +119,21 @@ class DaSkillsLabView extends LitElement {
     /** When set, the Skills Editor is updating this skill id (id field is read-only). */
     _editingSkillId: { state: true },
     _skillSaveBusy: { state: true },
+    /** @type {Record<string, 'draft'|'approved'>} */
+    _skillStatuses: { state: true },
+    /** Prompts sheet rows for catalog tab */
+    _promptRows: { state: true },
+    /** Fourth column: skills | agents | prompts | mcp */
+    _catalogTab: { state: true },
+    /** Catalog filter: all | draft | approved */
+    _catalogFilter: { state: true },
+    /** Tools column: generated | available */
+    _toolsTab: { state: true },
+    /**
+     * Assistant prose captured from chat (same as message bubble)
+     * when creating from suggestion.
+     */
+    _skillChatProvenance: { state: true },
     _newAgentId: { state: true },
     _newAgentName: { state: true },
     _agentSaveBusy: { state: true },
@@ -144,6 +163,12 @@ class DaSkillsLabView extends LitElement {
     this._newSkillBody = '# New skill\n\n';
     this._editingSkillId = null;
     this._skillSaveBusy = false;
+    this._skillStatuses = {};
+    this._promptRows = [];
+    this._catalogTab = 'skills';
+    this._catalogFilter = 'all';
+    this._toolsTab = 'available';
+    this._skillChatProvenance = '';
     this._newAgentId = '';
     this._newAgentName = '';
     this._agentSaveBusy = false;
@@ -158,6 +183,8 @@ class DaSkillsLabView extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
+    const prose = consumeSkillsLabSkillChatProse();
+    if (prose) this._skillChatProvenance = prose;
     this._onHashForContext = () => this.requestUpdate();
     window.addEventListener('hashchange', this._onHashForContext);
     this._collapsibleVpMql = window.matchMedia('(max-width: 1023px)');
@@ -202,13 +229,20 @@ class DaSkillsLabView extends LitElement {
       const cfg = await fetchDaConfigSheets(this.org, this.site);
       this._mcpRows = cfg.mcpRows || [];
       this._agentRows = cfg.agentRows || [];
+      const cfgJson = cfg.json || {};
 
-      const [skills, customAgents, gen] = await Promise.all([
-        loadSkills(this.org, this.site),
+      const { map: skillsMap, statuses: skillStatuses } = skillsRowsToMapAndStatuses(
+        cfgJson.skills?.data || [],
+      );
+      this._skills = skillsMap || {};
+      this._skillStatuses = skillStatuses || {};
+
+      this._promptRows = (cfgJson.prompts?.data || []).filter((r) => r.title && r.prompt);
+
+      const [customAgents, gen] = await Promise.all([
         loadAgentPresetsFromRepo(this.org, this.site),
         loadGeneratedTools(this.org, this.site),
       ]);
-      this._skills = skills || {};
       this._customAgents = customAgents || [];
       this._generatedTools = Array.isArray(gen) ? gen : [];
 
@@ -281,6 +315,21 @@ class DaSkillsLabView extends LitElement {
       }
     });
     return rows;
+  }
+
+  /** Tool rows with references from the current skill draft listed first. */
+  _orderedToolRows() {
+    const all = this._allToolRows();
+    const refs = new Set(extractToolRefsFromSkillMarkdown(this._newSkillBody));
+    const suggested = all.filter((t) => refs.has(t.id));
+    const rest = all.filter((t) => !refs.has(t.id));
+    return [...suggested, ...rest];
+  }
+
+  /** @param {'draft'|'approved'} status */
+  _catalogFilterPasses(status) {
+    if (this._catalogFilter === 'all') return true;
+    return status === this._catalogFilter;
   }
 
   _toolHighlighted(toolId) {
@@ -407,6 +456,7 @@ class DaSkillsLabView extends LitElement {
     this._newSkillId = sid;
     this._newSkillBody = this._skills[sid] ?? '';
     this._formMsg = '';
+    this._skillChatProvenance = '';
     this._selectCap('skill', sid);
   }
 
@@ -415,6 +465,7 @@ class DaSkillsLabView extends LitElement {
     this._newSkillId = '';
     this._newSkillBody = '# New skill\n\n';
     this._formMsg = '';
+    this._skillChatProvenance = '';
   };
 
   /** @public — refresh catalog after toolbar “New” creates a skill file. */
@@ -422,7 +473,11 @@ class DaSkillsLabView extends LitElement {
     return this._reload();
   }
 
-  async _onSaveSkill(e) {
+  /**
+   * @param {Event} e
+   * @param {'draft'|'approved'} status
+   */
+  async _onSaveSkillWithStatus(e, status) {
     e.preventDefault();
     const id = (this._editingSkillId || this._newSkillId).trim();
     if (!id) {
@@ -435,7 +490,7 @@ class DaSkillsLabView extends LitElement {
     this._skillSaveBusy = true;
     this._formMsg = '';
     const prefix = `/${this.org}/${this.site}`;
-    const res = await saveSkill(prefix, id, body);
+    const res = await saveSkill(prefix, id, body, { status });
     this._skillSaveBusy = false;
     if (res.error) {
       this._formMsg = res.error;
@@ -450,7 +505,26 @@ class DaSkillsLabView extends LitElement {
     if (this._editingSkillId) {
       this._newSkillBody = this._skills[this._editingSkillId] ?? this._newSkillBody;
     }
-    this._formMsg = 'Skill saved.';
+    this._formMsg = status === 'approved' ? 'Skill saved and approved for chat.' : 'Skill saved as draft.';
+  }
+
+  async _onDeleteSkill() {
+    const id = this._editingSkillId?.trim();
+    if (!id) return;
+    // eslint-disable-next-line no-alert
+    if (!window.confirm(`Delete skill "${id}" from site config?`)) return;
+    this._skillSaveBusy = true;
+    this._formMsg = '';
+    const prefix = `/${this.org}/${this.site}`;
+    const res = await deleteSkill(prefix, id);
+    this._skillSaveBusy = false;
+    if (res.error) {
+      this._formMsg = res.error;
+      return;
+    }
+    this._clearSkillEditor();
+    await this._reload();
+    this._formMsg = 'Skill deleted.';
   }
 
   async _onSaveAgent(e) {
@@ -498,11 +572,176 @@ class DaSkillsLabView extends LitElement {
       return html`<div class="skills-lab-loading">Loading capabilities…</div>`;
     }
 
-    const skillIds = Object.keys(this._skills || {});
-    const toolRows = this._allToolRows();
+    const allSkillIds = Object.keys(this._skills || {});
+    const skillIds = allSkillIds.filter((sid) => {
+      const st = this._skillStatuses[sid] || 'approved';
+      return this._catalogFilterPasses(st);
+    });
+    const toolRows = this._orderedToolRows();
     const browseHash = `#/${this.org}/${this.site}`;
     const { nxBase } = getConfig();
     const editIconSrc = `${nxBase}/public/icons/S2_Icon_Edit_20_N.svg`;
+    const configHash = `https://da.live/config#/${this.org}/${this.site}/`;
+
+    const filterBar = html`
+      <div class="skills-lab-catalog-toolbar" role="toolbar" aria-label="Lifecycle filter">
+        <span class="skills-lab-filter-label">Show</span>
+        ${(['all', 'draft', 'approved']).map((f) => html`
+          <button type="button" class="skills-lab-filter-chip ${this._catalogFilter === f ? 'is-active' : ''}"
+            @click=${() => { this._catalogFilter = f; }}>
+            ${{ all: 'All', draft: 'Draft', approved: 'Approved' }[f] || f}
+          </button>
+        `)}
+      </div>`;
+
+    const tabBtn = (id, label) => html`
+      <button type="button" class="skills-lab-cat-tab ${this._catalogTab === id ? 'is-active' : ''}"
+        @click=${() => { this._catalogTab = id; }}>${label}</button>`;
+
+    const rowPassesCatalogFilter = (row) => this._catalogFilterPasses(skillRowStatus(row));
+    const filteredPrompts = (this._promptRows || []).filter(rowPassesCatalogFilter);
+    const filteredMcpCustom = (this._mcpRows || []).filter(rowPassesCatalogFilter);
+    const showAgentsCatalog = this._catalogFilterPasses('approved');
+
+    let agentsCatalogMain = nothing;
+    if (showAgentsCatalog) {
+      agentsCatalogMain = html`
+              <h3 class="skills-lab-section-h">Agents (${1 + this._customAgents.length})</h3>
+              ${BUILTIN_AGENTS.map((a) => html`
+                <div class="skills-lab-card ${this._capHighlighted('agent', a.id) ? 'sl-highlight' : ''}"
+                  @click=${() => this._selectCap('agent', a.id)}>
+                  <span class="skills-lab-type-badge agent">agent</span>
+                  <div class="skills-lab-card-title">${a.name}</div>
+                  <div class="skills-lab-card-meta">builtin · ${a.id}</div>
+                  <div class="skills-lab-card-desc">${a.description}</div>
+                  <div class="skills-lab-pills">${agentToolIds(a, this._mcpToolsPayload).slice(0, 12).map((t) => html`<span class="skills-lab-pill">${t}</span>`)}${agentToolIds(a, this._mcpToolsPayload).length > 12 ? html`<span class="skills-lab-pill">…</span>` : nothing}</div>
+                </div>`)}
+              ${this._customAgents.map(({ id, preset }) => html`
+                <div class="skills-lab-card ${this._capHighlighted('agent', id) ? 'sl-highlight' : ''}"
+                  @click=${() => this._selectCap('agent', id)}>
+                  <span class="skills-lab-type-badge agent">agent</span>
+                  <div class="skills-lab-card-title">${preset?.name || id}</div>
+                  <div class="skills-lab-card-meta">/.da/agents/${id}.json</div>
+                  <div class="skills-lab-card-desc">${preset?.description || ''}</div>
+                  <div class="skills-lab-pills">${agentToolIds({ mcpServers: preset?.mcpServers || [] }, this._mcpToolsPayload).slice(0, 10).map((t) => html`<span class="skills-lab-pill">${t}</span>`)}${agentToolIds({ mcpServers: preset?.mcpServers || [] }, this._mcpToolsPayload).length > 10 ? html`<span class="skills-lab-pill">…</span>` : nothing}</div>
+                </div>`)}
+              ${(this._agentRows || []).length ? html`
+                <h3 class="skills-lab-section-h">Config agents (${this._agentRows.length})</h3>
+                ${this._agentRows.map((row) => html`
+                  <div class="skills-lab-card">
+                    <span class="skills-lab-type-badge agent">config</span>
+                    <div class="skills-lab-card-title">${row.key}</div>
+                    <div class="skills-lab-card-meta">${row.url}</div>
+                    <div class="skills-lab-card-desc">DA config <code>agents</code> sheet</div>
+                  </div>`)}
+              ` : nothing}
+            `;
+    } else if (this._catalogFilter === 'draft') {
+      agentsCatalogMain = html`<p class="skills-lab-form-hint">No draft agent entries in the catalog (presets are treated as approved).</p>`;
+    }
+
+    const catalogSkills = html`
+          <h3 class="skills-lab-section-h">Skills (${skillIds.length})</h3>
+          ${skillIds.map((sid) => {
+        const st = this._skillStatuses[sid] || 'approved';
+        return html`
+                <div class="skills-lab-card skills-lab-card-skill ${this._capHighlighted('skill', sid) ? 'sl-highlight' : ''}">
+                  <div class="skills-lab-card-row" @click=${() => this._selectCap('skill', sid)}>
+                    <span class="skills-lab-type-badge skill">skill</span>
+                    <div class="skills-lab-card-main">
+                      <div class="skills-lab-card-title">${sid}</div>
+                      <div class="skills-lab-card-meta">DA config · ${st === 'draft' ? 'draft' : 'approved'}</div>
+                    </div>
+                    <button type="button" class="skills-lab-skill-edit" title="Edit Skill" aria-label="Edit Skill"
+                      @click=${(e) => this._onEditSkill(sid, e)}>
+                      <img src="${editIconSrc}" width="18" height="18" alt="" />
+                    </button>
+                  </div>
+                </div>`;
+      })}
+        `;
+
+    const catalogAgents = html`
+          ${agentsCatalogMain}
+              <h3 class="skills-lab-section-h">New agent file</h3>
+              <p class="skills-lab-form-hint">Creates <code>/.da/agents/&lt;id&gt;.json</code> in the site.</p>
+              <form class="skills-lab-form" @submit=${this._onSaveAgent}>
+                <input class="skills-lab-input" .value=${this._newAgentId} @input=${(e) => { this._newAgentId = e.target.value; }} placeholder="agent-id" />
+                <input class="skills-lab-input" .value=${this._newAgentName} @input=${(e) => { this._newAgentName = e.target.value; }} placeholder="Display name" />
+                <sp-button type="submit" variant="secondary" ?disabled=${this._agentSaveBusy}>Save agent file</sp-button>
+              </form>
+        `;
+
+    const catalogPrompts = html`
+              <p class="skills-lab-form-hint">Prompts from the DA config <code>prompts</code> sheet. <a href="${configHash}" target="_blank" rel="noopener">Edit in config</a></p>
+              <h3 class="skills-lab-section-h">Prompts (${filteredPrompts.length})</h3>
+              ${filteredPrompts.length === 0
+        ? html`<p class="skills-lab-form-hint">No prompts for this filter.</p>`
+        : filteredPrompts.map((p) => {
+          const pst = skillRowStatus(p);
+          return html`
+                  <div class="skills-lab-card">
+                    <span class="skills-lab-type-badge skill">prompt</span>
+                    <div class="skills-lab-card-title">${p.title}</div>
+                    <div class="skills-lab-card-meta">${pst === 'draft' ? 'draft' : 'approved'}</div>
+                    <div class="skills-lab-card-desc">${p.prompt}</div>
+                  </div>`;
+        })}
+            `;
+
+    const catalogMcps = html`
+              <h3 class="skills-lab-section-h">Register MCP</h3>
+              <form class="skills-lab-form" @submit=${this._onRegisterMcp}>
+                <label>Add or update (<code>mcp-servers</code>)</label>
+                ${this._editingMcpKey
+        ? html`<p class="skills-lab-form-hint">Editing <code>${this._editingMcpKey}</code> ·
+                    <button type="button" class="skills-lab-link-btn" @click=${this._clearMcpRegisterForm}>New MCP server</button></p>`
+        : nothing}
+                <input class="skills-lab-input" .value=${this._registerKey} @input=${(e) => {
+        this._registerKey = e.target.value;
+        if (this._editingMcpKey && e.target.value.trim() !== this._editingMcpKey) {
+          this._editingMcpKey = null;
+        }
+      }} placeholder="server-id" />
+                <input class="skills-lab-input" .value=${this._registerUrl} @input=${(e) => { this._registerUrl = e.target.value; }} placeholder="https://…/sse" />
+                <sp-button type="submit" variant="accent" ?disabled=${this._registerBusy}>
+                  ${this._editingMcpKey ? 'Update MCP config' : 'Register MCP'}
+                </sp-button>
+              </form>
+              <h3 class="skills-lab-section-h">MCP servers (${BUILTIN_MCP_SERVERS.length + filteredMcpCustom.length})</h3>
+              ${BUILTIN_MCP_SERVERS.filter(() => this._catalogFilterPasses('approved')).map((s) => html`
+                <div class="skills-lab-card ${this._capHighlighted('mcp', s.id) ? 'sl-highlight' : ''}"
+                  @click=${() => this._selectCap('mcp', s.id)}>
+                  <span class="skills-lab-type-badge mcp">mcp</span>
+                  <div class="skills-lab-card-title">${s.id}</div>
+                  <div class="skills-lab-card-meta">${s.transport}</div>
+                  <div class="skills-lab-card-desc">${s.description}</div>
+                </div>`)}
+              ${filteredMcpCustom.map((row) => html`
+                <div class="skills-lab-card skills-lab-card-skill ${this._capHighlighted('mcp', row.key) ? 'sl-highlight' : ''}">
+                  <div class="skills-lab-card-row" @click=${() => this._selectCap('mcp', row.key)}>
+                    <span class="skills-lab-type-badge mcp">mcp</span>
+                    <div class="skills-lab-card-main">
+                      <div class="skills-lab-card-title">${row.key}</div>
+                      <div class="skills-lab-card-meta">${row.url}</div>
+                      <div class="skills-lab-card-meta">${skillRowStatus(row) === 'draft' ? 'draft' : 'approved'}</div>
+                    </div>
+                    <button type="button" class="skills-lab-skill-edit" title="Edit MCP server" aria-label="Edit MCP server"
+                      @click=${(e) => this._onEditMcp(row, e)}>
+                      <img src="${editIconSrc}" width="18" height="18" alt="" />
+                    </button>
+                  </div>
+                </div>`)}
+            `;
+
+    let catalogBody = catalogMcps;
+    if (this._catalogTab === 'skills') {
+      catalogBody = catalogSkills;
+    } else if (this._catalogTab === 'agents') {
+      catalogBody = catalogAgents;
+    } else if (this._catalogTab === 'prompts') {
+      catalogBody = catalogPrompts;
+    }
 
     return html`
       <div class="skills-lab-root">
@@ -514,7 +753,7 @@ class DaSkillsLabView extends LitElement {
           </div>`
         : nothing}
         <div class="skills-lab-columns">
-          <div class="skills-lab-col skills-lab-col-editor skills-lab-col-narrow">
+          <div class="skills-lab-col skills-lab-col-form">
             <div class="skills-lab-col-scroll skills-lab-col-scroll-stack">
               <div class="skills-lab-order-back">
                 <div class="skills-lab-back">
@@ -523,188 +762,74 @@ class DaSkillsLabView extends LitElement {
               </div>
               <div class="skills-lab-order-editor">
                 <div class="skills-lab-editor-heading">
-                  <h3 class="skills-lab-section-h skills-lab-section-h-inline">Skills Editor</h3>
+                  <h3 class="skills-lab-section-h skills-lab-section-h-inline">Skill</h3>
                   ${this._editingSkillId
         ? html`<button type="button" class="skills-lab-link-btn" @click=${this._clearSkillEditor}>New skill</button>`
         : nothing}
                 </div>
-                <form class="skills-lab-form" @submit=${this._onSaveSkill}>
-                  <input
-                    class="skills-lab-input"
-                    .value=${this._newSkillId}
+                <div class="skills-lab-form">
+                  <input class="skills-lab-input" .value=${this._newSkillId}
                     @input=${(e) => { this._newSkillId = e.target.value; }}
-                    placeholder="skill-id"
-                    ?readonly=${Boolean(this._editingSkillId)}
-                  />
-                  <textarea class="skills-lab-textarea" .value=${this._newSkillBody} @input=${(e) => { this._newSkillBody = e.target.value; }}></textarea>
-                  <sp-button type="submit" variant="primary" ?disabled=${this._skillSaveBusy}>Save skill</sp-button>
-                </form>
-              </div>
-              <div class="skills-lab-order-discover">
-                <h3 class="skills-lab-section-h">Discover / register</h3>
-                <form class="skills-lab-form" @submit=${this._onRegisterMcp}>
-                  <label>Add or update MCP server (<code>mcp-servers</code> config sheet)</label>
-                  ${this._editingMcpKey
-        ? html`<p class="skills-lab-form-hint">Editing <code>${this._editingMcpKey}</code> ·
-                    <button type="button" class="skills-lab-link-btn" @click=${this._clearMcpRegisterForm}>New MCP server</button></p>`
+                    placeholder="skill-id" ?readonly=${Boolean(this._editingSkillId)} />
+                  <textarea class="skills-lab-textarea skills-lab-textarea-tall" .value=${this._newSkillBody}
+                    aria-label="Skill markdown"
+                    @input=${(e) => { this._newSkillBody = e.target.value; }}></textarea>
+                  <details class="skills-lab-skill-render-details">
+                    <summary class="skills-lab-skill-render-summary">
+                      ${this._skillChatProvenance?.trim()
+        ? 'Assistant message (as in chat)'
+        : 'Assistant-style view (same formatting as chat)'}
+                    </summary>
+                    <div class="skills-lab-skill-render-body">
+                      <div class="skills-lab-chat-rendered">
+                        ${renderMessageContent(
+        (this._skillChatProvenance && String(this._skillChatProvenance).trim())
+          ? this._skillChatProvenance
+          : this._newSkillBody,
+      )}
+                      </div>
+                    </div>
+                  </details>
+                  <div class="skills-lab-save-row">
+                    <sp-button type="button" variant="secondary" ?disabled=${this._skillSaveBusy}
+                      @click=${(e) => this._onSaveSkillWithStatus(e, 'draft')}>Save as Draft</sp-button>
+                    <sp-button type="button" variant="accent" ?disabled=${this._skillSaveBusy}
+                      @click=${(e) => this._onSaveSkillWithStatus(e, 'approved')}>Save</sp-button>
+                    ${this._editingSkillId
+        ? html`<sp-button type="button" variant="negative" ?disabled=${this._skillSaveBusy}
+                        @click=${this._onDeleteSkill}>Delete</sp-button>`
         : nothing}
-                  <input
-                    class="skills-lab-input"
-                    .value=${this._registerKey}
-                    @input=${(e) => {
-        this._registerKey = e.target.value;
-        if (this._editingMcpKey && e.target.value.trim() !== this._editingMcpKey) {
-          this._editingMcpKey = null;
-        }
-      }}
-                    placeholder="server-id"
-                  />
-                  <input class="skills-lab-input" .value=${this._registerUrl} @input=${(e) => { this._registerUrl = e.target.value; }} placeholder="https://…/sse" />
-                  <sp-button type="submit" variant="accent" ?disabled=${this._registerBusy}>
-                    ${this._editingMcpKey ? 'Update MCP config' : 'Register MCP'}
-                  </sp-button>
-                </form>
-              </div>
-              <details data-sl-collapsible class="skills-lab-mobile-wrap skills-lab-order-agent">
-                <summary class="skills-lab-mobile-summary">New agent file in repo</summary>
-                <div class="skills-lab-mobile-body">
-                  <p class="skills-lab-form-hint">Creates <code>/.da/agents/&lt;id&gt;.json</code> in the site (preset JSON for chat). Not the DA config <code>agents</code> sheet.</p>
-                  <form class="skills-lab-form" @submit=${this._onSaveAgent}>
-                    <input class="skills-lab-input" .value=${this._newAgentId} @input=${(e) => { this._newAgentId = e.target.value; }} placeholder="agent-id" />
-                    <input class="skills-lab-input" .value=${this._newAgentName} @input=${(e) => { this._newAgentName = e.target.value; }} placeholder="Display name" />
-                    <sp-button type="submit" variant="secondary" ?disabled=${this._agentSaveBusy}>Save agent file</sp-button>
-                  </form>
+                  </div>
+                  <p class="skills-lab-form-hint">Draft skills are hidden from chat until you use <strong>Save</strong> (approved).</p>
                 </div>
-              </details>
+              </div>
               ${this._formMsg
         ? html`<div class="skills-lab-order-msgs skills-lab-msg ${this._formMsg.includes('fail') || this._formMsg.includes('required') ? 'skills-lab-msg-err' : 'skills-lab-msg-ok'}">${this._formMsg}</div>`
         : nothing}
               ${this._error ? html`<div class="skills-lab-order-msgs skills-lab-msg skills-lab-msg-err">${this._error}</div>` : nothing}
             </div>
           </div>
-          <div class="skills-lab-col skills-lab-col-mid">
-            <details data-sl-collapsible class="skills-lab-mobile-wrap skills-lab-mid-wrap">
-              <summary class="skills-lab-mobile-summary">Catalogs · agents, skills, MCP</summary>
-              <div class="skills-lab-col-scroll">
-              <h3 class="skills-lab-section-h">Agents (${1 + this._customAgents.length})</h3>
-              ${BUILTIN_AGENTS.map(
-        (a) => html`
-                <div
-                  class="skills-lab-card ${this._capHighlighted('agent', a.id) ? 'sl-highlight' : ''}"
-                  @click=${() => this._selectCap('agent', a.id)}
-                >
-                  <span class="skills-lab-type-badge agent">agent</span>
-                  <div class="skills-lab-card-title">${a.name}</div>
-                  <div class="skills-lab-card-meta">builtin · ${a.id}</div>
-                  <div class="skills-lab-card-desc">${a.description}</div>
-                  <div class="skills-lab-card-meta">wraps: da-agent + merged tools</div>
-                  <div class="skills-lab-pills">${agentToolIds(a, this._mcpToolsPayload).slice(0, 12).map((t) => html`<span class="skills-lab-pill">${t}</span>`)}${agentToolIds(a, this._mcpToolsPayload).length > 12 ? html`<span class="skills-lab-pill">…</span>` : nothing}</div>
-                </div>`,
-      )}
-              ${this._customAgents.map(
-        ({ id, preset }) => html`
-                <div
-                  class="skills-lab-card ${this._capHighlighted('agent', id) ? 'sl-highlight' : ''}"
-                  @click=${() => this._selectCap('agent', id)}
-                >
-                  <span class="skills-lab-type-badge agent">agent</span>
-                  <div class="skills-lab-card-title">${preset?.name || id}</div>
-                  <div class="skills-lab-card-meta">/.da/agents/${id}.json</div>
-                  <div class="skills-lab-card-desc">${preset?.description || ''}</div>
-                  <div class="skills-lab-pills">${agentToolIds({ mcpServers: preset?.mcpServers || [] }, this._mcpToolsPayload).slice(0, 10).map((t) => html`<span class="skills-lab-pill">${t}</span>`)}${agentToolIds({ mcpServers: preset?.mcpServers || [] }, this._mcpToolsPayload).length > 10 ? html`<span class="skills-lab-pill">…</span>` : nothing}</div>
-                </div>`,
-      )}
-              <h3 class="skills-lab-section-h">Skills (${skillIds.length})</h3>
-              ${skillIds.map(
-        (sid) => html`
-                <div
-                  class="skills-lab-card skills-lab-card-skill ${this._capHighlighted('skill', sid) ? 'sl-highlight' : ''}"
-                >
-                  <div class="skills-lab-card-row" @click=${() => this._selectCap('skill', sid)}>
-                    <span class="skills-lab-type-badge skill">skill</span>
-                    <div class="skills-lab-card-main">
-                      <div class="skills-lab-card-title">${sid}</div>
-                      <div class="skills-lab-card-meta">DA config · skills sheet · ${sid}</div>
-                    </div>
-                    <button
-                      type="button"
-                      class="skills-lab-skill-edit"
-                      title="Edit Skill"
-                      aria-label="Edit Skill"
-                      @click=${(e) => this._onEditSkill(sid, e)}
-                    >
-                      <img src="${editIconSrc}" width="18" height="18" alt="" />
-                    </button>
-                  </div>
-                </div>`,
-      )}
-              ${(this._agentRows || []).length
-        ? html`
-                <h3 class="skills-lab-section-h">Config agents (${this._agentRows.length})</h3>
-                ${this._agentRows.map(
-          (row) => html`
-                  <div class="skills-lab-card">
-                    <span class="skills-lab-type-badge agent">config</span>
-                    <div class="skills-lab-card-title">${row.key}</div>
-                    <div class="skills-lab-card-meta">${row.url}</div>
-                    <div class="skills-lab-card-desc">DA config <code>agents</code> sheet · activate in chat</div>
-                  </div>`,
-        )}
-              `
-        : nothing}
-              <h3 class="skills-lab-section-h">MCP servers (${BUILTIN_MCP_SERVERS.length + this._mcpRows.length})</h3>
-              ${BUILTIN_MCP_SERVERS.map(
-        (s) => html`
-                <div
-                  class="skills-lab-card ${this._capHighlighted('mcp', s.id) ? 'sl-highlight' : ''}"
-                  @click=${() => this._selectCap('mcp', s.id)}
-                >
-                  <span class="skills-lab-type-badge mcp">mcp</span>
-                  <div class="skills-lab-card-title">${s.id}</div>
-                  <div class="skills-lab-card-meta">${s.transport}</div>
-                  <div class="skills-lab-card-desc">${s.description}</div>
-                </div>`,
-      )}
-              ${this._mcpRows.map(
-        (row) => html`
-                <div
-                  class="skills-lab-card skills-lab-card-skill ${this._capHighlighted('mcp', row.key) ? 'sl-highlight' : ''}"
-                >
-                  <div class="skills-lab-card-row" @click=${() => this._selectCap('mcp', row.key)}>
-                    <span class="skills-lab-type-badge mcp">mcp</span>
-                    <div class="skills-lab-card-main">
-                      <div class="skills-lab-card-title">${row.key}</div>
-                      <div class="skills-lab-card-meta">${row.url}</div>
-                      <div class="skills-lab-card-desc">SSE · config sheet · da-agent /mcp-tools</div>
-                    </div>
-                    <button
-                      type="button"
-                      class="skills-lab-skill-edit"
-                      title="Edit MCP server"
-                      aria-label="Edit MCP server"
-                      @click=${(e) => this._onEditMcp(row, e)}
-                    >
-                      <img src="${editIconSrc}" width="18" height="18" alt="" />
-                    </button>
-                  </div>
-                </div>`,
-      )}
+          <div class="skills-lab-col skills-lab-col-tools skills-lab-tools-always">
+            <div class="skills-lab-tools-tabs" role="tablist" aria-label="Tool sources">
+              <button type="button" class="skills-lab-cat-tab ${this._toolsTab === 'available' ? 'is-active' : ''}"
+                @click=${() => { this._toolsTab = 'available'; }}>Available tools</button>
+              <button type="button" class="skills-lab-cat-tab ${this._toolsTab === 'generated' ? 'is-active' : ''}"
+                @click=${() => { this._toolsTab = 'generated'; }}>Generated tools</button>
             </div>
-            </details>
-          </div>
-          <div class="skills-lab-col skills-lab-col-wide">
-            <details data-sl-collapsible class="skills-lab-mobile-wrap skills-lab-wide-wrap">
-              <summary class="skills-lab-mobile-summary">Generated tools · Tools Registry</summary>
-              <div class="skills-lab-col-scroll">
-              <h3 class="skills-lab-section-h skills-lab-section-h-tools-generated">Generated Tools</h3>
-              <nx-generated-tools
-                .org=${this.org}
-                .site=${this.site}
-                .contextPagePath=${this._contextPagePathForGeneratedTools()}
-              ></nx-generated-tools>
-              <h3 class="skills-lab-section-h">Tools Registry (${toolRows.length})</h3>
-              ${toolRows.map(
-        (t) => {
+            <div class="skills-lab-tools-scroll">
+              ${this._toolsTab === 'generated'
+        ? html`
+                <p class="skills-lab-form-hint skills-lab-tools-hint">Site-generated tool definitions (draft / approved).</p>
+                <nx-generated-tools
+                  .org=${this.org}
+                  .site=${this.site}
+                  .contextPagePath=${this._contextPagePathForGeneratedTools()}
+                ></nx-generated-tools>
+              `
+        : html`
+                <h3 class="skills-lab-section-h">Available tools (${toolRows.length})</h3>
+                <p class="skills-lab-form-hint skills-lab-tools-hint">Built-in, MCP, and generated tool ids. References from your skill draft are listed first.</p>
+                ${toolRows.map((t) => {
           const hi = this._toolHighlighted(t.id);
           const cons = this._toolSel === t.id ? this._consumersForTool(t.id) : null;
           return html`
@@ -716,10 +841,21 @@ class DaSkillsLabView extends LitElement {
             ? html`<div class="skills-lab-card-desc">Used by agents: ${cons.agents.join(', ') || '—'} · skills: ${cons.skills.join(', ') || '—'}</div>`
             : nothing}
                   </div>`;
-        },
-      )}
+        })}
+              `}
             </div>
-            </details>
+          </div>
+          <div class="skills-lab-col skills-lab-col-catalog">
+            <div class="skills-lab-catalog-tabs" role="tablist" aria-label="Catalog">
+              ${tabBtn('skills', 'Skills')}
+              ${tabBtn('agents', 'Agents')}
+              ${tabBtn('prompts', 'Prompts')}
+              ${tabBtn('mcp', 'MCPs')}
+            </div>
+            ${filterBar}
+            <div class="skills-lab-catalog-scroll">
+              ${catalogBody}
+            </div>
           </div>
         </div>
       </div>
