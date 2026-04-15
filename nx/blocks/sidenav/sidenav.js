@@ -49,18 +49,14 @@ const HASH_AWARE = ['Home', 'Apps'];
 const NEW_UI_PREFIX = '/app/hannessolo/exp-workspace';
 const NEW_UI_FRAGMENT_PATH = 'https://main--exp-workspace--hannessolo.aem.live/fragments/sidenav';
 
-/** Default repo when the hash does not include `/{org}/{site}`. */
-const DEFAULT_SKILLS_LAB_ORG = 'aemsites';
-const DEFAULT_SKILLS_LAB_SITE = 'da-block-collection';
-
 function parseOrgSiteForSkillsLab() {
   const { hash } = window.location;
   if (!hash.startsWith('#/')) {
-    return { org: DEFAULT_SKILLS_LAB_ORG, site: DEFAULT_SKILLS_LAB_SITE };
+    return { org: '', site: '' };
   }
   const segments = hash.slice(2).split('/').filter(Boolean);
   if (segments.length < 2) {
-    return { org: DEFAULT_SKILLS_LAB_ORG, site: DEFAULT_SKILLS_LAB_SITE };
+    return { org: '', site: '' };
   }
   const org = segments[0];
   const site = segments[1];
@@ -70,7 +66,9 @@ function parseOrgSiteForSkillsLab() {
 function buildSkillsLabHref() {
   const { origin, search } = window.location;
   const { org, site } = parseOrgSiteForSkillsLab();
-  return `${origin}/apps/skills${search}#/${org}/${site}/skills-lab`;
+  const base = `${origin}/apps/skills${search}`;
+  if (!org || !site) return base;
+  return `${base}#/${org}/${site}/skills-lab`;
 }
 
 function getDefaultPath() {
@@ -152,8 +150,8 @@ class SideNav extends HTMLElement {
   }
 
   /**
-   * Injects a "Skills Lab" nav link to `/apps/skills` with the current page query string and a
-   * hash `#/{org}/{site}/skills-lab` from `location.hash` (default repo if hash is missing).
+   * Injects a "Skills Lab" nav link to `/apps/skills` with the current page query string and, when
+   * the hash includes `/{org}/{site}`, the same pair in `#/{org}/{site}/skills-lab`.
    */
   async syncSkillsLabLink(list) {
     if (!list) return;

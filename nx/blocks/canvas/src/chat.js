@@ -1096,7 +1096,8 @@ class Chat extends LitElement {
       : (this._skills[this._selectedSkill] ?? '');
 
     const { org, site } = getContextFromHash();
-    const skillsLabUrl = `https://da.live/apps/skills?nx=exp-workspace#/${org}/${site}`;
+    const skillsAppBase = `${window.location.origin}/apps/skills${window.location.search || ''}`;
+    const skillsLabUrl = org && site ? `${skillsAppBase}#/${org}/${site}/skills-lab` : skillsAppBase;
 
     return html`
       <div class="skills-panel">

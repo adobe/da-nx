@@ -101,6 +101,7 @@ class BrowseView extends LitElement {
     this._boundBrowseHashChange = () => this._syncBrowsePathFromHash();
     this._boundRepoFilesChanged = (e) => this._onRepoFilesChanged(e);
     this._onChatMessageSent = this._onChatMessageSent.bind(this);
+    this._onSkillsLabGateSubmit = this._onSkillsLabGateSubmit.bind(this);
     this._skillsLabVpMql = null;
     this._onSkillsLabVp = () => {
       this._skillsLabNarrowVp = this._skillsLabVpMql?.matches ?? false;
@@ -223,6 +224,56 @@ class BrowseView extends LitElement {
     modal.show(files, mode);
   }
 
+  _onSkillsLabGateSubmit(e) {
+    e.preventDefault();
+    const form = e.currentTarget;
+    if (!(form instanceof HTMLFormElement)) return;
+    const fd = new FormData(form);
+    let org = String(fd.get('org') || '').trim();
+    let site = String(fd.get('site') || '').trim();
+    org = org.replace(/\//g, '');
+    site = site.replace(/\//g, '');
+    if (!org || !site) return;
+    window.location.hash = `#/${org}/${site}/skills-lab`;
+  }
+
+  _renderSkillsLabOrgSiteGate() {
+    return html`
+      <div class="browse-skills-lab-gate">
+        <h1 class="browse-skills-lab-gate-title">Skills Lab</h1>
+        <p class="browse-skills-lab-gate-desc">
+          Enter your organization and site (same as in browse or canvas). You will manage skills, agents, prompts, and MCP servers for that repository.
+        </p>
+        <form class="browse-skills-lab-gate-form" @submit=${this._onSkillsLabGateSubmit}>
+          <label class="browse-skills-lab-gate-field">
+            <span class="browse-skills-lab-gate-label">Organization</span>
+            <input
+              class="browse-skills-lab-gate-input"
+              type="text"
+              name="org"
+              required
+              autocomplete="organization"
+              placeholder="e.g. adobecom"
+              autofocus
+            />
+          </label>
+          <label class="browse-skills-lab-gate-field">
+            <span class="browse-skills-lab-gate-label">Site</span>
+            <input
+              class="browse-skills-lab-gate-input"
+              type="text"
+              name="site"
+              required
+              autocomplete="off"
+              placeholder="e.g. bacom"
+            />
+          </label>
+          <button type="submit" class="browse-skills-lab-gate-submit">Continue</button>
+        </form>
+      </div>
+    `;
+  }
+
   _onChatPanelResize = (e) => {
     const splitView = e.currentTarget;
     const pos = splitView?.splitterPos;
@@ -284,6 +335,10 @@ class BrowseView extends LitElement {
     if (this.appsSkills) {
       const org = this._browsePathSegments?.[0] || '';
       const site = this._browsePathSegments?.[1] || '';
+      const hasRepo = Boolean(org && site);
+      const skillsMain = hasRepo
+        ? html`<da-skills-lab-view .org=${org} .site=${site}></da-skills-lab-view>`
+        : this._renderSkillsLabOrgSiteGate();
       return html`
       <div class="browse-view browse-view-skills-lab">
         ${this._renderToolbar()}
@@ -307,13 +362,13 @@ class BrowseView extends LitElement {
                     @da-chat-message-sent="${this._onChatMessageSent}"
                   ></da-chat>
                   <div class="browse-view-main browse-view-main-skills-lab">
-                    <da-skills-lab-view .org=${org} .site=${site}></da-skills-lab-view>
+                    ${skillsMain}
                   </div>
                 </sp-split-view>
               `
         : html`
                 <div class="browse-view-main browse-view-main-skills-lab">
-                  <da-skills-lab-view .org=${org} .site=${site}></da-skills-lab-view>
+                  ${skillsMain}
                 </div>
               `}
         </div>

@@ -141,6 +141,75 @@
   min-width: 0;
 }
 
+.browse-skills-lab-gate {
+  box-sizing: border-box;
+  max-width: 32rem;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 2.5rem;
+  font: var(--spectrum-font-size-100, 1rem) / 1.5 var(--spectrum-font-family-base, adobe-clean, 'Source Sans Pro', sans-serif);
+}
+
+.browse-view-skills-lab .browse-view-main-skills-lab > .browse-skills-lab-gate {
+  flex: 1 1 0;
+  min-height: 0;
+  min-width: 0;
+  overflow-y: auto;
+}
+
+.browse-skills-lab-gate-title {
+  margin: 0 0 0.5rem;
+  font-size: var(--spectrum-heading-size-m, 1.375rem);
+  font-weight: 700;
+}
+
+.browse-skills-lab-gate-desc {
+  margin: 0 0 1.5rem;
+  color: var(--spectrum-gray-800, #464646);
+}
+
+.browse-skills-lab-gate-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.browse-skills-lab-gate-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.browse-skills-lab-gate-label {
+  font-weight: 600;
+  font-size: 0.875rem;
+}
+
+.browse-skills-lab-gate-input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--spectrum-gray-400, #b1b1b1);
+  border-radius: var(--spectrum-corner-radius-100, 4px);
+  font: inherit;
+}
+
+.browse-skills-lab-gate-submit {
+  align-self: flex-start;
+  margin-top: 0.25rem;
+  padding: 0.5rem 1.1rem;
+  border-radius: var(--spectrum-corner-radius-100, 4px);
+  border: 1px solid transparent;
+  background: var(--spectrum-accent-color-1000, #1473e6);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.browse-skills-lab-gate-submit:hover {
+  filter: brightness(1.05);
+}
+
 /* Skills Lab: below 1024px chat stacks above the lab; split-view uses `vertical` on `sp-split-view`. */
 @media (width <= 1023px) {
   .browse-view-skills-lab .browse-view-body {
