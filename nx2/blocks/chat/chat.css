@@ -110,6 +110,22 @@
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+
+    &::before {
+      content: "";
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+      display: block;
+      background-color: var(--s2-gray-500);
+      mask: url("/nx2/img/icons/S2_Icon_Paste_20_N.svg") center / contain
+        no-repeat;
+    }
+
+    &:focus::before {
+      mask: url("/nx2/img/icons/S2_Icon_Checkmark_20_N.svg") center / contain
+        no-repeat;
+    }
   }
 
   &:hover .message-action-copy {
@@ -161,24 +177,6 @@
   &.chat-thinking .chat-stop {
     display: flex;
   }
-}
-
-.message .message-action-copy::before {
-  content: '';
-  width: 16px;
-  height: 16px;
-  flex-shrink: 0;
-  display: block;
-  background-color: var(--s2-gray-500);
-  mask: url("../../img/icons/S2_Icon_Paste_20_N.svg") center / contain no-repeat;
-}
-
-.message .message-action-copy:focus::before {
-  mask: url("../../img/icons/S2_Icon_Checkmark_20_N.svg") center / contain no-repeat;
-}
-
-.message .message-action-copy svg {
-  display: none;
 }
 
 .chat-input {

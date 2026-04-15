@@ -8,7 +8,7 @@ const ADD_MENU_ITEMS = [
   { id: 'skills', label: 'Manage Skills' },
 ];
 
-const CHAT_ICONS = { add: 'Add', clear: 'RemoveCircle', copy: 'Copy', send: 'ArrowUpSend', stop: 'Stop' };
+const CHAT_ICONS = { add: 'Add', clear: 'RemoveCircle', send: 'ArrowUpSend', stop: 'Stop' };
 
 /**
  * Agent stream event types.

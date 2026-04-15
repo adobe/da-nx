@@ -104,7 +104,6 @@ function renderMessage(msg, icons, toolCards) {
 
   const copy = isAssistant && !msg.streaming
     ? html`<button class="message-action-copy" @click=${() => navigator.clipboard.writeText(msg.content)} aria-label="Copy">
-        ${icons?.copy?.cloneNode(true)}
       </button>`
     : nothing;
 
