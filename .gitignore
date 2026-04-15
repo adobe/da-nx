@@ -7,3 +7,6 @@ helix-importer-ui
 .DS_Store
 *.bak
 .idea
+
+# Session-generated POC writeups; keep out of upstream PRs
+docs/poc-generated-tools-architecture.md
