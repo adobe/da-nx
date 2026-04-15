@@ -25,6 +25,10 @@ import {
   SL_CONTENT_BROWSER_LIST_PERMISSIONS,
 } from './content-browser/lib/content-browser-actions.js';
 import './da-skills-lab-view.js';
+import {
+  DA_SKILLS_LAB_PROMPT_ADD_TO_CHAT,
+  DA_SKILLS_LAB_PROMPT_SEND,
+} from './skills-lab-api.js';
 
 const style = await getStyle(import.meta.url);
 const nxBase = getNx();
@@ -106,6 +110,16 @@ class BrowseView extends LitElement {
     this._onSkillsLabVp = () => {
       this._skillsLabNarrowVp = this._skillsLabVpMql?.matches ?? false;
     };
+    this._onSkillsLabPromptAddToChat = (e) => {
+      const prompt = e.detail?.prompt;
+      if (typeof prompt !== 'string' || !prompt.trim()) return;
+      this.shadowRoot?.querySelector('da-chat')?.insertPrompt?.(prompt);
+    };
+    this._onSkillsLabPromptSend = (e) => {
+      const prompt = e.detail?.prompt;
+      if (typeof prompt !== 'string' || !prompt.trim()) return;
+      this.shadowRoot?.querySelector('da-chat')?.sendPrompt?.(prompt);
+    };
   }
 
   connectedCallback() {
@@ -118,6 +132,8 @@ class BrowseView extends LitElement {
     window.addEventListener('hashchange', this._boundBrowseHashChange);
     window.addEventListener(DA_BULK_AEM_OPEN, this._boundWindowBulkAemOpen);
     window.addEventListener(REPO_FILES_CHANGED_EVENT, this._boundRepoFilesChanged);
+    window.addEventListener(DA_SKILLS_LAB_PROMPT_ADD_TO_CHAT, this._onSkillsLabPromptAddToChat);
+    window.addEventListener(DA_SKILLS_LAB_PROMPT_SEND, this._onSkillsLabPromptSend);
     this.addEventListener(SL_CONTENT_BROWSER_CHAT_CONTEXT, this._boundBrowseSelectionChatContext);
     this.addEventListener(SL_CONTENT_BROWSER_LIST_PERMISSIONS, this._boundBrowseListPermissions);
     this.addEventListener('chat-context-remove', this._boundChatContextRemove);
@@ -128,6 +144,8 @@ class BrowseView extends LitElement {
     window.removeEventListener('hashchange', this._boundBrowseHashChange);
     window.removeEventListener(DA_BULK_AEM_OPEN, this._boundWindowBulkAemOpen);
     window.removeEventListener(REPO_FILES_CHANGED_EVENT, this._boundRepoFilesChanged);
+    window.removeEventListener(DA_SKILLS_LAB_PROMPT_ADD_TO_CHAT, this._onSkillsLabPromptAddToChat);
+    window.removeEventListener(DA_SKILLS_LAB_PROMPT_SEND, this._onSkillsLabPromptSend);
     this.removeEventListener(
       SL_CONTENT_BROWSER_CHAT_CONTEXT,
       this._boundBrowseSelectionChatContext,

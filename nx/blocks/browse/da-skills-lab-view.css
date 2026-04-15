@@ -195,52 +195,13 @@
 }
 
 .skills-lab-textarea-tall {
-  min-height: min(52vh, 520px);
+  min-height: min(62vh, 680px);
   flex: 1;
 }
 
 .skills-lab-tools-hint {
   margin: 0 0 10px;
   padding: 8px 12px;
-}
-
-.skills-lab-skill-render-details {
-  margin: 10px 0 12px;
-  border: 1px solid var(--spectrum-global-color-gray-300, #d0d0d0);
-  border-radius: 8px;
-  background: var(--spectrum-global-color-gray-75, #fdfdfd);
-}
-
-.skills-lab-skill-render-summary {
-  cursor: pointer;
-  list-style: none;
-  padding: 10px 12px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #444;
-  user-select: none;
-}
-
-.skills-lab-skill-render-summary::-webkit-details-marker {
-  display: none;
-}
-
-.skills-lab-skill-render-body {
-  padding: 0 12px 12px;
-  border-top: 1px solid var(--spectrum-global-color-gray-200, #e8e8e8);
-}
-
-.skills-lab-chat-rendered {
-  max-width: 100%;
-  margin-top: 8px;
-  padding: 8px 10px;
-  border-radius: 10px;
-  font-size: 14px;
-  line-height: 1.5;
-  white-space: pre-wrap;
-  overflow-wrap: break-word;
-  background: #f3f4f6;
-  color: #222;
 }
 
 .skills-lab-col-scroll {
@@ -351,6 +312,130 @@
   border-color: #b0b0b0;
 }
 
+/* Prompts catalog (aligned with chat Tools modal `.prompts-lib-*`) */
+.skills-lab-prompts-catalog-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+  margin: 6px 10px 12px;
+}
+
+.skills-lab-prompts-lib-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1.5px solid #e2e5ea;
+  border-radius: 12px;
+  background: #fff;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.skills-lab-prompts-lib-card:hover {
+  border-color: #1473e6;
+  box-shadow: 0 2px 8px rgb(20 115 230 / 12%);
+}
+
+.skills-lab-prompts-lib-card.sl-highlight {
+  border-color: #1473e6;
+  box-shadow: 0 0 0 1px #1473e6, 0 2px 8px rgb(20 115 230 / 12%);
+}
+
+.skills-lab-prompt-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.skills-lab-prompt-card-head-main {
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.skills-lab-prompts-lib-card-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.skills-lab-prompts-lib-card-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.skills-lab-prompts-lib-card-category {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: #888;
+}
+
+.skills-lab-prompts-lib-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1a1a1a;
+  line-height: 1.3;
+  margin-top: 2px;
+}
+
+.skills-lab-prompts-lib-card-prompt {
+  font-size: 11.5px;
+  color: #555;
+  line-height: 1.5;
+  margin-top: 4px;
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.skills-lab-prompts-lib-card-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+
+.skills-lab-prompts-add-btn,
+.skills-lab-prompts-send-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  border: 1.5px solid;
+}
+
+.skills-lab-prompts-add-btn {
+  background: #fff;
+  color: #444;
+  border-color: #d0d5dd;
+}
+
+.skills-lab-prompts-add-btn:hover {
+  background: #f0f0f0;
+  border-color: #aaa;
+}
+
+.skills-lab-prompts-send-btn {
+  background: #1473e6;
+  color: #fff;
+  border-color: #1473e6;
+}
+
+.skills-lab-prompts-send-btn:hover {
+  background: #0d66d0;
+  border-color: #0d66d0;
+}
+
 .skills-lab-card-title {
   font-weight: 600;
   font-size: 13px;
@@ -403,6 +488,7 @@
 
 .skills-lab-form-hint {
   margin: 0;
+  padding: 8px 12px;
   font-size: 12px;
   line-height: 1.45;
   color: #555;
@@ -424,6 +510,66 @@
   resize: vertical;
   font-family: ui-monospace, monospace;
   font-size: 12px;
+}
+
+/* Chat handoff: same conic gradient border as chat footer “thinking” (see chat.css). */
+@property --skills-lab-gradient-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes skills-lab-gradient-rotate {
+  0% { --skills-lab-gradient-angle: 0deg; }
+  100% { --skills-lab-gradient-angle: 360deg; }
+}
+
+.skills-lab-skill-editor-wrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1 1 auto;
+  margin-bottom: 4px;
+  border-radius: 10px;
+}
+
+.skills-lab-skill-editor-wrap-handoff {
+  padding: 2px;
+}
+
+.skills-lab-skill-editor-wrap-handoff::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  background: conic-gradient(
+    from var(--skills-lab-gradient-angle),
+    #f97316,
+    #ec4899,
+    #8b5cf6,
+    #3b82f6,
+    #10b981,
+    #f97316
+  );
+  animation: skills-lab-gradient-rotate 3s linear infinite;
+  z-index: 0;
+}
+
+.skills-lab-skill-editor-wrap-handoff::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  border-radius: 10px;
+  background: #fff;
+  z-index: 0;
+}
+
+.skills-lab-skill-editor-wrap-handoff .skills-lab-textarea {
+  position: relative;
+  z-index: 1;
+  border-color: transparent;
+  background: #fff;
 }
 
 .skills-lab-back {

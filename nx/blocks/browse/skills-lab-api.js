@@ -42,6 +42,79 @@ export function consumeSkillsLabSkillChatProse() {
   }
 }
 
+/** One-shot handoff when chat “Create Skill” opens full Skills Lab (id, body, assistant prose). */
+const SKILLS_LAB_SUGGEST_HANDOFF_KEY = 'da-skills-lab-suggest-handoff';
+
+/**
+ * Fired when chat stores a handoff but the URL hash is already `#/…/skills-lab` (no hashchange).
+ */
+export const DA_SKILLS_LAB_SUGGESTION_HANDOFF_EVENT = 'da-skills-lab-suggestion-handoff';
+
+/** Form column Dismiss: clear editor only; chat re-enables “Create Skill”. */
+export const DA_SKILLS_LAB_FORM_COLUMN_DISMISS_EVENT = 'da-skills-lab-form-column-dismiss';
+
+/** Chat pattern Dismiss: hide suggestion + clear Skills Lab form. */
+export const DA_SKILLS_LAB_CLEAR_FORM_FROM_CHAT_EVENT = 'da-skills-lab-clear-form-from-chat';
+
+/** Browse `da-chat`: insert prompt text into the input. Detail: `{ prompt: string }`. */
+export const DA_SKILLS_LAB_PROMPT_ADD_TO_CHAT = 'da-skills-lab-prompt-add-to-chat';
+
+/** Browse `da-chat`: send prompt immediately. Detail: `{ prompt: string }`. */
+export const DA_SKILLS_LAB_PROMPT_SEND = 'da-skills-lab-prompt-send';
+
+/**
+ * @param {{ prose?: string, id?: string, body?: string } | null | undefined} payload
+ */
+export function setSkillsLabSuggestionHandoff(payload) {
+  try {
+    if (!payload || typeof payload !== 'object') {
+      sessionStorage.removeItem(SKILLS_LAB_SUGGEST_HANDOFF_KEY);
+      return;
+    }
+    const prose = typeof payload.prose === 'string' ? payload.prose : '';
+    const id = typeof payload.id === 'string' ? payload.id.trim() : '';
+    const body = typeof payload.body === 'string' ? payload.body : '';
+    if (!prose.trim() && !id && !body.trim()) {
+      sessionStorage.removeItem(SKILLS_LAB_SUGGEST_HANDOFF_KEY);
+      return;
+    }
+    sessionStorage.setItem(
+      SKILLS_LAB_SUGGEST_HANDOFF_KEY,
+      JSON.stringify({ prose, id, body }),
+    );
+  } catch {
+    /* ignore */
+  }
+}
+
+/** @returns {{ prose: string, id: string, body: string } | null} */
+export function consumeSkillsLabSuggestionHandoff() {
+  try {
+    const raw = sessionStorage.getItem(SKILLS_LAB_SUGGEST_HANDOFF_KEY);
+    sessionStorage.removeItem(SKILLS_LAB_SUGGEST_HANDOFF_KEY);
+    if (!raw) return null;
+    const o = JSON.parse(raw);
+    if (!o || typeof o !== 'object') return null;
+    return {
+      prose: String(o.prose || ''),
+      id: String(o.id || '').trim(),
+      body: String(o.body || ''),
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Clears Skills Lab suggestion handoff and legacy chat-prose session keys. */
+export function clearSkillsLabSuggestionSession() {
+  try {
+    sessionStorage.removeItem(SKILLS_LAB_SUGGEST_HANDOFF_KEY);
+    sessionStorage.removeItem(SKILL_LAB_CHAT_PROSE_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
 /**
  * POST merged config back (preserves existing sheets; adds/updates mcp-servers).
  * @param {string} org
@@ -304,6 +377,53 @@ export async function deleteSkillFromConfig(org, site, skillId) {
 
   const save = await saveDaConfig(org, site, cfg);
   if (!save.ok) return { error: `Delete failed (${save.status})` };
+  return { status: save.status };
+}
+
+const PROMPTS_SHEET_KEY = 'prompts';
+
+/**
+ * Create or update one row in the `prompts` sheet.
+ * @param {string} org
+ * @param {string} site
+ * @param {{ title: string, prompt: string, category?: string, icon?: string }} row
+ * @param {{ status?: 'draft'|'approved', originalTitle?: string }} [options]
+ */
+export async function upsertPromptRowInConfig(org, site, row, options = {}) {
+  const title = String(row.title || '').trim();
+  const promptText = String(row.prompt || '').trim();
+  if (!title || !promptText) return { error: 'Title and prompt are required' };
+
+  const loaded = await fetchDaConfigSheets(org, site);
+  if (!loaded.ok) {
+    return { error: loaded.status ? `Could not load config (${loaded.status})` : 'Could not load config' };
+  }
+  const cfg = { ...(loaded.json || {}) };
+  if (!cfg[PROMPTS_SHEET_KEY]) {
+    cfg[PROMPTS_SHEET_KEY] = { total: 0, limit: 1000, offset: 0, data: [] };
+  }
+  const sheet = cfg[PROMPTS_SHEET_KEY];
+  const data = [...(sheet.data || [])];
+  const matchTitle = String(options.originalTitle ?? title).trim();
+  const idx = data.findIndex((r) => String(r.title ?? '').trim() === matchTitle);
+  const prev = idx >= 0 ? data[idx] : {};
+  const nextStatus = options.status === 'draft' || options.status === 'approved'
+    ? options.status
+    : skillRowStatus(prev);
+  const nextRow = {
+    ...prev,
+    title,
+    prompt: promptText,
+    category: row.category !== undefined ? row.category : (prev.category ?? ''),
+    icon: row.icon !== undefined ? row.icon : (prev.icon ?? ''),
+    status: nextStatus,
+  };
+  if (idx >= 0) data[idx] = nextRow;
+  else data.push(nextRow);
+  cfg[PROMPTS_SHEET_KEY] = { ...sheet, data, total: data.length };
+
+  const save = await saveDaConfig(org, site, cfg);
+  if (!save.ok) return { error: `Save failed (${save.status})` };
   return { status: save.status };
 }
 
