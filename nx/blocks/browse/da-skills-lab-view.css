@@ -61,33 +61,186 @@
   border-right: none;
 }
 
-/* Editor column: widest (≥ ~2× previous fixed width at typical desktop widths). */
-.skills-lab-col-editor.skills-lab-col-narrow,
-.skills-lab-col-narrow {
-  flex: 2.4 1 54%;
-  min-width: min(680px, 100%);
-  max-width: none;
-}
-
-.skills-lab-col-mid {
-  flex: 1 1 0%;
-  min-width: 200px;
-  max-width: 30%;
+/* Column 1: skill id + markdown editor + actions (single surface for edit/read). */
+.skills-lab-col-form {
+  flex: 1 1 24%;
+  min-width: 240px;
+  max-width: min(520px, 42%);
   min-height: 0;
-
-  /* Column is the scroll container (see `.skills-lab-col-scroll` — `<details>` breaks nested flex). */
   overflow: hidden auto;
-  overscroll-behavior: contain;
-  -webkit-overflow-scrolling: touch;
 }
 
-.skills-lab-col-wide {
-  flex: 1 1 0%;
+/* Column 2: tools (tabs: generated vs available registry). */
+.skills-lab-col-tools {
+  flex: 1 1 22%;
   min-width: 220px;
   min-height: 0;
-  overflow: hidden auto;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.skills-lab-tools-tabs {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--spectrum-global-color-gray-200, #e0e0e0);
+  background: #f7f7f7;
+}
+
+.skills-lab-tools-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;
+  padding: 0 0 12px;
+}
+
+/* Column 3: tabbed catalog (wider). */
+.skills-lab-col-catalog {
+  flex: 1.45 1 38%;
+  min-width: 280px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.skills-lab-catalog-tabs {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--spectrum-global-color-gray-200, #e0e0e0);
+  background: #f7f7f7;
+}
+
+.skills-lab-cat-tab {
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  background: transparent;
+  color: #444;
+}
+
+.skills-lab-cat-tab:hover {
+  background: rgb(0 0 0 / 5%);
+}
+
+.skills-lab-cat-tab.is-active {
+  background: #fff;
+  border-color: #c8c8c8;
+  color: #1473e6;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 6%);
+}
+
+.skills-lab-catalog-toolbar {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #ececec;
+  font-size: 12px;
+}
+
+.skills-lab-filter-label {
+  font-weight: 600;
+  color: #555;
+  margin-right: 4px;
+}
+
+.skills-lab-filter-chip {
+  border: 1px solid #ccc;
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  background: #fff;
+  color: #333;
+}
+
+.skills-lab-filter-chip:hover {
+  border-color: #1473e6;
+  color: #1473e6;
+}
+
+.skills-lab-filter-chip.is-active {
+  background: #1473e6;
+  border-color: #1473e6;
+  color: #fff;
+}
+
+.skills-lab-catalog-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 12px;
+}
+
+.skills-lab-save-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.skills-lab-textarea-tall {
+  min-height: min(52vh, 520px);
+  flex: 1;
+}
+
+.skills-lab-tools-hint {
+  margin: 0 0 10px;
+  padding: 8px 12px;
+}
+
+.skills-lab-skill-render-details {
+  margin: 10px 0 12px;
+  border: 1px solid var(--spectrum-global-color-gray-300, #d0d0d0);
+  border-radius: 8px;
+  background: var(--spectrum-global-color-gray-75, #fdfdfd);
+}
+
+.skills-lab-skill-render-summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 10px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #444;
+  user-select: none;
+}
+
+.skills-lab-skill-render-summary::-webkit-details-marker {
+  display: none;
+}
+
+.skills-lab-skill-render-body {
+  padding: 0 12px 12px;
+  border-top: 1px solid var(--spectrum-global-color-gray-200, #e8e8e8);
+}
+
+.skills-lab-chat-rendered {
+  max-width: 100%;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  background: #f3f4f6;
+  color: #222;
 }
 
 .skills-lab-col-scroll {
@@ -97,13 +250,6 @@
   padding: 0 0 12px;
 }
 
-/* Mid / wide: single scrollbar on the column; inner pane must not create a competing overflow box. */
-.skills-lab-col-mid .skills-lab-col-scroll,
-.skills-lab-col-wide .skills-lab-col-scroll {
-  flex: 0 1 auto;
-  overflow: visible;
-  min-height: 0;
-}
 
 .skills-lab-section-h {
   position: sticky;
@@ -434,21 +580,8 @@
     order: 2;
   }
 
-  .skills-lab-order-discover {
-    order: 3;
-  }
-
-  .skills-lab-order-agent {
-    order: 4;
-  }
-
   .skills-lab-order-msgs {
     order: 5;
-  }
-
-  /* Summary already labels this block */
-  .skills-lab-wide-wrap .skills-lab-section-h-tools-generated {
-    display: none;
   }
 }
 
@@ -462,23 +595,8 @@
     display: none !important;
   }
 
-  .skills-lab-mid-wrap,
-  .skills-lab-wide-wrap {
-    display: flex;
-    flex-direction: column;
-    min-height: min-content;
-    overflow: visible;
-    border: none;
-  }
-
-  .skills-lab-wide-wrap .skills-lab-col-scroll nx-generated-tools {
+  .skills-lab-col-tools .skills-lab-tools-scroll nx-generated-tools {
     display: block;
     min-height: 0;
-  }
-
-  /* Create agent stub: not a column filler; keep normal block flow */
-  .skills-lab-order-agent.skills-lab-mobile-wrap {
-    display: block;
-    overflow: visible;
   }
 }

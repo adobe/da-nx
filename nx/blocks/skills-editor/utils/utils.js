@@ -27,12 +27,18 @@ export async function loadSkills(org, site) {
   return loadSkillsFromConfig(org, site || '');
 }
 
-export async function saveSkill(prefix, id, content) {
+/**
+ * @param {string} prefix
+ * @param {string} id
+ * @param {string} content
+ * @param {{ status?: 'draft'|'approved' }} [opts]
+ */
+export async function saveSkill(prefix, id, content, opts = {}) {
   const { org, site } = parseOrgSite(prefix);
   if (!org || !site) {
     return { error: 'Skills require org and site (save from a site-scoped context).' };
   }
-  const result = await upsertSkillInConfig(org, site, id, content);
+  const result = await upsertSkillInConfig(org, site, id, content, opts);
   if (result.error) return { error: result.error };
   return { status: result.status ?? 200 };
 }

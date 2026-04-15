@@ -14,7 +14,7 @@ import { renderMessageContent } from './chat-renderers.js';
 import { initIms, daFetch } from '../../../utils/daFetch.js';
 import { DA_ORIGIN } from '../../../public/utils/constants.js';
 import { loadSkills, saveSkill, deleteSkill } from '../../skills-editor/utils/utils.js';
-import { materializeDaConfigAfter404 } from '../../browse/skills-lab-api.js';
+import { materializeDaConfigAfter404, setSkillsLabSkillChatProse } from '../../browse/skills-lab-api.js';
 import { loadGeneratedTools } from './generated-tools/utils.js';
 import './generated-tools/generated-tools.js';
 import { DA_BULK_AEM_OPEN, DA_BULK_AEM_SETTLED } from './bulk-aem-modal.js';
@@ -1017,7 +1017,7 @@ class Chat extends LitElement {
     if (this._newSkillMode) {
       const id = this._newSkillName.trim();
       if (!id) return;
-      const result = await saveSkill(prefix, id, content);
+      const result = await saveSkill(prefix, id, content, { status: 'draft' });
       if (result.error) return;
       this._skills = { ...this._skills, [id]: content };
       this._selectedSkill = id;
@@ -1033,7 +1033,7 @@ class Chat extends LitElement {
       }
       this._dispatchRepoFilesChangedForSite();
     } else if (this._selectedSkill) {
-      const result = await saveSkill(prefix, this._selectedSkill, content);
+      const result = await saveSkill(prefix, this._selectedSkill, content, { status: 'draft' });
       if (result.error) return;
       this._skills = { ...this._skills, [this._selectedSkill]: content };
       this._skillEditorDirty = false;
@@ -1131,9 +1131,12 @@ class Chat extends LitElement {
           </div>
         ` : nothing}
         <textarea class="skill-editor-textarea" .value=${editorContent} aria-label="Skill content editor" @input=${this._onSkillEditorInput}></textarea>
+        <p class="skills-canvas-disclaimer" role="note">
+          Skills admin must approve this skill before it is available to run in chat.
+        </p>
         <div class="skills-actions">
           ${this._newSkillMode ? html`
-            <sp-button variant="secondary" size="s" title="Cancel new skill" aria-label="Cancel new skill"
+            <sp-button variant="secondary" size="m" title="Cancel new skill" aria-label="Cancel new skill"
               @click=${() => {
           this._newSkillMode = false;
           this._skillEditorDirty = false;
@@ -1142,15 +1145,16 @@ class Chat extends LitElement {
           if (ids.length > 0) [this._selectedSkill] = ids;
         }}>Cancel</sp-button>
           ` : html`
-            <button type="button" class="skill-tb-btn skill-tb-delete" title="Delete this skill" aria-label="Delete this skill" @click=${this._deleteCurrentSkill}>
-              <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M8.25 15.02a.75.75 0 0 1-.75-.72l-.25-6.5a.75.75 0 0 1 1.5-.06l.25 6.5a.75.75 0 0 1-.72.78Zm3.5 0a.75.75 0 0 1-.72-.78l.25-6.5a.75.75 0 0 1 1.5.06l-.25 6.5a.75.75 0 0 1-.78.72ZM17 4h-3.5v-.75A2.25 2.25 0 0 0 11.25 1h-2.5A2.25 2.25 0 0 0 6.5 3.25V4H3a.75.75 0 0 0 0 1.5h.52l.42 10.34A2.25 2.25 0 0 0 6.19 18h7.62a2.25 2.25 0 0 0 2.25-2.16L16.48 5.5H17a.75.75 0 0 0 0-1.5ZM8 3.25A.75.75 0 0 1 8.75 2.5h2.5a.75.75 0 0 1 .75.75V4H8V3.25Zm6.56 12.53a.75.75 0 0 1-.75.72H6.19a.75.75 0 0 1-.75-.72L5.02 5.5h9.96l-.42 10.28Z" fill="currentColor"/></svg>
-            </button>
+            <sp-button variant="secondary" size="m" title="Delete this skill" aria-label="Delete this skill"
+              @click=${this._deleteCurrentSkill}>
+              Delete
+            </sp-button>
           `}
-          <button type="button" class="skill-tb-btn skill-tb-save" title="Save skill" aria-label="Save skill"
+          <sp-button variant="accent" size="m" title="Save skill as draft" aria-label="Save skill as draft"
             ?disabled=${this._newSkillMode ? !this._newSkillName.trim() : !this._skillEditorDirty}
             @click=${this._saveCurrentSkill}>
-            Save
-          </button>
+            Save skill as draft
+          </sp-button>
         </div>
         <a class="skills-lab-link" href="${skillsLabUrl}" target="_blank" rel="noopener noreferrer" title="Open the full Skills Lab editor">
           Go to Skills Lab
@@ -1582,15 +1586,24 @@ class Chat extends LitElement {
   _closeSkillsModal() {
     const trigger = this.shadowRoot.querySelector('overlay-trigger');
     if (trigger) trigger.open = undefined;
+    setSkillsLabSkillChatProse('');
   }
 
-  _openSkillModalWithSuggestion(id, content, suggestionKey = null) {
+  _openSkillModalWithSuggestion(
+    id,
+    content,
+    suggestionKey = null,
+    chatProvenanceForSkillsLab = null,
+  ) {
     this._pendingSkillSuggestionKey = typeof suggestionKey === 'string' ? suggestionKey : null;
     this._newSkillMode = true;
     this._newSkillName = id;
     this._pendingSuggestionContent = content;
     this._skillEditorDirty = true;
     this._skillsLibraryTab = 'skills';
+    setSkillsLabSkillChatProse(
+      typeof chatProvenanceForSkillsLab === 'string' ? chatProvenanceForSkillsLab : '',
+    );
     this.updateComplete.then(() => {
       this.shadowRoot?.querySelector('.chat-toolbar-icon-btn[aria-label="Open Tools Quick Editing"]')?.click();
     });
@@ -1666,7 +1679,14 @@ class Chat extends LitElement {
   _renderSkillsButton() {
     return html`
       <overlay-trigger type="modal" triggered-by="click" @sp-opened=${this._onSkillsModalOpen}>
-        <sp-dialog-wrapper slot="click-content" headline="Tools Quick Editing" dismissable underlay style="--mod-dialog-confirm-max-block-size: 90vh; max-block-size: 90vh;">
+        <sp-dialog-wrapper
+          class="chat-skills-quick-dialog"
+          slot="click-content"
+          headline="Tools Quick Editing"
+          dismissable
+          underlay
+          style="--mod-dialog-confirm-max-block-size: 90vh;"
+        >
           <div class="chat-skills-modal-body">
             <sp-sidenav
               class="chat-skills-sidenav"
@@ -1674,9 +1694,9 @@ class Chat extends LitElement {
               @change="${this._onSkillsNavChange}"
             >
               <sp-sidenav-item value="skills" label="Skills" ?selected="${this._skillsLibraryTab === 'skills'}"></sp-sidenav-item>
-              <sp-sidenav-item value="prompts" label="Prompts" ?selected="${this._skillsLibraryTab === 'prompts'}"></sp-sidenav-item>
-              <sp-sidenav-item value="mcp" label="MCP" ?selected="${this._skillsLibraryTab === 'mcp'}"></sp-sidenav-item>
               <sp-sidenav-item value="agents" label="Agents" ?selected="${this._skillsLibraryTab === 'agents'}"></sp-sidenav-item>
+              <sp-sidenav-item value="prompts" label="Prompts" ?selected="${this._skillsLibraryTab === 'prompts'}"></sp-sidenav-item>
+              <sp-sidenav-item value="mcp" label="MCPs" ?selected="${this._skillsLibraryTab === 'mcp'}"></sp-sidenav-item>
               <sp-sidenav-item value="generated-tools" label="Generated Tools" ?selected="${this._skillsLibraryTab === 'generated-tools'}"></sp-sidenav-item>
             </sp-sidenav>
             <div class="chat-skills-content">
@@ -1733,9 +1753,9 @@ class Chat extends LitElement {
   _renderActiveTab() {
     switch (this._skillsLibraryTab) {
       case 'skills': return this._renderSkillsContent();
+      case 'agents': return this._renderAgentsContent();
       case 'prompts': return this._renderPromptsContent();
       case 'mcp': return this._renderMcpContent();
-      case 'agents': return this._renderAgentsContent();
       case 'generated-tools': return this._renderGeneratedToolsContent();
       default: return nothing;
     }
@@ -1857,6 +1877,7 @@ class Chat extends LitElement {
               suggestion.id,
               suggestion.content,
               skillSuggKey,
+              displayContent,
             )}>
                         <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 3.75a.75.75 0 0 1 .75.75v4.75h4.75a.75.75 0 0 1 0 1.5h-4.75v4.75a.75.75 0 0 1-1.5 0v-4.75H4.5a.75.75 0 0 1 0-1.5h4.75V4.5a.75.75 0 0 1 .75-.75Z" fill="currentColor"/></svg>
                         ${skillSuggDone ? 'Skill created' : 'Create Skill'}

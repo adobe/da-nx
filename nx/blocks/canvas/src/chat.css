@@ -700,7 +700,27 @@
   cursor: not-allowed;
 }
 
-/* Skills library modal */
+/*
+ * Tools Quick Editing: animate dialog height + opacity when overlay-trigger has reflected `open`
+ * (e.g. open="click"); closed state has no `open` attribute.
+ */
+overlay-trigger:not([open]) sp-dialog-wrapper.chat-skills-quick-dialog {
+  overflow: hidden;
+  max-block-size: 0;
+  opacity: 0;
+  transition:
+    max-block-size 0.42s cubic-bezier(0.32, 0.72, 0, 1),
+    opacity 0.28s ease;
+}
+
+overlay-trigger[open] sp-dialog-wrapper.chat-skills-quick-dialog {
+  overflow: hidden;
+  max-block-size: min(90vh, 920px);
+  opacity: 1;
+  transition:
+    max-block-size 0.42s cubic-bezier(0.32, 0.72, 0, 1),
+    opacity 0.28s ease;
+}
 
 .chat-skills-modal-body {
   display: flex;
@@ -834,8 +854,16 @@
 .skills-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 2px;
+  flex-wrap: wrap;
+  gap: 8px;
   align-items: center;
+}
+
+.skills-canvas-disclaimer {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--spectrum-global-color-gray-700, #5c5c5c);
 }
 
 /* Toolbar-style icon buttons (aligned with da-prose-toolbar .da-tb-btn) */
@@ -869,27 +897,6 @@
   display: block;
 }
 
-.skill-tb-save {
-  width: auto;
-  min-width: 52px;
-  height: auto;
-  min-height: 30px;
-  padding: 4px 10px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #555;
-}
-
-.skill-tb-save:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-
-.skill-tb-save:hover {
-  background-color: #e4f0ff;
-  color: #1473e6;
-}
-
 .skill-tb-add {
   color: #fff;
   background: #1473e6;
@@ -901,15 +908,6 @@
 
 .skill-tb-add:hover {
   background: #0d66d0;
-}
-
-.skill-tb-delete {
-  background-color: #c62828;
-  color: #fff;
-}
-
-.skill-tb-delete:hover {
-  background-color: #b71c1c;
 }
 
 .skills-lab-link {

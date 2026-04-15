@@ -268,6 +268,7 @@ export class SlBrowseNew extends LitElement {
           site,
           this._createName,
           '# New skill\n\nDescribe this skill here.\n',
+          { status: 'draft' },
         );
         if (result.error) {
           this._emitError(result.error);
