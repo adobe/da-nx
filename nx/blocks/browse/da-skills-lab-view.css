@@ -255,6 +255,13 @@
   color: #444;
 }
 
+.skills-lab-form-hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #555;
+}
+
 .skills-lab-input,
 .skills-lab-textarea {
   width: 100%;

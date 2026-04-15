@@ -108,6 +108,8 @@ class DaSkillsLabView extends LitElement {
     _registerKey: { state: true },
     _registerUrl: { state: true },
     _registerBusy: { state: true },
+    /** When set, Register form is updating this MCP row (button shows Update). */
+    _editingMcpKey: { state: true },
     _newSkillId: { state: true },
     _newSkillBody: { state: true },
     /** When set, the Skills Editor is updating this skill id (id field is read-only). */
@@ -137,6 +139,7 @@ class DaSkillsLabView extends LitElement {
     this._registerKey = '';
     this._registerUrl = '';
     this._registerBusy = false;
+    this._editingMcpKey = null;
     this._newSkillId = '';
     this._newSkillBody = '# New skill\n\n';
     this._editingSkillId = null;
@@ -155,6 +158,8 @@ class DaSkillsLabView extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
+    this._onHashForContext = () => this.requestUpdate();
+    window.addEventListener('hashchange', this._onHashForContext);
     this._collapsibleVpMql = window.matchMedia('(max-width: 1023px)');
     this._onCollapsibleVp = () => {
       const narrow = this._collapsibleVpMql.matches;
@@ -167,6 +172,7 @@ class DaSkillsLabView extends LitElement {
   }
 
   disconnectedCallback() {
+    window.removeEventListener('hashchange', this._onHashForContext);
     this._collapsibleVpMql?.removeEventListener('change', this._onCollapsibleVp);
     super.disconnectedCallback();
   }
@@ -363,9 +369,36 @@ class DaSkillsLabView extends LitElement {
     }
     this._registerKey = '';
     this._registerUrl = '';
+    this._editingMcpKey = null;
     this._formMsg = 'MCP server registered. Refreshing…';
     await this._reload();
     this._formMsg = 'Saved to DA config.';
+  }
+
+  _onEditMcp(row, e) {
+    e.stopPropagation();
+    this._editingMcpKey = row.key;
+    this._registerKey = row.key;
+    this._registerUrl = row.url || '';
+    this._formMsg = '';
+    this._selectCap('mcp', row.key);
+  }
+
+  _clearMcpRegisterForm() {
+    this._editingMcpKey = null;
+    this._registerKey = '';
+    this._registerUrl = '';
+    this._formMsg = '';
+  }
+
+  /** Default page path for generated-tools “load HTML” when hash points at a document. */
+  _contextPagePathForGeneratedTools() {
+    const h = window.location.hash || '';
+    const segs = h.replace(/^#\/?/, '').split('/').filter(Boolean);
+    if (segs.length < 3) return '';
+    const doc = segs.slice(2).join('/');
+    if (!doc || doc === 'skills-lab' || doc.startsWith('skills-lab/')) return '';
+    return `/${doc}`;
   }
 
   _onEditSkill(sid, e) {
@@ -396,10 +429,13 @@ class DaSkillsLabView extends LitElement {
       this._formMsg = 'Skill id required';
       return;
     }
+    const ta = this.shadowRoot?.querySelector('.skills-lab-textarea');
+    const body = ta?.value ?? this._newSkillBody;
+    this._newSkillBody = body;
     this._skillSaveBusy = true;
     this._formMsg = '';
     const prefix = `/${this.org}/${this.site}`;
-    const res = await saveSkill(prefix, id, this._newSkillBody);
+    const res = await saveSkill(prefix, id, body);
     this._skillSaveBusy = false;
     if (res.error) {
       this._formMsg = res.error;
@@ -445,7 +481,7 @@ class DaSkillsLabView extends LitElement {
         this._newAgentId = '';
         this._newAgentName = '';
         await this._reload();
-        this._formMsg = 'Agent preset saved.';
+        this._formMsg = 'Agent file saved to /.da/agents/.';
       }
     } catch (err) {
       this._formMsg = String(err?.message || err);
@@ -507,19 +543,36 @@ class DaSkillsLabView extends LitElement {
               <div class="skills-lab-order-discover">
                 <h3 class="skills-lab-section-h">Discover / register</h3>
                 <form class="skills-lab-form" @submit=${this._onRegisterMcp}>
-                  <label>Add MCP server (config sheet)</label>
-                  <input class="skills-lab-input" .value=${this._registerKey} @input=${(e) => { this._registerKey = e.target.value; }} placeholder="server-id" />
+                  <label>Add or update MCP server (<code>mcp-servers</code> config sheet)</label>
+                  ${this._editingMcpKey
+        ? html`<p class="skills-lab-form-hint">Editing <code>${this._editingMcpKey}</code> ·
+                    <button type="button" class="skills-lab-link-btn" @click=${this._clearMcpRegisterForm}>New MCP server</button></p>`
+        : nothing}
+                  <input
+                    class="skills-lab-input"
+                    .value=${this._registerKey}
+                    @input=${(e) => {
+        this._registerKey = e.target.value;
+        if (this._editingMcpKey && e.target.value.trim() !== this._editingMcpKey) {
+          this._editingMcpKey = null;
+        }
+      }}
+                    placeholder="server-id"
+                  />
                   <input class="skills-lab-input" .value=${this._registerUrl} @input=${(e) => { this._registerUrl = e.target.value; }} placeholder="https://…/sse" />
-                  <sp-button type="submit" variant="accent" ?disabled=${this._registerBusy}>Register MCP</sp-button>
+                  <sp-button type="submit" variant="accent" ?disabled=${this._registerBusy}>
+                    ${this._editingMcpKey ? 'Update MCP config' : 'Register MCP'}
+                  </sp-button>
                 </form>
               </div>
               <details data-sl-collapsible class="skills-lab-mobile-wrap skills-lab-order-agent">
-                <summary class="skills-lab-mobile-summary">Create agent stub</summary>
+                <summary class="skills-lab-mobile-summary">New agent file in repo</summary>
                 <div class="skills-lab-mobile-body">
+                  <p class="skills-lab-form-hint">Creates <code>/.da/agents/&lt;id&gt;.json</code> in the site (preset JSON for chat). Not the DA config <code>agents</code> sheet.</p>
                   <form class="skills-lab-form" @submit=${this._onSaveAgent}>
                     <input class="skills-lab-input" .value=${this._newAgentId} @input=${(e) => { this._newAgentId = e.target.value; }} placeholder="agent-id" />
                     <input class="skills-lab-input" .value=${this._newAgentName} @input=${(e) => { this._newAgentName = e.target.value; }} placeholder="Display name" />
-                    <sp-button type="submit" variant="secondary" ?disabled=${this._agentSaveBusy}>Save preset</sp-button>
+                    <sp-button type="submit" variant="secondary" ?disabled=${this._agentSaveBusy}>Save agent file</sp-button>
                   </form>
                 </div>
               </details>
@@ -615,13 +668,25 @@ class DaSkillsLabView extends LitElement {
               ${this._mcpRows.map(
         (row) => html`
                 <div
-                  class="skills-lab-card ${this._capHighlighted('mcp', row.key) ? 'sl-highlight' : ''}"
-                  @click=${() => this._selectCap('mcp', row.key)}
+                  class="skills-lab-card skills-lab-card-skill ${this._capHighlighted('mcp', row.key) ? 'sl-highlight' : ''}"
                 >
-                  <span class="skills-lab-type-badge mcp">mcp</span>
-                  <div class="skills-lab-card-title">${row.key}</div>
-                  <div class="skills-lab-card-meta">${row.url}</div>
-                  <div class="skills-lab-card-desc">SSE transport · da-agent /mcp-tools</div>
+                  <div class="skills-lab-card-row" @click=${() => this._selectCap('mcp', row.key)}>
+                    <span class="skills-lab-type-badge mcp">mcp</span>
+                    <div class="skills-lab-card-main">
+                      <div class="skills-lab-card-title">${row.key}</div>
+                      <div class="skills-lab-card-meta">${row.url}</div>
+                      <div class="skills-lab-card-desc">SSE · config sheet · da-agent /mcp-tools</div>
+                    </div>
+                    <button
+                      type="button"
+                      class="skills-lab-skill-edit"
+                      title="Edit MCP server"
+                      aria-label="Edit MCP server"
+                      @click=${(e) => this._onEditMcp(row, e)}
+                    >
+                      <img src="${editIconSrc}" width="18" height="18" alt="" />
+                    </button>
+                  </div>
                 </div>`,
       )}
             </div>
@@ -632,7 +697,11 @@ class DaSkillsLabView extends LitElement {
               <summary class="skills-lab-mobile-summary">Generated tools · Tools Registry</summary>
               <div class="skills-lab-col-scroll">
               <h3 class="skills-lab-section-h skills-lab-section-h-tools-generated">Generated Tools</h3>
-              <nx-generated-tools .org=${this.org} .site=${this.site}></nx-generated-tools>
+              <nx-generated-tools
+                .org=${this.org}
+                .site=${this.site}
+                .contextPagePath=${this._contextPagePathForGeneratedTools()}
+              ></nx-generated-tools>
               <h3 class="skills-lab-section-h">Tools Registry (${toolRows.length})</h3>
               ${toolRows.map(
         (t) => {
