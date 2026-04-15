@@ -9,6 +9,7 @@ import {
   deleteGeneratedTool,
 } from './utils.js';
 import { runGeneratedToolInWorker } from './client-executor.js';
+import { fetchSiteSourceText } from '../../../browse/skills-lab-api.js';
 
 const style = await getStyle(import.meta.url);
 
@@ -30,6 +31,8 @@ class NXGeneratedTools extends LitElement {
   static properties = {
     org: { type: String },
     site: { type: String },
+    /** Path under site from host (e.g. chat hash) to prefill “load page” for Try. */
+    contextPagePath: { type: String, attribute: 'context-page-path' },
     approvedBy: { type: String, attribute: 'approved-by' },
     _tools: { state: true },
     _busy: { state: true },
@@ -43,6 +46,10 @@ class NXGeneratedTools extends LitElement {
     _matchResult: { state: true },
     _matchRunBusy: { state: true },
     _matchRunResult: { state: true },
+    _tryPagePath: { state: true },
+    _matchPagePath: { state: true },
+    _tryPathBusy: { state: true },
+    _tryPathMsg: { state: true },
   };
 
   /**
@@ -61,6 +68,7 @@ class NXGeneratedTools extends LitElement {
   constructor() {
     super();
     this.approvedBy = 'user';
+    this.contextPagePath = '';
     this._tools = undefined;
     this._busy = undefined;
     this._error = '';
@@ -73,6 +81,10 @@ class NXGeneratedTools extends LitElement {
     this._matchResult = null;
     this._matchRunBusy = false;
     this._matchRunResult = undefined;
+    this._tryPagePath = '';
+    this._matchPagePath = '';
+    this._tryPathBusy = false;
+    this._tryPathMsg = '';
   }
 
   connectedCallback() {
@@ -173,8 +185,16 @@ class NXGeneratedTools extends LitElement {
   }
 
   _toggleTry(id) {
-    this._tryId = this._tryId === id ? undefined : id;
-    this._runResult = undefined;
+    if (this._tryId === id) {
+      this._tryId = undefined;
+      this._tryPagePath = '';
+      this._tryPathMsg = '';
+    } else {
+      this._tryId = id;
+      this._runResult = undefined;
+      this._tryPathMsg = '';
+      this._tryPagePath = (this.contextPagePath || '').trim();
+    }
   }
 
   _getExecutor(def) {
@@ -184,6 +204,29 @@ class NXGeneratedTools extends LitElement {
         : null);
   }
 
+  async _resolveTryHtml(def) {
+    const inputEl = this.shadowRoot?.querySelector(`#gt-try-input-${def.id}`);
+    let raw = String(inputEl?.value ?? '').trim();
+    const path = String(this._tryPagePath ?? '').trim();
+    if (!raw && path) {
+      if (!this.org || !this.site) {
+        return { error: 'Org and site are required to load a page from DA.' };
+      }
+      this._tryPathBusy = true;
+      this._tryPathMsg = '';
+      const got = await fetchSiteSourceText(this.org, this.site, path);
+      this._tryPathBusy = false;
+      if (got.error) return { error: got.error };
+      raw = got.text || '';
+      if (inputEl) inputEl.value = raw;
+      this._tryPathMsg = `Loaded ${path} (${raw.length} chars)`;
+    }
+    if (!raw) {
+      return { error: 'Paste HTML or enter a page path under this site and run again.' };
+    }
+    return { html: raw };
+  }
+
   async _runTool(def) {
     const executor = this._getExecutor(def);
     if (!executor) return;
@@ -191,10 +234,14 @@ class NXGeneratedTools extends LitElement {
     this._runBusy = def.id;
     this._runResult = undefined;
 
-    const inputEl = this.shadowRoot.querySelector(`#gt-try-input-${def.id}`);
-    const raw = inputEl?.value ?? '';
-
     try {
+      const resolved = await this._resolveTryHtml(def);
+      if (resolved.error) {
+        this._runResult = { id: def.id, data: null, error: resolved.error };
+        this._runBusy = undefined;
+        return;
+      }
+      const raw = resolved.html;
       const args = { html: raw, text: raw, content: raw };
       const result = await executor(args);
       this._runResult = { id: def.id, data: result, error: null };
@@ -202,6 +249,25 @@ class NXGeneratedTools extends LitElement {
       this._runResult = { id: def.id, data: null, error: e.message ?? String(e) };
     }
     this._runBusy = undefined;
+  }
+
+  async _loadTryHtmlIntoEditor(def) {
+    const path = String(this._tryPagePath ?? '').trim();
+    if (!path || !this.org || !this.site) {
+      this._tryPathMsg = 'Enter a path (e.g. /drafts/page.html) first.';
+      return;
+    }
+    this._tryPathBusy = true;
+    this._tryPathMsg = '';
+    const got = await fetchSiteSourceText(this.org, this.site, path);
+    this._tryPathBusy = false;
+    if (got.error) {
+      this._tryPathMsg = got.error;
+      return;
+    }
+    const inputEl = this.shadowRoot?.querySelector(`#gt-try-input-${def.id}`);
+    if (inputEl) inputEl.value = got.text || '';
+    this._tryPathMsg = `Loaded ${path}`;
   }
 
   _findMatch() {
@@ -219,10 +285,32 @@ class NXGeneratedTools extends LitElement {
     this._matchRunBusy = true;
     this._matchRunResult = undefined;
     try {
+      let raw = String(this._matchInput ?? '').trim();
+      const path = String(this._matchPagePath ?? '').trim();
+      if (!raw && path) {
+        if (!this.org || !this.site) {
+          this._matchRunResult = { data: null, error: 'Org and site are required to load HTML from DA.' };
+          return;
+        }
+        const got = await fetchSiteSourceText(this.org, this.site, path);
+        if (got.error) {
+          this._matchRunResult = { data: null, error: got.error };
+          return;
+        }
+        raw = got.text || '';
+        this._matchInput = raw;
+      }
+      if (!raw) {
+        this._matchRunResult = {
+          data: null,
+          error: 'Paste HTML or set “Page path” to load from DA, then run again.',
+        };
+        return;
+      }
       const args = {
-        html: this._matchInput,
-        text: this._matchInput,
-        content: this._matchInput,
+        html: raw,
+        text: raw,
+        content: raw,
       };
       const result = await executor(args);
       this._matchRunResult = { data: result, error: null };
@@ -263,12 +351,30 @@ class NXGeneratedTools extends LitElement {
         </button>`;
     }
     const busy = this._runBusy === def.id;
+    const pathBusy = this._tryPathBusy;
     const placeholder = def.id === 'validate-headings'
       ? '<h1>Title</h1>\n<h2>Section</h2>\n<h4>Skipped level!</h4>'
-      : '<h1>Your page title</h1>\n<p>Paste HTML content here to analyse it.</p>';
+      : '<h1>Your page title</h1>\n<p>Optional: paste HTML, or load from the page path below.</p>';
     return html`
       <div class="gt-try-panel">
-        <label class="gt-try-label" for="gt-try-input-${def.id}">Paste HTML to test:</label>
+        <label class="gt-try-label" for="gt-try-path-${def.id}">Page path under this site (optional)</label>
+        <div class="gt-try-path-row">
+          <input
+            id="gt-try-path-${def.id}"
+            class="gt-try-path-input"
+            type="text"
+            .value=${this._tryPagePath}
+            @input=${(e) => { this._tryPagePath = e.target.value; }}
+            placeholder="${this.contextPagePath || '/drafts/article.html'}"
+            spellcheck="false"
+          />
+          <button type="button" class="gt-btn gt-btn-secondary" ?disabled=${pathBusy}
+            @click=${() => this._loadTryHtmlIntoEditor(def)}>
+            ${pathBusy ? 'Loading…' : 'Load HTML'}
+          </button>
+        </div>
+        ${this._tryPathMsg ? html`<p class="gt-try-path-msg">${this._tryPathMsg}</p>` : nothing}
+        <label class="gt-try-label" for="gt-try-input-${def.id}">HTML to run (paste or load above)</label>
         <textarea
           id="gt-try-input-${def.id}"
           class="gt-try-input"
@@ -337,7 +443,17 @@ class NXGeneratedTools extends LitElement {
           .value=${this._matchQuery}
           @input=${(e) => { this._matchQuery = e.target.value; }}
           placeholder="e.g. check heading structure for accessibility" />
-        <label class="gt-try-label" for="gt-match-content">HTML to run against</label>
+        <label class="gt-try-label" for="gt-match-page-path">Page path under this site (optional)</label>
+        <input
+          id="gt-match-page-path"
+          class="gt-try-path-input"
+          type="text"
+          .value=${this._matchPagePath}
+          @input=${(e) => { this._matchPagePath = e.target.value; }}
+          placeholder="${this.contextPagePath || '/path/to/page.html'}"
+          spellcheck="false"
+        />
+        <label class="gt-try-label" for="gt-match-content">HTML to run against (paste or load via path)</label>
         <textarea
           id="gt-match-content"
           class="gt-try-input"
