@@ -97,6 +97,18 @@ Conversation history is persisted in IndexedDB, keyed by `org--site--userId`. Th
 - History is **user-specific** — different IMS users on the same site have separate histories.
 - `clear()` deletes the stored history for the current room.
 
+### Future: sessions
+
+Currently there is one conversation per `org--site--userId` — all or nothing. A session model would let users maintain multiple named conversations and switch between them.
+
+When introduced, the room key would extend to `org--site--userId--sessionId`. The `sessionId` structure and generation strategy are to be defined. The component derives the full room key internally. Persistence and the agent's `room` parameter both use the full key, so sessions are isolated end-to-end. The host never interacts with IndexedDB directly.
+
+If no `session` is set, the component resumes the last active session. A `lastActiveSession` metadata entry in IndexedDB (keyed by `org--site--userId`, storing the active `sessionId`) tracks which session was most recently used and is updated on every switch. Session switching UI (picker, create/rename/delete) lives inside the chat component — the host has no role in session management.
+
+Each session would have a human-readable title so users can make informed switching decisions. The agent would emit a `session-title` stream event after the first exchange — a short generated summary of the conversation intent (e.g. "Update header copy"). The client stores it in session metadata and displays it in the picker. Users can rename sessions; the agent-provided title is only the initial suggestion.
+
+> **Agent team ask:** `session-title` is not yet supported by da-agent. Needs to be raised with the agent team — emit a `session-title` event (with a `title` field) after the first `text-end` in a new session.
+
 ## Events out
 
 | Event | Bubbles | Detail | Description |
