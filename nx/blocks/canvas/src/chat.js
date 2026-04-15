@@ -15,6 +15,7 @@ import { initIms, daFetch } from '../../../utils/daFetch.js';
 import { DA_ORIGIN } from '../../../public/utils/constants.js';
 import { loadSkills, saveSkill, deleteSkill } from '../../skills-editor/utils/utils.js';
 import { DA_BULK_AEM_OPEN, DA_BULK_AEM_SETTLED } from './bulk-aem-modal.js';
+import '../../shared/menu/menu.js';
 
 const style = await getStyle(import.meta.url);
 const nxBase = getNx();
@@ -25,6 +26,16 @@ const token = imsInitial?.accessToken?.token ?? null;
 
 const DOCUMENT_UPDATED_EVENT = 'da:agent-content-updated';
 const REPO_FILES_CHANGED_EVENT = 'da:chat-repo-files-changed';
+
+const ADD_MENU_ITEMS = [
+  { section: 'Add' },
+  { id: 'files', label: 'Files or images', icon: 'Link' },
+  { id: 'prompt', label: 'Prompt', icon: 'CommentText' },
+  { id: 'command', label: '"/" Command', icon: 'Prompt' },
+  { divider: true },
+  { id: 'prompts', label: 'Manage Prompts' },
+  { id: 'skills', label: 'Manage Skills' },
+];
 
 /**
  * From an `mcp-servers` sheet row, collect outbound HTTP headers for the da-agent MCP client.
@@ -1453,6 +1464,26 @@ class Chat extends LitElement {
     });
   }
 
+  _onAddMenuSelect(e) {
+    const { id } = e.detail;
+    if (id === 'files') {
+      this._openAttachmentPicker();
+    } else if (id === 'command') {
+      this._inputValue = '/';
+      this._slashMenuOpen = true;
+      this.updateComplete.then(() => {
+        this.shadowRoot?.querySelector('.chat-input')?.shadowRoot?.querySelector('input,textarea')?.focus();
+      });
+    } else if (id === 'prompt' || id === 'prompts') {
+      this._openPromptsLibrary();
+    } else if (id === 'skills') {
+      this._skillsLibraryTab = 'skills';
+      this.updateComplete.then(() => {
+        this.shadowRoot?.querySelector('.chat-toolbar-icon-btn[aria-label="Open Tools Quick Editing"]')?.click();
+      });
+    }
+  }
+
   _closeSkillsModal() {
     const trigger = this.shadowRoot.querySelector('overlay-trigger');
     if (trigger) trigger.open = undefined;
@@ -1725,17 +1756,19 @@ class Chat extends LitElement {
           ${this._renderSlashMenu()}
           <div class="chat-footer-row ${this._isThinking ? 'thinking' : ''}">
           <div class="chat-toolbar-icon-group">
+            <nx-menu .items=${ADD_MENU_ITEMS} placement="above" @select=${this._onAddMenuSelect}>
+              <button
+                slot="trigger"
+                type="button"
+                class="chat-toolbar-icon-btn"
+                title="Add content"
+                aria-label="Add content"
+                ?disabled=${this._isThinking || this._isAwaitingApproval || this._isAwaitingClientTool || !this._connected}
+              >
+                <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path fill="currentColor" d="M16.25 9.25H10.75V3.75C10.75 3.33594 10.4141 3 10 3C9.58594 3 9.25 3.33594 9.25 3.75V9.25H3.75C3.33594 9.25 3 9.58594 3 10C3 10.4141 3.33594 10.75 3.75 10.75H9.25V16.25C9.25 16.6641 9.58594 17 10 17C10.4141 17 10.75 16.6641 10.75 16.25V10.75H16.25C16.6641 10.75 17 10.4141 17 10C17 9.58594 16.6641 9.25 16.25 9.25Z"/></svg>
+              </button>
+            </nx-menu>
             ${this._renderSkillsButton()}
-            <button
-              type="button"
-              class="chat-toolbar-icon-btn"
-              title="Attach image"
-              aria-label="Attach image"
-              ?disabled=${this._isThinking || this._isAwaitingApproval || this._isAwaitingClientTool || !this._connected}
-              @click=${this._openAttachmentPicker}
-            >
-              <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M6.5 10.75V6.5a3.5 3.5 0 1 1 7 0v6.75a5 5 0 0 1-10 0V5.75a.75.75 0 0 1 1.5 0v7.5a3.5 3.5 0 0 0 7 0V6.5a2 2 0 1 0-4 0v4.25a.75.75 0 0 0 1.5 0V7a.75.75 0 0 1 1.5 0v3.75a2.25 2.25 0 0 1-4.5 0Z" fill="currentColor"/></svg>
-            </button>
             ${(window.SpeechRecognition || window.webkitSpeechRecognition) ? html`
             <button
               type="button"
