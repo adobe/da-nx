@@ -217,6 +217,10 @@ class Chat extends LitElement {
     _pendingSkillSuggestionKey: { state: true },
     /** Keys `skill-sugg-${messageIndex}` for which Create Skill was completed. */
     _consumedSkillSuggestionKeys: { state: true },
+    /** Keys `skill-sugg-${messageIndex}` where user dismissed the pattern-detected card. */
+    _dismissedSkillPatternKeys: { state: true },
+    /** Hides streaming bubble highlight after dismiss while the same stream is in flight. */
+    _dismissStreamingSkillPattern: { state: true },
     _activeAgentId: { state: true },
     _daConfig: { state: true },
     _promptCards: { state: true },
@@ -267,6 +271,8 @@ class Chat extends LitElement {
     this._generatedTools = undefined;
     this._pendingSkillSuggestionKey = null;
     this._consumedSkillSuggestionKeys = {};
+    this._dismissedSkillPatternKeys = {};
+    this._dismissStreamingSkillPattern = false;
     this._activeAgentId = null;
     this._daConfig = null;
     this._promptCards = [];
@@ -349,9 +355,26 @@ class Chat extends LitElement {
       getContext: () => this._pageContextForAgent(),
       getImsToken: async () => (await initIms())?.accessToken?.token ?? null,
       onUpdate: () => {
+        const prevStreaming = this._streamingText;
         this._messages = [...this._chatController.messages];
         this._toolCards = new Map(this._chatController.toolCards);
-        this._streamingText = this._chatController.streamingText;
+        const nextStream = this._chatController.streamingText;
+        if (nextStream && !prevStreaming) {
+          this._dismissStreamingSkillPattern = false;
+        }
+        if (!nextStream && prevStreaming && this._dismissStreamingSkillPattern) {
+          const msgs = this._chatController.messages;
+          for (let i = msgs.length - 1; i >= 0; i -= 1) {
+            const m = msgs[i];
+            if (m.role === 'assistant' && typeof m.content === 'string' && parseSkillSuggestion(m.content)) {
+              const key = `skill-sugg-${i}`;
+              this._dismissedSkillPatternKeys = { ...this._dismissedSkillPatternKeys, [key]: true };
+              break;
+            }
+          }
+          this._dismissStreamingSkillPattern = false;
+        }
+        this._streamingText = nextStream;
         this._isThinking = this._chatController.isThinking;
         this._isAwaitingApproval = this._chatController.isAwaitingApproval;
         this._isAwaitingClientTool = this._chatController.isAwaitingClientTool;
@@ -625,6 +648,8 @@ class Chat extends LitElement {
   _clearChat() {
     this._chatController?.clearHistory();
     this._consumedSkillSuggestionKeys = {};
+    this._dismissedSkillPatternKeys = {};
+    this._dismissStreamingSkillPattern = false;
     this._pendingSkillSuggestionKey = null;
   }
 
@@ -1578,6 +1603,18 @@ class Chat extends LitElement {
     return Object.prototype.hasOwnProperty.call(this._skills, sid);
   }
 
+  _dismissSkillPatternCard(skillSuggKey) {
+    if (!skillSuggKey) return;
+    this._dismissedSkillPatternKeys = {
+      ...this._dismissedSkillPatternKeys,
+      [skillSuggKey]: true,
+    };
+  }
+
+  _dismissStreamingSkillPatternCard() {
+    this._dismissStreamingSkillPattern = true;
+  }
+
   _renderWelcome() {
     const { view } = this._pageContextForAgent();
     const cards = this._promptCards
@@ -1784,30 +1821,41 @@ class Chat extends LitElement {
               : message.content;
             const rendered = renderMessageContent(displayContent);
             const skillSuggKey = `skill-sugg-${msgIndex}`;
+            const patternDismissed = !!(suggestion
+              && this._dismissedSkillPatternKeys[skillSuggKey]);
             const skillSuggDone = !!(suggestion && (
               this._consumedSkillSuggestionKeys[skillSuggKey]
               || this._skillExistsForSuggestion(suggestion.id)
             ));
+            const showPatternCard = suggestion && !patternDismissed;
             return html`
               <div class="message-row assistant">
-                <div class="message-bubble ${suggestion ? 'skill-suggestion' : ''}">${rendered}${suggestion ? html`
+                <div class="message-bubble ${showPatternCard ? 'skill-suggestion' : ''}">${rendered}${showPatternCard ? html`
                   <div class="skill-suggestion-card">
                     <div class="skill-suggestion-card-info">
                       <span class="skill-suggestion-card-label">Pattern detected</span>
                       <code class="skill-suggestion-card-id">${suggestion.id}</code>
                     </div>
-                    <button type="button" class="skill-suggestion-card-btn"
-                      title="${skillSuggDone ? 'Skill created from this suggestion' : 'Open editor to create skill'}"
-                      aria-label="${skillSuggDone ? 'Skill already created' : 'Create skill from suggestion'}"
-                      ?disabled=${skillSuggDone}
-                      @click=${() => this._openSkillModalWithSuggestion(
+                    <div class="skill-suggestion-card-actions">
+                      <button type="button" class="skill-suggestion-dismiss-btn"
+                        title="Dismiss pattern suggestion"
+                        aria-label="Dismiss pattern suggestion"
+                        @click=${() => this._dismissSkillPatternCard(skillSuggKey)}>
+                        Dismiss
+                      </button>
+                      <button type="button" class="skill-suggestion-card-btn"
+                        title="${skillSuggDone ? 'Skill created from this suggestion' : 'Open editor to create skill'}"
+                        aria-label="${skillSuggDone ? 'Skill already created' : 'Create skill from suggestion'}"
+                        ?disabled=${skillSuggDone}
+                        @click=${() => this._openSkillModalWithSuggestion(
               suggestion.id,
               suggestion.content,
               skillSuggKey,
             )}>
-                      <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 3.75a.75.75 0 0 1 .75.75v4.75h4.75a.75.75 0 0 1 0 1.5h-4.75v4.75a.75.75 0 0 1-1.5 0v-4.75H4.5a.75.75 0 0 1 0-1.5h4.75V4.5a.75.75 0 0 1 .75-.75Z" fill="currentColor"/></svg>
-                      ${skillSuggDone ? 'Skill created' : 'Create Skill'}
-                    </button>
+                        <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 3.75a.75.75 0 0 1 .75.75v4.75h4.75a.75.75 0 0 1 0 1.5h-4.75v4.75a.75.75 0 0 1-1.5 0v-4.75H4.5a.75.75 0 0 1 0-1.5h4.75V4.5a.75.75 0 0 1 .75-.75Z" fill="currentColor"/></svg>
+                        ${skillSuggDone ? 'Skill created' : 'Create Skill'}
+                      </button>
+                    </div>
                   </div>` : nothing}</div>
               </div>`;
           }
@@ -1820,7 +1868,25 @@ class Chat extends LitElement {
         })}
           ${this._streamingText ? html`
             <div class="message-row assistant">
-              <div class="message-bubble ${parseSkillSuggestion(this._streamingText) ? 'skill-suggestion' : ''}">${renderMessageContent(stripSkillSuggestionMeta(this._streamingText))}</div>
+              <div class="message-bubble ${parseSkillSuggestion(this._streamingText) && !this._dismissStreamingSkillPattern ? 'skill-suggestion' : ''}">
+                ${renderMessageContent(stripSkillSuggestionMeta(this._streamingText))}
+                ${parseSkillSuggestion(this._streamingText) && !this._dismissStreamingSkillPattern ? html`
+                  <div class="skill-suggestion-card">
+                    <div class="skill-suggestion-card-info">
+                      <span class="skill-suggestion-card-label">Pattern detected</span>
+                      <span class="skill-suggestion-card-streaming-hint">Streaming…</span>
+                    </div>
+                    <div class="skill-suggestion-card-actions">
+                      <button type="button" class="skill-suggestion-dismiss-btn"
+                        title="Dismiss pattern suggestion"
+                        aria-label="Dismiss pattern suggestion"
+                        @click=${this._dismissStreamingSkillPatternCard}>
+                        Dismiss
+                      </button>
+                    </div>
+                  </div>
+                ` : nothing}
+              </div>
             </div>` : ''}
         </div>
 

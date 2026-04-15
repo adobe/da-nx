@@ -22,10 +22,6 @@
   font-weight: 700;
 }
 
-.gt-count {
-  color: var(--spectrum-gray-600, #707070);
-}
-
 .gt-empty,
 .gt-loading,
 .gt-match-empty {

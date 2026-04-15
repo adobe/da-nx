@@ -434,14 +434,14 @@ class NXGeneratedTools extends LitElement {
         ${this._error ? html`<div class="gt-error" role="alert">${this._error}</div>` : nothing}
 
         <section class="gt-section" aria-label="Proposals">
-          <h3 class="gt-section-title">Proposals <span class="gt-count">${drafts.length}</span></h3>
+          <h3 class="gt-section-title">Proposals (${drafts.length})</h3>
           ${drafts.length === 0
             ? html`<p class="gt-empty">No pending proposals. The assistant will suggest tools here when it encounters a task that doesn't match existing tools.</p>`
             : drafts.map((def) => this._renderToolCard(def))}
         </section>
 
         <section class="gt-section" aria-label="Approved tools">
-          <h3 class="gt-section-title">Approved <span class="gt-count">${approved.length}</span></h3>
+          <h3 class="gt-section-title">Approved tools (${approved.length})</h3>
           ${approved.length === 0
             ? html`<p class="gt-empty">No approved tools yet. Approve a proposal above to make it available in chat.</p>`
             : approved.map((def) => this._renderToolCard(def))}
@@ -451,7 +451,7 @@ class NXGeneratedTools extends LitElement {
 
         ${deprecated.length > 0 ? html`
           <section class="gt-section gt-section-deprecated" aria-label="Deprecated tools">
-            <h3 class="gt-section-title">Deprecated <span class="gt-count">${deprecated.length}</span></h3>
+            <h3 class="gt-section-title">Deprecated (${deprecated.length})</h3>
             ${deprecated.map((def) => this._renderToolCard(def))}
           </section>
         ` : nothing}
