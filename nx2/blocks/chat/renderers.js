@@ -43,21 +43,6 @@ function renderMessageContent(text) {
   return renderNode(tree);
 }
 
-// todo: placeholder renderer for toolcard - to be cleaned up once we have mocks
-function renderToolCard(toolCallId, toolCards) {
-  const card = toolCards?.get(toolCallId);
-
-  if (!card) return nothing;
-  const { toolName, state } = card;
-
-  return state !== TOOL_STATE.APPROVAL_REQUESTED ? html`
-    <div class="tool-card tool-card-${state}">
-      <span class="tool-card-name">${toolName}</span>
-      <span class="tool-card-status">${state}</span>
-    </div>
-  ` : nothing;
-}
-
 function approvalSummary(input) {
   if (!input) return null;
   const {
@@ -66,6 +51,20 @@ function approvalSummary(input) {
   return input[HUMAN_READABLE_SUMMARY]
     ?? (input[SOURCE_PATH] && input[DESTINATION_PATH] ? `${input[SOURCE_PATH]} → ${input[DESTINATION_PATH]}` : null)
     ?? input[PATH] ?? input[SKILL_ID] ?? input[NAME] ?? null;
+}
+
+function renderToolCard(toolCallId, toolCards) {
+  const card = toolCards?.get(toolCallId);
+  if (!card || card.state === TOOL_STATE.APPROVAL_REQUESTED) return nothing;
+  const { toolName, state, input } = card;
+  const detail = approvalSummary(input);
+  const failed = state === TOOL_STATE.ERROR || state === TOOL_STATE.REJECTED;
+  return html`
+    <details class="tool-card tool-card-${state}">
+      <summary>${toolName}${failed ? html`<span class="tool-card-status">${state}</span>` : nothing}</summary>
+      ${detail ? html`<span class="tool-card-detail">${detail}</span>` : nothing}
+    </details>
+  `;
 }
 
 function renderApprovalCard(pending, onApprove) {

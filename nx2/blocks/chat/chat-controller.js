@@ -32,12 +32,27 @@ export default class ChatController {
     const room = await this._getRoom();
     const cached = await loadMessages(room);
     if (!cached.length) return;
-    // Strip orphaned tool sequences — assistant messages with array content (tool-call parts)
-    // and TOOL role messages (approval responses) that may be incomplete from prior sessions.
-    // The agent errors if it sees a tool-call with no matching tool-result in history.
+    // Strip orphaned tool-calls (assistant array-content without a tool-approval-request).
+    // These are from sessions before the current fix — they have no matching tool-result
+    // and cause "Tool result is missing". Complete approval sequences are kept so users
+    // see what the agent approved and did in prior conversations.
     this._messages = cached.filter(
-      (m) => !(m.role === ROLE.TOOL || (m.role === ROLE.ASSISTANT && Array.isArray(m.content))),
+      (m) => !(m.role === ROLE.ASSISTANT && Array.isArray(m.content)
+        && !m.virtual
+        && !m.content.some((p) => p.type === AGENT_EVENT.TOOL_APPROVAL_REQUEST)),
     );
+    // Reconstruct tool cards from persisted approval messages so they render on reload.
+    this._toolCards = new Map();
+    for (const msg of this._messages) {
+      if (msg.role === ROLE.ASSISTANT && Array.isArray(msg.content)) {
+        const call = msg.content.find((p) => p.type === AGENT_EVENT.TOOL_CALL);
+        if (call) {
+          this._toolCards.set(call.toolCallId, {
+            toolName: call.toolName, input: call.input, state: TOOL_STATE.DONE,
+          });
+        }
+      }
+    }
     this._update();
   }
 
@@ -98,9 +113,6 @@ export default class ChatController {
     const next = new Map(this._toolCards ?? []);
 
     if (type === AGENT_EVENT.TOOL_CALL) {
-      // Hold in toolCards only — not in _messages. Tool-calls are only added to message
-      // history if they require approval; non-approval tool-calls have no matching
-      // tool-result in client history, so sending them would error ("Tool result is missing").
       next.set(toolCallId, { toolName, input, state: TOOL_STATE.RUNNING });
     } else if (type === AGENT_EVENT.TOOL_APPROVAL_REQUEST) {
       const autoApprove = this._autoApprovedTools?.has(toolName);
@@ -134,7 +146,17 @@ export default class ChatController {
       const state = isError ? TOOL_STATE.ERROR : TOOL_STATE.DONE;
       next.set(toolCallId, { ...prior, state, output });
       if (state === TOOL_STATE.DONE) {
-        this._onToolDone?.({ toolName: prior.toolName, input: prior.input, output });
+        // Add a virtual message so the tool renders in the conversation at the right
+        // position and persists across refreshes, without being sent back to the agent.
+        this._messages = [
+          ...this._messages,
+          {
+            role: ROLE.ASSISTANT,
+            virtual: true,
+            content: [{ type: AGENT_EVENT.TOOL_CALL, toolCallId, toolName: prior.toolName }],
+          },
+        ];
+        this._onToolDone?.();
       }
     }
 
@@ -190,7 +212,7 @@ export default class ChatController {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        messages: this._messages,
+        messages: this._messages.filter((m) => !m.virtual),
         pageContext,
         imsToken: accessToken?.token ?? null,
         room,

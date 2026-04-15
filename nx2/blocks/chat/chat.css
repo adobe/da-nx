@@ -226,38 +226,44 @@
   animation: chat-thinking-shimmer 2.2s ease-in-out infinite;
 }
 
-/* todo: no available design for tool cards, so using a placeholder */
 .tool-card {
-  display: flex;
-  align-items: center;
-  gap: var(--s2-spacing-100);
-  padding: var(--s2-spacing-100);
-  border-radius: var(--s2-corner-radius-300);
-  border: 1px solid var(--s2-gray-200);
   font-size: var(--s2-body-size-xs);
-  color: var(--s2-gray-700);
-  justify-content: space-between;
+  color: var(--s2-gray-600);
 
-  .tool-card-name {
-    font-weight: bold;
-    font-size: var(--s2-body-size-s);
-    color: var(--s2-gray-800);
+  summary {
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: var(--s2-spacing-75);
   }
 
   .tool-card-status {
-    font-size: var(--s2-body-size-xs);
     text-transform: uppercase;
+    font-size: var(--s2-body-size-xs);
   }
 
-  &.tool-card-rejected .tool-card-status,
-  &.tool-card-error .tool-card-status {
+  &.tool-card-error .tool-card-status,
+  &.tool-card-rejected .tool-card-status {
     color: var(--s2-red-700);
   }
 
-  &.tool-card-approved .tool-card-status,
-  &.tool-card-done .tool-card-status {
-    color: var(--s2-green-700);
+  .tool-card-detail {
+    display: block;
+    padding-left: var(--s2-spacing-200);
+    color: var(--s2-gray-500);
+    overflow-wrap: break-word;
   }
+}
+
+.tool-card summary::before {
+  content: "›";
+  display: inline-block;
+  transition: transform 0.15s;
+}
+
+.tool-card[open] summary::before {
+  transform: rotate(90deg);
 }
 
 .chat-form-wrap {
