@@ -141,7 +141,7 @@ class SideNav extends HTMLElement {
     icon.className = 'nx-link-icon';
     icon.append(svg);
     a.append(icon);
-    a.insertAdjacentHTML('beforeend', '<span class="nx-link-text">AEM Context</span>');
+    a.insertAdjacentHTML('beforeend', '<span class="nx-link-text">Context</span>');
 
     const li = document.createElement('li');
     li.setAttribute('data-nx-brand-governance', '');

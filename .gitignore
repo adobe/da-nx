@@ -10,3 +10,5 @@ helix-importer-ui
 
 # Session-generated feature docs; keep out of upstream PRs
 private-docs/feature-notes/
+.playwright-mcp
+docs/superpowers/*

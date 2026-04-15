@@ -25,6 +25,7 @@ import {
 import { loadGeneratedTools } from './generated-tools/utils.js';
 import './generated-tools/generated-tools.js';
 import { DA_BULK_AEM_OPEN, DA_BULK_AEM_SETTLED } from './bulk-aem-modal.js';
+import '../../shared/menu/menu.js';
 
 const style = await getStyle(import.meta.url);
 const nxBase = getNx();
@@ -38,6 +39,16 @@ const token = imsInitial?.accessToken?.token ?? null;
 
 const DOCUMENT_UPDATED_EVENT = 'da:agent-content-updated';
 const REPO_FILES_CHANGED_EVENT = 'da:chat-repo-files-changed';
+
+const ADD_MENU_ITEMS = [
+  { section: 'Add' },
+  { id: 'files', label: 'Images', icon: 'Link' },
+  { id: 'prompt', label: 'Prompt', icon: 'CommentText' },
+  { id: 'command', label: '"/" Command', icon: 'Prompt' },
+  { divider: true },
+  { id: 'prompts', label: 'Manage Prompts' },
+  { id: 'skills', label: 'Manage Skills' },
+];
 
 /**
  * From an `mcp-servers` sheet row, collect outbound HTTP headers for the da-agent MCP client.
@@ -303,6 +314,7 @@ class Chat extends LitElement {
     _daConfig: { state: true },
     _promptCards: { state: true },
     _mcpTools: { state: true },
+    _skillsModalOpen: { state: true },
     _slashMenuOpen: { state: true },
     _slashFilter: { state: true },
     _slashSelectedIndex: { state: true },
@@ -318,7 +330,7 @@ class Chat extends LitElement {
 
   constructor() {
     super();
-    this.header = 'Coworker';
+    this.header = 'Assistant';
     this.onPageContextItems = [];
     this.contextView = '';
     this._connected = false;
@@ -359,6 +371,7 @@ class Chat extends LitElement {
     this._promptCards = [];
     this._mcpTools = null;
     this._pendingSkillIds = [];
+    this._skillsModalOpen = false;
     this._slashMenuOpen = false;
     this._slashFilter = '';
     this._slashSelectedIndex = 0;
@@ -1862,7 +1875,7 @@ class Chat extends LitElement {
     }
   }
 
-  _renderSkillsButton() {
+  _renderSkillsModal() {
     return html`
       <overlay-trigger
           class="chat-tools-quick-overlay"
@@ -1898,16 +1911,10 @@ class Chat extends LitElement {
         <button
           type="button"
           slot="trigger"
-          class="chat-toolbar-icon-btn"
-          title="Tools Quick Editing"
-          aria-label="Open Tools Quick Editing"
-          ?disabled=${this._isThinking || this._isAwaitingApproval || this._isAwaitingClientTool || !this._connected}
-        >
-          <svg width="18" height="18" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            <path d="M8.74706 5.32911L6.92675 1.8252C6.75683 1.49415 6.41894 1.28711 6.04687 1.28418H6.03906C5.66992 1.28418 5.33301 1.48633 5.15918 1.80957L3.26953 5.31055C3.09375 5.6377 3 6.00684 3 6.37891V16.75C3 17.9902 4.00977 19 5.25 19H6.75C7.99023 19 9 17.9902 9 16.75V6.36622C9 6.00587 8.9121 5.64747 8.74706 5.32911ZM7.49999 7.50001V14.5H4.49999V7.50001H7.49999ZM6.03026 3.35353L7.40477 6.00001H4.60252L6.03026 3.35353ZM6.74999 17.5H5.24999C4.8369 17.5 4.49999 17.1631 4.49999 16.75V16H7.49999V16.75C7.49999 17.1631 7.16308 17.5 6.74999 17.5Z" fill="currentColor"/>
-            <path d="M14.75 1H13.25C12.0098 1 11 2.00977 11 3.25V9.979C11 9.98388 10.9971 9.98803 10.9971 9.99316C10.9971 9.99853 11 10.0027 11 10.008V13.73C11 13.7348 10.9971 13.7383 10.9971 13.7431C10.9971 13.7485 11 13.7527 11 13.758V16.75C11 17.9902 12.0098 19 13.25 19H14.75C15.9902 19 17 17.9902 17 16.75V3.25C17 2.00977 15.9902 1 14.75 1ZM15.5 16.75C15.5 17.1631 15.1631 17.5 14.75 17.5H13.25C12.8369 17.5 12.5 17.1631 12.5 16.75V14.499L13.7441 14.5039H13.7471C14.1602 14.5039 14.4951 14.1699 14.4971 13.7568C14.499 13.3428 14.1641 13.0058 13.75 13.0039L12.5 12.999V10.749L13.7441 10.7539H13.7471C14.1602 10.7539 14.4951 10.4199 14.4971 10.0068C14.499 9.59277 14.1641 9.25585 13.75 9.2539L12.5 9.24902V7.00341L13.7471 7.00878H13.75C14.1631 7.00878 14.498 6.6748 14.5 6.26171C14.502 5.84765 14.168 5.51073 13.7529 5.50878L12.5 5.50341V3.24999C12.5 2.8369 12.8369 2.49999 13.25 2.49999H14.75C15.1631 2.49999 15.5 2.8369 15.5 3.24999V16.75Z" fill="currentColor"/>
-          </svg>
-        </button>
+          class="chat-revert-dialog-trigger-hidden"
+          tabindex="-1"
+          aria-hidden="true"
+        ></button>
       </overlay-trigger>
     `;
   }
@@ -2139,17 +2146,18 @@ class Chat extends LitElement {
           ${this._renderSlashMenu()}
           <div class="chat-footer-row ${this._isThinking ? 'thinking' : ''}">
           <div class="chat-toolbar-icon-group">
-            ${this._renderSkillsButton()}
-            <button
-              type="button"
-              class="chat-toolbar-icon-btn"
-              title="Attach image"
-              aria-label="Attach image"
-              ?disabled=${this._isThinking || this._isAwaitingApproval || this._isAwaitingClientTool || !this._connected}
-              @click=${this._openAttachmentPicker}
-            >
-              <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M6.5 10.75V6.5a3.5 3.5 0 1 1 7 0v6.75a5 5 0 0 1-10 0V5.75a.75.75 0 0 1 1.5 0v7.5a3.5 3.5 0 0 0 7 0V6.5a2 2 0 1 0-4 0v4.25a.75.75 0 0 0 1.5 0V7a.75.75 0 0 1 1.5 0v3.75a2.25 2.25 0 0 1-4.5 0Z" fill="currentColor"/></svg>
-            </button>
+            <nx-menu .items=${ADD_MENU_ITEMS} placement="above" @select=${this._onAddMenuSelect}>
+              <button
+                slot="trigger"
+                type="button"
+                class="chat-toolbar-icon-btn"
+                title="Add content"
+                aria-label="Add content"
+                ?disabled=${this._isThinking || this._isAwaitingApproval || this._isAwaitingClientTool || !this._connected}
+              >
+                <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path fill="currentColor" d="M16.25 9.25H10.75V3.75C10.75 3.33594 10.4141 3 10 3C9.58594 3 9.25 3.33594 9.25 3.75V9.25H3.75C3.33594 9.25 3 9.58594 3 10C3 10.4141 3.33594 10.75 3.75 10.75H9.25V16.25C9.25 16.6641 9.58594 17 10 17C10.4141 17 10.75 16.6641 10.75 16.25V10.75H16.25C16.6641 10.75 17 10.4141 17 10C17 9.58594 16.6641 9.25 16.25 9.25Z"/></svg>
+              </button>
+            </nx-menu>
             ${(window.SpeechRecognition || window.webkitSpeechRecognition) ? html`
             <button
               type="button"
@@ -2188,6 +2196,7 @@ class Chat extends LitElement {
 
         <div class="chat-status">${this._statusText}</div>
         ${this._renderRevertConfirmDialog()}
+        ${this._renderSkillsModal()}
       </div>
     `;
   }
