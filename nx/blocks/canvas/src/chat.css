@@ -870,6 +870,13 @@
 }
 
 .skill-tb-save {
+  width: auto;
+  min-width: 52px;
+  height: auto;
+  min-height: 30px;
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
   color: #555;
 }
 

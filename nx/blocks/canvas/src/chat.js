@@ -313,6 +313,8 @@ class Chat extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
+    this._onWindowHashChange = () => this.requestUpdate();
+    window.addEventListener('hashchange', this._onWindowHashChange);
     window.addEventListener(DA_BULK_AEM_SETTLED, this._boundBulkAemSettled);
     this._ensureController();
     this._chatController?.connect();
@@ -325,6 +327,7 @@ class Chat extends LitElement {
   }
 
   disconnectedCallback() {
+    window.removeEventListener('hashchange', this._onWindowHashChange);
     window.removeEventListener(DA_BULK_AEM_SETTLED, this._boundBulkAemSettled);
     this._clearPendingAttachments();
     this._chatController?.disconnect();
@@ -966,10 +969,13 @@ class Chat extends LitElement {
   };
 
   _renderGeneratedToolsContent() {
+    const ctx = getContextFromHash();
+    const docPath = ctx.path ? `/${ctx.path}` : '';
     return html`
       <nx-generated-tools
-        .org=${getContextFromHash().org}
-        .site=${getContextFromHash().site}
+        .org=${ctx.org}
+        .site=${ctx.site}
+        .contextPagePath=${docPath}
         approved-by=${imsInitial?.email || imsInitial?.displayName || 'user'}
         @da-tool-approved=${this._handleGeneratedToolsChanged}
         @da-tool-rejected=${this._handleGeneratedToolsChanged}>
@@ -1143,7 +1149,7 @@ class Chat extends LitElement {
           <button type="button" class="skill-tb-btn skill-tb-save" title="Save skill" aria-label="Save skill"
             ?disabled=${this._newSkillMode ? !this._newSkillName.trim() : !this._skillEditorDirty}
             @click=${this._saveCurrentSkill}>
-            <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M17.41 4.1 15.9 2.59A1.75 1.75 0 0 0 14.48 2H4.25A2.25 2.25 0 0 0 2 4.25v11.5A2.25 2.25 0 0 0 4.25 18h11.5A2.25 2.25 0 0 0 18 15.75V5.52c0-.53-.21-1.04-.59-1.42ZM7.75 3.5h4.5v3h-4.5v-3Zm5.5 13H6.75V12h6.5v4.5Zm3.25-1.75a.75.75 0 0 1-.75.75h-1V12a1.75 1.75 0 0 0-1.75-1.75h-6.5A1.75 1.75 0 0 0 5.25 12v4.5h-1a.75.75 0 0 1-.75-.75V4.25a.75.75 0 0 1 .75-.75h2v3A1.75 1.75 0 0 0 7.75 8h4.5a1.75 1.75 0 0 0 1.75-1.75v-3h.48a.25.25 0 0 1 .18.07l1.52 1.52a.25.25 0 0 1 .07.18v11.23Z" fill="currentColor"/></svg>
+            Save
           </button>
         </div>
         <a class="skills-lab-link" href="${skillsLabUrl}" target="_blank" rel="noopener noreferrer" title="Open the full Skills Lab editor">
