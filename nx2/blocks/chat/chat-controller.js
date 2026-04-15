@@ -9,8 +9,9 @@ const AGENT_URL = new URLSearchParams(window.location.search).get('ref') === 'lo
   : 'https://da-agent.adobeaem.workers.dev/chat';
 
 export default class ChatController {
-  constructor({ onUpdate }) {
+  constructor({ onUpdate, onToolDone }) {
     this._onUpdate = onUpdate;
+    this._onToolDone = onToolDone;
   }
 
   setContext(context) {
@@ -130,9 +131,11 @@ export default class ChatController {
       return;
     } else {
       const prior = next.get(toolCallId) ?? { toolName, input: {} };
-      next.set(toolCallId, {
-        ...prior, state: isError ? TOOL_STATE.ERROR : TOOL_STATE.DONE, output,
-      });
+      const state = isError ? TOOL_STATE.ERROR : TOOL_STATE.DONE;
+      next.set(toolCallId, { ...prior, state, output });
+      if (state === TOOL_STATE.DONE) {
+        this._onToolDone?.({ toolName: prior.toolName, input: prior.input, output });
+      }
     }
 
     this._toolCards = next;

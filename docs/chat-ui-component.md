@@ -97,6 +97,12 @@ Conversation history is persisted in IndexedDB, keyed by `org--site--userId`. Th
 - History is **user-specific** — different IMS users on the same site have separate histories.
 - `clear()` deletes the stored history for the current room.
 
+## Events out
+
+| Event | Bubbles | Detail | Description |
+|---|---|---|---|
+| `nx-agent-change` | Yes | — | The agent completed a tool action. Host views can listen to react (e.g. reload the document). Fired once per successful tool-result. |
+
 ## Boundaries
 
 - **UI (`chat.js`)** — rendering only. No API calls, no auth, no view-specific logic.
