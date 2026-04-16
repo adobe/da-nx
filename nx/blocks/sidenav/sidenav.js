@@ -68,7 +68,7 @@ function buildSkillsLabHref() {
   const { org, site } = parseOrgSiteForSkillsLab();
   const base = `${origin}/apps/skills${search}`;
   if (!org || !site) return base;
-  return `${base}#/${org}/${site}/skills-lab`;
+  return `${base}#/${org}/${site}`;
 }
 
 function getDefaultPath() {
@@ -150,8 +150,8 @@ class SideNav extends HTMLElement {
   }
 
   /**
-   * Injects a "Skills Lab" nav link to `/apps/skills` with the current page query string and, when
-   * the hash includes `/{org}/{site}`, the same pair in `#/{org}/{site}/skills-lab`.
+   * Injects a "Skills Lab" nav link to `/apps/skills` with the current page query string and,
+   * when the hash includes `/{org}/{site}`, the same pair in `#/{org}/{site}`.
    */
   async syncSkillsLabLink(list) {
     if (!list) return;

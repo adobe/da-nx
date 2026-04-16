@@ -164,16 +164,8 @@ class BrowseView extends LitElement {
 
   _syncBrowsePathFromHash() {
     const ctx = parseHashToPathContext(window.location.hash);
-    let next = ctx?.pathSegments ?? [];
-    let fullpath = ctx?.fullpath ?? '';
-    if (
-      this.appsSkills
-      && next.length >= 3
-      && next[next.length - 1] === 'skills-lab'
-    ) {
-      next = next.slice(0, -1);
-      fullpath = `/${next.join('/')}`;
-    }
+    const next = ctx?.pathSegments ?? [];
+    const fullpath = ctx?.fullpath ?? '';
     this._browsePathSegments = [...next];
     this._browseFolderFullpath = fullpath;
   }
@@ -252,7 +244,7 @@ class BrowseView extends LitElement {
     org = org.replace(/\//g, '');
     site = site.replace(/\//g, '');
     if (!org || !site) return;
-    window.location.hash = `#/${org}/${site}/skills-lab`;
+    window.location.hash = `#/${org}/${site}`;
   }
 
   _renderSkillsLabOrgSiteGate() {

@@ -1255,7 +1255,7 @@ class Chat extends LitElement {
 
     const { org, site } = getContextFromHash();
     const skillsAppBase = `${window.location.origin}/apps/skills${window.location.search || ''}`;
-    const skillsLabUrl = org && site ? `${skillsAppBase}#/${org}/${site}/skills-lab` : skillsAppBase;
+    const skillsLabUrl = org && site ? `${skillsAppBase}#/${org}/${site}` : skillsAppBase;
 
     return html`
       <div class="skills-panel">
@@ -1781,7 +1781,7 @@ class Chat extends LitElement {
       if (org && site) {
         setSkillsLabSuggestionHandoff({ prose, id: skillId, body });
         const skillsAppBase = `${window.location.origin}/apps/skills${window.location.search || ''}`;
-        const targetHash = `#/${org}/${site}/skills-lab`;
+        const targetHash = `#/${org}/${site}`;
         const onSkillsApp = window.location.pathname.includes('/apps/skills');
         if (onSkillsApp) {
           if (window.location.hash === targetHash) {
