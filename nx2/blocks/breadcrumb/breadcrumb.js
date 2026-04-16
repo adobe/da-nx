@@ -5,7 +5,7 @@ import { pathSegmentsToCrumbs } from './utils.js';
 
 const styles = await loadStyle(import.meta.url);
 
-const CHEVRON_HREF = new URL('../../img/icons/Icon_Breadcrumb_Chevron.svg', import.meta.url).href;
+const CHEVRON_HREF = new URL('../../img/icons/S2_Icon_ChevronLeft_10_N.svg', import.meta.url).href;
 
 class NxBreadcrumb extends LitElement {
   static properties = {
@@ -24,12 +24,7 @@ class NxBreadcrumb extends LitElement {
   }
 
   async firstUpdated() {
-    const svg = await loadHrefSvg(CHEVRON_HREF);
-    if (svg) {
-      svg.classList.add('crumb-chevron');
-      svg.setAttribute('aria-hidden', 'true');
-    }
-    this._chevronSvg = svg;
+    this._chevronSvg = await loadHrefSvg(CHEVRON_HREF);
     this.requestUpdate();
   }
 
@@ -64,6 +59,4 @@ class NxBreadcrumb extends LitElement {
   }
 }
 
-if (!customElements.get('nx-breadcrumb')) {
-  customElements.define('nx-breadcrumb', NxBreadcrumb);
-}
+customElements.define('nx-breadcrumb', NxBreadcrumb);

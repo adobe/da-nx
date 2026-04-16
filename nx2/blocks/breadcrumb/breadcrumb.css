@@ -1,11 +1,17 @@
 :host {
   display: block;
   min-width: 0;
+  height: var(--s2-spacing-500);
+  box-sizing: border-box;
 }
 
 .breadcrumb {
+  display: flex;
+  align-items: center;
   min-width: 0;
+  height: 100%;
   overflow: hidden;
+  box-sizing: border-box;
 }
 
 .breadcrumb ol {
@@ -17,9 +23,9 @@
   padding: 0;
   gap: 0;
   font-family: var(--s2-font-family);
-  font-size: var(--s2-component-s-regular-font-size);
-  line-height: var(--s2-component-s-regular-line-height);
-  font-weight: var(--s2-component-s-regular-font-weight);
+  font-size: var(--s2-component-m-regular-font-size);
+  line-height: var(--s2-component-m-regular-line-height);
+  font-weight: var(--s2-component-m-regular-font-weight);
   color: var(--s2-gray-700);
 }
 
@@ -34,20 +40,23 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  margin-inline: 5px;
+  margin-inline: var(--s2-spacing-75);
   color: var(--s2-gray-700);
   pointer-events: none;
   user-select: none;
 }
 
-.crumb-chevron {
+/* 1em matches crumb type; ChevronLeft → forward “>”. Styles target `svg` inside `.crumb-separator` (no JS class). */
+.crumb-separator svg {
   display: block;
   flex-shrink: 0;
-  width: 3.69px;
-  height: 5.91px;
+  box-sizing: border-box;
+  width: 8px;
+  height: 8px;
+  transform-origin: center;
 }
 
-.crumb-chevron :is(path, circle, rect, ellipse, line, polyline, polygon) {
+.crumb-separator svg :is(path, circle, rect, ellipse, line, polyline, polygon) {
   fill: currentcolor;
 }
 

@@ -1,4 +1,4 @@
-import { LitElement, html } from 'da-lit';
+import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle, hashChange } from '../../utils/utils.js';
 import { listFolder } from './browse-api.js';
 import { contextToPathContext } from './utils.js';
@@ -88,10 +88,17 @@ class NxBrowse extends LitElement {
     }
 
     const title = ctx.pathSegments.at(-1) ?? '';
+
+    if (!this._listError && this._items === undefined) {
+      return nothing;
+    }
+
     const header = html`
       <div class="browse-header">
+        <div class="browse-title-bar">
+          <h1 class="browse-title">${title}</h1>
+        </div>
         <nx-breadcrumb .pathSegments=${ctx.pathSegments}></nx-breadcrumb>
-        <h1 class="browse-title">${title}</h1>
       </div>
     `;
 
@@ -102,13 +109,6 @@ class NxBrowse extends LitElement {
           <p class="browse-hint-title">Could not load this folder</p>
           <p class="browse-hint-detail">${this._listError}</p>
         </div>
-      `;
-    }
-
-    if (this._items === undefined) {
-      return html`
-        ${header}
-        <p class="browse-loading" role="status">Loading…</p>
       `;
     }
 
