@@ -1,5 +1,6 @@
 /* eslint-disable import/no-unresolved -- importmap */
 import { Plugin } from 'da-y-wrapper';
+import '../../../shared/menu/menu.js';
 
 const ITEMS = [
   { id: 'heading', label: 'Heading' },
@@ -7,8 +8,6 @@ const ITEMS = [
   { id: 'ordered-list', label: 'Numbered List' },
   { id: 'table', label: 'Table' },
 ];
-
-let menuImport;
 
 function inTopLevelParagraph($from) {
   if ($from.parent.type.name !== 'paragraph') return false;
@@ -32,6 +31,15 @@ function getSlashContext(state) {
 
   // Anchor at paragraph start (the `/`) so the menu does not jump with the cursor while filtering
   return { query, anchorPos: paraStart };
+}
+
+function shouldShowSlashHint(state) {
+  const { $from } = state.selection;
+  if (!inTopLevelParagraph($from)) return false;
+  if ($from.parentOffset !== 0) return false;
+  if ($from.parent.content.size > 0) return false;
+  if (getSlashContext(state)) return false;
+  return true;
 }
 
 function filterItems(query) {
@@ -68,7 +76,35 @@ function positionAnchor(view, anchor, pos) {
   anchor.style.top = `${coords.bottom}px`;
 }
 
+function syncSlashHint(view, ctxRef) {
+  const container = view.dom.parentElement;
+  if (!container) return;
+
+  if (!shouldShowSlashHint(view.state)) {
+    if (ctxRef.hintEl) ctxRef.hintEl.style.display = 'none';
+    return;
+  }
+
+  if (!ctxRef.hintEl) {
+    const hint = document.createElement('span');
+    hint.textContent = 'Tap \'/\' to insert';
+    hint.setAttribute('aria-hidden', 'true');
+    hint.className = 'da-slash-hint';
+    container.append(hint);
+    ctxRef.hintEl = hint;
+  }
+
+  const { hintEl } = ctxRef;
+  const pos = view.state.selection.$from.start();
+  const coords = view.coordsAtPos(pos);
+  hintEl.style.left = `${coords.left + 3}px`;
+  hintEl.style.top = `${coords.top}px`;
+  hintEl.style.display = '';
+}
+
 function syncSlashUi(view, ctxRef) {
+  syncSlashHint(view, ctxRef);
+
   const container = view.dom.parentElement;
   if (!container) return;
 
@@ -85,34 +121,28 @@ function syncSlashUi(view, ctxRef) {
     return;
   }
 
-  if (!menuImport) {
-    menuImport = import('../../../shared/menu/menu.js');
+  if (!ctxRef.ctx) ctxRef.ctx = setup(container, view);
+  const { menu, anchor } = ctxRef.ctx;
+  positionAnchor(view, anchor, slash.anchorPos);
+  menu.items = items;
+  if (!menu.open) {
+    menu.show({ anchor });
   }
-
-  menuImport
-    .then(() => {
-      if (!ctxRef.ctx) ctxRef.ctx = setup(container, view);
-      const { menu, anchor } = ctxRef.ctx;
-      positionAnchor(view, anchor, slash.anchorPos);
-      menu.items = items;
-      if (!menu.open) {
-        menu.show({ anchor });
-      }
-    })
-    .catch(() => {});
 }
 
 function destroySlashUi(ctxRef) {
+  ctxRef.hintEl?.remove();
   const { ctx } = ctxRef;
   if (!ctx) return;
   ctx.menu.close();
   ctx.anchor.remove();
   ctx.menu.remove();
-  ctxRef.ctx = undefined;
+  // eslint-disable-next-line no-param-reassign
+  ctxRef = {};
 }
 
 export function createSlashMenuPlugin() {
-  const ctxRef = { ctx: undefined };
+  const ctxRef = {};
 
   return new Plugin({
     view(editorView) {
