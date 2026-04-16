@@ -116,12 +116,30 @@ export function clearSkillsLabSuggestionSession() {
 }
 
 /**
+ * Rebuild `:names` and `:type` so the config page renders every sheet as a tab.
+ * Keys starting with `:` or `private-` are metadata / private and excluded from `:names`.
+ */
+function syncConfigMeta(cfg) {
+  const names = Object.keys(cfg).filter(
+    (k) => !k.startsWith(':') && !k.startsWith('private-') && typeof cfg[k] === 'object',
+  );
+  if (names.length > 1) {
+    cfg[':names'] = names;
+    cfg[':type'] = 'multi-sheet';
+  } else if (names.length === 1) {
+    cfg[':names'] = names;
+    cfg[':type'] = 'multi-sheet';
+  }
+}
+
+/**
  * POST merged config back (preserves existing sheets; adds/updates mcp-servers).
  * @param {string} org
  * @param {string} site
  * @param {object} fullConfig - complete multi-sheet object from GET
  */
 export async function saveDaConfig(org, site, fullConfig) {
+  syncConfigMeta(fullConfig);
   const path = site ? `${org}/${site}` : org;
   const body = new FormData();
   body.append('config', JSON.stringify(fullConfig));
