@@ -24,7 +24,6 @@ class NxBrowse extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [styles];
-    document.body.style.overflow = 'hidden';
     this._unsubscribeHash = hashChange.subscribe((hashState) => {
       if (!this._explicitContext) {
         this._context = hashState;
@@ -38,7 +37,6 @@ class NxBrowse extends LitElement {
 
   disconnectedCallback() {
     this._unsubscribeHash?.();
-    document.body.style.overflow = '';
     super.disconnectedCallback();
   }
 
