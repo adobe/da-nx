@@ -36,11 +36,23 @@ export const daFetch = async (url, opts = {}) => {
     resp = new Response(null, { status: 500, statusText: err.message });
   }
   if (resp.status === 401) {
-    const { loadIms, handleSignIn } = await import('./ims.js');
-    await loadIms();
-    handleSignIn();
+    try {
+      const { loadIms, handleSignIn } = await import('./ims.js');
+      await loadIms();
+      handleSignIn();
+    } catch {
+      /* IMS/sign-in is optional (e.g. local dev); callers still receive the 401 Response. */
+    }
   }
-  resp.permissions = resp.headers.get('x-da-actions')?.split('=').pop().split(',');
+  try {
+    const raw = resp.headers.get('x-da-actions');
+    resp.permissions = raw
+      ? raw.split('=').pop()?.split(',')?.map((s) => s.trim())
+        .filter(Boolean)
+      : undefined;
+  } catch {
+    resp.permissions = undefined;
+  }
   return resp;
 };
 

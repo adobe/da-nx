@@ -1,0 +1,748 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-height: 0;
+  min-width: 0;
+  max-height: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.skills-lab-root {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-height: 0;
+  background: var(--spectrum-global-color-gray-50, #fafafa);
+}
+
+.skills-lab-banner {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  background: #e8f0fe;
+  border-bottom: 1px solid #aecbfa;
+  font-size: 13px;
+}
+
+.skills-lab-banner-dismiss {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  padding: 4px 8px;
+  color: #174ea6;
+}
+
+.skills-lab-columns {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  align-items: stretch;
+  gap: 0;
+  border-top: 1px solid var(--spectrum-global-color-gray-200, #e0e0e0);
+}
+
+.skills-lab-col {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  border-right: 1px solid var(--spectrum-global-color-gray-200, #e0e0e0);
+  background: #fff;
+}
+
+.skills-lab-col:last-child {
+  border-right: none;
+}
+
+/* Column 1: skill id + markdown editor + actions (single surface for edit/read). */
+.skills-lab-col-form {
+  flex: 1 1 24%;
+  min-width: 240px;
+  max-width: min(520px, 42%);
+  min-height: 0;
+  overflow: hidden auto;
+}
+
+/* Column 2: tools (tabs: generated vs available registry). */
+.skills-lab-col-tools {
+  flex: 1 1 22%;
+  min-width: 220px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.skills-lab-tools-tabs {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--spectrum-global-color-gray-200, #e0e0e0);
+  background: #f7f7f7;
+}
+
+.skills-lab-tools-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding: 0 0 12px;
+}
+
+/* Column 3: tabbed catalog (wider). */
+.skills-lab-col-catalog {
+  flex: 1.45 1 38%;
+  min-width: 280px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.skills-lab-catalog-tabs {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--spectrum-global-color-gray-200, #e0e0e0);
+  background: #f7f7f7;
+}
+
+.skills-lab-cat-tab {
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  background: transparent;
+  color: #444;
+}
+
+.skills-lab-cat-tab:hover {
+  background: rgb(0 0 0 / 5%);
+}
+
+.skills-lab-cat-tab.is-active {
+  background: #fff;
+  border-color: #c8c8c8;
+  color: #1473e6;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 6%);
+}
+
+.skills-lab-catalog-toolbar {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #ececec;
+  font-size: 12px;
+}
+
+.skills-lab-filter-label {
+  font-weight: 600;
+  color: #555;
+  margin-right: 4px;
+}
+
+.skills-lab-filter-chip {
+  border: 1px solid #ccc;
+  border-radius: 999px;
+  padding: 4px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  background: #fff;
+  color: #333;
+}
+
+.skills-lab-filter-chip:hover {
+  border-color: #1473e6;
+  color: #1473e6;
+}
+
+.skills-lab-filter-chip.is-active {
+  background: #1473e6;
+  border-color: #1473e6;
+  color: #fff;
+}
+
+.skills-lab-catalog-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-bottom: 12px;
+}
+
+.skills-lab-save-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.skills-lab-textarea-tall {
+  min-height: min(62vh, 680px);
+  flex: 1;
+}
+
+.skills-lab-tools-hint {
+  margin: 0 0 10px;
+  padding: 8px 12px;
+}
+
+.skills-lab-col-scroll {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  padding: 0 0 12px;
+}
+
+
+.skills-lab-section-h {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #555;
+  background: linear-gradient(to bottom, #fff 70%, rgb(255 255 255 / 92%));
+  border-bottom: 1px solid #e8e8e8;
+}
+
+.skills-lab-editor-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 12px 0;
+}
+
+.skills-lab-section-h-inline {
+  position: static;
+  border-bottom: none;
+  padding: 4px 0;
+  flex: 1;
+}
+
+.skills-lab-link-btn {
+  border: none;
+  background: transparent;
+  color: #1473e6;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+
+.skills-lab-link-btn:hover {
+  background: #eef5ff;
+}
+
+.skills-lab-card {
+  margin: 6px 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #e4e4e4;
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s;
+}
+
+.skills-lab-card:hover {
+  background: #f6f9ff;
+}
+
+.skills-lab-card.sl-highlight {
+  border-color: #1473e6;
+  background: #f0f6ff;
+  box-shadow: 0 0 0 1px #1473e6;
+}
+
+.skills-lab-card-skill {
+  cursor: default;
+}
+
+.skills-lab-card-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.skills-lab-card-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.skills-lab-skill-edit {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid #d0d0d0;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  margin-top: 2px;
+}
+
+.skills-lab-skill-edit:hover {
+  background: #f0f0f0;
+  border-color: #b0b0b0;
+}
+
+/* Prompts catalog (aligned with chat Tools modal `.prompts-lib-*`) */
+.skills-lab-prompts-catalog-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+  margin: 6px 10px 12px;
+}
+
+.skills-lab-prompts-lib-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1.5px solid #e2e5ea;
+  border-radius: 12px;
+  background: #fff;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.skills-lab-prompts-lib-card:hover {
+  border-color: #1473e6;
+  box-shadow: 0 2px 8px rgb(20 115 230 / 12%);
+}
+
+.skills-lab-prompts-lib-card.sl-highlight {
+  border-color: #1473e6;
+  box-shadow: 0 0 0 1px #1473e6, 0 2px 8px rgb(20 115 230 / 12%);
+}
+
+.skills-lab-prompt-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.skills-lab-prompt-card-head-main {
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.skills-lab-prompts-lib-card-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.skills-lab-prompts-lib-card-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+.skills-lab-prompts-lib-card-category {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: #888;
+}
+
+.skills-lab-prompts-lib-card-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1a1a1a;
+  line-height: 1.3;
+  margin-top: 2px;
+}
+
+.skills-lab-prompts-lib-card-prompt {
+  font-size: 11.5px;
+  color: #555;
+  line-height: 1.5;
+  margin-top: 4px;
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.skills-lab-prompts-lib-card-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+
+.skills-lab-prompts-add-btn,
+.skills-lab-prompts-send-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 11.5px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+  border: 1.5px solid;
+}
+
+.skills-lab-prompts-add-btn {
+  background: #fff;
+  color: #444;
+  border-color: #d0d5dd;
+}
+
+.skills-lab-prompts-add-btn:hover {
+  background: #f0f0f0;
+  border-color: #aaa;
+}
+
+.skills-lab-prompts-send-btn {
+  background: #1473e6;
+  color: #fff;
+  border-color: #1473e6;
+}
+
+.skills-lab-prompts-send-btn:hover {
+  background: #0d66d0;
+  border-color: #0d66d0;
+}
+
+.skills-lab-card-title {
+  font-weight: 600;
+  font-size: 13px;
+  color: #222;
+  margin-bottom: 4px;
+}
+
+.skills-lab-card-meta {
+  font-size: 11px;
+  color: #666;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  word-break: break-all;
+}
+
+.skills-lab-card-desc {
+  font-size: 12px;
+  color: #555;
+  margin-top: 4px;
+  line-height: 1.35;
+}
+
+.skills-lab-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.skills-lab-pill {
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: #e8eaf6;
+  color: #283593;
+  font-family: monospace;
+}
+
+.skills-lab-form {
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.skills-lab-form label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #444;
+}
+
+.skills-lab-form-hint {
+  margin: 0;
+  padding: 8px 12px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #555;
+}
+
+.skills-lab-input,
+.skills-lab-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 13px;
+  padding: 6px 8px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  font-family: inherit;
+}
+
+.skills-lab-textarea {
+  min-height: 100px;
+  resize: vertical;
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+}
+
+/* Chat handoff: same conic gradient border as chat footer “thinking” (see chat.css). */
+@property --skills-lab-gradient-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes skills-lab-gradient-rotate {
+  0% { --skills-lab-gradient-angle: 0deg; }
+  100% { --skills-lab-gradient-angle: 360deg; }
+}
+
+.skills-lab-skill-editor-wrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1 1 auto;
+  margin-bottom: 4px;
+  border-radius: 10px;
+}
+
+.skills-lab-skill-editor-wrap-handoff {
+  padding: 2px;
+}
+
+.skills-lab-skill-editor-wrap-handoff::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 12px;
+  background: conic-gradient(
+    from var(--skills-lab-gradient-angle),
+    #f97316,
+    #ec4899,
+    #8b5cf6,
+    #3b82f6,
+    #10b981,
+    #f97316
+  );
+  animation: skills-lab-gradient-rotate 3s linear infinite;
+  z-index: 0;
+}
+
+.skills-lab-skill-editor-wrap-handoff::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  border-radius: 10px;
+  background: #fff;
+  z-index: 0;
+}
+
+.skills-lab-skill-editor-wrap-handoff .skills-lab-textarea {
+  position: relative;
+  z-index: 1;
+  border-color: transparent;
+  background: #fff;
+}
+
+.skills-lab-back {
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
+.skills-lab-back a {
+  color: #1473e6;
+  text-decoration: none;
+}
+
+.skills-lab-back a:hover {
+  text-decoration: underline;
+}
+
+.skills-lab-msg {
+  font-size: 12px;
+  padding: 4px 12px;
+}
+
+.skills-lab-msg-err {
+  color: #c62828;
+}
+
+.skills-lab-msg-ok {
+  color: #2e7d32;
+}
+
+.skills-lab-tool-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  margin: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+
+.skills-lab-tool-row:hover {
+  background: #f5f5f5;
+}
+
+.skills-lab-tool-row.sl-highlight {
+  border-color: #1473e6;
+  background: #f0f6ff;
+}
+
+.skills-lab-tool-id {
+  font-size: 12px;
+  font-weight: 600;
+  font-family: monospace;
+  color: #1473e6;
+}
+
+.skills-lab-tool-wrap {
+  font-size: 10px;
+  color: #777;
+}
+
+.skills-lab-type-badge {
+  display: inline-block;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 4px;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.skills-lab-type-badge.agent {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+.skills-lab-type-badge.skill {
+  background: #f3e5f5;
+  color: #6a1b9a;
+}
+
+.skills-lab-type-badge.mcp {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.skills-lab-type-badge.tool {
+  background: #fff3e0;
+  color: #e65100;
+}
+
+.skills-lab-loading {
+  padding: 24px;
+  text-align: center;
+  color: #888;
+  font-size: 14px;
+}
+
+/* ---- Mobile / narrow viewport (chat + editor + discover first; collapsible catalogs) ---- */
+.skills-lab-col-scroll-stack {
+  display: block;
+}
+
+.skills-lab-mobile-summary {
+  cursor: pointer;
+  list-style: none;
+  padding: 10px 12px;
+  margin: 0;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #333;
+  background: linear-gradient(to bottom, #f5f5f5 70%, rgb(245 245 245 / 92%));
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.skills-lab-mobile-summary::-webkit-details-marker {
+  display: none;
+}
+
+.skills-lab-mobile-body {
+  padding: 0;
+}
+
+@media (width <= 1023px) {
+  .skills-lab-columns {
+    flex-direction: column;
+  }
+
+  .skills-lab-col {
+    flex: 1 1 auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    border-right: none;
+    border-bottom: 1px solid var(--spectrum-global-color-gray-200, #e0e0e0);
+  }
+
+  .skills-lab-col:last-child {
+    border-bottom: none;
+  }
+
+  .skills-lab-col-scroll-stack {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .skills-lab-order-back {
+    order: 1;
+  }
+
+  .skills-lab-order-editor {
+    order: 2;
+  }
+
+  .skills-lab-order-msgs {
+    order: 5;
+  }
+}
+
+@media (width >= 1024px) {
+  /*
+   * Do NOT use `display: contents` on `<details>` — it breaks disclosure / slot behavior in
+   * several browsers, so catalog content stays hidden even when `open` is set.
+   * Hide the summary and let `<details>` fill the column like the original scroll pane.
+   */
+  .skills-lab-mobile-summary {
+    display: none !important;
+  }
+
+  .skills-lab-col-tools .skills-lab-tools-scroll nx-generated-tools {
+    display: block;
+    min-height: 0;
+  }
+}

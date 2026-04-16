@@ -14,11 +14,24 @@ import { renderMessageContent } from './chat-renderers.js';
 import { initIms, daFetch } from '../../../utils/daFetch.js';
 import { DA_ORIGIN } from '../../../public/utils/constants.js';
 import { loadSkills, saveSkill, deleteSkill } from '../../skills-editor/utils/utils.js';
+import {
+  clearSkillsLabSuggestionSession,
+  DA_SKILLS_LAB_CLEAR_FORM_FROM_CHAT_EVENT,
+  DA_SKILLS_LAB_FORM_COLUMN_DISMISS_EVENT,
+  DA_SKILLS_LAB_SUGGESTION_HANDOFF_EVENT,
+  materializeDaConfigAfter404,
+  setSkillsLabSuggestionHandoff,
+} from '../../browse/skills-lab-api.js';
+import { loadGeneratedTools } from './generated-tools/utils.js';
+import './generated-tools/generated-tools.js';
 import { DA_BULK_AEM_OPEN, DA_BULK_AEM_SETTLED } from './bulk-aem-modal.js';
 import '../../shared/menu/menu.js';
 
 const style = await getStyle(import.meta.url);
 const nxBase = getNx();
+
+/** Persists “Create Skill” lock across full-page navigations to `/apps/skills`. */
+const DA_CHAT_LOCKED_SKILL_SUGGESTION_SESSION_KEY = 'da-chat-locked-skill-suggestion-key';
 const TOOL_CARD_ARROW_ICON_SRC = `${nxBase}/img/icons/arrowcurved.svg`;
 const TOOL_CARD_REVERT_ICON_SRC = `${nxBase}/img/icons/revert.svg`;
 const imsInitial = await initIms();
@@ -134,7 +147,8 @@ function getContextFromHash() {
 function getAgentOrigin() {
   const params = new URLSearchParams(window.location.search);
   const isLocal = params.get('ref') === 'local' || params.get('nx') === 'local';
-  return isLocal ? 'http://localhost:5173' : 'https://da-agent.adobeaem.workers.dev';
+  /* Local da-agent default port (see `da start` / ew-devs-cli); was 5173 (wrong for this stack). */
+  return isLocal ? 'http://localhost:4002' : 'https://da-agent.adobeaem.workers.dev';
 }
 
 /** @param {unknown[]} pages @param {string} org @param {string} site */
@@ -159,23 +173,95 @@ function normalizeBulkPreviewPaths(pages, org, site) {
     });
 }
 
+/**
+ * Extract `---SKILL_CONTENT_START---` … `---SKILL_CONTENT_END---` with lenient spacing
+ * (models often omit a newline before END or add extra blank lines).
+ * @returns {{ fullMatch: string, body: string } | null}
+ */
+function matchSkillContentBlock(text) {
+  if (!text || !text.includes('---SKILL_CONTENT_START---')) return null;
+  const patterns = [
+    /---SKILL_CONTENT_START---\s*\r?\n([\s\S]*?)\r?\n\s*---SKILL_CONTENT_END---/,
+    /---SKILL_CONTENT_START---\s*([\s\S]*?)\s*---SKILL_CONTENT_END---/,
+  ];
+  for (const re of patterns) {
+    const m = text.match(re);
+    if (m) {
+      const body = String(m[1] ?? '').trim();
+      return { fullMatch: m[0], body };
+    }
+  }
+  return null;
+}
+
 function parseSkillSuggestion(text) {
   if (!text.includes('[SKILL_SUGGESTION]')) return null;
   const idMatch = text.match(/SKILL_ID:\s*([^\n\r]+)/);
-  const contentMatch = text.match(/---SKILL_CONTENT_START---\r?\n([\s\S]*?)\r?\n---SKILL_CONTENT_END---/);
-  if (!idMatch && !contentMatch) return null;
+  const block = matchSkillContentBlock(text);
+  if (!idMatch && !block) return null;
   return {
     id: idMatch ? idMatch[1].trim() : 'new-skill',
-    content: contentMatch ? contentMatch[1] : '',
+    content: block ? block.body : '',
   };
 }
 
 function stripSkillSuggestionMeta(text) {
-  return text
+  let t = text
     .replace(/\*?\*?\[SKILL_SUGGESTION\]\*?\*?\s*\n?/g, '')
-    .replace(/SKILL_ID:[^\n]*\n?/g, '')
-    .replace(/---SKILL_CONTENT_START---[\s\S]*?---SKILL_CONTENT_END---\n?/g, '')
-    .trim();
+    .replace(/SKILL_ID:[^\n]*\n?/g, '');
+  const block = matchSkillContentBlock(t);
+  if (block) {
+    t = t.replace(block.fullMatch, '');
+  }
+  return t.trim();
+}
+
+/**
+ * Collapsible panel for assistant prose + skill markdown inside the yellow skill-suggestion bubble.
+ * Intro-only suggestions previously had no `<details>` because the draft block was empty.
+ * @param {string} introText - Text outside the machine-readable suggestion block
+ * @param {string} draftMarkdown - Parsed `---SKILL_CONTENT---` body
+ * @param {string} [rawFallback] - Full assistant text when intro/draft are still empty (streaming)
+ */
+function renderSkillSuggestionProseAndDraft(introText, draftMarkdown, rawFallback = '') {
+  const intro = String(introText || '').trim();
+  const raw = String(rawFallback || '').trim();
+  const fromArg = String(draftMarkdown || '').trim();
+  const fromRawBlock = matchSkillContentBlock(raw);
+  const draft = fromArg || (fromRawBlock ? fromRawBlock.body : '');
+
+  if (!intro && !draft && raw) {
+    return html`
+      <details class="skill-suggestion-draft-details" open>
+        <summary class="skill-suggestion-draft-summary">Assistant reply (streaming)</summary>
+        <div class="skill-suggestion-draft-body">${renderMessageContent(raw)}</div>
+      </details>`;
+  }
+
+  if (!intro && !draft) {
+    return nothing;
+  }
+
+  let summaryLabel = 'Skill description';
+  if (intro && draft) summaryLabel = 'Skill description and draft';
+  else if (draft) summaryLabel = 'Skill draft (markdown)';
+
+  return html`
+    <details class="skill-suggestion-draft-details" open>
+      <summary class="skill-suggestion-draft-summary">${summaryLabel}</summary>
+      <div class="skill-suggestion-draft-body skill-suggestion-draft-stack">
+        ${intro
+    ? html`<div class="skill-suggestion-prose">${renderMessageContent(intro)}</div>`
+    : nothing}
+        ${draft
+    ? html`
+          <div class="skill-suggestion-md-wrap">
+            <div class="skill-suggestion-md-label">Skill markdown</div>
+            <div class="skill-suggestion-md-content">${renderMessageContent(draft)}</div>
+          </div>`
+    : nothing}
+      </div>
+    </details>`;
 }
 
 /**
@@ -213,10 +299,17 @@ class Chat extends LitElement {
     _newSkillName: { state: true },
     _skillEditorDirty: { state: true },
     _pendingSuggestionContent: { state: true },
+    _generatedTools: { state: true },
     /** Set when opening the modal from a suggestion card; disables button after save. */
     _pendingSkillSuggestionKey: { state: true },
     /** Keys `skill-sugg-${messageIndex}` for which Create Skill was completed. */
     _consumedSkillSuggestionKeys: { state: true },
+    /** Keys `skill-sugg-${messageIndex}` where user dismissed the pattern-detected card. */
+    _dismissedSkillPatternKeys: { state: true },
+    /** Hides streaming bubble highlight after dismiss while the same stream is in flight. */
+    _dismissStreamingSkillPattern: { state: true },
+    /** While set, “Create Skill” for this suggestion key is disabled (handoff to Skills Lab). */
+    _lockedSkillSuggestionKey: { state: true },
     _activeAgentId: { state: true },
     _daConfig: { state: true },
     _promptCards: { state: true },
@@ -259,14 +352,20 @@ class Chat extends LitElement {
     this._configuredMcpRows = [];
     this._configuredAgentRows = [];
     this._skills = null;
+    /** Last `${org}/${site}` used for `loadSkills`; avoids refetch on every in-repo path change. */
+    this._skillsRepoKey = '';
     this._skillsLoading = false;
     this._selectedSkill = null;
     this._newSkillMode = false;
     this._newSkillName = '';
     this._skillEditorDirty = false;
     this._pendingSuggestionContent = null;
+    this._generatedTools = undefined;
     this._pendingSkillSuggestionKey = null;
     this._consumedSkillSuggestionKeys = {};
+    this._dismissedSkillPatternKeys = {};
+    this._dismissStreamingSkillPattern = false;
+    this._lockedSkillSuggestionKey = null;
     this._activeAgentId = null;
     this._daConfig = null;
     this._promptCards = [];
@@ -281,6 +380,10 @@ class Chat extends LitElement {
     this._revertPendingToolCallId = null;
     this.getRevertSnapshotAemHtml = null;
     this.revertCollabDoc = null;
+    this._onSkillsLabFormColumnDismiss = () => {
+      this._clearLockedSkillSuggestion();
+      this.requestUpdate();
+    };
     this._chatController = null;
     this._fileInput = null;
     /** @type {{ toolCallId: string, toolName: string } | null} */
@@ -307,8 +410,22 @@ class Chat extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
+    this._restoreLockedSkillSuggestionFromSession();
     this.shadowRoot.adoptedStyleSheets = [style];
+    this._onWindowHashChange = () => {
+      const { org, site } = getContextFromHash();
+      const key = org && site ? `${org}/${site}` : '';
+      if (key !== this._skillsRepoKey) {
+        this._fetchSkills().catch(() => {});
+      }
+      this.requestUpdate();
+    };
+    window.addEventListener('hashchange', this._onWindowHashChange);
     window.addEventListener(DA_BULK_AEM_SETTLED, this._boundBulkAemSettled);
+    window.addEventListener(
+      DA_SKILLS_LAB_FORM_COLUMN_DISMISS_EVENT,
+      this._onSkillsLabFormColumnDismiss,
+    );
     this._ensureController();
     this._chatController?.connect();
     this._fetchDaConfig().then(() => {
@@ -320,7 +437,12 @@ class Chat extends LitElement {
   }
 
   disconnectedCallback() {
+    window.removeEventListener('hashchange', this._onWindowHashChange);
     window.removeEventListener(DA_BULK_AEM_SETTLED, this._boundBulkAemSettled);
+    window.removeEventListener(
+      DA_SKILLS_LAB_FORM_COLUMN_DISMISS_EVENT,
+      this._onSkillsLabFormColumnDismiss,
+    );
     this._clearPendingAttachments();
     this._chatController?.disconnect();
     super.disconnectedCallback();
@@ -350,9 +472,26 @@ class Chat extends LitElement {
       getContext: () => this._pageContextForAgent(),
       getImsToken: async () => (await initIms())?.accessToken?.token ?? null,
       onUpdate: () => {
+        const prevStreaming = this._streamingText;
         this._messages = [...this._chatController.messages];
         this._toolCards = new Map(this._chatController.toolCards);
-        this._streamingText = this._chatController.streamingText;
+        const nextStream = this._chatController.streamingText;
+        if (nextStream && !prevStreaming) {
+          this._dismissStreamingSkillPattern = false;
+        }
+        if (!nextStream && prevStreaming && this._dismissStreamingSkillPattern) {
+          const msgs = this._chatController.messages;
+          for (let i = msgs.length - 1; i >= 0; i -= 1) {
+            const m = msgs[i];
+            if (m.role === 'assistant' && typeof m.content === 'string' && parseSkillSuggestion(m.content)) {
+              const key = `skill-sugg-${i}`;
+              this._dismissedSkillPatternKeys = { ...this._dismissedSkillPatternKeys, [key]: true };
+              break;
+            }
+          }
+          this._dismissStreamingSkillPattern = false;
+        }
+        this._streamingText = nextStream;
         this._isThinking = this._chatController.isThinking;
         this._isAwaitingApproval = this._chatController.isAwaitingApproval;
         this._isAwaitingClientTool = this._chatController.isAwaitingClientTool;
@@ -626,7 +765,36 @@ class Chat extends LitElement {
   _clearChat() {
     this._chatController?.clearHistory();
     this._consumedSkillSuggestionKeys = {};
+    this._dismissedSkillPatternKeys = {};
+    this._dismissStreamingSkillPattern = false;
     this._pendingSkillSuggestionKey = null;
+    this._clearLockedSkillSuggestion();
+  }
+
+  _restoreLockedSkillSuggestionFromSession() {
+    try {
+      const s = sessionStorage.getItem(DA_CHAT_LOCKED_SKILL_SUGGESTION_SESSION_KEY);
+      if (s && typeof s === 'string') this._lockedSkillSuggestionKey = s;
+    } catch {
+      /* ignore */
+    }
+  }
+
+  _syncLockedSkillSuggestionToStorage(key) {
+    try {
+      if (key && typeof key === 'string') {
+        sessionStorage.setItem(DA_CHAT_LOCKED_SKILL_SUGGESTION_SESSION_KEY, key);
+      } else {
+        sessionStorage.removeItem(DA_CHAT_LOCKED_SKILL_SUGGESTION_SESSION_KEY);
+      }
+    } catch {
+      /* ignore */
+    }
+  }
+
+  _clearLockedSkillSuggestion() {
+    this._lockedSkillSuggestionKey = null;
+    this._syncLockedSkillSuggestionToStorage(null);
   }
 
   _sendToolApproval(toolCallId, approved) {
@@ -664,6 +832,11 @@ class Chat extends LitElement {
       const input = this.shadowRoot?.querySelector('.chat-input');
       if (input?.focus) input.focus();
     });
+  }
+
+  /** Public API: prefill chat input (e.g. Skills Lab “Add to chat”). */
+  insertPrompt(text) {
+    this._insertPrompt(text);
   }
 
   _onSkillEditorInput(e) {
@@ -713,6 +886,17 @@ class Chat extends LitElement {
       }
     });
 
+    (this._generatedTools || [])
+      .filter((tool) => tool?.status === 'approved')
+      .forEach((tool) => {
+        allItems.push({
+          id: `gen__${tool.id}`,
+          label: tool.id,
+          description: tool.description || tool.name || 'Generated tool',
+          group: 'Generated Tools',
+        });
+      });
+
     if (!this._slashFilter) return allItems;
     return allItems.filter(
       (t) => t.id.toLowerCase().includes(this._slashFilter)
@@ -753,8 +937,39 @@ class Chat extends LitElement {
     if (!org) return {};
     try {
       const path = site ? `${org}/${site}` : org;
-      const resp = await daFetch(`${DA_ORIGIN}/config/${path}`);
-      if (!resp.ok) return {};
+      const configUrl = `${DA_ORIGIN}/config/${path}/`;
+      let resp = await daFetch(configUrl);
+      if (resp.status === 401) {
+        this._daConfig = {};
+        this._configuredMcpServers = {};
+        this._configuredMcpRows = [];
+        this._configuredAgentRows = [];
+        this._promptCards = [];
+        return this._daConfig;
+      }
+      if (resp.status === 404) {
+        await materializeDaConfigAfter404(org, site);
+        resp = await daFetch(configUrl);
+        if (resp.status === 401) {
+          this._daConfig = {};
+          this._configuredMcpServers = {};
+          this._configuredMcpRows = [];
+          this._configuredAgentRows = [];
+          this._promptCards = [];
+          return this._daConfig;
+        }
+      }
+      if (!resp.ok) {
+        if (resp.status === 404) {
+          this._daConfig = {};
+          this._configuredMcpServers = {};
+          this._configuredMcpRows = [];
+          this._configuredAgentRows = [];
+          this._promptCards = [];
+          return this._daConfig;
+        }
+        return {};
+      }
       const json = await resp.json();
       const entries = json?.data?.data || [];
       const cfg = entries.reduce((acc, row) => {
@@ -807,6 +1022,9 @@ class Chat extends LitElement {
     }
     if (value === 'skills' && !this._skills && !this._skillsLoading) {
       this._fetchSkills();
+    }
+    if (value === 'generated-tools' && !this._generatedTools) {
+      this._fetchGeneratedTools();
     }
   }
 
@@ -865,20 +1083,57 @@ class Chat extends LitElement {
 
   async _fetchSkills() {
     const { org, site } = getContextFromHash();
-    if (!org) return;
+    if (!org || !site) {
+      this._skillsRepoKey = '';
+      this._skillsLoading = false;
+      this._skills = {};
+      return;
+    }
+    const key = `${org}/${site}`;
     this._skillsLoading = true;
     try {
       const skills = await loadSkills(org, site);
       this._skills = skills;
+      this._skillsRepoKey = key;
       const ids = Object.keys(skills);
       if (ids.length > 0 && !this._selectedSkill) {
         [this._selectedSkill] = ids;
       }
     } catch {
       this._skills = {};
+      this._skillsRepoKey = key;
     } finally {
       this._skillsLoading = false;
     }
+  }
+
+  async _fetchGeneratedTools() {
+    const { org, site } = getContextFromHash();
+    if (!org || !site) return;
+    try {
+      const tools = await loadGeneratedTools(org, site);
+      this._generatedTools = tools;
+    } catch {
+      this._generatedTools = [];
+    }
+  }
+
+  _handleGeneratedToolsChanged = async () => {
+    await this._fetchGeneratedTools();
+  };
+
+  _renderGeneratedToolsContent() {
+    const ctx = getContextFromHash();
+    const docPath = ctx.path ? `/${ctx.path}` : '';
+    return html`
+      <nx-generated-tools
+        .org=${ctx.org}
+        .site=${ctx.site}
+        .contextPagePath=${docPath}
+        approved-by=${imsInitial?.email || imsInitial?.displayName || 'user'}
+        @da-tool-approved=${this._handleGeneratedToolsChanged}
+        @da-tool-rejected=${this._handleGeneratedToolsChanged}>
+      </nx-generated-tools>`;
   }
 
   _refreshSkills() {
@@ -916,7 +1171,7 @@ class Chat extends LitElement {
     if (this._newSkillMode) {
       const id = this._newSkillName.trim();
       if (!id) return;
-      const result = await saveSkill(prefix, id, content);
+      const result = await saveSkill(prefix, id, content, { status: 'draft' });
       if (result.error) return;
       this._skills = { ...this._skills, [id]: content };
       this._selectedSkill = id;
@@ -924,17 +1179,23 @@ class Chat extends LitElement {
       this._skillEditorDirty = false;
       this._pendingSuggestionContent = null;
       if (this._pendingSkillSuggestionKey) {
+        const pk = this._pendingSkillSuggestionKey;
         this._consumedSkillSuggestionKeys = {
           ...this._consumedSkillSuggestionKeys,
-          [this._pendingSkillSuggestionKey]: true,
+          [pk]: true,
         };
         this._pendingSkillSuggestionKey = null;
+        if (this._lockedSkillSuggestionKey === pk) {
+          this._clearLockedSkillSuggestion();
+        }
       }
+      this._dispatchRepoFilesChangedForSite();
     } else if (this._selectedSkill) {
-      const result = await saveSkill(prefix, this._selectedSkill, content);
+      const result = await saveSkill(prefix, this._selectedSkill, content, { status: 'draft' });
       if (result.error) return;
       this._skills = { ...this._skills, [this._selectedSkill]: content };
       this._skillEditorDirty = false;
+      this._dispatchRepoFilesChangedForSite();
     }
   }
 
@@ -949,6 +1210,16 @@ class Chat extends LitElement {
     this._skills = next;
     const ids = Object.keys(next);
     this._selectedSkill = ids.length > 0 ? ids[0] : null;
+    this._dispatchRepoFilesChangedForSite();
+  }
+
+  /** Lets browse / Skills Lab refresh lists after config sheet skill changes from this panel. */
+  _dispatchRepoFilesChangedForSite() {
+    const { org, site } = getContextFromHash();
+    if (!org || !site) return;
+    window.dispatchEvent(new CustomEvent(REPO_FILES_CHANGED_EVENT, {
+      detail: { org, repo: site, ts: Date.now() },
+    }));
   }
 
   _renderSkillsContent() {
@@ -956,10 +1227,10 @@ class Chat extends LitElement {
       return html`<div class="chat-skills-empty"><p class="chat-skills-empty-text">Loading skills...</p></div>`;
     }
 
-    if (!this._skills) {
+    if (this._skills == null) {
       return html`
         <div class="chat-skills-empty">
-          <p class="chat-skills-empty-text">Select a site to view skills.</p>
+          <p class="chat-skills-empty-text">Loading skills…</p>
         </div>`;
     }
 
@@ -969,7 +1240,7 @@ class Chat extends LitElement {
       return html`
         <div class="chat-skills-empty">
           <p class="chat-skills-empty-text">No skills found.</p>
-          <p class="chat-skills-empty-text">Skills are markdown documents under <code>.da/skills/</code> that teach the assistant reusable workflows.</p>
+          <p class="chat-skills-empty-text">Skills are stored in the DA config <code>skills</code> sheet (per site) and teach the assistant reusable workflows.</p>
           <sp-button variant="accent" size="s" title="Create a new skill" aria-label="Create a new skill" @click=${() => {
           this._newSkillMode = true;
           this._pendingSkillSuggestionKey = null;
@@ -983,7 +1254,8 @@ class Chat extends LitElement {
       : (this._skills[this._selectedSkill] ?? '');
 
     const { org, site } = getContextFromHash();
-    const skillsLabUrl = `https://da.live/apps/skills?nx=exp-workspace#/${org}/${site}`;
+    const skillsAppBase = `${window.location.origin}/apps/skills${window.location.search || ''}`;
+    const skillsLabUrl = org && site ? `${skillsAppBase}#/${org}/${site}/skills-lab` : skillsAppBase;
 
     return html`
       <div class="skills-panel">
@@ -1018,9 +1290,12 @@ class Chat extends LitElement {
           </div>
         ` : nothing}
         <textarea class="skill-editor-textarea" .value=${editorContent} aria-label="Skill content editor" @input=${this._onSkillEditorInput}></textarea>
+        <p class="skills-canvas-disclaimer" role="note">
+          Skills admin must approve this skill before it is available to run in chat.
+        </p>
         <div class="skills-actions">
           ${this._newSkillMode ? html`
-            <sp-button variant="secondary" size="s" title="Cancel new skill" aria-label="Cancel new skill"
+            <sp-button variant="secondary" size="m" title="Cancel new skill" aria-label="Cancel new skill"
               @click=${() => {
           this._newSkillMode = false;
           this._skillEditorDirty = false;
@@ -1029,15 +1304,16 @@ class Chat extends LitElement {
           if (ids.length > 0) [this._selectedSkill] = ids;
         }}>Cancel</sp-button>
           ` : html`
-            <button type="button" class="skill-tb-btn skill-tb-delete" title="Delete this skill" aria-label="Delete this skill" @click=${this._deleteCurrentSkill}>
-              <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M8.25 15.02a.75.75 0 0 1-.75-.72l-.25-6.5a.75.75 0 0 1 1.5-.06l.25 6.5a.75.75 0 0 1-.72.78Zm3.5 0a.75.75 0 0 1-.72-.78l.25-6.5a.75.75 0 0 1 1.5.06l-.25 6.5a.75.75 0 0 1-.78.72ZM17 4h-3.5v-.75A2.25 2.25 0 0 0 11.25 1h-2.5A2.25 2.25 0 0 0 6.5 3.25V4H3a.75.75 0 0 0 0 1.5h.52l.42 10.34A2.25 2.25 0 0 0 6.19 18h7.62a2.25 2.25 0 0 0 2.25-2.16L16.48 5.5H17a.75.75 0 0 0 0-1.5ZM8 3.25A.75.75 0 0 1 8.75 2.5h2.5a.75.75 0 0 1 .75.75V4H8V3.25Zm6.56 12.53a.75.75 0 0 1-.75.72H6.19a.75.75 0 0 1-.75-.72L5.02 5.5h9.96l-.42 10.28Z" fill="currentColor"/></svg>
-            </button>
+            <sp-button variant="secondary" size="m" title="Delete this skill" aria-label="Delete this skill"
+              @click=${this._deleteCurrentSkill}>
+              Delete
+            </sp-button>
           `}
-          <button type="button" class="skill-tb-btn skill-tb-save" title="Save skill" aria-label="Save skill"
+          <sp-button variant="accent" size="m" title="Save skill as draft" aria-label="Save skill as draft"
             ?disabled=${this._newSkillMode ? !this._newSkillName.trim() : !this._skillEditorDirty}
             @click=${this._saveCurrentSkill}>
-            <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M17.41 4.1 15.9 2.59A1.75 1.75 0 0 0 14.48 2H4.25A2.25 2.25 0 0 0 2 4.25v11.5A2.25 2.25 0 0 0 4.25 18h11.5A2.25 2.25 0 0 0 18 15.75V5.52c0-.53-.21-1.04-.59-1.42ZM7.75 3.5h4.5v3h-4.5v-3Zm5.5 13H6.75V12h6.5v4.5Zm3.25-1.75a.75.75 0 0 1-.75.75h-1V12a1.75 1.75 0 0 0-1.75-1.75h-6.5A1.75 1.75 0 0 0 5.25 12v4.5h-1a.75.75 0 0 1-.75-.75V4.25a.75.75 0 0 1 .75-.75h2v3A1.75 1.75 0 0 0 7.75 8h4.5a1.75 1.75 0 0 0 1.75-1.75v-3h.48a.25.25 0 0 1 .18.07l1.52 1.52a.25.25 0 0 1 .07.18v11.23Z" fill="currentColor"/></svg>
-          </button>
+            Save skill as draft
+          </sp-button>
         </div>
         <a class="skills-lab-link" href="${skillsLabUrl}" target="_blank" rel="noopener noreferrer" title="Open the full Skills Lab editor">
           Go to Skills Lab
@@ -1461,46 +1737,100 @@ class Chat extends LitElement {
 
   _openPromptsLibrary() {
     this._skillsLibraryTab = 'prompts';
-    this._openSkillsModal();
-  }
-
-  _onAddMenuSelect(e) {
-    const { id } = e.detail;
-    if (id === 'files') {
-      this._openAttachmentPicker();
-    } else if (id === 'command') {
-      this._inputValue = '/';
-      this._slashMenuOpen = true;
-      this.updateComplete.then(() => {
-        this.shadowRoot?.querySelector('.chat-input')?.shadowRoot?.querySelector('input,textarea')?.focus();
-      });
-    } else if (id === 'prompt') {
-      this._openPromptsLibrary();
-    } else if (id === 'prompts') {
-      const { org, site } = getContextFromHash();
-      window.open(`https://da.live/config#/${org}/${site}/`, '_blank', 'noopener noreferrer');
-    } else if (id === 'skills') {
-      const { org, site } = getContextFromHash();
-      window.open(`https://da.live/apps/skills?nx=exp-workspace#/${org}/${site}`, '_blank', 'noopener noreferrer');
-    }
-  }
-
-  _openSkillsModal() {
-    this._skillsModalOpen = true;
+    this._ensureToolsQuickEditingOpen();
   }
 
   _closeSkillsModal() {
-    this._skillsModalOpen = false;
+    const trigger = this.shadowRoot.querySelector('.chat-tools-quick-overlay');
+    if (trigger) trigger.open = undefined;
+    clearSkillsLabSuggestionSession();
   }
 
-  _openSkillModalWithSuggestion(id, content, suggestionKey = null) {
+  /** Opens Tools Quick Editing; avoids `.click()` so an open overlay is not toggled closed. */
+  _ensureToolsQuickEditingOpen() {
+    this.updateComplete.then(() => {
+      const ot = this.shadowRoot?.querySelector('.chat-tools-quick-overlay');
+      if (!ot) return;
+      const alreadyOpen = ot.open === 'click';
+      if (!alreadyOpen) {
+        ot.open = 'click';
+      } else {
+        this._onSkillsModalOpen();
+      }
+    });
+  }
+
+  _openSkillModalWithSuggestion(
+    id,
+    content,
+    suggestionKey = null,
+    chatProvenanceForSkillsLab = null,
+  ) {
+    if (typeof suggestionKey === 'string' && suggestionKey) {
+      this._lockedSkillSuggestionKey = suggestionKey;
+      this._syncLockedSkillSuggestionToStorage(suggestionKey);
+    }
     this._pendingSkillSuggestionKey = typeof suggestionKey === 'string' ? suggestionKey : null;
-    this._newSkillMode = true;
-    this._newSkillName = id;
-    this._pendingSuggestionContent = content;
-    this._skillEditorDirty = true;
-    this._skillsLibraryTab = 'skills';
-    this._openSkillsModal();
+    this.requestUpdate();
+
+    queueMicrotask(() => {
+      const prose = typeof chatProvenanceForSkillsLab === 'string' ? chatProvenanceForSkillsLab : '';
+      const body = typeof content === 'string' ? content : '';
+      const skillId = String(id ?? '').trim();
+      const { org, site } = getContextFromHash();
+      if (org && site) {
+        setSkillsLabSuggestionHandoff({ prose, id: skillId, body });
+        const skillsAppBase = `${window.location.origin}/apps/skills${window.location.search || ''}`;
+        const targetHash = `#/${org}/${site}/skills-lab`;
+        const onSkillsApp = window.location.pathname.includes('/apps/skills');
+        if (onSkillsApp) {
+          if (window.location.hash === targetHash) {
+            window.dispatchEvent(new CustomEvent(DA_SKILLS_LAB_SUGGESTION_HANDOFF_EVENT));
+          } else {
+            window.location.hash = targetHash;
+          }
+        } else {
+          window.location.assign(`${skillsAppBase}${targetHash}`);
+        }
+        return;
+      }
+      this._newSkillMode = true;
+      this._newSkillName = id;
+      this._pendingSuggestionContent = content;
+      this._skillEditorDirty = true;
+      this._skillsLibraryTab = 'skills';
+      this._ensureToolsQuickEditingOpen();
+    });
+  }
+
+  /**
+   * Whether the suggested skill id already exists in the site config `skills` sheet
+   * (persists across reloads).
+   * @param {string} suggestionId
+   */
+  _skillExistsForSuggestion(suggestionId) {
+    const sid = String(suggestionId ?? '')
+      .trim()
+      .replace(/\.md$/i, '');
+    if (!sid || this._skills == null) return false;
+    return Object.prototype.hasOwnProperty.call(this._skills, sid);
+  }
+
+  _dismissSkillPatternCard(skillSuggKey) {
+    if (!skillSuggKey) return;
+    this._dismissedSkillPatternKeys = {
+      ...this._dismissedSkillPatternKeys,
+      [skillSuggKey]: true,
+    };
+    if (this._lockedSkillSuggestionKey === skillSuggKey) {
+      this._clearLockedSkillSuggestion();
+    }
+    window.dispatchEvent(new CustomEvent(DA_SKILLS_LAB_CLEAR_FORM_FROM_CHAT_EVENT));
+  }
+
+  _dismissStreamingSkillPatternCard() {
+    this._dismissStreamingSkillPattern = true;
+    window.dispatchEvent(new CustomEvent(DA_SKILLS_LAB_CLEAR_FORM_FROM_CHAT_EVENT));
   }
 
   _renderWelcome() {
@@ -1540,18 +1870,27 @@ class Chat extends LitElement {
     if (this._skillsLibraryTab === 'skills' && !this._skills && !this._skillsLoading) {
       this._fetchSkills();
     }
+    if (this._skillsLibraryTab === 'generated-tools' && !this._generatedTools) {
+      this._fetchGeneratedTools();
+    }
   }
 
   _renderSkillsModal() {
     return html`
       <overlay-trigger
-        type="modal"
-        triggered-by="click"
-        .open="${this._skillsModalOpen ? 'click' : undefined}"
-        @sp-opened=${this._onSkillsModalOpen}
-        @sp-closed=${this._closeSkillsModal}
-      >
-        <sp-dialog-wrapper slot="click-content" headline="Tools Quick Editing" dismissable underlay style="--mod-dialog-confirm-max-block-size: 90vh; max-block-size: 90vh;">
+          class="chat-tools-quick-overlay"
+          type="modal"
+          triggered-by="click"
+          @sp-opened=${this._onSkillsModalOpen}
+        >
+        <sp-dialog-wrapper
+          class="chat-skills-quick-dialog"
+          slot="click-content"
+          headline="Tools Quick Editing"
+          dismissable
+          underlay
+          style="--mod-dialog-confirm-max-block-size: 90vh;"
+        >
           <div class="chat-skills-modal-body">
             <sp-sidenav
               class="chat-skills-sidenav"
@@ -1559,9 +1898,10 @@ class Chat extends LitElement {
               @change="${this._onSkillsNavChange}"
             >
               <sp-sidenav-item value="skills" label="Skills" ?selected="${this._skillsLibraryTab === 'skills'}"></sp-sidenav-item>
-              <sp-sidenav-item value="prompts" label="Prompts" ?selected="${this._skillsLibraryTab === 'prompts'}"></sp-sidenav-item>
-              <sp-sidenav-item value="mcp" label="MCP" ?selected="${this._skillsLibraryTab === 'mcp'}"></sp-sidenav-item>
               <sp-sidenav-item value="agents" label="Agents" ?selected="${this._skillsLibraryTab === 'agents'}"></sp-sidenav-item>
+              <sp-sidenav-item value="prompts" label="Prompts" ?selected="${this._skillsLibraryTab === 'prompts'}"></sp-sidenav-item>
+              <sp-sidenav-item value="mcp" label="MCPs" ?selected="${this._skillsLibraryTab === 'mcp'}"></sp-sidenav-item>
+              <sp-sidenav-item value="generated-tools" label="Generated Tools" ?selected="${this._skillsLibraryTab === 'generated-tools'}"></sp-sidenav-item>
             </sp-sidenav>
             <div class="chat-skills-content">
               ${this._renderActiveTab()}
@@ -1611,9 +1951,10 @@ class Chat extends LitElement {
   _renderActiveTab() {
     switch (this._skillsLibraryTab) {
       case 'skills': return this._renderSkillsContent();
+      case 'agents': return this._renderAgentsContent();
       case 'prompts': return this._renderPromptsContent();
       case 'mcp': return this._renderMcpContent();
-      case 'agents': return this._renderAgentsContent();
+      case 'generated-tools': return this._renderGeneratedToolsContent();
       default: return nothing;
     }
   }
@@ -1702,29 +2043,50 @@ class Chat extends LitElement {
             const displayContent = suggestion
               ? stripSkillSuggestionMeta(message.content)
               : message.content;
-            const rendered = renderMessageContent(displayContent);
             const skillSuggKey = `skill-sugg-${msgIndex}`;
-            const skillSuggDone = !!(suggestion && this._consumedSkillSuggestionKeys[skillSuggKey]);
+            const patternDismissed = !!(suggestion
+              && this._dismissedSkillPatternKeys[skillSuggKey]);
+            const skillSuggDone = !!(suggestion && (
+              this._consumedSkillSuggestionKeys[skillSuggKey]
+              || this._skillExistsForSuggestion(suggestion.id)
+            ));
+            const showPatternCard = suggestion && !patternDismissed;
+            const bubbleMain = showPatternCard
+              ? renderSkillSuggestionProseAndDraft(
+                displayContent,
+                suggestion.content,
+                message.content,
+              )
+              : renderMessageContent(displayContent);
             return html`
               <div class="message-row assistant">
-                <div class="message-bubble ${suggestion ? 'skill-suggestion' : ''}">${rendered}${suggestion ? html`
+                <div class="message-bubble ${showPatternCard ? 'skill-suggestion' : ''}">${bubbleMain}${showPatternCard ? html`
                   <div class="skill-suggestion-card">
                     <div class="skill-suggestion-card-info">
                       <span class="skill-suggestion-card-label">Pattern detected</span>
                       <code class="skill-suggestion-card-id">${suggestion.id}</code>
                     </div>
-                    <button type="button" class="skill-suggestion-card-btn"
-                      title="${skillSuggDone ? 'Skill created from this suggestion' : 'Open editor to create skill'}"
-                      aria-label="${skillSuggDone ? 'Skill already created' : 'Create skill from suggestion'}"
-                      ?disabled=${skillSuggDone}
-                      @click=${() => this._openSkillModalWithSuggestion(
+                    <div class="skill-suggestion-card-actions">
+                      <button type="button" class="skill-suggestion-dismiss-btn"
+                        title="Dismiss pattern suggestion"
+                        aria-label="Dismiss pattern suggestion"
+                        @click=${() => this._dismissSkillPatternCard(skillSuggKey)}>
+                        Dismiss
+                      </button>
+                      <button type="button" class="skill-suggestion-card-btn"
+                        title="${skillSuggDone ? 'Skill created from this suggestion' : 'Open editor to create skill'}"
+                        aria-label="${skillSuggDone ? 'Skill already created' : 'Create skill from suggestion'}"
+                        ?disabled=${skillSuggDone || this._lockedSkillSuggestionKey === skillSuggKey}
+                        @click=${() => this._openSkillModalWithSuggestion(
               suggestion.id,
               suggestion.content,
               skillSuggKey,
+              displayContent,
             )}>
-                      <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 3.75a.75.75 0 0 1 .75.75v4.75h4.75a.75.75 0 0 1 0 1.5h-4.75v4.75a.75.75 0 0 1-1.5 0v-4.75H4.5a.75.75 0 0 1 0-1.5h4.75V4.5a.75.75 0 0 1 .75-.75Z" fill="currentColor"/></svg>
-                      ${skillSuggDone ? 'Skill created' : 'Create Skill'}
-                    </button>
+                        <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="M10 3.75a.75.75 0 0 1 .75.75v4.75h4.75a.75.75 0 0 1 0 1.5h-4.75v4.75a.75.75 0 0 1-1.5 0v-4.75H4.5a.75.75 0 0 1 0-1.5h4.75V4.5a.75.75 0 0 1 .75-.75Z" fill="currentColor"/></svg>
+                        ${skillSuggDone ? 'Skill created' : 'Create Skill'}
+                      </button>
+                    </div>
                   </div>` : nothing}</div>
               </div>`;
           }
@@ -1737,7 +2099,33 @@ class Chat extends LitElement {
         })}
           ${this._streamingText ? html`
             <div class="message-row assistant">
-              <div class="message-bubble ${parseSkillSuggestion(this._streamingText) ? 'skill-suggestion' : ''}">${renderMessageContent(stripSkillSuggestionMeta(this._streamingText))}</div>
+              <div class="message-bubble ${parseSkillSuggestion(this._streamingText) && !this._dismissStreamingSkillPattern ? 'skill-suggestion' : ''}">
+                ${(() => {
+              const st = this._streamingText;
+              const streamSug = parseSkillSuggestion(st);
+              const streamStripped = stripSkillSuggestionMeta(st);
+              if (streamSug && !this._dismissStreamingSkillPattern) {
+                return html`
+                    ${renderSkillSuggestionProseAndDraft(streamStripped, streamSug.content, st)}
+                    <div class="skill-suggestion-card">
+                      <div class="skill-suggestion-card-info">
+                        <span class="skill-suggestion-card-label">Pattern detected</span>
+                        <span class="skill-suggestion-card-streaming-hint">Streaming…</span>
+                      </div>
+                      <div class="skill-suggestion-card-actions">
+                        <button type="button" class="skill-suggestion-dismiss-btn"
+                          title="Dismiss pattern suggestion"
+                          aria-label="Dismiss pattern suggestion"
+                          @click=${this._dismissStreamingSkillPatternCard}>
+                          Dismiss
+                        </button>
+                      </div>
+                    </div>
+                  `;
+              }
+              return renderMessageContent(streamStripped);
+            })()}
+              </div>
             </div>` : ''}
         </div>
 

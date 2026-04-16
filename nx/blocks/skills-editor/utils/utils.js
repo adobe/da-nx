@@ -1,5 +1,8 @@
-import { DA_ORIGIN } from '../../../public/utils/constants.js';
-import { daFetch } from '../../../utils/daFetch.js';
+import {
+  deleteSkillFromConfig,
+  loadSkillsFromConfig,
+  upsertSkillInConfig,
+} from '../../browse/skills-lab-api.js';
 
 // CodeMirror
 import {
@@ -8,70 +11,46 @@ import {
   githubLight,
 } from '../../../deps/codemirror/dist/index.js';
 
-const SKILLS_BASE_PATH = '/.da/skills';
-
-async function loadSkill(skill) {
-  const resp = await daFetch(`${DA_ORIGIN}/source${skill.path}`);
-  if (!resp.ok) return { error: 'Could not load skill.' };
-  return resp.text();
+function parseOrgSite(prefix) {
+  const parts = String(prefix || '')
+    .replace(/^\/+/, '')
+    .split('/')
+    .filter(Boolean);
+  if (parts.length >= 2) return { org: parts[0], site: parts[1] };
+  if (parts.length === 1) return { org: parts[0], site: '' };
+  return { org: '', site: '' };
 }
 
+/** Skills live in the DA config KV `skills` sheet (key + content), not repo paths. */
 export async function loadSkills(org, site) {
-  const orgPath = `/${org}${SKILLS_BASE_PATH}`;
-  const sitePath = `/${org}/${site}${SKILLS_BASE_PATH}`;
-  const path = site ? sitePath : orgPath;
-
-  let resp = await daFetch(`${DA_ORIGIN}/list${path}`);
-
-  // If this was a site request and it was empty, fallback to org
-  if (!resp.ok && site) resp = await daFetch(`${DA_ORIGIN}/list${orgPath}`);
-
-  if (!resp.ok) {
-    // eslint-disable-next-line no-console
-    console.log(`Cannot fetch skills from ${path}.`);
-    return {};
-  }
-
-  const json = await resp.json();
-  if (!json) {
-    // eslint-disable-next-line no-console
-    console.log('Cannot read skills.');
-    return {};
-  }
-
-  const mdFiles = json.filter((item) => item.ext === 'md');
-
-  const skills = await Promise.all(mdFiles.map(async (skill) => {
-    const content = await loadSkill(skill);
-    return { name: skill.name, content };
-  }));
-
-  return skills.reduce((acc, skill) => {
-    acc[skill.name] = skill.content;
-    return acc;
-  }, {});
+  if (!org) return {};
+  return loadSkillsFromConfig(org, site || '');
 }
 
-export async function saveSkill(prefix, id, content) {
-  const path = `${prefix}${SKILLS_BASE_PATH}/${id}.md`;
-
-  const body = new FormData();
-  const data = new Blob([content], { type: 'text/markdown' });
-  body.append('data', data);
-
-  const opts = { method: 'POST', body };
-  const resp = await daFetch(`${DA_ORIGIN}/source${path}`, opts);
-  if (!resp.ok) return { error: `Error saving. Status: ${resp.status}` };
-  return { status: resp.status };
+/**
+ * @param {string} prefix
+ * @param {string} id
+ * @param {string} content
+ * @param {{ status?: 'draft'|'approved' }} [opts]
+ */
+export async function saveSkill(prefix, id, content, opts = {}) {
+  const { org, site } = parseOrgSite(prefix);
+  if (!org || !site) {
+    return { error: 'Skills require org and site (save from a site-scoped context).' };
+  }
+  const result = await upsertSkillInConfig(org, site, id, content, opts);
+  if (result.error) return { error: result.error };
+  return { status: result.status ?? 200 };
 }
 
 export async function deleteSkill(prefix, id) {
-  const path = `${prefix}${SKILLS_BASE_PATH}/${id}.md`;
-
-  const opts = { method: 'DELETE' };
-  const resp = await daFetch(`${DA_ORIGIN}/source${path}`, opts);
-  if (!resp.ok) return { error: `Error deleting. Status: ${resp.status}` };
-  return { status: resp.status };
+  const { org, site } = parseOrgSite(prefix);
+  if (!org || !site) {
+    return { error: 'Skills require org and site.' };
+  }
+  const result = await deleteSkillFromConfig(org, site, id);
+  if (result.error) return { error: result.error };
+  return { status: result.status ?? 200 };
 }
 
 export function loadCodeMirror(el, doc) {
