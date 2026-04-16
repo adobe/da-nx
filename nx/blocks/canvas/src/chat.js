@@ -1748,6 +1748,48 @@ class Chat extends LitElement {
     this._ensureToolsQuickEditingOpen();
   }
 
+  _onAddMenuSelect(e) {
+    const { id } = e.detail || {};
+    if (!id) return;
+
+    if (id === 'files') {
+      this._openAttachmentPicker();
+      return;
+    }
+
+    if (id === 'command') {
+      this._inputValue = '/';
+      this._slashMenuOpen = true;
+      this._slashFilter = '';
+      this._slashSelectedIndex = 0;
+      this.updateComplete.then(() => {
+        this.shadowRoot?.querySelector('.chat-input')?.shadowRoot?.querySelector('input,textarea')?.focus();
+      });
+      return;
+    }
+
+    if (id === 'prompt') {
+      this._openPromptsLibrary();
+      return;
+    }
+
+    const { org, site } = getContextFromHash();
+    if (id === 'prompts') {
+      if (org && site) {
+        window.open(`https://da.live/config#/${org}/${site}/`, '_blank', 'noopener noreferrer');
+      } else {
+        window.open('https://da.live/config', '_blank', 'noopener noreferrer');
+      }
+      return;
+    }
+
+    if (id === 'skills') {
+      const skillsAppBase = `${window.location.origin}/apps/skills${window.location.search || ''}`;
+      const skillsUrl = org && site ? `${skillsAppBase}#/${org}/${site}` : skillsAppBase;
+      window.open(skillsUrl, '_blank', 'noopener noreferrer');
+    }
+  }
+
   _closeSkillsModal() {
     const trigger = this.shadowRoot.querySelector('.chat-tools-quick-overlay');
     if (trigger) trigger.open = undefined;
@@ -2161,7 +2203,7 @@ class Chat extends LitElement {
                 class="chat-toolbar-icon-btn"
                 title="Add content"
                 aria-label="Add content"
-                ?disabled=${this._isThinking || this._isAwaitingApproval || this._isAwaitingClientTool || !this._connected}
+                ?disabled=${this._isThinking || this._isAwaitingApproval || this._isAwaitingClientTool}
               >
                 <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path fill="currentColor" d="M16.25 9.25H10.75V3.75C10.75 3.33594 10.4141 3 10 3C9.58594 3 9.25 3.33594 9.25 3.75V9.25H3.75C3.33594 9.25 3 9.58594 3 10C3 10.4141 3.33594 10.75 3.75 10.75H9.25V16.25C9.25 16.6641 9.58594 17 10 17C10.4141 17 10.75 16.6641 10.75 16.25V10.75H16.25C16.6641 10.75 17 10.4141 17 10C17 9.58594 16.6641 9.25 16.25 9.25Z"/></svg>
               </button>
