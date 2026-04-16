@@ -260,6 +260,117 @@ export async function fetchDaConfigSheets(org, site) {
 
 const SKILLS_SHEET_KEY = 'skills';
 
+/** Repo-relative folder for skill markdown (dual storage with KV `skills` sheet). */
+const SKILLS_MD_REL = '.da/skills';
+
+/**
+ * @param {string} skillId
+ * @returns {string}
+ */
+function sanitizeSkillFilename(skillId) {
+  const t = String(skillId || '')
+    .trim()
+    .replace(/\.md$/i, '');
+  if (!t || t.includes('/') || t.includes('..') || t.includes('\\')) return '';
+  return t;
+}
+
+/**
+ * @param {string} org
+ * @param {string} site
+ * @returns {string}
+ */
+function skillsMdFolderPath(org, site) {
+  const o = String(org || '').trim();
+  const s = String(site || '').trim();
+  if (!o || !s) return '';
+  return `/${o}/${s}/${SKILLS_MD_REL}`;
+}
+
+/**
+ * @param {string} org
+ * @param {string} site
+ * @param {string} skillId
+ * @returns {string}
+ */
+function skillMdSourcePath(org, site, skillId) {
+  const folder = skillsMdFolderPath(org, site);
+  const base = sanitizeSkillFilename(skillId);
+  if (!folder || !base) return '';
+  return `${folder}/${base}.md`;
+}
+
+/**
+ * PUT skill body to `/.da/skills/{id}.md` (DA `/source` API).
+ * @returns {Promise<{ ok: boolean, status?: number }>}
+ */
+async function putSkillMdFile(org, site, skillId, content) {
+  const path = skillMdSourcePath(org, site, skillId);
+  if (!path) return { ok: false, status: 0 };
+  const blob = new Blob([String(content ?? '')], { type: 'text/markdown' });
+  const body = new FormData();
+  body.append('data', blob);
+  try {
+    const resp = await daFetch(`${DA_ORIGIN}/source${path}`, { method: 'PUT', body });
+    return { ok: resp.ok, status: resp.status };
+  } catch {
+    return { ok: false, status: 0 };
+  }
+}
+
+/**
+ * DELETE `/.da/skills/{id}.md` if present (ignore 404).
+ */
+async function deleteSkillMdFile(org, site, skillId) {
+  const path = skillMdSourcePath(org, site, skillId);
+  if (!path) return { ok: true };
+  try {
+    const resp = await daFetch(`${DA_ORIGIN}/source${path}`, { method: 'DELETE' });
+    if (resp.status === 404) return { ok: true };
+    return { ok: resp.ok, status: resp.status };
+  } catch {
+    return { ok: false };
+  }
+}
+
+/**
+ * Load skills from `.da/skills/*.md` (merged with KV in callers).
+ * @returns {Promise<Record<string, string>>}
+ */
+async function loadSkillsFromMdFiles(org, site) {
+  const folder = skillsMdFolderPath(org, site);
+  if (!folder) return {};
+  try {
+    const resp = await daFetch(`${DA_ORIGIN}/list${folder}`);
+    if (resp.status === 401 || resp.status === 404) return {};
+    if (!resp.ok) return {};
+    const payload = await resp.json();
+    const items = Array.isArray(payload) ? payload : payload?.items ?? [];
+    /** @type {Record<string, string>} */
+    const out = {};
+    await Promise.all(
+      items.map(async (item) => {
+        const name = String(item?.name || '').trim();
+        if (!name.toLowerCase().endsWith('.md')) return;
+        const key = sanitizeSkillFilename(name);
+        if (!key) return;
+        const filePath = `${folder}/${name}`;
+        try {
+          const r = await daFetch(`${DA_ORIGIN}/source${filePath}`);
+          if (!r.ok) return;
+          const text = await r.text();
+          if (key && text) out[key] = text;
+        } catch {
+          /* skip */
+        }
+      }),
+    );
+    return out;
+  } catch {
+    return {};
+  }
+}
+
 /**
  * @param {Record<string, unknown> | undefined} row
  * @returns {'draft'|'approved'}
@@ -327,16 +438,19 @@ export function skillsRowsToMapAndStatuses(rows) {
 }
 
 /**
- * Load all skills from the site config `skills` sheet.
+ * Load all skills from the site config `skills` sheet **and** `/.da/skills/*.md`.
+ * Same key in both: file body wins (repo markdown can override KV without deleting KV rows).
  * @param {string} org
  * @param {string} site
  * @returns {Promise<Record<string, string>>}
  */
 export async function loadSkillsFromConfig(org, site) {
   const loaded = await fetchDaConfigSheets(org, site);
-  if (!loaded.ok || !loaded.json) return {};
-  const rows = loaded.json[SKILLS_SHEET_KEY]?.data;
-  return skillsRowsToMap(rows);
+  const kvMap = (!loaded.ok || !loaded.json)
+    ? {}
+    : skillsRowsToMap(loaded.json[SKILLS_SHEET_KEY]?.data);
+  const fileMap = await loadSkillsFromMdFiles(org, site);
+  return { ...kvMap, ...fileMap };
 }
 
 /**
@@ -347,9 +461,23 @@ export async function loadSkillsFromConfig(org, site) {
  */
 export async function loadSkillsFromConfigWithStatuses(org, site) {
   const loaded = await fetchDaConfigSheets(org, site);
-  if (!loaded.ok || !loaded.json) return { map: {}, statuses: {} };
+  const fileMap = await loadSkillsFromMdFiles(org, site);
+  if (!loaded.ok || !loaded.json) {
+    /** @type {Record<string, 'draft'|'approved'>} */
+    const statuses = {};
+    Object.keys(fileMap).forEach((k) => {
+      statuses[k] = 'approved';
+    });
+    return { map: fileMap, statuses };
+  }
   const rows = loaded.json[SKILLS_SHEET_KEY]?.data;
-  return skillsRowsToMapAndStatuses(rows);
+  const { map: kvMap, statuses: kvStatuses } = skillsRowsToMapAndStatuses(rows);
+  const mergedMap = { ...kvMap, ...fileMap };
+  const mergedStatuses = { ...kvStatuses };
+  Object.keys(fileMap).forEach((k) => {
+    if (!mergedStatuses[k]) mergedStatuses[k] = 'approved';
+  });
+  return { map: mergedMap, statuses: mergedStatuses };
 }
 
 /**
@@ -392,6 +520,14 @@ export async function upsertSkillInConfig(org, site, skillId, content, options =
 
   const save = await saveDaConfig(org, site, cfg);
   if (!save.ok) return { error: `Save failed (${save.status})` };
+  const filePut = await putSkillMdFile(org, site, trimmedId, content);
+  if (!filePut.ok) {
+    return {
+      status: save.status,
+      warning: 'Saved to site config; writing .da/skills/*.md failed — retry save or check permissions.',
+      fileStatus: filePut.status,
+    };
+  }
   return { status: save.status };
 }
 
@@ -410,19 +546,31 @@ export async function deleteSkillFromConfig(org, site, skillId) {
   }
 
   const cfg = { ...(loaded.json || {}) };
-  const sheet = cfg[SKILLS_SHEET_KEY];
-  if (!sheet?.data?.length) return { error: 'No skills in config' };
-
-  const data = sheet.data.filter(
+  const sheet = cfg[SKILLS_SHEET_KEY] || { total: 0, limit: 1000, offset: 0, data: [] };
+  const existingData = [...(sheet.data || [])];
+  const data = existingData.filter(
     (r) => String(r.key ?? r.id ?? '')
       .trim()
       .replace(/\.md$/i, '') !== trimmedId,
   );
-  if (data.length === sheet.data.length) return { error: 'Skill not found' };
+
+  if (data.length === existingData.length) {
+    const delFile = await deleteSkillMdFile(org, site, trimmedId);
+    if (!delFile.ok) return { error: 'Skill not found in config or under .da/skills' };
+    return { status: 200 };
+  }
+
   cfg[SKILLS_SHEET_KEY] = { ...sheet, data, total: data.length };
 
   const save = await saveDaConfig(org, site, cfg);
   if (!save.ok) return { error: `Delete failed (${save.status})` };
+  const delFile = await deleteSkillMdFile(org, site, trimmedId);
+  if (!delFile.ok) {
+    return {
+      status: save.status,
+      warning: 'Removed from site config; deleting .da/skills/*.md may have failed.',
+    };
+  }
   return { status: save.status };
 }
 
