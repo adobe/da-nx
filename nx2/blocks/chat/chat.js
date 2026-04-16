@@ -118,26 +118,15 @@ class NxChat extends LitElement {
   }
 
   render() {
-    // todo: for preview only, remove before merge
     return html`
-      <nx-picker
-        .items=${[
-        { value: 'all', label: 'All' },
-        { value: 'content', label: 'Content' },
-        { value: 'seo', label: 'SEO' },
-        { value: 'style', label: 'Style' },
-        { divider: true },
-        { value: 'review', label: 'Review' },
-      ]}
-        .value=${'all'}
-        @change=${(e) => console.log('picker changed:', e.detail.value)}
-      ></nx-picker>
-      <div class="chat-messages-container" role="log" aria-live="polite">
-        ${!this.messages?.length && !this.thinking
+      <div class="chat-scroll-container">
+        <div class="chat-messages-container" role="log" aria-live="polite">
+          ${!this.messages?.length && !this.thinking
         ? html`<nx-chat-welcome .context=${this._context} .onSend=${(p) => this._sendPrompt(p)}></nx-chat-welcome>`
         : nothing}
-        ${this.messages?.map((msg) => renderMessage(msg, icons))}
-        ${this.thinking && !this.messages?.at(-1)?.streaming ? renderThinking() : nothing}
+          ${this.messages?.map((msg) => renderMessage(msg, icons))}
+          ${this.thinking && !this.messages?.at(-1)?.streaming ? renderThinking() : nothing}
+        </div>
       </div>
       <form class="chat-form" autocomplete="off" @submit=${this._submit}>
         <textarea
