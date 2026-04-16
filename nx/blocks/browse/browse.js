@@ -250,7 +250,7 @@ class BrowseView extends LitElement {
   _renderSkillsLabOrgSiteGate() {
     return html`
       <div class="browse-skills-lab-gate">
-        <h1 class="browse-skills-lab-gate-title">Skills Lab</h1>
+        <h1 class="browse-skills-lab-gate-title">Skills Editor</h1>
         <p class="browse-skills-lab-gate-desc">
           Enter your organization and site (same as in browse or canvas). You will manage skills, agents, prompts, and MCP servers for that repository.
         </p>

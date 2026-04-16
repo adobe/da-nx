@@ -610,6 +610,12 @@
   cursor: pointer;
 }
 
+.skills-lab-tool-row-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .skills-lab-tool-row:hover {
   background: #f5f5f5;
 }
@@ -629,6 +635,35 @@
 .skills-lab-tool-wrap {
   font-size: 10px;
   color: #777;
+}
+
+.skills-lab-pill-toggle {
+  margin-left: auto;
+  border: 1px solid #ccc;
+  border-radius: 999px;
+  padding: 2px 9px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  background: #fff;
+}
+
+.skills-lab-pill-toggle.is-enabled {
+  border-color: #2e7d32;
+  color: #2e7d32;
+  background: #eef7ef;
+}
+
+.skills-lab-pill-toggle.is-disabled {
+  border-color: #a0a0a0;
+  color: #666;
+  background: #f4f4f4;
+}
+
+.skills-lab-pill-toggle:disabled {
+  opacity: 0.65;
+  cursor: wait;
 }
 
 .skills-lab-type-badge {

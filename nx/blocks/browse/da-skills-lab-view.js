@@ -20,6 +20,9 @@ import {
   fetchMcpToolsFromAgent,
   loadAgentPresetsFromRepo,
   registerMcpServer,
+  setGeneratedToolEnabledInConfig,
+  setMcpServerEnabledInConfig,
+  skillRowEnabled,
   skillRowStatus,
   skillsRowsToMapAndStatuses,
   upsertPromptRowInConfig,
@@ -117,6 +120,8 @@ class DaSkillsLabView extends LitElement {
     _registerKey: { state: true },
     _registerUrl: { state: true },
     _registerBusy: { state: true },
+    _mcpEnableBusy: { state: true },
+    _toolEnableBusy: { state: true },
     /** When set, Register form is updating this MCP row (button shows Update). */
     _editingMcpKey: { state: true },
     _newSkillId: { state: true },
@@ -163,6 +168,8 @@ class DaSkillsLabView extends LitElement {
     this._registerKey = '';
     this._registerUrl = '';
     this._registerBusy = false;
+    this._mcpEnableBusy = {};
+    this._toolEnableBusy = {};
     this._editingMcpKey = null;
     this._newSkillId = '';
     this._newSkillBody = '# New skill\n\n';
@@ -305,16 +312,26 @@ class DaSkillsLabView extends LitElement {
     this._toolSel = id;
   }
 
-  /** @returns {Array<{ id: string, label: string, wrap: string, group: string }>} */
+  /** @returns {Array<{
+   * id: string, label: string, wrap: string, group: string,
+   * source?: string, sourceId?: string, enabled?: boolean
+   * }>}
+   */
   _allToolRows() {
     const rows = BUILTIN_TOOLS.map((t) => ({
       id: t.id,
       label: t.label,
       group: t.group,
       wrap: 'da-agent worker · DA admin / EDS',
+      source: 'builtin',
+      enabled: true,
     }));
     const servers = this._mcpToolsPayload?.servers || [];
     servers.forEach((s) => {
+      const mcpRow = this._mcpRows.find((r) => r.key === s.id) || null;
+      const mcpEnabled = mcpRow
+        ? (skillRowStatus(mcpRow) === 'approved' && skillRowEnabled(mcpRow))
+        : true;
       if (s.tools?.length) {
         s.tools.forEach((tool) => {
           const id = `mcp__${s.id}__${tool.name}`;
@@ -323,6 +340,9 @@ class DaSkillsLabView extends LitElement {
             label: tool.name,
             group: `MCP: ${s.id}`,
             wrap: `MCP SSE · ${s.id} → ${(this._mcpRows.find((r) => r.key === s.id) || {}).url || 'config URL'}`,
+            source: 'mcp',
+            sourceId: s.id,
+            enabled: mcpEnabled,
           });
         });
       }
@@ -334,10 +354,69 @@ class DaSkillsLabView extends LitElement {
           label: def.name || def.id,
           group: 'Generated',
           wrap: `DA config · generated-tools sheet · ${def.id}`,
+          source: 'generated',
+          sourceId: def.id,
+          enabled: def.enabled !== false,
         });
       }
     });
     return rows;
+  }
+
+  _toggleBusyToken(kind, id) {
+    return `${kind}:${id}`;
+  }
+
+  _mcpRowEffectiveEnabled(row) {
+    return skillRowStatus(row) === 'approved' && skillRowEnabled(row);
+  }
+
+  _mcpRowById(id) {
+    const key = String(id || '').trim();
+    if (!key) return null;
+    return (this._mcpRows || []).find((r) => String(r.key || '').trim() === key) || null;
+  }
+
+  async _onToggleMcpEnabled(row, e) {
+    e.stopPropagation();
+    if (!row?.key || skillRowStatus(row) !== 'approved') return;
+    const key = String(row.key);
+    const nextEnabled = !this._mcpRowEffectiveEnabled(row);
+    const token = this._toggleBusyToken('mcp', key);
+    this._mcpEnableBusy = { ...this._mcpEnableBusy, [token]: true };
+    this._formMsg = '';
+    const res = await setMcpServerEnabledInConfig(this.org, this.site, key, nextEnabled);
+    this._mcpEnableBusy = { ...this._mcpEnableBusy, [token]: false };
+    if (!res.ok) {
+      this._formMsg = res.error || 'Could not update MCP enabled state';
+      return;
+    }
+    await this._reload();
+    this._formMsg = nextEnabled
+      ? `MCP "${key}" enabled.`
+      : `MCP "${key}" disabled.`;
+  }
+
+  async _onToggleGeneratedToolEnabled(toolId, e) {
+    e.stopPropagation();
+    const id = String(toolId || '').trim();
+    if (!id) return;
+    const def = (this._generatedTools || []).find((t) => t?.id === id);
+    if (!def) return;
+    const nextEnabled = def.enabled === false;
+    const token = this._toggleBusyToken('tool', id);
+    this._toolEnableBusy = { ...this._toolEnableBusy, [token]: true };
+    this._formMsg = '';
+    const res = await setGeneratedToolEnabledInConfig(this.org, this.site, id, nextEnabled);
+    this._toolEnableBusy = { ...this._toolEnableBusy, [token]: false };
+    if (!res.ok) {
+      this._formMsg = res.error || 'Could not update tool enabled state';
+      return;
+    }
+    await this._reload();
+    this._formMsg = nextEnabled
+      ? `Tool "${id}" enabled.`
+      : `Tool "${id}" disabled.`;
   }
 
   /** Tool rows with references from the current skill draft listed first. */
@@ -901,6 +980,18 @@ class DaSkillsLabView extends LitElement {
                       <div class="skills-lab-card-meta">${row.url}</div>
                       <div class="skills-lab-card-meta">${skillRowStatus(row) === 'draft' ? 'draft' : 'approved'}</div>
                     </div>
+                    ${skillRowStatus(row) === 'approved'
+        ? html`<button
+                        type="button"
+                        class="skills-lab-pill-toggle ${this._mcpRowEffectiveEnabled(row) ? 'is-enabled' : 'is-disabled'}"
+                        ?disabled=${this._mcpEnableBusy[this._toggleBusyToken('mcp', row.key)]}
+                        @click=${(e) => this._onToggleMcpEnabled(row, e)}
+                        title="${this._mcpRowEffectiveEnabled(row) ? 'Disable MCP' : 'Enable MCP'}"
+                        aria-label="${this._mcpRowEffectiveEnabled(row) ? 'Disable MCP' : 'Enable MCP'}"
+                      >
+                        ${this._mcpRowEffectiveEnabled(row) ? 'Enabled' : 'Disabled'}
+                      </button>`
+        : nothing}
                     <button type="button" class="skills-lab-skill-edit" title="Edit MCP server" aria-label="Edit MCP server"
                       @click=${(e) => this._onEditMcp(row, e)}>
                       <img src="${editIconSrc}" width="18" height="18" alt="" />
@@ -1044,10 +1135,41 @@ class DaSkillsLabView extends LitElement {
                 ${toolRows.map((t) => {
           const hi = this._toolHighlighted(t.id);
           const cons = this._toolSel === t.id ? this._consumersForTool(t.id) : null;
+          const toggleToken = this._toggleBusyToken('tool', t.sourceId || '');
+          const canToggleGenerated = t.source === 'generated' && t.sourceId;
+          const mcpRow = t.source === 'mcp' ? this._mcpRowById(t.sourceId) : null;
+          const canToggleMcp = t.source === 'mcp' && mcpRow && skillRowStatus(mcpRow) === 'approved';
+          let toggleControl = nothing;
+          if (canToggleGenerated) {
+            toggleControl = html`<button
+                            type="button"
+                            class="skills-lab-pill-toggle ${t.enabled === false ? 'is-disabled' : 'is-enabled'}"
+                            ?disabled=${this._toolEnableBusy[toggleToken]}
+                            @click=${(e) => this._onToggleGeneratedToolEnabled(t.sourceId, e)}
+                            title="${t.enabled === false ? 'Enable tool' : 'Disable tool'}"
+                            aria-label="${t.enabled === false ? 'Enable tool' : 'Disable tool'}"
+                          >
+                            ${t.enabled === false ? 'Disabled' : 'Enabled'}
+                          </button>`;
+          } else if (canToggleMcp) {
+            toggleControl = html`<button
+                            type="button"
+                            class="skills-lab-pill-toggle ${this._mcpRowEffectiveEnabled(mcpRow) ? 'is-enabled' : 'is-disabled'}"
+                            ?disabled=${this._mcpEnableBusy[this._toggleBusyToken('mcp', mcpRow.key)]}
+                            @click=${(e) => this._onToggleMcpEnabled(mcpRow, e)}
+                            title="${this._mcpRowEffectiveEnabled(mcpRow) ? 'Disable MCP server' : 'Enable MCP server'}"
+                            aria-label="${this._mcpRowEffectiveEnabled(mcpRow) ? 'Disable MCP server' : 'Enable MCP server'}"
+                          >
+                            ${this._mcpRowEffectiveEnabled(mcpRow) ? 'Enabled' : 'Disabled'}
+                          </button>`;
+          }
           return html`
                   <div class="skills-lab-tool-row ${hi ? 'sl-highlight' : ''}" @click=${() => this._selectTool(t.id)}>
-                    <span class="skills-lab-type-badge tool">tool</span>
-                    <span class="skills-lab-tool-id">${t.id}</span>
+                    <div class="skills-lab-tool-row-top">
+                      <span class="skills-lab-type-badge tool">tool</span>
+                      <span class="skills-lab-tool-id">${t.id}</span>
+                      ${toggleControl}
+                    </div>
                     <span class="skills-lab-tool-wrap">${t.wrap} · ${t.group}</span>
                     ${cons
             ? html`<div class="skills-lab-card-desc">Used by agents: ${cons.agents.join(', ') || '—'} · skills: ${cons.skills.join(', ') || '—'}</div>`

@@ -20,6 +20,8 @@ import {
   DA_SKILLS_LAB_FORM_COLUMN_DISMISS_EVENT,
   DA_SKILLS_LAB_SUGGESTION_HANDOFF_EVENT,
   materializeDaConfigAfter404,
+  skillRowEnabled,
+  skillRowStatus,
   setSkillsLabSuggestionHandoff,
 } from '../../browse/skills-lab-api.js';
 import { loadGeneratedTools } from './generated-tools/utils.js';
@@ -887,7 +889,7 @@ class Chat extends LitElement {
     });
 
     (this._generatedTools || [])
-      .filter((tool) => tool?.status === 'approved')
+      .filter((tool) => tool?.status === 'approved' && tool?.enabled !== false)
       .forEach((tool) => {
         allItems.push({
           id: `gen__${tool.id}`,
@@ -985,6 +987,12 @@ class Chat extends LitElement {
       mcpRows.forEach((row) => {
         const url = row.url || row.value;
         if (row.key && url) {
+          const approved = skillRowStatus(row) === 'approved';
+          const enabled = skillRowEnabled(row);
+          if (!approved || !enabled) {
+            rows.push({ ...row, url, mcpHeaders: mcpConfigRowHeaders(row) });
+            return;
+          }
           servers[row.key] = url;
           rows.push({ ...row, url, mcpHeaders: mcpConfigRowHeaders(row) });
         }

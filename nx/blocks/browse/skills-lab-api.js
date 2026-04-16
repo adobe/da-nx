@@ -206,7 +206,24 @@ export async function fetchDaConfigSheets(org, site) {
     const servers = {};
     mcpRows.forEach((row) => {
       const rowUrl = row.url || row.value;
-      if (row.key && rowUrl) servers[row.key] = rowUrl;
+      const rowStatus = String(row?.status ?? '')
+        .trim()
+        .toLowerCase();
+      const approved = rowStatus !== 'draft';
+      let enabled = true;
+      if (typeof row?.enabled === 'boolean') {
+        enabled = row.enabled;
+      } else if (typeof row?.disabled === 'boolean') {
+        enabled = !row.disabled;
+      }
+      if (
+        row.key
+        && rowUrl
+        && approved
+        && enabled
+      ) {
+        servers[row.key] = rowUrl;
+      }
     });
     const agentRows = (json?.agents?.data || [])
       .filter((r) => r.key && (r.url || r.value))
@@ -236,6 +253,17 @@ export function skillRowStatus(row) {
     .toLowerCase();
   if (s === 'draft') return 'draft';
   return 'approved';
+}
+
+/**
+ * @param {Record<string, unknown> | undefined} row
+ * @returns {boolean}
+ */
+export function skillRowEnabled(row) {
+  if (!row || typeof row !== 'object') return true;
+  if (typeof row.enabled === 'boolean') return row.enabled;
+  if (typeof row.disabled === 'boolean') return !row.disabled;
+  return true;
 }
 
 /**
@@ -555,6 +583,84 @@ export async function registerMcpServer(org, site, key, url) {
   if (idx >= 0) data[idx] = { ...data[idx], ...row };
   else data.push(row);
   cfg['mcp-servers'] = { ...sheet, data, total: data.length };
+
+  const save = await saveDaConfig(org, site, cfg);
+  if (!save.ok) return { ok: false, error: `Save failed (${save.status})` };
+  return { ok: true };
+}
+
+/**
+ * Set one `mcp-servers` row enabled state without changing draft/approved status.
+ * @param {string} org
+ * @param {string} site
+ * @param {string} key
+ * @param {boolean} enabled
+ */
+export async function setMcpServerEnabledInConfig(org, site, key, enabled) {
+  const trimmedKey = String(key || '').trim();
+  if (!trimmedKey) return { ok: false, error: 'Server id required' };
+
+  const loaded = await fetchDaConfigSheets(org, site);
+  if (!loaded.ok) {
+    return {
+      ok: false,
+      error: loaded.status ? `Could not load config (${loaded.status})` : 'Could not load config',
+    };
+  }
+  const cfg = { ...(loaded.json || {}) };
+  const sheet = cfg['mcp-servers'];
+  if (!sheet?.data?.length) return { ok: false, error: 'No MCP servers in config' };
+
+  const data = [...sheet.data];
+  const idx = data.findIndex((r) => String(r.key || '').trim() === trimmedKey);
+  if (idx < 0) return { ok: false, error: 'MCP server not found' };
+  data[idx] = { ...data[idx], enabled: !!enabled };
+  cfg['mcp-servers'] = { ...sheet, data, total: data.length };
+
+  const save = await saveDaConfig(org, site, cfg);
+  if (!save.ok) return { ok: false, error: `Save failed (${save.status})` };
+  return { ok: true };
+}
+
+/**
+ * Set one generated tool row enabled state without changing lifecycle status.
+ * @param {string} org
+ * @param {string} site
+ * @param {string} toolId
+ * @param {boolean} enabled
+ */
+export async function setGeneratedToolEnabledInConfig(org, site, toolId, enabled) {
+  const id = String(toolId || '').trim();
+  if (!id) return { ok: false, error: 'Tool id required' };
+
+  const loaded = await fetchDaConfigSheets(org, site);
+  if (!loaded.ok) {
+    return {
+      ok: false,
+      error: loaded.status ? `Could not load config (${loaded.status})` : 'Could not load config',
+    };
+  }
+  const cfg = { ...(loaded.json || {}) };
+  const sheet = cfg[GENERATED_TOOLS_SHEET_KEY];
+  if (!sheet?.data?.length) return { ok: false, error: 'No generated tools in config' };
+
+  const data = [...sheet.data];
+  const idx = data.findIndex((r) => String(r.key ?? r.id ?? '').trim() === id);
+  if (idx < 0) return { ok: false, error: 'Generated tool not found' };
+
+  const row = data[idx];
+  const raw = row.content ?? row.value ?? row.body ?? '';
+  let def;
+  try {
+    def = typeof raw === 'string' ? JSON.parse(raw) : raw;
+  } catch {
+    return { ok: false, error: 'Generated tool row JSON is invalid' };
+  }
+  if (!def || typeof def !== 'object') return { ok: false, error: 'Generated tool row is invalid' };
+
+  const nextDef = { ...def, enabled: !!enabled };
+  data[idx] = { ...row, key: id, content: JSON.stringify(nextDef) };
+  cfg[GENERATED_TOOLS_SHEET_KEY] = { ...sheet, data, total: data.length };
 
   const save = await saveDaConfig(org, site, cfg);
   if (!save.ok) return { ok: false, error: `Save failed (${save.status})` };

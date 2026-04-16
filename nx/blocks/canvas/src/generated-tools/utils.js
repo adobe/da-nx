@@ -133,6 +133,7 @@ export function stripToolProposalMeta(text) {
  * @property {string} name
  * @property {string} description
  * @property {'draft'|'approved'|'deprecated'} status
+ * @property {boolean} [enabled]
  * @property {'read-only'|'read-write'} capability
  * @property {Object} inputSchema  JSON Schema object
  * @property {Object} implementation  { type: 'da-api-sequence', steps: [...] }

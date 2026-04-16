@@ -3,6 +3,7 @@ const SEEDED_CREATED_AT = '2026-04-14T00:00:00.000Z';
 function makeSeededTool(def) {
   return {
     status: 'draft',
+    enabled: true,
     createdBy: 'model',
     createdAt: SEEDED_CREATED_AT,
     approvedBy: null,
@@ -143,7 +144,8 @@ export function scoreGeneratedToolMatch(query, tool) {
 }
 
 export function findBestGeneratedTool(query, tools = []) {
-  const approved = (Array.isArray(tools) ? tools : []).filter((tool) => tool?.status === 'approved');
+  const approved = (Array.isArray(tools) ? tools : [])
+    .filter((tool) => tool?.status === 'approved' && tool?.enabled !== false);
   let best = null;
 
   approved.forEach((tool) => {

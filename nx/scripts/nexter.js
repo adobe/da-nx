@@ -52,8 +52,6 @@ export async function loadBlock(block) {
   let name = classList[0];
   const isNx = name.startsWith('nx-');
   if (isNx) name = name.replace('nx-', '');
-  // Backward-compat alias: `/apps/skills` content may still reference `skills-lab`.
-  if (name === 'skills-lab') name = 'skills-editor';
   block.dataset.blockName = name;
   const { nxBase, codeBase = '' } = getConfig();
   const path = isNx ? `${nxBase}/blocks` : `${codeBase}/blocks`;
