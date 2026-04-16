@@ -37,7 +37,7 @@
 }
 
 .nx-editor-doc .da-slash-hint {
-  position: fixed;
+  position: absolute;
   pointer-events: none;
   color: var(--s2-gray-500, rgb(143 143 143));
   white-space: nowrap;

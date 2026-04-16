@@ -90,8 +90,9 @@ function syncSlashHint(view, ctxRef) {
   const { hintEl } = ctxRef;
   const pos = view.state.selection.$from.start();
   const coords = view.coordsAtPos(pos);
-  hintEl.style.left = `${coords.left + 3}px`;
-  hintEl.style.top = `${coords.top}px`;
+  const containerRect = container.getBoundingClientRect();
+  hintEl.style.left = `${coords.left - containerRect.left + 3}px`;
+  hintEl.style.top = `${coords.top - containerRect.top}px`;
   hintEl.style.display = '';
 }
 
