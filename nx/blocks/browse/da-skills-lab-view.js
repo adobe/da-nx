@@ -24,7 +24,7 @@ import {
   setMcpServerEnabledInConfig,
   skillRowEnabled,
   skillRowStatus,
-  skillsRowsToMapAndStatuses,
+  mergeSkillsSheetRowsWithMdFiles,
   upsertPromptRowInConfig,
 } from './skills-lab-api.js';
 
@@ -261,8 +261,10 @@ class DaSkillsLabView extends LitElement {
       this._agentRows = cfg.agentRows || [];
       const cfgJson = cfg.json || {};
 
-      const { map: skillsMap, statuses: skillStatuses } = skillsRowsToMapAndStatuses(
-        cfgJson.skills?.data || [],
+      const { map: skillsMap, statuses: skillStatuses } = await mergeSkillsSheetRowsWithMdFiles(
+        cfgJson.skills?.data,
+        this.org,
+        this.site,
       );
       this._skills = skillsMap || {};
       this._skillStatuses = skillStatuses || {};

@@ -21,7 +21,7 @@ function parseOrgSite(prefix) {
   return { org: '', site: '' };
 }
 
-/** Skills live in the DA config KV `skills` sheet (key + content), not repo paths. */
+/** Skills: body in `/.da/skills/*.md` first; merged with config `skills` sheet (status, compat). */
 export async function loadSkills(org, site) {
   if (!org) return {};
   return loadSkillsFromConfig(org, site || '');
@@ -40,7 +40,11 @@ export async function saveSkill(prefix, id, content, opts = {}) {
   }
   const result = await upsertSkillInConfig(org, site, id, content, opts);
   if (result.error) return { error: result.error };
-  return { status: result.status ?? 200 };
+  const out = { status: result.status ?? 200 };
+  if (result.warning) out.warning = result.warning;
+  if (result.configStatus != null) out.configStatus = result.configStatus;
+  if (result.fileStatus != null) out.fileStatus = result.fileStatus;
+  return out;
 }
 
 export async function deleteSkill(prefix, id) {
@@ -50,7 +54,10 @@ export async function deleteSkill(prefix, id) {
   }
   const result = await deleteSkillFromConfig(org, site, id);
   if (result.error) return { error: result.error };
-  return { status: result.status ?? 200 };
+  const out = { status: result.status ?? 200 };
+  if (result.warning) out.warning = result.warning;
+  if (result.configStatus != null) out.configStatus = result.configStatus;
+  return out;
 }
 
 export function loadCodeMirror(el, doc) {

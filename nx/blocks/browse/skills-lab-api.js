@@ -350,13 +350,26 @@ async function loadSkillsFromMdFiles(org, site) {
     const out = {};
     await Promise.all(
       items.map(async (item) => {
-        const name = String(item?.name || '').trim();
-        if (!name.toLowerCase().endsWith('.md')) return;
-        const key = sanitizeSkillFilename(name);
+        const ext = String(item?.ext || '').trim().toLowerCase();
+        const rawName = String(item?.name || '').trim();
+        if (!rawName) return;
+        /* List API uses basename in `name` and `ext` separately (see da-admin formatList). */
+        const isMd = ext === 'md' || rawName.toLowerCase().endsWith('.md');
+        if (!isMd) return;
+        const pathStr = typeof item?.path === 'string' ? item.path.trim() : '';
+        let filename = '';
+        if (pathStr) {
+          filename = pathStr.split('/').pop() || '';
+        } else if (ext === 'md') {
+          filename = `${rawName}.md`;
+        } else {
+          filename = rawName;
+        }
+        const key = sanitizeSkillFilename(filename);
         if (!key) return;
-        const filePath = `${folder}/${name}`;
+        const sourcePath = pathStr || `${folder}/${filename}`;
         try {
-          const r = await daFetch(`${DA_ORIGIN}/source${filePath}`);
+          const r = await daFetch(`${DA_ORIGIN}/source${sourcePath}`);
           if (!r.ok) return;
           const text = await r.text();
           if (key && text) out[key] = text;
@@ -438,6 +451,25 @@ export function skillsRowsToMapAndStatuses(rows) {
 }
 
 /**
+ * Merge `skills` sheet rows with `/.da/skills/*.md` (list + source GETs).
+ * Use when config is already loaded to avoid a second `fetchDaConfigSheets`.
+ * @param {unknown[]|undefined} sheetRows
+ * @param {string} org
+ * @param {string} site
+ * @returns {Promise<{ map: Record<string, string>, statuses: Record<string, 'draft'|'approved'> }>}
+ */
+export async function mergeSkillsSheetRowsWithMdFiles(sheetRows, org, site) {
+  const fileMap = await loadSkillsFromMdFiles(org, site);
+  const { map: kvMap, statuses: kvStatuses } = skillsRowsToMapAndStatuses(sheetRows || []);
+  const mergedMap = { ...kvMap, ...fileMap };
+  const mergedStatuses = { ...kvStatuses };
+  Object.keys(fileMap).forEach((k) => {
+    if (!mergedStatuses[k]) mergedStatuses[k] = 'approved';
+  });
+  return { map: mergedMap, statuses: mergedStatuses };
+}
+
+/**
  * Load all skills from the site config `skills` sheet **and** `/.da/skills/*.md`.
  * Same key in both: file body wins (repo markdown can override KV without deleting KV rows).
  * @param {string} org
@@ -461,27 +493,13 @@ export async function loadSkillsFromConfig(org, site) {
  */
 export async function loadSkillsFromConfigWithStatuses(org, site) {
   const loaded = await fetchDaConfigSheets(org, site);
-  const fileMap = await loadSkillsFromMdFiles(org, site);
-  if (!loaded.ok || !loaded.json) {
-    /** @type {Record<string, 'draft'|'approved'>} */
-    const statuses = {};
-    Object.keys(fileMap).forEach((k) => {
-      statuses[k] = 'approved';
-    });
-    return { map: fileMap, statuses };
-  }
-  const rows = loaded.json[SKILLS_SHEET_KEY]?.data;
-  const { map: kvMap, statuses: kvStatuses } = skillsRowsToMapAndStatuses(rows);
-  const mergedMap = { ...kvMap, ...fileMap };
-  const mergedStatuses = { ...kvStatuses };
-  Object.keys(fileMap).forEach((k) => {
-    if (!mergedStatuses[k]) mergedStatuses[k] = 'approved';
-  });
-  return { map: mergedMap, statuses: mergedStatuses };
+  const rows = loaded.ok && loaded.json ? loaded.json[SKILLS_SHEET_KEY]?.data : undefined;
+  return mergeSkillsSheetRowsWithMdFiles(rows, org, site);
 }
 
 /**
- * Create or update one skill row in the `skills` sheet.
+ * Create or update a skill: **primary** store is `/.da/skills/{id}.md`; the config `skills`
+ * sheet is synced second for draft/approved and older consumers.
  * @param {string} org
  * @param {string} site
  * @param {string} skillId
@@ -518,14 +536,20 @@ export async function upsertSkillInConfig(org, site, skillId, content, options =
   else data.push(row);
   cfg[SKILLS_SHEET_KEY] = { ...sheet, data, total: data.length };
 
-  const save = await saveDaConfig(org, site, cfg);
-  if (!save.ok) return { error: `Save failed (${save.status})` };
   const filePut = await putSkillMdFile(org, site, trimmedId, content);
   if (!filePut.ok) {
     return {
-      status: save.status,
-      warning: 'Saved to site config; writing .da/skills/*.md failed — retry save or check permissions.',
+      error: `Could not save skill to /.da/skills (${filePut.status || 'network'})`,
       fileStatus: filePut.status,
+    };
+  }
+
+  const save = await saveDaConfig(org, site, cfg);
+  if (!save.ok) {
+    return {
+      status: filePut.status,
+      warning: 'Saved under /.da/skills; syncing site config (skills sheet) failed — retry or check permissions.',
+      configStatus: save.status,
     };
   }
   return { status: save.status };
@@ -554,21 +578,23 @@ export async function deleteSkillFromConfig(org, site, skillId) {
       .replace(/\.md$/i, '') !== trimmedId,
   );
 
+  const delFile = await deleteSkillMdFile(org, site, trimmedId);
+  if (!delFile.ok) {
+    return { error: 'Could not delete skill under /.da/skills' };
+  }
+
   if (data.length === existingData.length) {
-    const delFile = await deleteSkillMdFile(org, site, trimmedId);
-    if (!delFile.ok) return { error: 'Skill not found in config or under .da/skills' };
     return { status: 200 };
   }
 
   cfg[SKILLS_SHEET_KEY] = { ...sheet, data, total: data.length };
 
   const save = await saveDaConfig(org, site, cfg);
-  if (!save.ok) return { error: `Delete failed (${save.status})` };
-  const delFile = await deleteSkillMdFile(org, site, trimmedId);
-  if (!delFile.ok) {
+  if (!save.ok) {
     return {
-      status: save.status,
-      warning: 'Removed from site config; deleting .da/skills/*.md may have failed.',
+      status: delFile.status,
+      warning: 'Removed /.da/skills/*.md; updating site config failed.',
+      configStatus: save.status,
     };
   }
   return { status: save.status };
