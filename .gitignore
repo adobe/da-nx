@@ -12,3 +12,4 @@ docs/superpowers/*
 
 # Session-generated feature docs; keep out of upstream PRs
 private-docs/feature-notes/
+PR-throwaways/
