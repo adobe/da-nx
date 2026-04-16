@@ -39,7 +39,7 @@ function shouldShowSlashHint(state) {
 
 function setup(container, view) {
   const anchor = document.createElement('span');
-  anchor.style.cssText = 'position:fixed;width:0;height:0;pointer-events:none';
+  anchor.style.cssText = 'position:absolute;width:0;height:0;pointer-events:none';
   container.append(anchor);
 
   const menu = document.createElement('nx-menu');
@@ -60,13 +60,18 @@ function setup(container, view) {
     view.focus();
   });
 
-  return { menu, anchor };
+  const scrollEl = container.closest('.nx-editor-doc');
+  const onScroll = () => { if (menu.open) menu.reposition(); };
+  scrollEl?.addEventListener('scroll', onScroll, { passive: true });
+
+  return { menu, anchor, scrollEl, onScroll };
 }
 
 function positionAnchor(view, anchor, pos) {
   const coords = view.coordsAtPos(pos);
-  anchor.style.left = `${coords.left}px`;
-  anchor.style.top = `${coords.bottom}px`;
+  const rect = anchor.offsetParent.getBoundingClientRect();
+  anchor.style.left = `${coords.left - rect.left}px`;
+  anchor.style.top = `${coords.bottom - rect.top}px`;
 }
 
 function syncSlashHint(view, ctxRef) {
@@ -120,7 +125,7 @@ function syncSlashUi(view, ctxRef) {
   positionAnchor(view, anchor, slash.anchorPos);
   menu.items = items;
   if (!menu.open) {
-    menu.show({ anchor });
+    menu.show({ anchor, placement: 'auto' });
   }
 }
 
@@ -129,6 +134,7 @@ function destroySlashUi(ctxRef) {
   const { ctx } = ctxRef;
   if (!ctx) return;
   ctx.menu.close();
+  ctx.scrollEl?.removeEventListener('scroll', ctx.onScroll);
   ctx.anchor.remove();
   ctx.menu.remove();
   // eslint-disable-next-line no-param-reassign

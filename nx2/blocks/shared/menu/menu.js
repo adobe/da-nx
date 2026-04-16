@@ -75,6 +75,10 @@ class NxMenu extends LitElement {
     this._popover?.close();
   }
 
+  reposition() {
+    this._popover?.reposition();
+  }
+
   get open() {
     return this._popover?.open ?? false;
   }
