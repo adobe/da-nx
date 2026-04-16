@@ -1,14 +1,24 @@
 :host {
-  display: block;
+  display: flex;
+  flex-direction: column;
   box-sizing: border-box;
   min-height: 12rem;
+  max-height: min(90dvh, 56rem);
+  min-width: 0;
   padding: var(--s2-spacing-200) var(--s2-spacing-300);
+  overflow: hidden;
   font-family: var(--s2-font-family);
   font-size: var(--s2-body-size-s);
   line-height: var(--s2-body-line-height);
   color: var(--s2-gray-800);
   background-color: var(--s2-gray-25);
   overscroll-behavior: contain;
+
+  nx-browse-list {
+    flex: 1 1 auto;
+    min-height: 0;
+    min-width: 0;
+  }
 
   .browse-hint {
     padding: var(--s2-spacing-200);
@@ -42,6 +52,7 @@
   }
 
   .browse-header {
+    flex-shrink: 0;
     margin: 0 0 var(--s2-spacing-300);
   }
 

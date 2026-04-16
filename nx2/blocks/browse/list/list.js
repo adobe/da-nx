@@ -125,7 +125,8 @@ export class NxBrowseList extends LitElement {
     const allSelected = items.length > 0 && selectedCount === items.length;
 
     return html`
-      <table class="browse-data-table" role="table">
+      <div class="browse-list-scroll">
+        <table class="browse-data-table" role="table">
         <thead>
           <tr>
             <th class="browse-col-select" scope="col">
@@ -172,6 +173,7 @@ export class NxBrowseList extends LitElement {
     })}
         </tbody>
       </table>
+      </div>
     `;
   }
 }

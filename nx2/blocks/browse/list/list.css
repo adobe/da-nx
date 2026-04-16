@@ -1,13 +1,23 @@
 :host {
-  display: block;
-  min-height: 12rem;
-  overflow: auto;
-  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
   background-color: var(--s2-gray-25);
   font-family: var(--s2-font-family);
   font-size: var(--s2-component-s-regular-font-size);
   line-height: var(--s2-component-s-regular-line-height);
   color: var(--s2-gray-900);
+
+  .browse-list-scroll {
+    flex: 1 1 auto;
+    min-height: 0;
+    min-width: 0;
+    overflow: auto;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+  }
 
   .browse-sr-only {
     position: absolute;
