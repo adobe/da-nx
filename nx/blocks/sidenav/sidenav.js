@@ -49,6 +49,28 @@ const HASH_AWARE = ['Home', 'Apps'];
 const NEW_UI_PREFIX = '/app/hannessolo/exp-workspace';
 const NEW_UI_FRAGMENT_PATH = 'https://main--exp-workspace--hannessolo.aem.live/fragments/sidenav';
 
+function parseOrgSiteForSkillsLab() {
+  const { hash } = window.location;
+  if (!hash.startsWith('#/')) {
+    return { org: '', site: '' };
+  }
+  const segments = hash.slice(2).split('/').filter(Boolean);
+  if (segments.length < 2) {
+    return { org: '', site: '' };
+  }
+  const org = segments[0];
+  const site = segments[1];
+  return { org, site };
+}
+
+function buildSkillsLabHref() {
+  const { origin, search } = window.location;
+  const { org, site } = parseOrgSiteForSkillsLab();
+  const base = `${origin}/apps/skills${search}`;
+  if (!org || !site) return base;
+  return `${base}#/${org}/${site}`;
+}
+
 function getDefaultPath() {
   const { nxBase } = getConfig();
   return `${nxBase}/fragments/nx-sidenav`;
@@ -60,7 +82,13 @@ class SideNav extends HTMLElement {
     this.path = getMetadata('sidenav-source') || getDefaultPath();
     this._onHashChange = () => {
       const list = this.nav?.querySelector('ul');
-      if (list) this.syncBrandGovernanceLink(list);
+      if (!list) return;
+      (async () => {
+        await this.syncSkillsLabLink(list);
+        await this.syncBrandGovernanceLink(list);
+      })().catch(() => {
+        /* ignore async nav sync errors */
+      });
     };
   }
 
@@ -121,6 +149,40 @@ class SideNav extends HTMLElement {
     list.append(li);
   }
 
+  /**
+   * Injects a "Skills Lab" nav link to `/apps/skills` with the current page query string and, when
+   * when the hash includes `/{org}/{site}`, the same pair in `#/{org}/{site}`.
+   */
+  async syncSkillsLabLink(list) {
+    if (!list) return;
+    const href = buildSkillsLabHref();
+    let li = list.querySelector('li[data-nx-skills-lab]');
+    if (!li) {
+      const iconHref = new URL('../../img/icons/S2IconLightbulb20N-icon.svg', import.meta.url).href;
+      const [svg] = await getSvg({ paths: [iconHref] });
+      if (!svg) return;
+
+      const a = document.createElement('a');
+      a.href = href;
+      a.classList.add('nx-link');
+      a.title = 'Skills Lab';
+
+      const icon = document.createElement('span');
+      icon.className = 'nx-link-icon';
+      icon.append(svg);
+      a.append(icon);
+      a.insertAdjacentHTML('beforeend', '<span class="nx-link-text">Skills Lab</span>');
+
+      li = document.createElement('li');
+      li.setAttribute('data-nx-skills-lab', '');
+      li.append(a);
+      list.append(li);
+      return;
+    }
+    const a = li.querySelector('a');
+    if (a) a.href = href;
+  }
+
   async fetchNav() {
     const path = window.location.pathname.startsWith(NEW_UI_PREFIX)
       ? NEW_UI_FRAGMENT_PATH
@@ -132,6 +194,7 @@ class SideNav extends HTMLElement {
     await loadArea(doc.body);
     const list = doc.querySelector('ul');
     await this.decorateIcons(list);
+    await this.syncSkillsLabLink(list);
     await this.syncBrandGovernanceLink(list);
 
     const anchors = doc.querySelectorAll('a');

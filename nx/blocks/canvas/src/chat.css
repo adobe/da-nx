@@ -239,6 +239,127 @@
   background: #fef9e7;
   border: 1px solid #f5c518;
   position: relative;
+  padding: 20px;
+  white-space: normal;
+
+  /* Same width open or closed (otherwise bubble shrinks to summary-only width). */
+  width: 88%;
+  max-width: 88%;
+  box-sizing: border-box;
+}
+
+.message-bubble.skill-suggestion::before {
+  content: '';
+  display: block;
+  width: 0;
+  height: 0;
+  margin-top: 0;
+}
+
+.message-bubble.skill-suggestion:has(.skill-suggestion-draft-details[open])::before {
+  margin-top: -6px;
+}
+
+.skill-suggestion-prose {
+  margin-bottom: 0.2rem;
+  font-size: 0.9rem;
+  line-height: 1.35;
+  color: #222;
+}
+
+.skill-suggestion-draft-stack .skill-suggestion-prose:last-child {
+  margin-bottom: 0;
+}
+
+.skill-suggestion-md-wrap {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #f0e6c4;
+}
+
+.skill-suggestion-md-wrap:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+
+.skill-suggestion-md-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #7a5700;
+  margin-bottom: 0.12rem;
+}
+
+.skill-suggestion-md-content {
+  font-size: 0.82rem;
+  line-height: 1.32;
+}
+
+.skill-suggestion-draft-details {
+  margin: 0 0 0.35rem;
+  border: 1px solid #e8d48b;
+  border-radius: 5px;
+  background: #fffdf5;
+  padding: 20px;
+
+  /* Override .message-bubble pre-wrap (avoids huge gaps from preserved newlines/spaces). */
+  white-space: normal;
+}
+
+.skill-suggestion-draft-summary {
+  cursor: pointer;
+  user-select: none;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #7a5700;
+  line-height: 1.25;
+  padding: 0 0 12px;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.skill-suggestion-draft-summary::-webkit-details-marker {
+  display: none;
+}
+
+/* Chevron: fixed box + one transform origin so open/closed stays vertically centered. */
+.skill-suggestion-draft-summary::before {
+  content: '';
+  display: block;
+  width: 0.5rem;
+  height: 0.5rem;
+  flex: 0 0 0.5rem;
+  border-right: 2px solid #7a5700;
+  border-bottom: 2px solid #7a5700;
+  border-left: none;
+  border-top: none;
+  transform: rotate(-45deg);
+  transform-origin: 50% 50%;
+  margin: -6px 0 0;
+  transition: transform 0.15s ease;
+}
+
+.skill-suggestion-draft-details[open] .skill-suggestion-draft-summary::before {
+  transform: rotate(45deg);
+}
+
+.skill-suggestion-draft-body {
+  max-height: 14rem;
+  overflow: auto;
+  margin-top: 0;
+  padding: 16px 0 0;
+  font-size: 0.82rem;
+  line-height: 1.32;
+  border-top: 1px solid #ede4c8;
+  white-space: normal;
+}
+
+.skill-suggestion-draft-stack {
+  white-space: normal;
 }
 
 .skill-suggestion-badge {
@@ -258,20 +379,59 @@
 
 .skill-suggestion-card {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-top: 10px;
-  padding: 8px 12px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+  margin-top: 5px;
+  padding: 20px;
   background: #fff;
   border: 1.5px solid #f5c518;
-  border-radius: 8px;
+  border-radius: 6px;
+  min-width: 0;
+}
+
+.skill-suggestion-card-actions {
+  display: flex;
+  flex-flow: row wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+  width: 100%;
+  min-width: 0;
+}
+
+.skill-suggestion-dismiss-btn {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #555;
+  background: #fff;
+  border: 1.5px solid #c7c7c7;
+  border-radius: 16px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  flex: 0 1 auto;
+  max-width: 100%;
+}
+
+.skill-suggestion-dismiss-btn:hover {
+  background: #f4f4f4;
+  border-color: #999;
+  color: #222;
+}
+
+.skill-suggestion-card-streaming-hint {
+  font-size: 11px;
+  color: #666;
+  font-weight: 500;
 }
 
 .skill-suggestion-card-info {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
 }
 
 .skill-suggestion-card-label {
@@ -283,17 +443,22 @@
 }
 
 .skill-suggestion-card-id {
+  display: inline-block;
+  max-width: 100%;
   font-size: 12px;
   font-weight: 600;
   color: #333;
   background: #f4f4f4;
-  padding: 1px 5px;
+  padding: 2px 6px;
   border-radius: 4px;
+  overflow-wrap: anywhere;
+  box-sizing: border-box;
 }
 
 .skill-suggestion-card-btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 5px;
   padding: 6px 12px;
   font-size: 12px;
@@ -305,6 +470,8 @@
   cursor: pointer;
   white-space: nowrap;
   transition: background 0.15s;
+  flex: 0 1 auto;
+  max-width: 100%;
 }
 
 .skill-suggestion-card-btn:disabled {
@@ -654,7 +821,27 @@
   cursor: not-allowed;
 }
 
-/* Skills library modal */
+/*
+ * Tools Quick Editing: animate dialog height + opacity when overlay-trigger has reflected `open`
+ * (e.g. open="click"); closed state has no `open` attribute.
+ */
+overlay-trigger:not([open]) sp-dialog-wrapper.chat-skills-quick-dialog {
+  overflow: hidden;
+  max-block-size: 0;
+  opacity: 0;
+  transition:
+    max-block-size 0.42s cubic-bezier(0.32, 0.72, 0, 1),
+    opacity 0.28s ease;
+}
+
+overlay-trigger[open] sp-dialog-wrapper.chat-skills-quick-dialog {
+  overflow: hidden;
+  max-block-size: min(90vh, 920px);
+  opacity: 1;
+  transition:
+    max-block-size 0.42s cubic-bezier(0.32, 0.72, 0, 1),
+    opacity 0.28s ease;
+}
 
 .chat-skills-modal-body {
   display: flex;
@@ -788,8 +975,16 @@
 .skills-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 2px;
+  flex-wrap: wrap;
+  gap: 8px;
   align-items: center;
+}
+
+.skills-canvas-disclaimer {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--spectrum-global-color-gray-700, #5c5c5c);
 }
 
 /* Toolbar-style icon buttons (aligned with da-prose-toolbar .da-tb-btn) */
@@ -823,20 +1018,6 @@
   display: block;
 }
 
-.skill-tb-save {
-  color: #555;
-}
-
-.skill-tb-save:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-
-.skill-tb-save:hover {
-  background-color: #e4f0ff;
-  color: #1473e6;
-}
-
 .skill-tb-add {
   color: #fff;
   background: #1473e6;
@@ -848,15 +1029,6 @@
 
 .skill-tb-add:hover {
   background: #0d66d0;
-}
-
-.skill-tb-delete {
-  background-color: #c62828;
-  color: #fff;
-}
-
-.skill-tb-delete:hover {
-  background-color: #b71c1c;
 }
 
 .skills-lab-link {
@@ -2100,6 +2272,31 @@
   color: #444;
 }
 
+/* Skill suggestion: tighter markdown (must follow base .cr-heading / .cr-md-* rules). */
+.message-bubble.skill-suggestion .skill-suggestion-draft-body .cr-heading {
+  margin: 1rem 0 0.1rem;
+}
+
+.message-bubble.skill-suggestion .skill-suggestion-draft-body .cr-heading:first-child {
+  margin-top: 0;
+}
+
+.message-bubble.skill-suggestion .skill-suggestion-md-content .cr-heading:first-child {
+  margin-top: 0;
+}
+
+.message-bubble.skill-suggestion .cr-md-list,
+.message-bubble.skill-suggestion .cr-md-ol {
+  margin: 3px 0;
+  padding: 20px 30px;
+  gap: 0;
+}
+
+.message-bubble.skill-suggestion .cr-md-list-item,
+.message-bubble.skill-suggestion .cr-md-ol-item {
+  padding: 1px 2px;
+}
+
 /* ── Inline code ────────────────────────────────────────────── */
 
 .cr-inline-code {
@@ -2109,6 +2306,11 @@
   border-radius: 4px;
   background: rgb(0 0 0 / 7%);
   color: #c0392b;
+}
+
+.message-bubble.skill-suggestion .skill-suggestion-draft-details .cr-inline-code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 
 /* ── Prompts gallery ──────────────────────────────────────────── */
@@ -2232,4 +2434,94 @@
 .prompts-lib-send-btn:hover:not(:disabled) {
   background: #0d66d0;
   border-color: #0d66d0;
+}
+
+/* ── Generated Tools panel (Tools Quick Editing) ─────────────────────────── */
+
+.generated-tools-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 12px 0;
+}
+
+.gt-empty-msg {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--color-text-muted, #767676);
+  line-height: 1.5;
+  padding: 10px 12px;
+  border: 1px dashed var(--color-border, #d0d0d0);
+  border-radius: 6px;
+}
+
+.gt-proposal-card {
+  padding: 10px 12px;
+  border: 1px solid var(--color-border, #e0e0e0);
+  border-radius: 8px;
+  margin-top: 6px;
+  background: var(--color-surface, #fafafa);
+}
+
+.gt-proposal-card-approved {
+  border-color: #4caf50;
+  background: #f6faf6;
+}
+
+.gt-proposal-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.gt-proposal-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text, #222);
+  flex: 1;
+}
+
+.gt-badge {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.gt-badge-draft {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.gt-badge-approved {
+  background: #d4edda;
+  color: #155724;
+}
+
+.gt-proposal-desc {
+  margin: 0 0 6px;
+  font-size: 12px;
+  color: var(--color-text-muted, #555);
+  line-height: 1.5;
+}
+
+.gt-proposal-meta {
+  font-size: 11px;
+  color: var(--color-text-muted, #767676);
+  margin-bottom: 8px;
+}
+
+.gt-proposal-meta code {
+  background: #f0f0f0;
+  border-radius: 3px;
+  padding: 1px 4px;
+  font-size: 11px;
+}
+
+.gt-proposal-actions {
+  display: flex;
+  gap: 6px;
 }

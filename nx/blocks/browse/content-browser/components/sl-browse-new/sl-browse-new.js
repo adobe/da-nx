@@ -9,6 +9,7 @@ import {
 } from '../../lib/content-browser-actions.js';
 import { browseRenameNameFieldCopy } from '../../lib/content-browser-utils.js';
 import { replaceHtml } from '../../../../../utils/daFetch.js';
+import { upsertSkillInConfig } from '../../../skills-lab-api.js';
 
 const style = await getStyle(import.meta.url);
 
@@ -89,6 +90,7 @@ export class SlBrowseNew extends LitElement {
       sheet: 'New Sheet',
       media: 'New Media',
       link: 'New Link',
+      skill: 'New Skill',
     };
     return labels[this._createType] ?? 'New';
   }
@@ -103,6 +105,7 @@ export class SlBrowseNew extends LitElement {
       document: 'html',
       sheet: 'json',
       link: 'link',
+      skill: 'md',
     };
     const t = this._createType;
     const ext = Object.prototype.hasOwnProperty.call(extByType, t)
@@ -249,6 +252,40 @@ export class SlBrowseNew extends LitElement {
     this._nameInvalid = false;
 
     const base = this.folderFullpath.replace(/\/$/, '');
+
+    if (this._createType === 'skill') {
+      const segments = base.replace(/^\/+/, '').split('/').filter(Boolean);
+      const org = segments[0];
+      const site = segments[1];
+      if (!org || !site) {
+        this._emitError('Create skill from the site root (org/site) so it can be saved to config.');
+        return;
+      }
+      this._busy = true;
+      try {
+        const result = await upsertSkillInConfig(
+          org,
+          site,
+          this._createName,
+          '# New skill\n\nDescribe this skill here.\n',
+          { status: 'draft' },
+        );
+        if (result.error) {
+          this._emitError(result.error);
+          return;
+        }
+        this._emitNewItem({
+          name: this._createName,
+          path: `/${org}/${site}/config/skills/${this._createName}`,
+          ext: 'md',
+        });
+        this._closeOverlay();
+      } finally {
+        this._busy = false;
+      }
+      return;
+    }
+
     let ext;
     /** @type {FormData | undefined} */
     let formData;
@@ -433,6 +470,9 @@ export class SlBrowseNew extends LitElement {
                     </li>
                     <li class="sl-bn-menu-item">
                       <button type="button" data-type="link" ?disabled="${this._busy}">Link</button>
+                    </li>
+                    <li class="sl-bn-menu-item">
+                      <button type="button" data-type="skill" ?disabled="${this._busy}">Skill</button>
                     </li>
                   </ul>
                 `
