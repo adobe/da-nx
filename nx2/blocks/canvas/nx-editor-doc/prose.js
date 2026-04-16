@@ -97,7 +97,6 @@ export default async function initProse({
     ySyncPlugin(yXmlFragment),
     yCursorPlugin(wsProvider.awareness),
     yUndoPlugin(),
-    keymap(baseKeymap),
   ];
 
   /** @type {import('prosemirror-view').EditorView | null} */
@@ -142,6 +141,8 @@ export default async function initProse({
     };
 
     plugins.push(
+      createSlashMenuPlugin(),
+      keymap(baseKeymap),
       getEnterInputRulesPlugin(dispatch),
       getURLInputRulesPlugin(),
       getListInputRulesPlugin(schema),
@@ -161,7 +162,6 @@ export default async function initProse({
         Tab: sinkListItem(schema.nodes.list_item),
         'Shift-Tab': liftListItem(schema.nodes.list_item),
       }),
-      createSlashMenuPlugin(),
       gapCursor(),
       tableEditing({ allowTableNodeSelection: true }),
     );

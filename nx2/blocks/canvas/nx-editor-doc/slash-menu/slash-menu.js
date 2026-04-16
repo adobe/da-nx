@@ -1,13 +1,8 @@
 /* eslint-disable import/no-unresolved -- importmap */
 import { Plugin } from 'da-y-wrapper';
 import '../../../shared/menu/menu.js';
-
-const ITEMS = [
-  { id: 'heading', label: 'Heading' },
-  { id: 'list', label: 'Bulleted List' },
-  { id: 'ordered-list', label: 'Numbered List' },
-  { id: 'table', label: 'Table' },
-];
+import { slashMenuItemsForQuery } from './slash-menu-items.js';
+import { SLASH_MENU_HANDLERS } from './slash-menu-handlers.js';
 
 function inTopLevelParagraph($from) {
   if ($from.parent.type.name !== 'paragraph') return false;
@@ -42,28 +37,26 @@ function shouldShowSlashHint(state) {
   return true;
 }
 
-function filterItems(query) {
-  const q = query.toLowerCase();
-  return ITEMS.filter((item) => {
-    if (!item.label) return false;
-    if (!query) return true;
-    return item.label.toLowerCase().startsWith(q);
-  });
-}
-
 function setup(container, view) {
   const anchor = document.createElement('span');
   anchor.style.cssText = 'position:fixed;width:0;height:0;pointer-events:none';
   container.append(anchor);
 
   const menu = document.createElement('nx-menu');
-  menu.items = ITEMS;
+  menu.items = slashMenuItemsForQuery('');
   container.append(menu);
 
   menu.addEventListener('select', (e) => {
-    // TODO: wire up block insertion per item id
-    // eslint-disable-next-line no-console
-    console.log('slash-menu:', e.detail.id);
+    const run = SLASH_MENU_HANDLERS[e.detail.id];
+    const { state } = view;
+    const slash = getSlashContext(state);
+    if (slash && run) {
+      const { anchorPos } = slash;
+      const head = state.selection.from;
+      const tr = state.tr.delete(anchorPos, head);
+      view.dispatch(tr);
+      run(view.state, view.dispatch.bind(view));
+    }
     view.focus();
   });
 
@@ -115,7 +108,7 @@ function syncSlashUi(view, ctxRef) {
     return;
   }
 
-  const items = filterItems(slash.query);
+  const items = slashMenuItemsForQuery(slash.query);
   if (!items.length) {
     ctxRef.ctx?.menu.close();
     return;

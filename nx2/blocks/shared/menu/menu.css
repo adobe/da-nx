@@ -48,8 +48,23 @@
   width: 16px;
   height: 16px;
 
+  svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
   path {
     fill: var(--s2-gray-800);
+  }
+
+  text {
+    fill: var(--s2-gray-800);
+  }
+
+  /* Illustrator export plate — if class-based transparency is lost, this avoids a solid gray tile. */
+  rect[id="Canvas"] {
+    fill: none;
   }
 }
 
