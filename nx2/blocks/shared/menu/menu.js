@@ -99,23 +99,36 @@ class NxMenu extends LitElement {
     this.dispatchEvent(new CustomEvent('select', { detail: { id: item.id }, bubbles: true, composed: true }));
   }
 
-  _onKeydown(e) {
+  handleKey(key) {
     const selectable = this.items?.filter((i) => !i.divider && !i.section) ?? [];
-    if (!selectable.length) return;
+    if (!selectable.length) return false;
 
     const curIdx = selectable.findIndex((i) => i.id === this._active);
 
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
+    if (key === 'ArrowDown') {
       this._active = selectable[(curIdx + 1) % selectable.length].id;
-      this.shadowRoot.querySelector(`[data-id="${this._active}"]`)?.focus();
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
+      return true;
+    }
+    if (key === 'ArrowUp') {
       this._active = selectable[(curIdx <= 0 ? selectable.length : curIdx) - 1].id;
-      this.shadowRoot.querySelector(`[data-id="${this._active}"]`)?.focus();
-    } else if (e.key === 'Enter' && this._active !== undefined) {
-      e.preventDefault();
+      return true;
+    }
+    if (key === 'Enter' && this._active !== undefined) {
       this._select(selectable.find((i) => i.id === this._active));
+      return true;
+    }
+    if (key === 'Escape') {
+      this.close();
+      return true;
+    }
+    return false;
+  }
+
+  _onKeydown(e) {
+    if (!this.handleKey(e.key)) return;
+    e.preventDefault();
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      this.shadowRoot.querySelector(`[data-id="${this._active}"]`)?.focus();
     }
   }
 
