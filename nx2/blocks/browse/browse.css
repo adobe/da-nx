@@ -1,7 +1,3 @@
-body:has(.browse) {
-  overflow: hidden;
-}
-
 :host {
   display: block;
   box-sizing: border-box;
