@@ -268,7 +268,9 @@
   color: inherit;
 }
 
-.space .space-extensions-dialog-overlay {
+/* Dialog is a sibling of `.space` in the shadow tree (see space.js render); use :host
+   so rules apply — `.space …` would not match and the modal would be unstyled/invisible. */
+:host .space-extensions-dialog-overlay {
   position: fixed;
   inset: 0;
   background: rgb(0 0 0 / 40%);
@@ -278,7 +280,7 @@
   justify-content: center;
 }
 
-.space .space-extensions-dialog {
+:host .space-extensions-dialog {
   background: #fff;
   border-radius: 12px;
   box-shadow: 0 4px 32px rgb(0 0 0 / 20%);
@@ -290,7 +292,7 @@
   max-height: 90vh;
 }
 
-.space .space-extensions-dialog-header {
+:host .space-extensions-dialog-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -300,7 +302,7 @@
   font-size: 14px;
 }
 
-.space .space-extensions-dialog-close {
+:host .space-extensions-dialog-close {
   padding: 4px;
   border: none;
   background: transparent;
@@ -312,11 +314,11 @@
   justify-content: center;
 }
 
-.space .space-extensions-dialog-close:hover {
+:host .space-extensions-dialog-close:hover {
   background: var(--spectrum-global-color-gray-100, #eaeaea);
 }
 
-.space .space-extensions-dialog iframe {
+:host .space-extensions-dialog iframe {
   border: none;
   display: block;
   width: 400px;

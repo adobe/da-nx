@@ -180,6 +180,9 @@ class Space extends LitElement {
     this._wysiwygIframe = null;
     // Set when entering split view with a selection; cleared once scroll is sent.
     this._pendingWysiwygScroll = false;
+    /** Prepare / extension iframe: matches shell.js SDK handshake (da.live sdk.js). */
+    this._extensionIframeInitTimeout = null;
+    this._extensionIframePort1 = null;
   }
 
   _onDocToolbarReady = (e) => {
@@ -673,18 +676,55 @@ class Space extends LitElement {
   }
 
   _handleExtensionsDialogClose() {
+    if (this._extensionIframeInitTimeout != null) {
+      clearTimeout(this._extensionIframeInitTimeout);
+      this._extensionIframeInitTimeout = null;
+    }
+    if (this._extensionIframePort1) {
+      this._extensionIframePort1.onmessage = null;
+      this._extensionIframePort1 = null;
+    }
     this._extensionsDialog = null;
   }
 
+  /**
+   * Same contract as nx/blocks/shell/shell.js handleLoad: da.live utils/sdk.js
+   * expects `postMessage(..., [port2])` so the iframe can call setTitle et al.
+   */
   _handleExtensionIframeLoad({ target }) {
-    setTimeout(() => {
+    if (this._extensionIframeInitTimeout != null) {
+      clearTimeout(this._extensionIframeInitTimeout);
+      this._extensionIframeInitTimeout = null;
+    }
+    if (this._extensionIframePort1) {
+      this._extensionIframePort1.onmessage = null;
+      this._extensionIframePort1 = null;
+    }
+
+    const { port1, port2 } = new MessageChannel();
+    port1.onmessage = (e) => {
+      if (e.data.action === 'setTitle') {
+        document.title = e.data.details;
+      }
+      if (e.data.action === 'setHash') {
+        window.location.hash = e.data.details;
+      }
+      if (e.data.action === 'setHref') {
+        window.location.href = e.data.details;
+      }
+    };
+    this._extensionIframePort1 = port1;
+
+    this._extensionIframeInitTimeout = setTimeout(() => {
+      this._extensionIframeInitTimeout = null;
       if (!target.contentWindow || !this._orgRepo) return;
       const { org, repo } = this._orgRepo;
       const path = this._selectedPath ? `/${this._selectedPath}` : '';
       const context = { org, site: repo, ref: 'main', path };
       const token = window.adobeIMS?.getAccessToken()?.token;
       const message = { ready: true, context, ...(token ? { token } : {}) };
-      target.contentWindow.postMessage(message, '*');
+      // Match shell.js: '*' avoids targetOrigin mismatch if the iframe navigates.
+      target.contentWindow.postMessage(message, '*', [port2]);
     }, 750);
   }
 
