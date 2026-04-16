@@ -1,6 +1,6 @@
 /**
  * Full-page Skills Lab at `/apps/skills` (same shell as browse: chat + catalog).
- * Hash: `#/{org}/{site}/skills-lab` (same as browse Skills Lab route).
+ * Hash: `#/{org}/{site}` — org and site are the only required segments.
  */
 /* eslint-disable import/no-unresolved -- bundled / fragment-resolved at runtime */
 import '../../deps/swc/dist/index.js';

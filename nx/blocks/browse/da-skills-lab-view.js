@@ -180,7 +180,7 @@ class DaSkillsLabView extends LitElement {
     this._newAgentName = '';
     this._agentSaveBusy = false;
     this._formMsg = '';
-    /** Same-tab handoff when chat sets session but hash stays `#/…/skills-lab`. */
+    /** Same-tab handoff when chat stores session while already on `/apps/skills`. */
     this._onWindowSuggestHandoff = () => {
       this._applySuggestionHandoff(consumeSkillsLabSuggestionHandoff());
     };
@@ -551,7 +551,7 @@ class DaSkillsLabView extends LitElement {
     const segs = h.replace(/^#\/?/, '').split('/').filter(Boolean);
     if (segs.length < 3) return '';
     const doc = segs.slice(2).join('/');
-    if (!doc || doc === 'skills-lab' || doc.startsWith('skills-lab/')) return '';
+    if (!doc) return '';
     return `/${doc}`;
   }
 
