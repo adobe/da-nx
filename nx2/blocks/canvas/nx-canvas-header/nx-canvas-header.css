@@ -19,7 +19,6 @@
 .segmented {
   display: inline-flex;
   align-items: center;
-  box-sizing: border-box;
   padding: var(--s2-spacing-50);
   border-radius: calc(var(--s2-corner-radius-400) + var(--s2-spacing-50));
   gap: var(--s2-spacing-50);
@@ -27,21 +26,19 @@
 }
 
 .segment {
-  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   box-sizing: border-box;
   margin: 0;
   height: 24px;
-  min-height: 24px;
   padding: 0 9px;
   border: none;
   border-radius: var(--s2-corner-radius-400);
   font: inherit;
-  font-size: var(--s2-body-size-xs, 12px);
+  font-size: var(--s2-body-size-xs);
   line-height: 16px;
-  font-weight: var(--s2-component-s-medium-font-weight, 500);
+  font-weight: var(--s2-component-s-medium-font-weight);
   color: var(--s2-gray-700);
   background: transparent;
   cursor: pointer;
@@ -51,8 +48,7 @@
     background-color 0.12s ease,
     box-shadow 0.12s ease;
 
-  &:focus,
-  &:focus-visible {
+  &:focus {
     outline: none;
   }
 
@@ -65,8 +61,7 @@
     color: var(--s2-gray-800);
     background-color: var(--s2-gray-25);
 
-    &:focus,
-    &:focus-visible {
+    &:focus {
       box-shadow: 0 1px 2px rgb(0 0 0 / 6%);
     }
   }

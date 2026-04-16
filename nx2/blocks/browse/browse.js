@@ -5,6 +5,7 @@ import { contextToPathContext } from './utils.js';
 import './list/list.js';
 
 const styles = await loadStyle(import.meta.url);
+document.adoptedStyleSheets = [...document.adoptedStyleSheets, styles];
 
 class NxBrowse extends LitElement {
   static properties = {
