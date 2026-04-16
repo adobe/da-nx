@@ -68,15 +68,21 @@ class NxPicker extends LitElement {
     this.dispatchEvent(new CustomEvent('change', { detail: { value: item.value }, bubbles: true, composed: true }));
   }
 
-  _onKeydown(e) {
-    listKeydown(e, {
+  handleKey(key) {
+    return listKeydown(key, {
       items: this.items,
       active: this._active,
-      key: 'value',
+      itemKey: 'value',
       shadowRoot: this.shadowRoot,
       setActive: (val) => { this._active = val; },
       onSelect: (item) => this._select(item),
+      onClose: () => this.close(),
     });
+  }
+
+  _onKeydown(e) {
+    const handled = this.handleKey(e.key);
+    if (handled) e.preventDefault();
   }
 
   _renderItem(item) {

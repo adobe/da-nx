@@ -20,6 +20,7 @@ class NxMenu extends LitElement {
     items: { attribute: false },
     _active: { state: true },
     _icons: { state: true },
+    ignoreFocus: { attribute: true },
   };
 
   get _popover() { return this.shadowRoot.querySelector('nx-popover'); }
@@ -64,7 +65,7 @@ class NxMenu extends LitElement {
     const first = this.items?.find((i) => !i.divider && !i.section);
     this._active = first?.id;
     this.updateComplete.then(() => {
-      this.shadowRoot.querySelector(`[data-id="${this._active}"]`)?.focus();
+      if (!this.ignoreFocus) this.shadowRoot.querySelector(`[data-id="${this._active}"]`)?.focus();
     });
   }
 
@@ -77,6 +78,10 @@ class NxMenu extends LitElement {
 
   close() {
     this._popover?.close();
+  }
+
+  reposition() {
+    this._popover?.reposition();
   }
 
   get open() {
@@ -101,15 +106,22 @@ class NxMenu extends LitElement {
     this.dispatchEvent(new CustomEvent('select', { detail: { id: item.id }, bubbles: true, composed: true }));
   }
 
-  _onKeydown(e) {
-    listKeydown(e, {
+  handleKey(key) {
+    return listKeydown(key, {
       items: this.items,
       active: this._active,
-      key: 'id',
+      itemKey: 'id',
       shadowRoot: this.shadowRoot,
       setActive: (val) => { this._active = val; },
       onSelect: (item) => this._select(item),
+      onClose: () => this.close(),
+      focusActiveItem: !this.ignoreFocus,
     });
+  }
+
+  _onKeydown(e) {
+    const handled = this.handleKey(e.key);
+    if (handled) e.preventDefault();
   }
 
   _renderItem(item) {
