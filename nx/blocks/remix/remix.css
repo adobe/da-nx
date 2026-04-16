@@ -1,0 +1,36 @@
+.nx-remix {
+  padding: 2rem;
+}
+
+.nx-remix-content {
+  max-width: 480px;
+  margin: 0 auto;
+  padding: 2rem;
+  border: 1px solid var(--color-gray-300, #d1d5db);
+  border-radius: 8px;
+  background: var(--color-white, #fff);
+}
+
+.nx-remix-content h1 {
+  margin: 0 0 1.5rem;
+  font-size: 1.75rem;
+}
+
+.nx-remix-content dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.5rem 1rem;
+  align-items: baseline;
+}
+
+.nx-remix-content dt {
+  font-weight: 600;
+  color: var(--color-gray-600, #4b5563);
+}
+
+.nx-remix-content dd {
+  margin: 0;
+  font-family: monospace;
+  word-break: break-all;
+}
