@@ -13,16 +13,18 @@ import {
 import { renderMessageContent } from './chat-renderers.js';
 import { initIms, daFetch } from '../../../utils/daFetch.js';
 import { DA_ORIGIN } from '../../../public/utils/constants.js';
-import { loadSkills, saveSkill, deleteSkill } from '../../skills-editor/utils/utils.js';
 import {
   clearSkillsLabSuggestionSession,
   DA_SKILLS_LAB_CLEAR_FORM_FROM_CHAT_EVENT,
   DA_SKILLS_LAB_FORM_COLUMN_DISMISS_EVENT,
   DA_SKILLS_LAB_SUGGESTION_HANDOFF_EVENT,
+  deleteSkillFromConfig,
+  loadSkillsFromConfig,
   materializeDaConfigAfter404,
   skillRowEnabled,
   skillRowStatus,
   setSkillsLabSuggestionHandoff,
+  upsertSkillInConfig,
 } from '../../browse/skills-lab-api.js';
 import { loadGeneratedTools } from './generated-tools/utils.js';
 import './generated-tools/generated-tools.js';
@@ -1100,7 +1102,7 @@ class Chat extends LitElement {
     const key = `${org}/${site}`;
     this._skillsLoading = true;
     try {
-      const skills = await loadSkills(org, site);
+      const skills = await loadSkillsFromConfig(org, site);
       this._skills = skills;
       this._skillsRepoKey = key;
       const ids = Object.keys(skills);
@@ -1172,14 +1174,14 @@ class Chat extends LitElement {
 
   async _saveCurrentSkill() {
     const { org, site } = getContextFromHash();
-    const prefix = site ? `/${org}/${site}` : `/${org}`;
+    if (!org || !site) return;
     const textarea = this.shadowRoot?.querySelector('.skill-editor-textarea');
     const content = textarea?.value ?? '';
 
     if (this._newSkillMode) {
       const id = this._newSkillName.trim();
       if (!id) return;
-      const result = await saveSkill(prefix, id, content, { status: 'draft' });
+      const result = await upsertSkillInConfig(org, site, id, content, { status: 'draft' });
       if (result.error) return;
       this._skills = { ...this._skills, [id]: content };
       this._selectedSkill = id;
@@ -1199,7 +1201,7 @@ class Chat extends LitElement {
       }
       this._dispatchRepoFilesChangedForSite();
     } else if (this._selectedSkill) {
-      const result = await saveSkill(prefix, this._selectedSkill, content, { status: 'draft' });
+      const result = await upsertSkillInConfig(org, site, this._selectedSkill, content, { status: 'draft' });
       if (result.error) return;
       this._skills = { ...this._skills, [this._selectedSkill]: content };
       this._skillEditorDirty = false;
@@ -1210,8 +1212,8 @@ class Chat extends LitElement {
   async _deleteCurrentSkill() {
     if (!this._selectedSkill) return;
     const { org, site } = getContextFromHash();
-    const prefix = site ? `/${org}/${site}` : `/${org}`;
-    const result = await deleteSkill(prefix, this._selectedSkill);
+    if (!org || !site) return;
+    const result = await deleteSkillFromConfig(org, site, this._selectedSkill);
     if (result.error) return;
     const next = { ...this._skills };
     delete next[this._selectedSkill];
