@@ -66,6 +66,18 @@ tool-result (error) → error
 
 `approval-requested` is the only state that requires user action. All other states are informational.
 
+### Tool event ordering guarantees
+
+Within a single stream connection, events for a given `toolCallId` are expected to arrive in order: `tool-call` first, then optionally `tool-approval-request`, then `tool-result` as the terminal event. The client state machine depends on this ordering — a `tool-result` arriving before `tool-call` would produce incorrect state.
+
+> **Contract:** Event ordering per `toolCallId` is a stable contract with da-agent. Breaking changes require a coordinated update on both sides.
+
+**Duplicates:** Should not occur within a stream. The client ignores a duplicate `tool-call` for an already-known `toolCallId` — subsequent events for that id are still processed normally.
+
+**Missing `tool-result`:** If the stream is interrupted, a tool card may be left in `running` or `approval-requested` state indefinitely. `running` is in-memory only and resets on page load. `approval-requested` messages are persisted — `loadInitialMessages` filters incomplete approval sequences on reload to avoid sending unresolved tool-calls to the agent on the next request.
+
+**Reconnect:** The stream is a live feed — events are not replayed on reconnect. A new stream starts fresh; any in-flight tool state from the previous connection is lost.
+
 The approval popover accepts keyboard shortcuts: `Esc` = Reject, `↵` = Approve, `⌘↵` = Always approve.
 
 **If the agent team adds or renames event types, `processEvent` in `utils.js` must be updated to match.**

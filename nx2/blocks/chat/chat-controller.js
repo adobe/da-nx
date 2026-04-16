@@ -113,6 +113,7 @@ export default class ChatController {
     const next = new Map(this._toolCards ?? []);
 
     if (type === AGENT_EVENT.TOOL_CALL) {
+      if (next.has(toolCallId)) return; // duplicate — ignore
       next.set(toolCallId, { toolName, input, state: TOOL_STATE.RUNNING });
     } else if (type === AGENT_EVENT.TOOL_APPROVAL_REQUEST) {
       const autoApprove = this._autoApprovedTools?.has(toolName);
