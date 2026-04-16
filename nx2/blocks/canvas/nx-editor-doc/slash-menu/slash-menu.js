@@ -24,17 +24,17 @@ function getSlashContext(state) {
   const query = prefix.slice(1);
   if (/\s/.test(query)) return null;
 
-  // Anchor at paragraph start (the `/`) so the menu does not jump with the cursor while filtering
   return { query, anchorPos: paraStart };
 }
 
 function shouldShowSlashHint(state) {
   const { $from } = state.selection;
-  if (!inTopLevelParagraph($from)) return false;
-  if ($from.parentOffset !== 0) return false;
-  if ($from.parent.content.size > 0) return false;
-  if (getSlashContext(state)) return false;
-  return true;
+  return (
+    inTopLevelParagraph($from)
+    && $from.parentOffset === 0
+    && $from.parent.content.size === 0
+    && !getSlashContext(state)
+  );
 }
 
 function setup(container, view) {
@@ -132,14 +132,14 @@ function syncSlashUi(view, ctxRef) {
 
 function destroySlashUi(ctxRef) {
   ctxRef.hintEl?.remove();
+  ctxRef.hintEl = null;
   const { ctx } = ctxRef;
   if (!ctx) return;
   ctx.menu.close();
   ctx.scrollEl?.removeEventListener('scroll', ctx.onScroll);
   ctx.anchor.remove();
   ctx.menu.remove();
-  // eslint-disable-next-line no-param-reassign
-  ctxRef = {};
+  ctxRef.ctx = null;
 }
 
 export function createSlashMenuPlugin() {
