@@ -27,9 +27,7 @@ class NxBreadcrumb extends LitElement {
               <li class="crumb">
                 ${crumb.href
         ? html`<a class="crumb-label" href=${crumb.href}>${crumb.label}</a>`
-        : html`
-                      <span class="crumb-label current" aria-current="page">${crumb.label}</span>
-                    `}
+        : html`<span class="crumb-label current" aria-current="page">${crumb.label}</span>`}
               </li>
             `)}
         </ol>
