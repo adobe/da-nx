@@ -63,16 +63,16 @@
 
 /* Column 1: skill id + markdown editor + actions (single surface for edit/read). */
 .skills-lab-col-form {
-  flex: 1 1 24%;
+  flex: 1 1 40%;
   min-width: 240px;
-  max-width: min(520px, 42%);
+  max-width: min(700px, 48%);
   min-height: 0;
   overflow: hidden auto;
 }
 
 /* Column 2: tools (tabs: generated vs available registry). */
 .skills-lab-col-tools {
-  flex: 1 1 22%;
+  flex: 1 1 20%;
   min-width: 220px;
   min-height: 0;
   display: flex;
@@ -101,7 +101,7 @@
 
 /* Column 3: tabbed catalog (wider). */
 .skills-lab-col-catalog {
-  flex: 1.45 1 38%;
+  flex: 1 1 20%;
   min-width: 280px;
   min-height: 0;
   display: flex;
