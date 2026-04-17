@@ -150,8 +150,9 @@ class SideNav extends HTMLElement {
   }
 
   /**
-   * Injects a "Skills" nav link to `/apps/skills` with the current page query string and, when
-   * when the hash includes `/{org}/{site}`, the same pair in `#/{org}/{site}`.
+   * Appends a Skills nav link to `/apps/skills` only when no `li[data-nx-skills-lab]` exists yet.
+   * If the authored sidenav fragment already lists `/apps/skills`, that row must use
+   * `data-nx-skills-lab` or you will see two Skills rows (fragment + injected).
    */
   async syncSkillsLabLink(list) {
     if (!list) return;
