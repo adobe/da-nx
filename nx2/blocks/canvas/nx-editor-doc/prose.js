@@ -97,7 +97,6 @@ export default async function initProse({
     ySyncPlugin(yXmlFragment),
     yCursorPlugin(wsProvider.awareness),
     yUndoPlugin(),
-    keymap(baseKeymap),
   ];
 
   /** @type {import('prosemirror-view').EditorView | null} */
@@ -113,9 +112,11 @@ export default async function initProse({
         handleTableTab,
       },
       { getHeadingKeymap },
+      { createSlashMenuPlugin },
     ] = await Promise.all([
       import('https://da.live/blocks/edit/prose/plugins/keyHandlers.js'),
       import('https://da.live/blocks/edit/prose/plugins/menu/menu.js'),
+      import('./slash-menu/slash-menu.js'),
     ]);
 
     const dispatch = (tr) => {
@@ -140,6 +141,8 @@ export default async function initProse({
     };
 
     plugins.push(
+      createSlashMenuPlugin(),
+      keymap(baseKeymap),
       getEnterInputRulesPlugin(dispatch),
       getURLInputRulesPlugin(),
       getListInputRulesPlugin(schema),

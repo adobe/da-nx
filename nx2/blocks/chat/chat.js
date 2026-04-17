@@ -118,12 +118,14 @@ class NxChat extends LitElement {
 
   render() {
     return html`
-      <div class="chat-messages-container" role="log" aria-live="polite">
-        ${!this.messages?.length && !this.thinking
+      <div class="chat-scroll-container">
+        <div class="chat-messages-container" role="log" aria-live="polite">
+          ${!this.messages?.length && !this.thinking
         ? html`<nx-chat-welcome .context=${this._context} .onSend=${(p) => this._sendPrompt(p)}></nx-chat-welcome>`
         : nothing}
-        ${this.messages?.map((msg) => renderMessage(msg, icons))}
-        ${this.thinking && !this.messages?.at(-1)?.streaming ? renderThinking() : nothing}
+          ${this.messages?.map((msg) => renderMessage(msg, icons))}
+          ${this.thinking && !this.messages?.at(-1)?.streaming ? renderThinking() : nothing}
+        </div>
       </div>
       <form class="chat-form" autocomplete="off" @submit=${this._submit}>
         <textarea
