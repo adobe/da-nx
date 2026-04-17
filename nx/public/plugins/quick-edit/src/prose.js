@@ -61,10 +61,13 @@ function handleTransaction(tr, ctx, editorView, editorParent) {
   if (oldSel.anchor !== newSel.anchor || oldSel.head !== newSel.head) {
     const base = currentCursorOffset - 1;
     if (newSel.anchor !== newSel.head) {
+      const coords = editorView.coordsAtPos(newSel.anchor);
       ctx.port.postMessage({
         type: 'selection-change',
         anchor: base + newSel.anchor,
         head: base + newSel.head,
+        anchorX: coords.left,
+        anchorY: coords.top,
       });
     } else {
       ctx.port.postMessage({

@@ -12,7 +12,6 @@ import { subscribeCollabUserList } from './utils/awareness-users.js';
 import {
   prefetchWysiwygCookiesIfSignedIn,
   createQuickEditGetToken,
-  buildQuickEditControllerCtx,
   wireQuickEditControllerPort,
 } from './utils/quick-edit-host.js';
 import initProse from './prose.js';
@@ -65,16 +64,17 @@ export class NxEditorDoc extends LitElement {
     prefetchWysiwygCookiesIfSignedIn(this.ctx);
 
     const { org, repo } = this.ctx ?? {};
-    const getToken = createQuickEditGetToken();
-    this._controllerCtx = buildQuickEditControllerCtx({
+    this._controllerCtx = {
       view,
       wsProvider,
       port: this.quickEditPort,
+      iframe: this._wysiwygIframe,
+      suppressRerender: false,
       owner: org,
       repo,
-      pathname: controllerPathnameFromEditorCtx(this.ctx),
-      getToken,
-    });
+      path: controllerPathnameFromEditorCtx(this.ctx),
+      getToken: createQuickEditGetToken(),
+    };
     wireQuickEditControllerPort(this._controllerCtx);
   }
 
@@ -162,8 +162,11 @@ export class NxEditorDoc extends LitElement {
     };
     this.parentElement?.addEventListener('nx-canvas-editor-active', this._onCanvasEditorActive);
     this._onWysiwygPortReady = (e) => {
-      const port = e.detail?.port;
-      if (port) this.quickEditPort = port;
+      const { port, iframe } = e.detail ?? {};
+      if (port) {
+        this._wysiwygIframe = iframe;
+        this.quickEditPort = port;
+      }
     };
     this.parentElement?.addEventListener('nx-wysiwyg-port-ready', this._onWysiwygPortReady);
   }

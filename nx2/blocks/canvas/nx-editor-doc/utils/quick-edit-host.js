@@ -21,27 +21,6 @@ export function createQuickEditGetToken() {
   };
 }
 
-export function buildQuickEditControllerCtx({
-  view,
-  wsProvider,
-  port,
-  owner,
-  repo,
-  pathname,
-  getToken,
-}) {
-  return {
-    view,
-    wsProvider,
-    port,
-    suppressRerender: false,
-    owner,
-    repo,
-    path: pathname,
-    getToken,
-  };
-}
-
 export function wireQuickEditControllerPort(controllerCtx) {
   controllerCtx.port.onmessage = createControllerOnMessage(controllerCtx);
   const sendInitialBodyAndCursors = () => {

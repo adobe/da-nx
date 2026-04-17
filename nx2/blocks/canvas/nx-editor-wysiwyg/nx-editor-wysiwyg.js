@@ -70,7 +70,7 @@ export class NxEditorWysiwyg extends LitElement {
     const segments = path.split('/');
     const pathWithoutOrgRepo = segments.slice(2).join('/');
     const encodedPath = pathWithoutOrgRepo.split('/').map(encodeURIComponent).join('/');
-    const base = `${getPreviewOrigin(org, repo)}/${encodedPath}?nx=ew&quick-edit=ew`;
+    const base = `${getPreviewOrigin(org, repo)}/${encodedPath}?nx=ew&quick-edit=local`;
     return `${base}&controller=parent`;
   }
 
@@ -129,10 +129,11 @@ export class NxEditorWysiwyg extends LitElement {
     this._clearQuickEditRetry();
     this.setAttribute(WYSIWYG_PORT_READY_ATTR, '');
     this._syncCanvasVisibility();
+    const iframe = this.shadowRoot?.querySelector('iframe');
     this.dispatchEvent(new CustomEvent('nx-wysiwyg-port-ready', {
       bubbles: true,
       composed: true,
-      detail: { port },
+      detail: { port, iframe },
     }));
   }
 
