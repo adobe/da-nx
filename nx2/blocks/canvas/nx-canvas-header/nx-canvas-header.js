@@ -12,10 +12,21 @@ const ICONS = {
   splitRight: `${ICONS_BASE}S2_Icon_SplitRight_20_N.svg`,
 };
 
+const EDITOR_VIEWS = /** @type {const} */ (['layout', 'content']);
+
 class NXCanvasHeader extends LitElement {
   static properties = {
     _icons: { state: true },
+    /** `'layout'` = doc editor (ProseMirror), `'content'` = WYSIWYG preview */
+    editorView: { type: String, reflect: true },
+    redoAvailable: { type: Boolean },
   };
+
+  constructor() {
+    super();
+    this.editorView = 'layout';
+    this.redoAvailable = false;
+  }
 
   connectedCallback() {
     super.connectedCallback();
@@ -36,6 +47,18 @@ class NXCanvasHeader extends LitElement {
         bubbles: true,
         composed: true,
         detail: { position },
+      }),
+    );
+  }
+
+  _setEditorView(view) {
+    if (!EDITOR_VIEWS.includes(view) || view === this.editorView) return;
+    this.editorView = view;
+    this.dispatchEvent(
+      new CustomEvent('nx-canvas-editor-view', {
+        bubbles: true,
+        composed: true,
+        detail: { view },
       }),
     );
   }
@@ -65,6 +88,23 @@ class NXCanvasHeader extends LitElement {
           >
             ${this._renderIcon('redo')}
           </button>
+        </div>
+
+        <div class="group group-center" part="group-center">
+          <div class="segmented" role="group" aria-label="Editor view" part="editor-view-toggle">
+            <button
+              type="button"
+              class="segment ${this.editorView === 'layout' ? 'is-selected' : ''}"
+              aria-pressed=${this.editorView === 'layout'}
+              @click=${() => this._setEditorView('layout')}
+            >Layout</button>
+            <button
+              type="button"
+              class="segment ${this.editorView === 'content' ? 'is-selected' : ''}"
+              aria-pressed=${this.editorView === 'content'}
+              @click=${() => this._setEditorView('content')}
+            >Content</button>
+          </div>
         </div>
 
         <div class="group group-end" part="group-end">

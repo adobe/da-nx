@@ -19,7 +19,7 @@ The following sections highlight some principles in more detail.
 - Feature code lives in **`nx2/blocks/`** — currently including **`canvas`** (the edit experience; not a separate edit block), **`chat`**, shell pieces (**`nav`**, **`sidenav`**, **`profile`**), **`fragment`** / **`dialog`**, and small helpers (**`action-button`**, **`canvas-actions`**). **`tool-panel`** is a placeholder block; tool UI is intended to ship inside loaded fragments.
 - Shared shell behavior for app-frame side regions is implemented in **`nx2/utils/panel.js`** (DOM panel chrome, resize, show/hide, persistence), not as a separate `blocks/panel` Lit shell.
 - When **`blocks/shared`** (or equivalent) exists, it should contain small, reusable pieces that make no assumptions about where they are invoked from.
-- Root **`Utils`** contains helpers such as the extension SDK client and DA API wrappers (`api.js`, `daFetch`).
+- Root **`Utils`** contains helpers such as the extension SDK client and DA API wrappers (`daFetch.js`: origins + `daFetch`).
 
 ### Component Communication
 - Components pass props down to their children
@@ -27,7 +27,7 @@ The following sections highlight some principles in more detail.
 - Communicating with a component further outside of the parent/child relationship is also done via props and events, obtaining the component using document.querySelector(...).
 
 ### Backend communication
-- Use da-fetch (via project utilities such as `api.js`) to fetch data from the backend
+- Use `daFetch` from `nx2/utils/daFetch.js` to fetch data from the backend
 - Da Admin documentation: https://opensource.adobe.com/da-admin/
 - Helix Admin documentation: https://www.aem.live/docs/admin.html
 
@@ -54,7 +54,7 @@ nx2
 │
 └── utils
     ├── panel.js        (aside.panel shell, open/hide, fragment load, persistence)
-    ├── api.js          (daFetch and DA endpoints)
+    ├── daFetch.js      (DA origins + authenticated daFetch)
     └── sdk.js          (Extension Client SDK, when used)
 
 Skills Lab — external app at da.live/apps/skills, linked from Chat
