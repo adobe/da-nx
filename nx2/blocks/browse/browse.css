@@ -40,4 +40,31 @@
   .browse-hint-error .browse-hint-detail {
     color: var(--s2-red-1000);
   }
+
+  .browse-header {
+    margin: 0 0 var(--s2-spacing-300);
+  }
+
+  .browse-title-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--s2-spacing-100);
+    box-sizing: border-box;
+    min-width: 0;
+    height: var(--s2-spacing-500);
+    margin-bottom: var(--s2-spacing-100);
+  }
+
+  .browse-title {
+    flex: 1 1 auto;
+    margin: 0;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--s2-heading-size-m);
+    line-height: 26px;
+    font-weight: var(--s2-component-m-bold-font-weight);
+    color: var(--s2-gray-900);
+  }
 }

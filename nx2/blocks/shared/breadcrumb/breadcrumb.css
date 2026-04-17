@@ -1,0 +1,79 @@
+:host {
+  display: block;
+  min-width: 0;
+  height: var(--s2-spacing-500);
+  box-sizing: border-box;
+}
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  height: 100%;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.breadcrumb ol {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  gap: 0;
+  font-family: var(--s2-font-family);
+  font-size: var(--s2-component-m-regular-font-size);
+  line-height: var(--s2-component-m-regular-line-height);
+  font-weight: var(--s2-component-m-regular-font-weight);
+  color: var(--s2-gray-700);
+}
+
+.crumb {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.crumb:not(:first-child)::before {
+  content: "";
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 8px;
+  height: 8px;
+  margin-inline: var(--s2-spacing-75);
+  background-color: currentcolor;
+  pointer-events: none;
+  user-select: none;
+  transform: translateY(1px);
+  transform-origin: center;
+  mask: url("/nx2/img/icons/S2_Icon_ChevronLeft_10_N.svg") center / contain
+    no-repeat;
+}
+
+.crumb-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  font-weight: inherit;
+  color: var(--s2-gray-700);
+  text-decoration: none;
+}
+
+.crumb > .crumb-label {
+  flex: 1 1 auto;
+}
+
+a.crumb-label:hover {
+  color: var(--s2-gray-800);
+}
+
+.crumb-label.current {
+  cursor: default;
+  color: var(--s2-gray-800);
+  font-weight: var(--s2-component-m-bold-font-weight);
+}
