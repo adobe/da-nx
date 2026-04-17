@@ -1,15 +1,28 @@
 :host {
-  display: block;
-  min-height: 12rem;
-  overflow: auto;
-  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
   background-color: var(--s2-gray-25);
   font-family: var(--s2-font-family);
   font-size: var(--s2-component-s-regular-font-size);
   line-height: var(--s2-component-s-regular-line-height);
   color: var(--s2-gray-900);
 
-  .browse-sr-only {
+  .scroll {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    min-height: 0;
+    min-width: 0;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .sr-only {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -23,16 +36,19 @@
   }
 }
 
-.browse-data-table {
-  --browse-rule: var(--s2-gray-300);
+.sheet {
+  --rule: var(--s2-gray-200);
 
+  box-sizing: border-box;
   width: 100%;
+  max-width: var(--browse-sheet-max-width, 1024px);
+  margin-inline: auto;
   table-layout: fixed;
   border-collapse: separate;
   border-spacing: 0;
   font-size: var(--s2-component-m-regular-font-size);
   line-height: var(--s2-component-m-regular-line-height);
-  font-weight: var(--s2-component-m-bold-font-weight);
+  font-weight: var(--s2-component-m-medium-font-weight);
 
   & thead {
     position: sticky;
@@ -54,74 +70,108 @@
 
   & thead th {
     height: var(--s2-spacing-500);
+
+    /* Row-group borders are unreliable with `border-collapse: separate`; use cell borders. */
+    background-color: var(--s2-gray-25);
+    border-bottom: 1px solid var(--rule);
   }
 
   & tbody td {
     height: var(--s2-spacing-700);
   }
 
-  & :is(th, td).browse-col-select {
+  & tbody {
+    & td {
+      border-bottom: 1px solid var(--rule);
+    }
+
+    &
+      td:is(
+        .column-modified,
+        .column-modified-by,
+        .column-last-previewed,
+        .column-last-published
+      ) {
+      white-space: nowrap;
+    }
+
+    & tr:last-child td {
+      border-bottom: none;
+    }
+
+    & tr.row {
+      &[aria-selected="true"] {
+        background-color: var(--s2-blue-100);
+      }
+
+      &:hover {
+        background-color: var(--s2-gray-75);
+      }
+
+      &[aria-selected="true"]:hover {
+        background-color: var(--s2-blue-100);
+      }
+    }
+
+    & tr.row-dir {
+      cursor: pointer;
+    }
+  }
+
+  & :is(th, td).column-selection {
     width: 48px;
     padding-right: var(--s2-spacing-100);
     text-align: center;
   }
 
-  & :is(th, td).browse-col-icon {
+  & :is(th, td).column-entry-type {
     width: 32px;
     padding-left: var(--s2-spacing-100);
     text-align: center;
   }
 
-  & :is(th, td).browse-col-name {
-    min-width: 3rem;
+  & :is(th, td).column-file-name {
+    /* Fixed peers + % columns squeeze unnamed cols; keep a floor and a share of the row. */
+    width: 26%;
+    min-width: max(11rem, 18vw);
     padding: 0 var(--s2-spacing-300) 0 var(--s2-spacing-100);
   }
 
-  & tbody {
-    & td {
-      border-bottom: 1px solid var(--browse-rule);
-    }
-
-    & td:first-child {
-      border-left: 1px solid var(--browse-rule);
-    }
-
-    & td:last-child {
-      border-right: 1px solid var(--browse-rule);
-    }
-
-    & tr:first-child td {
-      border-top: 1px solid var(--browse-rule);
-    }
-
-    & tr:first-child td:first-child {
-      border-top-left-radius: var(--s2-corner-radius-500);
-    }
-
-    & tr:first-child td:last-child {
-      border-top-right-radius: var(--s2-corner-radius-500);
-    }
-
-    & tr:last-child td:first-child {
-      border-bottom-left-radius: var(--s2-corner-radius-500);
-    }
-
-    & tr:last-child td:last-child {
-      border-bottom-right-radius: var(--s2-corner-radius-500);
-    }
-
-    & tr.browse-data-row {
-      &:hover {
-        background-color: var(--s2-gray-75);
-      }
-    }
-
-    & tr.browse-data-row-folder {
-      cursor: pointer;
-    }
+  & :is(th, td).column-modified {
+    width: 12.5rem;
+    padding: 0 var(--s2-spacing-300);
   }
 
-  .browse-checkbox-label {
+  & :is(th, td).column-modified-by {
+    min-width: 10rem;
+    width: 18%;
+    padding: 0 var(--s2-spacing-300);
+  }
+
+  & :is(th, td):is(.column-last-previewed, .column-last-published) {
+    width: 12.5rem;
+    padding: 0 var(--s2-spacing-300);
+  }
+
+  & tbody td.pending {
+    color: var(--s2-gray-600);
+  }
+
+  /*
+   * Flex must live on a block inside `td`, not on `td` itself — `display:flex` on table
+   * cells breaks table layout in WebKit/Blink.
+   */
+  & tbody td:is(.column-last-previewed, .column-last-published) .deploy {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s2-spacing-200);
+    width: 100%;
+    min-width: 0;
+    min-height: var(--s2-spacing-700);
+  }
+
+  .check {
     margin: 0;
     cursor: pointer;
     vertical-align: middle;
@@ -164,7 +214,7 @@
   }
 
   /* Fill the select column so the whole hit area toggles the checkbox (label wraps input). */
-  & :is(th, td).browse-col-select .browse-checkbox-label {
+  & :is(th, td).column-selection .check {
     display: flex;
     box-sizing: border-box;
     width: 100%;
@@ -177,11 +227,11 @@
     vertical-align: middle;
   }
 
-  & thead th.browse-col-select .browse-checkbox-label {
+  & thead th.column-selection .check {
     min-height: var(--s2-spacing-500);
   }
 
-  .browse-col-icon svg {
+  .column-entry-type svg {
     display: block;
     width: 18px;
     height: 18px;
@@ -190,17 +240,97 @@
     color: var(--s2-gray-700);
   }
 
-  .browse-col-icon
+  .column-entry-type
     svg
     :is(path, circle, rect, ellipse, line, polyline, polygon) {
     fill: currentcolor;
   }
-}
 
-.browse-name-text {
-  display: block;
-  color: var(--s2-gray-900);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  .who {
+    display: flex;
+    align-items: center;
+    gap: var(--s2-spacing-200);
+    min-width: 0;
+  }
+
+  .avatar {
+    display: inline-flex;
+    box-sizing: border-box;
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    background-color: var(--s2-gray-300);
+    font-size: 11px;
+    font-weight: var(--s2-component-m-medium-font-weight);
+    line-height: 1;
+    letter-spacing: -0.02em;
+    color: var(--s2-gray-900);
+  }
+
+  /* One truncation recipe for all single-line cell text (applied to every row via the cascade). */
+  & :is(.filename, .who-name, .deploy-label) {
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  & .deploy-label {
+    flex: 1 1 auto;
+    text-align: left;
+  }
+
+  & .filename {
+    display: block;
+    color: var(--s2-gray-900);
+    font-weight: var(--s2-component-m-bold-font-weight);
+  }
+
+  .deploy-badge {
+    display: inline-flex;
+    box-sizing: border-box;
+    width: 26px;
+    height: 26px;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    margin: 0;
+    padding: 0;
+    font: inherit;
+    border-radius: var(--s2-corner-radius-100);
+  }
+
+  button.deploy-badge {
+    cursor: pointer;
+  }
+
+  button.deploy-badge:focus-visible {
+    outline: 2px solid var(--s2-blue-800);
+    outline-offset: 2px;
+  }
+
+  .deploy-badge-preview {
+    background-color: var(--s2-blue-200);
+    color: var(--s2-blue-900);
+  }
+
+  .deploy-badge-live {
+    background-color: var(--s2-green-200);
+    color: var(--s2-green-900);
+  }
+
+  .deploy-badge svg {
+    display: block;
+    width: 16px;
+    height: 16px;
+    color: inherit;
+  }
+
+  .deploy-badge svg :is(path, circle, rect, ellipse, line, polyline, polygon) {
+    fill: currentcolor;
+  }
 }

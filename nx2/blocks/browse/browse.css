@@ -1,14 +1,32 @@
 :host {
-  display: block;
+  --browse-sheet-max-width: 1024px;
+
+  /* Fill the .browse wrapper; max-height none drops a fixed sheet cap */
+  display: flex;
+  flex-direction: column;
   box-sizing: border-box;
-  min-height: 12rem;
+  flex: 1 1 auto;
+  height: 100%;
+  min-height: 0;
+  max-height: none;
+  min-width: 0;
   padding: var(--s2-spacing-200) var(--s2-spacing-300);
+  overflow: hidden;
   font-family: var(--s2-font-family);
   font-size: var(--s2-body-size-s);
   line-height: var(--s2-body-line-height);
   color: var(--s2-gray-800);
   background-color: var(--s2-gray-25);
   overscroll-behavior: contain;
+
+  nx-browse-list {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    flex-grow: 1;
+    min-height: 0;
+    min-width: 0;
+  }
 
   .browse-hint {
     padding: var(--s2-spacing-200);
@@ -42,7 +60,11 @@
   }
 
   .browse-header {
-    margin: 0 0 var(--s2-spacing-300);
+    flex-shrink: 0;
+    box-sizing: border-box;
+    width: 100%;
+    max-width: var(--browse-sheet-max-width);
+    margin: 0 auto var(--s2-spacing-300);
   }
 
   .browse-title-bar {

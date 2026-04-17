@@ -1,17 +1,71 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle, hashChange } from '../../utils/utils.js';
-import { listFolder } from './browse-api.js';
+import { listFolder, fetchResourceStatusForItems } from './browse-api.js';
 import { contextToPathContext } from './utils.js';
 import '../shared/breadcrumb/breadcrumb.js';
 import './list/list.js';
 
 const styles = await loadStyle(import.meta.url);
 
+/*
+ * Document-level shell: main + .browse only. `nx-browse` fill rules live on :host
+ * in browse.css. (4) Table scroll: nx-browse-list `div.scroll` in list/list.css.
+ */
+const styleOverrideCss = `
+/* Fixed boundary in the main content area */
+main:has(nx-browse) {
+  position: relative;
+  height: 100%;
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: 1fr;
+}
+/* Pin the browse block wrapper to main’s box */
+main:has(nx-browse) .browse {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+}
+`.trim();
+
+/** @type {CSSStyleSheet | undefined} */
+let styleOverrideSheet;
+
+const applyStyleOverride = () => {
+  if (!styleOverrideSheet) {
+    styleOverrideSheet = new CSSStyleSheet();
+    styleOverrideSheet.replaceSync(styleOverrideCss);
+  }
+  const sheets = [...document.adoptedStyleSheets];
+  if (!sheets.includes(styleOverrideSheet)) {
+    document.adoptedStyleSheets = [...sheets, styleOverrideSheet];
+  }
+};
+
+const revertStyleOverride = () => {
+  if (!styleOverrideSheet) {
+    return;
+  }
+  document.adoptedStyleSheets = document.adoptedStyleSheets.filter(
+    (sheet) => sheet !== styleOverrideSheet,
+  );
+};
+
 class NxBrowse extends LitElement {
   static properties = {
     _items: { state: true },
     _listError: { state: true },
+    _resourceStatusPending: { state: true },
   };
+
+  /** @type {number} */
+  _folderLoadGeneration = 0;
 
   set context(value) {
     this._explicitContext = true;
@@ -25,7 +79,7 @@ class NxBrowse extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [styles];
-    document.body.style.overflow = 'hidden';
+    applyStyleOverride();
     this._unsubscribeHash = hashChange.subscribe((hashState) => {
       if (!this._explicitContext) {
         this._context = hashState;
@@ -39,7 +93,7 @@ class NxBrowse extends LitElement {
 
   disconnectedCallback() {
     this._unsubscribeHash?.();
-    document.body.style.overflow = '';
+    revertStyleOverride();
     super.disconnectedCallback();
   }
 
@@ -47,22 +101,51 @@ class NxBrowse extends LitElement {
     return contextToPathContext(this._context);
   }
 
+  _scheduleResourceStatusFetch(items, fullpath, loadGeneration) {
+    fetchResourceStatusForItems(items, fullpath)
+      .then((itemsWithResourceStatus) => {
+        if (loadGeneration !== this._folderLoadGeneration) return;
+        if (this._pathContext?.fullpath !== fullpath) return;
+        this._items = itemsWithResourceStatus;
+        this.requestUpdate();
+      })
+      .catch(() => { })
+      .finally(() => {
+        if (loadGeneration !== this._folderLoadGeneration) return;
+        if (this._pathContext?.fullpath !== fullpath) return;
+        this._resourceStatusPending = false;
+        this.requestUpdate();
+      });
+  }
+
   async _syncList() {
     const ctx = this._pathContext;
     if (!ctx) {
       this._items = undefined;
       this._listError = undefined;
+      this._resourceStatusPending = false;
       this.requestUpdate();
       return;
     }
 
-    const result = await listFolder(ctx.fullpath);
+    this._folderLoadGeneration += 1;
+    const loadGeneration = this._folderLoadGeneration;
+    this._resourceStatusPending = false;
+    const { fullpath } = ctx;
+
+    const result = await listFolder(fullpath);
+    if (loadGeneration !== this._folderLoadGeneration) return;
+    if (this._pathContext?.fullpath !== fullpath) return;
+
     if ('error' in result) {
       this._items = undefined;
       this._listError = result.error;
+      this._resourceStatusPending = false;
     } else {
       this._listError = undefined;
       this._items = result.items;
+      this._resourceStatusPending = true;
+      this._scheduleResourceStatusFetch(result.items, fullpath, loadGeneration);
     }
     this.requestUpdate();
   }
@@ -121,6 +204,7 @@ class NxBrowse extends LitElement {
       <nx-browse-list
         .items=${this._items}
         .currentPathKey=${currentPathKey}
+        .resourceStatusPending=${this._resourceStatusPending}
         @nx-browse-open-folder=${this._onBrowseOpenFolder}
       ></nx-browse-list>
     `;
