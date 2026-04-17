@@ -7,6 +7,7 @@ const SUPPORTS_POPOVER = typeof HTMLElement.prototype.showPopover === 'function'
 class NxPopover extends LitElement {
   static properties = {
     open: { type: Boolean, reflect: true },
+    scoped: { type: Boolean },
   };
 
   _placement = 'below';
@@ -18,11 +19,18 @@ class NxPopover extends LitElement {
     if (this.open) this._position();
   }
 
+  get _useNative() { return SUPPORTS_POPOVER && !this.scoped; }
+
   _onKeydown = (e) => { if (e.key === 'Escape') this.close(); };
 
   _onOutsideClick = (e) => {
     const path = e.composedPath();
     if (!path.includes(this) && !path.includes(this._anchor)) this.close();
+  };
+
+  _onWindowBlur = () => {
+    // Clicks in outer frames don't reach this document. Close when focus leaves.
+    requestAnimationFrame(() => { if (!document.hasFocus()) this.close(); });
   };
 
   _onToggle = (e) => {
@@ -32,7 +40,7 @@ class NxPopover extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [styles];
-    if (SUPPORTS_POPOVER) {
+    if (this._useNative) {
       this.setAttribute('popover', 'manual');
       this.addEventListener('toggle', this._onToggle);
     }
@@ -40,7 +48,7 @@ class NxPopover extends LitElement {
 
   disconnectedCallback() {
     super.disconnectedCallback();
-    if (SUPPORTS_POPOVER) this.removeEventListener('toggle', this._onToggle);
+    if (this._useNative) this.removeEventListener('toggle', this._onToggle);
     this._removeListeners();
   }
 
@@ -56,10 +64,10 @@ class NxPopover extends LitElement {
     if (this.open) {
       this._addListeners();
       this._position();
-      if (SUPPORTS_POPOVER) this.togglePopover(true);
+      if (this._useNative) this.togglePopover(true);
     } else {
       this._removeListeners();
-      if (SUPPORTS_POPOVER) this.togglePopover(false);
+      if (this._useNative) this.togglePopover(false);
     }
   }
 
@@ -86,23 +94,34 @@ class NxPopover extends LitElement {
     const gap = parseFloat(getComputedStyle(this).getPropertyValue('--popover-gap')) ?? 0;
 
     this.style.visibility = 'hidden';
+
+    // For scoped popovers, position:fixed is relative to the containing block.
+    // Measure it by sizing to 100%/100% — the browser resolves percentages
+    // against the containing block, so getBoundingClientRect() gives its rect.
+    let cb = null;
+    if (this.scoped) {
+      Object.assign(this.style, { top: '0', left: '0', width: '100%', height: '100%' });
+      cb = this.getBoundingClientRect();
+      this.style.width = '';
+      this.style.height = '';
+    }
     requestAnimationFrame(() => {
       const pop = this.getBoundingClientRect();
+      const cbTop = cb?.top ?? 0;
       let { left } = rect;
       let placement = this._placement;
       if (placement === 'auto') {
-        placement = (pop.bottom > window.innerHeight && rect.top - pop.height - gap >= 0) ? 'above' : 'below';
+        const spaceBelow = (cb?.bottom ?? window.innerHeight) - rect.bottom - gap;
+        const spaceAbove = rect.top - cbTop - gap;
+        placement = spaceBelow < pop.height && spaceAbove >= pop.height ? 'above' : 'below';
+        this._placement = placement;
       }
-      if (left + pop.width > window.innerWidth) left = rect.right - pop.width;
+      if (left + pop.width > (cb?.right ?? window.innerWidth)) left = rect.right - pop.width;
 
-      this.style.left = `${left}px`;
-      if (placement === 'above') {
-        this.style.top = 'auto';
-        this.style.bottom = `${window.innerHeight - rect.top + gap}px`;
-      } else {
-        this.style.top = `${rect.bottom + gap}px`;
-        this.style.bottom = 'auto';
-      }
+      this.style.left = `${left - (cb?.left ?? 0)}px`;
+      this.style.top = placement === 'above'
+        ? `${rect.top - gap - pop.height - cbTop}px`
+        : `${rect.bottom + gap - cbTop}px`;
       this.style.visibility = '';
     });
   }
@@ -110,11 +129,13 @@ class NxPopover extends LitElement {
   _addListeners() {
     document.addEventListener('keydown', this._onKeydown);
     document.addEventListener('pointerdown', this._onOutsideClick);
+    window.addEventListener('blur', this._onWindowBlur);
   }
 
   _removeListeners() {
     document.removeEventListener('keydown', this._onKeydown);
     document.removeEventListener('pointerdown', this._onOutsideClick);
+    window.removeEventListener('blur', this._onWindowBlur);
   }
 
   render() {
