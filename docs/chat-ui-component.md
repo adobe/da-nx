@@ -45,11 +45,13 @@ The controller consumes a server-sent event stream from `da-agent`. Each line is
 
 ### Tool events
 
-| Type | Aliases | Fields | Description |
+> **Contract:** Canonical field names are `input` and `output`. Legacy aliases (`args`, `result`, `tool-input-available`, `tool-output-available`) are accepted by the client for backward compatibility — producers should emit canonical names only.
+
+| Type | Legacy alias | Fields | Description |
 |---|---|---|---|
-| `tool-call` | `tool-input-available` | `toolCallId`, `toolName`, `input` / `args` | Agent invoked a tool |
-| `tool-approval-request` | — | `toolCallId`, `approvalId`, `toolName`, `input` | Tool requires user approval; `input` is the same args object from `tool-call` and is used to render the approval summary |
-| `tool-result` | `tool-output-available` | `toolCallId`, `toolName`, `output` / `result` | Tool completed; `output.error` signals failure |
+| `tool-call` | `tool-input-available` | `toolCallId`, `toolName`, `input` | Agent invoked a tool. Legacy field alias: `args` → `input` |
+| `tool-approval-request` | — | `toolCallId`, `approvalId`, `toolName`, `input` | Tool requires user approval; `input` is the same object from `tool-call` and is used to render the approval summary |
+| `tool-result` | `tool-output-available` | `toolCallId`, `toolName`, `output` | Tool completed; `output.error` signals failure. Legacy field alias: `result` → `output` |
 
 ### Tool card states
 
