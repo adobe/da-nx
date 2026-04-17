@@ -79,6 +79,7 @@
   padding: 0 var(--s2-spacing-300);
   max-width: 720px;
   margin: 0 auto;
+  height: 100%;
 }
 
 .message {

@@ -5,7 +5,7 @@ import { loadMessages, saveMessages, clearMessages } from './persistence.js';
 
 // ?ref=local routes to a local da-agent dev server (port 5173).
 const AGENT_URL = new URLSearchParams(window.location.search).get('ref') === 'local'
-  ? 'http://localhost:5173/chat'
+  ? 'http://localhost:4200/chat'
   : 'https://da-agent.adobeaem.workers.dev/chat';
 
 export default class ChatController {
@@ -37,9 +37,9 @@ export default class ChatController {
     // and cause "Tool result is missing". Complete approval sequences are kept so users
     // see what the agent approved and did in prior conversations.
     this._messages = cached.filter(
-      (m) => !(m.role === ROLE.ASSISTANT && Array.isArray(m.content)
-        && !m.virtual
-        && !m.content.some((p) => p.type === AGENT_EVENT.TOOL_APPROVAL_REQUEST)),
+      (msg) => !(msg.role === ROLE.ASSISTANT && Array.isArray(msg.content)
+        && !msg.virtual
+        && !msg.content.some((p) => p.type === AGENT_EVENT.TOOL_APPROVAL_REQUEST)),
     );
     // Reconstruct tool cards from persisted approval messages so they render on reload.
     this._toolCards = new Map();
@@ -213,7 +213,7 @@ export default class ChatController {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        messages: this._messages.filter((m) => !m.virtual),
+        messages: this._messages.filter((msg) => !msg.virtual),
         pageContext,
         imsToken: accessToken?.token ?? null,
         room,
