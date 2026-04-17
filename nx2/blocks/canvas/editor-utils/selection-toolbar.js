@@ -12,7 +12,13 @@ import { loadHrefSvg } from '../../../utils/svg.js';
 
 const ICONS_BASE = new URL('../../img/icons/', import.meta.url).href;
 
-const BLOCK_TYPE_PICKER_VALUES = new Set(['paragraph', 'heading-1', 'heading-2', 'heading-3']);
+const BLOCK_TYPE_PICKER_VALUES = new Set([
+  'paragraph',
+  'heading-1',
+  'heading-2',
+  'heading-3',
+  'code_block',
+]);
 
 const BLOCK_TYPE_PICKER_ITEMS = [
   { section: 'Change into' },
@@ -20,6 +26,7 @@ const BLOCK_TYPE_PICKER_ITEMS = [
   { value: 'heading-1', label: 'Heading 1' },
   { value: 'heading-2', label: 'Heading 2' },
   { value: 'heading-3', label: 'Heading 3' },
+  { value: 'code_block', label: 'Code block' },
 ];
 
 /** @type {import('prosemirror-view').EditorView | null} */
@@ -160,6 +167,9 @@ function applyBlockTypePick(view, value) {
     const level = Number(m[1]);
     return setBlockType(schema.nodes.heading, { level })(state, d);
   }
+  if (value === 'code_block') {
+    return setBlockType(schema.nodes.code_block)(state, d);
+  }
   return false;
 }
 
@@ -279,41 +289,18 @@ function syncPressedStates() {
 
 function setToolbarInteractivity(wrap, enabled) {
   wrap.toggleAttribute('data-disabled', !enabled);
-  wrap.style.pointerEvents = enabled ? '' : 'none';
-  wrap.style.opacity = enabled ? '' : '0.45';
 }
 
 function wireToolbar(popover) {
   const wrap = document.createElement('div');
   wrap.className = 'nx-selection-toolbar-actions';
-  wrap.style.cssText = [
-    'display:flex',
-    'flex-wrap:wrap',
-    'align-items:center',
-    'gap:4px',
-    'max-width:min(92vw,380px)',
-  ].join(';');
 
   const mkBtn = (label, extra = {}) => {
     const btn = document.createElement('button');
     btn.type = 'button';
+    btn.className = 'nx-selection-toolbar-btn';
     btn.setAttribute('aria-label', label);
     btn.title = label;
-    btn.style.cssText = [
-      'box-sizing:border-box',
-      'min-width:32px',
-      'height:32px',
-      'padding:0 6px',
-      'display:inline-flex',
-      'align-items:center',
-      'justify-content:center',
-      'border:1px solid var(--s2-gray-300)',
-      'border-radius:var(--s2-corner-radius-100)',
-      'background:var(--s2-gray-75)',
-      'color:var(--s2-gray-800)',
-      'font:inherit',
-      'cursor:pointer',
-    ].join(';');
     Object.entries(extra).forEach(([k, v]) => {
       if (v !== undefined) btn.setAttribute(k, v);
     });
@@ -322,17 +309,19 @@ function wireToolbar(popover) {
 
   const bold = mkBtn('Bold');
   bold.textContent = 'B';
-  bold.style.fontWeight = '700';
   bold.dataset.mark = 'strong';
 
   const italic = mkBtn('Italic');
   italic.textContent = 'I';
-  italic.style.fontStyle = 'italic';
   italic.dataset.mark = 'em';
 
+  const code = mkBtn('Inline code');
+  code.textContent = '</>';
+  code.dataset.mark = 'code';
+
   const sep = document.createElement('span');
+  sep.className = 'nx-selection-toolbar-sep';
   sep.setAttribute('aria-hidden', 'true');
-  sep.style.cssText = 'width:1px;height:20px;background:var(--s2-gray-300);margin:0 2px';
 
   const blockTypePicker = document.createElement('nx-picker');
   blockTypePicker.className = 'nx-selection-toolbar-block-type';
@@ -352,21 +341,20 @@ function wireToolbar(popover) {
 
   const blockPickWrap = document.createElement('span');
   blockPickWrap.className = 'nx-selection-toolbar-block-type-wrap';
-  blockPickWrap.style.cssText = 'display:inline-flex;min-width:9.5rem;align-items:center';
   blockPickWrap.append(blockTypePicker);
 
-  wrap.append(bold, italic, sep, blockPickWrap);
+  const sepAfterMarks = document.createElement('span');
+  sepAfterMarks.className = 'nx-selection-toolbar-sep';
+  sepAfterMarks.setAttribute('aria-hidden', 'true');
+
+  wrap.append(blockPickWrap, sep, bold, italic, code, sepAfterMarks);
 
   STRUCTURE_ACTIONS.forEach(({ id, label, icon }) => {
     const btn = mkBtn(label, { 'data-handler': id });
     const href = `${ICONS_BASE}S2_Icon_${icon}_20_N.svg`;
     loadHrefSvg(href).then((svg) => {
       if (!svg || !btn.isConnected) return;
-      const node = svg.cloneNode(true);
-      node.style.width = '18px';
-      node.style.height = '18px';
-      node.style.display = 'block';
-      btn.append(node);
+      btn.append(svg.cloneNode(true));
     });
     wrap.append(btn);
   });

@@ -49,3 +49,66 @@ nx-editor-wysiwyg[hidden] {
   display: none !important;
 }
 
+/* Selection toolbar (nx-popover.nx-selection-toolbar content) */
+.nx-selection-toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  max-width: min(92vw, 500px);
+}
+
+.nx-selection-toolbar-actions[data-disabled] {
+  pointer-events: none;
+  opacity: 0.45;
+}
+
+.nx-selection-toolbar-btn {
+  box-sizing: border-box;
+  min-width: 32px;
+  height: 32px;
+  padding: 0 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--s2-gray-300);
+  border-radius: var(--s2-corner-radius-100);
+  background: var(--s2-gray-75);
+  color: var(--s2-gray-800);
+  font: inherit;
+  cursor: pointer;
+}
+
+.nx-selection-toolbar-btn[data-mark="strong"] {
+  font-weight: 700;
+}
+
+.nx-selection-toolbar-btn[data-mark="em"] {
+  font-style: italic;
+}
+
+.nx-selection-toolbar-btn[data-mark="code"] {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.7rem;
+  letter-spacing: -0.02em;
+  padding: 0 4px;
+}
+
+.nx-selection-toolbar-btn svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
+.nx-selection-toolbar-sep {
+  width: 1px;
+  height: 20px;
+  background: var(--s2-gray-300);
+  margin: 0 2px;
+}
+
+.nx-selection-toolbar-block-type-wrap {
+  display: inline-flex;
+  align-items: center;
+}
+
