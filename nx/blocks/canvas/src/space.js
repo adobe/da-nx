@@ -321,6 +321,12 @@ class Space extends LitElement {
     }
   };
 
+  _setViewMode(mode) {
+    if (!VIEW_MODES.has(mode)) return;
+    this._viewMode = mode;
+    sessionStorage.setItem('da-nx-view-mode', mode);
+  }
+
   _onCanvasBreadcrumbNavigate(event) {
     const pathKey = event.detail?.pathKey;
     if (!pathKey) return;
@@ -1074,49 +1080,60 @@ class Space extends LitElement {
       <div class="space">
         <nav class="space-top-nav" aria-label="Toolbar">
           <div class="space-nav-left">
+            <button
+              type="button"
+              class="space-icon-btn ${this._chatOpen ? 'is-active' : ''}"
+              aria-label="Toggle chat panel"
+              aria-pressed="${this._chatOpen}"
+              @click="${() => { this._chatOpen = !this._chatOpen; localStorage.setItem('da-nx-chat-open', this._chatOpen); }}"
+            >
+              <img src="${nxBase}/img/icons/aichat.svg" alt="" class="space-nav-icon" />
+            </button>
             ${this._renderBreadcrumbBackButton()}
             ${this._renderBreadcrumbs()}
           </div>
           <div class="space-nav-center">
-            <sp-action-button
-              class="space-nav-toggle-btn"
-              label="Toggle chat panel"
-              ?selected="${this._chatOpen}"
-              @click="${() => { this._chatOpen = !this._chatOpen; localStorage.setItem('da-nx-chat-open', this._chatOpen); }}"
-            >
-              <img src="${nxBase}/img/icons/aichat.svg" slot="icon" alt="" class="space-nav-icon" />
-            </sp-action-button>
-            <sp-action-group
-              class="space-nav-action-group"
-              compact
-              selects="single"
-              label="Middle panel view"
-              .selected="${[this._viewMode]}"
-              @change="${this._onViewModeChange}"
-            >
-              <sp-action-button value="doc" label="Doc">
-                <img src="${nxBase}/img/icons/file.svg" slot="icon" alt="" class="space-nav-icon" />
-              </sp-action-button>
-              <sp-action-button value="wysiwyg" label="WYSIWYG">
-                <img src="${nxBase}/img/icons/wysiwyg.svg" slot="icon" alt="" class="space-nav-icon" />
-              </sp-action-button>
-              <sp-action-button value="split" label="Split">
-                <img src="${nxBase}/img/icons/split.svg" slot="icon" alt="" class="space-nav-icon" />
-              </sp-action-button>
-            </sp-action-group>
-            <sp-action-button
-              class="space-nav-toggle-btn"
-              label="Toggle details panel"
-              ?selected="${this._detailsOpen}"
-              @click="${() => { this._detailsOpen = !this._detailsOpen; localStorage.setItem('da-nx-details-open', this._detailsOpen); }}"
-            >
-              <img src="${nxBase}/img/icons/details.svg" slot="icon" alt="" class="space-nav-icon" />
-            </sp-action-button>
+            <div class="space-nav-bar-center">
+              <div class="space-segmented" role="group" aria-label="Editor view">
+                <button
+                  type="button"
+                  class="space-segment ${this._viewMode === 'wysiwyg' ? 'is-selected' : ''}"
+                  aria-pressed="${this._viewMode === 'wysiwyg'}"
+                  @click="${() => this._setViewMode('wysiwyg')}"
+                >Layout</button>
+                <button
+                  type="button"
+                  class="space-segment ${this._viewMode === 'doc' ? 'is-selected' : ''}"
+                  aria-pressed="${this._viewMode === 'doc'}"
+                  @click="${() => this._setViewMode('doc')}"
+                >Content</button>
+                <button
+                  type="button"
+                  class="space-segment space-segment-icon ${this._viewMode === 'split' ? 'is-selected' : ''}"
+                  aria-label="Split view"
+                  aria-pressed="${this._viewMode === 'split'}"
+                  @click="${() => this._setViewMode(this._viewMode === 'split' ? 'wysiwyg' : 'split')}"
+                >
+                  <img src="${nxBase}/img/icons/S2_Icon_GridCompare_20_N.svg" alt="" class="space-nav-icon" />
+                </button>
+              </div>
+            </div>
           </div>
           <div class="space-nav-right">
             ${this._renderCollabUsers()}
             ${this._renderExtensionsButton()}
             ${this._renderPublishMenu()}
+            <button
+              type="button"
+              class="space-icon-btn ${this._detailsOpen ? 'is-active' : ''}"
+              aria-label="Toggle details panel"
+              aria-pressed="${this._detailsOpen}"
+              @click="${() => { this._detailsOpen = !this._detailsOpen; localStorage.setItem('da-nx-details-open', this._detailsOpen); }}"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                <path d="M16.75 3H3.25C2.00928 3 1 4.00977 1 5.25V14.75C1 15.9902 2.00928 17 3.25 17H16.75C17.9907 17 19 15.9902 19 14.75V5.25C19 4.00977 17.9907 3 16.75 3ZM2.5 14.75V5.25C2.5 4.83691 2.83643 4.5 3.25 4.5H13V15.5H3.25C2.83643 15.5 2.5 15.1631 2.5 14.75ZM17.5 14.75C17.5 15.1631 17.1636 15.5 16.75 15.5H14.5V4.5H16.75C17.1636 4.5 17.5 4.83691 17.5 5.25V14.75Z" fill="currentColor"/>
+              </svg>
+            </button>
           </div>
         </nav>
         <div class="space-body">
