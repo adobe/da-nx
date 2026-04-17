@@ -2,6 +2,7 @@ import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../utils/utils.js';
 import '../popover/popover.js';
 import { loadHrefSvg } from '../../../utils/svg.js';
+import { listKeydown } from '../utils/list-nav.js';
 
 const ICONS_BASE = new URL('../../img/icons/', import.meta.url).href;
 const styles = await loadStyle(import.meta.url);
@@ -19,6 +20,7 @@ class NxMenu extends LitElement {
     items: { attribute: false },
     _active: { state: true },
     _icons: { state: true },
+    ignoreFocus: { attribute: true },
   };
 
   get _popover() { return this.shadowRoot.querySelector('nx-popover'); }
@@ -58,13 +60,16 @@ class NxMenu extends LitElement {
 
   _onMenuToggle(e) {
     if (e.newState !== 'open') return;
-    this._active = undefined;
     this._trigger?.toggleAttribute('data-active', true);
     this._trigger?.setAttribute('aria-expanded', 'true');
+    const first = this.items?.find((i) => !i.divider && !i.section);
+    this._active = first?.id;
+    this.updateComplete.then(() => {
+      if (!this.ignoreFocus) this.shadowRoot.querySelector(`[data-id="${this._active}"]`)?.focus();
+    });
   }
 
   show({ anchor, placement } = {}) {
-    this._active = undefined;
     this._popover?.show({
       anchor,
       placement: placement ?? this.getAttribute('placement') ?? 'below',
@@ -73,6 +78,10 @@ class NxMenu extends LitElement {
 
   close() {
     this._popover?.close();
+  }
+
+  reposition() {
+    this._popover?.reposition();
   }
 
   get open() {
@@ -84,8 +93,6 @@ class NxMenu extends LitElement {
       this.close();
       return;
     }
-    trigger.toggleAttribute('data-active', true);
-    trigger.setAttribute('aria-expanded', 'true');
     this.show({ anchor: trigger });
   }
 
@@ -99,24 +106,22 @@ class NxMenu extends LitElement {
     this.dispatchEvent(new CustomEvent('select', { detail: { id: item.id }, bubbles: true, composed: true }));
   }
 
+  handleKey(key) {
+    return listKeydown(key, {
+      items: this.items,
+      active: this._active,
+      itemKey: 'id',
+      shadowRoot: this.shadowRoot,
+      setActive: (val) => { this._active = val; },
+      onSelect: (item) => this._select(item),
+      onClose: () => this.close(),
+      focusActiveItem: !this.ignoreFocus,
+    });
+  }
+
   _onKeydown(e) {
-    const selectable = this.items?.filter((i) => !i.divider && !i.section) ?? [];
-    if (!selectable.length) return;
-
-    const curIdx = selectable.findIndex((i) => i.id === this._active);
-
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      this._active = selectable[(curIdx + 1) % selectable.length].id;
-      this.shadowRoot.querySelector(`[data-id="${this._active}"]`)?.focus();
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault();
-      this._active = selectable[(curIdx <= 0 ? selectable.length : curIdx) - 1].id;
-      this.shadowRoot.querySelector(`[data-id="${this._active}"]`)?.focus();
-    } else if (e.key === 'Enter' && this._active !== undefined) {
-      e.preventDefault();
-      this._select(selectable.find((i) => i.id === this._active));
-    }
+    const handled = this.handleKey(e.key);
+    if (handled) e.preventDefault();
   }
 
   _renderItem(item) {

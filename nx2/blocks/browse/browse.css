@@ -8,6 +8,7 @@
   line-height: var(--s2-body-line-height);
   color: var(--s2-gray-800);
   background-color: var(--s2-gray-25);
+  overscroll-behavior: contain;
 
   .browse-hint {
     padding: var(--s2-spacing-200);

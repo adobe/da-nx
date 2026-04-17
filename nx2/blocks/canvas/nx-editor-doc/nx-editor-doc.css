@@ -36,6 +36,14 @@
   outline: none;
 }
 
+.nx-editor-doc .da-slash-hint {
+  position: absolute;
+  pointer-events: none;
+  color: var(--s2-gray-500, rgb(143 143 143));
+  white-space: nowrap;
+  user-select: none;
+}
+
 .nx-editor-doc .ProseMirror > *:first-child {
   margin-top: 0;
 }

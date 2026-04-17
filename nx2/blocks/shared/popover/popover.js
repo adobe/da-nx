@@ -70,6 +70,10 @@ class NxPopover extends LitElement {
     this.dispatchEvent(new CustomEvent('close', { bubbles: true, composed: true }));
   }
 
+  reposition() {
+    if (this.open) this._position();
+  }
+
   _position() {
     if (this._coords) {
       const { x, y } = this._coords;

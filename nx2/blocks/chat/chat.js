@@ -161,12 +161,14 @@ class NxChat extends LitElement {
 
   render() {
     return html`
-      <div class="chat-messages-container" role="log" aria-live="polite">
-        ${!this.messages?.length && !this.thinking
+      <div class="chat-scroll-container">
+        <div class="chat-messages-container" role="log" aria-live="polite">
+          ${!this.messages?.length && !this.thinking
         ? html`<nx-chat-welcome .context=${this._context} .onSend=${(p) => this._sendPrompt(p)}></nx-chat-welcome>`
         : nothing}
         ${this.messages?.map((msg) => renderMessage(msg, icons, this.toolCards))}
         ${this.thinking && !this.messages?.at(-1)?.streaming ? html`<div class="chat-thinking">Thinking...</div>` : nothing}
+        </div>
       </div>
       <div class="chat-form-wrap">
         ${renderApprovalCard(this._pendingApproval(), this._controller.approveToolCall)}
