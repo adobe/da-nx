@@ -2,7 +2,7 @@ import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle, hashChange } from '../../utils/utils.js';
 import { listFolder } from './browse-api.js';
 import { contextToPathContext } from './utils.js';
-import '../breadcrumb/breadcrumb.js';
+import '../shared/breadcrumb/breadcrumb.js';
 import './list/list.js';
 
 const styles = await loadStyle(import.meta.url);

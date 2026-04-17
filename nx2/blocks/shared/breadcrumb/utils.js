@@ -15,12 +15,9 @@ export function pathSegmentsToCrumbs(pathSegments) {
     if (i === n - 1) {
       return { label };
     }
-    if (i === 0 && n >= 2) {
-      return { label, href: `#/${pathSegments[0]}/${pathSegments[1]}` };
-    }
-    if (i === 0) {
-      return { label };
-    }
-    return { label, href: `#/${pathSegments.slice(0, i + 1).join('/')}` };
+    const href = i === 0
+      ? `#/${pathSegments[0]}/${pathSegments[1]}`
+      : `#/${pathSegments.slice(0, i + 1).join('/')}`;
+    return { label, href };
   });
 }

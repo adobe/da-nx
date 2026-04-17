@@ -35,29 +35,20 @@
   min-width: 0;
 }
 
-.crumb-separator {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  margin-inline: var(--s2-spacing-75);
-  color: var(--s2-gray-700);
-  pointer-events: none;
-  user-select: none;
-}
-
-/* 1em matches crumb type; ChevronLeft → forward “>”. Styles target `svg` inside `.crumb-separator` (no JS class). */
-.crumb-separator svg {
-  display: block;
+.crumb:not(:first-child)::before {
+  content: "";
   flex-shrink: 0;
   box-sizing: border-box;
   width: 8px;
   height: 8px;
+  margin-inline: var(--s2-spacing-75);
+  background-color: currentcolor;
+  pointer-events: none;
+  user-select: none;
+  transform: translateY(1px);
   transform-origin: center;
-}
-
-.crumb-separator svg :is(path, circle, rect, ellipse, line, polyline, polygon) {
-  fill: currentcolor;
+  mask: url("/nx2/img/icons/S2_Icon_ChevronLeft_10_N.svg") center / contain
+    no-repeat;
 }
 
 .crumb-label {
