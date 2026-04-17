@@ -110,6 +110,36 @@ export class NxBrowseList extends LitElement {
     this._emitSelectionChange();
   }
 
+  _onCopyDeployUrl(event, url) {
+    event.stopPropagation();
+    const text = String(url || '').trim();
+    if (!text) return;
+    navigator.clipboard.writeText(text).catch(() => { });
+  }
+
+  _renderDeployBadge(opts) {
+    const { showBadge, url, variant, copyLabel } = opts;
+    if (!showBadge) {
+      return nothing;
+    }
+    const icon = this._renderIcon('globeGrid');
+    const classes = `deploy-badge deploy-badge-${variant}`;
+    if (url) {
+      return html`
+        <button
+          type="button"
+          class=${classes}
+          title=${copyLabel}
+          aria-label=${copyLabel}
+          @click=${(event) => this._onCopyDeployUrl(event, url)}
+        >
+          ${icon}
+        </button>
+      `;
+    }
+    return html`<span class=${classes} aria-hidden="true">${icon}</span>`;
+  }
+
   _onRowCheckboxChange(event, item) {
     event.stopPropagation();
     const input = event.target;
@@ -218,9 +248,12 @@ export class NxBrowseList extends LitElement {
                 >
                   <div class="deploy">
                     <span class="deploy-label">${browseCellText(lastPreviewed.label)}</span>
-                    ${lastPreviewed.showBadge
-          ? html`<span class="deploy-badge deploy-badge-preview" aria-hidden="true">${this._renderIcon('globeGrid')}</span>`
-          : nothing}
+                    ${this._renderDeployBadge({
+            showBadge: lastPreviewed.showBadge,
+            url: item.previewUrl,
+            variant: 'preview',
+            copyLabel: 'Copy preview URL',
+          })}
                   </div>
                 </td>
                 <td
@@ -229,9 +262,12 @@ export class NxBrowseList extends LitElement {
                 >
                   <div class="deploy">
                     <span class="deploy-label">${browseCellText(lastPublished.label)}</span>
-                    ${lastPublished.showBadge
-          ? html`<span class="deploy-badge deploy-badge-live" aria-hidden="true">${this._renderIcon('globeGrid')}</span>`
-          : nothing}
+                    ${this._renderDeployBadge({
+            showBadge: lastPublished.showBadge,
+            url: item.liveUrl,
+            variant: 'live',
+            copyLabel: 'Copy publish URL',
+          })}
                   </div>
                 </td>
               </tr>

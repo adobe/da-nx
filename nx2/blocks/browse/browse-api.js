@@ -113,6 +113,12 @@ export async function fetchResourceStatusForItems(items, folderFullpath, opts = 
           if (live?.lastModified) {
             extra.liveLastModified = String(live.lastModified);
           }
+          if (preview?.url) {
+            extra.previewUrl = String(preview.url);
+          }
+          if (live?.url) {
+            extra.liveUrl = String(live.url);
+          }
           if (profile?.email) extra.profileEmail = String(profile.email).trim();
 
           const displayName = profile?.displayName || profile?.name
