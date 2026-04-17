@@ -3,7 +3,6 @@ import ChatController from './chat-controller.js';
 import { renderMessage, renderThinking } from './renderers.js';
 import './welcome/welcome.js';
 import '../shared/menu/menu.js';
-import '../shared/picker/picker.js';
 import { loadStyle, hashChange } from '../../utils/utils.js';
 import { loadChatIcons } from './utils.js';
 import { ADD_MENU_ITEMS, CHAT_ICONS } from './constants.js';
