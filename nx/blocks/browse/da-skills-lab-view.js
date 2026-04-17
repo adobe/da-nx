@@ -1060,7 +1060,7 @@ class DaSkillsLabView extends LitElement {
           }}
                     placeholder="https://…" />
                   <label>Prompt</label>
-                  <textarea class="skills-lab-textarea skills-lab-textarea-tall" .value=${this._promptEdit.prompt}
+                  <textarea class="skills-lab-textarea skills-lab-textarea-tall" rows="25" .value=${this._promptEdit.prompt}
                     aria-label="Prompt text"
                     @input=${(e) => {
             this._promptEdit = { ...this._promptEdit, prompt: e.target.value };
@@ -1087,7 +1087,7 @@ class DaSkillsLabView extends LitElement {
         ? 'skills-lab-skill-editor-wrap-handoff'
         : ''}"
                   >
-                    <textarea class="skills-lab-textarea skills-lab-textarea-tall" .value=${this._newSkillBody}
+                    <textarea class="skills-lab-textarea skills-lab-textarea-tall" rows="25" .value=${this._newSkillBody}
                       aria-label="Skill markdown"
                       @input=${(e) => { this._newSkillBody = e.target.value; }}></textarea>
                   </div>

@@ -195,7 +195,6 @@
 }
 
 .skills-lab-textarea-tall {
-  min-height: min(62vh, 680px);
   flex: 1;
 }
 
