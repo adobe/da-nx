@@ -70,6 +70,7 @@
   min-width: 0;
   overflow: hidden;
   align-self: stretch;
+  max-width: 40%;
 }
 
 .browse-view .browse-view-toolbar {

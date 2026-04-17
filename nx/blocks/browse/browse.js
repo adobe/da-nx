@@ -32,7 +32,6 @@ import {
 
 const style = await getStyle(import.meta.url);
 const nxBase = getNx();
-const CHAT_PANEL_SIZE_KEY = 'da-chat-panel-size';
 const WINDOW_LAYOUT_STATE_KEY = 'da-window-layout-state';
 const REPO_FILES_CHANGED_EVENT = 'da:chat-repo-files-changed';
 
@@ -97,7 +96,6 @@ class BrowseView extends LitElement {
     this._browsePathSegments = [];
     this._browseFolderFullpath = '';
     this._browseListPermissions = undefined;
-    this._chatPanelSize = persisted.chatPanelSize || localStorage.getItem(CHAT_PANEL_SIZE_KEY) || '25%';
     this._boundWindowBulkAemOpen = (e) => this._onBulkAemOpen(e);
     this._boundBrowseSelectionChatContext = (e) => this._onBrowseSelectionChatContext(e);
     this._boundBrowseListPermissions = (e) => this._onBrowseListPermissions(e);
@@ -284,16 +282,6 @@ class BrowseView extends LitElement {
     `;
   }
 
-  _onChatPanelResize = (e) => {
-    const splitView = e.currentTarget;
-    const pos = splitView?.splitterPos;
-    if (typeof pos !== 'number' || pos <= 0) return;
-    const size = `${Math.round(pos)}px`;
-    this._chatPanelSize = size;
-    localStorage.setItem(CHAT_PANEL_SIZE_KEY, size);
-    writeWindowLayoutState({ chatPanelSize: size });
-  };
-
   _renderToolbar() {
     return html`
       <div class="browse-view-toolbar">
@@ -359,11 +347,10 @@ class BrowseView extends LitElement {
                   class="browse-view-split split-view-outer"
                   ?vertical="${this._skillsLabNarrowVp}"
                   resizable
-                  primary-size="${this._skillsLabNarrowVp ? '40%' : this._chatPanelSize}"
+                  primary-size="${this._skillsLabNarrowVp ? '40%' : '25%'}"
                   primary-min="${this._skillsLabNarrowVp ? 200 : 280}"
                   secondary-min="${this._skillsLabNarrowVp ? 240 : 400}"
                   label="Resize chat panel"
-                  @change="${this._onChatPanelResize}"
                 >
                   <da-chat
                     class="browse-view-chat-panel"
@@ -396,11 +383,10 @@ class BrowseView extends LitElement {
                 <sp-split-view
                   class="browse-view-split split-view-outer"
                   resizable
-                  primary-size="${this._chatPanelSize}"
+                  primary-size="25%"
                   primary-min="280"
                   secondary-min="400"
                   label="Resize chat panel"
-                  @change="${this._onChatPanelResize}"
                 >
                   <da-chat
                     class="browse-view-chat-panel"
