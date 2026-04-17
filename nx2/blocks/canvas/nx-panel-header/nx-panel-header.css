@@ -29,7 +29,7 @@
   padding: 0 4px;
   margin: 0;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--s2-corner-radius-400);
   color: var(--s2-gray-800);
   background: transparent;
   cursor: pointer;
