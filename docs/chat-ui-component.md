@@ -41,7 +41,7 @@ The controller consumes a server-sent event stream from `da-agent`. Each line is
 | `text-delta` | `delta` / `textDelta` / `text` | Incremental text chunk — appended to streaming buffer |
 | `text-end` | — | Flush streaming buffer as a committed assistant message |
 | `finish-message` / `finish` | — | Stream complete |
-| `error` | `errorText` / `error.message` | Agent error — thrown, caught by controller |
+| `error` | `errorText` / `error.message` | Stream-level failure — terminates the stream immediately. Distinct from `tool-result` with `output.error`, which is a tool-level failure and non-fatal (stream continues). |
 
 ### Tool events
 
