@@ -1,13 +1,27 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../utils/utils.js';
-import { loadIcons, getIconByExtension, itemRowPathKey } from '../utils.js';
+import {
+  formatColumnLastModified,
+  formatColumnLastPreviewed,
+  formatColumnLastPublished,
+  formatColumnModifiedBy,
+} from './format.js';
+import { getIconByExtension, itemRowPathKey, loadIcons } from '../utils.js';
 
 const styles = await loadStyle(import.meta.url);
+
+/** `''` stays empty (e.g. folders); `null` / `undefined` → em dash for missing data. */
+function browseCellText(label) {
+  if (label === '') return '';
+  return label ?? '—';
+}
 
 export class NxBrowseList extends LitElement {
   static properties = {
     items: { type: Array },
     currentPathKey: { type: String, attribute: 'current-path-key' },
+    /** True while parent is still merging `/status` fields onto file rows. */
+    resourceStatusPending: { type: Boolean, attribute: 'resource-status-pending' },
     _icons: { state: true },
     _selectedKeys: { state: true },
   };
@@ -20,7 +34,7 @@ export class NxBrowseList extends LitElement {
   }
 
   updated() {
-    const input = this.shadowRoot?.getElementById('browse-select-all');
+    const input = this.shadowRoot?.getElementById('select-all');
     if (!(input instanceof HTMLInputElement)) {
       return;
     }
@@ -125,38 +139,52 @@ export class NxBrowseList extends LitElement {
     const allSelected = items.length > 0 && selectedCount === items.length;
 
     return html`
-      <div class="browse-list-scroll">
-        <table class="browse-data-table" role="table">
+      <div class="scroll">
+        <table class="sheet" role="table">
         <thead>
           <tr>
-            <th class="browse-col-select" scope="col">
-              <label class="browse-checkbox-label">
-                <span class="browse-sr-only">Select all</span>
+            <th class="column-selection" scope="col">
+              <label class="check">
+                <span class="sr-only">Select all</span>
                 <input
-                  id="browse-select-all"
+                  id="select-all"
                   type="checkbox"
                   .checked=${allSelected}
                   @change=${this._onSelectAllChange}
                 />
               </label>
             </th>
-            <th class="browse-col-icon" scope="col"><span class="browse-sr-only">Type</span></th>
-            <th class="browse-col-name" scope="col">Name</th>
+            <th class="column-entry-type" scope="col"><span class="sr-only">Type</span></th>
+            <th class="column-file-name" scope="col">Name</th>
+            <th class="column-modified" scope="col">Last modified</th>
+            <th class="column-modified-by" scope="col">Modified by</th>
+            <th class="column-last-previewed" scope="col">Last previewed</th>
+            <th class="column-last-published" scope="col">Last published</th>
           </tr>
         </thead>
         <tbody>
           ${items.map((item) => {
       const key = itemRowPathKey(this.currentPathKey, item);
       const selected = this._isRowSelected(key);
+      const isFolder = !item.ext;
+      const statusPending = Boolean(this.resourceStatusPending);
+      const modified = isFolder
+        ? { label: '' }
+        : formatColumnLastModified(item.lastModified);
+      const modifiedBy = isFolder
+        ? { label: '', initials: '' }
+        : formatColumnModifiedBy(item, { statusPending });
+      const lastPreviewed = formatColumnLastPreviewed(item, { isFolder, statusPending });
+      const lastPublished = formatColumnLastPublished(item, { isFolder, statusPending });
       return html`
               <tr
-                class="browse-data-row ${item.ext ? 'browse-data-row-file' : 'browse-data-row-folder'}"
+                class="row ${item.ext ? 'row-file' : 'row-dir'}"
                 aria-selected=${selected ? 'true' : 'false'}
                 @click=${(event) => this._onRowActivate(event, item)}
               >
-                <td class="browse-col-select" @click=${(event) => event.stopPropagation()}>
-                  <label class="browse-checkbox-label">
-                    <span class="browse-sr-only">Select ${item.name || 'row'}</span>
+                <td class="column-selection" @click=${(event) => event.stopPropagation()}>
+                  <label class="check">
+                    <span class="sr-only">Select ${item.name || 'row'}</span>
                     <input
                       type="checkbox"
                       .checked=${selected}
@@ -164,9 +192,47 @@ export class NxBrowseList extends LitElement {
                     />
                   </label>
                 </td>
-                <td class="browse-col-icon">${this._renderIcon(getIconByExtension(item?.ext))}</td>
-                <td class="browse-col-name">
-                  <span class="browse-name-text" title=${item.name || ''}>${item.name}</span>
+                <td class="column-entry-type">${this._renderIcon(getIconByExtension(item?.ext))}</td>
+                <td class="column-file-name">
+                  <span class="filename" title=${item.name || ''}>${item.name}</span>
+                </td>
+                <td class="column-modified" title=${modified.title || nothing}>
+                  ${browseCellText(modified.label)}
+                </td>
+                <td
+                  class="column-modified-by ${modifiedBy.pending ? 'pending' : ''}"
+                  title=${modifiedBy.title || nothing}
+                >
+                  ${isFolder || !modifiedBy.initials
+          ? browseCellText(modifiedBy.label)
+          : html`
+                        <span class="who">
+                          <span class="avatar" aria-hidden="true">${modifiedBy.initials}</span>
+                          <span class="who-name">${browseCellText(modifiedBy.label)}</span>
+                        </span>
+                      `}
+                </td>
+                <td
+                  class="column-last-previewed ${lastPreviewed.pending ? 'pending' : ''}"
+                  title=${lastPreviewed.title || nothing}
+                >
+                  <div class="deploy">
+                    <span class="deploy-label">${browseCellText(lastPreviewed.label)}</span>
+                    ${lastPreviewed.showBadge
+          ? html`<span class="deploy-badge deploy-badge-preview" aria-hidden="true">${this._renderIcon('globeGrid')}</span>`
+          : nothing}
+                  </div>
+                </td>
+                <td
+                  class="column-last-published ${lastPublished.pending ? 'pending' : ''}"
+                  title=${lastPublished.title || nothing}
+                >
+                  <div class="deploy">
+                    <span class="deploy-label">${browseCellText(lastPublished.label)}</span>
+                    ${lastPublished.showBadge
+          ? html`<span class="deploy-badge deploy-badge-live" aria-hidden="true">${this._renderIcon('globeGrid')}</span>`
+          : nothing}
+                  </div>
                 </td>
               </tr>
             `;

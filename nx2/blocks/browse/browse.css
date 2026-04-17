@@ -1,4 +1,6 @@
 :host {
+  --browse-sheet-max-width: 1024px;
+
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
@@ -53,7 +55,10 @@
 
   .browse-header {
     flex-shrink: 0;
-    margin: 0 0 var(--s2-spacing-300);
+    box-sizing: border-box;
+    width: 100%;
+    max-width: var(--browse-sheet-max-width);
+    margin: 0 auto var(--s2-spacing-300);
   }
 
   .browse-title-bar {
