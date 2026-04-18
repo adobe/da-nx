@@ -9,7 +9,7 @@ import { getCanonicalMediaTimestamp } from '../core/utils.js';
 import { ensureAuthenticated } from '../display/utils.js';
 import { updateAppState, getAppState, showNotification } from '../core/state.js';
 import { t } from '../core/messages.js';
-import { clearProcessDataCache } from '../features/filters.js';
+import { clearProcessDataCache } from '../display/features/filters.js';
 import { getDedupeKey } from '../core/urls.js';
 import { MediaLibraryError, ErrorCodes, logMediaLibraryError } from '../core/errors.js';
 import { isFullRebuildRequested } from '../core/params.js';

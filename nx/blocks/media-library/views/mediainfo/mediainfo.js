@@ -14,8 +14,8 @@ import {
   getImageOrientation,
 } from '../../core/media.js';
 import { formatFileSize, getFileName, optimizeImageUrls, decodeDisplayName } from '../../core/files.js';
-import { getMediaName } from '../../features/templates.js';
-import { copyMediaToClipboard } from '../../core/export.js';
+import { getMediaName } from '../../display/features/templates.js';
+import { copyMediaToClipboard } from '../../display/features/export.js';
 import {
   parseMediaUrl,
   normalizeUrl,

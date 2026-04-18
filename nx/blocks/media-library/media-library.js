@@ -1,7 +1,7 @@
 import { html, LitElement } from 'da-lit';
 import getStyle from '../../utils/styles.js';
 import { loadMediaSheet, buildMediaIndexStructures } from './indexing/load.js';
-import { copyMediaToClipboard, exportToCsv } from './core/export.js';
+import { copyMediaToClipboard, exportToCsv } from './display/features/export.js';
 import {
   validateSitePath, getBasePath, resolveAbsolutePath, normalizeSitePath, parseSitePathFromHash,
   parseRouteState, buildUrlWithState,
@@ -33,8 +33,8 @@ import {
   filterMedia,
   enrichMediaItemsWithUsage,
   initializeProcessedData,
-} from './features/filters.js';
-import { loadPinnedFolders, savePinnedFolders } from './features/pin.js';
+} from './display/features/filters.js';
+import { loadPinnedFolders, savePinnedFolders } from './display/features/pin.js';
 import {
   getAppState, updateAppState, onStateChange, showNotification, dismissNotification,
 } from './core/state.js';

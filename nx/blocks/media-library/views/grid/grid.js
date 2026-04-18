@@ -24,7 +24,7 @@ import {
   createMediaEventHandlers,
   staticTemplates,
   getMediaCardLabel,
-} from '../../features/templates.js';
+} from '../../display/features/templates.js';
 import { MediaType } from '../../core/constants.js';
 import { t } from '../../core/messages.js';
 

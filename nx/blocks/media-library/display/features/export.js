@@ -1,6 +1,6 @@
-import { etcFetch } from './urls.js';
-import { getMediaType, getSubtype } from './media.js';
-import { t } from './messages.js';
+import { etcFetch } from '../../core/urls.js';
+import { getMediaType, getSubtype } from '../../core/media.js';
+import { t } from '../../core/messages.js';
 
 function escapeCsvCell(value) {
   if (value == null) return '';

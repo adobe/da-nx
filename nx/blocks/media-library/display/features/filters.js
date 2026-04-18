@@ -1,18 +1,18 @@
-import { getMediaType, isSvgFile, isUiExcludedMediaItem } from '../core/media.js';
-import { getBasePath, formatDocPath } from '../core/paths.js';
-import { pluralize, getItemStatus } from '../core/utils.js';
+import { getMediaType, isSvgFile, isUiExcludedMediaItem } from '../../core/media.js';
+import { getBasePath, formatDocPath } from '../../core/paths.js';
+import { pluralize, getItemStatus } from '../../core/utils.js';
 import {
   getDedupeKey,
   isInternalToSite,
   folderPathFromAssetUrl,
   isDeliveryStandaloneUrl,
-} from '../core/urls.js';
+} from '../../core/urls.js';
 import {
   clearProcessDataCache as clearCache,
   getCachedProcessData,
   setCachedProcessData,
   generateCacheKey,
-} from '../indexing/cache.js';
+} from '../../indexing/cache.js';
 import { getMediaName } from './templates.js';
 
 function normalizeFolderPath(path) {

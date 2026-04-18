@@ -1,6 +1,6 @@
 import { html } from 'da-lit';
-import { getFileName, pathLabelWithoutDomain, decodeDisplayName } from '../core/files.js';
-import { isFragmentMedia, isPdfUrl } from '../core/media.js';
+import { getFileName, pathLabelWithoutDomain, decodeDisplayName } from '../../core/files.js';
+import { isFragmentMedia, isPdfUrl } from '../../core/media.js';
 
 function escapeRegExp(string) {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
