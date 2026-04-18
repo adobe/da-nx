@@ -32,3 +32,11 @@ export function isFullRebuildRequested() {
   const params = new URLSearchParams(window.location.search);
   return params.get('full') === 'true';
 }
+
+// Performance debug logger - only logs when debug=perf is enabled
+export function perfLog(tag, message, data) {
+  if (isPerfEnabled()) {
+    // eslint-disable-next-line no-console
+    console.log(`[${tag}]`, message, data || '');
+  }
+}

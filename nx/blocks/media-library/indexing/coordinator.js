@@ -12,7 +12,7 @@ import { t } from '../core/messages.js';
 import { clearProcessDataCache } from '../display/features/filters.js';
 import { getDedupeKey } from '../core/urls.js';
 import { MediaLibraryError, ErrorCodes, logMediaLibraryError } from '../core/errors.js';
-import { isFullRebuildRequested } from '../core/params.js';
+import { isFullRebuildRequested, perfLog } from '../core/params.js';
 
 const CONFIG = { POLLING_INTERVAL: 60000, LOCK_CHECK_INTERVAL: 5000 };
 
@@ -29,24 +29,40 @@ function stateHasMediaData() {
 export async function startPolling() {
   if (pollingInterval) return;
 
+  perfLog('Indexing:Poll', 'Started polling for media updates', { intervalMs: CONFIG.POLLING_INTERVAL });
+
   pollingInterval = setInterval(async () => {
     const state = getAppState();
     if (state.sitePath && !state.isIndexing) {
       try {
         const isAuthenticated = await ensureAuthenticated();
-        if (!isAuthenticated) return;
+        if (!isAuthenticated) {
+          perfLog('Indexing:Poll', 'Skipped - not authenticated');
+          return;
+        }
 
         const [org, repo] = state.sitePath.split('/').slice(1, 3);
+        perfLog('Indexing:Poll', 'Checking for media updates', { sitePath: state.sitePath });
+
         const result = await loadMediaIfUpdated(state.sitePath, org, repo);
         const { hasChanged, mediaData, indexMissing } = result;
 
         if (hasChanged && onMediaDataUpdated) {
+          perfLog('Indexing:Poll', 'Media data changed - updating', {
+            itemCount: mediaData?.length || 0,
+            indexMissing,
+          });
           updateAppState({
             indexMissing: !!indexMissing,
             isBackgroundRefreshInProgress: false,
             indexLockedByOther: false,
           });
           onMediaDataUpdated(mediaData || []);
+        } else {
+          perfLog('Indexing:Poll', 'No changes detected', {
+            hasChanged,
+            indexMissing,
+          });
         }
       } catch (error) {
         const persistentCodes = [
@@ -82,16 +98,24 @@ function stopLockCheckPolling() {
 
 function startLockCheckPolling(sitePath, org, repo) {
   stopLockCheckPolling();
+  perfLog('Indexing:LockPoll', 'Started lock check polling', {
+    sitePath,
+    intervalMs: CONFIG.LOCK_CHECK_INTERVAL,
+  });
+
   lockCheckInterval = setInterval(async () => {
     const state = getAppState();
     if ((!state.indexLockedByOther && !state.isBackgroundRefreshInProgress) || !sitePath) {
+      perfLog('Indexing:LockPoll', 'Stopping - no longer needed');
       stopLockCheckPolling();
       return;
     }
     try {
+      perfLog('Indexing:LockPoll', 'Checking index lock status');
       const lock = await checkIndexLock(sitePath);
       const stateHasData = stateHasMediaData();
       if (!isFreshIndexLock(lock)) {
+        perfLog('Indexing:LockPoll', 'Lock released - loading index', { stateHasData });
         stopLockCheckPolling();
 
         if (!stateHasData) {

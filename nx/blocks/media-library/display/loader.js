@@ -1,4 +1,5 @@
 import { loadIndexMetadata, loadIndexChunk } from '../core/storage.js';
+import { perfLog } from '../core/params.js';
 
 /**
  * DisplayLoader - Polls DA storage for index changes and loads chunks
@@ -18,9 +19,12 @@ export class DisplayLoader {
    */
   async poll() {
     try {
+      perfLog('Display:Poll', 'Checking for index changes', { sitePath: this.sitePath });
+
       const metadata = await loadIndexMetadata(this.sitePath);
 
       if (!metadata) {
+        perfLog('Display:Poll', 'No index metadata found');
         this.onDataLoaded({ data: null, error: new Error('No index metadata found') });
         return;
       }
@@ -28,10 +32,20 @@ export class DisplayLoader {
       // Check if timestamp changed
       if (this.lastTimestamp !== null && metadata.lastModified === this.lastTimestamp) {
         // No change - skip loading
+        perfLog('Display:Poll', 'No changes detected', {
+          timestamp: metadata.lastModified,
+          totalEntries: metadata.totalEntries,
+        });
         return;
       }
 
       // Timestamp changed or first load - load all chunks
+      perfLog('Display:Poll', 'Index changed - loading chunks', {
+        chunks: metadata.chunks,
+        totalEntries: metadata.totalEntries,
+        timestamp: metadata.lastModified,
+      });
+
       this.lastTimestamp = metadata.lastModified;
 
       const chunks = [];
@@ -43,8 +57,15 @@ export class DisplayLoader {
       // Adapt polling interval based on data volume
       this.adaptPollingInterval(metadata.totalEntries);
 
+      perfLog('Display:Poll', 'Loaded index data', {
+        items: chunks.length,
+        chunks: metadata.chunks,
+        pollingIntervalMs: this.pollingInterval,
+      });
+
       this.onDataLoaded({ data: chunks, error: null });
     } catch (error) {
+      perfLog('Display:Poll', 'Error loading index', { error: error.message });
       this.onDataLoaded({ data: null, error });
     }
   }
@@ -66,6 +87,12 @@ export class DisplayLoader {
     }
 
     if (newInterval !== this.pollingInterval) {
+      perfLog('Display:Poll', 'Adapted polling interval', {
+        oldIntervalMs: this.pollingInterval,
+        newIntervalMs: newInterval,
+        totalEntries,
+      });
+
       this.pollingInterval = newInterval;
       // Restart polling with new interval (skip immediate poll since we just polled)
       if (this.intervalId) {
@@ -79,6 +106,11 @@ export class DisplayLoader {
    * Start polling
    */
   start() {
+    perfLog('Display:Poll', 'Started display polling', {
+      sitePath: this.sitePath,
+      intervalMs: this.pollingInterval,
+    });
+
     // Immediate first poll
     this.poll();
     // Schedule recurring polls
