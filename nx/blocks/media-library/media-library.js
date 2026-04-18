@@ -1336,14 +1336,17 @@ async function initializeIndexingWorker() {
   }
 
   try {
-    // Use relative URL - browser resolves it from current module's URL (preserves branch context)
-    const workerPath = './indexing/indexer-worker.js';
+    // Derive base path from import.meta.url (same pattern as nexter.js)
+    // This preserves branch context when loaded with ?nx=branch
+    const base = import.meta.url.replace('/media-library.js', '');
+    const workerPath = `${base}/indexing/indexer-worker.js`;
+
     indexingWorker = new Worker(workerPath, { type: 'module' });
 
     setupWorkerHandlers();
 
     // eslint-disable-next-line no-console
-    console.log('[MediaLibrary] Indexing worker initialized');
+    console.log('[MediaLibrary] Indexing worker initialized from:', workerPath);
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('[MediaLibrary] Failed to initialize indexing worker:', error);
