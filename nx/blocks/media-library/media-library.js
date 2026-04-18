@@ -1393,7 +1393,9 @@ function __loadModule(url) {
 
     // Replace import statements with __loadModule calls
     mod.imports.forEach(({ names, path, url: importUrl }) => {
-      const importStatement = `import\\s+${names.replace(/[{}*]/g, (ch) => `\\${ch}`)}\\s+from\\s+['"]${path.replace(/\./g, '\\.')}['"];?`;
+      // Escape all regex special characters in path, not just dots
+      const escapedPath = path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const importStatement = `import\\s+${names.replace(/[{}*]/g, (ch) => `\\${ch}`)}\\s+from\\s+['"]${escapedPath}['"];?`;
 
       // Handle different import styles
       if (names.startsWith('{')) {
