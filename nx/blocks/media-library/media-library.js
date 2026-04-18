@@ -2,7 +2,7 @@ import { html, LitElement } from 'da-lit';
 import getStyle from '../../utils/styles.js';
 import { loadMediaSheet, buildMediaIndexStructures } from './indexing/load.js';
 import { copyMediaToClipboard, exportToCsv } from './display/features/export.js';
-import { DisplayLoader } from './display/loader.js';
+import { startDisplayLoader, stopDisplayLoader } from './display/loader.js';
 import {
   validateSitePath, getBasePath, resolveAbsolutePath, normalizeSitePath, parseSitePathFromHash,
   parseRouteState, buildUrlWithState,
@@ -155,7 +155,7 @@ class NxMediaLibrary extends LitElement {
 
     // Start display loader (always, regardless of indexing mode)
     if (this.sitePath) {
-      this._displayLoader = new DisplayLoader(this.sitePath, ({ data, error }) => {
+      startDisplayLoader(this.sitePath, ({ data, error }) => {
         if (error) {
           if (error.message === 'No index metadata found') {
             updateAppState({
@@ -169,7 +169,6 @@ class NxMediaLibrary extends LitElement {
           this.setMediaData(data);
         }
       });
-      this._displayLoader.start();
     }
 
     document.querySelector('.nx-app')?.classList.add('has-media-library');
@@ -198,10 +197,7 @@ class NxMediaLibrary extends LitElement {
     disposeService();
 
     // Stop display loader
-    if (this._displayLoader) {
-      this._displayLoader.stop();
-      this._displayLoader = null;
-    }
+    stopDisplayLoader();
 
     document.querySelector('.nx-app')?.classList.remove('has-media-library');
   }
