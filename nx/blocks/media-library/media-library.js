@@ -40,7 +40,6 @@ import {
   getAppState, updateAppState, onStateChange, showNotification, dismissNotification,
 } from './core/state.js';
 import { t } from './core/messages.js';
-import { initService, disposeService } from './indexing/coordinator.js';
 import { fetchSidekickConfig } from './indexing/admin-api.js';
 import '../../public/sl/components.js';
 import './display/components/topbar/topbar.js';
@@ -193,7 +192,6 @@ class NxMediaLibrary extends LitElement {
     if (this._urlSyncDebounce) {
       clearTimeout(this._urlSyncDebounce);
     }
-    disposeService();
 
     // Stop display loader
     if (this._displayLoader) {
@@ -648,8 +646,6 @@ class NxMediaLibrary extends LitElement {
 
       saveRecentSite(this.sitePath);
       await this.loadMediaData();
-      const onMediaDataUpdated = (mediaData) => this.setMediaData(mediaData);
-      initService(this.sitePath, { onMediaDataUpdated });
     } catch (error) {
       updateAppState({
         isValidating: false,
