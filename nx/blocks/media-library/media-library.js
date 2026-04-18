@@ -1464,7 +1464,8 @@ async function initializeIndexingWorker() {
   }
 
   try {
-    const workerPath = new URL('./indexing/indexer-worker.js', import.meta.url).href;
+    // Use path relative to page origin to avoid CORS when proxied through da.live
+    const workerPath = '/nx/blocks/media-library/indexing/indexer-worker.js';
     indexingWorker = new Worker(workerPath, { type: 'module' });
 
     setupWorkerHandlers();
@@ -1477,7 +1478,8 @@ async function initializeIndexingWorker() {
     console.warn('[MediaLibrary] Direct worker failed, trying bundled blob fallback:', error.message);
 
     try {
-      const workerPath = new URL('./indexing/indexer-worker.js', import.meta.url).href;
+      // Use absolute URL for bundler (needs full URL to fetch imports)
+      const workerPath = `${window.location.origin}/nx/blocks/media-library/indexing/indexer-worker.js`;
       const bundledCode = await bundleWorkerCode(workerPath);
 
       // Create blob URL with bundled code (same-origin)
