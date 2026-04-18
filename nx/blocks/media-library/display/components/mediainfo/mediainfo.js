@@ -1,6 +1,6 @@
 import { html, LitElement } from 'da-lit';
-import getStyle from '../../../../utils/styles.js';
-import loadSvgIcons from '../../../../utils/svg.js';
+import getStyle from '../../../../../utils/styles.js';
+import loadSvgIcons from '../../../../../utils/svg.js';
 import {
   getSubtype,
   isImage,
@@ -12,10 +12,10 @@ import {
   EXIFR_URL,
   getMediaType,
   getImageOrientation,
-} from '../../core/media.js';
-import { formatFileSize, getFileName, optimizeImageUrls, decodeDisplayName } from '../../core/files.js';
-import { getMediaName } from '../../display/features/templates.js';
-import { copyMediaToClipboard } from '../../display/features/export.js';
+} from '../../../core/media.js';
+import { formatFileSize, getFileName, optimizeImageUrls, decodeDisplayName } from '../../../core/files.js';
+import { getMediaName } from '../../features/templates.js';
+import { copyMediaToClipboard } from '../../features/export.js';
 import {
   parseMediaUrl,
   normalizeUrl,
@@ -27,17 +27,17 @@ import {
   getDedupeKey,
   etcFetch,
   convertToAemPage,
-} from '../../core/urls.js';
-import { getAppState } from '../../core/state.js';
-import { getEditUrl, getViewUrl, formatDocPath } from '../../core/paths.js';
-import { formatDateTime } from '../../core/utils.js';
-import loadScript from '../../../../utils/script.js';
-import { SUPPORTED_FILES } from '../../../../public/utils/constants.js';
-import { Domains, MediaType } from '../../core/constants.js';
-import { t } from '../../core/messages.js';
+} from '../../../core/urls.js';
+import { getAppState } from '../../../core/state.js';
+import { getEditUrl, getViewUrl, formatDocPath } from '../../../core/paths.js';
+import { formatDateTime } from '../../../core/utils.js';
+import loadScript from '../../../../../utils/script.js';
+import { SUPPORTED_FILES } from '../../../../../public/utils/constants.js';
+import { Domains, MediaType } from '../../../core/constants.js';
+import { t } from '../../../core/messages.js';
 
 const styles = await getStyle(import.meta.url);
-const iconsBase = new URL('../../../../img/icons/', import.meta.url).href;
+const iconsBase = new URL('../../../../../img/icons/', import.meta.url).href;
 
 const ICONS = [
   `${iconsBase}S2_Icon_PDF_20_N.svg`,
@@ -306,7 +306,7 @@ class NxMediaInfo extends LitElement {
   async _prepareFetchOptionsWithAuth(baseOpts = {}) {
     if (!this.usePreviewDaLive) return baseOpts;
 
-    const { getSiteTokenHeaders } = await import('../../indexing/admin-api.js');
+    const { getSiteTokenHeaders } = await import('../../../indexing/admin-api.js');
     const headers = await getSiteTokenHeaders(this.org, this.repo);
     if (headers) {
       return { ...baseOpts, headers: { ...baseOpts.headers, ...headers } };
