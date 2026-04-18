@@ -2,6 +2,7 @@ import { html, LitElement } from 'da-lit';
 import getStyle from '../../utils/styles.js';
 import { loadMediaSheet, buildMediaIndexStructures } from './indexing/load.js';
 import { copyMediaToClipboard, exportToCsv } from './display/features/export.js';
+import { DisplayLoader } from './display/loader.js';
 import {
   validateSitePath, getBasePath, resolveAbsolutePath, normalizeSitePath, parseSitePathFromHash,
   parseRouteState, buildUrlWithState,
@@ -152,6 +153,25 @@ class NxMediaLibrary extends LitElement {
       if (state.selectedMediaKey) this._attemptModalResolution();
     });
 
+    // Start display loader (always, regardless of indexing mode)
+    if (this.sitePath) {
+      this._displayLoader = new DisplayLoader(this.sitePath, ({ data, error }) => {
+        if (error) {
+          if (error.message === 'No index metadata found') {
+            updateAppState({
+              indexMissing: true,
+              mediaData: [],
+            });
+          } else {
+            showNotification(t('NOTIFY_ERROR'), error.message || 'Failed to load', 'danger');
+          }
+        } else {
+          this.setMediaData(data);
+        }
+      });
+      this._displayLoader.start();
+    }
+
     document.querySelector('.nx-app')?.classList.add('has-media-library');
   }
 
@@ -174,6 +194,12 @@ class NxMediaLibrary extends LitElement {
       clearTimeout(this._urlSyncDebounce);
     }
     disposeService();
+
+    // Stop display loader
+    if (this._displayLoader) {
+      this._displayLoader.stop();
+      this._displayLoader = null;
+    }
 
     document.querySelector('.nx-app')?.classList.remove('has-media-library');
   }
@@ -1191,6 +1217,10 @@ class NxMediaLibrary extends LitElement {
 }
 customElements.define(EL_NAME, NxMediaLibrary);
 
+let hashChangeHandler = null;
+let popstateHandler = null;
+let indexingWorker = null;
+
 function setupMediaLibrary(el) {
   let cmp = document.querySelector(EL_NAME);
   if (!cmp) {
@@ -1200,14 +1230,115 @@ function setupMediaLibrary(el) {
 
   const hash = parseSitePathFromHash(window.location.hash);
   cmp.sitePath = hash ? normalizeSitePath(hash) : '';
+
+  // Send init to worker if enabled and sitePath available
+  if (indexingWorker && cmp.sitePath) {
+    const [, org, repo] = cmp.sitePath.split('/');
+    indexingWorker.postMessage({
+      type: 'init',
+      data: { sitePath: cmp.sitePath, org, repo },
+    });
+  }
 }
 
-let hashChangeHandler = null;
-let popstateHandler = null;
+function handleProgressiveBatch(message) {
+  const { data, totalDiscovered, capped } = message;
 
-export default function init(el) {
+  // Get current component instance
+  const cmp = document.querySelector('nx-media-library');
+  if (!cmp) return;
+
+  // Update progressive state
+  updateAppState({
+    progressiveMediaData: data,
+    progressiveTotalCount: totalDiscovered,
+    progressiveCountCapped: capped,
+  });
+}
+
+function handleIndexingComplete(message) {
+  const { itemCount, duration } = message;
+
+  // eslint-disable-next-line no-console
+  console.log(`[MediaLibrary] Indexing complete: ${itemCount} items in ${duration}`);
+
+  // Clear progressive state
+  updateAppState({
+    progressiveMediaData: [],
+    progressiveTotalCount: null,
+    progressiveCountCapped: false,
+  });
+}
+
+function handleWorkerMessage(message) {
+  const { type } = message;
+
+  switch (type) {
+    case 'progressive-batch':
+      handleProgressiveBatch(message);
+      break;
+
+    case 'complete':
+      handleIndexingComplete(message);
+      break;
+
+    case 'error':
+      // eslint-disable-next-line no-console
+      console.error('[MediaLibrary] Indexing error:', message.error);
+      break;
+
+    default:
+      // eslint-disable-next-line no-console
+      console.warn('[MediaLibrary] Unknown worker message:', type);
+  }
+}
+
+function initializeIndexingWorker() {
+  if (indexingWorker) {
+    return; // Already initialized
+  }
+
+  try {
+    const workerPath = new URL('./indexing/indexer-worker.js', import.meta.url).href;
+    indexingWorker = new Worker(workerPath, { type: 'module' });
+
+    // Handle worker messages
+    indexingWorker.onmessage = (event) => {
+      handleWorkerMessage(event.data);
+    };
+
+    // Handle worker errors
+    indexingWorker.onerror = (error) => {
+      // eslint-disable-next-line no-console
+      console.error('[MediaLibrary] Indexing worker error:', error);
+
+      // Respawn worker after delay
+      indexingWorker = null;
+      setTimeout(() => {
+        // eslint-disable-next-line no-console
+        console.log('[MediaLibrary] Respawning indexing worker');
+        initializeIndexingWorker();
+      }, 30000); // 30s delay
+    };
+
+    // eslint-disable-next-line no-console
+    console.log('[MediaLibrary] Indexing worker initialized');
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('[MediaLibrary] Failed to initialize indexing worker:', error);
+  }
+}
+
+export default function init(el, options = {}) {
+  const { enableIndexing = false } = options;
+
   document.title = 'Media Library';
   el.innerHTML = '';
+
+  // Initialize indexing worker if enabled
+  if (enableIndexing) {
+    initializeIndexingWorker();
+  }
 
   if (hashChangeHandler) {
     window.removeEventListener('hashchange', hashChangeHandler);

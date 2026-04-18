@@ -4,7 +4,7 @@ import { loadIndexMetadata, loadIndexChunk } from '../core/storage.js';
  * DisplayLoader - Polls DA storage for index changes and loads chunks
  * Independent of indexing worker (plugin-mode ready)
  */
-class DisplayLoader {
+export class DisplayLoader {
   constructor(sitePath, onDataLoaded) {
     this.sitePath = sitePath;
     this.onDataLoaded = onDataLoaded;
