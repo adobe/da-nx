@@ -40,7 +40,6 @@ import {
   getAppState, updateAppState, onStateChange, showNotification, dismissNotification,
 } from './core/state.js';
 import { t } from './core/messages.js';
-import { initService, disposeService } from './indexing/coordinator.js';
 import { fetchSidekickConfig } from './indexing/admin-api.js';
 import '../../public/sl/components.js';
 import './display/components/topbar/topbar.js';
@@ -192,9 +191,6 @@ class NxMediaLibrary extends LitElement {
     if (this._urlSyncDebounce) {
       clearTimeout(this._urlSyncDebounce);
     }
-
-    // Dispose indexing coordinator
-    disposeService();
 
     // Stop display loader
     stopDisplayLoader();
@@ -646,14 +642,6 @@ class NxMediaLibrary extends LitElement {
 
       saveRecentSite(this.sitePath);
       await this.loadMediaData();
-
-      // Initialize indexing coordinator (app mode)
-      // TODO: Replace with worker-based implementation
-      const isAppMode = window.location.pathname.includes('/apps/media-library');
-      if (isAppMode) {
-        const onMediaDataUpdated = (mediaData) => this.setMediaData(mediaData);
-        initService(this.sitePath, { onMediaDataUpdated });
-      }
     } catch (error) {
       updateAppState({
         isValidating: false,
@@ -1245,55 +1233,76 @@ function setupMediaLibrary(el) {
   }
 }
 
-function handleProgressiveBatch(message) {
-  const { data, totalDiscovered, capped } = message;
-
-  // Get current component instance
-  const cmp = document.querySelector('nx-media-library');
-  if (!cmp) return;
-
-  // Update progressive state
-  updateAppState({
-    progressiveMediaData: data,
-    progressiveTotalCount: totalDiscovered,
-    progressiveCountCapped: capped,
-  });
-}
-
-function handleIndexingComplete(message) {
-  const { itemCount, duration } = message;
-
-  // eslint-disable-next-line no-console
-  console.log(`[MediaLibrary] Indexing complete: ${itemCount} items in ${duration}`);
-
-  // Clear progressive state
-  updateAppState({
-    progressiveMediaData: [],
-    progressiveTotalCount: null,
-    progressiveCountCapped: false,
-  });
-}
-
-function handleWorkerMessage(message) {
-  const { type } = message;
+function handleWorkerMessage(event) {
+  const {
+    type, progress, result, error,
+  } = event.data;
 
   switch (type) {
-    case 'progressive-batch':
-      handleProgressiveBatch(message);
+    case 'init-complete':
+      // eslint-disable-next-line no-console
+      console.log('[MediaLibrary:Worker] Initialized');
+      break;
+
+    case 'progress':
+      // Set indexing flag on first progress message
+      if (progress.stage && !getAppState().isIndexing) {
+        updateAppState({
+          isIndexing: true,
+          indexProgress: { stage: 'starting', message: '' },
+        });
+      }
+
+      // Handle progressive data streaming during build
+      if (progress.progressiveData) {
+        updateAppState({
+          progressiveMediaData: progress.progressiveData,
+          progressiveTotalCount: progress.totalCount,
+          progressiveCountCapped: progress.countCapped,
+        });
+      } else if (progress.stage) {
+        // Progress stage update
+        updateAppState({
+          indexProgress: {
+            stage: progress.stage,
+            message: progress.message || '',
+          },
+        });
+      }
       break;
 
     case 'complete':
-      handleIndexingComplete(message);
+      // eslint-disable-next-line no-console
+      console.log('[MediaLibrary:Worker] Build complete', result);
+
+      // Clear indexing state - display loader will pick up the changes
+      updateAppState({
+        isIndexing: false,
+        progressiveMediaData: [],
+        progressiveTotalCount: null,
+        progressiveCountCapped: false,
+        indexProgress: null,
+      });
       break;
 
     case 'error':
       // eslint-disable-next-line no-console
-      console.error('[MediaLibrary] Indexing error:', message.error);
+      console.error('[MediaLibrary:Worker] Build error:', error);
+
+      updateAppState({
+        isIndexing: false,
+        progressiveMediaData: [],
+        progressiveTotalCount: null,
+        progressiveCountCapped: false,
+        indexProgress: null,
+      });
+
+      showNotification(t('NOTIFY_ERROR'), error || 'Build failed', 'danger');
       break;
 
     default:
       // eslint-disable-next-line no-console
-      console.warn('[MediaLibrary] Unknown worker message:', type);
+      console.warn('[MediaLibrary:Worker] Unknown message type:', type);
   }
 }
 
@@ -1302,7 +1311,7 @@ function setupWorkerHandlers() {
 
   // Handle worker messages
   indexingWorker.onmessage = (event) => {
-    handleWorkerMessage(event.data);
+    handleWorkerMessage(event);
   };
 
   // Handle worker errors
@@ -1500,14 +1509,11 @@ export default function init(el, options = {}) {
   document.title = 'Media Library';
   el.innerHTML = '';
 
-  // Initialize indexing (app mode)
-  // TODO: Migrate to worker - using coordinator.js temporarily
-  // Worker files (indexer-worker.js, indexer-service.js) need to be created
+  // Initialize indexing worker (app mode)
   if (enableIndexing) {
     // eslint-disable-next-line no-console
-    console.log('[MediaLibrary] App mode detected - initializing indexing');
-    // Worker initialization disabled until implementation is complete
-    // initializeIndexingWorker();
+    console.log('[MediaLibrary] App mode detected - initializing indexing worker');
+    initializeIndexingWorker();
   }
 
   if (hashChangeHandler) {
