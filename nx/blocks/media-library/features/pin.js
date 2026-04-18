@@ -1,4 +1,4 @@
-import { getLocalStorageItem, setLocalStorageItem } from '../core/storage.js';
+import { getLocalStorageItem, setLocalStorageItem } from '../core/browser-storage.js';
 import { Storage } from '../core/constants.js';
 
 function getStorageKey(org, repo) {

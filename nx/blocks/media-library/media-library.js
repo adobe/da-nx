@@ -6,7 +6,7 @@ import {
   validateSitePath, getBasePath, resolveAbsolutePath, normalizeSitePath, parseSitePathFromHash,
   parseRouteState, buildUrlWithState,
 } from './core/paths.js';
-import { saveRecentSite } from './core/storage.js';
+import { saveRecentSite } from './core/browser-storage.js';
 import {
   ensureAuthenticated,
   getCanonicalMediaTimestamp,
