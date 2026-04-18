@@ -10,7 +10,9 @@ import {
   reviewSnapshot,
   updateSchedule,
   formatLocalDate,
+  checkSnapshotSource,
 } from '../utils/utils.js';
+import { findFragments } from '../utils/fragments.js';
 
 const nx = `${new URL(import.meta.url).origin}/nx`;
 const style = await getStyle(import.meta.url);
@@ -27,6 +29,8 @@ const ICONS = [
   `${nx}/public/icons/S2_Icon_Publish_20_N.svg`,
   `${nx}/public/icons/S2_Icon_ArrowDown_20_N.svg`,
   `${nx}/public/icons/S2_Icon_ArrowUp_20_N.svg`,
+  `${nx}/public/icons/S2_Icon_Link_20_N.svg`,
+  `${nx}/public/icons/S2_Icon_Exposure_20_N.svg`,
 ];
 
 class NxSnapshot extends LitElement {
@@ -34,17 +38,29 @@ class NxSnapshot extends LitElement {
     basics: { attribute: false },
     isRegistered: { attribute: false },
     userPermissions: { attribute: false },
+    hasLaunchPermission: { attribute: false },
+    startOpen: { attribute: false },
     _manifest: { state: true },
     _editUrls: { state: true },
     _message: { state: true },
-    _isOpen: { state: true },
     _action: { state: true },
     _launchesCollapsed: { state: true },
+    _launchEnabled: { state: true },
+    _linkCopied: { state: true },
+    _expandedUrl: { state: true },
+    _discoveredFragments: { state: true },
+    _findingFragments: { state: true },
+    _fragmentDetails: { state: true },
+    _copyModeDetails: { state: true },
+    _launchDetails: { state: true },
+    _snapshotExists: { state: true },
   };
 
   constructor() {
     super();
     this._launchesCollapsed = true;
+    this._launchEnabled = false;
+    this._snapshotExists = {};
   }
 
   async connectedCallback() {
@@ -54,19 +70,24 @@ class NxSnapshot extends LitElement {
   }
 
   update(props) {
-    if (props.has('basics') && this.basics.name && !this._manifest) {
-      this.loadManifest();
+    if (props.has('startOpen') && this.startOpen && this.basics) {
+      this.basics.open = true;
+      if (!this._manifest) this.loadManifest();
     }
     super.update();
   }
 
   async loadManifest() {
     this._manifest = await fetchManifest(this.basics.name);
+    this._launchEnabled = this._manifest?.metadata?.launchEnabled === true;
+    this.requestUpdate();
   }
 
   handleExpand() {
     // Do not allow closing if there is no name
     if (this.basics.open && !this.basics.name) return;
+
+    if (!this.basics.open && !this._manifest) this.loadManifest();
 
     this.basics.open = !this.basics.open;
     this.requestUpdate();
@@ -78,6 +99,27 @@ class NxSnapshot extends LitElement {
 
   handleLaunchesToggle() {
     this._launchesCollapsed = !this._launchesCollapsed;
+  }
+
+  handleEnableLaunch() {
+    this._launchDetails = {
+      heading: 'Enable Launch',
+      message: html`Launch allows you to stage and edit content in <code>.snapshots</code> directories, so your snapshot can evolve over time rather than being a single moment-in-time capture.<br/><br/>Once enabled, you can <b>sync</b> content down for editing and <b>promote</b> changes back to the main tree.`,
+      width: '500px',
+      open: true,
+      actions: [
+        { label: 'Cancel', value: 'cancel', variant: 'primary' },
+        { label: 'OK', value: 'enable' },
+      ],
+    };
+  }
+
+  handleLaunchDialog(e) {
+    if (e.detail === 'enable') {
+      this._launchEnabled = true;
+      this.handleSave();
+    }
+    this._launchDetails = undefined;
   }
 
   async handleEditUrls() {
@@ -160,23 +202,56 @@ class NxSnapshot extends LitElement {
     this.handleSave(false);
   }
 
-  handleShare() {
-    const aemPaths = this._manifest.resources.map((res) => res.aemPreview);
+  handleShare(type = 'aemPreview') {
+    const aemPaths = this._manifest.resources.map((res) => res[type]);
     const blob = new Blob([aemPaths.join('\n')], { type: 'text/plain' });
     const data = [new ClipboardItem({ [blob.type]: blob })];
     navigator.clipboard.write(data);
     this._message = { heading: 'Copied', message: 'URLs copied to clipboard.', open: true };
   }
 
-  async handleDelete() {
-    const result = await deleteSnapshot(this.basics.name);
-    if (result.error) {
-      this._message = { heading: 'Note', message: result.error, open: true };
+  handleCopyLink(e) {
+    e.stopPropagation();
+    const url = new URL(window.location);
+    url.searchParams.set('snapshot', this.basics.name);
+    navigator.clipboard.writeText(url.toString());
+    this._linkCopied = true;
+    setTimeout(() => { this._linkCopied = false; }, 1500);
+  }
+
+  async handleDialog(e) {
+    if (e.detail === 'delete') {
+      this._action = true;
+      const result = await deleteSnapshot(
+        this.basics.name,
+        this._manifest.resources.map((res) => res.path),
+      );
+      this._action = undefined;
+      if (result.error) {
+        this._message = { heading: 'Note', message: result.error, open: true };
+        return;
+      }
+      const opts = { bubbles: true, composed: true };
+      const event = new CustomEvent('delete', opts);
+      this.dispatchEvent(event);
+    } else if (e.detail === 'publish') {
+      this._message = undefined;
+      await this.executeReview('approve');
       return;
     }
-    const opts = { bubbles: true, composed: true };
-    const event = new CustomEvent('delete', opts);
-    this.dispatchEvent(event);
+    this._message = undefined;
+  }
+
+  handleDelete() {
+    this._message = {
+      heading: 'Delete Snapshot',
+      message: html`This will delete <b>${this.basics.name}</b>.<br/>Any files in the <b>.snapshots</b> directory will also be deleted.<br/><br/>Are you sure?`,
+      open: true,
+      actions: [
+        { label: 'Cancel', value: 'cancel', variant: 'primary' },
+        { label: 'Delete', value: 'delete', variant: 'negative' },
+      ],
+    };
   }
 
   async handleReview(state) {
@@ -222,9 +297,23 @@ class NxSnapshot extends LitElement {
         this.loadManifest();
         return;
       }
+      this._message = {
+        heading: 'Approve & Publish Snapshot',
+        message: html`This will directly publish the snapshot content to production.<br/>Existing prod content will be overwritten.<br/><br/>Are you sure?`,
+        open: true,
+        actions: [
+          { label: 'Cancel', value: 'cancel', variant: 'primary' },
+          { label: 'Publish', value: 'publish' },
+        ],
+      };
+      return;
     }
 
-    // Normal review flow (request, reject, or approve without schedule)
+    // Normal review flow (request or reject)
+    await this.executeReview(state);
+  }
+
+  async executeReview(state) {
     this._action = 'Saving';
     const result = await reviewSnapshot(this.basics.name, state);
     this._action = undefined;
@@ -235,12 +324,152 @@ class NxSnapshot extends LitElement {
     this.loadManifest();
   }
 
-  async handleCopyUrls(direction) {
+  promptCopyMode(resources, direction) {
+    const label = direction === 'fork' ? 'Sync Down' : 'Promote Up';
+    this._pendingCopy = { resources, direction };
+    this._copyModeDetails = {
+      heading: `${label}: Merge or Overwrite?`,
+      message: html`<b>Merge</b> will merge the files and show a diff.<br/><b>Overwrite</b> will replace the destination content entirely.`,
+      open: true,
+      actions: [
+        { label: 'Cancel', value: 'cancel', variant: 'primary' },
+        { label: 'Merge', value: 'merge' },
+        { label: 'Overwrite', value: 'overwrite' },
+      ],
+    };
+  }
+
+  async executeCopy(resources, direction, mode) {
     this._action = direction === 'fork'
-      ? 'Forking content into snapshot.'
+      ? 'Syncing content into snapshot.'
       : 'Promoting content from snapshot.';
-    await copyManifest(this.basics.name, this._manifest.resources, direction);
+    await copyManifest(this.basics.name, resources, direction, mode);
+    if (direction === 'fork') {
+      const updated = { ...this._snapshotExists };
+      resources.forEach((res) => { updated[res.path] = true; });
+      this._snapshotExists = updated;
+    }
     this._action = undefined;
+  }
+
+  async handleCopyModeDialog(e) {
+    const mode = e.detail;
+    const pending = this._pendingCopy;
+    this._copyModeDetails = undefined;
+    this._pendingCopy = undefined;
+
+    if (!pending || mode === 'cancel' || !mode) return;
+    await this.executeCopy(pending.resources, pending.direction, mode);
+  }
+
+  handleCopyUrls(direction) {
+    this.promptCopyMode(this._manifest.resources, direction);
+  }
+
+  handleCopySingleUrl(res, direction) {
+    if (direction === 'fork' && !this._snapshotExists[res.path]) {
+      this.executeCopy([res], direction, 'overwrite');
+      return;
+    }
+    this.promptCopyMode([res], direction);
+  }
+
+  async openFindFragments() {
+    this._findingFragments = true;
+    this._discoveredFragments = [];
+    this.updateFragmentDialog();
+
+    const { org, site } = this.basics;
+    const fragments = await findFragments(this._manifest.resources, org, site);
+    this._discoveredFragments = fragments;
+    this._findingFragments = false;
+    this.updateFragmentDialog();
+  }
+
+  updateFragmentDialog() {
+    const loading = this._findingFragments;
+    const fragments = this._discoveredFragments || [];
+    const hasSelected = fragments.some((f) => f.selected);
+
+    let message;
+    if (loading) {
+      message = html`<p class="nx-fragment-loading">Scanning for fragments...</p>`;
+    } else if (fragments.length > 0) {
+      message = html`
+        <ul class="nx-fragment-list">
+          ${fragments.map((fragment) => html`
+            <li>
+              <label>
+                <input
+                  type="checkbox"
+                  .checked=${fragment.selected}
+                  @change=${() => this.handleFragmentToggle(fragment)} />
+                ${fragment.path}
+              </label>
+            </li>
+          `)}
+        </ul>`;
+    } else {
+      message = html`<p class="nx-fragment-empty">No new fragments found.</p>`;
+    }
+
+    this._fragmentDetails = {
+      heading: 'Find Fragments',
+      message,
+      open: true,
+      actions: [
+        { label: 'Cancel', value: 'cancel', variant: 'primary' },
+        ...(!loading && fragments.length > 0 && hasSelected
+          ? [{ label: 'Add to URLs', value: 'add' }]
+          : []),
+      ],
+    };
+  }
+
+  handleFragmentToggle(fragment) {
+    fragment.selected = !fragment.selected;
+    this._discoveredFragments = [...this._discoveredFragments];
+    this.updateFragmentDialog();
+  }
+
+  async handleFragmentDialog(e) {
+    if (e.detail === 'add') {
+      await this.handleAddFragments();
+      return;
+    }
+    this._fragmentDetails = undefined;
+  }
+
+  async handleAddFragments() {
+    const selected = this._discoveredFragments.filter((f) => f.selected);
+    if (!selected.length) return;
+
+    this._fragmentDetails = undefined;
+    this._action = 'Adding fragments';
+    const currPaths = this._manifest.resources.map((res) => res.path);
+    const newHrefs = [
+      ...this._manifest.resources.map((res) => res.aemPreview),
+      ...selected.map((f) => `https://placeholder.com${f.path}`),
+    ];
+    const result = await updatePaths(this.basics.name, currPaths, newHrefs);
+    if (result.error) {
+      this._message = { heading: 'Note', message: result.error, open: true };
+    }
+    this._action = undefined;
+    this._discoveredFragments = [];
+    await this.loadManifest();
+  }
+
+  async handleToggleAccordion(path) {
+    if (this._expandedUrl === path) {
+      this._expandedUrl = null;
+      return;
+    }
+    this._expandedUrl = path;
+    if (this._snapshotExists[path] === undefined && this.basics.name) {
+      const exists = await checkSnapshotSource(this.basics.name, path);
+      this._snapshotExists = { ...this._snapshotExists, [path]: exists };
+    }
   }
 
   getValue(selector) {
@@ -254,6 +483,11 @@ class NxSnapshot extends LitElement {
       description: this.getValue('[name="description"]'),
       metadata: { reviewPassword: this.getValue('[name="password"]') },
     };
+
+    if (this._launchEnabled) {
+      manifest.metadata.launchEnabled = true;
+    }
+
     // Add scheduled publish to metadata if it exists
     const scheduledPublish = this.getValue('[name="scheduler"]');
     if (scheduledPublish) {
@@ -283,16 +517,41 @@ class NxSnapshot extends LitElement {
     return this.userPermissions === true;
   }
 
+  renderAccordionPanel(res) {
+    const snapshotExists = this._snapshotExists[res.path] === true;
+    return html`
+      <div class="nx-url-accordion">
+        <a href="${res.url}" target="_blank">Open on aem.reviews</a>
+        <a href="${res.aemLive}" target="_blank">Open on aem.live</a>
+        <a href="${res.daEdit}" target="_blank">Edit in DA</a>
+        ${snapshotExists ? html`
+          <a href="${res.daSnapshotEdit}" target="_blank">Edit Snapshot in DA</a>
+        ` : nothing}
+        ${this.hasLaunchPermission && this._launchEnabled ? html`
+          <button @click=${() => this.handleCopySingleUrl(res, 'fork')}>
+            <svg class="icon"><use href="#S2_Icon_ArrowDown_20_N"/></svg>
+            Sync to .snapshots
+          </button>
+          ${snapshotExists ? html`
+            <button @click=${() => this.handleCopySingleUrl(res, 'promote')}>
+              <svg class="icon"><use href="#S2_Icon_ArrowUp_20_N"/></svg>
+              Promote to main
+            </button>
+          ` : nothing}
+        ` : nothing}
+      </div>
+    `;
+  }
+
   renderUrls() {
     return html`
       <ul class="nx-snapshot-urls">
-        ${this._manifest.resources.map((res) => html`
-          <li>
-            <a href="${res.url}" target="${res.url}"><span>${res.path}</span>
-              <div class="icon-wrap">
-                <svg class="icon"><use href="#S2_Icon_OpenIn_20_N"/></svg>
-              </div>
-            </a>
+        ${(this._manifest?.resources || []).map((res) => html`
+          <li class="${this._expandedUrl === res.path ? 'is-expanded' : ''}">
+            <div class="nx-url-row" @click=${() => this.handleToggleAccordion(res.path)}>
+              <span>${res.path}</span>
+            </div>
+            ${this._expandedUrl === res.path ? this.renderAccordionPanel(res) : nothing}
           </li>
         `)}
       </ul>
@@ -324,8 +583,8 @@ class NxSnapshot extends LitElement {
   }
 
   renderDetails() {
-    const showEdit = !this._manifest?.resources || this._editUrls;
-    const count = this._manifest?.resources.length || 0;
+    const showEdit = (!this.basics.name && !this._manifest?.resources) || this._editUrls;
+    const count = this._manifest?.resources?.length || 0;
     const s = count === 1 ? '' : 's';
 
     return html`
@@ -335,7 +594,9 @@ class NxSnapshot extends LitElement {
             <p>
               ${showEdit ? html`URLs` : html`${count} URL${s}`}
               ${showEdit ? this.renderCancelUrlBtn() : this.renderEditUrlBtn()}
-              ${showEdit ? nothing : html`<button @click=${this.handleShare}>Share</button>`}
+              ${showEdit ? nothing : html`<button @click=${() => this.handleShare('aemPreview')}>Share URLs</button>`}
+              ${showEdit ? nothing : html`<button @click=${() => this.handleShare('url')}>Share Review URLs</button>`}
+              ${showEdit ? nothing : html`<button @click=${() => this.openFindFragments()}>Find Fragments</button>`}
             </p>
           </div>
           ${showEdit ? this.renderEditUrls() : this.renderUrls()}
@@ -353,21 +614,29 @@ class NxSnapshot extends LitElement {
               <sl-input type="datetime-local" name="scheduler" .value=${formatLocalDate(this._manifest?.metadata?.scheduledPublish)}></sl-input>
             ` : nothing}
           </div>
-          <div class="nx-launch-actions">
-            <p class="nx-launch-sub-heading ${this._launchesCollapsed ? '' : 'is-expanded'}" @click=${this.handleLaunchesToggle}>Launch</p>
-            ${this._launchesCollapsed ? nothing : html`
-              <div class="nx-launch-action-group">
-                <button data-tooltip="Create or sync launch content in DA" @click=${() => this.handleCopyUrls('fork')}>
-                  <svg class="icon"><use href="#S2_Icon_ArrowDown_20_N"/></svg>
-                  Sync
-                </button>
-                <button data-tooltip="Sync launch content back to the production tree" @click=${() => this.handleCopyUrls('promote')}>
-                  <svg class="icon"><use href="#S2_Icon_ArrowUp_20_N"/></svg>
-                  Promote
-                </button>
-              </div>
-            `}
-          </div>
+          ${this.hasLaunchPermission ? html`
+            <div class="nx-launch-actions">
+              <p class="nx-launch-sub-heading ${this._launchesCollapsed ? '' : 'is-expanded'}" @click=${this.handleLaunchesToggle}>Launch</p>
+              ${this._launchesCollapsed ? nothing : html`
+                ${this._launchEnabled ? html`
+                  <div class="nx-launch-action-group">
+                    <button data-tooltip="Create or sync launch content in DA" @click=${() => this.handleCopyUrls('fork')}>
+                      <svg class="icon"><use href="#S2_Icon_ArrowDown_20_N"/></svg>
+                      Sync
+                    </button>
+                    <button data-tooltip="Sync launch content back to the production tree" @click=${() => this.handleCopyUrls('promote')}>
+                      <svg class="icon"><use href="#S2_Icon_ArrowUp_20_N"/></svg>
+                      Promote
+                    </button>
+                  </div>
+                ` : html`
+                  <div class="nx-launch-action-group">
+                    <button @click=${this.handleEnableLaunch}>Enable Launch for this snapshot</button>
+                  </div>
+                `}
+              `}
+            </div>
+          ` : nothing}
           <div class="nx-snapshot-actions">
             <p class="nx-snapshot-sub-heading">Snapshot</p>
             <div class="nx-snapshot-action-group">
@@ -396,17 +665,38 @@ class NxSnapshot extends LitElement {
     `;
   }
 
+  get _maxNameLength() {
+    const { org, site } = this.basics;
+    return 64 - `--main--${site}--${org}`.length;
+  }
+
   renderEditName() {
-    return html`<input type="text" name="name" placeholder="Enter snapshot name" @input=${this.formatSnapshotName} />`;
+    return html`<input type="text" name="name" placeholder="Enter snapshot name" maxlength=${this._maxNameLength} @input=${this.formatSnapshotName} />`;
   }
 
   renderName() {
-    return html`<div class="nx-snapshot-header-title"><p>${this.basics.name}</p> <p>${this._reviewStatus}</p></div>`;
+    return html`
+      <div class="nx-snapshot-header-title">
+        <p>
+          ${this.basics.name}
+          ${this.basics.open ? html`
+            <button class="nx-snapshot-link" @click=${this.handleCopyLink}>
+              <svg class="icon" viewBox="0 0 20 20"><use href="#S2_Icon_Link_20_N"/></svg>
+              ${this._linkCopied ? html`<span class="copied">copied</span>` : nothing}
+            </button>
+          ` : nothing}
+        </p>
+        <p>${this._reviewStatus}</p>
+      </div>`;
   }
 
   render() {
     return html`
-      <div class="nx-snapshot-wrapper ${this.basics.open ? 'is-open' : ''} ${this._action ? 'is-saving' : ''}" data-action=${this._action}>
+      <div class="nx-snapshot-wrapper ${this.basics.open ? 'is-open' : ''} ${this._action ? 'is-saving' : ''}">
+        ${this._action ? html`<div class="nx-snapshot-overlay">
+          ${typeof this._action === 'string' ? html`<span>${this._action}</span>` : nothing}
+          <svg class="nx-snapshot-spinner" viewBox="0 0 20 20"><use href="#S2_Icon_Exposure_20_N"/></svg>
+        </div>` : nothing}
         <div class="nx-snapshot-header" @click=${this.handleExpand}>
           ${this.basics.name ? this.renderName() : this.renderEditName()}
           <button class="nx-snapshot-expand">Expand</button>
@@ -414,6 +704,9 @@ class NxSnapshot extends LitElement {
         ${this.renderDetails()}
       </div>
       <nx-dialog @action=${this.handleDialog} .details=${this._message}></nx-dialog>
+      <nx-dialog @action=${this.handleFragmentDialog} .details=${this._fragmentDetails}></nx-dialog>
+      <nx-dialog @action=${this.handleCopyModeDialog} .details=${this._copyModeDetails}></nx-dialog>
+      <nx-dialog @action=${this.handleLaunchDialog} .details=${this._launchDetails}></nx-dialog>
     `;
   }
 }

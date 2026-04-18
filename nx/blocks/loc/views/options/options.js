@@ -3,7 +3,7 @@ import { getConfig } from '../../../../scripts/nexter.js';
 import getStyle from '../../../../utils/styles.js';
 import getSvg from '../../../../utils/svg.js';
 import { fetchConfig } from '../../utils/utils.js';
-import { getAllActions, formatLangs, formatConfig, finalizeOptions } from './utils/utils.js';
+import { getAllActions, formatLangs, formatConfig, finalizeOptions, getCustomOptions } from './utils/utils.js';
 
 const { nxBase: nx } = getConfig();
 
@@ -99,6 +99,13 @@ class NxLocOptions extends LitElement {
     this.updateOptions();
   }
 
+  handleChangeDate({ target }) {
+    if (!target?.value) return;
+    const utcDate = new Date(target.value).toISOString();
+    this._siteOptions[target.name] = utcDate;
+    this.updateOptions();
+  }
+
   handleLocaleToggle(e, locale) {
     e.preventDefault();
     locale.active = !locale.active;
@@ -182,6 +189,50 @@ class NxLocOptions extends LitElement {
         <sl-select name="${property}" value="${values[0]}" @change=${this.handleChangeOption}>
           ${values.map((value) => html`<option>${value}</option>`)}
         </sl-select>
+      </div>`;
+  }
+
+  renderCustomOptions() {
+    const custom = getCustomOptions(this._siteConfig);
+    return Object.entries(custom).flatMap(([type, items]) => items.map(({ name, values }) => {
+      const key = `translation.service.custom.${type}.${name}`;
+      if (type === 'option') {
+        return html`
+          <div class="nx-loc-fieldgroup">
+            <p>${name}</p>
+            <sl-select name="${key}" value="${values[0].value}" @change=${this.handleChangeOption}>
+              ${values.map(({ label, value }) => html`<option value="${value}">${label}</option>`)}
+            </sl-select>
+          </div>`;
+      }
+      if (type === 'boolean') {
+        return html`
+          <div class="nx-loc-fieldgroup">
+            <p>${name}</p>
+            <sl-checkbox name="${key}" ?checked=${values[0].value === 'true'} @change=${this.handleChangeOption}></sl-checkbox>
+          </div>`;
+      }
+      if (type === 'textarea') {
+        return html`
+          <div class="nx-loc-fieldgroup">
+            <p>${name}</p>
+            <sl-textarea name="${key}" value="${values[0].value}" @change=${this.handleChangeOption}></sl-textarea>
+          </div>`;
+      }
+      return html`
+        <div class="nx-loc-fieldgroup">
+          <p>${name}</p>
+          <sl-input name="${key}" value="${values[0].value}" @change=${this.handleChangeOption}></sl-input>
+        </div>`;
+    }));
+  }
+
+  renderDateField(label, property) {
+    return html`
+      <div class="nx-loc-fieldgroup">
+        <p>${label}</p>
+        <sl-input type="datetime-local" name="${property}" @change=${this.handleChangeDate}>
+        </sl-input>
       </div>`;
   }
 
@@ -290,6 +341,8 @@ class NxLocOptions extends LitElement {
         <div class="nx-loc-options-panel">
           <div class="nx-loc-options-group">
             ${this.renderFieldgroup('Environment', 'translation.service.all.env')}
+            ${this._siteConfig['translation.service.supports.duedate'] ? this.renderDateField('Due date', 'project.due') : nothing}
+            ${this.renderCustomOptions()}
           </div>
           <p class="nx-loc-options-panel-subhead">Conflict resolution</p>
           <div class="nx-loc-options-group">

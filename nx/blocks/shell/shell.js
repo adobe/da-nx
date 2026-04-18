@@ -7,7 +7,6 @@ import { IMS_ORIGIN, loadIms } from '../../utils/ims.js';
 import { DA_ORIGIN } from '../../public/utils/constants.js';
 
 const IMS_DETAILS = await loadIms();
-const CHANNEL = new MessageChannel();
 
 await import('../../public/sl/components.js');
 
@@ -69,7 +68,10 @@ function getUrl() {
  * @param {HTMLIFrameElement} event.target - The loaded iframe element
  */
 function handleLoad({ target }) {
-  CHANNEL.port1.onmessage = (e) => {
+  const channel = new MessageChannel();
+  const { port1, port2 } = channel;
+
+  port1.onmessage = (e) => {
     if (e.data.action === 'setTitle') {
       document.title = e.data.details;
     }
@@ -78,11 +80,12 @@ function handleLoad({ target }) {
   const message = {
     ready: true,
     token: IMS_DETAILS.accessToken?.token,
+    email: IMS_DETAILS.email,
     context: getParts(),
   };
 
   setTimeout(() => {
-    target.contentWindow.postMessage(message, '*', [CHANNEL.port2]);
+    target.contentWindow.postMessage(message, '*', [port2]);
   }, 750);
 }
 

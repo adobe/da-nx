@@ -151,6 +151,67 @@ class SlTextarea extends FormAwareLitElement {
   }
 }
 
+class SlCheckbox extends LitElement {
+  static formAssociated = true;
+
+  static properties = {
+    name: { type: String },
+    checked: { type: Boolean },
+    error: { type: String },
+  };
+
+  constructor() {
+    super();
+    this._internals = this.attachInternals();
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+    this.shadowRoot.adoptedStyleSheets = [style];
+    this._updateFormValue();
+  }
+
+  get type() {
+    return 'checkbox';
+  }
+
+  get value() {
+    return this.checked ? 'true' : '';
+  }
+
+  _updateFormValue() {
+    if (this.checked) {
+      this._internals.setFormValue('true');
+    } else {
+      this._internals.setFormValue('');
+    }
+  }
+
+  handleChange(event) {
+    this.checked = event.target.checked;
+    this._updateFormValue();
+    const wcEvent = new event.constructor(event.type, { bubbles: true, composed: true });
+    this.dispatchEvent(wcEvent);
+  }
+
+  render() {
+    return html`
+      <div class="sl-checkbox">
+        <input
+          type="checkbox"
+          id="${this.name}"
+          name="${this.name}"
+          ?checked=${this.checked}
+          class="${this.error ? 'has-error' : ''}"
+          @change=${this.handleChange}
+        />
+        <label for="${this.name}"><slot></slot></label>
+        ${this.error ? html`<p class="sl-inputfield-error">${this.error}</p>` : nothing}
+      </div>
+    `;
+  }
+}
+
 class SlSelect extends LitElement {
   static formAssociated = true;
 
@@ -244,8 +305,9 @@ class SlButton extends LitElement {
 
   render() {
     return html`
-      <span class="sl-button">
+      <span class="sl-button" part="wrap">
         <button
+          part="base"
           class="${this.class}"
           ?disabled=${this.disabled}
           ${spread(this._attrs)}>
@@ -259,6 +321,7 @@ class SlDialog extends LitElement {
   static properties = {
     open: { type: Boolean },
     modal: { type: Boolean },
+    overflow: { type: String },
     _showLazyModal: { state: true },
   };
 
@@ -300,7 +363,7 @@ class SlDialog extends LitElement {
 
   render() {
     return html`
-      <dialog class="sl-dialog" @close=${this.onClose}>
+      <dialog class="sl-dialog ${this.overflow ? `overflow-${this.overflow}` : ''}" @close=${this.onClose}>
         <slot></slot>
       </dialog>`;
   }
@@ -308,6 +371,7 @@ class SlDialog extends LitElement {
 
 customElements.define('sl-input', SlInput);
 customElements.define('sl-textarea', SlTextarea);
+customElements.define('sl-checkbox', SlCheckbox);
 customElements.define('sl-select', SlSelect);
 customElements.define('sl-button', SlButton);
 customElements.define('sl-dialog', SlDialog);

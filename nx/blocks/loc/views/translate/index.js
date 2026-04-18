@@ -105,7 +105,7 @@ async function saveLang({
     return { ...url, destination: `/${org}/${site}${daDestPath}` };
   });
 
-  const saveToDa = async (url) => {
+  const saveFn = async (url) => {
     const overwrite = behavior === 'overwrite' || url.hasExt || url.ext !== 'html';
     const copyFn = overwrite ? overwriteCopy : mergeCopy;
     await copyFn(url, title);
@@ -120,7 +120,7 @@ async function saveLang({
     lang,
     langIndex,
     urls: urlsToSave,
-    saveToDa,
+    saveFn,
   });
 
   const savedCount = saved.filter((url) => url.status === 'success').length;

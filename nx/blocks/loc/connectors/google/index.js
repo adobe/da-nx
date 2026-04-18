@@ -2,20 +2,38 @@ import { addDnt, removeDnt } from '../../dnt/dnt.js';
 import { Queue } from '../../../../public/utils/tree.js';
 import { convertPath } from '../../utils/utils.js';
 
+const MAX_LENGTH = 5000;
 const results = [];
 
 async function sendForTranslation(org, site, url) {
-  const body = new FormData();
-  body.append('data', url.content);
-  body.append('fromlang', 'en');
-  body.append('tolang', url.code);
+  let chunks = [url.content];
+  let rejoin;
 
-  const opts = { method: 'POST', body };
+  if (url.content.length > MAX_LENGTH) {
+    const mod = await import('./splitHtml.js');
+    chunks = mod.splitHtml(url.content, MAX_LENGTH);
+    rejoin = mod.rejoinHtml;
+  }
 
-  const resp = await fetch('https://translate.da.live/google', opts);
-  if (!resp.ok) return;
+  const translatedParts = [];
 
-  const { translated: html } = await resp.json();
+  for (const chunk of chunks) {
+    const body = new FormData();
+    body.append('data', chunk);
+    body.append('fromlang', 'en');
+    body.append('tolang', url.code);
+
+    const opts = { method: 'POST', body };
+    const resp = await fetch('https://translate.da.live/google', opts);
+    if (!resp.ok) return;
+
+    const { translated } = await resp.json();
+    if (!translated) return;
+    translatedParts.push(translated);
+  }
+
+  let html = translatedParts.join('');
+  if (rejoin) html = rejoin(html);
   if (html) {
     url.sourceContent = await removeDnt({ html, org, site, ext: url.ext });
     url.destination = `/${org}/${site}${url.daDestPath}`;
@@ -33,6 +51,8 @@ export async function sendAllLanguages({
 }) {
   const { sendMessage, saveState } = actions;
   const sourceLanguage = options['source.language']?.location || '/';
+
+  results.length = 0;
 
   const translateUrl = async (url) => {
     await sendForTranslation(org, site, url);
@@ -74,9 +94,9 @@ export async function getStatusAll() {
   // Empty
 }
 
-export async function saveItems({ langIndex, saveToDa }) {
+export async function saveItems({ langIndex, saveFn }) {
   const downloadCallback = async (url) => {
-    await saveToDa(url);
+    await saveFn(url);
   };
 
   const langUrls = results[langIndex];

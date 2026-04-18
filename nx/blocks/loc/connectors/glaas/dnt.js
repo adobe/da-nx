@@ -1,6 +1,8 @@
 let globalDntConfig;
 const ALT_TEXT_PLACEHOLDER = '*alt-placeholder*';
 
+const isAemHost = (hostname) => /\.(aem|hlx)\.(page|live)$/.test(hostname);
+
 const getHtmlSelector = (blockscope, blockConfig) => {
   const getChildSelector = (indexStr) => {
     if (indexStr === '*' || Number.isNaN(indexStr)) {
@@ -99,7 +101,7 @@ const addDntAttribute = (selector, operations, document) => {
         setDntAttribute(dntElement);
       } else {
         const matchTexts = operation.match;
-        const elementText = element.textContent.toLowerCase();
+        const elementText = element.textContent.trim().toLowerCase();
         if (
           (operation.condition === 'except' && !matchTexts.includes(elementText))
           || (operation.condition === 'equals' && matchTexts.includes(elementText))
@@ -182,7 +184,7 @@ function makeHrefsRelative(document) {
 function makeUrlRelative(originalSrc) {
   try {
     const url = new URL(originalSrc);
-    return `.${url.pathname}${url.search}${url.hash}`;
+    return isAemHost(url.hostname) && !url.search ? `.${url.pathname}${url.hash}` : null;
   } catch (e) {
     return null;
   }
@@ -202,8 +204,8 @@ function makeImagesRelative(document) {
 }
 
 function makeIconSpans(html) {
-  // Regex that matches :icon: but not when inside alt text double-quoted string
-  const iconRegex = /(?<!alt="[^"]*):([a-zA-Z0-9-]+?):/gm;
+  // Regex to match icon segments in text, but NOT inside any HTML attribute values
+  const iconRegex = /(?<!\w)(?<!="[^"]*):([a-zA-Z0-9-]+?):/gm;
 
   return html.replace(iconRegex, (_, iconName) => `<span class="icon icon-${iconName}"></span>`);
 }

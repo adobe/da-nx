@@ -18,6 +18,7 @@ export default defineConfig([
   {
     languageOptions: {
       ...recommended.languageOptions,
+      ecmaVersion: 'latest',
       globals: {
         ...globals.serviceworker,
         ...globals.browser,
@@ -76,9 +77,11 @@ export default defineConfig([
   test,
   {
     // Allow console in test files
-    files: ['test/**/*.js'],
+    files: ['test/**/*.js', 'nx2/test/**/*.js'],
     rules: {
+      'max-classes-per-file': 0,
       'no-console': 'off',
+      'no-underscore-dangle': 0,
       'no-unused-expressions': 0,
     },
   }

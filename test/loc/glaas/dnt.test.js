@@ -51,7 +51,7 @@ describe('Glaas DNT', () => {
       <p>Some text with a <span class="icon icon-happy"></span> icon</p>
     </div>
     <div>
-      <img src="./media_14a4b58fd73d82e553ccb65d5f53c3f5ff552330d.jpeg?optimize=medium" alt="Text here" loading="lazy" dnt-alt-content="https://a.com | *alt-placeholder* | :play:">
+      <img src="https://main--da-bacom--adobecom.aem.live/media_14a4b58fd73d82e553ccb65d5f53c3f5ff552330d.jpeg?optimize=medium" alt="Text here" loading="lazy" dnt-alt-content="https://a.com | *alt-placeholder* | :play:">
     </div>
   </main>
 </body></html>`,
@@ -82,5 +82,77 @@ describe('Glaas DNT', () => {
 
     const jsonWithoutDnt = `${await removeDnt(htmlWithDnt, 'adobecom', 'da-bacom', { fileType: 'json' })}\n`;
     expect(JSON.parse(jsonWithoutDnt)).to.deep.equal(JSON.parse(json));
+  });
+
+  it.only('Converts media paths to relative for aem links without parameters', async () => {
+    const config = JSON.parse((await readFile({ path: './mocks/hubspot/translate.json' })));
+    const html = `<body>
+  <header></header>
+  <main>
+    <div>
+      <p>Some text with a :happy: icon</p>
+    </div>
+    <div>
+      <img src="https://main--milo--adobecom.aem.page/media_14397d257748618c661379e599afb2fdd682c2335.png?width=750&amp;format=png&amp;optimize=medium" alt="https://a.com | Text here | :play:" loading="lazy" />
+    </div>
+        <div>
+      <img src="https://main--da-bacom--adobecom.aem.live/media_14a4b58fd73d82e553ccb65d5f53c3f5ff552330d.jpeg" alt="https://a.com | Text here | :play:" loading="lazy" />
+    </div>
+    <div>
+      <img src="https://main--da-bacom--adobecom.aem.live/media_14a4b58fd73d82e553ccb65d5f53c3f5ff552330d.jpeg#test" />
+    </div>
+    <div>
+      <picture>
+        <source srcset="https://content.da.live/adobecom/da-cc/drafts/test/.imagetestfeb26/media_1866efd6c49d4eb614bae84d2d5d546a97de25654.png" />
+      </picture>
+    </div>
+  </main>
+</body>`;
+    const htmlWithDnt = await addDnt(html, config, { reset: true });
+    console.log(htmlWithDnt);
+    expect(htmlWithDnt).to.equal(
+      `<html><head></head><body>
+  
+  <main>
+    <div>
+      <p>Some text with a <span class="icon icon-happy"></span> icon</p>
+    </div>
+    <div>
+      <img src="https://main--milo--adobecom.aem.page/media_14397d257748618c661379e599afb2fdd682c2335.png?width=750&amp;format=png&amp;optimize=medium" alt="Text here" loading="lazy" dnt-alt-content="https://a.com | *alt-placeholder* | :play:">
+    </div>
+        <div>
+      <img src="./media_14a4b58fd73d82e553ccb65d5f53c3f5ff552330d.jpeg" alt="Text here" loading="lazy" dnt-alt-content="https://a.com | *alt-placeholder* | :play:">
+    </div>
+    <div>
+      <img src="./media_14a4b58fd73d82e553ccb65d5f53c3f5ff552330d.jpeg#test">
+    </div>
+    <div>
+      <picture>
+        <source srcset="https://content.da.live/adobecom/da-cc/drafts/test/.imagetestfeb26/media_1866efd6c49d4eb614bae84d2d5d546a97de25654.png">
+      </picture>
+    </div>
+  </main>
+</body></html>`,
+    );
+  });
+
+  it.only('Does not convert URN-style URL segments to icon spans', async () => {
+    const config = JSON.parse((await readFile({ path: './mocks/hubspot/translate.json' })));
+    const html = `<body>
+  <main>
+    <div>
+      <p>Some text with a :happy: icon</p>
+    </div>
+    <div>
+      <a href="https://stage.acrobat.adobe.com/link/spaces/urn:aaid:sc:US:48c94977-5619b/?x_api_client_id=pdf_spaces&x_api_client_location=adobe">https://stage.acrobat.adobe.com/link/spaces/urn:aaid:sc:US:48c94977-9292-45e0-9564-0a68b795619b/?x_api_client_id=pdf_spaces&x_api_client_location=adobe</a>
+    </div>
+  </main>
+</body>`;
+    const htmlWithDnt = await addDnt(html, config, { reset: true });
+    expect(htmlWithDnt).to.include('<span class="icon icon-happy"></span>');
+    expect(htmlWithDnt).to.not.include('icon-aaid');
+    expect(htmlWithDnt).to.not.include('icon-sc');
+    expect(htmlWithDnt).to.not.include('icon-US');
+    expect(htmlWithDnt).to.include('urn:aaid:sc:US:48c94977');
   });
 });

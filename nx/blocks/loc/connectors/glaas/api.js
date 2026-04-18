@@ -119,15 +119,44 @@ export async function addAssets({
         assetName: glaasFilename,
         assetType: 'SOURCE',
         targetLocales,
-        metadata: { 'source-preview-url': item.aemHref.replace(/\/index$/, '/') },
       };
 
       // GLaaS v1.2
       body.append('file', file, glaasFilename);
 
+      const assetMetadata = {
+        assetName: glaasFilename,
+        metadata: { 'source-preview-url': item.aemHref.replace(/\/index$/, '/') },
+        // GLaaS backward compatibility issue for WS (En-GB) - hence adding here as well.
+        assetType: 'SOURCE',
+        targetLocales,
+        ...(item.translationMetadata && { langMetadata: item.translationMetadata }),
+        ...(item.languageContext && { languageContext: item.languageContext }),
+      };
+      body.append('_asset_metadata_', new Blob(
+        [JSON.stringify(assetMetadata)],
+        { type: 'application/json' },
+      ));
+
       const opts = getOpts(clientid, token, body, null, 'POST');
       // Add fileDetails parameter for GLaaS v1.2
       const url = `${origin}/api/l10n/v1.2/tasks/${workflow}/${name}/assets?targetLanguages=${targetLocales.join(',')}&fileDetails=${encodeURIComponent(JSON.stringify(fileDetails))}`;
+      // eslint-disable-next-line no-console -- intentional upload debug
+      console.info('[GLaaS addAssets]', {
+        url,
+        workflow,
+        taskName: name,
+        targetLocales,
+        fileDetails,
+        assetMetadata: {
+          assetName: assetMetadata.assetName,
+          assetType: assetMetadata.assetType,
+          targetLocales: assetMetadata.targetLocales,
+          'source-preview-url': assetMetadata.metadata?.['source-preview-url'],
+          ...(assetMetadata.langMetadata && { langMetadata: assetMetadata.langMetadata }),
+          ...(assetMetadata.languageContext && { languageContext: assetMetadata.languageContext }),
+        },
+      });
 
       try {
         const resp = await fetch(url, opts);
