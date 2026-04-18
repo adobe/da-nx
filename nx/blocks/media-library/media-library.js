@@ -1330,144 +1330,14 @@ function setupWorkerHandlers() {
   };
 }
 
-// Bundle worker code by inlining all imports (for nx=local CORS workaround)
-async function bundleWorkerCode(entryPointUrl) {
-  const modules = new Map(); // url -> { code, imports: [{names, path, url}] }
-
-  async function fetchModule(url) {
-    if (modules.has(url)) return;
-
-    const response = await fetch(url);
-    if (!response.ok) {
-      // eslint-disable-next-line no-console
-      console.error(`[Worker Bundle] Failed to fetch module: ${url} (${response.status})`);
-      throw new Error(`Failed to fetch module: ${url}`);
-    }
-    const code = await response.text();
-
-    // Extract imports before processing
-    const imports = [];
-    const importRegex = /import\s+(\{[^}]+\}|[\w*]+(?:\s+as\s+\w+)?|\*\s+as\s+\w+)\s+from\s+['"](.+?)['"]/g;
-    let match;
-    // eslint-disable-next-line no-cond-assign
-    while ((match = importRegex.exec(code)) !== null) {
-      const names = match[1];
-      const path = match[2];
-      const importUrl = new URL(path, url).href;
-      imports.push({ names, path, url: importUrl });
-      // Recursively fetch this dependency
-      await fetchModule(importUrl);
-    }
-
-    modules.set(url, { code, imports });
-  }
-
-  await fetchModule(entryPointUrl);
-
-  // Create bundle with simple module system
-  let bundled = `
-// Bundled worker module system (nx=local CORS workaround)
-const __modules = {};
-const __cache = {};
-
-function __loadModule(url) {
-  if (__cache[url]) return __cache[url];
-
-  const exports = {};
-  const module = { exports };
-
-  if (__modules[url]) {
-    __modules[url](module, exports);
-    __cache[url] = module.exports;
-    return module.exports;
-  }
-
-  console.error('[Worker] Module not found:', url);
-  return {};
-}
-`;
-
-  // Register each module as a function
-  modules.forEach((mod, url) => {
-    let { code } = mod;
-
-    // Replace import statements with __loadModule calls
-    mod.imports.forEach(({ names, path, url: importUrl }) => {
-      // Escape all regex special characters in path, not just dots
-      const escapedPath = path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const importStatement = `import\\s+${names.replace(/[{}*]/g, (ch) => `\\${ch}`)}\\s+from\\s+['"]${escapedPath}['"];?`;
-
-      // Handle different import styles
-      if (names.startsWith('{')) {
-        // Named imports: import { a, b } from './x'
-        const namedImports = names.slice(1, -1).trim();
-        code = code.replace(
-          new RegExp(importStatement, 'g'),
-          `const { ${namedImports} } = __loadModule('${importUrl}');`,
-        );
-      } else if (names.includes('*')) {
-        // Namespace import: import * as x from './x'
-        const nsName = names.match(/\*\s+as\s+(\w+)/)?.[1] || 'ns';
-        code = code.replace(
-          new RegExp(importStatement, 'g'),
-          `const ${nsName} = __loadModule('${importUrl}');`,
-        );
-      } else {
-        // Default import: import x from './x'
-        code = code.replace(
-          new RegExp(importStatement, 'g'),
-          `const ${names} = __loadModule('${importUrl}').default || __loadModule('${importUrl}');`,
-        );
-      }
-    });
-
-    // Transform export statements to module.exports
-    // export default X -> module.exports.default = X
-    code = code.replace(/export\s+default\s+/g, 'module.exports.default = ');
-
-    // export function foo() -> module.exports.foo = function foo()
-    code = code.replace(/export\s+function\s+(\w+)/g, 'module.exports.$1 = function $1');
-
-    // export const/let/var x = y -> module.exports.x = y; const x = module.exports.x
-    code = code.replace(/export\s+(const|let|var)\s+(\w+)\s*=/g, 'module.exports.$2 = ');
-
-    // export class X -> module.exports.X = class X
-    code = code.replace(/export\s+class\s+(\w+)/g, 'module.exports.$1 = class $1');
-
-    // export async function foo() -> module.exports.foo = async function foo()
-    code = code.replace(/export\s+async\s+function\s+(\w+)/g, 'module.exports.$1 = async function $1');
-
-    // export { a, b } -> module.exports.a = a; module.exports.b = b;
-    code = code.replace(
-      /export\s*\{([^}]+)\}/g,
-      (match, names) => names.split(',').map((n) => `module.exports.${n.trim()} = ${n.trim()};`).join('\n'),
-    );
-
-    // Wrap module in function
-    bundled += `
-__modules['${url}'] = function(module, exports) {
-${code}
-};
-`;
-  });
-
-  // Execute entry point
-  bundled += `
-// Execute entry point
-__loadModule('${entryPointUrl}');
-`;
-
-  return bundled;
-}
-
 async function initializeIndexingWorker() {
   if (indexingWorker) {
     return; // Already initialized
   }
 
   try {
-    // Use absolute URL with page origin to avoid CORS when proxied through da.live
-    const workerPath = `${window.location.origin}/nx/blocks/media-library/indexing/indexer-worker.js`;
+    // Use relative URL - browser resolves it from current module's URL (preserves branch context)
+    const workerPath = './indexing/indexer-worker.js';
     indexingWorker = new Worker(workerPath, { type: 'module' });
 
     setupWorkerHandlers();
@@ -1475,30 +1345,8 @@ async function initializeIndexingWorker() {
     // eslint-disable-next-line no-console
     console.log('[MediaLibrary] Indexing worker initialized');
   } catch (error) {
-    // CORS error when using nx=local - fall back to bundled blob worker
     // eslint-disable-next-line no-console
-    console.warn('[MediaLibrary] Direct worker failed, trying bundled blob fallback:', error.message);
-
-    try {
-      // Use absolute URL for bundler (needs full URL to fetch imports)
-      const workerPath = `${window.location.origin}/nx/blocks/media-library/indexing/indexer-worker.js`;
-      const bundledCode = await bundleWorkerCode(workerPath);
-
-      // Create blob URL with bundled code (same-origin)
-      const blob = new Blob([bundledCode], { type: 'application/javascript' });
-      const blobUrl = URL.createObjectURL(blob);
-
-      // Use classic worker (not module) since code is now bundled
-      indexingWorker = new Worker(blobUrl);
-
-      setupWorkerHandlers();
-
-      // eslint-disable-next-line no-console
-      console.log('[MediaLibrary] Indexing worker initialized via bundled blob fallback');
-    } catch (fallbackError) {
-      // eslint-disable-next-line no-console
-      console.error('[MediaLibrary] Failed to initialize indexing worker (bundled blob):', fallbackError);
-    }
+    console.error('[MediaLibrary] Failed to initialize indexing worker:', error);
   }
 }
 
