@@ -1464,8 +1464,8 @@ async function initializeIndexingWorker() {
   }
 
   try {
-    // Use path relative to page origin to avoid CORS when proxied through da.live
-    const workerPath = '/nx/blocks/media-library/indexing/indexer-worker.js';
+    // Use absolute URL with page origin to avoid CORS when proxied through da.live
+    const workerPath = `${window.location.origin}/nx/blocks/media-library/indexing/indexer-worker.js`;
     indexingWorker = new Worker(workerPath, { type: 'module' });
 
     setupWorkerHandlers();
