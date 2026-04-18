@@ -5,7 +5,8 @@ import buildMediaIndex, {
   getIndexLockOwnerId,
   loadMediaSheet,
 } from './load.js';
-import { ensureAuthenticated, getCanonicalMediaTimestamp } from '../core/utils.js';
+import { getCanonicalMediaTimestamp } from '../core/utils.js';
+import { ensureAuthenticated } from '../display/utils.js';
 import { updateAppState, getAppState, showNotification } from '../core/state.js';
 import { t } from '../core/messages.js';
 import { clearProcessDataCache } from '../features/filters.js';

@@ -8,13 +8,15 @@ import {
 } from './core/paths.js';
 import { saveRecentSite } from './core/browser-storage.js';
 import {
-  ensureAuthenticated,
   getCanonicalMediaTimestamp,
   sortMediaData,
   deduplicateMediaByHash,
+} from './core/utils.js';
+import {
+  ensureAuthenticated,
   checkSiteAuthRequired,
   livePreviewLogin,
-} from './core/utils.js';
+} from './display/utils.js';
 import {
   getDedupeKey, setMediaHashRuntimeHosts, clearMediaHashRuntimeHost,
 } from './core/urls.js';
