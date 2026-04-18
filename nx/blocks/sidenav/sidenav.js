@@ -150,8 +150,9 @@ class SideNav extends HTMLElement {
   }
 
   /**
-   * Injects a "Skills Lab" nav link to `/apps/skills` with the current page query string and, when
-   * when the hash includes `/{org}/{site}`, the same pair in `#/{org}/{site}`.
+   * Appends a Skills nav link to `/apps/skills` only when no `li[data-nx-skills-lab]` exists yet.
+   * If the authored sidenav fragment already lists `/apps/skills`, that row must use
+   * `data-nx-skills-lab` or you will see two Skills rows (fragment + injected).
    */
   async syncSkillsLabLink(list) {
     if (!list) return;
@@ -165,13 +166,13 @@ class SideNav extends HTMLElement {
       const a = document.createElement('a');
       a.href = href;
       a.classList.add('nx-link');
-      a.title = 'Skills Lab';
+      a.title = 'Skills';
 
       const icon = document.createElement('span');
       icon.className = 'nx-link-icon';
       icon.append(svg);
       a.append(icon);
-      a.insertAdjacentHTML('beforeend', '<span class="nx-link-text">Skills Lab</span>');
+      a.insertAdjacentHTML('beforeend', '<span class="nx-link-text">Skills</span>');
 
       li = document.createElement('li');
       li.setAttribute('data-nx-skills-lab', '');
