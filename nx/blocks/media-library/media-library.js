@@ -40,6 +40,7 @@ import {
   getAppState, updateAppState, onStateChange, showNotification, dismissNotification,
 } from './core/state.js';
 import { t } from './core/messages.js';
+import { initService, disposeService } from './indexing/coordinator.js';
 import { fetchSidekickConfig } from './indexing/admin-api.js';
 import '../../public/sl/components.js';
 import './display/components/topbar/topbar.js';
@@ -192,6 +193,9 @@ class NxMediaLibrary extends LitElement {
     if (this._urlSyncDebounce) {
       clearTimeout(this._urlSyncDebounce);
     }
+
+    // Dispose indexing coordinator
+    disposeService();
 
     // Stop display loader
     if (this._displayLoader) {
@@ -646,6 +650,14 @@ class NxMediaLibrary extends LitElement {
 
       saveRecentSite(this.sitePath);
       await this.loadMediaData();
+
+      // Initialize indexing coordinator (app mode)
+      // TODO: Replace with worker-based implementation
+      const isAppMode = window.location.pathname.includes('/apps/media-library');
+      if (isAppMode) {
+        const onMediaDataUpdated = (mediaData) => this.setMediaData(mediaData);
+        initService(this.sitePath, { onMediaDataUpdated });
+      }
     } catch (error) {
       updateAppState({
         isValidating: false,
@@ -1321,6 +1333,11 @@ async function bundleWorkerCode(entryPointUrl) {
     if (modules.has(url)) return;
 
     const response = await fetch(url);
+    if (!response.ok) {
+      // eslint-disable-next-line no-console
+      console.error(`[Worker Bundle] Failed to fetch module: ${url} (${response.status})`);
+      throw new Error(`Failed to fetch module: ${url}`);
+    }
     const code = await response.text();
 
     // Extract imports before processing
@@ -1487,11 +1504,14 @@ export default function init(el, options = {}) {
   document.title = 'Media Library';
   el.innerHTML = '';
 
-  // Initialize indexing worker if enabled (app mode)
+  // Initialize indexing (app mode)
+  // TODO: Migrate to worker - using coordinator.js temporarily
+  // Worker files (indexer-worker.js, indexer-service.js) need to be created
   if (enableIndexing) {
     // eslint-disable-next-line no-console
-    console.log('[MediaLibrary] App mode detected - enabling indexing worker');
-    initializeIndexingWorker();
+    console.log('[MediaLibrary] App mode detected - initializing indexing');
+    // Worker initialization disabled until implementation is complete
+    // initializeIndexingWorker();
   }
 
   if (hashChangeHandler) {
