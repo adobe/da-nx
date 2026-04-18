@@ -3,7 +3,28 @@
  * Runs indexing operations off the main thread
  */
 
-import { initIndexerService, triggerBuild, disposeIndexerService } from './indexer-service.js';
+// Log worker start
+console.log('[Worker] Starting indexer worker from:', self.location.href);
+
+let initIndexerService;
+let triggerBuild;
+let disposeIndexerService;
+
+// Try to import with detailed error logging
+try {
+  const module = await import('./indexer-service.js');
+  initIndexerService = module.initIndexerService;
+  triggerBuild = module.triggerBuild;
+  disposeIndexerService = module.disposeIndexerService;
+  console.log('[Worker] Successfully imported indexer-service.js');
+} catch (error) {
+  console.error('[Worker] Failed to import indexer-service.js:', error);
+  self.postMessage({
+    type: 'error',
+    error: `Import failed: ${error.message}`,
+  });
+  throw error;
+}
 
 /**
  * Handle init message
