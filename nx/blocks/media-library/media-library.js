@@ -1289,7 +1289,31 @@ function handleWorkerMessage(message) {
   }
 }
 
-function initializeIndexingWorker() {
+function setupWorkerHandlers() {
+  if (!indexingWorker) return;
+
+  // Handle worker messages
+  indexingWorker.onmessage = (event) => {
+    handleWorkerMessage(event.data);
+  };
+
+  // Handle worker errors
+  indexingWorker.onerror = (error) => {
+    // eslint-disable-next-line no-console
+    console.error('[MediaLibrary] Indexing worker error:', error);
+
+    // Respawn worker after delay
+    indexingWorker = null;
+    setTimeout(() => {
+      // eslint-disable-next-line no-console
+      console.log('[MediaLibrary] Respawning indexing worker');
+      // eslint-disable-next-line no-use-before-define
+      initializeIndexingWorker();
+    }, 30000); // 30s delay
+  };
+}
+
+async function initializeIndexingWorker() {
   if (indexingWorker) {
     return; // Already initialized
   }
@@ -1298,30 +1322,34 @@ function initializeIndexingWorker() {
     const workerPath = new URL('./indexing/indexer-worker.js', import.meta.url).href;
     indexingWorker = new Worker(workerPath, { type: 'module' });
 
-    // Handle worker messages
-    indexingWorker.onmessage = (event) => {
-      handleWorkerMessage(event.data);
-    };
-
-    // Handle worker errors
-    indexingWorker.onerror = (error) => {
-      // eslint-disable-next-line no-console
-      console.error('[MediaLibrary] Indexing worker error:', error);
-
-      // Respawn worker after delay
-      indexingWorker = null;
-      setTimeout(() => {
-        // eslint-disable-next-line no-console
-        console.log('[MediaLibrary] Respawning indexing worker');
-        initializeIndexingWorker();
-      }, 30000); // 30s delay
-    };
+    setupWorkerHandlers();
 
     // eslint-disable-next-line no-console
     console.log('[MediaLibrary] Indexing worker initialized');
   } catch (error) {
+    // CORS error when using nx=local - fall back to blob worker
     // eslint-disable-next-line no-console
-    console.error('[MediaLibrary] Failed to initialize indexing worker:', error);
+    console.warn('[MediaLibrary] Direct worker failed, trying blob fallback:', error.message);
+
+    try {
+      const workerPath = new URL('./indexing/indexer-worker.js', import.meta.url).href;
+      const response = await fetch(workerPath);
+      const workerCode = await response.text();
+
+      // Create blob URL (same-origin)
+      const blob = new Blob([workerCode], { type: 'application/javascript' });
+      const blobUrl = URL.createObjectURL(blob);
+
+      indexingWorker = new Worker(blobUrl, { type: 'module' });
+
+      setupWorkerHandlers();
+
+      // eslint-disable-next-line no-console
+      console.log('[MediaLibrary] Indexing worker initialized via blob fallback');
+    } catch (fallbackError) {
+      // eslint-disable-next-line no-console
+      console.error('[MediaLibrary] Failed to initialize indexing worker (blob fallback):', fallbackError);
+    }
   }
 }
 
