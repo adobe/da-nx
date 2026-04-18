@@ -1330,13 +1330,20 @@ function initializeIndexingWorker() {
 }
 
 export default function init(el, options = {}) {
-  const { enableIndexing = false } = options;
+  // Auto-detect app mode: if URL contains /apps/media-library, enable indexing
+  // Can be overridden by explicit options.enableIndexing
+  const isAppMode = window.location.pathname.includes('/apps/media-library');
+  const enableIndexing = options.enableIndexing !== undefined
+    ? options.enableIndexing
+    : isAppMode;
 
   document.title = 'Media Library';
   el.innerHTML = '';
 
-  // Initialize indexing worker if enabled
+  // Initialize indexing worker if enabled (app mode)
   if (enableIndexing) {
+    // eslint-disable-next-line no-console
+    console.log('[MediaLibrary] App mode detected - enabling indexing worker');
     initializeIndexingWorker();
   }
 
