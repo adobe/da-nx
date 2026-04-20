@@ -173,110 +173,110 @@ export class NxBrowseList extends LitElement {
     return html`
       <div class="scroll">
         <table class="sheet" role="table">
-        <thead>
-          <tr>
-            <th class="column-selection" scope="col">
-              <label class="check">
-                <span class="sr-only">Select all</span>
-                <input
-                  id="select-all"
-                  type="checkbox"
-                  .checked=${allSelected}
-                  @change=${this._onSelectAllChange}
-                />
-              </label>
-            </th>
-            <th class="column-entry-type" scope="col"><span class="sr-only">Type</span></th>
-            <th class="column-file-name" scope="col">Name</th>
-            <th class="column-modified" scope="col">Last modified</th>
-            <th class="column-modified-by" scope="col">Modified by</th>
-            <th class="column-last-previewed" scope="col">Last previewed</th>
-            <th class="column-last-published" scope="col">Last published</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${items.map((item) => {
-      const key = itemRowPathKey(this.currentPathKey, item);
-      const selected = this._isRowSelected(key);
-      const folder = isFolder(item);
-      const modified = folder
-        ? { label: '' }
-        : formatColumnLastModified(item.lastModified);
-      const modifiedBy = folder
-        ? { label: '', initials: '' }
-        : formatColumnModifiedBy(item);
-      const lastPreviewed = formatColumnLastPreviewed(item, { isFolder: folder });
-      const lastPublished = formatColumnLastPublished(item, { isFolder: folder });
-      const rowKind = folder ? 'row-dir' : 'row-file';
-      return html`
-              <tr
-                class="row ${rowKind}"
-                aria-selected=${selected ? 'true' : 'false'}
-                @click=${(event) => this._onRowActivate(event, item)}
-              >
-                <td class="column-selection" @click=${(event) => event.stopPropagation()}>
-                  <label class="check">
-                    <span class="sr-only">Select ${item.name || 'row'}</span>
-                    <input
-                      type="checkbox"
-                      .checked=${selected}
-                      @change=${(event) => this._onRowCheckboxChange(event, item)}
-                    />
-                  </label>
-                </td>
-                <td class="column-entry-type">${this._renderIcon(getIconByExtension(item?.ext))}</td>
-                <td class="column-file-name">
-                  <span class="filename" title=${item.name || ''}>${item.name}</span>
-                </td>
-                <td class="column-modified" title=${modified.title || nothing}>
-                  ${browseCellText(modified.label)}
-                </td>
-                <td
-                  class="column-modified-by ${modifiedBy.pending ? 'pending' : ''}"
-                  title=${modifiedBy.title || nothing}
+          <thead>
+            <tr>
+              <th class="column-selection" scope="col">
+                <label class="check">
+                  <span class="sr-only">Select all</span>
+                  <input
+                    id="select-all"
+                    type="checkbox"
+                    .checked=${allSelected}
+                    @change=${this._onSelectAllChange}
+                  />
+                </label>
+              </th>
+              <th class="column-entry-type" scope="col"><span class="sr-only">Type</span></th>
+              <th class="column-file-name" scope="col">Name</th>
+              <th class="column-modified" scope="col">Last modified</th>
+              <th class="column-modified-by" scope="col">Modified by</th>
+              <th class="column-last-previewed" scope="col">Last previewed</th>
+              <th class="column-last-published" scope="col">Last published</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${items.map((item) => {
+              const key = itemRowPathKey(this.currentPathKey, item);
+              const selected = this._isRowSelected(key);
+              const folder = isFolder(item);
+              const modified = folder
+                ? { label: '' }
+                : formatColumnLastModified(item.lastModified);
+              const modifiedBy = folder
+                ? { label: '', initials: '' }
+                : formatColumnModifiedBy(item);
+              const lastPreviewed = formatColumnLastPreviewed(item, { isFolder: folder });
+              const lastPublished = formatColumnLastPublished(item, { isFolder: folder });
+              const rowKind = folder ? 'row-dir' : 'row-file';
+              return html`
+                <tr
+                  class="row ${rowKind}"
+                  aria-selected=${selected ? 'true' : 'false'}
+                  @click=${(event) => this._onRowActivate(event, item)}
                 >
-                  ${folder || !modifiedBy.initials
-          ? browseCellText(modifiedBy.label)
-          : html`
-                        <span class="who">
-                          <span class="avatar" aria-hidden="true">${modifiedBy.initials}</span>
-                          <span class="who-name">${browseCellText(modifiedBy.label)}</span>
-                        </span>
-                      `}
-                </td>
-                <td
-                  class="column-last-previewed ${lastPreviewed.pending ? 'pending' : ''}"
-                  title=${lastPreviewed.title || nothing}
-                >
-                  <div class="deploy">
-                    <span class="deploy-label">${browseCellText(lastPreviewed.label)}</span>
-                    ${this._renderDeployBadge({
-            showBadge: lastPreviewed.showBadge,
-            url: item.resourceStatus?.preview?.url,
-            variant: 'preview',
-            copyLabel: 'Copy preview URL',
-          })}
-                  </div>
-                </td>
-                <td
-                  class="column-last-published ${lastPublished.pending ? 'pending' : ''}"
-                  title=${lastPublished.title || nothing}
-                >
-                  <div class="deploy">
-                    <span class="deploy-label">${browseCellText(lastPublished.label)}</span>
-                    ${this._renderDeployBadge({
-            showBadge: lastPublished.showBadge,
-            url: item.resourceStatus?.live?.url,
-            variant: 'live',
-            copyLabel: 'Copy publish URL',
-          })}
-                  </div>
-                </td>
-              </tr>
-            `;
-    })}
-        </tbody>
-      </table>
+                  <td class="column-selection" @click=${(event) => event.stopPropagation()}>
+                    <label class="check">
+                      <span class="sr-only">Select ${item.name || 'row'}</span>
+                      <input
+                        type="checkbox"
+                        .checked=${selected}
+                        @change=${(event) => this._onRowCheckboxChange(event, item)}
+                      />
+                    </label>
+                  </td>
+                  <td class="column-entry-type">${this._renderIcon(getIconByExtension(item?.ext))}</td>
+                  <td class="column-file-name">
+                    <span class="filename" title=${item.name || ''}>${item.name}</span>
+                  </td>
+                  <td class="column-modified" title=${modified.title || nothing}>
+                    ${browseCellText(modified.label)}
+                  </td>
+                  <td
+                    class="column-modified-by ${modifiedBy.pending ? 'pending' : ''}"
+                    title=${modifiedBy.title || nothing}
+                  >
+                    ${folder || !modifiedBy.initials
+                      ? browseCellText(modifiedBy.label)
+                      : html`
+                          <span class="who">
+                            <span class="avatar" aria-hidden="true">${modifiedBy.initials}</span>
+                            <span class="who-name">${browseCellText(modifiedBy.label)}</span>
+                          </span>
+                        `}
+                  </td>
+                  <td
+                    class="column-last-previewed ${lastPreviewed.pending ? 'pending' : ''}"
+                    title=${lastPreviewed.title || nothing}
+                  >
+                    <div class="deploy">
+                      <span class="deploy-label">${browseCellText(lastPreviewed.label)}</span>
+                      ${this._renderDeployBadge({
+                        showBadge: lastPreviewed.showBadge,
+                        url: item.resourceStatus?.preview?.url,
+                        variant: 'preview',
+                        copyLabel: 'Copy preview URL',
+                      })}
+                    </div>
+                  </td>
+                  <td
+                    class="column-last-published ${lastPublished.pending ? 'pending' : ''}"
+                    title=${lastPublished.title || nothing}
+                  >
+                    <div class="deploy">
+                      <span class="deploy-label">${browseCellText(lastPublished.label)}</span>
+                      ${this._renderDeployBadge({
+                        showBadge: lastPublished.showBadge,
+                        url: item.resourceStatus?.live?.url,
+                        variant: 'live',
+                        copyLabel: 'Copy publish URL',
+                      })}
+                    </div>
+                  </td>
+                </tr>
+              `;
+            })}
+          </tbody>
+        </table>
       </div>
     `;
   }
