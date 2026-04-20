@@ -13,8 +13,13 @@ import './list/list.js';
 const styles = await loadStyle(import.meta.url);
 
 /*
- * Document-level shell: main + .browse only. `nx-browse` fill rules live on :host
- * in browse.css. (4) Table scroll: nx-browse-list `div.scroll` in list/list.css.
+ * Layout: the browse shell and table need a definite height chain (main fills the viewport
+ * column, `.browse` fills main, list scrolls inside). Default page CSS often leaves `main`
+ * auto-sized, so the list would grow with content instead of scrolling.
+ *
+ * We inject these rules only while `nx-browse` is connected (see `applyStyleOverride` /
+ * `revertStyleOverride` on `document.adoptedStyleSheets`) so browse stays self-contained
+ * and we avoid editing global / app-frame styles for one block.
  */
 const styleOverrideCss = `
 /* Fixed boundary in the main content area */
