@@ -1,13 +1,13 @@
 import { LitElement, html, nothing } from 'da-lit';
 import ChatController from './chat-controller.js';
-import { renderMessage, renderThinking } from './renderers.js';
+import { renderMessage, renderApprovalCard } from './renderers.js';
 import './welcome/welcome.js';
 import './prompts/prompts.js';
 import '../shared/menu/menu.js';
 import { loadStyle, hashChange } from '../../utils/utils.js';
 import { loadChatIcons } from './utils.js';
 import { loadPrompts } from './api.js';
-import { ADD_MENU_ITEMS, CHAT_ICONS, MENU_OPTIONS } from './constants.js';
+import { ADD_MENU_ITEMS, CHAT_ICONS, MENU_OPTIONS, ROLE, TOOL_STATE } from './constants.js';
 
 const styles = await loadStyle(import.meta.url);
 const icons = await loadChatIcons(CHAT_ICONS);
@@ -21,6 +21,7 @@ class NxChat extends LitElement {
     thinking: { type: Boolean },
     connected: { type: Boolean },
     _prompts: { state: true },
+    toolCards: { type: Object },
   };
 
   set context(value) {
@@ -73,12 +74,18 @@ class NxChat extends LitElement {
     }, { once: true });
 
     this._controller = new ChatController({
-      onUpdate: ({ messages, thinking, streamingText, connected }) => {
+      onToolDone: () => {
+        this.dispatchEvent(new CustomEvent('nx-agent-change', { bubbles: true, composed: true }));
+      },
+      onUpdate: ({
+        messages, thinking, streamingText, connected, toolCards,
+      }) => {
         this.messages = streamingText
-          ? [...(messages ?? []), { role: 'assistant', content: streamingText, streaming: true }]
+          ? [...(messages ?? []), { role: ROLE.ASSISTANT, content: streamingText, streaming: true }]
           : messages;
         this.thinking = thinking;
         this.connected = connected;
+        this.toolCards = toolCards;
       },
     });
     if (this._context) this._controller.setContext(this._context);
@@ -94,13 +101,49 @@ class NxChat extends LitElement {
     super.disconnectedCallback();
     this._unsubscribeHash?.();
     this._controller?.destroy();
+    document.removeEventListener('keydown', this._onApprovalKeydown);
   }
 
+  _pendingApproval() {
+    if (!this.toolCards) return null;
+    for (const [toolCallId, card] of this.toolCards) {
+      if (card.state === TOOL_STATE.APPROVAL_REQUESTED) return { toolCallId, ...card };
+    }
+    return null;
+  }
+
+  _onApprovalKeydown = (e) => {
+    const pending = this._pendingApproval();
+    if (!pending) return;
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      this._controller.approveToolCall(pending.toolCallId, false);
+    } else if (e.key === 'Enter' && e.metaKey) {
+      e.preventDefault();
+      this._controller.approveToolCall(pending.toolCallId, true, true);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      this._controller.approveToolCall(pending.toolCallId, true);
+    }
+  };
+
   updated(changed) {
+    if (changed.has('messages')) {
+      const log = this.shadowRoot.querySelector('.chat-messages-container');
+      if (log) requestAnimationFrame(() => { log.scrollTop = log.scrollHeight; });
+    }
     if (changed.has('thinking') && !this.thinking && changed.get('thinking')) {
       this.shadowRoot.querySelector('.chat-input')?.focus();
     }
     if (this._clearBtn) this._clearBtn.hidden = !this.messages?.length;
+
+    if (changed.has('toolCards')) {
+      if (this._pendingApproval()) {
+        document.addEventListener('keydown', this._onApprovalKeydown);
+      } else {
+        document.removeEventListener('keydown', this._onApprovalKeydown);
+      }
+    }
   }
 
   _openPrompts() {
@@ -176,11 +219,13 @@ class NxChat extends LitElement {
               @nx-show-prompts=${this._openPrompts}
             ></nx-chat-welcome>`
         : nothing}
-          ${this.messages?.map((msg) => renderMessage(msg, icons))}
-          ${this.thinking && !this.messages?.at(-1)?.streaming ? renderThinking() : nothing}
+        ${this.messages?.map((msg) => renderMessage(msg, icons, this.toolCards))}
+        ${this.thinking && !this.messages?.at(-1)?.streaming ? html`<div class="chat-thinking">Thinking...</div>` : nothing}
         </div>
       </div>
-      <form class="chat-form" autocomplete="off" @submit=${this._submit}>
+      <div class="chat-form-wrap">
+        ${renderApprovalCard(this._pendingApproval(), this._controller.approveToolCall)}
+        <form class="chat-form" autocomplete="off" @submit=${this._submit}>
         <textarea
           name="chat-input"
           class="chat-input"
@@ -195,10 +240,11 @@ class NxChat extends LitElement {
               <span class="icon-up">${icon('up')}</span>
             </button>
           </nx-menu>
-          <button class="chat-stop" type="button" aria-label="Stop" @click=${this._submit}>${icon('stop')}</button>
-          <button class="chat-send" type="submit" aria-label="Send">${icon('send')}</button>
+          <button class="chat-stop action-btn" type="button" aria-label="Stop" @click=${this._submit}>${icon('stop')}</button>
+          <button class="chat-send action-btn" type="submit" aria-label="Send">${icon('send')}</button>
         </div>
-      </form>
+        </form>
+      </div>
     `;
   }
 }

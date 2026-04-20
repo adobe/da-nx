@@ -30,6 +30,9 @@
   table-layout: fixed;
   border-collapse: separate;
   border-spacing: 0;
+  font-size: var(--s2-component-m-regular-font-size);
+  line-height: var(--s2-component-m-regular-line-height);
+  font-weight: var(--s2-component-m-bold-font-weight);
 
   & thead {
     position: sticky;
@@ -40,17 +43,21 @@
 
   & :is(th, td) {
     box-sizing: border-box;
-    height: 40px;
     vertical-align: middle;
   }
 
   & th {
     text-align: left;
     white-space: nowrap;
-    font-weight: var(--s2-component-s-medium-font-weight);
-    font-size: var(--s2-component-s-medium-font-size);
-    line-height: var(--s2-component-s-medium-line-height);
     color: var(--s2-gray-700);
+  }
+
+  & thead th {
+    height: var(--s2-spacing-500);
+  }
+
+  & tbody td {
+    height: var(--s2-spacing-700);
   }
 
   & :is(th, td).browse-col-select {
@@ -122,8 +129,8 @@
     & input {
       appearance: none;
       box-sizing: border-box;
-      width: 16px;
-      height: 16px;
+      width: var(--s2-body-size-s);
+      height: var(--s2-body-size-s);
       margin: 0;
       flex-shrink: 0;
       border: 2px solid var(--s2-gray-900);
@@ -138,14 +145,14 @@
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none'%3E%3Cpath stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' d='M2.5 6l2.5 3 4.5-5'/%3E%3C/svg%3E");
       background-repeat: no-repeat;
       background-position: center;
-      background-size: 10px 10px;
+      background-size: 9px 9px;
     }
 
     & input:indeterminate {
       background-color: var(--s2-gray-25);
       border-color: var(--s2-gray-900);
       background-image: linear-gradient(var(--s2-gray-900), var(--s2-gray-900));
-      background-size: 8px 2px;
+      background-size: 7px 2px;
       background-position: center;
       background-repeat: no-repeat;
     }
@@ -162,7 +169,7 @@
     box-sizing: border-box;
     width: 100%;
     height: 100%;
-    min-height: 40px;
+    min-height: var(--s2-spacing-700);
     align-items: center;
     justify-content: center;
     margin: 0;
@@ -170,25 +177,28 @@
     vertical-align: middle;
   }
 
+  & thead th.browse-col-select .browse-checkbox-label {
+    min-height: var(--s2-spacing-500);
+  }
+
   .browse-col-icon svg {
     display: block;
-    width: 16px;
-    height: 16px;
+    width: 18px;
+    height: 18px;
 
     /* S2 SVGs ship with fill="#292929"; tie shapes to theme tokens via currentColor. */
     color: var(--s2-gray-700);
   }
 
-  .browse-col-icon svg :is(path, circle, rect, ellipse, line, polyline, polygon) {
+  .browse-col-icon
+    svg
+    :is(path, circle, rect, ellipse, line, polyline, polygon) {
     fill: currentcolor;
   }
 }
 
 .browse-name-text {
   display: block;
-  font-size: var(--s2-component-s-regular-font-size);
-  line-height: var(--s2-component-s-regular-line-height);
-  font-weight: var(--s2-component-s-bold-font-weight);
   color: var(--s2-gray-900);
   white-space: nowrap;
   overflow: hidden;

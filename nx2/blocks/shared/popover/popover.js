@@ -7,6 +7,7 @@ const SUPPORTS_POPOVER = typeof HTMLElement.prototype.showPopover === 'function'
 class NxPopover extends LitElement {
   static properties = {
     open: { type: Boolean, reflect: true },
+    persistent: { type: Boolean },
   };
 
   _placement = 'below';
@@ -108,6 +109,7 @@ class NxPopover extends LitElement {
   }
 
   _addListeners() {
+    if (this.persistent) return;
     document.addEventListener('keydown', this._onKeydown);
     document.addEventListener('pointerdown', this._onOutsideClick);
   }
