@@ -8,6 +8,7 @@ import { daFetch } from '../../utils/daFetch.js';
 import { saveSkill, deleteSkill } from '../skills-editor/utils/utils.js';
 import { loadGeneratedTools } from '../canvas/src/generated-tools/utils.js';
 import '../canvas/src/generated-tools/generated-tools.js';
+import { renderMessageContent } from '../canvas/src/chat-renderers.js';
 import {
   consumeSkillsLabSuggestionHandoff,
   DA_SKILLS_LAB_CLEAR_FORM_FROM_CHAT_EVENT,
@@ -148,6 +149,8 @@ class DaSkillsLabView extends LitElement {
     _newAgentName: { state: true },
     _agentSaveBusy: { state: true },
     _formMsg: { state: true },
+    /** Markdown content of .da/agent/memory.md; null = not loaded or absent. */
+    _memory: { state: true },
   };
 
   constructor() {
@@ -187,6 +190,7 @@ class DaSkillsLabView extends LitElement {
     this._newAgentName = '';
     this._agentSaveBusy = false;
     this._formMsg = '';
+    this._memory = null;
     /** Same-tab handoff when chat stores session while already on `/apps/skills`. */
     this._onWindowSuggestHandoff = () => {
       this._applySuggestionHandoff(consumeSkillsLabSuggestionHandoff());
@@ -249,12 +253,21 @@ class DaSkillsLabView extends LitElement {
     if (changed.has('_loading') && !this._loading) {
       queueMicrotask(() => this._onCollapsibleVp());
     }
+    if (changed.has('_catalogTab') && this._catalogTab === 'memory' && this._memory === null) {
+      this._loadMemory();
+    }
+  }
+
+  async _loadMemory() {
+    const resp = await daFetch(`${DA_ORIGIN}/source/${this.org}/${this.site}/.da/agent/memory.md`);
+    this._memory = resp.ok ? ((await resp.text()) || null) : null;
   }
 
   async _reload() {
     if (!this.org || !this.site) return;
     this._loading = true;
     this._error = '';
+    this._memory = null;
     try {
       const cfg = await fetchDaConfigSheets(this.org, this.site);
       this._mcpRows = cfg.mcpRows || [];
@@ -1002,6 +1015,14 @@ class DaSkillsLabView extends LitElement {
                 </div>`)}
             `;
 
+    const catalogMemory = html`
+          <h3 class="skills-lab-section-h">Project Memory</h3>
+          <p class="skills-lab-form-hint skills-lab-card-meta">.da/agent/memory.md</p>
+          ${this._memory === null
+        ? html`<p class="skills-lab-form-hint">No project memory yet. The DA agent writes here as it learns about your site.</p>`
+        : html`<div class="skills-lab-chat-rendered skills-lab-memory-rendered">${renderMessageContent(this._memory)}</div>`}
+        `;
+
     let catalogBody = catalogMcps;
     if (this._catalogTab === 'skills') {
       catalogBody = catalogSkills;
@@ -1009,6 +1030,8 @@ class DaSkillsLabView extends LitElement {
       catalogBody = catalogAgents;
     } else if (this._catalogTab === 'prompts') {
       catalogBody = catalogPrompts;
+    } else if (this._catalogTab === 'memory') {
+      catalogBody = catalogMemory;
     }
 
     return html`
@@ -1187,8 +1210,9 @@ class DaSkillsLabView extends LitElement {
               ${tabBtn('agents', 'Agents')}
               ${tabBtn('prompts', 'Prompts')}
               ${tabBtn('mcp', 'MCPs')}
+              ${tabBtn('memory', 'Memory')}
             </div>
-            ${filterBar}
+            ${this._catalogTab !== 'memory' ? filterBar : nothing}
             <div class="skills-lab-catalog-scroll">
               ${catalogBody}
             </div>

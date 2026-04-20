@@ -63,7 +63,7 @@
 
 /* Column 1: skill id + markdown editor + actions (single surface for edit/read). */
 .skills-lab-col-form {
-  flex: 1 1 40%;
+  flex: 1 1 35%;
   min-width: 240px;
   max-width: min(700px, 48%);
   min-height: 0;
@@ -72,7 +72,7 @@
 
 /* Column 2: tools (tabs: generated vs available registry). */
 .skills-lab-col-tools {
-  flex: 1 1 20%;
+  flex: 1 1 25%;
   min-width: 220px;
   min-height: 0;
   display: flex;
@@ -101,7 +101,7 @@
 
 /* Column 3: tabbed catalog (wider). */
 .skills-lab-col-catalog {
-  flex: 1 1 20%;
+  flex: 1 1 25%;
   min-width: 280px;
   min-height: 0;
   display: flex;
@@ -701,6 +701,10 @@
   text-align: center;
   color: #888;
   font-size: 14px;
+}
+
+.skills-lab-memory-rendered {
+  padding: 8px 12px;
 }
 
 /* ---- Mobile / narrow viewport (chat + editor + discover first; collapsible catalogs) ---- */
