@@ -14,7 +14,13 @@ export function itemRowPathKey(folderPathKey, item) {
   return folderPathKey ? `${folderPathKey}/${name}` : name;
 }
 
-export const ENTRY_TYPE = Object.freeze({
+/** Whether the list API row is a folder (no non-empty `ext`); files include `ext`. */
+export function isFolder(row) {
+  return row?.ext == null || String(row.ext).trim() === '';
+}
+
+/** Resource kind from extension (icons, list behavior). */
+export const RESOURCE_TYPE = Object.freeze({
   folder: 'folder',
   document: 'document',
   media: 'media',
@@ -31,33 +37,33 @@ export const ICONS = {
 };
 
 export function entryTypeFromExtension(ext) {
-  if (!ext) {
-    return ENTRY_TYPE.folder;
+  if (ext == null || ext === '') {
+    return RESOURCE_TYPE.folder;
   }
   const e = String(ext).replace(/^\./, '').toLowerCase();
-  if (['html', 'htm', 'json'].includes(e)) {
-    return ENTRY_TYPE.document;
+  if (['html', 'htm'].includes(e)) {
+    return RESOURCE_TYPE.document;
   }
   if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'mp4', 'webm', 'mov'].includes(e)) {
-    return ENTRY_TYPE.media;
+    return RESOURCE_TYPE.media;
   }
-  if (['xlsx', 'xls', 'csv'].includes(e)) {
-    return ENTRY_TYPE.sheet;
+  if (['json', 'xlsx', 'xls', 'csv'].includes(e)) {
+    return RESOURCE_TYPE.sheet;
   }
-  return ENTRY_TYPE.file;
+  return RESOURCE_TYPE.file;
 }
 
 export function getIconByExtension(ext) {
   switch (entryTypeFromExtension(ext)) {
-    case ENTRY_TYPE.folder:
+    case RESOURCE_TYPE.folder:
       return 'folder';
-    case ENTRY_TYPE.document:
+    case RESOURCE_TYPE.document:
       return 'fileText';
-    case ENTRY_TYPE.media:
+    case RESOURCE_TYPE.media:
       return 'image';
-    case ENTRY_TYPE.sheet:
+    case RESOURCE_TYPE.sheet:
       return 'table';
-    case ENTRY_TYPE.file:
+    case RESOURCE_TYPE.file:
     default:
       return 'fileText';
   }

@@ -113,7 +113,8 @@
       }
     }
 
-    & tr.row-dir {
+    & tr.row-dir,
+    & tr.row-file {
       cursor: pointer;
     }
   }

@@ -1,7 +1,12 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle, hashChange } from '../../utils/utils.js';
-import { listFolder, fetchResourceStatusForItems } from './browse-api.js';
-import { contextToPathContext } from './utils.js';
+import { listFolder, fetchResourceStatus } from './browse-api.js';
+import {
+  contextToPathContext,
+  entryTypeFromExtension,
+  isFolder,
+  RESOURCE_TYPE,
+} from './utils.js';
 import '../shared/breadcrumb/breadcrumb.js';
 import './list/list.js';
 
@@ -61,11 +66,7 @@ class NxBrowse extends LitElement {
   static properties = {
     _items: { state: true },
     _listError: { state: true },
-    _resourceStatusPending: { state: true },
   };
-
-  /** @type {number} */
-  _folderLoadGeneration = 0;
 
   set context(value) {
     this._explicitContext = true;
@@ -101,19 +102,23 @@ class NxBrowse extends LitElement {
     return contextToPathContext(this._context);
   }
 
-  _scheduleResourceStatusFetch(items, fullpath, loadGeneration) {
-    fetchResourceStatusForItems(items, fullpath)
-      .then((itemsWithResourceStatus) => {
-        if (loadGeneration !== this._folderLoadGeneration) return;
-        if (this._pathContext?.fullpath !== fullpath) return;
-        this._items = itemsWithResourceStatus;
+  _scheduleResourceStatusFetch(items) {
+    Promise.all(
+      items.map(async (row) => {
+        if (isFolder(row)) return row;
+        try {
+          const json = await fetchResourceStatus(row.path);
+          return { ...row, resourceStatus: json ?? null };
+        } catch {
+          return { ...row, resourceStatus: null };
+        }
+      }),
+    )
+      .then((nextItems) => {
+        this._items = nextItems;
         this.requestUpdate();
       })
-      .catch(() => { })
-      .finally(() => {
-        if (loadGeneration !== this._folderLoadGeneration) return;
-        if (this._pathContext?.fullpath !== fullpath) return;
-        this._resourceStatusPending = false;
+      .catch(() => {
         this.requestUpdate();
       });
   }
@@ -123,39 +128,45 @@ class NxBrowse extends LitElement {
     if (!ctx) {
       this._items = undefined;
       this._listError = undefined;
-      this._resourceStatusPending = false;
       this.requestUpdate();
       return;
     }
 
-    this._folderLoadGeneration += 1;
-    const loadGeneration = this._folderLoadGeneration;
-    this._resourceStatusPending = false;
     const { fullpath } = ctx;
 
     const result = await listFolder(fullpath);
-    if (loadGeneration !== this._folderLoadGeneration) return;
-    if (this._pathContext?.fullpath !== fullpath) return;
 
     if ('error' in result) {
       this._items = undefined;
       this._listError = result.error;
-      this._resourceStatusPending = false;
     } else {
       this._listError = undefined;
-      this._items = result.items;
-      this._resourceStatusPending = true;
-      this._scheduleResourceStatusFetch(result.items, fullpath, loadGeneration);
+      const items = result;
+      this._items = items;
+      this._scheduleResourceStatusFetch(items);
     }
     this.requestUpdate();
   }
 
-  _onBrowseOpenFolder(event) {
-    const { pathKey } = event.detail;
-    if (!pathKey) {
+  _onBrowseActivate(event) {
+    const { pathKey, item } = event.detail || {};
+    if (entryTypeFromExtension(item.ext) === RESOURCE_TYPE.document) {
+      const url = new URL(window.location.href);
+      url.pathname = '/canvas';
+      url.hash = `#/${item.path.slice(1, -(item.ext.length + 1))}`;
+      window.location.assign(url.href);
       return;
     }
-    window.location.hash = `#/${pathKey}`;
+    if (entryTypeFromExtension(item.ext) === RESOURCE_TYPE.sheet) {
+      const url = new URL(window.location.href);
+      url.pathname = '/sheet';
+      url.hash = `#/${item.path.slice(1, -(item.ext.length + 1))}`;
+      window.open(url.href, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    if (item && isFolder(item)) {
+      window.location.hash = `#/${pathKey}`;
+    }
   }
 
   render() {
@@ -204,8 +215,7 @@ class NxBrowse extends LitElement {
       <nx-browse-list
         .items=${this._items}
         .currentPathKey=${currentPathKey}
-        .resourceStatusPending=${this._resourceStatusPending}
-        @nx-browse-open-folder=${this._onBrowseOpenFolder}
+        @nx-browse-activate=${this._onBrowseActivate}
       ></nx-browse-list>
     `;
   }

@@ -1,3 +1,5 @@
+import { isFolder as browseListRowIsFolder } from '../utils.js';
+
 const TIME_FORMAT_OPTIONS = { hour: 'numeric', minute: '2-digit' };
 
 function parseTimestamp(timestampRaw) {
@@ -85,7 +87,14 @@ function initials(displayText) {
   return text.slice(0, 2).toUpperCase();
 }
 
-export function formatColumnModifiedBy(item, { statusPending = false } = {}) {
+/** File rows: `resourceStatus` missing until `/status` completes; then object or `null`. */
+function statusAwaitingResource(item, isFolder) {
+  if (isFolder) return false;
+  return !browseListRowIsFolder(item) && item.resourceStatus === undefined;
+}
+
+export function formatColumnModifiedBy(item) {
+  const statusPending = statusAwaitingResource(item, false);
   const fromList = item.lastModifiedBy || item.modifiedBy || item.updatedBy;
   if (fromList) {
     const author = String(fromList).trim();
@@ -101,12 +110,19 @@ export function formatColumnModifiedBy(item, { statusPending = false } = {}) {
       initials: initials(author.includes('@') ? author : displayBase.label),
     };
   }
-  if (item.profileDisplayName) {
-    const name = String(item.profileDisplayName);
-    return { label: name, title: item.profileEmail || name, initials: initials(name) };
+  const profile = item.resourceStatus?.profile;
+  const profileDisplayName = profile
+    ? (profile.displayName || profile.name
+      || [profile.first_name, profile.last_name].filter(Boolean).join(' ').trim())
+    : '';
+  const profileEmail = profile?.email != null && profile.email !== ''
+    ? String(profile.email).trim()
+    : '';
+  if (profileDisplayName) {
+    const name = String(profileDisplayName);
+    return { label: name, title: profileEmail || name, initials: initials(name) };
   }
-  if (item.profileEmail) {
-    const profileEmail = String(item.profileEmail);
+  if (profileEmail) {
     return { ...emailChip(profileEmail), initials: initials(profileEmail) };
   }
   if (statusPending) return { label: 'Checking', initials: '', pending: true };
@@ -135,10 +151,31 @@ function formatStatus(isFolder, statusPending, environment, statusOk, timestampR
   return { label: null, showBadge: false };
 }
 
-export function formatColumnLastPreviewed(item, { isFolder, statusPending }) {
-  return formatStatus(isFolder, statusPending, 'preview', item.previewOk, item.previewLastModified);
+function envStatusOk(env) {
+  if (env == null) return undefined;
+  return Number(env.status) === 200;
 }
 
-export function formatColumnLastPublished(item, { isFolder, statusPending }) {
-  return formatStatus(isFolder, statusPending, 'live', item.liveOk, item.liveLastModified);
+export function formatColumnLastPreviewed(item, { isFolder }) {
+  const preview = item.resourceStatus?.preview;
+  const statusPending = statusAwaitingResource(item, isFolder);
+  return formatStatus(
+    isFolder,
+    statusPending,
+    'preview',
+    envStatusOk(preview),
+    preview?.lastModified,
+  );
+}
+
+export function formatColumnLastPublished(item, { isFolder }) {
+  const live = item.resourceStatus?.live;
+  const statusPending = statusAwaitingResource(item, isFolder);
+  return formatStatus(
+    isFolder,
+    statusPending,
+    'live',
+    envStatusOk(live),
+    live?.lastModified,
+  );
 }

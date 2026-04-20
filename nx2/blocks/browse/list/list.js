@@ -6,7 +6,12 @@ import {
   formatColumnLastPublished,
   formatColumnModifiedBy,
 } from './format.js';
-import { getIconByExtension, itemRowPathKey, loadIcons } from '../utils.js';
+import {
+  getIconByExtension,
+  isFolder,
+  itemRowPathKey,
+  loadIcons,
+} from '../utils.js';
 
 const styles = await loadStyle(import.meta.url);
 
@@ -20,8 +25,6 @@ export class NxBrowseList extends LitElement {
   static properties = {
     items: { type: Array },
     currentPathKey: { type: String, attribute: 'current-path-key' },
-    /** True while parent is still merging `/status` fields onto file rows. */
-    resourceStatusPending: { type: Boolean, attribute: 'resource-status-pending' },
     _icons: { state: true },
     _selectedKeys: { state: true },
   };
@@ -67,14 +70,13 @@ export class NxBrowseList extends LitElement {
   }
 
   _onRowActivate(event, item) {
-    if (item.ext) {
-      return;
-    }
-    const pathKey = itemRowPathKey(this.currentPathKey, item);
     event.stopPropagation();
     this.dispatchEvent(
-      new CustomEvent('nx-browse-open-folder', {
-        detail: { pathKey },
+      new CustomEvent('nx-browse-activate', {
+        detail: {
+          pathKey: itemRowPathKey(this.currentPathKey, item),
+          item,
+        },
         bubbles: true,
         composed: true,
       }),
@@ -196,19 +198,19 @@ export class NxBrowseList extends LitElement {
           ${items.map((item) => {
       const key = itemRowPathKey(this.currentPathKey, item);
       const selected = this._isRowSelected(key);
-      const isFolder = !item.ext;
-      const statusPending = Boolean(this.resourceStatusPending);
-      const modified = isFolder
+      const folder = isFolder(item);
+      const modified = folder
         ? { label: '' }
         : formatColumnLastModified(item.lastModified);
-      const modifiedBy = isFolder
+      const modifiedBy = folder
         ? { label: '', initials: '' }
-        : formatColumnModifiedBy(item, { statusPending });
-      const lastPreviewed = formatColumnLastPreviewed(item, { isFolder, statusPending });
-      const lastPublished = formatColumnLastPublished(item, { isFolder, statusPending });
+        : formatColumnModifiedBy(item);
+      const lastPreviewed = formatColumnLastPreviewed(item, { isFolder: folder });
+      const lastPublished = formatColumnLastPublished(item, { isFolder: folder });
+      const rowKind = folder ? 'row-dir' : 'row-file';
       return html`
               <tr
-                class="row ${item.ext ? 'row-file' : 'row-dir'}"
+                class="row ${rowKind}"
                 aria-selected=${selected ? 'true' : 'false'}
                 @click=${(event) => this._onRowActivate(event, item)}
               >
@@ -233,7 +235,7 @@ export class NxBrowseList extends LitElement {
                   class="column-modified-by ${modifiedBy.pending ? 'pending' : ''}"
                   title=${modifiedBy.title || nothing}
                 >
-                  ${isFolder || !modifiedBy.initials
+                  ${folder || !modifiedBy.initials
           ? browseCellText(modifiedBy.label)
           : html`
                         <span class="who">
@@ -250,7 +252,7 @@ export class NxBrowseList extends LitElement {
                     <span class="deploy-label">${browseCellText(lastPreviewed.label)}</span>
                     ${this._renderDeployBadge({
             showBadge: lastPreviewed.showBadge,
-            url: item.previewUrl,
+            url: item.resourceStatus?.preview?.url,
             variant: 'preview',
             copyLabel: 'Copy preview URL',
           })}
@@ -264,7 +266,7 @@ export class NxBrowseList extends LitElement {
                     <span class="deploy-label">${browseCellText(lastPublished.label)}</span>
                     ${this._renderDeployBadge({
             showBadge: lastPublished.showBadge,
-            url: item.liveUrl,
+            url: item.resourceStatus?.live?.url,
             variant: 'live',
             copyLabel: 'Copy publish URL',
           })}
