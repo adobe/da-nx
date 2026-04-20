@@ -648,8 +648,14 @@ class Space extends LitElement {
     if (!this._orgRepo) return null;
     const { org, repo } = this._orgRepo;
     const pathParts = (this._selectedPath || '').split('/').filter(Boolean);
-    const path = pathParts.length > 2 ? `/${pathParts.slice(2).join('/')}` : '';
-    return { org, site: repo, path, view: this._viewMode };
+    const rawPath = pathParts.length > 2 ? `/${pathParts.slice(2).join('/')}` : '';
+    const path = rawPath.replace(/\.html$/, '');
+    const name = pathParts.length > 0 ? pathParts[pathParts.length - 1].replace(/\.html$/, '') : '';
+    const selectedPath = this._selectedPath || '';
+    const fullpath = selectedPath.startsWith('/') ? selectedPath : `/${selectedPath}`;
+    return {
+      org, site: repo, path, fullpath, name, view: this._viewMode,
+    };
   }
 
   _handleExtensionsToggle() {
