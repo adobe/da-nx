@@ -1,4 +1,6 @@
-import { env } from '../scripts/nx.js';
+import { env, getConfig } from '../scripts/nx.js';
+
+const config = getConfig();
 
 export const SUPPORTED_FILES = {
   html: 'text/html',
@@ -134,9 +136,6 @@ export const loadStyle = (() => {
     const path = supplied.replace('.js', '.css');
 
     try {
-      cache[path] ??= import(path, { with: { type: 'css' } })
-        .then(({ default: sheet }) => sheet);
-    } catch {
       cache[path] ??= new Promise((resolve) => {
         (async () => {
           const resp = await fetch(path);
@@ -147,6 +146,8 @@ export const loadStyle = (() => {
           resolve(sheet);
         })();
       });
+    } catch {
+      config.log(`Could not load ${path}`);
     }
     return cache[path];
   };
