@@ -165,6 +165,7 @@ class NxBrowse extends LitElement {
     if (entryTypeFromExtension(item.ext) === RESOURCE_TYPE.sheet) {
       const url = new URL(window.location.href);
       url.pathname = '/sheet';
+      url.search = '';
       url.hash = `#/${item.path.slice(1, -(item.ext.length + 1))}`;
       window.open(url.href, '_blank', 'noopener,noreferrer');
       return;
