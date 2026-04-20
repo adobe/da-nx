@@ -917,7 +917,7 @@ class Space extends LitElement {
       <sp-action-menu label="Publish menu" class="space-publish-menu-trigger">
         <span class="space-publish-menu-content" slot="icon">
           ${this._publishLoading ? html`<sp-progress-circle class="space-publish-spinner" indeterminate size="s" aria-label="Loading"></sp-progress-circle>` : ''}
-          <sp-icon-publish class="space-publish-icon"></sp-icon-publish>
+          ${this._publishLoading ? nothing : html`<sp-icon-publish class="space-publish-icon"></sp-icon-publish>`}
         </span>
         <sp-menu-item @click="${this._onPreview}">Preview</sp-menu-item>
         <sp-menu-item @click="${this._onPublish}">Publish</sp-menu-item>
