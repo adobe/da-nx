@@ -1,4 +1,5 @@
 import { daFetch, DA_ORIGIN, AEM_ORIGIN } from '../../utils/daFetch.js';
+import { parseRepoPath } from './utils.js';
 
 /**
  * Folder listing for the given fullpath.
@@ -28,30 +29,16 @@ export async function listFolder(fullpath) {
 }
 
 /**
- * Splits an absolute path into owner, repo, and content path (lowercased), or null.
- * @param {string} path
- * @returns {{ owner: string, repo: string, contentPath: string } | null}
- */
-function parseRepositoryPath(path) {
-  const trimmed = (path || '').trim();
-  const normalized = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
-  const parts = normalized.slice(1).toLowerCase().split('/').filter(Boolean);
-  if (parts.length < 2) return null;
-  const [owner, repo, ...rest] = parts;
-  return { owner, repo, contentPath: rest.join('/') };
-}
-
-/**
  * GET status JSON for one repository path, or null if skipped or failed.
  * @param {string} resourcePath
  * @returns {Promise<object | null>}
  */
 export async function fetchResourceStatus(resourcePath) {
   try {
-    const parsed = parseRepositoryPath(resourcePath);
+    const parsed = parseRepoPath(resourcePath);
     if (!parsed?.contentPath) return null;
-    const { owner, repo, contentPath } = parsed;
-    const url = `${AEM_ORIGIN}/status/${owner}/${repo}/main/${contentPath}`;
+    const { org, site, contentPath } = parsed;
+    const url = `${AEM_ORIGIN}/status/${org}/${site}/main/${contentPath}`;
     const response = await daFetch(url);
     if (!response.ok) return null;
     return await response.json().catch(() => null);

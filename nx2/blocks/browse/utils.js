@@ -1,12 +1,29 @@
 import { loadHrefSvg, ICONS_BASE } from '../../utils/svg.js';
 
+export function parseRepoPath(fullpath) {
+  const trimmed = (fullpath || '').trim();
+  const normalized = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+  const parts = normalized.slice(1).split('/').filter(Boolean);
+  if (parts.length < 2) return null;
+  const [org, site, ...rest] = parts;
+  const pathSegments = [org, site, ...rest];
+  return {
+    org,
+    site,
+    pathSegments,
+    fullpath: `/${pathSegments.join('/')}`,
+    contentPath: rest.join('/'),
+  };
+}
+
 export function contextToPathContext(context) {
   if (!context) return null;
   const { org, site, path } = context;
   if (!org || !site) return null;
-  const rest = path ? path.split('/').filter(Boolean) : [];
-  const pathSegments = [org, site, ...rest];
-  return { pathSegments, fullpath: `/${pathSegments.join('/')}` };
+  const base = `/${org}/${site}`;
+  const fullpath = path ? `${base}/${path.split('/').filter(Boolean).join('/')}` : base;
+  const parsed = parseRepoPath(fullpath);
+  return parsed ? { pathSegments: parsed.pathSegments, fullpath: parsed.fullpath } : null;
 }
 
 export function itemRowPathKey(folderPathKey, item) {
