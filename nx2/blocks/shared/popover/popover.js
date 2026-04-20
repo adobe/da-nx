@@ -45,7 +45,7 @@ class NxPopover extends LitElement {
   }
 
   show({ anchor, x, y, placement } = {}) {
-    this._coords = anchor ? null : { x, y };
+    this._coords = (!anchor && (x !== undefined || y !== undefined)) ? { x, y } : null;
     this._placement = placement ?? this.getAttribute('placement') ?? 'below';
     this.anchor = anchor ?? null;
     this.open = true;
@@ -93,7 +93,7 @@ class NxPopover extends LitElement {
       if (placement === 'auto') {
         placement = (pop.bottom > window.innerHeight && rect.top - pop.height - gap >= 0) ? 'above' : 'below';
       }
-      if (left + pop.width > window.innerWidth) left = rect.right - pop.width;
+      if (placement === 'below-end' || left + pop.width > window.innerWidth) left = rect.right - pop.width;
 
       this.style.left = `${left}px`;
       if (placement === 'above') {

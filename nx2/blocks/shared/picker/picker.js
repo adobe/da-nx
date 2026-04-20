@@ -80,6 +80,13 @@ class NxPicker extends LitElement {
     });
   }
 
+  _onTriggerKeydown(e) {
+    if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && !this.open) {
+      e.preventDefault();
+      this.show();
+    }
+  }
+
   _onKeydown(e) {
     const handled = this.handleKey(e.key);
     if (handled) e.preventDefault();
@@ -119,6 +126,7 @@ class NxPicker extends LitElement {
         aria-haspopup="listbox"
         aria-expanded="false"
         @click=${this._toggle}
+        @keydown=${this._onTriggerKeydown}
       >
         <span class="picker-trigger-label">${this._selectedLabel}</span>
         <span class="picker-chevron" aria-hidden="true"></span>

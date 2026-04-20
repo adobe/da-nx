@@ -33,6 +33,18 @@
   }
 }
 
+.prompts-popover,
+.chat-messages-container,
+.chat-form {
+  max-width: 720px;
+  box-sizing: border-box;
+}
+
+.prompts-popover {
+  top: auto;
+  padding: 0;
+}
+
 .chat-scroll-container {
   overflow-y: auto;
   flex: 1 1 0;
@@ -44,7 +56,6 @@
   flex-direction: column;
   gap: var(--s2-spacing-100);
   padding: 0 var(--s2-spacing-300);
-  max-width: 720px;
   margin: 0 auto;
 }
 
@@ -121,6 +132,10 @@
       background-color: var(--s2-gray-200);
       border-radius: var(--s2-corner-radius-400);
     }
+
+    .icon-up {
+      display: none;
+    }
   }
 
   .chat-send {
@@ -194,6 +209,16 @@
 
   .chat-thinking-label {
     margin-left: var(--s2-spacing-75);
+  }
+}
+
+:host:has(.prompts-popover[open]) .chat-add {
+  .icon-add {
+    display: none;
+  }
+
+  .icon-up {
+    display: flex;
   }
 }
 
