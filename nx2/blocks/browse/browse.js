@@ -1,6 +1,6 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle, hashChange } from '../../utils/utils.js';
-import { listFolder, fetchResourceStatus } from './browse-api.js';
+import { listFolder } from './browse-api.js';
 import {
   contextToPathContext,
   entryTypeFromExtension,
@@ -107,27 +107,6 @@ class NxBrowse extends LitElement {
     return contextToPathContext(this._context);
   }
 
-  _scheduleResourceStatusFetch(items) {
-    Promise.all(
-      items.map(async (row) => {
-        if (isFolder(row)) return row;
-        try {
-          const json = await fetchResourceStatus(row.path);
-          return { ...row, resourceStatus: json ?? null };
-        } catch {
-          return { ...row, resourceStatus: null };
-        }
-      }),
-    )
-      .then((nextItems) => {
-        this._items = nextItems;
-        this.requestUpdate();
-      })
-      .catch(() => {
-        this.requestUpdate();
-      });
-  }
-
   async _syncList() {
     const ctx = this._pathContext;
     if (!ctx) {
@@ -146,9 +125,7 @@ class NxBrowse extends LitElement {
       this._listError = result.error;
     } else {
       this._listError = undefined;
-      const items = result;
-      this._items = items;
-      this._scheduleResourceStatusFetch(items);
+      this._items = result;
     }
     this.requestUpdate();
   }

@@ -50,7 +50,6 @@ export const ICONS = {
   fileText: `${ICONS_BASE}S2_Icon_FileText_20_N.svg`,
   image: `${ICONS_BASE}S2_Icon_Image_20_N.svg`,
   table: `${ICONS_BASE}S2_Icon_Table_20_N.svg`,
-  globeGrid: `${ICONS_BASE}S2_Icon_GlobeGrid_20_N.svg`,
 };
 
 export function entryTypeFromExtension(ext) {

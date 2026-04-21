@@ -1,11 +1,6 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../utils/utils.js';
-import {
-  formatColumnLastModified,
-  formatColumnLastPreviewed,
-  formatColumnLastPublished,
-  formatColumnModifiedBy,
-} from './format.js';
+import { formatColumnLastModified } from './format.js';
 import {
   getIconByExtension,
   isFolder,
@@ -112,36 +107,6 @@ export class NxBrowseList extends LitElement {
     this._emitSelectionChange();
   }
 
-  _onCopyDeployUrl(event, url) {
-    event.stopPropagation();
-    const text = String(url || '').trim();
-    if (!text) return;
-    navigator.clipboard.writeText(text).catch(() => { });
-  }
-
-  _renderDeployBadge(opts) {
-    const { showBadge, url, variant, copyLabel } = opts;
-    if (!showBadge) {
-      return nothing;
-    }
-    const icon = this._renderIcon('globeGrid');
-    const classes = `deploy-badge deploy-badge-${variant}`;
-    if (url) {
-      return html`
-        <button
-          type="button"
-          class=${classes}
-          title=${copyLabel}
-          aria-label=${copyLabel}
-          @click=${(event) => this._onCopyDeployUrl(event, url)}
-        >
-          ${icon}
-        </button>
-      `;
-    }
-    return html`<span class=${classes} aria-hidden="true">${icon}</span>`;
-  }
-
   _onRowCheckboxChange(event, item) {
     event.stopPropagation();
     const input = event.target;
@@ -189,9 +154,6 @@ export class NxBrowseList extends LitElement {
               <th class="column-entry-type" scope="col"><span class="sr-only">Type</span></th>
               <th class="column-file-name" scope="col">Name</th>
               <th class="column-modified" scope="col">Last modified</th>
-              <th class="column-modified-by" scope="col">Modified by</th>
-              <th class="column-last-previewed" scope="col">Last previewed</th>
-              <th class="column-last-published" scope="col">Last published</th>
             </tr>
           </thead>
           <tbody>
@@ -202,11 +164,6 @@ export class NxBrowseList extends LitElement {
               const modified = folder
                 ? { label: '' }
                 : formatColumnLastModified(item.lastModified);
-              const modifiedBy = folder
-                ? { label: '', initials: '' }
-                : formatColumnModifiedBy(item);
-              const lastPreviewed = formatColumnLastPreviewed(item, { isFolder: folder });
-              const lastPublished = formatColumnLastPublished(item, { isFolder: folder });
               const rowKind = folder ? 'row-dir' : 'row-file';
               return html`
                 <tr
@@ -230,47 +187,6 @@ export class NxBrowseList extends LitElement {
                   </td>
                   <td class="column-modified" title=${modified.title || nothing}>
                     ${browseCellText(modified.label)}
-                  </td>
-                  <td
-                    class="column-modified-by ${modifiedBy.pending ? 'pending' : ''}"
-                    title=${modifiedBy.title || nothing}
-                  >
-                    ${folder || !modifiedBy.initials
-                      ? browseCellText(modifiedBy.label)
-                      : html`
-                          <span class="who">
-                            <span class="avatar" aria-hidden="true">${modifiedBy.initials}</span>
-                            <span class="who-name">${browseCellText(modifiedBy.label)}</span>
-                          </span>
-                        `}
-                  </td>
-                  <td
-                    class="column-last-previewed ${lastPreviewed.pending ? 'pending' : ''}"
-                    title=${lastPreviewed.title || nothing}
-                  >
-                    <div class="deploy">
-                      <span class="deploy-label">${browseCellText(lastPreviewed.label)}</span>
-                      ${this._renderDeployBadge({
-                        showBadge: lastPreviewed.showBadge,
-                        url: item.resourceStatus?.preview?.url,
-                        variant: 'preview',
-                        copyLabel: 'Copy preview URL',
-                      })}
-                    </div>
-                  </td>
-                  <td
-                    class="column-last-published ${lastPublished.pending ? 'pending' : ''}"
-                    title=${lastPublished.title || nothing}
-                  >
-                    <div class="deploy">
-                      <span class="deploy-label">${browseCellText(lastPublished.label)}</span>
-                      ${this._renderDeployBadge({
-                        showBadge: lastPublished.showBadge,
-                        url: item.resourceStatus?.live?.url,
-                        variant: 'live',
-                        copyLabel: 'Copy publish URL',
-                      })}
-                    </div>
                   </td>
                 </tr>
               `;

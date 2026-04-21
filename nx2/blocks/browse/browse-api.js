@@ -1,5 +1,4 @@
-import { daFetch, DA_ORIGIN, AEM_ORIGIN } from '../../utils/daFetch.js';
-import { parseRepoPath } from './utils.js';
+import { daFetch, DA_ORIGIN } from '../../utils/daFetch.js';
 
 /**
  * Folder listing for the given fullpath.
@@ -25,24 +24,5 @@ export async function listFolder(fullpath) {
     return payload;
   } catch {
     return { error: 'Invalid response body', status: response.status };
-  }
-}
-
-/**
- * GET status JSON for one repository path, or null if skipped or failed.
- * @param {string} resourcePath
- * @returns {Promise<object | null>}
- */
-export async function fetchResourceStatus(resourcePath) {
-  try {
-    const parsed = parseRepoPath(resourcePath);
-    if (!parsed?.contentPath) return null;
-    const { org, site, contentPath } = parsed;
-    const url = `${AEM_ORIGIN}/status/${org}/${site}/main/${contentPath}`;
-    const response = await daFetch(url);
-    if (!response.ok) return null;
-    return await response.json().catch(() => null);
-  } catch {
-    return null;
   }
 }
