@@ -129,7 +129,7 @@ class NxChat extends LitElement {
 
   updated(changed) {
     if (changed.has('messages')) {
-      const log = this.shadowRoot.querySelector('.chat-messages-container');
+      const log = this.shadowRoot.querySelector('.chat-scroll-container');
       if (log) requestAnimationFrame(() => { log.scrollTop = log.scrollHeight; });
     }
     if (changed.has('thinking') && !this.thinking && changed.get('thinking')) {

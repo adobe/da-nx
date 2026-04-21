@@ -66,4 +66,4 @@ Each entry in the `items` array is one of:
 
 ## Keyboard behaviour
 
-When the picker is open, arrow keys move focus between items and Enter selects the active item. Escape closes the picker.
+Arrow keys open the picker when focus is on the trigger. When open, arrow keys move focus between items, Enter selects the active item, and Escape closes the picker.

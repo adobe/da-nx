@@ -46,11 +46,12 @@ popover.show({ x: 100, y: 200 });
 
 The `placement` option controls which side of the anchor the popover appears on.
 
-| Value   | Behaviour                                              |
-| ------- | ------------------------------------------------------ |
-| `below` | Below the anchor (default)                             |
-| `above` | Above the anchor                                       |
-| `auto`  | Picks above or below based on available viewport space |
+| Value        | Behaviour                                              |
+| ------------ | ------------------------------------------------------ |
+| `below`      | Below the anchor, left-aligned (default)               |
+| `below-end`  | Below the anchor, right-aligned                        |
+| `above`      | Above the anchor                                       |
+| `auto`       | Picks above or below based on available viewport space |
 
 ### Events
 
