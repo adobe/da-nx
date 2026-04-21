@@ -1,0 +1,60 @@
+#!/bin/sh
+# Husky pre-push hook
+# If commits being pushed touch Skills Lab source files, runs the
+# Playwright E2E suite in ../da-live before allowing the push.
+
+SKILLS_LAB_PATTERNS="nx/blocks/skills-lab nx/blocks/skills-editor nx/blocks/browse/skills-lab nx/blocks/browse/da-skills-lab nx2/blocks/skills"
+
+remote="$1"
+url="$2"
+
+# Collect the range of commits being pushed
+range=""
+while read local_ref local_sha remote_ref remote_sha; do
+  if [ "$local_sha" = "0000000000000000000000000000000000000000" ]; then
+    continue  # deleting a branch — skip
+  fi
+  if [ "$remote_sha" = "0000000000000000000000000000000000000000" ]; then
+    range="$local_sha"  # new branch — check all commits
+  else
+    range="$remote_sha..$local_sha"
+  fi
+done
+
+if [ -z "$range" ]; then
+  exit 0
+fi
+
+# Check if any Skills Lab files are touched in the push range
+skills_changed=$(git diff --name-only "$range" 2>/dev/null | grep -E "nx2?/blocks/(skills-lab|skills-editor|browse/skills-lab|browse/da-skills-lab)" || true)
+
+if [ -z "$skills_changed" ]; then
+  exit 0
+fi
+
+echo ""
+echo "⚠️  Skills Lab files changed — running Playwright E2E suite before push..."
+echo "   Changed files:"
+echo "$skills_changed" | sed 's/^/     /'
+echo ""
+
+DA_LIVE_TEST_DIR="$(git rev-parse --show-toplevel)/../da-live/test/e2e"
+
+if [ ! -d "$DA_LIVE_TEST_DIR" ]; then
+  echo "ERROR: da-live test directory not found at: $DA_LIVE_TEST_DIR"
+  echo "       Clone da-live as a sibling of da-nx, or skip with: git push --no-verify"
+  exit 1
+fi
+
+cd "$DA_LIVE_TEST_DIR" || exit 1
+
+if ! npx playwright test tests/skills-lab.spec.js --project=chromium; then
+  echo ""
+  echo "ERROR: Skills Lab Playwright tests failed. Fix failures before pushing."
+  echo "       To bypass (not recommended): git push --no-verify"
+  exit 1
+fi
+
+echo ""
+echo "✓ All Skills Lab E2E tests passed."
+exit 0
