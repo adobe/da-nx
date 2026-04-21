@@ -1,31 +1,12 @@
 import { updateDocument } from '../editor-utils/document.js';
 import { updateState, getEditor } from '../editor-utils/state.js';
-import {
-  showSelectionToolbar,
-  hideSelectionToolbar,
-} from '../editor-utils/selection-toolbar.js';
+import { hideSelectionToolbar } from '../editor-utils/selection-toolbar.js';
 import { handleImageReplace } from './utils/image.js';
 import {
   handleCursorMove,
   handleUndoRedo,
-  handleSelectionChange as applyIframeSelectionToParentView,
+  handleIframeSelectionChange,
 } from './utils/handlers.js';
-
-function getWysiwygIframe() {
-  return document.querySelector('nx-editor-wysiwyg')?.shadowRoot?.querySelector('iframe');
-}
-
-function positionSelectionToolbarFromIframe(data, ctx) {
-  const { view } = ctx;
-  const { anchorX, anchorY } = data;
-  const iframe = getWysiwygIframe();
-  if (!iframe) return;
-
-  const iframeRect = iframe.getBoundingClientRect();
-  const x = iframeRect.left + anchorX;
-  const y = iframeRect.top + anchorY - 64;
-  showSelectionToolbar({ x, y, view });
-}
 
 export function createControllerOnMessage(ctx) {
   return function onMessage(e) {
@@ -43,13 +24,7 @@ export function createControllerOnMessage(ctx) {
     } else if (e.data.type === 'history') {
       handleUndoRedo(e.data, ctx);
     } else if (e.data.type === 'selection-change') {
-      const { anchor, head } = e.data;
-      if (anchor === head) {
-        hideSelectionToolbar();
-        return;
-      }
-      if (!applyIframeSelectionToParentView(e.data, ctx)) return;
-      positionSelectionToolbarFromIframe(e.data, ctx);
+      handleIframeSelectionChange(e.data, ctx);
     }
   };
 }
