@@ -45,8 +45,27 @@ class NxPrompts extends LitElement {
     });
   }
 
+  _onListKeydown(e) {
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+    const items = [...this.shadowRoot.querySelectorAll('.prompt-item')];
+    if (!items.length) return;
+    e.preventDefault();
+    const cur = items.indexOf(e.target);
+    const next = e.key === 'ArrowDown'
+      ? items[(cur + 1) % items.length]
+      : items[(cur <= 0 ? items.length : cur) - 1];
+    next.focus({ preventScroll: true });
+  }
+
   _onSearch(e) {
     this._search = e.target.value;
+  }
+
+  _clearSearch() {
+    const input = this.shadowRoot.querySelector('.prompts-search-input');
+    if (input) input.value = '';
+    this._search = '';
+    input?.focus();
   }
 
   _onCategoryChange(e) {
@@ -63,7 +82,6 @@ class NxPrompts extends LitElement {
     const placeholder = this._category === ALL_CATEGORY
       ? `Search all ${total} prompts`
       : `Search in ${this._category}`;
-
     return html`
       <div class="prompts-header">
         <input
@@ -76,6 +94,7 @@ class NxPrompts extends LitElement {
           @input=${this._onSearch}
           autocomplete="off"
         />
+        <button type="button" class="prompts-clear" aria-label="Clear search" @click=${this._clearSearch}></button>
         <nx-picker
           .items=${this._categories}
           .value=${this._category}
@@ -83,7 +102,7 @@ class NxPrompts extends LitElement {
           @change=${this._onCategoryChange}
         ></nx-picker>
       </div>
-      <ul class="prompts-list">
+      <ul class="prompts-list" @keydown=${this._onListKeydown}>
         ${filtered.map((p) => html`
           <li>
             <button class="prompt-item" type="button" @click=${() => this.onSend?.(p.prompt)}>

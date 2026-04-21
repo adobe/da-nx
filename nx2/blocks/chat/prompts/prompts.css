@@ -48,10 +48,33 @@
     color: var(--s2-gray-600);
   }
 
-  /* Hide browser-native clear button */
   &::-webkit-search-cancel-button {
     display: none;
   }
+}
+
+.prompts-clear {
+  display: none;
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+
+  &::before {
+    content: "";
+    display: block;
+    width: 16px;
+    height: 16px;
+    background-color: var(--s2-gray-600);
+    mask-image: url("/nx2/img/icons/S2_Icon_Close_20_N.svg");
+    mask-size: contain;
+    mask-repeat: no-repeat;
+  }
+}
+
+.prompts-search-input:not(:placeholder-shown) + .prompts-clear {
+  display: block;
 }
 
 .prompts-list {

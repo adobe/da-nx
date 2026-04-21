@@ -66,7 +66,6 @@
   }
 }
 
-.prompts-popover,
 .chat-messages-container,
 .chat-form {
   max-width: 720px;
@@ -74,6 +73,8 @@
 }
 
 .prompts-popover {
+  max-width: 720px;
+  box-sizing: border-box;
   top: auto;
   padding: 0;
 }
@@ -91,6 +92,46 @@
   padding: 0 var(--s2-spacing-300);
   margin: 0 auto;
   height: 100%;
+}
+
+.tool-card {
+  font-size: var(--s2-body-size-xs);
+  color: var(--s2-gray-600);
+
+  summary {
+    cursor: pointer;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: var(--s2-spacing-75);
+
+    &::before {
+      content: "›";
+      display: inline-block;
+      transition: transform 0.15s;
+    }
+  }
+
+  &[open] summary::before {
+    transform: rotate(90deg);
+  }
+
+  .tool-card-status {
+    text-transform: uppercase;
+    font-size: var(--s2-body-size-xs);
+  }
+
+  &.tool-card-error .tool-card-status,
+  &.tool-card-rejected .tool-card-status {
+    color: var(--s2-red-700);
+  }
+
+  .tool-card-detail {
+    display: block;
+    padding-left: var(--s2-spacing-200);
+    color: var(--s2-gray-500);
+    overflow-wrap: break-word;
+  }
 }
 
 .message {
@@ -196,7 +237,6 @@
     &[data-active],
     &:hover {
       background-color: var(--s2-gray-200);
-      border-radius: var(--s2-corner-radius-400);
     }
 
     .icon-up {
@@ -270,46 +310,6 @@
   color: transparent;
   -webkit-text-fill-color: transparent;
   animation: chat-thinking-shimmer 2.2s ease-in-out infinite;
-}
-
-.tool-card {
-  font-size: var(--s2-body-size-xs);
-  color: var(--s2-gray-600);
-
-  summary {
-    cursor: pointer;
-    list-style: none;
-    display: flex;
-    align-items: center;
-    gap: var(--s2-spacing-75);
-  }
-
-  .tool-card-status {
-    text-transform: uppercase;
-    font-size: var(--s2-body-size-xs);
-  }
-
-  &.tool-card-error .tool-card-status,
-  &.tool-card-rejected .tool-card-status {
-    color: var(--s2-red-700);
-  }
-
-  .tool-card-detail {
-    display: block;
-    padding-left: var(--s2-spacing-200);
-    color: var(--s2-gray-500);
-    overflow-wrap: break-word;
-  }
-}
-
-.tool-card summary::before {
-  content: "›";
-  display: inline-block;
-  transition: transform 0.15s;
-}
-
-.tool-card[open] summary::before {
-  transform: rotate(90deg);
 }
 
 .approval-actions {

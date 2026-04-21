@@ -20,8 +20,8 @@ class NxChat extends LitElement {
     messages: { type: Array },
     thinking: { type: Boolean },
     connected: { type: Boolean },
-    _prompts: { state: true },
     toolCards: { type: Object },
+    _prompts: { state: true },
   };
 
   set context(value) {
