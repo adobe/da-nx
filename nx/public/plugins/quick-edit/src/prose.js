@@ -163,6 +163,26 @@ function createEditor(cursorOffset, state, ctx) {
   setupImageDropListeners(ctx, editorParent);
   setRemoteCursors();
 
+  let scrollRaf = null;
+  editorParent.ownerDocument.defaultView.addEventListener('scroll', () => {
+    if (scrollRaf) return;
+    scrollRaf = requestAnimationFrame(() => {
+      scrollRaf = null;
+      const { selection } = editorView.state;
+      if (selection.anchor === selection.head) return;
+      const offset = parseInt(editorParent.getAttribute('data-prose-index'), 10);
+      const base = offset - 1;
+      const coords = editorView.coordsAtPos(selection.anchor);
+      ctx.port.postMessage({
+        type: 'selection-change',
+        anchor: base + selection.anchor,
+        head: base + selection.head,
+        anchorX: coords.left,
+        anchorY: coords.top,
+      });
+    });
+  }, { passive: true });
+
   if (blurClearTimeout !== null) {
     clearTimeout(blurClearTimeout);
     blurClearTimeout = null;

@@ -19,6 +19,7 @@ import { createTrackingPlugin } from '../editor-utils/prose-diff.js';
 import { resolveEditorDocSession } from './utils/load-editor-doc.js';
 import { afterNextPaint, ensureProseMountedInShadow } from './utils/shadow-mount.js';
 import { teardownEditorDocResources } from './utils/teardown.js';
+import { hideSelectionToolbar } from '../editor-utils/selection-toolbar.js';
 
 const style = await loadStyle(import.meta.url);
 
@@ -159,6 +160,7 @@ export class NxEditorDoc extends LitElement {
     this._onCanvasEditorActive = (e) => {
       const view = e.detail?.view === 'content' ? 'content' : 'layout';
       this.hidden = view !== 'content';
+      hideSelectionToolbar();
     };
     this.parentElement?.addEventListener('nx-canvas-editor-active', this._onCanvasEditorActive);
     this._onWysiwygPortReady = (e) => {

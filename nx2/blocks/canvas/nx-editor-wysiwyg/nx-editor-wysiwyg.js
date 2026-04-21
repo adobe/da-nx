@@ -2,6 +2,7 @@ import { LitElement, html } from 'da-lit';
 import { loadStyle } from '../../../utils/utils.js';
 import { getPreviewOrigin, fetchWysiwygCookie } from '../editor-utils/preview.js';
 import { loadIms } from '../../../utils/ims.js';
+import { hideSelectionToolbar } from '../editor-utils/selection-toolbar.js';
 
 const style = await loadStyle(import.meta.url);
 
@@ -97,6 +98,7 @@ export class NxEditorWysiwyg extends LitElement {
     const view = this._canvasActiveView ?? 'layout';
     const portReady = this.hasAttribute(WYSIWYG_PORT_READY_ATTR);
     this.hidden = view !== 'layout' || !portReady;
+    hideSelectionToolbar();
   }
 
   _resetCookieStateForCtxChange() {
@@ -189,6 +191,10 @@ export class NxEditorWysiwyg extends LitElement {
     this._scheduleQuickEditInitRetries(send);
   }
 
+  _onIframeBlur() {
+    hideSelectionToolbar();
+  }
+
   render() {
     const { org, repo, path } = this.ctx ?? {};
     const hasPath = org && repo && path;
@@ -208,6 +214,7 @@ export class NxEditorWysiwyg extends LitElement {
         allow="local-network-access"
         class="nx-editor-wysiwyg-iframe"
         @load=${this._onIframeLoad}
+        @blur=${this._onIframeBlur}
       ></iframe>
     `;
   }

@@ -240,13 +240,21 @@ function syncToolbar(view) {
 export function createSelectionToolbarPlugin() {
   return new Plugin({
     view() {
+      let scrollEl;
+      const onScroll = () => syncToolbar(activeToolbarView);
+
       return {
         update(view) {
+          if (!scrollEl) {
+            scrollEl = view.dom.closest('.nx-editor-doc');
+            scrollEl?.addEventListener('scroll', onScroll, { passive: true });
+          }
           const header = document.querySelector('nx-canvas-header');
           if (header?.editorView !== 'content') return;
           syncToolbar(view);
         },
         destroy() {
+          scrollEl?.removeEventListener('scroll', onScroll);
           hideSelectionToolbar();
         },
       };
