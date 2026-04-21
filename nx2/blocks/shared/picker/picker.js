@@ -20,6 +20,7 @@ class NxPicker extends LitElement {
      */
     labelOverride: { type: String },
     _active: { state: true },
+    ignoreFocus: { attribute: true },
   };
 
   get _popover() { return this.shadowRoot.querySelector('nx-popover'); }
@@ -73,7 +74,7 @@ class NxPicker extends LitElement {
     this.updateComplete.then(() => {
       const key = String(this._active ?? '');
       const esc = typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(key) : key.replace(/"/g, '\\"');
-      this.shadowRoot.querySelector(`[data-value="${esc}"]`)?.focus();
+      if (!this.ignoreFocus) this.shadowRoot.querySelector(`[data-value="${esc}"]`)?.focus();
     });
   }
 
@@ -92,6 +93,7 @@ class NxPicker extends LitElement {
       setActive: (val) => { this._active = val; },
       onSelect: (item) => this._select(item),
       onClose: () => this.close(),
+      focusActiveItem: !this.ignoreFocus,
     });
   }
 

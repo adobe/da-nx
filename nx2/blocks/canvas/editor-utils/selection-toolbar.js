@@ -29,12 +29,16 @@ const BLOCK_TYPE_PICKER_ITEMS = [
   { value: 'code_block', label: 'Code block' },
 ];
 
-/** @type {import('prosemirror-view').EditorView | null} */
 let activeToolbarView = null;
+
+const MARK_ACTIONS = [
+  { mark: 'strong', label: 'Bold', text: 'B' },
+  { mark: 'em', label: 'Italic', text: 'I' },
+  { mark: 'code', label: 'Inline code', text: '</>' },
+];
 
 const STRUCTURE_ACTIONS = [
   { id: 'blockquote', label: 'Blockquote', icon: 'BlockQuote' },
-  { id: 'code-block', label: 'Code block', icon: 'BlockCode' },
   { id: 'bullet-list', label: 'Bullet list', icon: 'ListBulleted' },
   { id: 'numbered-list', label: 'Numbered list', icon: 'ListNumbered' },
 ];
@@ -138,7 +142,6 @@ function blockTypeLabelForRaw(raw) {
   return raw.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-/** @param {Element | null | undefined} picker */
 function syncBlockTypePicker(picker, state) {
   if (!picker) return;
   const raw = getBlockTypePickerValue(state);
@@ -151,10 +154,6 @@ function syncBlockTypePicker(picker, state) {
   }
 }
 
-/**
- * @param {import('prosemirror-view').EditorView} view
- * @param {string} value
- */
 function applyBlockTypePick(view, value) {
   const { state, dispatch } = view;
   const { schema } = state;
@@ -173,10 +172,6 @@ function applyBlockTypePick(view, value) {
   return false;
 }
 
-/**
- * @param {import('prosemirror-view').EditorView} view
- * @param {string} handler
- */
 function runToolbarStructureAction(view, handler) {
   const { state, dispatch } = view;
   const { schema } = state;
@@ -307,17 +302,12 @@ function wireToolbar(popover) {
     return btn;
   };
 
-  const bold = mkBtn('Bold');
-  bold.textContent = 'B';
-  bold.dataset.mark = 'strong';
-
-  const italic = mkBtn('Italic');
-  italic.textContent = 'I';
-  italic.dataset.mark = 'em';
-
-  const code = mkBtn('Inline code');
-  code.textContent = '</>';
-  code.dataset.mark = 'code';
+  const markButtons = MARK_ACTIONS.map(({ mark, label, text }) => {
+    const btn = mkBtn(label);
+    btn.textContent = text;
+    btn.dataset.mark = mark;
+    return btn;
+  });
 
   const sep = document.createElement('span');
   sep.className = 'nx-selection-toolbar-sep';
@@ -326,6 +316,7 @@ function wireToolbar(popover) {
   const blockTypePicker = document.createElement('nx-picker');
   blockTypePicker.className = 'nx-selection-toolbar-block-type';
   blockTypePicker.setAttribute('placement', 'below');
+  blockTypePicker.setAttribute('ignoreFocus', 'true');
   blockTypePicker.items = BLOCK_TYPE_PICKER_ITEMS;
   blockTypePicker.value = 'paragraph';
   blockTypePicker.addEventListener('change', (e) => {
@@ -347,7 +338,7 @@ function wireToolbar(popover) {
   sepAfterMarks.className = 'nx-selection-toolbar-sep';
   sepAfterMarks.setAttribute('aria-hidden', 'true');
 
-  wrap.append(blockPickWrap, sep, bold, italic, code, sepAfterMarks);
+  wrap.append(blockPickWrap, sep, ...markButtons, sepAfterMarks);
 
   STRUCTURE_ACTIONS.forEach(({ id, label, icon }) => {
     const btn = mkBtn(label, { 'data-handler': id });
@@ -396,9 +387,6 @@ function ensurePopover() {
   return popover;
 }
 
-/**
- * @param {{ x: number, y: number, view?: import('prosemirror-view').EditorView | null }} opts
- */
 export function showSelectionToolbar({ x, y, view = null }) {
   activeToolbarView = view ?? null;
   const popover = ensurePopover();
