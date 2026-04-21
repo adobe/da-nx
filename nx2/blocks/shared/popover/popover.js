@@ -8,6 +8,7 @@ class NxPopover extends LitElement {
   static properties = {
     open: { type: Boolean, reflect: true },
     scoped: { type: Boolean },
+    persistent: { type: Boolean },
   };
 
   _placement = 'below';
@@ -127,6 +128,7 @@ class NxPopover extends LitElement {
   }
 
   _addListeners() {
+    if (this.persistent) return;
     document.addEventListener('keydown', this._onKeydown);
     document.addEventListener('pointerdown', this._onOutsideClick);
     window.addEventListener('blur', this._onWindowBlur);
