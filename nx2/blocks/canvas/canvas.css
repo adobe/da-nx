@@ -47,6 +47,7 @@ nx-editor-doc {
 nx-editor-wysiwyg,
 nx-editor-doc {
   contain: layout;
+  overflow: hidden;
 }
 
 nx-editor-doc[hidden],
