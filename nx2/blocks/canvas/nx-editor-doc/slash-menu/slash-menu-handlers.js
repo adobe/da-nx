@@ -2,12 +2,15 @@
 import {
   DOMParser,
   Fragment,
-  setBlockType,
-  wrapIn,
-  wrapInList,
 } from 'da-y-wrapper';
+import {
+  applyHeadingLevel,
+  applyCodeBlock,
+  applyBlockquote,
+  applyBulletList,
+  applyOrderedList,
+} from '../../editor-utils/commands.js';
 
-/** From da-live `blocks/edit/prose/table.js` — empty table with heading row + 2×2 body. */
 function getTableHeading(schema) {
   // eslint-disable-next-line camelcase
   const { paragraph, table_row, table_cell } = schema.nodes;
@@ -41,23 +44,6 @@ export function insertEmptyTable(state, dispatch) {
   return true;
 }
 
-const setHeading = (state, dispatch, level) => {
-  const type = state.schema.nodes.heading;
-  return setBlockType(type, { level })(state, dispatch);
-};
-
-const wrapInBlockquote = (state, dispatch) => {
-  const { blockquote } = state.schema.nodes;
-  return wrapIn(blockquote)(state, dispatch);
-};
-
-const wrapInCodeBlock = (state, dispatch) => {
-  // eslint-disable-next-line camelcase
-  const { code_block } = state.schema.nodes;
-  return setBlockType(code_block)(state, dispatch);
-};
-
-/** Mirrors da-live `insertSectionBreak` from `blocks/edit/prose/plugins/menu/menu.js`. */
 export function insertSectionBreak(state, dispatch) {
   const div = document.createElement('div');
   div.append(document.createElement('hr'), document.createElement('p'));
@@ -110,17 +96,15 @@ function openLibraryPanel() {
 }
 
 export const SLASH_MENU_HANDLERS = {
-  'open-library': () => {
-    openLibraryPanel();
-  },
+  'open-library': openLibraryPanel,
   'insert-block': insertEmptyTable,
-  'heading-1': (state, dispatch) => setHeading(state, dispatch, 1),
-  'heading-2': (state, dispatch) => setHeading(state, dispatch, 2),
-  'heading-3': (state, dispatch) => setHeading(state, dispatch, 3),
-  blockquote: wrapInBlockquote,
-  'code-block': wrapInCodeBlock,
-  'bullet-list': (state, dispatch) => wrapInList(state.schema.nodes.bullet_list)(state, dispatch),
-  'numbered-list': (state, dispatch) => wrapInList(state.schema.nodes.ordered_list)(state, dispatch),
+  'heading-1': (s, d) => applyHeadingLevel(s, d, 1),
+  'heading-2': (s, d) => applyHeadingLevel(s, d, 2),
+  'heading-3': (s, d) => applyHeadingLevel(s, d, 3),
+  blockquote: applyBlockquote,
+  'code-block': applyCodeBlock,
+  'bullet-list': applyBulletList,
+  'numbered-list': applyOrderedList,
   'section-break': insertSectionBreak,
   'lorem-ipsum': insertLoremIpsum,
 };

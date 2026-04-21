@@ -1,5 +1,11 @@
 # Worklog
 
+## 2026-04-21
+
+### Canvas editor — selection toolbar + slash shared helpers
+- **`selection-toolbar.js`**: exports `EDITOR_TEXT_FORMAT_ITEMS` and prose helpers (`applyHeadingLevel`, `wrapInBlockquote`, `setCodeBlock`, `setParagraph`, list wraps) for slash menu; block-type picker from `BLOCK_TYPE_PICKER_DEFS`; `STRUCTURE_COMMANDS` (`isActive` + `run`); `markIsActiveInSelection`; structure buttons from a toolbar subset of `EDITOR_TEXT_FORMAT_ITEMS`.
+- **`slash-menu-items.js` / `slash-menu-handlers.js`**: import shared catalog/helpers from `selection-toolbar.js` (slash-only rows stay in items).
+
 ## 2026-03-21
 
 ### AGENTS.md creation
