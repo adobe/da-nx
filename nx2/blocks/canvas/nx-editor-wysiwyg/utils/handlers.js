@@ -95,7 +95,7 @@ export function handleStoredMarks({ marks }, ctx) {
 
 export function handleSelectionChange({ anchor, head }, ctx) {
   const { view } = ctx;
-  if (!view) return;
+  if (!view) return false;
   const { state } = view;
   try {
     const a = Math.max(0, Math.min(anchor, state.doc.content.size));
@@ -105,8 +105,10 @@ export function handleSelectionChange({ anchor, head }, ctx) {
     ctx.suppressRerender = true;
     view.dispatch(tr);
     ctx.suppressRerender = false;
+    return true;
   } catch (e) {
     // eslint-disable-next-line no-console
     console.error('[quick-edit-controller] handleSelectionChange failed', e?.message);
+    return false;
   }
 }

@@ -365,6 +365,7 @@ function wireToolbar(popover) {
   });
 
   wrap.addEventListener('click', (e) => {
+    e.preventDefault();
     const view = activeToolbarView;
     if (!view) return;
     const t = e.target instanceof Element ? e.target.closest('button') : null;
@@ -436,6 +437,8 @@ export function createSelectionToolbarPlugin() {
     view() {
       return {
         update(view) {
+          const header = document.querySelector('nx-canvas-header');
+          if (header?.editorView !== 'content') return;
           syncToolbar(view);
         },
         destroy() {

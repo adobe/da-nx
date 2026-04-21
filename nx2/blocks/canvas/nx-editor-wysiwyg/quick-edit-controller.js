@@ -6,27 +6,25 @@ import {
 } from '../editor-utils/selection-toolbar.js';
 import { handleImageReplace } from './utils/image.js';
 import {
-  handleCursorMove, handleUndoRedo,
+  handleCursorMove,
+  handleUndoRedo,
+  handleSelectionChange as applyIframeSelectionToParentView,
 } from './utils/handlers.js';
 
 function getWysiwygIframe() {
   return document.querySelector('nx-editor-wysiwyg')?.shadowRoot?.querySelector('iframe');
 }
 
-function handleSelectionChange(data) {
-  const { anchor, head, anchorX, anchorY } = data;
-  if (anchor === head) {
-    hideSelectionToolbar();
-    return;
-  }
-
+function positionSelectionToolbarFromIframe(data, ctx) {
+  const { view } = ctx;
+  const { anchorX, anchorY } = data;
   const iframe = getWysiwygIframe();
   if (!iframe) return;
 
   const iframeRect = iframe.getBoundingClientRect();
   const x = iframeRect.left + anchorX;
   const y = iframeRect.top + anchorY - 64;
-  showSelectionToolbar({ x, y });
+  showSelectionToolbar({ x, y, view });
 }
 
 export function createControllerOnMessage(ctx) {
@@ -45,7 +43,13 @@ export function createControllerOnMessage(ctx) {
     } else if (e.data.type === 'history') {
       handleUndoRedo(e.data, ctx);
     } else if (e.data.type === 'selection-change') {
-      handleSelectionChange(e.data, ctx);
+      const { anchor, head } = e.data;
+      if (anchor === head) {
+        hideSelectionToolbar();
+        return;
+      }
+      if (!applyIframeSelectionToParentView(e.data, ctx)) return;
+      positionSelectionToolbarFromIframe(e.data, ctx);
     }
   };
 }
