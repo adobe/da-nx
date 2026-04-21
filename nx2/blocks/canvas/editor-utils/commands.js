@@ -2,6 +2,7 @@
 import {
   liftListItem,
   setBlockType,
+  TextSelection,
   wrapIn,
   wrapInList,
 } from 'da-y-wrapper';
@@ -204,4 +205,80 @@ export function getBlockTypePickerValue(state) {
   if (uniq.length === 0) return 'paragraph';
   if (uniq.length > 1) return 'mixed';
   return uniq[0];
+}
+
+/* ---- Link helpers ---- */
+
+function findLinkInRange(state) {
+  const { from, to } = state.selection;
+  const linkType = state.schema.marks.link;
+  let found;
+
+  state.doc.nodesBetween(from, to, (node, pos) => {
+    if (found) return false;
+    const mark = linkType.isInSet(node.marks);
+    if (mark) {
+      found = { node, mark, from: pos, to: pos + node.nodeSize };
+    }
+    return true;
+  });
+  return found ?? null;
+}
+
+export function selectionHasLink(state) {
+  return findLinkInRange(state) !== null;
+}
+
+export function getLinkInfoInSelection(state) {
+  const result = findLinkInRange(state);
+  if (!result) return null;
+  return {
+    href: result.mark.attrs.href ?? '',
+    title: result.mark.attrs.title ?? '',
+    text: result.node.textContent,
+    from: result.from,
+    to: result.to,
+  };
+}
+
+export function applyLink(view, { href, text }) {
+  const { state } = view;
+  const { schema, selection } = state;
+  const linkType = schema.marks.link;
+  let { from, to } = selection;
+
+  let { tr } = state;
+
+  const existingLink = findLinkInRange(state);
+  if (existingLink) {
+    ({ from, to } = existingLink);
+    tr = tr.removeMark(from, to, linkType);
+  }
+
+  const displayText = text?.trim() || href;
+  const originalText = state.doc.textBetween(from, to);
+
+  if (displayText !== originalText || from === to) {
+    const marks = from < state.doc.content.size
+      ? state.doc.resolve(from).marks().filter((m) => m.type !== linkType)
+      : [];
+    const textNode = schema.text(displayText, marks);
+    tr = tr.replaceWith(from, to, textNode);
+    to = from + displayText.length;
+  }
+
+  tr = tr.addMark(from, to, linkType.create({ href: href.trim() }));
+  tr = tr.setSelection(TextSelection.create(tr.doc, to));
+  view.dispatch(tr);
+}
+
+export function removeLink(view) {
+  const { state } = view;
+  const linkType = state.schema.marks.link;
+  const found = findLinkInRange(state);
+  if (!found) return;
+
+  const { tr } = state;
+  tr.removeMark(found.from, found.to, linkType);
+  view.dispatch(tr);
 }

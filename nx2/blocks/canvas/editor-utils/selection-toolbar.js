@@ -13,6 +13,10 @@ import {
   toggleStructure,
   markIsActiveInSelection,
   toggleMarkOnSelection,
+  selectionHasLink,
+  getLinkInfoInSelection,
+  applyLink,
+  removeLink,
 } from './commands.js';
 
 export { EDITOR_TEXT_FORMAT_ITEMS };
@@ -53,6 +57,7 @@ const MARK_ACTIONS = [
 ];
 
 let activeToolbarView = null;
+let linkPopoverOpen = false;
 
 /* ---- Block-type picker sync ---- */
 
@@ -73,7 +78,106 @@ function syncBlockTypePicker(picker, state) {
   }
 }
 
+/* ---- Link dialog ---- */
+
+function closeLinkDialog() {
+  const dialog = document.querySelector('.nx-link-dialog');
+  if (!dialog) return;
+  linkPopoverOpen = false;
+  dialog.remove();
+  activeToolbarView?.focus();
+}
+
+function onLinkDialogSubmit(e) {
+  e.preventDefault();
+  const view = activeToolbarView;
+  if (!view) return;
+
+  const form = e.target;
+  const href = form.elements['link-href'].value.trim();
+  if (!href) return;
+
+  const text = form.elements['link-text'].value;
+  closeLinkDialog();
+  applyLink(view, { href, text });
+  view.focus();
+}
+
+function showLinkDialog() {
+  const view = activeToolbarView;
+  if (!view) return;
+
+  document.querySelector('nx-popover.nx-selection-toolbar')?.close();
+  document.querySelector('.nx-link-dialog')?.remove();
+
+  const info = getLinkInfoInSelection(view.state);
+
+  let hrefVal = '';
+  let textVal = '';
+  if (info) {
+    hrefVal = info.href;
+    textVal = info.text;
+  } else {
+    const { from, to } = view.state.selection;
+    textVal = from !== to ? view.state.doc.textBetween(from, to) : '';
+  }
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'nx-link-dialog';
+
+  const panel = document.createElement('form');
+  panel.className = 'nx-link-form';
+  panel.innerHTML = `
+    <label class="nx-link-form-field">
+      <span>URL</span>
+      <input name="link-href" type="url" placeholder="https://…"
+             required autocomplete="off" value="${hrefVal.replaceAll('"', '&quot;')}" />
+    </label>
+    <label class="nx-link-form-field">
+      <span>Display text</span>
+      <input name="link-text" type="text" placeholder="Link text"
+             autocomplete="off" value="${textVal.replaceAll('"', '&quot;')}" />
+    </label>
+    <div class="nx-link-form-actions">
+      <button type="button" class="nx-link-form-cancel">Cancel</button>
+      <button type="submit" class="nx-link-form-save">Save</button>
+    </div>`;
+
+  panel.addEventListener('submit', onLinkDialogSubmit);
+  panel.querySelector('.nx-link-form-cancel')
+    .addEventListener('click', closeLinkDialog);
+
+  backdrop.addEventListener('mousedown', (e) => {
+    if (e.target === backdrop) closeLinkDialog();
+  });
+  backdrop.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      e.stopPropagation();
+      closeLinkDialog();
+    }
+  });
+
+  backdrop.append(panel);
+  document.body.append(backdrop);
+  linkPopoverOpen = true;
+
+  requestAnimationFrame(() => {
+    panel.elements['link-href'].focus();
+  });
+}
+
 /* ---- Pressed-state sync ---- */
+
+function syncLinkButtons(wrap, state) {
+  const hasLink = selectionHasLink(state);
+  const createBtn = wrap.querySelector('[data-link="create"]');
+  const editBtn = wrap.querySelector('[data-link="edit"]');
+  const unlinkBtn = wrap.querySelector('[data-link="remove"]');
+
+  if (createBtn) createBtn.hidden = hasLink;
+  if (editBtn) editBtn.hidden = !hasLink;
+  if (unlinkBtn) unlinkBtn.hidden = !hasLink;
+}
 
 function syncPressedStates() {
   const popover = document.querySelector('nx-popover.nx-selection-toolbar');
@@ -89,6 +193,7 @@ function syncPressedStates() {
       picker.value = 'paragraph';
       picker.labelOverride = '';
     }
+    wrap.querySelectorAll('[data-link]').forEach((el) => { el.hidden = el.dataset.link !== 'create'; });
     return;
   }
 
@@ -106,6 +211,7 @@ function syncPressedStates() {
   });
 
   syncBlockTypePicker(wrap.querySelector('.nx-selection-toolbar-block-type'), state);
+  syncLinkButtons(wrap, state);
 }
 
 /* ---- Event handlers ---- */
@@ -129,7 +235,17 @@ function onToolbarClick(wrap, e) {
   const btn = e.target instanceof Element ? e.target.closest('button') : null;
   if (!btn || btn.disabled) return;
 
-  const { mark, handler } = btn.dataset;
+  const { mark, handler, link } = btn.dataset;
+  if (link === 'create' || link === 'edit') {
+    showLinkDialog();
+    return;
+  }
+  if (link === 'remove') {
+    removeLink(view);
+    syncPressedStates();
+    view.focus();
+    return;
+  }
   if (mark) toggleMarkOnSelection(view, mark);
   else if (handler) toggleStructure(handler, view);
 
@@ -191,6 +307,31 @@ function buildToolbarActionsWrap() {
     wrap.append(btn);
   });
 
+  addSeparator(wrap);
+
+  const linkIcon = `${ICONS_BASE}S2_Icon_Link_20_N.svg`;
+  const unlinkIcon = `${ICONS_BASE}S2_Icon_Unlink_20_N.svg`;
+
+  const createLinkBtn = createToolbarButton('Create link', { 'data-link': 'create' });
+  loadHrefSvg(linkIcon).then((svg) => {
+    if (svg && createLinkBtn.isConnected) createLinkBtn.append(svg.cloneNode(true));
+  });
+  wrap.append(createLinkBtn);
+
+  const editLinkBtn = createToolbarButton('Edit link', { 'data-link': 'edit' });
+  editLinkBtn.hidden = true;
+  loadHrefSvg(linkIcon).then((svg) => {
+    if (svg && editLinkBtn.isConnected) editLinkBtn.append(svg.cloneNode(true));
+  });
+  wrap.append(editLinkBtn);
+
+  const removeLinkBtn = createToolbarButton('Remove link', { 'data-link': 'remove' });
+  removeLinkBtn.hidden = true;
+  loadHrefSvg(unlinkIcon).then((svg) => {
+    if (svg && removeLinkBtn.isConnected) removeLinkBtn.append(svg.cloneNode(true));
+  });
+  wrap.append(removeLinkBtn);
+
   picker.addEventListener('change', (e) => onBlockTypePickerChange(wrap, e));
   wrap.addEventListener('mousedown', (e) => {
     e.preventDefault();
@@ -229,6 +370,7 @@ export function hideSelectionToolbar() {
 }
 
 function syncToolbar(view) {
+  if (linkPopoverOpen) return;
   if (view.state.selection.empty) {
     hideSelectionToolbar();
     return;
