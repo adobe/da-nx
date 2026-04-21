@@ -1,8 +1,80 @@
 #!/bin/sh
 # Husky pre-push hook
-# Runs the Skills Lab Playwright E2E suite before every push.
+# Maps changed source paths to their Playwright E2E spec(s) in ../da-live.
+# Only the specs relevant to what changed are run — fast by default,
+# comprehensive when many areas are touched.
+#
+# To add a new mapping when a spec lands:
+#   1. Add a pattern block below (copy an existing one)
+#   2. Uncomment the corresponding spec in SPECS_TO_RUN
+#
+# Bypass (emergency only): git push --no-verify
 
 DA_LIVE_TEST_DIR="$(git rev-parse --show-toplevel)/../da-live/test/e2e"
+SPECS_TO_RUN=""
+
+# Collect changed files in the push range
+remote="$1"
+while read local_ref local_sha remote_ref remote_sha; do
+  [ "$local_sha" = "0000000000000000000000000000000000000000" ] && continue
+  if [ "$remote_sha" = "0000000000000000000000000000000000000000" ]; then
+    range="$local_sha"
+  else
+    range="$remote_sha..$local_sha"
+  fi
+
+  changed=$(git diff --name-only "$range" 2>/dev/null)
+
+  # ── Skills Lab ────────────────────────────────────────────────────────────
+  if echo "$changed" | grep -qE "nx2?/blocks/(skills-lab|skills-editor|browse/skills|browse/da-skills)"; then
+    SPECS_TO_RUN="$SPECS_TO_RUN tests/skills-lab.spec.js"
+  fi
+
+  # ── Browse ────────────────────────────────────────────────────────────────
+  if echo "$changed" | grep -qE "nx2?/blocks/browse"; then
+    SPECS_TO_RUN="$SPECS_TO_RUN tests/browse.spec.js"
+  fi
+
+  # ── Edit / Canvas ─────────────────────────────────────────────────────────
+  # Uncomment when canvas.spec.js lands in da-live
+  # if echo "$changed" | grep -qE "nx2?/blocks/(canvas|chat|quick-edit-portal)"; then
+  #   SPECS_TO_RUN="$SPECS_TO_RUN tests/canvas.spec.js"
+  # fi
+
+  # ── Edit (prose / formatting) ─────────────────────────────────────────────
+  if echo "$changed" | grep -qE "nx2?/blocks/(canvas|form|quick-edit-portal)"; then
+    SPECS_TO_RUN="$SPECS_TO_RUN tests/edit.spec.js tests/formatting.spec.js"
+  fi
+
+  # ── Sheet ─────────────────────────────────────────────────────────────────
+  if echo "$changed" | grep -qE "nx2?/blocks/(form|loc)"; then
+    SPECS_TO_RUN="$SPECS_TO_RUN tests/sheet.spec.js"
+  fi
+
+  # ── Copy / rename / delete ────────────────────────────────────────────────
+  if echo "$changed" | grep -qE "nx2?/blocks/(browse|shared)"; then
+    SPECS_TO_RUN="$SPECS_TO_RUN tests/copy_rename.spec.js tests/delete.spec.js"
+  fi
+
+  # ── Versions ─────────────────────────────────────────────────────────────
+  if echo "$changed" | grep -qE "nx2?/blocks/(snapshot-admin|canvas)"; then
+    SPECS_TO_RUN="$SPECS_TO_RUN tests/versions.spec.js"
+  fi
+
+  # ── Nav / sidenav ─────────────────────────────────────────────────────────
+  # Uncomment when nav.spec.js lands in da-live
+  # if echo "$changed" | grep -qE "nx2?/blocks/(nav|sidenav|profile)"; then
+  #   SPECS_TO_RUN="$SPECS_TO_RUN tests/nav.spec.js"
+  # fi
+
+done
+
+# Deduplicate spec list
+SPECS_TO_RUN=$(echo "$SPECS_TO_RUN" | tr ' ' '\n' | sort -u | tr '\n' ' ' | xargs)
+
+if [ -z "$SPECS_TO_RUN" ]; then
+  exit 0
+fi
 
 if [ ! -d "$DA_LIVE_TEST_DIR" ]; then
   echo ""
@@ -12,18 +84,19 @@ if [ ! -d "$DA_LIVE_TEST_DIR" ]; then
 fi
 
 echo ""
-echo "Running Skills Lab Playwright E2E suite..."
+echo "Changed paths trigger E2E specs: $SPECS_TO_RUN"
 echo ""
 
 cd "$DA_LIVE_TEST_DIR" || exit 1
 
-if ! npx playwright test tests/skills-lab.spec.js --project=chromium; then
+# shellcheck disable=SC2086
+if ! npx playwright test $SPECS_TO_RUN --project=chromium; then
   echo ""
-  echo "ERROR: Skills Lab Playwright tests failed. Fix failures before pushing."
+  echo "ERROR: E2E tests failed. Fix failures before pushing."
   echo "       To bypass (not recommended): git push --no-verify"
   exit 1
 fi
 
 echo ""
-echo "All Skills Lab E2E tests passed."
+echo "All triggered E2E tests passed."
 exit 0
