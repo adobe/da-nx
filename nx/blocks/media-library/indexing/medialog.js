@@ -317,15 +317,6 @@ export function processPageMediaUpdates(
     onLog(`--- Page: ${normalizedPath} ---`);
     onLog(`  Old (bypage): ${oldHashes.size}, New (page-based): ${newEntries.length}`);
 
-    if (newEntries.length === 0 && oldHashes.size > 0) {
-      onLog('  Edge case: Page previewed with no NEW medialog entries - preserving old entries');
-      onLog('  (Media may have been uploaded before lastFetchTime but just added to page)');
-      // CONSERVATIVE: Don't remove old entries when medialog shows 0 new entries
-      // The media might have been uploaded before lastFetchTime but just added to this page
-      // We'd need to parse the markdown to know for sure, so preserve old state
-      return;
-    }
-
     const newHashes = new Set(newEntries.map((e) => e.hash));
     const toRemove = [...oldHashes].filter((h) => !newHashes.has(h));
     const toAdd = [...newHashes].filter((h) => !oldHashes.has(h));

@@ -409,6 +409,22 @@ export function extractLinks(content, pattern, isHtml = false) {
   )];
 }
 
+/**
+ * Extracts regular images and videos from markdown content.
+ * Returns paths for internal media (jpg, png, gif, webp, mp4, etc.)
+ */
+export function extractImageAndVideoUrls(content, isHtml = false) {
+  const urls = extractUrls(content, isHtml);
+  const pathPart = (u) => u.split('?')[0].split('#')[0];
+  // Match image/video extensions (jpg, png, gif, webp, mp4, etc.)
+  const mediaPattern = /\.(jpg|jpeg|png|gif|webp|avif|bmp|mp4|webm|mov|avi|m4v)([?#]|$)/i;
+  return [...new Set(
+    urls
+      .filter((u) => mediaPattern.test(pathPart(u)) && !isExternalUrl(u))
+      .map((u) => toPath(u)),
+  )];
+}
+
 // Runs fn over items with concurrency limit; returns results in order.
 export async function processConcurrently(items, fn, concurrency) {
   const results = [];
@@ -446,6 +462,7 @@ export async function buildUsageMap(pageEntries, org, repo, ref, onProgress, onB
     fragments: new Map(),
     pdfs: new Map(),
     svgs: new Map(),
+    images: new Map(), // Regular images and videos from markdown
     externalMedia: new Map(),
   };
 
@@ -482,6 +499,7 @@ export async function buildUsageMap(pageEntries, org, repo, ref, onProgress, onB
     const fragments = extractFragmentReferences(md, isHtml);
     const pdfs = extractLinks(md, /\.pdf$/, isHtml);
     const svgs = extractLinks(md, /\.svg$/, isHtml);
+    const images = extractImageAndVideoUrls(md, isHtml);
     const externalUrls = extractExternalMediaUrls(md, isHtml);
     const addToMap = (map, path) => {
       if (!map.has(path)) map.set(path, []);
@@ -505,6 +523,7 @@ export async function buildUsageMap(pageEntries, org, repo, ref, onProgress, onB
     fragments.forEach((f) => addToMap(usageMap.fragments, f));
     pdfs.forEach((p) => addToMap(usageMap.pdfs, p));
     svgs.forEach((s) => addToMap(usageMap.svgs, s));
+    images.forEach((i) => addToMap(usageMap.images, i));
     externalUrls.forEach((u) => addToExternalMedia(u));
   };
 
