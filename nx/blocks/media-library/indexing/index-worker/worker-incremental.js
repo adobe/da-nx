@@ -31,7 +31,7 @@ import {
   normalizePath, isPage,
   getDedupeKey,
 } from '../parse.js';
-import { buildMediaSheet, buildUsageSheet } from '../sheets.js';
+import { buildMediaSheet } from '../sheets.js';
 import {
   IndexConfig,
   IndexFiles,
@@ -388,6 +388,30 @@ export async function buildIncrementalIndex(
   );
   added += standaloneAdded;
 
+  // Update usageMap for changed pages by rebuilding page→hash mappings from updatedIndex
+  // For changed pages: clear old mapping and rebuild from current state
+  // For unchanged pages: preserve existing mapping in usageMap
+  const processedPages = new Set(pagesByPath.keys());
+  processedPages.forEach((page) => {
+    // Clear old mapping for this page
+    usageMap.delete(page);
+  });
+
+  // Rebuild mapping for changed pages from updatedIndex entries with doc field
+  updatedIndex.forEach((entry) => {
+    if (entry.doc && entry.hash && processedPages.has(entry.doc)) {
+      if (!usageMap.has(entry.doc)) {
+        usageMap.set(entry.doc, new Set());
+      }
+      usageMap.get(entry.doc).add(entry.hash);
+    }
+  });
+
+  // Remove deleted pages from usageMap
+  deletedPages.forEach((doc) => {
+    usageMap.delete(doc);
+  });
+
   const files = validEntries.filter((e) => !isPage(e.path));
   const markdownParseStart = Date.now();
   const linkedResults = await processLinkedContent(
@@ -417,7 +441,14 @@ export async function buildIncrementalIndex(
   onProgress({ stage: 'saving', message: 'Building multi-sheet index (bymedia, bypage)...' });
 
   const mediaSheet = buildMediaSheet(sortedIndex);
-  const usageSheet = buildUsageSheet(updatedIndex);
+
+  // Build usage sheet from usageMap to preserve all page references (changed AND unchanged)
+  // buildUsageSheet(updatedIndex) would only include changed pages since existingIndex
+  // is loaded from deduplicated media sheet without doc fields
+  const usageSheet = Array.from(usageMap.entries()).map(([page, hashSet]) => ({
+    page,
+    hashes: JSON.stringify(Array.from(hashSet)),
+  }));
 
   onProgress({
     stage: 'saving',
