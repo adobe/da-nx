@@ -1,24 +1,19 @@
 /**
  * Worker-safe version of processLinkedContent
  *
- * Simplified version for full builds that:
- * - Processes PDFs, SVGs, fragments, and external media from usageMap
- * - Creates index entries for linked content
- * - Skips validation/fetching (not needed for full builds)
- *
- * For incremental builds, this would need to be enhanced with:
- * - File validation (HEAD requests to external URLs)
- * - Metadata fetching from DA storage
- * - Orphaning logic for deleted files
+ * Processes PDFs, SVGs, fragments, and external media from usageMap.
+ * For incremental builds without prebuiltUsageMap, calls buildUsageMap
+ * to parse changed pages and extract media references.
  */
 
 import {
   toLinkedContentEntry,
   toExternalMediaEntry,
+  buildUsageMap,
 } from '../parse.js';
 
 /**
- * Simplified processLinkedContent for worker (full builds only)
+ * Worker-safe processLinkedContent
  *
  * @param {Array} updatedIndex - Index array to update
  * @param {Array} files - File events (not used in full build)
@@ -28,7 +23,7 @@ import {
  * @param {string} ref - Reference
  * @param {function} onProgress - Progress callback
  * @param {function} onLog - Log callback
- * @param {object} prebuiltUsageMap - Usage map from buildUsageMap
+ * @param {object} prebuiltUsageMap - Usage map from buildUsageMap (full builds)
  * @returns {Promise<{added: number, removed: number}>}
  */
 export async function processLinkedContent(
@@ -44,13 +39,19 @@ export async function processLinkedContent(
 ) {
   let added = 0;
 
-  if (!prebuiltUsageMap) {
-    // eslint-disable-next-line no-console
-    console.warn('[worker-linked-content] No prebuiltUsageMap provided, skipping');
+  // For incremental builds: parse changed pages to extract media references
+  // For full builds: use prebuiltUsageMap (already parsed all pages)
+  let usageMap;
+  if (prebuiltUsageMap) {
+    usageMap = prebuiltUsageMap;
+  } else if (pages && pages.length > 0) {
+    // Parse changed pages' markdown to extract media usage
+    onProgress?.({ stage: 'processing', message: `Parsing ${pages.length} changed pages for media usage...` });
+    usageMap = await buildUsageMap(pages, org, repo, ref, (p) => onProgress?.(p));
+  } else {
+    // No pages to parse and no prebuilt map
     return { added: 0, removed: 0 };
   }
-
-  const usageMap = prebuiltUsageMap;
 
   // Process PDFs
   if (usageMap.pdfs) {
