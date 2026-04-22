@@ -117,19 +117,17 @@ export function handleSelectionChange({ anchor, head }, ctx) {
   }
 }
 
-function getWysiwygIframe() {
-  return document.querySelector('nx-editor-wysiwyg')?.shadowRoot?.querySelector('iframe');
-}
+const IFRAME_LINE_HEIGHT_OFFSET = 64;
 
 function positionSelectionToolbarFromIframe(data, ctx) {
   const { view } = ctx;
   const { anchorX, anchorY } = data;
-  const iframe = getWysiwygIframe();
+  const { iframe } = ctx;
   if (!iframe) return;
 
   const iframeRect = iframe.getBoundingClientRect();
   const x = iframeRect.left + anchorX;
-  const y = iframeRect.top + anchorY - 64;
+  const y = iframeRect.top + anchorY - IFRAME_LINE_HEIGHT_OFFSET;
   const tb = getSelectionToolbar();
   tb.view = view;
   tb.show({ x, y });

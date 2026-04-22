@@ -1,24 +1,17 @@
 /* eslint-disable import/no-unresolved -- importmap */
 import { Plugin, NodeSelection } from 'da-y-wrapper';
-import { EDITOR_TEXT_FORMAT_ITEMS } from './commands.js';
-
-export { EDITOR_TEXT_FORMAT_ITEMS };
 
 const NON_TEXT_NODES = new Set(['table', 'image']);
 
 let toolbar;
 let componentLoaded;
 
-function ensureToolbar() {
+export function getSelectionToolbar() {
   if (toolbar) return toolbar;
   componentLoaded ??= import('./nx-selection-toolbar.js');
   toolbar = document.createElement('nx-selection-toolbar');
   document.body.append(toolbar);
   return toolbar;
-}
-
-export function getSelectionToolbar() {
-  return ensureToolbar();
 }
 
 export function hideSelectionToolbar() {
@@ -31,7 +24,7 @@ function isNonTextSelection({ selection }) {
 }
 
 function syncToolbar(view) {
-  const tb = ensureToolbar();
+  const tb = getSelectionToolbar();
   if (tb.linkDialogOpen) return;
   if (view.state.selection.empty || isNonTextSelection(view.state)) {
     hideSelectionToolbar();
@@ -46,7 +39,7 @@ export function createSelectionToolbarPlugin() {
   return new Plugin({
     view() {
       let scrollEl;
-      const tb = ensureToolbar();
+      const tb = getSelectionToolbar();
       const onScroll = () => syncToolbar(tb.view);
 
       return {

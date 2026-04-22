@@ -93,6 +93,39 @@ function handleTransaction(tr, ctx, editorView, editorParent) {
   positionToolbar();
 }
 
+let scrollRaf = null;
+let scrollCtx = null;
+let scrollBound = false;
+
+function initScrollListener(win, ctx) {
+  scrollCtx = ctx;
+  if (scrollBound) return;
+  scrollBound = true;
+  win.addEventListener('scroll', () => {
+    if (scrollRaf) return;
+    scrollRaf = requestAnimationFrame(() => {
+      scrollRaf = null;
+      const focused = document.querySelector('.prosemirror-editor .ProseMirror:focus');
+      if (!focused) return;
+      const editorParent = focused.closest('.prosemirror-editor');
+      const view = editorParent?.view;
+      if (!view) return;
+      const { selection } = view.state;
+      if (selection.anchor === selection.head) return;
+      const offset = parseInt(editorParent.getAttribute('data-prose-index'), 10);
+      const base = offset - 1;
+      const coords = view.coordsAtPos(selection.anchor);
+      scrollCtx.port.postMessage({
+        type: 'selection-change',
+        anchor: base + selection.anchor,
+        head: base + selection.head,
+        anchorX: coords.left,
+        anchorY: coords.top,
+      });
+    });
+  }, { passive: true });
+}
+
 let blurClearTimeout = null;
 
 function focus(view) {
@@ -162,26 +195,7 @@ function createEditor(cursorOffset, state, ctx) {
   editorParent.view = editorView;
   setupImageDropListeners(ctx, editorParent);
   setRemoteCursors();
-
-  let scrollRaf = null;
-  editorParent.ownerDocument.defaultView.addEventListener('scroll', () => {
-    if (scrollRaf) return;
-    scrollRaf = requestAnimationFrame(() => {
-      scrollRaf = null;
-      const { selection } = editorView.state;
-      if (selection.anchor === selection.head) return;
-      const offset = parseInt(editorParent.getAttribute('data-prose-index'), 10);
-      const base = offset - 1;
-      const coords = editorView.coordsAtPos(selection.anchor);
-      ctx.port.postMessage({
-        type: 'selection-change',
-        anchor: base + selection.anchor,
-        head: base + selection.head,
-        anchorX: coords.left,
-        anchorY: coords.top,
-      });
-    });
-  }, { passive: true });
+  initScrollListener(editorParent.ownerDocument.defaultView, ctx);
 
   if (blurClearTimeout !== null) {
     clearTimeout(blurClearTimeout);

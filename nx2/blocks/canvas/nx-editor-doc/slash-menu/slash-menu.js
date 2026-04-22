@@ -1,8 +1,7 @@
 /* eslint-disable import/no-unresolved -- importmap */
 import { Plugin } from 'da-y-wrapper';
 import '../../../shared/menu/menu.js';
-import { slashMenuItemsForQuery } from './slash-menu-items.js';
-import { SLASH_MENU_HANDLERS } from './slash-menu-handlers.js';
+import { slashMenuItemsForQuery, COMMAND_BY_ID } from '../../editor-utils/command-defs.js';
 
 function inTopLevelParagraph($from) {
   if ($from.parent.type.name !== 'paragraph') return false;
@@ -48,7 +47,7 @@ function setup(container, view) {
   container.append(menu);
 
   menu.addEventListener('select', (e) => {
-    const run = SLASH_MENU_HANDLERS[e.detail.id];
+    const run = COMMAND_BY_ID.get(e.detail.id)?.apply;
     const { state } = view;
     const slash = getSlashContext(state);
     if (slash && run) {
@@ -56,7 +55,7 @@ function setup(container, view) {
       const head = state.selection.from;
       const tr = state.tr.delete(anchorPos, head);
       view.dispatch(tr);
-      run(view.state, view.dispatch.bind(view));
+      run(view);
     }
     view.focus();
   });

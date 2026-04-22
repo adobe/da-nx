@@ -3,57 +3,28 @@ import { loadStyle } from '../../../utils/utils.js';
 import '../../shared/popover/popover.js';
 import '../../shared/picker/picker.js';
 import { loadHrefSvg } from '../../../utils/svg.js';
+import { commandsFor, COMMAND_BY_ID } from './command-defs.js';
 import {
-  EDITOR_TEXT_FORMAT_ITEMS,
-  applyHeadingLevel,
-  applyCodeBlock,
-  applyParagraph,
   getBlockTypePickerValue,
-  isStructureActive,
-  toggleStructure,
-  markIsActiveInSelection,
-  toggleMarkOnSelection,
   selectionHasLink,
   getLinkInfoInSelection,
   applyLink,
   removeLink,
-} from './commands.js';
+} from './command-helpers.js';
 
 const styles = await loadStyle(import.meta.url);
 
 const ICONS_BASE = new URL('../../img/icons/', import.meta.url).href;
 
-const STRUCTURE_IDS = new Set(['blockquote', 'bullet-list', 'numbered-list']);
+const MARK_ITEMS = commandsFor('toolbar-marks');
+const STRUCTURE_ITEMS = commandsFor('toolbar-structure');
+const PICKER_DEFS = commandsFor('toolbar-picker');
 
-const STRUCTURE_ITEMS = EDITOR_TEXT_FORMAT_ITEMS.filter(
-  (item) => STRUCTURE_IDS.has(item.id),
-);
-
-const BLOCK_TYPE_LABELS = new Map([
-  ['paragraph', 'Paragraph'],
-  ['heading-1', 'Heading 1'],
-  ['heading-2', 'Heading 2'],
-  ['heading-3', 'Heading 3'],
-  ['code_block', 'Code block'],
-]);
+const BLOCK_TYPE_LABELS = new Map(PICKER_DEFS.map(({ id, label }) => [id, label]));
 
 const BLOCK_TYPE_PICKER_ITEMS = [
   { section: 'Change into' },
-  ...Array.from(BLOCK_TYPE_LABELS, ([value, label]) => ({ value, label })),
-];
-
-const BLOCK_TYPE_COMMANDS = {
-  paragraph: applyParagraph,
-  'heading-1': (s, d) => applyHeadingLevel(s, d, 1),
-  'heading-2': (s, d) => applyHeadingLevel(s, d, 2),
-  'heading-3': (s, d) => applyHeadingLevel(s, d, 3),
-  code_block: applyCodeBlock,
-};
-
-const MARK_ACTIONS = [
-  { mark: 'strong', label: 'Bold', text: 'B' },
-  { mark: 'em', label: 'Italic', text: 'I' },
-  { mark: 'code', label: 'Inline code', text: '</>' },
+  ...PICKER_DEFS.map(({ id, label }) => ({ value: id, label })),
 ];
 
 function blockTypeLabelForRaw(raw) {
@@ -97,8 +68,7 @@ class NxSelectionToolbar extends LitElement {
   }
 
   async _loadIcons() {
-    const names = STRUCTURE_ITEMS.map((i) => i.icon);
-    names.push('Link', 'Unlink');
+    const names = [...STRUCTURE_ITEMS.map((i) => i.icon), 'Link', 'Unlink'];
     const svgs = await Promise.all(names.map(loadSvgIcon));
     this._icons = Object.fromEntries(names.map((n, i) => [n, svgs[i]]));
   }
@@ -125,9 +95,9 @@ class NxSelectionToolbar extends LitElement {
 
   _onBlockTypeChange(e) {
     if (!this.view) return;
-    const cmd = BLOCK_TYPE_COMMANDS[e.detail.value];
+    const cmd = COMMAND_BY_ID.get(e.detail.value);
     if (cmd) {
-      cmd(this.view.state, this.view.dispatch.bind(this.view));
+      cmd.apply(this.view);
       this.requestUpdate();
       this.view.focus();
     }
@@ -141,7 +111,7 @@ class NxSelectionToolbar extends LitElement {
     const btn = e.target instanceof Element ? e.target.closest('button') : null;
     if (!btn || btn.disabled) return;
 
-    const { mark, handler, link } = btn.dataset;
+    const { id, link } = btn.dataset;
     if (link === 'create' || link === 'edit') {
       this._showLinkDialog();
       return;
@@ -152,22 +122,28 @@ class NxSelectionToolbar extends LitElement {
       this.view.focus();
       return;
     }
-    if (mark) toggleMarkOnSelection(this.view, mark);
-    else if (handler) toggleStructure(handler, this.view);
-
-    this.requestUpdate();
-    this.view.focus();
+    if (id) {
+      COMMAND_BY_ID.get(id)?.apply(this.view);
+      this.requestUpdate();
+      this.view.focus();
+    }
   }
 
-  _isMarkActive(markName) {
+  _isCommandActive(id) {
     if (!this.view) return false;
-    const mark = this.view.state.schema.marks[markName];
-    return mark ? markIsActiveInSelection(this.view.state, mark) : false;
+    return COMMAND_BY_ID.get(id)?.active?.(this.view.state) ?? false;
   }
 
-  _isStructureActive(id) {
+  _isCommandVisible(id) {
+    if (!this.view) return true;
+    const cmd = COMMAND_BY_ID.get(id);
+    return cmd?.visible ? cmd.visible(this.view.state) : true;
+  }
+
+  _isCommandDisabled(id) {
     if (!this.view) return false;
-    return isStructureActive(id, this.view.state);
+    const cmd = COMMAND_BY_ID.get(id);
+    return cmd?.disabled ? cmd.disabled(this.view.state) : false;
   }
 
   _hasLink() {
@@ -219,8 +195,8 @@ class NxSelectionToolbar extends LitElement {
     this._syncBlockTypePicker();
   }
 
-  _renderMarkButton({ mark, label, text }) {
-    const pressed = this._isMarkActive(mark);
+  _renderMarkButton({ id, label, text }) {
+    const pressed = this._isCommandActive(id);
     return html`
       <button
         type="button"
@@ -228,21 +204,23 @@ class NxSelectionToolbar extends LitElement {
         aria-label=${label}
         title=${label}
         aria-pressed=${pressed ? 'true' : 'false'}
-        data-mark=${mark}
+        data-id=${id}
       >${text}</button>
     `;
   }
 
   _renderStructureButton({ id, label, icon }) {
-    const pressed = this._isStructureActive(id);
+    const hidden = !this._isCommandVisible(id);
+    const disabled = this._isCommandDisabled(id);
     return html`
       <button
         type="button"
         class="toolbar-btn"
         aria-label=${label}
         title=${label}
-        aria-pressed=${pressed ? 'true' : 'false'}
-        data-handler=${id}
+        ?hidden=${hidden}
+        ?disabled=${disabled}
+        data-id=${id}
       >${this._icon(icon)}</button>
     `;
   }
@@ -316,7 +294,7 @@ class NxSelectionToolbar extends LitElement {
             ></nx-picker>
           </span>
           <span class="toolbar-sep" aria-hidden="true"></span>
-          ${MARK_ACTIONS.map((m) => this._renderMarkButton(m))}
+          ${MARK_ITEMS.map((m) => this._renderMarkButton(m))}
           <span class="toolbar-sep" aria-hidden="true"></span>
           ${STRUCTURE_ITEMS.map((s) => this._renderStructureButton(s))}
           <span class="toolbar-sep" aria-hidden="true"></span>
