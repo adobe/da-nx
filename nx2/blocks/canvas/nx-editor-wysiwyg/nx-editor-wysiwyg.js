@@ -71,7 +71,8 @@ export class NxEditorWysiwyg extends LitElement {
     const segments = path.split('/');
     const pathWithoutOrgRepo = segments.slice(2).join('/');
     const encodedPath = pathWithoutOrgRepo.split('/').map(encodeURIComponent).join('/');
-    const base = `${getPreviewOrigin(org, repo)}/${encodedPath}?nx=ew&quick-edit=ew`;
+    const quickEdit = new URLSearchParams(window.location.search).get('quick-edit') || 'ew';
+    const base = `${getPreviewOrigin(org, repo)}/${encodedPath}?nx=ew&quick-edit=${encodeURIComponent(quickEdit)}`;
     return `${base}&controller=parent`;
   }
 
