@@ -44,6 +44,12 @@ nx-editor-doc {
   overflow-y: auto;
 }
 
+nx-editor-wysiwyg,
+nx-editor-doc {
+  contain: layout;
+  overflow: hidden;
+}
+
 nx-editor-doc[hidden],
 nx-editor-wysiwyg[hidden] {
   display: none !important;
