@@ -22,7 +22,7 @@ export function getSelectionToolbar() {
 }
 
 export function hideSelectionToolbar() {
-  toolbar?.hide();
+  toolbar?.hide?.();
 }
 
 function isNonTextSelection({ selection }) {
