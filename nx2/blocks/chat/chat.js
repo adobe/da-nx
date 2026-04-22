@@ -13,7 +13,7 @@ const styles = await loadStyle(import.meta.url);
 const icons = await loadChatIcons(CHAT_ICONS);
 
 const icon = (name) => icons?.[name]?.cloneNode(true);
-const PROMPTS_GAP = 8;
+const UI_PROMPTS_GAP = 8;
 
 class NxChat extends LitElement {
   static properties = {
@@ -153,8 +153,8 @@ class NxChat extends LitElement {
     const { left, width, top } = form.getBoundingClientRect();
     popover.style.left = `${left}px`;
     popover.style.width = `${width}px`;
-    popover.style.bottom = `${window.innerHeight - top + PROMPTS_GAP}px`;
-    popover.style.height = `${Math.min(top - PROMPTS_GAP, 400)}px`;
+    popover.style.bottom = `${window.innerHeight - top + UI_PROMPTS_GAP}px`;
+    popover.style.height = `${Math.min(top - UI_PROMPTS_GAP, 400)}px`;
     popover.addEventListener('toggle', ({ newState }) => {
       if (newState === 'open') this.shadowRoot.querySelector('nx-prompts')?.focus();
     }, { once: true });
