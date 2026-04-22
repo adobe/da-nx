@@ -14,13 +14,6 @@ export function prefetchWysiwygCookiesIfSignedIn(ctx) {
   })().catch(() => {});
 }
 
-export function createQuickEditGetToken() {
-  return async () => {
-    const { loadIms } = await import('../../../../utils/ims.js');
-    return (await loadIms())?.accessToken?.token ?? null;
-  };
-}
-
 export function wireQuickEditControllerPort(controllerCtx) {
   controllerCtx.port.onmessage = createControllerOnMessage(controllerCtx);
   const sendInitialBodyAndCursors = () => {

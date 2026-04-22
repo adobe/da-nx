@@ -11,9 +11,9 @@ import {
 import { subscribeCollabUserList } from './utils/awareness-users.js';
 import {
   prefetchWysiwygCookiesIfSignedIn,
-  createQuickEditGetToken,
   wireQuickEditControllerPort,
 } from './utils/quick-edit-host.js';
+import { loadIms } from '../../../utils/ims.js';
 import initProse from './prose.js';
 import { createTrackingPlugin } from '../editor-utils/prose-diff.js';
 import { resolveEditorDocSession } from './utils/load-editor-doc.js';
@@ -74,7 +74,7 @@ export class NxEditorDoc extends LitElement {
       owner: org,
       repo,
       path: controllerPathnameFromEditorCtx(this.ctx),
-      getToken: createQuickEditGetToken(),
+      getToken: async () => (await loadIms())?.accessToken?.token ?? null,
     };
     wireQuickEditControllerPort(this._controllerCtx);
   }
