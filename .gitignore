@@ -8,3 +8,5 @@ helix-importer-ui
 *.bak
 .idea
 .claude/settings.local.json
+PR-throwaways/
+private-docs/
