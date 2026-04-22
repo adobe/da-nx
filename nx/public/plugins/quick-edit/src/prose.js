@@ -165,6 +165,7 @@ function createEditor(cursorOffset, state, ctx) {
 
   let scrollRaf = null;
   editorParent.ownerDocument.defaultView.addEventListener('scroll', () => {
+    console.log('scroll');
     if (scrollRaf) return;
     scrollRaf = requestAnimationFrame(() => {
       scrollRaf = null;

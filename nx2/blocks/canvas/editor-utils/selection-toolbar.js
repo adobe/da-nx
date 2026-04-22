@@ -1,8 +1,5 @@
 /* eslint-disable import/no-unresolved -- importmap */
 import { Plugin } from 'da-y-wrapper';
-import { EDITOR_TEXT_FORMAT_ITEMS } from './commands.js';
-
-export { EDITOR_TEXT_FORMAT_ITEMS };
 
 let toolbar;
 let componentLoaded;
