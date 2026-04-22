@@ -4,7 +4,7 @@ import { Plugin } from 'da-y-wrapper';
 let toolbar;
 let componentLoaded;
 
-function ensureToolbar() {
+export function getSelectionToolbar() {
   if (toolbar) return toolbar;
   componentLoaded ??= import('./nx-selection-toolbar.js');
   toolbar = document.createElement('nx-selection-toolbar');
@@ -12,16 +12,12 @@ function ensureToolbar() {
   return toolbar;
 }
 
-export function getSelectionToolbar() {
-  return ensureToolbar();
-}
-
 export function hideSelectionToolbar() {
   toolbar?.hide();
 }
 
 function syncToolbar(view) {
-  const tb = ensureToolbar();
+  const tb = getSelectionToolbar();
   if (tb.linkDialogOpen) return;
   if (view.state.selection.empty) {
     hideSelectionToolbar();
@@ -36,7 +32,7 @@ export function createSelectionToolbarPlugin() {
   return new Plugin({
     view() {
       let scrollEl;
-      const tb = ensureToolbar();
+      const tb = getSelectionToolbar();
       const onScroll = () => syncToolbar(tb.view);
 
       return {
