@@ -215,11 +215,14 @@ export default class ChatController {
       body: JSON.stringify({
         messages: this._messages.filter((msg) => !msg.virtual),
         pageContext,
+        context: this._pendingContext ?? [],
         imsToken: accessToken?.token ?? null,
         room,
       }),
       signal: this._abortController.signal,
     });
+
+    this._pendingContext = [];
 
     if (!resp.ok) {
       throw new Error(`Agent responded with ${resp.status}: ${await resp.text()}`);
@@ -237,9 +240,10 @@ export default class ChatController {
     });
   }
 
-  async sendMessage(message) {
+  async sendMessage(message, context = []) {
     if (this._thinking || !this._connected) return;
 
+    this._pendingContext = context;
     this._messages = [...(this._messages ?? []), { role: ROLE.USER, content: message }];
     this._thinking = true;
     this._update();
