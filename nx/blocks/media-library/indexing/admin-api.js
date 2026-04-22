@@ -1,7 +1,12 @@
 import { daFetch, initIms } from '../../../utils/daFetch.js';
 import { etcFetch } from '../core/urls.js';
-import { AEM_ORIGIN, DA_ORIGIN } from '../../../public/utils/constants.js';
-import { IndexFiles, ExternalMedia, DA_ETC_ORIGIN } from '../core/constants.js';
+import {
+  IndexFiles,
+  ExternalMedia,
+  DA_ETC_ORIGIN,
+  AEM_ORIGIN,
+  DA_ORIGIN,
+} from '../core/constants.js';
 import { MediaLibraryError, ErrorCodes, logMediaLibraryError } from '../core/errors.js';
 import { isPerfEnabled } from '../core/params.js';
 import { t } from '../core/messages.js';

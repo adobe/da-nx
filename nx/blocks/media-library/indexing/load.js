@@ -1,5 +1,4 @@
 import { daFetch } from '../../../utils/daFetch.js';
-import { DA_ORIGIN } from '../../../public/utils/constants.js';
 import {
   createSheet,
   loadIndexChunks,
@@ -8,8 +7,6 @@ import {
 import { MediaLibraryError, ErrorCodes, logMediaLibraryError } from '../core/errors.js';
 import { t } from '../core/messages.js';
 import {
-  buildFullIndex,
-  buildIncrementalIndex,
   checkReindexEligibility,
   getIndexStatus,
 } from './build.js';
@@ -19,7 +16,10 @@ import {
   IndexFiles,
   SheetNames,
   IndexConfig,
+  DA_ETC_ORIGIN,
+  DA_ORIGIN,
 } from '../core/constants.js';
+import { isPerfEnabled } from '../core/params.js';
 
 const LOCK_OWNER_STORAGE_KEY = 'media-library-lock-owner-id';
 
@@ -361,6 +361,128 @@ export function buildMediaIndexStructures(mediaData) {
   };
 }
 
+/**
+ * Run index build in web worker
+ *
+ * @param {string} mode - 'full' or 'incremental'
+ * @param {string} sitePath - Site path
+ * @param {string} org - Organization
+ * @param {string} repo - Repository
+ * @param {string} ref - Branch reference
+ * @param {Function} onProgress - Progress callback
+ * @param {Function} onProgressiveData - Progressive data callback
+ * @returns {Promise<Array>} Media data
+ */
+async function runWorkerBuild(
+  mode,
+  sitePath,
+  org,
+  repo,
+  ref,
+  onProgress,
+  onProgressiveData,
+) {
+  // Get runtime context
+  const imsToken = window.adobeIMS?.getAccessToken?.()?.token;
+  if (!imsToken) {
+    throw new Error('No IMS token available');
+  }
+  // eslint-disable-next-line no-console
+  console.log('[runWorkerBuild] Passing IMS token to worker (length:', imsToken?.length, 'chars)');
+
+  const siteToken = window.localStorage?.getItem?.(`site-token-${org}-${repo}`) || null;
+  const daOrigin = DA_ORIGIN;
+  const daEtcOrigin = DA_ETC_ORIGIN;
+  const perfEnabled = isPerfEnabled();
+
+  // Create worker using blob URL to avoid CORS issues with ?nx=local
+  // When running with ?nx=local, files load from localhost but page is on da.live
+  // Workers must be same-origin, so we create a blob URL
+  const workerUrl = new URL('./index-worker/index-worker.js', import.meta.url).href;
+  const response = await fetch(workerUrl);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch worker code: ${response.status}`);
+  }
+
+  let workerCode = await response.text();
+
+  // Replace ALL relative imports with absolute URLs so worker can fetch them
+  // This converts: import './foo.js' → import 'http://localhost:6456/.../foo.js'
+  const baseUrl = new URL('./index-worker/', import.meta.url).href;
+  workerCode = workerCode.replace(
+    /from\s+['"](\.\.[^'"]*|\.\/[^'"]*)['"]/g,
+    (match, path) => {
+      const absoluteUrl = new URL(path, baseUrl).href;
+      return `from '${absoluteUrl}'`;
+    },
+  );
+
+  // Create blob URL from transformed code
+  const blob = new Blob([workerCode], { type: 'application/javascript' });
+  const workerBlobUrl = URL.createObjectURL(blob);
+
+  const worker = new Worker(workerBlobUrl, { type: 'module' });
+
+  // Set up result promise
+  const resultPromise = new Promise((resolve, reject) => {
+    worker.onmessage = (event) => {
+      const { type, data, error, message } = event.data;
+
+      if (type === 'progress') {
+        onProgress?.(data);
+      } else if (type === 'progressive') {
+        onProgressiveData?.(data);
+      } else if (type === 'log') {
+        // eslint-disable-next-line no-console
+        console.log('[IndexWorker]', message);
+      } else if (type === 'success') {
+        resolve(data);
+      } else if (type === 'error') {
+        reject(new Error(error.message || 'Worker error'));
+      }
+    };
+
+    worker.onerror = (event) => {
+      // eslint-disable-next-line no-console
+      console.error('[runWorkerBuild] Worker error event:', {
+        message: event.message,
+        filename: event.filename,
+        lineno: event.lineno,
+        colno: event.colno,
+        error: event.error,
+      });
+      const errorDetails = event.filename
+        ? `${event.message} at ${event.filename}:${event.lineno}:${event.colno}`
+        : event.message;
+      reject(new Error(`Worker error: ${errorDetails}`));
+    };
+  });
+
+  // Send build parameters to worker
+  worker.postMessage({
+    mode,
+    sitePath,
+    org,
+    repo,
+    ref,
+    imsToken,
+    siteToken,
+    daOrigin,
+    daEtcOrigin,
+    isPerfEnabled: perfEnabled,
+    IndexConfig,
+  });
+
+  try {
+    const result = await resultPromise;
+    return result;
+  } finally {
+    // Clean up
+    worker.terminate();
+    URL.revokeObjectURL(workerBlobUrl);
+  }
+}
+
 // eslint-disable-next-line max-len -- function signature
 export default async function buildMediaIndex(
   sitePath,
@@ -415,20 +537,17 @@ export default async function buildMediaIndex(
     const reindexCheck = await checkReindexEligibility(sitePath, org, repo);
     const useIncremental = !forceFull && reindexCheck.shouldReindex;
 
-    let mediaData;
-    if (useIncremental) {
-      mediaData = await buildIncrementalIndex(
-        sitePath,
-        org,
-        repo,
-        ref,
-        onProgress,
-        undefined,
-        onProgressiveData,
-      );
-    } else {
-      mediaData = await buildFullIndex(sitePath, org, repo, ref, onProgress, onProgressiveData);
-    }
+    // Run build in worker (full or incremental)
+    const buildMode = useIncremental ? 'incremental' : 'full';
+    const mediaData = await runWorkerBuild(
+      buildMode,
+      sitePath,
+      org,
+      repo,
+      ref,
+      onProgress,
+      onProgressiveData,
+    );
 
     let lockRemoveFailed = false;
     try {

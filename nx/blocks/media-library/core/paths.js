@@ -1,6 +1,5 @@
 import { daFetch } from '../../../utils/daFetch.js';
-import { DA_ORIGIN } from '../../../public/utils/constants.js';
-import { Paths, Domains, DA_LIVE_EDIT_BASE } from './constants.js';
+import { Paths, Domains, DA_LIVE_EDIT_BASE, DA_ORIGIN } from './constants.js';
 import { ErrorCodes, logMediaLibraryError } from './errors.js';
 import { t } from './messages.js';
 

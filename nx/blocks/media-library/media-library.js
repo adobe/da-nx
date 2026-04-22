@@ -1187,6 +1187,7 @@ class NxMediaLibrary extends LitElement {
     }
   };
 }
+
 customElements.define(EL_NAME, NxMediaLibrary);
 
 function setupMediaLibrary(el) {

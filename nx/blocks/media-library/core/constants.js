@@ -109,14 +109,8 @@ export const ExternalMedia = Object.freeze({
   ],
 });
 
-// DA ETC (CORS proxy) origin - self-contained for media-library
-function getDaEtcOrigin() {
-  const { href } = window.location;
-  const url = new URL(href);
-  const param = url.searchParams.get('da-etc');
-  if (param) return param === 'local' ? 'http://localhost:8787' : param;
-  if (href.includes('localhost')) return 'http://localhost:8787';
-  return 'https://da-etc.adobeaem.workers.dev';
-}
-
-export const DA_ETC_ORIGIN = getDaEtcOrigin();
+// Worker-safe constants (duplicated here to avoid importing from public/utils/constants.js
+// which has window.location access at module level)
+export const AEM_ORIGIN = 'https://admin.hlx.page';
+export const DA_ORIGIN = 'https://admin.da.live';
+export const DA_ETC_ORIGIN = 'https://da-etc.adobeaem.workers.dev';
