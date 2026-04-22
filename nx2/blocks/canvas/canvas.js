@@ -1,5 +1,5 @@
 import { loadStyle, hashChange } from '../../utils/utils.js';
-import { hidePanel, unhidePanel, openPanelWithFragment } from '../../utils/panel.js';
+import { hidePanel, unhidePanel, openPanelWithFragment, showPanel } from '../../utils/panel.js';
 import './nx-canvas-header/nx-canvas-header.js';
 import './nx-editor-doc/nx-editor-doc.js';
 import './nx-editor-wysiwyg/nx-editor-wysiwyg.js';
@@ -112,25 +112,33 @@ async function addPanelHeader(aside) {
   }));
 }
 
+async function openAfterPanelWithSkillsEditor() {
+  const { getPanel } = await import('../skills-editor/skills-editor.js');
+  const content = getPanel();
+  const aside = showPanel({ width: '400px', beforeMain: false, content });
+  addPanelHeader(aside);
+}
+
 async function openCanvasPanel(position) {
-  // Case 1: Panel is visible
   const existing = document.querySelector(`aside.panel[data-position="${position}"]`);
   if (existing && !existing.hidden) return;
 
-  // Case 2: Panel is hidden
   if (existing?.hidden) {
     unhidePanel(existing);
     return;
   }
 
-  // Case 3: Panel does not exist yet
+  if (position === 'after') {
+    await openAfterPanelWithSkillsEditor();
+    return;
+  }
+
   const aside = await openPanelWithFragment({
     width: '400px',
     beforeMain: position === 'before',
     fragment: FRAGMENTS[position],
   });
 
-  // Add header to panel after crating
   addPanelHeader(aside);
 }
 
