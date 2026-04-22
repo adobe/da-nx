@@ -1,5 +1,14 @@
 # Worklog
 
+## 2026-04-22
+
+### Canvas prose — keymap order aligned with da.live
+- `prose.js`: moved `keymap(baseKeymap)` to after `buildKeymap` + `handleTableBackspace` (and `codemark` after `baseKeymap`), matching `da-live/blocks/edit/prose/index.js`, so full-table delete with Backspace and Enter in lists behave like da.live.
+
+### Canvas prose — plugins ported from da.live
+- Added `nx2/blocks/canvas/nx-editor-doc/prose-plugins/`: `codemark`, `columnResizing` (from `da-y-wrapper`), `imageDrop`, `imageFocalPoint`, `tableSelectHandle`, `sectionPasteHandler`, `base64Uploader`, plus `sourceUploadContext`, `tableUtils`, `inlinesvg`, `focalPointDialog` (native `<dialog>`; no face-api).
+- Wired plugins in `prose.js` for writable sessions; styles in `nx-editor-doc.css`. Upload paths derive from the editor `source` URL. Focal-point block metadata still loads from `https://da.live/.../da-library/helpers/`.
+
 ## 2026-04-21
 
 ### Canvas editor — selection toolbar + slash shared helpers

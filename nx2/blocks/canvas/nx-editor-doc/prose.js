@@ -15,12 +15,19 @@ import {
   yRedo,
   buildKeymap,
   tableEditing,
+  columnResizing,
   gapCursor,
   liftListItem,
   sinkListItem,
 } from 'da-y-wrapper';
 
 import { getSchema } from 'da-parser';
+import codemark from './prose-plugins/codemark.js';
+import tableSelectHandle from './prose-plugins/tableSelectHandle.js';
+import imageDrop from './prose-plugins/imageDrop.js';
+import imageFocalPoint from './prose-plugins/imageFocalPoint.js';
+import sectionPasteHandler from './prose-plugins/sectionPasteHandler.js';
+import base64Uploader from './prose-plugins/base64Uploader.js';
 import { COLLAB_ORIGIN, DA_ORIGIN } from '../../../utils/daFetch.js';
 import { generateColor, getCollabIdentity } from './utils/collab.js';
 
@@ -142,15 +149,23 @@ export default async function initProse({
       return yRedo(state) || false;
     };
 
+    /* Keymap order matches da.live prose/index.js: baseKeymap after buildKeymap +
+     * handleTableBackspace (fixes list Enter + table NodeSelection + Backspace). */
     plugins.push(
       createSlashMenuPlugin(),
       createSelectionToolbarPlugin(),
-      keymap(baseKeymap),
+      tableSelectHandle(),
+      imageDrop(schema, () => path),
+      imageFocalPoint(),
+      sectionPasteHandler(schema),
+      base64Uploader({ getSourceUrl: () => path, getEditorView: () => viewRef }),
       getEnterInputRulesPlugin(dispatch),
       getURLInputRulesPlugin(),
       getListInputRulesPlugin(schema),
       keymap(buildKeymap(schema)),
       keymap({ Backspace: handleTableBackspace }),
+      keymap(baseKeymap),
+      codemark(),
       keymap({
         'Mod-z': handleUndo,
         'Mod-y': handleRedo,
@@ -166,6 +181,7 @@ export default async function initProse({
         'Shift-Tab': liftListItem(schema.nodes.list_item),
       }),
       gapCursor(),
+      columnResizing(),
       tableEditing({ allowTableNodeSelection: true }),
     );
   }
