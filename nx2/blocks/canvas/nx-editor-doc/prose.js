@@ -200,5 +200,7 @@ export default async function initProse({
     editable() { return canWrite; },
   });
 
-  return { proseEl: editor, wsProvider, view: viewRef, ydoc };
+  const undoManager = yUndoPluginKey.getState(viewRef.state)?.undoManager ?? null;
+
+  return { proseEl: editor, wsProvider, view: viewRef, ydoc, undoManager };
 }
