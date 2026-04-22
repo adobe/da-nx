@@ -1,8 +1,10 @@
 /* eslint-disable import/no-unresolved -- importmap */
-import { Plugin } from 'da-y-wrapper';
+import { Plugin, NodeSelection } from 'da-y-wrapper';
 import { EDITOR_TEXT_FORMAT_ITEMS } from './commands.js';
 
 export { EDITOR_TEXT_FORMAT_ITEMS };
+
+const NON_TEXT_NODES = new Set(['table', 'image']);
 
 let toolbar;
 let componentLoaded;
@@ -23,10 +25,15 @@ export function hideSelectionToolbar() {
   toolbar?.hide();
 }
 
+function isNonTextSelection({ selection }) {
+  return selection instanceof NodeSelection
+    && NON_TEXT_NODES.has(selection.node.type.name);
+}
+
 function syncToolbar(view) {
   const tb = ensureToolbar();
   if (tb.linkDialogOpen) return;
-  if (view.state.selection.empty) {
+  if (view.state.selection.empty || isNonTextSelection(view.state)) {
     hideSelectionToolbar();
     return;
   }
