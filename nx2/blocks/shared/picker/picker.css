@@ -30,7 +30,7 @@
   background: none;
   color: var(--s2-gray-900);
   font-family: inherit;
-  font-size: var(--s2-body-size-s);
+  font-size: var(--s2-body-size-xs);
   cursor: pointer;
   outline: none;
   width: fit-content;
@@ -70,7 +70,7 @@
   background: none;
   color: var(--s2-gray-900);
   font-family: inherit;
-  font-size: var(--s2-body-size-s);
+  font-size: var(--s2-body-size-xs);
   margin-bottom: 2px;
   cursor: pointer;
   box-sizing: border-box;
