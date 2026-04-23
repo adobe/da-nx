@@ -8,8 +8,8 @@
 
 .canvas-actions {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  align-items: center;
+  justify-content: flex-end;
   gap: var(--s2-spacing-100);
 }
 

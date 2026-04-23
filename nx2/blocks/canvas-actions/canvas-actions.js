@@ -40,8 +40,7 @@ class NXCanvasActions extends LitElement {
   }
 
   async firstUpdated() {
-    const svg = await loadHrefSvg(SEND_ICON_HREF);
-    this._sendIcon = svg;
+    this._sendIcon = await loadHrefSvg(SEND_ICON_HREF);
   }
 
   get _hashState() {
@@ -97,13 +96,12 @@ class NXCanvasActions extends LitElement {
   render() {
     const hasDoc = Boolean(buildAemPathFromHashState(this._hashState));
     const disabled = !hasDoc || this._busy;
-    const icon = this._sendIcon
+    const sendIcon = this._sendIcon
       ? html`<span class="preview-dropdown-icon" aria-hidden="true">${this._sendIcon.cloneNode(true)}</span>`
       : nothing;
 
     return html`
       <div class="canvas-actions">
-        <div class="left"></div>
         <div class="right">
           <div class="preview-row">
             <button
@@ -115,7 +113,7 @@ class NXCanvasActions extends LitElement {
               ?disabled=${disabled}
               @click=${this._togglePreviewPopover}
             >
-              ${icon}
+              ${sendIcon}
             </button>
             <nx-popover placement="below" @close=${this._onSendPopoverClose}>
               <div class="send-popover" role="menu">
