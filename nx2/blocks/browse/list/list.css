@@ -71,18 +71,21 @@
   & thead th {
     height: var(--s2-spacing-500);
 
-    /* Row-group borders are unreliable with `border-collapse: separate`; use cell borders. */
+    /* Row-group borders are unreliable with `border-collapse: separate`. Inset
+       shadow draws the rule inside the cell so `height` is not grown by 1px like
+       `border-bottom` on table cells. */
     background-color: var(--s2-gray-25);
-    border-bottom: 1px solid var(--rule);
+    box-shadow: inset 0 -1px 0 0 var(--rule);
   }
 
   & tbody td {
     height: var(--s2-spacing-700);
+    padding: 0;
   }
 
   & tbody {
     & td {
-      border-bottom: 1px solid var(--rule);
+      box-shadow: inset 0 -1px 0 0 var(--rule);
     }
 
     & td.column-modified {
@@ -115,18 +118,17 @@
 
   & :is(th, td).column-selection {
     box-sizing: border-box;
-    width: 44px;
+    width: 40px;
     max-width: 44px;
-    padding-inline: var(--s2-spacing-75);
     text-align: center;
   }
 
   & :is(th, td).column-entry-type {
     box-sizing: border-box;
-    width: 40px;
-    max-width: 40px;
+    width: 32px;
+    max-width: 32px;
     padding-inline: var(--s2-spacing-75);
-    text-align: center;
+    text-align: end;
   }
 
   & :is(th, td).column-file-name {
@@ -206,6 +208,7 @@
     display: block;
     width: 18px;
     height: 18px;
+    margin-inline-start: auto;
 
     /* S2 SVGs ship with fill="#292929"; tie shapes to theme tokens via currentColor. */
     color: var(--s2-gray-700);
