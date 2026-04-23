@@ -1,5 +1,11 @@
 # Worklog
 
+## 2026-04-21
+
+### Canvas editor — selection toolbar + slash shared helpers
+- **`selection-toolbar.js`**: exports `EDITOR_TEXT_FORMAT_ITEMS` and prose helpers (`applyHeadingLevel`, `wrapInBlockquote`, `setCodeBlock`, `setParagraph`, list wraps) for slash menu; block-type picker from `BLOCK_TYPE_PICKER_DEFS`; `STRUCTURE_COMMANDS` (`isActive` + `run`); `markIsActiveInSelection`; structure buttons from a toolbar subset of `EDITOR_TEXT_FORMAT_ITEMS`.
+- **`slash-menu-items.js` / `slash-menu-handlers.js`**: import shared catalog/helpers from `selection-toolbar.js` (slash-only rows stay in items).
+
 ## 2026-03-21
 
 ### AGENTS.md creation
@@ -104,6 +110,12 @@ Decided to wrap nav and sidenav in semantic HTML elements:
 
 ### nx2 canvas — quick-edit (controller=parent) WYSIWYG
 - **Superseded 2026-04-09** — structure was `nx-doc-editor` + `nx-wysiwyg-frame`; see next section.
+
+## 2026-04-17
+
+### nx2 canvas — selection toolbar block types + inline code
+- **`selection-toolbar.js`**: “Change into” picker includes **Code block** (`setBlockType(code_block)`); new **Inline code** toggle uses the schema `code` mark (`toggleMarkOnSelection`). Toolbar order: block-type picker, then mark buttons, then structure actions (separators between groups).
+- **`canvas.css`**: monospace styling for the inline-code toolbar button.
 
 ## 2026-04-14
 

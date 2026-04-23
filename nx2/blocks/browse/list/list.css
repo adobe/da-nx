@@ -1,15 +1,28 @@
 :host {
-  display: block;
-  min-height: 12rem;
-  overflow: auto;
-  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
   background-color: var(--s2-gray-25);
   font-family: var(--s2-font-family);
   font-size: var(--s2-component-s-regular-font-size);
   line-height: var(--s2-component-s-regular-line-height);
   color: var(--s2-gray-900);
 
-  .browse-sr-only {
+  .scroll {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+    min-height: 0;
+    min-width: 0;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .sr-only {
     position: absolute;
     width: 1px;
     height: 1px;
@@ -23,16 +36,19 @@
   }
 }
 
-.browse-data-table {
-  --browse-rule: var(--s2-gray-300);
+.sheet {
+  --rule: var(--s2-gray-200);
 
+  box-sizing: border-box;
   width: 100%;
+  max-width: var(--browse-sheet-max-width, 1024px);
+  margin-inline: auto;
   table-layout: fixed;
   border-collapse: separate;
   border-spacing: 0;
   font-size: var(--s2-component-m-regular-font-size);
   line-height: var(--s2-component-m-regular-line-height);
-  font-weight: var(--s2-component-m-bold-font-weight);
+  font-weight: var(--s2-component-m-medium-font-weight);
 
   & thead {
     position: sticky;
@@ -54,74 +70,82 @@
 
   & thead th {
     height: var(--s2-spacing-500);
+    font-weight: var(--s2-component-m-medium-font-weight);
+
+    /* Row-group borders are unreliable with `border-collapse: separate`. Inset
+       shadow draws the rule inside the cell so `height` is not grown by 1px like
+       `border-bottom` on table cells. */
+    background-color: var(--s2-gray-25);
+    box-shadow: inset 0 -1px 0 0 var(--rule);
   }
 
   & tbody td {
     height: var(--s2-spacing-700);
-  }
-
-  & :is(th, td).browse-col-select {
-    width: 48px;
-    padding-right: var(--s2-spacing-100);
-    text-align: center;
-  }
-
-  & :is(th, td).browse-col-icon {
-    width: 32px;
-    padding-left: var(--s2-spacing-100);
-    text-align: center;
-  }
-
-  & :is(th, td).browse-col-name {
-    min-width: 3rem;
-    padding: 0 var(--s2-spacing-300) 0 var(--s2-spacing-100);
+    padding: 0;
   }
 
   & tbody {
     & td {
-      border-bottom: 1px solid var(--browse-rule);
+      box-shadow: inset 0 -1px 0 0 var(--rule);
     }
 
-    & td:first-child {
-      border-left: 1px solid var(--browse-rule);
+    & td.column-modified {
+      white-space: nowrap;
     }
 
-    & td:last-child {
-      border-right: 1px solid var(--browse-rule);
+    & tr:last-child td {
+      border-bottom: none;
     }
 
-    & tr:first-child td {
-      border-top: 1px solid var(--browse-rule);
-    }
+    & tr.row {
+      &[aria-selected="true"] {
+        background-color: var(--s2-blue-100);
+      }
 
-    & tr:first-child td:first-child {
-      border-top-left-radius: var(--s2-corner-radius-500);
-    }
-
-    & tr:first-child td:last-child {
-      border-top-right-radius: var(--s2-corner-radius-500);
-    }
-
-    & tr:last-child td:first-child {
-      border-bottom-left-radius: var(--s2-corner-radius-500);
-    }
-
-    & tr:last-child td:last-child {
-      border-bottom-right-radius: var(--s2-corner-radius-500);
-    }
-
-    & tr.browse-data-row {
       &:hover {
         background-color: var(--s2-gray-75);
       }
+
+      &[aria-selected="true"]:hover {
+        background-color: var(--s2-blue-100);
+      }
     }
 
-    & tr.browse-data-row-folder {
+    & tr.row-dir,
+    & tr.row-file {
       cursor: pointer;
     }
   }
 
-  .browse-checkbox-label {
+  & :is(th, td).column-selection {
+    box-sizing: border-box;
+    width: 40px;
+    max-width: 44px;
+    text-align: center;
+  }
+
+  & :is(th, td).column-entry-type {
+    box-sizing: border-box;
+    width: 32px;
+    max-width: 32px;
+    padding-inline: var(--s2-spacing-75);
+    text-align: end;
+  }
+
+  & :is(th, td).column-file-name {
+    width: auto;
+    min-width: 0;
+    padding: 0 var(--s2-spacing-200) 0 var(--s2-spacing-75);
+  }
+
+  & :is(th, td).column-modified {
+    box-sizing: border-box;
+    width: 12.5rem;
+    max-width: 12.5rem;
+    padding: 0 var(--s2-spacing-200) 0 var(--s2-spacing-75);
+  }
+
+  .check {
     margin: 0;
     cursor: pointer;
     vertical-align: middle;
@@ -164,7 +188,7 @@
   }
 
   /* Fill the select column so the whole hit area toggles the checkbox (label wraps input). */
-  & :is(th, td).browse-col-select .browse-checkbox-label {
+  & :is(th, td).column-selection .check {
     display: flex;
     box-sizing: border-box;
     width: 100%;
@@ -177,30 +201,33 @@
     vertical-align: middle;
   }
 
-  & thead th.browse-col-select .browse-checkbox-label {
+  & thead th.column-selection .check {
     min-height: var(--s2-spacing-500);
   }
 
-  .browse-col-icon svg {
+  .column-entry-type svg {
     display: block;
     width: 18px;
     height: 18px;
+    margin-inline-start: auto;
 
     /* S2 SVGs ship with fill="#292929"; tie shapes to theme tokens via currentColor. */
     color: var(--s2-gray-700);
   }
 
-  .browse-col-icon
+  .column-entry-type
     svg
     :is(path, circle, rect, ellipse, line, polyline, polygon) {
     fill: currentcolor;
   }
-}
 
-.browse-name-text {
-  display: block;
-  color: var(--s2-gray-900);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  & .filename {
+    display: block;
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--s2-gray-900);
+    font-weight: var(--s2-component-m-bold-font-weight);
+  }
 }

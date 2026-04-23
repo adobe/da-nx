@@ -11,15 +11,15 @@ import {
 import { subscribeCollabUserList } from './utils/awareness-users.js';
 import {
   prefetchWysiwygCookiesIfSignedIn,
-  createQuickEditGetToken,
-  buildQuickEditControllerCtx,
   wireQuickEditControllerPort,
 } from './utils/quick-edit-host.js';
+import { loadIms } from '../../../utils/ims.js';
 import initProse from './prose.js';
 import { createTrackingPlugin } from '../editor-utils/prose-diff.js';
 import { resolveEditorDocSession } from './utils/load-editor-doc.js';
 import { afterNextPaint, ensureProseMountedInShadow } from './utils/shadow-mount.js';
 import { teardownEditorDocResources } from './utils/teardown.js';
+import { hideSelectionToolbar } from '../editor-utils/selection-toolbar.js';
 
 const style = await loadStyle(import.meta.url);
 
@@ -65,16 +65,17 @@ export class NxEditorDoc extends LitElement {
     prefetchWysiwygCookiesIfSignedIn(this.ctx);
 
     const { org, repo } = this.ctx ?? {};
-    const getToken = createQuickEditGetToken();
-    this._controllerCtx = buildQuickEditControllerCtx({
+    this._controllerCtx = {
       view,
       wsProvider,
       port: this.quickEditPort,
+      iframe: this._wysiwygIframe,
+      suppressRerender: false,
       owner: org,
       repo,
-      pathname: controllerPathnameFromEditorCtx(this.ctx),
-      getToken,
-    });
+      path: controllerPathnameFromEditorCtx(this.ctx),
+      getToken: async () => (await loadIms())?.accessToken?.token ?? null,
+    };
     wireQuickEditControllerPort(this._controllerCtx);
   }
 
@@ -159,11 +160,15 @@ export class NxEditorDoc extends LitElement {
     this._onCanvasEditorActive = (e) => {
       const view = e.detail?.view === 'content' ? 'content' : 'layout';
       this.hidden = view !== 'content';
+      hideSelectionToolbar();
     };
     this.parentElement?.addEventListener('nx-canvas-editor-active', this._onCanvasEditorActive);
     this._onWysiwygPortReady = (e) => {
-      const port = e.detail?.port;
-      if (port) this.quickEditPort = port;
+      const { port, iframe } = e.detail ?? {};
+      if (port) {
+        this._wysiwygIframe = iframe;
+        this.quickEditPort = port;
+      }
     };
     this.parentElement?.addEventListener('nx-wysiwyg-port-ready', this._onWysiwygPortReady);
   }

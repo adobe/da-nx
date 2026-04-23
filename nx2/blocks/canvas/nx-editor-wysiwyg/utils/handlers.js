@@ -1,4 +1,9 @@
 import { TextSelection, yUndo, yRedo } from 'da-y-wrapper';
+import {
+  getSelectionToolbar,
+  hideSelectionToolbar,
+  TOOLBAR_PADDING_GAP,
+} from '../../editor-utils/selection-toolbar.js';
 import { getActiveBlockFlatIndex } from './blocks.js';
 
 export function handleCursorMove({ cursorOffset, textCursorOffset }, ctx) {
@@ -95,7 +100,7 @@ export function handleStoredMarks({ marks }, ctx) {
 
 export function handleSelectionChange({ anchor, head }, ctx) {
   const { view } = ctx;
-  if (!view) return;
+  if (!view) return false;
   const { state } = view;
   try {
     const a = Math.max(0, Math.min(anchor, state.doc.content.size));
@@ -105,8 +110,35 @@ export function handleSelectionChange({ anchor, head }, ctx) {
     ctx.suppressRerender = true;
     view.dispatch(tr);
     ctx.suppressRerender = false;
+    return true;
   } catch (e) {
     // eslint-disable-next-line no-console
     console.error('[quick-edit-controller] handleSelectionChange failed', e?.message);
+    return false;
   }
+}
+
+function positionSelectionToolbarFromIframe(data, ctx) {
+  const { view } = ctx;
+  const { anchorX, anchorY } = data;
+  const { iframe } = ctx;
+  if (!iframe) return;
+
+  const iframeRect = iframe.getBoundingClientRect();
+  const x = iframeRect.left + anchorX;
+  const y = iframeRect.top + anchorY - TOOLBAR_PADDING_GAP;
+  const tb = getSelectionToolbar();
+  tb.view = view;
+  tb.show({ x, y });
+}
+
+/** PostMessage `selection-change` from wysiwyg iframe: sync PM selection and toolbar. */
+export function handleIframeSelectionChange(data, ctx) {
+  const { anchor, head } = data;
+  if (anchor === head) {
+    hideSelectionToolbar();
+    return;
+  }
+  if (!handleSelectionChange(data, ctx)) return;
+  positionSelectionToolbarFromIframe(data, ctx);
 }

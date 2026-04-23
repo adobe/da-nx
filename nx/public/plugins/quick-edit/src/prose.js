@@ -61,10 +61,13 @@ function handleTransaction(tr, ctx, editorView, editorParent) {
   if (oldSel.anchor !== newSel.anchor || oldSel.head !== newSel.head) {
     const base = currentCursorOffset - 1;
     if (newSel.anchor !== newSel.head) {
+      const coords = editorView.coordsAtPos(newSel.anchor);
       ctx.port.postMessage({
         type: 'selection-change',
         anchor: base + newSel.anchor,
         head: base + newSel.head,
+        anchorX: coords.left,
+        anchorY: coords.top,
       });
     } else {
       ctx.port.postMessage({
@@ -88,6 +91,39 @@ function handleTransaction(tr, ctx, editorView, editorParent) {
   // Update toolbar button states and position
   updateToolbarState();
   positionToolbar();
+}
+
+let scrollRaf = null;
+let scrollCtx = null;
+let scrollBound = false;
+
+function initScrollListener(win, ctx) {
+  scrollCtx = ctx;
+  if (scrollBound) return;
+  scrollBound = true;
+  win.addEventListener('scroll', () => {
+    if (scrollRaf) return;
+    scrollRaf = requestAnimationFrame(() => {
+      scrollRaf = null;
+      const focused = document.querySelector('.prosemirror-editor .ProseMirror:focus');
+      if (!focused) return;
+      const editorParent = focused.closest('.prosemirror-editor');
+      const view = editorParent?.view;
+      if (!view) return;
+      const { selection } = view.state;
+      if (selection.anchor === selection.head) return;
+      const offset = parseInt(editorParent.getAttribute('data-prose-index'), 10);
+      const base = offset - 1;
+      const coords = view.coordsAtPos(selection.anchor);
+      scrollCtx.port.postMessage({
+        type: 'selection-change',
+        anchor: base + selection.anchor,
+        head: base + selection.head,
+        anchorX: coords.left,
+        anchorY: coords.top,
+      });
+    });
+  }, { passive: true });
 }
 
 let blurClearTimeout = null;
@@ -159,6 +195,7 @@ function createEditor(cursorOffset, state, ctx) {
   editorParent.view = editorView;
   setupImageDropListeners(ctx, editorParent);
   setRemoteCursors();
+  initScrollListener(editorParent.ownerDocument.defaultView, ctx);
 
   if (blurClearTimeout !== null) {
     clearTimeout(blurClearTimeout);

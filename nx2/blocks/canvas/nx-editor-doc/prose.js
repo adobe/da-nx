@@ -113,10 +113,12 @@ export default async function initProse({
       },
       { getHeadingKeymap },
       { createSlashMenuPlugin },
+      { createSelectionToolbarPlugin },
     ] = await Promise.all([
       import('https://da.live/blocks/edit/prose/plugins/keyHandlers.js'),
       import('https://da.live/blocks/edit/prose/plugins/menu/menu.js'),
       import('./slash-menu/slash-menu.js'),
+      import('../editor-utils/selection-toolbar.js'),
     ]);
 
     const dispatch = (tr) => {
@@ -142,6 +144,7 @@ export default async function initProse({
 
     plugins.push(
       createSlashMenuPlugin(),
+      createSelectionToolbarPlugin(),
       keymap(baseKeymap),
       getEnterInputRulesPlugin(dispatch),
       getURLInputRulesPlugin(),

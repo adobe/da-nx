@@ -1,11 +1,9 @@
 import { daFetch, DA_ORIGIN } from '../../utils/daFetch.js';
 
 /**
+ * Folder listing for the given fullpath.
  * @param {string} fullpath
- * @returns {Promise<
- *   | { items: unknown[]; permissions?: unknown }
- *   | { error: string; status: number }
- * >}
+ * @returns {Promise<unknown[] | { error: string; status: number }>}
  */
 export async function listFolder(fullpath) {
   let response;
@@ -20,8 +18,10 @@ export async function listFolder(fullpath) {
   }
   try {
     const payload = await response.json();
-    const items = Array.isArray(payload) ? payload : payload?.items ?? [];
-    return { items, permissions: response.permissions };
+    if (!Array.isArray(payload)) {
+      return { error: 'Invalid list response', status: response.status };
+    }
+    return payload;
   } catch {
     return { error: 'Invalid response body', status: response.status };
   }
