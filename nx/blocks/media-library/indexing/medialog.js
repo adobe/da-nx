@@ -1,5 +1,6 @@
 import {
   normalizePath,
+  normalizeOriginalPath,
   getDedupeKey,
   computeCanonicalModifiedTimestamp,
   createMedialogEntry,
@@ -139,7 +140,7 @@ export function mergeMedialogChunkIntoMap(
       mediaMap.set(key, {
         hash: media.mediaHash || key,
         url: canonicalizeMediaUrl(media.path, org, repo),
-        originalPath: media.originalFilename || '',
+        originalPath: normalizeOriginalPath(media.originalFilename),
         timestamp: media.timestamp ?? 0,
         user: media.user ?? '',
         operation: media.operation ?? '',
@@ -163,7 +164,7 @@ export function mergeMedialogChunkIntoMap(
       existing.operation = media.operation ?? existing.operation;
     }
     if (media.originalFilename) {
-      existing.originalPath = media.originalFilename;
+      existing.originalPath = normalizeOriginalPath(media.originalFilename);
     }
     existing.lastMedialog = media;
   });
@@ -395,7 +396,7 @@ export function processStandaloneUploads(
         const row = {
           hash: media.mediaHash,
           url,
-          originalPath: media.originalFilename || '',
+          originalPath: normalizeOriginalPath(media.originalFilename),
           timestamp: media.timestamp,
           user: media.user,
           operation: media.operation,

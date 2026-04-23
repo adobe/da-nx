@@ -49,6 +49,23 @@ export function normalizePath(path) {
   return cleanPath;
 }
 
+export function normalizeOriginalPath(originalFilename) {
+  if (!originalFilename) return '';
+  const str = String(originalFilename).trim();
+  if (!str) return '';
+
+  try {
+    const url = new URL(str);
+    const parts = url.pathname.split('/').filter(Boolean);
+    if (parts.length > 2) {
+      return `/${parts.slice(2).join('/')}`;
+    }
+    return url.pathname;
+  } catch {
+    return str;
+  }
+}
+
 export function isPage(path) {
   if (!path || typeof path !== 'string') return false;
   return (path.endsWith('.md')
@@ -223,7 +240,7 @@ export function createMedialogEntry(media, options = {}) {
   return {
     hash,
     url,
-    originalPath: media.originalPath || media.originalFilename || '',
+    originalPath: normalizeOriginalPath(media.originalPath || media.originalFilename),
     timestamp: media.timestamp || 0,
     user: media.user || '',
     operation: media.operation || '',
