@@ -214,16 +214,30 @@
 
 /* ─── status pill colors on skill cards ──────────────────────────────────── */
 
-article[data-testid="skill-card"] nx-card[pill="✓"]::part(pill) {
-  background: light-dark(var(--s2-green-200), var(--s2-green-300));
-  color: var(--s2-green-900);
-  font-size: 13px;
+.skill-status {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 50%;
 }
 
-article[data-testid="skill-card"] nx-card[pill="✏"]::part(pill) {
+.skill-status svg {
+  width: 14px;
+  height: 14px;
+  fill: currentcolor;
+}
+
+.skill-status-approved {
+  background: light-dark(var(--s2-green-200), var(--s2-green-300));
+  color: var(--s2-green-900);
+}
+
+.skill-status-draft {
   background: light-dark(var(--s2-gray-200), var(--s2-gray-300));
   color: var(--s2-gray-700);
-  font-size: 11px;
 }
 
 .badge {

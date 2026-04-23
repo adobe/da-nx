@@ -1,5 +1,6 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle, HashController } from '../../utils/utils.js';
+import { loadHrefSvg, ICONS_BASE } from '../../utils/svg.js';
 import '../shared/tabs/tabs.js';
 import '../shared/card/card.js';
 import {
@@ -40,6 +41,7 @@ const TOOLS_TABS = [
 
 class NxSkillsEditor extends LitElement {
   static properties = {
+    _checkmarkSvg: { state: true },
     _loading: { state: true },
     _catalogTab: { state: true },
     _toolsTab: { state: true },
@@ -95,6 +97,7 @@ class NxSkillsEditor extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [styles];
+    loadHrefSvg(`${ICONS_BASE}S2_Icon_Checkmark_20_N.svg`).then((svg) => { this._checkmarkSvg = svg; });
     this._boundOnHandoff = () => this._applyHandoff();
     this._boundOnClearForm = () => this._clearForm();
     window.addEventListener(DA_SKILLS_EDITOR_SUGGESTION_HANDOFF, this._boundOnHandoff);
@@ -575,15 +578,18 @@ class NxSkillsEditor extends LitElement {
     const title = this._extractTitle(this._skills[id]) || id;
     const status = this._skillStatuses[id] || 'approved';
     const isEditing = this._formIsEdit && this._formSkillId === id;
-    const abbr = status === 'draft' ? '✏' : '✓';
+    const isDraft = status === 'draft';
     return html`
       <article role="listitem" data-testid="skill-card" data-skill-id=${id}>
         <nx-card
           heading=${title}
-          pill=${abbr}
           ?selected=${isEditing}
           @click=${() => this._onEditSkill(id)}
         >
+          <span slot="pill"
+            class="skill-status ${isDraft ? 'skill-status-draft' : 'skill-status-approved'}"
+            aria-label=${isDraft ? 'Draft' : 'Approved'}
+          >${isDraft ? nothing : (this._checkmarkSvg ?? nothing)}</span>
           <input slot="actions" type="checkbox"
             aria-label="Edit ${id}"
             .checked=${isEditing}
