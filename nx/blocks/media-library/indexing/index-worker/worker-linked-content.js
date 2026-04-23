@@ -102,8 +102,10 @@ export async function processLinkedContent(
     });
   }
 
-  // eslint-disable-next-line no-console
-  console.log(`[worker-linked-content] Added ${added} linked content entries`);
+  if (context?.isPerfEnabled) {
+    // eslint-disable-next-line no-console
+    console.log(`[worker-linked-content] Added ${added} linked content entries`);
+  }
 
   return {
     added,

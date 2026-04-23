@@ -387,8 +387,6 @@ async function runWorkerBuild(
   if (!imsToken) {
     throw new Error('No IMS token available');
   }
-  // eslint-disable-next-line no-console
-  console.log('[runWorkerBuild] Passing IMS token to worker (length:', imsToken?.length, 'chars)');
 
   const siteToken = window.localStorage?.getItem?.(`site-token-${org}-${repo}`) || null;
   const daOrigin = DA_ORIGIN;

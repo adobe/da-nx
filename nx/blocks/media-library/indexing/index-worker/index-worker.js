@@ -50,8 +50,9 @@ self.onmessage = async (event) => {
   } = event.data;
 
   try {
-    console.log(`[IndexWorker] Starting ${mode} build for ${sitePath}`);
-    console.log(`[IndexWorker] Received imsToken: ${imsToken ? `${imsToken.substring(0, 20)}... (${imsToken.length} chars)` : 'MISSING'}`);
+    if (isPerfEnabled) {
+      console.log(`[IndexWorker] Starting ${mode} build for ${sitePath}`);
+    }
 
     // Prepare callbacks for main thread communication
     const onProgress = (progressData) => {
@@ -112,7 +113,9 @@ self.onmessage = async (event) => {
       throw new Error(`Unknown build mode: ${mode}`);
     }
 
-    console.log(`[IndexWorker] ${mode} build complete, ${result?.length || 0} entries`);
+    if (isPerfEnabled) {
+      console.log(`[IndexWorker] ${mode} build complete, ${result?.length || 0} entries`);
+    }
 
     // Send success response
     self.postMessage({

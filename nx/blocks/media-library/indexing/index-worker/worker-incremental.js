@@ -105,16 +105,17 @@ function processMarkdownParsedImages(
   let added = 0;
   let removed = 0;
 
-  // Build medialog lookup by path for fast metadata retrieval
-  const medialogByPath = new Map();
+  // Build medialog lookup map (O(1) by filename)
+  const medialogByFilename = new Map();
   medialogEntries.forEach((m) => {
-    const { path } = m;
-    if (path) {
-      if (!medialogByPath.has(path)) {
-        medialogByPath.set(path, []);
-      }
-      medialogByPath.get(path).push(m);
+    if (!m.path) return;
+    const cleanPath = m.path.split('?')[0].split('#')[0];
+    const filename = cleanPath.split('/').pop();
+
+    if (!medialogByFilename.has(filename)) {
+      medialogByFilename.set(filename, []);
     }
+    medialogByFilename.get(filename).push(m);
   });
 
   // Build page events lookup for timestamps
@@ -138,8 +139,20 @@ function processMarkdownParsedImages(
   parsedImagesMap.forEach((pagePaths, imagePath) => {
     const url = canonicalizeMediaUrl(imagePath, org, repo);
     const dedupeKey = getDedupeKey(url);
-    const medialogMatches = medialogByPath.get(imagePath) || [];
-    const hash = medialogMatches[0]?.mediaHash || dedupeKey;
+    const cleanImagePath = imagePath.split('?')[0].split('#')[0];
+    const filename = cleanImagePath.split('/').pop();
+    const medialogMatches = medialogByFilename.get(filename) || [];
+    const existingEntry = existingIndexMap.get(dedupeKey);
+
+    // Normalize hash: medialog uses bare hash, but existingEntry might have full filename
+    // Extract hash from existingEntry if it looks like "media_<hash>.ext"
+    let existingHash = existingEntry?.hash;
+    if (existingHash && existingHash.startsWith('media_') && existingHash.includes('.')) {
+      // Extract hash from "media_<hash>.ext" → "<hash>"
+      existingHash = existingHash.substring(6, existingHash.lastIndexOf('.'));
+    }
+
+    const hash = medialogMatches[0]?.mediaHash || existingHash || dedupeKey;
 
     pagePaths.forEach((pageDoc) => {
       if (!newImagesByPage.has(pageDoc)) {
@@ -149,18 +162,35 @@ function processMarkdownParsedImages(
     });
   });
 
-  // For each parsed page, remove images no longer in markdown
+  // For each parsed page, remove page references for images no longer in markdown
+  // BUT preserve the image as standalone if this is its only reference
   parsedPages.forEach((pageDoc) => {
     const oldHashes = oldUsageMap.get(pageDoc) || new Set();
     const newHashes = newImagesByPage.get(pageDoc) || new Set();
     const toRemove = [...oldHashes].filter((h) => !newHashes.has(h));
 
     toRemove.forEach((hash) => {
+      if (hash.startsWith('http://') || hash.startsWith('https://')) {
+        return;
+      }
+
       const idx = updatedIndex.findIndex((e) => e.hash === hash && e.doc === pageDoc);
       if (idx !== -1) {
-        updatedIndex.splice(idx, 1);
-        removed += 1;
-        onLog(`  [markdown-parsed] Removed hash ${hash} from ${pageDoc} (not in markdown)`);
+        const entry = updatedIndex[idx];
+
+        // Check if this image has other page references
+        const otherRefs = updatedIndex.filter((e) => e.hash === hash && e.doc !== pageDoc);
+
+        if (otherRefs.length > 0) {
+          // Image has other page references - safe to remove this one
+          updatedIndex.splice(idx, 1);
+          removed += 1;
+          onLog(`  [markdown-parsed] Removed page reference ${hash} from ${pageDoc} (not in markdown)`);
+        } else {
+          // This is the only reference - convert to standalone instead of removing
+          entry.doc = '';
+          onLog(`  [markdown-parsed] Converted ${hash} to standalone (removed from ${pageDoc}, no other refs)`);
+        }
       }
     });
   });
@@ -170,31 +200,38 @@ function processMarkdownParsedImages(
     pagePaths.forEach((pageDoc) => {
       // Get metadata from medialog or page event
       let metadata = null;
-      const medialogMatches = medialogByPath.get(imagePath) || [];
+      const url = canonicalizeMediaUrl(imagePath, org, repo);
+      const cleanImagePath = imagePath.split('?')[0].split('#')[0];
+      const filename = cleanImagePath.split('/').pop();
+      const medialogMatches = medialogByFilename.get(filename) || [];
       const medialogForPage = medialogMatches.find((m) => {
         const resourcePath = m.resourcePath ? normalizePath(m.resourcePath) : '';
         return resourcePath === pageDoc;
       });
 
+      // Create or update entry
+      const dedupeKey = getDedupeKey(url);
+
+      // Get existing standalone entry to preserve type and other metadata
+      const existingMeta = existingIndexMap.get(dedupeKey);
+
       if (medialogForPage) {
         metadata = medialogForPage;
       } else {
-        // Fallback: use page event timestamp
         const pageEvs = pageEventsByPath.get(pageDoc) || [];
-        const latestPageEvent = pageEvs[0]; // Already sorted by timestamp desc
+        const latestPageEvent = pageEvs[0];
         metadata = {
           path: imagePath,
-          timestamp: latestPageEvent?.timestamp || Date.now(),
+          timestamp: latestPageEvent?.timestamp || 0,
           user: latestPageEvent?.user || '',
           operation: 'markdown-parsed',
           mediaHash: null,
+          // Preserve type from existing standalone entry
+          type: existingMeta?.type,
         };
       }
 
-      // Create or update entry
-      const url = canonicalizeMediaUrl(imagePath, org, repo);
-      const dedupeKey = getDedupeKey(url);
-      const hash = metadata.mediaHash || dedupeKey;
+      const hash = metadata.mediaHash || existingMeta?.hash || dedupeKey;
 
       // Check if entry already exists
       const existingIdx = updatedIndex.findIndex((e) => (
@@ -203,7 +240,6 @@ function processMarkdownParsedImages(
 
       if (existingIdx === -1) {
         // Entry doesn't exist - create it
-        const existingMeta = existingIndexMap.get(dedupeKey);
         const canonicalModifiedTimestamp = canonicalTimestamps.get(hash);
 
         const entry = createMedialogEntry(metadata, {
@@ -366,6 +402,14 @@ export async function buildIncrementalIndex(
     }
   });
 
+  // Normalize hash format in existing index entries
+  // Hash should always be bare (e.g. "abc123"), never with prefix (e.g. "media_abc123.jpg")
+  existingIndex.forEach((entry) => {
+    if (entry.hash && entry.hash.startsWith('media_') && entry.hash.includes('.')) {
+      entry.hash = entry.hash.substring(6, entry.hash.lastIndexOf('.'));
+    }
+  });
+
   // Convert existingIndex array to Map keyed by dedupe key for canonical metadata lookup
   const existingIndexMap = new Map();
   existingIndex.forEach((entry) => {
@@ -392,6 +436,7 @@ export async function buildIncrementalIndex(
   const medialogEntries = [];
 
   // MODIFIED: Use worker-safe streamLog with imsToken parameter
+  // Use bufferedSince for BOTH auditlog and medialog to avoid missing entries due to timing
   await Promise.all([
     streamLog('log', org, repo, ref, bufferedSince, IndexConfig.API_PAGE_SIZE, (entries) => {
       perf.auditLog.chunks += 1;
@@ -402,7 +447,7 @@ export async function buildIncrementalIndex(
         message: `Audit: ${auditlogEntries.length}, Medialog: ${medialogEntries.length}...`,
       });
     }, imsToken),
-    streamLog('medialog', org, repo, ref, lastFetchTime, IndexConfig.API_PAGE_SIZE, (entries) => {
+    streamLog('medialog', org, repo, ref, bufferedSince, IndexConfig.API_PAGE_SIZE, (entries) => {
       perf.medialog.chunks += 1;
       perf.medialog.streamed += entries.length;
       medialogEntries.push(...entries);
@@ -511,15 +556,29 @@ export async function buildIncrementalIndex(
 
   const updatedIndex = [...existingIndex];
 
-  log('Page-based medialog (resourcePath direct, no time window)');
-  log(`Pages to process: ${pagesByPath.size} (${[...pagesByPath.keys()].join(', ')})`);
-  log(`Medialog entries since lastFetch: ${medialogScoped.length}`);
-
   const canonicalTimestamps = buildCanonicalTimestampMap(medialogScoped);
+
+  let cleanedMedialog = medialogScoped;
+  if (pages.length > 0 && medialogScoped.length > 0) {
+    const latestTimestampByPage = new Map();
+    medialogScoped.forEach((entry) => {
+      if (!entry.resourcePath) return;
+      const page = normalizePath(entry.resourcePath);
+      const current = latestTimestampByPage.get(page) || 0;
+      latestTimestampByPage.set(page, Math.max(current, entry.timestamp));
+    });
+
+    cleanedMedialog = medialogScoped.filter((entry) => {
+      if (!entry.resourcePath) return true;
+      const page = normalizePath(entry.resourcePath);
+      const latestTimestamp = latestTimestampByPage.get(page);
+      return entry.timestamp === latestTimestamp;
+    });
+  }
 
   const idx = updatedIndex;
   const byPath = pagesByPath;
-  const medialog = medialogScoped;
+  const medialog = cleanedMedialog;
   const pageResults = processPageMediaUpdates(
     idx,
     byPath,
@@ -536,7 +595,7 @@ export async function buildIncrementalIndex(
   deletedPages.forEach((doc) => {
     const toRemove = updatedIndex.filter((e) => e.doc === doc);
     toRemove.forEach((entry) => {
-      removed += removeOrOrphanMedia(updatedIndex, entry, doc, medialogScoped);
+      removed += removeOrOrphanMedia(updatedIndex, entry, doc, cleanedMedialog);
     });
   });
 
@@ -546,52 +605,18 @@ export async function buildIncrementalIndex(
 
   const standaloneAdded = processStandaloneUploads(
     updatedIndex,
-    medialogScoped,
+    cleanedMedialog,
     referencedHashes,
     org,
     repo,
   );
   added += standaloneAdded;
 
-  // Parse markdown for changed pages to extract actual image references
-  // This ensures we have the correct state even when medialog is incomplete
-  log('Parsing markdown for changed pages to extract images...');
-  onProgress({ stage: 'processing', message: `Parsing ${pages.length} pages for images...` });
-  const parsedUsageMap = pages.length > 0
-    ? await buildUsageMap(pages, org, repo, ref, onProgress, null, context)
-    : { images: new Map() };
-
-  // Process images from parsed markdown (truth source)
-  if (parsedUsageMap.images && parsedUsageMap.images.size > 0) {
-    log(`Found ${parsedUsageMap.images.size} unique images in markdown`);
-    const imageResults = processMarkdownParsedImages(
-      updatedIndex,
-      parsedUsageMap.images,
-      usageMap,
-      pages,
-      medialogScoped,
-      org,
-      repo,
-      log,
-      existingIndexMap,
-      canonicalTimestamps,
-    );
-    added += imageResults.added;
-    removed += imageResults.removed;
-  } else {
-    log('No images found in parsed markdown');
-  }
-
-  // Update usageMap for changed pages by rebuilding page→hash mappings from updatedIndex
-  // For changed pages: clear old mapping and rebuild from current state
-  // For unchanged pages: preserve existing mapping in usageMap
   const processedPages = new Set(pagesByPath.keys());
   processedPages.forEach((page) => {
-    // Clear old mapping for this page
     usageMap.delete(page);
   });
 
-  // Rebuild mapping for changed pages from updatedIndex entries with doc field
   updatedIndex.forEach((entry) => {
     if (entry.doc && entry.hash && processedPages.has(entry.doc)) {
       if (!usageMap.has(entry.doc)) {
@@ -601,7 +626,6 @@ export async function buildIncrementalIndex(
     }
   });
 
-  // Remove deleted pages from usageMap
   deletedPages.forEach((doc) => {
     usageMap.delete(doc);
   });

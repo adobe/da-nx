@@ -34,6 +34,7 @@ async function getIsPerfEnabled() {
 export { getDedupeKey };
 
 const MD_LINK_RE = /\[[^\]]*\]\(([^)]+)\)/gi;
+const MD_REF_DEF_RE = /^\[([^\]]+)\]:\s*(.+)$/gm; // Reference-style link definitions
 const MD_AUTOLINK_RE = /<(https?:\/\/[^>]+|\/[^>\s]*)>/g;
 const HTML_MEDIA_ATTR_RE = /<(?:img|video|audio|source|iframe)\b[^>]*\b(src|srcset|poster)=["']([^"']+)["'][^>]*>/gi;
 const HTML_ANCHOR_RE = /<a\b[^>]*\bhref=["']([^"']+)["'][^>]*>/gi;
@@ -123,43 +124,27 @@ export function extractBestFilename(mediaEntry) {
 /**
  * Computes canonical modifiedTimestamp from all medialog entries for a hash.
  * Logic:
- * 1. Prefer ingest entry's modifiedTimestamp (if > 0)
- * 2. Else use ingest entry's timestamp (if > 0)
- * 3. Else use oldest reuse entry's timestamp (closest to actual ingest time)
- * 4. Else use 0
+ * Use the most recent activity timestamp (ingest or reuse) so that recently
+ * added/used images appear on top, regardless of the file's modification time on CDN.
  */
 export function computeCanonicalModifiedTimestamp(allEntriesForHash) {
   if (!allEntriesForHash || allEntriesForHash.length === 0) {
     return 0;
   }
 
-  // Find ingest entry
-  const ingestEntry = allEntriesForHash.find((e) => e.operation === 'ingest');
+  // Find the most recent timestamp across all operations (ingest, reuse, etc.)
+  const allTimestamps = allEntriesForHash
+    .map((e) => e.timestamp || 0)
+    .filter((ts) => ts > 0);
 
-  // Find all reuse entries and get oldest timestamp
-  const reuseEntries = allEntriesForHash.filter((e) => e.operation === 'reuse');
-  const oldestReuseTimestamp = reuseEntries.length > 0
-    ? Math.min(...reuseEntries.map((e) => e.timestamp || 0))
-    : 0;
-
-  // Apply fallback logic
-  if (ingestEntry) {
-    // Prefer ingest's modifiedTimestamp (asset's actual modified time from HTTP HEAD)
-    if (ingestEntry.modifiedTimestamp && ingestEntry.modifiedTimestamp > 0) {
-      return ingestEntry.modifiedTimestamp;
-    }
-    // Else use ingest's timestamp (upload time)
-    if (ingestEntry.timestamp && ingestEntry.timestamp > 0) {
-      return ingestEntry.timestamp;
-    }
+  if (allTimestamps.length === 0) {
+    return 0;
   }
 
-  // No ingest or ingest timestamp is 0 → use oldest reuse timestamp
-  if (oldestReuseTimestamp > 0) {
-    return oldestReuseTimestamp;
-  }
+  // Return the most recent activity timestamp
+  const maxTimestamp = Math.max(...allTimestamps);
 
-  return 0;
+  return maxTimestamp;
 }
 
 export function computeCanonicalMetadata(mediaEntry, existingMetadata = null) {
@@ -188,6 +173,27 @@ export function detectMediaType(mediaEntry) {
   const contentType = mediaEntry.contentType || '';
   if (contentType.startsWith('image/')) return MediaType.IMAGE;
   if (contentType.startsWith('video/')) return MediaType.VIDEO;
+
+  // Fall back to file extension detection if contentType not available
+  const url = mediaEntry.url || mediaEntry.path || '';
+  if (!url) return 'unknown';
+
+  // Extract extension from URL (handle query params and fragments)
+  const cleanUrl = url.split('?')[0].split('#')[0];
+  const match = cleanUrl.match(/\.([a-z0-9]+)$/i);
+  if (!match) return 'unknown';
+
+  const ext = match[1].toLowerCase();
+
+  // Map extension to MediaType
+  const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'bmp'];
+  const videoExts = ['mp4', 'webm', 'mov', 'avi', 'm4v'];
+
+  if (imageExts.includes(ext)) return MediaType.IMAGE;
+  if (videoExts.includes(ext)) return MediaType.VIDEO;
+  if (ext === 'pdf') return MediaType.DOCUMENT;
+  if (ext === 'svg') return MediaType.IMAGE;
+
   return 'unknown';
 }
 
@@ -209,6 +215,11 @@ export function createMedialogEntry(media, options = {}) {
   const hash = media.mediaHash || dedupeKey;
   const canonical = computeCanonicalMetadata(media, existingMeta);
 
+  let finalModifiedTimestamp = canonicalModifiedTimestamp ?? canonical.modifiedTimestamp;
+  if (finalModifiedTimestamp === '') {
+    finalModifiedTimestamp = null;
+  }
+
   return {
     hash,
     url,
@@ -219,7 +230,7 @@ export function createMedialogEntry(media, options = {}) {
     type: detectMediaType(media),
     doc,
     displayName: canonical.displayName,
-    modifiedTimestamp: canonicalModifiedTimestamp ?? canonical.modifiedTimestamp,
+    modifiedTimestamp: finalModifiedTimestamp,
   };
 }
 
@@ -353,6 +364,7 @@ function extractUrlsFromMarkdown(md) {
   if (!md || typeof md !== 'string') return [];
   const candidates = [
     ...[...md.matchAll(MD_LINK_RE)].map((m) => m[1]),
+    ...[...md.matchAll(MD_REF_DEF_RE)].map((m) => m[2]),
     ...[...md.matchAll(MD_AUTOLINK_RE)].map((m) => m[1]),
     ...extractHtmlMediaUrls(md),
   ];
@@ -648,6 +660,10 @@ export function toExternalMediaEntry(
     // Keep original if decode fails
   }
 
+  const modifiedTimestamp = (firstDiscoveredTimestamp === '' || firstDiscoveredTimestamp === null || firstDiscoveredTimestamp === undefined)
+    ? null
+    : firstDiscoveredTimestamp;
+
   return {
     hash: normalizedUrl,
     url: canonicalUrl,
@@ -657,7 +673,7 @@ export function toExternalMediaEntry(
     type: info.type,
     doc: doc || '',
     displayName,
-    modifiedTimestamp: firstDiscoveredTimestamp,
+    modifiedTimestamp,
   };
 }
 
@@ -676,6 +692,11 @@ export function toLinkedContentEntry(
   const url = `https://main--${repo}--${org}.aem.page${urlPath}`;
   const fileName = filePath.split('/').pop() || filePath;
 
+  const rawModifiedTimestamp = lastModified || fileEvent.timestamp;
+  const modifiedTimestamp = (rawModifiedTimestamp === '' || rawModifiedTimestamp === null || rawModifiedTimestamp === undefined)
+    ? null
+    : rawModifiedTimestamp;
+
   return {
     hash: filePath, // Path used as dedupe key for linked content
     url,
@@ -685,7 +706,7 @@ export function toLinkedContentEntry(
     type: getLinkedContentType(filePath),
     doc: doc || '',
     displayName: fileName, // Use filename for display
-    modifiedTimestamp: lastModified || fileEvent.timestamp,
+    modifiedTimestamp,
   };
 }
 
