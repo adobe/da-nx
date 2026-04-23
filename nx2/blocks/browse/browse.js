@@ -12,60 +12,10 @@ import './list/list.js';
 
 const styles = await loadStyle(import.meta.url);
 
-/*
- * Layout: the browse shell and table need a definite height chain (main fills the viewport
- * column, `.browse` fills main, list scrolls inside). Default page CSS often leaves `main`
- * auto-sized, so the list would grow with content instead of scrolling.
- *
- * We inject these rules only while `nx-browse` is connected (see `applyStyleOverride` /
- * `revertStyleOverride` on `document.adoptedStyleSheets`) so browse stays self-contained
- * and we avoid editing global / app-frame styles for one block.
- */
-const styleOverrideCss = `
-/* Fixed boundary in the main content area */
-main:has(nx-browse) {
-  position: relative;
-  height: 100%;
-  overflow: hidden;
-  display: grid;
-  grid-template-rows: 1fr;
-}
-/* Pin the browse block wrapper to main’s box */
-main:has(nx-browse) .browse {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  min-height: 0;
-}
-`.trim();
-
-/** @type {CSSStyleSheet | undefined} */
-let styleOverrideSheet;
-
-const applyStyleOverride = () => {
-  if (!styleOverrideSheet) {
-    styleOverrideSheet = new CSSStyleSheet();
-    styleOverrideSheet.replaceSync(styleOverrideCss);
-  }
-  const sheets = [...document.adoptedStyleSheets];
-  if (!sheets.includes(styleOverrideSheet)) {
-    document.adoptedStyleSheets = [...sheets, styleOverrideSheet];
-  }
-};
-
-const revertStyleOverride = () => {
-  if (!styleOverrideSheet) {
-    return;
-  }
-  document.adoptedStyleSheets = document.adoptedStyleSheets.filter(
-    (sheet) => sheet !== styleOverrideSheet,
-  );
-};
+const documentLayoutStyles = await loadStyle(
+  new URL('overrides.css', import.meta.url).href,
+);
+document.adoptedStyleSheets = [...document.adoptedStyleSheets, documentLayoutStyles];
 
 class NxBrowse extends LitElement {
   static properties = {
@@ -85,7 +35,6 @@ class NxBrowse extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [styles];
-    applyStyleOverride();
     this._unsubscribeHash = hashChange.subscribe((hashState) => {
       if (!this._explicitContext) {
         this._context = hashState;
@@ -99,7 +48,6 @@ class NxBrowse extends LitElement {
 
   disconnectedCallback() {
     this._unsubscribeHash?.();
-    revertStyleOverride();
     super.disconnectedCallback();
   }
 
