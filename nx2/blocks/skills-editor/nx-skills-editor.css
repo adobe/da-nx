@@ -62,6 +62,8 @@
 .form {
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-height: 0;
   gap: var(--s2-spacing-200);
 }
 
@@ -87,14 +89,22 @@
 }
 
 .form textarea {
-  min-height: calc(100vh - 300px);
-  resize: vertical;
+  flex: 1;
+  min-height: 200px;
+  resize: none;
   font-family: monospace;
   font-size: var(--s2-body-size-xs);
   line-height: 1.5;
 }
 
-.handoff-wrap > textarea {
+.textarea-wrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.suggestion-wrap > textarea {
   border-radius: calc(var(--s2-corner-radius-200) - 2px);
 }
 
@@ -204,7 +214,6 @@
 }
 
 .tool-row:not(:first-child) {
-  margin-top: var(--s2-spacing-100);
   border-top: 1px solid var(--s2-gray-200);
 }
 
@@ -338,27 +347,27 @@ article input[type="checkbox"]:checked::after {
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M1.5 5l2.5 2.5 4.5-4.5' stroke='white' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/contain no-repeat;
 }
 
-/* ─── chat handoff animation ───────────────────────────────────────────────── */
+/* ─── chat suggestion animation ───────────────────────────────────────────── */
 
-@property --handoff-angle {
+@property --suggestion-angle {
   syntax: '<angle>';
   inherits: false;
   initial-value: 0deg;
 }
 
-.handoff-wrap {
+.suggestion-wrap {
   position: relative;
   border-radius: var(--s2-corner-radius-200);
   padding: 2px;
   background: conic-gradient(
-    from var(--handoff-angle),
+    from var(--suggestion-angle),
     var(--s2-blue-400), var(--s2-blue-900), var(--s2-blue-400)
   );
-  animation: handoff-rotate 2s linear infinite;
+  animation: suggestion-rotate 2s linear infinite;
 }
 
-@keyframes handoff-rotate {
-  to { --handoff-angle: 360deg; }
+@keyframes suggestion-rotate {
+  to { --suggestion-angle: 360deg; }
 }
 
 /* ─── responsive / panel mode ──────────────────────────────────────────────── */

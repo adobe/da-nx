@@ -1,6 +1,6 @@
 /**
  * Data layer for Skills Editor — config sheet CRUD, .md file I/O,
- * MCP / generated-tools / agent-presets, and chat handoff events.
+ * MCP / generated-tools / agent-presets, and chat suggestion events.
  *
  * Ported from exp-workspace nx/blocks/browse/skills-lab-api.js,
  * adapted for nx2 imports and the skills-editor naming convention.
@@ -16,10 +16,10 @@ export function getAgentOrigin() {
   return isLocal ? 'http://localhost:4002' : 'https://da-agent.adobeaem.workers.dev';
 }
 
-// ─── chat ↔ skills-editor handoff (sessionStorage + custom events) ──────────
+// ─── chat ↔ skills-editor suggestion (sessionStorage + custom events) ────────
 
 const SKILL_CHAT_PROSE_KEY = 'da-skills-editor-skill-chat-prose';
-const SUGGEST_HANDOFF_KEY = 'da-skills-editor-suggest-handoff';
+const SUGGEST_HANDOFF_KEY = 'da-skills-editor-suggestion';
 
 export const DA_SKILLS_EDITOR_SUGGESTION_HANDOFF = 'da-skills-editor-suggestion-handoff';
 export const DA_SKILLS_EDITOR_FORM_DISMISS = 'da-skills-editor-form-column-dismiss';
@@ -391,8 +391,11 @@ export async function setGeneratedToolEnabled(org, site, toolId, enabled) {
 
   const raw = data[idx].content ?? data[idx].value ?? '';
   let def;
-  try { def = typeof raw === 'string' ? JSON.parse(raw) : raw; }
-  catch { return { ok: false, error: 'Invalid JSON' }; }
+  try {
+    def = typeof raw === 'string' ? JSON.parse(raw) : raw;
+  } catch {
+    return { ok: false, error: 'Invalid JSON' };
+  }
 
   data[idx] = { ...data[idx], key: id, content: JSON.stringify({ ...def, enabled: !!enabled }) };
   cfg[GEN_TOOLS_SHEET] = { ...sheet, data, total: data.length };
