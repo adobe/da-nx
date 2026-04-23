@@ -70,6 +70,7 @@
 
   & thead th {
     height: var(--s2-spacing-500);
+    font-weight: var(--s2-component-m-medium-font-weight);
 
     /* Row-group borders are unreliable with `border-collapse: separate`. Inset
        shadow draws the rule inside the cell so `height` is not grown by 1px like
