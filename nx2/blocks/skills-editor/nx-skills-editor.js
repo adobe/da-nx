@@ -141,7 +141,8 @@ class NxSkillsEditor extends LitElement {
     // Non-blocking: load agents and MCP tools after initial render
     loadAgentPresets(this._org, this._site).then((presets) => { this._agents = presets; });
     if (Object.keys(this._configuredMcpServers).length) {
-      fetchMcpToolsFromAgent(this._configuredMcpServers).then((tools) => { this._mcpTools = tools; });
+      fetchMcpToolsFromAgent(this._configuredMcpServers)
+        .then((tools) => { this._mcpTools = tools; });
     }
   }
 
@@ -183,8 +184,14 @@ class NxSkillsEditor extends LitElement {
   async _onSaveSkill(status = 'approved') {
     const id = this._formSkillId.trim();
     const body = this._formSkillBody;
-    if (!id) { this._setStatus('Skill ID is required', 'err'); return; }
-    if (!body.trim()) { this._setStatus('Skill body is required', 'err'); return; }
+    if (!id) {
+      this._setStatus('Skill ID is required', 'err');
+      return;
+    }
+    if (!body.trim()) {
+      this._setStatus('Skill body is required', 'err');
+      return;
+    }
 
     this._saveBusy = true;
     this._statusMsg = '';
@@ -244,11 +251,15 @@ class NxSkillsEditor extends LitElement {
   async _onSavePrompt(status = 'approved') {
     const title = this._formPromptTitle.trim();
     const prompt = this._formPromptBody.trim();
-    if (!title || !prompt) { this._setStatus('Title and prompt are required', 'err'); return; }
+    if (!title || !prompt) {
+      this._setStatus('Title and prompt are required', 'err');
+      return;
+    }
 
     this._saveBusy = true;
     const result = await upsertPromptInConfig(
-      this._org, this._site,
+      this._org,
+      this._site,
       { title, prompt, category: this._formPromptCategory },
       { status },
     );
@@ -361,6 +372,7 @@ class NxSkillsEditor extends LitElement {
         >
         <div class="${this._handoff ? 'handoff-wrap' : ''}">
           <textarea
+            placeholder="Create or edit a tool"
             aria-label="Skill markdown"
             .value=${this._formSkillBody}
             @input=${(e) => { this._formSkillBody = e.target.value; }}
@@ -562,14 +574,22 @@ class NxSkillsEditor extends LitElement {
   _renderSkillCard(id) {
     const title = this._extractTitle(this._skills[id]) || id;
     const status = this._skillStatuses[id] || 'approved';
+    const isEditing = this._formIsEdit && this._formSkillId === id;
+    const abbr = status === 'draft' ? '✏' : '✓';
     return html`
       <article role="listitem" data-testid="skill-card" data-skill-id=${id}>
-        <nx-card heading=${title}>
-          <span slot="badge" class="badge">${status}</span>
-          <button slot="actions" type="button"
+        <nx-card
+          heading=${title}
+          pill=${abbr}
+          ?selected=${isEditing}
+          @click=${() => this._onEditSkill(id)}
+        >
+          <input slot="actions" type="checkbox"
             aria-label="Edit ${id}"
-            @click=${() => this._onEditSkill(id)}
-          >Edit</button>
+            .checked=${isEditing}
+            @click=${(e) => e.stopPropagation()}
+            @change=${() => this._onEditSkill(id)}
+          >
         </nx-card>
       </article>
     `;

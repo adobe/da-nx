@@ -39,7 +39,7 @@
   flex-direction: column;
   min-height: 0;
   overflow-y: auto;
-  padding: var(--s2-spacing-150);
+  padding: var(--s2-spacing-200);
 }
 
 .col-form {
@@ -62,7 +62,7 @@
 .form {
   display: flex;
   flex-direction: column;
-  gap: var(--s2-spacing-150);
+  gap: var(--s2-spacing-200);
 }
 
 .form h3 {
@@ -86,6 +86,18 @@
   transition: border-color 0.15s;
 }
 
+.form textarea {
+  min-height: calc(100vh - 300px);
+  resize: vertical;
+  font-family: monospace;
+  font-size: var(--s2-body-size-xs);
+  line-height: 1.5;
+}
+
+.handoff-wrap > textarea {
+  border-radius: calc(var(--s2-corner-radius-200) - 2px);
+}
+
 .form input:focus,
 .form textarea:focus {
   border-color: var(--s2-blue-900);
@@ -96,17 +108,10 @@
   cursor: default;
 }
 
-.form textarea {
-  min-height: 160px;
-  resize: vertical;
-  font-family: monospace;
-  font-size: var(--s2-body-size-xs);
-  line-height: 1.5;
-}
-
 /* ─── save row ─────────────────────────────────────────────────────────────── */
 
 .save-row {
+  margin-top: var(--s2-spacing-200);
   display: flex;
   gap: var(--s2-spacing-100);
   flex-wrap: wrap;
@@ -175,6 +180,7 @@
 
 .tools-list {
   display: flex;
+  margin-top: var(--s2-spacing-100);
   flex-direction: column;
   gap: var(--s2-spacing-100);
 }
@@ -188,19 +194,48 @@
   font-size: var(--s2-body-size-xs);
 }
 
+.tool-row:hover {
+  background: var(--s2-gray-100);
+}
+
+.tool-row:focus-visible {
+  outline: 2px solid var(--s2-blue-900);
+  outline-offset: 2px;
+}
+
+.tool-row:not(:first-child) {
+  margin-top: var(--s2-spacing-100);
+  border-top: 1px solid var(--s2-gray-200);
+}
+
 .tool-row.is-referenced {
   background: light-dark(var(--s2-blue-100), var(--s2-blue-200));
 }
 
+/* ─── status pill colors on skill cards ──────────────────────────────────── */
+
+article[data-testid="skill-card"] nx-card[pill="✓"]::part(pill) {
+  background: light-dark(var(--s2-green-200), var(--s2-green-300));
+  color: var(--s2-green-900);
+  font-size: 13px;
+}
+
+article[data-testid="skill-card"] nx-card[pill="✏"]::part(pill) {
+  background: light-dark(var(--s2-gray-200), var(--s2-gray-300));
+  color: var(--s2-gray-700);
+  font-size: 11px;
+}
+
 .badge {
   display: inline-block;
-  padding: 1px var(--s2-spacing-75);
-  border-radius: var(--s2-corner-radius-100);
+  padding: 2px var(--s2-spacing-100);
+  border-radius: 999px;
   background: var(--s2-gray-200);
   font-size: 10px;
   font-weight: var(--s2-heading-font-weight);
   text-transform: uppercase;
   letter-spacing: 0.03em;
+  line-height: 1.2;
 }
 
 .tool-id {
@@ -233,7 +268,8 @@
   display: flex;
   gap: var(--s2-spacing-75);
   flex-wrap: wrap;
-  padding: var(--s2-spacing-75) 0;
+  justify-content: end;
+  padding: var(--s2-spacing-200) 0 var(--s2-spacing-100);
 }
 
 .filter-chip {
@@ -261,23 +297,31 @@
   color: var(--s2-blue-900);
 }
 
-/* ─── card slot buttons ────────────────────────────────────────────────────── */
+/* ─── card slot checkbox ────────────────────────────────────────────────── */
 
-article button {
-  padding: var(--s2-spacing-50) var(--s2-spacing-100);
-  border: 1px solid var(--s2-gray-300);
-  border-radius: var(--s2-corner-radius-200);
-  background: none;
-  color: var(--s2-gray-700);
-  font-family: inherit;
-  font-size: var(--s2-body-size-xs);
+article input[type="checkbox"] {
+  appearance: none;
+  width: 1rem;
+  height: 1rem;
+  border: 1.5px solid var(--s2-gray-400);
+  border-radius: var(--s2-corner-radius-100);
+  background: light-dark(var(--s2-gray-25), var(--s2-gray-75));
   cursor: pointer;
-  outline: none;
-  transition: background 0.15s;
+  flex-shrink: 0;
+  position: relative;
+  transition: background 0.15s, border-color 0.15s;
 }
 
-article button:hover {
-  background: var(--s2-gray-100);
+article input[type="checkbox"]:checked {
+  background: var(--s2-blue-900);
+  border-color: var(--s2-blue-900);
+}
+
+article input[type="checkbox"]:checked::after {
+  content: '';
+  position: absolute;
+  inset: 2px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M1.5 5l2.5 2.5 4.5-4.5' stroke='white' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/contain no-repeat;
 }
 
 /* ─── chat handoff animation ───────────────────────────────────────────────── */
@@ -301,10 +345,6 @@ article button:hover {
 
 @keyframes handoff-rotate {
   to { --handoff-angle: 360deg; }
-}
-
-.handoff-wrap textarea {
-  border-radius: calc(var(--s2-corner-radius-200) - 2px);
 }
 
 /* ─── responsive / panel mode ──────────────────────────────────────────────── */

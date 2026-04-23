@@ -14,7 +14,7 @@
   position: relative;
   display: inline-flex;
   align-items: center;
-  padding: var(--s2-spacing-100) var(--s2-spacing-150);
+  padding: var(--s2-spacing-100) var(--s2-spacing-200);
   border: none;
   border-radius: var(--s2-corner-radius-200) var(--s2-corner-radius-200) 0 0;
   background: none;
