@@ -47,7 +47,7 @@ export default function diffReporter() {
     async reportTestFileResults({ logger, sessionsForTestFile }) {
       sessionsForTestFile.forEach((session) => {
         const testFile = session.testFile?.split('/test/')[1];
-        session.testResults.suites.forEach((suite) => {
+        session.testResults?.suites?.forEach((suite) => {
           suite.tests.forEach((test) => {
             if (!test.passed && !test.skipped && test.error
                 && test.error.expected !== undefined && test.error.actual !== undefined) {

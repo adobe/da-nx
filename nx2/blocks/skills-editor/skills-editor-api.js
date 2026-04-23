@@ -161,6 +161,13 @@ export function skillRowStatus(row) {
   return String(row.status ?? '').trim().toLowerCase() === 'draft' ? 'draft' : 'approved';
 }
 
+export function skillRowEnabled(row) {
+  if (!row || typeof row !== 'object') return true;
+  if (typeof row.enabled === 'boolean') return row.enabled;
+  if (typeof row.disabled === 'boolean') return !row.disabled;
+  return true;
+}
+
 export function skillsRowsToMapAndStatuses(rows) {
   const map = {};
   const statuses = {};
@@ -176,10 +183,64 @@ export function skillsRowsToMapAndStatuses(rows) {
   return { map, statuses };
 }
 
+/**
+ * Load all skill .md files from /.da/skills/ and return them as { id → markdown } map.
+ * Merges with config sheet: .md body wins, config status wins.
+ */
+async function loadSkillsFromMdFiles(org, site) {
+  const folder = `/${org}/${site}/.da/skills`;
+  try {
+    const resp = await daFetch(`${DA_ORIGIN}/list${folder}`);
+    if (!resp.ok) return {};
+    const payload = await resp.json();
+    const items = Array.isArray(payload) ? payload : (payload?.items ?? []);
+    const out = {};
+    await Promise.all(items.map(async (item) => {
+      const ext = String(item?.ext || '').trim().toLowerCase();
+      const name = String(item?.name || '').trim();
+      if (!name) return;
+      if (ext !== 'md' && !name.toLowerCase().endsWith('.md')) return;
+      const pathStr = typeof item?.path === 'string' ? item.path.trim() : '';
+      let filename;
+      if (pathStr) {
+        filename = pathStr.split('/').pop();
+      } else if (ext === 'md') {
+        filename = `${name}.md`;
+      } else {
+        filename = name;
+      }
+      const key = filename.replace(/\.md$/i, '').trim();
+      if (!key) return;
+      const srcPath = pathStr || `${folder}/${filename}`;
+      try {
+        const r = await daFetch(`${DA_ORIGIN}/source${srcPath}`);
+        if (!r.ok) return;
+        const text = await r.text();
+        if (text) out[key] = text;
+      } catch { /* skip */ }
+    }));
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+export async function mergeSkillsWithMdFiles(sheetRows, org, site) {
+  const fileMap = await loadSkillsFromMdFiles(org, site);
+  const { map: cfgMap, statuses: cfgStatuses } = skillsRowsToMapAndStatuses(sheetRows || []);
+  // .md body wins over config body; config status wins
+  const mergedMap = { ...cfgMap, ...fileMap };
+  const mergedStatuses = { ...cfgStatuses };
+  Object.keys(fileMap).forEach((k) => {
+    if (!mergedStatuses[k]) mergedStatuses[k] = 'approved';
+  });
+  return { map: mergedMap, statuses: mergedStatuses };
+}
+
 export async function loadSkillsWithStatuses(org, site) {
   const loaded = await fetchDaConfigSheets(org, site);
   if (!loaded.ok || !loaded.json) return { map: {}, statuses: {} };
-  return skillsRowsToMapAndStatuses(loaded.json[SKILLS_SHEET]?.data);
+  return mergeSkillsWithMdFiles(loaded.json[SKILLS_SHEET]?.data, org, site);
 }
 
 export async function upsertSkillInConfig(org, site, skillId, content, options = {}) {
@@ -497,4 +558,20 @@ export function extractToolRefs(md) {
     found.add(m[1]);
   }
   return [...found];
+}
+
+/**
+ * Fetch site source text by path under site (e.g. /drafts/page.html).
+ * Used by the generated-tools "Try it" panel to load live page HTML.
+ */
+export async function fetchSiteSourceText(org, site, pathUnderSite) {
+  const p = String(pathUnderSite || '').replace(/^\//, '');
+  if (!p) return { error: 'Path required' };
+  try {
+    const resp = await daFetch(`${DA_ORIGIN}/source/${org}/${site}/${p}`);
+    if (!resp.ok) return { error: `HTTP ${resp.status}` };
+    return { text: await resp.text() };
+  } catch (e) {
+    return { error: String(e?.message ?? e) };
+  }
 }

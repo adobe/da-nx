@@ -370,6 +370,68 @@ article input[type="checkbox"]:checked::after {
   to { --suggestion-angle: 360deg; }
 }
 
+/* ─── MCP enable/disable toggle ────────────────────────────────────────────── */
+
+.pill-toggle {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  border: 1px solid currentcolor;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  background: transparent;
+  transition: opacity 0.15s;
+}
+
+.pill-toggle.is-enabled {
+  color: var(--s2-green-900);
+  border-color: var(--s2-green-600);
+  background: var(--s2-green-100);
+}
+
+.pill-toggle.is-disabled {
+  color: var(--s2-gray-600);
+  border-color: var(--s2-gray-400);
+}
+
+.pill-toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ─── catalog section headings ──────────────────────────────────────────────── */
+
+.section-h {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--s2-gray-700);
+  margin: var(--s2-spacing-200) 0 var(--s2-spacing-100);
+}
+
+/* ─── inline link buttons ────────────────────────────────────────────────────── */
+
+.link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--s2-blue-900);
+  cursor: pointer;
+  text-decoration: underline;
+  font-size: inherit;
+}
+
+/* ─── form hints ─────────────────────────────────────────────────────────────── */
+
+.form-hint {
+  font-size: 12px;
+  color: var(--s2-gray-600);
+  margin: 0;
+}
+
 /* ─── responsive / panel mode ──────────────────────────────────────────────── */
 
 @media (width <= 1023px) {
