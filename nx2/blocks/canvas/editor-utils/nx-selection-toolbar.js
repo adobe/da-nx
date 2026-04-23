@@ -68,7 +68,7 @@ class NxSelectionToolbar extends LitElement {
   }
 
   async _loadIcons() {
-    const names = [...STRUCTURE_ITEMS.map((i) => i.icon), 'Link', 'Unlink'];
+    const names = [...MARK_ITEMS.map((i) => i.icon), ...STRUCTURE_ITEMS.map((i) => i.icon), 'Link', 'Unlink'];
     const svgs = await Promise.all(names.map(loadSvgIcon));
     this._icons = Object.fromEntries(names.map((n, i) => [n, svgs[i]]));
   }
@@ -195,7 +195,7 @@ class NxSelectionToolbar extends LitElement {
     this._syncBlockTypePicker();
   }
 
-  _renderMarkButton({ id, label, text }) {
+  _renderMarkButton({ id, label, icon }) {
     const pressed = this._isCommandActive(id);
     return html`
       <button
@@ -205,7 +205,7 @@ class NxSelectionToolbar extends LitElement {
         title=${label}
         aria-pressed=${pressed ? 'true' : 'false'}
         data-id=${id}
-      >${text}</button>
+      >${this._icon(icon)}</button>
     `;
   }
 

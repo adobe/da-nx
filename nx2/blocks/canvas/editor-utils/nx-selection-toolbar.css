@@ -17,9 +17,9 @@
 
 .toolbar-btn {
   box-sizing: border-box;
-  min-width: 32px;
-  height: 32px;
-  padding: 0 6px;
+  min-width: 24px;
+  height: 24px;
+  padding: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -56,7 +56,7 @@
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.7rem;
   letter-spacing: -0.02em;
-  padding: 0 4px;
+  padding: 0;
 }
 
 .toolbar-btn[hidden] {
@@ -64,14 +64,14 @@
 }
 
 .toolbar-btn svg {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   display: block;
 }
 
 .toolbar-sep {
   width: 1px;
-  height: 20px;
+  height: 16px;
   background: var(--s2-gray-300);
   margin: 0 2px;
 }
