@@ -63,24 +63,6 @@ function addSyncedListener(wsProvider, canWrite, setEditable) {
   wsProvider.on('synced', handleSynced);
 }
 
-function handleUndo(state) {
-  const mgr = yUndoPluginKey.getState(state)?.undoManager;
-  if (mgr?.undoStack?.length > 0) {
-    mgr.undo();
-    return true;
-  }
-  return yUndo(state) || false;
-}
-
-function handleRedo(state) {
-  const mgr = yUndoPluginKey.getState(state)?.undoManager;
-  if (mgr?.redoStack?.length > 0) {
-    mgr.redo();
-    return true;
-  }
-  return yRedo(state) || false;
-}
-
 export default async function initProse({
   path, permissions, setEditable, getToken,
   extraPlugins = [],
@@ -150,9 +132,9 @@ export default async function initProse({
     keymap(baseKeymap),
     codemark(),
     keymap({
-      'Mod-z': handleUndo,
-      'Mod-y': handleRedo,
-      'Mod-Shift-z': handleRedo,
+      'Mod-z': (state) => yUndo(state) || false,
+      'Mod-y': (state) => yRedo(state) || false,
+      'Mod-Shift-z': (state) => yRedo(state) || false,
       ...getHeadingKeymap(schema),
     }),
     keymap({

@@ -1,5 +1,13 @@
 # Worklog
 
+## 2026-04-23
+
+### Canvas actions — no constructor
+- `canvas-actions.js`: `HashController` and initial `_busy` moved to class fields so the custom constructor can be dropped; `_sendIcon` is not a reactive property (set once in `firstUpdated` + `requestUpdate()`); dropped redundant `requestUpdate()` after `_busy` / `_error` changes (Lit `@state` assignments schedule updates).
+
+### Canvas prose — undo/redo keymap
+- `prose.js`: removed custom `handleUndo` / `handleRedo` that duplicated `yUndo` / `yRedo` from y-prosemirror (same pattern as `nx-editor-wysiwyg/utils/handlers.js` and da.live’s underlying commands).
+
 ## 2026-04-22
 
 ### Canvas prose — keymap order aligned with da.live

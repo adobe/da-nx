@@ -15,16 +15,13 @@ const SEND_ICON_HREF = new URL('../img/icons/S2_Icon_Send_20_N.svg', import.meta
 
 class NXCanvasActions extends LitElement {
   static properties = {
-    _sendIcon: { state: true },
     _busy: { state: true },
     _error: { state: true },
   };
 
-  constructor() {
-    super();
-    this._hash = new HashController(this);
-    this._busy = false;
-  }
+  _hash = new HashController(this);
+
+  _busy = false;
 
   get _popover() {
     return this.shadowRoot?.querySelector('nx-popover');
@@ -41,6 +38,7 @@ class NXCanvasActions extends LitElement {
 
   async firstUpdated() {
     this._sendIcon = await loadHrefSvg(SEND_ICON_HREF);
+    this.requestUpdate();
   }
 
   get _hashState() {
@@ -77,20 +75,17 @@ class NXCanvasActions extends LitElement {
 
     this._error = undefined;
     this._busy = true;
-    this.requestUpdate();
 
     const result = await runAemPreviewOrPublish({ aemPath, action });
     if (!result.ok) {
       this._error = formatAemPreviewPublishError(result.error);
       this._busy = false;
-      this.requestUpdate();
       return;
     }
 
     window.open(result.url, result.url);
 
     this._busy = false;
-    this.requestUpdate();
   }
 
   render() {
@@ -108,7 +103,7 @@ class NXCanvasActions extends LitElement {
               type="button"
               class="preview-dropdown-btn"
               aria-label="Preview and publish"
-              aria-haspopup="dialog"
+              aria-haspopup="menu"
               aria-expanded="false"
               ?disabled=${disabled}
               @click=${this._togglePreviewPopover}
