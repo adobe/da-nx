@@ -30,10 +30,12 @@ import {
 import {
   normalizePath, isPage,
   getDedupeKey,
+} from '../parse.js';
+import {
+  buildUsageMap,
   detectMediaType,
   computeCanonicalMetadata,
-} from '../parse.js';
-import { buildUsageMap } from './worker-parse.js';
+} from './worker-parse.js';
 import { canonicalizeMediaUrl } from '../../core/urls.js';
 import { buildMediaSheet } from '../sheets.js';
 import {
