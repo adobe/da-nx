@@ -2,6 +2,7 @@ import { TextSelection, yUndo, yRedo } from 'da-y-wrapper';
 import {
   getSelectionToolbar,
   hideSelectionToolbar,
+  TOOLBAR_PADDING_GAP,
 } from '../../editor-utils/selection-toolbar.js';
 import { getActiveBlockFlatIndex } from './blocks.js';
 
@@ -117,8 +118,6 @@ export function handleSelectionChange({ anchor, head }, ctx) {
   }
 }
 
-const IFRAME_LINE_HEIGHT_OFFSET = 64;
-
 function positionSelectionToolbarFromIframe(data, ctx) {
   const { view } = ctx;
   const { anchorX, anchorY } = data;
@@ -127,7 +126,7 @@ function positionSelectionToolbarFromIframe(data, ctx) {
 
   const iframeRect = iframe.getBoundingClientRect();
   const x = iframeRect.left + anchorX;
-  const y = iframeRect.top + anchorY - IFRAME_LINE_HEIGHT_OFFSET;
+  const y = iframeRect.top + anchorY - TOOLBAR_PADDING_GAP;
   const tb = getSelectionToolbar();
   tb.view = view;
   tb.show({ x, y });

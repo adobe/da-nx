@@ -3,6 +3,8 @@ import { Plugin, NodeSelection } from 'da-y-wrapper';
 
 const NON_TEXT_NODES = new Set(['table', 'image']);
 
+export const TOOLBAR_PADDING_GAP = 64;
+
 let toolbar;
 let componentLoaded;
 
@@ -32,7 +34,7 @@ function syncToolbar(view) {
   }
   const start = view.coordsAtPos(view.state.selection.from);
   tb.view = view;
-  tb.show({ x: start.left, y: start.top - 64 });
+  tb.show({ x: start.left, y: start.top - TOOLBAR_PADDING_GAP });
 }
 
 export function createSelectionToolbarPlugin() {
