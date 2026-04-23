@@ -21,6 +21,7 @@ class NxMenu extends LitElement {
     _active: { state: true },
     _icons: { state: true },
     ignoreFocus: { attribute: true },
+    scoped: { type: Boolean },
   };
 
   get _popover() { return this.shadowRoot.querySelector('nx-popover'); }
@@ -150,7 +151,7 @@ class NxMenu extends LitElement {
   render() {
     return html`
       <slot name="trigger" @slotchange=${this._onTriggerSlotChange}></slot>
-      <nx-popover @toggle=${this._onMenuToggle} @keydown=${this._onKeydown} @close=${this._onClose}>
+      <nx-popover ?scoped=${this.scoped} @toggle=${this._onMenuToggle} @keydown=${this._onKeydown} @close=${this._onClose}>
         <ul role="menu">
           ${this.items?.map((item) => this._renderItem(item))}
         </ul>

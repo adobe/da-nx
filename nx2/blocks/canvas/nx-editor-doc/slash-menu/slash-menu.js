@@ -43,6 +43,7 @@ function setup(container, view) {
 
   const menu = document.createElement('nx-menu');
   menu.ignoreFocus = true;
+  menu.scoped = true;
   menu.items = slashMenuItemsForQuery('');
   container.append(menu);
 
