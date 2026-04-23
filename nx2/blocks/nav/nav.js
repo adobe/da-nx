@@ -81,7 +81,7 @@ class NXNav extends LitElement {
       brandLink.setAttribute('aria-label', textContent);
       brandLink.textContent = '';
       const lockup = await loadHrefSvg(href);
-      brandLink.append(lockup);
+      if (lockup) brandLink.append(lockup);
     }
     brandLink.href = '/';
 

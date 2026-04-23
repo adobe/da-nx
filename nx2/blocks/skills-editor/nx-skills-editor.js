@@ -1,9 +1,9 @@
 import { LitElement, html, nothing } from 'da-lit';
-import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { loadStyle, HashController } from '../../utils/utils.js';
-import { loadHrefSvg, ICONS_BASE } from '../../utils/svg.js';
+import { ICONS_BASE } from '../../utils/svg.js';
 import '../shared/tabs/tabs.js';
 import '../shared/card/card.js';
+import './generated-tools/generated-tools.js';
 import {
   fetchDaConfigSheets,
   loadSkillsWithStatuses,
@@ -21,8 +21,12 @@ import {
   consumeSuggestionHandoff,
   clearSuggestionSession,
   registerMcpServer,
+  setMcpServerEnabled,
+  skillRowStatus,
+  skillRowEnabled,
   DA_SKILLS_EDITOR_SUGGESTION_HANDOFF,
   DA_SKILLS_EDITOR_CLEAR_FORM_FROM_CHAT,
+  DA_SKILLS_EDITOR_FORM_DISMISS,
   DA_SKILLS_EDITOR_PROMPT_ADD_TO_CHAT,
   DA_SKILLS_EDITOR_PROMPT_SEND,
 } from './skills-editor-api.js';
@@ -43,9 +47,21 @@ const TOOLS_TABS = [
 
 const STATUS = { APPROVED: 'approved', DRAFT: 'draft' };
 
+const BUILTIN_MCP_SERVERS = [
+  {
+    id: 'da-tools',
+    description: 'Core DA authoring tools — read, write, list, copy, and manage content',
+    transport: 'built-in',
+  },
+  {
+    id: 'eds-preview',
+    description: 'Preview and publish content to Edge Delivery Services',
+    transport: 'built-in',
+  },
+];
+
 class NxSkillsEditor extends LitElement {
   static properties = {
-    _checkmarkSvg: { state: true },
     _loading: { state: true },
     _catalogTab: { state: true },
     _toolsTab: { state: true },
@@ -72,6 +88,8 @@ class NxSkillsEditor extends LitElement {
     _suggestion: { state: true },
     _mcpKey: { state: true },
     _mcpUrl: { state: true },
+    _editingMcpKey: { state: true },
+    _mcpEnableBusy: { state: true },
   };
 
   constructor() {
@@ -92,9 +110,10 @@ class NxSkillsEditor extends LitElement {
     this._clearForm();
     this._mcpKey = '';
     this._mcpUrl = '';
+    this._editingMcpKey = null;
+    this._mcpEnableBusy = {};
     this._loadedKey = null;
     this._statusTimer = null;
-    this._checkmarkHtml = null;
   }
 
   get _org() { return this._hash.value?.org; }
@@ -104,9 +123,6 @@ class NxSkillsEditor extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [styles];
-    loadHrefSvg(`${ICONS_BASE}S2_Icon_Checkmark_20_N.svg`)
-      .then((svg) => { this._checkmarkSvg = svg?.outerHTML ?? null; })
-      .catch(() => { this._checkmarkSvg = null; });
     this._boundOnSuggestion = () => this._applySuggestion();
     this._boundOnClearForm = () => this._clearForm();
     window.addEventListener(DA_SKILLS_EDITOR_SUGGESTION_HANDOFF, this._boundOnSuggestion);
@@ -186,6 +202,11 @@ class NxSkillsEditor extends LitElement {
     this._suggestion = false;
   }
 
+  _dismissForm() {
+    this._clearForm();
+    window.dispatchEvent(new CustomEvent(DA_SKILLS_EDITOR_FORM_DISMISS));
+  }
+
   _setStatus(msg, type = 'ok') {
     clearTimeout(this._statusTimer);
     this._statusMsg = msg;
@@ -239,6 +260,8 @@ class NxSkillsEditor extends LitElement {
   async _onDeleteSkill() {
     const id = this._formSkillId.trim();
     if (!id) return;
+    // eslint-disable-next-line no-alert
+    if (!window.confirm(`Delete skill "${id}"? This cannot be undone.`)) return;
     this._saveBusy = true;
 
     const [configResult, fileResult] = await Promise.all([
@@ -302,6 +325,8 @@ class NxSkillsEditor extends LitElement {
   async _onDeletePrompt() {
     const title = this._formPromptTitle.trim();
     if (!title) return;
+    // eslint-disable-next-line no-alert
+    if (!window.confirm(`Delete prompt "${title}"? This cannot be undone.`)) return;
     this._saveBusy = true;
 
     const result = await deletePromptFromConfig(this._org, this._site, title);
@@ -333,14 +358,44 @@ class NxSkillsEditor extends LitElement {
 
   async _onRegisterMcp() {
     this._saveBusy = true;
+    const isUpdate = Boolean(this._editingMcpKey);
     const result = await registerMcpServer(this._org, this._site, this._mcpKey, this._mcpUrl);
     if (!result.ok) this._setStatus(result.error || 'Failed', 'err');
     else {
       this._mcpKey = '';
       this._mcpUrl = '';
-      this._setStatus('MCP server registered');
+      this._editingMcpKey = null;
+      this._setStatus(isUpdate ? 'MCP server updated' : 'MCP server registered');
     }
     this._saveBusy = false;
+    await this._reload();
+  }
+
+  _clearMcpForm() {
+    this._editingMcpKey = null;
+    this._mcpKey = '';
+    this._mcpUrl = '';
+  }
+
+  _onEditMcp(row) {
+    this._editingMcpKey = row.key;
+    this._mcpKey = row.key;
+    this._mcpUrl = row.url || row.value || '';
+    this._catalogTab = 'mcps';
+  }
+
+  async _onToggleMcpEnabled(row) {
+    if (!row?.key || skillRowStatus(row) !== STATUS.APPROVED) return;
+    const key = String(row.key);
+    const token = `mcp:${key}`;
+    const nextEnabled = !(skillRowStatus(row) === STATUS.APPROVED && skillRowEnabled(row));
+    this._mcpEnableBusy = { ...this._mcpEnableBusy, [token]: true };
+    const res = await setMcpServerEnabled(this._org, this._site, key, nextEnabled);
+    this._mcpEnableBusy = { ...this._mcpEnableBusy, [token]: false };
+    if (!res.ok) {
+      this._setStatus(res.error || 'Could not update MCP state', 'err');
+      return;
+    }
     await this._reload();
   }
 
@@ -411,7 +466,7 @@ class NxSkillsEditor extends LitElement {
           ${this._formIsEdit || this._suggestion ? html`
             <button type="button" data-variant="secondary"
               ?disabled=${this._saveBusy}
-              @click=${() => { this._clearForm(); }}
+              @click=${() => { this._dismissForm(); }}
             >Dismiss</button>
           ` : nothing}
           <button type="button" data-variant="secondary"
@@ -482,9 +537,15 @@ class NxSkillsEditor extends LitElement {
   _renderMcpForm() {
     return html`
       <form class="form" @submit=${(e) => e.preventDefault()}>
-        <h3>Register MCP Server</h3>
+        <h3>${this._editingMcpKey ? 'Update MCP Server' : 'Register MCP Server'}</h3>
+        ${this._editingMcpKey ? html`
+          <p class="form-hint">Editing <code>${this._editingMcpKey}</code> ·
+            <button type="button" class="link-btn" @click=${this._clearMcpForm}>New MCP</button>
+          </p>
+        ` : nothing}
         <input type="text" placeholder="server-key" aria-label="MCP server key"
           .value=${this._mcpKey}
+          ?readonly=${Boolean(this._editingMcpKey)}
           @input=${(e) => { this._mcpKey = e.target.value; }}
         >
         <input type="text" placeholder="SSE endpoint URL" aria-label="MCP server URL"
@@ -495,8 +556,13 @@ class NxSkillsEditor extends LitElement {
           <button type="button" data-variant="accent"
             ?disabled=${this._saveBusy || !this._mcpKey.trim() || !this._mcpUrl.trim()}
             @click=${this._onRegisterMcp}
-          >Register</button>
+          >${this._editingMcpKey ? 'Update' : 'Register'}</button>
         </div>
+        ${this._statusMsg ? html`
+          <output class="msg ${this._statusType === 'err' ? 'msg-err' : 'msg-ok'}">
+            ${this._statusMsg}
+          </output>
+        ` : nothing}
       </form>
     `;
   }
@@ -548,15 +614,13 @@ class NxSkillsEditor extends LitElement {
   }
 
   _renderGeneratedTools() {
-    if (!this._generatedTools.length) {
-      return html`<div class="empty">No generated tools</div>`;
-    }
-    return this._generatedTools.map((def) => html`
-      <div class="tool-row">
-        <span class="badge">GEN</span>
-        <span class="tool-id">${def.id || def.name || '(unnamed)'}</span>
-      </div>
-    `);
+    return html`
+      <nx-generated-tools
+        .org=${this._org}
+        .site=${this._site}
+        context-page-path=${window.location.pathname || ''}
+      ></nx-generated-tools>
+    `;
   }
 
   // ─── render: catalog column ───────────────────────────────────────────────
@@ -606,21 +670,22 @@ class NxSkillsEditor extends LitElement {
   }
 
   _renderSkillCard(id) {
-    const title = this._extractTitle(this._skills[id]) || id;
+    const title = this._extractTitle(this._skills[id]);
     const status = this._skillStatuses[id] || STATUS.APPROVED;
     const isEditing = this._formIsEdit && this._formSkillId === id;
-    const isDraft = status === 'draft';
+    const isDraft = status === STATUS.DRAFT;
     return html`
       <article role="listitem" data-testid="skill-card" data-skill-id=${id}>
         <nx-card
-          heading=${title}
+          heading=${id}
+          subheading=${title || nothing}
           ?selected=${isEditing}
           @click=${() => this._onEditSkill(id)}
         >
           <span slot="pill"
             class="skill-status ${isDraft ? 'skill-status-draft' : 'skill-status-approved'}"
             aria-label=${isDraft ? 'Draft' : 'Approved'}
-          >${isDraft ? nothing : unsafeHTML(this._checkmarkSvg ?? '')}</span>
+          >${isDraft ? nothing : html`<img src="${ICONS_BASE}S2_Icon_Checkmark_20_N.svg" width="16" height="16" alt="" aria-hidden="true">`}</span>
           <input slot="actions" type="checkbox"
             aria-label="Edit ${id}"
             .checked=${isEditing}
@@ -675,16 +740,56 @@ class NxSkillsEditor extends LitElement {
   }
 
   _renderMcpsCatalog() {
+    const filterPasses = (status) => this._catalogFilter === 'all' || status === this._catalogFilter;
+    const filteredCustom = this._mcpRows.filter((row) => filterPasses(skillRowStatus(row)));
+    const showBuiltins = filterPasses(STATUS.APPROVED);
+
     return html`
       <div class="catalog-scroll" role="list" aria-label="MCP servers">
-        <h3>MCP Servers</h3>
-        ${!this._mcpRows.length
-          ? html`<div class="empty">No MCP servers registered</div>`
-          : this._mcpRows.map((row) => html`
-            <article role="listitem" data-testid="mcp-card">
-              <nx-card heading=${row.key || '(unnamed)'} subheading=${row.url || row.value || ''}></nx-card>
+        ${showBuiltins ? html`
+          <h3 class="section-h">Built-in (${BUILTIN_MCP_SERVERS.length})</h3>
+          ${BUILTIN_MCP_SERVERS.map((s) => html`
+            <article role="listitem" data-testid="mcp-builtin-card">
+              <nx-card heading=${s.id} subheading=${s.transport}>
+                <span slot="pill" class="skill-status skill-status-approved" aria-label="Approved">
+                  <img src="${ICONS_BASE}S2_Icon_Checkmark_20_N.svg" width="16" height="16" alt="" aria-hidden="true">
+                </span>
+                <span slot="actions" class="badge">built-in</span>
+              </nx-card>
             </article>
           `)}
+        ` : nothing}
+        <h3 class="section-h">Custom (${filteredCustom.length})</h3>
+        ${!filteredCustom.length
+          ? html`<div class="empty">No custom MCP servers registered</div>`
+          : filteredCustom.map((row) => {
+            const isApproved = skillRowStatus(row) === STATUS.APPROVED;
+            const isEnabled = isApproved && skillRowEnabled(row);
+            const token = `mcp:${row.key}`;
+            const isBusy = this._mcpEnableBusy[token];
+            return html`
+              <article role="listitem" data-testid="mcp-card" data-mcp-key=${row.key || ''}>
+                <nx-card heading=${row.key || '(unnamed)'} subheading=${row.url || row.value || ''}>
+                  <span slot="pill"
+                    class="skill-status ${isApproved ? 'skill-status-approved' : 'skill-status-draft'}"
+                    aria-label=${isApproved ? 'Approved' : 'Draft'}
+                  >${isApproved ? html`<img src="${ICONS_BASE}S2_Icon_Checkmark_20_N.svg" width="16" height="16" alt="" aria-hidden="true">` : nothing}</span>
+                  ${isApproved ? html`
+                    <button slot="actions" type="button"
+                      class="pill-toggle ${isEnabled ? 'is-enabled' : 'is-disabled'}"
+                      ?disabled=${isBusy}
+                      aria-label="${isEnabled ? 'Disable' : 'Enable'} ${row.key}"
+                      @click=${(e) => { e.stopPropagation(); this._onToggleMcpEnabled(row); }}
+                    >${isEnabled ? 'Enabled' : 'Disabled'}</button>
+                  ` : nothing}
+                  <button slot="actions" type="button"
+                    aria-label="Edit ${row.key}"
+                    @click=${(e) => { e.stopPropagation(); this._onEditMcp(row); }}
+                  >Edit</button>
+                </nx-card>
+              </article>
+            `;
+          })}
       </div>
     `;
   }
