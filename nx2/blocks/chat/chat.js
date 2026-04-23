@@ -3,6 +3,7 @@ import ChatController from './chat-controller.js';
 import { renderMessage, renderApprovalCard } from './renderers.js';
 import './welcome/welcome.js';
 import './prompts/prompts.js';
+import './pills/pills.js';
 import '../shared/menu/menu.js';
 import { loadStyle, hashChange } from '../../utils/utils.js';
 import { loadChatIcons } from './utils.js';
@@ -22,11 +23,20 @@ class NxChat extends LitElement {
     connected: { type: Boolean },
     toolCards: { type: Object },
     _prompts: { state: true },
+    _attachedItems: { state: true },
   };
 
   set context(value) {
     this._explicitContext = true;
     this._applyContext(value);
+  }
+
+  _onAddToChat = ({ detail }) => this.addAttachment(detail);
+
+  addAttachment(item) {
+    const current = this._attachedItems ?? [];
+    if (current.some((i) => i.id === item.id)) return;
+    this._attachedItems = [...current, item];
   }
 
   _applyContext(value) {
@@ -95,6 +105,7 @@ class NxChat extends LitElement {
     });
 
     this._controller.connect().then(() => this._controller.loadInitialMessages());
+    document.addEventListener('nx-add-to-chat', this._onAddToChat);
   }
 
   disconnectedCallback() {
@@ -102,6 +113,7 @@ class NxChat extends LitElement {
     this._unsubscribeHash?.();
     this._controller?.destroy();
     document.removeEventListener('keydown', this._onApprovalKeydown);
+    document.removeEventListener('nx-add-to-chat', this._onAddToChat);
   }
 
   _pendingApproval() {
@@ -183,9 +195,11 @@ class NxChat extends LitElement {
     }
     const input = this.shadowRoot.querySelector('.chat-input');
     const message = input.value.trim();
-    if (!message) return;
-    this._controller.sendMessage(message);
+    if (!message && !this._attachedItems?.length) return;
+    const context = this._attachedItems ?? [];
+    this._controller.sendMessage(message, context);
     input.value = '';
+    this._attachedItems = [];
   }
 
   _sendPrompt(prompt) {
@@ -196,6 +210,10 @@ class NxChat extends LitElement {
 
   _handleMenuSelect({ detail: { id } }) {
     if (id === MENU_OPTIONS.PROMPT) this._openPrompts();
+  }
+
+  _handlePillRemove({ detail: { id } }) {
+    this._attachedItems = (this._attachedItems ?? []).filter((item) => item.id !== id);
   }
 
   render() {
@@ -226,6 +244,11 @@ class NxChat extends LitElement {
       <div class="chat-form-wrap">
         ${renderApprovalCard(this._pendingApproval(), this._controller.approveToolCall)}
         <form class="chat-form" autocomplete="off" @submit=${this._submit}>
+        ${this._attachedItems?.length ? html`
+          <nx-chat-pills
+            .items=${this._attachedItems}
+            @nx-pill-remove=${this._handlePillRemove}
+          ></nx-chat-pills>` : nothing}
         <textarea
           name="chat-input"
           class="chat-input"
