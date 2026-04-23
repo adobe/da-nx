@@ -19,6 +19,7 @@ export function hideSelectionToolbar() {
 }
 
 function syncToolbar(view) {
+  if (!view) return;
   const tb = getSelectionToolbar();
   if (tb.linkDialogOpen) return;
   if (view.state.selection.empty) {

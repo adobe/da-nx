@@ -1,5 +1,5 @@
 import { loadStyle, hashChange } from '../../utils/utils.js';
-import { hidePanel, unhidePanel, openPanelWithFragment } from '../../utils/panel.js';
+import { hidePanel, unhidePanel, openPanelWithFragment, showPanel } from '../../utils/panel.js';
 import './nx-canvas-header/nx-canvas-header.js';
 import './nx-editor-doc/nx-editor-doc.js';
 import './nx-editor-wysiwyg/nx-editor-wysiwyg.js';
@@ -124,14 +124,20 @@ async function openCanvasPanel(position) {
   }
 
   // Case 3: Panel does not exist yet
-  const aside = await openPanelWithFragment({
-    width: '400px',
-    beforeMain: position === 'before',
-    fragment: FRAGMENTS[position],
-  });
+  let aside;
+  if (position === 'after') {
+    await import('./nx-panel-extensions/nx-panel-extensions.js');
+    const extensions = document.createElement('nx-panel-extensions');
+    aside = showPanel({ width: '400px', content: extensions });
+  } else {
+    aside = await openPanelWithFragment({
+      width: '400px',
+      beforeMain: position === 'before',
+      fragment: FRAGMENTS[position],
+    });
+  }
 
-  // Add header to panel after crating
-  addPanelHeader(aside);
+  if (aside) addPanelHeader(aside);
 }
 
 function installCanvasHeader(block) {
