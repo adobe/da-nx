@@ -7,6 +7,8 @@ class NxCard extends LitElement {
   static properties = {
     heading: { type: String },
     subheading: { type: String },
+    pill: { type: String },
+    selected: { type: Boolean, reflect: true },
   };
 
   connectedCallback() {
@@ -17,8 +19,11 @@ class NxCard extends LitElement {
   render() {
     return html`
       <div class="card" part="card">
+        ${this.pill !== undefined
+          ? html`<div class="card-pill" part="pill">${this.pill}</div>`
+          : nothing}
+        <slot name="pill"></slot>
         <div class="card-body">
-          <slot name="badge"></slot>
           ${this.heading
             ? html`<span class="card-heading" part="heading">${this.heading}</span>`
             : nothing}

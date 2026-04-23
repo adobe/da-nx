@@ -7,22 +7,52 @@
   display: flex;
   align-items: center;
   gap: var(--s2-spacing-100);
-  padding: var(--s2-spacing-100) var(--s2-spacing-150);
+  padding: var(--s2-spacing-75) var(--s2-spacing-100);
   border: 1px solid var(--s2-gray-200);
   border-radius: var(--s2-corner-radius-200);
   background: light-dark(var(--s2-gray-25), var(--s2-gray-50));
-  transition: border-color 0.15s;
+  transition: border-color 0.15s, background 0.15s;
+  cursor: pointer;
+  user-select: none;
 }
 
 .card:hover {
   border-color: var(--s2-gray-400);
+  background: light-dark(var(--s2-gray-50), var(--s2-gray-75));
 }
+
+:host([selected]) .card {
+  border-color: var(--s2-blue-900);
+  background: light-dark(var(--s2-blue-100), var(--s2-blue-200));
+}
+
+/* ─── left pill/badge slot ───────────────────────────────────────────────── */
+
+.card-pill {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: var(--s2-corner-radius-200);
+  background: var(--s2-gray-200);
+  font-size: 10px;
+  font-weight: var(--s2-heading-font-weight);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ─── body ───────────────────────────────────────────────────────────────── */
 
 .card-body {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
   min-width: 0;
 }
 
@@ -42,6 +72,8 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ─── actions / checkbox slot ────────────────────────────────────────────── */
 
 .card-actions {
   display: flex;
