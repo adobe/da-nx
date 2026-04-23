@@ -1,4 +1,5 @@
 import { LitElement, html, nothing } from 'da-lit';
+import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { loadStyle, HashController } from '../../utils/utils.js';
 import { loadHrefSvg, ICONS_BASE } from '../../utils/svg.js';
 import '../shared/tabs/tabs.js';
@@ -19,6 +20,7 @@ import {
   extractToolRefs,
   consumeSuggestionHandoff,
   clearSuggestionSession,
+  registerMcpServer,
   DA_SKILLS_EDITOR_SUGGESTION_HANDOFF,
   DA_SKILLS_EDITOR_CLEAR_FORM_FROM_CHAT,
   DA_SKILLS_EDITOR_PROMPT_ADD_TO_CHAT,
@@ -38,6 +40,8 @@ const TOOLS_TABS = [
   { id: 'available', label: 'Available tools' },
   { id: 'generated', label: 'Generated tools' },
 ];
+
+const STATUS = { APPROVED: 'approved', DRAFT: 'draft' };
 
 class NxSkillsEditor extends LitElement {
   static properties = {
@@ -65,7 +69,7 @@ class NxSkillsEditor extends LitElement {
     _saveBusy: { state: true },
     _statusMsg: { state: true },
     _statusType: { state: true },
-    _handoff: { state: true },
+    _suggestion: { state: true },
     _mcpKey: { state: true },
     _mcpUrl: { state: true },
   };
@@ -88,6 +92,9 @@ class NxSkillsEditor extends LitElement {
     this._clearForm();
     this._mcpKey = '';
     this._mcpUrl = '';
+    this._loadedKey = null;
+    this._statusTimer = null;
+    this._checkmarkHtml = null;
   }
 
   get _org() { return this._hash.value?.org; }
@@ -97,16 +104,19 @@ class NxSkillsEditor extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [styles];
-    loadHrefSvg(`${ICONS_BASE}S2_Icon_Checkmark_20_N.svg`).then((svg) => { this._checkmarkSvg = svg; });
-    this._boundOnHandoff = () => this._applyHandoff();
+    loadHrefSvg(`${ICONS_BASE}S2_Icon_Checkmark_20_N.svg`)
+      .then((svg) => { this._checkmarkSvg = svg?.outerHTML ?? null; })
+      .catch(() => { this._checkmarkSvg = null; });
+    this._boundOnSuggestion = () => this._applySuggestion();
     this._boundOnClearForm = () => this._clearForm();
-    window.addEventListener(DA_SKILLS_EDITOR_SUGGESTION_HANDOFF, this._boundOnHandoff);
+    window.addEventListener(DA_SKILLS_EDITOR_SUGGESTION_HANDOFF, this._boundOnSuggestion);
     window.addEventListener(DA_SKILLS_EDITOR_CLEAR_FORM_FROM_CHAT, this._boundOnClearForm);
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
-    window.removeEventListener(DA_SKILLS_EDITOR_SUGGESTION_HANDOFF, this._boundOnHandoff);
+    clearTimeout(this._statusTimer);
+    window.removeEventListener(DA_SKILLS_EDITOR_SUGGESTION_HANDOFF, this._boundOnSuggestion);
     window.removeEventListener(DA_SKILLS_EDITOR_CLEAR_FORM_FROM_CHAT, this._boundOnClearForm);
   }
 
@@ -139,7 +149,7 @@ class NxSkillsEditor extends LitElement {
     this._generatedTools = genTools;
 
     this._loading = false;
-    this._applyHandoff();
+    this._applySuggestion();
 
     // Non-blocking: load agents and MCP tools after initial render
     loadAgentPresets(this._org, this._site).then((presets) => { this._agents = presets; });
@@ -149,13 +159,13 @@ class NxSkillsEditor extends LitElement {
     }
   }
 
-  _applyHandoff() {
-    const handoff = consumeSuggestionHandoff();
-    if (handoff) {
-      this._formSkillId = handoff.id || '';
-      this._formSkillBody = handoff.body || '';
+  _applySuggestion() {
+    const suggestion = consumeSuggestionHandoff();
+    if (suggestion) {
+      this._formSkillId = suggestion.id || '';
+      this._formSkillBody = suggestion.body || '';
       this._formIsEdit = false;
-      this._handoff = true;
+      this._suggestion = true;
       this._catalogTab = 'skills';
     }
   }
@@ -173,18 +183,21 @@ class NxSkillsEditor extends LitElement {
     this._saveBusy = false;
     this._statusMsg = '';
     this._statusType = '';
-    this._handoff = false;
+    this._suggestion = false;
   }
 
   _setStatus(msg, type = 'ok') {
+    clearTimeout(this._statusTimer);
     this._statusMsg = msg;
     this._statusType = type;
-    if (type === 'ok') setTimeout(() => { this._statusMsg = ''; }, 3000);
+    if (type === 'ok') {
+      this._statusTimer = setTimeout(() => { this._statusMsg = ''; }, 3000);
+    }
   }
 
   // ─── skill CRUD ───────────────────────────────────────────────────────────
 
-  async _onSaveSkill(status = 'approved') {
+  async _onSaveSkill(status = STATUS.APPROVED) {
     const id = this._formSkillId.trim();
     const body = this._formSkillBody;
     if (!id) {
@@ -210,9 +223,9 @@ class NxSkillsEditor extends LitElement {
       return;
     }
 
-    this._setStatus(status === 'draft' ? 'Saved as draft' : 'Saved');
+    this._setStatus(status === STATUS.DRAFT ? 'Saved as draft' : 'Saved');
     this._saveBusy = false;
-    this._handoff = false;
+    this._suggestion = false;
     clearSuggestionSession();
     await this._reload();
 
@@ -228,12 +241,18 @@ class NxSkillsEditor extends LitElement {
     if (!id) return;
     this._saveBusy = true;
 
-    await Promise.all([
+    const [configResult, fileResult] = await Promise.all([
       deleteSkillFromConfig(this._org, this._site, id),
       deleteSkillMdFile(this._org, this._site, id),
     ]);
 
     this._saveBusy = false;
+
+    if (configResult?.error || !fileResult?.ok) {
+      this._setStatus(configResult?.error || 'Failed to delete skill', 'err');
+      return;
+    }
+
     this._clearForm();
     await this._reload();
   }
@@ -251,7 +270,7 @@ class NxSkillsEditor extends LitElement {
 
   // ─── prompt CRUD ──────────────────────────────────────────────────────────
 
-  async _onSavePrompt(status = 'approved') {
+  async _onSavePrompt(status = STATUS.APPROVED) {
     const title = this._formPromptTitle.trim();
     const prompt = this._formPromptBody.trim();
     if (!title || !prompt) {
@@ -284,8 +303,16 @@ class NxSkillsEditor extends LitElement {
     const title = this._formPromptTitle.trim();
     if (!title) return;
     this._saveBusy = true;
-    await deletePromptFromConfig(this._org, this._site, title);
+
+    const result = await deletePromptFromConfig(this._org, this._site, title);
+
     this._saveBusy = false;
+
+    if (result?.error) {
+      this._setStatus(result.error, 'err');
+      return;
+    }
+
     this._formPromptTitle = '';
     this._formPromptCategory = '';
     this._formPromptBody = '';
@@ -305,7 +332,6 @@ class NxSkillsEditor extends LitElement {
   // ─── MCP register ─────────────────────────────────────────────────────────
 
   async _onRegisterMcp() {
-    const { registerMcpServer } = await import('./skills-editor-api.js');
     this._saveBusy = true;
     const result = await registerMcpServer(this._org, this._site, this._mcpKey, this._mcpUrl);
     if (!result.ok) this._setStatus(result.error || 'Failed', 'err');
@@ -373,7 +399,7 @@ class NxSkillsEditor extends LitElement {
           ?readonly=${this._formIsEdit}
           @input=${(e) => { this._formSkillId = e.target.value; }}
         >
-        <div class="${this._handoff ? 'handoff-wrap' : ''}">
+        <div class="textarea-wrap ${this._suggestion ? 'suggestion-wrap' : ''}">
           <textarea
             placeholder="Create or edit a tool"
             aria-label="Skill markdown"
@@ -382,7 +408,7 @@ class NxSkillsEditor extends LitElement {
           ></textarea>
         </div>
         <div class="save-row" role="toolbar" aria-label="Skill actions">
-          ${this._formIsEdit || this._handoff ? html`
+          ${this._formIsEdit || this._suggestion ? html`
             <button type="button" data-variant="secondary"
               ?disabled=${this._saveBusy}
               @click=${() => { this._clearForm(); }}
@@ -390,11 +416,11 @@ class NxSkillsEditor extends LitElement {
           ` : nothing}
           <button type="button" data-variant="secondary"
             ?disabled=${this._saveBusy}
-            @click=${() => this._onSaveSkill('draft')}
+            @click=${() => this._onSaveSkill(STATUS.DRAFT)}
           >Save as Draft</button>
           <button type="button" data-variant="accent"
             ?disabled=${this._saveBusy}
-            @click=${() => this._onSaveSkill('approved')}
+            @click=${() => this._onSaveSkill(STATUS.APPROVED)}
           >Save</button>
           ${this._formIsEdit ? html`
             <button type="button" data-variant="negative"
@@ -431,11 +457,11 @@ class NxSkillsEditor extends LitElement {
         <div class="save-row" role="toolbar" aria-label="Prompt actions">
           <button type="button" data-variant="secondary"
             ?disabled=${this._saveBusy}
-            @click=${() => this._onSavePrompt('draft')}
+            @click=${() => this._onSavePrompt(STATUS.DRAFT)}
           >Save as Draft</button>
           <button type="button" data-variant="accent"
             ?disabled=${this._saveBusy}
-            @click=${() => this._onSavePrompt('approved')}
+            @click=${() => this._onSavePrompt(STATUS.APPROVED)}
           >Save</button>
           ${this._formPromptIsEdit ? html`
             <button type="button" data-variant="negative"
@@ -558,13 +584,18 @@ class NxSkillsEditor extends LitElement {
 
     return html`
       <div class="catalog-toolbar" role="toolbar" aria-label="Filter skills">
-        ${['all', 'approved', 'draft'].map((f) => html`
+        ${[STATUS.APPROVED, STATUS.DRAFT].map((f) => html`
           <button type="button"
             class="filter-chip ${this._catalogFilter === f ? 'is-active' : ''}"
             aria-pressed=${this._catalogFilter === f ? 'true' : 'false'}
             @click=${() => { this._catalogFilter = f; }}
-          >${f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}</button>
+          >${f.charAt(0).toUpperCase() + f.slice(1)}</button>
         `)}
+        <button type="button"
+          class="filter-chip ${this._catalogFilter === 'all' ? 'is-active' : ''}"
+          aria-pressed=${this._catalogFilter === 'all' ? 'true' : 'false'}
+          @click=${() => { this._catalogFilter = 'all'; }}
+        >All</button>
       </div>
       <div class="catalog-scroll" role="list" aria-label="Skills">
         ${!filtered.length
@@ -576,7 +607,7 @@ class NxSkillsEditor extends LitElement {
 
   _renderSkillCard(id) {
     const title = this._extractTitle(this._skills[id]) || id;
-    const status = this._skillStatuses[id] || 'approved';
+    const status = this._skillStatuses[id] || STATUS.APPROVED;
     const isEditing = this._formIsEdit && this._formSkillId === id;
     const isDraft = status === 'draft';
     return html`
@@ -589,7 +620,7 @@ class NxSkillsEditor extends LitElement {
           <span slot="pill"
             class="skill-status ${isDraft ? 'skill-status-draft' : 'skill-status-approved'}"
             aria-label=${isDraft ? 'Draft' : 'Approved'}
-          >${isDraft ? nothing : (this._checkmarkSvg ?? nothing)}</span>
+          >${isDraft ? nothing : unsafeHTML(this._checkmarkSvg ?? '')}</span>
           <input slot="actions" type="checkbox"
             aria-label="Edit ${id}"
             .checked=${isEditing}
