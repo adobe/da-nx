@@ -30,12 +30,9 @@ import {
 import {
   normalizePath, isPage,
   getDedupeKey,
+  createMedialogEntry,
 } from '../parse.js';
-import {
-  buildUsageMap,
-  detectMediaType,
-  computeCanonicalMetadata,
-} from './worker-parse.js';
+import { buildUsageMap } from './worker-parse.js';
 import { canonicalizeMediaUrl } from '../../core/urls.js';
 import { buildMediaSheet } from '../sheets.js';
 import {
@@ -207,21 +204,15 @@ function processMarkdownParsedImages(
       if (existingIdx === -1) {
         // Entry doesn't exist - create it
         const existingMeta = existingIndexMap.get(dedupeKey);
-        const canonical = computeCanonicalMetadata(metadata, existingMeta);
         const canonicalModifiedTimestamp = canonicalTimestamps.get(hash);
 
-        const entry = {
-          hash,
-          url,
-          originalPath: metadata.originalFilename || '',
-          timestamp: metadata.timestamp,
-          user: metadata.user,
-          operation: metadata.operation || 'markdown-parsed',
-          type: detectMediaType(metadata),
+        const entry = createMedialogEntry(metadata, {
           doc: pageDoc,
-          displayName: canonical.displayName,
-          modifiedTimestamp: canonicalModifiedTimestamp ?? canonical.modifiedTimestamp,
-        };
+          existingMeta,
+          org,
+          repo,
+          canonicalModifiedTimestamp,
+        });
 
         updatedIndex.push(entry);
         added += 1;
