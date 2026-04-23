@@ -1,11 +1,21 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle, hashChange } from '../../utils/utils.js';
 import { listFolder } from './browse-api.js';
-import { contextToPathContext } from './utils.js';
+import {
+  contextToPathContext,
+  entryTypeFromExtension,
+  isFolder,
+  RESOURCE_TYPE,
+} from './utils.js';
 import '../shared/breadcrumb/breadcrumb.js';
 import './list/list.js';
 
 const styles = await loadStyle(import.meta.url);
+
+const documentLayoutStyles = await loadStyle(
+  new URL('overrides.css', import.meta.url).href,
+);
+document.adoptedStyleSheets = [...document.adoptedStyleSheets, documentLayoutStyles];
 
 class NxBrowse extends LitElement {
   static properties = {
@@ -25,7 +35,6 @@ class NxBrowse extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [styles];
-    document.body.style.overflow = 'hidden';
     this._unsubscribeHash = hashChange.subscribe((hashState) => {
       if (!this._explicitContext) {
         this._context = hashState;
@@ -39,7 +48,6 @@ class NxBrowse extends LitElement {
 
   disconnectedCallback() {
     this._unsubscribeHash?.();
-    document.body.style.overflow = '';
     super.disconnectedCallback();
   }
 
@@ -56,23 +64,40 @@ class NxBrowse extends LitElement {
       return;
     }
 
-    const result = await listFolder(ctx.fullpath);
+    const { fullpath } = ctx;
+
+    const result = await listFolder(fullpath);
+
     if ('error' in result) {
       this._items = undefined;
       this._listError = result.error;
     } else {
       this._listError = undefined;
-      this._items = result.items;
+      this._items = result;
     }
     this.requestUpdate();
   }
 
-  _onBrowseOpenFolder(event) {
-    const { pathKey } = event.detail;
-    if (!pathKey) {
+  _onBrowseActivate(event) {
+    const { pathKey, item } = event.detail || {};
+    if (entryTypeFromExtension(item.ext) === RESOURCE_TYPE.document) {
+      const url = new URL(window.location.href);
+      url.pathname = '/canvas';
+      url.hash = `#/${item.path.slice(1, -(item.ext.length + 1))}`;
+      window.location.assign(url.href);
       return;
     }
-    window.location.hash = `#/${pathKey}`;
+    if (entryTypeFromExtension(item.ext) === RESOURCE_TYPE.sheet) {
+      const url = new URL(window.location.href);
+      url.pathname = '/sheet';
+      url.search = '';
+      url.hash = `#/${item.path.slice(1, -(item.ext.length + 1))}`;
+      window.open(url.href, '_blank', 'noopener,noreferrer');
+      return;
+    }
+    if (item && isFolder(item)) {
+      window.location.hash = `#/${pathKey}`;
+    }
   }
 
   render() {
@@ -121,7 +146,7 @@ class NxBrowse extends LitElement {
       <nx-browse-list
         .items=${this._items}
         .currentPathKey=${currentPathKey}
-        @nx-browse-open-folder=${this._onBrowseOpenFolder}
+        @nx-browse-activate=${this._onBrowseActivate}
       ></nx-browse-list>
     `;
   }
