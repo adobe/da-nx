@@ -9,8 +9,8 @@
 import {
   toLinkedContentEntry,
   toExternalMediaEntry,
-  buildUsageMap,
 } from '../parse.js';
+import { buildUsageMap } from './worker-parse.js';
 
 /**
  * Worker-safe processLinkedContent
@@ -24,6 +24,7 @@ import {
  * @param {function} onProgress - Progress callback
  * @param {function} onLog - Log callback
  * @param {object} prebuiltUsageMap - Usage map from buildUsageMap (full builds)
+ * @param {object} context - Worker runtime context (REQUIRED for worker builds)
  * @returns {Promise<{added: number, removed: number}>}
  */
 export async function processLinkedContent(
@@ -36,6 +37,7 @@ export async function processLinkedContent(
   onProgress,
   onLog,
   prebuiltUsageMap = null,
+  context = null,
 ) {
   let added = 0;
 
@@ -47,7 +49,7 @@ export async function processLinkedContent(
   } else if (pages && pages.length > 0) {
     // Parse changed pages' markdown to extract media usage
     onProgress?.({ stage: 'processing', message: `Parsing ${pages.length} changed pages for media usage...` });
-    usageMap = await buildUsageMap(pages, org, repo, ref, (p) => onProgress?.(p));
+    usageMap = await buildUsageMap(pages, org, repo, ref, (p) => onProgress?.(p), null, context);
   } else {
     // No pages to parse and no prebuilt map
     return { added: 0, removed: 0 };

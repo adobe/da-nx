@@ -617,6 +617,8 @@ export async function buildIncrementalIndex(
     ref,
     onProgress,
     log,
+    null, // prebuiltUsageMap - not used in incremental
+    context, // context for worker-safe buildUsageMap
   );
   perf.markdownParse.pages = pages.length;
   perf.markdownParse.durationMs = Date.now() - markdownParseStart;
