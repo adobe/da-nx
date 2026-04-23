@@ -14,7 +14,13 @@ class NxPicker extends LitElement {
   static properties = {
     items: { attribute: false },
     value: {},
+    /**
+     * Non-empty string shown on the trigger instead of the label from `items` for `value`.
+     * Set to '' to use the normal label lookup again.
+     */
+    labelOverride: { type: String },
     _active: { state: true },
+    ignoreFocus: { attribute: true },
   };
 
   get _popover() { return this.shadowRoot.querySelector('nx-popover'); }
@@ -30,6 +36,12 @@ class NxPicker extends LitElement {
 
   get _selectedLabel() {
     return this.items?.find((i) => i.value === this.value)?.label ?? '';
+  }
+
+  get _triggerLabel() {
+    const o = this.labelOverride;
+    if (typeof o === 'string' && o.length > 0) return o;
+    return this._selectedLabel;
   }
 
   show() {
@@ -56,9 +68,13 @@ class NxPicker extends LitElement {
 
   _onPopoverToggle(e) {
     if (e.newState !== 'open') return;
-    this._active = this.value;
+    const selectable = this.items?.filter((i) => !i.divider && !i.section) ?? [];
+    const matched = selectable.some((i) => i.value === this.value);
+    this._active = matched ? this.value : (selectable[0]?.value ?? this.value);
     this.updateComplete.then(() => {
-      this.shadowRoot.querySelector(`[data-value="${this._active}"]`)?.focus();
+      const key = String(this._active ?? '');
+      const esc = typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(key) : key.replace(/"/g, '\\"');
+      if (!this.ignoreFocus) this.shadowRoot.querySelector(`[data-value="${esc}"]`)?.focus();
     });
   }
 
@@ -77,6 +93,7 @@ class NxPicker extends LitElement {
       setActive: (val) => { this._active = val; },
       onSelect: (item) => this._select(item),
       onClose: () => this.close(),
+      focusActiveItem: !this.ignoreFocus,
     });
   }
 
@@ -86,6 +103,9 @@ class NxPicker extends LitElement {
   }
 
   _renderItem(item) {
+    if (item.section) {
+      return html`<li class="picker-section" role="presentation"><span>${item.section}</span></li>`;
+    }
     if (item.divider) return html`<li role="separator"><hr class="picker-divider"></li>`;
     if (!item.label || item.value === undefined) return nothing;
 
@@ -120,7 +140,7 @@ class NxPicker extends LitElement {
         aria-expanded="false"
         @click=${this._toggle}
       >
-        <span class="picker-trigger-label">${this._selectedLabel}</span>
+        <span class="picker-trigger-label">${this._triggerLabel}</span>
         <span class="picker-chevron" aria-hidden="true"></span>
       </button>
       <nx-popover
