@@ -41,18 +41,8 @@ import { sortMediaData, getContentPathFromSitePath } from './worker-utils.js';
 
 const INDEX_SCHEMA_VERSION = 2;
 
-// Helper function from build.js:95-104
-function dedupeProgressiveItems(items) {
-  const byKey = new Map();
-  items.forEach((item) => {
-    const key = `${item.hash}|${item.doc || ''}`;
-    const existing = byKey.get(key);
-    if (!existing || item.modified > existing.modified) {
-      byKey.set(key, item);
-    }
-  });
-  return Array.from(byKey.values());
-}
+// Progressive data is now emitted as raw batches
+// Bridge layer handles deduplication for display
 
 // eslint-disable-next-line no-empty-function
 function noop() {}
@@ -261,7 +251,7 @@ export async function buildIncrementalIndex(
       );
       if (onProgressiveData && progressiveMediaMap.size > 0) {
         const combined = [...existingIndex, ...Array.from(progressiveMediaMap.values())];
-        onProgressiveData(dedupeProgressiveItems(combined));
+        onProgressiveData(combined);
       }
 
       onProgress({

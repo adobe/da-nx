@@ -53,18 +53,8 @@ function logPerf(perf, isPerfEnabled) {
   console.log('[perf]', JSON.stringify(perf));
 }
 
-// Helper function from build.js (used for progressive data deduplication)
-function dedupeProgressiveItems(items) {
-  const byKey = new Map();
-  items.forEach((item) => {
-    const key = `${item.hash}|${item.doc || ''}`;
-    const existing = byKey.get(key);
-    if (!existing || item.modified > existing.modified) {
-      byKey.set(key, item);
-    }
-  });
-  return Array.from(byKey.values());
-}
+// Progressive data is now emitted as raw batches
+// Bridge layer handles deduplication for display
 
 /**
  * Worker-safe version of buildFullIndex
@@ -181,7 +171,7 @@ export async function buildFullIndex(
       earlyLinkedEntries.push(toLinkedContentEntry(filePath, '', fileEvent, org, repo));
     });
     if (onProgressiveData && earlyLinkedEntries.length > 0) {
-      onProgressiveData(dedupeProgressiveItems(earlyLinkedEntries));
+      onProgressiveData(earlyLinkedEntries);
     }
   };
 
@@ -198,7 +188,7 @@ export async function buildFullIndex(
     mergeMedialogChunkIntoMap(chunk, progressiveMediaMap, org, repo, pathScope);
     if (onProgressiveData && progressiveMediaMap.size > 0) {
       const entries = Array.from(progressiveMediaMap.values());
-      onProgressiveData(dedupeProgressiveItems(entries));
+      onProgressiveData(entries);
     }
 
     onProgress({
@@ -447,7 +437,7 @@ export async function buildFullIndex(
 
   if (onProgressiveData && (index.length > 0 || earlyLinkedEntries.length > 0)) {
     const combined = [...earlyLinkedEntries, ...index];
-    onProgressiveData(dedupeProgressiveItems(combined));
+    onProgressiveData(combined);
   }
 
   onProgress({ stage: 'processing', message: 'Building content usage map (parsing pages)...' });
@@ -474,8 +464,7 @@ export async function buildFullIndex(
     ? (um) => {
       const linked = createLinkedContentEntries(um, linkedFilesByPath, deletedPaths, org, repo);
       const combined = earlyLinkedEntries.concat(index, linked);
-      const deduped = dedupeProgressiveItems(combined);
-      onProgressiveData(deduped);
+      onProgressiveData(combined);
     }
     : null;
 
@@ -579,7 +568,7 @@ export async function buildFullIndex(
 
   if (onProgressiveData && (index.length > 0 || earlyLinkedEntries.length > 0)) {
     const combined = [...earlyLinkedEntries, ...index];
-    onProgressiveData(dedupeProgressiveItems(combined));
+    onProgressiveData(combined);
   }
 
   onProgress({

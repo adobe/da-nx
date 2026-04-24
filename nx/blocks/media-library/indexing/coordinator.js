@@ -284,14 +284,12 @@ export async function triggerBuild(sitePath, org, repo, ref = 'main') {
  * @param {Function} options.onEvent - Event handler callback
  * @param {string} options.mode - 'app' or 'plugin'
  * @param {boolean} options.hasMediaData - Whether display already has data
- * @param {boolean} options.autoTriggerOnMissing - App policy: auto-trigger build when missing
  */
 export async function initService(sitePath, options = {}) {
   const {
     onEvent,
     mode = 'app',
     hasMediaData = false,
-    autoTriggerOnMissing = false,
   } = options;
   eventEmitter = onEvent;
 
@@ -327,11 +325,6 @@ export async function initService(sitePath, options = {}) {
       const { indexMissing } = await loadMediaSheet(sitePath);
       if (indexMissing) {
         emit(createIndexMissingEvent(sitePath));
-
-        // App policy: Auto-trigger build if configured
-        if (autoTriggerOnMissing) {
-          triggerBuild(sitePath, org, repo);
-        }
       }
     }
   } catch (error) {
