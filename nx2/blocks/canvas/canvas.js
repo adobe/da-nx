@@ -157,7 +157,7 @@ export default async function decorate(block) {
     syncCanvasEditorsToHash({ mountRoot, header, state });
   });
 
-  // Restore panels opened by canvas (no fragment URL). Fragment-based entries are legacy
+  // Restore panels opened by canvas (no fragment URL)
   // data handled by restorePanels() in nx.js.
   const store = getPanelStore();
   if (store.before && !store.before.fragment) openCanvasPanel('before');
