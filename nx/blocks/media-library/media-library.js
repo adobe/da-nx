@@ -1,6 +1,6 @@
 import { html, LitElement } from 'da-lit';
 import getStyle from '../../utils/styles.js';
-import { loadMediaSheet, buildMediaIndexStructures } from './indexing/load.js';
+import { loadMediaSheet, buildMediaIndexStructures } from './display/data.js';
 import { copyMediaToClipboard, exportToCsv } from './core/export.js';
 import {
   validateSitePath, getBasePath, resolveAbsolutePath, normalizeSitePath, parseSitePathFromHash,
@@ -38,7 +38,7 @@ import {
 } from './core/state.js';
 import { t } from './core/messages.js';
 import { initService, disposeService, triggerBuild } from './indexing/coordinator.js';
-import { handleIndexingEvent } from './core/indexing-bridge.js';
+import { handleIndexingEvent } from './core/indexing-adapter.js';
 import { fetchSidekickConfig } from './indexing/admin-api.js';
 import '../../public/sl/components.js';
 import './views/topbar/topbar.js';

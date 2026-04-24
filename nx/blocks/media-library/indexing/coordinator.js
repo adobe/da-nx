@@ -6,13 +6,14 @@
  * The display layer consumes events and handles all UI concerns.
  */
 
-import buildMediaIndex, {
+import buildMediaIndex from './build.js';
+import {
   loadMediaIfUpdated,
   checkIndexLock,
   isFreshIndexLock,
-  getIndexLockOwnerId,
   loadMediaSheet,
-} from './load.js';
+} from '../display/data.js';
+import { getIndexLockOwnerId } from './locks.js';
 import { ensureAuthenticated } from '../core/utils.js';
 import { MediaLibraryError, ErrorCodes, logMediaLibraryError } from '../core/errors.js';
 import { isFullRebuildRequested } from '../core/params.js';
