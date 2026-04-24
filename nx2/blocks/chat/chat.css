@@ -1,12 +1,13 @@
 :host {
   display: flex;
   flex-direction: column;
+  flex: 1;
+  min-height: 0;
   gap: var(--s2-spacing-300);
   padding: var(--s2-spacing-200) 0;
   font-family: var(--s2-font-family);
   color: var(--s2-gray-800);
   font-weight: var(--s2-body-font-weight);
-  margin: 0 auto;
   box-sizing: border-box;
   align-items: center;
 
@@ -21,6 +22,10 @@
     padding: var(--s2-spacing-75);
     border-radius: var(--s2-corner-radius-300);
     background-color: var(--s2-gray-300);
+  }
+
+  path {
+    fill: currentcolor;
   }
 
   button {
@@ -63,6 +68,56 @@
     resize: none;
     border: none;
     outline: none;
+  }
+}
+
+.chat-actions svg {
+  width: 16px;
+  height: 16px;
+}
+
+.chat-header {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 0 var(--s2-spacing-300);
+  box-sizing: border-box;
+  justify-content: flex-end;
+  gap: var(--s2-spacing-300);
+
+  .chat-header-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--s2-spacing-75);
+    min-width: 24px;
+    min-height: 24px;
+    border: none;
+    border-radius: var(--s2-corner-radius-400);
+    background: transparent;
+    color: var(--s2-gray-800);
+    cursor: pointer;
+    font-family: inherit;
+    font-size: var(--s2-body-size-s);
+
+    &.clear-btn {
+      padding: 0 var(--s2-spacing-100);
+    }
+
+    svg {
+      display: block;
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+    }
+
+    &:hover {
+      background-color: var(--s2-gray-75);
+    }
+
+    &[hidden] {
+      display: none;
+    }
   }
 }
 
@@ -222,11 +277,6 @@
     justify-content: center;
     align-items: center;
     display: none;
-  }
-
-  svg {
-    width: 16px;
-    height: 16px;
   }
 
   .chat-add {
