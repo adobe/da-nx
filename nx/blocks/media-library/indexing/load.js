@@ -9,7 +9,7 @@ import { t } from '../core/messages.js';
 import {
   checkReindexEligibility,
   getIndexStatus,
-} from './build.js';
+} from './index-status.js';
 import { getCanonicalMediaTimestamp, sortMediaData } from '../core/utils.js';
 import { getDedupeKey, canonicalizeMediaUrl } from '../core/urls.js';
 import {

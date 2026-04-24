@@ -8,7 +8,7 @@ import {
   toLinkedContentEntry,
   toExternalMediaEntry,
 } from './parse.js';
-import { normalizePath } from '../core/parse-utils.js';
+import { normalizePath } from './parse-utils.js';
 import { Operation } from '../core/constants.js';
 import {
   isIndexedExternalMediaOperation,

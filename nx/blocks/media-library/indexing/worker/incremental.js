@@ -35,7 +35,7 @@ import {
   normalizePath,
   sortMediaData,
   getContentPathFromSitePath,
-} from '../../core/parse-utils.js';
+} from '../parse-utils.js';
 import { buildMediaSheet } from '../sheets.js';
 import {
   IndexConfig,

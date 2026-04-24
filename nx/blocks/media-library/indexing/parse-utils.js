@@ -8,8 +8,8 @@
 import {
   Paths,
   Domains,
-} from './constants.js';
-import { getExternalMediaTypeInfo } from './media.js';
+} from '../core/constants.js';
+import { getExternalMediaTypeInfo } from '../core/media.js';
 
 const MD_LINK_RE = /\[[^\]]*\]\(([^)]+)\)/gi;
 const MD_REF_DEF_RE = /^\[([^\]]+)\]:\s*(.+)$/gm; // Reference-style link definitions

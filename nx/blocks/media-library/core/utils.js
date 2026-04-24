@@ -4,7 +4,7 @@ import { initIms } from '../../../utils/daFetch.js';
 import {
   getCanonicalMediaTimestamp as _getCanonicalMediaTimestamp,
   sortMediaData as _sortMediaData,
-} from './parse-utils.js';
+} from '../indexing/parse-utils.js';
 
 export function formatDateTime(isoString) {
   if (!isoString) return 'Unknown';

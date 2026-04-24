@@ -37,7 +37,7 @@ import {
   normalizePath,
   sortMediaData,
   getContentPathFromSitePath,
-} from '../../core/parse-utils.js';
+} from '../parse-utils.js';
 import { buildMediaSheet, buildUsageSheet } from '../sheets.js';
 import { canonicalizeMediaUrl } from '../../core/urls.js';
 import {

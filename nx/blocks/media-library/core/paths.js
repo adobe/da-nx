@@ -5,7 +5,7 @@ import { t } from './messages.js';
 import {
   normalizeSitePath as _normalizeSitePath,
   getContentPathFromSitePath as _getContentPathFromSitePath,
-} from './parse-utils.js';
+} from '../indexing/parse-utils.js';
 
 function normalizeDocPath(docPath) {
   if (!docPath) return '';

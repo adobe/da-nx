@@ -3,7 +3,7 @@ import {
   extractExternalMediaUrls,
   extractFragmentReferences,
   extractLinks,
-} from '../../../nx/blocks/media-library/core/parse-utils.js';
+} from '../../../nx/blocks/media-library/indexing/parse-utils.js';
 
 describe('parse', () => {
   describe('extractExternalMediaUrls', () => {

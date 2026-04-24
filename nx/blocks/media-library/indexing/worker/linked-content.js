@@ -15,7 +15,7 @@ import {
   isPdfOrSvg,
   isFragmentDoc,
 } from '../parse.js';
-import { normalizePath } from '../../core/parse-utils.js';
+import { normalizePath } from '../parse-utils.js';
 import { buildUsageMap } from './parse.js';
 
 /**

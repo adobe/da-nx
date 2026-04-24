@@ -15,7 +15,7 @@ import {
   extractLinks,
   getExternalMediaType,
   processConcurrently,
-} from '../core/parse-utils.js';
+} from './parse-utils.js';
 
 // Lazy-load admin-api.js and params.js to avoid triggering window.location in worker context
 // (admin-api.js → daFetch.js → public/utils/constants.js → window.location)

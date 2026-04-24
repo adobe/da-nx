@@ -20,7 +20,7 @@ import {
   extractExternalMediaUrls,
   extractLinks,
   processConcurrently,
-} from '../../core/parse-utils.js';
+} from '../parse-utils.js';
 
 export { getDedupeKey };
 
