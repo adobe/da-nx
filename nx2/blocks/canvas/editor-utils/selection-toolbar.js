@@ -51,7 +51,8 @@ export function createSelectionToolbarPlugin() {
             scrollEl?.addEventListener('scroll', onScroll, { passive: true });
           }
           const header = document.querySelector('nx-canvas-header');
-          if (header?.editorView !== 'content') return;
+          const ev = header?.editorView;
+          if (ev !== 'content' && ev !== 'split') return;
           syncToolbar(view);
         },
         destroy() {

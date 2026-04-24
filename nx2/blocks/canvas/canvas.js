@@ -3,6 +3,12 @@ import { hidePanel, unhidePanel, openPanelWithFragment } from '../../utils/panel
 import './nx-canvas-header/nx-canvas-header.js';
 import './nx-editor-doc/nx-editor-doc.js';
 import './nx-editor-wysiwyg/nx-editor-wysiwyg.js';
+import {
+  syncEditorSplitLayout,
+  finalizeSplitEditorMountOrder,
+  installEditorSplitDrag,
+  removeSplitGutter,
+} from './nx-editor-split/nx-editor-split.js';
 
 const style = await loadStyle(import.meta.url);
 document.adoptedStyleSheets = [...document.adoptedStyleSheets, style];
@@ -21,7 +27,9 @@ const FRAGMENTS = {
 const CANVAS_EDITOR_VIEW_KEY = 'nx-canvas-editor-view';
 
 function normalizeCanvasEditorView(view) {
-  return view === 'content' ? 'content' : 'layout';
+  if (view === 'content') return 'content';
+  if (view === 'split') return 'split';
+  return 'layout';
 }
 
 function notifyCanvasEditorActive(mountRoot, view) {
@@ -59,6 +67,7 @@ function canvasHeaderApplyTarget(block) {
 }
 
 function removeCanvasEditors(mountRoot) {
+  removeSplitGutter(mountRoot);
   mountRoot.querySelector('nx-editor-doc')?.remove();
   mountRoot.querySelector('nx-editor-wysiwyg')?.remove();
 }
@@ -94,9 +103,11 @@ function syncCanvasEditorsToHash({ mountRoot, header, state }) {
     return;
   }
   const ctx = editorCtxFromHashState(state, fullPath);
-  ensureNxEditorDoc(mountRoot).ctx = ctx;
   ensureNxEditorWysiwyg(mountRoot).ctx = ctx;
+  ensureNxEditorDoc(mountRoot).ctx = ctx;
+  finalizeSplitEditorMountOrder(mountRoot);
   notifyCanvasEditorActive(mountRoot, header.editorView);
+  syncEditorSplitLayout({ mountRoot, view: header.editorView });
 }
 
 async function addPanelHeader(aside) {
@@ -145,7 +156,9 @@ function installCanvasHeader(block) {
   header.addEventListener('nx-canvas-editor-view', (e) => {
     const view = normalizeCanvasEditorView(e.detail?.view);
     persistCanvasEditorView(view);
-    notifyCanvasEditorActive(canvasHeaderApplyTarget(block), view);
+    const applyTarget = canvasHeaderApplyTarget(block);
+    notifyCanvasEditorActive(applyTarget, view);
+    syncEditorSplitLayout({ mountRoot: canvasEditorMountRoot(block), view });
   });
   header.addEventListener('nx-canvas-undo', () => {
     canvasEditorMountRoot(block).querySelector('nx-editor-doc')?.undo();
@@ -162,6 +175,8 @@ export default async function decorate(block) {
 
   const mountRoot = canvasEditorMountRoot(block);
   mountRoot.classList.add('nx-canvas-editor-mount');
+  syncEditorSplitLayout({ mountRoot, view: header.editorView });
+  installEditorSplitDrag(mountRoot);
 
   mountRoot.addEventListener('nx-editor-undo-state', (e) => {
     header.undoAvailable = e.detail?.canUndo ?? false;
