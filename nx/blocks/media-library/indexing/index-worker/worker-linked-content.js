@@ -1,7 +1,8 @@
 /**
  * Worker-safe version of processLinkedContent
  *
- * Processes PDFs, SVGs, fragments, and external media from usageMap.
+ * Processes PDFs, SVGs, fragments, and external media.
+ * Handles ALL files from Status API (not just referenced ones).
  * For incremental builds without prebuiltUsageMap, calls buildUsageMap
  * to parse changed pages and extract media references.
  */
@@ -9,6 +10,11 @@
 import {
   toLinkedContentEntry,
   toExternalMediaEntry,
+  normalizePath,
+  isPdf,
+  isSvg,
+  isPdfOrSvg,
+  isFragmentDoc,
 } from '../parse.js';
 import { buildUsageMap } from './worker-parse.js';
 
@@ -40,6 +46,37 @@ export async function processLinkedContent(
   context = null,
 ) {
   let added = 0;
+  let removed = 0;
+
+  // Build filesByPath from files parameter (from Status API)
+  const filesByPath = new Map();
+  files.forEach((e) => {
+    if (!isPdfOrSvg(e.path) && !isFragmentDoc(e.path)) return;
+    const p = e.path;
+    const existing = filesByPath.get(p);
+    if (!existing || e.timestamp < existing.timestamp) filesByPath.set(p, e);
+  });
+
+  // Track deleted files
+  const deletedPaths = new Set();
+  filesByPath.forEach((event, path) => {
+    if (event.method === 'DELETE') deletedPaths.add(path);
+  });
+
+  // Remove deleted linked content from index
+  deletedPaths.forEach((path) => {
+    const toRemove = updatedIndex.filter(
+      (e) => (e.operation === 'auditlog-parsed' || e.source === 'auditlog-parsed') && e.hash === path,
+    );
+    toRemove.forEach((e) => {
+      const idx = updatedIndex.indexOf(e);
+      updatedIndex.splice(idx, 1);
+      removed += 1;
+    });
+    if (toRemove.length > 0 && onLog) {
+      onLog(`Removed linked content (DELETE): ${path} (${toRemove.length} entries)`);
+    }
+  });
 
   // For incremental builds: parse changed pages to extract media references
   // For full builds: use prebuiltUsageMap (already parsed all pages)
@@ -47,46 +84,77 @@ export async function processLinkedContent(
   if (prebuiltUsageMap) {
     usageMap = prebuiltUsageMap;
   } else if (pages && pages.length > 0) {
-    // Parse changed pages' markdown to extract media usage
-    onProgress?.({ stage: 'processing', message: `Parsing ${pages.length} changed pages for media usage...` });
+    onProgress?.({ stage: 'processing', message: 'Building usage map for linked content...' });
     usageMap = await buildUsageMap(pages, org, repo, ref, (p) => onProgress?.(p), null, context);
   } else {
-    // No pages to parse and no prebuilt map
-    return { added: 0, removed: 0 };
+    usageMap = { pdfs: new Map(), svgs: new Map(), fragments: new Map(), externalMedia: new Map() };
   }
 
-  // Process PDFs
-  if (usageMap.pdfs) {
-    usageMap.pdfs.forEach((linkedPages, filePath) => {
-      linkedPages.forEach((doc) => {
-        const entry = toLinkedContentEntry(filePath, doc, { timestamp: 0, user: '' }, org, repo);
-        updatedIndex.push(entry);
-        added += 1;
-      });
-    });
-  }
+  // Collect ALL linked paths (from Status API files + parsed usage map)
+  const allLinkedPaths = new Set(filesByPath.keys());
+  ['pdfs', 'svgs', 'fragments'].forEach((key) => {
+    usageMap[key]?.forEach((_, path) => allLinkedPaths.add(path));
+  });
 
-  // Process SVGs
-  if (usageMap.svgs) {
-    usageMap.svgs.forEach((linkedPages, filePath) => {
-      linkedPages.forEach((doc) => {
-        const entry = toLinkedContentEntry(filePath, doc, { timestamp: 0, user: '' }, org, repo);
-        updatedIndex.push(entry);
-        added += 1;
-      });
-    });
-  }
+  // Also include paths already in index that belong to parsed pages
+  const parsedPages = new Set(pages.map((p) => normalizePath(p.path)));
+  updatedIndex.forEach((e) => {
+    const isLinkedContent = e.operation === 'auditlog-parsed' || e.source === 'auditlog-parsed';
+    if (!isLinkedContent) return;
+    if (e.doc && parsedPages.has(e.doc)) {
+      allLinkedPaths.add(e.hash);
+    }
+  });
 
-  // Process fragments
-  if (usageMap.fragments) {
-    usageMap.fragments.forEach((linkedPages, filePath) => {
-      linkedPages.forEach((doc) => {
-        const entry = toLinkedContentEntry(filePath, doc, { timestamp: 0, user: '' }, org, repo);
-        updatedIndex.push(entry);
-        added += 1;
+  // Process each linked file
+  allLinkedPaths.forEach((filePath) => {
+    if (deletedPaths.has(filePath)) return;
+
+    // Determine file type
+    let key = 'fragments';
+    if (isPdf(filePath)) key = 'pdfs';
+    else if (isSvg(filePath)) key = 'svgs';
+
+    const linkedPages = usageMap[key]?.get(filePath) || [];
+    const fileEvent = filesByPath.get(filePath) || { timestamp: 0, user: '' };
+
+    const isLinkedContent = (e) => (e.operation === 'auditlog-parsed' || e.source === 'auditlog-parsed')
+      && e.hash === filePath;
+    const isLinkedForDoc = (doc) => (e) => isLinkedContent(e) && e.doc === doc;
+
+    if (linkedPages.length === 0) {
+      // Not referenced in any page - create/keep standalone entry
+      const obsolete = updatedIndex.filter((e) => isLinkedContent(e));
+      obsolete.forEach((e) => {
+        updatedIndex.splice(updatedIndex.indexOf(e), 1);
+        removed += 1;
       });
-    });
-  }
+      const stillHasUnused = updatedIndex.some((e) => isLinkedContent(e) && !e.doc);
+      if (!stillHasUnused) {
+        updatedIndex.push(toLinkedContentEntry(filePath, '', fileEvent, org, repo));
+        added += 1;
+      }
+    } else {
+      // Referenced in pages - remove obsolete entries, add/update current ones
+      const obsolete = updatedIndex.filter(
+        (e) => isLinkedContent(e) && (e.doc === '' || !linkedPages.includes(e.doc)),
+      );
+      obsolete.forEach((e) => {
+        updatedIndex.splice(updatedIndex.indexOf(e), 1);
+        removed += 1;
+      });
+      linkedPages.forEach((doc) => {
+        const existingIdx = updatedIndex.findIndex(isLinkedForDoc(doc));
+        const freshEntry = toLinkedContentEntry(filePath, doc, fileEvent, org, repo);
+        if (existingIdx !== -1) {
+          updatedIndex[existingIdx] = freshEntry;
+        } else {
+          updatedIndex.push(freshEntry);
+          added += 1;
+        }
+      });
+    }
+  });
 
   // Process external media
   if (usageMap.externalMedia) {
@@ -109,6 +177,6 @@ export async function processLinkedContent(
 
   return {
     added,
-    removed: 0,
+    removed,
   };
 }
