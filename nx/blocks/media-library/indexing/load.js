@@ -388,7 +388,18 @@ async function runWorkerBuild(
     throw new Error('No IMS token available');
   }
 
-  const siteToken = window.localStorage?.getItem?.(`site-token-${org}-${repo}`) || null;
+  // Get fresh site token using the same logic as main branch (with caching and expiry)
+  // This ensures worker gets a valid token that won't immediately expire
+  let siteToken = null;
+  try {
+    const { getAemSiteToken } = await import('./admin-api.js');
+    const tokenResult = await getAemSiteToken({ org, site: repo, ref });
+    siteToken = tokenResult?.siteToken || null;
+  } catch {
+    // If we can't get a fresh token, fall back to localStorage (legacy behavior)
+    siteToken = window.localStorage?.getItem?.(`site-token-${org}-${repo}`) || null;
+  }
+
   const daOrigin = DA_ORIGIN;
   const daEtcOrigin = DA_ETC_ORIGIN;
   const perfEnabled = isPerfEnabled();

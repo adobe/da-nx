@@ -799,7 +799,7 @@ async function fetchAemSiteToken(org, site, ref = 'main') {
   return { siteToken, siteTokenExpiry };
 }
 
-const getAemSiteToken = (() => {
+export const getAemSiteToken = (() => {
   const loadToken = async (org, site, ref = 'main') => {
     const result = await fetchAemSiteToken(org, site, ref);
     if (result?.siteToken) {
