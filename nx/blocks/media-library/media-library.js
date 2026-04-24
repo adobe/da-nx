@@ -38,6 +38,7 @@ import {
 } from './core/state.js';
 import { t } from './core/messages.js';
 import { initService, disposeService } from './indexing/coordinator.js';
+import { handleIndexingEvent } from './core/indexing-bridge.js';
 import { fetchSidekickConfig } from './indexing/admin-api.js';
 import '../../public/sl/components.js';
 import './views/topbar/topbar.js';
@@ -620,13 +621,22 @@ class NxMediaLibrary extends LitElement {
 
       saveRecentSite(this.sitePath);
       await this.loadMediaData();
+
+      // Callback when final media data is ready
       const onMediaDataUpdated = (mediaData) => this.setMediaData(mediaData);
+
+      // Event handler for indexing events
+      const onEvent = (event) => handleIndexingEvent(event, onMediaDataUpdated);
 
       // Detect mode: app (standalone /apps/media-library) vs plugin (embedded in iframe/sidekick)
       const isApp = window.location.pathname.includes('/apps/media-library');
       const mode = isApp ? 'app' : 'plugin';
+      const hasMediaData = (getAppState().mediaData?.length || 0) > 0;
 
-      initService(this.sitePath, { onMediaDataUpdated, mode });
+      // App policy: Auto-trigger builds when index is missing (app mode only)
+      const autoTriggerOnMissing = isApp;
+
+      initService(this.sitePath, { onEvent, mode, hasMediaData, autoTriggerOnMissing });
     } catch (error) {
       updateAppState({
         isValidating: false,

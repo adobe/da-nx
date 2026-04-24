@@ -1,3 +1,11 @@
+/**
+ * Indexing coordinator - Event-based architecture
+ *
+ * This module orchestrates indexing operations and emits neutral events.
+ * It does NOT manage UI state, show notifications, or localize messages.
+ * The display layer consumes events and handles all UI concerns.
+ */
+
 import buildMediaIndex, {
   loadMediaIfUpdated,
   checkIndexLock,
@@ -5,66 +13,82 @@ import buildMediaIndex, {
   getIndexLockOwnerId,
   loadMediaSheet,
 } from './load.js';
-import { ensureAuthenticated, getCanonicalMediaTimestamp } from '../core/utils.js';
-import { updateAppState, getAppState, showNotification } from '../core/state.js';
-import { t } from '../core/messages.js';
-import { clearProcessDataCache } from '../features/filters.js';
-import { getDedupeKey } from '../core/urls.js';
+import { ensureAuthenticated } from '../core/utils.js';
 import { MediaLibraryError, ErrorCodes, logMediaLibraryError } from '../core/errors.js';
 import { isFullRebuildRequested } from '../core/params.js';
+import {
+  IndexingEventType,
+  IndexingErrorCode,
+  createBuildStartedEvent,
+  createBuildProgressEvent,
+  createBuildDataEvent,
+  createBuildCompleteEvent,
+  createBuildErrorEvent,
+  createLockDetectedEvent,
+  createIndexMissingEvent,
+  createIndexLoadedEvent,
+} from './events.js';
 
 const CONFIG = { POLLING_INTERVAL: 60000, LOCK_CHECK_INTERVAL: 5000 };
 
 let pollingInterval = null;
 let lockCheckInterval = null;
 let pollingStarted = false;
-let onMediaDataUpdated = null;
+let eventEmitter = null;
 
-function stateHasMediaData() {
-  return (getAppState().mediaData?.length || 0) > 0;
+/**
+ * Emit an indexing event to the display layer
+ */
+function emit(event) {
+  if (eventEmitter) {
+    eventEmitter(event);
+  }
 }
 
-// Starts polling for media updates when authenticated.
-export async function startPolling() {
-  if (pollingInterval) return;
+/**
+ * Start polling for index updates (runs every 60s)
+ */
+export async function startPolling(sitePath, org, repo) {
+  if (pollingInterval || !sitePath) return;
 
   pollingInterval = setInterval(async () => {
-    const state = getAppState();
-    if (state.sitePath && !state.isIndexing) {
-      try {
-        const isAuthenticated = await ensureAuthenticated();
-        if (!isAuthenticated) return;
+    try {
+      const isAuthenticated = await ensureAuthenticated();
+      if (!isAuthenticated) return;
 
-        const [org, repo] = state.sitePath.split('/').slice(1, 3);
-        const result = await loadMediaIfUpdated(state.sitePath, org, repo);
-        const { hasChanged, mediaData, indexMissing } = result;
+      const result = await loadMediaIfUpdated(sitePath, org, repo);
+      const { hasChanged, mediaData, indexMissing } = result;
 
-        if (hasChanged && onMediaDataUpdated) {
-          updateAppState({
-            indexMissing: !!indexMissing,
-            isBackgroundRefreshInProgress: false,
-            indexLockedByOther: false,
-          });
-          onMediaDataUpdated(mediaData || []);
-        }
-      } catch (error) {
-        const persistentCodes = [
-          ErrorCodes.INDEX_PARSE_ERROR,
-          ErrorCodes.DA_READ_DENIED,
-        ];
-        if (persistentCodes.includes(error?.code)) {
-          updateAppState({ persistentError: { message: error.message }, indexMissing: false });
-        } else {
-          logMediaLibraryError(ErrorCodes.POLLING_FAILED, { error: error?.message });
-          showNotification(t('NOTIFY_WARNING'), t('NOTIFY_POLLING_UNAVAILABLE'), 'danger');
-        }
+      if (indexMissing) {
+        emit(createIndexMissingEvent(sitePath));
       }
+
+      if (hasChanged) {
+        emit(createIndexLoadedEvent(mediaData || []));
+      }
+    } catch (error) {
+      const persistentCodes = [
+        ErrorCodes.INDEX_PARSE_ERROR,
+        ErrorCodes.DA_READ_DENIED,
+      ];
+      const isPersistent = persistentCodes.includes(error?.code);
+
+      logMediaLibraryError(ErrorCodes.POLLING_FAILED, { error: error?.message });
+      emit(createBuildErrorEvent(
+        IndexingErrorCode.BUILD_FAILED,
+        error?.message || 'Polling failed',
+        { context: 'polling' },
+        isPersistent,
+      ));
     }
   }, CONFIG.POLLING_INTERVAL);
 
   pollingStarted = true;
 }
 
+/**
+ * Pause polling (during builds)
+ */
 export function pausePolling() {
   if (pollingInterval) {
     clearInterval(pollingInterval);
@@ -72,6 +96,18 @@ export function pausePolling() {
   }
 }
 
+/**
+ * Resume polling (after builds)
+ */
+export function resumePolling(sitePath, org, repo) {
+  if (!pollingInterval && pollingStarted && sitePath) {
+    startPolling(sitePath, org, repo);
+  }
+}
+
+/**
+ * Stop lock check polling
+ */
 function stopLockCheckPolling() {
   if (lockCheckInterval) {
     clearInterval(lockCheckInterval);
@@ -79,182 +115,106 @@ function stopLockCheckPolling() {
   }
 }
 
-function startLockCheckPolling(sitePath, org, repo) {
+/**
+ * Start polling to check if another browser's build lock is released
+ */
+function startLockCheckPolling(sitePath, org, repo, hasMediaData) {
   stopLockCheckPolling();
+
   lockCheckInterval = setInterval(async () => {
-    const state = getAppState();
-    if ((!state.indexLockedByOther && !state.isBackgroundRefreshInProgress) || !sitePath) {
-      stopLockCheckPolling();
-      return;
-    }
     try {
       const lock = await checkIndexLock(sitePath);
-      const stateHasData = stateHasMediaData();
+
       if (!isFreshIndexLock(lock)) {
         stopLockCheckPolling();
 
-        if (!stateHasData) {
-          const {
-            data,
-            indexMissing,
-            indexing,
-          } = await loadMediaSheet(sitePath);
+        // Lock released - try to load data
+        if (!hasMediaData) {
+          const { data, indexMissing, indexing } = await loadMediaSheet(sitePath);
 
-          if (!indexing && onMediaDataUpdated) {
+          if (!indexing) {
             if (indexMissing) {
-              updateAppState({
-                indexLockedByOther: true,
-                isBackgroundRefreshInProgress: false,
-                indexMissing: false,
-              });
+              emit(createIndexMissingEvent(sitePath));
               return;
             }
-            updateAppState({
-              indexLockedByOther: false,
-              isBackgroundRefreshInProgress: false,
-              indexMissing: !!indexMissing,
-            });
-            onMediaDataUpdated(data || []);
+            emit(createIndexLoadedEvent(data || []));
             return;
           }
         }
 
+        // Check if index was updated while lock was active
         const {
           hasChanged,
           mediaData,
           indexMissing,
         } = await loadMediaIfUpdated(sitePath, org, repo);
-        if (hasChanged && onMediaDataUpdated) {
-          updateAppState({
-            indexLockedByOther: false,
-            isBackgroundRefreshInProgress: false,
-            indexMissing: !!indexMissing,
-          });
-          onMediaDataUpdated(mediaData || []);
-          return;
+        if (hasChanged) {
+          emit(createIndexLoadedEvent(mediaData || []));
+        } else if (indexMissing) {
+          emit(createIndexMissingEvent(sitePath));
         }
-
-        updateAppState({
-          indexLockedByOther: false,
-          isBackgroundRefreshInProgress: false,
-        });
-        return;
       }
-
-      const { hasChanged, mediaData, indexMissing } = await loadMediaIfUpdated(sitePath, org, repo);
-      if (hasChanged && onMediaDataUpdated) {
-        stopLockCheckPolling();
-        updateAppState({
-          indexLockedByOther: false,
-          isBackgroundRefreshInProgress: false,
-          indexMissing: !!indexMissing,
-        });
-        onMediaDataUpdated(mediaData || []);
-      }
-    } catch { /* swallow */ }
+    } catch {
+      // Swallow errors during lock polling
+    }
   }, CONFIG.LOCK_CHECK_INTERVAL);
 }
 
-export function resumePolling() {
-  const state = getAppState();
-  if (!pollingInterval && pollingStarted && !state.isIndexing) {
-    startPolling();
-  }
-}
-
-// Kicks off incremental or full index build; updates progress in state.
+/**
+ * Trigger a build (full or incremental)
+ */
 export async function triggerBuild(sitePath, org, repo, ref = 'main') {
   if (!sitePath || !(org && repo)) {
     return;
   }
 
+  // Check authentication
   try {
     const isAuthenticated = await ensureAuthenticated();
     if (!isAuthenticated) {
-      updateAppState({ isIndexing: false });
       logMediaLibraryError(ErrorCodes.AUTH_REQUIRED, { context: 'build' });
-      showNotification(t('NOTIFY_ERROR'), t('NOTIFY_SIGN_IN'), 'danger');
+      emit(createBuildErrorEvent(
+        IndexingErrorCode.AUTH_REQUIRED,
+        'Authentication required to build index',
+        { context: 'build' },
+        false,
+      ));
       return;
     }
   } catch (error) {
-    updateAppState({ isIndexing: false });
     logMediaLibraryError(ErrorCodes.AUTH_REQUIRED, { context: 'build', error: error?.message });
-    showNotification(t('NOTIFY_ERROR'), t('NOTIFY_VERIFY_AUTH'), 'danger');
+    emit(createBuildErrorEvent(
+      IndexingErrorCode.AUTH_REQUIRED,
+      error?.message || 'Authentication failed',
+      { context: 'build' },
+      false,
+    ));
     return;
   }
 
-  updateAppState({
-    isIndexing: true,
-    isBackgroundRefreshInProgress: false,
-    indexLockedByOther: false,
-    indexProgress: { stage: 'starting', message: '', duration: null },
-    indexStartTime: Date.now(),
-    progressiveMediaData: [],
-    progressiveTotalCount: null,
-    progressiveCountCapped: false,
-  });
-
   pausePolling();
 
-  // Declare progressive data structures outside try block so they're accessible in catch/finally
-  const PROGRESSIVE_DISPLAY_CAP = 3000;
-  /** Cap on allSeenKeys to avoid unbounded memory for large indexes (e.g. 200K+ items) */
-  const PROGRESSIVE_COUNT_CAP = 50000;
-  const progressiveMap = new Map();
-  const allSeenKeys = new Set();
-  let maxProgressiveCount = 0;
-  let countCapped = false;
+  const forceFull = isFullRebuildRequested();
+  const buildMode = forceFull ? 'full' : 'incremental';
+
+  emit(createBuildStartedEvent(buildMode, forceFull));
 
   try {
+    // Progress callback - emit neutral progress events
     const onProgress = (progressInfo) => {
-      updateAppState({
-        indexProgress: {
-          stage: progressInfo.stage,
-          message: progressInfo.message,
-        },
-      });
+      emit(createBuildProgressEvent(
+        progressInfo.stage,
+        progressInfo.message || '',
+      ));
     };
 
+    // Progressive data callback - emit raw batches for display to handle
     const onProgressiveData = (mediaData) => {
-      if (!mediaData || !Array.isArray(mediaData) || mediaData.length === 0) return;
-
-      const prevMax = maxProgressiveCount;
-
-      for (const item of mediaData) {
-        const key = item?.url ? getDedupeKey(item.url) : (item?.hash || '');
-        const existing = progressiveMap.get(key);
-        const itemTs = getCanonicalMediaTimestamp(item);
-        const existingTs = getCanonicalMediaTimestamp(existing);
-
-        if (!existing) {
-          if (!countCapped && allSeenKeys.size < PROGRESSIVE_COUNT_CAP) {
-            allSeenKeys.add(key);
-          } else if (!countCapped && allSeenKeys.size >= PROGRESSIVE_COUNT_CAP) {
-            countCapped = true;
-          }
-          if (progressiveMap.size < PROGRESSIVE_DISPLAY_CAP) {
-            progressiveMap.set(key, item);
-          }
-        } else if (itemTs >= existingTs) {
-          progressiveMap.set(key, item);
-        }
+      if (mediaData && Array.isArray(mediaData) && mediaData.length > 0) {
+        emit(createBuildDataEvent(mediaData));
       }
-
-      maxProgressiveCount = countCapped
-        ? PROGRESSIVE_COUNT_CAP
-        : Math.max(maxProgressiveCount, allSeenKeys.size);
-
-      const toRender = Array.from(progressiveMap.values());
-      if (maxProgressiveCount === prevMax && toRender.length === 0) return;
-
-      updateAppState({
-        progressiveMediaData: toRender,
-        progressiveTotalCount: maxProgressiveCount,
-        progressiveCountCapped: countCapped,
-      });
     };
 
-    const forceFull = isFullRebuildRequested();
     const result = await buildMediaIndex(
       sitePath,
       org,
@@ -265,60 +225,25 @@ export async function triggerBuild(sitePath, org, repo, ref = 'main') {
       { forceFull },
     );
 
-    clearProcessDataCache();
+    const duration = parseFloat(result.duration) * 1000; // Convert "7.4s" to ms
 
-    const finalProgress = {
-      hasChanges: result.hasChanges,
-      mediaReferences: result.mediaData?.length || 0,
-      duration: result.duration,
-    };
-
-    if (result.lockRemoveFailed) {
-      showNotification(t('NOTIFY_WARNING'), t('LOCK_REMOVE_FAILED'), 'danger');
-    }
-
-    if (finalProgress.hasChanges && result.mediaData) {
-      updateAppState({
-        indexProgress: {
-          stage: 'complete',
-          message: `${finalProgress.mediaReferences} items`,
-          duration: finalProgress.duration || '0s',
-          hasChanges: true,
-          mediaReferences: finalProgress.mediaReferences,
-        },
-        isIndexing: false,
-        isBackgroundRefreshInProgress: false,
-        progressiveMediaData: [],
-        progressiveTotalCount: null,
-        progressiveCountCapped: false,
-        persistentError: null,
-      });
-      if (onMediaDataUpdated) {
-        await onMediaDataUpdated(result.mediaData);
-      }
-    } else {
-      updateAppState({
-        indexProgress: {
-          stage: 'complete',
-          message: 'No items found',
-          duration: finalProgress.duration || '0s',
-          hasChanges: false,
-          mediaReferences: 0,
-        },
-        isIndexing: false,
-        isBackgroundRefreshInProgress: false,
-        progressiveMediaData: [],
-        progressiveTotalCount: null,
-        progressiveCountCapped: false,
-        persistentError: null,
-      });
-    }
-
-    // Clear progressive data structures to prevent memory leak
-    progressiveMap.clear();
-    allSeenKeys.clear();
+    emit(createBuildCompleteEvent(
+      result.mediaData || [],
+      duration,
+      result.hasChanges,
+      result.lockRemoveFailed,
+    ));
   } catch (error) {
-    if (!error.message?.includes('Index build already in progress')) {
+    if (error.message?.includes('Index build already in progress')) {
+      // Another browser is building - start lock polling
+      emit({
+        type: IndexingEventType.LOCK_DETECTED,
+        ownerId: 'unknown',
+        timestamp: Date.now(),
+        fresh: true,
+      });
+      startLockCheckPolling(sitePath, org, repo, false);
+    } else {
       const isMediaLibError = error instanceof MediaLibraryError;
       const persistentCodes = [
         ErrorCodes.DA_READ_DENIED,
@@ -338,95 +263,90 @@ export async function triggerBuild(sitePath, org, repo, ref = 'main') {
         logMediaLibraryError(ErrorCodes.BUILD_FAILED, { error: error?.message });
       }
 
-      const updates = {
-        isIndexing: false,
-        indexLockedByOther: false,
-        isBackgroundRefreshInProgress: false,
-        indexMissing: false,
-        progressiveTotalCount: null,
-        progressiveCountCapped: false,
-      };
-      if (isPersistent) {
-        updates.persistentError = { message: error.message };
-      } else {
-        updates.persistentError = null;
-      }
-      updateAppState(updates);
-
-      if (!isPersistent) {
-        const msg = error.message || t('NOTIFY_DISCOVERY_FAILED');
-        showNotification(t('NOTIFY_ERROR'), msg, 'danger');
-      }
-    } else {
-      updateAppState({
-        isIndexing: false,
-        indexLockedByOther: true,
-        isBackgroundRefreshInProgress: stateHasMediaData(),
-      });
-      startLockCheckPolling(sitePath, org, repo);
+      const errorCode = isMediaLibError ? error.code : IndexingErrorCode.BUILD_FAILED;
+      emit(createBuildErrorEvent(
+        errorCode,
+        error.message || 'Build failed',
+        { ...error.context },
+        isPersistent,
+      ));
     }
-
-    // Clear progressive data structures on error to prevent memory leak
-    progressiveMap.clear();
-    allSeenKeys.clear();
   } finally {
-    resumePolling();
+    resumePolling(sitePath, org, repo);
   }
 }
 
+/**
+ * Initialize the indexing service
+ *
+ * @param {string} sitePath - Site path (e.g., '/org/repo')
+ * @param {Object} options - Configuration options
+ * @param {Function} options.onEvent - Event handler callback
+ * @param {string} options.mode - 'app' or 'plugin'
+ * @param {boolean} options.hasMediaData - Whether display already has data
+ * @param {boolean} options.autoTriggerOnMissing - App policy: auto-trigger build when missing
+ */
 export async function initService(sitePath, options = {}) {
-  const { onMediaDataUpdated: callback, mode = 'app' } = options;
-  onMediaDataUpdated = callback;
+  const {
+    onEvent,
+    mode = 'app',
+    hasMediaData = false,
+    autoTriggerOnMissing = false,
+  } = options;
+  eventEmitter = onEvent;
 
   if (!sitePath || pollingStarted) return;
 
   const [org, repo] = sitePath.split('/').slice(1, 3);
 
-  // Plugin mode: Only start polling, don't trigger builds
-  // User must manually trigger builds if index is missing
+  // Plugin mode: Only poll, don't auto-trigger builds
   if (mode === 'plugin') {
-    startPolling(); // Every 60s: check timestamp, reload if changed
+    startPolling(sitePath, org, repo);
     return;
   }
 
-  // App mode: Start polling + auto-trigger build if index is missing
-  startPolling(); // Every 60s: check timestamp, reload if changed
+  // App mode: Poll + check lock state + check for missing index
+  startPolling(sitePath, org, repo);
 
   try {
-    // Check if someone else is building (to show lock state in UI)
     const lock = await checkIndexLock(sitePath);
     const ownerId = getIndexLockOwnerId();
     const ownsLock = lock.ownerId && lock.ownerId === ownerId;
     const freshLock = isFreshIndexLock(lock);
 
     if (freshLock && !ownsLock) {
-      // Another browser is building - set lock state for UI
-      updateAppState({
-        isBackgroundRefreshInProgress: stateHasMediaData(),
-        indexLockedByOther: !stateHasMediaData(),
-      });
-      startLockCheckPolling(sitePath, org, repo);
+      // Another browser is building
+      emit(createLockDetectedEvent(lock.ownerId, lock.timestamp, true));
+      startLockCheckPolling(sitePath, org, repo, hasMediaData);
       return;
     }
 
-    // App mode: Auto-trigger build if index is missing and no one else is building
-    const state = getAppState();
-    if (state.indexMissing && !freshLock) {
-      // Delay slightly to allow UI to render empty state before starting build
-      setTimeout(() => {
-        triggerBuild(sitePath, org, repo);
-      }, 100);
+    // Check if index is already known to be missing (from loadMediaData)
+    // This handles the case where loadMediaData ran before initService
+    if (!hasMediaData && !freshLock) {
+      const { indexMissing } = await loadMediaSheet(sitePath);
+      if (indexMissing) {
+        emit(createIndexMissingEvent(sitePath));
+
+        // App policy: Auto-trigger build if configured
+        if (autoTriggerOnMissing) {
+          triggerBuild(sitePath, org, repo);
+        }
+      }
     }
   } catch (error) {
-    // If check fails, just continue with polling - don't block initialization
+    // If check fails, continue with polling - don't block initialization
     // eslint-disable-next-line no-console
     console.error('[MediaIndexer] Error checking build status:', error);
   }
 }
 
+/**
+ * Dispose the service (cleanup)
+ */
 export function disposeService() {
   pausePolling();
   stopLockCheckPolling();
   pollingStarted = false;
-  onMediaDataUpdated = null;
+  eventEmitter = null;
 }
