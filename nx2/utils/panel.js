@@ -110,6 +110,12 @@ function resizePointerDown(downEvent) {
   handle.addEventListener('pointercancel', onPointerUp);
 }
 
+export function hidePanel(aside) {
+  removePanelState(aside.dataset.position);
+  aside.hidden = true;
+  setPanelsGrid();
+}
+
 function buildPanelDOM(aside) {
   const edge = aside.dataset.position === 'before' ? 'trailing' : 'leading';
 
@@ -131,8 +137,10 @@ function buildPanelDOM(aside) {
   shell.append(body);
   wrapper.append(shell, handle);
   aside.append(wrapper);
-}
 
+  // Allow any consumer inside the panel to close it by firing nx-panel-close.
+  aside.addEventListener('nx-panel-close', () => hidePanel(aside));
+}
 export function createPanel({ width = '400px', beforeMain = false, content, fragment } = {}) {
   const aside = document.createElement('aside');
   aside.classList.add('panel');
@@ -157,13 +165,7 @@ export function createPanel({ width = '400px', beforeMain = false, content, frag
   return aside;
 }
 
-export function hidePanel(aside) {
-  removePanelState(aside.dataset.position);
-  aside.hidden = true;
-  setPanelsGrid();
-}
-
-export function unhidePanel(aside) {
+export function showPanel(aside) {
   aside.hidden = false;
   savePanelState(aside.dataset.position, {
     width: aside.dataset.width,
@@ -172,9 +174,10 @@ export function unhidePanel(aside) {
   setPanelsGrid();
 }
 
-export { getPanelStore };
+// unhidePanel: legacy alias for showPanel, kept pending a full rename across all callers.
+export { getPanelStore, showPanel as unhidePanel };
 
-export function showPanel(opts) {
+function mountPanel(opts) {
   const aside = createPanel(opts);
   setPanelsGrid();
   return aside;
@@ -194,7 +197,7 @@ export async function loadPanelContent(value) {
 export async function openPanelWithFragment({ width = '400px', beforeMain = false, fragment } = {}) {
   const { content, fragment: persistedFragment } = await loadPanelContent(fragment);
   if (!content) return undefined;
-  return showPanel({ width, beforeMain, content, fragment: persistedFragment });
+  return mountPanel({ width, beforeMain, content, fragment: persistedFragment });
 }
 
 export async function restorePanels() {
@@ -205,9 +208,22 @@ export async function restorePanels() {
       const { content, fragment: frag } = await loadPanelContent(fragment);
       if (content) {
         const beforeMain = position === 'before';
-        showPanel({ width, beforeMain, content, fragment: frag });
+        mountPanel({ width, beforeMain, content, fragment: frag });
       }
     }
   }
   document.dispatchEvent(new CustomEvent('nx-panels-restored'));
+}
+
+export async function openPanel({ position, width = '400px', getContent } = {}) {
+  const existing = document.querySelector(`aside.panel[data-position="${position}"]`);
+  if (existing && !existing.hidden) return existing;
+  if (existing?.hidden) {
+    showPanel(existing);
+    return existing;
+  }
+
+  const beforeMain = position === 'before';
+  const content = await getContent?.();
+  return mountPanel({ width, beforeMain, content });
 }

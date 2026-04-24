@@ -10,22 +10,6 @@ html:has(aside.panel[data-position="after"]:not([hidden])) nx-canvas-header::par
   display: none;
 }
 
-.fragment-content:has(nx-chat) {
-  height: 100%;
-
-  & .section {
-    height: 100%;
-  }
-
-  & .block-content {
-    height: 100%;
-  }
-}
-
-nx-chat {
-  height: 100%;
-}
-
 /* Single visible editor: Layout (doc) or Content (WYSIWYG); inactive uses [hidden] */
 .nx-canvas-editor-mount {
   display: flex;

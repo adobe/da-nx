@@ -1,5 +1,7 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle, hashChange } from '../../utils/utils.js';
+import { loadHrefSvg, ICONS_BASE } from '../../utils/svg.js';
+import { getPanelStore, openPanel } from '../../utils/panel.js';
 import { listFolder } from './browse-api.js';
 import {
   contextToPathContext,
@@ -11,6 +13,7 @@ import '../shared/breadcrumb/breadcrumb.js';
 import './list/list.js';
 
 const styles = await loadStyle(import.meta.url);
+const panelIcon = await loadHrefSvg(`${ICONS_BASE}S2_Icon_SplitLeft_20_N.svg`);
 
 const documentLayoutStyles = await loadStyle(
   new URL('overrides.css', import.meta.url).href,
@@ -30,6 +33,14 @@ class NxBrowse extends LitElement {
     if (this.isConnected) {
       this._syncList();
     }
+  }
+
+  _openPanel(position) {
+    this.dispatchEvent(new CustomEvent('nx-browse-open-panel', {
+      bubbles: true,
+      composed: true,
+      detail: { position },
+    }));
   }
 
   connectedCallback() {
@@ -103,8 +114,21 @@ class NxBrowse extends LitElement {
   render() {
     const ctx = this._pathContext;
 
+    const bar = html`
+      <div class="browse-bar">
+        <button
+          type="button"
+          part="toggle-before"
+          class="browse-panel-toggle"
+          aria-label="Open panel"
+          @click=${() => this._openPanel('before')}
+        >${panelIcon ?? nothing}</button>
+      </div>
+    `;
+
     if (!ctx) {
       return html`
+        ${bar}
         <div class="browse-hint" role="status">
           <p class="browse-hint-title">Nothing to show here yet</p>
           <p class="browse-hint-detail">
@@ -117,7 +141,7 @@ class NxBrowse extends LitElement {
     const title = ctx.pathSegments.at(-1) ?? '';
 
     if (!this._listError && this._items === undefined) {
-      return nothing;
+      return bar;
     }
 
     const header = html`
@@ -131,6 +155,7 @@ class NxBrowse extends LitElement {
 
     if (this._listError) {
       return html`
+        ${bar}
         ${header}
         <div class="browse-hint browse-hint-error" role="alert">
           <p class="browse-hint-title">Could not load this folder</p>
@@ -142,6 +167,7 @@ class NxBrowse extends LitElement {
     const currentPathKey = ctx.pathSegments.join('/');
 
     return html`
+      ${bar}
       ${header}
       <nx-browse-list
         .items=${this._items}
@@ -158,5 +184,26 @@ if (!customElements.get('nx-browse')) {
 
 export default function decorate(block) {
   block.textContent = '';
-  block.append(document.createElement('nx-browse'));
+  const browse = document.createElement('nx-browse');
+  block.append(browse);
+
+  const openBrowseChatPanel = () => {
+    const store = getPanelStore();
+    const width = store.before?.width ?? '400px';
+    openPanel({
+      position: 'before',
+      width,
+      getContent: async () => {
+        await import('../chat/chat.js');
+        return document.createElement('nx-chat');
+      },
+    });
+  };
+
+  browse.addEventListener('nx-browse-open-panel', (e) => {
+    if (e.detail.position === 'before') openBrowseChatPanel();
+  });
+
+  const store = getPanelStore();
+  if (store.before) openBrowseChatPanel();
 }
