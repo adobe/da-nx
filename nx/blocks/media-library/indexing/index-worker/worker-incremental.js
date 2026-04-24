@@ -323,13 +323,22 @@ export async function buildIncrementalIndex(
   const pages = [];
   pagesByPath.forEach((events) => pages.push(...events));
 
+  // Compute medialog metrics in single pass
+  let medialogResourcePathCount = 0;
+  let medialogStandaloneCount = 0;
+  medialogScoped.forEach((m) => {
+    if (m?.resourcePath) {
+      medialogResourcePathCount += 1;
+    } else if (m?.originalFilename && !m?.resourcePath) {
+      medialogStandaloneCount += 1;
+    }
+  });
+
   perf.auditLog.previewOnly = validEntries.length;
   perf.auditLog.pagesForParsing = pages.length;
-  perf.auditLog.filesCount = validEntries.filter((e) => !isPage(e.path)).length;
-  perf.medialog.resourcePathCount = medialogScoped.filter((m) => m?.resourcePath).length;
-  perf.medialog.standalone = medialogScoped.filter(
-    (m) => m?.originalFilename && !m?.resourcePath,
-  ).length;
+  perf.auditLog.filesCount = validEntries.length - pagesFiltered.length;
+  perf.medialog.resourcePathCount = medialogResourcePathCount;
+  perf.medialog.standalone = medialogStandaloneCount;
 
   if (pages.length === 0 && medialogScoped.length === 0) {
     perf.indexEntries = existingIndex.length;
@@ -447,6 +456,69 @@ export async function buildIncrementalIndex(
   perf.markdownParse.durationMs = Date.now() - markdownParseStart;
   added += linkedResults.added;
   removed += linkedResults.removed;
+
+  // Image truthing: orphan stale image references using usageMap from processLinkedContent
+  if (linkedResults.usageMap?.images) {
+    const truthStart = Date.now();
+    const imageToPages = new Map(); // imagePath -> Set(pagePaths)
+    linkedResults.usageMap.images.forEach((linkedPages, imagePath) => {
+      const normalized = normalizePath(imagePath);
+      if (!imageToPages.has(normalized)) {
+        imageToPages.set(normalized, new Set());
+      }
+      linkedPages.forEach((page) => imageToPages.get(normalized).add(page));
+    });
+
+    let orphanedCount = 0;
+    let truthedCount = 0;
+    let totalImageEntries = 0;
+
+    updatedIndex.forEach((entry) => {
+      const isImage = entry.type === 'image' || entry.type === 'video';
+      if (isImage) totalImageEntries += 1;
+
+      const hasDoc = entry.doc && entry.doc !== '';
+
+      if (isImage && hasDoc) {
+        // Image with a doc reference - verify it's actually in the markdown for that page
+        let entryPath;
+        try {
+          entryPath = new URL(entry.url).pathname;
+        } catch {
+          entryPath = entry.url;
+        }
+        const normalizedPath = normalizePath(entryPath);
+        const pagesWithImage = imageToPages.get(normalizedPath);
+
+        // Check if this specific doc reference is valid
+        if (!pagesWithImage || !pagesWithImage.has(entry.doc)) {
+          // Stale reference - image exists but not on this page anymore
+          // Orphan it by setting doc='' (don't remove from index)
+          entry.doc = '';
+          orphanedCount += 1;
+        } else {
+          truthedCount += 1;
+        }
+      }
+    });
+
+    const truthDurationMs = Date.now() - truthStart;
+
+    if (context?.isPerfEnabled && orphanedCount > 0) {
+      // eslint-disable-next-line no-console
+      console.log(
+        `[worker-incremental] Image truthing: ${truthedCount} valid refs, ${orphanedCount} stale refs orphaned in ${truthDurationMs}ms`,
+      );
+    }
+
+    perf.imageTruthing = {
+      durationMs: truthDurationMs,
+      totalImageEntries,
+      validReferences: truthedCount,
+      orphanedReferences: orphanedCount,
+      imagePathsInMarkdown: imageToPages.size,
+    };
+  }
 
   onProgress({
     stage: 'processing',

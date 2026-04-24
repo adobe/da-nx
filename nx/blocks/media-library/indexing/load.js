@@ -434,8 +434,8 @@ async function runWorkerBuild(
 
   // Set up result promise
   const resultPromise = new Promise((resolve, reject) => {
-    worker.onmessage = (event) => {
-      const { type, data, error, message } = event.data;
+    worker.onmessage = async (event) => {
+      const { type, data, error, message, requestId } = event.data;
 
       if (type === 'progress') {
         onProgress?.(data);
@@ -444,6 +444,18 @@ async function runWorkerBuild(
       } else if (type === 'log') {
         // eslint-disable-next-line no-console
         console.log('[IndexWorker]', message);
+      } else if (type === 'token-refresh') {
+        // Worker requests fresh site token (401/403 during markdown fetch)
+        // Must clear cache first to force a real refresh (matches canonical behavior)
+        try {
+          const { getAemSiteToken, clearCachedAemSiteToken } = await import('./admin-api.js');
+          clearCachedAemSiteToken(org, repo, ref);
+          const tokenResult = await getAemSiteToken({ org, site: repo, ref });
+          const freshToken = tokenResult?.siteToken || null;
+          worker.postMessage({ type: 'token-refresh-response', requestId, token: freshToken });
+        } catch (err) {
+          worker.postMessage({ type: 'token-refresh-response', requestId, token: null, error: err.message });
+        }
       } else if (type === 'success') {
         resolve(data);
       } else if (type === 'error') {

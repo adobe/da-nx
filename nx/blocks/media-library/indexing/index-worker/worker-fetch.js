@@ -5,6 +5,47 @@
  * relying on window, localStorage, or global state.
  */
 
+// Counter for generating unique request IDs for token refresh messages
+let tokenRefreshRequestId = 0;
+
+/**
+ * Request fresh site token from main thread (on 401/403)
+ *
+ * @returns {Promise<string|null>} Fresh site token or null if refresh failed
+ */
+function requestTokenRefresh() {
+  return new Promise((resolve) => {
+    const requestId = `token-refresh-${tokenRefreshRequestId}`;
+    tokenRefreshRequestId += 1;
+
+    let resolved = false;
+    let timeoutId;
+
+    const handler = (event) => {
+      if (resolved) return;
+
+      const { type, requestId: respId, token } = event.data;
+      if (type === 'token-refresh-response' && respId === requestId) {
+        resolved = true;
+        self.removeEventListener('message', handler);
+        clearTimeout(timeoutId);
+        resolve(token || null);
+      }
+    };
+
+    self.addEventListener('message', handler);
+
+    timeoutId = setTimeout(() => {
+      if (resolved) return;
+      resolved = true;
+      self.removeEventListener('message', handler);
+      resolve(null);
+    }, 5000);
+
+    self.postMessage({ type: 'token-refresh', requestId });
+  });
+}
+
 /**
  * Worker-safe CORS proxy fetch
  * Same as etcFetch but accepts daEtcOrigin as parameter
@@ -392,6 +433,34 @@ export async function fetchPageMarkdown(
       }
 
       return { markdown: text, status: resp.status };
+    }
+
+    // Retry on 401/403 with fresh token (protected sites)
+    // Main thread clears cache and refetches, so even if token value is same, retry is valid
+    if ((resp.status === 401 || resp.status === 403) && siteToken) {
+      const freshToken = await requestTokenRefresh();
+      if (freshToken) {
+        // Retry with fresh token (even if same value - cache was cleared on main thread)
+        const retryHeaders = { Authorization: `token ${freshToken}` };
+        const retryOpts = { headers: retryHeaders };
+        const retryResp = await etcFetch(appendNoCacheParam(pageUrl), 'cors', daEtcOrigin, retryOpts);
+
+        if (retryResp.ok) {
+          const text = await retryResp.text();
+          const trimmed = text.trim();
+          const isHtml = trimmed.startsWith('<!DOCTYPE')
+                         || trimmed.startsWith('<html')
+                         || trimmed.startsWith('<HTML');
+
+          if (isHtml) {
+            return { markdown: null, html: text, status: retryResp.status };
+          }
+
+          return { markdown: text, status: retryResp.status };
+        }
+
+        return { markdown: null, status: retryResp.status, reason: `HTTP ${retryResp.status} (after token refresh)` };
+      }
     }
 
     return { markdown: null, status: resp.status, reason: `HTTP ${resp.status}` };

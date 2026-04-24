@@ -389,17 +389,18 @@ export async function initService(sitePath, options = {}) {
     return;
   }
 
-  // App mode: Start polling + trigger build if needed
+  // App mode: Start polling + auto-trigger build if index is missing
   startPolling(); // Every 60s: check timestamp, reload if changed
 
   try {
-    // Check if someone else is building
+    // Check if someone else is building (to show lock state in UI)
     const lock = await checkIndexLock(sitePath);
     const ownerId = getIndexLockOwnerId();
     const ownsLock = lock.ownerId && lock.ownerId === ownerId;
     const freshLock = isFreshIndexLock(lock);
 
     if (freshLock && !ownsLock) {
+      // Another browser is building - set lock state for UI
       updateAppState({
         isBackgroundRefreshInProgress: stateHasMediaData(),
         indexLockedByOther: !stateHasMediaData(),
@@ -408,29 +409,16 @@ export async function initService(sitePath, options = {}) {
       return;
     }
 
-    // No lock - this browser owns the build
-    // Check if ?full=true query param is set to force full rebuild
-    const forceFullRebuild = isFullRebuildRequested();
-
-    if (forceFullRebuild) {
-      triggerBuild(sitePath, org, repo, 'main');
-      return;
-    }
-
-    // Check if we can do incremental (index exists and valid) or need full build
-    const { checkReindexEligibility } = await import('./build.js');
-    const reindexCheck = await checkReindexEligibility(sitePath, org, repo);
-
-    if (reindexCheck.shouldReindex) {
-      // Index exists and is valid - do incremental
-      // (incremental will fetch auditlog/medialog since lastFetchTime and decide if update needed)
-      triggerBuild(sitePath, org, repo, 'main');
-    } else {
-      // Index missing or invalid - do full build
-      triggerBuild(sitePath, org, repo, 'main');
+    // App mode: Auto-trigger build if index is missing and no one else is building
+    const state = getAppState();
+    if (state.indexMissing && !freshLock) {
+      // Delay slightly to allow UI to render empty state before starting build
+      setTimeout(() => {
+        triggerBuild(sitePath, org, repo);
+      }, 100);
     }
   } catch (error) {
-    // If check fails, just start polling - don't block initialization
+    // If check fails, just continue with polling - don't block initialization
     // eslint-disable-next-line no-console
     console.error('[MediaIndexer] Error checking build status:', error);
   }

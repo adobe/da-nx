@@ -178,5 +178,6 @@ export async function processLinkedContent(
   return {
     added,
     removed,
+    usageMap, // Return usageMap so incremental build can use it for image truthing
   };
 }

@@ -757,7 +757,7 @@ function getCachedAemSiteToken(org, site, ref = 'main') {
   return cached.siteToken ? cached : null;
 }
 
-function clearCachedAemSiteToken(org, site, ref = 'main') {
+export function clearCachedAemSiteToken(org, site, ref = 'main') {
   aemSiteTokenCache.delete(getAemSiteTokenCacheKey(org, site, ref));
 }
 
