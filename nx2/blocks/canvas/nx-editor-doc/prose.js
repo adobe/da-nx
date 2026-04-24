@@ -15,12 +15,28 @@ import {
   yRedo,
   buildKeymap,
   tableEditing,
+  columnResizing,
   gapCursor,
   liftListItem,
   sinkListItem,
 } from 'da-y-wrapper';
-
+import {
+  getEnterInputRulesPlugin,
+  getURLInputRulesPlugin,
+  getListInputRulesPlugin,
+  handleTableBackspace,
+  handleTableTab,
+} from 'https://da.live/blocks/edit/prose/plugins/keyHandlers.js';
+import { getHeadingKeymap } from 'https://da.live/blocks/edit/prose/plugins/menu/menu.js';
 import { getSchema } from 'da-parser';
+import { createSlashMenuPlugin } from './slash-menu/slash-menu.js';
+import { createSelectionToolbarPlugin } from '../editor-utils/selection-toolbar.js';
+import codemark from './prose-plugins/codemark.js';
+import tableSelectHandle from './prose-plugins/tableSelectHandle.js';
+import imageDrop from './prose-plugins/imageDrop.js';
+import imageFocalPoint from './prose-plugins/imageFocalPoint.js';
+import sectionPasteHandler from './prose-plugins/sectionPasteHandler.js';
+import base64Uploader from './prose-plugins/base64Uploader.js';
 import { COLLAB_ORIGIN, DA_ORIGIN } from '../../../utils/daFetch.js';
 import { generateColor, getCollabIdentity } from './utils/collab.js';
 
@@ -93,85 +109,50 @@ export default async function initProse({
     });
   }
 
+  /** @type {import('prosemirror-view').EditorView | null} */
+  let viewRef = null;
+  const dispatch = (tr) => { if (viewRef) viewRef.dispatch(tr); };
+
+  /* Keymap order matches da.live prose/index.js: baseKeymap after buildKeymap +
+   * handleTableBackspace (fixes list Enter + table NodeSelection + Backspace). */
   const plugins = [
     ySyncPlugin(yXmlFragment),
     yCursorPlugin(wsProvider.awareness),
     yUndoPlugin(),
+    tableSelectHandle(),
+    imageDrop(schema, () => path),
+    sectionPasteHandler(schema),
+    base64Uploader({ getSourceUrl: () => path, getEditorView: () => viewRef }),
+    columnResizing(),
+    getEnterInputRulesPlugin(dispatch),
+    getURLInputRulesPlugin(),
+    getListInputRulesPlugin(schema),
+    keymap(buildKeymap(schema)),
+    keymap({ Backspace: handleTableBackspace }),
+    keymap(baseKeymap),
+    codemark(),
+    keymap({
+      'Mod-z': (state) => yUndo(state) || false,
+      'Mod-y': (state) => yRedo(state) || false,
+      'Mod-Shift-z': (state) => yRedo(state) || false,
+      ...getHeadingKeymap(schema),
+    }),
+    keymap({
+      Tab: handleTableTab(1),
+      'Shift-Tab': handleTableTab(-1),
+    }),
+    keymap({
+      Tab: sinkListItem(schema.nodes.list_item),
+      'Shift-Tab': liftListItem(schema.nodes.list_item),
+    }),
+    gapCursor(),
+    tableEditing({ allowTableNodeSelection: true }),
+    ...extraPlugins,
   ];
 
-  /** @type {import('prosemirror-view').EditorView | null} */
-  let viewRef = null;
-
   if (canWrite) {
-    const [
-      {
-        getEnterInputRulesPlugin,
-        getURLInputRulesPlugin,
-        getListInputRulesPlugin,
-        handleTableBackspace,
-        handleTableTab,
-      },
-      { getHeadingKeymap },
-      { createSlashMenuPlugin },
-      { createSelectionToolbarPlugin },
-    ] = await Promise.all([
-      import('https://da.live/blocks/edit/prose/plugins/keyHandlers.js'),
-      import('https://da.live/blocks/edit/prose/plugins/menu/menu.js'),
-      import('./slash-menu/slash-menu.js'),
-      import('../editor-utils/selection-toolbar.js'),
-    ]);
-
-    const dispatch = (tr) => {
-      if (viewRef) viewRef.dispatch(tr);
-    };
-
-    const handleUndo = (state) => {
-      const mgr = yUndoPluginKey.getState(state)?.undoManager;
-      if (mgr?.undoStack?.length > 0) {
-        mgr.undo();
-        return true;
-      }
-      return yUndo(state) || false;
-    };
-    const handleRedo = (state) => {
-      const mgr = yUndoPluginKey.getState(state)?.undoManager;
-      if (mgr?.redoStack?.length > 0) {
-        mgr.redo();
-        return true;
-      }
-      return yRedo(state) || false;
-    };
-
-    plugins.push(
-      createSlashMenuPlugin(),
-      createSelectionToolbarPlugin(),
-      keymap(baseKeymap),
-      getEnterInputRulesPlugin(dispatch),
-      getURLInputRulesPlugin(),
-      getListInputRulesPlugin(schema),
-      keymap(buildKeymap(schema)),
-      keymap({ Backspace: handleTableBackspace }),
-      keymap({
-        'Mod-z': handleUndo,
-        'Mod-y': handleRedo,
-        'Mod-Shift-z': handleRedo,
-        ...getHeadingKeymap(schema),
-      }),
-      keymap({
-        Tab: handleTableTab(1),
-        'Shift-Tab': handleTableTab(-1),
-      }),
-      keymap({
-        Tab: sinkListItem(schema.nodes.list_item),
-        'Shift-Tab': liftListItem(schema.nodes.list_item),
-      }),
-      gapCursor(),
-      tableEditing({ allowTableNodeSelection: true }),
-    );
-  }
-
-  if (extraPlugins.length > 0) {
-    plugins.push(...extraPlugins);
+    plugins.unshift(createSlashMenuPlugin(), createSelectionToolbarPlugin());
+    plugins.push(imageFocalPoint());
   }
 
   let state = EditorState.create({ schema, plugins });
@@ -184,5 +165,7 @@ export default async function initProse({
     editable() { return canWrite; },
   });
 
-  return { proseEl: editor, wsProvider, view: viewRef, ydoc };
+  const undoManager = yUndoPluginKey.getState(viewRef.state)?.undoManager ?? null;
+
+  return { proseEl: editor, wsProvider, view: viewRef, ydoc, undoManager };
 }

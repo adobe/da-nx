@@ -19,12 +19,14 @@ class NXCanvasHeader extends LitElement {
     _icons: { state: true },
     /** `'layout'` = doc editor (ProseMirror), `'content'` = WYSIWYG preview */
     editorView: { type: String, reflect: true },
+    undoAvailable: { type: Boolean },
     redoAvailable: { type: Boolean },
   };
 
   constructor() {
     super();
     this.editorView = 'layout';
+    this.undoAvailable = false;
     this.redoAvailable = false;
   }
 
@@ -48,6 +50,18 @@ class NXCanvasHeader extends LitElement {
         composed: true,
         detail: { position },
       }),
+    );
+  }
+
+  _undo() {
+    this.dispatchEvent(
+      new CustomEvent('nx-canvas-undo', { bubbles: true, composed: true }),
+    );
+  }
+
+  _redo() {
+    this.dispatchEvent(
+      new CustomEvent('nx-canvas-redo', { bubbles: true, composed: true }),
     );
   }
 
@@ -75,7 +89,7 @@ class NXCanvasHeader extends LitElement {
           <button type="button" class="icon-btn" part="btn toggle-before" data-action="open-panel-before" aria-label="Open before panel" @click=${() => this._openPanel('before')}>
             ${this._renderIcon('splitLeft')}
           </button>
-          <button type="button" class="icon-btn" part="btn" data-action="undo" aria-label="Undo">
+          <button type="button" class="icon-btn" part="btn" data-action="undo" aria-label="Undo" ?disabled=${!this.undoAvailable} @click=${this._undo}>
             ${this._renderIcon('undo')}
           </button>
           <button
@@ -85,6 +99,7 @@ class NXCanvasHeader extends LitElement {
             data-action="redo"
             aria-label="Redo"
             ?disabled=${!this.redoAvailable}
+            @click=${this._redo}
           >
             ${this._renderIcon('redo')}
           </button>

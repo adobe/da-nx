@@ -1,5 +1,7 @@
 /* eslint-disable import/no-unresolved -- importmap */
-import { Plugin } from 'da-y-wrapper';
+import { Plugin, NodeSelection } from 'da-y-wrapper';
+
+const NON_TEXT_NODES = new Set(['table', 'image']);
 
 export const TOOLBAR_PADDING_GAP = 64;
 
@@ -15,13 +17,18 @@ export function getSelectionToolbar() {
 }
 
 export function hideSelectionToolbar() {
-  toolbar?.hide();
+  toolbar?.hide?.();
+}
+
+function isNonTextSelection({ selection }) {
+  return selection instanceof NodeSelection
+    && NON_TEXT_NODES.has(selection.node.type.name);
 }
 
 function syncToolbar(view) {
   const tb = getSelectionToolbar();
   if (tb.linkDialogOpen) return;
-  if (view.state.selection.empty) {
+  if (view.state.selection.empty || isNonTextSelection(view.state)) {
     hideSelectionToolbar();
     return;
   }

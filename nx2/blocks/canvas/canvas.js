@@ -86,6 +86,8 @@ function editorCtxFromHashState(state, fullPath) {
 }
 
 function syncCanvasEditorsToHash({ mountRoot, header, state }) {
+  header.undoAvailable = false;
+  header.redoAvailable = false;
   const fullPath = buildCanvasDocPath(state);
   if (!fullPath) {
     removeCanvasEditors(mountRoot);
@@ -145,6 +147,12 @@ function installCanvasHeader(block) {
     persistCanvasEditorView(view);
     notifyCanvasEditorActive(canvasHeaderApplyTarget(block), view);
   });
+  header.addEventListener('nx-canvas-undo', () => {
+    canvasEditorMountRoot(block).querySelector('nx-editor-doc')?.undo();
+  });
+  header.addEventListener('nx-canvas-redo', () => {
+    canvasEditorMountRoot(block).querySelector('nx-editor-doc')?.redo();
+  });
   block.before(header);
   return header;
 }
@@ -154,6 +162,11 @@ export default async function decorate(block) {
 
   const mountRoot = canvasEditorMountRoot(block);
   mountRoot.classList.add('nx-canvas-editor-mount');
+
+  mountRoot.addEventListener('nx-editor-undo-state', (e) => {
+    header.undoAvailable = e.detail?.canUndo ?? false;
+    header.redoAvailable = e.detail?.canRedo ?? false;
+  });
 
   hashChange.subscribe((state) => {
     syncCanvasEditorsToHash({ mountRoot, header, state });

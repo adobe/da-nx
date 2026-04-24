@@ -71,10 +71,7 @@ export function getInstrumentedHTML(view) {
   const originalTables = view.dom.querySelectorAll('table');
   const clonedTables = editorClone.querySelectorAll('table');
   clonedTables.forEach((table, index) => {
-    const div = document.createElement('div');
-    div.className = 'tableWrapper';
-    table.insertAdjacentElement('afterend', div);
-    div.append(table);
+    const div = table.parentElement;
     const blockMarker = document.createElement('div');
     blockMarker.className = 'block-marker';
     try {

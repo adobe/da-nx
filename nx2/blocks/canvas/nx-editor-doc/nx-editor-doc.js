@@ -1,4 +1,5 @@
 import { LitElement, html, nothing } from 'da-lit';
+import { yUndo, yRedo } from 'da-y-wrapper';
 import { loadStyle } from '../../../utils/utils.js';
 import { updateDocument, updateCursors } from '../editor-utils/document.js';
 import { getEditor } from '../editor-utils/state.js';
@@ -56,6 +57,43 @@ export class NxEditorDoc extends LitElement {
     }));
   }
 
+  _emitUndoState() {
+    const mgr = this._proseContext?.undoManager;
+    const canUndo = mgr ? mgr.undoStack.length > 0 : false;
+    const canRedo = mgr ? mgr.redoStack.length > 0 : false;
+    this.dispatchEvent(new CustomEvent('nx-editor-undo-state', {
+      bubbles: true,
+      composed: true,
+      detail: { canUndo, canRedo },
+    }));
+  }
+
+  _observeUndoManager(mgr) {
+    this._stopObservingUndoManager();
+    if (!mgr) return;
+    this._undoStackHandler = () => this._emitUndoState();
+    mgr.on('stack-item-added', this._undoStackHandler);
+    mgr.on('stack-item-popped', this._undoStackHandler);
+  }
+
+  _stopObservingUndoManager() {
+    const mgr = this._proseContext?.undoManager;
+    if (!mgr || !this._undoStackHandler) return;
+    mgr.off('stack-item-added', this._undoStackHandler);
+    mgr.off('stack-item-popped', this._undoStackHandler);
+    this._undoStackHandler = undefined;
+  }
+
+  undo() {
+    const { view } = this._proseContext ?? {};
+    if (view) yUndo(view.state, view.dispatch);
+  }
+
+  redo() {
+    const { view } = this._proseContext ?? {};
+    if (view) yRedo(view.state, view.dispatch);
+  }
+
   _setupController() {
     const { view, wsProvider } = this._proseContext ?? {};
     if (!this.quickEditPort || !view || !wsProvider) return;
@@ -98,6 +136,7 @@ export class NxEditorDoc extends LitElement {
   }
 
   _teardown() {
+    this._stopObservingUndoManager();
     const { wsProvider, view, proseEl } = this._proseContext ?? {};
     teardownEditorDocResources({
       clearPortHandler: () => this._clearControllerPort(),
@@ -126,13 +165,12 @@ export class NxEditorDoc extends LitElement {
 
     try {
       const { token, permissions } = session;
-      const { proseEl, wsProvider, view, ydoc } = await initProse({
+      const { proseEl, wsProvider, view, ydoc, undoManager } = await initProse({
         path: sourceUrl,
         permissions,
         setEditable: (editable) => this._setEditable(editable),
         getToken: () => token,
         extraPlugins: [
-          // controllerCtx is only initialized after setupController
           createTrackingPlugin(
             () => { if (this._controllerCtx) updateDocument(this._controllerCtx); },
             () => { if (this._controllerCtx) updateCursors(this._controllerCtx); },
@@ -141,8 +179,9 @@ export class NxEditorDoc extends LitElement {
         ],
       });
 
-      this._proseContext = { proseEl, wsProvider, view, ydoc };
+      this._proseContext = { proseEl, wsProvider, view, ydoc, undoManager };
       this._setupAwareness(wsProvider);
+      this._observeUndoManager(undoManager);
 
       this._setupController();
     } catch (e) {
