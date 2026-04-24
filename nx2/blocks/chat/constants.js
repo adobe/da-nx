@@ -13,7 +13,7 @@ const ADD_MENU_ITEMS = [
 ];
 
 const CHAT_ICONS = {
-  add: 'Add', clear: 'RemoveCircle', send: 'ArrowUpSend', stop: 'Stop', up: 'ChevronUp',
+  add: 'Add', clear: 'RemoveCircle', close: 'SplitLeft', send: 'ArrowUpSend', stop: 'Stop', up: 'ChevronUp',
 };
 
 /**

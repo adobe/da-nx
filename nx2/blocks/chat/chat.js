@@ -50,18 +50,8 @@ class NxChat extends LitElement {
     this._controller?.clear();
   }
 
-  // Runs when the panel header slot is ready
-  _mountClearBtn() {
-    if (!this._panelSlot || this._clearBtn) return;
-    const btn = document.createElement('button');
-    btn.className = 'panel-header-action';
-    btn.setAttribute('aria-label', 'Clear chat');
-    btn.hidden = !this.messages?.length;
-    if (icons.clear) btn.append(icon('clear'));
-    btn.append(Object.assign(document.createElement('span'), { textContent: 'Clear' }));
-    btn.addEventListener('click', () => this.clear());
-    this._clearBtn = btn;
-    this._panelSlot.append(btn);
+  _closePanel() {
+    this.dispatchEvent(new CustomEvent('nx-panel-close', { bubbles: true, composed: true }));
   }
 
   async _loadPrompts() {
@@ -77,11 +67,6 @@ class NxChat extends LitElement {
   async connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [styles];
-
-    this.closest('.panel-body')?.addEventListener('nx-panel-slot', ({ detail }) => {
-      this._panelSlot = detail.slot;
-      this._mountClearBtn();
-    }, { once: true });
 
     this._controller = new ChatController({
       onToolDone: () => {
@@ -147,8 +132,6 @@ class NxChat extends LitElement {
     if (changed.has('thinking') && !this.thinking && changed.get('thinking')) {
       this.shadowRoot.querySelector('.chat-input')?.focus();
     }
-    if (this._clearBtn) this._clearBtn.hidden = !this.messages?.length;
-
     if (changed.has('toolCards')) {
       if (this._pendingApproval()) {
         document.addEventListener('keydown', this._onApprovalKeydown);
@@ -228,6 +211,21 @@ class NxChat extends LitElement {
           .onSend=${(p) => this._sendPrompt(p)}
         ></nx-prompts>
       </nx-popover>
+      <div class="chat-header">
+        <button
+          type="button"
+          class="chat-header-btn clear-btn"
+          aria-label="Clear chat"
+          ?hidden=${!this.messages?.length}
+          @click=${() => this.clear()}
+        >${icon('clear')}<span>Clear</span></button>
+        <button
+          type="button"
+          class="chat-header-btn"
+          aria-label="Close chat panel"
+          @click=${this._closePanel}
+        >${icon('close')}</button>
+      </div>
       <div class="chat-scroll-container">
         <div class="chat-messages-container" role="log" aria-live="polite">
           ${!this.messages?.length && !this.thinking
