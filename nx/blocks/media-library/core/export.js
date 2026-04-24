@@ -45,6 +45,16 @@ export function exportToCsv(mediaData, options = {}) {
   URL.revokeObjectURL(link.href);
 }
 
+function escapeHtml(str) {
+  return str.replace(/[&<>"']/g, (char) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  }[char]));
+}
+
 async function copyImageToClipboard(imageUrl) {
   let response;
   try {
@@ -66,6 +76,8 @@ async function copyImageToClipboard(imageUrl) {
   let clipboardBlob = blob;
   let mimeType = blob.type;
 
+  // Clipboard API only supports image/png, image/gif, image/webp
+  // Convert other formats (like JPEG) to PNG
   if (!['image/png', 'image/gif', 'image/webp'].includes(blob.type)) {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
@@ -89,7 +101,15 @@ async function copyImageToClipboard(imageUrl) {
     URL.revokeObjectURL(img.src);
   }
 
-  const clipboardItem = new ClipboardItem({ [mimeType]: clipboardBlob });
+  // Copy multiple formats like browser's "Copy image" does
+  // Include HTML and text with the original URL so document editors can deduplicate
+  const escapedUrl = escapeHtml(imageUrl);
+  const clipboardItem = new ClipboardItem({
+    [mimeType]: clipboardBlob,
+    'text/html': new Blob([`<img src="${escapedUrl}">`], { type: 'text/html' }),
+    'text/plain': new Blob([imageUrl], { type: 'text/plain' }),
+  });
+
   await navigator.clipboard.write([clipboardItem]);
 }
 

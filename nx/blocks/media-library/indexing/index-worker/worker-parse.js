@@ -20,6 +20,7 @@ import { getDedupeKey } from '../../core/urls.js';
 export { getDedupeKey };
 
 const MD_LINK_RE = /\[[^\]]*\]\(([^)]+)\)/gi;
+const MD_REF_DEF_RE = /^\[([^\]]+)\]:\s*(.+)$/gm; // Reference-style link definitions
 const MD_AUTOLINK_RE = /<(https?:\/\/[^>]+|\/[^>\s]*)>/g;
 const HTML_MEDIA_ATTR_RE = /<(?:img|video|audio|source|iframe)\b[^>]*\b(src|srcset|poster)=["']([^"']+)["'][^>]*>/gi;
 const HTML_ANCHOR_RE = /<a\b[^>]*\bhref=["']([^"']+)["'][^>]*>/gi;
@@ -136,6 +137,7 @@ function extractUrlsFromMarkdown(md) {
   if (!md || typeof md !== 'string') return [];
   const candidates = [
     ...[...md.matchAll(MD_LINK_RE)].map((m) => m[1]),
+    ...[...md.matchAll(MD_REF_DEF_RE)].map((m) => m[2]),
     ...[...md.matchAll(MD_AUTOLINK_RE)].map((m) => m[1]),
     ...extractHtmlMediaUrls(md),
   ];
@@ -318,6 +320,7 @@ export async function buildUsageMap(
     };
     const addToExternalMedia = (url) => {
       const pageTs = getLatestPageTimestamp(normalizedPath);
+
       const existing = usageMap.externalMedia.get(url);
       if (!existing) {
         usageMap.externalMedia.set(url, {
@@ -440,6 +443,7 @@ export async function buildUsageMap(
   const fragCount = usageMap.fragments?.size ?? 0;
   const pdfCount = usageMap.pdfs?.size ?? 0;
   const svgCount = usageMap.svgs?.size ?? 0;
+  const imgCount = usageMap.images?.size ?? 0;
   const extCount = usageMap.externalMedia?.size ?? 0;
 
   // MODIFIED: Use isPerfEnabled from context instead of isPerfEnabled()
@@ -447,7 +451,7 @@ export async function buildUsageMap(
     // eslint-disable-next-line no-console
     console.log(
       `[buildUsageMap] ${Math.round(durationMs / 1000)}s | pages ${counters.success}/${uniquePages.length} | `
-      + `items frag=${fragCount} pdf=${pdfCount} svg=${svgCount} ext=${extCount}`,
+      + `items frag=${fragCount} pdf=${pdfCount} svg=${svgCount} img=${imgCount} ext=${extCount}`,
     );
   }
 
