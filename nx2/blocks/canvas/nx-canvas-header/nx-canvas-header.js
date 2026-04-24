@@ -10,14 +10,15 @@ const ICONS = {
   redo: `${ICONS_BASE}S2_Icon_Redo_20_N.svg`,
   splitLeft: `${ICONS_BASE}S2_Icon_SplitLeft_20_N.svg`,
   splitRight: `${ICONS_BASE}S2_Icon_SplitRight_20_N.svg`,
+  gridCompare: `${ICONS_BASE}S2_Icon_GridCompare_20_N.svg`,
 };
 
-const EDITOR_VIEWS = /** @type {const} */ (['layout', 'content']);
+const EDITOR_VIEWS = /** @type {const} */ (['layout', 'content', 'split']);
 
 class NXCanvasHeader extends LitElement {
   static properties = {
     _icons: { state: true },
-    /** `'layout'` = doc editor (ProseMirror), `'content'` = WYSIWYG preview */
+    /** `'layout'` / `'content'` = single pane; `'split'` = doc + WYSIWYG side by side */
     editorView: { type: String, reflect: true },
     undoAvailable: { type: Boolean },
     redoAvailable: { type: Boolean },
@@ -119,6 +120,14 @@ class NXCanvasHeader extends LitElement {
               aria-pressed=${this.editorView === 'content'}
               @click=${() => this._setEditorView('content')}
             >Content</button>
+            <button
+              type="button"
+              class="segment segment-icon ${this.editorView === 'split' ? 'is-selected' : ''}"
+              aria-pressed=${this.editorView === 'split'}
+              aria-label="Split view"
+              title="Split view"
+              @click=${() => this._setEditorView('split')}
+            >${this._renderIcon('gridCompare')}</button>
           </div>
         </div>
 

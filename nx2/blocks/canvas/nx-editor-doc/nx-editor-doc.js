@@ -197,8 +197,8 @@ export class NxEditorDoc extends LitElement {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
     this._onCanvasEditorActive = (e) => {
-      const view = e.detail?.view === 'content' ? 'content' : 'layout';
-      this.hidden = view !== 'content';
+      const view = e.detail?.view;
+      this.hidden = view === 'layout';
       hideSelectionToolbar();
     };
     this.parentElement?.addEventListener('nx-canvas-editor-active', this._onCanvasEditorActive);
