@@ -31,14 +31,17 @@ import {
   isPage,
   getDedupeKey,
 } from '../parse.js';
-import { normalizePath } from '../../core/parse-utils.js';
+import {
+  normalizePath,
+  sortMediaData,
+  getContentPathFromSitePath,
+} from '../../core/parse-utils.js';
 import { buildMediaSheet } from '../sheets.js';
 import {
   IndexConfig,
   IndexFiles,
   SheetNames,
 } from '../../core/constants.js';
-import { sortMediaData, getContentPathFromSitePath } from './worker-utils.js';
 
 const INDEX_SCHEMA_VERSION = 2;
 

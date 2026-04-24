@@ -2,6 +2,10 @@ import { daFetch } from '../../../utils/daFetch.js';
 import { Paths, Domains, DA_LIVE_EDIT_BASE, DA_ORIGIN } from './constants.js';
 import { ErrorCodes, logMediaLibraryError } from './errors.js';
 import { t } from './messages.js';
+import {
+  normalizeSitePath as _normalizeSitePath,
+  getContentPathFromSitePath as _getContentPathFromSitePath,
+} from './parse-utils.js';
 
 function normalizeDocPath(docPath) {
   if (!docPath) return '';
@@ -171,19 +175,11 @@ export function getBasePath() {
   return `/${parts.join('/')}`;
 }
 
-export function normalizeSitePath(sitePath) {
-  if (!sitePath || typeof sitePath !== 'string') return '';
-  const trimmed = sitePath.trim();
-  const withLeading = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
-  return withLeading === '/' ? '/' : withLeading.replace(/\/+$/, '');
-}
+/** Re-exported from parse-utils.js for backward compatibility */
+export const normalizeSitePath = _normalizeSitePath;
 
-export function getContentPathFromSitePath(sitePath) {
-  const normalized = normalizeSitePath(sitePath);
-  const parts = normalized.split('/').filter(Boolean);
-  if (parts.length <= 2) return '';
-  return `/${parts.slice(2).join('/')}`;
-}
+/** Re-exported from parse-utils.js for backward compatibility */
+export const getContentPathFromSitePath = _getContentPathFromSitePath;
 
 export function resolveAbsolutePath(path, isFolder = false) {
   const basePath = getBasePath();

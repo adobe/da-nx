@@ -1,6 +1,10 @@
 import { Domains } from './constants.js';
 import { etcFetch, getLivePreviewUrl } from './urls.js';
 import { initIms } from '../../../utils/daFetch.js';
+import {
+  getCanonicalMediaTimestamp as _getCanonicalMediaTimestamp,
+  sortMediaData as _sortMediaData,
+} from './parse-utils.js';
 
 export function formatDateTime(isoString) {
   if (!isoString) return 'Unknown';
@@ -25,23 +29,8 @@ export function pluralize(singular, plural, count) {
   return count === 1 ? singular : plural;
 }
 
-// Coerces timestamp to finite number, handling corrupted string timestamps.
-function toFiniteTimestamp(value) {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value;
-  }
-  if (typeof value === 'string') {
-    const parsed = Number(value);
-    return Number.isFinite(parsed) ? parsed : 0;
-  }
-  return 0;
-}
-
-/** Same ordering key as sortMediaData / saved index rows: modified time, else ingest time. */
-export function getCanonicalMediaTimestamp(item) {
-  if (!item) return 0;
-  return toFiniteTimestamp(item.modifiedTimestamp || item.timestamp);
-}
+/** Re-exported from parse-utils.js for backward compatibility */
+export const getCanonicalMediaTimestamp = _getCanonicalMediaTimestamp;
 
 /**
  * Computes status from doc field (referenced if doc present, unused if empty).
@@ -55,28 +44,8 @@ export function getItemStatus(item) {
   return item.doc ? 'referenced' : 'unused';
 }
 
-export function sortMediaData(mediaData) {
-  return [...mediaData].sort((a, b) => {
-    const tsA = getCanonicalMediaTimestamp(a);
-    const tsB = getCanonicalMediaTimestamp(b);
-    const timeDiff = tsB - tsA;
-
-    if (timeDiff !== 0) return timeDiff;
-
-    const docPathA = a.doc || '';
-    const docPathB = b.doc || '';
-
-    const depthA = docPathA ? docPathA.split('/').filter((p) => p).length : 999;
-    const depthB = docPathB ? docPathB.split('/').filter((p) => p).length : 999;
-
-    const depthDiff = depthA - depthB;
-    if (depthDiff !== 0) return depthDiff;
-
-    const nameA = (a.name || '').toLowerCase();
-    const nameB = (b.name || '').toLowerCase();
-    return nameA.localeCompare(nameB);
-  });
-}
+/** Re-exported from parse-utils.js for backward compatibility */
+export const sortMediaData = _sortMediaData;
 
 /**
  * Deduplicates media entries by hash, keeping one entry per unique media asset.

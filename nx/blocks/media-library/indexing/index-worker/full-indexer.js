@@ -33,7 +33,11 @@ import {
   getDedupeKey, createMedialogEntry,
   createLinkedContentEntries,
 } from '../parse.js';
-import { normalizePath } from '../../core/parse-utils.js';
+import {
+  normalizePath,
+  sortMediaData,
+  getContentPathFromSitePath,
+} from '../../core/parse-utils.js';
 import { buildMediaSheet, buildUsageSheet } from '../sheets.js';
 import { canonicalizeMediaUrl } from '../../core/urls.js';
 import {
@@ -41,7 +45,6 @@ import {
 } from '../../core/constants.js';
 import { MediaLibraryError, ErrorCodes, logMediaLibraryError } from '../../core/errors.js';
 import { t } from '../../core/messages.js';
-import { sortMediaData, getContentPathFromSitePath } from './worker-utils.js';
 
 const PERF_TAG = 'phase3-split-sheets';
 const INDEX_SCHEMA_VERSION = 2;

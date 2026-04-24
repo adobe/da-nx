@@ -204,6 +204,74 @@ export function extractLinks(content, pattern, isHtml = false) {
 }
 
 /**
+ * Coerces timestamp to finite number, handling corrupted string timestamps.
+ */
+function toFiniteTimestamp(value) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
+  return 0;
+}
+
+/**
+ * Returns canonical timestamp for sorting (modified time, else ingest time)
+ */
+export function getCanonicalMediaTimestamp(item) {
+  if (!item) return 0;
+  return toFiniteTimestamp(item.modifiedTimestamp || item.timestamp);
+}
+
+/**
+ * Sorts media data by timestamp descending, then by path depth, then by name
+ */
+export function sortMediaData(mediaData) {
+  return [...mediaData].sort((a, b) => {
+    const tsA = getCanonicalMediaTimestamp(a);
+    const tsB = getCanonicalMediaTimestamp(b);
+    const timeDiff = tsB - tsA;
+
+    if (timeDiff !== 0) return timeDiff;
+
+    const docPathA = a.doc || '';
+    const docPathB = b.doc || '';
+
+    const depthA = docPathA ? docPathA.split('/').filter((p) => p).length : 999;
+    const depthB = docPathB ? docPathB.split('/').filter((p) => p).length : 999;
+
+    const depthDiff = depthA - depthB;
+    if (depthDiff !== 0) return depthDiff;
+
+    const nameA = (a.name || '').toLowerCase();
+    const nameB = (b.name || '').toLowerCase();
+    return nameA.localeCompare(nameB);
+  });
+}
+
+/**
+ * Normalizes sitePath string (adds leading slash, removes trailing slash)
+ */
+export function normalizeSitePath(sitePath) {
+  if (!sitePath || typeof sitePath !== 'string') return '';
+  const trimmed = sitePath.trim();
+  const withLeading = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+  return withLeading === '/' ? '/' : withLeading.replace(/\/+$/, '');
+}
+
+/**
+ * Gets content path from sitePath (strips /org/repo prefix)
+ */
+export function getContentPathFromSitePath(sitePath) {
+  const normalized = normalizeSitePath(sitePath);
+  const parts = normalized.split('/').filter(Boolean);
+  if (parts.length <= 2) return '';
+  return `/${parts.slice(2).join('/')}`;
+}
+
+/**
  * Process items concurrently with concurrency limit
  * Returns results in order
  */
