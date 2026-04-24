@@ -227,13 +227,10 @@
   display: flex;
   gap: var(--s2-spacing-50);
   flex-shrink: 0;
-  opacity: 0;
-  transition: opacity 0.1s;
 }
 
-.prompt-row:hover .prompt-row-actions,
-.prompt-row.is-selected .prompt-row-actions {
-  opacity: 1;
+.row-action-btn-delete {
+  color: var(--s2-red-700);
 }
 
 .row-action-btn {
@@ -366,6 +363,13 @@
   padding: var(--s2-spacing-200);
 }
 
+/* Memory tab: push content to the bottom so the most-recent text is visible first */
+.editor-body-memory {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
 /* Sticky action bar pinned to the bottom of the drawer */
 .editor-footer {
   flex-shrink: 0;
@@ -406,6 +410,10 @@
   font-family: monospace;
   font-size: var(--s2-body-size-xs);
   line-height: 1.5;
+}
+
+.form textarea.textarea-sm {
+  min-height: 80px;
 }
 
 .textarea-wrap {

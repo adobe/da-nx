@@ -39,7 +39,6 @@ const CATALOG_TABS = [
   { id: 'agents', label: 'Agents' },
   { id: 'prompts', label: 'Prompts' },
   { id: 'mcps', label: 'MCPs' },
-  { id: 'generated', label: 'Tools' },
   { id: 'memory', label: 'Memory' },
 ];
 
@@ -101,6 +100,7 @@ class NxSkillsEditor extends LitElement {
     _suggestion: { state: true },
     _mcpKey: { state: true },
     _mcpUrl: { state: true },
+    _mcpDescription: { state: true },
     _editingMcpKey: { state: true },
     _mcpEnableBusy: { state: true },
     _activeToolRefs: { state: true },
@@ -132,6 +132,7 @@ class NxSkillsEditor extends LitElement {
     this._clearForm();
     this._mcpKey = '';
     this._mcpUrl = '';
+    this._mcpDescription = '';
     this._editingMcpKey = null;
     this._mcpEnableBusy = {};
     this._activeToolRefs = null;
@@ -317,6 +318,10 @@ class NxSkillsEditor extends LitElement {
     this._formPromptBody = '';
     this._formPromptIsEdit = false;
     this._formPromptTools = [];
+    this._mcpKey = '';
+    this._mcpUrl = '';
+    this._mcpDescription = '';
+    this._editingMcpKey = null;
     this._saveBusy = false;
     this._statusMsg = '';
     this._statusType = '';
@@ -375,6 +380,7 @@ class NxSkillsEditor extends LitElement {
         tab,
         mcpKey: this._mcpKey,
         mcpUrl: this._mcpUrl,
+        mcpDescription: this._mcpDescription,
         editingMcpKey: this._editingMcpKey,
       };
     }
@@ -401,6 +407,7 @@ class NxSkillsEditor extends LitElement {
     } else if (tab === 'mcps') {
       this._mcpKey = snapshot.mcpKey;
       this._mcpUrl = snapshot.mcpUrl;
+      this._mcpDescription = snapshot.mcpDescription || '';
       this._editingMcpKey = snapshot.editingMcpKey;
       this._editorOpen = true;
     }
@@ -730,6 +737,20 @@ class NxSkillsEditor extends LitElement {
     await this._reload();
   }
 
+  async _deletePromptDirect(row) {
+    const title = row.title || '';
+    if (!title) return;
+    // eslint-disable-next-line no-alert
+    if (!window.confirm(`Delete prompt "${title}"? This cannot be undone.`)) return;
+    const result = await deletePromptFromConfig(this._org, this._site, title);
+    if (result?.error) {
+      this._setStatus(result.error, 'err');
+      return;
+    }
+    if (this._formPromptIsEdit && this._formPromptTitle === title) this._closeEditor();
+    await this._reload();
+  }
+
   _onRunPrompt() {
     const prompt = this._formPromptBody.trim();
     if (!prompt) return;
@@ -742,7 +763,8 @@ class NxSkillsEditor extends LitElement {
   async _onRegisterMcp() {
     this._saveBusy = true;
     const isUpdate = Boolean(this._editingMcpKey);
-    const result = await registerMcpServer(this._org, this._site, this._mcpKey, this._mcpUrl);
+    // eslint-disable-next-line max-len
+    const result = await registerMcpServer(this._org, this._site, this._mcpKey, this._mcpUrl, this._mcpDescription);
     if (!result.ok) this._setStatus(result.error || 'Failed', 'err');
     else {
       this._mcpKey = '';
@@ -774,6 +796,8 @@ class NxSkillsEditor extends LitElement {
   _clearMcpForm() {
     this._mcpKey = '';
     this._mcpUrl = '';
+    this._mcpDescription = '';
+    this._editingMcpKey = null;
   }
 
   _onEditMcp(row) {
@@ -789,6 +813,7 @@ class NxSkillsEditor extends LitElement {
     this._editingMcpKey = row.key;
     this._mcpKey = row.key;
     this._mcpUrl = row.url || row.value || '';
+    this._mcpDescription = row.description || '';
     this._catalogTab = 'mcps';
     this._editorOpen = true;
     this._formDirty = false;
@@ -923,7 +948,7 @@ class NxSkillsEditor extends LitElement {
     else if (tab === 'agents') title = this._formIsEdit ? 'Edit Agent' : 'New Agent';
     else if (tab === 'skills') title = this._formIsEdit ? 'Edit Skill' : 'New Skill';
     else if (isPrompt) title = this._formPromptIsEdit ? 'Edit Prompt' : 'New Prompt';
-    else if (isMcp) title = this._editingMcpKey ? 'Update MCP Server' : 'Register MCP Server';
+    else if (isMcp) title = this._editingMcpKey ? `Edit: ${this._editingMcpKey}` : 'Register MCP Server';
     else if (isMemory) title = 'Project Memory';
 
     return html`
@@ -939,7 +964,7 @@ class NxSkillsEditor extends LitElement {
             ${this._formDirty ? html`
               <div class="dirty-notice" role="status">Unsaved edits &middot; save to persist</div>
             ` : nothing}
-            <div class="editor-body">
+            <div class="editor-body ${isMemory ? 'editor-body-memory' : ''}">
               ${tab === 'agents' && this._agentViewTools ? this._renderAssociatedToolsSelector() : nothing}
               ${isSkill && !this._agentViewTools ? this._renderSkillForm() : nothing}
               ${isPrompt ? this._renderPromptForm() : nothing}
@@ -1010,7 +1035,6 @@ class NxSkillsEditor extends LitElement {
             @input=${(e) => { this._formPromptBody = e.target.value; this._markDirty(); }}
           ></textarea>
         </div>
-        ${this._renderAssociatedToolsSelector()}
       </form>
     `;
   }
@@ -1096,11 +1120,6 @@ class NxSkillsEditor extends LitElement {
   _renderMcpForm() {
     return html`
       <form class="form" @submit=${(e) => e.preventDefault()}>
-        ${this._editingMcpKey ? html`
-          <p class="form-hint">Editing <code>${this._editingMcpKey}</code> \u00b7
-            <button type="button" class="link-btn" @click=${this._clearMcpForm}>New MCP</button>
-          </p>
-        ` : nothing}
         <input type="text" placeholder="server-key" aria-label="MCP server key"
           .value=${this._mcpKey}
           ?readonly=${Boolean(this._editingMcpKey)}
@@ -1110,6 +1129,13 @@ class NxSkillsEditor extends LitElement {
           .value=${this._mcpUrl}
           @input=${(e) => { this._mcpUrl = e.target.value; this._markDirty(); }}
         >
+        <textarea
+          class="textarea-sm"
+          placeholder="Description \u2014 what this server does (optional)"
+          aria-label="MCP server description"
+          .value=${this._mcpDescription}
+          @input=${(e) => { this._mcpDescription = e.target.value; this._markDirty(); }}
+        ></textarea>
       </form>
     `;
   }
@@ -1183,8 +1209,7 @@ class NxSkillsEditor extends LitElement {
           <button type="button" data-variant="accent"
             ?disabled=${this._saveBusy || !this._mcpKey.trim() || !this._mcpUrl.trim()}
             @click=${this._onRegisterMcp}
-          >${this._editingMcpKey ? 'Update' : 'Register'}</button>
-        </div>
+          >${this._editingMcpKey ? 'Update' : 'Register'}</button>        </div>
         ${statusTpl}
       `;
     }
@@ -1361,6 +1386,10 @@ class NxSkillsEditor extends LitElement {
                       this._dispatchPromptToChat(DA_SKILLS_EDITOR_PROMPT_SEND, row.prompt);
                     }}
                   >\u25b6</button>
+                  <button type="button" class="row-action-btn row-action-btn-delete" title="Delete"
+                    aria-label="Delete ${title}"
+                    @click=${(e) => { e.stopPropagation(); this._deletePromptDirect(row); }}
+                  >\u{1F5D1}</button>
                 </div>
               </div>
             </article>
@@ -1408,8 +1437,9 @@ class NxSkillsEditor extends LitElement {
           const isBusy = this._mcpEnableBusy[token];
           return html`
             <article role="listitem" data-testid="mcp-card" data-mcp-key=${key}>
-              <nx-card heading=${key || '(unnamed)'} subheading=${row.url || row.value || ''}
-                @click=${() => this._onSelectMcp(row)}>
+              <nx-card heading=${key || '(unnamed)'}
+                subheading=${row.description || row.url || row.value || ''}
+                @click=${() => this._onEditMcp(row)}>
                 <span slot="pill"
                   class="status-dot ${isEnabled ? 'status-dot-approved' : 'status-dot-draft'}"
                   aria-label=${isEnabled ? 'Enabled' : 'Disabled'}

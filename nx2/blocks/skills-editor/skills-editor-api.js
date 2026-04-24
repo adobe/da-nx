@@ -467,7 +467,7 @@ export async function setGeneratedToolEnabled(org, site, toolId, enabled) {
 
 // ─── MCP servers ────────────────────────────────────────────────────────────
 
-export async function registerMcpServer(org, site, key, url) {
+export async function registerMcpServer(org, site, key, url, description = '') {
   const k = String(key || '').trim();
   const u = String(url || '').trim();
   if (!k || !u) return { ok: false, error: 'Key and URL required' };
@@ -481,6 +481,7 @@ export async function registerMcpServer(org, site, key, url) {
   const data = [...(sheet.data || [])];
   const idx = data.findIndex((r) => r.key === k);
   const row = { key: k, url: u };
+  if (description) row.description = String(description).trim();
   if (idx >= 0) data[idx] = { ...data[idx], ...row }; else data.push(row);
   cfg['mcp-servers'] = { ...sheet, data, total: data.length };
 
