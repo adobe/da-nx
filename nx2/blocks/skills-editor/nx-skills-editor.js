@@ -1,8 +1,8 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle, HashController } from '../../utils/utils.js';
-import { ICONS_BASE } from '../../utils/svg.js';
 import '../shared/tabs/tabs.js';
 import '../shared/card/card.js';
+import '../shared/popover/popover.js';
 import './generated-tools/generated-tools.js';
 import {
   fetchDaConfigSheets,
@@ -22,12 +22,13 @@ import {
   clearSuggestionSession,
   registerMcpServer,
   setMcpServerEnabled,
+  deleteMcpServer,
   skillRowStatus,
   skillRowEnabled,
+  fetchSiteSourceText,
   DA_SKILLS_EDITOR_SUGGESTION_HANDOFF,
   DA_SKILLS_EDITOR_CLEAR_FORM_FROM_CHAT,
   DA_SKILLS_EDITOR_FORM_DISMISS,
-  DA_SKILLS_EDITOR_PROMPT_ADD_TO_CHAT,
   DA_SKILLS_EDITOR_PROMPT_SEND,
 } from './skills-editor-api.js';
 
@@ -38,12 +39,12 @@ const CATALOG_TABS = [
   { id: 'agents', label: 'Agents' },
   { id: 'prompts', label: 'Prompts' },
   { id: 'mcps', label: 'MCPs' },
+  { id: 'generated', label: 'Tools' },
+  { id: 'memory', label: 'Memory' },
 ];
 
-const TOOLS_TABS = [
-  { id: 'available', label: 'Available tools' },
-  { id: 'generated', label: 'Generated tools' },
-];
+const CATEGORY_OPTIONS = ['Review', 'Workflow', 'Style', 'Content'];
+const KNOWN_CATEGORY_CLASSES = new Set(['review', 'workflow', 'style', 'content']);
 
 const STATUS = { APPROVED: 'approved', DRAFT: 'draft' };
 
@@ -60,11 +61,23 @@ const BUILTIN_MCP_SERVERS = [
   },
 ];
 
+const BUILTIN_AGENTS = [
+  {
+    id: 'da-assistant',
+    label: 'DA Assistant',
+    description: 'Default content authoring assistant with full DA tooling',
+    tools: [
+      'da_list_sources', 'da_get_source', 'da_create_source', 'da_update_source',
+      'da_delete_source', 'da_copy_content', 'da_move_content', 'da_create_version',
+      'da_get_versions', 'da_lookup_media', 'da_lookup_fragment', 'da_upload_media',
+    ],
+  },
+];
+
 class NxSkillsEditor extends LitElement {
   static properties = {
     _loading: { state: true },
     _catalogTab: { state: true },
-    _toolsTab: { state: true },
     _catalogFilter: { state: true },
     _skills: { state: true },
     _skillStatuses: { state: true },
@@ -90,6 +103,16 @@ class NxSkillsEditor extends LitElement {
     _mcpUrl: { state: true },
     _editingMcpKey: { state: true },
     _mcpEnableBusy: { state: true },
+    _activeToolRefs: { state: true },
+    _memory: { state: true },
+    // new master-detail state
+    _editorOpen: { state: true },
+    _agentViewTools: { state: true },
+    _formDirty: { state: true },
+    _promptSearch: { state: true },
+    _toolsSearch: { state: true },
+    _toolsGroupCollapsed: { state: true },
+    _formPromptTools: { state: true },
   };
 
   constructor() {
@@ -97,7 +120,6 @@ class NxSkillsEditor extends LitElement {
     this._hash = new HashController(this);
     this._loading = true;
     this._catalogTab = 'skills';
-    this._toolsTab = 'available';
     this._catalogFilter = 'all';
     this._skills = {};
     this._skillStatuses = {};
@@ -112,8 +134,18 @@ class NxSkillsEditor extends LitElement {
     this._mcpUrl = '';
     this._editingMcpKey = null;
     this._mcpEnableBusy = {};
+    this._activeToolRefs = null;
+    this._memory = null;
     this._loadedKey = null;
     this._statusTimer = null;
+    this._editorOpen = false;
+    this._agentViewTools = false;
+    this._formDirty = false;
+    this._dirtyForms = {}; // non-reactive: { [tabId]: snapshot }
+    this._promptSearch = '';
+    this._toolsSearch = '';
+    this._toolsGroupCollapsed = { DA: false, MCP: false };
+    this._formPromptTools = [];
   }
 
   get _org() { return this._hash.value?.org; }
@@ -125,8 +157,12 @@ class NxSkillsEditor extends LitElement {
     this.shadowRoot.adoptedStyleSheets = [styles];
     this._boundOnSuggestion = () => this._applySuggestion();
     this._boundOnClearForm = () => this._clearForm();
+    this._boundOnPopstate = (e) => this._onPopstate(e);
     window.addEventListener(DA_SKILLS_EDITOR_SUGGESTION_HANDOFF, this._boundOnSuggestion);
     window.addEventListener(DA_SKILLS_EDITOR_CLEAR_FORM_FROM_CHAT, this._boundOnClearForm);
+    window.addEventListener('popstate', this._boundOnPopstate);
+    // Seed initial history state so back navigation knows which tab was active
+    history.replaceState({ ...history.state, skillsEditorTab: this._catalogTab }, '');
   }
 
   disconnectedCallback() {
@@ -134,14 +170,98 @@ class NxSkillsEditor extends LitElement {
     clearTimeout(this._statusTimer);
     window.removeEventListener(DA_SKILLS_EDITOR_SUGGESTION_HANDOFF, this._boundOnSuggestion);
     window.removeEventListener(DA_SKILLS_EDITOR_CLEAR_FORM_FROM_CHAT, this._boundOnClearForm);
+    window.removeEventListener('popstate', this._boundOnPopstate);
   }
 
-  async updated() {
+  async updated(changed) {
     if (!this._org || !this._site) return;
     const key = `${this._org}/${this._site}`;
     if (key !== this._loadedKey) {
       this._loadedKey = key;
+      this._memory = null;
       await this._reload();
+      // Restore panel state after data is available (must come after _reload)
+      await this._restoreNavState();
+    }
+    if (changed?.has('_catalogTab') && this._catalogTab === 'memory' && this._memory === null) {
+      this._loadMemory();
+    }
+    // Persist navigation state when structural nav properties change.
+    // We skip this during the initial load cycle (before _loadedKey is set) to
+    // avoid overwriting a saved state with the blank initial state.
+    if (changed && this._loadedKey) {
+      const itemChanged = (changed.has('_formSkillId') && this._formIsEdit)
+        || (changed.has('_formPromptTitle') && this._formPromptIsEdit)
+        || changed.has('_editingMcpKey');
+      if (changed.has('_editorOpen') || changed.has('_catalogTab') || itemChanged) {
+        this._saveNavState();
+      }
+    }
+  }
+
+  // ─── nav state persistence ────────────────────────────────────────────────
+
+  _navStorageKey() {
+    return `da-skills-editor-nav:${this._org}/${this._site}`;
+  }
+
+  _saveNavState() {
+    if (!this._org || !this._site) return;
+    const tab = this._catalogTab;
+    const payload = { tab, editorOpen: this._editorOpen };
+
+    if (this._editorOpen) {
+      if ((tab === 'skills' || tab === 'agents') && this._formIsEdit && this._formSkillId) {
+        payload.itemType = 'skill';
+        payload.itemId = this._formSkillId;
+      } else if (tab === 'prompts' && this._formPromptIsEdit && this._formPromptTitle) {
+        payload.itemType = 'prompt';
+        payload.itemId = this._formPromptTitle;
+      } else if (tab === 'mcps' && this._editingMcpKey) {
+        payload.itemType = 'mcp';
+        payload.itemId = this._editingMcpKey;
+      }
+    }
+
+    try {
+      sessionStorage.setItem(this._navStorageKey(), JSON.stringify(payload));
+    } catch { /* quota / private browsing */ }
+  }
+
+  async _restoreNavState() {
+    if (!this._org || !this._site) return;
+    let payload;
+    try {
+      const raw = sessionStorage.getItem(this._navStorageKey());
+      if (!raw) return;
+      payload = JSON.parse(raw);
+    } catch { return; }
+
+    const { tab, editorOpen, itemType, itemId } = payload;
+
+    if (tab) this._catalogTab = tab;
+
+    if (!editorOpen) return;
+
+    if (tab === 'memory') {
+      this._editorOpen = true;
+      return;
+    }
+
+    if (!itemId) {
+      this._editorOpen = true;
+      return;
+    }
+
+    if (itemType === 'skill') {
+      await this._onEditSkill(itemId);
+    } else if (itemType === 'prompt') {
+      const row = (this._prompts || []).find((p) => p.title === itemId);
+      if (row) this._openEditor(row);
+    } else if (itemType === 'mcp') {
+      const row = (this._mcpRows || []).find((r) => r.key === itemId);
+      if (row) this._onEditMcp(row);
+      else { this._editingMcpKey = itemId; this._editorOpen = true; }
     }
   }
 
@@ -167,7 +287,6 @@ class NxSkillsEditor extends LitElement {
     this._loading = false;
     this._applySuggestion();
 
-    // Non-blocking: load agents and MCP tools after initial render
     loadAgentPresets(this._org, this._site).then((presets) => { this._agents = presets; });
     if (Object.keys(this._configuredMcpServers).length) {
       fetchMcpToolsFromAgent(this._configuredMcpServers)
@@ -183,6 +302,7 @@ class NxSkillsEditor extends LitElement {
       this._formIsEdit = false;
       this._suggestion = true;
       this._catalogTab = 'skills';
+      this._editorOpen = true;
     }
   }
 
@@ -196,6 +316,7 @@ class NxSkillsEditor extends LitElement {
     this._formPromptCategory = '';
     this._formPromptBody = '';
     this._formPromptIsEdit = false;
+    this._formPromptTools = [];
     this._saveBusy = false;
     this._statusMsg = '';
     this._statusType = '';
@@ -203,8 +324,17 @@ class NxSkillsEditor extends LitElement {
   }
 
   _dismissForm() {
+    this._clearDirty();
     this._clearForm();
+    this._editorOpen = false;
     window.dispatchEvent(new CustomEvent(DA_SKILLS_EDITOR_FORM_DISMISS));
+  }
+
+  _closeEditor() {
+    // Just collapse the drawer. If the form was dirty, the snapshot lives in
+    // _dirtyForms[tab] and will be restored when the user reopens the same item.
+    this._editorOpen = false;
+    if (!this._formDirty) this._clearForm();
   }
 
   _setStatus(msg, type = 'ok') {
@@ -214,6 +344,173 @@ class NxSkillsEditor extends LitElement {
     if (type === 'ok') {
       this._statusTimer = setTimeout(() => { this._statusMsg = ''; }, 3000);
     }
+  }
+
+  // ─── dirty form tracking ─────────────────────────────────────────────────
+
+  /** Snapshot current in-flight form fields, keyed by the active tab. */
+  _captureForm() {
+    const tab = this._catalogTab;
+    if (tab === 'skills' || tab === 'agents') {
+      return {
+        tab,
+        formSkillId: this._formSkillId,
+        formSkillBody: this._formSkillBody,
+        formIsEdit: this._formIsEdit,
+        agentViewTools: this._agentViewTools,
+      };
+    }
+    if (tab === 'prompts') {
+      return {
+        tab,
+        formPromptTitle: this._formPromptTitle,
+        formPromptBody: this._formPromptBody,
+        formPromptCategory: this._formPromptCategory,
+        formPromptTools: [...(this._formPromptTools || [])],
+        formPromptIsEdit: this._formPromptIsEdit,
+      };
+    }
+    if (tab === 'mcps') {
+      return {
+        tab,
+        mcpKey: this._mcpKey,
+        mcpUrl: this._mcpUrl,
+        editingMcpKey: this._editingMcpKey,
+      };
+    }
+    return null;
+  }
+
+  /** Restore form fields from a previously captured snapshot. */
+  _restoreForm(snapshot) {
+    if (!snapshot) return;
+    const { tab } = snapshot;
+    if (tab === 'skills' || tab === 'agents') {
+      this._formSkillId = snapshot.formSkillId;
+      this._formSkillBody = snapshot.formSkillBody;
+      this._formIsEdit = snapshot.formIsEdit;
+      this._agentViewTools = snapshot.agentViewTools;
+      this._editorOpen = true;
+    } else if (tab === 'prompts') {
+      this._formPromptTitle = snapshot.formPromptTitle;
+      this._formPromptBody = snapshot.formPromptBody;
+      this._formPromptCategory = snapshot.formPromptCategory;
+      this._formPromptTools = snapshot.formPromptTools;
+      this._formPromptIsEdit = snapshot.formPromptIsEdit;
+      this._editorOpen = true;
+    } else if (tab === 'mcps') {
+      this._mcpKey = snapshot.mcpKey;
+      this._mcpUrl = snapshot.mcpUrl;
+      this._editingMcpKey = snapshot.editingMcpKey;
+      this._editorOpen = true;
+    }
+  }
+
+  /** Called on every form keystroke — marks the form as edited and keeps snapshot current. */
+  _markDirty() {
+    this._formDirty = true;
+    this._dirtyForms[this._catalogTab] = this._captureForm();
+  }
+
+  /** Called after a successful save or explicit discard — removes stored draft. */
+  _clearDirty() {
+    this._formDirty = false;
+    delete this._dirtyForms[this._catalogTab];
+  }
+
+  // ─── tab navigation with state preservation ──────────────────────────────
+
+  _onTabChange(newTab) {
+    if (newTab === this._catalogTab) return;
+
+    // If the form wasn't touched, don't preserve it (clean switch).
+    // If it was dirty, the snapshot is already up-to-date in _dirtyForms.
+    if (!this._formDirty) delete this._dirtyForms[this._catalogTab];
+
+    this._formDirty = false;
+    this._statusMsg = '';
+    this._catalogTab = newTab;
+    this._promptSearch = '';
+
+    const saved = this._dirtyForms[newTab];
+    if (saved) {
+      this._restoreForm(saved);
+      this._formDirty = true;
+    } else {
+      this._clearForm();
+      this._editorOpen = newTab === 'memory';
+    }
+
+    this._pushTabState(newTab);
+  }
+
+  _pushTabState(tab) {
+    // Merge with existing page state so we don't blow away the app's own history data.
+    history.pushState({ ...history.state, skillsEditorTab: tab }, '');
+  }
+
+  _onPopstate(e) {
+    const { skillsEditorTab } = e.state || {};
+    if (!skillsEditorTab) return;
+
+    // Snapshot current dirty edits before leaving
+    if (this._formDirty) this._dirtyForms[this._catalogTab] = this._captureForm();
+
+    this._formDirty = false;
+    this._statusMsg = '';
+    this._catalogTab = skillsEditorTab;
+    this._promptSearch = '';
+
+    const saved = this._dirtyForms[skillsEditorTab];
+    if (saved) {
+      this._restoreForm(saved);
+      this._formDirty = true;
+    } else {
+      this._clearForm();
+      this._editorOpen = skillsEditorTab === 'memory';
+    }
+  }
+
+  // ─── editor open helpers ──────────────────────────────────────────────────
+
+  _openEditor(row) {
+    // If this exact prompt already has dirty edits in memory, restore them.
+    const saved = this._dirtyForms.prompts;
+    if (saved?.formPromptTitle === (row.title || '')) {
+      this._restoreForm(saved);
+      this._formDirty = true;
+      return;
+    }
+
+    this._formPromptTitle = row.title || '';
+    this._formPromptBody = row.prompt || '';
+    this._formPromptCategory = row.category || '';
+    this._formPromptTools = extractToolRefs(row.prompt || '');
+    this._formPromptIsEdit = true;
+    this._statusMsg = '';
+    this._editorOpen = true;
+    this._formDirty = false;
+    delete this._dirtyForms.prompts;
+    this._catalogTab = 'prompts';
+  }
+
+  _openNewEditor() {
+    this._clearForm();
+    this._catalogTab = 'prompts';
+    this._editorOpen = true;
+  }
+
+  _openNewSkillEditor() {
+    this._clearForm();
+    if (this._catalogTab !== 'agents') this._catalogTab = 'skills';
+    this._editorOpen = true;
+  }
+
+  _openNewMcpEditor() {
+    this._clearMcpForm();
+    this._editingMcpKey = null;
+    this._catalogTab = 'mcps';
+    this._editorOpen = true;
   }
 
   // ─── skill CRUD ───────────────────────────────────────────────────────────
@@ -245,6 +542,7 @@ class NxSkillsEditor extends LitElement {
     }
 
     this._setStatus(status === STATUS.DRAFT ? 'Saved as draft' : 'Saved');
+    this._clearDirty();
     this._saveBusy = false;
     this._suggestion = false;
     clearSuggestionSession();
@@ -276,19 +574,92 @@ class NxSkillsEditor extends LitElement {
       return;
     }
 
-    this._clearForm();
+    this._closeEditor();
     await this._reload();
   }
 
+  async _onDeleteSkillById(id) {
+    // eslint-disable-next-line no-alert
+    if (!window.confirm(`Delete skill "${id}"? This cannot be undone.`)) return;
+    this._saveBusy = true;
+    const [configResult, fileResult] = await Promise.all([
+      deleteSkillFromConfig(this._org, this._site, id),
+      deleteSkillMdFile(this._org, this._site, id),
+    ]);
+    this._saveBusy = false;
+    if (configResult?.error || !fileResult?.ok) {
+      this._setStatus(configResult?.error || 'Failed to delete skill', 'err');
+      return;
+    }
+    if (this._formSkillId === id) this._closeEditor();
+    await this._reload();
+  }
+
+  _openSkillMenu(e, id) {
+    const article = this.shadowRoot.querySelector(`[data-skill-id="${id}"]`);
+    article?.querySelector('nx-popover')?.show({ anchor: e.currentTarget });
+  }
+
+  _closeSkillMenu(id) {
+    const article = this.shadowRoot.querySelector(`[data-skill-id="${id}"]`);
+    article?.querySelector('nx-popover')?.close();
+  }
+
+  _openMcpMenu(e, key) {
+    const article = this.shadowRoot.querySelector(`[data-mcp-key="${key}"]`);
+    article?.querySelector('nx-popover')?.show({ anchor: e.currentTarget });
+  }
+
+  _closeMcpMenu(key) {
+    const article = this.shadowRoot.querySelector(`[data-mcp-key="${key}"]`);
+    article?.querySelector('nx-popover')?.close();
+  }
+
   async _onEditSkill(skillId) {
-    this._catalogTab = 'skills';
+    const tab = this._catalogTab !== 'agents' ? 'skills' : 'agents';
+    this._catalogTab = tab;
+
+    // If this skill already has dirty edits, restore them instead of fetching fresh.
+    const saved = this._dirtyForms[tab];
+    if (saved?.formSkillId === skillId) {
+      this._restoreForm(saved);
+      this._formDirty = true;
+      return;
+    }
+
     this._formSkillId = skillId;
     this._formSkillBody = this._skills[skillId] || '';
     this._formIsEdit = true;
     this._statusMsg = '';
+    this._activeToolRefs = null;
+    this._editorOpen = true;
+    this._formDirty = false;
+    delete this._dirtyForms[tab];
 
     const { text } = await readSkillMdFile(this._org, this._site, skillId);
-    if (text) this._formSkillBody = text;
+    // Only apply if the user hasn't started editing while we waited.
+    if (text && !this._formDirty) this._formSkillBody = text;
+  }
+
+  _onSelectAgent(agent) {
+    this._formPromptTools = agent.tools || [];
+    this._agentViewTools = true;
+    this._editorOpen = true;
+  }
+
+  _openNewAgentEditor() {
+    this._clearForm();
+    this._agentViewTools = false;
+    this._catalogTab = 'agents';
+    this._editorOpen = true;
+  }
+
+  _onSelectMcp(row) {
+    const serverId = String(row?.key || '').trim();
+    if (!serverId || !this._mcpTools?.servers) return;
+    const server = this._mcpTools.servers.find((s) => s.id === serverId);
+    const refs = (server?.tools || []).map((t) => `mcp__${serverId}__${t.name}`);
+    this._setActiveToolRefs(refs);
   }
 
   // ─── prompt CRUD ──────────────────────────────────────────────────────────
@@ -313,10 +684,13 @@ class NxSkillsEditor extends LitElement {
       this._setStatus(result.error, 'err');
     } else {
       this._setStatus('Prompt saved');
-      this._formPromptTitle = '';
-      this._formPromptCategory = '';
-      this._formPromptBody = '';
-      this._formPromptIsEdit = false;
+      this._clearDirty();
+      if (!this._formPromptIsEdit) {
+        this._formPromptTitle = '';
+        this._formPromptCategory = '';
+        this._formPromptBody = '';
+        this._formPromptTools = [];
+      }
     }
     this._saveBusy = false;
     await this._reload();
@@ -338,20 +712,29 @@ class NxSkillsEditor extends LitElement {
       return;
     }
 
-    this._formPromptTitle = '';
-    this._formPromptCategory = '';
-    this._formPromptBody = '';
-    this._formPromptIsEdit = false;
+    this._closeEditor();
     await this._reload();
   }
 
-  _onEditPrompt(row) {
-    this._formPromptTitle = row.title || '';
-    this._formPromptCategory = row.category || '';
-    this._formPromptBody = row.prompt || '';
-    this._formPromptIsEdit = true;
-    this._statusMsg = '';
-    this._catalogTab = 'prompts';
+  async _duplicatePrompt(row) {
+    const title = `${row.title || 'Untitled'} (copy)`;
+    const result = await upsertPromptInConfig(
+      this._org,
+      this._site,
+      { title, prompt: row.prompt || '', category: row.category || '' },
+      { status: STATUS.APPROVED },
+    );
+    if (result.error) {
+      this._setStatus(result.error, 'err');
+    }
+    await this._reload();
+  }
+
+  _onRunPrompt() {
+    const prompt = this._formPromptBody.trim();
+    if (!prompt) return;
+    this._dispatchPromptToChat(DA_SKILLS_EDITOR_PROMPT_SEND, prompt);
+    this._setStatus('Sent to chat');
   }
 
   // ─── MCP register ─────────────────────────────────────────────────────────
@@ -365,23 +748,51 @@ class NxSkillsEditor extends LitElement {
       this._mcpKey = '';
       this._mcpUrl = '';
       this._editingMcpKey = null;
+      this._clearDirty();
       this._setStatus(isUpdate ? 'MCP server updated' : 'MCP server registered');
     }
     this._saveBusy = false;
     await this._reload();
   }
 
+  async _onDeleteMcpDirect(row) {
+    const key = String(row?.key || '').trim();
+    if (!key) return;
+    // eslint-disable-next-line no-alert
+    if (!window.confirm(`Remove MCP server "${key}"? This cannot be undone.`)) return;
+    this._saveBusy = true;
+    const result = await deleteMcpServer(this._org, this._site, key);
+    this._saveBusy = false;
+    if (!result.ok) {
+      this._setStatus(result.error || 'Failed to remove MCP server', 'err');
+      return;
+    }
+    if (this._editingMcpKey === key) this._closeEditor();
+    await this._reload();
+  }
+
   _clearMcpForm() {
-    this._editingMcpKey = null;
     this._mcpKey = '';
     this._mcpUrl = '';
   }
 
   _onEditMcp(row) {
+    // If this MCP already has dirty edits, restore them.
+    const saved = this._dirtyForms.mcps;
+    if (saved?.editingMcpKey === row.key) {
+      this._catalogTab = 'mcps';
+      this._restoreForm(saved);
+      this._formDirty = true;
+      return;
+    }
+
     this._editingMcpKey = row.key;
     this._mcpKey = row.key;
     this._mcpUrl = row.url || row.value || '';
     this._catalogTab = 'mcps';
+    this._editorOpen = true;
+    this._formDirty = false;
+    delete this._dirtyForms.mcps;
   }
 
   async _onToggleMcpEnabled(row) {
@@ -407,10 +818,20 @@ class NxSkillsEditor extends LitElement {
     }));
   }
 
-  // ─── tool references for current skill body ──────────────────────────────
+  // ─── tool references ──────────────────────────────────────────────────────
 
   get _toolRefs() {
+    if (this._activeToolRefs !== null) return this._activeToolRefs;
     return extractToolRefs(this._formSkillBody);
+  }
+
+  _setActiveToolRefs(refs) {
+    this._activeToolRefs = refs;
+  }
+
+  async _loadMemory() {
+    const got = await fetchSiteSourceText(this._org, this._site, '.da/agent/memory.md');
+    this._memory = got.error ? '' : (got.text || '');
   }
 
   // ─── render: top level ────────────────────────────────────────────────────
@@ -422,30 +843,128 @@ class NxSkillsEditor extends LitElement {
     if (this._loading) {
       return html`<div class="loading" aria-live="polite">Loading capabilities\u2026</div>`;
     }
-    return html`<div class="root" role="region" aria-label="Skills Editor">
-      ${this._renderFormCol()}
-      ${this._renderToolsCol()}
-      ${this._renderCatalogCol()}
+    return html`<div class="root ${this._editorOpen ? 'drawer-open' : ''}" role="region" aria-label="Skills Editor">
+      ${this._renderListCol()}
+      ${this._renderEditorPanel()}
     </div>`;
   }
 
-  // ─── render: form column ──────────────────────────────────────────────────
+  // ─── render: list column ──────────────────────────────────────────────────
 
-  _renderFormCol() {
-    const isSkills = this._catalogTab === 'skills' || this._catalogTab === 'agents';
+  _renderListCol() {
+    const tab = this._catalogTab;
+    const showSearch = ['skills', 'prompts', 'mcps'].includes(tab);
+
     return html`
-      <div class="col col-form" role="region" aria-label="Editor">
-        ${isSkills ? this._renderSkillForm() : nothing}
-        ${this._catalogTab === 'prompts' ? this._renderPromptForm() : nothing}
-        ${this._catalogTab === 'mcps' ? this._renderMcpForm() : nothing}
+      <div class="col col-list" role="region" aria-label="Catalog">
+        <div class="list-header">
+          <nx-tabs
+            .items=${CATALOG_TABS}
+            .active=${tab}
+            @tab-change=${(e) => this._onTabChange(e.detail.id)}
+          ></nx-tabs>
+          <div class="list-actions-row">
+            ${tab === 'prompts' ? html`
+              <button type="button" class="new-btn"
+                @click=${() => this._openNewEditor()}
+              >+ New Prompt</button>
+            ` : nothing}
+            ${tab === 'skills' ? html`
+              <button type="button" class="new-btn"
+                @click=${() => this._openNewSkillEditor()}
+              >+ New Skill</button>
+            ` : nothing}
+            ${tab === 'agents' ? html`
+              <button type="button" class="new-btn"
+                @click=${() => this._openNewAgentEditor()}
+              >+ New Agent</button>
+            ` : nothing}
+            ${tab === 'mcps' ? html`
+              <button type="button" class="new-btn"
+                @click=${() => this._openNewMcpEditor()}
+              >+ Register MCP</button>
+            ` : nothing}
+          </div>
+        </div>
+        ${showSearch ? html`
+          <div class="list-search">
+            <input
+              type="search"
+              placeholder="Search\u2026"
+              aria-label="Search list"
+              .value=${this._promptSearch}
+              @input=${(e) => { this._promptSearch = e.target.value; }}
+            >
+          </div>
+        ` : nothing}
+        <div class="catalog-scroll">
+          ${tab === 'skills' ? this._renderSkillsCatalog() : nothing}
+          ${tab === 'agents' ? this._renderAgentsCatalog() : nothing}
+          ${tab === 'prompts' ? this._renderPromptsCatalog() : nothing}
+          ${tab === 'mcps' ? this._renderMcpsCatalog() : nothing}
+          ${tab === 'generated' ? this._renderGeneratedTools() : nothing}
+          ${tab === 'memory' ? html`<div class="empty">Memory is shown in the panel \u2192</div>` : nothing}
+        </div>
       </div>
     `;
   }
 
+  // ─── render: editor panel ─────────────────────────────────────────────────
+
+  _renderEditorPanel() {
+    const tab = this._catalogTab;
+    const isSkill = tab === 'skills' || tab === 'agents';
+    const isPrompt = tab === 'prompts';
+    const isMcp = tab === 'mcps';
+    const isMemory = tab === 'memory';
+
+    let title = '';
+    if (tab === 'agents' && this._agentViewTools) title = 'Associated Tools';
+    else if (tab === 'agents') title = this._formIsEdit ? 'Edit Agent' : 'New Agent';
+    else if (tab === 'skills') title = this._formIsEdit ? 'Edit Skill' : 'New Skill';
+    else if (isPrompt) title = this._formPromptIsEdit ? 'Edit Prompt' : 'New Prompt';
+    else if (isMcp) title = this._editingMcpKey ? 'Update MCP Server' : 'Register MCP Server';
+    else if (isMemory) title = 'Project Memory';
+
+    return html`
+      <div class="col-editor" aria-hidden=${this._editorOpen ? 'false' : 'true'}>
+        <div class="col-editor-inner">
+          ${this._editorOpen ? html`
+            <div class="editor-header">
+              <h3 class="editor-title">${title}</h3>
+              <button type="button" class="close-btn" aria-label="Close"
+                @click=${() => this._closeEditor()}
+              >\u2715</button>
+            </div>
+            ${this._formDirty ? html`
+              <div class="dirty-notice" role="status">Unsaved edits &middot; save to persist</div>
+            ` : nothing}
+            <div class="editor-body">
+              ${tab === 'agents' && this._agentViewTools ? this._renderAssociatedToolsSelector() : nothing}
+              ${isSkill && !this._agentViewTools ? this._renderSkillForm() : nothing}
+              ${isPrompt ? this._renderPromptForm() : nothing}
+              ${isMcp ? this._renderMcpForm() : nothing}
+              ${isMemory ? html`
+                <p class="form-hint">.da/agent/memory.md</p>
+                ${this._renderMemoryContent()}
+              ` : nothing}
+            </div>
+            ${(isSkill && !this._agentViewTools) || isPrompt || isMcp ? html`
+              <div class="editor-footer">
+                ${this._renderEditorFooter(isSkill && !this._agentViewTools, isPrompt, isMcp)}
+              </div>
+            ` : nothing}
+          ` : nothing}
+        </div>
+      </div>
+    `;
+  }
+
+  // ─── render: skill form ───────────────────────────────────────────────────
+
   _renderSkillForm() {
     return html`
       <form class="form" @submit=${(e) => e.preventDefault()}>
-        <h3>${this._formIsEdit ? 'Edit Skill' : 'New Skill'}</h3>
         <input
           type="text"
           placeholder="skill-id"
@@ -459,10 +978,154 @@ class NxSkillsEditor extends LitElement {
             placeholder="Create or edit a tool"
             aria-label="Skill markdown"
             .value=${this._formSkillBody}
-            @input=${(e) => { this._formSkillBody = e.target.value; }}
+            @input=${(e) => { this._formSkillBody = e.target.value; this._markDirty(); }}
           ></textarea>
         </div>
-        <div class="save-row" role="toolbar" aria-label="Skill actions">
+      </form>
+    `;
+  }
+
+  // ─── render: prompt form ──────────────────────────────────────────────────
+
+  _renderPromptForm() {
+    return html`
+      <form class="form" @submit=${(e) => e.preventDefault()}>
+        <input type="text" placeholder="Title" aria-label="Prompt title"
+          .value=${this._formPromptTitle}
+          @input=${(e) => { this._formPromptTitle = e.target.value; this._markDirty(); }}
+        >
+        <input type="text" placeholder="Category (e.g. Review, Workflow\u2026)" aria-label="Prompt category"
+          list="category-list"
+          .value=${this._formPromptCategory}
+          @input=${(e) => { this._formPromptCategory = e.target.value; this._markDirty(); }}
+        >
+        <datalist id="category-list">
+          ${CATEGORY_OPTIONS.map((c) => html`<option value=${c}></option>`)}
+        </datalist>
+        <div class="textarea-wrap">
+          <textarea
+            placeholder="Write your prompt\u2026"
+            aria-label="Prompt body"
+            .value=${this._formPromptBody}
+            @input=${(e) => { this._formPromptBody = e.target.value; this._markDirty(); }}
+          ></textarea>
+        </div>
+        ${this._renderAssociatedToolsSelector()}
+      </form>
+    `;
+  }
+
+  // ─── render: associated tools selector ───────────────────────────────────
+
+  _renderAssociatedToolsSelector() {
+    const builtIn = BUILTIN_AGENTS[0]?.tools || [];
+    const mcpToolIds = [];
+    if (this._mcpTools?.servers) {
+      this._mcpTools.servers.forEach((s) => {
+        (s.tools || []).forEach((t) => {
+          mcpToolIds.push(`mcp__${s.id}__${t.name}`);
+        });
+      });
+    }
+
+    const q = (this._toolsSearch || '').trim().toLowerCase();
+    const daTools = q ? builtIn.filter((id) => id.toLowerCase().includes(q)) : builtIn;
+    const mcpTools = q ? mcpToolIds.filter((id) => id.toLowerCase().includes(q)) : mcpToolIds;
+    const selected = new Set(this._formPromptTools || []);
+    const collapsed = this._toolsGroupCollapsed || {};
+
+    const renderGroup = (ns, tools) => {
+      if (!tools.length && !q) return nothing;
+      const isOpen = !collapsed[ns];
+      return html`
+        <details class="tools-group" ?open=${isOpen}
+          @toggle=${(e) => {
+            this._toolsGroupCollapsed = { ...this._toolsGroupCollapsed, [ns]: !e.target.open };
+          }}
+        >
+          <summary class="tools-group-summary">
+            <span class="tools-group-label">${ns}</span>
+            <span class="tools-count">${tools.length}</span>
+          </summary>
+          <ul class="tools-group-list" aria-label="${ns} tools">
+            ${!tools.length ? html`<li class="tool-item-empty">No tools match filter</li>` : nothing}
+            ${tools.map((toolId) => {
+              const isActive = selected.has(toolId);
+              return html`
+                <li class="tool-item ${isActive ? 'is-active' : ''}">
+                  <span class="tool-dot ${isActive ? 'dot-active' : 'dot-inactive'}" aria-hidden="true"></span>
+                  <label class="tool-label-wrap" title=${toolId}>
+                    <input type="checkbox" class="tool-checkbox"
+                      .checked=${isActive}
+                      @change=${(e) => {
+                        const next = new Set(this._formPromptTools || []);
+                        if (e.target.checked) next.add(toolId);
+                        else next.delete(toolId);
+                        this._formPromptTools = [...next];
+                      }}
+                    >
+                    <span class="tool-label">${toolId}</span>
+                  </label>
+                </li>
+              `;
+            })}
+          </ul>
+        </details>
+      `;
+    };
+
+    return html`
+      <div class="tools-selector">
+        <h4 class="tools-selector-heading">Associated Tools</h4>
+        <input
+          type="search"
+          class="tools-search-input"
+          placeholder="Filter tools\u2026"
+          aria-label="Filter tools"
+          .value=${this._toolsSearch}
+          @input=${(e) => { this._toolsSearch = e.target.value; }}
+        >
+        ${renderGroup('DA', daTools)}
+        ${mcpTools.length || q ? renderGroup('MCP', mcpTools) : nothing}
+      </div>
+    `;
+  }
+
+  // ─── render: MCP form ─────────────────────────────────────────────────────
+
+  _renderMcpForm() {
+    return html`
+      <form class="form" @submit=${(e) => e.preventDefault()}>
+        ${this._editingMcpKey ? html`
+          <p class="form-hint">Editing <code>${this._editingMcpKey}</code> \u00b7
+            <button type="button" class="link-btn" @click=${this._clearMcpForm}>New MCP</button>
+          </p>
+        ` : nothing}
+        <input type="text" placeholder="server-key" aria-label="MCP server key"
+          .value=${this._mcpKey}
+          ?readonly=${Boolean(this._editingMcpKey)}
+          @input=${(e) => { this._mcpKey = e.target.value; this._markDirty(); }}
+        >
+        <input type="text" placeholder="SSE endpoint URL" aria-label="MCP server URL"
+          .value=${this._mcpUrl}
+          @input=${(e) => { this._mcpUrl = e.target.value; this._markDirty(); }}
+        >
+      </form>
+    `;
+  }
+
+  // ─── render: editor footer (sticky actions) ───────────────────────────────
+
+  _renderEditorFooter(isSkill, isPrompt, isMcp) {
+    const statusTpl = this._statusMsg ? html`
+      <output class="msg ${this._statusType === 'err' ? 'msg-err' : 'msg-ok'}">
+        ${this._statusMsg}
+      </output>
+    ` : nothing;
+
+    if (isSkill) {
+      return html`
+        <div class="editor-actions" role="toolbar" aria-label="Skill actions">
           ${this._formIsEdit || this._suggestion ? html`
             <button type="button" data-variant="secondary"
               ?disabled=${this._saveBusy}
@@ -472,7 +1135,7 @@ class NxSkillsEditor extends LitElement {
           <button type="button" data-variant="secondary"
             ?disabled=${this._saveBusy}
             @click=${() => this._onSaveSkill(STATUS.DRAFT)}
-          >Save as Draft</button>
+          >Save Draft</button>
           <button type="button" data-variant="accent"
             ?disabled=${this._saveBusy}
             @click=${() => this._onSaveSkill(STATUS.APPROVED)}
@@ -484,40 +1147,25 @@ class NxSkillsEditor extends LitElement {
             >Delete</button>
           ` : nothing}
         </div>
-        ${this._statusMsg ? html`
-          <output class="msg ${this._statusType === 'err' ? 'msg-err' : 'msg-ok'}">
-            ${this._statusMsg}
-          </output>
-        ` : nothing}
-      </form>
-    `;
-  }
+        ${statusTpl}
+      `;
+    }
 
-  _renderPromptForm() {
-    return html`
-      <form class="form" @submit=${(e) => e.preventDefault()}>
-        <h3>${this._formPromptIsEdit ? 'Edit Prompt' : 'New Prompt'}</h3>
-        <input type="text" placeholder="Title" aria-label="Prompt title"
-          .value=${this._formPromptTitle}
-          @input=${(e) => { this._formPromptTitle = e.target.value; }}
-        >
-        <input type="text" placeholder="Category" aria-label="Prompt category"
-          .value=${this._formPromptCategory}
-          @input=${(e) => { this._formPromptCategory = e.target.value; }}
-        >
-        <textarea aria-label="Prompt"
-          .value=${this._formPromptBody}
-          @input=${(e) => { this._formPromptBody = e.target.value; }}
-        ></textarea>
-        <div class="save-row" role="toolbar" aria-label="Prompt actions">
+    if (isPrompt) {
+      return html`
+        <div class="editor-actions" role="toolbar" aria-label="Prompt actions">
           <button type="button" data-variant="secondary"
             ?disabled=${this._saveBusy}
             @click=${() => this._onSavePrompt(STATUS.DRAFT)}
-          >Save as Draft</button>
+          >Save Draft</button>
           <button type="button" data-variant="accent"
             ?disabled=${this._saveBusy}
             @click=${() => this._onSavePrompt(STATUS.APPROVED)}
           >Save</button>
+          <button type="button" data-variant="secondary"
+            ?disabled=${this._saveBusy || !this._formPromptBody.trim()}
+            @click=${() => this._onRunPrompt()}
+          >Run / Test</button>
           ${this._formPromptIsEdit ? html`
             <button type="button" data-variant="negative"
               ?disabled=${this._saveBusy}
@@ -525,93 +1173,26 @@ class NxSkillsEditor extends LitElement {
             >Delete</button>
           ` : nothing}
         </div>
-        ${this._statusMsg ? html`
-          <output class="msg ${this._statusType === 'err' ? 'msg-err' : 'msg-ok'}">
-            ${this._statusMsg}
-          </output>
-        ` : nothing}
-      </form>
-    `;
-  }
+        ${statusTpl}
+      `;
+    }
 
-  _renderMcpForm() {
-    return html`
-      <form class="form" @submit=${(e) => e.preventDefault()}>
-        <h3>${this._editingMcpKey ? 'Update MCP Server' : 'Register MCP Server'}</h3>
-        ${this._editingMcpKey ? html`
-          <p class="form-hint">Editing <code>${this._editingMcpKey}</code> ·
-            <button type="button" class="link-btn" @click=${this._clearMcpForm}>New MCP</button>
-          </p>
-        ` : nothing}
-        <input type="text" placeholder="server-key" aria-label="MCP server key"
-          .value=${this._mcpKey}
-          ?readonly=${Boolean(this._editingMcpKey)}
-          @input=${(e) => { this._mcpKey = e.target.value; }}
-        >
-        <input type="text" placeholder="SSE endpoint URL" aria-label="MCP server URL"
-          .value=${this._mcpUrl}
-          @input=${(e) => { this._mcpUrl = e.target.value; }}
-        >
-        <div class="save-row" role="toolbar" aria-label="MCP actions">
+    if (isMcp) {
+      return html`
+        <div class="editor-actions" role="toolbar" aria-label="MCP actions">
           <button type="button" data-variant="accent"
             ?disabled=${this._saveBusy || !this._mcpKey.trim() || !this._mcpUrl.trim()}
             @click=${this._onRegisterMcp}
           >${this._editingMcpKey ? 'Update' : 'Register'}</button>
         </div>
-        ${this._statusMsg ? html`
-          <output class="msg ${this._statusType === 'err' ? 'msg-err' : 'msg-ok'}">
-            ${this._statusMsg}
-          </output>
-        ` : nothing}
-      </form>
-    `;
-  }
-
-  // ─── render: tools column ─────────────────────────────────────────────────
-
-  _renderToolsCol() {
-    const refs = new Set(this._toolRefs);
-    return html`
-      <div class="col col-tools" role="region" aria-label="Tools">
-        <nx-tabs
-          .items=${TOOLS_TABS}
-          .active=${this._toolsTab}
-          @tab-change=${(e) => { this._toolsTab = e.detail.id; }}
-        ></nx-tabs>
-        <div class="tools-list">
-          ${this._toolsTab === 'available' ? this._renderAvailableTools(refs) : nothing}
-          ${this._toolsTab === 'generated' ? this._renderGeneratedTools() : nothing}
-        </div>
-      </div>
-    `;
-  }
-
-  _renderAvailableTools(refs) {
-    const builtIn = [
-      'da_get_source', 'da_put_source', 'da_list_children',
-      'da_create_page', 'da_delete_source',
-    ];
-    const mcpToolIds = [];
-    if (this._mcpTools?.servers) {
-      this._mcpTools.servers.forEach((s) => {
-        (s.tools || []).forEach((t) => {
-          mcpToolIds.push(`mcp__${s.id}__${t.name}`);
-        });
-      });
-    }
-    const all = [...builtIn, ...mcpToolIds];
-    if (!all.length) return html`<div class="empty">No tools available</div>`;
-
-    return all.map((toolId) => {
-      const isMcp = toolId.startsWith('mcp__');
-      return html`
-        <div class="tool-row ${refs.has(toolId) ? 'is-referenced' : ''}" data-tool-id=${toolId}>
-          <span class="badge">${isMcp ? 'MCP' : 'DA'}</span>
-          <span class="tool-id">${toolId}</span>
-        </div>
+        ${statusTpl}
       `;
-    });
+    }
+
+    return nothing;
   }
+
+  // ─── render: generated tools ──────────────────────────────────────────────
 
   _renderGeneratedTools() {
     return html`
@@ -623,28 +1204,21 @@ class NxSkillsEditor extends LitElement {
     `;
   }
 
-  // ─── render: catalog column ───────────────────────────────────────────────
-
-  _renderCatalogCol() {
-    return html`
-      <div class="col col-catalog" role="region" aria-label="Catalog">
-        <nx-tabs
-          .items=${CATALOG_TABS}
-          .active=${this._catalogTab}
-          @tab-change=${(e) => { this._catalogTab = e.detail.id; }}
-        ></nx-tabs>
-        ${this._catalogTab === 'skills' ? this._renderSkillsCatalog() : nothing}
-        ${this._catalogTab === 'agents' ? this._renderAgentsCatalog() : nothing}
-        ${this._catalogTab === 'prompts' ? this._renderPromptsCatalog() : nothing}
-        ${this._catalogTab === 'mcps' ? this._renderMcpsCatalog() : nothing}
-      </div>
-    `;
-  }
+  // ─── render: skills catalog ───────────────────────────────────────────────
 
   _renderSkillsCatalog() {
     const ids = Object.keys(this._skills);
-    const filtered = this._catalogFilter === 'all' ? ids
+    const q = this._promptSearch.trim().toLowerCase();
+
+    let filtered = this._catalogFilter === 'all' ? ids
       : ids.filter((id) => this._skillStatuses[id] === this._catalogFilter);
+
+    if (q) {
+      filtered = filtered.filter((id) => {
+        const title = this._extractTitle(this._skills[id]).toLowerCase();
+        return id.toLowerCase().includes(q) || title.includes(q);
+      });
+    }
 
     return html`
       <div class="catalog-toolbar" role="toolbar" aria-label="Filter skills">
@@ -661,11 +1235,9 @@ class NxSkillsEditor extends LitElement {
           @click=${() => { this._catalogFilter = 'all'; }}
         >All</button>
       </div>
-      <div class="catalog-scroll" role="list" aria-label="Skills">
-        ${!filtered.length
-          ? html`<div class="empty">No skills found</div>`
-          : filtered.map((id) => this._renderSkillCard(id))}
-      </div>
+      ${!filtered.length
+        ? html`<div class="empty">No skills found</div>`
+        : filtered.map((id) => this._renderSkillCard(id))}
     `;
   }
 
@@ -683,115 +1255,210 @@ class NxSkillsEditor extends LitElement {
           @click=${() => this._onEditSkill(id)}
         >
           <span slot="pill"
-            class="skill-status ${isDraft ? 'skill-status-draft' : 'skill-status-approved'}"
+            class="status-dot ${isDraft ? 'status-dot-draft' : 'status-dot-approved'}"
             aria-label=${isDraft ? 'Draft' : 'Approved'}
-          >${isDraft ? nothing : html`<img src="${ICONS_BASE}S2_Icon_Checkmark_20_N.svg" width="16" height="16" alt="" aria-hidden="true">`}</span>
-          <input slot="actions" type="checkbox"
-            aria-label="Edit ${id}"
-            .checked=${isEditing}
-            @click=${(e) => e.stopPropagation()}
-            @change=${() => this._onEditSkill(id)}
-          >
+          ></span>
+          <button slot="actions" type="button" class="more-btn"
+            aria-label="More actions for ${id}"
+            @click=${(e) => { e.stopPropagation(); this._openSkillMenu(e, id); }}
+          >\u22ee</button>
         </nx-card>
+        <nx-popover placement="auto">
+          <div class="card-menu" role="menu">
+            <button role="menuitem" type="button"
+              @click=${() => { this._closeSkillMenu(id); this._onEditSkill(id); }}
+            >Edit</button>
+            <button role="menuitem" type="button" class="card-menu-delete"
+              @click=${() => { this._closeSkillMenu(id); this._onDeleteSkillById(id); }}
+            >Delete</button>
+          </div>
+        </nx-popover>
+      </article>
+    `;
+  }
+
+  // ─── render: agents catalog ───────────────────────────────────────────────
+
+  _renderAgentCard(a, isBuiltin = false) {
+    return html`
+      <article class="agent-card" role="listitem"
+        data-testid=${isBuiltin ? 'agent-builtin-card' : 'agent-card'}
+        @click=${() => this._onSelectAgent(a)}
+      >
+        <header class="agent-card-header">
+          <span class="status-dot status-dot-approved" aria-label="Active"></span>
+          <span class="agent-card-title">${a.label || a.id}</span>
+          <span class="badge">${isBuiltin ? 'built-in' : 'custom'}</span>
+        </header>
+        ${a.description ? html`<p class="agent-card-desc">${a.description}</p>` : nothing}
+        ${a.tools?.length ? html`
+          <footer class="agent-card-footer">
+            <ul class="agent-tools-list" aria-label="Tools used by ${a.label || a.id}">
+              ${a.tools.map((t) => html`<li class="agent-tool-chip">${t}</li>`)}
+            </ul>
+          </footer>
+        ` : nothing}
       </article>
     `;
   }
 
   _renderAgentsCatalog() {
     return html`
-      <div class="catalog-scroll" role="list" aria-label="Agents">
-        <h3>Agent Presets</h3>
-        ${!this._agents.length
-          ? html`<div class="empty">No agent presets found</div>`
-          : this._agents.map((a) => html`
-            <article role="listitem" data-testid="agent-card">
-              <nx-card heading=${a.id}></nx-card>
-            </article>
-          `)}
-      </div>
+      <h3 class="section-h">Built-in (${BUILTIN_AGENTS.length})</h3>
+      ${BUILTIN_AGENTS.map((a) => this._renderAgentCard(a, true))}
+      ${this._agents.length ? html`
+        <h3 class="section-h">Custom (${this._agents.length})</h3>
+        ${this._agents.map((a) => this._renderAgentCard(a, false))}
+      ` : nothing}
     `;
   }
+
+  // ─── render: prompts catalog ──────────────────────────────────────────────
 
   _renderPromptsCatalog() {
+    const q = this._promptSearch.trim().toLowerCase();
+    const prompts = q
+      ? this._prompts.filter((r) => (r.title || '').toLowerCase().includes(q)
+        || (r.category || '').toLowerCase().includes(q))
+      : this._prompts;
+
+    if (!prompts.length) {
+      return html`<div class="empty">No prompts found</div>`;
+    }
+
     return html`
-      <div class="catalog-scroll" role="list" aria-label="Prompts">
-        ${!this._prompts.length
-          ? html`<div class="empty">No prompts found</div>`
-          : this._prompts.map((row) => html`
-            <article role="listitem" data-testid="prompt-card" data-prompt-title=${row.title || ''}>
-              <nx-card heading=${row.title || '(untitled)'} subheading=${row.category || ''}>
-                <button slot="actions" type="button"
-                  aria-label="Edit ${row.title}"
-                  @click=${() => this._onEditPrompt(row)}
-                >Edit</button>
-                <button slot="actions" type="button"
-                  aria-label="Add ${row.title} to chat"
-                  @click=${() => this._dispatchPromptToChat(DA_SKILLS_EDITOR_PROMPT_ADD_TO_CHAT, row.prompt)}
-                >Add</button>
-                <button slot="actions" type="button"
-                  aria-label="Send ${row.title}"
-                  @click=${() => this._dispatchPromptToChat(DA_SKILLS_EDITOR_PROMPT_SEND, row.prompt)}
-                >Send</button>
-              </nx-card>
+      <div role="list" aria-label="Prompts">
+        ${prompts.map((row) => {
+          const title = row.title || '';
+          const isSelected = this._editorOpen && this._formPromptIsEdit
+            && this._formPromptTitle === title;
+          const cat = (row.category || '').toLowerCase().trim();
+          const catClass = KNOWN_CATEGORY_CLASSES.has(cat) ? cat : 'default';
+          return html`
+            <article role="listitem" data-testid="prompt-card" data-prompt-title=${title}>
+              <div class="prompt-row ${isSelected ? 'is-selected' : ''}"
+                @click=${() => this._openEditor(row)}
+              >
+                <div class="prompt-row-body">
+                  <span class="prompt-row-title">${title || '(untitled)'}</span>
+                  ${row.category ? html`
+                    <span class="category-badge cat-${catClass}">${row.category}</span>
+                  ` : nothing}
+                </div>
+                <div class="prompt-row-actions">
+                  <button type="button" class="row-action-btn" title="Edit"
+                    aria-label="Edit ${title}"
+                    @click=${(e) => { e.stopPropagation(); this._openEditor(row); }}
+                  >\u270e</button>
+                  <button type="button" class="row-action-btn" title="Duplicate"
+                    aria-label="Duplicate ${title}"
+                    @click=${(e) => { e.stopPropagation(); this._duplicatePrompt(row); }}
+                  >\u29c9</button>
+                  <button type="button" class="row-action-btn" title="Send to chat"
+                    aria-label="Send to chat: ${title}"
+                    @click=${(e) => {
+                      e.stopPropagation();
+                      this._dispatchPromptToChat(DA_SKILLS_EDITOR_PROMPT_SEND, row.prompt);
+                    }}
+                  >\u25b6</button>
+                </div>
+              </div>
             </article>
-          `)}
+          `;
+        })}
       </div>
     `;
   }
 
+  // ─── render: MCPs catalog ─────────────────────────────────────────────────
+
   _renderMcpsCatalog() {
+    const q = this._promptSearch.trim().toLowerCase();
     const filterPasses = (status) => this._catalogFilter === 'all' || status === this._catalogFilter;
-    const filteredCustom = this._mcpRows.filter((row) => filterPasses(skillRowStatus(row)));
+    let filteredCustom = this._mcpRows.filter((row) => filterPasses(skillRowStatus(row)));
+    if (q) {
+      filteredCustom = filteredCustom.filter((row) => {
+        const key = (row.key || '').toLowerCase();
+        const url = (row.url || row.value || '').toLowerCase();
+        return key.includes(q) || url.includes(q);
+      });
+    }
     const showBuiltins = filterPasses(STATUS.APPROVED);
 
     return html`
-      <div class="catalog-scroll" role="list" aria-label="MCP servers">
-        ${showBuiltins ? html`
-          <h3 class="section-h">Built-in (${BUILTIN_MCP_SERVERS.length})</h3>
-          ${BUILTIN_MCP_SERVERS.map((s) => html`
-            <article role="listitem" data-testid="mcp-builtin-card">
-              <nx-card heading=${s.id} subheading=${s.transport}>
-                <span slot="pill" class="skill-status skill-status-approved" aria-label="Approved">
-                  <img src="${ICONS_BASE}S2_Icon_Checkmark_20_N.svg" width="16" height="16" alt="" aria-hidden="true">
-                </span>
-                <span slot="actions" class="badge">built-in</span>
+      ${showBuiltins ? html`
+        <h3 class="section-h">Built-in (${BUILTIN_MCP_SERVERS.length})</h3>
+        ${BUILTIN_MCP_SERVERS.map((s) => html`
+          <article role="listitem" data-testid="mcp-builtin-card">
+            <nx-card heading=${s.id} subheading=${s.description}>
+              <span slot="pill" class="status-dot status-dot-approved" aria-label="Enabled"></span>
+              <span slot="actions" class="badge">built-in</span>
+            </nx-card>
+          </article>
+        `)}
+      ` : nothing}
+      <h3 class="section-h">Custom (${filteredCustom.length})</h3>
+      ${!filteredCustom.length
+        ? html`<div class="empty">No custom MCP servers registered</div>`
+        : filteredCustom.map((row) => {
+          const isApproved = skillRowStatus(row) === STATUS.APPROVED;
+          const isEnabled = isApproved && skillRowEnabled(row);
+          const key = row.key || '';
+          const token = `mcp:${key}`;
+          const isBusy = this._mcpEnableBusy[token];
+          return html`
+            <article role="listitem" data-testid="mcp-card" data-mcp-key=${key}>
+              <nx-card heading=${key || '(unnamed)'} subheading=${row.url || row.value || ''}
+                @click=${() => this._onSelectMcp(row)}>
+                <span slot="pill"
+                  class="status-dot ${isEnabled ? 'status-dot-approved' : 'status-dot-draft'}"
+                  aria-label=${isEnabled ? 'Enabled' : 'Disabled'}
+                ></span>
+                <button slot="actions" type="button" class="more-btn"
+                  aria-label="More actions for ${key}"
+                  @click=${(e) => { e.stopPropagation(); this._openMcpMenu(e, key); }}
+                >\u22ee</button>
               </nx-card>
-            </article>
-          `)}
-        ` : nothing}
-        <h3 class="section-h">Custom (${filteredCustom.length})</h3>
-        ${!filteredCustom.length
-          ? html`<div class="empty">No custom MCP servers registered</div>`
-          : filteredCustom.map((row) => {
-            const isApproved = skillRowStatus(row) === STATUS.APPROVED;
-            const isEnabled = isApproved && skillRowEnabled(row);
-            const token = `mcp:${row.key}`;
-            const isBusy = this._mcpEnableBusy[token];
-            return html`
-              <article role="listitem" data-testid="mcp-card" data-mcp-key=${row.key || ''}>
-                <nx-card heading=${row.key || '(unnamed)'} subheading=${row.url || row.value || ''}>
-                  <span slot="pill"
-                    class="skill-status ${isApproved ? 'skill-status-approved' : 'skill-status-draft'}"
-                    aria-label=${isApproved ? 'Approved' : 'Draft'}
-                  >${isApproved ? html`<img src="${ICONS_BASE}S2_Icon_Checkmark_20_N.svg" width="16" height="16" alt="" aria-hidden="true">` : nothing}</span>
+              <nx-popover placement="auto">
+                <div class="card-menu" role="menu">
                   ${isApproved ? html`
-                    <button slot="actions" type="button"
-                      class="pill-toggle ${isEnabled ? 'is-enabled' : 'is-disabled'}"
+                    <button role="menuitem" type="button"
                       ?disabled=${isBusy}
-                      aria-label="${isEnabled ? 'Disable' : 'Enable'} ${row.key}"
-                      @click=${(e) => { e.stopPropagation(); this._onToggleMcpEnabled(row); }}
-                    >${isEnabled ? 'Enabled' : 'Disabled'}</button>
+                      @click=${() => { this._closeMcpMenu(key); this._onToggleMcpEnabled(row); }}
+                    >${isEnabled ? 'Disable' : 'Enable'}</button>
                   ` : nothing}
-                  <button slot="actions" type="button"
-                    aria-label="Edit ${row.key}"
-                    @click=${(e) => { e.stopPropagation(); this._onEditMcp(row); }}
+                  <button role="menuitem" type="button"
+                    @click=${() => { this._closeMcpMenu(key); this._onEditMcp(row); }}
                   >Edit</button>
-                </nx-card>
-              </article>
-            `;
-          })}
-      </div>
+                  <button role="menuitem" type="button" class="card-menu-delete"
+                    @click=${() => { this._closeMcpMenu(key); this._onDeleteMcpDirect(row); }}
+                  >Delete</button>
+                </div>
+              </nx-popover>
+            </article>
+          `;
+        })}
     `;
+  }
+
+  // ─── render: memory catalog ───────────────────────────────────────────────
+
+  _renderMemoryCatalog() {
+    return html`
+      <h3 class="section-h">Project Memory</h3>
+      <p class="form-hint">.da/agent/memory.md</p>
+      ${this._renderMemoryContent()}
+    `;
+  }
+
+  _renderMemoryContent() {
+    if (this._memory === null) {
+      return html`<div class="empty" aria-live="polite">Loading\u2026</div>`;
+    }
+    if (!this._memory) {
+      return html`<div class="empty">No project memory yet. The DA agent writes here as it learns about your site.</div>`;
+    }
+    return html`<pre class="memory-content">${this._memory}</pre>`;
   }
 
   // ─── utility ──────────────────────────────────────────────────────────────
