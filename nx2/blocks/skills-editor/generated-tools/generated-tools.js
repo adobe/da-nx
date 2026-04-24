@@ -1,5 +1,7 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../utils/utils.js';
+import '../../shared/card/card.js';
+import '../../shared/popover/popover.js';
 import {
   findBestGeneratedTool,
   loadGeneratedTools,
@@ -37,6 +39,7 @@ class NXGeneratedTools extends LitElement {
     _busy: { state: true },
     _error: { state: true },
     _expandedId: { state: true },
+    _toolMenuId: { state: true },
     _tryId: { state: true },
     _runResult: { state: true },
     _runBusy: { state: true },
@@ -75,6 +78,7 @@ class NXGeneratedTools extends LitElement {
     this._tryId = undefined;
     this._runResult = undefined;
     this._runBusy = undefined;
+    this._toolMenuId = undefined;
     this._matchQuery = '';
     this._matchInput = '';
     this._matchResult = null;
@@ -463,71 +467,74 @@ class NXGeneratedTools extends LitElement {
     `;
   }
 
-  _renderActions(def) {
-    const busy = this._busy === def.id;
-    if (def.status === 'draft') {
-      return html`
-        <div class="gt-actions">
-          <button class="gt-btn gt-btn-approve" ?disabled=${busy}
-            aria-label="Approve ${def.name}" @click=${() => this._approve(def)}>
-            ${busy ? 'Approving…' : 'Approve'}
-          </button>
-          <button class="gt-btn gt-btn-reject" ?disabled=${busy}
-            aria-label="Reject ${def.name}" @click=${() => this._reject(def)}>
-            Reject
-          </button>
-        </div>`;
-    }
-    if (def.status === 'approved') {
-      return html`
-        <div class="gt-actions">
-          <button class="gt-btn gt-btn-danger" ?disabled=${busy}
-            aria-label="Delete ${def.name}" @click=${() => this._delete(def)}>
-            ${busy ? 'Deleting…' : 'Delete'}
-          </button>
-        </div>`;
-    }
-    return html`
-      <div class="gt-actions">
-        <button class="gt-btn gt-btn-danger" ?disabled=${busy}
-          aria-label="Remove ${def.name}" @click=${() => this._delete(def)}>
-          ${busy ? 'Removing…' : 'Remove'}
-        </button>
-      </div>`;
+  _openToolMenu(e) {
+    e.stopPropagation();
+    const article = e.target.closest('article');
+    const popover = article?.querySelector('nx-popover');
+    popover?.show({ anchor: e.currentTarget });
+  }
+
+  _closeToolMenu(id) {
+    this._toolMenuId = undefined;
+    this.shadowRoot?.querySelector(`[data-tool-id="${id}"] nx-popover`)?.close();
   }
 
   _renderToolCard(def) {
     const isExpanded = this._expandedId === def.id;
+    const busy = this._busy === def.id;
+    let statusDotClass = 'status-dot-draft';
+    if (def.status === 'approved') statusDotClass = 'status-dot-approved';
+
     return html`
-      <div class="gt-card gt-card-${def.status}">
-        <div class="gt-card-header">
-          <button
-            type="button"
-            class="gt-card-title-btn"
-            aria-expanded=${isExpanded}
-            aria-controls="gt-detail-${def.id}"
-            @click=${() => this._toggleExpand(def.id)}
-          >
-            <span class="gt-card-name">${def.name}</span>
-            <span class="gt-card-arrow" aria-hidden="true">${isExpanded ? '▲' : '▼'}</span>
-          </button>
-          <div class="gt-card-toolbar">
-            <span class="gt-badge gt-badge-${def.status}">${def.status}</span>
-            ${this._renderActions(def)}
+      <article data-tool-id=${def.id}>
+        <nx-card
+          heading=${def.name}
+          subheading=${def.description || ''}
+          @click=${() => this._toggleExpand(def.id)}
+        >
+          <span slot="pill"
+            class="status-dot ${statusDotClass}"
+            aria-label=${def.status}
+          ></span>
+          <button slot="actions" type="button" class="more-btn"
+            aria-label="More actions for ${def.name}"
+            @click=${(e) => this._openToolMenu(e, def.id)}
+          >⋮</button>
+        </nx-card>
+        <nx-popover placement="auto">
+          <div class="card-menu" role="menu">
+            ${def.status === 'draft' ? html`
+              <button role="menuitem" type="button"
+                ?disabled=${busy}
+                @click=${() => { this._closeToolMenu(def.id); this._approve(def); }}
+              >${busy ? 'Approving…' : 'Approve'}</button>
+              <button role="menuitem" type="button"
+                ?disabled=${busy}
+                @click=${() => { this._closeToolMenu(def.id); this._reject(def); }}
+              >Reject</button>
+            ` : nothing}
+            ${def.status === 'approved' ? html`
+              <button role="menuitem" type="button"
+                @click=${() => { this._closeToolMenu(def.id); this._toggleTry(def.id); }}
+              >Try it</button>
+            ` : nothing}
+            <button role="menuitem" type="button" class="card-menu-delete"
+              ?disabled=${busy}
+              @click=${() => { this._closeToolMenu(def.id); this._delete(def); }}
+            >${busy ? 'Deleting…' : 'Delete'}</button>
           </div>
-        </div>
+        </nx-popover>
         ${isExpanded ? html`
-          <div class="gt-card-detail" id="gt-detail-${def.id}">
-            <p class="gt-desc">${def.description}</p>
+          <div class="gt-card-detail">
             ${def.capability ? html`<div class="gt-meta">Capability: <code>${def.capability}</code></div>` : nothing}
             ${def.createdBy ? html`<div class="gt-meta">Created by: <code>${def.createdBy}</code></div>` : nothing}
             ${def.approvedBy ? html`<div class="gt-meta">Approved by: <code>${def.approvedBy}</code></div>` : nothing}
-            <div class="gt-meta">Input parameters:</div>
-            ${this._renderSchema(def.inputSchema)}
+            ${def.inputSchema?.properties ? html`<div class="gt-meta">Input parameters:</div>${this._renderSchema(def.inputSchema)}` : nothing}
             ${def.status === 'approved' ? this._renderTryPanel(def) : nothing}
           </div>
         ` : nothing}
-      </div>`;
+      </article>
+    `;
   }
 
   render() {

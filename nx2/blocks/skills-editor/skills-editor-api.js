@@ -509,6 +509,23 @@ export async function setMcpServerEnabled(org, site, key, enabled) {
   return save.ok ? { ok: true } : { ok: false, error: `Save failed (${save.status})` };
 }
 
+export async function deleteMcpServer(org, site, key) {
+  const k = String(key || '').trim();
+  if (!k) return { ok: false, error: 'Key required' };
+
+  const loaded = await fetchDaConfigSheets(org, site);
+  if (!loaded.ok) return { ok: false, error: 'Could not load config' };
+
+  const cfg = { ...(loaded.json || {}) };
+  const sheet = cfg['mcp-servers'];
+  if (!sheet?.data?.length) return { ok: true };
+  const data = sheet.data.filter((r) => String(r.key || '').trim() !== k);
+  cfg['mcp-servers'] = { ...sheet, data, total: data.length };
+
+  const save = await saveDaConfig(org, site, cfg);
+  return save.ok ? { ok: true } : { ok: false, error: `Save failed (${save.status})` };
+}
+
 export async function fetchMcpToolsFromAgent(servers) {
   if (!Object.keys(servers || {}).length) return { servers: [] };
   try {
