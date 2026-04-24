@@ -17,6 +17,7 @@ import runBulkStatus from './worker-bulk-status.js';
 import {
   processLinkedContent,
 } from './worker-linked-content.js';
+import { buildUsageMap } from './worker-parse.js';
 import {
   buildCanonicalTimestampMap,
   buildPageMediaFromMedialog,
@@ -30,6 +31,7 @@ import {
   isLinkedContentPath, toAbsoluteFilePath,
   toLinkedContentEntry,
   getDedupeKey, createMedialogEntry,
+  createLinkedContentEntries,
 } from '../parse.js';
 import { buildMediaSheet, buildUsageSheet } from '../sheets.js';
 import { canonicalizeMediaUrl } from '../../core/urls.js';
@@ -448,15 +450,57 @@ export async function buildFullIndex(
     onProgressiveData(dedupeProgressiveItems(combined));
   }
 
-  perf.markdownParse.pages = 0;
-  perf.markdownParse.uniquePages = 0;
-  perf.markdownParse.durationMs = 0;
+  onProgress({ stage: 'processing', message: 'Building content usage map (parsing pages)...' });
+  const markdownParseStart = Date.now();
 
+  const uniquePagePaths = new Set();
+  let duplicateCount = 0;
+  pages.forEach((e) => {
+    const p = normalizePath(e.path);
+    if (uniquePagePaths.has(p)) {
+      duplicateCount += 1;
+    } else {
+      uniquePagePaths.add(p);
+    }
+  });
+
+  const linkedFilesByPath = new Map();
+  filesByPath.forEach((e, p) => {
+    if (!isPdfOrSvg(p) && !isFragmentDoc(p)) return;
+    linkedFilesByPath.set(p, e);
+  });
+
+  const onBatchComplete = onProgressiveData
+    ? (um) => {
+      const linked = createLinkedContentEntries(um, linkedFilesByPath, deletedPaths, org, repo);
+      const combined = earlyLinkedEntries.concat(index, linked);
+      const deduped = dedupeProgressiveItems(combined);
+      onProgressiveData(deduped);
+    }
+    : null;
+
+  const onProg = (p) => onProgress(p);
   const usageMapContext = {
     daEtcOrigin,
     siteToken: context.siteToken || null,
     isPerfEnabled,
   };
+  const usageMap = await buildUsageMap(
+    pages,
+    org,
+    repo,
+    ref,
+    onProg,
+    onBatchComplete,
+    usageMapContext,
+  );
+
+  perf.markdownParse.pages = pages.length;
+  perf.markdownParse.uniquePages = uniquePagePaths.size;
+  if (duplicateCount > 0) {
+    perf.markdownParse.duplicatePageEvents = duplicateCount;
+  }
+  perf.markdownParse.durationMs = Date.now() - markdownParseStart;
 
   const files = Array.from(filesByPath.values());
   const linkedStart = Date.now();
@@ -469,7 +513,7 @@ export async function buildFullIndex(
     ref,
     onProgress,
     noop,
-    null, // usageMap not needed since we're not parsing markdown for images
+    usageMap,
     usageMapContext,
   );
   const linkedDurationMs = Date.now() - linkedStart;
