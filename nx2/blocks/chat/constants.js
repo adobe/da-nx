@@ -1,14 +1,20 @@
+const MENU_OPTIONS = {
+  PROMPT: 'prompt',
+};
+
 const ADD_MENU_ITEMS = [
   { section: 'Add' },
   { id: 'files', label: 'Files or images', icon: 'Link' },
-  { id: 'prompt', label: 'Prompt', icon: 'CommentText' },
+  { id: MENU_OPTIONS.PROMPT, label: 'Prompt', icon: 'CommentText' },
   { id: 'command', label: '"/" Command', icon: 'Prompt' },
   { divider: true },
   { id: 'prompts', label: 'Manage Prompts' },
   { id: 'skills', label: 'Manage Skills' },
 ];
 
-const CHAT_ICONS = { add: 'Add', clear: 'RemoveCircle', send: 'ArrowUpSend', stop: 'Stop' };
+const CHAT_ICONS = {
+  add: 'Add', clear: 'RemoveCircle', close: 'SplitLeft', send: 'ArrowUpSend', stop: 'Stop', up: 'ChevronUp',
+};
 
 /**
  * Agent stream event types.
@@ -61,5 +67,5 @@ const ROLE = {
 };
 
 export {
-  ADD_MENU_ITEMS, AGENT_EVENT, CHAT_ICONS, ROLE, TOOL_INPUT, TOOL_STATE,
+  ADD_MENU_ITEMS, AGENT_EVENT, CHAT_ICONS, MENU_OPTIONS, ROLE, TOOL_INPUT, TOOL_STATE,
 };

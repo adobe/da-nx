@@ -47,16 +47,18 @@ export class NxEditorWysiwyg extends LitElement {
   static properties = {
     ctx: { type: Object },
     _cookieReady: { state: true },
+    _loading: { state: true },
   };
 
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
     this._onCanvasEditorActive = (e) => {
-      this._canvasActiveView = e.detail?.view === 'content' ? 'content' : 'layout';
+      this._canvasActiveView = e.detail?.view;
       this._syncCanvasVisibility();
     };
     this.parentElement?.addEventListener('nx-canvas-editor-active', this._onCanvasEditorActive);
+    this._syncCanvasVisibility();
   }
 
   disconnectedCallback() {
@@ -98,7 +100,9 @@ export class NxEditorWysiwyg extends LitElement {
   _syncCanvasVisibility() {
     const view = this._canvasActiveView ?? 'layout';
     const portReady = this.hasAttribute(WYSIWYG_PORT_READY_ATTR);
-    this.hidden = view !== 'layout' || !portReady;
+    const showWysiwyg = view === 'layout' || view === 'split';
+    this.hidden = !showWysiwyg;
+    this._loading = showWysiwyg && !portReady;
     hideSelectionToolbar();
   }
 
@@ -199,24 +203,30 @@ export class NxEditorWysiwyg extends LitElement {
   render() {
     const { org, repo, path } = this.ctx ?? {};
     const hasPath = org && repo && path;
+    let body;
     if (!hasPath) {
-      return html`
+      body = html`
         <div class="nx-editor-wysiwyg-placeholder">Select an HTML file for WYSIWYG preview.</div>
       `;
+    } else if (!this._cookieReady) {
+      body = html`<div class="nx-editor-wysiwyg-placeholder">Loading preview…</div>`;
+    } else {
+      const src = this._iframeSrc;
+      body = html`
+        <iframe
+          title="WYSIWYG preview"
+          src="${src}"
+          allow="local-network-access"
+          class="nx-editor-wysiwyg-iframe"
+          @load=${this._onIframeLoad}
+          @blur=${this._onIframeBlur}
+        ></iframe>
+      `;
     }
-    if (!this._cookieReady) {
-      return html`<div class="nx-editor-wysiwyg-placeholder">Loading preview…</div>`;
-    }
-    const src = this._iframeSrc;
     return html`
-      <iframe
-        title="WYSIWYG preview"
-        src="${src}"
-        allow="local-network-access"
-        class="nx-editor-wysiwyg-iframe"
-        @load=${this._onIframeLoad}
-        @blur=${this._onIframeBlur}
-      ></iframe>
+      <div class="nx-editor-wysiwyg-surface" ?hidden=${this._loading}>
+        ${body}
+      </div>
     `;
   }
 }

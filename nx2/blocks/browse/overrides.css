@@ -16,3 +16,9 @@ main:has(nx-browse) .browse {
   overflow: hidden;
   min-height: 0;
 }
+
+/* Hide the toggle when the before panel is already visible */
+html:has(aside.panel[data-position="before"]:not([hidden]))
+  nx-browse::part(toggle-before) {
+  display: none;
+}

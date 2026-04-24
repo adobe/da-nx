@@ -30,6 +30,27 @@ The component manages its own controller internally. No external wiring needed.
 { role: 'tool', ... }  // filtered from display automatically
 ```
 
+**Request body:** The controller POSTs `{ messages, pageContext, context, imsToken, room }` to the agent. `context` is the array of attached items added via `addAttachment()` for that message — it is cleared after each send and not included in persisted message history.
+
+## Methods
+
+| Method | Description |
+|---|---|
+| `chat.addAttachment({ id, label, ...rest })` | Adds a pill above the textarea. `id` is required — duplicate ids are silently ignored. `label` is the display text. Any additional fields are forwarded to the agent as context alongside the next message. |
+| `chat.clear()` | Clears conversation history and resets IndexedDB for the current room. |
+
+**Current scope:** `addAttachment` supports simple content references — e.g. a block or element from the document editor. Binary file attachments (images, uploads) are not yet supported and will extend this same API when introduced.
+
+**Pills display:** All attached pills are currently shown with vertical scroll capped at two rows. Collapsing overflow into a "+N more" control is pending UX mocks.
+
+## Events in
+
+Components that want to add pills without holding a direct reference to the chat element can dispatch on `document`:
+
+| Event | Detail | Description |
+|---|---|---|
+| `nx-add-to-chat` | Same shape as `addAttachment()` | Adds a pill. Handled identically to calling `addAttachment()` directly. |
+
 ## Agent stream contract
 
 The controller consumes a server-sent event stream from `da-agent`. Each line is a JSON object with a `type` field. The UI depends on the following event types:

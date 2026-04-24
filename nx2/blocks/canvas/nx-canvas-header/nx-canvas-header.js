@@ -10,21 +10,24 @@ const ICONS = {
   redo: `${ICONS_BASE}S2_Icon_Redo_20_N.svg`,
   splitLeft: `${ICONS_BASE}S2_Icon_SplitLeft_20_N.svg`,
   splitRight: `${ICONS_BASE}S2_Icon_SplitRight_20_N.svg`,
+  gridCompare: `${ICONS_BASE}S2_Icon_GridCompare_20_N.svg`,
 };
 
-const EDITOR_VIEWS = /** @type {const} */ (['layout', 'content']);
+const EDITOR_VIEWS = /** @type {const} */ (['layout', 'content', 'split']);
 
 class NXCanvasHeader extends LitElement {
   static properties = {
     _icons: { state: true },
-    /** `'layout'` = doc editor (ProseMirror), `'content'` = WYSIWYG preview */
+    /** `'layout'` / `'content'` = single pane; `'split'` = doc + WYSIWYG side by side */
     editorView: { type: String, reflect: true },
+    undoAvailable: { type: Boolean },
     redoAvailable: { type: Boolean },
   };
 
   constructor() {
     super();
     this.editorView = 'layout';
+    this.undoAvailable = false;
     this.redoAvailable = false;
   }
 
@@ -48,6 +51,18 @@ class NXCanvasHeader extends LitElement {
         composed: true,
         detail: { position },
       }),
+    );
+  }
+
+  _undo() {
+    this.dispatchEvent(
+      new CustomEvent('nx-canvas-undo', { bubbles: true, composed: true }),
+    );
+  }
+
+  _redo() {
+    this.dispatchEvent(
+      new CustomEvent('nx-canvas-redo', { bubbles: true, composed: true }),
     );
   }
 
@@ -75,7 +90,7 @@ class NXCanvasHeader extends LitElement {
           <button type="button" class="icon-btn" part="btn toggle-before" data-action="open-panel-before" aria-label="Open before panel" @click=${() => this._openPanel('before')}>
             ${this._renderIcon('splitLeft')}
           </button>
-          <button type="button" class="icon-btn" part="btn" data-action="undo" aria-label="Undo">
+          <button type="button" class="icon-btn" part="btn" data-action="undo" aria-label="Undo" ?disabled=${!this.undoAvailable} @click=${this._undo}>
             ${this._renderIcon('undo')}
           </button>
           <button
@@ -85,6 +100,7 @@ class NXCanvasHeader extends LitElement {
             data-action="redo"
             aria-label="Redo"
             ?disabled=${!this.redoAvailable}
+            @click=${this._redo}
           >
             ${this._renderIcon('redo')}
           </button>
@@ -104,6 +120,14 @@ class NXCanvasHeader extends LitElement {
               aria-pressed=${this.editorView === 'content'}
               @click=${() => this._setEditorView('content')}
             >Content</button>
+            <button
+              type="button"
+              class="segment segment-icon ${this.editorView === 'split' ? 'is-selected' : ''}"
+              aria-pressed=${this.editorView === 'split'}
+              aria-label="Split view"
+              title="Split view"
+              @click=${() => this._setEditorView('split')}
+            >${this._renderIcon('gridCompare')}</button>
           </div>
         </div>
 

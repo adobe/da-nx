@@ -28,7 +28,44 @@
     min-width: 0;
   }
 
+  .browse-bar {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+    height: 40px;
+    padding: 0 var(--s2-spacing-100);
+
+    path {
+      fill: currentcolor;
+    }
+  }
+
+  .browse-panel-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border: none;
+    border-radius: var(--s2-corner-radius-400);
+    background: transparent;
+    color: var(--s2-gray-800);
+    cursor: pointer;
+
+    svg {
+      display: block;
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+    }
+
+    &:hover {
+      background-color: var(--s2-gray-75);
+    }
+  }
+
   .browse-hint {
+    margin: 0 var(--s2-spacing-300);
     padding: var(--s2-spacing-200);
     border-radius: var(--s2-corner-radius-300);
     background-color: var(--s2-gray-75);

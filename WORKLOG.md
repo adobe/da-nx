@@ -1,5 +1,31 @@
 # Worklog
 
+## 2026-04-24
+
+### nx2 canvas — split editor view
+- **`nx-canvas-header`**: third segmented control option `split` (grid-compare icon, `aria-label` / `title` “Split view”); `EDITOR_VIEWS` includes `split`.
+- **`canvas.js` / `canvas.css`**: `normalizeCanvasEditorView` persists `split`. Split layout, gutter DOM, drag/persist ratio, and split-only CSS live in **`nx-editor-split/`** (`nx-editor-split.js` + `nx-editor-split.css`, adopted on import): **`nx-canvas-editor-mount--split`** row (**WYSIWYG left**, 2px **`nx-canvas-split-gutter`**, **doc right**), **`--nx-canvas-split-ratio`**, pointer-drag 15–85% → sessionStorage (`nx-canvas-split-ratio`). Split-mode **`nx-editor-wysiwyg`** uses matching **`flex-basis` / `width` / `min-width`** so the preview column does not collapse before the iframe is ready.
+- **`nx-editor-doc` / `nx-editor-wysiwyg`**: visibility treats `split` like both single-pane modes (doc + preview visible when iframe port is ready). **`nx-editor-wysiwyg`**: host `hidden` only when the canvas mode hides the preview entirely; while cookies / quick-edit port load, **`.nx-editor-wysiwyg-surface`** is `hidden` so the custom element still participates in split flex sizing without a layout jump.
+- **`selection-toolbar.js`**: ProseMirror selection toolbar sync runs in `split` as well as `content`.
+- **`selection-toolbar.js` / `handlers.js`**: iframe `selection-change` marks PM transactions with meta and plugin state (`fromIframe`); doc-based `syncToolbar` / doc scroll positioning skip while the mirrored range came from WYSIWYG so split view does not draw the bar from doc `coordsAtPos`. Collapsed iframe selection dispatches a no-op tr to clear that origin.
+
+## 2026-04-23
+
+### Canvas actions — no constructor
+- `canvas-actions.js`: `HashController` and initial `_busy` moved to class fields so the custom constructor can be dropped; `_sendIcon` is not a reactive property (set once in `firstUpdated` + `requestUpdate()`); dropped redundant `requestUpdate()` after `_busy` / `_error` changes (Lit `@state` assignments schedule updates).
+
+### Canvas prose — undo/redo keymap
+- `prose.js`: removed custom `handleUndo` / `handleRedo` that duplicated `yUndo` / `yRedo` from y-prosemirror (same pattern as `nx-editor-wysiwyg/utils/handlers.js` and da.live’s underlying commands).
+
+## 2026-04-22
+
+### Canvas prose — keymap order aligned with da.live
+- `prose.js`: moved `keymap(baseKeymap)` to after `buildKeymap` + `handleTableBackspace` (and `codemark` after `baseKeymap`), matching `da-live/blocks/edit/prose/index.js`, so full-table delete with Backspace and Enter in lists behave like da.live.
+
+### Canvas prose — plugins ported from da.live
+- Added `nx2/blocks/canvas/nx-editor-doc/prose-plugins/`: `codemark`, `columnResizing` (from `da-y-wrapper`), `imageDrop`, `imageFocalPoint`, `tableSelectHandle`, `sectionPasteHandler`, `base64Uploader`, plus `sourceUploadContext`, `tableUtils`, `inlinesvg`, `focalPointDialog` (native `<dialog>`; no face-api).
+- Wired plugins in `prose.js` for writable sessions; styles in `nx-editor-doc.css`. Upload paths derive from the editor `source` URL. Focal-point block metadata still loads from `https://da.live/.../da-library/helpers/`.
+
 ## 2026-04-21
 
 ### Canvas editor — selection toolbar + slash shared helpers

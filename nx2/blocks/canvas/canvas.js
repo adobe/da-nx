@@ -1,8 +1,14 @@
 import { loadStyle, hashChange } from '../../utils/utils.js';
-import { hidePanel, unhidePanel, openPanelWithFragment, showPanel } from '../../utils/panel.js';
+import { getPanelStore, openPanel } from '../../utils/panel.js';
 import './nx-canvas-header/nx-canvas-header.js';
 import './nx-editor-doc/nx-editor-doc.js';
 import './nx-editor-wysiwyg/nx-editor-wysiwyg.js';
+import {
+  syncEditorSplitLayout,
+  finalizeSplitEditorMountOrder,
+  installEditorSplitDrag,
+  removeSplitGutter,
+} from './nx-editor-split/nx-editor-split.js';
 
 const style = await loadStyle(import.meta.url);
 document.adoptedStyleSheets = [...document.adoptedStyleSheets, style];
@@ -13,15 +19,12 @@ function buildCanvasDocPath(state) {
   return `${org}/${site}/${path}`;
 }
 
-const FRAGMENTS = {
-  before: 'https://da.live/fragments/exp-workspace/chat',
-  after: 'https://da.live/fragments/exp-workspace/tool',
-};
-
 const CANVAS_EDITOR_VIEW_KEY = 'nx-canvas-editor-view';
 
 function normalizeCanvasEditorView(view) {
-  return view === 'content' ? 'content' : 'layout';
+  if (view === 'content') return 'content';
+  if (view === 'split') return 'split';
+  return 'layout';
 }
 
 function notifyCanvasEditorActive(mountRoot, view) {
@@ -59,6 +62,7 @@ function canvasHeaderApplyTarget(block) {
 }
 
 function removeCanvasEditors(mountRoot) {
+  removeSplitGutter(mountRoot);
   mountRoot.querySelector('nx-editor-doc')?.remove();
   mountRoot.querySelector('nx-editor-wysiwyg')?.remove();
 }
@@ -86,58 +90,46 @@ function editorCtxFromHashState(state, fullPath) {
 }
 
 function syncCanvasEditorsToHash({ mountRoot, header, state }) {
+  header.undoAvailable = false;
+  header.redoAvailable = false;
   const fullPath = buildCanvasDocPath(state);
   if (!fullPath) {
     removeCanvasEditors(mountRoot);
     return;
   }
   const ctx = editorCtxFromHashState(state, fullPath);
-  ensureNxEditorDoc(mountRoot).ctx = ctx;
   ensureNxEditorWysiwyg(mountRoot).ctx = ctx;
+  ensureNxEditorDoc(mountRoot).ctx = ctx;
+  finalizeSplitEditorMountOrder(mountRoot);
   notifyCanvasEditorActive(mountRoot, header.editorView);
+  syncEditorSplitLayout({ mountRoot, view: header.editorView });
 }
 
-async function addPanelHeader(aside) {
-  const { default: createPanelHeader } = await import('./nx-panel-header/nx-panel-header.js');
-  const header = await createPanelHeader({
-    position: aside.dataset.position,
-    onClose: () => hidePanel(aside),
-  });
-  const panelBody = aside.querySelector('.panel-body');
-  panelBody.prepend(header);
-
-  // to enable adding actions to the header
-  panelBody.dispatchEvent(new CustomEvent('nx-panel-slot', {
-    detail: { slot: header.querySelector('.panel-header-custom') },
-  }));
-}
+const CANVAS_PANELS = {
+  before: {
+    width: '400px',
+    getContent: async () => {
+      await import('../chat/chat.js');
+      return document.createElement('nx-chat');
+    },
+  },
+  after: {
+    width: '400px',
+    getContent: async () => {
+      await import('../tool-panel/tool-panel.js');
+      const toolPanel = document.createElement('nx-tool-panel');
+      toolPanel.views = [];
+      return toolPanel;
+    },
+  },
+};
 
 async function openCanvasPanel(position) {
-  // Case 1: Panel is visible
-  const existing = document.querySelector(`aside.panel[data-position="${position}"]`);
-  if (existing && !existing.hidden) return;
-
-  // Case 2: Panel is hidden
-  if (existing?.hidden) {
-    unhidePanel(existing);
-    return;
-  }
-
-  // Case 3: Panel does not exist yet
-  let aside;
-  if (position === 'after') {
-    await import('./nx-panel-extensions/nx-panel-extensions.js');
-    const extensions = document.createElement('nx-panel-extensions');
-    aside = showPanel({ width: '400px', content: extensions });
-  } else {
-    aside = await openPanelWithFragment({
-      width: '400px',
-      beforeMain: position === 'before',
-      fragment: FRAGMENTS[position],
-    });
-  }
-
-  if (aside) addPanelHeader(aside);
+  const config = CANVAS_PANELS[position];
+  if (!config) return;
+  const store = getPanelStore();
+  const width = store[position]?.width ?? config.width;
+  await openPanel({ position, width, getContent: config.getContent });
 }
 
 function installCanvasHeader(block) {
@@ -149,7 +141,15 @@ function installCanvasHeader(block) {
   header.addEventListener('nx-canvas-editor-view', (e) => {
     const view = normalizeCanvasEditorView(e.detail?.view);
     persistCanvasEditorView(view);
-    notifyCanvasEditorActive(canvasHeaderApplyTarget(block), view);
+    const applyTarget = canvasHeaderApplyTarget(block);
+    notifyCanvasEditorActive(applyTarget, view);
+    syncEditorSplitLayout({ mountRoot: canvasEditorMountRoot(block), view });
+  });
+  header.addEventListener('nx-canvas-undo', () => {
+    canvasEditorMountRoot(block).querySelector('nx-editor-doc')?.undo();
+  });
+  header.addEventListener('nx-canvas-redo', () => {
+    canvasEditorMountRoot(block).querySelector('nx-editor-doc')?.redo();
   });
   block.before(header);
   return header;
@@ -160,16 +160,21 @@ export default async function decorate(block) {
 
   const mountRoot = canvasEditorMountRoot(block);
   mountRoot.classList.add('nx-canvas-editor-mount');
+  syncEditorSplitLayout({ mountRoot, view: header.editorView });
+  installEditorSplitDrag(mountRoot);
+
+  mountRoot.addEventListener('nx-editor-undo-state', (e) => {
+    header.undoAvailable = e.detail?.canUndo ?? false;
+    header.redoAvailable = e.detail?.canRedo ?? false;
+  });
 
   hashChange.subscribe((state) => {
     syncCanvasEditorsToHash({ mountRoot, header, state });
   });
 
-  document.addEventListener('nx-panels-restored', () => {
-    document.querySelectorAll('aside.panel').forEach((aside) => {
-      if (FRAGMENTS[aside.dataset.position] === aside.dataset.fragment) {
-        addPanelHeader(aside);
-      }
-    });
-  });
+  // Restore panels opened by canvas (no fragment URL)
+  // data handled by restorePanels() in nx.js.
+  const store = getPanelStore();
+  if (store.before && !store.before.fragment) openCanvasPanel('before');
+  if (store.after && !store.after.fragment) openCanvasPanel('after');
 }
