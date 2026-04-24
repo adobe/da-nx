@@ -157,7 +157,7 @@ function hashState() {
   return { org: org || undefined, site: site || undefined };
 }
 
-async function openCanvasPanel(position) {
+async function openCanvasPanel(position, { preferredViewId } = {}) {
   const config = CANVAS_PANELS[position];
   if (!config) return;
   const store = getPanelStore();
@@ -165,7 +165,13 @@ async function openCanvasPanel(position) {
   const aside = await openPanel({ position, width, getContent: config.getContent });
   if (position === 'after') {
     const toolPanel = aside?.querySelector('nx-tool-panel');
-    if (toolPanel) syncToolPanelViews(toolPanel, hashState());
+    if (toolPanel) {
+      await syncToolPanelViews(toolPanel, hashState());
+      await toolPanel.updateComplete;
+      if (preferredViewId && toolPanel.views?.some((v) => v.id === preferredViewId)) {
+        await toolPanel.showView(preferredViewId);
+      }
+    }
   }
 }
 
@@ -173,7 +179,7 @@ function installCanvasHeader(block) {
   const header = document.createElement('nx-canvas-header');
   header.editorView = readPersistedCanvasEditorView();
   header.addEventListener('nx-canvas-open-panel', (e) => {
-    openCanvasPanel(e.detail.position);
+    openCanvasPanel(e.detail.position, { preferredViewId: e.detail.viewId });
   });
   header.addEventListener('nx-canvas-editor-view', (e) => {
     const view = normalizeCanvasEditorView(e.detail?.view);

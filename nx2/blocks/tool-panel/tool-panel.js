@@ -44,6 +44,11 @@ class NxToolPanel extends LitElement {
     this.activeId = id;
   }
 
+  /** Activate a tab by `views[].id` (no-op if that id is not in `views`). */
+  async showView(id) {
+    await this._activate(id);
+  }
+
   _syncContent() {
     const content = this.shadowRoot.querySelector('.tool-panel-content');
     if (!content) return;
