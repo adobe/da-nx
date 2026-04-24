@@ -502,6 +502,65 @@ export async function buildFullIndex(
   }
   perf.markdownParse.durationMs = Date.now() - markdownParseStart;
 
+  // Image truthing: fix stale doc references by orphaning images not in current markdown
+  // Build map of image paths to pages that reference them (from markdown parsing)
+  const truthStart = Date.now();
+  const imageToPages = new Map(); // imagePath -> Set(pagePaths)
+  usageMap.images?.forEach((linkedPages, imagePath) => {
+    const normalized = normalizePath(imagePath);
+    if (!imageToPages.has(normalized)) {
+      imageToPages.set(normalized, new Set());
+    }
+    linkedPages.forEach((page) => imageToPages.get(normalized).add(page));
+  });
+
+  let orphanedCount = 0;
+  let truthedCount = 0;
+
+  index.forEach((entry) => {
+    const isImage = entry.type === 'image' || entry.type === 'video';
+    const hasDoc = entry.doc && entry.doc !== '';
+
+    if (isImage && hasDoc) {
+      // Image with a doc reference - verify it's actually in the markdown for that page
+      let entryPath;
+      try {
+        entryPath = new URL(entry.url).pathname;
+      } catch {
+        entryPath = entry.url;
+      }
+      const normalizedPath = normalizePath(entryPath);
+      const pagesWithImage = imageToPages.get(normalizedPath);
+
+      // Check if this specific doc reference is valid
+      if (!pagesWithImage || !pagesWithImage.has(entry.doc)) {
+        // Stale reference - image exists but not on this page anymore
+        // Orphan it by setting doc='' (don't remove from index)
+        entry.doc = '';
+        orphanedCount += 1;
+      } else {
+        truthedCount += 1;
+      }
+    }
+  });
+
+  const truthDurationMs = Date.now() - truthStart;
+
+  if (isPerfEnabled && orphanedCount > 0) {
+    // eslint-disable-next-line no-console
+    console.log(
+      `[full-indexer] Image truthing: ${truthedCount} valid refs, ${orphanedCount} stale refs orphaned in ${truthDurationMs}ms`,
+    );
+  }
+
+  perf.imageTruthing = {
+    durationMs: truthDurationMs,
+    totalImageEntries: index.filter((e) => e.type === 'image' || e.type === 'video').length,
+    validReferences: truthedCount,
+    orphanedReferences: orphanedCount,
+    imagePathsInMarkdown: imageToPages.size,
+  };
+
   const files = Array.from(filesByPath.values());
   const linkedStart = Date.now();
   const linkedResults = await processLinkedContent(
