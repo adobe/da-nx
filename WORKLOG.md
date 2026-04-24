@@ -2,6 +2,11 @@
 
 ## 2026-04-24
 
+### nx2 nav / browse — hash breadcrumbs (minimal)
+- **`nx2/blocks/shared/breadcrumb/`**: **`nx-breadcrumb`** — optional **`.baseUrl`**, **`.pathSegments`**, **`variant="large"`**; parent steps are plain **`<a href>`** (hash-only or resolved via **`resolveBreadcrumbHref`** + current **`location.search`**). **`hashStateToPathSegments`** / **`pathSegmentsToCrumbs`** in **`utils.js`**. No custom events.
+- **`nav.js` / `nav.css`**: **`decorateBreadcrumbs(fragment)`** — same idea as **`decorateBrand`**: mutates the loaded fragment, returns **`null`** or **`{ baseUrl }`**; **`loadNav`** sets **`_navBreadcrumbs`** (@state) and plain **`_breadcrumbBaseHref`**. **`HashController`**, **`brand-cluster`**, **`brand-area`** on the brand **`<a>`**.
+- **`browse.js`**: unchanged integration — **`nx-breadcrumb`** with segments only (default / medium typography).
+
 ### nx2 canvas — split editor view
 - **`nx-canvas-header`**: third segmented control option `split` (grid-compare icon, `aria-label` / `title` “Split view”); `EDITOR_VIEWS` includes `split`.
 - **`canvas.js` / `canvas.css`**: `normalizeCanvasEditorView` persists `split`. Split layout, gutter DOM, drag/persist ratio, and split-only CSS live in **`nx-editor-split/`** (`nx-editor-split.js` + `nx-editor-split.css`, adopted on import): **`nx-canvas-editor-mount--split`** row (**WYSIWYG left**, 2px **`nx-canvas-split-gutter`**, **doc right**), **`--nx-canvas-split-ratio`**, pointer-drag 15–85% → sessionStorage (`nx-canvas-split-ratio`). Split-mode **`nx-editor-wysiwyg`** uses matching **`flex-basis` / `width` / `min-width`** so the preview column does not collapse before the iframe is ready.

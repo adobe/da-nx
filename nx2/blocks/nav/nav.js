@@ -1,7 +1,7 @@
 import { LitElement, html } from 'da-lit';
 import { getMetadata } from '../../scripts/nx.js';
 
-import { loadStyle } from '../../utils/utils.js';
+import { loadStyle, HashController } from '../../utils/utils.js';
 import { loadFragment } from '../fragment/fragment.js';
 import { loadHrefSvg } from '../../utils/svg.js';
 
@@ -14,7 +14,12 @@ class NXNav extends LitElement {
     path: { attribute: false },
     _brand: { state: true },
     _actions: { state: true },
+    _breadcrumbs: { state: true },
   };
+
+  _hash = new HashController(this);
+
+  _getSegments;
 
   connectedCallback() {
     super.connectedCallback();
@@ -31,18 +36,47 @@ class NXNav extends LitElement {
   async loadNav() {
     const fragment = await loadFragment(this._path);
     if (!fragment) return;
-    const sections = [...fragment.querySelectorAll('.section')];
+    let sections = [...fragment.querySelectorAll(':scope > .section')];
+    if (sections.length === 0) {
+      sections = [...fragment.querySelectorAll(':scope > div')];
+    }
+    if (sections.length === 0) return;
+
+    this._breadcrumbs = await this.decorateBreadcrumbs(fragment);
     this._brand = await this.decorateBrand(sections[0]);
-    this._actions = await this.decorateActions(sections.pop());
+    this._actions = await this.decorateActions(sections[sections.length - 1]);
+  }
+
+  async decorateBreadcrumbs(fragment) {
+    const li = fragment.querySelector('ul > li.breadcrumbs')
+      ?? [...fragment.querySelectorAll('ul > li')].find(
+        (el) => el.textContent.trim().toLowerCase() === 'breadcrumbs',
+      );
+    if (!li) return null;
+
+    const href = li.querySelector('a')?.getAttribute('href');
+    const baseUrl = href ? new URL(href, window.location.href).href : undefined;
+    li.remove();
+
+    const [{ hashStateToPathSegments }] = await Promise.all([
+      import('../shared/breadcrumb/utils.js'),
+      import('../shared/breadcrumb/breadcrumb.js'),
+    ]);
+    this._getSegments = hashStateToPathSegments;
+
+    const el = document.createElement('nx-breadcrumb');
+    el.classList.add('nav-breadcrumb');
+    el.setAttribute('variant', 'large');
+    el.baseUrl = baseUrl;
+    return el;
   }
 
   async decorateBrand(brandSection) {
-    // The first link will always be at least an icon
     const brandLink = brandSection.querySelector('a');
     if (!brandLink) return null;
+    brandLink.classList.add('brand-area');
     const { href, textContent } = brandLink;
 
-    // Attempt to find a lockup svg
     const hasLockup = href.includes('.svg');
     if (hasLockup) {
       brandLink.setAttribute('aria-label', textContent);
@@ -73,15 +107,21 @@ class NXNav extends LitElement {
     return getMetadata('nav-path') || this.path || DEFAULT_NAV_PATH;
   }
 
+  updated() {
+    if (!this._breadcrumbs) return;
+    this._breadcrumbs.pathSegments = this._getSegments(this._hash.value);
+  }
+
   render() {
     return html`
-      <div class="brand-area">
+      <div class="brand-cluster">
         ${this._brand}
+        ${this._breadcrumbs}
       </div>
       <div class="action-area">
         ${this._actions}
       </div>
-      `;
+    `;
   }
 }
 
