@@ -18,7 +18,7 @@ The following sections highlight some principles in more detail.
 - The nx2 scripts and utils provide URL/state helpers, auth, and block loading (`nx2/scripts/nx.js`, `nx2/utils/`).
 - Feature code lives in **`nx2/blocks/`** — currently including **`canvas`** (the edit experience; not a separate edit block), **`chat`**, shell pieces (**`nav`**, **`sidenav`**, **`profile`**), **`fragment`** / **`dialog`**, and small helpers (**`action-button`**, **`canvas-actions`**).
 - Shared shell behavior for app-frame side regions is implemented in **`nx2/utils/panel.js`** (DOM panel chrome, resize, show/hide, persistence), not as a separate `blocks/panel` Lit shell.
-- **`blocks/tool-panel`** provides the managed panel shell (`nx-tool-panel`): a picker to switch between consumers, a header-actions zone for first-party consumers, and a close button. Consumer content is lazy-loaded on first activation. Like chat, `nx-tool-panel` is position-agnostic — host blocks instantiate it and set its `consumers` array inside their own `getContent`.
+- **`blocks/tool-panel`** provides the managed panel shell (`nx-tool-panel`): a picker to switch between views, a header-actions zone for first-party views, and a close button. Consumer content is lazy-loaded on first activation. Like chat, `nx-tool-panel` is position-agnostic — host blocks instantiate it and set its `views` array inside their own `getContent`.
 - **`blocks/chat`** has no public entry-point wrapper — host blocks mount `nx-chat` directly inside their own `getContent`.
 - When **`blocks/shared`** (or equivalent) exists, it should contain small, reusable pieces that make no assumptions about where they are invoked from.
 - Root **`Utils`** contains helpers such as the extension SDK client and DA API wrappers (`daFetch.js`: origins + `daFetch`).
@@ -77,11 +77,11 @@ The distinction between panel types is a **caller convention**, not a framework 
 
 **Headless** — `getContent` returns a component that owns its entire layout: header, actions, close button. Used when a single, known first-party component permanently occupies the panel
 
-**Managed** — `getContent` imports and instantiates `nx-tool-panel`, sets its `consumers` array, and returns it. `nx-tool-panel` then owns the header with a consumer picker, actions zone, and close button. Used when multiple consumers share a panel (e.g. tools and extensions).
+**Managed** — `getContent` imports and instantiates `nx-tool-panel`, sets its `views` array, and returns it. `nx-tool-panel` then owns the header with a consumer picker, actions zone, and close button. Used when multiple views share a panel (e.g. tools and extensions).
 
 ### Consumer contract (managed panels)
 
-Each consumer is a descriptor object passed in the `consumers` array:
+Each consumer is a descriptor object passed in the `views` array:
 
 ```js
 {
@@ -94,10 +94,10 @@ Each consumer is a descriptor object passed in the `consumers` array:
 
 Each consumer registered with a managed panel declares whether it is **first-party** or not:
 
-- **First-party consumers** (`firstParty: true`) are authored by the workspace team, fully trusted, and may expose header actions by implementing a `getHeaderActions()` method on the element returned by `load()`. The method should return an `HTMLElement` (or `null`/`undefined` to add nothing). It is called each time the consumer becomes active.
-- **Third-party / fragment consumers** are not authored by the team. They receive only the content area; they cannot add anything to the header. This is the default for extensions and external fragments.
+- **First-party views** (`firstParty: true`) are authored by the workspace team, fully trusted, and may expose header actions by implementing a `getHeaderActions()` method on the element returned by `load()`. The method should return an `HTMLElement` (or `null`/`undefined` to add nothing). It is called each time the consumer becomes active.
+- **Third-party / fragment views** are not authored by the team. They receive only the content area; they cannot add anything to the header. This is the default for extensions and external fragments.
 
-Consumer content is lazy-loaded on first activation and preserved across open/close cycles — switching consumers or hiding the panel does not reload content.
+Consumer content is lazy-loaded on first activation and preserved across open/close cycles — switching views or hiding the panel does not reload content.
 
 ---
 
@@ -117,7 +117,7 @@ The edit experience is implemented as the **`canvas`** block — there is not a 
 - Decorates the canvas region with **`nx-canvas-header`** (Lit toolbar: e.g. split icons for panel edges, undo/redo affordances).
 - Listens for panel open events from **`nx-canvas-header`** and opens the matching panel via **`panel.js`**. Owns a `CANVAS_PANELS` config object keyed by position — each entry carries a default `width` and a `getContent` callback. `openCanvasPanel(position)` does a config lookup and calls `openPanel` directly; no dependency on block-specific helpers like `openChatPanel`.
 - Owns the panel configuration for its context: which positions are supported and what `getContent` each panel uses. Browse or other page-level blocks define their own panel configurations independently.
-- Side regions use the same panel model: **`before`** / **`after`** asides can host in-context browser, history, metadata, outline, etc., registered as consumers through the managed panel — toggled from the header chrome or other entry points as the product defines.
+- Side regions use the same panel model: **`before`** / **`after`** asides can host in-context browser, history, metadata, outline, etc., registered as views through the managed panel — toggled from the header chrome or other entry points as the product defines.
 - Adopts **`canvas.css`** once on the document for light-DOM rules that apply outside the header shadow root.
 
 ### Browse Block
@@ -166,6 +166,6 @@ Chat receives host-pushed context (URL-derived workspace state + accumulated ite
 
 **Configured extensions** — we did not author them. Absent by default, sandboxed, minimal contract only.
 
-In the panel system this maps directly: core features are first-party consumers and may add actions to the managed panel header; configured extensions are third-party consumers and receive only the content area.
+In the panel system this maps directly: core features are first-party views and may add actions to the managed panel header; configured extensions are third-party views and receive only the content area.
 
 The API for third-party extensions is defined by the extensions SDK.

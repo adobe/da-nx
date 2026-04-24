@@ -224,6 +224,6 @@ export async function openPanel({ position, width = '400px', getContent } = {}) 
   }
 
   const beforeMain = position === 'before';
-  const content = await getContent();
+  const content = await getContent?.();
   return mountPanel({ width, beforeMain, content });
 }

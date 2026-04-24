@@ -103,17 +103,9 @@ const CANVAS_PANELS = {
   after: {
     width: '400px',
     getContent: async () => {
-      const { loadFragment } = await import('../fragment/fragment.js');
       await import('../tool-panel/tool-panel.js');
       const toolPanel = document.createElement('nx-tool-panel');
-      toolPanel.consumers = [
-        {
-          id: 'tools',
-          label: 'Tools',
-          firstParty: false,
-          load: () => loadFragment('https://da.live/fragments/exp-workspace/tool'),
-        },
-      ];
+      toolPanel.views = [];
       return toolPanel;
     },
   },

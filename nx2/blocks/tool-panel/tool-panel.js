@@ -8,7 +8,7 @@ const closeIcon = await loadHrefSvg(`${ICONS_BASE}S2_Icon_SplitRight_20_N.svg`);
 
 class NxToolPanel extends LitElement {
   static properties = {
-    consumers: { attribute: false },
+    views: { attribute: false },
     activeId: { type: String },
   };
 
@@ -20,14 +20,14 @@ class NxToolPanel extends LitElement {
   }
 
   async firstUpdated() {
-    if (this.consumers?.length && !this.activeId) {
-      await this._activate(this.consumers[0].id);
+    if (this.views?.length && !this.activeId) {
+      await this._activate(this.views[0].id);
     }
   }
 
   async updated(changed) {
-    if (changed.has('consumers') && this.consumers?.length && !this.activeId) {
-      await this._activate(this.consumers[0].id);
+    if (changed.has('views') && this.views?.length && !this.activeId) {
+      await this._activate(this.views[0].id);
     }
     if (changed.has('activeId')) {
       this._syncContent();
@@ -36,7 +36,7 @@ class NxToolPanel extends LitElement {
   }
 
   async _activate(id) {
-    const consumer = this.consumers?.find((c) => c.id === id);
+    const consumer = this.views?.find((c) => c.id === id);
     if (!consumer) return;
     if (!this._loaded[id]) {
       this._loaded[id] = await consumer.load();
@@ -57,7 +57,7 @@ class NxToolPanel extends LitElement {
     const zone = this.shadowRoot.querySelector('.tool-panel-header-actions');
     if (!zone) return;
     zone.textContent = '';
-    const consumer = this.consumers?.find((c) => c.id === this.activeId);
+    const consumer = this.views?.find((c) => c.id === this.activeId);
     if (!consumer?.firstParty) return;
     const el = this._loaded[this.activeId];
     const actions = el?.getHeaderActions?.();
@@ -69,7 +69,7 @@ class NxToolPanel extends LitElement {
   }
 
   render() {
-    const items = this.consumers?.map((c) => ({ value: c.id, label: c.label })) ?? [];
+    const items = this.views?.map((c) => ({ value: c.id, label: c.label })) ?? [];
 
     return html`
       <div class="tool-panel-header">
