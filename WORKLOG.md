@@ -7,6 +7,7 @@
 - **`canvas.js` / `canvas.css`**: `normalizeCanvasEditorView` persists `split`. Split layout, gutter DOM, drag/persist ratio, and split-only CSS live in **`nx-editor-split/`** (`nx-editor-split.js` + `nx-editor-split.css`, adopted on import): **`nx-canvas-editor-mount--split`** row (**WYSIWYG left**, 2px **`nx-canvas-split-gutter`**, **doc right**), **`--nx-canvas-split-ratio`**, pointer-drag 15–85% → sessionStorage (`nx-canvas-split-ratio`). Split-mode **`nx-editor-wysiwyg`** uses matching **`flex-basis` / `width` / `min-width`** so the preview column does not collapse before the iframe is ready.
 - **`nx-editor-doc` / `nx-editor-wysiwyg`**: visibility treats `split` like both single-pane modes (doc + preview visible when iframe port is ready). **`nx-editor-wysiwyg`**: host `hidden` only when the canvas mode hides the preview entirely; while cookies / quick-edit port load, **`.nx-editor-wysiwyg-surface`** is `hidden` so the custom element still participates in split flex sizing without a layout jump.
 - **`selection-toolbar.js`**: ProseMirror selection toolbar sync runs in `split` as well as `content`.
+- **`selection-toolbar.js` / `handlers.js`**: iframe `selection-change` marks PM transactions with meta and plugin state (`fromIframe`); doc-based `syncToolbar` / doc scroll positioning skip while the mirrored range came from WYSIWYG so split view does not draw the bar from doc `coordsAtPos`. Collapsed iframe selection dispatches a no-op tr to clear that origin.
 
 ## 2026-04-23
 

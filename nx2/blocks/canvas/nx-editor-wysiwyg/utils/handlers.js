@@ -3,6 +3,8 @@ import {
   getSelectionToolbar,
   hideSelectionToolbar,
   TOOLBAR_PADDING_GAP,
+  NX_QUICK_EDIT_IFRAME_SELECTION_META,
+  NX_QUICK_EDIT_CLEAR_IFRAME_SELECTION_ORIGIN_META,
 } from '../../editor-utils/selection-toolbar.js';
 import { getActiveBlockFlatIndex } from './blocks.js';
 
@@ -98,7 +100,7 @@ export function handleStoredMarks({ marks }, ctx) {
   }
 }
 
-export function handleSelectionChange({ anchor, head }, ctx) {
+export function handleSelectionChange({ anchor, head }, ctx, { fromQuickEditIframe = false } = {}) {
   const { view } = ctx;
   if (!view) return false;
   const { state } = view;
@@ -107,6 +109,7 @@ export function handleSelectionChange({ anchor, head }, ctx) {
     const h = Math.max(0, Math.min(head, state.doc.content.size));
     const { tr } = state;
     tr.setSelection(TextSelection.create(state.doc, a, h));
+    if (fromQuickEditIframe) tr.setMeta(NX_QUICK_EDIT_IFRAME_SELECTION_META, true);
     ctx.suppressRerender = true;
     view.dispatch(tr);
     ctx.suppressRerender = false;
@@ -137,8 +140,17 @@ export function handleIframeSelectionChange(data, ctx) {
   const { anchor, head } = data;
   if (anchor === head) {
     hideSelectionToolbar();
+    const { view } = ctx;
+    if (view) {
+      const tr = view.state.tr
+        .setMeta(NX_QUICK_EDIT_CLEAR_IFRAME_SELECTION_ORIGIN_META, true)
+        .setMeta('addToHistory', false);
+      ctx.suppressRerender = true;
+      view.dispatch(tr);
+      ctx.suppressRerender = false;
+    }
     return;
   }
-  if (!handleSelectionChange(data, ctx)) return;
+  if (!handleSelectionChange(data, ctx, { fromQuickEditIframe: true })) return;
   positionSelectionToolbarFromIframe(data, ctx);
 }
