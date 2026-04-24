@@ -10,14 +10,14 @@ import {
   streamLog,
   saveIndexMeta,
   saveIndexChunks,
-} from './worker-fetch.js';
-import runBulkStatus from './worker-bulk-status.js';
+} from './fetch.js';
+import runBulkStatus from './bulk-status.js';
 // Use worker-safe stub for processLinkedContent
 // (avoids admin-api.js → daFetch.js → public/utils/constants.js)
 import {
   processLinkedContent,
-} from './worker-linked-content.js';
-import { buildUsageMap } from './worker-parse.js';
+} from './linked-content.js';
+import { buildUsageMap } from './parse.js';
 import {
   buildCanonicalTimestampMap,
   buildPageMediaFromMedialog,

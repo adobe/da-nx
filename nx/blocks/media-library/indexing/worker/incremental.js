@@ -14,12 +14,12 @@ import {
   saveIndexChunks,
   loadMultiSheet,
   loadIndexChunks,
-} from './worker-fetch.js';
+} from './fetch.js';
 // Use worker-safe stub for processLinkedContent
 // (avoids admin-api.js → daFetch.js → public/utils/constants.js)
 import {
   processLinkedContent,
-} from './worker-linked-content.js';
+} from './linked-content.js';
 import {
   buildCanonicalTimestampMap,
   mergeMedialogChunkIntoMap,

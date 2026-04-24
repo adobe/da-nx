@@ -10,14 +10,14 @@ import {
   createBulkStatusJob,
   pollStatusJob,
   getStatusJobDetails,
-} from './worker-fetch.js';
+} from './fetch.js';
 // Use worker-safe helper functions (avoids admin-api.js → daFetch.js → public/utils/constants.js)
 import {
   extractJobPaths,
   extractJobPhase,
   extractJobIsComplete,
   parseResourcesFromDetailsRaw,
-} from './worker-admin-helpers.js';
+} from './admin-helpers.js';
 
 const REQ_PER_SEC = 10;
 const THROTTLE_MS = 1000 / REQ_PER_SEC;

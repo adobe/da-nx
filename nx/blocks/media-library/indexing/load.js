@@ -407,7 +407,7 @@ async function runWorkerBuild(
   // Create worker using blob URL to avoid CORS issues with ?nx=local
   // When running with ?nx=local, files load from localhost but page is on da.live
   // Workers must be same-origin, so we create a blob URL
-  const workerUrl = new URL('./index-worker/index-worker.js', import.meta.url).href;
+  const workerUrl = new URL('./worker/worker.js', import.meta.url).href;
   const response = await fetch(workerUrl);
   if (!response.ok) {
     throw new Error(`Failed to fetch worker code: ${response.status}`);
@@ -417,7 +417,7 @@ async function runWorkerBuild(
 
   // Replace ALL relative imports with absolute URLs so worker can fetch them
   // This converts: import './foo.js' → import 'http://localhost:6456/.../foo.js'
-  const baseUrl = new URL('./index-worker/', import.meta.url).href;
+  const baseUrl = new URL('./worker/', import.meta.url).href;
   workerCode = workerCode.replace(
     /from\s+['"](\.\.[^'"]*|\.\/[^'"]*)['"]/g,
     (match, path) => {

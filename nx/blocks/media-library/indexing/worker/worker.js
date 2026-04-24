@@ -29,8 +29,8 @@
 
 /* eslint-disable no-console */
 
-import { buildFullIndex } from './full-indexer.js';
-import { buildIncrementalIndex } from './worker-incremental.js';
+import { buildFullIndex } from './full.js';
+import { buildIncrementalIndex } from './incremental.js';
 
 console.log('[IndexWorker] Worker modules loaded successfully');
 

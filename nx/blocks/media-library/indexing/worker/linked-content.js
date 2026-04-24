@@ -16,7 +16,7 @@ import {
   isFragmentDoc,
 } from '../parse.js';
 import { normalizePath } from '../../core/parse-utils.js';
-import { buildUsageMap } from './worker-parse.js';
+import { buildUsageMap } from './parse.js';
 
 /**
  * Worker-safe processLinkedContent

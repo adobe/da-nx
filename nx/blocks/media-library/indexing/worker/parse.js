@@ -6,7 +6,7 @@
  */
 
 // MODIFIED: Use worker-safe fetchPageMarkdown
-import { fetchPageMarkdown } from './worker-fetch.js';
+import { fetchPageMarkdown } from './fetch.js';
 
 import {
   IndexConfig,
