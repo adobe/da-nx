@@ -1,6 +1,5 @@
 import { fetchFileGetInfo, fetchFileHeadInfo } from './admin-api.js';
 import {
-  normalizePath,
   isPdf,
   isSvg,
   isPdfOrSvg,
@@ -9,6 +8,7 @@ import {
   toLinkedContentEntry,
   toExternalMediaEntry,
 } from './parse.js';
+import { normalizePath } from '../core/parse-utils.js';
 import { Operation } from '../core/constants.js';
 import {
   isIndexedExternalMediaOperation,

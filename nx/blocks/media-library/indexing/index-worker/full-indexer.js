@@ -26,13 +26,14 @@ import {
   removeOrOrphanMedia,
 } from '../medialog.js';
 import {
-  normalizePath, isPage, isFragment,
+  isPage, isFragment,
   isFragmentDoc, isPdfOrSvg,
   isLinkedContentPath, toAbsoluteFilePath,
   toLinkedContentEntry,
   getDedupeKey, createMedialogEntry,
   createLinkedContentEntries,
 } from '../parse.js';
+import { normalizePath } from '../../core/parse-utils.js';
 import { buildMediaSheet, buildUsageSheet } from '../sheets.js';
 import { canonicalizeMediaUrl } from '../../core/urls.js';
 import {

@@ -28,9 +28,10 @@ import {
   processStandaloneUploads,
 } from '../medialog.js';
 import {
-  normalizePath, isPage,
+  isPage,
   getDedupeKey,
 } from '../parse.js';
+import { normalizePath } from '../../core/parse-utils.js';
 import { buildMediaSheet } from '../sheets.js';
 import {
   IndexConfig,

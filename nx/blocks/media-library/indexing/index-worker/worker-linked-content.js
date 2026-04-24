@@ -10,12 +10,12 @@
 import {
   toLinkedContentEntry,
   toExternalMediaEntry,
-  normalizePath,
   isPdf,
   isSvg,
   isPdfOrSvg,
   isFragmentDoc,
 } from '../parse.js';
+import { normalizePath } from '../../core/parse-utils.js';
 import { buildUsageMap } from './worker-parse.js';
 
 /**

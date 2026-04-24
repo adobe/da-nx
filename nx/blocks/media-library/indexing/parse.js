@@ -1,12 +1,21 @@
 import {
   IndexConfig,
-  Domains,
   Operation,
   Paths,
   MediaType,
 } from '../core/constants.js';
-import { getExternalMediaTypeInfo, normalizeExternalVideoUrl } from '../core/media.js';
+import { normalizeExternalVideoUrl } from '../core/media.js';
 import { getDedupeKey, canonicalizeMediaUrl } from '../core/urls.js';
+import {
+  normalizePath,
+  isHiddenPath,
+  extractImageAndVideoUrls,
+  extractFragmentReferences,
+  extractExternalMediaUrls,
+  extractLinks,
+  getExternalMediaType,
+  processConcurrently,
+} from '../core/parse-utils.js';
 
 // Lazy-load admin-api.js and params.js to avoid triggering window.location in worker context
 // (admin-api.js → daFetch.js → public/utils/constants.js → window.location)
@@ -32,22 +41,6 @@ async function getIsPerfEnabled() {
 }
 
 export { getDedupeKey };
-
-const MD_LINK_RE = /\[[^\]]*\]\(([^)]+)\)/gi;
-const MD_REF_DEF_RE = /^\[([^\]]+)\]:\s*(.+)$/gm; // Reference-style link definitions
-const MD_AUTOLINK_RE = /<(https?:\/\/[^>]+|\/[^>\s]*)>/g;
-const HTML_MEDIA_ATTR_RE = /<(?:img|video|audio|source|iframe)\b[^>]*\b(src|srcset|poster)=["']([^"']+)["'][^>]*>/gi;
-const HTML_ANCHOR_RE = /<a\b[^>]*\bhref=["']([^"']+)["'][^>]*>/gi;
-
-// Normalizes path (lowercase, no leading slash, / for dirs).
-export function normalizePath(path) {
-  if (!path) return '';
-  let cleanPath = path.split('?')[0].split('#')[0];
-  if (!cleanPath.includes('.') && !cleanPath.startsWith(Paths.MEDIA)) {
-    cleanPath = cleanPath === '/' || cleanPath === '' ? '/index.md' : `${cleanPath}.md`;
-  }
-  return cleanPath;
-}
 
 export function normalizeOriginalPath(originalFilename) {
   if (!originalFilename) return '';
@@ -75,11 +68,6 @@ export function isPage(path) {
 export function isFragment(path) {
   if (!path || typeof path !== 'string') return false;
   return path.includes(Paths.FRAGMENTS) && !path.includes('.');
-}
-
-export function isHiddenPath(path) {
-  if (!path || typeof path !== 'string') return false;
-  return path.includes('/.');
 }
 
 export function extractName(mediaEntry) {
@@ -282,202 +270,6 @@ export function getLinkedContentType(path) {
   if (isSvg(path)) return MediaType.IMAGE;
   if (isFragmentDoc(path)) return MediaType.FRAGMENT;
   return 'unknown';
-}
-
-function toPath(href) {
-  if (!href) return '';
-  try {
-    if (href.startsWith('http')) {
-      return new URL(href).pathname;
-    }
-    return href.startsWith('/') ? href : `/${href}`;
-  } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error(`[MediaIndexer] Failed to parse URL ${href}:`, error.message);
-    return href;
-  }
-}
-
-function extractHtmlMediaUrls(md) {
-  return [...md.matchAll(HTML_MEDIA_ATTR_RE)].flatMap((match) => {
-    const [, attrName, rawValue] = match;
-    if (!rawValue) return [];
-    if (attrName.toLowerCase() === 'srcset') {
-      return rawValue
-        .split(',')
-        .map((candidate) => candidate.trim().split(/\s+/)[0])
-        .filter(Boolean);
-    }
-    return [rawValue];
-  });
-}
-
-function extractHtmlAnchorUrls(html) {
-  return [...html.matchAll(HTML_ANCHOR_RE)].map((match) => match[1]).filter(Boolean);
-}
-
-function htmlForMediaExtraction(html) {
-  if (!html || typeof html !== 'string') return '';
-  const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
-  if (bodyMatch) {
-    return bodyMatch[1];
-  }
-  return html.replace(/<head\b[^>]*>[\s\S]*?<\/head>/gi, '');
-}
-
-function stripMarkdownTitle(target) {
-  const trimmed = target.trim();
-  if (!trimmed) return '';
-
-  const angleMatch = trimmed.match(/^<([^>]+)>(?:\s+['"].*['"])?$/);
-  if (angleMatch) {
-    return angleMatch[1].trim();
-  }
-
-  const titleMatch = trimmed.match(/^(\S+)(?:\s+['"].*['"])?$/);
-  return titleMatch ? titleMatch[1] : trimmed;
-}
-
-function hasMalformedEncodedQuotes(target) {
-  return /^(?:%5c%22|%22)/i.test(target) || /(?:%5c%22|%22)$/i.test(target);
-}
-
-function sanitizeExtractedUrl(rawUrl) {
-  if (!rawUrl || typeof rawUrl !== 'string') return null;
-
-  let value = stripMarkdownTitle(rawUrl);
-  if (!value || hasMalformedEncodedQuotes(value)) return null;
-
-  value = value.trim().replace(/&amp;/g, '&');
-
-  if (
-    (value.startsWith('"') && value.endsWith('"'))
-    || (value.startsWith('\'') && value.endsWith('\''))
-  ) {
-    value = value.slice(1, -1).trim();
-  }
-
-  if (!value || value.includes('\n') || value.includes('\r') || value.includes('\t')) {
-    return null;
-  }
-
-  if (
-    value.startsWith('\\"')
-    || value.endsWith('\\"')
-    || value.startsWith("\\'")
-    || value.endsWith("\\'")
-  ) {
-    return null;
-  }
-
-  if (!value.startsWith('http') && !value.startsWith('/')) {
-    return null;
-  }
-
-  return value;
-}
-
-function extractUrlsFromMarkdown(md) {
-  if (!md || typeof md !== 'string') return [];
-  const candidates = [
-    ...[...md.matchAll(MD_LINK_RE)].map((m) => m[1]),
-    ...[...md.matchAll(MD_REF_DEF_RE)].map((m) => m[2]),
-    ...[...md.matchAll(MD_AUTOLINK_RE)].map((m) => m[1]),
-    ...extractHtmlMediaUrls(md),
-  ];
-
-  return [...new Set(candidates.map(sanitizeExtractedUrl).filter(Boolean))];
-}
-
-function extractUrlsFromHtml(html) {
-  if (!html || typeof html !== 'string') return [];
-  const scan = htmlForMediaExtraction(html);
-  const candidates = [
-    ...extractHtmlMediaUrls(scan),
-    ...extractHtmlAnchorUrls(scan),
-  ];
-
-  return [...new Set(candidates.map(sanitizeExtractedUrl).filter(Boolean))];
-}
-
-function extractUrls(content, isHtml = false) {
-  return isHtml ? extractUrlsFromHtml(content) : extractUrlsFromMarkdown(content);
-}
-
-function isExternalUrl(url) {
-  if (!url || !url.startsWith('http')) return false;
-  return !Domains.SAME_ORIGIN.some((d) => url.includes(d));
-}
-
-export function getExternalMediaType(url) {
-  return getExternalMediaTypeInfo(url);
-}
-
-export function isExternalMediaUrl(url) {
-  return getExternalMediaType(url) !== null;
-}
-
-export function extractExternalMediaUrls(content, isHtml = false) {
-  if (!content || typeof content !== 'string') return [];
-  const urls = extractUrls(content, isHtml);
-  return [...new Set(urls.filter((u) => isExternalMediaUrl(u)))];
-}
-
-export function extractFragmentReferences(content, isHtml = false) {
-  const urls = extractUrls(content, isHtml);
-  return [...new Set(urls.filter((u) => u.includes(Paths.FRAGMENTS)).map((u) => toPath(u)))];
-}
-
-export function extractLinks(content, pattern, isHtml = false) {
-  const urls = extractUrls(content, isHtml);
-  const pathPart = (u) => u.split('?')[0].split('#')[0];
-  return [...new Set(
-    urls
-      .filter((u) => pattern.test(pathPart(u)) && !isExternalUrl(u))
-      .map((u) => toPath(u)),
-  )];
-}
-
-/**
- * Extracts regular images and videos from markdown content.
- * Returns paths for internal media (jpg, png, gif, webp, mp4, etc.)
- */
-export function extractImageAndVideoUrls(content, isHtml = false) {
-  const urls = extractUrls(content, isHtml);
-  const pathPart = (u) => u.split('?')[0].split('#')[0];
-  // Match image/video extensions (jpg, png, gif, webp, mp4, etc.)
-  const mediaPattern = /\.(jpg|jpeg|png|gif|webp|avif|bmp|mp4|webm|mov|avi|m4v)([?#]|$)/i;
-  return [...new Set(
-    urls
-      .filter((u) => mediaPattern.test(pathPart(u)) && !isExternalUrl(u))
-      .map((u) => toPath(u)),
-  )];
-}
-
-// Runs fn over items with concurrency limit; returns results in order.
-export async function processConcurrently(items, fn, concurrency) {
-  const results = [];
-  const executing = [];
-
-  for (let i = 0; i < items.length; i += 1) {
-    const item = items[i];
-    const promise = Promise.resolve().then(() => fn(item, i));
-    results.push(promise);
-
-    if (concurrency <= items.length) {
-      const executingPromise = promise.then(() => {
-        executing.splice(executing.indexOf(executingPromise), 1);
-      });
-      executing.push(executingPromise);
-
-      if (executing.length >= concurrency) {
-        // eslint-disable-next-line no-await-in-loop
-        await Promise.race(executing);
-      }
-    }
-  }
-
-  return Promise.all(results);
 }
 
 // Parses pages for PDF/SVG/fragment refs; returns usage map + external media.

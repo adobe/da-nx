@@ -1,5 +1,4 @@
 import {
-  normalizePath,
   normalizeOriginalPath,
   getDedupeKey,
   computeCanonicalModifiedTimestamp,
@@ -7,6 +6,7 @@ import {
   detectMediaType,
   computeCanonicalMetadata,
 } from './parse.js';
+import { normalizePath } from '../core/parse-utils.js';
 import { canonicalizeMediaUrl } from '../core/urls.js';
 
 /**
