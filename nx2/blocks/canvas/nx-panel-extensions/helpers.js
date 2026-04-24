@@ -1,9 +1,11 @@
 /* eslint-disable import/no-unresolved -- importmap */
 import { DOMParser as PMDOMParser, TextSelection } from 'da-y-wrapper';
-import { daFetch } from '../../../utils/daFetch.js';
+import { DA_ORIGIN, daFetch } from '../../../utils/daFetch.js';
 
 const AEM_ORIGINS = ['hlx.page', 'hlx.live', 'aem.page', 'aem.live'];
 const REPLACE_CONTENT = '<content>';
+
+export const ref = new URLSearchParams(window.location.search).get('ref') || 'main';
 
 // ---------------------------------------------------------------------------
 // Block HTML parsing — ported from da-live helpers/index.js
@@ -91,13 +93,15 @@ function groupBlocks(elements) {
     if (el.classList?.contains('library-container-start')) {
       const blockGroup = document.createElement('div');
       blockGroup.dataset.isgroup = 'true';
-      const container = document.createElement('div');
       if (isHeading(el.previousElementSibling)) {
-        container.append(el.previousElementSibling.cloneNode(true));
+        blockGroup.dataset.groupheading = el.previousElementSibling.textContent;
       }
-      state.currentGroup = { container, blockGroup };
+      state.currentGroup = { blockGroup };
     } else if (el.classList?.contains('library-container-end') && state.currentGroup) {
       const { blockGroup } = state.currentGroup;
+      if (el.nextElementSibling?.classList.contains('library-metadata')) {
+        blockGroup.append(el.nextElementSibling.cloneNode(true));
+      }
       state.blocks.push(blockGroup);
       state.currentGroup = null;
     } else if (state.currentGroup) {
@@ -113,12 +117,32 @@ function groupBlocks(elements) {
   }, { blocks: [], currentGroup: null }).blocks;
 }
 
+function getLibraryMetadata(el) {
+  return [...el.childNodes].reduce((acc, row) => {
+    if (row.children) {
+      const key = row.children[0]?.textContent.trim().toLowerCase();
+      const val = row.children[1]?.textContent.trim();
+      if (key && val) acc[key] = val;
+    }
+    return acc;
+  }, {});
+}
+
 function transformBlock(block) {
   const prevSib = block.previousElementSibling;
   const item = isHeading(prevSib) && prevSib.textContent
     ? { name: prevSib.textContent }
     : getBlockName(block.className || '');
   item.dom = block.dataset?.isgroup ? processGroupBlock(block) : getBlockTableHtml(block);
+
+  const metaEl = block.nextElementSibling?.classList.contains('library-metadata')
+    ? block.nextElementSibling
+    : block.querySelector('.library-metadata');
+  if (metaEl) {
+    const md = getLibraryMetadata(metaEl);
+    if (md.searchtags) item.tags = md.searchtags;
+    if (md.description) item.description = md.description;
+  }
   return item;
 }
 
@@ -136,6 +160,54 @@ export async function getBlockVariants(path) {
 }
 
 // ---------------------------------------------------------------------------
+// Extension config
+// ---------------------------------------------------------------------------
+
+const OOTB_PLUGINS = new Set(['blocks', 'templates', 'icons', 'placeholders']);
+
+function getFirstSheet(json) {
+  if (json[':type'] !== 'multi-sheet') return json.data;
+  return json[Object.keys(json)[0]]?.data;
+}
+
+function getIsPluginAllowed(plugRef) {
+  const pluginRef = plugRef || 'main';
+  if (pluginRef === 'main') return true;
+  if (ref === 'local') return true;
+  return pluginRef === ref;
+}
+
+function calculateSources(org, site, sheetPath) {
+  return sheetPath.split(',').map((p) => {
+    const trimmed = p.trim();
+    if (!trimmed.startsWith('/')) return trimmed;
+    if (ref === 'local') return `http://localhost:3000${trimmed}`;
+    return `https://${ref}--${site}--${org}.aem.live${trimmed}`;
+  });
+}
+
+export async function fetchExtensions(org, site) {
+  const resp = await daFetch(`${DA_ORIGIN}/config/${org}/${site}/`);
+  if (!resp.ok) return [];
+  const json = await resp.json();
+  const rows = json?.library?.data;
+  if (!Array.isArray(rows)) return [];
+  return rows.reduce((acc, row) => {
+    if (!getIsPluginAllowed(row.ref)) return acc;
+    const name = row.title.trim().toLowerCase().replaceAll(' ', '-');
+    acc.push({
+      name,
+      title: row.title.trim(),
+      sources: calculateSources(org, site, row.path),
+      experience: row.experience || 'inline',
+      format: row.format || '',
+      ootb: OOTB_PLUGINS.has(name),
+    });
+    return acc;
+  }, []);
+}
+
+// ---------------------------------------------------------------------------
 // Data fetching
 // ---------------------------------------------------------------------------
 
@@ -146,7 +218,7 @@ export async function fetchBlocks(sources) {
       const resp = await daFetch(url);
       if (resp.ok) {
         const json = await resp.json();
-        const data = json?.data ?? (Array.isArray(json) ? json : []);
+        const data = getFirstSheet(json) ?? (Array.isArray(json) ? json : []);
         data.forEach((row) => {
           if (row.name && row.path) {
             blocks.push({ ...row, loadVariants: getBlockVariants(row.path) });
@@ -165,7 +237,7 @@ export async function fetchItems(sources, format) {
       const resp = await daFetch(source);
       if (resp.ok) {
         const json = await resp.json();
-        const data = json?.data ?? (Array.isArray(json) ? json : []);
+        const data = getFirstSheet(json) ?? (Array.isArray(json) ? json : []);
         data.forEach((row) => {
           const key = row.key ?? row.name;
           if (!key && !row.value) return;

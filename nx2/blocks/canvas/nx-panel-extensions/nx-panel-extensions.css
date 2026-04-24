@@ -2,22 +2,6 @@
   display: flex;
   flex-direction: column;
   height: 100%;
-  overflow: hidden;
-}
-
-.ext-picker-row {
-  display: flex;
-  align-items: center;
-  width: 100%;
-  padding: var(--s2-spacing-75) var(--s2-spacing-100);
-  box-sizing: border-box;
-  border-bottom: 1px solid light-dark(var(--s2-gray-300), var(--s2-gray-400));
-  flex-shrink: 0;
-}
-
-.ext-content {
-  flex: 1;
-  min-height: 0;
   overflow-y: auto;
 }
 

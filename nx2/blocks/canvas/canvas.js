@@ -105,6 +105,36 @@ function syncCanvasEditorsToHash({ mountRoot, header, state }) {
   syncEditorSplitLayout({ mountRoot, view: header.editorView });
 }
 
+function extensionToView(ext) {
+  return {
+    id: ext.name,
+    label: ext.title,
+    firstParty: ext.ootb,
+    load: async () => {
+      await import('./nx-panel-extensions/nx-panel-extensions.js');
+      const el = document.createElement('nx-panel-extension');
+      el.extension = ext;
+      return el;
+    },
+  };
+}
+
+async function syncToolPanelViews(toolPanel, { org, site }) {
+  const key = org && site ? `${org}/${site}` : null;
+  if (key === toolPanel.dataset.extKey) return;
+  toolPanel.dataset.extKey = key ?? '';
+
+  if (!key) {
+    toolPanel.views = [];
+    return;
+  }
+
+  const { fetchExtensions } = await import('./nx-panel-extensions/helpers.js');
+  const extensions = await fetchExtensions(org, site);
+  if (toolPanel.dataset.extKey !== key) return;
+  toolPanel.views = extensions.map(extensionToView);
+}
+
 const CANVAS_PANELS = {
   before: {
     width: '400px',
@@ -117,19 +147,26 @@ const CANVAS_PANELS = {
     width: '400px',
     getContent: async () => {
       await import('../tool-panel/tool-panel.js');
-      const toolPanel = document.createElement('nx-tool-panel');
-      toolPanel.views = [];
-      return toolPanel;
+      return document.createElement('nx-tool-panel');
     },
   },
 };
+
+function hashState() {
+  const [org, site] = window.location.hash.slice(2).split('/');
+  return { org: org || undefined, site: site || undefined };
+}
 
 async function openCanvasPanel(position) {
   const config = CANVAS_PANELS[position];
   if (!config) return;
   const store = getPanelStore();
   const width = store[position]?.width ?? config.width;
-  await openPanel({ position, width, getContent: config.getContent });
+  const aside = await openPanel({ position, width, getContent: config.getContent });
+  if (position === 'after') {
+    const toolPanel = aside?.querySelector('nx-tool-panel');
+    if (toolPanel) syncToolPanelViews(toolPanel, hashState());
+  }
 }
 
 function installCanvasHeader(block) {
@@ -170,10 +207,10 @@ export default async function decorate(block) {
 
   hashChange.subscribe((state) => {
     syncCanvasEditorsToHash({ mountRoot, header, state });
+    const toolPanel = document.querySelector('aside.panel[data-position="after"] nx-tool-panel');
+    if (toolPanel) syncToolPanelViews(toolPanel, state);
   });
 
-  // Restore panels opened by canvas (no fragment URL)
-  // data handled by restorePanels() in nx.js.
   const store = getPanelStore();
   if (store.before && !store.before.fragment) openCanvasPanel('before');
   if (store.after && !store.after.fragment) openCanvasPanel('after');
