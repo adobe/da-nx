@@ -621,7 +621,12 @@ class NxMediaLibrary extends LitElement {
       saveRecentSite(this.sitePath);
       await this.loadMediaData();
       const onMediaDataUpdated = (mediaData) => this.setMediaData(mediaData);
-      initService(this.sitePath, { onMediaDataUpdated });
+
+      // Detect mode: plugin (embedded in iframe/sidekick) vs app (standalone)
+      const isEmbedded = window.self !== window.top;
+      const mode = isEmbedded ? 'plugin' : 'app';
+
+      initService(this.sitePath, { onMediaDataUpdated, mode });
     } catch (error) {
       updateAppState({
         isValidating: false,

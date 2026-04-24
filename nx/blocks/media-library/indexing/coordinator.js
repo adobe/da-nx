@@ -375,15 +375,22 @@ export async function triggerBuild(sitePath, org, repo, ref = 'main') {
 }
 
 export async function initService(sitePath, options = {}) {
-  const { onMediaDataUpdated: callback } = options;
+  const { onMediaDataUpdated: callback, mode = 'app' } = options;
   onMediaDataUpdated = callback;
 
   if (!sitePath || pollingStarted) return;
 
-  // Data already loaded by loadMediaData() - UI has existing index
-  startPolling(); // Every 60s: check timestamp, reload if changed
-
   const [org, repo] = sitePath.split('/').slice(1, 3);
+
+  // Plugin mode: Only start polling, don't trigger builds
+  // User must manually trigger builds if index is missing
+  if (mode === 'plugin') {
+    startPolling(); // Every 60s: check timestamp, reload if changed
+    return;
+  }
+
+  // App mode: Start polling + trigger build if needed
+  startPolling(); // Every 60s: check timestamp, reload if changed
 
   try {
     // Check if someone else is building
