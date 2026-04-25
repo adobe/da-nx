@@ -14,7 +14,6 @@ import { daFetch } from '../../../utils/daFetch.js';
 import {
   loadIndexChunks,
   loadSheetMeta,
-  createSheet,
 } from '../indexing/admin-api.js';
 import { MediaLibraryError, ErrorCodes, logMediaLibraryError } from '../core/errors.js';
 import { t } from '../core/messages.js';
@@ -24,7 +23,6 @@ import { getDedupeKey, canonicalizeMediaUrl } from '../core/urls.js';
 import {
   IndexFiles,
   SheetNames,
-  IndexConfig,
   DA_ORIGIN,
 } from '../core/constants.js';
 
@@ -45,72 +43,11 @@ export function getMediaSheetPath(sitePath) {
   return `${getMediaLibraryPath(sitePath)}/${IndexFiles.MEDIA_INDEX}`;
 }
 
-export function getIndexLockPath(sitePath) {
-  return `${getMediaLibraryPath(sitePath)}/${IndexFiles.INDEX_LOCK}`;
-}
-
-export async function checkIndexLock(sitePath) {
-  const path = getIndexLockPath(sitePath);
-  try {
-    const resp = await daFetch(`${DA_ORIGIN}/source${path}`);
-    if (resp.ok) {
-      const data = await resp.json();
-      const lockData = data.data?.[0] || data;
-      return {
-        exists: true,
-        locked: lockData.locked || false,
-        timestamp: lockData.timestamp || null,
-        startedAt: lockData.startedAt || lockData.timestamp || null,
-        lastUpdated: lockData.lastUpdated || lockData.timestamp || null,
-        ownerId: lockData.ownerId || '',
-        mode: lockData.mode || '',
-      };
-    }
-  } catch (e) {
-    return {
-      exists: false,
-      locked: false,
-      timestamp: null,
-      startedAt: null,
-      lastUpdated: null,
-      ownerId: '',
-      mode: '',
-    };
-  }
-  return {
-    exists: false,
-    locked: false,
-    timestamp: null,
-    startedAt: null,
-    lastUpdated: null,
-    ownerId: '',
-    mode: '',
-  };
-}
-
-export function isFreshIndexLock(lock, now = Date.now()) {
-  if (!(lock?.exists && lock?.locked)) return false;
-  const heartbeat = lock.lastUpdated || lock.timestamp || lock.startedAt;
-  if (!heartbeat) return false;
-  return (now - heartbeat) < IndexConfig.LOCK_STALE_THRESHOLD_MS;
-}
-
-export async function saveMediaSheet(data, sitePath) {
-  const path = getMediaSheetPath(sitePath);
-  const formData = await createSheet(data);
-  return daFetch(`${DA_ORIGIN}/source${path}`, {
-    method: 'PUT',
-    body: formData,
-  });
-}
-
 export async function loadMediaSheet(sitePath, onProgressiveChunk) {
   const path = getMediaSheetPath(sitePath);
   const basePath = getMediaLibraryPath(sitePath);
   const metaPath = `${basePath}/${IndexFiles.MEDIA_INDEX_META}`;
   const { org, repo } = getOrgRepoFromSitePath(sitePath);
-  const lock = await checkIndexLock(sitePath);
-  const lockFresh = isFreshIndexLock(lock);
 
   try {
     // Check if index is chunked by loading meta
@@ -119,7 +56,7 @@ export async function loadMediaSheet(sitePath, onProgressiveChunk) {
     if (meta?.chunked === true) {
       const chunkCount = meta.chunkCount || 0;
       if (chunkCount === 0) {
-        return { data: [], lockFresh };
+        return { data: [] };
       }
 
       try {
@@ -139,7 +76,6 @@ export async function loadMediaSheet(sitePath, onProgressiveChunk) {
         }));
         return {
           data: mappedData,
-          lockFresh,
         };
       } catch (chunkError) {
         // eslint-disable-next-line no-console
@@ -161,7 +97,6 @@ export async function loadMediaSheet(sitePath, onProgressiveChunk) {
           ...item,
           url: canonicalizeMediaUrl(item.url, org, repo),
         })),
-        lockFresh,
       };
     }
 
@@ -174,8 +109,6 @@ export async function loadMediaSheet(sitePath, onProgressiveChunk) {
       return {
         data: [],
         indexMissing: true,
-        indexing: lockFresh,
-        lockFresh,
       };
     }
 
@@ -221,21 +154,20 @@ export async function hasMediaSheetChanged(sitePath, org, repo) {
   }
 }
 
-// Loads media sheet if index changed; returns { hasChanged, mediaData, indexMissing, indexing }.
+// Loads media sheet if index changed; returns { hasChanged, mediaData, indexMissing }.
 export async function loadMediaIfUpdated(sitePath, org, repo) {
   const { hasChanged } = await hasMediaSheetChanged(sitePath, org, repo);
 
   if (hasChanged) {
-    const { data, indexMissing, indexing } = await loadMediaSheet(sitePath);
+    const { data, indexMissing } = await loadMediaSheet(sitePath);
     return {
       hasChanged: true,
       mediaData: data,
       indexMissing: !!indexMissing,
-      indexing: !!indexing,
     };
   }
 
-  return { hasChanged: false, mediaData: null, indexMissing: false, indexing: false };
+  return { hasChanged: false, mediaData: null, indexMissing: false };
 }
 
 function statusRankForUniqueCard(item) {

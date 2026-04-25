@@ -9,11 +9,13 @@
 import buildMediaIndex from './build.js';
 import {
   loadMediaIfUpdated,
-  checkIndexLock,
-  isFreshIndexLock,
   loadMediaSheet,
 } from '../display/data.js';
-import { getIndexLockOwnerId } from './locks.js';
+import {
+  checkIndexLock,
+  isFreshIndexLock,
+  getIndexLockOwnerId,
+} from './locks.js';
 import { ensureAuthenticated } from '../core/utils.js';
 import { MediaLibraryError, ErrorCodes, logMediaLibraryError } from '../core/errors.js';
 import { isFullRebuildRequested } from '../core/params.js';
@@ -131,16 +133,14 @@ function startLockCheckPolling(sitePath, org, repo, hasMediaData) {
 
         // Lock released - try to load data
         if (!hasMediaData) {
-          const { data, indexMissing, indexing } = await loadMediaSheet(sitePath);
+          const { data, indexMissing } = await loadMediaSheet(sitePath);
 
-          if (!indexing) {
-            if (indexMissing) {
-              emit(createIndexMissingEvent(sitePath));
-              return;
-            }
-            emit(createIndexLoadedEvent(data || []));
+          if (indexMissing) {
+            emit(createIndexMissingEvent(sitePath));
             return;
           }
+          emit(createIndexLoadedEvent(data || []));
+          return;
         }
 
         // Check if index was updated while lock was active

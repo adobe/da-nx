@@ -2,29 +2,70 @@
  * Index Lock Management - For indexing operations only
  *
  * This module manages index build locks to prevent concurrent builds.
- * It handles lock creation, refresh (heartbeat), removal, and ownership.
- *
- * Lock queries (checkIndexLock, isFreshIndexLock) are re-exported from
- * display/data.js since both layers need read access.
+ * It handles lock creation, refresh (heartbeat), removal, ownership, and checking.
  */
 
 import { daFetch } from '../../../utils/daFetch.js';
 import { createSheet } from './admin-api.js';
 import { MediaLibraryError, ErrorCodes, logMediaLibraryError } from '../core/errors.js';
 import { t } from '../core/messages.js';
-import { DA_ORIGIN } from '../core/constants.js';
-import {
-  checkIndexLock as _checkIndexLock,
-  isFreshIndexLock as _isFreshIndexLock,
-  getIndexLockPath as _getIndexLockPath,
-} from '../display/data.js';
-
-// Re-export read-only lock functions from display layer
-export const checkIndexLock = _checkIndexLock;
-export const isFreshIndexLock = _isFreshIndexLock;
-export const getIndexLockPath = _getIndexLockPath;
+import { DA_ORIGIN, IndexFiles, IndexConfig } from '../core/constants.js';
 
 const LOCK_OWNER_STORAGE_KEY = 'media-library-lock-owner-id';
+
+function getMediaLibraryPath(sitePath) {
+  return `${sitePath}/${IndexFiles.FOLDER}`;
+}
+
+export function getIndexLockPath(sitePath) {
+  return `${getMediaLibraryPath(sitePath)}/${IndexFiles.INDEX_LOCK}`;
+}
+
+export async function checkIndexLock(sitePath) {
+  const path = getIndexLockPath(sitePath);
+  try {
+    const resp = await daFetch(`${DA_ORIGIN}/source${path}`);
+    if (resp.ok) {
+      const data = await resp.json();
+      const lockData = data.data?.[0] || data;
+      return {
+        exists: true,
+        locked: lockData.locked || false,
+        timestamp: lockData.timestamp || null,
+        startedAt: lockData.startedAt || lockData.timestamp || null,
+        lastUpdated: lockData.lastUpdated || lockData.timestamp || null,
+        ownerId: lockData.ownerId || '',
+        mode: lockData.mode || '',
+      };
+    }
+  } catch (e) {
+    return {
+      exists: false,
+      locked: false,
+      timestamp: null,
+      startedAt: null,
+      lastUpdated: null,
+      ownerId: '',
+      mode: '',
+    };
+  }
+  return {
+    exists: false,
+    locked: false,
+    timestamp: null,
+    startedAt: null,
+    lastUpdated: null,
+    ownerId: '',
+    mode: '',
+  };
+}
+
+export function isFreshIndexLock(lock, now = Date.now()) {
+  if (!(lock?.exists && lock?.locked)) return false;
+  const heartbeat = lock.lastUpdated || lock.timestamp || lock.startedAt;
+  if (!heartbeat) return false;
+  return (now - heartbeat) < IndexConfig.LOCK_STALE_THRESHOLD_MS;
+}
 
 export function getIndexLockOwnerId() {
   if (typeof window === 'undefined' || !window.sessionStorage) return '';
