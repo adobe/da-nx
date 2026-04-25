@@ -11,8 +11,8 @@ import { ErrorCodes, logMediaLibraryError } from '../../../core/errors.js';
 const EL_NAME = 'nx-media-onboard';
 const styles = await getStyle(import.meta.url);
 const RANDOM_MAX = 8;
-const iconsBase = new URL('../../../../img/icons/', import.meta.url).href;
-const assetsBase = new URL('../../assets/', import.meta.url).href;
+const iconsBase = new URL('../../../../../img/icons/', import.meta.url).href;
+const assetsBase = new URL('../../../assets/', import.meta.url).href;
 
 const ICONS = [
   `${iconsBase}C_Icon_Arrow_Next.svg`,

@@ -10,7 +10,7 @@ const styles = await getStyle(import.meta.url);
 const nx = `${new URL(import.meta.url).origin}/nx`;
 const sl = await getStyle(`${nx}/public/sl/styles.css`);
 const slComponents = await getStyle(`${nx}/public/sl/components.css`);
-const iconsBase = new URL('../../../../img/icons/', import.meta.url).href;
+const iconsBase = new URL('../../../../../img/icons/', import.meta.url).href;
 const ICONS = [
   `${iconsBase}Smock_Folder_18_N.svg`,
   `${iconsBase}Smock_FileHTML_18_N.svg`,
