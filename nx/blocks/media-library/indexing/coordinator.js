@@ -10,7 +10,7 @@ import buildMediaIndex from './build.js';
 import {
   loadMediaIfUpdated,
   loadMediaSheet,
-} from '../display/data.js';
+} from '../ui/data.js';
 import {
   checkIndexLock,
   isFreshIndexLock,

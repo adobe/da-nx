@@ -1,6 +1,6 @@
 import { html, LitElement } from 'da-lit';
 import getStyle from '../../utils/styles.js';
-import { loadMediaSheet, buildMediaIndexStructures } from './display/data.js';
+import { loadMediaSheet, buildMediaIndexStructures } from './ui/data.js';
 import { copyMediaToClipboard, exportToCsv } from './core/export.js';
 import {
   validateSitePath, getBasePath, resolveAbsolutePath, normalizeSitePath, parseSitePathFromHash,
@@ -31,8 +31,8 @@ import {
   filterMedia,
   enrichMediaItemsWithUsage,
   initializeProcessedData,
-} from './features/filters.js';
-import { loadPinnedFolders, savePinnedFolders } from './features/pin.js';
+} from './ui/filters.js';
+import { loadPinnedFolders, savePinnedFolders } from './ui/pin.js';
 import {
   getAppState, updateAppState, onStateChange, showNotification, dismissNotification,
 } from './core/state.js';
@@ -41,11 +41,11 @@ import { initService, disposeService, triggerBuild } from './indexing/coordinato
 import { handleIndexingEvent } from './core/indexing-adapter.js';
 import { fetchSidekickConfig } from './indexing/admin-api.js';
 import '../../public/sl/components.js';
-import './views/topbar/topbar.js';
-import './views/sidebar/sidebar.js';
-import './views/grid/grid.js';
-import './views/mediainfo/mediainfo.js';
-import './views/onboard/onboard.js';
+import './ui/views/topbar/topbar.js';
+import './ui/views/sidebar/sidebar.js';
+import './ui/views/grid/grid.js';
+import './ui/views/mediainfo/mediainfo.js';
+import './ui/views/onboard/onboard.js';
 
 const EL_NAME = 'nx-media-library';
 const nx = `${new URL(import.meta.url).origin}/nx`;

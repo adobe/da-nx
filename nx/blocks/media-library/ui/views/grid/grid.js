@@ -1,7 +1,7 @@
-import { html, LitElement } from '../../../../deps/ml-lit/dist/index.js';
-import { virtualize, grid } from '../../../../deps/virtualizer/dist/index.js';
-import getStyle from '../../../../utils/styles.js';
-import getSvg from '../../../../public/utils/svg.js';
+import { html, LitElement } from '../../../../../deps/ml-lit/dist/index.js';
+import { virtualize, grid } from '../../../../../deps/virtualizer/dist/index.js';
+import getStyle from '../../../../../utils/styles.js';
+import getSvg from '../../../../../public/utils/svg.js';
 import {
   getVideoThumbnail,
   isExternalVideoUrl,
@@ -10,23 +10,23 @@ import {
   getSubtype,
   isImage,
   isVideo,
-} from '../../core/media.js';
+} from '../../../core/media.js';
 import {
   isExternalUrl,
   getDedupeKey,
   resolveMediaUrl,
   preferPreviewForMediaUrl,
   isPreviewPreferredForMediaUrl,
-} from '../../core/urls.js';
-import { optimizeImageUrls, CARD_IMAGE_SIZES } from '../../core/files.js';
-import '../../../../public/sl/components.js';
+} from '../../../core/urls.js';
+import { optimizeImageUrls, CARD_IMAGE_SIZES } from '../../../core/files.js';
+import '../../../../../public/sl/components.js';
 import {
   createMediaEventHandlers,
   staticTemplates,
   getMediaCardLabel,
-} from '../../features/templates.js';
-import { MediaType } from '../../core/constants.js';
-import { t } from '../../core/messages.js';
+} from '../../templates.js';
+import { MediaType } from '../../../core/constants.js';
+import { t } from '../../../core/messages.js';
 
 const styles = await getStyle(import.meta.url);
 const nx = `${new URL(import.meta.url).origin}/nx`;

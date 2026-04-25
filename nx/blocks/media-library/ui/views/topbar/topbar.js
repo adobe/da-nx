@@ -1,10 +1,10 @@
 import { html, LitElement } from 'da-lit';
-import getStyle from '../../../../utils/styles.js';
-import getSvg from '../../../../public/utils/svg.js';
-import { parseColonSyntax, getSearchSuggestions, createSearchSuggestion } from '../../features/filters.js';
-import { formatDocPath, getBasePath } from '../../core/paths.js';
-import { highlightMatch } from '../../features/templates.js';
-import { t } from '../../core/messages.js';
+import getStyle from '../../../../../utils/styles.js';
+import getSvg from '../../../../../public/utils/svg.js';
+import { parseColonSyntax, getSearchSuggestions, createSearchSuggestion } from '../../filters.js';
+import { formatDocPath, getBasePath } from '../../../core/paths.js';
+import { highlightMatch } from '../../templates.js';
+import { t } from '../../../core/messages.js';
 
 const styles = await getStyle(import.meta.url);
 const nx = `${new URL(import.meta.url).origin}/nx`;

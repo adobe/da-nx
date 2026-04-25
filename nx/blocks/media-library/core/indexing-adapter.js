@@ -7,7 +7,7 @@
 
 import { updateAppState, getAppState, showNotification } from './state.js';
 import { t } from './messages.js';
-import { clearProcessDataCache } from '../features/filters.js';
+import { clearProcessDataCache } from '../ui/filters.js';
 import { getDedupeKey } from './urls.js';
 import { getCanonicalMediaTimestamp } from './utils.js';
 import { IndexingEventType, IndexingErrorCode } from '../indexing/events.js';
