@@ -147,6 +147,7 @@ class NxSkillsEditor extends LitElement {
     this._toolsSearch = '';
     this._toolsGroupCollapsed = { DA: false, MCP: false };
     this._formPromptTools = [];
+    this._editorTrigger = null; // element that last opened the drawer, restored on close
   }
 
   get _org() { return this._hash.value?.org; }
@@ -186,6 +187,20 @@ class NxSkillsEditor extends LitElement {
     }
     if (changed?.has('_catalogTab') && this._catalogTab === 'memory' && this._memory === null) {
       this._loadMemory();
+    }
+    // Move focus into the drawer on open; restore it to the trigger on close.
+    if (changed?.has('_isEditorOpen')) {
+      if (this._isEditorOpen) {
+        this.updateComplete.then(() => {
+          const firstFocusable = this.shadowRoot.querySelector(
+            '.col-editor input:not([disabled]), .col-editor textarea:not([disabled]), .col-editor button:not([disabled])',
+          );
+          firstFocusable?.focus();
+        });
+      } else {
+        this._editorTrigger?.focus();
+        this._editorTrigger = null;
+      }
     }
     // Persist navigation state when structural nav properties change.
     // We skip this during the initial load cycle (before _loadedKey is set) to
@@ -289,11 +304,17 @@ class NxSkillsEditor extends LitElement {
     this._applySuggestion();
 
     loadAgentPresets(this._org, this._site)
-      .then((presets) => { this._agents = presets; })
+      .then((presets) => {
+        // Discard if the component loaded a different org/site in the meantime.
+        if (`${this._org}/${this._site}` === this._loadedKey) this._agents = presets;
+      })
       .catch(() => { /* non-fatal: agent presets unavailable */ });
     if (Object.keys(this._configuredMcpServers).length) {
+      const loadKey = this._loadedKey;
       fetchMcpToolsFromAgent(this._configuredMcpServers)
-        .then((tools) => { this._mcpTools = tools; })
+        .then((tools) => {
+          if (`${this._org}/${this._site}` === loadKey) this._mcpTools = tools;
+        })
         .catch(() => { /* non-fatal: MCP tool listing unavailable */ });
     }
   }
@@ -441,6 +462,7 @@ class NxSkillsEditor extends LitElement {
     this._statusMsg = '';
     this._catalogTab = newTab;
     this._promptSearch = '';
+    this._catalogFilter = 'all'; // filter is tab-local; reset on every switch
 
     const saved = this._dirtyForms[newTab];
     if (saved) {
@@ -470,6 +492,7 @@ class NxSkillsEditor extends LitElement {
     this._statusMsg = '';
     this._catalogTab = skillsEditorTab;
     this._promptSearch = '';
+    this._catalogFilter = 'all'; // filter is tab-local; reset on back/forward
 
     const saved = this._dirtyForms[skillsEditorTab];
     if (saved) {
@@ -484,6 +507,7 @@ class NxSkillsEditor extends LitElement {
   // ─── editor open helpers ──────────────────────────────────────────────────
 
   _openEditor(row) {
+    this._editorTrigger = this.shadowRoot.activeElement ?? null;
     // If this exact prompt already has dirty edits in memory, restore them.
     const saved = this._dirtyForms.prompts;
     if (saved?.formPromptTitle === (row.title || '')) {
@@ -505,18 +529,21 @@ class NxSkillsEditor extends LitElement {
   }
 
   _openNewEditor() {
+    this._editorTrigger = this.shadowRoot.activeElement ?? null;
     this._clearForm();
     this._catalogTab = 'prompts';
     this._isEditorOpen = true;
   }
 
   _openNewSkillEditor() {
+    this._editorTrigger = this.shadowRoot.activeElement ?? null;
     this._clearForm();
     if (this._catalogTab !== 'agents') this._catalogTab = 'skills';
     this._isEditorOpen = true;
   }
 
   _openNewMcpEditor() {
+    this._editorTrigger = this.shadowRoot.activeElement ?? null;
     this._clearMcpForm();
     this._editingMcpKey = null;
     this._catalogTab = 'mcps';
@@ -540,13 +567,17 @@ class NxSkillsEditor extends LitElement {
     this._isSaveBusy = true;
     this._statusMsg = '';
 
-    const [configResult, fileResult] = await Promise.all([
-      upsertSkillInConfig(this._org, this._site, id, body, { status }),
-      writeSkillMdFile(this._org, this._site, id, body),
-    ]);
+    // Write the .md file first — if it fails we don't touch the config sheet.
+    const fileResult = await writeSkillMdFile(this._org, this._site, id, body);
+    if (!fileResult.ok) {
+      this._setStatus('Failed to write skill file', 'err');
+      this._isSaveBusy = false;
+      return;
+    }
 
-    if (configResult.error || !fileResult.ok) {
-      this._setStatus(configResult.error || 'Failed to write file', 'err');
+    const configResult = await upsertSkillInConfig(this._org, this._site, id, body, { status });
+    if (!configResult.ok) {
+      this._setStatus(configResult.error || 'Failed to save skill config', 'err');
       this._isSaveBusy = false;
       return;
     }
@@ -572,15 +603,20 @@ class NxSkillsEditor extends LitElement {
     if (!window.confirm(`Delete skill "${id}"? This cannot be undone.`)) return;
     this._isSaveBusy = true;
 
-    const [configResult, fileResult] = await Promise.all([
-      deleteSkillFromConfig(this._org, this._site, id),
-      deleteSkillMdFile(this._org, this._site, id),
-    ]);
+    // Delete file first; 404 is treated as success (already gone).
+    // Only proceed to config delete if the file leg did not error.
+    const fileResult = await deleteSkillMdFile(this._org, this._site, id);
+    if (!fileResult.ok) {
+      this._setStatus('Failed to delete skill file', 'err');
+      this._isSaveBusy = false;
+      return;
+    }
 
+    const configResult = await deleteSkillFromConfig(this._org, this._site, id);
     this._isSaveBusy = false;
 
-    if (configResult?.error || !fileResult?.ok) {
-      this._setStatus(configResult?.error || 'Failed to delete skill', 'err');
+    if (!configResult.ok) {
+      this._setStatus(configResult.error || 'Failed to delete skill from config', 'err');
       return;
     }
 
@@ -592,13 +628,19 @@ class NxSkillsEditor extends LitElement {
     // eslint-disable-next-line no-alert
     if (!window.confirm(`Delete skill "${id}"? This cannot be undone.`)) return;
     this._isSaveBusy = true;
-    const [configResult, fileResult] = await Promise.all([
-      deleteSkillFromConfig(this._org, this._site, id),
-      deleteSkillMdFile(this._org, this._site, id),
-    ]);
+
+    const fileResult = await deleteSkillMdFile(this._org, this._site, id);
+    if (!fileResult.ok) {
+      this._setStatus('Failed to delete skill file', 'err');
+      this._isSaveBusy = false;
+      return;
+    }
+
+    const configResult = await deleteSkillFromConfig(this._org, this._site, id);
     this._isSaveBusy = false;
-    if (configResult?.error || !fileResult?.ok) {
-      this._setStatus(configResult?.error || 'Failed to delete skill', 'err');
+
+    if (!configResult.ok) {
+      this._setStatus(configResult.error || 'Failed to delete skill', 'err');
       return;
     }
     if (this._formSkillId === id) this._closeEditor();
@@ -626,6 +668,7 @@ class NxSkillsEditor extends LitElement {
   }
 
   async _onEditSkill(skillId) {
+    this._editorTrigger = this.shadowRoot.activeElement ?? null;
     const tab = this._catalogTab !== 'agents' ? 'skills' : 'agents';
     this._catalogTab = tab;
 
@@ -646,9 +689,16 @@ class NxSkillsEditor extends LitElement {
     this._isFormDirty = false;
     delete this._dirtyForms[tab];
 
+    // Capture the context at the time of the request to guard against stale responses.
+    const requestedId = skillId;
+    const requestedTab = tab;
     const { text } = await readSkillMdFile(this._org, this._site, skillId);
-    // Only apply if the user hasn't started editing while we waited.
-    if (text && !this._isFormDirty) this._formSkillBody = text;
+    // Discard the response if the user navigated away before it resolved.
+    if (text && !this._isFormDirty
+      && this._formSkillId === requestedId
+      && this._catalogTab === requestedTab) {
+      this._formSkillBody = text;
+    }
   }
 
   _onSelectAgent(agent) {
@@ -690,8 +740,8 @@ class NxSkillsEditor extends LitElement {
       { status },
     );
 
-    if (result.error) {
-      this._setStatus(result.error, 'err');
+    if (!result.ok) {
+      this._setStatus(result.error || 'Failed to save prompt', 'err');
     } else {
       this._setStatus('Prompt saved');
       this._clearDirty();
@@ -717,8 +767,8 @@ class NxSkillsEditor extends LitElement {
 
     this._isSaveBusy = false;
 
-    if (result?.error) {
-      this._setStatus(result.error, 'err');
+    if (!result.ok) {
+      this._setStatus(result.error || 'Failed to delete prompt', 'err');
       return;
     }
 
@@ -734,8 +784,8 @@ class NxSkillsEditor extends LitElement {
       { title, prompt: row.prompt || '', category: row.category || '' },
       { status: STATUS.APPROVED },
     );
-    if (result.error) {
-      this._setStatus(result.error, 'err');
+    if (!result.ok) {
+      this._setStatus(result.error || 'Failed to duplicate prompt', 'err');
     }
     await this._reload();
   }
@@ -746,8 +796,8 @@ class NxSkillsEditor extends LitElement {
     // eslint-disable-next-line no-alert
     if (!window.confirm(`Delete prompt "${title}"? This cannot be undone.`)) return;
     const result = await deletePromptFromConfig(this._org, this._site, title);
-    if (result?.error) {
-      this._setStatus(result.error, 'err');
+    if (!result.ok) {
+      this._setStatus(result.error || 'Failed to delete prompt', 'err');
       return;
     }
     if (this._isFormPromptEdit && this._formPromptTitle === title) this._closeEditor();
@@ -804,6 +854,7 @@ class NxSkillsEditor extends LitElement {
   }
 
   _onEditMcp(row) {
+    this._editorTrigger = this.shadowRoot.activeElement ?? null;
     // If this MCP already has dirty edits, restore them.
     const saved = this._dirtyForms.mcps;
     if (saved?.editingMcpKey === row.key) {
@@ -1091,6 +1142,7 @@ class NxSkillsEditor extends LitElement {
                         if (e.target.checked) next.add(toolId);
                         else next.delete(toolId);
                         this._formPromptTools = [...next];
+                        this._markDirty();
                       }}
                     >
                     <span class="tool-label">${toolId}</span>
@@ -1309,22 +1361,22 @@ class NxSkillsEditor extends LitElement {
 
   // ─── render: agents catalog ───────────────────────────────────────────────
 
-  _renderAgentCard(a, isBuiltin = false) {
+  _renderAgentCard(agent, isBuiltin = false) {
     return html`
       <article class="agent-card" role="listitem"
         data-testid=${isBuiltin ? 'agent-builtin-card' : 'agent-card'}
-        @click=${() => this._onSelectAgent(a)}
+        @click=${() => this._onSelectAgent(agent)}
       >
         <header class="agent-card-header">
           <span class="status-dot status-dot-approved" aria-label="Active"></span>
-          <span class="agent-card-title">${a.label || a.id}</span>
+          <span class="agent-card-title">${agent.label || agent.id}</span>
           <span class="badge">${isBuiltin ? 'built-in' : 'custom'}</span>
         </header>
-        ${a.description ? html`<p class="agent-card-desc">${a.description}</p>` : nothing}
-        ${a.tools?.length ? html`
+        ${agent.description ? html`<p class="agent-card-desc">${agent.description}</p>` : nothing}
+        ${agent.tools?.length ? html`
           <footer class="agent-card-footer">
-            <ul class="agent-tools-list" aria-label="Tools used by ${a.label || a.id}">
-              ${a.tools.map((t) => html`<li class="agent-tool-chip">${t}</li>`)}
+            <ul class="agent-tools-list" aria-label="Tools used by ${agent.label || agent.id}">
+              ${agent.tools.map((tool) => html`<li class="agent-tool-chip">${tool}</li>`)}
             </ul>
           </footer>
         ` : nothing}
@@ -1335,10 +1387,10 @@ class NxSkillsEditor extends LitElement {
   _renderAgentsCatalog() {
     return html`
       <h3 class="section-h">Built-in (${BUILTIN_AGENTS.length})</h3>
-      ${BUILTIN_AGENTS.map((a) => this._renderAgentCard(a, true))}
+      ${BUILTIN_AGENTS.map((agent) => this._renderAgentCard(agent, true))}
       ${this._agents.length ? html`
         <h3 class="section-h">Custom (${this._agents.length})</h3>
-        ${this._agents.map((a) => this._renderAgentCard(a, false))}
+        ${this._agents.map((agent) => this._renderAgentCard(agent, false))}
       ` : nothing}
     `;
   }
