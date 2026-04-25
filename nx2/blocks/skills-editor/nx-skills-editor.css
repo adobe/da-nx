@@ -63,8 +63,8 @@
   transition: max-width 0.28s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Drawer slides in when drawer-open is on the root */
-.root.drawer-open .col-editor {
+/* Drawer slides in when is-drawer-open is on the root */
+.root.is-drawer-open .col-editor {
   max-width: 62%;
 }
 
@@ -421,7 +421,7 @@
   flex-direction: column;
 }
 
-.suggestion-wrap {
+.is-suggestion {
   position: relative;
   border-radius: var(--s2-corner-radius-200);
   padding: 2px;
@@ -432,7 +432,7 @@
   animation: suggestion-rotate 2s linear infinite;
 }
 
-.suggestion-wrap > textarea {
+.is-suggestion > textarea {
   border-radius: calc(var(--s2-corner-radius-200) - 2px);
 }
 
@@ -556,7 +556,7 @@
 /* ─── section headings ───────────────────────────────────────────────────────── */
 
 .section-h {
-  font-size: 12px;
+  font-size: var(--s2-body-size-xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -695,8 +695,8 @@
 
 .card-menu button:hover { background: var(--s2-gray-100); }
 
-.card-menu-delete { color: var(--s2-red-900) !important; }
-.card-menu-delete:hover { background: var(--s2-red-100) !important; }
+.card-menu .card-menu-delete { color: var(--s2-red-900); }
+.card-menu .card-menu-delete:hover { background: var(--s2-red-100); }
 
 /* ─── tools selector ──────────────────────────────────────────────────────────── */
 
@@ -711,7 +711,7 @@
 
 .tools-selector-heading {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--s2-body-size-xs);
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
@@ -820,8 +820,8 @@
   flex-shrink: 0;
 }
 
-.dot-active  { background: var(--s2-green-700); }
-.dot-inactive { background: var(--s2-gray-300); }
+.is-dot-active  { background: var(--s2-green-700); }
+.is-dot-inactive { background: var(--s2-gray-300); }
 
 .tool-label-wrap {
   display: flex;
@@ -873,7 +873,7 @@
 .pill-toggle {
   display: inline-flex;
   align-items: center;
-  padding: 2px 8px;
+  padding: var(--s2-spacing-25, 2px) var(--s2-spacing-100);
   border-radius: 999px;
   border: 1px solid currentcolor;
   font-size: 11px;
@@ -914,7 +914,7 @@
 /* ─── form hints ──────────────────────────────────────────────────────────────── */
 
 .form-hint {
-  font-size: 12px;
+  font-size: var(--s2-body-size-xs);
   color: var(--s2-gray-600);
   margin: 0;
 }
@@ -957,7 +957,7 @@
     transition: max-height 0.28s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
-  .root.drawer-open .col-editor {
+  .root.is-drawer-open .col-editor {
     max-width: unset;
     max-height: 50vh;
   }

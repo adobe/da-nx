@@ -75,7 +75,7 @@ const BUILTIN_AGENTS = [
 
 class NxSkillsEditor extends LitElement {
   static properties = {
-    _loading: { state: true },
+    _isLoading: { state: true },
     _catalogTab: { state: true },
     _catalogFilter: { state: true },
     _skills: { state: true },
@@ -89,15 +89,15 @@ class NxSkillsEditor extends LitElement {
     _editingSkillId: { state: true },
     _formSkillId: { state: true },
     _formSkillBody: { state: true },
-    _formIsEdit: { state: true },
+    _isFormEdit: { state: true },
     _formPromptTitle: { state: true },
     _formPromptCategory: { state: true },
     _formPromptBody: { state: true },
-    _formPromptIsEdit: { state: true },
-    _saveBusy: { state: true },
+    _isFormPromptEdit: { state: true },
+    _isSaveBusy: { state: true },
     _statusMsg: { state: true },
     _statusType: { state: true },
-    _suggestion: { state: true },
+    _hasSuggestion: { state: true },
     _mcpKey: { state: true },
     _mcpUrl: { state: true },
     _mcpDescription: { state: true },
@@ -106,9 +106,9 @@ class NxSkillsEditor extends LitElement {
     _activeToolRefs: { state: true },
     _memory: { state: true },
     // new master-detail state
-    _editorOpen: { state: true },
-    _agentViewTools: { state: true },
-    _formDirty: { state: true },
+    _isEditorOpen: { state: true },
+    _isAgentViewTools: { state: true },
+    _isFormDirty: { state: true },
     _promptSearch: { state: true },
     _toolsSearch: { state: true },
     _toolsGroupCollapsed: { state: true },
@@ -118,7 +118,7 @@ class NxSkillsEditor extends LitElement {
   constructor() {
     super();
     this._hash = new HashController(this);
-    this._loading = true;
+    this._isLoading = true;
     this._catalogTab = 'skills';
     this._catalogFilter = 'all';
     this._skills = {};
@@ -139,9 +139,9 @@ class NxSkillsEditor extends LitElement {
     this._memory = null;
     this._loadedKey = null;
     this._statusTimer = null;
-    this._editorOpen = false;
-    this._agentViewTools = false;
-    this._formDirty = false;
+    this._isEditorOpen = false;
+    this._isAgentViewTools = false;
+    this._isFormDirty = false;
     this._dirtyForms = {}; // non-reactive: { [tabId]: snapshot }
     this._promptSearch = '';
     this._toolsSearch = '';
@@ -191,10 +191,10 @@ class NxSkillsEditor extends LitElement {
     // We skip this during the initial load cycle (before _loadedKey is set) to
     // avoid overwriting a saved state with the blank initial state.
     if (changed && this._loadedKey) {
-      const itemChanged = (changed.has('_formSkillId') && this._formIsEdit)
-        || (changed.has('_formPromptTitle') && this._formPromptIsEdit)
+      const itemChanged = (changed.has('_formSkillId') && this._isFormEdit)
+        || (changed.has('_formPromptTitle') && this._isFormPromptEdit)
         || changed.has('_editingMcpKey');
-      if (changed.has('_editorOpen') || changed.has('_catalogTab') || itemChanged) {
+      if (changed.has('_isEditorOpen') || changed.has('_catalogTab') || itemChanged) {
         this._saveNavState();
       }
     }
@@ -209,13 +209,13 @@ class NxSkillsEditor extends LitElement {
   _saveNavState() {
     if (!this._org || !this._site) return;
     const tab = this._catalogTab;
-    const payload = { tab, editorOpen: this._editorOpen };
+    const payload = { tab, editorOpen: this._isEditorOpen };
 
-    if (this._editorOpen) {
-      if ((tab === 'skills' || tab === 'agents') && this._formIsEdit && this._formSkillId) {
+    if (this._isEditorOpen) {
+      if ((tab === 'skills' || tab === 'agents') && this._isFormEdit && this._formSkillId) {
         payload.itemType = 'skill';
         payload.itemId = this._formSkillId;
-      } else if (tab === 'prompts' && this._formPromptIsEdit && this._formPromptTitle) {
+      } else if (tab === 'prompts' && this._isFormPromptEdit && this._formPromptTitle) {
         payload.itemType = 'prompt';
         payload.itemId = this._formPromptTitle;
       } else if (tab === 'mcps' && this._editingMcpKey) {
@@ -245,12 +245,12 @@ class NxSkillsEditor extends LitElement {
     if (!editorOpen) return;
 
     if (tab === 'memory') {
-      this._editorOpen = true;
+      this._isEditorOpen = true;
       return;
     }
 
     if (!itemId) {
-      this._editorOpen = true;
+      this._isEditorOpen = true;
       return;
     }
 
@@ -262,7 +262,7 @@ class NxSkillsEditor extends LitElement {
     } else if (itemType === 'mcp') {
       const row = (this._mcpRows || []).find((r) => r.key === itemId);
       if (row) this._onEditMcp(row);
-      else { this._editingMcpKey = itemId; this._editorOpen = true; }
+      else { this._editingMcpKey = itemId; this._isEditorOpen = true; }
     }
   }
 
@@ -270,7 +270,7 @@ class NxSkillsEditor extends LitElement {
 
   async _reload() {
     if (!this._org || !this._site) return;
-    this._loading = true;
+    this._isLoading = true;
 
     const [configResult, skillsResult, genTools] = await Promise.all([
       fetchDaConfigSheets(this._org, this._site),
@@ -285,13 +285,16 @@ class NxSkillsEditor extends LitElement {
     this._configuredMcpServers = configResult.configuredMcpServers || {};
     this._generatedTools = genTools;
 
-    this._loading = false;
+    this._isLoading = false;
     this._applySuggestion();
 
-    loadAgentPresets(this._org, this._site).then((presets) => { this._agents = presets; });
+    loadAgentPresets(this._org, this._site)
+      .then((presets) => { this._agents = presets; })
+      .catch(() => { /* non-fatal: agent presets unavailable */ });
     if (Object.keys(this._configuredMcpServers).length) {
       fetchMcpToolsFromAgent(this._configuredMcpServers)
-        .then((tools) => { this._mcpTools = tools; });
+        .then((tools) => { this._mcpTools = tools; })
+        .catch(() => { /* non-fatal: MCP tool listing unavailable */ });
     }
   }
 
@@ -300,10 +303,10 @@ class NxSkillsEditor extends LitElement {
     if (suggestion) {
       this._formSkillId = suggestion.id || '';
       this._formSkillBody = suggestion.body || '';
-      this._formIsEdit = false;
-      this._suggestion = true;
+      this._isFormEdit = false;
+      this._hasSuggestion = true;
       this._catalogTab = 'skills';
-      this._editorOpen = true;
+      this._isEditorOpen = true;
     }
   }
 
@@ -312,34 +315,34 @@ class NxSkillsEditor extends LitElement {
   _clearForm() {
     this._formSkillId = '';
     this._formSkillBody = '';
-    this._formIsEdit = false;
+    this._isFormEdit = false;
     this._formPromptTitle = '';
     this._formPromptCategory = '';
     this._formPromptBody = '';
-    this._formPromptIsEdit = false;
+    this._isFormPromptEdit = false;
     this._formPromptTools = [];
     this._mcpKey = '';
     this._mcpUrl = '';
     this._mcpDescription = '';
     this._editingMcpKey = null;
-    this._saveBusy = false;
+    this._isSaveBusy = false;
     this._statusMsg = '';
     this._statusType = '';
-    this._suggestion = false;
+    this._hasSuggestion = false;
   }
 
   _dismissForm() {
     this._clearDirty();
     this._clearForm();
-    this._editorOpen = false;
+    this._isEditorOpen = false;
     window.dispatchEvent(new CustomEvent(DA_SKILLS_EDITOR_FORM_DISMISS));
   }
 
   _closeEditor() {
     // Just collapse the drawer. If the form was dirty, the snapshot lives in
     // _dirtyForms[tab] and will be restored when the user reopens the same item.
-    this._editorOpen = false;
-    if (!this._formDirty) this._clearForm();
+    this._isEditorOpen = false;
+    if (!this._isFormDirty) this._clearForm();
   }
 
   _setStatus(msg, type = 'ok') {
@@ -361,8 +364,8 @@ class NxSkillsEditor extends LitElement {
         tab,
         formSkillId: this._formSkillId,
         formSkillBody: this._formSkillBody,
-        formIsEdit: this._formIsEdit,
-        agentViewTools: this._agentViewTools,
+        formIsEdit: this._isFormEdit,
+        agentViewTools: this._isAgentViewTools,
       };
     }
     if (tab === 'prompts') {
@@ -372,7 +375,7 @@ class NxSkillsEditor extends LitElement {
         formPromptBody: this._formPromptBody,
         formPromptCategory: this._formPromptCategory,
         formPromptTools: [...(this._formPromptTools || [])],
-        formPromptIsEdit: this._formPromptIsEdit,
+        formPromptIsEdit: this._isFormPromptEdit,
       };
     }
     if (tab === 'mcps') {
@@ -394,34 +397,34 @@ class NxSkillsEditor extends LitElement {
     if (tab === 'skills' || tab === 'agents') {
       this._formSkillId = snapshot.formSkillId;
       this._formSkillBody = snapshot.formSkillBody;
-      this._formIsEdit = snapshot.formIsEdit;
-      this._agentViewTools = snapshot.agentViewTools;
-      this._editorOpen = true;
+      this._isFormEdit = snapshot.formIsEdit;
+      this._isAgentViewTools = snapshot.agentViewTools;
+      this._isEditorOpen = true;
     } else if (tab === 'prompts') {
       this._formPromptTitle = snapshot.formPromptTitle;
       this._formPromptBody = snapshot.formPromptBody;
       this._formPromptCategory = snapshot.formPromptCategory;
       this._formPromptTools = snapshot.formPromptTools;
-      this._formPromptIsEdit = snapshot.formPromptIsEdit;
-      this._editorOpen = true;
+      this._isFormPromptEdit = snapshot.formPromptIsEdit;
+      this._isEditorOpen = true;
     } else if (tab === 'mcps') {
       this._mcpKey = snapshot.mcpKey;
       this._mcpUrl = snapshot.mcpUrl;
       this._mcpDescription = snapshot.mcpDescription || '';
       this._editingMcpKey = snapshot.editingMcpKey;
-      this._editorOpen = true;
+      this._isEditorOpen = true;
     }
   }
 
   /** Called on every form keystroke — marks the form as edited and keeps snapshot current. */
   _markDirty() {
-    this._formDirty = true;
+    this._isFormDirty = true;
     this._dirtyForms[this._catalogTab] = this._captureForm();
   }
 
   /** Called after a successful save or explicit discard — removes stored draft. */
   _clearDirty() {
-    this._formDirty = false;
+    this._isFormDirty = false;
     delete this._dirtyForms[this._catalogTab];
   }
 
@@ -432,9 +435,9 @@ class NxSkillsEditor extends LitElement {
 
     // If the form wasn't touched, don't preserve it (clean switch).
     // If it was dirty, the snapshot is already up-to-date in _dirtyForms.
-    if (!this._formDirty) delete this._dirtyForms[this._catalogTab];
+    if (!this._isFormDirty) delete this._dirtyForms[this._catalogTab];
 
-    this._formDirty = false;
+    this._isFormDirty = false;
     this._statusMsg = '';
     this._catalogTab = newTab;
     this._promptSearch = '';
@@ -442,10 +445,10 @@ class NxSkillsEditor extends LitElement {
     const saved = this._dirtyForms[newTab];
     if (saved) {
       this._restoreForm(saved);
-      this._formDirty = true;
+      this._isFormDirty = true;
     } else {
       this._clearForm();
-      this._editorOpen = newTab === 'memory';
+      this._isEditorOpen = newTab === 'memory';
     }
 
     this._pushTabState(newTab);
@@ -461,9 +464,9 @@ class NxSkillsEditor extends LitElement {
     if (!skillsEditorTab) return;
 
     // Snapshot current dirty edits before leaving
-    if (this._formDirty) this._dirtyForms[this._catalogTab] = this._captureForm();
+    if (this._isFormDirty) this._dirtyForms[this._catalogTab] = this._captureForm();
 
-    this._formDirty = false;
+    this._isFormDirty = false;
     this._statusMsg = '';
     this._catalogTab = skillsEditorTab;
     this._promptSearch = '';
@@ -471,10 +474,10 @@ class NxSkillsEditor extends LitElement {
     const saved = this._dirtyForms[skillsEditorTab];
     if (saved) {
       this._restoreForm(saved);
-      this._formDirty = true;
+      this._isFormDirty = true;
     } else {
       this._clearForm();
-      this._editorOpen = skillsEditorTab === 'memory';
+      this._isEditorOpen = skillsEditorTab === 'memory';
     }
   }
 
@@ -485,7 +488,7 @@ class NxSkillsEditor extends LitElement {
     const saved = this._dirtyForms.prompts;
     if (saved?.formPromptTitle === (row.title || '')) {
       this._restoreForm(saved);
-      this._formDirty = true;
+      this._isFormDirty = true;
       return;
     }
 
@@ -493,10 +496,10 @@ class NxSkillsEditor extends LitElement {
     this._formPromptBody = row.prompt || '';
     this._formPromptCategory = row.category || '';
     this._formPromptTools = extractToolRefs(row.prompt || '');
-    this._formPromptIsEdit = true;
+    this._isFormPromptEdit = true;
     this._statusMsg = '';
-    this._editorOpen = true;
-    this._formDirty = false;
+    this._isEditorOpen = true;
+    this._isFormDirty = false;
     delete this._dirtyForms.prompts;
     this._catalogTab = 'prompts';
   }
@@ -504,20 +507,20 @@ class NxSkillsEditor extends LitElement {
   _openNewEditor() {
     this._clearForm();
     this._catalogTab = 'prompts';
-    this._editorOpen = true;
+    this._isEditorOpen = true;
   }
 
   _openNewSkillEditor() {
     this._clearForm();
     if (this._catalogTab !== 'agents') this._catalogTab = 'skills';
-    this._editorOpen = true;
+    this._isEditorOpen = true;
   }
 
   _openNewMcpEditor() {
     this._clearMcpForm();
     this._editingMcpKey = null;
     this._catalogTab = 'mcps';
-    this._editorOpen = true;
+    this._isEditorOpen = true;
   }
 
   // ─── skill CRUD ───────────────────────────────────────────────────────────
@@ -534,7 +537,7 @@ class NxSkillsEditor extends LitElement {
       return;
     }
 
-    this._saveBusy = true;
+    this._isSaveBusy = true;
     this._statusMsg = '';
 
     const [configResult, fileResult] = await Promise.all([
@@ -544,18 +547,18 @@ class NxSkillsEditor extends LitElement {
 
     if (configResult.error || !fileResult.ok) {
       this._setStatus(configResult.error || 'Failed to write file', 'err');
-      this._saveBusy = false;
+      this._isSaveBusy = false;
       return;
     }
 
     this._setStatus(status === STATUS.DRAFT ? 'Saved as draft' : 'Saved');
     this._clearDirty();
-    this._saveBusy = false;
-    this._suggestion = false;
+    this._isSaveBusy = false;
+    this._hasSuggestion = false;
     clearSuggestionSession();
     await this._reload();
 
-    if (this._formIsEdit) {
+    if (this._isFormEdit) {
       this._formSkillBody = body;
     } else {
       this._clearForm();
@@ -567,14 +570,14 @@ class NxSkillsEditor extends LitElement {
     if (!id) return;
     // eslint-disable-next-line no-alert
     if (!window.confirm(`Delete skill "${id}"? This cannot be undone.`)) return;
-    this._saveBusy = true;
+    this._isSaveBusy = true;
 
     const [configResult, fileResult] = await Promise.all([
       deleteSkillFromConfig(this._org, this._site, id),
       deleteSkillMdFile(this._org, this._site, id),
     ]);
 
-    this._saveBusy = false;
+    this._isSaveBusy = false;
 
     if (configResult?.error || !fileResult?.ok) {
       this._setStatus(configResult?.error || 'Failed to delete skill', 'err');
@@ -588,12 +591,12 @@ class NxSkillsEditor extends LitElement {
   async _onDeleteSkillById(id) {
     // eslint-disable-next-line no-alert
     if (!window.confirm(`Delete skill "${id}"? This cannot be undone.`)) return;
-    this._saveBusy = true;
+    this._isSaveBusy = true;
     const [configResult, fileResult] = await Promise.all([
       deleteSkillFromConfig(this._org, this._site, id),
       deleteSkillMdFile(this._org, this._site, id),
     ]);
-    this._saveBusy = false;
+    this._isSaveBusy = false;
     if (configResult?.error || !fileResult?.ok) {
       this._setStatus(configResult?.error || 'Failed to delete skill', 'err');
       return;
@@ -630,35 +633,35 @@ class NxSkillsEditor extends LitElement {
     const saved = this._dirtyForms[tab];
     if (saved?.formSkillId === skillId) {
       this._restoreForm(saved);
-      this._formDirty = true;
+      this._isFormDirty = true;
       return;
     }
 
     this._formSkillId = skillId;
     this._formSkillBody = this._skills[skillId] || '';
-    this._formIsEdit = true;
+    this._isFormEdit = true;
     this._statusMsg = '';
     this._activeToolRefs = null;
-    this._editorOpen = true;
-    this._formDirty = false;
+    this._isEditorOpen = true;
+    this._isFormDirty = false;
     delete this._dirtyForms[tab];
 
     const { text } = await readSkillMdFile(this._org, this._site, skillId);
     // Only apply if the user hasn't started editing while we waited.
-    if (text && !this._formDirty) this._formSkillBody = text;
+    if (text && !this._isFormDirty) this._formSkillBody = text;
   }
 
   _onSelectAgent(agent) {
     this._formPromptTools = agent.tools || [];
-    this._agentViewTools = true;
-    this._editorOpen = true;
+    this._isAgentViewTools = true;
+    this._isEditorOpen = true;
   }
 
   _openNewAgentEditor() {
     this._clearForm();
-    this._agentViewTools = false;
+    this._isAgentViewTools = false;
     this._catalogTab = 'agents';
-    this._editorOpen = true;
+    this._isEditorOpen = true;
   }
 
   _onSelectMcp(row) {
@@ -679,7 +682,7 @@ class NxSkillsEditor extends LitElement {
       return;
     }
 
-    this._saveBusy = true;
+    this._isSaveBusy = true;
     const result = await upsertPromptInConfig(
       this._org,
       this._site,
@@ -692,14 +695,14 @@ class NxSkillsEditor extends LitElement {
     } else {
       this._setStatus('Prompt saved');
       this._clearDirty();
-      if (!this._formPromptIsEdit) {
+      if (!this._isFormPromptEdit) {
         this._formPromptTitle = '';
         this._formPromptCategory = '';
         this._formPromptBody = '';
         this._formPromptTools = [];
       }
     }
-    this._saveBusy = false;
+    this._isSaveBusy = false;
     await this._reload();
   }
 
@@ -708,11 +711,11 @@ class NxSkillsEditor extends LitElement {
     if (!title) return;
     // eslint-disable-next-line no-alert
     if (!window.confirm(`Delete prompt "${title}"? This cannot be undone.`)) return;
-    this._saveBusy = true;
+    this._isSaveBusy = true;
 
     const result = await deletePromptFromConfig(this._org, this._site, title);
 
-    this._saveBusy = false;
+    this._isSaveBusy = false;
 
     if (result?.error) {
       this._setStatus(result.error, 'err');
@@ -747,7 +750,7 @@ class NxSkillsEditor extends LitElement {
       this._setStatus(result.error, 'err');
       return;
     }
-    if (this._formPromptIsEdit && this._formPromptTitle === title) this._closeEditor();
+    if (this._isFormPromptEdit && this._formPromptTitle === title) this._closeEditor();
     await this._reload();
   }
 
@@ -761,7 +764,7 @@ class NxSkillsEditor extends LitElement {
   // ─── MCP register ─────────────────────────────────────────────────────────
 
   async _onRegisterMcp() {
-    this._saveBusy = true;
+    this._isSaveBusy = true;
     const isUpdate = Boolean(this._editingMcpKey);
     // eslint-disable-next-line max-len
     const result = await registerMcpServer(this._org, this._site, this._mcpKey, this._mcpUrl, this._mcpDescription);
@@ -773,7 +776,7 @@ class NxSkillsEditor extends LitElement {
       this._clearDirty();
       this._setStatus(isUpdate ? 'MCP server updated' : 'MCP server registered');
     }
-    this._saveBusy = false;
+    this._isSaveBusy = false;
     await this._reload();
   }
 
@@ -782,9 +785,9 @@ class NxSkillsEditor extends LitElement {
     if (!key) return;
     // eslint-disable-next-line no-alert
     if (!window.confirm(`Remove MCP server "${key}"? This cannot be undone.`)) return;
-    this._saveBusy = true;
+    this._isSaveBusy = true;
     const result = await deleteMcpServer(this._org, this._site, key);
-    this._saveBusy = false;
+    this._isSaveBusy = false;
     if (!result.ok) {
       this._setStatus(result.error || 'Failed to remove MCP server', 'err');
       return;
@@ -806,7 +809,7 @@ class NxSkillsEditor extends LitElement {
     if (saved?.editingMcpKey === row.key) {
       this._catalogTab = 'mcps';
       this._restoreForm(saved);
-      this._formDirty = true;
+      this._isFormDirty = true;
       return;
     }
 
@@ -815,8 +818,8 @@ class NxSkillsEditor extends LitElement {
     this._mcpUrl = row.url || row.value || '';
     this._mcpDescription = row.description || '';
     this._catalogTab = 'mcps';
-    this._editorOpen = true;
-    this._formDirty = false;
+    this._isEditorOpen = true;
+    this._isFormDirty = false;
     delete this._dirtyForms.mcps;
   }
 
@@ -824,7 +827,7 @@ class NxSkillsEditor extends LitElement {
     if (!row?.key || skillRowStatus(row) !== STATUS.APPROVED) return;
     const key = String(row.key);
     const token = `mcp:${key}`;
-    const nextEnabled = !(skillRowStatus(row) === STATUS.APPROVED && skillRowEnabled(row));
+    const nextEnabled = !skillRowEnabled(row);
     this._mcpEnableBusy = { ...this._mcpEnableBusy, [token]: true };
     const res = await setMcpServerEnabled(this._org, this._site, key, nextEnabled);
     this._mcpEnableBusy = { ...this._mcpEnableBusy, [token]: false };
@@ -856,7 +859,8 @@ class NxSkillsEditor extends LitElement {
 
   async _loadMemory() {
     const got = await fetchSiteSourceText(this._org, this._site, '.da/agent/memory.md');
-    this._memory = got.error ? '' : (got.text || '');
+    // null signals a fetch error; '' signals a successful fetch of an empty/non-existent file
+    this._memory = got.error ? null : (got.text || '');
   }
 
   // ─── render: top level ────────────────────────────────────────────────────
@@ -865,10 +869,10 @@ class NxSkillsEditor extends LitElement {
     if (!this._org || !this._site) {
       return html`<div class="empty">Missing org or site</div>`;
     }
-    if (this._loading) {
+    if (this._isLoading) {
       return html`<div class="loading" aria-live="polite">Loading capabilities\u2026</div>`;
     }
-    return html`<div class="root ${this._editorOpen ? 'drawer-open' : ''}" role="region" aria-label="Skills Editor">
+    return html`<div class="root ${this._isEditorOpen ? 'is-drawer-open' : ''}" role="region" aria-label="Skills Editor">
       ${this._renderListCol()}
       ${this._renderEditorPanel()}
     </div>`;
@@ -927,7 +931,6 @@ class NxSkillsEditor extends LitElement {
           ${tab === 'agents' ? this._renderAgentsCatalog() : nothing}
           ${tab === 'prompts' ? this._renderPromptsCatalog() : nothing}
           ${tab === 'mcps' ? this._renderMcpsCatalog() : nothing}
-          ${tab === 'generated' ? this._renderGeneratedTools() : nothing}
           ${tab === 'memory' ? html`<div class="empty">Memory is shown in the panel \u2192</div>` : nothing}
         </div>
       </div>
@@ -944,29 +947,30 @@ class NxSkillsEditor extends LitElement {
     const isMemory = tab === 'memory';
 
     let title = '';
-    if (tab === 'agents' && this._agentViewTools) title = 'Associated Tools';
-    else if (tab === 'agents') title = this._formIsEdit ? 'Edit Agent' : 'New Agent';
-    else if (tab === 'skills') title = this._formIsEdit ? 'Edit Skill' : 'New Skill';
-    else if (isPrompt) title = this._formPromptIsEdit ? 'Edit Prompt' : 'New Prompt';
+    if (tab === 'agents' && this._isAgentViewTools) title = 'Associated Tools';
+    else if (tab === 'agents') title = this._isFormEdit ? 'Edit Agent' : 'New Agent';
+    else if (tab === 'skills') title = this._isFormEdit ? 'Edit Skill' : 'New Skill';
+    else if (isPrompt) title = this._isFormPromptEdit ? 'Edit Prompt' : 'New Prompt';
     else if (isMcp) title = this._editingMcpKey ? `Edit: ${this._editingMcpKey}` : 'Register MCP Server';
     else if (isMemory) title = 'Project Memory';
 
     return html`
-      <div class="col-editor" aria-hidden=${this._editorOpen ? 'false' : 'true'}>
+      <div class="col-editor" aria-hidden=${this._isEditorOpen ? 'false' : 'true'}
+        ?inert=${!this._isEditorOpen}>
         <div class="col-editor-inner">
-          ${this._editorOpen ? html`
+          ${this._isEditorOpen ? html`
             <div class="editor-header">
               <h3 class="editor-title">${title}</h3>
               <button type="button" class="close-btn" aria-label="Close"
                 @click=${() => this._closeEditor()}
               >\u2715</button>
             </div>
-            ${this._formDirty ? html`
+            ${this._isFormDirty ? html`
               <div class="dirty-notice" role="status">Unsaved edits &middot; save to persist</div>
             ` : nothing}
             <div class="editor-body ${isMemory ? 'editor-body-memory' : ''}">
-              ${tab === 'agents' && this._agentViewTools ? this._renderAssociatedToolsSelector() : nothing}
-              ${isSkill && !this._agentViewTools ? this._renderSkillForm() : nothing}
+              ${tab === 'agents' && this._isAgentViewTools ? this._renderAssociatedToolsSelector() : nothing}
+              ${isSkill && !this._isAgentViewTools ? this._renderSkillForm() : nothing}
               ${isPrompt ? this._renderPromptForm() : nothing}
               ${isMcp ? this._renderMcpForm() : nothing}
               ${isMemory ? html`
@@ -974,9 +978,9 @@ class NxSkillsEditor extends LitElement {
                 ${this._renderMemoryContent()}
               ` : nothing}
             </div>
-            ${(isSkill && !this._agentViewTools) || isPrompt || isMcp ? html`
+            ${(isSkill && !this._isAgentViewTools) || isPrompt || isMcp ? html`
               <div class="editor-footer">
-                ${this._renderEditorFooter(isSkill && !this._agentViewTools, isPrompt, isMcp)}
+                ${this._renderEditorFooter(isSkill && !this._isAgentViewTools, isPrompt, isMcp)}
               </div>
             ` : nothing}
           ` : nothing}
@@ -995,10 +999,10 @@ class NxSkillsEditor extends LitElement {
           placeholder="skill-id"
           aria-label="Skill ID"
           .value=${this._formSkillId}
-          ?readonly=${this._formIsEdit}
-          @input=${(e) => { this._formSkillId = e.target.value; }}
+          ?readonly=${this._isFormEdit}
+          @input=${(e) => { this._formSkillId = e.target.value; this._markDirty(); }}
         >
-        <div class="textarea-wrap ${this._suggestion ? 'suggestion-wrap' : ''}">
+        <div class="textarea-wrap ${this._hasSuggestion ? 'is-suggestion' : ''}">
           <textarea
             placeholder="Create or edit a tool"
             aria-label="Skill markdown"
@@ -1045,21 +1049,22 @@ class NxSkillsEditor extends LitElement {
     const builtIn = BUILTIN_AGENTS[0]?.tools || [];
     const mcpToolIds = [];
     if (this._mcpTools?.servers) {
-      this._mcpTools.servers.forEach((s) => {
-        (s.tools || []).forEach((t) => {
-          mcpToolIds.push(`mcp__${s.id}__${t.name}`);
+      this._mcpTools.servers.forEach((server) => {
+        (server.tools || []).forEach((tool) => {
+          mcpToolIds.push(`mcp__${server.id}__${tool.name}`);
         });
       });
     }
 
-    const q = (this._toolsSearch || '').trim().toLowerCase();
-    const daTools = q ? builtIn.filter((id) => id.toLowerCase().includes(q)) : builtIn;
-    const mcpTools = q ? mcpToolIds.filter((id) => id.toLowerCase().includes(q)) : mcpToolIds;
+    const toolFilter = (this._toolsSearch || '').trim().toLowerCase();
+    const filterById = (id) => id.toLowerCase().includes(toolFilter);
+    const daTools = toolFilter ? builtIn.filter(filterById) : builtIn;
+    const mcpTools = toolFilter ? mcpToolIds.filter(filterById) : mcpToolIds;
     const selected = new Set(this._formPromptTools || []);
     const collapsed = this._toolsGroupCollapsed || {};
 
     const renderGroup = (ns, tools) => {
-      if (!tools.length && !q) return nothing;
+      if (!tools.length && !toolFilter) return nothing;
       const isOpen = !collapsed[ns];
       return html`
         <details class="tools-group" ?open=${isOpen}
@@ -1077,7 +1082,7 @@ class NxSkillsEditor extends LitElement {
               const isActive = selected.has(toolId);
               return html`
                 <li class="tool-item ${isActive ? 'is-active' : ''}">
-                  <span class="tool-dot ${isActive ? 'dot-active' : 'dot-inactive'}" aria-hidden="true"></span>
+                  <span class="tool-dot ${isActive ? 'is-dot-active' : 'is-dot-inactive'}" aria-hidden="true"></span>
                   <label class="tool-label-wrap" title=${toolId}>
                     <input type="checkbox" class="tool-checkbox"
                       .checked=${isActive}
@@ -1110,7 +1115,7 @@ class NxSkillsEditor extends LitElement {
           @input=${(e) => { this._toolsSearch = e.target.value; }}
         >
         ${renderGroup('DA', daTools)}
-        ${mcpTools.length || q ? renderGroup('MCP', mcpTools) : nothing}
+        ${mcpTools.length || toolFilter ? renderGroup('MCP', mcpTools) : nothing}
       </div>
     `;
   }
@@ -1152,23 +1157,23 @@ class NxSkillsEditor extends LitElement {
     if (isSkill) {
       return html`
         <div class="editor-actions" role="toolbar" aria-label="Skill actions">
-          ${this._formIsEdit || this._suggestion ? html`
+          ${this._isFormEdit || this._hasSuggestion ? html`
             <button type="button" data-variant="secondary"
-              ?disabled=${this._saveBusy}
+              ?disabled=${this._isSaveBusy}
               @click=${() => { this._dismissForm(); }}
             >Dismiss</button>
           ` : nothing}
           <button type="button" data-variant="secondary"
-            ?disabled=${this._saveBusy}
+            ?disabled=${this._isSaveBusy}
             @click=${() => this._onSaveSkill(STATUS.DRAFT)}
           >Save Draft</button>
           <button type="button" data-variant="accent"
-            ?disabled=${this._saveBusy}
+            ?disabled=${this._isSaveBusy}
             @click=${() => this._onSaveSkill(STATUS.APPROVED)}
           >Save</button>
-          ${this._formIsEdit ? html`
+          ${this._isFormEdit ? html`
             <button type="button" data-variant="negative"
-              ?disabled=${this._saveBusy}
+              ?disabled=${this._isSaveBusy}
               @click=${this._onDeleteSkill}
             >Delete</button>
           ` : nothing}
@@ -1181,20 +1186,20 @@ class NxSkillsEditor extends LitElement {
       return html`
         <div class="editor-actions" role="toolbar" aria-label="Prompt actions">
           <button type="button" data-variant="secondary"
-            ?disabled=${this._saveBusy}
+            ?disabled=${this._isSaveBusy}
             @click=${() => this._onSavePrompt(STATUS.DRAFT)}
           >Save Draft</button>
           <button type="button" data-variant="accent"
-            ?disabled=${this._saveBusy}
+            ?disabled=${this._isSaveBusy}
             @click=${() => this._onSavePrompt(STATUS.APPROVED)}
           >Save</button>
           <button type="button" data-variant="secondary"
-            ?disabled=${this._saveBusy || !this._formPromptBody.trim()}
+            ?disabled=${this._isSaveBusy || !this._formPromptBody.trim()}
             @click=${() => this._onRunPrompt()}
           >Run / Test</button>
-          ${this._formPromptIsEdit ? html`
+          ${this._isFormPromptEdit ? html`
             <button type="button" data-variant="negative"
-              ?disabled=${this._saveBusy}
+              ?disabled=${this._isSaveBusy}
               @click=${this._onDeletePrompt}
             >Delete</button>
           ` : nothing}
@@ -1207,7 +1212,7 @@ class NxSkillsEditor extends LitElement {
       return html`
         <div class="editor-actions" role="toolbar" aria-label="MCP actions">
           <button type="button" data-variant="accent"
-            ?disabled=${this._saveBusy || !this._mcpKey.trim() || !this._mcpUrl.trim()}
+            ?disabled=${this._isSaveBusy || !this._mcpKey.trim() || !this._mcpUrl.trim()}
             @click=${this._onRegisterMcp}
           >${this._editingMcpKey ? 'Update' : 'Register'}</button>        </div>
         ${statusTpl}
@@ -1233,26 +1238,26 @@ class NxSkillsEditor extends LitElement {
 
   _renderSkillsCatalog() {
     const ids = Object.keys(this._skills);
-    const q = this._promptSearch.trim().toLowerCase();
+    const searchQuery = this._promptSearch.trim().toLowerCase();
 
     let filtered = this._catalogFilter === 'all' ? ids
       : ids.filter((id) => this._skillStatuses[id] === this._catalogFilter);
 
-    if (q) {
+    if (searchQuery) {
       filtered = filtered.filter((id) => {
         const title = this._extractTitle(this._skills[id]).toLowerCase();
-        return id.toLowerCase().includes(q) || title.includes(q);
+        return id.toLowerCase().includes(searchQuery) || title.includes(searchQuery);
       });
     }
 
     return html`
       <div class="catalog-toolbar" role="toolbar" aria-label="Filter skills">
-        ${[STATUS.APPROVED, STATUS.DRAFT].map((f) => html`
+        ${[STATUS.APPROVED, STATUS.DRAFT].map((status) => html`
           <button type="button"
-            class="filter-chip ${this._catalogFilter === f ? 'is-active' : ''}"
-            aria-pressed=${this._catalogFilter === f ? 'true' : 'false'}
-            @click=${() => { this._catalogFilter = f; }}
-          >${f.charAt(0).toUpperCase() + f.slice(1)}</button>
+            class="filter-chip ${this._catalogFilter === status ? 'is-active' : ''}"
+            aria-pressed=${this._catalogFilter === status ? 'true' : 'false'}
+            @click=${() => { this._catalogFilter = status; }}
+          >${status.charAt(0).toUpperCase() + status.slice(1)}</button>
         `)}
         <button type="button"
           class="filter-chip ${this._catalogFilter === 'all' ? 'is-active' : ''}"
@@ -1269,7 +1274,7 @@ class NxSkillsEditor extends LitElement {
   _renderSkillCard(id) {
     const title = this._extractTitle(this._skills[id]);
     const status = this._skillStatuses[id] || STATUS.APPROVED;
-    const isEditing = this._formIsEdit && this._formSkillId === id;
+    const isEditing = this._isFormEdit && this._formSkillId === id;
     const isDraft = status === STATUS.DRAFT;
     return html`
       <article role="listitem" data-testid="skill-card" data-skill-id=${id}>
@@ -1341,10 +1346,10 @@ class NxSkillsEditor extends LitElement {
   // ─── render: prompts catalog ──────────────────────────────────────────────
 
   _renderPromptsCatalog() {
-    const q = this._promptSearch.trim().toLowerCase();
-    const prompts = q
-      ? this._prompts.filter((r) => (r.title || '').toLowerCase().includes(q)
-        || (r.category || '').toLowerCase().includes(q))
+    const searchQuery = this._promptSearch.trim().toLowerCase();
+    const prompts = searchQuery
+      ? this._prompts.filter((r) => (r.title || '').toLowerCase().includes(searchQuery)
+        || (r.category || '').toLowerCase().includes(searchQuery))
       : this._prompts;
 
     if (!prompts.length) {
@@ -1355,7 +1360,7 @@ class NxSkillsEditor extends LitElement {
       <div role="list" aria-label="Prompts">
         ${prompts.map((row) => {
           const title = row.title || '';
-          const isSelected = this._editorOpen && this._formPromptIsEdit
+          const isSelected = this._isEditorOpen && this._isFormPromptEdit
             && this._formPromptTitle === title;
           const cat = (row.category || '').toLowerCase().trim();
           const catClass = KNOWN_CATEGORY_CLASSES.has(cat) ? cat : 'default';
@@ -1402,14 +1407,14 @@ class NxSkillsEditor extends LitElement {
   // ─── render: MCPs catalog ─────────────────────────────────────────────────
 
   _renderMcpsCatalog() {
-    const q = this._promptSearch.trim().toLowerCase();
+    const searchQuery = this._promptSearch.trim().toLowerCase();
     const filterPasses = (status) => this._catalogFilter === 'all' || status === this._catalogFilter;
     let filteredCustom = this._mcpRows.filter((row) => filterPasses(skillRowStatus(row)));
-    if (q) {
+    if (searchQuery) {
       filteredCustom = filteredCustom.filter((row) => {
         const key = (row.key || '').toLowerCase();
         const url = (row.url || row.value || '').toLowerCase();
-        return key.includes(q) || url.includes(q);
+        return key.includes(searchQuery) || url.includes(searchQuery);
       });
     }
     const showBuiltins = filterPasses(STATUS.APPROVED);
@@ -1485,7 +1490,7 @@ class NxSkillsEditor extends LitElement {
     if (this._memory === null) {
       return html`<div class="empty" aria-live="polite">Loading\u2026</div>`;
     }
-    if (!this._memory) {
+    if (this._memory === '') {
       return html`<div class="empty">No project memory yet. The DA agent writes here as it learns about your site.</div>`;
     }
     return html`<pre class="memory-content">${this._memory}</pre>`;

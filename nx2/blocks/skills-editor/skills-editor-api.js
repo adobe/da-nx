@@ -312,9 +312,15 @@ export async function readSkillMdFile(org, site, skillId) {
 /** Delete skill .md file from .da/skills/{id}.md. */
 export async function deleteSkillMdFile(org, site, skillId) {
   const id = String(skillId || '').trim().replace(/\.md$/i, '');
-  if (!id) return;
+  if (!id) return { ok: false, error: 'Skill id required' };
   const path = `/${org}/${site}/.da/skills/${id}.md`;
-  await daFetch(`${DA_ORIGIN}/source${path}`, { method: 'DELETE' });
+  try {
+    const resp = await daFetch(`${DA_ORIGIN}/source${path}`, { method: 'DELETE' });
+    // 404 means the file never existed — treat as success so callers don't error
+    return { ok: resp.ok || resp.status === 404, status: resp.status };
+  } catch {
+    return { ok: false, error: 'Network error deleting skill file' };
+  }
 }
 
 // ─── prompts CRUD ───────────────────────────────────────────────────────────
@@ -548,7 +554,7 @@ export async function loadAgentPresets(org, site) {
   try {
     const listResp = await daFetch(`${DA_ORIGIN}/list/${org}/${site}/${AGENTS_PATH}`);
     if (!listResp.ok) return out;
-    const json = await listResp.json();
+    const json = await listResp.json().catch(() => null);
     if (!Array.isArray(json)) return out;
     const jsonFiles = json.filter((item) => item.ext === 'json' || (item.name || '').endsWith('.json'));
     await Promise.all(jsonFiles.map(async (item) => {
@@ -557,7 +563,9 @@ export async function loadAgentPresets(org, site) {
       try {
         const src = await daFetch(`${DA_ORIGIN}/source${item.path}`);
         if (!src.ok) return;
-        out.push({ id, preset: JSON.parse(await src.text()) });
+        const preset = JSON.parse(await src.text());
+        // spread preset fields flat so renderers can read id, label, description, tools directly
+        if (preset && typeof preset === 'object') out.push({ id, ...preset });
       } catch { /* skip */ }
     }));
   } catch { /* noop */ }
