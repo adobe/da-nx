@@ -18,7 +18,7 @@ import {
 } from './locks.js';
 import { ensureAuthenticated } from '../core/utils.js';
 import { MediaLibraryError, ErrorCodes, logMediaLibraryError } from '../core/errors.js';
-import { isFullRebuildRequested } from '../core/params.js';
+import { isFullRebuildRequested, isPerfEnabled } from '../core/params.js';
 import {
   IndexingEventType,
   IndexingErrorCode,
@@ -32,9 +32,14 @@ import {
   createIndexLoadedEvent,
 } from './events.js';
 
-const CONFIG = { POLLING_INTERVAL: 60000, LOCK_CHECK_INTERVAL: 5000 };
+const CONFIG = {
+  INWARD_POLLING_INTERVAL: 60000,
+  OUTWARD_POLLING_INTERVAL: 120000,
+  LOCK_CHECK_INTERVAL: 5000,
+};
 
-let pollingInterval = null;
+let inwardPollingInterval = null;
+let outwardPollingInterval = null;
 let lockCheckInterval = null;
 let pollingStarted = false;
 let eventEmitter = null;
@@ -49,18 +54,28 @@ function emit(event) {
 }
 
 /**
- * Start polling for index updates (runs every 60s)
+ * Start checking for published index changes (runs every 60s)
  */
-export async function startPolling(sitePath, org, repo) {
-  if (pollingInterval || !sitePath) return;
+export async function startCheckingIndexChanges(sitePath, org, repo) {
+  if (inwardPollingInterval || !sitePath) return;
 
-  pollingInterval = setInterval(async () => {
+  if (isPerfEnabled()) {
+    // eslint-disable-next-line no-console
+    console.log(`[perf] Starting checkIndex polling (60s interval) for ${sitePath}`);
+  }
+
+  inwardPollingInterval = setInterval(async () => {
     try {
       const isAuthenticated = await ensureAuthenticated();
       if (!isAuthenticated) return;
 
       const result = await loadMediaIfUpdated(sitePath, org, repo);
       const { hasChanged, mediaData, indexMissing } = result;
+
+      if (isPerfEnabled() && (hasChanged || indexMissing)) {
+        // eslint-disable-next-line no-console
+        console.log(`[perf] checkIndex poll detected ${indexMissing ? 'missing index' : `changes (${mediaData?.length || 0} items)`}`);
+      }
 
       if (indexMissing) {
         emit(createIndexMissingEvent(sitePath));
@@ -84,27 +99,93 @@ export async function startPolling(sitePath, org, repo) {
         isPersistent,
       ));
     }
-  }, CONFIG.POLLING_INTERVAL);
+  }, CONFIG.INWARD_POLLING_INTERVAL);
 
   pollingStarted = true;
 }
 
 /**
- * Pause polling (during builds)
+ * Pause checking for index changes (during builds)
  */
-export function pausePolling() {
-  if (pollingInterval) {
-    clearInterval(pollingInterval);
-    pollingInterval = null;
+export function pauseCheckingIndexChanges() {
+  if (inwardPollingInterval) {
+    if (isPerfEnabled()) {
+      // eslint-disable-next-line no-console
+      console.log('[perf] Pausing checkIndex polling (build starting)');
+    }
+    clearInterval(inwardPollingInterval);
+    inwardPollingInterval = null;
   }
 }
 
 /**
- * Resume polling (after builds)
+ * Resume checking for index changes (after builds)
  */
-export function resumePolling(sitePath, org, repo) {
-  if (!pollingInterval && pollingStarted && sitePath) {
-    startPolling(sitePath, org, repo);
+export function resumeCheckingIndexChanges(sitePath, org, repo) {
+  if (!inwardPollingInterval && pollingStarted && sitePath) {
+    if (isPerfEnabled()) {
+      // eslint-disable-next-line no-console
+      console.log('[perf] Resuming checkIndex polling (build complete)');
+    }
+    startCheckingIndexChanges(sitePath, org, repo);
+  }
+}
+
+/**
+ * Start checking for content changes and trigger incremental builds (runs every 120s)
+ */
+export async function startCheckingChanges(sitePath, org, repo, ref = 'main') {
+  if (outwardPollingInterval || !sitePath) return;
+
+  if (isPerfEnabled()) {
+    // eslint-disable-next-line no-console
+    console.log(`[perf] Starting checkChanges polling (120s interval) for ${sitePath}`);
+  }
+
+  outwardPollingInterval = setInterval(async () => {
+    if (isPerfEnabled()) {
+      // eslint-disable-next-line no-console
+      console.log('[perf] checkChanges poll: triggering incremental build check');
+    }
+    try {
+      const isAuthenticated = await ensureAuthenticated();
+      if (!isAuthenticated) return;
+
+      const [siteOrg, siteRepo] = sitePath.split('/').slice(1, 3);
+      // eslint-disable-next-line no-use-before-define
+      await triggerBuild(sitePath, siteOrg, siteRepo, ref);
+    } catch (error) {
+      logMediaLibraryError(ErrorCodes.POLLING_FAILED, { error: error?.message, context: 'outward' });
+    }
+  }, CONFIG.OUTWARD_POLLING_INTERVAL);
+
+  pollingStarted = true;
+}
+
+/**
+ * Pause checking for content changes (during manual builds)
+ */
+export function pauseCheckingChanges() {
+  if (outwardPollingInterval) {
+    if (isPerfEnabled()) {
+      // eslint-disable-next-line no-console
+      console.log('[perf] Pausing checkChanges polling (build starting)');
+    }
+    clearInterval(outwardPollingInterval);
+    outwardPollingInterval = null;
+  }
+}
+
+/**
+ * Resume checking for content changes (after manual builds)
+ */
+export function resumeCheckingChanges(sitePath, org, repo, ref = 'main') {
+  if (!outwardPollingInterval && pollingStarted && sitePath) {
+    if (isPerfEnabled()) {
+      // eslint-disable-next-line no-console
+      console.log('[perf] Resuming checkChanges polling (build complete)');
+    }
+    startCheckingChanges(sitePath, org, repo, ref);
   }
 }
 
@@ -190,7 +271,8 @@ export async function triggerBuild(sitePath, org, repo, ref = 'main') {
     return;
   }
 
-  pausePolling();
+  pauseCheckingIndexChanges();
+  pauseCheckingChanges();
 
   const forceFull = isFullRebuildRequested();
   const buildMode = forceFull ? 'full' : 'incremental';
@@ -270,7 +352,8 @@ export async function triggerBuild(sitePath, org, repo, ref = 'main') {
       ));
     }
   } finally {
-    resumePolling(sitePath, org, repo);
+    resumeCheckingIndexChanges(sitePath, org, repo);
+    resumeCheckingChanges(sitePath, org, repo, ref);
   }
 }
 
@@ -295,14 +378,23 @@ export async function initService(sitePath, options = {}) {
 
   const [org, repo] = sitePath.split('/').slice(1, 3);
 
-  // Plugin mode: Only poll, don't auto-trigger builds
+  // Plugin mode: Load data once, no polling
   if (mode === 'plugin') {
-    startPolling(sitePath, org, repo);
+    if (isPerfEnabled()) {
+      // eslint-disable-next-line no-console
+      console.log(`[perf] Initializing indexing service in PLUGIN mode (no polling) for ${sitePath}`);
+    }
     return;
   }
 
-  // App mode: Poll + check lock state + check for missing index
-  startPolling(sitePath, org, repo);
+  if (isPerfEnabled()) {
+    // eslint-disable-next-line no-console
+    console.log(`[perf] Initializing indexing service in APP mode (checkIndex 60s + checkChanges 120s polling) for ${sitePath}`);
+  }
+
+  // App mode: Start both inward and outward polling + check lock state
+  startCheckingIndexChanges(sitePath, org, repo);
+  startCheckingChanges(sitePath, org, repo);
 
   try {
     const lock = await checkIndexLock(sitePath);
@@ -336,7 +428,8 @@ export async function initService(sitePath, options = {}) {
  * Dispose the service (cleanup)
  */
 export function disposeService() {
-  pausePolling();
+  pauseCheckingIndexChanges();
+  pauseCheckingChanges();
   stopLockCheckPolling();
   pollingStarted = false;
   eventEmitter = null;
