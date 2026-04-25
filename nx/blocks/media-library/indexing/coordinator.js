@@ -131,7 +131,6 @@ function startLockCheckPolling(sitePath, org, repo, hasMediaData) {
       if (!isFreshIndexLock(lock)) {
         stopLockCheckPolling();
 
-        // Lock released - try to load data
         if (!hasMediaData) {
           const { data, indexMissing } = await loadMediaSheet(sitePath);
 
@@ -143,7 +142,6 @@ function startLockCheckPolling(sitePath, org, repo, hasMediaData) {
           return;
         }
 
-        // Check if index was updated while lock was active
         const {
           hasChanged,
           mediaData,
@@ -156,7 +154,7 @@ function startLockCheckPolling(sitePath, org, repo, hasMediaData) {
         }
       }
     } catch {
-      // Swallow errors during lock polling
+      // Intentionally swallow errors during lock polling
     }
   }, CONFIG.LOCK_CHECK_INTERVAL);
 }
@@ -169,7 +167,6 @@ export async function triggerBuild(sitePath, org, repo, ref = 'main') {
     return;
   }
 
-  // Check authentication
   try {
     const isAuthenticated = await ensureAuthenticated();
     if (!isAuthenticated) {

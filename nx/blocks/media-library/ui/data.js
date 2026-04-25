@@ -50,7 +50,6 @@ export async function loadMediaSheet(sitePath, onProgressiveChunk) {
   const { org, repo } = getOrgRepoFromSitePath(sitePath);
 
   try {
-    // Check if index is chunked by loading meta
     const meta = await loadSheetMeta(metaPath);
 
     if (meta?.chunked === true) {

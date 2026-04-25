@@ -19,6 +19,13 @@ function normalizeFolderPath(path) {
   return !path || path === '/' ? '/' : path.replace(/\/$/, '');
 }
 
+function isHiddenPath(path) {
+  if (!path || path === '/') return false;
+  // Check if any path segment starts with a dot
+  const segments = path.split('/').filter(Boolean);
+  return segments.some((segment) => segment.startsWith('.'));
+}
+
 function resolveSearchPath(value, basePath) {
   let searchPath = value.startsWith('/') ? value : `/${value}`;
   if (basePath && !searchPath.startsWith(basePath)) {
@@ -311,7 +318,9 @@ export async function processMediaData(mediaData, onProgress = null, org = null,
   });
 
   processedData.docPaths = sortPaths(Array.from(uniqueDocPaths));
-  processedData.folderPaths = sortPaths(Array.from(uniqueFolderPaths));
+  processedData.folderPaths = sortPaths(
+    Array.from(uniqueFolderPaths).filter((path) => !isHiddenPath(path)),
+  );
 
   setCachedProcessData(cacheKey, processedData);
 

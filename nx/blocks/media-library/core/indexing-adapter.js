@@ -144,7 +144,7 @@ export function handleIndexingEvent(event, onMediaDataUpdated) {
       break;
 
     case IndexingEventType.BUILD_COMPLETE: {
-      clearProcessDataCache(); // Invalidate filter cache
+      clearProcessDataCache();
 
       if (event.lockRemoveFailed) {
         showNotification(t('NOTIFY_WARNING'), t('LOCK_REMOVE_FAILED'), 'danger');
