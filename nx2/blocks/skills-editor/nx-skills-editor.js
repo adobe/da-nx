@@ -42,10 +42,38 @@ const CATALOG_TABS = [
   { id: 'memory', label: 'Memory' },
 ];
 
+/** Per-tab metadata for the "new" button label and the opener method name. */
+const TAB_ACTIONS = {
+  skills: { btnLabel: '+ New Skill', opener: '_openNewSkillEditor' },
+  agents: { btnLabel: '+ New Agent', opener: '_openNewAgentEditor' },
+  prompts: { btnLabel: '+ New Prompt', opener: '_openNewEditor' },
+  mcps: { btnLabel: '+ Register MCP', opener: '_openNewMcpEditor' },
+};
+
 const CATEGORY_OPTIONS = ['Review', 'Workflow', 'Style', 'Content'];
 const KNOWN_CATEGORY_CLASSES = new Set(['review', 'workflow', 'style', 'content']);
 
 const STATUS = { APPROVED: 'approved', DRAFT: 'draft' };
+
+/**
+ * Canonical shape for all form fields across skill/prompt/MCP modes.
+ * Adding a new field? Add it here and in _captureForm / _restoreForm automatically.
+ */
+const FRESH_FORM_STATE = Object.freeze({
+  formSkillId: '',
+  formSkillBody: '',
+  isFormEdit: false,
+  isAgentViewTools: false,
+  formPromptTitle: '',
+  formPromptBody: '',
+  formPromptCategory: '',
+  isFormPromptEdit: false,
+  formPromptTools: [],
+  mcpKey: '',
+  mcpUrl: '',
+  mcpDescription: '',
+  editingMcpKey: null,
+});
 
 const BUILTIN_MCP_SERVERS = [
   {
@@ -86,7 +114,6 @@ class NxSkillsEditor extends LitElement {
     _mcpTools: { state: true },
     _generatedTools: { state: true },
     _configuredMcpServers: { state: true },
-    _editingSkillId: { state: true },
     _formSkillId: { state: true },
     _formSkillBody: { state: true },
     _isFormEdit: { state: true },
@@ -105,7 +132,6 @@ class NxSkillsEditor extends LitElement {
     _mcpEnableBusy: { state: true },
     _activeToolRefs: { state: true },
     _memory: { state: true },
-    // new master-detail state
     _isEditorOpen: { state: true },
     _isAgentViewTools: { state: true },
     _isFormDirty: { state: true },
@@ -130,10 +156,6 @@ class NxSkillsEditor extends LitElement {
     this._generatedTools = [];
     this._configuredMcpServers = {};
     this._clearForm();
-    this._mcpKey = '';
-    this._mcpUrl = '';
-    this._mcpDescription = '';
-    this._editingMcpKey = null;
     this._mcpEnableBusy = {};
     this._activeToolRefs = null;
     this._memory = null;
@@ -147,7 +169,7 @@ class NxSkillsEditor extends LitElement {
     this._toolsSearch = '';
     this._toolsGroupCollapsed = { DA: false, MCP: false };
     this._formPromptTools = [];
-    this._editorTrigger = null; // element that last opened the drawer, restored on close
+    this._editorTriggerSelector = null; // CSS selector for the element that opened the drawer
   }
 
   get _org() { return this._hash.value?.org; }
@@ -197,9 +219,10 @@ class NxSkillsEditor extends LitElement {
           );
           firstFocusable?.focus();
         });
-      } else {
-        this._editorTrigger?.focus();
-        this._editorTrigger = null;
+      } else if (this._editorTriggerSelector) {
+        const trigger = this.shadowRoot.querySelector(this._editorTriggerSelector);
+        trigger?.focus();
+        this._editorTriggerSelector = null;
       }
     }
     // Persist navigation state when structural nav properties change.
@@ -334,18 +357,10 @@ class NxSkillsEditor extends LitElement {
   // ─── form helpers ─────────────────────────────────────────────────────────
 
   _clearForm() {
-    this._formSkillId = '';
-    this._formSkillBody = '';
-    this._isFormEdit = false;
-    this._formPromptTitle = '';
-    this._formPromptCategory = '';
-    this._formPromptBody = '';
-    this._isFormPromptEdit = false;
-    this._formPromptTools = [];
-    this._mcpKey = '';
-    this._mcpUrl = '';
-    this._mcpDescription = '';
-    this._editingMcpKey = null;
+    Object.entries(FRESH_FORM_STATE).forEach(([key, val]) => {
+      const prop = `_${key}`;
+      this[prop] = Array.isArray(val) ? [...val] : val;
+    });
     this._isSaveBusy = false;
     this._statusMsg = '';
     this._statusType = '';
@@ -379,62 +394,24 @@ class NxSkillsEditor extends LitElement {
 
   /** Snapshot current in-flight form fields, keyed by the active tab. */
   _captureForm() {
-    const tab = this._catalogTab;
-    if (tab === 'skills' || tab === 'agents') {
-      return {
-        tab,
-        formSkillId: this._formSkillId,
-        formSkillBody: this._formSkillBody,
-        formIsEdit: this._isFormEdit,
-        agentViewTools: this._isAgentViewTools,
-      };
-    }
-    if (tab === 'prompts') {
-      return {
-        tab,
-        formPromptTitle: this._formPromptTitle,
-        formPromptBody: this._formPromptBody,
-        formPromptCategory: this._formPromptCategory,
-        formPromptTools: [...(this._formPromptTools || [])],
-        formPromptIsEdit: this._isFormPromptEdit,
-      };
-    }
-    if (tab === 'mcps') {
-      return {
-        tab,
-        mcpKey: this._mcpKey,
-        mcpUrl: this._mcpUrl,
-        mcpDescription: this._mcpDescription,
-        editingMcpKey: this._editingMcpKey,
-      };
-    }
-    return null;
+    const snap = { tab: this._catalogTab };
+    Object.keys(FRESH_FORM_STATE).forEach((key) => {
+      const val = this[`_${key}`];
+      snap[key] = Array.isArray(val) ? [...val] : val;
+    });
+    return snap;
   }
 
   /** Restore form fields from a previously captured snapshot. */
   _restoreForm(snapshot) {
     if (!snapshot) return;
-    const { tab } = snapshot;
-    if (tab === 'skills' || tab === 'agents') {
-      this._formSkillId = snapshot.formSkillId;
-      this._formSkillBody = snapshot.formSkillBody;
-      this._isFormEdit = snapshot.formIsEdit;
-      this._isAgentViewTools = snapshot.agentViewTools;
-      this._isEditorOpen = true;
-    } else if (tab === 'prompts') {
-      this._formPromptTitle = snapshot.formPromptTitle;
-      this._formPromptBody = snapshot.formPromptBody;
-      this._formPromptCategory = snapshot.formPromptCategory;
-      this._formPromptTools = snapshot.formPromptTools;
-      this._isFormPromptEdit = snapshot.formPromptIsEdit;
-      this._isEditorOpen = true;
-    } else if (tab === 'mcps') {
-      this._mcpKey = snapshot.mcpKey;
-      this._mcpUrl = snapshot.mcpUrl;
-      this._mcpDescription = snapshot.mcpDescription || '';
-      this._editingMcpKey = snapshot.editingMcpKey;
-      this._isEditorOpen = true;
-    }
+    Object.keys(FRESH_FORM_STATE).forEach((key) => {
+      if (key in snapshot) {
+        const val = snapshot[key];
+        this[`_${key}`] = Array.isArray(val) ? [...val] : val;
+      }
+    });
+    this._isEditorOpen = true;
   }
 
   /** Called on every form keystroke — marks the form as edited and keeps snapshot current. */
@@ -504,10 +481,22 @@ class NxSkillsEditor extends LitElement {
     }
   }
 
+  /** Derive a stable CSS selector for the active trigger element. */
+  _captureTriggerSelector() {
+    const el = this.shadowRoot.activeElement;
+    if (!el) return null;
+    if (el.dataset?.skillId) return `[data-skill-id="${el.dataset.skillId}"]`;
+    if (el.dataset?.mcpKey) return `[data-mcp-key="${el.dataset.mcpKey}"]`;
+    if (el.dataset?.promptTitle) return `[data-prompt-title="${el.dataset.promptTitle}"]`;
+    if (el.getAttribute('aria-label')) return `[aria-label="${el.getAttribute('aria-label')}"]`;
+    if (el.classList?.contains('new-btn')) return '.new-btn';
+    return null;
+  }
+
   // ─── editor open helpers ──────────────────────────────────────────────────
 
   _openEditor(row) {
-    this._editorTrigger = this.shadowRoot.activeElement ?? null;
+    this._editorTriggerSelector = this._captureTriggerSelector();
     // If this exact prompt already has dirty edits in memory, restore them.
     const saved = this._dirtyForms.prompts;
     if (saved?.formPromptTitle === (row.title || '')) {
@@ -529,21 +518,21 @@ class NxSkillsEditor extends LitElement {
   }
 
   _openNewEditor() {
-    this._editorTrigger = this.shadowRoot.activeElement ?? null;
+    this._editorTriggerSelector = this._captureTriggerSelector();
     this._clearForm();
     this._catalogTab = 'prompts';
     this._isEditorOpen = true;
   }
 
   _openNewSkillEditor() {
-    this._editorTrigger = this.shadowRoot.activeElement ?? null;
+    this._editorTriggerSelector = this._captureTriggerSelector();
     this._clearForm();
     if (this._catalogTab !== 'agents') this._catalogTab = 'skills';
     this._isEditorOpen = true;
   }
 
   _openNewMcpEditor() {
-    this._editorTrigger = this.shadowRoot.activeElement ?? null;
+    this._editorTriggerSelector = this._captureTriggerSelector();
     this._clearMcpForm();
     this._editingMcpKey = null;
     this._catalogTab = 'mcps';
@@ -577,6 +566,11 @@ class NxSkillsEditor extends LitElement {
 
     const configResult = await upsertSkillInConfig(this._org, this._site, id, body, { status });
     if (!configResult.ok) {
+      // Rollback: the .md file was written but config failed — delete the orphan
+      // for new skills. Edits are safe to leave (file overwrote an existing body).
+      if (!this._isFormEdit) {
+        deleteSkillMdFile(this._org, this._site, id).catch(() => {});
+      }
       this._setStatus(configResult.error || 'Failed to save skill config', 'err');
       this._isSaveBusy = false;
       return;
@@ -603,8 +597,9 @@ class NxSkillsEditor extends LitElement {
     if (!window.confirm(`Delete skill "${id}"? This cannot be undone.`)) return;
     this._isSaveBusy = true;
 
-    // Delete file first; 404 is treated as success (already gone).
-    // Only proceed to config delete if the file leg did not error.
+    // Read existing content before deleting, so we can rollback if needed.
+    const { text: rollbackBody } = await readSkillMdFile(this._org, this._site, id);
+
     const fileResult = await deleteSkillMdFile(this._org, this._site, id);
     if (!fileResult.ok) {
       this._setStatus('Failed to delete skill file', 'err');
@@ -616,6 +611,10 @@ class NxSkillsEditor extends LitElement {
     this._isSaveBusy = false;
 
     if (!configResult.ok) {
+      // Rollback: re-create the .md file we just deleted
+      if (rollbackBody) {
+        writeSkillMdFile(this._org, this._site, id, rollbackBody).catch(() => {});
+      }
       this._setStatus(configResult.error || 'Failed to delete skill from config', 'err');
       return;
     }
@@ -629,6 +628,8 @@ class NxSkillsEditor extends LitElement {
     if (!window.confirm(`Delete skill "${id}"? This cannot be undone.`)) return;
     this._isSaveBusy = true;
 
+    const { text: rollbackBody } = await readSkillMdFile(this._org, this._site, id);
+
     const fileResult = await deleteSkillMdFile(this._org, this._site, id);
     if (!fileResult.ok) {
       this._setStatus('Failed to delete skill file', 'err');
@@ -640,6 +641,9 @@ class NxSkillsEditor extends LitElement {
     this._isSaveBusy = false;
 
     if (!configResult.ok) {
+      if (rollbackBody) {
+        writeSkillMdFile(this._org, this._site, id, rollbackBody).catch(() => {});
+      }
       this._setStatus(configResult.error || 'Failed to delete skill', 'err');
       return;
     }
@@ -668,7 +672,7 @@ class NxSkillsEditor extends LitElement {
   }
 
   async _onEditSkill(skillId) {
-    this._editorTrigger = this.shadowRoot.activeElement ?? null;
+    this._editorTriggerSelector = this._captureTriggerSelector();
     const tab = this._catalogTab !== 'agents' ? 'skills' : 'agents';
     this._catalogTab = tab;
 
@@ -854,7 +858,7 @@ class NxSkillsEditor extends LitElement {
   }
 
   _onEditMcp(row) {
-    this._editorTrigger = this.shadowRoot.activeElement ?? null;
+    this._editorTriggerSelector = this._captureTriggerSelector();
     // If this MCP already has dirty edits, restore them.
     const saved = this._dirtyForms.mcps;
     if (saved?.editingMcpKey === row.key) {
@@ -944,25 +948,10 @@ class NxSkillsEditor extends LitElement {
             @tab-change=${(e) => this._onTabChange(e.detail.id)}
           ></nx-tabs>
           <div class="list-actions-row">
-            ${tab === 'prompts' ? html`
+            ${TAB_ACTIONS[tab] ? html`
               <button type="button" class="new-btn"
-                @click=${() => this._openNewEditor()}
-              >+ New Prompt</button>
-            ` : nothing}
-            ${tab === 'skills' ? html`
-              <button type="button" class="new-btn"
-                @click=${() => this._openNewSkillEditor()}
-              >+ New Skill</button>
-            ` : nothing}
-            ${tab === 'agents' ? html`
-              <button type="button" class="new-btn"
-                @click=${() => this._openNewAgentEditor()}
-              >+ New Agent</button>
-            ` : nothing}
-            ${tab === 'mcps' ? html`
-              <button type="button" class="new-btn"
-                @click=${() => this._openNewMcpEditor()}
-              >+ Register MCP</button>
+                @click=${() => this[TAB_ACTIONS[tab].opener]()}
+              >${TAB_ACTIONS[tab].btnLabel}</button>
             ` : nothing}
           </div>
         </div>
@@ -988,6 +977,19 @@ class NxSkillsEditor extends LitElement {
     `;
   }
 
+  /** Derive the editor drawer title from the current tab and form state. */
+  _editorTitle(tab) {
+    if (tab === 'agents' && this._isAgentViewTools) return 'Associated Tools';
+    if (tab === 'agents') return this._isFormEdit ? 'Edit Agent' : 'New Agent';
+    if (tab === 'skills') return this._isFormEdit ? 'Edit Skill' : 'New Skill';
+    if (tab === 'prompts') return this._isFormPromptEdit ? 'Edit Prompt' : 'New Prompt';
+    if (tab === 'mcps') {
+      return this._editingMcpKey ? `Edit: ${this._editingMcpKey}` : 'Register MCP Server';
+    }
+    if (tab === 'memory') return 'Project Memory';
+    return '';
+  }
+
   // ─── render: editor panel ─────────────────────────────────────────────────
 
   _renderEditorPanel() {
@@ -997,13 +999,7 @@ class NxSkillsEditor extends LitElement {
     const isMcp = tab === 'mcps';
     const isMemory = tab === 'memory';
 
-    let title = '';
-    if (tab === 'agents' && this._isAgentViewTools) title = 'Associated Tools';
-    else if (tab === 'agents') title = this._isFormEdit ? 'Edit Agent' : 'New Agent';
-    else if (tab === 'skills') title = this._isFormEdit ? 'Edit Skill' : 'New Skill';
-    else if (isPrompt) title = this._isFormPromptEdit ? 'Edit Prompt' : 'New Prompt';
-    else if (isMcp) title = this._editingMcpKey ? `Edit: ${this._editingMcpKey}` : 'Register MCP Server';
-    else if (isMemory) title = 'Project Memory';
+    const title = this._editorTitle(tab);
 
     return html`
       <div class="col-editor" aria-hidden=${this._isEditorOpen ? 'false' : 'true'}
@@ -1012,7 +1008,7 @@ class NxSkillsEditor extends LitElement {
           ${this._isEditorOpen ? html`
             <div class="editor-header">
               <h3 class="editor-title">${title}</h3>
-              <button type="button" class="close-btn" aria-label="Close"
+              <button type="button" class="btn-icon close-btn" aria-label="Close"
                 @click=${() => this._closeEditor()}
               >\u2715</button>
             </div>
@@ -1340,7 +1336,7 @@ class NxSkillsEditor extends LitElement {
             class="status-dot ${isDraft ? 'status-dot-draft' : 'status-dot-approved'}"
             aria-label=${isDraft ? 'Draft' : 'Approved'}
           ></span>
-          <button slot="actions" type="button" class="more-btn"
+          <button slot="actions" type="button" class="btn-icon more-btn"
             aria-label="More actions for ${id}"
             @click=${(e) => { e.stopPropagation(); this._openSkillMenu(e, id); }}
           >\u22ee</button>
@@ -1428,22 +1424,22 @@ class NxSkillsEditor extends LitElement {
                   ` : nothing}
                 </div>
                 <div class="prompt-row-actions">
-                  <button type="button" class="row-action-btn" title="Edit"
+                  <button type="button" class="btn-icon row-action-btn" title="Edit"
                     aria-label="Edit ${title}"
                     @click=${(e) => { e.stopPropagation(); this._openEditor(row); }}
                   >\u270e</button>
-                  <button type="button" class="row-action-btn" title="Duplicate"
+                  <button type="button" class="btn-icon row-action-btn" title="Duplicate"
                     aria-label="Duplicate ${title}"
                     @click=${(e) => { e.stopPropagation(); this._duplicatePrompt(row); }}
                   >\u29c9</button>
-                  <button type="button" class="row-action-btn" title="Send to chat"
+                  <button type="button" class="btn-icon row-action-btn" title="Send to chat"
                     aria-label="Send to chat: ${title}"
                     @click=${(e) => {
                       e.stopPropagation();
                       this._dispatchPromptToChat(DA_SKILLS_EDITOR_PROMPT_SEND, row.prompt);
                     }}
                   >\u25b6</button>
-                  <button type="button" class="row-action-btn row-action-btn-delete" title="Delete"
+                  <button type="button" class="btn-icon row-action-btn row-action-btn-delete" title="Delete"
                     aria-label="Delete ${title}"
                     @click=${(e) => { e.stopPropagation(); this._deletePromptDirect(row); }}
                   >\u{1F5D1}</button>
@@ -1501,7 +1497,7 @@ class NxSkillsEditor extends LitElement {
                   class="status-dot ${isEnabled ? 'status-dot-approved' : 'status-dot-draft'}"
                   aria-label=${isEnabled ? 'Enabled' : 'Disabled'}
                 ></span>
-                <button slot="actions" type="button" class="more-btn"
+                <button slot="actions" type="button" class="btn-icon more-btn"
                   aria-label="More actions for ${key}"
                   @click=${(e) => { e.stopPropagation(); this._openMcpMenu(e, key); }}
                 >\u22ee</button>

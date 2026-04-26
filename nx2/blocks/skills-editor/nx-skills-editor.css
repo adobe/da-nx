@@ -29,6 +29,34 @@
   font-size: var(--s2-body-size-s);
 }
 
+
+/* ─── button primitives ─────────────────────────────────────────────────────── */
+
+/* Shared base for all icon-sized buttons (close, more, row actions) */
+
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: none;
+  border-radius: var(--s2-corner-radius-100);
+  background: transparent;
+  cursor: pointer;
+  line-height: 1;
+  transition: background 0.1s, color 0.1s;
+}
+
+.btn-icon:hover {
+  background: var(--s2-gray-200);
+  color: var(--s2-gray-900);
+}
+
+.btn-icon:focus-visible {
+  outline: 2px solid var(--s2-blue-900);
+  outline-offset: 2px;
+}
+
 /* ─── root layout ───────────────────────────────────────────────────────────── */
 
 .root {
@@ -229,35 +257,15 @@
   flex-shrink: 0;
 }
 
-.row-action-btn-delete {
-  color: var(--s2-red-700);
-}
-
 .row-action-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   width: 1.5rem;
   height: 1.5rem;
-  padding: 0;
-  border: none;
-  border-radius: var(--s2-corner-radius-100);
-  background: transparent;
   color: var(--s2-gray-600);
   font-size: 0.85rem;
-  line-height: 1;
-  cursor: pointer;
-  transition: background 0.1s, color 0.1s;
 }
 
-.row-action-btn:hover {
-  background: var(--s2-gray-200);
-  color: var(--s2-gray-900);
-}
-
-.row-action-btn:focus-visible {
-  outline: 2px solid var(--s2-blue-900);
-  outline-offset: 2px;
+.row-action-btn-delete {
+  color: var(--s2-red-700);
 }
 
 /* ─── category badges ──────────────────────────────────────────────────────────── */
@@ -330,29 +338,10 @@
 }
 
 .close-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   width: 1.75rem;
   height: 1.75rem;
-  padding: 0;
-  border: none;
-  border-radius: var(--s2-corner-radius-100);
-  background: transparent;
   color: var(--s2-gray-700);
   font-size: 1rem;
-  cursor: pointer;
-  transition: background 0.1s, color 0.1s;
-}
-
-.close-btn:hover {
-  background: var(--s2-gray-200);
-  color: var(--s2-gray-900);
-}
-
-.close-btn:focus-visible {
-  outline: 2px solid var(--s2-blue-900);
-  outline-offset: 2px;
 }
 
 /* Scrollable content region — flex: 1 fills the space between header and footer */
@@ -636,30 +625,10 @@
 /* ─── card more button ────────────────────────────────────────────────────────── */
 
 .more-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   width: 1.5rem;
   height: 1.5rem;
-  padding: 0;
-  border: none;
-  border-radius: var(--s2-corner-radius-100);
-  background: transparent;
   color: var(--s2-gray-700);
   font-size: 1rem;
-  line-height: 1;
-  cursor: pointer;
-  transition: background 0.1s, color 0.1s;
-}
-
-.more-btn:hover {
-  background: var(--s2-gray-200);
-  color: var(--s2-gray-900);
-}
-
-.more-btn:focus-visible {
-  outline: 2px solid var(--s2-blue-900);
-  outline-offset: 2px;
 }
 
 /* ─── card menu ───────────────────────────────────────────────────────────────── */

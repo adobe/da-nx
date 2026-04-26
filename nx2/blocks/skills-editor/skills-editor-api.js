@@ -157,6 +157,64 @@ export async function fetchDaConfigSheets(org, site) {
   }
 }
 
+// ─── generic config sheet mutation helpers ──────────────────────────────────
+// Every config sheet mutator follows the same flow:
+//   1. fetchDaConfigSheets  2. ensure sheet exists  3. mutate data[]  4. saveDaConfig
+// These two helpers centralize that lifecycle and the { ok, error, status } shape.
+
+/**
+ * Upsert a row in a config sheet.
+ * @param {string} org
+ * @param {string} site
+ * @param {string} sheetName
+ * @param {(row: object) => boolean} matchFn — identifies existing row
+ * @param {(prev: object) => object} buildRowFn — receives prev row ({} if new) and returns next row
+ * @param {string} label — human-readable name for error messages (e.g. "skill", "prompt")
+ */
+async function upsertSheetRow(org, site, sheetName, matchFn, buildRowFn, label = 'row') {
+  const loaded = await fetchDaConfigSheets(org, site);
+  if (!loaded.ok) {
+    return { ok: false, error: loaded.error || `Could not load config (${loaded.status})` };
+  }
+  const cfg = { ...(loaded.json || {}) };
+  if (!cfg[sheetName]) cfg[sheetName] = { total: 0, limit: 1000, offset: 0, data: [] };
+  const sheet = cfg[sheetName];
+  const data = [...(sheet.data || [])];
+  const idx = data.findIndex(matchFn);
+  const prev = idx >= 0 ? data[idx] : {};
+  const nextRow = buildRowFn(prev);
+  if (idx >= 0) data[idx] = nextRow;
+  else data.push(nextRow);
+  cfg[sheetName] = { ...sheet, data, total: data.length };
+  const save = await saveDaConfig(org, site, cfg);
+  if (!save.ok) return { ok: false, error: `${label} save failed (${save.status})` };
+  return { ok: true, status: save.status };
+}
+
+/**
+ * Delete a row from a config sheet.
+ * @param {string} org
+ * @param {string} site
+ * @param {string} sheetName
+ * @param {(row: object) => boolean} matchFn — identifies the row to remove
+ * @param {string} label
+ */
+async function deleteSheetRow(org, site, sheetName, matchFn, label = 'row') {
+  const loaded = await fetchDaConfigSheets(org, site);
+  if (!loaded.ok) {
+    return { ok: false, error: loaded.error || `Could not load config (${loaded.status})` };
+  }
+  const cfg = { ...(loaded.json || {}) };
+  const sheet = cfg[sheetName];
+  if (!sheet?.data?.length) return { ok: false, error: `No ${label}s in config` };
+  const data = sheet.data.filter((r) => !matchFn(r));
+  if (data.length === sheet.data.length) return { ok: false, error: `${label} not found` };
+  cfg[sheetName] = { ...sheet, data, total: data.length };
+  const save = await saveDaConfig(org, site, cfg);
+  if (!save.ok) return { ok: false, error: `${label} delete failed (${save.status})` };
+  return { ok: true, status: save.status };
+}
+
 // ─── skills CRUD (config sheet + .md file) ──────────────────────────────────
 
 const SKILLS_SHEET = 'skills';
@@ -248,58 +306,50 @@ export async function loadSkillsWithStatuses(org, site) {
   return mergeSkillsWithMdFiles(loaded.json[SKILLS_SHEET]?.data, org, site);
 }
 
+function skillKeyMatch(id) {
+  return (r) => String(r.key ?? r.id ?? '').trim().replace(/\.md$/i, '') === id;
+}
+
 export async function upsertSkillInConfig(org, site, skillId, content, options = {}) {
   const id = String(skillId || '').trim().replace(/\.md$/i, '');
   if (!id) return { ok: false, error: 'Skill id required' };
-
-  const loaded = await fetchDaConfigSheets(org, site);
-  if (!loaded.ok) return { ok: false, error: loaded.error || `Could not load config (${loaded.status})` };
-
-  const cfg = { ...(loaded.json || {}) };
-  if (!cfg[SKILLS_SHEET]) cfg[SKILLS_SHEET] = { total: 0, limit: 1000, offset: 0, data: [] };
-  const sheet = cfg[SKILLS_SHEET];
-  const data = [...(sheet.data || [])];
-  const idx = data.findIndex((r) => String(r.key ?? r.id ?? '').trim().replace(/\.md$/i, '') === id);
-  const prev = idx >= 0 ? data[idx] : {};
   const nextStatus = options.status === 'draft' || options.status === 'approved'
-    ? options.status : skillRowStatus(prev);
-  const row = { ...prev, key: id, content, status: nextStatus };
-  if (idx >= 0) data[idx] = row; else data.push(row);
-  cfg[SKILLS_SHEET] = { ...sheet, data, total: data.length };
-
-  const save = await saveDaConfig(org, site, cfg);
-  return save.ok ? { ok: true, status: save.status } : { ok: false, error: `Save failed (${save.status})` };
+    ? options.status : undefined;
+  return upsertSheetRow(
+    org,
+    site,
+    SKILLS_SHEET,
+    skillKeyMatch(id),
+    (prev) => ({
+      ...prev,
+      key: id,
+      content,
+      status: nextStatus ?? skillRowStatus(prev),
+    }),
+    'Skill',
+  );
 }
 
 export async function deleteSkillFromConfig(org, site, skillId) {
   const id = String(skillId || '').trim().replace(/\.md$/i, '');
   if (!id) return { ok: false, error: 'Skill id required' };
-
-  const loaded = await fetchDaConfigSheets(org, site);
-  if (!loaded.ok) return { ok: false, error: loaded.error || `Could not load config (${loaded.status})` };
-
-  const cfg = { ...(loaded.json || {}) };
-  const sheet = cfg[SKILLS_SHEET];
-  if (!sheet?.data?.length) return { ok: false, error: 'No skills in config' };
-
-  const data = sheet.data.filter((r) => String(r.key ?? r.id ?? '').trim().replace(/\.md$/i, '') !== id);
-  if (data.length === sheet.data.length) return { ok: false, error: 'Skill not found' };
-  cfg[SKILLS_SHEET] = { ...sheet, data, total: data.length };
-
-  const save = await saveDaConfig(org, site, cfg);
-  return save.ok ? { ok: true, status: save.status } : { ok: false, error: `Delete failed (${save.status})` };
+  return deleteSheetRow(org, site, SKILLS_SHEET, skillKeyMatch(id), 'Skill');
 }
 
 /** Write skill markdown to .da/skills/{id}.md via DA Admin source API. */
 export async function writeSkillMdFile(org, site, skillId, markdown) {
   const id = String(skillId || '').trim().replace(/\.md$/i, '');
-  if (!id) return { error: 'Skill id required' };
+  if (!id) return { ok: false, error: 'Skill id required' };
   const path = `/${org}/${site}/.da/skills/${id}.md`;
   const blob = new Blob([markdown], { type: 'text/markdown' });
   const body = new FormData();
   body.append('data', blob, `${id}.md`);
-  const resp = await daFetch(`${DA_ORIGIN}/source${path}`, { method: 'PUT', body });
-  return { ok: resp.ok, status: resp.status };
+  try {
+    const resp = await daFetch(`${DA_ORIGIN}/source${path}`, { method: 'PUT', body });
+    return { ok: resp.ok, status: resp.status };
+  } catch {
+    return { ok: false, error: 'Network error writing skill file' };
+  }
 }
 
 /** Read skill markdown from .da/skills/{id}.md. */
@@ -337,50 +387,37 @@ export async function upsertPromptInConfig(org, site, row, options = {}) {
   const promptText = String(row.prompt || '').trim();
   if (!title || !promptText) return { ok: false, error: 'Title and prompt are required' };
 
-  const loaded = await fetchDaConfigSheets(org, site);
-  if (!loaded.ok) return { ok: false, error: loaded.error || `Could not load config (${loaded.status})` };
-
-  const cfg = { ...(loaded.json || {}) };
-  if (!cfg[PROMPTS_SHEET]) cfg[PROMPTS_SHEET] = { total: 0, limit: 1000, offset: 0, data: [] };
-  const sheet = cfg[PROMPTS_SHEET];
-  const data = [...(sheet.data || [])];
   const matchTitle = String(options.originalTitle ?? title).trim();
-  const idx = data.findIndex((r) => String(r.title ?? '').trim() === matchTitle);
-  const prev = idx >= 0 ? data[idx] : {};
   const nextStatus = options.status === 'draft' || options.status === 'approved'
-    ? options.status : skillRowStatus(prev);
-  const nextRow = {
-    ...prev,
-    title,
-    prompt: promptText,
-    category: row.category !== undefined ? row.category : (prev.category ?? ''),
-    icon: row.icon !== undefined ? row.icon : (prev.icon ?? ''),
-    status: nextStatus,
-  };
-  if (idx >= 0) data[idx] = nextRow; else data.push(nextRow);
-  cfg[PROMPTS_SHEET] = { ...sheet, data, total: data.length };
+    ? options.status : undefined;
 
-  const save = await saveDaConfig(org, site, cfg);
-  return save.ok ? { ok: true, status: save.status } : { ok: false, error: `Save failed (${save.status})` };
+  return upsertSheetRow(
+    org,
+    site,
+    PROMPTS_SHEET,
+    (r) => String(r.title ?? '').trim() === matchTitle,
+    (prev) => ({
+      ...prev,
+      title,
+      prompt: promptText,
+      category: row.category !== undefined ? row.category : (prev.category ?? ''),
+      icon: row.icon !== undefined ? row.icon : (prev.icon ?? ''),
+      status: nextStatus ?? skillRowStatus(prev),
+    }),
+    'Prompt',
+  );
 }
 
 export async function deletePromptFromConfig(org, site, title) {
   const titleStr = String(title || '').trim();
   if (!titleStr) return { ok: false, error: 'Title required' };
-
-  const loaded = await fetchDaConfigSheets(org, site);
-  if (!loaded.ok) return { ok: false, error: loaded.error || 'Could not load config' };
-
-  const cfg = { ...(loaded.json || {}) };
-  const sheet = cfg[PROMPTS_SHEET];
-  if (!sheet?.data?.length) return { ok: false, error: 'No prompts in config' };
-
-  const data = sheet.data.filter((r) => String(r.title ?? '').trim() !== titleStr);
-  if (data.length === sheet.data.length) return { ok: false, error: 'Prompt not found' };
-  cfg[PROMPTS_SHEET] = { ...sheet, data, total: data.length };
-
-  const save = await saveDaConfig(org, site, cfg);
-  return save.ok ? { ok: true, status: save.status } : { ok: false, error: `Delete failed (${save.status})` };
+  return deleteSheetRow(
+    org,
+    site,
+    PROMPTS_SHEET,
+    (r) => String(r.title ?? '').trim() === titleStr,
+    'Prompt',
+  );
 }
 
 // ─── generated tools ────────────────────────────────────────────────────────
@@ -407,43 +444,27 @@ export async function loadGeneratedTools(org, site) {
   return generatedToolRowsToDefs(loaded.json[GEN_TOOLS_SHEET]?.data);
 }
 
+function genToolKeyMatch(id) {
+  return (r) => String(r.key ?? r.id ?? '').trim() === id;
+}
+
 export async function upsertGeneratedTool(org, site, def) {
   const id = String(def?.id ?? '').trim();
   if (!id) return { ok: false, error: 'Tool id required' };
-
-  const loaded = await fetchDaConfigSheets(org, site);
-  if (!loaded.ok) return { ok: false, error: 'Could not load config' };
-
-  const cfg = { ...(loaded.json || {}) };
-  if (!cfg[GEN_TOOLS_SHEET]) cfg[GEN_TOOLS_SHEET] = { total: 0, limit: 1000, offset: 0, data: [] };
-  const sheet = cfg[GEN_TOOLS_SHEET];
-  const data = [...(sheet.data || [])];
-  const idx = data.findIndex((r) => String(r.key ?? r.id ?? '').trim() === id);
-  const row = { key: id, content: JSON.stringify(def) };
-  if (idx >= 0) data[idx] = { ...data[idx], ...row }; else data.push(row);
-  cfg[GEN_TOOLS_SHEET] = { ...sheet, data, total: data.length };
-
-  const save = await saveDaConfig(org, site, cfg);
-  return save.ok ? { ok: true, status: save.status } : { ok: false, error: `Save failed (${save.status})` };
+  return upsertSheetRow(
+    org,
+    site,
+    GEN_TOOLS_SHEET,
+    genToolKeyMatch(id),
+    (prev) => ({ ...prev, key: id, content: JSON.stringify(def) }),
+    'Tool',
+  );
 }
 
 export async function deleteGeneratedTool(org, site, toolId) {
   const id = String(toolId || '').trim();
   if (!id) return { ok: false, error: 'Tool id required' };
-
-  const loaded = await fetchDaConfigSheets(org, site);
-  if (!loaded.ok) return { ok: false, error: 'Could not load config' };
-
-  const cfg = { ...(loaded.json || {}) };
-  const sheet = cfg[GEN_TOOLS_SHEET];
-  if (!sheet?.data?.length) return { ok: false, error: 'No generated tools in config' };
-
-  const data = sheet.data.filter((r) => String(r.key ?? r.id ?? '').trim() !== id);
-  if (data.length === sheet.data.length) return { ok: false, error: 'Tool not found' };
-  cfg[GEN_TOOLS_SHEET] = { ...sheet, data, total: data.length };
-
-  const save = await saveDaConfig(org, site, cfg);
-  return save.ok ? { ok: true, status: save.status } : { ok: false, error: `Delete failed (${save.status})` };
+  return deleteSheetRow(org, site, GEN_TOOLS_SHEET, genToolKeyMatch(id), 'Tool');
 }
 
 export async function setGeneratedToolEnabled(org, site, toolId, enabled) {
@@ -458,7 +479,7 @@ export async function setGeneratedToolEnabled(org, site, toolId, enabled) {
   if (!sheet?.data?.length) return { ok: false, error: 'No generated tools' };
 
   const data = [...sheet.data];
-  const idx = data.findIndex((r) => String(r.key ?? r.id ?? '').trim() === id);
+  const idx = data.findIndex(genToolKeyMatch(id));
   if (idx < 0) return { ok: false, error: 'Tool not found' };
 
   const raw = data[idx].content ?? data[idx].value ?? '';
@@ -479,26 +500,28 @@ export async function setGeneratedToolEnabled(org, site, toolId, enabled) {
 
 // ─── MCP servers ────────────────────────────────────────────────────────────
 
+const MCP_SHEET = 'mcp-servers';
+
+function mcpKeyMatch(serverKey) {
+  return (r) => String(r.key || '').trim() === serverKey;
+}
+
 export async function registerMcpServer(org, site, key, url, description = '') {
   const serverKey = String(key || '').trim();
   const serverUrl = String(url || '').trim();
   if (!serverKey || !serverUrl) return { ok: false, error: 'Key and URL required' };
-
-  const loaded = await fetchDaConfigSheets(org, site);
-  if (!loaded.ok) return { ok: false, error: 'Could not load config' };
-
-  const cfg = { ...(loaded.json || {}) };
-  if (!cfg['mcp-servers']) cfg['mcp-servers'] = { total: 0, limit: 1000, offset: 0, data: [] };
-  const sheet = cfg['mcp-servers'];
-  const data = [...(sheet.data || [])];
-  const idx = data.findIndex((r) => r.key === serverKey);
-  const row = { key: serverKey, url: serverUrl };
-  if (description) row.description = String(description).trim();
-  if (idx >= 0) data[idx] = { ...data[idx], ...row }; else data.push(row);
-  cfg['mcp-servers'] = { ...sheet, data, total: data.length };
-
-  const save = await saveDaConfig(org, site, cfg);
-  return save.ok ? { ok: true } : { ok: false, error: `Save failed (${save.status})` };
+  return upsertSheetRow(
+    org,
+    site,
+    MCP_SHEET,
+    mcpKeyMatch(serverKey),
+    (prev) => {
+      const row = { ...prev, key: serverKey, url: serverUrl };
+      if (description) row.description = String(description).trim();
+      return row;
+    },
+    'MCP server',
+  );
 }
 
 export async function setMcpServerEnabled(org, site, key, enabled) {
@@ -509,14 +532,14 @@ export async function setMcpServerEnabled(org, site, key, enabled) {
   if (!loaded.ok) return { ok: false, error: 'Could not load config' };
 
   const cfg = { ...(loaded.json || {}) };
-  const sheet = cfg['mcp-servers'];
+  const sheet = cfg[MCP_SHEET];
   if (!sheet?.data?.length) return { ok: false, error: 'No MCP servers' };
 
   const data = [...sheet.data];
-  const idx = data.findIndex((r) => String(r.key || '').trim() === serverKey);
+  const idx = data.findIndex(mcpKeyMatch(serverKey));
   if (idx < 0) return { ok: false, error: 'Server not found' };
   data[idx] = { ...data[idx], enabled: !!enabled };
-  cfg['mcp-servers'] = { ...sheet, data, total: data.length };
+  cfg[MCP_SHEET] = { ...sheet, data, total: data.length };
 
   const save = await saveDaConfig(org, site, cfg);
   return save.ok ? { ok: true } : { ok: false, error: `Save failed (${save.status})` };
@@ -525,18 +548,7 @@ export async function setMcpServerEnabled(org, site, key, enabled) {
 export async function deleteMcpServer(org, site, key) {
   const serverKey = String(key || '').trim();
   if (!serverKey) return { ok: false, error: 'Key required' };
-
-  const loaded = await fetchDaConfigSheets(org, site);
-  if (!loaded.ok) return { ok: false, error: 'Could not load config' };
-
-  const cfg = { ...(loaded.json || {}) };
-  const sheet = cfg['mcp-servers'];
-  if (!sheet?.data?.length) return { ok: true };
-  const data = sheet.data.filter((r) => String(r.key || '').trim() !== serverKey);
-  cfg['mcp-servers'] = { ...sheet, data, total: data.length };
-
-  const save = await saveDaConfig(org, site, cfg);
-  return save.ok ? { ok: true } : { ok: false, error: `Save failed (${save.status})` };
+  return deleteSheetRow(org, site, MCP_SHEET, mcpKeyMatch(serverKey), 'MCP server');
 }
 
 export async function fetchMcpToolsFromAgent(servers) {
