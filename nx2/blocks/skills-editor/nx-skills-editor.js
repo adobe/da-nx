@@ -16,6 +16,7 @@ import {
   deletePromptFromConfig,
   loadGeneratedTools,
   loadAgentPresets,
+  saveAgentPresetFile,
   fetchMcpToolsFromAgent,
   extractToolRefs,
   consumeSuggestionHandoff,
@@ -29,7 +30,13 @@ import {
   DA_SKILLS_EDITOR_SUGGESTION_HANDOFF,
   DA_SKILLS_EDITOR_CLEAR_FORM_FROM_CHAT,
   DA_SKILLS_EDITOR_FORM_DISMISS,
+  DA_SKILLS_EDITOR_PROMPT_ADD_TO_CHAT,
   DA_SKILLS_EDITOR_PROMPT_SEND,
+  DA_SKILLS_LAB_SUGGESTION_HANDOFF,
+  DA_SKILLS_LAB_CLEAR_FORM_FROM_CHAT,
+  DA_SKILLS_LAB_FORM_DISMISS,
+  DA_SKILLS_LAB_PROMPT_ADD_TO_CHAT,
+  DA_SKILLS_LAB_PROMPT_SEND,
 } from './skills-editor-api.js';
 
 const styles = await loadStyle(import.meta.url);
@@ -67,12 +74,16 @@ const FRESH_FORM_STATE = Object.freeze({
   formPromptTitle: '',
   formPromptBody: '',
   formPromptCategory: '',
+  formPromptIcon: '',
+  formPromptOriginalTitle: '',
   isFormPromptEdit: false,
   formPromptTools: [],
   mcpKey: '',
   mcpUrl: '',
   mcpDescription: '',
   editingMcpKey: null,
+  newAgentId: '',
+  newAgentName: '',
 });
 
 const BUILTIN_MCP_SERVERS = [
@@ -93,12 +104,14 @@ const BUILTIN_AGENTS = [
     id: 'da-assistant',
     label: 'DA Assistant',
     description: 'Default content authoring assistant with full DA tooling',
-    tools: [
-      'da_list_sources', 'da_get_source', 'da_create_source', 'da_update_source',
-      'da_delete_source', 'da_copy_content', 'da_move_content', 'da_create_version',
-      'da_get_versions', 'da_lookup_media', 'da_lookup_fragment', 'da_upload_media',
-    ],
+    mcpServers: ['da-tools', 'eds-preview'],
   },
+];
+
+const BUILTIN_TOOL_IDS = [
+  'da_list_sources', 'da_get_source', 'da_create_source', 'da_update_source',
+  'da_delete_source', 'da_copy_content', 'da_move_content', 'da_create_version',
+  'da_get_versions', 'da_lookup_media', 'da_lookup_fragment', 'da_upload_media',
 ];
 
 class NxSkillsEditor extends LitElement {
@@ -110,6 +123,7 @@ class NxSkillsEditor extends LitElement {
     _skillStatuses: { state: true },
     _prompts: { state: true },
     _agents: { state: true },
+    _agentRows: { state: true },
     _mcpRows: { state: true },
     _mcpTools: { state: true },
     _generatedTools: { state: true },
@@ -151,6 +165,7 @@ class NxSkillsEditor extends LitElement {
     this._skillStatuses = {};
     this._prompts = [];
     this._agents = [];
+    this._agentRows = [];
     this._mcpRows = [];
     this._mcpTools = null;
     this._generatedTools = [];
@@ -183,7 +198,9 @@ class NxSkillsEditor extends LitElement {
     this._boundOnClearForm = () => this._clearForm();
     this._boundOnPopstate = (e) => this._onPopstate(e);
     window.addEventListener(DA_SKILLS_EDITOR_SUGGESTION_HANDOFF, this._boundOnSuggestion);
+    window.addEventListener(DA_SKILLS_LAB_SUGGESTION_HANDOFF, this._boundOnSuggestion);
     window.addEventListener(DA_SKILLS_EDITOR_CLEAR_FORM_FROM_CHAT, this._boundOnClearForm);
+    window.addEventListener(DA_SKILLS_LAB_CLEAR_FORM_FROM_CHAT, this._boundOnClearForm);
     window.addEventListener('popstate', this._boundOnPopstate);
     // Seed initial history state so back navigation knows which tab was active
     history.replaceState({ ...history.state, skillsEditorTab: this._catalogTab }, '');
@@ -193,7 +210,9 @@ class NxSkillsEditor extends LitElement {
     super.disconnectedCallback();
     clearTimeout(this._statusTimer);
     window.removeEventListener(DA_SKILLS_EDITOR_SUGGESTION_HANDOFF, this._boundOnSuggestion);
+    window.removeEventListener(DA_SKILLS_LAB_SUGGESTION_HANDOFF, this._boundOnSuggestion);
     window.removeEventListener(DA_SKILLS_EDITOR_CLEAR_FORM_FROM_CHAT, this._boundOnClearForm);
+    window.removeEventListener(DA_SKILLS_LAB_CLEAR_FORM_FROM_CHAT, this._boundOnClearForm);
     window.removeEventListener('popstate', this._boundOnPopstate);
   }
 
@@ -319,6 +338,7 @@ class NxSkillsEditor extends LitElement {
     this._skills = skillsResult.map;
     this._skillStatuses = skillsResult.statuses;
     this._prompts = configResult.json?.prompts?.data || [];
+    this._agentRows = configResult.agentRows || [];
     this._mcpRows = configResult.mcpRows || [];
     this._configuredMcpServers = configResult.configuredMcpServers || {};
     this._generatedTools = genTools;
@@ -372,6 +392,7 @@ class NxSkillsEditor extends LitElement {
     this._clearForm();
     this._isEditorOpen = false;
     window.dispatchEvent(new CustomEvent(DA_SKILLS_EDITOR_FORM_DISMISS));
+    window.dispatchEvent(new CustomEvent(DA_SKILLS_LAB_FORM_DISMISS));
   }
 
   _closeEditor() {
@@ -508,6 +529,8 @@ class NxSkillsEditor extends LitElement {
     this._formPromptTitle = row.title || '';
     this._formPromptBody = row.prompt || '';
     this._formPromptCategory = row.category || '';
+    this._formPromptIcon = row.icon || '';
+    this._formPromptOriginalTitle = row.title || '';
     this._formPromptTools = extractToolRefs(row.prompt || '');
     this._isFormPromptEdit = true;
     this._statusMsg = '';
@@ -537,6 +560,23 @@ class NxSkillsEditor extends LitElement {
     this._editingMcpKey = null;
     this._catalogTab = 'mcps';
     this._isEditorOpen = true;
+  }
+
+  _customAgentMcpServers(agent) {
+    if (Array.isArray(agent?.mcpServers)) return agent.mcpServers;
+    if (Array.isArray(agent?.preset?.mcpServers)) return agent.preset.mcpServers;
+    return [];
+  }
+
+  _agentToolIds(agent, isBuiltin = false) {
+    const ids = new Set(BUILTIN_TOOL_IDS);
+    const mcpServers = isBuiltin ? (agent?.mcpServers || []) : this._customAgentMcpServers(agent);
+    const servers = this._mcpTools?.servers || [];
+    servers.forEach((server) => {
+      if (!mcpServers.includes(server.id) || !server.tools) return;
+      server.tools.forEach((tool) => ids.add(`mcp__${server.id}__${tool.name}`));
+    });
+    return [...ids];
   }
 
   // ─── skill CRUD ───────────────────────────────────────────────────────────
@@ -706,12 +746,14 @@ class NxSkillsEditor extends LitElement {
   }
 
   _onSelectAgent(agent) {
-    this._formPromptTools = agent.tools || [];
+    this._formPromptTools = this._agentToolIds(agent, agent?.id === BUILTIN_AGENTS[0]?.id);
     this._isAgentViewTools = true;
+    this._catalogTab = 'agents';
     this._isEditorOpen = true;
   }
 
   _openNewAgentEditor() {
+    this._editorTriggerSelector = this._captureTriggerSelector();
     this._clearForm();
     this._isAgentViewTools = false;
     this._catalogTab = 'agents';
@@ -740,8 +782,16 @@ class NxSkillsEditor extends LitElement {
     const result = await upsertPromptInConfig(
       this._org,
       this._site,
-      { title, prompt, category: this._formPromptCategory },
-      { status },
+      {
+        title,
+        prompt,
+        category: this._formPromptCategory,
+        icon: this._formPromptIcon,
+      },
+      {
+        status,
+        originalTitle: this._formPromptOriginalTitle || undefined,
+      },
     );
 
     if (!result.ok) {
@@ -753,7 +803,11 @@ class NxSkillsEditor extends LitElement {
         this._formPromptTitle = '';
         this._formPromptCategory = '';
         this._formPromptBody = '';
+        this._formPromptIcon = '';
+        this._formPromptOriginalTitle = '';
         this._formPromptTools = [];
+      } else {
+        this._formPromptOriginalTitle = title;
       }
     }
     this._isSaveBusy = false;
@@ -812,6 +866,7 @@ class NxSkillsEditor extends LitElement {
     const prompt = this._formPromptBody.trim();
     if (!prompt) return;
     this._dispatchPromptToChat(DA_SKILLS_EDITOR_PROMPT_SEND, prompt);
+    this._dispatchPromptToChat(DA_SKILLS_LAB_PROMPT_SEND, prompt);
     this._setStatus('Sent to chat');
   }
 
@@ -899,6 +954,34 @@ class NxSkillsEditor extends LitElement {
     window.dispatchEvent(new CustomEvent(eventName, {
       detail: { prompt: String(prompt || '') },
     }));
+  }
+
+  async _onSaveAgent() {
+    const id = this._newAgentId.trim().replace(/\.json$/i, '');
+    const name = this._newAgentName.trim() || id;
+    if (!id) {
+      this._setStatus('Agent id required', 'err');
+      return;
+    }
+    this._isSaveBusy = true;
+    const preset = {
+      name,
+      description: '',
+      systemPrompt: '',
+      skills: [],
+      mcpServers: [],
+    };
+    const result = await saveAgentPresetFile(this._org, this._site, id, preset);
+    this._isSaveBusy = false;
+    if (!result.ok) {
+      this._setStatus(result.error || 'Failed to save agent file', 'err');
+      return;
+    }
+    this._newAgentId = '';
+    this._newAgentName = '';
+    this._clearDirty();
+    this._setStatus('Agent file saved');
+    await this._reload();
   }
 
   // ─── tool references ──────────────────────────────────────────────────────
@@ -994,9 +1077,10 @@ class NxSkillsEditor extends LitElement {
 
   _renderEditorPanel() {
     const tab = this._catalogTab;
-    const isSkill = tab === 'skills' || tab === 'agents';
+    const isSkill = tab === 'skills';
     const isPrompt = tab === 'prompts';
     const isMcp = tab === 'mcps';
+    const isAgent = tab === 'agents';
     const isMemory = tab === 'memory';
 
     const title = this._editorTitle(tab);
@@ -1016,8 +1100,9 @@ class NxSkillsEditor extends LitElement {
               <div class="dirty-notice" role="status">Unsaved edits &middot; save to persist</div>
             ` : nothing}
             <div class="editor-body ${isMemory ? 'editor-body-memory' : ''}">
-              ${tab === 'agents' && this._isAgentViewTools ? this._renderAssociatedToolsSelector() : nothing}
-              ${isSkill && !this._isAgentViewTools ? this._renderSkillForm() : nothing}
+              ${isSkill ? this._renderSkillForm() : nothing}
+              ${isAgent && this._isAgentViewTools ? this._renderAssociatedToolsSelector() : nothing}
+              ${isAgent && !this._isAgentViewTools ? this._renderAgentForm() : nothing}
               ${isPrompt ? this._renderPromptForm() : nothing}
               ${isMcp ? this._renderMcpForm() : nothing}
               ${isMemory ? html`
@@ -1025,9 +1110,9 @@ class NxSkillsEditor extends LitElement {
                 ${this._renderMemoryContent()}
               ` : nothing}
             </div>
-            ${(isSkill && !this._isAgentViewTools) || isPrompt || isMcp ? html`
+            ${(isSkill || (isAgent && !this._isAgentViewTools) || isPrompt || isMcp) ? html`
               <div class="editor-footer">
-                ${this._renderEditorFooter(isSkill && !this._isAgentViewTools, isPrompt, isMcp)}
+                ${this._renderEditorFooter(isSkill, isPrompt, isMcp, isAgent)}
               </div>
             ` : nothing}
           ` : nothing}
@@ -1051,12 +1136,34 @@ class NxSkillsEditor extends LitElement {
         >
         <div class="textarea-wrap ${this._hasSuggestion ? 'is-suggestion' : ''}">
           <textarea
-            placeholder="Create or edit a tool"
+            placeholder="Write or revise skill markdown"
             aria-label="Skill markdown"
             .value=${this._formSkillBody}
             @input=${(e) => { this._formSkillBody = e.target.value; this._markDirty(); }}
           ></textarea>
         </div>
+      </form>
+    `;
+  }
+
+  _renderAgentForm() {
+    return html`
+      <form class="form" @submit=${(e) => e.preventDefault()}>
+        <p class="form-hint">Creates <code>/.da/agents/&lt;id&gt;.json</code></p>
+        <input
+          type="text"
+          placeholder="agent-id"
+          aria-label="Agent ID"
+          .value=${this._newAgentId}
+          @input=${(e) => { this._newAgentId = e.target.value; this._markDirty(); }}
+        >
+        <input
+          type="text"
+          placeholder="Display name"
+          aria-label="Agent display name"
+          .value=${this._newAgentName}
+          @input=${(e) => { this._newAgentName = e.target.value; this._markDirty(); }}
+        >
       </form>
     `;
   }
@@ -1074,6 +1181,10 @@ class NxSkillsEditor extends LitElement {
           list="category-list"
           .value=${this._formPromptCategory}
           @input=${(e) => { this._formPromptCategory = e.target.value; this._markDirty(); }}
+        >
+        <input type="url" placeholder="Icon URL" aria-label="Prompt icon URL"
+          .value=${this._formPromptIcon}
+          @input=${(e) => { this._formPromptIcon = e.target.value; this._markDirty(); }}
         >
         <datalist id="category-list">
           ${CATEGORY_OPTIONS.map((c) => html`<option value=${c}></option>`)}
@@ -1093,7 +1204,7 @@ class NxSkillsEditor extends LitElement {
   // ─── render: associated tools selector ───────────────────────────────────
 
   _renderAssociatedToolsSelector() {
-    const builtIn = BUILTIN_AGENTS[0]?.tools || [];
+    const builtIn = BUILTIN_TOOL_IDS;
     const mcpToolIds = [];
     if (this._mcpTools?.servers) {
       this._mcpTools.servers.forEach((server) => {
@@ -1195,7 +1306,7 @@ class NxSkillsEditor extends LitElement {
 
   // ─── render: editor footer (sticky actions) ───────────────────────────────
 
-  _renderEditorFooter(isSkill, isPrompt, isMcp) {
+  _renderEditorFooter(isSkill, isPrompt, isMcp, isAgent) {
     const statusTpl = this._statusMsg ? html`
       <output class="msg ${this._statusType === 'err' ? 'msg-err' : 'msg-ok'}">
         ${this._statusMsg}
@@ -1230,6 +1341,18 @@ class NxSkillsEditor extends LitElement {
       `;
     }
 
+    if (isAgent) {
+      return html`
+        <div class="editor-actions" role="toolbar" aria-label="Agent actions">
+          <button type="button" data-variant="accent"
+            ?disabled=${this._isSaveBusy || !this._newAgentId.trim()}
+            @click=${this._onSaveAgent}
+          >Save Agent File</button>
+        </div>
+        ${statusTpl}
+      `;
+    }
+
     if (isPrompt) {
       return html`
         <div class="editor-actions" role="toolbar" aria-label="Prompt actions">
@@ -1241,6 +1364,14 @@ class NxSkillsEditor extends LitElement {
             ?disabled=${this._isSaveBusy}
             @click=${() => this._onSavePrompt(STATUS.APPROVED)}
           >Save</button>
+          <button type="button" data-variant="secondary"
+            ?disabled=${this._isSaveBusy || !this._formPromptBody.trim()}
+            @click=${() => {
+              this._dispatchPromptToChat(DA_SKILLS_EDITOR_PROMPT_ADD_TO_CHAT, this._formPromptBody);
+              this._dispatchPromptToChat(DA_SKILLS_LAB_PROMPT_ADD_TO_CHAT, this._formPromptBody);
+              this._setStatus('Added to chat input');
+            }}
+          >Add to Chat</button>
           <button type="button" data-variant="secondary"
             ?disabled=${this._isSaveBusy || !this._formPromptBody.trim()}
             @click=${() => this._onRunPrompt()}
@@ -1274,6 +1405,7 @@ class NxSkillsEditor extends LitElement {
 
   _renderGeneratedTools() {
     return html`
+      <p class="form-hint">Site-generated tool definitions (draft / approved).</p>
       <nx-generated-tools
         .org=${this._org}
         .site=${this._site}
@@ -1358,6 +1490,9 @@ class NxSkillsEditor extends LitElement {
   // ─── render: agents catalog ───────────────────────────────────────────────
 
   _renderAgentCard(agent, isBuiltin = false) {
+    const title = agent.label || agent.name || agent.preset?.name || agent.id;
+    const description = agent.description || agent.preset?.description || '';
+    const tools = this._agentToolIds(agent, isBuiltin);
     return html`
       <article class="agent-card" role="listitem"
         data-testid=${isBuiltin ? 'agent-builtin-card' : 'agent-card'}
@@ -1365,14 +1500,14 @@ class NxSkillsEditor extends LitElement {
       >
         <header class="agent-card-header">
           <span class="status-dot status-dot-approved" aria-label="Active"></span>
-          <span class="agent-card-title">${agent.label || agent.id}</span>
+          <span class="agent-card-title">${title}</span>
           <span class="badge">${isBuiltin ? 'built-in' : 'custom'}</span>
         </header>
-        ${agent.description ? html`<p class="agent-card-desc">${agent.description}</p>` : nothing}
-        ${agent.tools?.length ? html`
+        ${description ? html`<p class="agent-card-desc">${description}</p>` : nothing}
+        ${tools.length ? html`
           <footer class="agent-card-footer">
-            <ul class="agent-tools-list" aria-label="Tools used by ${agent.label || agent.id}">
-              ${agent.tools.map((tool) => html`<li class="agent-tool-chip">${tool}</li>`)}
+            <ul class="agent-tools-list" aria-label="Tools used by ${title}">
+              ${tools.slice(0, 12).map((tool) => html`<li class="agent-tool-chip">${tool}</li>`)}
             </ul>
           </footer>
         ` : nothing}
@@ -1387,6 +1522,19 @@ class NxSkillsEditor extends LitElement {
       ${this._agents.length ? html`
         <h3 class="section-h">Custom (${this._agents.length})</h3>
         ${this._agents.map((agent) => this._renderAgentCard(agent, false))}
+      ` : nothing}
+      ${this._agentRows.length ? html`
+        <h3 class="section-h">Config Agents (${this._agentRows.length})</h3>
+        ${this._agentRows.map((row) => html`
+          <article class="agent-card" role="listitem" data-testid="agent-config-card">
+            <header class="agent-card-header">
+              <span class="status-dot status-dot-approved" aria-label="Configured"></span>
+              <span class="agent-card-title">${row.key}</span>
+              <span class="badge">config</span>
+            </header>
+            <p class="agent-card-desc">${row.url}</p>
+          </article>
+        `)}
       ` : nothing}
     `;
   }
@@ -1432,11 +1580,20 @@ class NxSkillsEditor extends LitElement {
                     aria-label="Duplicate ${title}"
                     @click=${(e) => { e.stopPropagation(); this._duplicatePrompt(row); }}
                   >\u29c9</button>
+                  <button type="button" class="btn-icon row-action-btn" title="Add to chat"
+                    aria-label="Add to chat: ${title}"
+                    @click=${(e) => {
+                      e.stopPropagation();
+                      this._dispatchPromptToChat(DA_SKILLS_EDITOR_PROMPT_ADD_TO_CHAT, row.prompt);
+                      this._dispatchPromptToChat(DA_SKILLS_LAB_PROMPT_ADD_TO_CHAT, row.prompt);
+                    }}
+                  >+</button>
                   <button type="button" class="btn-icon row-action-btn" title="Send to chat"
                     aria-label="Send to chat: ${title}"
                     @click=${(e) => {
                       e.stopPropagation();
                       this._dispatchPromptToChat(DA_SKILLS_EDITOR_PROMPT_SEND, row.prompt);
+                      this._dispatchPromptToChat(DA_SKILLS_LAB_PROMPT_SEND, row.prompt);
                     }}
                   >\u25b6</button>
                   <button type="button" class="btn-icon row-action-btn row-action-btn-delete" title="Delete"

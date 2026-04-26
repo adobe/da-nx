@@ -9,6 +9,14 @@ import { ADD_MENU_ITEMS, CHAT_ICONS, ROLE, TOOL_STATE } from './constants.js';
 
 const styles = await loadStyle(import.meta.url);
 const icons = await loadChatIcons(CHAT_ICONS);
+const PROMPT_ADD_EVENTS = [
+  'da-skills-editor-prompt-add-to-chat',
+  'da-skills-lab-prompt-add-to-chat',
+];
+const PROMPT_SEND_EVENTS = [
+  'da-skills-editor-prompt-send',
+  'da-skills-lab-prompt-send',
+];
 
 const icon = (name) => icons?.[name]?.cloneNode(true);
 class NxChat extends LitElement {
@@ -79,6 +87,14 @@ class NxChat extends LitElement {
     });
 
     this._controller.connect().then(() => this._controller.loadInitialMessages());
+    this._boundPromptAdd = (event) => this._handlePromptAdd(event);
+    this._boundPromptSend = (event) => this._handlePromptSend(event);
+    PROMPT_ADD_EVENTS.forEach((eventName) => {
+      window.addEventListener(eventName, this._boundPromptAdd);
+    });
+    PROMPT_SEND_EVENTS.forEach((eventName) => {
+      window.addEventListener(eventName, this._boundPromptSend);
+    });
   }
 
   disconnectedCallback() {
@@ -86,6 +102,12 @@ class NxChat extends LitElement {
     this._unsubscribeHash?.();
     this._controller?.destroy();
     document.removeEventListener('keydown', this._onApprovalKeydown);
+    PROMPT_ADD_EVENTS.forEach((eventName) => {
+      window.removeEventListener(eventName, this._boundPromptAdd);
+    });
+    PROMPT_SEND_EVENTS.forEach((eventName) => {
+      window.removeEventListener(eventName, this._boundPromptSend);
+    });
   }
 
   _pendingApproval() {
@@ -153,6 +175,35 @@ class NxChat extends LitElement {
   _sendPrompt(prompt) {
     if (!prompt || this.thinking) return;
     this._controller.sendMessage(prompt);
+  }
+
+  _handlePromptAdd(event) {
+    const prompt = event?.detail?.prompt;
+    if (typeof prompt !== 'string' || !prompt.trim()) return;
+    const key = `add:${prompt.trim()}`;
+    if (this._consumeDuplicatePromptEvent(key)) return;
+    const input = this.shadowRoot.querySelector('.chat-input');
+    if (!input) return;
+    const nextPrompt = prompt.trim();
+    input.value = input.value.trim() ? `${input.value.trim()}\n${nextPrompt}` : nextPrompt;
+    input.focus();
+  }
+
+  _handlePromptSend(event) {
+    const prompt = event?.detail?.prompt;
+    if (typeof prompt !== 'string' || !prompt.trim()) return;
+    const key = `send:${prompt.trim()}`;
+    if (this._consumeDuplicatePromptEvent(key)) return;
+    this._sendPrompt(prompt.trim());
+  }
+
+  _consumeDuplicatePromptEvent(key) {
+    const now = Date.now();
+    if (this._lastPromptEvent?.key === key && now - this._lastPromptEvent.ts < 50) {
+      return true;
+    }
+    this._lastPromptEvent = { key, ts: now };
+    return false;
   }
 
   _copy(content) {

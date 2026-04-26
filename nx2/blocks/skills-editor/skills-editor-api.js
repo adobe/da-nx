@@ -19,25 +19,40 @@ export function getAgentOrigin() {
 // ─── chat ↔ skills-editor suggestion (sessionStorage + custom events) ────────
 
 const SKILL_CHAT_PROSE_KEY = 'da-skills-editor-skill-chat-prose';
+const LEGACY_SKILL_CHAT_PROSE_KEY = 'da-skills-lab-skill-chat-prose';
 const SUGGEST_HANDOFF_KEY = 'da-skills-editor-suggestion';
+const LEGACY_SUGGEST_HANDOFF_KEY = 'da-skills-lab-suggest-handoff';
 
 export const DA_SKILLS_EDITOR_SUGGESTION_HANDOFF = 'da-skills-editor-suggestion-handoff';
 export const DA_SKILLS_EDITOR_FORM_DISMISS = 'da-skills-editor-form-column-dismiss';
 export const DA_SKILLS_EDITOR_CLEAR_FORM_FROM_CHAT = 'da-skills-editor-clear-form-from-chat';
 export const DA_SKILLS_EDITOR_PROMPT_ADD_TO_CHAT = 'da-skills-editor-prompt-add-to-chat';
 export const DA_SKILLS_EDITOR_PROMPT_SEND = 'da-skills-editor-prompt-send';
+export const DA_SKILLS_LAB_SUGGESTION_HANDOFF = 'da-skills-lab-suggestion-handoff';
+export const DA_SKILLS_LAB_FORM_DISMISS = 'da-skills-lab-form-column-dismiss';
+export const DA_SKILLS_LAB_CLEAR_FORM_FROM_CHAT = 'da-skills-lab-clear-form-from-chat';
+export const DA_SKILLS_LAB_PROMPT_ADD_TO_CHAT = 'da-skills-lab-prompt-add-to-chat';
+export const DA_SKILLS_LAB_PROMPT_SEND = 'da-skills-lab-prompt-send';
 
 export function setSkillChatProse(text) {
   try {
-    if (text && String(text).trim()) sessionStorage.setItem(SKILL_CHAT_PROSE_KEY, String(text));
-    else sessionStorage.removeItem(SKILL_CHAT_PROSE_KEY);
+    if (text && String(text).trim()) {
+      const prose = String(text);
+      sessionStorage.setItem(SKILL_CHAT_PROSE_KEY, prose);
+      sessionStorage.setItem(LEGACY_SKILL_CHAT_PROSE_KEY, prose);
+    } else {
+      sessionStorage.removeItem(SKILL_CHAT_PROSE_KEY);
+      sessionStorage.removeItem(LEGACY_SKILL_CHAT_PROSE_KEY);
+    }
   } catch { /* noop */ }
 }
 
 export function consumeSkillChatProse() {
   try {
-    const t = sessionStorage.getItem(SKILL_CHAT_PROSE_KEY);
+    const t = sessionStorage.getItem(SKILL_CHAT_PROSE_KEY)
+      || sessionStorage.getItem(LEGACY_SKILL_CHAT_PROSE_KEY);
     sessionStorage.removeItem(SKILL_CHAT_PROSE_KEY);
+    sessionStorage.removeItem(LEGACY_SKILL_CHAT_PROSE_KEY);
     return t && String(t).trim() ? String(t) : '';
   } catch { return ''; }
 }
@@ -47,22 +62,28 @@ export function setSuggestionHandoff(payload) {
   try {
     if (!payload || typeof payload !== 'object') {
       sessionStorage.removeItem(SUGGEST_HANDOFF_KEY);
+      sessionStorage.removeItem(LEGACY_SUGGEST_HANDOFF_KEY);
       return;
     }
     const { prose = '', id = '', body = '' } = payload;
     if (!prose.trim() && !id.trim() && !body.trim()) {
       sessionStorage.removeItem(SUGGEST_HANDOFF_KEY);
+      sessionStorage.removeItem(LEGACY_SUGGEST_HANDOFF_KEY);
       return;
     }
-    sessionStorage.setItem(SUGGEST_HANDOFF_KEY, JSON.stringify({ prose, id: id.trim(), body }));
+    const serialized = JSON.stringify({ prose, id: id.trim(), body });
+    sessionStorage.setItem(SUGGEST_HANDOFF_KEY, serialized);
+    sessionStorage.setItem(LEGACY_SUGGEST_HANDOFF_KEY, serialized);
   } catch { /* noop */ }
 }
 
 /** @returns {{ prose: string, id: string, body: string } | null} */
 export function consumeSuggestionHandoff() {
   try {
-    const raw = sessionStorage.getItem(SUGGEST_HANDOFF_KEY);
+    const raw = sessionStorage.getItem(SUGGEST_HANDOFF_KEY)
+      || sessionStorage.getItem(LEGACY_SUGGEST_HANDOFF_KEY);
     sessionStorage.removeItem(SUGGEST_HANDOFF_KEY);
+    sessionStorage.removeItem(LEGACY_SUGGEST_HANDOFF_KEY);
     if (!raw) return null;
     const payload = JSON.parse(raw);
     if (!payload || typeof payload !== 'object') return null;
@@ -73,7 +94,9 @@ export function consumeSuggestionHandoff() {
 export function clearSuggestionSession() {
   try {
     sessionStorage.removeItem(SUGGEST_HANDOFF_KEY);
+    sessionStorage.removeItem(LEGACY_SUGGEST_HANDOFF_KEY);
     sessionStorage.removeItem(SKILL_CHAT_PROSE_KEY);
+    sessionStorage.removeItem(LEGACY_SKILL_CHAT_PROSE_KEY);
   } catch { /* noop */ }
 }
 
@@ -582,12 +605,35 @@ export async function loadAgentPresets(org, site) {
         const src = await daFetch(`${DA_ORIGIN}/source${item.path}`);
         if (!src.ok) return;
         const preset = JSON.parse(await src.text());
-        // spread preset fields flat so renderers can read id, label, description, tools directly
-        if (preset && typeof preset === 'object') out.push({ id, ...preset });
+        if (preset && typeof preset === 'object') {
+          out.push({
+            id,
+            preset,
+            ...preset,
+          });
+        }
       } catch { /* skip */ }
     }));
   } catch { /* noop */ }
   return out;
+}
+
+export async function saveAgentPresetFile(org, site, agentId, preset) {
+  const id = String(agentId || '').trim().replace(/\.json$/i, '');
+  if (!id) return { ok: false, error: 'Agent id required' };
+  const path = `/${org}/${site}/${AGENTS_PATH}/${id}.json`;
+  const body = new FormData();
+  body.append(
+    'data',
+    new Blob([JSON.stringify(preset, null, 2)], { type: 'application/json' }),
+    `${id}.json`,
+  );
+  try {
+    const resp = await daFetch(`${DA_ORIGIN}/source${path}`, { method: 'POST', body });
+    return resp.ok ? { ok: true, status: resp.status } : { ok: false, error: `Save failed (${resp.status})` };
+  } catch (err) {
+    return { ok: false, error: String(err?.message ?? err) };
+  }
 }
 
 // ─── utilities ──────────────────────────────────────────────────────────────
