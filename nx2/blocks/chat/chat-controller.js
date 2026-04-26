@@ -110,7 +110,7 @@ export default class ChatController {
   _onToolEvent = ({
     type, toolCallId, toolName, input, output, isError, approvalId,
   }) => {
-    const next = new Map(this._toolCards ?? []);
+    let next = new Map(this._toolCards ?? []);
 
     if (type === AGENT_EVENT.TOOL_CALL) {
       if (next.has(toolCallId)) return; // duplicate — ignore
@@ -147,6 +147,22 @@ export default class ChatController {
       const state = isError ? TOOL_STATE.ERROR : TOOL_STATE.DONE;
       next.set(toolCallId, { ...prior, state, output });
       if (state === TOOL_STATE.DONE) {
+        // compact_context: replace the full message history with the compact summary so the
+        // next POST sends only the summary instead of the entire conversation.
+        if (toolName === 'compact_context') {
+          const data = output?.type === 'json' ? output.value : output;
+          if (data?.compacted && data?.summary) {
+            this._messages = [{ role: ROLE.USER, content: `[Conversation compacted]\n\n${data.summary}` }];
+            next = new Map();
+            // Save immediately so a refresh between tool-result and assistant confirmation
+            // still yields the trimmed history.
+            saveMessages(this._room, this._messages);
+            this._onToolDone?.();
+            this._toolCards = next;
+            this._update();
+            return;
+          }
+        }
         // Add a virtual message so the tool renders in the conversation at the right
         // position and persists across refreshes, without being sent back to the agent.
         this._messages = [
