@@ -1,10 +1,9 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../utils/utils.js';
 import '../popover/popover.js';
-import { loadHrefSvg } from '../../../utils/svg.js';
+import { loadHrefSvg, ICONS_BASE } from '../../../utils/svg.js';
 import { listKeydown } from '../utils/list-nav.js';
 
-const ICONS_BASE = new URL('../../img/icons/', import.meta.url).href;
 const styles = await loadStyle(import.meta.url);
 
 // todo: remove once changes from ew are available with reusable utils

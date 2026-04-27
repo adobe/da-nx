@@ -2,6 +2,7 @@ import { loadIms } from '../../utils/ims.js';
 import { AGENT_EVENT, ROLE, TOOL_STATE } from './constants.js';
 import { readStream } from './utils.js';
 import { loadMessages, saveMessages, clearMessages } from './persistence.js';
+import { loadMcpServerConfig } from './api.js';
 
 // ?ref=local routes to a local da-agent dev server (port 5173).
 const AGENT_URL = new URLSearchParams(window.location.search).get('ref') === 'local'
@@ -17,6 +18,12 @@ export default class ChatController {
   setContext(context) {
     this._context = context;
     this._room = null;
+  }
+
+  async _getMcpConfig() {
+    const { org, site } = this._context ?? {};
+    if (!org || !site) return { servers: {}, serverHeaders: {} };
+    return loadMcpServerConfig(org, site);
   }
 
   async _getRoom() {
@@ -206,7 +213,11 @@ export default class ChatController {
   };
 
   async _stream(pageContext) {
-    const [{ accessToken }, room] = await Promise.all([loadIms(), this._getRoom()]);
+    const [{ accessToken }, room, mcpConfig] = await Promise.all([
+      loadIms(),
+      this._getRoom(),
+      this._getMcpConfig(),
+    ]);
     this._abortController = new AbortController();
 
     const resp = await fetch(AGENT_URL, {
@@ -218,6 +229,8 @@ export default class ChatController {
         context: this._pendingContext ?? [],
         imsToken: accessToken?.token ?? null,
         room,
+        mcpServers: mcpConfig?.servers ?? {},
+        mcpServerHeaders: mcpConfig?.serverHeaders ?? {},
       }),
       signal: this._abortController.signal,
     });

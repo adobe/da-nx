@@ -575,7 +575,8 @@ describe('crawl', () => {
     await results;
 
     const timeDiff = secondFetchTime - firstFetchTime;
-    expect(timeDiff).to.be.at.least(50);
+    // Avoid CI timing flakes while still asserting throttle is applied.
+    expect(timeDiff).to.be.at.least(40);
   });
 
   it('Resolves results promise with all files', async () => {

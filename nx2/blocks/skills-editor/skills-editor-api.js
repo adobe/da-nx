@@ -135,11 +135,26 @@ async function materializeConfigAfter404(org, site) {
 }
 
 const EMPTY_CONFIG = Object.freeze({
-  ok: true, json: {}, mcpRows: [], agentRows: [], configuredMcpServers: {},
+  ok: true,
+  json: {},
+  mcpRows: [],
+  agentRows: [],
+  configuredMcpServers: {},
+  configuredMcpServerHeaders: {},
+  toolOverrides: {},
 });
 
+const TOOL_OVERRIDES_SHEET = 'tool-overrides';
+
 const AUTH_FAIL = {
-  ok: false, status: 401, error: 'Unauthorized', mcpRows: [], agentRows: [], configuredMcpServers: {},
+  ok: false,
+  status: 401,
+  error: 'Unauthorized',
+  mcpRows: [],
+  agentRows: [],
+  configuredMcpServers: {},
+  configuredMcpServerHeaders: {},
+  toolOverrides: {},
 };
 
 export async function fetchDaConfigSheets(org, site) {
@@ -156,11 +171,21 @@ export async function fetchDaConfigSheets(org, site) {
     if (!resp.ok) {
       return resp.status === 404
         ? { ...EMPTY_CONFIG }
-        : { ok: false, status: resp.status, mcpRows: [], agentRows: [], configuredMcpServers: {} };
+        // eslint-disable-next-line max-len
+        : {
+          ok: false,
+          status: resp.status,
+          mcpRows: [],
+          agentRows: [],
+          configuredMcpServers: {},
+          configuredMcpServerHeaders: {},
+          toolOverrides: {},
+        };
     }
     const json = await resp.json();
     const mcpRows = json?.['mcp-servers']?.data || [];
     const servers = {};
+    const serverHeaders = {};
     mcpRows.forEach((row) => {
       const rowUrl = row.url || row.value;
       const s = String(row?.status ?? '').trim().toLowerCase();
@@ -168,15 +193,43 @@ export async function fetchDaConfigSheets(org, site) {
       let enabled = true;
       if (typeof row?.enabled === 'boolean') enabled = row.enabled;
       else if (typeof row?.disabled === 'boolean') enabled = !row.disabled;
-      if (row.key && rowUrl && approved && enabled) servers[row.key] = rowUrl;
+      const key = String(row?.key || '').trim();
+      if (key && rowUrl && approved && enabled) {
+        servers[key] = rowUrl;
+        const headerName = String(row?.authHeaderName || '').trim();
+        const headerValue = String(row?.authHeaderValue || '').trim();
+        if (headerName && headerValue) serverHeaders[key] = { [headerName]: headerValue };
+      }
     });
     const agentRows = (json?.agents?.data || [])
       .filter((r) => r.key && (r.url || r.value))
       .map((r) => ({ ...r, url: r.url || r.value }));
-    return { ok: true, json, mcpRows, configuredMcpServers: servers, agentRows };
+    const toolOverrides = {};
+    (json?.[TOOL_OVERRIDES_SHEET]?.data ?? []).forEach((r) => {
+      const key = String(r.key || '').trim();
+      if (key) toolOverrides[key] = r.enabled !== false;
+    });
+    return {
+      ok: true,
+      json,
+      mcpRows,
+      configuredMcpServers: servers,
+      configuredMcpServerHeaders: serverHeaders,
+      agentRows,
+      toolOverrides,
+    };
   } catch (err) {
     // eslint-disable-next-line max-len
-    return { ok: false, error: String(err?.message ?? err), mcpRows: [], agentRows: [], configuredMcpServers: {} };
+    // eslint-disable-next-line max-len
+    return {
+      ok: false,
+      error: String(err?.message ?? err),
+      mcpRows: [],
+      agentRows: [],
+      configuredMcpServers: {},
+      configuredMcpServerHeaders: {},
+      toolOverrides: {},
+    };
   }
 }
 
@@ -331,6 +384,66 @@ export async function loadSkillsWithStatuses(org, site) {
 
 function skillKeyMatch(id) {
   return (r) => String(r.key ?? r.id ?? '').trim().replace(/\.md$/i, '') === id;
+}
+
+/**
+ * Bidirectional sync between .da/skills/*.md files and the config `skills` sheet.
+ *
+ * 1. .md orphans (file exists, no config row) → back-fill config entry
+ * 2. Config orphans (config row exists, no .md file) → write .md file
+ *
+ * This guarantees that every skill is visible to both the editor (reads .md)
+ * and the agent/slash commands (reads config sheet).
+ *
+ * @returns {Promise<{ configBackfilled: string[], filesWritten: string[] }>}
+ */
+export async function syncOrphanSkillsToConfig(org, site) {
+  const [fileMap, loaded] = await Promise.all([
+    loadSkillsFromMdFiles(org, site),
+    fetchDaConfigSheets(org, site),
+  ]);
+  if (!loaded.ok) return { configBackfilled: [], filesWritten: [] };
+
+  const cfg = { ...(loaded.json || {}) };
+  if (!cfg[SKILLS_SHEET]) cfg[SKILLS_SHEET] = { total: 0, limit: 1000, offset: 0, data: [] };
+  const sheet = cfg[SKILLS_SHEET];
+  const data = [...(sheet.data || [])];
+
+  const configKeys = new Set(
+    data.map((r) => String(r.key ?? r.id ?? '').trim().replace(/\.md$/i, '')),
+  );
+  const fileKeys = new Set(Object.keys(fileMap));
+
+  // 1. .md files missing from config → add config rows
+  const configBackfilled = [...fileKeys].filter((k) => k && !configKeys.has(k));
+
+  // 2. Config rows missing .md files → write files
+  const configOnlyIds = [...configKeys].filter((k) => k && !fileKeys.has(k));
+  const configOnlyRows = configOnlyIds.map((id) => {
+    const row = data.find(
+      (r) => String(r.key ?? r.id ?? '').trim().replace(/\.md$/i, '') === id,
+    );
+    return row ? { id, body: String(row.content ?? row.value ?? row.body ?? '') } : null;
+  }).filter((e) => e && e.body.trim());
+
+  // Back-fill config sheet
+  if (configBackfilled.length) {
+    configBackfilled.forEach((id) => {
+      data.push({ key: id, content: fileMap[id], status: 'approved' });
+    });
+    cfg[SKILLS_SHEET] = { ...sheet, data, total: data.length };
+    await saveDaConfig(org, site, cfg);
+  }
+
+  // Write missing .md files (fire-and-forget, don't block load)
+  const filesWritten = [];
+  await Promise.all(configOnlyRows.map(async ({ id, body }) => {
+    // eslint-disable-next-line no-use-before-define
+    const result = await writeSkillMdFile(org, site, id, body);
+    if (result.ok) filesWritten.push(id);
+  }));
+
+  return { configBackfilled, filesWritten };
 }
 
 export async function upsertSkillInConfig(org, site, skillId, content, options = {}) {
@@ -521,6 +634,31 @@ export async function setGeneratedToolEnabled(org, site, toolId, enabled) {
   return save.ok ? { ok: true } : { ok: false, error: `Save failed (${save.status})` };
 }
 
+// ─── tool overrides ─────────────────────────────────────────────────────────
+
+export async function setToolOverride(org, site, serverId, toolName, enabled) {
+  const key = `${serverId}/${toolName}`;
+  return upsertSheetRow(
+    org,
+    site,
+    TOOL_OVERRIDES_SHEET,
+    (r) => String(r.key || '').trim() === key,
+    (prev) => ({ ...prev, key, server: serverId, tool: toolName, enabled: !!enabled }),
+    'Tool override',
+  );
+}
+
+export async function deleteToolOverride(org, site, serverId, toolName) {
+  const key = `${serverId}/${toolName}`;
+  return deleteSheetRow(
+    org,
+    site,
+    TOOL_OVERRIDES_SHEET,
+    (r) => String(r.key || '').trim() === key,
+    'Tool override',
+  );
+}
+
 // ─── MCP servers ────────────────────────────────────────────────────────────
 
 const MCP_SHEET = 'mcp-servers';
@@ -529,10 +667,20 @@ function mcpKeyMatch(serverKey) {
   return (r) => String(r.key || '').trim() === serverKey;
 }
 
-export async function registerMcpServer(org, site, key, url, description = '') {
+export async function registerMcpServer(
+  org,
+  site,
+  key,
+  url,
+  description = '',
+  authHeaderName = '',
+  authHeaderValue = '',
+) {
   const serverKey = String(key || '').trim();
   const serverUrl = String(url || '').trim();
   if (!serverKey || !serverUrl) return { ok: false, error: 'Key and URL required' };
+  const safeHeaderName = String(authHeaderName || '').trim();
+  const safeHeaderValue = String(authHeaderValue || '').trim();
   return upsertSheetRow(
     org,
     site,
@@ -541,6 +689,13 @@ export async function registerMcpServer(org, site, key, url, description = '') {
     (prev) => {
       const row = { ...prev, key: serverKey, url: serverUrl };
       if (description) row.description = String(description).trim();
+      if (safeHeaderName && safeHeaderValue) {
+        row.authHeaderName = safeHeaderName;
+        row.authHeaderValue = safeHeaderValue;
+      } else {
+        delete row.authHeaderName;
+        delete row.authHeaderValue;
+      }
       return row;
     },
     'MCP server',
@@ -574,13 +729,13 @@ export async function deleteMcpServer(org, site, key) {
   return deleteSheetRow(org, site, MCP_SHEET, mcpKeyMatch(serverKey), 'MCP server');
 }
 
-export async function fetchMcpToolsFromAgent(servers) {
+export async function fetchMcpToolsFromAgent(servers, serverHeaders = {}) {
   if (!Object.keys(servers || {}).length) return { servers: [] };
   try {
     const resp = await fetch(`${getAgentOrigin()}/mcp-tools`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ servers }),
+      body: JSON.stringify({ servers, serverHeaders }),
     });
     return resp.ok ? resp.json() : null;
   } catch { return null; }

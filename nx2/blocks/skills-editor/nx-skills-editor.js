@@ -7,6 +7,7 @@ import './generated-tools/generated-tools.js';
 import {
   fetchDaConfigSheets,
   loadSkillsWithStatuses,
+  syncOrphanSkillsToConfig,
   upsertSkillInConfig,
   deleteSkillFromConfig,
   writeSkillMdFile,
@@ -24,6 +25,8 @@ import {
   registerMcpServer,
   setMcpServerEnabled,
   deleteMcpServer,
+  setToolOverride,
+  deleteToolOverride,
   skillRowStatus,
   skillRowEnabled,
   fetchSiteSourceText,
@@ -81,7 +84,10 @@ const FRESH_FORM_STATE = Object.freeze({
   mcpKey: '',
   mcpUrl: '',
   mcpDescription: '',
+  mcpAuthHeaderName: 'x-api-key',
+  mcpAuthHeaderValue: '',
   editingMcpKey: null,
+  viewingMcpServerId: null,
   newAgentId: '',
   newAgentName: '',
 });
@@ -108,11 +114,36 @@ const BUILTIN_AGENTS = [
   },
 ];
 
-const BUILTIN_TOOL_IDS = [
-  'da_list_sources', 'da_get_source', 'da_create_source', 'da_update_source',
-  'da_delete_source', 'da_copy_content', 'da_move_content', 'da_create_version',
-  'da_get_versions', 'da_lookup_media', 'da_lookup_fragment', 'da_upload_media',
-];
+const BUILTIN_TOOL_DETAILS = {
+  'da-tools': [
+    { name: 'content_list', description: 'List files and directories at a path' },
+    { name: 'content_read', description: 'Read file content and metadata' },
+    { name: 'content_create', description: 'Create a new source file' },
+    { name: 'content_update', description: 'Update an existing source file' },
+    { name: 'content_delete', description: 'Delete a source file' },
+    { name: 'content_copy', description: 'Copy content to another location' },
+    { name: 'content_move', description: 'Move content to another location' },
+    { name: 'content_version_create', description: 'Snapshot the current state of a file' },
+    { name: 'content_version_list', description: 'Get version history for a file' },
+    { name: 'content_media', description: 'Lookup media references and URLs' },
+    { name: 'content_fragment', description: 'Lookup content fragment references' },
+    { name: 'content_upload', description: 'Upload an image or media file' },
+    { name: 'da_get_skill', description: 'Read a skill by ID' },
+    { name: 'da_create_skill', description: 'Create or update a skill' },
+    { name: 'da_list_agents', description: 'List available agent presets' },
+    { name: 'da_create_agent', description: 'Create or update an agent preset' },
+    { name: 'da_embed_fragment', description: 'Embed a web fragment into a page' },
+    { name: 'write_project_memory', description: 'Write to long-lived project memory' },
+  ],
+  'eds-preview': [
+    { name: 'content_preview', description: 'Preview a page on EDS preview environment' },
+    { name: 'content_publish', description: 'Publish a page to EDS live environment' },
+    { name: 'content_unpreview', description: 'Remove a page from EDS preview' },
+    { name: 'content_unpublish', description: 'Unpublish a page from EDS live' },
+  ],
+};
+
+const BUILTIN_TOOL_IDS = Object.values(BUILTIN_TOOL_DETAILS).flat().map((t) => t.name);
 
 class NxSkillsEditor extends LitElement {
   static properties = {
@@ -128,6 +159,7 @@ class NxSkillsEditor extends LitElement {
     _mcpTools: { state: true },
     _generatedTools: { state: true },
     _configuredMcpServers: { state: true },
+    _configuredMcpServerHeaders: { state: true },
     _formSkillId: { state: true },
     _formSkillBody: { state: true },
     _isFormEdit: { state: true },
@@ -142,9 +174,13 @@ class NxSkillsEditor extends LitElement {
     _mcpKey: { state: true },
     _mcpUrl: { state: true },
     _mcpDescription: { state: true },
+    _mcpAuthHeaderName: { state: true },
+    _mcpAuthHeaderValue: { state: true },
     _editingMcpKey: { state: true },
+    _viewingMcpServerId: { state: true },
     _mcpEnableBusy: { state: true },
     _activeToolRefs: { state: true },
+    _toolOverrides: { state: true },
     _memory: { state: true },
     _isEditorOpen: { state: true },
     _isAgentViewTools: { state: true },
@@ -153,6 +189,7 @@ class NxSkillsEditor extends LitElement {
     _toolsSearch: { state: true },
     _toolsGroupCollapsed: { state: true },
     _formPromptTools: { state: true },
+    _isChatOpen: { state: true },
   };
 
   constructor() {
@@ -170,9 +207,11 @@ class NxSkillsEditor extends LitElement {
     this._mcpTools = null;
     this._generatedTools = [];
     this._configuredMcpServers = {};
+    this._configuredMcpServerHeaders = {};
     this._clearForm();
     this._mcpEnableBusy = {};
     this._activeToolRefs = null;
+    this._toolOverrides = {};
     this._memory = null;
     this._loadedKey = null;
     this._statusTimer = null;
@@ -185,6 +224,8 @@ class NxSkillsEditor extends LitElement {
     this._toolsGroupCollapsed = { DA: false, MCP: false };
     this._formPromptTools = [];
     this._editorTriggerSelector = null; // CSS selector for the element that opened the drawer
+    this._isChatOpen = sessionStorage.getItem('nx-skills-editor-chat-open') === '1';
+    this._chatLoaded = false;
   }
 
   get _org() { return this._hash.value?.org; }
@@ -204,6 +245,9 @@ class NxSkillsEditor extends LitElement {
     window.addEventListener('popstate', this._boundOnPopstate);
     // Seed initial history state so back navigation knows which tab was active
     history.replaceState({ ...history.state, skillsEditorTab: this._catalogTab }, '');
+    if (this._isChatOpen) {
+      import('../chat/chat.js').then(() => { this._chatLoaded = true; });
+    }
   }
 
   disconnectedCallback() {
@@ -329,6 +373,9 @@ class NxSkillsEditor extends LitElement {
     if (!this._org || !this._site) return;
     this._isLoading = true;
 
+    // Back-fill config entries for any .md-only skills so the agent can see them.
+    const backfilled = await syncOrphanSkillsToConfig(this._org, this._site);
+
     const [configResult, skillsResult, genTools] = await Promise.all([
       fetchDaConfigSheets(this._org, this._site),
       loadSkillsWithStatuses(this._org, this._site),
@@ -341,7 +388,17 @@ class NxSkillsEditor extends LitElement {
     this._agentRows = configResult.agentRows || [];
     this._mcpRows = configResult.mcpRows || [];
     this._configuredMcpServers = configResult.configuredMcpServers || {};
+    this._configuredMcpServerHeaders = configResult.configuredMcpServerHeaders || {};
+    this._toolOverrides = configResult.toolOverrides || {};
     this._generatedTools = genTools;
+
+    if (backfilled.configBackfilled.length || backfilled.filesWritten.length) {
+      // eslint-disable-next-line no-console
+      console.info('[skills-editor] sync:', {
+        configBackfilled: backfilled.configBackfilled,
+        filesWritten: backfilled.filesWritten,
+      });
+    }
 
     this._isLoading = false;
     this._applySuggestion();
@@ -354,7 +411,7 @@ class NxSkillsEditor extends LitElement {
       .catch(() => { /* non-fatal: agent presets unavailable */ });
     if (Object.keys(this._configuredMcpServers).length) {
       const loadKey = this._loadedKey;
-      fetchMcpToolsFromAgent(this._configuredMcpServers)
+      fetchMcpToolsFromAgent(this._configuredMcpServers, this._configuredMcpServerHeaders)
         .then((tools) => {
           if (`${this._org}/${this._site}` === loadKey) this._mcpTools = tools;
         })
@@ -400,6 +457,15 @@ class NxSkillsEditor extends LitElement {
     // _dirtyForms[tab] and will be restored when the user reopens the same item.
     this._isEditorOpen = false;
     if (!this._isFormDirty) this._clearForm();
+  }
+
+  async _toggleChat() {
+    this._isChatOpen = !this._isChatOpen;
+    sessionStorage.setItem('nx-skills-editor-chat-open', this._isChatOpen ? '1' : '0');
+    if (this._isChatOpen && !this._chatLoaded) {
+      await import('../chat/chat.js');
+      this._chatLoaded = true;
+    }
   }
 
   _setStatus(msg, type = 'ok') {
@@ -875,12 +941,22 @@ class NxSkillsEditor extends LitElement {
   async _onRegisterMcp() {
     this._isSaveBusy = true;
     const isUpdate = Boolean(this._editingMcpKey);
-    // eslint-disable-next-line max-len
-    const result = await registerMcpServer(this._org, this._site, this._mcpKey, this._mcpUrl, this._mcpDescription);
+    const result = await registerMcpServer(
+      this._org,
+      this._site,
+      this._mcpKey,
+      this._mcpUrl,
+      this._mcpDescription,
+      this._mcpAuthHeaderName,
+      this._mcpAuthHeaderValue,
+    );
     if (!result.ok) this._setStatus(result.error || 'Failed', 'err');
     else {
       this._mcpKey = '';
       this._mcpUrl = '';
+      this._mcpDescription = '';
+      this._mcpAuthHeaderName = 'x-api-key';
+      this._mcpAuthHeaderValue = '';
       this._editingMcpKey = null;
       this._clearDirty();
       this._setStatus(isUpdate ? 'MCP server updated' : 'MCP server registered');
@@ -909,7 +985,10 @@ class NxSkillsEditor extends LitElement {
     this._mcpKey = '';
     this._mcpUrl = '';
     this._mcpDescription = '';
+    this._mcpAuthHeaderName = 'x-api-key';
+    this._mcpAuthHeaderValue = '';
     this._editingMcpKey = null;
+    this._viewingMcpServerId = null;
   }
 
   _onEditMcp(row) {
@@ -924,9 +1003,12 @@ class NxSkillsEditor extends LitElement {
     }
 
     this._editingMcpKey = row.key;
+    this._viewingMcpServerId = row.key;
     this._mcpKey = row.key;
     this._mcpUrl = row.url || row.value || '';
     this._mcpDescription = row.description || '';
+    this._mcpAuthHeaderName = row.authHeaderName || 'x-api-key';
+    this._mcpAuthHeaderValue = row.authHeaderValue || '';
     this._catalogTab = 'mcps';
     this._isEditorOpen = true;
     this._isFormDirty = false;
@@ -946,6 +1028,25 @@ class NxSkillsEditor extends LitElement {
       return;
     }
     await this._reload();
+  }
+
+  _onViewMcpTools(serverId) {
+    this._editorTriggerSelector = this._captureTriggerSelector();
+    this._clearMcpForm();
+    this._viewingMcpServerId = serverId;
+    this._toolsSearch = '';
+    this._catalogTab = 'mcps';
+    this._isEditorOpen = true;
+  }
+
+  async _onToggleToolEnabled(serverId, toolName, enabled) {
+    const key = `${serverId}/${toolName}`;
+    this._toolOverrides = { ...this._toolOverrides, [key]: enabled };
+    if (enabled) {
+      await deleteToolOverride(this._org, this._site, serverId, toolName);
+    } else {
+      await setToolOverride(this._org, this._site, serverId, toolName, false);
+    }
   }
 
   // ─── prompt → chat dispatch ───────────────────────────────────────────────
@@ -1010,7 +1111,14 @@ class NxSkillsEditor extends LitElement {
     if (this._isLoading) {
       return html`<div class="loading" aria-live="polite">Loading capabilities\u2026</div>`;
     }
-    return html`<div class="root ${this._isEditorOpen ? 'is-drawer-open' : ''}" role="region" aria-label="Skills Editor">
+    const rootCls = [
+      'root',
+      this._isEditorOpen ? 'is-drawer-open' : '',
+      this._isChatOpen ? 'is-chat-open' : '',
+    ].filter(Boolean).join(' ');
+
+    return html`<div class="${rootCls}" role="region" aria-label="Skills Editor">
+      ${this._renderChatDrawer()}
       ${this._renderListCol()}
       ${this._renderEditorPanel()}
     </div>`;
@@ -1036,6 +1144,12 @@ class NxSkillsEditor extends LitElement {
                 @click=${() => this[TAB_ACTIONS[tab].opener]()}
               >${TAB_ACTIONS[tab].btnLabel}</button>
             ` : nothing}
+            <button type="button"
+              class="chat-toggle-btn ${this._isChatOpen ? 'is-active' : ''}"
+              aria-label="${this._isChatOpen ? 'Close chat' : 'Open chat'}"
+              aria-pressed="${this._isChatOpen}"
+              @click=${() => this._toggleChat()}
+            >${this._isChatOpen ? 'Close Chat' : 'Chat'}</button>
           </div>
         </div>
         ${showSearch ? html`
@@ -1067,7 +1181,9 @@ class NxSkillsEditor extends LitElement {
     if (tab === 'skills') return this._isFormEdit ? 'Edit Skill' : 'New Skill';
     if (tab === 'prompts') return this._isFormPromptEdit ? 'Edit Prompt' : 'New Prompt';
     if (tab === 'mcps') {
-      return this._editingMcpKey ? `Edit: ${this._editingMcpKey}` : 'Register MCP Server';
+      if (this._viewingMcpServerId && !this._editingMcpKey) return this._viewingMcpServerId;
+      if (this._editingMcpKey) return `Edit: ${this._editingMcpKey}`;
+      return 'Register MCP Server';
     }
     if (tab === 'memory') return 'Project Memory';
     return '';
@@ -1104,19 +1220,47 @@ class NxSkillsEditor extends LitElement {
               ${isAgent && this._isAgentViewTools ? this._renderAssociatedToolsSelector() : nothing}
               ${isAgent && !this._isAgentViewTools ? this._renderAgentForm() : nothing}
               ${isPrompt ? this._renderPromptForm() : nothing}
-              ${isMcp ? this._renderMcpForm() : nothing}
+              ${isMcp && (this._editingMcpKey || !this._viewingMcpServerId)
+                ? this._renderMcpForm() : nothing}
+              ${isMcp && this._viewingMcpServerId && !this._editingMcpKey
+                ? this._renderMcpServerInfo() : nothing}
+              ${isMcp && (this._viewingMcpServerId || this._editingMcpKey)
+                ? this._renderMcpToolsList() : nothing}
               ${isMemory ? html`
                 <p class="form-hint">.da/agent/memory.md</p>
                 ${this._renderMemoryContent()}
               ` : nothing}
             </div>
-            ${(isSkill || (isAgent && !this._isAgentViewTools) || isPrompt || isMcp) ? html`
+            ${(isSkill || (isAgent && !this._isAgentViewTools) || isPrompt
+              || (isMcp && (!this._viewingMcpServerId || this._editingMcpKey))) ? html`
               <div class="editor-footer">
                 ${this._renderEditorFooter(isSkill, isPrompt, isMcp, isAgent)}
               </div>
             ` : nothing}
           ` : nothing}
         </div>
+      </div>
+    `;
+  }
+
+  // ─── render: chat drawer ──────────────────────────────────────────────────
+
+  _renderChatDrawer() {
+    return html`
+      <div class="chat-drawer" aria-hidden=${this._isChatOpen ? 'false' : 'true'}
+        ?inert=${!this._isChatOpen}>
+        ${this._isChatOpen ? html`
+          <div class="chat-drawer-header">
+            <span class="chat-drawer-title">Chat</span>
+            <button type="button" class="btn-icon close-btn" aria-label="Close chat"
+              @click=${() => this._toggleChat()}
+            >\u2715</button>
+          </div>
+          <div class="chat-drawer-body"
+            @nx-panel-close=${(e) => { e.stopPropagation(); this._toggleChat(); }}>
+            <nx-chat></nx-chat>
+          </div>
+        ` : nothing}
       </div>
     `;
   }
@@ -1282,13 +1426,15 @@ class NxSkillsEditor extends LitElement {
   // ─── render: MCP form ─────────────────────────────────────────────────────
 
   _renderMcpForm() {
+    const hasSecret = Boolean(String(this._mcpAuthHeaderValue || '').trim());
     return html`
       <form class="form" @submit=${(e) => e.preventDefault()}>
-        <input type="text" placeholder="server-key" aria-label="MCP server key"
+        <input type="text" placeholder="server-id (not API key)" aria-label="MCP server id"
           .value=${this._mcpKey}
           ?readonly=${Boolean(this._editingMcpKey)}
           @input=${(e) => { this._mcpKey = e.target.value; this._markDirty(); }}
         >
+        <p class="form-hint">Identifier only. Do not paste secrets or API keys here.</p>
         <input type="text" placeholder="SSE endpoint URL" aria-label="MCP server URL"
           .value=${this._mcpUrl}
           @input=${(e) => { this._mcpUrl = e.target.value; this._markDirty(); }}
@@ -1300,7 +1446,129 @@ class NxSkillsEditor extends LitElement {
           .value=${this._mcpDescription}
           @input=${(e) => { this._mcpDescription = e.target.value; this._markDirty(); }}
         ></textarea>
+        <div class="mcp-auth-section ${hasSecret ? 'is-sensitive' : ''}">
+          <p class="form-hint">Authentication header (optional, for private MCP servers)</p>
+          <input
+            type="text"
+            placeholder="Header name (e.g. Authorization, x-api-key)"
+            aria-label="MCP auth header name"
+            .value=${this._mcpAuthHeaderName}
+            @input=${(e) => { this._mcpAuthHeaderName = e.target.value; this._markDirty(); }}
+          >
+          <input
+            type="password"
+            autocomplete="new-password"
+            placeholder="Header value"
+            aria-label="MCP auth header value"
+            .value=${this._mcpAuthHeaderValue}
+            @input=${(e) => { this._mcpAuthHeaderValue = e.target.value; this._markDirty(); }}
+          >
+          ${hasSecret ? html`
+            <p class="mcp-auth-warning" role="note">
+              ⚠ Saving this key makes it available to all authors with configuration permission.
+            </p>
+          ` : nothing}
+        </div>
       </form>
+    `;
+  }
+
+  // ─── render: MCP server info (read-only, built-in) ────────────────────────
+
+  _renderMcpServerInfo() {
+    const serverId = this._viewingMcpServerId;
+    const builtin = BUILTIN_MCP_SERVERS.find((s) => s.id === serverId);
+    if (!builtin) return nothing;
+    return html`
+      <div class="mcp-server-info">
+        <p class="mcp-server-desc">${builtin.description}</p>
+        <span class="badge">built-in</span>
+      </div>
+    `;
+  }
+
+  // ─── render: MCP tools list ──────────────────────────────────────────────
+
+  _mcpServerToolData(serverId) {
+    const builtinList = BUILTIN_TOOL_DETAILS[serverId];
+    if (builtinList) return { tools: builtinList, error: null, source: 'builtin' };
+
+    if (!this._mcpTools) return { tools: [], error: null, source: 'pending' };
+
+    const server = (this._mcpTools.servers || []).find((s) => s.id === serverId);
+    if (!server) {
+      const isConfigured = Boolean(this._configuredMcpServers?.[serverId]);
+      if (!isConfigured) return { tools: [], error: 'Server is disabled or has no URL', source: 'unconfigured' };
+      return { tools: [], error: null, source: 'pending' };
+    }
+
+    if (server.error) return { tools: [], error: server.error, source: 'error' };
+    const tools = (server.tools || []).map((t) => ({
+      name: t.name,
+      description: t.description || '',
+    }));
+    return { tools, error: null, source: 'live' };
+  }
+
+  _renderMcpToolsList() {
+    const serverId = this._viewingMcpServerId || this._editingMcpKey;
+    if (!serverId) return nothing;
+
+    const { tools, error, source } = this._mcpServerToolData(serverId);
+
+    const overrides = this._toolOverrides || {};
+    const filterQ = (this._toolsSearch || '').trim().toLowerCase();
+    const filtered = filterQ
+      ? tools.filter((t) => t.name.toLowerCase().includes(filterQ)
+        || t.description.toLowerCase().includes(filterQ))
+      : tools;
+
+    const emptyMsg = () => {
+      if (source === 'pending') return 'Connecting to agent to discover tools\u2026';
+      if (source === 'unconfigured') return 'Enable this server to discover its tools';
+      if (source === 'error') return `Could not list tools: ${error}`;
+      return 'Server reported 0 tools';
+    };
+
+    return html`
+      <div class="mcp-tools-section">
+        <h4 class="tools-selector-heading">Tools (${tools.length})</h4>
+        ${tools.length > 6 ? html`
+          <input type="search" class="tools-search-input"
+            placeholder="Filter tools\u2026" aria-label="Filter tools"
+            .value=${this._toolsSearch}
+            @input=${(e) => { this._toolsSearch = e.target.value; }}
+          >
+        ` : nothing}
+        ${!tools.length
+          ? html`<div class="empty ${source === 'error' ? 'empty-err' : ''}">${emptyMsg()}</div>`
+          : html`
+            <ul class="tools-group-list" aria-label="Tools for ${serverId}">
+              ${filtered.map((t) => {
+                const key = `${serverId}/${t.name}`;
+                const isEnabled = overrides[key] !== false;
+                return html`
+                  <li class="tool-item ${isEnabled ? 'is-active' : ''}">
+                    <label class="tool-label-wrap" title=${t.name}>
+                      <input type="checkbox" class="tool-checkbox"
+                        .checked=${isEnabled}
+                        @change=${(e) => this._onToggleToolEnabled(serverId, t.name, e.target.checked)}
+                      >
+                      <div class="tool-text">
+                        <span class="tool-label">${t.name}</span>
+                        ${t.description ? html`
+                          <span class="tool-desc">${t.description}</span>
+                        ` : nothing}
+                      </div>
+                    </label>
+                  </li>
+                `;
+              })}
+              ${filtered.length === 0 && tools.length
+                ? html`<li class="tool-item-empty">No tools match filter</li>` : nothing}
+            </ul>
+          `}
+      </div>
     `;
   }
 
@@ -1627,14 +1895,20 @@ class NxSkillsEditor extends LitElement {
     return html`
       ${showBuiltins ? html`
         <h3 class="section-h">Built-in (${BUILTIN_MCP_SERVERS.length})</h3>
-        ${BUILTIN_MCP_SERVERS.map((s) => html`
-          <article role="listitem" data-testid="mcp-builtin-card">
-            <nx-card heading=${s.id} subheading=${s.description}>
-              <span slot="pill" class="status-dot status-dot-approved" aria-label="Enabled"></span>
-              <span slot="actions" class="badge">built-in</span>
-            </nx-card>
-          </article>
-        `)}
+        ${BUILTIN_MCP_SERVERS.map((s) => {
+          const isViewing = this._viewingMcpServerId === s.id && !this._editingMcpKey;
+          return html`
+            <article role="listitem" data-testid="mcp-builtin-card">
+              <nx-card heading=${s.id} subheading=${s.description}
+                ?selected=${isViewing}
+                @click=${() => this._onViewMcpTools(s.id)}>
+                <span slot="pill" class="status-dot status-dot-approved"
+                  aria-label="Enabled"></span>
+                <span slot="actions" class="badge">built-in</span>
+              </nx-card>
+            </article>
+          `;
+        })}
       ` : nothing}
       <h3 class="section-h">Custom (${filteredCustom.length})</h3>
       ${!filteredCustom.length
@@ -1645,11 +1919,14 @@ class NxSkillsEditor extends LitElement {
           const key = row.key || '';
           const token = `mcp:${key}`;
           const isBusy = this._mcpEnableBusy[token];
+          const isSelected = this._isEditorOpen
+            && (this._editingMcpKey === key || this._viewingMcpServerId === key);
           return html`
-            <article role="listitem" data-testid="mcp-card" data-mcp-key=${key}>
+            <article role="listitem" data-testid="mcp-card" data-mcp-key=${key}
+              @click=${() => this._onEditMcp(row)}>
               <nx-card heading=${key || '(unnamed)'}
                 subheading=${row.description || row.url || row.value || ''}
-                @click=${() => this._onEditMcp(row)}>
+                ?selected=${isSelected}>
                 <span slot="pill"
                   class="status-dot ${isEnabled ? 'status-dot-approved' : 'status-dot-draft'}"
                   aria-label=${isEnabled ? 'Enabled' : 'Disabled'}
@@ -1660,7 +1937,8 @@ class NxSkillsEditor extends LitElement {
                 >\u22ee</button>
               </nx-card>
               <nx-popover placement="auto">
-                <div class="card-menu" role="menu">
+                <div class="card-menu" role="menu"
+                  @click=${(e) => e.stopPropagation()}>
                   ${isApproved ? html`
                     <button role="menuitem" type="button"
                       ?disabled=${isBusy}

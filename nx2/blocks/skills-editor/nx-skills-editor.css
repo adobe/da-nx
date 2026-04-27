@@ -7,6 +7,8 @@
   display: flex;
   flex-direction: column;
   height: 100%;
+  min-height: calc(100vh - var(--s2-nav-height, 0px));
+  min-height: calc(100dvh - var(--s2-nav-height, 0px));
   font-family: var(--s2-font-family);
   color: var(--s2-gray-900);
 }
@@ -63,6 +65,7 @@
   display: flex;
   flex-direction: row;
   flex: 1;
+  height: 100%;
   min-height: 0;
   overflow: hidden; /* required to clip the drawer while it slides */
 }
@@ -96,11 +99,12 @@
   max-width: 62%;
 }
 
-/* Inner content sits at a fixed width so it never reflows during the slide */
+/* Inner content fills the drawer so it never reflows during the slide */
 .col-editor-inner {
-  flex: 0 0 auto;
-  width: 62vw;
-  min-width: 360px;
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   border-left: 1px solid var(--s2-gray-200);
@@ -347,8 +351,9 @@
 /* Scrollable content region — flex: 1 fills the space between header and footer */
 .editor-body {
   flex: 1;
+  min-width: 0;
   min-height: 0;
-  overflow-y: auto;
+  overflow: hidden auto;
   padding: var(--s2-spacing-200);
 }
 
@@ -771,6 +776,7 @@
   align-items: center;
   gap: var(--s2-spacing-75);
   padding: var(--s2-spacing-50) var(--s2-spacing-100);
+  min-width: 0;
   transition: background 0.1s;
 }
 
@@ -823,6 +829,65 @@
   font-size: var(--s2-body-size-xs);
   color: var(--s2-gray-600);
   font-style: italic;
+}
+
+/* ─── MCP server info (read-only built-in view) ─────────────────────────────── */
+
+.mcp-server-info {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s2-spacing-100);
+  padding: var(--s2-spacing-100) 0;
+}
+
+.mcp-server-desc {
+  flex: 1;
+  margin: 0;
+  font-size: var(--s2-body-size-s);
+  color: var(--s2-gray-700);
+  line-height: 1.4;
+}
+
+/* ─── MCP tools section ──────────────────────────────────────────────────────── */
+
+.mcp-tools-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2-spacing-100);
+  border-top: 1px solid var(--s2-gray-200);
+  padding-top: var(--s2-spacing-200);
+  margin-top: var(--s2-spacing-100);
+}
+
+.mcp-tools-section > .tools-group-list {
+  border: 1px solid var(--s2-gray-200);
+  border-radius: var(--s2-corner-radius-200);
+  max-height: 480px;
+  overflow-y: auto;
+}
+
+.tool-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+
+.tool-desc {
+  font-size: 11px;
+  color: var(--s2-gray-600);
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tool-item.is-active .tool-desc {
+  color: var(--s2-gray-700);
+}
+
+.mcp-tools-section .empty-err {
+  color: var(--s2-red-700);
 }
 
 /* ─── chat suggestion animation ──────────────────────────────────────────────── */
@@ -888,6 +953,28 @@
   margin: 0;
 }
 
+.mcp-auth-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2-spacing-100);
+  padding: var(--s2-spacing-100);
+  border: 1px solid var(--s2-gray-200);
+  border-radius: var(--s2-corner-radius-200);
+  background: light-dark(var(--s2-gray-25), var(--s2-gray-75));
+}
+
+.mcp-auth-section.is-sensitive {
+  border-color: var(--s2-yellow-600);
+  background: color-mix(in srgb, var(--s2-yellow-300) 16%, transparent);
+}
+
+.mcp-auth-warning {
+  margin: 0;
+  font-size: var(--s2-body-size-xs);
+  line-height: 1.4;
+  color: var(--s2-yellow-900);
+}
+
 /* ─── memory content ──────────────────────────────────────────────────────────── */
 
 .memory-content {
@@ -902,6 +989,81 @@
   overflow-wrap: anywhere;
   line-height: 1.6;
   color: var(--s2-gray-800);
+}
+
+/* ─── chat toggle button ─────────────────────────────────────────────────────── */
+
+.chat-toggle-btn {
+  margin-left: auto;
+  padding: var(--s2-spacing-50) var(--s2-spacing-150, var(--s2-spacing-100));
+  border: 1px solid var(--s2-gray-300);
+  border-radius: var(--s2-corner-radius-200);
+  background: none;
+  color: var(--s2-gray-700);
+  font-size: var(--s2-body-size-xs);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.chat-toggle-btn:hover {
+  background: var(--s2-gray-100);
+  color: var(--s2-gray-900);
+}
+
+.chat-toggle-btn.is-active {
+  background: var(--s2-blue-100);
+  border-color: var(--s2-blue-400);
+  color: var(--s2-blue-900);
+}
+
+/* ─── chat drawer: collapsed by default, slides in from the left ─────────── */
+
+.chat-drawer {
+  flex: 0 0 380px;
+  max-width: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: max-width 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.root.is-chat-open .chat-drawer {
+  max-width: 380px;
+  border-right: 1px solid var(--s2-gray-200);
+}
+
+.chat-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--s2-spacing-100) var(--s2-spacing-200);
+  border-bottom: 1px solid var(--s2-gray-200);
+  background: light-dark(var(--s2-gray-25), var(--s2-gray-75));
+}
+
+.chat-drawer-title {
+  font-weight: 700;
+  font-size: var(--s2-body-size-m);
+  color: var(--s2-gray-900);
+}
+
+.chat-drawer-body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-drawer-body nx-chat {
+  flex: 1;
+  min-height: 0;
+}
+
+/* When both drawers are open, shrink the editor so everything fits */
+.root.is-drawer-open.is-chat-open .col-editor {
+  max-width: 45%;
 }
 
 /* ─── responsive ──────────────────────────────────────────────────────────────── */
@@ -932,8 +1094,21 @@
   }
 
   .col-editor-inner {
-    width: 100%;
     border-left: none;
     border-top: 1px solid var(--s2-gray-200);
+  }
+
+  .chat-drawer {
+    flex: 0 0 100%;
+    max-width: unset;
+    max-height: 0;
+    transition: max-height 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .root.is-chat-open .chat-drawer {
+    max-width: unset;
+    max-height: 50vh;
+    border-right: none;
+    border-bottom: 1px solid var(--s2-gray-200);
   }
 }
