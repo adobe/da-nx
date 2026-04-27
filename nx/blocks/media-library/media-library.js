@@ -51,7 +51,7 @@ const EL_NAME = 'nx-media-library';
 const nx = `${new URL(import.meta.url).origin}/nx`;
 const sl = await getStyle(`${nx}/public/sl/styles.css`);
 const slComponents = await getStyle(`${nx}/public/sl/components.css`);
-const topbarStyles = await getStyle(`${nx}/blocks/media-library/views/topbar/topbar.css`);
+const topbarStyles = await getStyle(`${nx}/blocks/media-library/ui/views/topbar/topbar.css`);
 const styles = await getStyle(import.meta.url);
 const shellStyles = await getStyle(new URL('./media-library-shell.css', import.meta.url).href);
 
