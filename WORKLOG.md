@@ -2,6 +2,9 @@
 
 ## 2026-04-27
 
+### nx2 chat — collab after approval
+- **`chat-controller.js`**: **`_pageContextForAgent()`** shared by **`sendMessage`** and **`approveToolCall`** so post-approval **`/chat`** resumes include **`pageContext`** (da-agent collab gate).
+
 ### nx-breadcrumb — drop large variant
 - **`breadcrumb.js` / `breadcrumb.css`**: removed **`variant`** (was only **`large`**); typography and chevrons use the default **M** component tokens everywhere.
 - **`nav.js`**: nav breadcrumb no longer sets **`variant="large"`**.
