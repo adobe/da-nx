@@ -1,0 +1,29 @@
+:host {
+  display: inline-flex;
+  line-height: 0;
+}
+
+.wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  & .ring {
+    box-sizing: border-box;
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border-style: solid;
+    border-width: 3px;
+    border-color: var(--s2-gray-200);
+    border-top-color: light-dark(var(--s2-blue-900), var(--s2-blue-500));
+    animation: nx-progress-circle-rotate 0.7s linear infinite;
+  }
+}
+
+@keyframes nx-progress-circle-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}

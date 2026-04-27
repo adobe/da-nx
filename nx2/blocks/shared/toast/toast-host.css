@@ -1,0 +1,14 @@
+#nx-toast-host {
+  position: fixed;
+  z-index: 10001;
+  left: 0;
+  right: 0;
+  bottom: 24px;
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+  box-sizing: border-box;
+  pointer-events: none;
+}
