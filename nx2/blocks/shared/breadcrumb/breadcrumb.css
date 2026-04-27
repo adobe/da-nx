@@ -19,12 +19,6 @@
   color: var(--s2-gray-700);
 }
 
-:host([variant="large"]) .nx-breadcrumb ol {
-  font-size: var(--s2-component-l-regular-font-size);
-  line-height: var(--s2-component-l-regular-line-height);
-  font-weight: var(--s2-component-l-regular-font-weight);
-}
-
 .crumb {
   display: flex;
   align-items: center;
@@ -39,11 +33,6 @@
   margin-inline: var(--s2-spacing-75);
   background: currentcolor;
   mask: url("/nx2/img/icons/S2_Icon_ChevronLeft_10_N.svg") center / contain no-repeat;
-}
-
-:host([variant="large"]) .crumb:not(:first-child)::before {
-  width: 10px;
-  height: 10px;
 }
 
 .crumb a,
@@ -69,8 +58,4 @@
 .crumb .current {
   color: var(--s2-gray-800);
   font-weight: var(--s2-component-m-bold-font-weight);
-}
-
-:host([variant="large"]) .crumb .current {
-  font-weight: var(--s2-component-l-bold-font-weight);
 }

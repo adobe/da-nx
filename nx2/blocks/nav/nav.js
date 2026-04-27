@@ -66,7 +66,6 @@ class NXNav extends LitElement {
 
     const el = document.createElement('nx-breadcrumb');
     el.classList.add('nav-breadcrumb');
-    el.setAttribute('variant', 'large');
     el.baseUrl = baseUrl;
     return el;
   }
