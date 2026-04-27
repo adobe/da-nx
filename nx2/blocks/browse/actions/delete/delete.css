@@ -1,0 +1,30 @@
+:host {
+  display: contents;
+}
+
+.browse-action-root {
+  display: contents;
+}
+
+.browse-action-busy {
+  position: fixed;
+  inset: 0;
+  z-index: 10001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  pointer-events: auto;
+  background: light-dark(rgb(0 0 0 / 28%), rgb(0 0 0 / 50%));
+}
+
+.list {
+  margin: 0;
+  padding-left: var(--s2-spacing-400);
+}
+
+.hint {
+  margin: var(--s2-spacing-100) 0 0;
+  color: var(--s2-gray-700);
+  font-size: var(--s2-body-size-xs);
+}
