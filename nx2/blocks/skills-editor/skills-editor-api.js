@@ -102,6 +102,25 @@ export function clearSuggestionSession() {
 
 // ─── config sheet helpers ───────────────────────────────────────────────────
 
+function parseSheetBoolean(value, fallback = undefined) {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') {
+    const normalized = value.trim().toLowerCase();
+    if (normalized === 'true' || normalized === '1' || normalized === 'yes') return true;
+    if (normalized === 'false' || normalized === '0' || normalized === 'no') return false;
+  }
+  return fallback;
+}
+
+function rowEnabledState(row, defaultEnabled = true) {
+  if (!row || typeof row !== 'object') return defaultEnabled;
+  const explicitEnabled = parseSheetBoolean(row.enabled);
+  if (typeof explicitEnabled === 'boolean') return explicitEnabled;
+  const explicitDisabled = parseSheetBoolean(row.disabled);
+  if (typeof explicitDisabled === 'boolean') return !explicitDisabled;
+  return defaultEnabled;
+}
+
 function syncConfigMeta(cfg) {
   const names = Object.keys(cfg).filter(
     (k) => !k.startsWith(':') && !k.startsWith('private-') && typeof cfg[k] === 'object',
@@ -190,9 +209,7 @@ export async function fetchDaConfigSheets(org, site) {
       const rowUrl = row.url || row.value;
       const s = String(row?.status ?? '').trim().toLowerCase();
       const approved = s !== 'draft';
-      let enabled = true;
-      if (typeof row?.enabled === 'boolean') enabled = row.enabled;
-      else if (typeof row?.disabled === 'boolean') enabled = !row.disabled;
+      const enabled = rowEnabledState(row, true);
       const key = String(row?.key || '').trim();
       if (key && rowUrl && approved && enabled) {
         servers[key] = rowUrl;
@@ -207,7 +224,7 @@ export async function fetchDaConfigSheets(org, site) {
     const toolOverrides = {};
     (json?.[TOOL_OVERRIDES_SHEET]?.data ?? []).forEach((r) => {
       const key = String(r.key || '').trim();
-      if (key) toolOverrides[key] = r.enabled !== false;
+      if (key) toolOverrides[key] = rowEnabledState(r, true);
     });
     return {
       ok: true,
@@ -301,10 +318,7 @@ export function skillRowStatus(row) {
 }
 
 export function skillRowEnabled(row) {
-  if (!row || typeof row !== 'object') return true;
-  if (typeof row.enabled === 'boolean') return row.enabled;
-  if (typeof row.disabled === 'boolean') return !row.disabled;
-  return true;
+  return rowEnabledState(row, true);
 }
 
 export function skillsRowsToMapAndStatuses(rows) {

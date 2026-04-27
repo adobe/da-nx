@@ -1039,6 +1039,12 @@ class NxSkillsEditor extends LitElement {
     this._isEditorOpen = true;
   }
 
+  _onMcpCardKeydown(e, onActivate) {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    e.preventDefault();
+    onActivate();
+  }
+
   async _onToggleToolEnabled(serverId, toolName, enabled) {
     const key = `${serverId}/${toolName}`;
     this._toolOverrides = { ...this._toolOverrides, [key]: enabled };
@@ -1898,10 +1904,16 @@ class NxSkillsEditor extends LitElement {
         ${BUILTIN_MCP_SERVERS.map((s) => {
           const isViewing = this._viewingMcpServerId === s.id && !this._editingMcpKey;
           return html`
-            <article role="listitem" data-testid="mcp-builtin-card">
+            <article
+              role="button"
+              tabindex="0"
+              aria-label="View tools for ${s.id}"
+              data-testid="mcp-builtin-card"
+              @click=${() => this._onViewMcpTools(s.id)}
+              @keydown=${(e) => this._onMcpCardKeydown(e, () => this._onViewMcpTools(s.id))}
+            >
               <nx-card heading=${s.id} subheading=${s.description}
-                ?selected=${isViewing}
-                @click=${() => this._onViewMcpTools(s.id)}>
+                ?selected=${isViewing}>
                 <span slot="pill" class="status-dot status-dot-approved"
                   aria-label="Enabled"></span>
                 <span slot="actions" class="badge">built-in</span>
@@ -1922,8 +1934,15 @@ class NxSkillsEditor extends LitElement {
           const isSelected = this._isEditorOpen
             && (this._editingMcpKey === key || this._viewingMcpServerId === key);
           return html`
-            <article role="listitem" data-testid="mcp-card" data-mcp-key=${key}
-              @click=${() => this._onEditMcp(row)}>
+            <article
+              role="button"
+              tabindex="0"
+              aria-label="Edit MCP server ${key || '(unnamed)'}"
+              data-testid="mcp-card"
+              data-mcp-key=${key}
+              @click=${() => this._onEditMcp(row)}
+              @keydown=${(e) => this._onMcpCardKeydown(e, () => this._onEditMcp(row))}
+            >
               <nx-card heading=${key || '(unnamed)'}
                 subheading=${row.description || row.url || row.value || ''}
                 ?selected=${isSelected}>

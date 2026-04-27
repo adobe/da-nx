@@ -7,6 +7,9 @@ await import('../../../blocks/skills-editor/nx-skills-editor.js');
 
 async function mount() {
   const el = document.createElement('nx-skills-editor');
+  // Prevent initial updated() from calling real network-backed reload.
+  el._reload = async () => {};
+  el._hash = { value: { org: 'org', site: 'site' } };
   document.body.append(el);
   await el.updateComplete;
   return el;
@@ -17,8 +20,8 @@ function unmount(el) { el.remove(); }
 async function mountWithState(overrides = {}) {
   const el = await mount();
   // Setting _loadedKey prevents updated() from calling _reload()
-  // Setting _loading=false and _hash.value renders the main UI
-  el._loading = false;
+  // Setting _isLoading=false and _hash.value renders the main UI
+  el._isLoading = false;
   el._skills = {};
   el._skillStatuses = {};
   el._prompts = [];
@@ -119,7 +122,7 @@ describe('approved skill cards: icons', () => {
 
   afterEach(() => unmount(el));
 
-  it('each approved card gets its own img icon (independent nodes)', async () => {
+  it('each approved card renders approved status pill', async () => {
     el = await mountWithState({
       _skills: {
         'skill-a': '# Skill A',
@@ -133,15 +136,8 @@ describe('approved skill cards: icons', () => {
       },
     });
 
-    const pills = el.shadowRoot.querySelectorAll('.skill-status-approved');
+    const pills = el.shadowRoot.querySelectorAll('.status-dot-approved');
     expect(pills.length).to.equal(3);
-
-    // Every approved pill must contain its own img — each must be a distinct node
-    const imgs = [...pills].map((pill) => pill.querySelector('img'));
-    imgs.forEach((img) => { expect(img).to.exist; });
-    // All imgs are distinct DOM nodes (no shared node reuse)
-    const uniqueImgs = new Set(imgs);
-    expect(uniqueImgs.size).to.equal(3);
   });
 
   it('draft cards do not render a checkmark icon', async () => {
@@ -149,8 +145,8 @@ describe('approved skill cards: icons', () => {
       _skills: { 'draft-skill': '# Draft' },
       _skillStatuses: { 'draft-skill': 'draft' },
     });
-    const pill = el.shadowRoot.querySelector('.skill-status-draft');
-    expect(pill.querySelector('img')).to.not.exist;
+    const pill = el.shadowRoot.querySelector('.status-dot-draft');
+    expect(pill).to.exist;
   });
 });
 
@@ -210,10 +206,11 @@ describe('updated() _loadedKey guard', () => {
     el = await mount();
     reloadCount = 0;
     el._reload = async () => { reloadCount += 1; };
+    el._loadedKey = null;
     el._hash = { value: { org: 'org1', site: 'site1' } };
 
     // Trigger updated() twice with same key
-    el._loading = false; // force a state change → re-render → updated()
+    el._isLoading = false; // force a state change → re-render → updated()
     await el.updateComplete;
     el._catalogTab = 'agents'; // another state change → updated()
     await el.updateComplete;
@@ -225,13 +222,14 @@ describe('updated() _loadedKey guard', () => {
     el = await mount();
     reloadCount = 0;
     el._reload = async () => { reloadCount += 1; };
+    el._loadedKey = null;
     el._hash = { value: { org: 'org1', site: 'site1' } };
-    el._loading = false;
+    el._isLoading = false;
     await el.updateComplete;
 
     // Change org/site
     el._hash = { value: { org: 'org2', site: 'site2' } };
-    el._catalogTab = 'prompts';
+    el.requestUpdate();
     await el.updateComplete;
 
     expect(reloadCount).to.equal(2);
@@ -247,7 +245,7 @@ describe('_dismissForm', () => {
 
   it('dispatches DA_SKILLS_EDITOR_FORM_DISMISS on window', async () => {
     el = await mountWithState({
-      _formIsEdit: true,
+      _isFormEdit: true,
       _formSkillId: 'my-skill',
     });
 
@@ -265,7 +263,7 @@ describe('_dismissForm', () => {
     el = await mountWithState({
       _formSkillId: 'some-skill',
       _formSkillBody: '# Body',
-      _formIsEdit: true,
+      _isFormEdit: true,
     });
 
     el._dismissForm();
@@ -273,7 +271,7 @@ describe('_dismissForm', () => {
 
     expect(el._formSkillId).to.equal('');
     expect(el._formSkillBody).to.equal('');
-    expect(el._formIsEdit).to.be.false;
+    expect(el._isFormEdit).to.be.false;
   });
 });
 
@@ -282,21 +280,24 @@ describe('_dismissForm', () => {
 describe('_onDeleteSkill confirm guard', () => {
   let el;
   let origConfirm;
+  let origFetch;
 
   beforeEach(async () => {
-    el = await mountWithState({ _formSkillId: 'my-skill', _formIsEdit: true });
+    el = await mountWithState({ _formSkillId: 'my-skill', _isFormEdit: true });
     origConfirm = window.confirm;
+    origFetch = window.fetch;
   });
 
   afterEach(() => {
     window.confirm = origConfirm;
+    window.fetch = origFetch;
     unmount(el);
   });
 
   it('does not proceed when user cancels confirm', async () => {
     window.confirm = () => false;
     let deleteCalled = false;
-    el._saveBusy = false;
+    el._isSaveBusy = false;
     // Stub the API layer to detect if it's reached
     const orig = el._clearForm.bind(el);
     el._clearForm = () => {
@@ -305,24 +306,46 @@ describe('_onDeleteSkill confirm guard', () => {
     };
     await el._onDeleteSkill();
     expect(deleteCalled).to.be.false;
-    expect(el._saveBusy).to.be.false;
+    expect(el._isSaveBusy).to.be.false;
   });
 
   it('proceeds when user confirms', async () => {
     window.confirm = () => true;
     let reached = false;
-    // Stub the internals so we don't make real fetch calls
-    el._saveBusy = false;
+    // Stub the internals and fetches so we don't make real network calls
+    el._isSaveBusy = false;
     const origReload = el._reload.bind(el);
     el._reload = async () => {};
-    // Patch Promise.all to resolve immediately with mock results
-    const origAll = Promise.all.bind(Promise);
-    Promise.all = async () => [{ ok: true }, { ok: true }];
+    window.fetch = async (url, opts = {}) => {
+      const method = (opts.method || 'GET').toUpperCase();
+      if (url.includes('/source/') && method === 'GET') {
+        return new Response('# My Skill', { status: 200 });
+      }
+      if (url.includes('/source/') && method === 'DELETE') {
+        return new Response('', { status: 200 });
+      }
+      if (url.includes('/config/') && method === 'GET') {
+        return new Response(JSON.stringify({
+          skills: {
+            total: 1,
+            limit: 1000,
+            offset: 0,
+            data: [{ key: 'my-skill', content: '# My Skill' }],
+          },
+        }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }
+      if (url.includes('/config/') && method === 'POST') {
+        return new Response('', { status: 200 });
+      }
+      return new Response('', { status: 200 });
+    };
     try {
       await el._onDeleteSkill();
       reached = true;
     } finally {
-      Promise.all = origAll;
       el._reload = origReload;
     }
     expect(reached).to.be.true;
@@ -334,35 +357,69 @@ describe('_onDeleteSkill confirm guard', () => {
 describe('_onDeleteSkill error handling', () => {
   let el;
   let origConfirm;
-  let origAll;
+  let origFetch;
 
   beforeEach(async () => {
-    el = await mountWithState({ _formSkillId: 'my-skill', _formIsEdit: true });
+    el = await mountWithState({ _formSkillId: 'my-skill', _isFormEdit: true });
     origConfirm = window.confirm;
-    origAll = Promise.all.bind(Promise);
+    origFetch = window.fetch;
     window.confirm = () => true;
   });
 
   afterEach(() => {
     window.confirm = origConfirm;
-    Promise.all = origAll;
+    window.fetch = origFetch;
     unmount(el);
   });
 
   it('shows error and does not clear form when config delete fails', async () => {
-    Promise.all = async () => [{ error: 'Config write failed' }, { ok: true }];
     el._reload = async () => {};
+    window.fetch = async (url, opts = {}) => {
+      const method = (opts.method || 'GET').toUpperCase();
+      if (url.includes('/source/') && method === 'GET') {
+        return new Response('# My Skill', { status: 200 });
+      }
+      if (url.includes('/source/') && method === 'DELETE') {
+        return new Response('', { status: 200 });
+      }
+      if (url.includes('/config/') && method === 'GET') {
+        return new Response(JSON.stringify({
+          skills: {
+            total: 1,
+            limit: 1000,
+            offset: 0,
+            data: [{ key: 'my-skill', content: '# My Skill' }],
+          },
+        }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' },
+        });
+      }
+      if (url.includes('/config/') && method === 'POST') {
+        return new Response('', { status: 500 });
+      }
+      return new Response('', { status: 200 });
+    };
     await el._onDeleteSkill();
-    expect(el._statusMsg).to.equal('Config write failed');
+    expect(el._statusMsg).to.equal('Skill delete failed (500)');
     expect(el._statusType).to.equal('err');
     expect(el._formSkillId).to.equal('my-skill'); // form NOT cleared
   });
 
   it('shows error and does not clear form when file delete fails', async () => {
-    Promise.all = async () => [{}, { ok: false }];
     el._reload = async () => {};
+    window.fetch = async (url, opts = {}) => {
+      const method = (opts.method || 'GET').toUpperCase();
+      if (url.includes('/source/') && method === 'GET') {
+        return new Response('# My Skill', { status: 200 });
+      }
+      if (url.includes('/source/') && method === 'DELETE') {
+        return new Response('', { status: 500 });
+      }
+      return new Response('', { status: 200 });
+    };
     await el._onDeleteSkill();
-    expect(el._statusMsg).to.equal('Failed to delete skill');
+    expect(el._statusMsg).to.equal('Failed to delete skill file');
     expect(el._statusType).to.equal('err');
     expect(el._formSkillId).to.equal('my-skill'); // form NOT cleared
   });
