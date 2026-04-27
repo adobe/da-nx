@@ -1,20 +1,9 @@
 :host {
   display: block;
   min-width: 0;
-  height: var(--s2-spacing-500);
-  box-sizing: border-box;
 }
 
-.breadcrumb {
-  display: flex;
-  align-items: center;
-  min-width: 0;
-  height: 100%;
-  overflow: hidden;
-  box-sizing: border-box;
-}
-
-.breadcrumb ol {
+.nx-breadcrumb ol {
   display: flex;
   align-items: center;
   flex-wrap: nowrap;
@@ -22,6 +11,7 @@
   margin: 0;
   padding: 0;
   gap: 0;
+  min-width: 0;
   font-family: var(--s2-font-family);
   font-size: var(--s2-component-m-regular-font-size);
   line-height: var(--s2-component-m-regular-line-height);
@@ -38,42 +28,34 @@
 .crumb:not(:first-child)::before {
   content: "";
   flex-shrink: 0;
-  box-sizing: border-box;
   width: 8px;
   height: 8px;
   margin-inline: var(--s2-spacing-75);
-  background-color: currentcolor;
-  pointer-events: none;
-  user-select: none;
-  transform: translateY(1px);
-  transform-origin: center;
-  mask: url("/nx2/img/icons/S2_Icon_ChevronLeft_10_N.svg") center / contain
-    no-repeat;
+  background: currentcolor;
+  mask: url("/nx2/img/icons/S2_Icon_ChevronLeft_10_N.svg") center / contain no-repeat;
 }
 
-.crumb-label {
+.crumb a,
+.crumb .current {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
-  font-family: inherit;
-  font-size: inherit;
-  line-height: inherit;
-  font-weight: inherit;
-  color: var(--s2-gray-700);
+  color: inherit;
   text-decoration: none;
 }
 
-.crumb > .crumb-label {
-  flex: 1 1 auto;
-}
-
-a.crumb-label:hover {
+.crumb a:hover {
   color: var(--s2-gray-800);
 }
 
-.crumb-label.current {
-  cursor: default;
+.crumb a:focus-visible {
+  outline: 2px solid var(--s2-blue-800);
+  outline-offset: 2px;
+  border-radius: var(--s2-corner-radius-100);
+}
+
+.crumb .current {
   color: var(--s2-gray-800);
   font-weight: var(--s2-component-m-bold-font-weight);
 }
