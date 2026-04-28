@@ -54,7 +54,7 @@ export function extractSkillSuggestion(text) {
   return { visible: prose, id, body };
 }
 
-// ?ref=local routes to a local da-agent dev server (port 5173).
+// ?ref=local routes to a local da-agent dev server (port 4200).
 const AGENT_URL = new URLSearchParams(window.location.search).get('ref') === 'local'
   ? 'http://localhost:4200/chat'
   : 'https://da-agent.adobeaem.workers.dev/chat';
