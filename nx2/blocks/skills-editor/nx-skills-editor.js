@@ -598,6 +598,12 @@ class NxSkillsEditor extends LitElement {
     }
   }
 
+  _msgClass() {
+    if (this._statusType === 'err') return 'msg-err';
+    if (this._statusType === 'warn') return 'msg-warn';
+    return 'msg-ok';
+  }
+
   // ─── dirty form tracking ─────────────────────────────────────────────────
 
   /** Snapshot current in-flight form fields, keyed by the active tab. */
@@ -770,7 +776,7 @@ class NxSkillsEditor extends LitElement {
 
   async _onSaveSkill(status = STATUS.APPROVED) {
     const id = this._formSkillId.trim();
-    const body = this._formSkillBody;
+    let body = this._formSkillBody;
     if (!id) {
       this._setStatus('Skill ID is required', 'err');
       return;
@@ -778,6 +784,26 @@ class NxSkillsEditor extends LitElement {
     if (!body.trim()) {
       this._setStatus('Skill body is required', 'err');
       return;
+    }
+
+    // Duplicate ID guard — only applies when creating a new skill, not editing.
+    if (!this._isFormEdit && this._skills && id in this._skills) {
+      this._setStatus(`A skill with ID "${id}" already exists. Edit it from the list.`, 'err');
+      return;
+    }
+
+    // Frontmatter injection — if the body has no YAML front matter, add a
+    // minimal one so the agent and other consumers always have a title/description.
+    const hasFrontmatter = body.trimStart().startsWith('---');
+    if (!hasFrontmatter) {
+      const titleFromId = id.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+      const injected = `---\ntitle: ${titleFromId}\ndescription: \nstatus: ${status}\n---\n\n${body.trimStart()}`;
+      body = injected;
+      this._formSkillBody = body;
+      this._setStatus(
+        'Frontmatter added — expand title and description to help the agent discover this skill.',
+        'warn',
+      );
     }
 
     this._isSaveBusy = true;
@@ -804,6 +830,12 @@ class NxSkillsEditor extends LitElement {
     }
 
     this._setStatus(status === STATUS.DRAFT ? 'Saved as draft' : 'Saved');
+    if (hasFrontmatter === false) {
+      this._setStatus(
+        'Saved — frontmatter was added. Expand title and description to help the agent discover this skill.',
+        'warn',
+      );
+    }
     this._clearDirty();
     this._isSaveBusy = false;
     this._hasSuggestion = false;
@@ -1205,9 +1237,23 @@ class NxSkillsEditor extends LitElement {
     this._toolOverrides = { ...this._toolOverrides, [key]: enabled };
     if (enabled) {
       await deleteToolOverride(this._org, this._site, serverId, toolName);
+      this._setStatus(`Tool enabled: ${toolName}`);
     } else {
       await setToolOverride(this._org, this._site, serverId, toolName, false);
+      this._setStatus(`Tool disabled — ${toolName} won't be available until re-enabled.`, 'warn');
     }
+  }
+
+  /**
+   * Parse a display tool ID (e.g. "mcp__browser__search" or "da_get_source")
+   * into the {serverId, toolName} pair used by the tool-overrides sheet.
+   */
+  _parseToolId(toolId) {
+    if (toolId.startsWith('mcp__')) {
+      const [, serverId, ...rest] = toolId.split('__');
+      return { serverId, toolName: rest.join('__') };
+    }
+    return { serverId: 'da', toolName: toolId };
   }
 
   // ─── prompt → chat dispatch ───────────────────────────────────────────────
@@ -1603,7 +1649,8 @@ class NxSkillsEditor extends LitElement {
                         if (e.target.checked) next.add(toolId);
                         else next.delete(toolId);
                         this._formPromptTools = [...next];
-                        this._markDirty();
+                        const { serverId, toolName } = this._parseToolId(toolId);
+                        this._onToggleToolEnabled(serverId, toolName, e.target.checked);
                       }}
                     >
                     <span class="tool-label">${toolId}</span>
@@ -1786,7 +1833,7 @@ class NxSkillsEditor extends LitElement {
 
   _renderEditorFooter(isSkill, isPrompt, isMcp, isAgent) {
     const statusTpl = this._statusMsg ? html`
-      <output class="msg ${this._statusType === 'err' ? 'msg-err' : 'msg-ok'}">
+      <output class="msg ${this._msgClass()}">
         ${this._statusMsg}
       </output>
     ` : nothing;

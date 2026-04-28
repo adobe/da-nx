@@ -607,6 +607,7 @@
 }
 
 .msg-ok { color: var(--s2-green-900); }
+.msg-warn { color: var(--s2-orange-900, #c2410c); }
 .msg-err { color: var(--s2-red-900); }
 
 /* ─── status dot ─────────────────────────────────────────────────────────────── */
