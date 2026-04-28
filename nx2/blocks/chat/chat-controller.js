@@ -20,10 +20,15 @@ export default class ChatController {
     this._room = null;
   }
 
-  async _getMcpConfig() {
+    async _getMcpConfig() {
     const { org, site } = this._context ?? {};
     if (!org || !site) return { servers: {}, serverHeaders: {} };
     return loadMcpServerConfig(org, site);
+  }
+
+  _pageContextForAgent() {
+    const { org, site, path, view } = this._context ?? {};
+    return org && site ? { org, site, path, view } : undefined;
   }
 
   async _getRoom() {
@@ -199,7 +204,7 @@ export default class ChatController {
 
     if (approved) {
       try {
-        await this._stream();
+        await this._stream(this._pageContextForAgent());
       } catch (err) {
         if (err.name !== 'AbortError') {
           this._messages = [...this._messages, { role: ROLE.ASSISTANT, content: `Error: ${err.message}` }];
@@ -264,9 +269,7 @@ export default class ChatController {
     this._toolCards = new Map();
 
     try {
-      const { org, site, path, view } = this._context ?? {};
-      const pageContext = org && site ? { org, site, path, view } : undefined;
-      await this._stream(pageContext);
+      await this._stream(this._pageContextForAgent());
     } catch (err) {
       if (err.name !== 'AbortError') {
         this._messages = [
