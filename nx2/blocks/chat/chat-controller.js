@@ -4,6 +4,56 @@ import { readStream } from './utils.js';
 import { loadMessages, saveMessages, clearMessages } from './persistence.js';
 import { loadMcpServerConfig } from './api.js';
 
+// ─── skill suggestion block parser ───────────────────────────────────────────
+const SUGGESTION_OPEN = '[SKILL_SUGGESTION]';
+const SKILL_ID_RE = /^SKILL_ID:\s*(.+)$/m;
+const CONTENT_START = '---SKILL_CONTENT_START---';
+const CONTENT_END = '---SKILL_CONTENT_END---';
+const SUGGEST_KEY = 'da-skills-editor-suggestion';
+const LEGACY_SUGGEST_KEY = 'da-skills-lab-suggest-handoff';
+const SUGGEST_EVENT = 'da-skills-editor-suggestion-handoff';
+const LEGACY_SUGGEST_EVENT = 'da-skills-lab-suggestion-handoff';
+
+/**
+ * If `text` contains a [SKILL_SUGGESTION] block, extracts it, fires the
+ * handoff events so the skills editor can open the form, and returns the
+ * stripped visible text. Returns `null` when no block is present.
+ *
+ * @param {string} text
+ * @returns {{ visible: string, id: string, body: string } | null}
+ */
+export function extractSkillSuggestion(text) {
+  const blockStart = text.indexOf(SUGGESTION_OPEN);
+  if (blockStart === -1) return null;
+
+  const block = text.slice(blockStart);
+  const idMatch = block.match(SKILL_ID_RE);
+  const id = idMatch ? idMatch[1].trim().toLowerCase().replace(/[^a-z0-9-]/g, '-') : '';
+
+  const csIdx = block.indexOf(CONTENT_START);
+  const ceIdx = block.indexOf(CONTENT_END);
+  const body = csIdx !== -1 && ceIdx > csIdx
+    ? block.slice(csIdx + CONTENT_START.length, ceIdx).trim()
+    : '';
+
+  // Everything before the block is the human-readable intro (may be empty).
+  const prose = text.slice(0, blockStart).trim();
+
+  // Persist for skills-editor to pick up (same shape as setSuggestionHandoff).
+  try {
+    const serialized = JSON.stringify({ prose, id, body });
+    sessionStorage.setItem(SUGGEST_KEY, serialized);
+    sessionStorage.setItem(LEGACY_SUGGEST_KEY, serialized);
+  } catch { /* noop */ }
+
+  // Notify any in-page skills editor instance.
+  const detail = { prose, id, body };
+  window.dispatchEvent(new CustomEvent(SUGGEST_EVENT, { detail }));
+  window.dispatchEvent(new CustomEvent(LEGACY_SUGGEST_EVENT, { detail }));
+
+  return { visible: prose, id, body };
+}
+
 // ?ref=local routes to a local da-agent dev server (port 5173).
 const AGENT_URL = new URLSearchParams(window.location.search).get('ref') === 'local'
   ? 'http://localhost:4200/chat'
@@ -247,9 +297,16 @@ export default class ChatController {
     }
 
     await readStream(resp.body, {
-      onDelta: (next) => { this._streamingText = next; this._update(); },
+      onDelta: (next) => {
+        // Hide the raw [SKILL_SUGGESTION] block from the streaming preview.
+        const blockStart = next.indexOf(SUGGESTION_OPEN);
+        this._streamingText = blockStart !== -1 ? next.slice(0, blockStart) : next;
+        this._update();
+      },
       onText: (text) => {
-        this._messages = [...this._messages, { role: ROLE.ASSISTANT, content: text }];
+        const suggestion = extractSkillSuggestion(text);
+        const visible = suggestion ? suggestion.visible : text;
+        this._messages = [...this._messages, { role: ROLE.ASSISTANT, content: visible }];
         this._streamingText = '';
         this._update();
         saveMessages(room, this._messages);
