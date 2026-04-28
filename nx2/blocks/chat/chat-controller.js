@@ -78,7 +78,7 @@ export default class ChatController {
 
   _pageContextForAgent() {
     const { org, site, path, view } = this._context ?? {};
-    return org && site ? { org, site, path, view } : undefined;
+    return org && site ? { org, site, path: path ?? '', view } : undefined;
   }
 
   async _getRoom() {
