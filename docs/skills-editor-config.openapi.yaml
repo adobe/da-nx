@@ -279,7 +279,7 @@ components:
             offset: 0
             data:
               - key: accessibility-audit
-                content: "# Accessibility Audit\n\nUse this skill to review page accessibility."
+                content: "---\nname: Accessibility Audit\ndescription: Review page accessibility compliance.\nstatus: approved\n---\n\n# Accessibility Audit\n\nUse this skill to review page accessibility."
                 status: approved
           prompts:
             total: 1

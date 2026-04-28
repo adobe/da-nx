@@ -10,6 +10,11 @@ import {
   STATUS,
   STATUS_TYPE,
   TAB_ACTIONS,
+  TAB_AGENTS,
+  TAB_MCPS,
+  TAB_MEMORY,
+  TAB_PROMPTS,
+  TAB_SKILLS,
 } from './constants.js';
 import {
   skillRowEnabled,
@@ -35,16 +40,16 @@ function msgClass(host) {
 }
 
 function editorTitle(host, tab) {
-  if (tab === 'agents' && host._isAgentViewTools) return 'Associated Tools';
-  if (tab === 'agents') return host._isFormEdit ? 'Edit Agent' : 'New Agent';
-  if (tab === 'skills') return host._isFormEdit ? 'Edit Skill' : 'New Skill';
-  if (tab === 'prompts') return host._isFormPromptEdit ? 'Edit Prompt' : 'New Prompt';
-  if (tab === 'mcps') {
+  if (tab === TAB_AGENTS && host._isAgentViewTools) return 'Associated Tools';
+  if (tab === TAB_AGENTS) return host._isFormEdit ? 'Edit Agent' : 'New Agent';
+  if (tab === TAB_SKILLS) return host._isFormEdit ? 'Edit Skill' : 'New Skill';
+  if (tab === TAB_PROMPTS) return host._isFormPromptEdit ? 'Edit Prompt' : 'New Prompt';
+  if (tab === TAB_MCPS) {
     if (host._viewingMcpServerId && !host._editingMcpKey) return host._viewingMcpServerId;
     if (host._editingMcpKey) return `Edit: ${host._editingMcpKey}`;
     return 'Register MCP Server';
   }
-  if (tab === 'memory') return 'Project Memory';
+  if (tab === TAB_MEMORY) return 'Project Memory';
   return '';
 }
 
@@ -165,7 +170,7 @@ export function renderChatDrawer(host) {
 
 export function renderListCol(host) {
   const tab = host._catalogTab;
-  const showSearch = ['skills', 'prompts', 'mcps'].includes(tab);
+  const showSearch = [TAB_SKILLS, TAB_PROMPTS, TAB_MCPS].includes(tab);
 
   return html`
     <div class="col col-list" role="region" aria-label="Catalog">
@@ -178,7 +183,10 @@ export function renderListCol(host) {
         <div class="list-actions-row">
           ${TAB_ACTIONS[tab] ? html`
             <button type="button" class="new-btn"
-              @click=${() => host[TAB_ACTIONS[tab].opener]()}
+              @click=${() => {
+                const { opener } = TAB_ACTIONS[tab];
+                if (typeof host[opener] === 'function') host[opener]();
+              }}
             >${TAB_ACTIONS[tab].btnLabel}</button>
           ` : nothing}
           <button type="button"
@@ -201,11 +209,11 @@ export function renderListCol(host) {
         </div>
       ` : nothing}
       <div class="catalog-scroll">
-        ${tab === 'skills' ? renderSkillsCatalog(host) : nothing}
-        ${tab === 'agents' ? renderAgentsCatalog(host) : nothing}
-        ${tab === 'prompts' ? renderPromptsCatalog(host) : nothing}
-        ${tab === 'mcps' ? renderMcpsCatalog(host) : nothing}
-        ${tab === 'memory' ? html`<div class="empty">Memory is shown in the panel →</div>` : nothing}
+        ${tab === TAB_SKILLS ? renderSkillsCatalog(host) : nothing}
+        ${tab === TAB_AGENTS ? renderAgentsCatalog(host) : nothing}
+        ${tab === TAB_PROMPTS ? renderPromptsCatalog(host) : nothing}
+        ${tab === TAB_MCPS ? renderMcpsCatalog(host) : nothing}
+        ${tab === TAB_MEMORY ? html`<div class="empty">Memory is shown in the panel →</div>` : nothing}
       </div>
     </div>
   `;
@@ -213,11 +221,11 @@ export function renderListCol(host) {
 
 export function renderEditorPanel(host) {
   const tab = host._catalogTab;
-  const isSkill = tab === 'skills';
-  const isPrompt = tab === 'prompts';
-  const isMcp = tab === 'mcps';
-  const isAgent = tab === 'agents';
-  const isMemory = tab === 'memory';
+  const isSkill = tab === TAB_SKILLS;
+  const isPrompt = tab === TAB_PROMPTS;
+  const isMcp = tab === TAB_MCPS;
+  const isAgent = tab === TAB_AGENTS;
+  const isMemory = tab === TAB_MEMORY;
 
   const title = editorTitle(host, tab);
 
@@ -254,7 +262,7 @@ export function renderEditorPanel(host) {
           ${(isSkill || (isAgent && !host._isAgentViewTools) || isPrompt
             || (isMcp && (!host._viewingMcpServerId || host._editingMcpKey))) ? html`
             <div class="editor-footer">
-              ${renderEditorFooter(host, isSkill, isPrompt, isMcp, isAgent)}
+              ${renderEditorFooter(host, tab)}
             </div>
           ` : nothing}
         ` : nothing}
@@ -560,7 +568,11 @@ export function renderMcpToolsList(host) {
   `;
 }
 
-export function renderEditorFooter(host, isSkill, isPrompt, isMcp, isAgent) {
+export function renderEditorFooter(host, tab) {
+  const isSkill = tab === TAB_SKILLS;
+  const isPrompt = tab === TAB_PROMPTS;
+  const isMcp = tab === TAB_MCPS;
+  const isAgent = tab === TAB_AGENTS;
   const statusTpl = host._statusMsg ? html`
     <output class="msg ${msgClass(host)}">
       ${host._statusMsg}

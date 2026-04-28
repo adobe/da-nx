@@ -49,6 +49,7 @@ import {
   renderListCol,
   renderEditorPanel,
 } from './renderers.js';
+import { ensureSkillFrontmatter } from '../../utils/skill-frontmatter.js';
 
 const styles = await loadStyle(import.meta.url);
 
@@ -73,6 +74,8 @@ class NxSkillsEditor extends LitElement {
     _formPromptTitle: { state: true },
     _formPromptCategory: { state: true },
     _formPromptBody: { state: true },
+    _formPromptIcon: { state: true },
+    _formPromptOriginalTitle: { state: true },
     _isFormPromptEdit: { state: true },
     _isSaveBusy: { state: true },
     _statusMsg: { state: true },
@@ -96,6 +99,8 @@ class NxSkillsEditor extends LitElement {
     _toolsSearch: { state: true },
     _toolsGroupCollapsed: { state: true },
     _formPromptTools: { state: true },
+    _newAgentId: { state: true },
+    _newAgentName: { state: true },
     _isChatOpen: { state: true },
     _gateOrg: { state: true },
     _gateSite: { state: true },
@@ -117,6 +122,13 @@ class NxSkillsEditor extends LitElement {
   _agentsLoadInFlight = false;
 
   _mcpToolsLoadInFlight = false;
+
+  // ─── stable event-handler references (class fields so connect/disconnect are symmetric) ────
+  _onSuggestionHandler = () => this._applySuggestion();
+
+  _onClearFormHandler = () => this._clearForm();
+
+  _onPopstateHandler = (e) => this._onPopstate(e);
 
   constructor() {
     super();
@@ -158,14 +170,11 @@ class NxSkillsEditor extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [styles];
-    this._boundOnSuggestion = () => this._applySuggestion();
-    this._boundOnClearForm = () => this._clearForm();
-    this._boundOnPopstate = (e) => this._onPopstate(e);
-    window.addEventListener(DA_SKILLS_EDITOR_SUGGESTION_HANDOFF, this._boundOnSuggestion);
-    window.addEventListener(DA_SKILLS_LAB_SUGGESTION_HANDOFF, this._boundOnSuggestion);
-    window.addEventListener(DA_SKILLS_EDITOR_CLEAR_FORM_FROM_CHAT, this._boundOnClearForm);
-    window.addEventListener(DA_SKILLS_LAB_CLEAR_FORM_FROM_CHAT, this._boundOnClearForm);
-    window.addEventListener('popstate', this._boundOnPopstate);
+    window.addEventListener(DA_SKILLS_EDITOR_SUGGESTION_HANDOFF, this._onSuggestionHandler);
+    window.addEventListener(DA_SKILLS_LAB_SUGGESTION_HANDOFF, this._onSuggestionHandler);
+    window.addEventListener(DA_SKILLS_EDITOR_CLEAR_FORM_FROM_CHAT, this._onClearFormHandler);
+    window.addEventListener(DA_SKILLS_LAB_CLEAR_FORM_FROM_CHAT, this._onClearFormHandler);
+    window.addEventListener('popstate', this._onPopstateHandler);
     // Seed initial history state so back navigation knows which tab was active
     history.replaceState({ ...history.state, skillsEditorTab: this._catalogTab }, '');
     if (this._isChatOpen) {
@@ -176,11 +185,11 @@ class NxSkillsEditor extends LitElement {
   disconnectedCallback() {
     super.disconnectedCallback();
     clearTimeout(this._statusTimer);
-    window.removeEventListener(DA_SKILLS_EDITOR_SUGGESTION_HANDOFF, this._boundOnSuggestion);
-    window.removeEventListener(DA_SKILLS_LAB_SUGGESTION_HANDOFF, this._boundOnSuggestion);
-    window.removeEventListener(DA_SKILLS_EDITOR_CLEAR_FORM_FROM_CHAT, this._boundOnClearForm);
-    window.removeEventListener(DA_SKILLS_LAB_CLEAR_FORM_FROM_CHAT, this._boundOnClearForm);
-    window.removeEventListener('popstate', this._boundOnPopstate);
+    window.removeEventListener(DA_SKILLS_EDITOR_SUGGESTION_HANDOFF, this._onSuggestionHandler);
+    window.removeEventListener(DA_SKILLS_LAB_SUGGESTION_HANDOFF, this._onSuggestionHandler);
+    window.removeEventListener(DA_SKILLS_EDITOR_CLEAR_FORM_FROM_CHAT, this._onClearFormHandler);
+    window.removeEventListener(DA_SKILLS_LAB_CLEAR_FORM_FROM_CHAT, this._onClearFormHandler);
+    window.removeEventListener('popstate', this._onPopstateHandler);
   }
 
   async updated(changed) {
@@ -696,18 +705,17 @@ class NxSkillsEditor extends LitElement {
       return;
     }
 
-    // Frontmatter injection — if the body has no YAML front matter, add a
-    // minimal one so the agent and other consumers always have a title/description.
-    const hasFrontmatter = body.trimStart().startsWith('---');
-    if (!hasFrontmatter) {
-      const titleFromId = id.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-      const injected = `---\ntitle: ${titleFromId}\ndescription: \nstatus: ${status}\n---\n\n${body.trimStart()}`;
-      body = injected;
+    // Frontmatter — inject if missing, then validate against Anthropic's requirements.
+    const { markdown: withFm, injected, warnings } = ensureSkillFrontmatter(body, id, status);
+    body = withFm;
+    if (injected) {
       this._formSkillBody = body;
       this._setStatus(
-        'Frontmatter added — expand title and description to help the agent discover this skill.',
-        'warn',
+        'Frontmatter added — fill in description to help the agent discover this skill.',
+        STATUS_TYPE.WARN,
       );
+    } else if (warnings.length) {
+      this._setStatus(warnings[0], STATUS_TYPE.WARN);
     }
 
     this._isSaveBusy = true;
@@ -734,12 +742,6 @@ class NxSkillsEditor extends LitElement {
     }
 
     this._setStatus(status === STATUS.DRAFT ? 'Saved as draft' : 'Saved');
-    if (hasFrontmatter === false) {
-      this._setStatus(
-        'Saved — frontmatter was added. Expand title and description to help the agent discover this skill.',
-        'warn',
-      );
-    }
     this._clearDirty();
     this._isSaveBusy = false;
     this._hasSuggestion = false;

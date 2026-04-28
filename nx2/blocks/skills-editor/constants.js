@@ -1,18 +1,25 @@
+/** Canonical tab ID strings — use these instead of bare string literals. */
+const TAB_SKILLS = 'skills';
+const TAB_AGENTS = 'agents';
+const TAB_PROMPTS = 'prompts';
+const TAB_MCPS = 'mcps';
+const TAB_MEMORY = 'memory';
+
 /** Per-tab metadata rendered by the catalog tab strip. */
 const CATALOG_TABS = [
-  { id: 'skills', label: 'Skills' },
-  { id: 'agents', label: 'Agents' },
-  { id: 'prompts', label: 'Prompts' },
-  { id: 'mcps', label: 'MCPs' },
-  { id: 'memory', label: 'Memory' },
+  { id: TAB_SKILLS, label: 'Skills' },
+  { id: TAB_AGENTS, label: 'Agents' },
+  { id: TAB_PROMPTS, label: 'Prompts' },
+  { id: TAB_MCPS, label: 'MCPs' },
+  { id: TAB_MEMORY, label: 'Memory' },
 ];
 
 /** Per-tab metadata for the "new" button label and the opener method name. */
 const TAB_ACTIONS = {
-  skills: { btnLabel: '+ New Skill', opener: '_openNewSkillEditor' },
-  agents: { btnLabel: '+ New Agent', opener: '_openNewAgentEditor' },
-  prompts: { btnLabel: '+ New Prompt', opener: '_openNewEditor' },
-  mcps: { btnLabel: '+ Register MCP', opener: '_openNewMcpEditor' },
+  [TAB_SKILLS]: { btnLabel: '+ New Skill', opener: '_openNewSkillEditor' },
+  [TAB_AGENTS]: { btnLabel: '+ New Agent', opener: '_openNewAgentEditor' },
+  [TAB_PROMPTS]: { btnLabel: '+ New Prompt', opener: '_openNewEditor' },
+  [TAB_MCPS]: { btnLabel: '+ Register MCP', opener: '_openNewMcpEditor' },
 };
 
 const CATEGORY_OPTIONS = ['Review', 'Workflow', 'Style', 'Content'];
@@ -115,4 +122,9 @@ export {
   STATUS,
   STATUS_TYPE,
   TAB_ACTIONS,
+  TAB_AGENTS,
+  TAB_MCPS,
+  TAB_MEMORY,
+  TAB_PROMPTS,
+  TAB_SKILLS,
 };
