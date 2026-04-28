@@ -213,8 +213,21 @@ class NxChat extends LitElement {
     this._controller.sendMessage(prompt);
   }
 
+  _navigateToSkillsEditor(tab) {
+    const { org, site } = this._context ?? {};
+    if (!org || !site) return;
+    const navKey = `da-skills-editor-nav:${org}/${site}`;
+    try {
+      sessionStorage.setItem(navKey, JSON.stringify({ tab, editorOpen: false }));
+    } catch { /* quota */ }
+    const { search } = window.location;
+    window.open(`/apps/skills${search}#/${org}/${site}`, '_blank');
+  }
+
   _handleMenuSelect({ detail: { id } }) {
     if (id === MENU_OPTIONS.PROMPT) this._openPrompts();
+    else if (id === 'skills') this._navigateToSkillsEditor('skills');
+    else if (id === 'prompts') this._navigateToSkillsEditor('prompts');
   }
 
   _handlePillRemove({ detail: { id } }) {
