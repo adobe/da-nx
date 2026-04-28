@@ -1025,49 +1025,6 @@
   100% { transform: translateX(340%); }
 }
 
-/* ─── MCP pill toggle ─────────────────────────────────────────────────────────── */
-
-.pill-toggle {
-  display: inline-flex;
-  align-items: center;
-  padding: var(--s2-spacing-25, 2px) var(--s2-spacing-100);
-  border-radius: 999px;
-  border: 1px solid currentcolor;
-  font-size: 11px;
-  font-weight: 600;
-  cursor: pointer;
-  background: transparent;
-  transition: opacity 0.15s;
-}
-
-.pill-toggle.is-enabled {
-  color: var(--s2-green-900);
-  border-color: var(--s2-green-600);
-  background: var(--s2-green-100);
-}
-
-.pill-toggle.is-disabled {
-  color: var(--s2-gray-600);
-  border-color: var(--s2-gray-400);
-}
-
-.pill-toggle:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* ─── inline link button ─────────────────────────────────────────────────────── */
-
-.link-btn {
-  background: none;
-  border: none;
-  padding: 0;
-  color: var(--s2-blue-900);
-  cursor: pointer;
-  text-decoration: underline;
-  font-size: inherit;
-}
-
 /* ─── form hints ──────────────────────────────────────────────────────────────── */
 
 .form-hint {
