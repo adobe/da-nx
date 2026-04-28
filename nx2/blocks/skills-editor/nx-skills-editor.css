@@ -24,6 +24,43 @@
   font-size: var(--s2-body-size-s);
 }
 
+.refresh-indicator {
+  position: absolute;
+  inset: 0 0 auto;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  pointer-events: none;
+}
+
+.refresh-indicator-label {
+  align-self: flex-end;
+  padding: 2px var(--s2-spacing-100);
+  margin: var(--s2-spacing-50) var(--s2-spacing-100) 0 0;
+  border-radius: 999px;
+  background: light-dark(var(--s2-blue-100), color-mix(in srgb, var(--s2-blue-900) 18%, transparent));
+  color: var(--s2-blue-900);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.refresh-indicator-track {
+  display: block;
+  width: 100%;
+  height: 2px;
+  background: light-dark(var(--s2-gray-200), var(--s2-gray-300));
+  overflow: hidden;
+}
+
+.refresh-indicator-bar {
+  display: block;
+  width: 35%;
+  height: 100%;
+  background: var(--s2-blue-900);
+  animation: refresh-progress 1.1s ease-in-out infinite;
+}
+
 .empty {
   padding: var(--s2-spacing-200);
   text-align: center;
@@ -67,6 +104,7 @@
   flex: 1;
   height: 100%;
   min-height: 0;
+  position: relative;
   overflow: hidden; /* required to clip the drawer while it slides */
 }
 
@@ -572,6 +610,15 @@
   transition: border-color 0.15s, background 0.15s;
 }
 
+.agent-card:focus-visible,
+[data-testid="skill-card"]:focus-visible,
+.prompt-row[role="button"]:focus-visible,
+[data-testid="mcp-builtin-card"]:focus-visible,
+[data-testid="mcp-card"]:focus-visible {
+  outline: 2px solid var(--s2-blue-900);
+  outline-offset: 2px;
+}
+
 .agent-card:hover {
   border-color: var(--s2-gray-400);
   background: light-dark(var(--s2-gray-50), var(--s2-gray-75));
@@ -900,6 +947,11 @@
 
 @keyframes suggestion-rotate {
   to { --suggestion-angle: 360deg; }
+}
+
+@keyframes refresh-progress {
+  0% { transform: translateX(-120%); }
+  100% { transform: translateX(340%); }
 }
 
 /* ─── MCP pill toggle ─────────────────────────────────────────────────────────── */

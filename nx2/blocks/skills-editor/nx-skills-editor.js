@@ -148,6 +148,7 @@ const BUILTIN_TOOL_IDS = Object.values(BUILTIN_TOOL_DETAILS).flat().map((t) => t
 class NxSkillsEditor extends LitElement {
   static properties = {
     _isLoading: { state: true },
+    _isRefreshing: { state: true },
     _catalogTab: { state: true },
     _catalogFilter: { state: true },
     _skills: { state: true },
@@ -196,6 +197,7 @@ class NxSkillsEditor extends LitElement {
     super();
     this._hash = new HashController(this);
     this._isLoading = true;
+    this._isRefreshing = false;
     this._catalogTab = 'skills';
     this._catalogFilter = 'all';
     this._skills = {};
@@ -226,6 +228,9 @@ class NxSkillsEditor extends LitElement {
     this._editorTriggerSelector = null; // CSS selector for the element that opened the drawer
     this._isChatOpen = sessionStorage.getItem('nx-skills-editor-chat-open') === '1';
     this._chatLoaded = false;
+    this._syncOrphansInFlight = false;
+    this._agentsLoadInFlight = false;
+    this._mcpToolsLoadInFlight = false;
   }
 
   get _org() { return this._hash.value?.org; }
@@ -266,12 +271,28 @@ class NxSkillsEditor extends LitElement {
     if (key !== this._loadedKey) {
       this._loadedKey = key;
       this._memory = null;
-      await this._reload();
+      const restored = this._restoreDataSnapshot();
+      if (restored) {
+        this._isLoading = false;
+        await this._reload({
+          silent: true,
+          showRefreshIndicator: true,
+          includeMdFiles: false,
+        });
+      } else {
+        await this._reload();
+      }
       // Restore panel state after data is available (must come after _reload)
       await this._restoreNavState();
     }
     if (changed?.has('_catalogTab') && this._catalogTab === 'memory' && this._memory === null) {
       this._loadMemory();
+    }
+    if (changed?.has('_catalogTab') && this._catalogTab === 'agents') {
+      this._ensureAgentsLoaded();
+    }
+    if (changed?.has('_catalogTab') && this._catalogTab === 'mcps') {
+      this._ensureMcpToolsLoaded();
     }
     // Move focus into the drawer on open; restore it to the trigger on close.
     if (changed?.has('_isEditorOpen')) {
@@ -305,6 +326,52 @@ class NxSkillsEditor extends LitElement {
 
   _navStorageKey() {
     return `da-skills-editor-nav:${this._org}/${this._site}`;
+  }
+
+  _dataSnapshotStorageKey() {
+    return `da-skills-editor-data:${this._org}/${this._site}`;
+  }
+
+  _saveDataSnapshot() {
+    if (!this._org || !this._site) return;
+    const snapshot = {
+      skills: this._skills,
+      skillStatuses: this._skillStatuses,
+      prompts: this._prompts,
+      agentRows: this._agentRows,
+      mcpRows: this._mcpRows,
+      generatedTools: this._generatedTools,
+      configuredMcpServers: this._configuredMcpServers,
+      configuredMcpServerHeaders: this._configuredMcpServerHeaders,
+      toolOverrides: this._toolOverrides,
+      agents: this._agents,
+    };
+    try {
+      sessionStorage.setItem(this._dataSnapshotStorageKey(), JSON.stringify(snapshot));
+    } catch { /* best effort */ }
+  }
+
+  _restoreDataSnapshot() {
+    if (!this._org || !this._site) return false;
+    try {
+      const raw = sessionStorage.getItem(this._dataSnapshotStorageKey());
+      if (!raw) return false;
+      const snap = JSON.parse(raw);
+      if (!snap || typeof snap !== 'object') return false;
+      this._skills = snap.skills || {};
+      this._skillStatuses = snap.skillStatuses || {};
+      this._prompts = Array.isArray(snap.prompts) ? snap.prompts : [];
+      this._agentRows = Array.isArray(snap.agentRows) ? snap.agentRows : [];
+      this._mcpRows = Array.isArray(snap.mcpRows) ? snap.mcpRows : [];
+      this._generatedTools = Array.isArray(snap.generatedTools) ? snap.generatedTools : [];
+      this._configuredMcpServers = snap.configuredMcpServers || {};
+      this._configuredMcpServerHeaders = snap.configuredMcpServerHeaders || {};
+      this._toolOverrides = snap.toolOverrides || {};
+      this._agents = Array.isArray(snap.agents) ? snap.agents : [];
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   _saveNavState() {
@@ -369,53 +436,103 @@ class NxSkillsEditor extends LitElement {
 
   // ─── data loading ─────────────────────────────────────────────────────────
 
-  async _reload() {
-    if (!this._org || !this._site) return;
-    this._isLoading = true;
-
-    // Back-fill config entries for any .md-only skills so the agent can see them.
-    const backfilled = await syncOrphanSkillsToConfig(this._org, this._site);
-
-    const [configResult, skillsResult, genTools] = await Promise.all([
-      fetchDaConfigSheets(this._org, this._site),
-      loadSkillsWithStatuses(this._org, this._site),
-      loadGeneratedTools(this._org, this._site),
-    ]);
-
-    this._skills = skillsResult.map;
-    this._skillStatuses = skillsResult.statuses;
-    this._prompts = configResult.json?.prompts?.data || [];
-    this._agentRows = configResult.agentRows || [];
-    this._mcpRows = configResult.mcpRows || [];
-    this._configuredMcpServers = configResult.configuredMcpServers || {};
-    this._configuredMcpServerHeaders = configResult.configuredMcpServerHeaders || {};
-    this._toolOverrides = configResult.toolOverrides || {};
-    this._generatedTools = genTools;
-
-    if (backfilled.configBackfilled.length || backfilled.filesWritten.length) {
-      // eslint-disable-next-line no-console
-      console.info('[skills-editor] sync:', {
-        configBackfilled: backfilled.configBackfilled,
-        filesWritten: backfilled.filesWritten,
-      });
-    }
-
-    this._isLoading = false;
-    this._applySuggestion();
-
-    loadAgentPresets(this._org, this._site)
-      .then((presets) => {
-        // Discard if the component loaded a different org/site in the meantime.
-        if (`${this._org}/${this._site}` === this._loadedKey) this._agents = presets;
+  _scheduleOrphanSkillSync() {
+    if (this._syncOrphansInFlight || !this._org || !this._site) return;
+    const loadKey = this._loadedKey;
+    this._syncOrphansInFlight = true;
+    syncOrphanSkillsToConfig(this._org, this._site)
+      .then((backfilled) => {
+        const changed = backfilled?.configBackfilled?.length || backfilled?.filesWritten?.length;
+        if (!changed) return;
+        // eslint-disable-next-line no-console
+        console.info('[skills-editor] background sync:', backfilled);
+        if (`${this._org}/${this._site}` === loadKey) {
+          this._reload({
+            silent: true,
+            showRefreshIndicator: true,
+            includeMdFiles: true,
+          }).catch(() => {});
+        }
       })
-      .catch(() => { /* non-fatal: agent presets unavailable */ });
-    if (Object.keys(this._configuredMcpServers).length) {
-      const loadKey = this._loadedKey;
-      fetchMcpToolsFromAgent(this._configuredMcpServers, this._configuredMcpServerHeaders)
-        .then((tools) => {
-          if (`${this._org}/${this._site}` === loadKey) this._mcpTools = tools;
-        })
-        .catch(() => { /* non-fatal: MCP tool listing unavailable */ });
+      .catch(() => { /* non-fatal */ })
+      .finally(() => { this._syncOrphansInFlight = false; });
+  }
+
+  async _reload(options = {}) {
+    if (!this._org || !this._site) return;
+    const {
+      silent = false,
+      showRefreshIndicator = false,
+      includeMdFiles = true,
+    } = options;
+    if (!silent) this._isLoading = true;
+    if (showRefreshIndicator) this._isRefreshing = true;
+
+    try {
+      const configResult = await fetchDaConfigSheets(this._org, this._site);
+      const [skillsResult, genTools] = await Promise.all([
+        loadSkillsWithStatuses(this._org, this._site, configResult, { includeMdFiles }),
+        loadGeneratedTools(this._org, this._site, configResult),
+      ]);
+
+      this._skills = skillsResult.map;
+      this._skillStatuses = skillsResult.statuses;
+      this._prompts = configResult.json?.prompts?.data || [];
+      this._agentRows = configResult.agentRows || [];
+      this._mcpRows = configResult.mcpRows || [];
+      this._configuredMcpServers = configResult.configuredMcpServers || {};
+      this._configuredMcpServerHeaders = configResult.configuredMcpServerHeaders || {};
+      this._toolOverrides = configResult.toolOverrides || {};
+      this._generatedTools = genTools;
+      this._saveDataSnapshot();
+
+      this._applySuggestion();
+      this._scheduleOrphanSkillSync();
+    } finally {
+      if (!silent) this._isLoading = false;
+      if (showRefreshIndicator) this._isRefreshing = false;
+    }
+  }
+
+  async _ensureAgentsLoaded() {
+    if (this._agentsLoadInFlight || this._agents.length) return;
+    const loadKey = this._loadedKey;
+    this._agentsLoadInFlight = true;
+    this._isRefreshing = true;
+    try {
+      const presets = await loadAgentPresets(this._org, this._site);
+      if (`${this._org}/${this._site}` === loadKey) {
+        this._agents = presets;
+        this._saveDataSnapshot();
+      }
+    } catch {
+      // non-fatal: agent presets unavailable
+    } finally {
+      this._agentsLoadInFlight = false;
+      this._isRefreshing = false;
+    }
+  }
+
+  async _ensureMcpToolsLoaded() {
+    if (
+      this._mcpToolsLoadInFlight
+      || this._mcpTools
+      || !Object.keys(this._configuredMcpServers).length
+    ) return;
+    const loadKey = this._loadedKey;
+    this._mcpToolsLoadInFlight = true;
+    this._isRefreshing = true;
+    try {
+      const tools = await fetchMcpToolsFromAgent(
+        this._configuredMcpServers,
+        this._configuredMcpServerHeaders,
+      );
+      if (`${this._org}/${this._site}` === loadKey) this._mcpTools = tools;
+    } catch {
+      // non-fatal: MCP tool listing unavailable
+    } finally {
+      this._mcpToolsLoadInFlight = false;
+      this._isRefreshing = false;
     }
   }
 
@@ -827,6 +944,7 @@ class NxSkillsEditor extends LitElement {
   }
 
   _onSelectMcp(row) {
+    this._ensureMcpToolsLoaded();
     const serverId = String(row?.key || '').trim();
     if (!serverId || !this._mcpTools?.servers) return;
     const server = this._mcpTools.servers.find((s) => s.id === serverId);
@@ -1031,6 +1149,7 @@ class NxSkillsEditor extends LitElement {
   }
 
   _onViewMcpTools(serverId) {
+    this._ensureMcpToolsLoaded();
     this._editorTriggerSelector = this._captureTriggerSelector();
     this._clearMcpForm();
     this._viewingMcpServerId = serverId;
@@ -1057,16 +1176,24 @@ class NxSkillsEditor extends LitElement {
     return Boolean(nestedInteractive && nestedInteractive !== currentTarget);
   }
 
-  _onMcpCardClick(e, onActivate) {
+  _onCardClick(e, onActivate) {
     if (this._isEventFromNestedInteractiveControl(e)) return;
     onActivate();
   }
 
-  _onMcpCardKeydown(e, onActivate) {
+  _onCardKeydown(e, onActivate) {
     if (e.key !== 'Enter' && e.key !== ' ') return;
     if (this._isEventFromNestedInteractiveControl(e)) return;
     e.preventDefault();
     onActivate();
+  }
+
+  _onMcpCardClick(e, onActivate) {
+    this._onCardClick(e, onActivate);
+  }
+
+  _onMcpCardKeydown(e, onActivate) {
+    this._onCardKeydown(e, onActivate);
   }
 
   async _onToggleToolEnabled(serverId, toolName, enabled) {
@@ -1148,6 +1275,12 @@ class NxSkillsEditor extends LitElement {
     ].filter(Boolean).join(' ');
 
     return html`<div class="${rootCls}" role="region" aria-label="Skills Editor">
+      ${this._isRefreshing ? html`
+        <div class="refresh-indicator" role="status" aria-live="polite">
+          <span class="refresh-indicator-label">Auto-refreshing capabilities…</span>
+          <span class="refresh-indicator-track"><span class="refresh-indicator-bar"></span></span>
+        </div>
+      ` : nothing}
       ${this._renderChatDrawer()}
       ${this._renderListCol()}
       ${this._renderEditorPanel()}
@@ -1755,12 +1888,20 @@ class NxSkillsEditor extends LitElement {
     const isEditing = this._isFormEdit && this._formSkillId === id;
     const isDraft = status === STATUS.DRAFT;
     return html`
-      <article role="listitem" data-testid="skill-card" data-skill-id=${id}>
+      <article
+        role="button"
+        tabindex="0"
+        aria-label="Edit skill ${id}"
+        data-testid="skill-card"
+        data-skill-id=${id}
+        @click=${(e) => this._onCardClick(e, () => this._onEditSkill(id))}
+        @keydown=${(e) => this._onCardKeydown(e, () => this._onEditSkill(id))}
+      >
         <nx-card
+          interactive
           heading=${id}
           subheading=${title || nothing}
           ?selected=${isEditing}
-          @click=${() => this._onEditSkill(id)}
         >
           <span slot="pill"
             class="status-dot ${isDraft ? 'status-dot-draft' : 'status-dot-approved'}"
@@ -1792,9 +1933,11 @@ class NxSkillsEditor extends LitElement {
     const description = agent.description || agent.preset?.description || '';
     const tools = this._agentToolIds(agent, isBuiltin);
     return html`
-      <article class="agent-card" role="listitem"
+      <article class="agent-card" role="button" tabindex="0"
+        aria-label="Open agent ${title}"
         data-testid=${isBuiltin ? 'agent-builtin-card' : 'agent-card'}
-        @click=${() => this._onSelectAgent(agent)}
+        @click=${(e) => this._onCardClick(e, () => this._onSelectAgent(agent))}
+        @keydown=${(e) => this._onCardKeydown(e, () => this._onSelectAgent(agent))}
       >
         <header class="agent-card-header">
           <span class="status-dot status-dot-approved" aria-label="Active"></span>
@@ -1860,8 +2003,11 @@ class NxSkillsEditor extends LitElement {
           const catClass = KNOWN_CATEGORY_CLASSES.has(cat) ? cat : 'default';
           return html`
             <article role="listitem" data-testid="prompt-card" data-prompt-title=${title}>
-              <div class="prompt-row ${isSelected ? 'is-selected' : ''}"
-                @click=${() => this._openEditor(row)}
+              <div class="prompt-row ${isSelected ? 'is-selected' : ''}" role="button"
+                tabindex="0"
+                aria-label="Edit prompt ${title || '(untitled)'}"
+                @click=${(e) => this._onCardClick(e, () => this._openEditor(row))}
+                @keydown=${(e) => this._onCardKeydown(e, () => this._openEditor(row))}
               >
                 <div class="prompt-row-body">
                   <span class="prompt-row-title">${title || '(untitled)'}</span>
@@ -1937,6 +2083,7 @@ class NxSkillsEditor extends LitElement {
               @keydown=${(e) => this._onMcpCardKeydown(e, () => this._onViewMcpTools(s.id))}
             >
               <nx-card heading=${s.id} subheading=${s.description}
+                interactive
                 ?selected=${isViewing}>
                 <span slot="pill" class="status-dot status-dot-approved"
                   aria-label="Enabled"></span>
@@ -1968,6 +2115,7 @@ class NxSkillsEditor extends LitElement {
               @keydown=${(e) => this._onMcpCardKeydown(e, () => this._onEditMcp(row))}
             >
               <nx-card heading=${key || '(unnamed)'}
+                interactive
                 subheading=${row.description || row.url || row.value || ''}
                 ?selected=${isSelected}>
                 <span slot="pill"

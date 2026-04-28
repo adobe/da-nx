@@ -16,6 +16,42 @@ export function getAgentOrigin() {
   return isLocal ? 'http://localhost:4002' : 'https://da-agent.adobeaem.workers.dev';
 }
 
+// ─── lightweight in-memory caches (per org/site) ────────────────────────────
+
+const CACHE_TTL_MS = 15000;
+const configCache = new Map();
+const inflightConfig = new Map();
+const skillMdCache = new Map();
+const inflightSkillMd = new Map();
+
+function siteKey(org, site) {
+  return site ? `${org}/${site}` : String(org);
+}
+
+function getCached(map, key) {
+  const entry = map.get(key);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) {
+    map.delete(key);
+    return null;
+  }
+  return entry.value;
+}
+
+function setCached(map, key, value) {
+  map.set(key, { value, expiresAt: Date.now() + CACHE_TTL_MS });
+}
+
+function invalidateConfigCache(org, site) {
+  configCache.delete(siteKey(org, site));
+  inflightConfig.delete(siteKey(org, site));
+}
+
+function invalidateSkillMdCache(org, site) {
+  skillMdCache.delete(siteKey(org, site));
+  inflightSkillMd.delete(siteKey(org, site));
+}
+
 // ─── chat ↔ skills-editor suggestion (sessionStorage + custom events) ────────
 
 const SKILL_CHAT_PROSE_KEY = 'da-skills-editor-skill-chat-prose';
@@ -137,6 +173,7 @@ export async function saveDaConfig(org, site, fullConfig) {
   const body = new FormData();
   body.append('config', JSON.stringify(fullConfig));
   const resp = await daFetch(`${DA_ORIGIN}/config/${path}/`, { method: 'POST', body });
+  if (resp.ok) invalidateConfigCache(org, site);
   return { ok: resp.ok, status: resp.status };
 }
 
@@ -176,78 +213,95 @@ const AUTH_FAIL = {
   toolOverrides: {},
 };
 
-export async function fetchDaConfigSheets(org, site) {
+export async function fetchDaConfigSheets(org, site, options = {}) {
+  const cacheKey = siteKey(org, site);
+  if (!options.force) {
+    const cached = getCached(configCache, cacheKey);
+    if (cached) return cached;
+    const inflight = inflightConfig.get(cacheKey);
+    if (inflight) return inflight;
+  }
+
   const path = site ? `${org}/${site}` : org;
   const url = `${DA_ORIGIN}/config/${path}/`;
-  try {
-    let resp = await daFetch(url);
-    if (resp.status === 401) return { ...AUTH_FAIL };
-    if (resp.status === 404) {
-      await materializeConfigAfter404(org, site);
-      resp = await daFetch(url);
+  const promise = (async () => {
+    try {
+      let resp = await daFetch(url);
       if (resp.status === 401) return { ...AUTH_FAIL };
-    }
-    if (!resp.ok) {
-      return resp.status === 404
-        ? { ...EMPTY_CONFIG }
-        // eslint-disable-next-line max-len
-        : {
-          ok: false,
-          status: resp.status,
-          mcpRows: [],
-          agentRows: [],
-          configuredMcpServers: {},
-          configuredMcpServerHeaders: {},
-          toolOverrides: {},
-        };
-    }
-    const json = await resp.json();
-    const mcpRows = json?.['mcp-servers']?.data || [];
-    const servers = {};
-    const serverHeaders = {};
-    mcpRows.forEach((row) => {
-      const rowUrl = row.url || row.value;
-      const s = String(row?.status ?? '').trim().toLowerCase();
-      const approved = s !== 'draft';
-      const enabled = rowEnabledState(row, true);
-      const key = String(row?.key || '').trim();
-      if (key && rowUrl && approved && enabled) {
-        servers[key] = rowUrl;
-        const headerName = String(row?.authHeaderName || '').trim();
-        const headerValue = String(row?.authHeaderValue || '').trim();
-        if (headerName && headerValue) serverHeaders[key] = { [headerName]: headerValue };
+      if (resp.status === 404) {
+        await materializeConfigAfter404(org, site);
+        resp = await daFetch(url);
+        if (resp.status === 401) return { ...AUTH_FAIL };
       }
-    });
-    const agentRows = (json?.agents?.data || [])
-      .filter((r) => r.key && (r.url || r.value))
-      .map((r) => ({ ...r, url: r.url || r.value }));
-    const toolOverrides = {};
-    (json?.[TOOL_OVERRIDES_SHEET]?.data ?? []).forEach((r) => {
-      const key = String(r.key || '').trim();
-      if (key) toolOverrides[key] = rowEnabledState(r, true);
-    });
-    return {
-      ok: true,
-      json,
-      mcpRows,
-      configuredMcpServers: servers,
-      configuredMcpServerHeaders: serverHeaders,
-      agentRows,
-      toolOverrides,
-    };
-  } catch (err) {
-    // eslint-disable-next-line max-len
-    // eslint-disable-next-line max-len
-    return {
-      ok: false,
-      error: String(err?.message ?? err),
-      mcpRows: [],
-      agentRows: [],
-      configuredMcpServers: {},
-      configuredMcpServerHeaders: {},
-      toolOverrides: {},
-    };
-  }
+
+      if (!resp.ok) {
+        return resp.status === 404
+          ? { ...EMPTY_CONFIG }
+          // eslint-disable-next-line max-len
+          : {
+            ok: false,
+            status: resp.status,
+            mcpRows: [],
+            agentRows: [],
+            configuredMcpServers: {},
+            configuredMcpServerHeaders: {},
+            toolOverrides: {},
+          };
+      }
+
+      const json = await resp.json();
+      const mcpRows = json?.['mcp-servers']?.data || [];
+      const servers = {};
+      const serverHeaders = {};
+      mcpRows.forEach((row) => {
+        const rowUrl = row.url || row.value;
+        const s = String(row?.status ?? '').trim().toLowerCase();
+        const approved = s !== 'draft';
+        const enabled = rowEnabledState(row, true);
+        const rowKey = String(row?.key || '').trim();
+        if (rowKey && rowUrl && approved && enabled) {
+          servers[rowKey] = rowUrl;
+          const headerName = String(row?.authHeaderName || '').trim();
+          const headerValue = String(row?.authHeaderValue || '').trim();
+          if (headerName && headerValue) serverHeaders[rowKey] = { [headerName]: headerValue };
+        }
+      });
+      const agentRows = (json?.agents?.data || [])
+        .filter((r) => r.key && (r.url || r.value))
+        .map((r) => ({ ...r, url: r.url || r.value }));
+      const toolOverrides = {};
+      (json?.[TOOL_OVERRIDES_SHEET]?.data ?? []).forEach((r) => {
+        const rowKey = String(r.key || '').trim();
+        if (rowKey) toolOverrides[rowKey] = rowEnabledState(r, true);
+      });
+
+      const result = {
+        ok: true,
+        json,
+        mcpRows,
+        configuredMcpServers: servers,
+        configuredMcpServerHeaders: serverHeaders,
+        agentRows,
+        toolOverrides,
+      };
+      setCached(configCache, cacheKey, result);
+      return result;
+    } catch (err) {
+      return {
+        ok: false,
+        error: String(err?.message ?? err),
+        mcpRows: [],
+        agentRows: [],
+        configuredMcpServers: {},
+        configuredMcpServerHeaders: {},
+        toolOverrides: {},
+      };
+    } finally {
+      inflightConfig.delete(cacheKey);
+    }
+  })();
+  inflightConfig.set(cacheKey, promise);
+  return promise;
 }
 
 // ─── generic config sheet mutation helpers ──────────────────────────────────
@@ -341,41 +395,54 @@ export function skillsRowsToMapAndStatuses(rows) {
  * Merges with config sheet: .md body wins, config status wins.
  */
 async function loadSkillsFromMdFiles(org, site) {
+  const cacheKey = siteKey(org, site);
+  const cached = getCached(skillMdCache, cacheKey);
+  if (cached) return cached;
+  const inflight = inflightSkillMd.get(cacheKey);
+  if (inflight) return inflight;
+
   const folder = `/${org}/${site}/.da/skills`;
-  try {
-    const resp = await daFetch(`${DA_ORIGIN}/list${folder}`);
-    if (!resp.ok) return {};
-    const payload = await resp.json();
-    const items = Array.isArray(payload) ? payload : (payload?.items ?? []);
-    const out = {};
-    await Promise.all(items.map(async (item) => {
-      const ext = String(item?.ext || '').trim().toLowerCase();
-      const name = String(item?.name || '').trim();
-      if (!name) return;
-      if (ext !== 'md' && !name.toLowerCase().endsWith('.md')) return;
-      const pathStr = typeof item?.path === 'string' ? item.path.trim() : '';
-      let filename;
-      if (pathStr) {
-        filename = pathStr.split('/').pop();
-      } else if (ext === 'md') {
-        filename = `${name}.md`;
-      } else {
-        filename = name;
-      }
-      const key = filename.replace(/\.md$/i, '').trim();
-      if (!key) return;
-      const srcPath = pathStr || `${folder}/${filename}`;
-      try {
-        const r = await daFetch(`${DA_ORIGIN}/source${srcPath}`);
-        if (!r.ok) return;
-        const text = await r.text();
-        if (text) out[key] = text;
-      } catch { /* skip */ }
-    }));
-    return out;
-  } catch {
-    return {};
-  }
+  const promise = (async () => {
+    try {
+      const resp = await daFetch(`${DA_ORIGIN}/list${folder}`);
+      if (!resp.ok) return {};
+      const payload = await resp.json();
+      const items = Array.isArray(payload) ? payload : (payload?.items ?? []);
+      const out = {};
+      await Promise.all(items.map(async (item) => {
+        const ext = String(item?.ext || '').trim().toLowerCase();
+        const name = String(item?.name || '').trim();
+        if (!name) return;
+        if (ext !== 'md' && !name.toLowerCase().endsWith('.md')) return;
+        const pathStr = typeof item?.path === 'string' ? item.path.trim() : '';
+        let filename;
+        if (pathStr) {
+          filename = pathStr.split('/').pop();
+        } else if (ext === 'md') {
+          filename = `${name}.md`;
+        } else {
+          filename = name;
+        }
+        const fileKey = filename.replace(/\.md$/i, '').trim();
+        if (!fileKey) return;
+        const srcPath = pathStr || `${folder}/${filename}`;
+        try {
+          const r = await daFetch(`${DA_ORIGIN}/source${srcPath}`);
+          if (!r.ok) return;
+          const text = await r.text();
+          if (text) out[fileKey] = text;
+        } catch { /* skip */ }
+      }));
+      setCached(skillMdCache, cacheKey, out);
+      return out;
+    } catch {
+      return {};
+    } finally {
+      inflightSkillMd.delete(cacheKey);
+    }
+  })();
+  inflightSkillMd.set(cacheKey, promise);
+  return promise;
 }
 
 export async function mergeSkillsWithMdFiles(sheetRows, org, site) {
@@ -390,9 +457,12 @@ export async function mergeSkillsWithMdFiles(sheetRows, org, site) {
   return { map: mergedMap, statuses: mergedStatuses };
 }
 
-export async function loadSkillsWithStatuses(org, site) {
-  const loaded = await fetchDaConfigSheets(org, site);
+export async function loadSkillsWithStatuses(org, site, loadedConfig = null, options = {}) {
+  const loaded = loadedConfig || await fetchDaConfigSheets(org, site);
   if (!loaded.ok || !loaded.json) return { map: {}, statuses: {} };
+  if (options.includeMdFiles === false) {
+    return skillsRowsToMapAndStatuses(loaded.json[SKILLS_SHEET]?.data);
+  }
   return mergeSkillsWithMdFiles(loaded.json[SKILLS_SHEET]?.data, org, site);
 }
 
@@ -447,6 +517,7 @@ export async function syncOrphanSkillsToConfig(org, site) {
     });
     cfg[SKILLS_SHEET] = { ...sheet, data, total: data.length };
     await saveDaConfig(org, site, cfg);
+    invalidateConfigCache(org, site);
   }
 
   // Write missing .md files (fire-and-forget, don't block load)
@@ -456,6 +527,8 @@ export async function syncOrphanSkillsToConfig(org, site) {
     const result = await writeSkillMdFile(org, site, id, body);
     if (result.ok) filesWritten.push(id);
   }));
+
+  if (filesWritten.length) invalidateSkillMdCache(org, site);
 
   return { configBackfilled, filesWritten };
 }
@@ -496,6 +569,7 @@ export async function writeSkillMdFile(org, site, skillId, markdown) {
   body.append('data', blob, `${id}.md`);
   try {
     const resp = await daFetch(`${DA_ORIGIN}/source${path}`, { method: 'PUT', body });
+    if (resp.ok) invalidateSkillMdCache(org, site);
     return { ok: resp.ok, status: resp.status };
   } catch {
     return { ok: false, error: 'Network error writing skill file' };
@@ -522,7 +596,9 @@ export async function deleteSkillMdFile(org, site, skillId) {
   try {
     const resp = await daFetch(`${DA_ORIGIN}/source${path}`, { method: 'DELETE' });
     // 404 means the file never existed — treat as success so callers don't error
-    return { ok: resp.ok || resp.status === 404, status: resp.status };
+    const ok = resp.ok || resp.status === 404;
+    if (ok) invalidateSkillMdCache(org, site);
+    return { ok, status: resp.status };
   } catch {
     return { ok: false, error: 'Network error deleting skill file' };
   }
@@ -588,8 +664,8 @@ function generatedToolRowsToDefs(rows) {
   return out;
 }
 
-export async function loadGeneratedTools(org, site) {
-  const loaded = await fetchDaConfigSheets(org, site);
+export async function loadGeneratedTools(org, site, loadedConfig = null) {
+  const loaded = loadedConfig || await fetchDaConfigSheets(org, site);
   if (!loaded.ok || !loaded.json) return [];
   return generatedToolRowsToDefs(loaded.json[GEN_TOOLS_SHEET]?.data);
 }
