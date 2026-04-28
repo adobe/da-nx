@@ -335,6 +335,10 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+main {
+  position: relative;
+}
+
 img {
   max-width: 100%;
   height: auto;
