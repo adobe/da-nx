@@ -1,6 +1,6 @@
 /**
  * Data layer for Skills Editor — config sheet CRUD, .md file I/O,
- * MCP / generated-tools / agent-presets, and chat suggestion events.
+ * MCP / agent-presets, and chat suggestion events.
  *
  * Ported from exp-workspace nx/blocks/browse/skills-lab-api.js,
  * adapted for nx2 imports and the skills-editor naming convention.
@@ -13,7 +13,7 @@ import { DA_ORIGIN, daFetch } from '../../utils/daFetch.js';
 export function getAgentOrigin() {
   const params = new URLSearchParams(window.location.search);
   const isLocal = params.get('ref') === 'local' || params.get('nx') === 'local';
-  return isLocal ? 'http://localhost:4002' : 'https://da-agent.adobeaem.workers.dev';
+  return isLocal ? 'http://localhost:4200' : 'https://da-agent.adobeaem.workers.dev';
 }
 
 // ─── lightweight in-memory caches (per org/site) ────────────────────────────
@@ -646,84 +646,6 @@ export async function deletePromptFromConfig(org, site, title) {
   );
 }
 
-// ─── generated tools ────────────────────────────────────────────────────────
-
-const GEN_TOOLS_SHEET = 'generated-tools';
-
-function generatedToolRowsToDefs(rows) {
-  const out = [];
-  (Array.isArray(rows) ? rows : []).forEach((r) => {
-    if (!r || typeof r !== 'object') return;
-    const raw = r.content ?? r.value ?? r.body ?? '';
-    if (!raw) return;
-    try {
-      const def = typeof raw === 'string' ? JSON.parse(raw) : raw;
-      if (def && typeof def === 'object' && String(def.id || '').trim()) out.push(def);
-    } catch { /* skip */ }
-  });
-  return out;
-}
-
-export async function loadGeneratedTools(org, site, loadedConfig = null) {
-  const loaded = loadedConfig || await fetchDaConfigSheets(org, site);
-  if (!loaded.ok || !loaded.json) return [];
-  return generatedToolRowsToDefs(loaded.json[GEN_TOOLS_SHEET]?.data);
-}
-
-function genToolKeyMatch(id) {
-  return (r) => String(r.key ?? r.id ?? '').trim() === id;
-}
-
-export async function upsertGeneratedTool(org, site, def) {
-  const id = String(def?.id ?? '').trim();
-  if (!id) return { ok: false, error: 'Tool id required' };
-  return upsertSheetRow(
-    org,
-    site,
-    GEN_TOOLS_SHEET,
-    genToolKeyMatch(id),
-    (prev) => ({ ...prev, key: id, content: JSON.stringify(def) }),
-    'Tool',
-  );
-}
-
-export async function deleteGeneratedTool(org, site, toolId) {
-  const id = String(toolId || '').trim();
-  if (!id) return { ok: false, error: 'Tool id required' };
-  return deleteSheetRow(org, site, GEN_TOOLS_SHEET, genToolKeyMatch(id), 'Tool');
-}
-
-export async function setGeneratedToolEnabled(org, site, toolId, enabled) {
-  const id = String(toolId || '').trim();
-  if (!id) return { ok: false, error: 'Tool id required' };
-
-  const loaded = await fetchDaConfigSheets(org, site);
-  if (!loaded.ok) return { ok: false, error: 'Could not load config' };
-
-  const cfg = { ...(loaded.json || {}) };
-  const sheet = cfg[GEN_TOOLS_SHEET];
-  if (!sheet?.data?.length) return { ok: false, error: 'No generated tools' };
-
-  const data = [...sheet.data];
-  const idx = data.findIndex(genToolKeyMatch(id));
-  if (idx < 0) return { ok: false, error: 'Tool not found' };
-
-  const raw = data[idx].content ?? data[idx].value ?? '';
-  let toolDef;
-  try {
-    toolDef = typeof raw === 'string' ? JSON.parse(raw) : raw;
-  } catch {
-    return { ok: false, error: 'Invalid JSON' };
-  }
-
-  // eslint-disable-next-line max-len
-  data[idx] = { ...data[idx], key: id, content: JSON.stringify({ ...toolDef, enabled: !!enabled }) };
-  cfg[GEN_TOOLS_SHEET] = { ...sheet, data, total: data.length };
-
-  const save = await saveDaConfig(org, site, cfg);
-  return save.ok ? { ok: true } : { ok: false, error: `Save failed (${save.status})` };
-}
-
 // ─── tool overrides ─────────────────────────────────────────────────────────
 
 export async function setToolOverride(org, site, serverId, toolName, enabled) {
@@ -897,7 +819,7 @@ export function extractToolRefs(md) {
 
 /**
  * Fetch site source text by path under site (e.g. /drafts/page.html).
- * Used by the generated-tools "Try it" panel to load live page HTML.
+ * Used by the memory tab to load/display the agent memory file.
  */
 export async function fetchSiteSourceText(org, site, pathUnderSite) {
   const p = String(pathUnderSite || '').replace(/^\//, '');

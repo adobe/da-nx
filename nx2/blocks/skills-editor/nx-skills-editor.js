@@ -3,7 +3,6 @@ import { loadStyle, HashController } from '../../utils/utils.js';
 import '../shared/tabs/tabs.js';
 import '../shared/card/card.js';
 import '../shared/popover/popover.js';
-import './generated-tools/generated-tools.js';
 import {
   fetchDaConfigSheets,
   loadSkillsWithStatuses,
@@ -15,7 +14,6 @@ import {
   deleteSkillMdFile,
   upsertPromptInConfig,
   deletePromptFromConfig,
-  loadGeneratedTools,
   loadAgentPresets,
   saveAgentPresetFile,
   fetchMcpToolsFromAgent,
@@ -64,6 +62,7 @@ const CATEGORY_OPTIONS = ['Review', 'Workflow', 'Style', 'Content'];
 const KNOWN_CATEGORY_CLASSES = new Set(['review', 'workflow', 'style', 'content']);
 
 const STATUS = { APPROVED: 'approved', DRAFT: 'draft' };
+const STATUS_TYPE = { OK: 'ok', WARN: 'warn', ERR: 'err' };
 
 /**
  * Canonical shape for all form fields across skill/prompt/MCP modes.
@@ -158,7 +157,6 @@ class NxSkillsEditor extends LitElement {
     _agentRows: { state: true },
     _mcpRows: { state: true },
     _mcpTools: { state: true },
-    _generatedTools: { state: true },
     _configuredMcpServers: { state: true },
     _configuredMcpServerHeaders: { state: true },
     _formSkillId: { state: true },
@@ -209,7 +207,6 @@ class NxSkillsEditor extends LitElement {
     this._agentRows = [];
     this._mcpRows = [];
     this._mcpTools = null;
-    this._generatedTools = [];
     this._configuredMcpServers = {};
     this._configuredMcpServerHeaders = {};
     this._clearForm();
@@ -344,7 +341,6 @@ class NxSkillsEditor extends LitElement {
       prompts: this._prompts,
       agentRows: this._agentRows,
       mcpRows: this._mcpRows,
-      generatedTools: this._generatedTools,
       configuredMcpServers: this._configuredMcpServers,
       configuredMcpServerHeaders: this._configuredMcpServerHeaders,
       toolOverrides: this._toolOverrides,
@@ -367,7 +363,6 @@ class NxSkillsEditor extends LitElement {
       this._prompts = Array.isArray(snap.prompts) ? snap.prompts : [];
       this._agentRows = Array.isArray(snap.agentRows) ? snap.agentRows : [];
       this._mcpRows = Array.isArray(snap.mcpRows) ? snap.mcpRows : [];
-      this._generatedTools = Array.isArray(snap.generatedTools) ? snap.generatedTools : [];
       this._configuredMcpServers = snap.configuredMcpServers || {};
       this._configuredMcpServerHeaders = snap.configuredMcpServerHeaders || {};
       this._toolOverrides = snap.toolOverrides || {};
@@ -474,9 +469,8 @@ class NxSkillsEditor extends LitElement {
 
     try {
       const configResult = await fetchDaConfigSheets(this._org, this._site);
-      const [skillsResult, genTools] = await Promise.all([
+      const [skillsResult] = await Promise.all([
         loadSkillsWithStatuses(this._org, this._site, configResult, { includeMdFiles }),
-        loadGeneratedTools(this._org, this._site, configResult),
       ]);
 
       this._skills = skillsResult.map;
@@ -487,7 +481,6 @@ class NxSkillsEditor extends LitElement {
       this._configuredMcpServers = configResult.configuredMcpServers || {};
       this._configuredMcpServerHeaders = configResult.configuredMcpServerHeaders || {};
       this._toolOverrides = configResult.toolOverrides || {};
-      this._generatedTools = genTools;
       this._saveDataSnapshot();
 
       this._applySuggestion();
@@ -589,7 +582,7 @@ class NxSkillsEditor extends LitElement {
     }
   }
 
-  _setStatus(msg, type = 'ok') {
+  _setStatus(msg, type = STATUS_TYPE.OK) {
     clearTimeout(this._statusTimer);
     this._statusMsg = msg;
     this._statusType = type;
@@ -599,8 +592,8 @@ class NxSkillsEditor extends LitElement {
   }
 
   _msgClass() {
-    if (this._statusType === 'err') return 'msg-err';
-    if (this._statusType === 'warn') return 'msg-warn';
+    if (this._statusType === STATUS_TYPE.ERR) return 'msg-err';
+    if (this._statusType === STATUS_TYPE.WARN) return 'msg-warn';
     return 'msg-ok';
   }
 
@@ -778,17 +771,17 @@ class NxSkillsEditor extends LitElement {
     const id = this._formSkillId.trim();
     let body = this._formSkillBody;
     if (!id) {
-      this._setStatus('Skill ID is required', 'err');
+      this._setStatus('Skill ID is required', STATUS_TYPE.ERR);
       return;
     }
     if (!body.trim()) {
-      this._setStatus('Skill body is required', 'err');
+      this._setStatus('Skill body is required', STATUS_TYPE.ERR);
       return;
     }
 
     // Duplicate ID guard — only applies when creating a new skill, not editing.
     if (!this._isFormEdit && this._skills && id in this._skills) {
-      this._setStatus(`A skill with ID "${id}" already exists. Edit it from the list.`, 'err');
+      this._setStatus(`A skill with ID "${id}" already exists. Edit it from the list.`, STATUS_TYPE.ERR);
       return;
     }
 
@@ -812,7 +805,7 @@ class NxSkillsEditor extends LitElement {
     // Write the .md file first — if it fails we don't touch the config sheet.
     const fileResult = await writeSkillMdFile(this._org, this._site, id, body);
     if (!fileResult.ok) {
-      this._setStatus('Failed to write skill file', 'err');
+      this._setStatus('Failed to write skill file', STATUS_TYPE.ERR);
       this._isSaveBusy = false;
       return;
     }
@@ -824,7 +817,7 @@ class NxSkillsEditor extends LitElement {
       if (!this._isFormEdit) {
         deleteSkillMdFile(this._org, this._site, id).catch(() => {});
       }
-      this._setStatus(configResult.error || 'Failed to save skill config', 'err');
+      this._setStatus(configResult.error || 'Failed to save skill config', STATUS_TYPE.ERR);
       this._isSaveBusy = false;
       return;
     }
@@ -861,7 +854,7 @@ class NxSkillsEditor extends LitElement {
 
     const fileResult = await deleteSkillMdFile(this._org, this._site, id);
     if (!fileResult.ok) {
-      this._setStatus('Failed to delete skill file', 'err');
+      this._setStatus('Failed to delete skill file', STATUS_TYPE.ERR);
       this._isSaveBusy = false;
       return;
     }
@@ -874,7 +867,7 @@ class NxSkillsEditor extends LitElement {
       if (rollbackBody) {
         writeSkillMdFile(this._org, this._site, id, rollbackBody).catch(() => {});
       }
-      this._setStatus(configResult.error || 'Failed to delete skill from config', 'err');
+      this._setStatus(configResult.error || 'Failed to delete skill from config', STATUS_TYPE.ERR);
       return;
     }
 
@@ -891,7 +884,7 @@ class NxSkillsEditor extends LitElement {
 
     const fileResult = await deleteSkillMdFile(this._org, this._site, id);
     if (!fileResult.ok) {
-      this._setStatus('Failed to delete skill file', 'err');
+      this._setStatus('Failed to delete skill file', STATUS_TYPE.ERR);
       this._isSaveBusy = false;
       return;
     }
@@ -903,7 +896,7 @@ class NxSkillsEditor extends LitElement {
       if (rollbackBody) {
         writeSkillMdFile(this._org, this._site, id, rollbackBody).catch(() => {});
       }
-      this._setStatus(configResult.error || 'Failed to delete skill', 'err');
+      this._setStatus(configResult.error || 'Failed to delete skill', STATUS_TYPE.ERR);
       return;
     }
     if (this._formSkillId === id) this._closeEditor();
@@ -994,7 +987,7 @@ class NxSkillsEditor extends LitElement {
     const title = this._formPromptTitle.trim();
     const prompt = this._formPromptBody.trim();
     if (!title || !prompt) {
-      this._setStatus('Title and prompt are required', 'err');
+      this._setStatus('Title and prompt are required', STATUS_TYPE.ERR);
       return;
     }
 
@@ -1015,7 +1008,7 @@ class NxSkillsEditor extends LitElement {
     );
 
     if (!result.ok) {
-      this._setStatus(result.error || 'Failed to save prompt', 'err');
+      this._setStatus(result.error || 'Failed to save prompt', STATUS_TYPE.ERR);
     } else {
       this._setStatus('Prompt saved');
       this._clearDirty();
@@ -1046,7 +1039,7 @@ class NxSkillsEditor extends LitElement {
     this._isSaveBusy = false;
 
     if (!result.ok) {
-      this._setStatus(result.error || 'Failed to delete prompt', 'err');
+      this._setStatus(result.error || 'Failed to delete prompt', STATUS_TYPE.ERR);
       return;
     }
 
@@ -1063,7 +1056,7 @@ class NxSkillsEditor extends LitElement {
       { status: STATUS.APPROVED },
     );
     if (!result.ok) {
-      this._setStatus(result.error || 'Failed to duplicate prompt', 'err');
+      this._setStatus(result.error || 'Failed to duplicate prompt', STATUS_TYPE.ERR);
     }
     await this._reload();
   }
@@ -1075,7 +1068,7 @@ class NxSkillsEditor extends LitElement {
     if (!window.confirm(`Delete prompt "${title}"? This cannot be undone.`)) return;
     const result = await deletePromptFromConfig(this._org, this._site, title);
     if (!result.ok) {
-      this._setStatus(result.error || 'Failed to delete prompt', 'err');
+      this._setStatus(result.error || 'Failed to delete prompt', STATUS_TYPE.ERR);
       return;
     }
     if (this._isFormPromptEdit && this._formPromptTitle === title) this._closeEditor();
@@ -1104,7 +1097,7 @@ class NxSkillsEditor extends LitElement {
       this._mcpAuthHeaderName,
       this._mcpAuthHeaderValue,
     );
-    if (!result.ok) this._setStatus(result.error || 'Failed', 'err');
+    if (!result.ok) this._setStatus(result.error || 'Failed', STATUS_TYPE.ERR);
     else {
       this._mcpKey = '';
       this._mcpUrl = '';
@@ -1128,7 +1121,7 @@ class NxSkillsEditor extends LitElement {
     const result = await deleteMcpServer(this._org, this._site, key);
     this._isSaveBusy = false;
     if (!result.ok) {
-      this._setStatus(result.error || 'Failed to remove MCP server', 'err');
+      this._setStatus(result.error || 'Failed to remove MCP server', STATUS_TYPE.ERR);
       return;
     }
     if (this._editingMcpKey === key) this._closeEditor();
@@ -1178,7 +1171,7 @@ class NxSkillsEditor extends LitElement {
     const res = await setMcpServerEnabled(this._org, this._site, key, nextEnabled);
     this._mcpEnableBusy = { ...this._mcpEnableBusy, [token]: false };
     if (!res.ok) {
-      this._setStatus(res.error || 'Could not update MCP state', 'err');
+      this._setStatus(res.error || 'Could not update MCP state', STATUS_TYPE.ERR);
       return;
     }
     await this._reload();
@@ -1232,15 +1225,26 @@ class NxSkillsEditor extends LitElement {
     this._onCardKeydown(e, onActivate);
   }
 
-  async _onToggleToolEnabled(serverId, toolName, enabled) {
+  async _onToggleToolEnabled(serverId, toolName, enabled, onRollback) {
     const key = `${serverId}/${toolName}`;
+    const previous = this._toolOverrides[key];
     this._toolOverrides = { ...this._toolOverrides, [key]: enabled };
-    if (enabled) {
-      await deleteToolOverride(this._org, this._site, serverId, toolName);
-      this._setStatus(`Tool enabled: ${toolName}`);
-    } else {
-      await setToolOverride(this._org, this._site, serverId, toolName, false);
-      this._setStatus(`Tool disabled — ${toolName} won't be available until re-enabled.`, 'warn');
+    try {
+      if (enabled) {
+        await deleteToolOverride(this._org, this._site, serverId, toolName);
+        this._setStatus(`Tool enabled: ${toolName}`);
+      } else {
+        await setToolOverride(this._org, this._site, serverId, toolName, false);
+        this._setStatus(`Tool disabled — ${toolName} won't be available until re-enabled.`, STATUS_TYPE.WARN);
+      }
+    } catch {
+      // Persist failed — roll back the optimistic update so the UI stays truthful.
+      const rolled = { ...this._toolOverrides };
+      if (previous === undefined) delete rolled[key];
+      else rolled[key] = previous;
+      this._toolOverrides = rolled;
+      onRollback?.();
+      this._setStatus(`Failed to ${enabled ? 'enable' : 'disable'} ${toolName}`, STATUS_TYPE.ERR);
     }
   }
 
@@ -1268,7 +1272,7 @@ class NxSkillsEditor extends LitElement {
     const id = this._newAgentId.trim().replace(/\.json$/i, '');
     const name = this._newAgentName.trim() || id;
     if (!id) {
-      this._setStatus('Agent id required', 'err');
+      this._setStatus('Agent id required', STATUS_TYPE.ERR);
       return;
     }
     this._isSaveBusy = true;
@@ -1282,7 +1286,7 @@ class NxSkillsEditor extends LitElement {
     const result = await saveAgentPresetFile(this._org, this._site, id, preset);
     this._isSaveBusy = false;
     if (!result.ok) {
-      this._setStatus(result.error || 'Failed to save agent file', 'err');
+      this._setStatus(result.error || 'Failed to save agent file', STATUS_TYPE.ERR);
       return;
     }
     this._newAgentId = '';
@@ -1645,12 +1649,15 @@ class NxSkillsEditor extends LitElement {
                     <input type="checkbox" class="tool-checkbox"
                       .checked=${isActive}
                       @change=${(e) => {
-                        const next = new Set(this._formPromptTools || []);
+                        const prevTools = this._formPromptTools ? [...this._formPromptTools] : [];
+                        const next = new Set(prevTools);
                         if (e.target.checked) next.add(toolId);
                         else next.delete(toolId);
                         this._formPromptTools = [...next];
                         const { serverId, toolName } = this._parseToolId(toolId);
-                        this._onToggleToolEnabled(serverId, toolName, e.target.checked);
+                        this._onToggleToolEnabled(serverId, toolName, e.target.checked, () => {
+                          this._formPromptTools = prevTools;
+                        });
                       }}
                     >
                     <span class="tool-label">${toolId}</span>
@@ -1796,7 +1803,7 @@ class NxSkillsEditor extends LitElement {
                 @click=${(e) => {
                   e.preventDefault();
                   this._mcpUrl = hint;
-                  this._setStatus(`URL updated to ${hint} — save to apply`, 'warn');
+                  this._setStatus(`URL updated to ${hint} — save to apply`, STATUS_TYPE.WARN);
                 }}
               >${hint}</a>?
             </span>
@@ -1943,19 +1950,6 @@ class NxSkillsEditor extends LitElement {
     }
 
     return nothing;
-  }
-
-  // ─── render: generated tools ──────────────────────────────────────────────
-
-  _renderGeneratedTools() {
-    return html`
-      <p class="form-hint">Site-generated tool definitions (draft / approved).</p>
-      <nx-generated-tools
-        .org=${this._org}
-        .site=${this._site}
-        context-page-path=${window.location.pathname || ''}
-      ></nx-generated-tools>
-    `;
   }
 
   // ─── render: skills catalog ───────────────────────────────────────────────

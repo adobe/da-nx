@@ -28,7 +28,6 @@ async function mountWithState(overrides = {}) {
   el._agents = [];
   el._mcpRows = [];
   el._mcpTools = null;
-  el._generatedTools = [];
   el._configuredMcpServers = {};
   // Stub _reload so any re-trigger does nothing
   el._reload = async () => {};
