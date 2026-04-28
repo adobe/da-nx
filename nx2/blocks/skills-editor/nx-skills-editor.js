@@ -193,6 +193,23 @@ class NxSkillsEditor extends LitElement {
     _gateSite: { state: true },
   };
 
+  // ─── non-reactive instance fields (simple inits, not LitElement state) ────
+  _loadedKey = null;
+
+  _statusTimer = null;
+
+  _dirtyForms = {}; // non-reactive: { [tabId]: snapshot }
+
+  _editorTriggerSelector = null; // CSS selector for the element that opened the drawer
+
+  _chatLoaded = false;
+
+  _syncOrphansInFlight = false;
+
+  _agentsLoadInFlight = false;
+
+  _mcpToolsLoadInFlight = false;
+
   constructor() {
     super();
     this._hash = new HashController(this);
@@ -216,22 +233,14 @@ class NxSkillsEditor extends LitElement {
     this._activeToolRefs = null;
     this._toolOverrides = {};
     this._memory = null;
-    this._loadedKey = null;
-    this._statusTimer = null;
     this._isEditorOpen = false;
     this._isAgentViewTools = false;
     this._isFormDirty = false;
-    this._dirtyForms = {}; // non-reactive: { [tabId]: snapshot }
     this._promptSearch = '';
     this._toolsSearch = '';
     this._toolsGroupCollapsed = { DA: false, MCP: false };
     this._formPromptTools = [];
-    this._editorTriggerSelector = null; // CSS selector for the element that opened the drawer
     this._isChatOpen = sessionStorage.getItem('nx-skills-editor-chat-open') === '1';
-    this._chatLoaded = false;
-    this._syncOrphansInFlight = false;
-    this._agentsLoadInFlight = false;
-    this._mcpToolsLoadInFlight = false;
   }
 
   get _org() { return this._hash.value?.org; }
