@@ -220,7 +220,6 @@ class NxPanelExtension extends LitElement {
             </div>
             ${v.description && this._tooltipOpen === v.name
               ? html`<div class="ext-description">${v.description}</div>` : nothing}
-            ${v.dom ? html`<div class="ext-variant-preview">${v.dom}</div>` : nothing}
           </li>
         `)}
       </ul>

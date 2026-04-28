@@ -182,27 +182,6 @@
   color: light-dark(var(--s2-gray-600), var(--s2-gray-400));
 }
 
-.ext-variant-preview {
-  font-size: 11px;
-  color: light-dark(var(--s2-gray-600), var(--s2-gray-400));
-  overflow: hidden;
-  max-height: 60px;
-  pointer-events: none;
-  margin-top: 4px;
-}
-
-.ext-variant-preview table {
-  border-collapse: collapse;
-  width: 100%;
-  font-size: 11px;
-}
-
-.ext-variant-preview td {
-  border: 1px solid light-dark(var(--s2-gray-300), var(--s2-gray-500));
-  padding: 2px 4px;
-  vertical-align: top;
-}
-
 .ext-item {
   display: flex;
   align-items: center;

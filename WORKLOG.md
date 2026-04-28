@@ -13,6 +13,9 @@
 ### nx2 canvas — library panel action icons (da.live parity)
 - **`nx-panel-extensions.js` / `.css`**: Add / Preview use the same **`/blocks/edit/img/`** SVGs and **`<use href="#S2_Icon_Experience_Add">` / `#S2_Icon_ExperiencePreview`** pattern as da.live **`da-library`** (via shared **`inlinesvg`** preload). Source SVGs live in **`.ext-svg-sprites`** (visually hidden) so they are not laid out in the panel body.
 
+### nx2 canvas — block variants: no inline DOM preview
+- **`nx-panel-extensions.js` / `.css`**: variant rows no longer embed **`v.dom`** in the Lit tree (avoids cloning / ownership issues). Insert still uses **`variant.dom`** via **`_insertBlock`**.
+
 ### nx2 canvas — AEM Assets Cancel closes panel
 - **`aem-assets.js`**: pass **`onClose`** through to **`PureJSSelectors.renderAssetSelector`** (same hook as da.live **`da-assets.js`**).
 - **`nx-panel-extensions.js`**: **`onClose`** dispatches **`nx-panel-close`** so **`panel.js`** hides the right aside.
