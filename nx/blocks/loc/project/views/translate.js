@@ -200,30 +200,24 @@ class NxLocTranslate extends LitElement {
   }
 
   async handleTranslateAll(e) {
-    if (this._translateSendBusy) return;
-    this._translateSendBusy = true;
     const { target } = e;
     target.disabled = true;
 
-    try {
-      // Ensure sync is disabled during send
-      this.langs.forEach((lang) => { lang.translation.status = 'starting'; });
-      this.requestPanelUpdates();
+    // Ensure sync is disabled during send
+    this.langs.forEach((lang) => { lang.translation.status = 'starting'; });
+    this.requestPanelUpdates();
 
-      const contentSuccess = await this.getSourceContent();
-      if (!contentSuccess) return;
+    const contentSuccess = await this.getSourceContent();
+    if (!contentSuccess) return;
 
-      // Source docs are ready for translation
-      this.langs.forEach((lang) => { lang.translation.status = 'ready'; });
+    // Source docs are ready for translation
+    this.langs.forEach((lang) => { lang.translation.status = 'ready'; });
 
-      const sendSuccess = await this.sendForTranslation();
-      if (!sendSuccess) return;
+    const sendSuccess = await this.sendForTranslation();
+    if (!sendSuccess) return;
 
-      // Get an initial status after send
-      this.handleStatus();
-    } finally {
-      this._translateSendBusy = false;
-    }
+    // Get an initial status after send
+    this.handleStatus();
   }
 
   toggleExpand() {
