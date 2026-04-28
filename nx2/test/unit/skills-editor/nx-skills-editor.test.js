@@ -1,4 +1,5 @@
 import { expect } from '@esm-bundle/chai';
+import { extractTitle } from '../../../blocks/skills-editor/renderers.js';
 
 // Register the custom element (side-effect import)
 await import('../../../blocks/skills-editor/nx-skills-editor.js');
@@ -39,33 +40,29 @@ async function mountWithState(overrides = {}) {
   return el;
 }
 
-// ─── _extractTitle ────────────────────────────────────────────────────────────
+// ─── extractTitle ─────────────────────────────────────────────────────────────
 
 describe('_extractTitle', () => {
-  let el;
-  before(async () => { el = await mount(); });
-  after(() => unmount(el));
-
   it('returns the first h1 heading text', () => {
-    expect(el._extractTitle('# Fix typos\n\nSome body')).to.equal('Fix typos');
+    expect(extractTitle('# Fix typos\n\nSome body')).to.equal('Fix typos');
   });
 
   it('returns empty string when no heading exists', () => {
-    expect(el._extractTitle('Just some text\nno heading here')).to.equal('');
+    expect(extractTitle('Just some text\nno heading here')).to.equal('');
   });
 
   it('returns empty string for empty/null body', () => {
-    expect(el._extractTitle('')).to.equal('');
-    expect(el._extractTitle(null)).to.equal('');
-    expect(el._extractTitle(undefined)).to.equal('');
+    expect(extractTitle('')).to.equal('');
+    expect(extractTitle(null)).to.equal('');
+    expect(extractTitle(undefined)).to.equal('');
   });
 
   it('trims whitespace from the extracted title', () => {
-    expect(el._extractTitle('#   Trimmed Title  ')).to.equal('Trimmed Title');
+    expect(extractTitle('#   Trimmed Title  ')).to.equal('Trimmed Title');
   });
 
   it('ignores h2+ headings — only matches h1 (#)', () => {
-    expect(el._extractTitle('## Section heading\nno h1 here')).to.equal('');
+    expect(extractTitle('## Section heading\nno h1 here')).to.equal('');
   });
 });
 
