@@ -9,6 +9,7 @@ class NxCard extends LitElement {
     subheading: { type: String },
     pill: { type: String },
     selected: { type: Boolean, reflect: true },
+    interactive: { type: Boolean, reflect: true },
   };
 
   connectedCallback() {

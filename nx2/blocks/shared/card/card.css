@@ -12,18 +12,21 @@
   border-radius: var(--s2-corner-radius-200);
   background: light-dark(var(--s2-gray-25), var(--s2-gray-50));
   transition: border-color 0.15s, background 0.15s;
-  cursor: pointer;
   user-select: none;
-}
-
-.card:hover {
-  border-color: var(--s2-gray-400);
-  background: light-dark(var(--s2-gray-50), var(--s2-gray-75));
 }
 
 :host([selected]) .card {
   border-color: var(--s2-blue-900);
   background: light-dark(var(--s2-blue-100), var(--s2-blue-200));
+}
+
+:host([interactive]) .card {
+  cursor: pointer;
+}
+
+:host([interactive]) .card:hover {
+  border-color: var(--s2-gray-400);
+  background: light-dark(var(--s2-gray-50), var(--s2-gray-75));
 }
 
 /* ─── left pill/badge slot ───────────────────────────────────────────────── */

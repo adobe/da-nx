@@ -481,3 +481,53 @@ describe('MCP card event guards', () => {
     expect(activated).to.equal(true);
   });
 });
+
+describe('keyboard accessibility for primary card actions', () => {
+  let el;
+
+  afterEach(() => unmount(el));
+
+  it('skill card exposes keyboard semantics and activates on Enter', async () => {
+    let activatedSkill = '';
+    el = await mountWithState({
+      _skills: { 'skill-a': '# Skill A' },
+      _skillStatuses: { 'skill-a': 'approved' },
+    });
+    el._onEditSkill = async (id) => { activatedSkill = id; };
+    await el.updateComplete;
+    const card = el.shadowRoot.querySelector('[data-testid="skill-card"][data-skill-id="skill-a"]');
+    expect(card.getAttribute('role')).to.equal('button');
+    expect(card.getAttribute('tabindex')).to.equal('0');
+    card.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    expect(activatedSkill).to.equal('skill-a');
+  });
+
+  it('agent card exposes keyboard semantics and activates on Enter', async () => {
+    const agent = { id: 'agent-a', name: 'Agent A', description: 'desc', mcpServers: [] };
+    let activatedAgent = null;
+    el = await mountWithState({ _agents: [agent], _catalogTab: 'agents' });
+    el._onSelectAgent = (picked) => { activatedAgent = picked; };
+    await el.updateComplete;
+    const card = el.shadowRoot.querySelector('[data-testid="agent-card"]');
+    expect(card.getAttribute('role')).to.equal('button');
+    expect(card.getAttribute('tabindex')).to.equal('0');
+    card.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    expect(activatedAgent?.id).to.equal('agent-a');
+  });
+
+  it('prompt row opens on Enter and ignores nested button keydown', async () => {
+    const promptRow = { title: 'Prompt A', prompt: 'Body', category: 'Review' };
+    let openCount = 0;
+    el = await mountWithState({ _prompts: [promptRow], _catalogTab: 'prompts' });
+    el._openEditor = () => { openCount += 1; };
+    await el.updateComplete;
+    const row = el.shadowRoot.querySelector('.prompt-row[role="button"]');
+    expect(row.getAttribute('tabindex')).to.equal('0');
+    row.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    expect(openCount).to.equal(1);
+
+    const nestedAction = el.shadowRoot.querySelector('.prompt-row .row-action-btn');
+    nestedAction.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    expect(openCount).to.equal(1);
+  });
+});
