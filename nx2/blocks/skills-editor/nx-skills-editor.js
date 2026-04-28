@@ -1783,7 +1783,26 @@ class NxSkillsEditor extends LitElement {
     const emptyMsg = () => {
       if (source === 'pending') return 'Connecting to agent to discover tools\u2026';
       if (source === 'unconfigured') return 'Enable this server to discover its tools';
-      if (source === 'error') return `Could not list tools: ${error}`;
+      if (source === 'error') {
+        const urlMatch = error?.match(/https?:\/\/\S+/);
+        const hint = urlMatch?.[0];
+        const base = error?.split('\n')[0] ?? error;
+        return html`
+          Could not list tools: ${base}
+          ${hint ? html`
+            <br>
+            <span class="mcp-error-hint">Did you mean:
+              <a class="mcp-error-url" href="#"
+                @click=${(e) => {
+                  e.preventDefault();
+                  this._mcpUrl = hint;
+                  this._setStatus(`URL updated to ${hint} — save to apply`, 'warn');
+                }}
+              >${hint}</a>?
+            </span>
+          ` : nothing}
+        `;
+      }
       return 'Server reported 0 tools';
     };
 

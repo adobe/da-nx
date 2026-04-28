@@ -610,6 +610,23 @@
 .msg-warn { color: var(--s2-orange-900, #c2410c); }
 .msg-err { color: var(--s2-red-900); }
 
+.mcp-error-hint {
+  display: block;
+  margin-top: var(--s2-spacing-50);
+  font-size: var(--s2-body-size-xs);
+  color: var(--s2-gray-700);
+}
+
+.mcp-error-url {
+  color: var(--s2-blue-900);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.mcp-error-url:hover {
+  color: var(--s2-blue-1000, var(--s2-blue-900));
+}
+
 /* ─── status dot ─────────────────────────────────────────────────────────────── */
 
 .status-dot {
