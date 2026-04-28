@@ -1039,8 +1039,32 @@ class NxSkillsEditor extends LitElement {
     this._isEditorOpen = true;
   }
 
+  _isEventFromNestedInteractiveControl(e) {
+    const currentTarget = e?.currentTarget;
+    const target = e?.target;
+    if (!(currentTarget instanceof Element) || !(target instanceof Element)) return false;
+    const INTERACTIVE_SELECTOR = [
+      'button',
+      '[role="button"]',
+      '[role="menuitem"]',
+      'input',
+      'select',
+      'textarea',
+      'a[href]',
+      '[tabindex]:not([tabindex="-1"])',
+    ].join(',');
+    const nestedInteractive = target.closest(INTERACTIVE_SELECTOR);
+    return Boolean(nestedInteractive && nestedInteractive !== currentTarget);
+  }
+
+  _onMcpCardClick(e, onActivate) {
+    if (this._isEventFromNestedInteractiveControl(e)) return;
+    onActivate();
+  }
+
   _onMcpCardKeydown(e, onActivate) {
     if (e.key !== 'Enter' && e.key !== ' ') return;
+    if (this._isEventFromNestedInteractiveControl(e)) return;
     e.preventDefault();
     onActivate();
   }
@@ -1909,7 +1933,7 @@ class NxSkillsEditor extends LitElement {
               tabindex="0"
               aria-label="View tools for ${s.id}"
               data-testid="mcp-builtin-card"
-              @click=${() => this._onViewMcpTools(s.id)}
+              @click=${(e) => this._onMcpCardClick(e, () => this._onViewMcpTools(s.id))}
               @keydown=${(e) => this._onMcpCardKeydown(e, () => this._onViewMcpTools(s.id))}
             >
               <nx-card heading=${s.id} subheading=${s.description}
@@ -1940,7 +1964,7 @@ class NxSkillsEditor extends LitElement {
               aria-label="Edit MCP server ${key || '(unnamed)'}"
               data-testid="mcp-card"
               data-mcp-key=${key}
-              @click=${() => this._onEditMcp(row)}
+              @click=${(e) => this._onMcpCardClick(e, () => this._onEditMcp(row))}
               @keydown=${(e) => this._onMcpCardKeydown(e, () => this._onEditMcp(row))}
             >
               <nx-card heading=${key || '(unnamed)'}

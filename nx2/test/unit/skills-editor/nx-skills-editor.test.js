@@ -424,3 +424,60 @@ describe('_onDeleteSkill error handling', () => {
     expect(el._formSkillId).to.equal('my-skill'); // form NOT cleared
   });
 });
+
+// ─── MCP card keyboard/click guards ───────────────────────────────────────────
+
+describe('MCP card event guards', () => {
+  let el;
+
+  beforeEach(async () => {
+    el = await mountWithState();
+  });
+
+  afterEach(() => unmount(el));
+
+  it('ignores keydown activation from nested interactive controls', () => {
+    let activated = false;
+    const card = document.createElement('article');
+    const nestedButton = document.createElement('button');
+    card.append(nestedButton);
+    const event = {
+      key: 'Enter',
+      target: nestedButton,
+      currentTarget: card,
+      preventDefault: () => {},
+    };
+    el._onMcpCardKeydown(event, () => { activated = true; });
+    expect(activated).to.equal(false);
+  });
+
+  it('ignores click activation from nested interactive controls', () => {
+    let activated = false;
+    const card = document.createElement('article');
+    const nestedButton = document.createElement('button');
+    card.append(nestedButton);
+    const event = {
+      target: nestedButton,
+      currentTarget: card,
+    };
+    el._onMcpCardClick(event, () => { activated = true; });
+    expect(activated).to.equal(false);
+  });
+
+  it('activates card on Enter when event target is the card', () => {
+    let activated = false;
+    let prevented = false;
+    const card = document.createElement('article');
+    card.setAttribute('role', 'button');
+    card.setAttribute('tabindex', '0');
+    const event = {
+      key: 'Enter',
+      target: card,
+      currentTarget: card,
+      preventDefault: () => { prevented = true; },
+    };
+    el._onMcpCardKeydown(event, () => { activated = true; });
+    expect(prevented).to.equal(true);
+    expect(activated).to.equal(true);
+  });
+});
