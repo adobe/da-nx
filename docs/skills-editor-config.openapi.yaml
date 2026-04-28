@@ -1,0 +1,691 @@
+openapi: 3.1.0
+info:
+  title: DA Skills Editor Config and File Shapes
+  version: 0.1.0
+  summary: OpenAPI description of the config-sheet and file-backed shapes used by the nx2 skills editor.
+  description: |
+    This spec documents the data contracts the `nx2/blocks/skills-editor` feature reads and writes.
+
+    It covers:
+    - multi-sheet DA config payloads
+    - `skills`, `prompts`, `mcp-servers`, `agents`, `generated-tools`, and `tool-overrides` sheets
+    - file-backed skill markdown in `/.da/skills/{id}.md`
+    - file-backed agent presets in `/.da/agents/{id}.json`
+    - MCP tool listing request/response payloads exchanged with the agent origin
+
+    It is not a full DA Admin API spec. It is a consumer-oriented contract for the shapes this editor depends on.
+servers:
+  - url: https://admin.da.live
+    description: Example DA Admin origin
+tags:
+  - name: Config
+  - name: Skills
+  - name: Agents
+  - name: MCP
+  - name: Generated Tools
+paths:
+  /config/{org}/{site}/:
+    parameters:
+      - $ref: '#/components/parameters/Org'
+      - $ref: '#/components/parameters/Site'
+    get:
+      tags: [Config]
+      summary: Load the site multi-sheet config
+      operationId: getSiteConfig
+      responses:
+        '200':
+          description: Multi-sheet config payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SiteConfig'
+        '401':
+          description: Unauthorized
+        '404':
+          description: Config key not materialized yet
+    post:
+      tags: [Config]
+      summary: Save the full site multi-sheet config
+      operationId: saveSiteConfig
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [config]
+              properties:
+                config:
+                  type: string
+                  description: JSON-serialized `SiteConfig`
+      responses:
+        '200':
+          description: Saved
+        '201':
+          description: Saved
+        '400':
+          description: Invalid config payload
+  /source/{org}/{site}/.da/skills/{skillId}.md:
+    parameters:
+      - $ref: '#/components/parameters/Org'
+      - $ref: '#/components/parameters/Site'
+      - $ref: '#/components/parameters/SkillId'
+    get:
+      tags: [Skills]
+      summary: Read skill markdown
+      operationId: readSkillMarkdown
+      responses:
+        '200':
+          description: Skill markdown body
+          content:
+            text/markdown:
+              schema:
+                type: string
+        '404':
+          description: Skill file not found
+    put:
+      tags: [Skills]
+      summary: Write skill markdown
+      operationId: writeSkillMarkdown
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [data]
+              properties:
+                data:
+                  type: string
+                  format: binary
+                  description: Markdown file body
+      responses:
+        '200':
+          description: Updated
+        '201':
+          description: Created
+    delete:
+      tags: [Skills]
+      summary: Delete skill markdown
+      operationId: deleteSkillMarkdown
+      responses:
+        '200':
+          description: Deleted
+        '404':
+          description: File did not exist
+  /source/{org}/{site}/.da/agents/{agentId}.json:
+    parameters:
+      - $ref: '#/components/parameters/Org'
+      - $ref: '#/components/parameters/Site'
+      - $ref: '#/components/parameters/AgentId'
+    get:
+      tags: [Agents]
+      summary: Read an agent preset file
+      operationId: readAgentPresetFile
+      responses:
+        '200':
+          description: Agent preset
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AgentPresetFile'
+        '404':
+          description: Agent preset not found
+    post:
+      tags: [Agents]
+      summary: Create or overwrite an agent preset file
+      operationId: saveAgentPresetFile
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [data]
+              properties:
+                data:
+                  type: string
+                  format: binary
+                  description: JSON file body matching `AgentPresetFile`
+      responses:
+        '200':
+          description: Saved
+        '201':
+          description: Created
+  /list/{org}/{site}/.da/skills:
+    parameters:
+      - $ref: '#/components/parameters/Org'
+      - $ref: '#/components/parameters/Site'
+    get:
+      tags: [Skills]
+      summary: List skill markdown files
+      operationId: listSkillFiles
+      responses:
+        '200':
+          description: Skill file listing
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: array
+                    items:
+                      $ref: '#/components/schemas/SourceListItem'
+                  - type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/SourceListItem'
+  /list/{org}/{site}/.da/agents:
+    parameters:
+      - $ref: '#/components/parameters/Org'
+      - $ref: '#/components/parameters/Site'
+    get:
+      tags: [Agents]
+      summary: List agent preset files
+      operationId: listAgentPresetFiles
+      responses:
+        '200':
+          description: Agent file listing
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SourceListItem'
+  /mcp-tools:
+    post:
+      tags: [MCP]
+      summary: Resolve tool inventories for configured MCP servers
+      operationId: listMcpTools
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/McpToolsRequest'
+      responses:
+        '200':
+          description: MCP tool inventory
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/McpToolsResponse'
+components:
+  parameters:
+    Org:
+      name: org
+      in: path
+      required: true
+      schema:
+        type: string
+    Site:
+      name: site
+      in: path
+      required: true
+      schema:
+        type: string
+    SkillId:
+      name: skillId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^[^/]+$'
+    AgentId:
+      name: agentId
+      in: path
+      required: true
+      schema:
+        type: string
+        pattern: '^[^/]+$'
+  schemas:
+    SiteConfig:
+      type: object
+      properties:
+        ':names':
+          type: array
+          items:
+            type: string
+        ':type':
+          type: string
+          enum: [multi-sheet]
+        skills:
+          $ref: '#/components/schemas/SkillsSheet'
+        prompts:
+          $ref: '#/components/schemas/PromptsSheet'
+        mcp-servers:
+          $ref: '#/components/schemas/McpServersSheet'
+        agents:
+          $ref: '#/components/schemas/AgentsSheet'
+        generated-tools:
+          $ref: '#/components/schemas/GeneratedToolsSheet'
+        tool-overrides:
+          $ref: '#/components/schemas/ToolOverridesSheet'
+      additionalProperties:
+        oneOf:
+          - type: string
+          - type: number
+          - type: boolean
+          - type: array
+          - type: object
+          - type: 'null'
+      examples:
+        - ':names': [skills, prompts, mcp-servers, agents, generated-tools, tool-overrides]
+          ':type': multi-sheet
+          skills:
+            total: 1
+            limit: 1000
+            offset: 0
+            data:
+              - key: accessibility-audit
+                content: "# Accessibility Audit\n\nUse this skill to review page accessibility."
+                status: approved
+          prompts:
+            total: 1
+            limit: 1000
+            offset: 0
+            data:
+              - title: Heading Review
+                prompt: Review the heading structure on this page.
+                category: Review
+                icon: https://example.com/icons/review.svg
+                status: approved
+          mcp-servers:
+            total: 1
+            limit: 1000
+            offset: 0
+            data:
+              - key: content-audit
+                url: https://mcp.example.com/sse
+                description: Content quality and accessibility tools
+                enabled: true
+                authHeaderName: Authorization
+                authHeaderValue: Bearer redacted
+                status: approved
+          agents:
+            total: 1
+            limit: 1000
+            offset: 0
+            data:
+              - key: remote-review-agent
+                url: https://agents.example.com/review
+          generated-tools:
+            total: 1
+            limit: 1000
+            offset: 0
+            data:
+              - key: readability-score
+                content: '{"id":"readability-score","name":"Readability Scorer","status":"approved","enabled":true,"capability":"web-worker","inputSchema":{"type":"object"},"implementation":{"type":"web-worker","entry":"readability-score"}}'
+          tool-overrides:
+            total: 1
+            limit: 1000
+            offset: 0
+            data:
+              - key: content-audit/check-links
+                server: content-audit
+                tool: check-links
+                enabled: false
+    SheetEnvelope:
+      type: object
+      required: [data]
+      properties:
+        total:
+          type: integer
+          minimum: 0
+        limit:
+          type: integer
+          minimum: 0
+        offset:
+          type: integer
+          minimum: 0
+        data:
+          type: array
+          items: {}
+    SkillsSheet:
+      allOf:
+        - $ref: '#/components/schemas/SheetEnvelope'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/SkillRow'
+    PromptsSheet:
+      allOf:
+        - $ref: '#/components/schemas/SheetEnvelope'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/PromptRow'
+    McpServersSheet:
+      allOf:
+        - $ref: '#/components/schemas/SheetEnvelope'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/McpServerRow'
+    AgentsSheet:
+      allOf:
+        - $ref: '#/components/schemas/SheetEnvelope'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/AgentConfigRow'
+    GeneratedToolsSheet:
+      allOf:
+        - $ref: '#/components/schemas/SheetEnvelope'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/GeneratedToolSheetRow'
+    ToolOverridesSheet:
+      allOf:
+        - $ref: '#/components/schemas/SheetEnvelope'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/ToolOverrideRow'
+    Status:
+      type: string
+      enum: [draft, approved, deprecated]
+    RowState:
+      type: object
+      properties:
+        status:
+          $ref: '#/components/schemas/Status'
+        enabled:
+          type: boolean
+        disabled:
+          type: boolean
+    SkillRow:
+      allOf:
+        - $ref: '#/components/schemas/RowState'
+        - type: object
+          required: [key, content]
+          properties:
+            key:
+              type: string
+              description: Skill id without `.md`
+            content:
+              type: string
+              description: Markdown body mirrored into config
+            id:
+              type: string
+            value:
+              type: string
+            body:
+              type: string
+    PromptRow:
+      allOf:
+        - $ref: '#/components/schemas/RowState'
+        - type: object
+          required: [title, prompt]
+          properties:
+            title:
+              type: string
+            prompt:
+              type: string
+            category:
+              type: string
+            icon:
+              type: string
+              format: uri
+    McpServerRow:
+      allOf:
+        - $ref: '#/components/schemas/RowState'
+        - type: object
+          required: [key]
+          properties:
+            key:
+              type: string
+            url:
+              type: string
+              format: uri
+            value:
+              type: string
+              format: uri
+            description:
+              type: string
+            authHeaderName:
+              type: string
+            authHeaderValue:
+              type: string
+    AgentConfigRow:
+      type: object
+      required: [key]
+      properties:
+        key:
+          type: string
+        url:
+          type: string
+          format: uri
+        value:
+          type: string
+          format: uri
+    ToolOverrideRow:
+      type: object
+      required: [key, server, tool, enabled]
+      properties:
+        key:
+          type: string
+          description: Composite key in the form `{server}/{tool}`
+        server:
+          type: string
+        tool:
+          type: string
+        enabled:
+          type: boolean
+    GeneratedToolSheetRow:
+      type: object
+      required: [key, content]
+      properties:
+        key:
+          type: string
+        content:
+          type: string
+          description: JSON-serialized `GeneratedToolDef`
+        value:
+          oneOf:
+            - type: string
+            - $ref: '#/components/schemas/GeneratedToolDef'
+        body:
+          oneOf:
+            - type: string
+            - $ref: '#/components/schemas/GeneratedToolDef'
+    GeneratedToolDef:
+      type: object
+      required:
+        - id
+        - name
+        - description
+        - status
+        - capability
+        - inputSchema
+        - implementation
+        - createdBy
+        - createdAt
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        status:
+          $ref: '#/components/schemas/Status'
+        enabled:
+          type: boolean
+          default: true
+        capability:
+          type: string
+          examples: [web-worker]
+        tags:
+          type: array
+          items:
+            type: string
+        examplePrompts:
+          type: array
+          items:
+            type: string
+        inputSchema:
+          $ref: '#/components/schemas/JsonSchemaObject'
+        implementation:
+          $ref: '#/components/schemas/GeneratedToolImplementation'
+        createdBy:
+          type: string
+          examples: [model, developer]
+        createdAt:
+          type: string
+          format: date-time
+        approvedBy:
+          oneOf:
+            - type: string
+            - type: 'null'
+        approvedAt:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+        promotedToSkill:
+          oneOf:
+            - type: string
+            - type: 'null'
+      example:
+        id: readability-score
+        name: Readability Scorer
+        description: Computes a readability score for page content.
+        status: approved
+        enabled: true
+        capability: web-worker
+        tags: [readability, content quality]
+        examplePrompts:
+          - check readability of this page
+        inputSchema:
+          type: object
+          properties:
+            html:
+              type: string
+          required: [html]
+        implementation:
+          type: web-worker
+          entry: readability-score
+        createdBy: model
+        createdAt: '2026-04-14T00:00:00.000Z'
+        approvedBy: user
+        approvedAt: '2026-04-28T09:15:00.000Z'
+        promotedToSkill: null
+    GeneratedToolImplementation:
+      type: object
+      required: [type]
+      properties:
+        type:
+          type: string
+          examples: [web-worker]
+        entry:
+          type: string
+      additionalProperties: true
+    JsonSchemaObject:
+      type: object
+      description: JSON Schema fragment stored with a generated tool definition.
+      additionalProperties: true
+    AgentPresetFile:
+      type: object
+      required: [name, description, systemPrompt, skills, mcpServers]
+      properties:
+        name:
+          type: string
+        label:
+          type: string
+        description:
+          type: string
+        systemPrompt:
+          type: string
+        skills:
+          type: array
+          items:
+            type: string
+        mcpServers:
+          type: array
+          items:
+            type: string
+        tools:
+          type: array
+          items:
+            type: string
+      example:
+        name: Accessibility Review Agent
+        description: Reviews pages for accessibility and content issues.
+        systemPrompt: ''
+        skills: []
+        mcpServers: [da-tools, eds-preview]
+    McpToolsRequest:
+      type: object
+      required: [servers]
+      properties:
+        servers:
+          type: object
+          additionalProperties:
+            type: string
+            format: uri
+          description: Map of server id to SSE URL
+        serverHeaders:
+          type: object
+          additionalProperties:
+            type: object
+            additionalProperties:
+              type: string
+          description: Optional per-server auth headers
+      example:
+        servers:
+          content-audit: https://mcp.example.com/sse
+        serverHeaders:
+          content-audit:
+            Authorization: Bearer redacted
+    McpToolsResponse:
+      type: object
+      required: [servers]
+      properties:
+        servers:
+          type: array
+          items:
+            $ref: '#/components/schemas/McpServerTools'
+    McpServerTools:
+      type: object
+      required: [id]
+      properties:
+        id:
+          type: string
+        tools:
+          type: array
+          items:
+            $ref: '#/components/schemas/McpTool'
+    McpTool:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        inputSchema:
+          $ref: '#/components/schemas/JsonSchemaObject'
+    SourceListItem:
+      type: object
+      properties:
+        name:
+          type: string
+        path:
+          type: string
+        ext:
+          type: string
