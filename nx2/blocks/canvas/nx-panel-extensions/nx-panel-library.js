@@ -12,7 +12,7 @@ import {
 import { getExtensionsBridge } from '../editor-utils/extensions-bridge.js';
 import inlinesvg from '../nx-editor-doc/prose-plugins/inlinesvg.js';
 
-const style = await loadStyle(new URL('nx-panel-extensions.css', import.meta.url));
+const style = await loadStyle(import.meta.url);
 
 /** Same assets as da.live `da-library` (paths resolve on da.live origin). */
 const DA_LIBRARY_ACTION_SVG_PATHS = [
