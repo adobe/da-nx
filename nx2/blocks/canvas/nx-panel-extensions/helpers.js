@@ -166,6 +166,23 @@ export async function getBlockVariants(path) {
 
 const OOTB_PLUGINS = new Set(['blocks', 'templates', 'icons', 'placeholders']);
 
+/** First-party library tools + AEM Assets (not flagged `ootb` in plugin metadata). */
+const LIBRARY_PLUGIN_NAMES = new Set([...OOTB_PLUGINS, 'aem-assets']);
+
+const LIBRARY_PANEL_ORDER = ['blocks', 'icons', 'templates', 'placeholders', 'aem-assets'];
+
+function isLibraryExtension(ext) {
+  return LIBRARY_PLUGIN_NAMES.has(ext.name);
+}
+
+function sortLibraryExtensions(list) {
+  const orderOf = (name) => {
+    const i = LIBRARY_PANEL_ORDER.indexOf(name);
+    return i === -1 ? LIBRARY_PANEL_ORDER.length + 1 : i;
+  };
+  return [...list].sort((a, b) => orderOf(a.name) - orderOf(b.name));
+}
+
 function getIsPluginAllowed(plugRef) {
   const pluginRef = plugRef || 'main';
   if (pluginRef === 'main') return true;
@@ -361,11 +378,25 @@ export function getItemPreviewUrl(item, { org, site }) {
 // View facade — canvas.js calls this, nothing else
 // ---------------------------------------------------------------------------
 
-export async function getExtensionViews({ org, site }) {
-  const extensions = await fetchExtensions(org, site);
-  return extensions.map((ext) => ({
+function createEditorPlaceholderView() {
+  return {
+    id: 'editor-coming-soon',
+    label: 'TODO (eg. page outline)',
+    section: 'Editor',
+    firstParty: false,
+    load: async () => {
+      const el = document.createElement('div');
+      el.className = 'nx-tool-panel-editor-placeholder';
+      return el;
+    },
+  };
+}
+
+function extensionToPanelView(ext, section) {
+  return {
     id: ext.name,
     label: ext.title,
+    section,
     firstParty: ext.ootb,
     load: async () => {
       await import('./nx-panel-extensions.js');
@@ -373,5 +404,21 @@ export async function getExtensionViews({ org, site }) {
       el.extension = ext;
       return el;
     },
-  }));
+  };
+}
+
+/**
+ * Tool panel: Editor placeholder, Library (blocks / AEM Assets / icons / templates / placeholders),
+ * Extensions (other plugins).
+ */
+export async function getCanvasToolPanelViews({ org, site }) {
+  const extensions = await fetchExtensions(org, site);
+  const library = sortLibraryExtensions(extensions.filter(isLibraryExtension));
+  const thirdParty = extensions.filter((ext) => !isLibraryExtension(ext));
+
+  return [
+    createEditorPlaceholderView(),
+    ...library.map((ext) => extensionToPanelView(ext, 'Library')),
+    ...thirdParty.map((ext) => extensionToPanelView(ext, 'Extensions')),
+  ];
 }

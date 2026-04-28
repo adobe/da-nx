@@ -2,6 +2,11 @@
 
 ## 2026-04-28
 
+### nx2 canvas — tool panel sections (Editor / Library / Extensions)
+- **`helpers.js`**: **`getCanvasToolPanelViews`** — Editor placeholder tab (`editor-coming-soon`), **Library** = OOTB plugins + **`aem-assets`** (sorted **`blocks` → `aem-assets` → `icons` → `templates` → `placeholders`**), **Extensions** = other configured plugins.
+- **`tool-panel.js` / `.css`**: Picker items built with **`nx-picker`** **`section`** headings; initial tab is **`views[0]`**; prune **`_loaded`** / clear content when **`views`** empty or ids change. Placeholder host class **`.nx-tool-panel-editor-placeholder`**.
+- **`canvas.js`**: loads **`getCanvasToolPanelViews`** instead of **`getExtensionViews`**.
+
 ### nx2 utils — DA config API
 - **`nx2/utils/daConfig.js`**: **`getFirstSheet`**, **`fetchDaConfigs`** (moved from **`nx-panel-extensions/config.js`**). Canvas **`helpers.js`** / **`aem-assets.js`** import from utils; branch **`ref`** stays local to **`helpers.js`**.
 

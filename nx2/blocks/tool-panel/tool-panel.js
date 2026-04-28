@@ -19,6 +19,30 @@ class NxToolPanel extends LitElement {
     this.shadowRoot.adoptedStyleSheets = [style];
   }
 
+  _pickerItemsFromViews() {
+    if (!this.views?.length) return [];
+    const items = [];
+    let lastSection;
+    for (const v of this.views) {
+      if (v.section && v.section !== lastSection) {
+        items.push({ section: v.section });
+        lastSection = v.section;
+      }
+      items.push({ value: v.id, label: v.label });
+    }
+    return items;
+  }
+
+  _pruneLoadedViews() {
+    const ids = new Set(this.views.map((v) => v.id));
+    Object.keys(this._loaded).forEach((id) => {
+      if (!ids.has(id)) {
+        this._loaded[id]?.remove();
+        delete this._loaded[id];
+      }
+    });
+  }
+
   async firstUpdated() {
     if (this.views?.length && !this.activeId) {
       await this._activate(this.views[0].id);
@@ -26,8 +50,18 @@ class NxToolPanel extends LitElement {
   }
 
   async updated(changed) {
-    if (changed.has('views') && this.views?.length && !this.activeId) {
-      await this._activate(this.views[0].id);
+    if (changed.has('views')) {
+      if (!this.views?.length) {
+        this.activeId = undefined;
+        this._loaded = {};
+        this.shadowRoot.querySelector('.tool-panel-content')?.replaceChildren();
+      } else {
+        this._pruneLoadedViews();
+        const ids = new Set(this.views.map((v) => v.id));
+        if (!this.activeId || !ids.has(this.activeId)) {
+          await this._activate(this.views[0].id);
+        }
+      }
     }
     if (changed.has('activeId')) {
       this._syncContent();
@@ -74,7 +108,7 @@ class NxToolPanel extends LitElement {
   }
 
   render() {
-    const items = this.views?.map((c) => ({ value: c.id, label: c.label })) ?? [];
+    const items = this._pickerItemsFromViews();
 
     return html`
       <div class="tool-panel-header">

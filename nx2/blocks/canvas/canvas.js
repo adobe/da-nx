@@ -115,8 +115,8 @@ async function syncToolPanelViews(toolPanel, { org, site }) {
     return;
   }
 
-  const { getExtensionViews } = await import('./nx-panel-extensions/helpers.js');
-  const views = await getExtensionViews({ org, site });
+  const { getCanvasToolPanelViews } = await import('./nx-panel-extensions/helpers.js');
+  const views = await getCanvasToolPanelViews({ org, site });
   if (toolPanel.dataset.extKey !== key) return;
   toolPanel.views = views;
 }
