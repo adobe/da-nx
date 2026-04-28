@@ -191,6 +191,8 @@ class NxSkillsEditor extends LitElement {
     _toolsGroupCollapsed: { state: true },
     _formPromptTools: { state: true },
     _isChatOpen: { state: true },
+    _gateOrg: { state: true },
+    _gateSite: { state: true },
   };
 
   constructor() {
@@ -211,6 +213,8 @@ class NxSkillsEditor extends LitElement {
     this._configuredMcpServers = {};
     this._configuredMcpServerHeaders = {};
     this._clearForm();
+    this._gateOrg = '';
+    this._gateSite = '';
     this._mcpEnableBusy = {};
     this._activeToolRefs = null;
     this._toolOverrides = {};
@@ -1259,11 +1263,54 @@ class NxSkillsEditor extends LitElement {
     this._memory = got.error ? null : (got.text || '');
   }
 
+  _onGateSubmit(e) {
+    e.preventDefault();
+    const org = this._gateOrg.trim();
+    const site = this._gateSite.trim();
+    if (!org || !site) return;
+    window.location.hash = `#/${org}/${site}`;
+  }
+
   // ─── render: top level ────────────────────────────────────────────────────
 
   render() {
     if (!this._org || !this._site) {
-      return html`<div class="empty">Missing org or site</div>`;
+      return html`
+        <div class="gate">
+          <div class="gate-card">
+            <h2 class="gate-heading">Skills Editor</h2>
+            <p class="gate-desc">Enter your organization and site (same as in browse or canvas). You will manage skills, agents, prompts, and MCP servers for that repository.</p>
+            <form class="form gate-form" @submit=${this._onGateSubmit}>
+              <label class="gate-label">
+                <span>Organization</span>
+                <input
+                  type="text"
+                  placeholder="e.g. adobecom"
+                  autocomplete="organization"
+                  .value=${this._gateOrg}
+                  @input=${(e) => { this._gateOrg = e.target.value; }}
+                />
+              </label>
+              <label class="gate-label">
+                <span>Site</span>
+                <input
+                  type="text"
+                  placeholder="e.g. bacom"
+                  .value=${this._gateSite}
+                  @input=${(e) => { this._gateSite = e.target.value; }}
+                />
+              </label>
+              <div class="editor-actions gate-actions">
+                <button
+                  type="submit"
+                  data-variant="accent"
+                  ?disabled=${!this._gateOrg.trim() || !this._gateSite.trim()}
+                >Continue</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      `;
     }
     if (this._isLoading) {
       return html`<div class="loading" aria-live="polite">Loading capabilities\u2026</div>`;
