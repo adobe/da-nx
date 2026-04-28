@@ -161,7 +161,7 @@ export function getAssetsPlugin({ org, site }) {
   return {
     name: 'aem-assets',
     title: 'AEM Assets',
-    experience: 'aem-assets',
+    experience: 'fullsize-dialog',
     ootb: false,
     sources: [],
     format: '',

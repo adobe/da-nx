@@ -2,6 +2,8 @@
 import { DOMParser as PMDOMParser, DOMSerializer, Slice, TextSelection } from 'da-y-wrapper';
 import { AEM_ORIGIN, daFetch } from '../../../utils/daFetch.js';
 import { fetchDaConfigs, getFirstSheet } from '../../../utils/daConfig.js';
+import { hashChange } from '../../../utils/utils.js';
+import { getExtensionsBridge } from '../editor-utils/extensions-bridge.js';
 
 const ref = new URLSearchParams(window.location.search).get('ref') || 'main';
 
@@ -393,11 +395,13 @@ function createEditorPlaceholderView() {
 }
 
 function extensionToPanelView(ext, section) {
-  return {
+  const view = {
     id: ext.name,
     label: ext.title,
     section,
     firstParty: ext.ootb,
+    experience: ext.experience,
+    sources: ext.sources,
     load: async () => {
       await import('./nx-panel-extensions.js');
       const el = document.createElement('nx-panel-extension');
@@ -405,6 +409,42 @@ function extensionToPanelView(ext, section) {
       return el;
     },
   };
+
+  if (ext.experience === 'fullsize-dialog') {
+    view.loadModal = async (container, onClose) => {
+      if (ext.name === 'aem-assets') {
+        const { renderAssets } = await import('./aem-assets.js');
+        await renderAssets({ container, org: ext.org, site: ext.site, onClose });
+        return () => {};
+      }
+
+      const iframe = document.createElement('iframe');
+      iframe.className = 'ext-iframe';
+      iframe.src = ext.sources?.[0] ?? '';
+      iframe.title = ext.title;
+      iframe.allow = 'clipboard-write *';
+      container.append(iframe);
+
+      let destroyChannel = () => {};
+      iframe.addEventListener('load', async () => {
+        let hashState;
+        const unsub = hashChange.subscribe((s) => { hashState = s; });
+        unsub();
+        const { setupIframeChannel } = await import('./iframe-protocol.js');
+        const { destroy } = await setupIframeChannel({
+          iframe,
+          hashState: hashState ?? {},
+          getView: () => getExtensionsBridge().view,
+          onClose,
+        });
+        destroyChannel = destroy;
+      }, { once: true });
+
+      return () => destroyChannel();
+    };
+  }
+
+  return view;
 }
 
 /**
