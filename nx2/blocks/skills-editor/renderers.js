@@ -1,4 +1,5 @@
 import { html, nothing } from 'da-lit';
+import { extractTitle } from '../../utils/markdown.js';
 import {
   BUILTIN_AGENTS,
   BUILTIN_MCP_SERVERS,
@@ -26,12 +27,6 @@ import {
 } from './skills-editor-api.js';
 
 // ─── private helpers ──────────────────────────────────────────────────────────
-
-export function extractTitle(md) {
-  if (!md) return '';
-  const match = md.match(/^#\s+(.+)/m);
-  return match ? match[1].trim() : '';
-}
 
 function msgClass(host) {
   if (host._statusType === STATUS_TYPE.ERR) return 'msg-err';

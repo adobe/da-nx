@@ -1,5 +1,5 @@
 import { expect } from '@esm-bundle/chai';
-import { extractTitle } from '../../../blocks/skills-editor/renderers.js';
+import { extractTitle } from '../../../utils/markdown.js';
 
 // Register the custom element (side-effect import)
 await import('../../../blocks/skills-editor/nx-skills-editor.js');

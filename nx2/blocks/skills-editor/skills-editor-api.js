@@ -7,6 +7,7 @@
  */
 
 import { DA_ORIGIN, daFetch } from '../../utils/daFetch.js';
+import { parseSheetBoolean, normaliseRowKey } from '../../utils/sheet-utils.js';
 
 // ─── agent origin ───────────────────────────────────────────────────────────
 
@@ -137,16 +138,6 @@ export function clearSuggestionSession() {
 }
 
 // ─── config sheet helpers ───────────────────────────────────────────────────
-
-function parseSheetBoolean(value, fallback = undefined) {
-  if (typeof value === 'boolean') return value;
-  if (typeof value === 'string') {
-    const normalized = value.trim().toLowerCase();
-    if (normalized === 'true' || normalized === '1' || normalized === 'yes') return true;
-    if (normalized === 'false' || normalized === '0' || normalized === 'no') return false;
-  }
-  return fallback;
-}
 
 function rowEnabledState(row, defaultEnabled = true) {
   if (!row || typeof row !== 'object') return defaultEnabled;
@@ -467,7 +458,7 @@ export async function loadSkillsWithStatuses(org, site, loadedConfig = null, opt
 }
 
 function skillKeyMatch(id) {
-  return (r) => String(r.key ?? r.id ?? '').trim().replace(/\.md$/i, '') === id;
+  return (r) => normaliseRowKey(r) === id;
 }
 
 /**
@@ -676,7 +667,7 @@ export async function deleteToolOverride(org, site, serverId, toolName) {
 const MCP_SHEET = 'mcp-servers';
 
 function mcpKeyMatch(serverKey) {
-  return (r) => String(r.key || '').trim() === serverKey;
+  return (r) => normaliseRowKey(r) === serverKey;
 }
 
 export async function registerMcpServer(
@@ -805,17 +796,7 @@ export async function saveAgentPresetFile(org, site, agentId, preset) {
 
 // ─── utilities ──────────────────────────────────────────────────────────────
 
-export function extractToolRefs(md) {
-  const text = String(md || '');
-  const found = new Set();
-  for (const m of text.matchAll(/mcp__([a-zA-Z0-9_-]+)__([a-zA-Z0-9_-]+)/g)) {
-    found.add(`mcp__${m[1]}__${m[2]}`);
-  }
-  for (const m of text.matchAll(/\b(da_[a-z_]+)\b/g)) {
-    found.add(m[1]);
-  }
-  return [...found];
-}
+export { extractToolRefs } from '../../utils/markdown.js';
 
 /**
  * Fetch site source text by path under site (e.g. /drafts/page.html).
