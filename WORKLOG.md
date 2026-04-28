@@ -1,11 +1,25 @@
 # Worklog
 
+## 2026-04-27
+
+### nx2 chat — collab after approval
+- **`chat-controller.js`**: **`_pageContextForAgent()`** shared by **`sendMessage`** and **`approveToolCall`** so post-approval **`/chat`** resumes include **`pageContext`** (da-agent collab gate).
+
+### nx-breadcrumb — drop large variant
+- **`breadcrumb.js` / `breadcrumb.css`**: removed **`variant`** (was only **`large`**); typography and chevrons use the default **M** component tokens everywhere.
+- **`nav.js`**: nav breadcrumb no longer sets **`variant="large"`**.
+
 ## 2026-04-24
 
 ### nx2 canvas — slash “Open library” → Blocks tab
 - **`command-defs.js`**: `nx-canvas-open-panel` detail includes `viewId: 'blocks'` so the after tool panel selects the Blocks extension when present.
 - **`canvas.js`**: `openCanvasPanel` accepts optional `preferredViewId` from event `viewId`; after `syncToolPanelViews`, waits for `updateComplete` then calls **`nx-tool-panel` `showView`** only if `views` contains that id.
 - **`tool-panel.js`**: public **`showView(id)`** wraps `_activate` for external callers.
+
+### nx2 nav / browse — hash breadcrumbs (minimal)
+- **`nx2/blocks/shared/breadcrumb/`**: **`nx-breadcrumb`** — optional **`.baseUrl`**, **`.pathSegments`**; parent steps are plain **`<a href>`** (hash-only or resolved via **`resolveBreadcrumbHref`** + current **`location.search`**). **`hashStateToPathSegments`** / **`pathSegmentsToCrumbs`** in **`utils.js`**. No custom events.
+- **`nav.js` / `nav.css`**: **`decorateBreadcrumbs(fragment)`** — same idea as **`decorateBrand`**: mutates the loaded fragment, returns **`null`** or **`{ baseUrl }`**; **`loadNav`** sets **`_navBreadcrumbs`** (@state) and plain **`_breadcrumbBaseHref`**. **`HashController`**, **`brand-cluster`**, **`brand-area`** on the brand **`<a>`**.
+- **`browse.js`**: unchanged integration — **`nx-breadcrumb`** with segments only (default / medium typography).
 
 ### nx2 canvas — split editor view
 - **`nx-canvas-header`**: third segmented control option `split` (grid-compare icon, `aria-label` / `title` “Split view”); `EDITOR_VIEWS` includes `split`.
