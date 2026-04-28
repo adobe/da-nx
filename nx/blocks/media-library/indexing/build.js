@@ -21,11 +21,9 @@ import {
 import { checkReindexEligibility } from './index-status.js';
 import { getAemSiteToken, clearCachedAemSiteToken } from './admin-api.js';
 import { sortMediaData } from '../core/utils.js';
-import { ErrorCodes } from '../core/errors.js';
+import { ErrorCodes, MediaLibraryError } from '../core/errors.js';
 import {
   IndexConfig,
-  DA_ORIGIN,
-  DA_ETC_ORIGIN,
 } from '../core/constants.js';
 import { isPerfEnabled } from '../core/params.js';
 
@@ -67,8 +65,12 @@ async function runWorkerBuild(
     siteToken = window.localStorage?.getItem?.(`site-token-${org}-${repo}`) || null;
   }
 
-  const daOrigin = DA_ORIGIN;
-  const daEtcOrigin = DA_ETC_ORIGIN;
+  // Pass location data to worker so it can resolve origins in worker-safe way
+  // Worker will use resolveDaOrigin/resolveDaEtcOrigin/resolveAemOrigin functions
+  const locationData = {
+    href: window.location.href,
+    origin: window.location.origin,
+  };
   const perfEnabled = isPerfEnabled();
 
   // Create worker using blob URL to avoid CORS issues with ?nx=local
@@ -99,8 +101,17 @@ async function runWorkerBuild(
 
   const worker = new Worker(workerBlobUrl, { type: 'module' });
 
+  // Set up watchdog timer to prevent hung workers from blocking indefinitely
+  let watchdogTimer = null;
+  const watchdogTimeout = IndexConfig.BUILD_MAX_DURATION_MS;
+
   // Set up result promise
   const resultPromise = new Promise((resolve, reject) => {
+    // Start watchdog timer
+    watchdogTimer = setTimeout(() => {
+      reject(new Error(`Worker build exceeded timeout of ${watchdogTimeout / 1000}s`));
+    }, watchdogTimeout);
+
     worker.onmessage = async (event) => {
       const { type, data, error, message, requestId } = event.data;
 
@@ -123,13 +134,16 @@ async function runWorkerBuild(
           worker.postMessage({ type: 'token-refresh-response', requestId, token: null, error: err.message });
         }
       } else if (type === 'success') {
+        clearTimeout(watchdogTimer);
         resolve(data);
       } else if (type === 'error') {
+        clearTimeout(watchdogTimer);
         reject(new Error(error.message || 'Worker error'));
       }
     };
 
     worker.onerror = (event) => {
+      clearTimeout(watchdogTimer);
       // eslint-disable-next-line no-console
       console.error('[runWorkerBuild] Worker error event:', {
         message: event.message,
@@ -154,8 +168,7 @@ async function runWorkerBuild(
     ref,
     imsToken,
     siteToken,
-    daOrigin,
-    daEtcOrigin,
+    locationData,
     isPerfEnabled: perfEnabled,
     IndexConfig,
   });
@@ -192,8 +205,10 @@ export default async function buildMediaIndex(
       || existingLock.startedAt
       || Date.now();
     const lockAge = Date.now() - heartbeat;
-    throw new Error(
+    throw new MediaLibraryError(
+      ErrorCodes.LOCK_HELD_BY_OTHER,
       `Index build already in progress. Lock updated ${Math.round(lockAge / 1000 / 60)} minutes ago.`,
+      { lockAge, ownerId: existingLock.ownerId },
     );
   }
   if (

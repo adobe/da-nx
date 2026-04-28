@@ -13,8 +13,7 @@
  *   ref: string,
  *   imsToken: string,
  *   siteToken: string | null,
- *   daOrigin: string,
- *   daEtcOrigin: string,
+ *   locationData: { href: string, origin: string },
  *   isPerfEnabled: boolean,
  *   IndexConfig: object,
  * }
@@ -31,6 +30,11 @@
 
 import { buildFullIndex } from './full.js';
 import { buildIncrementalIndex } from './incremental.js';
+import {
+  resolveDaOrigin,
+  resolveDaEtcOrigin,
+  resolveAemOrigin,
+} from '../../core/constants.js';
 
 console.log('[IndexWorker] Worker modules loaded successfully');
 
@@ -43,8 +47,7 @@ self.onmessage = async (event) => {
     ref,
     imsToken,
     siteToken,
-    daOrigin,
-    daEtcOrigin,
+    locationData,
     isPerfEnabled,
     IndexConfig,
   } = event.data;
@@ -53,6 +56,11 @@ self.onmessage = async (event) => {
     if (isPerfEnabled) {
       console.log(`[IndexWorker] Starting ${mode} build for ${sitePath}`);
     }
+
+    // Resolve origins from locationData (worker-safe)
+    const daOrigin = resolveDaOrigin(locationData);
+    const daEtcOrigin = resolveDaEtcOrigin(locationData);
+    const aemOrigin = resolveAemOrigin();
 
     // Prepare callbacks for main thread communication
     const onProgress = (progressData) => {
@@ -82,6 +90,7 @@ self.onmessage = async (event) => {
       siteToken,
       daOrigin,
       daEtcOrigin,
+      aemOrigin,
       isPerfEnabled,
       IndexConfig,
     };

@@ -219,11 +219,6 @@ export function handleIndexingEvent(event, onMediaDataUpdated) {
         showNotification(t('NOTIFY_ERROR'), t('NOTIFY_SIGN_IN'), 'danger');
       }
 
-      // Special handling for persistent errors
-      if (event.isPersistent) {
-        updateAppState({ persistentError: { message: event.message } });
-      }
-
       resetProgressiveState();
       break;
     }

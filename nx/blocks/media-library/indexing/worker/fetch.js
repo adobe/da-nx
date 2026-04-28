@@ -8,40 +8,51 @@
 // Counter for generating unique request IDs for token refresh messages
 let tokenRefreshRequestId = 0;
 
+// Map to track pending token refresh requests: requestId -> {resolve, timeoutId}
+const pendingTokenRefreshes = new Map();
+
+// Shared message handler for all token refresh requests (prevents listener stacking)
+let tokenRefreshListenerInitialized = false;
+
+function initTokenRefreshListener() {
+  if (tokenRefreshListenerInitialized) return;
+  tokenRefreshListenerInitialized = true;
+
+  self.addEventListener('message', (event) => {
+    const { type, requestId, token } = event.data;
+    if (type !== 'token-refresh-response') return;
+
+    const pending = pendingTokenRefreshes.get(requestId);
+    if (pending) {
+      clearTimeout(pending.timeoutId);
+      pending.resolve(token || null);
+      pendingTokenRefreshes.delete(requestId);
+    }
+  });
+}
+
 /**
  * Request fresh site token from main thread (on 401/403)
+ * Uses shared listener + Map pattern to prevent listener stacking on concurrent refreshes
  *
  * @returns {Promise<string|null>} Fresh site token or null if refresh failed
  */
 function requestTokenRefresh() {
+  initTokenRefreshListener();
+
   return new Promise((resolve) => {
     const requestId = `token-refresh-${tokenRefreshRequestId}`;
     tokenRefreshRequestId += 1;
 
-    let resolved = false;
-    let timeoutId;
-
-    const handler = (event) => {
-      if (resolved) return;
-
-      const { type, requestId: respId, token } = event.data;
-      if (type === 'token-refresh-response' && respId === requestId) {
-        resolved = true;
-        self.removeEventListener('message', handler);
-        clearTimeout(timeoutId);
-        resolve(token || null);
+    const timeoutId = setTimeout(() => {
+      const pending = pendingTokenRefreshes.get(requestId);
+      if (pending) {
+        pending.resolve(null);
+        pendingTokenRefreshes.delete(requestId);
       }
-    };
-
-    self.addEventListener('message', handler);
-
-    timeoutId = setTimeout(() => {
-      if (resolved) return;
-      resolved = true;
-      self.removeEventListener('message', handler);
-      resolve(null);
     }, 5000);
 
+    pendingTokenRefreshes.set(requestId, { resolve, timeoutId });
     self.postMessage({ type: 'token-refresh', requestId });
   });
 }

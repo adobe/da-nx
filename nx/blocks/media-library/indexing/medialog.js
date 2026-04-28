@@ -361,7 +361,7 @@ export function processPageMediaUpdates(
       const idx = updatedIndex.findIndex((x) => x.hash === e.hash && x.doc === normalizedPath);
       if (idx !== -1) {
         updatedIndex[idx].timestamp = e.timestamp;
-        copyCanonicalMetadataFields(updatedIndex[idx], e);
+        updatedIndex[idx].displayName = e.displayName ?? updatedIndex[idx].displayName;
       }
     });
   });

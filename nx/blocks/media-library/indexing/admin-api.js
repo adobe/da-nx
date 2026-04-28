@@ -42,10 +42,6 @@ function createRateLimiter(initialRate) {
 
 const aemPageMarkdownLimiter = createRateLimiter(AEM_PAGE_MARKDOWN_RATE);
 
-export function resetAemPageMarkdownRateLimiter() {
-  aemPageMarkdownLimiter.reset();
-}
-
 async function fetchWithAuthRaw(url, opts = {}) {
   opts.headers ||= {};
   const { accessToken } = await initIms();
@@ -146,13 +142,6 @@ export function timestampToDuration(timestamp) {
   }
 
   return `${Math.min(days, DEFAULT_TIMEFRAME_DAYS)}d`;
-}
-
-export function isMetadataStale(meta, thresholdMs = 5 * 60 * 1000) {
-  if (!meta || !meta.lastFetchTime) return true;
-
-  const age = Date.now() - meta.lastFetchTime;
-  return age > thresholdMs;
 }
 
 export async function fetchPaginated(
@@ -759,10 +748,6 @@ function getCachedAemSiteToken(org, site, ref = 'main') {
 
 export function clearCachedAemSiteToken(org, site, ref = 'main') {
   aemSiteTokenCache.delete(getAemSiteTokenCacheKey(org, site, ref));
-}
-
-export function resetAemSiteTokenCache() {
-  aemSiteTokenCache.clear();
 }
 
 async function fetchAemSiteToken(org, site, ref = 'main') {

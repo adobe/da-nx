@@ -620,7 +620,6 @@ class NxMediaLibrary extends LitElement {
       });
 
       saveRecentSite(this.sitePath);
-      await this.loadMediaData();
 
       // Callback when final media data is ready
       const onMediaDataUpdated = (mediaData) => this.setMediaData(mediaData);
@@ -642,7 +641,12 @@ class NxMediaLibrary extends LitElement {
 
       const hasMediaData = (getAppState().mediaData?.length || 0) > 0;
 
+      // Start lock check in parallel with data loading to prevent UI flash
+      // This ensures LOCK_DETECTED event arrives before or with setMediaData
       initService(this.sitePath, { onEvent, mode, hasMediaData });
+
+      // Load media data (runs concurrently with lock check)
+      await this.loadMediaData();
     } catch (error) {
       updateAppState({
         isValidating: false,
@@ -685,31 +689,15 @@ class NxMediaLibrary extends LitElement {
         }
       };
 
-      const {
-        data, indexMissing, indexing, lockFresh,
-      } = await loadMediaSheet(
+      const { data, indexMissing } = await loadMediaSheet(
         this.sitePath,
         onProgressiveChunk,
       );
-
-      if (indexing) {
-        updateAppState({
-          isLoadingData: false,
-          isProgressiveLoading: false,
-          isIndexing: false,
-          isBackgroundRefreshInProgress: false,
-          indexLockedByOther: true,
-          indexMissing: true,
-          persistentError: null,
-        });
-        return;
-      }
 
       updateAppState({
         persistentError: null,
         indexMissing: !!indexMissing,
         indexLockedByOther: false,
-        isBackgroundRefreshInProgress: !!(data?.length > 0) && !!lockFresh,
       });
 
       const finalData = accumulatedData.length > 0 ? accumulatedData : data;

@@ -89,40 +89,6 @@ export function parseRouteState() {
 }
 
 /**
- * @deprecated Use parseRouteState() instead. Kept for backward compatibility.
- * Parses hash-local query params (old format: #/path?params).
- */
-export function parseHashRouteState(hash) {
-  if (!hash) return { sitePath: '', params: new URLSearchParams() };
-
-  const withoutLeading = hash.startsWith('#') ? hash.slice(1) : hash;
-  const decoded = tryDecodeURIComponent(withoutLeading);
-  let cleanHash = (decoded.split('#')[0] ?? '').trim();
-
-  if (cleanHash.includes('%23')) {
-    cleanHash = (cleanHash.split('%23')[0] ?? '').trim();
-  }
-
-  // Look for ? delimiter
-  let qIdx = cleanHash.indexOf('?');
-  if (qIdx !== -1) {
-    const sitePath = cleanHash.substring(0, qIdx);
-    const queryString = cleanHash.substring(qIdx + 1);
-    return { sitePath, params: new URLSearchParams(queryString) };
-  }
-
-  // Look for %3F encoded delimiter (case-insensitive)
-  qIdx = cleanHash.toUpperCase().indexOf('%3F');
-  if (qIdx !== -1) {
-    const sitePath = cleanHash.substring(0, qIdx);
-    const queryString = cleanHash.substring(qIdx + 3); // Skip %3F (3 chars)
-    return { sitePath, params: new URLSearchParams(queryString) };
-  }
-
-  return { sitePath: cleanHash, params: new URLSearchParams() };
-}
-
-/**
  * Builds full URL with regular query params + hash sitePath.
  * Preserves environment params (nx, debug, perf) and merges with app state params.
  * Returns URL like ?nx=local&filter=videos#/org/repo
@@ -149,23 +115,6 @@ export function buildUrlWithState(sitePath, appParams, preserveEnvParams = true)
 
   const queryString = merged.toString();
   return queryString ? `?${queryString}#${sitePath}` : `#${sitePath}`;
-}
-
-/**
- * @deprecated Use buildUrlWithState() instead. Kept for backward compatibility.
- * Builds hash string with hash-local params (old format: #/path?params).
- */
-export function buildHashWithState(sitePath, params) {
-  const cleanParams = new URLSearchParams();
-
-  for (const [key, value] of params.entries()) {
-    if (value && value.trim()) {
-      cleanParams.set(key, value);
-    }
-  }
-
-  const queryString = cleanParams.toString();
-  return queryString ? `#${sitePath}?${queryString}` : `#${sitePath}`;
 }
 
 export function getBasePath() {

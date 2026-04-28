@@ -17,6 +17,31 @@ import {
 } from '../parse.js';
 import { normalizePath } from '../parse-utils.js';
 import { buildUsageMap } from './parse.js';
+import { Operation } from '../../core/constants.js';
+import {
+  isIndexedExternalMediaOperation,
+  isIndexedExternalMediaEntry,
+} from '../../core/media.js';
+
+/**
+ * Remove invalid external media entries from index
+ * (entries that have extlinks/markdown-parsed operation but no valid media type)
+ */
+function purgeInvalidExternalMediaEntries(index) {
+  let removed = 0;
+
+  for (let i = index.length - 1; i >= 0; i -= 1) {
+    const entry = index[i];
+    const shouldRemove = isIndexedExternalMediaOperation(entry)
+      && !isIndexedExternalMediaEntry(entry);
+    if (shouldRemove) {
+      index.splice(i, 1);
+      removed += 1;
+    }
+  }
+
+  return removed;
+}
 
 /**
  * Worker-safe processLinkedContent
@@ -156,19 +181,53 @@ export async function processLinkedContent(
     }
   });
 
-  // Process external media
-  if (usageMap.externalMedia) {
-    usageMap.externalMedia.forEach((data, url) => {
-      const { pages: linkedPages, firstDiscoveredTimestamp } = data;
-      linkedPages.forEach((doc) => {
-        const entry = toExternalMediaEntry(url, doc, firstDiscoveredTimestamp, org, repo);
-        if (entry) {
-          updatedIndex.push(entry);
-          added += 1;
-        }
-      });
+  // Process external media with proper deduplication
+  // First, purge invalid external media entries (wrong operation but no valid media type)
+  removed += purgeInvalidExternalMediaEntries(updatedIndex);
+
+  const externalUrls = usageMap.externalMedia ? [...usageMap.externalMedia.keys()] : [];
+  externalUrls.forEach((url) => {
+    const data = usageMap.externalMedia.get(url) || {
+      pages: [],
+      firstDiscoveredTimestamp: 0,
+    };
+    const { pages: linkedPages, firstDiscoveredTimestamp } = data;
+
+    // Helper functions to identify external media entries
+    const isExtlinksForDoc = (doc) => (e) => {
+      const op = e.operation || e.source;
+      const isExt = op === Operation.EXTLINKS || op === Operation.MARKDOWN_PARSED;
+      return isExt && e.hash === url && e.doc === doc;
+    };
+    const isExtlinksEntry = (e) => {
+      const op = e.operation || e.source;
+      return (op === Operation.EXTLINKS || op === Operation.MARKDOWN_PARSED) && e.hash === url;
+    };
+
+    // Remove obsolete entries (no doc or doc not in linkedPages)
+    const obsolete = updatedIndex.filter((e) => isExtlinksEntry(e) && (e.doc === '' || !linkedPages.includes(e.doc)));
+    obsolete.forEach((e) => {
+      updatedIndex.splice(updatedIndex.indexOf(e), 1);
+      removed += 1;
     });
-  }
+
+    // Add or update entries for each linked page
+    linkedPages.forEach((doc) => {
+      const existingIdx = updatedIndex.findIndex(isExtlinksForDoc(doc));
+      const freshEntry = toExternalMediaEntry(url, doc, firstDiscoveredTimestamp, org, repo);
+      if (!freshEntry) {
+        return;
+      }
+      if (existingIdx !== -1) {
+        // Update existing entry
+        updatedIndex[existingIdx] = freshEntry;
+      } else {
+        // Add new entry
+        updatedIndex.push(freshEntry);
+        added += 1;
+      }
+    });
+  });
 
   if (context?.isPerfEnabled) {
     // eslint-disable-next-line no-console

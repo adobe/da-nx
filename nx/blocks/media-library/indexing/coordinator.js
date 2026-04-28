@@ -69,12 +69,23 @@ export async function startCheckingIndexChanges(sitePath, org, repo) {
       const isAuthenticated = await ensureAuthenticated();
       if (!isAuthenticated) return;
 
+      const key = `${sitePath.replace(/\//g, '-')}-media-lastupdated`;
+      const hadPreviousTimestamp = !!localStorage.getItem(key);
+
       const result = await loadMediaIfUpdated(sitePath, org, repo);
       const { hasChanged, mediaData, indexMissing } = result;
 
       if (isPerfEnabled() && (hasChanged || indexMissing)) {
+        let message;
+        if (indexMissing) {
+          message = 'detected missing index';
+        } else if (!hadPreviousTimestamp) {
+          message = `loaded ${mediaData?.length || 0} items`;
+        } else {
+          message = `detected changes (${mediaData?.length || 0} items)`;
+        }
         // eslint-disable-next-line no-console
-        console.log(`[perf] checkIndex poll detected ${indexMissing ? 'missing index' : `changes (${mediaData?.length || 0} items)`}`);
+        console.log(`[perf] checkIndex poll ${message}`);
       }
 
       if (indexMissing) {
