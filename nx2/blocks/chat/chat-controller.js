@@ -20,7 +20,7 @@ export default class ChatController {
     this._room = null;
   }
 
-    async _getMcpConfig() {
+  async _getMcpConfig() {
     const { org, site } = this._context ?? {};
     if (!org || !site) return { servers: {}, serverHeaders: {} };
     return loadMcpServerConfig(org, site);
