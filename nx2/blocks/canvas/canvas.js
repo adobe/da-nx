@@ -105,20 +105,6 @@ function syncCanvasEditorsToHash({ mountRoot, header, state }) {
   syncEditorSplitLayout({ mountRoot, view: header.editorView });
 }
 
-function extensionToView(ext) {
-  return {
-    id: ext.name,
-    label: ext.title,
-    firstParty: ext.ootb,
-    load: async () => {
-      await import('./nx-panel-extensions/nx-panel-extensions.js');
-      const el = document.createElement('nx-panel-extension');
-      el.extension = ext;
-      return el;
-    },
-  };
-}
-
 async function syncToolPanelViews(toolPanel, { org, site }) {
   const key = org && site ? `${org}/${site}` : null;
   if (key === toolPanel.dataset.extKey) return;
@@ -129,10 +115,10 @@ async function syncToolPanelViews(toolPanel, { org, site }) {
     return;
   }
 
-  const { fetchExtensions } = await import('./nx-panel-extensions/helpers.js');
-  const extensions = await fetchExtensions(org, site);
+  const { getExtensionViews } = await import('./nx-panel-extensions/helpers.js');
+  const views = await getExtensionViews({ org, site });
   if (toolPanel.dataset.extKey !== key) return;
-  toolPanel.views = extensions.map(extensionToView);
+  toolPanel.views = views;
 }
 
 const CANVAS_PANELS = {

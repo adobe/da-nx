@@ -1,11 +1,12 @@
 /* eslint-disable import/no-unresolved -- importmap */
-import { DOMParser as PMDOMParser, TextSelection } from 'da-y-wrapper';
-import { DA_ORIGIN, daFetch } from '../../../utils/daFetch.js';
+import { DOMParser as PMDOMParser, DOMSerializer, Slice, TextSelection } from 'da-y-wrapper';
+import { AEM_ORIGIN, daFetch } from '../../../utils/daFetch.js';
+import { fetchDaConfigs, getFirstSheet } from '../../../utils/daConfig.js';
+
+const ref = new URLSearchParams(window.location.search).get('ref') || 'main';
 
 const AEM_ORIGINS = ['hlx.page', 'hlx.live', 'aem.page', 'aem.live'];
 const REPLACE_CONTENT = '<content>';
-
-export const ref = new URLSearchParams(window.location.search).get('ref') || 'main';
 
 // ---------------------------------------------------------------------------
 // Block HTML parsing — ported from da-live helpers/index.js
@@ -165,11 +166,6 @@ export async function getBlockVariants(path) {
 
 const OOTB_PLUGINS = new Set(['blocks', 'templates', 'icons', 'placeholders']);
 
-function getFirstSheet(json) {
-  if (json[':type'] !== 'multi-sheet') return json.data;
-  return json[Object.keys(json)[0]]?.data;
-}
-
 function getIsPluginAllowed(plugRef) {
   const pluginRef = plugRef || 'main';
   if (pluginRef === 'main') return true;
@@ -186,13 +182,25 @@ function calculateSources(org, site, sheetPath) {
   });
 }
 
+function mergePlugin(list, plugin) {
+  let idx = list.findIndex((p) => p.name === 'templates');
+  if (idx === -1) idx = list.findIndex((p) => p.name === 'blocks');
+  if (idx !== -1) {
+    list.splice(idx + 1, 0, plugin);
+  } else {
+    list.push(plugin);
+  }
+}
+
 export async function fetchExtensions(org, site) {
-  const resp = await daFetch(`${DA_ORIGIN}/config/${org}/${site}/`);
-  if (!resp.ok) return [];
-  const json = await resp.json();
-  const rows = json?.library?.data;
+  const configs = fetchDaConfigs({ org, site });
+  const siteConfig = await configs[configs.length - 1];
+  if (siteConfig?.error) return [];
+
+  const rows = siteConfig?.library?.data;
   if (!Array.isArray(rows)) return [];
-  return rows.reduce((acc, row) => {
+
+  const extensions = rows.reduce((acc, row) => {
     if (!getIsPluginAllowed(row.ref)) return acc;
     const name = row.title.trim().toLowerCase().replaceAll(' ', '-');
     acc.push({
@@ -205,6 +213,18 @@ export async function fetchExtensions(org, site) {
     });
     return acc;
   }, []);
+
+  try {
+    const siteEntries = getFirstSheet(siteConfig) || [];
+    const hasRepo = siteEntries.find((e) => e.key === 'aem.repositoryId')?.value;
+    if (hasRepo) {
+      const { getAssetsPlugin } = await import('./aem-assets.js');
+      const plugin = getAssetsPlugin({ org, site });
+      if (plugin) mergePlugin(extensions, plugin);
+    }
+  } catch { /* proceed without assets */ }
+
+  return extensions;
 }
 
 // ---------------------------------------------------------------------------
@@ -269,6 +289,25 @@ export function insertText(view, text) {
   view.dispatch(view.state.tr.replaceSelectionWith(node).scrollIntoView());
 }
 
+export function insertHTML(view, htmlStr) {
+  const doc = new window.DOMParser().parseFromString(htmlStr, 'text/html');
+  const parsed = PMDOMParser.fromSchema(view.state.schema).parse(doc.body);
+  const slice = new Slice(parsed.content, 0, 0);
+  const { from, to } = view.state.selection;
+  view.dispatch(view.state.tr.replaceRange(from, to, slice).scrollIntoView());
+}
+
+export function getEditorSelection(view) {
+  const { selection } = view.state;
+  if (selection.empty) return null;
+  const slice = selection.content();
+  const serializer = DOMSerializer.fromSchema(view.state.schema);
+  const fragment = serializer.serializeFragment(slice.content);
+  const div = document.createElement('div');
+  div.appendChild(fragment);
+  return div.innerHTML;
+}
+
 export async function insertTemplate(view, url) {
   const resp = await daFetch(url);
   if (!resp.ok) return;
@@ -276,4 +315,63 @@ export async function insertTemplate(view, url) {
   const doc = new window.DOMParser().parseFromString(html, 'text/html');
   const parsed = PMDOMParser.fromSchema(view.state.schema).parse(doc.body);
   view.dispatch(view.state.tr.replaceSelectionWith(parsed).scrollIntoView());
+}
+
+// ---------------------------------------------------------------------------
+// Preview status
+// ---------------------------------------------------------------------------
+
+export async function getPreviewStatus({ org, site, pathname }) {
+  try {
+    const resp = await daFetch(`${AEM_ORIGIN}/status/${org}/${site}${pathname}`);
+    if (!resp.ok) return null;
+    const json = await resp.json();
+    return json.preview?.status === 200;
+  } catch {
+    return null;
+  }
+}
+
+export function getItemPreviewUrl(item, { org, site }) {
+  const url = new URL(item.path || item.value);
+  const { hostname, pathname } = url;
+
+  let itemOrg = org;
+  let itemSite = site;
+  let itemPath = pathname;
+
+  if (hostname.includes('.aem.')) {
+    const parts = hostname.split('.')[0].split('--').reverse();
+    [itemOrg, itemSite] = parts;
+  } else if (hostname.includes('content.da.live')) {
+    const segments = pathname.slice(1).split('/');
+    [itemOrg, itemSite] = segments;
+    itemPath = `/${segments.slice(2).join('/')}`;
+  }
+
+  return {
+    previewUrl: `https://${ref}--${itemSite}--${itemOrg}.aem.page${itemPath}`,
+    org: itemOrg,
+    site: itemSite,
+    pathname: itemPath,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// View facade — canvas.js calls this, nothing else
+// ---------------------------------------------------------------------------
+
+export async function getExtensionViews({ org, site }) {
+  const extensions = await fetchExtensions(org, site);
+  return extensions.map((ext) => ({
+    id: ext.name,
+    label: ext.title,
+    firstParty: ext.ootb,
+    load: async () => {
+      await import('./nx-panel-extensions.js');
+      const el = document.createElement('nx-panel-extension');
+      el.extension = ext;
+      return el;
+    },
+  }));
 }
