@@ -16,15 +16,20 @@ export const fetchDaConfigs = (() => {
     return resp.json();
   };
 
+  const cacheConfig = (key) => {
+    cache[key] = fetchConfig(key).then((result) => {
+      if (result.error) delete cache[key];
+      return result;
+    });
+    return cache[key];
+  };
+
   return ({ org, site }) => {
-    cache[`/${org}`] ??= fetchConfig(`/${org}`);
+    const orgKey = `/${org}`;
+    const siteKey = site ? `/${org}/${site}` : null;
 
-    if (site) {
-      cache[`/${org}/${site}`] ??= fetchConfig(`/${org}/${site}`);
-    }
-
-    const configs = [cache[`/${org}`]];
-    if (site) configs.push(cache[`/${org}/${site}`]);
+    const configs = [cache[orgKey] ?? cacheConfig(orgKey)];
+    if (siteKey) configs.push(cache[siteKey] ?? cacheConfig(siteKey));
     return configs;
   };
 })();
