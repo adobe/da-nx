@@ -131,14 +131,31 @@ export function getMediaLibraryAppHref(sitePath) {
   if (!normalized) return '';
 
   let base = 'https://da.live/apps/media-library';
-  if (typeof window !== 'undefined' && window.location?.hostname) {
-    const { hostname, origin } = window.location;
+  let queryParams = '';
+
+  if (typeof window !== 'undefined' && window.location) {
+    const { hostname, origin, search } = window.location;
     if (hostname === 'da.live' || hostname.endsWith('.da.live')) {
       base = `${origin}/apps/media-library`;
     }
+
+    // Preserve environment-related query params for dev/stage workflows
+    if (search) {
+      const params = new URLSearchParams(search);
+      const preserveParams = new URLSearchParams();
+
+      // Preserve nx, da-admin, da-etc params (dev/stage environment switchers)
+      ['nx', 'da-admin', 'da-etc'].forEach((key) => {
+        const value = params.get(key);
+        if (value) preserveParams.set(key, value);
+      });
+
+      const paramString = preserveParams.toString();
+      if (paramString) queryParams = `?${paramString}`;
+    }
   }
 
-  return `${base}#${normalized}`;
+  return `${base}${queryParams}#${normalized}`;
 }
 
 export const getContentPathFromSitePath = _getContentPathFromSitePath;

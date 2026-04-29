@@ -109,17 +109,37 @@ async function runWorkerBuild(
 
   // Set up result promise
   const resultPromise = new Promise((resolve, reject) => {
-    // Start watchdog timer
-    watchdogTimer = setTimeout(() => {
-      reject(new Error(`Worker build exceeded timeout of ${watchdogTimeout / 1000}s`));
-    }, watchdogTimeout);
+    // Helper to reset watchdog on activity (progress/progressive messages)
+    const resetWatchdog = () => {
+      if (watchdogTimer) clearTimeout(watchdogTimer);
+      watchdogTimer = setTimeout(() => {
+        reject(new Error(`Worker build exceeded timeout of ${watchdogTimeout / 1000}s`));
+      }, watchdogTimeout);
+    };
 
-    worker.onmessage = async (event) => {
+    // Start initial watchdog timer
+    resetWatchdog();
+
+    // Handle token refresh requests (async, but doesn't interfere with message ordering)
+    const handleTokenRefresh = async (requestId) => {
+      try {
+        clearCachedAemSiteToken(org, repo, ref);
+        const tokenResult = await getAemSiteToken({ org, site: repo, ref });
+        const freshToken = tokenResult?.siteToken || null;
+        worker.postMessage({ type: 'token-refresh-response', requestId, token: freshToken });
+      } catch (err) {
+        worker.postMessage({ type: 'token-refresh-response', requestId, token: null, error: err.message });
+      }
+    };
+
+    worker.onmessage = (event) => {
       const { type, data, error, message, requestId } = event.data;
 
       if (type === 'progress') {
+        resetWatchdog(); // Reset timeout on activity
         onProgress?.(data);
       } else if (type === 'progressive') {
+        resetWatchdog(); // Reset timeout on activity
         onProgressiveData?.(data);
       } else if (type === 'log') {
         if (perfEnabled) {
@@ -127,16 +147,8 @@ async function runWorkerBuild(
           console.log('[IndexWorker]', message);
         }
       } else if (type === 'token-refresh') {
-        // Worker requests fresh site token (401/403 during markdown fetch)
-        // Must clear cache first to force a real refresh (matches canonical behavior)
-        try {
-          clearCachedAemSiteToken(org, repo, ref);
-          const tokenResult = await getAemSiteToken({ org, site: repo, ref });
-          const freshToken = tokenResult?.siteToken || null;
-          worker.postMessage({ type: 'token-refresh-response', requestId, token: freshToken });
-        } catch (err) {
-          worker.postMessage({ type: 'token-refresh-response', requestId, token: null, error: err.message });
-        }
+        // Handle async token refresh without blocking message handler
+        handleTokenRefresh(requestId);
       } else if (type === 'success') {
         clearTimeout(watchdogTimer);
         resolve(data);
