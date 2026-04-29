@@ -245,11 +245,7 @@ export class NxEditorDoc extends LitElement {
     };
     this.parentElement?.addEventListener('nx-wysiwyg-port-ready', this._onWysiwygPortReady);
     this._unsubscribeSelect = editorSelectChange
-      .subscribe(({ sectionIndex, blockFlatIndex, source }) => {
-        if (source !== 'wysiwyg') {
-          const port = this._controllerCtx?.port;
-          if (port) port.postMessage({ type: 'outline-scroll', sectionIndex, blockFlatIndex });
-        }
+      .subscribe(({ blockFlatIndex, source }) => {
         if (source !== 'doc') this._scrollDocToBlock(blockFlatIndex);
       });
   }

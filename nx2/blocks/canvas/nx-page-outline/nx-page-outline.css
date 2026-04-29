@@ -38,20 +38,6 @@
 
 .nx-page-outline-section-header {
   background: var(--s2-gray-75);
-  cursor: pointer;
-
-  &:hover {
-    background: var(--s2-gray-100);
-  }
-}
-
-.nx-page-outline-section:focus-visible .nx-page-outline-section-header {
-  background: var(--s2-gray-100);
-}
-
-.nx-page-outline-section[aria-selected="true"] .nx-page-outline-section-header {
-  background: var(--s2-blue-100);
-  color: var(--s2-blue-900);
 }
 
 .nx-page-outline-section-label {

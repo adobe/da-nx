@@ -1,9 +1,3 @@
-/**
- * nx-page-outline: shows block structure of the currently selected page.
- * Driven by AEM HTML (prose2aem output); parses main > section > block.
- * Only active when a page path (3+ segments) is selected.
- * Self-subscribes to hashChange and document nx-editor-html-change.
- */
 import { LitElement, html } from 'da-lit';
 import { loadStyle, HashController } from '../../../utils/utils.js';
 import { editorHtmlChange, editorSelectChange } from '../editor-utils/document.js';
@@ -83,9 +77,9 @@ class NxPageOutline extends LitElement {
     this._prevSelectedPath = sp;
   }
 
-  _select(sectionIndex, blockFlatIndex) {
+  _select(blockFlatIndex) {
     this._selectedBlockFlatIndex = blockFlatIndex;
-    editorSelectChange.emit({ sectionIndex, blockFlatIndex, source: 'outline' });
+    editorSelectChange.emit({ blockFlatIndex, source: 'outline' });
   }
 
   // Arrow function so `this` is correct when used as an event listener in the template.
@@ -101,19 +95,6 @@ class NxPageOutline extends LitElement {
       case 'ArrowUp': next = Math.max(idx - 1, 0); break;
       case 'Home': next = 0; break;
       case 'End': next = items.length - 1; break;
-      case 'ArrowRight':
-        if (items[idx].querySelector('[role="group"]')) next = idx + 1;
-        break;
-      case 'ArrowLeft':
-        if (!items[idx].querySelector('[role="group"]')) {
-          for (let i = idx - 1; i >= 0; i -= 1) {
-            if (items[i].querySelector('[role="group"]')) {
-              next = i;
-              break;
-            }
-          }
-        }
-        break;
       default: return;
     }
 
@@ -125,10 +106,9 @@ class NxPageOutline extends LitElement {
     }
   };
 
-  _renderSection(sec, isFirst) {
+  _renderSection(sec, isFirstSection) {
     return html`
-      <li class="nx-page-outline-section" role="treeitem"
-          tabindex="${isFirst ? '0' : '-1'}">
+      <li class="nx-page-outline-section" role="none">
         <div class="nx-page-outline-section-header">
           <span class="nx-page-outline-section-label">Section ${sec.sectionIndex + 1}</span>
         </div>
@@ -139,10 +119,11 @@ class NxPageOutline extends LitElement {
                     role="treeitem" tabindex="-1">
                 <span class="nx-page-outline-empty-label">No blocks</span>
               </li>`
-        : sec.blocks.map(({ name, blockFlatIndex }) => html`
-      <li class="nx-page-outline-block" role="treeitem" tabindex="-1"
+        : sec.blocks.map(({ name, blockFlatIndex }, blockIdx) => html`
+      <li class="nx-page-outline-block" role="treeitem"
+          tabindex="${isFirstSection && blockIdx === 0 ? '0' : '-1'}"
           aria-selected="${this._selectedBlockFlatIndex === blockFlatIndex}"
-          @click=${() => this._select(sec.sectionIndex, blockFlatIndex)}>${name}</li>`)}
+          @click=${() => this._select(blockFlatIndex)}>${name}</li>`)}
         </ul>
       </li>`;
   }
@@ -155,7 +136,7 @@ class NxPageOutline extends LitElement {
     }
 
     return html`
-    <section class="nx-page-outline" aria-label="Page outline">
+    <section class="nx-page-outline">
       <div class="nx-page-outline-list-wrap">
         ${!this._sections
         ? html`<p class="nx-page-outline-placeholder">No blocks found.</p>`

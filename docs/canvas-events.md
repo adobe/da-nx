@@ -1,6 +1,6 @@
 # Canvas Events
 
-Communication within the canvas block uses two mechanisms: **DOM CustomEvents** for component-tree-local signalling, and **observables** for cross-cutting concerns that span component boundaries. Constants for event name strings live in [`nx2/blocks/canvas/canvas-events.js`](../nx2/blocks/canvas/canvas-events.js).
+Communication within the canvas block uses two mechanisms: **DOM CustomEvents** for component-tree-local signalling, and **observables** for cross-cutting concerns that span component boundaries.
 
 ---
 
@@ -61,13 +61,12 @@ Emits the full serialised AEM HTML of the active document after every structural
 
 ```js
 import { editorSelectChange } from '../editor-utils/document.js';
-const unsub = editorSelectChange.subscribe(({ sectionIndex, blockFlatIndex, source }) => { … });
+const unsub = editorSelectChange.subscribe(({ blockFlatIndex, source }) => { … });
 ```
 
 Emits whenever the active block/section selection changes — from the canvas (cursor move) or from a panel (e.g. outline click). Does not replay on subscribe. Every participant both emits and subscribes; use `source` to skip your own echoes and prevent feedback loops.
 
 | Field | Type | Description |
 |---|---|---|
-| `sectionIndex` | `number` | Zero-based section index in `main > div` |
-| `blockFlatIndex` | `number` | Zero-based index across all blocks in the document (`-1` = section-level selection with no specific block) |
-| `source` | `string` | Emitter identity — e.g. `'wysiwyg'`, `'outline'` |
+| `blockFlatIndex` | `number` | Zero-based index across all blocks in the document (`-1` = no specific block) |
+| `source` | `string` | Emitter identity — e.g. `'wysiwyg'`, `'outline'`, `'doc'` |
