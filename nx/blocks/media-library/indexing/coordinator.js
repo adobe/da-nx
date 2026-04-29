@@ -16,7 +16,7 @@ import {
   isFreshIndexLock,
   getIndexLockOwnerId,
 } from './locks.js';
-import { ensureAuthenticated } from '../core/utils.js';
+import { ensureAuthenticated, getMediaLibraryHostMode } from '../core/utils.js';
 import { MediaLibraryError, ErrorCodes, logMediaLibraryError } from '../core/errors.js';
 import { isFullRebuildRequested, isPerfEnabled } from '../core/params.js';
 import {
@@ -380,7 +380,7 @@ export async function triggerBuild(sitePath, org, repo, ref = 'main') {
 export async function initService(sitePath, options = {}) {
   const {
     onEvent,
-    mode = 'app',
+    mode = getMediaLibraryHostMode(),
     hasMediaData = false,
   } = options;
   eventEmitter = onEvent;

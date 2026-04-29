@@ -120,8 +120,10 @@ async function runWorkerBuild(
       } else if (type === 'progressive') {
         onProgressiveData?.(data);
       } else if (type === 'log') {
-        // eslint-disable-next-line no-console
-        console.log('[IndexWorker]', message);
+        if (perfEnabled) {
+          // eslint-disable-next-line no-console
+          console.log('[IndexWorker]', message);
+        }
       } else if (type === 'token-refresh') {
         // Worker requests fresh site token (401/403 during markdown fetch)
         // Must clear cache first to force a real refresh (matches canonical behavior)

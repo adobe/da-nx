@@ -124,10 +124,23 @@ export function getBasePath() {
   return `/${parts.join('/')}`;
 }
 
-/** Re-exported from parse-utils.js for backward compatibility */
 export const normalizeSitePath = _normalizeSitePath;
 
-/** Re-exported from parse-utils.js for backward compatibility */
+export function getMediaLibraryAppHref(sitePath) {
+  const normalized = normalizeSitePath(sitePath);
+  if (!normalized) return '';
+
+  let base = 'https://da.live/apps/media-library';
+  if (typeof window !== 'undefined' && window.location?.hostname) {
+    const { hostname, origin } = window.location;
+    if (hostname === 'da.live' || hostname.endsWith('.da.live')) {
+      base = `${origin}/apps/media-library`;
+    }
+  }
+
+  return `${base}#${normalized}`;
+}
+
 export const getContentPathFromSitePath = _getContentPathFromSitePath;
 
 export function resolveAbsolutePath(path, isFolder = false) {

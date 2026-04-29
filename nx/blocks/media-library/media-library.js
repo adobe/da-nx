@@ -4,12 +4,14 @@ import { loadMediaSheet, buildMediaIndexStructures } from './ui/data.js';
 import { copyMediaToClipboard, exportToCsv } from './core/export.js';
 import {
   validateSitePath, getBasePath, resolveAbsolutePath, normalizeSitePath, parseSitePathFromHash,
-  parseRouteState, buildUrlWithState,
+  parseRouteState, buildUrlWithState, getMediaLibraryAppHref,
 } from './core/paths.js';
 import { saveRecentSite } from './core/storage.js';
 import {
   ensureAuthenticated,
   getCanonicalMediaTimestamp,
+  getMediaLibraryHostMode,
+  isMediaLibraryPluginMode,
   sortMediaData,
   deduplicateMediaByHash,
   checkSiteAuthRequired,
@@ -624,16 +626,14 @@ class NxMediaLibrary extends LitElement {
       // Callback when final media data is ready
       const onMediaDataUpdated = (mediaData) => this.setMediaData(mediaData);
 
-      // Detect mode: app (standalone /apps/media-library) vs plugin (embedded in iframe/sidekick)
-      const isApp = window.location.pathname.includes('/apps/media-library');
-      const mode = isApp ? 'app' : 'plugin';
+      const mode = getMediaLibraryHostMode();
 
       // Event handler for indexing events
       const onEvent = (event) => {
         handleIndexingEvent(event, onMediaDataUpdated);
 
         // App policy: Auto-trigger builds when index is missing (app mode only)
-        if (event.type === 'index-missing' && isApp) {
+        if (event.type === 'index-missing' && mode === 'app') {
           const [siteOrg, siteRepo] = this.sitePath.split('/').slice(1, 3);
           triggerBuild(this.sitePath, siteOrg, siteRepo);
         }
@@ -976,6 +976,25 @@ class NxMediaLibrary extends LitElement {
 
   renderEmptyState() {
     if (this._appState.indexMissing) {
+      if (isMediaLibraryPluginMode()) {
+        const appHref = getMediaLibraryAppHref(this.sitePath);
+        return html`
+          <div class="empty-state">
+            <h3>${t('INDEX_MISSING_PLUGIN')}</h3>
+            <p>${t('INDEX_MISSING_PLUGIN_HINT')}</p>
+            ${appHref ? html`
+              <p>
+                <a
+                  class="ml-open-app-link"
+                  href=${appHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >${t('INDEX_MISSING_PLUGIN_OPEN')}</a>
+              </p>
+            ` : ''}
+          </div>
+        `;
+      }
       return html`
         <div class="empty-state">
           <h3>${t('INDEX_MISSING')}</h3>

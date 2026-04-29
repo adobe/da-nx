@@ -27,6 +27,7 @@ import {
 } from '../../templates.js';
 import { MediaType } from '../../../core/constants.js';
 import { t } from '../../../core/messages.js';
+import { isMediaLibraryPluginMode } from '../../../core/utils.js';
 
 const styles = await getStyle(import.meta.url);
 const nx = `${new URL(import.meta.url).origin}/nx`;
@@ -162,6 +163,9 @@ class NxMediaGrid extends LitElement {
       mediaClick: () => this.eventHandlers.handleMediaClick(media),
       copyClick: () => this.eventHandlers.handleMediaCopy(media),
     };
+    const pluginMode = isMediaLibraryPluginMode();
+    const copyTitle = pluginMode ? t('UI_INSERT_MEDIA') : t('UI_COPY_URL');
+    const copyAria = pluginMode ? t('UI_INSERT_MEDIA') : t('UI_COPY_MEDIA_ARIA');
     const usageCount = media.usageCount ?? '-';
     const cardLabel = this.getCardAriaLabel(media, usageCount);
 
@@ -179,8 +183,8 @@ class NxMediaGrid extends LitElement {
             <button
               class="icon-button share-button"
               @click=${(e) => { e.stopPropagation(); handlers.copyClick(); }}
-              title="Copy to clipboard"
-              aria-label="Copy media URL to clipboard"
+              title=${copyTitle}
+              aria-label=${copyAria}
             >
               <svg class="icon" viewBox="0 0 20 20">
                 <use href="#Smock_Copy_18_N"></use>

@@ -1,6 +1,7 @@
 import { etcFetch } from './urls.js';
 import { getMediaType, getSubtype } from './media.js';
 import { t } from './messages.js';
+import { isMediaLibraryPluginMode } from './utils.js';
 
 function escapeCsvCell(value) {
   if (value == null) return '';
@@ -53,6 +54,38 @@ function escapeHtml(str) {
     '"': '&quot;',
     "'": '&#39;',
   }[char]));
+}
+
+const DA_SDK_LOAD_MS = 3000;
+
+async function getDaSdkActions() {
+  const { default: DA_SDK } = await import('../../../utils/sdk.js');
+  return Promise.race([
+    DA_SDK.then((sdk) => {
+      const { actions } = sdk || {};
+      if (!actions?.sendText || !actions?.sendHTML) {
+        throw new Error('da-sdk-actions-unavailable');
+      }
+      return actions;
+    }),
+    new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('da-sdk-timeout')), DA_SDK_LOAD_MS);
+    }),
+  ]);
+}
+
+/** Insert via DA SDK: image as HTML, else plain URL (matches clipboard payloads). */
+async function insertMediaViaPluginSdk(media) {
+  const mediaUrl = media.url;
+  const mediaType = getMediaType(media);
+  const actions = await getDaSdkActions();
+
+  if (mediaType === 'image') {
+    const escapedUrl = escapeHtml(mediaUrl);
+    actions.sendHTML(`<img src="${escapedUrl}">`);
+    return;
+  }
+  actions.sendText(mediaUrl);
 }
 
 async function copyImageToClipboard(imageUrl) {
@@ -116,6 +149,19 @@ async function copyImageToClipboard(imageUrl) {
 export async function copyMediaToClipboard(media) {
   const mediaUrl = media.url;
   const mediaType = getMediaType(media);
+
+  if (isMediaLibraryPluginMode()) {
+    try {
+      await insertMediaViaPluginSdk(media);
+      if (mediaType === 'image') {
+        return { heading: t('NOTIFY_INSERTED'), message: t('NOTIFY_INSERTED_IMAGE') };
+      }
+      return { heading: t('NOTIFY_INSERTED'), message: t('NOTIFY_INSERTED_URL') };
+    } catch (pluginErr) {
+      // eslint-disable-next-line no-console
+      console.warn('[media-library] Plugin insert unavailable, falling back to clipboard:', pluginErr?.message || pluginErr);
+    }
+  }
 
   try {
     if (mediaType === 'image') {

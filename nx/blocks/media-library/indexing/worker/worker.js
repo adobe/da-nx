@@ -36,8 +36,6 @@ import {
   resolveAemOrigin,
 } from '../../core/constants.js';
 
-console.log('[IndexWorker] Worker modules loaded successfully');
-
 self.onmessage = async (event) => {
   const {
     mode,
@@ -145,5 +143,3 @@ self.onmessage = async (event) => {
     });
   }
 };
-
-console.log('[IndexWorker] Worker loaded and ready');

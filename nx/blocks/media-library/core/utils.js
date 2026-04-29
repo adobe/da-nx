@@ -19,39 +19,25 @@ export function formatDateTime(isoString) {
       minute: '2-digit',
       hour12: true,
     });
-  } catch (e) {
+  } catch {
     return 'Invalid Date';
   }
 }
 
-// Returns singular or plural form based on count.
 export function pluralize(singular, plural, count) {
   return count === 1 ? singular : plural;
 }
 
-/** Re-exported from parse-utils.js for backward compatibility */
 export const getCanonicalMediaTimestamp = _getCanonicalMediaTimestamp;
 
-/**
- * Computes status from doc field (referenced if doc present, unused if empty).
- * Includes backward compatibility fallback for old index entries with status field.
- */
 export function getItemStatus(item) {
   if (!item) return 'unused';
-  // Backward compatibility: prefer persisted status during transition
   if (item.status) return item.status;
-  // Compute from doc field
   return item.doc ? 'referenced' : 'unused';
 }
 
-/** Re-exported from parse-utils.js for backward compatibility */
 export const sortMediaData = _sortMediaData;
 
-/**
- * Deduplicates media entries by hash, keeping one entry per unique media asset.
- * When multiple entries exist for the same hash (same media used on multiple pages),
- * keeps the entry with a doc (referenced usage) over unused, and most recent timestamp.
- */
 export function deduplicateMediaByHash(mediaData) {
   if (!mediaData || mediaData.length === 0) return [];
 
@@ -68,7 +54,6 @@ export function deduplicateMediaByHash(mediaData) {
       return;
     }
 
-    // Prefer entry with a doc (referenced) over unused
     const hasDoc = entry.doc && entry.doc !== '';
     const existingHasDoc = existing.doc && existing.doc !== '';
 
@@ -78,10 +63,9 @@ export function deduplicateMediaByHash(mediaData) {
     }
 
     if (!hasDoc && existingHasDoc) {
-      return; // Keep existing
+      return;
     }
 
-    // Both have doc or both unused - prefer most recent canonical time
     const entryTs = getCanonicalMediaTimestamp(entry);
     const existingTs = getCanonicalMediaTimestamp(existing);
 
@@ -93,7 +77,6 @@ export function deduplicateMediaByHash(mediaData) {
   return Array.from(hashMap.values());
 }
 
-// Returns true if user has valid IMS auth for DA.
 export async function ensureAuthenticated() {
   const imsResult = await initIms();
 
@@ -123,23 +106,35 @@ export function debugLog(message, data) {
 function saveSiteAuthCache(cacheKey, result) {
   try {
     localStorage.setItem(cacheKey, JSON.stringify(result));
+    return true;
   } catch {
-    // Ignore cache write errors
+    return false;
+  }
+}
+
+function parseCachedAuth(raw) {
+  if (!raw) return undefined;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return undefined;
   }
 }
 
 export async function checkSiteAuthRequired(org, repo) {
   const cacheKey = `${org}-${repo}-auth-status`;
 
+  let raw = null;
   try {
-    const cached = localStorage.getItem(cacheKey);
-    if (cached) {
-      const result = JSON.parse(cached);
-      debugLog('Using cached auth check result', { org, repo });
-      return result;
-    }
+    raw = localStorage.getItem(cacheKey);
   } catch {
-    // Ignore cache read errors
+    raw = null;
+  }
+
+  const cached = parseCachedAuth(raw);
+  if (cached !== undefined) {
+    debugLog('Using cached auth check result', { org, repo });
+    return cached;
   }
 
   const indexUrl = `https://main--${repo}--${org}${Domains.AEM_PAGE}/index.md`;
@@ -185,4 +180,15 @@ export async function livePreviewLogin(owner, repo) {
     debugLog('Preview.da.live login failed', error);
     return false;
   }
+}
+
+export function getMediaLibraryHostMode() {
+  if (typeof window === 'undefined' || !window.location?.pathname) {
+    return 'app';
+  }
+  return window.location.pathname.includes('/apps/media-library') ? 'app' : 'plugin';
+}
+
+export function isMediaLibraryPluginMode() {
+  return getMediaLibraryHostMode() === 'plugin';
 }

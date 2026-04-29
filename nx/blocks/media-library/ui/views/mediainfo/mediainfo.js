@@ -30,7 +30,7 @@ import {
 } from '../../../core/urls.js';
 import { getAppState } from '../../../core/state.js';
 import { getEditUrl, getViewUrl, formatDocPath } from '../../../core/paths.js';
-import { formatDateTime } from '../../../core/utils.js';
+import { formatDateTime, isMediaLibraryPluginMode } from '../../../core/utils.js';
 import loadScript from '../../../../../utils/script.js';
 import { SUPPORTED_FILES } from '../../../../../public/utils/constants.js';
 import { Domains, MediaType } from '../../../core/constants.js';
@@ -788,13 +788,13 @@ class NxMediaInfo extends LitElement {
                 type="button"
                 class="action-button copy-button"
                 @click=${this.handleCopyUrl}
-                title="${t('UI_COPY_URL')}"
-                aria-label="${t('UI_COPY_URL')}"
+                title="${isMediaLibraryPluginMode() ? t('UI_INSERT_MEDIA') : t('UI_COPY_URL')}"
+                aria-label="${isMediaLibraryPluginMode() ? t('UI_INSERT_MEDIA') : t('UI_COPY_URL')}"
               >
                 <svg class="icon" viewBox="0 0 18 18">
                   <use href="#Smock_Copy_18_N"></use>
                 </svg>
-                Copy
+                ${isMediaLibraryPluginMode() ? t('UI_INSERT_BUTTON') : 'Copy'}
               </button>
               <button
                 type="button"
