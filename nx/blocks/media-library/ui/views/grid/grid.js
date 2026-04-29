@@ -57,6 +57,17 @@ class NxMediaGrid extends LitElement {
     this.iconsLoaded = false;
     this.usePreviewDaLive = false;
     this.resultsBusy = false;
+    /** Thumbnail `error` → hide card (same browser load; no extra request). */
+    this._failedPreviewKeys = new Set();
+  }
+
+  getVisibleMediaData() {
+    if (!this.mediaData?.length) return [];
+    return this.mediaData.filter((m) => {
+      const k = m?.url ? getDedupeKey(m.url) : '';
+      if (!k) return true;
+      return !this._failedPreviewKeys.has(k);
+    });
   }
 
   connectedCallback() {
@@ -112,6 +123,12 @@ class NxMediaGrid extends LitElement {
   }
 
   updated(changedProperties) {
+    if (changedProperties.has('mediaData') && this.mediaData) {
+      const keys = new Set(this.mediaData.map((m) => getDedupeKey(m?.url)).filter(Boolean));
+      [...this._failedPreviewKeys].forEach((k) => {
+        if (!keys.has(k)) this._failedPreviewKeys.delete(k);
+      });
+    }
     if (changedProperties.has('mediaData') && this.mediaData?.length > 0 && !this.iconsLoaded) {
       this.loadIcons();
       this.iconsLoaded = true;
@@ -124,7 +141,8 @@ class NxMediaGrid extends LitElement {
   }
 
   render() {
-    if (!this.mediaData || this.mediaData.length === 0) {
+    const visible = this.getVisibleMediaData();
+    if (visible.length === 0) {
       return html``;
     }
 
@@ -138,7 +156,7 @@ class NxMediaGrid extends LitElement {
         @keydown=${this.handleKeyDown}
       >
         ${virtualize({
-    items: this.mediaData,
+    items: visible,
     renderItem: (media) => this.renderMediaCard(media),
     keyFunction: (media) => {
       const key = media?.url ? getDedupeKey(media.url) : (media?.hash || '');
@@ -325,13 +343,19 @@ class NxMediaGrid extends LitElement {
   }
 
   handleImageLoadError(media, resolvedUrl) {
-    if (!media?.url || isExternalUrl(resolvedUrl) || isPreviewPreferredForMediaUrl(media.url)) {
+    if (!media?.url) return;
+
+    if (
+      !isExternalUrl(resolvedUrl)
+      && !isPreviewPreferredForMediaUrl(media.url)
+      && preferPreviewForMediaUrl(media.url)
+    ) {
+      this.requestUpdate();
       return;
     }
 
-    if (preferPreviewForMediaUrl(media.url)) {
-      this.requestUpdate();
-    }
+    this._failedPreviewKeys.add(getDedupeKey(media.url));
+    this.requestUpdate();
   }
 }
 
