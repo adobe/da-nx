@@ -75,6 +75,28 @@ async function getDaSdkActions() {
   ]);
 }
 
+function buildMediaLinkInsertHtml(media) {
+  const mediaUrl = media.url;
+  const rawLabel = decodeDisplayName(media?.displayName || media?.name || '') || getFileName(mediaUrl);
+  const label = (rawLabel && String(rawLabel).trim()) ? rawLabel : mediaUrl;
+  const escapedHref = escapeHtml(mediaUrl);
+  const escapedLabel = escapeHtml(label);
+  return {
+    html: `<p><a href="${escapedHref}">${escapedLabel}</a></p>`,
+    plain: mediaUrl,
+  };
+}
+
+async function copyNonImageLinkRichClipboard(media) {
+  const { html, plain } = buildMediaLinkInsertHtml(media);
+  await navigator.clipboard.write([
+    new ClipboardItem({
+      'text/html': new Blob([html], { type: 'text/html' }),
+      'text/plain': new Blob([plain], { type: 'text/plain' }),
+    }),
+  ]);
+}
+
 async function insertMediaViaPluginSdk(media) {
   const mediaUrl = media.url;
   const mediaType = getMediaType(media);
@@ -86,11 +108,8 @@ async function insertMediaViaPluginSdk(media) {
     return;
   }
 
-  const rawLabel = decodeDisplayName(media?.displayName || media?.name || '') || getFileName(mediaUrl);
-  const label = (rawLabel && String(rawLabel).trim()) ? rawLabel : mediaUrl;
-  const escapedHref = escapeHtml(mediaUrl);
-  const escapedLabel = escapeHtml(label);
-  actions.sendHTML(`<a href="${escapedHref}">${escapedLabel}</a>`);
+  const { html } = buildMediaLinkInsertHtml(media);
+  actions.sendHTML(html);
 }
 
 async function copyImageToClipboard(imageUrl) {
@@ -165,6 +184,14 @@ export async function copyMediaToClipboard(media) {
     } catch (pluginErr) {
       // eslint-disable-next-line no-console
       console.warn('[media-library] Plugin insert unavailable, falling back to clipboard:', pluginErr?.message || pluginErr);
+      if (mediaType !== 'image') {
+        try {
+          await copyNonImageLinkRichClipboard(media);
+          return { heading: t('NOTIFY_COPIED'), message: t('NOTIFY_COPIED_URL') };
+        } catch {
+          /* fall through to plain writeText */
+        }
+      }
     }
   }
 
