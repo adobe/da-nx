@@ -488,6 +488,7 @@ h6 {
 @media (width >= 1440px) {
   :root {
     --grid-container-width: 1200px;
+    --se-grid-container-width: 1200px;
   }
 }
 
