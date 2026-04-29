@@ -24,6 +24,9 @@ import { sortMediaData } from '../core/utils.js';
 import { ErrorCodes, MediaLibraryError } from '../core/errors.js';
 import {
   IndexConfig,
+  resolveDaOrigin,
+  resolveDaEtcOrigin,
+  resolveAemOrigin,
 } from '../core/constants.js';
 import { isPerfEnabled } from '../core/params.js';
 
@@ -65,12 +68,11 @@ async function runWorkerBuild(
     siteToken = window.localStorage?.getItem?.(`site-token-${org}-${repo}`) || null;
   }
 
-  // Pass location data to worker so it can resolve origins in worker-safe way
-  // Worker will use resolveDaOrigin/resolveDaEtcOrigin/resolveAemOrigin functions
-  const locationData = {
-    href: window.location.href,
-    origin: window.location.origin,
-  };
+  // Resolve origins on main thread (has access to localStorage) and pass resolved values
+  // Worker doesn't have localStorage access, so resolve here instead of in worker
+  const daOrigin = resolveDaOrigin(window.location);
+  const daEtcOrigin = resolveDaEtcOrigin(window.location);
+  const aemOrigin = resolveAemOrigin();
   const perfEnabled = isPerfEnabled();
 
   // Create worker using blob URL to avoid CORS issues with ?nx=local
@@ -170,7 +172,9 @@ async function runWorkerBuild(
     ref,
     imsToken,
     siteToken,
-    locationData,
+    daOrigin,
+    daEtcOrigin,
+    aemOrigin,
     isPerfEnabled: perfEnabled,
     IndexConfig,
   });

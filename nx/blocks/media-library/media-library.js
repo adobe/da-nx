@@ -697,7 +697,6 @@ class NxMediaLibrary extends LitElement {
       updateAppState({
         persistentError: null,
         indexMissing: !!indexMissing,
-        indexLockedByOther: false,
       });
 
       const finalData = accumulatedData.length > 0 ? accumulatedData : data;

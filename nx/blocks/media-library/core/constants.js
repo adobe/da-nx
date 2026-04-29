@@ -139,13 +139,18 @@ export function resolveDaOrigin(location) {
   const url = new URL(href);
   const query = url.searchParams.get('da-admin');
 
-  let env = 'prod';
-  if (query && query !== 'reset') {
-    env = query;
-  } else if (typeof localStorage !== 'undefined') {
-    env = localStorage.getItem('da-admin') || 'prod';
+  // Handle ?da-admin param (matches public/utils/constants.js::getDaEnv logic)
+  if (query && query === 'reset') {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('da-admin');
+    }
+  } else if (query) {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('da-admin', query);
+    }
   }
 
+  const env = (typeof localStorage !== 'undefined' && localStorage.getItem('da-admin')) || 'prod';
   const daOrigin = DA_ADMIN_ENVS[env] || DA_ADMIN_ENVS.prod;
   return origin === 'https://da.page' ? daOrigin.replace('.live', '.page') : daOrigin;
 }

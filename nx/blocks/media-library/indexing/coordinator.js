@@ -19,8 +19,8 @@ import {
 import { ensureAuthenticated, getMediaLibraryHostMode } from '../core/utils.js';
 import { MediaLibraryError, ErrorCodes, logMediaLibraryError } from '../core/errors.js';
 import { isFullRebuildRequested, isPerfEnabled } from '../core/params.js';
+import { IndexConfig } from '../core/constants.js';
 import {
-  IndexingEventType,
   IndexingErrorCode,
   createBuildStartedEvent,
   createBuildProgressEvent,
@@ -32,17 +32,18 @@ import {
   createIndexLoadedEvent,
 } from './events.js';
 
-const CONFIG = {
-  INWARD_POLLING_INTERVAL: 60000,
-  OUTWARD_POLLING_INTERVAL: 120000,
-  LOCK_CHECK_INTERVAL: 5000,
-};
-
 let inwardPollingInterval = null;
 let outwardPollingInterval = null;
 let lockCheckInterval = null;
-let pollingStarted = false;
+let currentServiceKey = null;
 let eventEmitter = null;
+
+/**
+ * Generate service key from sitePath and mode
+ */
+function getServiceKey(sitePath, mode) {
+  return `${sitePath}:${mode}`;
+}
 
 /**
  * Emit an indexing event to the display layer
@@ -110,9 +111,7 @@ export async function startCheckingIndexChanges(sitePath, org, repo) {
         isPersistent,
       ));
     }
-  }, CONFIG.INWARD_POLLING_INTERVAL);
-
-  pollingStarted = true;
+  }, IndexConfig.INDEX_POLLING_INTERVAL_MS);
 }
 
 /**
@@ -133,7 +132,7 @@ export function pauseCheckingIndexChanges() {
  * Resume checking for index changes (after builds)
  */
 export function resumeCheckingIndexChanges(sitePath, org, repo) {
-  if (!inwardPollingInterval && pollingStarted && sitePath) {
+  if (!inwardPollingInterval && currentServiceKey && sitePath) {
     if (isPerfEnabled()) {
       // eslint-disable-next-line no-console
       console.log('[perf] Resuming checkIndex polling (build complete)');
@@ -168,9 +167,7 @@ export async function startCheckingChanges(sitePath, org, repo, ref = 'main') {
     } catch (error) {
       logMediaLibraryError(ErrorCodes.POLLING_FAILED, { error: error?.message, context: 'outward' });
     }
-  }, CONFIG.OUTWARD_POLLING_INTERVAL);
-
-  pollingStarted = true;
+  }, IndexConfig.LOGS_POLLING_INTERVAL_MS);
 }
 
 /**
@@ -191,7 +188,7 @@ export function pauseCheckingChanges() {
  * Resume checking for content changes (after manual builds)
  */
 export function resumeCheckingChanges(sitePath, org, repo, ref = 'main') {
-  if (!outwardPollingInterval && pollingStarted && sitePath) {
+  if (!outwardPollingInterval && currentServiceKey && sitePath) {
     if (isPerfEnabled()) {
       // eslint-disable-next-line no-console
       console.log('[perf] Resuming checkChanges polling (build complete)');
@@ -248,7 +245,7 @@ function startLockCheckPolling(sitePath, org, repo, hasMediaData) {
     } catch {
       // Intentionally swallow errors during lock polling
     }
-  }, CONFIG.LOCK_CHECK_INTERVAL);
+  }, IndexConfig.LOCK_CHECK_INTERVAL_MS);
 }
 
 /**
@@ -325,14 +322,13 @@ export async function triggerBuild(sitePath, org, repo, ref = 'main') {
       result.lockRemoveFailed,
     ));
   } catch (error) {
-    if (error.message?.includes('Index build already in progress')) {
+    if (error?.code === ErrorCodes.LOCK_HELD_BY_OTHER) {
       // Another browser is building - start lock polling
-      emit({
-        type: IndexingEventType.LOCK_DETECTED,
-        ownerId: 'unknown',
-        timestamp: Date.now(),
-        fresh: true,
-      });
+      emit(createLockDetectedEvent(
+        error.details?.ownerId || 'unknown',
+        Date.now(),
+        true,
+      ));
       startLockCheckPolling(sitePath, org, repo, false);
     } else {
       const isMediaLibError = error instanceof MediaLibraryError;
@@ -383,9 +379,23 @@ export async function initService(sitePath, options = {}) {
     mode = getMediaLibraryHostMode(),
     hasMediaData = false,
   } = options;
+
+  const serviceKey = getServiceKey(sitePath, mode);
+
+  if (currentServiceKey === serviceKey) {
+    eventEmitter = onEvent;
+    return;
+  }
+
+  if (currentServiceKey) {
+    // eslint-disable-next-line no-use-before-define
+    disposeService();
+  }
+
+  currentServiceKey = serviceKey;
   eventEmitter = onEvent;
 
-  if (!sitePath || pollingStarted) return;
+  if (!sitePath) return;
 
   const [org, repo] = sitePath.split('/').slice(1, 3);
 
@@ -442,6 +452,6 @@ export function disposeService() {
   pauseCheckingIndexChanges();
   pauseCheckingChanges();
   stopLockCheckPolling();
-  pollingStarted = false;
+  currentServiceKey = null;
   eventEmitter = null;
 }
