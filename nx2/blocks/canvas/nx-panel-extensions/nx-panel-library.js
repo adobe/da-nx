@@ -133,8 +133,10 @@ class NxPanelLibrary extends LitElement {
     this.requestUpdate();
   }
 
-  _closePreview() {
+  async _closePreview() {
     this._preview = undefined;
+    await this.updateComplete;
+    this.shadowRoot.querySelector('button')?.focus();
   }
 
   _toggleTooltip(key) {
