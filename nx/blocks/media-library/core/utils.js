@@ -205,16 +205,3 @@ export function withTimeout(promise, ms, reason = 'timeout') {
     deadline,
   ]);
 }
-
-const DA_SDK_CLOSE_MS = 1500;
-
-export async function tryClosePluginPanel() {
-  try {
-    const { default: DA_SDK } = await import('../../../utils/sdk.js');
-    const sdk = await withTimeout(DA_SDK, DA_SDK_CLOSE_MS, 'sdk-close-timeout');
-    sdk?.actions?.closeLibrary?.();
-    return undefined;
-  } catch {
-    return undefined;
-  }
-}

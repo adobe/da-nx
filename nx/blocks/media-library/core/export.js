@@ -2,7 +2,7 @@ import { etcFetch } from './urls.js';
 import { getMediaType, getSubtype } from './media.js';
 import { decodeDisplayName, getFileName } from './files.js';
 import { t } from './messages.js';
-import { isMediaLibraryPluginMode, tryClosePluginPanel, withTimeout } from './utils.js';
+import { isMediaLibraryPluginMode, withTimeout } from './utils.js';
 
 function escapeCsvCell(value) {
   if (value == null) return '';
@@ -109,6 +109,7 @@ async function insertMediaViaPluginSdk(media) {
     actions.sendHTML(html);
   }
 
+  // Same pattern as DA docs: send to document, then close library palette.
   actions.closeLibrary?.();
 }
 
@@ -178,17 +179,13 @@ export async function copyMediaToClipboard(media) {
   if (plugin) {
     try {
       await insertMediaViaPluginSdk(media);
-      if (mediaType === 'image') {
-        return { heading: t('NOTIFY_INSERTED'), message: t('NOTIFY_INSERTED_IMAGE') };
-      }
-      return { heading: t('NOTIFY_INSERTED'), message: t('NOTIFY_INSERTED_URL') };
+      return { silent: true };
     } catch (pluginErr) {
       // eslint-disable-next-line no-console
       console.warn('[media-library] Plugin insert unavailable, falling back to clipboard:', pluginErr?.message || pluginErr);
       if (mediaType !== 'image') {
         try {
           await copyNonImageLinkRichClipboard(media);
-          await tryClosePluginPanel();
           return {
             heading: t('NOTIFY_PLUGIN_FALLBACK_HEADING'),
             message: t('NOTIFY_PLUGIN_FALLBACK_LINK_MSG'),
@@ -204,7 +201,6 @@ export async function copyMediaToClipboard(media) {
     if (mediaType === 'image') {
       await copyImageToClipboard(mediaUrl);
       if (plugin) {
-        await tryClosePluginPanel();
         return {
           heading: t('NOTIFY_PLUGIN_FALLBACK_HEADING'),
           message: t('NOTIFY_PLUGIN_FALLBACK_IMAGE_MSG'),
@@ -214,7 +210,6 @@ export async function copyMediaToClipboard(media) {
     }
     await navigator.clipboard.writeText(mediaUrl);
     if (plugin) {
-      await tryClosePluginPanel();
       return {
         heading: t('NOTIFY_PLUGIN_FALLBACK_HEADING'),
         message: t('NOTIFY_PLUGIN_FALLBACK_PLAIN_MSG'),

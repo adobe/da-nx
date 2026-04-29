@@ -1341,6 +1341,7 @@ class NxMediaInfo extends LitElement {
     if (!this.media?.url) return;
     try {
       const result = await copyMediaToClipboard(this.media);
+      if (result.silent) return;
       const isError = result.heading === 'Error';
       this.showModalNotification(result.heading, result.message, isError ? 'danger' : 'success');
     } catch (_) {
