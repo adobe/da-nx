@@ -2,7 +2,6 @@ import { LitElement, html, nothing } from 'da-lit';
 import { yUndo, yRedo, NodeSelection } from 'da-y-wrapper';
 import { loadStyle } from '../../../utils/utils.js';
 import { updateDocument, updateCursors, getInstrumentedHTML, editorHtmlChange, editorSelectChange } from '../editor-utils/document.js';
-import { PORT_OUTLINE_SCROLL } from '../canvas-events.js';
 import { getActiveBlockFlatIndex, getBlockPositions } from '../nx-editor-wysiwyg/utils/blocks.js';
 import { getEditor } from '../editor-utils/state.js';
 import {
@@ -249,7 +248,7 @@ export class NxEditorDoc extends LitElement {
       .subscribe(({ sectionIndex, blockFlatIndex, source }) => {
         if (source !== 'wysiwyg') {
           const port = this._controllerCtx?.port;
-          if (port) port.postMessage({ type: PORT_OUTLINE_SCROLL, sectionIndex, blockFlatIndex });
+          if (port) port.postMessage({ type: 'outline-scroll', sectionIndex, blockFlatIndex });
         }
         if (source !== 'doc') this._scrollDocToBlock(blockFlatIndex);
       });
