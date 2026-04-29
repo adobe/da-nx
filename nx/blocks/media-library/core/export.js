@@ -1,5 +1,6 @@
 import { etcFetch } from './urls.js';
 import { getMediaType, getSubtype } from './media.js';
+import { decodeDisplayName, getFileName } from './files.js';
 import { t } from './messages.js';
 import { isMediaLibraryPluginMode } from './utils.js';
 
@@ -74,7 +75,6 @@ async function getDaSdkActions() {
   ]);
 }
 
-/** Insert via DA SDK: image as HTML, else plain URL (matches clipboard payloads). */
 async function insertMediaViaPluginSdk(media) {
   const mediaUrl = media.url;
   const mediaType = getMediaType(media);
@@ -85,7 +85,12 @@ async function insertMediaViaPluginSdk(media) {
     actions.sendHTML(`<img src="${escapedUrl}">`);
     return;
   }
-  actions.sendText(mediaUrl);
+
+  const rawLabel = decodeDisplayName(media?.displayName || media?.name || '') || getFileName(mediaUrl);
+  const label = (rawLabel && String(rawLabel).trim()) ? rawLabel : mediaUrl;
+  const escapedHref = escapeHtml(mediaUrl);
+  const escapedLabel = escapeHtml(label);
+  actions.sendHTML(`<a href="${escapedHref}">${escapedLabel}</a>`);
 }
 
 async function copyImageToClipboard(imageUrl) {
