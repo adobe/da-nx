@@ -96,6 +96,10 @@ class FormEditor extends LitElement {
     this._applySelectedSchema(this._pendingSchemaId);
   }
 
+  get schemaEditorHref() {
+    return `https://da.live/apps/schema#/${this.details.owner}/${this.details.repo}`;
+  }
+
   _handleNavPointerSelectFromSidebar(e) {
     const { pointer } = e.detail ?? {};
     if (!pointer || pointer === this._activeNavPointer) return;
@@ -172,24 +176,32 @@ class FormEditor extends LitElement {
   }
 
   renderSchemaSelector() {
+    const schemaEntries = Object.entries(this._schemas || {});
+    const hasSchemas = schemaEntries.length > 0;
+    const emptyLabel = hasSchemas ? 'Select a schema' : 'No schemas available yet';
+
     return html`
-      <div class="da-form-schema-shell">
-        <div class="da-form-schema-card">
-          <h2 class="da-form-schema-heading">Choose a schema</h2>
-          <div class="da-form-schema-form">
-            <sl-select
-              hoist
-              class="da-form-schema-select"
-              label="Schema"
-              placeholder="Select a schema"
-              .value=${this._pendingSchemaId}
-              @change=${this._onPendingSchemaChange}
-            >
-              <option value="">Select a schema</option>
-              ${Object.entries(this._schemas).map(([key, value]) => html`
-                <option value="${key}">${value.title}</option>
-              `)}
-            </sl-select>
+      <div class="da-form-schema-panel">
+        <h2 class="da-form-schema-heading">Choose a schema</h2>
+        <div class="da-form-schema-form">
+          <sl-select
+            hoist
+            class="da-form-schema-select"
+            label="Schema"
+            placeholder=${emptyLabel}
+            .value=${this._pendingSchemaId}
+            @change=${this._onPendingSchemaChange}
+          >
+            <option value="">${emptyLabel}</option>
+            ${schemaEntries.map(([key, value]) => html`
+              <option value="${key}">${value.title}</option>
+            `)}
+          </sl-select>
+          <p class="da-form-schema-hint">
+            Need a new schema? Create one in
+            <a href=${this.schemaEditorHref} target="_blank" rel="noopener noreferrer">Schema Editor</a>.
+          </p>
+          <div class="da-form-schema-actions">
             <sl-button
               class="da-form-schema-start"
               ?disabled=${!this._pendingSchemaId}
@@ -201,41 +213,24 @@ class FormEditor extends LitElement {
   }
 
   renderFormEditor() {
-    if (this.formModel === null) {
-      if (this._schemas) return this.renderSchemaSelector();
-
-      return html`
-        <div class="da-form-schema-shell">
-          <div class="da-form-schema-card">
-            <p class="da-form-title">Please create a schema</p>
-            <p class="da-form-schema-hint">
-              This project has no schemas yet. Open the schema editor to add one, then return here.
-            </p>
-            <div class="da-form-schema-field da-form-schema-field-link">
-              <a
-                class="da-form-schema-cta"
-                href="https://main--da-live--adobe.aem.live/apps/schema?nx=schema#/${this.details.owner}/${this.details.repo}"
-              >Open schema editor</a>
-            </div>
-          </div>
-        </div>
-      `;
-    }
-
     return html`
       <div class="da-form-editor">
-        <da-form-editor
-          @update=${this.handleUpdate}
-          @add-item=${this.handleAddItem}
-          @insert-item=${this.handleInsertItem}
-          @remove-item=${this.handleRemoveItem}
-          @move-array-item=${this.handleMoveArrayItem}
-          @nav-pointer-select=${this._handleNavPointerSelectFromEditor}
-          .formModel=${this.formModel}
-          .activeNavPointer=${this._activeNavPointer}
-          .scrollEditorIntoView=${this._scrollEditorIntoView}
-        ></da-form-editor>
-        <da-form-preview .formModel=${this.formModel}></da-form-preview>
+        ${this.formModel === null
+        ? this.renderSchemaSelector()
+        : html`
+            <da-form-editor
+              @update=${this.handleUpdate}
+              @add-item=${this.handleAddItem}
+              @insert-item=${this.handleInsertItem}
+              @remove-item=${this.handleRemoveItem}
+              @move-array-item=${this.handleMoveArrayItem}
+              @nav-pointer-select=${this._handleNavPointerSelectFromEditor}
+              .formModel=${this.formModel}
+              .activeNavPointer=${this._activeNavPointer}
+              .scrollEditorIntoView=${this._scrollEditorIntoView}
+            ></da-form-editor>
+            <da-form-preview .formModel=${this.formModel}></da-form-preview>
+          `}
       </div>`;
   }
 
