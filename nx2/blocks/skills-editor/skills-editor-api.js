@@ -739,6 +739,7 @@ export async function fetchMcpToolsFromAgent(servers, serverHeaders = {}) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ servers, serverHeaders }),
+      signal: AbortSignal.timeout(10_000),
     });
     return resp.ok ? resp.json() : null;
   } catch { return null; }

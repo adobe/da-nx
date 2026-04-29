@@ -61,7 +61,7 @@ const [styles, catalogStyles, editorStyles, toolsStyles] = await Promise.all([
 class NxSkillsEditor extends LitElement {
   static properties = {
     _isLoading: { state: true },
-    _isRefreshing: { state: true },
+    _refreshingCount: { state: true },
     _catalogTab: { state: true },
     _catalogFilter: { state: true },
     _skills: { state: true },
@@ -128,6 +128,9 @@ class NxSkillsEditor extends LitElement {
 
   _mcpToolsLoadInFlight = false;
 
+  /** Count of in-flight operations that want the refresh indicator shown. */
+  _refreshingCount = 0;
+
   // ─── stable event-handler references (class fields so connect/disconnect are symmetric) ────
   _onSuggestionHandler = () => this._applySuggestion();
 
@@ -139,7 +142,7 @@ class NxSkillsEditor extends LitElement {
     super();
     this._hash = new HashController(this);
     this._isLoading = true;
-    this._isRefreshing = false;
+    this._refreshingCount = 0;
     this._catalogTab = 'skills';
     this._catalogFilter = 'all';
     this._skills = {};
@@ -396,7 +399,7 @@ class NxSkillsEditor extends LitElement {
       includeMdFiles = true,
     } = options;
     if (!silent) this._isLoading = true;
-    if (showRefreshIndicator) this._isRefreshing = true;
+    if (showRefreshIndicator) this._refreshingCount += 1;
 
     try {
       const configResult = await fetchDaConfigSheets(this._org, this._site);
@@ -418,7 +421,7 @@ class NxSkillsEditor extends LitElement {
       this._scheduleOrphanSkillSync();
     } finally {
       if (!silent) this._isLoading = false;
-      if (showRefreshIndicator) this._isRefreshing = false;
+      if (showRefreshIndicator) this._refreshingCount = Math.max(0, this._refreshingCount - 1);
     }
   }
 
@@ -426,7 +429,7 @@ class NxSkillsEditor extends LitElement {
     if (this._agentsLoadInFlight || this._agents.length) return;
     const loadKey = this._loadedKey;
     this._agentsLoadInFlight = true;
-    this._isRefreshing = true;
+    this._refreshingCount += 1;
     try {
       const presets = await loadAgentPresets(this._org, this._site);
       if (`${this._org}/${this._site}` === loadKey) {
@@ -437,7 +440,7 @@ class NxSkillsEditor extends LitElement {
       // non-fatal: agent presets unavailable
     } finally {
       this._agentsLoadInFlight = false;
-      this._isRefreshing = false;
+      this._refreshingCount = Math.max(0, this._refreshingCount - 1);
     }
   }
 
@@ -449,7 +452,7 @@ class NxSkillsEditor extends LitElement {
     ) return;
     const loadKey = this._loadedKey;
     this._mcpToolsLoadInFlight = true;
-    this._isRefreshing = true;
+    this._refreshingCount += 1;
     try {
       const tools = await fetchMcpToolsFromAgent(
         this._configuredMcpServers,
@@ -460,7 +463,7 @@ class NxSkillsEditor extends LitElement {
       // non-fatal: MCP tool listing unavailable
     } finally {
       this._mcpToolsLoadInFlight = false;
-      this._isRefreshing = false;
+      this._refreshingCount = Math.max(0, this._refreshingCount - 1);
     }
   }
 
@@ -1290,7 +1293,7 @@ class NxSkillsEditor extends LitElement {
     ].filter(Boolean).join(' ');
 
     return html`<div class="${rootCls}" role="region" aria-label="Skills Editor">
-      ${this._isRefreshing ? html`
+      ${this._refreshingCount > 0 ? html`
         <div class="refresh-indicator" role="status" aria-live="polite">
           <span class="refresh-indicator-label">Auto-refreshing capabilities…</span>
           <span class="refresh-indicator-track"><span class="refresh-indicator-bar"></span></span>
