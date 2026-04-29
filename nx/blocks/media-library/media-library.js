@@ -794,7 +794,7 @@ class NxMediaLibrary extends LitElement {
         <div class="validation-state">
           <div class="validation-content indexing-state">
             <div class="indexing-spinner"></div>
-            <p class="indexing-message">${t('UI_DISCOVERING')}</p>
+            <p class="indexing-message">${isMediaLibraryPluginMode() ? t('UI_LOADING') : t('UI_DISCOVERING')}</p>
           </div>
         </div>
       `;
@@ -956,10 +956,11 @@ class NxMediaLibrary extends LitElement {
   }
 
   renderIndexingState() {
+    const label = isMediaLibraryPluginMode() ? t('UI_LOADING') : t('UI_DISCOVERING');
     return html`
       <div class="indexing-state">
         <div class="indexing-spinner"></div>
-        <p class="indexing-message">${t('UI_DISCOVERING')}</p>
+        <p class="indexing-message">${label}</p>
       </div>
     `;
   }
