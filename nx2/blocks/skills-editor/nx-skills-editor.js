@@ -1244,6 +1244,124 @@ class NxSkillsEditor extends LitElement {
 
   // ─── render: top level ────────────────────────────────────────────────────
 
+  /**
+   * Build a plain ViewModel object for renderers.
+   * All private state and event handlers are exposed under public names so
+   * renderers never access `host._xxx` directly, satisfying no-underscore-dangle.
+   */
+  _buildViewModel() {
+    return {
+      // ── state ──────────────────────────────────────────────────────────────
+      catalogTab: this._catalogTab,
+      catalogFilter: this._catalogFilter,
+      isChatOpen: this._isChatOpen,
+      isEditorOpen: this._isEditorOpen,
+      isFormDirty: this._isFormDirty,
+      isFormEdit: this._isFormEdit,
+      isFormPromptEdit: this._isFormPromptEdit,
+      isAgentViewTools: this._isAgentViewTools,
+      isSaveBusy: this._isSaveBusy,
+      hasSuggestion: this._hasSuggestion,
+      statusMsg: this._statusMsg,
+      statusType: this._statusType,
+      promptSearch: this._promptSearch,
+      skills: this._skills,
+      skillStatuses: this._skillStatuses,
+      prompts: this._prompts,
+      agents: this._agents,
+      agentRows: this._agentRows,
+      mcpRows: this._mcpRows,
+      mcpTools: this._mcpTools,
+      mcpEnableBusy: this._mcpEnableBusy,
+      configuredMcpServers: this._configuredMcpServers,
+      viewingMcpServerId: this._viewingMcpServerId,
+      editingMcpKey: this._editingMcpKey,
+      toolOverrides: this._toolOverrides,
+      toolsSearch: this._toolsSearch,
+      toolsGroupCollapsed: this._toolsGroupCollapsed,
+      formSkillId: this._formSkillId,
+      formSkillBody: this._formSkillBody,
+      newAgentId: this._newAgentId,
+      newAgentName: this._newAgentName,
+      formPromptTitle: this._formPromptTitle,
+      formPromptCategory: this._formPromptCategory,
+      formPromptIcon: this._formPromptIcon,
+      formPromptBody: this._formPromptBody,
+      formPromptTools: this._formPromptTools,
+      mcpKey: this._mcpKey,
+      mcpUrl: this._mcpUrl,
+      mcpDescription: this._mcpDescription,
+      mcpAuthHeaderName: this._mcpAuthHeaderName,
+      mcpAuthHeaderValue: this._mcpAuthHeaderValue,
+      memory: this._memory,
+      // ── form setters ───────────────────────────────────────────────────────
+      setPromptSearch: (v) => { this._promptSearch = v; },
+      setFormSkillId: (v) => { this._formSkillId = v; this._markDirty(); },
+      setFormSkillBody: (v) => { this._formSkillBody = v; this._markDirty(); },
+      setNewAgentId: (v) => { this._newAgentId = v; this._markDirty(); },
+      setNewAgentName: (v) => { this._newAgentName = v; this._markDirty(); },
+      setFormPromptTitle: (v) => { this._formPromptTitle = v; this._markDirty(); },
+      setFormPromptCategory: (v) => { this._formPromptCategory = v; this._markDirty(); },
+      setFormPromptIcon: (v) => { this._formPromptIcon = v; this._markDirty(); },
+      setFormPromptBody: (v) => { this._formPromptBody = v; this._markDirty(); },
+      setFormPromptTools: (v) => { this._formPromptTools = v; },
+      setMcpKey: (v) => { this._mcpKey = v; this._markDirty(); },
+      setMcpUrl: (v) => { this._mcpUrl = v; this._markDirty(); },
+      setMcpDescription: (v) => { this._mcpDescription = v; this._markDirty(); },
+      setMcpAuthHeaderName: (v) => { this._mcpAuthHeaderName = v; this._markDirty(); },
+      setMcpAuthHeaderValue: (v) => { this._mcpAuthHeaderValue = v; this._markDirty(); },
+      setToolsSearch: (v) => { this._toolsSearch = v; },
+      setToolsGroupCollapsed: (key, isCollapsed) => {
+        this._toolsGroupCollapsed = { ...this._toolsGroupCollapsed, [key]: isCollapsed };
+      },
+      setCatalogFilter: (v) => { this._catalogFilter = v; },
+      // ── actions / event handlers ───────────────────────────────────────────
+      onTabChange: (id) => this._onTabChange(id),
+      onToggleChat: () => this._toggleChat(),
+      onCloseEditor: () => this._closeEditor(),
+      onDismissForm: () => this._dismissForm(),
+      onMarkDirty: () => this._markDirty(),
+      onCardClick: (e, fn) => this._onCardClick(e, fn),
+      onCardKeydown: (e, fn) => this._onCardKeydown(e, fn),
+      onMcpCardClick: (e, fn) => this._onMcpCardClick(e, fn),
+      onMcpCardKeydown: (e, fn) => this._onMcpCardKeydown(e, fn),
+      onEditSkill: (id) => this._onEditSkill(id),
+      onDeleteSkillById: (id) => this._onDeleteSkillById(id),
+      onOpenSkillMenu: (e, id) => this._openSkillMenu(e, id),
+      onCloseSkillMenu: (id) => this._closeSkillMenu(id),
+      onSaveSkill: (status) => this._onSaveSkill(status),
+      onDeleteSkill: this._onDeleteSkill.bind(this),
+      onSelectAgent: (agent) => this._onSelectAgent(agent),
+      onSaveAgent: this._onSaveAgent.bind(this),
+      onOpenEditor: (row) => this._openEditor(row),
+      onSavePrompt: (status) => this._onSavePrompt(status),
+      onDeletePrompt: this._onDeletePrompt.bind(this),
+      onDispatchPromptToChat: (event, body) => this._dispatchPromptToChat(event, body),
+      onRunPrompt: () => this._onRunPrompt(),
+      onDuplicatePrompt: (row) => this._duplicatePrompt(row),
+      onDeletePromptDirect: (row) => this._deletePromptDirect(row),
+      onViewMcpTools: (id) => this._onViewMcpTools(id),
+      onEditMcp: (row) => this._onEditMcp(row),
+      onRegisterMcp: this._onRegisterMcp.bind(this),
+      onToggleMcpEnabled: (row) => this._onToggleMcpEnabled(row),
+      onDeleteMcpDirect: (row) => this._onDeleteMcpDirect(row),
+      onOpenMcpMenu: (e, key) => this._openMcpMenu(e, key),
+      onCloseMcpMenu: (key) => this._closeMcpMenu(key),
+      onToggleToolEnabled: (serverId, name, enabled, rollback) => (
+        this._onToggleToolEnabled(serverId, name, enabled, rollback)
+      ),
+      onSetStatus: (msg, type) => this._setStatus(msg, type),
+      // ── queries ────────────────────────────────────────────────────────────
+      getAgentToolIds: (agent, isBuiltin) => this._agentToolIds(agent, isBuiltin),
+      parseToolId: (toolId) => this._parseToolId(toolId),
+      // ── TAB_ACTIONS openers ────────────────────────────────────────────────
+      openNewSkillEditor: () => this._openNewSkillEditor(),
+      openNewAgentEditor: () => this._openNewAgentEditor(),
+      openNewEditor: () => this._openNewEditor(),
+      openNewMcpEditor: () => this._openNewMcpEditor(),
+    };
+  }
+
   render() {
     if (!this._org || !this._site) {
       return html`
@@ -1299,9 +1417,9 @@ class NxSkillsEditor extends LitElement {
           <span class="refresh-indicator-track"><span class="refresh-indicator-bar"></span></span>
         </div>
       ` : nothing}
-      ${renderChatDrawer(this)}
-      ${renderListCol(this)}
-      ${renderEditorPanel(this)}
+      ${renderChatDrawer(this._buildViewModel())}
+      ${renderListCol(this._buildViewModel())}
+      ${renderEditorPanel(this._buildViewModel())}
     </div>`;
   }
 }

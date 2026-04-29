@@ -16,10 +16,10 @@ const CATALOG_TABS = [
 
 /** Per-tab metadata for the "new" button label and the opener method name. */
 const TAB_ACTIONS = {
-  [TAB_SKILLS]: { btnLabel: '+ New Skill', opener: '_openNewSkillEditor' },
-  [TAB_AGENTS]: { btnLabel: '+ New Agent', opener: '_openNewAgentEditor' },
-  [TAB_PROMPTS]: { btnLabel: '+ New Prompt', opener: '_openNewEditor' },
-  [TAB_MCPS]: { btnLabel: '+ Register MCP', opener: '_openNewMcpEditor' },
+  [TAB_SKILLS]: { btnLabel: '+ New Skill', opener: 'openNewSkillEditor' },
+  [TAB_AGENTS]: { btnLabel: '+ New Agent', opener: 'openNewAgentEditor' },
+  [TAB_PROMPTS]: { btnLabel: '+ New Prompt', opener: 'openNewEditor' },
+  [TAB_MCPS]: { btnLabel: '+ Register MCP', opener: 'openNewMcpEditor' },
 };
 
 const CATEGORY_OPTIONS = ['Review', 'Workflow', 'Style', 'Content'];

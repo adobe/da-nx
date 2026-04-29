@@ -28,35 +28,35 @@ import {
 
 // ─── private helpers ──────────────────────────────────────────────────────────
 
-function msgClass(host) {
-  if (host._statusType === STATUS_TYPE.ERR) return 'msg-err';
-  if (host._statusType === STATUS_TYPE.WARN) return 'msg-warn';
+function msgClass(statusType) {
+  if (statusType === STATUS_TYPE.ERR) return 'msg-err';
+  if (statusType === STATUS_TYPE.WARN) return 'msg-warn';
   return 'msg-ok';
 }
 
-function editorTitle(host, tab) {
-  if (tab === TAB_AGENTS && host._isAgentViewTools) return 'Associated Tools';
-  if (tab === TAB_AGENTS) return host._isFormEdit ? 'Edit Agent' : 'New Agent';
-  if (tab === TAB_SKILLS) return host._isFormEdit ? 'Edit Skill' : 'New Skill';
-  if (tab === TAB_PROMPTS) return host._isFormPromptEdit ? 'Edit Prompt' : 'New Prompt';
+function editorTitle(vm, tab) {
+  if (tab === TAB_AGENTS && vm.isAgentViewTools) return 'Associated Tools';
+  if (tab === TAB_AGENTS) return vm.isFormEdit ? 'Edit Agent' : 'New Agent';
+  if (tab === TAB_SKILLS) return vm.isFormEdit ? 'Edit Skill' : 'New Skill';
+  if (tab === TAB_PROMPTS) return vm.isFormPromptEdit ? 'Edit Prompt' : 'New Prompt';
   if (tab === TAB_MCPS) {
-    if (host._viewingMcpServerId && !host._editingMcpKey) return host._viewingMcpServerId;
-    if (host._editingMcpKey) return `Edit: ${host._editingMcpKey}`;
+    if (vm.viewingMcpServerId && !vm.editingMcpKey) return vm.viewingMcpServerId;
+    if (vm.editingMcpKey) return `Edit: ${vm.editingMcpKey}`;
     return 'Register MCP Server';
   }
   if (tab === TAB_MEMORY) return 'Project Memory';
   return '';
 }
 
-function mcpServerToolData(host, serverId) {
+function mcpServerToolData(vm, serverId) {
   const builtinList = BUILTIN_TOOL_DETAILS[serverId];
   if (builtinList) return { tools: builtinList, error: null, source: 'builtin' };
 
-  if (!host._mcpTools) return { tools: [], error: null, source: 'pending' };
+  if (!vm.mcpTools) return { tools: [], error: null, source: 'pending' };
 
-  const server = (host._mcpTools.servers || []).find((s) => s.id === serverId);
+  const server = (vm.mcpTools.servers || []).find((s) => s.id === serverId);
   if (!server) {
-    const isConfigured = Boolean(host._configuredMcpServers?.[serverId]);
+    const isConfigured = Boolean(vm.configuredMcpServers?.[serverId]);
     if (!isConfigured) return { tools: [], error: 'Server is disabled or has no URL', source: 'unconfigured' };
     return { tools: [], error: null, source: 'pending' };
   }
@@ -69,10 +69,10 @@ function mcpServerToolData(host, serverId) {
   return { tools, error: null, source: 'live' };
 }
 
-function renderSkillCard(host, id) {
-  const title = extractTitle(host._skills[id]);
-  const status = host._skillStatuses[id] || STATUS.APPROVED;
-  const isEditing = host._isFormEdit && host._formSkillId === id;
+function renderSkillCard(vm, id) {
+  const title = extractTitle(vm.skills[id]);
+  const status = vm.skillStatuses[id] || STATUS.APPROVED;
+  const isEditing = vm.isFormEdit && vm.formSkillId === id;
   const isDraft = status === STATUS.DRAFT;
   return html`
     <article
@@ -81,8 +81,8 @@ function renderSkillCard(host, id) {
       aria-label="Edit skill ${id}"
       data-testid="skill-card"
       data-skill-id=${id}
-      @click=${(e) => host._onCardClick(e, () => host._onEditSkill(id))}
-      @keydown=${(e) => host._onCardKeydown(e, () => host._onEditSkill(id))}
+      @click=${(e) => vm.onCardClick(e, () => vm.onEditSkill(id))}
+      @keydown=${(e) => vm.onCardKeydown(e, () => vm.onEditSkill(id))}
     >
       <nx-card
         interactive
@@ -96,16 +96,16 @@ function renderSkillCard(host, id) {
         ></span>
         <button slot="actions" type="button" class="btn-icon more-btn"
           aria-label="More actions for ${id}"
-          @click=${(e) => { e.stopPropagation(); host._openSkillMenu(e, id); }}
+          @click=${(e) => { e.stopPropagation(); vm.onOpenSkillMenu(e, id); }}
         >⋮</button>
       </nx-card>
       <nx-popover placement="auto">
         <div class="card-menu" role="menu">
           <button role="menuitem" type="button"
-            @click=${() => { host._closeSkillMenu(id); host._onEditSkill(id); }}
+            @click=${() => { vm.onCloseSkillMenu(id); vm.onEditSkill(id); }}
           >Edit</button>
           <button role="menuitem" type="button" class="card-menu-delete"
-            @click=${() => { host._closeSkillMenu(id); host._onDeleteSkillById(id); }}
+            @click=${() => { vm.onCloseSkillMenu(id); vm.onDeleteSkillById(id); }}
           >Delete</button>
         </div>
       </nx-popover>
@@ -113,16 +113,16 @@ function renderSkillCard(host, id) {
   `;
 }
 
-function renderAgentCard(host, agent, isBuiltin = false) {
+function renderAgentCard(vm, agent, isBuiltin = false) {
   const title = agent.label || agent.name || agent.preset?.name || agent.id;
   const description = agent.description || agent.preset?.description || '';
-  const tools = host._agentToolIds(agent, isBuiltin);
+  const tools = vm.getAgentToolIds(agent, isBuiltin);
   return html`
     <article class="agent-card" role="button" tabindex="0"
       aria-label="Open agent ${title}"
       data-testid=${isBuiltin ? 'agent-builtin-card' : 'agent-card'}
-      @click=${(e) => host._onCardClick(e, () => host._onSelectAgent(agent))}
-      @keydown=${(e) => host._onCardKeydown(e, () => host._onSelectAgent(agent))}
+      @click=${(e) => vm.onCardClick(e, () => vm.onSelectAgent(agent))}
+      @keydown=${(e) => vm.onCardKeydown(e, () => vm.onSelectAgent(agent))}
     >
       <header class="agent-card-header">
         <span class="status-dot status-dot-approved" aria-label="Active"></span>
@@ -143,19 +143,19 @@ function renderAgentCard(host, agent, isBuiltin = false) {
 
 // ─── exported render functions ────────────────────────────────────────────────
 
-export function renderChatDrawer(host) {
+export function renderChatDrawer(vm) {
   return html`
-    <div class="chat-drawer" aria-hidden=${host._isChatOpen ? 'false' : 'true'}
-      ?inert=${!host._isChatOpen}>
-      ${host._isChatOpen ? html`
+    <div class="chat-drawer" aria-hidden=${vm.isChatOpen ? 'false' : 'true'}
+      ?inert=${!vm.isChatOpen}>
+      ${vm.isChatOpen ? html`
         <div class="chat-drawer-header">
           <span class="chat-drawer-title">Chat</span>
           <button type="button" class="btn-icon close-btn" aria-label="Close chat"
-            @click=${() => host._toggleChat()}
+            @click=${() => vm.onToggleChat()}
           >✕</button>
         </div>
         <div class="chat-drawer-body"
-          @nx-panel-close=${(e) => { e.stopPropagation(); host._toggleChat(); }}>
+          @nx-panel-close=${(e) => { e.stopPropagation(); vm.onToggleChat(); }}>
           <nx-chat></nx-chat>
         </div>
       ` : nothing}
@@ -163,8 +163,8 @@ export function renderChatDrawer(host) {
   `;
 }
 
-export function renderListCol(host) {
-  const tab = host._catalogTab;
+export function renderListCol(vm) {
+  const { catalogTab: tab } = vm;
   const showSearch = [TAB_SKILLS, TAB_PROMPTS, TAB_MCPS].includes(tab);
 
   return html`
@@ -173,23 +173,23 @@ export function renderListCol(host) {
         <nx-tabs
           .items=${CATALOG_TABS}
           .active=${tab}
-          @tab-change=${(e) => host._onTabChange(e.detail.id)}
+          @tab-change=${(e) => vm.onTabChange(e.detail.id)}
         ></nx-tabs>
         <div class="list-actions-row">
           ${TAB_ACTIONS[tab] ? html`
             <button type="button" class="new-btn"
               @click=${() => {
                 const { opener } = TAB_ACTIONS[tab];
-                if (typeof host[opener] === 'function') host[opener]();
+                if (typeof vm[opener] === 'function') vm[opener]();
               }}
             >${TAB_ACTIONS[tab].btnLabel}</button>
           ` : nothing}
           <button type="button"
-            class="chat-toggle-btn ${host._isChatOpen ? 'is-active' : ''}"
-            aria-label="${host._isChatOpen ? 'Close chat' : 'Open chat'}"
-            aria-pressed="${host._isChatOpen}"
-            @click=${() => host._toggleChat()}
-          >${host._isChatOpen ? 'Close Chat' : 'Chat'}</button>
+            class="chat-toggle-btn ${vm.isChatOpen ? 'is-active' : ''}"
+            aria-label="${vm.isChatOpen ? 'Close chat' : 'Open chat'}"
+            aria-pressed="${vm.isChatOpen}"
+            @click=${() => vm.onToggleChat()}
+          >${vm.isChatOpen ? 'Close Chat' : 'Chat'}</button>
         </div>
       </div>
       ${showSearch ? html`
@@ -198,66 +198,66 @@ export function renderListCol(host) {
             type="search"
             placeholder="Search…"
             aria-label="Search list"
-            .value=${host._promptSearch}
-            @input=${(e) => { host._promptSearch = e.target.value; }}
+            .value=${vm.promptSearch}
+            @input=${(e) => vm.setPromptSearch(e.target.value)}
           >
         </div>
       ` : nothing}
       <div class="catalog-scroll">
-        ${tab === TAB_SKILLS ? renderSkillsCatalog(host) : nothing}
-        ${tab === TAB_AGENTS ? renderAgentsCatalog(host) : nothing}
-        ${tab === TAB_PROMPTS ? renderPromptsCatalog(host) : nothing}
-        ${tab === TAB_MCPS ? renderMcpsCatalog(host) : nothing}
+        ${tab === TAB_SKILLS ? renderSkillsCatalog(vm) : nothing}
+        ${tab === TAB_AGENTS ? renderAgentsCatalog(vm) : nothing}
+        ${tab === TAB_PROMPTS ? renderPromptsCatalog(vm) : nothing}
+        ${tab === TAB_MCPS ? renderMcpsCatalog(vm) : nothing}
         ${tab === TAB_MEMORY ? html`<div class="empty">Memory is shown in the panel →</div>` : nothing}
       </div>
     </div>
   `;
 }
 
-export function renderEditorPanel(host) {
-  const tab = host._catalogTab;
+export function renderEditorPanel(vm) {
+  const tab = vm.catalogTab;
   const isSkill = tab === TAB_SKILLS;
   const isPrompt = tab === TAB_PROMPTS;
   const isMcp = tab === TAB_MCPS;
   const isAgent = tab === TAB_AGENTS;
   const isMemory = tab === TAB_MEMORY;
 
-  const title = editorTitle(host, tab);
+  const title = editorTitle(vm, tab);
 
   return html`
-    <div class="col-editor" aria-hidden=${host._isEditorOpen ? 'false' : 'true'}
-      ?inert=${!host._isEditorOpen}>
+    <div class="col-editor" aria-hidden=${vm.isEditorOpen ? 'false' : 'true'}
+      ?inert=${!vm.isEditorOpen}>
       <div class="col-editor-inner">
-        ${host._isEditorOpen ? html`
+        ${vm.isEditorOpen ? html`
           <div class="editor-header">
             <h3 class="editor-title">${title}</h3>
             <button type="button" class="btn-icon close-btn" aria-label="Close"
-              @click=${() => host._closeEditor()}
+              @click=${() => vm.onCloseEditor()}
             >✕</button>
           </div>
-          ${host._isFormDirty ? html`
+          ${vm.isFormDirty ? html`
             <div class="dirty-notice" role="status">Unsaved edits · save to persist</div>
           ` : nothing}
           <div class="editor-body ${isMemory ? 'editor-body-memory' : ''}">
-            ${isSkill ? renderSkillForm(host) : nothing}
-            ${isAgent && host._isAgentViewTools ? renderAssociatedToolsSelector(host) : nothing}
-            ${isAgent && !host._isAgentViewTools ? renderAgentForm(host) : nothing}
-            ${isPrompt ? renderPromptForm(host) : nothing}
-            ${isMcp && (host._editingMcpKey || !host._viewingMcpServerId)
-              ? renderMcpForm(host) : nothing}
-            ${isMcp && host._viewingMcpServerId && !host._editingMcpKey
-              ? renderMcpServerInfo(host) : nothing}
-            ${isMcp && (host._viewingMcpServerId || host._editingMcpKey)
-              ? renderMcpToolsList(host) : nothing}
+            ${isSkill ? renderSkillForm(vm) : nothing}
+            ${isAgent && vm.isAgentViewTools ? renderAssociatedToolsSelector(vm) : nothing}
+            ${isAgent && !vm.isAgentViewTools ? renderAgentForm(vm) : nothing}
+            ${isPrompt ? renderPromptForm(vm) : nothing}
+            ${isMcp && (vm.editingMcpKey || !vm.viewingMcpServerId)
+              ? renderMcpForm(vm) : nothing}
+            ${isMcp && vm.viewingMcpServerId && !vm.editingMcpKey
+              ? renderMcpServerInfo(vm) : nothing}
+            ${isMcp && (vm.viewingMcpServerId || vm.editingMcpKey)
+              ? renderMcpToolsList(vm) : nothing}
             ${isMemory ? html`
               <p class="form-hint">.da/agent/memory.md</p>
-              ${renderMemoryContent(host)}
+              ${renderMemoryContent(vm)}
             ` : nothing}
           </div>
-          ${(isSkill || (isAgent && !host._isAgentViewTools) || isPrompt
-            || (isMcp && (!host._viewingMcpServerId || host._editingMcpKey))) ? html`
+          ${(isSkill || (isAgent && !vm.isAgentViewTools) || isPrompt
+            || (isMcp && (!vm.viewingMcpServerId || vm.editingMcpKey))) ? html`
             <div class="editor-footer">
-              ${renderEditorFooter(host, tab)}
+              ${renderEditorFooter(vm, tab)}
             </div>
           ` : nothing}
         ` : nothing}
@@ -266,30 +266,30 @@ export function renderEditorPanel(host) {
   `;
 }
 
-export function renderSkillForm(host) {
+export function renderSkillForm(vm) {
   return html`
     <form class="form" @submit=${(e) => e.preventDefault()}>
       <input
         type="text"
         placeholder="skill-id"
         aria-label="Skill ID"
-        .value=${host._formSkillId}
-        ?readonly=${host._isFormEdit}
-        @input=${(e) => { host._formSkillId = e.target.value; host._markDirty(); }}
+        .value=${vm.formSkillId}
+        ?readonly=${vm.isFormEdit}
+        @input=${(e) => vm.setFormSkillId(e.target.value)}
       >
-      <div class="textarea-wrap ${host._hasSuggestion ? 'is-suggestion' : ''}">
+      <div class="textarea-wrap ${vm.hasSuggestion ? 'is-suggestion' : ''}">
         <textarea
           placeholder="Write or revise skill markdown"
           aria-label="Skill markdown"
-          .value=${host._formSkillBody}
-          @input=${(e) => { host._formSkillBody = e.target.value; host._markDirty(); }}
+          .value=${vm.formSkillBody}
+          @input=${(e) => vm.setFormSkillBody(e.target.value)}
         ></textarea>
       </div>
     </form>
   `;
 }
 
-export function renderAgentForm(host) {
+export function renderAgentForm(vm) {
   return html`
     <form class="form" @submit=${(e) => e.preventDefault()}>
       <p class="form-hint">Creates <code>/.da/agents/&lt;id&gt;.json</code></p>
@@ -297,35 +297,35 @@ export function renderAgentForm(host) {
         type="text"
         placeholder="agent-id"
         aria-label="Agent ID"
-        .value=${host._newAgentId}
-        @input=${(e) => { host._newAgentId = e.target.value; host._markDirty(); }}
+        .value=${vm.newAgentId}
+        @input=${(e) => vm.setNewAgentId(e.target.value)}
       >
       <input
         type="text"
         placeholder="Display name"
         aria-label="Agent display name"
-        .value=${host._newAgentName}
-        @input=${(e) => { host._newAgentName = e.target.value; host._markDirty(); }}
+        .value=${vm.newAgentName}
+        @input=${(e) => vm.setNewAgentName(e.target.value)}
       >
     </form>
   `;
 }
 
-export function renderPromptForm(host) {
+export function renderPromptForm(vm) {
   return html`
     <form class="form" @submit=${(e) => e.preventDefault()}>
       <input type="text" placeholder="Title" aria-label="Prompt title"
-        .value=${host._formPromptTitle}
-        @input=${(e) => { host._formPromptTitle = e.target.value; host._markDirty(); }}
+        .value=${vm.formPromptTitle}
+        @input=${(e) => vm.setFormPromptTitle(e.target.value)}
       >
       <input type="text" placeholder="Category (e.g. Review, Workflow…)" aria-label="Prompt category"
         list="category-list"
-        .value=${host._formPromptCategory}
-        @input=${(e) => { host._formPromptCategory = e.target.value; host._markDirty(); }}
+        .value=${vm.formPromptCategory}
+        @input=${(e) => vm.setFormPromptCategory(e.target.value)}
       >
       <input type="url" placeholder="Icon URL" aria-label="Prompt icon URL"
-        .value=${host._formPromptIcon}
-        @input=${(e) => { host._formPromptIcon = e.target.value; host._markDirty(); }}
+        .value=${vm.formPromptIcon}
+        @input=${(e) => vm.setFormPromptIcon(e.target.value)}
       >
       <datalist id="category-list">
         ${CATEGORY_OPTIONS.map((c) => html`<option value=${c}></option>`)}
@@ -334,40 +334,38 @@ export function renderPromptForm(host) {
         <textarea
           placeholder="Write your prompt…"
           aria-label="Prompt body"
-          .value=${host._formPromptBody}
-          @input=${(e) => { host._formPromptBody = e.target.value; host._markDirty(); }}
+          .value=${vm.formPromptBody}
+          @input=${(e) => vm.setFormPromptBody(e.target.value)}
         ></textarea>
       </div>
     </form>
   `;
 }
 
-export function renderAssociatedToolsSelector(host) {
+export function renderAssociatedToolsSelector(vm) {
   const builtIn = BUILTIN_TOOL_IDS;
   const mcpToolIds = [];
-  if (host._mcpTools?.servers) {
-    host._mcpTools.servers.forEach((server) => {
+  if (vm.mcpTools?.servers) {
+    vm.mcpTools.servers.forEach((server) => {
       (server.tools || []).forEach((tool) => {
         mcpToolIds.push(`mcp__${server.id}__${tool.name}`);
       });
     });
   }
 
-  const toolFilter = (host._toolsSearch || '').trim().toLowerCase();
+  const toolFilter = (vm.toolsSearch || '').trim().toLowerCase();
   const filterById = (id) => id.toLowerCase().includes(toolFilter);
   const daTools = toolFilter ? builtIn.filter(filterById) : builtIn;
   const mcpTools = toolFilter ? mcpToolIds.filter(filterById) : mcpToolIds;
-  const selected = new Set(host._formPromptTools || []);
-  const collapsed = host._toolsGroupCollapsed || {};
+  const selected = new Set(vm.formPromptTools || []);
+  const collapsed = vm.toolsGroupCollapsed || {};
 
   const renderGroup = (ns, tools) => {
     if (!tools.length && !toolFilter) return nothing;
     const isOpen = !collapsed[ns];
     return html`
       <details class="tools-group" ?open=${isOpen}
-        @toggle=${(e) => {
-          host._toolsGroupCollapsed = { ...host._toolsGroupCollapsed, [ns]: !e.target.open };
-        }}
+        @toggle=${(e) => vm.setToolsGroupCollapsed(ns, !e.target.open)}
       >
         <summary class="tools-group-summary">
           <span class="tools-group-label">${ns}</span>
@@ -384,14 +382,14 @@ export function renderAssociatedToolsSelector(host) {
                   <input type="checkbox" class="tool-checkbox"
                     .checked=${isActive}
                     @change=${(e) => {
-                      const prevTools = host._formPromptTools ? [...host._formPromptTools] : [];
+                      const prevTools = vm.formPromptTools ? [...vm.formPromptTools] : [];
                       const next = new Set(prevTools);
                       if (e.target.checked) next.add(toolId);
                       else next.delete(toolId);
-                      host._formPromptTools = [...next];
-                      const { serverId, toolName } = host._parseToolId(toolId);
-                      host._onToggleToolEnabled(serverId, toolName, e.target.checked, () => {
-                        host._formPromptTools = prevTools;
+                      vm.setFormPromptTools([...next]);
+                      const { serverId, toolName } = vm.parseToolId(toolId);
+                      vm.onToggleToolEnabled(serverId, toolName, e.target.checked, () => {
+                        vm.setFormPromptTools(prevTools);
                       });
                     }}
                   >
@@ -413,8 +411,8 @@ export function renderAssociatedToolsSelector(host) {
         class="tools-search-input"
         placeholder="Filter tools…"
         aria-label="Filter tools"
-        .value=${host._toolsSearch}
-        @input=${(e) => { host._toolsSearch = e.target.value; }}
+        .value=${vm.toolsSearch}
+        @input=${(e) => vm.setToolsSearch(e.target.value)}
       >
       ${renderGroup('DA', daTools)}
       ${mcpTools.length || toolFilter ? renderGroup('MCP', mcpTools) : nothing}
@@ -422,26 +420,26 @@ export function renderAssociatedToolsSelector(host) {
   `;
 }
 
-export function renderMcpForm(host) {
-  const hasSecret = Boolean(String(host._mcpAuthHeaderValue || '').trim());
+export function renderMcpForm(vm) {
+  const hasSecret = Boolean(String(vm.mcpAuthHeaderValue || '').trim());
   return html`
     <form class="form" @submit=${(e) => e.preventDefault()}>
       <input type="text" placeholder="server-id (not API key)" aria-label="MCP server id"
-        .value=${host._mcpKey}
-        ?readonly=${Boolean(host._editingMcpKey)}
-        @input=${(e) => { host._mcpKey = e.target.value; host._markDirty(); }}
+        .value=${vm.mcpKey}
+        ?readonly=${Boolean(vm.editingMcpKey)}
+        @input=${(e) => vm.setMcpKey(e.target.value)}
       >
       <p class="form-hint">Identifier only. Do not paste secrets or API keys here.</p>
       <input type="text" placeholder="SSE endpoint URL" aria-label="MCP server URL"
-        .value=${host._mcpUrl}
-        @input=${(e) => { host._mcpUrl = e.target.value; host._markDirty(); }}
+        .value=${vm.mcpUrl}
+        @input=${(e) => vm.setMcpUrl(e.target.value)}
       >
       <textarea
         class="textarea-sm"
         placeholder="Description — what this server does (optional)"
         aria-label="MCP server description"
-        .value=${host._mcpDescription}
-        @input=${(e) => { host._mcpDescription = e.target.value; host._markDirty(); }}
+        .value=${vm.mcpDescription}
+        @input=${(e) => vm.setMcpDescription(e.target.value)}
       ></textarea>
       <div class="mcp-auth-section ${hasSecret ? 'is-sensitive' : ''}">
         <p class="form-hint">Authentication header (optional, for private MCP servers)</p>
@@ -449,16 +447,16 @@ export function renderMcpForm(host) {
           type="text"
           placeholder="Header name (e.g. Authorization, x-api-key)"
           aria-label="MCP auth header name"
-          .value=${host._mcpAuthHeaderName}
-          @input=${(e) => { host._mcpAuthHeaderName = e.target.value; host._markDirty(); }}
+          .value=${vm.mcpAuthHeaderName}
+          @input=${(e) => vm.setMcpAuthHeaderName(e.target.value)}
         >
         <input
           type="password"
           autocomplete="new-password"
           placeholder="Header value"
           aria-label="MCP auth header value"
-          .value=${host._mcpAuthHeaderValue}
-          @input=${(e) => { host._mcpAuthHeaderValue = e.target.value; host._markDirty(); }}
+          .value=${vm.mcpAuthHeaderValue}
+          @input=${(e) => vm.setMcpAuthHeaderValue(e.target.value)}
         >
         ${hasSecret ? html`
           <p class="mcp-auth-warning" role="note">
@@ -470,8 +468,8 @@ export function renderMcpForm(host) {
   `;
 }
 
-export function renderMcpServerInfo(host) {
-  const serverId = host._viewingMcpServerId;
+export function renderMcpServerInfo(vm) {
+  const serverId = vm.viewingMcpServerId;
   const builtin = BUILTIN_MCP_SERVERS.find((s) => s.id === serverId);
   if (!builtin) return nothing;
   return html`
@@ -482,14 +480,14 @@ export function renderMcpServerInfo(host) {
   `;
 }
 
-export function renderMcpToolsList(host) {
-  const serverId = host._viewingMcpServerId || host._editingMcpKey;
+export function renderMcpToolsList(vm) {
+  const serverId = vm.viewingMcpServerId || vm.editingMcpKey;
   if (!serverId) return nothing;
 
-  const { tools, error, source } = mcpServerToolData(host, serverId);
+  const { tools, error, source } = mcpServerToolData(vm, serverId);
 
-  const overrides = host._toolOverrides || {};
-  const filterQ = (host._toolsSearch || '').trim().toLowerCase();
+  const overrides = vm.toolOverrides || {};
+  const filterQ = (vm.toolsSearch || '').trim().toLowerCase();
   const filtered = filterQ
     ? tools.filter((t) => t.name.toLowerCase().includes(filterQ)
       || t.description.toLowerCase().includes(filterQ))
@@ -510,8 +508,8 @@ export function renderMcpToolsList(host) {
             <a class="mcp-error-url" href="#"
               @click=${(e) => {
                 e.preventDefault();
-                host._mcpUrl = hint;
-                host._setStatus(`URL updated to ${hint} — save to apply`, STATUS_TYPE.WARN);
+                vm.setMcpUrl(hint);
+                vm.onSetStatus(`URL updated to ${hint} — save to apply`, STATUS_TYPE.WARN);
               }}
             >${hint}</a>?
           </span>
@@ -527,8 +525,8 @@ export function renderMcpToolsList(host) {
       ${tools.length > 6 ? html`
         <input type="search" class="tools-search-input"
           placeholder="Filter tools…" aria-label="Filter tools"
-          .value=${host._toolsSearch}
-          @input=${(e) => { host._toolsSearch = e.target.value; }}
+          .value=${vm.toolsSearch}
+          @input=${(e) => vm.setToolsSearch(e.target.value)}
         >
       ` : nothing}
       ${!tools.length
@@ -543,7 +541,7 @@ export function renderMcpToolsList(host) {
                   <label class="tool-label-wrap" title=${t.name}>
                     <input type="checkbox" class="tool-checkbox"
                       .checked=${isEnabled}
-                      @change=${(e) => host._onToggleToolEnabled(serverId, t.name, e.target.checked)}
+                      @change=${(e) => vm.onToggleToolEnabled(serverId, t.name, e.target.checked)}
                     >
                     <div class="tool-text">
                       <span class="tool-label">${t.name}</span>
@@ -563,38 +561,38 @@ export function renderMcpToolsList(host) {
   `;
 }
 
-export function renderEditorFooter(host, tab) {
+export function renderEditorFooter(vm, tab) {
   const isSkill = tab === TAB_SKILLS;
   const isPrompt = tab === TAB_PROMPTS;
   const isMcp = tab === TAB_MCPS;
   const isAgent = tab === TAB_AGENTS;
-  const statusTpl = host._statusMsg ? html`
-    <output class="msg ${msgClass(host)}">
-      ${host._statusMsg}
+  const statusTpl = vm.statusMsg ? html`
+    <output class="msg ${msgClass(vm.statusType)}">
+      ${vm.statusMsg}
     </output>
   ` : nothing;
 
   if (isSkill) {
     return html`
       <div class="editor-actions" role="toolbar" aria-label="Skill actions">
-        ${host._isFormEdit || host._hasSuggestion ? html`
+        ${vm.isFormEdit || vm.hasSuggestion ? html`
           <button type="button" data-variant="secondary"
-            ?disabled=${host._isSaveBusy}
-            @click=${() => { host._dismissForm(); }}
+            ?disabled=${vm.isSaveBusy}
+            @click=${() => vm.onDismissForm()}
           >Dismiss</button>
         ` : nothing}
         <button type="button" data-variant="secondary"
-          ?disabled=${host._isSaveBusy}
-          @click=${() => host._onSaveSkill(STATUS.DRAFT)}
+          ?disabled=${vm.isSaveBusy}
+          @click=${() => vm.onSaveSkill(STATUS.DRAFT)}
         >Save Draft</button>
         <button type="button" data-variant="accent"
-          ?disabled=${host._isSaveBusy}
-          @click=${() => host._onSaveSkill(STATUS.APPROVED)}
+          ?disabled=${vm.isSaveBusy}
+          @click=${() => vm.onSaveSkill(STATUS.APPROVED)}
         >Save</button>
-        ${host._isFormEdit ? html`
+        ${vm.isFormEdit ? html`
           <button type="button" data-variant="negative"
-            ?disabled=${host._isSaveBusy}
-            @click=${host._onDeleteSkill}
+            ?disabled=${vm.isSaveBusy}
+            @click=${vm.onDeleteSkill}
           >Delete</button>
         ` : nothing}
       </div>
@@ -606,8 +604,8 @@ export function renderEditorFooter(host, tab) {
     return html`
       <div class="editor-actions" role="toolbar" aria-label="Agent actions">
         <button type="button" data-variant="accent"
-          ?disabled=${host._isSaveBusy || !host._newAgentId.trim()}
-          @click=${host._onSaveAgent}
+          ?disabled=${vm.isSaveBusy || !vm.newAgentId.trim()}
+          @click=${vm.onSaveAgent}
         >Save Agent File</button>
       </div>
       ${statusTpl}
@@ -618,28 +616,28 @@ export function renderEditorFooter(host, tab) {
     return html`
       <div class="editor-actions" role="toolbar" aria-label="Prompt actions">
         <button type="button" data-variant="secondary"
-          ?disabled=${host._isSaveBusy}
-          @click=${() => host._onSavePrompt(STATUS.DRAFT)}
+          ?disabled=${vm.isSaveBusy}
+          @click=${() => vm.onSavePrompt(STATUS.DRAFT)}
         >Save Draft</button>
         <button type="button" data-variant="accent"
-          ?disabled=${host._isSaveBusy}
-          @click=${() => host._onSavePrompt(STATUS.APPROVED)}
+          ?disabled=${vm.isSaveBusy}
+          @click=${() => vm.onSavePrompt(STATUS.APPROVED)}
         >Save</button>
         <button type="button" data-variant="secondary"
-          ?disabled=${host._isSaveBusy || !host._formPromptBody.trim()}
+          ?disabled=${vm.isSaveBusy || !vm.formPromptBody.trim()}
           @click=${() => {
-            host._dispatchPromptToChat(DA_SKILLS_EDITOR_PROMPT_ADD_TO_CHAT, host._formPromptBody);
-            host._dispatchPromptToChat(DA_SKILLS_LAB_PROMPT_ADD_TO_CHAT, host._formPromptBody);
+            vm.onDispatchPromptToChat(DA_SKILLS_EDITOR_PROMPT_ADD_TO_CHAT, vm.formPromptBody);
+            vm.onDispatchPromptToChat(DA_SKILLS_LAB_PROMPT_ADD_TO_CHAT, vm.formPromptBody);
           }}
         >Add to Chat</button>
         <button type="button" data-variant="secondary"
-          ?disabled=${host._isSaveBusy || !host._formPromptBody.trim()}
-          @click=${() => host._onRunPrompt()}
+          ?disabled=${vm.isSaveBusy || !vm.formPromptBody.trim()}
+          @click=${() => vm.onRunPrompt()}
         >Run / Test</button>
-        ${host._isFormPromptEdit ? html`
+        ${vm.isFormPromptEdit ? html`
           <button type="button" data-variant="negative"
-            ?disabled=${host._isSaveBusy}
-            @click=${host._onDeletePrompt}
+            ?disabled=${vm.isSaveBusy}
+            @click=${vm.onDeletePrompt}
           >Delete</button>
         ` : nothing}
       </div>
@@ -651,9 +649,9 @@ export function renderEditorFooter(host, tab) {
     return html`
       <div class="editor-actions" role="toolbar" aria-label="MCP actions">
         <button type="button" data-variant="accent"
-          ?disabled=${host._isSaveBusy || !host._mcpKey.trim() || !host._mcpUrl.trim()}
-          @click=${host._onRegisterMcp}
-        >${host._editingMcpKey ? 'Update' : 'Register'}</button>
+          ?disabled=${vm.isSaveBusy || !vm.mcpKey.trim() || !vm.mcpUrl.trim()}
+          @click=${vm.onRegisterMcp}
+        >${vm.editingMcpKey ? 'Update' : 'Register'}</button>
       </div>
       ${statusTpl}
     `;
@@ -662,16 +660,16 @@ export function renderEditorFooter(host, tab) {
   return nothing;
 }
 
-export function renderSkillsCatalog(host) {
-  const ids = Object.keys(host._skills);
-  const searchQuery = host._promptSearch.trim().toLowerCase();
+export function renderSkillsCatalog(vm) {
+  const ids = Object.keys(vm.skills);
+  const searchQuery = vm.promptSearch.trim().toLowerCase();
 
-  let filtered = host._catalogFilter === 'all' ? ids
-    : ids.filter((id) => host._skillStatuses[id] === host._catalogFilter);
+  let filtered = vm.catalogFilter === 'all' ? ids
+    : ids.filter((id) => vm.skillStatuses[id] === vm.catalogFilter);
 
   if (searchQuery) {
     filtered = filtered.filter((id) => {
-      const title = extractTitle(host._skills[id]).toLowerCase();
+      const title = extractTitle(vm.skills[id]).toLowerCase();
       return id.toLowerCase().includes(searchQuery) || title.includes(searchQuery);
     });
   }
@@ -680,34 +678,34 @@ export function renderSkillsCatalog(host) {
     <div class="catalog-toolbar" role="toolbar" aria-label="Filter skills">
       ${[STATUS.APPROVED, STATUS.DRAFT].map((status) => html`
         <button type="button"
-          class="filter-chip ${host._catalogFilter === status ? 'is-active' : ''}"
-          aria-pressed=${host._catalogFilter === status ? 'true' : 'false'}
-          @click=${() => { host._catalogFilter = status; }}
+          class="filter-chip ${vm.catalogFilter === status ? 'is-active' : ''}"
+          aria-pressed=${vm.catalogFilter === status ? 'true' : 'false'}
+          @click=${() => vm.setCatalogFilter(status)}
         >${status.charAt(0).toUpperCase() + status.slice(1)}</button>
       `)}
       <button type="button"
-        class="filter-chip ${host._catalogFilter === 'all' ? 'is-active' : ''}"
-        aria-pressed=${host._catalogFilter === 'all' ? 'true' : 'false'}
-        @click=${() => { host._catalogFilter = 'all'; }}
+        class="filter-chip ${vm.catalogFilter === 'all' ? 'is-active' : ''}"
+        aria-pressed=${vm.catalogFilter === 'all' ? 'true' : 'false'}
+        @click=${() => vm.setCatalogFilter('all')}
       >All</button>
     </div>
     ${!filtered.length
       ? html`<div class="empty">No skills found</div>`
-      : filtered.map((id) => renderSkillCard(host, id))}
+      : filtered.map((id) => renderSkillCard(vm, id))}
   `;
 }
 
-export function renderAgentsCatalog(host) {
+export function renderAgentsCatalog(vm) {
   return html`
     <h3 class="section-h">Built-in (${BUILTIN_AGENTS.length})</h3>
-    ${BUILTIN_AGENTS.map((agent) => renderAgentCard(host, agent, true))}
-    ${host._agents.length ? html`
-      <h3 class="section-h">Custom (${host._agents.length})</h3>
-      ${host._agents.map((agent) => renderAgentCard(host, agent, false))}
+    ${BUILTIN_AGENTS.map((agent) => renderAgentCard(vm, agent, true))}
+    ${vm.agents.length ? html`
+      <h3 class="section-h">Custom (${vm.agents.length})</h3>
+      ${vm.agents.map((agent) => renderAgentCard(vm, agent, false))}
     ` : nothing}
-    ${host._agentRows.length ? html`
-      <h3 class="section-h">Config Agents (${host._agentRows.length})</h3>
-      ${host._agentRows.map((row) => html`
+    ${vm.agentRows.length ? html`
+      <h3 class="section-h">Config Agents (${vm.agentRows.length})</h3>
+      ${vm.agentRows.map((row) => html`
         <article class="agent-card" role="listitem" data-testid="agent-config-card">
           <header class="agent-card-header">
             <span class="status-dot status-dot-approved" aria-label="Configured"></span>
@@ -721,12 +719,12 @@ export function renderAgentsCatalog(host) {
   `;
 }
 
-export function renderPromptsCatalog(host) {
-  const searchQuery = host._promptSearch.trim().toLowerCase();
+export function renderPromptsCatalog(vm) {
+  const searchQuery = vm.promptSearch.trim().toLowerCase();
   const prompts = searchQuery
-    ? host._prompts.filter((r) => (r.title || '').toLowerCase().includes(searchQuery)
+    ? vm.prompts.filter((r) => (r.title || '').toLowerCase().includes(searchQuery)
       || (r.category || '').toLowerCase().includes(searchQuery))
-    : host._prompts;
+    : vm.prompts;
 
   if (!prompts.length) {
     return html`<div class="empty">No prompts found</div>`;
@@ -736,8 +734,8 @@ export function renderPromptsCatalog(host) {
     <div role="list" aria-label="Prompts">
       ${prompts.map((row) => {
         const title = row.title || '';
-        const isSelected = host._isEditorOpen && host._isFormPromptEdit
-          && host._formPromptTitle === title;
+        const isSelected = vm.isEditorOpen && vm.isFormPromptEdit
+          && vm.formPromptTitle === title;
         const cat = (row.category || '').toLowerCase().trim();
         const catClass = KNOWN_CATEGORY_CLASSES.has(cat) ? cat : 'default';
         return html`
@@ -745,8 +743,8 @@ export function renderPromptsCatalog(host) {
             <div class="prompt-row ${isSelected ? 'is-selected' : ''}" role="button"
               tabindex="0"
               aria-label="Edit prompt ${title || '(untitled)'}"
-              @click=${(e) => host._onCardClick(e, () => host._openEditor(row))}
-              @keydown=${(e) => host._onCardKeydown(e, () => host._openEditor(row))}
+              @click=${(e) => vm.onCardClick(e, () => vm.onOpenEditor(row))}
+              @keydown=${(e) => vm.onCardKeydown(e, () => vm.onOpenEditor(row))}
             >
               <div class="prompt-row-body">
                 <span class="prompt-row-title">${title || '(untitled)'}</span>
@@ -757,31 +755,31 @@ export function renderPromptsCatalog(host) {
               <div class="prompt-row-actions">
                 <button type="button" class="btn-icon row-action-btn" title="Edit"
                   aria-label="Edit ${title}"
-                  @click=${(e) => { e.stopPropagation(); host._openEditor(row); }}
+                  @click=${(e) => { e.stopPropagation(); vm.onOpenEditor(row); }}
                 >✎</button>
                 <button type="button" class="btn-icon row-action-btn" title="Duplicate"
                   aria-label="Duplicate ${title}"
-                  @click=${(e) => { e.stopPropagation(); host._duplicatePrompt(row); }}
+                  @click=${(e) => { e.stopPropagation(); vm.onDuplicatePrompt(row); }}
                 >⧉</button>
                 <button type="button" class="btn-icon row-action-btn" title="Add to chat"
                   aria-label="Add to chat: ${title}"
                   @click=${(e) => {
                     e.stopPropagation();
-                    host._dispatchPromptToChat(DA_SKILLS_EDITOR_PROMPT_ADD_TO_CHAT, row.prompt);
-                    host._dispatchPromptToChat(DA_SKILLS_LAB_PROMPT_ADD_TO_CHAT, row.prompt);
+                    vm.onDispatchPromptToChat(DA_SKILLS_EDITOR_PROMPT_ADD_TO_CHAT, row.prompt);
+                    vm.onDispatchPromptToChat(DA_SKILLS_LAB_PROMPT_ADD_TO_CHAT, row.prompt);
                   }}
                 >+</button>
                 <button type="button" class="btn-icon row-action-btn" title="Send to chat"
                   aria-label="Send to chat: ${title}"
                   @click=${(e) => {
                     e.stopPropagation();
-                    host._dispatchPromptToChat(DA_SKILLS_EDITOR_PROMPT_SEND, row.prompt);
-                    host._dispatchPromptToChat(DA_SKILLS_LAB_PROMPT_SEND, row.prompt);
+                    vm.onDispatchPromptToChat(DA_SKILLS_EDITOR_PROMPT_SEND, row.prompt);
+                    vm.onDispatchPromptToChat(DA_SKILLS_LAB_PROMPT_SEND, row.prompt);
                   }}
                 >▶</button>
                 <button type="button" class="btn-icon row-action-btn row-action-btn-delete" title="Delete"
                   aria-label="Delete ${title}"
-                  @click=${(e) => { e.stopPropagation(); host._deletePromptDirect(row); }}
+                  @click=${(e) => { e.stopPropagation(); vm.onDeletePromptDirect(row); }}
                 >🗑</button>
               </div>
             </div>
@@ -792,10 +790,10 @@ export function renderPromptsCatalog(host) {
   `;
 }
 
-export function renderMcpsCatalog(host) {
-  const searchQuery = host._promptSearch.trim().toLowerCase();
-  const filterPasses = (status) => host._catalogFilter === 'all' || status === host._catalogFilter;
-  let filteredCustom = host._mcpRows.filter((row) => filterPasses(skillRowStatus(row)));
+export function renderMcpsCatalog(vm) {
+  const searchQuery = vm.promptSearch.trim().toLowerCase();
+  const filterPasses = (status) => vm.catalogFilter === 'all' || status === vm.catalogFilter;
+  let filteredCustom = vm.mcpRows.filter((row) => filterPasses(skillRowStatus(row)));
   if (searchQuery) {
     filteredCustom = filteredCustom.filter((row) => {
       const key = (row.key || '').toLowerCase();
@@ -809,15 +807,15 @@ export function renderMcpsCatalog(host) {
     ${showBuiltins ? html`
       <h3 class="section-h">Built-in (${BUILTIN_MCP_SERVERS.length})</h3>
       ${BUILTIN_MCP_SERVERS.map((s) => {
-        const isViewing = host._viewingMcpServerId === s.id && !host._editingMcpKey;
+        const isViewing = vm.viewingMcpServerId === s.id && !vm.editingMcpKey;
         return html`
           <article
             role="button"
             tabindex="0"
             aria-label="View tools for ${s.id}"
             data-testid="mcp-builtin-card"
-            @click=${(e) => host._onMcpCardClick(e, () => host._onViewMcpTools(s.id))}
-            @keydown=${(e) => host._onMcpCardKeydown(e, () => host._onViewMcpTools(s.id))}
+            @click=${(e) => vm.onMcpCardClick(e, () => vm.onViewMcpTools(s.id))}
+            @keydown=${(e) => vm.onMcpCardKeydown(e, () => vm.onViewMcpTools(s.id))}
           >
             <nx-card heading=${s.id} subheading=${s.description}
               interactive
@@ -838,9 +836,9 @@ export function renderMcpsCatalog(host) {
         const isEnabled = isApproved && skillRowEnabled(row);
         const key = row.key || '';
         const token = `mcp:${key}`;
-        const isBusy = host._mcpEnableBusy[token];
-        const isSelected = host._isEditorOpen
-          && (host._editingMcpKey === key || host._viewingMcpServerId === key);
+        const isBusy = vm.mcpEnableBusy[token];
+        const isSelected = vm.isEditorOpen
+          && (vm.editingMcpKey === key || vm.viewingMcpServerId === key);
         return html`
           <article
             role="button"
@@ -848,8 +846,8 @@ export function renderMcpsCatalog(host) {
             aria-label="Edit MCP server ${key || '(unnamed)'}"
             data-testid="mcp-card"
             data-mcp-key=${key}
-            @click=${(e) => host._onMcpCardClick(e, () => host._onEditMcp(row))}
-            @keydown=${(e) => host._onMcpCardKeydown(e, () => host._onEditMcp(row))}
+            @click=${(e) => vm.onMcpCardClick(e, () => vm.onEditMcp(row))}
+            @keydown=${(e) => vm.onMcpCardKeydown(e, () => vm.onEditMcp(row))}
           >
             <nx-card heading=${key || '(unnamed)'}
               interactive
@@ -861,7 +859,7 @@ export function renderMcpsCatalog(host) {
               ></span>
               <button slot="actions" type="button" class="btn-icon more-btn"
                 aria-label="More actions for ${key}"
-                @click=${(e) => { e.stopPropagation(); host._openMcpMenu(e, key); }}
+                @click=${(e) => { e.stopPropagation(); vm.onOpenMcpMenu(e, key); }}
               >⋮</button>
             </nx-card>
             <nx-popover placement="auto">
@@ -870,14 +868,14 @@ export function renderMcpsCatalog(host) {
                 ${isApproved ? html`
                   <button role="menuitem" type="button"
                     ?disabled=${isBusy}
-                    @click=${() => { host._closeMcpMenu(key); host._onToggleMcpEnabled(row); }}
+                    @click=${() => { vm.onCloseMcpMenu(key); vm.onToggleMcpEnabled(row); }}
                   >${isEnabled ? 'Disable' : 'Enable'}</button>
                 ` : nothing}
                 <button role="menuitem" type="button"
-                  @click=${() => { host._closeMcpMenu(key); host._onEditMcp(row); }}
+                  @click=${() => { vm.onCloseMcpMenu(key); vm.onEditMcp(row); }}
                 >Edit</button>
                 <button role="menuitem" type="button" class="card-menu-delete"
-                  @click=${() => { host._closeMcpMenu(key); host._onDeleteMcpDirect(row); }}
+                  @click=${() => { vm.onCloseMcpMenu(key); vm.onDeleteMcpDirect(row); }}
                 >Delete</button>
               </div>
             </nx-popover>
@@ -887,12 +885,12 @@ export function renderMcpsCatalog(host) {
   `;
 }
 
-export function renderMemoryContent(host) {
-  if (host._memory === null) {
+export function renderMemoryContent(vm) {
+  if (vm.memory === null) {
     return html`<div class="empty" aria-live="polite">Loading…</div>`;
   }
-  if (host._memory === '') {
+  if (vm.memory === '') {
     return html`<div class="empty">No project memory yet. The DA agent writes here as it learns about your site.</div>`;
   }
-  return html`<pre class="memory-content">${host._memory}</pre>`;
+  return html`<pre class="memory-content">${vm.memory}</pre>`;
 }

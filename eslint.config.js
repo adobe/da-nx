@@ -33,11 +33,6 @@ export default defineConfig([
     rules: {
       'class-methods-use-this': 0,
 
-      // LitElement components use _underscore-prefixed private members;
-      // renderer helpers receive the component instance as `host` so
-      // access to host._xxx is intentional and matches the class-level convention.
-      'no-underscore-dangle': 0,
-
       // Function declarations are hoisted; allow calling them before their
       // textual position (common in module-level renderer helpers).
       'no-use-before-define': ['error', { functions: false, classes: true, variables: true }],
