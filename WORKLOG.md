@@ -1,6 +1,20 @@
 # Worklog
 
+## 2026-04-27
+
+### nx2 chat — collab after approval
+- **`chat-controller.js`**: **`_pageContextForAgent()`** shared by **`sendMessage`** and **`approveToolCall`** so post-approval **`/chat`** resumes include **`pageContext`** (da-agent collab gate).
+
+### nx-breadcrumb — drop large variant
+- **`breadcrumb.js` / `breadcrumb.css`**: removed **`variant`** (was only **`large`**); typography and chevrons use the default **M** component tokens everywhere.
+- **`nav.js`**: nav breadcrumb no longer sets **`variant="large"`**.
+
 ## 2026-04-24
+
+### nx2 nav / browse — hash breadcrumbs (minimal)
+- **`nx2/blocks/shared/breadcrumb/`**: **`nx-breadcrumb`** — optional **`.baseUrl`**, **`.pathSegments`**; parent steps are plain **`<a href>`** (hash-only or resolved via **`resolveBreadcrumbHref`** + current **`location.search`**). **`hashStateToPathSegments`** / **`pathSegmentsToCrumbs`** in **`utils.js`**. No custom events.
+- **`nav.js` / `nav.css`**: **`decorateBreadcrumbs(fragment)`** — same idea as **`decorateBrand`**: mutates the loaded fragment, returns **`null`** or **`{ baseUrl }`**; **`loadNav`** sets **`_navBreadcrumbs`** (@state) and plain **`_breadcrumbBaseHref`**. **`HashController`**, **`brand-cluster`**, **`brand-area`** on the brand **`<a>`**.
+- **`browse.js`**: unchanged integration — **`nx-breadcrumb`** with segments only (default / medium typography).
 
 ### nx2 canvas — split editor view
 - **`nx-canvas-header`**: third segmented control option `split` (grid-compare icon, `aria-label` / `title` “Split view”); `EDITOR_VIEWS` includes `split`.
