@@ -32,33 +32,31 @@ class FormEditor extends LitElement {
     details: { attribute: false },
     formModel: { state: true },
     _schemas: { state: true },
-    _isUnstructuredDoc: { state: true },
+    _showWarningDialog: { state: true },
     _activeNavPointer: { state: true },
     _scrollEditorIntoView: { state: true },
     _scrollNavItemIntoView: { state: true },
     _pendingSchemaId: { state: true },
   };
 
-  constructor() {
-    super();
-    this._isUnstructuredDoc = false;
-    this._pendingSchemaId = '';
-  }
+  _showWarningDialog = false;
+
+  _pendingSchemaId = '';
 
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
-    this.fetchDoc(this.details);
+    this.fetchDoc();
+  }
+
+  _setUnavailableState({ showWarning }) {
+    this._showWarningDialog = showWarning;
+    this.formModel = null;
   }
 
   async fetchDoc() {
     if (this.details?.depth <= 2) {
-      this._isUnstructuredDoc = true;
-      this.formModel = null;
-      this._pendingSchemaId = '';
-      this._activeNavPointer = undefined;
-      this._scrollEditorIntoView = undefined;
-      this._scrollNavItemIntoView = undefined;
+      this._setUnavailableState({ showWarning: true });
       return;
     }
 
@@ -69,12 +67,7 @@ class FormEditor extends LitElement {
     if (schemas) this._schemas = schemas;
 
     if (!result.html) {
-      this._isUnstructuredDoc = false;
-      this.formModel = null;
-      this._pendingSchemaId = '';
-      this._activeNavPointer = undefined;
-      this._scrollEditorIntoView = undefined;
-      this._scrollNavItemIntoView = undefined;
+      this._setUnavailableState({ showWarning: false });
       return;
     }
 
@@ -83,19 +76,11 @@ class FormEditor extends LitElement {
     const metadata = JSON.parse(model.getSerializedJson()).metadata ?? {};
 
     if (Object.keys(metadata).length === 0) {
-      this._isUnstructuredDoc = true;
-      this.formModel = null;
-      this._pendingSchemaId = '';
-      this._activeNavPointer = undefined;
-      this._scrollEditorIntoView = undefined;
-      this._scrollNavItemIntoView = undefined;
+      this._setUnavailableState({ showWarning: true });
       return;
     }
 
-    this._isUnstructuredDoc = false;
-    this._activeNavPointer = undefined;
-    this._scrollEditorIntoView = undefined;
-    this._scrollNavItemIntoView = undefined;
+    this._showWarningDialog = false;
     this.formModel = model;
   }
 
@@ -114,9 +99,6 @@ class FormEditor extends LitElement {
     const emptyForm = { data, metadata };
 
     const path = this.details.fullpath;
-    this._activeNavPointer = undefined;
-    this._scrollEditorIntoView = undefined;
-    this._scrollNavItemIntoView = undefined;
     this.formModel = new FormModel({ path, json: emptyForm, schemas: this._schemas });
   }
 
@@ -245,7 +227,7 @@ class FormEditor extends LitElement {
       </da-form-dialog>`;
   }
 
-  renderUnstructuredDialog() {
+  renderWarningDialog() {
     const message = 'The item at this path is not a structured content.';
 
     return html`
@@ -260,8 +242,8 @@ class FormEditor extends LitElement {
   }
 
   renderFormEditor() {
-    if (this._isUnstructuredDoc) {
-      return this.renderUnstructuredDialog();
+    if (this._showWarningDialog) {
+      return this.renderWarningDialog();
     }
 
     if (this.formModel === null) {
