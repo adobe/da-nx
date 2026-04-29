@@ -173,6 +173,63 @@ export async function loadHtml(details) {
   return { html: (await resp.text()) };
 }
 
+function hasMeaningfulContent(el) {
+  if (!el) return false;
+  return Array.from(el.childNodes).some((node) => {
+    if (node.nodeType === 1) return true;
+    if (node.nodeType === 3) return node.textContent.trim().length > 0;
+    return false;
+  });
+}
+
+/**
+ * Check whether fetched document HTML only contains the default empty shell.
+ * @param {string} htmlString - Raw HTML string from source.
+ * @returns {boolean}
+ */
+export function isEmptyDocumentHtml(htmlString) {
+  if (typeof htmlString !== 'string') return false;
+
+  const doc = new DOMParser().parseFromString(htmlString, 'text/html');
+  const header = doc.querySelector('body > header');
+  const footer = doc.querySelector('body > footer');
+  const mainContainer = doc.querySelector('body > main > div');
+
+  // If structure differs from the expected shell, treat as non-empty.
+  if (!mainContainer) return false;
+
+  const hasHeaderContent = hasMeaningfulContent(header);
+  const hasFooterContent = hasMeaningfulContent(footer);
+  const hasMainContent = hasMeaningfulContent(mainContainer);
+
+  return !hasHeaderContent && !hasMainContent && !hasFooterContent;
+}
+
+/**
+ * Check whether fetched document HTML contains structured content.
+ * @param {string} htmlString - Raw HTML string from source.
+ * @returns {boolean}
+ */
+export function isStructuredContentHtml(htmlString) {
+  if (!htmlString) return false;
+
+  const doc = new DOMParser().parseFromString(htmlString, 'text/html');
+  const formBlock = doc.querySelector('body > main > div > div.da-form');
+  if (!formBlock) return false;
+
+  const rows = Array.from(formBlock.children)
+    .filter((row) => row.children.length >= 2);
+  if (rows.length === 0) return false;
+
+  const keys = rows
+    .map((row) => row.children[0]?.textContent?.trim().toLowerCase())
+    .filter(Boolean);
+
+  const hasTitle = keys.includes('title');
+  const hasSchemaName = keys.includes('x-schema-name');
+  return hasTitle && hasSchemaName;
+}
+
 /**
  * Build annotated field tree from dereferenced schema and data.
  * @param {string} key - Property key

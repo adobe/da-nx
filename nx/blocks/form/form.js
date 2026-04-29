@@ -6,7 +6,12 @@ import FormModel from './data/model.js';
 // Internal utils
 import { getParentPointer } from './utils/pointer.js';
 import { schemas as schemasPromise } from './utils/schema.js';
-import { findNodeByPointer, loadHtml } from './utils/utils.js';
+import {
+  findNodeByPointer,
+  isEmptyDocumentHtml,
+  isStructuredContentHtml,
+  loadHtml,
+} from './utils/utils.js';
 
 import 'https://da.live/blocks/edit/da-title/da-title.js';
 
@@ -31,6 +36,7 @@ class FormEditor extends LitElement {
     details: { attribute: false },
     formModel: { state: true },
     _schemas: { state: true },
+    _hasUnsupportedContent: { state: true },
     _activeNavPointer: { state: true },
     _scrollEditorIntoView: { state: true },
     _scrollNavItemIntoView: { state: true },
@@ -40,12 +46,22 @@ class FormEditor extends LitElement {
   constructor() {
     super();
     this._pendingSchemaId = '';
+    this._hasUnsupportedContent = false;
   }
 
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
     this.fetchDoc(this.details);
+  }
+
+  _resetEditorState() {
+    this.formModel = null;
+    this._hasUnsupportedContent = false;
+    this._pendingSchemaId = '';
+    this._activeNavPointer = undefined;
+    this._scrollEditorIntoView = undefined;
+    this._scrollNavItemIntoView = undefined;
   }
 
   async fetchDoc() {
@@ -55,16 +71,25 @@ class FormEditor extends LitElement {
 
     if (schemas) this._schemas = schemas;
 
-    if (!result.html) {
-      this.formModel = null;
-      this._pendingSchemaId = '';
-      this._activeNavPointer = undefined;
-      this._scrollEditorIntoView = undefined;
-      this._scrollNavItemIntoView = undefined;
+    if (result.error || typeof result.html !== 'string') {
+      this._resetEditorState();
+      this._hasUnsupportedContent = true;
+      return;
+    }
+
+    if (isEmptyDocumentHtml(result.html)) {
+      this._resetEditorState();
+      return;
+    }
+
+    if (!isStructuredContentHtml(result.html)) {
+      this._resetEditorState();
+      this._hasUnsupportedContent = true;
       return;
     }
 
     const path = this.details.fullpath;
+    this._hasUnsupportedContent = false;
     this._activeNavPointer = undefined;
     this._scrollEditorIntoView = undefined;
     this._scrollNavItemIntoView = undefined;
@@ -86,6 +111,7 @@ class FormEditor extends LitElement {
     const emptyForm = { data, metadata };
 
     const path = this.details.fullpath;
+    this._hasUnsupportedContent = false;
     this._activeNavPointer = undefined;
     this._scrollEditorIntoView = undefined;
     this._scrollNavItemIntoView = undefined;
@@ -199,7 +225,12 @@ class FormEditor extends LitElement {
             </sl-select>
             <p class="da-form-schema-hint da-form-schema-selector-hint">
               To create a new schema, open
-              <a class="da-form-schema-text-link" href=${schemaEditorHref}>Schema Editor</a>.
+              <a
+                class="da-form-schema-text-link"
+                href=${schemaEditorHref}
+                target="_blank"
+                rel="noopener noreferrer"
+              >Schema Editor</a>.
             </p>
             <sl-button
               class="da-form-schema-start"
@@ -211,7 +242,23 @@ class FormEditor extends LitElement {
       </div>`;
   }
 
+  renderUnsupportedContentMessage() {
+    const fullpath = this.details?.fullpath ?? '';
+    const path = fullpath.endsWith('.html') ? fullpath.slice(0, -5) : fullpath;
+    return html`
+      <div class="da-form-schema-shell da-form-warning-shell">
+        <p class="da-form-title">Not supported</p>
+        <p class="da-form-schema-hint">
+          The resource under this path${path ? html` <code>${path}</code>` : ''} cannot be opened
+          as structured content.
+        </p>
+      </div>
+    `;
+  }
+
   renderFormEditor() {
+    if (this._hasUnsupportedContent) return this.renderUnsupportedContentMessage();
+
     if (this.formModel === null) {
       if (this._schemas) return this.renderSchemaSelector();
 
@@ -226,6 +273,8 @@ class FormEditor extends LitElement {
               <a
                 class="da-form-schema-cta"
                 href=${this._getSchemaEditorHref()}
+                target="_blank"
+                rel="noopener noreferrer"
               >Open Schema Editor</a>
             </div>
           </div>

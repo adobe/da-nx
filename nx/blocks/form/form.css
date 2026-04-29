@@ -60,6 +60,16 @@ sl-textarea {
     max-width: 480px;
   }
 
+  .da-form-warning-shell {
+    text-align: center;
+  }
+
+  &.da-form-wrapper-centered .da-form-warning-shell {
+    flex: 1 1 100%;
+    width: 100%;
+    max-width: 100%;
+  }
+
   .da-form-schema-card {
     box-sizing: border-box;
     border-radius: var(--sl-border-radius-x-large, 12px);
@@ -79,6 +89,11 @@ sl-textarea {
     font-size: var(--sl-font-size-small, 0.875rem);
     line-height: var(--sl-line-height-normal, 1.5);
     color: var(--sl-color-neutral-600, #64748b);
+  }
+
+  .da-form-warning-shell .da-form-schema-hint {
+    max-width: 700px;
+    margin-inline: auto;
   }
 
   .da-form-schema-selector-hint {
