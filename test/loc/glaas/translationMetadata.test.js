@@ -1,3 +1,4 @@
+import sinon from 'sinon';
 import { expect } from '@esm-bundle/chai';
 import { readFile } from '@web/test-runner-commands';
 import {
@@ -8,7 +9,19 @@ import {
   annotateHTML,
   needsKeywordsMetadata,
   buildLanguageMetadata,
+  loadSeoGlossary,
+  addSeoGlossary,
 } from '../../../nx/blocks/loc/connectors/glaas/translationMetadata.js';
+
+const mockRes = ({ payload, status = 404, ok = false } = {}) => new Promise((resolve) => {
+  resolve({
+    status,
+    ok,
+    json: () => payload,
+    text: () => payload,
+    headers: { get: () => null },
+  });
+});
 
 describe('translationMetadata', () => {
   describe('processSchemaKey', () => {
@@ -798,6 +811,295 @@ describe('translationMetadata', () => {
       const keys = Object.keys(result.fr || {});
       const hasLanguageKey = keys.some((key) => key.includes('language'));
       expect(hasLanguageKey).to.be.false;
+    });
+  });
+
+  describe('addSeoGlossary (languageContext)', () => {
+    const org = 'test-org';
+    const site = 'test-site';
+    const originalFetch = window.fetch;
+    let mockSeoGlossary;
+
+    beforeEach(() => {
+      mockSeoGlossary = { glossary404: false, glossaryBody: {} };
+      window.fetch = sinon.stub().callsFake((input) => {
+        const url = typeof input === 'string' ? input : input.url;
+        if (!String(url).includes('/.da/seo/glossary.json')) {
+          return mockRes({ payload: '', status: 404, ok: false });
+        }
+        if (mockSeoGlossary.glossary404) {
+          return mockRes({ payload: null, status: 404, ok: false });
+        }
+        return mockRes({ payload: mockSeoGlossary.glossaryBody, status: 200, ok: true });
+      });
+    });
+
+    afterEach(() => {
+      window.fetch = originalFetch;
+    });
+
+    async function primeGlossaryFromFetch() {
+      await loadSeoGlossary(org, site, { reset: true });
+    }
+
+    it('adds languageContext grouped by EN KEYWORDS (canonical rows + :private prefix)', async () => {
+      mockSeoGlossary.glossaryBody = {
+        de: {
+          data: [
+            { URL: '/creativecloud/pcx-file.html', 'EN KEYWORDS': 'pcx file', 'TRANSLATED KEYWORDS': 'PCX-Datei', 'LOCAL MSV': '70', 'LOCAL PRIORITY': 'Priority 1' },
+            { URL: '/creativecloud/pcx-file.html', 'EN KEYWORDS': 'pcx file', 'TRANSLATED KEYWORDS': 'PCX-Datei alt', 'LOCAL MSV': '10', 'LOCAL PRIORITY': 'Priority 2' },
+            { URL: '/creativecloud/pcx-file.html', 'EN KEYWORDS': 'pcx viewer', 'TRANSLATED KEYWORDS': 'PCX öffnen', 'LOCAL MSV': '20', 'LOCAL PRIORITY': '' },
+          ],
+        },
+        ':private': {
+          'private-stage-prefixes': {
+            total: 1,
+            limit: 1,
+            offset: 0,
+            data: [{ prefixes: '/drafts/seo-test/' }],
+          },
+        },
+      };
+      const urls = [{ suppliedPath: '/drafts/seo-test/creativecloud/pcx-file', content: '<p>x</p>' }];
+      await primeGlossaryFromFetch();
+      addSeoGlossary(urls, [{ code: 'de' }]);
+      expect(urls[0].languageContext).to.deep.equal({
+        de: {
+          keywords: [
+            {
+              sourceKeyword: 'pcx file',
+              targetKeywords: [
+                { keyword: 'PCX-Datei', msv: '70', priority: 'Priority 1' },
+                { keyword: 'PCX-Datei alt', msv: '10', priority: 'Priority 2' },
+              ],
+            },
+            {
+              sourceKeyword: 'pcx viewer',
+              targetKeywords: [
+                { keyword: 'PCX öffnen', msv: '20', priority: '' },
+              ],
+            },
+          ],
+        },
+      });
+    });
+
+    it('normalizes full URL suppliedPath and matches with :private', async () => {
+      mockSeoGlossary.glossaryBody = {
+        fr: {
+          data: [
+            { URL: '/creativecloud/gif-file.html', 'EN KEYWORDS': 'gif', 'TRANSLATED KEYWORDS': 'GIF', 'LOCAL MSV': '100', 'LOCAL PRIORITY': '1' },
+          ],
+        },
+        ':private': {
+          'private-stage-prefixes': {
+            data: [{ prefixes: '/drafts/seo-test/' }],
+          },
+        },
+      };
+      const urls = [{
+        suppliedPath: 'https://main--da-cc--adobecom.aem.page/drafts/seo-test/creativecloud/gif-file.html',
+        content: '<p>x</p>',
+      }];
+      await primeGlossaryFromFetch();
+      addSeoGlossary(urls, [{ code: 'fr' }]);
+      expect(urls[0].languageContext).to.deep.equal({
+        fr: {
+          keywords: [
+            {
+              sourceKeyword: 'gif',
+              targetKeywords: [
+                { keyword: 'GIF', msv: '100', priority: '1' },
+              ],
+            },
+          ],
+        },
+      });
+    });
+
+    it('normalizes langstore/en in suppliedPath (loc pipeline) so glossary rows match', async () => {
+      mockSeoGlossary.glossaryBody = {
+        fr: {
+          data: [
+            { URL: '/creativecloud/gif-file.html', 'EN KEYWORDS': 'gif', 'TRANSLATED KEYWORDS': 'GIF', 'LOCAL MSV': '100', 'LOCAL PRIORITY': '1' },
+          ],
+        },
+        ':private': {
+          'private-stage-prefixes': {
+            data: [{ prefixes: '/drafts/seo-test/' }],
+          },
+        },
+      };
+      // Loc puts langstore first (not …/drafts/…/langstore/en/…). Extra `/` after `en` is ok.
+      const urls = [{
+        suppliedPath: '/langstore/en/drafts/seo-test/creativecloud/gif-file.html',
+        content: '<p>x</p>',
+      }];
+      await primeGlossaryFromFetch();
+      addSeoGlossary(urls, [{ code: 'fr' }]);
+      expect(urls[0].languageContext).to.deep.equal({
+        fr: {
+          keywords: [
+            {
+              sourceKeyword: 'gif',
+              targetKeywords: [
+                { keyword: 'GIF', msv: '100', priority: '1' },
+              ],
+            },
+          ],
+        },
+      });
+    });
+
+    it('skips locales with no matching rows', async () => {
+      mockSeoGlossary.glossaryBody = {
+        de: {
+          data: [
+            { URL: '/other/page.html', 'EN KEYWORDS': 'x', 'TRANSLATED KEYWORDS': 'y', 'LOCAL MSV': '', 'LOCAL PRIORITY': '' },
+          ],
+        },
+        fr: {
+          data: [
+            { URL: '/creativecloud/gif-file.html', 'EN KEYWORDS': 'gif', 'TRANSLATED KEYWORDS': 'GIF', 'LOCAL MSV': '', 'LOCAL PRIORITY': '' },
+          ],
+        },
+        ':private': {
+          'private-stage-prefixes': {
+            data: [{ prefixes: '/drafts/seo-test/' }],
+          },
+        },
+      };
+      const urls = [{ suppliedPath: '/drafts/seo-test/creativecloud/gif-file', content: '<p>x</p>' }];
+      await primeGlossaryFromFetch();
+      addSeoGlossary(urls, [{ code: 'de' }, { code: 'fr' }]);
+      expect(urls[0].languageContext).to.deep.equal({
+        fr: {
+          keywords: [
+            {
+              sourceKeyword: 'gif',
+              targetKeywords: [
+                { keyword: 'GIF', msv: '', priority: '' },
+              ],
+            },
+          ],
+        },
+      });
+    });
+
+    it('matches without :private when page path equals canonical row path', async () => {
+      mockSeoGlossary.glossaryBody = {
+        de: {
+          data: [
+            { URL: '/creativecloud/gif-file.html', 'EN KEYWORDS': 'gif', 'TRANSLATED KEYWORDS': 'GIF', 'LOCAL MSV': '', 'LOCAL PRIORITY': '' },
+          ],
+        },
+      };
+      const urls = [{ suppliedPath: '/creativecloud/gif-file', content: '<p>x</p>' }];
+      await primeGlossaryFromFetch();
+      addSeoGlossary(urls, [{ code: 'de' }]);
+      expect(urls[0].languageContext).to.deep.equal({
+        de: {
+          keywords: [
+            {
+              sourceKeyword: 'gif',
+              targetKeywords: [
+                { keyword: 'GIF', msv: '', priority: '' },
+              ],
+            },
+          ],
+        },
+      });
+    });
+
+    it('uses longest matching :private prefix (not a shorter prefix that is a string-prefix of the path)', async () => {
+      mockSeoGlossary.glossaryBody = {
+        de: {
+          data: [
+            { URL: '/creativecloud/foo.html', 'EN KEYWORDS': 'canonical', 'TRANSLATED KEYWORDS': 'ok', 'LOCAL MSV': '', 'LOCAL PRIORITY': '' },
+            { URL: '/seo-test-stage/creativecloud/foo.html', 'EN KEYWORDS': 'wrong-if-short-prefix', 'TRANSLATED KEYWORDS': 'bad', 'LOCAL MSV': '', 'LOCAL PRIORITY': '' },
+          ],
+        },
+        ':private': {
+          'private-stage-prefixes': {
+            data: [
+              { prefixes: '/drafts/seo-test/' },
+              { prefixes: '/drafts/seo-test-stage/' },
+            ],
+          },
+        },
+      };
+      const urls = [{ suppliedPath: '/drafts/seo-test-stage/creativecloud/foo', content: '<p>x</p>' }];
+      await primeGlossaryFromFetch();
+      addSeoGlossary(urls, [{ code: 'de' }]);
+      expect(urls[0].languageContext).to.deep.equal({
+        de: {
+          keywords: [
+            {
+              sourceKeyword: 'canonical',
+              targetKeywords: [
+                { keyword: 'ok', msv: '', priority: '' },
+              ],
+            },
+          ],
+        },
+      });
+    });
+
+    it('sets a different languageContext per page path when batching multiple urls', async () => {
+      // Rows mirror `de` in `.implementation-docs/seo-implementation/glossary-combined.json`.
+      mockSeoGlossary.glossaryBody = {
+        de: {
+          data: [
+            { URL: '/creativecloud/file-types/image/raster/pcx-file.html', 'EN KEYWORDS': 'pcx file', 'TRANSLATED KEYWORDS': 'PCX-Datei', 'LOCAL MSV': '70', 'LOCAL PRIORITY': 'Priority 1' },
+            { URL: '/creativecloud/illustration/discover/fashion-illustration.html', 'EN KEYWORDS': 'fashion illustration', 'TRANSLATED KEYWORDS': 'Modezeichnung', 'LOCAL MSV': '100', 'LOCAL PRIORITY': 'Priority 2' },
+          ],
+        },
+        ':private': {
+          'private-stage-prefixes': {
+            data: [{ prefixes: '/drafts/seo-test/' }],
+          },
+        },
+      };
+      const urls = [
+        { suppliedPath: '/drafts/seo-test/creativecloud/file-types/image/raster/pcx-file', content: '<p>a</p>' },
+        { suppliedPath: '/drafts/seo-test/creativecloud/illustration/discover/fashion-illustration', content: '<p>b</p>' },
+        { suppliedPath: '/drafts/seo-test/creativecloud/no-glossary-rows', content: '<p>c</p>' },
+      ];
+      await primeGlossaryFromFetch();
+      addSeoGlossary(urls, [{ code: 'de' }]);
+      expect(urls[0].languageContext).to.deep.equal({
+        de: {
+          keywords: [
+            {
+              sourceKeyword: 'pcx file',
+              targetKeywords: [
+                { keyword: 'PCX-Datei', msv: '70', priority: 'Priority 1' },
+              ],
+            },
+          ],
+        },
+      });
+      expect(urls[1].languageContext).to.deep.equal({
+        de: {
+          keywords: [
+            {
+              sourceKeyword: 'fashion illustration',
+              targetKeywords: [
+                { keyword: 'Modezeichnung', msv: '100', priority: 'Priority 2' },
+              ],
+            },
+          ],
+        },
+      });
+      expect(urls[2].languageContext).to.equal(undefined);
+    });
+
+    it('does not set languageContext when glossary file is missing (404)', async () => {
+      mockSeoGlossary.glossary404 = true;
+      const urls = [{ suppliedPath: '/any/path', content: '<p>x</p>' }];
+      await primeGlossaryFromFetch();
+      addSeoGlossary(urls, [{ code: 'de' }]);
+      expect(urls[0].languageContext).to.equal(undefined);
     });
   });
 });

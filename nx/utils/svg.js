@@ -1,23 +1,49 @@
 import { getConfig } from '../scripts/nexter.js';
 
 const { nxBase } = getConfig();
+const iconCache = new Map();
 
 async function fetchIcon(path) {
-  const resp = await fetch(path);
-  if (!resp.ok) return null;
-  const text = await resp.text();
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(text, 'image/svg+xml');
-  return doc.querySelector('svg');
+  // Check if we already have a request in flight or completed
+  if (iconCache.has(path)) {
+    const cachedSvg = await iconCache.get(path);
+    // Clone the node because an element can only exist in one place in the DOM
+    return cachedSvg ? cachedSvg.cloneNode(true) : null;
+  }
+
+  const fetchPromise = (async () => {
+    try {
+      const resp = await fetch(path);
+      if (!resp.ok) return null;
+
+      const text = await resp.text();
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(text, 'image/svg+xml');
+      return doc.querySelector('svg');
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error(`Failed to fetch icon: ${path}`, err);
+      return null;
+    }
+  })();
+
+  // Store the promise in the cache immediately
+  iconCache.set(path, fetchPromise);
+
+  const svg = await fetchPromise;
+  return svg ? svg.cloneNode(true) : null;
 }
 
-export default function getSvg({ parent, paths }) {
-  const svgs = paths.map(async (path) => {
-    const svg = await fetchIcon(path);
-    if (parent) parent.append(svg);
-    return svg;
-  });
-  return Promise.all(svgs);
+export async function getSvg({ parent, paths }) {
+  const svgs = await Promise.all(paths.map((path) => fetchIcon(path)));
+
+  if (parent) {
+    svgs.forEach((svg) => {
+      if (svg) parent.append(svg);
+    });
+  }
+
+  return svgs;
 }
 
 export async function link2svg(a) {
@@ -48,3 +74,5 @@ export async function link2svg(a) {
     return a;
   }
 }
+
+export default getSvg;

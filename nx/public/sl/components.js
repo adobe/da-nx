@@ -305,8 +305,9 @@ class SlButton extends LitElement {
 
   render() {
     return html`
-      <span class="sl-button">
+      <span class="sl-button" part="wrap">
         <button
+          part="base"
           class="${this.class}"
           ?disabled=${this.disabled}
           ${spread(this._attrs)}>
@@ -320,6 +321,7 @@ class SlDialog extends LitElement {
   static properties = {
     open: { type: Boolean },
     modal: { type: Boolean },
+    overflow: { type: String },
     _showLazyModal: { state: true },
   };
 
@@ -361,7 +363,7 @@ class SlDialog extends LitElement {
 
   render() {
     return html`
-      <dialog class="sl-dialog" @close=${this.onClose}>
+      <dialog class="sl-dialog ${this.overflow ? `overflow-${this.overflow}` : ''}" @close=${this.onClose}>
         <slot></slot>
       </dialog>`;
   }

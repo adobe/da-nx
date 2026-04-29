@@ -3,7 +3,7 @@ export async function cancelTranslation({ service, lang, sendMessage }) {
 }
 
 export async function saveItems({
-  org, site, service, lang, urls, saveToDa,
+  org, site, service, lang, urls, saveFn,
 }) {
 
 }

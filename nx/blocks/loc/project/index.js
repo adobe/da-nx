@@ -139,6 +139,7 @@ const getHtml = async (path, html) => {
   };
 
   const str = html || await fetchHtml(path);
+  if (!str) return null;
   return PARSER.parseFromString(collapseInnerTextSpaces(str), 'text/html');
 };
 
@@ -170,7 +171,7 @@ export async function overwriteCopy(url, title) {
       resp = await saveToDa(
         srcHtml.querySelector('main').innerHTML,
         getDaUrl(url),
-        daMetadata,
+        { daMetadata, replaceRelative: false },
       );
     }
   }
@@ -231,7 +232,7 @@ export async function rolloutCopy(
 
     return new Promise((resolve) => {
       const daUrl = getDaUrl(url);
-      const savePromise = saveToDa(diffed.innerHTML, daUrl, daMetadata);
+      const savePromise = saveToDa(diffed.innerHTML, daUrl, { daMetadata, replaceRelative: false });
 
       const timedout = setTimeout(() => {
         url.status = 'timeout';
@@ -293,7 +294,11 @@ export async function mergeCopy(
     if (labelUpstream) daMetadata['diff-label-upstream'] = labelUpstream;
 
     const daUrl = getDaUrl(url);
-    const { daResp } = await saveToDa(diffed.innerHTML, daUrl, daMetadata);
+    const { daResp } = await saveToDa(
+      diffed.innerHTML,
+      daUrl,
+      { daMetadata, replaceRelative: false },
+    );
     if (daResp.ok) {
       url.status = 'success';
       saveVersion(url.destination, `${projectTitle} - Rolled Out`);

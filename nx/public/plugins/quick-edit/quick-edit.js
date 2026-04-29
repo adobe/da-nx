@@ -41,7 +41,7 @@ function onMessage(e, ctx) {
     const { editorState, cursorOffset } = e.data;
     setEditorState(cursorOffset, editorState, ctx);
   } else if (e.data.type === 'set-cursors') {
-    setCursors(e.data.body, ctx);
+    setCursors(e.data.cursors, ctx);
   } else if (e.data.type === 'update-image-src') {
     const { newSrc, originalSrc } = e.data;
     updateImageSrc(originalSrc, newSrc);

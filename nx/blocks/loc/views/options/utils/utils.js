@@ -62,6 +62,25 @@ function findLanguageByName(languages, name) {
   return null;
 }
 
+export function getCustomOptions(config) {
+  const PREFIX = 'translation.service.custom.';
+  return Object.keys(config).reduce((acc, key) => {
+    if (!key.startsWith(PREFIX)) return acc;
+    const remainder = key.slice(PREFIX.length);
+    const dotIndex = remainder.indexOf('.');
+    if (dotIndex === -1) return acc;
+    const type = remainder.slice(0, dotIndex);
+    const name = remainder.slice(dotIndex + 1);
+    acc[type] ??= [];
+    const values = config[key].split('|').map((entry) => {
+      const [label, val] = entry.split('=').map((s) => s.trim());
+      return { label, value: val ?? label };
+    });
+    acc[type].push({ name, values });
+    return acc;
+  }, {});
+}
+
 export function formatConfig(sheets) {
   const config = sheets.config.data.reduce((acc, row) => {
     acc[row.key] = row.value;
@@ -75,6 +94,14 @@ export function formatConfig(sheets) {
     acc[prop.key] = strValues.split(',')[0].trim();
     return acc;
   }, {});
+
+  // Seed custom option initial values
+  const custom = getCustomOptions(config);
+  Object.entries(custom).forEach(([type, items]) => {
+    items.forEach(({ name, values }) => {
+      options[`translation.service.custom.${type}.${name}`] = values[0].value;
+    });
+  });
 
   // If a source lang is spec'd, set it.
   if (config['source.language']) {

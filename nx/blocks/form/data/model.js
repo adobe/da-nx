@@ -2,34 +2,50 @@ import { DA_ORIGIN } from 'https://da.live/blocks/shared/constants.js';
 import { daFetch } from 'https://da.live/blocks/shared/utils.js';
 import HTMLConverter from '../utils/html2json.js';
 import JSONConverter from '../utils/json2html.js';
-import { Validator } from '../../../deps/da-form/dist/index.js';
-import { annotateFromSchema, pruneRecursive } from '../utils/utils.js';
-import { getValueByPointer, setValueByPointer, removeArrayItemByPointer } from '../utils/pointer.js';
-import generateEmptyObject from '../utils/generator.js';
+import { validateJson } from '../utils/validator.js';
+import { annotateFromSchema, dereferenceSchema, findNodeByPointer, isEmpty, pruneRecursive } from '../utils/utils.js';
+import {
+  append,
+  getValue,
+  setValue,
+  removeValue,
+  clearValue,
+  moveBefore,
+  insertBefore,
+} from '../utils/pointer.js';
+import { generateValue, resolveValue } from '../utils/value-resolver.js';
 
 /**
  * A data model that represents a piece of structured content.
  */
 export default class FormModel {
-  constructor({ path, html, json, schemas }) {
+  constructor({ path, html, json, schemas, dereferencedSchema }) {
     if (!(html || json)) {
-      // eslint-disable-next-line no-console
-      console.log('Please supply JSON or HTML to make a form model');
-      return;
-    }
-
-    if (html) {
-      this._html = html;
-      this.updateJson();
-    } else if (json) {
-      this._json = json;
-      this.updateHtml();
+      throw new Error('FormModel requires JSON or HTML');
     }
 
     this._path = path;
     this._schemas = schemas;
-    this._schema = schemas[this._json.metadata.schemaName];
-    this._annotated = annotateFromSchema('data', this._schema, this._schema, this._json.data, '', false);
+    const htmlAsJson = html ? this.htmlToJson(html) : json;
+    this._schema = this._schemas?.[htmlAsJson?.metadata?.schemaName];
+
+    if (!this._schema) {
+      this._dereferencedSchema = null;
+      this._annotated = null;
+      this._json = {
+        metadata: htmlAsJson?.metadata ?? {},
+        data: htmlAsJson?.data ?? {},
+      };
+    } else {
+      const data = htmlAsJson?.data ?? {};
+      this._dereferencedSchema = dereferencedSchema ?? dereferenceSchema(this._schema);
+      this._annotated = annotateFromSchema('data', this._dereferencedSchema, data);
+      this._fillDefaults = isEmpty(data);
+      this._json = {
+        metadata: htmlAsJson?.metadata ?? {},
+        data: resolveValue(this._annotated, data, this._fillDefaults),
+      };
+    }
   }
 
   clone() {
@@ -37,57 +53,69 @@ export default class FormModel {
       path: this._path,
       json: JSON.parse(JSON.stringify(this._json)),
       schemas: this._schemas,
+      dereferencedSchema: this._dereferencedSchema,
     });
   }
 
   validate() {
-    const validator = new Validator(this._schema, '2020-12');
-    return validator.validate(this._json.data);
+    return validateJson(this._schema, this._json.data ?? {}, this.annotated);
   }
 
-  updateJson() {
-    const converter = new HTMLConverter(this._html);
-    this._json = converter.json;
-  }
-
-  updateHtml() {
-    const prunedData = pruneRecursive(this._json.data);
-    const json = { ...this._json, data: prunedData ?? {} };
-    this._html = JSONConverter(json);
+  htmlToJson(html) {
+    const converter = new HTMLConverter(html);
+    return converter.json;
   }
 
   updateProperty({ name, value }) {
-    setValueByPointer(this._json, name, value);
+    const node = this._annotated ? findNodeByPointer(this._annotated, name) : null;
+    if (!node) return;
+    const effectiveValue = resolveValue(node, value, false);
+    if (isEmpty(effectiveValue)) {
+      clearValue(this._json, name, effectiveValue);
+    } else {
+      setValue(this._json, name, effectiveValue);
+    }
   }
 
-  addArrayItem(pointer, itemsSchema) {
-    const array = getValueByPointer(this._json, pointer) ?? [];
-    const newItem = generateEmptyObject(itemsSchema ?? {}, new Set(), this._schema);
-    array.push(newItem);
-    setValueByPointer(this._json, pointer, array);
+  getValue(item) {
+    if (!item) return undefined;
+    const userVal = getValue(this._json, item.pointer);
+    return resolveValue(item, userVal, this._fillDefaults);
+  }
+
+  addArrayItem(pointer, items) {
+    if (!items) return;
+    const array = getValue(this._json, pointer) ?? [];
+    const newItem = generateValue(items, true);
+    insertBefore(this._json, append(pointer, array.length), newItem);
+  }
+
+  insertArrayItem(pointer, items) {
+    if (!items) return false;
+    const newItem = generateValue(items, true);
+    return insertBefore(this._json, pointer, newItem);
   }
 
   removeArrayItem(pointer) {
-    return removeArrayItemByPointer(this._json, pointer);
+    return removeValue(this._json, pointer);
+  }
+
+  moveArrayItem(pointer, beforePointer) {
+    return moveBefore(this._json, pointer, beforePointer);
   }
 
   async saveHtml() {
+    const prunedData = pruneRecursive(this._json.data);
+    const json = { ...this._json, data: prunedData ?? {} };
+    const html = JSONConverter(json);
     const body = new FormData();
-    const data = new Blob([this._html], { type: 'text/html' });
+    const data = new Blob([html], { type: 'text/html' });
     body.append('data', data);
 
     const opts = { method: 'POST', body };
 
     // TODO: Don't assume the save went perfect
     await daFetch(`${DA_ORIGIN}/source${this._path}`, opts);
-  }
-
-  set html(html) {
-    this._html = html;
-  }
-
-  get html() {
-    return this._html;
   }
 
   get annotated() {
@@ -98,7 +126,7 @@ export default class FormModel {
     return this._schema;
   }
 
-  get json() {
-    return this._json;
+  getSerializedJson() {
+    return JSON.stringify(this._json, null, 2);
   }
 }

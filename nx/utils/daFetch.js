@@ -1,4 +1,4 @@
-import { DA_ORIGIN } from '../public/utils/constants.js';
+import { DA_ORIGIN, AEM_ORIGIN } from '../public/utils/constants.js';
 
 let imsDetails;
 
@@ -23,6 +23,10 @@ export const daFetch = async (url, opts = {}) => {
     const { accessToken } = await initIms();
     if (accessToken) {
       opts.headers.Authorization = `Bearer ${accessToken.token}`;
+
+      if (url.startsWith(AEM_ORIGIN)) {
+        opts.headers['x-content-source-authorization'] = `Bearer ${accessToken.token}`;
+      }
     }
   }
   let resp;
@@ -40,9 +44,11 @@ export const daFetch = async (url, opts = {}) => {
   return resp;
 };
 
-export function replaceHtml(text, fromOrg, fromRepo, daMetadata = {}) {
+export function replaceHtml(text, fromOrg, fromRepo, options = {}) {
+  const { daMetadata = {}, replaceRelative = true } = options;
   let inner = text;
-  if (fromOrg && fromRepo) {
+
+  if (fromOrg && fromRepo && replaceRelative) {
     const fromOrigin = `https://main--${fromRepo}--${fromOrg}.aem.live`;
     inner = text
       .replaceAll('./media', `${fromOrigin}/media`)
@@ -66,12 +72,13 @@ export function replaceHtml(text, fromOrg, fromRepo, daMetadata = {}) {
   `;
 }
 
-export async function saveToDa(text, url, daMetadata = {}) {
+export async function saveToDa(text, url, options = {}) {
+  const { daMetadata = {}, replaceRelative = true } = options;
   const { org, repo, pathname } = url;
   const daPath = `/${org}/${repo}${pathname}`;
   const daHref = `https://da.live/edit#${daPath}`;
 
-  const body = replaceHtml(text, org, repo, daMetadata);
+  const body = replaceHtml(text, org, repo, { daMetadata, replaceRelative });
 
   const blob = new Blob([body], { type: 'text/html' });
   const formData = new FormData();

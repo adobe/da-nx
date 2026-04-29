@@ -1,0 +1,21 @@
+{
+  "metadata": {
+    "schemaName": "color-families",
+    "title": "Color Families"
+  },
+  "data": [
+    {
+      "name": "Earth Tones",
+      "groups": [
+        ["brown, tan, beige", "olive, moss"],
+        ["rust, terracotta"]
+      ]
+    },
+    {
+      "name": "Ocean Blues",
+      "groups": [
+        ["navy, sky, aqua"]
+      ]
+    }
+  ]
+}

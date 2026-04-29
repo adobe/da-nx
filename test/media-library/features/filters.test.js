@@ -1,0 +1,684 @@
+import { expect } from '@esm-bundle/chai';
+import {
+  parseColonSyntax,
+  filterMedia,
+  getSearchSuggestions,
+  processMediaData,
+  clearProcessDataCache,
+} from '../../../nx/blocks/media-library/features/filters.js';
+
+describe('filters', () => {
+  describe('parseColonSyntax', () => {
+    it('parses doc: syntax', () => {
+      const result = parseColonSyntax('doc:/path/to/doc');
+      expect(result).to.exist;
+      expect(result.field).to.equal('doc');
+      expect(result.value).to.equal('/path/to/doc');
+    });
+
+    it('parses folder: syntax', () => {
+      const result = parseColonSyntax('folder:/docs');
+      expect(result).to.exist;
+      expect(result.field).to.equal('folder');
+      expect(result.value).to.equal('/docs');
+    });
+
+    it('parses name: syntax', () => {
+      const result = parseColonSyntax('name:image.png');
+      expect(result).to.exist;
+      expect(result.field).to.equal('name');
+      expect(result.value).to.equal('image.png');
+    });
+
+    it('parses url: syntax', () => {
+      const result = parseColonSyntax('url:media/logo');
+      expect(result).to.exist;
+      expect(result.field).to.equal('url');
+      expect(result.value).to.equal('media/logo');
+    });
+
+    it('parses user: syntax', () => {
+      const result = parseColonSyntax('user:john@example.com');
+      expect(result).to.exist;
+      expect(result.field).to.equal('user');
+      expect(result.value).to.equal('john@example.com');
+    });
+
+    it('does not treat https:// as colon syntax', () => {
+      const result = parseColonSyntax('https://example.com/video.mp4');
+      expect(result).to.be.null;
+    });
+
+    it('does not treat http:// as colon syntax', () => {
+      const result = parseColonSyntax('http://example.com/file.pdf');
+      expect(result).to.be.null;
+    });
+
+    it('is case-insensitive for field names', () => {
+      const result = parseColonSyntax('DOC:/path');
+      expect(result).to.exist;
+      expect(result.field).to.equal('doc');
+    });
+
+    it('trims whitespace from value', () => {
+      const result = parseColonSyntax('name:  image.png  ');
+      expect(result).to.exist;
+      expect(result.value).to.equal('image.png');
+    });
+
+    it('returns null for plain text', () => {
+      const result = parseColonSyntax('just some text');
+      expect(result).to.be.null;
+    });
+
+    it('returns null for empty string', () => {
+      const result = parseColonSyntax('');
+      expect(result).to.be.null;
+    });
+
+    it('returns null for null input', () => {
+      const result = parseColonSyntax(null);
+      expect(result).to.be.null;
+    });
+  });
+
+  describe('filterMedia', () => {
+    // Sample data fixtures
+    const sampleData = [
+      {
+        url: 'https://main--blog--adobe.aem.live/media/image1.png',
+        name: 'image1.png',
+        displayName: 'Image 1',
+        doc: '/docs/page1',
+        status: 'referenced',
+        hash: 'hash1',
+      },
+      {
+        url: 'https://main--blog--adobe.aem.live/media/video1.mp4',
+        name: 'video1.mp4',
+        displayName: 'Video 1',
+        doc: '/docs/page2',
+        status: 'referenced',
+        hash: 'hash2',
+      },
+      {
+        url: 'https://main--blog--adobe.aem.live/media/icon.svg',
+        name: 'icon.svg',
+        displayName: 'Icon',
+        doc: '/docs/page1',
+        status: 'referenced',
+        hash: 'hash3',
+      },
+      {
+        url: 'https://main--blog--adobe.aem.live/media/document.pdf',
+        name: 'document.pdf',
+        displayName: 'Document',
+        doc: '/docs/guide',
+        status: 'referenced',
+        hash: 'hash4',
+      },
+      {
+        url: 'https://main--blog--adobe.aem.live/fragments/footer',
+        name: 'footer',
+        displayName: 'Footer Fragment',
+        doc: '/index',
+        status: 'referenced',
+        hash: 'hash5',
+        type: 'fragment',
+      },
+      {
+        url: 'https://youtube.com/watch?v=abc123',
+        name: 'External Video',
+        displayName: 'External Video',
+        doc: '/docs/page3',
+        status: 'referenced',
+        hash: 'https://youtube.com/watch?v=abc123',
+      },
+      {
+        url: 'https://main--blog--adobe.aem.live/media/unused.png',
+        name: 'unused.png',
+        displayName: 'Unused Image',
+        doc: '',
+        status: 'unused',
+        hash: 'hash7',
+      },
+    ];
+
+    describe('type filters', () => {
+      it('filters images (excludes SVGs, includes unused)', () => {
+        const options = {
+          selectedFilterType: 'images',
+          org: 'adobe',
+          repo: 'blog',
+        };
+        const filtered = filterMedia(sampleData, options);
+        expect(filtered).to.have.lengthOf(2);
+        const names = filtered.map((i) => i.name).sort();
+        expect(names).to.deep.equal(['image1.png', 'unused.png']);
+      });
+
+      it('filters videos', () => {
+        const options = {
+          selectedFilterType: 'videos',
+          org: 'adobe',
+          repo: 'blog',
+        };
+        const filtered = filterMedia(sampleData, options);
+        expect(filtered).to.have.lengthOf(1);
+        expect(filtered[0].name).to.equal('video1.mp4');
+      });
+
+      it('filters icons (SVGs only)', () => {
+        const options = {
+          selectedFilterType: 'icons',
+          org: 'adobe',
+          repo: 'blog',
+        };
+        const filtered = filterMedia(sampleData, options);
+        expect(filtered).to.have.lengthOf(1);
+        expect(filtered[0].name).to.equal('icon.svg');
+      });
+
+      it('filters documents (PDFs)', () => {
+        const options = {
+          selectedFilterType: 'documents',
+          org: 'adobe',
+          repo: 'blog',
+        };
+        const filtered = filterMedia(sampleData, options);
+        expect(filtered).to.have.lengthOf(1);
+        expect(filtered[0].name).to.equal('document.pdf');
+      });
+
+      it('filters fragments', () => {
+        const options = {
+          selectedFilterType: 'fragments',
+          org: 'adobe',
+          repo: 'blog',
+        };
+        const filtered = filterMedia(sampleData, options);
+        expect(filtered).to.have.lengthOf(1);
+        expect(filtered[0].displayName).to.equal('Footer Fragment');
+      });
+
+      it('filters external links only', () => {
+        const options = {
+          selectedFilterType: 'links',
+          org: 'adobe',
+          repo: 'blog',
+        };
+        const filtered = filterMedia(sampleData, options);
+        expect(filtered).to.have.lengthOf(1);
+        expect(filtered[0].name).to.equal('External Video');
+      });
+    });
+
+    describe('noReferences filter', () => {
+      it('shows only unused items', () => {
+        const options = {
+          selectedFilterType: 'noReferences',
+          org: 'adobe',
+          repo: 'blog',
+        };
+        const filtered = filterMedia(sampleData, options);
+        expect(filtered).to.have.lengthOf(1);
+        expect(filtered[0].status).to.equal('unused');
+        expect(filtered[0].name).to.equal('unused.png');
+      });
+    });
+
+    describe('type filters include unused (except External)', () => {
+      it('includes unused images alongside referenced', () => {
+        const options = {
+          selectedFilterType: 'images',
+          org: 'adobe',
+          repo: 'blog',
+        };
+        const filtered = filterMedia(sampleData, options);
+        expect(filtered.some((item) => item.status === 'unused')).to.be.true;
+      });
+
+      it('keeps External tab to referenced off-site links only', () => {
+        const filterTypes = ['links'];
+        filterTypes.forEach((filterType) => {
+          const options = {
+            selectedFilterType: filterType,
+            org: 'adobe',
+            repo: 'blog',
+          };
+          const filtered = filterMedia(sampleData, options);
+          const hasUnused = filtered.some((item) => item.status === 'unused');
+          expect(hasUnused).to.be.false;
+        });
+      });
+    });
+
+    describe('search', () => {
+      it('filters by search query in name', () => {
+        const options = {
+          searchQuery: 'video',
+          selectedFilterType: 'all',
+          org: 'adobe',
+          repo: 'blog',
+        };
+        const filtered = filterMedia(sampleData, options);
+        expect(filtered.length).to.be.greaterThan(0);
+        const hasVideo = filtered.some((item) => item.name.toLowerCase().includes('video'));
+        expect(hasVideo).to.be.true;
+      });
+
+      it('filters by doc: syntax', () => {
+        const processedData = {
+          docPaths: ['/docs/page1', '/docs/page2'],
+          folderPaths: [],
+          usageData: {
+            hash1: { docs: ['/docs/page1'], folders: [], firstDoc: '/docs/page1', hasRootDoc: false, count: 1 },
+            hash2: { docs: ['/docs/page2'], folders: [], firstDoc: '/docs/page2', hasRootDoc: false, count: 1 },
+            hash3: { docs: ['/docs/page1'], folders: [], firstDoc: '/docs/page1', hasRootDoc: false, count: 1 },
+          },
+        };
+        const options = {
+          searchQuery: 'doc:/docs/page1',
+          selectedFilterType: 'all',
+          processedData,
+          org: 'adobe',
+          repo: 'blog',
+        };
+        const filtered = filterMedia(sampleData, options);
+        expect(filtered.length).to.be.greaterThan(0);
+        filtered.forEach((item) => {
+          expect(item.doc).to.include('/docs/page1');
+        });
+      });
+
+      it('filters by folder: syntax', () => {
+        const processedData = {
+          docPaths: ['/docs/page1', '/docs/page2', '/docs/guide'],
+          folderPaths: ['/docs'],
+          usageData: {
+            hash1: { docs: ['/docs/page1'], folders: ['/docs'], firstDoc: '/docs/page1', hasRootDoc: false, count: 1 },
+            hash2: { docs: ['/docs/page2'], folders: ['/docs'], firstDoc: '/docs/page2', hasRootDoc: false, count: 1 },
+            hash3: { docs: ['/docs/page1'], folders: ['/docs'], firstDoc: '/docs/page1', hasRootDoc: false, count: 1 },
+            hash4: { docs: ['/docs/guide'], folders: ['/docs'], firstDoc: '/docs/guide', hasRootDoc: false, count: 1 },
+          },
+        };
+        const options = {
+          searchQuery: 'folder:/docs',
+          selectedFilterType: 'all',
+          processedData,
+          org: 'adobe',
+          repo: 'blog',
+        };
+        const filtered = filterMedia(sampleData, options);
+        expect(filtered.length).to.be.greaterThan(0);
+      });
+
+      it('combines search with type filter', () => {
+        const options = {
+          searchQuery: 'image',
+          selectedFilterType: 'images',
+          org: 'adobe',
+          repo: 'blog',
+        };
+        const filtered = filterMedia(sampleData, options);
+        const names = filtered.map((i) => i.name).sort();
+        expect(names).to.deep.equal(['image1.png', 'unused.png']);
+      });
+    });
+
+    it('returns empty array for empty source data', () => {
+      const options = {
+        selectedFilterType: 'images',
+        org: 'adobe',
+        repo: 'blog',
+      };
+      expect(filterMedia([], options)).to.be.empty;
+      expect(filterMedia(null, options)).to.be.empty;
+    });
+  });
+
+  describe('getSearchSuggestions', () => {
+    const sampleData = [
+      {
+        url: 'https://main--blog--adobe.aem.live/media/header-image.png',
+        name: 'header-image.png',
+        displayName: 'Header Image',
+        doc: '/docs/page1',
+        status: 'referenced',
+      },
+      {
+        url: 'https://main--blog--adobe.aem.live/media/footer-image.png',
+        name: 'footer-image.png',
+        displayName: 'Footer Image',
+        doc: '/docs/page2',
+        status: 'referenced',
+      },
+      {
+        url: 'https://youtube.com/watch?v=abc',
+        name: 'tutorial.mp4',
+        displayName: 'Tutorial Video',
+        doc: '/docs/tutorial',
+        status: 'referenced',
+      },
+      {
+        url: 'https://main--blog--adobe.aem.live/media/unused.png',
+        name: 'unused.png',
+        displayName: 'Unused Image',
+        doc: '',
+        status: 'unused',
+      },
+    ];
+
+    const createSuggestion = (item) => ({
+      type: 'media',
+      value: item,
+      display: item.displayName,
+    });
+
+    it('returns suggestions for plain text query', () => {
+      const suggestions = getSearchSuggestions(
+        sampleData,
+        'image',
+        createSuggestion,
+        null,
+        'images',
+        'adobe',
+        'blog',
+      );
+      expect(suggestions.length).to.be.greaterThan(0);
+    });
+
+    it('filters suggestions by selectedFilterType', () => {
+      const suggestions = getSearchSuggestions(
+        sampleData,
+        'image',
+        createSuggestion,
+        null,
+        'images',
+        'adobe',
+        'blog',
+      );
+      suggestions.forEach((suggestion) => {
+        const item = suggestion.value;
+        expect(item.displayName).to.include('Image');
+      });
+    });
+
+    it('external filter suggestions exclude same-repo URLs', () => {
+      const suggestions = getSearchSuggestions(
+        sampleData,
+        'video',
+        createSuggestion,
+        null,
+        'links',
+        'adobe',
+        'blog',
+      );
+      if (suggestions.length > 0) {
+        suggestions.forEach((suggestion) => {
+          const item = suggestion.value;
+          expect(item.url).to.not.include('main--blog--adobe');
+        });
+      }
+    });
+
+    it('noReferences filter shows only unused items', () => {
+      const suggestions = getSearchSuggestions(
+        sampleData,
+        'unused',
+        createSuggestion,
+        null,
+        'noReferences',
+        'adobe',
+        'blog',
+      );
+      expect(suggestions.length).to.be.greaterThan(0);
+      suggestions.forEach((suggestion) => {
+        const item = suggestion.value;
+        expect(item.status).to.equal('unused');
+      });
+    });
+
+    it('external suggestions exclude unused external items', () => {
+      const mixed = [
+        ...sampleData,
+        {
+          url: 'https://cdn.example.com/orphan.mp4',
+          name: 'orphan.mp4',
+          displayName: 'Orphan Video',
+          doc: '',
+          status: 'unused',
+          hash: 'orphan-ext',
+          type: 'video',
+        },
+      ];
+      const suggestions = getSearchSuggestions(
+        mixed,
+        'video',
+        createSuggestion,
+        null,
+        'links',
+        'adobe',
+        'blog',
+      );
+      suggestions.forEach((suggestion) => {
+        expect(suggestion.value.status).to.not.equal('unused');
+      });
+    });
+
+    it('images filter suggestions include unused items that match', () => {
+      const suggestions = getSearchSuggestions(
+        sampleData,
+        'image',
+        createSuggestion,
+        null,
+        'images',
+        'adobe',
+        'blog',
+      );
+      const statuses = suggestions.map((s) => s.value.status);
+      expect(statuses).to.include('unused');
+    });
+
+    it('limits suggestions to 10 results', () => {
+      const largeDataset = Array.from({ length: 50 }, (_, i) => ({
+        url: `https://main--blog--adobe.aem.live/media/image${i}.png`,
+        name: `image${i}.png`,
+        displayName: `Image ${i}`,
+        doc: '/docs/page',
+        status: 'referenced',
+      }));
+      const suggestions = getSearchSuggestions(
+        largeDataset,
+        'image',
+        createSuggestion,
+        null,
+        'images',
+        'adobe',
+        'blog',
+      );
+      expect(suggestions).to.have.lengthOf(10);
+    });
+
+    it('returns empty array for empty query', () => {
+      const suggestions = getSearchSuggestions(
+        sampleData,
+        '',
+        createSuggestion,
+        null,
+        'images',
+        'adobe',
+        'blog',
+      );
+      expect(suggestions).to.be.empty;
+    });
+
+    it('returns empty array for null/undefined data', () => {
+      expect(getSearchSuggestions(null, 'test', createSuggestion)).to.be.empty;
+      expect(getSearchSuggestions(undefined, 'test', createSuggestion)).to.be.empty;
+    });
+
+    it('slash suggestions include folders from original no-doc asset paths', async () => {
+      clearProcessDataCache();
+      const noDocItem = {
+        url: 'https://main--blog--adobe.aem.live/media/assets-deep/file.png',
+        originalPath: '/assets/products/ascent-x2/ascent-x2-mood.jpg',
+        name: 'file.png',
+        displayName: 'File',
+        doc: '',
+        status: 'unused',
+        hash: 'media_file.png',
+        type: 'image',
+      };
+      const processedData = await processMediaData([noDocItem], null, 'adobe', 'blog');
+      expect(processedData.folderPaths).to.include('/assets');
+      expect(processedData.folderPaths).to.include('/assets/products');
+      expect(processedData.folderPaths).to.include('/assets/products/ascent-x2');
+
+      const suggestions = getSearchSuggestions(
+        [noDocItem],
+        '/assets',
+        createSuggestion,
+        processedData,
+        'all',
+        'adobe',
+        'blog',
+      );
+      expect(suggestions.some((s) => s.type === 'folder')).to.be.true;
+    });
+  });
+
+  describe('no-doc same-site assets appear in type filters and No References', () => {
+    const org = 'adobe';
+    const repo = 'blog';
+    const data = [
+      {
+        url: 'https://main--blog--adobe.aem.live/media/ref.png',
+        name: 'ref.png',
+        doc: '/docs/a',
+        status: 'referenced',
+        hash: 'hash-ref',
+        type: 'image',
+      },
+      {
+        url: 'https://main--blog--adobe.aem.live/media/alone.png',
+        originalPath: '/assets/products/alone.png',
+        name: 'alone.png',
+        doc: '',
+        status: 'unused',
+        hash: 'media_alone.png',
+        type: 'image',
+      },
+      {
+        url: 'https://cdn.example/unused.png',
+        name: 'unused.png',
+        doc: '',
+        status: 'unused',
+        hash: 'ext-u',
+        type: 'image',
+      },
+    ];
+
+    it('Images filter includes same-site unused and referenced', () => {
+      const filtered = filterMedia(data, { selectedFilterType: 'images', org, repo });
+      const hashes = filtered.map((i) => i.hash).sort();
+      expect(hashes).to.deep.equal(['ext-u', 'hash-ref', 'media_alone.png']);
+    });
+
+    it('No References filter lists every item with no document refs', () => {
+      const filtered = filterMedia(data, { selectedFilterType: 'noReferences', org, repo });
+      expect(filtered).to.have.lengthOf(2);
+      const hashes = filtered.map((i) => i.hash).sort();
+      expect(hashes).to.deep.equal(['ext-u', 'media_alone.png']);
+    });
+
+    it('getSearchSuggestions with No References lists only unused', async () => {
+      clearProcessDataCache();
+      const processedData = await processMediaData(data, null, org, repo);
+      const createSugg = (item) => ({ type: 'media', value: item, display: item.name });
+      const suggestions = getSearchSuggestions(
+        data,
+        'png',
+        createSugg,
+        processedData,
+        'noReferences',
+        org,
+        repo,
+      );
+      expect(suggestions.length).to.be.greaterThan(0);
+      suggestions.forEach((s) => {
+        expect(s.value.status).to.equal('unused');
+      });
+    });
+  });
+
+  describe('folder filter for no-doc delivery assets', () => {
+    it('filterMedia with root folder includes unused items that have asset folders', async () => {
+      clearProcessDataCache();
+      const noDocItem = {
+        url: 'https://main--blog--adobe.aem.live/media/deep/file.png',
+        originalPath: '/assets/products/ascent-x2/ascent-x2-mood.jpg',
+        name: 'file.png',
+        doc: '',
+        status: 'unused',
+        hash: 'media_deep.png',
+        type: 'image',
+      };
+      const processedData = await processMediaData([noDocItem], null, 'adobe', 'blog');
+      const filtered = filterMedia([noDocItem], {
+        selectedFolder: '/',
+        processedData,
+        selectedFilterType: 'all',
+        org: 'adobe',
+        repo: 'blog',
+      });
+      expect(filtered.map((i) => i.hash)).to.include('media_deep.png');
+    });
+
+    it('filterMedia with root folder includes root-level no-doc assets', async () => {
+      clearProcessDataCache();
+      const noDocItem = {
+        url: 'https://main--blog--adobe.aem.live/root.png',
+        originalPath: '/root.png',
+        name: 'root.png',
+        doc: '',
+        status: 'unused',
+        hash: 'media_root.png',
+        type: 'image',
+      };
+      const processedData = await processMediaData([noDocItem], null, 'adobe', 'blog');
+      const filtered = filterMedia([noDocItem], {
+        selectedFolder: '/',
+        processedData,
+        selectedFilterType: 'all',
+        org: 'adobe',
+        repo: 'blog',
+      });
+      expect(filtered).to.have.lengthOf(1);
+      expect(filtered[0].hash).to.equal('media_root.png');
+    });
+
+    it('filterMedia folder: query matches no-doc item by original asset path', async () => {
+      clearProcessDataCache();
+      const noDocItem = {
+        url: 'https://main--blog--adobe.aem.live/media/nested/file.png',
+        originalPath: '/assets/products/ascent-x2/ascent-x2-mood.jpg',
+        name: 'file.png',
+        doc: '',
+        status: 'unused',
+        hash: 'media_nested.png',
+        type: 'image',
+      };
+      const processedData = await processMediaData([noDocItem], null, 'adobe', 'blog');
+      const filtered = filterMedia([noDocItem], {
+        searchQuery: 'folder:/assets/products',
+        processedData,
+        selectedFilterType: 'all',
+        org: 'adobe',
+        repo: 'blog',
+      });
+      expect(filtered).to.have.lengthOf(1);
+      expect(filtered[0].hash).to.equal('media_nested.png');
+    });
+  });
+});

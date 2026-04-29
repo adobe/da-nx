@@ -14,6 +14,39 @@ const EDITABLES = [
 ];
 const EDITABLE_SELECTORS = EDITABLES.map((edit) => edit.selector).join(', ');
 
+export function extractCursors(view) {
+  const remoteCursors = view.dom.querySelectorAll('.ProseMirror-yjs-cursor');
+  const cursorMap = new Map();
+
+  remoteCursors.forEach((remoteCursor) => {
+    let highestEditable = null;
+    let current = remoteCursor.parentElement;
+
+    while (current) {
+      if (current.matches?.(EDITABLE_SELECTORS)) {
+        highestEditable = current;
+      }
+      current = current.parentElement;
+    }
+
+    if (!highestEditable) return;
+
+    try {
+      const proseIndex = view.posAtDOM(highestEditable, 0);
+      cursorMap.set(proseIndex, {
+        proseIndex,
+        remote: remoteCursor.innerText,
+        color: remoteCursor.style['border-color'],
+      });
+    } catch (e) {
+      // eslint-disable-next-line no-console
+      console.warn('Could not find position for remote cursor:', e);
+    }
+  });
+
+  return [...cursorMap.values()];
+}
+
 export function getInstrumentedHTML(view) {
   // Clone the editor first so we don't modify the real DOM
   const editorClone = view.dom.cloneNode(true);

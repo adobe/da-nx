@@ -1,5 +1,5 @@
 import { TextSelection, yUndo, yRedo } from 'da-y-wrapper';
-import { getInstrumentedHTML } from './prose2aem.js';
+import { getInstrumentedHTML, extractCursors } from './prose2aem.js';
 
 export function updateDocument(ctx) {
   // Skip rerender if suppressed (e.g., during image updates)
@@ -9,8 +9,8 @@ export function updateDocument(ctx) {
 }
 
 export function updateCursors(ctx) {
-  const body = getInstrumentedHTML(window.view);
-  ctx.port.postMessage({ type: 'set-cursors', body });
+  const cursors = extractCursors(window.view);
+  ctx.port.postMessage({ type: 'set-cursors', cursors });
 }
 
 export function updateState(data, ctx) {
