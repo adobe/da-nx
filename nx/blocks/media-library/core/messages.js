@@ -83,6 +83,7 @@ const MESSAGES = {
   UI_MEDIA_POSITION: '{current} of {total}',
   UI_COPY_URL: 'Copy to clipboard',
   UI_COPY_MEDIA_ARIA: 'Copy media URL to clipboard',
+  UI_COPY_BUTTON: 'Copy',
   UI_INSERT_MEDIA: 'Insert into document',
   UI_INSERT_BUTTON: 'Insert',
   UI_OPEN_IN_NEW_TAB: 'Open in new tab',

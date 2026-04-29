@@ -64,7 +64,7 @@ async function getDaSdkActions() {
   return withTimeout(
     DA_SDK.then((sdk) => {
       const { actions } = sdk || {};
-      if (!actions?.sendText || !actions?.sendHTML) {
+      if (!actions?.sendHTML) {
         throw new Error('da-sdk-actions-unavailable');
       }
       return actions;

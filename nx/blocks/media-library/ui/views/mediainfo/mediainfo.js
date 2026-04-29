@@ -739,6 +739,7 @@ class NxMediaInfo extends LitElement {
   }
 
   render() {
+    const isPluginMode = isMediaLibraryPluginMode();
     let displayName = '';
     if (this.media) {
       const label = getMediaName(this.media);
@@ -788,13 +789,13 @@ class NxMediaInfo extends LitElement {
                 type="button"
                 class="action-button copy-button"
                 @click=${this.handleCopyUrl}
-                title="${isMediaLibraryPluginMode() ? t('UI_INSERT_MEDIA') : t('UI_COPY_URL')}"
-                aria-label="${isMediaLibraryPluginMode() ? t('UI_INSERT_MEDIA') : t('UI_COPY_URL')}"
+                title="${isPluginMode ? t('UI_INSERT_MEDIA') : t('UI_COPY_URL')}"
+                aria-label="${isPluginMode ? t('UI_INSERT_MEDIA') : t('UI_COPY_URL')}"
               >
                 <svg class="icon" viewBox="0 0 18 18">
                   <use href="#Smock_Copy_18_N"></use>
                 </svg>
-                ${isMediaLibraryPluginMode() ? t('UI_INSERT_BUTTON') : 'Copy'}
+                ${isPluginMode ? t('UI_INSERT_BUTTON') : t('UI_COPY_BUTTON')}
               </button>
               <button
                 type="button"
