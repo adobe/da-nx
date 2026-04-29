@@ -82,6 +82,14 @@
   }
 }
 
+.picker-open-in-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  display: block;
+  pointer-events: none;
+}
+
 .picker-check {
   width: 14px;
   height: 14px;

@@ -19,6 +19,11 @@ export default class ChatController {
     this._room = null;
   }
 
+  _pageContextForAgent() {
+    const { org, site, path, view } = this._context ?? {};
+    return org && site ? { org, site, path, view } : undefined;
+  }
+
   async _getRoom() {
     if (this._room) return this._room;
     const { userId } = await loadIms();
@@ -192,7 +197,7 @@ export default class ChatController {
 
     if (approved) {
       try {
-        await this._stream();
+        await this._stream(this._pageContextForAgent());
       } catch (err) {
         if (err.name !== 'AbortError') {
           this._messages = [...this._messages, { role: ROLE.ASSISTANT, content: `Error: ${err.message}` }];
@@ -251,9 +256,7 @@ export default class ChatController {
     this._toolCards = new Map();
 
     try {
-      const { org, site, path, view } = this._context ?? {};
-      const pageContext = org && site ? { org, site, path, view } : undefined;
-      await this._stream(pageContext);
+      await this._stream(this._pageContextForAgent());
     } catch (err) {
       if (err.name !== 'AbortError') {
         this._messages = [
