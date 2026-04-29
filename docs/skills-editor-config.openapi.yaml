@@ -1,16 +1,17 @@
 openapi: 3.1.0
 info:
   title: DA Skills Editor Config and File Shapes
-  version: 0.1.0
+  version: 0.2.0
   summary: OpenAPI description of the config-sheet and file-backed shapes used by the nx2 skills editor.
   description: |
     This spec documents the data contracts the `nx2/blocks/skills-editor` feature reads and writes.
 
     It covers:
     - multi-sheet DA config payloads
-    - `skills`, `prompts`, `mcp-servers`, `agents`, `generated-tools`, and `tool-overrides` sheets
+    - `skills`, `prompts`, `mcp-servers`, `agents`, and `tool-overrides` sheets
     - file-backed skill markdown in `/.da/skills/{id}.md`
     - file-backed agent presets in `/.da/agents/{id}.json`
+    - file-backed project memory in `/.da/agent/memory.md`
     - MCP tool listing request/response payloads exchanged with the agent origin
 
     It is not a full DA Admin API spec. It is a consumer-oriented contract for the shapes this editor depends on.
@@ -22,7 +23,7 @@ tags:
   - name: Skills
   - name: Agents
   - name: MCP
-  - name: Generated Tools
+  - name: Memory
 paths:
   /config/{org}/{site}/:
     parameters:
@@ -152,6 +153,57 @@ paths:
           description: Saved
         '201':
           description: Created
+  /source/{org}/{site}/.da/agent/memory.md:
+    parameters:
+      - $ref: '#/components/parameters/Org'
+      - $ref: '#/components/parameters/Site'
+    get:
+      tags: [Memory]
+      summary: Read the project memory file
+      operationId: readMemory
+      description: |
+        Returns the project memory markdown written by the agent.
+        The editor displays this read-only in the Memory tab.
+      responses:
+        '200':
+          description: Memory markdown body
+          content:
+            text/markdown:
+              schema:
+                type: string
+                description: Free-form markdown. The agent typically uses a structured `## Memory` section.
+        '404':
+          description: No memory file exists yet for this site
+    put:
+      tags: [Memory]
+      summary: Overwrite the project memory file
+      operationId: writeMemory
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [data]
+              properties:
+                data:
+                  type: string
+                  format: binary
+                  description: Markdown body to persist as project memory
+      responses:
+        '200':
+          description: Updated
+        '201':
+          description: Created
+    delete:
+      tags: [Memory]
+      summary: Clear the project memory file
+      operationId: deleteMemory
+      responses:
+        '200':
+          description: Deleted
+        '404':
+          description: File did not exist
   /list/{org}/{site}/.da/skills:
     parameters:
       - $ref: '#/components/parameters/Org'
@@ -258,8 +310,6 @@ components:
           $ref: '#/components/schemas/McpServersSheet'
         agents:
           $ref: '#/components/schemas/AgentsSheet'
-        generated-tools:
-          $ref: '#/components/schemas/GeneratedToolsSheet'
         tool-overrides:
           $ref: '#/components/schemas/ToolOverridesSheet'
       additionalProperties:
@@ -271,7 +321,7 @@ components:
           - type: object
           - type: 'null'
       examples:
-        - ':names': [skills, prompts, mcp-servers, agents, generated-tools, tool-overrides]
+        - ':names': [skills, prompts, mcp-servers, agents, tool-overrides]
           ':type': multi-sheet
           skills:
             total: 1
@@ -279,7 +329,7 @@ components:
             offset: 0
             data:
               - key: accessibility-audit
-                content: "---\nname: Accessibility Audit\ndescription: Review page accessibility compliance.\nstatus: approved\n---\n\n# Accessibility Audit\n\nUse this skill to review page accessibility."
+                content: "---\nname: accessibility-audit\ndescription: Review page accessibility compliance.\nstatus: approved\n---\n\n# Accessibility Audit\n\nUse this skill to review page accessibility."
                 status: approved
           prompts:
             total: 1
@@ -310,13 +360,6 @@ components:
             data:
               - key: remote-review-agent
                 url: https://agents.example.com/review
-          generated-tools:
-            total: 1
-            limit: 1000
-            offset: 0
-            data:
-              - key: readability-score
-                content: '{"id":"readability-score","name":"Readability Scorer","status":"approved","enabled":true,"capability":"web-worker","inputSchema":{"type":"object"},"implementation":{"type":"web-worker","entry":"readability-score"}}'
           tool-overrides:
             total: 1
             limit: 1000
@@ -378,15 +421,6 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/AgentConfigRow'
-    GeneratedToolsSheet:
-      allOf:
-        - $ref: '#/components/schemas/SheetEnvelope'
-        - type: object
-          properties:
-            data:
-              type: array
-              items:
-                $ref: '#/components/schemas/GeneratedToolSheetRow'
     ToolOverridesSheet:
       allOf:
         - $ref: '#/components/schemas/SheetEnvelope'
@@ -416,16 +450,25 @@ components:
           properties:
             key:
               type: string
-              description: Skill id without `.md`
+              description: Skill id without `.md` — used as the filename stem and tool name.
             content:
               type: string
-              description: Markdown body mirrored into config
+              description: |
+                Full markdown body mirrored into the config sheet.
+                Must include a YAML frontmatter block with at minimum:
+                  - `name`: lowercase alphanumeric + hyphens, max 64 chars, no XML reserved words
+                  - `description`: non-empty, max 1024 chars
+                The editor auto-injects minimal frontmatter on save if absent.
             id:
               type: string
             value:
               type: string
             body:
               type: string
+          example:
+            key: accessibility-audit
+            content: "---\nname: accessibility-audit\ndescription: Review page accessibility compliance.\nstatus: approved\n---\n\n# Accessibility Audit\n\nUse this skill to review page accessibility."
+            status: approved
     PromptRow:
       allOf:
         - $ref: '#/components/schemas/RowState'
@@ -459,8 +502,10 @@ components:
               type: string
             authHeaderName:
               type: string
+              description: Name of the auth header sent to this MCP server (e.g. `Authorization`).
             authHeaderValue:
               type: string
+              description: Value of the auth header. Stored in the config sheet; treat as sensitive.
     AgentConfigRow:
       type: object
       required: [key]
@@ -486,119 +531,6 @@ components:
           type: string
         enabled:
           type: boolean
-    GeneratedToolSheetRow:
-      type: object
-      required: [key, content]
-      properties:
-        key:
-          type: string
-        content:
-          type: string
-          description: JSON-serialized `GeneratedToolDef`
-        value:
-          oneOf:
-            - type: string
-            - $ref: '#/components/schemas/GeneratedToolDef'
-        body:
-          oneOf:
-            - type: string
-            - $ref: '#/components/schemas/GeneratedToolDef'
-    GeneratedToolDef:
-      type: object
-      required:
-        - id
-        - name
-        - description
-        - status
-        - capability
-        - inputSchema
-        - implementation
-        - createdBy
-        - createdAt
-      properties:
-        id:
-          type: string
-        name:
-          type: string
-        description:
-          type: string
-        status:
-          $ref: '#/components/schemas/Status'
-        enabled:
-          type: boolean
-          default: true
-        capability:
-          type: string
-          examples: [web-worker]
-        tags:
-          type: array
-          items:
-            type: string
-        examplePrompts:
-          type: array
-          items:
-            type: string
-        inputSchema:
-          $ref: '#/components/schemas/JsonSchemaObject'
-        implementation:
-          $ref: '#/components/schemas/GeneratedToolImplementation'
-        createdBy:
-          type: string
-          examples: [model, developer]
-        createdAt:
-          type: string
-          format: date-time
-        approvedBy:
-          oneOf:
-            - type: string
-            - type: 'null'
-        approvedAt:
-          oneOf:
-            - type: string
-              format: date-time
-            - type: 'null'
-        promotedToSkill:
-          oneOf:
-            - type: string
-            - type: 'null'
-      example:
-        id: readability-score
-        name: Readability Scorer
-        description: Computes a readability score for page content.
-        status: approved
-        enabled: true
-        capability: web-worker
-        tags: [readability, content quality]
-        examplePrompts:
-          - check readability of this page
-        inputSchema:
-          type: object
-          properties:
-            html:
-              type: string
-          required: [html]
-        implementation:
-          type: web-worker
-          entry: readability-score
-        createdBy: model
-        createdAt: '2026-04-14T00:00:00.000Z'
-        approvedBy: user
-        approvedAt: '2026-04-28T09:15:00.000Z'
-        promotedToSkill: null
-    GeneratedToolImplementation:
-      type: object
-      required: [type]
-      properties:
-        type:
-          type: string
-          examples: [web-worker]
-        entry:
-          type: string
-      additionalProperties: true
-    JsonSchemaObject:
-      type: object
-      description: JSON Schema fragment stored with a generated tool definition.
-      additionalProperties: true
     AgentPresetFile:
       type: object
       required: [name, description, systemPrompt, skills, mcpServers]
@@ -645,7 +577,7 @@ components:
             type: object
             additionalProperties:
               type: string
-          description: Optional per-server auth headers
+          description: Optional per-server auth headers forwarded from `McpServerRow.authHeaderName/Value`
       example:
         servers:
           content-audit: https://mcp.example.com/sse
@@ -680,6 +612,10 @@ components:
           type: string
         inputSchema:
           $ref: '#/components/schemas/JsonSchemaObject'
+    JsonSchemaObject:
+      type: object
+      description: JSON Schema fragment describing a tool's input parameters.
+      additionalProperties: true
     SourceListItem:
       type: object
       properties:
