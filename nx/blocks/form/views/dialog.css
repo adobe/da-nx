@@ -1,0 +1,38 @@
+.da-form-dialog {
+  padding: 0;
+  border: none;
+  border-radius: 16px;
+  box-shadow:
+    0 0 6px 0 rgb(0 0 0 / 24%),
+    0 3px 20px 0 rgb(0 0 0 / 16%),
+    0 4px 20px 0 rgb(0 0 0 / 24%);
+}
+
+.da-form-dialog::backdrop {
+  background-color: rgb(0 0 0 / 60%);
+}
+
+.da-form-dialog-inner {
+  padding: 18px 20px 20px;
+  width: min(480px, 90vw);
+  box-sizing: border-box;
+  max-height: 85vh;
+  overflow: auto;
+  background: var(--sl-color-neutral-0, #fff);
+}
+
+.da-form-dialog-title {
+  margin: 0;
+  line-height: 1;
+  font-weight: 700;
+  font-size: var(--sl-font-size-large, 1.125rem);
+  padding: 0 0 20px;
+}
+
+hr {
+  margin: 0 0 20px;
+}
+
+.da-form-dialog-content {
+  padding: 0 0 20px;
+}

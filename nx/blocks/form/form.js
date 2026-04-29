@@ -14,6 +14,7 @@ import 'https://da.live/blocks/edit/da-title/da-title.js';
 import './views/editor.js';
 import './views/sidebar.js';
 import './views/preview.js';
+import './views/dialog.js';
 
 // External Web Components
 await import('../../public/sl/components.js');
@@ -31,6 +32,7 @@ class FormEditor extends LitElement {
     details: { attribute: false },
     formModel: { state: true },
     _schemas: { state: true },
+    _isUnstructuredDoc: { state: true },
     _activeNavPointer: { state: true },
     _scrollEditorIntoView: { state: true },
     _scrollNavItemIntoView: { state: true },
@@ -39,6 +41,7 @@ class FormEditor extends LitElement {
 
   constructor() {
     super();
+    this._isUnstructuredDoc = false;
     this._pendingSchemaId = '';
   }
 
@@ -49,6 +52,16 @@ class FormEditor extends LitElement {
   }
 
   async fetchDoc() {
+    if (this.details?.depth <= 2) {
+      this._isUnstructuredDoc = true;
+      this.formModel = null;
+      this._pendingSchemaId = '';
+      this._activeNavPointer = undefined;
+      this._scrollEditorIntoView = undefined;
+      this._scrollNavItemIntoView = undefined;
+      return;
+    }
+
     const resultPromise = loadHtml(this.details);
 
     const [schemas, result] = await Promise.all([schemasPromise, resultPromise]);
@@ -56,6 +69,7 @@ class FormEditor extends LitElement {
     if (schemas) this._schemas = schemas;
 
     if (!result.html) {
+      this._isUnstructuredDoc = false;
       this.formModel = null;
       this._pendingSchemaId = '';
       this._activeNavPointer = undefined;
@@ -65,10 +79,24 @@ class FormEditor extends LitElement {
     }
 
     const path = this.details.fullpath;
+    const model = new FormModel({ path, html: result.html, schemas });
+    const metadata = JSON.parse(model.getSerializedJson()).metadata ?? {};
+
+    if (Object.keys(metadata).length === 0) {
+      this._isUnstructuredDoc = true;
+      this.formModel = null;
+      this._pendingSchemaId = '';
+      this._activeNavPointer = undefined;
+      this._scrollEditorIntoView = undefined;
+      this._scrollNavItemIntoView = undefined;
+      return;
+    }
+
+    this._isUnstructuredDoc = false;
     this._activeNavPointer = undefined;
     this._scrollEditorIntoView = undefined;
     this._scrollNavItemIntoView = undefined;
-    this.formModel = new FormModel({ path, html: result.html, schemas });
+    this.formModel = model;
   }
 
   _onPendingSchemaChange(e) {
@@ -93,7 +121,13 @@ class FormEditor extends LitElement {
   }
 
   _confirmSchemaStart() {
+    this.renderRoot.querySelector('da-form-dialog')?.close();
     this._applySelectedSchema(this._pendingSchemaId);
+  }
+
+  _goToRepoRoot() {
+    const query = window.location.search ?? '';
+    window.location.href = `https://da.live${query}#/${this.details.owner}/${this.details.repo}`;
   }
 
   get schemaEditorHref() {
@@ -181,8 +215,7 @@ class FormEditor extends LitElement {
     const emptyLabel = hasSchemas ? 'Select a schema' : 'No schemas available yet';
 
     return html`
-      <div class="da-form-schema-panel">
-        <h2 class="da-form-schema-heading">Choose a schema</h2>
+      <da-form-dialog title="Choose a schema">
         <div class="da-form-schema-form">
           <sl-select
             hoist
@@ -198,7 +231,7 @@ class FormEditor extends LitElement {
             `)}
           </sl-select>
           <p class="da-form-schema-hint">
-            Need a new schema? Create one in
+            To create a new schema, open
             <a href=${this.schemaEditorHref} target="_blank" rel="noopener noreferrer">Schema Editor</a>.
           </p>
           <div class="da-form-schema-actions">
@@ -206,31 +239,49 @@ class FormEditor extends LitElement {
               class="da-form-schema-start"
               ?disabled=${!this._pendingSchemaId}
               @click=${this._confirmSchemaStart}
-            >Start</sl-button>
+            >Create</sl-button>
           </div>
         </div>
-      </div>`;
+      </da-form-dialog>`;
+  }
+
+  renderUnstructuredDialog() {
+    const message = 'The item at this path is not a structured content.';
+
+    return html`
+      <da-form-dialog title="Document not found">
+        <p class="da-form-schema-hint">
+          ${message}
+        </p>
+        <div class="da-form-schema-actions">
+          <sl-button class="da-form-schema-start" title="" @click=${this._goToRepoRoot}>Return to Home</sl-button>
+        </div>
+      </da-form-dialog>`;
   }
 
   renderFormEditor() {
+    if (this._isUnstructuredDoc) {
+      return this.renderUnstructuredDialog();
+    }
+
+    if (this.formModel === null) {
+      return this.renderSchemaSelector();
+    }
+
     return html`
       <div class="da-form-editor">
-        ${this.formModel === null
-        ? this.renderSchemaSelector()
-        : html`
-            <da-form-editor
-              @update=${this.handleUpdate}
-              @add-item=${this.handleAddItem}
-              @insert-item=${this.handleInsertItem}
-              @remove-item=${this.handleRemoveItem}
-              @move-array-item=${this.handleMoveArrayItem}
-              @nav-pointer-select=${this._handleNavPointerSelectFromEditor}
-              .formModel=${this.formModel}
-              .activeNavPointer=${this._activeNavPointer}
-              .scrollEditorIntoView=${this._scrollEditorIntoView}
-            ></da-form-editor>
-            <da-form-preview .formModel=${this.formModel}></da-form-preview>
-          `}
+        <da-form-editor
+          @update=${this.handleUpdate}
+          @add-item=${this.handleAddItem}
+          @insert-item=${this.handleInsertItem}
+          @remove-item=${this.handleRemoveItem}
+          @move-array-item=${this.handleMoveArrayItem}
+          @nav-pointer-select=${this._handleNavPointerSelectFromEditor}
+          .formModel=${this.formModel}
+          .activeNavPointer=${this._activeNavPointer}
+          .scrollEditorIntoView=${this._scrollEditorIntoView}
+        ></da-form-editor>
+        <da-form-preview .formModel=${this.formModel}></da-form-preview>
       </div>`;
   }
 
