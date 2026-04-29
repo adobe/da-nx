@@ -1,0 +1,325 @@
+/* ─── list header (sticky so tabs stay visible while list scrolls) ──────────── */
+
+.list-header {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: light-dark(var(--s2-gray-25), var(--s2-gray-75));
+  border-bottom: 1px solid var(--s2-gray-200);
+  display: flex;
+  flex-direction: column;
+}
+
+.list-actions-row {
+  display: flex;
+  align-items: center;
+  padding: var(--s2-spacing-75) var(--s2-spacing-200);
+  min-height: 36px;
+}
+
+.new-btn {
+  padding: var(--s2-spacing-50) var(--s2-spacing-150, var(--s2-spacing-100));
+  border: 1px dashed var(--s2-gray-400);
+  border-radius: var(--s2-corner-radius-200);
+  background: none;
+  color: var(--s2-gray-600);
+  font-family: inherit;
+  font-size: var(--s2-body-size-xs);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.new-btn:hover {
+  border-color: var(--s2-blue-900);
+  color: var(--s2-blue-900);
+  background: light-dark(var(--s2-blue-100), color-mix(in srgb, var(--s2-blue-900) 10%, transparent));
+}
+
+/* ─── list search ─────────────────────────────────────────────────────────────── */
+
+.list-search {
+  padding: var(--s2-spacing-100) var(--s2-spacing-200);
+  border-bottom: 1px solid var(--s2-gray-200);
+  background: light-dark(var(--s2-gray-50), var(--s2-gray-75));
+}
+
+.list-search input {
+  width: 100%;
+  padding: var(--s2-spacing-75) var(--s2-spacing-100);
+  border: 1px solid var(--s2-gray-300);
+  border-radius: var(--s2-corner-radius-200);
+  background: light-dark(var(--s2-gray-25), var(--s2-gray-100));
+  color: var(--s2-gray-900);
+  font-family: inherit;
+  font-size: var(--s2-body-size-xs);
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.list-search input:focus { border-color: var(--s2-blue-900); }
+
+/* ─── catalog scroll + toolbar ────────────────────────────────────────────────── */
+
+.catalog-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2-spacing-50);
+  padding: var(--s2-spacing-100) var(--s2-spacing-200) var(--s2-spacing-200);
+}
+
+.catalog-toolbar {
+  display: flex;
+  gap: var(--s2-spacing-75);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  padding: var(--s2-spacing-100) 0 var(--s2-spacing-50);
+}
+
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--s2-spacing-100);
+  border: 1px solid var(--s2-gray-300);
+  border-radius: var(--s2-corner-radius-200);
+  background: none;
+  color: var(--s2-gray-700);
+  font-family: inherit;
+  font-size: var(--s2-body-size-xs);
+  cursor: pointer;
+  outline: none;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.filter-chip:hover { background: var(--s2-gray-100); }
+
+.filter-chip.is-active {
+  background: var(--s2-blue-100);
+  border-color: var(--s2-blue-900);
+  color: var(--s2-blue-900);
+}
+
+/* ─── prompt rows ─────────────────────────────────────────────────────────────── */
+
+.prompt-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s2-spacing-100);
+  padding: var(--s2-spacing-100);
+  border-radius: var(--s2-corner-radius-200);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.prompt-row:hover { background: var(--s2-gray-100); }
+
+.prompt-row.is-selected {
+  background: light-dark(var(--s2-blue-100), color-mix(in srgb, var(--s2-blue-900) 20%, transparent));
+}
+
+.prompt-row-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2-spacing-50);
+  flex: 1;
+  min-width: 0;
+}
+
+.prompt-row-title {
+  font-size: var(--s2-body-size-s);
+  color: var(--s2-gray-900);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.prompt-row-actions {
+  display: flex;
+  gap: var(--s2-spacing-50);
+  flex-shrink: 0;
+}
+
+.row-action-btn {
+  width: 1.5rem;
+  height: 1.5rem;
+  color: var(--s2-gray-600);
+  font-size: 0.85rem;
+}
+
+.row-action-btn-delete { color: var(--s2-red-700); }
+
+/* ─── category badges ─────────────────────────────────────────────────────────── */
+
+.category-badge {
+  display: inline-block;
+  align-self: flex-start;
+  padding: 1px var(--s2-spacing-75);
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.cat-review {
+  background: var(--s2-blue-100);
+  color: var(--s2-blue-900);
+}
+
+.cat-workflow {
+  background: var(--s2-green-100);
+  color: var(--s2-green-900);
+}
+
+.cat-style {
+  background: var(--local-purple-bg);
+  color: var(--local-purple-fg);
+}
+
+.cat-content {
+  background: var(--local-orange-bg);
+  color: var(--local-orange-fg);
+}
+
+.cat-default {
+  background: var(--s2-gray-100);
+  color: var(--s2-gray-700);
+}
+
+/* ─── section headings (shared by catalog and tools selector) ─────────────────── */
+
+.section-h,
+.tools-selector-heading {
+  font-size: var(--s2-body-size-xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--s2-gray-700);
+}
+
+.section-h { margin: var(--s2-spacing-200) 0 var(--s2-spacing-100); }
+.tools-selector-heading { margin: 0; }
+
+/* ─── agent / skill cards ─────────────────────────────────────────────────────── */
+
+.agent-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2-spacing-75);
+  padding: var(--s2-spacing-100);
+  border: 1px solid var(--s2-gray-200);
+  border-radius: var(--s2-corner-radius-200);
+  background: light-dark(var(--s2-gray-25), var(--s2-gray-50));
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.agent-card:focus-visible,
+[data-testid="skill-card"]:focus-visible,
+.prompt-row[role="button"]:focus-visible,
+[data-testid="mcp-builtin-card"]:focus-visible,
+[data-testid="mcp-card"]:focus-visible {
+  outline: 2px solid var(--s2-blue-900);
+  outline-offset: 2px;
+}
+
+.agent-card:hover {
+  border-color: var(--s2-gray-400);
+  background: light-dark(var(--s2-gray-50), var(--s2-gray-75));
+}
+
+.agent-card-header {
+  display: flex;
+  align-items: center;
+  gap: var(--s2-spacing-100);
+}
+
+.agent-card-title {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--s2-body-size-s);
+  font-weight: var(--s2-heading-font-weight);
+  color: var(--s2-gray-900);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agent-card-desc {
+  margin: 0;
+  font-size: var(--s2-body-size-xs);
+  color: var(--s2-gray-700);
+  line-height: 1.4;
+}
+
+.agent-card-footer {
+  padding-top: var(--s2-spacing-50);
+  border-top: 1px solid var(--s2-gray-200);
+}
+
+.agent-tools-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2-spacing-50);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.agent-tool-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px var(--s2-spacing-100);
+  border-radius: 999px;
+  background: light-dark(var(--s2-blue-100), color-mix(in srgb, var(--s2-blue-900) 25%, transparent));
+  color: var(--s2-blue-900);
+  font-size: 10px;
+  font-weight: 600;
+  font-family: monospace;
+}
+
+/* ─── card more button ────────────────────────────────────────────────────────── */
+
+.more-btn {
+  width: 1.5rem;
+  height: 1.5rem;
+  color: var(--s2-gray-700);
+  font-size: 1rem;
+}
+
+/* ─── card menu ───────────────────────────────────────────────────────────────── */
+
+/*
+ * .card-menu button has lower specificity than .editor-actions button variants
+ * but targets an entirely different component — the ordering lint is a false
+ * positive for unrelated selectors that share the "button" tag.
+ */
+
+.card-menu {
+  display: flex;
+  flex-direction: column;
+  min-width: 130px;
+  padding: var(--s2-spacing-50);
+}
+
+/* stylelint-disable-next-line no-descending-specificity */
+.card-menu button {
+  display: block;
+  width: 100%;
+  padding: var(--s2-spacing-50) var(--s2-spacing-100);
+  border: none;
+  background: transparent;
+  color: var(--s2-gray-900);
+  font-family: inherit;
+  font-size: var(--s2-body-size-xs);
+  text-align: left;
+  border-radius: var(--s2-corner-radius-200);
+  cursor: pointer;
+  transition: background 0.1s;
+}
+
+.card-menu button:hover           { background: var(--s2-gray-100); }
+.card-menu .card-menu-delete      { color: var(--s2-red-900); }
+.card-menu .card-menu-delete:hover { background: var(--s2-red-100); }

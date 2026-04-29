@@ -1,0 +1,242 @@
+/* ─── editor panel (inside .col-editor-inner flex column) ──────────────────── */
+
+.editor-header {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--s2-spacing-100) var(--s2-spacing-200);
+  border-bottom: 1px solid var(--s2-gray-200);
+  min-height: 48px;
+  background: light-dark(var(--s2-gray-25), var(--s2-gray-50));
+}
+
+.dirty-notice {
+  flex-shrink: 0;
+  padding: var(--s2-spacing-50) var(--s2-spacing-200);
+  background: light-dark(#fffbeb, color-mix(in srgb, #d97706 18%, transparent));
+  color: light-dark(#78350f, #fbbf24);
+  font-size: var(--s2-body-size-xs);
+  text-align: center;
+  border-bottom: 1px solid light-dark(#fde68a, color-mix(in srgb, #d97706 30%, transparent));
+}
+
+.editor-title {
+  margin: 0;
+  font-size: var(--s2-body-size-m);
+  font-weight: var(--s2-heading-font-weight);
+  color: var(--s2-gray-900);
+}
+
+.close-btn {
+  width: 1.75rem;
+  height: 1.75rem;
+  color: var(--s2-gray-700);
+  font-size: 1rem;
+}
+
+/* Scrollable content region — flex: 1 fills the space between header and footer */
+.editor-body {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden auto;
+  padding: var(--s2-spacing-200);
+}
+
+/* Memory tab: push content to the bottom so the most-recent text is visible first */
+.editor-body-memory {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+/* Sticky action bar pinned to the bottom of the drawer */
+.editor-footer {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2-spacing-75);
+  padding: var(--s2-spacing-150) var(--s2-spacing-200);
+  border-top: 1px solid var(--s2-gray-200);
+  background: light-dark(var(--s2-gray-25), var(--s2-gray-50));
+}
+
+/* ─── form ────────────────────────────────────────────────────────────────────── */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2-spacing-200);
+}
+
+.form input:not([type="checkbox"]),
+.form textarea {
+  width: 100%;
+  padding: var(--s2-spacing-100);
+  border: 1px solid var(--s2-gray-300);
+  border-radius: var(--s2-corner-radius-200);
+  background: light-dark(var(--s2-gray-25), var(--s2-gray-75));
+  color: var(--s2-gray-900);
+  font-family: inherit;
+  font-size: var(--s2-body-size-s);
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.form textarea {
+  min-height: 240px;
+  resize: vertical;
+  font-family: monospace;
+  font-size: var(--s2-body-size-xs);
+  line-height: 1.5;
+}
+
+.form textarea.textarea-sm { min-height: 80px; }
+
+.textarea-wrap {
+  display: flex;
+  flex-direction: column;
+}
+
+.is-suggestion {
+  position: relative;
+  border-radius: var(--s2-corner-radius-200);
+  padding: 2px;
+  background: conic-gradient(
+    from var(--suggestion-angle),
+    var(--s2-blue-400), var(--s2-blue-900), var(--s2-blue-400)
+  );
+  animation: suggestion-rotate 2s linear infinite;
+}
+
+.is-suggestion > textarea { border-radius: calc(var(--s2-corner-radius-200) - 2px); }
+
+.form input:not([type="checkbox"]):focus,
+.form textarea:focus {
+  border-color: var(--s2-blue-900);
+}
+
+.form input[readonly]:not([type="checkbox"]) {
+  opacity: 0.7;
+  cursor: default;
+}
+
+/* ─── editor actions ──────────────────────────────────────────────────────────── */
+
+.editor-actions {
+  display: flex;
+  gap: var(--s2-spacing-100);
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.editor-actions button {
+  padding: var(--s2-spacing-75) var(--s2-spacing-200);
+  border: 1px solid transparent;
+  border-radius: var(--s2-corner-radius-200);
+  font-family: inherit;
+  font-size: var(--s2-body-size-s);
+  font-weight: var(--s2-heading-font-weight);
+  cursor: pointer;
+  outline: none;
+  transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+}
+
+.editor-actions button:focus-visible {
+  outline: 2px solid var(--s2-blue-900);
+  outline-offset: 2px;
+}
+
+.editor-actions button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.editor-actions button[data-variant="accent"] {
+  background: var(--s2-blue-900);
+  color: #fff;
+}
+
+.editor-actions button[data-variant="accent"]:hover:not(:disabled) {
+  background: var(--s2-blue-1000);
+}
+
+.editor-actions button[data-variant="secondary"] {
+  background: var(--s2-gray-200);
+  color: var(--s2-gray-900);
+}
+
+.editor-actions button[data-variant="secondary"]:hover:not(:disabled) {
+  background: var(--s2-gray-300);
+}
+
+.editor-actions button[data-variant="negative"] {
+  background: var(--s2-red-900);
+  color: #fff;
+}
+
+.editor-actions button[data-variant="negative"]:hover:not(:disabled) {
+  background: var(--s2-red-1000);
+}
+
+/* ─── status messages ───────────────────────────────────────────────────────── */
+
+.msg {
+  font-size: var(--s2-body-size-xs);
+  padding: var(--s2-spacing-50) 0;
+}
+
+.msg-ok  { color: var(--s2-green-900); }
+.msg-warn { color: var(--s2-orange-900, #c2410c); }
+.msg-err  { color: var(--s2-red-900); }
+
+/* ─── status dot ─────────────────────────────────────────────────────────────── */
+
+.status-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-dot-approved { background: var(--s2-green-700); }
+.status-dot-draft    { background: var(--s2-gray-400); }
+
+/* ─── namespace badge ────────────────────────────────────────────────────────── */
+
+.badge {
+  display: inline-block;
+  padding: 2px var(--s2-spacing-100);
+  border-radius: 999px;
+  background: var(--s2-blue-600);
+  border: 1px solid var(--s2-blue-900);
+  color: var(--s2-blue-1200);
+  font-size: 10px;
+  font-weight: var(--s2-heading-font-weight);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  line-height: 1.2;
+}
+
+/* ─── form hints ──────────────────────────────────────────────────────────────── */
+
+.form-hint {
+  font-size: var(--s2-body-size-xs);
+  color: var(--s2-gray-600);
+  margin: 0;
+}
+
+/* ─── chat suggestion animation ──────────────────────────────────────────────── */
+
+@property --suggestion-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes suggestion-rotate {
+  to { --suggestion-angle: 360deg; }
+}

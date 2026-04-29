@@ -1,0 +1,250 @@
+/* ─── tools selector ──────────────────────────────────────────────────────────── */
+
+.tools-selector,
+.mcp-tools-section {
+  border-top: 1px solid var(--s2-gray-200);
+  padding-top: var(--s2-spacing-200);
+  margin-top: var(--s2-spacing-100);
+}
+
+.tools-selector {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2-spacing-100);
+}
+
+.tools-search-input {
+  width: 100%;
+  padding: var(--s2-spacing-75) var(--s2-spacing-100);
+  border: 1px solid var(--s2-gray-300);
+  border-radius: var(--s2-corner-radius-200);
+  background: light-dark(var(--s2-gray-25), var(--s2-gray-75));
+  color: var(--s2-gray-900);
+  font-family: inherit;
+  font-size: var(--s2-body-size-xs);
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.tools-search-input:focus { border-color: var(--s2-blue-900); }
+
+/* ─── tool namespace group (collapsible) ──────────────────────────────────────── */
+
+.tools-group {
+  border: 1px solid var(--s2-gray-200);
+  border-radius: var(--s2-corner-radius-200);
+  overflow: hidden;
+}
+
+.tools-group-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--s2-spacing-100);
+  padding: var(--s2-spacing-75) var(--s2-spacing-100);
+  cursor: pointer;
+  user-select: none;
+  background: light-dark(var(--s2-gray-50), var(--s2-gray-75));
+  list-style: none;
+  transition: background 0.1s;
+}
+
+.tools-group-summary:hover          { background: light-dark(var(--s2-gray-100), var(--s2-gray-200)); }
+.tools-group-summary::-webkit-details-marker { display: none; }
+
+.tools-group-label {
+  flex: 1;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--s2-gray-800);
+}
+
+.tools-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  padding: 0 4px;
+  height: 16px;
+  border-radius: 999px;
+  background: var(--s2-gray-200);
+  color: var(--s2-gray-700);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.tools-group-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: var(--s2-spacing-50) 0;
+  list-style: none;
+}
+
+/* ─── individual tool items ───────────────────────────────────────────────────── */
+
+.tool-item {
+  display: flex;
+  align-items: center;
+  gap: var(--s2-spacing-75);
+  padding: var(--s2-spacing-50) var(--s2-spacing-100);
+  min-width: 0;
+  transition: background 0.1s;
+}
+
+.tool-item:hover    { background: light-dark(var(--s2-gray-50), var(--s2-gray-100)); }
+.tool-item.is-active { background: light-dark(var(--s2-blue-100), color-mix(in srgb, var(--s2-blue-900) 12%, transparent)); }
+
+.tool-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.is-dot-active   { background: var(--s2-green-700); }
+.is-dot-inactive { background: var(--s2-gray-300); }
+
+.tool-label-wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--s2-spacing-75);
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.tool-checkbox {
+  flex-shrink: 0;
+  accent-color: var(--s2-blue-900);
+  cursor: pointer;
+}
+
+.tool-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--s2-body-size-xs);
+  font-family: monospace;
+  color: var(--s2-gray-800);
+}
+
+.tool-item-empty {
+  padding: var(--s2-spacing-100);
+  font-size: var(--s2-body-size-xs);
+  color: var(--s2-gray-600);
+  font-style: italic;
+}
+
+.tool-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  flex: 1;
+  min-width: 0;
+}
+
+.tool-desc {
+  font-size: 11px;
+  color: var(--s2-gray-600);
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tool-item.is-active .tool-desc { color: var(--s2-gray-700); }
+
+/* ─── MCP tools section ──────────────────────────────────────────────────────── */
+
+.mcp-tools-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2-spacing-100);
+}
+
+.mcp-tools-section > .tools-group-list {
+  border: 1px solid var(--s2-gray-200);
+  border-radius: var(--s2-corner-radius-200);
+  max-height: 480px;
+  overflow-y: auto;
+}
+
+.mcp-tools-section .empty-err { color: var(--s2-red-700); }
+
+/* ─── MCP server info (read-only built-in view) ─────────────────────────────── */
+
+.mcp-server-info {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s2-spacing-100);
+  padding: var(--s2-spacing-100) 0;
+}
+
+.mcp-server-desc {
+  flex: 1;
+  margin: 0;
+  font-size: var(--s2-body-size-s);
+  color: var(--s2-gray-700);
+  line-height: 1.4;
+}
+
+/* ─── MCP error hints ────────────────────────────────────────────────────────── */
+
+.mcp-error-hint {
+  display: block;
+  margin-top: var(--s2-spacing-50);
+  font-size: var(--s2-body-size-xs);
+  color: var(--s2-gray-700);
+}
+
+.mcp-error-url {
+  color: var(--s2-blue-900);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.mcp-error-url:hover { color: var(--s2-blue-1000, var(--s2-blue-900)); }
+
+/* ─── MCP auth section ────────────────────────────────────────────────────────── */
+
+.mcp-auth-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2-spacing-100);
+  padding: var(--s2-spacing-100);
+  border: 1px solid var(--s2-gray-200);
+  border-radius: var(--s2-corner-radius-200);
+  background: light-dark(var(--s2-gray-25), var(--s2-gray-75));
+}
+
+.mcp-auth-section.is-sensitive {
+  border-color: var(--s2-yellow-600);
+  background: color-mix(in srgb, var(--s2-yellow-300) 16%, transparent);
+}
+
+.mcp-auth-warning {
+  margin: 0;
+  font-size: var(--s2-body-size-xs);
+  line-height: 1.4;
+  color: var(--s2-yellow-900);
+}
+
+/* ─── memory content ──────────────────────────────────────────────────────────── */
+
+.memory-content {
+  margin: 0;
+  padding: var(--s2-spacing-100);
+  border: 1px solid var(--s2-gray-200);
+  border-radius: var(--s2-corner-radius-200);
+  background: light-dark(var(--s2-gray-75), var(--s2-gray-200));
+  font-family: var(--s2-font-family);
+  font-size: var(--s2-body-size-s);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  line-height: 1.6;
+  color: var(--s2-gray-800);
+}

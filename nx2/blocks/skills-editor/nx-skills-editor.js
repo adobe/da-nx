@@ -51,7 +51,12 @@ import {
 } from './renderers.js';
 import { ensureSkillFrontmatter } from '../../utils/skill-frontmatter.js';
 
-const styles = await loadStyle(import.meta.url);
+const [styles, catalogStyles, editorStyles, toolsStyles] = await Promise.all([
+  loadStyle(import.meta.url),
+  loadStyle(new URL('./catalog.css', import.meta.url).href),
+  loadStyle(new URL('./editor-panel.css', import.meta.url).href),
+  loadStyle(new URL('./tools.css', import.meta.url).href),
+]);
 
 class NxSkillsEditor extends LitElement {
   static properties = {
@@ -169,7 +174,7 @@ class NxSkillsEditor extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [styles];
+    this.shadowRoot.adoptedStyleSheets = [styles, catalogStyles, editorStyles, toolsStyles];
     window.addEventListener(DA_SKILLS_EDITOR_SUGGESTION_HANDOFF, this._onSuggestionHandler);
     window.addEventListener(DA_SKILLS_LAB_SUGGESTION_HANDOFF, this._onSuggestionHandler);
     window.addEventListener(DA_SKILLS_EDITOR_CLEAR_FORM_FROM_CHAT, this._onClearFormHandler);
