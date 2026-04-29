@@ -6,6 +6,7 @@ import {
   NX_QUICK_EDIT_IFRAME_SELECTION_META,
   NX_QUICK_EDIT_CLEAR_IFRAME_SELECTION_ORIGIN_META,
 } from '../../editor-utils/selection-toolbar.js';
+import { editorSelectChange } from '../../editor-utils/document.js';
 import { getActiveBlockFlatIndex } from './blocks.js';
 
 export function handleCursorMove({ cursorOffset, textCursorOffset }, ctx) {
@@ -59,7 +60,11 @@ export function handleCursorMove({ cursorOffset, textCursorOffset }, ctx) {
     ctx.suppressRerender = true;
     view.dispatch(tr.scrollIntoView());
     ctx.suppressRerender = false;
-    ctx.onActiveBlockChange?.(getActiveBlockFlatIndex(view));
+    const blockFlatIndex = getActiveBlockFlatIndex(view);
+    if (blockFlatIndex !== ctx.lastBlockFlatIndex) {
+      ctx.lastBlockFlatIndex = blockFlatIndex;
+      editorSelectChange.emit({ blockFlatIndex, source: 'wysiwyg' });
+    }
   } catch (error) {
     // eslint-disable-next-line no-console
     console.error('Error moving cursor:', error);

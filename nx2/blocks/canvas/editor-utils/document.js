@@ -113,10 +113,40 @@ export function getInstrumentedHTML(view) {
   return htmlString;
 }
 
+// State observable — replays last value on subscribe. See docs/canvas-events.md.
+export const editorHtmlChange = (() => {
+  const listeners = new Set();
+  let currentHtml = '';
+  return {
+    emit(html) {
+      currentHtml = html;
+      listeners.forEach((fn) => fn(html));
+    },
+    subscribe(fn) {
+      listeners.add(fn);
+      if (currentHtml) fn(currentHtml);
+      return () => listeners.delete(fn);
+    },
+  };
+})();
+
+// Event observable — no replay on subscribe. See docs/canvas-events.md.
+export const editorSelectChange = (() => {
+  const listeners = new Set();
+  return {
+    emit(detail) { listeners.forEach((fn) => fn(detail)); },
+    subscribe(fn) {
+      listeners.add(fn);
+      return () => listeners.delete(fn);
+    },
+  };
+})();
+
 export function updateDocument(ctx) {
-  if (ctx.suppressRerender) return;
+  if (ctx.suppressRerender) return undefined;
   const body = getInstrumentedHTML(ctx.view);
   ctx.port.postMessage({ type: 'set-body', body });
+  return body;
 }
 
 export function updateCursors(ctx) {

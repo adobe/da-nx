@@ -380,16 +380,15 @@ export function getItemPreviewUrl(item, { org, site }) {
 // View facade — canvas.js calls this, nothing else
 // ---------------------------------------------------------------------------
 
-function createEditorPlaceholderView() {
+function createOutlineView() {
   return {
-    id: 'editor-coming-soon',
-    label: 'TODO (eg. page outline)',
+    id: 'outline',
+    label: 'Outline',
     section: 'Editor',
-    firstParty: false,
+    firstParty: true,
     load: async () => {
-      const el = document.createElement('div');
-      el.className = 'nx-tool-panel-editor-placeholder';
-      return el;
+      await import('../nx-page-outline/nx-page-outline.js');
+      return document.createElement('nx-page-outline');
     },
   };
 }
@@ -457,7 +456,7 @@ export async function getCanvasToolPanelViews({ org, site }) {
   const thirdParty = extensions.filter((ext) => !isLibraryExtension(ext));
 
   return [
-    createEditorPlaceholderView(),
+    createOutlineView(),
     ...library.map((ext) => extensionToPanelView(ext, 'Library')),
     ...thirdParty.map((ext) => extensionToPanelView(ext, 'Extensions')),
   ];
