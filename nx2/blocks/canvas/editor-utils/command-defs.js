@@ -217,7 +217,7 @@ export const COMMANDS = [
       const evt = new CustomEvent('nx-canvas-open-panel', {
         bubbles: true,
         composed: true,
-        detail: { position: 'after' },
+        detail: { position: 'after', viewId: 'blocks' },
       });
       document.querySelector('nx-canvas-header')?.dispatchEvent(evt);
     },

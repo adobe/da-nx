@@ -91,10 +91,20 @@ class NxPicker extends LitElement {
       itemKey: 'value',
       shadowRoot: this.shadowRoot,
       setActive: (val) => { this._active = val; },
-      onSelect: (item) => this._select(item),
+      onSelect: (item) => this._handleItemActivated(item),
       onClose: () => this.close(),
       focusActiveItem: !this.ignoreFocus,
     });
+  }
+
+  _handleItemActivated(item) {
+    if (!item) return;
+    if (item.action) {
+      this.close();
+      this.dispatchEvent(new CustomEvent('change', { detail: { value: item.value }, bubbles: true, composed: true }));
+      return;
+    }
+    this._select(item);
   }
 
   _onTriggerKeydown(e) {
@@ -127,11 +137,20 @@ class NxPicker extends LitElement {
           data-value=${item.value}
           class="picker-item ${active ? 'picker-item-active' : ''}"
           type="button"
-          @click=${() => this._select(item)}
+          aria-label=${item.ariaLabel ?? item.label}
+          @click=${() => this._handleItemActivated(item)}
           @mouseenter=${() => { this._active = item.value; }}
           @focus=${() => { this._active = item.value; }}
         >
           <span class="picker-item-label">${item.label}</span>
+          ${item.trailingIcon ? html`
+            <img
+              class="picker-open-in-icon"
+              src=${item.trailingIcon}
+              width="14"
+              height="14"
+              alt=""
+            />` : nothing}
           ${selected ? CHECKMARK : nothing}
         </button>
       </li>

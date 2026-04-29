@@ -21,6 +21,7 @@ import { resolveEditorDocSession } from './utils/load-editor-doc.js';
 import { afterNextPaint, ensureProseMountedInShadow } from './utils/shadow-mount.js';
 import { teardownEditorDocResources } from './utils/teardown.js';
 import { hideSelectionToolbar } from '../editor-utils/selection-toolbar.js';
+import { createExtensionsBridgePlugin } from '../editor-utils/extensions-bridge.js';
 
 const style = await loadStyle(import.meta.url);
 
@@ -171,6 +172,7 @@ export class NxEditorDoc extends LitElement {
         setEditable: (editable) => this._setEditable(editable),
         getToken: () => token,
         extraPlugins: [
+          createExtensionsBridgePlugin(),
           createTrackingPlugin(
             () => { if (this._controllerCtx) updateDocument(this._controllerCtx); },
             () => { if (this._controllerCtx) updateCursors(this._controllerCtx); },
