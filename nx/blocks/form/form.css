@@ -47,7 +47,6 @@ sl-textarea {
     align-self: flex-start;
   }
 
-  /* Schema picker — centered card: title, labeled select, full-width Start */
   .da-form-schema-shell {
     flex: 1 1 700px;
     width: 700px;
@@ -80,6 +79,16 @@ sl-textarea {
     font-size: var(--sl-font-size-small, 0.875rem);
     line-height: var(--sl-line-height-normal, 1.5);
     color: var(--sl-color-neutral-600, #64748b);
+  }
+
+  .da-form-schema-selector-hint {
+    margin: 0;
+  }
+
+  .da-form-schema-text-link {
+    color: var(--sl-color-primary-700, #1d4ed8);
+    text-decoration: underline;
+    text-underline-offset: 2px;
   }
 
   .da-form-schema-heading {
@@ -126,17 +135,16 @@ sl-textarea {
   }
 
   sl-button.da-form-schema-start {
-    display: block;
-    width: 100%;
+    align-self: flex-end;
   }
 
   sl-button.da-form-schema-start::part(wrap) {
-    display: block;
-    width: 100%;
+    display: inline-flex;
   }
 
   sl-button.da-form-schema-start::part(base) {
-    width: 100%;
+    width: auto;
+    min-width: 96px;
     box-sizing: border-box;
     justify-content: center;
     border-radius: var(--s2-radius-100, 8px);

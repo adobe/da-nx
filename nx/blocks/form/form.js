@@ -96,6 +96,12 @@ class FormEditor extends LitElement {
     this._applySelectedSchema(this._pendingSchemaId);
   }
 
+  _getSchemaEditorHref() {
+    const { owner, repo } = this.details ?? {};
+    if (!owner || !repo) return 'https://da.live/apps/schema';
+    return `https://da.live/apps/schema#/${owner}/${repo}`;
+  }
+
   _handleNavPointerSelectFromSidebar(e) {
     const { pointer } = e.detail ?? {};
     if (!pointer || pointer === this._activeNavPointer) return;
@@ -172,6 +178,7 @@ class FormEditor extends LitElement {
   }
 
   renderSchemaSelector() {
+    const schemaEditorHref = this._getSchemaEditorHref();
     return html`
       <div class="da-form-schema-shell">
         <div class="da-form-schema-card">
@@ -190,11 +197,15 @@ class FormEditor extends LitElement {
                 <option value="${key}">${value.title}</option>
               `)}
             </sl-select>
+            <p class="da-form-schema-hint da-form-schema-selector-hint">
+              To create a new schema, open
+              <a class="da-form-schema-text-link" href=${schemaEditorHref}>Schema Editor</a>.
+            </p>
             <sl-button
               class="da-form-schema-start"
               ?disabled=${!this._pendingSchemaId}
               @click=${this._confirmSchemaStart}
-            >Start</sl-button>
+            >Create</sl-button>
           </div>
         </div>
       </div>`;
@@ -214,8 +225,8 @@ class FormEditor extends LitElement {
             <div class="da-form-schema-field da-form-schema-field-link">
               <a
                 class="da-form-schema-cta"
-                href="https://main--da-live--adobe.aem.live/apps/schema?nx=schema#/${this.details.owner}/${this.details.repo}"
-              >Open schema editor</a>
+                href=${this._getSchemaEditorHref()}
+              >Open Schema Editor</a>
             </div>
           </div>
         </div>
