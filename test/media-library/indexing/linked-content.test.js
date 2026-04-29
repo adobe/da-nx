@@ -1,5 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import { toExternalMediaEntry } from '../../../nx/blocks/media-library/indexing/parse.js';
+import { processLinkedContent } from '../../../nx/blocks/media-library/indexing/worker/linked-content.js';
 
 describe('external media deduplication', () => {
   describe('toExternalMediaEntry', () => {
@@ -138,6 +139,78 @@ describe('external media deduplication', () => {
       // Hash normalized to standard youtube.com/watch format for deduplication
       expect(result.hash).to.include('youtube.com/watch');
       expect(result.hash).to.include('xyz789');
+    });
+  });
+
+  describe('processLinkedContent - incremental external media deduplication', () => {
+    it('updates existing entries, removes obsolete ones, avoids duplicates', async () => {
+      // Setup: Index with existing external media entries
+      const youtubeUrl = 'https://youtube.com/watch?v=abc123';
+      const normalizedUrl = 'https://www.youtube.com/watch?v=abc123'; // Normalized version
+      const existingEntry = toExternalMediaEntry(youtubeUrl, '/docs/page1', 1111111111, 'adobe', 'da-nx');
+      const obsoleteEntry = toExternalMediaEntry(youtubeUrl, '/docs/old-page', 1111111111, 'adobe', 'da-nx');
+
+      const updatedIndex = [
+        existingEntry,
+        obsoleteEntry,
+      ];
+
+      // Usage map: Use normalized URL as key (matching what processLinkedContent expects)
+      // Usage map: Same URL referenced from page1 (existing) and page2 (new)
+      // old-page is NOT in the usage map (obsolete)
+      const usageMap = {
+        pdfs: new Map(),
+        svgs: new Map(),
+        fragments: new Map(),
+        externalMedia: new Map([
+          [normalizedUrl, {
+            pages: ['/docs/page1', '/docs/page2'],
+            firstDiscoveredTimestamp: 1111111111,
+          }],
+        ]),
+      };
+
+      // Act: Process linked content
+      const result = await processLinkedContent(
+        updatedIndex,
+        [], // files
+        [], // pages (empty since we're using prebuiltUsageMap)
+        'adobe',
+        'da-nx',
+        'main',
+        null, // onProgress
+        null, // onLog
+        usageMap, // prebuiltUsageMap
+      );
+
+      // Assert: Verify deduplication behavior
+      // 1. One entry added (page2), one removed (old-page)
+      expect(result.added).to.equal(1);
+      expect(result.removed).to.equal(1);
+
+      // 2. Index should have exactly 2 entries for this URL (page1 and page2)
+      const entriesForUrl = updatedIndex.filter((e) => e.hash === normalizedUrl);
+      expect(entriesForUrl.length).to.equal(2);
+
+      // 3. No duplicate entries for page1 (existing entry was updated in place)
+      const page1Entries = updatedIndex.filter((e) => e.hash === normalizedUrl && e.doc === '/docs/page1');
+      expect(page1Entries.length).to.equal(1);
+
+      // 4. Entry for page2 was added
+      const page2Entries = updatedIndex.filter((e) => e.hash === normalizedUrl && e.doc === '/docs/page2');
+      expect(page2Entries.length).to.equal(1);
+
+      // 5. Obsolete entry for old-page was removed
+      const oldPageEntries = updatedIndex.filter((e) => e.hash === normalizedUrl && e.doc === '/docs/old-page');
+      expect(oldPageEntries.length).to.equal(0);
+
+      // 6. All entries have correct structure
+      entriesForUrl.forEach((entry) => {
+        expect(entry.hash).to.equal(normalizedUrl);
+        expect(entry.type).to.equal('video');
+        expect(entry.operation).to.equal('extlinks-parsed');
+        expect(['/docs/page1', '/docs/page2']).to.include(entry.doc);
+      });
     });
   });
 });
