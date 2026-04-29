@@ -12,6 +12,7 @@ import {
   getCanonicalMediaTimestamp,
   getMediaLibraryHostMode,
   isMediaLibraryPluginMode,
+  tryClosePluginPanel,
   sortMediaData,
   deduplicateMediaByHash,
   checkSiteAuthRequired,
@@ -989,6 +990,7 @@ class NxMediaLibrary extends LitElement {
                   href=${appHref}
                   target="_blank"
                   rel="noopener noreferrer"
+                  @click=${this.handleOpenMediaLibraryAppLink}
                 >${t('INDEX_MISSING_PLUGIN_OPEN')}</a>
               </p>
             ` : ''}
@@ -1031,6 +1033,10 @@ class NxMediaLibrary extends LitElement {
         <p>${t('UI_TRY_DIFFERENT_SEARCH')}</p>
       </div>
     `;
+  }
+
+  handleOpenMediaLibraryAppLink() {
+    tryClosePluginPanel().catch(() => {});
   }
 
   handleSiteSelected(e) {

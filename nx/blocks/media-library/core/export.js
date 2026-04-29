@@ -2,7 +2,7 @@ import { etcFetch } from './urls.js';
 import { getMediaType, getSubtype } from './media.js';
 import { decodeDisplayName, getFileName } from './files.js';
 import { t } from './messages.js';
-import { isMediaLibraryPluginMode } from './utils.js';
+import { isMediaLibraryPluginMode, tryClosePluginPanel, withTimeout } from './utils.js';
 
 function escapeCsvCell(value) {
   if (value == null) return '';
@@ -61,7 +61,7 @@ const DA_SDK_LOAD_MS = 3000;
 
 async function getDaSdkActions() {
   const { default: DA_SDK } = await import('../../../utils/sdk.js');
-  return Promise.race([
+  return withTimeout(
     DA_SDK.then((sdk) => {
       const { actions } = sdk || {};
       if (!actions?.sendText || !actions?.sendHTML) {
@@ -69,10 +69,9 @@ async function getDaSdkActions() {
       }
       return actions;
     }),
-    new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('da-sdk-timeout')), DA_SDK_LOAD_MS);
-    }),
-  ]);
+    DA_SDK_LOAD_MS,
+    'da-sdk-timeout',
+  );
 }
 
 function buildMediaLinkInsertHtml(media) {
@@ -105,11 +104,12 @@ async function insertMediaViaPluginSdk(media) {
   if (mediaType === 'image') {
     const escapedUrl = escapeHtml(mediaUrl);
     actions.sendHTML(`<img src="${escapedUrl}">`);
-    return;
+  } else {
+    const { html } = buildMediaLinkInsertHtml(media);
+    actions.sendHTML(html);
   }
 
-  const { html } = buildMediaLinkInsertHtml(media);
-  actions.sendHTML(html);
+  actions.closeLibrary?.();
 }
 
 async function copyImageToClipboard(imageUrl) {
@@ -173,8 +173,9 @@ async function copyImageToClipboard(imageUrl) {
 export async function copyMediaToClipboard(media) {
   const mediaUrl = media.url;
   const mediaType = getMediaType(media);
+  const plugin = isMediaLibraryPluginMode();
 
-  if (isMediaLibraryPluginMode()) {
+  if (plugin) {
     try {
       await insertMediaViaPluginSdk(media);
       if (mediaType === 'image') {
@@ -187,7 +188,11 @@ export async function copyMediaToClipboard(media) {
       if (mediaType !== 'image') {
         try {
           await copyNonImageLinkRichClipboard(media);
-          return { heading: t('NOTIFY_COPIED'), message: t('NOTIFY_COPIED_URL') };
+          await tryClosePluginPanel();
+          return {
+            heading: t('NOTIFY_PLUGIN_FALLBACK_HEADING'),
+            message: t('NOTIFY_PLUGIN_FALLBACK_LINK_MSG'),
+          };
         } catch {
           /* fall through to plain writeText */
         }
@@ -198,9 +203,23 @@ export async function copyMediaToClipboard(media) {
   try {
     if (mediaType === 'image') {
       await copyImageToClipboard(mediaUrl);
+      if (plugin) {
+        await tryClosePluginPanel();
+        return {
+          heading: t('NOTIFY_PLUGIN_FALLBACK_HEADING'),
+          message: t('NOTIFY_PLUGIN_FALLBACK_IMAGE_MSG'),
+        };
+      }
       return { heading: t('NOTIFY_COPIED'), message: t('NOTIFY_COPIED_IMAGE') };
     }
     await navigator.clipboard.writeText(mediaUrl);
+    if (plugin) {
+      await tryClosePluginPanel();
+      return {
+        heading: t('NOTIFY_PLUGIN_FALLBACK_HEADING'),
+        message: t('NOTIFY_PLUGIN_FALLBACK_PLAIN_MSG'),
+      };
+    }
     return { heading: t('NOTIFY_COPIED'), message: t('NOTIFY_COPIED_URL') };
   } catch (error) {
     // eslint-disable-next-line no-console
