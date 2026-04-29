@@ -1,5 +1,5 @@
 import { html } from 'da-lit';
-import { getFileName, pathLabelWithoutDomain } from '../core/files.js';
+import { getFileName, pathLabelWithoutDomain, decodeDisplayName } from '../core/files.js';
 import { isFragmentMedia, isPdfUrl } from '../core/media.js';
 
 function escapeRegExp(string) {
@@ -59,11 +59,7 @@ export function getMediaName(media) {
   const name = media.displayName || media.name || getFileName(media.url) || 'Unknown';
   if (!name || name === 'Unknown') return name;
 
-  try {
-    return decodeURIComponent(name);
-  } catch {
-    return name;
-  }
+  return decodeDisplayName(name);
 }
 
 export function getMediaCardLabel(media) {
@@ -71,12 +67,8 @@ export function getMediaCardLabel(media) {
   if (url && (isFragmentMedia(media) || isPdfUrl(url))) {
     const pathLabel = pathLabelWithoutDomain(url);
     if (pathLabel) {
-      try {
-        const decoded = decodeURIComponent(pathLabel);
-        return decoded.startsWith('/') ? decoded : `/${decoded}`;
-      } catch {
-        return pathLabel.startsWith('/') ? pathLabel : `/${pathLabel}`;
-      }
+      const decoded = decodeDisplayName(pathLabel);
+      return decoded.startsWith('/') ? decoded : `/${decoded}`;
     }
   }
   return getMediaName(media);

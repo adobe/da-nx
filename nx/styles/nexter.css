@@ -335,6 +335,10 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+main {
+  position: relative;
+}
+
 img {
   max-width: 100%;
   height: auto;
@@ -481,7 +485,7 @@ h6 {
   }
 }
 
-@media (width > 1440px) {
+@media (width >= 1440px) {
   :root {
     --grid-container-width: 1200px;
   }

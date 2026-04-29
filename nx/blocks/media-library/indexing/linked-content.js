@@ -374,7 +374,7 @@ export async function processLinkedContent(
 
     linkedPages.forEach((doc) => {
       const existingIdx = updatedIndex.findIndex(isExtlinksForDoc(doc));
-      const freshEntry = toExternalMediaEntry(url, doc, firstDiscoveredTimestamp);
+      const freshEntry = toExternalMediaEntry(url, doc, firstDiscoveredTimestamp, org, repo);
       if (!freshEntry) {
         return;
       }

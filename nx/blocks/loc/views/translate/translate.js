@@ -1,7 +1,7 @@
 import { LitElement, html, nothing } from 'da-lit';
 import getStyle from '../../../../utils/styles.js';
 import { getConfig } from '../../../../scripts/nexter.js';
-import getSvg from '../../../../utils/svg.js';
+import { getSvg } from '../../../../utils/svg.js';
 import {
   setupConnector,
   getUrls,
@@ -165,13 +165,19 @@ class NxLocTranslate extends LitElement {
   }
 
   async handleSendAll() {
-    const conf = await this.getBaseTranslationConf(true);
-    const sendAll = await sendAllForTranslation(conf, this._service.connector);
-    if (sendAll?.errors?.length) {
-      this._urlErrors = sendAll.errors;
+    if (this._sendAllBusy) return;
+    this._sendAllBusy = true;
+    try {
+      const conf = await this.getBaseTranslationConf(true);
+      const sendAll = await sendAllForTranslation(conf, this._service.connector);
+      if (sendAll?.errors?.length) {
+        this._urlErrors = sendAll.errors;
+      }
+      // See if anything is finished immediately
+      this.checkAndSaveLangs(conf);
+    } finally {
+      this._sendAllBusy = false;
     }
-    // See if anything is finished immediately
-    this.checkAndSaveLangs(conf);
   }
 
   async checkAndSaveLangs(conf) {
