@@ -1,7 +1,9 @@
 import { LitElement, html, nothing } from 'da-lit';
-import { yUndo, yRedo } from 'da-y-wrapper';
+import { yUndo, yRedo, NodeSelection } from 'da-y-wrapper';
 import { loadStyle } from '../../../utils/utils.js';
-import { updateDocument, updateCursors } from '../editor-utils/document.js';
+import { updateDocument, updateCursors, getInstrumentedHTML, editorHtmlChange, editorSelectChange } from '../editor-utils/document.js';
+import { PORT_OUTLINE_SCROLL } from '../canvas-events.js';
+import { getActiveBlockFlatIndex, getBlockPositions } from '../nx-editor-wysiwyg/utils/blocks.js';
 import { getEditor } from '../editor-utils/state.js';
 import {
   editorDocCanLoad,
@@ -37,6 +39,8 @@ export class NxEditorDoc extends LitElement {
       this.quickEditPort = undefined;
       this._teardown();
       this._error = undefined;
+      this._lastDocBlockFlatIndex = undefined;
+      editorHtmlChange.emit('');
     }
   }
 
@@ -55,6 +59,12 @@ export class NxEditorDoc extends LitElement {
       composed: true,
       detail: { users },
     }));
+  }
+
+  _emitHtmlChange() {
+    const { view } = this._proseContext ?? {};
+    if (!view) return;
+    editorHtmlChange.emit(getInstrumentedHTML(view));
   }
 
   _emitUndoState() {
@@ -84,6 +94,18 @@ export class NxEditorDoc extends LitElement {
     this._undoStackHandler = undefined;
   }
 
+  _scrollDocToBlock(blockFlatIndex) {
+    if (blockFlatIndex < 0) return;
+    const { view } = this._proseContext ?? {};
+    if (!view) return;
+    const positions = getBlockPositions(view);
+    const pos = positions[blockFlatIndex];
+    if (pos == null) return;
+    this._lastDocBlockFlatIndex = blockFlatIndex;
+    const sel = NodeSelection.create(view.state.doc, pos);
+    view.dispatch(view.state.tr.setSelection(sel).scrollIntoView());
+  }
+
   undo() {
     const { view } = this._proseContext ?? {};
     if (view) yUndo(view.state, view.dispatch);
@@ -109,6 +131,7 @@ export class NxEditorDoc extends LitElement {
       port: this.quickEditPort,
       iframe: this._wysiwygIframe,
       suppressRerender: false,
+      lastBlockFlatIndex: undefined,
       owner: org,
       repo,
       path: controllerPathnameFromEditorCtx(this.ctx),
@@ -172,9 +195,20 @@ export class NxEditorDoc extends LitElement {
         getToken: () => token,
         extraPlugins: [
           createTrackingPlugin(
-            () => { if (this._controllerCtx) updateDocument(this._controllerCtx); },
+            () => {
+              const body = this._controllerCtx
+                ? updateDocument(this._controllerCtx)
+                : getInstrumentedHTML(this._proseContext?.view);
+              if (body) editorHtmlChange.emit(body);
+            },
             () => { if (this._controllerCtx) updateCursors(this._controllerCtx); },
             (data) => { if (this._controllerCtx) getEditor(data, this._controllerCtx); },
+            (pmView) => {
+              const flatIndex = getActiveBlockFlatIndex(pmView);
+              if (flatIndex === this._lastDocBlockFlatIndex) return;
+              this._lastDocBlockFlatIndex = flatIndex;
+              editorSelectChange.emit({ blockFlatIndex: flatIndex, source: 'doc' });
+            },
           ),
         ],
       });
@@ -182,6 +216,7 @@ export class NxEditorDoc extends LitElement {
       this._proseContext = { proseEl, wsProvider, view, ydoc, undoManager };
       this._setupAwareness(wsProvider);
       this._observeUndoManager(undoManager);
+      this._emitHtmlChange();
 
       this._setupController();
     } catch (e) {
@@ -210,11 +245,20 @@ export class NxEditorDoc extends LitElement {
       }
     };
     this.parentElement?.addEventListener('nx-wysiwyg-port-ready', this._onWysiwygPortReady);
+    this._unsubscribeSelect = editorSelectChange
+      .subscribe(({ sectionIndex, blockFlatIndex, source }) => {
+        if (source !== 'wysiwyg') {
+          const port = this._controllerCtx?.port;
+          if (port) port.postMessage({ type: PORT_OUTLINE_SCROLL, sectionIndex, blockFlatIndex });
+        }
+        if (source !== 'doc') this._scrollDocToBlock(blockFlatIndex);
+      });
   }
 
   disconnectedCallback() {
     this.parentElement?.removeEventListener('nx-canvas-editor-active', this._onCanvasEditorActive);
     this.parentElement?.removeEventListener('nx-wysiwyg-port-ready', this._onWysiwygPortReady);
+    this._unsubscribeSelect?.();
     this._teardown();
     super.disconnectedCallback();
   }

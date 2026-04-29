@@ -118,7 +118,16 @@ const CANVAS_PANELS = {
     getContent: async () => {
       await import('../tool-panel/tool-panel.js');
       const toolPanel = document.createElement('nx-tool-panel');
-      toolPanel.views = [];
+      toolPanel.views = [
+        {
+          id: 'outline',
+          label: 'Outline',
+          load: async () => {
+            await import('./nx-page-outline/nx-page-outline.js');
+            return document.createElement('nx-page-outline');
+          },
+        },
+      ];
       return toolPanel;
     },
   },
