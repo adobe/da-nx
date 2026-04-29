@@ -51,7 +51,12 @@ class NxLocTranslate extends LitElement {
 
   async setupService() {
     const connector = await setupConnector(this.project.options.service);
-    this._service = { ...this.project.options.service, connector };
+    this._service = {
+      ...this.project.options.service,
+      connector,
+      org: this.project.org,
+      site: this.project.site,
+    };
     this._connected = await this._service.connector.isConnected(this._service);
   }
 

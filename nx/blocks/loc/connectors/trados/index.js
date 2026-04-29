@@ -135,9 +135,10 @@ async function startProject(service, projectId) {
 
 // --- Exports ---
 
-export async function sendAllLanguages({ title, options, langs, urls, actions }) {
+export async function sendAllLanguages({
+  title, service, options, langs, urls, actions,
+}) {
   const { sendMessage, saveState } = actions;
-  const { service } = options;
 
   const localesStr = langs.map((lang) => lang.code).join(', ');
 
