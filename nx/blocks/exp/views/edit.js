@@ -1,7 +1,7 @@
 import { html, LitElement, nothing } from 'da-lit';
 import { getConfig } from '../../../scripts/nexter.js';
 import getStyle from '../../../utils/styles.js';
-import getSvg from '../../../utils/svg.js';
+import { getSvg } from '../../../utils/svg.js';
 import {
   getAbb,
   toColor,
