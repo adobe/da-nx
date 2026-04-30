@@ -122,7 +122,12 @@ export async function buildFullIndex(
     sitePath,
     dataSource: 'statusAPI',
     medialog: {
-      streamed: 0, chunks: 0, resourcePathCount: 0, matched: 0, standalone: 0, durationMs: 0,
+      streamed: 0,
+      chunks: 0,
+      resourcePathCount: 0,
+      matched: 0,
+      standalone: 0,
+      durationMs: 0,
     },
     markdownParse: { pages: 0, durationMs: 0 },
     saveDurationMs: 0,
@@ -495,12 +500,21 @@ export async function buildFullIndex(
   }
   perf.markdownParse.durationMs = Date.now() - markdownParseStart;
 
-  // Image truthing: fix stale doc references by orphaning images not in current markdown
-  // Build map of image paths to pages that reference them (from markdown parsing)
+  // Image/Video truthing: fix stale doc references by orphaning images/videos
+  // not in current markdown
+  // Build map of image/video paths to pages that reference them (from markdown parsing)
   const truthStart = Date.now();
   const imageToPages = new Map(); // imagePath -> Set(pagePaths)
   usageMap.images?.forEach((linkedPages, imagePath) => {
     const normalized = normalizePath(imagePath);
+    if (!imageToPages.has(normalized)) {
+      imageToPages.set(normalized, new Set());
+    }
+    linkedPages.forEach((page) => imageToPages.get(normalized).add(page));
+  });
+  // Videos are now tracked separately but still need truthing
+  usageMap.videos?.forEach((linkedPages, videoPath) => {
+    const normalized = normalizePath(videoPath);
     if (!imageToPages.has(normalized)) {
       imageToPages.set(normalized, new Set());
     }

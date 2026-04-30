@@ -2,7 +2,6 @@ import { getMediaType, isSvgFile, isUiExcludedMediaItem } from '../core/media.js
 import { getBasePath, formatDocPath } from '../core/paths.js';
 import { pluralize, getItemStatus } from '../core/utils.js';
 import {
-  getDedupeKey,
   isInternalToSite,
   folderPathFromAssetUrl,
   isDeliveryStandaloneUrl,
@@ -14,6 +13,7 @@ import {
   generateCacheKey,
 } from '../indexing/cache.js';
 import { getMediaName } from './templates.js';
+import { getUsageIndexKey } from './data.js';
 
 function normalizeFolderPath(path) {
   return !path || path === '/' ? '/' : path.replace(/\/$/, '');
@@ -66,7 +66,8 @@ function getFolderPathFromDoc(docPath) {
 
 function getUsageInfo(processedData, item) {
   if (!processedData || !item?.url) return null;
-  return processedData.usageData[getDedupeKey(item.url)] || null;
+  const key = getUsageIndexKey(item);
+  return processedData.usageData[key] || null;
 }
 
 function normalizeAssetSourcePath(path) {
@@ -234,7 +235,8 @@ export async function processMediaData(mediaData, onProgress = null, org = null,
         return;
       }
 
-      const groupingKey = getDedupeKey(item.url);
+      const groupingKey = getUsageIndexKey(item);
+
       if (!processedData.usageData[groupingKey]) {
         processedData.usageData[groupingKey] = {
           uniqueDocs: new Set(),

@@ -9,7 +9,8 @@ import { getDedupeKey, canonicalizeMediaUrl } from '../core/urls.js';
 import {
   normalizePath,
   isHiddenPath,
-  extractImageAndVideoUrls,
+  extractImageUrls,
+  extractVideoUrls,
   extractFragmentReferences,
   extractExternalMediaUrls,
   extractLinks,
@@ -247,12 +248,18 @@ export function isSvg(path) {
   return path && path.toLowerCase().endsWith('.svg');
 }
 
+export function isVideo(path) {
+  if (!path) return false;
+  const lower = path.toLowerCase();
+  return lower.endsWith('.mp4') || lower.endsWith('.webm') || lower.endsWith('.mov') || lower.endsWith('.avi') || lower.endsWith('.m4v');
+}
+
 export function isFragmentDoc(path) {
   return path && path.includes(Paths.FRAGMENTS);
 }
 
 export function isLinkedContentPath(path) {
-  return path && (isPdf(path) || isSvg(path) || isFragmentDoc(path));
+  return path && (isPdf(path) || isSvg(path) || isVideo(path) || isFragmentDoc(path));
 }
 
 export function toAbsoluteFilePath(path) {
@@ -268,6 +275,7 @@ export function isPdfOrSvg(path) {
 export function getLinkedContentType(path) {
   if (isPdf(path)) return MediaType.DOCUMENT;
   if (isSvg(path)) return MediaType.IMAGE;
+  if (isVideo(path)) return MediaType.VIDEO;
   if (isFragmentDoc(path)) return MediaType.FRAGMENT;
   return 'unknown';
 }
@@ -283,7 +291,8 @@ export async function buildUsageMap(pageEntries, org, repo, ref, onProgress, onB
     fragments: new Map(),
     pdfs: new Map(),
     svgs: new Map(),
-    images: new Map(), // Regular images and videos from markdown
+    videos: new Map(), // Videos from markdown links
+    images: new Map(), // Regular images from markdown
     externalMedia: new Map(),
   };
 
@@ -320,7 +329,8 @@ export async function buildUsageMap(pageEntries, org, repo, ref, onProgress, onB
     const fragments = extractFragmentReferences(md, isHtml);
     const pdfs = extractLinks(md, /\.pdf$/, isHtml);
     const svgs = extractLinks(md, /\.svg$/, isHtml);
-    const images = extractImageAndVideoUrls(md, isHtml);
+    const videos = extractVideoUrls(md, isHtml);
+    const images = extractImageUrls(md, isHtml);
     const externalUrls = extractExternalMediaUrls(md, isHtml);
     const addToMap = (map, path) => {
       if (!map.has(path)) map.set(path, []);
@@ -344,6 +354,7 @@ export async function buildUsageMap(pageEntries, org, repo, ref, onProgress, onB
     fragments.forEach((f) => addToMap(usageMap.fragments, f));
     pdfs.forEach((p) => addToMap(usageMap.pdfs, p));
     svgs.forEach((s) => addToMap(usageMap.svgs, s));
+    videos.forEach((v) => addToMap(usageMap.videos, v));
     images.forEach((i) => addToMap(usageMap.images, i));
     externalUrls.forEach((u) => addToExternalMedia(u));
   };
@@ -436,13 +447,15 @@ export async function buildUsageMap(pageEntries, org, repo, ref, onProgress, onB
   const fragCount = usageMap.fragments?.size ?? 0;
   const pdfCount = usageMap.pdfs?.size ?? 0;
   const svgCount = usageMap.svgs?.size ?? 0;
+  const videoCount = usageMap.videos?.size ?? 0;
+  const imgCount = usageMap.images?.size ?? 0;
   const extCount = usageMap.externalMedia?.size ?? 0;
 
   if (isPerfEnabledFn()) {
     // eslint-disable-next-line no-console
     console.log(
       `[buildUsageMap] ${Math.round(durationMs / 1000)}s | pages ${counters.success}/${uniquePages.length} | `
-      + `items frag=${fragCount} pdf=${pdfCount} svg=${svgCount} ext=${extCount}`,
+      + `items frag=${fragCount} pdf=${pdfCount} svg=${svgCount} video=${videoCount} img=${imgCount} ext=${extCount}`,
     );
   }
 
@@ -473,8 +486,12 @@ export function toExternalMediaEntry(
     ? null
     : firstDiscoveredTimestamp;
 
+  // Use normalized URL as hash for consistent deduplication
+  // (e.g., youtube.com/watch?v=xyz and youtu.be/xyz both normalize to youtube.com/watch?v=xyz)
+  const hash = normalizedUrl;
+
   return {
-    hash: normalizedUrl,
+    hash,
     url: canonicalUrl,
     timestamp: firstDiscoveredTimestamp,
     user: '',
@@ -506,8 +523,17 @@ export function toLinkedContentEntry(
     ? null
     : rawModifiedTimestamp;
 
+  // For videos/images with media_ prefix, extract bare hash (strip media_ prefix and extension)
+  // For other content (PDFs, fragments), use full path as hash
+  let hash = filePath;
+  if (fileName.includes('media_') && fileName.includes('.')) {
+    // Extract bare hash: media_HASH.ext -> HASH
+    const bareHash = fileName.substring(6, fileName.lastIndexOf('.'));
+    hash = bareHash;
+  }
+
   return {
-    hash: filePath, // Path used as dedupe key for linked content
+    hash,
     url,
     timestamp: fileEvent.timestamp,
     user: fileEvent.user || '',

@@ -144,9 +144,8 @@ describe('external media deduplication', () => {
 
   describe('processLinkedContent - incremental external media deduplication', () => {
     it('updates existing entries, removes obsolete ones, avoids duplicates', async () => {
-      // Setup: Index with existing external media entries
       const youtubeUrl = 'https://youtube.com/watch?v=abc123';
-      const normalizedUrl = 'https://www.youtube.com/watch?v=abc123'; // Normalized version
+      const normalizedUrl = 'https://www.youtube.com/watch?v=abc123';
       const existingEntry = toExternalMediaEntry(youtubeUrl, '/docs/page1', 1111111111, 'adobe', 'da-nx');
       const obsoleteEntry = toExternalMediaEntry(youtubeUrl, '/docs/old-page', 1111111111, 'adobe', 'da-nx');
 
@@ -155,12 +154,10 @@ describe('external media deduplication', () => {
         obsoleteEntry,
       ];
 
-      // Usage map: Use normalized URL as key (matching what processLinkedContent expects)
-      // Usage map: Same URL referenced from page1 (existing) and page2 (new)
-      // old-page is NOT in the usage map (obsolete)
       const usageMap = {
         pdfs: new Map(),
         svgs: new Map(),
+        videos: new Map(),
         fragments: new Map(),
         externalMedia: new Map([
           [normalizedUrl, {
@@ -170,47 +167,93 @@ describe('external media deduplication', () => {
         ]),
       };
 
-      // Act: Process linked content
+      // Incremental build: only page1, page2, and old-page were parsed
+      // page1: still has reference (update in place)
+      // page2: new reference (add)
+      // old-page: no longer has reference (remove)
+      const pages = [
+        { path: '/docs/page1' },
+        { path: '/docs/page2' },
+        { path: '/docs/old-page' },
+      ];
+
       const result = await processLinkedContent(
         updatedIndex,
-        [], // files
-        [], // pages (empty since we're using prebuiltUsageMap)
+        [],
+        pages,
         'adobe',
         'da-nx',
         'main',
-        null, // onProgress
-        null, // onLog
-        usageMap, // prebuiltUsageMap
+        null,
+        null,
+        usageMap,
       );
 
-      // Assert: Verify deduplication behavior
-      // 1. One entry added (page2), one removed (old-page)
       expect(result.added).to.equal(1);
       expect(result.removed).to.equal(1);
 
-      // 2. Index should have exactly 2 entries for this URL (page1 and page2)
       const entriesForUrl = updatedIndex.filter((e) => e.hash === normalizedUrl);
       expect(entriesForUrl.length).to.equal(2);
 
-      // 3. No duplicate entries for page1 (existing entry was updated in place)
       const page1Entries = updatedIndex.filter((e) => e.hash === normalizedUrl && e.doc === '/docs/page1');
       expect(page1Entries.length).to.equal(1);
 
-      // 4. Entry for page2 was added
       const page2Entries = updatedIndex.filter((e) => e.hash === normalizedUrl && e.doc === '/docs/page2');
       expect(page2Entries.length).to.equal(1);
 
-      // 5. Obsolete entry for old-page was removed
       const oldPageEntries = updatedIndex.filter((e) => e.hash === normalizedUrl && e.doc === '/docs/old-page');
       expect(oldPageEntries.length).to.equal(0);
 
-      // 6. All entries have correct structure
       entriesForUrl.forEach((entry) => {
         expect(entry.hash).to.equal(normalizedUrl);
         expect(entry.type).to.equal('video');
         expect(entry.operation).to.equal('extlinks-parsed');
         expect(['/docs/page1', '/docs/page2']).to.include(entry.doc);
       });
+    });
+
+    it('preserves entries for unparsed pages in incremental builds', async () => {
+      const youtubeUrl = 'https://youtube.com/watch?v=xyz789';
+      const normalizedUrl = 'https://www.youtube.com/watch?v=xyz789';
+
+      // Existing entries: page1 and page2 both have the video
+      const page1Entry = toExternalMediaEntry(youtubeUrl, '/docs/page1', 1111111111, 'adobe', 'da-nx');
+      const page2Entry = toExternalMediaEntry(youtubeUrl, '/docs/page2', 2222222222, 'adobe', 'da-nx');
+
+      const updatedIndex = [page1Entry, page2Entry];
+
+      // Incremental build: only page1 was modified and parsed
+      // page1 no longer has the video reference
+      // page2 was NOT parsed (unchanged)
+      const usageMap = {
+        pdfs: new Map(),
+        svgs: new Map(),
+        videos: new Map(),
+        fragments: new Map(),
+        externalMedia: new Map(),
+      };
+
+      const pages = [{ path: '/docs/page1' }];
+
+      const result = await processLinkedContent(
+        updatedIndex,
+        [],
+        pages,
+        'adobe',
+        'da-nx',
+        'main',
+        null,
+        null,
+        usageMap,
+      );
+
+      // Should NOT remove page2 entry (page2 was not parsed)
+      // Should only remove page1 entry
+      expect(result.removed).to.equal(1);
+
+      const remainingEntries = updatedIndex.filter((e) => e.hash === normalizedUrl);
+      expect(remainingEntries.length).to.equal(1);
+      expect(remainingEntries[0].doc).to.equal('/docs/page2');
     });
   });
 });

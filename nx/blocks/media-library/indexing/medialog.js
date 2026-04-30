@@ -329,12 +329,18 @@ export function processPageMediaUpdates(
     toRemove.forEach((hash) => {
       const oldEntry = updatedIndex.find((e) => e.hash === hash && e.doc === normalizedPath);
       if (oldEntry) {
-        removed += removeOrOrphanMedia(
-          updatedIndex,
-          oldEntry,
-          normalizedPath,
-          medialogEntries,
-        );
+        // Don't remove external media (extlinks-parsed/markdown-parsed) or auditlog-parsed entries
+        // They come from markdown parsing, not medialog, so they're handled by processLinkedContent
+        const op = oldEntry.operation || oldEntry.source;
+        const isFromMarkdown = op === 'extlinks-parsed' || op === 'markdown-parsed' || op === 'auditlog-parsed';
+        if (!isFromMarkdown) {
+          removed += removeOrOrphanMedia(
+            updatedIndex,
+            oldEntry,
+            normalizedPath,
+            medialogEntries,
+          );
+        }
       }
     });
 

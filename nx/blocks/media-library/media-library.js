@@ -1,6 +1,6 @@
 import { html, LitElement } from 'da-lit';
 import getStyle from '../../utils/styles.js';
-import { loadMediaSheet, buildMediaIndexStructures } from './ui/data.js';
+import { loadMediaSheet, buildMediaIndexStructures, getUsageIndexKey } from './ui/data.js';
 import { copyMediaToClipboard, exportToCsv } from './core/export.js';
 import {
   validateSitePath, getBasePath, resolveAbsolutePath, normalizeSitePath, parseSitePathFromHash,
@@ -508,7 +508,7 @@ class NxMediaLibrary extends LitElement {
       }
       modal.show({
         media: matchedItem,
-        usageData: state.usageIndex?.get(getDedupeKey(matchedItem.url)) || [],
+        usageData: state.usageIndex?.get(getUsageIndexKey(matchedItem)) || [],
         org: state.org,
         repo: state.repo,
         isIndexing: state.isIndexing,
@@ -1145,7 +1145,7 @@ class NxMediaLibrary extends LitElement {
     const { media } = e.detail;
     if (!media) return;
 
-    const groupingKey = getDedupeKey(media.url);
+    const groupingKey = getUsageIndexKey(media);
     const usageData = this._appState.usageIndex?.get(groupingKey) || [];
 
     const snapshot = [...this.displayMediaData];

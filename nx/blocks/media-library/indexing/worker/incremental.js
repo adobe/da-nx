@@ -451,17 +451,28 @@ export async function buildIncrementalIndex(
   added += linkedResults.added;
   removed += linkedResults.removed;
 
-  // Image truthing: orphan stale image references using usageMap from processLinkedContent
-  if (linkedResults.usageMap?.images) {
+  // Image/Video truthing: orphan stale image/video references
+  // using usageMap from processLinkedContent
+  if (linkedResults.usageMap?.images || linkedResults.usageMap?.videos) {
     const truthStart = Date.now();
     const imageToPages = new Map(); // imagePath -> Set(pagePaths)
-    linkedResults.usageMap.images.forEach((linkedPages, imagePath) => {
+    linkedResults.usageMap.images?.forEach((linkedPages, imagePath) => {
       const normalized = normalizePath(imagePath);
       if (!imageToPages.has(normalized)) {
         imageToPages.set(normalized, new Set());
       }
       linkedPages.forEach((page) => imageToPages.get(normalized).add(page));
     });
+    // Videos are now tracked separately but still need truthing
+    linkedResults.usageMap.videos?.forEach((linkedPages, videoPath) => {
+      const normalized = normalizePath(videoPath);
+      if (!imageToPages.has(normalized)) {
+        imageToPages.set(normalized, new Set());
+      }
+      linkedPages.forEach((page) => imageToPages.get(normalized).add(page));
+    });
+
+    const parsedPages = new Set(pages.map((p) => normalizePath(p.path)));
 
     let orphanedCount = 0;
     let truthedCount = 0;
@@ -472,9 +483,10 @@ export async function buildIncrementalIndex(
       if (isImage) totalImageEntries += 1;
 
       const hasDoc = entry.doc && entry.doc !== '';
+      const op = entry.operation || entry.source;
+      const isExternalMedia = op === 'extlinks-parsed' || op === 'markdown-parsed';
 
-      if (isImage && hasDoc) {
-        // Image with a doc reference - verify it's actually in the markdown for that page
+      if (isImage && hasDoc && !isExternalMedia) {
         let entryPath;
         try {
           entryPath = new URL(entry.url).pathname;
@@ -484,13 +496,13 @@ export async function buildIncrementalIndex(
         const normalizedPath = normalizePath(entryPath);
         const pagesWithImage = imageToPages.get(normalizedPath);
 
-        // Check if this specific doc reference is valid
-        if (!pagesWithImage || !pagesWithImage.has(entry.doc)) {
-          // Stale reference - image exists but not on this page anymore
-          // Orphan it by setting doc='' (don't remove from index)
+        if (
+          (!pagesWithImage || !pagesWithImage.has(entry.doc))
+          && parsedPages.has(normalizePath(entry.doc))
+        ) {
           entry.doc = '';
           orphanedCount += 1;
-        } else {
+        } else if (pagesWithImage && pagesWithImage.has(entry.doc)) {
           truthedCount += 1;
         }
       }
@@ -526,6 +538,16 @@ export async function buildIncrementalIndex(
   onProgress({ stage: 'saving', message: 'Building multi-sheet index (bymedia, bypage)...' });
 
   const mediaSheet = buildMediaSheet(sortedIndex);
+
+  // Update usageMap with new/changed entries from updatedIndex
+  sortedIndex.forEach((entry) => {
+    if (entry.doc) {
+      if (!usageMap.has(entry.doc)) {
+        usageMap.set(entry.doc, new Set());
+      }
+      usageMap.get(entry.doc).add(entry.hash);
+    }
+  });
 
   // Build usage sheet from usageMap to preserve all page references (changed AND unchanged)
   // buildUsageSheet(updatedIndex) would only include changed pages since existingIndex

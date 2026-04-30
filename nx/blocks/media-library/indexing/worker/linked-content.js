@@ -12,6 +12,7 @@ import {
   toExternalMediaEntry,
   isPdf,
   isSvg,
+  isVideo,
   isPdfOrSvg,
   isFragmentDoc,
 } from '../parse.js';
@@ -21,7 +22,9 @@ import { Operation } from '../../core/constants.js';
 import {
   isIndexedExternalMediaOperation,
   isIndexedExternalMediaEntry,
+  normalizeExternalVideoUrl,
 } from '../../core/media.js';
+import { canonicalizeMediaUrl } from '../../core/urls.js';
 
 /**
  * Remove invalid external media entries from index
@@ -112,16 +115,21 @@ export async function processLinkedContent(
     onProgress?.({ stage: 'processing', message: 'Building usage map for linked content...' });
     usageMap = await buildUsageMap(pages, org, repo, ref, (p) => onProgress?.(p), null, context);
   } else {
-    usageMap = { pdfs: new Map(), svgs: new Map(), fragments: new Map(), externalMedia: new Map() };
+    usageMap = {
+      pdfs: new Map(),
+      svgs: new Map(),
+      videos: new Map(),
+      fragments: new Map(),
+      externalMedia: new Map(),
+    };
   }
 
   // Collect ALL linked paths (from Status API files + parsed usage map)
   const allLinkedPaths = new Set(filesByPath.keys());
-  ['pdfs', 'svgs', 'fragments'].forEach((key) => {
+  ['pdfs', 'svgs', 'videos', 'fragments'].forEach((key) => {
     usageMap[key]?.forEach((_, path) => allLinkedPaths.add(path));
   });
 
-  // Also include paths already in index that belong to parsed pages
   const parsedPages = new Set(pages.map((p) => normalizePath(p.path)));
   updatedIndex.forEach((e) => {
     const isLinkedContent = e.operation === 'auditlog-parsed' || e.source === 'auditlog-parsed';
@@ -130,39 +138,40 @@ export async function processLinkedContent(
       allLinkedPaths.add(e.hash);
     }
   });
-
-  // Process each linked file
   allLinkedPaths.forEach((filePath) => {
     if (deletedPaths.has(filePath)) return;
-
-    // Determine file type
     let key = 'fragments';
     if (isPdf(filePath)) key = 'pdfs';
     else if (isSvg(filePath)) key = 'svgs';
+    else if (isVideo(filePath)) key = 'videos';
 
     const linkedPages = usageMap[key]?.get(filePath) || [];
     const fileEvent = filesByPath.get(filePath) || { timestamp: 0, user: '' };
 
-    const isLinkedContent = (e) => (e.operation === 'auditlog-parsed' || e.source === 'auditlog-parsed')
-      && e.hash === filePath;
+    const isLinkedContent = (e) => (
+      e.operation === 'auditlog-parsed' || e.source === 'auditlog-parsed'
+    ) && e.hash === filePath;
     const isLinkedForDoc = (doc) => (e) => isLinkedContent(e) && e.doc === doc;
 
     if (linkedPages.length === 0) {
-      // Not referenced in any page - create/keep standalone entry
-      const obsolete = updatedIndex.filter((e) => isLinkedContent(e));
+      const obsolete = updatedIndex.filter(
+        (e) => isLinkedContent(e) && e.doc && parsedPages.has(normalizePath(e.doc)),
+      );
       obsolete.forEach((e) => {
         updatedIndex.splice(updatedIndex.indexOf(e), 1);
         removed += 1;
       });
-      const stillHasUnused = updatedIndex.some((e) => isLinkedContent(e) && !e.doc);
-      if (!stillHasUnused) {
+      const stillHasEntry = updatedIndex.some((e) => isLinkedContent(e));
+      if (!stillHasEntry) {
         updatedIndex.push(toLinkedContentEntry(filePath, '', fileEvent, org, repo));
         added += 1;
       }
     } else {
-      // Referenced in pages - remove obsolete entries, add/update current ones
       const obsolete = updatedIndex.filter(
-        (e) => isLinkedContent(e) && (e.doc === '' || !linkedPages.includes(e.doc)),
+        (e) => isLinkedContent(e)
+          && e.doc
+          && parsedPages.has(e.doc)
+          && !linkedPages.includes(e.doc),
       );
       obsolete.forEach((e) => {
         updatedIndex.splice(updatedIndex.indexOf(e), 1);
@@ -181,11 +190,24 @@ export async function processLinkedContent(
     }
   });
 
-  // Process external media with proper deduplication
-  // First, purge invalid external media entries (wrong operation but no valid media type)
   removed += purgeInvalidExternalMediaEntries(updatedIndex);
 
-  const externalUrls = usageMap.externalMedia ? [...usageMap.externalMedia.keys()] : [];
+  // Collect all external URLs to process:
+  // 1. URLs found in parsed pages (from usageMap) - already normalized
+  // 2. URLs from existing index entries for parsed pages (to remove obsolete refs)
+  const allExternalUrls = new Set(usageMap.externalMedia ? usageMap.externalMedia.keys() : []);
+  updatedIndex.forEach((e) => {
+    const isExternal = isIndexedExternalMediaOperation(e);
+    if (isExternal && e.doc && parsedPages.has(normalizePath(e.doc))) {
+      // Normalize the URL to match usageMap keys and avoid duplicates
+      const canonical = canonicalizeMediaUrl(e.url, org, repo);
+      const normalized = normalizeExternalVideoUrl(canonical);
+      allExternalUrls.add(normalized);
+    }
+  });
+
+  const externalUrls = [...allExternalUrls];
+
   externalUrls.forEach((url) => {
     const data = usageMap.externalMedia.get(url) || {
       pages: [],
@@ -193,50 +215,65 @@ export async function processLinkedContent(
     };
     const { pages: linkedPages, firstDiscoveredTimestamp } = data;
 
-    // Helper functions to identify external media entries
+    const canonicalUrl = canonicalizeMediaUrl(url, org, repo);
+    const entryHash = normalizeExternalVideoUrl(canonicalUrl);
     const isExtlinksForDoc = (doc) => (e) => {
       const op = e.operation || e.source;
       const isExt = op === Operation.EXTLINKS || op === Operation.MARKDOWN_PARSED;
-      return isExt && e.hash === url && e.doc === doc;
+      return isExt && e.hash === entryHash && e.doc === doc;
     };
     const isExtlinksEntry = (e) => {
       const op = e.operation || e.source;
-      return (op === Operation.EXTLINKS || op === Operation.MARKDOWN_PARSED) && e.hash === url;
+      return (
+        op === Operation.EXTLINKS || op === Operation.MARKDOWN_PARSED
+      ) && e.hash === entryHash;
     };
 
-    // Remove obsolete entries (no doc or doc not in linkedPages)
-    const obsolete = updatedIndex.filter((e) => isExtlinksEntry(e) && (e.doc === '' || !linkedPages.includes(e.doc)));
-    obsolete.forEach((e) => {
-      updatedIndex.splice(updatedIndex.indexOf(e), 1);
-      removed += 1;
-    });
+    if (linkedPages.length === 0) {
+      const obsolete = updatedIndex.filter(
+        (e) => isExtlinksEntry(e) && e.doc && parsedPages.has(normalizePath(e.doc)),
+      );
+      obsolete.forEach((e) => {
+        updatedIndex.splice(updatedIndex.indexOf(e), 1);
+        removed += 1;
+      });
+    } else {
+      const obsolete = updatedIndex.filter(
+        (e) => isExtlinksEntry(e)
+          && e.doc
+          && parsedPages.has(normalizePath(e.doc))
+          && !linkedPages.includes(e.doc),
+      );
+      obsolete.forEach((e) => {
+        updatedIndex.splice(updatedIndex.indexOf(e), 1);
+        removed += 1;
+      });
 
-    // Add or update entries for each linked page
-    linkedPages.forEach((doc) => {
-      const existingIdx = updatedIndex.findIndex(isExtlinksForDoc(doc));
-      const freshEntry = toExternalMediaEntry(url, doc, firstDiscoveredTimestamp, org, repo);
-      if (!freshEntry) {
-        return;
-      }
-      if (existingIdx !== -1) {
-        // Update existing entry
-        updatedIndex[existingIdx] = freshEntry;
-      } else {
-        // Add new entry
-        updatedIndex.push(freshEntry);
-        added += 1;
-      }
-    });
+      linkedPages.forEach((doc) => {
+        const existingIdx = updatedIndex.findIndex(isExtlinksForDoc(doc));
+        const freshEntry = toExternalMediaEntry(
+          url,
+          doc,
+          firstDiscoveredTimestamp,
+          org,
+          repo,
+        );
+        if (!freshEntry) {
+          return;
+        }
+        if (existingIdx !== -1) {
+          updatedIndex[existingIdx] = freshEntry;
+        } else {
+          updatedIndex.push(freshEntry);
+          added += 1;
+        }
+      });
+    }
   });
-
-  if (context?.isPerfEnabled) {
-    // eslint-disable-next-line no-console
-    console.log(`[worker-linked-content] Added ${added} linked content entries`);
-  }
 
   return {
     added,
     removed,
-    usageMap, // Return usageMap so incremental build can use it for image truthing
+    usageMap,
   };
 }

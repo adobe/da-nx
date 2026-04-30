@@ -20,6 +20,7 @@ import { t } from '../core/messages.js';
 import { getIndexStatus } from '../indexing/index-status.js';
 import { getCanonicalMediaTimestamp } from '../core/utils.js';
 import { getDedupeKey, canonicalizeMediaUrl } from '../core/urls.js';
+import { isIndexedExternalMediaEntry } from '../core/media.js';
 import {
   IndexFiles,
   SheetNames,
@@ -169,6 +170,15 @@ export async function loadMediaIfUpdated(sitePath, org, repo) {
   return { hasChanged: false, mediaData: null, indexMissing: false };
 }
 
+export function getUsageIndexKey(media) {
+  if (!media) return '';
+  const isExternal = isIndexedExternalMediaEntry(media);
+  if (isExternal) {
+    return media.hash || '';
+  }
+  return media.url ? getDedupeKey(media.url) : (media.hash || '');
+}
+
 function statusRankForUniqueCard(item) {
   return item.doc ? 2 : 0;
 }
@@ -188,13 +198,12 @@ function shouldReplaceUniqueItem(existingItem, item) {
   return statusRankForUniqueCard(item) > statusRankForUniqueCard(existingItem);
 }
 
-// Builds uniqueItems and usageIndex from raw media data.
 export function buildMediaIndexStructures(mediaData) {
   const uniqueItemsMap = new Map();
   const usageIndex = new Map();
 
   mediaData.forEach((item) => {
-    const groupingKey = item.url ? getDedupeKey(item.url) : item.hash;
+    const groupingKey = getUsageIndexKey(item);
     const existingItem = uniqueItemsMap.get(groupingKey);
     if (!uniqueItemsMap.has(groupingKey) || shouldReplaceUniqueItem(existingItem, item)) {
       const merged = { ...item };

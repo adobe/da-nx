@@ -436,7 +436,21 @@ export async function initService(sitePath, options = {}) {
       const { indexMissing } = await loadMediaSheet(sitePath);
       if (indexMissing) {
         emit(createIndexMissingEvent(sitePath));
+        return; // App layer will handle auto-trigger via index-missing event
       }
+    }
+
+    // Trigger initial incremental build on app open/refresh to ensure fresh data
+    // This runs immediately instead of waiting for the 120s polling interval
+    if (!freshLock) {
+      if (isPerfEnabled()) {
+        // eslint-disable-next-line no-console
+        console.log('[perf] App mode: triggering initial incremental build on startup');
+      }
+      // Use setTimeout to avoid blocking initialization
+      setTimeout(() => {
+        triggerBuild(sitePath, org, repo);
+      }, 100);
     }
   } catch (error) {
     // If check fails, continue with polling - don't block initialization

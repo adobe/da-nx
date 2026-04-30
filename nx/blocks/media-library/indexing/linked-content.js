@@ -2,6 +2,7 @@ import { fetchFileGetInfo, fetchFileHeadInfo } from './admin-api.js';
 import {
   isPdf,
   isSvg,
+  isVideo,
   isPdfOrSvg,
   isFragmentDoc,
   buildUsageMap,
@@ -15,7 +16,9 @@ import {
   isIndexedExternalMediaEntry,
   isExternalVideoUrl,
   getExternalMediaTypeInfo,
+  normalizeExternalVideoUrl,
 } from '../core/media.js';
+import { canonicalizeMediaUrl } from '../core/urls.js';
 
 function isHtmlContentType(contentType = '') {
   const normalized = contentType.toLowerCase();
@@ -136,7 +139,9 @@ async function validateExternalMediaEntries(
   const candidateUrls = new Set(externalUrls);
   const entriesByHash = new Map();
   index.forEach((entry) => {
-    if (!isIndexedExternalMediaOperation(entry) || !candidateUrls.has(entry.url)) return;
+    if (
+      !isIndexedExternalMediaOperation(entry) || !candidateUrls.has(entry.url)
+    ) return;
     if (!entriesByHash.has(entry.hash)) {
       entriesByHash.set(entry.hash, entry);
     }
@@ -291,7 +296,7 @@ export async function processLinkedContent(
   }
 
   const allLinkedPaths = new Set(filesByPath.keys());
-  ['pdfs', 'svgs', 'fragments'].forEach((key) => {
+  ['pdfs', 'svgs', 'videos', 'fragments'].forEach((key) => {
     usageMap[key]?.forEach((_, path) => allLinkedPaths.add(path));
   });
 
@@ -310,6 +315,7 @@ export async function processLinkedContent(
     let key = 'fragments';
     if (isPdf(filePath)) key = 'pdfs';
     else if (isSvg(filePath)) key = 'svgs';
+    else if (isVideo(filePath)) key = 'videos';
     const linkedPages = usageMap[key]?.get(filePath) || [];
     const fileEvent = filesByPath.get(filePath) || { timestamp: 0, user: '' };
 
@@ -356,35 +362,47 @@ export async function processLinkedContent(
       firstDiscoveredTimestamp: 0,
     };
     const { pages: linkedPages, firstDiscoveredTimestamp } = data;
+
+    // Compute the hash that will be used in the entry (same as toExternalMediaEntry)
+    // Apply video URL normalization to match hash creation
+    const canonicalUrl = canonicalizeMediaUrl(url, org, repo);
+    const entryHash = normalizeExternalVideoUrl(canonicalUrl);
+
     const isExtlinksForDoc = (doc) => (e) => {
       const op = e.operation || e.source;
       const isExt = op === Operation.EXTLINKS || op === Operation.MARKDOWN_PARSED;
-      return isExt && e.hash === url && e.doc === doc;
+      return isExt && e.hash === entryHash && e.doc === doc;
     };
     const isExtlinksEntry = (e) => {
       const op = e.operation || e.source;
-      return (op === Operation.EXTLINKS || op === Operation.MARKDOWN_PARSED) && e.hash === url;
+      return (
+        op === Operation.EXTLINKS || op === Operation.MARKDOWN_PARSED
+      ) && e.hash === entryHash;
     };
 
-    const obsolete = updatedIndex.filter((e) => isExtlinksEntry(e) && (e.doc === '' || !linkedPages.includes(e.doc)));
-    obsolete.forEach((e) => {
-      updatedIndex.splice(updatedIndex.indexOf(e), 1);
-      removed += 1;
-    });
+    // Only process if we have linkedPages from parsed pages
+    // If linkedPages is empty, keep existing entries unchanged (pages weren't parsed in this build)
+    if (linkedPages.length > 0) {
+      const obsolete = updatedIndex.filter((e) => isExtlinksEntry(e) && (e.doc === '' || !linkedPages.includes(e.doc)));
+      obsolete.forEach((e) => {
+        updatedIndex.splice(updatedIndex.indexOf(e), 1);
+        removed += 1;
+      });
 
-    linkedPages.forEach((doc) => {
-      const existingIdx = updatedIndex.findIndex(isExtlinksForDoc(doc));
-      const freshEntry = toExternalMediaEntry(url, doc, firstDiscoveredTimestamp, org, repo);
-      if (!freshEntry) {
-        return;
-      }
-      if (existingIdx !== -1) {
-        updatedIndex[existingIdx] = freshEntry;
-      } else {
-        updatedIndex.push(freshEntry);
-        added += 1;
-      }
-    });
+      linkedPages.forEach((doc) => {
+        const existingIdx = updatedIndex.findIndex(isExtlinksForDoc(doc));
+        const freshEntry = toExternalMediaEntry(url, doc, firstDiscoveredTimestamp, org, repo);
+        if (!freshEntry) {
+          return;
+        }
+        if (existingIdx !== -1) {
+          updatedIndex[existingIdx] = freshEntry;
+        } else {
+          updatedIndex.push(freshEntry);
+          added += 1;
+        }
+      });
+    }
   });
 
   const validationResults = await validateExternalMediaEntries(

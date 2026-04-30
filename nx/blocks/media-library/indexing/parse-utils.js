@@ -176,13 +176,42 @@ export function extractFragmentReferences(content, isHtml = false) {
 }
 
 /**
+ * Extract video URLs from content
+ */
+export function extractVideoUrls(content, isHtml = false) {
+  const urls = extractUrls(content, isHtml);
+  const pathPart = (u) => u.split('?')[0].split('#')[0];
+  const videoPattern = /\.(mp4|webm|mov|avi|m4v)([?#]|$)/i;
+  return [...new Set(
+    urls
+      .filter((u) => videoPattern.test(pathPart(u)) && !isExternalUrl(u))
+      .map((u) => toPath(u)),
+  )];
+}
+
+/**
+ * Extract image URLs from content
+ */
+export function extractImageUrls(content, isHtml = false) {
+  const urls = extractUrls(content, isHtml);
+  const pathPart = (u) => u.split('?')[0].split('#')[0];
+  const imagePattern = /\.(jpg|jpeg|png|gif|webp|avif|bmp|svg)([?#]|$)/i;
+  return [...new Set(
+    urls
+      .filter((u) => imagePattern.test(pathPart(u)) && !isExternalUrl(u))
+      .map((u) => toPath(u)),
+  )];
+}
+
+/**
  * Extract image and video URLs from content
+ * @deprecated Use extractImageUrls() and extractVideoUrls() instead
  */
 export function extractImageAndVideoUrls(content, isHtml = false) {
   const urls = extractUrls(content, isHtml);
   const pathPart = (u) => u.split('?')[0].split('#')[0];
   // Match image/video extensions (jpg, png, gif, webp, mp4, etc.)
-  const mediaPattern = /\.(jpg|jpeg|png|gif|webp|avif|bmp|mp4|webm|mov|avi|m4v)([?#]|$)/i;
+  const mediaPattern = /\.(jpg|jpeg|png|gif|webp|avif|bmp|svg|mp4|webm|mov|avi|m4v)([?#]|$)/i;
   return [...new Set(
     urls
       .filter((u) => mediaPattern.test(pathPart(u)) && !isExternalUrl(u))

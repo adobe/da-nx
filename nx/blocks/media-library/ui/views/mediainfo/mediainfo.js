@@ -24,13 +24,13 @@ import {
   canonicalizeMediaUrl,
   preferPreviewForMediaUrl,
   isPreviewPreferredForMediaUrl,
-  getDedupeKey,
   etcFetch,
   convertToAemPage,
 } from '../../../core/urls.js';
 import { getAppState } from '../../../core/state.js';
 import { getEditUrl, getViewUrl, formatDocPath } from '../../../core/paths.js';
 import { formatDateTime, isMediaLibraryPluginMode } from '../../../core/utils.js';
+import { getUsageIndexKey } from '../../data.js';
 import loadScript from '../../../../../utils/script.js';
 import { SUPPORTED_FILES } from '../../../../../public/utils/constants.js';
 import { Domains, MediaType } from '../../../core/constants.js';
@@ -228,7 +228,7 @@ class NxMediaInfo extends LitElement {
 
       this.show({
         media,
-        usageData: getAppState().usageIndex?.get(getDedupeKey(media.url)) || [],
+        usageData: getAppState().usageIndex?.get(getUsageIndexKey(media)) || [],
         org: this.org,
         repo: this.repo,
         usePreviewDaLive: this.usePreviewDaLive,

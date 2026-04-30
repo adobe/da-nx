@@ -15,7 +15,8 @@ import { getDedupeKey } from '../../core/urls.js';
 import {
   normalizePath,
   isHiddenPath,
-  extractImageAndVideoUrls,
+  extractImageUrls,
+  extractVideoUrls,
   extractFragmentReferences,
   extractExternalMediaUrls,
   extractLinks,
@@ -60,7 +61,8 @@ export async function buildUsageMap(
     fragments: new Map(),
     pdfs: new Map(),
     svgs: new Map(),
-    images: new Map(), // Regular images and videos from markdown
+    videos: new Map(), // Videos from markdown links
+    images: new Map(), // Regular images from markdown
     externalMedia: new Map(),
   };
 
@@ -97,7 +99,8 @@ export async function buildUsageMap(
     const fragments = extractFragmentReferences(md, isHtml);
     const pdfs = extractLinks(md, /\.pdf$/, isHtml);
     const svgs = extractLinks(md, /\.svg$/, isHtml);
-    const images = extractImageAndVideoUrls(md, isHtml);
+    const videos = extractVideoUrls(md, isHtml);
+    const images = extractImageUrls(md, isHtml);
     const externalUrls = extractExternalMediaUrls(md, isHtml);
     const addToMap = (map, path) => {
       if (!map.has(path)) map.set(path, []);
@@ -122,6 +125,7 @@ export async function buildUsageMap(
     fragments.forEach((f) => addToMap(usageMap.fragments, f));
     pdfs.forEach((p) => addToMap(usageMap.pdfs, p));
     svgs.forEach((s) => addToMap(usageMap.svgs, s));
+    videos.forEach((v) => addToMap(usageMap.videos, v));
     images.forEach((i) => addToMap(usageMap.images, i));
     externalUrls.forEach((u) => addToExternalMedia(u));
   };
@@ -230,6 +234,7 @@ export async function buildUsageMap(
   const fragCount = usageMap.fragments?.size ?? 0;
   const pdfCount = usageMap.pdfs?.size ?? 0;
   const svgCount = usageMap.svgs?.size ?? 0;
+  const videoCount = usageMap.videos?.size ?? 0;
   const imgCount = usageMap.images?.size ?? 0;
   const extCount = usageMap.externalMedia?.size ?? 0;
 
@@ -238,7 +243,7 @@ export async function buildUsageMap(
     // eslint-disable-next-line no-console
     console.log(
       `[buildUsageMap] ${Math.round(durationMs / 1000)}s | pages ${counters.success}/${uniquePages.length} | `
-      + `items frag=${fragCount} pdf=${pdfCount} svg=${svgCount} img=${imgCount} ext=${extCount}`,
+      + `items frag=${fragCount} pdf=${pdfCount} svg=${svgCount} video=${videoCount} img=${imgCount} ext=${extCount}`,
     );
   }
 
