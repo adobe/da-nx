@@ -38,6 +38,7 @@ class FormEditor extends LitElement {
     formModel: { state: true },
     _schemas: { state: true },
     _hasUnsupportedContent: { state: true },
+    _missingSchemaName: { state: true },
     _activeNavPointer: { state: true },
     _scrollEditorIntoView: { state: true },
     _scrollNavItemIntoView: { state: true },
@@ -48,6 +49,7 @@ class FormEditor extends LitElement {
     super();
     this._pendingSchemaId = '';
     this._hasUnsupportedContent = false;
+    this._missingSchemaName = undefined;
   }
 
   connectedCallback() {
@@ -59,6 +61,7 @@ class FormEditor extends LitElement {
   _resetEditorState() {
     this.formModel = null;
     this._hasUnsupportedContent = false;
+    this._missingSchemaName = undefined;
     this._pendingSchemaId = '';
     this._activeNavPointer = undefined;
     this._scrollEditorIntoView = undefined;
@@ -91,10 +94,22 @@ class FormEditor extends LitElement {
 
     const path = this.details.fullpath;
     this._hasUnsupportedContent = false;
+    this._missingSchemaName = undefined;
     this._activeNavPointer = undefined;
     this._scrollEditorIntoView = undefined;
     this._scrollNavItemIntoView = undefined;
-    this.formModel = new FormModel({ path, html: result.html, schemas });
+    const model = new FormModel({ path, html: result.html, schemas });
+    const json = JSON.parse(model.getSerializedJson());
+    const schemaName = json?.metadata?.schemaName;
+
+    if (!model.schema) {
+      this._resetEditorState();
+      this._hasUnsupportedContent = true;
+      this._missingSchemaName = schemaName ?? '';
+      return;
+    }
+
+    this.formModel = model;
   }
 
   _onPendingSchemaChange(e) {
@@ -113,6 +128,7 @@ class FormEditor extends LitElement {
 
     const path = this.details.fullpath;
     this._hasUnsupportedContent = false;
+    this._missingSchemaName = undefined;
     this._activeNavPointer = undefined;
     this._scrollEditorIntoView = undefined;
     this._scrollNavItemIntoView = undefined;
@@ -251,6 +267,9 @@ class FormEditor extends LitElement {
   renderUnsupportedContentMessage() {
     const fullpath = this.details?.fullpath ?? '';
     const path = fullpath.endsWith('.html') ? fullpath.slice(0, -5) : fullpath;
+    const schemaEditorHref = this._getSchemaEditorHref();
+    const hasMissingSchema = this._missingSchemaName !== undefined;
+    const schemaName = this._missingSchemaName || '(empty)';
     const action = {
       label: 'Return to Home',
       style: '',
@@ -258,15 +277,30 @@ class FormEditor extends LitElement {
     };
     return html`
       <da-dialog
-        title="Not supported"
+        title=${hasMissingSchema ? 'Schema not found' : 'Not supported'}
         size="large"
         @close=${this._goToRepoRoot}
         .action=${action}
       >
-        <p class="da-form-schema-hint">
-          The resource under this path${path ? html` <strong>${path}</strong>` : ''} cannot be opened
-          as structured content.
-        </p>
+        ${hasMissingSchema
+          ? html`
+            <p class="da-form-schema-hint">
+              The schema <strong>${schemaName}</strong> referenced by this resource
+              ${path ? html`at <strong>${path}</strong> ` : ''}does not exist. To create it, open
+              <a
+                class="da-form-schema-text-link"
+                href=${schemaEditorHref}
+                target="_blank"
+                rel="noopener noreferrer"
+              >Schema Editor</a>.
+            </p>
+          `
+          : html`
+            <p class="da-form-schema-hint">
+              The resource under this path${path ? html` <strong>${path}</strong>` : ''} cannot be
+              opened as structured content.
+            </p>
+          `}
       </da-dialog>
     `;
   }

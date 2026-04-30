@@ -188,6 +188,7 @@ function hasMeaningfulContent(el) {
  * @returns {boolean}
  */
 export function isEmptyDocumentHtml(htmlString) {
+  console.log('htmlString', htmlString);
   if (typeof htmlString !== 'string') return false;
 
   const doc = new DOMParser().parseFromString(htmlString, 'text/html');
