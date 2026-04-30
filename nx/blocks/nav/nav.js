@@ -1,18 +1,21 @@
 import { getConfig, loadArea, getMetadata } from '../../scripts/nexter.js';
 import loadStyle from '../../utils/styles.js';
-import getSvg from '../../utils/svg.js';
+import { getSvg } from '../../utils/svg.js';
+import addToggle from './toggle.js';
 
 const { nxBase } = getConfig();
 
 const ICONS = [
   `${nxBase}/img/logos/aec.svg`,
   `${nxBase}/img/icons/S2IconHelp20N-icon.svg`,
+  `${nxBase}/img/icons/S2IconLayout20N-icon.svg`,
 ];
 
 function getDefaultPath() {
   const { origin } = new URL(import.meta.url);
   return `${origin}/fragments/nx-nav`;
 }
+
 class Nav extends HTMLElement {
   constructor() {
     super().attachShadow({ mode: 'open' });
@@ -84,6 +87,7 @@ class Nav extends HTMLElement {
     const navActions = await this.renderActions();
     this.shadowRoot.append(navActions);
     delete this.closest('header').dataset.status;
+    addToggle(navActions);
   }
 }
 

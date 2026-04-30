@@ -80,7 +80,18 @@
     height: 20px;
   }
 
-  &:has(nx-profile.is-loaded) {
+  &:has(.nx-toggle), &:has(nx-profile.is-loaded) {
     display: unset;
+  }
+
+  .nx-toggle {
+    gap: 6px;
+    padding: 0 10px 0 8px;
+
+    svg {
+      width: 20px;
+      height: 20px;
+      flex-shrink: 0;
+    }
   }
 }
