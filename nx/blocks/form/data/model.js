@@ -1,9 +1,10 @@
 import { DA_ORIGIN } from 'https://da.live/blocks/shared/constants.js';
 import { daFetch } from 'https://da.live/blocks/shared/utils.js';
 import HTMLConverter from '../utils/html2json.js';
-import JSONConverter from '../utils/json2html.js';
+import { serialise } from '../utils/serialise.js';
+import { isEmpty } from '../utils/prune.js';
 import { validateJson } from '../utils/validator.js';
-import { annotateFromSchema, dereferenceSchema, findNodeByPointer, isEmpty, pruneRecursive } from '../utils/utils.js';
+import { annotateFromSchema, dereferenceSchema, findNodeByPointer } from '../utils/utils.js';
 import {
   append,
   getValue,
@@ -105,9 +106,7 @@ export default class FormModel {
   }
 
   async saveHtml() {
-    const prunedData = pruneRecursive(this._json.data);
-    const json = { ...this._json, data: prunedData ?? {} };
-    const html = JSONConverter(json);
+    const html = serialise({ json: this._json });
     const body = new FormData();
     const data = new Blob([html], { type: 'text/html' });
     body.append('data', data);
