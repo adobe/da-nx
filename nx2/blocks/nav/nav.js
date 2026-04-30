@@ -17,11 +17,11 @@ class NXNav extends LitElement {
     _actions: { state: true },
   };
 
-  connectedCallback() {
+  async connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
-    this.loadNav();
-    setupToggle(() => this._actions || this.updateComplete.then(() => this._actions));
+    await this.loadNav();
+    setupToggle(() => this._actions);
   }
 
   change(props) {
