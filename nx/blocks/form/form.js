@@ -14,6 +14,7 @@ import {
 } from './utils/utils.js';
 
 import 'https://da.live/blocks/edit/da-title/da-title.js';
+import 'https://da.live/blocks/shared/da-dialog/da-dialog.js';
 
 // Internal Web Components
 import './views/editor.js';
@@ -128,6 +129,13 @@ class FormEditor extends LitElement {
     return `https://da.live/apps/schema#/${owner}/${repo}`;
   }
 
+  _goToRepoRoot() {
+    const { owner, repo } = this.details ?? {};
+    if (!owner || !repo) return;
+    const query = window.location.search ?? '';
+    window.location.href = `https://da.live${query}#/${owner}/${repo}`;
+  }
+
   _handleNavPointerSelectFromSidebar(e) {
     const { pointer } = e.detail ?? {};
     if (!pointer || pointer === this._activeNavPointer) return;
@@ -207,37 +215,35 @@ class FormEditor extends LitElement {
     const schemaEditorHref = this._getSchemaEditorHref();
     return html`
       <div class="da-form-schema-shell">
-        <div class="da-form-schema-card">
-          <h2 class="da-form-schema-heading">Choose a schema</h2>
-          <div class="da-form-schema-form">
-            <sl-select
-              hoist
-              class="da-form-schema-select"
-              label="Schema"
-              placeholder="Select a schema"
-              .value=${this._pendingSchemaId}
-              @change=${this._onPendingSchemaChange}
-            >
-              <option value="">Select a schema</option>
-              ${Object.entries(this._schemas).map(([key, value]) => html`
-                <option value="${key}">${value.title}</option>
-              `)}
-            </sl-select>
-            <p class="da-form-schema-hint da-form-schema-selector-hint">
-              To create a new schema, open
-              <a
-                class="da-form-schema-text-link"
-                href=${schemaEditorHref}
-                target="_blank"
-                rel="noopener noreferrer"
-              >Schema Editor</a>.
-            </p>
-            <sl-button
-              class="da-form-schema-start"
-              ?disabled=${!this._pendingSchemaId}
-              @click=${this._confirmSchemaStart}
-            >Create</sl-button>
-          </div>
+        <h2 class="da-form-schema-heading">Choose a schema</h2>
+        <div class="da-form-schema-form">
+          <sl-select
+            hoist
+            class="da-form-schema-select"
+            label="Schema"
+            placeholder="Select a schema"
+            .value=${this._pendingSchemaId}
+            @change=${this._onPendingSchemaChange}
+          >
+            <option value="">Select a schema</option>
+            ${Object.entries(this._schemas).map(([key, value]) => html`
+              <option value="${key}">${value.title}</option>
+            `)}
+          </sl-select>
+          <p class="da-form-schema-hint da-form-schema-selector-hint">
+            To create a new schema, open
+            <a
+              class="da-form-schema-text-link"
+              href=${schemaEditorHref}
+              target="_blank"
+              rel="noopener noreferrer"
+            >Schema Editor</a>.
+          </p>
+          <sl-button
+            class="da-form-schema-start"
+            ?disabled=${!this._pendingSchemaId}
+            @click=${this._confirmSchemaStart}
+          >Create</sl-button>
         </div>
       </div>`;
   }
@@ -245,14 +251,23 @@ class FormEditor extends LitElement {
   renderUnsupportedContentMessage() {
     const fullpath = this.details?.fullpath ?? '';
     const path = fullpath.endsWith('.html') ? fullpath.slice(0, -5) : fullpath;
+    const action = {
+      label: 'Return to Home',
+      style: '',
+      click: () => this._goToRepoRoot(),
+    };
     return html`
-      <div class="da-form-schema-shell da-form-warning-shell">
-        <p class="da-form-title">Not supported</p>
+      <da-dialog
+        title="Not supported"
+        size="large"
+        @close=${this._goToRepoRoot}
+        .action=${action}
+      >
         <p class="da-form-schema-hint">
-          The resource under this path${path ? html` <code>${path}</code>` : ''} cannot be opened
+          The resource under this path${path ? html` <strong>${path}</strong>` : ''} cannot be opened
           as structured content.
         </p>
-      </div>
+      </da-dialog>
     `;
   }
 
