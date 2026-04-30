@@ -1,10 +1,11 @@
-import { DA_ORIGIN, daFetch } from '../../../../utils/daFetch.js';
+import { DA_ADMIN } from '../../../../utils/utils.js';
+import { daFetch } from '../../../../utils/api.js';
 
 export function buildSourceUrl(path) {
   if (!path || typeof path !== 'string') return null;
   const trimmed = path.replace(/^\//, '').trim();
   if (!trimmed) return null;
-  return `${DA_ORIGIN}/source/${trimmed}.html`;
+  return `${DA_ADMIN}/source/${trimmed}.html`;
 }
 
 export function parsePermissions(resp) {
@@ -15,6 +16,6 @@ export function parsePermissions(resp) {
 }
 
 export async function checkDoc(sourceUrl) {
-  const resp = await daFetch(sourceUrl, { method: 'HEAD' });
+  const resp = await daFetch({ url: sourceUrl, opts: { method: 'HEAD' } });
   return parsePermissions(resp);
 }

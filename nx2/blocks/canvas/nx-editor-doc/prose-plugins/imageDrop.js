@@ -1,5 +1,5 @@
 import { Plugin, TextSelection } from 'da-y-wrapper';
-import { daFetch } from '../../../../utils/daFetch.js';
+import { daFetch } from '../../../../utils/api.js';
 import { getSourceUploadContext } from './sourceUploadContext.js';
 
 const FPO_IMG_URL = 'https://da.live/blocks/edit/img/fpo.svg';
@@ -35,7 +35,7 @@ export default function imageDrop(schema, getSourceUrl) {
             const formData = new FormData();
             formData.append('data', file);
             const opts = { method: 'PUT', body: formData };
-            const resp = await daFetch(url, opts);
+            const resp = await daFetch({ url, opts });
             if (!resp.ok) return;
             const json = await resp.json();
 

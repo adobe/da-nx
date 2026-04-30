@@ -3,11 +3,17 @@ const AUTO_BLOCKS = [
   { 'nx-youtube': 'https://www.youtube.com' },
 ];
 
-function getEnv() {
-  const { host } = new URL(window.location.href);
-  if (!['.aem.page', 'local'].some((check) => host.includes(check))) return 'prod';
-  if (['.hlx.', '.aem.'].some((check) => host.includes(check))) return 'stage';
+export const env = (() => {
+  const { host } = window.location;
+  if (host.endsWith('.aem.live')) return 'prod';
+  if (!['--', 'local'].some((check) => host.includes(check))) return 'prod';
+  if (['--'].some((check) => host.includes(check))) return 'stage';
   return 'dev';
+})();
+
+export function getColorScheme() {
+  return localStorage.getItem('color-scheme')
+    || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark-scheme' : 'light-scheme');
 }
 
 export const [setConfig, getConfig] = (() => {
@@ -16,7 +22,7 @@ export const [setConfig, getConfig] = (() => {
     (conf = {}) => {
       config = {
         ...conf,
-        env: getEnv(),
+        env,
         nxBase: `${import.meta.url.replace('/scripts/nexter.js', '')}`,
       };
       window.c = config;
@@ -51,7 +57,7 @@ export async function loadBlock(block) {
   const { classList } = block;
   let name = classList[0];
   const isNx = name.startsWith('nx-');
-  if (isNx) name = name.replace('nx-', '');
+  name = isNx ? name.replace('nx-', '') : name;
   block.dataset.blockName = name;
   const { nxBase, codeBase = '' } = getConfig();
   const path = isNx ? `${nxBase}/blocks` : `${codeBase}/blocks`;
@@ -143,12 +149,14 @@ function decorateHeader() {
 }
 
 export async function loadArea(area = document) {
+  const { decorateArea } = getConfig();
   const isDoc = area === document;
   if (isDoc) {
     if (getMetadata('signin')) await import('../utils/signin.js');
     document.documentElement.lang = 'en';
     decorateHeader();
   }
+  if (decorateArea) await decorateArea(area);
   const sections = decorateSections(area, isDoc);
   for (const [idx, section] of sections.entries()) {
     await Promise.all(section.autoBlocks.map((block) => loadBlock(block)));
@@ -157,9 +165,4 @@ export async function loadArea(area = document) {
     if (isDoc && idx === 0) await import('./postlcp.js');
   }
   if (isDoc) import('./lazy.js');
-}
-
-export function getColorScheme() {
-  return localStorage.getItem('color-scheme')
-    || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark-scheme' : 'light-scheme');
 }

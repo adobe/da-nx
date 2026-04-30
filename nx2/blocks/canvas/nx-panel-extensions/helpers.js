@@ -1,8 +1,8 @@
 /* eslint-disable import/no-unresolved -- importmap */
 import { DOMParser as PMDOMParser, DOMSerializer, Slice, TextSelection } from 'da-y-wrapper';
-import { AEM_ORIGIN, daFetch } from '../../../utils/daFetch.js';
+import { HLX_ADMIN, hashChange } from '../../../utils/utils.js';
+import { daFetch } from '../../../utils/api.js';
 import { fetchDaConfigs, getFirstSheet } from '../../../utils/daConfig.js';
-import { hashChange } from '../../../utils/utils.js';
 import { getExtensionsBridge } from '../editor-utils/extensions-bridge.js';
 
 const ref = new URLSearchParams(window.location.search).get('ref') || 'main';
@@ -68,7 +68,7 @@ function decorateImages(element, path) {
 
 async function fetchAndParseHtml(path, isAemHosted) {
   try {
-    const resp = await daFetch(`${path}${isAemHosted ? '.plain.html' : ''}`);
+    const resp = await daFetch({ url: `${path}${isAemHosted ? '.plain.html' : ''}` });
     if (!resp.ok) return null;
     return new window.DOMParser().parseFromString(await resp.text(), 'text/html');
   } catch { return null; }
@@ -254,7 +254,7 @@ export async function fetchBlocks(sources) {
   const blocks = [];
   for (const url of sources) {
     try {
-      const resp = await daFetch(url);
+      const resp = await daFetch({ url });
       if (resp.ok) {
         const json = await resp.json();
         const data = getFirstSheet(json) ?? (Array.isArray(json) ? json : []);
@@ -273,7 +273,7 @@ export async function fetchItems(sources, format) {
   const items = [];
   for (const source of sources) {
     try {
-      const resp = await daFetch(source);
+      const resp = await daFetch({ url: source });
       if (resp.ok) {
         const json = await resp.json();
         const data = getFirstSheet(json) ?? (Array.isArray(json) ? json : []);
@@ -328,7 +328,7 @@ export function getEditorSelection(view) {
 }
 
 export async function insertTemplate(view, url) {
-  const resp = await daFetch(url);
+  const resp = await daFetch({ url });
   if (!resp.ok) return;
   const html = (await resp.text()).replace('class="template-metadata"', 'class="metadata"');
   const doc = new window.DOMParser().parseFromString(html, 'text/html');
@@ -342,7 +342,7 @@ export async function insertTemplate(view, url) {
 
 export async function getPreviewStatus({ org, site, pathname }) {
   try {
-    const resp = await daFetch(`${AEM_ORIGIN}/status/${org}/${site}${pathname}`);
+    const resp = await daFetch({ url: `${HLX_ADMIN}/status/${org}/${site}${pathname}` });
     if (!resp.ok) return null;
     const json = await resp.json();
     return json.preview?.status === 200;

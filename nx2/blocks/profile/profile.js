@@ -2,7 +2,7 @@ import { LitElement, html, nothing } from 'da-lit';
 import { getConfig, loc } from '../../scripts/nx.js';
 import { loadIms, handleSignOut, handleSignIn } from '../../utils/ims.js';
 import { loadStyle } from '../../utils/utils.js';
-import { DA_ORIGIN, daFetch } from '../../utils/daFetch.js';
+import { signout } from '../../utils/api.js';
 
 const config = getConfig();
 
@@ -72,9 +72,9 @@ class NxProfile extends LitElement {
 
   async handleSignOut() {
     try {
-      await daFetch(`${DA_ORIGIN}/logout`);
+      signout();
     } catch {
-      // logout did not work.
+      config.log('Could not sign out');
     }
     handleSignOut();
     const opts = { bubbles: true, composed: true };
@@ -83,21 +83,16 @@ class NxProfile extends LitElement {
   }
 
   handleScheme() {
-    const { body } = document;
-
-    let currPref = localStorage.getItem('color-scheme');
-    if (!currPref) {
-      currPref = matchMedia('(prefers-color-scheme: dark)')
-        .matches ? 'dark-scheme' : 'light-scheme';
+    let curr = localStorage.getItem('color-scheme');
+    if (!curr) {
+      curr = matchMedia('(prefers-color-scheme: dark)').matches
+        ? 'dark-scheme' : 'light-scheme';
     }
 
-    const theme = currPref === 'dark-scheme'
-      ? { add: 'light-scheme', remove: 'dark-scheme' }
-      : { add: 'dark-scheme', remove: 'light-scheme' };
-
-    body.classList.remove(theme.remove);
-    body.classList.add(theme.add);
-    localStorage.setItem('color-scheme', theme.add);
+    const next = curr === 'dark-scheme' ? 'light-scheme' : 'dark-scheme';
+    document.body.classList.remove('dark-scheme', 'light-scheme');
+    document.body.classList.add(next);
+    localStorage.setItem('color-scheme', next);
   }
 
   get _org() {

@@ -1,4 +1,5 @@
-import { CON_ORIGIN, daFetch } from '../../../utils/daFetch.js';
+import { DA_CONTENT } from '../../../utils/utils.js';
+import { daFetch } from '../../../utils/api.js';
 
 export function getPreviewOrigin(org, repo) {
   const hostname = window?.location?.hostname ?? '';
@@ -13,15 +14,11 @@ export async function fetchWysiwygCookie({ org, repo, token }) {
     throw new Error('fetchWysiwygCookie: org, repo, and token required');
   }
   const previewUrl = `${getPreviewOrigin(org, repo)}/gimme_cookie`;
-  const contentUrl = `${CON_ORIGIN}/${org}/${repo}/.gimme_cookie`;
+  const contentUrl = `${DA_CONTENT}/${org}/${repo}/.gimme_cookie`;
 
   const [previewResp, contentResp] = await Promise.all([
-    daFetch(previewUrl, {
-      method: 'GET',
-      credentials: 'include',
-      headers: { Authorization: `Bearer ${token}` },
-    }),
-    daFetch(contentUrl, { method: 'GET', credentials: 'include' }),
+    daFetch({ url: previewUrl, opts: { method: 'GET', credentials: 'include', headers: { Authorization: `Bearer ${token}` } } }),
+    daFetch({ url: contentUrl, opts: { method: 'GET', credentials: 'include' } }),
   ]);
   if (!previewResp.ok || !contentResp.ok) {
     throw new Error(

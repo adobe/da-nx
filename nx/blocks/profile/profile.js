@@ -1,7 +1,7 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { getConfig } from '../../scripts/nexter.js';
 import getStyle from '../../utils/styles.js';
-import getSvg from '../../utils/svg.js';
+import { getSvg } from '../../utils/svg.js';
 import { daFetch } from '../../utils/daFetch.js';
 import { DA_ORIGIN } from '../../public/utils/constants.js';
 import { loadIms, handleSignIn, handleSignOut } from '../../utils/ims.js';

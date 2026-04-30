@@ -3,7 +3,7 @@ import { DA_ORIGIN } from '../../../../public/utils/constants.js';
 import { getConfig } from '../../../../scripts/nexter.js';
 import { daFetch } from '../../../../utils/daFetch.js';
 import getStyle from '../../../../utils/styles.js';
-import getSvg from '../../../../utils/svg.js';
+import { getSvg } from '../../../../utils/svg.js';
 import { detectService, saveLangItems, saveStatus, formatDate } from '../index.js';
 
 const { nxBase } = getConfig();

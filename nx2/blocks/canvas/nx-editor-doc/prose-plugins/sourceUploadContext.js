@@ -2,7 +2,7 @@
  * Copyright 2026 Adobe. All rights reserved.
  * Derives upload parent/name from a DA source document URL (same shape as da.live getPathDetails).
  */
-import { DA_ORIGIN } from '../../../../utils/daFetch.js';
+import { DA_ADMIN } from '../../../../utils/utils.js';
 
 /**
  * @param {string} sourceUrl - e.g. https://admin.da.live/source/org/repo/path/doc.html
@@ -22,7 +22,7 @@ export function getSourceUploadContext(sourceUrl) {
     const name = lastSeg.replace(/\.html?$/i, '');
     const parentSegments = segments.slice(0, -1);
     const parent = parentSegments.length ? `/${parentSegments.join('/')}` : '/';
-    return { origin: DA_ORIGIN, parent, name };
+    return { origin: DA_ADMIN, parent, name };
   } catch {
     return null;
   }

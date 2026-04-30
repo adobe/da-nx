@@ -321,11 +321,18 @@ function wrapElement(targetElement, wrapperElementTag) {
   return wrapperElement;
 }
 
-function getGroupInnerHtml(blockGroup) {
+const SECTION_DIV_BREAK = '</div><div>';
+const DIFF_INNER_SECTION_MARK = '<hr />';
+
+/**
+ * @param {Array<Element | typeof sectionBlock>} blockGroup
+ * @param {{ sectionSeparator?: string }} [options]
+ */
+function getGroupInnerHtml(blockGroup, { sectionSeparator = SECTION_DIV_BREAK } = {}) {
   let htmlText = '';
   blockGroup.forEach((block) => {
     if (block.isSection) {
-      htmlText += '</div><div>';
+      htmlText += sectionSeparator;
       return;
     }
     htmlText += block.outerHTML;
@@ -333,51 +340,116 @@ function getGroupInnerHtml(blockGroup) {
   return htmlText;
 }
 
-function getBlockgroupHtml(blockGroup, type) {
-  if (type === ADDED) {
-    blockGroup[0]?.setAttribute(ADDED_TAG, '');
-  }
+function diffEntryNeedsSectionBreakBefore(diff, index) {
+  if (index === 0) return false;
+  const prev = diff[index - 1];
+  return Boolean(prev && !prev.block?.isSection);
+}
 
-  // Modified block groups automatically get sections at start and end
-  const htmlText = getGroupInnerHtml(blockGroup);
+function diffEntryNeedsSectionBreakAfter(diff, index, consumedCount) {
+  const afterIndex = index + consumedCount;
+  if (afterIndex >= diff.length) return false;
+  const after = diff[afterIndex];
+  return Boolean(after && !after.block?.isSection);
+}
 
-  if (type === ADDED) {
-    return `<div>${htmlText}</div>`;
-  }
+function appendPairedDiffedBlockGroupsHtml({
+  htmlText, deletedGroup, addedGroup,
+}) {
+  const diffSep = { sectionSeparator: DIFF_INNER_SECTION_MARK };
+  const deletedInner = getGroupInnerHtml(deletedGroup, diffSep);
+  addedGroup[0]?.setAttribute(ADDED_TAG, '');
+  const addedInner = getGroupInnerHtml(addedGroup, diffSep);
+  return `${htmlText}<${DELETED_TAG}>${deletedInner}</${DELETED_TAG}>${addedInner}`;
+}
+
+function appendSingleDiffedBlockGroupHtml({ htmlText, type, blockGroup }) {
+  const diffSep = { sectionSeparator: DIFF_INNER_SECTION_MARK };
   if (type === DELETED) {
-    return `<${DELETED_TAG} class="da-group"><div>${htmlText}</div></${DELETED_TAG}>`;
+    const inner = getGroupInnerHtml(blockGroup, diffSep);
+    return `${htmlText}<${DELETED_TAG}>${inner}</${DELETED_TAG}>`;
   }
-  return htmlText;
+  blockGroup[0]?.setAttribute(ADDED_TAG, '');
+  const inner = getGroupInnerHtml(blockGroup, diffSep);
+  return `${htmlText}${inner}`;
 }
 
 function buildHtmlFromDiff(diff, modified, acceptedHashes = [], rejectedHashes = []) {
   let htmlText = '<div>';
-  diff.forEach((item, i) => {
+  for (let i = 0; i < diff.length; i += 1) {
+    const item = diff[i];
     let modifiedBlock = item.block;
     const hash = item.hash.substring(0, HASH_LENGTH);
+
     if (item.block.isSection && i !== 0) {
-      htmlText += '</div><div>';
-      return;
+      htmlText += SECTION_DIV_BREAK;
+      // eslint-disable-next-line no-continue
+      continue;
     }
 
     if (Array.isArray(item.block)) {
-      htmlText += getBlockgroupHtml(item.block, item.type, acceptedHashes, rejectedHashes);
-      return;
+      if (item.type === SAME) {
+        htmlText += getGroupInnerHtml(item.block);
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+
+      const next = diff[i + 1];
+      const isPairedDiff = item.type === DELETED
+        && next?.type === ADDED
+        && Array.isArray(next.block);
+
+      if (isPairedDiff) {
+        if (diffEntryNeedsSectionBreakBefore(diff, i)) {
+          htmlText += SECTION_DIV_BREAK;
+        }
+        htmlText = appendPairedDiffedBlockGroupsHtml({
+          htmlText,
+          deletedGroup: item.block,
+          addedGroup: next.block,
+        });
+        if (diffEntryNeedsSectionBreakAfter(diff, i, 2)) {
+          htmlText += SECTION_DIV_BREAK;
+        }
+        i += 1;
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+
+      if (diffEntryNeedsSectionBreakBefore(diff, i)) {
+        htmlText += SECTION_DIV_BREAK;
+      }
+      htmlText = appendSingleDiffedBlockGroupHtml({
+        htmlText,
+        type: item.type,
+        blockGroup: item.block,
+      });
+      if (diffEntryNeedsSectionBreakAfter(diff, i, 1)) {
+        htmlText += SECTION_DIV_BREAK;
+      }
+      // eslint-disable-next-line no-continue
+      continue;
     }
 
     if (item.type === ADDED) {
-      if (rejectedHashes.includes(hash)) return;
+      if (rejectedHashes.includes(hash)) {
+        // eslint-disable-next-line no-continue
+        continue;
+      }
       if (!acceptedHashes.includes(hash)) {
         modifiedBlock.setAttribute(ADDED_TAG, '');
       }
     } else if (item.type === DELETED) {
-      if (rejectedHashes.includes(hash)) return;
+      if (rejectedHashes.includes(hash)) {
+        // eslint-disable-next-line no-continue
+        continue;
+      }
       if (!acceptedHashes.includes(hash)) {
         modifiedBlock = wrapElement(item.block, DELETED_TAG);
       }
     }
     htmlText += modifiedBlock.outerHTML;
-  });
+  }
   htmlText += '</div>';
 
   modified.documentElement.querySelector('main').innerHTML = htmlText;

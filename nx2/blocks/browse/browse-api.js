@@ -1,4 +1,5 @@
-import { daFetch, DA_ORIGIN } from '../../utils/daFetch.js';
+import { DA_ADMIN } from '../../utils/utils.js';
+import { daFetch } from '../../utils/api.js';
 
 /**
  * Folder listing for the given fullpath.
@@ -8,7 +9,7 @@ import { daFetch, DA_ORIGIN } from '../../utils/daFetch.js';
 export async function listFolder(fullpath) {
   let response;
   try {
-    response = await daFetch(`${DA_ORIGIN}/list${fullpath}`);
+    response = await daFetch({ url: `${DA_ADMIN}/list${fullpath}` });
   } catch (err) {
     const message = err instanceof Error ? err.message : 'List request failed';
     return { error: message, status: 0 };

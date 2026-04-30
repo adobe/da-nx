@@ -15,6 +15,32 @@ export function connect(service) {
 
 // --- Helpers ---
 
+/**
+ * Extracts custom fields from options that start with 'translation.service.custom'.
+ * Returns an object with the field names as keys and their values.
+ * @param {Object} options - The options object containing translation settings
+ * @returns {Object} Object containing custom field key-value pairs
+ */
+function extractCustomFields(options) {
+  const customFields = {};
+  const prefix = 'translation.service.custom';
+
+  Object.entries(options).forEach(([key, value]) => {
+    if (key.startsWith(prefix) && value !== undefined && value !== null && value !== '') {
+      // Extract the field name from the key
+      // e.g., 'translation.service.custom.option.Template' -> 'Template'
+      // e.g., 'translation.service.custom.textarea.Notes' -> 'Notes'
+      const parts = key.split('.');
+      if (parts.length >= 4) {
+        const fieldName = parts.slice(4).join('.');
+        customFields[fieldName] = value;
+      }
+    }
+  });
+
+  return customFields;
+}
+
 async function getOpts(service, method = 'GET', body = null, contentType = 'application/json') {
   const { tenantId } = service;
   const token = await getAccessToken(service);
@@ -48,7 +74,30 @@ function ensureExtension(path) {
 
 // --- Project Operations ---
 
-async function createProject(options, service, title, langs) {
+/**
+ * Fetches custom field definitions from Trados and builds a lookup map.
+ * @param {Object} service - The service configuration
+ * @param {Function} sendMessage - Optional callback for sending debug messages
+ * @returns {Promise<Map>} Map of field names to their definitions (key, type, picklist, etc.)
+ */
+async function getCustomFieldDefinitions(service) {
+  const { apiEndpoint } = service;
+  const opts = await getOpts(service, 'GET');
+  const resp = await corsFetch(
+    `${apiEndpoint}/custom-field-definitions?fields=id,name,key,type,description,defaultValue,isMandatory`,
+    opts,
+  );
+
+  if (!resp.ok) return new Map();
+
+  const json = await resp.json();
+  const definitions = json.items || [];
+
+  // Build a lookup map: name -> definition
+  return new Map(definitions.map((def) => [def.name, def]));
+}
+
+async function createProject(options, service, title, langs, sendMessage) {
   const defaultDate = new Date();
   defaultDate.setDate(defaultDate.getDate() + 14);
   const dueBy = options['project.due'] || defaultDate.toISOString();
@@ -57,17 +106,25 @@ async function createProject(options, service, title, langs) {
   const { apiEndpoint } = service;
 
   const location = langs[0]['trados location'];
-  const templateId = options['translation.service.custom.option.Template'] || langs[0]['trados project template'];
-  const notes = options['translation.service.custom.textarea.Notes'];
+
+  // Extract all custom fields systematically
+  const customFields = extractCustomFields(options);
+
+  // Handle Template with fallback to lang config
+  const templateId = customFields.Template || langs[0]['trados project template'];
+
+  // Handle Notes for description with fallback
+  const description = customFields.Notes || `DA translation project: ${title}`;
 
   const languageDirections = langs.map((lang) => ({
     sourceLanguage: { languageCode: sourceLanguage },
     targetLanguage: { languageCode: lang.code },
   }));
 
-  const body = JSON.stringify({
+  // Build base project body
+  const projectBody = {
     name: `${title} - ${Date.now()}`,
-    description: notes || `DA translation project: ${title}`,
+    description,
     dueBy,
     projectTemplate: {
       id: templateId,
@@ -75,11 +132,52 @@ async function createProject(options, service, title, langs) {
     languageDirections,
     IsSpecificDueDate: false,
     location,
-  });
+  };
+
+  // Fetch custom field definitions to validate against
+  const fieldDefinitions = await getCustomFieldDefinitions(service);
+
+  // Add any additional custom fields (excluding Template and Notes which we already handled)
+  // Custom fields must match existing definitions and use the definition's key
+  const customFieldsArray = Object.entries(customFields).reduce((acc, [name, value]) => {
+    if (name !== 'Template' && name !== 'Notes') {
+      const definition = fieldDefinitions.get(name);
+      if (definition) {
+        // Use the definition's key (required by Trados API)
+        // For PICKLIST type, value should be a valid picklist option ID
+        // For STRING/DATE types, value is the actual string/date value
+        acc.push({ key: definition.key, value });
+      } else if (sendMessage) {
+        // Warn about custom fields that don't match Trados definitions
+        sendMessage({
+          text: `Custom field "${name}" not found in Trados definitions. It will be ignored.`,
+          type: 'warning',
+        });
+      }
+    }
+    return acc;
+  }, []);
+
+  if (customFieldsArray.length > 0) {
+    projectBody.customFields = customFieldsArray;
+  }
+
+  const body = JSON.stringify(projectBody);
 
   const opts = await getOpts(service, 'POST', body);
   const resp = await corsFetch(`${apiEndpoint}/projects`, opts);
-  if (!resp.ok) return null;
+
+  if (!resp.ok) {
+    // Log error details
+    const errorText = await resp.text();
+    if (sendMessage) {
+      sendMessage({
+        text: `Project creation failed: ${errorText}`,
+        type: 'error',
+      });
+    }
+    return null;
+  }
 
   const json = await resp.json();
   return json.id;
@@ -135,15 +233,16 @@ async function startProject(service, projectId) {
 
 // --- Exports ---
 
-export async function sendAllLanguages({ title, options, langs, urls, actions }) {
+export async function sendAllLanguages({
+  title, service, options, langs, urls, actions,
+}) {
   const { sendMessage, saveState } = actions;
-  const { service } = options;
 
   const localesStr = langs.map((lang) => lang.code).join(', ');
 
   // 1. Create project
   sendMessage({ text: `Creating Trados project for: ${localesStr}.` });
-  const projectId = await createProject(options, service, title, langs);
+  const projectId = await createProject(options, service, title, langs, sendMessage);
   if (!projectId) {
     sendMessage({ text: 'Error creating Trados project.', type: 'error' });
     return;

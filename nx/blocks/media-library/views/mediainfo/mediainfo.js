@@ -1,6 +1,6 @@
 import { html, LitElement } from 'da-lit';
 import getStyle from '../../../../utils/styles.js';
-import getSvg from '../../../../utils/svg.js';
+import loadSvgIcons from '../../../../utils/svg.js';
 import {
   getSubtype,
   isImage,
@@ -13,7 +13,7 @@ import {
   getMediaType,
   getImageOrientation,
 } from '../../core/media.js';
-import { formatFileSize, getFileName, optimizeImageUrls } from '../../core/files.js';
+import { formatFileSize, getFileName, optimizeImageUrls, decodeDisplayName } from '../../core/files.js';
 import { getMediaName } from '../../features/templates.js';
 import { copyMediaToClipboard } from '../../core/export.js';
 import {
@@ -21,6 +21,7 @@ import {
   normalizeUrl,
   isExternalUrl,
   resolveMediaUrl,
+  canonicalizeMediaUrl,
   preferPreviewForMediaUrl,
   isPreviewPreferredForMediaUrl,
   getDedupeKey,
@@ -31,8 +32,7 @@ import { getAppState } from '../../core/state.js';
 import { getEditUrl, getViewUrl, formatDocPath } from '../../core/paths.js';
 import { formatDateTime } from '../../core/utils.js';
 import loadScript from '../../../../utils/script.js';
-import { daFetch } from '../../../../utils/daFetch.js';
-import { DA_ORIGIN, SUPPORTED_FILES } from '../../../../public/utils/constants.js';
+import { SUPPORTED_FILES } from '../../../../public/utils/constants.js';
 import { Domains, MediaType } from '../../core/constants.js';
 import { t } from '../../core/messages.js';
 
@@ -53,6 +53,7 @@ const ICONS = [
 
 const SUPPORTED_TABS = ['usage', 'metadata'];
 const DEFAULT_TAB = 'usage';
+const MAX_PDF_CACHE_SIZE = 5;
 
 class NxMediaInfo extends LitElement {
   static properties = {
@@ -71,6 +72,9 @@ class NxMediaInfo extends LitElement {
     _imageDimensions: { state: true },
     _comprehensiveMetadata: { state: true },
     _modalNotification: { state: true },
+    _pdfState: { state: true },
+    _pdfError: { state: true },
+    _pdfBlobUrl: { state: true },
   };
 
   constructor() {
@@ -84,9 +88,6 @@ class NxMediaInfo extends LitElement {
     this._mediaOrigin = null;
     this._mediaPath = null;
     this.usageData = [];
-    this._pdfBlobUrls = new Map();
-    this._pdfBlobLoadPromises = new Map();
-    this._pdfLoadErrors = new Map();
     this._pendingRequests = new Set();
     this._cachedMetadata = new Map();
     this._imageDimensions = null;
@@ -99,33 +100,60 @@ class NxMediaInfo extends LitElement {
     this._lastNavDirection = null;
     this._modalNotification = null;
     this._modalNotificationTimeout = null;
+    this._pdfState = 'idle';
+    this._pdfError = null;
+    this._pdfBlobUrl = null;
+    this._pdfBlobCache = new Map();
+    this._pdfAbortController = null;
+    this._pdfCurrentUrl = null;
   }
 
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [styles];
-    getSvg({ parent: this.shadowRoot, paths: ICONS });
+    loadSvgIcons({ parent: this.shadowRoot, paths: ICONS });
   }
 
   disconnectedCallback() {
     super.disconnectedCallback();
     this._cleanupPendingRequests();
-    this._pdfBlobUrls.forEach((blobUrl) => {
+    this._cachedMetadata.clear();
+    this._cleanupPdfBlobs();
+  }
+
+  _cleanupPdfBlobs() {
+    if (this._pdfAbortController) {
+      this._pdfAbortController.abort();
+      this._pdfAbortController = null;
+    }
+    this._pdfBlobCache.forEach((blobUrl) => {
       URL.revokeObjectURL(blobUrl);
     });
-    this._pdfBlobUrls.clear();
-    this._pdfBlobLoadPromises.clear();
-    this._pdfLoadErrors.clear();
-    this._cachedMetadata.clear();
+    this._pdfBlobCache.clear();
+    this._pdfBlobUrl = null;
+    this._pdfCurrentUrl = null;
+  }
+
+  _evictOldestPdfBlob() {
+    if (this._pdfBlobCache.size >= MAX_PDF_CACHE_SIZE) {
+      const oldestKey = this._pdfBlobCache.keys().next().value;
+      const oldestBlobUrl = this._pdfBlobCache.get(oldestKey);
+      if (oldestBlobUrl) {
+        URL.revokeObjectURL(oldestBlobUrl);
+      }
+      this._pdfBlobCache.delete(oldestKey);
+    }
   }
 
   updated(changedProperties) {
     if (changedProperties.has('media') && this.media) {
       this._resetLoadedMetadata();
       this._updateMediaLocation();
+
       if (isPdfUrl(this.media.url)) {
+        this._pdfState = 'loading';
         const pdfUrl = resolveMediaUrl(this.media.url, this.org, this.repo, this.usePreviewDaLive);
-        this.loadPdfWithDaFetch(pdfUrl);
+        this.loadPdfBlob(pdfUrl);
       }
     }
 
@@ -196,14 +224,7 @@ class NxMediaInfo extends LitElement {
 
     this._navBusy = true;
     try {
-      const prevMedia = this.media;
       const media = items[next];
-      const prevResolved = prevMedia?.url
-        ? resolveMediaUrl(prevMedia.url, this.org, this.repo, this.usePreviewDaLive)
-        : null;
-      if (prevMedia && isPdfUrl(prevMedia.url) && prevResolved) {
-        this._revokePdfEntryForResolvedUrl(prevResolved);
-      }
 
       this.show({
         media,
@@ -282,25 +303,6 @@ class NxMediaInfo extends LitElement {
     }
   }
 
-  _revokePdfEntryForResolvedUrl(resolvedPdfUrl) {
-    const blobUrl = this._pdfBlobUrls.get(resolvedPdfUrl);
-    if (blobUrl) {
-      URL.revokeObjectURL(blobUrl);
-    }
-    this._pdfBlobUrls.delete(resolvedPdfUrl);
-    this._pdfLoadErrors.delete(resolvedPdfUrl);
-    this._pdfBlobLoadPromises.delete(resolvedPdfUrl);
-  }
-
-  _revokeAllPdfBlobEntries() {
-    this._pdfBlobUrls.forEach((blobUrl) => {
-      URL.revokeObjectURL(blobUrl);
-    });
-    this._pdfBlobUrls.clear();
-    this._pdfBlobLoadPromises.clear();
-    this._pdfLoadErrors.clear();
-  }
-
   async _prepareFetchOptionsWithAuth(baseOpts = {}) {
     if (!this.usePreviewDaLive) return baseOpts;
 
@@ -359,7 +361,7 @@ class NxMediaInfo extends LitElement {
   _updateMediaLocation() {
     if (!this.media?.url) return;
 
-    const fullUrl = resolveMediaUrl(this.media.url, this.org, this.repo, this.usePreviewDaLive);
+    const fullUrl = canonicalizeMediaUrl(this.media.url, this.org, this.repo);
     const { origin, path } = parseMediaUrl(fullUrl);
     this._mediaOrigin = origin || 'Unknown';
     this._mediaPath = path || 'Unknown';
@@ -390,6 +392,73 @@ class NxMediaInfo extends LitElement {
     } finally {
       if (this._metadataUrl === fullUrl) {
         this._metadataStatus = 'loaded';
+      }
+    }
+  }
+
+  async loadPdfBlob(pdfUrl) {
+    if (!pdfUrl) return;
+
+    if (this._pdfBlobCache.has(pdfUrl)) {
+      this._pdfCurrentUrl = pdfUrl;
+      this._pdfBlobUrl = this._pdfBlobCache.get(pdfUrl);
+      this._pdfState = 'loaded';
+      return;
+    }
+
+    if (this._pdfAbortController) {
+      this._pdfAbortController.abort();
+    }
+
+    this._pdfAbortController = new AbortController();
+    this._pdfCurrentUrl = pdfUrl;
+    this._pdfState = 'loading';
+    this._pdfError = null;
+    this._pdfBlobUrl = null;
+
+    try {
+      const opts = await this._prepareFetchOptionsWithAuth({
+        signal: this._pdfAbortController.signal,
+      });
+      const response = await etcFetch(pdfUrl, 'cors', opts);
+
+      if (this._pdfCurrentUrl !== pdfUrl) {
+        return;
+      }
+
+      if (!response.ok) {
+        this._pdfState = 'error';
+        this._pdfError = t('UI_PDF_HTTP_ERROR', { status: response.status });
+        return;
+      }
+
+      const contentType = response.headers.get('content-type');
+      if (contentType && !contentType.includes('application/pdf') && !contentType.includes('application/octet-stream')) {
+        this._pdfState = 'error';
+        this._pdfError = t('UI_PDF_INVALID_TYPE');
+        return;
+      }
+
+      const blob = await response.blob();
+
+      if (this._pdfCurrentUrl !== pdfUrl) {
+        return;
+      }
+
+      const blobUrl = URL.createObjectURL(blob);
+
+      this._evictOldestPdfBlob();
+      this._pdfBlobUrl = blobUrl;
+      this._pdfBlobCache.set(pdfUrl, blobUrl);
+      this._pdfState = 'loaded';
+      this._pdfAbortController = null;
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        return;
+      }
+      if (this._pdfCurrentUrl === pdfUrl) {
+        this._pdfState = 'error';
+        this._pdfError = t('UI_PDF_INACCESSIBLE');
       }
     }
   }
@@ -589,54 +658,6 @@ class NxMediaInfo extends LitElement {
     }
   }
 
-  async loadPdfWithDaFetch(pdfUrl) {
-    if (this._pdfBlobUrls.has(pdfUrl)) return;
-    if (this._pdfBlobLoadPromises.has(pdfUrl)) {
-      await this._pdfBlobLoadPromises.get(pdfUrl);
-      return;
-    }
-
-    this._pdfLoadErrors.delete(pdfUrl);
-
-    const loadPromise = (async () => {
-      try {
-        const url = new URL(pdfUrl);
-
-        let response;
-
-        if (url.hostname.includes('content.da.live')) {
-          const path = url.pathname;
-          const adminUrl = `${DA_ORIGIN}/source${path}`;
-          response = await daFetch(adminUrl);
-        } else {
-          const fetchUrl = convertToAemPage(pdfUrl);
-          const opts = await this._prepareFetchOptionsWithAuth();
-          response = await etcFetch(fetchUrl, 'cors', opts);
-        }
-
-        if (!response.ok) {
-          this._pdfLoadErrors.set(pdfUrl, t('UI_PDF_NETWORK'));
-          return;
-        }
-
-        const blob = await response.blob();
-        const blobUrl = URL.createObjectURL(blob);
-        this._pdfBlobUrls.set(pdfUrl, blobUrl);
-      } catch (e) {
-        // eslint-disable-next-line no-console
-        console.error('Failed to load PDF:', e);
-        this._pdfLoadErrors.set(pdfUrl, t('UI_PDF_NETWORK'));
-      } finally {
-        this.requestUpdate();
-      }
-    })().finally(() => {
-      this._pdfBlobLoadPromises.delete(pdfUrl);
-    });
-
-    this._pdfBlobLoadPromises.set(pdfUrl, loadPromise);
-    await loadPromise;
-  }
-
   async loadFileSize(fullUrl) {
     if (!this.media || !this.media.url) {
       return;
@@ -659,63 +680,49 @@ class NxMediaInfo extends LitElement {
     }
 
     try {
-      if (isPdfUrl(this.media.url) && this._pdfBlobLoadPromises.has(resolvedUrl)) {
-        await this._pdfBlobLoadPromises.get(resolvedUrl);
-      }
+      const ext = resolvedUrl.split('.').pop()?.toLowerCase();
+      this._mimeType = SUPPORTED_FILES[ext] || 'Unknown';
 
-      if (isPdfUrl(this.media.url) && this._pdfBlobUrls.has(resolvedUrl)) {
-        const blobUrl = this._pdfBlobUrls.get(resolvedUrl);
-        const response = await fetch(blobUrl);
+      const controller = new AbortController();
+      this._pendingRequests.add(controller);
+
+      try {
+        let fetchUrl = resolvedUrl.toLowerCase().includes('.svg')
+          ? normalizeUrl(resolvedUrl) : resolvedUrl;
+        fetchUrl = convertToAemPage(fetchUrl);
+
+        const opts = await this._prepareFetchOptionsWithAuth({
+          method: 'HEAD',
+          signal: controller.signal,
+        });
+
+        const response = await etcFetch(fetchUrl, 'cors', opts);
+
         if (response.ok) {
-          const blob = await response.blob();
-          this._fileSize = formatFileSize(blob.size);
-          this._mimeType = blob.type || 'application/pdf';
-        }
-      } else {
-        const ext = resolvedUrl.split('.').pop()?.toLowerCase();
-        this._mimeType = SUPPORTED_FILES[ext] || 'Unknown';
-
-        const controller = new AbortController();
-        this._pendingRequests.add(controller);
-
-        try {
-          let fetchUrl = resolvedUrl.toLowerCase().includes('.svg')
-            ? normalizeUrl(resolvedUrl) : resolvedUrl;
-          fetchUrl = convertToAemPage(fetchUrl);
-
-          const opts = await this._prepareFetchOptionsWithAuth({
-            method: 'HEAD',
-            signal: controller.signal,
-          });
-
-          const response = await etcFetch(fetchUrl, 'cors', opts);
-
-          if (response.ok) {
-            const contentLength = response.headers.get('content-length');
-            if (contentLength) {
-              this._fileSize = formatFileSize(parseInt(contentLength, 10));
-            } else {
-              const getOpts = await this._prepareFetchOptionsWithAuth({
-                method: 'GET',
-                signal: controller.signal,
-              });
-              const getResponse = await etcFetch(fetchUrl, 'cors', getOpts);
-              if (getResponse.ok) {
-                const blob = await getResponse.blob();
-                this._fileSize = formatFileSize(blob.size);
-              } else {
-                this._fileSize = isExternal ? t('UI_EXTERNAL_RESOURCE') : t('UI_UNABLE_TO_FETCH');
-              }
-            }
+          const contentLength = response.headers.get('content-length');
+          if (contentLength) {
+            this._fileSize = formatFileSize(parseInt(contentLength, 10));
           } else {
-            this._fileSize = isExternal ? t('UI_EXTERNAL_RESOURCE') : t('UI_UNABLE_TO_FETCH');
+            const getOpts = await this._prepareFetchOptionsWithAuth({
+              method: 'GET',
+              signal: controller.signal,
+            });
+            const getResponse = await etcFetch(fetchUrl, 'cors', getOpts);
+            if (getResponse.ok) {
+              const blob = await getResponse.blob();
+              this._fileSize = formatFileSize(blob.size);
+            } else {
+              this._fileSize = isExternal ? t('UI_EXTERNAL_RESOURCE') : t('UI_UNABLE_TO_FETCH');
+            }
           }
-        } catch {
+        } else {
           this._fileSize = isExternal ? t('UI_EXTERNAL_RESOURCE') : t('UI_UNABLE_TO_FETCH');
         }
-
-        this._pendingRequests.delete(controller);
+      } catch {
+        this._fileSize = isExternal ? t('UI_EXTERNAL_RESOURCE') : t('UI_UNABLE_TO_FETCH');
       }
+
+      this._pendingRequests.delete(controller);
 
       this._cachedMetadata.set(cacheKey, {
         fileSize: this._fileSize,
@@ -740,11 +747,7 @@ class NxMediaInfo extends LitElement {
       } else {
         const name = this.media.displayName || this.media.name || getFileName(this.media.url) || 'Media Details';
         if (name && name !== 'Media Details') {
-          try {
-            displayName = decodeURIComponent(name);
-          } catch {
-            displayName = name;
-          }
+          displayName = decodeDisplayName(name);
         } else {
           displayName = name;
         }
@@ -940,55 +943,47 @@ class NxMediaInfo extends LitElement {
       `;
     }
     if (isPdfUrl(this.media.url)) {
-      const blobUrl = this._pdfBlobUrls.get(fullUrl);
+      const pdfUrl = resolveMediaUrl(this.media.url, this.org, this.repo, this.usePreviewDaLive);
 
-      if (blobUrl) {
+      if (this._pdfState === 'loading') {
         return html`
-          <iframe
-            src="${blobUrl}"
-            class="pdf-preview"
-            @load=${this.handlePdfLoad}
-            @error=${this.handlePdfError}
-          >
-          </iframe>
-          <div class="document-placeholder">
-            <svg class="icon" viewBox="0 0 20 20">
-              <use href="#S2_Icon_PDF_20_N"></use>
-            </svg>
+          <div class="pdf-loading-container" role="status" aria-live="polite">
+            <sl-spinner aria-label="${t('UI_PDF_LOADING_ARIA')}"></sl-spinner>
+            <p class="pdf-error-message">${t('UI_PDF_LOADING')}</p>
           </div>
         `;
       }
 
-      const pdfError = this._pdfLoadErrors.get(fullUrl);
-
-      return html`
-        <div class="pdf-preview-container">
-          <div class="document-placeholder">
-            <svg class="icon" viewBox="0 0 20 20">
+      if (this._pdfState === 'error') {
+        return html`
+          <div class="pdf-error-container" role="alert">
+            <svg class="icon pdf-icon" viewBox="0 0 20 20" aria-hidden="true">
               <use href="#S2_Icon_PDF_20_N"></use>
             </svg>
-            <div class="pdf-info">
-              <span class="pdf-name">${getMediaName(this.media)}</span>
-              <span class="pdf-type">PDF Document</span>
-              ${pdfError
-                ? html`
-                    <span class="pdf-error">${pdfError}</span>
-                    <a
-                      class="pdf-open-link"
-                      href="${fullUrl}"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >${t('UI_PDF_OPEN_IN_NEW_TAB')}</a>
-                  `
-                : html`<span class="pdf-loading">Loading...</span>`}
-            </div>
-            <div class="subtype-label">PDF</div>
+            <p class="pdf-error-message">
+              ${this._pdfError || t('UI_PDF_FAILED')}
+            </p>
+            <a href="${pdfUrl}" target="_blank" rel="noopener noreferrer" class="pdf-error-link">
+              ${t('UI_PDF_OPEN_IN_NEW_TAB')}
+            </a>
           </div>
+        `;
+      }
+
+      if (this._pdfBlobUrl) {
+        return html`
+          <iframe src="${this._pdfBlobUrl}" class="pdf-preview" title="PDF Preview" aria-label="PDF document preview"></iframe>
+        `;
+      }
+
+      return html`
+        <div class="pdf-loading-container" role="status" aria-live="polite">
+          <sl-spinner aria-label="${t('UI_PDF_LOADING_ARIA')}"></sl-spinner>
         </div>
       `;
     }
     return html`
-      <div class="preview-placeholder">
+      <div class="preview-placeholder fragment">
         <svg class="icon fragment-icon" viewBox="0 0 60 60">
           <use href="#C_Icon_Fragment"></use>
         </svg>
@@ -1397,23 +1392,6 @@ class NxMediaInfo extends LitElement {
     }
   }
 
-  handlePdfLoad(e) {
-    const iframe = e.target;
-    const placeholder = iframe.nextElementSibling;
-    if (placeholder && placeholder.classList.contains('document-placeholder')) {
-      placeholder.style.display = 'none';
-    }
-  }
-
-  handlePdfError(e) {
-    const iframe = e.target;
-    iframe.style.display = 'none';
-    const placeholder = iframe.nextElementSibling;
-    if (placeholder && placeholder.classList.contains('document-placeholder')) {
-      placeholder.style.display = 'flex';
-    }
-  }
-
   showActions(e) {
     const button = e.target.closest('button.toggle-actions');
     const documentHeading = e.target.closest('.document-heading');
@@ -1442,11 +1420,19 @@ class NxMediaInfo extends LitElement {
     this._comprehensiveMetadata = null;
     this._metadataStatus = 'idle';
     this._metadataUrl = null;
+    this._pdfState = 'idle';
+    this._pdfError = null;
+    this._pdfBlobUrl = null;
+    if (this._pdfAbortController) {
+      this._pdfAbortController.abort();
+      this._pdfAbortController = null;
+    }
+    this._pdfCurrentUrl = null;
   }
 
   _resetState() {
     this._resetLoadedMetadata();
-    this._revokeAllPdfBlobEntries();
+    this._cleanupPdfBlobs();
     if (this._modalNotificationTimeout) {
       clearTimeout(this._modalNotificationTimeout);
       this._modalNotificationTimeout = null;

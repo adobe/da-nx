@@ -1,4 +1,4 @@
-import { DA_ORIGIN, CON_ORIGIN } from '../../../../utils/daFetch.js';
+import { DA_ADMIN, DA_CONTENT } from '../../../../utils/utils.js';
 
 function updateImageInDocument(view, originalSrc, newSrc) {
   if (!view) return false;
@@ -69,7 +69,7 @@ export async function handleImageReplace({ imageData, fileName, originalSrc }, c
 
     // Same upload path and URL as da-nx quick-edit-portal/src/images.js
     const uploadPath = `${parentPath}/.${pageName}/${fileName}`;
-    const uploadUrl = `${DA_ORIGIN}/source/${ctx.owner}/${ctx.repo}${uploadPath}`;
+    const uploadUrl = `${DA_ADMIN}/source/${ctx.owner}/${ctx.repo}${uploadPath}`;
 
     const tokenPromise = typeof ctx.getToken === 'function' ? ctx.getToken() : null;
     const token = tokenPromise != null && typeof tokenPromise?.then === 'function'
@@ -97,7 +97,7 @@ export async function handleImageReplace({ imageData, fileName, originalSrc }, c
     }
 
     // Same as da-nx: AEM delivery URL for the uploaded image
-    const newSrc = `${CON_ORIGIN}/${ctx.owner}/${ctx.repo}${uploadPath}`;
+    const newSrc = `${DA_CONTENT}/${ctx.owner}/${ctx.repo}${uploadPath}`;
 
     updateImageInDocument(ctx.view, originalSrc, newSrc);
 

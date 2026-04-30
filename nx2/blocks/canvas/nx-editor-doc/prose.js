@@ -37,7 +37,7 @@ import imageDrop from './prose-plugins/imageDrop.js';
 import imageFocalPoint from './prose-plugins/imageFocalPoint.js';
 import sectionPasteHandler from './prose-plugins/sectionPasteHandler.js';
 import base64Uploader from './prose-plugins/base64Uploader.js';
-import { COLLAB_ORIGIN, DA_ORIGIN } from '../../../utils/daFetch.js';
+import { DA_ADMIN, DA_COLLAB } from '../../../utils/utils.js';
 import { generateColor, getCollabIdentity } from './utils/collab.js';
 
 function registerErrorHandler(ydoc) {
@@ -75,8 +75,8 @@ export default async function initProse({
   const schema = getSchema();
   const ydoc = new Y.Doc();
 
-  const server = COLLAB_ORIGIN;
-  const roomName = `${DA_ORIGIN}${new URL(path).pathname}`;
+  const server = DA_COLLAB;
+  const roomName = `${DA_ADMIN}${new URL(path).pathname}`;
 
   const wsOpts = { protocols: ['yjs'] };
   if (typeof getToken === 'function') {

@@ -1,5 +1,6 @@
 import { Plugin } from 'da-y-wrapper';
-import { DA_ORIGIN, CON_ORIGIN, daFetch } from '../../../../utils/daFetch.js';
+import { DA_ADMIN, DA_CONTENT } from '../../../../utils/utils.js';
+import { daFetch } from '../../../../utils/api.js';
 import { getSourceUploadContext } from './sourceUploadContext.js';
 
 const FPO_IMG_URL = 'https://da.live/blocks/edit/img/fpo.svg';
@@ -40,7 +41,7 @@ export default function base64Uploader({ getSourceUrl, getEditorView }) {
             let ext = src.replace('data:image/', '').split(';base64')[0];
             if (ext === 'jpeg') ext = 'jpg';
             const path = `${details.parent}/.${details.name}/wp${makeHash(src)}.${ext}`;
-            const fpoSrc = `${FPO_IMG_URL}#${CON_ORIGIN}${path}`;
+            const fpoSrc = `${FPO_IMG_URL}#${DA_CONTENT}${path}`;
             img.setAttribute('src', fpoSrc);
             imagePaths.push(fpoSrc);
 
@@ -49,7 +50,7 @@ export default function base64Uploader({ getSourceUrl, getEditorView }) {
               const blob = await resp.blob();
               const body = new FormData();
               body.append('data', blob);
-              await daFetch(`${DA_ORIGIN}/source${path}`, { body, method: 'POST' });
+              await daFetch({ url: `${DA_ADMIN}/source${path}`, opts: { body, method: 'POST' } });
             })());
           });
 
