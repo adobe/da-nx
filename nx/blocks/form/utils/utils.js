@@ -173,17 +173,10 @@ export async function loadHtml(details) {
   return { html: (await resp.text()) };
 }
 
-function hasMeaningfulContent(el) {
-  if (!el) return false;
-  return Array.from(el.childNodes).some((node) => {
-    if (node.nodeType === 1) return true;
-    if (node.nodeType === 3) return node.textContent.trim().length > 0;
-    return false;
-  });
-}
-
 /**
  * Check whether fetched document HTML only contains the default empty shell.
+ * Empty means exactly: <body><header></header><main><div></div></main><footer></footer></body>
+ * (ignoring whitespace-only text nodes).
  * @param {string} htmlString - Raw HTML string from source.
  * @returns {boolean}
  */
@@ -191,18 +184,29 @@ export function isEmptyDocumentHtml(htmlString) {
   if (typeof htmlString !== 'string') return false;
 
   const doc = new DOMParser().parseFromString(htmlString, 'text/html');
-  const header = doc.querySelector('body > header');
-  const footer = doc.querySelector('body > footer');
-  const mainContainer = doc.querySelector('body > main > div');
+  const body = doc.querySelector('body');
+  if (!body) return false;
 
-  // If structure differs from the expected shell, treat as non-empty.
-  if (!mainContainer) return false;
+  const bodyChildren = Array.from(body.children);
+  if (bodyChildren.length !== 3) return false;
 
-  const hasHeaderContent = hasMeaningfulContent(header);
-  const hasFooterContent = hasMeaningfulContent(footer);
-  const hasMainContent = hasMeaningfulContent(mainContainer);
+  const [header, main, footer] = bodyChildren;
+  if (header.tagName !== 'HEADER' || main.tagName !== 'MAIN' || footer.tagName !== 'FOOTER') {
+    return false;
+  }
 
-  return !hasHeaderContent && !hasMainContent && !hasFooterContent;
+  if (header.childElementCount !== 0 || footer.childElementCount !== 0) return false;
+  if (header.textContent.trim().length > 0 || footer.textContent.trim().length > 0) return false;
+
+  const mainChildren = Array.from(main.children);
+  if (mainChildren.length !== 1) return false;
+
+  const [mainContainer] = mainChildren;
+  if (mainContainer.tagName !== 'DIV') return false;
+  if (mainContainer.childElementCount !== 0) return false;
+  if (mainContainer.textContent.trim().length > 0) return false;
+
+  return true;
 }
 
 /**
