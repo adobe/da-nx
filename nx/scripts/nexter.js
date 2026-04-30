@@ -158,3 +158,8 @@ export async function loadArea(area = document) {
   }
   if (isDoc) import('./lazy.js');
 }
+
+export function getColorScheme() {
+  return localStorage.getItem('color-scheme')
+    || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark-scheme' : 'light-scheme');
+}
