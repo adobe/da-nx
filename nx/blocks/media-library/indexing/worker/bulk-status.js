@@ -23,7 +23,8 @@ const REQ_PER_SEC = 10;
 const THROTTLE_MS = 1000 / REQ_PER_SEC;
 
 const LARGE_SITE_PATH_THRESHOLD = 20_000;
-const TARGET_PARTITION_RESOURCE_COUNT = 20_000;
+// Reduced from 20K to 10K to prevent server-side timeouts on large sites
+const TARGET_PARTITION_RESOURCE_COUNT = 10_000;
 const MAX_PARTITION_PATHS = 250;
 
 function normalizePath(p) {

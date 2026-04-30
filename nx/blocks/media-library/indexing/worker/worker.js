@@ -34,6 +34,14 @@ import { buildFullIndex } from './full.js';
 import { buildIncrementalIndex } from './incremental.js';
 
 self.onmessage = async (event) => {
+  const { type } = event.data;
+
+  // Ignore token refresh responses (handled by worker-fetch.js pendingTokenRefreshes)
+  if (type === 'token-refresh-response') {
+    return;
+  }
+
+  // Handle build request
   const {
     mode,
     sitePath,
