@@ -175,8 +175,8 @@ export async function loadHtml(details) {
 
 /**
  * Check whether fetched document HTML only contains the default empty shell.
- * Empty means exactly: <body><header></header><main><div></div></main><footer></footer></body>
- * (ignoring whitespace-only text nodes).
+ * Empty means main content is exactly <main><div></div></main>.
+ * Header/footer presence or content is intentionally ignored.
  * @param {string} htmlString - Raw HTML string from source.
  * @returns {boolean}
  */
@@ -184,24 +184,9 @@ export function isEmptyDocumentHtml(htmlString) {
   if (typeof htmlString !== 'string') return false;
 
   const doc = new DOMParser().parseFromString(htmlString, 'text/html');
-  const body = doc.querySelector('body');
-  if (!body) return false;
+  const mainContainer = doc.querySelector('body > main > div');
+  if (!mainContainer) return false;
 
-  const bodyChildren = Array.from(body.children);
-  if (bodyChildren.length !== 3) return false;
-
-  const [header, main, footer] = bodyChildren;
-  if (header.tagName !== 'HEADER' || main.tagName !== 'MAIN' || footer.tagName !== 'FOOTER') {
-    return false;
-  }
-
-  if (header.childElementCount !== 0 || footer.childElementCount !== 0) return false;
-  if (header.textContent.trim().length > 0 || footer.textContent.trim().length > 0) return false;
-
-  const mainChildren = Array.from(main.children);
-  if (mainChildren.length !== 1) return false;
-
-  const [mainContainer] = mainChildren;
   if (mainContainer.tagName !== 'DIV') return false;
   if (mainContainer.childElementCount !== 0) return false;
   if (mainContainer.textContent.trim().length > 0) return false;
