@@ -2,7 +2,7 @@ import { LitElement, html, nothing } from '../../deps/lit/lit-core.min.js';
 import { getConfig } from '../../scripts/nexter.js';
 import { formatUrls, sendAction } from './index.js';
 import { Queue } from '../../public/utils/tree.js';
-import getSvg from '../../utils/svg.js';
+import { getSvg } from '../../utils/svg.js';
 import getStyle from '../../utils/styles.js';
 
 await import('../../public/sl/components.js');
