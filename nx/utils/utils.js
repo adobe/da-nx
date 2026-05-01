@@ -120,21 +120,16 @@ export const loadStyle = (() => {
     // Convenience replacement for WCs
     const path = supplied.replace('.js', '.css');
 
-    try {
-      cache[path] ??= import(path, { with: { type: 'css' } })
-        .then(({ default: sheet }) => sheet);
-    } catch {
-      cache[path] ??= new Promise((resolve) => {
-        (async () => {
-          const resp = await fetch(path);
-          const text = await resp.text();
+    cache[path] ??= import(path, { with: { type: 'css' } })
+      .then(({ default: sheet }) => sheet)
+      .catch(() => fetch(path)
+        .then((resp) => resp.text())
+        .then((text) => {
           const sheet = new CSSStyleSheet();
           sheet.path = path;
           sheet.replaceSync(text);
-          resolve(sheet);
-        })();
-      });
-    }
+          return sheet;
+        }));
     return cache[path];
   };
 })();
