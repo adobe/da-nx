@@ -1,7 +1,12 @@
 import { daFetch, initIms } from '../../../utils/daFetch.js';
 import { etcFetch } from '../core/urls.js';
-import { AEM_ORIGIN, DA_ORIGIN } from '../../../public/utils/constants.js';
-import { IndexFiles, ExternalMedia, DA_ETC_ORIGIN } from '../core/constants.js';
+import {
+  IndexFiles,
+  ExternalMedia,
+  DA_ETC_ORIGIN,
+  AEM_ORIGIN,
+  DA_ORIGIN,
+} from '../core/constants.js';
 import { MediaLibraryError, ErrorCodes, logMediaLibraryError } from '../core/errors.js';
 import { isPerfEnabled } from '../core/params.js';
 import { t } from '../core/messages.js';
@@ -36,10 +41,6 @@ function createRateLimiter(initialRate) {
 }
 
 const aemPageMarkdownLimiter = createRateLimiter(AEM_PAGE_MARKDOWN_RATE);
-
-export function resetAemPageMarkdownRateLimiter() {
-  aemPageMarkdownLimiter.reset();
-}
 
 async function fetchWithAuthRaw(url, opts = {}) {
   opts.headers ||= {};
@@ -141,13 +142,6 @@ export function timestampToDuration(timestamp) {
   }
 
   return `${Math.min(days, DEFAULT_TIMEFRAME_DAYS)}d`;
-}
-
-export function isMetadataStale(meta, thresholdMs = 5 * 60 * 1000) {
-  if (!meta || !meta.lastFetchTime) return true;
-
-  const age = Date.now() - meta.lastFetchTime;
-  return age > thresholdMs;
 }
 
 export async function fetchPaginated(
@@ -752,12 +746,8 @@ function getCachedAemSiteToken(org, site, ref = 'main') {
   return cached.siteToken ? cached : null;
 }
 
-function clearCachedAemSiteToken(org, site, ref = 'main') {
+export function clearCachedAemSiteToken(org, site, ref = 'main') {
   aemSiteTokenCache.delete(getAemSiteTokenCacheKey(org, site, ref));
-}
-
-export function resetAemSiteTokenCache() {
-  aemSiteTokenCache.clear();
 }
 
 async function fetchAemSiteToken(org, site, ref = 'main') {
@@ -794,7 +784,7 @@ async function fetchAemSiteToken(org, site, ref = 'main') {
   return { siteToken, siteTokenExpiry };
 }
 
-const getAemSiteToken = (() => {
+export const getAemSiteToken = (() => {
   const loadToken = async (org, site, ref = 'main') => {
     const result = await fetchAemSiteToken(org, site, ref);
     if (result?.siteToken) {
