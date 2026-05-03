@@ -1,15 +1,15 @@
 import { LitElement, html, nothing } from '../../deps/lit/lit-core.min.js';
-import getStyle from '../../utils/styles.js';
+import { loadStyle, hashChange } from '../../../nx2/utils/utils.js';
 import { getOptions, importAll, calculateTime } from './index.js';
 
 import '../../../nx2/public/sl/components.js';
 
-const style = await getStyle(import.meta.url);
+const style = await loadStyle(import.meta.url);
 
-const MOCK_ORG = '';
-const MOCK_SITE = '';
 class NxImporter extends LitElement {
   static properties = {
+    _toOrg: { state: true },
+    _toSite: { state: true },
     _urls: { state: true },
     _isImporting: { state: true },
     _status: { state: true },
@@ -27,6 +27,14 @@ class NxImporter extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
+    this.setDetails();
+  }
+
+  setDetails() {
+    hashChange.subscribe((pathDetails) => {
+      this._toOrg = pathDetails.org;
+      this._toSite = pathDetails.site;
+    });
   }
 
   setStatus(text, type = 'error') {
@@ -61,6 +69,10 @@ class NxImporter extends LitElement {
     e.preventDefault();
     const formData = new FormData(e.target);
     const data = Object.fromEntries(formData);
+
+    // If fields disabled, they will not come from the form
+    data.org ??= this._toOrg;
+    data.repo ??= this._toSite;
 
     if (!(data.org || data.repo)) {
       // eslint-disable-next-line no-console
@@ -242,11 +254,11 @@ class NxImporter extends LitElement {
           <div class="org-repo-row">
             <div>
               <label>Organization</label>
-              <sl-input type="text" name="org" placeholder="name-of-organization" value=${MOCK_ORG || ''}></sl-input>
+              <sl-input type="text" name="org" placeholder="name-of-organization" value=${this._toOrg || ''} ?disabled=${this._toOrg}></sl-input>
             </div>
             <div>
               <label>Site</label>
-              <sl-input type="text" name="repo" placeholder="name-of-site" value=${MOCK_SITE || ''}></sl-input>
+              <sl-input type="text" name="repo" placeholder="name-of-site" value=${this._toSite || ''} ?disabled=${this._toSite}></sl-input>
             </div>
           </div>
         </div>
