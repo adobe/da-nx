@@ -1,10 +1,14 @@
-import { DA_ORIGIN } from '../../public/utils/constants.js';
-import { loadIms } from '../../utils/ims.js';
-import { replaceHtml, daFetch } from '../../utils/daFetch.js';
+import { replaceHtml } from '../../utils/daFetch.js';
+import { isHlx6, putSource } from '../../../nx2/utils/api.js';
 import { mdToDocDom, docDomToAemHtml } from '../../utils/converters.js';
 import { Queue } from '../../public/utils/tree.js';
 
-const { accessToken } = await loadIms();
+const { accessToken } = await (async () => {
+  const { getNx } = await import(`${window.location.origin}/scripts/utils.js`);
+  const { loadIms } = await import(`${getNx()}/utils/ims.js`);
+  return loadIms();
+})();
+
 const parser = new DOMParser();
 const EXTS = ['json', 'svg', 'png', 'jpg', 'jpeg', 'gif', 'mp4', 'pdf'];
 
@@ -15,6 +19,7 @@ const LINK_SELECTORS = [
   'a[href*=".svg"]',
   'img[alt*=".mp4"]',
 ];
+
 // For any case where we need to find SVGs outside of any elements // in their text.
 const LINK_SELECTOR_REGEX = /https:\/\/[^"'\s]+\.svg/g;
 
@@ -90,15 +95,14 @@ async function saveAllToDa(url, blob) {
 
   url.daHref = `https://da.live${route}#/${toOrg}/${toRepo}${editPath}`;
 
-  const body = new FormData();
-  body.append('data', blob);
-  const opts = { method: 'PUT', body };
-
   // Convert underscores to hyphens
   const formattedPath = destPath.replaceAll('media_', 'media-');
 
+  const body = new FormData();
+  body.append('data', blob);
+
   try {
-    const resp = await daFetch(`${DA_ORIGIN}/source/${toOrg}/${toRepo}${formattedPath}`, opts);
+    const resp = await putSource({ org: toOrg, site: toRepo, daPath: formattedPath, body });
     return resp.status;
   } catch {
     // eslint-disable-next-line no-console
@@ -177,12 +181,20 @@ export async function importAll(urls, findFragmentsFlag, liveDomain, setProcesse
   // Reset and re-add URLs
   localUrls = urls;
 
+  const { toOrg, toRepo } = urls[0];
+  const hlx6 = await isHlx6(toOrg, toRepo);
+
   const uiUpdater = async (url) => {
     await importUrl(url, findFragmentsFlag, liveDomain, setProcessed);
     requestUpdate();
   };
 
-  const queue = new Queue(uiUpdater, 50);
+  const conf = {
+    concurrent: hlx6 ? 5 : 50,
+    throttle: hlx6 ? 200 : undefined,
+  };
+
+  const queue = new Queue(uiUpdater, conf.concurrent, null, conf.throttle);
 
   let notImported;
   while (!notImported || notImported.length > 0) {
