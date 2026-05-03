@@ -85,8 +85,8 @@ const getApiPath = async (org, site, api, daPath) => {
 
   if (api === 'config') {
     if (hlx6) {
-      if (!site) return `${AEM_API}/${org}.json`;
-      return `${AEM_API}/${org}/${site}.json`;
+      if (!site) return `${AEM_API}/${api}/${org}.json`;
+      return `${AEM_API}/${api}/${org}/${site}.json`;
     }
     if (!site) return `${DA_ADMIN}/${api}/${org}/`;
     return `${DA_ADMIN}/${api}/${org}/${site}/`;
