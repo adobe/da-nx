@@ -29,6 +29,22 @@ export const daFetch = async ({ url, opts = { method: 'GET' }, redirect = false 
     if (redirect) window.location = `${window.location.origin}/not-found`;
   }
 
+  // If child actions header is present, use it.
+  // This is a hint as to what can be done with the children.
+  if (resp.headers?.get('x-da-child-actions')) {
+    resp.permissions = resp.headers.get('x-da-child-actions').split('=').pop().split(',');
+    return resp;
+  }
+
+  // Use the self actions hint if child actions are not present.
+  if (resp.headers?.get('x-da-actions')) {
+    resp.permissions = resp.headers?.get('x-da-actions')?.split('=').pop().split(',');
+    return resp;
+  }
+
+  // TODO: HLX6 does not have this, so fake it for now.
+  resp.permissions ??= ['read', 'write'];
+
   return resp;
 };
 
@@ -51,6 +67,8 @@ export const isHlx6 = (() => {
   };
 
   return (org, site) => {
+    if (!site) return false;
+
     const path = `/${org}/${site}`;
     cache[path] ??= fetchUpgradeStatus(path);
     return cache[path];
@@ -59,6 +77,22 @@ export const isHlx6 = (() => {
 
 const getApiPath = async (org, site, api, daPath) => {
   const hlx6 = await isHlx6(org, site);
+
+  if (api === 'versionsource') {
+    if (hlx6) return `${AEM_API}/${org}/sites/${site}/${api}${daPath}/.versions`;
+    return `${DA_ADMIN}/versionsource/${org}/${site}${daPath}`;
+  }
+
+  if (api === 'config') {
+    if (hlx6) {
+      if (!site) return `${AEM_API}/${org}.json`;
+      return `${AEM_API}/${org}/${site}.json`;
+    }
+    if (!site) return `${DA_ADMIN}/${api}/${org}/`;
+    return `${DA_ADMIN}/${api}/${org}/${site}/`;
+  }
+
+  // api === 'source'
   if (hlx6) return `${AEM_API}/${org}/sites/${site}/${api}${daPath}`;
   return `${DA_ADMIN}/${api}/${org}/${site}${daPath}`;
 };
@@ -73,14 +107,52 @@ const TEXT_TYPES = {
 };
 
 export const putSource = async ({ org, site, daPath, body }) => {
+  const hlx6 = await isHlx6(org, site);
   const url = await getApiPath(org, site, 'source', daPath);
-  const ext = Object.keys(TEXT_TYPES).find((e) => daPath.endsWith(e));
+  const textExt = Object.keys(TEXT_TYPES).find((e) => daPath.endsWith(e));
   const opts = { method: 'POST' };
-  if (ext) {
-    opts.body = body instanceof Blob ? await body.text() : body;
-    opts.headers = { 'Content-Type': TEXT_TYPES[ext] };
-  } else {
-    opts.body = body;
+  if (hlx6) {
+    const hlx6Opts = { ...opts };
+    // Convert blobs to text for HLX6
+    if (textExt) {
+      hlx6Opts.body = body instanceof Blob ? await body.text() : body;
+      hlx6Opts.headers = { 'Content-Type': TEXT_TYPES[textExt] };
+    } else {
+      hlx6Opts.body = body;
+    }
+    return daFetch({ url, opts: hlx6Opts });
   }
+  const formData = new FormData();
+  formData.append('data', body);
+  const daOpts = { ...opts, body: formData };
+  return daFetch({ url, opts: daOpts });
+};
+
+export const getSource = async ({ org, site, daPath }) => {
+  const url = await getApiPath(org, site, 'source', daPath);
+  return daFetch({ url });
+};
+
+export const putVersion = async ({ org, site, daPath, operation, comment }) => {
+  const url = new URL(await getApiPath(org, site, 'versionsource', daPath));
+  if (operation) url.searchParams.set('operation', operation);
+  if (comment) url.searchParams.set('comment', comment);
+  const opts = { method: 'POST' };
+  return daFetch({ url: url.toString(), opts });
+};
+
+export const getConfig = async ({ org, site }) => {
+  const url = await getApiPath(org, site, 'config');
+  return daFetch({ url });
+};
+
+export const putConfig = async ({ org, site, body }) => {
+  const url = await getApiPath(org, site, 'config');
+
+  const formData = new FormData();
+  formData.append('config', body);
+
+  const opts = { method: 'POST', body: formData };
+
   return daFetch({ url, opts });
 };
