@@ -98,8 +98,7 @@ async function saveAllToDa(url, blob) {
   // Convert underscores to hyphens
   const formattedPath = destPath.replaceAll('media_', 'media-');
 
-  const body = new FormData();
-  body.append('data', blob);
+  const body = blob;
 
   try {
     const resp = await putSource({ org: toOrg, site: toRepo, daPath: formattedPath, body });
