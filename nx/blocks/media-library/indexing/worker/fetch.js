@@ -811,9 +811,15 @@ export async function saveIndexChunks(
 
     const responses = await Promise.all(batchPromises);
 
-    const failed = responses.filter((r) => !r.ok);
+    const failed = [];
+    responses.forEach((r, idx) => {
+      if (!r.ok) {
+        failed.push({ chunkNum: i + idx, status: r.status });
+      }
+    });
     if (failed.length > 0) {
-      throw new Error(`Batch ${Math.floor(i / batchSize)} failed: ${failed.length} chunks`);
+      const chunkNums = failed.map((f) => `${f.chunkNum} (${f.status})`).join(', ');
+      throw new Error(`Failed to save ${failed.length} chunk(s): ${chunkNums}`);
     }
 
     if (i + batchSize < chunksToSave.length) {

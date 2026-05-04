@@ -640,7 +640,7 @@ export async function buildFullIndex(
   const metaSaveMs = Date.now() - metaSaveStart;
 
   if (!metaResp.ok) {
-    throw new Error('Failed to save index metadata');
+    throw new Error(`Failed to save index metadata: HTTP ${metaResp.status}`);
   }
 
   perf.saveDurationMs = Date.now() - saveStart;
