@@ -1,6 +1,10 @@
 :host {
   display: block;
   position: relative;
+
+  --sl-field-height: 28px;
+  --sl-field-border: 2px solid var(--s2-gray-200);
+  --sl-fixed-family: "Roboto Mono", menlo, consolas, "Liberation Mono", monospace;
 }
 
 :host > svg {
@@ -18,9 +22,9 @@ svg.icon {
 
 .sl-inputfield {
   label {
-    font-size: var(--s2-body-xs-size);
+    font-size: var(--s2-body-size-xs);
     display: block;
-    color: rgb(80 80 80);
+    color: var(--s2-gray-500);
     margin-bottom: 4px;
   }
 
@@ -42,10 +46,11 @@ svg.icon {
     width: 100%;
     display: block;
     padding: 0 12px;
+    background: var(--s2-gray-50);
     line-height: var(--sl-field-height);
-    font-family: var(--font-family);
-    font-size: var(--sl-field-font-size);
-    border-radius: var(--s2-radius-100);
+    font-family: var(--s2-font-family);
+    font-size: var(--s2-component-m-regular-font-size);
+    border-radius: var(--s2-corner-radius-500);
     outline-color: var(--s2-blue-900);
     outline-offset: 0;
     transition: outline-offset 0.2s;
@@ -130,12 +135,12 @@ svg.icon {
     display: block;
     width: 100%;
     padding: 0 12px;
-    background: var(--s2-gray-100);
-    font-family: var(--font-family);
-    font-size: var(--sl-field-font-size);
+    background: var(--s2-gray-200);
+    font-family: var(--s2-font-family);
+    font-size: var(--s2-component-m-regular-font-size);
     line-height: var(--sl-field-height);
     border: 2px solid var(--s2-gray-100);
-    border-radius: var(--s2-radius-100);
+    border-radius: var(--s2-corner-radius-500);
     outline-color: var(--s2-blue-900);
     outline-offset: 0;
     transition: outline-offset 0.2s;
@@ -178,7 +183,7 @@ svg.icon {
   }
 
   .sl-inputfield-error {
-    font-size: var(--s2-body-xs-size);
+    font-size: var(--s2-body-size-xs);
     color: var(--s2-red-900);
     margin: 0;
   }
@@ -201,8 +206,8 @@ svg.icon {
   }
 
   label {
-    font-family: var(--font-family);
-    font-size: var(--s2-body-xs-size);
+    font-family: var(--s2-font-family);
+    font-size: var(--s2-body-size-xs);
     color: rgb(80 80 80);
     margin-bottom: 0;
     order: 1;
@@ -212,7 +217,7 @@ svg.icon {
   .sl-inputfield-error {
     flex-basis: 100%;
     order: 2;
-    font-size: var(--s2-body-xs-size);
+    font-size: var(--s2-body-size-xs);
     color: var(--s2-red-900);
     margin: 0;
   }
@@ -230,8 +235,8 @@ svg.icon {
     color: #fff;
     background: var(--s2-blue-900);
     border: 2px solid var(--s2-blue-900);
-    font-family: var(--font-family);
-    border-radius: var(--s2-border-radius);
+    font-family: var(--s2-font-family);
+    border-radius: var(--s2-corner-radius-800);
     outline-color: var(--s2-blue-900);
     outline-offset: 0;
     transition: outline-offset 0.2s;

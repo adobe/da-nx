@@ -1,16 +1,16 @@
 import { html, LitElement } from 'da-lit';
-import getStyle from '../../../../utils/styles.js';
-import getSvg from '../../../../public/utils/svg.js';
-import { parseColonSyntax, getSearchSuggestions, createSearchSuggestion } from '../../features/filters.js';
-import { formatDocPath, getBasePath } from '../../core/paths.js';
-import { highlightMatch } from '../../features/templates.js';
-import { t } from '../../core/messages.js';
+import getStyle from '../../../../../utils/styles.js';
+import getSvg from '../../../../../public/utils/svg.js';
+import { parseColonSyntax, getSearchSuggestions, createSearchSuggestion } from '../../filters.js';
+import { formatDocPath, getBasePath } from '../../../core/paths.js';
+import { highlightMatch } from '../../templates.js';
+import { t } from '../../../core/messages.js';
 
 const styles = await getStyle(import.meta.url);
 const nx = `${new URL(import.meta.url).origin}/nx`;
 const sl = await getStyle(`${nx}/public/sl/styles.css`);
 const slComponents = await getStyle(`${nx}/public/sl/components.css`);
-const iconsBase = new URL('../../../../img/icons/', import.meta.url).href;
+const iconsBase = new URL('../../../../../img/icons/', import.meta.url).href;
 const ICONS = [
   `${iconsBase}Smock_Folder_18_N.svg`,
   `${iconsBase}Smock_FileHTML_18_N.svg`,

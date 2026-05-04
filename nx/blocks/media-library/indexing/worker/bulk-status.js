@@ -1,22 +1,31 @@
+/**
+ * Worker-safe version of bulk-status.js
+ * Extracted verbatim from main branch, modified only to:
+ * - Use worker-fetch.js functions instead of admin-api.js
+ * - Accept runtime context (imsToken, isPerfEnabled) as parameters
+ * - No window/localStorage dependencies
+ */
+
 import {
   createBulkStatusJob,
   pollStatusJob,
-  getStatusJobDetailsRaw,
+  getStatusJobDetails,
+} from './fetch.js';
+// Use worker-safe helper functions (avoids admin-api.js → daFetch.js → public/utils/constants.js)
+import {
   extractJobPaths,
   extractJobPhase,
   extractJobIsComplete,
   parseResourcesFromDetailsRaw,
-} from './admin-api.js';
-import { IndexConfig } from '../core/constants.js';
-import { isPerfEnabled } from '../core/params.js';
+} from './admin-helpers.js';
 
 const REQ_PER_SEC = 10;
 const THROTTLE_MS = 1000 / REQ_PER_SEC;
 
-const LARGE_SITE_PATH_THRESHOLD = IndexConfig.DISCOVERY_SMALL_SITE_THRESHOLD ?? 20_000;
+const LARGE_SITE_PATH_THRESHOLD = 20_000;
 // Reduced from 20K to 10K to prevent server-side timeouts on large sites
-const TARGET_PARTITION_RESOURCE_COUNT = IndexConfig.DISCOVERY_TARGET_PATHS_PER_JOB ?? 10_000;
-const MAX_PARTITION_PATHS = IndexConfig.DISCOVERY_MAX_PATHS_PER_JOB ?? 250;
+const TARGET_PARTITION_RESOURCE_COUNT = 10_000;
+const MAX_PARTITION_PATHS = 250;
 
 function normalizePath(p) {
   if (!p || typeof p !== 'string') return '';
@@ -186,7 +195,7 @@ function buildPathPartitions(paths, base = null) {
 
 async function runPartitionedStatusJobs(org, repo, ref, partitions, opts) {
   const {
-    onProgress, slotQueue, pollInterval, maxDurationMs, perf,
+    onProgress, slotQueue, pollInterval, maxDurationMs, perf, imsToken, isPerfEnabled,
   } = opts;
   if (!partitions.length) return [];
 
@@ -198,7 +207,7 @@ async function runPartitionedStatusJobs(org, repo, ref, partitions, opts) {
 
   const LOG = '[MediaIndexer:bulk-status]';
 
-  if (isPerfEnabled()) {
+  if (isPerfEnabled) {
     // eslint-disable-next-line no-console
     console.log(`${LOG} running ${partitions.length} partition jobs sequentially (matching backfill behavior)`);
   }
@@ -206,7 +215,7 @@ async function runPartitionedStatusJobs(org, repo, ref, partitions, opts) {
   // Run jobs sequentially like backfill to avoid incomplete jobs
   // eslint-disable-next-line no-restricted-syntax
   for (let i = 0; i < partitions.length; i += 1) {
-    if (isPerfEnabled()) {
+    if (isPerfEnabled) {
       // eslint-disable-next-line no-console
       console.log(`${LOG} Starting partition job ${i + 1}/${partitions.length}`);
     }
@@ -214,12 +223,12 @@ async function runPartitionedStatusJobs(org, repo, ref, partitions, opts) {
     const partition = partitions[i];
     const paths = Array.isArray(partition) ? partition : (partition?.paths || []);
     // eslint-disable-next-line no-await-in-loop
-    const { jobUrl } = await createBulkStatusJob(org, repo, ref, null, { paths });
+    const { jobUrl } = await createBulkStatusJob(org, repo, ref, imsToken, null, { paths });
 
     const jobStart = Date.now();
 
     // eslint-disable-next-line no-await-in-loop
-    await pollStatusJob(jobUrl, interval, (progress) => {
+    await pollStatusJob(jobUrl, imsToken, interval, (progress) => {
       if (onProgress && progress) {
         const pct = progress.processed && progress.total
           ? Math.round((progress.processed / progress.total) * 100)
@@ -232,14 +241,14 @@ async function runPartitionedStatusJobs(org, repo, ref, partitions, opts) {
     }, maxDurationMs);
 
     jobDurationsMs[i] = Date.now() - jobStart;
-    if (isPerfEnabled()) {
+    if (isPerfEnabled) {
       // eslint-disable-next-line no-console
       console.log(`${LOG} Partition job ${i + 1}/${partitions.length} completed poll in ${jobDurationsMs[i]}ms`);
     }
 
     // Get details and check completion
     // eslint-disable-next-line no-await-in-loop
-    const jobDetails = await slotQueue.run(() => getStatusJobDetailsRaw(jobUrl));
+    const jobDetails = await slotQueue.run(() => getStatusJobDetails(jobUrl, imsToken));
     const isComplete = extractJobIsComplete(jobDetails, false);
 
     if (!isComplete) {
@@ -271,7 +280,7 @@ async function runPartitionedStatusJobs(org, repo, ref, partitions, opts) {
     perf.pollingMs = Math.max(...jobDurationsMs, 0);
   }
 
-  if (isPerfEnabled()) {
+  if (isPerfEnabled) {
     // eslint-disable-next-line no-console
     console.log(`${LOG} completed ${partitions.length} partition jobs (incomplete=${incompleteCount}, resources=${resources.length})`);
   }
@@ -284,16 +293,17 @@ async function runStatusJob(org, repo, ref, paths, opts = {}) {
     pathsOnly = false,
     onProgress,
     slotQueue,
-    pollInterval = IndexConfig.STATUS_POLL_INTERVAL_MS,
-    maxDurationMs = IndexConfig.STATUS_POLL_MAX_DURATION_MS,
+    pollInterval = 1000,
+    maxDurationMs = 30 * 60 * 1000,
+    imsToken,
   } = opts;
   const normalizedPaths = Array.isArray(paths) ? paths : [paths];
-  const { jobUrl } = await createBulkStatusJob(org, repo, ref, null, {
+  const { jobUrl } = await createBulkStatusJob(org, repo, ref, imsToken, null, {
     paths: normalizedPaths,
     pathsOnly,
   });
 
-  await pollStatusJob(jobUrl, pollInterval, (progress) => {
+  await pollStatusJob(jobUrl, imsToken, pollInterval, (progress) => {
     if (onProgress && progress) {
       const pct = progress.processed && progress.total
         ? Math.round((progress.processed / progress.total) * 100)
@@ -302,7 +312,7 @@ async function runStatusJob(org, repo, ref, paths, opts = {}) {
     }
   }, maxDurationMs);
 
-  const detailsRaw = await slotQueue.run(() => getStatusJobDetailsRaw(jobUrl));
+  const detailsRaw = await slotQueue.run(() => getStatusJobDetails(jobUrl, imsToken));
   const phase = extractJobPhase(detailsRaw);
   const resources = pathsOnly ? [] : parseResourcesFromDetailsRaw(detailsRaw);
   const isComplete = extractJobIsComplete(detailsRaw, pathsOnly);
@@ -316,13 +326,33 @@ async function runStatusJob(org, repo, ref, paths, opts = {}) {
   };
 }
 
+/**
+ * Worker-safe version of runBulkStatus
+ * @param {string} org - Organization
+ * @param {string} repo - Repository
+ * @param {string} ref - Reference (branch)
+ * @param {string|null} contentPath - Content path filter
+ * @param {object} options - Configuration
+ * @param {Function} options.onProgress - Progress callback
+ * @param {number} options.pollInterval - Poll interval in ms
+ * @param {number} options.maxDurationMs - Max duration in ms
+ * @param {number} options.pollConcurrency - Concurrency limit
+ * @param {string} options.imsToken - IMS access token (REQUIRED)
+ * @param {boolean} options.isPerfEnabled - Enable perf logging
+ */
 export default async function runBulkStatus(org, repo, ref, contentPath, options = {}) {
   const {
     onProgress,
-    pollInterval = IndexConfig.STATUS_POLL_INTERVAL_MS,
-    maxDurationMs = IndexConfig.STATUS_POLL_MAX_DURATION_MS,
-    pollConcurrency = IndexConfig.STATUS_POLL_CONCURRENCY,
+    pollInterval = 1000,
+    maxDurationMs = 30 * 60 * 1000,
+    pollConcurrency = 3,
+    imsToken,
+    isPerfEnabled = false,
   } = options;
+
+  if (!imsToken) {
+    throw new Error('[worker-bulk-status] imsToken is required');
+  }
 
   const effectiveRef = ref || 'main';
   const perf = {};
@@ -353,6 +383,7 @@ export default async function runBulkStatus(org, repo, ref, contentPath, options
       slotQueue,
       pollInterval,
       maxDurationMs,
+      imsToken,
     });
     perf.discoveryMs = Date.now() - discoveryCreateStart;
     perf.discoveryCreateMs = perf.discoveryMs;
@@ -362,7 +393,7 @@ export default async function runBulkStatus(org, repo, ref, contentPath, options
     const partitionPlan = pathCount > 0 ? buildPathPartitions(discoveredPaths, base) : null;
 
     if (pathDiscoveryJob.isComplete && pathCount === 0) {
-      if (isPerfEnabled()) {
+      if (isPerfEnabled) {
         // eslint-disable-next-line no-console
         console.log(`${LOG} discovery done in ${perf.discoveryMs}ms, no preview paths found`);
       }
@@ -375,7 +406,7 @@ export default async function runBulkStatus(org, repo, ref, contentPath, options
 
     if (!pathDiscoveryJob.isComplete && partitionPlan) {
       perf.decision = 'partitioned';
-      if (isPerfEnabled()) {
+      if (isPerfEnabled) {
         // eslint-disable-next-line no-console
         console.log(`${LOG} discovery took ${perf.discoveryMs}ms, incomplete → partitioned (${pathCount} paths, ${partitionPlan.partitions.length} jobs)`);
       }
@@ -385,12 +416,19 @@ export default async function runBulkStatus(org, repo, ref, contentPath, options
         effectiveRef,
         partitionPlan.partitions,
         {
-          onProgress, slotQueue, pollConcurrency, pollInterval, maxDurationMs, perf,
+          onProgress,
+          slotQueue,
+          pollConcurrency,
+          pollInterval,
+          maxDurationMs,
+          perf,
+          imsToken,
+          isPerfEnabled,
         },
       );
     } else if (pathDiscoveryJob.isComplete && pathCount > LARGE_SITE_PATH_THRESHOLD) {
       perf.decision = 'partitioned';
-      if (isPerfEnabled()) {
+      if (isPerfEnabled) {
         // eslint-disable-next-line no-console
         console.log(`${LOG} discovery took ${perf.discoveryMs}ms, large site (${pathCount} > ${LARGE_SITE_PATH_THRESHOLD}) → partitioned (${partitionPlan.partitions.length} jobs)`);
       }
@@ -400,12 +438,19 @@ export default async function runBulkStatus(org, repo, ref, contentPath, options
         effectiveRef,
         partitionPlan.partitions,
         {
-          onProgress, slotQueue, pollConcurrency, pollInterval, maxDurationMs, perf,
+          onProgress,
+          slotQueue,
+          pollConcurrency,
+          pollInterval,
+          maxDurationMs,
+          perf,
+          imsToken,
+          isPerfEnabled,
         },
       );
     } else {
       perf.decision = 'single';
-      if (isPerfEnabled()) {
+      if (isPerfEnabled) {
         // eslint-disable-next-line no-console
         console.log(`${LOG} discovery took ${perf.discoveryMs}ms, ${pathCount} paths → single job [/*]`);
       }
@@ -422,19 +467,20 @@ export default async function runBulkStatus(org, repo, ref, contentPath, options
         slotQueue,
         pollInterval,
         maxDurationMs,
+        imsToken,
       });
       perf.jobCreationMs = Date.now() - fullCreateStart;
       perf.jobCount = 1;
       resources = primaryStatusJob.resources;
 
       if (primaryStatusJob.isComplete) {
-        if (isPerfEnabled()) {
+        if (isPerfEnabled) {
           // eslint-disable-next-line no-console
           console.log(`${LOG} single job completed in ${Date.now() - fullCreateStart}ms (phase=${primaryStatusJob.phase})`);
         }
       } else if (partitionPlan) {
         perf.decision = 'partitioned-retry';
-        if (isPerfEnabled()) {
+        if (isPerfEnabled) {
           // eslint-disable-next-line no-console
           console.log(`${LOG} single job stopped, retrying with ${partitionPlan.partitions.length} partitions`);
         }
@@ -444,11 +490,18 @@ export default async function runBulkStatus(org, repo, ref, contentPath, options
           effectiveRef,
           partitionPlan.partitions,
           {
-            onProgress, slotQueue, pollConcurrency, pollInterval, maxDurationMs, perf,
+            onProgress,
+            slotQueue,
+            pollConcurrency,
+            pollInterval,
+            maxDurationMs,
+            perf,
+            imsToken,
+            isPerfEnabled,
           },
         );
         resources = mergeResourcesByPath(resources, partitioned);
-      } else if (isPerfEnabled()) {
+      } else if (isPerfEnabled) {
         // eslint-disable-next-line no-console
         console.log(`${LOG} primary stopped, using partial results`);
       }
@@ -463,7 +516,7 @@ export default async function runBulkStatus(org, repo, ref, contentPath, options
 
     perf.totalDurationMs = Date.now() - startTime;
 
-    if (isPerfEnabled()) {
+    if (isPerfEnabled) {
       const parts = [
         `[MediaIndexer:bulk-status] total ${perf.totalDurationMs}ms`,
         `discovery=${perf.discoveryMs}ms`,
