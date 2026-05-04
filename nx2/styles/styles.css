@@ -208,6 +208,14 @@
   --s2-corner-radius-700: 10px;
   --s2-corner-radius-800: 16px;
 
+  /* Drop shadow / elevated — layered (alias/drop-shadow: ambient, transition, elevated-key) */
+  --nx-drop-shadow-ambient: 0 4px 12px 0 rgb(0 0 0 / 8%);
+  --nx-drop-shadow-transition: 0 2px 6px 0 rgb(0 0 0 / 4%);
+  --nx-drop-shadow-elevated-key: 0 0 2px 0 rgb(0 0 0 / 12%);
+
+  /* App-frame `main` + side panels (desktop + mobile shell) */
+  --nx-app-shell-radius: 12px;
+
   /* heading */
   --s2-heading-size-xs: 18px;
   --s2-heading-size-s: 20px;
@@ -422,7 +430,11 @@ html:has(meta[content="edge-delivery"]) {
       grid-template:
         "header" var(--s2-nav-height)
         "main" 1fr;
-      background-color: light-dark(rgb(240 240 240), rgb(17 17 17));
+      background-color: var(--s2-gray-50);
+
+      &.nx-panel-resize-active {
+        cursor: ew-resize;
+      }
 
       header {
         grid-area: header;
@@ -436,24 +448,22 @@ html:has(meta[content="edge-delivery"]) {
         grid-area: main;
         background-color: light-dark(#fff, #000);
         max-height: 100%;
+        border-radius: var(--nx-app-shell-radius) var(--nx-app-shell-radius) 0 0;
       }
 
-      .section {
-          &.container {
-              .default-content, .block-content {
-                  max-width: var(--section-container-width);
-                  margin-inline: auto;
-              }
-          }
+      /* Elevated surface: center `main` or side panels (pointer-activated; see panel.js) */
+      main,
+      aside.panel .panel-wrapper {
+        transition: box-shadow 0.15s ease;
       }
 
-      &:has(aside.panel:not([hidden]))::before {
-        content: '';
-        position: fixed;
-        inset: 0;
-        z-index: 50;
-        background-color: light-dark(rgb(0 0 0 / 40%), rgb(0 0 0 / 55%));
-        pointer-events: auto;
+      main.nx-main-raised {
+        position: relative;
+        z-index: 1;
+        box-shadow:
+          var(--nx-drop-shadow-ambient),
+          var(--nx-drop-shadow-transition),
+          var(--nx-drop-shadow-elevated-key);
       }
 
       aside.panel {
@@ -465,20 +475,22 @@ html:has(meta[content="edge-delivery"]) {
         margin: 0;
         max-height: none;
 
-        path {
-          fill: currentcolor;
-        }
-
         .panel-wrapper {
           --panel-bottom-margin: 12px;
 
           display: block;
           position: relative;
           box-sizing: border-box;
+
+          /* Programmatic / click focus; visual is layered shadow via :focus-within */
+          &:focus {
+            outline: none;
+          }
+
           height: 100%;
           max-height: 100%;
           margin: 0;
-          border-radius: 24px;
+          border-radius: var(--nx-app-shell-radius);
           background-color: light-dark(#fff, #000);
 
           .panel-shell {
@@ -509,12 +521,11 @@ html:has(meta[content="edge-delivery"]) {
           .panel-resize-handle {
             display: none;
             position: absolute;
-            top: 50%;
-            translate: 0 -50%;
+            top: 4px;
+            bottom: 4px;
             z-index: 2;
             box-sizing: border-box;
-            width: 12px;
-            height: 56px;
+            width: 16px;
             padding: 0;
             margin: 0;
             border: none;
@@ -524,36 +535,93 @@ html:has(meta[content="edge-delivery"]) {
             color: inherit;
           }
 
+          /* Gutter pill: gray-400, only when pointer is in the resize zone (or dragging / touch) */
           .panel-resize-handle::before {
             content: '';
             position: absolute;
             left: 50%;
-            top: 50%;
-            translate: -50% -50%;
-            width: 4px;
-            height: 48px;
+            top: 0;
+            bottom: 0;
+            translate: -50% 0;
+            width: 2px;
             border-radius: 999px;
-            background-color: var(--s2-gray-600);
-          }
-
-          .panel-resize-handle:hover::before,
-          .panel-resize-handle:focus-visible::before {
-            background-color: var(--s2-gray-900);
+            background-color: var(--s2-gray-400);
+            opacity: 0;
+            transition: opacity 0.12s ease 0s;
           }
 
           .panel-resize-handle:focus-visible {
-            outline: 2px solid var(--s2-blue-800);
-            outline-offset: 2px;
+            outline: none;
+          }
+
+          .panel-resize-handle:focus-visible::before {
+            background-color: var(--s2-gray-400);
+            opacity: 1;
+          }
+
+          .panel-resize-handle:active::before {
+            background-color: var(--s2-gray-400);
+            opacity: 1;
+          }
+
+          /* Show gutter pill only when pointer is in the handle hit zone (between main & panel) */
+          @media (hover: hover) {
+            /* Short dwell so the pill doesn’t flash on fast pointer moves across the hit zone */
+            .panel-resize-handle:hover::before {
+              opacity: 1;
+              background-color: var(--s2-gray-400);
+              transition: opacity 0.12s ease 0.2s;
+            }
+          }
+
+          @media (hover: none) {
+            .panel-resize-handle::before {
+              opacity: 1;
+            }
           }
 
           .panel-resize-handle-trailing {
-            right: -12px;
+            right: -14px;
           }
 
           .panel-resize-handle-leading {
-            left: -12px;
+            left: -14px;
           }
         }
+      }
+
+      /* During drag, only the handle being dragged stays visible (see panel.js) */
+      aside.panel.nx-panel-resizing .panel-wrapper .panel-resize-handle::before {
+        opacity: 1;
+      }
+
+      /* Side panels: `.nx-panel-raised` matches main behavior (see panel.js) */
+      aside.panel .panel-wrapper:focus-within,
+      aside.panel .panel-wrapper.nx-panel-raised {
+        position: relative;
+        z-index: 2;
+        box-shadow:
+          var(--nx-drop-shadow-ambient),
+          var(--nx-drop-shadow-transition),
+          var(--nx-drop-shadow-elevated-key);
+      }
+
+      .section {
+          &.container {
+              .default-content, .block-content {
+                  max-width: var(--section-container-width);
+                  margin-inline: auto;
+              }
+          }
+      }
+
+      &:has(aside.panel:not([hidden]))::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        z-index: 50;
+        background-color: light-dark(rgb(0 0 0 / 40%), rgb(0 0 0 / 55%));
+        pointer-events: auto;
       }
 
       footer {
@@ -584,13 +652,29 @@ html:has(meta[content="edge-delivery"]) {
           display: unset;
         }
 
+        &.sidenav-collapsed > nav {
+          visibility: hidden;
+          overflow: hidden;
+          width: 0;
+          min-width: 0;
+          pointer-events: none;
+        }
+
         main {
           display: grid;
-          margin: 0 12px 0 0;
-          border-radius: var(--s2-corner-radius-800) var(--s2-corner-radius-800) 0 0;
+          margin: 0 12px;
           max-height: 100%;
           overflow-y: auto;
 
+        }
+
+        /* Single 12px gutter: `.panel-wrapper` already uses margin-inline 12px */
+        &:has(aside.panel[data-position="before"]:not([hidden])) main {
+          margin-left: 0;
+        }
+
+        &:has(aside.panel[data-position="after"]:not([hidden])) main {
+          margin-right: 0;
         }
 
         &:has(aside.panel:not([hidden]))::before {
@@ -602,11 +686,15 @@ html:has(meta[content="edge-delivery"]) {
           position: static;
           min-width: 0;
 
+          /* Match panel.js: 240px surface + 12px `.panel-wrapper` margin each side */
+          min-width: calc(240px + 24px);
+
           .panel-wrapper {
             height: calc(100vh - var(--s2-nav-height) - var(--panel-bottom-margin));
             max-height: none;
-            margin: 0 12px var(--panel-bottom-margin) 0;
-            border-radius: var(--s2-corner-radius-800);
+            margin-block: 0 var(--panel-bottom-margin);
+            margin-inline: 12px;
+            border-radius: var(--nx-app-shell-radius);
 
             .panel-resize-handle {
               display: block;
