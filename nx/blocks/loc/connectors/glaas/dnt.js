@@ -256,8 +256,10 @@ function resetIcons(doc) {
   const icons = doc.querySelectorAll('span.icon');
   icons.forEach((icon) => {
     const parent = icon.parentElement;
-    const name = icon.classList[1].split('-')[1];
-    const textIcon = document.createTextNode(`:${name}:`);
+    const iconClass = [...icon.classList].find((cls) => cls.startsWith('icon-'));
+    if (!iconClass) return;
+    const name = iconClass.split('-').slice(1).join('-');
+    const textIcon = doc.createTextNode(`:${name}:`);
     parent.replaceChild(textIcon, icon);
   });
 }

@@ -1,19 +1,15 @@
 import { LitElement, html, nothing } from '../../deps/lit/lit-core.min.js';
-import { getConfig } from '../../scripts/nexter.js';
-import getStyle from '../../utils/styles.js';
+import { loadStyle, hashChange } from '../../../nx2/utils/utils.js';
 import { getOptions, importAll, calculateTime } from './index.js';
-import getSvg from '../../utils/svg.js';
 
-const { nxBase } = getConfig();
-const style = await getStyle(import.meta.url);
-const buttons = await getStyle(`${nxBase}/styles/buttons.js`);
+import '../../../nx2/public/sl/components.js';
 
-const ICONS = [
-  `${nxBase}/img/icons/Smock_ChevronRight_18_N.svg`,
-];
+const style = await loadStyle(import.meta.url);
 
 class NxImporter extends LitElement {
   static properties = {
+    _toOrg: { state: true },
+    _toSite: { state: true },
     _urls: { state: true },
     _isImporting: { state: true },
     _status: { state: true },
@@ -30,8 +26,15 @@ class NxImporter extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [style, buttons];
-    getSvg({ parent: this.shadowRoot, paths: ICONS });
+    this.shadowRoot.adoptedStyleSheets = [style];
+    this.setDetails();
+  }
+
+  setDetails() {
+    hashChange.subscribe((pathDetails) => {
+      this._toOrg = pathDetails.org;
+      this._toSite = pathDetails.site;
+    });
   }
 
   setStatus(text, type = 'error') {
@@ -66,6 +69,10 @@ class NxImporter extends LitElement {
     e.preventDefault();
     const formData = new FormData(e.target);
     const data = Object.fromEntries(formData);
+
+    // If fields disabled, they will not come from the form
+    data.org ??= this._toOrg;
+    data.repo ??= this._toSite;
 
     if (!(data.org || data.repo)) {
       // eslint-disable-next-line no-console
@@ -176,7 +183,7 @@ class NxImporter extends LitElement {
           ${hasCancel ? html`<button class="cancel-button" @click=${this.handleCancel}>${this._cancelText}</button>` : nothing}
           ${hasExpand ? html`
             <button class="toggle-list-icon" @click=${this.handleToggleList} data-name="${lowerName}">
-              <svg class="icon"><use href="#spectrum-chevronRight"/></svg>
+              <svg class="icon" viewBox="0 0 20 20"><use href="/img/icons/s2-icon-chevronright-20-n.svg#icon"/></svg>
             </button>
           ` : nothing}
         </div>
@@ -222,23 +229,23 @@ class NxImporter extends LitElement {
         <div class="form-row">
           <h2>Import</h2>
           <label for="index">By Query Index</label>
-          <input id="index" type="text" name="index" placeholder="https://main--bacom--adobecom.hlx.live/query-index.json?limit=-1" />
+          <sl-input id="index" type="text" name="index" placeholder="https://main--bacom--adobecom.hlx.live/query-index.json?limit=-1"></sl-input>
           <label for="urls">By URL</label>
-          <textarea id="urls" name="urls" placeholder="Add AEM URLs"></textarea>
+          <sl-textarea id="urls" name="urls" placeholder="Add AEM URLs"></sl-textarea>
         </div>
         <div class="form-row">
           <h2>Linked content <span class="heading-annotation">(fragments, SVGs, MP4s, PDFs)</span></h2>
           <div class="org-repo-row">
             <div>
               <label>Behavior</label>
-              <select id="fragments" name="fragments">
+              <sl-select id="fragments" name="fragments">
                 <option value="no">Ignore</option>
                 <option value="yes">Import</option>
-              </select>
+              </sl-select>
             </div>
             <div>
               <label>Production domain</label>
-              <input type="text" name="liveDomain" placeholder="https://business.adobe.com" />
+              <sl-input type="text" name="liveDomain" placeholder="https://business.adobe.com"></sl-input>
             </div>
           </div>
         </div>
@@ -247,16 +254,16 @@ class NxImporter extends LitElement {
           <div class="org-repo-row">
             <div>
               <label>Organization</label>
-              <input type="text" name="org" placeholder="name-of-organization" />
+              <sl-input type="text" name="org" placeholder="name-of-organization" value=${this._toOrg || ''} ?disabled=${this._toOrg}></sl-input>
             </div>
             <div>
               <label>Site</label>
-              <input type="text" name="repo" placeholder="name-of-site" />
+              <sl-input type="text" name="repo" placeholder="name-of-site" value=${this._toSite || ''} ?disabled=${this._toSite}></sl-input>
             </div>
           </div>
         </div>
         <div class="form-row">
-          <input type="submit" value="${this._isImporting ? 'Importing' : 'Import'}" class="accent" ?disabled=${this._isImporting} />
+          <sl-button type="submit" class="accent" ?disabled=${this._isImporting}>${this._isImporting ? 'Importing' : 'Import'}</sl-button>
         </div>
       </form>
       <div class="detail-cards">

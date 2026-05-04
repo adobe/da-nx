@@ -18,6 +18,10 @@ export const IndexConfig = Object.freeze({
   MEDIA_INDEX_CHUNK_SIZE: 20_000, /* Entries per chunk (~15-20MB per chunk) */
   LOCK_HEARTBEAT_INTERVAL_MS: 60_000,
   LOCK_STALE_THRESHOLD_MS: 10 * 60_000,
+  BUILD_MAX_DURATION_MS: 30 * 60 * 1000,
+  INDEX_POLLING_INTERVAL_MS: 60_000,
+  LOGS_POLLING_INTERVAL_MS: 120_000,
+  LOCK_CHECK_INTERVAL_MS: 5_000,
 });
 
 export const Operation = Object.freeze({
@@ -109,14 +113,85 @@ export const ExternalMedia = Object.freeze({
   ],
 });
 
-// DA ETC (CORS proxy) origin - self-contained for media-library
-function getDaEtcOrigin() {
-  const { href } = window.location;
+/**
+ * Worker-safe origin resolution
+ * These functions accept a location object and work in both main thread and worker contexts.
+ */
+
+const DA_ADMIN_ENVS = {
+  local: 'http://localhost:8787',
+  stage: 'https://stage-admin.da.live',
+  prod: 'https://admin.da.live',
+};
+
+const DA_ETC_ENVS = {
+  local: 'http://localhost:8787',
+  prod: 'https://da-etc.adobeaem.workers.dev',
+};
+
+/**
+ * Resolve DA admin origin from location (worker-safe)
+ * @param {Location|{href: string, origin: string}} location
+ * @returns {string}
+ */
+export function resolveDaOrigin(location) {
+  const { href, origin } = location;
   const url = new URL(href);
-  const param = url.searchParams.get('da-etc');
-  if (param) return param === 'local' ? 'http://localhost:8787' : param;
-  if (href.includes('localhost')) return 'http://localhost:8787';
-  return 'https://da-etc.adobeaem.workers.dev';
+  const query = url.searchParams.get('da-admin');
+
+  // Handle ?da-admin param (matches public/utils/constants.js::getDaEnv logic)
+  if (query && query === 'reset') {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('da-admin');
+    }
+  } else if (query) {
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('da-admin', query);
+    }
+  }
+
+  const env = (typeof localStorage !== 'undefined' && localStorage.getItem('da-admin')) || 'prod';
+  const daOrigin = DA_ADMIN_ENVS[env] || DA_ADMIN_ENVS.prod;
+  return origin === 'https://da.page' ? daOrigin.replace('.live', '.page') : daOrigin;
 }
 
-export const DA_ETC_ORIGIN = getDaEtcOrigin();
+/**
+ * Resolve DA ETC (CORS proxy) origin from location (worker-safe)
+ * @param {Location|{href: string}} location
+ * @returns {string}
+ */
+export function resolveDaEtcOrigin(location) {
+  const { href } = location;
+  const url = new URL(href);
+  const param = url.searchParams.get('da-etc');
+
+  if (param) {
+    return param === 'local' ? DA_ETC_ENVS.local : param;
+  }
+
+  if (href.includes('localhost')) {
+    return DA_ETC_ENVS.local;
+  }
+
+  return DA_ETC_ENVS.prod;
+}
+
+/**
+ * Resolve AEM origin (currently static, but kept as function for consistency)
+ * @returns {string}
+ */
+export function resolveAemOrigin() {
+  return 'https://admin.hlx.page';
+}
+
+// Main-thread convenience exports (use window.location)
+// IMPORTANT: These will fail in worker context - use resolve* functions instead
+export const DA_ORIGIN = typeof window !== 'undefined'
+  ? resolveDaOrigin(window.location)
+  : DA_ADMIN_ENVS.prod;
+
+export const AEM_ORIGIN = resolveAemOrigin();
+
+export const DA_ETC_ORIGIN = typeof window !== 'undefined'
+  ? resolveDaEtcOrigin(window.location)
+  : DA_ETC_ENVS.prod;

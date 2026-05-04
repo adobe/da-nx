@@ -1,11 +1,12 @@
 import {
-  normalizePath,
+  normalizeOriginalPath,
   getDedupeKey,
   computeCanonicalModifiedTimestamp,
   createMedialogEntry,
   detectMediaType,
   computeCanonicalMetadata,
 } from './parse.js';
+import { normalizePath } from './parse-utils.js';
 import { canonicalizeMediaUrl } from '../core/urls.js';
 
 /**
@@ -139,7 +140,7 @@ export function mergeMedialogChunkIntoMap(
       mediaMap.set(key, {
         hash: media.mediaHash || key,
         url: canonicalizeMediaUrl(media.path, org, repo),
-        originalPath: media.originalFilename || '',
+        originalPath: normalizeOriginalPath(media.originalFilename),
         timestamp: media.timestamp ?? 0,
         user: media.user ?? '',
         operation: media.operation ?? '',
@@ -163,7 +164,7 @@ export function mergeMedialogChunkIntoMap(
       existing.operation = media.operation ?? existing.operation;
     }
     if (media.originalFilename) {
-      existing.originalPath = media.originalFilename;
+      existing.originalPath = normalizeOriginalPath(media.originalFilename);
     }
     existing.lastMedialog = media;
   });
@@ -317,22 +318,6 @@ export function processPageMediaUpdates(
     onLog(`--- Page: ${normalizedPath} ---`);
     onLog(`  Old (bypage): ${oldHashes.size}, New (page-based): ${newEntries.length}`);
 
-    if (newEntries.length === 0 && oldHashes.size > 0) {
-      onLog('  Edge case: Page previewed with no media - removing old entries');
-      oldHashes.forEach((hash) => {
-        const oldEntry = updatedIndex.find((e) => e.hash === hash && e.doc === normalizedPath);
-        if (oldEntry) {
-          removed += removeOrOrphanMedia(
-            updatedIndex,
-            oldEntry,
-            normalizedPath,
-            medialogEntries,
-          );
-        }
-      });
-      return;
-    }
-
     const newHashes = new Set(newEntries.map((e) => e.hash));
     const toRemove = [...oldHashes].filter((h) => !newHashes.has(h));
     const toAdd = [...newHashes].filter((h) => !oldHashes.has(h));
@@ -344,12 +329,18 @@ export function processPageMediaUpdates(
     toRemove.forEach((hash) => {
       const oldEntry = updatedIndex.find((e) => e.hash === hash && e.doc === normalizedPath);
       if (oldEntry) {
-        removed += removeOrOrphanMedia(
-          updatedIndex,
-          oldEntry,
-          normalizedPath,
-          medialogEntries,
-        );
+        // Don't remove external media (extlinks-parsed/markdown-parsed) or auditlog-parsed entries
+        // They come from markdown parsing, not medialog, so they're handled by processLinkedContent
+        const op = oldEntry.operation || oldEntry.source;
+        const isFromMarkdown = op === 'extlinks-parsed' || op === 'markdown-parsed' || op === 'auditlog-parsed';
+        if (!isFromMarkdown) {
+          removed += removeOrOrphanMedia(
+            updatedIndex,
+            oldEntry,
+            normalizedPath,
+            medialogEntries,
+          );
+        }
       }
     });
 
@@ -376,7 +367,7 @@ export function processPageMediaUpdates(
       const idx = updatedIndex.findIndex((x) => x.hash === e.hash && x.doc === normalizedPath);
       if (idx !== -1) {
         updatedIndex[idx].timestamp = e.timestamp;
-        copyCanonicalMetadataFields(updatedIndex[idx], e);
+        updatedIndex[idx].displayName = e.displayName ?? updatedIndex[idx].displayName;
       }
     });
   });
@@ -411,7 +402,7 @@ export function processStandaloneUploads(
         const row = {
           hash: media.mediaHash,
           url,
-          originalPath: media.originalFilename || '',
+          originalPath: normalizeOriginalPath(media.originalFilename),
           timestamp: media.timestamp,
           user: media.user,
           operation: media.operation,

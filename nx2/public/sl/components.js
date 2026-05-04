@@ -5,29 +5,6 @@ import { loadStyle } from '../../utils/utils.js';
 
 const style = await loadStyle(import.meta.url);
 
-class FormAwareLitElement extends LitElement {
-  handleFormData({ formData }) {
-    if (this.name) {
-      formData.append(this.name, this.value || '');
-    }
-  }
-
-  connectedCallback() {
-    super.connectedCallback();
-    this.form = this.closest('form');
-    if (this.form) {
-      this.form.addEventListener('formdata', this.handleFormData.bind(this));
-    }
-  }
-
-  disconnectedCallback() {
-    super.disconnectedCallback();
-    if (this.form) {
-      this.form.removeEventListener('formdata', this.handleFormData.bind(this));
-    }
-  }
-}
-
 class SlInput extends LitElement {
   static formAssociated = true;
 
@@ -104,7 +81,9 @@ class SlInput extends LitElement {
   }
 }
 
-class SlTextarea extends FormAwareLitElement {
+class SlTextarea extends LitElement {
+  static formAssociated = true;
+
   static properties = {
     value: { type: String },
     class: { type: String },
@@ -113,16 +92,25 @@ class SlTextarea extends FormAwareLitElement {
     name: { type: String },
   };
 
+  constructor() {
+    super();
+    this._internals = this.attachInternals();
+  }
+
   async connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
+    this._internals.setFormValue(this.value);
   }
 
   handleEvent(event) {
     this.value = event.target.value;
+    this._internals.setFormValue(this.value);
     const wcEvent = new event.constructor(event.type, event);
     this.dispatchEvent(wcEvent);
   }
+
+  get form() { return this._internals.form; }
 
   get _attrs() {
     return this.getAttributeNames().reduce((acc, name) => {
@@ -280,11 +268,13 @@ class SlButton extends LitElement {
   static properties = {
     class: { type: String },
     disabled: { type: Boolean },
+    type: { type: String },
   };
 
   constructor() {
     super();
     this._internals = this.attachInternals();
+    this.type = 'button';
   }
 
   async connectedCallback() {
@@ -294,10 +284,18 @@ class SlButton extends LitElement {
 
   get _attrs() {
     return this.getAttributeNames().reduce((acc, name) => {
-      if ((name === 'class' || name === 'label' || name === 'disabled')) return acc;
+      if ((name === 'class' || name === 'label' || name === 'disabled' || name === 'type')) return acc;
       acc[name] = this.getAttribute(name);
       return acc;
     }, {});
+  }
+
+  handleClick() {
+    if (this.disabled) return;
+    const { form } = this._internals;
+    if (!form) return;
+    if (this.type === 'submit') form.requestSubmit();
+    else if (this.type === 'reset') form.reset();
   }
 
   render() {
@@ -305,8 +303,10 @@ class SlButton extends LitElement {
       <span class="sl-button" part="wrap">
         <button
           part="base"
+          type="button"
           class="${this.class}"
           ?disabled=${this.disabled}
+          @click=${this.handleClick}
           ${spread(this._attrs)}>
           <slot></slot>
         </button>

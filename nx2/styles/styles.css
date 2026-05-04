@@ -350,6 +350,10 @@ html:has(meta[content="edge-delivery"]) {
         display: none;
       }
 
+      main {
+        position: relative;
+      }
+
       &.session {
         font-family: var(--s2-font-family);
       }
