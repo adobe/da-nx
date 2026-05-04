@@ -729,74 +729,108 @@ function chunkMediaSheet(mediaData, chunkSize) {
 }
 
 /**
- * Worker-safe version of saveIndexChunks from admin-api.js
+ * Determine optimal chunk size based on total entry count
  *
- * @param {string} basePath - Base path for chunks (e.g., /org/repo/.da/media-insights)
- * @param {Array} mediaData - Media sheet data
- * @param {Array} usageData - Usage sheet data
- * @param {number} chunkSize - Entries per chunk
- * @param {string} daOrigin - DA origin (e.g., https://admin.da.live)
+ * Rationale:
+ * - Small sites (<10k entries): Single file (100k chunk size ensures no chunking)
+ *   - No overhead from loading multiple chunks
+ *   - Simpler debugging and inspection
+ *
+ * - Medium sites (10k-200k): 8k entries per chunk (~4-5MB files)
+ *   - Prevents CF Worker 128MB memory limit errors during PUT
+ *   - Balances file size vs chunk count overhead
+ *   - Progressive loading: chunk 0 loads quickly for default Images view
+ *
+ * - Large sites (>200k entries): 6k entries per chunk (~3-4MB files)
+ *   - Smaller files for better reliability on massive indexes
+ *   - More chunks acceptable given already high chunk count
+ *   - Further reduces memory pressure on uploads
+ *
+ * Chunk size targets file sizes ≤5MB to avoid DA Admin/S3 timeouts
+ * Average media entry size: ~550 bytes (URL + metadata + doc field)
+ *
+ * @param {number} totalEntries - Total number of media entries in index
+ * @returns {number} Optimal chunk size (entries per chunk)
+ */
+export function getAdaptiveChunkSize(totalEntries) {
+  if (totalEntries < 10_000) {
+    return 100_000;
+  }
+
+  if (totalEntries < 200_000) {
+    return 8_000;
+  }
+
+  return 6_000;
+}
+
+/**
+ * Save index as chunks with batched uploads to prevent rate limiting
+ * Uploads 3 chunks concurrently with 500ms delays between batches
+ *
+ * @param {string} basePath - Base path without filename (e.g., '/site/.da/media-insights')
+ * @param {Array} mediaData - Media sheet data (must be pre-sorted)
+ * @param {number} chunkSize - Entries per chunk (from getAdaptiveChunkSize)
+ * @param {string} daOrigin - DA origin (e.g., 'https://admin.da.live')
  * @param {string} imsToken - IMS access token
  * @param {string} indexFilesChunkPrefix - Chunk filename prefix (e.g., 'index-')
- * @returns {Promise<number>} Number of chunks saved
+ * @returns {Promise<number>} Number of chunks created
  */
 export async function saveIndexChunks(
   basePath,
   mediaData,
-  usageData,
   chunkSize,
   daOrigin,
   imsToken,
   indexFilesChunkPrefix,
 ) {
   const mediaChunks = chunkMediaSheet(mediaData, chunkSize);
-
-  // Always save at least chunk 0, even if empty (for consistency)
   const chunksToSave = mediaChunks.length > 0 ? mediaChunks : [[]];
-  const savePromises = [];
 
-  for (let i = 0; i < chunksToSave.length; i += 1) {
-    const chunkFileName = getChunkFileName(i, indexFilesChunkPrefix);
-    const chunkPath = `${basePath}/${chunkFileName}`;
+  // Rate limiting to prevent DA Admin endpoint overload:
+  // - batchSize=3: Limit concurrent uploads (prevents 503 errors)
+  // - delayMs=500: 500ms delay between batches (~20 req/sec rate limit)
+  // - Prevents CF Worker 128MB memory errors from large concurrent PUTs
+  const batchSize = 3;
+  const delayMs = 500;
 
-    // Only include usage sheet in first chunk to avoid duplication
-    const sheets = {
-      media: chunksToSave[i],
-      usage: i === 0 ? usageData : [],
-    };
+  for (let i = 0; i < chunksToSave.length; i += batchSize) {
+    const batch = chunksToSave.slice(i, i + batchSize);
+    const batchPromises = batch.map(async (chunk, idx) => {
+      const chunkNum = i + idx;
+      const chunkFileName = getChunkFileName(chunkNum, indexFilesChunkPrefix);
+      const chunkPath = `${basePath}/${chunkFileName}`;
+      const sheets = { media: chunk };
 
-    const formData = await createMultiSheet(sheets);
-    const savePromise = workerDaFetch(`${daOrigin}/source${chunkPath}`, imsToken, {
-      method: 'PUT',
-      body: formData,
+      const formData = await createMultiSheet(sheets);
+      return workerDaFetch(`${daOrigin}/source${chunkPath}`, imsToken, {
+        method: 'PUT',
+        body: formData,
+      });
     });
 
-    savePromises.push(savePromise);
-  }
+    const responses = await Promise.all(batchPromises);
 
-  const responses = await Promise.all(savePromises);
-
-  // Validate all chunks saved successfully
-  const failedChunks = [];
-  responses.forEach((resp, i) => {
-    if (!resp.ok) {
-      failedChunks.push(i);
+    const failed = responses.filter((r) => !r.ok);
+    if (failed.length > 0) {
+      throw new Error(`Batch ${Math.floor(i / batchSize)} failed: ${failed.length} chunks`);
     }
-  });
 
-  if (failedChunks.length > 0) {
-    throw new Error(`Failed to save chunks: ${failedChunks.join(', ')}`);
+    if (i + batchSize < chunksToSave.length) {
+      await new Promise((resolve) => { setTimeout(resolve, delayMs); });
+    }
   }
 
   return chunksToSave.length;
 }
 
 /**
- * Worker-safe version of saveIndexMeta from admin-api.js
+ * Save index metadata to DA storage
+ * Must be called AFTER saveIndexChunks to ensure chunkCount is accurate
  *
- * @param {object} meta - Metadata object
- * @param {string} path - Full path to meta file
- * @param {string} daOrigin - DA origin (e.g., https://admin.da.live)
+ * @param {object} meta - Metadata object containing indexType, timestamp, chunkCount, etc.
+ * @param {string} path - Full path to meta file (e.g., '/site/.da/media-insights/index-meta.json')
+ * @param {string} daOrigin - DA origin (e.g., 'https://admin.da.live')
  * @param {string} imsToken - IMS access token
  * @returns {Promise<Response>}
  */

@@ -8,12 +8,11 @@
 
 import {
   streamLog,
-  saveIndexMeta,
   saveIndexChunks,
+  saveIndexMeta,
+  getAdaptiveChunkSize,
 } from './fetch.js';
 import runBulkStatus from './bulk-status.js';
-// Use worker-safe stub for processLinkedContent
-// (avoids admin-api.js → daFetch.js → public/utils/constants.js)
 import {
   processLinkedContent,
 } from './linked-content.js';
@@ -38,13 +37,9 @@ import {
   sortMediaData,
   getContentPathFromSitePath,
 } from '../parse-utils.js';
-import { buildMediaSheet, buildUsageSheet } from '../sheets.js';
+import { buildMediaSheet } from '../sheets.js';
 import { canonicalizeMediaUrl } from '../../core/urls.js';
-import {
-  IndexFiles,
-} from '../../core/constants.js';
-import { MediaLibraryError, ErrorCodes, logMediaLibraryError } from '../../core/errors.js';
-import { t } from '../../core/messages.js';
+import { IndexFiles } from '../../core/constants.js';
 
 const PERF_TAG = 'phase3-split-sheets';
 const INDEX_SCHEMA_VERSION = 2;
@@ -603,24 +598,21 @@ export async function buildFullIndex(
   const saveStart = Date.now();
   const sheetBuildStart = Date.now();
   const mediaSheet = buildMediaSheet(sortedIndex);
-  const usageSheet = buildUsageSheet(index);
   const sheetBuildMs = Date.now() - sheetBuildStart;
 
   onProgress({
     stage: 'saving',
-    message: `Saving ${mediaSheet.length} media entries, ${usageSheet.length} page-hash pairs...`,
+    message: `Saving ${mediaSheet.length} media entries...`,
   });
 
   const basePath = `${sitePath}/${IndexFiles.FOLDER}`;
-  const chunkSize = IndexConfig.MEDIA_INDEX_CHUNK_SIZE;
+  const chunkSize = getAdaptiveChunkSize(mediaSheet.length);
   const multiSheetStart = Date.now();
 
-  // Save as chunks
   const uploadStart = Date.now();
   const chunkCount = await saveIndexChunks(
     basePath,
     mediaSheet,
-    usageSheet,
     chunkSize,
     daOrigin,
     imsToken,
@@ -629,8 +621,7 @@ export async function buildFullIndex(
   const uploadMs = Date.now() - uploadStart;
   const multiSheetMs = Date.now() - multiSheetStart;
 
-  // Calculate approximate payload size (for perf tracking)
-  const payloadSizeBytes = mediaSheet.length * 200; // Rough estimate
+  const payloadSizeBytes = mediaSheet.length * 200;
   const payloadSizeKB = Math.round((payloadSizeBytes / 1024) * 10) / 10;
   const payloadSizeMB = Math.round((payloadSizeBytes / (1024 * 1024)) * 100) / 100;
 
@@ -639,7 +630,6 @@ export async function buildFullIndex(
     lastFetchTime: Date.now(),
     entriesCount: index.length,
     mediaCount: mediaSheet.length,
-    usageCount: usageSheet.length,
     lastRefreshBy: 'media-indexer',
     lastBuildMode: buildMode,
     chunked: true,
@@ -648,18 +638,9 @@ export async function buildFullIndex(
     schemaVersion: INDEX_SCHEMA_VERSION,
   }, `${sitePath}/${IndexFiles.FOLDER}/${IndexFiles.MEDIA_INDEX_META}`, daOrigin, imsToken);
   const metaSaveMs = Date.now() - metaSaveStart;
+
   if (!metaResp.ok) {
-    const partialMsg = t('PARTIAL_SAVE');
-    const metaPathFull = `${sitePath}/${IndexFiles.FOLDER}/${IndexFiles.MEDIA_INDEX_META}`;
-    logMediaLibraryError(ErrorCodes.PARTIAL_SAVE, {
-      indexSaved: true,
-      metaSaved: false,
-      endpoint: metaPathFull,
-    });
-    throw new MediaLibraryError(ErrorCodes.PARTIAL_SAVE, partialMsg, {
-      indexSaved: true,
-      metaSaved: false,
-    });
+    throw new Error('Failed to save index metadata');
   }
 
   perf.saveDurationMs = Date.now() - saveStart;
@@ -676,12 +657,11 @@ export async function buildFullIndex(
 
   onProgress({
     stage: 'complete',
-    message: `Complete! ${mediaSheet.length} media, ${usageSheet.length} page refs`,
+    message: `Complete! ${mediaSheet.length} media`,
   });
 
   perf.indexEntries = index.length;
   perf.mediaCount = mediaSheet.length;
-  perf.usageCount = usageSheet.length;
   perf.totalDurationMs = Date.now() - t0;
   perf.collectedAt = new Date().toISOString();
 
