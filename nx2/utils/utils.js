@@ -78,6 +78,17 @@ export const ALLOWED_TOKEN = [
   HLX_ADMIN,
 ];
 
+const IMS_HASH_KEYS = ['access_token', 'old_hash', 'ld_hash'];
+
+const stripImsHash = (hash) => {
+  const parts = hash.split('#');
+  const filtered = parts.filter((part, i) => {
+    if (i === 0) return true;
+    return !IMS_HASH_KEYS.some((key) => part.startsWith(`${key}=`));
+  });
+  return filtered.join('#');
+};
+
 const parseWindowPath = () => {
   const pathView = window.location.pathname.slice(1);
   const view = pathView === '' ? 'browse' : pathView;
@@ -87,7 +98,12 @@ const parseWindowPath = () => {
     history.replaceState(null, '', clean);
   }
 
-  const fullpath = location.hash.slice(1);
+  const cleanHash = stripImsHash(location.hash);
+  if (cleanHash !== location.hash) {
+    history.replaceState(null, '', `${location.pathname}${location.search}${cleanHash}`);
+  }
+
+  const fullpath = cleanHash.slice(1);
   if (!fullpath || !fullpath.startsWith('/')) return null;
 
   const [org, site, ...parts] = fullpath.slice(1).split('/');

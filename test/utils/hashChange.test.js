@@ -51,6 +51,50 @@ describe('hashChange', () => {
       expect(received.site).to.equal('myrepo');
     });
 
+    it('returns pathDetails for a valid org/repo hash and removes IMS access_token hash', () => {
+      let received;
+      withHash('#/myorg/myrepo#access_token=eyJhbGciOiJSUzI1NiIsIng1dSI6Imltc19uYTEta2V5In0', () => {
+        const unsub = hashChange.subscribe((details) => { received = details; });
+        unsub();
+      });
+      expect(received).to.not.be.null;
+      expect(received.org).to.equal('myorg');
+      expect(received.site).to.equal('myrepo');
+    });
+
+    it('returns pathDetails for a valid org/repo hash and removes IMS old_hash hash', () => {
+      let received;
+      withHash('#/myorg/myrepo#old_hash=eyJhbGciOiJSUzI1NiIsIng1dSI6Imltc19uYTEta2V5In0', () => {
+        const unsub = hashChange.subscribe((details) => { received = details; });
+        unsub();
+      });
+      expect(received).to.not.be.null;
+      expect(received.org).to.equal('myorg');
+      expect(received.site).to.equal('myrepo');
+    });
+
+    it('returns pathDetails for a valid org/repo hash and removes IMS ld_hash hash', () => {
+      let received;
+      withHash('#/myorg/myrepo#ld_hash=eyJhbGciOiJSUzI1NiIsIng1dSI6Imltc19uYTEta2V5In0', () => {
+        const unsub = hashChange.subscribe((details) => { received = details; });
+        unsub();
+      });
+      expect(received).to.not.be.null;
+      expect(received.org).to.equal('myorg');
+      expect(received.site).to.equal('myrepo');
+    });
+
+    it('returns pathDetails for a valid org/repo hash and removes multiple IMS hashes', () => {
+      let received;
+      withHash('#/myorg/myrepo#access_token=eyJhbGciOiJSUzI1NiIsIng1dSI6Imltc19uYTEta2V5In0#old_hash=iuweyrwre', () => {
+        const unsub = hashChange.subscribe((details) => { received = details; });
+        unsub();
+      });
+      expect(received).to.not.be.null;
+      expect(received.org).to.equal('myorg');
+      expect(received.site).to.equal('myrepo');
+    });
+
     it('returns pathDetails for a valid org/repo/path hash', () => {
       let received;
       withHash('#/myorg/myrepo/some/deep/path', () => {
