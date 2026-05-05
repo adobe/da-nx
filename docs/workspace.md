@@ -21,7 +21,7 @@ The following sections highlight some principles in more detail.
 - **`blocks/tool-panel`** provides the managed panel shell (`nx-tool-panel`): a picker to switch between views, a header-actions zone for first-party views, and a close button. Consumer content is lazy-loaded on first activation. Like chat, `nx-tool-panel` is position-agnostic — host blocks instantiate it and set its `views` array inside their own `getContent`.
 - **`blocks/chat`** has no public entry-point wrapper — host blocks mount `nx-chat` directly inside their own `getContent`.
 - When **`blocks/shared`** (or equivalent) exists, it should contain small, reusable pieces that make no assumptions about where they are invoked from.
-- Root **`Utils`** contains helpers such as the extension SDK client and DA API wrappers (`daFetch.js`: origins + `daFetch`).
+- Root **`Utils`** contains helpers such as the extension SDK client, DA API wrappers, and DA file system utilities — no DOM or rendering concerns.
 
 ### Component Communication
 - Components pass props down to their children
@@ -56,7 +56,9 @@ nx2
 │
 └── utils
     ├── panel.js        (aside.panel shell, open/hide, fragment load, persistence)
-    ├── daFetch.js      (DA origins + authenticated daFetch)
+    ├── daFetch.js      (DA origins + authenticated fetch)
+    ├── daFiles.js      (DA file system utilities)
+    ├── daConfig.js     (site config fetching)
     └── sdk.js          (Extension Client SDK, when used)
 
 Skills Lab — external app at da.live/apps/skills, linked from Chat
@@ -137,7 +139,7 @@ Provides shared functionality for Browse, the edit (`canvas`) experience, and Ch
 - Breadcrumbs
   - Used across views to present the current selected path
 - File browser API
-  - Exposes APIs used by both browse and side panels in the edit view to list files and folders
+  - Shared DA file utilities (`listFolder`, `itemHashPath`) live in `nx2/utils/daFiles.js` — consumed by both the Browse block and the canvas Files panel
 - Extension host
   - Responsible for mounting, sandboxing, contract enforcement, and lifecycle management of configured extensions
   - Surfaced differently per view, but the host and protocol are singular

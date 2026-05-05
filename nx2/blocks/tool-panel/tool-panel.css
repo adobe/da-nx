@@ -43,6 +43,10 @@
     height: 16px;
   }
 
+  path {
+    fill: currentcolor;
+  }
+
   &:hover {
     background-color: var(--s2-gray-75);
   }
