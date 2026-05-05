@@ -2,7 +2,7 @@ import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle, hashChange } from '../../utils/utils.js';
 import { loadHrefSvg, ICONS_BASE } from '../../utils/svg.js';
 import { getPanelStore, openPanel } from '../../utils/panel.js';
-import { listFolder } from './browse-api.js';
+import { listFolder, itemHashPath } from '../../utils/daFiles.js';
 import {
   contextToPathContext,
   entryTypeFromExtension,
@@ -94,7 +94,7 @@ class NxBrowse extends LitElement {
     if (entryTypeFromExtension(item.ext) === RESOURCE_TYPE.document) {
       const url = new URL(window.location.href);
       url.pathname = '/canvas';
-      url.hash = `#/${item.path.slice(1, -(item.ext.length + 1))}`;
+      url.hash = `#/${itemHashPath(item)}`;
       window.location.assign(url.href);
       return;
     }
@@ -102,7 +102,7 @@ class NxBrowse extends LitElement {
       const url = new URL(window.location.href);
       url.pathname = '/sheet';
       url.search = '';
-      url.hash = `#/${item.path.slice(1, -(item.ext.length + 1))}`;
+      url.hash = `#/${itemHashPath(item)}`;
       window.open(url.href, '_blank', 'noopener,noreferrer');
       return;
     }

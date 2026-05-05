@@ -1,5 +1,6 @@
 import { LitElement, html } from 'da-lit';
 import { loadStyle, HashController } from '../../../utils/utils.js';
+import { treeKeydown } from '../../shared/utils/tree-nav.js';
 import { editorHtmlChange, editorSelectChange } from '../editor-utils/document.js';
 import { getExtensionsBridge } from '../editor-utils/extensions-bridge.js';
 import { moveBlock, moveSection } from '../editor-utils/blocks.js';
@@ -183,28 +184,7 @@ class NxPageOutline extends LitElement {
     }
   };
 
-  _onTreeKeydown = (e) => {
-    const items = Array.from(this.shadowRoot.querySelectorAll('[role="treeitem"]'));
-    if (!items.length) return;
-    const idx = items.indexOf(this.shadowRoot.activeElement);
-    if (idx === -1) return;
-
-    let next = idx;
-    switch (e.key) {
-      case 'ArrowDown': next = Math.min(idx + 1, items.length - 1); break;
-      case 'ArrowUp': next = Math.max(idx - 1, 0); break;
-      case 'Home': next = 0; break;
-      case 'End': next = items.length - 1; break;
-      default: return;
-    }
-
-    if (next !== idx) {
-      e.preventDefault();
-      items[idx].tabIndex = -1;
-      items[next].tabIndex = 0;
-      items[next].focus();
-    }
-  };
+  _onTreeKeydown = (e) => treeKeydown(e, this.shadowRoot);
 
   _renderSection(sec, isFirstSection) {
     return html`
