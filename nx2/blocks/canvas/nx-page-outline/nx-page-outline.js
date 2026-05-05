@@ -172,9 +172,9 @@ class NxPageOutline extends LitElement {
     }
   };
 
-  _onDragEnd() {
+  _onDragEnd = () => {
     this._clearDragState();
-  }
+  };
 
   _onDragLeave = (e) => {
     if (!e.currentTarget.contains(e.relatedTarget)) {
@@ -215,7 +215,7 @@ class NxPageOutline extends LitElement {
         <div class="section-header" data-section-header
              draggable="true"
              @dragstart=${(e) => this._onDragStart(e, OUTLINE_TYPES.SECTION, sec.sectionIndex)}
-             @dragend=${() => this._onDragEnd()}>
+             @dragend=${this._onDragEnd}>
           <span class="section-label">Section ${sec.sectionIndex + 1}</span>
         </div>
         <ul class="block-list" role="group"
@@ -223,7 +223,7 @@ class NxPageOutline extends LitElement {
           ${sec.blocks.length === 0
         ? html`<li class="block-item block-empty"
                     role="treeitem" tabindex="-1">
-                <span class="nx-page-outline-empty-label">No blocks</span>
+                <span class="empty-label">No blocks</span>
               </li>`
         : sec.blocks.map(({ name, blockIndex }, blockIdx) => html`
             <li class="block-item" role="treeitem"
@@ -234,7 +234,7 @@ class NxPageOutline extends LitElement {
                 @dragstart=${(e) => this._onDragStart(e, OUTLINE_TYPES.BLOCK, blockIndex)}
                 @dragover=${(e) => this._onBlockDragOver(e, blockIndex)}
                 @drop=${this._onDrop}
-                @dragend=${() => this._onDragEnd()}
+                @dragend=${this._onDragEnd}
                 @click=${() => this._select(blockIndex)}>${name}</li>`)}
         </ul>
       </li>`;

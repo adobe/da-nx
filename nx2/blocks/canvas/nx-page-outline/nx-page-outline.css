@@ -62,7 +62,7 @@
   display: block;
   padding: var(--s2-spacing-75) var(--s2-spacing-100);
   padding-inline-start: var(--s2-spacing-300);
-  cursor: pointer;
+  cursor: grab;
   font-size: var(--s2-body-size-s);
   font-weight: 500;
   color: var(--s2-gray-800);
@@ -99,6 +99,7 @@
 
 .dragging {
   opacity: 0.4;
+  cursor: grabbing;
 }
 
 [data-drop-position="before"] {
@@ -109,11 +110,11 @@
   border-bottom: 2px solid var(--s2-blue-600, #147af3);
 }
 
-.nx-page-outline-block-empty {
+.block-empty {
   cursor: default;
 }
 
-.nx-page-outline-empty-label {
+.empty-label {
   font-style: italic;
   color: var(--s2-gray-600);
   font-weight: 400;
