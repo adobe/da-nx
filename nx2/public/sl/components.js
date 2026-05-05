@@ -200,6 +200,14 @@ class SlCheckbox extends LitElement {
 class SlSelect extends LitElement {
   static formAssociated = true;
 
+  static readOption(opt) {
+    return {
+      value: opt.value,
+      label: opt.textContent.trim(),
+      disabled: opt.hasAttribute('disabled'),
+    };
+  }
+
   static properties = {
     name: { type: String },
     label: { type: String },
@@ -207,7 +215,18 @@ class SlSelect extends LitElement {
     disabled: { type: Boolean },
     placeholder: { type: String },
     error: { type: String },
+    _open: { state: true },
+    _activeIndex: { state: true },
+    _groups: { state: true },
   };
+
+  constructor() {
+    super();
+    this._open = false;
+    this._activeIndex = -1;
+  }
+
+  _restoreFocusOnClose = false;
 
   connectedCallback() {
     super.connectedCallback();
@@ -216,45 +235,202 @@ class SlSelect extends LitElement {
     this._internals.setFormValue(this.value);
   }
 
-  update(props) {
-    if (props.has('value')) {
-      this._internals.setFormValue(this.value);
-      if (this._select) this._select.value = this.value;
-    }
-    super.update();
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    this._removeOutsideListeners();
   }
 
-  handleChange(event) {
-    this.value = event.target.value;
-    this._internals.setFormValue(this.value);
-    const wcEvent = new event.constructor(event.type, event);
-    this.dispatchEvent(wcEvent);
+  update(props) {
+    if (props.has('value')) this._internals.setFormValue(this.value);
+    if (props.has('_open')) {
+      if (this._open) this._addOutsideListeners();
+      else this._removeOutsideListeners();
+    }
+    super.update(props);
+  }
+
+  updated(props) {
+    if (props.has('_open')) {
+      if (this._open) {
+        this.shadowRoot.querySelector('.sl-select-menu')?.focus();
+        this._scrollActiveIntoView();
+      } else if (this._restoreFocusOnClose) {
+        this._restoreFocusOnClose = false;
+        this.shadowRoot.querySelector('.sl-select-trigger')?.focus();
+      }
+    }
+    if (props.has('_activeIndex') && this._open) this._scrollActiveIntoView();
+  }
+
+  _scrollActiveIntoView() {
+    const items = this.shadowRoot.querySelectorAll('.sl-select-item');
+    items[this._activeIndex]?.scrollIntoView({ block: 'nearest' });
   }
 
   handleSlotchange(e) {
-    const childNodes = e.target.assignedNodes({ flatten: true });
-    this._select.append(...childNodes);
-
-    // Set the initial value to the first option
-    if (!this.value && childNodes.length) {
-      this.value = childNodes.find((child) => child.nodeName === 'OPTION').value;
-    }
-
-    // Always ensure the internal select has the current value
-    this._select.value = this.value;
+    this._buildGroups(e.target.assignedNodes({ flatten: true }));
   }
 
-  get _select() {
-    return this.shadowRoot.querySelector('select');
+  _buildGroups(nodes) {
+    const groups = nodes.reduce((acc, node) => {
+      if (node.nodeName === 'OPTGROUP') {
+        const group = {
+          heading: node.label || '',
+          items: [...node.querySelectorAll('option')].map(SlSelect.readOption),
+        };
+        return [...acc, group];
+      }
+      if (node.nodeName === 'OPTION') {
+        const last = acc[acc.length - 1];
+        const updated = { ...last, items: [...last.items, SlSelect.readOption(node)] };
+        return [...acc.slice(0, -1), updated];
+      }
+      return acc;
+    }, [{ heading: null, items: [] }]);
+
+    this._groups = groups.filter((g) => g.items.length > 0);
+
+    if (!this.value) {
+      const first = this._flatOptions().find((o) => !o.disabled);
+      if (first) {
+        this.value = first.value;
+        this._internals.setFormValue(this.value);
+      }
+    }
+  }
+
+  _flatOptions() {
+    return this._groups?.flatMap((g) => g.items) ?? [];
+  }
+
+  _selectedLabel() {
+    const match = this._flatOptions().find((o) => o.value === this.value);
+    return match?.label ?? this.placeholder ?? '';
+  }
+
+  _toggle() {
+    if (this.disabled) return;
+    this._open = !this._open;
+    if (this._open) this._activeIndex = -1;
+  }
+
+  _close({ returnFocus = false } = {}) {
+    if (returnFocus) this._restoreFocusOnClose = true;
+    this._open = false;
+  }
+
+  _addOutsideListeners() {
+    document.addEventListener('pointerdown', this._onDocPointerDown, true);
+  }
+
+  _removeOutsideListeners() {
+    document.removeEventListener('pointerdown', this._onDocPointerDown, true);
+  }
+
+  _onDocPointerDown = (e) => {
+    if (!e.composedPath().includes(this)) this._close();
+  };
+
+  _selectValue(value) {
+    if (this.value !== value) {
+      this.value = value;
+      this._internals.setFormValue(value);
+      this.dispatchEvent(new Event('change', { bubbles: true, composed: true }));
+    }
+    this._close({ returnFocus: true });
+  }
+
+  _onTriggerKeydown(e) {
+    if (this.disabled) return;
+    if (this._open) {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        this._close({ returnFocus: true });
+      }
+      return;
+    }
+    if (['ArrowDown', 'ArrowUp', 'Enter', ' '].includes(e.key)) {
+      e.preventDefault();
+      this._toggle();
+    }
+  }
+
+  _onMenuKeydown(e) {
+    const flat = this._flatOptions();
+    const moveTo = (start, dir) => {
+      let i = start;
+      for (let n = 0; n < flat.length; n += 1) {
+        i = (i + dir + flat.length) % flat.length;
+        if (!flat[i].disabled) return i;
+      }
+      return start;
+    };
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      this._activeIndex = moveTo(this._activeIndex, 1);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      this._activeIndex = moveTo(this._activeIndex, -1);
+    } else if (e.key === 'Home') {
+      e.preventDefault();
+      this._activeIndex = moveTo(-1, 1);
+    } else if (e.key === 'End') {
+      e.preventDefault();
+      this._activeIndex = moveTo(0, -1);
+    } else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      const opt = flat[this._activeIndex];
+      if (opt && !opt.disabled) this._selectValue(opt.value);
+    } else if (e.key === 'Escape' || e.key === 'Tab') {
+      e.preventDefault();
+      this._close({ returnFocus: true });
+    }
   }
 
   render() {
+    const selectedLabel = this._selectedLabel();
+    let runningIndex = -1;
     return html`
-      <slot @slotchange=${this.handleSlotchange}></slot>
+      <slot @slotchange=${this.handleSlotchange} hidden></slot>
       <div class="sl-inputfield">
         ${this.label ? html`<label for="${this.name}">${this.label}</label>` : nothing}
-        <div class="sl-inputfield-select-wrapper">
-          <select name=${this.name} value=${this.value} id="nx-input-exp-opt-for" @change=${this.handleChange} ?disabled="${this.disabled}" class="${this.error ? 'has-error' : ''}"></select>
+        <div class="sl-select ${this._open ? 'open' : ''} ${this.error ? 'has-error' : ''}">
+          <button
+            type="button"
+            class="sl-select-trigger"
+            aria-haspopup="listbox"
+            aria-expanded=${this._open}
+            ?disabled=${this.disabled}
+            @click=${this._toggle}
+            @keydown=${this._onTriggerKeydown}>
+            <span class="sl-select-label ${this.value ? '' : 'is-placeholder'}">${selectedLabel}</span>
+          </button>
+          ${this._open ? html`
+            <ul class="sl-select-menu" role="listbox" aria-label=${this.label || ''}
+              tabindex="-1" @keydown=${this._onMenuKeydown}>
+              ${this._groups?.map((group) => html`
+                ${group.heading ? html`
+                  <li class="sl-select-group" role="presentation">${group.heading}</li>
+                ` : nothing}
+                ${group.items.map((opt) => {
+    runningIndex += 1;
+    const idx = runningIndex;
+    const isActive = idx === this._activeIndex;
+    const isSelected = opt.value === this.value;
+    return html`
+                    <li class="sl-select-item ${isSelected ? 'selected' : ''} ${isActive ? 'active' : ''} ${opt.disabled ? 'disabled' : ''}"
+                      role="option"
+                      aria-selected=${isSelected}
+                      aria-disabled=${opt.disabled}
+                      @mouseenter=${() => { this._activeIndex = idx; }}
+                      @click=${() => !opt.disabled && this._selectValue(opt.value)}>
+                      <span class="sl-select-check" aria-hidden="true"></span>
+                      <span>${opt.label}</span>
+                    </li>`;
+  })}
+              `)}
+            </ul>
+          ` : nothing}
         </div>
         ${this.error ? html`<p class="sl-inputfield-error">${this.error}</p>` : nothing}
       </div>
