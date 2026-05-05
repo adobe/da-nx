@@ -380,31 +380,27 @@ export function getItemPreviewUrl(item, { org, site }) {
 // View facade — canvas.js calls this, nothing else
 // ---------------------------------------------------------------------------
 
-function createOutlineView() {
-  return {
-    id: 'outline',
-    label: 'Outline',
-    section: 'Editor',
-    firstParty: true,
-    load: async () => {
-      await import('../nx-page-outline/nx-page-outline.js');
-      return document.createElement('nx-page-outline');
-    },
-  };
-}
+const OUTLINE_VIEW = {
+  id: 'outline',
+  label: 'Outline',
+  section: 'Editor',
+  firstParty: true,
+  load: async () => {
+    await import('../nx-page-outline/nx-page-outline.js');
+    return document.createElement('nx-page-outline');
+  },
+};
 
-function createFileExplorerView() {
-  return {
-    id: 'files',
-    label: 'Files',
-    section: 'Editor',
-    firstParty: true,
-    load: async () => {
-      await import('../nx-file-explorer/nx-file-explorer.js');
-      return document.createElement('nx-file-explorer');
-    },
-  };
-}
+const FILE_EXPLORER_VIEW = {
+  id: 'files',
+  label: 'Files',
+  section: 'Editor',
+  firstParty: true,
+  load: async () => {
+    await import('../nx-file-explorer/nx-file-explorer.js');
+    return document.createElement('nx-file-explorer');
+  },
+};
 
 function extensionToPanelView(ext, section) {
   const view = {
@@ -469,8 +465,8 @@ export async function getCanvasToolPanelViews({ org, site }) {
   const thirdParty = extensions.filter((ext) => !isLibraryExtension(ext));
 
   return [
-    createOutlineView(),
-    createFileExplorerView(),
+    OUTLINE_VIEW,
+    FILE_EXPLORER_VIEW,
     ...library.map((ext) => extensionToPanelView(ext, 'Library')),
     ...thirdParty.map((ext) => extensionToPanelView(ext, 'Extensions')),
   ];
