@@ -86,7 +86,7 @@ const parseWindowPath = () => {
   }
 
   const fullpath = location.hash.slice(1);
-  if (!fullpath) return null;
+  if (!fullpath || !fullpath.startsWith('/')) return null;
 
   const [org, site, ...parts] = fullpath.slice(1).split('/');
   if (!org || (parts.length && !site)) return null;
