@@ -7,6 +7,7 @@ const style = await loadStyle(import.meta.url);
 const closeIcon = await loadHrefSvg(`${ICONS_BASE}S2_Icon_SplitRight_20_N.svg`);
 
 const OPEN_IN_ICON_URL = 'https://da.live/img/icons/s2-icon-openin-20-n.svg';
+const ACTIVE_VIEW_KEY = 'nx-tool-panel-active-view';
 
 class NxToolPanel extends LitElement {
   static properties = {
@@ -63,15 +64,12 @@ class NxToolPanel extends LitElement {
     });
   }
 
-  async firstUpdated() {
-    if (this.views?.length && !this.activeId) {
-      await this.showView(this.views[0].id);
-    }
-  }
-
   async updated(changed) {
     if (changed.has('views')) await this._onViewsChange();
     if (changed.has('activeId')) {
+      if (this.activeId) {
+        try { sessionStorage.setItem(ACTIVE_VIEW_KEY, this.activeId); } catch { /* ignore */ }
+      }
       this._syncContent();
       this._syncHeaderActions();
     }
@@ -97,7 +95,8 @@ class NxToolPanel extends LitElement {
     }
 
     if (!this.activeId || !ids.has(this.activeId)) {
-      await this.showView(this.views[0].id);
+      const stored = sessionStorage.getItem(ACTIVE_VIEW_KEY);
+      await this.showView(stored && ids.has(stored) ? stored : this.views[0].id);
     }
   }
 
