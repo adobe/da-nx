@@ -98,20 +98,6 @@ function getChunkFileName(chunkNum) {
   return `${IndexFiles.MEDIA_INDEX_CHUNK_PREFIX}${String(chunkNum).padStart(3, '0')}.json`;
 }
 
-/**
- * Split media sheet into chunks
- * @param {Array} mediaData - Full media sheet data
- * @param {number} chunkSize - Entries per chunk
- * @returns {Array<Array>} Array of chunks
- */
-function chunkMediaSheet(mediaData, chunkSize) {
-  const chunks = [];
-  for (let i = 0; i < mediaData.length; i += chunkSize) {
-    chunks.push(mediaData.slice(i, i + chunkSize));
-  }
-  return chunks;
-}
-
 const DEFAULT_TIMEFRAME_DAYS = 3650; /* 10 years */
 
 export async function fetchWithAuth(url, opts = {}) {
@@ -319,59 +305,6 @@ export async function loadIndexChunks(basePath, chunkCount, sheetName, onProgres
   }
 
   return results.map((r) => r.data).flat();
-}
-
-/**
- * Save index as chunks
- * @param {string} basePath - Base path without filename
- * @param {Array} mediaData - Media sheet data (must be pre-sorted)
- * @param {Array} usageData - Usage sheet data
- * @param {number} chunkSize - Entries per chunk
- * @returns {Promise<number>} Number of chunks created
- */
-export async function saveIndexChunks(basePath, mediaData, usageData, chunkSize) {
-  const mediaChunks = chunkMediaSheet(mediaData, chunkSize);
-
-  // Always save at least chunk 0, even if empty (for consistency)
-  const chunksToSave = mediaChunks.length > 0 ? mediaChunks : [[]];
-  const savePromises = [];
-
-  for (let i = 0; i < chunksToSave.length; i += 1) {
-    const chunkFileName = getChunkFileName(i);
-    const chunkPath = `${basePath}/${chunkFileName}`;
-
-    // Only include usage sheet in first chunk to avoid duplication
-    const sheets = {
-      media: chunksToSave[i],
-      usage: i === 0 ? usageData : [],
-    };
-
-    const formData = await createMultiSheet(sheets);
-    const savePromise = daFetch(`${DA_ORIGIN}/source${chunkPath}`, {
-      method: 'PUT',
-      body: formData,
-    });
-
-    savePromises.push(savePromise);
-  }
-
-  const responses = await Promise.all(savePromises);
-
-  // Validate all chunks saved successfully
-  const failedChunks = [];
-  responses.forEach((resp, i) => {
-    if (!resp.ok) {
-      failedChunks.push({ chunk: i, status: resp.status });
-    }
-  });
-
-  if (failedChunks.length > 0) {
-    const error = new Error(`Failed to save ${failedChunks.length}/${chunksToSave.length} chunks: ${failedChunks.map((f) => `chunk ${f.chunk} (${f.status})`).join(', ')}`);
-    error.failedChunks = failedChunks;
-    throw error;
-  }
-
-  return chunksToSave.length;
 }
 
 export async function saveSheet(data, path) {

@@ -10,10 +10,11 @@
 import {
   streamLog,
   loadSheetMeta,
-  saveIndexMeta,
   saveIndexChunks,
+  saveIndexMeta,
   loadMultiSheet,
   loadIndexChunks,
+  getAdaptiveChunkSize,
 } from './fetch.js';
 // Use worker-safe stub for processLinkedContent
 // (avoids admin-api.js → daFetch.js → public/utils/constants.js)
@@ -36,7 +37,7 @@ import {
   sortMediaData,
   getContentPathFromSitePath,
 } from '../parse-utils.js';
-import { buildMediaSheet } from '../sheets.js';
+import { buildMediaSheet, buildUsageSheet, buildUsageMap } from '../sheets.js';
 import {
   IndexConfig,
   IndexFiles,
@@ -164,7 +165,6 @@ export async function buildIncrementalIndex(
       existingIndex = [];
       usageData = [];
     } else {
-      // Load all media chunks
       existingIndex = await loadIndexChunks(
         basePath,
         chunkCount,
@@ -172,28 +172,16 @@ export async function buildIncrementalIndex(
         daOrigin,
         imsToken,
       );
-      // Load usage only from chunk 0 (it's only stored there)
-      const chunk0Path = `${basePath}/${IndexFiles.MEDIA_INDEX_CHUNK_PREFIX}000.json`;
-      usageData = await loadMultiSheet(chunk0Path, SheetNames.USAGE, daOrigin, imsToken);
+      usageData = buildUsageSheet(existingIndex);
     }
   } else {
-    // Load from single file (backward compatibility)
     existingIndex = await loadMultiSheet(indexPath, SheetNames.MEDIA, daOrigin, imsToken);
-    usageData = await loadMultiSheet(indexPath, SheetNames.USAGE, daOrigin, imsToken);
+    usageData = buildUsageSheet(existingIndex);
   }
 
   perf.loadExistingMs = Date.now() - loadStart;
 
-  const usageMap = new Map();
-  usageData.forEach((entry) => {
-    try {
-      const hashes = JSON.parse(entry.hashes);
-      usageMap.set(entry.page, new Set(hashes));
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.warn(`[MediaIndexer] Skipping malformed usage entry for page: ${entry.page}`, error);
-    }
-  });
+  const usageMap = buildUsageMap(usageData);
 
   // Normalize hash format in existing index entries
   // Hash should always be bare (e.g. "abc123"), never with prefix (e.g. "media_abc123.jpg")
@@ -479,14 +467,14 @@ export async function buildIncrementalIndex(
     let totalImageEntries = 0;
 
     updatedIndex.forEach((entry) => {
-      const isImage = entry.type === 'image' || entry.type === 'video';
+      const op = entry.operation || entry.source;
+      const isExternalMedia = op === 'extlinks-parsed' || op === 'markdown-parsed';
+      const isImage = (entry.type === 'image' || entry.type === 'video') && !isExternalMedia;
       if (isImage) totalImageEntries += 1;
 
       const hasDoc = entry.doc && entry.doc !== '';
-      const op = entry.operation || entry.source;
-      const isExternalMedia = op === 'extlinks-parsed' || op === 'markdown-parsed';
 
-      if (isImage && hasDoc && !isExternalMedia) {
+      if (isImage && hasDoc) {
         let entryPath;
         try {
           entryPath = new URL(entry.url).pathname;
@@ -549,39 +537,27 @@ export async function buildIncrementalIndex(
     }
   });
 
-  // Build usage sheet from usageMap to preserve all page references (changed AND unchanged)
-  // buildUsageSheet(updatedIndex) would only include changed pages since existingIndex
-  // is loaded from deduplicated media sheet without doc fields
-  const usageSheet = Array.from(usageMap.entries()).map(([page, hashSet]) => ({
-    page,
-    hashes: JSON.stringify(Array.from(hashSet)),
-  }));
-
   onProgress({
     stage: 'saving',
-    message: `Saving ${mediaSheet.length} media entries, ${usageSheet.length} page-hash pairs...`,
+    message: `Saving ${mediaSheet.length} media entries...`,
   });
 
   const saveStart = Date.now();
-  const chunkSize = IndexConfig.MEDIA_INDEX_CHUNK_SIZE;
+  const chunkSize = getAdaptiveChunkSize(mediaSheet.length);
 
-  // MODIFIED: Use worker-safe saveIndexChunks with imsToken
   const chunkCount = await saveIndexChunks(
     basePath,
     mediaSheet,
-    usageSheet,
     chunkSize,
     daOrigin,
     imsToken,
     IndexFiles.MEDIA_INDEX_CHUNK_PREFIX,
   );
 
-  // MODIFIED: Use worker-safe saveIndexMeta with imsToken
   const metaResp = await saveIndexMeta({
     lastFetchTime: Date.now(),
     entriesCount: updatedIndex.length,
     mediaCount: mediaSheet.length,
-    usageCount: usageSheet.length,
     lastRefreshBy: 'media-indexer',
     lastBuildMode: 'incremental',
     chunked: true,
@@ -591,18 +567,18 @@ export async function buildIncrementalIndex(
   }, metaPath, daOrigin, imsToken);
 
   if (!metaResp.ok) {
-    throw new Error('Failed to save index metadata');
+    throw new Error(`Failed to save index metadata: HTTP ${metaResp.status}`);
   }
+
   perf.saveDurationMs = Date.now() - saveStart;
 
   onProgress({
     stage: 'complete',
-    message: `Incremental complete! ${mediaSheet.length} media, ${usageSheet.length} page refs (${added} added, ${removed} removed)`,
+    message: `Incremental complete! ${mediaSheet.length} media (${added} added, ${removed} removed)`,
   });
 
   perf.indexEntries = updatedIndex.length;
   perf.mediaCount = mediaSheet.length;
-  perf.usageCount = usageSheet.length;
   perf.totalDurationMs = Date.now() - t0;
   perf.collectedAt = new Date().toISOString();
   logPerf(perf, isPerfEnabled);

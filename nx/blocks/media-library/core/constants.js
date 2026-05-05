@@ -14,8 +14,6 @@ export const IndexConfig = Object.freeze({
   DISCOVERY_MAX_PATHS_PER_JOB: 250,
   /* Larger batch to minimize UI update overhead - updates every ~100 seconds */
   USAGE_MAP_PROGRESSIVE_BATCH_SIZE: 1000,
-  /* Index chunking configuration */
-  MEDIA_INDEX_CHUNK_SIZE: 20_000, /* Entries per chunk (~15-20MB per chunk) */
   LOCK_HEARTBEAT_INTERVAL_MS: 60_000,
   LOCK_STALE_THRESHOLD_MS: 10 * 60_000,
   BUILD_MAX_DURATION_MS: 30 * 60 * 1000,

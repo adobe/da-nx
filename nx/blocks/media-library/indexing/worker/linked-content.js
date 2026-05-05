@@ -242,7 +242,7 @@ export async function processLinkedContent(
         (e) => isExtlinksEntry(e)
           && e.doc
           && parsedPages.has(normalizePath(e.doc))
-          && !linkedPages.includes(e.doc),
+          && !linkedPages.some((p) => normalizePath(p) === normalizePath(e.doc)),
       );
       obsolete.forEach((e) => {
         updatedIndex.splice(updatedIndex.indexOf(e), 1);
