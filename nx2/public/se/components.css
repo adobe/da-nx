@@ -330,7 +330,7 @@ svg.icon {
   font-size: var(--s2-component-m-regular-font-size);
   line-height: var(--sl-field-height);
   color: var(--s2-gray-800);
-  border: 2px solid var(--s2-gray-100);
+  border: 2px solid var(--s2-gray-200);
   border-radius: var(--s2-corner-radius-500);
   outline-color: var(--s2-blue-900);
   outline-offset: 0;
@@ -418,10 +418,7 @@ svg.icon {
 .sl-select-check {
   width: 14px;
   height: 14px;
-  flex-shrink: 0;
   visibility: hidden;
-  background-color: var(--s2-gray-800);
-  mask: center / contain no-repeat url("https://da.live/nx/public/icons/S2_Icon_Checkmark_20_N.svg");
 }
 
 .sl-select-item.selected .sl-select-check {

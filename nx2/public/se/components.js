@@ -424,7 +424,9 @@ class SlSelect extends LitElement {
                       aria-disabled=${opt.disabled}
                       @mouseenter=${() => { this._activeIndex = idx; }}
                       @click=${() => !opt.disabled && this._selectValue(opt.value)}>
-                      <span class="sl-select-check" aria-hidden="true"></span>
+                      <svg class="sl-select-check" viewBox="0 0 20 20">
+                        <use href="/img/icons/s2-icon-checkmark-20-n.svg#icon"/>
+                      </svg>
                       <span>${opt.label}</span>
                     </li>`;
   })}
@@ -542,11 +544,9 @@ class SlDialog extends LitElement {
   }
 }
 
-customElements.define('sl-input', SlInput);
-customElements.define('sl-textarea', SlTextarea);
-customElements.define('sl-checkbox', SlCheckbox);
-customElements.define('sl-select', SlSelect);
-customElements.define('sl-button', SlButton);
-customElements.define('sl-dialog', SlDialog);
-
-document.body.classList.remove('sl-loading');
+customElements.define('se-input', SlInput);
+customElements.define('se-textarea', SlTextarea);
+customElements.define('se-checkbox', SlCheckbox);
+customElements.define('se-select', SlSelect);
+customElements.define('se-button', SlButton);
+customElements.define('se-dialog', SlDialog);

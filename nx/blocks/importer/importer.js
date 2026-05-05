@@ -2,7 +2,7 @@ import { LitElement, html, nothing } from '../../deps/lit/lit-core.min.js';
 import { loadStyle, hashChange } from '../../../nx2/utils/utils.js';
 import { getOptions, importAll, calculateTime } from './index.js';
 
-import '../../../nx2/public/sl/components.js';
+import '../../../nx2/public/se/components.js';
 
 const style = await loadStyle(import.meta.url);
 
@@ -229,23 +229,23 @@ class NxImporter extends LitElement {
         <div class="form-row">
           <h2>Import</h2>
           <label for="index">By Query Index</label>
-          <sl-input id="index" type="text" name="index" placeholder="https://main--bacom--adobecom.hlx.live/query-index.json?limit=-1"></sl-input>
+          <se-input id="index" type="text" name="index" placeholder="https://main--bacom--adobecom.hlx.live/query-index.json?limit=-1"></se-input>
           <label for="urls">By URL</label>
-          <sl-textarea id="urls" name="urls" placeholder="Add AEM URLs"></sl-textarea>
+          <se-textarea id="urls" name="urls" placeholder="Add AEM URLs"></se-textarea>
         </div>
         <div class="form-row">
           <h2>Linked content <span class="heading-annotation">(fragments, SVGs, MP4s, PDFs)</span></h2>
           <div class="org-repo-row">
             <div>
               <label>Behavior</label>
-              <sl-select id="fragments" name="fragments">
+              <se-select id="fragments" name="fragments">
                 <option value="no">Ignore</option>
                 <option value="yes">Import</option>
-              </sl-select>
+              </se-select>
             </div>
             <div>
               <label>Production domain</label>
-              <sl-input type="text" name="liveDomain" placeholder="https://business.adobe.com"></sl-input>
+              <se-input type="text" name="liveDomain" placeholder="https://business.adobe.com"></se-input>
             </div>
           </div>
         </div>
@@ -254,16 +254,16 @@ class NxImporter extends LitElement {
           <div class="org-repo-row">
             <div>
               <label>Organization</label>
-              <sl-input type="text" name="org" placeholder="name-of-organization" value=${this._toOrg || ''} ?disabled=${this._toOrg}></sl-input>
+              <se-input type="text" name="org" placeholder="name-of-organization" value=${this._toOrg || ''} ?disabled=${this._toOrg}></se-input>
             </div>
             <div>
               <label>Site</label>
-              <sl-input type="text" name="repo" placeholder="name-of-site" value=${this._toSite || ''} ?disabled=${this._toSite}></sl-input>
+              <se-input type="text" name="repo" placeholder="name-of-site" value=${this._toSite || ''} ?disabled=${this._toSite}></se-input>
             </div>
           </div>
         </div>
         <div class="form-row">
-          <sl-button type="submit" class="accent" ?disabled=${this._isImporting}>${this._isImporting ? 'Importing' : 'Import'}</sl-button>
+          <se-button type="submit" class="accent" ?disabled=${this._isImporting}>${this._isImporting ? 'Importing' : 'Import'}</se-button>
         </div>
       </form>
       <div class="detail-cards">
