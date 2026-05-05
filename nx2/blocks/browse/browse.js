@@ -91,24 +91,31 @@ class NxBrowse extends LitElement {
 
   _onBrowseActivate(event) {
     const { pathKey, item } = event.detail || {};
-    if (entryTypeFromExtension(item.ext) === RESOURCE_TYPE.document) {
-      const url = new URL(window.location.href);
+    if (!item) return;
+
+    if (isFolder(item)) {
+      window.location.hash = `#/${pathKey}`;
+      return;
+    }
+
+    const url = new URL(window.location.href);
+    const entryType = entryTypeFromExtension(item.ext);
+
+    if (entryType === RESOURCE_TYPE.document) {
       url.pathname = '/canvas';
       url.hash = `#/${item.path.slice(1, -(item.ext.length + 1))}`;
       window.location.assign(url.href);
       return;
-    }
-    if (entryTypeFromExtension(item.ext) === RESOURCE_TYPE.sheet) {
-      const url = new URL(window.location.href);
+    } else if (entryType === RESOURCE_TYPE.sheet) {
       url.pathname = '/sheet';
-      url.search = '';
       url.hash = `#/${item.path.slice(1, -(item.ext.length + 1))}`;
-      window.open(url.href, '_blank', 'noopener,noreferrer');
-      return;
+    } else {
+      url.pathname = '/media';
+      url.hash = `#${item.path}`;
     }
-    if (item && isFolder(item)) {
-      window.location.hash = `#/${pathKey}`;
-    }
+
+    url.search = '';
+    window.open(url.href, '_blank', 'noopener,noreferrer');
   }
 
   render() {
