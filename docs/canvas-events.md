@@ -10,7 +10,7 @@ Observables represent **core editor interactions** — the signals that any pane
 
 This is the key difference from DOM CustomEvents: events require a DOM ancestor relationship to be in place at the time of wiring. Observables have no such constraint — subscribers connect asynchronously, in any order, from any location in the tree.
 
-Use an observable when the signal is a core interaction that future participants should be able to opt into. Use a DOM event when the signal is scoped to a known parent-child relationship that will not grow.
+Use an observable when the signal is a **change notification** that unrelated components need to react to. Use the **extensions bridge** (`editor-utils/extensions-bridge.js`) when a panel wants to imperatively modify the editor — block insert, move, delete. The bridge gives synchronous view access; `editorHtmlChange` then propagates the result to any observer. Do not create a new observable for editor commands.
 
 They live in `editor-utils/document.js` and follow a consistent shape:
 
@@ -70,3 +70,4 @@ Emits whenever the active block/section selection changes — from the canvas (c
 |---|---|---|
 | `blockFlatIndex` | `number` | Zero-based index across all blocks in the document (`-1` = no specific block) |
 | `source` | `string` | Emitter identity — e.g. `'wysiwyg'`, `'outline'`, `'doc'` |
+

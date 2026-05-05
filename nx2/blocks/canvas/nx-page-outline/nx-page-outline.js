@@ -1,8 +1,20 @@
 import { LitElement, html } from 'da-lit';
 import { loadStyle, HashController } from '../../../utils/utils.js';
 import { editorHtmlChange, editorSelectChange } from '../editor-utils/document.js';
+import { getExtensionsBridge } from '../editor-utils/extensions-bridge.js';
+import { moveBlock, moveSection } from '../editor-utils/blocks.js';
 
 const style = await loadStyle(import.meta.url);
+
+const OUTLINE_TYPES = {
+  SECTION: 'section',
+  BLOCK: 'block',
+};
+
+const DROP_POSITIONS = {
+  BEFORE: 'before',
+  AFTER: 'after',
+};
 
 function parseSections(htmlText) {
   const doc = new DOMParser().parseFromString(htmlText, 'text/html');
@@ -12,8 +24,8 @@ function parseSections(htmlText) {
     const blocks = [];
     Array.from(section.querySelectorAll(':scope > div[class]')).forEach((el) => {
       const name = el.classList[0];
-      if (!name || name === 'default-content-wrapper' || name === 'metadata') return;
-      blocks.push({ name, blockFlatIndex: flatIndex });
+      if (!name || name === 'default-content-wrapper' || name === 'metadata' || name === 'block-marker') return;
+      blocks.push({ name, blockIndex: flatIndex });
       flatIndex += 1;
     });
     return { sectionIndex, blocks };
@@ -33,7 +45,7 @@ function sectionsEqual(a, b) {
 class NxPageOutline extends LitElement {
   static properties = {
     _sections: { state: true },
-    _selectedBlockFlatIndex: { state: true },
+    _selectedBlockIndex: { state: true },
   };
 
   _hashCtrl = new HashController(this);
@@ -47,13 +59,13 @@ class NxPageOutline extends LitElement {
         if (!sectionsEqual(next, this._sections)) this._sections = next;
       } else {
         this._sections = undefined;
-        this._selectedBlockFlatIndex = undefined;
+        this._selectedBlockIndex = undefined;
       }
     });
     this._unsubscribeSelect = editorSelectChange
-      .subscribe(({ blockFlatIndex, source }) => {
+      .subscribe(({ blockIndex, source }) => {
         if (source === 'outline') return;
-        this._selectedBlockFlatIndex = blockFlatIndex;
+        this._selectedBlockIndex = blockIndex;
       });
   }
 
@@ -72,17 +84,105 @@ class NxPageOutline extends LitElement {
     const sp = this._selectedPath;
     if (this._prevSelectedPath !== undefined && sp !== this._prevSelectedPath) {
       this._sections = undefined;
-      this._selectedBlockFlatIndex = undefined;
+      this._selectedBlockIndex = undefined;
     }
     this._prevSelectedPath = sp;
   }
 
-  _select(blockFlatIndex) {
-    this._selectedBlockFlatIndex = blockFlatIndex;
-    editorSelectChange.emit({ blockFlatIndex, source: 'outline' });
+  _select(blockIndex) {
+    this._selectedBlockIndex = blockIndex;
+    editorSelectChange.emit({ blockIndex, source: 'outline' });
   }
 
-  // Arrow function so `this` is correct when used as an event listener in the template.
+  _clearDropIndicator() {
+    this.shadowRoot.querySelector('[data-drop-position]')?.removeAttribute('data-drop-position');
+  }
+
+  _setDropIndicator(el, data) {
+    this._clearDropIndicator();
+    el.dataset.dropPosition = data.dropPosition;
+    this._dropTarget = data;
+  }
+
+  _clearDragState() {
+    this._clearDropIndicator();
+    this._dragSourceEl?.classList.remove('dragging');
+    this._dragSourceEl = null;
+    this._dragging = null;
+    this._dropTarget = null;
+  }
+
+  _onDragStart(e, type, index) {
+    this._dragging = { type, index };
+    const el = type === OUTLINE_TYPES.SECTION ? e.currentTarget.parentElement : e.currentTarget;
+    el.classList.add('dragging');
+    this._dragSourceEl = el;
+    e.dataTransfer.effectAllowed = 'move';
+  }
+
+  _onSectionDragOver(e, sec) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const dropPosition = e.clientY < rect.top + rect.height / 2
+      ? DROP_POSITIONS.BEFORE : DROP_POSITIONS.AFTER;
+
+    if (this._dragging?.type === OUTLINE_TYPES.SECTION) {
+      if (this._dragging.index === sec.sectionIndex) return;
+      e.preventDefault();
+
+      const el = dropPosition === DROP_POSITIONS.BEFORE
+        ? e.currentTarget.querySelector('[data-section-header]')
+        : e.currentTarget;
+
+      this._setDropIndicator(el, { sectionIndex: sec.sectionIndex, dropPosition });
+    } else {
+      if (!sec.blocks.length) return;
+      if (sec.blocks.some((b) => b.blockIndex === this._dragging?.index)) return;
+      const { blockIndex } = sec.blocks[sec.blocks.length - 1];
+      e.preventDefault();
+
+      const lastBlockEl = this.shadowRoot.querySelector(`[data-block-index="${blockIndex}"]`);
+      if (!lastBlockEl) return;
+      this._setDropIndicator(lastBlockEl, { blockIndex, dropPosition: DROP_POSITIONS.AFTER });
+    }
+  }
+
+  _onBlockDragOver(e, blockIndex) {
+    if (this._dragging?.type !== OUTLINE_TYPES.BLOCK || this._dragging.index === blockIndex) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const dropPosition = e.clientY < rect.top + rect.height / 2
+      ? DROP_POSITIONS.BEFORE : DROP_POSITIONS.AFTER;
+    this._setDropIndicator(e.currentTarget, { blockIndex, dropPosition });
+  }
+
+  _onDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const { _dragging, _dropTarget } = this;
+    this._clearDragState();
+    if (!_dropTarget || !_dragging) return;
+    const { view } = getExtensionsBridge();
+    if (_dropTarget.blockIndex != null) {
+      if (_dragging.type !== OUTLINE_TYPES.BLOCK) return;
+      moveBlock(view, _dragging.index, _dropTarget.blockIndex, _dropTarget.dropPosition);
+    } else if (_dropTarget.sectionIndex != null) {
+      if (_dragging.type !== OUTLINE_TYPES.SECTION) return;
+      moveSection(view, _dragging.index, _dropTarget.sectionIndex, _dropTarget.dropPosition);
+    }
+  };
+
+  _onDragEnd = () => {
+    this._clearDragState();
+  };
+
+  _onDragLeave = (e) => {
+    if (!e.currentTarget.contains(e.relatedTarget)) {
+      this._clearDropIndicator();
+      this._dropTarget = null;
+    }
+  };
+
   _onTreeKeydown = (e) => {
     const items = Array.from(this.shadowRoot.querySelectorAll('[role="treeitem"]'));
     if (!items.length) return;
@@ -108,22 +208,34 @@ class NxPageOutline extends LitElement {
 
   _renderSection(sec, isFirstSection) {
     return html`
-      <li class="nx-page-outline-section" role="none">
-        <div class="nx-page-outline-section-header">
-          <span class="nx-page-outline-section-label">Section ${sec.sectionIndex + 1}</span>
+      <li class="outline-section" role="none"
+          @dragover=${(e) => this._onSectionDragOver(e, sec)}
+          @dragleave=${this._onDragLeave}
+          @drop=${this._onDrop}>
+        <div class="section-header" data-section-header
+             draggable="true"
+             @dragstart=${(e) => this._onDragStart(e, OUTLINE_TYPES.SECTION, sec.sectionIndex)}
+             @dragend=${this._onDragEnd}>
+          <span class="section-label">Section ${sec.sectionIndex + 1}</span>
         </div>
-        <ul class="nx-page-outline-block-list" role="group"
+        <ul class="block-list" role="group"
             aria-label="Blocks in section ${sec.sectionIndex + 1}">
           ${sec.blocks.length === 0
-        ? html`<li class="nx-page-outline-block nx-page-outline-block-empty"
+        ? html`<li class="block-item block-empty"
                     role="treeitem" tabindex="-1">
-                <span class="nx-page-outline-empty-label">No blocks</span>
+                <span class="empty-label">No blocks</span>
               </li>`
-        : sec.blocks.map(({ name, blockFlatIndex }, blockIdx) => html`
-      <li class="nx-page-outline-block" role="treeitem"
-          tabindex="${isFirstSection && blockIdx === 0 ? '0' : '-1'}"
-          aria-selected="${this._selectedBlockFlatIndex === blockFlatIndex}"
-          @click=${() => this._select(blockFlatIndex)}>${name}</li>`)}
+        : sec.blocks.map(({ name, blockIndex }, blockIdx) => html`
+            <li class="block-item" role="treeitem"
+                data-block-index="${blockIndex}"
+                tabindex="${isFirstSection && blockIdx === 0 ? '0' : '-1'}"
+                aria-selected="${this._selectedBlockIndex === blockIndex}"
+                draggable="true"
+                @dragstart=${(e) => this._onDragStart(e, OUTLINE_TYPES.BLOCK, blockIndex)}
+                @dragover=${(e) => this._onBlockDragOver(e, blockIndex)}
+                @drop=${this._onDrop}
+                @dragend=${this._onDragEnd}
+                @click=${() => this._select(blockIndex)}>${name}</li>`)}
         </ul>
       </li>`;
   }
@@ -131,16 +243,16 @@ class NxPageOutline extends LitElement {
   render() {
     if (!this._selectedPath) {
       return html`<div class="nx-page-outline">
-        <p class="nx-page-outline-placeholder">Select a page to see its outline.</p>
+        <p class="placeholder">Select a page to see its outline.</p>
       </div>`;
     }
 
     return html`
     <section class="nx-page-outline">
-      <div class="nx-page-outline-list-wrap">
+      <div class="list-wrap">
         ${!this._sections
-        ? html`<p class="nx-page-outline-placeholder">No blocks found.</p>`
-        : html`<ul class="nx-page-outline-list" role="tree" aria-label="Page outline"
+        ? html`<p class="placeholder">No blocks found.</p>`
+        : html`<ul class="outline-list" role="tree" aria-label="Page outline"
                 @keydown=${this._onTreeKeydown}>
               ${this._sections.map((sec, i) => this._renderSection(sec, i === 0))}
             </ul>`}
