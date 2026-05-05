@@ -539,14 +539,14 @@ html:has(meta[content="edge-delivery"]) {
           }
 
           .panel-resize-handle:hover::before,
-          .panel-resize-handle:focus-visible::before {
-            opacity: 1;
-            transition: opacity 0.12s ease 0.2s;
-          }
-
+          .panel-resize-handle:focus-visible::before,
           .panel-resize-handle:active::before {
             opacity: 1;
-            transition: opacity 0.12s ease 0s;
+          }
+
+          .panel-resize-handle:hover::before,
+          .panel-resize-handle:focus-visible::before {
+            transition-delay: 0.2s;
           }
 
           .panel-resize-handle:focus-visible {
