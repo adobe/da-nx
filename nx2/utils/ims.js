@@ -1,6 +1,14 @@
-import { getConfig } from '../scripts/nx.js';
-
-const { imsClientId, imsScope, imsEnv, env } = getConfig();
+// TODO: simplify post-NX2.
+const { imsClientId, imsScope, imsEnv, env } = await (async () => {
+  try {
+    const { nxJS, getNx } = await import(`${window.location.origin}/scripts/utils.js`);
+    const { getConfig } = await import(`${getNx()}${nxJS}`);
+    return getConfig();
+  } catch {
+    const { getConfig } = await import('../scripts/nx.js');
+    return getConfig();
+  }
+})();
 
 const IMS_URL = 'https://auth.services.adobe.com/imslib/imslib.min.js';
 const DEFAULT_SCOPE = 'AdobeID,openid,gnav';
@@ -35,12 +43,15 @@ export function handleSignOut() {
 
 async function loadScript(src) {
   return new Promise((resolve, reject) => {
-    if (!document.querySelector(`head > script[src="${src}"]`)) {
-      const script = document.createElement('script');
+    let script = document.querySelector(`head > script[src="${src}"]`);
+    if (!script) {
+      script = document.createElement('script');
       script.src = src;
+      document.head.append(script);
+    }
+    if (!window.adobeIMS) {
       script.onload = resolve;
       script.onerror = reject;
-      document.head.append(script);
     } else {
       resolve();
     }
@@ -107,6 +118,7 @@ export const loadIms = (() => {
       autoValidateToken: true,
       environment: IMS_ENV[env],
       useLocalStorage: true,
+      onError: reject,
       onReady: () => {
         const accessToken = window.adobeIMS.getAccessToken();
         if (accessToken) {
@@ -116,7 +128,6 @@ export const loadIms = (() => {
         }
         clearTimeout(timeout);
       },
-      onError: reject,
     };
     loadScript(IMS_URL);
   });

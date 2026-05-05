@@ -1,7 +1,7 @@
-import { html, LitElement } from '../../../../deps/ml-lit/dist/index.js';
-import { virtualize, grid } from '../../../../deps/virtualizer/dist/index.js';
-import getStyle from '../../../../utils/styles.js';
-import getSvg from '../../../../public/utils/svg.js';
+import { html, LitElement } from '../../../../../deps/ml-lit/dist/index.js';
+import { virtualize, grid } from '../../../../../deps/virtualizer/dist/index.js';
+import getStyle from '../../../../../utils/styles.js';
+import getSvg from '../../../../../public/utils/svg.js';
 import {
   getVideoThumbnail,
   isExternalVideoUrl,
@@ -10,29 +10,30 @@ import {
   getSubtype,
   isImage,
   isVideo,
-} from '../../core/media.js';
+} from '../../../core/media.js';
 import {
   isExternalUrl,
   getDedupeKey,
   resolveMediaUrl,
   preferPreviewForMediaUrl,
   isPreviewPreferredForMediaUrl,
-} from '../../core/urls.js';
-import { optimizeImageUrls, CARD_IMAGE_SIZES } from '../../core/files.js';
-import '../../../../public/sl/components.js';
+} from '../../../core/urls.js';
+import { optimizeImageUrls, CARD_IMAGE_SIZES } from '../../../core/files.js';
+import '../../../../../public/sl/components.js';
 import {
   createMediaEventHandlers,
   staticTemplates,
   getMediaCardLabel,
-} from '../../features/templates.js';
-import { MediaType } from '../../core/constants.js';
-import { t } from '../../core/messages.js';
+} from '../../templates.js';
+import { MediaType } from '../../../core/constants.js';
+import { t } from '../../../core/messages.js';
+import { isMediaLibraryPluginMode } from '../../../core/utils.js';
 
 const styles = await getStyle(import.meta.url);
 const nx = `${new URL(import.meta.url).origin}/nx`;
 const sl = await getStyle(`${nx}/public/sl/styles.css`);
 const slComponents = await getStyle(`${nx}/public/sl/components.css`);
-const iconsBase = new URL('../../../../img/icons/', import.meta.url).href;
+const iconsBase = new URL('../../../../../img/icons/', import.meta.url).href;
 
 const ICONS = [
   `${iconsBase}Smock_Copy_18_N.svg`,
@@ -56,6 +57,17 @@ class NxMediaGrid extends LitElement {
     this.iconsLoaded = false;
     this.usePreviewDaLive = false;
     this.resultsBusy = false;
+    /** Thumbnail `error` → hide card (same browser load; no extra request). */
+    this._failedPreviewKeys = new Set();
+  }
+
+  getVisibleMediaData() {
+    if (!this.mediaData?.length) return [];
+    return this.mediaData.filter((m) => {
+      const k = m?.url ? getDedupeKey(m.url) : '';
+      if (!k) return true;
+      return !this._failedPreviewKeys.has(k);
+    });
   }
 
   connectedCallback() {
@@ -111,6 +123,12 @@ class NxMediaGrid extends LitElement {
   }
 
   updated(changedProperties) {
+    if (changedProperties.has('mediaData') && this.mediaData) {
+      const keys = new Set(this.mediaData.map((m) => getDedupeKey(m?.url)).filter(Boolean));
+      [...this._failedPreviewKeys].forEach((k) => {
+        if (!keys.has(k)) this._failedPreviewKeys.delete(k);
+      });
+    }
     if (changedProperties.has('mediaData') && this.mediaData?.length > 0 && !this.iconsLoaded) {
       this.loadIcons();
       this.iconsLoaded = true;
@@ -123,7 +141,8 @@ class NxMediaGrid extends LitElement {
   }
 
   render() {
-    if (!this.mediaData || this.mediaData.length === 0) {
+    const visible = this.getVisibleMediaData();
+    if (visible.length === 0) {
       return html``;
     }
 
@@ -137,7 +156,7 @@ class NxMediaGrid extends LitElement {
         @keydown=${this.handleKeyDown}
       >
         ${virtualize({
-    items: this.mediaData,
+    items: visible,
     renderItem: (media) => this.renderMediaCard(media),
     keyFunction: (media) => {
       const key = media?.url ? getDedupeKey(media.url) : (media?.hash || '');
@@ -162,6 +181,9 @@ class NxMediaGrid extends LitElement {
       mediaClick: () => this.eventHandlers.handleMediaClick(media),
       copyClick: () => this.eventHandlers.handleMediaCopy(media),
     };
+    const pluginMode = isMediaLibraryPluginMode();
+    const copyTitle = pluginMode ? t('UI_INSERT_MEDIA') : t('UI_COPY_URL');
+    const copyAria = pluginMode ? t('UI_INSERT_MEDIA') : t('UI_COPY_MEDIA_ARIA');
     const usageCount = media.usageCount ?? '-';
     const cardLabel = this.getCardAriaLabel(media, usageCount);
 
@@ -179,8 +201,8 @@ class NxMediaGrid extends LitElement {
             <button
               class="icon-button share-button"
               @click=${(e) => { e.stopPropagation(); handlers.copyClick(); }}
-              title="Copy to clipboard"
-              aria-label="Copy media URL to clipboard"
+              title=${copyTitle}
+              aria-label=${copyAria}
             >
               <svg class="icon" viewBox="0 0 20 20">
                 <use href="#Smock_Copy_18_N"></use>
@@ -321,13 +343,19 @@ class NxMediaGrid extends LitElement {
   }
 
   handleImageLoadError(media, resolvedUrl) {
-    if (!media?.url || isExternalUrl(resolvedUrl) || isPreviewPreferredForMediaUrl(media.url)) {
+    if (!media?.url) return;
+
+    if (
+      !isExternalUrl(resolvedUrl)
+      && !isPreviewPreferredForMediaUrl(media.url)
+      && preferPreviewForMediaUrl(media.url)
+    ) {
+      this.requestUpdate();
       return;
     }
 
-    if (preferPreviewForMediaUrl(media.url)) {
-      this.requestUpdate();
-    }
+    this._failedPreviewKeys.add(getDedupeKey(media.url));
+    this.requestUpdate();
   }
 }
 

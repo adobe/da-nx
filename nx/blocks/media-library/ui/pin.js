@@ -1,5 +1,6 @@
 import { getLocalStorageItem, setLocalStorageItem } from '../core/storage.js';
 import { Storage } from '../core/constants.js';
+// Pinned folders management
 
 function getStorageKey(org, repo) {
   return `${Storage.PINNED_FOLDERS_PREFIX}${org}-${repo}`;

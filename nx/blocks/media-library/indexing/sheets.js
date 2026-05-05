@@ -1,18 +1,39 @@
 // Flattens index into media sheet rows (hash, url, timestamp, etc.).
 export function buildMediaSheet(flatIndex) {
-  return flatIndex.map((entry) => ({
-    hash: entry.hash,
-    url: entry.url || '',
-    originalPath: entry.originalPath || '',
-    timestamp: entry.timestamp || 0,
-    user: entry.user || '',
-    operation: entry.operation || '',
-    type: entry.type || '',
-    doc: entry.doc || '',
-    displayName: entry.displayName || '',
-    // Convert empty string to null for proper timestamp fallback
-    modifiedTimestamp: entry.modifiedTimestamp || null,
-  }));
+  return flatIndex.map((entry) => {
+    // Normalize hash: should always be bare (e.g. "abc123"), never with prefix
+    let normalizedHash = entry.hash;
+    if (normalizedHash && normalizedHash.startsWith('media_') && normalizedHash.includes('.')) {
+      normalizedHash = normalizedHash.substring(6, normalizedHash.lastIndexOf('.'));
+    }
+
+    // Normalize timestamps: always use numbers, never ISO strings or empty strings
+    const normalizeTimestamp = (ts) => {
+      if (!ts || ts === '') return 0;
+      if (typeof ts === 'number') return ts;
+      if (typeof ts === 'string') {
+        const parsed = new Date(ts).getTime();
+        return Number.isFinite(parsed) ? parsed : 0;
+      }
+      return 0;
+    };
+
+    return {
+      hash: normalizedHash,
+      url: entry.url || '',
+      originalPath: entry.originalPath || '',
+      timestamp: normalizeTimestamp(entry.timestamp),
+      user: entry.user || '',
+      operation: entry.operation || '',
+      type: entry.type || '',
+      doc: entry.doc || '',
+      displayName: entry.displayName || '',
+      // Normalize modifiedTimestamp: number, or null if empty/missing
+      modifiedTimestamp: (entry.modifiedTimestamp !== null && entry.modifiedTimestamp !== undefined && entry.modifiedTimestamp !== '')
+        ? normalizeTimestamp(entry.modifiedTimestamp)
+        : null,
+    };
+  });
 }
 
 // Aggregates page -> hashes for usage sheet; one row per page.
@@ -21,10 +42,17 @@ export function buildUsageSheet(flatIndex) {
 
   flatIndex.forEach((entry) => {
     if (!entry.doc || !entry.hash) return;
+
+    // Normalize hash before storing
+    let normalizedHash = entry.hash;
+    if (normalizedHash && normalizedHash.startsWith('media_') && normalizedHash.includes('.')) {
+      normalizedHash = normalizedHash.substring(6, normalizedHash.lastIndexOf('.'));
+    }
+
     if (!pageHashMap.has(entry.doc)) {
       pageHashMap.set(entry.doc, new Set());
     }
-    pageHashMap.get(entry.doc).add(entry.hash);
+    pageHashMap.get(entry.doc).add(normalizedHash);
   });
 
   return Array.from(pageHashMap.entries()).map(([page, hashSet]) => ({
