@@ -146,7 +146,7 @@ export function decorateLink(config, a) {
       const found = config.linkBlocks.some((pattern) => {
         const key = Object.keys(pattern)[0];
         if (!pathname.includes(pattern[key])) return false;
-        const blockName = key === 'fragment' && hash ? 'dialog' : key;
+        const blockName = key === 'fragment' && hash ? 'nx-dialog' : key;
         a.classList.add(blockName, 'auto-block');
         return true;
       });
