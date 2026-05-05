@@ -315,12 +315,27 @@ export function processPageMediaUpdates(
     const pageData = pageMediaMap.get(normalizedPath);
     const newEntries = pageData ? pageData.entries : [];
 
+    // Filter oldHashes to only include medialog-sourced entries for accurate comparison
+    // External media (extlinks-parsed, markdown-parsed) should not be compared against medialog
+    // because they're never in medialog - they come from markdown parsing
+    const oldMedialogHashes = new Set();
+    oldHashes.forEach((hash) => {
+      const entry = updatedIndex.find((e) => e.hash === hash && e.doc === normalizedPath);
+      if (entry) {
+        const op = entry.operation || entry.source;
+        const isFromMedialog = op !== 'extlinks-parsed' && op !== 'markdown-parsed' && op !== 'auditlog-parsed';
+        if (isFromMedialog) {
+          oldMedialogHashes.add(hash);
+        }
+      }
+    });
+
     onLog(`--- Page: ${normalizedPath} ---`);
-    onLog(`  Old (bypage): ${oldHashes.size}, New (page-based): ${newEntries.length}`);
+    onLog(`  Old (bypage): ${oldMedialogHashes.size}, New (page-based): ${newEntries.length}`);
 
     const newHashes = new Set(newEntries.map((e) => e.hash));
-    const toRemove = [...oldHashes].filter((h) => !newHashes.has(h));
-    const toAdd = [...newHashes].filter((h) => !oldHashes.has(h));
+    const toRemove = [...oldMedialogHashes].filter((h) => !newHashes.has(h));
+    const toAdd = [...newHashes].filter((h) => !oldMedialogHashes.has(h));
 
     if (toRemove.length || toAdd.length) {
       onLog(`  Diff: remove ${toRemove.length}, add ${toAdd.length}`);
@@ -329,18 +344,12 @@ export function processPageMediaUpdates(
     toRemove.forEach((hash) => {
       const oldEntry = updatedIndex.find((e) => e.hash === hash && e.doc === normalizedPath);
       if (oldEntry) {
-        // Don't remove external media (extlinks-parsed/markdown-parsed) or auditlog-parsed entries
-        // They come from markdown parsing, not medialog, so they're handled by processLinkedContent
-        const op = oldEntry.operation || oldEntry.source;
-        const isFromMarkdown = op === 'extlinks-parsed' || op === 'markdown-parsed' || op === 'auditlog-parsed';
-        if (!isFromMarkdown) {
-          removed += removeOrOrphanMedia(
-            updatedIndex,
-            oldEntry,
-            normalizedPath,
-            medialogEntries,
-          );
-        }
+        removed += removeOrOrphanMedia(
+          updatedIndex,
+          oldEntry,
+          normalizedPath,
+          medialogEntries,
+        );
       }
     });
 
