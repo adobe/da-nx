@@ -32,8 +32,8 @@ class NxImporter extends LitElement {
 
   setDetails() {
     hashChange.subscribe((pathDetails) => {
-      this._toOrg = pathDetails.org;
-      this._toSite = pathDetails.site;
+      if (pathDetails?.org) this._toOrg = pathDetails.org;
+      if (pathDetails?.site) this._toSite = pathDetails.site;
     });
   }
 
