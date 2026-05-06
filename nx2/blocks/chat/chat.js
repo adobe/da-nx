@@ -23,7 +23,7 @@ class NxChat extends LitElement {
     connected: { type: Boolean },
     toolCards: { type: Object },
     _prompts: { state: true },
-    _attachedItems: { state: true },
+    _items: { state: true },
   };
 
   set context(value) {
@@ -31,17 +31,37 @@ class NxChat extends LitElement {
     this._applyContext(value);
   }
 
-  _onAddToChat = ({ detail }) => this.addAttachment(detail);
+  _keyedItemIds = new Map();
+
+  _onAddToChat = ({ detail }) => {
+    const { key, ...item } = detail;
+    if (key !== undefined) {
+      const prevId = this._keyedItemIds.get(key);
+      const without = (this._items ?? []).filter((i) => i.id !== prevId);
+      if (item.id) {
+        this._keyedItemIds.set(key, item.id);
+        this._items = [...without, item];
+      } else {
+        this._keyedItemIds.delete(key);
+        this._items = without;
+      }
+    } else {
+      this.addAttachment(item);
+    }
+  };
 
   addAttachment(item) {
-    const current = this._attachedItems ?? [];
+    const current = this._items ?? [];
     if (current.some((i) => i.id === item.id)) return;
-    this._attachedItems = [...current, item];
+    this._items = [...current, item];
   }
 
   _applyContext(value) {
     this._context = value;
     this._controller?.setContext(value);
+    const contextIds = new Set(this._keyedItemIds.values());
+    this._items = (this._items ?? []).filter((item) => !contextIds.has(item.id));
+    this._keyedItemIds = new Map();
     this._loadPrompts();
     this.requestUpdate();
   }
@@ -178,11 +198,10 @@ class NxChat extends LitElement {
     }
     const input = this.shadowRoot.querySelector('.chat-input');
     const message = input.value.trim();
-    if (!message && !this._attachedItems?.length) return;
-    const context = this._attachedItems ?? [];
-    this._controller.sendMessage(message, context);
+    if (!message && !this._items?.length) return;
+    this._controller.sendMessage(message, this._items ?? []);
     input.value = '';
-    this._attachedItems = [];
+    this._items = [];
   }
 
   _sendPrompt(prompt) {
@@ -196,7 +215,7 @@ class NxChat extends LitElement {
   }
 
   _handlePillRemove({ detail: { id } }) {
-    this._attachedItems = (this._attachedItems ?? []).filter((item) => item.id !== id);
+    this._items = (this._items ?? []).filter((item) => item.id !== id);
   }
 
   render() {
@@ -242,9 +261,9 @@ class NxChat extends LitElement {
       <div class="chat-form-wrap">
         ${renderApprovalCard(this._pendingApproval(), this._controller.approveToolCall)}
         <form class="chat-form" autocomplete="off" @submit=${this._submit}>
-        ${this._attachedItems?.length ? html`
+        ${this._items?.length ? html`
           <nx-chat-pills
-            .items=${this._attachedItems}
+            .items=${this._items}
             @nx-pill-remove=${this._handlePillRemove}
           ></nx-chat-pills>` : nothing}
         <textarea

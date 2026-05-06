@@ -61,13 +61,28 @@ Emits the full serialised AEM HTML of the active document after every structural
 
 ```js
 import { editorSelectChange } from '../editor-utils/document.js';
-const unsub = editorSelectChange.subscribe(({ blockFlatIndex, source }) => { … });
+const unsub = editorSelectChange.subscribe(({ blockIndex, source, blockName, proseIndex, innerText }) => { … });
 ```
 
 Emits whenever the active block/section selection changes — from the canvas (cursor move) or from a panel (e.g. outline click). Does not replay on subscribe. Every participant both emits and subscribes; use `source` to skip your own echoes and prevent feedback loops.
 
+`document.js` automatically enriches events with block metadata derived from the current `editorHtmlChange` state. Consumers that only need `blockIndex` and `source` are unaffected.
+
 | Field | Type | Description |
 |---|---|---|
-| `blockFlatIndex` | `number` | Zero-based index across all blocks in the document (`-1` = no specific block) |
-| `source` | `string` | Emitter identity — e.g. `'wysiwyg'`, `'outline'`, `'doc'` |
+| `blockIndex` | `number` | Zero-based index across all blocks in the document (`-1` = no specific block) |
+| `source` | `string` | Emitter identity — `'wysiwyg'`, `'outline'`, or `'doc'` |
+| `blockName` | `string \| undefined` | Block class name (e.g. `'hero'`); absent when no matching block is found |
+| `proseIndex` | `number \| undefined` | ProseMirror position of the block's first editable node |
+| `innerText` | `string \| undefined` | Plain-text content of the block at selection time |
+| `explicit` | `boolean \| undefined` | `true` when the selection was a deliberate block selection (NodeSelection); `false`/absent for cursor-driven TextSelection. Currently set only by `source: 'doc'` |
+
+#### Known gap — chat context requires explicit block selection
+
+The canvas chat bridge only adds context when `source === 'doc'` and `explicit === true` — meaning the user clicked the block select handle in the doc editor, producing a `NodeSelection`.
+
+Two cases are intentionally excluded:
+
+- **Cursor movement in doc** (`source: 'doc'`, `explicit: false`): cursor crossing a block boundary by typing or keyboard navigation does not update chat context, only the outline highlight. Chat context is only replaced by a new explicit selection — this mirrors the editor's own visual behaviour, where `NodeSelection` persists until another explicit selection is made.
+- **wysiwyg entirely** (`source: 'wysiwyg'`): the WYSIWYG editor has no block-select handle equivalent, so all wysiwyg events are excluded. If a block-selection affordance is added to wysiwyg in the future, it should emit `explicit: true` to opt in.
 

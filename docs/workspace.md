@@ -33,6 +33,15 @@ The following sections highlight some principles in more detail.
 - Da Admin documentation: https://opensource.adobe.com/da-admin/
 - Helix Admin documentation: https://www.aem.live/docs/admin.html
 
+### Agent integration
+The `da-agent` service is owned by a separate team. Treat it as an external API — consume its contracts, do not modify it.
+
+- **Never change `da-agent` to unblock a feature.** If a capability is missing, raise it with the agent team and adapt the client to work within what exists today.
+- **Before implementing any agent-facing feature**, check two sources of truth in order:
+  1. `da-agent/src/server.ts` — the Zod schema. Understand which fields are accepted, required, and validated. Never assume a field is silently ignored; unknown keys are stripped and missing required fields return 400.
+  2. The `exp-workspace` branch — the reference client implementation. If a feature already works there, match its approach exactly rather than inventing a new convention.
+- **Document all contracts** in `docs/chat-ui-component.md` with explicit callout notes when agent changes would require client-side updates. The docs are the interface boundary between teams.
+
 ### Version Control
 - Make small commits with meaningful commit messages
 - Keep PRs to the minimum required for a feature; iterate in follow-up PRs

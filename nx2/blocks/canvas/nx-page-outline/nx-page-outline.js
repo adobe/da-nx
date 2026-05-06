@@ -1,7 +1,7 @@
 import { LitElement, html } from 'da-lit';
 import { loadStyle, HashController } from '../../../utils/utils.js';
 import { treeKeydown } from '../../shared/utils/tree-nav.js';
-import { editorHtmlChange, editorSelectChange } from '../editor-utils/document.js';
+import { editorHtmlChange, editorSelectChange, parseSections } from '../editor-utils/document.js';
 import { getExtensionsBridge } from '../editor-utils/extensions-bridge.js';
 import { moveBlock, moveSection } from '../editor-utils/blocks.js';
 
@@ -16,22 +16,6 @@ const DROP_POSITIONS = {
   BEFORE: 'before',
   AFTER: 'after',
 };
-
-function parseSections(htmlText) {
-  const doc = new DOMParser().parseFromString(htmlText, 'text/html');
-  const container = doc.querySelector('main') ?? doc.body;
-  let flatIndex = 0;
-  return Array.from(container.querySelectorAll(':scope > div'), (section, sectionIndex) => {
-    const blocks = [];
-    Array.from(section.querySelectorAll(':scope > div[class]')).forEach((el) => {
-      const name = el.classList[0];
-      if (!name || name === 'default-content-wrapper' || name === 'metadata' || name === 'block-marker') return;
-      blocks.push({ name, blockIndex: flatIndex });
-      flatIndex += 1;
-    });
-    return { sectionIndex, blocks };
-  });
-}
 
 function sectionsEqual(a, b) {
   if (!a || !b || a.length !== b.length) return false;

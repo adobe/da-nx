@@ -149,6 +149,22 @@
   height: 100%;
 }
 
+.tool-card summary::before,
+.message .selection-context > summary::before {
+  content: "";
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  background-color: currentcolor;
+  mask-image: url("/nx2/img/icons/S2_Icon_ChevronUp_20_N.svg");
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+  transform: rotate(90deg);
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+}
+
 .tool-card {
   font-size: var(--s2-body-size-xs);
   color: var(--s2-gray-600);
@@ -159,16 +175,10 @@
     display: flex;
     align-items: center;
     gap: var(--s2-spacing-75);
-
-    &::before {
-      content: "›";
-      display: inline-block;
-      transition: transform 0.15s;
-    }
   }
 
   &[open] summary::before {
-    transform: rotate(90deg);
+    transform: rotate(180deg);
   }
 
   .tool-card-status {
@@ -243,6 +253,72 @@
 
   &:hover .message-action-copy {
     visibility: visible;
+  }
+
+  .selection-icon {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    background-color: currentcolor;
+    mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    flex-shrink: 0;
+
+    &.icon-block {
+      mask-image: url("/nx2/img/icons/S2_Icon_3D_20_N.svg");
+    }
+
+    &.icon-file {
+      mask-image: url("/nx2/img/icons/S2_Icon_FileText_20_N.svg");
+    }
+
+    &.icon-image {
+      mask-image: url("/nx2/img/icons/S2_Icon_Image_20_N.svg");
+    }
+
+    &.icon-table {
+      mask-image: url("/nx2/img/icons/S2_Icon_Table_20_N.svg");
+    }
+  }
+
+  .selection-context-list {
+    list-style: none;
+    margin: 0;
+    padding: 0 0 var(--s2-spacing-75) 0;
+
+    .selection-context-item {
+      display: flex;
+      align-items: center;
+      gap: var(--s2-spacing-75);
+      padding: var(--s2-spacing-50) 0;
+      font-size: var(--s2-body-size-xs);
+      color: var(--s2-gray-700);
+    }
+  }
+
+  .selection-context {
+    padding-bottom: var(--s2-spacing-75);
+
+    > summary {
+      display: flex;
+      align-items: center;
+      gap: var(--s2-spacing-75);
+      list-style: none;
+      cursor: pointer;
+      user-select: none;
+      font-size: var(--s2-body-size-xs);
+      color: var(--s2-gray-700);
+      line-height: 24px;
+
+      &::-webkit-details-marker {
+        display: none;
+      }
+    }
+
+    &[open] > summary::before {
+      transform: rotate(180deg);
+    }
   }
 }
 
