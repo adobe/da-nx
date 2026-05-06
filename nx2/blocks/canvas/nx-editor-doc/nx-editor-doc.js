@@ -1,7 +1,8 @@
 import { LitElement, html, nothing } from 'da-lit';
-import { yUndo, yRedo } from 'da-y-wrapper';
+import { yUndo, yRedo, NodeSelection } from 'da-y-wrapper';
 import { loadStyle } from '../../../utils/utils.js';
-import { updateDocument, updateCursors } from '../editor-utils/document.js';
+import { updateDocument, updateCursors, getInstrumentedHTML, editorHtmlChange, editorSelectChange } from '../editor-utils/document.js';
+import { getActiveBlockIndex, getBlockPositions } from '../editor-utils/blocks.js';
 import { getEditor } from '../editor-utils/state.js';
 import {
   editorDocCanLoad,
@@ -21,6 +22,7 @@ import { resolveEditorDocSession } from './utils/load-editor-doc.js';
 import { afterNextPaint, ensureProseMountedInShadow } from './utils/shadow-mount.js';
 import { teardownEditorDocResources } from './utils/teardown.js';
 import { hideSelectionToolbar } from '../editor-utils/selection-toolbar.js';
+import { createExtensionsBridgePlugin } from '../editor-utils/extensions-bridge.js';
 
 const style = await loadStyle(import.meta.url);
 
@@ -37,6 +39,8 @@ export class NxEditorDoc extends LitElement {
       this.quickEditPort = undefined;
       this._teardown();
       this._error = undefined;
+      this._lastDocBlockIndex = undefined;
+      editorHtmlChange.emit('');
     }
   }
 
@@ -55,6 +59,12 @@ export class NxEditorDoc extends LitElement {
       composed: true,
       detail: { users },
     }));
+  }
+
+  _emitHtmlChange() {
+    const { view } = this._proseContext ?? {};
+    if (!view) return;
+    editorHtmlChange.emit(getInstrumentedHTML(view));
   }
 
   _emitUndoState() {
@@ -84,6 +94,18 @@ export class NxEditorDoc extends LitElement {
     this._undoStackHandler = undefined;
   }
 
+  _scrollDocToBlock(blockIndex) {
+    if (blockIndex < 0) return;
+    const { view } = this._proseContext ?? {};
+    if (!view) return;
+    const positions = getBlockPositions(view);
+    const pos = positions[blockIndex];
+    if (pos == null) return;
+    this._lastDocBlockIndex = blockIndex;
+    const sel = NodeSelection.create(view.state.doc, pos);
+    view.dispatch(view.state.tr.setSelection(sel).scrollIntoView());
+  }
+
   undo() {
     const { view } = this._proseContext ?? {};
     if (view) yUndo(view.state, view.dispatch);
@@ -109,6 +131,7 @@ export class NxEditorDoc extends LitElement {
       port: this.quickEditPort,
       iframe: this._wysiwygIframe,
       suppressRerender: false,
+      lastBlockIndex: undefined,
       owner: org,
       repo,
       path: controllerPathnameFromEditorCtx(this.ctx),
@@ -171,10 +194,22 @@ export class NxEditorDoc extends LitElement {
         setEditable: (editable) => this._setEditable(editable),
         getToken: () => token,
         extraPlugins: [
+          createExtensionsBridgePlugin(),
           createTrackingPlugin(
-            () => { if (this._controllerCtx) updateDocument(this._controllerCtx); },
+            () => {
+              const body = this._controllerCtx
+                ? updateDocument(this._controllerCtx)
+                : getInstrumentedHTML(this._proseContext?.view);
+              if (body) editorHtmlChange.emit(body);
+            },
             () => { if (this._controllerCtx) updateCursors(this._controllerCtx); },
             (data) => { if (this._controllerCtx) getEditor(data, this._controllerCtx); },
+            (pmView) => {
+              const blockIndex = getActiveBlockIndex(pmView);
+              if (blockIndex === this._lastDocBlockIndex) return;
+              this._lastDocBlockIndex = blockIndex;
+              editorSelectChange.emit({ blockIndex, source: 'doc' });
+            },
           ),
         ],
       });
@@ -182,6 +217,7 @@ export class NxEditorDoc extends LitElement {
       this._proseContext = { proseEl, wsProvider, view, ydoc, undoManager };
       this._setupAwareness(wsProvider);
       this._observeUndoManager(undoManager);
+      this._emitHtmlChange();
 
       this._setupController();
     } catch (e) {
@@ -210,11 +246,16 @@ export class NxEditorDoc extends LitElement {
       }
     };
     this.parentElement?.addEventListener('nx-wysiwyg-port-ready', this._onWysiwygPortReady);
+    this._unsubscribeSelect = editorSelectChange
+      .subscribe(({ blockIndex, source }) => {
+        if (source !== 'doc') this._scrollDocToBlock(blockIndex);
+      });
   }
 
   disconnectedCallback() {
     this.parentElement?.removeEventListener('nx-canvas-editor-active', this._onCanvasEditorActive);
     this.parentElement?.removeEventListener('nx-wysiwyg-port-ready', this._onWysiwygPortReady);
+    this._unsubscribeSelect?.();
     this._teardown();
     super.disconnectedCallback();
   }

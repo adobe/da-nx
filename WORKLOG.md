@@ -1,5 +1,37 @@
 # Worklog
 
+## 2026-04-28
+
+### nx2 canvas — library vs extension panel split
+- **`nx-panel-library.js`**: OOTB block library / templates / icons / placeholders UI (fetch, insert, preview, sprites); shares **`nx-panel-extensions.css`** with the iframe host.
+- **`nx-panel-extensions.js`**: **`nx-panel-extension`** only chooses **`nx-panel-library`** vs BYO **`iframe`** + **`iframe-protocol`**.
+
+### nx2 canvas — tool panel sections (Editor / Library / Extensions)
+- **`helpers.js`**: **`getCanvasToolPanelViews`** — Editor placeholder tab (`editor-coming-soon`), **Library** = OOTB plugins + **`aem-assets`** (sorted **`blocks` → `aem-assets` → `icons` → `templates` → `placeholders`**), **Extensions** = other configured plugins.
+- **`tool-panel.js` / `.css`**: Picker items built with **`nx-picker`** **`section`** headings; initial tab is **`views[0]`**; prune **`_loaded`** / clear content when **`views`** empty or ids change. Placeholder host class **`.nx-tool-panel-editor-placeholder`**.
+- **`canvas.js`**: loads **`getCanvasToolPanelViews`** instead of **`getExtensionViews`**.
+
+### nx2 utils — DA config API
+- **`nx2/utils/daConfig.js`**: **`getFirstSheet`**, **`fetchDaConfigs`** (moved from **`nx-panel-extensions/config.js`**). Canvas **`helpers.js`** / **`aem-assets.js`** import from utils; branch **`ref`** stays local to **`helpers.js`**.
+
+### nx2 canvas — library panel action icons (da.live parity)
+- **`nx-panel-extensions.js` / `.css`**: Add / Preview use the same **`/blocks/edit/img/`** SVGs and **`<use href="#S2_Icon_Experience_Add">` / `#S2_Icon_ExperiencePreview`** pattern as da.live **`da-library`** (via shared **`inlinesvg`** preload). Source SVGs live in **`.ext-svg-sprites`** (visually hidden) so they are not laid out in the panel body.
+
+### nx2 canvas — block variants: no inline DOM preview
+- **`nx-panel-extensions.js` / `.css`**: variant rows no longer embed **`v.dom`** in the Lit tree (avoids cloning / ownership issues). Insert still uses **`variant.dom`** via **`_insertBlock`**.
+
+### nx2 canvas — AEM Assets Cancel closes panel
+- **`aem-assets.js`**: pass **`onClose`** through to **`PureJSSelectors.renderAssetSelector`** (same hook as da.live **`da-assets.js`**).
+- **`nx-panel-extensions.js`**: **`onClose`** dispatches **`nx-panel-close`** so **`panel.js`** hides the right aside.
+
+### nx2 canvas — `experience` for picker / tab bypass (`window`, `fullsize-dialog`)
+- **`helpers.js`**: **`extensionToPanelView`** passes through **`experience`** and **`sources`** from the extension config (no separate URL / modal flags).
+- **`aem-assets.js`**: **`getAssetsPlugin`** uses **`experience: 'fullsize-dialog'`** (was **`aem-assets`**).
+- **`picker.js` / `.css`**: **`experience === 'window'`** + **`sources[0]`** → new tab; **`fullsize-dialog`** → **`nx-picker-experience-dialog`** (no **`change`**); open-in icon for those rows.
+- **`tool-panel.js` / `.css`**: same rules in **`_activate`** / **`showView`**; **`_fullsizeDialogViewId`** drives **`.tool-panel-fullsize-dialog`**; body mounts **`await view.load()`**. **`@nx-panel-close`** on **`dialog`** stops propagation and closes the dialog (not the whole panel).
+- **`nx-panel-extensions.js`**: **`fullsize-dialog` + `aem-assets`** renders the assets host div and runs **`renderAssets`** from **`updated`**; other **`fullsize-dialog`** third-party configs use the iframe path as today.
+- **`nx-panel-extensions.js`**: no inline AEM Assets mount (modal-only).
+
 ## 2026-04-27
 
 ### nx2 chat — collab after approval
@@ -10,6 +42,11 @@
 - **`nav.js`**: nav breadcrumb no longer sets **`variant="large"`**.
 
 ## 2026-04-24
+
+### nx2 canvas — slash “Open library” → Blocks tab
+- **`command-defs.js`**: `nx-canvas-open-panel` detail includes `viewId: 'blocks'` so the after tool panel selects the Blocks extension when present.
+- **`canvas.js`**: `openCanvasPanel` accepts optional `preferredViewId` from event `viewId`; after `syncToolPanelViews`, waits for `updateComplete` then calls **`nx-tool-panel` `showView`** only if `views` contains that id.
+- **`tool-panel.js`**: public **`showView(id)`** wraps `_activate` for external callers.
 
 ### nx2 nav / browse — hash breadcrumbs (minimal)
 - **`nx2/blocks/shared/breadcrumb/`**: **`nx-breadcrumb`** — optional **`.baseUrl`**, **`.pathSegments`**; parent steps are plain **`<a href>`** (hash-only or resolved via **`resolveBreadcrumbHref`** + current **`location.search`**). **`hashStateToPathSegments`** / **`pathSegmentsToCrumbs`** in **`utils.js`**. No custom events.

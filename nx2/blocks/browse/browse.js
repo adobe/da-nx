@@ -2,7 +2,7 @@ import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle, hashChange } from '../../utils/utils.js';
 import { loadHrefSvg, ICONS_BASE } from '../../utils/svg.js';
 import { getPanelStore, openPanel } from '../../utils/panel.js';
-import { listFolder } from './browse-api.js';
+import { listFolder } from '../../utils/daFiles.js';
 import { contextToPathContext, isFolder } from './utils.js';
 import { open } from './actions/open/open.js';
 import './actions/rename/rename.js';

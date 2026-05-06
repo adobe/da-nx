@@ -6,10 +6,14 @@ import '../shared/picker/picker.js';
 const style = await loadStyle(import.meta.url);
 const closeIcon = await loadHrefSvg(`${ICONS_BASE}S2_Icon_SplitRight_20_N.svg`);
 
+const OPEN_IN_ICON_URL = 'https://da.live/img/icons/s2-icon-openin-20-n.svg';
+const ACTIVE_VIEW_KEY = 'nx-tool-panel-active-view';
+
 class NxToolPanel extends LitElement {
   static properties = {
     views: { attribute: false },
     activeId: { type: String },
+    _fullsizeDialogViewId: { state: true },
   };
 
   _loaded = {};
@@ -19,25 +23,120 @@ class NxToolPanel extends LitElement {
     this.shadowRoot.adoptedStyleSheets = [style];
   }
 
-  async firstUpdated() {
-    if (this.views?.length && !this.activeId) {
-      await this._activate(this.views[0].id);
+  get _fullsizeDialogView() {
+    const id = this._fullsizeDialogViewId;
+    if (!id || !this.views) return null;
+    return this.views.find((v) => v.id === id) ?? null;
+  }
+
+  _pickerItemsFromViews() {
+    if (!this.views?.length) return [];
+    const items = [];
+    let lastSection;
+    for (const v of this.views) {
+      if (v.section && v.section !== lastSection) {
+        items.push({ section: v.section });
+        lastSection = v.section;
+      }
+      const opensExternally = v.experience === 'window' || v.experience === 'fullsize-dialog';
+      items.push({
+        value: v.id,
+        label: v.label,
+        ...(opensExternally && {
+          action: true,
+          trailingIcon: OPEN_IN_ICON_URL,
+          ariaLabel: v.experience === 'window'
+            ? `${v.label} (opens in new tab)`
+            : `${v.label} (opens in dialog)`,
+        }),
+      });
     }
+    return items;
+  }
+
+  _pruneLoadedViews() {
+    const ids = new Set(this.views.map((v) => v.id));
+    Object.keys(this._loaded).forEach((id) => {
+      if (!ids.has(id)) {
+        this._loaded[id].remove();
+        delete this._loaded[id];
+      }
+    });
   }
 
   async updated(changed) {
-    if (changed.has('views') && this.views?.length && !this.activeId) {
-      await this._activate(this.views[0].id);
-    }
+    if (changed.has('views')) await this._onViewsChange();
     if (changed.has('activeId')) {
+      if (this.activeId) {
+        try { sessionStorage.setItem(ACTIVE_VIEW_KEY, this.activeId); } catch { /* ignore */ }
+      }
       this._syncContent();
       this._syncHeaderActions();
     }
+    if (changed.has('_fullsizeDialogViewId') && this._fullsizeDialogViewId) {
+      await this._mountDialog();
+    }
   }
 
-  async _activate(id) {
-    const consumer = this.views?.find((c) => c.id === id);
+  async _onViewsChange() {
+    if (!this.views?.length) {
+      this._closeDialog();
+      this.activeId = undefined;
+      this._loaded = {};
+      this.shadowRoot.querySelector('.tool-panel-content').replaceChildren();
+      return;
+    }
+
+    this._pruneLoadedViews();
+    const ids = new Set(this.views.map((v) => v.id));
+
+    if (this._fullsizeDialogViewId && !ids.has(this._fullsizeDialogViewId)) {
+      this._closeDialog();
+    }
+
+    if (!this.activeId || !ids.has(this.activeId)) {
+      const stored = sessionStorage.getItem(ACTIVE_VIEW_KEY);
+      await this.showView(stored && ids.has(stored) ? stored : this.views[0].id);
+    }
+  }
+
+  async _mountDialog() {
+    await this.updateComplete;
+    const dialog = this.shadowRoot.querySelector('.tool-panel-fullsize-dialog');
+    const body = dialog.querySelector('.tool-panel-fullsize-dialog-body');
+    const viewId = this._fullsizeDialogViewId;
+    if (body.dataset.mountedFor === viewId) return;
+    body.innerHTML = '';
+    body.dataset.mountedFor = viewId;
+    if (!dialog.open) dialog.showModal();
+    const view = this.views.find((v) => v.id === viewId);
+    await view.loadModal(body, () => dialog.close());
+  }
+
+  _closeDialog() {
+    const dialog = this.shadowRoot.querySelector('.tool-panel-fullsize-dialog');
+    if (dialog?.open) {
+      dialog.close();
+    } else {
+      this._fullsizeDialogViewId = undefined;
+    }
+  }
+
+  async showView(id) {
+    const consumer = this.views.find((c) => c.id === id);
     if (!consumer) return;
+    if (consumer.experience === 'window') {
+      window.open(
+        new URL(consumer.sources[0], window.location.href).href,
+        '_blank',
+        'noopener,noreferrer',
+      );
+      return;
+    }
+    if (consumer.experience === 'fullsize-dialog') {
+      this._fullsizeDialogViewId = id;
+      return;
+    }
     if (!this._loaded[id]) {
       this._loaded[id] = await consumer.load();
     }
@@ -46,7 +145,6 @@ class NxToolPanel extends LitElement {
 
   _syncContent() {
     const content = this.shadowRoot.querySelector('.tool-panel-content');
-    if (!content) return;
     Object.entries(this._loaded).forEach(([id, el]) => {
       el.hidden = id !== this.activeId;
       if (id === this.activeId && !content.contains(el)) content.append(el);
@@ -55,12 +153,10 @@ class NxToolPanel extends LitElement {
 
   _syncHeaderActions() {
     const zone = this.shadowRoot.querySelector('.tool-panel-header-actions');
-    if (!zone) return;
     zone.textContent = '';
-    const consumer = this.views?.find((c) => c.id === this.activeId);
+    const consumer = this.views.find((c) => c.id === this.activeId);
     if (!consumer?.firstParty) return;
-    const el = this._loaded[this.activeId];
-    const actions = el?.getHeaderActions?.();
+    const actions = this._loaded[this.activeId]?.getHeaderActions?.();
     if (actions) zone.append(actions);
   }
 
@@ -68,8 +164,13 @@ class NxToolPanel extends LitElement {
     this.dispatchEvent(new CustomEvent('nx-panel-close', { bubbles: true, composed: true }));
   }
 
+  _onFullsizeDialogClose() {
+    this._fullsizeDialogViewId = undefined;
+  }
+
   render() {
-    const items = this.views?.map((c) => ({ value: c.id, label: c.label })) ?? [];
+    const items = this._pickerItemsFromViews();
+    const dialogTitle = this._fullsizeDialogView?.label ?? 'Extension';
 
     return html`
       <div class="tool-panel-header">
@@ -80,11 +181,24 @@ class NxToolPanel extends LitElement {
           .items=${items}
           .value=${this.activeId}
           placement="below-start"
-          @change=${(e) => this._activate(e.detail.value)}
+          @change=${(e) => this.showView(e.detail.value)}
         ></nx-picker>
         <div class="tool-panel-header-actions"></div>
       </div>
       <div class="tool-panel-content"></div>
+      ${this._fullsizeDialogViewId ? html`
+        <dialog
+          class="tool-panel-fullsize-dialog"
+          @close=${this._onFullsizeDialogClose}
+        >
+          <div class="tool-panel-fullsize-dialog-header">
+            <p class="tool-panel-fullsize-dialog-title">${dialogTitle}</p>
+            <button type="button" class="tool-panel-fullsize-dialog-close" aria-label="Close"
+              @click=${(e) => e.target.closest('dialog').close()}>✕</button>
+          </div>
+          <div class="tool-panel-fullsize-dialog-body"></div>
+        </dialog>
+      ` : nothing}
     `;
   }
 }

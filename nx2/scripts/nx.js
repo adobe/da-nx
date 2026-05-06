@@ -85,14 +85,15 @@ export const loc = ([first], ...values) => {
 };
 
 export async function loadBlock(block) {
-  const { providers, nxBase, log } = getConfig();
+  const { nxBase, codeBase, log } = getConfig();
   const { classList } = block;
-  const name = classList[0];
-  const [ns, ...rest] = name.split('-');
-  const base = providers[ns] || nxBase;
-  const basedName = base === nxBase ? name : rest.join('-');
+  let name = classList[0];
+  const isNx = name.startsWith('nx-');
+  name = isNx ? name.replace('nx-', '') : name;
   block.dataset.blockName = name;
-  const blockPath = `${base}/blocks/${basedName}/${basedName}`;
+  const path = isNx ? `${nxBase}/blocks` : `${codeBase}/blocks`;
+  const blockPath = `${path}/${name}/${name}`;
+  block.dataset.blockName = name;
   try {
     await (await import(`${blockPath}.js`)).default(block);
   } catch (ex) {
@@ -145,7 +146,7 @@ export function decorateLink(config, a) {
       const found = config.linkBlocks.some((pattern) => {
         const key = Object.keys(pattern)[0];
         if (!pathname.includes(pattern[key])) return false;
-        const blockName = key === 'fragment' && hash ? 'dialog' : key;
+        const blockName = key === 'fragment' && hash ? 'nx-dialog' : key;
         a.classList.add(blockName, 'auto-block');
         return true;
       });
@@ -300,4 +301,9 @@ export async function loadArea({ area } = { area: document }) {
     const { restorePanels } = await import('../utils/panel.js');
     await restorePanels();
   }
+}
+
+export function getColorScheme() {
+  return localStorage.getItem('color-scheme')
+    || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark-scheme' : 'light-scheme');
 }

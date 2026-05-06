@@ -1,21 +1,5 @@
 import { daFetch, DA_ORIGIN, AEM_ORIGIN } from '../../utils/daFetch.js';
 
-export async function listFolder(fullpath) {
-  const response = await daFetch(`${DA_ORIGIN}/list${fullpath}`);
-  if (!response.ok) {
-    return { error: `List failed: ${response.status}`, status: response.status };
-  }
-  try {
-    const payload = await response.json();
-    if (!Array.isArray(payload)) {
-      return { error: 'Invalid list response', status: response.status };
-    }
-    return payload;
-  } catch {
-    return { error: 'Invalid response body', status: response.status };
-  }
-}
-
 export async function deleteSourcePath(path) {
   if (!path) {
     return { ok: false, error: 'Missing path' };
