@@ -223,6 +223,7 @@ export default class ChatController {
         context: this._pendingContext ?? [],
         imsToken: accessToken?.token ?? null,
         room,
+        ...(this._requestedSkills?.length ? { requestedSkills: this._requestedSkills } : {}),
       }),
       signal: this._abortController.signal,
     });
@@ -245,9 +246,10 @@ export default class ChatController {
     });
   }
 
-  async sendMessage(message, context = []) {
+  async sendMessage(message, context = [], { requestedSkills = [] } = {}) {
     if (this._thinking || !this._connected) return;
 
+    this._requestedSkills = requestedSkills;
     this._pendingContext = context;
     this._messages = [...(this._messages ?? []), { role: ROLE.USER, content: message }];
     this._thinking = true;
