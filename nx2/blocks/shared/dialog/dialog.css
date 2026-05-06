@@ -110,72 +110,6 @@
     color: var(--s2-gray-800);
   }
 
-  & .field {
-    display: flex;
-    flex-direction: column;
-    gap: var(--s2-spacing-100);
-    margin: 0;
-    padding: 0;
-    font: inherit;
-  }
-
-  & .field-caption {
-    color: var(--s2-gray-800);
-    font-size: var(--s2-component-m-medium-font-size, 14px);
-    font-weight: var(--s2-component-s-medium-font-weight, 500);
-    line-height: var(--s2-component-m-medium-line-height, 1.4);
-  }
-
-  & .text-input {
-    box-sizing: border-box;
-    width: 100%;
-    margin: 0;
-    padding: var(--s2-spacing-75) var(--s2-spacing-100);
-    border: 1px solid var(--s2-gray-300);
-    border-radius: var(--s2-corner-radius-100);
-    font-family: inherit;
-    font-size: 14px;
-    line-height: 1.43;
-    background: var(--s2-gray-25);
-    color: var(--s2-gray-900);
-
-    &:focus,
-    &:focus-visible {
-      outline: none;
-      box-shadow: none;
-    }
-  }
-
-  & .field-hint {
-    margin: 0;
-    font-size: var(--s2-component-s-medium-font-size, 12px);
-    line-height: var(--s2-component-s-medium-line-height, 1.3);
-    color: var(--s2-gray-700);
-  }
-
-  & .list {
-    margin: 0;
-    padding: 0 0 0 var(--s2-spacing-300);
-    list-style: disc;
-    list-style-position: outside;
-    max-height: 8rem;
-    overflow-y: auto;
-    overflow-wrap: anywhere;
-    line-height: 1.43;
-
-    & li + li {
-      margin-top: var(--s2-spacing-100);
-    }
-  }
-
-  & .hint {
-    margin: var(--s2-spacing-200) 0 0;
-    padding: 0;
-    color: var(--s2-gray-700);
-    font-size: inherit;
-    line-height: inherit;
-  }
-
   & .actions {
     box-sizing: border-box;
     width: 100%;
@@ -190,7 +124,7 @@
     gap: var(--s2-spacing-100) var(--s2-spacing-100);
   }
 
-  & .btn {
+  & slot[name='actions']::slotted(.btn) {
     min-height: var(--s2-spacing-500, 32px);
     min-width: 5rem;
     display: inline-flex;
@@ -206,76 +140,58 @@
     font-weight: var(--s2-component-m-medium-font-weight, 500);
     cursor: pointer;
 
-    &:disabled,
-    &[disabled] {
-      cursor: not-allowed;
-      opacity: 0.4;
-    }
-
-    &.is-pending:disabled,
-    &.is-pending[disabled] {
-      opacity: 1;
-    }
-
-    &:focus-visible {
-      outline: 2px solid var(--s2-blue-800);
-      outline-offset: 2px;
-    }
-  }
-
-  & .btn-progress {
-    flex: 0 0 auto;
-
     --nx-progress-circle-size: 14px;
     --nx-progress-circle-border-width: 2px;
     --nx-progress-circle-track-color: rgb(0 0 0 / 25%);
     --nx-progress-circle-indicator-color: currentcolor;
   }
 
-  & .btn-primary .btn-progress,
-  & .btn-danger .btn-progress {
+  & slot[name='actions']::slotted(.btn[disabled]) {
+    cursor: not-allowed;
+    opacity: 0.4;
+  }
+
+  & slot[name='actions']::slotted(.btn.is-pending[disabled]) {
+    opacity: 1;
+  }
+
+  & slot[name='actions']::slotted(.btn-primary),
+  & slot[name='actions']::slotted(.btn-danger) {
     --nx-progress-circle-track-color: rgb(255 255 255 / 35%);
   }
 
-  & .btn-label {
-    display: inline-block;
-    white-space: nowrap;
-  }
-
-  & .btn-secondary {
+  & slot[name='actions']::slotted(.btn-secondary) {
     color: var(--s2-gray-800);
     background: transparent;
     border: 1px solid var(--s2-gray-300);
     box-shadow: none;
-
-    &:hover {
-      background: var(--s2-gray-75);
-    }
   }
 
-  & .btn-primary {
+  & slot[name='actions']::slotted(.btn-secondary:hover) {
+    background: var(--s2-gray-75);
+  }
+
+  & slot[name='actions']::slotted(.btn-primary) {
     color: var(--s2-gray-25);
     background: var(--s2-blue-900);
     border: 1px solid var(--s2-blue-900);
-
-    &:disabled,
-    &[disabled] {
-      color: var(--s2-gray-25);
-      background: var(--s2-gray-400);
-      border-color: var(--s2-gray-400);
-    }
   }
 
-  & .btn-danger {
+  & slot[name='actions']::slotted(.btn-danger) {
     color: var(--s2-gray-25);
     background: var(--s2-red-900);
     border: 1px solid var(--s2-red-900);
+  }
 
-    &:disabled,
-    &[disabled] {
-      color: var(--s2-gray-25);
-      background: var(--s2-gray-400);
-      border-color: var(--s2-gray-400);
-    }
+  & slot[name='actions']::slotted(.btn-primary[disabled]),
+  & slot[name='actions']::slotted(.btn-danger[disabled]) {
+    color: var(--s2-gray-25);
+    background: var(--s2-gray-400);
+    border-color: var(--s2-gray-400);
+  }
+
+  & slot[name='actions']::slotted(.btn:focus-visible) {
+    outline: 2px solid var(--s2-blue-800);
+    outline-offset: 2px;
   }
 }

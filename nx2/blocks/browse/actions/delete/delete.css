@@ -4,11 +4,30 @@
 
 .list {
   margin: 0;
-  padding-left: var(--s2-spacing-400);
+  padding: 0 0 0 var(--s2-spacing-300);
+  list-style: disc;
+  list-style-position: outside;
+  max-height: 8rem;
+  overflow-y: auto;
+  overflow-wrap: anywhere;
+  line-height: 1.43;
+}
+
+.list li + li {
+  margin-top: var(--s2-spacing-100);
 }
 
 .hint {
-  margin: var(--s2-spacing-100) 0 0;
+  margin: var(--s2-spacing-200) 0 0;
   color: var(--s2-gray-700);
   font-size: var(--s2-body-size-xs);
+}
+
+.btn-progress {
+  flex: 0 0 auto;
+}
+
+.btn-label {
+  display: inline-block;
+  white-space: nowrap;
 }

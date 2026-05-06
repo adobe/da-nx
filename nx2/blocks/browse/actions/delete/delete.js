@@ -1,7 +1,7 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../../utils/utils.js';
 import { deleteSourcePath } from '../../browse-api.js';
-import { VARIANT_DESTRUCTIVE } from '../../../shared/dialog/dialog.js';
+import '../../../shared/dialog/dialog.js';
 
 async function deleteItems({ selectedRows }) {
   if (!selectedRows?.length) {
@@ -84,29 +84,40 @@ class NxBrowseDeleteDialog extends LitElement {
     const itemWord = n === 1 ? 'item' : 'items';
     const lines = selectedRows.map((r) => r.path).slice(0, 5);
     const more = n > 5 ? n - 5 : 0;
-    const body = html`
-      <div>
-        <ul class="list">
-          ${lines.map((path) => html`<li>${path}</li>`)}
-        </ul>
-        ${more > 0 ? html`<p class="hint">…and ${more} more</p>` : nothing}
-      </div>
-    `;
-
     return html`
       <nx-dialog
         .title=${`Delete ${n} ${itemWord}`}
-        .body=${body}
-        .cancelLabel=${'Cancel'}
-        .primaryActionLabel=${'Delete'}
-        .variant=${VARIANT_DESTRUCTIVE}
-        .cancelActionDisabled=${this._pending}
-        .primaryActionPending=${this._pending}
+        .busy=${this._pending}
         .dismissable=${!this._pending}
-        @nx-dialog-cancel=${this._onCancel}
-        @nx-dialog-primary=${this._onConfirm}
         @nx-dialog-close=${this._onClose}
-      ></nx-dialog>
+      >
+        <div>
+          <ul class="list">
+            ${lines.map((path) => html`<li>${path}</li>`)}
+          </ul>
+          ${more > 0 ? html`<p class="hint">…and ${more} more</p>` : nothing}
+        </div>
+        <button
+          slot="actions"
+          type="button"
+          class="btn btn-secondary"
+          ?disabled=${this._pending}
+          @click=${this._onCancel}
+        >Cancel</button>
+        <button
+          slot="actions"
+          type="button"
+          class=${`btn btn-danger${this._pending ? ' is-pending' : ''}`}
+          ?disabled=${this._pending}
+          aria-busy=${this._pending ? 'true' : 'false'}
+          @click=${this._onConfirm}
+        >
+          ${this._pending
+            ? html`<nx-progress-circle class="btn-progress" aria-hidden="true"></nx-progress-circle>`
+            : nothing}
+          <span class="btn-label">Delete</span>
+        </button>
+      </nx-dialog>
     `;
   }
 }

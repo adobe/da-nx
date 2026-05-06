@@ -4,26 +4,16 @@ import '../progress-circle/progress-circle.js';
 
 const styles = await loadStyle(import.meta.url);
 
-/** Primary button uses danger styling (browse delete). */
-export const VARIANT_DESTRUCTIVE = 'destructive';
-
 class NxDialog extends LitElement {
   static properties = {
     title: { type: String, attribute: false },
-    body: { type: Object, attribute: false },
-    primaryActionLabel: { type: String, attribute: false },
-    primaryActionId: { type: String, attribute: false },
-    primaryActionDisabled: { type: Boolean, attribute: false },
-    primaryActionPending: { type: Boolean, attribute: false },
-    cancelLabel: { type: String, attribute: false },
-    cancelActionDisabled: { type: Boolean, attribute: false },
-    variant: { type: String, attribute: false },
+    busy: { type: Boolean, attribute: false },
     autofocusId: { type: String, attribute: false },
     dismissable: { type: Boolean, attribute: false },
   };
 
   _dismissable() {
-    return this.dismissable !== false && !this.primaryActionPending;
+    return this.dismissable !== false && !this.busy;
   }
 
   connectedCallback() {
@@ -61,7 +51,8 @@ class NxDialog extends LitElement {
     if (!this.autofocusId) return;
     const id = this.autofocusId;
     queueMicrotask(() => {
-      const el = this.renderRoot?.getElementById(id);
+      const selector = typeof CSS !== 'undefined' && CSS.escape ? `#${CSS.escape(id)}` : `#${id}`;
+      const el = this.querySelector(selector);
       if (!el) return;
       el.focus();
       if (el instanceof HTMLInputElement) {
@@ -87,78 +78,14 @@ class NxDialog extends LitElement {
     this._onLayerClose();
   };
 
-  _onCancelAction = () => {
-    if (this.primaryActionPending) return;
-    this.dispatchEvent(new CustomEvent('nx-dialog-cancel', {
-      bubbles: true,
-      composed: true,
-    }));
-  };
-
-  _onPrimaryAction = () => {
-    if (this.primaryActionPending) return;
-    this.dispatchEvent(new CustomEvent('nx-dialog-primary', {
-      bubbles: true,
-      composed: true,
-    }));
-  };
-
-  _isAlertByProps() {
-    return (
-      typeof this.title === 'string'
-      && this.body != null
-      && typeof this.primaryActionLabel === 'string'
-    );
-  }
-
-  _primaryButtonClass() {
-    return this.variant === VARIANT_DESTRUCTIVE ? 'btn-danger' : 'btn-primary';
-  }
-
-  _alertActionsFromProps() {
-    if (!this._isAlertByProps()) return nothing;
-    const {
-      cancelLabel,
-      cancelActionDisabled,
-      primaryActionId,
-      primaryActionDisabled,
-      primaryActionPending,
-    } = this;
-    const primaryClass = this._primaryButtonClass();
-    const pending = Boolean(primaryActionPending);
-    return html`
-      ${typeof cancelLabel === 'string'
-        ? html`
-            <button
-              type="button"
-              class="btn btn-secondary"
-              ?disabled=${Boolean(cancelActionDisabled || pending)}
-              @click=${this._onCancelAction}
-            >${cancelLabel}</button>
-          `
-        : nothing}
-      <button
-        type="button"
-        class=${`btn ${primaryClass}${pending ? ' is-pending' : ''}`}
-        id=${primaryActionId || nothing}
-        ?disabled=${Boolean(primaryActionDisabled || pending)}
-        aria-busy=${pending ? 'true' : 'false'}
-        @click=${this._onPrimaryAction}
-      >
-        ${pending
-        ? html`<nx-progress-circle class="btn-progress" aria-hidden="true"></nx-progress-circle>`
-        : nothing}
-        <span class="btn-label">${this.primaryActionLabel}</span>
-      </button>
-    `;
-  }
-
-  _renderShell({ title, body, actions }) {
-    const busy = Boolean(this.primaryActionPending);
+  render() {
+    const rawTitle = typeof this.title === 'string' ? this.title.trim() : '';
+    const busy = Boolean(this.busy);
     return html`
       <dialog
         class="shell"
-        aria-labelledby="nx-dialog-title"
+        aria-labelledby=${rawTitle ? 'nx-dialog-title' : nothing}
+        aria-label=${rawTitle ? nothing : 'Dialog'}
         @cancel=${this._onNativeCancel}
         @click=${this._onShellClick}
       >
@@ -169,34 +96,25 @@ class NxDialog extends LitElement {
         >
           <div class="surface">
             <div class="heading">
-              <h2 class="title" id="nx-dialog-title">${title}</h2>
-              <div
-                class="title-divider"
-                role="separator"
-                aria-hidden="true"
-              ></div>
+              ${rawTitle
+                ? html`
+                    <h2 class="title" id="nx-dialog-title">${rawTitle}</h2>
+                    <div
+                      class="title-divider"
+                      role="separator"
+                      aria-hidden="true"
+                    ></div>
+                  `
+                : nothing}
             </div>
-            <div class="body">
-              ${body}
-            </div>
+            <div class="body"><slot></slot></div>
           </div>
           <div class="actions">
-            ${actions}
+            <slot name="actions"></slot>
           </div>
         </div>
       </dialog>
     `;
-  }
-
-  render() {
-    if (this._isAlertByProps()) {
-      return this._renderShell({
-        title: this.title,
-        body: this.body,
-        actions: this._alertActionsFromProps(),
-      });
-    }
-    return nothing;
   }
 }
 

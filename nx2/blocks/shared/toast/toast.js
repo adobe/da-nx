@@ -3,7 +3,6 @@ import { loadStyle } from '../../../utils/utils.js';
 
 export const VARIANT_SUCCESS = 'success';
 export const VARIANT_ERROR = 'error';
-export const NX_TOAST_SHOW_EVENT = 'nx-toast-show';
 
 const styles = await loadStyle(import.meta.url);
 const hostSheet = await loadStyle(new URL('toast-host.css', import.meta.url).href);
@@ -106,17 +105,12 @@ function appendNxToast({
   ensureHost().append(el);
 }
 
-const onToastShow = (e) => {
-  appendNxToast(e.detail || {});
-};
-
-function ensureToastBus() {
-  if (typeof document === 'undefined') return;
-  // Idempotent setup if this module is re-evaluated.
-  document.removeEventListener(NX_TOAST_SHOW_EVENT, onToastShow);
-  document.addEventListener(NX_TOAST_SHOW_EVENT, onToastShow);
+export function showToast({
+  text,
+  variant = VARIANT_SUCCESS,
+  timeout = 6000,
+} = {}) {
+  appendNxToast({ text, variant, timeout });
 }
-
-ensureToastBus();
 
 customElements.define('nx-toast', NxToast);

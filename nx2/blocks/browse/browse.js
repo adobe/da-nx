@@ -10,7 +10,7 @@ import './actions/delete/delete.js';
 import './actions/deploy/deploy.js';
 import '../shared/breadcrumb/breadcrumb.js';
 import {
-  NX_TOAST_SHOW_EVENT,
+  showToast,
   VARIANT_ERROR,
   VARIANT_SUCCESS,
 } from '../shared/toast/toast.js';
@@ -34,11 +34,6 @@ function browseActionErrorToastText(m) {
   return title || 'Something went wrong.';
 }
 
-function dispatchBrowseToast(detail) {
-  if (typeof document === 'undefined') return;
-  document.dispatchEvent(new CustomEvent(NX_TOAST_SHOW_EVENT, { detail }));
-}
-
 class NxBrowse extends LitElement {
   static properties = {
     _items: { state: true },
@@ -46,6 +41,8 @@ class NxBrowse extends LitElement {
     _selectedKeys: { state: true },
     _activeAction: { state: true },
   };
+
+  _listRequestId = 0;
 
   set context(value) {
     this._explicitContext = true;
@@ -99,6 +96,8 @@ class NxBrowse extends LitElement {
   }
 
   async _syncList() {
+    this._listRequestId += 1;
+    const requestId = this._listRequestId;
     const ctx = this._pathContext;
     if (!ctx) {
       this._items = undefined;
@@ -109,6 +108,7 @@ class NxBrowse extends LitElement {
 
     const { fullpath } = ctx;
     const result = await listFolder(fullpath);
+    if (requestId !== this._listRequestId) return;
 
     if ('error' in result) {
       this._items = undefined;
@@ -162,18 +162,18 @@ class NxBrowse extends LitElement {
       }
       this._syncList().catch(() => { });
       if (active.type === 'rename') {
-        dispatchBrowseToast({
+        showToast({
           text: 'The resource was renamed.',
           variant: VARIANT_SUCCESS,
         });
       } else if (active.type === 'delete') {
         const n = Array.isArray(active.selectedRows) ? active.selectedRows.length : 0;
-        dispatchBrowseToast({
+        showToast({
           text: n > 1 ? 'The selected resources were deleted.' : 'The resource was deleted.',
           variant: VARIANT_SUCCESS,
         });
       } else if (active.type === 'deploy') {
-        dispatchBrowseToast({
+        showToast({
           text: active.action === 'publish'
             ? 'Publish completed.'
             : 'Preview completed.',
@@ -183,7 +183,7 @@ class NxBrowse extends LitElement {
       return;
     }
     if (detail?.message) {
-      dispatchBrowseToast({
+      showToast({
         text: browseActionErrorToastText(detail.message),
         variant: VARIANT_ERROR,
       });

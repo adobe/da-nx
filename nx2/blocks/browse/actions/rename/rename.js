@@ -115,38 +115,49 @@ class NxBrowseRenameDialog extends LitElement {
     if (!selectedRow) return nothing;
 
     const draft = this._draft ?? '';
-    const body = html`
-      <div>
-        <label class="field">
-          <span class="field-caption">New name</span>
-          <input
-            id="browse-rename-input"
-            class="text-input"
-            type="text"
-            autocomplete="off"
-            .value=${draft}
-            @input=${this._onInput}
-            @keydown=${this._onKeydown}
-          />
-        </label>
-      </div>
-    `;
-
     return html`
       <nx-dialog
         .title=${'Rename'}
-        .body=${body}
-        .cancelLabel=${'Cancel'}
-        .primaryActionLabel=${'Rename'}
-        .cancelActionDisabled=${this._pending}
-        .primaryActionDisabled=${this._renamePrimaryDisabled()}
-        .primaryActionPending=${this._pending}
+        .busy=${this._pending}
         .autofocusId=${'browse-rename-input'}
         .dismissable=${!this._pending}
-        @nx-dialog-cancel=${this._onDismiss}
-        @nx-dialog-primary=${this._onConfirm}
         @nx-dialog-close=${this._onDismiss}
-      ></nx-dialog>
+      >
+        <div>
+          <label class="field">
+            <span class="field-caption">New name</span>
+            <input
+              id="browse-rename-input"
+              class="text-input"
+              type="text"
+              autocomplete="off"
+              .value=${draft}
+              @input=${this._onInput}
+              @keydown=${this._onKeydown}
+            />
+          </label>
+        </div>
+        <button
+          slot="actions"
+          type="button"
+          class="btn btn-secondary"
+          ?disabled=${this._pending}
+          @click=${this._onDismiss}
+        >Cancel</button>
+        <button
+          slot="actions"
+          type="button"
+          class=${`btn btn-primary${this._pending ? ' is-pending' : ''}`}
+          ?disabled=${this._renamePrimaryDisabled() || this._pending}
+          aria-busy=${this._pending ? 'true' : 'false'}
+          @click=${this._onConfirm}
+        >
+          ${this._pending
+            ? html`<nx-progress-circle class="btn-progress" aria-hidden="true"></nx-progress-circle>`
+            : nothing}
+          <span class="btn-label">Rename</span>
+        </button>
+      </nx-dialog>
     `;
   }
 }
