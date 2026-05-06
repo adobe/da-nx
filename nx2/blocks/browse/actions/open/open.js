@@ -57,7 +57,6 @@ export function open({ item }) {
   }
   const entryType = entryTypeFromExtension(item.ext);
   const hashPath = itemHashPath(item);
-
   if (entryType === RESOURCE_TYPE.document) {
     openDocument(hashPath);
     return;

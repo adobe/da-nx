@@ -12,11 +12,7 @@ async function deleteItems({ selectedRows }) {
     if (!r.ok) {
       return {
         ok: false,
-        message: {
-          title: 'Delete failed',
-          body: r.error || 'Delete failed',
-          isError: true,
-        },
+        message: r.error || 'Delete failed',
       };
     }
   }
@@ -61,11 +57,7 @@ class NxBrowseDeleteDialog extends LitElement {
       else this._emitComplete({ message: result.message });
     } catch {
       this._emitComplete({
-        message: {
-          title: 'Something went wrong',
-          body: 'An unexpected error occurred.',
-          isError: true,
-        },
+        message: 'An unexpected error occurred.',
       });
     } finally {
       this._pending = false;

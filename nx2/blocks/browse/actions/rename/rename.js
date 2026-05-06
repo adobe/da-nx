@@ -90,20 +90,12 @@ class NxBrowseRenameDialog extends LitElement {
         this._emitComplete({ success: true });
       } else {
         this._emitComplete({
-          message: {
-            title: 'Rename failed',
-            body: r.error || 'Rename failed',
-            isError: true,
-          },
+          message: r.error || 'Rename failed',
         });
       }
     } catch {
       this._emitComplete({
-        message: {
-          title: 'Something went wrong',
-          body: 'An unexpected error occurred.',
-          isError: true,
-        },
+        message: 'An unexpected error occurred.',
       });
     } finally {
       this._pending = false;

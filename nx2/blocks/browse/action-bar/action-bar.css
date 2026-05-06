@@ -12,7 +12,7 @@
   width: 100%;
   min-height: var(--s2-spacing-500);
   height: var(--s2-spacing-500);
-  padding-inline-start: 10px;
+  padding-inline-start: calc(var(--s2-spacing-100) + var(--s2-spacing-50));
   font-family: var(--s2-font-family);
   font-size: var(--s2-component-m-regular-font-size);
   line-height: var(--s2-component-m-regular-line-height);
@@ -24,7 +24,7 @@
 .bar-lead {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: calc(var(--s2-spacing-75) + var(--s2-spacing-50));
   box-sizing: border-box;
 
   /* Fixed width (viewport-based only) so actions do not shift when the count string changes. */
@@ -83,7 +83,7 @@
 .action {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: calc(var(--s2-spacing-75) + var(--s2-spacing-50));
   box-sizing: border-box;
   margin: 0;
   padding: 0 var(--s2-spacing-75);

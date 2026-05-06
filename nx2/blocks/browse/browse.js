@@ -25,15 +25,6 @@ const documentLayoutStyles = await loadStyle(
 );
 document.adoptedStyleSheets = [...document.adoptedStyleSheets, documentLayoutStyles];
 
-/** @param {{ title?: string, body?: string }} m */
-function browseActionErrorToastText(m) {
-  if (!m || typeof m !== 'object') return 'Something went wrong.';
-  const body = typeof m.body === 'string' ? m.body.trim() : '';
-  if (body) return body;
-  const title = typeof m.title === 'string' ? m.title.trim() : '';
-  return title || 'Something went wrong.';
-}
-
 class NxBrowse extends LitElement {
   static properties = {
     _items: { state: true },
@@ -47,7 +38,6 @@ class NxBrowse extends LitElement {
   set context(value) {
     this._explicitContext = true;
     this._context = value;
-    this.requestUpdate();
     if (this.isConnected) {
       this._syncList();
     }
@@ -85,16 +75,6 @@ class NxBrowse extends LitElement {
     return contextToPathContext(this._context);
   }
 
-  _openBrowseAction(spec) {
-    this._activeAction = spec;
-    this.requestUpdate();
-  }
-
-  _clearBrowseAction() {
-    this._activeAction = null;
-    this.requestUpdate();
-  }
-
   async _syncList() {
     this._listRequestId += 1;
     const requestId = this._listRequestId;
@@ -102,7 +82,6 @@ class NxBrowse extends LitElement {
     if (!ctx) {
       this._items = undefined;
       this._listError = undefined;
-      this.requestUpdate();
       return;
     }
 
@@ -117,7 +96,6 @@ class NxBrowse extends LitElement {
       this._listError = undefined;
       this._items = result;
     }
-    this.requestUpdate();
   }
 
   _onBrowseSelectionChange(event) {
@@ -134,28 +112,28 @@ class NxBrowse extends LitElement {
     if (action === 'delete') {
       const selectedRows = paths.map((p) => items.find((i) => i.path === p)).filter(Boolean);
       if (!selectedRows.length) return;
-      this._openBrowseAction({ type: 'delete', selectedRows });
+      this._activeAction = { type: 'delete', selectedRows };
       return;
     }
     if (action === 'rename') {
       if (paths.length !== 1) return;
       const selectedRow = items.find((i) => i.path === paths[0]);
       if (!selectedRow) return;
-      this._openBrowseAction({ type: 'rename', selectedRow });
+      this._activeAction = { type: 'rename', selectedRow };
       return;
     }
     if (action === 'preview' || action === 'publish') {
       if (paths.length !== 1) return;
       const selectedRow = items.find((i) => i.path === paths[0]);
       if (!selectedRow || isFolder(selectedRow)) return;
-      this._openBrowseAction({ type: 'deploy', selectedRow, action });
+      this._activeAction = { type: 'deploy', selectedRow, action };
     }
   };
 
   _onBrowseActionComplete = (detail) => {
     const active = this._activeAction;
     if (!active) return;
-    this._clearBrowseAction();
+    this._activeAction = null;
     if (detail?.success) {
       if (active.type !== 'deploy') {
         this._onBrowseSelectionDismiss();
@@ -173,8 +151,7 @@ class NxBrowse extends LitElement {
           variant: VARIANT_SUCCESS,
         });
       } else if (active.type === 'deploy') {
-        const urls = Array.isArray(detail?.openedUrls) ? detail.openedUrls : [];
-        urls.forEach((href) => openUrl({ href, cacheBust: true }));
+        detail.openedUrls.forEach((href) => openUrl({ href, cacheBust: true }));
         showToast({
           text: active.action === 'publish'
             ? 'Publish completed.'
@@ -186,23 +163,15 @@ class NxBrowse extends LitElement {
     }
     if (detail?.message) {
       showToast({
-        text: browseActionErrorToastText(detail.message),
+        text: detail.message,
         variant: VARIANT_ERROR,
       });
     }
   };
 
-  _onBrowseActionCompleteEvent = (e) => {
-    this._onBrowseActionComplete(e.detail);
-  };
-
   _onBrowseSelectionDismiss = () => {
     this.shadowRoot?.querySelector('nx-browse-list')?.clearSelection();
   };
-
-  _onBrowseActivate(event) {
-    open({ item: event.detail.item });
-  }
 
   render() {
     const ctx = this._pathContext;
@@ -283,14 +252,14 @@ class NxBrowse extends LitElement {
       <nx-browse-list
         .items=${this._items}
         .folderKey=${ctx.fullpath}
-        @nx-browse-activate=${this._onBrowseActivate}
+        @nx-browse-activate=${(event) => open({ item: event.detail.item })}
         @nx-browse-selection-change=${this._onBrowseSelectionChange}
       ></nx-browse-list>
       ${activeAction?.type === 'rename'
         ? html`
             <nx-browse-rename-dialog
               .selectedRow=${activeAction.selectedRow}
-              @nx-browse-action-complete=${this._onBrowseActionCompleteEvent}
+              @nx-browse-action-complete=${(e) => this._onBrowseActionComplete(e.detail)}
             ></nx-browse-rename-dialog>
           `
         : nothing}
@@ -298,7 +267,7 @@ class NxBrowse extends LitElement {
         ? html`
             <nx-browse-delete-dialog
               .selectedRows=${activeAction.selectedRows}
-              @nx-browse-action-complete=${this._onBrowseActionCompleteEvent}
+              @nx-browse-action-complete=${(e) => this._onBrowseActionComplete(e.detail)}
             ></nx-browse-delete-dialog>
           `
         : nothing}
@@ -307,7 +276,7 @@ class NxBrowse extends LitElement {
             <nx-browse-deploy-runner
               .selectedRow=${activeAction.selectedRow}
               .action=${activeAction.action}
-              @nx-browse-action-complete=${this._onBrowseActionCompleteEvent}
+              @nx-browse-action-complete=${(e) => this._onBrowseActionComplete(e.detail)}
             ></nx-browse-deploy-runner>
           `
         : nothing}

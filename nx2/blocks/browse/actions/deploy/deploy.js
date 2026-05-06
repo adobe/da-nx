@@ -10,7 +10,6 @@ export async function deploy({ sourcePath, action }) {
   for (const phase of seq) {
     const r = await saveToAem(sourcePath, phase);
     if ('error' in r) {
-      const label = phase === 'live' ? 'Publish' : 'Preview';
       const status = r.status ?? 0;
       let body = 'The operation could not be completed. Please try again.';
       if (status === 404) {
@@ -27,11 +26,7 @@ export async function deploy({ sourcePath, action }) {
       }
       return {
         ok: false,
-        message: {
-          title: `${label} failed`,
-          body,
-          isError: true,
-        },
+        message: body,
       };
     }
     if (phase === 'preview') {
@@ -88,17 +83,13 @@ class NxBrowseDeployRunner extends LitElement {
       if (result.ok) {
         this._emitComplete({
           success: true,
-          openedUrls: Array.isArray(result.openedUrls) ? result.openedUrls : [],
+          openedUrls: result.openedUrls,
         });
       } else if (result.message) this._emitComplete({ message: result.message });
       else this._emitComplete();
     } catch {
       this._emitComplete({
-        message: {
-          title: 'Something went wrong',
-          body: 'An unexpected error occurred.',
-          isError: true,
-        },
+        message: 'An unexpected error occurred.',
       });
     }
   }

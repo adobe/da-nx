@@ -78,7 +78,6 @@ export class NxBrowseList extends LitElement {
     if (!this._selectedKeys?.length) return;
     this._selectedKeys = [];
     this._emitSelectionChange();
-    this.requestUpdate();
   }
 
   _isRowSelected(path) {
