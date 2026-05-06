@@ -5,7 +5,7 @@ import {
   getSearchSuggestions,
   processMediaData,
   clearProcessDataCache,
-} from '../../../nx/blocks/media-library/features/filters.js';
+} from '../../../nx/blocks/media-library/ui/filters.js';
 
 describe('filters', () => {
   describe('parseColonSyntax', () => {

@@ -1,18 +1,18 @@
 import { html, LitElement, nothing } from 'da-lit';
-import getStyle from '../../../../utils/styles.js';
-import { parseOrgRepoFromUrl } from '../../core/urls.js';
-import { normalizeSitePath } from '../../core/paths.js';
-import loadSvgIcons from '../../../../utils/svg.js';
-import { Storage } from '../../core/constants.js';
-import { showNotification } from '../../core/state.js';
-import { t } from '../../core/messages.js';
-import { ErrorCodes, logMediaLibraryError } from '../../core/errors.js';
+import getStyle from '../../../../../utils/styles.js';
+import { parseOrgRepoFromUrl } from '../../../core/urls.js';
+import { normalizeSitePath } from '../../../core/paths.js';
+import loadSvgIcons from '../../../../../utils/svg.js';
+import { Storage } from '../../../core/constants.js';
+import { showNotification } from '../../../core/state.js';
+import { t } from '../../../core/messages.js';
+import { ErrorCodes, logMediaLibraryError } from '../../../core/errors.js';
 
 const EL_NAME = 'nx-media-onboard';
 const styles = await getStyle(import.meta.url);
 const RANDOM_MAX = 8;
-const iconsBase = new URL('../../../../img/icons/', import.meta.url).href;
-const assetsBase = new URL('../../assets/', import.meta.url).href;
+const iconsBase = new URL('../../../../../img/icons/', import.meta.url).href;
+const assetsBase = new URL('../../../assets/', import.meta.url).href;
 
 const ICONS = [
   `${iconsBase}C_Icon_Arrow_Next.svg`,

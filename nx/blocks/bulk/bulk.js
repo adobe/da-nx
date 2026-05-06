@@ -13,6 +13,10 @@ const icons = await getSvg({ paths: [`${nx}/img/icons/Smock_ChevronRight_18_N.sv
 
 // const MOCK_URLS = 'https://main--docket--da-pilot.aem.page/about/faq\nhttps://main--docket--da-pilot.aem.page/about/release-notes\nhttps://main--docket--da-pilot.aem.page/about/release-notes/da-admin\nhttps://main--docket--da-pilot.aem.page/about/release-notes/da-collab\nhttps://main--docket--da-pilot.aem.page/about/release-notes/da-content\nhttps://main--docket--da-pilot.aem.page/about/release-notes/da-live';
 
+// Accepts a newline- or comma-separated list of URLs. Intended for external
+// pages linking into the bulk tool, e.g. `/bulk?urls=${encodeURIComponent(list)}`.
+const URLS_PARAM = 'urls';
+
 const FILTER_MAP = {
   Success: true,
   Errors: false,
@@ -35,6 +39,29 @@ class NxBulk extends LitElement {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
     this.shadowRoot.prepend(...icons);
+  }
+
+  firstUpdated() {
+    this.consumeUrlsParam();
+  }
+
+  consumeUrlsParam() {
+    // Populate the textarea from a `urls` query param (if present)
+    const url = new URL(window.location);
+    const raw = url.searchParams.get(URLS_PARAM);
+    if (!raw) return;
+
+    const urls = raw
+      .split(/[\n,]/)
+      .map((u) => u.trim())
+      .filter(Boolean)
+      .join('\n');
+
+    const textarea = this.shadowRoot.querySelector('sl-textarea[name="urls"]');
+    if (textarea && urls) textarea.value = urls;
+
+    url.searchParams.delete(URLS_PARAM);
+    window.history.replaceState({}, '', url);
   }
 
   resetState() {
