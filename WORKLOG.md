@@ -1,5 +1,40 @@
 # Worklog
 
+## 2026-05-06
+
+### Phase 3 continued — chat and tool-panel moved into da-live
+
+Moved `nx2/blocks/chat/` and `nx2/blocks/tool-panel/` from da-nx into da-live as `blocks/ew-chat/` and `blocks/ew-tool-panel/`, following the same procedure as canvas/inventory.
+
+**What landed in da-live `ew`:**
+- `blocks/ew-chat/` — full chat block with sub-components (`pills`, `prompts`, `welcome`), controller, persistence, renderers, utils
+- `blocks/ew-tool-panel/` — tool panel (picker, fullsize-dialog, header actions)
+- `deps/mdast/` — copied from da-nx; used by `renderers.js` for markdown rendering
+
+**Custom element renames:**
+- `nx-chat` → `ew-chat`
+- `nx-tool-panel` → `ew-tool-panel`
+- Internal sub-elements (`nx-chat-welcome`, `nx-chat-pills`, `nx-prompts`) kept as-is
+
+**Import adaptations:**
+- `../../utils/utils.js` → `../shared/nxutils.js` (loadStyle, hashChange, getNx, DA_ADMIN)
+- `../../utils/api.js` daFetch → `../shared/utils.js` daFetch (positional signature); api.js call site updated
+- `../../utils/ims.js` loadIms → `../shared/utils.js` initIms (aliased as loadIms)
+- `../shared/menu/menu.js` (static) → `await import(\`\${getNx()}/blocks/shared/menu/menu.js\`)` (top-level dynamic; menu stays in shell)
+- `../../shared/picker/picker.js` (static) → `await import(\`\${getNx()}/blocks/shared/picker/picker.js\`)` in prompts.js and tool-panel.js
+
+**Icon migration applied (per feedback_icon_migration.md):**
+- Removed `loadHrefSvg` / `ICONS_BASE` / `loadChatIcons` from all files
+- chat.js: `ICON_SRCS` map with `/img/icons/s2-icon-*-20-n.svg` URLs; `icon()` returns `<img>` TemplateResult
+- tool-panel.js: close icon now `<img src="/img/icons/s2-icon-splitright-20-n.svg">`
+- CSS: `svg` selectors → `img`; removed `path { fill: ... }` rules; `/nx2/img/icons/` → `/img/icons/` (lowercase kebab); added `filter: invert(1)` on `.action-btn img` for dark-background buttons
+
+**canvas.js + inventory.js updated:**
+- Dynamic imports now point to local `../ew-chat/chat.js` and `../ew-tool-panel/tool-panel.js`
+- `document.createElement('nx-chat/nx-tool-panel')` → `ew-chat/ew-tool-panel`
+- `querySelector('nx-tool-panel')` selectors updated to `ew-tool-panel`
+- Removed `getNx` from canvas.js imports (no longer needed there)
+
 ## 2026-04-28
 
 ### nx2 canvas — library vs extension panel split
