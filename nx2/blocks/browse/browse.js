@@ -4,7 +4,7 @@ import { loadHrefSvg, ICONS_BASE } from '../../utils/svg.js';
 import { getPanelStore, openPanel } from '../../utils/panel.js';
 import { listFolder } from '../../utils/daFiles.js';
 import { contextToPathContext, isFolder } from './utils.js';
-import { open } from './actions/open/open.js';
+import { open, openUrl } from './actions/open/open.js';
 import './actions/rename/rename.js';
 import './actions/delete/delete.js';
 import './actions/deploy/deploy.js';
@@ -173,6 +173,8 @@ class NxBrowse extends LitElement {
           variant: VARIANT_SUCCESS,
         });
       } else if (active.type === 'deploy') {
+        const urls = Array.isArray(detail?.openedUrls) ? detail.openedUrls : [];
+        urls.forEach((href) => openUrl({ href, cacheBust: true }));
         showToast({
           text: active.action === 'publish'
             ? 'Publish completed.'

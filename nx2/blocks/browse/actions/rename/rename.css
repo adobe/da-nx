@@ -37,12 +37,3 @@
   outline: none;
   box-shadow: none;
 }
-
-.btn-progress {
-  flex: 0 0 auto;
-}
-
-.btn-label {
-  display: inline-block;
-  white-space: nowrap;
-}

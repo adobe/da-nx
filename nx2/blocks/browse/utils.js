@@ -46,16 +46,17 @@ export const ICONS = {
 };
 
 export function entryTypeFromExtension(ext) {
-  if (ext == null || ext === '') {
+  const normalized = String(ext ?? '').trim().replace(/^\./, '').toLowerCase();
+  if (!normalized) {
     return RESOURCE_TYPE.folder;
   }
-  if (['html', 'htm'].includes(ext)) {
+  if (['html', 'htm'].includes(normalized)) {
     return RESOURCE_TYPE.document;
   }
-  if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'mp4', 'webm', 'mov'].includes(ext)) {
+  if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'mp4', 'webm', 'mov'].includes(normalized)) {
     return RESOURCE_TYPE.media;
   }
-  if (['json', 'xlsx', 'xls', 'csv'].includes(ext)) {
+  if (['json', 'xlsx', 'xls', 'csv'].includes(normalized)) {
     return RESOURCE_TYPE.sheet;
   }
   return RESOURCE_TYPE.file;

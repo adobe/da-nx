@@ -5,6 +5,26 @@ import {
 } from '../../utils.js';
 import { itemHashPath } from '../../../../utils/daFiles.js';
 
+function addCacheBustQueryParam(href) {
+  const raw = typeof href === 'string' ? href.trim() : '';
+  if (!raw) return '';
+  try {
+    const url = new URL(raw, window.location.href);
+    url.searchParams.set('nocache', `${Date.now()}`);
+    return url.href;
+  } catch {
+    const separator = raw.includes('?') ? '&' : '?';
+    return `${raw}${separator}nocache=${Date.now()}`;
+  }
+}
+
+export function openUrl({ href, cacheBust = false } = {}) {
+  const raw = typeof href === 'string' ? href.trim() : '';
+  const next = cacheBust ? addCacheBustQueryParam(raw) : raw;
+  if (!next) return;
+  window.open(next, '_blank', 'noopener,noreferrer');
+}
+
 function openDocument(path) {
   const url = new URL(window.location.href);
   url.pathname = '/canvas';
@@ -18,7 +38,7 @@ function openSheet(path) {
   url.pathname = '/sheet';
   url.search = '';
   url.hash = `#/${path}`;
-  window.open(url.href, '_blank', 'noopener,noreferrer');
+  openUrl({ href: url.href });
 }
 
 function openMedia(path) {
@@ -26,7 +46,7 @@ function openMedia(path) {
   url.pathname = '/media';
   url.search = '';
   url.hash = `#${path}`;
-  window.open(url.href, '_blank', 'noopener,noreferrer');
+  openUrl({ href: url.href });
 }
 
 export function open({ item }) {

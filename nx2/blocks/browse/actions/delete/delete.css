@@ -22,12 +22,3 @@
   color: var(--s2-gray-700);
   font-size: var(--s2-body-size-xs);
 }
-
-.btn-progress {
-  flex: 0 0 auto;
-}
-
-.btn-label {
-  display: inline-block;
-  white-space: nowrap;
-}

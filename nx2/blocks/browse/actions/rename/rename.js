@@ -153,9 +153,9 @@ class NxBrowseRenameDialog extends LitElement {
           @click=${this._onConfirm}
         >
           ${this._pending
-            ? html`<nx-progress-circle class="btn-progress" aria-hidden="true"></nx-progress-circle>`
-            : nothing}
-          <span class="btn-label">Rename</span>
+        ? html`<nx-progress-circle aria-hidden="true"></nx-progress-circle>`
+        : nothing}
+          <span>Rename</span>
         </button>
       </nx-dialog>
     `;

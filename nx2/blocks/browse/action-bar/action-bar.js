@@ -43,7 +43,7 @@ export class NxBrowseActionBar extends LitElement {
     const label = n === 1 ? '1 item selected' : `${n} items selected`;
 
     return html`
-      <div class="bar" role="toolbar" aria-label="Folder selection">
+      <div class="bar" role="toolbar" aria-label="Selection actions">
         <div class="bar-lead">
           <button
             type="button"

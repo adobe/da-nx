@@ -4,13 +4,8 @@ import { saveToAem } from '../../browse-api.js';
 import '../../../shared/overlay/overlay.js';
 import '../../../shared/progress-circle/progress-circle.js';
 
-function openAemUrlWithNoCache(href) {
-  const h = href.trim();
-  if (!h) return;
-  window.open(`${h}?nocache=${Date.now()}`, '_blank', 'noopener,noreferrer');
-}
-
 export async function deploy({ sourcePath, action }) {
+  const openedUrls = [];
   const seq = action === 'publish' ? ['preview', 'live'] : ['preview'];
   for (const phase of seq) {
     const r = await saveToAem(sourcePath, phase);
@@ -42,14 +37,14 @@ export async function deploy({ sourcePath, action }) {
     if (phase === 'preview') {
       const url = r.json?.preview?.url;
       if (url && action === 'preview') {
-        openAemUrlWithNoCache(url);
+        openedUrls.push(url);
       }
     } else {
       const url = r.json?.live?.url;
-      if (url) openAemUrlWithNoCache(url);
+      if (url) openedUrls.push(url);
     }
   }
-  return { ok: true };
+  return { ok: true, openedUrls };
 }
 
 const styles = await loadStyle(import.meta.url);
@@ -90,8 +85,12 @@ class NxBrowseDeployRunner extends LitElement {
     }
     try {
       const result = await deploy({ sourcePath, action });
-      if (result.ok) this._emitComplete({ success: true });
-      else if (result.message) this._emitComplete({ message: result.message });
+      if (result.ok) {
+        this._emitComplete({
+          success: true,
+          openedUrls: Array.isArray(result.openedUrls) ? result.openedUrls : [],
+        });
+      } else if (result.message) this._emitComplete({ message: result.message });
       else this._emitComplete();
     } catch {
       this._emitComplete({

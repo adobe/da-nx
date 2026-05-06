@@ -12,7 +12,7 @@
   width: 100%;
   min-height: var(--s2-spacing-500);
   height: var(--s2-spacing-500);
-  padding-left: 10px;
+  padding-inline-start: 10px;
   font-family: var(--s2-font-family);
   font-size: var(--s2-component-m-regular-font-size);
   line-height: var(--s2-component-m-regular-line-height);
@@ -28,14 +28,9 @@
   box-sizing: border-box;
 
   /* Fixed width (viewport-based only) so actions do not shift when the count string changes. */
-  flex-grow: 0;
-  flex-shrink: 0;
-
   --bar-lead-w: 141px;
 
-  width: var(--bar-lead-w);
-  min-width: var(--bar-lead-w);
-  max-width: var(--bar-lead-w);
+  flex: 0 0 var(--bar-lead-w);
   margin-inline-end: 0;
 }
 
