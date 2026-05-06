@@ -159,7 +159,9 @@ export default class ChatController {
           {
             role: ROLE.ASSISTANT,
             virtual: true,
-            content: [{ type: AGENT_EVENT.TOOL_CALL, toolCallId, toolName: prior.toolName }],
+            content: [{
+              type: AGENT_EVENT.TOOL_CALL, toolCallId, toolName: prior.toolName, input: prior.input,
+            }],
           },
         ];
         this._onToolDone?.();
