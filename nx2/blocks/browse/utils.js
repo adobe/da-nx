@@ -9,15 +9,24 @@ export function sanitizeName(value, trimTail = false) {
   return result;
 }
 
+function sanitizePathSegment(value) {
+  return String(value ?? '')
+    .trim()
+    .replace(/[?#].*$/, '');
+}
+
 export function contextToPathContext(context) {
   if (!context) return null;
-  const { org, site, path } = context;
+  const org = sanitizePathSegment(context.org);
+  const site = sanitizePathSegment(context.site);
   if (!org || !site) return null;
-  const fullpath = path ? `/${org}/${site}/${path}` : `/${org}/${site}`;
-  const pathSegments = path
-    ? [org, site, ...String(path).split('/').filter(Boolean)]
-    : [org, site];
-  return { pathSegments, fullpath };
+  const normalizedPath = sanitizePathSegment(context.path);
+  const pathSegments = normalizedPath
+    .split('/')
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+  const allSegments = [org, site, ...pathSegments];
+  return { pathSegments: allSegments, fullpath: `/${allSegments.join('/')}` };
 }
 
 export function isFolder(item) {
