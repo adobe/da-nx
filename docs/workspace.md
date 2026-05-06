@@ -33,15 +33,6 @@ The following sections highlight some principles in more detail.
 - Da Admin documentation: https://opensource.adobe.com/da-admin/
 - Helix Admin documentation: https://www.aem.live/docs/admin.html
 
-### Agent integration
-The `da-agent` service is owned by a separate team. Treat it as an external API — consume its contracts, do not modify it.
-
-- **Never change `da-agent` to unblock a feature.** If a capability is missing, raise it with the agent team and adapt the client to work within what exists today.
-- **Before implementing any agent-facing feature**, check two sources of truth in order:
-  1. `da-agent/src/server.ts` — the Zod schema. Understand which fields are accepted, required, and validated. Never assume a field is silently ignored; unknown keys are stripped and missing required fields return 400.
-  2. The `exp-workspace` branch — the reference client implementation. If a feature already works there, match its approach exactly rather than inventing a new convention.
-- **Document all contracts** in `docs/chat-ui-component.md` with explicit callout notes when agent changes would require client-side updates. The docs are the interface boundary between teams.
-
 ### Version Control
 - Make small commits with meaningful commit messages
 - Keep PRs to the minimum required for a feature; iterate in follow-up PRs
@@ -158,16 +149,9 @@ Provides shared functionality for Browse, the edit (`canvas`) experience, and Ch
 
 ## Chat Context Model
 
-Chat uses a typed context accumulator built before send.
+Chat receives host-pushed context (URL-derived workspace state + accumulated context items). It emits outcomes (file created/deleted/moved, navigation requested) via events and `postMessage` and never pulls state from the view directly.
 
-| Item type | Source | Available in |
-|---|---|---|
-| Block content | Add-to-chat handle on document blocks (tables, sections) | Edit (`canvas`) |
-| File attachment | User-uploaded files via chat input | Both |
-| Prompt | Saved prompts / skill invocations | Both |
-| File / folder reference | Selected items in Browse | Browse |
-
-Chat receives host-pushed context (URL-derived workspace state + accumulated items). It emits outcomes (file created/deleted/moved, navigation requested) via events and `postMessage` and never pulls state from the view directly.
+For the full context model — item types, `nx-add-to-chat` event shape, `selectionContext` wire format, and agent contract — see [chat-ui-component.md](chat-ui-component.md#selection-context).
 
 ---
 
