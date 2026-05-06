@@ -8,11 +8,11 @@ async function deleteItems({ selectedRows }) {
     return { ok: true };
   }
   for (const item of selectedRows) {
-    const r = await deleteSourcePath(item.path);
-    if (!r.ok) {
+    const deleteResult = await deleteSourcePath(item.path);
+    if (!deleteResult.ok) {
       return {
         ok: false,
-        message: r.error || 'Delete failed',
+        message: deleteResult.error || 'Delete failed',
       };
     }
   }
@@ -24,7 +24,7 @@ const styles = await loadStyle(import.meta.url);
 class NxBrowseDeleteDialog extends LitElement {
   static properties = {
     selectedRows: { type: Array },
-    _pending: { state: true, type: Boolean },
+    _isPending: { state: true, type: Boolean },
   };
 
   connectedCallback() {
@@ -40,17 +40,17 @@ class NxBrowseDeleteDialog extends LitElement {
     }));
   }
 
-  _onCancel = () => {
+  _handleCancel = () => {
     this._emitComplete();
   };
 
-  _onConfirm = async () => {
+  _handleConfirm = async () => {
     const { selectedRows } = this;
     if (!selectedRows?.length) {
       this._emitComplete();
       return;
     }
-    this._pending = true;
+    this._isPending = true;
     try {
       const result = await deleteItems({ selectedRows });
       if (result.ok) this._emitComplete({ success: true });
@@ -60,11 +60,11 @@ class NxBrowseDeleteDialog extends LitElement {
         message: 'An unexpected error occurred.',
       });
     } finally {
-      this._pending = false;
+      this._isPending = false;
     }
   };
 
-  _onClose = () => {
+  _handleClose = () => {
     this._emitComplete();
   };
 
@@ -72,16 +72,16 @@ class NxBrowseDeleteDialog extends LitElement {
     const selectedRows = this.selectedRows ?? [];
     if (!selectedRows.length) return nothing;
 
-    const n = selectedRows.length;
-    const itemWord = n === 1 ? 'item' : 'items';
-    const lines = selectedRows.map((r) => r.path).slice(0, 5);
-    const more = n > 5 ? n - 5 : 0;
+    const selectedCount = selectedRows.length;
+    const itemWord = selectedCount === 1 ? 'item' : 'items';
+    const lines = selectedRows.map((selectedRow) => selectedRow.path).slice(0, 5);
+    const more = selectedCount > 5 ? selectedCount - 5 : 0;
     return html`
       <nx-dialog
-        .title=${`Delete ${n} ${itemWord}`}
-        .busy=${this._pending}
-        .dismissable=${!this._pending}
-        @nx-dialog-close=${this._onClose}
+        .title=${`Delete ${selectedCount} ${itemWord}`}
+        .busy=${this._isPending}
+        .dismissable=${!this._isPending}
+        @nx-dialog-close=${this._handleClose}
       >
         <div>
           <ul class="list">
@@ -93,18 +93,18 @@ class NxBrowseDeleteDialog extends LitElement {
           slot="actions"
           type="button"
           class="btn btn-secondary"
-          ?disabled=${this._pending}
-          @click=${this._onCancel}
+          ?disabled=${this._isPending}
+          @click=${this._handleCancel}
         >Cancel</button>
         <button
           slot="actions"
           type="button"
-          class=${`btn btn-danger${this._pending ? ' is-pending' : ''}`}
-          ?disabled=${this._pending}
-          aria-busy=${this._pending ? 'true' : 'false'}
-          @click=${this._onConfirm}
+          class=${`btn btn-danger${this._isPending ? ' is-pending' : ''}`}
+          ?disabled=${this._isPending}
+          aria-busy=${this._isPending ? 'true' : 'false'}
+          @click=${this._handleConfirm}
         >
-          ${this._pending
+          ${this._isPending
         ? html`<nx-progress-circle aria-hidden="true"></nx-progress-circle>`
         : nothing}
           <span>Delete</span>

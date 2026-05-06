@@ -6,11 +6,11 @@ import '../../../shared/progress-circle/progress-circle.js';
 
 export async function deploy({ sourcePath, action }) {
   const openedUrls = [];
-  const seq = action === 'publish' ? ['preview', 'live'] : ['preview'];
-  for (const phase of seq) {
-    const r = await saveToAem(sourcePath, phase);
-    if ('error' in r) {
-      const status = r.status ?? 0;
+  const phases = action === 'publish' ? ['preview', 'live'] : ['preview'];
+  for (const phase of phases) {
+    const saveResult = await saveToAem(sourcePath, phase);
+    if ('error' in saveResult) {
+      const status = saveResult.status ?? 0;
       let body = 'The operation could not be completed. Please try again.';
       if (status === 404) {
         body = 'Resource not found or already removed.';
@@ -30,12 +30,12 @@ export async function deploy({ sourcePath, action }) {
       };
     }
     if (phase === 'preview') {
-      const url = r.json?.preview?.url;
+      const url = saveResult.json?.preview?.url;
       if (url && action === 'preview') {
         openedUrls.push(url);
       }
     } else {
-      const url = r.json?.live?.url;
+      const url = saveResult.json?.live?.url;
       if (url) openedUrls.push(url);
     }
   }

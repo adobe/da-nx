@@ -36,7 +36,7 @@ class NxBrowse extends LitElement {
   _listRequestId = 0;
 
   set context(value) {
-    this._explicitContext = true;
+    this._hasExplicitContext = true;
     this._context = value;
     if (this.isConnected) {
       this._syncList();
@@ -55,12 +55,12 @@ class NxBrowse extends LitElement {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [styles];
     this._unsubscribeHash = hashChange.subscribe((hashState) => {
-      if (!this._explicitContext) {
+      if (!this._hasExplicitContext) {
         this._context = hashState;
         this._syncList();
       }
     });
-    if (this._explicitContext && this._context) {
+    if (this._hasExplicitContext && this._context) {
       this._syncList();
     }
   }
@@ -98,11 +98,12 @@ class NxBrowse extends LitElement {
     }
   }
 
-  _onBrowseSelectionChange(event) {
+  _handleBrowseSelectionChange(event) {
     this._selectedKeys = event.detail.selectedKeys;
   }
 
-  _onBrowseSelectionAction = async ({ action }) => {
+  _handleBrowseSelectionAction = async (event) => {
+    const { action } = event.detail || {};
     const ctx = this._pathContext;
     const items = this._items;
     const paths = this._selectedKeys || [];
@@ -110,33 +111,35 @@ class NxBrowse extends LitElement {
       return;
     }
     if (action === 'delete') {
-      const selectedRows = paths.map((p) => items.find((i) => i.path === p)).filter(Boolean);
+      const selectedRows = paths
+        .map((selectedPath) => items.find((itemEntry) => itemEntry.path === selectedPath))
+        .filter(Boolean);
       if (!selectedRows.length) return;
       this._activeAction = { type: 'delete', selectedRows };
       return;
     }
     if (action === 'rename') {
       if (paths.length !== 1) return;
-      const selectedRow = items.find((i) => i.path === paths[0]);
+      const selectedRow = items.find((itemEntry) => itemEntry.path === paths[0]);
       if (!selectedRow) return;
       this._activeAction = { type: 'rename', selectedRow };
       return;
     }
     if (action === 'preview' || action === 'publish') {
       if (paths.length !== 1) return;
-      const selectedRow = items.find((i) => i.path === paths[0]);
+      const selectedRow = items.find((itemEntry) => itemEntry.path === paths[0]);
       if (!selectedRow || isFolder(selectedRow)) return;
       this._activeAction = { type: 'deploy', selectedRow, action };
     }
   };
 
-  _onBrowseActionComplete = (detail) => {
+  _handleBrowseActionComplete = (detail) => {
     const active = this._activeAction;
     if (!active) return;
     this._activeAction = null;
     if (detail?.success) {
       if (active.type !== 'deploy') {
-        this._onBrowseSelectionDismiss();
+        this._handleBrowseSelectionDismiss();
       }
       this._syncList().catch(() => { });
       if (active.type === 'rename') {
@@ -145,9 +148,9 @@ class NxBrowse extends LitElement {
           variant: VARIANT_SUCCESS,
         });
       } else if (active.type === 'delete') {
-        const n = Array.isArray(active.selectedRows) ? active.selectedRows.length : 0;
+        const selectedCount = Array.isArray(active.selectedRows) ? active.selectedRows.length : 0;
         showToast({
-          text: n > 1 ? 'The selected resources were deleted.' : 'The resource was deleted.',
+          text: selectedCount > 1 ? 'The selected resources were deleted.' : 'The resource was deleted.',
           variant: VARIANT_SUCCESS,
         });
       } else if (active.type === 'deploy') {
@@ -169,7 +172,7 @@ class NxBrowse extends LitElement {
     }
   };
 
-  _onBrowseSelectionDismiss = () => {
+  _handleBrowseSelectionDismiss = () => {
     this.shadowRoot?.querySelector('nx-browse-list')?.clearSelection();
   };
 
@@ -207,27 +210,29 @@ class NxBrowse extends LitElement {
     }
 
     const selectionCount = this._selectedKeys?.length ?? 0;
-    const showActionBar = selectionCount > 0;
+    const hasSelection = selectionCount > 0;
     const paths = this._selectedKeys || [];
-    const sole = paths.length === 1 ? this._items?.find((i) => i.path === paths[0]) : undefined;
-    const showDeploy = !!sole && !isFolder(sole);
-    const showRename = selectionCount === 1;
-    const showDelete = selectionCount > 0;
+    const selectedItem = paths.length === 1
+      ? this._items?.find((itemEntry) => itemEntry.path === paths[0])
+      : undefined;
+    const hasDeployAction = !!selectedItem && !isFolder(selectedItem);
+    const hasRenameAction = selectionCount === 1;
+    const hasDeleteAction = selectionCount > 0;
     const header = html`
       <div class="browse-header">
         <div class="browse-title-bar">
           <h1 class="browse-title">${title}</h1>
         </div>
-        ${showActionBar
+        ${hasSelection
         ? html`
               <nx-browse-action-bar
                 .count=${selectionCount}
-                .showDelete=${showDelete}
-                .showRename=${showRename}
-                .showDeploy=${showDeploy}
-                .disabled=${Boolean(this._activeAction)}
-                .onDismiss=${this._onBrowseSelectionDismiss}
-                .onAction=${this._onBrowseSelectionAction}
+                .hasDeleteAction=${hasDeleteAction}
+                .hasRenameAction=${hasRenameAction}
+                .hasDeployAction=${hasDeployAction}
+                .isDisabled=${Boolean(this._activeAction)}
+                @nx-browse-selection-dismiss=${this._handleBrowseSelectionDismiss}
+                @nx-browse-selection-action=${this._handleBrowseSelectionAction}
               ></nx-browse-action-bar>
             `
         : html`<nx-breadcrumb .pathSegments=${ctx.pathSegments}></nx-breadcrumb>`}
@@ -253,13 +258,13 @@ class NxBrowse extends LitElement {
         .items=${this._items}
         .folderKey=${ctx.fullpath}
         @nx-browse-activate=${(event) => open({ item: event.detail.item })}
-        @nx-browse-selection-change=${this._onBrowseSelectionChange}
+        @nx-browse-selection-change=${this._handleBrowseSelectionChange}
       ></nx-browse-list>
       ${activeAction?.type === 'rename'
         ? html`
             <nx-browse-rename-dialog
               .selectedRow=${activeAction.selectedRow}
-              @nx-browse-action-complete=${(e) => this._onBrowseActionComplete(e.detail)}
+              @nx-browse-action-complete=${(event) => this._handleBrowseActionComplete(event.detail)}
             ></nx-browse-rename-dialog>
           `
         : nothing}
@@ -267,7 +272,7 @@ class NxBrowse extends LitElement {
         ? html`
             <nx-browse-delete-dialog
               .selectedRows=${activeAction.selectedRows}
-              @nx-browse-action-complete=${(e) => this._onBrowseActionComplete(e.detail)}
+              @nx-browse-action-complete=${(event) => this._handleBrowseActionComplete(event.detail)}
             ></nx-browse-delete-dialog>
           `
         : nothing}
@@ -276,7 +281,7 @@ class NxBrowse extends LitElement {
             <nx-browse-deploy-runner
               .selectedRow=${activeAction.selectedRow}
               .action=${activeAction.action}
-              @nx-browse-action-complete=${(e) => this._onBrowseActionComplete(e.detail)}
+              @nx-browse-action-complete=${(event) => this._handleBrowseActionComplete(event.detail)}
             ></nx-browse-deploy-runner>
           `
         : nothing}
@@ -304,8 +309,8 @@ export default function decorate(block) {
     });
   };
 
-  browse.addEventListener('nx-browse-open-panel', (e) => {
-    if (e.detail.position === 'before') openBrowseChatPanel();
+  browse.addEventListener('nx-browse-open-panel', (event) => {
+    if (event.detail.position === 'before') openBrowseChatPanel();
   });
 
   const store = getPanelStore();

@@ -37,18 +37,18 @@ export async function renameSourcePath(currentPath, destination) {
 }
 
 export async function saveToAem(path, action) {
-  const p = path.startsWith('/') ? path.slice(1) : path;
-  const i = p.indexOf('/');
-  if (i < 1) {
+  const normalizedPath = path.startsWith('/') ? path.slice(1) : path;
+  const orgSlashIndex = normalizedPath.indexOf('/');
+  if (orgSlashIndex < 1) {
     return { error: 'Invalid path for AEM', status: 0 };
   }
-  const j = p.indexOf('/', i + 1);
-  if (j < i + 1) {
+  const siteSlashIndex = normalizedPath.indexOf('/', orgSlashIndex + 1);
+  if (siteSlashIndex < orgSlashIndex + 1) {
     return { error: 'Invalid path for AEM', status: 0 };
   }
-  const owner = p.slice(0, i).toLowerCase();
-  const repo = p.slice(i + 1, j).toLowerCase();
-  const aemPath = p.slice(j + 1);
+  const owner = normalizedPath.slice(0, orgSlashIndex).toLowerCase();
+  const repo = normalizedPath.slice(orgSlashIndex + 1, siteSlashIndex).toLowerCase();
+  const aemPath = normalizedPath.slice(siteSlashIndex + 1);
   const requestUrl = `${AEM_ORIGIN}/${action}/${owner}/${repo}/main/${aemPath}`;
   const response = await daFetch(requestUrl, { method: 'POST' });
   if (!response.ok) {

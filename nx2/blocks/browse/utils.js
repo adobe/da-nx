@@ -1,11 +1,11 @@
 import { loadHrefSvg, ICONS_BASE } from '../../utils/svg.js';
 
-export function sanitizeName(value, trimTail = false) {
+export function sanitizeName(value, isTrimTail = false) {
   let result = value
     .replaceAll(/[^a-zA-Z0-9.]/g, '-')
     .replaceAll(/-+/g, '-')
     .toLowerCase();
-  if (trimTail) result = result.replace(/[^a-zA-Z0-9]+$/, '');
+  if (isTrimTail) result = result.replace(/[^a-zA-Z0-9]+$/, '');
   return result;
 }
 
@@ -91,6 +91,6 @@ export async function loadIcons() {
   const entries = Object.entries(ICONS);
   const svgs = await Promise.all(entries.map(([, href]) => loadHrefSvg(href)));
   const loaded = {};
-  entries.forEach(([k], i) => { loaded[k] = svgs[i]; });
+  entries.forEach(([iconKey], index) => { loaded[iconKey] = svgs[index]; });
   return loaded;
 }

@@ -12,7 +12,7 @@ class NxDialog extends LitElement {
     dismissable: { type: Boolean, attribute: false },
   };
 
-  _dismissable() {
+  _isDismissable() {
     return this.dismissable !== false && !this.busy;
   }
 
@@ -22,8 +22,8 @@ class NxDialog extends LitElement {
   }
 
   disconnectedCallback() {
-    const dialog = this.renderRoot?.querySelector('.shell');
-    if (dialog?.open) dialog.close();
+    const dialogElement = this.renderRoot?.querySelector('.shell');
+    if (dialogElement?.open) dialogElement.close();
     super.disconnectedCallback();
   }
 
@@ -37,10 +37,10 @@ class NxDialog extends LitElement {
   }
 
   _ensureShown() {
-    const dialog = this.renderRoot?.querySelector('.shell');
-    if (!dialog || dialog.open) return;
+    const dialogElement = this.renderRoot?.querySelector('.shell');
+    if (!dialogElement || dialogElement.open) return;
     try {
-      dialog.showModal();
+      dialogElement.showModal();
       this._tryAutofocus();
     } catch {
       // `showModal()` can fail if not connected yet; updated() retries.
@@ -49,50 +49,52 @@ class NxDialog extends LitElement {
 
   _tryAutofocus() {
     if (!this.autofocusId) return;
-    const id = this.autofocusId;
+    const { autofocusId } = this;
     queueMicrotask(() => {
-      const selector = typeof CSS !== 'undefined' && CSS.escape ? `#${CSS.escape(id)}` : `#${id}`;
-      const el = this.querySelector(selector);
-      if (!el) return;
-      el.focus();
-      if (el instanceof HTMLInputElement) {
-        el.select();
+      const selector = typeof CSS !== 'undefined' && CSS.escape
+        ? `#${CSS.escape(autofocusId)}`
+        : `#${autofocusId}`;
+      const autofocusElement = this.querySelector(selector);
+      if (!autofocusElement) return;
+      autofocusElement.focus();
+      if (autofocusElement instanceof HTMLInputElement) {
+        autofocusElement.select();
       }
     });
   }
 
-  _onLayerClose = () => {
+  _handleLayerClose = () => {
     this.dispatchEvent(
       new CustomEvent('nx-dialog-close', { bubbles: true, composed: true }),
     );
   };
 
-  _onNativeCancel = (e) => {
-    e.preventDefault();
-    if (!this._dismissable()) return;
-    this._onLayerClose();
+  _handleNativeCancel = (event) => {
+    event.preventDefault();
+    if (!this._isDismissable()) return;
+    this._handleLayerClose();
   };
 
-  _onShellClick = (e) => {
-    if (e.target !== e.currentTarget || !this._dismissable()) return;
-    this._onLayerClose();
+  _handleShellClick = (event) => {
+    if (event.target !== event.currentTarget || !this._isDismissable()) return;
+    this._handleLayerClose();
   };
 
   render() {
     const rawTitle = typeof this.title === 'string' ? this.title.trim() : '';
-    const busy = Boolean(this.busy);
+    const isBusy = Boolean(this.busy);
     return html`
       <dialog
         class="shell"
         aria-labelledby=${rawTitle ? 'nx-dialog-title' : nothing}
         aria-label=${rawTitle ? nothing : 'Dialog'}
-        @cancel=${this._onNativeCancel}
-        @click=${this._onShellClick}
+        @cancel=${this._handleNativeCancel}
+        @click=${this._handleShellClick}
       >
         <div
-          class=${`panel${busy ? ' is-busy' : ''}`}
-          aria-busy=${busy ? 'true' : 'false'}
-          ?inert=${busy}
+          class=${`panel${isBusy ? ' is-busy' : ''}`}
+          aria-busy=${isBusy ? 'true' : 'false'}
+          ?inert=${isBusy}
         >
           <div class="surface">
             <div class="heading">

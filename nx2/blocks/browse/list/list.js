@@ -31,7 +31,8 @@ export class NxBrowseList extends LitElement {
     const { items } = this;
     const selectedKeys = this._selectedKeys || [];
     const paths = items.map((item) => item.path);
-    const selectedCount = paths.filter((p) => selectedKeys.includes(p)).length;
+    const selectedCount = paths
+      .filter((selectedPath) => selectedKeys.includes(selectedPath)).length;
     input.indeterminate = selectedCount > 0 && selectedCount < paths.length;
     if (!paths.length) {
       input.checked = false;
@@ -53,7 +54,7 @@ export class NxBrowseList extends LitElement {
     return svg ? svg.cloneNode(true) : nothing;
   }
 
-  _onRowActivate(event, item) {
+  _handleRowActivate(event, item) {
     event.stopPropagation();
     this.dispatchEvent(
       new CustomEvent('nx-browse-activate', {
@@ -84,7 +85,7 @@ export class NxBrowseList extends LitElement {
     return (this._selectedKeys ?? []).includes(path);
   }
 
-  _onSelectAllChange(event) {
+  _handleSelectAllChange(event) {
     event.stopPropagation();
     if (this.items === undefined) {
       return;
@@ -95,7 +96,7 @@ export class NxBrowseList extends LitElement {
     this._emitSelectionChange();
   }
 
-  _onRowCheckboxChange(event, item) {
+  _handleRowCheckboxChange(event, item) {
     event.stopPropagation();
     const { path } = item;
     const selectedKeys = this._selectedKeys || [];
@@ -104,7 +105,7 @@ export class NxBrowseList extends LitElement {
         ? selectedKeys
         : [...selectedKeys, path];
     } else {
-      this._selectedKeys = selectedKeys.filter((p) => p !== path);
+      this._selectedKeys = selectedKeys.filter((selectedPath) => selectedPath !== path);
     }
     this._emitSelectionChange();
   }
@@ -116,8 +117,9 @@ export class NxBrowseList extends LitElement {
     const { items } = this;
     const selectedKeys = this._selectedKeys || [];
     const paths = items.map((item) => item.path);
-    const selectedCount = paths.filter((p) => selectedKeys.includes(p)).length;
-    const allSelected = items.length > 0 && selectedCount === items.length;
+    const selectedCount = paths
+      .filter((selectedPath) => selectedKeys.includes(selectedPath)).length;
+    const hasAllSelected = items.length > 0 && selectedCount === items.length;
 
     return html`
       <div class="scroll">
@@ -130,8 +132,8 @@ export class NxBrowseList extends LitElement {
                   <input
                     id="select-all"
                     type="checkbox"
-                    .checked=${allSelected}
-                    @change=${this._onSelectAllChange}
+                    .checked=${hasAllSelected}
+                    @change=${this._handleSelectAllChange}
                   />
                 </label>
               </th>
@@ -143,25 +145,25 @@ export class NxBrowseList extends LitElement {
           <tbody>
             ${items.map((item) => {
       const { path } = item;
-      const selected = this._isRowSelected(path);
-      const folder = isFolder(item);
-      const modified = folder
+      const isSelected = this._isRowSelected(path);
+      const isFolderRow = isFolder(item);
+      const modified = isFolderRow
         ? { label: '' }
         : formatColumnLastModified(item.lastModified);
-      const rowKind = folder ? 'row-dir' : 'row-file';
+      const rowKind = isFolderRow ? 'row-dir' : 'row-file';
       return html`
                 <tr
                   class="row ${rowKind}"
-                  aria-selected=${selected ? 'true' : 'false'}
-                  @click=${(event) => this._onRowActivate(event, item)}
+                  aria-selected=${isSelected ? 'true' : 'false'}
+                  @click=${(event) => this._handleRowActivate(event, item)}
                 >
                   <td class="column-selection" @click=${(event) => event.stopPropagation()}>
                     <label class="check">
                       <span class="sr-only">Select ${item.name || 'row'}</span>
                       <input
                         type="checkbox"
-                        .checked=${selected}
-                        @change=${(event) => this._onRowCheckboxChange(event, item)}
+                        .checked=${isSelected}
+                        @change=${(event) => this._handleRowCheckboxChange(event, item)}
                       />
                     </label>
                   </td>

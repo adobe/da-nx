@@ -4,8 +4,8 @@ import { loadStyle } from '../../../utils/utils.js';
 const styles = await loadStyle(import.meta.url);
 
 class NxOverlay extends LitElement {
-  _onBackdropClick = (e) => {
-    if (e.target !== e.currentTarget) return;
+  _handleBackdropClick = (event) => {
+    if (event.target !== event.currentTarget) return;
     this.dispatchEvent(new CustomEvent('nx-overlay-backdrop-click', {
       bubbles: true,
       composed: true,
@@ -19,7 +19,7 @@ class NxOverlay extends LitElement {
 
   render() {
     return html`
-      <div class="backdrop" @click=${this._onBackdropClick}>
+      <div class="backdrop" @click=${this._handleBackdropClick}>
         <div class="content"><slot></slot></div>
       </div>
     `;

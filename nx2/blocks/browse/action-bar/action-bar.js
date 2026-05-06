@@ -7,12 +7,10 @@ const styles = await loadStyle(import.meta.url);
 export class NxBrowseActionBar extends LitElement {
   static properties = {
     count: { type: Number },
-    showDelete: { type: Boolean },
-    showRename: { type: Boolean },
-    showDeploy: { type: Boolean },
-    disabled: { type: Boolean, attribute: false },
-    onDismiss: { type: Function, attribute: false },
-    onAction: { type: Function, attribute: false },
+    hasDeleteAction: { type: Boolean, attribute: false },
+    hasRenameAction: { type: Boolean, attribute: false },
+    hasDeployAction: { type: Boolean, attribute: false },
+    isDisabled: { type: Boolean, attribute: false },
     _icons: { state: true },
   };
 
@@ -25,12 +23,20 @@ export class NxBrowseActionBar extends LitElement {
     this._icons = await loadIcons();
   }
 
+  _emitEvent(type, detail = {}) {
+    this.dispatchEvent(new CustomEvent(type, {
+      detail,
+      bubbles: true,
+      composed: true,
+    }));
+  }
+
   _invokeAction(action) {
-    this.onAction?.({ action });
+    this._emitEvent('nx-browse-selection-action', { action });
   }
 
   _handleDismiss() {
-    this.onDismiss?.();
+    this._emitEvent('nx-browse-selection-dismiss');
   }
 
   _renderIcon(iconKey) {
@@ -39,8 +45,8 @@ export class NxBrowseActionBar extends LitElement {
   }
 
   render() {
-    const n = this.count ?? 0;
-    const label = n === 1 ? '1 item selected' : `${n} items selected`;
+    const selectedCount = this.count ?? 0;
+    const label = selectedCount === 1 ? '1 item selected' : `${selectedCount} items selected`;
 
     return html`
       <div class="bar" role="toolbar" aria-label="Selection actions">
@@ -56,12 +62,12 @@ export class NxBrowseActionBar extends LitElement {
           <span class="count" title=${label}>${label}</span>
         </div>
         <div class="actions">
-          ${this.showDeploy
+          ${this.hasDeployAction
             ? html`
                       <button
                         type="button"
                         class="action action-preview"
-                        ?disabled=${this.disabled}
+                        ?disabled=${this.isDisabled}
                         aria-label="Preview selected"
                         @click=${() => this._invokeAction('preview')}
                       >
@@ -71,7 +77,7 @@ export class NxBrowseActionBar extends LitElement {
                       <button
                         type="button"
                         class="action"
-                        ?disabled=${this.disabled}
+                        ?disabled=${this.isDisabled}
                         aria-label="Publish selected"
                         @click=${() => this._invokeAction('publish')}
                       >
@@ -80,12 +86,12 @@ export class NxBrowseActionBar extends LitElement {
                       </button>
                     `
             : nothing}
-          ${this.showDelete
+          ${this.hasDeleteAction
             ? html`
                 <button
                   type="button"
                   class="action"
-                  ?disabled=${this.disabled}
+                  ?disabled=${this.isDisabled}
                   aria-label="Delete selected"
                   @click=${() => this._invokeAction('delete')}
                 >
@@ -94,12 +100,12 @@ export class NxBrowseActionBar extends LitElement {
                 </button>
               `
             : nothing}
-          ${this.showRename
+          ${this.hasRenameAction
             ? html`
                 <button
                   type="button"
                   class="action"
-                  ?disabled=${this.disabled}
+                  ?disabled=${this.isDisabled}
                   aria-label="Rename selected"
                   @click=${() => this._invokeAction('rename')}
                 >

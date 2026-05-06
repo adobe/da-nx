@@ -25,7 +25,7 @@ class NxBrowseRenameDialog extends LitElement {
   static properties = {
     selectedRow: { type: Object },
     _draft: { state: true },
-    _pending: { state: true, type: Boolean },
+    _isPending: { state: true, type: Boolean },
   };
 
   connectedCallback() {
@@ -47,35 +47,35 @@ class NxBrowseRenameDialog extends LitElement {
     }));
   }
 
-  _onInput = (e) => {
-    const v = sanitizeName(e.target.value);
-    e.target.value = v;
-    this._draft = v;
+  _handleInput = (event) => {
+    const sanitizedValue = sanitizeName(event.target.value);
+    event.target.value = sanitizedValue;
+    this._draft = sanitizedValue;
   };
 
   _finalBasename() {
     return sanitizeName(this._draft ?? '', true);
   }
 
-  _onKeydown = (e) => {
-    if (e.key !== 'Enter' || this._pending || this._renamePrimaryDisabled()) return;
-    e.preventDefault();
-    this._onConfirm();
+  _handleKeydown = (event) => {
+    if (event.key !== 'Enter' || this._isPending || this._isRenamePrimaryDisabled()) return;
+    event.preventDefault();
+    this._handleConfirm();
   };
 
-  _renamePrimaryDisabled() {
-    const row = this.selectedRow;
-    if (!row) return true;
-    return row.path === moveTarget(row, this._finalBasename());
+  _isRenamePrimaryDisabled() {
+    const { selectedRow } = this;
+    if (!selectedRow) return true;
+    return selectedRow.path === moveTarget(selectedRow, this._finalBasename());
   }
 
-  _onDismiss = () => {
+  _handleDismiss = () => {
     this._emitComplete();
   };
 
-  _onConfirm = async () => {
+  _handleConfirm = async () => {
     const { selectedRow } = this;
-    if (!selectedRow || this._pending) return;
+    if (!selectedRow || this._isPending) return;
 
     const destination = moveTarget(selectedRow, this._finalBasename());
     if (selectedRow.path === destination) {
@@ -83,14 +83,14 @@ class NxBrowseRenameDialog extends LitElement {
       return;
     }
 
-    this._pending = true;
+    this._isPending = true;
     try {
-      const r = await renameSourcePath(selectedRow.path, destination);
-      if (r.ok) {
+      const renameResult = await renameSourcePath(selectedRow.path, destination);
+      if (renameResult.ok) {
         this._emitComplete({ success: true });
       } else {
         this._emitComplete({
-          message: r.error || 'Rename failed',
+          message: renameResult.error || 'Rename failed',
         });
       }
     } catch {
@@ -98,7 +98,7 @@ class NxBrowseRenameDialog extends LitElement {
         message: 'An unexpected error occurred.',
       });
     } finally {
-      this._pending = false;
+      this._isPending = false;
     }
   };
 
@@ -110,10 +110,10 @@ class NxBrowseRenameDialog extends LitElement {
     return html`
       <nx-dialog
         .title=${'Rename'}
-        .busy=${this._pending}
+        .busy=${this._isPending}
         .autofocusId=${'browse-rename-input'}
-        .dismissable=${!this._pending}
-        @nx-dialog-close=${this._onDismiss}
+        .dismissable=${!this._isPending}
+        @nx-dialog-close=${this._handleDismiss}
       >
         <div>
           <label class="field">
@@ -124,8 +124,8 @@ class NxBrowseRenameDialog extends LitElement {
               type="text"
               autocomplete="off"
               .value=${draft}
-              @input=${this._onInput}
-              @keydown=${this._onKeydown}
+              @input=${this._handleInput}
+              @keydown=${this._handleKeydown}
             />
           </label>
         </div>
@@ -133,18 +133,18 @@ class NxBrowseRenameDialog extends LitElement {
           slot="actions"
           type="button"
           class="btn btn-secondary"
-          ?disabled=${this._pending}
-          @click=${this._onDismiss}
+          ?disabled=${this._isPending}
+          @click=${this._handleDismiss}
         >Cancel</button>
         <button
           slot="actions"
           type="button"
-          class=${`btn btn-primary${this._pending ? ' is-pending' : ''}`}
-          ?disabled=${this._renamePrimaryDisabled() || this._pending}
-          aria-busy=${this._pending ? 'true' : 'false'}
-          @click=${this._onConfirm}
+          class=${`btn btn-primary${this._isPending ? ' is-pending' : ''}`}
+          ?disabled=${this._isRenamePrimaryDisabled() || this._isPending}
+          aria-busy=${this._isPending ? 'true' : 'false'}
+          @click=${this._handleConfirm}
         >
-          ${this._pending
+          ${this._isPending
         ? html`<nx-progress-circle aria-hidden="true"></nx-progress-circle>`
         : nothing}
           <span>Rename</span>

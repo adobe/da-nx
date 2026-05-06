@@ -15,15 +15,15 @@ function ensureHost() {
   ) {
     document.adoptedStyleSheets = [...document.adoptedStyleSheets, hostSheet];
   }
-  let el = document.getElementById(HOST_ID);
-  if (!el) {
-    el = document.createElement('div');
-    el.id = HOST_ID;
-    el.setAttribute('role', 'region');
-    el.setAttribute('aria-label', 'Notifications');
-    document.body.append(el);
+  let hostElement = document.getElementById(HOST_ID);
+  if (!hostElement) {
+    hostElement = document.createElement('div');
+    hostElement.id = HOST_ID;
+    hostElement.setAttribute('role', 'region');
+    hostElement.setAttribute('aria-label', 'Notifications');
+    document.body.append(hostElement);
   }
-  return el;
+  return hostElement;
 }
 
 /**
@@ -39,14 +39,14 @@ class NxToast extends LitElement {
 
   _timerId = undefined;
 
-  _dismissed = false;
+  _isDismissed = false;
 
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [styles];
     this.style.pointerEvents = 'auto';
-    const ms = Math.max(6000, Number(this.duration) || 6000);
-    this._timerId = window.setTimeout(() => this.dismiss(), ms);
+    const timeoutMs = Math.max(6000, Number(this.duration) || 6000);
+    this._timerId = window.setTimeout(() => this.dismiss(), timeoutMs);
   }
 
   disconnectedCallback() {
@@ -58,8 +58,8 @@ class NxToast extends LitElement {
   }
 
   dismiss() {
-    if (this._dismissed) return;
-    this._dismissed = true;
+    if (this._isDismissed) return;
+    this._isDismissed = true;
     if (this._timerId !== undefined) {
       window.clearTimeout(this._timerId);
       this._timerId = undefined;
@@ -68,15 +68,15 @@ class NxToast extends LitElement {
   }
 
   render() {
-    const msg = this.message?.trim();
-    if (!msg) return nothing;
-    const err = this.variant === VARIANT_ERROR;
+    const messageText = this.message?.trim();
+    if (!messageText) return nothing;
+    const isError = this.variant === VARIANT_ERROR;
     return html`
       <div
-        class=${`toast toast-${err ? VARIANT_ERROR : VARIANT_SUCCESS}`}
-        role=${err ? 'alert' : 'status'}
+        class=${`toast toast-${isError ? VARIANT_ERROR : VARIANT_SUCCESS}`}
+        role=${isError ? 'alert' : 'status'}
       >
-        <p class="text">${msg}</p>
+        <p class="text">${messageText}</p>
         <button
           type="button"
           class="close"
@@ -95,14 +95,14 @@ function appendNxToast({
   variant = VARIANT_SUCCESS,
   timeout = 6000,
 }) {
-  const t = text?.trim();
-  if (!t || typeof document === 'undefined' || !document.body) return;
-  const v = variant === VARIANT_ERROR ? VARIANT_ERROR : VARIANT_SUCCESS;
-  const el = document.createElement('nx-toast');
-  el.message = t;
-  el.variant = v;
-  el.duration = timeout;
-  ensureHost().append(el);
+  const messageText = text?.trim();
+  if (!messageText || typeof document === 'undefined' || !document.body) return;
+  const normalizedVariant = variant === VARIANT_ERROR ? VARIANT_ERROR : VARIANT_SUCCESS;
+  const toastElement = document.createElement('nx-toast');
+  toastElement.message = messageText;
+  toastElement.variant = normalizedVariant;
+  toastElement.duration = timeout;
+  ensureHost().append(toastElement);
 }
 
 export function showToast({
