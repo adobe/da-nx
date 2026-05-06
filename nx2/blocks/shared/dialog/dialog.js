@@ -1,5 +1,6 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../utils/utils.js';
+import '../progress-circle/progress-circle.js';
 
 const styles = await loadStyle(import.meta.url);
 
@@ -13,44 +14,47 @@ class NxDialog extends LitElement {
     primaryActionLabel: { type: String, attribute: false },
     primaryActionId: { type: String, attribute: false },
     primaryActionDisabled: { type: Boolean, attribute: false },
+    primaryActionPending: { type: Boolean, attribute: false },
     cancelLabel: { type: String, attribute: false },
-    /** When **`VARIANT_DESTRUCTIVE`**, primary uses danger styling. */
+    cancelActionDisabled: { type: Boolean, attribute: false },
     variant: { type: String, attribute: false },
     autofocusId: { type: String, attribute: false },
     dismissable: { type: Boolean, attribute: false },
-    onPrimaryAction: { type: Function, attribute: false },
-    onCancel: { type: Function, attribute: false },
   };
 
   _dismissable() {
-    return this.dismissable !== false;
+    return this.dismissable !== false && !this.primaryActionPending;
   }
 
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [styles];
-    this._onDocKeydown = (e) => {
-      if (e.key !== 'Escape') return;
-      if (!this._dismissable()) {
-        e.preventDefault();
-        e.stopPropagation();
-        return;
-      }
-      e.preventDefault();
-      e.stopPropagation();
-      this._onLayerClose();
-    };
-    document.addEventListener('keydown', this._onDocKeydown, true);
   }
 
   disconnectedCallback() {
-    document.removeEventListener('keydown', this._onDocKeydown, true);
+    const dialog = this.renderRoot?.querySelector('.shell');
+    if (dialog?.open) dialog.close();
     super.disconnectedCallback();
   }
 
   firstUpdated() {
     super.firstUpdated();
-    this._tryAutofocus();
+    this._ensureShown();
+  }
+
+  updated() {
+    this._ensureShown();
+  }
+
+  _ensureShown() {
+    const dialog = this.renderRoot?.querySelector('.shell');
+    if (!dialog || dialog.open) return;
+    try {
+      dialog.showModal();
+      this._tryAutofocus();
+    } catch {
+      // `showModal()` can fail if not connected yet; updated() retries.
+    }
   }
 
   _tryAutofocus() {
@@ -72,13 +76,31 @@ class NxDialog extends LitElement {
     );
   };
 
-  _onBackdropClick = (e) => {
+  _onNativeCancel = (e) => {
+    e.preventDefault();
+    if (!this._dismissable()) return;
+    this._onLayerClose();
+  };
+
+  _onShellClick = (e) => {
     if (e.target !== e.currentTarget || !this._dismissable()) return;
     this._onLayerClose();
   };
 
-  _onDialogPanelClick = (e) => {
-    e.stopPropagation();
+  _onCancelAction = () => {
+    if (this.primaryActionPending) return;
+    this.dispatchEvent(new CustomEvent('nx-dialog-cancel', {
+      bubbles: true,
+      composed: true,
+    }));
+  };
+
+  _onPrimaryAction = () => {
+    if (this.primaryActionPending) return;
+    this.dispatchEvent(new CustomEvent('nx-dialog-primary', {
+      bubbles: true,
+      composed: true,
+    }));
   };
 
   _isAlertByProps() {
@@ -86,7 +108,6 @@ class NxDialog extends LitElement {
       typeof this.title === 'string'
       && this.body != null
       && typeof this.primaryActionLabel === 'string'
-      && typeof this.onPrimaryAction === 'function'
     );
   }
 
@@ -98,44 +119,53 @@ class NxDialog extends LitElement {
     if (!this._isAlertByProps()) return nothing;
     const {
       cancelLabel,
-      onCancel,
-      onPrimaryAction,
+      cancelActionDisabled,
       primaryActionId,
       primaryActionDisabled,
+      primaryActionPending,
     } = this;
     const primaryClass = this._primaryButtonClass();
+    const pending = Boolean(primaryActionPending);
     return html`
-      ${typeof cancelLabel === 'string' && onCancel
+      ${typeof cancelLabel === 'string'
         ? html`
             <button
               type="button"
               class="btn btn-secondary"
-              @click=${onCancel}
+              ?disabled=${Boolean(cancelActionDisabled || pending)}
+              @click=${this._onCancelAction}
             >${cancelLabel}</button>
           `
         : nothing}
       <button
         type="button"
-        class="btn ${primaryClass}"
+        class=${`btn ${primaryClass}${pending ? ' is-pending' : ''}`}
         id=${primaryActionId || nothing}
-        ?disabled=${Boolean(primaryActionDisabled)}
-        @click=${onPrimaryAction}
-      >${this.primaryActionLabel}</button>
+        ?disabled=${Boolean(primaryActionDisabled || pending)}
+        aria-busy=${pending ? 'true' : 'false'}
+        @click=${this._onPrimaryAction}
+      >
+        ${pending
+        ? html`<nx-progress-circle class="btn-progress" aria-hidden="true"></nx-progress-circle>`
+        : nothing}
+        <span class="btn-label">${this.primaryActionLabel}</span>
+      </button>
     `;
   }
 
   _renderShell({ title, body, actions }) {
+    const busy = Boolean(this.primaryActionPending);
     return html`
-      <div
-        class="scrim"
-        @click=${this._onBackdropClick}
+      <dialog
+        class="shell"
+        aria-labelledby="nx-dialog-title"
+        @cancel=${this._onNativeCancel}
+        @click=${this._onShellClick}
       >
         <div
-          class="panel"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="nx-dialog-title"
-          @click=${this._onDialogPanelClick}
+          class=${`panel${busy ? ' is-busy' : ''}`}
+          aria-busy=${busy ? 'true' : 'false'}
+          ?inert=${busy}
         >
           <div class="surface">
             <div class="heading">
@@ -154,7 +184,7 @@ class NxDialog extends LitElement {
             ${actions}
           </div>
         </div>
-      </div>
+      </dialog>
     `;
   }
 

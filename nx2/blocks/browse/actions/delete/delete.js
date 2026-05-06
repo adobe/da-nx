@@ -2,7 +2,6 @@ import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../../utils/utils.js';
 import { deleteSourcePath } from '../../browse-api.js';
 import { VARIANT_DESTRUCTIVE } from '../../../shared/dialog/dialog.js';
-import '../../../shared/progress-circle/progress-circle.js';
 
 async function deleteItems({ selectedRows }) {
   if (!selectedRows?.length) {
@@ -29,7 +28,6 @@ const styles = await loadStyle(import.meta.url);
 class NxBrowseDeleteDialog extends LitElement {
   static properties = {
     selectedRows: { type: Array },
-    onComplete: { type: Function, attribute: false },
     _pending: { state: true, type: Boolean },
   };
 
@@ -38,23 +36,31 @@ class NxBrowseDeleteDialog extends LitElement {
     this.shadowRoot.adoptedStyleSheets = [styles];
   }
 
+  _emitComplete(detail = {}) {
+    this.dispatchEvent(new CustomEvent('nx-browse-action-complete', {
+      detail,
+      bubbles: true,
+      composed: true,
+    }));
+  }
+
   _onCancel = () => {
-    this.onComplete?.();
+    this._emitComplete();
   };
 
   _onConfirm = async () => {
-    const { selectedRows, onComplete } = this;
+    const { selectedRows } = this;
     if (!selectedRows?.length) {
-      onComplete?.();
+      this._emitComplete();
       return;
     }
     this._pending = true;
     try {
       const result = await deleteItems({ selectedRows });
-      if (result.ok) onComplete?.({ success: true });
-      else onComplete?.({ message: result.message });
+      if (result.ok) this._emitComplete({ success: true });
+      else this._emitComplete({ message: result.message });
     } catch {
-      onComplete?.({
+      this._emitComplete({
         message: {
           title: 'Something went wrong',
           body: 'An unexpected error occurred.',
@@ -67,7 +73,7 @@ class NxBrowseDeleteDialog extends LitElement {
   };
 
   _onClose = () => {
-    this.onComplete?.();
+    this._emitComplete();
   };
 
   render() {
@@ -88,27 +94,19 @@ class NxBrowseDeleteDialog extends LitElement {
     `;
 
     return html`
-      <div class="browse-action-root">
-        <nx-dialog
-          .title=${`Delete ${n} ${itemWord}`}
-          .body=${body}
-          .cancelLabel=${'Cancel'}
-          .onCancel=${this._onCancel}
-          .primaryActionLabel=${'Delete'}
-          .onPrimaryAction=${this._onConfirm}
-          .variant=${VARIANT_DESTRUCTIVE}
-          .dismissable=${!this._pending}
-          .primaryActionDisabled=${this._pending}
-          @nx-dialog-close=${this._onClose}
-        ></nx-dialog>
-        ${this._pending
-        ? html`
-              <div class="browse-action-busy" aria-live="polite">
-                <nx-progress-circle .label=${'Deleting'}></nx-progress-circle>
-              </div>
-            `
-        : nothing}
-      </div>
+      <nx-dialog
+        .title=${`Delete ${n} ${itemWord}`}
+        .body=${body}
+        .cancelLabel=${'Cancel'}
+        .primaryActionLabel=${'Delete'}
+        .variant=${VARIANT_DESTRUCTIVE}
+        .cancelActionDisabled=${this._pending}
+        .primaryActionPending=${this._pending}
+        .dismissable=${!this._pending}
+        @nx-dialog-cancel=${this._onCancel}
+        @nx-dialog-primary=${this._onConfirm}
+        @nx-dialog-close=${this._onClose}
+      ></nx-dialog>
     `;
   }
 }

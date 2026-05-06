@@ -10,9 +10,9 @@ import './actions/delete/delete.js';
 import './actions/deploy/deploy.js';
 import '../shared/breadcrumb/breadcrumb.js';
 import {
+  NX_TOAST_SHOW_EVENT,
   VARIANT_ERROR,
   VARIANT_SUCCESS,
-  showNxToast,
 } from '../shared/toast/toast.js';
 import './list/list.js';
 import './action-bar/action-bar.js';
@@ -34,14 +34,17 @@ function browseActionErrorToastText(m) {
   return title || 'Something went wrong.';
 }
 
+function dispatchBrowseToast(detail) {
+  if (typeof document === 'undefined') return;
+  document.dispatchEvent(new CustomEvent(NX_TOAST_SHOW_EVENT, { detail }));
+}
+
 class NxBrowse extends LitElement {
   static properties = {
     _items: { state: true },
     _listError: { state: true },
     _selectedKeys: { state: true },
-    /** @type {null | { type: 'rename'|'delete'|'deploy', [key: string]: unknown }} */
-    _dialog: { state: true },
-    _actionBarDisabled: { state: true },
+    _activeAction: { state: true },
   };
 
   set context(value) {
@@ -77,8 +80,7 @@ class NxBrowse extends LitElement {
 
   disconnectedCallback() {
     this._unsubscribeHash?.();
-    this._dialog = null;
-    this._actionBarDisabled = false;
+    this._activeAction = null;
     super.disconnectedCallback();
   }
 
@@ -86,15 +88,13 @@ class NxBrowse extends LitElement {
     return contextToPathContext(this._context);
   }
 
-  _openBrowseDialog(spec) {
-    this._dialog = spec;
-    this._actionBarDisabled = true;
+  _openBrowseAction(spec) {
+    this._activeAction = spec;
     this.requestUpdate();
   }
 
-  _clearDialog() {
-    this._dialog = null;
-    this._actionBarDisabled = false;
+  _clearBrowseAction() {
+    this._activeAction = null;
     this.requestUpdate();
   }
 
@@ -128,50 +128,53 @@ class NxBrowse extends LitElement {
     const ctx = this._pathContext;
     const items = this._items;
     const paths = this._selectedKeys || [];
-    if (!ctx || !items?.length || !paths.length || this._actionBarDisabled) {
+    if (!ctx || !items?.length || !paths.length || this._activeAction) {
       return;
     }
     if (action === 'delete') {
       const selectedRows = paths.map((p) => items.find((i) => i.path === p)).filter(Boolean);
       if (!selectedRows.length) return;
-      this._openBrowseDialog({ type: 'delete', selectedRows });
+      this._openBrowseAction({ type: 'delete', selectedRows });
       return;
     }
     if (action === 'rename') {
       if (paths.length !== 1) return;
       const selectedRow = items.find((i) => i.path === paths[0]);
       if (!selectedRow) return;
-      this._openBrowseDialog({ type: 'rename', selectedRow });
+      this._openBrowseAction({ type: 'rename', selectedRow });
       return;
     }
     if (action === 'preview' || action === 'publish') {
       if (paths.length !== 1) return;
       const selectedRow = items.find((i) => i.path === paths[0]);
       if (!selectedRow || isFolder(selectedRow)) return;
-      this._openBrowseDialog({ type: 'deploy', action, selectedRow });
+      this._openBrowseAction({ type: 'deploy', selectedRow, action });
     }
   };
 
   _onBrowseActionComplete = (detail) => {
+    const active = this._activeAction;
+    if (!active) return;
+    this._clearBrowseAction();
     if (detail?.success) {
-      const dialog = this._dialog;
-      this._clearDialog();
-      this._onBrowseSelectionDismiss();
+      if (active.type !== 'deploy') {
+        this._onBrowseSelectionDismiss();
+      }
       this._syncList().catch(() => { });
-      if (dialog?.type === 'rename') {
-        showNxToast({
+      if (active.type === 'rename') {
+        dispatchBrowseToast({
           text: 'The resource was renamed.',
           variant: VARIANT_SUCCESS,
         });
-      } else if (dialog?.type === 'delete') {
-        const n = Array.isArray(dialog.selectedRows) ? dialog.selectedRows.length : 0;
-        showNxToast({
+      } else if (active.type === 'delete') {
+        const n = Array.isArray(active.selectedRows) ? active.selectedRows.length : 0;
+        dispatchBrowseToast({
           text: n > 1 ? 'The selected resources were deleted.' : 'The resource was deleted.',
           variant: VARIANT_SUCCESS,
         });
-      } else if (dialog?.type === 'deploy') {
-        showNxToast({
-          text: dialog.action === 'publish'
+      } else if (active.type === 'deploy') {
+        dispatchBrowseToast({
+          text: active.action === 'publish'
             ? 'Publish completed.'
             : 'Preview completed.',
           variant: VARIANT_SUCCESS,
@@ -180,14 +183,15 @@ class NxBrowse extends LitElement {
       return;
     }
     if (detail?.message) {
-      showNxToast({
+      dispatchBrowseToast({
         text: browseActionErrorToastText(detail.message),
         variant: VARIANT_ERROR,
       });
-      this._clearDialog();
-      return;
     }
-    this._clearDialog();
+  };
+
+  _onBrowseActionCompleteEvent = (e) => {
+    this._onBrowseActionComplete(e.detail);
   };
 
   _onBrowseSelectionDismiss = () => {
@@ -250,7 +254,7 @@ class NxBrowse extends LitElement {
                 .showDelete=${showDelete}
                 .showRename=${showRename}
                 .showDeploy=${showDeploy}
-                .disabled=${this._actionBarDisabled}
+                .disabled=${Boolean(this._activeAction)}
                 .onDismiss=${this._onBrowseSelectionDismiss}
                 .onAction=${this._onBrowseSelectionAction}
               ></nx-browse-action-bar>
@@ -270,7 +274,7 @@ class NxBrowse extends LitElement {
       `;
     }
 
-    const dialog = this._dialog;
+    const activeAction = this._activeAction;
     return html`
       ${bar}
       ${header}
@@ -280,29 +284,29 @@ class NxBrowse extends LitElement {
         @nx-browse-activate=${this._onBrowseActivate}
         @nx-browse-selection-change=${this._onBrowseSelectionChange}
       ></nx-browse-list>
-      ${dialog?.type === 'rename'
+      ${activeAction?.type === 'rename'
         ? html`
             <nx-browse-rename-dialog
-              .selectedRow=${dialog.selectedRow}
-              .onComplete=${this._onBrowseActionComplete}
+              .selectedRow=${activeAction.selectedRow}
+              @nx-browse-action-complete=${this._onBrowseActionCompleteEvent}
             ></nx-browse-rename-dialog>
           `
         : nothing}
-      ${dialog?.type === 'delete'
+      ${activeAction?.type === 'delete'
         ? html`
             <nx-browse-delete-dialog
-              .selectedRows=${dialog.selectedRows}
-              .onComplete=${this._onBrowseActionComplete}
+              .selectedRows=${activeAction.selectedRows}
+              @nx-browse-action-complete=${this._onBrowseActionCompleteEvent}
             ></nx-browse-delete-dialog>
           `
         : nothing}
-      ${dialog?.type === 'deploy'
+      ${activeAction?.type === 'deploy'
         ? html`
-            <nx-browse-deploy-dialog
-              .selectedRow=${dialog.selectedRow}
-              .action=${dialog.action}
-              .onComplete=${this._onBrowseActionComplete}
-            ></nx-browse-deploy-dialog>
+            <nx-browse-deploy-runner
+              .selectedRow=${activeAction.selectedRow}
+              .action=${activeAction.action}
+              @nx-browse-action-complete=${this._onBrowseActionCompleteEvent}
+            ></nx-browse-deploy-runner>
           `
         : nothing}
     `;

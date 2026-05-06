@@ -1,15 +1,5 @@
 :host {
-  position: fixed;
-  inset: 0;
-  z-index: 10000;
-  display: block;
-  width: 100%;
-  min-height: 100dvh;
-  min-height: 100vh;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  background: none;
+  display: contents;
   font-family: var(
     --s2-font-family,
     adobe-clean,
@@ -19,17 +9,32 @@
   );
 }
 
-.scrim {
+.shell {
   box-sizing: border-box;
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
   margin: 0;
   padding: var(--s2-spacing-500);
+  border: 0;
+  width: 100%;
+  min-height: 100dvh;
+  min-height: 100vh;
+  max-width: none;
+  max-height: none;
+  background: none;
+  color: inherit;
   overflow: auto;
+
+  &:focus-visible {
+    outline: none;
+  }
+}
+
+.shell[open] {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.shell::backdrop {
   background: light-dark(rgb(0 0 0 / 40%), rgb(0 0 0 / 60%));
   backdrop-filter: blur(0.5px);
 }
@@ -50,6 +55,10 @@
   background: var(--s2-gray-25);
   color: var(--s2-gray-900);
   box-shadow: 0 8px 32px light-dark(rgb(0 0 0 / 18%), rgb(0 0 0 / 45%));
+
+  &.is-busy {
+    pointer-events: none;
+  }
 
   & .surface {
     display: flex;
@@ -112,9 +121,9 @@
 
   & .field-caption {
     color: var(--s2-gray-800);
-    font-size: var(--s2-component-s-medium-font-size);
+    font-size: var(--s2-component-m-medium-font-size, 14px);
     font-weight: var(--s2-component-s-medium-font-weight, 500);
-    line-height: var(--s2-component-s-medium-line-height);
+    line-height: var(--s2-component-m-medium-line-height, 1.4);
   }
 
   & .text-input {
@@ -124,6 +133,7 @@
     padding: var(--s2-spacing-75) var(--s2-spacing-100);
     border: 1px solid var(--s2-gray-300);
     border-radius: var(--s2-corner-radius-100);
+    font-family: inherit;
     font-size: 14px;
     line-height: 1.43;
     background: var(--s2-gray-25);
@@ -183,6 +193,10 @@
   & .btn {
     min-height: var(--s2-spacing-500, 32px);
     min-width: 5rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--s2-spacing-75, 6px);
     margin: 0;
     padding: var(--s2-spacing-75) var(--s2-spacing-200);
     border-radius: 9999px;
@@ -198,10 +212,34 @@
       opacity: 0.4;
     }
 
+    &.is-pending:disabled,
+    &.is-pending[disabled] {
+      opacity: 1;
+    }
+
     &:focus-visible {
       outline: 2px solid var(--s2-blue-800);
       outline-offset: 2px;
     }
+  }
+
+  & .btn-progress {
+    flex: 0 0 auto;
+
+    --nx-progress-circle-size: 14px;
+    --nx-progress-circle-border-width: 2px;
+    --nx-progress-circle-track-color: rgb(0 0 0 / 25%);
+    --nx-progress-circle-indicator-color: currentcolor;
+  }
+
+  & .btn-primary .btn-progress,
+  & .btn-danger .btn-progress {
+    --nx-progress-circle-track-color: rgb(255 255 255 / 35%);
+  }
+
+  & .btn-label {
+    display: inline-block;
+    white-space: nowrap;
   }
 
   & .btn-secondary {

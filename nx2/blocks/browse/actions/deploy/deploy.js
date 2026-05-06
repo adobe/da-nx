@@ -1,7 +1,7 @@
-import { LitElement, html, nothing } from 'da-lit';
+import { LitElement, html } from 'da-lit';
 import { loadStyle } from '../../../../utils/utils.js';
 import { saveToAem } from '../../browse-api.js';
-import '../../../shared/dialog/dialog.js';
+import '../../../shared/overlay/overlay.js';
 import '../../../shared/progress-circle/progress-circle.js';
 
 function openAemUrlWithNoCache(href) {
@@ -10,7 +10,7 @@ function openAemUrlWithNoCache(href) {
   window.open(`${h}?nocache=${Date.now()}`, '_blank', 'noopener,noreferrer');
 }
 
-async function deploy({ sourcePath, action }) {
+export async function deploy({ sourcePath, action }) {
   const seq = action === 'publish' ? ['preview', 'live'] : ['preview'];
   for (const phase of seq) {
     const r = await saveToAem(sourcePath, phase);
@@ -41,7 +41,9 @@ async function deploy({ sourcePath, action }) {
     }
     if (phase === 'preview') {
       const url = r.json?.preview?.url;
-      if (url) openAemUrlWithNoCache(url);
+      if (url && action === 'preview') {
+        openAemUrlWithNoCache(url);
+      }
     } else {
       const url = r.json?.live?.url;
       if (url) openAemUrlWithNoCache(url);
@@ -52,12 +54,10 @@ async function deploy({ sourcePath, action }) {
 
 const styles = await loadStyle(import.meta.url);
 
-class NxBrowseDeployDialog extends LitElement {
+class NxBrowseDeployRunner extends LitElement {
   static properties = {
     selectedRow: { type: Object },
     action: { type: String },
-    onComplete: { type: Function, attribute: false },
-    _pending: { state: true, type: Boolean },
   };
 
   connectedCallback() {
@@ -65,90 +65,53 @@ class NxBrowseDeployDialog extends LitElement {
     this.shadowRoot.adoptedStyleSheets = [styles];
   }
 
-  _onCancel = () => {
-    this.onComplete?.();
-  };
+  _emitComplete(detail = {}) {
+    this.dispatchEvent(new CustomEvent('nx-browse-action-complete', {
+      detail,
+      bubbles: true,
+      composed: true,
+    }));
+  }
 
-  _onConfirm = async () => {
-    const { selectedRow, action, onComplete } = this;
+  firstUpdated() {
+    super.firstUpdated();
+    this._run();
+  }
+
+  async _run() {
+    const { selectedRow, action } = this;
     const sourcePath = selectedRow?.path;
     if (
       !sourcePath
       || (action !== 'preview' && action !== 'publish')
     ) {
-      onComplete?.();
+      this._emitComplete();
       return;
     }
-    this._pending = true;
     try {
       const result = await deploy({ sourcePath, action });
-      if (result.ok) onComplete?.({ success: true });
-      else onComplete?.({ message: result.message });
+      if (result.ok) this._emitComplete({ success: true });
+      else if (result.message) this._emitComplete({ message: result.message });
+      else this._emitComplete();
     } catch {
-      onComplete?.({
+      this._emitComplete({
         message: {
           title: 'Something went wrong',
           body: 'An unexpected error occurred.',
           isError: true,
         },
       });
-    } finally {
-      this._pending = false;
     }
-  };
-
-  _onClose = () => {
-    this.onComplete?.();
-  };
+  }
 
   render() {
-    const { action, selectedRow } = this;
-    if (
-      !selectedRow?.path
-      || (action !== 'preview' && action !== 'publish')
-    ) {
-      return nothing;
-    }
-
-    const isPublish = action === 'publish';
-    const title = isPublish ? 'Publish' : 'Preview';
-    const progressLabel = isPublish ? 'Publishing' : 'Previewing';
-    const lead = isPublish
-      ? 'The following resource will be published.'
-      : 'The following resource will be previewed.';
-
-    const body = html`
-      <div>
-        <p class="lead">${lead}</p>
-        <p class="path">${selectedRow.path}</p>
-      </div>
-    `;
-
+    const progressLabel = this.action === 'publish' ? 'Publishing' : 'Previewing';
     return html`
-      <div class="browse-action-root">
-        <nx-dialog
-          .title=${title}
-          .body=${body}
-          .cancelLabel=${'Cancel'}
-          .onCancel=${this._onCancel}
-          .primaryActionLabel=${isPublish ? 'Publish' : 'Preview'}
-          .primaryActionId=${'browse-deploy-confirm'}
-          .onPrimaryAction=${this._onConfirm}
-          .autofocusId=${'browse-deploy-confirm'}
-          .dismissable=${!this._pending}
-          .primaryActionDisabled=${this._pending}
-          @nx-dialog-close=${this._onClose}
-        ></nx-dialog>
-        ${this._pending
-        ? html`
-              <div class="browse-action-busy" aria-live="polite">
-                <nx-progress-circle .label=${progressLabel}></nx-progress-circle>
-              </div>
-            `
-        : nothing}
-      </div>
+      <nx-overlay>
+        <nx-progress-circle .label=${progressLabel}></nx-progress-circle>
+      </nx-overlay>
     `;
   }
 }
 
-customElements.define('nx-browse-deploy-dialog', NxBrowseDeployDialog);
+customElements.define('nx-browse-deploy-runner', NxBrowseDeployRunner);

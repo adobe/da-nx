@@ -3,7 +3,6 @@ import { loadStyle } from '../../../../utils/utils.js';
 import { renameSourcePath } from '../../browse-api.js';
 import { isFolder, sanitizeName } from '../../utils.js';
 import '../../../shared/dialog/dialog.js';
-import '../../../shared/progress-circle/progress-circle.js';
 
 const styles = await loadStyle(import.meta.url);
 
@@ -25,7 +24,6 @@ function moveTarget(item, newBaseName) {
 class NxBrowseRenameDialog extends LitElement {
   static properties = {
     selectedRow: { type: Object },
-    onComplete: { type: Function, attribute: false },
     _draft: { state: true },
     _pending: { state: true, type: Boolean },
   };
@@ -39,6 +37,14 @@ class NxBrowseRenameDialog extends LitElement {
     if (changed.has('selectedRow') && this.selectedRow) {
       this._draft = sanitizeName(this.selectedRow.name.trim());
     }
+  }
+
+  _emitComplete(detail = {}) {
+    this.dispatchEvent(new CustomEvent('nx-browse-action-complete', {
+      detail,
+      bubbles: true,
+      composed: true,
+    }));
   }
 
   _onInput = (e) => {
@@ -64,16 +70,16 @@ class NxBrowseRenameDialog extends LitElement {
   }
 
   _onDismiss = () => {
-    this.onComplete?.();
+    this._emitComplete();
   };
 
   _onConfirm = async () => {
-    const { selectedRow, onComplete } = this;
+    const { selectedRow } = this;
     if (!selectedRow || this._pending) return;
 
     const destination = moveTarget(selectedRow, this._finalBasename());
     if (selectedRow.path === destination) {
-      onComplete?.();
+      this._emitComplete();
       return;
     }
 
@@ -81,9 +87,9 @@ class NxBrowseRenameDialog extends LitElement {
     try {
       const r = await renameSourcePath(selectedRow.path, destination);
       if (r.ok) {
-        onComplete?.({ success: true });
+        this._emitComplete({ success: true });
       } else {
-        onComplete?.({
+        this._emitComplete({
           message: {
             title: 'Rename failed',
             body: r.error || 'Rename failed',
@@ -92,7 +98,7 @@ class NxBrowseRenameDialog extends LitElement {
         });
       }
     } catch {
-      onComplete?.({
+      this._emitComplete({
         message: {
           title: 'Something went wrong',
           body: 'An unexpected error occurred.',
@@ -127,27 +133,20 @@ class NxBrowseRenameDialog extends LitElement {
     `;
 
     return html`
-      <div class="browse-action-root">
-        <nx-dialog
-          .title=${'Rename'}
-          .body=${body}
-          .cancelLabel=${'Cancel'}
-          .onCancel=${this._onDismiss}
-          .primaryActionLabel=${'Rename'}
-          .onPrimaryAction=${this._onConfirm}
-          .primaryActionDisabled=${this._pending || this._renamePrimaryDisabled()}
-          .autofocusId=${'browse-rename-input'}
-          .dismissable=${!this._pending}
-          @nx-dialog-close=${this._onDismiss}
-        ></nx-dialog>
-        ${this._pending
-        ? html`
-              <div class="browse-action-busy" aria-live="polite">
-                <nx-progress-circle .label=${'Renaming'}></nx-progress-circle>
-              </div>
-            `
-        : nothing}
-      </div>
+      <nx-dialog
+        .title=${'Rename'}
+        .body=${body}
+        .cancelLabel=${'Cancel'}
+        .primaryActionLabel=${'Rename'}
+        .cancelActionDisabled=${this._pending}
+        .primaryActionDisabled=${this._renamePrimaryDisabled()}
+        .primaryActionPending=${this._pending}
+        .autofocusId=${'browse-rename-input'}
+        .dismissable=${!this._pending}
+        @nx-dialog-cancel=${this._onDismiss}
+        @nx-dialog-primary=${this._onConfirm}
+        @nx-dialog-close=${this._onDismiss}
+      ></nx-dialog>
     `;
   }
 }

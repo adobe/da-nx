@@ -14,15 +14,19 @@ class NxProgressCircle extends LitElement {
   }
 
   render() {
-    const label = this.label?.trim() || 'In progress';
+    const visibleLabel = this.label?.trim() || '';
+    const ariaLabel = visibleLabel || 'In progress';
     return html`
       <div
         class="wrap"
         role="progressbar"
-        aria-label=${label}
+        aria-label=${ariaLabel}
         aria-busy="true"
       >
         <div class="ring" aria-hidden="true"></div>
+        ${visibleLabel
+          ? html`<p class="label" aria-hidden="true">${visibleLabel}...</p>`
+          : ''}
       </div>
     `;
   }
