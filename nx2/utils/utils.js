@@ -153,7 +153,7 @@ export const loadStyle = (() => {
         (async () => {
           const resp = await fetch(path);
           const text = await resp.text();
-          const sheet = new CSSStyleSheet();
+          const sheet = new CSSStyleSheet({ baseURL: path });
           sheet.path = path;
           sheet.replaceSync(text);
           resolve(sheet);

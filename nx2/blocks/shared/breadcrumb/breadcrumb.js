@@ -3,6 +3,7 @@ import { loadStyle } from '../../../utils/utils.js';
 import { pathSegmentsToCrumbs } from './utils.js';
 
 const style = await loadStyle(import.meta.url);
+const CHEVRON_URL = new URL('../../../img/icons/S2_Icon_ChevronLeft_10_N.svg', import.meta.url).href;
 
 export default class NxBreadcrumb extends LitElement {
   static properties = {
@@ -13,6 +14,7 @@ export default class NxBreadcrumb extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
+    this.style.setProperty('--nx-crumb-sep', `url("${CHEVRON_URL}")`);
   }
 
   render() {

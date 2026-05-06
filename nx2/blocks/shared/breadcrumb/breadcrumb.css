@@ -32,7 +32,7 @@
   height: 8px;
   margin-inline: var(--s2-spacing-75);
   background: currentcolor;
-  mask: url("/nx2/img/icons/S2_Icon_ChevronLeft_10_N.svg") center / contain no-repeat;
+  mask: var(--nx-crumb-sep) center / contain no-repeat;
 }
 
 .crumb a,
