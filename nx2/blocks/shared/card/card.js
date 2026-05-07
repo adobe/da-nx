@@ -29,7 +29,7 @@ class NxCard extends LitElement {
             ? html`<span class="card-heading" part="heading">${this.heading}</span>`
             : nothing}
           ${this.subheading
-            ? html`<span class="card-subheading">${this.subheading}</span>`
+            ? html`<span class="card-subheading" part="subheading">${this.subheading}</span>`
             : nothing}
           <slot></slot>
         </div>

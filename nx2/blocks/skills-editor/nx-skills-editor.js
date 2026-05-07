@@ -168,7 +168,7 @@ class NxSkillsEditor extends LitElement {
     this._toolsSearch = '';
     this._toolsGroupCollapsed = { DA: false, MCP: false };
     this._formPromptTools = [];
-    this._isChatOpen = sessionStorage.getItem('nx-skills-editor-chat-open') === '1';
+    this._isChatOpen = false;
   }
 
   get _org() { return this._hash.value?.org; }
@@ -178,6 +178,7 @@ class NxSkillsEditor extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [styles, catalogStyles, editorStyles, toolsStyles];
+    this._isChatOpen = sessionStorage.getItem('nx-skills-editor-chat-open') === '1';
     window.addEventListener(DA_SKILLS_EDITOR_SUGGESTION_HANDOFF, this._onSuggestionHandler);
     window.addEventListener(DA_SKILLS_LAB_SUGGESTION_HANDOFF, this._onSuggestionHandler);
     window.addEventListener(DA_SKILLS_EDITOR_CLEAR_FORM_FROM_CHAT, this._onClearFormHandler);
@@ -496,8 +497,8 @@ class NxSkillsEditor extends LitElement {
     this._clearDirty();
     this._clearForm();
     this._isEditorOpen = false;
-    window.dispatchEvent(new CustomEvent(DA_SKILLS_EDITOR_FORM_DISMISS));
-    window.dispatchEvent(new CustomEvent(DA_SKILLS_LAB_FORM_DISMISS));
+    window.dispatchEvent(new CustomEvent(DA_SKILLS_EDITOR_FORM_DISMISS, { bubbles: true }));
+    window.dispatchEvent(new CustomEvent(DA_SKILLS_LAB_FORM_DISMISS, { bubbles: true }));
   }
 
   _closeEditor() {
@@ -1186,6 +1187,7 @@ class NxSkillsEditor extends LitElement {
   _dispatchPromptToChat(eventName, prompt) {
     window.dispatchEvent(new CustomEvent(eventName, {
       detail: { prompt: String(prompt || '') },
+      bubbles: true,
     }));
   }
 
@@ -1410,6 +1412,7 @@ class NxSkillsEditor extends LitElement {
       this._isChatOpen ? 'is-chat-open' : '',
     ].filter(Boolean).join(' ');
 
+    const vm = this._buildViewModel();
     return html`<div class="${rootCls}" role="region" aria-label="Skills Editor">
       ${this._refreshingCount > 0 ? html`
         <div class="refresh-indicator" role="status" aria-live="polite">
@@ -1417,9 +1420,9 @@ class NxSkillsEditor extends LitElement {
           <span class="refresh-indicator-track"><span class="refresh-indicator-bar"></span></span>
         </div>
       ` : nothing}
-      ${renderChatDrawer(this._buildViewModel())}
-      ${renderListCol(this._buildViewModel())}
-      ${renderEditorPanel(this._buildViewModel())}
+      ${renderChatDrawer(vm)}
+      ${renderListCol(vm)}
+      ${renderEditorPanel(vm)}
     </div>`;
   }
 }

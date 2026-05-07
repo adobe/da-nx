@@ -51,7 +51,7 @@ class NxTabs extends LitElement {
     e.preventDefault();
     this._select(ids[nextIdx]);
     this.updateComplete.then(() => {
-      this.shadowRoot.querySelector(`[data-id="${ids[nextIdx]}"]`)?.focus();
+      this.shadowRoot.querySelector(`[data-id="${CSS.escape(ids[nextIdx])}"]`)?.focus();
     });
   }
 
@@ -59,7 +59,7 @@ class NxTabs extends LitElement {
     if (!this.items?.length) return nothing;
 
     return html`
-      <div class="tabs" role="tablist" @keydown=${this._onKeydown}>
+      <div class="tabs" role="tablist" aria-label="Navigation tabs" @keydown=${this._onKeydown}>
         ${this.items.map((item) => html`
           <button
             role="tab"
