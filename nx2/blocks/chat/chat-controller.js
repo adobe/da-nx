@@ -152,6 +152,20 @@ export default class ChatController {
       const state = isError ? TOOL_STATE.ERROR : TOOL_STATE.DONE;
       next.set(toolCallId, { ...prior, state, output });
       if (state === TOOL_STATE.DONE) {
+        // compact_context: replace entire message history with the summary
+        // so the next turn starts with a minimal context window.
+        if (prior.toolName === 'compact_context' && output?.compacted && output?.summary) {
+          this._messages = [
+            {
+              role: ROLE.ASSISTANT,
+              content: `[Conversation compacted]\n\n${output.summary}`,
+            },
+          ];
+          this._toolCards = next;
+          this._update();
+          this._getRoom().then((room) => saveMessages(room, this._messages));
+          return;
+        }
         // Add a virtual message so the tool renders in the conversation at the right
         // position and persists across refreshes, without being sent back to the agent.
         this._messages = [
