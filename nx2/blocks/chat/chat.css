@@ -294,6 +294,13 @@
       padding: var(--s2-spacing-50) 0;
       font-size: var(--s2-body-size-xs);
       color: var(--s2-gray-700);
+      min-width: 0;
+
+      span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
     }
   }
 
