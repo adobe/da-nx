@@ -514,7 +514,6 @@ html:has(meta[content="edge-delivery"]) {
             z-index: 2;
             box-sizing: border-box;
             width: 12px;
-            height: 56px;
             padding: 0;
             margin: 0;
             border: none;
@@ -528,17 +527,26 @@ html:has(meta[content="edge-delivery"]) {
             content: '';
             position: absolute;
             left: 50%;
-            top: 50%;
-            translate: -50% -50%;
-            width: 4px;
-            height: 48px;
-            border-radius: 999px;
-            background-color: var(--s2-gray-600);
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            translate: -50% 0;
+            border-radius: 1px;
+            background-color: var(--s2-gray-400);
+            opacity: 0;
+            transition: opacity 0.12s ease 0s;
+            pointer-events: none;
+          }
+
+          .panel-resize-handle:hover::before,
+          .panel-resize-handle:focus-visible::before,
+          .panel-resize-handle:active::before {
+            opacity: 1;
           }
 
           .panel-resize-handle:hover::before,
           .panel-resize-handle:focus-visible::before {
-            background-color: var(--s2-gray-900);
+            transition-delay: 0.2s;
           }
 
           .panel-resize-handle:focus-visible {
