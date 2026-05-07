@@ -2,15 +2,20 @@ import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle, hashChange } from '../../utils/utils.js';
 import { loadHrefSvg, ICONS_BASE } from '../../utils/svg.js';
 import { getPanelStore, openPanel } from '../../utils/panel.js';
-import { listFolder, itemHashPath } from '../../utils/daFiles.js';
-import {
-  contextToPathContext,
-  entryTypeFromExtension,
-  isFolder,
-  RESOURCE_TYPE,
-} from './utils.js';
+import { listFolder } from '../../utils/daFiles.js';
+import { contextToPathContext, isFolder } from './utils.js';
+import { open, openUrl } from './actions/open/open.js';
+import './actions/rename/rename.js';
+import './actions/delete/delete.js';
+import './actions/deploy/deploy.js';
 import '../shared/breadcrumb/breadcrumb.js';
+import {
+  showToast,
+  VARIANT_ERROR,
+  VARIANT_SUCCESS,
+} from '../shared/toast/toast.js';
 import './list/list.js';
+import './action-bar/action-bar.js';
 
 const styles = await loadStyle(import.meta.url);
 const panelIcon = await loadHrefSvg(`${ICONS_BASE}S2_Icon_SplitLeft_20_N.svg`);
@@ -24,12 +29,15 @@ class NxBrowse extends LitElement {
   static properties = {
     _items: { state: true },
     _listError: { state: true },
+    _selectedKeys: { state: true },
+    _activeAction: { state: true },
   };
 
+  _listRequestId = 0;
+
   set context(value) {
-    this._explicitContext = true;
+    this._hasExplicitContext = true;
     this._context = value;
-    this.requestUpdate();
     if (this.isConnected) {
       this._syncList();
     }
@@ -47,18 +55,19 @@ class NxBrowse extends LitElement {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [styles];
     this._unsubscribeHash = hashChange.subscribe((hashState) => {
-      if (!this._explicitContext) {
+      if (!this._hasExplicitContext) {
         this._context = hashState;
         this._syncList();
       }
     });
-    if (this._explicitContext && this._context) {
+    if (this._hasExplicitContext && this._context) {
       this._syncList();
     }
   }
 
   disconnectedCallback() {
     this._unsubscribeHash?.();
+    this._activeAction = null;
     super.disconnectedCallback();
   }
 
@@ -67,17 +76,18 @@ class NxBrowse extends LitElement {
   }
 
   async _syncList() {
+    this._listRequestId += 1;
+    const requestId = this._listRequestId;
     const ctx = this._pathContext;
     if (!ctx) {
       this._items = undefined;
       this._listError = undefined;
-      this.requestUpdate();
       return;
     }
 
     const { fullpath } = ctx;
-
     const result = await listFolder(fullpath);
+    if (requestId !== this._listRequestId) return;
 
     if ('error' in result) {
       this._items = undefined;
@@ -86,37 +96,85 @@ class NxBrowse extends LitElement {
       this._listError = undefined;
       this._items = result;
     }
-    this.requestUpdate();
   }
 
-  _onBrowseActivate(event) {
-    const { pathKey, item } = event.detail || {};
-    if (!item) return;
-
-    if (isFolder(item)) {
-      window.location.hash = `#/${pathKey}`;
-      return;
-    }
-
-    const url = new URL(window.location.href);
-    const entryType = entryTypeFromExtension(item.ext);
-
-    if (entryType === RESOURCE_TYPE.document) {
-      url.pathname = '/canvas';
-      url.hash = `#/${itemHashPath(item)}`;
-      window.location.assign(url.href);
-      return;
-    } else if (entryType === RESOURCE_TYPE.sheet) {
-      url.pathname = '/sheet';
-      url.hash = `#/${item.path.slice(1, -(item.ext.length + 1))}`;
-    } else {
-      url.pathname = '/media';
-      url.hash = `#${item.path}`;
-    }
-
-    url.search = '';
-    window.open(url.href, '_blank', 'noopener,noreferrer');
+  _handleBrowseSelectionChange(event) {
+    this._selectedKeys = event.detail.selectedKeys;
   }
+
+  _handleBrowseSelectionAction = async (event) => {
+    const { action } = event.detail || {};
+    const ctx = this._pathContext;
+    const items = this._items;
+    const paths = this._selectedKeys || [];
+    if (!ctx || !items?.length || !paths.length || this._activeAction) {
+      return;
+    }
+    if (action === 'delete') {
+      const selectedRows = paths
+        .map((selectedPath) => items.find((itemEntry) => itemEntry.path === selectedPath))
+        .filter(Boolean);
+      if (!selectedRows.length) return;
+      this._activeAction = { type: 'delete', selectedRows };
+      return;
+    }
+    if (action === 'rename') {
+      if (paths.length !== 1) return;
+      const selectedRow = items.find((itemEntry) => itemEntry.path === paths[0]);
+      if (!selectedRow) return;
+      this._activeAction = { type: 'rename', selectedRow };
+      return;
+    }
+    if (action === 'preview' || action === 'publish') {
+      if (paths.length !== 1) return;
+      const selectedRow = items.find((itemEntry) => itemEntry.path === paths[0]);
+      if (!selectedRow || isFolder(selectedRow)) return;
+      this._activeAction = { type: 'deploy', selectedRow, action };
+    }
+  };
+
+  _handleBrowseActionComplete = (detail) => {
+    const active = this._activeAction;
+    if (!active) return;
+    this._activeAction = null;
+    if (detail?.success) {
+      if (active.type !== 'deploy') {
+        this._handleBrowseSelectionDismiss();
+      }
+      this._syncList().catch(() => { });
+      if (active.type === 'rename') {
+        showToast({
+          text: 'The resource was renamed.',
+          variant: VARIANT_SUCCESS,
+        });
+      } else if (active.type === 'delete') {
+        const selectedCount = Array.isArray(active.selectedRows) ? active.selectedRows.length : 0;
+        showToast({
+          text: selectedCount > 1 ? 'The selected resources were deleted.' : 'The resource was deleted.',
+          variant: VARIANT_SUCCESS,
+        });
+      } else if (active.type === 'deploy') {
+        detail.openedUrls.forEach((href) => openUrl({ href, cacheBust: true }));
+        showToast({
+          text: active.action === 'publish'
+            ? 'Publish completed.'
+            : 'Preview completed.',
+          variant: VARIANT_SUCCESS,
+        });
+      }
+      return;
+    }
+    if (detail?.message) {
+      showToast({
+        text: detail.message,
+        variant: VARIANT_ERROR,
+      });
+    }
+  };
+
+  _handleBrowseSelectionDismiss = () => {
+    this.shadowRoot?.querySelector('nx-browse-list')?.clearSelection();
+  };
 
   render() {
     const ctx = this._pathContext;
@@ -151,12 +209,33 @@ class NxBrowse extends LitElement {
       return bar;
     }
 
+    const selectionCount = this._selectedKeys?.length ?? 0;
+    const hasSelection = selectionCount > 0;
+    const paths = this._selectedKeys || [];
+    const selectedItem = paths.length === 1
+      ? this._items?.find((itemEntry) => itemEntry.path === paths[0])
+      : undefined;
+    const hasDeployAction = !!selectedItem && !isFolder(selectedItem);
+    const hasRenameAction = selectionCount === 1;
+    const hasDeleteAction = selectionCount > 0;
     const header = html`
       <div class="browse-header">
         <div class="browse-title-bar">
           <h1 class="browse-title">${title}</h1>
         </div>
-        <nx-breadcrumb .pathSegments=${ctx.pathSegments}></nx-breadcrumb>
+        ${hasSelection
+        ? html`
+              <nx-browse-action-bar
+                .count=${selectionCount}
+                .hasDeleteAction=${hasDeleteAction}
+                .hasRenameAction=${hasRenameAction}
+                .hasDeployAction=${hasDeployAction}
+                .isDisabled=${Boolean(this._activeAction)}
+                @nx-browse-selection-dismiss=${this._handleBrowseSelectionDismiss}
+                @nx-browse-selection-action=${this._handleBrowseSelectionAction}
+              ></nx-browse-action-bar>
+            `
+        : html`<nx-breadcrumb .pathSegments=${ctx.pathSegments}></nx-breadcrumb>`}
       </div>
     `;
 
@@ -171,23 +250,46 @@ class NxBrowse extends LitElement {
       `;
     }
 
-    const currentPathKey = ctx.pathSegments.join('/');
-
+    const activeAction = this._activeAction;
     return html`
       ${bar}
       ${header}
       <nx-browse-list
         .items=${this._items}
-        .currentPathKey=${currentPathKey}
-        @nx-browse-activate=${this._onBrowseActivate}
+        .folderKey=${ctx.fullpath}
+        @nx-browse-activate=${(event) => open({ item: event.detail.item })}
+        @nx-browse-selection-change=${this._handleBrowseSelectionChange}
       ></nx-browse-list>
+      ${activeAction?.type === 'rename'
+        ? html`
+            <nx-browse-rename-dialog
+              .selectedRow=${activeAction.selectedRow}
+              @nx-browse-action-complete=${(event) => this._handleBrowseActionComplete(event.detail)}
+            ></nx-browse-rename-dialog>
+          `
+        : nothing}
+      ${activeAction?.type === 'delete'
+        ? html`
+            <nx-browse-delete-dialog
+              .selectedRows=${activeAction.selectedRows}
+              @nx-browse-action-complete=${(event) => this._handleBrowseActionComplete(event.detail)}
+            ></nx-browse-delete-dialog>
+          `
+        : nothing}
+      ${activeAction?.type === 'deploy'
+        ? html`
+            <nx-browse-deploy-runner
+              .selectedRow=${activeAction.selectedRow}
+              .action=${activeAction.action}
+              @nx-browse-action-complete=${(event) => this._handleBrowseActionComplete(event.detail)}
+            ></nx-browse-deploy-runner>
+          `
+        : nothing}
     `;
   }
 }
 
-if (!customElements.get('nx-browse')) {
-  customElements.define('nx-browse', NxBrowse);
-}
+customElements.define('nx-browse', NxBrowse);
 
 export default function decorate(block) {
   block.textContent = '';
@@ -207,8 +309,8 @@ export default function decorate(block) {
     });
   };
 
-  browse.addEventListener('nx-browse-open-panel', (e) => {
-    if (e.detail.position === 'before') openBrowseChatPanel();
+  browse.addEventListener('nx-browse-open-panel', (event) => {
+    if (event.detail.position === 'before') openBrowseChatPanel();
   });
 
   const store = getPanelStore();

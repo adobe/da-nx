@@ -1,0 +1,42 @@
+:host {
+  display: inline-flex;
+}
+
+.wrap {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s2-spacing-100, 8px);
+
+  & .ring {
+    box-sizing: border-box;
+    flex-shrink: 0;
+    width: var(--nx-progress-circle-size, 32px);
+    height: var(--nx-progress-circle-size, 32px);
+    border-radius: 50%;
+    border-style: solid;
+    border-width: var(--nx-progress-circle-border-width, 3px);
+    border-color: var(--nx-progress-circle-track-color, var(--s2-gray-200));
+    border-top-color: var(
+      --nx-progress-circle-indicator-color,
+      light-dark(var(--s2-blue-900), var(--s2-blue-500))
+    );
+    animation: nx-progress-circle-rotate 0.7s linear infinite;
+  }
+
+  & .label {
+    margin: 0;
+    color: currentcolor;
+    font-size: var(--s2-component-m-medium-font-size, 14px);
+    font-weight: var(--s2-component-m-medium-font-weight, 500);
+    line-height: var(--s2-component-m-medium-line-height, 1.4);
+    text-align: center;
+  }
+}
+
+@keyframes nx-progress-circle-rotate {
+  to {
+    transform: rotate(360deg);
+  }
+}

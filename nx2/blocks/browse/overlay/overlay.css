@@ -1,0 +1,36 @@
+:host {
+  position: fixed;
+  inset: 0;
+  z-index: var(--nx-overlay-z-index, 10001);
+  display: block;
+  width: 100%;
+  min-height: 100dvh;
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  pointer-events: auto;
+  color: var(--nx-overlay-color, var(--s2-gray-25));
+}
+
+.backdrop {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: var(--nx-overlay-padding, 0);
+  overflow: var(--nx-overlay-overflow, hidden);
+  background: var(--nx-overlay-background, light-dark(rgb(0 0 0 / 28%), rgb(0 0 0 / 50%)));
+  backdrop-filter: var(--nx-overlay-backdrop-filter, none);
+}
+
+.content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+}

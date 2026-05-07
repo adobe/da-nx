@@ -207,8 +207,8 @@
 
   .column-entry-type svg {
     display: block;
-    width: 18px;
-    height: 18px;
+    width: 20px;
+    height: 20px;
     margin-inline-start: auto;
 
     /* S2 SVGs ship with fill="#292929"; tie shapes to theme tokens via currentColor. */

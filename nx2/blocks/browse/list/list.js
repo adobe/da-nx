@@ -1,31 +1,20 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../utils/utils.js';
 import { formatColumnLastModified } from './format.js';
-import {
-  getIconByExtension,
-  isFolder,
-  itemRowPathKey,
-  loadIcons,
-} from '../utils.js';
+import { getIconByExtension, isFolder, loadIcons } from '../utils.js';
 
 const styles = await loadStyle(import.meta.url);
-
-/** `''` stays empty (e.g. folders); `null` / `undefined` → em dash for missing data. */
-function browseCellText(label) {
-  if (label === '') return '';
-  return label ?? '—';
-}
 
 export class NxBrowseList extends LitElement {
   static properties = {
     items: { type: Array },
-    currentPathKey: { type: String, attribute: 'current-path-key' },
+    folderKey: { type: String, attribute: 'folder-key' },
     _icons: { state: true },
     _selectedKeys: { state: true },
   };
 
   willUpdate(changedProperties) {
-    if (changedProperties.has('currentPathKey')) {
+    if (changedProperties.has('folderKey')) {
       this._selectedKeys = [];
       this._emitSelectionChange();
     }
@@ -33,18 +22,19 @@ export class NxBrowseList extends LitElement {
 
   updated() {
     const input = this.shadowRoot?.getElementById('select-all');
-    if (!(input instanceof HTMLInputElement)) {
+    if (!input) {
       return;
     }
     if (this.items === undefined) {
       return;
     }
     const { items } = this;
-    const selectedKeys = this._selectedKeys ?? [];
-    const keys = items.map((item) => itemRowPathKey(this.currentPathKey, item));
-    const selectedCount = keys.filter((rowKey) => selectedKeys.includes(rowKey)).length;
-    input.indeterminate = selectedCount > 0 && selectedCount < keys.length;
-    if (keys.length === 0) {
+    const selectedKeys = this._selectedKeys || [];
+    const paths = items.map((item) => item.path);
+    const selectedCount = paths
+      .filter((selectedPath) => selectedKeys.includes(selectedPath)).length;
+    input.indeterminate = selectedCount > 0 && selectedCount < paths.length;
+    if (!paths.length) {
       input.checked = false;
       input.indeterminate = false;
     }
@@ -64,14 +54,11 @@ export class NxBrowseList extends LitElement {
     return svg ? svg.cloneNode(true) : nothing;
   }
 
-  _onRowActivate(event, item) {
+  _handleRowActivate(event, item) {
     event.stopPropagation();
     this.dispatchEvent(
       new CustomEvent('nx-browse-activate', {
-        detail: {
-          pathKey: itemRowPathKey(this.currentPathKey, item),
-          item,
-        },
+        detail: { item },
         bubbles: true,
         composed: true,
       }),
@@ -81,46 +68,44 @@ export class NxBrowseList extends LitElement {
   _emitSelectionChange() {
     this.dispatchEvent(
       new CustomEvent('nx-browse-selection-change', {
-        detail: { selectedKeys: [...(this._selectedKeys ?? [])] },
+        detail: { selectedKeys: [...(this._selectedKeys || [])] },
         bubbles: true,
         composed: true,
       }),
     );
   }
 
-  _isRowSelected(key) {
-    return (this._selectedKeys ?? []).includes(key);
+  clearSelection() {
+    if (!this._selectedKeys?.length) return;
+    this._selectedKeys = [];
+    this._emitSelectionChange();
   }
 
-  _onSelectAllChange(event) {
+  _isRowSelected(path) {
+    return (this._selectedKeys ?? []).includes(path);
+  }
+
+  _handleSelectAllChange(event) {
     event.stopPropagation();
-    const input = event.target;
-    if (!(input instanceof HTMLInputElement)) {
-      return;
-    }
     if (this.items === undefined) {
       return;
     }
     const { items } = this;
-    const keys = items.map((item) => itemRowPathKey(this.currentPathKey, item));
-    this._selectedKeys = input.checked ? [...keys] : [];
+    const paths = items.map((item) => item.path);
+    this._selectedKeys = event.target.checked ? [...paths] : [];
     this._emitSelectionChange();
   }
 
-  _onRowCheckboxChange(event, item) {
+  _handleRowCheckboxChange(event, item) {
     event.stopPropagation();
-    const input = event.target;
-    if (!(input instanceof HTMLInputElement)) {
-      return;
-    }
-    const key = itemRowPathKey(this.currentPathKey, item);
-    const selectedKeys = this._selectedKeys ?? [];
-    if (input.checked) {
-      this._selectedKeys = selectedKeys.includes(key)
+    const { path } = item;
+    const selectedKeys = this._selectedKeys || [];
+    if (event.target.checked) {
+      this._selectedKeys = selectedKeys.includes(path)
         ? selectedKeys
-        : [...selectedKeys, key];
+        : [...selectedKeys, path];
     } else {
-      this._selectedKeys = selectedKeys.filter((selectedKey) => selectedKey !== key);
+      this._selectedKeys = selectedKeys.filter((selectedPath) => selectedPath !== path);
     }
     this._emitSelectionChange();
   }
@@ -130,10 +115,11 @@ export class NxBrowseList extends LitElement {
       return nothing;
     }
     const { items } = this;
-    const selectedKeys = this._selectedKeys ?? [];
-    const rowKeys = items.map((item) => itemRowPathKey(this.currentPathKey, item));
-    const selectedCount = rowKeys.filter((rowKey) => selectedKeys.includes(rowKey)).length;
-    const allSelected = items.length > 0 && selectedCount === items.length;
+    const selectedKeys = this._selectedKeys || [];
+    const paths = items.map((item) => item.path);
+    const selectedCount = paths
+      .filter((selectedPath) => selectedKeys.includes(selectedPath)).length;
+    const hasAllSelected = items.length > 0 && selectedCount === items.length;
 
     return html`
       <div class="scroll">
@@ -146,8 +132,8 @@ export class NxBrowseList extends LitElement {
                   <input
                     id="select-all"
                     type="checkbox"
-                    .checked=${allSelected}
-                    @change=${this._onSelectAllChange}
+                    .checked=${hasAllSelected}
+                    @change=${this._handleSelectAllChange}
                   />
                 </label>
               </th>
@@ -158,39 +144,39 @@ export class NxBrowseList extends LitElement {
           </thead>
           <tbody>
             ${items.map((item) => {
-              const key = itemRowPathKey(this.currentPathKey, item);
-              const selected = this._isRowSelected(key);
-              const folder = isFolder(item);
-              const modified = folder
-                ? { label: '' }
-                : formatColumnLastModified(item.lastModified);
-              const rowKind = folder ? 'row-dir' : 'row-file';
-              return html`
+      const { path } = item;
+      const isSelected = this._isRowSelected(path);
+      const isFolderRow = isFolder(item);
+      const modified = isFolderRow
+        ? { label: '' }
+        : formatColumnLastModified(item.lastModified);
+      const rowKind = isFolderRow ? 'row-dir' : 'row-file';
+      return html`
                 <tr
                   class="row ${rowKind}"
-                  aria-selected=${selected ? 'true' : 'false'}
-                  @click=${(event) => this._onRowActivate(event, item)}
+                  aria-selected=${isSelected ? 'true' : 'false'}
+                  @click=${(event) => this._handleRowActivate(event, item)}
                 >
                   <td class="column-selection" @click=${(event) => event.stopPropagation()}>
                     <label class="check">
                       <span class="sr-only">Select ${item.name || 'row'}</span>
                       <input
                         type="checkbox"
-                        .checked=${selected}
-                        @change=${(event) => this._onRowCheckboxChange(event, item)}
+                        .checked=${isSelected}
+                        @change=${(event) => this._handleRowCheckboxChange(event, item)}
                       />
                     </label>
                   </td>
                   <td class="column-entry-type">${this._renderIcon(getIconByExtension(item?.ext))}</td>
                   <td class="column-file-name">
-                    <span class="filename" title=${item.name || ''}>${item.name}</span>
+                    <span class="filename" title=${item.name}>${item.name}</span>
                   </td>
                   <td class="column-modified" title=${modified.title || nothing}>
-                    ${browseCellText(modified.label)}
+                    ${modified.label === '' ? '' : modified.label ?? '—'}
                   </td>
                 </tr>
               `;
-            })}
+    })}
           </tbody>
         </table>
       </div>
@@ -198,6 +184,4 @@ export class NxBrowseList extends LitElement {
   }
 }
 
-if (!customElements.get('nx-browse-list')) {
-  customElements.define('nx-browse-list', NxBrowseList);
-}
+customElements.define('nx-browse-list', NxBrowseList);
