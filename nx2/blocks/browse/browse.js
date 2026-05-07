@@ -193,6 +193,31 @@ export default function decorate(block) {
   block.textContent = '';
   const browse = document.createElement('nx-browse');
   block.append(browse);
+  let prevKeys = new Set();
+  browse.addEventListener('nx-browse-selection-change', ({ detail }) => {
+    const selected = detail?.selected ?? [];
+    const nextKeys = new Set(selected.map(({ key }) => key));
+    for (const key of prevKeys) {
+      if (!nextKeys.has(key)) {
+        document.dispatchEvent(new CustomEvent('nx-add-to-chat', { detail: { key: `browse-${key}` } }));
+      }
+    }
+    for (const { key, item } of selected) {
+      if (!prevKeys.has(key)) {
+        const label = item.ext ? `${item.name}.${item.ext}` : item.name;
+        document.dispatchEvent(new CustomEvent('nx-add-to-chat', {
+          detail: {
+            key: `browse-${key}`,
+            id: key,
+            label,
+            blockName: label,
+            innerText: `Selected repository path: ${key}`,
+          },
+        }));
+      }
+    }
+    prevKeys = nextKeys;
+  });
 
   const openBrowseChatPanel = () => {
     const store = getPanelStore();
