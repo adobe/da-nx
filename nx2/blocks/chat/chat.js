@@ -23,7 +23,7 @@ class NxChat extends LitElement {
     connected: { type: Boolean },
     toolCards: { type: Object },
     _prompts: { state: true },
-    _attachedItems: { state: true },
+    _items: { state: true },
   };
 
   set context(value) {
@@ -31,17 +31,37 @@ class NxChat extends LitElement {
     this._applyContext(value);
   }
 
-  _onAddToChat = ({ detail }) => this.addAttachment(detail);
+  _keyedItemIds = new Map();
+
+  _onAddToChat = ({ detail }) => {
+    const { key, ...item } = detail;
+    if (key !== undefined) {
+      const prevId = this._keyedItemIds.get(key);
+      const without = (this._items ?? []).filter((i) => i.id !== prevId);
+      if (item.id) {
+        this._keyedItemIds.set(key, item.id);
+        this._items = [...without, item];
+      } else {
+        this._keyedItemIds.delete(key);
+        this._items = without;
+      }
+    } else {
+      this.addAttachment(item);
+    }
+  };
 
   addAttachment(item) {
-    const current = this._attachedItems ?? [];
+    const current = this._items ?? [];
     if (current.some((i) => i.id === item.id)) return;
-    this._attachedItems = [...current, item];
+    this._items = [...current, item];
   }
 
   _applyContext(value) {
     this._context = value;
     this._controller?.setContext(value);
+    const contextIds = new Set(this._keyedItemIds.values());
+    this._items = (this._items ?? []).filter((item) => !contextIds.has(item.id));
+    this._keyedItemIds = new Map();
     this._loadConfig();
     this.requestUpdate();
   }
@@ -113,13 +133,15 @@ class NxChat extends LitElement {
   }
 
   _onSlashSelect(skillId) {
-    this._pendingSkillIds = [...(this._pendingSkillIds ?? []), skillId];
     const input = this.shadowRoot?.querySelector('.chat-input');
-    if (input && this._slashCtx !== null) {
-      this._spliceInput(input, `Using the "${skillId}" skill, `, this._slashCtx.wordStart, input.selectionStart);
-    }
-    input?.focus();
+    const { wordStart } = this._slashCtx ?? {};
+    const before = input?.value.slice(0, wordStart ?? 0).trimEnd();
+    const after = input?.value.slice(input.selectionStart).trimStart();
+    const message = [before, `/${skillId}`, after].filter(Boolean).join(' ');
     this._slashCtx = null;
+    this._slashMenuEl?.close();
+    if (input) input.value = '';
+    this._controller.sendMessage(message, [], { requestedSkills: [skillId] });
   }
 
   async connectedCallback() {
@@ -257,20 +279,21 @@ class NxChat extends LitElement {
     }
     const input = this.shadowRoot.querySelector('.chat-input');
     const message = input.value.trim();
-    if (!message && !this._attachedItems?.length) return;
-    const context = this._attachedItems ?? [];
-    const requestedSkills = this._pendingSkillIds ?? [];
-    this._pendingSkillIds = [];
+    if (!message && !this._items?.length) return;
+    const context = this._items ?? [];
     this._slashMenuEl?.close();
-    this._controller.sendMessage(message, context, { requestedSkills });
+    this._controller.sendMessage(message, context);
     input.value = '';
-    this._attachedItems = [];
+    this._items = [];
   }
 
   _sendPrompt(prompt) {
     if (!prompt || this.thinking || !this.connected) return;
     this.shadowRoot.querySelector('.prompts-popover')?.close();
-    this._controller.sendMessage(prompt);
+    const input = this.shadowRoot.querySelector('.chat-input');
+    if (!input) return;
+    input.value = prompt;
+    input.focus();
   }
 
   _handleMenuSelect({ detail: { id } }) {
@@ -290,7 +313,7 @@ class NxChat extends LitElement {
   }
 
   _handlePillRemove({ detail: { id } }) {
-    this._attachedItems = (this._attachedItems ?? []).filter((item) => item.id !== id);
+    this._items = (this._items ?? []).filter((item) => item.id !== id);
   }
 
   render() {
@@ -342,9 +365,9 @@ class NxChat extends LitElement {
         ></nx-menu>
         ${renderApprovalCard(this._pendingApproval(), this._controller.approveToolCall)}
         <form class="chat-form" autocomplete="off" @submit=${this._submit}>
-        ${this._attachedItems?.length ? html`
+        ${this._items?.length ? html`
           <nx-chat-pills
-            .items=${this._attachedItems}
+            .items=${this._items}
             @nx-pill-remove=${this._handlePillRemove}
           ></nx-chat-pills>` : nothing}
         <textarea
@@ -356,7 +379,7 @@ class NxChat extends LitElement {
           @keydown=${this._handleKeydown}
           @blur=${this._handleBlur}
         ></textarea>
-        <div class="chat-actions ${this.thinking ? 'chat-thinking' : ''}">
+        <div class="chat-actions" ?data-thinking=${this.thinking}>
           <nx-menu .items=${ADD_MENU_ITEMS} placement="above" @select=${this._handleMenuSelect}>
             <button slot="trigger" class="chat-add" type="button" aria-label="Add" @click=${this._onAddClick}>
               <span class="icon-add">${icon('add')}</span>

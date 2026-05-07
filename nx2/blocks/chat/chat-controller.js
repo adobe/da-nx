@@ -21,7 +21,7 @@ export default class ChatController {
 
   _pageContextForAgent() {
     const { org, site, path, view } = this._context ?? {};
-    return org && site ? { org, site, path, view } : undefined;
+    return org && site ? { org, site, path: path ?? '', view } : undefined;
   }
 
   async _getRoom() {
@@ -159,7 +159,9 @@ export default class ChatController {
           {
             role: ROLE.ASSISTANT,
             virtual: true,
-            content: [{ type: AGENT_EVENT.TOOL_CALL, toolCallId, toolName: prior.toolName }],
+            content: [{
+              type: AGENT_EVENT.TOOL_CALL, toolCallId, toolName: prior.toolName, input: prior.input,
+            }],
           },
         ];
         this._onToolDone?.();
@@ -220,15 +222,12 @@ export default class ChatController {
       body: JSON.stringify({
         messages: this._messages.filter((msg) => !msg.virtual),
         pageContext,
-        context: this._pendingContext ?? [],
         imsToken: accessToken?.token ?? null,
         room,
         ...(this._requestedSkills?.length ? { requestedSkills: this._requestedSkills } : {}),
       }),
       signal: this._abortController.signal,
     });
-
-    this._pendingContext = [];
 
     if (!resp.ok) {
       throw new Error(`Agent responded with ${resp.status}: ${await resp.text()}`);
@@ -250,8 +249,21 @@ export default class ChatController {
     if (this._thinking || !this._connected) return;
 
     this._requestedSkills = requestedSkills;
-    this._pendingContext = context;
-    this._messages = [...(this._messages ?? []), { role: ROLE.USER, content: message }];
+    const selectionContext = context
+      .filter((item) => typeof item.proseIndex === 'number' || item.blockName)
+      .map(({ proseIndex, blockName, innerText }) => ({
+        ...(typeof proseIndex === 'number' && { proseIndex }),
+        ...(blockName && { blockName }),
+        ...(innerText && { innerText }),
+      }));
+
+    const userMessage = {
+      role: ROLE.USER,
+      content: message,
+      ...(selectionContext.length && { selectionContext }),
+    };
+
+    this._messages = [...(this._messages ?? []), userMessage];
     this._thinking = true;
     this._update();
 
