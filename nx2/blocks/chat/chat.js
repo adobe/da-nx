@@ -124,6 +124,8 @@ class NxChat extends LitElement {
     if (!this._slashMenuEl.open) {
       const form = this.shadowRoot.querySelector('.chat-form');
       this._slashMenuEl.show({ anchor: form, placement: 'above' });
+    } else {
+      this._slashMenuEl.reposition();
     }
   }
 
