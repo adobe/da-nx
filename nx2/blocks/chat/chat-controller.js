@@ -224,6 +224,7 @@ export default class ChatController {
         pageContext,
         imsToken: accessToken?.token ?? null,
         room,
+        ...(this._requestedSkills?.length ? { requestedSkills: this._requestedSkills } : {}),
       }),
       signal: this._abortController.signal,
     });
@@ -244,9 +245,10 @@ export default class ChatController {
     });
   }
 
-  async sendMessage(message, context = []) {
+  async sendMessage(message, context = [], { requestedSkills = [] } = {}) {
     if (this._thinking || !this._connected) return;
 
+    this._requestedSkills = requestedSkills;
     const selectionContext = context
       .filter((item) => typeof item.proseIndex === 'number' || item.blockName)
       .map(({ proseIndex, blockName, innerText }) => ({

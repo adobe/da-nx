@@ -7,7 +7,7 @@ import './pills/pills.js';
 import '../shared/menu/menu.js';
 import { loadStyle, hashChange } from '../../utils/utils.js';
 import { loadChatIcons } from './utils.js';
-import { loadPrompts } from './api.js';
+import { loadSiteConfig } from './api.js';
 import { ADD_MENU_ITEMS, CHAT_ICONS, MENU_OPTIONS, ROLE, TOOL_STATE } from './constants.js';
 
 const styles = await loadStyle(import.meta.url);
@@ -62,7 +62,7 @@ class NxChat extends LitElement {
     const contextIds = new Set(this._keyedItemIds.values());
     this._items = (this._items ?? []).filter((item) => !contextIds.has(item.id));
     this._keyedItemIds = new Map();
-    this._loadPrompts();
+    this._loadConfig();
     this.requestUpdate();
   }
 
@@ -74,14 +74,76 @@ class NxChat extends LitElement {
     this.dispatchEvent(new CustomEvent('nx-panel-close', { bubbles: true, composed: true }));
   }
 
-  async _loadPrompts() {
+  async _loadConfig() {
     const { org, site } = this._context ?? {};
     if (!org || !site) return;
     const key = `${org}/${site}`;
-    if (this._promptsKey === key) return;
-    this._promptsKey = key;
-    const data = await loadPrompts(org, site);
-    if (data) this._prompts = data.filter((p) => p.title && p.prompt);
+    if (this._configKey === key) return;
+    this._configKey = key;
+    const { prompts, skills } = await loadSiteConfig(org, site);
+    this._prompts = prompts ?? [];
+    this._skills = skills ?? [];
+    if (this._slashCtx) this._syncSlashMenu(this._slashCtx);
+  }
+
+  _getSlashItems(filter) {
+    if (!this._skills) return [];
+    const skills = this._skills.map((id) => ({ id, label: id }));
+    const filtered = filter
+      ? skills.filter((item) => item.id.toLowerCase().includes(filter))
+      : skills;
+    if (!filtered.length) return [];
+    return [{ section: 'Skills' }, ...filtered];
+  }
+
+  firstUpdated() {
+    this._slashMenuEl = this.shadowRoot.querySelector('.slash-menu');
+  }
+
+  _getSlashContext(input) {
+    const pos = input.selectionStart;
+    const before = input.value.slice(0, pos);
+    const wordStart = Math.max(before.lastIndexOf(' '), before.lastIndexOf('\n')) + 1;
+    const word = before.slice(wordStart);
+    if (!word.startsWith('/')) return null;
+    return { filter: word.slice(1).toLowerCase(), wordStart };
+  }
+
+  _syncSlashMenu(ctx) {
+    if (!this._slashMenuEl) return;
+    if (!ctx) {
+      this._slashMenuEl.close();
+      return;
+    }
+    const items = this._getSlashItems(ctx.filter);
+    if (!items.length) {
+      this._slashMenuEl.close();
+      return;
+    }
+    this._slashMenuEl.items = items;
+    if (!this._slashMenuEl.open) {
+      const form = this.shadowRoot.querySelector('.chat-form');
+      this._slashMenuEl.show({ anchor: form, placement: 'above' });
+    } else {
+      this._slashMenuEl.reposition();
+    }
+  }
+
+  _spliceInput(input, text, start, end = start) {
+    input.value = input.value.slice(0, start) + text + input.value.slice(end);
+    input.setSelectionRange(start + text.length, start + text.length);
+  }
+
+  _onSlashSelect(skillId) {
+    const input = this.shadowRoot?.querySelector('.chat-input');
+    const { wordStart } = this._slashCtx ?? {};
+    const before = input?.value.slice(0, wordStart ?? 0).trimEnd();
+    const after = input?.value.slice(input.selectionStart).trimStart();
+    const message = [before, `/${skillId}`, after].filter(Boolean).join(' ');
+    this._slashCtx = null;
+    this._slashMenuEl?.close();
+    if (input) input.value = '';
+    this._controller.sendMessage(message, [], { requestedSkills: [skillId] });
   }
 
   async connectedCallback() {
@@ -183,7 +245,28 @@ class NxChat extends LitElement {
     popover.close();
   }
 
+  _handleInput(e) {
+    this._slashCtx = this._getSlashContext(e.target);
+    this._syncSlashMenu(this._slashCtx);
+  }
+
+  _handleBlur() {
+    // Defer past any click event on a menu item that triggered the blur
+    setTimeout(() => {
+      this._slashMenuEl?.close();
+      this._slashCtx = null;
+    }, 0);
+  }
+
   _handleKeydown(e) {
+    if (this._slashMenuEl?.open) {
+      const keys = ['ArrowDown', 'ArrowUp', 'Enter', 'Escape'];
+      if (keys.includes(e.key)) {
+        e.preventDefault();
+        this._slashMenuEl.handleKey(e.key);
+        return;
+      }
+    }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       this._submit();
@@ -199,7 +282,9 @@ class NxChat extends LitElement {
     const input = this.shadowRoot.querySelector('.chat-input');
     const message = input.value.trim();
     if (!message && !this._items?.length) return;
-    this._controller.sendMessage(message, this._items ?? []);
+    const context = this._items ?? [];
+    this._slashMenuEl?.close();
+    this._controller.sendMessage(message, context);
     input.value = '';
     this._items = [];
   }
@@ -207,11 +292,26 @@ class NxChat extends LitElement {
   _sendPrompt(prompt) {
     if (!prompt || this.thinking || !this.connected) return;
     this.shadowRoot.querySelector('.prompts-popover')?.close();
-    this._controller.sendMessage(prompt);
+    const input = this.shadowRoot.querySelector('.chat-input');
+    if (!input) return;
+    input.value = prompt;
+    input.focus();
   }
 
   _handleMenuSelect({ detail: { id } }) {
     if (id === MENU_OPTIONS.PROMPT) this._openPrompts();
+    if (id === MENU_OPTIONS.COMMAND) this._insertSlash();
+  }
+
+  _insertSlash() {
+    const input = this.shadowRoot.querySelector('.chat-input');
+    if (!input) return;
+    const { value, selectionStart: pos } = input;
+    const before = value.slice(0, pos);
+    const slash = (before && !before.endsWith(' ')) ? ' /' : '/';
+    this._spliceInput(input, slash, pos);
+    input.focus();
+    input.dispatchEvent(new Event('input'));
   }
 
   _handlePillRemove({ detail: { id } }) {
@@ -259,6 +359,13 @@ class NxChat extends LitElement {
         </div>
       </div>
       <div class="chat-form-wrap">
+        <nx-menu
+          class="slash-menu"
+          .ignoreFocus=${true}
+          .scoped=${true}
+          @select=${({ detail }) => this._onSlashSelect(detail.id)}
+          @mousedown=${(e) => e.preventDefault()}
+        ></nx-menu>
         ${renderApprovalCard(this._pendingApproval(), this._controller.approveToolCall)}
         <form class="chat-form" autocomplete="off" @submit=${this._submit}>
         ${this._items?.length ? html`
@@ -269,11 +376,13 @@ class NxChat extends LitElement {
         <textarea
           name="chat-input"
           class="chat-input"
-          placeholder="Ask anything, or type / for commands..."
+          placeholder="Ask anything, or type / for skills..."
           ?disabled=${this.thinking || !this.connected}
+          @input=${this._handleInput}
           @keydown=${this._handleKeydown}
+          @blur=${this._handleBlur}
         ></textarea>
-        <div class="chat-actions ${this.thinking ? 'chat-thinking' : ''}">
+        <div class="chat-actions" ?data-thinking=${this.thinking}>
           <nx-menu .items=${ADD_MENU_ITEMS} placement="above" @select=${this._handleMenuSelect}>
             <button slot="trigger" class="chat-add" type="button" aria-label="Add" @click=${this._onAddClick}>
               <span class="icon-add">${icon('add')}</span>

@@ -191,6 +191,21 @@ Each session would have a human-readable title so users can make informed switch
 |---|---|---|---|
 | `nx-agent-change` | Yes | — | The agent completed a tool action. Host views can listen to react (e.g. reload the document). Fired once per successful tool-result. |
 
+## Skills slash menu
+
+Typing `/` in the chat input opens a skill picker populated from the current site's skill library.
+
+**Source:** `GET /config/{org}/{site}` → `json.skills.data` rows (same endpoint as prompts). This mirrors `da-agent/src/skills/loader.ts` exactly, so the menu only shows skills the agent can resolve.
+
+**Rules (match the agent's `loadSkillsIndex`):**
+- Site-level only — no org-level fallback.
+- Rows with `status: 'draft'` are excluded.
+- IDs are normalised: `.md` suffix stripped (`check-heading.md` → `check-heading`).
+
+**Wire:** on selection, the skill ID is collected and passed as `requestedSkills: [id]` in the next POST to da-agent. The agent loads the full markdown content from its own config KV and injects it into the system prompt — the client never sends the content itself.
+
+**Approval continuations:** `requestedSkills` is intentionally re-sent on approval continuation POSTs. The agent rebuilds its system prompt from scratch on every request, so the skill must be present in each POST that expects it to be in context. `requestedSkills` resets to `[]` only when the user sends the next fresh message.
+
 ## Boundaries
 
 - **UI (`chat.js`)** — rendering only. No API calls, no auth, no view-specific logic.
