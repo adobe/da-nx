@@ -10,6 +10,8 @@
  * governing permissions and limitations under the License.
  */
 
+export { loadStyle } from '../utils/style.js';
+
 const LOG = async (ex, el) => (await import('../utils/error.js')).default(ex, el);
 
 export function getColorScheme() {

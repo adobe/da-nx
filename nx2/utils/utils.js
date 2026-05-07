@@ -1,6 +1,4 @@
-import { env, getConfig } from '../scripts/nx.js';
-
-const config = getConfig();
+import { env } from '../scripts/nx.js';
 
 export const SUPPORTED_FILES = {
   html: 'text/html',
@@ -141,27 +139,4 @@ export const loadPageStyle = (href) => new Promise((resolve) => {
   }
 });
 
-export const loadStyle = (() => {
-  const cache = {};
-
-  return (supplied) => {
-    // Convenience replacement for WCs
-    const path = supplied.replace('.js', '.css');
-
-    try {
-      cache[path] ??= new Promise((resolve) => {
-        (async () => {
-          const resp = await fetch(path);
-          const text = await resp.text();
-          const sheet = new CSSStyleSheet({ baseURL: path });
-          sheet.path = path;
-          sheet.replaceSync(text);
-          resolve(sheet);
-        })();
-      });
-    } catch {
-      config.log(`Could not load ${path}`);
-    }
-    return cache[path];
-  };
-})();
+export { loadStyle } from './style.js';
