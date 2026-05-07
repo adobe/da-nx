@@ -3,10 +3,10 @@ import { loadStyle } from '../../../utils/utils.js';
 
 const styles = await loadStyle(import.meta.url);
 
-class NxOverlay extends LitElement {
+class NxBrowseOverlay extends LitElement {
   _handleBackdropClick = (event) => {
     if (event.target !== event.currentTarget) return;
-    this.dispatchEvent(new CustomEvent('nx-overlay-backdrop-click', {
+    this.dispatchEvent(new CustomEvent('nx-browse-overlay-backdrop-click', {
       bubbles: true,
       composed: true,
     }));
@@ -26,4 +26,4 @@ class NxOverlay extends LitElement {
   }
 }
 
-customElements.define('nx-overlay', NxOverlay);
+customElements.define('nx-browse-overlay', NxBrowseOverlay);

@@ -1,7 +1,7 @@
 import { LitElement, html } from 'da-lit';
 import { loadStyle } from '../../../../utils/utils.js';
 import { saveToAem } from '../../browse-api.js';
-import '../../../shared/overlay/overlay.js';
+import '../../overlay/overlay.js';
 import '../../../shared/progress-circle/progress-circle.js';
 
 export async function deploy({ sourcePath, action }) {
@@ -97,9 +97,9 @@ class NxBrowseDeployRunner extends LitElement {
   render() {
     const progressLabel = this.action === 'publish' ? 'Publishing' : 'Previewing';
     return html`
-      <nx-overlay>
+      <nx-browse-overlay>
         <nx-progress-circle .label=${progressLabel}></nx-progress-circle>
-      </nx-overlay>
+      </nx-browse-overlay>
     `;
   }
 }
