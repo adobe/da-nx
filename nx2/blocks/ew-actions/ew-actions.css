@@ -38,7 +38,7 @@
   padding: 0;
   margin: 0;
   border: none;
-  border-radius: var(--s2-corner-radius-800);
+  border-radius: var(--s2-corner-radius-500);
   color: light-dark(var(--s2-gray-25), #fff);
   background-color: var(--s2-blue-900);
   cursor: pointer;
