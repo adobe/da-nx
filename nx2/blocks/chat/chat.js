@@ -12,6 +12,7 @@ import { ADD_MENU_ITEMS, CHAT_ICONS, MENU_OPTIONS, ROLE, TOOL_STATE } from './co
 
 const styles = await loadStyle(import.meta.url);
 const icons = await loadChatIcons(CHAT_ICONS);
+// ==== THIS IS PART OF SKILLS EDITOR V1 ====
 const PROMPT_ADD_EVENTS = [
   'da-skills-editor-prompt-add-to-chat',
   'da-skills-lab-prompt-add-to-chat',
@@ -20,6 +21,7 @@ const PROMPT_SEND_EVENTS = [
   'da-skills-editor-prompt-send',
   'da-skills-lab-prompt-send',
 ];
+// ==== END SKILLS EDITOR V1 ====
 
 const icon = (name) => icons?.[name]?.cloneNode(true);
 const UI_PROMPTS_GAP = 8;
@@ -99,14 +101,16 @@ class NxChat extends LitElement {
 
     this._controller.connect().then(() => this._controller.loadInitialMessages());
     document.addEventListener('nx-add-to-chat', this._onAddToChat);
-    this._boundPromptAdd = (event) => this._handlePromptAdd(event);
-    this._boundPromptSend = (event) => this._handlePromptSend(event);
+    // ==== THIS IS PART OF SKILLS EDITOR V1 ====
+    this._boundPromptAdd = (event) => this._onPromptAdd(event);
+    this._boundPromptSend = (event) => this._onPromptSend(event);
     PROMPT_ADD_EVENTS.forEach((eventName) => {
       window.addEventListener(eventName, this._boundPromptAdd);
     });
     PROMPT_SEND_EVENTS.forEach((eventName) => {
       window.addEventListener(eventName, this._boundPromptSend);
     });
+    // ==== END SKILLS EDITOR V1 ====
   }
 
   disconnectedCallback() {
@@ -115,12 +119,14 @@ class NxChat extends LitElement {
     this._controller?.destroy();
     document.removeEventListener('keydown', this._onApprovalKeydown);
     document.removeEventListener('nx-add-to-chat', this._onAddToChat);
+    // ==== THIS IS PART OF SKILLS EDITOR V1 ====
     PROMPT_ADD_EVENTS.forEach((eventName) => {
       window.removeEventListener(eventName, this._boundPromptAdd);
     });
     PROMPT_SEND_EVENTS.forEach((eventName) => {
       window.removeEventListener(eventName, this._boundPromptSend);
     });
+    // ==== END SKILLS EDITOR V1 ====
   }
 
   _pendingApproval() {
@@ -213,6 +219,7 @@ class NxChat extends LitElement {
     this._controller.sendMessage(prompt);
   }
 
+  // ==== THIS IS PART OF SKILLS EDITOR V1 ====
   _navigateToSkillsEditor(tab) {
     const { org, site } = this._context ?? {};
     if (!org || !site) return;
@@ -223,9 +230,11 @@ class NxChat extends LitElement {
     const { search } = window.location;
     window.open(`/apps/skills${search}#/${org}/${site}`, '_blank');
   }
+  // ==== END SKILLS EDITOR V1 ====
 
   _handleMenuSelect({ detail: { id } }) {
     if (id === MENU_OPTIONS.PROMPT) this._openPrompts();
+    // ==== THIS IS PART OF SKILLS EDITOR V1 ====
     else if (id === 'skills') this._navigateToSkillsEditor('skills');
     else if (id === 'prompts') this._navigateToSkillsEditor('prompts');
   }
@@ -234,7 +243,8 @@ class NxChat extends LitElement {
     this._attachedItems = (this._attachedItems ?? []).filter((item) => item.id !== id);
   }
 
-  _handlePromptAdd(event) {
+  // ==== THIS IS PART OF SKILLS EDITOR V1 ====
+  _onPromptAdd(event) {
     const prompt = event?.detail?.prompt;
     if (typeof prompt !== 'string' || !prompt.trim()) return;
     const key = `add:${prompt.trim()}`;
@@ -246,7 +256,7 @@ class NxChat extends LitElement {
     input.focus();
   }
 
-  _handlePromptSend(event) {
+  _onPromptSend(event) {
     const prompt = event?.detail?.prompt;
     if (typeof prompt !== 'string' || !prompt.trim()) return;
     const key = `send:${prompt.trim()}`;
@@ -263,9 +273,10 @@ class NxChat extends LitElement {
     return false;
   }
 
-  _copy(content) {
-    navigator.clipboard.writeText(content);
+  async _copy(content) {
+    try { await navigator.clipboard.writeText(content); } catch { /* denied */ }
   }
+  // ==== END SKILLS EDITOR V1 ====
 
   render() {
     const { view } = this._context ?? {};

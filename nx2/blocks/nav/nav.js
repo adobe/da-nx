@@ -81,6 +81,7 @@ class NXNav extends LitElement {
       brandLink.setAttribute('aria-label', textContent);
       brandLink.textContent = '';
       const lockup = await loadHrefSvg(href);
+      // ==== THIS IS PART OF SKILLS EDITOR V1 ====
       if (lockup) brandLink.append(lockup);
     }
     brandLink.href = '/';

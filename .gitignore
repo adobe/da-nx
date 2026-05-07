@@ -8,5 +8,6 @@ helix-importer-ui
 *.bak
 .idea
 .claude/settings.local.json
+# ==== THIS IS PART OF SKILLS EDITOR V1 ====
 PR-throwaways/
 private-docs/

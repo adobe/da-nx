@@ -11,6 +11,7 @@ export async function loadPrompts(org, site) {
   }
 }
 
+// ==== THIS IS PART OF SKILLS EDITOR V1 ====
 function isServerEnabled(row) {
   if (typeof row?.enabled === 'boolean') return row.enabled;
   if (typeof row?.disabled === 'boolean') return !row.disabled;
@@ -49,3 +50,4 @@ export async function loadMcpServerConfig(org, site) {
     return { servers: {}, serverHeaders: {} };
   }
 }
+// ==== END SKILLS EDITOR V1 ====

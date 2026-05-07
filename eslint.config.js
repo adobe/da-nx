@@ -33,10 +33,12 @@ export default defineConfig([
     rules: {
       'class-methods-use-this': 0,
 
+      // ==== THIS IS PART OF SKILLS EDITOR V1 ====
       // Function declarations are hoisted; allow calling them before their
       // textual position (common in module-level renderer helpers).
       'no-use-before-define': ['error', { functions: false, classes: true, variables: true }],
 
+      // ==== END SKILLS EDITOR V1 ====
       // headers not required to keep file size down
       'header/header': 0,
 

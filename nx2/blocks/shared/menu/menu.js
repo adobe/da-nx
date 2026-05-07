@@ -1,6 +1,7 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../utils/utils.js';
 import '../popover/popover.js';
+// ==== THIS IS PART OF SKILLS EDITOR V1 ====
 import { loadHrefSvg, ICONS_BASE } from '../../../utils/svg.js';
 import { listKeydown } from '../utils/list-nav.js';
 

@@ -2,6 +2,7 @@ import { loadIms } from '../../utils/ims.js';
 import { AGENT_EVENT, ROLE, TOOL_STATE } from './constants.js';
 import { readStream } from './utils.js';
 import { loadMessages, saveMessages, clearMessages } from './persistence.js';
+// ==== THIS IS PART OF SKILLS EDITOR V1 ====
 import { loadMcpServerConfig } from './api.js';
 
 // ─── skill suggestion block parser ───────────────────────────────────────────
@@ -48,13 +49,17 @@ export function extractSkillSuggestion(text) {
 
   // Notify any in-page skills editor instance.
   const detail = { prose, id, body };
-  window.dispatchEvent(new CustomEvent(SUGGEST_EVENT, { detail }));
-  window.dispatchEvent(new CustomEvent(LEGACY_SUGGEST_EVENT, { detail }));
+  window.dispatchEvent(new CustomEvent(SUGGEST_EVENT, { detail, bubbles: true }));
+  window.dispatchEvent(new CustomEvent(LEGACY_SUGGEST_EVENT, { detail, bubbles: true }));
 
   return { visible: prose, id, body };
 }
 
+// ==== END SKILLS EDITOR V1 ====
+
+// ==== THIS IS PART OF SKILLS EDITOR V1 ====
 // ?ref=local routes to a local da-agent dev server (port 4200).
+
 const AGENT_URL = new URLSearchParams(window.location.search).get('ref') === 'local'
   ? 'http://localhost:4200/chat'
   : 'https://da-agent.adobeaem.workers.dev/chat';
@@ -70,14 +75,17 @@ export default class ChatController {
     this._room = null;
   }
 
+  // ==== THIS IS PART OF SKILLS EDITOR V1 ====
   async _getMcpConfig() {
     const { org, site } = this._context ?? {};
     if (!org || !site) return { servers: {}, serverHeaders: {} };
     return loadMcpServerConfig(org, site);
   }
+  // ==== END SKILLS EDITOR V1 ====
 
   _pageContextForAgent() {
     const { org, site, path, view } = this._context ?? {};
+    // ==== THIS IS PART OF SKILLS EDITOR V1 ====
     return org && site ? { org, site, path: path ?? '', view } : undefined;
   }
 
@@ -268,11 +276,13 @@ export default class ChatController {
   };
 
   async _stream(pageContext) {
+    // ==== THIS IS PART OF SKILLS EDITOR V1 ====
     const [{ accessToken }, room, mcpConfig] = await Promise.all([
       loadIms(),
       this._getRoom(),
       this._getMcpConfig(),
     ]);
+    // ==== END SKILLS EDITOR V1 ====
     this._abortController = new AbortController();
 
     const resp = await fetch(AGENT_URL, {
@@ -284,8 +294,10 @@ export default class ChatController {
         context: this._pendingContext ?? [],
         imsToken: accessToken?.token ?? null,
         room,
+        // ==== THIS IS PART OF SKILLS EDITOR V1 ====
         mcpServers: mcpConfig?.servers ?? {},
         mcpServerHeaders: mcpConfig?.serverHeaders ?? {},
+        // ==== END SKILLS EDITOR V1 ====
       }),
       signal: this._abortController.signal,
     });
@@ -297,16 +309,20 @@ export default class ChatController {
     }
 
     await readStream(resp.body, {
+      // ==== THIS IS PART OF SKILLS EDITOR V1 ====
       onDelta: (next) => {
         // Hide the raw [SKILL_SUGGESTION] block from the streaming preview.
         const blockStart = next.indexOf(SUGGESTION_OPEN);
         this._streamingText = blockStart !== -1 ? next.slice(0, blockStart) : next;
         this._update();
       },
+      // ==== END SKILLS EDITOR V1 ====
       onText: (text) => {
+        // ==== THIS IS PART OF SKILLS EDITOR V1 ====
         const suggestion = extractSkillSuggestion(text);
         const visible = suggestion ? suggestion.visible : text;
         this._messages = [...this._messages, { role: ROLE.ASSISTANT, content: visible }];
+        // ==== END SKILLS EDITOR V1 ====
         this._streamingText = '';
         this._update();
         saveMessages(room, this._messages);
