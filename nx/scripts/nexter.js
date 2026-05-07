@@ -50,6 +50,8 @@ export async function loadStyle(href) {
 export async function loadBlock(block) {
   const { classList } = block;
   let name = classList[0];
+  if (name === 'canvas') name = 'nx-canvas';
+  if (name === 'inventory') name = 'nx-browse';
   const isNx = name.startsWith('nx-');
   if (isNx) name = name.replace('nx-', '');
   block.dataset.blockName = name;
