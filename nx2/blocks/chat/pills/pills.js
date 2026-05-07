@@ -8,11 +8,6 @@ class NxChatPills extends LitElement {
     items: { type: Array },
   };
 
-  constructor() {
-    super();
-    this.items = [];
-  }
-
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [styles];

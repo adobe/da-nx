@@ -149,16 +149,9 @@ Provides shared functionality for Browse, the edit (`canvas`) experience, and Ch
 
 ## Chat Context Model
 
-Chat uses a typed context accumulator built before send.
+Chat receives host-pushed context (URL-derived workspace state + accumulated context items). It emits outcomes (file created/deleted/moved, navigation requested) via events and `postMessage` and never pulls state from the view directly.
 
-| Item type | Source | Available in |
-|---|---|---|
-| Block content | Add-to-chat handle on document blocks (tables, sections) | Edit (`canvas`) |
-| File attachment | User-uploaded files via chat input | Both |
-| Prompt | Saved prompts / skill invocations | Both |
-| File / folder reference | Selected items in Browse | Browse |
-
-Chat receives host-pushed context (URL-derived workspace state + accumulated items). It emits outcomes (file created/deleted/moved, navigation requested) via events and `postMessage` and never pulls state from the view directly.
+For the full context model — item types, `nx-add-to-chat` event shape, `selectionContext` wire format, and agent contract — see [chat-ui-component.md](chat-ui-component.md#selection-context).
 
 ---
 
