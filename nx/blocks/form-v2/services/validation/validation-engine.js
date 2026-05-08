@@ -18,9 +18,9 @@ function isEmpty(value) {
 }
 
 function addRequiredErrors({ json, index, errorsByPointer }) {
-  if (!index?.fieldsByPointer) return;
+  if (!index?.nodesByPointer) return;
 
-  for (const node of index.fieldsByPointer.values()) {
+  for (const node of index.nodesByPointer.values()) {
     if (node?.required && !errorsByPointer.has(node.pointer)) {
       const value = getPointerValue({ data: json, pointer: node.pointer });
       if (isEmpty(value)) {

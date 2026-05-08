@@ -75,7 +75,7 @@ export function compileSchema({ schema }) {
   const definition = compileNode({
     key: 'data',
     schema: resolved,
-    required: true,
+    required: false,
     labelFallback: resolved.title ?? 'Data',
   });
 
