@@ -134,8 +134,7 @@
 }
 
 .editor-root input,
-.editor-root select,
-.editor-root button {
+.editor-root select {
   font: inherit;
 }
 
@@ -155,20 +154,6 @@
   margin-right: 8px;
 }
 
-.editor-root button {
-  background: transparent;
-  border: solid 1px;
-  border-radius: var(--s2-radius-100, 8px);
-  cursor: pointer;
-  min-height: 32px;
-  padding: 4px 8px;
-}
-
-.editor-root button[disabled] {
-  cursor: not-allowed;
-  opacity: 0.6;
-}
-
 .editor-root .array-item-menu {
   display: flex;
   flex-wrap: wrap;
@@ -185,6 +170,14 @@
 .editor-root legend .item-group-actions {
   position: relative;
   z-index: 1;
+}
+
+.editor-root .add-item-btn {
+  margin-top: 8px;
+  padding: 4px 8px;
+  cursor: pointer;
+  border-radius: var(--s2-radius-100, 8px);
+  border: solid 1px;
 }
 
 .editor-root [data-pointer] {

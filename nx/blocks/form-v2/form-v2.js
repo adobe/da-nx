@@ -2,6 +2,7 @@ import { LitElement, html, nothing } from 'da-lit';
 import getPathDetails from 'https://da.live/blocks/shared/pathDetails.js';
 
 import 'https://da.live/blocks/edit/da-title/da-title.js';
+import 'https://da.live/blocks/shared/da-dialog/da-dialog.js';
 
 import { buildRuntimeContext, loadFormContext } from './controllers/async-loader.controller.js';
 import { createFormEditorController } from './editor/form-editor-controller.js';
@@ -154,6 +155,10 @@ class StructuredContentForm extends LitElement {
     window.location.href = `https://da.live${query}#/${owner}/${repo}`;
   }
 
+  _renderResourcePathSuffix(displayPath) {
+    return displayPath ? html` at <strong>${displayPath}</strong>` : nothing;
+  }
+
   _renderLoaderMessage(title, body, { showHomeAction = false } = {}) {
     return html`
       <section class="da-sc-form-message">
@@ -174,50 +179,75 @@ class StructuredContentForm extends LitElement {
 
   _renderBlockedState() {
     const blocker = this._loaderState.blocker ?? {};
-    const path = getDisplayPath(this.details);
+    const displayPath = getDisplayPath(this.details);
+    const schemaEditorHref = this._getSchemaEditorHref();
+    const action = {
+      label: 'Return to Home',
+      style: '',
+      click: () => this._goToRepoRoot(),
+    };
+
+    let title = 'Unable to open';
+    let body = html`
+      <p class="da-form-schema-hint">
+        This resource could not be opened.
+      </p>
+    `;
 
     if (blocker.type === 'missing-schema') {
-      return html`
-        <section class="da-sc-form-message">
-          <h2>Schema not found</h2>
-          <p>
-            No schema named <strong>${blocker.schemaName || '(empty)'}</strong> is available.
-            Open <a href=${this._getSchemaEditorHref()} target="_blank" rel="noopener noreferrer">Schema Editor</a>
-            to create or restore it.
-          </p>
-        </section>
+      const schemaName = blocker.schemaName || '(empty)';
+      title = 'Schema not found';
+      body = html`
+        <p class="da-form-schema-hint">
+          No schema named <strong>${schemaName}</strong>.
+          <a
+            class="da-form-schema-text-link"
+            href=${schemaEditorHref}
+            target="_blank"
+            rel="noopener noreferrer"
+          >Schema Editor</a>
+        </p>
+      `;
+    } else if (blocker.type === 'not-document' || blocker.type === 'not-form-content') {
+      title = 'Unsupported resource';
+      body = html`
+        <p class="da-form-schema-hint">
+          This resource${this._renderResourcePathSuffix(displayPath)} is not Structured Content.
+        </p>
+      `;
+    } else if (blocker.type === 'no-access') {
+      title = 'Access denied';
+      body = html`
+        <p class="da-form-schema-hint">
+          You do not have access to this resource${this._renderResourcePathSuffix(displayPath)}.
+        </p>
+      `;
+    } else if (blocker.type === 'unsupported-schema') {
+      title = 'Unsupported schema';
+      body = html`
+        <p class="da-form-schema-hint">
+          This schema uses features not yet supported by form-v2.
+        </p>
+      `;
+    } else if (blocker.type === 'load-failed') {
+      title = 'Unable to load';
+      body = html`
+        <p class="da-form-schema-hint">
+          This resource could not be loaded. Try again later.
+        </p>
       `;
     }
 
-    if (blocker.type === 'not-document' || blocker.type === 'not-form-content') {
-      return this._renderLoaderMessage(
-        'Unsupported resource',
-        `This resource${path ? ` at ${path}` : ''} is not structured content.`,
-        { showHomeAction: true },
-      );
-    }
-
-    if (blocker.type === 'no-access') {
-      return this._renderLoaderMessage(
-        'Access denied',
-        `You do not have access to this resource${path ? ` at ${path}` : ''}.`,
-        { showHomeAction: true },
-      );
-    }
-
-    if (blocker.type === 'unsupported-schema') {
-      return this._renderLoaderMessage(
-        'Unsupported schema',
-        'This schema uses features not yet supported by form-v2.',
-        { showHomeAction: true },
-      );
-    }
-
-    return this._renderLoaderMessage(
-      'Unable to load',
-      'This resource could not be loaded. Please try again later.',
-      { showHomeAction: true },
-    );
+    return html`
+      <da-dialog
+        title=${title}
+        size="large"
+        @close=${this._goToRepoRoot}
+        .action=${action}
+      >
+        ${body}
+      </da-dialog>
+    `;
   }
 
   _renderSchemaSelector() {
