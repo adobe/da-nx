@@ -60,6 +60,18 @@ function processEvent(event, streaming, callbacks) {
   return { streaming, done: false };
 }
 
+export function readFileAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result || '');
+      resolve(result.includes(',') ? result.split(',')[1] : '');
+    };
+    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.readAsDataURL(file);
+  });
+}
+
 export async function readStream(body, callbacks) {
   const decoder = new TextDecoder();
   let buffer = '';

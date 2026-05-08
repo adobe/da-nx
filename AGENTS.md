@@ -2,6 +2,13 @@
 
 A shell/framework for Adobe AEM Edge Delivery Services. Provides shared blocks, styles, scripts, and utilities consumed by Adobe sites like da.live.
 
+## External service contracts
+
+- **`da-agent` is owned by a separate team — never modify it.** If a capability is missing, raise it with the agent team and adapt the client to work within what exists today.
+- **Before implementing any agent-facing feature**, check two sources of truth in order:
+  1. `da-agent/src/server.ts` — the Zod schema. Understand which fields are accepted, required, and validated. Unknown keys are stripped; missing required fields return 400.
+  2. The `exp-workspace` branch — the reference client implementation. If a feature already works there, match its approach exactly rather than inventing a new convention.
+
 ## Decisions & rationale
 
 - **Lazy load everything possible**

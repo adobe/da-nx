@@ -25,23 +25,35 @@ The component manages its own controller internally. No external wiring needed.
 **Message shape:**
 
 ```js
-{ role: 'user', content: string }
+{ role: 'user', content: string, selectionContext?: [...], attachmentsMeta?: [...] }
 { role: 'assistant', content: string }
 { role: 'tool', ... }  // filtered from display automatically
 ```
 
-**Request body:** The controller POSTs `{ messages, pageContext, imsToken, room }` to the agent. Selection context is embedded on individual user messages (see [Selection context](#selection-context)) rather than as a top-level request field.
+`attachmentsMeta` items: `{ id, fileName, mediaType, sizeBytes? }` — base64 data is stripped before storing.
+
+**Request body:** The controller POSTs `{ messages, pageContext, imsToken, room, attachments? }` to the agent. Selection context is embedded on individual user messages (see [Selection context](#selection-context)) rather than as a top-level request field.
+
+`attachments` items: `{ id, fileName, mediaType, dataBase64, sizeBytes? }`. Present when the user attached files to the message. Re-sent on approval continuation POSTs for the same turn so the agent retains file context across approval rounds; omitted on turns with no attachments.
+
+> **Contract:** `attachments` is consumed by da-agent to make file content available to the model. The agent stores attachments in a per-request map keyed by `id`; the model calls `content_upload(attachmentRef)` to persist a file to DA storage.
 
 ## Methods
 
 | Method | Description |
 |---|---|
-| `chat.addAttachment({ id, label, ...rest })` | Adds a pill above the textarea. `id` is required — duplicate ids are silently ignored. `label` is the display text. Any additional fields are forwarded to the agent as context alongside the next message. |
+| `chat.addAttachment({ id, label, ...rest })` | Adds a pill above the textarea. `id` is required — duplicate ids are silently ignored. `label` is the display text. Any additional fields are forwarded to the agent as selection context alongside the next message. |
 | `chat.clear()` | Clears conversation history and resets IndexedDB for the current room. |
 
-**Current scope:** `addAttachment` supports simple content references — e.g. a block or element from the document editor. Binary file attachments (images, uploads) are not yet supported and will extend this same API when introduced.
-
 **Pills display:** All attached pills are currently shown with vertical scroll capped at two rows. Collapsing overflow into a "+N more" control is pending UX mocks.
+
+## File attachments
+
+Users can attach images via the **+** menu ("Files or images") or by **drag-and-dropping** onto the chat form. Up to 5 images per message. Only `image/*` files are accepted.
+
+File items are read as base64 and sent to da-agent as `attachments` (see [Request body](#request-body)). They are stored on the sent user message as `attachmentsMeta` (no base64) for display in the conversation log.
+
+> **Note:** `addAttachment` is for selection context (blocks, file paths). Binary file attachments go through the internal file picker / drag-and-drop path and are not exposed via `addAttachment`.
 
 ## Events in
 

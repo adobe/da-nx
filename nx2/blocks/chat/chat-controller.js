@@ -154,16 +154,45 @@ export default class ChatController {
       if (state === TOOL_STATE.DONE) {
         // Add a virtual message so the tool renders in the conversation at the right
         // position and persists across refreshes, without being sent back to the agent.
-        this._messages = [
-          ...this._messages,
-          {
-            role: ROLE.ASSISTANT,
-            virtual: true,
-            content: [{
-              type: AGENT_EVENT.TOOL_CALL, toolCallId, toolName: prior.toolName, input: prior.input,
-            }],
-          },
-        ];
+        // Skip if a real message already exists for this toolCallId (approval flow adds one).
+        const hasApprovalMessage = this._messages.some(
+          (m) => !m.virtual && Array.isArray(m.content) && m.content.some(
+            (p) => p.type === AGENT_EVENT.TOOL_CALL && p.toolCallId === toolCallId,
+          ),
+        );
+        if (!hasApprovalMessage) {
+          this._messages = [
+            ...this._messages,
+            {
+              role: ROLE.ASSISTANT,
+              virtual: true,
+              content: [{
+                type: AGENT_EVENT.TOOL_CALL,
+                toolCallId,
+                toolName: prior.toolName,
+                input: prior.input,
+              }],
+            },
+          ];
+        }
+
+        // Once content_upload succeeds, replace dataBase64 with contentUrl on the pending
+        // attachment so continuation POSTs don't retransmit bytes already in storage.
+        const contentUrl = output?.source?.contentUrl;
+
+        if (prior.toolName === 'content_upload' && prior.input?.attachmentRef && contentUrl) {
+          this._pendingAttachments = (this._pendingAttachments ?? []).map((a) => (
+            a.id === prior.input.attachmentRef
+              ? {
+                id: a.id,
+                fileName: a.fileName,
+                mediaType: a.mediaType,
+                contentUrl,
+                ...(typeof a.sizeBytes === 'number' ? { sizeBytes: a.sizeBytes } : {}),
+              }
+              : a
+          ));
+        }
         this._onToolDone?.();
       }
     }
@@ -225,6 +254,7 @@ export default class ChatController {
         imsToken: accessToken?.token ?? null,
         room,
         ...(this._requestedSkills?.length ? { requestedSkills: this._requestedSkills } : {}),
+        ...(this._pendingAttachments?.length ? { attachments: this._pendingAttachments } : {}),
       }),
       signal: this._abortController.signal,
     });
@@ -245,7 +275,7 @@ export default class ChatController {
     });
   }
 
-  async sendMessage(message, context = [], { requestedSkills = [] } = {}) {
+  async sendMessage(message, context = [], { requestedSkills = [], attachments = [] } = {}) {
     if (this._thinking || !this._connected) return;
 
     this._requestedSkills = requestedSkills;
@@ -257,11 +287,21 @@ export default class ChatController {
         ...(innerText && { innerText }),
       }));
 
+    const attachmentsMeta = attachments.map(({ id, fileName, mediaType, sizeBytes }) => ({
+      id,
+      fileName,
+      mediaType,
+      ...(typeof sizeBytes === 'number' ? { sizeBytes } : {}),
+    }));
+
     const userMessage = {
       role: ROLE.USER,
       content: message,
       ...(selectionContext.length && { selectionContext }),
+      ...(attachmentsMeta.length && { attachmentsMeta }),
     };
+
+    this._pendingAttachments = attachments;
 
     this._messages = [...(this._messages ?? []), userMessage];
     this._thinking = true;

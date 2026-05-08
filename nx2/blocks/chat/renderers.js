@@ -1,6 +1,7 @@
 import { html, nothing } from 'da-lit';
 import { AGENT_EVENT, ROLE, TOOL_INPUT, TOOL_STATE } from './constants.js';
 import { unified, remarkParse } from '../../deps/mdast/dist/index.js';
+import { iconClassFromName } from '../shared/utils/icons.js';
 
 function renderNode(node) {
   switch (node.type) {
@@ -90,14 +91,7 @@ function renderApprovalCard(pending, onApprove) {
   `;
 }
 
-// Mirrors entryTypeFromExtension in browse/utils.js — switch to common utils once migrated.
-function selectionIconClass(blockName) {
-  const ext = (blockName ?? '').includes('.') ? blockName.split('.').pop().toLowerCase() : '';
-  if (!ext) return 'icon-block';
-  if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'mp4', 'webm', 'mov'].includes(ext)) return 'icon-image';
-  if (['json', 'xlsx', 'xls', 'csv'].includes(ext)) return 'icon-table';
-  return 'icon-file';
-}
+const toContextItem = (name, fallback = 'icon-file') => ({ name, iconClass: iconClassFromName(name, fallback) });
 
 function renderMessage(msg, icons, toolCards) {
   if (msg.role === ROLE.TOOL) return nothing;
@@ -115,25 +109,31 @@ function renderMessage(msg, icons, toolCards) {
       </button>`
     : nothing;
 
-  const selectionItem = ({ blockName }) => html`
+  const contextItem = ({ name, iconClass }) => html`
     <li class="selection-context-item">
-      <span class="selection-icon ${selectionIconClass(blockName)}"></span>
-      <span>${blockName}</span>
+      <span class="selection-icon ${iconClass}"></span>
+      <span>${name}</span>
     </li>`;
 
-  let selectionPills = nothing;
-  if (!isAssistant && msg.selectionContext?.length) {
-    selectionPills = msg.selectionContext.length === 1
-      ? html`<ul class="selection-context-list" aria-label="Attached context">${selectionItem(msg.selectionContext[0])}</ul>`
-      : html`<details class="selection-context">
-          <summary><span class="selection-context-count">${msg.selectionContext.length} items added</span></summary>
-          <ul class="selection-context-list">${msg.selectionContext.map(selectionItem)}</ul>
+  let contextPills = nothing;
+  if (!isAssistant) {
+    const items = [
+      ...(msg.selectionContext ?? []).map(({ blockName }) => toContextItem(blockName, 'icon-block')),
+      ...(msg.attachmentsMeta ?? []).map(({ fileName }) => toContextItem(fileName)),
+    ];
+    if (items.length === 1) {
+      contextPills = html`<ul class="selection-context-list" aria-label="Attached context">${contextItem(items[0])}</ul>`;
+    } else if (items.length > 1) {
+      contextPills = html`<details class="selection-context">
+          <summary><span class="selection-context-count">${items.length} items added</span></summary>
+          <ul class="selection-context-list">${items.map(contextItem)}</ul>
         </details>`;
+    }
   }
 
   return html`
     <div class="message message-${msg.role}">
-      ${selectionPills}
+      ${contextPills}
       <div class="message-content">${isAssistant ? renderMessageContent(msg.content) : msg.content}</div>
       ${copy}
     </div>

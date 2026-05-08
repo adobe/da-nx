@@ -1,5 +1,6 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../utils/utils.js';
+import { iconClassFromName } from '../../shared/utils/icons.js';
 
 const styles = await loadStyle(import.meta.url);
 
@@ -17,7 +18,12 @@ class NxChatPills extends LitElement {
     this.dispatchEvent(new CustomEvent('nx-pill-remove', { detail: { id } }));
   }
 
-  _renderPill({ id, label }) {
+  _pillTypeIcon(label, thumbnail) {
+    if (thumbnail) return html`<img class="pill-thumbnail" src=${thumbnail} alt="" aria-hidden="true">`;
+    return html`<span class="pill-type-icon ${iconClassFromName(label)}" aria-hidden="true"></span>`;
+  }
+
+  _renderPill({ id, label, thumbnail }) {
     return html`
       <li class="pill">
         <button
@@ -26,6 +32,7 @@ class NxChatPills extends LitElement {
           aria-label="Remove ${label}"
           @click=${() => this._remove(id)}
         ></button>
+        ${this._pillTypeIcon(label, thumbnail)}
         <span class="pill-label" title=${label}>${label}</span>
       </li>
     `;

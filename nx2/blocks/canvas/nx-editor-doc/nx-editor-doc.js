@@ -208,7 +208,9 @@ export class NxEditorDoc extends LitElement {
               const blockIndex = getActiveBlockIndex(pmView);
               if (blockIndex === this._lastDocBlockIndex) return;
               this._lastDocBlockIndex = blockIndex;
-              const explicit = pmView.state.selection instanceof NodeSelection;
+              const sel = pmView.state.selection;
+              const isTopLevel = sel instanceof NodeSelection && sel.$from.depth === 0;
+              const explicit = isTopLevel;
               editorSelectChange.emit({ blockIndex, source: 'doc', explicit });
             },
           ),

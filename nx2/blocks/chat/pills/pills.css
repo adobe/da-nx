@@ -49,6 +49,32 @@
     mask-image: url("/nx2/img/icons/S2_Icon_Close_20_N.svg");
   }
 
+  .pill-thumbnail {
+    width: 16px;
+    height: 16px;
+    object-fit: cover;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  .pill-type-icon {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    background-color: var(--s2-blue-1000);
+    mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+
+    &.icon-image {
+      mask-image: url("/nx2/img/icons/S2_Icon_Image_20_N.svg");
+    }
+
+    &.icon-file {
+      mask-image: url("/nx2/img/icons/S2_Icon_FileText_20_N.svg");
+    }
+  }
+
   .pill-label {
     overflow: hidden;
     text-overflow: ellipsis;

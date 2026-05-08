@@ -1,6 +1,7 @@
 const MENU_OPTIONS = {
   PROMPT: 'prompt',
   COMMAND: 'command',
+  FILES: 'files',
 };
 
 const ADD_MENU_ITEMS = [

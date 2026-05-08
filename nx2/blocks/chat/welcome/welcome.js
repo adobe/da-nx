@@ -18,6 +18,10 @@ class NxChatWelcome extends LitElement {
     });
   }
 
+  _onSelectPrompt(prompt) {
+    this.dispatchEvent(new CustomEvent('nx-select-prompt', { detail: { prompt }, bubbles: true, composed: true }));
+  }
+
   _showMore() {
     this.dispatchEvent(new CustomEvent('nx-show-prompts', { bubbles: true, composed: true }));
   }
@@ -34,7 +38,7 @@ class NxChatWelcome extends LitElement {
       ${prompts.length ? html`
         <div class="prompt-cards">
           ${prompts.slice(0, 3).map((card) => html`
-            <button class="prompt-card" @click=${() => this.onSend?.(card.prompt)}>
+            <button class="prompt-card" @click=${() => this._onSelectPrompt(card.prompt)}>
               <span class="prompt-card-description">${card.description}</span>
             </button>
           `)}
