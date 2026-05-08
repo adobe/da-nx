@@ -1,8 +1,11 @@
 import { daFetch } from '../../../utils/daFetch.js';
-import { DA_ORIGIN } from '../../../public/utils/constants.js';
-import { Paths, Domains, DA_LIVE_EDIT_BASE } from './constants.js';
+import { Paths, Domains, DA_LIVE_EDIT_BASE, DA_ORIGIN } from './constants.js';
 import { ErrorCodes, logMediaLibraryError } from './errors.js';
 import { t } from './messages.js';
+import {
+  normalizeSitePath as _normalizeSitePath,
+  getContentPathFromSitePath as _getContentPathFromSitePath,
+} from '../indexing/parse-utils.js';
 
 function normalizeDocPath(docPath) {
   if (!docPath) return '';
@@ -86,40 +89,6 @@ export function parseRouteState() {
 }
 
 /**
- * @deprecated Use parseRouteState() instead. Kept for backward compatibility.
- * Parses hash-local query params (old format: #/path?params).
- */
-export function parseHashRouteState(hash) {
-  if (!hash) return { sitePath: '', params: new URLSearchParams() };
-
-  const withoutLeading = hash.startsWith('#') ? hash.slice(1) : hash;
-  const decoded = tryDecodeURIComponent(withoutLeading);
-  let cleanHash = (decoded.split('#')[0] ?? '').trim();
-
-  if (cleanHash.includes('%23')) {
-    cleanHash = (cleanHash.split('%23')[0] ?? '').trim();
-  }
-
-  // Look for ? delimiter
-  let qIdx = cleanHash.indexOf('?');
-  if (qIdx !== -1) {
-    const sitePath = cleanHash.substring(0, qIdx);
-    const queryString = cleanHash.substring(qIdx + 1);
-    return { sitePath, params: new URLSearchParams(queryString) };
-  }
-
-  // Look for %3F encoded delimiter (case-insensitive)
-  qIdx = cleanHash.toUpperCase().indexOf('%3F');
-  if (qIdx !== -1) {
-    const sitePath = cleanHash.substring(0, qIdx);
-    const queryString = cleanHash.substring(qIdx + 3); // Skip %3F (3 chars)
-    return { sitePath, params: new URLSearchParams(queryString) };
-  }
-
-  return { sitePath: cleanHash, params: new URLSearchParams() };
-}
-
-/**
  * Builds full URL with regular query params + hash sitePath.
  * Preserves environment params (nx, debug, perf) and merges with app state params.
  * Returns URL like ?nx=local&filter=videos#/org/repo
@@ -148,23 +117,6 @@ export function buildUrlWithState(sitePath, appParams, preserveEnvParams = true)
   return queryString ? `?${queryString}#${sitePath}` : `#${sitePath}`;
 }
 
-/**
- * @deprecated Use buildUrlWithState() instead. Kept for backward compatibility.
- * Builds hash string with hash-local params (old format: #/path?params).
- */
-export function buildHashWithState(sitePath, params) {
-  const cleanParams = new URLSearchParams();
-
-  for (const [key, value] of params.entries()) {
-    if (value && value.trim()) {
-      cleanParams.set(key, value);
-    }
-  }
-
-  const queryString = cleanParams.toString();
-  return queryString ? `#${sitePath}?${queryString}` : `#${sitePath}`;
-}
-
 export function getBasePath() {
   const hash = parseSitePathFromHash(window.location.hash);
   if (!hash) return null;
@@ -172,19 +124,41 @@ export function getBasePath() {
   return `/${parts.join('/')}`;
 }
 
-export function normalizeSitePath(sitePath) {
-  if (!sitePath || typeof sitePath !== 'string') return '';
-  const trimmed = sitePath.trim();
-  const withLeading = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
-  return withLeading === '/' ? '/' : withLeading.replace(/\/+$/, '');
+export const normalizeSitePath = _normalizeSitePath;
+
+export function getMediaLibraryAppHref(sitePath) {
+  const normalized = normalizeSitePath(sitePath);
+  if (!normalized) return '';
+
+  let base = 'https://da.live/apps/media-library';
+  let queryParams = '';
+
+  if (typeof window !== 'undefined' && window.location) {
+    const { hostname, origin, search } = window.location;
+    if (hostname === 'da.live' || hostname.endsWith('.da.live')) {
+      base = `${origin}/apps/media-library`;
+    }
+
+    // Preserve environment-related query params for dev/stage workflows
+    if (search) {
+      const params = new URLSearchParams(search);
+      const preserveParams = new URLSearchParams();
+
+      // Preserve nx, da-admin, da-etc params (dev/stage environment switchers)
+      ['nx', 'da-admin', 'da-etc'].forEach((key) => {
+        const value = params.get(key);
+        if (value) preserveParams.set(key, value);
+      });
+
+      const paramString = preserveParams.toString();
+      if (paramString) queryParams = `?${paramString}`;
+    }
+  }
+
+  return `${base}${queryParams}#${normalized}`;
 }
 
-export function getContentPathFromSitePath(sitePath) {
-  const normalized = normalizeSitePath(sitePath);
-  const parts = normalized.split('/').filter(Boolean);
-  if (parts.length <= 2) return '';
-  return `/${parts.slice(2).join('/')}`;
-}
+export const getContentPathFromSitePath = _getContentPathFromSitePath;
 
 export function resolveAbsolutePath(path, isFolder = false) {
   const basePath = getBasePath();

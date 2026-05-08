@@ -76,6 +76,17 @@ export const ALLOWED_TOKEN = [
   HLX_ADMIN,
 ];
 
+const IMS_HASH_KEYS = ['access_token', 'old_hash', 'ld_hash'];
+
+const stripImsHash = (hash) => {
+  const parts = hash.split('#');
+  const filtered = parts.filter((part, i) => {
+    if (i === 0) return true;
+    return !IMS_HASH_KEYS.some((key) => part.startsWith(`${key}=`));
+  });
+  return filtered.join('#');
+};
+
 const parseWindowPath = () => {
   const pathView = window.location.pathname.slice(1);
   const view = pathView === '' ? 'browse' : pathView;
@@ -85,8 +96,18 @@ const parseWindowPath = () => {
     history.replaceState(null, '', clean);
   }
 
-  const fullpath = location.hash.slice(1);
-  if (!fullpath) return null;
+  const cleanHash = stripImsHash(location.hash);
+  if (cleanHash !== location.hash) {
+    history.replaceState(null, '', `${location.pathname}${location.search}${cleanHash}`);
+  }
+
+  let fullpath = cleanHash.slice(1);
+  if (!fullpath || !fullpath.startsWith('/')) return null;
+
+  if (view !== 'config' && fullpath.endsWith('/')) {
+    fullpath = fullpath.slice(0, -1);
+    history.replaceState(null, '', `${location.pathname}${location.search}#${fullpath}`);
+  }
 
   const [org, site, ...parts] = fullpath.slice(1).split('/');
   if (!org || (parts.length && !site)) return null;
@@ -120,21 +141,17 @@ export const loadStyle = (() => {
     // Convenience replacement for WCs
     const path = supplied.replace('.js', '.css');
 
-    try {
-      cache[path] ??= import(path, { with: { type: 'css' } })
-        .then(({ default: sheet }) => sheet);
-    } catch {
-      cache[path] ??= new Promise((resolve) => {
-        (async () => {
-          const resp = await fetch(path);
-          const text = await resp.text();
-          const sheet = new CSSStyleSheet();
-          sheet.path = path;
-          sheet.replaceSync(text);
-          resolve(sheet);
-        })();
-      });
-    }
+    cache[path] ??= new Promise((resolve) => {
+      (async () => {
+        const resp = await fetch(path);
+        const text = await resp.text();
+        const sheet = new CSSStyleSheet();
+        sheet.path = path;
+        sheet.replaceSync(text);
+        resolve(sheet);
+      })();
+    });
+
     return cache[path];
   };
 })();
