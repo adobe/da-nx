@@ -4,16 +4,7 @@ import '../popover/popover.js';
 import { loadHrefSvg } from '../../../utils/svg.js';
 import { listKeydown } from '../utils/list-nav.js';
 
-const ICONS_BASE = new URL('../../img/icons/', import.meta.url).href;
 const styles = await loadStyle(import.meta.url);
-
-// todo: remove once changes from ew are available with reusable utils
-export async function loadSvgIcons(names) {
-  const svgs = await Promise.all(
-    names.map((name) => loadHrefSvg(`${ICONS_BASE}S2_Icon_${name}_20_N.svg`)),
-  );
-  return Object.fromEntries(names.map((name, i) => [name, svgs[i]]));
-}
 
 class NxMenu extends LitElement {
   static properties = {
@@ -40,9 +31,10 @@ class NxMenu extends LitElement {
   }
 
   async _loadIcons() {
-    const names = this.items?.map((i) => i.icon).filter(Boolean) ?? [];
-    if (!names.length) return;
-    this._icons = await loadSvgIcons(names);
+    const iconItems = this.items?.filter((i) => i.icon) ?? [];
+    if (!iconItems.length) return;
+    const svgs = await Promise.all(iconItems.map((i) => loadHrefSvg(i.icon)));
+    this._icons = Object.fromEntries(iconItems.map((i, idx) => [i.icon, svgs[idx]]));
   }
 
   _wireTrigger(slot) {

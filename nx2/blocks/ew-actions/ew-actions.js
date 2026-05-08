@@ -11,7 +11,7 @@ import '../shared/popover/popover.js';
 
 const style = await loadStyle(import.meta.url);
 
-const SEND_ICON_HREF = new URL('../img/icons/S2_Icon_Send_20_N.svg', import.meta.url).href;
+const SEND_ICON_HREF = new URL('../../img/icons/S2_Icon_Send_20_N.svg', import.meta.url).href;
 
 class NXEwActions extends LitElement {
   static properties = {
