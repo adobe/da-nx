@@ -9,6 +9,10 @@ class StructuredContentCheckboxField extends LitElement {
     error: { attribute: false },
   };
 
+  createRenderRoot() {
+    return this;
+  }
+
   _handleChange(e) {
     this.dispatchEvent(new CustomEvent('form-intent', {
       detail: {

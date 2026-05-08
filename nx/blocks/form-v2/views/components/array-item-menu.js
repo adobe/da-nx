@@ -10,6 +10,10 @@ class StructuredContentArrayItemMenu extends LitElement {
     readonly: { attribute: false },
   };
 
+  createRenderRoot() {
+    return this;
+  }
+
   _emit(detail) {
     this.dispatchEvent(new CustomEvent('form-intent', {
       detail,

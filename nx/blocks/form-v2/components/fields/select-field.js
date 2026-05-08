@@ -9,6 +9,10 @@ class StructuredContentSelectField extends LitElement {
     error: { attribute: false },
   };
 
+  createRenderRoot() {
+    return this;
+  }
+
   _handleChange(e) {
     const raw = e.target.value;
     this.dispatchEvent(new CustomEvent('form-intent', {

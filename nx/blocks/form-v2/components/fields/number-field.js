@@ -9,6 +9,10 @@ class StructuredContentNumberField extends LitElement {
     error: { attribute: false },
   };
 
+  createRenderRoot() {
+    return this;
+  }
+
   _handleInput(e) {
     const raw = e.target.value;
     const value = raw === '' ? undefined : Number(raw);

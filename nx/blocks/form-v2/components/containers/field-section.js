@@ -12,7 +12,12 @@ class StructuredContentFieldSection extends LitElement {
   static properties = {
     node: { attribute: false },
     errorsByPointer: { attribute: false },
+    activePointer: { attribute: false },
   };
+
+  createRenderRoot() {
+    return this;
+  }
 
   _getError(pointer) {
     return this.errorsByPointer?.get(pointer) ?? '';
@@ -82,6 +87,7 @@ class StructuredContentFieldSection extends LitElement {
         <da-sc-object-group
           .node=${node}
           .errorsByPointer=${this.errorsByPointer}
+          .activePointer=${this.activePointer}
         ></da-sc-object-group>
       `;
     }
@@ -91,6 +97,7 @@ class StructuredContentFieldSection extends LitElement {
         <da-sc-array-field
           .node=${node}
           .errorsByPointer=${this.errorsByPointer}
+          .activePointer=${this.activePointer}
         ></da-sc-array-field>
       `;
     }

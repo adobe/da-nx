@@ -7,7 +7,12 @@ class StructuredContentArrayField extends LitElement {
   static properties = {
     node: { attribute: false },
     errorsByPointer: { attribute: false },
+    activePointer: { attribute: false },
   };
+
+  createRenderRoot() {
+    return this;
+  }
 
   _emitIntent(detail) {
     this.dispatchEvent(new CustomEvent('form-intent', {
@@ -38,9 +43,10 @@ class StructuredContentArrayField extends LitElement {
     const items = node.items ?? [];
     const pointers = items.map((item) => item.pointer);
     const readonly = !!node.readonly;
+    const active = this.activePointer === node.pointer;
 
     return html`
-      <section data-pointer=${node.pointer}>
+      <section data-pointer=${node.pointer} class=${active ? 'active-section' : ''}>
         <p @click=${this._selectSelf}>${node.label}${node.required ? '*' : ''}</p>
         ${items.map((item, index) => html`
           <article>
@@ -54,6 +60,7 @@ class StructuredContentArrayField extends LitElement {
             <da-sc-field-section
               .node=${item}
               .errorsByPointer=${this.errorsByPointer}
+              .activePointer=${this.activePointer}
             ></da-sc-field-section>
           </article>
         `)}

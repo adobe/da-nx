@@ -9,6 +9,10 @@ class StructuredContentTextField extends LitElement {
     error: { attribute: false },
   };
 
+  createRenderRoot() {
+    return this;
+  }
+
   _handleInput(e) {
     this.dispatchEvent(new CustomEvent('form-intent', {
       detail: {
