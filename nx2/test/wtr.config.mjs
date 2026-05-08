@@ -50,8 +50,6 @@ export default {
           {
             "imports": {
               "da-lit": "/nx2/deps/lit/dist/index.js",
-              "da-y-wrapper": "/nx2/deps/da-y-wrapper/dist/index.js",
-              "da-parser": "/nx2/deps/da-parser/dist/index.js",
               "/nx2/public/sl/components.js": "/nx2/test/mocks/sl-components.js",
               "/nx2/utils/ims.js": "/nx2/test/mocks/ims.js"
             }
