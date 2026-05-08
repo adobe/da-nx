@@ -43,23 +43,16 @@ class StructuredContentFormEditor extends LitElement {
   render() {
     const root = this.context?.runtime?.root;
 
+    if (!root) return html`<p class="hint">No editable fields found.</p>`;
+
     return html`
-      <section class="panel">
-        <div class="editor-header">
-          <h2>Editor</h2>
-        </div>
-        ${root
-    ? html`
-              <div class="editor-root">
-                <da-sc-field-section
-                  .node=${root}
-                  .errorsByPointer=${this.context?.validation?.errorsByPointer}
-                  .activePointer=${this.context?.activeNavPointer}
-                ></da-sc-field-section>
-              </div>
-            `
-    : html`<p class="hint">No editable fields found.</p>`}
-      </section>
+      <div class="editor-root">
+        <da-sc-field-section
+          .node=${root}
+          .errorsByPointer=${this.context?.validation?.errorsByPointer}
+          .activePointer=${this.context?.activeNavPointer}
+        ></da-sc-field-section>
+      </div>
     `;
   }
 }

@@ -13,6 +13,13 @@ class StructuredContentFieldSection extends LitElement {
     node: { attribute: false },
     errorsByPointer: { attribute: false },
     activePointer: { attribute: false },
+    arrayItemIndex: { attribute: false },
+    arrayItemPointers: { attribute: false },
+    arrayReadonly: { attribute: false },
+    arrayItemCount: { attribute: false },
+    arrayMinItems: { attribute: false },
+    arrayMaxItems: { attribute: false },
+    reorderActivePointer: { attribute: false },
   };
 
   createRenderRoot() {
@@ -88,6 +95,13 @@ class StructuredContentFieldSection extends LitElement {
           .node=${node}
           .errorsByPointer=${this.errorsByPointer}
           .activePointer=${this.activePointer}
+          .arrayItemIndex=${this.arrayItemIndex}
+          .arrayItemPointers=${this.arrayItemPointers}
+          .arrayReadonly=${this.arrayReadonly}
+          .arrayItemCount=${this.arrayItemCount}
+          .arrayMinItems=${this.arrayMinItems}
+          .arrayMaxItems=${this.arrayMaxItems}
+          .reorderActivePointer=${this.reorderActivePointer}
         ></da-sc-object-group>
       `;
     }

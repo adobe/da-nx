@@ -46,12 +46,12 @@ class StructuredContentNumberField extends LitElement {
     const rawValue = this.value;
     const value = rawValue ?? '';
     const error = this.error ?? '';
-    const required = this.node?.required ? '*' : '';
+    const required = !!this.node?.required;
     const readonly = !!this.node?.readonly;
 
     return html`
       <label data-pointer=${this.node?.pointer ?? ''}>
-        ${label}${required}
+        ${label}${required ? html`<span class="is-required">*</span>` : ''}
         <input
           type="number"
           .value=${String(value)}

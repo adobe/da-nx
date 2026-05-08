@@ -20,10 +20,10 @@ class StructuredContentFormPreview extends LitElement {
     const text = JSON.stringify(json ?? {}, null, 2);
 
     return html`
-      <section class="panel">
-        <h2>Preview</h2>
-        <pre class="json">${text}</pre>
-      </section>
+      <div class="vis-wrapper is-visible">
+        <p class="da-title">Preview</p>
+        <pre class="language-json"><code class="language-json">${text}</code></pre>
+      </div>
     `;
   }
 }

@@ -42,12 +42,12 @@ class StructuredContentTextField extends LitElement {
     const label = this.node?.label ?? '';
     const value = this.value ?? '';
     const error = this.error ?? '';
-    const required = this.node?.required ? '*' : '';
+    const required = !!this.node?.required;
     const readonly = !!this.node?.readonly;
 
     return html`
       <label data-pointer=${this.node?.pointer ?? ''}>
-        ${label}${required}
+        ${label}${required ? html`<span class="is-required">*</span>` : ''}
         <input
           type="text"
           .value=${value}

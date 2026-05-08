@@ -78,20 +78,86 @@ class StructuredContentReorderDialog extends LitElement {
     const lastIndex = Math.max(totalItems - 1, 0);
     const canMoveUp = this.targetIndex > 0;
     const canMoveDown = this.targetIndex < lastIndex;
-    const position = totalItems > 0
-      ? `${Math.min(this.targetIndex + 1, totalItems)} of ${totalItems}`
-      : '0 of 0';
+    const canMoveToFirst = canMoveUp;
+    const canMoveToLast = canMoveDown;
 
     return html`
-      <div class="reorder-dialog" role="group" aria-label="Reorder item">
-        <p class="reorder-dialog-position">Position: ${position}</p>
-        <div class="reorder-dialog-actions">
-          <button type="button" class="reorder-btn" ?disabled=${!canMoveUp} @click=${() => this._dispatch('reorder-move-to-first')}>First</button>
-          <button type="button" class="reorder-btn" ?disabled=${!canMoveUp} @click=${() => this._dispatch('reorder-move-up')}>Up</button>
-          <button type="button" class="reorder-btn" ?disabled=${!canMoveDown} @click=${() => this._dispatch('reorder-move-down')}>Down</button>
-          <button type="button" class="reorder-btn" ?disabled=${!canMoveDown} @click=${() => this._dispatch('reorder-move-to-last')}>Last</button>
-          <button type="button" class="reorder-btn reorder-apply" @click=${() => this._dispatch('reorder-confirm')}>Apply</button>
-          <button type="button" class="reorder-btn reorder-cancel" @click=${() => this._dispatch('reorder-cancel')}>Cancel</button>
+      <div class="reorder-dialog" role="dialog" aria-label="Reorder item">
+        <div class="reorder-dialog-buttons">
+          <button
+            type="button"
+            class="reorder-btn"
+            ?disabled=${!canMoveToFirst}
+            title="Move to top (Shift+Up)"
+            aria-label="Move to top (Shift+Up)"
+            @click=${() => this._dispatch('reorder-move-to-first')}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="12 19 7 14 12 9"></polyline>
+              <polyline points="19 19 14 14 19 9"></polyline>
+            </svg>
+          </button>
+          <button
+            type="button"
+            class="reorder-btn"
+            ?disabled=${!canMoveUp}
+            title="Move up one (Up)"
+            aria-label="Move up one (Up)"
+            @click=${() => this._dispatch('reorder-move-up')}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="18 15 12 9 6 15"></polyline>
+            </svg>
+          </button>
+          <button
+            type="button"
+            class="reorder-btn"
+            ?disabled=${!canMoveDown}
+            title="Move down one (Down)"
+            aria-label="Move down one (Down)"
+            @click=${() => this._dispatch('reorder-move-down')}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
+          <button
+            type="button"
+            class="reorder-btn"
+            ?disabled=${!canMoveToLast}
+            title="Move to bottom (Shift+Down)"
+            aria-label="Move to bottom (Shift+Down)"
+            @click=${() => this._dispatch('reorder-move-to-last')}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="12 5 17 10 12 15"></polyline>
+              <polyline points="5 5 10 10 5 15"></polyline>
+            </svg>
+          </button>
+          <span class="reorder-dialog-separator" aria-hidden="true"></span>
+          <button
+            type="button"
+            class="reorder-btn reorder-confirm"
+            title="Apply new order (Enter)"
+            aria-label="Apply new order (Enter)"
+            @click=${() => this._dispatch('reorder-confirm')}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </button>
+          <button
+            type="button"
+            class="reorder-btn reorder-cancel"
+            title="Cancel reorder (Esc)"
+            aria-label="Cancel reorder (Esc)"
+            @click=${() => this._dispatch('reorder-cancel')}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
         </div>
       </div>
     `;

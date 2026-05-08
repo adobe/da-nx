@@ -41,7 +41,7 @@ class StructuredContentCheckboxField extends LitElement {
     const label = this.node?.label ?? '';
     const checked = !!this.value;
     const error = this.error ?? '';
-    const required = this.node?.required ? '*' : '';
+    const required = !!this.node?.required;
     const readonly = !!this.node?.readonly;
 
     return html`
@@ -53,7 +53,7 @@ class StructuredContentCheckboxField extends LitElement {
           @focus=${this._handleFocus}
           @change=${this._handleChange}
         />
-        ${label}${required}
+        ${label}${required ? html`<span class="is-required">*</span>` : ''}
       </label>
       ${error ? html`<p>${error}</p>` : ''}
     `;

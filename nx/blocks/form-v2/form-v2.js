@@ -10,8 +10,10 @@ import './views/editor.js';
 import './views/sidebar.js';
 import './views/preview.js';
 
+await import('../../public/sl/components.js');
+
 const { default: getStyle } = await import('../../utils/styles.js');
-const style = await getStyle(import.meta.url);
+const style = await getStyle(new URL('./form.css', import.meta.url).href);
 
 const EL_NAME = 'da-sc-form';
 const PREVIEW_PREFIX = 'https://da-sc.adobeaem.workers.dev/preview';
@@ -64,11 +66,6 @@ class StructuredContentForm extends LitElement {
 
     this._disconnectController();
     this._loaderState = result;
-
-    if (result.status === 'select-schema') {
-      const firstSchemaId = Object.keys(result.schemas ?? {})[0] ?? '';
-      this._pendingSchemaId = firstSchemaId;
-    }
   }
 
   _disconnectController() {
@@ -224,57 +221,84 @@ class StructuredContentForm extends LitElement {
   }
 
   _renderSchemaSelector() {
-    const schemas = Object.entries(this._loaderState.schemas ?? {});
+    const schemas = this._loaderState.schemas ?? {};
+    const schemaEditorHref = this._getSchemaEditorHref();
 
     return html`
-      <section class="da-sc-form-message">
-        <h2>Choose a schema</h2>
-        <p>Select a schema to initialize this structured content document.</p>
-        <label class="da-sc-form-label" for="schema-select">Schema</label>
-        <select
-          id="schema-select"
-          class="da-sc-form-select"
-          @change=${this._onPendingSchemaChange}
-        >
-          ${schemas.map(([id, schema]) => html`
-            <option value="${id}" ?selected=${id === this._pendingSchemaId}>
-              ${schema?.title ?? id}
-            </option>
-          `)}
-        </select>
-        <div class="da-sc-form-actions">
-          <button
-            type="button"
-            class="da-sc-form-button"
+      <div class="da-form-schema-shell">
+        <h2 class="da-form-schema-heading">Choose a schema</h2>
+        <div class="da-form-schema-form">
+          <sl-select
+            hoist
+            class="da-form-schema-select"
+            label="Schema"
+            placeholder="Select a schema"
+            .value=${this._pendingSchemaId}
+            @change=${this._onPendingSchemaChange}
+          >
+            <option value="">Select a schema</option>
+            ${Object.entries(schemas).map(([id, schema]) => html`
+              <option value="${id}">${schema?.title ?? id}</option>
+            `)}
+          </sl-select>
+          <p class="da-form-schema-hint da-form-schema-selector-hint">
+            To create a new schema, open
+            <a
+              class="da-form-schema-text-link"
+              href=${schemaEditorHref}
+              target="_blank"
+              rel="noopener noreferrer"
+            >Schema Editor</a>.
+          </p>
+          <sl-button
+            class="da-form-schema-start"
             ?disabled=${!this._pendingSchemaId}
             @click=${this._applySelectedSchema}
-          >Create</button>
-          <a href=${this._getSchemaEditorHref()} target="_blank" rel="noopener noreferrer">Open Schema Editor</a>
+          >Create</sl-button>
         </div>
-      </section>
+      </div>
     `;
   }
 
   _renderNoSchemas() {
     return html`
-      <section class="da-sc-form-message">
-        <h2>Please create a schema</h2>
-        <p>This project has no schemas yet. Add one, then return here.</p>
-        <p>
-          <a href=${this._getSchemaEditorHref()} target="_blank" rel="noopener noreferrer">Open Schema Editor</a>
-        </p>
-      </section>
+      <div class="da-form-schema-shell">
+        <div class="da-form-schema-card">
+          <p class="da-form-title">Please create a schema</p>
+          <p class="da-form-schema-hint">
+            This project has no schemas yet. Open the schema editor to add one, then return here.
+          </p>
+          <div class="da-form-schema-field da-form-schema-field-link">
+            <a
+              class="da-form-schema-cta"
+              href=${this._getSchemaEditorHref()}
+              target="_blank"
+              rel="noopener noreferrer"
+            >Open Schema Editor</a>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  _renderSchemaSetupState(content) {
+    return html`
+      <div class="da-form-wrapper da-form-wrapper-centered">
+        ${content}
+      </div>
     `;
   }
 
   _renderReadyState() {
     return html`
-      <div class="da-sc-form-layout" @form-intent=${this._handleFormIntent}>
-        <da-sc-form-editor
-          .context=${this._loaderState}
-          .controller=${this._loaderState.controller}
-        ></da-sc-form-editor>
-        <da-sc-form-preview .context=${this._loaderState}></da-sc-form-preview>
+      <div class="da-form-wrapper" @form-intent=${this._handleFormIntent}>
+        <div class="da-form-editor">
+          <da-sc-form-editor
+            .context=${this._loaderState}
+            .controller=${this._loaderState.controller}
+          ></da-sc-form-editor>
+          <da-sc-form-preview .context=${this._loaderState}></da-sc-form-preview>
+        </div>
         <da-sc-form-sidebar .context=${this._loaderState}></da-sc-form-sidebar>
       </div>
     `;
@@ -296,8 +320,8 @@ class StructuredContentForm extends LitElement {
       return this._renderLoaderMessage('Loading', 'Preparing structured content editor...');
     }
     if (status === 'blocked') return this._renderBlockedState();
-    if (status === 'select-schema') return this._renderSchemaSelector();
-    if (status === 'no-schemas') return this._renderNoSchemas();
+    if (status === 'select-schema') return this._renderSchemaSetupState(this._renderSchemaSelector());
+    if (status === 'no-schemas') return this._renderSchemaSetupState(this._renderNoSchemas());
     if (status === 'ready') return this._renderReadyState();
 
     return this._renderLoaderMessage('Loading', 'Preparing structured content editor...');

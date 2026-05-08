@@ -52,7 +52,7 @@ class StructuredContentSelectField extends LitElement {
 
     return html`
       <label data-pointer=${this.node?.pointer ?? ''}>
-        ${label}${required ? '*' : ''}
+        ${label}${required ? html`<span class="is-required">*</span>` : ''}
         <select
           .value=${value}
           ?disabled=${readonly}
@@ -60,8 +60,8 @@ class StructuredContentSelectField extends LitElement {
           @change=${this._handleChange}
         >
           ${!required
-    ? html`<option value="">None</option>`
-    : html`<option value="" disabled>Please Select</option>`}
+        ? html`<option value="">None</option>`
+        : html`<option value="" disabled>Please Select</option>`}
           ${options.map((optionValue) => html`
             <option value=${optionValue}>${optionValue}</option>
           `)}
