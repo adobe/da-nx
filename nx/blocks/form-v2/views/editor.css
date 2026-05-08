@@ -86,6 +86,12 @@ h2 {
   opacity: 0.6;
 }
 
+.editor-root .array-item-menu {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .editor-root .active-section {
   border-color: var(--link-color, #0a66c2);
   box-shadow: 0 0 0 1px

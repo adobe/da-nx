@@ -1,5 +1,8 @@
 import { LitElement, html } from 'da-lit';
 
+const { default: getStyle } = await import('../../../../utils/styles.js');
+const style = await getStyle(import.meta.url);
+
 const EL_NAME = 'da-sc-reorder-dialog';
 
 class StructuredContentReorderDialog extends LitElement {
@@ -17,6 +20,7 @@ class StructuredContentReorderDialog extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
+    this.shadowRoot.adoptedStyleSheets = [style];
     document.addEventListener('keydown', this._boundHandleKeydown);
   }
 
@@ -32,7 +36,17 @@ class StructuredContentReorderDialog extends LitElement {
     }));
   }
 
+  _isTypingTarget(target) {
+    if (!(target instanceof Element)) return false;
+    const tag = target.tagName?.toLowerCase?.();
+    if (tag === 'input' || tag === 'textarea' || tag === 'select') return true;
+    return target.closest?.('[contenteditable="true"]') != null;
+  }
+
   _handleKeydown(e) {
+    if (e.defaultPrevented) return;
+    if (this._isTypingTarget(e.target)) return;
+
     const lastIndex = Math.max((this.totalItems ?? 0) - 1, 0);
 
     if (e.key === 'Escape') {
@@ -69,14 +83,16 @@ class StructuredContentReorderDialog extends LitElement {
       : '0 of 0';
 
     return html`
-      <div>
-        <p>Reorder position: ${position}</p>
-        <button type="button" ?disabled=${!canMoveUp} @click=${() => this._dispatch('reorder-move-to-first')}>First</button>
-        <button type="button" ?disabled=${!canMoveUp} @click=${() => this._dispatch('reorder-move-up')}>Up</button>
-        <button type="button" ?disabled=${!canMoveDown} @click=${() => this._dispatch('reorder-move-down')}>Down</button>
-        <button type="button" ?disabled=${!canMoveDown} @click=${() => this._dispatch('reorder-move-to-last')}>Last</button>
-        <button type="button" @click=${() => this._dispatch('reorder-confirm')}>Apply</button>
-        <button type="button" @click=${() => this._dispatch('reorder-cancel')}>Cancel</button>
+      <div class="reorder-dialog" role="group" aria-label="Reorder item">
+        <p class="reorder-dialog-position">Position: ${position}</p>
+        <div class="reorder-dialog-actions">
+          <button type="button" class="reorder-btn" ?disabled=${!canMoveUp} @click=${() => this._dispatch('reorder-move-to-first')}>First</button>
+          <button type="button" class="reorder-btn" ?disabled=${!canMoveUp} @click=${() => this._dispatch('reorder-move-up')}>Up</button>
+          <button type="button" class="reorder-btn" ?disabled=${!canMoveDown} @click=${() => this._dispatch('reorder-move-down')}>Down</button>
+          <button type="button" class="reorder-btn" ?disabled=${!canMoveDown} @click=${() => this._dispatch('reorder-move-to-last')}>Last</button>
+          <button type="button" class="reorder-btn reorder-apply" @click=${() => this._dispatch('reorder-confirm')}>Apply</button>
+          <button type="button" class="reorder-btn reorder-cancel" @click=${() => this._dispatch('reorder-cancel')}>Cancel</button>
+        </div>
       </div>
     `;
   }

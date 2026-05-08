@@ -209,10 +209,10 @@ class StructuredContentArrayItemMenu extends LitElement {
     const canRemove = this._canRemove();
     const removeLabel = this._removeConfirm && canRemove ? 'Confirm remove' : 'Remove';
     return html`
-      <div>
-        <button type="button" ?disabled=${!canInsert} @click=${this._insertBefore}>Insert</button>
+      <div class="array-item-menu">
+        <button type="button" ?disabled=${!canInsert || this._reorderActive} @click=${this._insertBefore}>Insert</button>
         <button type="button" ?disabled=${!canReorder || this._reorderActive} @click=${this._openReorder}>Reorder</button>
-        <button type="button" ?disabled=${!canRemove} @click=${this._remove}>${removeLabel}</button>
+        <button type="button" ?disabled=${!canRemove || this._reorderActive} @click=${this._remove}>${removeLabel}</button>
         ${this._reorderActive ? html`
           <da-sc-reorder-dialog
             .targetIndex=${this._targetIndex}

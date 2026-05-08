@@ -1,0 +1,38 @@
+:host {
+  display: block;
+  margin-top: 8px;
+}
+
+.reorder-dialog {
+  background: var(--overlay-background-color, #f7f7f7);
+  border: 1px solid var(--light-color, #ddd);
+  border-radius: 6px;
+  padding: 8px;
+}
+
+.reorder-dialog-position {
+  color: var(--dark-color, #555);
+  font-size: 0.8rem;
+  margin: 0 0 6px;
+}
+
+.reorder-dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.reorder-btn {
+  background: var(--overlay-background-color, #f5f5f5);
+  border: 1px solid var(--light-color, #d0d0d0);
+  border-radius: 6px;
+  cursor: pointer;
+  font: inherit;
+  min-height: 32px;
+  padding: 0 10px;
+}
+
+.reorder-btn[disabled] {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
