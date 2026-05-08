@@ -34,7 +34,7 @@ The component manages its own controller internally. No external wiring needed.
 
 **Request body:** The controller POSTs `{ messages, pageContext, imsToken, room, attachments? }` to the agent. Selection context is embedded on individual user messages (see [Selection context](#selection-context)) rather than as a top-level request field.
 
-`attachments` items: `{ id, fileName, mediaType, dataBase64, sizeBytes? }`. Present when the user attached files to the message. Re-sent on approval continuation POSTs for the same turn so the agent retains file context across approval rounds; omitted on turns with no attachments.
+`attachments` items: `{ id, fileName, mediaType, dataBase64?, contentUrl?, sizeBytes? }`. Exactly one of `dataBase64` or `contentUrl` must be present. On the first POST `dataBase64` is sent; after a successful `content_upload` the controller replaces it with `contentUrl` (the DA storage URL from the tool result) on continuation POSTs. Present when the user attached files to the message; omitted on turns with no attachments.
 
 > **Contract:** `attachments` is consumed by da-agent to make file content available to the model. The agent stores attachments in a per-request map keyed by `id`; the model calls `content_upload(attachmentRef)` to persist a file to DA storage.
 
@@ -49,7 +49,7 @@ The component manages its own controller internally. No external wiring needed.
 
 ## File attachments
 
-Users can attach images via the **+** menu ("Files or images") or by **drag-and-dropping** onto the chat form. Up to 5 images per message. Only `image/*` files are accepted.
+Users can attach files via the **+** menu ("Files or images") or by **drag-and-dropping** onto the chat form. Up to 20 files per message. Accepted types: images (`image/*`), markdown (`.md`), and PDF (`.pdf`). The same restriction applies to drag-and-drop.
 
 File items are read as base64 and sent to da-agent as `attachments` (see [Request body](#request-body)). They are stored on the sent user message as `attachmentsMeta` (no base64) for display in the conversation log.
 

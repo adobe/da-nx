@@ -226,8 +226,8 @@ class NxChat extends LitElement {
     const text = input.value.trim();
     if (!text && !this._items?.length) return;
 
-    const fileItems = (this._items ?? []).filter((i) => i.type === 'image');
-    const contextItems = (this._items ?? []).filter((i) => i.type !== 'image');
+    const fileItems = (this._items ?? []).filter((i) => i.dataBase64);
+    const contextItems = (this._items ?? []).filter((i) => !i.dataBase64);
     const message = text || (fileItems.length > 1 ? 'Attached files' : 'Attached file');
     const attachments = fileItems.map(({ id, fileName, mediaType, sizeBytes, dataBase64 }) => ({
       id, fileName, mediaType, dataBase64, ...(typeof sizeBytes === 'number' ? { sizeBytes } : {}),
@@ -251,26 +251,25 @@ class NxChat extends LitElement {
 
   async _onFilesSelected(fileList) {
     const MAX_FILES = 20;
-    const imageCount = (this._items ?? []).filter((i) => i.type === 'image').length;
-    const available = Math.max(0, MAX_FILES - imageCount);
-    const files = Array.from(fileList)
-      .filter((f) => f.type?.startsWith('image/'))
-      .slice(0, available);
+    const fileCount = (this._items ?? []).filter((i) => i.dataBase64).length;
+    const available = Math.max(0, MAX_FILES - fileCount);
+    const files = Array.from(fileList).slice(0, available);
     if (!files.length) return;
 
     const results = await Promise.all(files.map(async (file) => {
       try {
         const dataBase64 = await readFileAsBase64(file);
         if (!dataBase64) return null;
+        const isImage = file.type?.startsWith('image/');
         return {
           id: crypto.randomUUID(),
           label: file.name,
-          type: 'image',
+          type: isImage ? 'image' : 'file',
           fileName: file.name,
           mediaType: file.type,
           sizeBytes: file.size,
           dataBase64,
-          thumbnail: URL.createObjectURL(file),
+          ...(isImage ? { thumbnail: URL.createObjectURL(file) } : {}),
         };
       } catch { return null; }
     }));
@@ -311,7 +310,13 @@ class NxChat extends LitElement {
     e.preventDefault();
     this._dragging = false;
     const { files } = e.dataTransfer ?? {};
-    if (files?.length) await this._onFilesSelected(files);
+    if (!files?.length) return;
+    const accepted = Array.from(files).filter((f) => {
+      if (f.type?.startsWith('image/')) return true;
+      if (f.type === 'text/markdown' || f.type === 'application/pdf') return true;
+      return f.name?.endsWith('.md') || f.name?.endsWith('.pdf');
+    });
+    if (accepted.length) await this._onFilesSelected(accepted);
   }
 
   _onSkillSelect({ detail }) {
@@ -385,7 +390,7 @@ class NxChat extends LitElement {
         <input
           class="chat-file-input"
           type="file"
-          accept="image/*"
+          accept="image/*,text/markdown,.md,application/pdf,.pdf"
           multiple
           hidden
           @change=${this._onFileInputChange}
@@ -393,7 +398,7 @@ class NxChat extends LitElement {
         ${this._dragging ? html`
           <div class="chat-drop-zone" aria-hidden="true">
             <span class="chat-drop-title">Drop a file to add context</span>
-            <span class="chat-drop-hint">Supports images</span>
+            <span class="chat-drop-hint">Supports PDF, images, and documents</span>
           </div>` : nothing}
         ${this._items?.length ? html`
           <nx-chat-pills
