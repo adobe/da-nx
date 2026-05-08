@@ -124,6 +124,8 @@ class NxChat extends LitElement {
     if (!this._slashMenuEl.open) {
       const form = this.shadowRoot.querySelector('.chat-form');
       this._slashMenuEl.show({ anchor: form, placement: 'above' });
+    } else {
+      this._slashMenuEl.reposition();
     }
   }
 
@@ -362,6 +364,7 @@ class NxChat extends LitElement {
           .ignoreFocus=${true}
           .scoped=${true}
           @select=${({ detail }) => this._onSlashSelect(detail.id)}
+          @mousedown=${(e) => e.preventDefault()}
         ></nx-menu>
         ${renderApprovalCard(this._pendingApproval(), this._controller.approveToolCall)}
         <form class="chat-form" autocomplete="off" @submit=${this._submit}>

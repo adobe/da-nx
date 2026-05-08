@@ -393,7 +393,7 @@
     }
   }
 
-  &.chat-thinking .chat-stop {
+  &[data-thinking] .chat-stop {
     display: flex;
   }
 }
