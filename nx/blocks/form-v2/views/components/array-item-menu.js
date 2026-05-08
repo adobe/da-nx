@@ -1,4 +1,5 @@
-import { LitElement, html } from 'da-lit';
+import { LitElement, html, nothing } from 'da-lit';
+import './reorder-dialog.js';
 
 const EL_NAME = 'da-sc-array-item-menu';
 
@@ -12,12 +13,16 @@ class StructuredContentArrayItemMenu extends LitElement {
     minItems: { attribute: false },
     maxItems: { attribute: false },
     _removeConfirm: { state: true },
+    _reorderActive: { state: true },
+    _targetIndex: { state: true },
   };
 
   constructor() {
     super();
     this._removeConfirm = false;
     this._removeConfirmTimer = null;
+    this._reorderActive = false;
+    this._targetIndex = 0;
   }
 
   createRenderRoot() {
@@ -29,10 +34,33 @@ class StructuredContentArrayItemMenu extends LitElement {
     super.disconnectedCallback();
   }
 
+  _getItemCount() {
+    return this.itemCount ?? (this.pointers?.length ?? 0);
+  }
+
+  _getCurrentIndex() {
+    return this.index ?? 0;
+  }
+
+  _getLastIndex() {
+    return Math.max(0, this._getItemCount() - 1);
+  }
+
+  _canInsert() {
+    if (this.readonly) return false;
+    const itemCount = this._getItemCount();
+    return this.maxItems === undefined || itemCount < this.maxItems;
+  }
+
+  _canReorder() {
+    if (this.readonly) return false;
+    return this._getItemCount() > 1;
+  }
+
   _canRemove() {
     if (this.readonly) return false;
     const minItems = this.minItems ?? 0;
-    const itemCount = this.itemCount ?? (this.pointers?.length ?? 0);
+    const itemCount = this._getItemCount();
     return itemCount > minItems;
   }
 
@@ -56,6 +84,62 @@ class StructuredContentArrayItemMenu extends LitElement {
     }, 3000);
   }
 
+  _resetReorder() {
+    this._reorderActive = false;
+    this._targetIndex = this._getCurrentIndex();
+  }
+
+  _setTargetIndex(index) {
+    const clamped = Math.max(0, Math.min(index, this._getLastIndex()));
+    this._targetIndex = clamped;
+  }
+
+  _openReorder() {
+    if (!this._canReorder()) return;
+    this._resetRemoveConfirm();
+    this._reorderActive = true;
+    this._setTargetIndex(this._getCurrentIndex());
+  }
+
+  _cancelReorder() {
+    this._resetReorder();
+  }
+
+  _beforePointerFromTargetIndex(targetIndex) {
+    const pointers = this.pointers ?? [];
+    if (!pointers.length) return undefined;
+
+    const currentIndex = this._getCurrentIndex();
+    const lastIndex = pointers.length - 1;
+
+    if (targetIndex > currentIndex) {
+      if (targetIndex >= lastIndex) return undefined;
+      return pointers[targetIndex + 1];
+    }
+
+    return pointers[targetIndex];
+  }
+
+  _confirmReorder() {
+    if (!this._reorderActive) return;
+
+    const currentIndex = this._getCurrentIndex();
+    const targetIndex = this._targetIndex;
+
+    if (targetIndex === currentIndex) {
+      this._resetReorder();
+      return;
+    }
+
+    const beforePointer = this._beforePointerFromTargetIndex(targetIndex);
+    this._emit({
+      type: 'form-array-reorder',
+      pointer: this.pointer,
+      beforePointer,
+    });
+    this._resetReorder();
+  }
+
   _emit(detail) {
     this.dispatchEvent(new CustomEvent('form-intent', {
       detail,
@@ -64,62 +148,10 @@ class StructuredContentArrayItemMenu extends LitElement {
     }));
   }
 
-  _moveUp() {
-    if (this.readonly) return;
-    this._resetRemoveConfirm();
-    if (this.index <= 0) return;
-    this._emit({
-      type: 'form-array-reorder',
-      pointer: this.pointer,
-      beforePointer: this.pointers[this.index - 1],
-    });
-  }
-
-  _moveDown() {
-    if (this.readonly) return;
-    this._resetRemoveConfirm();
-    const lastIndex = (this.pointers?.length ?? 1) - 1;
-    if (this.index >= lastIndex) return;
-
-    const beforePointer = this.index + 2 > lastIndex
-      ? undefined
-      : this.pointers[this.index + 2];
-
-    this._emit({
-      type: 'form-array-reorder',
-      pointer: this.pointer,
-      beforePointer,
-    });
-  }
-
-  _moveFirst() {
-    if (this.readonly) return;
-    this._resetRemoveConfirm();
-    if (this.index <= 0) return;
-    this._emit({
-      type: 'form-array-reorder',
-      pointer: this.pointer,
-      beforePointer: this.pointers[0],
-    });
-  }
-
-  _moveLast() {
-    if (this.readonly) return;
-    this._resetRemoveConfirm();
-    const lastIndex = (this.pointers?.length ?? 1) - 1;
-    if (this.index >= lastIndex) return;
-    this._emit({
-      type: 'form-array-reorder',
-      pointer: this.pointer,
-      beforePointer: undefined,
-    });
-  }
-
   _insertBefore() {
-    if (this.readonly) return;
+    if (!this._canInsert()) return;
     this._resetRemoveConfirm();
-    const itemCount = this.itemCount ?? (this.pointers?.length ?? 0);
-    if (this.maxItems !== undefined && itemCount >= this.maxItems) return;
+    this._resetReorder();
     this._emit({
       type: 'form-array-insert',
       pointer: this.pointer,
@@ -127,6 +159,7 @@ class StructuredContentArrayItemMenu extends LitElement {
   }
 
   _remove() {
+    this._resetReorder();
     if (!this._canRemove()) return;
 
     if (!this._removeConfirm) {
@@ -142,35 +175,56 @@ class StructuredContentArrayItemMenu extends LitElement {
   }
 
   updated(changed) {
-    if (
-      !changed.has('itemCount')
-      && !changed.has('minItems')
-      && !changed.has('readonly')
-      && !changed.has('pointers')
-    ) return;
+    const isConstraintChange = (
+      changed.has('itemCount')
+      || changed.has('minItems')
+      || changed.has('readonly')
+      || changed.has('pointers')
+      || changed.has('index')
+    );
+    if (!isConstraintChange) return;
 
     if (!this._canRemove()) {
       this._resetRemoveConfirm();
     }
+
+    if (!this._canReorder()) {
+      this._resetReorder();
+      return;
+    }
+
+    const lastIndex = this._getLastIndex();
+    if (this._targetIndex > lastIndex) {
+      this._targetIndex = lastIndex;
+    }
+
+    if (changed.has('index') && this._reorderActive) {
+      this._setTargetIndex(this._getCurrentIndex());
+    }
   }
 
   render() {
-    const readonly = !!this.readonly;
-    const { maxItems } = this;
-    const itemCount = this.itemCount ?? (this.pointers?.length ?? 0);
-    const canInsert = !readonly && (maxItems === undefined || itemCount < maxItems);
+    const canInsert = this._canInsert();
+    const canReorder = this._canReorder();
     const canRemove = this._canRemove();
     const removeLabel = this._removeConfirm && canRemove ? 'Confirm remove' : 'Remove';
-    const canMoveUp = this.index > 0;
-    const canMoveDown = this.index < ((this.pointers?.length ?? 1) - 1);
     return html`
       <div>
         <button type="button" ?disabled=${!canInsert} @click=${this._insertBefore}>Insert</button>
-        <button type="button" ?disabled=${readonly || !canMoveUp} @click=${this._moveFirst}>First</button>
-        <button type="button" ?disabled=${readonly || !canMoveUp} @click=${this._moveUp}>Up</button>
-        <button type="button" ?disabled=${readonly || !canMoveDown} @click=${this._moveDown}>Down</button>
-        <button type="button" ?disabled=${readonly || !canMoveDown} @click=${this._moveLast}>Last</button>
+        <button type="button" ?disabled=${!canReorder || this._reorderActive} @click=${this._openReorder}>Reorder</button>
         <button type="button" ?disabled=${!canRemove} @click=${this._remove}>${removeLabel}</button>
+        ${this._reorderActive ? html`
+          <da-sc-reorder-dialog
+            .targetIndex=${this._targetIndex}
+            .totalItems=${this._getItemCount()}
+            @reorder-move-up=${() => this._setTargetIndex(this._targetIndex - 1)}
+            @reorder-move-down=${() => this._setTargetIndex(this._targetIndex + 1)}
+            @reorder-move-to-first=${() => this._setTargetIndex(0)}
+            @reorder-move-to-last=${() => this._setTargetIndex(this._getLastIndex())}
+            @reorder-confirm=${this._confirmReorder}
+            @reorder-cancel=${this._cancelReorder}
+          ></da-sc-reorder-dialog>
+        ` : nothing}
       </div>
     `;
   }
