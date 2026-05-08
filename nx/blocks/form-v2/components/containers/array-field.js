@@ -44,6 +44,11 @@ class StructuredContentArrayField extends LitElement {
     const pointers = items.map((item) => item.pointer);
     const readonly = !!node.readonly;
     const active = this.activePointer === node.pointer;
+    const itemCount = items.length;
+    const { minItems: rawMinItems, maxItems } = node;
+    const minItems = rawMinItems ?? 0;
+    const canAdd = !readonly && (maxItems === undefined || itemCount < maxItems);
+    const canRemove = !readonly && itemCount > minItems;
 
     return html`
       <section data-pointer=${node.pointer} class=${active ? 'active-section' : ''}>
@@ -56,6 +61,9 @@ class StructuredContentArrayField extends LitElement {
               .index=${index}
               .pointers=${pointers}
               .readonly=${readonly}
+              .itemCount=${itemCount}
+              .minItems=${minItems}
+              .maxItems=${maxItems}
             ></da-sc-array-item-menu>
             <da-sc-field-section
               .node=${item}
@@ -64,7 +72,13 @@ class StructuredContentArrayField extends LitElement {
             ></da-sc-field-section>
           </article>
         `)}
-        <button type="button" ?disabled=${readonly} @click=${this._addItem}>Add item</button>
+        <button type="button" ?disabled=${!canAdd} @click=${this._addItem}>Add item</button>
+        ${minItems > 0 && !canRemove && itemCount <= minItems
+    ? html`<p>At least ${minItems} item${minItems === 1 ? '' : 's'} required.</p>`
+    : nothing}
+        ${maxItems !== undefined && itemCount >= maxItems
+    ? html`<p>Maximum ${maxItems} item${maxItems === 1 ? '' : 's'} reached.</p>`
+    : nothing}
       </section>
     `;
   }

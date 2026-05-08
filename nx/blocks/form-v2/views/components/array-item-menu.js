@@ -8,6 +8,9 @@ class StructuredContentArrayItemMenu extends LitElement {
     index: { attribute: false },
     pointers: { attribute: false },
     readonly: { attribute: false },
+    itemCount: { attribute: false },
+    minItems: { attribute: false },
+    maxItems: { attribute: false },
   };
 
   createRenderRoot() {
@@ -71,6 +74,7 @@ class StructuredContentArrayItemMenu extends LitElement {
 
   _insertBefore() {
     if (this.readonly) return;
+    if (this.maxItems !== undefined && this.itemCount >= this.maxItems) return;
     this._emit({
       type: 'form-array-insert',
       pointer: this.pointer,
@@ -79,6 +83,8 @@ class StructuredContentArrayItemMenu extends LitElement {
 
   _remove() {
     if (this.readonly) return;
+    const minItems = this.minItems ?? 0;
+    if ((this.itemCount ?? 0) <= minItems) return;
     this._emit({
       type: 'form-array-remove',
       pointer: this.pointer,
@@ -87,16 +93,21 @@ class StructuredContentArrayItemMenu extends LitElement {
 
   render() {
     const readonly = !!this.readonly;
+    const { minItems: rawMinItems, maxItems } = this;
+    const minItems = rawMinItems ?? 0;
+    const itemCount = this.itemCount ?? (this.pointers?.length ?? 0);
+    const canInsert = !readonly && (maxItems === undefined || itemCount < maxItems);
+    const canRemove = !readonly && itemCount > minItems;
     const canMoveUp = this.index > 0;
     const canMoveDown = this.index < ((this.pointers?.length ?? 1) - 1);
     return html`
       <div>
-        <button type="button" ?disabled=${readonly} @click=${this._insertBefore}>Insert</button>
+        <button type="button" ?disabled=${!canInsert} @click=${this._insertBefore}>Insert</button>
         <button type="button" ?disabled=${readonly || !canMoveUp} @click=${this._moveFirst}>First</button>
         <button type="button" ?disabled=${readonly || !canMoveUp} @click=${this._moveUp}>Up</button>
         <button type="button" ?disabled=${readonly || !canMoveDown} @click=${this._moveDown}>Down</button>
         <button type="button" ?disabled=${readonly || !canMoveDown} @click=${this._moveLast}>Last</button>
-        <button type="button" ?disabled=${readonly} @click=${this._remove}>Remove</button>
+        <button type="button" ?disabled=${!canRemove} @click=${this._remove}>Remove</button>
       </div>
     `;
   }

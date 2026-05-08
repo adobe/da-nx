@@ -43,6 +43,43 @@ export function createArrayController({
   formStore,
   validate,
 }) {
+  function getArrayNode(pointer) {
+    return formStore.getNode(pointer);
+  }
+
+  function canAddItem(arrayDefinition, arrayNode) {
+    if (!arrayDefinition || arrayDefinition.kind !== 'array') return false;
+    if (!arrayNode || arrayNode.kind !== 'array') return false;
+    if (arrayDefinition.readonly) return false;
+
+    const itemCount = arrayNode.items?.length ?? 0;
+    const { maxItems } = arrayDefinition;
+    if (maxItems !== undefined && itemCount >= maxItems) {
+      return false;
+    }
+
+    return true;
+  }
+
+  function canRemoveItem(arrayDefinition, arrayNode) {
+    if (!arrayDefinition || arrayDefinition.kind !== 'array') return false;
+    if (!arrayNode || arrayNode.kind !== 'array') return false;
+    if (arrayDefinition.readonly) return false;
+
+    const itemCount = arrayNode.items?.length ?? 0;
+    const { minItems = 0 } = arrayDefinition;
+    return itemCount > minItems;
+  }
+
+  function canReorderItem(arrayDefinition, arrayNode) {
+    if (!arrayDefinition || arrayDefinition.kind !== 'array') return false;
+    if (!arrayNode || arrayNode.kind !== 'array') return false;
+    if (arrayDefinition.readonly) return false;
+
+    const itemCount = arrayNode.items?.length ?? 0;
+    return itemCount > 1;
+  }
+
   function getDefinition() {
     return formStore.getState().definition;
   }
@@ -61,7 +98,8 @@ export function createArrayController({
         definition: getDefinition(),
         pointer,
       });
-      if (!arrayDefinition || arrayDefinition.kind !== 'array') {
+      const arrayNode = getArrayNode(pointer);
+      if (!canAddItem(arrayDefinition, arrayNode)) {
         return { changed: false, state: formStore.getState() };
       }
 
@@ -77,7 +115,8 @@ export function createArrayController({
         definition: getDefinition(),
         pointer: parentPointer,
       });
-      if (!arrayDefinition || arrayDefinition.kind !== 'array') {
+      const arrayNode = getArrayNode(parentPointer);
+      if (!canAddItem(arrayDefinition, arrayNode)) {
         return { changed: false, state: formStore.getState() };
       }
 
@@ -88,10 +127,30 @@ export function createArrayController({
     },
 
     removeItem({ pointer }) {
+      const parentPointer = getParentPointer(pointer);
+      const arrayDefinition = findDefinitionByPointer({
+        definition: getDefinition(),
+        pointer: parentPointer,
+      });
+      const arrayNode = getArrayNode(parentPointer);
+      if (!canRemoveItem(arrayDefinition, arrayNode)) {
+        return { changed: false, state: formStore.getState() };
+      }
+
       return applyWithValidation(removeArrayItem, { pointer });
     },
 
     moveItem({ pointer, beforePointer }) {
+      const parentPointer = getParentPointer(pointer);
+      const arrayDefinition = findDefinitionByPointer({
+        definition: getDefinition(),
+        pointer: parentPointer,
+      });
+      const arrayNode = getArrayNode(parentPointer);
+      if (!canReorderItem(arrayDefinition, arrayNode)) {
+        return { changed: false, state: formStore.getState() };
+      }
+
       return applyWithValidation(moveArrayItem, { pointer, beforePointer });
     },
   };

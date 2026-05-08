@@ -7,6 +7,10 @@ export function createFieldStateController({
   return {
     applyFieldChange({ pointer, value }) {
       const node = formStore.getNode(pointer);
+      if (node?.readonly) {
+        return { changed: false, state: formStore.getState() };
+      }
+
       const result = formStore.applyMutation(mutateFieldValue, {
         pointer,
         value,
