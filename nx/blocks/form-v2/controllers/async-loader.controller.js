@@ -96,7 +96,7 @@ export async function loadFormContext({ details }) {
     };
   }
 
-  const html = documentResult.html;
+  const { html } = documentResult;
   if (isEmptyDocumentHtml(html)) {
     const hasSchemas = Object.keys(schemas).length > 0;
     return {

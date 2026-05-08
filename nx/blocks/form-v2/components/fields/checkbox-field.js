@@ -36,16 +36,19 @@ class StructuredContentCheckboxField extends LitElement {
     const label = this.node?.label ?? '';
     const checked = !!this.value;
     const error = this.error ?? '';
+    const required = this.node?.required ? '*' : '';
+    const readonly = !!this.node?.readonly;
 
     return html`
       <label data-pointer=${this.node?.pointer ?? ''}>
         <input
           type="checkbox"
           .checked=${checked}
+          ?disabled=${readonly}
           @focus=${this._handleFocus}
           @change=${this._handleChange}
         />
-        ${label}
+        ${label}${required}
       </label>
       ${error ? html`<p>${error}</p>` : ''}
     `;

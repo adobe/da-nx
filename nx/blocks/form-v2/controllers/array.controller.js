@@ -20,18 +20,14 @@ function findDefinitionByPointer({ definition, pointer }) {
     if (node.kind === 'object') {
       node = (node.children ?? []).find((child) => child.key === segment) ?? null;
       i += 1;
-      continue;
-    }
-
-    if (node.kind === 'array') {
+    } else if (node.kind === 'array') {
       node = node.item ?? null;
       if (i < segments.length && /^\d+$/.test(segments[i])) {
         i += 1;
       }
-      continue;
+    } else {
+      return null;
     }
-
-    return null;
   }
 
   return node;

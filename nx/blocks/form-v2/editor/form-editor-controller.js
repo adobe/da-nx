@@ -1,6 +1,7 @@
 import { createArrayController } from '../controllers/array.controller.js';
 import { createAutosaveController } from '../controllers/autosave.controller.js';
 import { createFieldStateController } from '../controllers/field-state.controller.js';
+import { getParentPointer } from '../model/json-pointer.js';
 import { validateFormState } from '../services/validation/validation-engine.js';
 
 function getSaveSnapshot(savingStore) {
@@ -14,6 +15,27 @@ export function createFormEditorController({
   path,
 }) {
   const listeners = new Set();
+  const pendingFieldTimers = new Map();
+
+  function getNavPointer(pointer) {
+    if (!pointer) return '/data';
+
+    const { index } = formStore.getState();
+    let current = pointer;
+
+    while (current) {
+      const node = index?.nodesByPointer?.get(current);
+      if (!node) {
+        current = getParentPointer(current);
+      } else if (node.kind === 'object' || node.kind === 'array') {
+        return current;
+      } else {
+        current = getParentPointer(current);
+      }
+    }
+
+    return '/data';
+  }
 
   function validate(state) {
     return validateFormState({
@@ -78,9 +100,38 @@ export function createFormEditorController({
   }
 
   async function handleFieldChange({ pointer, value }) {
-    const result = fieldState.applyFieldChange({ pointer, value });
-    notify();
-    return persistAfterChange(result);
+    const applyChange = async () => {
+      const result = fieldState.applyFieldChange({ pointer, value });
+      notify();
+      return persistAfterChange(result);
+    };
+
+    return applyChange();
+  }
+
+  async function handleFieldChangeDebounced({ pointer, value, debounceMs }) {
+    if (!pointer || !debounceMs || debounceMs <= 0) {
+      return handleFieldChange({ pointer, value });
+    }
+
+    if (pendingFieldTimers.has(pointer)) {
+      clearTimeout(pendingFieldTimers.get(pointer).timer);
+      pendingFieldTimers.get(pointer).resolve({
+        changed: false,
+        superseded: true,
+        snapshot: getSnapshot(),
+      });
+    }
+
+    return new Promise((resolve) => {
+      const timer = setTimeout(async () => {
+        pendingFieldTimers.delete(pointer);
+        const result = await handleFieldChange({ pointer, value });
+        resolve(result);
+      }, debounceMs);
+
+      pendingFieldTimers.set(pointer, { timer, resolve });
+    });
   }
 
   async function handleArrayAdd({ pointer }) {
@@ -110,12 +161,12 @@ export function createFormEditorController({
   async function handleIntent(detail = {}) {
     switch (detail.type) {
       case 'form-nav-pointer-select': {
-        selectionStore?.setActivePointer?.(detail.pointer);
+        selectionStore?.setActivePointer?.(getNavPointer(detail.pointer));
         const snapshot = notify();
         return { changed: false, selectionChanged: true, snapshot };
       }
       case 'form-field-change':
-        return handleFieldChange(detail);
+        return handleFieldChangeDebounced(detail);
       case 'form-array-add':
         return handleArrayAdd(detail);
       case 'form-array-insert':
@@ -133,6 +184,19 @@ export function createFormEditorController({
     subscribe(listener) {
       listeners.add(listener);
       return () => listeners.delete(listener);
+    },
+    dispose() {
+      for (const { timer, resolve } of pendingFieldTimers.values()) {
+        clearTimeout(timer);
+        resolve({
+          changed: false,
+          superseded: true,
+          disposed: true,
+          snapshot: getSnapshot(),
+        });
+      }
+      pendingFieldTimers.clear();
+      listeners.clear();
     },
     getSnapshot,
     handleIntent,

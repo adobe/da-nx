@@ -74,7 +74,7 @@ class StructuredContentFieldSection extends LitElement {
   }
 
   render() {
-    const node = this.node;
+    const { node } = this;
     if (!node) return nothing;
 
     if (node.kind === 'object') {

@@ -24,16 +24,24 @@ class StructuredContentArrayField extends LitElement {
     });
   }
 
+  _selectSelf() {
+    this._emitIntent({
+      type: 'form-nav-pointer-select',
+      pointer: this.node?.pointer,
+    });
+  }
+
   render() {
-    const node = this.node;
+    const { node } = this;
     if (!node) return nothing;
 
     const items = node.items ?? [];
     const pointers = items.map((item) => item.pointer);
+    const readonly = !!node.readonly;
 
     return html`
       <section data-pointer=${node.pointer}>
-        <p>${node.label}${node.required ? '*' : ''}</p>
+        <p @click=${this._selectSelf}>${node.label}${node.required ? '*' : ''}</p>
         ${items.map((item, index) => html`
           <article>
             <p>Item ${index + 1}</p>
@@ -41,6 +49,7 @@ class StructuredContentArrayField extends LitElement {
               .pointer=${item.pointer}
               .index=${index}
               .pointers=${pointers}
+              .readonly=${readonly}
             ></da-sc-array-item-menu>
             <da-sc-field-section
               .node=${item}
@@ -48,7 +57,7 @@ class StructuredContentArrayField extends LitElement {
             ></da-sc-field-section>
           </article>
         `)}
-        <button type="button" @click=${this._addItem}>Add item</button>
+        <button type="button" ?disabled=${readonly} @click=${this._addItem}>Add item</button>
       </section>
     `;
   }

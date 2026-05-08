@@ -18,6 +18,7 @@ class StructuredContentNumberField extends LitElement {
         type: 'form-field-change',
         pointer: this.node?.pointer,
         value: Number.isNaN(value) ? undefined : value,
+        debounceMs: 500,
       },
       bubbles: true,
       composed: true,
@@ -41,6 +42,7 @@ class StructuredContentNumberField extends LitElement {
     const value = rawValue ?? '';
     const error = this.error ?? '';
     const required = this.node?.required ? '*' : '';
+    const readonly = !!this.node?.readonly;
 
     return html`
       <label data-pointer=${this.node?.pointer ?? ''}>
@@ -48,6 +50,7 @@ class StructuredContentNumberField extends LitElement {
         <input
           type="number"
           .value=${String(value)}
+          ?disabled=${readonly}
           @focus=${this._handleFocus}
           @input=${this._handleInput}
         />

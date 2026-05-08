@@ -15,6 +15,7 @@ class StructuredContentTextField extends LitElement {
         type: 'form-field-change',
         pointer: this.node?.pointer,
         value: e.target.value === '' ? undefined : e.target.value,
+        debounceMs: 500,
       },
       bubbles: true,
       composed: true,
@@ -37,6 +38,7 @@ class StructuredContentTextField extends LitElement {
     const value = this.value ?? '';
     const error = this.error ?? '';
     const required = this.node?.required ? '*' : '';
+    const readonly = !!this.node?.readonly;
 
     return html`
       <label data-pointer=${this.node?.pointer ?? ''}>
@@ -44,6 +46,7 @@ class StructuredContentTextField extends LitElement {
         <input
           type="text"
           .value=${value}
+          ?disabled=${readonly}
           @focus=${this._handleFocus}
           @input=${this._handleInput}
         />

@@ -39,11 +39,17 @@ class StructuredContentSelectField extends LitElement {
     const enumValues = this.node?.enumValues ?? [];
     const required = this.node?.required ?? false;
     const error = this.error ?? '';
+    const readonly = !!this.node?.readonly;
 
     return html`
       <label data-pointer=${this.node?.pointer ?? ''}>
         ${label}${required ? '*' : ''}
-        <select .value=${value} @focus=${this._handleFocus} @change=${this._handleChange}>
+        <select
+          .value=${value}
+          ?disabled=${readonly}
+          @focus=${this._handleFocus}
+          @change=${this._handleChange}
+        >
           ${!required ? html`<option value="">None</option>` : ''}
           ${enumValues.map((optionValue) => html`
             <option value=${optionValue}>${optionValue}</option>

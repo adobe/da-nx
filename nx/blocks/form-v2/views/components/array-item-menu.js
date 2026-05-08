@@ -7,6 +7,7 @@ class StructuredContentArrayItemMenu extends LitElement {
     pointer: { attribute: false },
     index: { attribute: false },
     pointers: { attribute: false },
+    readonly: { attribute: false },
   };
 
   _emit(detail) {
@@ -18,6 +19,7 @@ class StructuredContentArrayItemMenu extends LitElement {
   }
 
   _moveUp() {
+    if (this.readonly) return;
     if (this.index <= 0) return;
     this._emit({
       type: 'form-array-reorder',
@@ -27,6 +29,7 @@ class StructuredContentArrayItemMenu extends LitElement {
   }
 
   _moveDown() {
+    if (this.readonly) return;
     const lastIndex = (this.pointers?.length ?? 1) - 1;
     if (this.index >= lastIndex) return;
 
@@ -41,7 +44,29 @@ class StructuredContentArrayItemMenu extends LitElement {
     });
   }
 
+  _moveFirst() {
+    if (this.readonly) return;
+    if (this.index <= 0) return;
+    this._emit({
+      type: 'form-array-reorder',
+      pointer: this.pointer,
+      beforePointer: this.pointers[0],
+    });
+  }
+
+  _moveLast() {
+    if (this.readonly) return;
+    const lastIndex = (this.pointers?.length ?? 1) - 1;
+    if (this.index >= lastIndex) return;
+    this._emit({
+      type: 'form-array-reorder',
+      pointer: this.pointer,
+      beforePointer: undefined,
+    });
+  }
+
   _insertBefore() {
+    if (this.readonly) return;
     this._emit({
       type: 'form-array-insert',
       pointer: this.pointer,
@@ -49,6 +74,7 @@ class StructuredContentArrayItemMenu extends LitElement {
   }
 
   _remove() {
+    if (this.readonly) return;
     this._emit({
       type: 'form-array-remove',
       pointer: this.pointer,
@@ -56,12 +82,17 @@ class StructuredContentArrayItemMenu extends LitElement {
   }
 
   render() {
+    const readonly = !!this.readonly;
+    const canMoveUp = this.index > 0;
+    const canMoveDown = this.index < ((this.pointers?.length ?? 1) - 1);
     return html`
       <div>
-        <button type="button" @click=${this._insertBefore}>Insert</button>
-        <button type="button" @click=${this._moveUp}>Up</button>
-        <button type="button" @click=${this._moveDown}>Down</button>
-        <button type="button" @click=${this._remove}>Remove</button>
+        <button type="button" ?disabled=${readonly} @click=${this._insertBefore}>Insert</button>
+        <button type="button" ?disabled=${readonly || !canMoveUp} @click=${this._moveFirst}>First</button>
+        <button type="button" ?disabled=${readonly || !canMoveUp} @click=${this._moveUp}>Up</button>
+        <button type="button" ?disabled=${readonly || !canMoveDown} @click=${this._moveDown}>Down</button>
+        <button type="button" ?disabled=${readonly || !canMoveDown} @click=${this._moveLast}>Last</button>
+        <button type="button" ?disabled=${readonly} @click=${this._remove}>Remove</button>
       </div>
     `;
   }

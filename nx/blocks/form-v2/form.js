@@ -72,6 +72,7 @@ class StructuredContentForm extends LitElement {
   }
 
   _disconnectController() {
+    this._loaderState?.controller?.dispose?.();
     if (!this._controllerUnsubscribe) return;
     this._controllerUnsubscribe();
     this._controllerUnsubscribe = null;
@@ -156,11 +157,20 @@ class StructuredContentForm extends LitElement {
     window.location.href = `https://da.live${query}#/${owner}/${repo}`;
   }
 
-  _renderLoaderMessage(title, body) {
+  _renderLoaderMessage(title, body, { showHomeAction = false } = {}) {
     return html`
       <section class="da-sc-form-message">
         <h2>${title}</h2>
         <p>${body}</p>
+        ${showHomeAction ? html`
+          <div class="da-sc-form-actions">
+            <button
+              type="button"
+              class="da-sc-form-button"
+              @click=${() => this._goToRepoRoot()}
+            >Return to Home</button>
+          </div>
+        ` : nothing}
       </section>
     `;
   }
@@ -186,6 +196,7 @@ class StructuredContentForm extends LitElement {
       return this._renderLoaderMessage(
         'Unsupported resource',
         `This resource${path ? ` at ${path}` : ''} is not structured content.`,
+        { showHomeAction: true },
       );
     }
 
@@ -193,6 +204,7 @@ class StructuredContentForm extends LitElement {
       return this._renderLoaderMessage(
         'Access denied',
         `You do not have access to this resource${path ? ` at ${path}` : ''}.`,
+        { showHomeAction: true },
       );
     }
 
@@ -200,12 +212,14 @@ class StructuredContentForm extends LitElement {
       return this._renderLoaderMessage(
         'Unsupported schema',
         'This schema uses features not yet supported by form-v2.',
+        { showHomeAction: true },
       );
     }
 
     return this._renderLoaderMessage(
       'Unable to load',
       'This resource could not be loaded. Please try again later.',
+      { showHomeAction: true },
     );
   }
 
@@ -276,7 +290,7 @@ class StructuredContentForm extends LitElement {
   render() {
     if (!this.details) return nothing;
 
-    const status = this._loaderState.status;
+    const { status } = this._loaderState;
 
     if (status === 'idle' || status === 'loading') {
       return this._renderLoaderMessage('Loading', 'Preparing structured content editor...');

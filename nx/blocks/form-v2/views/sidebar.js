@@ -17,6 +17,27 @@ class StructuredContentFormSidebar extends LitElement {
     this.shadowRoot.adoptedStyleSheets = [style];
   }
 
+  updated(changed) {
+    if (!changed.has('context')) return;
+
+    const prevContext = changed.get('context');
+    const prevPointer = prevContext?.activeNavPointer;
+    const nextPointer = this.context?.activeNavPointer;
+
+    if (!nextPointer || nextPointer === prevPointer) return;
+    this._scrollToActivePointer(nextPointer);
+  }
+
+  _scrollToActivePointer(pointer) {
+    const safePointer = typeof CSS !== 'undefined' && typeof CSS.escape === 'function'
+      ? CSS.escape(pointer)
+      : pointer.replace(/"/g, '\\"');
+
+    const button = this.shadowRoot?.querySelector(`[data-pointer="${safePointer}"]`);
+    if (!button) return;
+    button.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+  }
+
   _emitNavSelect(pointer) {
     this.dispatchEvent(new CustomEvent('form-intent', {
       detail: {
@@ -48,6 +69,7 @@ class StructuredContentFormSidebar extends LitElement {
         <button
           type="button"
           class=${`item nav-item ${isActive ? 'is-active' : ''}`}
+          data-pointer=${node.pointer}
           aria-current=${isActive ? 'location' : undefined}
           @click=${() => this._emitNavSelect(node.pointer)}
         >${label}</button>

@@ -21,12 +21,11 @@ function addRequiredErrors({ json, index, errorsByPointer }) {
   if (!index?.fieldsByPointer) return;
 
   for (const node of index.fieldsByPointer.values()) {
-    if (!node?.required) continue;
-    if (errorsByPointer.has(node.pointer)) continue;
-
-    const value = getPointerValue({ data: json, pointer: node.pointer });
-    if (isEmpty(value)) {
-      errorsByPointer.set(node.pointer, 'This field is required.');
+    if (node?.required && !errorsByPointer.has(node.pointer)) {
+      const value = getPointerValue({ data: json, pointer: node.pointer });
+      if (isEmpty(value)) {
+        errorsByPointer.set(node.pointer, 'This field is required.');
+      }
     }
   }
 }
