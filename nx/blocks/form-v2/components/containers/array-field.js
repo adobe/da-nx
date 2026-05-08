@@ -32,7 +32,7 @@ class StructuredContentArrayField extends LitElement {
     const pointers = items.map((item) => item.pointer);
 
     return html`
-      <section>
+      <section data-pointer=${node.pointer}>
         <p>${node.label}${node.required ? '*' : ''}</p>
         ${items.map((item, index) => html`
           <article>

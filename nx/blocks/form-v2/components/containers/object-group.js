@@ -16,7 +16,7 @@ class StructuredContentObjectGroup extends LitElement {
     const required = node.required ? '*' : '';
 
     return html`
-      <fieldset>
+      <fieldset data-pointer=${node.pointer}>
         <legend>${node.label}${required}</legend>
         ${children.map((child) => html`
           <da-sc-field-section

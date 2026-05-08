@@ -10,6 +10,7 @@ import { loadDocumentHtml } from '../services/loader/document-loader.js';
 import { isDocumentResource } from '../services/loader/document-resource.js';
 import { loadSchemas } from '../services/schema/schema-registry.js';
 import { createFormStore } from '../state/form-store.js';
+import { createSelectionStore } from '../state/selection-store.js';
 import { createSavingStore } from '../state/saving-store.js';
 import { validateFormState } from '../services/validation/validation-engine.js';
 
@@ -63,6 +64,7 @@ export function buildRuntimeContext({
     runtime,
     index,
     formStore,
+    selectionStore: createSelectionStore(runtime?.root?.pointer ?? '/data'),
     savingStore: createSavingStore(),
     validation,
   };

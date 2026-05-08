@@ -1,6 +1,6 @@
 import { DA_ORIGIN } from 'https://da.live/blocks/shared/constants.js';
 import { daFetch } from 'https://da.live/blocks/shared/utils.js';
-import json2html from '../../../form/utils/json2html.js';
+import json2html from '../../adapters/json2html.js';
 
 export async function fetchSourceHtml({ sourceUrl }) {
   if (!sourceUrl) {

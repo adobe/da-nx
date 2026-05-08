@@ -41,7 +41,7 @@ class StructuredContentSelectField extends LitElement {
     const error = this.error ?? '';
 
     return html`
-      <label>
+      <label data-pointer=${this.node?.pointer ?? ''}>
         ${label}${required ? '*' : ''}
         <select .value=${value} @focus=${this._handleFocus} @change=${this._handleChange}>
           ${!required ? html`<option value="">None</option>` : ''}

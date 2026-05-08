@@ -82,6 +82,7 @@ class StructuredContentForm extends LitElement {
 
     const controller = createFormEditorController({
       formStore: readyState.formStore,
+      selectionStore: readyState.selectionStore,
       savingStore: readyState.savingStore,
       path: this.details?.fullpath,
     });
@@ -95,14 +96,10 @@ class StructuredContentForm extends LitElement {
     });
 
     const snapshot = controller.getSnapshot();
-    const activeNavPointer = this._loaderState.activeNavPointer
-      ?? snapshot?.runtime?.root?.pointer
-      ?? '/data';
     this._loaderState = {
       ...readyState,
       ...snapshot,
       controller,
-      activeNavPointer,
       status: 'ready',
     };
   }
@@ -272,15 +269,6 @@ class StructuredContentForm extends LitElement {
   async _handleFormIntent(e) {
     const detail = e?.detail ?? {};
     if (!detail.type) return;
-
-    if (detail.type === 'form-nav-pointer-select') {
-      if (!detail.pointer) return;
-      this._loaderState = {
-        ...this._loaderState,
-        activeNavPointer: detail.pointer,
-      };
-      return;
-    }
 
     await this._loaderState?.controller?.handleIntent(detail);
   }

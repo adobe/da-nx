@@ -38,7 +38,7 @@ class StructuredContentCheckboxField extends LitElement {
     const error = this.error ?? '';
 
     return html`
-      <label>
+      <label data-pointer=${this.node?.pointer ?? ''}>
         <input
           type="checkbox"
           .checked=${checked}
