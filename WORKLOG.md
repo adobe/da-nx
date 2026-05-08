@@ -1,5 +1,11 @@
 # Worklog
 
+## 2026-05-08
+
+### quick-edit merge conflict
+
+Resolved `origin/main` ↔ branch conflict in `nx/public/plugins/quick-edit/quick-edit.js`: kept a single `handleReady`, retained branch `checkDomain` + parent-controller flow, removed duplicate `checkDomain()` invocation left from the merge.
+
 ## 2026-05-06
 
 ### Phase 3 continued — chat and tool-panel moved into da-live
