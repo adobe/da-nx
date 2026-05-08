@@ -25,3 +25,7 @@ h2 {
   color: var(--gray-500, #707070);
   word-break: break-word;
 }
+
+.editor-root {
+  margin-top: 16px;
+}

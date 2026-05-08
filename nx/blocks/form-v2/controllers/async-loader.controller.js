@@ -9,6 +9,9 @@ import { compileSchema } from '../schema/schema-compiler.js';
 import { loadDocumentHtml } from '../services/loader/document-loader.js';
 import { isDocumentResource } from '../services/loader/document-resource.js';
 import { loadSchemas } from '../services/schema/schema-registry.js';
+import { createFormStore } from '../state/form-store.js';
+import { createSavingStore } from '../state/saving-store.js';
+import { validateFormState } from '../services/validation/validation-engine.js';
 
 function mapLoadErrorToBlocker(result) {
   const status = result?.status;
@@ -40,11 +43,28 @@ export function buildRuntimeContext({
   if (!runtime) return null;
 
   const index = createFormModelIndex({ root: runtime.root });
+  const formStore = createFormStore({
+    schema: compiled.schema,
+    definition: compiled.definition,
+    json: runtime.json,
+    runtime,
+    index,
+  });
+  const validation = validateFormState({
+    schema: compiled.schema,
+    json: runtime.json,
+    index,
+  });
+  formStore.setValidation(validation);
+
   return {
     schema: compiled.schema,
     definition: compiled.definition,
     runtime,
     index,
+    formStore,
+    savingStore: createSavingStore(),
+    validation,
   };
 }
 
@@ -126,10 +146,7 @@ export async function loadFormContext({ details }) {
     html,
     json,
     schemaName,
-    schema: runtimeContext.schema,
-    definition: runtimeContext.definition,
-    runtime: runtimeContext.runtime,
-    index: runtimeContext.index,
+    ...runtimeContext,
     ...withBaseState(details, schemas),
   };
 }

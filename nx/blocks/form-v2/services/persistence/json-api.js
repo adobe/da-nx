@@ -1,5 +1,6 @@
 import { DA_ORIGIN } from 'https://da.live/blocks/shared/constants.js';
 import { daFetch } from 'https://da.live/blocks/shared/utils.js';
+import json2html from '../../../form/utils/json2html.js';
 
 export async function fetchSourceHtml({ sourceUrl }) {
   if (!sourceUrl) {
@@ -64,4 +65,13 @@ export async function saveSourceHtml({ path, html }) {
   }
 
   return { ok: true };
+}
+
+export async function saveJsonDocument({ path, json }) {
+  if (!json || typeof json !== 'object') {
+    return { error: 'Invalid JSON payload.' };
+  }
+
+  const html = json2html(json);
+  return saveSourceHtml({ path, html });
 }

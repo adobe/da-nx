@@ -4,6 +4,7 @@ import getPathDetails from 'https://da.live/blocks/shared/pathDetails.js';
 import 'https://da.live/blocks/edit/da-title/da-title.js';
 
 import { buildRuntimeContext, loadFormContext } from './controllers/async-loader.controller.js';
+import { createFormEditorController } from './editor/form-editor-controller.js';
 import { getDisplayPath } from './services/loader/document-resource.js';
 import './views/editor.js';
 import './views/sidebar.js';
@@ -28,11 +29,17 @@ class StructuredContentForm extends LitElement {
     this._loaderState = { status: 'idle' };
     this._pendingSchemaId = '';
     this._loadVersion = 0;
+    this._controllerUnsubscribe = null;
   }
 
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
+  }
+
+  disconnectedCallback() {
+    this._disconnectController();
+    super.disconnectedCallback();
   }
 
   updated(changed) {
@@ -50,12 +57,54 @@ class StructuredContentForm extends LitElement {
     const result = await loadFormContext({ details: this.details });
     if (requestVersion !== this._loadVersion) return;
 
+    if (result.status === 'ready') {
+      this._setReadyState(result);
+      return;
+    }
+
+    this._disconnectController();
     this._loaderState = result;
 
     if (result.status === 'select-schema') {
       const firstSchemaId = Object.keys(result.schemas ?? {})[0] ?? '';
       this._pendingSchemaId = firstSchemaId;
     }
+  }
+
+  _disconnectController() {
+    if (!this._controllerUnsubscribe) return;
+    this._controllerUnsubscribe();
+    this._controllerUnsubscribe = null;
+  }
+
+  _setReadyState(readyState) {
+    this._disconnectController();
+
+    const controller = createFormEditorController({
+      formStore: readyState.formStore,
+      savingStore: readyState.savingStore,
+      path: this.details?.fullpath,
+    });
+
+    this._controllerUnsubscribe = controller.subscribe((snapshot) => {
+      this._loaderState = {
+        ...this._loaderState,
+        ...snapshot,
+        controller,
+      };
+    });
+
+    const snapshot = controller.getSnapshot();
+    const activeNavPointer = this._loaderState.activeNavPointer
+      ?? snapshot?.runtime?.root?.pointer
+      ?? '/data';
+    this._loaderState = {
+      ...readyState,
+      ...snapshot,
+      controller,
+      activeNavPointer,
+      status: 'ready',
+    };
   }
 
   _onPendingSchemaChange(e) {
@@ -88,14 +137,13 @@ class StructuredContentForm extends LitElement {
 
     this._loaderState = {
       ...this._loaderState,
+      ...runtimeContext,
       status: 'ready',
       schemaName,
-      schema: runtimeContext.schema,
-      definition: runtimeContext.definition,
-      runtime: runtimeContext.runtime,
-      index: runtimeContext.index,
       json: runtimeContext.runtime.json,
     };
+
+    this._setReadyState(this._loaderState);
   }
 
   _getSchemaEditorHref() {
@@ -210,12 +258,31 @@ class StructuredContentForm extends LitElement {
 
   _renderReadyState() {
     return html`
-      <div class="da-sc-form-layout">
-        <da-sc-form-editor .context=${this._loaderState}></da-sc-form-editor>
+      <div class="da-sc-form-layout" @form-intent=${this._handleFormIntent}>
+        <da-sc-form-editor
+          .context=${this._loaderState}
+          .controller=${this._loaderState.controller}
+        ></da-sc-form-editor>
         <da-sc-form-preview .context=${this._loaderState}></da-sc-form-preview>
         <da-sc-form-sidebar .context=${this._loaderState}></da-sc-form-sidebar>
       </div>
     `;
+  }
+
+  async _handleFormIntent(e) {
+    const detail = e?.detail ?? {};
+    if (!detail.type) return;
+
+    if (detail.type === 'form-nav-pointer-select') {
+      if (!detail.pointer) return;
+      this._loaderState = {
+        ...this._loaderState,
+        activeNavPointer: detail.pointer,
+      };
+      return;
+    }
+
+    await this._loaderState?.controller?.handleIntent(detail);
   }
 
   render() {
