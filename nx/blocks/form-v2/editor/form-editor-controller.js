@@ -60,11 +60,12 @@ export function createFormEditorController({
 
   function getSnapshot() {
     const state = formStore.getState();
-    const selection = selectionStore?.getState?.() ?? { activePointer: '/data' };
+    const selection = selectionStore?.getState?.() ?? { activePointer: '/data', origin: null };
     return {
       ...state,
       validation: state.validation,
       activeNavPointer: selection.activePointer,
+      activeNavOrigin: selection.origin ?? null,
       saving: getSaveSnapshot(savingStore),
       formStore,
       selectionStore,
@@ -161,7 +162,9 @@ export function createFormEditorController({
   async function handleIntent(detail = {}) {
     switch (detail.type) {
       case 'form-nav-pointer-select': {
-        selectionStore?.setActivePointer?.(getNavPointer(detail.pointer));
+        selectionStore?.setActivePointer?.(getNavPointer(detail.pointer), {
+          origin: detail.origin ?? null,
+        });
         const snapshot = notify();
         return { changed: false, selectionChanged: true, snapshot };
       }

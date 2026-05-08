@@ -25,8 +25,10 @@ class StructuredContentFormEditor extends LitElement {
     const prevContext = changed.get('context');
     const prevPointer = prevContext?.activeNavPointer;
     const nextPointer = this.context?.activeNavPointer;
+    const nextOrigin = this.context?.activeNavOrigin;
 
     if (!nextPointer || nextPointer === prevPointer) return;
+    if (nextOrigin === 'editor') return;
     this._scrollToPointer(nextPointer);
   }
 

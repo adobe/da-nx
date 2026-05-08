@@ -23,8 +23,10 @@ class StructuredContentFormSidebar extends LitElement {
     const prevContext = changed.get('context');
     const prevPointer = prevContext?.activeNavPointer;
     const nextPointer = this.context?.activeNavPointer;
+    const nextOrigin = this.context?.activeNavOrigin;
 
     if (!nextPointer || nextPointer === prevPointer) return;
+    if (nextOrigin === 'sidebar') return;
     this._scrollToActivePointer(nextPointer);
   }
 
@@ -43,6 +45,7 @@ class StructuredContentFormSidebar extends LitElement {
       detail: {
         type: 'form-nav-pointer-select',
         pointer,
+        origin: 'sidebar',
       },
       bubbles: true,
       composed: true,

@@ -33,6 +33,7 @@ class StructuredContentArrayField extends LitElement {
     this._emitIntent({
       type: 'form-nav-pointer-select',
       pointer: this.node?.pointer,
+      origin: 'editor',
     });
   }
 

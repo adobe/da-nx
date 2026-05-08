@@ -11,10 +11,49 @@ class StructuredContentArrayItemMenu extends LitElement {
     itemCount: { attribute: false },
     minItems: { attribute: false },
     maxItems: { attribute: false },
+    _removeConfirm: { state: true },
   };
+
+  constructor() {
+    super();
+    this._removeConfirm = false;
+    this._removeConfirmTimer = null;
+  }
 
   createRenderRoot() {
     return this;
+  }
+
+  disconnectedCallback() {
+    this._clearRemoveConfirmTimer();
+    super.disconnectedCallback();
+  }
+
+  _canRemove() {
+    if (this.readonly) return false;
+    const minItems = this.minItems ?? 0;
+    const itemCount = this.itemCount ?? (this.pointers?.length ?? 0);
+    return itemCount > minItems;
+  }
+
+  _clearRemoveConfirmTimer() {
+    if (!this._removeConfirmTimer) return;
+    clearTimeout(this._removeConfirmTimer);
+    this._removeConfirmTimer = null;
+  }
+
+  _resetRemoveConfirm() {
+    this._clearRemoveConfirmTimer();
+    this._removeConfirm = false;
+  }
+
+  _armRemoveConfirm() {
+    this._clearRemoveConfirmTimer();
+    this._removeConfirm = true;
+    this._removeConfirmTimer = setTimeout(() => {
+      this._removeConfirm = false;
+      this._removeConfirmTimer = null;
+    }, 3000);
   }
 
   _emit(detail) {
@@ -27,6 +66,7 @@ class StructuredContentArrayItemMenu extends LitElement {
 
   _moveUp() {
     if (this.readonly) return;
+    this._resetRemoveConfirm();
     if (this.index <= 0) return;
     this._emit({
       type: 'form-array-reorder',
@@ -37,6 +77,7 @@ class StructuredContentArrayItemMenu extends LitElement {
 
   _moveDown() {
     if (this.readonly) return;
+    this._resetRemoveConfirm();
     const lastIndex = (this.pointers?.length ?? 1) - 1;
     if (this.index >= lastIndex) return;
 
@@ -53,6 +94,7 @@ class StructuredContentArrayItemMenu extends LitElement {
 
   _moveFirst() {
     if (this.readonly) return;
+    this._resetRemoveConfirm();
     if (this.index <= 0) return;
     this._emit({
       type: 'form-array-reorder',
@@ -63,6 +105,7 @@ class StructuredContentArrayItemMenu extends LitElement {
 
   _moveLast() {
     if (this.readonly) return;
+    this._resetRemoveConfirm();
     const lastIndex = (this.pointers?.length ?? 1) - 1;
     if (this.index >= lastIndex) return;
     this._emit({
@@ -74,7 +117,9 @@ class StructuredContentArrayItemMenu extends LitElement {
 
   _insertBefore() {
     if (this.readonly) return;
-    if (this.maxItems !== undefined && this.itemCount >= this.maxItems) return;
+    this._resetRemoveConfirm();
+    const itemCount = this.itemCount ?? (this.pointers?.length ?? 0);
+    if (this.maxItems !== undefined && itemCount >= this.maxItems) return;
     this._emit({
       type: 'form-array-insert',
       pointer: this.pointer,
@@ -82,22 +127,40 @@ class StructuredContentArrayItemMenu extends LitElement {
   }
 
   _remove() {
-    if (this.readonly) return;
-    const minItems = this.minItems ?? 0;
-    if ((this.itemCount ?? 0) <= minItems) return;
+    if (!this._canRemove()) return;
+
+    if (!this._removeConfirm) {
+      this._armRemoveConfirm();
+      return;
+    }
+
+    this._resetRemoveConfirm();
     this._emit({
       type: 'form-array-remove',
       pointer: this.pointer,
     });
   }
 
+  updated(changed) {
+    if (
+      !changed.has('itemCount')
+      && !changed.has('minItems')
+      && !changed.has('readonly')
+      && !changed.has('pointers')
+    ) return;
+
+    if (!this._canRemove()) {
+      this._resetRemoveConfirm();
+    }
+  }
+
   render() {
     const readonly = !!this.readonly;
-    const { minItems: rawMinItems, maxItems } = this;
-    const minItems = rawMinItems ?? 0;
+    const { maxItems } = this;
     const itemCount = this.itemCount ?? (this.pointers?.length ?? 0);
     const canInsert = !readonly && (maxItems === undefined || itemCount < maxItems);
-    const canRemove = !readonly && itemCount > minItems;
+    const canRemove = this._canRemove();
+    const removeLabel = this._removeConfirm && canRemove ? 'Confirm remove' : 'Remove';
     const canMoveUp = this.index > 0;
     const canMoveDown = this.index < ((this.pointers?.length ?? 1) - 1);
     return html`
@@ -107,7 +170,7 @@ class StructuredContentArrayItemMenu extends LitElement {
         <button type="button" ?disabled=${readonly || !canMoveUp} @click=${this._moveUp}>Up</button>
         <button type="button" ?disabled=${readonly || !canMoveDown} @click=${this._moveDown}>Down</button>
         <button type="button" ?disabled=${readonly || !canMoveDown} @click=${this._moveLast}>Last</button>
-        <button type="button" ?disabled=${!canRemove} @click=${this._remove}>Remove</button>
+        <button type="button" ?disabled=${!canRemove} @click=${this._remove}>${removeLabel}</button>
       </div>
     `;
   }

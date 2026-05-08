@@ -40,6 +40,7 @@ class StructuredContentObjectGroup extends LitElement {
       detail: {
         type: 'form-nav-pointer-select',
         pointer: this.node?.pointer,
+        origin: 'editor',
       },
       bubbles: true,
       composed: true,
