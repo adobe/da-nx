@@ -2,6 +2,7 @@ import { LitElement, html, nothing } from 'da-lit';
 import './reorder-dialog.js';
 
 const EL_NAME = 'da-sc-array-item-menu';
+const ACTIVE_MENU_EVENT = 'da-sc-array-item-menu-active';
 
 class StructuredContentArrayItemMenu extends LitElement {
   static properties = {
@@ -23,6 +24,16 @@ class StructuredContentArrayItemMenu extends LitElement {
     this._removeConfirmTimer = null;
     this._reorderActive = false;
     this._targetIndex = 0;
+    this._onPeerMenuActive = (e) => {
+      if (e?.detail?.menu === this) return;
+      this._resetRemoveConfirm();
+      this._resetReorder();
+    };
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+    document.addEventListener(ACTIVE_MENU_EVENT, this._onPeerMenuActive);
   }
 
   createRenderRoot() {
@@ -30,6 +41,7 @@ class StructuredContentArrayItemMenu extends LitElement {
   }
 
   disconnectedCallback() {
+    document.removeEventListener(ACTIVE_MENU_EVENT, this._onPeerMenuActive);
     this._clearRemoveConfirmTimer();
     super.disconnectedCallback();
   }
@@ -78,6 +90,7 @@ class StructuredContentArrayItemMenu extends LitElement {
   _armRemoveConfirm() {
     this._clearRemoveConfirmTimer();
     this._removeConfirm = true;
+    this._notifyActiveMode('remove-confirm');
     this._removeConfirmTimer = setTimeout(() => {
       this._removeConfirm = false;
       this._removeConfirmTimer = null;
@@ -99,6 +112,7 @@ class StructuredContentArrayItemMenu extends LitElement {
     this._resetRemoveConfirm();
     this._reorderActive = true;
     this._setTargetIndex(this._getCurrentIndex());
+    this._notifyActiveMode('reorder');
   }
 
   _cancelReorder() {
@@ -143,6 +157,14 @@ class StructuredContentArrayItemMenu extends LitElement {
   _emit(detail) {
     this.dispatchEvent(new CustomEvent('form-intent', {
       detail,
+      bubbles: true,
+      composed: true,
+    }));
+  }
+
+  _notifyActiveMode(mode) {
+    this.dispatchEvent(new CustomEvent(ACTIVE_MENU_EVENT, {
+      detail: { menu: this, mode },
       bubbles: true,
       composed: true,
     }));

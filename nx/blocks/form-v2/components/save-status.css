@@ -1,0 +1,26 @@
+:host {
+  display: inline-flex;
+}
+
+.save-status {
+  font-size: 0.8rem;
+  margin: 0;
+}
+
+.status-idle {
+  color: var(--dark-color, #555);
+}
+
+.status-saving {
+  color: var(--link-color, #0a66c2);
+  font-weight: 600;
+}
+
+.status-saved {
+  color: var(--positive-color, #12805c);
+}
+
+.status-failed {
+  color: var(--negative-color, #d31510);
+  font-weight: 600;
+}
