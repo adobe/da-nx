@@ -37,6 +37,19 @@ class StructuredContentArrayField extends LitElement {
     });
   }
 
+  _getAddItemLabel(node) {
+    const itemLabel = node?.itemLabel ?? '';
+    return itemLabel ? `+ Add ${itemLabel}` : '+ Add item';
+  }
+
+  _getArrayItemHeading(item, index) {
+    if (!item || (item.kind !== 'object' && item.kind !== 'array')) {
+      return `Item ${index + 1}`;
+    }
+    const label = item.label ?? '';
+    return label ? `#${index + 1} ${label}` : `Item ${index + 1}`;
+  }
+
   render() {
     const { node } = this;
     if (!node) return nothing;
@@ -50,13 +63,14 @@ class StructuredContentArrayField extends LitElement {
     const minItems = rawMinItems ?? 0;
     const canAdd = !readonly && (maxItems === undefined || itemCount < maxItems);
     const canRemove = !readonly && itemCount > minItems;
+    const addItemLabel = this._getAddItemLabel(node);
 
     return html`
       <section data-pointer=${node.pointer} class=${active ? 'active-section' : ''}>
         <p @click=${this._selectSelf}>${node.label}${node.required ? '*' : ''}</p>
         ${items.map((item, index) => html`
           <article>
-            <p>Item ${index + 1}</p>
+            <p>${this._getArrayItemHeading(item, index)}</p>
             <da-sc-array-item-menu
               .pointer=${item.pointer}
               .index=${index}
@@ -73,7 +87,7 @@ class StructuredContentArrayField extends LitElement {
             ></da-sc-field-section>
           </article>
         `)}
-        <button type="button" ?disabled=${!canAdd} @click=${this._addItem}>Add item</button>
+        <button type="button" ?disabled=${!canAdd} @click=${this._addItem}>${addItemLabel}</button>
         ${minItems > 0 && !canRemove && itemCount <= minItems
     ? html`<p>At least ${minItems} item${minItems === 1 ? '' : 's'} required.</p>`
     : nothing}

@@ -87,6 +87,7 @@ function buildNode({
       minItems: definition.minItems,
       maxItems: definition.maxItems,
       itemKind: definition.item?.kind,
+      itemLabel: definition.item?.label ?? '',
       items,
     };
   }

@@ -19,12 +19,11 @@ class StructuredContentFormPreview extends LitElement {
 
   render() {
     const json = this.context?.json;
-    const text = json ? JSON.stringify(json, null, 2) : '';
+    const text = JSON.stringify(json ?? {}, null, 2);
 
     return html`
       <section class="panel">
         <h2>Preview</h2>
-        <p class="hint">Current JSON state (post-mutation).</p>
         <da-sc-save-status .saving=${this.context?.saving}></da-sc-save-status>
         <da-sc-error-summary .validation=${this.context?.validation}></da-sc-error-summary>
         <pre class="json">${text}</pre>

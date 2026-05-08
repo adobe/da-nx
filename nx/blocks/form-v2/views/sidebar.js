@@ -87,21 +87,20 @@ class StructuredContentFormSidebar extends LitElement {
   }
 
   render() {
-    const schemaTitle = this.context?.schema?.title ?? '';
     const root = this.context?.runtime?.root;
 
     return html`
       <aside class="panel">
-        <h2>Sidebar</h2>
-        <p class="hint">Schema title: ${schemaTitle || '(not available)'}</p>
-        <da-sc-save-status .saving=${this.context?.saving}></da-sc-save-status>
+        <div class="sidebar-header">
+          <h2>Navigation</h2>
+          <da-sc-save-status .saving=${this.context?.saving}></da-sc-save-status>
+        </div>
         <da-sc-error-summary .validation=${this.context?.validation}></da-sc-error-summary>
         ${root ? html`
-          <p class="hint">Navigation</p>
           <div class="nav-list">
             <ul>${this._renderNavNode(root)}</ul>
           </div>
-        ` : nothing}
+        ` : html`<p class="hint">No navigation items.</p>`}
       </aside>
     `;
   }
