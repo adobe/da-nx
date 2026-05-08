@@ -250,7 +250,7 @@ class NxChat extends LitElement {
   }
 
   async _onFilesSelected(fileList) {
-    const MAX_FILES = 5;
+    const MAX_FILES = 20;
     const imageCount = (this._items ?? []).filter((i) => i.type === 'image').length;
     const available = Math.max(0, MAX_FILES - imageCount);
     const files = Array.from(fileList)
