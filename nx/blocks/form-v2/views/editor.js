@@ -1,7 +1,5 @@
 import { LitElement, html } from 'da-lit';
 import '../components/containers/field-section.js';
-import '../components/error-summary.js';
-import '../components/save-status.js';
 
 const { default: getStyle } = await import('../../../utils/styles.js');
 const style = await getStyle(import.meta.url);
@@ -39,7 +37,7 @@ class StructuredContentFormEditor extends LitElement {
 
     const el = this.shadowRoot?.querySelector(`[data-pointer="${safePointer}"]`);
     if (!el) return;
-    el.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+    el.scrollIntoView({ block: 'start', behavior: 'auto' });
   }
 
   render() {
@@ -49,9 +47,7 @@ class StructuredContentFormEditor extends LitElement {
       <section class="panel">
         <div class="editor-header">
           <h2>Editor</h2>
-          <da-sc-save-status .saving=${this.context?.saving}></da-sc-save-status>
         </div>
-        <da-sc-error-summary .validation=${this.context?.validation}></da-sc-error-summary>
         ${root
     ? html`
               <div class="editor-root">

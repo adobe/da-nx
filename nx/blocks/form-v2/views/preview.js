@@ -1,6 +1,4 @@
 import { LitElement, html } from 'da-lit';
-import '../components/save-status.js';
-import '../components/error-summary.js';
 
 const { default: getStyle } = await import('../../../utils/styles.js');
 const style = await getStyle(import.meta.url);
@@ -24,8 +22,6 @@ class StructuredContentFormPreview extends LitElement {
     return html`
       <section class="panel">
         <h2>Preview</h2>
-        <da-sc-save-status .saving=${this.context?.saving}></da-sc-save-status>
-        <da-sc-error-summary .validation=${this.context?.validation}></da-sc-error-summary>
         <pre class="json">${text}</pre>
       </section>
     `;

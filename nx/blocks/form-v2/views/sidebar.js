@@ -1,6 +1,4 @@
 import { LitElement, html, nothing } from 'da-lit';
-import '../components/save-status.js';
-import '../components/error-summary.js';
 
 const { default: getStyle } = await import('../../../utils/styles.js');
 const style = await getStyle(import.meta.url);
@@ -91,11 +89,7 @@ class StructuredContentFormSidebar extends LitElement {
 
     return html`
       <aside class="panel">
-        <div class="sidebar-header">
-          <h2>Navigation</h2>
-          <da-sc-save-status .saving=${this.context?.saving}></da-sc-save-status>
-        </div>
-        <da-sc-error-summary .validation=${this.context?.validation}></da-sc-error-summary>
+        <h2>Navigation</h2>
         ${root ? html`
           <div class="nav-list">
             <ul>${this._renderNavNode(root)}</ul>
