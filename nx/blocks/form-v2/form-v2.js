@@ -1,3 +1,333 @@
-import init from './form.js';
+import { LitElement, html, nothing } from 'da-lit';
+import getPathDetails from 'https://da.live/blocks/shared/pathDetails.js';
 
-export default init;
+import 'https://da.live/blocks/edit/da-title/da-title.js';
+
+import { buildRuntimeContext, loadFormContext } from './controllers/async-loader.controller.js';
+import { createFormEditorController } from './editor/form-editor-controller.js';
+import { getDisplayPath } from './services/loader/document-resource.js';
+import './views/editor.js';
+import './views/sidebar.js';
+import './views/preview.js';
+
+const { default: getStyle } = await import('../../utils/styles.js');
+const style = await getStyle(import.meta.url);
+
+const EL_NAME = 'da-sc-form';
+const PREVIEW_PREFIX = 'https://da-sc.adobeaem.workers.dev/preview';
+const LIVE_PREFIX = 'https://da-sc.adobeaem.workers.dev/live';
+
+class StructuredContentForm extends LitElement {
+  static properties = {
+    details: { attribute: false },
+    _loaderState: { state: true },
+    _pendingSchemaId: { state: true },
+  };
+
+  constructor() {
+    super();
+    this._loaderState = { status: 'idle' };
+    this._pendingSchemaId = '';
+    this._loadVersion = 0;
+    this._controllerUnsubscribe = null;
+  }
+
+  connectedCallback() {
+    super.connectedCallback();
+    this.shadowRoot.adoptedStyleSheets = [style];
+  }
+
+  disconnectedCallback() {
+    this._disconnectController();
+    super.disconnectedCallback();
+  }
+
+  updated(changed) {
+    if (changed.has('details') && this.details) {
+      this._loadContext();
+    }
+  }
+
+  async _loadContext() {
+    this._loadVersion += 1;
+    const requestVersion = this._loadVersion;
+    this._loaderState = { status: 'loading' };
+    this._pendingSchemaId = '';
+
+    const result = await loadFormContext({ details: this.details });
+    if (requestVersion !== this._loadVersion) return;
+
+    if (result.status === 'ready') {
+      this._setReadyState(result);
+      return;
+    }
+
+    this._disconnectController();
+    this._loaderState = result;
+
+    if (result.status === 'select-schema') {
+      const firstSchemaId = Object.keys(result.schemas ?? {})[0] ?? '';
+      this._pendingSchemaId = firstSchemaId;
+    }
+  }
+
+  _disconnectController() {
+    this._loaderState?.controller?.dispose?.();
+    if (!this._controllerUnsubscribe) return;
+    this._controllerUnsubscribe();
+    this._controllerUnsubscribe = null;
+  }
+
+  _setReadyState(readyState) {
+    this._disconnectController();
+
+    const controller = createFormEditorController({
+      formStore: readyState.formStore,
+      selectionStore: readyState.selectionStore,
+      savingStore: readyState.savingStore,
+      path: this.details?.fullpath,
+    });
+
+    this._controllerUnsubscribe = controller.subscribe((snapshot) => {
+      this._loaderState = {
+        ...this._loaderState,
+        ...snapshot,
+        controller,
+      };
+    });
+
+    const snapshot = controller.getSnapshot();
+    this._loaderState = {
+      ...readyState,
+      ...snapshot,
+      controller,
+      status: 'ready',
+    };
+  }
+
+  _onPendingSchemaChange(e) {
+    this._pendingSchemaId = e.currentTarget?.value ?? '';
+  }
+
+  _applySelectedSchema() {
+    const schemaName = this._pendingSchemaId;
+    const schema = this._loaderState.schemas?.[schemaName];
+    if (!schema || !schemaName) return;
+
+    const title = this.details?.name ?? '';
+    const json = {
+      metadata: { title, schemaName },
+      data: {},
+    };
+
+    const runtimeContext = buildRuntimeContext({ schema, json });
+    if (!runtimeContext) {
+      this._loaderState = {
+        ...this._loaderState,
+        status: 'blocked',
+        blocker: { type: 'unsupported-schema' },
+        schemaName,
+        schema,
+        json,
+      };
+      return;
+    }
+
+    this._loaderState = {
+      ...this._loaderState,
+      ...runtimeContext,
+      status: 'ready',
+      schemaName,
+      json: runtimeContext.runtime.json,
+    };
+
+    this._setReadyState(this._loaderState);
+  }
+
+  _getSchemaEditorHref() {
+    const { owner, repo } = this.details ?? {};
+    if (!owner || !repo) return 'https://da.live/apps/schema';
+    return `https://da.live/apps/schema#/${owner}/${repo}`;
+  }
+
+  _goToRepoRoot() {
+    const { owner, repo } = this.details ?? {};
+    if (!owner || !repo) return;
+    const query = window.location.search ?? '';
+    window.location.href = `https://da.live${query}#/${owner}/${repo}`;
+  }
+
+  _renderLoaderMessage(title, body, { showHomeAction = false } = {}) {
+    return html`
+      <section class="da-sc-form-message">
+        <h2>${title}</h2>
+        <p>${body}</p>
+        ${showHomeAction ? html`
+          <div class="da-sc-form-actions">
+            <button
+              type="button"
+              class="da-sc-form-button"
+              @click=${() => this._goToRepoRoot()}
+            >Return to Home</button>
+          </div>
+        ` : nothing}
+      </section>
+    `;
+  }
+
+  _renderBlockedState() {
+    const blocker = this._loaderState.blocker ?? {};
+    const path = getDisplayPath(this.details);
+
+    if (blocker.type === 'missing-schema') {
+      return html`
+        <section class="da-sc-form-message">
+          <h2>Schema not found</h2>
+          <p>
+            No schema named <strong>${blocker.schemaName || '(empty)'}</strong> is available.
+            Open <a href=${this._getSchemaEditorHref()} target="_blank" rel="noopener noreferrer">Schema Editor</a>
+            to create or restore it.
+          </p>
+        </section>
+      `;
+    }
+
+    if (blocker.type === 'not-document' || blocker.type === 'not-form-content') {
+      return this._renderLoaderMessage(
+        'Unsupported resource',
+        `This resource${path ? ` at ${path}` : ''} is not structured content.`,
+        { showHomeAction: true },
+      );
+    }
+
+    if (blocker.type === 'no-access') {
+      return this._renderLoaderMessage(
+        'Access denied',
+        `You do not have access to this resource${path ? ` at ${path}` : ''}.`,
+        { showHomeAction: true },
+      );
+    }
+
+    if (blocker.type === 'unsupported-schema') {
+      return this._renderLoaderMessage(
+        'Unsupported schema',
+        'This schema uses features not yet supported by form-v2.',
+        { showHomeAction: true },
+      );
+    }
+
+    return this._renderLoaderMessage(
+      'Unable to load',
+      'This resource could not be loaded. Please try again later.',
+      { showHomeAction: true },
+    );
+  }
+
+  _renderSchemaSelector() {
+    const schemas = Object.entries(this._loaderState.schemas ?? {});
+
+    return html`
+      <section class="da-sc-form-message">
+        <h2>Choose a schema</h2>
+        <p>Select a schema to initialize this structured content document.</p>
+        <label class="da-sc-form-label" for="schema-select">Schema</label>
+        <select
+          id="schema-select"
+          class="da-sc-form-select"
+          @change=${this._onPendingSchemaChange}
+        >
+          ${schemas.map(([id, schema]) => html`
+            <option value="${id}" ?selected=${id === this._pendingSchemaId}>
+              ${schema?.title ?? id}
+            </option>
+          `)}
+        </select>
+        <div class="da-sc-form-actions">
+          <button
+            type="button"
+            class="da-sc-form-button"
+            ?disabled=${!this._pendingSchemaId}
+            @click=${this._applySelectedSchema}
+          >Create</button>
+          <a href=${this._getSchemaEditorHref()} target="_blank" rel="noopener noreferrer">Open Schema Editor</a>
+        </div>
+      </section>
+    `;
+  }
+
+  _renderNoSchemas() {
+    return html`
+      <section class="da-sc-form-message">
+        <h2>Please create a schema</h2>
+        <p>This project has no schemas yet. Add one, then return here.</p>
+        <p>
+          <a href=${this._getSchemaEditorHref()} target="_blank" rel="noopener noreferrer">Open Schema Editor</a>
+        </p>
+      </section>
+    `;
+  }
+
+  _renderReadyState() {
+    return html`
+      <div class="da-sc-form-layout" @form-intent=${this._handleFormIntent}>
+        <da-sc-form-editor
+          .context=${this._loaderState}
+          .controller=${this._loaderState.controller}
+        ></da-sc-form-editor>
+        <da-sc-form-preview .context=${this._loaderState}></da-sc-form-preview>
+        <da-sc-form-sidebar .context=${this._loaderState}></da-sc-form-sidebar>
+      </div>
+    `;
+  }
+
+  async _handleFormIntent(e) {
+    const detail = e?.detail ?? {};
+    if (!detail.type) return;
+
+    await this._loaderState?.controller?.handleIntent(detail);
+  }
+
+  render() {
+    if (!this.details) return nothing;
+
+    const { status } = this._loaderState;
+
+    if (status === 'idle' || status === 'loading') {
+      return this._renderLoaderMessage('Loading', 'Preparing structured content editor...');
+    }
+    if (status === 'blocked') return this._renderBlockedState();
+    if (status === 'select-schema') return this._renderSchemaSelector();
+    if (status === 'no-schemas') return this._renderNoSchemas();
+    if (status === 'ready') return this._renderReadyState();
+
+    return this._renderLoaderMessage('Loading', 'Preparing structured content editor...');
+  }
+}
+
+if (!customElements.get(EL_NAME)) {
+  customElements.define(EL_NAME, StructuredContentForm);
+}
+
+function setDetails(parent, name, details) {
+  const cmp = document.createElement(name);
+  cmp.details = details;
+
+  if (name === 'da-title') {
+    cmp.previewPrefix = `${PREVIEW_PREFIX}/${details.owner}/${details.repo}`;
+    cmp.livePrefix = `${LIVE_PREFIX}/${details.owner}/${details.repo}`;
+  }
+
+  parent.append(cmp);
+}
+
+function setup(el) {
+  el.replaceChildren();
+  const details = getPathDetails();
+  setDetails(el, 'da-title', details);
+  setDetails(el, EL_NAME, details);
+}
+
+export default function init(el) {
+  setup(el);
+  window.addEventListener('hashchange', () => { setup(el); });
+}

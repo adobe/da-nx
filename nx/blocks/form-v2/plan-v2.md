@@ -20,7 +20,7 @@ Build `form-v2` in `nx/blocks/form-v2` without changing `nx/blocks/form` (v1), w
 Create the v2 module structure and entrypoint with unique custom element names (without `v2` suffix naming).
 
 Target paths:
-- `nx/blocks/form-v2/form.js`
+- `nx/blocks/form-v2/form-v2.js`
 - `nx/blocks/form-v2/views/`
 - `nx/blocks/form-v2/schema/`
 - `nx/blocks/form-v2/model/`
@@ -147,7 +147,7 @@ Outcome:
 Finalize v2 parity against v1 behavior and prepare rollout wiring.
 
 Target paths:
-- `nx/blocks/form-v2/form.js`
+- `nx/blocks/form-v2/form-v2.js`
 - migration wiring files (where v2 is mounted/selected)
 
 Outcome:
