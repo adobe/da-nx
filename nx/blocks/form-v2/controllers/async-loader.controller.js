@@ -3,6 +3,9 @@ import {
   isEmptyDocumentHtml,
   isStructuredContentHtml,
 } from '../adapters/html2json.js';
+import { createFormModelIndex } from '../model/form-model-index.js';
+import { buildRuntimeFormModel } from '../model/form-model-builder.js';
+import { compileSchema } from '../schema/schema-compiler.js';
 import { loadDocumentHtml } from '../services/loader/document-loader.js';
 import { isDocumentResource } from '../services/loader/document-resource.js';
 import { loadSchemas } from '../services/schema/schema-registry.js';
@@ -17,6 +20,32 @@ function mapLoadErrorToBlocker(result) {
 
 function withBaseState(details, schemas) {
   return { details, schemas };
+}
+
+export function buildRuntimeContext({
+  schema,
+  json,
+  previousRuntime = null,
+}) {
+  const compiled = compileSchema({ schema });
+  if (!compiled?.schema || !compiled?.definition) {
+    return null;
+  }
+
+  const runtime = buildRuntimeFormModel({
+    definition: compiled.definition,
+    json,
+    previousRuntime,
+  });
+  if (!runtime) return null;
+
+  const index = createFormModelIndex({ root: runtime.root });
+  return {
+    schema: compiled.schema,
+    definition: compiled.definition,
+    runtime,
+    index,
+  };
 }
 
 export async function loadFormContext({ details }) {
@@ -82,12 +111,25 @@ export async function loadFormContext({ details }) {
     };
   }
 
+  const runtimeContext = buildRuntimeContext({ schema, json });
+  if (!runtimeContext) {
+    return {
+      status: 'blocked',
+      blocker: { type: 'unsupported-schema' },
+      json,
+      ...withBaseState(details, schemas),
+    };
+  }
+
   return {
     status: 'ready',
     html,
     json,
     schemaName,
-    schema,
+    schema: runtimeContext.schema,
+    definition: runtimeContext.definition,
+    runtime: runtimeContext.runtime,
+    index: runtimeContext.index,
     ...withBaseState(details, schemas),
   };
 }

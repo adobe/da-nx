@@ -17,12 +17,16 @@ class StructuredContentFormSidebar extends LitElement {
 
   render() {
     const schemaTitle = this.context?.schema?.title ?? '';
+    const fieldCount = this.context?.index?.fieldsByPointer?.size ?? 0;
+    const rootPointer = this.context?.runtime?.root?.pointer ?? '';
 
     return html`
       <aside class="panel">
         <h2>Sidebar</h2>
         <p class="hint">Navigation and document controls land here.</p>
         <p class="hint">Schema title: ${schemaTitle || '(not available)'}</p>
+        <p class="hint">Root pointer: ${rootPointer || '(none)'}</p>
+        <p class="hint">Field nodes: ${fieldCount}</p>
       </aside>
     `;
   }

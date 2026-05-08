@@ -3,7 +3,7 @@ import getPathDetails from 'https://da.live/blocks/shared/pathDetails.js';
 
 import 'https://da.live/blocks/edit/da-title/da-title.js';
 
-import { loadFormContext } from './controllers/async-loader.controller.js';
+import { buildRuntimeContext, loadFormContext } from './controllers/async-loader.controller.js';
 import { getDisplayPath } from './services/loader/document-resource.js';
 import './views/editor.js';
 import './views/sidebar.js';
@@ -73,12 +73,28 @@ class StructuredContentForm extends LitElement {
       data: {},
     };
 
+    const runtimeContext = buildRuntimeContext({ schema, json });
+    if (!runtimeContext) {
+      this._loaderState = {
+        ...this._loaderState,
+        status: 'blocked',
+        blocker: { type: 'unsupported-schema' },
+        schemaName,
+        schema,
+        json,
+      };
+      return;
+    }
+
     this._loaderState = {
       ...this._loaderState,
       status: 'ready',
       schemaName,
-      schema,
-      json,
+      schema: runtimeContext.schema,
+      definition: runtimeContext.definition,
+      runtime: runtimeContext.runtime,
+      index: runtimeContext.index,
+      json: runtimeContext.runtime.json,
     };
   }
 
@@ -132,6 +148,13 @@ class StructuredContentForm extends LitElement {
       return this._renderLoaderMessage(
         'Access denied',
         `You do not have access to this resource${path ? ` at ${path}` : ''}.`,
+      );
+    }
+
+    if (blocker.type === 'unsupported-schema') {
+      return this._renderLoaderMessage(
+        'Unsupported schema',
+        'This schema uses features not yet supported by form-v2.',
       );
     }
 
