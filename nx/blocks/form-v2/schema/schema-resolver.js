@@ -38,6 +38,12 @@ function resolveRef({ ref, rootSchema }) {
   return current ?? null;
 }
 
+function getUnsupportedComposition(schema = {}) {
+  if (Array.isArray(schema.oneOf) && schema.oneOf.length > 0) return 'oneOf';
+  if (Array.isArray(schema.anyOf) && schema.anyOf.length > 0) return 'anyOf';
+  return null;
+}
+
 function resolveNode({ node, rootSchema, seenRefs }) {
   if (!node || typeof node !== 'object') return node;
 
@@ -72,6 +78,17 @@ function resolveNode({ node, rootSchema, seenRefs }) {
 
     const withoutAllOf = { ...resolved, allOf: undefined };
     resolved = mergeSchemas(mergedAllOf, withoutAllOf);
+  }
+
+  const unsupportedComposition = getUnsupportedComposition(resolved);
+  if (unsupportedComposition) {
+    // TODO: Investigate what full support for oneOf/anyOf should mean for
+    // rendering, mutation, validation, and persistence contracts in form-v2.
+    // For now, stop resolving this branch and mark it as unsupported.
+    return {
+      ...resolved,
+      unsupportedComposition,
+    };
   }
 
   if (resolved.items) {
