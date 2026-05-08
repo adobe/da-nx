@@ -1,0 +1,21 @@
+:host {
+  display: block;
+}
+
+.panel {
+  background: var(--background-color, #fff);
+  border: 1px solid var(--light-color, #e4e4e4);
+  border-radius: 8px;
+  padding: 16px;
+  min-height: 180px;
+}
+
+h2 {
+  margin: 0 0 8px;
+  font-size: 1.1rem;
+}
+
+.hint {
+  margin: 0;
+  color: var(--dark-color, #555);
+}

@@ -1,0 +1,88 @@
+:host {
+  display: block;
+}
+
+.da-sc-form-message {
+  background: var(--background-color, #fff);
+  border: 1px solid var(--light-color, #e4e4e4);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.da-sc-form-message h2 {
+  margin: 0 0 8px;
+}
+
+.da-sc-form-message p {
+  margin: 0 0 12px;
+}
+
+.da-sc-form-label {
+  display: block;
+  font-weight: 600;
+  margin: 0 0 4px;
+}
+
+.da-sc-form-select {
+  border: 1px solid var(--light-color, #ccc);
+  border-radius: 6px;
+  font: inherit;
+  max-width: 360px;
+  min-height: 36px;
+  padding: 4px 8px;
+  width: 100%;
+}
+
+.da-sc-form-actions {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.da-sc-form-button {
+  background: var(--link-color, #0a66c2);
+  border: none;
+  border-radius: 999px;
+  color: var(--background-color, #fff);
+  cursor: pointer;
+  font: inherit;
+  min-height: 36px;
+  padding: 0 16px;
+}
+
+.da-sc-form-button[disabled] {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.da-sc-form-layout {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  grid-template-areas:
+    "editor sidebar"
+    "preview sidebar";
+}
+
+da-sc-form-editor {
+  grid-area: editor;
+}
+
+da-sc-form-preview {
+  grid-area: preview;
+}
+
+da-sc-form-sidebar {
+  grid-area: sidebar;
+}
+
+@media (width < 1200px) {
+  .da-sc-form-layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "editor"
+      "preview"
+      "sidebar";
+  }
+}
