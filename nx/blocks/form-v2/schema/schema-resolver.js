@@ -38,12 +38,6 @@ function resolveRef({ ref, rootSchema }) {
   return current ?? null;
 }
 
-function getUnsupportedComposition(schema = {}) {
-  if (Array.isArray(schema.oneOf) && schema.oneOf.length > 0) return 'oneOf';
-  if (Array.isArray(schema.anyOf) && schema.anyOf.length > 0) return 'anyOf';
-  return null;
-}
-
 function resolveNode({ node, rootSchema, seenRefs }) {
   if (!node || typeof node !== 'object') return node;
 
@@ -66,29 +60,28 @@ function resolveNode({ node, rootSchema, seenRefs }) {
     }
   }
 
-  if (Array.isArray(resolved.allOf) && resolved.allOf.length > 0) {
-    const mergedAllOf = resolved.allOf.reduce((acc, part) => {
-      const resolvedPart = resolveNode({
-        node: part,
-        rootSchema,
-        seenRefs,
-      });
-      return mergeSchemas(acc, resolvedPart ?? {});
-    }, {});
+  const composition = (
+    (Array.isArray(resolved.allOf) && resolved.allOf.length > 0 && { key: 'allOf', entries: resolved.allOf })
+    || (Array.isArray(resolved.oneOf) && resolved.oneOf.length > 0 && { key: 'oneOf', entries: resolved.oneOf })
+    || (Array.isArray(resolved.anyOf) && resolved.anyOf.length > 0 && { key: 'anyOf', entries: resolved.anyOf })
+  );
 
-    const withoutAllOf = { ...resolved, allOf: undefined };
-    resolved = mergeSchemas(mergedAllOf, withoutAllOf);
-  }
-
-  const unsupportedComposition = getUnsupportedComposition(resolved);
-  if (unsupportedComposition) {
-    // TODO: Investigate what full support for oneOf/anyOf should mean for
-    // rendering, mutation, validation, and persistence contracts in form-v2.
-    // For now, stop resolving this branch and mark it as unsupported.
-    return {
+  if (composition) {
+    // Temporary fallback: we intentionally ignore all composition semantics and pick only
+    // the first variant from allOf/oneOf/anyOf. Further investigation is required to
+    // support full combinator behavior correctly.
+    const firstVariant = resolveNode({
+      node: composition.entries[0],
+      rootSchema,
+      seenRefs,
+    });
+    const withoutCombinators = {
       ...resolved,
-      unsupportedComposition,
+      allOf: undefined,
+      oneOf: undefined,
+      anyOf: undefined,
     };
+    resolved = mergeSchemas(firstVariant ?? {}, withoutCombinators);
   }
 
   if (resolved.items) {

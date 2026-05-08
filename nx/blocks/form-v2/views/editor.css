@@ -88,5 +88,6 @@ h2 {
 
 .editor-root .active-section {
   border-color: var(--link-color, #0a66c2);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--link-color, #0a66c2) 30%, transparent);
+  box-shadow: 0 0 0 1px
+    color-mix(in srgb, var(--link-color, #0a66c2) 30%, transparent);
 }
