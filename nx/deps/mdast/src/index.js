@@ -1,6 +1,7 @@
 import { unified } from 'unified';
 import remarkParse from 'remark-parse';
 import remarkGridTable from '@adobe/remark-gridtables';
+import { remarkGfmNoLink } from '@adobe/helix-markdown-support';
 import { toHast as mdast2hast, defaultHandlers } from 'mdast-util-to-hast';
 import { raw } from 'hast-util-raw';
 import { mdast2hastGridTablesHandler } from '@adobe/mdast-util-gridtables';
@@ -11,6 +12,7 @@ export {
   mdast2hast,
   mdast2hastGridTablesHandler,
   raw,
+  remarkGfmNoLink,
   remarkParse,
   remarkGridTable,
   toHtml,

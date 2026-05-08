@@ -1,6 +1,6 @@
 import { getConfig, loadArea, getMetadata } from '../../scripts/nexter.js';
 import loadStyle from '../../utils/styles.js';
-import getSvg from '../../utils/svg.js';
+import { getSvg } from '../../utils/svg.js';
 
 const { nxBase } = getConfig();
 

@@ -415,11 +415,20 @@ export function parseOrgRepoFromUrl(siteUrl) {
 }
 
 // Returns stable key for dedupe (filename or pathname).
+// For external URLs (YouTube, Vimeo, etc.), returns the full URL to avoid collisions.
 export function getDedupeKey(url) {
   if (!url) return '';
 
   try {
-    const urlObj = new URL(canonicalizeMediaUrl(url));
+    const canonicalUrl = canonicalizeMediaUrl(url);
+
+    // For external URLs, use the full URL as the dedupe key to avoid collisions
+    // (e.g., all YouTube videos would have pathname '/watch')
+    if (isExternalUrl(url)) {
+      return canonicalUrl;
+    }
+
+    const urlObj = new URL(canonicalUrl);
     const { pathname } = urlObj;
     const filename = pathname.split('/').pop();
 
