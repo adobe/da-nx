@@ -12,8 +12,11 @@ export function createFormV3Controller({ core }) {
       return core.dispatch(command);
     },
 
-    subscribe(listener) {
-      return core.subscribe(listener);
+    subscribe(listener, options = {}) {
+      return core.subscribe(listener, {
+        emitCurrent: true,
+        ...options,
+      });
     },
 
     dispose() {

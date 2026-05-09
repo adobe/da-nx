@@ -8,6 +8,7 @@ import { createRuntimeModelIndex, findNodeByPointer } from './model/runtime-mode
 import { createPersistenceService } from './persistence/persistence-service.js';
 import { compileSchema } from './schema/schema-compiler.js';
 import { createInitialState, createStateStore } from './state/state-store.js';
+import { createStateStream } from './state/state-stream.js';
 import { validateDocument } from './validation/validation-engine.js';
 
 function nowIso() {
@@ -89,8 +90,10 @@ export function createFormCore({
   path,
   saveDocument,
 } = {}) {
-  const listeners = new Set();
   const stateStore = createStateStore(createInitialState());
+  const stateStream = createStateStream({
+    initialState: stateStore.getState(),
+  });
   const persistence = createPersistenceService({ saveDocument });
 
   const internal = {
@@ -101,16 +104,16 @@ export function createFormCore({
     index: null,
   };
 
-  function getState() {
+  function getMutableState() {
     return stateStore.getState();
   }
 
   function emit() {
-    const snapshot = getState();
-    for (const listener of listeners) {
-      listener(snapshot);
-    }
-    return snapshot;
+    return stateStream.publish(getMutableState());
+  }
+
+  function getState() {
+    return stateStream.getSnapshot();
   }
 
   function rejectMutation(type, reason) {
@@ -121,7 +124,7 @@ export function createFormCore({
   }
 
   function isMutationAllowed(type) {
-    const state = getState();
+    const state = getMutableState();
     if (state.permissions.readonly || state.permissions.disabled) {
       rejectMutation(type, 'permission-denied');
       return false;
@@ -178,7 +181,7 @@ export function createFormCore({
       errors: validation.errors,
       errorsByPointer: validation.errorsByPointer,
       compatibility: {
-        ...getState().compatibility,
+        ...getMutableState().compatibility,
         status: 'compatible',
         editable: true,
       },
@@ -188,7 +191,7 @@ export function createFormCore({
   }
 
   async function persistCurrent(commandType) {
-    const currentState = getState();
+    const currentState = getMutableState();
     stateStore.patchState({
       saving: createSaving('saving'),
       lastPersistenceError: null,
@@ -386,7 +389,7 @@ export function createFormCore({
   }
 
   function handleSelectionCommand({ pointer, origin = null, type = 'selection.change' }) {
-    if (!pointer || pointer === getState().selection.activePointer) {
+    if (!pointer || pointer === getMutableState().selection.activePointer) {
       return getState();
     }
 
@@ -415,7 +418,7 @@ export function createFormCore({
     return applyMutationAndPersist({
       commandType,
       mutationResult: applyFieldChange({
-        document: getState().values,
+        document: getMutableState().values,
         pointer,
         value,
         node,
@@ -439,7 +442,7 @@ export function createFormCore({
     return applyMutationAndPersist({
       commandType,
       mutationResult: addArrayItem({
-        document: getState().values,
+        document: getMutableState().values,
         pointer,
         itemDefinition: arrayDefinition.item,
       }),
@@ -463,7 +466,7 @@ export function createFormCore({
     return applyMutationAndPersist({
       commandType,
       mutationResult: insertArrayItem({
-        document: getState().values,
+        document: getMutableState().values,
         pointer,
         itemDefinition: arrayDefinition.item,
       }),
@@ -487,7 +490,7 @@ export function createFormCore({
     return applyMutationAndPersist({
       commandType,
       mutationResult: removeArrayItem({
-        document: getState().values,
+        document: getMutableState().values,
         pointer,
       }),
     });
@@ -510,7 +513,7 @@ export function createFormCore({
     return applyMutationAndPersist({
       commandType,
       mutationResult: moveArrayItem({
-        document: getState().values,
+        document: getMutableState().values,
         pointer,
         beforePointer,
       }),
@@ -572,15 +575,12 @@ export function createFormCore({
     }
   }
 
-  function subscribe(listener) {
-    listeners.add(listener);
-    return () => {
-      listeners.delete(listener);
-    };
+  function subscribe(listener, options = {}) {
+    return stateStream.subscribe(listener, options);
   }
 
   function dispose() {
-    listeners.clear();
+    stateStream.clear();
   }
 
   return {

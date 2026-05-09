@@ -1,4 +1,5 @@
 import { createFormCore } from '../core/index.js';
+import { createStateBinding } from '../ui-lit/bindings/index.js';
 import { createFormV3Controller } from '../ui-lit/controllers/form-v3-controller.js';
 
 export function createFormV3App({
@@ -7,12 +8,17 @@ export function createFormV3App({
   document,
   permissions,
   saveDocument,
+  onState,
 } = {}) {
   const core = createFormCore({
     path,
     saveDocument,
   });
   const controller = createFormV3Controller({ core });
+  const state = createStateBinding({
+    controller,
+    onState,
+  });
 
   async function load() {
     await core.load({
@@ -20,12 +26,19 @@ export function createFormV3App({
       document,
       permissions,
     });
-    return controller.getSnapshot();
+    return state.getSnapshot();
+  }
+
+  function destroy() {
+    state.dispose();
+    controller.dispose();
   }
 
   return {
     core,
     controller,
+    state,
     load,
+    destroy,
   };
 }
