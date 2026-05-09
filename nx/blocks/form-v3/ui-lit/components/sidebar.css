@@ -1,9 +1,6 @@
 :host {
   display: block;
   min-height: 0;
-  background: var(--background-color, #fff);
-  border-radius: 8px;
-  box-shadow: rgb(181 181 181 / 30%) 0 0 10px;
 }
 
 .da-sidebar-section {
@@ -12,30 +9,42 @@
 
 .da-sidebar-title {
   font-weight: 700;
+  font-size: var(--sl-font-size-medium, 1rem);
+  line-height: var(--sl-line-height-normal, 1.5);
   margin: 0;
   padding: 14px 12px;
   border-bottom: 1px solid var(--sl-color-neutral-200, #e5e7eb);
 }
 
 .nav-list {
-  line-height: 1.6;
+  line-height: 28px;
   max-height: calc(100vh - 10rem);
+  max-height: calc(100dvh - 10rem);
   overflow-y: auto;
-  padding: 10px 12px 14px;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding: 10px 12px 14px 8px;
+}
+
+.nav-list,
+.nav-list ul {
+  position: relative;
+}
+
+.nav-list li {
+  position: relative;
+  margin: 0;
 }
 
 .nav-list ul {
   list-style: none;
   margin: 0;
-  padding-left: 18px;
-}
-
-.nav-list li {
-  margin: 4px 0;
+  padding-left: 22px;
 }
 
 .nav-list button.item {
-  display: inline-block;
+  display: block;
+  position: relative;
   margin: 0;
   padding: 0;
   border: none;
@@ -51,7 +60,60 @@
   text-decoration: underline;
 }
 
+.nav-list button.item:focus {
+  outline: none;
+}
+
+.nav-list button.item:focus-visible {
+  outline: none;
+}
+
 .nav-list button.item.is-active {
   color: var(--s2-blue-800, #1d4ed8);
-  font-weight: 600;
+}
+
+.nav-list button.item::before {
+  content: "";
+  position: absolute;
+  top: 11px;
+  left: -13px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #dadfe6;
+}
+
+.nav-list button.item.is-active::before {
+  background-color: var(--s2-blue-400, #60a5fa);
+}
+
+.nav-list li::before,
+.nav-list li::after {
+  content: "";
+  position: absolute;
+  left: -32px;
+}
+
+.nav-list li::before {
+  border-top: 1px solid #dadfe6;
+  top: 14px;
+  width: 24px;
+  height: 0;
+}
+
+.nav-list li::after {
+  border-left: 1px solid #dadfe6;
+  width: 0;
+  bottom: 0;
+  top: -14px;
+}
+
+.nav-list > ul > li:first-child::before,
+.nav-list > ul > li:first-child::after {
+  display: none;
+}
+
+.nav-list ul > li:last-child::after {
+  height: 28px;
+  top: -14px;
 }
