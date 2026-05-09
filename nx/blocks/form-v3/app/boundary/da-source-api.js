@@ -1,7 +1,5 @@
 import { DA_ORIGIN } from 'https://da.live/blocks/shared/constants.js';
 import { daFetch } from 'https://da.live/blocks/shared/utils.js';
-import json2html from './json2html.js';
-import { pruneRecursive } from './prune.js';
 
 export async function fetchSourceHtml({ sourceUrl }) {
   if (!sourceUrl) {
@@ -66,19 +64,4 @@ export async function saveSourceHtml({ path, html }) {
   }
 
   return { ok: true };
-}
-
-export async function saveJsonDocument({ path, json }) {
-  if (!json || typeof json !== 'object') {
-    return { error: 'Invalid JSON payload.' };
-  }
-
-  const prunedData = pruneRecursive(json.data);
-  const serialized = {
-    ...json,
-    data: prunedData ?? {},
-  };
-
-  const html = json2html(serialized);
-  return saveSourceHtml({ path, html });
 }

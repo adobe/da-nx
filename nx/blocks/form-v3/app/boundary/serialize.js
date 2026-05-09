@@ -1,4 +1,6 @@
-export function isEmpty(value) {
+import json2html from './json2html.js';
+
+function isEmpty(value) {
   if (value === null || value === undefined || value === '') return true;
   if (typeof value === 'string' && value.trim() === '') return true;
   if (Array.isArray(value)) return value.length === 0;
@@ -6,7 +8,7 @@ export function isEmpty(value) {
   return false;
 }
 
-export function pruneRecursive(value) {
+function pruneRecursive(value) {
   if (value === null || value === undefined || value === '') return undefined;
   if (typeof value === 'string' && value.trim() === '') return undefined;
 
@@ -29,4 +31,18 @@ export function pruneRecursive(value) {
   }
 
   return value;
+}
+
+export function serialize({ json }) {
+  if (!json || typeof json !== 'object' || Array.isArray(json)) {
+    return { error: 'Invalid JSON payload.' };
+  }
+
+  const prunedData = pruneRecursive(json.data);
+  const serialized = {
+    ...json,
+    data: prunedData ?? {},
+  };
+
+  return { html: json2html(serialized) };
 }

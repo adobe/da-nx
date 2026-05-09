@@ -3,9 +3,38 @@ import {
   isEmptyDocumentHtml,
   isStructuredContentHtml,
 } from './boundary/html2json.js';
-import { loadDocumentHtml } from './boundary/document-loader.js';
-import { getDisplayPath, isDocumentResource } from './boundary/document-resource.js';
+import { fetchSourceHtml } from './boundary/da-source-api.js';
 import { loadSchemas } from './boundary/schema-registry.js';
+
+function isDocumentResource(details) {
+  const fullpath = (details?.fullpath ?? '').trim();
+  if (fullpath.toLowerCase().endsWith('.html')) return true;
+
+  const sourceUrl = details?.sourceUrl;
+  if (!sourceUrl || typeof sourceUrl !== 'string') return false;
+
+  try {
+    const { pathname } = new URL(sourceUrl);
+    return pathname.toLowerCase().endsWith('.html');
+  } catch {
+    return false;
+  }
+}
+
+function getDisplayPath(details) {
+  const fullpath = (details?.fullpath ?? '').trim();
+  return fullpath.toLowerCase().endsWith('.html')
+    ? fullpath.slice(0, -5)
+    : fullpath;
+}
+
+async function loadDocumentHtml(details) {
+  if (!details?.sourceUrl) {
+    return { error: 'Missing source URL.' };
+  }
+
+  return fetchSourceHtml({ sourceUrl: details.sourceUrl });
+}
 
 function mapLoadErrorToBlocker(result) {
   const status = result?.status;
