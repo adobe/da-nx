@@ -190,7 +190,10 @@ export function createFormCore({
     };
 
     if (blockers !== undefined) {
-      patch.blockers = blockers;
+      patch.errors = {
+        ...getMutableState().errors,
+        blockers,
+      };
     }
 
     stateStore.patchState(patch);
@@ -263,12 +266,15 @@ export function createFormCore({
     if (!runtime?.root) {
       stateStore.patchState({
         status: createStatus('document-incompatible'),
-        blockers: [
-          createBlocker({
-            type: 'incompatible-structure',
-            message: 'Document structure is incompatible with the compiled form model.',
-          }),
-        ],
+        errors: {
+          ...getMutableState().errors,
+          blockers: [
+            createBlocker({
+              type: 'incompatible-structure',
+              message: 'Document structure is incompatible with the compiled form model.',
+            }),
+          ],
+        },
         compatibility: {
           status: 'document-incompatible',
           editable: false,
@@ -295,11 +301,23 @@ export function createFormCore({
 
     stateStore.patchState({
       status: statusFromValidation(validation),
-      blockers: [],
-      formModel: runtime.root,
-      values: runtime.document,
-      errors: validation.errors,
-      errorsByPointer: validation.errorsByPointer,
+      errors: {
+        ...getMutableState().errors,
+        blockers: [],
+      },
+      model: {
+        ...getMutableState().model,
+        formModel: runtime.root,
+      },
+      document: {
+        ...getMutableState().document,
+        values: runtime.document,
+      },
+      validation: {
+        ...getMutableState().validation,
+        errors: validation.errors,
+        errorsByPointer: validation.errorsByPointer,
+      },
       compatibility: {
         ...getMutableState().compatibility,
         status: 'compatible',
@@ -313,18 +331,21 @@ export function createFormCore({
   async function persistCurrent(commandType) {
     const currentState = getMutableState();
     const sequence = internal.save.latestRequested + 1;
-    const documentToPersist = deepClone(currentState.values);
+    const documentToPersist = deepClone(currentState.document?.values);
     internal.save.latestRequested = sequence;
 
     stateStore.patchState({
       status: createStatus('saving', { sequence }),
-      blockers: [],
+      errors: {
+        ...currentState.errors,
+        blockers: [],
+        lastPersistenceError: null,
+      },
       saving: createSaving('saving', null, {
         sequence,
         requestedSequence: internal.save.latestRequested,
         acknowledgedSequence: internal.save.latestAcknowledged,
       }),
-      lastPersistenceError: null,
     });
     emit();
 
@@ -348,13 +369,16 @@ export function createFormCore({
     if (result.ok) {
       stateStore.patchState({
         status: createStatus('saved', { sequence }),
-        blockers: [],
+        errors: {
+          ...getMutableState().errors,
+          blockers: [],
+          lastPersistenceError: null,
+        },
         saving: createSaving('saved', null, {
           sequence,
           requestedSequence: internal.save.latestRequested,
           acknowledgedSequence: internal.save.latestAcknowledged,
         }),
-        lastPersistenceError: null,
         lastCommandResult: createCommandResult(commandType, {
           changed: true,
           persisted: true,
@@ -371,24 +395,27 @@ export function createFormCore({
         message: result.error ?? 'Persistence failed.',
         status: result.status ?? null,
       }),
-      blockers: [
-        createBlocker({
-          type: 'persistence-failed',
+      errors: {
+        ...getMutableState().errors,
+        blockers: [
+          createBlocker({
+            type: 'persistence-failed',
+            message: result.error ?? 'Persistence failed.',
+            details: { status: result.status ?? null, sequence },
+          }),
+        ],
+        lastPersistenceError: {
           message: result.error ?? 'Persistence failed.',
-          details: { status: result.status ?? null, sequence },
-        }),
-      ],
+          status: result.status ?? null,
+          sequence,
+          at: nowIso(),
+        },
+      },
       saving: createSaving('failed', result.error ?? 'Persistence failed.', {
         sequence,
         requestedSequence: internal.save.latestRequested,
         acknowledgedSequence: internal.save.latestAcknowledged,
       }),
-      lastPersistenceError: {
-        message: result.error ?? 'Persistence failed.',
-        status: result.status ?? null,
-        sequence,
-        at: nowIso(),
-      },
       lastCommandResult: createCommandResult(commandType, {
         changed: true,
         persisted: false,
@@ -465,10 +492,14 @@ export function createFormCore({
     document,
     permissions,
   }) {
+    const currentState = getMutableState();
     stateStore.patchState({
       loading: createLoading('loading'),
       status: createStatus('loading'),
-      blockers: [],
+      errors: {
+        ...currentState.errors,
+        blockers: [],
+      },
       lastCommandResult: createCommandResult('core.load', { started: true }),
     });
     emit();
@@ -493,7 +524,11 @@ export function createFormCore({
         requestedSequence: internal.save.latestRequested,
         acknowledgedSequence: internal.save.latestAcknowledged,
       }),
-      lastPersistenceError: null,
+      errors: {
+        ...getMutableState().errors,
+        blockers: [],
+        lastPersistenceError: null,
+      },
     };
 
     if (compatibility.status === 'schema-unsupported' || !internal.definition) {
@@ -503,22 +538,31 @@ export function createFormCore({
         status: createStatus('schema-unsupported', {
           unsupportedCount: unsupportedFeatures.length,
         }),
-        blockers: [
-          createBlocker({
-            type: 'schema-unsupported',
-            message: 'Schema contains unsupported or incompatible features.',
-            details: { unsupportedFeatures },
-          }),
-        ],
+        errors: {
+          ...basePatch.errors,
+          blockers: [
+            createBlocker({
+              type: 'schema-unsupported',
+              message: 'Schema contains unsupported or incompatible features.',
+              details: { unsupportedFeatures },
+            }),
+          ],
+        },
         compatibility: {
           ...compatibility,
           status: 'schema-unsupported',
           editable: false,
         },
-        formModel: null,
-        values: parsedDocument.ok ? parsedDocument.document : null,
-        errors: [],
-        errorsByPointer: {},
+        model: {
+          formModel: null,
+        },
+        document: {
+          values: parsedDocument.ok ? parsedDocument.document : null,
+        },
+        validation: {
+          errors: [],
+          errorsByPointer: {},
+        },
         lastCommandResult: createCommandResult('core.load', {
           started: false,
           ready: false,
@@ -532,16 +576,25 @@ export function createFormCore({
       stateStore.patchState({
         ...basePatch,
         status: createStatus('invalid-document'),
-        blockers: [parsedDocument.blocker],
+        errors: {
+          ...basePatch.errors,
+          blockers: [parsedDocument.blocker],
+        },
         compatibility: {
           status: 'invalid-document',
           editable: false,
           unsupportedFeatures: [],
         },
-        formModel: null,
-        values: null,
-        errors: [],
-        errorsByPointer: {},
+        model: {
+          formModel: null,
+        },
+        document: {
+          values: null,
+        },
+        validation: {
+          errors: [],
+          errorsByPointer: {},
+        },
         lastCommandResult: createCommandResult('core.load', {
           started: false,
           ready: false,
@@ -562,21 +615,30 @@ export function createFormCore({
       stateStore.patchState({
         ...basePatch,
         status: createStatus('document-incompatible'),
-        blockers: [
-          createBlocker({
-            type: 'incompatible-structure',
-            message: 'Document structure is incompatible with the compiled form model.',
-          }),
-        ],
+        errors: {
+          ...basePatch.errors,
+          blockers: [
+            createBlocker({
+              type: 'incompatible-structure',
+              message: 'Document structure is incompatible with the compiled form model.',
+            }),
+          ],
+        },
         compatibility: {
           status: 'document-incompatible',
           editable: false,
           unsupportedFeatures: [],
         },
-        formModel: null,
-        values: normalizedDocument,
-        errors: [],
-        errorsByPointer: {},
+        model: {
+          formModel: null,
+        },
+        document: {
+          values: normalizedDocument,
+        },
+        validation: {
+          errors: [],
+          errorsByPointer: {},
+        },
         lastCommandResult: createCommandResult('core.load', {
           started: false,
           ready: false,
@@ -612,15 +674,24 @@ export function createFormCore({
     stateStore.patchState({
       ...basePatch,
       status,
-      blockers,
+      errors: {
+        ...basePatch.errors,
+        blockers,
+      },
       compatibility: {
         ...compatibility,
         editable: compatibility.editable && !permissionDenied,
       },
-      formModel: runtime.root,
-      values: runtime.document,
-      errors: validation.errors,
-      errorsByPointer: validation.errorsByPointer,
+      model: {
+        formModel: runtime.root,
+      },
+      document: {
+        values: runtime.document,
+      },
+      validation: {
+        errors: validation.errors,
+        errorsByPointer: validation.errorsByPointer,
+      },
       lastCommandResult: createCommandResult('core.load', {
         started: false,
         ready: !permissionDenied,
@@ -645,7 +716,7 @@ export function createFormCore({
     return applyMutationAndPersist({
       commandType,
       mutationResult: applyFieldChange({
-        document: getMutableState().values,
+        document: getMutableState().document?.values,
         pointer,
         value,
         node,
@@ -669,7 +740,7 @@ export function createFormCore({
     return applyMutationAndPersist({
       commandType,
       mutationResult: addArrayItem({
-        document: getMutableState().values,
+        document: getMutableState().document?.values,
         pointer,
         itemDefinition: arrayDefinition.item,
       }),
@@ -693,7 +764,7 @@ export function createFormCore({
     return applyMutationAndPersist({
       commandType,
       mutationResult: insertArrayItem({
-        document: getMutableState().values,
+        document: getMutableState().document?.values,
         pointer,
         itemDefinition: arrayDefinition.item,
       }),
@@ -717,7 +788,7 @@ export function createFormCore({
     return applyMutationAndPersist({
       commandType,
       mutationResult: removeArrayItem({
-        document: getMutableState().values,
+        document: getMutableState().document?.values,
         pointer,
       }),
     });
@@ -740,7 +811,7 @@ export function createFormCore({
     return applyMutationAndPersist({
       commandType,
       mutationResult: moveArrayItem({
-        document: getMutableState().values,
+        document: getMutableState().document?.values,
         pointer,
         beforePointer,
       }),

@@ -310,11 +310,11 @@ class StructuredContentForm extends LitElement {
   }
 
   _toViewContext() {
-    const errorsMap = new Map(Object.entries(this._state?.errorsByPointer ?? {}));
+    const errorsMap = new Map(Object.entries(this._state?.validation?.errorsByPointer ?? {}));
     const navigation = this._state?.ui?.navigation ?? {};
     return {
       runtime: {
-        root: this._state?.formModel,
+        root: this._state?.model?.formModel,
       },
       validation: {
         errorsByPointer: errorsMap,
@@ -322,7 +322,7 @@ class StructuredContentForm extends LitElement {
       activeNavPointer: navigation.activePointer,
       activeNavOrigin: navigation.selectionOrigin ?? null,
       activeNavSequence: navigation.selectionSequence ?? 0,
-      json: this._state?.values,
+      json: this._state?.document?.values,
     };
   }
 

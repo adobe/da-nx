@@ -9,11 +9,16 @@ export function createInitialState() {
       details: null,
       updatedAt: nowIso(),
     },
-    blockers: [],
-    formModel: null,
-    values: null,
-    errors: [],
-    errorsByPointer: {},
+    document: {
+      values: null,
+    },
+    model: {
+      formModel: null,
+    },
+    validation: {
+      errors: [],
+      errorsByPointer: {},
+    },
     saving: {
       status: 'idle',
       error: null,
@@ -36,8 +41,11 @@ export function createInitialState() {
       editable: false,
       unsupportedFeatures: [],
     },
+    errors: {
+      blockers: [],
+      lastPersistenceError: null,
+    },
     lastCommandResult: null,
-    lastPersistenceError: null,
   };
 }
 
