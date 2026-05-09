@@ -1,5 +1,8 @@
 import { LitElement, html, nothing } from 'da-lit';
 
+await import('./array-item-menu.js');
+await import('./reorder-dialog.js');
+
 const { default: getStyle } = await import('../../../../utils/styles.js');
 const style = await getStyle(import.meta.url);
 
@@ -8,7 +11,15 @@ const EL_NAME = 'da-sc-form-editor';
 class StructuredContentFormEditor extends LitElement {
   static properties = {
     context: { attribute: false },
+    _reorderPointer: { state: true },
+    _reorderTargetIndex: { state: true },
   };
+
+  constructor() {
+    super();
+    this._reorderPointer = '';
+    this._reorderTargetIndex = 0;
+  }
 
   connectedCallback() {
     super.connectedCallback();
@@ -192,27 +203,92 @@ class StructuredContentFormEditor extends LitElement {
     `;
   }
 
-  _moveUpBeforePointer(pointers, index) {
-    if (index <= 0) return undefined;
-    return pointers[index - 1];
-  }
-
-  _moveDownBeforePointer(pointers, index) {
-    if (index >= pointers.length - 1) return undefined;
-    const beforeIndex = index + 2;
-    if (beforeIndex >= pointers.length) return undefined;
-    return pointers[beforeIndex];
-  }
-
-  _handleItemAction(detail, event) {
-    this._emitIntent(detail);
-    const menu = event?.currentTarget?.closest('.form-item-menu');
-    if (menu) menu.open = false;
-  }
-
   _getAddItemLabel(node) {
     const itemLabel = node?.itemLabel ?? '';
     return itemLabel ? `+ Add ${itemLabel}` : '+ Add item';
+  }
+
+  _resetReorder() {
+    this._reorderPointer = '';
+    this._reorderTargetIndex = 0;
+  }
+
+  _setReorderTarget(index, itemCount) {
+    const lastIndex = Math.max(itemCount - 1, 0);
+    this._reorderTargetIndex = Math.max(0, Math.min(index, lastIndex));
+  }
+
+  _onMenuOpen() {
+    if (!this._reorderPointer) return;
+    this._resetReorder();
+  }
+
+  _onReorderStart(e, itemCount) {
+    const pointer = e?.detail?.pointer ?? '';
+    if (!pointer) return;
+
+    this._reorderPointer = pointer;
+    this._setReorderTarget(e?.detail?.index ?? 0, itemCount);
+  }
+
+  _handleArrayIntent(e, itemCount) {
+    const detail = e?.detail;
+    if (detail?.type !== 'form-array-reorder-start') return;
+    e.stopPropagation();
+    this._onReorderStart(e, itemCount);
+  }
+
+  _beforePointerFromTargetIndex(pointers, currentIndex, targetIndex) {
+    if (!pointers.length) return undefined;
+
+    const lastIndex = pointers.length - 1;
+    if (targetIndex > currentIndex) {
+      if (targetIndex >= lastIndex) return undefined;
+      return pointers[targetIndex + 1];
+    }
+
+    return pointers[targetIndex];
+  }
+
+  _getItemsInPreviewOrder(items) {
+    if (!this._reorderPointer) return items;
+
+    const currentIndex = items.findIndex((item) => item.pointer === this._reorderPointer);
+    if (currentIndex < 0) return items;
+
+    const lastIndex = Math.max(items.length - 1, 0);
+    const targetIndex = Math.max(0, Math.min(this._reorderTargetIndex, lastIndex));
+    if (targetIndex === currentIndex) return items;
+
+    const reordered = items.slice();
+    const [item] = reordered.splice(currentIndex, 1);
+    reordered.splice(targetIndex, 0, item);
+    return reordered;
+  }
+
+  _confirmReorder(items, pointers) {
+    if (!this._reorderPointer) return;
+
+    const pointer = this._reorderPointer;
+    const currentIndex = items.findIndex((item) => item.pointer === pointer);
+    if (currentIndex < 0) {
+      this._resetReorder();
+      return;
+    }
+
+    const targetIndex = this._reorderTargetIndex;
+    if (targetIndex === currentIndex) {
+      this._resetReorder();
+      return;
+    }
+
+    const beforePointer = this._beforePointerFromTargetIndex(pointers, currentIndex, targetIndex);
+    this._emitIntent({
+      type: 'form-array-reorder',
+      pointer,
+      beforePointer,
+    });
+    this._resetReorder();
   }
 
   _renderUnsupported(node) {
@@ -251,70 +327,49 @@ class StructuredContentFormEditor extends LitElement {
       maxItems,
     } = node ?? {};
     const pointers = items.map((item) => item.pointer);
+    const itemCount = items.length;
+    const displayItems = this._getItemsInPreviewOrder(items);
+    const displayPointers = displayItems.map((item) => item.pointer);
     const readonly = !!nodeReadonly;
     const minItems = nodeMinItems ?? 0;
-    const canAdd = !readonly && (maxItems === undefined || items.length < maxItems);
+    const canAdd = !readonly && (maxItems === undefined || itemCount < maxItems);
     const addItemLabel = this._getAddItemLabel(node);
 
     return html`
-      <section class="form-node${this._activeClass(node.pointer)}" data-pointer=${node.pointer}>
+      <section
+        class="form-node${this._activeClass(node.pointer)}"
+        data-pointer=${node.pointer}
+        @form-array-menu-open=${this._onMenuOpen}
+        @form-intent=${(e) => this._handleArrayIntent(e, itemCount)}
+      >
         <div class="form-node-header">
           <p class="form-node-title" @click=${() => this._selectPointer(node.pointer)}>
             ${node.label}${node.required ? html`<span class="is-required">*</span>` : nothing}
           </p>
         </div>
 
-        ${items.map((item, index) => {
-    const canRemove = !readonly && items.length > minItems;
-    const canMoveUp = !readonly && index > 0;
-    const canMoveDown = !readonly && index < items.length - 1;
+        ${displayItems.map((item, index) => {
     const isStructuredItem = item.kind === 'object' || item.kind === 'array';
+    const isReorderActive = this._reorderPointer === item.pointer;
     const itemTitle = `#${index + 1} ${item.label ?? node.itemLabel ?? 'Item'}`;
     const itemContent = item.kind === 'object'
       ? (item.children ?? []).map((child) => this._renderNode(child))
       : this._renderNode(item, { itemLabel: `#${index + 1}` });
     const itemMenu = html`
-      <details class="form-item-menu">
-        <summary class="form-menu-trigger" aria-label="Open item actions">⋮</summary>
-        <div class="form-item-menu-list">
-          <button
-            type="button"
-            class="form-menu-item"
-            ?disabled=${readonly || !item.pointer}
-            @click=${(e) => this._handleItemAction({ type: 'form-array-insert', pointer: item.pointer }, e)}
-          >Insert before</button>
-          <button
-            type="button"
-            class="form-menu-item"
-            ?disabled=${!canMoveUp}
-            @click=${(e) => this._handleItemAction({
-      type: 'form-array-reorder',
-      pointer: item.pointer,
-      beforePointer: this._moveUpBeforePointer(pointers, index),
-    }, e)}
-          >Move up</button>
-          <button
-            type="button"
-            class="form-menu-item"
-            ?disabled=${!canMoveDown}
-            @click=${(e) => this._handleItemAction({
-      type: 'form-array-reorder',
-      pointer: item.pointer,
-      beforePointer: this._moveDownBeforePointer(pointers, index),
-    }, e)}
-          >Move down</button>
-          <button
-            type="button"
-            class="form-menu-item danger"
-            ?disabled=${!canRemove}
-            @click=${(e) => this._handleItemAction({ type: 'form-array-remove', pointer: item.pointer }, e)}
-          >Remove</button>
-        </div>
-      </details>
+      <da-sc-array-item-menu
+        .pointer=${item.pointer}
+        .index=${index}
+        .pointers=${displayPointers}
+        .readonly=${readonly}
+        .itemCount=${itemCount}
+        .minItems=${minItems}
+        .maxItems=${maxItems}
+        .active=${isReorderActive}
+      ></da-sc-array-item-menu>
     `;
 
     return html`
-            <article class="form-array-item${this._activeClass(item.pointer)}${isStructuredItem ? '' : ' form-array-item-primitive'}" data-pointer=${item.pointer}>
+            <article class="form-array-item${this._activeClass(item.pointer)}${isStructuredItem ? '' : ' form-array-item-primitive'}${isReorderActive ? ' move-item-picked' : ''}" data-pointer=${item.pointer}>
               ${isStructuredItem ? html`
                 <div class="form-array-item-header">
                   <p class="form-array-item-title" @click=${() => this._selectPointer(item.pointer)}>
@@ -338,6 +393,18 @@ class StructuredContentFormEditor extends LitElement {
                   </div>
                 </div>
               `}
+              ${isReorderActive ? html`
+                <da-sc-reorder-dialog
+                  .targetIndex=${this._reorderTargetIndex}
+                  .totalItems=${itemCount}
+                  @reorder-move-up=${() => this._setReorderTarget(this._reorderTargetIndex - 1, itemCount)}
+                  @reorder-move-down=${() => this._setReorderTarget(this._reorderTargetIndex + 1, itemCount)}
+                  @reorder-move-to-first=${() => this._setReorderTarget(0, itemCount)}
+                  @reorder-move-to-last=${() => this._setReorderTarget(itemCount - 1, itemCount)}
+                  @reorder-confirm=${() => this._confirmReorder(items, pointers)}
+                  @reorder-cancel=${() => this._resetReorder()}
+                ></da-sc-reorder-dialog>
+              ` : nothing}
             </article>
           `;
   })}

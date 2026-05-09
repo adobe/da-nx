@@ -35,6 +35,20 @@
   margin-top: 14px;
 }
 
+.editor-root .form-array-item.move-item-picked {
+  position: relative;
+  opacity: 0.9;
+}
+
+.editor-root .form-array-item.move-item-picked::before {
+  content: "";
+  position: absolute;
+  inset: -8px -6px -7px;
+  border: 2px dashed var(--s2-blue-400, #60a5fa);
+  border-radius: 8px;
+  pointer-events: none;
+}
+
 .editor-root .form-node-header,
 .editor-root .form-array-item-header {
   align-items: center;
@@ -167,35 +181,6 @@
   margin: 4px 0 0;
 }
 
-.editor-root .form-action,
-.editor-root .form-menu-item {
-  border: 1px solid var(--sl-color-neutral-300, #d1d5db);
-  border-radius: var(--s2-radius-100, 8px);
-  background: var(--sl-color-neutral-0, #fff);
-  color: var(--sl-color-neutral-900, #111827);
-  font: inherit;
-  font-size: 0.875rem;
-  line-height: 1.2;
-  padding: 4px 10px;
-  cursor: pointer;
-}
-
-.editor-root .form-action:hover:not([disabled]),
-.editor-root .form-menu-item:hover:not([disabled]) {
-  background: #f7f8fa;
-}
-
-.editor-root .form-action[disabled],
-.editor-root .form-menu-item[disabled] {
-  cursor: not-allowed;
-  opacity: 0.5;
-}
-
-.editor-root .form-action.danger,
-.editor-root .form-menu-item.danger {
-  color: var(--s2-red-800, #b91c1c);
-}
-
 .editor-root .form-array-footer {
   margin-top: 8px;
 }
@@ -208,10 +193,6 @@
   border: solid 1px;
 }
 
-.editor-root .form-item-menu {
-  position: relative;
-}
-
 .editor-root .form-array-item-primitive .form-array-item-actions {
   align-self: flex-start;
   display: flex;
@@ -219,47 +200,6 @@
   height: 34px;
   padding-left: 2px;
   background: transparent;
-}
-
-.editor-root .form-menu-trigger {
-  list-style: none;
-  border: none;
-  background: none;
-  color: var(--sl-color-neutral-700, #4b5563);
-  cursor: pointer;
-  font-size: 18px;
-  line-height: 1;
-  padding: 0 4px;
-}
-
-.editor-root .form-menu-trigger::-webkit-details-marker {
-  display: none;
-}
-
-.editor-root .form-item-menu[open] .form-menu-trigger {
-  color: var(--sl-color-neutral-900, #111827);
-}
-
-.editor-root .form-item-menu-list {
-  position: absolute;
-  right: 0;
-  top: 100%;
-  margin-top: 6px;
-  min-width: 170px;
-  padding: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  border: 1px solid var(--sl-color-neutral-300, #d1d5db);
-  border-radius: 10px;
-  background: #fff;
-  box-shadow: 0 8px 24px rgb(0 0 0 / 14%);
-  z-index: 20;
-}
-
-.editor-root .form-menu-item {
-  text-align: left;
-  width: 100%;
 }
 
 .form-unsupported {
