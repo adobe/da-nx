@@ -1,6 +1,6 @@
 import { createFormCore } from '../core/form-core.js';
 import { saveJsonDocument } from './boundary/json-api.js';
-import { createStateBinding } from '../ui-lit/bindings/index.js';
+import { createStateBinding } from '../ui-lit/bindings/state-binding.js';
 import { createFormController } from '../ui-lit/controllers/form-controller.js';
 
 export function createFormApp({
