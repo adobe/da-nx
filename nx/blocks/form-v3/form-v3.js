@@ -6,7 +6,6 @@ import 'https://da.live/blocks/shared/da-dialog/da-dialog.js';
 
 import { createFormV3App } from './app/bootstrap.js';
 import { loadFormV3Context } from './app/context-loader.js';
-import { saveJsonDocument } from './app/boundary/json-api.js';
 
 import './ui-lit/components/editor.js';
 import './ui-lit/components/sidebar.js';
@@ -69,10 +68,6 @@ class StructuredContentFormV3 extends LitElement {
       schema,
       document,
       permissions,
-      saveDocument: ({ path, document: nextDocument }) => saveJsonDocument({
-        path,
-        json: nextDocument,
-      }),
       onState: (snapshot) => {
         this._state = snapshot;
         this.requestUpdate();

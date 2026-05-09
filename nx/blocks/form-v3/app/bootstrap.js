@@ -1,4 +1,5 @@
 import { createFormCore } from '../core/form-core.js';
+import { saveJsonDocument } from './boundary/json-api.js';
 import { createStateBinding } from '../ui-lit/bindings/index.js';
 import { createFormV3Controller } from '../ui-lit/controllers/form-v3-controller.js';
 
@@ -7,12 +8,14 @@ export function createFormV3App({
   schema,
   document,
   permissions,
-  saveDocument,
   onState,
 } = {}) {
   const core = createFormCore({
     path,
-    saveDocument,
+    saveDocument: ({ path: targetPath, document: nextDocument }) => saveJsonDocument({
+      path: targetPath,
+      json: nextDocument,
+    }),
   });
   const controller = createFormV3Controller({ core });
   const state = createStateBinding({
