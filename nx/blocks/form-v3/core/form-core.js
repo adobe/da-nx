@@ -488,11 +488,6 @@ export function createFormCore({
     const basePatch = {
       loading: createLoading('ready'),
       permissions: permissionState,
-      selection: {
-        activePointer: '/data',
-        origin: null,
-        sequence: 0,
-      },
       saving: createSaving('idle', null, {
         sequence: 0,
         requestedSequence: internal.save.latestRequested,
@@ -632,26 +627,6 @@ export function createFormCore({
       }),
     });
 
-    return emit();
-  }
-
-  function handleSelectionCommand({ pointer, origin = null, type = 'selection.change' }) {
-    if (!pointer) {
-      return getState();
-    }
-
-    const currentSelection = getMutableState().selection ?? {};
-    const changed = pointer !== currentSelection.activePointer
-      || origin !== currentSelection.origin;
-
-    stateStore.patchState({
-      selection: {
-        activePointer: pointer,
-        origin,
-        sequence: (currentSelection.sequence ?? 0) + 1,
-      },
-      lastCommandResult: createCommandResult(type, { changed }),
-    });
     return emit();
   }
 
@@ -815,12 +790,6 @@ export function createFormCore({
         return arrayMove({
           pointer: command.pointer,
           beforePointer: command.beforePointer,
-        });
-      case 'selection.change':
-        return handleSelectionCommand({
-          pointer: command.pointer,
-          origin: command.origin ?? null,
-          type: command.type,
         });
       default:
         return rejectInvalidCommand(command, 'unknown-command');

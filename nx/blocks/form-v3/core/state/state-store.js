@@ -26,11 +26,6 @@ export function createInitialState() {
       status: 'idle',
       updatedAt: nowIso(),
     },
-    selection: {
-      activePointer: '/data',
-      origin: null,
-      sequence: 0,
-    },
     permissions: {
       readonly: false,
       disabled: false,
