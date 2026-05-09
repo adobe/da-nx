@@ -1,7 +1,6 @@
 import { addArrayItem, insertArrayItem, moveArrayItem, removeArrayItem } from './mutation/array-mutator.js';
 import { applyFieldChange } from './mutation/value-mutator.js';
-import { findDefinitionByPointer } from './model/definition-pointer.js';
-import { getParentPointer } from './model/json-pointer.js';
+import { findDefinitionByPointer, getParentPointer } from './model/json-pointer.js';
 import { buildRuntimeFormModel } from './model/runtime-model-builder.js';
 import { createRuntimeModelIndex, findNodeByPointer } from './model/runtime-model-index.js';
 import { compileSchema } from './schema/schema-compiler.js';
