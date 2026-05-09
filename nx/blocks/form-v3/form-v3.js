@@ -311,6 +311,7 @@ class StructuredContentForm extends LitElement {
 
   _toViewContext() {
     const errorsMap = new Map(Object.entries(this._state?.errorsByPointer ?? {}));
+    const navigation = this._state?.ui?.navigation ?? {};
     return {
       runtime: {
         root: this._state?.formModel,
@@ -318,9 +319,9 @@ class StructuredContentForm extends LitElement {
       validation: {
         errorsByPointer: errorsMap,
       },
-      activeNavPointer: this._state?.selection?.activePointer,
-      activeNavOrigin: this._state?.selection?.origin ?? null,
-      activeNavSequence: this._state?.selection?.sequence ?? 0,
+      activeNavPointer: navigation.activePointer,
+      activeNavOrigin: navigation.selectionOrigin ?? null,
+      activeNavSequence: navigation.selectionSequence ?? 0,
       json: this._state?.values,
     };
   }

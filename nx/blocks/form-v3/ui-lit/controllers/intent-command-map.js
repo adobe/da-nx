@@ -4,7 +4,6 @@ const INTENT_TO_COMMAND_TYPE = {
   'form-array-insert': 'array.insert',
   'form-array-remove': 'array.remove',
   'form-array-reorder': 'array.move',
-  'form-nav-pointer-select': 'selection.change',
 };
 
 function normalizeArrayMovePayload(intent, command) {
@@ -12,14 +11,6 @@ function normalizeArrayMovePayload(intent, command) {
   return {
     ...command,
     beforePointer: command.beforePointer ?? intent.toPointer ?? null,
-  };
-}
-
-function normalizeSelectionPayload(intent, command) {
-  if (command.type !== 'selection.change') return command;
-  return {
-    ...command,
-    origin: command.origin ?? (intent.type === 'form-nav-pointer-select' ? 'ui' : null),
   };
 }
 
@@ -34,5 +25,5 @@ export function toCoreCommand(intent = {}) {
     type: mappedType,
   };
 
-  return normalizeSelectionPayload(intent, normalizeArrayMovePayload(intent, base));
+  return normalizeArrayMovePayload(intent, base);
 }
