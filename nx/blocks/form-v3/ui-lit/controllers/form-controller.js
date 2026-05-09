@@ -6,6 +6,17 @@ function isUiSelectionIntent(commandOrIntent) {
     || commandOrIntent?.type === 'selection.change';
 }
 
+function isFieldChangeIntent(commandOrIntent) {
+  return commandOrIntent?.type === 'form-field-change'
+    || commandOrIntent?.type === 'field.change';
+}
+
+function getDebounceMs(commandOrIntent) {
+  const ms = Number(commandOrIntent?.debounceMs ?? 0);
+  if (!Number.isFinite(ms) || ms <= 0) return 0;
+  return ms;
+}
+
 function composeSnapshot({ coreState, uiState }) {
   return {
     ...(coreState ?? {}),
@@ -20,6 +31,7 @@ export function createFormController({ core }) {
 
   const uiStateStore = createUiStateStore();
   const listeners = new Set();
+  const pendingFieldTimers = new Map();
 
   let latestCoreState = core.getState?.() ?? {};
   let latestUiState = uiStateStore.getState();
@@ -47,6 +59,42 @@ export function createFormController({ core }) {
     return getSnapshot();
   }
 
+  function toCoreDispatchCommand(commandOrIntent) {
+    const mapped = toCoreCommand(commandOrIntent);
+    if (!mapped || typeof mapped !== 'object') return mapped;
+
+    const { debounceMs: _, ...coreCommand } = mapped;
+    return coreCommand;
+  }
+
+  async function dispatchToCore(commandOrIntent) {
+    await core.dispatch(toCoreDispatchCommand(commandOrIntent));
+    return getSnapshot();
+  }
+
+  function dispatchDebouncedFieldChange(commandOrIntent) {
+    const pointer = commandOrIntent?.pointer;
+    const debounceMs = getDebounceMs(commandOrIntent);
+    if (!pointer || debounceMs <= 0) {
+      return dispatchToCore(commandOrIntent);
+    }
+
+    if (pendingFieldTimers.has(pointer)) {
+      const pending = pendingFieldTimers.get(pointer);
+      clearTimeout(pending.timer);
+      pending.resolve(getSnapshot());
+    }
+
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        pendingFieldTimers.delete(pointer);
+        dispatchToCore(commandOrIntent).then(resolve);
+      }, debounceMs);
+
+      pendingFieldTimers.set(pointer, { timer, resolve });
+    });
+  }
+
   const unsubscribeCore = core.subscribe((nextCoreState) => {
     latestCoreState = nextCoreState ?? {};
     publish();
@@ -62,8 +110,11 @@ export function createFormController({ core }) {
       return applyUiSelection(commandOrIntent);
     }
 
-    await core.dispatch(toCoreCommand(commandOrIntent));
-    return getSnapshot();
+    if (isFieldChangeIntent(commandOrIntent)) {
+      return dispatchDebouncedFieldChange(commandOrIntent);
+    }
+
+    return dispatchToCore(commandOrIntent);
   }
 
   return {
@@ -89,6 +140,11 @@ export function createFormController({ core }) {
     },
 
     dispose() {
+      for (const pending of pendingFieldTimers.values()) {
+        clearTimeout(pending.timer);
+        pending.resolve(getSnapshot());
+      }
+      pendingFieldTimers.clear();
       unsubscribeCore?.();
       unsubscribeUi?.();
       uiStateStore.dispose();
