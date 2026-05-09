@@ -11,8 +11,8 @@
   font-weight: 700;
   font-size: var(--sl-font-size-medium, 1rem);
   line-height: var(--sl-line-height-normal, 1.5);
-  margin: 0;
-  padding: 14px 12px;
+  margin: 0 0 14px;
+  padding: 48px 12px 5px;
   border-bottom: 1px solid var(--sl-color-neutral-200, #e5e7eb);
 }
 
@@ -23,7 +23,7 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-gutter: stable;
-  padding: 10px 12px 14px 8px;
+  padding: 0 12px 14px 8px;
 }
 
 .nav-list,

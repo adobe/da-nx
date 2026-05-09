@@ -35,7 +35,7 @@ class StructuredContentFormEditor extends LitElement {
     const nextOrigin = this.context?.activeNavOrigin;
 
     if (!nextPointer || nextPointer === prevPointer) return;
-    if (nextOrigin === 'editor') return;
+    if (nextOrigin !== 'sidebar') return;
     this._scrollToPointer(nextPointer);
   }
 
