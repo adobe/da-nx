@@ -3,8 +3,8 @@ import { LitElement, html, nothing } from 'da-lit';
 const { default: getStyle } = await import('../../../../utils/styles.js');
 const style = await getStyle(import.meta.url);
 
-const EL_NAME = 'da-sc-array-item-menu';
-const ACTIVE_MENU_EVENT = 'da-sc-array-item-menu-active';
+const EL_NAME = 'sc-array-item-menu';
+const ACTIVE_MENU_EVENT = 'sc-array-item-menu-active';
 
 class StructuredContentArrayItemMenu extends LitElement {
   static properties = {

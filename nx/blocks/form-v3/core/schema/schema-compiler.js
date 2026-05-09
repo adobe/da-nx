@@ -6,11 +6,49 @@ function escapePointerSegment(segment) {
 }
 
 function inferKind(schema = {}) {
-  if (schema?.daUnsupportedCombinator) return 'unsupported';
-  if (schema.type) return schema.type;
-  if (schema.properties) return 'object';
-  if (schema.items) return 'array';
-  return 'string';
+  if (schema?.unsupportedComposition) {
+    const unsupported = schema.unsupportedComposition ?? {};
+    const compositionKeyword = unsupported.compositionKeyword ?? unsupported.combinator ?? 'unknown';
+    return {
+      kind: 'unsupported',
+      unsupported: {
+        reason: 'unsupported-composition',
+        feature: compositionKeyword,
+        compositionKeyword,
+        variants: unsupported.variants ?? 0,
+        schemaPath: unsupported.schemaPath ?? '/',
+        details: null,
+      },
+    };
+  }
+
+  if (typeof schema?.type === 'string') {
+    return { kind: schema.type };
+  }
+
+  if (schema?.properties && typeof schema.properties === 'object' && !Array.isArray(schema.properties)) {
+    return { kind: 'object' };
+  }
+
+  if (schema?.items !== undefined) {
+    return { kind: 'array' };
+  }
+
+  if (Array.isArray(schema?.enum)) {
+    return { kind: 'string' };
+  }
+
+  return {
+    kind: 'unsupported',
+    unsupported: {
+      reason: 'unknown-shape',
+      feature: 'unknown-shape',
+      compositionKeyword: 'unknown-shape',
+      variants: 0,
+      schemaPath: '/',
+      details: null,
+    },
+  };
 }
 
 function compileNode({
@@ -21,7 +59,10 @@ function compileNode({
   pointer = '/data',
   unsupportedIssues,
 }) {
-  const kind = inferKind(schema);
+  const {
+    kind,
+    unsupported: inferredUnsupported = null,
+  } = inferKind(schema);
   const label = schema?.title ?? labelFallback ?? key ?? '';
   const defaults = getNodeDefaults({ schema, kind });
 
@@ -37,12 +78,16 @@ function compileNode({
   };
 
   if (kind === 'unsupported') {
-    const unsupported = schema.daUnsupportedCombinator ?? {};
+    const unsupported = inferredUnsupported ?? {};
+    const compositionKeyword = unsupported.compositionKeyword ?? unsupported.combinator ?? 'unknown';
     unsupportedIssues.push({
       pointer,
-      combinator: unsupported.combinator ?? 'unknown',
+      compositionKeyword,
+      feature: unsupported.feature ?? compositionKeyword,
+      reason: unsupported.reason ?? 'unsupported-schema-feature',
       variants: unsupported.variants ?? 0,
       scope: pointer === '/data' ? 'root' : 'subtree',
+      details: unsupported.details ?? null,
     });
 
     return {
@@ -50,9 +95,12 @@ function compileNode({
       kind: 'unsupported',
       readonly: true,
       unsupported: {
-        combinator: unsupported.combinator ?? 'unknown',
+        compositionKeyword,
+        feature: unsupported.feature ?? compositionKeyword,
+        reason: unsupported.reason ?? 'unsupported-schema-feature',
         variants: unsupported.variants ?? 0,
         schemaPath: unsupported.schemaPath ?? '/',
+        details: unsupported.details ?? null,
       },
     };
   }
@@ -108,7 +156,7 @@ function emptyCompilation() {
     schema: null,
     definition: null,
     unsupported: {
-      hasUnsupportedCombinators: false,
+      hasUnsupportedCompositions: false,
       rootUnsupported: false,
       issues: [],
       schemaIssues: [],
@@ -135,10 +183,10 @@ export function compileSchema({ schema }) {
     schema: resolved.schema,
     definition: rootUnsupported ? null : definition,
     unsupported: {
-      hasUnsupportedCombinators: unsupportedIssues.length > 0,
+      hasUnsupportedCompositions: unsupportedIssues.length > 0,
       rootUnsupported,
       issues: unsupportedIssues,
-      schemaIssues: resolved.unsupportedCombinators ?? [],
+      schemaIssues: resolved.unsupportedCompositions ?? resolved.unsupportedCombinators ?? [],
     },
   };
 }

@@ -117,7 +117,7 @@ function getCompatibility(compilation) {
     };
   }
 
-  if (compilation?.unsupported?.hasUnsupportedCombinators) {
+  if (compilation?.unsupported?.hasUnsupportedCompositions) {
     return {
       status: 'schema-unsupported',
       editable: false,

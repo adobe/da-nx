@@ -3,7 +3,7 @@ import { LitElement, html } from 'da-lit';
 const { default: getStyle } = await import('../../../../utils/styles.js');
 const style = await getStyle(import.meta.url);
 
-const EL_NAME = 'da-sc-reorder-dialog';
+const EL_NAME = 'sc-reorder-dialog';
 
 class StructuredContentReorderDialog extends LitElement {
   static properties = {

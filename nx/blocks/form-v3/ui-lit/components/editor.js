@@ -6,7 +6,7 @@ await import('./reorder-dialog.js');
 const { default: getStyle } = await import('../../../../utils/styles.js');
 const style = await getStyle(import.meta.url);
 
-const EL_NAME = 'da-sc-form-editor';
+const EL_NAME = 'sc-form-editor';
 
 class StructuredContentFormEditor extends LitElement {
   static properties = {
@@ -294,14 +294,21 @@ class StructuredContentFormEditor extends LitElement {
 
   _renderUnsupported(node) {
     const unsupported = node?.unsupported ?? {};
-    const combinator = unsupported.combinator ?? 'unknown';
+    const feature = unsupported.feature ?? unsupported.compositionKeyword ?? unsupported.combinator ?? 'unknown';
+    const reason = unsupported.reason ?? 'unsupported-schema-feature';
+    const unsupportedType = unsupported?.details?.type;
+    const detail = Array.isArray(unsupportedType)
+      ? unsupportedType.join(', ')
+      : unsupportedType;
+
     return html`
       <section class="form-node form-unsupported${this._activeClass(node.pointer)}" data-pointer=${node.pointer}>
         <p class="form-node-title" @click=${() => this._selectPointer(node.pointer)}>
           ${node.label}${node.required ? html`<span class="is-required">*</span>` : nothing}
         </p>
         <p class="form-unsupported-message">
-          Unsupported schema combinator: <strong>${combinator}</strong>.
+          Unsupported schema feature: <strong>${feature}</strong>.
+          ${reason === 'unsupported-type' && detail ? html`Type: <strong>${detail}</strong>.` : nothing}
         </p>
       </section>
     `;
@@ -357,7 +364,7 @@ class StructuredContentFormEditor extends LitElement {
       ? (item.children ?? []).map((child) => this._renderNode(child))
       : this._renderNode(item, { itemLabel: `#${index + 1}` });
     const itemMenu = html`
-      <da-sc-array-item-menu
+      <sc-array-item-menu
         .pointer=${item.pointer}
         .index=${index}
         .pointers=${displayPointers}
@@ -366,7 +373,7 @@ class StructuredContentFormEditor extends LitElement {
         .minItems=${minItems}
         .maxItems=${maxItems}
         .active=${isReorderActive}
-      ></da-sc-array-item-menu>
+      ></sc-array-item-menu>
     `;
 
     return html`
@@ -395,7 +402,7 @@ class StructuredContentFormEditor extends LitElement {
                 </div>
               `}
               ${isReorderActive ? html`
-                <da-sc-reorder-dialog
+                <sc-reorder-dialog
                   .targetIndex=${this._reorderTargetIndex}
                   .totalItems=${itemCount}
                   @reorder-move-up=${() => this._setReorderTarget(this._reorderTargetIndex - 1, itemCount)}
@@ -404,7 +411,7 @@ class StructuredContentFormEditor extends LitElement {
                   @reorder-move-to-last=${() => this._setReorderTarget(itemCount - 1, itemCount)}
                   @reorder-confirm=${() => this._confirmReorder(items, pointers)}
                   @reorder-cancel=${() => this._resetReorder()}
-                ></da-sc-reorder-dialog>
+                ></sc-reorder-dialog>
               ` : nothing}
             </article>
           `;

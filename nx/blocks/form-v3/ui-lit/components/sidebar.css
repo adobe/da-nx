@@ -11,11 +11,11 @@
   margin-bottom: 12px;
 }
 
-.da-sidebar-section {
+.sc-sidebar-section {
   margin-bottom: 16px;
 }
 
-:host .da-sidebar-title {
+:host .sc-sidebar-title {
   font-weight: 700;
   font-size: var(--sl-font-size-medium, 1rem);
   line-height: var(--sl-line-height-normal, 1.5);

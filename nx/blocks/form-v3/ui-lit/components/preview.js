@@ -3,7 +3,7 @@ import { LitElement, html } from 'da-lit';
 const { default: getStyle } = await import('../../../../utils/styles.js');
 const style = await getStyle(import.meta.url);
 
-const EL_NAME = 'da-sc-form-preview';
+const EL_NAME = 'sc-form-preview';
 
 class StructuredContentFormPreview extends LitElement {
   static properties = {
@@ -21,7 +21,7 @@ class StructuredContentFormPreview extends LitElement {
 
     return html`
       <div class="vis-wrapper is-visible">
-        <p class="da-title">Preview</p>
+        <p class="sc-title">Preview</p>
         <pre><code>${text}</code></pre>
       </div>
     `;

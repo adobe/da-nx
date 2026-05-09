@@ -42,18 +42,24 @@ function escapeSchemaPathSegment(segment) {
   return String(segment).replace(/~/g, '~0').replace(/\//g, '~1');
 }
 
-function markUnsupportedCombinator({ node, combinator, variants, issues, schemaPath }) {
+function markUnsupportedComposition({
+  node,
+  compositionKeyword,
+  variants,
+  issues,
+  schemaPath,
+}) {
   issues.push({
     schemaPath,
-    combinator,
+    compositionKeyword,
     variants,
     scope: schemaPath === '/' ? 'root' : 'subtree',
   });
 
   return {
     ...node,
-    daUnsupportedCombinator: {
-      combinator,
+    unsupportedComposition: {
+      compositionKeyword,
       variants,
       schemaPath,
     },
@@ -104,9 +110,9 @@ function resolveNode({
     );
 
     if (isUnsupported) {
-      return markUnsupportedCombinator({
+      return markUnsupportedComposition({
         node: resolved,
-        combinator: composition.key,
+        compositionKeyword: composition.key,
         variants: composition.entries.length,
         issues,
         schemaPath,
@@ -171,6 +177,6 @@ export function resolveSchema({ schema }) {
 
   return {
     schema: resolved,
-    unsupportedCombinators: issues,
+    unsupportedCompositions: issues,
   };
 }

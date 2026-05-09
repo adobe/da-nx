@@ -16,7 +16,7 @@ await import('../../public/sl/components.js');
 const { default: getStyle } = await import('../../utils/styles.js');
 const style = await getStyle(new URL('./ui-lit/components/form-shell.css', import.meta.url).href);
 
-const EL_NAME = 'da-sc-form-shell';
+const EL_NAME = 'sc-form-shell';
 const PREVIEW_PREFIX = 'https://da-sc.adobeaem.workers.dev/preview';
 const LIVE_PREFIX = 'https://da-sc.adobeaem.workers.dev/live';
 
@@ -151,20 +151,20 @@ class StructuredContentForm extends LitElement {
 
   _renderLoaderMessage(title, body, { showHomeAction = false, showProgress = false } = {}) {
     return this._renderSchemaSetupState(html`
-      <div class="da-form-schema-shell">
-        <section class="da-sc-form-message">
+      <div class="sc-form-schema-shell">
+        <section class="sc-form-message">
           ${showProgress || title ? html`
-            <div class="da-sc-form-message-title-row">
-              ${showProgress ? html`<span class="da-sc-form-progress-circle" aria-hidden="true"></span>` : nothing}
+            <div class="sc-form-message-title-row">
+              ${showProgress ? html`<span class="sc-form-progress-circle" aria-hidden="true"></span>` : nothing}
               ${title ? html`<h2>${title}</h2>` : nothing}
             </div>
           ` : nothing}
           <p>${body}</p>
           ${showHomeAction ? html`
-            <div class="da-sc-form-actions">
+            <div class="sc-form-actions">
               <button
                 type="button"
-                class="da-sc-form-button"
+                class="sc-form-button"
                 @click=${() => this._goToRepoRoot()}
               >Return to Home</button>
             </div>
@@ -185,7 +185,7 @@ class StructuredContentForm extends LitElement {
 
     let title = 'Unable to open';
     let body = html`
-      <p class="da-form-schema-hint">
+      <p class="sc-form-schema-hint">
         This resource could not be opened.
       </p>
     `;
@@ -194,10 +194,10 @@ class StructuredContentForm extends LitElement {
       const schemaName = blocker.schemaName || '(empty)';
       title = 'Schema not found';
       body = html`
-        <p class="da-form-schema-hint">
+        <p class="sc-form-schema-hint">
           No schema named <strong>${schemaName}</strong>.
           <a
-            class="da-form-schema-text-link"
+            class="sc-form-schema-text-link"
             href=${schemaEditorHref}
             target="_blank"
             rel="noopener noreferrer"
@@ -207,7 +207,7 @@ class StructuredContentForm extends LitElement {
     } else if (blocker.type === 'not-document' || blocker.type === 'not-form-content') {
       title = 'Unsupported resource';
       body = html`
-        <p class="da-form-schema-hint">
+        <p class="sc-form-schema-hint">
           This resource${displayPath ? html` at <strong>${displayPath}</strong>` : nothing}
           is not Structured Content.
         </p>
@@ -215,14 +215,14 @@ class StructuredContentForm extends LitElement {
     } else if (blocker.type === 'no-access') {
       title = 'Access denied';
       body = html`
-        <p class="da-form-schema-hint">
+        <p class="sc-form-schema-hint">
           You do not have access to this resource${displayPath ? html` at <strong>${displayPath}</strong>` : nothing}.
         </p>
       `;
     } else if (blocker.type === 'load-failed') {
       title = 'Unable to load';
       body = html`
-        <p class="da-form-schema-hint">
+        <p class="sc-form-schema-hint">
           This resource could not be loaded. Try again later.
         </p>
       `;
@@ -245,12 +245,12 @@ class StructuredContentForm extends LitElement {
     const schemaEditorHref = this._getSchemaEditorHref();
 
     return html`
-      <div class="da-form-schema-shell">
-        <h2 class="da-form-schema-heading">Choose a schema</h2>
-        <div class="da-form-schema-form">
+      <div class="sc-form-schema-shell">
+        <h2 class="sc-form-schema-heading">Choose a schema</h2>
+        <div class="sc-form-schema-form">
           <sl-select
             hoist
-            class="da-form-schema-select"
+            class="sc-form-schema-select"
             label="Schema"
             placeholder="Select a schema"
             .value=${this._pendingSchemaId}
@@ -261,17 +261,17 @@ class StructuredContentForm extends LitElement {
               <option value="${id}">${schema?.title ?? id}</option>
             `)}
           </sl-select>
-          <p class="da-form-schema-hint da-form-schema-selector-hint">
+          <p class="sc-form-schema-hint sc-form-schema-selector-hint">
             To create a new schema, open
             <a
-              class="da-form-schema-text-link"
+              class="sc-form-schema-text-link"
               href=${schemaEditorHref}
               target="_blank"
               rel="noopener noreferrer"
             >Schema Editor</a>.
           </p>
           <sl-button
-            class="da-form-schema-start"
+            class="sc-form-schema-start"
             ?disabled=${!this._pendingSchemaId}
             @click=${this._applySelectedSchema}
           >Create</sl-button>
@@ -282,15 +282,15 @@ class StructuredContentForm extends LitElement {
 
   _renderNoSchemas() {
     return html`
-      <div class="da-form-schema-shell">
-        <div class="da-form-schema-card">
-          <p class="da-form-title">Please create a schema</p>
-          <p class="da-form-schema-hint">
+      <div class="sc-form-schema-shell">
+        <div class="sc-form-schema-card">
+          <p class="sc-form-title">Please create a schema</p>
+          <p class="sc-form-schema-hint">
             This project has no schemas yet. Open the schema editor to add one, then return here.
           </p>
-          <div class="da-form-schema-field da-form-schema-field-link">
+          <div class="sc-form-schema-field sc-form-schema-field-link">
             <a
-              class="da-form-schema-cta"
+              class="sc-form-schema-cta"
               href=${this._getSchemaEditorHref()}
               target="_blank"
               rel="noopener noreferrer"
@@ -303,7 +303,7 @@ class StructuredContentForm extends LitElement {
 
   _renderSchemaSetupState(content) {
     return html`
-      <div class="da-form-wrapper da-form-wrapper-centered">
+      <div class="sc-form-wrapper sc-form-wrapper-centered">
         ${content}
       </div>
     `;
@@ -348,15 +348,15 @@ class StructuredContentForm extends LitElement {
     }
 
     return html`
-      <div class="da-form-wrapper" @form-intent=${this._handleIntent}>
-        <div class="da-form-editor">
-          <p class="da-form-runtime-status" data-state=${stateCode}>
+      <div class="sc-form-wrapper" @form-intent=${this._handleIntent}>
+        <div class="sc-form-editor">
+          <p class="sc-form-runtime-status" data-state=${stateCode}>
             State: ${stateCode} | Save: ${saveState}
           </p>
-          <da-sc-form-editor .context=${context}></da-sc-form-editor>
-          <da-sc-form-preview .context=${context}></da-sc-form-preview>
+          <sc-form-editor .context=${context}></sc-form-editor>
+          <sc-form-preview .context=${context}></sc-form-preview>
         </div>
-        <da-sc-form-sidebar .context=${context}></da-sc-form-sidebar>
+        <sc-form-sidebar .context=${context}></sc-form-sidebar>
       </div>
     `;
   }

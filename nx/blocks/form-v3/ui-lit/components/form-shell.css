@@ -6,7 +6,7 @@
   display: block;
 }
 
-.da-sc-form-message {
+.sc-form-message {
   background: var(--background-color, #fff);
   border: none;
   border-radius: 8px;
@@ -14,7 +14,7 @@
   text-align: center;
 }
 
-.da-sc-form-message-title-row {
+.sc-form-message-title-row {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -22,15 +22,15 @@
   margin-bottom: 8px;
 }
 
-.da-sc-form-message h2 {
+.sc-form-message h2 {
   margin: 0;
 }
 
-.da-sc-form-message p {
+.sc-form-message p {
   margin: 0 0 12px;
 }
 
-.da-sc-form-progress-circle {
+.sc-form-progress-circle {
   width: 18px;
   height: 18px;
   border: 2px solid var(--sl-color-neutral-300, #d1d5db);
@@ -38,29 +38,29 @@
   border-right-color: var(--sl-color-primary-600, #2563eb);
   border-radius: 50%;
   flex-shrink: 0;
-  animation: da-form-progress-circle-spin 700ms linear infinite;
+  animation: sc-form-progress-circle-spin 700ms linear infinite;
 }
 
-@keyframes da-form-progress-circle-spin {
+@keyframes sc-form-progress-circle-spin {
   to {
     transform: rotate(360deg);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .da-sc-form-progress-circle {
+  .sc-form-progress-circle {
     animation-duration: 2s;
   }
 }
 
-.da-sc-form-actions {
+.sc-form-actions {
   align-items: center;
   display: flex;
   gap: 12px;
   margin-top: 12px;
 }
 
-.da-sc-form-button {
+.sc-form-button {
   background: var(--link-color, #0a66c2);
   border: none;
   border-radius: 999px;
@@ -71,7 +71,7 @@
   padding: 0 16px;
 }
 
-.da-form-wrapper {
+.sc-form-wrapper {
   width: min(1020px, 100%);
   max-width: 1020px;
   margin: 0 auto;
@@ -81,18 +81,18 @@
   box-sizing: border-box;
 }
 
-.da-form-wrapper.da-form-wrapper-centered {
+.sc-form-wrapper.sc-form-wrapper-centered {
   justify-content: center;
 }
 
-.da-form-editor {
+.sc-form-editor {
   flex: 1 1 700px;
   width: 700px;
   min-width: 0;
   max-width: 700px;
 }
 
-da-sc-form-sidebar {
+sc-form-sidebar {
   position: sticky;
   top: 24px;
   flex: 0 0 300px;
@@ -101,14 +101,14 @@ da-sc-form-sidebar {
   align-self: flex-start;
 }
 
-.da-form-schema-shell {
+.sc-form-schema-shell {
   flex: 1 1 700px;
   width: 700px;
   min-width: 0;
   max-width: 700px;
 }
 
-.da-form-schema-card {
+.sc-form-schema-card {
   box-sizing: border-box;
   border-radius: 12px;
   background: var(--sl-color-neutral-0, #fff);
@@ -118,43 +118,43 @@ da-sc-form-sidebar {
   padding: 28px;
 }
 
-.da-form-title {
+.sc-form-title {
   line-height: 1;
   font-weight: 700;
   margin: 0 0 8px;
 }
 
-.da-form-schema-heading {
+.sc-form-schema-heading {
   margin: 0 0 16px;
   font-size: 1.25rem;
   font-weight: 700;
   line-height: 1.3;
 }
 
-.da-form-schema-form {
+.sc-form-schema-form {
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
 
-.da-form-schema-hint {
+.sc-form-schema-hint {
   margin: 0;
   font-size: 0.875rem;
   line-height: 1.5;
   color: var(--sl-color-neutral-600, #64748b);
 }
 
-.da-form-schema-text-link {
+.sc-form-schema-text-link {
   color: var(--sl-color-primary-700, #1d4ed8);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
 
-.da-form-schema-field-link {
+.sc-form-schema-field-link {
   text-align: center;
 }
 
-.da-form-schema-cta {
+.sc-form-schema-cta {
   display: inline-block;
   padding: 8px 16px;
   background: var(--sl-color-primary-600, #2563eb);
@@ -166,7 +166,7 @@ da-sc-form-sidebar {
   text-decoration: none;
 }
 
-.da-form-runtime-status {
+.sc-form-runtime-status {
   position: fixed;
   top: 12px;
   left: 50%;
@@ -184,14 +184,14 @@ da-sc-form-sidebar {
   box-shadow: 0 4px 14px rgb(0 0 0 / 12%);
 }
 
-.da-form-runtime-status[data-state='validation-error'] {
+.sc-form-runtime-status[data-state='validation-error'] {
   background: var(--s2-orange-100, #ffedd5);
 }
 
-.da-form-runtime-status[data-state='persistence-failed'],
-.da-form-runtime-status[data-state='schema-unsupported'],
-.da-form-runtime-status[data-state='invalid-document'],
-.da-form-runtime-status[data-state='document-incompatible'],
-.da-form-runtime-status[data-state='permission-denied'] {
+.sc-form-runtime-status[data-state='persistence-failed'],
+.sc-form-runtime-status[data-state='schema-unsupported'],
+.sc-form-runtime-status[data-state='invalid-document'],
+.sc-form-runtime-status[data-state='document-incompatible'],
+.sc-form-runtime-status[data-state='permission-denied'] {
   background: var(--s2-red-100, #fee2e2);
 }

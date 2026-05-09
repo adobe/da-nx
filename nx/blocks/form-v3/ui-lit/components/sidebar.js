@@ -3,7 +3,7 @@ import { LitElement, html, nothing } from 'da-lit';
 const { default: getStyle } = await import('../../../../utils/styles.js');
 const style = await getStyle(import.meta.url);
 
-const EL_NAME = 'da-sc-form-sidebar';
+const EL_NAME = 'sc-form-sidebar';
 
 class StructuredContentFormSidebar extends LitElement {
   static properties = {
@@ -91,8 +91,8 @@ class StructuredContentFormSidebar extends LitElement {
     const root = this.context?.runtime?.root;
 
     return html`
-      <div class="da-sidebar-section">
-        <p class="da-sidebar-title">Navigation</p>
+      <div class="sc-sidebar-section">
+        <p class="sc-sidebar-title">Navigation</p>
         ${root ? html`
           <div class="nav-list">
             <ul>${this._renderNode(root)}</ul>
