@@ -1,8 +1,8 @@
 import { toCoreCommand } from './intent-command-map.js';
 
-export function createFormV3Controller({ core }) {
+export function createFormController({ core }) {
   if (!core) {
-    throw new Error('createFormV3Controller requires a core instance.');
+    throw new Error('createFormController requires a core instance.');
   }
 
   async function dispatch(commandOrIntent) {

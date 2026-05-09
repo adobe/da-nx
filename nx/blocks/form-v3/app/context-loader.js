@@ -23,7 +23,7 @@ function withBase(details, schemas) {
   };
 }
 
-export async function loadFormV3Context({ details }) {
+export async function loadFormContext({ details }) {
   const schemasPromise = loadSchemas({
     owner: details?.owner,
     repo: details?.repo,

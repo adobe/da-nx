@@ -5,7 +5,7 @@ const style = await getStyle(import.meta.url);
 
 const EL_NAME = 'da-sc-form-preview';
 
-class StructuredContentFormV3Preview extends LitElement {
+class StructuredContentFormPreview extends LitElement {
   static properties = {
     context: { attribute: false },
   };
@@ -29,5 +29,5 @@ class StructuredContentFormV3Preview extends LitElement {
 }
 
 if (!customElements.get(EL_NAME)) {
-  customElements.define(EL_NAME, StructuredContentFormV3Preview);
+  customElements.define(EL_NAME, StructuredContentFormPreview);
 }

@@ -5,7 +5,7 @@ const style = await getStyle(import.meta.url);
 
 const EL_NAME = 'da-sc-form-editor';
 
-class StructuredContentFormV3Editor extends LitElement {
+class StructuredContentFormEditor extends LitElement {
   static properties = {
     context: { attribute: false },
   };
@@ -121,7 +121,7 @@ class StructuredContentFormV3Editor extends LitElement {
 
     if (Array.isArray(node.enumValues)) {
       return html`
-        <label class="v3-field${this._activeClass(pointer)}" data-pointer=${pointer}>
+        <label class="form-field${this._activeClass(pointer)}" data-pointer=${pointer}>
           ${label}${required ? html`<span class="is-required">*</span>` : nothing}
           <select
             .value=${value ?? ''}
@@ -132,14 +132,14 @@ class StructuredContentFormV3Editor extends LitElement {
             ${required ? html`<option value="" disabled>Please Select</option>` : html`<option value="">None</option>`}
             ${node.enumValues.map((item) => html`<option value=${item}>${item}</option>`)}
           </select>
-          ${error ? html`<p class="v3-error">${error}</p>` : nothing}
+          ${error ? html`<p class="form-error">${error}</p>` : nothing}
         </label>
       `;
     }
 
     if (node.kind === 'boolean') {
       return html`
-        <label class="v3-field v3-field-checkbox${this._activeClass(pointer)}" data-pointer=${pointer}>
+        <label class="form-field form-field-checkbox${this._activeClass(pointer)}" data-pointer=${pointer}>
           <input
             type="checkbox"
             .checked=${!!value}
@@ -148,14 +148,14 @@ class StructuredContentFormV3Editor extends LitElement {
             @change=${(e) => this._handleBooleanInput(node, e)}
           />
           ${label}${required ? html`<span class="is-required">*</span>` : nothing}
-          ${error ? html`<p class="v3-error">${error}</p>` : nothing}
+          ${error ? html`<p class="form-error">${error}</p>` : nothing}
         </label>
       `;
     }
 
     if (node.kind === 'number' || node.kind === 'integer') {
       return html`
-        <label class="v3-field${this._activeClass(pointer)}" data-pointer=${pointer}>
+        <label class="form-field${this._activeClass(pointer)}" data-pointer=${pointer}>
           ${label}${required ? html`<span class="is-required">*</span>` : nothing}
           <input
             type="number"
@@ -164,13 +164,13 @@ class StructuredContentFormV3Editor extends LitElement {
             @focus=${() => this._selectPointer(pointer)}
             @input=${(e) => this._handleNumberInput(node, e)}
           />
-          ${error ? html`<p class="v3-error">${error}</p>` : nothing}
+          ${error ? html`<p class="form-error">${error}</p>` : nothing}
         </label>
       `;
     }
 
     return html`
-      <label class="v3-field${this._activeClass(pointer)}" data-pointer=${pointer}>
+      <label class="form-field${this._activeClass(pointer)}" data-pointer=${pointer}>
         ${label}${required ? html`<span class="is-required">*</span>` : nothing}
         <input
           type="text"
@@ -179,7 +179,7 @@ class StructuredContentFormV3Editor extends LitElement {
           @focus=${() => this._selectPointer(pointer)}
           @input=${(e) => this._handleTextInput(node, e)}
         />
-        ${error ? html`<p class="v3-error">${error}</p>` : nothing}
+        ${error ? html`<p class="form-error">${error}</p>` : nothing}
       </label>
     `;
   }
@@ -200,11 +200,11 @@ class StructuredContentFormV3Editor extends LitElement {
     const unsupported = node?.unsupported ?? {};
     const combinator = unsupported.combinator ?? 'unknown';
     return html`
-      <section class="v3-node v3-unsupported${this._activeClass(node.pointer)}" data-pointer=${node.pointer}>
-        <p class="v3-node-title" @click=${() => this._selectPointer(node.pointer)}>
+      <section class="form-node form-unsupported${this._activeClass(node.pointer)}" data-pointer=${node.pointer}>
+        <p class="form-node-title" @click=${() => this._selectPointer(node.pointer)}>
           ${node.label}${node.required ? html`<span class="is-required">*</span>` : nothing}
         </p>
-        <p class="v3-unsupported-message">
+        <p class="form-unsupported-message">
           Unsupported schema combinator: <strong>${combinator}</strong>.
         </p>
       </section>
@@ -214,9 +214,9 @@ class StructuredContentFormV3Editor extends LitElement {
   _renderObject(node, { itemLabel = '' } = {}) {
     const children = node.children ?? [];
     return html`
-      <fieldset class="v3-node${this._activeClass(node.pointer)}" data-pointer=${node.pointer}>
-        <legend class="v3-node-title" @click=${() => this._selectPointer(node.pointer)}>
-          ${itemLabel ? html`<span class="v3-item-label">${itemLabel}</span>` : nothing}
+      <fieldset class="form-node${this._activeClass(node.pointer)}" data-pointer=${node.pointer}>
+        <legend class="form-node-title" @click=${() => this._selectPointer(node.pointer)}>
+          ${itemLabel ? html`<span class="form-item-label">${itemLabel}</span>` : nothing}
           ${node.label}${node.required ? html`<span class="is-required">*</span>` : nothing}
         </legend>
         ${children.map((child) => this._renderNode(child))}
@@ -233,14 +233,14 @@ class StructuredContentFormV3Editor extends LitElement {
     const canAdd = !readonly && (maxItems === undefined || items.length < maxItems);
 
     return html`
-      <section class="v3-node${this._activeClass(node.pointer)}" data-pointer=${node.pointer}>
-        <div class="v3-node-header">
-          <p class="v3-node-title" @click=${() => this._selectPointer(node.pointer)}>
+      <section class="form-node${this._activeClass(node.pointer)}" data-pointer=${node.pointer}>
+        <div class="form-node-header">
+          <p class="form-node-title" @click=${() => this._selectPointer(node.pointer)}>
             ${node.label}${node.required ? html`<span class="is-required">*</span>` : nothing}
           </p>
           <button
             type="button"
-            class="v3-action"
+            class="form-action"
             ?disabled=${!canAdd}
             @click=${() => this._emitIntent({ type: 'form-array-add', pointer: node.pointer })}
           >+ Add</button>
@@ -252,21 +252,21 @@ class StructuredContentFormV3Editor extends LitElement {
     const canMoveDown = !readonly && index < items.length - 1;
 
     return html`
-            <article class="v3-array-item${this._activeClass(item.pointer)}" data-pointer=${item.pointer}>
-              <div class="v3-array-item-header">
-                <p class="v3-array-item-title" @click=${() => this._selectPointer(item.pointer)}>
+            <article class="form-array-item${this._activeClass(item.pointer)}" data-pointer=${item.pointer}>
+              <div class="form-array-item-header">
+                <p class="form-array-item-title" @click=${() => this._selectPointer(item.pointer)}>
                   #${index + 1} ${item.label ?? node.itemLabel ?? 'Item'}
                 </p>
-                <div class="v3-array-item-actions">
+                <div class="form-array-item-actions">
                   <button
                     type="button"
-                    class="v3-action"
+                    class="form-action"
                     ?disabled=${readonly || !item.pointer}
                     @click=${() => this._emitIntent({ type: 'form-array-insert', pointer: item.pointer })}
                   >Insert</button>
                   <button
                     type="button"
-                    class="v3-action"
+                    class="form-action"
                     ?disabled=${!canMoveUp}
                     @click=${() => this._emitIntent({
       type: 'form-array-reorder',
@@ -276,7 +276,7 @@ class StructuredContentFormV3Editor extends LitElement {
                   >Up</button>
                   <button
                     type="button"
-                    class="v3-action"
+                    class="form-action"
                     ?disabled=${!canMoveDown}
                     @click=${() => this._emitIntent({
       type: 'form-array-reorder',
@@ -286,7 +286,7 @@ class StructuredContentFormV3Editor extends LitElement {
                   >Down</button>
                   <button
                     type="button"
-                    class="v3-action danger"
+                    class="form-action danger"
                     ?disabled=${!canRemove}
                     @click=${() => this._emitIntent({ type: 'form-array-remove', pointer: item.pointer })}
                   >Remove</button>
@@ -321,5 +321,5 @@ class StructuredContentFormV3Editor extends LitElement {
 }
 
 if (!customElements.get(EL_NAME)) {
-  customElements.define(EL_NAME, StructuredContentFormV3Editor);
+  customElements.define(EL_NAME, StructuredContentFormEditor);
 }

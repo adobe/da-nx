@@ -4,8 +4,8 @@ import getPathDetails from 'https://da.live/blocks/shared/pathDetails.js';
 import 'https://da.live/blocks/edit/da-title/da-title.js';
 import 'https://da.live/blocks/shared/da-dialog/da-dialog.js';
 
-import { createFormV3App } from './app/bootstrap.js';
-import { loadFormV3Context } from './app/context-loader.js';
+import { createFormApp } from './app/bootstrap.js';
+import { loadFormContext } from './app/context-loader.js';
 
 import './ui-lit/components/editor.js';
 import './ui-lit/components/sidebar.js';
@@ -16,13 +16,13 @@ await import('../../public/sl/components.js');
 const { default: getStyle } = await import('../../utils/styles.js');
 const style = await getStyle(new URL('./ui-lit/components/form-shell.css', import.meta.url).href);
 
-const EL_NAME = 'da-sc-form-v3';
+const EL_NAME = 'da-sc-form-shell';
 const PREVIEW_PREFIX = 'https://da-sc.adobeaem.workers.dev/preview';
 const LIVE_PREFIX = 'https://da-sc.adobeaem.workers.dev/live';
 
-export { createFormV3App };
+export { createFormApp };
 
-class StructuredContentFormV3 extends LitElement {
+class StructuredContentForm extends LitElement {
   static properties = {
     details: { attribute: false },
     _contextState: { state: true },
@@ -63,7 +63,7 @@ class StructuredContentFormV3 extends LitElement {
   async _startApp({ schema, document, permissions }) {
     this._disposeApp();
 
-    this._app = createFormV3App({
+    this._app = createFormApp({
       path: this.details?.fullpath,
       schema,
       document,
@@ -85,7 +85,7 @@ class StructuredContentFormV3 extends LitElement {
     this._contextState = { status: 'loading', schemas: {} };
     this._disposeApp();
 
-    const context = await loadFormV3Context({ details: this.details });
+    const context = await loadFormContext({ details: this.details });
     if (requestVersion !== this._loadVersion) return;
     this._contextState = context;
 
@@ -365,7 +365,7 @@ class StructuredContentFormV3 extends LitElement {
 }
 
 if (!customElements.get(EL_NAME)) {
-  customElements.define(EL_NAME, StructuredContentFormV3);
+  customElements.define(EL_NAME, StructuredContentForm);
 }
 
 function setDetails(parent, name, details) {

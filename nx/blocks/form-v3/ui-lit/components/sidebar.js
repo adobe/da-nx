@@ -5,7 +5,7 @@ const style = await getStyle(import.meta.url);
 
 const EL_NAME = 'da-sc-form-sidebar';
 
-class StructuredContentFormV3Sidebar extends LitElement {
+class StructuredContentFormSidebar extends LitElement {
   static properties = {
     context: { attribute: false },
   };
@@ -103,5 +103,5 @@ class StructuredContentFormV3Sidebar extends LitElement {
 }
 
 if (!customElements.get(EL_NAME)) {
-  customElements.define(EL_NAME, StructuredContentFormV3Sidebar);
+  customElements.define(EL_NAME, StructuredContentFormSidebar);
 }
