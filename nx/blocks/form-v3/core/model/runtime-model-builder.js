@@ -15,11 +15,12 @@ function getObjectValue(value) {
   return {};
 }
 
-function buildLookupById(nodes = []) {
-  return nodes.reduce((acc, node) => {
-    if (node?.id) acc.set(node.id, node);
-    return acc;
-  }, new Map());
+function createNodeLookupById(nodes = []) {
+  return new Map(
+    nodes
+      .filter((node) => !!node?.id)
+      .map((node) => [node.id, node]),
+  );
 }
 
 function buildNode({
@@ -77,7 +78,7 @@ function buildNode({
       previousItems,
       previousIds,
     });
-    const previousItemsById = buildLookupById(previousNode?.items ?? []);
+    const previousItemsById = createNodeLookupById(previousNode?.items ?? []);
 
     const items = arrayValue.map((itemValue, index) => {
       const itemPointer = appendPointer({ pointer, segment: index });
@@ -95,7 +96,6 @@ function buildNode({
       ...baseNode,
       minItems: definition.minItems,
       maxItems: definition.maxItems,
-      itemKind: definition.item?.kind,
       itemLabel: definition.item?.label ?? '',
       items,
     };

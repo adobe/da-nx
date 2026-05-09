@@ -13,27 +13,15 @@ function traverse(node, visitor) {
 
 export function createRuntimeModelIndex({ root }) {
   const nodesByPointer = new Map();
-  const arraysByPointer = new Map();
-  const fieldsByPointer = new Map();
 
   traverse(root, (node) => {
     if (typeof node.pointer === 'string') {
       nodesByPointer.set(node.pointer, node);
     }
-
-    if (node.kind === 'array') {
-      arraysByPointer.set(node.pointer, node);
-    }
-
-    if (!Array.isArray(node.children) && !Array.isArray(node.items)) {
-      fieldsByPointer.set(node.pointer, node);
-    }
   });
 
   return {
     nodesByPointer,
-    arraysByPointer,
-    fieldsByPointer,
   };
 }
 
