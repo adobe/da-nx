@@ -17,6 +17,9 @@ export function createInitialState() {
     saving: {
       status: 'idle',
       error: null,
+      sequence: 0,
+      requestedSequence: 0,
+      acknowledgedSequence: 0,
       updatedAt: nowIso(),
     },
     loading: {

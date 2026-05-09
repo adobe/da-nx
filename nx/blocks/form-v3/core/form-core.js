@@ -97,10 +97,13 @@ function createLoading(status) {
   };
 }
 
-function createSaving(status, error = null) {
+function createSaving(status, error = null, sequence = {}) {
   return {
     status,
     error,
+    sequence: sequence.sequence ?? 0,
+    requestedSequence: sequence.requestedSequence ?? 0,
+    acknowledgedSequence: sequence.acknowledgedSequence ?? 0,
     updatedAt: nowIso(),
   };
 }
@@ -163,6 +166,10 @@ export function createFormCore({
     definition: null,
     runtime: null,
     index: null,
+    save: {
+      latestRequested: 0,
+      latestAcknowledged: 0,
+    },
   };
 
   function getMutableState() {
@@ -305,36 +312,62 @@ export function createFormCore({
 
   async function persistCurrent(commandType) {
     const currentState = getMutableState();
+    const sequence = internal.save.latestRequested + 1;
+    const documentToPersist = deepClone(currentState.values);
+    internal.save.latestRequested = sequence;
+
     stateStore.patchState({
-      status: createStatus('saving'),
+      status: createStatus('saving', { sequence }),
       blockers: [],
-      saving: createSaving('saving'),
+      saving: createSaving('saving', null, {
+        sequence,
+        requestedSequence: internal.save.latestRequested,
+        acknowledgedSequence: internal.save.latestAcknowledged,
+      }),
       lastPersistenceError: null,
     });
     emit();
 
     const result = await persistence.persist({
       path: internal.path,
-      document: currentState.values,
+      document: documentToPersist,
     });
+
+    // Ignore stale completion when a newer save sequence has started.
+    if (sequence !== internal.save.latestRequested) {
+      return {
+        ok: false,
+        stale: true,
+        ignored: true,
+        sequence,
+      };
+    }
+
+    internal.save.latestAcknowledged = sequence;
 
     if (result.ok) {
       stateStore.patchState({
-        status: createStatus('saved'),
+        status: createStatus('saved', { sequence }),
         blockers: [],
-        saving: createSaving('saved'),
+        saving: createSaving('saved', null, {
+          sequence,
+          requestedSequence: internal.save.latestRequested,
+          acknowledgedSequence: internal.save.latestAcknowledged,
+        }),
         lastPersistenceError: null,
         lastCommandResult: createCommandResult(commandType, {
           changed: true,
           persisted: true,
+          saveSequence: sequence,
         }),
       });
       emit();
-      return { ok: true };
+      return { ok: true, sequence };
     }
 
     stateStore.patchState({
       status: createStatus('persistence-failed', {
+        sequence,
         message: result.error ?? 'Persistence failed.',
         status: result.status ?? null,
       }),
@@ -342,19 +375,25 @@ export function createFormCore({
         createBlocker({
           type: 'persistence-failed',
           message: result.error ?? 'Persistence failed.',
-          details: { status: result.status ?? null },
+          details: { status: result.status ?? null, sequence },
         }),
       ],
-      saving: createSaving('failed', result.error ?? 'Persistence failed.'),
+      saving: createSaving('failed', result.error ?? 'Persistence failed.', {
+        sequence,
+        requestedSequence: internal.save.latestRequested,
+        acknowledgedSequence: internal.save.latestAcknowledged,
+      }),
       lastPersistenceError: {
         message: result.error ?? 'Persistence failed.',
         status: result.status ?? null,
+        sequence,
         at: nowIso(),
       },
       lastCommandResult: createCommandResult(commandType, {
         changed: true,
         persisted: false,
         error: result.error ?? 'Persistence failed.',
+        saveSequence: sequence,
       }),
     });
     emit();
@@ -363,6 +402,7 @@ export function createFormCore({
       ok: false,
       error: result.error ?? 'Persistence failed.',
       status: result.status,
+      sequence,
     };
   }
 
@@ -442,6 +482,8 @@ export function createFormCore({
     internal.definition = compilation.definition;
     internal.runtime = null;
     internal.index = null;
+    internal.save.latestRequested = 0;
+    internal.save.latestAcknowledged = 0;
 
     const basePatch = {
       loading: createLoading('ready'),
@@ -450,7 +492,11 @@ export function createFormCore({
         activePointer: '/data',
         origin: null,
       },
-      saving: createSaving('idle'),
+      saving: createSaving('idle', null, {
+        sequence: 0,
+        requestedSequence: internal.save.latestRequested,
+        acknowledgedSequence: internal.save.latestAcknowledged,
+      }),
       lastPersistenceError: null,
     };
 
