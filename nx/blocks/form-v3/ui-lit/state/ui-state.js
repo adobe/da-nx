@@ -12,20 +12,6 @@ export function createInitialUiState() {
       selectionOrigin: null,
       selectionSequence: 0,
     },
-    focus: {
-      focusedPointer: null,
-    },
-    sections: {
-      expandedByPointer: {},
-    },
-    scroll: {
-      syncedPointer: null,
-    },
-    reorder: {
-      activePointer: null,
-      targetIndex: 0,
-      dialogOpen: false,
-    },
   };
 }
 
@@ -50,7 +36,7 @@ export function createUiStateStore(initial = createInitialUiState()) {
       return getState();
     }
 
-    const currentNavigation = state.navigation ?? createInitialUiState().navigation;
+    const currentNavigation = state.navigation;
     state = {
       ...state,
       navigation: {
@@ -61,11 +47,6 @@ export function createUiStateStore(initial = createInitialUiState()) {
       },
     };
 
-    return emit();
-  }
-
-  function reset(nextInitial = createInitialUiState()) {
-    state = cloneSnapshot(nextInitial);
     return emit();
   }
 
@@ -88,7 +69,6 @@ export function createUiStateStore(initial = createInitialUiState()) {
   return {
     getState,
     setSelection,
-    reset,
     subscribe,
     dispose,
   };
