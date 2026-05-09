@@ -134,13 +134,21 @@ da-sc-form-sidebar {
 }
 
 .da-form-runtime-status {
-  margin: 0 0 10px;
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  margin: 0;
   padding: 8px 12px;
+  max-width: min(460px, calc(100vw - 24px));
   border-radius: 8px;
+  border: 1px solid var(--s2-gray-300, #d1d5db);
   background: var(--s2-gray-100, #f3f4f6);
   color: var(--s2-gray-800, #1f2937);
   font-size: var(--sl-font-size-small, 0.875rem);
   line-height: 1.4;
+  box-shadow: 0 4px 14px rgb(0 0 0 / 12%);
 }
 
 .da-form-runtime-status[data-state='validation-error'] {
