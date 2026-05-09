@@ -85,9 +85,36 @@ class StructuredContentFieldSection extends LitElement {
     return nothing;
   }
 
+  _renderUnsupported(node) {
+    const unsupported = node?.unsupported ?? {};
+    const combinator = unsupported.combinator ?? 'unknown';
+    const variants = unsupported.variants ?? 0;
+    const variantText = variants > 0 ? ` (${variants} variant${variants === 1 ? '' : 's'})` : '';
+
+    return html`
+      <div
+        class="unsupported-subtree"
+        data-pointer=${node.pointer}
+        aria-live="polite"
+      >
+        <p class="unsupported-subtree-title">
+          ${node.label}${node.required ? html`<span class="is-required">*</span>` : nothing}
+        </p>
+        <p class="unsupported-subtree-warning">
+          This section is read-only because schema combinator
+          <strong>${combinator}</strong>${variantText} is not supported yet.
+        </p>
+      </div>
+    `;
+  }
+
   render() {
     const { node } = this;
     if (!node) return nothing;
+
+    if (node.kind === 'unsupported') {
+      return this._renderUnsupported(node);
+    }
 
     if (node.kind === 'object') {
       return html`

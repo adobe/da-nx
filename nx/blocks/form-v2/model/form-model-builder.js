@@ -39,6 +39,10 @@ function buildNode({
     sourceValue: value,
   };
 
+  if (definition.unsupported) {
+    baseNode.unsupported = definition.unsupported;
+  }
+
   if (Array.isArray(definition.enumValues)) {
     baseNode.enumValues = definition.enumValues;
   }

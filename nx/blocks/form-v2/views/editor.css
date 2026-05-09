@@ -180,6 +180,24 @@
   border: solid 1px;
 }
 
+.editor-root .unsupported-subtree {
+  margin: 16px 0 8px;
+  padding: 10px 12px;
+  border: 1px dashed var(--s2-orange-400, #fb923c);
+  border-radius: 8px;
+  background: var(--s2-orange-50, #fff7ed);
+}
+
+.editor-root .unsupported-subtree-title {
+  font-weight: var(--sl-font-weight-semibold, 600);
+  margin: 0 0 6px;
+}
+
+.editor-root .unsupported-subtree-warning {
+  color: var(--s2-orange-900, #7c2d12);
+  line-height: 1.3;
+}
+
 .editor-root [data-pointer] {
   scroll-margin-top: calc(var(--sl-spacing-x-large, 16px) + var(--sl-spacing-small, 8px));
 }

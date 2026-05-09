@@ -38,7 +38,35 @@ function resolveRef({ ref, rootSchema }) {
   return current ?? null;
 }
 
-function resolveNode({ node, rootSchema, seenRefs }) {
+function escapeSchemaPathSegment(segment) {
+  return String(segment).replace(/~/g, '~0').replace(/\//g, '~1');
+}
+
+function markUnsupportedCombinator({ node, combinator, variants, issues, schemaPath }) {
+  issues.push({
+    schemaPath,
+    combinator,
+    variants,
+    scope: schemaPath === '/' ? 'root' : 'subtree',
+  });
+
+  return {
+    ...node,
+    daUnsupportedCombinator: {
+      combinator,
+      variants,
+      schemaPath,
+    },
+  };
+}
+
+function resolveNode({
+  node,
+  rootSchema,
+  seenRefs,
+  issues,
+  schemaPath,
+}) {
   if (!node || typeof node !== 'object') return node;
 
   let resolved = { ...node };
@@ -52,6 +80,8 @@ function resolveNode({ node, rootSchema, seenRefs }) {
         node: clone(target),
         rootSchema,
         seenRefs,
+        issues,
+        schemaPath,
       });
       seenRefs.delete(ref);
       resolved = mergeSchemas(derefTarget, { ...resolved, $ref: undefined });
@@ -67,21 +97,35 @@ function resolveNode({ node, rootSchema, seenRefs }) {
   );
 
   if (composition) {
-    // Temporary fallback: we intentionally ignore all composition semantics and pick only
-    // the first variant from allOf/oneOf/anyOf. Further investigation is required to
-    // support full combinator behavior correctly.
+    const isUnsupported = (
+      composition.key === 'oneOf'
+      || composition.key === 'anyOf'
+      || (composition.key === 'allOf' && composition.entries.length > 1)
+    );
+
+    if (isUnsupported) {
+      return markUnsupportedCombinator({
+        node: resolved,
+        combinator: composition.key,
+        variants: composition.entries.length,
+        issues,
+        schemaPath,
+      });
+    }
+
     const firstVariant = resolveNode({
       node: composition.entries[0],
       rootSchema,
       seenRefs,
+      issues,
+      schemaPath,
     });
-    const withoutCombinators = {
+    resolved = mergeSchemas(firstVariant ?? {}, {
       ...resolved,
       allOf: undefined,
       oneOf: undefined,
       anyOf: undefined,
-    };
-    resolved = mergeSchemas(firstVariant ?? {}, withoutCombinators);
+    });
   }
 
   if (resolved.items) {
@@ -89,6 +133,8 @@ function resolveNode({ node, rootSchema, seenRefs }) {
       node: resolved.items,
       rootSchema,
       seenRefs,
+      issues,
+      schemaPath: `${schemaPath}/items`,
     });
   }
 
@@ -100,6 +146,8 @@ function resolveNode({ node, rootSchema, seenRefs }) {
           node: propertySchema,
           rootSchema,
           seenRefs,
+          issues,
+          schemaPath: `${schemaPath}/properties/${escapeSchemaPathSegment(key)}`,
         }),
       ]),
     );
@@ -111,9 +159,16 @@ function resolveNode({ node, rootSchema, seenRefs }) {
 export function resolveSchema({ schema }) {
   if (!schema || typeof schema !== 'object') return null;
   const schemaClone = clone(schema);
-  return resolveNode({
+  const issues = [];
+  const resolved = resolveNode({
     node: schemaClone,
     rootSchema: schemaClone,
     seenRefs: new Set(),
+    issues,
+    schemaPath: '/',
   });
+  return {
+    schema: resolved,
+    unsupportedCombinators: issues,
+  };
 }

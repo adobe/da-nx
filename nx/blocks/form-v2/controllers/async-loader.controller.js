@@ -32,6 +32,21 @@ export function buildRuntimeContext({
   previousRuntime = null,
 }) {
   const compiled = compileSchema({ schema });
+  const unsupported = compiled?.unsupported ?? {
+    hasUnsupportedCombinators: false,
+    rootUnsupported: false,
+    issues: [],
+  };
+
+  if (unsupported.rootUnsupported) {
+    return {
+      blocker: {
+        type: 'unsupported-schema',
+        unsupportedCombinators: unsupported.issues.filter((issue) => issue.scope === 'root'),
+      },
+    };
+  }
+
   if (!compiled?.schema || !compiled?.definition) {
     return null;
   }
@@ -67,6 +82,7 @@ export function buildRuntimeContext({
     selectionStore: createSelectionStore(runtime?.root?.pointer ?? '/data'),
     savingStore: createSavingStore(),
     validation,
+    unsupportedSchema: unsupported,
   };
 }
 
@@ -134,10 +150,10 @@ export async function loadFormContext({ details }) {
   }
 
   const runtimeContext = buildRuntimeContext({ schema, json });
-  if (!runtimeContext) {
+  if (!runtimeContext || runtimeContext.blocker) {
     return {
       status: 'blocked',
-      blocker: { type: 'unsupported-schema' },
+      blocker: runtimeContext?.blocker ?? { type: 'unsupported-schema' },
       json,
       ...withBaseState(details, schemas),
     };

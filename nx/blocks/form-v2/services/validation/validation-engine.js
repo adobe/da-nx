@@ -21,7 +21,7 @@ function addRequiredErrors({ json, index, errorsByPointer }) {
   if (!index?.nodesByPointer) return;
 
   for (const node of index.nodesByPointer.values()) {
-    if (node?.required && !errorsByPointer.has(node.pointer)) {
+    if (node?.kind !== 'unsupported' && node?.required && !errorsByPointer.has(node.pointer)) {
       const value = getPointerValue({ data: json, pointer: node.pointer });
       if (isEmpty(value)) {
         errorsByPointer.set(node.pointer, 'This field is required.');

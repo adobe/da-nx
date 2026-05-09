@@ -119,11 +119,11 @@ class StructuredContentForm extends LitElement {
     };
 
     const runtimeContext = buildRuntimeContext({ schema, json });
-    if (!runtimeContext) {
+    if (!runtimeContext || runtimeContext.blocker) {
       this._loaderState = {
         ...this._loaderState,
         status: 'blocked',
-        blocker: { type: 'unsupported-schema' },
+        blocker: runtimeContext?.blocker ?? { type: 'unsupported-schema' },
         schemaName,
         schema,
         json,
@@ -223,10 +223,15 @@ class StructuredContentForm extends LitElement {
         </p>
       `;
     } else if (blocker.type === 'unsupported-schema') {
+      const combinators = blocker.unsupportedCombinators ?? [];
+      const details = combinators.length
+        ? combinators.map((item) => `${item.combinator} (${item.pointer === '/data' ? 'root' : item.pointer})`).join(', ')
+        : 'unknown';
       title = 'Unsupported schema';
       body = html`
         <p class="da-form-schema-hint">
-          This schema uses features not yet supported by form-v2.
+          This schema uses unsupported combinator features and cannot be edited safely.
+          Unsupported: <strong>${details}</strong>.
         </p>
       `;
     } else if (blocker.type === 'load-failed') {
