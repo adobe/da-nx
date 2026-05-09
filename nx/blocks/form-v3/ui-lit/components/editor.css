@@ -2,10 +2,11 @@
   display: block;
   box-sizing: border-box;
   min-height: 400px;
-  padding: 24px;
+  padding-top: 48px;
   border-radius: 8px;
+  overflow: hidden;
   background: var(--background-color, #fff);
-  box-shadow: rgb(181 181 181 / 30%) 0 0 10px;
+  box-shadow: rgb(181 181 181 / 50%) 0 0 10px;
 }
 
 .hint {
@@ -14,101 +15,219 @@
 }
 
 .editor-root {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+  padding: 0 48px 48px;
 }
 
-.form-node,
-.form-array-item,
-.form-field {
-  border: 1px solid var(--sl-color-neutral-200, #e5e7eb);
-  border-radius: 8px;
-  padding: 10px 12px;
-  background: var(--sl-color-neutral-0, #fff);
+.editor-root .form-node,
+.editor-root .form-array-item {
+  border: none;
+  margin: 24px 0 4px;
+  min-inline-size: 0;
+  padding: 0;
+  background: transparent;
 }
 
-.form-node.is-active,
-.form-array-item.is-active,
-.form-field.is-active {
-  border-color: var(--s2-blue-400, #60a5fa);
-  box-shadow: 0 0 0 1px rgb(96 165 250 / 35%);
+.editor-root .form-node[data-pointer="/data"] {
+  margin-top: 0;
 }
 
-.form-node-title,
-.form-array-item-title {
-  margin: 0;
-  font-weight: 600;
-  cursor: pointer;
+.editor-root .form-array-item {
+  margin-top: 14px;
 }
 
-.form-node-header,
-.form-array-item-header {
-  display: flex;
+.editor-root .form-node-header,
+.editor-root .form-array-item-header {
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-}
-
-.form-array-item-actions {
   display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: flex-start;
+  position: relative;
 }
 
-.form-field {
+.editor-root .form-node-title,
+.editor-root .form-array-item-title {
+  cursor: pointer;
   display: block;
+  flex: 1;
+  min-width: 0;
+  font-size: var(--sl-font-size-medium, 1rem);
+  font-weight: var(--sl-font-weight-semibold, 600);
+  line-height: var(--sl-line-height-normal, 1.5);
+  margin: 0;
+  padding-bottom: var(--sl-spacing-small, 8px);
+  position: relative;
+  width: 100%;
 }
 
-.form-field input:not([type='checkbox']),
-.form-field select {
+.editor-root legend.form-node-title {
+  padding-inline-start: 0;
+}
+
+.editor-root .form-node-title::before,
+.editor-root .form-array-item-title::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 1px;
+  height: 3px;
+  width: 55px;
+  background-color: var(--sl-color-neutral-800, #262626);
+}
+
+.editor-root .form-node-title::after,
+.editor-root .form-array-item-title::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 2px;
+  height: var(--sl-input-border-width, 1px);
   width: 100%;
-  min-height: 34px;
-  margin-top: 6px;
-  padding: 4px 8px;
+  background-color: var(--sl-color-neutral-800, #262626);
+}
+
+.editor-root .form-array-item-actions,
+.editor-root .form-node-header > .form-action {
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+  padding-left: 8px;
+  background: var(--background-color, #fff);
+}
+
+.editor-root .form-node.is-active > .form-node-title,
+.editor-root .form-node.is-active > .form-node-header > .form-node-title,
+.editor-root .form-array-item.is-active > .form-array-item-header > .form-array-item-title {
+  color: var(--s2-blue-800, #1d4ed8);
+}
+
+.editor-root .form-field {
+  display: block;
+  margin: 16px 0 8px;
+  border: none;
+  padding: 0;
+  background: transparent;
+}
+
+.editor-root .form-field input:not([type='checkbox']),
+.editor-root .form-field select {
   border: 1px solid var(--light-color, #d0d0d0);
   border-radius: 6px;
   box-sizing: border-box;
+  display: block;
+  margin-top: 6px;
+  min-height: 34px;
+  padding: 4px 8px;
+  width: 100%;
   font: inherit;
 }
 
-.form-field-checkbox {
+.editor-root .form-field.form-field-checkbox {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-.form-field-checkbox p {
+.editor-root .form-field.form-field-checkbox input[type='checkbox'] {
   margin: 0;
 }
 
 .form-error {
-  margin: 6px 0 0;
   color: var(--s2-red-900, #991b1b);
   font-size: 0.8rem;
+  margin: 4px 0 0;
 }
 
-.form-action {
+.editor-root .form-action,
+.editor-root .form-menu-item {
   border: 1px solid var(--sl-color-neutral-300, #d1d5db);
-  border-radius: 6px;
+  border-radius: var(--s2-radius-100, 8px);
   background: var(--sl-color-neutral-0, #fff);
+  color: var(--sl-color-neutral-900, #111827);
   font: inherit;
-  font-size: 0.8rem;
-  padding: 3px 8px;
+  font-size: 0.875rem;
+  line-height: 1.2;
+  padding: 4px 10px;
   cursor: pointer;
 }
 
-.form-action[disabled] {
-  cursor: not-allowed;
-  opacity: 0.6;
+.editor-root .form-action:hover:not([disabled]),
+.editor-root .form-menu-item:hover:not([disabled]) {
+  background: #f7f8fa;
 }
 
-.form-action.danger {
+.editor-root .form-action[disabled],
+.editor-root .form-menu-item[disabled] {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.editor-root .form-action.danger,
+.editor-root .form-menu-item.danger {
   color: var(--s2-red-800, #b91c1c);
 }
 
+.editor-root .form-array-footer {
+  margin-top: 8px;
+}
+
+.editor-root .add-item-btn {
+  margin-top: 8px;
+  padding: 4px 8px;
+  cursor: pointer;
+  border-radius: var(--s2-radius-100, 8px);
+  border: solid 1px;
+}
+
+.editor-root .form-item-menu {
+  position: relative;
+}
+
+.editor-root .form-menu-trigger {
+  list-style: none;
+  border: none;
+  background: none;
+  color: var(--sl-color-neutral-700, #4b5563);
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  padding: 0 4px;
+}
+
+.editor-root .form-menu-trigger::-webkit-details-marker {
+  display: none;
+}
+
+.editor-root .form-item-menu[open] .form-menu-trigger {
+  color: var(--sl-color-neutral-900, #111827);
+}
+
+.editor-root .form-item-menu-list {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  margin-top: 6px;
+  min-width: 170px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: 1px solid var(--sl-color-neutral-300, #d1d5db);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 14%);
+  z-index: 20;
+}
+
+.editor-root .form-menu-item {
+  text-align: left;
+  width: 100%;
+}
+
 .form-unsupported {
-  border-style: dashed;
+  margin: 16px 0 8px;
+  padding: 10px 12px;
+  border: 1px dashed var(--s2-orange-400, #fb923c);
+  border-radius: 8px;
   background: var(--s2-orange-50, #fff7ed);
 }
 

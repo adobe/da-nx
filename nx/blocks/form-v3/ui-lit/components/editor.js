@@ -196,6 +196,17 @@ class StructuredContentFormEditor extends LitElement {
     return pointers[beforeIndex];
   }
 
+  _handleItemAction(detail, event) {
+    this._emitIntent(detail);
+    const menu = event?.currentTarget?.closest('.form-item-menu');
+    if (menu) menu.open = false;
+  }
+
+  _getAddItemLabel(node) {
+    const itemLabel = node?.itemLabel ?? '';
+    return itemLabel ? `+ Add ${itemLabel}` : '+ Add item';
+  }
+
   _renderUnsupported(node) {
     const unsupported = node?.unsupported ?? {};
     const combinator = unsupported.combinator ?? 'unknown';
@@ -225,12 +236,17 @@ class StructuredContentFormEditor extends LitElement {
   }
 
   _renderArray(node) {
-    const items = node.items ?? [];
+    const {
+      items = [],
+      readonly: nodeReadonly,
+      minItems: nodeMinItems,
+      maxItems,
+    } = node ?? {};
     const pointers = items.map((item) => item.pointer);
-    const readonly = !!node.readonly;
-    const minItems = node.minItems ?? 0;
-    const maxItems = node.maxItems;
+    const readonly = !!nodeReadonly;
+    const minItems = nodeMinItems ?? 0;
     const canAdd = !readonly && (maxItems === undefined || items.length < maxItems);
+    const addItemLabel = this._getAddItemLabel(node);
 
     return html`
       <section class="form-node${this._activeClass(node.pointer)}" data-pointer=${node.pointer}>
@@ -238,18 +254,15 @@ class StructuredContentFormEditor extends LitElement {
           <p class="form-node-title" @click=${() => this._selectPointer(node.pointer)}>
             ${node.label}${node.required ? html`<span class="is-required">*</span>` : nothing}
           </p>
-          <button
-            type="button"
-            class="form-action"
-            ?disabled=${!canAdd}
-            @click=${() => this._emitIntent({ type: 'form-array-add', pointer: node.pointer })}
-          >+ Add</button>
         </div>
 
         ${items.map((item, index) => {
     const canRemove = !readonly && items.length > minItems;
     const canMoveUp = !readonly && index > 0;
     const canMoveDown = !readonly && index < items.length - 1;
+    const itemContent = item.kind === 'object'
+      ? (item.children ?? []).map((child) => this._renderNode(child))
+      : this._renderNode(item, { itemLabel: `#${index + 1}` });
 
     return html`
             <article class="form-array-item${this._activeClass(item.pointer)}" data-pointer=${item.pointer}>
@@ -258,44 +271,57 @@ class StructuredContentFormEditor extends LitElement {
                   #${index + 1} ${item.label ?? node.itemLabel ?? 'Item'}
                 </p>
                 <div class="form-array-item-actions">
-                  <button
-                    type="button"
-                    class="form-action"
-                    ?disabled=${readonly || !item.pointer}
-                    @click=${() => this._emitIntent({ type: 'form-array-insert', pointer: item.pointer })}
-                  >Insert</button>
-                  <button
-                    type="button"
-                    class="form-action"
-                    ?disabled=${!canMoveUp}
-                    @click=${() => this._emitIntent({
+                  <details class="form-item-menu">
+                    <summary class="form-menu-trigger" aria-label="Open item actions">⋮</summary>
+                    <div class="form-item-menu-list">
+                      <button
+                        type="button"
+                        class="form-menu-item"
+                        ?disabled=${readonly || !item.pointer}
+                        @click=${(e) => this._handleItemAction({ type: 'form-array-insert', pointer: item.pointer }, e)}
+                      >Insert before</button>
+                      <button
+                        type="button"
+                        class="form-menu-item"
+                        ?disabled=${!canMoveUp}
+                        @click=${(e) => this._handleItemAction({
       type: 'form-array-reorder',
       pointer: item.pointer,
       beforePointer: this._moveUpBeforePointer(pointers, index),
-    })}
-                  >Up</button>
-                  <button
-                    type="button"
-                    class="form-action"
-                    ?disabled=${!canMoveDown}
-                    @click=${() => this._emitIntent({
+    }, e)}
+                      >Move up</button>
+                      <button
+                        type="button"
+                        class="form-menu-item"
+                        ?disabled=${!canMoveDown}
+                        @click=${(e) => this._handleItemAction({
       type: 'form-array-reorder',
       pointer: item.pointer,
       beforePointer: this._moveDownBeforePointer(pointers, index),
-    })}
-                  >Down</button>
-                  <button
-                    type="button"
-                    class="form-action danger"
-                    ?disabled=${!canRemove}
-                    @click=${() => this._emitIntent({ type: 'form-array-remove', pointer: item.pointer })}
-                  >Remove</button>
+    }, e)}
+                      >Move down</button>
+                      <button
+                        type="button"
+                        class="form-menu-item danger"
+                        ?disabled=${!canRemove}
+                        @click=${(e) => this._handleItemAction({ type: 'form-array-remove', pointer: item.pointer }, e)}
+                      >Remove</button>
+                    </div>
+                  </details>
                 </div>
               </div>
-              ${this._renderNode(item, { itemLabel: `#${index + 1}` })}
+              ${itemContent}
             </article>
           `;
   })}
+        <div class="form-array-footer">
+          <button
+            type="button"
+            class="add-item-btn"
+            ?disabled=${!canAdd}
+            @click=${() => this._emitIntent({ type: 'form-array-add', pointer: node.pointer })}
+          >${addItemLabel}</button>
+        </div>
       </section>
     `;
   }
