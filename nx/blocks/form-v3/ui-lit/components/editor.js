@@ -111,20 +111,23 @@ class StructuredContentFormEditor extends LitElement {
     });
   }
 
-  _renderPrimitive(node) {
+  _renderPrimitive(node, { hideLabel = false } = {}) {
     const label = node?.label ?? '';
     const required = !!node?.required;
     const readonly = !!node?.readonly;
     const pointer = node?.pointer ?? '';
     const error = this._getError(pointer);
     const value = this._primitiveValue(node);
+    const labelText = `${label}${required ? '*' : ''}`;
+    const fieldClass = `form-field${this._activeClass(pointer)}${hideLabel ? ' is-compact' : ''}`;
 
     if (Array.isArray(node.enumValues)) {
       return html`
-        <label class="form-field${this._activeClass(pointer)}" data-pointer=${pointer}>
-          ${label}${required ? html`<span class="is-required">*</span>` : nothing}
+        <label class=${fieldClass} data-pointer=${pointer}>
+          ${hideLabel ? nothing : html`${label}${required ? html`<span class="is-required">*</span>` : nothing}`}
           <select
             .value=${value ?? ''}
+            aria-label=${labelText}
             ?disabled=${readonly}
             @focus=${() => this._selectPointer(pointer)}
             @change=${(e) => this._handleSelectInput(node, e)}
@@ -139,15 +142,18 @@ class StructuredContentFormEditor extends LitElement {
 
     if (node.kind === 'boolean') {
       return html`
-        <label class="form-field form-field-checkbox${this._activeClass(pointer)}" data-pointer=${pointer}>
+        <label class="form-field form-field-checkbox${this._activeClass(pointer)}${hideLabel ? ' is-compact' : ''}" data-pointer=${pointer}>
           <input
             type="checkbox"
             .checked=${!!value}
+            aria-label=${labelText}
             ?disabled=${readonly}
             @focus=${() => this._selectPointer(pointer)}
             @change=${(e) => this._handleBooleanInput(node, e)}
           />
-          ${label}${required ? html`<span class="is-required">*</span>` : nothing}
+          ${hideLabel
+    ? html`<span class="form-sr-only">${label}${required ? '*' : ''}</span>`
+    : html`${label}${required ? html`<span class="is-required">*</span>` : nothing}`}
           ${error ? html`<p class="form-error">${error}</p>` : nothing}
         </label>
       `;
@@ -155,11 +161,12 @@ class StructuredContentFormEditor extends LitElement {
 
     if (node.kind === 'number' || node.kind === 'integer') {
       return html`
-        <label class="form-field${this._activeClass(pointer)}" data-pointer=${pointer}>
-          ${label}${required ? html`<span class="is-required">*</span>` : nothing}
+        <label class=${fieldClass} data-pointer=${pointer}>
+          ${hideLabel ? nothing : html`${label}${required ? html`<span class="is-required">*</span>` : nothing}`}
           <input
             type="number"
             .value=${String(value ?? '')}
+            aria-label=${labelText}
             ?disabled=${readonly}
             @focus=${() => this._selectPointer(pointer)}
             @input=${(e) => this._handleNumberInput(node, e)}
@@ -170,11 +177,12 @@ class StructuredContentFormEditor extends LitElement {
     }
 
     return html`
-      <label class="form-field${this._activeClass(pointer)}" data-pointer=${pointer}>
-        ${label}${required ? html`<span class="is-required">*</span>` : nothing}
+      <label class=${fieldClass} data-pointer=${pointer}>
+        ${hideLabel ? nothing : html`${label}${required ? html`<span class="is-required">*</span>` : nothing}`}
         <input
           type="text"
           .value=${value ?? ''}
+          aria-label=${labelText}
           ?disabled=${readonly}
           @focus=${() => this._selectPointer(pointer)}
           @input=${(e) => this._handleTextInput(node, e)}
@@ -260,57 +268,76 @@ class StructuredContentFormEditor extends LitElement {
     const canRemove = !readonly && items.length > minItems;
     const canMoveUp = !readonly && index > 0;
     const canMoveDown = !readonly && index < items.length - 1;
+    const isStructuredItem = item.kind === 'object' || item.kind === 'array';
+    const itemTitle = `#${index + 1} ${item.label ?? node.itemLabel ?? 'Item'}`;
     const itemContent = item.kind === 'object'
       ? (item.children ?? []).map((child) => this._renderNode(child))
       : this._renderNode(item, { itemLabel: `#${index + 1}` });
-
-    return html`
-            <article class="form-array-item${this._activeClass(item.pointer)}" data-pointer=${item.pointer}>
-              <div class="form-array-item-header">
-                <p class="form-array-item-title" @click=${() => this._selectPointer(item.pointer)}>
-                  #${index + 1} ${item.label ?? node.itemLabel ?? 'Item'}
-                </p>
-                <div class="form-array-item-actions">
-                  <details class="form-item-menu">
-                    <summary class="form-menu-trigger" aria-label="Open item actions">⋮</summary>
-                    <div class="form-item-menu-list">
-                      <button
-                        type="button"
-                        class="form-menu-item"
-                        ?disabled=${readonly || !item.pointer}
-                        @click=${(e) => this._handleItemAction({ type: 'form-array-insert', pointer: item.pointer }, e)}
-                      >Insert before</button>
-                      <button
-                        type="button"
-                        class="form-menu-item"
-                        ?disabled=${!canMoveUp}
-                        @click=${(e) => this._handleItemAction({
+    const itemMenu = html`
+      <details class="form-item-menu">
+        <summary class="form-menu-trigger" aria-label="Open item actions">⋮</summary>
+        <div class="form-item-menu-list">
+          <button
+            type="button"
+            class="form-menu-item"
+            ?disabled=${readonly || !item.pointer}
+            @click=${(e) => this._handleItemAction({ type: 'form-array-insert', pointer: item.pointer }, e)}
+          >Insert before</button>
+          <button
+            type="button"
+            class="form-menu-item"
+            ?disabled=${!canMoveUp}
+            @click=${(e) => this._handleItemAction({
       type: 'form-array-reorder',
       pointer: item.pointer,
       beforePointer: this._moveUpBeforePointer(pointers, index),
     }, e)}
-                      >Move up</button>
-                      <button
-                        type="button"
-                        class="form-menu-item"
-                        ?disabled=${!canMoveDown}
-                        @click=${(e) => this._handleItemAction({
+          >Move up</button>
+          <button
+            type="button"
+            class="form-menu-item"
+            ?disabled=${!canMoveDown}
+            @click=${(e) => this._handleItemAction({
       type: 'form-array-reorder',
       pointer: item.pointer,
       beforePointer: this._moveDownBeforePointer(pointers, index),
     }, e)}
-                      >Move down</button>
-                      <button
-                        type="button"
-                        class="form-menu-item danger"
-                        ?disabled=${!canRemove}
-                        @click=${(e) => this._handleItemAction({ type: 'form-array-remove', pointer: item.pointer }, e)}
-                      >Remove</button>
-                    </div>
-                  </details>
+          >Move down</button>
+          <button
+            type="button"
+            class="form-menu-item danger"
+            ?disabled=${!canRemove}
+            @click=${(e) => this._handleItemAction({ type: 'form-array-remove', pointer: item.pointer }, e)}
+          >Remove</button>
+        </div>
+      </details>
+    `;
+
+    return html`
+            <article class="form-array-item${this._activeClass(item.pointer)}${isStructuredItem ? '' : ' form-array-item-primitive'}" data-pointer=${item.pointer}>
+              ${isStructuredItem ? html`
+                <div class="form-array-item-header">
+                  <p class="form-array-item-title" @click=${() => this._selectPointer(item.pointer)}>
+                    ${itemTitle}
+                  </p>
+                  <div class="form-array-item-actions">
+                    ${itemMenu}
+                  </div>
                 </div>
-              </div>
-              ${itemContent}
+                ${itemContent}
+              ` : html`
+                <p class="form-array-item-simple-label" @click=${() => this._selectPointer(item.pointer)}>
+                  ${itemTitle}
+                </p>
+                <div class="form-array-item-input-row">
+                  <div class="form-array-item-input-main">
+                    ${this._renderPrimitive(item, { hideLabel: true })}
+                  </div>
+                  <div class="form-array-item-actions">
+                    ${itemMenu}
+                  </div>
+                </div>
+              `}
             </article>
           `;
   })}

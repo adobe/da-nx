@@ -94,6 +94,23 @@
   background: var(--background-color, #fff);
 }
 
+.editor-root .form-array-item-simple-label {
+  font-size: 14px;
+  line-height: 1;
+  margin: 0 0 6px;
+}
+
+.editor-root .form-array-item-input-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.editor-root .form-array-item-input-main {
+  flex: 1;
+  min-width: 0;
+}
+
 .editor-root .form-node.is-active > .form-node-title,
 .editor-root .form-node.is-active > .form-node-header > .form-node-title,
 .editor-root .form-array-item.is-active > .form-array-item-header > .form-array-item-title {
@@ -108,6 +125,10 @@
   background: transparent;
 }
 
+.editor-root .form-field.is-compact {
+  margin-top: 8px;
+}
+
 .editor-root .form-field input:not([type='checkbox']),
 .editor-root .form-field select {
   border: 1px solid var(--light-color, #d0d0d0);
@@ -119,6 +140,15 @@
   padding: 4px 8px;
   width: 100%;
   font: inherit;
+}
+
+.editor-root .form-field.is-compact input:not([type='checkbox']),
+.editor-root .form-field.is-compact select {
+  margin-top: 0;
+}
+
+.editor-root .form-array-item-primitive .form-field.is-compact {
+  margin: 0;
 }
 
 .editor-root .form-field.form-field-checkbox {
@@ -180,6 +210,15 @@
 
 .editor-root .form-item-menu {
   position: relative;
+}
+
+.editor-root .form-array-item-primitive .form-array-item-actions {
+  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  height: 34px;
+  padding-left: 2px;
+  background: transparent;
 }
 
 .editor-root .form-menu-trigger {
@@ -244,4 +283,16 @@
 .is-required {
   color: var(--s2-red-900, #991b1b);
   margin-left: 2px;
+}
+
+.form-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
