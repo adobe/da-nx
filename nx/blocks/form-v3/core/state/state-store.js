@@ -38,11 +38,6 @@ export function createInitialState() {
       status: 'idle',
       updatedAt: nowIso(),
     },
-    permissions: {
-      readonly: false,
-      disabled: false,
-      capabilities: { canEdit: true },
-    },
     compatibility: {
       status: 'unknown',
       editable: false,

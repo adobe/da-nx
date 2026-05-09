@@ -66,8 +66,8 @@ export async function loadFormContext({ details }) {
     };
   }
 
-  const document = convertHtmlToJson(html);
-  if (!document) {
+  const json = convertHtmlToJson(html);
+  if (!json) {
     return {
       status: 'blocked',
       blocker: { type: 'load-failed' },
@@ -75,7 +75,7 @@ export async function loadFormContext({ details }) {
     };
   }
 
-  const schemaName = document?.metadata?.schemaName;
+  const schemaName = json?.metadata?.schemaName;
   const schema = schemaName ? schemas?.[schemaName] : null;
   if (!schema) {
     return {
@@ -84,7 +84,7 @@ export async function loadFormContext({ details }) {
         type: 'missing-schema',
         schemaName: schemaName ?? '',
       },
-      document,
+      json,
       ...withBase(details, schemas),
     };
   }
@@ -93,7 +93,7 @@ export async function loadFormContext({ details }) {
     status: 'ready',
     schemaName,
     schema,
-    document,
+    json,
     ...withBase(details, schemas),
   };
 }

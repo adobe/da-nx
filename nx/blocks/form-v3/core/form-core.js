@@ -1,4 +1,3 @@
-import { evaluatePermissions } from './authorization/authorization-service.js';
 import { addArrayItem, insertArrayItem, moveArrayItem, removeArrayItem } from './mutation/array-mutator.js';
 import { applyFieldChange } from './mutation/value-mutator.js';
 import { findDefinitionByPointer } from './model/definition-pointer.js';
@@ -185,6 +184,27 @@ export function createFormCore({
     return deepClone(getMutableState());
   }
 
+  function getArrayContext(pointer) {
+    return {
+      arrayDefinition: findDefinitionByPointer({
+        definition: internal.definition,
+        pointer,
+      }),
+      arrayNode: findNodeByPointer({
+        index: internal.index,
+        pointer,
+      }),
+    };
+  }
+
+  function getParentArrayContext(pointer) {
+    const parentPointer = getParentPointer(pointer);
+    return {
+      parentPointer,
+      ...getArrayContext(parentPointer),
+    };
+  }
+
   function setStatus({ code, details = null, blockers }) {
     const patch = {
       status: createStatus(code, details),
@@ -210,18 +230,7 @@ export function createFormCore({
 
   function rejectMutation(type, reason) {
     const current = getMutableState();
-    if (reason === 'permission-denied') {
-      setStatus({
-        code: 'permission-denied',
-        blockers: [
-          createBlocker({
-            type: 'permission-denied',
-            message: 'Editing is not allowed by current permissions.',
-            details: current.permissions,
-          }),
-        ],
-      });
-    } else if (
+    if (
       reason === 'document-incompatible'
       || reason === 'invalid-document'
       || reason === 'schema-unsupported'
@@ -240,11 +249,6 @@ export function createFormCore({
 
   function isMutationAllowed(type) {
     const state = getMutableState();
-    if (state.permissions.readonly || state.permissions.disabled) {
-      rejectMutation(type, 'permission-denied');
-      return false;
-    }
-
     if (state.compatibility.status !== 'compatible') {
       rejectMutation(type, state.compatibility.status || 'document-incompatible');
       return false;
@@ -500,7 +504,6 @@ export function createFormCore({
   async function load({
     schema,
     document,
-    permissions,
   }) {
     const currentState = getMutableState();
     patchState({
@@ -514,7 +517,6 @@ export function createFormCore({
     });
     emit();
 
-    const permissionState = evaluatePermissions({ permissions });
     const compilation = compileSchema({ schema });
     const compatibility = getCompatibility(compilation);
     const parsedDocument = parseDocumentInput(document);
@@ -528,7 +530,6 @@ export function createFormCore({
 
     const basePatch = {
       loading: createLoading('ready'),
-      permissions: permissionState,
       saving: createSaving('idle', null, {
         sequence: 0,
         requestedSequence: internal.save.latestRequested,
@@ -667,30 +668,12 @@ export function createFormCore({
       index: internal.index,
     });
 
-    const permissionDenied = permissionState.readonly || permissionState.disabled;
-    const status = permissionDenied
-      ? createStatus('permission-denied')
-      : statusFromValidation(validation);
-    const blockers = permissionDenied
-      ? [
-        createBlocker({
-          type: 'permission-denied',
-          message: 'Editing is not allowed by current permissions.',
-          details: permissionState,
-        }),
-      ]
-      : [];
-
     patchState({
       ...basePatch,
-      status,
-      errors: {
-        ...basePatch.errors,
-        blockers,
-      },
+      status: statusFromValidation(validation),
       compatibility: {
         ...compatibility,
-        editable: compatibility.editable && !permissionDenied,
+        editable: compatibility.editable,
       },
       model: {
         formModel: runtime.root,
@@ -704,10 +687,9 @@ export function createFormCore({
       },
       lastCommandResult: createCommandResult('core.load', {
         started: false,
-        ready: !permissionDenied,
+        ready: true,
       }),
     });
-
     return emit();
   }
 
@@ -738,11 +720,7 @@ export function createFormCore({
     const commandType = 'array.add';
     if (!isMutationAllowed(commandType)) return getState();
 
-    const arrayDefinition = findDefinitionByPointer({
-      definition: internal.definition,
-      pointer,
-    });
-    const arrayNode = findNodeByPointer({ index: internal.index, pointer });
+    const { arrayDefinition, arrayNode } = getArrayContext(pointer);
     if (!canAddItem(arrayDefinition, arrayNode)) {
       return rejectMutation(commandType, 'array-add-not-allowed');
     }
@@ -761,12 +739,7 @@ export function createFormCore({
     const commandType = 'array.insert';
     if (!isMutationAllowed(commandType)) return getState();
 
-    const parentPointer = getParentPointer(pointer);
-    const arrayDefinition = findDefinitionByPointer({
-      definition: internal.definition,
-      pointer: parentPointer,
-    });
-    const arrayNode = findNodeByPointer({ index: internal.index, pointer: parentPointer });
+    const { arrayDefinition, arrayNode } = getParentArrayContext(pointer);
     if (!canAddItem(arrayDefinition, arrayNode)) {
       return rejectMutation(commandType, 'array-insert-not-allowed');
     }
@@ -785,12 +758,7 @@ export function createFormCore({
     const commandType = 'array.remove';
     if (!isMutationAllowed(commandType)) return getState();
 
-    const parentPointer = getParentPointer(pointer);
-    const arrayDefinition = findDefinitionByPointer({
-      definition: internal.definition,
-      pointer: parentPointer,
-    });
-    const arrayNode = findNodeByPointer({ index: internal.index, pointer: parentPointer });
+    const { arrayDefinition, arrayNode } = getParentArrayContext(pointer);
     if (!canRemoveItem(arrayDefinition, arrayNode)) {
       return rejectMutation(commandType, 'array-remove-not-allowed');
     }
@@ -808,12 +776,7 @@ export function createFormCore({
     const commandType = 'array.move';
     if (!isMutationAllowed(commandType)) return getState();
 
-    const parentPointer = getParentPointer(pointer);
-    const arrayDefinition = findDefinitionByPointer({
-      definition: internal.definition,
-      pointer: parentPointer,
-    });
-    const arrayNode = findNodeByPointer({ index: internal.index, pointer: parentPointer });
+    const { arrayDefinition, arrayNode } = getParentArrayContext(pointer);
     if (!canReorderItem(arrayDefinition, arrayNode)) {
       return rejectMutation(commandType, 'array-move-not-allowed');
     }
@@ -840,6 +803,14 @@ export function createFormCore({
     return emit();
   }
 
+  const commandHandlers = {
+    'field.change': ({ pointer, value }) => changeField({ pointer, value }),
+    'array.add': ({ pointer }) => arrayAdd({ pointer }),
+    'array.insert': ({ pointer }) => arrayInsert({ pointer }),
+    'array.remove': ({ pointer }) => arrayRemove({ pointer }),
+    'array.move': ({ pointer, beforePointer }) => arrayMove({ pointer, beforePointer }),
+  };
+
   async function dispatch(command = {}) {
     if (!command || typeof command !== 'object') {
       return rejectInvalidCommand(command, 'command-must-be-object');
@@ -849,32 +820,12 @@ export function createFormCore({
       return rejectInvalidCommand(command, 'command-type-required');
     }
 
-    switch (command.type) {
-      case 'field.change':
-        return changeField({
-          pointer: command.pointer,
-          value: command.value,
-        });
-      case 'array.add':
-        return arrayAdd({
-          pointer: command.pointer,
-        });
-      case 'array.insert':
-        return arrayInsert({
-          pointer: command.pointer,
-        });
-      case 'array.remove':
-        return arrayRemove({
-          pointer: command.pointer,
-        });
-      case 'array.move':
-        return arrayMove({
-          pointer: command.pointer,
-          beforePointer: command.beforePointer,
-        });
-      default:
-        return rejectInvalidCommand(command, 'unknown-command');
+    const handler = commandHandlers[command.type];
+    if (!handler) {
+      return rejectInvalidCommand(command, 'unknown-command');
     }
+
+    return handler(command);
   }
 
   function subscribe(listener, options = {}) {

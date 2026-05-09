@@ -191,7 +191,6 @@ sc-form-sidebar {
 .sc-form-runtime-status[data-state='persistence-failed'],
 .sc-form-runtime-status[data-state='schema-unsupported'],
 .sc-form-runtime-status[data-state='invalid-document'],
-.sc-form-runtime-status[data-state='document-incompatible'],
-.sc-form-runtime-status[data-state='permission-denied'] {
+.sc-form-runtime-status[data-state='document-incompatible'] {
   background: var(--s2-red-100, #fee2e2);
 }

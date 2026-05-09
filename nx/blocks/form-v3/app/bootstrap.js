@@ -7,7 +7,6 @@ export function createFormApp({
   path,
   schema,
   document,
-  permissions,
   onState,
 } = {}) {
   const core = createFormCore({
@@ -27,7 +26,6 @@ export function createFormApp({
     await core.load({
       schema,
       document,
-      permissions,
     });
     return state.getSnapshot();
   }

@@ -60,14 +60,13 @@ class StructuredContentForm extends LitElement {
     this._app = null;
   }
 
-  async _startApp({ schema, document, permissions }) {
+  async _startApp({ schema, json }) {
     this._disposeApp();
 
     this._app = createFormApp({
       path: this.details?.fullpath,
       schema,
-      document,
-      permissions,
+      document: json,
       onState: (snapshot) => {
         this._state = snapshot;
         this.requestUpdate();
@@ -92,8 +91,7 @@ class StructuredContentForm extends LitElement {
     if (context.status === 'ready') {
       await this._startApp({
         schema: context.schema,
-        document: context.document,
-        permissions: { canEdit: true },
+        json: context.json,
       });
     }
   }
@@ -107,7 +105,7 @@ class StructuredContentForm extends LitElement {
     const schema = this._contextState.schemas?.[schemaName];
     if (!schema || !schemaName) return;
 
-    const document = {
+    const json = {
       metadata: {
         title: this.details?.name ?? '',
         schemaName,
@@ -120,13 +118,12 @@ class StructuredContentForm extends LitElement {
       status: 'ready',
       schemaName,
       schema,
-      document,
+      json,
     };
 
     await this._startApp({
       schema,
-      document,
-      permissions: { canEdit: true },
+      json,
     });
   }
 
