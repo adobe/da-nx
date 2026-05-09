@@ -2,10 +2,10 @@ import {
   convertHtmlToJson,
   isEmptyDocumentHtml,
   isStructuredContentHtml,
-} from '../../form-v2/adapters/html2json.js';
-import { loadDocumentHtml } from '../../form-v2/services/loader/document-loader.js';
-import { getDisplayPath, isDocumentResource } from '../../form-v2/services/loader/document-resource.js';
-import { loadSchemas } from '../../form-v2/services/schema/schema-registry.js';
+} from './boundary/html2json.js';
+import { loadDocumentHtml } from './boundary/document-loader.js';
+import { getDisplayPath, isDocumentResource } from './boundary/document-resource.js';
+import { loadSchemas } from './boundary/schema-registry.js';
 
 function mapLoadErrorToBlocker(result) {
   const status = result?.status;

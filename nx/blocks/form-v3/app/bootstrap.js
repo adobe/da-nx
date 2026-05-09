@@ -1,4 +1,4 @@
-import { createFormCore } from '../core/index.js';
+import { createFormCore } from '../core/form-core.js';
 import { createStateBinding } from '../ui-lit/bindings/index.js';
 import { createFormV3Controller } from '../ui-lit/controllers/form-v3-controller.js';
 

@@ -6,16 +6,16 @@ import 'https://da.live/blocks/shared/da-dialog/da-dialog.js';
 
 import { createFormV3App } from './app/bootstrap.js';
 import { loadFormV3Context } from './app/context-loader.js';
-import { saveJsonDocument } from '../form-v2/services/persistence/json-api.js';
+import { saveJsonDocument } from './app/boundary/json-api.js';
 
-import '../form-v2/views/editor.js';
-import '../form-v2/views/sidebar.js';
-import '../form-v2/views/preview.js';
+import './ui-lit/components/editor.js';
+import './ui-lit/components/sidebar.js';
+import './ui-lit/components/preview.js';
 
 await import('../../public/sl/components.js');
 
 const { default: getStyle } = await import('../../utils/styles.js');
-const style = await getStyle(new URL('./form-v3.css', import.meta.url).href);
+const style = await getStyle(new URL('./ui-lit/components/form-shell.css', import.meta.url).href);
 
 const EL_NAME = 'da-sc-form-v3';
 const PREVIEW_PREFIX = 'https://da-sc.adobeaem.workers.dev/preview';
@@ -173,8 +173,7 @@ class StructuredContentFormV3 extends LitElement {
   }
 
   _renderBlockedState() {
-    const blocker = this._contextState.blocker ?? {};
-    const displayPath = this._contextState.displayPath;
+    const { blocker = {}, displayPath } = this._contextState ?? {};
     const schemaEditorHref = this._getSchemaEditorHref();
     const action = {
       label: 'Return to Home',

@@ -1,0 +1,128 @@
+:host {
+  display: block;
+  box-sizing: border-box;
+  min-height: 400px;
+  padding: 24px;
+  border-radius: 8px;
+  background: var(--background-color, #fff);
+  box-shadow: rgb(181 181 181 / 30%) 0 0 10px;
+}
+
+.hint {
+  color: var(--dark-color, #555);
+  margin: 0;
+}
+
+.editor-root {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.v3-node,
+.v3-array-item,
+.v3-field {
+  border: 1px solid var(--sl-color-neutral-200, #e5e7eb);
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: var(--sl-color-neutral-0, #fff);
+}
+
+.v3-node.is-active,
+.v3-array-item.is-active,
+.v3-field.is-active {
+  border-color: var(--s2-blue-400, #60a5fa);
+  box-shadow: 0 0 0 1px rgb(96 165 250 / 35%);
+}
+
+.v3-node-title,
+.v3-array-item-title {
+  margin: 0;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.v3-node-header,
+.v3-array-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.v3-array-item-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.v3-field {
+  display: block;
+}
+
+.v3-field input:not([type='checkbox']),
+.v3-field select {
+  width: 100%;
+  min-height: 34px;
+  margin-top: 6px;
+  padding: 4px 8px;
+  border: 1px solid var(--light-color, #d0d0d0);
+  border-radius: 6px;
+  box-sizing: border-box;
+  font: inherit;
+}
+
+.v3-field-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.v3-field-checkbox p {
+  margin: 0;
+}
+
+.v3-error {
+  margin: 6px 0 0;
+  color: var(--s2-red-900, #991b1b);
+  font-size: 0.8rem;
+}
+
+.v3-action {
+  border: 1px solid var(--sl-color-neutral-300, #d1d5db);
+  border-radius: 6px;
+  background: var(--sl-color-neutral-0, #fff);
+  font: inherit;
+  font-size: 0.8rem;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+
+.v3-action[disabled] {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.v3-action.danger {
+  color: var(--s2-red-800, #b91c1c);
+}
+
+.v3-unsupported {
+  border-style: dashed;
+  background: var(--s2-orange-50, #fff7ed);
+}
+
+.v3-unsupported-message {
+  margin: 8px 0 0;
+  color: var(--s2-orange-900, #7c2d12);
+}
+
+.v3-item-label {
+  color: var(--s2-gray-700, #374151);
+  margin-right: 6px;
+}
+
+.is-required {
+  color: var(--s2-red-900, #991b1b);
+  margin-left: 2px;
+}
