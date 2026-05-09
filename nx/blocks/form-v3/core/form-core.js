@@ -5,10 +5,8 @@ import { findDefinitionByPointer } from './model/definition-pointer.js';
 import { getParentPointer } from './model/json-pointer.js';
 import { buildRuntimeFormModel } from './model/runtime-model-builder.js';
 import { createRuntimeModelIndex, findNodeByPointer } from './model/runtime-model-index.js';
-import { createPersistenceService } from './persistence/persistence-service.js';
 import { compileSchema } from './schema/schema-compiler.js';
 import { createInitialState, createStateStore } from './state/state-store.js';
-import { createStateStream } from './state/state-stream.js';
 import { validateDocument } from './validation/validation-engine.js';
 
 function nowIso() {
@@ -155,10 +153,6 @@ export function createFormCore({
   saveDocument,
 } = {}) {
   const stateStore = createStateStore(createInitialState());
-  const stateStream = createStateStream({
-    initialState: stateStore.getState(),
-  });
-  const persistence = createPersistenceService({ saveDocument });
 
   const internal = {
     path: path ?? '',
@@ -176,12 +170,19 @@ export function createFormCore({
     return stateStore.getState();
   }
 
+  function patchState(partial) {
+    stateStore.setState({
+      ...getMutableState(),
+      ...partial,
+    });
+  }
+
   function emit() {
-    return stateStream.publish(getMutableState());
+    return stateStore.setState(getMutableState(), { emit: true });
   }
 
   function getState() {
-    return stateStream.getSnapshot();
+    return deepClone(getMutableState());
   }
 
   function setStatus({ code, details = null, blockers }) {
@@ -196,7 +197,7 @@ export function createFormCore({
       };
     }
 
-    stateStore.patchState(patch);
+    patchState(patch);
   }
 
   function compatibilityStatusToCode(compatibilityStatus) {
@@ -231,7 +232,7 @@ export function createFormCore({
       });
     }
 
-    stateStore.patchState({
+    patchState({
       lastCommandResult: createCommandResult(type, { changed: false, reason }),
     });
     return emit();
@@ -264,7 +265,7 @@ export function createFormCore({
       previousRuntime: internal.runtime,
     });
     if (!runtime?.root) {
-      stateStore.patchState({
+      patchState({
         status: createStatus('document-incompatible'),
         errors: {
           ...getMutableState().errors,
@@ -299,7 +300,7 @@ export function createFormCore({
     internal.runtime = runtime;
     internal.index = index;
 
-    stateStore.patchState({
+    patchState({
       status: statusFromValidation(validation),
       errors: {
         ...getMutableState().errors,
@@ -334,7 +335,7 @@ export function createFormCore({
     const documentToPersist = deepClone(currentState.document?.values);
     internal.save.latestRequested = sequence;
 
-    stateStore.patchState({
+    patchState({
       status: createStatus('saving', { sequence }),
       errors: {
         ...currentState.errors,
@@ -349,10 +350,19 @@ export function createFormCore({
     });
     emit();
 
-    const result = await persistence.persist({
-      path: internal.path,
-      document: documentToPersist,
-    });
+    const persistenceResponse = typeof saveDocument === 'function'
+      ? await saveDocument({
+        path: internal.path,
+        document: documentToPersist,
+      })
+      : { ok: false, error: 'Missing persistence adapter.' };
+    const result = persistenceResponse?.ok
+      ? { ok: true }
+      : {
+        ok: false,
+        error: persistenceResponse?.error ?? 'Persistence failed.',
+        status: persistenceResponse?.status,
+      };
 
     // Ignore stale completion when a newer save sequence has started.
     if (sequence !== internal.save.latestRequested) {
@@ -367,7 +377,7 @@ export function createFormCore({
     internal.save.latestAcknowledged = sequence;
 
     if (result.ok) {
-      stateStore.patchState({
+      patchState({
         status: createStatus('saved', { sequence }),
         errors: {
           ...getMutableState().errors,
@@ -389,7 +399,7 @@ export function createFormCore({
       return { ok: true, sequence };
     }
 
-    stateStore.patchState({
+    patchState({
       status: createStatus('persistence-failed', {
         sequence,
         message: result.error ?? 'Persistence failed.',
@@ -468,7 +478,7 @@ export function createFormCore({
 
   async function applyMutationAndPersist({ commandType, mutationResult }) {
     if (!mutationResult?.changed) {
-      stateStore.patchState({
+      patchState({
         lastCommandResult: createCommandResult(commandType, { changed: false }),
       });
       return emit();
@@ -493,7 +503,7 @@ export function createFormCore({
     permissions,
   }) {
     const currentState = getMutableState();
-    stateStore.patchState({
+    patchState({
       loading: createLoading('loading'),
       status: createStatus('loading'),
       errors: {
@@ -533,7 +543,7 @@ export function createFormCore({
 
     if (compatibility.status === 'schema-unsupported' || !internal.definition) {
       const unsupportedFeatures = compatibility.unsupportedFeatures ?? [];
-      stateStore.patchState({
+      patchState({
         ...basePatch,
         status: createStatus('schema-unsupported', {
           unsupportedCount: unsupportedFeatures.length,
@@ -573,7 +583,7 @@ export function createFormCore({
     }
 
     if (!parsedDocument.ok) {
-      stateStore.patchState({
+      patchState({
         ...basePatch,
         status: createStatus('invalid-document'),
         errors: {
@@ -612,7 +622,7 @@ export function createFormCore({
     });
 
     if (!runtime?.root) {
-      stateStore.patchState({
+      patchState({
         ...basePatch,
         status: createStatus('document-incompatible'),
         errors: {
@@ -671,7 +681,7 @@ export function createFormCore({
       ]
       : [];
 
-    stateStore.patchState({
+    patchState({
       ...basePatch,
       status,
       errors: {
@@ -820,7 +830,7 @@ export function createFormCore({
 
   function rejectInvalidCommand(command, reason = 'invalid-command') {
     const type = command?.type ?? 'command.invalid';
-    stateStore.patchState({
+    patchState({
       lastCommandResult: createCommandResult(type, {
         changed: false,
         ignored: true,
@@ -868,11 +878,11 @@ export function createFormCore({
   }
 
   function subscribe(listener, options = {}) {
-    return stateStream.subscribe(listener, options);
+    return stateStore.subscribe(listener, options);
   }
 
   function dispose() {
-    stateStream.clear();
+    stateStore.dispose();
   }
 
   return {

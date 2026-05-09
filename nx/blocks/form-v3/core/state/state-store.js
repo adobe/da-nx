@@ -2,6 +2,13 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+function cloneSnapshot(value) {
+  if (typeof structuredClone === 'function') {
+    return structuredClone(value);
+  }
+  return JSON.parse(JSON.stringify(value));
+}
+
 export function createInitialState() {
   return {
     status: {
@@ -50,24 +57,44 @@ export function createInitialState() {
 }
 
 export function createStateStore(initial = createInitialState()) {
-  let state = initial;
+  let state = cloneSnapshot(initial);
+  const listeners = new Set();
+
+  function notify() {
+    const snapshot = cloneSnapshot(state);
+    for (const listener of listeners) {
+      listener(snapshot);
+    }
+    return snapshot;
+  }
 
   return {
     getState() {
       return state;
     },
 
-    replaceState(nextState) {
+    setState(nextState, { emit = false } = {}) {
       state = nextState;
+      if (emit) {
+        return notify();
+      }
       return state;
     },
 
-    patchState(partial) {
-      state = {
-        ...state,
-        ...partial,
+    subscribe(listener, { emitCurrent = true } = {}) {
+      listeners.add(listener);
+
+      if (emitCurrent) {
+        listener(cloneSnapshot(state));
+      }
+
+      return () => {
+        listeners.delete(listener);
       };
-      return state;
+    },
+
+    dispose() {
+      listeners.clear();
     },
   };
 }
