@@ -8,17 +8,49 @@
 
 .da-sc-form-message {
   background: var(--background-color, #fff);
-  border: 1px solid var(--light-color, #e4e4e4);
+  border: none;
   border-radius: 8px;
   padding: 16px;
+  text-align: center;
+}
+
+.da-sc-form-message-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 8px;
 }
 
 .da-sc-form-message h2 {
-  margin: 0 0 8px;
+  margin: 0;
 }
 
 .da-sc-form-message p {
   margin: 0 0 12px;
+}
+
+.da-sc-form-progress-circle {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--sl-color-neutral-300, #d1d5db);
+  border-top-color: var(--sl-color-primary-600, #2563eb);
+  border-right-color: var(--sl-color-primary-600, #2563eb);
+  border-radius: 50%;
+  flex-shrink: 0;
+  animation: da-form-progress-circle-spin 700ms linear infinite;
+}
+
+@keyframes da-form-progress-circle-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .da-sc-form-progress-circle {
+    animation-duration: 2s;
+  }
 }
 
 .da-sc-form-actions {

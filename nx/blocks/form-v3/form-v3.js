@@ -149,22 +149,29 @@ class StructuredContentForm extends LitElement {
     window.location.href = `https://da.live${query}#/${owner}/${repo}`;
   }
 
-  _renderLoaderMessage(title, body, { showHomeAction = false } = {}) {
-    return html`
-      <section class="da-sc-form-message">
-        <h2>${title}</h2>
-        <p>${body}</p>
-        ${showHomeAction ? html`
-          <div class="da-sc-form-actions">
-            <button
-              type="button"
-              class="da-sc-form-button"
-              @click=${() => this._goToRepoRoot()}
-            >Return to Home</button>
-          </div>
-        ` : nothing}
-      </section>
-    `;
+  _renderLoaderMessage(title, body, { showHomeAction = false, showProgress = false } = {}) {
+    return this._renderSchemaSetupState(html`
+      <div class="da-form-schema-shell">
+        <section class="da-sc-form-message">
+          ${showProgress || title ? html`
+            <div class="da-sc-form-message-title-row">
+              ${showProgress ? html`<span class="da-sc-form-progress-circle" aria-hidden="true"></span>` : nothing}
+              ${title ? html`<h2>${title}</h2>` : nothing}
+            </div>
+          ` : nothing}
+          <p>${body}</p>
+          ${showHomeAction ? html`
+            <div class="da-sc-form-actions">
+              <button
+                type="button"
+                class="da-sc-form-button"
+                @click=${() => this._goToRepoRoot()}
+              >Return to Home</button>
+            </div>
+          ` : nothing}
+        </section>
+      </div>
+    `);
   }
 
   _renderBlockedState() {
@@ -319,7 +326,11 @@ class StructuredContentForm extends LitElement {
 
   _renderReadyState() {
     if (!this._state) {
-      return this._renderLoaderMessage('Loading', 'Preparing structured content editor...');
+      return this._renderLoaderMessage(
+        '',
+        'Preparing structured content editor...',
+        { showProgress: true },
+      );
     }
 
     const context = this._toViewContext();
@@ -353,14 +364,18 @@ class StructuredContentForm extends LitElement {
 
     const { status } = this._contextState;
     if (status === 'idle' || status === 'loading') {
-      return this._renderLoaderMessage('Loading', 'Preparing structured content editor...');
+      return this._renderLoaderMessage(
+        '',
+        'Preparing structured content editor...',
+        { showProgress: true },
+      );
     }
     if (status === 'blocked') return this._renderBlockedState();
     if (status === 'select-schema') return this._renderSchemaSetupState(this._renderSchemaSelector());
     if (status === 'no-schemas') return this._renderSchemaSetupState(this._renderNoSchemas());
     if (status === 'ready') return this._renderReadyState();
 
-    return this._renderLoaderMessage('Loading', 'Preparing structured content editor...');
+    return this._renderLoaderMessage('', 'Preparing structured content editor...', { showProgress: true });
   }
 }
 
