@@ -19,11 +19,12 @@ class StructuredContentFormSidebar extends LitElement {
     if (!changed.has('context')) return;
 
     const prevContext = changed.get('context');
-    const prevPointer = prevContext?.activeNavPointer;
+    const prevSequence = prevContext?.activeNavSequence ?? -1;
     const nextPointer = this.context?.activeNavPointer;
     const nextOrigin = this.context?.activeNavOrigin;
+    const nextSequence = this.context?.activeNavSequence ?? 0;
 
-    if (!nextPointer || nextPointer === prevPointer) return;
+    if (!nextPointer || nextSequence === prevSequence) return;
     if (nextOrigin !== 'editor') return;
     this._scrollToPointer(nextPointer);
   }

@@ -491,6 +491,7 @@ export function createFormCore({
       selection: {
         activePointer: '/data',
         origin: null,
+        sequence: 0,
       },
       saving: createSaving('idle', null, {
         sequence: 0,
@@ -635,16 +636,21 @@ export function createFormCore({
   }
 
   function handleSelectionCommand({ pointer, origin = null, type = 'selection.change' }) {
-    if (!pointer || pointer === getMutableState().selection.activePointer) {
+    if (!pointer) {
       return getState();
     }
+
+    const currentSelection = getMutableState().selection ?? {};
+    const changed = pointer !== currentSelection.activePointer
+      || origin !== currentSelection.origin;
 
     stateStore.patchState({
       selection: {
         activePointer: pointer,
         origin,
+        sequence: (currentSelection.sequence ?? 0) + 1,
       },
-      lastCommandResult: createCommandResult(type, { changed: true }),
+      lastCommandResult: createCommandResult(type, { changed }),
     });
     return emit();
   }

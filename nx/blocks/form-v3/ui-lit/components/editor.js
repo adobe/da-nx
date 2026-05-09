@@ -30,23 +30,24 @@ class StructuredContentFormEditor extends LitElement {
     if (!changed.has('context')) return;
 
     const prevContext = changed.get('context');
-    const prevPointer = prevContext?.activeNavPointer;
+    const prevSequence = prevContext?.activeNavSequence ?? -1;
     const nextPointer = this.context?.activeNavPointer;
     const nextOrigin = this.context?.activeNavOrigin;
+    const nextSequence = this.context?.activeNavSequence ?? 0;
 
-    if (!nextPointer || nextPointer === prevPointer) return;
+    if (!nextPointer || nextSequence === prevSequence) return;
     if (nextOrigin !== 'sidebar') return;
-    this._scrollToPointer(nextPointer);
+    this._scrollToPointer(nextPointer, { block: 'start' });
   }
 
-  _scrollToPointer(pointer) {
+  _scrollToPointer(pointer, { block = 'start', behavior = 'auto' } = {}) {
     const safePointer = typeof CSS !== 'undefined' && typeof CSS.escape === 'function'
       ? CSS.escape(pointer)
       : pointer.replace(/"/g, '\\"');
 
     const el = this.shadowRoot?.querySelector(`[data-pointer="${safePointer}"]`);
     if (!el) return;
-    el.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+    el.scrollIntoView({ block, behavior });
   }
 
   _emitIntent(detail) {

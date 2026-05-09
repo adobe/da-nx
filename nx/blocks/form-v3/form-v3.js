@@ -320,6 +320,7 @@ class StructuredContentForm extends LitElement {
       },
       activeNavPointer: this._state?.selection?.activePointer,
       activeNavOrigin: this._state?.selection?.origin ?? null,
+      activeNavSequence: this._state?.selection?.sequence ?? 0,
       json: this._state?.values,
     };
   }

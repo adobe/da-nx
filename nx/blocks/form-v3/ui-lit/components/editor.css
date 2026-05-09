@@ -225,6 +225,10 @@
   margin-left: 2px;
 }
 
+.editor-root [data-pointer] {
+  scroll-margin-top: calc(var(--sl-spacing-x-large, 16px) + var(--sl-spacing-small, 8px));
+}
+
 .form-sr-only {
   position: absolute;
   width: 1px;

@@ -29,6 +29,7 @@ export function createInitialState() {
     selection: {
       activePointer: '/data',
       origin: null,
+      sequence: 0,
     },
     permissions: {
       readonly: false,
