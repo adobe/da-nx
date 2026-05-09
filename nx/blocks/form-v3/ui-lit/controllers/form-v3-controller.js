@@ -8,6 +8,10 @@ export function createFormV3Controller({ core }) {
       return core.getState();
     },
 
+    async dispatch(command) {
+      return core.dispatch(command);
+    },
+
     subscribe(listener) {
       return core.subscribe(listener);
     },
@@ -17,27 +21,48 @@ export function createFormV3Controller({ core }) {
     },
 
     async handleFieldChange({ pointer, value }) {
-      return core.changeField({ pointer, value });
+      return core.dispatch({
+        type: 'field.change',
+        pointer,
+        value,
+      });
     },
 
     async handleArrayAdd({ pointer }) {
-      return core.arrayAdd({ pointer });
+      return core.dispatch({
+        type: 'array.add',
+        pointer,
+      });
     },
 
     async handleArrayInsert({ pointer }) {
-      return core.arrayInsert({ pointer });
+      return core.dispatch({
+        type: 'array.insert',
+        pointer,
+      });
     },
 
     async handleArrayRemove({ pointer }) {
-      return core.arrayRemove({ pointer });
+      return core.dispatch({
+        type: 'array.remove',
+        pointer,
+      });
     },
 
     async handleArrayMove({ pointer, beforePointer }) {
-      return core.arrayMove({ pointer, beforePointer });
+      return core.dispatch({
+        type: 'array.move',
+        pointer,
+        beforePointer,
+      });
     },
 
-    handleSelectionChange({ pointer, origin }) {
-      return core.setSelection({ pointer, origin });
+    async handleSelectionChange({ pointer, origin }) {
+      return core.dispatch({
+        type: 'selection.change',
+        pointer,
+        origin,
+      });
     },
   };
 }

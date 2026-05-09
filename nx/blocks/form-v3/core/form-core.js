@@ -385,6 +385,21 @@ export function createFormCore({
     return emit();
   }
 
+  function handleSelectionCommand({ pointer, origin = null, type = 'selection.change' }) {
+    if (!pointer || pointer === getState().selection.activePointer) {
+      return getState();
+    }
+
+    stateStore.patchState({
+      selection: {
+        activePointer: pointer,
+        origin,
+      },
+      lastCommandResult: createCommandResult(type, { changed: true }),
+    });
+    return emit();
+  }
+
   async function changeField({ pointer, value }) {
     const commandType = 'field.change';
     if (!isMutationAllowed(commandType)) return getState();
@@ -502,19 +517,59 @@ export function createFormCore({
     });
   }
 
-  function setSelection({ pointer, origin = null }) {
-    if (!pointer || pointer === getState().selection.activePointer) {
-      return getState();
-    }
-
+  function rejectInvalidCommand(command, reason = 'invalid-command') {
+    const type = command?.type ?? 'command.invalid';
     stateStore.patchState({
-      selection: {
-        activePointer: pointer,
-        origin,
-      },
-      lastCommandResult: createCommandResult('selection.change', { changed: true }),
+      lastCommandResult: createCommandResult(type, {
+        changed: false,
+        ignored: true,
+        reason,
+      }),
     });
     return emit();
+  }
+
+  async function dispatch(command = {}) {
+    if (!command || typeof command !== 'object') {
+      return rejectInvalidCommand(command, 'command-must-be-object');
+    }
+
+    if (!command.type || typeof command.type !== 'string') {
+      return rejectInvalidCommand(command, 'command-type-required');
+    }
+
+    switch (command.type) {
+      case 'field.change':
+        return changeField({
+          pointer: command.pointer,
+          value: command.value,
+        });
+      case 'array.add':
+        return arrayAdd({
+          pointer: command.pointer,
+        });
+      case 'array.insert':
+        return arrayInsert({
+          pointer: command.pointer,
+        });
+      case 'array.remove':
+        return arrayRemove({
+          pointer: command.pointer,
+        });
+      case 'array.move':
+        return arrayMove({
+          pointer: command.pointer,
+          beforePointer: command.beforePointer,
+        });
+      case 'selection.change':
+        return handleSelectionCommand({
+          pointer: command.pointer,
+          origin: command.origin ?? null,
+          type: command.type,
+        });
+      default:
+        return rejectInvalidCommand(command, 'unknown-command');
+    }
   }
 
   function subscribe(listener) {
@@ -530,14 +585,9 @@ export function createFormCore({
 
   return {
     load,
+    dispatch,
     getState,
     subscribe,
     dispose,
-    changeField,
-    arrayAdd,
-    arrayInsert,
-    arrayRemove,
-    arrayMove,
-    setSelection,
   };
 }
