@@ -4,6 +4,12 @@ function nowIso() {
 
 export function createInitialState() {
   return {
+    status: {
+      code: 'idle',
+      details: null,
+      updatedAt: nowIso(),
+    },
+    blockers: [],
     formModel: null,
     values: null,
     errors: [],

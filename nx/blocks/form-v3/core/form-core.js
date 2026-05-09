@@ -20,22 +20,73 @@ function deepClone(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
-function normalizeDocument(document) {
-  const candidate = document && typeof document === 'object'
-    ? deepClone(document)
-    : {};
+function createStatus(code, details = null) {
+  return {
+    code,
+    details,
+    updatedAt: nowIso(),
+  };
+}
 
-  const metadata = candidate.metadata && typeof candidate.metadata === 'object' && !Array.isArray(candidate.metadata)
-    ? candidate.metadata
-    : {};
-  const data = candidate.data && typeof candidate.data === 'object' && !Array.isArray(candidate.data)
-    ? candidate.data
-    : {};
+function createBlocker({ type, message, details = null }) {
+  return {
+    type,
+    message,
+    details,
+    at: nowIso(),
+  };
+}
+
+function parseDocumentInput(document) {
+  if (!document || typeof document !== 'object' || Array.isArray(document)) {
+    return {
+      ok: false,
+      blocker: createBlocker({
+        type: 'invalid-document',
+        message: 'Document payload must be an object.',
+      }),
+    };
+  }
+
+  const candidate = deepClone(document);
+
+  if (candidate.metadata === undefined) {
+    candidate.metadata = {};
+  }
+
+  if (candidate.metadata === null || typeof candidate.metadata !== 'object' || Array.isArray(candidate.metadata)) {
+    return {
+      ok: false,
+      blocker: createBlocker({
+        type: 'invalid-document',
+        message: 'Document metadata must be an object when present.',
+      }),
+    };
+  }
+
+  if (!('data' in candidate)) {
+    return {
+      ok: false,
+      blocker: createBlocker({
+        type: 'invalid-document',
+        message: 'Document payload must include a data object.',
+      }),
+    };
+  }
+
+  if (candidate.data === null || typeof candidate.data !== 'object' || Array.isArray(candidate.data)) {
+    return {
+      ok: false,
+      blocker: createBlocker({
+        type: 'invalid-document',
+        message: 'Document data must be an object.',
+      }),
+    };
+  }
 
   return {
-    ...candidate,
-    metadata,
-    data,
+    ok: true,
+    document: candidate,
   };
 }
 
@@ -86,6 +137,16 @@ function createCommandResult(type, patch = {}) {
   };
 }
 
+function statusFromValidation(validation) {
+  if ((validation?.errors?.length ?? 0) > 0) {
+    return createStatus('validation-error', {
+      count: validation.errors.length,
+    });
+  }
+
+  return createStatus('ready');
+}
+
 export function createFormCore({
   path,
   saveDocument,
@@ -116,7 +177,50 @@ export function createFormCore({
     return stateStream.getSnapshot();
   }
 
+  function setStatus({ code, details = null, blockers }) {
+    const patch = {
+      status: createStatus(code, details),
+    };
+
+    if (blockers !== undefined) {
+      patch.blockers = blockers;
+    }
+
+    stateStore.patchState(patch);
+  }
+
+  function compatibilityStatusToCode(compatibilityStatus) {
+    if (compatibilityStatus === 'schema-unsupported') return 'schema-unsupported';
+    if (compatibilityStatus === 'document-incompatible') return 'document-incompatible';
+    if (compatibilityStatus === 'invalid-document') return 'invalid-document';
+    if (compatibilityStatus === 'compatible') return 'ready';
+    return 'loading';
+  }
+
   function rejectMutation(type, reason) {
+    const current = getMutableState();
+    if (reason === 'permission-denied') {
+      setStatus({
+        code: 'permission-denied',
+        blockers: [
+          createBlocker({
+            type: 'permission-denied',
+            message: 'Editing is not allowed by current permissions.',
+            details: current.permissions,
+          }),
+        ],
+      });
+    } else if (
+      reason === 'document-incompatible'
+      || reason === 'invalid-document'
+      || reason === 'schema-unsupported'
+      || reason === 'missing-definition'
+    ) {
+      setStatus({
+        code: compatibilityStatusToCode(current.compatibility.status),
+      });
+    }
+
     stateStore.patchState({
       lastCommandResult: createCommandResult(type, { changed: false, reason }),
     });
@@ -131,12 +235,12 @@ export function createFormCore({
     }
 
     if (state.compatibility.status !== 'compatible') {
-      rejectMutation(type, 'document-incompatible');
+      rejectMutation(type, state.compatibility.status || 'document-incompatible');
       return false;
     }
 
     if (!internal.definition) {
-      rejectMutation(type, 'missing-definition');
+      rejectMutation(type, 'schema-unsupported');
       return false;
     }
 
@@ -151,6 +255,13 @@ export function createFormCore({
     });
     if (!runtime?.root) {
       stateStore.patchState({
+        status: createStatus('document-incompatible'),
+        blockers: [
+          createBlocker({
+            type: 'incompatible-structure',
+            message: 'Document structure is incompatible with the compiled form model.',
+          }),
+        ],
         compatibility: {
           status: 'document-incompatible',
           editable: false,
@@ -176,6 +287,8 @@ export function createFormCore({
     internal.index = index;
 
     stateStore.patchState({
+      status: statusFromValidation(validation),
+      blockers: [],
       formModel: runtime.root,
       values: runtime.document,
       errors: validation.errors,
@@ -193,6 +306,8 @@ export function createFormCore({
   async function persistCurrent(commandType) {
     const currentState = getMutableState();
     stateStore.patchState({
+      status: createStatus('saving'),
+      blockers: [],
       saving: createSaving('saving'),
       lastPersistenceError: null,
     });
@@ -205,6 +320,8 @@ export function createFormCore({
 
     if (result.ok) {
       stateStore.patchState({
+        status: createStatus('saved'),
+        blockers: [],
         saving: createSaving('saved'),
         lastPersistenceError: null,
         lastCommandResult: createCommandResult(commandType, {
@@ -217,6 +334,17 @@ export function createFormCore({
     }
 
     stateStore.patchState({
+      status: createStatus('persistence-failed', {
+        message: result.error ?? 'Persistence failed.',
+        status: result.status ?? null,
+      }),
+      blockers: [
+        createBlocker({
+          type: 'persistence-failed',
+          message: result.error ?? 'Persistence failed.',
+          details: { status: result.status ?? null },
+        }),
+      ],
       saving: createSaving('failed', result.error ?? 'Persistence failed.'),
       lastPersistenceError: {
         message: result.error ?? 'Persistence failed.',
@@ -299,6 +427,8 @@ export function createFormCore({
   }) {
     stateStore.patchState({
       loading: createLoading('loading'),
+      status: createStatus('loading'),
+      blockers: [],
       lastCommandResult: createCommandResult('core.load', { started: true }),
     });
     emit();
@@ -306,40 +436,80 @@ export function createFormCore({
     const permissionState = evaluatePermissions({ permissions });
     const compilation = compileSchema({ schema });
     const compatibility = getCompatibility(compilation);
-    const normalizedDocument = normalizeDocument(document);
+    const parsedDocument = parseDocumentInput(document);
 
     internal.schema = compilation.schema;
     internal.definition = compilation.definition;
+    internal.runtime = null;
+    internal.index = null;
 
-    const nextPatch = {
+    const basePatch = {
       loading: createLoading('ready'),
       permissions: permissionState,
-      compatibility,
       selection: {
         activePointer: '/data',
         origin: null,
       },
       saving: createSaving('idle'),
       lastPersistenceError: null,
-      lastCommandResult: createCommandResult('core.load', {
-        started: false,
-        ready: compatibility.editable,
-      }),
     };
 
-    if (!compatibility.editable || !internal.definition) {
-      internal.runtime = null;
-      internal.index = null;
+    if (compatibility.status === 'schema-unsupported' || !internal.definition) {
+      const unsupportedFeatures = compatibility.unsupportedFeatures ?? [];
       stateStore.patchState({
-        ...nextPatch,
+        ...basePatch,
+        status: createStatus('schema-unsupported', {
+          unsupportedCount: unsupportedFeatures.length,
+        }),
+        blockers: [
+          createBlocker({
+            type: 'schema-unsupported',
+            message: 'Schema contains unsupported or incompatible features.',
+            details: { unsupportedFeatures },
+          }),
+        ],
+        compatibility: {
+          ...compatibility,
+          status: 'schema-unsupported',
+          editable: false,
+        },
         formModel: null,
-        values: normalizedDocument,
+        values: parsedDocument.ok ? parsedDocument.document : null,
         errors: [],
         errorsByPointer: {},
+        lastCommandResult: createCommandResult('core.load', {
+          started: false,
+          ready: false,
+          reason: 'schema-unsupported',
+        }),
       });
       return emit();
     }
 
+    if (!parsedDocument.ok) {
+      stateStore.patchState({
+        ...basePatch,
+        status: createStatus('invalid-document'),
+        blockers: [parsedDocument.blocker],
+        compatibility: {
+          status: 'invalid-document',
+          editable: false,
+          unsupportedFeatures: [],
+        },
+        formModel: null,
+        values: null,
+        errors: [],
+        errorsByPointer: {},
+        lastCommandResult: createCommandResult('core.load', {
+          started: false,
+          ready: false,
+          reason: 'invalid-document',
+        }),
+      });
+      return emit();
+    }
+
+    const normalizedDocument = parsedDocument.document;
     const runtime = buildRuntimeFormModel({
       definition: internal.definition,
       document: normalizedDocument,
@@ -347,10 +517,15 @@ export function createFormCore({
     });
 
     if (!runtime?.root) {
-      internal.runtime = null;
-      internal.index = null;
       stateStore.patchState({
-        ...nextPatch,
+        ...basePatch,
+        status: createStatus('document-incompatible'),
+        blockers: [
+          createBlocker({
+            type: 'incompatible-structure',
+            message: 'Document structure is incompatible with the compiled form model.',
+          }),
+        ],
         compatibility: {
           status: 'document-incompatible',
           editable: false,
@@ -360,6 +535,11 @@ export function createFormCore({
         values: normalizedDocument,
         errors: [],
         errorsByPointer: {},
+        lastCommandResult: createCommandResult('core.load', {
+          started: false,
+          ready: false,
+          reason: 'document-incompatible',
+        }),
       });
       return emit();
     }
@@ -373,16 +553,36 @@ export function createFormCore({
       index: internal.index,
     });
 
+    const permissionDenied = permissionState.readonly || permissionState.disabled;
+    const status = permissionDenied
+      ? createStatus('permission-denied')
+      : statusFromValidation(validation);
+    const blockers = permissionDenied
+      ? [
+        createBlocker({
+          type: 'permission-denied',
+          message: 'Editing is not allowed by current permissions.',
+          details: permissionState,
+        }),
+      ]
+      : [];
+
     stateStore.patchState({
-      ...nextPatch,
+      ...basePatch,
+      status,
+      blockers,
+      compatibility: {
+        ...compatibility,
+        editable: compatibility.editable && !permissionDenied,
+      },
       formModel: runtime.root,
       values: runtime.document,
       errors: validation.errors,
       errorsByPointer: validation.errorsByPointer,
-      compatibility: {
-        ...compatibility,
-        editable: compatibility.editable && !permissionState.readonly,
-      },
+      lastCommandResult: createCommandResult('core.load', {
+        started: false,
+        ready: !permissionDenied,
+      }),
     });
 
     return emit();
