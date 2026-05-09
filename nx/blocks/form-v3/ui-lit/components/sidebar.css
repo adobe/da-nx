@@ -3,11 +3,19 @@
   min-height: 0;
 }
 
+:host p {
+  line-height: 1;
+}
+
+:host sl-select {
+  margin-bottom: 12px;
+}
+
 .da-sidebar-section {
   margin-bottom: 16px;
 }
 
-.da-sidebar-title {
+:host .da-sidebar-title {
   font-weight: 700;
   font-size: var(--sl-font-size-medium, 1rem);
   line-height: var(--sl-line-height-normal, 1.5);
@@ -16,24 +24,20 @@
   border-bottom: 1px solid var(--sl-color-neutral-200, #e5e7eb);
 }
 
-.nav-list {
-  line-height: 28px;
-  max-height: calc(100vh - 10rem);
-  max-height: calc(100dvh - 10rem);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-gutter: stable;
-  padding: 0 12px 14px 8px;
-}
-
 .nav-list,
-.nav-list ul {
-  position: relative;
-}
-
+.nav-list ul,
 .nav-list li {
   position: relative;
-  margin: 0;
+}
+
+.nav-list {
+  line-height: 28px;
+  max-height: calc(100vh - 6rem - 24px - 5.5rem);
+  max-height: calc(100dvh - 6rem - 24px - 5.5rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 4px;
+  scrollbar-gutter: stable;
 }
 
 .nav-list ul {
@@ -43,29 +47,24 @@
 }
 
 .nav-list button.item {
-  display: block;
-  position: relative;
+  display: inline-block;
   margin: 0;
   padding: 0;
   border: none;
   background: none;
   font: inherit;
   color: inherit;
-  text-align: left;
+  text-align: inherit;
   cursor: pointer;
   width: 100%;
 }
 
+.nav-list button.item:first-child {
+  margin-left: 4px;
+}
+
 .nav-list button.item:hover {
   text-decoration: underline;
-}
-
-.nav-list button.item:focus {
-  outline: none;
-}
-
-.nav-list button.item:focus-visible {
-  outline: none;
 }
 
 .nav-list button.item.is-active {
@@ -79,7 +78,7 @@
   left: -13px;
   width: 7px;
   height: 7px;
-  border-radius: 50%;
+  border-radius: 4px;
   background-color: #dadfe6;
 }
 
@@ -108,12 +107,16 @@
   top: -14px;
 }
 
-.nav-list > ul > li:first-child::before,
 .nav-list > ul > li:first-child::after {
-  display: none;
+  top: 12px;
 }
 
 .nav-list ul > li:last-child::after {
   height: 28px;
   top: -14px;
+}
+
+.nav-list > ul:first-child > li:first-child::before,
+.nav-list > ul:first-child > li:first-child::after {
+  display: none;
 }

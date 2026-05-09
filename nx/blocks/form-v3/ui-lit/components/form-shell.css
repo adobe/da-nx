@@ -40,8 +40,8 @@
 }
 
 .da-form-wrapper {
-  width: min(1120px, 100%);
-  max-width: 1120px;
+  width: min(1020px, 100%);
+  max-width: 1020px;
   margin: 0 auto;
   display: flex;
   align-items: flex-start;
@@ -54,9 +54,10 @@
 }
 
 .da-form-editor {
-  flex: 1 1 760px;
-  width: 760px;
+  flex: 1 1 700px;
+  width: 700px;
   min-width: 0;
+  max-width: 700px;
 }
 
 da-sc-form-sidebar {
