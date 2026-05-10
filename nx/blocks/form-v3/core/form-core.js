@@ -8,7 +8,7 @@ import { appendPointer, findDefinitionByPointer, getParentPointer } from './mode
 import { buildRuntimeFormModel } from './model/runtime-model-builder.js';
 import { createRuntimeModelIndex, findNodeByPointer } from './model/runtime-model-index.js';
 import { compileSchema } from './schema/schema-compiler.js';
-import { createInitialState, createStateStore } from './state/state-store.js';
+import { createCoreState, createInitialState, createStateStore } from './state/state-store.js';
 import { validateDocument } from './validation/validation-engine.js';
 
 function deepClone(value) {
@@ -81,13 +81,6 @@ export function createFormCore({
     return stateStore.getState();
   }
 
-  function patchState(partial) {
-    stateStore.setState({
-      ...getMutableState(),
-      ...partial,
-    });
-  }
-
   function getState() {
     return deepClone(getMutableState());
   }
@@ -126,17 +119,9 @@ export function createFormCore({
       previousRuntime: internal.runtime,
     });
     if (!runtime?.root) {
-      patchState({
-        model: {
-          formModel: null,
-        },
-        document: {
-          values: nextDocument ?? null,
-        },
-        validation: {
-          errorsByPointer: {},
-        },
-      });
+      stateStore.setState(createCoreState({
+        documentValues: nextDocument ?? null,
+      }));
       return false;
     }
 
@@ -150,17 +135,11 @@ export function createFormCore({
     internal.runtime = runtime;
     internal.index = index;
 
-    patchState({
-      model: {
-        formModel: runtime.root,
-      },
-      document: {
-        values: runtime.document,
-      },
-      validation: {
-        errorsByPointer: validation.errorsByPointer,
-      },
-    });
+    stateStore.setState(createCoreState({
+      documentValues: runtime.document,
+      formModel: runtime.root,
+      errorsByPointer: validation.errorsByPointer,
+    }));
 
     return true;
   }
@@ -271,32 +250,14 @@ export function createFormCore({
     internal.save.latestAcknowledged = 0;
 
     if (!internal.editable || !internal.definition) {
-      patchState({
-        model: {
-          formModel: null,
-        },
-        document: {
-          values: parsedDocument.ok ? parsedDocument.document : null,
-        },
-        validation: {
-          errorsByPointer: {},
-        },
-      });
+      stateStore.setState(createCoreState({
+        documentValues: parsedDocument.ok ? parsedDocument.document : null,
+      }));
       return getState();
     }
 
     if (!parsedDocument.ok) {
-      patchState({
-        model: {
-          formModel: null,
-        },
-        document: {
-          values: null,
-        },
-        validation: {
-          errorsByPointer: {},
-        },
-      });
+      stateStore.setState(createCoreState());
       return getState();
     }
 
@@ -308,17 +269,9 @@ export function createFormCore({
     });
 
     if (!runtime?.root) {
-      patchState({
-        model: {
-          formModel: null,
-        },
-        document: {
-          values: normalizedDocument,
-        },
-        validation: {
-          errorsByPointer: {},
-        },
-      });
+      stateStore.setState(createCoreState({
+        documentValues: normalizedDocument,
+      }));
       return getState();
     }
 
@@ -331,17 +284,11 @@ export function createFormCore({
       index: internal.index,
     });
 
-    patchState({
-      model: {
-        formModel: runtime.root,
-      },
-      document: {
-        values: runtime.document,
-      },
-      validation: {
-        errorsByPointer: validation.errorsByPointer,
-      },
-    });
+    stateStore.setState(createCoreState({
+      documentValues: runtime.document,
+      formModel: runtime.root,
+      errorsByPointer: validation.errorsByPointer,
+    }));
     return getState();
   }
 

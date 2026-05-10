@@ -5,18 +5,26 @@ function cloneSnapshot(value) {
   return JSON.parse(JSON.stringify(value));
 }
 
-export function createInitialState() {
+export function createCoreState({
+  documentValues = null,
+  formModel = null,
+  errorsByPointer = {},
+} = {}) {
   return {
     document: {
-      values: null,
+      values: documentValues,
     },
     model: {
-      formModel: null,
+      formModel,
     },
     validation: {
-      errorsByPointer: {},
+      errorsByPointer,
     },
   };
+}
+
+export function createInitialState() {
+  return createCoreState();
 }
 
 export function createStateStore(initial = createInitialState()) {
