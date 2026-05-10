@@ -1,6 +1,11 @@
-import { addArrayItem, insertArrayItem, moveArrayItem, removeArrayItem } from './mutation/array-mutator.js';
+import {
+  addArrayItem as applyAddArrayItem,
+  insertArrayItem,
+  moveArrayItem as applyMoveArrayItem,
+  removeArrayItem as applyRemoveArrayItem,
+} from './mutation/array-mutator.js';
 import { applyFieldChange } from './mutation/value-mutator.js';
-import { findDefinitionByPointer, getParentPointer } from './model/json-pointer.js';
+import { appendPointer, findDefinitionByPointer, getParentPointer } from './model/json-pointer.js';
 import { buildRuntimeFormModel } from './model/runtime-model-builder.js';
 import { createRuntimeModelIndex, findNodeByPointer } from './model/runtime-model-index.js';
 import { compileSchema } from './schema/schema-compiler.js';
@@ -158,6 +163,7 @@ export function createFormCore({
     definition: null,
     runtime: null,
     index: null,
+    permissions: null,
     save: {
       latestRequested: 0,
       latestAcknowledged: 0,
@@ -479,6 +485,31 @@ export function createFormCore({
     return itemCount > 1;
   }
 
+  function parseArrayIndex(value) {
+    const parsed = Number.parseInt(value, 10);
+    if (!Number.isInteger(parsed) || parsed < 0) return null;
+    return parsed;
+  }
+
+  function resolveArrayMovePointers({ pointer, fromIndex, toIndex }) {
+    if (!pointer || typeof pointer !== 'string') return null;
+
+    const sourceIndex = parseArrayIndex(fromIndex);
+    const targetIndex = parseArrayIndex(toIndex);
+    if (sourceIndex === null || targetIndex === null) return null;
+
+    const { arrayNode } = getArrayContext(pointer);
+    const itemCount = arrayNode?.items?.length ?? 0;
+    if (sourceIndex >= itemCount) return null;
+
+    return {
+      sourcePointer: appendPointer({ pointer, segment: sourceIndex }),
+      beforePointer: targetIndex >= itemCount
+        ? null
+        : appendPointer({ pointer, segment: targetIndex }),
+    };
+  }
+
   async function applyMutationAndPersist({ commandType, mutationResult }) {
     if (!mutationResult?.changed) {
       patchState({
@@ -503,7 +534,10 @@ export function createFormCore({
   async function load({
     schema,
     document,
-  }) {
+    permissions = null,
+  } = {}) {
+    internal.permissions = permissions;
+
     const currentState = getMutableState();
     patchState({
       loading: createLoading('loading'),
@@ -726,7 +760,7 @@ export function createFormCore({
 
     return applyMutationAndPersist({
       commandType,
-      mutationResult: addArrayItem({
+      mutationResult: applyAddArrayItem({
         document: getMutableState().document?.values,
         pointer,
         itemDefinition: arrayDefinition.item,
@@ -764,7 +798,7 @@ export function createFormCore({
 
     return applyMutationAndPersist({
       commandType,
-      mutationResult: removeArrayItem({
+      mutationResult: applyRemoveArrayItem({
         document: getMutableState().document?.values,
         pointer,
       }),
@@ -782,11 +816,35 @@ export function createFormCore({
 
     return applyMutationAndPersist({
       commandType,
-      mutationResult: moveArrayItem({
+      mutationResult: applyMoveArrayItem({
         document: getMutableState().document?.values,
         pointer,
         beforePointer,
       }),
+    });
+  }
+
+  async function setFieldValue(pointer, value) {
+    return changeField({ pointer, value });
+  }
+
+  async function addArrayItem(pointer) {
+    return arrayAdd({ pointer });
+  }
+
+  async function removeArrayItem(pointer) {
+    return arrayRemove({ pointer });
+  }
+
+  async function moveArrayItem(pointer, fromIndex, toIndex) {
+    const resolved = resolveArrayMovePointers({ pointer, fromIndex, toIndex });
+    if (!resolved) {
+      return rejectMutation('array.move', 'array-move-not-allowed');
+    }
+
+    return arrayMove({
+      pointer: resolved.sourcePointer,
+      beforePointer: resolved.beforePointer,
     });
   }
 
@@ -837,6 +895,10 @@ export function createFormCore({
 
   return {
     load,
+    setFieldValue,
+    addArrayItem,
+    removeArrayItem,
+    moveArrayItem,
     dispatch,
     getState,
     subscribe,
