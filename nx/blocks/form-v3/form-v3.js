@@ -126,7 +126,7 @@ class StructuredContentForm extends LitElement {
   async _handleIntent(e) {
     const detail = e?.detail ?? {};
     if (!detail.type) return;
-    const snapshot = await this._app?.controller?.handleIntent?.(detail);
+    const snapshot = await this._app?.controller?.handleUiIntent?.(detail);
     if (!snapshot) return;
     this._state = snapshot;
     this.requestUpdate();
@@ -332,13 +332,10 @@ class StructuredContentForm extends LitElement {
     }
 
     const context = this._toViewContext();
-    const stateCode = this._state?.status?.code ?? 'ready';
-    const saveState = this._state?.saving?.status ?? 'idle';
-
     if (!context.runtime.root) {
       return this._renderLoaderMessage(
         'Unavailable',
-        `Current state: ${stateCode}.`,
+        'Structured content is unavailable for this document.',
         { showHomeAction: true },
       );
     }
@@ -346,9 +343,6 @@ class StructuredContentForm extends LitElement {
     return html`
       <div class="sc-form-wrapper" @form-intent=${this._handleIntent}>
         <div class="sc-form-editor">
-          <p class="sc-form-runtime-status" data-state=${stateCode}>
-            State: ${stateCode} | Save: ${saveState}
-          </p>
           <sc-form-editor .context=${context}></sc-form-editor>
           <sc-form-preview .context=${context}></sc-form-preview>
         </div>

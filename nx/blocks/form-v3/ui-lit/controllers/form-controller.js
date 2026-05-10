@@ -1,28 +1,4 @@
-import { toCoreOperation } from './intent-command-map.js';
 import { createUiStateStore } from '../state/ui-state.js';
-
-function isUiSelectionIntent(commandOrIntent) {
-  return commandOrIntent?.type === 'form-nav-pointer-select'
-    || commandOrIntent?.type === 'selection.change';
-}
-
-function isFieldChangeIntent(commandOrIntent) {
-  return commandOrIntent?.type === 'form-field-change'
-    || commandOrIntent?.type === 'field.change';
-}
-
-function getDebounceMs(commandOrIntent) {
-  const ms = Number(commandOrIntent?.debounceMs ?? 0);
-  if (!Number.isFinite(ms) || ms <= 0) return 0;
-  return ms;
-}
-
-function composeSnapshot({ coreState, uiState }) {
-  return {
-    ...(coreState ?? {}),
-    ui: uiState,
-  };
-}
 
 export function createFormController({ core }) {
   if (!core) {
@@ -30,98 +6,75 @@ export function createFormController({ core }) {
   }
 
   const uiStateStore = createUiStateStore();
-  const pendingFieldTimers = new Map();
 
-  let latestCoreState = core.getState?.() ?? {};
-  let latestUiState = uiStateStore.getState();
+  let coreState = core.getState?.() ?? {};
+  let uiState = uiStateStore.getState();
+  let currentState = {
+    ...coreState,
+    ui: uiState,
+  };
 
-  function getSnapshot() {
-    return composeSnapshot({
-      coreState: latestCoreState,
-      uiState: latestUiState,
-    });
+  function updateState() {
+    currentState = {
+      ...coreState,
+      ui: uiState,
+    };
+
+    return currentState;
   }
 
-  function applyUiSelection(commandOrIntent) {
-    latestUiState = uiStateStore.setSelection({
-      pointer: commandOrIntent.pointer,
-      origin: commandOrIntent.origin ?? null,
-    });
-    return getSnapshot();
+  function getState() {
+    return currentState;
   }
 
-  async function runCoreStep({ method, args = [] } = {}) {
-    const coreMethod = core?.[method];
-    if (typeof coreMethod !== 'function') {
-      throw new Error(`createFormController could not find core method "${method}".`);
-    }
-
-    const nextCoreState = await coreMethod(...args);
-    latestCoreState = nextCoreState ?? core.getState?.() ?? latestCoreState;
+  function setSelection(pointer, origin = null) {
+    uiState = uiStateStore.setSelection({ pointer, origin });
+    return updateState();
   }
 
-  async function executeCoreOperation(commandOrIntent) {
-    const operation = toCoreOperation(commandOrIntent, latestCoreState);
-    if (!operation?.steps?.length) return getSnapshot();
-
-    for (const step of operation.steps) {
-      await runCoreStep(step);
-    }
-
-    return getSnapshot();
+  async function load(payload) {
+    coreState = (await core.load(payload)) ?? core.getState?.() ?? coreState;
+    return updateState();
   }
 
-  function handleDebouncedFieldChange(commandOrIntent) {
-    const pointer = commandOrIntent?.pointer;
-    const debounceMs = getDebounceMs(commandOrIntent);
-    if (!pointer || debounceMs <= 0) {
-      return executeCoreOperation(commandOrIntent);
+  async function handleUiIntent(intent = {}) {
+    switch (intent.type) {
+      case 'form-nav-pointer-select':
+        return setSelection(intent.pointer, intent.origin ?? null);
+
+      case 'form-field-change':
+        coreState = (await core.setFieldValue(intent.pointer, intent.value)) ?? coreState;
+        return updateState();
+
+      case 'form-array-add':
+        coreState = (await core.addArrayItem(intent.pointer)) ?? coreState;
+        return updateState();
+
+      case 'form-array-remove':
+        coreState = (await core.removeArrayItem(intent.pointer)) ?? coreState;
+        return updateState();
+
+      case 'form-array-reorder':
+        coreState =
+          (await core.moveArrayItem(
+            intent.pointer,
+            intent.fromIndex,
+            intent.toIndex
+          )) ?? coreState;
+        return updateState();
+
+      default:
+        return getState();
     }
-
-    if (pendingFieldTimers.has(pointer)) {
-      const pending = pendingFieldTimers.get(pointer);
-      clearTimeout(pending.timer);
-      pending.resolve(getSnapshot());
-    }
-
-    return new Promise((resolve) => {
-      const timer = setTimeout(() => {
-        pendingFieldTimers.delete(pointer);
-        executeCoreOperation(commandOrIntent).then(resolve);
-      }, debounceMs);
-
-      pendingFieldTimers.set(pointer, { timer, resolve });
-    });
-  }
-
-  async function handleIntent(commandOrIntent) {
-    if (isUiSelectionIntent(commandOrIntent)) {
-      return applyUiSelection(commandOrIntent);
-    }
-
-    if (isFieldChangeIntent(commandOrIntent)) {
-      return handleDebouncedFieldChange(commandOrIntent);
-    }
-
-    return executeCoreOperation(commandOrIntent);
   }
 
   return {
-    getSnapshot,
-    syncCoreState(nextCoreState = core.getState?.() ?? {}) {
-      latestCoreState = nextCoreState ?? {};
-      return getSnapshot();
-    },
-
-    handleIntent,
+    getState,
+    load,
+    handleUiIntent,
 
     dispose() {
-      for (const pending of pendingFieldTimers.values()) {
-        clearTimeout(pending.timer);
-        pending.resolve(getSnapshot());
-      }
-      pendingFieldTimers.clear();
-      uiStateStore.dispose();
+      uiStateStore.dispose?.();
       core.dispose?.();
     },
   };

@@ -164,8 +164,8 @@ class StructuredContentFormEditor extends LitElement {
             @change=${(e) => this._handleBooleanInput(node, e)}
           />
           ${hideLabel
-    ? html`<span class="form-sr-only">${label}${required ? '*' : ''}</span>`
-    : html`${label}${required ? html`<span class="is-required">*</span>` : nothing}`}
+          ? html`<span class="form-sr-only">${label}${required ? '*' : ''}</span>`
+          : html`${label}${required ? html`<span class="is-required">*</span>` : nothing}`}
           ${error ? html`<p class="form-error">${error}</p>` : nothing}
         </label>
       `;
@@ -357,13 +357,13 @@ class StructuredContentFormEditor extends LitElement {
         </div>
 
         ${displayItems.map((item, index) => {
-    const isStructuredItem = item.kind === 'object' || item.kind === 'array';
-    const isReorderActive = this._reorderPointer === item.pointer;
-    const itemTitle = `#${index + 1} ${item.label ?? node.itemLabel ?? 'Item'}`;
-    const itemContent = item.kind === 'object'
-      ? (item.children ?? []).map((child) => this._renderNode(child))
-      : this._renderNode(item, { itemLabel: `#${index + 1}` });
-    const itemMenu = html`
+      const isStructuredItem = item.kind === 'object' || item.kind === 'array';
+      const isReorderActive = this._reorderPointer === item.pointer;
+      const itemTitle = `#${index + 1} ${item.label ?? node.itemLabel ?? 'Item'}`;
+      const itemContent = item.kind === 'object'
+        ? (item.children ?? []).map((child) => this._renderNode(child))
+        : this._renderNode(item, { itemLabel: `#${index + 1}` });
+      const itemMenu = html`
       <sc-array-item-menu
         .pointer=${item.pointer}
         .index=${index}
@@ -376,7 +376,7 @@ class StructuredContentFormEditor extends LitElement {
       ></sc-array-item-menu>
     `;
 
-    return html`
+      return html`
             <article class="form-array-item${this._activeClass(item.pointer)}${isStructuredItem ? '' : ' form-array-item-primitive'}${isReorderActive ? ' move-item-picked' : ''}" data-pointer=${item.pointer}>
               ${isStructuredItem ? html`
                 <div class="form-array-item-header">
@@ -415,7 +415,7 @@ class StructuredContentFormEditor extends LitElement {
               ` : nothing}
             </article>
           `;
-  })}
+    })}
         <div class="form-array-footer">
           <button
             type="button"

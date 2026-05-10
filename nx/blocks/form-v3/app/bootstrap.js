@@ -22,11 +22,10 @@ export function createFormApp({
   const controller = createFormController({ core });
 
   async function load() {
-    const coreState = await core.load({
+    return controller.load({
       schema,
       document,
     });
-    return controller.syncCoreState(coreState);
   }
 
   function destroy() {

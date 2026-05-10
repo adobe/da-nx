@@ -11,41 +11,14 @@ import { compileSchema } from './schema/schema-compiler.js';
 import { createInitialState, createStateStore } from './state/state-store.js';
 import { validateDocument } from './validation/validation-engine.js';
 
-function nowIso() {
-  return new Date().toISOString();
-}
-
 function deepClone(value) {
   if (typeof structuredClone === 'function') return structuredClone(value);
   return JSON.parse(JSON.stringify(value));
 }
 
-function createStatus(code, details = null) {
-  return {
-    code,
-    details,
-    updatedAt: nowIso(),
-  };
-}
-
-function createBlocker({ type, message, details = null }) {
-  return {
-    type,
-    message,
-    details,
-    at: nowIso(),
-  };
-}
-
 function parseDocumentInput(document) {
   if (!document || typeof document !== 'object' || Array.isArray(document)) {
-    return {
-      ok: false,
-      blocker: createBlocker({
-        type: 'invalid-document',
-        message: 'Document payload must be an object.',
-      }),
-    };
+    return { ok: false };
   }
 
   const candidate = deepClone(document);
@@ -55,33 +28,15 @@ function parseDocumentInput(document) {
   }
 
   if (candidate.metadata === null || typeof candidate.metadata !== 'object' || Array.isArray(candidate.metadata)) {
-    return {
-      ok: false,
-      blocker: createBlocker({
-        type: 'invalid-document',
-        message: 'Document metadata must be an object when present.',
-      }),
-    };
+    return { ok: false };
   }
 
   if (!('data' in candidate)) {
-    return {
-      ok: false,
-      blocker: createBlocker({
-        type: 'invalid-document',
-        message: 'Document payload must include a data object.',
-      }),
-    };
+    return { ok: false };
   }
 
   if (candidate.data === null || typeof candidate.data !== 'object' || Array.isArray(candidate.data)) {
-    return {
-      ok: false,
-      blocker: createBlocker({
-        type: 'invalid-document',
-        message: 'Document data must be an object.',
-      }),
-    };
+    return { ok: false };
   }
 
   return {
@@ -90,64 +45,16 @@ function parseDocumentInput(document) {
   };
 }
 
-function createLoading(status) {
-  return {
-    status,
-    updatedAt: nowIso(),
-  };
-}
-
-function createSaving(status, error = null, sequence = {}) {
-  return {
-    status,
-    error,
-    sequence: sequence.sequence ?? 0,
-    requestedSequence: sequence.requestedSequence ?? 0,
-    acknowledgedSequence: sequence.acknowledgedSequence ?? 0,
-    updatedAt: nowIso(),
-  };
-}
-
-function getCompatibility(compilation) {
+function isCompilationEditable(compilation) {
   if (!compilation?.schema || !compilation?.definition) {
-    return {
-      status: 'schema-unsupported',
-      editable: false,
-      unsupportedFeatures: compilation?.unsupported?.issues ?? [],
-    };
+    return false;
   }
 
   if (compilation?.unsupported?.hasUnsupportedCompositions) {
-    return {
-      status: 'schema-unsupported',
-      editable: false,
-      unsupportedFeatures: compilation.unsupported.issues ?? [],
-    };
+    return false;
   }
 
-  return {
-    status: 'compatible',
-    editable: true,
-    unsupportedFeatures: [],
-  };
-}
-
-function createCommandResult(type, patch = {}) {
-  return {
-    type,
-    at: nowIso(),
-    ...patch,
-  };
-}
-
-function statusFromValidation(validation) {
-  if ((validation?.errors?.length ?? 0) > 0) {
-    return createStatus('validation-error', {
-      count: validation.errors.length,
-    });
-  }
-
-  return createStatus('ready');
+  return true;
 }
 
 export function createFormCore({
@@ -158,6 +65,7 @@ export function createFormCore({
 
   const internal = {
     path: path ?? '',
+    editable: false,
     schema: null,
     definition: null,
     runtime: null,
@@ -205,64 +113,13 @@ export function createFormCore({
     };
   }
 
-  function setStatus({ code, details = null, blockers }) {
-    const patch = {
-      status: createStatus(code, details),
-    };
-
-    if (blockers !== undefined) {
-      patch.errors = {
-        ...getMutableState().errors,
-        blockers,
-      };
-    }
-
-    patchState(patch);
-  }
-
-  function compatibilityStatusToCode(compatibilityStatus) {
-    if (compatibilityStatus === 'schema-unsupported') return 'schema-unsupported';
-    if (compatibilityStatus === 'document-incompatible') return 'document-incompatible';
-    if (compatibilityStatus === 'invalid-document') return 'invalid-document';
-    if (compatibilityStatus === 'compatible') return 'ready';
-    return 'loading';
-  }
-
-  function rejectMutation(type, reason) {
-    const current = getMutableState();
-    if (
-      reason === 'document-incompatible'
-      || reason === 'invalid-document'
-      || reason === 'schema-unsupported'
-      || reason === 'missing-definition'
-    ) {
-      setStatus({
-        code: compatibilityStatusToCode(current.compatibility.status),
-      });
-    }
-
-    patchState({
-      lastCommandResult: createCommandResult(type, { changed: false, reason }),
-    });
-    return getState();
-  }
-
-  function isMutationAllowed(type) {
-    const state = getMutableState();
-    if (state.compatibility.status !== 'compatible') {
-      rejectMutation(type, state.compatibility.status || 'document-incompatible');
-      return false;
-    }
-
-    if (!internal.definition) {
-      rejectMutation(type, 'schema-unsupported');
-      return false;
-    }
-
+  function isMutationAllowed() {
+    if (!internal.editable) return false;
+    if (!internal.definition || !internal.runtime || !internal.index) return false;
     return true;
   }
 
-  function applyRuntimeFromDocument({ nextDocument, commandType }) {
+  function applyRuntimeFromDocument({ nextDocument }) {
     const runtime = buildRuntimeFormModel({
       definition: internal.definition,
       document: nextDocument,
@@ -270,25 +127,15 @@ export function createFormCore({
     });
     if (!runtime?.root) {
       patchState({
-        status: createStatus('document-incompatible'),
-        errors: {
-          ...getMutableState().errors,
-          blockers: [
-            createBlocker({
-              type: 'incompatible-structure',
-              message: 'Document structure is incompatible with the compiled form model.',
-            }),
-          ],
+        model: {
+          formModel: null,
         },
-        compatibility: {
-          status: 'document-incompatible',
-          editable: false,
-          unsupportedFeatures: [],
+        document: {
+          values: nextDocument ?? null,
         },
-        lastCommandResult: createCommandResult(commandType, {
-          changed: false,
-          reason: 'document-incompatible',
-        }),
+        validation: {
+          errorsByPointer: {},
+        },
       });
       return false;
     }
@@ -304,53 +151,25 @@ export function createFormCore({
     internal.index = index;
 
     patchState({
-      status: statusFromValidation(validation),
-      errors: {
-        ...getMutableState().errors,
-        blockers: [],
-      },
       model: {
-        ...getMutableState().model,
         formModel: runtime.root,
       },
       document: {
-        ...getMutableState().document,
         values: runtime.document,
       },
       validation: {
-        ...getMutableState().validation,
-        errors: validation.errors,
         errorsByPointer: validation.errorsByPointer,
-      },
-      compatibility: {
-        ...getMutableState().compatibility,
-        status: 'compatible',
-        editable: true,
       },
     });
 
     return true;
   }
 
-  async function persistCurrent(commandType) {
+  async function persistCurrent() {
     const currentState = getMutableState();
     const sequence = internal.save.latestRequested + 1;
     const documentToPersist = deepClone(currentState.document?.values);
     internal.save.latestRequested = sequence;
-
-    patchState({
-      status: createStatus('saving', { sequence }),
-      errors: {
-        ...currentState.errors,
-        blockers: [],
-        lastPersistenceError: null,
-      },
-      saving: createSaving('saving', null, {
-        sequence,
-        requestedSequence: internal.save.latestRequested,
-        acknowledgedSequence: internal.save.latestAcknowledged,
-      }),
-    });
 
     const persistenceResponse = typeof saveDocument === 'function'
       ? await saveDocument({
@@ -378,62 +197,7 @@ export function createFormCore({
 
     internal.save.latestAcknowledged = sequence;
 
-    if (result.ok) {
-      patchState({
-        status: createStatus('saved', { sequence }),
-        errors: {
-          ...getMutableState().errors,
-          blockers: [],
-          lastPersistenceError: null,
-        },
-        saving: createSaving('saved', null, {
-          sequence,
-          requestedSequence: internal.save.latestRequested,
-          acknowledgedSequence: internal.save.latestAcknowledged,
-        }),
-        lastCommandResult: createCommandResult(commandType, {
-          changed: true,
-          persisted: true,
-          saveSequence: sequence,
-        }),
-      });
-      return { ok: true, sequence };
-    }
-
-    patchState({
-      status: createStatus('persistence-failed', {
-        sequence,
-        message: result.error ?? 'Persistence failed.',
-        status: result.status ?? null,
-      }),
-      errors: {
-        ...getMutableState().errors,
-        blockers: [
-          createBlocker({
-            type: 'persistence-failed',
-            message: result.error ?? 'Persistence failed.',
-            details: { status: result.status ?? null, sequence },
-          }),
-        ],
-        lastPersistenceError: {
-          message: result.error ?? 'Persistence failed.',
-          status: result.status ?? null,
-          sequence,
-          at: nowIso(),
-        },
-      },
-      saving: createSaving('failed', result.error ?? 'Persistence failed.', {
-        sequence,
-        requestedSequence: internal.save.latestRequested,
-        acknowledgedSequence: internal.save.latestAcknowledged,
-      }),
-      lastCommandResult: createCommandResult(commandType, {
-        changed: true,
-        persisted: false,
-        error: result.error ?? 'Persistence failed.',
-        saveSequence: sequence,
-      }),
-    });
+    if (result.ok) return { ok: true, sequence };
 
     return {
       ok: false,
@@ -476,48 +240,15 @@ export function createFormCore({
     return itemCount > 1;
   }
 
-  function parseArrayIndex(value) {
-    const parsed = Number.parseInt(value, 10);
-    if (!Number.isInteger(parsed) || parsed < 0) return null;
-    return parsed;
-  }
-
-  function resolveArrayMovePointers({ pointer, fromIndex, toIndex }) {
-    if (!pointer || typeof pointer !== 'string') return null;
-
-    const sourceIndex = parseArrayIndex(fromIndex);
-    const targetIndex = parseArrayIndex(toIndex);
-    if (sourceIndex === null || targetIndex === null) return null;
-
-    const { arrayNode } = getArrayContext(pointer);
-    const itemCount = arrayNode?.items?.length ?? 0;
-    if (sourceIndex >= itemCount) return null;
-
-    return {
-      sourcePointer: appendPointer({ pointer, segment: sourceIndex }),
-      beforePointer: targetIndex >= itemCount
-        ? null
-        : appendPointer({ pointer, segment: targetIndex }),
-    };
-  }
-
-  async function applyMutationAndPersist({ commandType, mutationResult }) {
-    if (!mutationResult?.changed) {
-      patchState({
-        lastCommandResult: createCommandResult(commandType, { changed: false }),
-      });
-      return getState();
-    }
+  async function applyMutationAndPersist({ mutationResult }) {
+    if (!mutationResult?.changed) return getState();
 
     const applied = applyRuntimeFromDocument({
       nextDocument: mutationResult.document,
-      commandType,
     });
-    if (!applied) {
-      return getState();
-    }
+    if (!applied) return getState();
 
-    await persistCurrent(commandType);
+    await persistCurrent();
     return getState();
   }
 
@@ -528,21 +259,10 @@ export function createFormCore({
   } = {}) {
     internal.permissions = permissions;
 
-    const currentState = getMutableState();
-    patchState({
-      loading: createLoading('loading'),
-      status: createStatus('loading'),
-      errors: {
-        ...currentState.errors,
-        blockers: [],
-      },
-      lastCommandResult: createCommandResult('core.load', { started: true }),
-    });
-
     const compilation = compileSchema({ schema });
-    const compatibility = getCompatibility(compilation);
     const parsedDocument = parseDocumentInput(document);
 
+    internal.editable = isCompilationEditable(compilation);
     internal.schema = compilation.schema;
     internal.definition = compilation.definition;
     internal.runtime = null;
@@ -550,42 +270,8 @@ export function createFormCore({
     internal.save.latestRequested = 0;
     internal.save.latestAcknowledged = 0;
 
-    const basePatch = {
-      loading: createLoading('ready'),
-      saving: createSaving('idle', null, {
-        sequence: 0,
-        requestedSequence: internal.save.latestRequested,
-        acknowledgedSequence: internal.save.latestAcknowledged,
-      }),
-      errors: {
-        ...getMutableState().errors,
-        blockers: [],
-        lastPersistenceError: null,
-      },
-    };
-
-    if (compatibility.status === 'schema-unsupported' || !internal.definition) {
-      const unsupportedFeatures = compatibility.unsupportedFeatures ?? [];
+    if (!internal.editable || !internal.definition) {
       patchState({
-        ...basePatch,
-        status: createStatus('schema-unsupported', {
-          unsupportedCount: unsupportedFeatures.length,
-        }),
-        errors: {
-          ...basePatch.errors,
-          blockers: [
-            createBlocker({
-              type: 'schema-unsupported',
-              message: 'Schema contains unsupported or incompatible features.',
-              details: { unsupportedFeatures },
-            }),
-          ],
-        },
-        compatibility: {
-          ...compatibility,
-          status: 'schema-unsupported',
-          editable: false,
-        },
         model: {
           formModel: null,
         },
@@ -593,31 +279,14 @@ export function createFormCore({
           values: parsedDocument.ok ? parsedDocument.document : null,
         },
         validation: {
-          errors: [],
           errorsByPointer: {},
         },
-        lastCommandResult: createCommandResult('core.load', {
-          started: false,
-          ready: false,
-          reason: 'schema-unsupported',
-        }),
       });
       return getState();
     }
 
     if (!parsedDocument.ok) {
       patchState({
-        ...basePatch,
-        status: createStatus('invalid-document'),
-        errors: {
-          ...basePatch.errors,
-          blockers: [parsedDocument.blocker],
-        },
-        compatibility: {
-          status: 'invalid-document',
-          editable: false,
-          unsupportedFeatures: [],
-        },
         model: {
           formModel: null,
         },
@@ -625,14 +294,8 @@ export function createFormCore({
           values: null,
         },
         validation: {
-          errors: [],
           errorsByPointer: {},
         },
-        lastCommandResult: createCommandResult('core.load', {
-          started: false,
-          ready: false,
-          reason: 'invalid-document',
-        }),
       });
       return getState();
     }
@@ -646,22 +309,6 @@ export function createFormCore({
 
     if (!runtime?.root) {
       patchState({
-        ...basePatch,
-        status: createStatus('document-incompatible'),
-        errors: {
-          ...basePatch.errors,
-          blockers: [
-            createBlocker({
-              type: 'incompatible-structure',
-              message: 'Document structure is incompatible with the compiled form model.',
-            }),
-          ],
-        },
-        compatibility: {
-          status: 'document-incompatible',
-          editable: false,
-          unsupportedFeatures: [],
-        },
         model: {
           formModel: null,
         },
@@ -669,14 +316,8 @@ export function createFormCore({
           values: normalizedDocument,
         },
         validation: {
-          errors: [],
           errorsByPointer: {},
         },
-        lastCommandResult: createCommandResult('core.load', {
-          started: false,
-          ready: false,
-          reason: 'document-incompatible',
-        }),
       });
       return getState();
     }
@@ -691,12 +332,6 @@ export function createFormCore({
     });
 
     patchState({
-      ...basePatch,
-      status: statusFromValidation(validation),
-      compatibility: {
-        ...compatibility,
-        editable: compatibility.editable,
-      },
       model: {
         formModel: runtime.root,
       },
@@ -704,31 +339,22 @@ export function createFormCore({
         values: runtime.document,
       },
       validation: {
-        errors: validation.errors,
         errorsByPointer: validation.errorsByPointer,
       },
-      lastCommandResult: createCommandResult('core.load', {
-        started: false,
-        ready: true,
-      }),
     });
     return getState();
   }
 
   async function setFieldValue(pointer, value) {
-    const commandType = 'field.change';
-    if (!isMutationAllowed(commandType)) return getState();
+    if (!isMutationAllowed()) return getState();
 
     const node = findNodeByPointer({
       index: internal.index,
       pointer,
     });
-    if (node?.readonly) {
-      return rejectMutation(commandType, 'readonly-field');
-    }
+    if (node?.readonly) return getState();
 
     return applyMutationAndPersist({
-      commandType,
       mutationResult: applyFieldChange({
         document: getMutableState().document?.values,
         pointer,
@@ -739,16 +365,12 @@ export function createFormCore({
   }
 
   async function addArrayItem(pointer) {
-    const commandType = 'array.add';
-    if (!isMutationAllowed(commandType)) return getState();
+    if (!isMutationAllowed()) return getState();
 
     const { arrayDefinition, arrayNode } = getArrayContext(pointer);
-    if (!canAddItem(arrayDefinition, arrayNode)) {
-      return rejectMutation(commandType, 'array-add-not-allowed');
-    }
+    if (!canAddItem(arrayDefinition, arrayNode)) return getState();
 
     return applyMutationAndPersist({
-      commandType,
       mutationResult: applyAddArrayItem({
         document: getMutableState().document?.values,
         pointer,
@@ -758,16 +380,12 @@ export function createFormCore({
   }
 
   async function removeArrayItem(pointer) {
-    const commandType = 'array.remove';
-    if (!isMutationAllowed(commandType)) return getState();
+    if (!isMutationAllowed()) return getState();
 
     const { arrayDefinition, arrayNode } = getParentArrayContext(pointer);
-    if (!canRemoveItem(arrayDefinition, arrayNode)) {
-      return rejectMutation(commandType, 'array-remove-not-allowed');
-    }
+    if (!canRemoveItem(arrayDefinition, arrayNode)) return getState();
 
     return applyMutationAndPersist({
-      commandType,
       mutationResult: applyRemoveArrayItem({
         document: getMutableState().document?.values,
         pointer,
@@ -775,34 +393,30 @@ export function createFormCore({
     });
   }
 
-  async function arrayMove({ pointer, beforePointer }) {
-    const commandType = 'array.move';
-    if (!isMutationAllowed(commandType)) return getState();
+  async function moveArrayItem(pointer, fromIndex, toIndex) {
+    if (!isMutationAllowed()) return getState();
 
-    const { arrayDefinition, arrayNode } = getParentArrayContext(pointer);
-    if (!canReorderItem(arrayDefinition, arrayNode)) {
-      return rejectMutation(commandType, 'array-move-not-allowed');
+    const fromIdx = Number.parseInt(fromIndex, 10);
+    const toIdx = Number.parseInt(toIndex, 10);
+    if (!Number.isInteger(fromIdx) || fromIdx < 0 || !Number.isInteger(toIdx) || toIdx < 0) {
+      return getState();
     }
+
+    const { arrayDefinition, arrayNode } = getArrayContext(pointer);
+    if (!canReorderItem(arrayDefinition, arrayNode)) return getState();
+
+    const itemCount = arrayNode?.items?.length ?? 0;
+    if (fromIdx >= itemCount) return getState();
+
+    const sourcePointer = appendPointer({ pointer, segment: fromIdx });
+    const beforePointer = toIdx >= itemCount ? null : appendPointer({ pointer, segment: toIdx });
 
     return applyMutationAndPersist({
-      commandType,
       mutationResult: applyMoveArrayItem({
         document: getMutableState().document?.values,
-        pointer,
+        pointer: sourcePointer,
         beforePointer,
       }),
-    });
-  }
-
-  async function moveArrayItem(pointer, fromIndex, toIndex) {
-    const resolved = resolveArrayMovePointers({ pointer, fromIndex, toIndex });
-    if (!resolved) {
-      return rejectMutation('array.move', 'array-move-not-allowed');
-    }
-
-    return arrayMove({
-      pointer: resolved.sourcePointer,
-      beforePointer: resolved.beforePointer,
     });
   }
 

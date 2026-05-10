@@ -235,8 +235,8 @@ class StructuredContentArrayItemMenu extends LitElement {
               @click=${this._remove}
             >
               ${this._removeConfirm
-    ? html`<span class="check-icon">✓</span>`
-    : html`
+          ? html`<span class="check-icon">✓</span>`
+          : html`
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
                     <polyline points="3 6 5 6 21 6"></polyline>
                     <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"></path>
