@@ -1,6 +1,5 @@
 import {
   addArrayItem as applyAddArrayItem,
-  insertArrayItem,
   moveArrayItem as applyMoveArrayItem,
   removeArrayItem as applyRemoveArrayItem,
 } from './mutation/array-mutator.js';
@@ -768,25 +767,6 @@ export function createFormCore({
     });
   }
 
-  async function arrayInsert({ pointer }) {
-    const commandType = 'array.insert';
-    if (!isMutationAllowed(commandType)) return getState();
-
-    const { arrayDefinition, arrayNode } = getParentArrayContext(pointer);
-    if (!canAddItem(arrayDefinition, arrayNode)) {
-      return rejectMutation(commandType, 'array-insert-not-allowed');
-    }
-
-    return applyMutationAndPersist({
-      commandType,
-      mutationResult: insertArrayItem({
-        document: getMutableState().document?.values,
-        pointer,
-        itemDefinition: arrayDefinition.item,
-      }),
-    });
-  }
-
   async function arrayRemove({ pointer }) {
     const commandType = 'array.remove';
     if (!isMutationAllowed(commandType)) return getState();
@@ -848,43 +828,6 @@ export function createFormCore({
     });
   }
 
-  function rejectInvalidCommand(command, reason = 'invalid-command') {
-    const type = command?.type ?? 'command.invalid';
-    patchState({
-      lastCommandResult: createCommandResult(type, {
-        changed: false,
-        ignored: true,
-        reason,
-      }),
-    });
-    return emit();
-  }
-
-  const commandHandlers = {
-    'field.change': ({ pointer, value }) => changeField({ pointer, value }),
-    'array.add': ({ pointer }) => arrayAdd({ pointer }),
-    'array.insert': ({ pointer }) => arrayInsert({ pointer }),
-    'array.remove': ({ pointer }) => arrayRemove({ pointer }),
-    'array.move': ({ pointer, beforePointer }) => arrayMove({ pointer, beforePointer }),
-  };
-
-  async function dispatch(command = {}) {
-    if (!command || typeof command !== 'object') {
-      return rejectInvalidCommand(command, 'command-must-be-object');
-    }
-
-    if (!command.type || typeof command.type !== 'string') {
-      return rejectInvalidCommand(command, 'command-type-required');
-    }
-
-    const handler = commandHandlers[command.type];
-    if (!handler) {
-      return rejectInvalidCommand(command, 'unknown-command');
-    }
-
-    return handler(command);
-  }
-
   function subscribe(listener, options = {}) {
     return stateStore.subscribe(listener, options);
   }
@@ -899,7 +842,6 @@ export function createFormCore({
     addArrayItem,
     removeArrayItem,
     moveArrayItem,
-    dispatch,
     getState,
     subscribe,
     dispose,
