@@ -1,4 +1,4 @@
-import { toCoreCommand } from './intent-command-map.js';
+import { toCoreOperation } from './intent-command-map.js';
 import { createUiStateStore } from '../state/ui-state.js';
 
 function isUiSelectionIntent(commandOrIntent) {
@@ -59,16 +59,24 @@ export function createFormController({ core }) {
     return getSnapshot();
   }
 
-  function toCoreDispatchCommand(commandOrIntent) {
-    const mapped = toCoreCommand(commandOrIntent);
-    if (!mapped || typeof mapped !== 'object') return mapped;
+  async function runCoreStep({ method, args = [] } = {}) {
+    const coreMethod = core?.[method];
+    if (typeof coreMethod !== 'function') {
+      throw new Error(`createFormController could not find core method "${method}".`);
+    }
 
-    const { debounceMs: _, ...coreCommand } = mapped;
-    return coreCommand;
+    const nextCoreState = await coreMethod(...args);
+    latestCoreState = nextCoreState ?? core.getState?.() ?? latestCoreState;
   }
 
-  async function dispatchToCore(commandOrIntent) {
-    await core.dispatch(toCoreDispatchCommand(commandOrIntent));
+  async function executeCoreOperation(commandOrIntent) {
+    const operation = toCoreOperation(commandOrIntent, latestCoreState);
+    if (!operation?.steps?.length) return getSnapshot();
+
+    for (const step of operation.steps) {
+      await runCoreStep(step);
+    }
+
     return getSnapshot();
   }
 
@@ -76,7 +84,7 @@ export function createFormController({ core }) {
     const pointer = commandOrIntent?.pointer;
     const debounceMs = getDebounceMs(commandOrIntent);
     if (!pointer || debounceMs <= 0) {
-      return dispatchToCore(commandOrIntent);
+      return executeCoreOperation(commandOrIntent);
     }
 
     if (pendingFieldTimers.has(pointer)) {
@@ -88,7 +96,7 @@ export function createFormController({ core }) {
     return new Promise((resolve) => {
       const timer = setTimeout(() => {
         pendingFieldTimers.delete(pointer);
-        dispatchToCore(commandOrIntent).then(resolve);
+        executeCoreOperation(commandOrIntent).then(resolve);
       }, debounceMs);
 
       pendingFieldTimers.set(pointer, { timer, resolve });
@@ -114,7 +122,7 @@ export function createFormController({ core }) {
       return dispatchDebouncedFieldChange(commandOrIntent);
     }
 
-    return dispatchToCore(commandOrIntent);
+    return executeCoreOperation(commandOrIntent);
   }
 
   return {
