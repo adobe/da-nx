@@ -53,43 +53,17 @@ export function createInitialState() {
 
 export function createStateStore(initial = createInitialState()) {
   let state = cloneSnapshot(initial);
-  const listeners = new Set();
-
-  function notify() {
-    const snapshot = cloneSnapshot(state);
-    for (const listener of listeners) {
-      listener(snapshot);
-    }
-    return snapshot;
-  }
 
   return {
     getState() {
       return state;
     },
 
-    setState(nextState, { emit = false } = {}) {
+    setState(nextState) {
       state = nextState;
-      if (emit) {
-        return notify();
-      }
       return state;
     },
 
-    subscribe(listener, { emitCurrent = true } = {}) {
-      listeners.add(listener);
-
-      if (emitCurrent) {
-        listener(cloneSnapshot(state));
-      }
-
-      return () => {
-        listeners.delete(listener);
-      };
-    },
-
-    dispose() {
-      listeners.clear();
-    },
+    dispose() { },
   };
 }

@@ -1,14 +1,12 @@
 import { createFormCore } from '../core/form-core.js';
 import { saveSourceHtml } from './boundary/da-source-api.js';
 import { serialize } from './boundary/serialize.js';
-import { createStateBinding } from '../ui-lit/bindings/state-binding.js';
 import { createFormController } from '../ui-lit/controllers/form-controller.js';
 
 export function createFormApp({
   path,
   schema,
   document,
-  onState,
 } = {}) {
   const core = createFormCore({
     path,
@@ -22,28 +20,22 @@ export function createFormApp({
     },
   });
   const controller = createFormController({ core });
-  const state = createStateBinding({
-    controller,
-    onState,
-  });
 
   async function load() {
-    await core.load({
+    const coreState = await core.load({
       schema,
       document,
     });
-    return state.getSnapshot();
+    return controller.syncCoreState(coreState);
   }
 
   function destroy() {
-    state.dispose();
     controller.dispose();
   }
 
   return {
     core,
     controller,
-    state,
     load,
     destroy,
   };

@@ -30,7 +30,6 @@ export function createFormController({ core }) {
   }
 
   const uiStateStore = createUiStateStore();
-  const listeners = new Set();
   const pendingFieldTimers = new Map();
 
   let latestCoreState = core.getState?.() ?? {};
@@ -41,14 +40,6 @@ export function createFormController({ core }) {
       coreState: latestCoreState,
       uiState: latestUiState,
     });
-  }
-
-  function publish() {
-    const snapshot = getSnapshot();
-    for (const listener of listeners) {
-      listener(snapshot);
-    }
-    return snapshot;
   }
 
   function applyUiSelection(commandOrIntent) {
@@ -80,7 +71,7 @@ export function createFormController({ core }) {
     return getSnapshot();
   }
 
-  function dispatchDebouncedFieldChange(commandOrIntent) {
+  function handleDebouncedFieldChange(commandOrIntent) {
     const pointer = commandOrIntent?.pointer;
     const debounceMs = getDebounceMs(commandOrIntent);
     if (!pointer || debounceMs <= 0) {
@@ -103,23 +94,13 @@ export function createFormController({ core }) {
     });
   }
 
-  const unsubscribeCore = core.subscribe((nextCoreState) => {
-    latestCoreState = nextCoreState ?? {};
-    publish();
-  }, { emitCurrent: true });
-
-  const unsubscribeUi = uiStateStore.subscribe((nextUiState) => {
-    latestUiState = nextUiState;
-    publish();
-  }, { emitCurrent: false });
-
-  async function dispatch(commandOrIntent) {
+  async function handleIntent(commandOrIntent) {
     if (isUiSelectionIntent(commandOrIntent)) {
       return applyUiSelection(commandOrIntent);
     }
 
     if (isFieldChangeIntent(commandOrIntent)) {
-      return dispatchDebouncedFieldChange(commandOrIntent);
+      return handleDebouncedFieldChange(commandOrIntent);
     }
 
     return executeCoreOperation(commandOrIntent);
@@ -127,25 +108,12 @@ export function createFormController({ core }) {
 
   return {
     getSnapshot,
-
-    dispatch,
-
-    async handleIntent(intent) {
-      return dispatch(intent);
+    syncCoreState(nextCoreState = core.getState?.() ?? {}) {
+      latestCoreState = nextCoreState ?? {};
+      return getSnapshot();
     },
 
-    subscribe(listener, options = {}) {
-      const { emitCurrent = true } = options;
-      listeners.add(listener);
-
-      if (emitCurrent) {
-        listener(getSnapshot());
-      }
-
-      return () => {
-        listeners.delete(listener);
-      };
-    },
+    handleIntent,
 
     dispose() {
       for (const pending of pendingFieldTimers.values()) {
@@ -153,10 +121,7 @@ export function createFormController({ core }) {
         pending.resolve(getSnapshot());
       }
       pendingFieldTimers.clear();
-      unsubscribeCore?.();
-      unsubscribeUi?.();
       uiStateStore.dispose();
-      listeners.clear();
       core.dispose?.();
     },
   };

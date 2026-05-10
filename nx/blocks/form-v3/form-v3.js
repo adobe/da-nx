@@ -67,10 +67,6 @@ class StructuredContentForm extends LitElement {
       path: this.details?.fullpath,
       schema,
       document: json,
-      onState: (snapshot) => {
-        this._state = snapshot;
-        this.requestUpdate();
-      },
     });
 
     this._state = await this._app.load();
@@ -130,7 +126,10 @@ class StructuredContentForm extends LitElement {
   async _handleIntent(e) {
     const detail = e?.detail ?? {};
     if (!detail.type) return;
-    await this._app?.controller?.handleIntent?.(detail);
+    const snapshot = await this._app?.controller?.handleIntent?.(detail);
+    if (!snapshot) return;
+    this._state = snapshot;
+    this.requestUpdate();
   }
 
   _getSchemaEditorHref() {

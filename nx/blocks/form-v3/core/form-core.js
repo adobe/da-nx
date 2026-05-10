@@ -180,10 +180,6 @@ export function createFormCore({
     });
   }
 
-  function emit() {
-    return stateStore.setState(getMutableState(), { emit: true });
-  }
-
   function getState() {
     return deepClone(getMutableState());
   }
@@ -248,7 +244,7 @@ export function createFormCore({
     patchState({
       lastCommandResult: createCommandResult(type, { changed: false, reason }),
     });
-    return emit();
+    return getState();
   }
 
   function isMutationAllowed(type) {
@@ -294,7 +290,6 @@ export function createFormCore({
           reason: 'document-incompatible',
         }),
       });
-      emit();
       return false;
     }
 
@@ -356,7 +351,6 @@ export function createFormCore({
         acknowledgedSequence: internal.save.latestAcknowledged,
       }),
     });
-    emit();
 
     const persistenceResponse = typeof saveDocument === 'function'
       ? await saveDocument({
@@ -403,7 +397,6 @@ export function createFormCore({
           saveSequence: sequence,
         }),
       });
-      emit();
       return { ok: true, sequence };
     }
 
@@ -441,7 +434,6 @@ export function createFormCore({
         saveSequence: sequence,
       }),
     });
-    emit();
 
     return {
       ok: false,
@@ -514,7 +506,7 @@ export function createFormCore({
       patchState({
         lastCommandResult: createCommandResult(commandType, { changed: false }),
       });
-      return emit();
+      return getState();
     }
 
     const applied = applyRuntimeFromDocument({
@@ -525,7 +517,6 @@ export function createFormCore({
       return getState();
     }
 
-    emit();
     await persistCurrent(commandType);
     return getState();
   }
@@ -547,7 +538,6 @@ export function createFormCore({
       },
       lastCommandResult: createCommandResult('core.load', { started: true }),
     });
-    emit();
 
     const compilation = compileSchema({ schema });
     const compatibility = getCompatibility(compilation);
@@ -612,7 +602,7 @@ export function createFormCore({
           reason: 'schema-unsupported',
         }),
       });
-      return emit();
+      return getState();
     }
 
     if (!parsedDocument.ok) {
@@ -644,7 +634,7 @@ export function createFormCore({
           reason: 'invalid-document',
         }),
       });
-      return emit();
+      return getState();
     }
 
     const normalizedDocument = parsedDocument.document;
@@ -688,7 +678,7 @@ export function createFormCore({
           reason: 'document-incompatible',
         }),
       });
-      return emit();
+      return getState();
     }
 
     internal.runtime = runtime;
@@ -722,10 +712,10 @@ export function createFormCore({
         ready: true,
       }),
     });
-    return emit();
+    return getState();
   }
 
-  async function changeField({ pointer, value }) {
+  async function setFieldValue(pointer, value) {
     const commandType = 'field.change';
     if (!isMutationAllowed(commandType)) return getState();
 
@@ -748,7 +738,7 @@ export function createFormCore({
     });
   }
 
-  async function arrayAdd({ pointer }) {
+  async function addArrayItem(pointer) {
     const commandType = 'array.add';
     if (!isMutationAllowed(commandType)) return getState();
 
@@ -767,7 +757,7 @@ export function createFormCore({
     });
   }
 
-  async function arrayRemove({ pointer }) {
+  async function removeArrayItem(pointer) {
     const commandType = 'array.remove';
     if (!isMutationAllowed(commandType)) return getState();
 
@@ -804,18 +794,6 @@ export function createFormCore({
     });
   }
 
-  async function setFieldValue(pointer, value) {
-    return changeField({ pointer, value });
-  }
-
-  async function addArrayItem(pointer) {
-    return arrayAdd({ pointer });
-  }
-
-  async function removeArrayItem(pointer) {
-    return arrayRemove({ pointer });
-  }
-
   async function moveArrayItem(pointer, fromIndex, toIndex) {
     const resolved = resolveArrayMovePointers({ pointer, fromIndex, toIndex });
     if (!resolved) {
@@ -826,10 +804,6 @@ export function createFormCore({
       pointer: resolved.sourcePointer,
       beforePointer: resolved.beforePointer,
     });
-  }
-
-  function subscribe(listener, options = {}) {
-    return stateStore.subscribe(listener, options);
   }
 
   function dispose() {
@@ -843,7 +817,6 @@ export function createFormCore({
     removeArrayItem,
     moveArrayItem,
     getState,
-    subscribe,
     dispose,
   };
 }

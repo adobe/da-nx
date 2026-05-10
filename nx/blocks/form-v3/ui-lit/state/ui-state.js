@@ -17,18 +17,9 @@ export function createInitialUiState() {
 
 export function createUiStateStore(initial = createInitialUiState()) {
   let state = cloneSnapshot(initial);
-  const listeners = new Set();
 
   function getState() {
     return cloneSnapshot(state);
-  }
-
-  function emit() {
-    const snapshot = getState();
-    for (const listener of listeners) {
-      listener(snapshot);
-    }
-    return snapshot;
   }
 
   function setSelection({ pointer, origin = null } = {}) {
@@ -47,29 +38,14 @@ export function createUiStateStore(initial = createInitialUiState()) {
       },
     };
 
-    return emit();
+    return getState();
   }
 
-  function subscribe(listener, { emitCurrent = true } = {}) {
-    listeners.add(listener);
-
-    if (emitCurrent) {
-      listener(getState());
-    }
-
-    return () => {
-      listeners.delete(listener);
-    };
-  }
-
-  function dispose() {
-    listeners.clear();
-  }
+  function dispose() { }
 
   return {
     getState,
     setSelection,
-    subscribe,
     dispose,
   };
 }
