@@ -53,7 +53,7 @@ ui/   →  core/
 ## 3. Core API
 
 ```js
-const core = createCore({ path, saveDocument });
+const core = createCore({ path, saveDocument, onChange });
 
 const state = await core.load({ schema, document });    // async
 
@@ -66,13 +66,16 @@ const state = core.moveItem(pointer, fromIndex, toIndex); // sync
 const state = core.getState();
 ```
 
-`load` awaits schema/document parsing. All mutations are synchronous: they apply, fire `saveDocument` fire-and-forget, and return a state snapshot.
+`load` awaits schema/document parsing. All mutations are synchronous: they apply, schedule a save in the background, and return a state snapshot.
+
+`onChange` is invoked whenever the state snapshot changes — after a mutation, when a save starts, and when it settles. The shell wires it to a method that pulls a fresh snapshot.
 
 ```js
 state = {
   document:   { values },
   model:      { root, byPointer, document } | null,
   validation: { errorsByPointer },
+  saveStatus: 'idle' | 'saving' | 'saved' | 'error',
 }
 ```
 
@@ -80,14 +83,13 @@ state = {
 
 ## 4. UI wiring
 
-The shell instantiates `core`, holds the current state snapshot, and the navigation state. It passes `core` plus callbacks to the children:
+The shell instantiates `core` with an `onChange` callback, holds the current state snapshot, and the navigation state. It passes `core` plus the selection callback to the children:
 
 ```js
 <sc-editor
   .core=${this._core}
   .state=${this._state}
   .nav=${this._nav}
-  .onMutate=${this._onMutate}
   .onSelect=${this._onSelect}
 ></sc-editor>
 
@@ -98,7 +100,7 @@ The shell instantiates `core`, holds the current state snapshot, and the navigat
 ></sc-sidebar>
 ```
 
-Components call `core` directly (`core.setField(...)`, `core.addItem(...)`), then notify the shell via `onMutate()` so it can pull a fresh snapshot. Selection changes go through `onSelect(pointer, origin)`.
+Components call `core` directly (`core.setField(...)`, `core.addItem(...)`). They do not signal the shell — `core` calls its `onChange` callback after every state transition, and the shell pulls a fresh snapshot in response. This single notification path covers both mutations and asynchronous save-status changes. Selection changes go through `onSelect(pointer, origin)`.
 
 Shell ↔ direct-child communication uses property bindings and callbacks. CustomEvents are used only for bubbled signals from nested components that cross a shadow root (e.g. `array-menu` → editor).
 
@@ -161,7 +163,31 @@ When adding a new field type, add a new `kind` value to `schema.js`'s `inferKind
 
 ## 7. Persistence
 
-Persistence is immediate after every mutation. `core` calls `saveDocument({ path, document })` fire-and-forget. Save failure currently has no UI surface — if that becomes a product requirement, surface a `saving | saved | error` state in the shell. There is no save-sequence tracking; out-of-order completions are not a concern in practice for human-paced edits.
+Persistence is immediate after every mutation. `core` calls `saveDocument({ path, document })` in the background — the mutation returns synchronously and the save settles later.
+
+### Single-flight save with re-queue
+
+At most one `saveDocument` call is in flight at a time. The pipeline:
+
+1. A mutation lands → `commit` rebuilds the model → calls `persist()`.
+2. If no save is in flight, `persist` flips `saveStatus` to `'saving'` and awaits `saveDocument`.
+3. If a save *is* already in flight, `persist` sets `pending = true` and returns immediately. The in-flight call will re-iterate when it settles, using the *latest* document.
+4. On success, `saveStatus` transitions to `'saved'`. On error or thrown rejection, `saveStatus` becomes `'error'` and the re-queue is dropped — the next user edit will start a fresh save.
+
+This eliminates out-of-order overwrites on slow networks (an earlier POST landing after a later one) and collapses bursts of edits into a single trailing save.
+
+### Status reporting
+
+`saveStatus` lives on the state snapshot. `onChange` fires on every transition, so the shell renders the indicator without any separate observer. The shell's [`_renderSaveStatus`](nx/blocks/form/form.js) maps the four values to a small pill near the editor.
+
+### `load` resets the queue
+
+`load` sets `pending = false` so an in-flight save from a previous document cannot trigger a resave of the new one once it completes. `inFlight` is not reset — the previous save runs to completion against its captured document reference.
+
+### What is still not handled
+
+- **Error recovery** is left to the user: when `saveStatus === 'error'`, the user must edit something to retry. There is no automatic retry, no surfaced error detail beyond the pill, and no offline queue. If those become product requirements, extend `persist` with retry/backoff and surface the error message from the `saveDocument` result.
+- **Concurrent editing** between sessions is not handled. Last writer wins.
 
 ---
 

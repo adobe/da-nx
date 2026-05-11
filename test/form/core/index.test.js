@@ -511,4 +511,197 @@ describe('createCore', () => {
       expect(prunesToNothing({ a: 'x' })).to.equal(false);
     });
   });
+
+  describe('saveStatus + single-flight persistence', () => {
+    // Controllable saver: each call awaits a promise the test resolves
+    // explicitly. Lets us pin a save mid-flight and inspect interim state.
+    function controlledSaver({ failures = 0, throwsAt = -1 } = {}) {
+      const calls = [];
+      const resolvers = [];
+      let callCount = 0;
+      const saveDocument = async (payload) => {
+        const seq = callCount;
+        callCount += 1;
+        calls.push(payload);
+        await new Promise((r) => { resolvers.push(r); });
+        if (seq === throwsAt) throw new Error('boom');
+        if (seq < failures) return { error: 'transient' };
+        return { ok: true };
+      };
+      saveDocument.calls = calls;
+      saveDocument.resolveNext = () => {
+        const r = resolvers.shift();
+        if (r) r();
+      };
+      saveDocument.inFlightCount = () => resolvers.length;
+      return saveDocument;
+    }
+
+    it('starts at idle and transitions to saving then saved on a clean save', async () => {
+      const saver = controlledSaver();
+      const seen = [];
+      const core = createCore({
+        saveDocument: saver,
+        onChange: () => seen.push(core.getState().saveStatus),
+      });
+      await core.load({ schema: baseSchema, document: baseDocument });
+      expect(core.getState().saveStatus).to.equal('idle');
+
+      core.setField('/data/name', 'Bob');
+      // Synchronously after setField, persist() has entered its body and
+      // flipped state to 'saving' before the first await.
+      expect(core.getState().saveStatus).to.equal('saving');
+
+      saver.resolveNext();
+      // Yield to microtasks so the save promise settles.
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(core.getState().saveStatus).to.equal('saved');
+      expect(seen).to.include('saving');
+      expect(seen).to.include('saved');
+    });
+
+    it('marks saveStatus error when saveDocument returns an { error } result', async () => {
+      const saver = controlledSaver({ failures: 1 });
+      const core = createCore({ saveDocument: saver });
+      await core.load({ schema: baseSchema, document: baseDocument });
+      core.setField('/data/name', 'Bob');
+      saver.resolveNext();
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(core.getState().saveStatus).to.equal('error');
+    });
+
+    it('marks saveStatus error when saveDocument throws', async () => {
+      const saver = controlledSaver({ throwsAt: 0 });
+      const core = createCore({ saveDocument: saver });
+      await core.load({ schema: baseSchema, document: baseDocument });
+      core.setField('/data/name', 'Bob');
+      saver.resolveNext();
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(core.getState().saveStatus).to.equal('error');
+    });
+
+    it('single-flight: a second mutation during an in-flight save does NOT fire a parallel save', async () => {
+      const saver = controlledSaver();
+      const core = createCore({ saveDocument: saver });
+      await core.load({ schema: baseSchema, document: baseDocument });
+
+      core.setField('/data/name', 'A');
+      expect(saver.inFlightCount()).to.equal(1);
+
+      core.setField('/data/name', 'B');
+      expect(saver.inFlightCount()).to.equal(1); // still just one
+
+      saver.resolveNext();
+      await Promise.resolve(); await Promise.resolve();
+
+      // After the first completes, the queued one starts.
+      expect(saver.inFlightCount()).to.equal(1);
+      expect(saver.calls).to.have.lengthOf(2);
+      expect(saver.calls[1].document.data.name).to.equal('B');
+
+      saver.resolveNext();
+      await Promise.resolve(); await Promise.resolve();
+      expect(core.getState().saveStatus).to.equal('saved');
+    });
+
+    it('single-flight: the requeued save uses the LATEST document, not the intermediate one', async () => {
+      const saver = controlledSaver();
+      const core = createCore({ saveDocument: saver });
+      await core.load({ schema: baseSchema, document: baseDocument });
+
+      core.setField('/data/name', 'first');
+      // Three more rapid edits while the first save is in flight.
+      core.setField('/data/name', 'second');
+      core.setField('/data/name', 'third');
+      core.setField('/data/name', 'fourth');
+
+      saver.resolveNext();
+      await Promise.resolve(); await Promise.resolve();
+      saver.resolveNext();
+      await Promise.resolve(); await Promise.resolve();
+
+      // Exactly two saves: the original, plus one collapsed retry of the
+      // intermediate edits — which carries the *latest* value.
+      expect(saver.calls).to.have.lengthOf(2);
+      expect(saver.calls[0].document.data.name).to.equal('first');
+      expect(saver.calls[1].document.data.name).to.equal('fourth');
+    });
+
+    it('does not re-queue after an error — next edit triggers a fresh save', async () => {
+      const saver = controlledSaver({ failures: 1 });
+      const core = createCore({ saveDocument: saver });
+      await core.load({ schema: baseSchema, document: baseDocument });
+
+      core.setField('/data/name', 'A');
+      core.setField('/data/name', 'B'); // queued
+      saver.resolveNext();
+      await Promise.resolve(); await Promise.resolve();
+      // First save errored; queued save was discarded.
+      expect(core.getState().saveStatus).to.equal('error');
+      expect(saver.calls).to.have.lengthOf(1);
+
+      // Next edit must attempt again from scratch.
+      core.setField('/data/name', 'C');
+      expect(core.getState().saveStatus).to.equal('saving');
+      saver.resolveNext();
+      await Promise.resolve(); await Promise.resolve();
+      expect(core.getState().saveStatus).to.equal('saved');
+      expect(saver.calls).to.have.lengthOf(2);
+      expect(saver.calls[1].document.data.name).to.equal('C');
+    });
+
+    it('onChange fires for mutations and for save-status transitions', async () => {
+      const saver = controlledSaver();
+      let fires = 0;
+      const core = createCore({ saveDocument: saver, onChange: () => { fires += 1; } });
+      await core.load({ schema: baseSchema, document: baseDocument });
+
+      const before = fires;
+      core.setField('/data/name', 'X');
+      // After the synchronous portion: one fire for commit, one for saving.
+      expect(fires - before).to.equal(2);
+
+      saver.resolveNext();
+      await Promise.resolve(); await Promise.resolve();
+      // One more fire for the saved status.
+      expect(fires - before).to.equal(3);
+    });
+
+    it('a no-op mutation does not start a save', async () => {
+      const saver = controlledSaver();
+      const core = createCore({ saveDocument: saver });
+      await core.load({ schema: baseSchema, document: baseDocument });
+      core.setField('/data/name', 'Alice'); // same as base
+      await Promise.resolve();
+      expect(saver.calls).to.have.lengthOf(0);
+      expect(core.getState().saveStatus).to.equal('idle');
+    });
+
+    it('load clears any pending re-queue from a previous document', async () => {
+      const saver = controlledSaver();
+      const core = createCore({ saveDocument: saver });
+      await core.load({ schema: baseSchema, document: baseDocument });
+
+      core.setField('/data/name', 'A');
+      core.setField('/data/name', 'B'); // would queue a second save
+
+      // Load a different document before the in-flight save completes.
+      const loadPromise = core.load({
+        schema: baseSchema,
+        document: { metadata: { schemaName: 'x' }, data: { name: 'fresh' } },
+      });
+
+      // Resolve the originally in-flight save — the queued 'B' must not
+      // resave the now-stale document.
+      saver.resolveNext();
+      await loadPromise;
+      await Promise.resolve(); await Promise.resolve();
+
+      expect(saver.calls).to.have.lengthOf(1);
+      expect(saver.calls[0].document.data.name).to.equal('A');
+    });
+  });
 });

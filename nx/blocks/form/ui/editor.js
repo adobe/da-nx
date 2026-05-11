@@ -11,7 +11,6 @@ class Editor extends LitElement {
     core: { attribute: false },
     state: { attribute: false },
     nav: { attribute: false },
-    onMutate: { attribute: false },
     onSelect: { attribute: false },
     _reorderPointer: { state: true },
     _reorderTargetIndex: { state: true },
@@ -76,8 +75,9 @@ class Editor extends LitElement {
   }
 
   _mutate(fn) {
+    // State notification flows through core's `onChange` callback wired in
+    // the shell. UI just invokes the mutation.
     fn(this.core);
-    this.onMutate?.();
   }
 
   _mutateDebounced(pointer, fn) {

@@ -73,11 +73,12 @@ export function materializeDefaults(definition) {
   return undefined;
 }
 
-function emptyState({ document = null } = {}) {
+function emptyState({ document = null, saveStatus = 'idle' } = {}) {
   return {
     document: { values: document },
     model: null,
     validation: { errorsByPointer: {} },
+    saveStatus,
   };
 }
 
@@ -104,42 +105,87 @@ function canReorder(definition, node) {
   return (node.items?.length ?? 0) > 1;
 }
 
-export function createCore({ path, saveDocument } = {}) {
+export function createCore({ path, saveDocument, onChange } = {}) {
   let state = emptyState();
   let definition = null;
   let model = null;
   let editable = false;
+  // Single-flight persistence: only one saveDocument call is in flight at a
+  // time. Subsequent mutations during a save flip `pending` so we re-save
+  // once the in-flight save completes — newer content wins. Prevents an
+  // earlier POST from landing after a later one and overwriting it.
+  let inFlight = false;
+  let pending = false;
 
   function getState() {
     return state;
   }
 
+  function commitState(next) {
+    state = next;
+    onChange?.();
+  }
+
+  function patchState(partial) {
+    commitState({ ...state, ...partial });
+  }
+
   function rebuildModel(nextDocument) {
     const built = buildModel({ definition, document: nextDocument, previousModel: model });
     if (!built?.root) {
-      state = emptyState({ document: nextDocument ?? null });
+      commitState(emptyState({
+        document: nextDocument ?? null,
+        saveStatus: state.saveStatus,
+      }));
       return false;
     }
     model = built;
     const { errorsByPointer } = validateDocument({ document: built.document, model });
-    state = {
+    commitState({
       document: { values: built.document },
       model: built,
       validation: { errorsByPointer },
-    };
+      saveStatus: state.saveStatus,
+    });
     return true;
   }
 
   async function persist() {
     if (typeof saveDocument !== 'function') return;
-    // Contract: `saveDocument` must not mutate `document`. State is shared by
-    // reference; subsequent mutations build new documents via mutate.js, so the
-    // reference handed off here is effectively immutable for the duration of
-    // the save.
-    await saveDocument({
-      path: path ?? '',
-      document: state.document?.values,
-    });
+    if (inFlight) {
+      pending = true;
+      return;
+    }
+    inFlight = true;
+    // Synchronous transition to 'saving' so the UI reflects "unsaved →
+    // in-flight" immediately rather than waiting for the first microtask.
+    patchState({ saveStatus: 'saving' });
+    try {
+      do {
+        pending = false;
+        let failed = false;
+        // Contract: `saveDocument` must not mutate `document`. State is
+        // shared by reference; subsequent mutations build new documents via
+        // mutate.js, so the reference handed off here is effectively
+        // immutable for the duration of the save.
+        try {
+          const result = await saveDocument({
+            path: path ?? '',
+            document: state.document?.values,
+          });
+          if (result && result.error) failed = true;
+        } catch {
+          failed = true;
+        }
+        if (failed) {
+          patchState({ saveStatus: 'error' });
+          return;
+        }
+      } while (pending);
+      patchState({ saveStatus: 'saved' });
+    } finally {
+      inFlight = false;
+    }
   }
 
   function commit({ document: nextDocument, changed }) {
@@ -167,9 +213,15 @@ export function createCore({ path, saveDocument } = {}) {
     definition = compiled.definition;
     editable = compiled.editable && !!definition;
     model = null;
+    // Reset single-flight tracking — a stale in-flight save from a previous
+    // document must not bleed into the new load. `inFlight` may still be true
+    // while a previous POST settles; that promise will set saveStatus on the
+    // state it observes via patchState, but `pending` is cleared so we do not
+    // resave the new document just because the previous one was dirty.
+    pending = false;
 
     if (!editable || !definition || !parsed) {
-      state = emptyState({ document: parsed ?? null });
+      commitState(emptyState({ document: parsed ?? null }));
       return state;
     }
 
@@ -179,7 +231,7 @@ export function createCore({ path, saveDocument } = {}) {
     // first mutation and the renderer needs no special case for them.
     if (isDataEmpty(parsed.data)) {
       const materialized = materializeDefaults(definition);
-      if (materialized) parsed.data = materialized;
+      if (materialized !== undefined) parsed.data = materialized;
     }
 
     rebuildModel(parsed);
