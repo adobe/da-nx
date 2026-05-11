@@ -56,13 +56,31 @@ The core must be executable without Lit, DOM, or any rendering context.
 Responsibilities:
 
 - rendering (`components/`)
-- interaction and command dispatch
+- interaction and intent dispatch
 - UI-local interaction state (`state/ui-state.js`)
 - controller that bridges core to components (`controllers/form-controller.js`)
 
 ---
 
-## 3. Non-Negotiable Rules
+## 3. Dependency Direction
+
+Dependencies flow in one direction only:
+
+```txt
+app/     →  core/
+app/     →  ui-lit/
+ui-lit/  →  core/
+```
+
+**`core/` must never import from `ui-lit/` or `app/`.**
+
+`app/` wires everything together at bootstrap, but the core and UI layers are unaware of each other and of external services.
+
+Violating this breaks headless testability and UI replaceability.
+
+---
+
+## 4. Non-Negotiable Rules
 
 ### Core is the source of truth
 
@@ -110,35 +128,35 @@ JSON Pointer (RFC 6901) is the canonical address for all state, mutations, and e
 
 ---
 
-## 4. Core API
+## 5. Core API
 
 ```js
 const core = createFormCore({ path, saveDocument });
 
-const state = await core.load({ schema, document, permissions });
+const state = await core.load({ schema, document, permissions }); // async
 
-const state = await core.setFieldValue(pointer, value);
-const state = await core.addArrayItem(pointer);
-const state = await core.removeArrayItem(pointer);
-const state = await core.moveArrayItem(pointer, fromIndex, toIndex);
+const state = core.setFieldValue(pointer, value);              // sync
+const state = core.addArrayItem(pointer);                      // sync
+const state = core.removeArrayItem(pointer);                   // sync
+const state = core.moveArrayItem(pointer, fromIndex, toIndex); // sync
 
 const state = core.getState();
 
 core.dispose();
 ```
 
-All mutation methods return a full state snapshot. The UI re-renders from that snapshot.
+`load` is async because it awaits schema and document parsing. All mutation methods are synchronous — they apply the mutation, fire persistence as fire-and-forget, and return a full state snapshot immediately. The UI re-renders from that snapshot.
 
 ---
 
-## 5. State
+## 6. State
 
 ### Core state shape
 
 ```js
 {
-  document: { values },      // canonical JSON document
-  model:    { formModel },   // compiled runtime model tree
+  document: { values },           // canonical JSON document
+  model:    { formModel },        // compiled runtime model tree
   validation: { errorsByPointer },
 }
 ```
@@ -150,9 +168,9 @@ Core state is serializable and UI-independent.
 ```js
 {
   navigation: {
-    activePointer,       // currently focused field
-    selectionOrigin,     // 'editor' | 'sidebar' | null
-    selectionSequence,   // monotonic counter for scroll sync
+    activePointer,      // currently focused field pointer
+    selectionOrigin,    // 'editor' | 'sidebar' | null — drives scroll sync
+    selectionSequence,  // monotonic counter — detects new selections
   }
 }
 ```
@@ -171,7 +189,87 @@ Components consume only the merged snapshot passed as `context`.
 
 ---
 
-## 6. Controller Responsibilities
+## 7. Runtime Model Nodes
+
+The schema compiler produces a form definition; the runtime model builder combines it with the current document to produce a tree of nodes consumed by the UI.
+
+Each node has a `kind` that determines how it renders:
+
+| kind | description |
+|------|-------------|
+| `string` | text input |
+| `number` | number input |
+| `integer` | integer number input |
+| `boolean` | checkbox |
+| `object` | fieldset containing child nodes |
+| `array` | repeating list of item nodes |
+| `unsupported` | schema feature not supported by this editor |
+
+Common node properties:
+
+```js
+{
+  id,           // stable render key (UUID, never changes across mutations)
+  pointer,      // RFC 6901 JSON Pointer — changes when array items move
+  kind,         // one of the kinds above
+  label,        // display label derived from schema
+  required,     // boolean
+  readonly,     // boolean
+  sourceValue,  // value loaded from the persisted document
+  defaultValue, // schema-derived fallback
+  enumValues,   // string[] — present when the field is an enum
+}
+```
+
+Array nodes additionally have:
+
+```js
+{
+  items,     // child nodes[]
+  minItems,
+  maxItems,
+  itemLabel, // singular label for items (e.g. "Contact")
+}
+```
+
+Object nodes additionally have:
+
+```js
+{
+  children,  // child nodes[]
+}
+```
+
+Unsupported nodes carry an `unsupported` object describing the unrecognised feature. The editor renders them as an explicit error, never silently as a string field.
+
+When adding a new field type, add a new `kind` value to the schema compiler and handle it explicitly in `editor.js`. Never fall through to a default renderer.
+
+---
+
+## 8. Shell Responsibilities
+
+`form-v3.js` is the application entry point and screen router.
+
+It:
+
+- bootstraps the app (`createFormApp`)
+- loads external context (`loadFormContext`)
+- routes to the correct screen (loading, blocked, schema selector, editor)
+- catches `form-intent` events and forwards to the controller
+- re-renders when the controller returns a new snapshot
+
+It must not:
+
+- orchestrate mutations
+- manage selection or navigation state
+- contain validation or persistence logic
+- become a second controller
+
+If logic in `form-v3.js` starts making decisions about document state or field values, it belongs in the core or controller instead.
+
+---
+
+## 9. Controller Responsibilities
 
 `ui-lit/controllers/form-controller.js` is the only UI–core bridge.
 
@@ -189,7 +287,7 @@ It must not:
 
 ---
 
-## 7. Intent System
+## 10. Intent System
 
 Components dispatch `CustomEvent('form-intent', { detail })` with a structured payload.
 
@@ -197,19 +295,44 @@ The shell (`form-v3.js`) catches these and forwards to `controller.handleUiInten
 
 Intent types:
 
-| type | payload | core method |
-|------|---------|-------------|
-| `form-field-change` | `pointer`, `value` | `setFieldValue` |
-| `form-array-add` | `pointer` | `addArrayItem` |
-| `form-array-remove` | `pointer` | `removeArrayItem` |
-| `form-array-reorder` | `pointer`, `fromIndex`, `toIndex` | `moveArrayItem` |
+| type | payload | handled by |
+|------|---------|------------|
+| `form-field-change` | `pointer`, `value` | `core.setFieldValue` |
+| `form-array-add` | `pointer` | `core.addArrayItem` |
+| `form-array-remove` | `pointer` | `core.removeArrayItem` |
+| `form-array-reorder` | `pointer`, `fromIndex`, `toIndex` | `core.moveArrayItem` |
 | `form-nav-pointer-select` | `pointer`, `origin` | UI state only |
 
 Intents express user intent. They never contain DOM references or UI logic.
 
 ---
 
-## 8. Arrays
+## 11. Input Debouncing
+
+Debouncing belongs in UI components only — not in the core and not in the controller.
+
+**Why:** the core is callable programmatically (tests, automation). A debounce inside the core would add arbitrary delay to those callers. The controller is a thin bridge and must not accumulate timer state.
+
+**Rule:** components that produce high-frequency input (text, number) debounce their `form-intent` dispatch before emitting. The core always mutates and persists immediately on every call it receives.
+
+The debounce is keyed per pointer so that typing in one field does not reset the timer for another:
+
+```js
+// editor.js — correct place for debounce
+_emitIntentDebounced(pointer, detail, ms = 350) {
+  clearTimeout(this._inputTimers.get(pointer));
+  this._inputTimers.set(pointer, setTimeout(() => {
+    this._inputTimers.delete(pointer);
+    this._emitIntent(detail);
+  }, ms));
+}
+```
+
+Boolean, select, and all array intents fire immediately without debounce.
+
+---
+
+## 12. Arrays
 
 JSON Pointer is positional — pointers change when items move. Therefore:
 
@@ -229,7 +352,7 @@ core.moveArrayItem("/contacts", fromIndex, toIndex)
 
 ---
 
-## 9. Persistence
+## 13. Persistence
 
 Persistence is immediate after every mutation.
 
@@ -244,7 +367,7 @@ The persistence adapter is injected at bootstrap via `saveDocument({ path, docum
 
 ---
 
-## 10. File Map
+## 14. File Map
 
 ```txt
 form-v3/
@@ -295,17 +418,19 @@ form-v3/
 
 ---
 
-## 11. Rules Summary
+## 15. Rules Summary
 
 ### NEVER
 
 - store UI interaction state in the core
 - let UI mutate document state directly
 - let UI call persistence directly
-- let core depend on DOM, Lit, or rendering
+- let core import from `ui-lit/` or `app/`
+- let core depend on DOM or Lit
 - use generic dispatch / subscribe / event bus patterns
+- put debounce logic in the core or controller
 - allow stale save responses to overwrite newer state
-- silently degrade on unsupported schema features
+- silently degrade on unsupported schema features — render an explicit unsupported node
 
 ### ALWAYS
 
@@ -313,7 +438,8 @@ form-v3/
 - keep UI state local to `ui-lit/`
 - use explicit core methods (not generic dispatch)
 - use JSON Pointer for canonical addressing
-- use stable IDs for array item rendering
+- use stable IDs for array item rendering keys
 - keep persistence inside the core
 - keep validation inside the core
+- debounce high-frequency input in the UI component
 - keep the UI replaceable
