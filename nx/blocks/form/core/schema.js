@@ -316,7 +316,8 @@ export function compileSchema(rawSchema) {
     return {
       schema: null,
       definition: null,
-      unsupported: { editable: false, issues: [] },
+      editable: false,
+      issues: [],
     };
   }
 
