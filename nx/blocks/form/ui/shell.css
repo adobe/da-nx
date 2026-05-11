@@ -133,6 +133,10 @@ sc-sidebar {
   gap: 16px;
 }
 
+.sc-form-schema-start {
+  align-self: flex-end;
+}
+
 .sc-form-schema-hint {
   margin: 0;
   font-size: 0.875rem;
