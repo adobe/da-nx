@@ -1,6 +1,5 @@
 import { appendPointer } from './pointer.js';
 import { assignArrayItemIds } from './ids.js';
-import { deepClone } from './clone.js';
 
 function idFromPointer(pointer) {
   return `node:${pointer || '/'}`;
@@ -91,10 +90,13 @@ function buildNode({
   return node;
 }
 
+// Contract: `document` is owned by buildModel after this call. Callers must pass
+// a fresh object (mutate.js / parseDocument both deep-clone before passing in),
+// otherwise their reference would alias with the model's stored document.
 export function buildModel({ definition, document, previousModel = null }) {
   if (!definition) return null;
 
-  const normalizedDoc = deepClone(document ?? {});
+  const normalizedDoc = document ?? {};
   const rootValue = normalizedDoc?.data ?? {};
   const byPointer = new Map();
 

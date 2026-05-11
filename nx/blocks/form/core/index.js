@@ -87,9 +87,13 @@ export function createCore({ path, saveDocument } = {}) {
 
   async function persist() {
     if (typeof saveDocument !== 'function') return;
+    // Contract: `saveDocument` must not mutate `document`. State is shared by
+    // reference; subsequent mutations build new documents via mutate.js, so the
+    // reference handed off here is effectively immutable for the duration of
+    // the save.
     await saveDocument({
       path: path ?? '',
-      document: deepClone(state.document?.values),
+      document: state.document?.values,
     });
   }
 

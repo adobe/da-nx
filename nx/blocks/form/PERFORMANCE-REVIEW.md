@@ -42,7 +42,7 @@ init(el)
             │              ├─ compileSchema(schema)         ← CPU
             │              ├─ parseDocument(document)       ← deep clone
             │              └─ rebuildModel(doc)
-            │                   ├─ buildModel               ← deep clone + tree walk
+            │                   ├─ buildModel               ← tree walk + byPointer index
             │                   └─ validateDocument         ← tree walk
             └─ status = 'ready' → render editor + sidebar + preview
 ```
@@ -60,36 +60,33 @@ After the per-pointer 350 ms debounce, `editor.js → core.setField(pointer, val
 ```txt
 core.setField(pointer, value)
   └─ commit(applySet({...}))
-       ├─ applySet → deepClone(document)        ← clone #1
+       ├─ applySet → deepClone(document)        ← the single clone
        ├─ rebuildModel(nextDoc)
-       │    ├─ buildModel
-       │    │    ├─ deepClone(document)          ← clone #2
-       │    │    └─ traverse(definition, doc)    ← O(N) build tree + byPointer Map
-       │    └─ validateDocument                  ← O(N) traverse
+       │    ├─ buildModel(definition, nextDoc)  ← O(N) tree walk + byPointer Map
+       │    └─ validateDocument                 ← O(N) traverse
        └─ persist()
-            └─ deepClone(state.document.values)  ← clone #3
-            └─ saveDocument({ path, document })   ← HTTP POST (async, not awaited)
+            └─ saveDocument({ path, document })  ← HTTP POST (async, not awaited)
 
 onMutate() → shell sets _state = core.getState()
   └─ Lit re-renders <sc-form>
        ├─ <sc-editor>.state ←  new ref → re-render entire form tree (O(N) JS work)
        ├─ <sc-sidebar>.state ← new ref → re-render entire nav tree (O(N) JS work)
-       └─ <sc-preview>.state ← new ref → JSON.stringify(doc) on every keystroke
+       └─ <sc-preview>.state ← new ref → render is cheap (cached text); JSON.stringify is debounced 500 ms
 ```
 
 **Per-keystroke cost summary** (N = number of fields, D = document byte size):
 
 | Step | Cost | Where |
 |---|---|---|
-| 3× deep clone of full document | 3× O(D) | mutate.js, model.js, index.js |
+| Deep clone of full document | O(D) | mutate.js |
 | Rebuild model tree + byPointer Map | O(N) | model.js |
 | Validate document | O(N) | validation.js |
 | Editor template build | O(N) | editor.js render |
 | Sidebar template build | O(N_structural) | sidebar.js render |
-| Preview JSON.stringify + DOM update | O(D) | preview.js render |
+| Preview render (cached text; stringify itself runs once per 500 ms quiet period) | O(1) per keystroke, O(D) per debounce | preview.js |
 | HTTP POST (background, fire-and-forget) | network | da-api.js |
 
-For a typical 50-field doc this is < 5 ms total. For a 500-field doc it's ~30 ms — already past the 16 ms frame budget. For a 5000-field doc it's hundreds of ms and the form will feel laggy on every save burst.
+For a typical 50-field doc this is < 5 ms total. For a 500-field doc it's ~20 ms — past the 16 ms frame budget. For a 5000-field doc it's hundreds of ms and the form will feel laggy on every save burst.
 
 ### 2.3. Add/remove/reorder array item
 
@@ -116,31 +113,6 @@ The shell's `hashchange` listener calls `setup(el)` which `replaceChildren()` an
 ---
 
 ## 3. Bottlenecks, ranked
-
-### Critical — affects typing felt as smooth
-
-**[C1] Preview re-renders `JSON.stringify` on every keystroke**
-[ui/preview.js:20](nx/blocks/form/ui/preview.js:20)
-
-```js
-const text = JSON.stringify(json ?? {}, null, 2);
-```
-
-`JSON.stringify` on a 50 KB doc is ~0.5 ms, on 500 KB it's ~10 ms. Plus the `<pre><code>${text}</code></pre>` text-node update which Lit treats as a full text-content replacement. For any doc bigger than trivial, this dominates per-keystroke cost — and the user can't actually read changes that fast.
-
-**Fix:** debounce the preview separately (e.g. 250 ms after typing stops), or only re-render on save success, or only when the `<pre>` is in the viewport (IntersectionObserver). My recommendation is "render on save success" — preview becomes a confirmation rather than a live mirror.
-
-**[C2] Three deep clones per mutation**
-[core/mutate.js:31](nx/blocks/form/core/mutate.js:31), [core/model.js:97](nx/blocks/form/core/model.js:97), [core/index.js:92](nx/blocks/form/core/index.js:92)
-
-Per `setField`:
-1. `mutate.js` clones the doc before applying the change.
-2. `model.js buildModel` clones again as `normalizedDoc`.
-3. `core/index.js persist()` clones a third time before passing to `saveDocument`.
-
-**Fix:** the second clone is redundant — `mutate.js` already produced a fresh doc that no other code holds. Drop `buildModel`'s clone. The third clone is defensive against `saveDocument` mutating the doc; for the current `saveDocument` (which just serializes), it's unneeded. Drop it too. Net: 1 clone per mutation instead of 3.
-
-Concretely: change [model.js:97](nx/blocks/form/core/model.js:97) to assume input is owned, and change [index.js:92](nx/blocks/form/core/index.js:92) to pass the value directly. Add a one-line comment at each boundary that "input is owned, do not mutate" so the contract is visible.
 
 ### High — affects large-doc scaling
 
@@ -198,7 +170,7 @@ window.addEventListener('hashchange', () => { setup(el); });
 
 The signature is `JSON.stringify`-equivalent serialization of every array item — expensive for large or nested items.
 
-**Fix:** in `buildModel`, check first whether `previousItems === nextItems` by reference (since `mutate.js` only creates new arrays when needed) and short-circuit. For setField that doesn't touch arrays, `previousItems` and `nextItems` would be *different references* because the doc was deep-cloned — so this won't help in our current cloning regime. Resolving C2 (drop redundant clones) and using structural sharing in `mutate.js` would unlock this.
+**Fix:** in `buildModel`, check first whether `previousItems === nextItems` by reference and short-circuit. Today this fires rarely because `mutate.js` deep-clones the document at every mutation, so every array literal is a fresh reference. Pairing this with structural sharing in `mutate.js` (only re-allocate the path that changed) would unlock real reuse.
 
 **[M2] Save POST on every debounced burst**
 
@@ -280,7 +252,6 @@ But every mutation propagates a new `state` reference to all three children. All
 ### 4.3. Where reactivity is wasteful
 
 - ❌ The whole tree re-renders on every keystroke. Lit's template caching keeps DOM updates minimal, but the per-render JS work is O(tree size). For large forms this is the main hot spot. See **[H1], [H2]**.
-- ❌ Preview re-renders on every keystroke despite the user being unable to consume the change at typing speed. See **[C1]**.
 - ❌ Hash change in any form (even unrelated) tears down the editor. See **[H4]**.
 
 ### 4.4. Where reactivity is subtly wrong
@@ -294,22 +265,20 @@ But every mutation propagates a new `state` reference to all three children. All
 
 The "do these now" set, in order:
 
-1. **[C2] Cut two of the three deep clones per mutation.** Easiest large win. ~1 hour of work, no API change, measurable.
-2. **[C1] Stop re-rendering Preview on every keystroke.** Move to "render on save" or debounced separately. One render path change, no API change.
-3. **[H3] Per-field incremental validation.** Add `validateField`, call from `setField`. Keep full `validateDocument` for `load` and array mutations. Most of the saved work shows up on big forms.
-4. **[M2] Single-flight save with re-queue.** Correctness + perf fix combined.
-5. **[H4] Skip hash-change teardown when the document hasn't changed.** Compare paths first.
+1. **[H3] Per-field incremental validation.** Add `validateField`, call from `setField`. Keep full `validateDocument` for `load` and array mutations. Most of the saved work shows up on big forms.
+2. **[M2] Single-flight save with re-queue.** Correctness + perf fix combined.
+3. **[H4] Skip hash-change teardown when the document hasn't changed.** Compare paths first.
 
 The "consider later, profile first" set:
 
-6. **[H1] / [H2]** Sidebar/editor partial re-rendering. Significant refactor; only worth it when a real form crosses the threshold. Measure on the largest production schema before committing.
-7. **Structural sharing in `buildModel`.** Return identity-stable `root` when only leaf values changed. Unlocks `shouldUpdate` checks.
+4. **[H1] / [H2]** Sidebar/editor partial re-rendering. Significant refactor; only worth it when a real form crosses the threshold. Measure on the largest production schema before committing.
+5. **Structural sharing in `buildModel`.** Return identity-stable `root` when only leaf values changed. Unlocks `shouldUpdate` checks.
 
 The "leave alone" set:
 
-8. `byPointer` rebuild — O(N) is fine when N is small.
-9. The `JSON.parse(JSON.stringify(...))` fallback in `deepClone` — dead code but harmless.
-10. `getStyle` semantics — verify if curious but don't preempt.
+6. `byPointer` rebuild — O(N) is fine when N is small.
+7. The `JSON.parse(JSON.stringify(...))` fallback in `deepClone` — dead code but harmless.
+8. `getStyle` semantics — verify if curious but don't preempt.
 
 ---
 
