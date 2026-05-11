@@ -394,6 +394,25 @@ describe('createCore', () => {
       expect(saver.calls[0].document.data).to.deep.equal({ flag: false, name: 'Alice' });
     });
 
+    it('exposes a saved enum value on node.value (drives select render)', async () => {
+      // Regression coverage for the select-on-reload bug: after loading a
+      // previously-saved document that picked an enum value, the model node
+      // for that field must carry the value so the renderer can mark the
+      // matching option as selected.
+      const schema = {
+        type: 'object',
+        properties: { status: { type: 'string', enum: ['active', 'inactive'] } },
+      };
+      const core = createCore({ saveDocument: trackingSaver() });
+      const state = await core.load({
+        schema,
+        document: { metadata: { schemaName: 'x' }, data: { status: 'active' } },
+      });
+      const node = state.model.byPointer.get('/data/status');
+      expect(node.value).to.equal('active');
+      expect(node.enumValues).to.deep.equal(['active', 'inactive']);
+    });
+
     it('reload of a saved {flag: false} stays unchecked (not re-materialized)', async () => {
       // Symmetry: `false` is non-empty, so the doc is non-fresh on reload and
       // the boolean reflects the saved state — including when that state is
