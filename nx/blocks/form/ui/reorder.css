@@ -11,7 +11,7 @@
   display: flex;
   align-items: center;
   padding: 6px 8px;
-  background: white;
+  background: var(--background-color, #fff);
   border: 1px solid var(--s2-gray-300, #d1d5db);
   border-radius: 8px;
   box-shadow: 0 2px 8px rgb(0 0 0 / 12%);
@@ -52,26 +52,26 @@
   &:hover:not(:disabled) {
     background: var(--s2-gray-100, #f3f4f6);
   }
+}
 
-  &.reorder-confirm {
-    color: var(--s2-blue-600, #2563eb);
+.reorder-btn.reorder-confirm {
+  color: var(--s2-blue-600, #2563eb);
+}
 
-    &:hover {
-      background: var(--s2-blue-100, #dbeafe);
-    }
-  }
+.reorder-btn.reorder-confirm:hover {
+  background: var(--s2-blue-100, #dbeafe);
+}
 
-  &.reorder-cancel {
-    color: var(--s2-gray-600, #4b5563);
+.reorder-btn.reorder-cancel {
+  color: var(--s2-gray-600, #4b5563);
+}
 
-    &:hover {
-      background: var(--s2-gray-100, #f3f4f6);
-      color: var(--s2-red-600, #dc2626);
-    }
-  }
+.reorder-btn.reorder-cancel:hover {
+  background: var(--s2-gray-100, #f3f4f6);
+  color: var(--s2-red-600, #dc2626);
+}
 
-  svg {
-    width: 18px;
-    height: 18px;
-  }
+.reorder-btn svg {
+  width: 18px;
+  height: 18px;
 }

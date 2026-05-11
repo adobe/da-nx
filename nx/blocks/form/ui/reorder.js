@@ -1,36 +1,50 @@
 import { LitElement, html } from 'da-lit';
 
-const { default: getStyle } = await import('../../../../../utils/styles.js');
+const { default: getStyle } = await import('../../../utils/styles.js');
 const style = await getStyle(import.meta.url);
 
-/** Dialog with move/confirm/cancel buttons for reordering array items. */
-class ReorderDialog extends LitElement {
+const EL_NAME = 'sc-reorder';
+
+class Reorder extends LitElement {
   static properties = {
-    targetIndex: { type: Number },
-    totalItems: { type: Number },
+    targetIndex: { attribute: false },
+    totalItems: { attribute: false },
   };
 
   constructor() {
     super();
     this.targetIndex = 0;
     this.totalItems = 0;
-    this._boundHandleKeydown = this._handleKeydown.bind(this);
+    this._onKeydown = this._handleKeydown.bind(this);
   }
 
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
-    document.addEventListener('keydown', this._boundHandleKeydown);
+    document.addEventListener('keydown', this._onKeydown);
   }
 
   disconnectedCallback() {
-    document.removeEventListener('keydown', this._boundHandleKeydown);
+    document.removeEventListener('keydown', this._onKeydown);
     super.disconnectedCallback();
   }
 
+  _dispatch(name) {
+    this.dispatchEvent(new CustomEvent(name, { bubbles: true, composed: true }));
+  }
+
+  _isTypingTarget(target) {
+    if (!(target instanceof Element)) return false;
+    const tag = target.tagName?.toLowerCase?.();
+    if (tag === 'input' || tag === 'textarea' || tag === 'select') return true;
+    return target.closest?.('[contenteditable="true"]') != null;
+  }
+
   _handleKeydown(e) {
-    const n = this.totalItems;
-    const { targetIndex } = this;
+    if (e.defaultPrevented) return;
+    if (this._isTypingTarget(e.target)) return;
+
+    const lastIndex = Math.max((this.totalItems ?? 0) - 1, 0);
 
     if (e.key === 'Escape') {
       this._dispatch('reorder-cancel');
@@ -44,28 +58,23 @@ class ReorderDialog extends LitElement {
       return;
     }
 
-    if (e.key === 'ArrowUp' && targetIndex > 0) {
+    if (e.key === 'ArrowUp' && this.targetIndex > 0) {
       this._dispatch(e.shiftKey ? 'reorder-move-to-first' : 'reorder-move-up');
       e.preventDefault();
       return;
     }
 
-    if (e.key === 'ArrowDown' && targetIndex < n) {
+    if (e.key === 'ArrowDown' && this.targetIndex < lastIndex) {
       this._dispatch(e.shiftKey ? 'reorder-move-to-last' : 'reorder-move-down');
       e.preventDefault();
     }
   }
 
-  _dispatch(name, detail = {}) {
-    this.dispatchEvent(new CustomEvent(name, { detail, bubbles: true, composed: true }));
-  }
-
   render() {
-    const n = this.totalItems;
+    const totalItems = this.totalItems ?? 0;
+    const lastIndex = Math.max(totalItems - 1, 0);
     const canMoveUp = this.targetIndex > 0;
-    const canMoveDown = this.targetIndex < n;
-    const canMoveToFirst = this.targetIndex > 0;
-    const canMoveToLast = this.targetIndex < n;
+    const canMoveDown = this.targetIndex < lastIndex;
 
     return html`
       <div class="reorder-dialog" role="dialog" aria-label="Reorder item">
@@ -73,51 +82,51 @@ class ReorderDialog extends LitElement {
           <button
             type="button"
             class="reorder-btn"
-            ?disabled=${!canMoveToFirst}
-            title="Move to top (Shift+↑)"
-            aria-label="Move to top (Shift+↑)"
+            ?disabled=${!canMoveUp}
+            title="Move to top (Shift+Up)"
+            aria-label="Move to top (Shift+Up)"
             @click=${() => this._dispatch('reorder-move-to-first')}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="12 19 7 14 12 9"/>
-              <polyline points="19 19 14 14 19 9"/>
+              <polyline points="12 19 7 14 12 9"></polyline>
+              <polyline points="19 19 14 14 19 9"></polyline>
             </svg>
           </button>
           <button
             type="button"
             class="reorder-btn"
             ?disabled=${!canMoveUp}
-            title="Move up one (↑)"
-            aria-label="Move up one (↑)"
+            title="Move up one (Up)"
+            aria-label="Move up one (Up)"
             @click=${() => this._dispatch('reorder-move-up')}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="18 15 12 9 6 15"/>
+              <polyline points="18 15 12 9 6 15"></polyline>
             </svg>
           </button>
           <button
             type="button"
             class="reorder-btn"
             ?disabled=${!canMoveDown}
-            title="Move down one (↓)"
-            aria-label="Move down one (↓)"
+            title="Move down one (Down)"
+            aria-label="Move down one (Down)"
             @click=${() => this._dispatch('reorder-move-down')}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="6 9 12 15 18 9"/>
+              <polyline points="6 9 12 15 18 9"></polyline>
             </svg>
           </button>
           <button
             type="button"
             class="reorder-btn"
-            ?disabled=${!canMoveToLast}
-            title="Move to bottom (Shift+↓)"
-            aria-label="Move to bottom (Shift+↓)"
+            ?disabled=${!canMoveDown}
+            title="Move to bottom (Shift+Down)"
+            aria-label="Move to bottom (Shift+Down)"
             @click=${() => this._dispatch('reorder-move-to-last')}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="12 5 17 10 12 15"/>
-              <polyline points="5 5 10 10 5 15"/>
+              <polyline points="12 5 17 10 12 15"></polyline>
+              <polyline points="5 5 10 10 5 15"></polyline>
             </svg>
           </button>
           <span class="reorder-dialog-separator" aria-hidden="true"></span>
@@ -129,7 +138,7 @@ class ReorderDialog extends LitElement {
             @click=${() => this._dispatch('reorder-confirm')}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="20 6 9 17 4 12"/>
+              <polyline points="20 6 9 17 4 12"></polyline>
             </svg>
           </button>
           <button
@@ -140,8 +149,8 @@ class ReorderDialog extends LitElement {
             @click=${() => this._dispatch('reorder-cancel')}
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="18" y1="6" x2="6" y2="18"/>
-              <line x1="6" y1="6" x2="18" y2="18"/>
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
             </svg>
           </button>
         </div>
@@ -150,4 +159,6 @@ class ReorderDialog extends LitElement {
   }
 }
 
-customElements.define('reorder-dialog', ReorderDialog);
+if (!customElements.get(EL_NAME)) {
+  customElements.define(EL_NAME, Reorder);
+}
