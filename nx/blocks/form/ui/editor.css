@@ -37,7 +37,7 @@
 
 .editor-root .form-array-item.move-item-picked {
   position: relative;
-  opacity: 0.9;
+  z-index: 2;
 }
 
 .editor-root .form-array-item.move-item-picked::before {
@@ -156,6 +156,12 @@
   font: inherit;
 }
 
+.editor-root .form-field input[aria-invalid='true']:not([type='checkbox']),
+.editor-root .form-field select[aria-invalid='true'] {
+  border-color: var(--s2-red-600, #dc2626);
+  box-shadow: 0 0 0 1px var(--s2-red-200, #fecaca);
+}
+
 .editor-root .form-field.is-compact input:not([type='checkbox']),
 .editor-root .form-field.is-compact select {
   margin-top: 0;
@@ -236,7 +242,7 @@
   padding: 0;
   margin: -1px;
   overflow: hidden;
-  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
   white-space: nowrap;
   border: 0;
 }

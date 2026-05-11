@@ -130,6 +130,7 @@ class Editor extends LitElement {
     const readonly = !!node?.readonly;
     const pointer = node?.pointer ?? '';
     const error = this._error(pointer);
+    const invalid = error ? 'true' : 'false';
     const value = this._primitiveValue(node);
     const labelText = `${label}${required ? '*' : ''}`;
     const fieldClass = `form-field${this._activeClass(pointer)}${hideLabel ? ' is-compact' : ''}`;
@@ -141,6 +142,7 @@ class Editor extends LitElement {
           <select
             .value=${value ?? ''}
             aria-label=${labelText}
+            aria-invalid=${invalid}
             ?disabled=${readonly}
             @focus=${() => this._select(pointer)}
             @change=${(e) => this._onSelectInput(node, e)}
@@ -160,6 +162,7 @@ class Editor extends LitElement {
             type="checkbox"
             .checked=${!!value}
             aria-label=${labelText}
+            aria-invalid=${invalid}
             ?disabled=${readonly}
             @focus=${() => this._select(pointer)}
             @change=${(e) => this._onBooleanInput(node, e)}
@@ -180,6 +183,7 @@ class Editor extends LitElement {
             type="number"
             .value=${String(value ?? '')}
             aria-label=${labelText}
+            aria-invalid=${invalid}
             ?disabled=${readonly}
             @focus=${() => this._select(pointer)}
             @input=${(e) => this._onNumberInput(node, e)}
@@ -196,6 +200,7 @@ class Editor extends LitElement {
           type="text"
           .value=${value ?? ''}
           aria-label=${labelText}
+          aria-invalid=${invalid}
           ?disabled=${readonly}
           @focus=${() => this._select(pointer)}
           @input=${(e) => this._onTextInput(node, e)}
