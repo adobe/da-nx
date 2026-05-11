@@ -1,8 +1,6 @@
 import {
-  appendPointer,
   getPointerValue,
   insertPointerValueBefore,
-  movePointerArrayItemBefore,
   removePointerValue,
   setPointerValue,
 } from '../model/json-pointer.js';
@@ -95,14 +93,13 @@ export function removeArrayItem({
 export function moveArrayItem({
   document,
   pointer,
-  beforePointer,
+  fromIndex,
+  toIndex,
 }) {
   const nextDocument = deepClone(document);
-  const changed = movePointerArrayItemBefore({
-    data: nextDocument,
-    pointer,
-    beforePointer,
-  });
-
-  return { document: nextDocument, changed };
+  const array = getPointerValue({ data: nextDocument, pointer });
+  if (!Array.isArray(array) || fromIndex === toIndex) return { document: nextDocument, changed: false };
+  const [item] = array.splice(fromIndex, 1);
+  array.splice(toIndex, 0, item);
+  return { document: nextDocument, changed: true };
 }

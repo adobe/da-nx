@@ -4,7 +4,7 @@ import {
   removeArrayItem as applyRemoveArrayItem,
 } from './mutation/array-mutator.js';
 import { applyFieldChange } from './mutation/value-mutator.js';
-import { appendPointer, findDefinitionByPointer, getParentPointer } from './model/json-pointer.js';
+import { findDefinitionByPointer, getParentPointer } from './model/json-pointer.js';
 import { buildRuntimeFormModel } from './model/runtime-model-builder.js';
 import { createRuntimeModelIndex, findNodeByPointer } from './model/runtime-model-index.js';
 import { compileSchema } from './schema/schema-compiler.js';
@@ -355,14 +355,12 @@ export function createFormCore({
     const itemCount = arrayNode?.items?.length ?? 0;
     if (fromIdx >= itemCount) return getState();
 
-    const sourcePointer = appendPointer({ pointer, segment: fromIdx });
-    const beforePointer = toIdx >= itemCount ? null : appendPointer({ pointer, segment: toIdx });
-
     return applyMutationAndPersist({
       mutationResult: applyMoveArrayItem({
         document: getMutableState().document?.values,
-        pointer: sourcePointer,
-        beforePointer,
+        pointer,
+        fromIndex: fromIdx,
+        toIndex: toIdx,
       }),
     });
   }

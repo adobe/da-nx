@@ -13,12 +13,14 @@ class StructuredContentFormEditor extends LitElement {
     context: { attribute: false },
     _reorderPointer: { state: true },
     _reorderTargetIndex: { state: true },
+    _reorderConfirmed: { state: true },
   };
 
   constructor() {
     super();
     this._reorderPointer = '';
     this._reorderTargetIndex = 0;
+    this._reorderConfirmed = false;
   }
 
   connectedCallback() {
@@ -28,6 +30,11 @@ class StructuredContentFormEditor extends LitElement {
 
   updated(changed) {
     if (!changed.has('context')) return;
+
+    if (this._reorderConfirmed) {
+      this._resetReorder();
+      return;
+    }
 
     const prevContext = changed.get('context');
     const prevSequence = prevContext?.activeNavSequence ?? -1;
@@ -212,6 +219,7 @@ class StructuredContentFormEditor extends LitElement {
   _resetReorder() {
     this._reorderPointer = '';
     this._reorderTargetIndex = 0;
+    this._reorderConfirmed = false;
   }
 
   _setReorderTarget(index, itemCount) {
@@ -239,18 +247,6 @@ class StructuredContentFormEditor extends LitElement {
     this._onReorderStart(e, itemCount);
   }
 
-  _beforePointerFromTargetIndex(pointers, currentIndex, targetIndex) {
-    if (!pointers.length) return undefined;
-
-    const lastIndex = pointers.length - 1;
-    if (targetIndex > currentIndex) {
-      if (targetIndex >= lastIndex) return undefined;
-      return pointers[targetIndex + 1];
-    }
-
-    return pointers[targetIndex];
-  }
-
   _getItemsInPreviewOrder(items) {
     if (!this._reorderPointer) return items;
 
@@ -267,29 +263,28 @@ class StructuredContentFormEditor extends LitElement {
     return reordered;
   }
 
-  _confirmReorder(items, pointers) {
+  _confirmReorder(arrayPointer, items) {
     if (!this._reorderPointer) return;
 
-    const pointer = this._reorderPointer;
-    const currentIndex = items.findIndex((item) => item.pointer === pointer);
-    if (currentIndex < 0) {
+    const fromIndex = items.findIndex((item) => item.pointer === this._reorderPointer);
+    if (fromIndex < 0) {
       this._resetReorder();
       return;
     }
 
-    const targetIndex = this._reorderTargetIndex;
-    if (targetIndex === currentIndex) {
+    const toIndex = this._reorderTargetIndex;
+    if (toIndex === fromIndex) {
       this._resetReorder();
       return;
     }
 
-    const beforePointer = this._beforePointerFromTargetIndex(pointers, currentIndex, targetIndex);
     this._emitIntent({
       type: 'form-array-reorder',
-      pointer,
-      beforePointer,
+      pointer: arrayPointer,
+      fromIndex,
+      toIndex,
     });
-    this._resetReorder();
+    this._reorderConfirmed = true;
   }
 
   _renderUnsupported(node) {
@@ -358,7 +353,7 @@ class StructuredContentFormEditor extends LitElement {
 
         ${displayItems.map((item, index) => {
       const isStructuredItem = item.kind === 'object' || item.kind === 'array';
-      const isReorderActive = this._reorderPointer === item.pointer;
+      const isReorderActive = this._reorderPointer === item.pointer && !this._reorderConfirmed;
       const itemTitle = `#${index + 1} ${item.label ?? node.itemLabel ?? 'Item'}`;
       const itemContent = item.kind === 'object'
         ? (item.children ?? []).map((child) => this._renderNode(child))
@@ -401,7 +396,7 @@ class StructuredContentFormEditor extends LitElement {
                   </div>
                 </div>
               `}
-              ${isReorderActive ? html`
+              ${isReorderActive && !this._reorderConfirmed ? html`
                 <sc-reorder-dialog
                   .targetIndex=${this._reorderTargetIndex}
                   .totalItems=${itemCount}
@@ -409,7 +404,7 @@ class StructuredContentFormEditor extends LitElement {
                   @reorder-move-down=${() => this._setReorderTarget(this._reorderTargetIndex + 1, itemCount)}
                   @reorder-move-to-first=${() => this._setReorderTarget(0, itemCount)}
                   @reorder-move-to-last=${() => this._setReorderTarget(itemCount - 1, itemCount)}
-                  @reorder-confirm=${() => this._confirmReorder(items, pointers)}
+                  @reorder-confirm=${() => this._confirmReorder(node.pointer, items)}
                   @reorder-cancel=${() => this._resetReorder()}
                 ></sc-reorder-dialog>
               ` : nothing}
