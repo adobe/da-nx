@@ -306,20 +306,6 @@ class Form extends LitElement {
     `;
   }
 
-  _renderSaveStatus() {
-    const status = this._state?.saveStatus ?? 'idle';
-    if (status === 'idle') return nothing;
-    const labels = { saving: 'Saving…', saved: 'Saved', error: 'Save failed' };
-    const text = labels[status] ?? '';
-    return html`
-      <span
-        class="sc-save-status sc-save-status-${status}"
-        role="status"
-        aria-live="polite"
-      >${text}</span>
-    `;
-  }
-
   _renderReady() {
     if (!this._state) {
       return this._renderMessage('', 'Preparing structured content editor...', { showProgress: true });
@@ -337,7 +323,6 @@ class Form extends LitElement {
     return html`
       <div class="sc-form-wrapper">
         <div class="sc-editor-pane">
-          ${this._renderSaveStatus()}
           <sc-editor
             .core=${this._core}
             .state=${this._state}

@@ -178,7 +178,7 @@ This eliminates out-of-order overwrites on slow networks (an earlier POST landin
 
 ### Status reporting
 
-`saveStatus` lives on the state snapshot. `onChange` fires on every transition, so the shell renders the indicator without any separate observer. The shell's [`_renderSaveStatus`](nx/blocks/form/form.js) maps the four values to a small pill near the editor.
+`saveStatus` lives on the state snapshot and is exposed through `onChange`. The current UI does not render an indicator — the field is available for any future surface (status bar, toast, programmatic consumer) without further core changes.
 
 ### `load` resets the queue
 
