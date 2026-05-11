@@ -1,5 +1,5 @@
 /* Prevent main from page-scrolling when browse is active */
-main:has(nx-browse) {
+body:has(nx-browse) {
   overflow: hidden;
 }
 
