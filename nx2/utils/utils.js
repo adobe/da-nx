@@ -91,11 +91,6 @@ const parseWindowPath = () => {
   const pathView = window.location.pathname.slice(1);
   const view = pathView === '' ? 'browse' : pathView;
 
-  if (location.hash.endsWith('/index')) {
-    const clean = location.hash.slice(0, -5);
-    history.replaceState(null, '', clean);
-  }
-
   const cleanHash = stripImsHash(location.hash);
   if (cleanHash !== location.hash) {
     history.replaceState(null, '', `${location.pathname}${location.search}${cleanHash}`);

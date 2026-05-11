@@ -1,5 +1,20 @@
 # Worklog
 
+## 2026-05-11
+
+### Remove `/index` stripping from `nx2/utils/utils.js`
+
+Removed the 3-line block in `parseWindowPath` that redirected `#/org/site/path/index` → `#/org/site/path`:
+
+```js
+if (location.hash.endsWith('/index')) {
+  const clean = location.hash.slice(0, -5);
+  history.replaceState(null, '', clean);
+}
+```
+
+**Reasoning:** `parseWindowPath` is shared by both browse and canvas. In canvas (da-live), this silently redirected hash URLs before the editor could read the path, breaking direct links to `index` files (e.g. `/canvas#/org/site/path/index`). The stripping was introduced by Claude in commit `9626865e` with no explanation — likely a browse UX convention (index ≡ directory) applied incorrectly to a shared parser. Removed from `nx2` only; `nx` is left unchanged as it's a separate code path.
+
 ## 2026-05-08
 
 ### quick-edit merge conflict
