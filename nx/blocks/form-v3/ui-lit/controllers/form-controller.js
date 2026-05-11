@@ -37,30 +37,25 @@ export function createFormController({ core }) {
     return updateState();
   }
 
-  async function handleUiIntent(intent = {}) {
+  function handleUiIntent(intent = {}) {
     switch (intent.type) {
       case 'form-nav-pointer-select':
         return setSelection(intent.pointer, intent.origin ?? null);
 
       case 'form-field-change':
-        coreState = (await core.setFieldValue(intent.pointer, intent.value)) ?? coreState;
+        coreState = core.setFieldValue(intent.pointer, intent.value) ?? coreState;
         return updateState();
 
       case 'form-array-add':
-        coreState = (await core.addArrayItem(intent.pointer)) ?? coreState;
+        coreState = core.addArrayItem(intent.pointer) ?? coreState;
         return updateState();
 
       case 'form-array-remove':
-        coreState = (await core.removeArrayItem(intent.pointer)) ?? coreState;
+        coreState = core.removeArrayItem(intent.pointer) ?? coreState;
         return updateState();
 
       case 'form-array-reorder':
-        coreState =
-          (await core.moveArrayItem(
-            intent.pointer,
-            intent.fromIndex,
-            intent.toIndex
-          )) ?? coreState;
+        coreState = core.moveArrayItem(intent.pointer, intent.fromIndex, intent.toIndex) ?? coreState;
         return updateState();
 
       default:

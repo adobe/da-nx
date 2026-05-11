@@ -219,7 +219,7 @@ export function createFormCore({
     return itemCount > 1;
   }
 
-  async function applyMutationAndPersist({ mutationResult }) {
+  function applyMutationAndPersist({ mutationResult }) {
     if (!mutationResult?.changed) return getState();
 
     const applied = applyRuntimeFromDocument({
@@ -227,7 +227,7 @@ export function createFormCore({
     });
     if (!applied) return getState();
 
-    await persistCurrent();
+    persistCurrent();
     return getState();
   }
 
@@ -292,7 +292,7 @@ export function createFormCore({
     return getState();
   }
 
-  async function setFieldValue(pointer, value) {
+  function setFieldValue(pointer, value) {
     if (!isMutationAllowed()) return getState();
 
     const node = findNodeByPointer({
@@ -311,7 +311,7 @@ export function createFormCore({
     });
   }
 
-  async function addArrayItem(pointer) {
+  function addArrayItem(pointer) {
     if (!isMutationAllowed()) return getState();
 
     const { arrayDefinition, arrayNode } = getArrayContext(pointer);
@@ -326,7 +326,7 @@ export function createFormCore({
     });
   }
 
-  async function removeArrayItem(pointer) {
+  function removeArrayItem(pointer) {
     if (!isMutationAllowed()) return getState();
 
     const { arrayDefinition, arrayNode } = getParentArrayContext(pointer);
@@ -340,7 +340,7 @@ export function createFormCore({
     });
   }
 
-  async function moveArrayItem(pointer, fromIndex, toIndex) {
+  function moveArrayItem(pointer, fromIndex, toIndex) {
     if (!isMutationAllowed()) return getState();
 
     const fromIdx = Number.parseInt(fromIndex, 10);

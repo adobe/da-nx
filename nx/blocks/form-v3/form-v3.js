@@ -123,10 +123,10 @@ class StructuredContentForm extends LitElement {
     });
   }
 
-  async _handleIntent(e) {
+  _handleIntent(e) {
     const detail = e?.detail ?? {};
     if (!detail.type) return;
-    const snapshot = await this._app?.controller?.handleUiIntent?.(detail);
+    const snapshot = this._app?.controller?.handleUiIntent?.(detail);
     if (!snapshot) return;
     this._state = snapshot;
     this.requestUpdate();

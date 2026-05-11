@@ -21,6 +21,7 @@ class StructuredContentFormEditor extends LitElement {
     this._reorderPointer = '';
     this._reorderTargetIndex = 0;
     this._reorderConfirmed = false;
+    this._inputTimers = new Map();
   }
 
   connectedCallback() {
@@ -93,23 +94,29 @@ class StructuredContentFormEditor extends LitElement {
     return this.context?.activeNavPointer === pointer ? ' is-active' : '';
   }
 
+  _emitIntentDebounced(pointer, detail, ms = 350) {
+    clearTimeout(this._inputTimers.get(pointer));
+    this._inputTimers.set(pointer, setTimeout(() => {
+      this._inputTimers.delete(pointer);
+      this._emitIntent(detail);
+    }, ms));
+  }
+
   _handleTextInput(node, event) {
-    this._emitIntent({
+    this._emitIntentDebounced(node.pointer, {
       type: 'form-field-change',
       pointer: node.pointer,
       value: event.target.value === '' ? undefined : event.target.value,
-      debounceMs: 350,
     });
   }
 
   _handleNumberInput(node, event) {
     const raw = event.target.value;
     const value = raw === '' ? undefined : Number(raw);
-    this._emitIntent({
+    this._emitIntentDebounced(node.pointer, {
       type: 'form-field-change',
       pointer: node.pointer,
       value: Number.isNaN(value) ? undefined : value,
-      debounceMs: 350,
     });
   }
 
