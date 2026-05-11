@@ -142,19 +142,23 @@ class Editor extends LitElement {
     const fieldClass = `form-field${this._activeClass(pointer)}${hideLabel ? ' is-compact' : ''}`;
 
     if (Array.isArray(node.enumValues)) {
+      const currentValue = value === '' || value === undefined || value === null ? '' : value;
       return html`
         <label class=${fieldClass} data-pointer=${pointer}>
           ${hideLabel ? nothing : html`${label}${required ? html`<span class="is-required">*</span>` : nothing}`}
           <select
-            .value=${value ?? ''}
             aria-label=${labelText}
             aria-invalid=${invalid}
             ?disabled=${readonly}
             @focus=${() => this._select(pointer)}
             @change=${(e) => this._onSelectInput(node, e)}
           >
-            ${required ? html`<option value="" disabled>Please Select</option>` : html`<option value="">None</option>`}
-            ${node.enumValues.map((item) => html`<option value=${item}>${item}</option>`)}
+            ${required
+          ? html`<option value="" disabled ?selected=${currentValue === ''}>Please Select</option>`
+          : html`<option value="" ?selected=${currentValue === ''}>None</option>`}
+            ${node.enumValues.map((item) => html`
+              <option value=${item} ?selected=${item === currentValue}>${item}</option>
+            `)}
           </select>
           ${error ? html`<p class="form-error">${error}</p>` : nothing}
         </label>
