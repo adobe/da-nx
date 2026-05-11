@@ -41,11 +41,15 @@ init(el)
             │         └─ core.load({ schema, document })
             │              ├─ compileSchema(schema)         ← CPU
             │              ├─ parseDocument(document)       ← deep clone
+            │              ├─ if isDataEmpty(parsed.data):
+            │              │    └─ materializeDefaults      ← O(schema), at most once per load
             │              └─ rebuildModel(doc)
             │                   ├─ buildModel               ← tree walk + byPointer index
             │                   └─ validateDocument         ← tree walk
             └─ status = 'ready' → render editor + sidebar + preview
 ```
+
+`materializeDefaults` walks the compiled definition tree once when the loaded document is empty (under the same rules `prune()` uses on save). The walk is linear in schema size, not document size, and runs at most once per `load` call. Not in the keystroke hot path. See [ARCHITECTURE.md §11](nx/blocks/form/ARCHITECTURE.md) for the policy.
 
 **Blocking before first paint:**
 

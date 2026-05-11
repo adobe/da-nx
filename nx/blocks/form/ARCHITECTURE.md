@@ -207,7 +207,107 @@ Note: a navigation away within the debounce window currently drops the last keys
 
 ---
 
-## 11. Rules
+## 11. Defaults policy
+
+Schema `default` values are **materialized into the document at load time** when the loaded `data` is empty. From that point on, defaults are real values in the document — they are saved on the first mutation, and the renderer is a pure function of `node.value` with no special case for defaults.
+
+### The three invariants
+
+| Stage | Rule |
+|---|---|
+| **Load** | If `isDataEmpty(parsed.data)` → write schema defaults into `data` (recursively). A primitive with an explicit `default` materializes to that value. A boolean without an explicit default materializes to `false`. Other primitives without a default stay absent. Otherwise leave `data` alone. |
+| **Render** | Show `node.value`. If `undefined`, show empty (or `false` for boolean). The renderer never reads `node.defaultValue`. |
+| **Save** | Prune empty strings / null / undefined / whitespace-only / empty branches from `data`, then serialize. `false` is **not** pruned. |
+
+`isDataEmpty` and `prune` mirror each other on purpose: a value the loader treats as "empty enough to materialize over" is exactly a value the saver would strip. If one definition changes, the other must too — covered by the symmetry tests in `test/form/core/index.test.js`.
+
+### Why booleans get an implicit default
+
+A boolean field has exactly two visible states (checked, unchecked); there is no meaningful "absent." If a fresh document renders a checkbox as unchecked, the saved document must reflect that — otherwise the next load sees an empty doc, re-materializes, and the checkbox state is whatever the schema's default says, not what the user saw.
+
+Materializing `false` for booleans without an explicit default makes the round-trip stable:
+
+- `false` survives `prune()` on save (only empty strings, null, undefined, whitespace, and empty branches are stripped — `false` is real).
+- A saved document containing `{ flag: false }` is not `isDataEmpty`, so the next load does not re-materialize and the checkbox stays unchecked.
+- This pattern only applies to booleans. For other primitives, materializing an empty placeholder (`''`, `0`, `null`) would be stripped on save anyway — pointless writes. Booleans are the only primitive where the natural "empty" state is itself a persistable value.
+
+### Field-level rendering
+
+What a single input shows, given what's in the document for that field:
+
+| `node.value` after load | Rendered |
+|---|---|
+| `"hello"` | `"hello"` |
+| `""` | empty |
+| `undefined` (key missing) | empty |
+| `false` (boolean) | unchecked |
+| `true` | checked |
+| `undefined` (boolean) | unchecked |
+
+### End-to-end scenarios
+
+Schema for all rows: `{ A: { type: string, default: "X" }, B: { type: string, default: "Y" }, C: { type: string } }` (C has no default).
+
+| # | Disk before | At load `isDataEmpty?` | In-memory `data` after load | What user sees | User action | In-memory `data` after action | Disk after save |
+|---|---|---|---|---|---|---|---|
+| 1 | empty | yes → materialize | `{A:"X", B:"Y"}` | A="X", B="Y", C=empty | nothing | `{A:"X", B:"Y"}` | empty *(no save fires)* |
+| 2 | empty | yes → materialize | `{A:"X", B:"Y"}` | A="X", B="Y", C=empty | types "Z" in C | `{A:"X", B:"Y", C:"Z"}` | `{A:"X", B:"Y", C:"Z"}` |
+| 3 | empty | yes → materialize | `{A:"X", B:"Y"}` | A="X", B="Y", C=empty | clears A | `{B:"Y"}` | `{B:"Y"}` |
+| 4 | empty | yes → materialize | `{A:"X", B:"Y"}` | A="X", B="Y", C=empty | clears A *and* B | `{}` | empty *(edge case)* |
+| 5 | `{A:"Alice"}` | no | `{A:"Alice"}` | A="Alice", B=empty, C=empty | nothing | `{A:"Alice"}` | `{A:"Alice"}` *(no save fires)* |
+| 6 | `{A:"Alice"}` | no | `{A:"Alice"}` | A="Alice", B=empty, C=empty | types "Z" in C | `{A:"Alice", C:"Z"}` | `{A:"Alice", C:"Z"}` |
+| 7 | `{A:"Alice"}` | no | `{A:"Alice"}` | A="Alice", B=empty, C=empty | types "T" in B | `{A:"Alice", B:"T"}` | `{A:"Alice", B:"T"}` |
+| 8 | `{A:"Alice"}` | no | `{A:"Alice"}` | A="Alice", B=empty, C=empty | clears A | `{}` | empty *(edge case)* |
+| 9 | `{B:"Y"}` | no | `{B:"Y"}` | A=empty, B="Y", C=empty | nothing | `{B:"Y"}` | `{B:"Y"}` |
+
+Row 9 is important: if a previous session left the doc with only B in it (e.g. the user cleared A in row 3), on the next load A renders **empty**, not "X". Cleared stays cleared.
+
+### Reload chain — one document over time
+
+Same schema. Trace one document across sessions:
+
+| Step | What happens | Disk state | Render |
+|---|---|---|---|
+| 1 | Open new doc | empty | A="X", B="Y", C=empty *(materialized in memory; not yet on disk)* |
+| 2 | Type "Z" in C, blur (save fires) | `{A:"X", B:"Y", C:"Z"}` | A="X", B="Y", C="Z" |
+| 3 | Close tab |  |  |
+| 4 | Reopen — load reads disk | `{A:"X", B:"Y", C:"Z"}` | A="X", B="Y", C="Z" *(no materialization — data not empty)* |
+| 5 | Clear A, save | `{B:"Y", C:"Z"}` | A=empty, B="Y", C="Z" |
+| 6 | Close, reopen | `{B:"Y", C:"Z"}` | A=empty, B="Y", C="Z" *(A stays cleared)* |
+| 7 | Clear B and C, save | empty | A=empty, B=empty, C=empty |
+| 8 | Close, reopen | empty | A="X", B="Y", C=empty *(materialized — edge case)* |
+
+### Where defaults can appear
+
+| Source of a default reaching the user | When |
+|---|---|
+| Load-time materialization | Disk-empty document, schema carries defaults |
+| `addItem` on an array | User clicks "add item" — `mutate.js buildDefault` seeds the new item |
+| *Anywhere else* | **Never.** The renderer does not synthesize defaults. |
+
+### Why this shape
+
+- Single source of truth: the document holds the values; the renderer reflects it. There is no "what's displayed vs what's saved" divergence to reason about.
+- The renderer is stateless with respect to load history. It needs no `documentIsFresh` flag, no session bit, no special branch for defaults.
+- On a fresh document, the first user mutation persists the typed field *and* all materialized defaults in one save. A user touching one field does not silently drop the displayed defaults for the others.
+- On a previously-saved document, a missing key is treated as cleared and stays cleared — restoring a default would silently overwrite the user's intent on the next save.
+
+### Known limit
+
+A document that has been edited and then fully cleared saves with empty `data` (rows 4 and 8 in the scenario table). On the next load `isDataEmpty` returns true and defaults re-materialize. This is a property of the storage format, not the editor — there is nowhere in the saved HTML to record "the user intentionally emptied this." If the storage format gains a representation for null-distinct-from-absent, materialization can be replaced with that distinction and the edge case disappears.
+
+### Why `materializeDefaults` is distinct from `mutate.js`'s `buildDefault`
+
+Both walk a definition tree and produce a default-filled value, but they have different jobs.
+
+- `mutate.js buildDefault` seeds a complete shape for a new array item (a string without a default becomes `''`, ready for an input box). It is always called in response to a deliberate user action.
+- `core/index.js materializeDefaults` writes only keys that carry real intent. Fields without a default stay absent so they prune to nothing on save instead of being written as empty placeholders.
+
+They stay separate on purpose.
+
+---
+
+## 12. Rules
 
 ### NEVER
 

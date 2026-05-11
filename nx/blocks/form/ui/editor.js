@@ -100,7 +100,9 @@ class Editor extends LitElement {
     if (!node) return '';
     if (node.value !== undefined) return node.value;
     if (node.kind === 'boolean') return false;
-    if (node.defaultValue !== undefined) return node.defaultValue;
+    // Defaults are materialized into the document at load (see core/index.js).
+    // The renderer is a pure function of `node.value` — a missing value means
+    // the field is empty, never that a default should be synthesized here.
     return '';
   }
 

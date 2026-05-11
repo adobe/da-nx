@@ -28,6 +28,51 @@ function parseDocument(document) {
   return next;
 }
 
+// Mirrors prune() in app/serialize.js: a value is "empty" iff it would be
+// stripped from the saved HTML. Keep the two definitions symmetric — defaults
+// materialize exactly when the loaded document, after applying the same
+// stripping rules, has no surviving content. If serialize.js changes what it
+// strips, this must change too.
+export function isDataEmpty(value) {
+  if (value === null || value === undefined || value === '') return true;
+  if (typeof value === 'string') return value.trim() === '';
+  if (Array.isArray(value)) return value.length === 0 || value.every(isDataEmpty);
+  if (typeof value === 'object') {
+    const entries = Object.values(value);
+    return entries.length === 0 || entries.every(isDataEmpty);
+  }
+  return false;
+}
+
+// Walk the compiled definition tree and produce a partial document containing
+// only keys that carry a real schema default (recursively). Fields without
+// defaults stay absent so they get pruned to nothing on save instead of being
+// written as empty placeholders. Arrays stay empty — fabricating items is the
+// job of mutate.js's `addItem`, not load.
+//
+// Distinct from mutate.js's `buildDefault`, which seeds a complete shape for a
+// new array item (so an input box can render). The two have different jobs and
+// stay separate on purpose.
+export function materializeDefaults(definition) {
+  if (!definition || typeof definition !== 'object') return undefined;
+  if (definition.defaultValue !== undefined) {
+    return deepClone(definition.defaultValue);
+  }
+  if (definition.kind === 'object') {
+    const result = {};
+    for (const child of definition.children ?? []) {
+      const value = materializeDefaults(child);
+      if (value !== undefined) result[child.key] = value;
+    }
+    return Object.keys(result).length > 0 ? result : undefined;
+  }
+  // Booleans get an implicit default of `false`. A checkbox is always in one
+  // of two states (checked or unchecked); there is no meaningful "absent."
+  // `false` survives `prune()` on save, so the round-trip is stable.
+  if (definition.kind === 'boolean') return false;
+  return undefined;
+}
+
 function emptyState({ document = null } = {}) {
   return {
     document: { values: document },
@@ -126,6 +171,15 @@ export function createCore({ path, saveDocument } = {}) {
     if (!editable || !definition || !parsed) {
       state = emptyState({ document: parsed ?? null });
       return state;
+    }
+
+    // Materialize defaults into `data` if the loaded document is empty under
+    // the same rules serialize.js uses to prune on save. After this point the
+    // defaults are real values in the document — they will be saved with the
+    // first mutation and the renderer needs no special case for them.
+    if (isDataEmpty(parsed.data)) {
+      const materialized = materializeDefaults(definition);
+      if (materialized) parsed.data = materialized;
     }
 
     rebuildModel(parsed);
