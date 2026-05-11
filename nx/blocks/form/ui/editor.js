@@ -1,8 +1,5 @@
 import { LitElement, html, nothing } from 'da-lit';
 
-await import('./array-menu.js');
-await import('./reorder.js');
-
 const { default: getStyle } = await import('../../../utils/styles.js');
 const style = await getStyle(import.meta.url);
 
@@ -32,6 +29,13 @@ class Editor extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
+  }
+
+  firstUpdated() {
+    // Lazily register array UI sub-elements. Browsers upgrade existing tags
+    // (`sc-array-menu`, `sc-reorder`) once the modules call customElements.define.
+    import('./array-menu.js');
+    import('./reorder.js');
   }
 
   disconnectedCallback() {

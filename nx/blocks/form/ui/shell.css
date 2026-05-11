@@ -1,7 +1,3 @@
-@import url('./editor.css');
-@import url('./sidebar.css');
-@import url('./preview.css');
-
 :host {
   display: block;
 }

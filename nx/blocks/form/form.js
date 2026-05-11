@@ -2,7 +2,6 @@ import { LitElement, html, nothing } from 'da-lit';
 import getPathDetails from 'https://da.live/blocks/shared/pathDetails.js';
 
 import 'https://da.live/blocks/edit/da-title/da-title.js';
-import 'https://da.live/blocks/shared/da-dialog/da-dialog.js';
 
 import { createCore } from './core/index.js';
 import { loadFormContext } from './app/context.js';
@@ -13,10 +12,14 @@ import './ui/editor.js';
 import './ui/sidebar.js';
 import './ui/preview.js';
 
-await import('../../public/sl/components.js');
-
 const { default: getStyle } = await import('../../utils/styles.js');
 const style = await getStyle(new URL('./ui/shell.css', import.meta.url).href);
+
+const DIALOG_MODULE = 'https://da.live/blocks/shared/da-dialog/da-dialog.js';
+const SL_COMPONENTS_MODULE = new URL('../../public/sl/components.js', import.meta.url).href;
+
+const loadBlockedDeps = () => import(DIALOG_MODULE);
+const loadSchemaPickerDeps = () => import(SL_COMPONENTS_MODULE);
 
 const EL_NAME = 'sc-form';
 const PREVIEW_PREFIX = 'https://da-sc.adobeaem.workers.dev/preview';
@@ -90,6 +93,14 @@ class Form extends LitElement {
 
     const context = await loadFormContext({ details: this.details });
     if (version !== this._loadVersion) return;
+
+    if (context.status === 'blocked') {
+      await loadBlockedDeps();
+    } else if (context.status === 'select-schema' || context.status === 'no-schemas') {
+      await loadSchemaPickerDeps();
+    }
+    if (version !== this._loadVersion) return;
+
     this._context = context;
 
     if (context.status === 'ready') {

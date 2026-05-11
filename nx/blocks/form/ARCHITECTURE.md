@@ -2,7 +2,7 @@
 
 JSON Schema-driven structured content editor.
 
-This is the production `form` block. It is a simplification of an earlier exploratory `form-v3` based on the findings in that block's review. It keeps a headless core as the only real abstraction and avoids a controller layer, an intent CustomEvent bus, and state-store wrappers.
+The block presents a JSON document for editing against a JSON Schema. A headless core owns canonical state, mutation, validation, and persistence; a thin Lit UI renders the model and calls into the core directly.
 
 ---
 
@@ -80,7 +80,7 @@ state = {
 
 ## 4. UI wiring
 
-The shell instantiates `core`, holds the current state snapshot, and the navigation state. It passes `core` plus callbacks to the children — there is **no controller, no intent bus, no state-store object**.
+The shell instantiates `core`, holds the current state snapshot, and the navigation state. It passes `core` plus callbacks to the children:
 
 ```js
 <sc-editor
@@ -100,7 +100,7 @@ The shell instantiates `core`, holds the current state snapshot, and the navigat
 
 Components call `core` directly (`core.setField(...)`, `core.addItem(...)`), then notify the shell via `onMutate()` so it can pull a fresh snapshot. Selection changes go through `onSelect(pointer, origin)`.
 
-**Why callbacks over events for shell ↔ direct children:** removes the switch/dispatch indirection. The shell still uses CustomEvents internally for *cross-shadow-boundary* signals from nested components (e.g. `array-menu` → editor), where bubbling is the natural channel.
+Shell ↔ direct-child communication uses property bindings and callbacks. CustomEvents are used only for bubbled signals from nested components that cross a shadow root (e.g. `array-menu` → editor).
 
 ---
 
@@ -184,7 +184,7 @@ Resolved up front (in `schema.js`):
 - `allOf` — supported when single-entry; multiple entries are unsupported.
 - `oneOf` / `anyOf` — unsupported (marked).
 
-If any unsupported composition exists anywhere in the schema, `compileSchema` returns `editable: false` and the form is not rendered. (This matches V3 behavior; a future refinement could render `unsupported` nodes inline while keeping the rest editable.)
+If any unsupported composition exists anywhere in the schema, `compileSchema` returns `editable: false` and the form is not rendered. A future refinement could render `unsupported` nodes inline while keeping the rest editable.
 
 ---
 
