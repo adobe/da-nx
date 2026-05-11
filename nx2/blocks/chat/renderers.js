@@ -91,6 +91,15 @@ function renderApprovalCard(pending, onApprove) {
   `;
 }
 
+// Mirrors entryTypeFromExtension in browse/utils.js — switch to common utils once migrated.
+function selectionIconClass(blockName) {
+  const ext = (blockName ?? '').includes('.') ? blockName.split('.').pop().toLowerCase() : '';
+  if (!ext) return 'icon-block';
+  if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'mp4', 'webm', 'mov'].includes(ext)) return 'icon-image';
+  if (['json', 'xlsx', 'xls', 'csv'].includes(ext)) return 'icon-table';
+  return 'icon-file';
+}
+
 function renderMessage(msg, icons, toolCards) {
   if (msg.role === ROLE.TOOL) return nothing;
   const isAssistant = msg.role === ROLE.ASSISTANT;
@@ -107,8 +116,25 @@ function renderMessage(msg, icons, toolCards) {
       </button>`
     : nothing;
 
+  const selectionItem = ({ blockName }) => html`
+    <li class="selection-context-item">
+      <span class="selection-icon ${selectionIconClass(blockName)}"></span>
+      <span>${blockName}</span>
+    </li>`;
+
+  let selectionPills = nothing;
+  if (!isAssistant && msg.selectionContext?.length) {
+    selectionPills = msg.selectionContext.length === 1
+      ? html`<ul class="selection-context-list" aria-label="Attached context">${selectionItem(msg.selectionContext[0])}</ul>`
+      : html`<details class="selection-context">
+          <summary><span class="selection-context-count">${msg.selectionContext.length} items added</span></summary>
+          <ul class="selection-context-list">${msg.selectionContext.map(selectionItem)}</ul>
+        </details>`;
+  }
+
   return html`
     <div class="message message-${msg.role}">
+      ${selectionPills}
       <div class="message-content">${isAssistant ? renderMessageContent(msg.content) : msg.content}</div>
       ${copy}
     </div>

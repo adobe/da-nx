@@ -6,11 +6,6 @@ const styles = await loadStyle(import.meta.url);
 class NxChatPills extends LitElement {
   static properties = { items: { type: Array } };
 
-  constructor() {
-    super();
-    this.items = [];
-  }
-
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [styles];

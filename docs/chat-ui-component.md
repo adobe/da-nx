@@ -30,7 +30,7 @@ The component manages its own controller internally. No external wiring needed.
 { role: 'tool', ... }  // filtered from display automatically
 ```
 
-**Request body:** The controller POSTs `{ messages, pageContext, context, imsToken, room }` to the agent. `context` is the array of attached items added via `addAttachment()` for that message — it is cleared after each send and not included in persisted message history.
+**Request body:** The controller POSTs `{ messages, pageContext, imsToken, room }` to the agent. Selection context is embedded on individual user messages (see [Selection context](#selection-context)) rather than as a top-level request field.
 
 ## Methods
 
@@ -49,7 +49,48 @@ Components that want to add pills without holding a direct reference to the chat
 
 | Event | Detail | Description |
 |---|---|---|
-| `nx-add-to-chat` | Same shape as `addAttachment()` | Adds a pill. Handled identically to calling `addAttachment()` directly. |
+| `nx-add-to-chat` | `{ key?, id, label, ...contextFields }` | Adds or replaces a pill. If `key` is set, replaces any existing pill with the same key (use for selection-driven context that changes as the user moves focus). If `key` is omitted, appends a new pill regardless. Dispatching `{ key }` with no `id` removes the pill for that key. |
+
+Context fields on the detail (`blockName`, `innerText`, `proseIndex`) are forwarded to the agent as selection context on the next message. See [Selection context](#selection-context).
+
+## Selection context
+
+Attached context items (canvas selections, browse file selections) are serialised onto the outgoing user message before being sent to the agent:
+
+```js
+{ role: 'user', content: string, selectionContext: [item, ...] }
+```
+
+### Item shapes
+
+**Canvas block** — emitted by `canvas-chat-bridge.js`:
+
+```js
+{ proseIndex: number, blockName: string, innerText: string }
+```
+
+| Field | Description |
+|---|---|
+| `proseIndex` | Zero-based editor index from `data-block-index` |
+| `blockName` | CSS class name of the block (e.g. `hero`, `columns`) |
+| `innerText` | Text content of the block |
+
+**Browse file** — emitted by `browse-chat-bridge.js`:
+
+```js
+{ blockName: string, innerText: 'Selected repository path: org/site/path' }
+```
+
+| Field | Description |
+|---|---|
+| `blockName` | Filename with extension (e.g. `about-us.html`) |
+| `innerText` | `"Selected repository path: ${key}"` where `key` is the full `org/site/path` |
+
+### Agent-side handling
+
+`selectionContext` is stripped from messages before the model sees them. `formatSelectionContextForModel` on the agent expands each item into text prepended to the user message — using `blockName` as the item label, `innerText` as the body, and `proseIndex` as the editor index hint. Items with no recognised fields are shown as "Prose section (editor index: ?)".
+
+> **Contract:** The item shapes above are the shared contract between da-nx (client) and da-agent (server). If da-agent changes how `formatSelectionContextForModel` parses item fields, the bridge files (`canvas-chat-bridge.js`, `browse-chat-bridge.js`) and the `sendMessage` filter/map in `chat-controller.js` must be updated to match.
 
 ## Agent stream contract
 
@@ -149,6 +190,21 @@ Each session would have a human-readable title so users can make informed switch
 | Event | Bubbles | Detail | Description |
 |---|---|---|---|
 | `nx-agent-change` | Yes | — | The agent completed a tool action. Host views can listen to react (e.g. reload the document). Fired once per successful tool-result. |
+
+## Skills slash menu
+
+Typing `/` in the chat input opens a skill picker populated from the current site's skill library.
+
+**Source:** `GET /config/{org}/{site}` → `json.skills.data` rows (same endpoint as prompts). This mirrors `da-agent/src/skills/loader.ts` exactly, so the menu only shows skills the agent can resolve.
+
+**Rules (match the agent's `loadSkillsIndex`):**
+- Site-level only — no org-level fallback.
+- Rows with `status: 'draft'` are excluded.
+- IDs are normalised: `.md` suffix stripped (`check-heading.md` → `check-heading`).
+
+**Wire:** on selection, the skill ID is collected and passed as `requestedSkills: [id]` in the next POST to da-agent. The agent loads the full markdown content from its own config KV and injects it into the system prompt — the client never sends the content itself.
+
+**Approval continuations:** `requestedSkills` is intentionally re-sent on approval continuation POSTs. The agent rebuilds its system prompt from scratch on every request, so the skill must be present in each POST that expects it to be in context. `requestedSkills` resets to `[]` only when the user sends the next fresh message.
 
 ## Boundaries
 

@@ -1,4 +1,7 @@
-const MENU_OPTIONS = { PROMPT: 'prompt' };
+const MENU_OPTIONS = {
+  PROMPT: 'prompt',
+  COMMAND: 'command',
+};
 
 const ADD_MENU_ITEMS = [
   { section: 'Add' },
