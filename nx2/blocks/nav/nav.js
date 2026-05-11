@@ -4,6 +4,7 @@ import { getMetadata } from '../../scripts/nx.js';
 import { loadStyle } from '../../utils/utils.js';
 import { loadFragment } from '../fragment/fragment.js';
 import { loadHrefSvg } from '../../utils/svg.js';
+import setupToggle from './toggle.js';
 
 const DEFAULT_NAV_PATH = '/nx/fragments/nav';
 
@@ -16,10 +17,11 @@ class NXNav extends LitElement {
     _actions: { state: true },
   };
 
-  connectedCallback() {
+  async connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
-    this.loadNav();
+    await this.loadNav();
+    setupToggle(() => this._actions);
   }
 
   change(props) {

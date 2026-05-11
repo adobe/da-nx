@@ -71,3 +71,26 @@ p {
   width: 20px;
   height: 20px;
 }
+
+.nx-nav-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 32px;
+  border: none;
+  padding: 0 10px 0 8px;
+  background: transparent;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.nx-nav-toggle:hover {
+  background: #e1e1e1;
+}
+
+.nx-nav-toggle svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
