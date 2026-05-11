@@ -26,14 +26,31 @@ nx-chat {
   height: 100%;
 }
 
+.nx-canvas-with-iframe {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 0;
+  height: calc(100vh - var(--nx-canvas-header-height) - var(--s2-nav-height));
+}
+
+.nx-canvas-iframe {
+  flex: 0 0 360px;
+  width: 360px;
+  height: 100%;
+  border: 0;
+  background: light-dark(#fff, #000);
+}
+
 /* Layout / content / split: one visible editor set; split uses WYSIWYG | gutter | doc; inactive uses [hidden] */
 .nx-canvas-editor-mount {
   display: flex;
   flex-direction: column;
   flex: 1;
+  min-width: 0;
   min-height: 0;
   gap: 0;
-  height: calc(100vh - var(--nx-canvas-header-height) - var(--s2-nav-height));
+  height: 100%;
 }
 
 nx-editor-doc {

@@ -53,7 +53,93 @@ function persistCanvasEditorView(view) {
 }
 
 function canvasEditorMountRoot(block) {
-  return block.querySelector('.default-content') || block;
+  return block.querySelector(':scope > .nx-canvas-editor-mount')
+    || block.querySelector(':scope > .default-content')
+    || block;
+}
+
+const CANVAS_IFRAME_SRC = 'http://localhost:5710/';
+const CANVAS_IFRAME_ORIGIN = new URL(CANVAS_IFRAME_SRC).origin;
+
+function buildImsHandoffMessage(ims) {
+  const accessToken = ims?.accessToken?.token;
+  if (!accessToken) return null;
+  const expire = ims?.accessToken?.expire;
+  const expiresAtMs = typeof expire?.getTime === 'function'
+    ? expire.getTime()
+    : Number(expire) || 0;
+  const expiresIn = expiresAtMs
+    ? Math.max(0, Math.floor((expiresAtMs - Date.now()) / 1000))
+    : 86400;
+  return {
+    type: 'da-ims-token',
+    accessToken,
+    expiresIn,
+    profile: {
+      userName: ims.displayName || ims.first_name,
+      userAvatar: ims.avatar,
+    },
+  };
+}
+
+// Re-read the IMS token from loadIms() on every handoff so token renewals
+// from imslib are reflected immediately in subsequent posts to the child.
+async function postImsHandoff(frame) {
+  if (!frame.contentWindow) return;
+  let ims;
+  try {
+    const { loadIms } = await import('../../utils/ims.js');
+    ims = await loadIms();
+  } catch {
+    return;
+  }
+  const message = buildImsHandoffMessage(ims);
+  if (!message) return;
+  frame.contentWindow.postMessage(message, CANVAS_IFRAME_ORIGIN);
+}
+
+// Create the iframe only after DA's IMS auth has resolved with a real user.
+// Loading the iframe earlier races with imslib's silent-token check (the
+// child also boots an Adobe login mechanism, which can disrupt DA's sign-in).
+async function setupCanvasIframe(block) {
+  if (block.querySelector(':scope > iframe.nx-canvas-iframe')) return;
+
+  let ims;
+  try {
+    const { loadIms } = await import('../../utils/ims.js');
+    ims = await loadIms();
+  } catch {
+    return;
+  }
+  if (!ims || ims.anonymous) return;
+
+  const frame = document.createElement('iframe');
+  frame.className = 'nx-canvas-iframe';
+  frame.src = CANVAS_IFRAME_SRC;
+  frame.title = 'Canvas iframe';
+  block.prepend(frame);
+
+  frame.addEventListener('load', () => postImsHandoff(frame));
+  window.addEventListener('message', (e) => {
+    if (e.source !== frame.contentWindow) return;
+    const type = e.data?.type;
+    if (type !== 'slicc-iframe-ready' && type !== 'slicc-needs-token') return;
+    postImsHandoff(frame);
+  });
+}
+
+function ensureCanvasEditorMount(block) {
+  let mount = block.querySelector(':scope > .nx-canvas-editor-mount');
+  if (mount) return mount;
+  mount = block.querySelector(':scope > .default-content');
+  if (!mount) {
+    mount = document.createElement('div');
+    const movable = [...block.children].filter((c) => c.tagName !== 'IFRAME');
+    for (const child of movable) mount.append(child);
+    block.append(mount);
+  }
+  mount.classList.add('nx-canvas-editor-mount');
+  return mount;
 }
 
 function canvasHeaderApplyTarget(block) {
@@ -188,8 +274,10 @@ function installCanvasHeader(block) {
 export default async function decorate(block) {
   const header = installCanvasHeader(block);
 
-  const mountRoot = canvasEditorMountRoot(block);
-  mountRoot.classList.add('nx-canvas-editor-mount');
+  block.classList.add('nx-canvas-with-iframe');
+  setupCanvasIframe(block);
+
+  const mountRoot = ensureCanvasEditorMount(block);
   syncEditorSplitLayout({ mountRoot, view: header.editorView });
   installEditorSplitDrag(mountRoot);
 
