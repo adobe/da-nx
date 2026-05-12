@@ -6,13 +6,13 @@
  * the <nx-skills-editor> custom element.
  *
  * Origin resolution (same pattern as da-admin, da-collab, etc.):
- *   ?da-skills=local  → http://localhost:3000  (local dev)
+ *   ?da-skills=local  → http://localhost:3001  (local dev)
  *   ?da-skills=reset   → clear override, use default
  *   default            → https://main--da-skills--adobe.aem.live
  */
 
 const DA_SKILLS_ENVS = {
-  local: 'http://localhost:3000',
+  local: 'http://localhost:3001',
   prod: 'https://main--da-skills--adobe.aem.live',
 };
 
@@ -38,16 +38,23 @@ try {
   const ims = await loadIms();
   const token = ims?.accessToken?.token;
   if (token) initAuth(token);
-} catch { /* anonymous */ }
+} catch { /* IMS unavailable — daFetch falls back to window.adobeIMS */ }
 
 await import(`${SKILLS_BASE}/nx-skills-editor.js`);
 
-export default function decorate(block) {
+const CHAT_IMPORT_URL = new URL('../chat/chat.js', import.meta.url).href;
+
+function createEditor() {
   const el = document.createElement('nx-skills-editor');
+  el.chatImportUrl = CHAT_IMPORT_URL;
+  return el;
+}
+
+export default function decorate(block) {
   block.textContent = '';
-  block.append(el);
+  block.append(createEditor());
 }
 
 export function getPanel() {
-  return document.createElement('nx-skills-editor');
+  return createEditor();
 }
