@@ -10,6 +10,16 @@ async function getBlocksData() {
   if (!blocksDataPromise) {
     blocksDataPromise = (async () => {
       try {
+        // Wait for imslib (nx2's IMS bootstrap) to finish parsing the
+        // post-IMS redirect fragment and store the access token before
+        // calling da.live's helpers — they reach into admin.da.live via
+        // da.live's own daFetch, which auto-redirects to IMS on any 401.
+        // If we race ahead of imslib (likely when a third-party iframe is
+        // also loading on the canvas page), the request goes out without
+        // a Bearer, admin 401s, and the page bounces back to login.
+        const { loadIms } = await import('../../../../utils/ims.js');
+        const ims = await loadIms();
+        if (!ims || ims.anonymous) return [];
         const { getLibraryList } = await import('https://da.live/blocks/edit/da-library/helpers/helpers.js');
         const { getBlocks } = await import('https://da.live/blocks/edit/da-library/helpers/index.js');
         const libraryList = await getLibraryList();

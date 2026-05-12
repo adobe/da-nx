@@ -120,16 +120,6 @@ export async function daFetch(url, opts = {}) {
 
   if (resp.status === 401) {
     try {
-      const resolved = new URL(url, window.location.href).href;
-      // TEMP DIAGNOSTIC: SLICC-iframe IMS-loop investigation
-      // eslint-disable-next-line no-console
-      console.error('[daFetch] 401 → triggering IMS sign-in', {
-        url: resolved,
-        method: opts.method || 'GET',
-        stack: new Error('daFetch 401 stack').stack,
-      });
-    } catch { /* ignore */ }
-    try {
       const { loadIms, handleSignIn } = await import('./ims.js');
       await loadIms();
       handleSignIn();
