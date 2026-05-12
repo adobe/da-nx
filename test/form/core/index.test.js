@@ -48,13 +48,17 @@ describe('createCore', () => {
       expect(state.validation.errorsByPointer).to.deep.equal({});
     });
 
-    it('preserves document.values but leaves model=null for an unsupported schema', async () => {
+    it('builds a model with an unsupported root node when the root schema uses only unsupported composition', async () => {
+      // An unsupported root (no direct properties) still produces a model so
+      // the editor can render an inline "unsupported schema definition" message
+      // rather than blocking the entire editor.
       const core = createCore({ saveDocument: trackingSaver() });
       const state = await core.load({
         schema: { oneOf: [{ type: 'string' }, { type: 'number' }] },
         document: baseDocument,
       });
-      expect(state.model).to.equal(null);
+      expect(state.model).to.exist;
+      expect(state.model.root.kind).to.equal('unsupported');
       expect(state.document.values.data.name).to.equal('Alice');
     });
 

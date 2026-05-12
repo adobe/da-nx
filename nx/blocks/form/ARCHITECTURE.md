@@ -138,22 +138,26 @@ Nodes:
 
 ```js
 {
-  id,           // stable render key (UUID for array items, deterministic for the rest)
+  id,                      // stable render key (UUID for array items, deterministic for the rest)
   key,
-  kind,         // 'string' | 'number' | 'integer' | 'boolean' | 'object' | 'array' | 'unsupported'
-  pointer,      // RFC 6901
+  kind,                    // 'string' | 'number' | 'integer' | 'boolean' | 'object' | 'array' | 'unsupported'
+  pointer,                 // RFC 6901
   label,
   required, readonly,
-  value,        // current value from document
-  defaultValue, // schema default
-  enumValues?,  // when present, renders as a select
-  validation,   // schema rules picked from the compiled definition
-  ui,           // { widget }
-  // object: children: [...]
-  // array:  items: [...], minItems, maxItems, itemLabel
-  // unsupported: { unsupported: {...} }
+  value,                   // current value from document
+  defaultValue,            // schema default
+  enumValues?,             // when present, renders as a select
+  validation,              // schema rules picked from the compiled definition
+  ui,                      // { widget }
+  // object:      children: [...], unsupportedComposition?: { compositionKeyword, variants, schemaPath }
+  // array:       items: [...], minItems, maxItems, itemLabel
+  // unsupported: unsupported: { reason, feature, compositionKeyword, variants, schemaPath }
 }
 ```
+
+`unsupportedComposition` on an object node means the schema used an unsupported composition keyword (`allOf` with multiple entries, `oneOf`, or `anyOf`) alongside direct `properties`. The properties are compiled and rendered normally; the editor shows an inline notice that constraints from the unsupported definition will not be applied. The node itself remains editable.
+
+A `kind: 'unsupported'` node means the field's type is defined entirely via an unsupported schema construct (e.g. `oneOf` with no direct `properties`). The editor renders an inline "unsupported schema definition" message and no children.
 
 The pointer→node Map is built during the same traversal that builds the tree — no follow-up pass.
 
@@ -208,9 +212,14 @@ Resolved up front (in `schema.js`):
 
 - `$ref` — internal refs only (`#/...`), with cycle protection.
 - `allOf` — supported when single-entry; multiple entries are unsupported.
-- `oneOf` / `anyOf` — unsupported (marked).
+- `oneOf` / `anyOf` — unsupported.
 
-If any unsupported composition exists anywhere in the schema, `compileSchema` returns `editable: false` and the form is not rendered. A future refinement could render `unsupported` nodes inline while keeping the rest editable.
+When unsupported composition is found on a node:
+
+- **Node has direct `properties`** (e.g. an object that uses `anyOf` for conditional validation alongside a full property map): compiled as `kind: 'object'`. Properties are fully editable. An `unsupportedComposition` flag is set on the node so the editor can show an inline notice. `editable` is `false` to signal that some schema constraints cannot be enforced.
+- **Node has no direct `properties`** (e.g. a field whose entire type is expressed as `oneOf`): compiled as `kind: 'unsupported'`. The editor renders an inline "unsupported schema definition" message in place of the field, with no children.
+
+`compileSchema` always returns a non-null `definition` for a non-null schema input. `editable: false` means the schema contains unsupported features; `editable: true` means every feature was understood and enforced.
 
 ---
 

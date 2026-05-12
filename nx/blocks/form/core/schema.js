@@ -91,21 +91,34 @@ function resolveNode({
     );
 
     if (unsupported) {
-      return markUnsupportedComposition({
+      const hasDirectProperties = resolved.properties
+        && typeof resolved.properties === 'object'
+        && !Array.isArray(resolved.properties)
+        && Object.keys(resolved.properties).length > 0;
+
+      resolved = markUnsupportedComposition({
         node: resolved,
         compositionKeyword: composition.key,
         variants: composition.entries.length,
         issues,
         schemaPath,
       });
-    }
 
-    const firstVariant = resolveNode({
-      node: composition.entries[0], rootSchema, seenRefs, issues, schemaPath,
-    });
-    resolved = mergeSchemas(firstVariant ?? {}, {
-      ...resolved, allOf: undefined, oneOf: undefined, anyOf: undefined,
-    });
+      if (!hasDirectProperties) {
+        return resolved;
+      }
+
+      // Strip the unsupported composition keys so downstream resolvers don't
+      // re-encounter them, then fall through to resolve .properties normally.
+      resolved = { ...resolved, allOf: undefined, oneOf: undefined, anyOf: undefined };
+    } else {
+      const firstVariant = resolveNode({
+        node: composition.entries[0], rootSchema, seenRefs, issues, schemaPath,
+      });
+      resolved = mergeSchemas(firstVariant ?? {}, {
+        ...resolved, allOf: undefined, oneOf: undefined, anyOf: undefined,
+      });
+    }
   }
 
   if (resolved.items) {
@@ -189,6 +202,17 @@ function escapePointerSegment(segment) {
 
 function inferKind(schema = {}) {
   if (schema?.unsupportedComposition) {
+    // If the node also has directly-defined properties, compile it as an object.
+    // The unsupported composition is a constraint we cannot enforce, not the
+    // type definition itself.
+    if (
+      schema.properties
+      && typeof schema.properties === 'object'
+      && !Array.isArray(schema.properties)
+    ) {
+      return { kind: 'object' };
+    }
+
     const u = schema.unsupportedComposition ?? {};
     const keyword = u.compositionKeyword ?? u.combinator ?? 'unknown';
     return {
@@ -271,7 +295,22 @@ function compileNode({
   if (kind === 'object') {
     const properties = schema?.properties ?? {};
     const requiredSet = new Set(schema?.required ?? []);
-    return {
+
+    if (schema?.unsupportedComposition) {
+      const u = schema.unsupportedComposition;
+      const keyword = u.compositionKeyword ?? 'unknown';
+      issues.push({
+        pointer,
+        compositionKeyword: keyword,
+        feature: keyword,
+        reason: 'unsupported-composition',
+        variants: u.variants ?? 0,
+        scope: pointer === '/data' ? 'root' : 'subtree',
+        details: null,
+      });
+    }
+
+    const node = {
       ...base,
       children: Object.entries(properties).map(([childKey, childSchema]) => (
         compileNode({
@@ -284,6 +323,12 @@ function compileNode({
         })
       )),
     };
+
+    if (schema?.unsupportedComposition) {
+      node.unsupportedComposition = schema.unsupportedComposition;
+    }
+
+    return node;
   }
 
   if (kind === 'array') {
@@ -330,11 +375,10 @@ export function compileSchema(rawSchema) {
     pointer: '/data',
     issues,
   });
-  const rootUnsupported = issues.some((issue) => issue.pointer === '/data');
 
   return {
     schema: resolved.schema,
-    definition: rootUnsupported ? null : definition,
+    definition,
     editable: issues.length === 0,
     issues,
   };

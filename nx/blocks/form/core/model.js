@@ -35,6 +35,9 @@ function buildNode({
   };
 
   if (definition.unsupported) base.unsupported = definition.unsupported;
+  if (definition.unsupportedComposition) {
+    base.unsupportedComposition = definition.unsupportedComposition;
+  }
   if (Array.isArray(definition.enumValues)) base.enumValues = definition.enumValues;
 
   let node;

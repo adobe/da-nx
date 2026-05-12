@@ -307,7 +307,7 @@ class Editor extends LitElement {
           ${node.label}${node.required ? html`<span class="is-required">*</span>` : nothing}
         </p>
         <p class="form-unsupported-message">
-          Unsupported schema feature: <strong>${feature}</strong>.
+          Unsupported schema definition: <strong>${feature}</strong>. This field cannot be displayed.
           ${reason === 'unsupported-type' && detail ? html`Type: <strong>${detail}</strong>.` : nothing}
         </p>
       </section>
@@ -316,12 +316,14 @@ class Editor extends LitElement {
 
   _renderObject(node, { itemLabel = '' } = {}) {
     const children = node.children ?? [];
+    const uc = node.unsupportedComposition;
     return html`
       <fieldset class="form-node${this._activeClass(node.pointer)}" data-pointer=${node.pointer}>
         <legend class="form-node-title" @click=${() => this._select(node.pointer)}>
           ${itemLabel ? html`<span class="form-item-label">${itemLabel}</span>` : nothing}
           ${node.label}${node.required ? html`<span class="is-required">*</span>` : nothing}
         </legend>
+        ${uc ? html`<p class="form-unsupported-message">Unsupported schema definition: <strong>${uc.compositionKeyword}</strong>. Constraints from this definition will not be applied.</p>` : nothing}
         ${children.map((child) => this._renderNode(child))}
       </fieldset>
     `;

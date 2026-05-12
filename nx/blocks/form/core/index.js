@@ -109,7 +109,6 @@ export function createCore({ path, saveDocument, onChange } = {}) {
   let state = emptyState();
   let definition = null;
   let model = null;
-  let editable = false;
   // Single-flight persistence: only one saveDocument call is in flight at a
   // time. Subsequent mutations during a save flip `pending` so we re-save
   // once the in-flight save completes — newer content wins. Prevents an
@@ -196,7 +195,7 @@ export function createCore({ path, saveDocument, onChange } = {}) {
   }
 
   function canMutate() {
-    return editable && definition && model;
+    return !!definition && !!model;
   }
 
   function arrayContext(pointer) {
@@ -211,7 +210,6 @@ export function createCore({ path, saveDocument, onChange } = {}) {
     const parsed = parseDocument(document);
 
     definition = compiled.definition;
-    editable = compiled.editable && !!definition;
     model = null;
     // Reset single-flight tracking — a stale in-flight save from a previous
     // document must not bleed into the new load. `inFlight` may still be true
@@ -220,7 +218,7 @@ export function createCore({ path, saveDocument, onChange } = {}) {
     // resave the new document just because the previous one was dirty.
     pending = false;
 
-    if (!editable || !definition || !parsed) {
+    if (!definition || !parsed) {
       commitState(emptyState({ document: parsed ?? null }));
       return state;
     }

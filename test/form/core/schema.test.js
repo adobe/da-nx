@@ -126,7 +126,7 @@ describe('compileSchema', () => {
       expect(x.validation.minLength).to.equal(3);
     });
 
-    it('marks oneOf as unsupported (whole form non-editable)', () => {
+    it('marks a property with oneOf as unsupported; root definition still exists and editable is false', () => {
       const { definition, editable, issues } = compileSchema({
         type: 'object',
         properties: {
@@ -135,8 +135,9 @@ describe('compileSchema', () => {
       });
       expect(editable).to.equal(false);
       expect(issues.some((i) => i.compositionKeyword === 'oneOf')).to.equal(true);
-      // sub-tree unsupported, root definition still exists
       expect(definition).to.exist;
+      expect(definition.kind).to.equal('object');
+      expect(definition.children[0].kind).to.equal('unsupported');
     });
 
     it('marks anyOf as unsupported', () => {
@@ -165,10 +166,69 @@ describe('compileSchema', () => {
       expect(result.editable).to.equal(false);
     });
 
-    it('returns definition=null when the root itself is unsupported', () => {
+    it('returns an unsupported-kind definition when the root uses only unsupported composition (no properties)', () => {
       const result = compileSchema({ oneOf: [{ type: 'string' }, { type: 'number' }] });
-      expect(result.definition).to.equal(null);
+      expect(result.definition).to.exist;
+      expect(result.definition.kind).to.equal('unsupported');
       expect(result.editable).to.equal(false);
+    });
+
+    it('compiles root as object with unsupportedComposition when allOf has multiple entries but properties are defined', () => {
+      const result = compileSchema({
+        type: 'object',
+        properties: {
+          name: { type: 'string' },
+          age: { type: 'integer' },
+        },
+        allOf: [
+          { required: ['name'] },
+          { properties: { name: { minLength: 2 } } },
+        ],
+      });
+      expect(result.definition.kind).to.equal('object');
+      expect(result.definition.unsupportedComposition).to.deep.include({ compositionKeyword: 'allOf' });
+      expect(result.definition.children).to.have.lengthOf(2);
+      expect(result.editable).to.equal(false);
+      expect(result.issues.some((i) => i.compositionKeyword === 'allOf')).to.equal(true);
+    });
+
+    it('compiles a sub-property as object with unsupportedComposition when anyOf + properties co-exist', () => {
+      const result = compileSchema({
+        type: 'object',
+        properties: {
+          audience: {
+            type: 'object',
+            properties: {
+              segments: { type: 'array', items: { type: 'string' } },
+              regions: { type: 'array', items: { type: 'string' } },
+            },
+            anyOf: [{ required: ['segments'] }, { required: ['regions'] }],
+          },
+        },
+      });
+      expect(result.definition.kind).to.equal('object');
+      const audience = result.definition.children[0];
+      expect(audience.kind).to.equal('object');
+      expect(audience.unsupportedComposition).to.deep.include({ compositionKeyword: 'anyOf' });
+      expect(audience.children).to.have.lengthOf(2);
+      expect(result.editable).to.equal(false);
+    });
+
+    it('marks a property as fully unsupported when oneOf has no direct properties', () => {
+      const result = compileSchema({
+        type: 'object',
+        properties: {
+          channel: {
+            oneOf: [
+              { type: 'object', properties: { email: { type: 'string' } } },
+              { type: 'object', properties: { social: { type: 'string' } } },
+            ],
+          },
+        },
+      });
+      const channel = result.definition.children[0];
+      expect(channel.kind).to.equal('unsupported');
+      expect(channel.unsupported.compositionKeyword).to.equal('oneOf');
     });
   });
 });
