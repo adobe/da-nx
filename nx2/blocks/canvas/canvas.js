@@ -64,7 +64,7 @@ function canvasHeaderApplyTarget(block) {
     || block;
 }
 
-const CANVAS_IFRAME_SRC = 'https://slicc-tray-hub-staging.david-bosschaert.workers.dev/';
+const CANVAS_IFRAME_SRC = 'http://localhost:5710/';
 
 function ensureCanvasIframe(block) {
   if (block.querySelector(':scope > iframe.nx-canvas-iframe')) return;
