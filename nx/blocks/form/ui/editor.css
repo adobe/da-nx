@@ -208,17 +208,56 @@
   background: transparent;
 }
 
-.form-unsupported {
-  margin: 16px 0 8px;
-  padding: 10px 12px;
-  border: 1px dashed var(--s2-orange-400, #fb923c);
-  border-radius: 8px;
-  background: var(--s2-orange-50, #fff7ed);
+dialog.schema-issues {
+  max-width: 540px;
+  padding: 20px 24px;
+  border: 1px solid var(--s2-gray-300, #d1d5db);
+  border-radius: 10px;
+  background: var(--s2-bg, #fff);
+  color: var(--s2-fg, #111);
+  box-shadow: 0 10px 30px rgb(0 0 0 / 18%);
 }
 
-.form-unsupported-message {
-  margin: 8px 0 0;
-  color: var(--s2-orange-900, #7c2d12);
+dialog.schema-issues::backdrop {
+  background: rgb(0 0 0 / 35%);
+}
+
+dialog.schema-issues h2 {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+
+dialog.schema-issues p {
+  margin: 0 0 12px;
+  color: var(--s2-gray-700, #374151);
+}
+
+dialog.schema-issues ul {
+  margin: 0 0 16px;
+  padding-left: 20px;
+}
+
+dialog.schema-issues li {
+  margin-bottom: 6px;
+}
+
+dialog.schema-issues code {
+  background: var(--s2-gray-100, #f3f4f6);
+  padding: 0 4px;
+  border-radius: 4px;
+}
+
+dialog.schema-issues form {
+  display: flex;
+  justify-content: flex-end;
+}
+
+dialog.schema-issues button {
+  padding: 6px 14px;
+  border: 1px solid var(--s2-gray-300, #d1d5db);
+  border-radius: 6px;
+  background: var(--s2-gray-100, #f3f4f6);
+  cursor: pointer;
 }
 
 .form-item-label {

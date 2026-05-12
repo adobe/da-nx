@@ -30,7 +30,6 @@ function buildNode({
     readonly: !!definition.readonly,
     defaultValue: definition.defaultValue,
     validation: definition.validation ?? {},
-    ui: definition.ui ?? {},
     value,
   };
 

@@ -45,7 +45,7 @@ init(el)
             │              │    └─ materializeDefaults      ← O(schema), at most once per load
             │              └─ rebuildModel(doc)
             │                   ├─ buildModel               ← tree walk + byPointer index
-            │                   └─ validateDocument         ← tree walk
+            │                   └─ validateDocument         ← schema validation + model walk
             └─ status = 'ready' → render editor + sidebar + preview
 ```
 
@@ -67,7 +67,7 @@ core.setField(pointer, value)
        ├─ applySet → deepClone(document)        ← the single clone
        ├─ rebuildModel(nextDoc)
        │    ├─ buildModel(definition, nextDoc)  ← O(N) tree walk + byPointer Map
-       │    └─ validateDocument                 ← O(N) traverse
+       │    └─ validateDocument                 ← schema validation + O(N) model walk
        └─ persist()
             └─ saveDocument({ path, document })  ← HTTP POST (async, not awaited)
 
@@ -84,7 +84,7 @@ onMutate() → shell sets _state = core.getState()
 |---|---|---|
 | Deep clone of full document | O(D) | mutate.js |
 | Rebuild model tree + byPointer Map | O(N) | model.js |
-| Validate document | O(N) | validation.js |
+| Validate document | schema validation + O(N) model walk | validation.js |
 | Editor template build | O(N) | editor.js render |
 | Sidebar template build | O(N_structural) | sidebar.js render |
 | Preview render (cached text; stringify itself runs once per 500 ms quiet period) | O(1) per keystroke, O(D) per debounce | preview.js |
@@ -149,12 +149,14 @@ Same root issue as the sidebar. Lit's template caching makes the DOM diff cheap 
 
 **Fix:** split the editor into per-field components — each is a small `LitElement` that only re-renders when its own node changes. Then Lit's reactive boundary stops at each field. This is significant work; not worth doing until users hit it. Worth profiling first to confirm.
 
-**[H3] Validation runs the entire schema tree on every mutation**
-[core/validation.js:163](nx/blocks/form/core/validation.js:163)
+**[H3] Validation runs the entire document on every mutation**
+[core/validation.js](nx/blocks/form/core/validation.js)
 
-`validateDocument` walks the entire model. Per-field rules (minLength, pattern, etc.) only depend on a single node's value — no cross-field rules exist in the current schema features. A single-field change should only re-validate that field.
+`validateDocument` runs a full schema validation pass over `document.data` plus two model walks. Cost scales with document size and schema complexity.
 
-**Fix:** add `validateField({ node, errorsByPointer })` and call it from `setField` to update only that pointer's entry. Drop full-tree validation to load + array mutations only. Net: O(1) per keystroke instead of O(N).
+**Caveat:** per-field incremental validation is *not* safe in general. JSON Schema supports cross-field rules — `anyOf`, `oneOf`, `dependentRequired`, `dependentSchemas`, `if`/`then`/`else` — where a change to one field can flip the validity of another. A targeted `validateField` would only be correct for schemas guaranteed to have no cross-field constraints; in the general case the whole document must be re-validated.
+
+**Fix (conditional):** only worth pursuing if/when a profile shows validation latency on large documents. Either gate a fast-path on "schema declares no composition / dependent keywords" (compiler can flag this) or accept the full pass and look elsewhere first.
 
 **[H4] Hash-change tears down everything**
 [form.js:399](nx/blocks/form/form.js:399)
@@ -269,9 +271,8 @@ But every mutation propagates a new `state` reference to all three children. All
 
 The "do these now" set, in order:
 
-1. **[H3] Per-field incremental validation.** Add `validateField`, call from `setField`. Keep full `validateDocument` for `load` and array mutations. Most of the saved work shows up on big forms.
-2. **[M2] Single-flight save with re-queue.** Correctness + perf fix combined.
-3. **[H4] Skip hash-change teardown when the document hasn't changed.** Compare paths first.
+1. **[M2] Single-flight save with re-queue.** Correctness + perf fix combined.
+2. **[H4] Skip hash-change teardown when the document hasn't changed.** Compare paths first.
 
 The "consider later, profile first" set:
 
@@ -292,7 +293,7 @@ The "leave alone" set:
 - **The debounce** — 350 ms is a UX choice, not a performance choice. Reducing it would *worsen* per-keystroke cost.
 - **The vendored `html2json` / `json2html`** — both are linear in doc size and only invoked at load + save boundaries (well outside the typing hot path).
 - **JSON Pointer parsing in `pointer.js`** — O(segments) and pointers are short.
-- **Validation regex compilation** — done per-validation today; if [H3] is implemented, regex compile could be hoisted to schema compile.
+- **Validation regex compilation** — handled inside the schema validator; not on the typing hot path in any way that warrants intervention today.
 
 ---
 

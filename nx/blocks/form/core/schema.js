@@ -40,15 +40,8 @@ function escapeSchemaPathSegment(segment) {
 }
 
 function markUnsupportedComposition({
-  node, compositionKeyword, variants, issues, schemaPath,
+  node, compositionKeyword, variants, schemaPath,
 }) {
-  issues.push({
-    schemaPath,
-    compositionKeyword,
-    variants,
-    scope: schemaPath === '/' ? 'root' : 'subtree',
-  });
-
   return {
     ...node,
     unsupportedComposition: { compositionKeyword, variants, schemaPath },
@@ -56,7 +49,7 @@ function markUnsupportedComposition({
 }
 
 function resolveNode({
-  node, rootSchema, seenRefs, issues, schemaPath,
+  node, rootSchema, seenRefs, schemaPath,
 }) {
   if (!node || typeof node !== 'object') return node;
 
@@ -64,16 +57,37 @@ function resolveNode({
 
   if (resolved.$ref) {
     const ref = resolved.$ref;
-    const target = resolveRef({ ref, rootSchema });
-    if (target && !seenRefs.has(ref)) {
+    const isInternal = typeof ref === 'string' && ref.startsWith('#/');
+
+    if (!isInternal) {
+      // External ref (URL, file path, or malformed). SCHEMA-SPEC.md only
+      // permits same-document `#/...` refs.
+      return {
+        ...resolved,
+        $ref: undefined,
+        unsupportedRef: { reason: 'external-ref', ref },
+      };
+    }
+
+    if (seenRefs.has(ref)) {
+      // Cycle: drop the ref and continue resolving the partial node we have.
+      resolved = { ...resolved, $ref: undefined };
+    } else {
+      const target = resolveRef({ ref, rootSchema });
+      if (!target) {
+        // Internal but the pointer does not resolve in the document.
+        return {
+          ...resolved,
+          $ref: undefined,
+          unsupportedRef: { reason: 'unresolved-ref', ref },
+        };
+      }
       seenRefs.add(ref);
       const derefTarget = resolveNode({
-        node: deepClone(target), rootSchema, seenRefs, issues, schemaPath,
+        node: deepClone(target), rootSchema, seenRefs, schemaPath,
       });
       seenRefs.delete(ref);
       resolved = mergeSchemas(derefTarget, { ...resolved, $ref: undefined });
-    } else {
-      resolved.$ref = undefined;
     }
   }
 
@@ -84,41 +98,27 @@ function resolveNode({
   );
 
   if (composition) {
-    const unsupported = (
-      composition.key === 'oneOf'
-      || composition.key === 'anyOf'
-      || (composition.key === 'allOf' && composition.entries.length > 1)
-    );
+    // All composition keywords are unsupported per SCHEMA-SPEC.md. If the
+    // node also has a direct `properties` map, mark the node and fall through
+    // so the editable subset still renders; otherwise the whole node becomes
+    // kind 'unsupported'.
+    const hasDirectProperties = resolved.properties
+      && typeof resolved.properties === 'object'
+      && !Array.isArray(resolved.properties)
+      && Object.keys(resolved.properties).length > 0;
 
-    if (unsupported) {
-      const hasDirectProperties = resolved.properties
-        && typeof resolved.properties === 'object'
-        && !Array.isArray(resolved.properties)
-        && Object.keys(resolved.properties).length > 0;
+    resolved = markUnsupportedComposition({
+      node: resolved,
+      compositionKeyword: composition.key,
+      variants: composition.entries.length,
+      schemaPath,
+    });
 
-      resolved = markUnsupportedComposition({
-        node: resolved,
-        compositionKeyword: composition.key,
-        variants: composition.entries.length,
-        issues,
-        schemaPath,
-      });
-
-      if (!hasDirectProperties) {
-        return resolved;
-      }
-
-      // Strip the unsupported composition keys so downstream resolvers don't
-      // re-encounter them, then fall through to resolve .properties normally.
-      resolved = { ...resolved, allOf: undefined, oneOf: undefined, anyOf: undefined };
-    } else {
-      const firstVariant = resolveNode({
-        node: composition.entries[0], rootSchema, seenRefs, issues, schemaPath,
-      });
-      resolved = mergeSchemas(firstVariant ?? {}, {
-        ...resolved, allOf: undefined, oneOf: undefined, anyOf: undefined,
-      });
+    if (!hasDirectProperties) {
+      return resolved;
     }
+
+    resolved = { ...resolved, allOf: undefined, oneOf: undefined, anyOf: undefined };
   }
 
   if (resolved.items) {
@@ -126,7 +126,6 @@ function resolveNode({
       node: resolved.items,
       rootSchema,
       seenRefs,
-      issues,
       schemaPath: `${schemaPath}/items`,
     });
   }
@@ -139,7 +138,6 @@ function resolveNode({
           node: propertySchema,
           rootSchema,
           seenRefs,
-          issues,
           schemaPath: `${schemaPath}/properties/${escapeSchemaPathSegment(key)}`,
         }),
       ]),
@@ -153,22 +151,17 @@ function resolveSchema(schema) {
   if (!schema || typeof schema !== 'object') return null;
 
   const clone = deepClone(schema);
-  const issues = [];
   const resolved = resolveNode({
     node: clone,
     rootSchema: clone,
     seenRefs: new Set(),
-    issues,
     schemaPath: '/',
   });
 
-  return { schema: resolved, unsupportedCompositions: issues };
+  return { schema: resolved };
 }
 
-const RULE_NAMES = [
-  'minLength', 'maxLength', 'minimum', 'maximum',
-  'exclusiveMinimum', 'exclusiveMaximum', 'pattern', 'minItems', 'maxItems',
-];
+const RULE_NAMES = ['minLength', 'maxLength', 'minimum', 'maximum', 'pattern'];
 
 function pickValidation(schema = {}) {
   return RULE_NAMES.reduce((acc, name) => {
@@ -177,20 +170,11 @@ function pickValidation(schema = {}) {
   }, {});
 }
 
-function detectWidget(schema = {}) {
-  if (Array.isArray(schema.enum)) return 'select';
-  if (schema.type === 'boolean') return 'checkbox';
-  if (schema.type === 'number' || schema.type === 'integer') return 'number';
-  if (schema.format === 'textarea') return 'textarea';
-  return 'text';
-}
-
 function getDefaults({ schema = {}, kind }) {
   return {
     readonly: !!(schema.readOnly ?? schema.readonly),
     defaultValue: schema.default,
     validation: pickValidation(schema),
-    ui: { widget: detectWidget(schema) },
     minItems: kind === 'array' ? schema.minItems : undefined,
     maxItems: kind === 'array' ? schema.maxItems : undefined,
   };
@@ -200,11 +184,38 @@ function escapePointerSegment(segment) {
   return String(segment).replace(/~/g, '~0').replace(/\//g, '~1');
 }
 
+const SUPPORTED_TYPES = new Set([
+  'string', 'number', 'integer', 'boolean', 'object', 'array',
+]);
+
+function unsupportedKind({ reason, feature, schemaPath = '/', variants = 0, details = null }) {
+  return {
+    kind: 'unsupported',
+    unsupported: {
+      reason,
+      feature,
+      compositionKeyword: feature,
+      variants,
+      schemaPath,
+      details,
+    },
+  };
+}
+
 function inferKind(schema = {}) {
+  if (schema?.unsupportedRef) {
+    const r = schema.unsupportedRef;
+    return unsupportedKind({
+      reason: r.reason,
+      feature: r.reason,
+      details: { ref: r.ref },
+    });
+  }
+
   if (schema?.unsupportedComposition) {
     // If the node also has directly-defined properties, compile it as an object.
-    // The unsupported composition is a constraint we cannot enforce, not the
-    // type definition itself.
+    // The composition itself is flagged via unsupportedComposition; the
+    // editable subset still renders.
     if (
       schema.properties
       && typeof schema.properties === 'object'
@@ -214,36 +225,36 @@ function inferKind(schema = {}) {
     }
 
     const u = schema.unsupportedComposition ?? {};
-    const keyword = u.compositionKeyword ?? u.combinator ?? 'unknown';
-    return {
-      kind: 'unsupported',
-      unsupported: {
-        reason: 'unsupported-composition',
-        feature: keyword,
-        compositionKeyword: keyword,
-        variants: u.variants ?? 0,
-        schemaPath: u.schemaPath ?? '/',
-        details: null,
-      },
-    };
+    const keyword = u.compositionKeyword ?? 'unknown';
+    return unsupportedKind({
+      reason: 'unsupported-composition',
+      feature: keyword,
+      variants: u.variants ?? 0,
+      schemaPath: u.schemaPath ?? '/',
+    });
   }
 
-  if (typeof schema?.type === 'string') return { kind: schema.type };
-  if (schema?.properties && typeof schema.properties === 'object' && !Array.isArray(schema.properties)) return { kind: 'object' };
-  if (schema?.items !== undefined) return { kind: 'array' };
-  if (Array.isArray(schema?.enum)) return { kind: 'string' };
+  if (Array.isArray(schema?.type)) {
+    return unsupportedKind({
+      reason: 'type-as-array',
+      feature: 'type-as-array',
+      details: { type: schema.type },
+    });
+  }
 
-  return {
-    kind: 'unsupported',
-    unsupported: {
-      reason: 'unknown-shape',
-      feature: 'unknown-shape',
-      compositionKeyword: 'unknown-shape',
-      variants: 0,
-      schemaPath: '/',
-      details: null,
-    },
-  };
+  if (typeof schema?.type === 'string') {
+    if (SUPPORTED_TYPES.has(schema.type)) return { kind: schema.type };
+    return unsupportedKind({
+      reason: 'unsupported-type',
+      feature: schema.type,
+      details: { type: schema.type },
+    });
+  }
+
+  return unsupportedKind({
+    reason: 'missing-type',
+    feature: 'missing-type',
+  });
 }
 
 function compileNode({
@@ -261,12 +272,11 @@ function compileNode({
     readonly: defaults.readonly,
     defaultValue: defaults.defaultValue,
     validation: defaults.validation,
-    ui: defaults.ui,
   };
 
   if (kind === 'unsupported') {
     const u = inferred ?? {};
-    const keyword = u.compositionKeyword ?? u.combinator ?? 'unknown';
+    const keyword = u.compositionKeyword ?? 'unknown';
     issues.push({
       pointer,
       compositionKeyword: keyword,

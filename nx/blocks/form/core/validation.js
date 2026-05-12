@@ -1,5 +1,3 @@
-import { valueAt } from './pointer.js';
-
 function isObject(value) {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
@@ -17,26 +15,15 @@ function addError(errors, pointer, message) {
   errors[pointer] = message;
 }
 
-function validateRequired({ node, value, errors }) {
-  if (!node?.required) return;
-  if (isEmpty(value)) {
-    addError(errors, node.pointer, 'This field is required.');
-  }
-}
-
-function validateEnum({ node, value, errors }) {
-  if (!Array.isArray(node?.enumValues)) return;
-  if (value === undefined || value === null) return;
-  if (!node.enumValues.includes(value)) {
-    addError(errors, node.pointer, 'Value must match one of the allowed options.');
-  }
-}
-
-function validateString({ node, value, errors }) {
-  if (value === undefined || value === null) return;
-
+function validateString({ node, errors }) {
+  const { value } = node;
   if (typeof value !== 'string') {
-    addError(errors, node.pointer, 'Value must be a string.');
+    addError(errors, node.pointer, 'Must be a string.');
+    return;
+  }
+
+  if (Array.isArray(node.enumValues) && !node.enumValues.includes(value)) {
+    addError(errors, node.pointer, 'Must be one of the allowed options.');
     return;
   }
 
@@ -45,12 +32,10 @@ function validateString({ node, value, errors }) {
     addError(errors, node.pointer, `Must be at least ${validation.minLength} characters.`);
     return;
   }
-
   if (validation.maxLength !== undefined && value.length > validation.maxLength) {
     addError(errors, node.pointer, `Must be at most ${validation.maxLength} characters.`);
     return;
   }
-
   if (validation.pattern !== undefined) {
     let regex;
     try {
@@ -59,23 +44,20 @@ function validateString({ node, value, errors }) {
       addError(errors, node.pointer, 'Schema pattern is invalid.');
       return;
     }
-
     if (!regex.test(value)) {
-      addError(errors, node.pointer, 'Value does not match required format.');
+      addError(errors, node.pointer, 'Must match the required pattern.');
     }
   }
 }
 
-function validateNumber({ node, value, errors }) {
-  if (value === undefined || value === null) return;
-
+function validateNumber({ node, errors }) {
+  const { value } = node;
   if (typeof value !== 'number' || Number.isNaN(value)) {
-    addError(errors, node.pointer, 'Value must be a number.');
+    addError(errors, node.pointer, 'Must be a number.');
     return;
   }
-
   if (node.kind === 'integer' && !Number.isInteger(value)) {
-    addError(errors, node.pointer, 'Value must be an integer.');
+    addError(errors, node.pointer, 'Must be an integer.');
     return;
   }
 
@@ -84,73 +66,51 @@ function validateNumber({ node, value, errors }) {
     addError(errors, node.pointer, `Must be greater than or equal to ${validation.minimum}.`);
     return;
   }
-
   if (validation.maximum !== undefined && value > validation.maximum) {
     addError(errors, node.pointer, `Must be less than or equal to ${validation.maximum}.`);
-    return;
-  }
-
-  if (validation.exclusiveMinimum !== undefined && value <= validation.exclusiveMinimum) {
-    addError(errors, node.pointer, `Must be greater than ${validation.exclusiveMinimum}.`);
-    return;
-  }
-
-  if (validation.exclusiveMaximum !== undefined && value >= validation.exclusiveMaximum) {
-    addError(errors, node.pointer, `Must be less than ${validation.exclusiveMaximum}.`);
   }
 }
 
-function validateBoolean({ node, value, errors }) {
-  if (value === undefined || value === null) return;
-  if (typeof value !== 'boolean') {
-    addError(errors, node.pointer, 'Value must be a boolean.');
+function validateBoolean({ node, errors }) {
+  if (typeof node.value !== 'boolean') {
+    addError(errors, node.pointer, 'Must be a boolean.');
   }
 }
 
-function validateArray({ node, value, errors }) {
-  if (value === undefined || value === null) return;
-
+function validateArray({ node, errors }) {
+  const { value } = node;
   if (!Array.isArray(value)) {
-    addError(errors, node.pointer, 'Value must be an array.');
+    addError(errors, node.pointer, 'Must be an array.');
     return;
   }
-
-  const minItems = node.minItems ?? node.validation?.minItems;
-  const maxItems = node.maxItems ?? node.validation?.maxItems;
-  if (minItems !== undefined && value.length < minItems) {
-    addError(errors, node.pointer, `Must contain at least ${minItems} items.`);
+  if (node.minItems !== undefined && value.length < node.minItems) {
+    addError(errors, node.pointer, `Must contain at least ${node.minItems} items.`);
     return;
   }
-  if (maxItems !== undefined && value.length > maxItems) {
-    addError(errors, node.pointer, `Must contain at most ${maxItems} items.`);
-  }
-}
-
-function validateObjectShape({ node, value, errors }) {
-  if (value === undefined || value === null) return;
-  if (!isObject(value)) {
-    addError(errors, node.pointer, 'Value must be an object.');
+  if (node.maxItems !== undefined && value.length > node.maxItems) {
+    addError(errors, node.pointer, `Must contain at most ${node.maxItems} items.`);
   }
 }
 
 function validateNode({ node, errors }) {
   if (!node || !node.pointer) return;
-  const { value } = node;
+  // Unsupported subtrees are not rendered; values pass through unvalidated.
+  if (node.kind === 'unsupported') return;
 
-  if (node.kind === 'unsupported') {
-    addError(errors, node.pointer, 'Schema contains unsupported features at this field.');
+  if (node.required && isEmpty(node.value)) {
+    addError(errors, node.pointer, 'This field is required.');
     return;
   }
 
-  validateRequired({ node, value, errors });
+  // Form-empty optional values count as absent: constraints (enum, pattern,
+  // minLength, etc.) do not fire. This mirrors the save-path stripping in
+  // app/serialize.js — what is not saved is not validated.
+  if (isEmpty(node.value)) return;
 
-  if (node.kind === 'array') validateArray({ node, value, errors });
-  else if (node.kind === 'object') validateObjectShape({ node, value, errors });
-  else if (node.kind === 'string') validateString({ node, value, errors });
-  else if (node.kind === 'number' || node.kind === 'integer') validateNumber({ node, value, errors });
-  else if (node.kind === 'boolean') validateBoolean({ node, value, errors });
-
-  validateEnum({ node, value, errors });
+  if (node.kind === 'string') validateString({ node, errors });
+  else if (node.kind === 'number' || node.kind === 'integer') validateNumber({ node, errors });
+  else if (node.kind === 'boolean') validateBoolean({ node, errors });
+  else if (node.kind === 'array') validateArray({ node, errors });
 }
 
 function traverse(node, visit) {
@@ -163,9 +123,11 @@ function traverse(node, visit) {
 export function validateDocument({ document, model }) {
   const errorsByPointer = {};
   const root = model?.root;
+  const data = document?.data;
 
-  if (root && valueAt({ data: document, pointer: root.pointer }) === undefined) {
+  if (root && data === undefined) {
     addError(errorsByPointer, '/data', 'Document root is missing required data object.');
+    return { errorsByPointer };
   }
 
   traverse(root, (node) => validateNode({ node, errors: errorsByPointer }));

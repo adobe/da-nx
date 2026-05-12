@@ -34,7 +34,7 @@ init(el)
                            │    └─ materializeDefaults(definition)  ← O(schema)
                            └─ rebuildModel(parsed)
                                 ├─ buildModel                   ← tree walk + byPointer Map
-                                └─ validateDocument             ← tree walk
+                                └─ validateDocument             ← schema validation + model walk
        → render editor + sidebar + preview
 ```
 
@@ -80,7 +80,7 @@ DOM <input> @input
                                 ├─ if !changed: return state (no-op)
                                 ├─ rebuildModel(nextDoc)
                                 │    ├─ buildModel              ← O(N) tree walk
-                                │    ├─ validateDocument        ← O(N) traverse
+                                │    ├─ validateDocument        ← schema validation + O(N) model walk
                                 │    └─ commitState(next)       → onChange()
                                 │         └─ shell._state = core.getState()
                                 │              → Lit re-renders form tree

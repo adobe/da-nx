@@ -6,6 +6,27 @@ const style = await getStyle(import.meta.url);
 const EL_NAME = 'sc-editor';
 const DEBOUNCE_MS = 350;
 
+function describeIssue(issue) {
+  const feature = issue.feature ?? issue.compositionKeyword ?? 'unknown';
+  const ref = issue.details?.ref;
+  switch (issue.reason) {
+    case 'unsupported-composition':
+      return `uses unsupported composition keyword "${feature}"`;
+    case 'unsupported-type':
+      return `declares unsupported type "${feature}"`;
+    case 'type-as-array':
+      return 'declares "type" as an array';
+    case 'missing-type':
+      return 'is missing a "type" declaration';
+    case 'external-ref':
+      return `uses external $ref "${ref}" (only same-document refs are supported)`;
+    case 'unresolved-ref':
+      return `uses $ref "${ref}" which does not resolve in the document`;
+    default:
+      return `uses unsupported schema feature "${feature}"`;
+  }
+}
+
 class Editor extends LitElement {
   static properties = {
     core: { attribute: false },
@@ -23,6 +44,7 @@ class Editor extends LitElement {
     this._reorderTargetIndex = 0;
     this._reorderConfirmed = false;
     this._inputTimers = new Map();
+    this._lastIssues = null;
   }
 
   connectedCallback() {
@@ -45,6 +67,8 @@ class Editor extends LitElement {
 
   updated(changed) {
     if (!changed.has('state') && !changed.has('nav')) return;
+
+    this._maybeShowIssuesDialog();
 
     if (this._reorderConfirmed) {
       this._resetReorder();
@@ -294,36 +318,14 @@ class Editor extends LitElement {
     this._mutate((core) => core.moveItem(arrayPointer, fromIndex, toIndex));
   }
 
-  _renderUnsupported(node) {
-    const u = node?.unsupported ?? {};
-    const feature = u.feature ?? u.compositionKeyword ?? 'unknown';
-    const reason = u.reason ?? 'unsupported-schema-feature';
-    const t = u?.details?.type;
-    const detail = Array.isArray(t) ? t.join(', ') : t;
-
-    return html`
-      <section class="form-node form-unsupported${this._activeClass(node.pointer)}" data-pointer=${node.pointer}>
-        <p class="form-node-title" @click=${() => this._select(node.pointer)}>
-          ${node.label}${node.required ? html`<span class="is-required">*</span>` : nothing}
-        </p>
-        <p class="form-unsupported-message">
-          Unsupported schema definition: <strong>${feature}</strong>. This field cannot be displayed.
-          ${reason === 'unsupported-type' && detail ? html`Type: <strong>${detail}</strong>.` : nothing}
-        </p>
-      </section>
-    `;
-  }
-
   _renderObject(node, { itemLabel = '' } = {}) {
     const children = node.children ?? [];
-    const uc = node.unsupportedComposition;
     return html`
       <fieldset class="form-node${this._activeClass(node.pointer)}" data-pointer=${node.pointer}>
         <legend class="form-node-title" @click=${() => this._select(node.pointer)}>
           ${itemLabel ? html`<span class="form-item-label">${itemLabel}</span>` : nothing}
           ${node.label}${node.required ? html`<span class="is-required">*</span>` : nothing}
         </legend>
-        ${uc ? html`<p class="form-unsupported-message">Unsupported schema definition: <strong>${uc.compositionKeyword}</strong>. Constraints from this definition will not be applied.</p>` : nothing}
         ${children.map((child) => this._renderNode(child))}
       </fieldset>
     `;
@@ -426,16 +428,54 @@ class Editor extends LitElement {
 
   _renderNode(node, options = {}) {
     if (!node) return nothing;
-    if (node.kind === 'unsupported') return this._renderUnsupported(node);
+    // Unsupported subtrees are skipped — the schema-issues dialog explains
+    // what was dropped. The document value is preserved untouched.
+    if (node.kind === 'unsupported') return nothing;
     if (node.kind === 'object') return this._renderObject(node, options);
     if (node.kind === 'array') return this._renderArray(node);
     return this._renderPrimitive(node);
   }
 
+  _maybeShowIssuesDialog() {
+    // schemaIssues is a closure-stable reference in createCore (only changes
+    // inside load), so reference equality is sufficient to detect a new set.
+    const issues = this.state?.schemaIssues;
+    if (issues === this._lastIssues) return;
+    this._lastIssues = issues;
+    if (!issues || issues.length === 0) return;
+    const dialog = this.shadowRoot?.querySelector('dialog.schema-issues');
+    if (dialog && !dialog.open) dialog.showModal();
+  }
+
+  _renderIssuesDialog() {
+    const issues = this.state?.schemaIssues ?? [];
+    if (issues.length === 0) return nothing;
+    return html`
+      <dialog class="schema-issues">
+        <h2>Schema issues</h2>
+        <p>The schema uses features the form does not support. Affected fields are not rendered. Their existing values remain in the saved document but cannot be edited here.</p>
+        <ul>
+          ${issues.map((issue) => html`
+            <li>
+              <code>${issue.pointer}</code> — ${describeIssue(issue)}
+            </li>
+          `)}
+        </ul>
+        <form method="dialog">
+          <button type="submit">Dismiss</button>
+        </form>
+      </dialog>
+    `;
+  }
+
   render() {
     const root = this.state?.model?.root;
-    if (!root) return html`<p class="hint">No editable fields found.</p>`;
-    return html`<div class="editor-root">${this._renderNode(root)}</div>`;
+    return html`
+      ${this._renderIssuesDialog()}
+      ${root
+        ? html`<div class="editor-root">${this._renderNode(root)}</div>`
+        : html`<p class="hint">No editable fields found.</p>`}
+    `;
   }
 }
 

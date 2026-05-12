@@ -46,14 +46,45 @@ describe('compileSchema', () => {
       expect(tags.item.kind).to.equal('string');
     });
 
-    it('treats enum as a string with enumValues', () => {
+    it('captures enumValues for a string with enum', () => {
       const { definition } = compileSchema({
         type: 'object',
-        properties: { color: { enum: ['red', 'green'] } },
+        properties: { color: { type: 'string', enum: ['red', 'green'] } },
       });
       const color = definition.children[0];
       expect(color.kind).to.equal('string');
       expect(color.enumValues).to.deep.equal(['red', 'green']);
+    });
+
+    it('marks a property without an explicit type as unsupported', () => {
+      const { definition, editable } = compileSchema({
+        type: 'object',
+        properties: { mystery: { enum: ['red', 'green'] } },
+      });
+      expect(definition.children[0].kind).to.equal('unsupported');
+      expect(definition.children[0].unsupported.reason).to.equal('missing-type');
+      expect(editable).to.equal(false);
+    });
+
+    it('marks a property with an unsupported type value as unsupported', () => {
+      const { definition, editable } = compileSchema({
+        type: 'object',
+        properties: { x: { type: 'weird' } },
+      });
+      expect(definition.children[0].kind).to.equal('unsupported');
+      expect(definition.children[0].unsupported.reason).to.equal('unsupported-type');
+      expect(definition.children[0].unsupported.feature).to.equal('weird');
+      expect(editable).to.equal(false);
+    });
+
+    it('marks a property whose type is an array as unsupported', () => {
+      const { definition, editable } = compileSchema({
+        type: 'object',
+        properties: { x: { type: ['string', 'null'] } },
+      });
+      expect(definition.children[0].kind).to.equal('unsupported');
+      expect(definition.children[0].unsupported.reason).to.equal('type-as-array');
+      expect(editable).to.equal(false);
     });
 
     it('honours readOnly', () => {
@@ -108,22 +139,49 @@ describe('compileSchema', () => {
       expect(definition).to.exist;
       expect(definition.kind).to.equal('object');
     });
+
+    it('marks an external $ref as unsupported', () => {
+      const { definition, editable, issues } = compileSchema({
+        type: 'object',
+        properties: {
+          remote: { $ref: 'https://example.com/schema.json' },
+        },
+      });
+      const remote = definition.children[0];
+      expect(remote.kind).to.equal('unsupported');
+      expect(remote.unsupported.reason).to.equal('external-ref');
+      expect(remote.unsupported.details.ref).to.equal('https://example.com/schema.json');
+      expect(editable).to.equal(false);
+      expect(issues.some((i) => i.reason === 'external-ref')).to.equal(true);
+    });
+
+    it('marks a $ref that does not resolve as unsupported', () => {
+      const { definition, editable, issues } = compileSchema({
+        type: 'object',
+        properties: {
+          ghost: { $ref: '#/$defs/Missing' },
+        },
+      });
+      const ghost = definition.children[0];
+      expect(ghost.kind).to.equal('unsupported');
+      expect(ghost.unsupported.reason).to.equal('unresolved-ref');
+      expect(ghost.unsupported.details.ref).to.equal('#/$defs/Missing');
+      expect(editable).to.equal(false);
+      expect(issues.some((i) => i.reason === 'unresolved-ref')).to.equal(true);
+    });
   });
 
   describe('compositions', () => {
-    it('inlines a single-entry allOf', () => {
-      const { definition, editable } = compileSchema({
+    it('marks a single-entry allOf as unsupported (no composition is allowed)', () => {
+      const { definition, editable, issues } = compileSchema({
         type: 'object',
         properties: {
-          x: {
-            allOf: [{ type: 'string', minLength: 3 }],
-          },
+          x: { allOf: [{ type: 'string', minLength: 3 }] },
         },
       });
-      expect(editable).to.equal(true);
-      const x = definition.children[0];
-      expect(x.kind).to.equal('string');
-      expect(x.validation.minLength).to.equal(3);
+      expect(editable).to.equal(false);
+      expect(definition.children[0].kind).to.equal('unsupported');
+      expect(issues.some((i) => i.compositionKeyword === 'allOf')).to.equal(true);
     });
 
     it('marks a property with oneOf as unsupported; root definition still exists and editable is false', () => {
@@ -173,7 +231,7 @@ describe('compileSchema', () => {
       expect(result.editable).to.equal(false);
     });
 
-    it('compiles root as object with unsupportedComposition when allOf has multiple entries but properties are defined', () => {
+    it('compiles root as object with unsupportedComposition when allOf is present alongside properties', () => {
       const result = compileSchema({
         type: 'object',
         properties: {

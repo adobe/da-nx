@@ -4,6 +4,8 @@ JSON Schema-driven structured content editor.
 
 The block presents a JSON document for editing against a JSON Schema. A headless core owns canonical state, mutation, validation, and persistence; a thin Lit UI renders the model and calls into the core directly.
 
+For the per-keyword contract — which schema features are editable, which are validated only, and what behavior to expect — see [SCHEMA-SPEC.md](./SCHEMA-SPEC.md).
+
 ---
 
 ## 1. Layout
@@ -146,18 +148,17 @@ Nodes:
   required, readonly,
   value,                   // current value from document
   defaultValue,            // schema default
+  validation,              // picked subset: minLength, maxLength, pattern, minimum, maximum
   enumValues?,             // when present, renders as a select
-  validation,              // schema rules picked from the compiled definition
-  ui,                      // { widget }
   // object:      children: [...], unsupportedComposition?: { compositionKeyword, variants, schemaPath }
   // array:       items: [...], minItems, maxItems, itemLabel
   // unsupported: unsupported: { reason, feature, compositionKeyword, variants, schemaPath }
 }
 ```
 
-`unsupportedComposition` on an object node means the schema used an unsupported composition keyword (`allOf` with multiple entries, `oneOf`, or `anyOf`) alongside direct `properties`. The properties are compiled and rendered normally; the editor shows an inline notice that constraints from the unsupported definition will not be applied. The node itself remains editable.
+`unsupportedComposition` on an object node means the schema used a composition keyword (`allOf`, `oneOf`, `anyOf`) alongside direct `properties`. The properties are compiled and rendered; the composition itself is collected as an issue on the schema-issues dialog. The node remains editable.
 
-A `kind: 'unsupported'` node means the field's type is defined entirely via an unsupported schema construct (e.g. `oneOf` with no direct `properties`). The editor renders an inline "unsupported schema definition" message and no children.
+A `kind: 'unsupported'` node means the field's shape is defined by a construct the form cannot model (composition with no sibling properties, an unknown `type`, `type` as an array, or a missing `type`). The editor skips rendering these nodes; the issue is surfaced in the schema-issues dialog. Stored values pass through untouched.
 
 The pointer→node Map is built during the same traversal that builds the tree — no follow-up pass.
 
@@ -208,22 +209,89 @@ JSON Pointer is positional, so pointers change when items move.
 
 ## 9. Schema features
 
-Resolved up front (in `schema.js`):
+Two independent contracts decide what happens with a given schema:
 
-- `$ref` — internal refs only (`#/...`), with cycle protection.
-- `allOf` — supported when single-entry; multiple entries are unsupported.
-- `oneOf` / `anyOf` — unsupported.
+- **Compiler editability** — `schema.js` + `model.js` decide what the form can *render and edit*. This is an allowlist: an unsupported construct produces a `kind: 'unsupported'` node (or an `unsupportedComposition` flag on a still-editable object).
+- **Validator correctness** — `validation.js` enforces only the keywords listed in [SCHEMA-SPEC.md](./SCHEMA-SPEC.md). It walks the model; any keyword outside the allowlist is silently ignored. The contract is the documentation, not the JSON Schema spec.
 
-When unsupported composition is found on a node:
+Compiler resolution (in `schema.js`):
 
-- **Node has direct `properties`** (e.g. an object that uses `anyOf` for conditional validation alongside a full property map): compiled as `kind: 'object'`. Properties are fully editable. An `unsupportedComposition` flag is set on the node so the editor can show an inline notice. `editable` is `false` to signal that some schema constraints cannot be enforced.
-- **Node has no direct `properties`** (e.g. a field whose entire type is expressed as `oneOf`): compiled as `kind: 'unsupported'`. The editor renders an inline "unsupported schema definition" message in place of the field, with no children.
+- `$ref` — internal refs only (`#/...`), with cycle protection. External refs (URL, file, anything not starting with `#/`) and internal refs that fail to resolve are flagged as unsupported.
+- `allOf` / `oneOf` / `anyOf` — all unsupported. The compiler does not attempt to pick a variant.
+- `type` must be one of `string` / `number` / `integer` / `boolean` / `object` / `array`. Anything else, a `type` array, or a missing `type` produces an unsupported node.
 
-`compileSchema` always returns a non-null `definition` for a non-null schema input. `editable: false` means the schema contains unsupported features; `editable: true` means every feature was understood and enforced.
+When an unsupported construct is found on a node:
+
+- **Node has direct `properties`** (composition alongside a full property map): compiled as `kind: 'object'` with an `unsupportedComposition` flag. Properties are fully editable. The flag becomes an entry in the schema-issues dialog.
+- **Otherwise** (the field's shape is defined entirely by the unsupported construct): compiled as `kind: 'unsupported'`. The editor skips rendering the node; the issue is surfaced in the dialog. The stored value passes through untouched.
+
+`compileSchema` returns `{ schema, definition, editable, issues }`. `issues` lists every node the compiler could not model with structured reason codes (`unsupported-composition`, `unsupported-type`, `type-as-array`, `missing-type`, `external-ref`, `unresolved-ref`); `editable` is `false` iff `issues` is non-empty. The editor exposes `issues` on every state snapshot as `state.schemaIssues` and renders a native `<dialog>` listing them when non-empty (auto-shown on load, dismissible).
 
 ---
 
-## 10. Input debouncing
+## 10. Validation
+
+### Output
+
+`core` exposes validation on every state snapshot:
+
+```js
+state.validation = {
+  errorsByPointer: {
+    '/data/name':        'Must be at least 3 characters.',
+    '/data/items/0/age': 'This field is required.',
+    // ...
+  },
+}
+```
+
+Keys are RFC 6901 pointers into the form data, always rooted at `/data` (the document shape is `{ metadata, data }`; `metadata` is not validated). Values are plain strings — one per pointer.
+
+UI components look up their own error by pointer:
+
+```js
+// ui/editor.js
+const error = this.state?.validation?.errorsByPointer?.[node.pointer] ?? '';
+```
+
+### When it runs
+
+`validateDocument` is called inside `rebuildModel` — i.e. after `load` and after every mutation. Validation is part of the same synchronous transition that produces the new state snapshot; the UI never sees a model without matching errors. There is no async or debounced validation step (the debounce sits in front of `setField`, not in front of validation).
+
+### Scope
+
+The validator enforces only the keywords listed in [SCHEMA-SPEC.md](./SCHEMA-SPEC.md): `required`, `enum`, `minLength`, `maxLength`, `pattern` on strings; `minimum`, `maximum` on numbers and integers (plus integer-ness for `kind: 'integer'`); `minItems`, `maxItems` on arrays. Anything outside that allowlist is ignored — the contract is the documentation, not the JSON Schema spec.
+
+### Pipeline
+
+`validateDocument({ document, model })` walks the model once. For each node:
+
+1. If `kind === 'unsupported'`, skip — the form does not render these and the document value passes through unvalidated.
+2. If `required` and the value is form-empty (see below), attach `"This field is required."` and move on.
+3. If the value is form-empty, skip — optional empties carry no constraints (see below).
+4. Otherwise dispatch by `kind` and apply the per-keyword checks. The first message per pointer wins.
+
+There is no second pass. Messages are owned by `validation.js` and are stable across edits.
+
+### Form-empty values
+
+`mutate.js`'s `buildDefault` seeds new array items with `""` / `false` / `[]` / `{}` so input elements have something to bind to. These are not real user values — they are placeholders the user has not interacted with yet. The validator treats them as **absent**:
+
+- Empty string, whitespace-only string, empty array, empty object → all considered absent.
+- Constraints (`enum`, `pattern`, `minLength`, etc.) do not fire on absent values.
+- A `required` field whose value is absent produces `"This field is required."` at that pointer.
+
+This mirrors the rule `app/serialize.js` applies on save — absent values are stripped from the persisted document. The two definitions are written independently (the validator does not import from `app/`); a replacement serializer can adopt different rules without breaking validation.
+
+### What does not get validated
+
+- `metadata` — outside `data`.
+- Subtrees with `kind: 'unsupported'` — the form does not render them; their values pass through.
+- Form-empty optional values — as above.
+
+---
+
+## 11. Input debouncing
 
 Lives in `editor.js`, keyed per pointer, default 350ms. Boolean, select, and array mutations are immediate.
 
@@ -242,7 +310,7 @@ Note: a navigation away within the debounce window currently drops the last keys
 
 ---
 
-## 11. Defaults policy
+## 12. Defaults policy
 
 Schema `default` values are **materialized into the document at load time** when the loaded `data` is empty. From that point on, defaults are real values in the document — they are saved on the first mutation, and the renderer is a pure function of `node.value` with no special case for defaults.
 
@@ -342,7 +410,7 @@ They stay separate on purpose.
 
 ---
 
-## 12. Rules
+## 13. Rules
 
 ### NEVER
 

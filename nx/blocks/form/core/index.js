@@ -73,11 +73,12 @@ export function materializeDefaults(definition) {
   return undefined;
 }
 
-function emptyState({ document = null, saveStatus = 'idle' } = {}) {
+function emptyState({ document = null, saveStatus = 'idle', schemaIssues = [] } = {}) {
   return {
     document: { values: document },
     model: null,
     validation: { errorsByPointer: {} },
+    schemaIssues,
     saveStatus,
   };
 }
@@ -108,6 +109,7 @@ function canReorder(definition, node) {
 export function createCore({ path, saveDocument, onChange } = {}) {
   let state = emptyState();
   let definition = null;
+  let schemaIssues = [];
   let model = null;
   // Single-flight persistence: only one saveDocument call is in flight at a
   // time. Subsequent mutations during a save flip `pending` so we re-save
@@ -135,6 +137,7 @@ export function createCore({ path, saveDocument, onChange } = {}) {
       commitState(emptyState({
         document: nextDocument ?? null,
         saveStatus: state.saveStatus,
+        schemaIssues,
       }));
       return false;
     }
@@ -144,6 +147,7 @@ export function createCore({ path, saveDocument, onChange } = {}) {
       document: { values: built.document },
       model: built,
       validation: { errorsByPointer },
+      schemaIssues,
       saveStatus: state.saveStatus,
     });
     return true;
@@ -210,6 +214,7 @@ export function createCore({ path, saveDocument, onChange } = {}) {
     const parsed = parseDocument(document);
 
     definition = compiled.definition;
+    schemaIssues = compiled.issues ?? [];
     model = null;
     // Reset single-flight tracking — a stale in-flight save from a previous
     // document must not bleed into the new load. `inFlight` may still be true
@@ -219,7 +224,7 @@ export function createCore({ path, saveDocument, onChange } = {}) {
     pending = false;
 
     if (!definition || !parsed) {
-      commitState(emptyState({ document: parsed ?? null }));
+      commitState(emptyState({ document: parsed ?? null, schemaIssues }));
       return state;
     }
 

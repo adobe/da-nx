@@ -1,158 +1,210 @@
 import { expect } from '@esm-bundle/chai';
 import { validateDocument } from '../../../nx/blocks/form/core/validation.js';
+import { compileSchema } from '../../../nx/blocks/form/core/schema.js';
+import { buildModel } from '../../../nx/blocks/form/core/model.js';
 
-function modelFor(root) {
-  const byPointer = new Map();
-  const walk = (node) => {
-    if (!node) return;
-    byPointer.set(node.pointer, node);
-    (node.children ?? []).forEach(walk);
-    (node.items ?? []).forEach(walk);
-  };
-  walk(root);
-  return { root, byPointer };
-}
-
-function field({
-  pointer = '/data/x', kind = 'string', value, required = false, validation = {}, enumValues,
-}) {
-  return {
-    pointer, kind, value, required, validation, enumValues,
-  };
-}
-
-function rootNode(children = []) {
-  return {
-    pointer: '/data', kind: 'object', value: {}, children,
-  };
+function setup(schema, data) {
+  const { definition } = compileSchema(schema);
+  const document = { metadata: {}, data };
+  const model = buildModel({ definition, document });
+  return validateDocument({ document, model });
 }
 
 describe('validateDocument', () => {
   it('returns no errors for a clean document', () => {
-    const model = modelFor(rootNode([field({ value: 'ok' })]));
-    const { errorsByPointer } = validateDocument({ document: { data: {} }, model });
+    const { errorsByPointer } = setup(
+      { type: 'object', properties: { name: { type: 'string' } } },
+      { name: 'ok' },
+    );
     expect(errorsByPointer).to.deep.equal({});
+  });
+
+  it('reports a missing root /data', () => {
+    const schema = { type: 'object', properties: { name: { type: 'string' } } };
+    const { definition } = compileSchema(schema);
+    const document = { metadata: {} };
+    const model = buildModel({ definition, document });
+    const { errorsByPointer } = validateDocument({ document, model });
+    expect(errorsByPointer['/data']).to.match(/missing/i);
   });
 
   describe('required', () => {
     it('flags missing required string', () => {
-      const model = modelFor(rootNode([field({ value: '', required: true })]));
-      const { errorsByPointer } = validateDocument({ document: { data: {} }, model });
-      expect(errorsByPointer['/data/x']).to.match(/required/i);
+      const { errorsByPointer } = setup(
+        { type: 'object', required: ['name'], properties: { name: { type: 'string' } } },
+        { name: '' },
+      );
+      expect(errorsByPointer['/data/name']).to.equal('This field is required.');
     });
 
     it('treats whitespace-only as empty', () => {
-      const model = modelFor(rootNode([field({ value: '   ', required: true })]));
-      const { errorsByPointer } = validateDocument({ document: { data: {} }, model });
-      expect(errorsByPointer['/data/x']).to.match(/required/i);
+      const { errorsByPointer } = setup(
+        { type: 'object', required: ['name'], properties: { name: { type: 'string' } } },
+        { name: '   ' },
+      );
+      expect(errorsByPointer['/data/name']).to.equal('This field is required.');
     });
 
     it('flags an empty required array', () => {
-      const arr = {
-        pointer: '/data/items', kind: 'array', value: [], required: true, items: [],
-      };
-      const model = modelFor(rootNode([arr]));
-      const { errorsByPointer } = validateDocument({ document: { data: {} }, model });
-      expect(errorsByPointer['/data/items']).to.match(/required/i);
+      const { errorsByPointer } = setup(
+        {
+          type: 'object',
+          required: ['items'],
+          properties: { items: { type: 'array', items: { type: 'string' } } },
+        },
+        { items: [] },
+      );
+      expect(errorsByPointer['/data/items']).to.equal('This field is required.');
     });
   });
 
-  describe('string rules', () => {
+  describe('string', () => {
     it('rejects minLength under', () => {
-      const model = modelFor(rootNode([field({ value: 'ab', validation: { minLength: 3 } })]));
-      const { errorsByPointer } = validateDocument({ document: { data: {} }, model });
-      expect(errorsByPointer['/data/x']).to.match(/at least 3/);
+      const { errorsByPointer } = setup(
+        { type: 'object', properties: { name: { type: 'string', minLength: 3 } } },
+        { name: 'ab' },
+      );
+      expect(errorsByPointer['/data/name']).to.match(/at least 3/);
     });
 
     it('rejects maxLength over', () => {
-      const model = modelFor(rootNode([field({ value: 'abcd', validation: { maxLength: 3 } })]));
-      const { errorsByPointer } = validateDocument({ document: { data: {} }, model });
-      expect(errorsByPointer['/data/x']).to.match(/at most 3/);
+      const { errorsByPointer } = setup(
+        { type: 'object', properties: { name: { type: 'string', maxLength: 3 } } },
+        { name: 'abcd' },
+      );
+      expect(errorsByPointer['/data/name']).to.match(/at most 3/);
     });
 
-    it('reports an invalid regex pattern as a schema error', () => {
-      const model = modelFor(rootNode([field({ value: 'x', validation: { pattern: '[' } })]));
-      const { errorsByPointer } = validateDocument({ document: { data: {} }, model });
-      expect(errorsByPointer['/data/x']).to.match(/pattern is invalid/i);
+    it('reports an invalid regex pattern', () => {
+      const { errorsByPointer } = setup(
+        { type: 'object', properties: { code: { type: 'string', pattern: '[' } } },
+        { code: 'x' },
+      );
+      expect(errorsByPointer['/data/code']).to.match(/pattern is invalid/i);
     });
 
     it('rejects non-matching pattern', () => {
-      const model = modelFor(rootNode([field({ value: 'abc', validation: { pattern: '^\\d+$' } })]));
-      const { errorsByPointer } = validateDocument({ document: { data: {} }, model });
-      expect(errorsByPointer['/data/x']).to.match(/required format/);
+      const { errorsByPointer } = setup(
+        { type: 'object', properties: { code: { type: 'string', pattern: '^\\d+$' } } },
+        { code: 'abc' },
+      );
+      expect(errorsByPointer['/data/code']).to.match(/required pattern/);
     });
   });
 
-  describe('number rules', () => {
+  describe('number / integer', () => {
     it('rejects below minimum', () => {
-      const model = modelFor(rootNode([field({
-        kind: 'number', value: 1, validation: { minimum: 5 },
-      })]));
-      const { errorsByPointer } = validateDocument({ document: { data: {} }, model });
-      expect(errorsByPointer['/data/x']).to.match(/greater than or equal/);
+      const { errorsByPointer } = setup(
+        { type: 'object', properties: { age: { type: 'number', minimum: 5 } } },
+        { age: 1 },
+      );
+      expect(errorsByPointer['/data/age']).to.match(/greater than or equal/);
     });
 
-    it('rejects above exclusiveMaximum', () => {
-      const model = modelFor(rootNode([field({
-        kind: 'number', value: 5, validation: { exclusiveMaximum: 5 },
-      })]));
-      const { errorsByPointer } = validateDocument({ document: { data: {} }, model });
-      expect(errorsByPointer['/data/x']).to.match(/less than 5/);
+    it('rejects above maximum', () => {
+      const { errorsByPointer } = setup(
+        { type: 'object', properties: { age: { type: 'number', maximum: 5 } } },
+        { age: 9 },
+      );
+      expect(errorsByPointer['/data/age']).to.match(/less than or equal/);
     });
 
-    it('rejects a non-integer when kind is integer', () => {
-      const model = modelFor(rootNode([field({ kind: 'integer', value: 1.5 })]));
-      const { errorsByPointer } = validateDocument({ document: { data: {} }, model });
-      expect(errorsByPointer['/data/x']).to.match(/integer/);
+    it('rejects a non-integer when type is integer', () => {
+      const { errorsByPointer } = setup(
+        { type: 'object', properties: { n: { type: 'integer' } } },
+        { n: 1.5 },
+      );
+      expect(errorsByPointer['/data/n']).to.match(/integer/);
     });
   });
 
   describe('enum', () => {
     it('rejects a value not in enum', () => {
-      const model = modelFor(rootNode([field({ value: 'x', enumValues: ['a', 'b'] })]));
-      const { errorsByPointer } = validateDocument({ document: { data: {} }, model });
-      expect(errorsByPointer['/data/x']).to.match(/allowed options/);
+      const { errorsByPointer } = setup(
+        { type: 'object', properties: { color: { type: 'string', enum: ['a', 'b'] } } },
+        { color: 'x' },
+      );
+      expect(errorsByPointer['/data/color']).to.match(/allowed options/);
     });
 
     it('accepts a value in enum', () => {
-      const model = modelFor(rootNode([field({ value: 'a', enumValues: ['a', 'b'] })]));
-      const { errorsByPointer } = validateDocument({ document: { data: {} }, model });
+      const { errorsByPointer } = setup(
+        { type: 'object', properties: { color: { type: 'string', enum: ['a', 'b'] } } },
+        { color: 'a' },
+      );
       expect(errorsByPointer).to.deep.equal({});
     });
   });
 
-  describe('array shape', () => {
-    it('rejects below minItems', () => {
-      const arr = {
-        pointer: '/data/items', kind: 'array', value: [], minItems: 1, items: [],
-      };
-      const model = modelFor(rootNode([arr]));
-      const { errorsByPointer } = validateDocument({ document: { data: {} }, model });
-      expect(errorsByPointer['/data/items']).to.match(/at least 1/);
+  describe('array', () => {
+    it('rejects below minItems when the array has content', () => {
+      const { errorsByPointer } = setup(
+        {
+          type: 'object',
+          properties: { items: { type: 'array', minItems: 2, items: { type: 'string' } } },
+        },
+        { items: ['only-one'] },
+      );
+      expect(errorsByPointer['/data/items']).to.match(/at least 2/);
     });
 
     it('rejects above maxItems', () => {
-      const arr = {
-        pointer: '/data/items', kind: 'array', value: ['a', 'b', 'c'], maxItems: 2, items: [],
-      };
-      const model = modelFor(rootNode([arr]));
-      const { errorsByPointer } = validateDocument({ document: { data: {} }, model });
+      const { errorsByPointer } = setup(
+        {
+          type: 'object',
+          properties: { items: { type: 'array', maxItems: 2, items: { type: 'string' } } },
+        },
+        { items: ['a', 'b', 'c'] },
+      );
       expect(errorsByPointer['/data/items']).to.match(/at most 2/);
     });
   });
 
-  it('flags unsupported nodes', () => {
-    const node = {
-      pointer: '/data/x', kind: 'unsupported', value: undefined, unsupported: {},
-    };
-    const model = modelFor(rootNode([node]));
-    const { errorsByPointer } = validateDocument({ document: { data: {} }, model });
-    expect(errorsByPointer['/data/x']).to.match(/unsupported/i);
+  describe('form-empty values treated as absent', () => {
+    it('does not fire enum for an unset optional enum field', () => {
+      const { errorsByPointer } = setup(
+        { type: 'object', properties: { status: { type: 'string', enum: ['Active', 'Done'] } } },
+        { status: '' },
+      );
+      expect(errorsByPointer).to.deep.equal({});
+    });
+
+    it('does not fire pattern for a cleared optional string field', () => {
+      const { errorsByPointer } = setup(
+        { type: 'object', properties: { code: { type: 'string', pattern: '^\\d+$' } } },
+        { code: '   ' },
+      );
+      expect(errorsByPointer).to.deep.equal({});
+    });
+
+    it('does not fire minLength for a cleared optional string field', () => {
+      const { errorsByPointer } = setup(
+        { type: 'object', properties: { name: { type: 'string', minLength: 3 } } },
+        { name: '' },
+      );
+      expect(errorsByPointer).to.deep.equal({});
+    });
+
+    it('does not fire minItems for an empty optional array', () => {
+      const { errorsByPointer } = setup(
+        {
+          type: 'object',
+          properties: { items: { type: 'array', minItems: 2, items: { type: 'string' } } },
+        },
+        { items: [] },
+      );
+      expect(errorsByPointer).to.deep.equal({});
+    });
   });
 
-  it('reports a missing root /data', () => {
-    const model = modelFor(rootNode());
-    const { errorsByPointer } = validateDocument({ document: {}, model });
-    expect(errorsByPointer['/data']).to.match(/missing/i);
+  it('skips unsupported nodes (their values are not validated)', () => {
+    const { errorsByPointer } = setup(
+      {
+        type: 'object',
+        properties: { choice: { oneOf: [{ type: 'string' }, { type: 'number' }] } },
+      },
+      { choice: 'anything' },
+    );
+    expect(errorsByPointer).to.deep.equal({});
   });
 });
