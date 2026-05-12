@@ -189,6 +189,39 @@
   }
 }
 
+.skill-preview {
+  border: 1px solid var(--s2-gray-200);
+  border-radius: var(--s2-corner-radius-500);
+  overflow: hidden;
+
+  .skill-preview-header {
+    display: flex;
+    align-items: center;
+    gap: var(--s2-spacing-75);
+    padding: var(--s2-spacing-75) var(--s2-spacing-100);
+    background: var(--s2-gray-50);
+    border-bottom: 1px solid var(--s2-gray-200);
+  }
+
+  .skill-preview-label {
+    font-size: var(--s2-body-size-xs);
+    font-weight: 600;
+    color: var(--s2-gray-700);
+  }
+
+  .skill-preview-id {
+    font-size: var(--s2-body-size-xs);
+    color: var(--s2-gray-600);
+  }
+
+  .skill-preview-body {
+    padding: var(--s2-spacing-100);
+    font-size: var(--s2-body-size-s);
+    max-height: 300px;
+    overflow-y: auto;
+  }
+}
+
 .message {
   padding: 6px var(--s2-spacing-200);
   border-radius: 12px;

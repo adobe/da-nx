@@ -53,10 +53,29 @@ function approvalSummary(input) {
     ?? input[PATH] ?? input[SKILL_ID] ?? input[NAME] ?? null;
 }
 
+function renderSkillPreview(input) {
+  if (!input?.skillId || !input?.content) return nothing;
+  return html`
+    <div class="message message-assistant">
+      <div class="skill-preview">
+        <div class="skill-preview-header">
+          <span class="skill-preview-label">Skill</span>
+          <code class="skill-preview-id">${input.skillId}</code>
+        </div>
+        <div class="skill-preview-body">${renderMessageContent(input.content)}</div>
+      </div>
+    </div>
+  `;
+}
+
 function renderToolCard(toolCallId, toolCards) {
   const card = toolCards?.get(toolCallId);
-  if (!card || card.state === TOOL_STATE.APPROVAL_REQUESTED) return nothing;
+  if (!card) return nothing;
   const { toolName, state, input } = card;
+  if (state === TOOL_STATE.APPROVAL_REQUESTED) {
+    if (toolName === 'da_create_skill') return renderSkillPreview(input);
+    return nothing;
+  }
   const detail = approvalSummary(input);
   const failed = state === TOOL_STATE.ERROR || state === TOOL_STATE.REJECTED;
   return html`

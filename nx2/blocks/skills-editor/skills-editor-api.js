@@ -14,7 +14,7 @@ import { parseSheetBoolean, normaliseRowKey } from '../../utils/sheet-utils.js';
 export function getAgentOrigin() {
   const params = new URLSearchParams(window.location.search);
   const isLocal = params.get('ref') === 'local' || params.get('nx') === 'local';
-  return isLocal ? 'http://localhost:4200' : 'https://da-agent.adobeaem.workers.dev';
+  return isLocal ? 'http://localhost:4002' : 'https://da-agent.adobeaem.workers.dev';
 }
 
 // ─── lightweight in-memory caches (per org/site) ────────────────────────────

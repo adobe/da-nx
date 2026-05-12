@@ -58,10 +58,10 @@ export function extractSkillSuggestion(text) {
 // ==== END SKILLS EDITOR V1 ====
 
 // ==== THIS IS PART OF SKILLS EDITOR V1 ====
-// ?ref=local routes to a local da-agent dev server (port 4200).
+// ?ref=local routes to a local da-agent dev server (port 4002).
 
 const AGENT_URL = new URLSearchParams(window.location.search).get('ref') === 'local'
-  ? 'http://localhost:4200/chat'
+  ? 'http://localhost:4002/chat'
   : 'https://da-agent.adobeaem.workers.dev/chat';
 
 export default class ChatController {
