@@ -101,8 +101,13 @@ const parseWindowPath = () => {
     history.replaceState(null, '', `${location.pathname}${location.search}${cleanHash}`);
   }
 
-  const fullpath = cleanHash.slice(1);
+  let fullpath = cleanHash.slice(1);
   if (!fullpath || !fullpath.startsWith('/')) return null;
+
+  if (view !== 'config' && fullpath.endsWith('/')) {
+    fullpath = fullpath.slice(0, -1);
+    history.replaceState(null, '', `${location.pathname}${location.search}#${fullpath}`);
+  }
 
   const [org, site, ...parts] = fullpath.slice(1).split('/');
   if (!org || (parts.length && !site)) return null;

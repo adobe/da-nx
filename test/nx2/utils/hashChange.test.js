@@ -1,5 +1,5 @@
 import { expect } from '@esm-bundle/chai';
-import { hashChange } from '../../nx/utils/utils.js';
+import { hashChange } from '../../../nx2/utils/utils.js';
 
 function withHash(hash, fn) {
   const original = window.location.hash;
