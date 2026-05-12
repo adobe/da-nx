@@ -1,7 +1,7 @@
 import { CON_ORIGIN, daFetch } from '../../../utils/daFetch.js';
 
 const STATIC_BRANCH_STORAGE_KEY = 'nx-canvas-static-branch';
-const DEFAULT_STATIC_BRANCH = 'main';
+export const DEFAULT_STATIC_BRANCH = 'main';
 
 /** Returns the branch used to serve preview static files (default `main`). */
 export function getStaticBranch() {

@@ -2,7 +2,7 @@ import { LitElement, html, nothing } from 'da-lit';
 
 import { loadStyle } from '../../../utils/utils.js';
 import { loadHrefSvg, ICONS_BASE } from '../../../utils/svg.js';
-import { getStaticBranch, setStaticBranch } from '../editor-utils/preview.js';
+import { DEFAULT_STATIC_BRANCH, getStaticBranch, setStaticBranch } from '../editor-utils/preview.js';
 
 const style = await loadStyle(import.meta.url);
 
@@ -84,12 +84,13 @@ class NXCanvasHeader extends LitElement {
 
   _commitStaticBranch(e) {
     const value = setStaticBranch(e.target.value);
-    if (value === this.staticBranch) {
-      e.target.value = value;
-      return;
-    }
+    // Render the default branch as an empty input so the native `main`
+    // placeholder shows in its lighter colour — a visual cue that no
+    // override is active.
+    const displayValue = value === DEFAULT_STATIC_BRANCH ? '' : value;
+    e.target.value = displayValue;
+    if (value === this.staticBranch) return;
     this.staticBranch = value;
-    e.target.value = value;
     this.dispatchEvent(
       new CustomEvent('nx-canvas-static-branch', {
         bubbles: true,
@@ -163,8 +164,8 @@ class NXCanvasHeader extends LitElement {
               type="text"
               class="static-branch-input"
               part="static-branch-input"
-              .value=${this.staticBranch}
-              placeholder="main"
+              .value=${this.staticBranch === DEFAULT_STATIC_BRANCH ? '' : this.staticBranch}
+              placeholder=${DEFAULT_STATIC_BRANCH}
               spellcheck="false"
               autocomplete="off"
               aria-label="Preview static files branch"
