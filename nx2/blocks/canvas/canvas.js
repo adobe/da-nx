@@ -227,7 +227,15 @@ export default async function decorate(block) {
     header.redoAvailable = e.detail?.canRedo ?? false;
   });
 
+  let currentHashState = null;
+
+  header.addEventListener('nx-canvas-static-branch', () => {
+    if (!currentHashState) return;
+    syncCanvasEditorsToHash({ mountRoot, header, state: currentHashState });
+  });
+
   hashChange.subscribe((state) => {
+    currentHashState = state;
     syncCanvasEditorsToHash({ mountRoot, header, state });
     const toolPanel = document.querySelector('aside.panel[data-position="after"] nx-tool-panel');
     if (toolPanel) syncToolPanelViews(toolPanel, state);
