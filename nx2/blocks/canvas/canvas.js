@@ -66,17 +66,7 @@ function canvasHeaderApplyTarget(block) {
 
 const CANVAS_IFRAME_SRC = 'http://localhost:5710/';
 
-// Defer iframe creation until DA's imslib has finished its silent-auth
-// handshake. imslib uses a hidden auth iframe + window-message bus right
-// after the IMS redirect-back fragment is parsed, and any third-party
-// iframe churn during that window (e.g. SLICC reloading itself for SW
-// control) can drop DA into anonymous and loop the login.
-async function setupCanvasIframe(block) {
-  if (block.querySelector(':scope > iframe.nx-canvas-iframe')) return;
-  try {
-    const { loadIms } = await import('../../utils/ims.js');
-    await loadIms();
-  } catch { /* anonymous is fine — just unblock and continue */ }
+function ensureCanvasIframe(block) {
   if (block.querySelector(':scope > iframe.nx-canvas-iframe')) return;
   const frame = document.createElement('iframe');
   frame.className = 'nx-canvas-iframe';
@@ -226,7 +216,7 @@ export default async function decorate(block) {
   const header = installCanvasHeader(block);
 
   block.classList.add('nx-canvas-with-iframe');
-  setupCanvasIframe(block);
+  ensureCanvasIframe(block);
 
   const mountRoot = ensureCanvasEditorMount(block);
   syncEditorSplitLayout({ mountRoot, view: header.editorView });

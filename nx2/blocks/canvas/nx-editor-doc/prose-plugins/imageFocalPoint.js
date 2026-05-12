@@ -3,14 +3,6 @@ import inlinesvg from './inlinesvg.js';
 import { openFocalPointDialog } from './focalPointDialog.js';
 import { getTableInfo, isInTableCell } from './tableUtils.js';
 
-// === Build marker — visible verification that this file is the new build ===
-// Bump the version string whenever you change the lazy-init behavior so the
-// console message changes too. If you don't see this line in the console
-// when the editor mounts, the CDN is still serving an older bundle.
-const NX_FOCAL_POINT_BUILD = 'lazy-init-v1';
-// eslint-disable-next-line no-console
-console.info(`[nx-focal-point] build=${NX_FOCAL_POINT_BUILD} — getLibraryList deferred until first pointerenter on an image`);
-
 const CROSSHAIRS_SVG = 'https://da.live/blocks/edit/img/Smock_Crosshairs_18_N.svg';
 
 let blocksDataPromise = null;
@@ -18,16 +10,6 @@ async function getBlocksData() {
   if (!blocksDataPromise) {
     blocksDataPromise = (async () => {
       try {
-        // Wait for imslib (nx2's IMS bootstrap) to finish parsing the
-        // post-IMS redirect fragment and store the access token before
-        // calling da.live's helpers — they reach into admin.da.live via
-        // da.live's own daFetch, which auto-redirects to IMS on any 401.
-        // If we race ahead of imslib (likely when a third-party iframe is
-        // also loading on the canvas page), the request goes out without
-        // a Bearer, admin 401s, and the page bounces back to login.
-        const { loadIms } = await import('../../../../utils/ims.js');
-        const ims = await loadIms();
-        if (!ims || ims.anonymous) return [];
         const { getLibraryList } = await import('https://da.live/blocks/edit/da-library/helpers/helpers.js');
         const { getBlocks } = await import('https://da.live/blocks/edit/da-library/helpers/index.js');
         const libraryList = await getLibraryList();
@@ -92,16 +74,11 @@ class ImageWithFocalPointView {
 
     this.dom.appendChild(this.img);
 
-    // Defer the blocks-data fetch (da.live's getLibraryList → admin.da.live
-    // /config/<org>) until the user actually interacts with this image.
-    // Doing it eagerly at node-view construction races with imslib's token
-    // store and, when a third-party iframe is also loading on the canvas
-    // page, lands the user in a sign-in loop.
-    this._lazyInit = () => {
-      // eslint-disable-next-line no-console
-      console.info(`[nx-focal-point] ${NX_FOCAL_POINT_BUILD}: pointerenter triggered initFocalPoint`);
-      this.initFocalPoint();
-    };
+    // Defer the blocks-data fetch (da.live's getLibraryList) until the
+    // user first hovers the image — running it eagerly at node-view
+    // construction can race with imslib's token store and trigger
+    // da.live's daFetch auto-redirect to IMS on a 401.
+    this._lazyInit = () => this.initFocalPoint();
     this.dom.addEventListener('pointerenter', this._lazyInit, { once: true });
   }
 
