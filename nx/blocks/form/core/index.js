@@ -302,3 +302,18 @@ export function createCore({ path, saveDocument, onChange } = {}) {
     moveItem,
   };
 }
+
+// One-shot validation for external consumers (scripts, MCP servers, agents).
+// Equivalent to compiling the schema, building a model around the data, and
+// running validateDocument — bundled so callers don't replicate the wiring.
+export function validateAgainst(schema, data) {
+  const compiled = compileSchema(schema);
+  const issues = compiled?.issues ?? [];
+  if (!compiled?.definition) {
+    return { errorsByPointer: {}, schemaIssues: issues, editable: false };
+  }
+  const document = { metadata: {}, data: data ?? {} };
+  const model = buildModel({ definition: compiled.definition, document });
+  const { errorsByPointer } = validateDocument({ document, model });
+  return { errorsByPointer, schemaIssues: issues, editable: !!compiled.editable };
+}

@@ -60,7 +60,7 @@ function resolveNode({
     const isInternal = typeof ref === 'string' && ref.startsWith('#/');
 
     if (!isInternal) {
-      // External ref (URL, file path, or malformed). SCHEMA-SPEC.md only
+      // External ref (URL, file path, or malformed). docs/schema-spec.md only
       // permits same-document `#/...` refs.
       return {
         ...resolved,
@@ -98,7 +98,7 @@ function resolveNode({
   );
 
   if (composition) {
-    // All composition keywords are unsupported per SCHEMA-SPEC.md. If the
+    // All composition keywords are unsupported per docs/schema-spec.md. If the
     // node also has a direct `properties` map, mark the node and fall through
     // so the editable subset still renders; otherwise the whole node becomes
     // kind 'unsupported'.

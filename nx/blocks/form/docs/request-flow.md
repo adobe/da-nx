@@ -209,7 +209,7 @@ window 'hashchange'
             └─ <sc-form> upgrades → see §1
 ```
 
-Full teardown and re-mount. Documented as a perf item in [PERFORMANCE-REVIEW.md §H4](nx/blocks/form/PERFORMANCE-REVIEW.md) — fix is a path comparison before tearing down. Not done because it doesn't bite at current usage.
+Full teardown and re-mount. Documented as a perf item in [performance-review.md §H4](./performance-review.md) — fix is a path comparison before tearing down. Not done because it doesn't bite at current usage.
 
 ---
 
@@ -237,6 +237,7 @@ The shell's reactive Lit property `_state` triggers re-render. No `requestUpdate
 
 ## Cross-references
 
-- Detailed contracts and rules: [ARCHITECTURE.md](nx/blocks/form/ARCHITECTURE.md)
-- Hot-path costs and ranked bottlenecks: [PERFORMANCE-REVIEW.md](nx/blocks/form/PERFORMANCE-REVIEW.md)
-- Test coverage by area: [RATIONALE.md](nx/blocks/form/RATIONALE.md)
+- Detailed contracts and rules: [architecture.md](./architecture.md)
+- Schema contract (what consumers can write): [schema-spec.md](./schema-spec.md)
+- Hot-path costs and ranked bottlenecks: [performance-review.md](./performance-review.md)
+- Headless / agentic consumer example: [headless-consumer.md](./headless-consumer.md)

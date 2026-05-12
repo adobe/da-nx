@@ -4,7 +4,7 @@ JSON Schema-driven structured content editor.
 
 The block presents a JSON document for editing against a JSON Schema. A headless core owns canonical state, mutation, validation, and persistence; a thin Lit UI renders the model and calls into the core directly.
 
-For the per-keyword contract — which schema features are editable, which are validated only, and what behavior to expect — see [SCHEMA-SPEC.md](./SCHEMA-SPEC.md).
+For the per-keyword contract — which schema features are editable, which are validated only, and what behavior to expect — see [schema-spec.md](./schema-spec.md).
 
 ---
 
@@ -83,7 +83,47 @@ state = {
 
 ---
 
-## 4. UI wiring
+## 4. Headless API (for external consumers)
+
+`core/` is intended to be importable by anything that needs to mutate or validate a structured-content document — CLI scripts, MCP servers, AI agents, the DA import app. UI is optional.
+
+### Stable exports
+
+| Function | Source | Purpose |
+| -------- | ------ | ------- |
+| `createCore({ path, saveDocument, onChange })` | [core/index.js](../core/index.js) | Full editing session with state, mutations, single-flight save. Returns `{ load, getState, setField, addItem, insertItem, removeItem, moveItem }`. |
+| `validateAgainst(schema, data)` | [core/index.js](../core/index.js) | One-shot validation. Returns `{ errorsByPointer, schemaIssues, editable }`. No state, no save. Use when all you need is "is this document valid?". |
+| `compileSchema(schema)` | [core/schema.js](../core/schema.js) | Compiles a JSON Schema into the form's internal definition tree. Returns `{ schema, definition, editable, issues }`. Useful for tools that introspect a schema before binding to it (e.g. an MCP server generating tool definitions). |
+| `isDataEmpty(value)`, `materializeDefaults(definition)` | [core/index.js](../core/index.js) | Helpers exposed so external consumers can match the form's load-time semantics. |
+
+### State snapshot
+
+What `getState()` and `onChange` callers see. Plain JSON — no methods, no proxies, safe to `JSON.stringify` and replay.
+
+```js
+state = {
+  document:    { values },                 // the persisted doc shape
+  model:       { root, byPointer, document } | null,
+  validation:  { errorsByPointer: { '/data/x': 'msg', ... } },
+  schemaIssues: [{ pointer, reason, feature, details }, ...],
+  saveStatus:  'idle' | 'saving' | 'saved' | 'error',
+}
+```
+
+### Internal modules — do not import directly
+
+`core/pointer.js`, `core/mutate.js`, `core/model.js`'s `buildModel`, `core/clone.js`. These are implementation details of `createCore` and the public APIs above. They may change without notice. Reach for `createCore.setField(pointer, value)` rather than `applySet` from `mutate.js`.
+
+### What is intentionally NOT exposed
+
+- `ui/` (the Lit components) — agents have no DOM to render into.
+- `app/` (browser-specific fetch helpers, schema discovery) — wire your own I/O.
+
+The contract that bounds what schemas the public API accepts is in [schema-spec.md](./schema-spec.md). For a worked example of an external consumer, see [headless-consumer.md](./headless-consumer.md).
+
+---
+
+## 5. UI wiring
 
 The shell instantiates `core` with an `onChange` callback, holds the current state snapshot, and the navigation state. It passes `core` plus the selection callback to the children:
 
@@ -108,7 +148,7 @@ Shell ↔ direct-child communication uses property bindings and callbacks. Custo
 
 ---
 
-## 5. Navigation state
+## 6. Navigation state
 
 Lives in the shell only. Shape:
 
@@ -124,7 +164,7 @@ Components receive `nav` as a prop and call `onSelect(pointer, origin)` to updat
 
 ---
 
-## 6. Runtime model
+## 7. Runtime model
 
 `buildModel({ definition, document, previousModel })` produces:
 
@@ -166,7 +206,7 @@ When adding a new field type, add a new `kind` value to `schema.js`'s `inferKind
 
 ---
 
-## 7. Persistence
+## 8. Persistence
 
 Persistence is immediate after every mutation. `core` calls `saveDocument({ path, document })` in the background — the mutation returns synchronously and the save settles later.
 
@@ -196,7 +236,7 @@ This eliminates out-of-order overwrites on slow networks (an earlier POST landin
 
 ---
 
-## 8. Arrays
+## 9. Arrays
 
 JSON Pointer is positional, so pointers change when items move.
 
@@ -207,12 +247,12 @@ JSON Pointer is positional, so pointers change when items move.
 
 ---
 
-## 9. Schema features
+## 10. Schema features
 
 Two independent contracts decide what happens with a given schema:
 
 - **Compiler editability** — `schema.js` + `model.js` decide what the form can *render and edit*. This is an allowlist: an unsupported construct produces a `kind: 'unsupported'` node (or an `unsupportedComposition` flag on a still-editable object).
-- **Validator correctness** — `validation.js` enforces only the keywords listed in [SCHEMA-SPEC.md](./SCHEMA-SPEC.md). It walks the model; any keyword outside the allowlist is silently ignored. The contract is the documentation, not the JSON Schema spec.
+- **Validator correctness** — `validation.js` enforces only the keywords listed in [schema-spec.md](./schema-spec.md). It walks the model; any keyword outside the allowlist is silently ignored. The contract is the documentation, not the JSON Schema spec.
 
 Compiler resolution (in `schema.js`):
 
@@ -229,7 +269,7 @@ When an unsupported construct is found on a node:
 
 ---
 
-## 10. Validation
+## 11. Validation
 
 ### Output
 
@@ -260,7 +300,7 @@ const error = this.state?.validation?.errorsByPointer?.[node.pointer] ?? '';
 
 ### Scope
 
-The validator enforces only the keywords listed in [SCHEMA-SPEC.md](./SCHEMA-SPEC.md): `required`, `enum`, `minLength`, `maxLength`, `pattern` on strings; `minimum`, `maximum` on numbers and integers (plus integer-ness for `kind: 'integer'`); `minItems`, `maxItems` on arrays. Anything outside that allowlist is ignored — the contract is the documentation, not the JSON Schema spec.
+The validator enforces only the keywords listed in [schema-spec.md](./schema-spec.md): `required`, `enum`, `minLength`, `maxLength`, `pattern` on strings; `minimum`, `maximum` on numbers and integers (plus integer-ness for `kind: 'integer'`); `minItems`, `maxItems` on arrays. Anything outside that allowlist is ignored — the contract is the documentation, not the JSON Schema spec.
 
 ### Pipeline
 
@@ -291,7 +331,7 @@ This mirrors the rule `app/serialize.js` applies on save — absent values are s
 
 ---
 
-## 11. Input debouncing
+## 12. Input debouncing
 
 Lives in `editor.js`, keyed per pointer, default 350ms. Boolean, select, and array mutations are immediate.
 
@@ -310,7 +350,7 @@ Note: a navigation away within the debounce window currently drops the last keys
 
 ---
 
-## 12. Defaults policy
+## 13. Defaults policy
 
 Schema `default` values are **materialized into the document at load time** when the loaded `data` is empty. From that point on, defaults are real values in the document — they are saved on the first mutation, and the renderer is a pure function of `node.value` with no special case for defaults.
 
@@ -410,7 +450,7 @@ They stay separate on purpose.
 
 ---
 
-## 13. Rules
+## 14. Rules
 
 ### NEVER
 
