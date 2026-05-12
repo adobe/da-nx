@@ -3,6 +3,14 @@ import inlinesvg from './inlinesvg.js';
 import { openFocalPointDialog } from './focalPointDialog.js';
 import { getTableInfo, isInTableCell } from './tableUtils.js';
 
+// === Build marker — visible verification that this file is the new build ===
+// Bump the version string whenever you change the lazy-init behavior so the
+// console message changes too. If you don't see this line in the console
+// when the editor mounts, the CDN is still serving an older bundle.
+const NX_FOCAL_POINT_BUILD = 'lazy-init-v1';
+// eslint-disable-next-line no-console
+console.info(`[nx-focal-point] build=${NX_FOCAL_POINT_BUILD} — getLibraryList deferred until first pointerenter on an image`);
+
 const CROSSHAIRS_SVG = 'https://da.live/blocks/edit/img/Smock_Crosshairs_18_N.svg';
 
 let blocksDataPromise = null;
@@ -84,7 +92,17 @@ class ImageWithFocalPointView {
 
     this.dom.appendChild(this.img);
 
-    this.initFocalPoint();
+    // Defer the blocks-data fetch (da.live's getLibraryList → admin.da.live
+    // /config/<org>) until the user actually interacts with this image.
+    // Doing it eagerly at node-view construction races with imslib's token
+    // store and, when a third-party iframe is also loading on the canvas
+    // page, lands the user in a sign-in loop.
+    this._lazyInit = () => {
+      // eslint-disable-next-line no-console
+      console.info(`[nx-focal-point] ${NX_FOCAL_POINT_BUILD}: pointerenter triggered initFocalPoint`);
+      this.initFocalPoint();
+    };
+    this.dom.addEventListener('pointerenter', this._lazyInit, { once: true });
   }
 
   async initFocalPoint() {
@@ -142,6 +160,9 @@ class ImageWithFocalPointView {
   }
 
   destroy() {
+    if (this._lazyInit) {
+      this.dom.removeEventListener('pointerenter', this._lazyInit);
+    }
     if (this.icon) {
       this.icon.removeEventListener('click', this.handleIconClick);
     }
