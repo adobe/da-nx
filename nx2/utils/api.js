@@ -1,5 +1,9 @@
 import { HLX_ADMIN, AEM_API, DA_ADMIN, ALLOWED_TOKEN } from './utils.js';
-import { loadIms, handleSignIn } from './ims.js';
+
+const { loadIms, handleSignIn } = await (async () => {
+  const { getNx } = await import(`${window.location.origin}/scripts/utils.js`);
+  return import(`${getNx()}/utils/ims.js`);
+})();
 
 const SOURCE = 'source';
 const LIST = 'list';
