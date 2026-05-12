@@ -1,6 +1,13 @@
 import { html, nothing } from 'da-lit';
 import { AGENT_EVENT, ROLE, TOOL_INPUT, TOOL_STATE } from './constants.js';
 
+const SELECTION_ICON_SRCS = {
+  block: new URL('../../img/icons/S2_Icon_3D_20_N.svg', import.meta.url).href,
+  file: new URL('../../img/icons/S2_Icon_FileText_20_N.svg', import.meta.url).href,
+  image: new URL('../../img/icons/S2_Icon_Image_20_N.svg', import.meta.url).href,
+  table: new URL('../../img/icons/S2_Icon_Table_20_N.svg', import.meta.url).href,
+};
+
 const { unified, remarkParse } = await import('../../deps/mdast/dist/index.js');
 
 function renderNode(node) {
@@ -92,12 +99,12 @@ function renderApprovalCard(pending, onApprove) {
 }
 
 // Mirrors entryTypeFromExtension in browse/utils.js — switch to common utils once migrated.
-function selectionIconClass(blockName) {
+function selectionIconSrc(blockName) {
   const ext = (blockName ?? '').includes('.') ? blockName.split('.').pop().toLowerCase() : '';
-  if (!ext) return 'icon-block';
-  if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'mp4', 'webm', 'mov'].includes(ext)) return 'icon-image';
-  if (['json', 'xlsx', 'xls', 'csv'].includes(ext)) return 'icon-table';
-  return 'icon-file';
+  if (!ext) return SELECTION_ICON_SRCS.block;
+  if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'mp4', 'webm', 'mov'].includes(ext)) return SELECTION_ICON_SRCS.image;
+  if (['json', 'xlsx', 'xls', 'csv'].includes(ext)) return SELECTION_ICON_SRCS.table;
+  return SELECTION_ICON_SRCS.file;
 }
 
 function renderMessage(msg, icons, toolCards) {
@@ -118,7 +125,7 @@ function renderMessage(msg, icons, toolCards) {
 
   const selectionItem = ({ blockName }) => html`
     <li class="selection-context-item">
-      <span class="selection-icon ${selectionIconClass(blockName)}"></span>
+      <img class="selection-icon" src="${selectionIconSrc(blockName)}" aria-hidden="true">
       <span>${blockName}</span>
     </li>`;
 
