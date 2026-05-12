@@ -227,6 +227,9 @@ export default class ChatController {
             content: [{ type: AGENT_EVENT.TOOL_CALL, toolCallId, toolName: prior.toolName }],
           },
         ];
+        if (prior.toolName === 'da_create_skill') {
+          window.dispatchEvent(new CustomEvent('da-skills-changed', { bubbles: true }));
+        }
         this._onToolDone?.();
       }
     }

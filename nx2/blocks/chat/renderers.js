@@ -8,8 +8,18 @@ function renderNode(node) {
       return node.children.map(renderNode);
     case 'paragraph':
       return html`<p>${node.children.map(renderNode)}</p>`;
-    case 'heading':
-      return html`<h${node.depth}>${node.children.map(renderNode)}</h${node.depth}>`;
+    case 'heading': {
+      const children = node.children.map(renderNode);
+      switch (node.depth) {
+        case 1: return html`<h1>${children}</h1>`;
+        case 2: return html`<h2>${children}</h2>`;
+        case 3: return html`<h3>${children}</h3>`;
+        case 4: return html`<h4>${children}</h4>`;
+        case 5: return html`<h5>${children}</h5>`;
+        case 6: return html`<h6>${children}</h6>`;
+        default: return html`<p><strong>${children}</strong></p>`;
+      }
+    }
     case 'list':
       return node.ordered
         ? html`<ol>${node.children.map(renderNode)}</ol>`
@@ -26,8 +36,14 @@ function renderNode(node) {
       return html`<em>${node.children.map(renderNode)}</em>`;
     case 'inlineCode':
       return html`<code>${node.value}</code>`;
+    case 'code':
+      return html`<pre><code>${node.value}</code></pre>`;
     case 'link':
       return html`<a href="${node.url}" target="_blank" rel="noopener noreferrer">${node.children.map(renderNode)}</a>`;
+    case 'blockquote':
+      return html`<blockquote>${node.children.map(renderNode)}</blockquote>`;
+    case 'thematicBreak':
+      return html`<hr>`;
     case 'text':
       return node.value;
     default:

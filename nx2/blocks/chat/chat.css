@@ -193,6 +193,7 @@
   border: 1px solid var(--s2-gray-200);
   border-radius: var(--s2-corner-radius-500);
   overflow: hidden;
+  margin-bottom: var(--s2-spacing-600);
 
   .skill-preview-header {
     display: flex;
@@ -217,8 +218,6 @@
   .skill-preview-body {
     padding: var(--s2-spacing-100);
     font-size: var(--s2-body-size-s);
-    max-height: 300px;
-    overflow-y: auto;
   }
 }
 
