@@ -145,6 +145,40 @@
   flex: 1;
   justify-content: center;
   min-width: 0;
+  gap: 12px;
+}
+
+.static-branch-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--s2-body-size-xs);
+  color: var(--s2-gray-700);
+  user-select: none;
+}
+
+.static-branch-label {
+  white-space: nowrap;
+}
+
+.static-branch-input {
+  box-sizing: border-box;
+  width: 140px;
+  height: 24px;
+  padding: 0 8px;
+  margin: 0;
+  border: 1px solid var(--s2-gray-300);
+  border-radius: var(--s2-corner-radius-400);
+  font: inherit;
+  font-size: var(--s2-body-size-xs);
+  color: var(--s2-gray-900);
+  background-color: light-dark(#fff, var(--s2-gray-50));
+}
+
+.static-branch-input:focus-visible {
+  outline: none;
+  border-color: var(--s2-blue-800);
+  box-shadow: 0 0 0 1px var(--s2-blue-800);
 }
 
 @media (width < 480px) {

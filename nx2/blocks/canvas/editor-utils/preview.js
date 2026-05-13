@@ -1,11 +1,38 @@
 import { CON_ORIGIN, daFetch } from '../../../utils/daFetch.js';
 
+const STATIC_BRANCH_STORAGE_KEY = 'nx-canvas-static-branch';
+export const DEFAULT_STATIC_BRANCH = 'main';
+
+/** Returns the branch used to serve preview static files (default `main`). */
+export function getStaticBranch() {
+  try {
+    return sessionStorage.getItem(STATIC_BRANCH_STORAGE_KEY) || DEFAULT_STATIC_BRANCH;
+  } catch {
+    return DEFAULT_STATIC_BRANCH;
+  }
+}
+
+/**
+ * Persist the branch used for preview static files. An empty value resets
+ * back to the default (`main`). Returns the normalized value actually saved.
+ */
+export function setStaticBranch(branch) {
+  const normalized = (branch ?? '').trim() || DEFAULT_STATIC_BRANCH;
+  try {
+    if (normalized === DEFAULT_STATIC_BRANCH) sessionStorage.removeItem(STATIC_BRANCH_STORAGE_KEY);
+    else sessionStorage.setItem(STATIC_BRANCH_STORAGE_KEY, normalized);
+  } catch {
+    /* ignore */
+  }
+  return normalized;
+}
+
 export function getPreviewOrigin(org, repo) {
   const hostname = window?.location?.hostname ?? '';
   const domain = hostname.endsWith('aem.page') || hostname.endsWith('localhost')
     ? 'stage-preview.da.live'
     : 'preview.da.live';
-  return `https://main--${repo}--${org}.${domain}`;
+  return `https://${getStaticBranch()}--${repo}--${org}.${domain}`;
 }
 
 export async function fetchWysiwygCookie({ org, repo, token }) {

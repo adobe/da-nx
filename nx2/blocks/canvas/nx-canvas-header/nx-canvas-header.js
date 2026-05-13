@@ -2,6 +2,7 @@ import { LitElement, html, nothing } from 'da-lit';
 
 import { loadStyle } from '../../../utils/utils.js';
 import { loadHrefSvg, ICONS_BASE } from '../../../utils/svg.js';
+import { DEFAULT_STATIC_BRANCH, getStaticBranch, setStaticBranch } from '../editor-utils/preview.js';
 
 const style = await loadStyle(import.meta.url);
 
@@ -22,6 +23,8 @@ class NXCanvasHeader extends LitElement {
     editorView: { type: String, reflect: true },
     undoAvailable: { type: Boolean },
     redoAvailable: { type: Boolean },
+    /** Branch used to serve preview static files (CSS / JS). */
+    staticBranch: { type: String, attribute: 'static-branch', reflect: true },
   };
 
   constructor() {
@@ -29,6 +32,7 @@ class NXCanvasHeader extends LitElement {
     this.editorView = 'layout';
     this.undoAvailable = false;
     this.redoAvailable = false;
+    this.staticBranch = getStaticBranch();
   }
 
   connectedCallback() {
@@ -76,6 +80,31 @@ class NXCanvasHeader extends LitElement {
         detail: { view },
       }),
     );
+  }
+
+  _commitStaticBranch(e) {
+    const value = setStaticBranch(e.target.value);
+    // Render the default branch as an empty input so the native `main`
+    // placeholder shows in its lighter colour — a visual cue that no
+    // override is active.
+    const displayValue = value === DEFAULT_STATIC_BRANCH ? '' : value;
+    e.target.value = displayValue;
+    if (value === this.staticBranch) return;
+    this.staticBranch = value;
+    this.dispatchEvent(
+      new CustomEvent('nx-canvas-static-branch', {
+        bubbles: true,
+        composed: true,
+        detail: { branch: value },
+      }),
+    );
+  }
+
+  _onStaticBranchKeydown(e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      e.target.blur();
+    }
   }
 
   _renderIcon(name) {
@@ -129,6 +158,22 @@ class NXCanvasHeader extends LitElement {
               @click=${() => this._setEditorView('split')}
             >${this._renderIcon('gridCompare')}</button>
           </div>
+          <label class="static-branch-field" part="static-branch-field">
+            <span class="static-branch-label">Branch</span>
+            <input
+              type="text"
+              class="static-branch-input"
+              part="static-branch-input"
+              .value=${this.staticBranch === DEFAULT_STATIC_BRANCH ? '' : this.staticBranch}
+              placeholder=${DEFAULT_STATIC_BRANCH}
+              spellcheck="false"
+              autocomplete="off"
+              aria-label="Preview static files branch"
+              title="Branch used to serve static files (CSS / JS) for the preview"
+              @change=${this._commitStaticBranch}
+              @keydown=${this._onStaticBranchKeydown}
+            />
+          </label>
         </div>
 
         <div class="group group-end" part="group-end">

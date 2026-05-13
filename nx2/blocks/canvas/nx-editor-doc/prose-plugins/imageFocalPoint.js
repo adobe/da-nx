@@ -1,41 +1,13 @@
 import { Plugin } from 'da-y-wrapper';
 import inlinesvg from './inlinesvg.js';
 import { openFocalPointDialog } from './focalPointDialog.js';
-import { getTableInfo, isInTableCell } from './tableUtils.js';
+import { isInTableCell } from './tableUtils.js';
 
 const CROSSHAIRS_SVG = 'https://da.live/blocks/edit/img/Smock_Crosshairs_18_N.svg';
-
-let blocksDataPromise = null;
-async function getBlocksData() {
-  if (!blocksDataPromise) {
-    blocksDataPromise = (async () => {
-      try {
-        const { getLibraryList } = await import('https://da.live/blocks/edit/da-library/helpers/helpers.js');
-        const { getBlocks } = await import('https://da.live/blocks/edit/da-library/helpers/index.js');
-        const libraryList = await getLibraryList();
-        const blocksInfo = libraryList.find((l) => l.name === 'blocks');
-        if (!blocksInfo) return [];
-        return await getBlocks(blocksInfo.sources);
-      } catch (error) {
-        // eslint-disable-next-line no-console
-        console.warn('Failed to load blocks data for focal point:', error);
-        return [];
-      }
-    })();
-  }
-  return blocksDataPromise;
-}
 
 function hasFocalPointData(attrs) {
   return (attrs.dataFocalX && attrs.dataFocalX !== '')
     || (attrs.dataFocalY && attrs.dataFocalY !== '');
-}
-
-function shouldShowFocalPoint(tableName, blocks) {
-  if (!tableName || !blocks || blocks.length === 0) return false;
-
-  const tableNameLower = tableName.toLowerCase().replace(/-/g, ' ');
-  return blocks.some((block) => (block.name.toLowerCase() === tableNameLower && block['focal-point'] === 'yes'));
 }
 
 function updateImageAttributes(img, attrs) {
@@ -74,23 +46,16 @@ class ImageWithFocalPointView {
 
     this.dom.appendChild(this.img);
 
-    this.initFocalPoint();
-  }
-
-  async initFocalPoint() {
-    try {
-      const blocks = await getBlocksData();
-      const pos = this.getPos();
-      if (pos == null) return;
-
-      const tableInfo = getTableInfo(this.view.state, pos);
-      if (tableInfo && shouldShowFocalPoint(tableInfo.tableName, blocks)) {
-        this.enableFocalPoint();
-      }
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.warn('Failed to initialize focal point:', error);
-    }
+    // Always enable the focal-point icon for images in table cells.
+    // Previously we filtered against the per-block `focal-point: yes`
+    // config from da.live's getLibraryList, but that fetch goes through
+    // da.live's daFetch which auto-redirects to IMS on any 401 — racing
+    // with imslib at editor mount / view-switch time and landing the
+    // user in a sign-in loop. The icon itself stays at `opacity: 0`
+    // until the wrapper is hovered (see nx-editor-doc.css), so always
+    // attaching it has no visible cost for blocks that don't use focal
+    // points.
+    this.enableFocalPoint();
   }
 
   enableFocalPoint() {

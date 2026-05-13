@@ -53,13 +53,40 @@ function persistCanvasEditorView(view) {
 }
 
 function canvasEditorMountRoot(block) {
-  return block.querySelector('.default-content') || block;
+  return block.querySelector(':scope > .nx-canvas-editor-mount')
+    || block.querySelector(':scope > .default-content')
+    || block;
 }
 
 function canvasHeaderApplyTarget(block) {
   return block.querySelector('.nx-canvas-editor-mount')
     || block.querySelector('.default-content')
     || block;
+}
+
+const CANVAS_IFRAME_SRC = 'http://localhost:5710/';
+
+function ensureCanvasIframe(block) {
+  if (block.querySelector(':scope > iframe.nx-canvas-iframe')) return;
+  const frame = document.createElement('iframe');
+  frame.className = 'nx-canvas-iframe';
+  frame.src = CANVAS_IFRAME_SRC;
+  frame.title = 'Canvas iframe';
+  block.prepend(frame);
+}
+
+function ensureCanvasEditorMount(block) {
+  let mount = block.querySelector(':scope > .nx-canvas-editor-mount');
+  if (mount) return mount;
+  mount = block.querySelector(':scope > .default-content');
+  if (!mount) {
+    mount = document.createElement('div');
+    const movable = [...block.children].filter((c) => c.tagName !== 'IFRAME');
+    for (const child of movable) mount.append(child);
+    block.append(mount);
+  }
+  mount.classList.add('nx-canvas-editor-mount');
+  return mount;
 }
 
 function removeCanvasEditors(mountRoot) {
@@ -188,8 +215,10 @@ function installCanvasHeader(block) {
 export default async function decorate(block) {
   const header = installCanvasHeader(block);
 
-  const mountRoot = canvasEditorMountRoot(block);
-  mountRoot.classList.add('nx-canvas-editor-mount');
+  block.classList.add('nx-canvas-with-iframe');
+  ensureCanvasIframe(block);
+
+  const mountRoot = ensureCanvasEditorMount(block);
   syncEditorSplitLayout({ mountRoot, view: header.editorView });
   installEditorSplitDrag(mountRoot);
 
@@ -198,7 +227,15 @@ export default async function decorate(block) {
     header.redoAvailable = e.detail?.canRedo ?? false;
   });
 
+  let currentHashState = null;
+
+  header.addEventListener('nx-canvas-static-branch', () => {
+    if (!currentHashState) return;
+    syncCanvasEditorsToHash({ mountRoot, header, state: currentHashState });
+  });
+
   hashChange.subscribe((state) => {
+    currentHashState = state;
     syncCanvasEditorsToHash({ mountRoot, header, state });
     const toolPanel = document.querySelector('aside.panel[data-position="after"] nx-tool-panel');
     if (toolPanel) syncToolPanelViews(toolPanel, state);
