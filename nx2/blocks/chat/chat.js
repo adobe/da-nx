@@ -282,8 +282,9 @@ class NxChat extends LitElement {
   }
 
   async _onFileInputChange(e) {
-    await this._onFilesSelected(e.target.files);
-    e.target.value = '';
+    const { target } = e;
+    await this._onFilesSelected(target.files);
+    target.value = '';
   }
 
   _handleMenuSelect({ detail: { id } }) {
