@@ -45,6 +45,10 @@ class NxPrompts extends LitElement {
     });
   }
 
+  _onSelectPrompt(prompt) {
+    this.dispatchEvent(new CustomEvent('nx-select-prompt', { detail: { prompt }, bubbles: true, composed: true }));
+  }
+
   _onListKeydown(e) {
     if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
     const items = [...this.shadowRoot.querySelectorAll('.prompt-item')];
@@ -105,7 +109,7 @@ class NxPrompts extends LitElement {
       <ul class="prompts-list" @keydown=${this._onListKeydown}>
         ${filtered.map((p) => html`
           <li>
-            <button class="prompt-item" type="button" @click=${() => this.onSend?.(p.prompt)}>
+            <button class="prompt-item" type="button" @click=${() => this._onSelectPrompt(p.prompt)}>
               <div class="prompt-item-header">
                 <span class="prompt-item-title">${p.title}</span>
                 ${p.category ? html`<span class="prompt-item-category">${p.category}</span>` : nothing}
