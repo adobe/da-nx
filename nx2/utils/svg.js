@@ -2,6 +2,8 @@ import { getConfig } from '../scripts/nx.js';
 
 const { codeBase, iconSize } = getConfig();
 
+export const ICONS_BASE = new URL('../img/icons/', import.meta.url).href;
+
 export const loadHrefSvg = (() => {
   const cache = {};
 
@@ -19,7 +21,6 @@ export const loadHrefSvg = (() => {
 })();
 
 export default function loadIcons({ paths, icons, size = iconSize }) {
-  // Support legacy paths pattern
   if (paths) return Promise.all(paths.map((path) => loadHrefSvg(path)));
 
   for (const icon of icons) {

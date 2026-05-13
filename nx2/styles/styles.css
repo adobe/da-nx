@@ -469,6 +469,10 @@ html:has(meta[content="edge-delivery"]) {
         margin: 0;
         max-height: none;
 
+        path {
+          fill: currentcolor;
+        }
+
         .panel-wrapper {
           --panel-bottom-margin: 12px;
 
@@ -600,6 +604,7 @@ html:has(meta[content="edge-delivery"]) {
 
         aside.panel {
           position: static;
+          min-width: 0;
 
           .panel-wrapper {
             height: calc(100vh - var(--s2-nav-height) - var(--panel-bottom-margin));

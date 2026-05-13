@@ -1,0 +1,61 @@
+:host {
+  display: block;
+  min-width: 0;
+}
+
+.nx-breadcrumb ol {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  gap: 0;
+  min-width: 0;
+  font-family: var(--s2-font-family);
+  font-size: var(--s2-component-m-regular-font-size);
+  line-height: var(--s2-component-m-regular-line-height);
+  font-weight: var(--s2-component-m-regular-font-weight);
+  color: var(--s2-gray-700);
+}
+
+.crumb {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.crumb:not(:first-child)::before {
+  content: "";
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  margin-inline: var(--s2-spacing-75);
+  background: currentcolor;
+  mask: var(--nx-crumb-sep) center / contain no-repeat;
+}
+
+.crumb a,
+.crumb .current {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+.crumb a:hover {
+  color: var(--s2-gray-800);
+}
+
+.crumb a:focus-visible {
+  outline: 2px solid var(--s2-blue-800);
+  outline-offset: 2px;
+  border-radius: var(--s2-corner-radius-100);
+}
+
+.crumb .current {
+  color: var(--s2-gray-800);
+  font-weight: var(--s2-component-m-bold-font-weight);
+}

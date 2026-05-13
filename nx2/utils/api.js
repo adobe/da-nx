@@ -104,7 +104,7 @@ const getApiPath = async (org, site, api, daPath) => {
 };
 
 export const signout = () => {
-  daFetch(`${DA_ADMIN}/logout`);
+  daFetch({ url: `${DA_ADMIN}/logout` });
 };
 
 const TEXT_TYPES = {

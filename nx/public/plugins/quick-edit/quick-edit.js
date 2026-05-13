@@ -10,26 +10,25 @@ await loadStyle(`${nx}/public/plugins/quick-edit/quick-edit.css`);
 
 const QUICK_EDIT_ID = 'quick-edit-iframe';
 
+/**
+ * When set, the preview page is using exp-workspace as controller;
+ * do not create the portal iframe.
+ */
+let parentControllerPort = null;
+
 async function setBody(body, ctx) {
   const doc = new DOMParser().parseFromString(body, 'text/html');
   document.body.innerHTML = doc.body.innerHTML;
   await ctx.loadPage();
   setupContentEditableListeners(ctx);
   setupImageDropListeners(ctx, document.body.querySelector('main'));
-  setupActions(ctx);
+  if (!parentControllerPort) {
+    setupActions(ctx);
+  }
 }
 
 function handleReady(e, ctx) {
   ctx.initialized = true;
-}
-
-function checkDomain() {
-  const currentUrl = new URL(window.location.href);
-  if (currentUrl.origin.endsWith('.aem.page')) {
-    const newOrigin = currentUrl.origin.replace('.aem.page', '.preview.da.live');
-    const newHref = `${newOrigin}${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`;
-    window.location.replace(newHref);
-  }
 }
 
 function onMessage(e, ctx) {
@@ -50,6 +49,54 @@ function onMessage(e, ctx) {
   }
 }
 
+function setupParentControllerListener() {
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('controller') !== 'parent') return;
+
+  const listener = (e) => {
+    if (e.source !== window.parent || e.data?.init == null || !e.ports?.length) return;
+
+    const port = e.ports[0];
+    parentControllerPort = port;
+
+    let loadPageFn = null;
+    const scriptsUrl = `${window.location.origin}/scripts/scripts.js`;
+
+    const loadPage = async () => {
+      if (loadPageFn === null) {
+        try {
+          const mod = await import(/* webpackIgnore: true */ scriptsUrl);
+          loadPageFn = typeof mod?.loadPage === 'function' ? mod.loadPage : () => { };
+        } catch {
+          loadPageFn = () => { };
+        }
+      }
+      if (typeof loadPageFn === 'function') await loadPageFn();
+    };
+
+    const ctx = {
+      initialized: true,
+      loadPage,
+      port,
+    };
+    port.onmessage = (ev) => onMessage(ev, ctx);
+    port.postMessage({ ready: true });
+
+    window.removeEventListener('message', listener);
+  };
+  window.addEventListener('message', listener);
+}
+setupParentControllerListener();
+
+function checkDomain() {
+  const currentUrl = new URL(window.location.href);
+  if (currentUrl.origin.endsWith('.aem.page')) {
+    const newOrigin = currentUrl.origin.replace('.aem.page', '.preview.da.live');
+    const newHref = `${newOrigin}${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`;
+    window.location.replace(newHref);
+  }
+}
+
 function handleLoad(target, config, location, ctx) {
   const CHANNEL = new MessageChannel();
   const { port1, port2 } = CHANNEL;
@@ -62,12 +109,16 @@ function handleLoad(target, config, location, ctx) {
 function getQuickEditSrc() {
   const { search } = window.location;
   const ref = new URLSearchParams(search).get('quick-edit');
-  if (!ref || ref === 'on') return 'https://da.live/plugins/quick-edit';
+  if (!ref || ref === 'on') return `${window.location.origin}/plugins/quick-edit`;
   return `https://main--da-live--adobe.aem.live/plugins/quick-edit?nx=${ref}`;
 }
 
 export default async function loadQuickEdit({ detail: payload }, loadPage) {
   if (document.getElementById(QUICK_EDIT_ID)) return;
+  if (parentControllerPort != null) return;
+
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('controller') === 'parent') return;
 
   checkDomain();
 
