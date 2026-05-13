@@ -1,0 +1,21 @@
+.vis-wrapper {
+  display: block;
+  margin-top: 12px;
+}
+
+.sc-title {
+  font-weight: 700;
+  line-height: 1;
+  margin: 0 0 8px;
+}
+
+pre {
+  margin: 0;
+  padding: 12px;
+  border-radius: 8px;
+  max-height: 480px;
+  overflow: auto;
+  background: #f6f8fa;
+  font-size: 12px;
+  line-height: 1.45;
+}
