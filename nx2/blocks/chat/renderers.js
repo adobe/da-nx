@@ -53,9 +53,42 @@ function renderNode(node) {
 
 const parser = unified().use(remarkParse);
 
+const ALERT_ICONS = { info: 'ℹ️', warning: '⚠️', error: '❌' };
+
+/**
+ * Convert :::directive ... ::: blocks (from the agent system prompt) into
+ * standard markdown before passing to remarkParse.
+ */
+function preprocessDirectives(text) {
+  return text.replace(/:::([a-z-]+)\n([\s\S]*?):::/g, (_match, type, content) => {
+    const lines = content.trim().split('\n').filter(Boolean);
+
+    if (type === 'list') {
+      return lines.map((l) => `- ${l.replace(/^-\s*/, '')}`).join('\n');
+    }
+    if (type === 'checklist') {
+      return lines.map((l) => {
+        const stripped = l.replace(/^-\s*/, '');
+        return /^\[[ x]\]/i.test(stripped) ? `- ${stripped}` : `- [ ] ${stripped}`;
+      }).join('\n');
+    }
+    if (type.startsWith('alert-')) {
+      const variant = type.replace('alert-', '');
+      const icon = ALERT_ICONS[variant] ?? '📌';
+      return `> ${icon} ${lines.join(' ')}`;
+    }
+    if (type === 'toggle-list') {
+      return lines
+        .map((l) => (/^>\s+/.test(l) ? `**${l.replace(/^>\s+/, '')}**` : l))
+        .join('\n');
+    }
+    return lines.join('\n');
+  });
+}
+
 function renderMessageContent(text) {
   if (!text) return nothing;
-  const tree = parser.parse(text);
+  const tree = parser.parse(preprocessDirectives(text));
   return renderNode(tree);
 }
 
