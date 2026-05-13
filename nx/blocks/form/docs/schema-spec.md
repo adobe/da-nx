@@ -1,11 +1,11 @@
 # JSON Schema support
 
-Reference specification for JSON Schemas consumed by this form. Defines the complete set of allowed keywords and forms. Anything not specified in this document is unsupported.
+Reference specification for JSON Schemas consumed by this form. Defines the complete set of allowed keywords and forms.
 
 - **Dialect:** JSON Schema 2020-12 (subset — see rules and supported keywords below)
 - **Audience:** schema authors and code-generation agents
 
-> Generators must produce schemas that use only the constructs documented here. Schemas using unlisted keywords, formats, or composition forms are rejected by the form's rendering layer.
+> A conformant schema uses only the constructs documented here. Anything else has no effect on the form.
 
 ---
 
@@ -22,11 +22,9 @@ A conformant schema satisfies every rule below.
 | R5 | Every `object` node defines its fields via `properties`. |
 | R6 | Every `array` node defines its element schema via `items` (a single schema object, not an array). |
 | R7 | Repeated shapes are factored into `$defs` and referenced via `$ref`. |
-| R8 | `$ref` values must be same-document JSON Pointers (`#/...`). External references are forbidden. |
-| R9 | Composition keywords (`allOf`, `oneOf`, `anyOf`, `not`, `if`, `then`, `else`) are not supported. |
-| R10 | Only the keywords listed in §3, §4, §5, and §6 are permitted. |
-| R11 | Property keys must begin with a letter (`a–z`, `A–Z`) and contain only letters, digits (`0–9`), and hyphens (`-`). |
-| R12 | The property keys `metadata` and `section-metadata` are reserved. They must not appear in `properties`. |
+| R8 | `$ref` values must be same-document JSON Pointers (`#/...`). |
+| R9 | Property keys must begin with a letter (`a–z`, `A–Z`) and contain only letters, digits (`0–9`), and hyphens (`-`). |
+| R10 | The property keys `metadata` and `section-metadata` are reserved. They must not appear in `properties`. |
 
 ---
 
@@ -82,16 +80,14 @@ Fields are declared in `properties`. `required` is an array of property names.
 
 #### Property key rules
 
-> **Keys that violate these rules are rejected by the rendering layer.**
-
-Property keys must begin with a letter (`a–z`, `A–Z`) and contain only letters, digits (`0–9`), and hyphens (`-`):
+Property keys must begin with a letter (`a–z`, `A–Z`) and contain only letters, digits (`0–9`), and hyphens (`-`).
 
 ```
 valid:   name  firstName  first-name  My-Field  field1  h1
 invalid: _name  my.field  123abc
 ```
 
-Two keys are **reserved** and must not appear in `properties`: `metadata`, `section-metadata`.
+The keys `metadata` and `section-metadata` are reserved and must not appear in `properties`.
 
 ### `array`
 
@@ -231,6 +227,8 @@ These keywords restrict the value. The form shows an error under the field when 
 }
 ```
 
+`minimum` and `maximum` are inclusive bounds. For numeric range constraints, only these are supported.
+
 `pattern` is a regular expression following the ECMA 262 grammar. Use it for shape constraints (slugs, identifiers); use `enum` for closed value sets.
 
 ```json
@@ -281,30 +279,9 @@ These keywords restrict the value. The form shows an error under the field when 
 
 ---
 
-## 6. Forbidden constructs
+## 6. Scope
 
-These constructs are unsupported. Schemas using them are rejected by the rendering layer. This list is not exhaustive — rule R10 applies — but enumerates the cases most likely to appear in generated schemas.
-
-| Construct | Why unsupported |
-| --------- | ---------------- |
-| `allOf`, `oneOf`, `anyOf`, `not` | Composition is not supported. |
-| `if`, `then`, `else`             | Conditional schemas are not supported. |
-| `dependentRequired`, `dependentSchemas` | Cross-field dependencies are not supported. |
-| `additionalProperties`, `patternProperties`, `propertyNames` | Object key constraints are not supported. |
-| `minProperties`, `maxProperties` | Object size constraints are not supported. |
-| `prefixItems`, `contains`, `minContains`, `maxContains`, `uniqueItems` | Tuple and array set constraints are not supported. |
-| `const`, `multipleOf` | Not supported. |
-| `exclusiveMinimum`, `exclusiveMaximum` | Not supported. Use `minimum` / `maximum`. |
-| `contentEncoding`, `contentMediaType` | Content format hints are not supported. |
-| `description` | Not rendered by the form. |
-| Property key not matching `^[a-zA-Z][a-zA-Z0-9-]*$` | Must not appear in `properties`. |
-| Reserved property keys `metadata`, `section-metadata` | Must not appear in `properties`. |
-| `$schema`, `$id`, `$anchor`, `$comment`, `$vocabulary` | Metadata keywords not interpreted by the form. |
-| `format` (all values, including `"email"`, `"uri"`, `"date"`, `"date-time"`, `"uuid"`, `"textarea"`) | Not interpreted by the form. Use `pattern` for shape validation. |
-| `type` as an array (e.g. `["string", "null"]`) | A single type per node is required. |
-| Schemas without `type` | Type must be declared explicitly (R1). |
-| Schemas without `title` | Title is required on every node (R4). |
-| External `$ref` (URL, file path, other documents) | Same-document refs only. |
+Any keyword, type, or construct not listed in §2–5 has no effect on the form.
 
 ---
 
@@ -358,18 +335,39 @@ Conventions that produce a readable form and a maintainable schema.
 
 ## 9. Complete example
 
-A schema exercising every supported keyword:
+A schema exercising every supported keyword, including reusable shapes that reference each other and inline nested structures:
 
 ```json
 {
   "$defs": {
+    "Address": {
+      "type": "object",
+      "title": "Address",
+      "required": ["country"],
+      "properties": {
+        "street":  { "type": "string", "title": "Street" },
+        "city":    { "type": "string", "title": "City" },
+        "country": { "type": "string", "title": "Country" }
+      }
+    },
     "Contact": {
       "type": "object",
       "title": "Contact",
       "required": ["name"],
       "properties": {
-        "name":  { "type": "string", "title": "Name" },
-        "email": { "type": "string", "title": "Email" }
+        "name":    { "type": "string", "title": "Name" },
+        "email":   { "type": "string", "title": "Email" },
+        "address": { "$ref": "#/$defs/Address" }
+      }
+    },
+    "Milestone": {
+      "type": "object",
+      "title": "Milestone",
+      "required": ["name"],
+      "properties": {
+        "name":      { "type": "string", "title": "Name", "minLength": 1, "maxLength": 80 },
+        "completed": { "type": "boolean", "title": "Completed", "default": false },
+        "owner":     { "$ref": "#/$defs/Contact" }
       }
     }
   },
@@ -437,22 +435,25 @@ A schema exercising every supported keyword:
       "type": "array",
       "title": "Collaborators",
       "items": { "$ref": "#/$defs/Contact" }
+    },
+    "milestones": {
+      "type": "array",
+      "title": "Milestones",
+      "items": { "$ref": "#/$defs/Milestone" }
+    },
+    "links": {
+      "type": "array",
+      "title": "Links",
+      "items": {
+        "type": "object",
+        "title": "Link",
+        "required": ["url"],
+        "properties": {
+          "label": { "type": "string", "title": "Label" },
+          "url":   { "type": "string", "title": "URL", "pattern": "^https?://" }
+        }
+      }
     }
   }
 }
 ```
-
----
-
-## 10. Quick reference
-
-| Keyword                                                                                             | Status |
-| --------------------------------------------------------------------------------------------------- | ------ |
-| `type`: `"string"`, `"number"`, `"integer"`, `"boolean"`, `"object"`, `"array"`                     | Supported |
-| `title`, `default`, `readOnly`, `required`                                                          | Supported |
-| `enum`, `minLength`, `maxLength`, `pattern`                                                         | Supported |
-| `minimum`, `maximum`                                                                                | Supported |
-| `minItems`, `maxItems`                                                                              | Supported |
-| `properties`, `items`                                                                               | Supported |
-| `$ref` (`#/...`), `$defs`                                                                           | Supported |
-| All other keywords, formats, composition forms, and constructs (see §6)                            | **Forbidden** |

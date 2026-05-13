@@ -15,7 +15,7 @@ form/
   form.js             Lit shell: screen routing, context loading, mounts core
   core/
     index.js          createCore() — public API
-    schema.js         resolveSchema + compileSchema (refs, allOf/oneOf/anyOf, definitions tree)
+    schema.js         resolveSchema + compileSchema ($ref/$defs resolution, composition handling, compiled definition tree)
     model.js          buildModel + pointer→node Map, in one pass
     mutate.js         setField, addItem, insertItem, removeItem, moveItem
     pointer.js        RFC 6901 ops + definitionAt
@@ -249,16 +249,17 @@ JSON Pointer is positional, so pointers change when items move.
 
 ## 10. Schema features
 
-Two independent contracts decide what happens with a given schema:
+The runtime applies two independent contracts to a schema:
 
 - **Compiler editability** — `schema.js` + `model.js` decide what the form can *render and edit*. This is an allowlist: an unsupported construct produces a `kind: 'unsupported'` node (or an `unsupportedComposition` flag on a still-editable object).
 - **Validator correctness** — `validation.js` enforces only the keywords listed in [schema-spec.md](./schema-spec.md). It walks the model; any keyword outside the allowlist is silently ignored. The contract is the documentation, not the JSON Schema spec.
 
+The schema-spec also defines **authoring rules** (property key pattern, reserved keys `metadata` / `section-metadata`) that the runtime does not police. Authors and code generators are expected to follow them; behavior on violation is undefined.
+
 Compiler resolution (in `schema.js`):
 
-- `$ref` — internal refs only (`#/...`), with cycle protection. External refs (URL, file, anything not starting with `#/`) and internal refs that fail to resolve are flagged as unsupported.
-- `allOf` / `oneOf` / `anyOf` — all unsupported. The compiler does not attempt to pick a variant.
-- `type` must be one of `string` / `number` / `integer` / `boolean` / `object` / `array`. Anything else, a `type` array, or a missing `type` produces an unsupported node.
+- `$ref` — internal refs only (`#/...`). External or unresolved refs produce an unsupported node.
+- `type` must be one of `string` / `number` / `integer` / `boolean` / `object` / `array`. Anything else produces an unsupported node.
 
 When an unsupported construct is found on a node:
 
@@ -285,7 +286,7 @@ state.validation = {
 }
 ```
 
-Keys are RFC 6901 pointers into the form data, always rooted at `/data` (the document shape is `{ metadata, data }`; `metadata` is not validated). Values are plain strings — one per pointer.
+Keys are RFC 6901 pointers into the form data, always rooted at `/data` (the document shape is `{ metadata, data }`; `metadata` is not validated). This is why `metadata` (and `section-metadata`) are reserved property keys in [schema-spec.md](./schema-spec.md) — a schema cannot define a field that would collide with the runtime document shape. Values are plain strings — one per pointer.
 
 UI components look up their own error by pointer:
 
