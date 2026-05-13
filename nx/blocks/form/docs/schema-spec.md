@@ -2,7 +2,7 @@
 
 Reference specification for JSON Schemas consumed by this form. Defines the complete set of allowed keywords and forms. Anything not specified in this document is unsupported.
 
-- **Dialect:** JSON Schema 2020-12
+- **Dialect:** JSON Schema 2020-12 (subset — see rules and supported keywords below)
 - **Audience:** schema authors and code-generation agents
 
 > Generators must produce schemas that use only the constructs documented here. Schemas using unlisted keywords, formats, or composition forms are rejected by the form's rendering layer.
