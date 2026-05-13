@@ -41,4 +41,4 @@ class NxCard extends LitElement {
   }
 }
 
-customElements.define('nx-card', NxCard);
+if (!customElements.get('nx-card')) customElements.define('nx-card', NxCard);

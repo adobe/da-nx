@@ -46,4 +46,4 @@ class NxChatPills extends LitElement {
   }
 }
 
-customElements.define('nx-chat-pills', NxChatPills);
+if (!customElements.get('nx-chat-pills')) customElements.define('nx-chat-pills', NxChatPills);

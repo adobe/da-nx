@@ -160,4 +160,4 @@ class NxMenu extends LitElement {
   }
 }
 
-customElements.define('nx-menu', NxMenu);
+if (!customElements.get('nx-menu')) customElements.define('nx-menu', NxMenu);

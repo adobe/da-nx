@@ -349,7 +349,7 @@ class NxChat extends LitElement {
   }
 }
 
-customElements.define('nx-chat', NxChat);
+if (!customElements.get('nx-chat')) customElements.define('nx-chat', NxChat);
 
 export default async function init(el) {
   const chat = document.createElement('nx-chat');

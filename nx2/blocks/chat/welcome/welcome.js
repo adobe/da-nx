@@ -47,4 +47,4 @@ class NxChatWelcome extends LitElement {
   }
 }
 
-customElements.define('nx-chat-welcome', NxChatWelcome);
+if (!customElements.get('nx-chat-welcome')) customElements.define('nx-chat-welcome', NxChatWelcome);

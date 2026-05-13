@@ -164,4 +164,4 @@ class NxPicker extends LitElement {
   }
 }
 
-customElements.define('nx-picker', NxPicker);
+if (!customElements.get('nx-picker')) customElements.define('nx-picker', NxPicker);

@@ -77,4 +77,4 @@ class NxTabs extends LitElement {
   }
 }
 
-customElements.define('nx-tabs', NxTabs);
+if (!customElements.get('nx-tabs')) customElements.define('nx-tabs', NxTabs);

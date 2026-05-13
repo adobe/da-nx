@@ -120,4 +120,4 @@ class NxPrompts extends LitElement {
   }
 }
 
-customElements.define('nx-prompts', NxPrompts);
+if (!customElements.get('nx-prompts')) customElements.define('nx-prompts', NxPrompts);
