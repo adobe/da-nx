@@ -19,7 +19,7 @@ function makeHrefsRelative(document) {
 
 export function makeIconSpans(html) {
   // Regex that matches :icon: but not when inside alt text double-quoted string
-  const iconRegex = /(?<!alt="[^"]*)(?<!src="[^"]*)(?<!srcset="[^"]*):([a-zA-Z0-9-]+?):/gm;
+  const iconRegex = /(?<!alt="[^"]*)(?<!src="[^"]*)(?<!srcset="[^"]*)(?<!href="[^"]*):([a-zA-Z0-9-]+?):/gm;
 
   if (!iconRegex.test(html)) return html;
 
