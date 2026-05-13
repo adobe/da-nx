@@ -96,10 +96,11 @@ const getDaApiPath = async (api, org, site, path = '') => {
   }
 
   if (api === CONFIG) {
-    if (hlx6) {
-      if (!site) return `${AEM_API}/${org}/config.json`;
-      return `${AEM_API}/${org}/sites/${site}/config.json`;
-    }
+    // TODO: For now config is only supported on DA_ADMIN
+    // if (hlx6) {
+    //   if (!site) return `${AEM_API}/${org}/config.json`;
+    //   return `${AEM_API}/${org}/sites/${site}/config.json`;
+    // }
     if (!site) return `${DA_ADMIN}/config/${org}/`;
     return `${DA_ADMIN}/config/${org}/${site}/`;
   }
