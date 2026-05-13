@@ -60,13 +60,14 @@ function setupParentControllerListener() {
     parentControllerPort = port;
 
     let loadPageFn = null;
-    const scriptsUrl = `${window.location.origin}/scripts/scripts.js`;
+    const scriptsUrl = e.data.init?.scriptsUrl ?? `${window.location.origin}/scripts/scripts.js`;
+    const loadPageFnName = e.data.init?.loadPageFnName ?? 'loadPage';
 
     const loadPage = async () => {
       if (loadPageFn === null) {
         try {
           const mod = await import(/* webpackIgnore: true */ scriptsUrl);
-          loadPageFn = typeof mod?.loadPage === 'function' ? mod.loadPage : () => { };
+          loadPageFn = typeof mod?.[loadPageFnName] === 'function' ? mod[loadPageFnName] : () => { };
         } catch {
           loadPageFn = () => { };
         }

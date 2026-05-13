@@ -11,12 +11,14 @@ const QUICK_EDIT_INIT_MAX_ATTEMPTS = 25;
 
 const WYSIWYG_PORT_READY_ATTR = 'data-nx-wysiwyg-port-ready';
 
-function buildQuickEditInitPayload({ org, repo, path }) {
+function buildQuickEditInitPayload({ org, repo, path, scriptsUrl, loadPageFnName }) {
   const pathWithoutOrgRepo = path.split('/').slice(2).join('/');
   const pathname = pathWithoutOrgRepo ? `/${pathWithoutOrgRepo}` : '/';
   return {
     config: {
       mountpoint: `${getPreviewOrigin(org, repo)}/${org}/${repo}`,
+      ...(scriptsUrl && { scriptsUrl }),
+      ...(loadPageFnName && { loadPageFnName }),
     },
     location: { pathname },
   };
@@ -177,14 +179,16 @@ export class NxEditorWysiwyg extends LitElement {
 
   _onIframeLoad(e) {
     const iframe = e?.target;
-    const { org, repo, path } = this.ctx ?? {};
+    const { org, repo, path, scriptsUrl, loadPageFnName } = this.ctx ?? {};
     if (!iframe?.contentWindow || !org || !repo || !path) return;
 
     this.removeAttribute(WYSIWYG_PORT_READY_ATTR);
     this._clearQuickEditRetry();
     this._syncCanvasVisibility();
 
-    const { config, location } = buildQuickEditInitPayload({ org, repo, path });
+    const { config, location } = buildQuickEditInitPayload({
+      org, repo, path, scriptsUrl, loadPageFnName,
+    });
     const send = () => this._postQuickEditInitToIframe({
       iframe,
       config,
