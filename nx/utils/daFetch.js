@@ -57,8 +57,12 @@ export function replaceHtml(text, fromOrg, fromRepo, options = {}) {
 
   let metadataHTML = '';
   if (Object.keys(daMetadata).length > 0) {
+    // Values may be { content, text } from getElementMetadata or plain strings.
     const daRows = Object.entries(daMetadata)
-      .map(([key, value]) => `<div><div>${key}</div><div>${value}</div></div>`)
+      .map(([key, value]) => {
+        const text = value?.text ?? value ?? '';
+        return `<div><div>${key}</div><div>${text}</div></div>`;
+      })
       .join('');
     metadataHTML = `\n  <div class="da-metadata">${daRows}</div>\n`;
   }
