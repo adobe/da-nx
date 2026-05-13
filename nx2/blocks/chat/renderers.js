@@ -1,6 +1,7 @@
 import { html, nothing } from 'da-lit';
 import { AGENT_EVENT, ROLE, TOOL_INPUT, TOOL_STATE } from './constants.js';
-import { unified, remarkParse } from '../../deps/mdast/dist/index.js';
+
+const { unified, remarkParse } = await import('../../deps/mdast/dist/index.js');
 
 function renderNode(node) {
   switch (node.type) {

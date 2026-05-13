@@ -1,19 +1,27 @@
 import { LitElement, html, nothing } from 'da-lit';
+import { loadStyle, hashChange } from '../../utils/utils.js';
+import '../shared/menu/menu.js';
 import ChatController from './chat-controller.js';
 import { renderMessage, renderApprovalCard } from './renderers.js';
 import './welcome/welcome.js';
 import './prompts/prompts.js';
 import './pills/pills.js';
-import '../shared/menu/menu.js';
-import { loadStyle, hashChange } from '../../utils/utils.js';
-import { loadChatIcons } from './utils.js';
 import { loadSiteConfig } from './api.js';
-import { ADD_MENU_ITEMS, CHAT_ICONS, MENU_OPTIONS, ROLE, TOOL_STATE } from './constants.js';
+import { ADD_MENU_ITEMS, MENU_OPTIONS, ROLE, TOOL_STATE } from './constants.js';
 
 const styles = await loadStyle(import.meta.url);
-const icons = await loadChatIcons(CHAT_ICONS);
 
-const icon = (name) => icons?.[name]?.cloneNode(true);
+const ICON_SRCS = {
+  add: new URL('../../img/icons/s2-icon-add-20-n.svg', import.meta.url).href,
+  clear: new URL('../../img/icons/s2-icon-removecircle-20-n.svg', import.meta.url).href,
+  close: new URL('../../img/icons/s2-icon-splitleft-20-n.svg', import.meta.url).href,
+  send: new URL('../../img/icons/s2-icon-arrowupsend-20-n.svg', import.meta.url).href,
+  stop: new URL('../../img/icons/s2-icon-stop-20-n.svg', import.meta.url).href,
+  up: new URL('../../img/icons/s2-icon-chevronup-20-n.svg', import.meta.url).href,
+};
+
+const icon = (name) => html`<img src="${ICON_SRCS[name]}" aria-hidden="true">`;
+
 const UI_PROMPTS_GAP = 8;
 
 class NxChat extends LitElement {
@@ -154,9 +162,7 @@ class NxChat extends LitElement {
       onToolDone: () => {
         this.dispatchEvent(new CustomEvent('nx-agent-change', { bubbles: true, composed: true }));
       },
-      onUpdate: ({
-        messages, thinking, streamingText, connected, toolCards,
-      }) => {
+      onUpdate: ({ messages, thinking, streamingText, connected, toolCards }) => {
         this.messages = streamingText
           ? [...(messages ?? []), { role: ROLE.ASSISTANT, content: streamingText, streaming: true }]
           : messages;
@@ -354,7 +360,7 @@ class NxChat extends LitElement {
               @nx-show-prompts=${this._openPrompts}
             ></nx-chat-welcome>`
         : nothing}
-        ${this.messages?.map((msg) => renderMessage(msg, icons, this.toolCards))}
+        ${this.messages?.map((msg) => renderMessage(msg, null, this.toolCards))}
         ${this.thinking && !this.messages?.at(-1)?.streaming ? html`<div class="chat-thinking">Thinking...</div>` : nothing}
         </div>
       </div>
@@ -399,8 +405,3 @@ class NxChat extends LitElement {
 }
 
 customElements.define('nx-chat', NxChat);
-
-export default async function init(el) {
-  const chat = document.createElement('nx-chat');
-  el.replaceWith(chat);
-}

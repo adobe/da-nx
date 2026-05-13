@@ -2,15 +2,16 @@
  * Copyright 2026 Adobe. All rights reserved.
  * AEM admin preview / live (publish) flows aligned with da.live helpers.
  */
-import { AEM_ORIGIN, daFetch } from './daFetch.js';
+import { HLX_ADMIN } from './utils.js';
+import { daFetch } from './api.js';
 
 async function fetchSidekickHosts(org, site) {
   const path = `/${org}/${site}/config.json`;
   const [owner, repo, ...parts] = path.slice(1).split('/');
   const name = parts.pop() || repo || owner;
   parts.push(name.replace('.html', ''));
-  const url = `${AEM_ORIGIN}/sidekick/${owner}/${repo}/main/${parts.join('/')}`;
-  const resp = await daFetch(url, { method: 'GET' });
+  const url = `${HLX_ADMIN}/sidekick/${owner}/${repo}/main/${parts.join('/')}`;
+  const resp = await daFetch({ url, opts: { method: 'GET' } });
   if (!resp.ok) return {};
   try {
     return await resp.json();
@@ -34,8 +35,8 @@ async function getAemHrefs(fullPath) {
 async function saveToAem(path, action) {
   const [owner, repo, ...parts] = path.slice(1).toLowerCase().split('/');
   const aemPath = parts.join('/');
-  const url = `${AEM_ORIGIN}/${action}/${owner}/${repo}/main/${aemPath}`;
-  const resp = await daFetch(url, { method: 'POST' });
+  const url = `${HLX_ADMIN}/${action}/${owner}/${repo}/main/${aemPath}`;
+  const resp = await daFetch({ url, opts: { method: 'POST' } });
   if (!resp.ok) {
     const { status } = resp;
     const authErr = [401, 403].includes(status);

@@ -5,9 +5,7 @@ import { loadIms } from '../../../utils/ims.js';
 const styles = await loadStyle(import.meta.url);
 
 class NxChatWelcome extends LitElement {
-  static properties = {
-    prompts: { attribute: false },
-  };
+  static properties = { prompts: { attribute: false } };
 
   connectedCallback() {
     super.connectedCallback();

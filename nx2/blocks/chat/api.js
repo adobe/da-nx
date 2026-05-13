@@ -1,8 +1,9 @@
-import { DA_ORIGIN, daFetch } from '../../utils/daFetch.js';
+import { daFetch } from '../../utils/api.js';
+import { DA_ADMIN } from '../../utils/utils.js';
 
 export async function loadSiteConfig(org, site) {
   try {
-    const resp = await daFetch(`${DA_ORIGIN}/config/${org}/${site}`);
+    const resp = await daFetch({ url: `${DA_ADMIN}/config/${org}/${site}` });
     if (!resp.ok) return {};
     const json = await resp.json();
     const prompts = (json?.prompts?.data ?? []).filter((p) => p.title && p.prompt);

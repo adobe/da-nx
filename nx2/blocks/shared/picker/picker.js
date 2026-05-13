@@ -4,6 +4,7 @@ import '../popover/popover.js';
 import { listKeydown } from '../utils/list-nav.js';
 
 const styles = await loadStyle(import.meta.url);
+const CHEVRON_ICON = new URL('../../../img/icons/S2_Icon_ChevronLeft_10_N.svg', import.meta.url).href;
 
 // todo: replace with s2 icon once tools PR is merged
 const CHECKMARK = html`<svg class="picker-check" viewBox="0 0 20 20" fill="none" aria-hidden="true">
@@ -168,7 +169,7 @@ class NxPicker extends LitElement {
         @keydown=${this._onTriggerKeydown}
       >
         <span class="picker-trigger-label">${this._triggerLabel}</span>
-        <span class="picker-chevron" aria-hidden="true"></span>
+        <img class="picker-chevron" src=${CHEVRON_ICON} aria-hidden="true">
       </button>
       <nx-popover
         @toggle=${this._onPopoverToggle}

@@ -46,7 +46,7 @@
     mask-size: contain;
     mask-repeat: no-repeat;
     mask-position: center;
-    mask-image: url("/nx2/img/icons/S2_Icon_Close_20_N.svg");
+    mask-image: url("../../../img/icons/s2-icon-close-20-n.svg");
   }
 
   .pill-label {
