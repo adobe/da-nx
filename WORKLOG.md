@@ -75,3 +75,10 @@ Decided to wrap nav and sidenav in semantic HTML elements:
 - When either side panel is visible (`aside.panel:not([hidden])`), `.default-content` inside `main` now uses `max-width: 83.4%` instead of the fixed `--se-grid-container-width` value.
 - Uses sibling selectors: `main:has(~ aside.panel:not([hidden]))` for panels after main, `aside.panel:not([hidden]) ~ main` for panels before main.
 - The fixed `1200px` media query (`@media (width >= 1440px)`) remains for the no-panel case.
+
+## 2026-05-13
+
+### `replaceHtml` da-metadata serialization
+- `replaceHtml` was interpolating `${value}` directly into the `<div class="da-metadata">` rows. `getElementMetadata` returns values as `{ content, text }` objects, so any caller that round-tripped existing metadata (`rolloutCopy`, `mergeCopy`) wrote `[object Object]` into the saved HTML.
+- Fix unwraps `value.text` when present, falls back to the raw value, and emits `''` for nullish — so the function handles both shapes (object from `getElementMetadata`, plain string from `daMetadata['diff-label-local'] = labelLocal`).
+- Kept `getElementMetadata`'s `{ content, text }` shape since `regional-diff` callers use `.content` (the DOM element) directly for diffing.
