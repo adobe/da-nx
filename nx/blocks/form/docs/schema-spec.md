@@ -23,8 +23,10 @@ A conformant schema satisfies every rule below.
 | R6 | Every `array` node defines its element schema via `items` (a single schema object, not an array). |
 | R7 | Repeated shapes are factored into `$defs` and referenced via `$ref`. |
 | R8 | `$ref` values must be same-document JSON Pointers (`#/...`). External references are forbidden. |
-| R9 | Composition keywords (`allOf`, `oneOf`, `anyOf`, `not`, `if`, `then`, `else`) are forbidden. |
+| R9 | Composition keywords (`allOf`, `oneOf`, `anyOf`, `not`, `if`, `then`, `else`) are not supported. |
 | R10 | Only the keywords listed in §3, §4, §5, and §6 are permitted. |
+| R11 | Property keys must begin with a letter (`a–z`, `A–Z`) and contain only letters and hyphens (`-`). |
+| R12 | The property keys `metadata` and `section-metadata` are reserved. They must not appear in `properties`. |
 
 ---
 
@@ -77,6 +79,24 @@ Defaults to `false` when not specified by `default`.
 ```
 
 Fields are declared in `properties`. `required` is an array of property names.
+
+#### Property key rules
+
+> **Keys that violate these rules are rejected by the rendering layer.**
+
+Property keys must contain only letters (`a–z`, `A–Z`) and hyphens (`-`), and must begin with a letter:
+
+```
+valid:   name  firstName  first-name  My-Field
+invalid: _name  field1  my.field  123abc
+```
+
+Two keys are **reserved** and must never appear in `properties`:
+
+| Reserved key | Reason |
+| ------------ | ------ |
+| `metadata` | Used internally by the rendering layer |
+| `section-metadata` | Used internally by the rendering layer |
 
 ### `array`
 
@@ -282,6 +302,8 @@ These constructs are unsupported. Schemas using them are rejected by the renderi
 | `exclusiveMinimum`, `exclusiveMaximum` | Not supported. Use `minimum` / `maximum`. |
 | `contentEncoding`, `contentMediaType` | Content format hints are not supported. |
 | `description` | Not rendered by the form. |
+| Property key not matching `^[a-zA-Z][a-zA-Z-]*$` | Keys containing digits, underscores, dots, or other characters are not permitted. |
+| Reserved property keys `metadata`, `section-metadata` | These keys are used internally by the rendering layer and must not appear in `properties`. |
 | `$schema`, `$id`, `$anchor`, `$comment`, `$vocabulary` | Metadata keywords not interpreted by the form. |
 | `format` (all values, including `"email"`, `"uri"`, `"date"`, `"date-time"`, `"uuid"`, `"textarea"`) | Not interpreted by the form. Use `pattern` for shape validation. |
 | `type` as an array (e.g. `["string", "null"]`) | A single type per node is required. |
