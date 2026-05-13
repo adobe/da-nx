@@ -1,7 +1,7 @@
 import { expect } from '@esm-bundle/chai';
 import { readFile } from '@web/test-runner-commands';
-import json2html from '../../../nx/blocks/form/utils/json2html.js';
-import { normalizeHtml } from './utils.js';
+import json2html from '../../../nx/blocks/form/app/json2html.js';
+import { normalizeHtml } from './test-utils.js';
 
 describe('JSON to HTML Conversion', () => {
   it('should convert simple JSON to HTML', () => {
