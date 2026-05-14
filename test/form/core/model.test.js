@@ -58,49 +58,6 @@ describe('buildModel', () => {
     expect(nodeAt({ model, pointer: '/data/c~0d' })?.value).to.equal('y');
   });
 
-  it('produces deterministic non-array ids across rebuilds', () => {
-    const def = objectDef([stringDef('name')]);
-    const a = buildModel({ definition: def, document: { data: { name: 'x' } } });
-    const b = buildModel({ definition: def, document: { data: { name: 'y' } } });
-    expect(b.root.children[0].id).to.equal(a.root.children[0].id);
-  });
-
-  it('preserves array-item ids on a reorder', () => {
-    const def = objectDef([arrayDef('items', stringDef('item'))]);
-    const first = buildModel({
-      definition: def,
-      document: { data: { items: ['a', 'b', 'c'] } },
-    });
-    const ids = first.root.children[0].items.map((n) => n.id);
-
-    const reordered = buildModel({
-      definition: def,
-      document: { data: { items: ['c', 'a', 'b'] } },
-      previousModel: first,
-    });
-
-    expect(reordered.root.children[0].items.map((n) => n.id))
-      .to.deep.equal([ids[2], ids[0], ids[1]]);
-  });
-
-  it('assigns a fresh id to a newly-added array item', () => {
-    const def = objectDef([arrayDef('items', stringDef('item'))]);
-    const first = buildModel({
-      definition: def,
-      document: { data: { items: ['a'] } },
-    });
-    const firstId = first.root.children[0].items[0].id;
-
-    const grown = buildModel({
-      definition: def,
-      document: { data: { items: ['a', 'b'] } },
-      previousModel: first,
-    });
-    const { items } = grown.root.children[0];
-    expect(items[0].id).to.equal(firstId);
-    expect(items[1].id).to.not.equal(firstId);
-  });
-
   it('exposes itemLabel from the item definition on array nodes', () => {
     const def = objectDef([
       arrayDef('contacts', { ...objectDef([stringDef('name')]), label: 'Contact' }),

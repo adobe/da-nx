@@ -94,9 +94,7 @@ For a typical 50-field doc this is < 5 ms total. For a 500-field doc it's ~20 ms
 
 ### 2.3. Add/remove/reorder array item
 
-Same hot path as setField, plus:
-- `buildModel` has to run `assignArrayItemIds` over the array (O(items²) in the worst case due to the signature multiset check, but in practice the linear positional path is taken).
-- Reorder triggers `_reorderConfirmed`, which in `editor.updated()` resets local reorder state — one extra render.
+Same hot path as setField. Reorder also triggers `_reorderConfirmed`, which in `editor.updated()` resets local reorder state — one extra render.
 
 ### 2.4. Navigation (selection)
 
@@ -171,14 +169,7 @@ window.addEventListener('hashchange', () => { setup(el); });
 
 ### Medium — adds up over a session
 
-**[M1] `assignArrayItemIds` runs `toSignature` over every item even when not reordering**
-[core/ids.js:60](nx/blocks/form/core/ids.js:60)
-
-The signature is `JSON.stringify`-equivalent serialization of every array item — expensive for large or nested items.
-
-**Fix:** in `buildModel`, check first whether `previousItems === nextItems` by reference and short-circuit. Today this fires rarely because `mutate.js` deep-clones the document at every mutation, so every array literal is a fresh reference. Pairing this with structural sharing in `mutate.js` (only re-allocate the path that changed) would unlock real reuse.
-
-**[M2] Save POST on every debounced burst**
+**[M1] Save POST on every debounced burst**
 
 A fast typist generates one POST per ~350 ms. Most are obsolete by the time they arrive. With network jitter, an earlier save can land after a later one — silent overwrite. The earlier review noted save sequencing was deleted; we deferred the consequence.
 
@@ -271,7 +262,7 @@ But every mutation propagates a new `state` reference to all three children. All
 
 The "do these now" set, in order:
 
-1. **[M2] Single-flight save with re-queue.** Correctness + perf fix combined.
+1. **[M1] Single-flight save with re-queue.** Correctness + perf fix combined.
 2. **[H4] Skip hash-change teardown when the document hasn't changed.** Compare paths first.
 
 The "consider later, profile first" set:

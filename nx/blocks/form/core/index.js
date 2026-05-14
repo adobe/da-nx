@@ -132,7 +132,7 @@ export function createCore({ path, saveDocument, onChange } = {}) {
   }
 
   function rebuildModel(nextDocument) {
-    const built = buildModel({ definition, document: nextDocument, previousModel: model });
+    const built = buildModel({ definition, document: nextDocument });
     if (!built?.root) {
       commitState(emptyState({
         document: nextDocument ?? null,

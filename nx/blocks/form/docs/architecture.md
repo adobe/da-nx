@@ -20,7 +20,6 @@ form/
     mutate.js         setField, addItem, insertItem, removeItem, moveItem
     pointer.js        RFC 6901 ops + definitionAt
     validation.js     validateDocument → { errorsByPointer }
-    ids.js            stable array-item id assignment
     clone.js          single deepClone util
   app/
     context.js        loadFormContext — fetches doc HTML + schemas, routes to status
@@ -166,7 +165,7 @@ Components receive `nav` as a prop and call `onSelect(pointer, origin)` to updat
 
 ## 7. Runtime model
 
-`buildModel({ definition, document, previousModel })` produces:
+`buildModel({ definition, document })` produces:
 
 ```js
 {
@@ -180,7 +179,6 @@ Nodes:
 
 ```js
 {
-  id,                      // stable render key (UUID for array items, deterministic for the rest)
   key,
   kind,                    // 'string' | 'number' | 'integer' | 'boolean' | 'object' | 'array' | 'unsupported'
   pointer,                 // RFC 6901
@@ -238,12 +236,7 @@ This eliminates out-of-order overwrites on slow networks (an earlier POST landin
 
 ## 9. Arrays
 
-JSON Pointer is positional, so pointers change when items move.
-
-- **Pointers** address fields in the document.
-- **Stable IDs** (from `ids.js`) key array-item rendering across mutations.
-
-`assignArrayItemIds` preserves an item's id when only ordering changed (the multiset of values is unchanged), so identical-content items keep their identity through a reorder.
+JSON Pointer is positional, so pointers change when items move. Pointers are the sole address for fields in the document and for DOM lookups (`data-pointer="..."`). Array-item rendering uses positional diffing — there is no separate stable id.
 
 ---
 
@@ -466,5 +459,4 @@ They stay separate on purpose.
 - Keep `core/` headless.
 - Keep UI/navigation state local to the shell.
 - Use JSON Pointer for canonical addressing.
-- Use stable IDs for array-item render keys.
 - Debounce high-frequency input in the UI component, not in the core.

@@ -176,7 +176,7 @@ moveItem  → reorder dialog confirm
   └─ commit(applyMove(...))   ← splice 1 out, splice in at target
 ```
 
-Array-item identity is preserved across reorders by the stable-ID logic in [core/ids.js](nx/blocks/form/core/ids.js): the multiset-match heuristic detects pure reorders and reuses the previous IDs, so DOM nodes and focus survive the move.
+After a reorder, the model is rebuilt positionally — items have no separate stable id. DOM nodes are diffed by index; focus tracking lives at the editor level via `data-pointer` attributes.
 
 ---
 
