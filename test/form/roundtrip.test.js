@@ -302,6 +302,34 @@ describe('roundtrip — save and reload preserves user data', () => {
       expect(bob.children.find((c) => c.key === 'active').value).to.equal(false);
     });
 
+    it('an array of integers survives save → reload as numbers', async () => {
+      const schema = {
+        type: 'object',
+        properties: {
+          priorities: { type: 'array', items: { type: 'integer', minimum: 1, maximum: 5 } },
+        },
+      };
+      const saver = makeRoundtripHarness();
+      const core = createCore({ saveDocument: saver });
+      await core.load({ schema, document: { metadata: { schemaName: 'x' }, data: {} } });
+
+      core.addItem('/data/priorities');
+      core.setField('/data/priorities/0', 1);
+      core.addItem('/data/priorities');
+      core.setField('/data/priorities/1', 2);
+      core.addItem('/data/priorities');
+      core.setField('/data/priorities/2', 3);
+      for (let i = 0; i < 8; i += 1) await flush();
+
+      const next = await saver.reload(schema);
+      const state = next.getState();
+      const { items } = state.model.byPointer.get('/data/priorities');
+      const values = items.map((item) => item.value);
+      expect(values).to.deep.equal([1, 2, 3]);
+      values.forEach((v) => expect(typeof v).to.equal('number'));
+      expect(state.validation.errorsByPointer).to.deep.equal({});
+    });
+
     it('reordering survives save → reload', async () => {
       const schema = {
         type: 'object',

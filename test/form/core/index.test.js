@@ -1,6 +1,7 @@
 import { expect } from '@esm-bundle/chai';
 import {
   createCore,
+  coerceData,
   isDataEmpty,
   materializeDefaults,
 } from '../../../nx/blocks/form/core/index.js';
@@ -432,6 +433,122 @@ describe('createCore', () => {
         document: { metadata: { schemaName: 'x' }, data: { flag: false } },
       });
       expect(state.document.values.data).to.deep.equal({ flag: false });
+    });
+  });
+
+  describe('coerceData (unit)', () => {
+    function compile(schema) {
+      return compileSchema(schema).definition;
+    }
+
+    it('casts string-encoded integers in an array to numbers', () => {
+      const def = compile({
+        type: 'object',
+        properties: {
+          priorities: { type: 'array', items: { type: 'integer', minimum: 1, maximum: 5 } },
+        },
+      });
+      const out = coerceData({ priorities: ['1', '2', '3'] }, def);
+      expect(out.priorities).to.deep.equal([1, 2, 3]);
+      out.priorities.forEach((v) => expect(typeof v).to.equal('number'));
+    });
+
+    it('casts a top-level string-encoded number to a number', () => {
+      const def = compile({
+        type: 'object',
+        properties: { age: { type: 'number' } },
+      });
+      expect(coerceData({ age: '42' }, def)).to.deep.equal({ age: 42 });
+    });
+
+    it('passes through un-coercible numeric strings so the validator can flag them', () => {
+      const def = compile({
+        type: 'object',
+        properties: { age: { type: 'integer' } },
+      });
+      expect(coerceData({ age: 'abc' }, def)).to.deep.equal({ age: 'abc' });
+    });
+
+    it('casts string-encoded booleans to booleans', () => {
+      const def = compile({
+        type: 'object',
+        properties: {
+          enabled: { type: 'boolean' },
+          flags: { type: 'array', items: { type: 'boolean' } },
+        },
+      });
+      const out = coerceData({ enabled: 'true', flags: ['true', 'false'] }, def);
+      expect(out).to.deep.equal({ enabled: true, flags: [true, false] });
+    });
+
+    it('stringifies a number when the schema declares string (heuristic typing was wrong)', () => {
+      const def = compile({
+        type: 'object',
+        properties: { code: { type: 'string' } },
+      });
+      expect(coerceData({ code: 42 }, def)).to.deep.equal({ code: '42' });
+    });
+
+    it('recurses into objects nested inside arrays', () => {
+      const def = compile({
+        type: 'object',
+        properties: {
+          people: {
+            type: 'array',
+            items: {
+              type: 'object',
+              properties: {
+                age: { type: 'integer' },
+                active: { type: 'boolean' },
+              },
+            },
+          },
+        },
+      });
+      const out = coerceData(
+        { people: [{ age: '30', active: 'true' }, { age: '40', active: 'false' }] },
+        def,
+      );
+      expect(out.people).to.deep.equal([
+        { age: 30, active: true },
+        { age: 40, active: false },
+      ]);
+    });
+
+    it('leaves keys that the schema does not mention untouched', () => {
+      const def = compile({
+        type: 'object',
+        properties: { age: { type: 'integer' } },
+      });
+      const out = coerceData({ age: '5', extra: '99' }, def);
+      expect(out).to.deep.equal({ age: 5, extra: '99' });
+    });
+
+    it('passes through null and undefined values', () => {
+      const def = compile({
+        type: 'object',
+        properties: {
+          a: { type: 'integer' },
+          b: { type: 'string' },
+        },
+      });
+      expect(coerceData({ a: null, b: undefined }, def))
+        .to.deep.equal({ a: null, b: undefined });
+    });
+
+    it('returns the value untouched when no definition is provided', () => {
+      expect(coerceData({ a: '1' }, null)).to.deep.equal({ a: '1' });
+    });
+
+    it('leaves an array value alone when the schema says scalar (no crash)', () => {
+      const def = compile({
+        type: 'object',
+        properties: { name: { type: 'string' } },
+      });
+      // Schema mismatch: array provided where string declared. Pass through so
+      // the validator can produce a single clear error rather than coercing
+      // into something the user did not intend.
+      expect(coerceData({ name: ['a', 'b'] }, def)).to.deep.equal({ name: ['a', 'b'] });
     });
   });
 

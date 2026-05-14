@@ -41,6 +41,7 @@ init(el)
             │         └─ core.load({ schema, document })
             │              ├─ compileSchema(schema)         ← CPU
             │              ├─ parseDocument(document)       ← deep clone
+            │              ├─ coerceData(...)               ← O(doc), once per load
             │              ├─ if isDataEmpty(parsed.data):
             │              │    └─ materializeDefaults      ← O(schema), at most once per load
             │              └─ rebuildModel(doc)

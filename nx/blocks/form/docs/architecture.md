@@ -93,7 +93,7 @@ state = {
 | `createCore({ path, saveDocument, onChange })` | [core/index.js](../core/index.js) | Full editing session with state, mutations, single-flight save. Returns `{ load, getState, setField, addItem, insertItem, removeItem, moveItem }`. |
 | `validateAgainst(schema, data)` | [core/index.js](../core/index.js) | One-shot validation. Returns `{ errorsByPointer, schemaIssues, editable }`. No state, no save. Use when all you need is "is this document valid?". |
 | `compileSchema(schema)` | [core/schema.js](../core/schema.js) | Compiles a JSON Schema into the form's internal definition tree. Returns `{ schema, definition, editable, issues }`. Useful for tools that introspect a schema before binding to it (e.g. an MCP server generating tool definitions). |
-| `isDataEmpty(value)`, `materializeDefaults(definition)` | [core/index.js](../core/index.js) | Helpers exposed so external consumers can match the form's load-time semantics. |
+| `isDataEmpty(value)`, `materializeDefaults(definition)`, `coerceData(value, definition)` | [core/index.js](../core/index.js) | Helpers exposed so external consumers can match the form's load-time semantics. `coerceData` casts primitive leaves to the schema's declared kinds. |
 
 ### State snapshot
 
@@ -344,7 +344,23 @@ Note: a navigation away within the debounce window currently drops the last keys
 
 ---
 
-## 13. Defaults policy
+## 13. Load-time type coercion
+
+`html2json` is schema-agnostic — it produces a best-effort JSON tree from the saved HTML. Array primitives in particular come back as raw strings even when the schema declares `integer`, `number`, or `boolean`. To bridge the two worlds, `core/index.js` runs `coerceData(parsed.data, definition)` immediately after `parseDocument`, before anything else reads the data.
+
+`coerceData` walks both trees in lockstep and casts primitive leaves to the schema's declared kind:
+
+- `'1'` against `integer` / `number` → `1`
+- `'true'` / `'false'` against `boolean` → `true` / `false`
+- `42` against `string` → `"42"` (the converter's heuristic typing is reversed here)
+- Un-coercible values (e.g. `"abc"` against `integer`) pass through so the validator still flags them with a clear message
+- `null` / `undefined`, unknown kinds, and shape mismatches (array provided where scalar declared) pass through
+
+Coercion runs once per `load` and on a small document — it is not in any hot path. With this step in place, the renderer, validator, and mutate layer can all assume that `document.data` matches the schema's primitive kinds.
+
+---
+
+## 14. Defaults policy
 
 Schema `default` values are **materialized into the document at load time** when the loaded `data` is empty. From that point on, defaults are real values in the document — they are saved on the first mutation, and the renderer is a pure function of `node.value` with no special case for defaults.
 
@@ -444,7 +460,7 @@ They stay separate on purpose.
 
 ---
 
-## 14. Rules
+## 15. Rules
 
 ### NEVER
 

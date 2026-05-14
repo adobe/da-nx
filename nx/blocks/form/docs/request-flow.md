@@ -30,6 +30,7 @@ init(el)
                       └─ core.load({ schema, document })
                            ├─ compileSchema(schema)             ← CPU
                            ├─ parseDocument(document)           ← deep clone
+                           ├─ coerceData(parsed.data, definition) ← cast primitive leaves to schema kinds
                            ├─ if isDataEmpty(parsed.data):
                            │    └─ materializeDefaults(definition)  ← O(schema)
                            └─ rebuildModel(parsed)

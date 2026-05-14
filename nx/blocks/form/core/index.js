@@ -73,6 +73,52 @@ export function materializeDefaults(definition) {
   return undefined;
 }
 
+// Coerce loaded data to the schema's primitive kinds. We walk both trees in
+// lockstep and cast leaves; un-coercible values (e.g. "abc" against `integer`)
+// pass through so the validator can still flag them with a clear message.
+export function coerceData(value, definition) {
+  if (!definition || value === null || value === undefined) return value;
+  const { kind } = definition;
+
+  if (kind === 'object') {
+    if (typeof value !== 'object' || Array.isArray(value)) return value;
+    const result = { ...value };
+    for (const child of definition.children ?? []) {
+      if (child.key in result) result[child.key] = coerceData(result[child.key], child);
+    }
+    return result;
+  }
+
+  if (kind === 'array') {
+    if (!Array.isArray(value) || !definition.item) return value;
+    return value.map((item) => coerceData(item, definition.item));
+  }
+
+  if (kind === 'number' || kind === 'integer') {
+    if (typeof value === 'number') return value;
+    if (typeof value === 'string' && value.trim() !== '') {
+      const n = Number(value);
+      return Number.isFinite(n) ? n : value;
+    }
+    return value;
+  }
+
+  if (kind === 'boolean') {
+    if (typeof value === 'boolean') return value;
+    if (value === 'true') return true;
+    if (value === 'false') return false;
+    return value;
+  }
+
+  if (kind === 'string') {
+    if (typeof value === 'string') return value;
+    if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+    return value;
+  }
+
+  return value;
+}
+
 function emptyState({ document = null, saveStatus = 'idle', schemaIssues = [] } = {}) {
   return {
     document: { values: document },
@@ -227,6 +273,8 @@ export function createCore({ path, saveDocument, onChange } = {}) {
       commitState(emptyState({ document: parsed ?? null, schemaIssues }));
       return state;
     }
+
+    parsed.data = coerceData(parsed.data, definition);
 
     // Materialize defaults into `data` if the loaded document is empty under
     // the same rules serialize.js uses to prune on save. After this point the
