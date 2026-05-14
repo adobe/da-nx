@@ -92,7 +92,7 @@ const getDaApiPath = async (api, org, site, path = '') => {
 
   if (api === VERSIONS) {
     if (hlx6) return `${AEM_API}/${org}/sites/${site}/source${path}/.versions`;
-    return `${DA_ADMIN}/versionsource/${org}/${site}/${path}`;
+    return `${DA_ADMIN}/versionsource/${org}/${site}${path}`;
   }
 
   if (api === CONFIG) {
@@ -108,12 +108,12 @@ const getDaApiPath = async (api, org, site, path = '') => {
   // HLX6 has no list api, so source formatting is used (with trailing slash).
   if (api === LIST) {
     if (!site) return `${DA_ADMIN}/list/${org}`;
-    return `${DA_ADMIN}/list/${org}/${site}/${path}`;
+    return `${DA_ADMIN}/list/${org}/${site}${path}`;
   }
 
   // SOURCE
   if (hlx6) return `${AEM_API}/${org}/sites/${site}/source${path}`;
-  return `${DA_ADMIN}/source/${org}/${site}/${path}`;
+  return `${DA_ADMIN}/source/${org}/${site}${path}`;
 };
 
 // AEM-only endpoints. New API origin or legacy admin.hlx.page with ref=main.
@@ -137,7 +137,7 @@ const HLX6_ONLY = { error: 'Requires Helix 6 upgrade', status: 501 };
 // Convert a `/org/site/file/path` string into `{ org, site, path }`.
 export const fromPath = (str) => {
   const [, org, site, ...parts] = str.split('/');
-  return { org, site, path: parts.length ? `${parts.join('/')}` : '' };
+  return { org, site, path: parts.length ? `/${parts.join('/')}` : '' };
 };
 
 // HOF: wraps a method body so it receives resolved args. The first arg
@@ -154,6 +154,9 @@ const withArgs = (fn) => (arg = {}, extras = {}) => {
   if (!args.org) {
     // eslint-disable-next-line no-console
     console.error('api: invalid args - pass /org/site/... string or { org, site, path }', arg);
+  }
+  if (!args.path.startsWith('/')) {
+    args.path = `/${args.path}`;
   }
   return fn(args);
 };
@@ -255,7 +258,7 @@ export const source = {
     formData.append('destination', destination);
     if (continuationToken) formData.append('continuation-token', continuationToken);
     return daFetch({
-      url: `${DA_ADMIN}/copy/${org}/${site}/${path}`,
+      url: `${DA_ADMIN}/copy/${org}/${site}${path}`,
       opts: { method: 'POST', body: formData },
     });
   }),
@@ -276,7 +279,7 @@ export const source = {
     formData.append('destination', destination);
     if (continuationToken) formData.append('continuation-token', continuationToken);
     return daFetch({
-      url: `${DA_ADMIN}/move/${org}/${site}/${path}`,
+      url: `${DA_ADMIN}/move/${org}/${site}${path}`,
       opts: { method: 'POST', body: formData },
     });
   }),
@@ -300,7 +303,7 @@ export const versions = {
       return daFetch({ url: `${AEM_API}/${org}/sites/${site}/source${path}/.versions` });
     }
     // Legacy DA uses a separate /versionlist endpoint for listing.
-    return daFetch({ url: `${DA_ADMIN}/versionlist/${org}/${site}/${path}` });
+    return daFetch({ url: `${DA_ADMIN}/versionlist/${org}/${site}${path}` });
   }),
 
   // versionId on hlx6 is the ULID returned by versions.list; on legacy it is
