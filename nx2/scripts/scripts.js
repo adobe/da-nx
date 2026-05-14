@@ -11,7 +11,6 @@
  */
 
 import { loadArea, setConfig } from './nx.js';
-import { initOmegaTracking } from '../utils/omega-tracking.js';
 
 const hostnames = ['nx.live'];
 
@@ -55,4 +54,3 @@ export async function loadPage() {
   await loadArea();
 }
 await loadPage();
-initOmegaTracking();
