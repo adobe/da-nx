@@ -137,7 +137,7 @@ const HLX6_ONLY = { error: 'Requires Helix 6 upgrade', status: 501 };
 // Convert a `/org/site/file/path` string into `{ org, site, path }`.
 export const fromPath = (str) => {
   const [, org, site, ...parts] = str.split('/');
-  return { org, site, path: parts.length ? `/${parts.join('/')}` : '' };
+  return { org, site, path: parts.length ? `${parts.join('/')}` : '' };
 };
 
 // HOF: wraps a method body so it receives resolved args. The first arg
