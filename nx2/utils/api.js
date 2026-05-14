@@ -92,7 +92,7 @@ const getDaApiPath = async (api, org, site, path = '') => {
 
   if (api === VERSIONS) {
     if (hlx6) return `${AEM_API}/${org}/sites/${site}/source${path}/.versions`;
-    return `${DA_ADMIN}/versionsource/${org}/${site}${path}`;
+    return `${DA_ADMIN}/versionsource/${org}/${site}/${path}`;
   }
 
   if (api === CONFIG) {
@@ -108,12 +108,12 @@ const getDaApiPath = async (api, org, site, path = '') => {
   // HLX6 has no list api, so source formatting is used (with trailing slash).
   if (api === LIST) {
     if (!site) return `${DA_ADMIN}/list/${org}`;
-    return `${DA_ADMIN}/list/${org}/${site}${path}`;
+    return `${DA_ADMIN}/list/${org}/${site}/${path}`;
   }
 
   // SOURCE
   if (hlx6) return `${AEM_API}/${org}/sites/${site}/source${path}`;
-  return `${DA_ADMIN}/source/${org}/${site}${path}`;
+  return `${DA_ADMIN}/source/${org}/${site}/${path}`;
 };
 
 // AEM-only endpoints. New API origin or legacy admin.hlx.page with ref=main.
@@ -251,7 +251,7 @@ export const source = {
     const formData = new FormData();
     formData.append('destination', destination);
     return daFetch({
-      url: `${DA_ADMIN}/copy/${org}/${site}${path}`,
+      url: `${DA_ADMIN}/copy/${org}/${site}/${path}`,
       opts: { method: 'POST', body: formData },
     });
   }),
@@ -268,7 +268,7 @@ export const source = {
     const formData = new FormData();
     formData.append('destination', destination);
     return daFetch({
-      url: `${DA_ADMIN}/move/${org}/${site}${path}`,
+      url: `${DA_ADMIN}/move/${org}/${site}/${path}`,
       opts: { method: 'POST', body: formData },
     });
   }),
@@ -292,7 +292,7 @@ export const versions = {
       return daFetch({ url: `${AEM_API}/${org}/sites/${site}/source${path}/.versions` });
     }
     // Legacy DA uses a separate /versionlist endpoint for listing.
-    return daFetch({ url: `${DA_ADMIN}/versionlist/${org}/${site}${path}` });
+    return daFetch({ url: `${DA_ADMIN}/versionlist/${org}/${site}/${path}` });
   }),
 
   // versionId on hlx6 is the ULID returned by versions.list; on legacy it is
