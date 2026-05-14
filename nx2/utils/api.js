@@ -216,7 +216,7 @@ export const source = {
   put: withArgs(async ({ org, site, path, body }) => {
     const hlx6 = await isHlx6(org, site);
     const url = await getDaApiPath(SOURCE, org, site, path);
-    const opts = { method: 'PUT' };
+    const opts = { method: 'POST' };
     if (hlx6) {
       const textExt = Object.keys(TEXT_TYPES).find((e) => path.endsWith(e));
       if (textExt) {
