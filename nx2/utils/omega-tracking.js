@@ -17,8 +17,23 @@ const ADOBE_LAUNCH_SRC = 'https://exc-unifiedcontent.experience-stage.adobe.net/
 
 const GTM_ID_PATTERN = /^GTM-[A-Z0-9]+$/;
 
+/** Prod {@code nx} values that enable Omega without meta: {@code ew}, or any {@code ew-omega-…} branch. */
+const OMEGA_NX_PREFIX = 'ew-omega-';
+
+function isOmegaNxBranchInQuery() {
+  try {
+    const nx = new URLSearchParams(window.location.search).get('nx');
+    if (nx == null) return false;
+    if (nx === 'ew') return true;
+    return nx.startsWith(OMEGA_NX_PREFIX);
+  } catch {
+    return false;
+  }
+}
+
 function trackingEnabled() {
   if (env !== 'prod') return true;
+  if (isOmegaNxBranchInQuery()) return true;
   return getMetadata('omega-tracking') === 'on';
 }
 
@@ -58,9 +73,12 @@ function loadGoogleTagManager() {
 }
 
 /**
- * Loads optional GTM (when meta gtm-id is set) and Adobe Launch at the end of
- * {@link document.body} for Omega tracking validation. Gated off production unless
- * meta name="omega-tracking" content="on" is present in the document head.
+ * Injects GTM (when head meta {@code gtm-id} is a valid {@code GTM-…} id) and Adobe
+ * Launch by appending scripts to the **end of {@link document.body}**, not
+ * {@link document.head}, so Omega can verify behaviour vs a typical head snippet.
+ * On production hosts: enabled when the URL query has {@code nx=ew}, or {@code nx}
+ * starting with {@code ew-omega-} (e.g. {@code nx=ew-omega-launch}), or when meta
+ * {@code omega-tracking} is {@code on}.
  */
 export function initOmegaTracking() {
   if (!trackingEnabled()) return;
