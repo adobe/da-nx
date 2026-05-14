@@ -9,8 +9,6 @@ class NxDialog extends LitElement {
     busy: { type: Boolean },
   };
 
-  persistent = false;
-
   get _dialog() { return this.shadowRoot.querySelector('dialog'); }
 
   connectedCallback() {
@@ -29,18 +27,19 @@ class NxDialog extends LitElement {
   }
 
   close() {
-    this._dialog?.close();
+    if (!this._dialog?.open) return;
+    this._dialog.close();
     this.dispatchEvent(new CustomEvent('close', { bubbles: true, composed: true }));
   }
 
   _onCancel(e) {
     e.preventDefault();
-    if (!this.persistent && !this.busy) this.close();
+    if (!this.busy) this.close();
   }
 
   _onBackdropClick(e) {
     if (e.target !== e.currentTarget) return;
-    if (!this.persistent && !this.busy) this.close();
+    if (!this.busy) this.close();
   }
 
   render() {

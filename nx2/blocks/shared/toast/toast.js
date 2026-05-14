@@ -49,7 +49,7 @@ class NxToast extends LitElement {
     this.shadowRoot.adoptedStyleSheets = [styles];
     this.style.pointerEvents = 'auto';
     const ms = Math.max(6000, Number(this.duration) || 6000);
-    this._timerId = window.setTimeout(() => this.dismiss(), ms);
+    this._timerId = window.setTimeout(this.dismiss, ms);
     this._loadIcon();
   }
 
@@ -65,11 +65,11 @@ class NxToast extends LitElement {
     super.disconnectedCallback();
   }
 
-  dismiss() {
+  dismiss = () => {
     window.clearTimeout(this._timerId);
     this._timerId = undefined;
     this.remove();
-  }
+  };
 
   render() {
     const text = this.message?.trim();
@@ -85,7 +85,7 @@ class NxToast extends LitElement {
           type="button"
           class="close"
           aria-label="Dismiss"
-          @click=${() => this.dismiss()}
+          @click=${this.dismiss}
         >${this._closeIcon?.cloneNode(true)}</button>
       </div>
     `;
