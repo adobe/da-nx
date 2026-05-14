@@ -12,12 +12,15 @@
 
 import { env, getMetadata } from '../scripts/nx.js';
 
-/** Adobe Experience Platform Launch (development) — Omega / unified content stage. */
-const ADOBE_LAUNCH_SRC = 'https://exc-unifiedcontent.experience-stage.adobe.net/static/launch/d4d114c60e50/1bdb1b16530b/launch-3e9e0f669557-development.min.js';
+// Adobe Experience Platform Launch (dev) — Omega / unified content stage
+const LAUNCH_HOST = 'https://exc-unifiedcontent.experience-stage.adobe.net';
+const LAUNCH_PATH = '/static/launch/d4d114c60e50/1bdb1b16530b'
+  + '/launch-3e9e0f669557-development.min.js';
+const ADOBE_LAUNCH_SRC = `${LAUNCH_HOST}${LAUNCH_PATH}`;
 
 const GTM_ID_PATTERN = /^GTM-[A-Z0-9]+$/;
 
-/** Prod {@code nx} values that enable Omega without meta: {@code ew}, or any {@code ew-omega-…} branch. */
+// nx=ew or nx=ew-omega-* enables Omega on prod without meta
 const OMEGA_NX_PREFIX = 'ew-omega-';
 
 function isOmegaNxBranchInQuery() {
