@@ -10,7 +10,7 @@
  * governing permissions and limitations under the License.
  */
 
-import { env, getMetadata } from '../scripts/nx.js';
+import { getMetadata } from '../scripts/nx.js';
 
 // Adobe Experience Platform Launch (dev) — Omega / unified content stage
 const LAUNCH_HOST = 'https://exc-unifiedcontent.experience-stage.adobe.net';
@@ -20,8 +20,15 @@ const ADOBE_LAUNCH_SRC = `${LAUNCH_HOST}${LAUNCH_PATH}`;
 
 const GTM_ID_PATTERN = /^GTM-[A-Z0-9]+$/;
 
-// nx=ew or nx=ew-omega-* enables Omega on prod without meta
 const OMEGA_NX_PREFIX = 'ew-omega-';
+const DA_AUTHORING_PATHS = ['/canvas', '/browse'];
+
+function isDaAuthoringPage() {
+  const { hostname, pathname } = window.location;
+  const isDaHost = hostname === 'da.live' || hostname === 'localhost';
+  if (!isDaHost) return false;
+  return DA_AUTHORING_PATHS.some((p) => pathname.startsWith(p));
+}
 
 function isOmegaNxBranchInQuery() {
   try {
@@ -35,7 +42,7 @@ function isOmegaNxBranchInQuery() {
 }
 
 function trackingEnabled() {
-  if (env !== 'prod') return true;
+  if (!isDaAuthoringPage()) return false;
   if (isOmegaNxBranchInQuery()) return true;
   return getMetadata('omega-tracking') === 'on';
 }
@@ -79,9 +86,9 @@ function loadGoogleTagManager() {
  * Injects GTM (when head meta {@code gtm-id} is a valid {@code GTM-…} id) and Adobe
  * Launch by appending scripts to the **end of {@link document.body}**, not
  * {@link document.head}, so Omega can verify behaviour vs a typical head snippet.
- * On production hosts: enabled when the URL query has {@code nx=ew}, or {@code nx}
- * starting with {@code ew-omega-} (e.g. {@code nx=ew-omega-launch}), or when meta
- * {@code omega-tracking} is {@code on}.
+ * Only fires on DA authoring pages ({@code da.live/canvas}, {@code da.live/browse},
+ * or {@code localhost} for local dev) when the URL query has {@code nx=ew} or
+ * {@code nx} starting with {@code ew-omega-} (e.g. {@code nx=ew-omega-launch}).
  */
 export function initOmegaTracking() {
   if (!trackingEnabled()) return;
