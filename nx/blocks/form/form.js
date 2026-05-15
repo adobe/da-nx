@@ -8,6 +8,7 @@ import { getParentPointer } from './utils/pointer.js';
 import { schemas as schemasPromise } from './utils/schema.js';
 import {
   findNodeByPointer,
+  isDaDocumentResource,
   isEmptyDocumentHtml,
   isStructuredContentHtml,
   loadHtml,
@@ -37,8 +38,7 @@ class FormEditor extends LitElement {
     details: { attribute: false },
     formModel: { state: true },
     _schemas: { state: true },
-    _hasUnsupportedContent: { state: true },
-    _missingSchemaName: { state: true },
+    _formBlocker: { state: true },
     _activeNavPointer: { state: true },
     _scrollEditorIntoView: { state: true },
     _scrollNavItemIntoView: { state: true },
@@ -48,8 +48,7 @@ class FormEditor extends LitElement {
   constructor() {
     super();
     this._pendingSchemaId = '';
-    this._hasUnsupportedContent = false;
-    this._missingSchemaName = undefined;
+    this._formBlocker = null;
   }
 
   connectedCallback() {
@@ -60,8 +59,7 @@ class FormEditor extends LitElement {
 
   _resetEditorState() {
     this.formModel = null;
-    this._hasUnsupportedContent = false;
-    this._missingSchemaName = undefined;
+    this._formBlocker = null;
     this._pendingSchemaId = '';
     this._activeNavPointer = undefined;
     this._scrollEditorIntoView = undefined;
@@ -69,15 +67,37 @@ class FormEditor extends LitElement {
   }
 
   async fetchDoc() {
+    if (!isDaDocumentResource(this.details)) {
+      this._resetEditorState();
+      this._formBlocker = { type: 'not-document' };
+      return;
+    }
+
     const resultPromise = loadHtml(this.details);
 
     const [schemas, result] = await Promise.all([schemasPromise, resultPromise]);
 
     if (schemas) this._schemas = schemas;
 
-    if (result.error || typeof result.html !== 'string') {
+    if (result.error) {
       this._resetEditorState();
-      this._hasUnsupportedContent = true;
+      const { status } = result;
+      if (status === 401 || status === 403) {
+        this._formBlocker = { type: 'no-access' };
+      } else if (status === 404) {
+        // Folders and similar paths often yield 404 for the resolved source URL.
+        this._formBlocker = { type: 'not-document' };
+      } else if (typeof status === 'number') {
+        this._formBlocker = { type: 'load-failed', status };
+      } else {
+        this._formBlocker = { type: 'load-failed' };
+      }
+      return;
+    }
+
+    if (typeof result.html !== 'string') {
+      this._resetEditorState();
+      this._formBlocker = { type: 'load-failed' };
       return;
     }
 
@@ -88,13 +108,12 @@ class FormEditor extends LitElement {
 
     if (!isStructuredContentHtml(result.html)) {
       this._resetEditorState();
-      this._hasUnsupportedContent = true;
+      this._formBlocker = { type: 'not-form-content' };
       return;
     }
 
     const path = this.details.fullpath;
-    this._hasUnsupportedContent = false;
-    this._missingSchemaName = undefined;
+    this._formBlocker = null;
     this._activeNavPointer = undefined;
     this._scrollEditorIntoView = undefined;
     this._scrollNavItemIntoView = undefined;
@@ -104,8 +123,7 @@ class FormEditor extends LitElement {
 
     if (!model.schema) {
       this._resetEditorState();
-      this._hasUnsupportedContent = true;
-      this._missingSchemaName = schemaName ?? '';
+      this._formBlocker = { type: 'missing-schema', schemaName: schemaName ?? '' };
       return;
     }
 
@@ -127,8 +145,7 @@ class FormEditor extends LitElement {
     const emptyForm = { data, metadata };
 
     const path = this.details.fullpath;
-    this._hasUnsupportedContent = false;
-    this._missingSchemaName = undefined;
+    this._formBlocker = null;
     this._activeNavPointer = undefined;
     this._scrollEditorIntoView = undefined;
     this._scrollNavItemIntoView = undefined;
@@ -150,6 +167,17 @@ class FormEditor extends LitElement {
     if (!owner || !repo) return;
     const query = window.location.search ?? '';
     window.location.href = `https://da.live${query}#/${owner}/${repo}`;
+  }
+
+  _getDisplayPath() {
+    const fullpath = (this.details?.fullpath ?? '').trim();
+    return fullpath.toLowerCase().endsWith('.html')
+      ? fullpath.slice(0, -5)
+      : fullpath;
+  }
+
+  _renderResourcePathSuffix(displayPath) {
+    return displayPath ? html` at <strong>${displayPath}</strong>` : nothing;
   }
 
   _handleNavPointerSelectFromSidebar(e) {
@@ -265,48 +293,73 @@ class FormEditor extends LitElement {
   }
 
   renderUnsupportedContentMessage() {
-    const fullpath = this.details?.fullpath ?? '';
-    const path = fullpath.endsWith('.html') ? fullpath.slice(0, -5) : fullpath;
     const schemaEditorHref = this._getSchemaEditorHref();
-    const hasMissingSchema = this._missingSchemaName !== undefined;
-    const schemaName = this._missingSchemaName || '(empty)';
+    const blocker = this._formBlocker;
     const action = {
       label: 'Return to Home',
       style: '',
       click: () => this._goToRepoRoot(),
     };
+    const displayPath = this._getDisplayPath();
+
+    let title = 'Unable to open';
+    let body = html`
+      <p class="da-form-schema-hint">
+        This resource could not be opened.
+      </p>
+    `;
+
+    if (blocker?.type === 'missing-schema') {
+      const schemaName = blocker.schemaName || '(empty)';
+      title = 'Schema not found';
+      body = html`
+        <p class="da-form-schema-hint">
+          No schema named <strong>${schemaName}</strong>.
+          <a
+            class="da-form-schema-text-link"
+            href=${schemaEditorHref}
+            target="_blank"
+            rel="noopener noreferrer"
+          >Schema Editor</a>
+        </p>
+      `;
+    } else if (blocker?.type === 'not-document' || blocker?.type === 'not-form-content') {
+      title = 'Unsupported resource';
+      body = html`
+        <p class="da-form-schema-hint">
+          This resource${this._renderResourcePathSuffix(displayPath)} is not Structured Content.
+        </p>
+      `;
+    } else if (blocker?.type === 'no-access') {
+      title = 'Access denied';
+      body = html`
+        <p class="da-form-schema-hint">
+          You do not have access to this resource${this._renderResourcePathSuffix(displayPath)}.
+        </p>
+      `;
+    } else if (blocker?.type === 'load-failed') {
+      title = 'Unable to load';
+      body = html`
+        <p class="da-form-schema-hint">
+          This resource could not be loaded. Try again later.
+        </p>
+      `;
+    }
+
     return html`
       <da-dialog
-        title=${hasMissingSchema ? 'Schema not found' : 'Not supported'}
+        title=${title}
         size="large"
         @close=${this._goToRepoRoot}
         .action=${action}
       >
-        ${hasMissingSchema
-          ? html`
-            <p class="da-form-schema-hint">
-              The schema <strong>${schemaName}</strong> referenced by this resource
-              ${path ? html`at <strong>${path}</strong> ` : ''}does not exist. To create it, open
-              <a
-                class="da-form-schema-text-link"
-                href=${schemaEditorHref}
-                target="_blank"
-                rel="noopener noreferrer"
-              >Schema Editor</a>.
-            </p>
-          `
-          : html`
-            <p class="da-form-schema-hint">
-              The resource under this path${path ? html` <strong>${path}</strong>` : ''} cannot be
-              opened as structured content.
-            </p>
-          `}
+        ${body}
       </da-dialog>
     `;
   }
 
   renderFormEditor() {
-    if (this._hasUnsupportedContent) return this.renderUnsupportedContentMessage();
+    if (this._formBlocker) return this.renderUnsupportedContentMessage();
 
     if (this.formModel === null) {
       if (this._schemas) return this.renderSchemaSelector();

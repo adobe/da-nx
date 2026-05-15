@@ -166,10 +166,28 @@ export function findNodeByPointer(node, pointer) {
   return null;
 }
 
+/**
+ * Check whether details represent a DA document resource (HTML document).
+ * @param {Object} details - Details object
+ * @returns {boolean}
+ */
+export function isDaDocumentResource(details) {
+  const fp = (details?.fullpath ?? '').trim();
+  if (fp.toLowerCase().endsWith('.html')) return true;
+  const src = details?.sourceUrl;
+  if (!src || typeof src !== 'string') return false;
+  try {
+    const { pathname } = new URL(src);
+    return pathname.toLowerCase().endsWith('.html');
+  } catch {
+    return false;
+  }
+}
+
 /** Fetch HTML from source URL. */
 export async function loadHtml(details) {
   const resp = await daFetch(details.sourceUrl);
-  if (!resp.ok) return { error: 'Could not fetch doc' };
+  if (!resp.ok) return { error: true, status: resp.status };
   return { html: (await resp.text()) };
 }
 
