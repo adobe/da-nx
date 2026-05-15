@@ -1,6 +1,6 @@
 import { Validator } from '../../../deps/da-form/dist/index.js';
 import { getValue } from './pointer.js';
-import { isEmpty } from './utils.js';
+import { isEmpty } from './prune.js';
 
 const DRAFT = '2020-12';
 const SHORT_CIRCUIT = false; // Collect all errors, don't stop at first
