@@ -301,6 +301,11 @@ export async function loadArea({ area } = { area: document }) {
     const { restorePanels } = await import('../utils/panel.js');
     await restorePanels();
   }
+
+  if (isDoc) {
+    const { initOmegaTracking } = await import('../utils/omega-tracking.js');
+    initOmegaTracking();
+  }
 }
 
 export function getColorScheme() {
