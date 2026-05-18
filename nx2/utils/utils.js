@@ -129,24 +129,6 @@ export const hashChange = (() => {
   };
 })();
 
-export class HashController {
-  constructor(host) {
-    this.host = host;
-    host.addController(this);
-  }
-
-  hostConnected() {
-    this._unsubscribe = hashChange.subscribe((state) => {
-      this.value = state;
-      this.host.requestUpdate();
-    });
-  }
-
-  hostDisconnected() {
-    this._unsubscribe();
-  }
-}
-
 export const loadPageStyle = (href) => new Promise((resolve) => {
   if (!document.querySelector(`head > link[href="${href}"]`)) {
     const link = document.createElement('link');

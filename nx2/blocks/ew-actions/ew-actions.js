@@ -1,6 +1,6 @@
 import { LitElement, html, nothing } from 'da-lit';
 
-import { loadStyle, HashController } from '../../utils/utils.js';
+import { loadStyle, hashChange } from '../../utils/utils.js';
 import {
   buildAemPathFromHashState,
   formatAemPreviewPublishError,
@@ -17,9 +17,8 @@ class NXEwActions extends LitElement {
   static properties = {
     _busy: { state: true },
     _error: { state: true },
+    _hashState: { state: true },
   };
-
-  _hash = new HashController(this);
 
   _busy = false;
 
@@ -34,10 +33,12 @@ class NXEwActions extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
+    this._unsubHash = hashChange.subscribe((state) => { this._hashState = state; });
   }
 
-  get _hashState() {
-    return this._hash.value;
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    this._unsubHash?.();
   }
 
   _togglePreviewPopover(e) {

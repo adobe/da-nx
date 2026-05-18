@@ -1,7 +1,7 @@
 import { LitElement, html } from 'da-lit';
 import { getMetadata } from '../../scripts/nx.js';
 
-import { loadStyle, HashController } from '../../utils/utils.js';
+import { loadStyle, hashChange } from '../../utils/utils.js';
 import { loadFragment } from '../fragment/fragment.js';
 import { loadHrefSvg } from '../../utils/svg.js';
 
@@ -15,16 +15,21 @@ class NXNav extends LitElement {
     _brand: { state: true },
     _actions: { state: true },
     _breadcrumbs: { state: true },
+    _hashState: { state: true },
   };
-
-  _hash = new HashController(this);
 
   _getSegments;
 
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
+    this._unsubHash = hashChange.subscribe((state) => { this._hashState = state; });
     this.loadNav();
+  }
+
+  disconnectedCallback() {
+    super.disconnectedCallback();
+    this._unsubHash?.();
   }
 
   change(props) {
@@ -108,7 +113,7 @@ class NXNav extends LitElement {
 
   updated() {
     if (!this._breadcrumbs) return;
-    this._breadcrumbs.pathSegments = this._getSegments(this._hash.value);
+    this._breadcrumbs.pathSegments = this._getSegments(this._hashState);
   }
 
   render() {
