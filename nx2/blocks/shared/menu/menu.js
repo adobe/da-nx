@@ -1,8 +1,10 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../utils/utils.js';
+import { getConfig } from '../../../scripts/nx.js';
 import '../popover/popover.js';
-import { loadHrefSvg } from '../../../utils/svg.js';
 import { listKeydown } from '../utils/list-nav.js';
+
+const { codeBase } = getConfig();
 
 const styles = await loadStyle(import.meta.url);
 
@@ -10,7 +12,6 @@ class NxMenu extends LitElement {
   static properties = {
     items: { attribute: false },
     _active: { state: true },
-    _icons: { state: true },
     ignoreFocus: { attribute: true },
     scoped: { type: Boolean },
   };
@@ -24,17 +25,6 @@ class NxMenu extends LitElement {
 
   firstUpdated() {
     this._wireTrigger(this.shadowRoot.querySelector('slot[name="trigger"]'));
-  }
-
-  updated(changed) {
-    if (changed.has('items')) this._loadIcons();
-  }
-
-  async _loadIcons() {
-    const iconItems = this.items?.filter((i) => i.icon) ?? [];
-    if (!iconItems.length) return;
-    const svgs = await Promise.all(iconItems.map((i) => loadHrefSvg(i.icon)));
-    this._icons = Object.fromEntries(iconItems.map((i, idx) => [i.icon, svgs[idx]]));
   }
 
   _wireTrigger(slot) {
@@ -133,7 +123,7 @@ class NxMenu extends LitElement {
           @mouseenter=${() => { this._active = item.id; }}
           @focus=${() => { this._active = item.id; }}
         >
-          ${item.icon && this._icons?.[item.icon] ? html`<span class="menu-item-icon">${this._icons[item.icon].cloneNode(true)}</span>` : nothing}
+          ${item.icon ? html`<svg class="menu-item-icon" viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/s2-icon-${item.icon}-20-n.svg#icon"></use></svg>` : nothing}
           <span class="menu-item-label">${item.label}</span>
         </button>
       </li>

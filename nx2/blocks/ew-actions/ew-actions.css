@@ -64,14 +64,8 @@
 }
 
 .preview-dropdown-icon {
-  display: inline-flex;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-}
-
-.preview-dropdown-icon svg {
   display: block;
+  flex-shrink: 0;
   width: 18px;
   height: 18px;
 }

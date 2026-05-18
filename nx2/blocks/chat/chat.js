@@ -8,19 +8,21 @@ import './prompts/prompts.js';
 import './pills/pills.js';
 import { loadSiteConfig } from './api.js';
 import { ADD_MENU_ITEMS, MENU_OPTIONS, ROLE, TOOL_STATE } from './constants.js';
+import { getConfig } from '../../scripts/nx.js';
 
 const styles = await loadStyle(import.meta.url);
+const { codeBase } = getConfig();
 
-const ICON_SRCS = {
-  add: new URL('../../img/icons/s2-icon-add-20-n.svg', import.meta.url).href,
-  clear: new URL('../../img/icons/s2-icon-removecircle-20-n.svg', import.meta.url).href,
-  close: new URL('../../img/icons/s2-icon-splitleft-20-n.svg', import.meta.url).href,
-  send: new URL('../../img/icons/s2-icon-arrowupsend-20-n.svg', import.meta.url).href,
-  stop: new URL('../../img/icons/s2-icon-stop-20-n.svg', import.meta.url).href,
-  up: new URL('../../img/icons/s2-icon-chevronup-20-n.svg', import.meta.url).href,
+const ICON_NAMES = {
+  add: 's2-icon-add-20-n',
+  clear: 's2-icon-removecircle-20-n',
+  close: 's2-icon-splitleft-20-n',
+  send: 's2-icon-arrowupsend-20-n',
+  stop: 's2-icon-stop-20-n',
+  up: 's2-icon-chevronup-20-n',
 };
 
-const icon = (name) => html`<img src="${ICON_SRCS[name]}" aria-hidden="true">`;
+const icon = (name) => html`<svg class="chat-icon" viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/${ICON_NAMES[name]}.svg#icon"></use></svg>`;
 
 const UI_PROMPTS_GAP = 8;
 
@@ -360,7 +362,7 @@ class NxChat extends LitElement {
               @nx-show-prompts=${this._openPrompts}
             ></nx-chat-welcome>`
         : nothing}
-        ${this.messages?.map((msg) => renderMessage(msg, null, this.toolCards))}
+        ${this.messages?.map((msg) => renderMessage(msg, this.toolCards))}
         ${this.thinking && !this.messages?.at(-1)?.streaming ? html`<div class="chat-thinking">Thinking...</div>` : nothing}
         </div>
       </div>

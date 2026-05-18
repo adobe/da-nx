@@ -1,9 +1,10 @@
-.chat-actions img {
+.chat-actions svg.chat-icon {
+  display: block;
   width: 16px;
   height: 16px;
 }
 
-.chat-header .chat-header-btn img {
+.chat-header .chat-header-btn svg.chat-icon {
   display: block;
   width: 16px;
   height: 16px;
@@ -52,9 +53,6 @@
         color: var(--s2-gray-25);
       }
 
-      img {
-        filter: invert(1);
-      }
     }
 
     &.secondary-btn {

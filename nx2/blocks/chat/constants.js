@@ -5,7 +5,7 @@ const MENU_OPTIONS = {
 
 const ADD_MENU_ITEMS = [
   { section: 'Add' },
-  { id: 'files', label: 'Files or images', icon: new URL('../../img/icons/S2_Icon_Link_20_N.svg', import.meta.url).href },
+  { id: 'files', label: 'Files or images', icon: 'link' },
   { id: MENU_OPTIONS.PROMPT, label: 'Prompt' },
   { id: 'command', label: '"/" Command' },
   { divider: true },

@@ -25,14 +25,13 @@
   min-width: 0;
 }
 
-.crumb:not(:first-child)::before {
-  content: "";
+.crumb-sep {
   flex-shrink: 0;
   width: 8px;
   height: 8px;
   margin-inline: var(--s2-spacing-75);
-  background: currentcolor;
-  mask: var(--nx-crumb-sep) center / contain no-repeat;
+  color: currentcolor;
+  display: block;
 }
 
 .crumb a,

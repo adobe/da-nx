@@ -6,12 +6,12 @@ import {
   formatAemPreviewPublishError,
   runAemPreviewOrPublish,
 } from '../../utils/aem-preview-publish.js';
-import { loadHrefSvg } from '../../utils/svg.js';
+import { getConfig } from '../../scripts/nx.js';
 import '../shared/popover/popover.js';
 
 const style = await loadStyle(import.meta.url);
-
-const SEND_ICON_HREF = new URL('../../img/icons/S2_Icon_Send_20_N.svg', import.meta.url).href;
+const { codeBase } = getConfig();
+const SEND_ICON_HREF = `${codeBase}/img/icons/s2-icon-send-20-n.svg#icon`;
 
 class NXEwActions extends LitElement {
   static properties = {
@@ -34,11 +34,6 @@ class NXEwActions extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
-  }
-
-  async firstUpdated() {
-    this._sendIcon = await loadHrefSvg(SEND_ICON_HREF);
-    this.requestUpdate();
   }
 
   get _hashState() {
@@ -91,9 +86,6 @@ class NXEwActions extends LitElement {
   render() {
     const hasDoc = Boolean(buildAemPathFromHashState(this._hashState));
     const disabled = !hasDoc || this._busy;
-    const sendIcon = this._sendIcon
-      ? html`<span class="preview-dropdown-icon" aria-hidden="true">${this._sendIcon.cloneNode(true)}</span>`
-      : nothing;
 
     return html`
       <div class="ew-actions">
@@ -108,7 +100,7 @@ class NXEwActions extends LitElement {
               ?disabled=${disabled}
               @click=${this._togglePreviewPopover}
             >
-              ${sendIcon}
+              <svg class="preview-dropdown-icon" viewBox="0 0 20 20" aria-hidden="true"><use href=${SEND_ICON_HREF}></use></svg>
             </button>
             <nx-popover placement="below" @close=${this._onSendPopoverClose}>
               <div class="send-popover" role="menu">

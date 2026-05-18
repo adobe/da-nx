@@ -1,11 +1,14 @@
 import { html, nothing } from 'da-lit';
 import { AGENT_EVENT, ROLE, TOOL_INPUT, TOOL_STATE } from './constants.js';
+import { getConfig } from '../../scripts/nx.js';
 
-const SELECTION_ICON_SRCS = {
-  block: new URL('../../img/icons/S2_Icon_3D_20_N.svg', import.meta.url).href,
-  file: new URL('../../img/icons/S2_Icon_FileText_20_N.svg', import.meta.url).href,
-  image: new URL('../../img/icons/S2_Icon_Image_20_N.svg', import.meta.url).href,
-  table: new URL('../../img/icons/S2_Icon_Table_20_N.svg', import.meta.url).href,
+const { codeBase } = getConfig();
+
+const SELECTION_ICON_NAMES = {
+  block: 's2-icon-3d-20-n',
+  file: 's2-icon-filetext-20-n',
+  image: 's2-icon-image-20-n',
+  table: 's2-icon-table-20-n',
 };
 
 const { unified, remarkParse } = await import('../../deps/mdast/dist/index.js');
@@ -99,15 +102,16 @@ function renderApprovalCard(pending, onApprove) {
 }
 
 // Mirrors entryTypeFromExtension in browse/utils.js — switch to common utils once migrated.
-function selectionIconSrc(blockName) {
+function selectionIcon(blockName) {
   const ext = (blockName ?? '').includes('.') ? blockName.split('.').pop().toLowerCase() : '';
-  if (!ext) return SELECTION_ICON_SRCS.block;
-  if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'mp4', 'webm', 'mov'].includes(ext)) return SELECTION_ICON_SRCS.image;
-  if (['json', 'xlsx', 'xls', 'csv'].includes(ext)) return SELECTION_ICON_SRCS.table;
-  return SELECTION_ICON_SRCS.file;
+  let name = SELECTION_ICON_NAMES.block;
+  if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'mp4', 'webm', 'mov'].includes(ext)) name = SELECTION_ICON_NAMES.image;
+  else if (['json', 'xlsx', 'xls', 'csv'].includes(ext)) name = SELECTION_ICON_NAMES.table;
+  else if (ext) name = SELECTION_ICON_NAMES.file;
+  return html`<svg class="selection-icon" viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/${name}.svg#icon"></use></svg>`;
 }
 
-function renderMessage(msg, icons, toolCards) {
+function renderMessage(msg, toolCards) {
   if (msg.role === ROLE.TOOL) return nothing;
   const isAssistant = msg.role === ROLE.ASSISTANT;
 
@@ -125,7 +129,7 @@ function renderMessage(msg, icons, toolCards) {
 
   const selectionItem = ({ blockName }) => html`
     <li class="selection-context-item">
-      <img class="selection-icon" src="${selectionIconSrc(blockName)}" aria-hidden="true">
+      ${selectionIcon(blockName)}
       <span>${blockName}</span>
     </li>`;
 
