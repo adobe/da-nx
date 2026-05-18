@@ -232,7 +232,7 @@ describe('JSON to HTML Conversion', () => {
 
     // Verify @items key exists in array block
     const firstArrayBlock = arrayBlocks[0];
-    const itemsKey = Array.from(firstArrayBlock.querySelectorAll('p')).find((p) => p.textContent === '@items');
+    const itemsKey = Array.from(firstArrayBlock.querySelectorAll('h3')).find((h) => h.textContent === '@items');
     expect(itemsKey, '@items key should exist in array block').to.exist;
 
     // Verify the nested array contains the primitive values
@@ -272,7 +272,7 @@ describe('JSON to HTML Conversion', () => {
     expect(arrayBlocks.length).to.be.at.least(2);
 
     // Verify @items key exists in array blocks
-    const itemsKeys = Array.from(doc.querySelectorAll('p')).filter((p) => p.textContent === '@items');
+    const itemsKeys = Array.from(doc.querySelectorAll('h3')).filter((h) => h.textContent === '@items');
     expect(itemsKeys.length).to.be.at.least(2, '@items keys should exist for each array block');
 
     // Verify object blocks were created for the items
