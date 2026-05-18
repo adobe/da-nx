@@ -1,7 +1,9 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../utils/utils.js';
+import { getConfig } from '../../../scripts/nx.js';
 
 const styles = await loadStyle(import.meta.url);
+const { codeBase } = getConfig();
 
 class NxChatPills extends LitElement {
   static properties = { items: { type: Array } };
@@ -23,7 +25,7 @@ class NxChatPills extends LitElement {
           type="button"
           aria-label="Remove ${label}"
           @click=${() => this._remove(id)}
-        ></button>
+        ><svg viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/s2-icon-close-20-n.svg#icon"></use></svg></button>
         <span class="pill-label" title=${label}>${label}</span>
       </li>
     `;

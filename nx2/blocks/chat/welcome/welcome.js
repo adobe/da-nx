@@ -1,8 +1,10 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../utils/utils.js';
 import { loadIms } from '../../../utils/ims.js';
+import { getConfig } from '../../../scripts/nx.js';
 
 const styles = await loadStyle(import.meta.url);
+const { codeBase } = getConfig();
 
 class NxChatWelcome extends LitElement {
   static properties = { prompts: { attribute: false } };
@@ -33,6 +35,7 @@ class NxChatWelcome extends LitElement {
         <div class="prompt-cards">
           ${prompts.slice(0, 3).map((card) => html`
             <button class="prompt-card" @click=${() => this.onSend?.(card.prompt)}>
+              <svg class="prompt-card-icon" viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/s2-icon-aichat-20-n.svg#icon"></use></svg>
               <span class="prompt-card-description">${card.description}</span>
             </button>
           `)}

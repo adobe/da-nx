@@ -24,40 +24,18 @@ No local copy — served from `https://da.live/img/icons/`.
 
 ## Local icons (`img/icons/S2_Icon_*_20_N.svg`)
 
-PascalCase files kept locally for the `span.icon` decoration path (`loadIcons` in `utils/svg.js`). When the page contains `<span class="icon icon-add">`, `loadIcons` constructs `${codeBase}/img/icons/S2_Icon_Add_20_N.svg#add` and injects a `<svg><use href>` into the span. These files are **not** on the CDN in this format; the CDN only carries the kebab-case versions.
+PascalCase files kept locally for the `span.icon` decoration path (`loadIcons` in `utils/svg.js`). When the page contains `<span class="icon icon-apps">`, `loadIcons` constructs `${codeBase}/img/icons/S2_Icon_Apps_20_N.svg#apps` and injects a `<svg><use href>` into the span. These files are **not** on the CDN in this format; the CDN only carries the kebab-case versions.
 
 | Local file | `span.icon` class |
 |---|---|
-| `S2_Icon_3D_20_N.svg` | `icon-3d` |
-| `S2_Icon_AIChat_20_N.svg` | `icon-aichat` |
-| `S2_Icon_Add_20_N.svg` | `icon-add` |
 | `S2_Icon_Apps_20_N.svg` | `icon-apps` |
-| `S2_Icon_ArrowUpSend_20_N.svg` | `icon-arrowupsend` |
-| `S2_Icon_Checkmark_20_N.svg` | `icon-checkmark` |
-| `S2_Icon_ChevronLeft_10_N.svg` | `icon-chevronleft` ² |
-| `S2_Icon_ChevronUp_20_N.svg` | `icon-chevronup` |
-| `S2_Icon_Close_20_N.svg` | `icon-close` |
 | `S2_Icon_Contrast_20_N.svg` | `icon-contrast` |
-| `S2_Icon_Edit_20_N.svg` | `icon-edit` |
-| `S2_Icon_FileText_20_N.svg` | `icon-filetext` |
-| `S2_Icon_Folder_20_N.svg` | `icon-folder` |
-| `S2_Icon_GridCompare_20_N.svg` | `icon-gridcompare` |
 | `S2_Icon_HelpCircle_20_N.svg` | `icon-helpcircle` |
 | `S2_Icon_Home_20_N.svg` | `icon-home` |
-| `S2_Icon_Image_20_N.svg` | `icon-image` |
 | `S2_Icon_Lightbulb_20_N.svg` | `icon-lightbulb` |
-| `S2_Icon_Link_20_N.svg` | `icon-link` |
-| `S2_Icon_Paste_20_N.svg` | `icon-paste` |
-| `S2_Icon_Redo_20_N.svg` | `icon-redo` |
-| `S2_Icon_RemoveCircle_20_N.svg` | `icon-removecircle` |
-| `S2_Icon_Search_20_N.svg` | `icon-search` |
-| `S2_Icon_Send_20_N.svg` | `icon-send` |
-| `S2_Icon_SplitLeft_20_N.svg` | `icon-splitleft` |
-| `S2_Icon_SplitRight_20_N.svg` | `icon-splitright` |
-| `S2_Icon_Stop_20_N.svg` | `icon-stop` |
-| `S2_Icon_Table_20_N.svg` | `icon-table` |
-| `S2_Icon_Undo_20_N.svg` | `icon-undo` |
 | `S2_Icon_UserAvatar_20_N.svg` | `icon-useravatar` |
+| `S2_Icon_Close_20_N.svg` | `icon-close` ³ |
+| `S2_Icon_ChevronUp_20_N.svg` | `icon-chevronup` ⁴ |
 
 ## Exceptions
 
@@ -90,5 +68,8 @@ The following da-live blocks use icons outside the S2 `<use href>` system. They 
 **¹ `nx-menu` icon rendering**
 `nx-menu` renders `item.icon` as `<svg><use href="${codeBase}/img/icons/s2-icon-${item.icon}-20-n.svg#icon">`. Callers pass just the icon name (e.g. `'link'`, `'tagbold'`); the menu constructs the full CDN URL internally. `codeBase` resolves to `https://da.live` on prod and the local proxy on localhost.
 
-**² `ChevronLeft_10_N` size**
-This is a 10×10 viewBox icon, not 20×20. The `loadIcons` span decorator always generates a 20×20 wrapper, so `icon-chevronleft` via span decoration will render the 10px art scaled up. Direct `<svg><use>` callers (picker, breadcrumb) use `viewBox="0 0 10 10"` and size via CSS.
+**³ `S2_Icon_Close_20_N.svg` — toast.js**
+Kept because `toast.js` loads it via `loadHrefSvg()` to inline it as a sprite, then references `#close` via `<svg><use>`. Unlike the other shell icons which use direct `<svg><use href="…svg#icon">`, toast fetches and inlines the SVG first. Migrate toast to direct `<svg><use>` to remove this file.
+
+**⁴ `S2_Icon_ChevronUp_20_N.svg` — chat.css `summary::before`**
+Kept because `chat.css` uses it as a CSS `mask-image` on the `summary::before` pseudo-element for the tool-card and selection-context `<details>` disclosure triangles. Cannot use `<svg><use>` on a pseudo-element without changing the JS markup in `renderers.js`. Migrate the disclosure triangle to an explicit `<svg>` inside `<summary>` to remove this file.
