@@ -87,7 +87,13 @@ function ensureNxEditorWysiwyg(mountRoot) {
 }
 
 function editorCtxFromHashState(state, fullPath) {
-  return { org: state.org, repo: state.site, path: fullPath };
+  return {
+    org: state.org,
+    repo: state.site,
+    path: fullPath,
+    ...(state.scriptsUrl && { scriptsUrl: state.scriptsUrl }),
+    ...(state.loadPageFnName && { loadPageFnName: state.loadPageFnName }),
+  };
 }
 
 function syncCanvasEditorsToHash({ mountRoot, header, state }) {
