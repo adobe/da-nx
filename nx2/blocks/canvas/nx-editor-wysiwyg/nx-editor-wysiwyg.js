@@ -3,6 +3,7 @@ import { loadStyle } from '../../../utils/utils.js';
 import { getPreviewOrigin, fetchWysiwygCookie } from '../editor-utils/preview.js';
 import { loadIms } from '../../../utils/ims.js';
 import { hideSelectionToolbar } from '../editor-utils/selection-toolbar.js';
+import { fetchDaConfigs, getFirstSheet } from '../../../utils/daConfig.js';
 
 const style = await loadStyle(import.meta.url);
 
@@ -22,6 +23,22 @@ function buildQuickEditInitPayload({ org, repo, path, scriptsUrl, loadPageFnName
     },
     location: { pathname },
   };
+}
+
+async function fetchScriptsConfig({ org, site }) {
+  try {
+    const configs = fetchDaConfigs({ org, site });
+    const siteConfig = await configs[configs.length - 1];
+    if (!siteConfig || siteConfig.error) return {};
+    const rows = getFirstSheet(siteConfig) || [];
+    const get = (key) => rows.find((r) => r.key === key)?.value || undefined;
+    return {
+      scriptsUrl: get('quick-edit.scriptsUrl'),
+      loadPageFnName: get('quick-edit.loadPageFnName'),
+    };
+  } catch {
+    return {};
+  }
 }
 
 async function tryLoadWysiwygPreviewCookies({ org, repo, path, getCurrentCtx }) {
@@ -111,6 +128,9 @@ export class NxEditorWysiwyg extends LitElement {
   _resetCookieStateForCtxChange() {
     this._clearQuickEditRetry();
     this._cookieReady = false;
+    this._daConfigOverrides = null;
+    this._lastIframeLoaded = null;
+    this._ctxGen = (this._ctxGen ?? 0) + 1;
   }
 
   updated(changed) {
@@ -122,6 +142,8 @@ export class NxEditorWysiwyg extends LitElement {
     const { org, repo, path } = this.ctx ?? {};
     if (!org || !repo || !path) return;
 
+    const gen = this._ctxGen;
+
     tryLoadWysiwygPreviewCookies({
       org,
       repo,
@@ -131,6 +153,12 @@ export class NxEditorWysiwyg extends LitElement {
       if (!ok) return;
       this._cookieReady = true;
       this.requestUpdate();
+    });
+
+    fetchScriptsConfig({ org, site: repo }).then((overrides) => {
+      if (gen !== this._ctxGen) return;
+      this._daConfigOverrides = overrides;
+      this._lastIframeLoaded?.();
     });
   }
 
@@ -186,16 +214,23 @@ export class NxEditorWysiwyg extends LitElement {
     this._clearQuickEditRetry();
     this._syncCanvasVisibility();
 
-    const { config, location } = buildQuickEditInitPayload({
-      org, repo, path, scriptsUrl, loadPageFnName,
-    });
-    const send = () => this._postQuickEditInitToIframe({
-      iframe,
-      config,
-      location,
-      onReady: (port) => this._dispatchWysiwygPortReady(port),
-    });
+    const send = () => {
+      const { config, location } = buildQuickEditInitPayload({
+        org,
+        repo,
+        path,
+        scriptsUrl: scriptsUrl ?? this._daConfigOverrides?.scriptsUrl,
+        loadPageFnName: loadPageFnName ?? this._daConfigOverrides?.loadPageFnName,
+      });
+      this._postQuickEditInitToIframe({
+        iframe,
+        config,
+        location,
+        onReady: (port) => this._dispatchWysiwygPortReady(port),
+      });
+    };
 
+    this._lastIframeLoaded = send;
     send();
     this._scheduleQuickEditInitRetries(send);
   }
