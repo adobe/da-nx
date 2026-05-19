@@ -93,7 +93,10 @@ class Form extends LitElement {
     const context = await loadFormContext({ details: this.details });
     if (version !== this._loadVersion) return;
 
-    if (context.status === 'select-schema' || context.status === 'no-schemas') {
+    // The editor and the schema picker both render sl-input / sl-select /
+    // sl-checkbox. Load the SL components once, on any path that will paint
+    // a field — only the inline error states never render one.
+    if (context.status !== 'blocked') {
       await import(SL_COMPONENTS_MODULE);
     }
     if (version !== this._loadVersion) return;

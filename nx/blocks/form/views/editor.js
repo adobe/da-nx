@@ -170,11 +170,12 @@ class Editor extends LitElement {
       return html`
         <label class=${fieldClass} data-pointer=${pointer}>
           ${hideLabel ? nothing : html`${label}${required ? html`<span class="is-required">*</span>` : nothing}`}
-          <select
+          <sl-select
+            .value=${currentValue}
             aria-label=${labelText}
             aria-invalid=${invalid}
             ?disabled=${readonly}
-            @focus=${() => this._select(pointer)}
+            @focusin=${() => this._select(pointer)}
             @change=${(e) => this._onSelectInput(node, e)}
           >
             ${required
@@ -183,7 +184,7 @@ class Editor extends LitElement {
             ${node.enumValues.map((item) => html`
               <option value=${item} ?selected=${item === currentValue}>${item}</option>
             `)}
-          </select>
+          </sl-select>
           ${error ? html`<p class="form-error">${error}</p>` : nothing}
         </label>
       `;
@@ -192,15 +193,14 @@ class Editor extends LitElement {
     if (node.kind === 'boolean') {
       return html`
         <label class="form-field form-field-checkbox${this._activeClass(pointer)}${hideLabel ? ' is-compact' : ''}" data-pointer=${pointer}>
-          <input
-            type="checkbox"
-            .checked=${!!value}
+          <sl-checkbox
+            ?checked=${!!value}
             aria-label=${labelText}
             aria-invalid=${invalid}
             ?disabled=${readonly}
-            @focus=${() => this._select(pointer)}
+            @focusin=${() => this._select(pointer)}
             @change=${(e) => this._onBooleanInput(node, e)}
-          />
+          ></sl-checkbox>
           ${hideLabel
           ? html`<span class="form-sr-only">${label}${required ? '*' : ''}</span>`
           : html`${label}${required ? html`<span class="is-required">*</span>` : nothing}`}
@@ -213,15 +213,15 @@ class Editor extends LitElement {
       return html`
         <label class=${fieldClass} data-pointer=${pointer}>
           ${hideLabel ? nothing : html`${label}${required ? html`<span class="is-required">*</span>` : nothing}`}
-          <input
+          <sl-input
             type="number"
             .value=${String(value ?? '')}
             aria-label=${labelText}
             aria-invalid=${invalid}
             ?disabled=${readonly}
-            @focus=${() => this._select(pointer)}
+            @focusin=${() => this._select(pointer)}
             @input=${(e) => this._onNumberInput(node, e)}
-          />
+          ></sl-input>
           ${error ? html`<p class="form-error">${error}</p>` : nothing}
         </label>
       `;
@@ -230,15 +230,15 @@ class Editor extends LitElement {
     return html`
       <label class=${fieldClass} data-pointer=${pointer}>
         ${hideLabel ? nothing : html`${label}${required ? html`<span class="is-required">*</span>` : nothing}`}
-        <input
+        <sl-input
           type="text"
           .value=${value ?? ''}
           aria-label=${labelText}
           aria-invalid=${invalid}
           ?disabled=${readonly}
-          @focus=${() => this._select(pointer)}
+          @focusin=${() => this._select(pointer)}
           @input=${(e) => this._onTextInput(node, e)}
-        />
+        ></sl-input>
         ${error ? html`<p class="form-error">${error}</p>` : nothing}
       </label>
     `;
