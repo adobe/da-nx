@@ -11,9 +11,6 @@
  */
 
 export { loadStyle } from '../utils/style.js';
-const NX_BLOCKS = new Set([
-  'importer',
-]);
 
 const LOG = async (ex, el) => (await import('../utils/error.js')).default(ex, el);
 
@@ -100,18 +97,28 @@ export const loc = ([first], ...values) => {
 };
 
 export async function loadBlock(block) {
-  const { codeBase, log } = getConfig();
+  const { nxBase, codeBase, providers, log } = getConfig();
   const { classList } = block;
   let name = classList[0];
+
+  let path;
   const isNx = name.startsWith('nx-');
-  name = isNx ? name.replace('nx-', '') : name;
+  if (isNx) {
+    name = name.replace('nx-', '');
+    path = `${nxBase}/blocks`;
+  } else {
+    const prefix = name.split('-')[0];
+    const provider = providers[prefix];
+    if (provider) {
+      name = name.slice(prefix.length + 1);
+      path = `${provider}/apps`;
+    } else {
+      path = `${codeBase}/blocks`;
+    }
+  }
+
   block.dataset.blockName = name;
-
-  const nxBase = NX_BLOCKS.has(name) ? '/nx' : '/nx2';
-
-  const path = isNx ? `${nxBase}/blocks` : `${codeBase}/blocks`;
   const blockPath = `${path}/${name}/${name}`;
-  block.dataset.blockName = name;
   try {
     await (await import(`${blockPath}.js`)).default(block);
   } catch (ex) {
