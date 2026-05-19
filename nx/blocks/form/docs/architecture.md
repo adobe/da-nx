@@ -29,7 +29,7 @@ form/
     html2json.js      vendored (to be moved out)
     json2html.js      vendored (to be moved out)
   form.css            shell layout (alongside form.js)
-  ui/
+  views/
     editor.js/.css    field rendering + array rendering
     sidebar.js/.css   navigation
     preview.js/.css   read-only JSON preview
@@ -43,11 +43,11 @@ form/
 
 ```txt
 app/  →  core/
-app/  →  ui/
-ui/   →  core/
+app/  →  views/
+views/   →  core/
 ```
 
-`core/` does not import from `ui/` or `app/`. `core/` has no Lit, no DOM, no browser dependency, and can be tested standalone.
+`core/` does not import from `views/` or `app/`. `core/` has no Lit, no DOM, no browser dependency, and can be tested standalone.
 
 ---
 
@@ -115,7 +115,7 @@ state = {
 
 ### What is intentionally NOT exposed
 
-- `ui/` (the Lit components) — agents have no DOM to render into.
+- `views/` (the Lit components) — agents have no DOM to render into.
 - `app/` (browser-specific fetch helpers, schema discovery) — wire your own I/O.
 
 The contract that bounds what schemas the public API accepts is in [schema-spec.md](./schema-spec.md). For a worked example of an external consumer, see [headless-consumer.md](./headless-consumer.md).
@@ -284,7 +284,7 @@ Keys are RFC 6901 pointers into the form data, always rooted at `/data` (the doc
 UI components look up their own error by pointer:
 
 ```js
-// ui/editor.js
+// views/editor.js
 const error = this.state?.validation?.errorsByPointer?.[node.pointer] ?? '';
 ```
 
@@ -466,7 +466,7 @@ They stay separate on purpose.
 
 - Let UI mutate document state directly (always via `core`).
 - Let UI call persistence directly.
-- Let `core/` import from `ui/` or `app/`.
+- Let `core/` import from `views/` or `app/`.
 - Let `core/` depend on DOM or Lit.
 - Silently degrade on unsupported schema features.
 

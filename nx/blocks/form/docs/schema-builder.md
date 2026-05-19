@@ -456,4 +456,4 @@ A few things the compiler deliberately leaves to other modules — useful to kno
 - **Type coercion of values.** Compilation has nothing to do with the document. See `coerceData` in [core/index.js](../core/index.js) and [architecture.md §13](./architecture.md).
 - **Defaults materialization.** The compiler captures `default` per node but does not write it into any document. `materializeDefaults` runs at load time when the document is empty.
 - **Validation execution.** The compiler picks *which* validation rules survive, not whether a value satisfies them. That happens in [core/validation.js](../core/validation.js).
-- **Rendering decisions.** The compiler produces `kind` and `enumValues`; the renderer in [ui/editor.js](../ui/editor.js) decides what HTML to emit for each kind. There is no compiler-side renderer hint beyond `kind` and `enumValues`.
+- **Rendering decisions.** The compiler produces `kind` and `enumValues`; the renderer in [views/editor.js](../views/editor.js) decides what HTML to emit for each kind. There is no compiler-side renderer hint beyond `kind` and `enumValues`.

@@ -120,7 +120,7 @@ The shell's `hashchange` listener calls `setup(el)` which `replaceChildren()` an
 ### High — affects large-doc scaling
 
 **[H1] Sidebar re-renders on every value change but only depends on tree shape**
-[ui/sidebar.js:80](nx/blocks/form/ui/sidebar.js:80)
+[views/sidebar.js:80](nx/blocks/form/views/sidebar.js:80)
 
 The sidebar renders the same `<button>` per node regardless of what value the node holds. Yet every `setField` triggers a sidebar re-render because `state` (its prop) changes by reference.
 
@@ -142,7 +142,7 @@ shouldUpdate(changed) {
 **Fix variant:** in `buildModel`, return the *same* `root` reference when the subtree is structurally identical (same children/items arrays by identity). That makes the sidebar's `shouldUpdate` work. This is a larger change but pays off everywhere.
 
 **[H2] Editor renders the entire tree on every keystroke**
-[ui/editor.js:423](nx/blocks/form/ui/editor.js:423)
+[views/editor.js:423](nx/blocks/form/views/editor.js:423)
 
 Same root issue as the sidebar. Lit's template caching makes the DOM diff cheap for unchanged nodes, but the JS work to build the template tree is O(N). For 1000+ fields this measurably slows down typing.
 

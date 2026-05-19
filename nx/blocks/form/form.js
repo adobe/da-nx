@@ -8,9 +8,9 @@ import { loadFormContext } from './app/context.js';
 import { saveSourceHtml } from './app/da-api.js';
 import { serialize } from './app/serialize.js';
 
-import './ui/editor.js';
-import './ui/sidebar.js';
-import './ui/preview.js';
+import './views/editor.js';
+import './views/sidebar.js';
+import './views/preview.js';
 
 const { default: getStyle } = await import('../../utils/styles.js');
 const style = await getStyle(import.meta.url);
