@@ -18,9 +18,6 @@ const style = await getStyle(import.meta.url);
 const DIALOG_MODULE = 'https://da.live/blocks/shared/da-dialog/da-dialog.js';
 const SL_COMPONENTS_MODULE = '../../public/sl/components.js';
 
-const loadBlockedDeps = () => import(DIALOG_MODULE);
-const loadSchemaPickerDeps = () => import(SL_COMPONENTS_MODULE);
-
 const EL_NAME = 'nx-form';
 const PREVIEW_PREFIX = 'https://da-sc.adobeaem.workers.dev/preview';
 const LIVE_PREFIX = 'https://da-sc.adobeaem.workers.dev/live';
@@ -96,9 +93,9 @@ class Form extends LitElement {
     if (version !== this._loadVersion) return;
 
     if (context.status === 'blocked') {
-      await loadBlockedDeps();
+      await import(DIALOG_MODULE);
     } else if (context.status === 'select-schema' || context.status === 'no-schemas') {
-      await loadSchemaPickerDeps();
+      await import(SL_COMPONENTS_MODULE);
     }
     if (version !== this._loadVersion) return;
 
