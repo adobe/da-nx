@@ -152,7 +152,7 @@ class Form extends LitElement {
 
   _renderCentered(content) {
     return html`
-      <div class="sc-form-wrapper sc-form-wrapper-centered">
+      <div class="nx-form-wrapper nx-form-wrapper-centered">
         ${content}
       </div>
     `;
@@ -160,20 +160,20 @@ class Form extends LitElement {
 
   _renderMessage(title, body, { showHomeAction = false, showProgress = false } = {}) {
     return this._renderCentered(html`
-      <div class="sc-form-schema-shell">
-        <section class="sc-form-message">
+      <div class="nx-form-schema-shell">
+        <section class="nx-form-message">
           ${showProgress || title ? html`
-            <div class="sc-form-message-title-row">
-              ${showProgress ? html`<span class="sc-form-progress-circle" aria-hidden="true"></span>` : nothing}
+            <div class="nx-form-message-title-row">
+              ${showProgress ? html`<span class="nx-form-progress-circle" aria-hidden="true"></span>` : nothing}
               ${title ? html`<h2>${title}</h2>` : nothing}
             </div>
           ` : nothing}
           <p>${body}</p>
           ${showHomeAction ? html`
-            <div class="sc-form-actions">
+            <div class="nx-form-actions">
               <button
                 type="button"
-                class="sc-form-button"
+                class="nx-form-button"
                 @click=${() => this._goHome()}
               >Return to Home</button>
             </div>
@@ -194,17 +194,17 @@ class Form extends LitElement {
 
     let title = 'Unable to open';
     let body = html`
-      <p class="sc-form-schema-hint">This resource could not be opened.</p>
+      <p class="nx-form-schema-hint">This resource could not be opened.</p>
     `;
 
     if (blocker.type === 'missing-schema') {
       const schemaName = blocker.schemaName || '(empty)';
       title = 'Schema not found';
       body = html`
-        <p class="sc-form-schema-hint">
+        <p class="nx-form-schema-hint">
           No schema named <strong>${schemaName}</strong>.
           <a
-            class="sc-form-schema-text-link"
+            class="nx-form-schema-text-link"
             href=${schemaEditorHref}
             target="_blank"
             rel="noopener noreferrer"
@@ -214,7 +214,7 @@ class Form extends LitElement {
     } else if (blocker.type === 'not-document' || blocker.type === 'not-form-content') {
       title = 'Unsupported resource';
       body = html`
-        <p class="sc-form-schema-hint">
+        <p class="nx-form-schema-hint">
           This resource${displayPath ? html` at <strong>${displayPath}</strong>` : nothing}
           is not Structured Content.
         </p>
@@ -222,14 +222,14 @@ class Form extends LitElement {
     } else if (blocker.type === 'no-access') {
       title = 'Access denied';
       body = html`
-        <p class="sc-form-schema-hint">
+        <p class="nx-form-schema-hint">
           You do not have access to this resource${displayPath ? html` at <strong>${displayPath}</strong>` : nothing}.
         </p>
       `;
     } else if (blocker.type === 'load-failed') {
       title = 'Unable to load';
       body = html`
-        <p class="sc-form-schema-hint">This resource could not be loaded. Try again later.</p>
+        <p class="nx-form-schema-hint">This resource could not be loaded. Try again later.</p>
       `;
     }
 
@@ -250,12 +250,12 @@ class Form extends LitElement {
     const schemaEditorHref = this._schemaEditorHref();
 
     return html`
-      <div class="sc-form-schema-shell">
-        <h2 class="sc-form-schema-heading">Choose a schema</h2>
-        <div class="sc-form-schema-form">
+      <div class="nx-form-schema-shell">
+        <h2 class="nx-form-schema-heading">Choose a schema</h2>
+        <div class="nx-form-schema-form">
           <sl-select
             hoist
-            class="sc-form-schema-select"
+            class="nx-form-schema-select"
             label="Schema"
             placeholder="Select a schema"
             .value=${this._pendingSchemaId}
@@ -266,17 +266,17 @@ class Form extends LitElement {
               <option value="${id}">${schema?.title ?? id}</option>
             `)}
           </sl-select>
-          <p class="sc-form-schema-hint sc-form-schema-selector-hint">
+          <p class="nx-form-schema-hint nx-form-schema-selector-hint">
             To create a new schema, open
             <a
-              class="sc-form-schema-text-link"
+              class="nx-form-schema-text-link"
               href=${schemaEditorHref}
               target="_blank"
               rel="noopener noreferrer"
             >Schema Editor</a>.
           </p>
           <sl-button
-            class="sc-form-schema-start"
+            class="nx-form-schema-start"
             ?disabled=${!this._pendingSchemaId}
             @click=${this._applySelectedSchema}
           >Create</sl-button>
@@ -287,15 +287,15 @@ class Form extends LitElement {
 
   _renderNoSchemas() {
     return html`
-      <div class="sc-form-schema-shell">
-        <div class="sc-form-schema-card">
-          <p class="sc-form-title">Please create a schema</p>
-          <p class="sc-form-schema-hint">
+      <div class="nx-form-schema-shell">
+        <div class="nx-form-schema-card">
+          <p class="nx-form-title">Please create a schema</p>
+          <p class="nx-form-schema-hint">
             This project has no schemas yet. Open the schema editor to add one, then return here.
           </p>
-          <div class="sc-form-schema-field sc-form-schema-field-link">
+          <div class="nx-form-schema-field nx-form-schema-field-link">
             <a
-              class="sc-form-schema-cta"
+              class="nx-form-schema-cta"
               href=${this._schemaEditorHref()}
               target="_blank"
               rel="noopener noreferrer"
@@ -321,8 +321,8 @@ class Form extends LitElement {
     }
 
     return html`
-      <div class="sc-form-wrapper">
-        <div class="sc-editor-pane">
+      <div class="nx-form-wrapper">
+        <div class="nx-editor-pane">
           <nx-editor
             .core=${this._core}
             .state=${this._state}

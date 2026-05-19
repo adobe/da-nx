@@ -11,11 +11,11 @@
   margin-bottom: 12px;
 }
 
-.sc-sidebar-section {
+.nx-sidebar-section {
   margin-bottom: 16px;
 }
 
-:host .sc-sidebar-title {
+:host .nx-sidebar-title {
   font-weight: 700;
   font-size: var(--sl-font-size-medium, 1rem);
   line-height: var(--sl-line-height-normal, 1.5);

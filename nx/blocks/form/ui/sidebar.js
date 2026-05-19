@@ -81,8 +81,8 @@ class Sidebar extends LitElement {
     const root = this.state?.model?.root;
 
     return html`
-      <div class="sc-sidebar-section">
-        <p class="sc-sidebar-title">Navigation</p>
+      <div class="nx-sidebar-section">
+        <p class="nx-sidebar-title">Navigation</p>
         ${root ? html`
           <div class="nav-list">
             <ul>${this._renderNode(root)}</ul>

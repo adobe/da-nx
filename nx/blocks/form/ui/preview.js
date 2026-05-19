@@ -54,7 +54,7 @@ class Preview extends LitElement {
   render() {
     return html`
       <div class="vis-wrapper is-visible">
-        <p class="sc-title">Preview</p>
+        <p class="nx-title">Preview</p>
         <pre><code>${this._text}</code></pre>
       </div>
     `;
