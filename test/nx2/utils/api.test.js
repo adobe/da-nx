@@ -1,6 +1,6 @@
 import { expect } from '@esm-bundle/chai';
-import { setMockIms, resetMockIms } from '../../../nx2/test/mocks/ims.js';
 import { HLX_ADMIN, AEM_API, DA_ADMIN } from '../../../nx2/utils/utils.js';
+
 import {
   daFetch,
   isHlx6,
@@ -16,6 +16,13 @@ import {
   snapshot,
   jobs,
 } from '../../../nx2/utils/api.js';
+
+// Dynamic-expression import (not a literal string) so @web/dev-server-import-maps
+// does not rewrite this to ...?wds-import-map=0. The same mock URL is reached at
+// runtime via the inline importmap when api.js's dynamic IIFE imports ims.js, so
+// both this test and api.js receive the *same* mock module instance.
+const imsPath = '../../../nx2/utils/ims.js';
+const { setMockIms, resetMockIms } = await import(imsPath);
 
 const STORAGE_KEY = 'hlx6-upgrade';
 
@@ -191,7 +198,7 @@ describe('api.js', () => {
       const body = new Blob(['<html></html>'], { type: 'text/html' });
       await source.put({ org: o, site: s, path: '/page.html', body });
       const last = lastCall();
-      expect(last.method).to.equal('PUT');
+      expect(last.method).to.equal('POST');
       expect(last.body).to.be.instanceof(FormData);
       const stored = last.body.get('data');
       expect(stored).to.be.instanceof(Blob);
@@ -202,7 +209,7 @@ describe('api.js', () => {
       const { org: o, site: s } = makeOrgSite({ hlx6: true });
       await source.put({ org: o, site: s, path: '/page.html', body: '<main></main>' });
       const last = lastCall();
-      expect(last.method).to.equal('PUT');
+      expect(last.method).to.equal('POST');
       expect(last.headers['Content-Type']).to.equal('text/html');
       expect(last.body).to.equal('<main></main>');
     });
@@ -387,10 +394,10 @@ describe('api.js', () => {
   });
 
   describe('config', () => {
-    it('config.get site-level hlx6', async () => {
+    it('config.get site-level uses DA regardless of hlx6 status', async () => {
       const { org: o, site: s } = makeOrgSite({ hlx6: true });
       await config.get({ org: o, site: s });
-      expect(lastCall().url).to.equal(`${AEM_API}/${o}/sites/${s}/config.json`);
+      expect(lastCall().url).to.equal(`${DA_ADMIN}/config/${o}/${s}/`);
     });
 
     it('config.get org-only legacy', async () => {

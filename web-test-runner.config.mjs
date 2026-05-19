@@ -50,7 +50,8 @@ export default {
             "imports": {
               "da-lit": "/deps/lit/dist/index.js",
               "/nx/public/sl/components.js": "/test/mocks/sl-components.js",
-              "/nx2/utils/ims.js": "/nx2/test/mocks/ims.js"
+              "/nx2/utils/ims.js": "/nx2/test/mocks/ims.js",
+              "/scripts/utils.js": "/nx2/test/mocks/scripts-utils.js"
             }
           }
         </script>

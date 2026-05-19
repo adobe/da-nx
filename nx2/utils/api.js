@@ -155,7 +155,7 @@ const withArgs = (fn) => (arg = {}, extras = {}) => {
     // eslint-disable-next-line no-console
     console.error('api: invalid args - pass /org/site/... string or { org, site, path }', arg);
   }
-  if (!args.path.startsWith('/')) {
+  if (typeof args.path === 'string' && !args.path.startsWith('/')) {
     args.path = `/${args.path}`;
   }
   return fn(args);
