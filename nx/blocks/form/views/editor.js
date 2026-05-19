@@ -98,6 +98,15 @@ class Editor extends LitElement {
     this.onSelect?.(pointer, 'editor');
   }
 
+  // Group containers (object fieldsets, array sections, structured array
+  // items) claim selection for their own pointer on click/focusin and stop
+  // propagation. Native bubbling ensures the innermost container wins, so
+  // clicking a leaf input inside nested groups activates the closest group.
+  _onGroupActivate(pointer, e) {
+    e.stopPropagation();
+    this._select(pointer);
+  }
+
   _mutate(fn) {
     // State notification flows through core's `onChange` callback wired in
     // the shell. UI just invokes the mutation.
@@ -117,7 +126,7 @@ class Editor extends LitElement {
   }
 
   _activeClass(pointer) {
-    return this.nav?.pointer === pointer ? ' is-active' : '';
+    return pointer && this.nav?.pointer === pointer ? ' is-active' : '';
   }
 
   _primitiveValue(node) {
@@ -175,7 +184,6 @@ class Editor extends LitElement {
             aria-label=${labelText}
             aria-invalid=${invalid}
             ?disabled=${readonly}
-            @focusin=${() => this._select(pointer)}
             @change=${(e) => this._onSelectInput(node, e)}
           >
             ${required
@@ -198,7 +206,6 @@ class Editor extends LitElement {
             aria-label=${labelText}
             aria-invalid=${invalid}
             ?disabled=${readonly}
-            @focusin=${() => this._select(pointer)}
             @change=${(e) => this._onBooleanInput(node, e)}
           ></sl-checkbox>
           ${hideLabel
@@ -219,7 +226,6 @@ class Editor extends LitElement {
             aria-label=${labelText}
             aria-invalid=${invalid}
             ?disabled=${readonly}
-            @focusin=${() => this._select(pointer)}
             @input=${(e) => this._onNumberInput(node, e)}
           ></sl-input>
           ${error ? html`<p class="form-error">${error}</p>` : nothing}
@@ -320,9 +326,15 @@ class Editor extends LitElement {
 
   _renderObject(node, { itemLabel = '' } = {}) {
     const children = node.children ?? [];
+    const activate = (e) => this._onGroupActivate(node.pointer, e);
     return html`
-      <fieldset class="form-node${this._activeClass(node.pointer)}" data-pointer=${node.pointer}>
-        <legend class="form-node-title" @click=${() => this._select(node.pointer)}>
+      <fieldset
+        class="form-node${this._activeClass(node.pointer)}"
+        data-pointer=${node.pointer}
+        @click=${activate}
+        @focusin=${activate}
+      >
+        <legend class="form-node-title">
           ${itemLabel ? html`<span class="form-item-label">${itemLabel}</span>` : nothing}
           ${node.label}${node.required ? html`<span class="is-required">*</span>` : nothing}
         </legend>
@@ -343,17 +355,20 @@ class Editor extends LitElement {
     const canAdd = !readonly && (maxItems === undefined || itemCount < maxItems);
     const addLabel = this._addLabel(node);
 
+    const activate = (e) => this._onGroupActivate(node.pointer, e);
     return html`
       <section
         class="form-node${this._activeClass(node.pointer)}"
         data-pointer=${node.pointer}
+        @click=${activate}
+        @focusin=${activate}
         @array-menu-open=${this._onArrayMenuOpen}
         @array-reorder-start=${(e) => { e.stopPropagation(); this._onReorderStart(e, itemCount); }}
         @array-insert=${(e) => { e.stopPropagation(); this._onArrayInsert(e); }}
         @array-remove=${(e) => { e.stopPropagation(); this._onArrayRemove(e); }}
       >
         <div class="form-node-header">
-          <p class="form-node-title" @click=${() => this._select(node.pointer)}>
+          <p class="form-node-title">
             ${node.label}${node.required ? html`<span class="is-required">*</span>` : nothing}
           </p>
         </div>
@@ -378,20 +393,27 @@ class Editor extends LitElement {
       ></nx-array-menu>
     `;
 
+      // For primitive items we deliberately do nothing so the click bubbles
+      // up to the surrounding array section and activates the array.
+      const itemActivate = (e) => {
+        if (!structured) return;
+        this._onGroupActivate(item.pointer, e);
+      };
       return html`
-            <article class="form-array-item${this._activeClass(item.pointer)}${structured ? '' : ' form-array-item-primitive'}${reorderActive ? ' move-item-picked' : ''}" data-pointer=${item.pointer}>
+            <article
+              class="form-array-item${this._activeClass(item.pointer)}${structured ? '' : ' form-array-item-primitive'}${reorderActive ? ' move-item-picked' : ''}"
+              data-pointer=${item.pointer}
+              @click=${itemActivate}
+              @focusin=${itemActivate}
+            >
               ${structured ? html`
                 <div class="form-array-item-header">
-                  <p class="form-array-item-title" @click=${() => this._select(item.pointer)}>
-                    ${title}
-                  </p>
+                  <p class="form-array-item-title">${title}</p>
                   <div class="form-array-item-actions">${menu}</div>
                 </div>
                 ${content}
               ` : html`
-                <p class="form-array-item-simple-label" @click=${() => this._select(item.pointer)}>
-                  ${title}
-                </p>
+                <p class="form-array-item-simple-label">${title}</p>
                 <div class="form-array-item-input-row">
                   <div class="form-array-item-input-main">
                     ${this._renderPrimitive(item, { hideLabel: true })}
