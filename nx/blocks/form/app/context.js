@@ -20,7 +20,6 @@ export function isEmptyDocumentHtml(htmlString) {
   const mainContainer = doc.querySelector('body > main > div');
   if (!mainContainer) return false;
 
-  if (mainContainer.tagName !== 'DIV') return false;
   if (mainContainer.childElementCount !== 0) return false;
   if (mainContainer.textContent.trim().length > 0) return false;
 
