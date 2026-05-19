@@ -15,7 +15,6 @@ import './views/preview.js';
 const { default: getStyle } = await import('../../utils/styles.js');
 const style = await getStyle(import.meta.url);
 
-const DIALOG_MODULE = 'https://da.live/blocks/shared/da-dialog/da-dialog.js';
 const SL_COMPONENTS_MODULE = '../../public/sl/components.js';
 
 const EL_NAME = 'nx-form';
@@ -94,9 +93,7 @@ class Form extends LitElement {
     const context = await loadFormContext({ details: this.details });
     if (version !== this._loadVersion) return;
 
-    if (context.status === 'blocked') {
-      await import(DIALOG_MODULE);
-    } else if (context.status === 'select-schema' || context.status === 'no-schemas') {
+    if (context.status === 'select-schema' || context.status === 'no-schemas') {
       await import(SL_COMPONENTS_MODULE);
     }
     if (version !== this._loadVersion) return;
@@ -180,63 +177,39 @@ class Form extends LitElement {
   _renderBlocked() {
     const { blocker = {}, displayPath } = this._context ?? {};
     const schemaEditorHref = this._schemaEditorHref();
-    const action = {
-      label: 'Return to Home',
-      style: '',
-      click: () => this._goHome(),
-    };
 
     let title = 'Unable to open';
-    let body = html`
-      <p class="nx-form-schema-hint">This resource could not be opened.</p>
-    `;
+    let body = html`This resource could not be opened.`;
 
     if (blocker.type === 'missing-schema') {
       const schemaName = blocker.schemaName || '(empty)';
       title = 'Schema not found';
       body = html`
-        <p class="nx-form-schema-hint">
-          No schema named <strong>${schemaName}</strong>.
-          <a
-            class="nx-form-schema-text-link"
-            href=${schemaEditorHref}
-            target="_blank"
-            rel="noopener noreferrer"
-          >Schema Editor</a>
-        </p>
+        No schema named <strong>${schemaName}</strong>.
+        <a
+          class="nx-form-schema-text-link"
+          href=${schemaEditorHref}
+          target="_blank"
+          rel="noopener noreferrer"
+        >Open Schema Editor</a>
       `;
     } else if (blocker.type === 'not-document' || blocker.type === 'not-form-content') {
       title = 'Unsupported resource';
       body = html`
-        <p class="nx-form-schema-hint">
-          This resource${displayPath ? html` at <strong>${displayPath}</strong>` : nothing}
-          is not Structured Content.
-        </p>
+        This resource${displayPath ? html` at <strong>${displayPath}</strong>` : nothing}
+        is not Structured Content.
       `;
     } else if (blocker.type === 'no-access') {
       title = 'Access denied';
       body = html`
-        <p class="nx-form-schema-hint">
-          You do not have access to this resource${displayPath ? html` at <strong>${displayPath}</strong>` : nothing}.
-        </p>
+        You do not have access to this resource${displayPath ? html` at <strong>${displayPath}</strong>` : nothing}.
       `;
     } else if (blocker.type === 'load-failed') {
       title = 'Unable to load';
-      body = html`
-        <p class="nx-form-schema-hint">This resource could not be loaded. Try again later.</p>
-      `;
+      body = html`This resource could not be loaded. Try again later.`;
     }
 
-    return html`
-      <da-dialog
-        title=${title}
-        size="large"
-        @close=${this._goHome}
-        .action=${action}
-      >
-        ${body}
-      </da-dialog>
-    `;
+    return this._renderMessage(title, body);
   }
 
   _renderSchemaSelector() {
