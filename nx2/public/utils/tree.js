@@ -58,7 +58,7 @@ async function getChildren(path) {
     const opts = continuationToken
       ? { headers: { 'da-continuation-token': continuationToken } }
       : {};
-    const resp = await daFetch(`${DA_ORIGIN}/list${path}`, opts);
+    const resp = await daFetch({ url: `${DA_ORIGIN}/list${path}`, opts });
     if (!resp.ok) break;
 
     const json = await resp.json();

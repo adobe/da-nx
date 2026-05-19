@@ -69,6 +69,23 @@ Decided to wrap nav and sidenav in semantic HTML elements:
 - Added to JS conventions section. Core idea: push validation to the boundary where data enters, return `null` or a well-formed result — no ambiguous middle ground. Downstream code trusts the shape without re-checking.
 - Codifies the distinct meaning of `null` (absent), `undefined` (not yet loaded), and `''` (explicitly cleared).
 - `parseWindowPath` is the canonical example: returns a clean `{ view, org, site, path }` or `null`.
+## 2026-05-07
+
+### nx2/utils/api.js — namespaced helpers + Helix 6 endpoint coverage
+- Replaced flat exports (`getSource`, `putSource`, etc.) with namespaced objects: `source`, `versions`, `config`, `org`, `status`, `aem` (combined preview + live), `log`, `snapshot`, `jobs`. Low-level primitives (`daFetch`, `isHlx6`, `signout`, `hlx6ToDaList`) stay top-level.
+- Two private URL builders: `getDaApiPath` for DA ↔ AEM endpoints (source/list/config/versions), `getAemApiPath` for AEM-only endpoints. AEM-only legacy fallback hits `HLX_ADMIN` with hardcoded `ref=main`.
+- Bulk endpoints inlined: `status.get`, `aem.preview`/`unPreview`/`publish`/`unPublish`, `snapshot.addPath`/`removePath` accept `daPath` as string or array. Array of length ≥ 2 dispatches to `/*` with JSON body `{ paths, delete? }`.
+- hlx6-only methods (`source.copy`/`move`, `versions.get`, `org.listSites`, `config.getAggregated`, `jobs.test`) return `{ error, status: 501 }` on legacy.
+- IMS import refactored from doubly-dynamic IIFE to relative `import { loadIms, handleSignIn } from './ims.js';` — same production behavior, no top-level await, lets the wtr importmap mock cleanly.
+- Snapshots: new API uses plural `/snapshots/{path}`, legacy uses singular `/snapshot/{org}/{site}/main{path}` — handled in `getAemApiPath`. Same singular/plural switch for `jobs`/`job`.
+- Migrated `nx/blocks/importer/index.js` from `putSource` to `source.put`.
+- New tests at `test/nx2/utils/api.test.js` (68 tests) covering daFetch, isHlx6, every namespace method, bulk dispatcher, hlx6-only short-circuits, hlx6ToDaList, signout. Added `/nx2/utils/ims.js` → `/nx2/test/mocks/ims.js` to the top-level `web-test-runner.config.mjs` importmap.
+
+### Out of scope
+- `code`, `cache`, `index`, `sitemap`, `media`, `discover` namespaces — explicitly skipped.
+- Login/logout/profile, config sub-namespaces (users/secrets/apikeys/tokens), nested config, profile config, org profiles — DA uses IMS, none of these are needed in the DA flow.
+- `versions.get` legacy — DA's versionsource get-by-id pattern isn't documented and existing repo usage only has POST-to-create. Marked hlx6-only with 501 on legacy.
+
 ## 2026-04-04
 
 ### Panel-aware default-content max-width
