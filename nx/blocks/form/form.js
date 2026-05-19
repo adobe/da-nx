@@ -157,16 +157,11 @@ class Form extends LitElement {
     `;
   }
 
-  _renderMessage(title, body, { showHomeAction = false, showProgress = false } = {}) {
+  _renderMessage(title, body, { showHomeAction = false } = {}) {
     return this._renderCentered(html`
       <div class="nx-form-schema-shell">
         <section class="nx-form-message">
-          ${showProgress || title ? html`
-            <div class="nx-form-message-title-row">
-              ${showProgress ? html`<span class="nx-form-progress-circle" aria-hidden="true"></span>` : nothing}
-              ${title ? html`<h2>${title}</h2>` : nothing}
-            </div>
-          ` : nothing}
+          ${title ? html`<h2>${title}</h2>` : nothing}
           <p>${body}</p>
           ${showHomeAction ? html`
             <div class="nx-form-actions">
@@ -306,9 +301,10 @@ class Form extends LitElement {
   }
 
   _renderReady() {
-    if (!this._state) {
-      return this._renderMessage('', 'Preparing structured content editor...', { showProgress: true });
-    }
+    // Transient: context is ready but the core has not finished loading yet.
+    // Render nothing rather than a half-second flash of a loading message;
+    // in a warm-cache session it would just be visual noise + CLS.
+    if (!this._state) return nothing;
 
     const root = this._state?.model?.root;
     if (!root) {
@@ -343,15 +339,17 @@ class Form extends LitElement {
     if (!this.details) return nothing;
 
     const { status } = this._context ?? {};
-    if (!status || status === 'loading') {
-      return this._renderMessage('', 'Preparing structured content editor...', { showProgress: true });
-    }
+    // Render nothing on the transient "loading" / unknown states — see the
+    // comment in _renderReady. The fast paths (cached) would flash a message
+    // for half a second and produce CLS; the slow paths still show one of
+    // the explicit branches below.
+    if (!status || status === 'loading') return nothing;
     if (status === 'blocked') return this._renderBlocked();
     if (status === 'select-schema') return this._renderCentered(this._renderSchemaSelector());
     if (status === 'no-schemas') return this._renderCentered(this._renderNoSchemas());
     if (status === 'ready') return this._renderReady();
 
-    return this._renderMessage('', 'Preparing structured content editor...', { showProgress: true });
+    return nothing;
   }
 }
 
