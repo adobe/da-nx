@@ -36,13 +36,13 @@ class Form extends LitElement {
     _pendingSchemaId: { state: true },
   };
 
-  // Reactive state: `_context`, `_state`, and `_nav` are deliberately left
-  // undefined until `_loadContext` populates them — per AGENTS.md, undefined
-  // means "not loaded yet" and lets render() use simple presence checks.
-  // `_pendingSchemaId` and `_loadVersion` carry counters/string state, so
-  // they keep explicit defaults.
-  _pendingSchemaId = '';
-
+  // Reactive state (`_context`, `_state`, `_nav`, `_pendingSchemaId`) is
+  // deliberately not initialized at the class-field level — class-field
+  // initializers use [[Define]] semantics and install an own property that
+  // shadows Lit's reactive setter, so `this._x = ...` would no longer trigger
+  // a re-render. See:
+  // https://lit.dev/docs/components/properties/#avoiding-issues-with-class-fields
+  // Non-reactive instance fields below are fine to initialize as class fields.
   _loadVersion = 0;
 
   _core = null;
@@ -228,7 +228,7 @@ class Form extends LitElement {
             class="nx-form-schema-select"
             label="Schema"
             placeholder="Select a schema"
-            .value=${this._pendingSchemaId}
+            .value=${this._pendingSchemaId ?? ''}
             @change=${this._onPendingSchemaChange}
           >
             <option value="">Select a schema</option>
