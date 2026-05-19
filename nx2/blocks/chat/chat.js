@@ -291,6 +291,15 @@ class NxChat extends LitElement {
     if (id === MENU_OPTIONS.PROMPT) this._openPrompts();
     if (id === MENU_OPTIONS.COMMAND) this._slashMenu.insertSlash(this.shadowRoot.querySelector('.chat-input'));
     if (id === MENU_OPTIONS.FILES) this._openFilePicker();
+    if (id === 'prompts' || id === 'skills') {
+      const { org, site } = this._context ?? {};
+      if (!org || !site) return;
+      const url = new URL(window.location.href);
+      url.pathname = '/app';
+      url.search = `?tab=${id}`;
+      url.hash = `#/${org}/${site}/tools/skills`;
+      window.open(url.href, '_blank', 'noopener,noreferrer');
+    }
   }
 
   _onDragEnter(e) {
