@@ -111,7 +111,7 @@ export async function loadBlock(block) {
     const provider = providers[prefix];
     if (provider) {
       name = name.slice(prefix.length + 1);
-      path = `${provider}/apps`;
+      path = `${provider}/blocks`;
     } else {
       path = `${codeBase}/blocks`;
     }
