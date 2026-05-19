@@ -94,7 +94,7 @@ const getTenantId = (profile) => {
   const found = profile.projectedProductContext?.find(
     (projected) => projected.prodCtx.serviceCode === 'dma_tartan',
   );
-  return found?.prodCtx.serviceCode;
+  return found?.prodCtx.tenant_id;
 };
 
 async function loadDetails(accessToken) {
@@ -105,11 +105,19 @@ async function loadDetails(accessToken) {
   return { ...profile, tenantId, accessToken, getIo, getOrgs };
 }
 
+function settleWithTimeout(resolve, reject) {
+  const timeout = setTimeout(() => reject(new Error('IMS timeout')), IMS_TIMEOUT);
+  return [resolve, reject].map((fn) => (v) => {
+    clearTimeout(timeout);
+    fn(v);
+  });
+}
+
 export const loadIms = (() => {
   let ims;
 
   const setup = () => new Promise((resolve, reject) => {
-    const timeout = setTimeout(() => reject(new Error('IMS timeout')), IMS_TIMEOUT);
+    const [done, fail] = settleWithTimeout(resolve, reject);
 
     window.adobeid = {
       client_id: imsClientId,
@@ -118,18 +126,17 @@ export const loadIms = (() => {
       autoValidateToken: true,
       environment: IMS_ENV[env],
       useLocalStorage: true,
-      onError: reject,
+      onError: fail,
       onReady: () => {
         const accessToken = window.adobeIMS.getAccessToken();
-        if (accessToken) {
-          loadDetails(accessToken).then((details) => resolve(details));
-        } else {
-          resolve({ anonymous: true });
+        if (!accessToken) {
+          done({ anonymous: true });
+          return;
         }
-        clearTimeout(timeout);
+        loadDetails(accessToken).then(done, fail);
       },
     };
-    loadScript(IMS_URL);
+    loadScript(IMS_URL).catch(fail);
   });
 
   return () => {
