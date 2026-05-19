@@ -22,11 +22,11 @@ async function loadSchema(entry) {
   }
 }
 
-export async function loadSchemas({ owner, repo, refresh = false } = {}) {
+export async function loadSchemas({ owner, repo } = {}) {
   const key = cacheKey(owner, repo);
   if (!key) return {};
 
-  if (!refresh && cache.has(key)) return cache.get(key);
+  if (cache.has(key)) return cache.get(key);
 
   const path = `/${owner}/${repo}${FORMS_BASE_PATH}/schemas`;
   const listed = await listPath({ path });
