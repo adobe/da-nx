@@ -13,7 +13,7 @@ import './ui/sidebar.js';
 import './ui/preview.js';
 
 const { default: getStyle } = await import('../../utils/styles.js');
-const style = await getStyle(new URL('./ui/shell.css', import.meta.url).href);
+const style = await getStyle(import.meta.url);
 
 const DIALOG_MODULE = 'https://da.live/blocks/shared/da-dialog/da-dialog.js';
 const SL_COMPONENTS_MODULE = new URL('../../public/sl/components.js', import.meta.url).href;

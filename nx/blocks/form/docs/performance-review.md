@@ -56,7 +56,7 @@ init(el)
 
 The shell module awaits the shared `utils/styles.js` helper and the shell stylesheet before the element is declared. Each UI module also awaits its own stylesheet load at module top. The screen-specific deps (`da-dialog`, `sl/components`, `array-menu`, `reorder`) are lazy-loaded against the status route — `da-dialog` only when blocked, `sl/components` only when the schema picker is shown, `array-menu` / `reorder` from the editor's `firstUpdated` — so they don't gate the spinner.
 
-The remaining cost on a cold cache is the static import graph: `form.js`, `da-lit`, `getPathDetails`, `da-title`, the three UI components, `utils/styles.js`, and the per-component stylesheets (`shell.css`, `editor.css`, `sidebar.css`, `preview.css`). ~10 requests for the loading screen, all parallelizable over HTTP/2.
+The remaining cost on a cold cache is the static import graph: `form.js`, `da-lit`, `getPathDetails`, `da-title`, the three UI components, `utils/styles.js`, and the per-component stylesheets (`form.css`, `editor.css`, `sidebar.css`, `preview.css`). ~10 requests for the loading screen, all parallelizable over HTTP/2.
 
 ### 2.2. Single keystroke (the most-frequent path)
 

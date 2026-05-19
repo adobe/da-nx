@@ -28,8 +28,8 @@ form/
     serialize.js      json → html via json2html
     html2json.js      vendored (to be moved out)
     json2html.js      vendored (to be moved out)
+  form.css            shell layout (alongside form.js)
   ui/
-    shell.css         shell layout (imports the others)
     editor.js/.css    field rendering + array rendering
     sidebar.js/.css   navigation
     preview.js/.css   read-only JSON preview
