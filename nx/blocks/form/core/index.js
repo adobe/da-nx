@@ -21,9 +21,8 @@ function parseDocument(document) {
     return null;
   }
   if (!('data' in next)) return null;
-  if (next.data === null || typeof next.data !== 'object' || Array.isArray(next.data)) {
-    return null;
-  }
+
+  if (next.data === null || typeof next.data !== 'object') return null;
 
   return next;
 }

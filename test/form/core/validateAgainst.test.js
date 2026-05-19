@@ -67,4 +67,45 @@ describe('validateAgainst', () => {
     );
     expect(result.errorsByPointer['/data/name']).to.equal('This field is required.');
   });
+
+  it('accepts an array-root schema with an array data payload', () => {
+    const result = validateAgainst(
+      {
+        type: 'array',
+        items: {
+          type: 'object',
+          required: ['name'],
+          properties: {
+            name: { type: 'string' },
+            matrix: {
+              type: 'array',
+              items: { type: 'array', items: { type: 'string' } },
+            },
+          },
+        },
+      },
+      [
+        { name: 'alpha', matrix: [['a1', 'a2']] },
+        { name: 'beta', matrix: [['b1']] },
+      ],
+    );
+    expect(result.errorsByPointer).to.deep.equal({});
+    expect(result.schemaIssues).to.deep.equal([]);
+    expect(result.editable).to.equal(true);
+  });
+
+  it('flags a required-field violation inside an array-root item', () => {
+    const result = validateAgainst(
+      {
+        type: 'array',
+        items: {
+          type: 'object',
+          required: ['name'],
+          properties: { name: { type: 'string' } },
+        },
+      },
+      [{ name: '' }],
+    );
+    expect(result.errorsByPointer['/data/0/name']).to.equal('This field is required.');
+  });
 });

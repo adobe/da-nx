@@ -195,6 +195,101 @@ describe('createCore', () => {
     });
   });
 
+  describe('array-root documents', () => {
+    const nestedArraySchema = {
+      $schema: 'https://json-schema.org/draft/2020-12/schema',
+      type: 'array',
+      title: 'Groups',
+      items: {
+        type: 'object',
+        required: ['name', 'matrix'],
+        properties: {
+          name: { type: 'string', title: 'Name' },
+          matrix: {
+            type: 'array',
+            title: 'Matrix',
+            items: {
+              type: 'array',
+              title: 'Row',
+              items: { type: 'string', title: 'Cell' },
+            },
+          },
+        },
+      },
+    };
+
+    const simpleArraySchema = {
+      type: 'array',
+      items: { type: 'string' },
+    };
+
+    it('builds a model when the schema root is an array and data is an array', async () => {
+      const core = createCore({ saveDocument: trackingSaver() });
+      const state = await core.load({
+        schema: simpleArraySchema,
+        document: { metadata: { schemaName: 'tags' }, data: ['x', 'y'] },
+      });
+      expect(state.model.root.kind).to.equal('array');
+      expect(state.model.root.items).to.have.lengthOf(2);
+      expect(state.validation.errorsByPointer).to.deep.equal({});
+    });
+
+    it('walks a deeply nested array → object → array → array → string tree', async () => {
+      const core = createCore({ saveDocument: trackingSaver() });
+      const state = await core.load({
+        schema: nestedArraySchema,
+        document: {
+          metadata: { schemaName: 'groups' },
+          data: [{ name: 'alpha', matrix: [['a1', 'a2'], ['a3']] }],
+        },
+      });
+      const item = state.model.root.items[0];
+      expect(item.kind).to.equal('object');
+      const matrix = item.children.find((c) => c.key === 'matrix');
+      expect(matrix.kind).to.equal('array');
+      expect(matrix.items[0].kind).to.equal('array');
+      expect(matrix.items[0].items[0].kind).to.equal('string');
+      expect(matrix.items[0].items[0].value).to.equal('a1');
+      expect(state.validation.errorsByPointer).to.deep.equal({});
+    });
+
+    it('mutates and persists the root array via the /data pointer', async () => {
+      const saver = trackingSaver();
+      const core = createCore({ path: '/p.html', saveDocument: saver });
+      await core.load({
+        schema: simpleArraySchema,
+        document: { metadata: {}, data: ['x'] },
+      });
+      const wait = saver.waitForNext();
+      const next = core.addItem('/data');
+      await wait;
+      expect(next.document.values.data).to.deep.equal(['x', '']);
+      expect(saver.calls[0].document.data).to.deep.equal(['x', '']);
+    });
+
+    it('setField updates a leaf via a path that descends from the root array', async () => {
+      const core = createCore({ saveDocument: trackingSaver() });
+      await core.load({
+        schema: nestedArraySchema,
+        document: { metadata: {}, data: [{ name: 'alpha', matrix: [['a1']] }] },
+      });
+      const next = core.setField('/data/0/name', 'gamma');
+      expect(next.document.values.data[0].name).to.equal('gamma');
+    });
+
+    it('still rejects a document whose data is a non-container value', async () => {
+      const core = createCore({ saveDocument: trackingSaver() });
+      for (const data of ['scalar', 42, true, null]) {
+        // eslint-disable-next-line no-await-in-loop
+        const state = await core.load({
+          schema: simpleArraySchema,
+          document: { metadata: {}, data },
+        });
+        expect(state.model, `data=${JSON.stringify(data)}`).to.equal(null);
+      }
+    });
+  });
+
   describe('defaults materialization', () => {
     // Schema with defaults at multiple positions, plus a field without a
     // default. Used across the scenarios below.
