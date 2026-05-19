@@ -334,8 +334,7 @@ _mutateDebounced(pointer, fn) {
   clearTimeout(this._inputTimers.get(pointer));
   this._inputTimers.set(pointer, setTimeout(() => {
     this._inputTimers.delete(pointer);
-    fn(this.core);
-    this.onMutate?.();
+    this._mutate(fn);   // → fn(this.core); state notification flows through core.onChange
   }, DEBOUNCE_MS));
 }
 ```

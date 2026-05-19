@@ -16,14 +16,16 @@ init(el)
        ├─ connectedCallback → adoptedStyleSheets sync
        ├─ updated(changed) sees `details`        sync
        └─ _loadContext()
-            ├─ status = 'loading' → spinner
+            ├─ status = 'loading' → render nothing (no spinner, no message)
             ├─ loadFormContext({ details })      ← network
             │    ├─ loadSchemas({ owner, repo })     ← DA list + N source GETs
             │    └─ fetchSourceHtml({ sourceUrl })    ← single GET
+            ├─ if status !== 'blocked':
+            │    └─ await import('../../public/sl/components.js')  ← SL components
             ├─ Route by status:
-            │    ├─ 'blocked'        → loadBlockedDeps()    (lazy da-dialog)
-            │    ├─ 'select-schema'  → loadSchemaPickerDeps() (lazy sl/components)
-            │    ├─ 'no-schemas'     → loadSchemaPickerDeps()
+            │    ├─ 'blocked'        → inline message (no modal, no extra import)
+            │    ├─ 'select-schema'  → schema picker
+            │    ├─ 'no-schemas'     → "Create a schema" CTA
             │    └─ 'ready'          → _start({ schema, json })
             └─ _start
                  └─ createCore({ path, saveDocument, onChange })
@@ -53,7 +55,7 @@ init(el)
 | HTML has unknown `schemaName`     | `blocked: missing-schema`   | "Schema not found"     |
 | Otherwise                         | `ready`                     | Editor                 |
 
-**What's lazy.** `da-dialog`, `sl/components`, `array-menu`, and `reorder` modules import only when the route or action that needs them is reached. They do not gate the spinner.
+**What's lazy.** `sl/components` is dynamic-imported inside `_loadContext` for every non-`blocked` status (editor and both empty-document screens render SL form fields). `array-menu` and `reorder` are dynamic-imported from the editor's `firstUpdated`. Nothing gates first paint — the transient `loading` status renders nothing at all.
 
 ---
 

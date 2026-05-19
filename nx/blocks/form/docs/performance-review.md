@@ -12,7 +12,7 @@ This block is an editor for human-authored structured content. The performance e
 |---|---|---|
 | Document size | 50–200 KB JSON, ~50–500 fields | Operations on the doc are O(size) and run on a keystroke — they must stay under ~16 ms to keep typing at 60 fps. |
 | Schema size | < 100 KB, < 1000 properties total after `$ref` resolution | Compile happens once per load — budget ~100 ms. |
-| Initial load | First paint of the loading spinner | < 200 ms after the block module starts. |
+| Initial load | First meaningful paint (either the editor on a warm cache, or one of the explicit status screens) | < 200 ms after the block module starts. The transient loading state renders nothing — no spinner, no "preparing…" message. |
 | Time-to-edit | From `init(el)` to a working editor | < 1 s on a warm cache, < 2 s cold. |
 | Save latency | After typing stops | One round-trip per debounced burst; debounce 350 ms. |
 | Typing latency | Keystroke → character visible | Native input echo is immediate (the `<input>` value is uncontrolled in the React sense — we don't block the DOM). The mutation pipeline runs in the background after 350 ms. So typing should *feel* instant regardless of doc size. |
@@ -32,7 +32,7 @@ init(el)
   └─ <nx-form> upgrades
        ├─ updated() sees details                 sync
        └─ _loadContext()
-            ├─ status = 'loading' → render spinner
+            ├─ status = 'loading' → render nothing
             ├─ loadFormContext({ details })       ← network
             │    ├─ loadSchemas (DA list + N source GETs)
             │    └─ fetchSourceHtml(details.sourceUrl)
@@ -54,13 +54,13 @@ init(el)
 
 **Blocking before first paint:**
 
-The shell module awaits the shared `utils/styles.js` helper and the shell stylesheet before the element is declared. Each UI module also awaits its own stylesheet load at module top. The screen-specific deps (`da-dialog`, `sl/components`, `array-menu`, `reorder`) are lazy-loaded against the status route — `da-dialog` only when blocked, `sl/components` only when the schema picker is shown, `array-menu` / `reorder` from the editor's `firstUpdated` — so they don't gate the spinner.
+The shell module awaits the shared `utils/styles.js` helper and the shell stylesheet before the element is declared. Each UI module also awaits its own stylesheet load at module top. `sl/components` is dynamic-imported inside `_loadContext` for every non-blocked status (editor, schema picker, "no schemas" CTA — they all paint SL fields). `array-menu` and `reorder` are dynamic-imported from the editor's `firstUpdated`. The transient loading state renders nothing, so none of these imports gate first paint.
 
 The remaining cost on a cold cache is the static import graph: `form.js`, `da-lit`, `getPathDetails`, `da-title`, the three UI components, `utils/styles.js`, and the per-component stylesheets (`form.css`, `editor.css`, `sidebar.css`, `preview.css`). ~10 requests for the loading screen, all parallelizable over HTTP/2.
 
 ### 2.2. Single keystroke (the most-frequent path)
 
-After the per-pointer 350 ms debounce, `editor.js → core.setField(pointer, value) → onMutate()`. What runs:
+After the per-pointer 350 ms debounce, `editor.js` calls `core.setField(pointer, value)`. What runs:
 
 ```txt
 core.setField(pointer, value)
@@ -68,15 +68,15 @@ core.setField(pointer, value)
        ├─ applySet → deepClone(document)        ← the single clone
        ├─ rebuildModel(nextDoc)
        │    ├─ buildModel(definition, nextDoc)  ← O(N) tree walk + byPointer Map
-       │    └─ validateDocument                 ← schema validation + O(N) model walk
+       │    ├─ validateDocument                 ← schema validation + O(N) model walk
+       │    └─ commitState(next) → onChange()   ← single notification path
+       │         └─ shell._state = core.getState()
+       │              → Lit re-renders <nx-form>
+       │                 ├─ <nx-editor>.state ←  new ref → re-render entire form tree (O(N) JS work)
+       │                 ├─ <nx-sidebar>.state ← new ref → re-render entire nav tree (O(N) JS work)
+       │                 └─ <nx-preview>.state ← new ref → render is cheap; preview repaints imperatively after a 500 ms debounce
        └─ persist()
             └─ saveDocument({ path, document })  ← HTTP POST (async, not awaited)
-
-onMutate() → shell sets _state = core.getState()
-  └─ Lit re-renders <nx-form>
-       ├─ <nx-editor>.state ←  new ref → re-render entire form tree (O(N) JS work)
-       ├─ <nx-sidebar>.state ← new ref → re-render entire nav tree (O(N) JS work)
-       └─ <nx-preview>.state ← new ref → render is cheap (cached text); JSON.stringify is debounced 500 ms
 ```
 
 **Per-keystroke cost summary** (N = number of fields, D = document byte size):
@@ -170,25 +170,7 @@ window.addEventListener('hashchange', () => { setup(el); });
 
 ### Medium — adds up over a session
 
-**[M1] Save POST on every debounced burst**
-
-A fast typist generates one POST per ~350 ms. Most are obsolete by the time they arrive. With network jitter, an earlier save can land after a later one — silent overwrite. The earlier review noted save sequencing was deleted; we deferred the consequence.
-
-**Fix (correctness, not perf):** when a save is in flight, mark a `dirty` flag and re-save on completion. Avoids redundant in-flight saves and prevents stale overwrites. Roughly:
-
-```js
-let inFlight = false;
-let pending = false;
-async function persist() {
-  if (inFlight) { pending = true; return; }
-  inFlight = true;
-  do {
-    pending = false;
-    await saveDocument({ path, document: deepClone(state.document.values) });
-  } while (pending);
-  inFlight = false;
-}
-```
+**[M1] Save POST on every debounced burst** — *implemented*. `core/index.js`'s `persist()` is now single-flight with re-queue; see [architecture.md §8](./architecture.md). At most one POST in flight at a time; new mutations during a save flip `pending` and the loop re-iterates with the latest `state.document.values`. An earlier POST cannot land after a newer one.
 
 ### Low — measure before optimizing
 
@@ -223,7 +205,6 @@ each is a reactive property. Any change schedules an `updated()` cycle.
   core      ← changes once per load
   state     ← changes every mutation
   nav       ← changes every selection
-  onMutate  ← stable
   onSelect  ← stable
 
 <nx-sidebar>
@@ -243,7 +224,7 @@ But every mutation propagates a new `state` reference to all three children. All
 
 - ✅ The shell stores `_state` and `_nav` as Lit reactive `{ state: true }` properties — no manual `requestUpdate()` needed.
 - ✅ Mutation no-ops return the same `state` reference (core's `commit` returns `state` unchanged when `mutationResult.changed` is false), so Lit's `===` check skips the re-render.
-- ✅ `onMutate` and `onSelect` arrow-fns are stable refs — passed as `.onMutate=` and `.onSelect=` they don't churn.
+- ✅ `onSelect` arrow-fn is a stable ref — passed as `.onSelect=` it doesn't churn. State notifications use `core.onChange` (one callback wired in `_start`) instead of a separate `onMutate` prop on every child.
 - ✅ `editor.updated()` correctly uses `changed.get('nav')` to access the previous value — the standard Lit pattern.
 - ✅ Disposal: editor clears `_inputTimers` in `disconnectedCallback`. Reorder dialog removes its `document` keydown listener. Array menu removes its peer-event and click-outside listeners.
 
@@ -263,19 +244,18 @@ But every mutation propagates a new `state` reference to all three children. All
 
 The "do these now" set, in order:
 
-1. **[M1] Single-flight save with re-queue.** Correctness + perf fix combined.
-2. **[H4] Skip hash-change teardown when the document hasn't changed.** Compare paths first.
+1. **[H4] Skip hash-change teardown when the document hasn't changed.** Compare paths first.
 
 The "consider later, profile first" set:
 
-4. **[H1] / [H2]** Sidebar/editor partial re-rendering. Significant refactor; only worth it when a real form crosses the threshold. Measure on the largest production schema before committing.
-5. **Structural sharing in `buildModel`.** Return identity-stable `root` when only leaf values changed. Unlocks `shouldUpdate` checks.
+2. **[H1] / [H2]** Sidebar/editor partial re-rendering. Significant refactor; only worth it when a real form crosses the threshold. Measure on the largest production schema before committing.
+3. **Structural sharing in `buildModel`.** Return identity-stable `root` when only leaf values changed. Unlocks `shouldUpdate` checks.
 
 The "leave alone" set:
 
-6. `byPointer` rebuild — O(N) is fine when N is small.
-7. The `JSON.parse(JSON.stringify(...))` fallback in `deepClone` — dead code but harmless.
-8. `getStyle` semantics — verify if curious but don't preempt.
+4. `byPointer` rebuild — O(N) is fine when N is small.
+5. The `JSON.parse(JSON.stringify(...))` fallback in `deepClone` — dead code but harmless.
+6. `getStyle` semantics — verify if curious but don't preempt.
 
 ---
 
@@ -294,7 +274,7 @@ The "leave alone" set:
 Before optimizing further, get numbers. Suggested micro-benchmarks (none exist today):
 
 1. **Per-keystroke pipeline**, end-to-end (`setField` → render committed) — measure on docs of 10, 100, 1000, 5000 fields.
-2. **Cold module load** — `performance.now()` from `init()` call to first paint of the spinner.
+2. **Cold module load** — `performance.now()` from `init()` call to first meaningful paint (editor or status screen).
 3. **`core.load` time** — from call to returned state, on the same dataset sizes.
 4. **Preview render time alone** — isolate `JSON.stringify` + DOM update cost from the rest of the per-keystroke pipeline.
 
