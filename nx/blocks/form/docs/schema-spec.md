@@ -25,6 +25,7 @@ A conformant schema satisfies every rule below.
 | R8 | `$ref` values must be same-document JSON Pointers (`#/...`). |
 | R9 | Property keys must begin with a letter (`a–z`, `A–Z`) and contain only letters, digits (`0–9`), and hyphens (`-`). |
 | R10 | The property keys `metadata` and `section-metadata` are reserved. They must not appear in `properties`. |
+| R11 | The root schema may declare `type: "object"` or `type: "array"`. |
 
 ---
 
