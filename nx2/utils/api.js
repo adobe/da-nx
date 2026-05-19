@@ -204,7 +204,7 @@ export const source = {
     if (site) {
       const hlx6 = await isHlx6(org, site);
       if (hlx6) {
-        const slashed = path ? `${path}/` : '/';
+        const slashed = path?.endsWith('/') ? path : `${path ?? ''}/`;
         const url = await getDaApiPath(SOURCE, org, site, slashed);
         return daFetch({ url });
       }
