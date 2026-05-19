@@ -36,13 +36,9 @@ class Form extends LitElement {
     _pendingSchemaId: { state: true },
   };
 
-  // Reactive state (`_context`, `_state`, `_nav`, `_pendingSchemaId`) is
-  // deliberately not initialized at the class-field level — class-field
-  // initializers use [[Define]] semantics and install an own property that
-  // shadows Lit's reactive setter, so `this._x = ...` would no longer trigger
-  // a re-render. See:
+  // Reactive properties (declared in static properties) must NOT have class-
+  // field initializers — they would shadow Lit's reactive setter. See
   // https://lit.dev/docs/components/properties/#avoiding-issues-with-class-fields
-  // Non-reactive instance fields below are fine to initialize as class fields.
   _loadVersion = 0;
 
   _core = null;
@@ -93,9 +89,6 @@ class Form extends LitElement {
     const context = await loadFormContext({ details: this.details });
     if (version !== this._loadVersion) return;
 
-    // The editor and the schema picker both render sl-input / sl-select /
-    // sl-checkbox. Load the SL components once, on any path that will paint
-    // a field — only the inline error states never render one.
     if (context.status !== 'blocked') {
       await import(SL_COMPONENTS_MODULE);
     }
@@ -277,9 +270,6 @@ class Form extends LitElement {
   }
 
   _renderReady() {
-    // Transient: context is ready but the core has not finished loading yet.
-    // Render nothing rather than a half-second flash of a loading message;
-    // in a warm-cache session it would just be visual noise + CLS.
     if (!this._state) return nothing;
 
     const root = this._state?.model?.root;
@@ -315,10 +305,6 @@ class Form extends LitElement {
     if (!this.details) return nothing;
 
     const { status } = this._context ?? {};
-    // Render nothing on the transient "loading" / unknown states — see the
-    // comment in _renderReady. The fast paths (cached) would flash a message
-    // for half a second and produce CLS; the slow paths still show one of
-    // the explicit branches below.
     if (!status || status === 'loading') return nothing;
     if (status === 'blocked') return this._renderBlocked();
     if (status === 'select-schema') return this._renderCentered(this._renderSchemaSelector());

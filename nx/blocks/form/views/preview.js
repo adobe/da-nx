@@ -6,8 +6,6 @@ const style = await getStyle(import.meta.url);
 const EL_NAME = 'nx-preview';
 const REFRESH_MS = 500;
 
-// Lazy-load Prism only once across the page lifetime. The preview is the only
-// place that uses it, and loading it on demand keeps it off the critical path.
 let prismLoading;
 async function loadPrism() {
   if (window.Prism) return window.Prism;
@@ -57,11 +55,8 @@ class Preview extends LitElement {
     }, REFRESH_MS);
   }
 
-  // Prism rewrites the inside of <code> into highlighted <span>s. If we let
-  // Lit interpolate `${this._text}` into that element, the next render would
-  // try to update a child node Prism already replaced and would either throw
-  // or no-op silently. We render an EMPTY <code> via Lit and own the text
-  // content imperatively from here on.
+  // Owns <code>'s contents imperatively: Prism mutates the element, so Lit
+  // template interpolation inside it would fight the highlighter on every paint.
   async _paint() {
     const code = this.shadowRoot?.querySelector('code');
     if (!code) return;

@@ -1,11 +1,6 @@
 import { DA_ORIGIN } from 'https://da.live/blocks/shared/constants.js';
 import { daFetch } from 'https://da.live/blocks/shared/utils.js';
 
-// Helpers return `{ error, ... }` on every failure path, including thrown
-// network / parse errors. Callers (notably `app/context.js`'s Promise.all)
-// rely on this — a rejected promise here would surface as an unhandled
-// rejection at the await site.
-
 export async function fetchSourceHtml({ sourceUrl }) {
   if (!sourceUrl) return { error: 'Missing source URL.' };
 

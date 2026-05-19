@@ -86,8 +86,6 @@ export default defineConfig([
     },
   },
   {
-    // Enforce the form block's layer boundary: `core/` must stay headless
-    // (no DOM, no Lit, no I/O). See nx/blocks/form/docs/architecture.md §2.
     files: ['nx/blocks/form/core/**/*.js'],
     rules: {
       'no-restricted-imports': ['error', {
