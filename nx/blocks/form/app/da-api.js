@@ -1,48 +1,67 @@
 import { DA_ORIGIN } from 'https://da.live/blocks/shared/constants.js';
 import { daFetch } from 'https://da.live/blocks/shared/utils.js';
 
+// Helpers return `{ error, ... }` on every failure path, including thrown
+// network / parse errors. Callers (notably `app/context.js`'s Promise.all)
+// rely on this — a rejected promise here would surface as an unhandled
+// rejection at the await site.
+
 export async function fetchSourceHtml({ sourceUrl }) {
   if (!sourceUrl) return { error: 'Missing source URL.' };
 
-  const resp = await daFetch(sourceUrl);
-  if (!resp.ok) return { error: 'Could not load source document.', status: resp.status };
-
-  return { html: await resp.text() };
+  try {
+    const resp = await daFetch(sourceUrl);
+    if (!resp.ok) return { error: 'Could not load source document.', status: resp.status };
+    return { html: await resp.text() };
+  } catch (e) {
+    return { error: 'Could not load source document.', cause: e?.message ?? String(e) };
+  }
 }
 
 export async function fetchSourceByPath({ path }) {
   if (!path) return { error: 'Missing source path.' };
 
-  const resp = await daFetch(`${DA_ORIGIN}/source${path}`);
-  if (!resp.ok) return { error: 'Could not load source path.', status: resp.status };
-
-  return { html: await resp.text() };
+  try {
+    const resp = await daFetch(`${DA_ORIGIN}/source${path}`);
+    if (!resp.ok) return { error: 'Could not load source path.', status: resp.status };
+    return { html: await resp.text() };
+  } catch (e) {
+    return { error: 'Could not load source path.', cause: e?.message ?? String(e) };
+  }
 }
 
 export async function listPath({ path }) {
   if (!path) return { error: 'Missing list path.' };
 
-  const resp = await daFetch(`${DA_ORIGIN}/list${path}`);
-  if (!resp.ok) return { error: 'Could not list path.', status: resp.status };
+  try {
+    const resp = await daFetch(`${DA_ORIGIN}/list${path}`);
+    if (!resp.ok) return { error: 'Could not list path.', status: resp.status };
 
-  const json = await resp.json();
-  if (!Array.isArray(json)) return { error: 'List payload is invalid.' };
+    const json = await resp.json();
+    if (!Array.isArray(json)) return { error: 'List payload is invalid.' };
 
-  return { json };
+    return { json };
+  } catch (e) {
+    return { error: 'Could not list path.', cause: e?.message ?? String(e) };
+  }
 }
 
 export async function saveSourceHtml({ path, html }) {
   if (!path || typeof html !== 'string') return { error: 'Invalid save input.' };
 
-  const body = new FormData();
-  body.append('data', new Blob([html], { type: 'text/html' }));
+  try {
+    const body = new FormData();
+    body.append('data', new Blob([html], { type: 'text/html' }));
 
-  const resp = await daFetch(`${DA_ORIGIN}/source${path}`, {
-    method: 'POST',
-    body,
-  });
+    const resp = await daFetch(`${DA_ORIGIN}/source${path}`, {
+      method: 'POST',
+      body,
+    });
 
-  if (!resp.ok) return { error: 'Could not save source document.', status: resp.status };
+    if (!resp.ok) return { error: 'Could not save source document.', status: resp.status };
 
-  return { ok: true };
+    return { ok: true };
+  } catch (e) {
+    return { error: 'Could not save source document.', cause: e?.message ?? String(e) };
+  }
 }
