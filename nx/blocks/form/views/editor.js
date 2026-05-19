@@ -164,89 +164,71 @@ class Editor extends LitElement {
   }
 
   _renderPrimitive(node, { hideLabel = false } = {}) {
-    const label = node?.label ?? '';
     const required = !!node?.required;
     const readonly = !!node?.readonly;
     const pointer = node?.pointer ?? '';
     const error = this._error(pointer);
-    const invalid = error ? 'true' : 'false';
     const value = this._primitiveValue(node);
-    const labelText = `${label}${required ? '*' : ''}`;
-    const fieldClass = `form-field${this._activeClass(pointer)}${hideLabel ? ' is-compact' : ''}`;
+    const label = hideLabel ? '' : `${node?.label ?? ''}${required ? '*' : ''}`;
 
     if (Array.isArray(node.enumValues)) {
       const currentValue = value === '' || value === undefined || value === null ? '' : value;
       return html`
-        <label class=${fieldClass} data-pointer=${pointer}>
-          ${hideLabel ? nothing : html`${label}${required ? html`<span class="is-required">*</span>` : nothing}`}
-          <sl-select
-            .value=${currentValue}
-            aria-label=${labelText}
-            aria-invalid=${invalid}
-            ?disabled=${readonly}
-            @change=${(e) => this._onSelectInput(node, e)}
-          >
-            ${required
-          ? html`<option value="" disabled ?selected=${currentValue === ''}>Please Select</option>`
-          : html`<option value="" ?selected=${currentValue === ''}>None</option>`}
-            ${node.enumValues.map((item) => html`
-              <option value=${item} ?selected=${item === currentValue}>${item}</option>
-            `)}
-          </sl-select>
-          ${error ? html`<p class="form-error">${error}</p>` : nothing}
-        </label>
+        <sl-select
+          data-pointer=${pointer}
+          .label=${label}
+          .error=${error}
+          .value=${currentValue}
+          ?disabled=${readonly}
+          @change=${(e) => this._onSelectInput(node, e)}
+        >
+          ${required
+        ? html`<option value="" disabled ?selected=${currentValue === ''}>Please Select</option>`
+        : html`<option value="" ?selected=${currentValue === ''}>None</option>`}
+          ${node.enumValues.map((item) => html`
+            <option value=${item} ?selected=${item === currentValue}>${item}</option>
+          `)}
+        </sl-select>
       `;
     }
 
     if (node.kind === 'boolean') {
+      // sl-checkbox uses its default slot as the label.
       return html`
-        <label class="form-field form-field-checkbox${this._activeClass(pointer)}${hideLabel ? ' is-compact' : ''}" data-pointer=${pointer}>
-          <sl-checkbox
-            ?checked=${!!value}
-            aria-label=${labelText}
-            aria-invalid=${invalid}
-            ?disabled=${readonly}
-            @change=${(e) => this._onBooleanInput(node, e)}
-          ></sl-checkbox>
-          ${hideLabel
-          ? html`<span class="form-sr-only">${label}${required ? '*' : ''}</span>`
-          : html`${label}${required ? html`<span class="is-required">*</span>` : nothing}`}
-          ${error ? html`<p class="form-error">${error}</p>` : nothing}
-        </label>
+        <sl-checkbox
+          data-pointer=${pointer}
+          .error=${error}
+          ?checked=${!!value}
+          ?disabled=${readonly}
+          @change=${(e) => this._onBooleanInput(node, e)}
+        >${label}</sl-checkbox>
       `;
     }
 
     if (node.kind === 'number' || node.kind === 'integer') {
       return html`
-        <label class=${fieldClass} data-pointer=${pointer}>
-          ${hideLabel ? nothing : html`${label}${required ? html`<span class="is-required">*</span>` : nothing}`}
-          <sl-input
-            type="number"
-            .value=${String(value ?? '')}
-            aria-label=${labelText}
-            aria-invalid=${invalid}
-            ?disabled=${readonly}
-            @input=${(e) => this._onNumberInput(node, e)}
-          ></sl-input>
-          ${error ? html`<p class="form-error">${error}</p>` : nothing}
-        </label>
+        <sl-input
+          data-pointer=${pointer}
+          type="number"
+          .label=${label}
+          .error=${error}
+          .value=${String(value ?? '')}
+          ?disabled=${readonly}
+          @input=${(e) => this._onNumberInput(node, e)}
+        ></sl-input>
       `;
     }
 
     return html`
-      <label class=${fieldClass} data-pointer=${pointer}>
-        ${hideLabel ? nothing : html`${label}${required ? html`<span class="is-required">*</span>` : nothing}`}
-        <sl-input
-          type="text"
-          .value=${value ?? ''}
-          aria-label=${labelText}
-          aria-invalid=${invalid}
-          ?disabled=${readonly}
-          @focusin=${() => this._select(pointer)}
-          @input=${(e) => this._onTextInput(node, e)}
-        ></sl-input>
-        ${error ? html`<p class="form-error">${error}</p>` : nothing}
-      </label>
+      <sl-input
+        data-pointer=${pointer}
+        type="text"
+        .label=${label}
+        .error=${error}
+        .value=${value ?? ''}
+        ?disabled=${readonly}
+        @input=${(e) => this._onTextInput(node, e)}
+      ></sl-input>
     `;
   }
 
