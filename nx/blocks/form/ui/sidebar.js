@@ -3,7 +3,7 @@ import { LitElement, html, nothing } from 'da-lit';
 const { default: getStyle } = await import('../../../utils/styles.js');
 const style = await getStyle(import.meta.url);
 
-const EL_NAME = 'sc-sidebar';
+const EL_NAME = 'nx-sidebar';
 
 class Sidebar extends LitElement {
   static properties = {

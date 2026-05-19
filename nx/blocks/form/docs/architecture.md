@@ -127,18 +127,18 @@ The contract that bounds what schemas the public API accepts is in [schema-spec.
 The shell instantiates `core` with an `onChange` callback, holds the current state snapshot, and the navigation state. It passes `core` plus the selection callback to the children:
 
 ```js
-<sc-editor
+<nx-editor
   .core=${this._core}
   .state=${this._state}
   .nav=${this._nav}
   .onSelect=${this._onSelect}
-></sc-editor>
+></nx-editor>
 
-<sc-sidebar
+<nx-sidebar
   .state=${this._state}
   .nav=${this._nav}
   .onSelect=${this._onSelect}
-></sc-sidebar>
+></nx-sidebar>
 ```
 
 Components call `core` directly (`core.setField(...)`, `core.addItem(...)`). They do not signal the shell — `core` calls its `onChange` callback after every state transition, and the shell pulls a fresh snapshot in response. This single notification path covers both mutations and asynchronous save-status changes. Selection changes go through `onSelect(pointer, origin)`.

@@ -28,8 +28,8 @@ Anything that pushes the per-keystroke pipeline past 16 ms on a representative d
 ```txt
 init(el)
   ├─ getPathDetails()                            sync
-  ├─ create <da-title> + <sc-form>               sync
-  └─ <sc-form> upgrades
+  ├─ create <da-title> + <nx-form>               sync
+  └─ <nx-form> upgrades
        ├─ updated() sees details                 sync
        └─ _loadContext()
             ├─ status = 'loading' → render spinner
@@ -73,10 +73,10 @@ core.setField(pointer, value)
             └─ saveDocument({ path, document })  ← HTTP POST (async, not awaited)
 
 onMutate() → shell sets _state = core.getState()
-  └─ Lit re-renders <sc-form>
-       ├─ <sc-editor>.state ←  new ref → re-render entire form tree (O(N) JS work)
-       ├─ <sc-sidebar>.state ← new ref → re-render entire nav tree (O(N) JS work)
-       └─ <sc-preview>.state ← new ref → render is cheap (cached text); JSON.stringify is debounced 500 ms
+  └─ Lit re-renders <nx-form>
+       ├─ <nx-editor>.state ←  new ref → re-render entire form tree (O(N) JS work)
+       ├─ <nx-sidebar>.state ← new ref → re-render entire nav tree (O(N) JS work)
+       └─ <nx-preview>.state ← new ref → render is cheap (cached text); JSON.stringify is debounced 500 ms
 ```
 
 **Per-keystroke cost summary** (N = number of fields, D = document byte size):
@@ -211,7 +211,7 @@ The fallback path is slower than `structuredClone` and is only used when the lat
 ### 4.1. Lit property update graph
 
 ```
-<sc-form>
+<nx-form>
   state ← changes on every mutation
   nav   ← changes on every selection
   _context, _pendingSchemaId ← change on context load / schema picker
@@ -219,19 +219,19 @@ The fallback path is slower than `structuredClone` and is only used when the lat
 each is a reactive property. Any change schedules an `updated()` cycle.
 
 ```
-<sc-editor>
+<nx-editor>
   core      ← changes once per load
   state     ← changes every mutation
   nav       ← changes every selection
   onMutate  ← stable
   onSelect  ← stable
 
-<sc-sidebar>
+<nx-sidebar>
   state     ← changes every mutation
   nav       ← changes every selection
   onSelect  ← stable
 
-<sc-preview>
+<nx-preview>
   state     ← changes every mutation
 ```
 

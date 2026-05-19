@@ -3,7 +3,7 @@ import { LitElement, html, nothing } from 'da-lit';
 const { default: getStyle } = await import('../../../utils/styles.js');
 const style = await getStyle(import.meta.url);
 
-const EL_NAME = 'sc-editor';
+const EL_NAME = 'nx-editor';
 const DEBOUNCE_MS = 350;
 
 function describeIssue(issue) {
@@ -54,7 +54,7 @@ class Editor extends LitElement {
 
   firstUpdated() {
     // Lazily register array UI sub-elements. Browsers upgrade existing tags
-    // (`sc-array-menu`, `sc-reorder`) once the modules call customElements.define.
+    // (`nx-array-menu`, `nx-reorder`) once the modules call customElements.define.
     import('./array-menu.js');
     import('./reorder.js');
   }
@@ -366,7 +366,7 @@ class Editor extends LitElement {
         ? (item.children ?? []).map((c) => this._renderNode(c))
         : this._renderNode(item, { itemLabel: `#${index + 1}` });
       const menu = html`
-      <sc-array-menu
+      <nx-array-menu
         .pointer=${item.pointer}
         .index=${index}
         .pointers=${displayPointers}
@@ -375,7 +375,7 @@ class Editor extends LitElement {
         .minItems=${minItems}
         .maxItems=${maxItems}
         .active=${reorderActive}
-      ></sc-array-menu>
+      ></nx-array-menu>
     `;
 
       return html`
@@ -400,7 +400,7 @@ class Editor extends LitElement {
                 </div>
               `}
               ${reorderActive ? html`
-                <sc-reorder
+                <nx-reorder
                   .targetIndex=${this._reorderTargetIndex}
                   .totalItems=${itemCount}
                   @reorder-move-up=${() => this._setReorderTarget(this._reorderTargetIndex - 1, itemCount)}
@@ -409,7 +409,7 @@ class Editor extends LitElement {
                   @reorder-move-to-last=${() => this._setReorderTarget(itemCount - 1, itemCount)}
                   @reorder-confirm=${() => this._confirmReorder(node.pointer, items)}
                   @reorder-cancel=${() => this._resetReorder()}
-                ></sc-reorder>
+                ></nx-reorder>
               ` : nothing}
             </article>
           `;

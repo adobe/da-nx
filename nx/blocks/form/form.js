@@ -21,7 +21,7 @@ const SL_COMPONENTS_MODULE = new URL('../../public/sl/components.js', import.met
 const loadBlockedDeps = () => import(DIALOG_MODULE);
 const loadSchemaPickerDeps = () => import(SL_COMPONENTS_MODULE);
 
-const EL_NAME = 'sc-form';
+const EL_NAME = 'nx-form';
 const PREVIEW_PREFIX = 'https://da-sc.adobeaem.workers.dev/preview';
 const LIVE_PREFIX = 'https://da-sc.adobeaem.workers.dev/live';
 
@@ -323,19 +323,19 @@ class Form extends LitElement {
     return html`
       <div class="sc-form-wrapper">
         <div class="sc-editor-pane">
-          <sc-editor
+          <nx-editor
             .core=${this._core}
             .state=${this._state}
             .nav=${this._nav}
             .onSelect=${this._onSelect}
-          ></sc-editor>
-          <sc-preview .state=${this._state}></sc-preview>
+          ></nx-editor>
+          <nx-preview .state=${this._state}></nx-preview>
         </div>
-        <sc-sidebar
+        <nx-sidebar
           .state=${this._state}
           .nav=${this._nav}
           .onSelect=${this._onSelect}
-        ></sc-sidebar>
+        ></nx-sidebar>
       </div>
     `;
   }

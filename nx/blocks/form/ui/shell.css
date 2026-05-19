@@ -88,7 +88,7 @@
   max-width: 700px;
 }
 
-sc-sidebar {
+nx-sidebar {
   position: sticky;
   top: 24px;
   flex: 0 0 300px;

@@ -11,8 +11,8 @@ From `init(el)` to a rendered editor (or a status screen).
 ```txt
 init(el)
   ├─ getPathDetails()                            sync
-  ├─ create <da-title> + <sc-form>               sync
-  └─ <sc-form> upgrades
+  ├─ create <da-title> + <nx-form>               sync
+  └─ <nx-form> upgrades
        ├─ connectedCallback → adoptedStyleSheets sync
        ├─ updated(changed) sees `details`        sync
        └─ _loadContext()
@@ -206,8 +206,8 @@ window 'hashchange'
   └─ setup(el)
        ├─ el.replaceChildren()                      ← full teardown
        ├─ getPathDetails()                          ← new path
-       └─ setDetails(...) for <da-title>, <sc-form>
-            └─ <sc-form> upgrades → see §1
+       └─ setDetails(...) for <da-title>, <nx-form>
+            └─ <nx-form> upgrades → see §1
 ```
 
 Full teardown and re-mount. Documented as a perf item in [performance-review.md §H4](./performance-review.md) — fix is a path comparison before tearing down. Not done because it doesn't bite at current usage.

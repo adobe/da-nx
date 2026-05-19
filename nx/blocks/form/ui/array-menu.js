@@ -3,8 +3,8 @@ import { LitElement, html, nothing } from 'da-lit';
 const { default: getStyle } = await import('../../../utils/styles.js');
 const style = await getStyle(import.meta.url);
 
-const EL_NAME = 'sc-array-menu';
-const PEER_EVENT = 'sc-array-menu-peer';
+const EL_NAME = 'nx-array-menu';
+const PEER_EVENT = 'nx-array-menu-peer';
 
 class ArrayMenu extends LitElement {
   static properties = {

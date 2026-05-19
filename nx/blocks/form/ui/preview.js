@@ -3,7 +3,7 @@ import { LitElement, html } from 'da-lit';
 const { default: getStyle } = await import('../../../utils/styles.js');
 const style = await getStyle(import.meta.url);
 
-const EL_NAME = 'sc-preview';
+const EL_NAME = 'nx-preview';
 const REFRESH_MS = 500;
 
 class Preview extends LitElement {
