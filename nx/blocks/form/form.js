@@ -37,28 +37,30 @@ class Form extends LitElement {
     _pendingSchemaId: { state: true },
   };
 
-  constructor() {
-    super();
-    this._context = { status: 'idle', schemas: {} };
-    this._state = null;
-    this._nav = { pointer: '/data', origin: null, seq: 0 };
-    this._pendingSchemaId = '';
-    this._loadVersion = 0;
-    this._core = null;
+  // Reactive state: `_context`, `_state`, and `_nav` are deliberately left
+  // undefined until `_loadContext` populates them — per AGENTS.md, undefined
+  // means "not loaded yet" and lets render() use simple presence checks.
+  // `_pendingSchemaId` and `_loadVersion` carry counters/string state, so
+  // they keep explicit defaults.
+  _pendingSchemaId = '';
 
-    this._onChange = () => {
-      if (!this._core) return;
-      this._state = this._core.getState();
+  _loadVersion = 0;
+
+  _core = null;
+
+  _onChange = () => {
+    if (!this._core) return;
+    this._state = this._core.getState();
+  };
+
+  _onSelect = (pointer, origin = null) => {
+    if (!pointer) return;
+    this._nav = {
+      pointer,
+      origin,
+      seq: (this._nav?.seq ?? 0) + 1,
     };
-    this._onSelect = (pointer, origin = null) => {
-      if (!pointer) return;
-      this._nav = {
-        pointer,
-        origin,
-        seq: (this._nav?.seq ?? 0) + 1,
-      };
-    };
-  }
+  };
 
   connectedCallback() {
     super.connectedCallback();
@@ -112,7 +114,7 @@ class Form extends LitElement {
 
   async _applySelectedSchema() {
     const schemaName = this._pendingSchemaId;
-    const schema = this._context.schemas?.[schemaName];
+    const schema = this._context?.schemas?.[schemaName];
     if (!schema || !schemaName) return;
 
     const json = {
@@ -243,7 +245,7 @@ class Form extends LitElement {
   }
 
   _renderSchemaSelector() {
-    const schemas = this._context.schemas ?? {};
+    const schemas = this._context?.schemas ?? {};
     const schemaEditorHref = this._schemaEditorHref();
 
     return html`
@@ -340,8 +342,8 @@ class Form extends LitElement {
   render() {
     if (!this.details) return nothing;
 
-    const { status } = this._context;
-    if (status === 'idle' || status === 'loading') {
+    const { status } = this._context ?? {};
+    if (!status || status === 'loading') {
       return this._renderMessage('', 'Preparing structured content editor...', { showProgress: true });
     }
     if (status === 'blocked') return this._renderBlocked();
