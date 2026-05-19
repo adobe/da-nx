@@ -130,7 +130,12 @@ describe('setConfig / getConfig', () => {
 // ─── loadBlock ───────────────────────────────────────────────────────────────
 
 describe('loadBlock', () => {
-  before(async () => { await setConfig(BASE_CONFIG); });
+  before(async () => {
+    await setConfig({
+      ...BASE_CONFIG,
+      providers: { ew: 'https://ext.example.com' },
+    });
+  });
 
   it('sets blockName on the dataset', async () => {
     const block = document.createElement('div');
@@ -151,6 +156,20 @@ describe('loadBlock', () => {
     block.className = 'first-name second-name';
     await loadBlock(block);
     expect(block.dataset.blockName).to.equal('first-name');
+  });
+
+  it('strips provider prefix and sets blockName to the remainder', async () => {
+    const block = document.createElement('div');
+    block.classList.add('ew-skills');
+    await loadBlock(block);
+    expect(block.dataset.blockName).to.equal('skills');
+  });
+
+  it('leaves blockName intact when no provider matches', async () => {
+    const block = document.createElement('div');
+    block.classList.add('unknown-thing');
+    await loadBlock(block);
+    expect(block.dataset.blockName).to.equal('unknown-thing');
   });
 });
 
