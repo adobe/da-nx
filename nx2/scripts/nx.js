@@ -303,8 +303,13 @@ export async function loadArea({ area } = { area: document }) {
   }
 
   if (isDoc) {
-    const { initOmegaTracking } = await import('../utils/omega-tracking.js');
-    initOmegaTracking();
+    const lazy = () => import('../utils/omega-tracking.js')
+      .then(({ initOmegaTracking }) => initOmegaTracking());
+    if ('requestIdleCallback' in window) {
+      requestIdleCallback(lazy);
+    } else {
+      setTimeout(lazy, 0);
+    }
   }
 }
 
