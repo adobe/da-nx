@@ -31,9 +31,9 @@ export function fromPath(fullPath: string): { org: string; site: string; path: s
 // ─── source ─────────────────────────────────────────────────────────────────
 
 export const source: {
-  get(arg: { org: string; site: string; path?: string }): Promise<ApiResponse>;
+  load(arg: { org: string; site: string; path?: string }): Promise<ApiResponse>;
   /** `fullPath` is a `/org/site/file/path` string. */
-  get(fullPath: string): Promise<ApiResponse>;
+  load(fullPath: string): Promise<ApiResponse>;
 
   /**
    * List a folder. Pass `{ org }` (no site) to list sites at the org level —
@@ -43,19 +43,23 @@ export const source: {
   /** `fullPath` is a `/org/site/folder` string (omit trailing file for root). */
   list(fullPath: string): Promise<ApiResponse>;
 
-  put(arg: {
+  save(arg: {
     org: string;
     site: string;
     path: string;
-    /** File contents to upload. */
-    body: BodyInit;
+    /**
+     * File contents to upload. String, Blob, or File. On hlx6, the
+     * `Content-Type` header is set from the path extension (see TYPE_MAP)
+     * and overrides any auto-applied Blob type.
+     */
+    data: BodyInit;
   }): Promise<ApiResponse>;
   /** `fullPath` is a `/org/site/file/path` string. */
-  put(
+  save(
     fullPath: string,
     extras: {
-      /** File contents to upload. */
-      body: BodyInit;
+      /** File contents to upload. See object-form docs above. */
+      data: BodyInit;
     },
   ): Promise<ApiResponse>;
 
@@ -194,52 +198,95 @@ export const status: {
 
 // ─── aem (preview + live) ───────────────────────────────────────────────────
 
+/** Parsed JSON from a single-path aem call when `returnJson` is true (default). */
+export type AemJson = unknown;
+
 export const aem: {
-  /** GET preview status (single only). */
-  getPreview(arg: { org: string; site: string; path: string }): Promise<ApiResponse>;
+  /** GET preview status (single only). Default: parsed JSON; `undefined` when not ok. */
+  getPreview(arg: { org: string; site: string; path: string; returnJson?: true }): Promise<AemJson | undefined>;
+  getPreview(arg: { org: string; site: string; path: string; returnJson: false }): Promise<ApiResponse>;
   /** `fullPath` is a `/org/site/file/path` string. */
-  getPreview(fullPath: string): Promise<ApiResponse>;
+  getPreview(fullPath: string, extras?: { returnJson?: boolean }): Promise<AemJson | undefined | ApiResponse>;
 
-  /** GET publish status (single only). */
-  getPublish(arg: { org: string; site: string; path: string }): Promise<ApiResponse>;
+  /** GET publish status (single only). Default: parsed JSON; `undefined` when not ok. */
+  getPublish(arg: { org: string; site: string; path: string; returnJson?: true }): Promise<AemJson | undefined>;
+  getPublish(arg: { org: string; site: string; path: string; returnJson: false }): Promise<ApiResponse>;
   /** `fullPath` is a `/org/site/file/path` string. */
-  getPublish(fullPath: string): Promise<ApiResponse>;
+  getPublish(fullPath: string, extras?: { returnJson?: boolean }): Promise<AemJson | undefined | ApiResponse>;
 
-  /** Update preview. `path` array of 2+ → bulk. `forceUpdate`/`forceSync` are bulk-only. */
+  /** Update preview. `path` array of 2+ → bulk (always `ApiResponse`). `forceUpdate`/`forceSync` are bulk-only. */
   preview(arg: {
     org: string;
     site: string;
-    path: string | string[];
-    /** Bulk only: force update even if source is unchanged. */
+    path: string;
+    returnJson?: true;
     forceUpdate?: boolean;
-    /** Bulk only: run synchronously and wait for the operation to complete. */
+    forceSync?: boolean;
+  }): Promise<AemJson | undefined>;
+  preview(arg: {
+    org: string;
+    site: string;
+    path: string;
+    returnJson: false;
+    forceUpdate?: boolean;
+    forceSync?: boolean;
+  }): Promise<ApiResponse>;
+  preview(arg: {
+    org: string;
+    site: string;
+    path: string[];
+    forceUpdate?: boolean;
     forceSync?: boolean;
   }): Promise<ApiResponse>;
   /** `fullPath` is a `/org/site/file/path` string (single only). */
-  preview(fullPath: string): Promise<ApiResponse>;
+  preview(
+    fullPath: string,
+    extras?: { returnJson?: boolean; forceUpdate?: boolean; forceSync?: boolean },
+  ): Promise<AemJson | undefined | ApiResponse>;
 
-  /** Remove from preview. `path` array of 2+ → bulk with `{ delete: true }`. */
-  unPreview(arg: { org: string; site: string; path: string | string[] }): Promise<ApiResponse>;
+  /** Remove from preview. Bulk (`path` array of 2+) always returns `ApiResponse`. */
+  unPreview(arg: { org: string; site: string; path: string; returnJson?: true }): Promise<AemJson | undefined>;
+  unPreview(arg: { org: string; site: string; path: string; returnJson: false }): Promise<ApiResponse>;
+  unPreview(arg: { org: string; site: string; path: string[] }): Promise<ApiResponse>;
   /** `fullPath` is a `/org/site/file/path` string (single only). */
-  unPreview(fullPath: string): Promise<ApiResponse>;
+  unPreview(fullPath: string, extras?: { returnJson?: boolean }): Promise<AemJson | undefined | ApiResponse>;
 
-  /** Publish. `path` array of 2+ → bulk. `forceUpdate`/`forceSync` are bulk-only. */
+  /** Publish. `path` array of 2+ → bulk (always `ApiResponse`). `forceUpdate`/`forceSync` are bulk-only. */
   publish(arg: {
     org: string;
     site: string;
-    path: string | string[];
-    /** Bulk only: force update even if source is unchanged. */
+    path: string;
+    returnJson?: true;
     forceUpdate?: boolean;
-    /** Bulk only: run synchronously and wait for the operation to complete. */
+    forceSync?: boolean;
+  }): Promise<AemJson | undefined>;
+  publish(arg: {
+    org: string;
+    site: string;
+    path: string;
+    returnJson: false;
+    forceUpdate?: boolean;
+    forceSync?: boolean;
+  }): Promise<ApiResponse>;
+  publish(arg: {
+    org: string;
+    site: string;
+    path: string[];
+    forceUpdate?: boolean;
     forceSync?: boolean;
   }): Promise<ApiResponse>;
   /** `fullPath` is a `/org/site/file/path` string (single only). */
-  publish(fullPath: string): Promise<ApiResponse>;
+  publish(
+    fullPath: string,
+    extras?: { returnJson?: boolean; forceUpdate?: boolean; forceSync?: boolean },
+  ): Promise<AemJson | undefined | ApiResponse>;
 
-  /** Unpublish. `path` array of 2+ → bulk with `{ delete: true }`. */
-  unPublish(arg: { org: string; site: string; path: string | string[] }): Promise<ApiResponse>;
+  /** Unpublish. Bulk (`path` array of 2+) always returns `ApiResponse`. */
+  unPublish(arg: { org: string; site: string; path: string; returnJson?: true }): Promise<AemJson | undefined>;
+  unPublish(arg: { org: string; site: string; path: string; returnJson: false }): Promise<ApiResponse>;
+  unPublish(arg: { org: string; site: string; path: string[] }): Promise<ApiResponse>;
   /** `fullPath` is a `/org/site/file/path` string (single only). */
-  unPublish(fullPath: string): Promise<ApiResponse>;
+  unPublish(fullPath: string, extras?: { returnJson?: boolean }): Promise<AemJson | undefined | ApiResponse>;
 };
 
 // ─── snapshot ───────────────────────────────────────────────────────────────

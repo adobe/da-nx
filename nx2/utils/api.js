@@ -11,9 +11,18 @@ const CONFIG = 'config';
 const VERSIONS = 'versions';
 const REF = 'main';
 
-const TEXT_TYPES = {
+const TYPE_MAP = {
   '.html': 'text/html',
   '.json': 'application/json',
+  '.link': 'application/json',
+  '.svg': 'image/svg+xml',
+  '.ico': 'image/x-icon',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png': 'image/png',
+  '.gif': 'image/gif',
+  '.mp4': 'video/mp4',
+  '.pdf': 'application/pdf',
 };
 
 export const daFetch = async ({ url, opts = { method: 'GET' }, redirect = false }) => {
@@ -201,41 +210,37 @@ export const signout = () => {
 // { org, site, path, ...extras } or a `/org/site/file/path` string.
 // `extras` (second arg) merges with parsed args when arg is a string.
 export const source = {
-  get: withArgs(async ({ org, site, path }) => {
+  load: withArgs(async ({ org, site, path }) => {
     const url = await getDaApiPath(SOURCE, org, site, path);
     return daFetch({ url });
   }),
 
-  list: withArgs(async ({ org, site, path }) => {
+  list: withArgs(async ({ org, site, path, opts }) => {
     // Org-only list (no site) is DA-legacy only; hlx6 has no equivalent.
     if (site) {
       const hlx6 = await isHlx6(org, site);
       if (hlx6) {
         const slashed = path?.endsWith('/') ? path : `${path ?? ''}/`;
         const url = await getDaApiPath(SOURCE, org, site, slashed);
-        return daFetch({ url });
+        return daFetch({ url, opts });
       }
     }
     const url = await getDaApiPath(LIST, org, site, path);
-    return daFetch({ url });
+    return daFetch({ url, opts });
   }),
 
-  put: withArgs(async ({ org, site, path, body }) => {
+  save: withArgs(async ({ org, site, path, data }) => {
     const hlx6 = await isHlx6(org, site);
     const url = await getDaApiPath(SOURCE, org, site, path);
     const opts = { method: 'POST' };
     if (hlx6) {
-      const textExt = Object.keys(TEXT_TYPES).find((e) => path.endsWith(e));
-      if (textExt) {
-        opts.body = body instanceof Blob ? await body.text() : body;
-        opts.headers = { 'Content-Type': TEXT_TYPES[textExt] };
-      } else {
-        opts.body = body;
-      }
+      const ext = Object.keys(TYPE_MAP).find((e) => path.endsWith(e));
+      opts.body = data;
+      if (ext) opts.headers = { 'Content-Type': TYPE_MAP[ext] };
       return daFetch({ url, opts });
     }
     const formData = new FormData();
-    formData.append('data', body);
+    formData.append('data', data);
     opts.body = formData;
     return daFetch({ url, opts });
   }),

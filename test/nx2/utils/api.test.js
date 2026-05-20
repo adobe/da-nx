@@ -154,18 +154,18 @@ describe('api.js', () => {
   });
 
   describe('source', () => {
-    it('source.get hits DA on legacy', async () => {
+    it('source.load hits DA on legacy', async () => {
       const { org: o, site: s } = makeOrgSite();
       // Trigger a ping fetch by querying — it returns no upgrade header → legacy
-      await source.get({ org: o, site: s, path: '/index.html' });
+      await source.load({ org: o, site: s, path: '/index.html' });
       const last = lastCall();
       expect(last.url).to.equal(`${DA_ADMIN}/source/${o}/${s}/index.html`);
       expect(last.method).to.equal('GET');
     });
 
-    it('source.get hits AEM_API on hlx6', async () => {
+    it('source.load hits AEM_API on hlx6', async () => {
       const { org: o, site: s } = makeOrgSite({ hlx6: true });
-      await source.get({ org: o, site: s, path: '/index.html' });
+      await source.load({ org: o, site: s, path: '/index.html' });
       expect(lastCall().url).to.equal(`${AEM_API}/${o}/sites/${s}/source/index.html`);
     });
 
@@ -193,31 +193,58 @@ describe('api.js', () => {
       expect(lastCall().url).to.equal(`${DA_ADMIN}/list/${o}`);
     });
 
-    it('source.put DA wraps body in FormData', async () => {
+    it('source.list forwards opts (e.g., pagination headers) to fetch', async () => {
       const { org: o, site: s } = makeOrgSite();
-      const body = new Blob(['<html></html>'], { type: 'text/html' });
-      await source.put({ org: o, site: s, path: '/page.html', body });
+      await source.list({
+        org: o,
+        site: s,
+        path: '/folder',
+        opts: { headers: { 'da-continuation-token': 'tok-1' } },
+      });
+      expect(lastCall().headers['da-continuation-token']).to.equal('tok-1');
+    });
+
+    it('source.save DA wraps data in FormData', async () => {
+      const { org: o, site: s } = makeOrgSite();
+      const data = new Blob(['<html></html>'], { type: 'text/html' });
+      await source.save({ org: o, site: s, path: '/page.html', data });
       const last = lastCall();
       expect(last.method).to.equal('POST');
       expect(last.body).to.be.instanceof(FormData);
       const stored = last.body.get('data');
       expect(stored).to.be.instanceof(Blob);
-      expect(stored.size).to.equal(body.size);
+      expect(stored.size).to.equal(data.size);
     });
 
-    it('source.put hlx6 sets Content-Type for known text exts', async () => {
+    it('source.save hlx6 sets Content-Type for known text exts', async () => {
       const { org: o, site: s } = makeOrgSite({ hlx6: true });
-      await source.put({ org: o, site: s, path: '/page.html', body: '<main></main>' });
+      await source.save({ org: o, site: s, path: '/page.html', data: '<main></main>' });
       const last = lastCall();
       expect(last.method).to.equal('POST');
       expect(last.headers['Content-Type']).to.equal('text/html');
       expect(last.body).to.equal('<main></main>');
     });
 
-    it('source.put hlx6 passes body as-is for non-text exts', async () => {
+    it('source.save hlx6 sets image Content-Type and preserves binary Blob body', async () => {
       const { org: o, site: s } = makeOrgSite({ hlx6: true });
       const blob = new Blob(['binary'], { type: 'image/png' });
-      await source.put({ org: o, site: s, path: '/img.png', body: blob });
+      await source.save({ org: o, site: s, path: '/img.png', data: blob });
+      const last = lastCall();
+      expect(last.headers['Content-Type']).to.equal('image/png');
+      // Blob passes through untouched — no UTF-8 decoding that would corrupt binary.
+      expect(last.body).to.equal(blob);
+    });
+
+    it('source.save hlx6 maps .link to application/json', async () => {
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      await source.save({ org: o, site: s, path: '/foo.link', data: '{"externalUrl":"https://x"}' });
+      expect(lastCall().headers['Content-Type']).to.equal('application/json');
+    });
+
+    it('source.save hlx6 omits Content-Type for unknown extensions', async () => {
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      const blob = new Blob(['payload']);
+      await source.save({ org: o, site: s, path: '/file.xyz', data: blob });
       const last = lastCall();
       expect(last.headers['Content-Type']).to.be.undefined;
       expect(last.body).to.equal(blob);
@@ -275,15 +302,15 @@ describe('api.js', () => {
       expect(last.body.get('destination')).to.equal('/dest.html');
     });
 
-    it('source.get accepts a full /org/site/path string', async () => {
+    it('source.load accepts a full /org/site/path string', async () => {
       const { org: o, site: s } = makeOrgSite({ hlx6: true });
-      await source.get(`/${o}/${s}/index.html`);
+      await source.load(`/${o}/${s}/index.html`);
       expect(lastCall().url).to.equal(`${AEM_API}/${o}/sites/${s}/source/index.html`);
     });
 
-    it('source.put accepts a path string with extras', async () => {
+    it('source.save accepts a path string with extras', async () => {
       const { org: o, site: s } = makeOrgSite({ hlx6: true });
-      await source.put(`/${o}/${s}/page.html`, { body: '<main></main>' });
+      await source.save(`/${o}/${s}/page.html`, { data: '<main></main>' });
       const last = lastCall();
       expect(last.url).to.equal(`${AEM_API}/${o}/sites/${s}/source/page.html`);
       expect(last.body).to.equal('<main></main>');
@@ -301,12 +328,12 @@ describe('api.js', () => {
       expect(u.searchParams.get('collision')).to.equal('overwrite');
     });
 
-    it('source.get logs an error when org is missing', async () => {
+    it('source.load logs an error when org is missing', async () => {
       const origErr = console.error;
       let errored = false;
       console.error = () => { errored = true; };
       try {
-        await source.get('');
+        await source.load('');
       } finally {
         console.error = origErr;
       }
@@ -548,6 +575,36 @@ describe('api.js', () => {
       await aem.getPublish({ org: o, site: s, path: '/x' });
       expect(lastCall().url).to.equal(`${AEM_API}/${o}/sites/${s}/live/x`);
       expect(lastCall().method).to.equal('GET');
+    });
+
+    it('aem.getPreview returns parsed JSON by default', async () => {
+      restoreFetch();
+      installFetch({ body: '{"state":"complete"}' });
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      const result = await aem.getPreview({ org: o, site: s, path: '/x' });
+      expect(result).to.deep.equal({ state: 'complete' });
+    });
+
+    it('aem.getPreview returns undefined when response is not ok', async () => {
+      restoreFetch();
+      installFetch({ status: 404 });
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      const result = await aem.getPreview({ org: o, site: s, path: '/x' });
+      expect(result).to.equal(undefined);
+    });
+
+    it('aem.getPreview returns Response when returnJson is false', async () => {
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      const result = await aem.getPreview({ org: o, site: s, path: '/x', returnJson: false });
+      expect(result).to.have.property('ok', true);
+      expect(result.permissions).to.deep.equal(['read', 'write']);
+    });
+
+    it('aem.preview bulk returns Response even with returnJson default', async () => {
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      const result = await aem.preview({ org: o, site: s, path: ['/a', '/b'] });
+      expect(result).to.have.property('ok', true);
+      expect(result.permissions).to.deep.equal(['read', 'write']);
     });
   });
 
