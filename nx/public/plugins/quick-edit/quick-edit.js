@@ -92,7 +92,10 @@ function checkDomain() {
   const currentUrl = new URL(window.location.href);
   if (currentUrl.origin.endsWith('.aem.page')) {
     const newOrigin = currentUrl.origin.replace('.aem.page', '.preview.da.live');
-    const newHref = `${newOrigin}${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`;
+    const params = new URLSearchParams(currentUrl.search);
+    if (!params.has('quick-edit')) params.set('quick-edit', 'on');
+    const search = params.toString() ? `?${params.toString()}` : '';
+    const newHref = `${newOrigin}${currentUrl.pathname}${search}${currentUrl.hash}`;
     window.location.replace(newHref);
   }
 }
