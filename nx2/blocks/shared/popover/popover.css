@@ -1,0 +1,27 @@
+:host {
+  --popover-gap: 4px;
+
+  position: fixed;
+  z-index: 100;
+  display: none;
+  right: auto;
+  bottom: auto;
+  flex-direction: column;
+  padding: var(--s2-spacing-100);
+  min-width: 100px;
+  background: var(--s2-gray-25);
+  border: 1px solid var(--s2-gray-200);
+  border-radius: var(--s2-corner-radius-500);
+  box-shadow: 0 4px 16px rgb(0 0 0 / 12%);
+}
+
+:host([open]),
+:host(:popover-open) {
+  display: block;
+}
+
+slot[name="actions"]::slotted(*) {
+  display: flex;
+  gap: var(--s2-spacing-75);
+  justify-content: flex-end;
+}

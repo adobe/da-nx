@@ -34,10 +34,12 @@ const IO_ENV = {
 export const IMS_ORIGIN = (() => `https://${IMS_ENDPOINT[imsEnv || env]}`)();
 
 export function handleSignIn() {
+  localStorage.setItem('nx-ims', true);
   window.adobeIMS.signIn();
 }
 
 export function handleSignOut() {
+  localStorage.removeItem('nx-ims');
   window.adobeIMS.signOut();
 }
 
@@ -130,9 +132,11 @@ export const loadIms = (() => {
       onReady: () => {
         const accessToken = window.adobeIMS.getAccessToken();
         if (!accessToken) {
+          localStorage.removeItem('nx-ims');
           done({ anonymous: true });
           return;
         }
+        localStorage.setItem('nx-ims', true);
         loadDetails(accessToken).then(done, fail);
       },
     };

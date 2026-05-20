@@ -18,8 +18,18 @@
   outline: 2px solid;
 }
 
-[contenteditable="true"]:hover {
+/* Hover outline for instrumented editables and blocks (data-prose-index, data-block-index) */
+[data-prose-index]:hover,
+[data-block-index]:hover {
   outline: 1px solid var(--color-blue-600, blue);
+}
+
+[data-prose-index]:has(.ProseMirror-focused) {
+  outline: 2px solid var(--color-blue-600, blue);
+
+  .ProseMirror-focused {
+    outline: none;
+  }
 }
 
 /* Image drop zone styles */
