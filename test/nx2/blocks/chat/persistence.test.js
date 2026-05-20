@@ -46,6 +46,7 @@ describe('persistence', () => {
       });
 
       const result = await loadMessages(r);
+      expect(result.messages).to.have.lengthOf(1); // guard: write must have landed
       expect(result.messages).to.deep.equal(msgs);
       expect(result.sessionId).to.be.null;
     });
