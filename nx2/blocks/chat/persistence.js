@@ -58,7 +58,7 @@ async function write(fn) {
 
 export async function loadMessages(room) {
   const db = await openDb();
-  if (!db) return [];
+  if (!db) return { messages: [], sessionId: null };
 
   return new Promise((resolve) => {
     try {
@@ -67,19 +67,26 @@ export async function loadMessages(room) {
 
       req.onsuccess = (e) => {
         const { result } = e.target;
-        resolve(Array.isArray(result?.messages) ? result.messages : []);
+        resolve({
+          messages: Array.isArray(result?.messages) ? result.messages : [],
+          sessionId: result?.sessionId ?? null,
+        });
       };
-      req.onerror = () => resolve([]);
+      req.onerror = () => resolve({ messages: [], sessionId: null });
     } catch {
-      resolve([]);
+      resolve({ messages: [], sessionId: null });
     }
   });
 }
 
-export function saveMessages(room, messages) {
-  return write((store) => store.put({ room, messages, updatedAt: Date.now() }));
+export function saveMessages(room, messages, sessionId) {
+  return write((store) => store.put({ room, messages, sessionId, updatedAt: Date.now() }));
 }
 
 export function clearMessages(room) {
   return write((store) => store.delete(room));
+}
+
+export function resetSession(room, sessionId) {
+  return write((store) => store.put({ room, messages: [], sessionId, updatedAt: Date.now() }));
 }
