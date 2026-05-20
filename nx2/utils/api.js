@@ -171,7 +171,7 @@ const jsonOpts = (method, payload) => ({
 // Array of length >= 2 routes to the bulk /* endpoint with { paths, delete? }.
 // `forceUpdate`/`forceSync` are bulk-only (server ignores them on single-path).
 const callPath = async ({
-  api, org, site, path, method, includeDelete = false, forceUpdate, forceSync,
+  api, org, site, path, method, includeDelete = false, forceUpdate, forceSync, returnJson = true,
 }) => {
   if (Array.isArray(path) && path.length >= 2) {
     const url = await getAemApiPath(api, org, site, '/*');
@@ -183,7 +183,14 @@ const callPath = async ({
   }
   const single = Array.isArray(path) ? path[0] : path;
   const url = await getAemApiPath(api, org, site, single);
-  return daFetch({ url, opts: { method } });
+  const resp = await daFetch({ url, opts: { method } });
+  if (!returnJson) return resp;
+  if (!resp.ok) return undefined;
+  try {
+    return resp.json();
+  } catch {
+    return undefined;
+  }
 };
 
 export const signout = () => {
@@ -376,7 +383,13 @@ export { orgNs as org };
 export const status = {
   get: withArgs(async ({ org, site, path }) => {
     const url = await getAemApiPath('status', org, site, path);
-    return daFetch({ url });
+    const resp = await daFetch({ url });
+    if (!resp.ok) return undefined;
+    try {
+      return resp.json();
+    } catch {
+      return undefined;
+    }
   }),
 };
 
@@ -384,32 +397,32 @@ export const status = {
 // preview/unPreview/publish/unPublish accept `path` as string or array (2+ -> bulk).
 // preview/publish also accept optional `forceUpdate`/`forceSync` flags.
 export const aem = {
-  getPreview: withArgs(({ org, site, path }) => callPath({
-    api: 'preview', org, site, path, method: 'GET',
+  getPreview: withArgs(({ org, site, path, returnJson = true }) => callPath({
+    api: 'preview', org, site, path, method: 'GET', returnJson,
   })),
 
-  getPublish: withArgs(({ org, site, path }) => callPath({
-    api: 'live', org, site, path, method: 'GET',
+  getPublish: withArgs(({ org, site, path, returnJson = true }) => callPath({
+    api: 'live', org, site, path, method: 'GET', returnJson,
   })),
 
   preview: withArgs(({
-    org, site, path, forceUpdate, forceSync,
+    org, site, path, forceUpdate, forceSync, returnJson = true,
   }) => callPath({
-    api: 'preview', org, site, path, method: 'POST', forceUpdate, forceSync,
+    api: 'preview', org, site, path, method: 'POST', forceUpdate, forceSync, returnJson,
   })),
 
-  unPreview: withArgs(({ org, site, path }) => callPath({
-    api: 'preview', org, site, path, method: 'DELETE', includeDelete: true,
+  unPreview: withArgs(({ org, site, path, returnJson = true }) => callPath({
+    api: 'preview', org, site, path, method: 'DELETE', includeDelete: true, returnJson,
   })),
 
   publish: withArgs(({
-    org, site, path, forceUpdate, forceSync,
+    org, site, path, forceUpdate, forceSync, returnJson = true,
   }) => callPath({
-    api: 'live', org, site, path, method: 'POST', forceUpdate, forceSync,
+    api: 'live', org, site, path, method: 'POST', forceUpdate, forceSync, returnJson,
   })),
 
-  unPublish: withArgs(({ org, site, path }) => callPath({
-    api: 'live', org, site, path, method: 'DELETE', includeDelete: true,
+  unPublish: withArgs(({ org, site, path, returnJson = true }) => callPath({
+    api: 'live', org, site, path, method: 'DELETE', includeDelete: true, returnJson,
   })),
 };
 
