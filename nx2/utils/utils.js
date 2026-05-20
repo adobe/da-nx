@@ -142,4 +142,4 @@ export const loadPageStyle = (href) => new Promise((resolve) => {
   }
 });
 
-export { loadStyle } from './style.js';
+export { loadStyle } from '../scripts/nx.js';

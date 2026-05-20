@@ -313,9 +313,9 @@ class NxChat extends LitElement {
       const { org, site } = this._context ?? {};
       if (!org || !site) return;
       const url = new URL(window.location.href);
-      url.pathname = '/app';
+      url.pathname = '/apps/skills';
       url.search = `?tab=${id}`;
-      url.hash = `#/${org}/${site}/tools/skills`;
+      url.hash = `#/${org}/${site}`;
       window.open(url.href, '_blank', 'noopener,noreferrer');
     }
   }
