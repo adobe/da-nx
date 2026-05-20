@@ -1,7 +1,7 @@
 import { loadIms } from '../../utils/ims.js';
 import { AGENT_EVENT, ROLE, TOOL_STATE } from './constants.js';
 import { readStream } from './utils.js';
-import { loadMessages, saveMessages, clearMessages } from './persistence.js';
+import { loadMessages, saveMessages, resetSession } from './persistence.js';
 
 // ?ref=local routes to a local da-agent dev server (port 5173).
 const AGENT_URL = new URLSearchParams(window.location.search).get('ref') === 'local'
@@ -35,7 +35,8 @@ export default class ChatController {
   async loadInitialMessages() {
     this._messages = [];
     const room = await this._getRoom();
-    const cached = await loadMessages(room);
+    const { messages: cached, sessionId } = await loadMessages(room);
+    this._sessionId = sessionId ?? crypto.randomUUID();
     if (!cached.length) return;
     // Strip orphaned tool-calls (assistant array-content without a tool-approval-request).
     // These are from sessions before the current fix — they have no matching tool-result
@@ -101,9 +102,10 @@ export default class ChatController {
     this._streamingText = undefined;
     this._toolCards = new Map();
     this._autoApprovedTools = new Set();
+    this._sessionId = crypto.randomUUID();
     this._update();
     const room = await this._getRoom();
-    clearMessages(room);
+    resetSession(room, this._sessionId);
   }
 
   destroy() {
@@ -222,6 +224,7 @@ export default class ChatController {
         pageContext,
         imsToken: accessToken?.token ?? null,
         room,
+        sessionId: this._sessionId,
         ...(this._requestedSkills?.length ? { requestedSkills: this._requestedSkills } : {}),
       }),
       signal: this._abortController.signal,
@@ -237,7 +240,7 @@ export default class ChatController {
         this._messages = [...this._messages, { role: ROLE.ASSISTANT, content: text }];
         this._streamingText = '';
         this._update();
-        saveMessages(room, this._messages);
+        saveMessages(room, this._messages, this._sessionId);
       },
       onTool: this._onToolEvent,
     });
