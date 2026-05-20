@@ -313,6 +313,38 @@ describe('getChildren (via crawl)', () => {
     expect(files.length).to.equal(0);
   });
 
+  it('Normalizes hlx6 list response (content-type entries with trailing-slash folders)', async () => {
+    // hlx6 returns a bare array where files have content-type/last-modified/size
+    // and folders are entries whose name ends with `/`.
+    const hlx6Response = [
+      { name: 'demo-sheet-two.json', size: 114, 'content-type': 'application/json', 'last-modified': '2026-05-03T19:05:03.000Z' },
+      { name: 'chrisp/', 'content-type': 'application/folder' },
+    ];
+    window.fetch = async (url) => {
+      // Only the root path returns items; recursed folder is empty.
+      const isRoot = !url.includes('/chrisp');
+      return {
+        ok: true,
+        json: async () => (isRoot ? hlx6Response : []),
+        headers: { get: () => null },
+      };
+    };
+
+    const { results } = crawl({
+      path: '/aem-sandbox/block-collection/drafts',
+      callback: null,
+      concurrent: 10,
+      throttle: 10,
+    });
+
+    const files = await results;
+    expect(files).to.have.length(1);
+    expect(files[0].name).to.equal('demo-sheet-two');
+    expect(files[0].ext).to.equal('json');
+    expect(files[0].path).to.equal('/aem-sandbox/block-collection/drafts/demo-sheet-two.json');
+    expect(files[0].lastModified).to.equal(new Date('2026-05-03T19:05:03.000Z').getTime());
+  });
+
   it('Batches list results using da-continuation-token when >1000 children', async () => {
     const page1 = [
       { path: '/big/file1.html', name: 'file1', ext: 'html', lastModified: 1753691701858 },

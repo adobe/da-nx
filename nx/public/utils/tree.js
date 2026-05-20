@@ -1,5 +1,4 @@
-import { daFetch } from '../../utils/daFetch.js';
-import { DA_ORIGIN } from './constants.js';
+import { source, hlx6ToDaList } from '../../../nx2/utils/api.js';
 
 export class Queue {
   constructor(callback, maxConcurrent = 500, onError = null, throttle = null) {
@@ -57,12 +56,13 @@ async function getChildren(path) {
   do {
     const opts = continuationToken
       ? { headers: { 'da-continuation-token': continuationToken } }
-      : {};
-    const resp = await daFetch(`${DA_ORIGIN}/list${path}`, opts);
+      : undefined;
+    const resp = await source.list(path, { opts });
     if (!resp.ok) break;
 
     const json = await resp.json();
-    json.forEach((child) => {
+    const items = hlx6ToDaList(path, json);
+    items.forEach((child) => {
       if (!child.name) {
         // eslint-disable-next-line no-console
         console.log(`This folder has a child with an empty name: ${child.path}`);
@@ -75,7 +75,7 @@ async function getChildren(path) {
       }
     });
 
-    continuationToken = resp.headers.get('da-continuation-token');
+    continuationToken = resp.headers?.get('da-continuation-token') || null;
   } while (continuationToken);
 
   return { files, folders };
