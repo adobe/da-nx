@@ -3,6 +3,15 @@ import {
   checkSession, createTask, addAssets, updateStatus, getTask, downloadAsset,
   prepareTargetPreview, getGlaasFilename,
 } from './api.js';
+import {
+  createMultimodalTask,
+  uploadMultimodalPageAssets,
+  countMultimodalTranslatedPages,
+  getMultimodalV2TaskStatus,
+  prepareMultimodalPageForSave,
+  logMultimodalRequest,
+  shouldLogMultimodalRequests,
+} from './multimodalApi.js';
 import { getGlaasToken, connectToGlaas } from './auth.js';
 import { addDnt, removeDnt } from './dnt.js';
 import { groupUrlsByWorkflow } from './locPageRules.js';
@@ -65,6 +74,7 @@ function langs2Tasks(langs) {
         if (!taskGroups[compositeKey]) {
           taskGroups[compositeKey] = {
             workflow: workflowTask.workflow,
+            workflowName: workflowTask.workflowName,
             name,
             langs: [],
             urlPaths: workflowTask.urls || [],
@@ -81,6 +91,7 @@ function langs2Tasks(langs) {
 let token;
 
 export const dnt = { addDnt };
+export { getGlaasFilename } from './api.js';
 
 export async function isConnected(service) {
   token = await getGlaasToken(service);
@@ -142,6 +153,16 @@ function sumTaskStatus(workflowTasks, statusKey) {
   return workflowTasks.reduce((sum, task) => sum + (task.status[statusKey] || 0), 0);
 }
 
+function pageAssetsFromTaskLangs(task) {
+  for (const lang of task.langs) {
+    const pageAssets = lang.translation?.workflowTasks?.[task.name]?.pageAssets;
+    if (pageAssets && Object.keys(pageAssets).length > 0) {
+      return pageAssets;
+    }
+  }
+  return undefined;
+}
+
 function aggregateWorkflowStatus(lang) {
   const workflowTasks = Object.values(lang.translation.workflowTasks);
 
@@ -159,6 +180,9 @@ function updateLangTask(task, langs) {
     workflowTask.status.error = task.error || 0;
     workflowTask.status.translated = task.translated || 0;
     workflowTask.status.status = task.status || 'not started';
+    if (task.pageAssets) {
+      workflowTask.pageAssets = task.pageAssets;
+    }
     // Aggregate the overall status
     aggregateWorkflowStatus(lang);
   });
@@ -176,7 +200,98 @@ async function createNewTask(service, task) {
   return { ...result, ...task, status: 'draft' };
 }
 
+async function sendMultimodalTask(service, suppliedTask, urls, actions) {
+  const { sendMessage, saveState } = actions;
+  const { origin, clientid } = service;
+  const targetLocales = suppliedTask.langs.map((lang) => lang.code);
+  const localesString = targetLocales.join(', ');
+  const taskUrls = suppliedTask.urlPaths
+    ? urls.filter((url) => suppliedTask.urlPaths.includes(url.suppliedPath))
+    : urls;
+  const task = {
+    ...suppliedTask,
+    targetLocales,
+  };
+
+  if (task.status === 'not started' || task.status === 'draft' || task.status === 'uploading') {
+    sendMessage({ text: `Sending multimodal task: ${localesString}.` });
+    task.status = 'uploading';
+    updateLangTask(task, task.langs);
+    await saveState();
+
+    const logRequest = shouldLogMultimodalRequests() ? logMultimodalRequest : undefined;
+    logRequest?.('translate-all-send', {
+      taskName: task.name,
+      workflow: task.workflow,
+      targetLocales,
+      pages: taskUrls.map((u) => u.suppliedPath),
+      glaasOrigin: origin,
+    });
+
+    const allAssets = [];
+    const pageAssets = {};
+    const urlsWithContent = taskUrls.filter((url) => url.content);
+    for (const url of urlsWithContent) {
+      const uploaded = await uploadMultimodalPageAssets({
+        origin,
+        clientid,
+        token,
+        htmlAssetName: getGlaasFilename(url.daBasePath),
+        htmlContent: url.content,
+        targetLocales,
+        logRequest,
+        aemHref: url.aemHref,
+      });
+      if (uploaded.error) {
+        sendMessage({ text: `Multimodal upload failed: ${uploaded.error}`, type: 'error' });
+        task.error = (task.error || 0) + 1;
+        updateLangTask(task, task.langs);
+        await saveState();
+        return;
+      }
+      allAssets.push(...uploaded.assets);
+      pageAssets[url.suppliedPath] = {
+        daBasePath: url.daBasePath,
+        ...uploaded.pageAsset,
+      };
+    }
+    task.pageAssets = pageAssets;
+
+    const created = await createMultimodalTask({
+      origin,
+      clientid,
+      token,
+      task: { ...task, assets: allAssets },
+      service,
+      logRequest,
+    });
+    if (created.error) {
+      sendMessage({ text: `Error creating multimodal task for: ${localesString}.`, type: 'error' });
+      return;
+    }
+
+    task.sent = taskUrls.length;
+    task.status = 'uploaded';
+    updateLangTask(task, task.langs);
+    await saveState();
+    await prepareTargetPreview(task, taskUrls, service);
+  }
+
+  if (task.status === 'uploaded') {
+    sendMessage({ text: `Finalizing multimodal task: ${localesString}.` });
+    await updateStatus(service, token, task);
+    updateLangTask(task, task.langs);
+    await saveState();
+    sendMessage();
+  }
+}
+
 async function sendTask(service, suppliedTask, urls, actions) {
+  if (suppliedTask.workflowName === 'MULTIMODAL') {
+    await sendMultimodalTask(service, suppliedTask, urls, actions);
+    return;
+  }
+
   const { sendMessage, saveState } = actions;
 
   const targetLocales = suppliedTask.langs.map((lang) => lang.code);
@@ -246,6 +361,8 @@ function initializeLanguageWorkflowTasks(tasks) {
 
       lang.translation.workflowTasks[task.name] = {
         workflow: task.workflow,
+        workflowName: task.workflowName,
+        businessUnit: task.businessUnit,
         name: task.name,
         urls: task.urlPaths || [],
         status: {
@@ -322,7 +439,20 @@ export async function getStatusAll({ service, langs, urls, actions }) {
       targetLocales,
     };
 
-    let subtasks = await getTask(taskConfig);
+    const workflowMeta = task.langs[0]?.translation?.workflowTasks?.[task.name];
+    const taskPageAssets = pageAssetsFromTaskLangs(task);
+    let subtasks;
+    if (task.workflowName === 'MULTIMODAL') {
+      subtasks = await getMultimodalV2TaskStatus({
+        service,
+        token: baseConf.token,
+        task: taskConfig,
+        langs: task.langs,
+        pageAssets: taskPageAssets,
+      });
+    } else {
+      subtasks = await getTask({ ...taskConfig, service });
+    }
     // If something went wrong, create the task again.
     if (subtasks.status === 404) {
       // If something went wrong, create the task again.
@@ -333,25 +463,41 @@ export async function getStatusAll({ service, langs, urls, actions }) {
       const tempTask = {
         name: task.name,
         workflow: task.workflow,
+        workflowName: task.workflowName,
+        businessUnit: workflowMeta?.businessUnit,
         langs: task.langs,
         urlPaths: task.urlPaths,
       };
 
       await sendTask(service, tempTask, taskUrls, actions);
-      subtasks = await getTask(taskConfig);
+      if (task.workflowName === 'MULTIMODAL') {
+        subtasks = await getMultimodalV2TaskStatus({
+          service,
+          token: baseConf.token,
+          task: taskConfig,
+          langs: task.langs,
+          pageAssets: pageAssetsFromTaskLangs(task),
+        });
+      } else {
+        subtasks = await getTask({ ...taskConfig, service });
+      }
     }
 
     for (const subtask of subtasks.json) {
       const subtaskLang = langs.find((lang) => lang.code === subtask.targetLocale);
       if (subtaskLang?.translation?.workflowTasks?.[task.name]) {
-        const workflowStatus = subtaskLang.translation.workflowTasks[task.name].status;
+        const workflowTask = subtaskLang.translation.workflowTasks[task.name];
+        const workflowStatus = workflowTask.status;
 
         if (subtask.status === 'FAILED') {
           workflowStatus.status = 'failed';
         } else if (subtask.status === 'CANCEL_REQUESTED' || subtask.status === 'CANCELLED') {
           workflowStatus.status = 'cancelled';
         } else {
-          const translated = subtask.assets.filter((asset) => asset.status === 'COMPLETED').length;
+          const completed = subtask.assets.filter((asset) => asset.status === 'COMPLETED');
+          const translated = workflowTask.workflowName === 'MULTIMODAL'
+            ? countMultimodalTranslatedPages(workflowTask.pageAssets, subtask.assets)
+            : completed.length;
           workflowStatus.translated = translated;
           if (workflowStatus.sent !== 0 && workflowStatus.status !== 'complete') {
             const isTranslated = translated === workflowStatus.sent;
@@ -389,6 +535,8 @@ export async function saveItems({
       urlToTaskMap.set(urlPath, {
         name: workflowTask.name,
         workflow: workflowTask.workflow,
+        workflowName: workflowTask.workflowName,
+        pageAssets: workflowTask.pageAssets,
       });
     });
   });
@@ -401,12 +549,34 @@ export async function saveItems({
 
   const downloadCallback = async (url) => {
     const task = urlToTaskMap.get(url.suppliedPath);
-    const text = await downloadAsset(
-      service,
-      token,
-      { ...task, code },
-      getGlaasFilename(url.daBasePath),
-    );
+    const glaasPath = getGlaasFilename(url.daBasePath);
+    let text;
+
+    if (task.workflowName === 'MULTIMODAL') {
+      const pageAsset = task.pageAssets?.[url.suppliedPath];
+      if (!pageAsset) {
+        throw new Error(
+          `Multimodal pageAssets missing for ${url.suppliedPath}. Re-send the translation task.`,
+        );
+      }
+      const prepared = await prepareMultimodalPageForSave({
+        service,
+        token,
+        task: { ...task, code },
+        org,
+        site,
+        langLocation: lang.location,
+        pageAsset,
+        htmlAssetName: glaasPath,
+      });
+      if (prepared.error) throw new Error(prepared.error);
+      text = prepared.text;
+      if (prepared.mediaPaths?.length) url.multimodalMediaPaths = prepared.mediaPaths;
+    } else {
+      text = await downloadAsset(service, token, { ...task, code }, glaasPath);
+    }
+
+    if (text?.error) throw new Error(text.error);
 
     // Use the path to determine if this should be treated as a JSON file.
     const fileType = url.daBasePath.includes('.json') ? 'json' : undefined;

@@ -6,6 +6,15 @@ import { DA_ORIGIN } from '../../../public/utils/constants.js';
 const DEFAULT_TIMEOUT = 20000; // ms
 const DA_METADATA_SELECTOR = 'body > .da-metadata';
 
+const VERSION_SKIP_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'avif']);
+
+function shouldSaveVersion(url) {
+  if (url.isMultimodalMedia || url.skipVersion) return false;
+  if (url.contentType?.startsWith('image/')) return false;
+  const ext = url.destination?.split('.').pop()?.toLowerCase();
+  return !VERSION_SKIP_EXTS.has(ext);
+}
+
 const PARSER = new DOMParser();
 
 let projPath;
@@ -161,8 +170,11 @@ export async function overwriteCopy(url, title) {
   let resp;
   if (url.sourceContent) {
     // If source content was supplied upstream, use it.
-    const type = url.destination.includes('.json') ? 'application/json' : 'text/html';
-    const blob = new Blob([url.sourceContent], { type });
+    const type = url.contentType
+      ?? (url.destination.includes('.json') ? 'application/json' : 'text/html');
+    const blob = url.sourceContent instanceof Blob
+      ? url.sourceContent
+      : new Blob([url.sourceContent], { type });
     const opts = {
       method: 'POST',
       body: new FormData(),
@@ -190,8 +202,10 @@ export async function overwriteCopy(url, title) {
   }
 
   url.status = 'success';
-  // Don't wait for the version save
-  saveVersion(url.destination, `${title} - Rolled Out`);
+  // /versionsource supports pages and sheets; binary image uploads do not.
+  if (shouldSaveVersion(url)) {
+    saveVersion(url.destination, `${title} - Rolled Out`);
+  }
   return resp;
 }
 

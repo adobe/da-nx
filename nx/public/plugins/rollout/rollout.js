@@ -1,9 +1,10 @@
 import DA_SDK from 'https://da.live/nx/utils/sdk.js';
 import { LitElement, html, nothing } from 'https://da.live/nx/public/deps/lit/dist/index.js';
-import { mergeCopy, overwriteCopy } from 'https://da.live/nx/blocks/loc/project/index.js';
 import getStyle from 'https://da.live/nx/public/utils/styles.js';
 import getSvg from 'https://da.live/nx/public/utils/svg.js';
 import getPrefixDetails from './index.js';
+
+const nx = `${new URL(import.meta.url).origin}/nx`;
 
 const ICONS = [
   'https://da.live/nx/public/icons/Smock_Close_18_N.svg',
@@ -41,10 +42,24 @@ export default class DaRollout extends LitElement {
     const formData = new FormData(e.target);
     const { behavior, label } = Object.fromEntries(formData);
     const copyLabel = label === '' ? 'Adhoc' : label;
+    const { mergeCopy, overwriteCopy } = await import(`${nx}/blocks/loc/project/index.js`);
+    const copyFn = behavior === 'overwrite' ? overwriteCopy : mergeCopy;
+
+    const { getMultimodalRollout } = await import(`${nx}/blocks/loc/views/rollout/multimodalRollout.js`);
+    const multimodalRollout = await getMultimodalRollout({
+      org: this.org,
+      site: this.repo,
+      path: this.path,
+      currPrefix: this._currPrefix,
+    });
+
     this._active.map(async (prefix) => {
       prefix.status = 'none';
-      const copyFn = behavior === 'overwrite' ? overwriteCopy : mergeCopy;
-      await copyFn(prefix, copyLabel);
+      if (multimodalRollout) {
+        await multimodalRollout.copyFn({ prefix, copyFn, copyLabel });
+      } else {
+        await copyFn(prefix, copyLabel);
+      }
       this.requestUpdate();
     });
   }

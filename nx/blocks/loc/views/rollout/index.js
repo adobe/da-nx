@@ -3,6 +3,14 @@ import { Queue } from '../../../../public/utils/tree.js';
 import { daFetch } from '../../../../utils/daFetch.js';
 import { mergeCopy, overwriteCopy } from '../../project/index.js';
 import { convertPath, createSnapshotPrefix } from '../../utils/utils.js';
+import {
+  collectMultimodalRolloutData,
+  extFromPath,
+  IMAGE_EXTS,
+  isBinaryRolloutUrl,
+  mimeTypeForExt,
+  resolveLocaleSourceContent,
+} from './multimodalRollout.js';
 
 function getTitle(status) {
   const title = {
@@ -33,6 +41,14 @@ async function fetchLangSources(lang, urls) {
     const resp = await daFetch(`${DA_ORIGIN}/source${url.source}`);
     if (!resp.ok) {
       url.error = `Error fetching content from ${url.source} - ${getRespStatusText(resp.status)}`;
+      return url;
+    }
+
+    if (isBinaryRolloutUrl(url)) {
+      const ext = url.ext ?? extFromPath(url.source);
+      const blob = await resp.blob();
+      url.content = blob;
+      url.contentType = blob.type || mimeTypeForExt(ext);
       return url;
     }
 
@@ -115,11 +131,11 @@ function formatLangUrls(org, site, sourceLocation, lang, urls, snapshot) {
     };
     const { daDestPath, aemBasePath, ext } = convertPath(convertConf);
     const source = `/${org}/${site}${daDestPath}`;
-    return { source, aemBasePath, ext };
+    return { source, aemBasePath, ext, suppliedPath: url.suppliedPath };
   });
 }
 
-function formatRolloutUrls(org, site, lang, urls, snapshot) {
+function formatRolloutUrls(org, site, lang, urls, snapshot, pageRolloutMeta = new Map()) {
   const snapshotPrefix = createSnapshotPrefix(snapshot);
   return lang.locales.reduce((acc, locale) => {
     const localeUrls = urls.map((langUrl) => {
@@ -129,9 +145,14 @@ function formatRolloutUrls(org, site, lang, urls, snapshot) {
         destPrefix: locale.code,
         snapshotPrefix,
       });
+      const sourceContent = resolveLocaleSourceContent(langUrl, {
+        org, site, langLocation: lang.location, localeCode: locale.code, pageRolloutMeta,
+      });
       return {
-        hasExt: langUrl.ext === 'json',
-        sourceContent: langUrl.content,
+        hasExt: langUrl.hasExt || langUrl.ext === 'json' || IMAGE_EXTS.has(langUrl.ext),
+        isMultimodalMedia: langUrl.isMultimodalMedia,
+        contentType: langUrl.contentType,
+        sourceContent,
         source: `/${org}/${site}${langUrl.aemBasePath}`,
         destination: `/${org}/${site}${daDestPath}`,
       };
@@ -157,13 +178,15 @@ export async function rolloutLang({
   const sourceLocation = options['source.language']?.location || '/';
   const behavior = options['rollout.conflict.behavior'];
 
-  // Determine all sources are valid before continuing
-  const langUrls = formatLangUrls(org, site, sourceLocation, lang, projectUrls, snapshot);
+  const pageUrls = formatLangUrls(org, site, sourceLocation, lang, projectUrls, snapshot);
+  const { mediaUrls, pageRolloutMeta } = await collectMultimodalRolloutData({
+    org, site, lang, projectUrls, snapshot, sourceLocation,
+  });
+  const langUrls = [...pageUrls, ...mediaUrls];
   let { errors, message, urls } = await fetchLangSources(lang, langUrls);
   if (errors) return { errors, message };
 
-  // Convert base lang urls to the full locale list
-  const urlsToSave = formatRolloutUrls(org, site, lang, urls, snapshot);
+  const urlsToSave = formatRolloutUrls(org, site, lang, urls, snapshot, pageRolloutMeta);
 
   // Perform the actual rollout
   ({ errors, message, urls } = await rolloutLangLocales(title, lang, urlsToSave, behavior));
@@ -171,7 +194,7 @@ export async function rolloutLang({
 
   // The presumption is that no errors means success
   lang.rollout.status = 'complete';
-  lang.rollout.saved = urls.length;
+  lang.rollout.saved = projectUrls.length * lang.locales.length;
   lang.locales.forEach((locale) => {
     locale.saved = projectUrls.length;
   });
