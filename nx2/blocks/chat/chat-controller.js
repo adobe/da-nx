@@ -150,6 +150,22 @@ export default class ChatController {
       const prior = next.get(toolCallId) ?? { toolName, input: {} };
       const state = isError ? TOOL_STATE.ERROR : TOOL_STATE.DONE;
       next.set(toolCallId, { ...prior, state, output });
+
+      // Auto-compact: when the agent compacts the conversation, replace the full
+      // message history with just the summary. The model's follow-up text-end will
+      // append normally after this, giving: [compacted-summary, assistant-confirmation].
+      if (
+        prior.toolName === 'compact_context'
+        && output?.compacted === true
+        && typeof output.summary === 'string'
+      ) {
+        this._messages = [{ role: ROLE.USER, content: output.summary, compacted: true }];
+        this._toolCards = new Map();
+        this._getRoom().then((room) => saveMessages(room, this._messages));
+        this._update();
+        return;
+      }
+
       if (state === TOOL_STATE.DONE) {
         // Add a virtual message so the tool renders in the conversation at the right
         // position and persists across refreshes, without being sent back to the agent.
