@@ -149,6 +149,55 @@ export const fromPath = (str) => {
   return { org, site, path: parts.length ? `/${parts.join('/')}` : '' };
 };
 
+// Normalize a bulk action response (delete/copy/move) into the common
+// `{ ok, status, continuationToken }` shape. Pagination continues when the
+// server returns `{ continuationToken: ... }` in the JSON body; on 204
+// (no content) or non-2xx there's nothing more to read.
+async function wrapActionResp(resp) {
+  const ok = !!resp?.ok;
+  const status = resp?.status ?? 0;
+  if (!ok || status === 204) return { ok, status, continuationToken: null };
+  let body;
+  try {
+    body = await resp.json();
+  } catch { body = null; }
+  return { ok, status, continuationToken: body?.continuationToken || null };
+}
+
+function hlx6ToDaList(parentPath, items) {
+  return items.map((item) => {
+    const contentType = item['content-type'];
+
+    // Only HLX6 has a content type
+    if (!contentType) return item;
+
+    // Normalize folder
+    const isFolder = item.name.endsWith('/');
+    let name = isFolder ? item.name.slice(0, -1) : item.name;
+
+    // Set the path before extension removal
+    const path = `${parentPath}/${name}`;
+
+    // Remove extension for display
+    const nameSplit = name.split('.');
+    name = nameSplit.length > 1 ? nameSplit[0] : name;
+
+    // Scaffold out the basics
+    const daItem = { name, path, contentType };
+
+    const ext = nameSplit.length > 1 && nameSplit.pop();
+    if (ext) daItem.ext = ext;
+
+    const lastModified = item['last-modified'];
+    if (lastModified) {
+      const unixTime = Math.floor(new Date(lastModified).getTime());
+      daItem.lastModified = unixTime;
+    }
+
+    return daItem;
+  });
+}
+
 // HOF: wraps a method body so it receives resolved args. The first arg
 // can be either `{ org, site, path, ...extras }` or a `/org/site/file/path`
 // string; `extras` (second positional) merges in when arg is a string.
@@ -215,18 +264,33 @@ export const source = {
     return daFetch({ url });
   }),
 
+  // Returns `{ ok, items, continuationToken, permissions }`
   list: withArgs(async ({ org, site, path, opts }) => {
+    const cleanPath = (path || '').replace(/\/$/, '');
+    const parentPath = `/${org}${site ? `/${site}` : ''}${cleanPath}`;
+    let resp;
     // Org-only list (no site) is DA-legacy only; hlx6 has no equivalent.
     if (site) {
       const hlx6 = await isHlx6(org, site);
       if (hlx6) {
         const slashed = path?.endsWith('/') ? path : `${path ?? ''}/`;
         const url = await getDaApiPath(SOURCE, org, site, slashed);
-        return daFetch({ url, opts });
+        resp = await daFetch({ url, opts });
       }
     }
-    const url = await getDaApiPath(LIST, org, site, path);
-    return daFetch({ url, opts });
+    if (!resp) {
+      const url = await getDaApiPath(LIST, org, site, path);
+      resp = await daFetch({ url, opts });
+    }
+    const continuationToken = resp?.headers?.get?.('da-continuation-token') || null;
+    const { permissions } = resp || {};
+    if (!resp?.ok) return { ok: false, items: [], continuationToken, permissions };
+    let raw;
+    try {
+      raw = await resp.json();
+    } catch { raw = []; }
+    const items = Array.isArray(raw) ? hlx6ToDaList(parentPath, raw) : [];
+    return { ok: true, items, continuationToken, permissions };
   }),
 
   save: withArgs(async ({ org, site, path, data }) => {
@@ -245,55 +309,75 @@ export const source = {
     return daFetch({ url, opts });
   }),
 
+  // Returns `{ ok, status, headers }`. HEAD request — the value is the
+  // headers (doc-id, last-modified, etc.). `headers` is the raw Headers
+  // object so callers can call `.get(name)` on it as usual.
   getMetadata: withArgs(async ({ org, site, path }) => {
     const url = await getDaApiPath(SOURCE, org, site, path);
-    return daFetch({ url, opts: { method: 'HEAD' } });
+    const resp = await daFetch({ url, opts: { method: 'HEAD' } });
+    return { ok: !!resp?.ok, status: resp?.status ?? 0, headers: resp?.headers };
   }),
 
-  delete: withArgs(async ({ org, site, path }) => {
-    const url = await getDaApiPath(SOURCE, org, site, path);
-    return daFetch({ url, opts: { method: 'DELETE' } });
+  // Returns `{ ok, status, continuationToken }`. Bulk delete paginates
+  // via `continuationToken` in the response body; pass it back via the
+  // method's `continuationToken` arg to fetch the next page.
+  delete: withArgs(async ({ org, site, path, continuationToken }) => {
+    const baseUrl = await getDaApiPath(SOURCE, org, site, path);
+    const url = new URL(baseUrl);
+    if (continuationToken) url.searchParams.set('continuation-token', continuationToken);
+    const resp = await daFetch({ url: url.toString(), opts: { method: 'DELETE' } });
+    return wrapActionResp(resp);
   }),
 
+  // Returns `{ ok, status, continuationToken }`. See `delete` for the
+  // pagination contract.
   copy: withArgs(async ({
     org, site, path, destination, collision, continuationToken,
   }) => {
     const hlx6 = await isHlx6(org, site);
+    let resp;
     if (hlx6) {
       const url = new URL(await getDaApiPath(SOURCE, org, site, destination));
       url.searchParams.set('source', path);
       if (collision) url.searchParams.set('collision', collision);
       if (continuationToken) url.searchParams.set('continuation-token', continuationToken);
-      return daFetch({ url: url.toString(), opts: { method: 'PUT' } });
+      resp = await daFetch({ url: url.toString(), opts: { method: 'PUT' } });
+    } else {
+      const formData = new FormData();
+      formData.append('destination', destination);
+      if (continuationToken) formData.append('continuation-token', continuationToken);
+      resp = await daFetch({
+        url: `${DA_ADMIN}/copy/${org}/${site}${path}`,
+        opts: { method: 'POST', body: formData },
+      });
     }
-    const formData = new FormData();
-    formData.append('destination', destination);
-    if (continuationToken) formData.append('continuation-token', continuationToken);
-    return daFetch({
-      url: `${DA_ADMIN}/copy/${org}/${site}${path}`,
-      opts: { method: 'POST', body: formData },
-    });
+    return wrapActionResp(resp);
   }),
 
+  // Returns `{ ok, status, continuationToken }`. See `delete` for the
+  // pagination contract.
   move: withArgs(async ({
     org, site, path, destination, collision, continuationToken,
   }) => {
     const hlx6 = await isHlx6(org, site);
+    let resp;
     if (hlx6) {
       const url = new URL(await getDaApiPath(SOURCE, org, site, destination));
       url.searchParams.set('source', path);
       url.searchParams.set('move', 'true');
       if (collision) url.searchParams.set('collision', collision);
       if (continuationToken) url.searchParams.set('continuation-token', continuationToken);
-      return daFetch({ url: url.toString(), opts: { method: 'PUT' } });
+      resp = await daFetch({ url: url.toString(), opts: { method: 'PUT' } });
+    } else {
+      const formData = new FormData();
+      formData.append('destination', destination);
+      if (continuationToken) formData.append('continuation-token', continuationToken);
+      resp = await daFetch({
+        url: `${DA_ADMIN}/move/${org}/${site}${path}`,
+        opts: { method: 'POST', body: formData },
+      });
     }
-    const formData = new FormData();
-    formData.append('destination', destination);
-    if (continuationToken) formData.append('continuation-token', continuationToken);
-    return daFetch({
-      url: `${DA_ADMIN}/move/${org}/${site}${path}`,
-      opts: { method: 'POST', body: formData },
-    });
+    return wrapActionResp(resp);
   }),
 
   createFolder: withArgs(async ({ org, site, path }) => {
@@ -416,9 +500,14 @@ export const aem = {
     api: 'preview', org, site, path, method: 'POST', forceUpdate, forceSync, returnJson,
   })),
 
-  unPreview: withArgs(({ org, site, path, returnJson = true }) => callPath({
-    api: 'preview', org, site, path, method: 'DELETE', includeDelete: true, returnJson,
-  })),
+  unPreview: withArgs(async ({ org, site, path, returnJson = true }) => {
+    const resp = await callPath({
+      api: 'preview', org, site, path, method: 'DELETE', includeDelete: true, returnJson: false,
+    });
+    if (!returnJson) return resp;
+    if (resp.ok && resp.status === 204) return { ok: true, status: 204 };
+    return undefined;
+  }),
 
   publish: withArgs(({
     org, site, path, forceUpdate, forceSync, returnJson = true,
@@ -426,9 +515,14 @@ export const aem = {
     api: 'live', org, site, path, method: 'POST', forceUpdate, forceSync, returnJson,
   })),
 
-  unPublish: withArgs(({ org, site, path, returnJson = true }) => callPath({
-    api: 'live', org, site, path, method: 'DELETE', includeDelete: true, returnJson,
-  })),
+  unPublish: withArgs(async ({ org, site, path, returnJson = true }) => {
+    const resp = await callPath({
+      api: 'live', org, site, path, method: 'DELETE', includeDelete: true, returnJson: false,
+    });
+    if (!returnJson) return resp;
+    if (resp.ok && resp.status === 204) return { ok: true, status: 204 };
+    return undefined;
+  }),
 };
 
 // snapshot: snapshot CRUD and review/publish actions.
@@ -505,37 +599,3 @@ export const jobs = {
     return daFetch({ url, opts: { method: 'DELETE' } });
   },
 };
-
-export function hlx6ToDaList(parentPath, items) {
-  return items.map((item) => {
-    const contentType = item['content-type'];
-
-    // Only HLX6 has a content type
-    if (!contentType) return item;
-
-    // Normalize folder
-    const isFolder = item.name.endsWith('/');
-    let name = isFolder ? item.name.slice(0, -1) : item.name;
-
-    // Set the path before extension removal
-    const path = `${parentPath}/${name}`;
-
-    // Remove extension for display
-    const nameSplit = name.split('.');
-    name = nameSplit.length > 1 ? nameSplit[0] : name;
-
-    // Scaffold out the basics
-    const daItem = { name, path, contentType };
-
-    const ext = nameSplit.length > 1 && nameSplit.pop();
-    if (ext) daItem.ext = ext;
-
-    const lastModified = item['last-modified'];
-    if (lastModified) {
-      const unixTime = Math.floor(new Date(lastModified).getTime());
-      daItem.lastModified = unixTime;
-    }
-
-    return daItem;
-  });
-}

@@ -5,7 +5,6 @@ import {
   daFetch,
   isHlx6,
   signout,
-  hlx6ToDaList,
   fromPath,
   source,
   versions,
@@ -204,6 +203,59 @@ describe('api.js', () => {
       expect(lastCall().headers['da-continuation-token']).to.equal('tok-1');
     });
 
+    it('source.list returns { ok, items, continuationToken, permissions } with legacy items normalized', async () => {
+      restoreFetch();
+      installFetch({
+        body: JSON.stringify([
+          { path: '/o/s/folder/page.html', name: 'page', ext: 'html', lastModified: 1 },
+        ]),
+        headers: { 'da-continuation-token': 'tok-next' },
+      });
+      const { org: o, site: s } = makeOrgSite();
+      const result = await source.list({ org: o, site: s, path: '/folder' });
+      expect(result.ok).to.equal(true);
+      expect(result.items).to.have.length(1);
+      expect(result.items[0]).to.deep.equal({
+        path: '/o/s/folder/page.html', name: 'page', ext: 'html', lastModified: 1,
+      });
+      expect(result.continuationToken).to.equal('tok-next');
+      expect(result.permissions).to.deep.equal(['read', 'write']);
+    });
+
+    it('source.list normalizes hlx6 items via hlx6ToDaList using the parent path', async () => {
+      restoreFetch();
+      installFetch({
+        // Make every non-ping fetch (including the source listing) return this body.
+        // The hlx6 ping response (empty body, no upgrade header) keeps isHlx6 false…
+        // so to exercise the hlx6 branch we use a pre-cached site.
+        body: JSON.stringify([
+          { name: 'demo.json', size: 1, 'content-type': 'application/json', 'last-modified': '2026-05-03T19:05:03.000Z' },
+          { name: 'sub/', 'content-type': 'application/folder' },
+        ]),
+      });
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      const result = await source.list({ org: o, site: s, path: '/parent' });
+      expect(result.ok).to.equal(true);
+      expect(result.items).to.have.length(2);
+      const file = result.items.find((i) => i.name === 'demo');
+      expect(file.ext).to.equal('json');
+      expect(file.path).to.equal(`/${o}/${s}/parent/demo.json`);
+      expect(file.lastModified).to.equal(new Date('2026-05-03T19:05:03.000Z').getTime());
+      const folder = result.items.find((i) => i.name === 'sub');
+      expect(folder.ext).to.be.undefined;
+      expect(folder.path).to.equal(`/${o}/${s}/parent/sub`);
+    });
+
+    it('source.list returns { ok: false, items: [] } on non-ok response', async () => {
+      restoreFetch();
+      installFetch({ status: 403, body: '' });
+      const { org: o, site: s } = makeOrgSite();
+      const result = await source.list({ org: o, site: s, path: '/folder' });
+      expect(result.ok).to.equal(false);
+      expect(result.items).to.deep.equal([]);
+      expect(result.continuationToken).to.equal(null);
+    });
+
     it('source.save DA wraps data in FormData', async () => {
       const { org: o, site: s } = makeOrgSite();
       const data = new Blob(['<html></html>'], { type: 'text/html' });
@@ -250,16 +302,50 @@ describe('api.js', () => {
       expect(last.body).to.equal(blob);
     });
 
-    it('source.getMetadata sends HEAD', async () => {
+    it('source.getMetadata sends HEAD and returns { ok, status, headers }', async () => {
+      restoreFetch();
+      installFetch({ status: 200, headers: { 'last-modified': 'Mon, 01 Jan 2025 00:00:00 GMT' } });
       const { org: o, site: s } = makeOrgSite({ hlx6: true });
-      await source.getMetadata({ org: o, site: s, path: '/x.html' });
+      const result = await source.getMetadata({ org: o, site: s, path: '/x.html' });
       expect(lastCall().method).to.equal('HEAD');
+      expect(result.ok).to.equal(true);
+      expect(result.status).to.equal(200);
+      expect(result.headers.get('last-modified')).to.equal('Mon, 01 Jan 2025 00:00:00 GMT');
     });
 
-    it('source.delete sends DELETE', async () => {
+    it('source.getMetadata returns ok:false on 404', async () => {
+      restoreFetch();
+      installFetch({ status: 404 });
       const { org: o, site: s } = makeOrgSite({ hlx6: true });
-      await source.delete({ org: o, site: s, path: '/x.html' });
+      const result = await source.getMetadata({ org: o, site: s, path: '/missing' });
+      expect(result.ok).to.equal(false);
+      expect(result.status).to.equal(404);
+    });
+
+    it('source.delete sends DELETE and returns { ok, status, continuationToken: null } on 204', async () => {
+      restoreFetch();
+      // 204 is a null-body status; Response constructor rejects a non-null body.
+      installFetch({ status: 204, body: null });
+      const { org: o, site: s } = makeOrgSite();
+      const result = await source.delete({ org: o, site: s, path: '/x.html' });
       expect(lastCall().method).to.equal('DELETE');
+      expect(result).to.deep.equal({ ok: true, status: 204, continuationToken: null });
+    });
+
+    it('source.delete returns continuationToken from response body when paginated', async () => {
+      restoreFetch();
+      installFetch({ status: 200, body: JSON.stringify({ continuationToken: 'tok-next' }) });
+      const { org: o, site: s } = makeOrgSite();
+      const result = await source.delete({ org: o, site: s, path: '/folder' });
+      expect(result.ok).to.equal(true);
+      expect(result.continuationToken).to.equal('tok-next');
+    });
+
+    it('source.delete forwards continuationToken arg as query param', async () => {
+      const { org: o, site: s } = makeOrgSite();
+      await source.delete({ org: o, site: s, path: '/folder', continuationToken: 'prev-tok' });
+      const u = new URL(lastCall().url);
+      expect(u.searchParams.get('continuation-token')).to.equal('prev-tok');
     });
 
     it('source.copy hlx6 PUTs with source/collision query params', async () => {
@@ -735,37 +821,6 @@ describe('api.js', () => {
         site: 'site',
         path: '',
       });
-    });
-  });
-
-  describe('hlx6ToDaList', () => {
-    it('passes through items without content-type unchanged', () => {
-      const items = [{ name: 'foo', path: '/foo' }];
-      expect(hlx6ToDaList('/parent', items)).to.deep.equal(items);
-    });
-
-    it('strips trailing slash for folders', () => {
-      const result = hlx6ToDaList('/parent', [
-        { name: 'subfolder/', 'content-type': 'application/folder' },
-      ]);
-      expect(result[0].name).to.equal('subfolder');
-      expect(result[0].path).to.equal('/parent/subfolder');
-    });
-
-    it('extracts ext and strips it from display name', () => {
-      const result = hlx6ToDaList('/parent', [
-        { name: 'page.html', 'content-type': 'text/html' },
-      ]);
-      expect(result[0].name).to.equal('page');
-      expect(result[0].ext).to.equal('html');
-      expect(result[0].path).to.equal('/parent/page.html');
-    });
-
-    it('converts last-modified to unix timestamp', () => {
-      const result = hlx6ToDaList('/parent', [
-        { name: 'x.html', 'content-type': 'text/html', 'last-modified': '2025-01-01T00:00:00.000Z' },
-      ]);
-      expect(result[0].lastModified).to.equal(new Date('2025-01-01T00:00:00.000Z').getTime());
     });
   });
 

@@ -1,4 +1,4 @@
-import { source, hlx6ToDaList } from '../../../nx2/utils/api.js';
+import { source } from '../../../nx2/utils/api.js';
 
 export class Queue {
   constructor(callback, maxConcurrent = 500, onError = null, throttle = null) {
@@ -57,11 +57,9 @@ async function getChildren(path) {
     const opts = continuationToken
       ? { headers: { 'da-continuation-token': continuationToken } }
       : undefined;
-    const resp = await source.list(path, { opts });
-    if (!resp.ok) break;
+    const { ok, items, continuationToken: nextToken } = await source.list(path, { opts });
+    if (!ok) break;
 
-    const json = await resp.json();
-    const items = hlx6ToDaList(path, json);
     items.forEach((child) => {
       if (!child.name) {
         // eslint-disable-next-line no-console
@@ -75,7 +73,7 @@ async function getChildren(path) {
       }
     });
 
-    continuationToken = resp.headers?.get('da-continuation-token') || null;
+    continuationToken = nextToken;
   } while (continuationToken);
 
   return { files, folders };
