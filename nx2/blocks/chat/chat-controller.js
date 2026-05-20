@@ -12,6 +12,7 @@ export default class ChatController {
   constructor({ onUpdate, onToolDone }) {
     this._onUpdate = onUpdate;
     this._onToolDone = onToolDone;
+    this._sessionId = crypto.randomUUID();
   }
 
   setContext(context) {
