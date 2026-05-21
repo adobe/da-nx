@@ -1,8 +1,8 @@
 /* eslint-disable import/prefer-default-export */
 import { getSchema } from 'https://da.live/deps/da-parser/dist/index.js';
-import { EditorState, EditorView } from 'https://da.live/deps/da-y-wrapper/dist/index.js';
+import { EditorState, EditorView, TextSelection } from 'https://da.live/deps/da-y-wrapper/dist/index.js';
 import {
-  showToolbar,
+  // showToolbar,
   hideToolbar,
   setCurrentEditorView,
   updateToolbarState,
@@ -13,6 +13,13 @@ import { createSimpleKeymap } from './simple-keymap.js';
 import { createImageWrapperPlugin } from './image-wrapper.js';
 import { setupImageDropListeners } from './images.js';
 import { setRemoteCursors } from './cursors.js';
+
+function marksEqual(a, b) {
+  if (!a && !b) return true;
+  if (!a || !b) return false;
+  if (a.length !== b.length) return false;
+  return a.every((m, i) => m.eq(b[i]));
+}
 
 function updateInstrumentation(lengthDiff, offset) {
   const editableElements = document.querySelectorAll('[data-prose-index]');
@@ -33,7 +40,8 @@ function handleTransaction(tr, ctx, editorView, editorParent) {
   const numChanges = tr.steps.length;
   const currentCursorOffset = parseInt(editorParent.getAttribute('data-prose-index'), 10);
   const oldLength = editorView.state.doc.firstChild.nodeSize;
-  const oldSelection = editorView.state.selection.from;
+  const oldSel = editorView.state.selection;
+  const oldStoredMarks = editorView.state.storedMarks;
   const newState = editorView.state.apply(tr);
   editorView.updateState(newState);
   updateInstrumentation(newState.doc.firstChild.nodeSize - oldLength, currentCursorOffset);
@@ -49,13 +57,34 @@ function handleTransaction(tr, ctx, editorView, editorParent) {
     });
   }
 
-  // Check if selection changed
-  const newSelection = newState.selection.from;
-  if (oldSelection !== newSelection) {
+  const newSel = newState.selection;
+  if (oldSel.anchor !== newSel.anchor || oldSel.head !== newSel.head) {
+    const base = currentCursorOffset - 1;
+    if (newSel.anchor !== newSel.head) {
+      const coords = editorView.coordsAtPos(newSel.anchor);
+      ctx.port.postMessage({
+        type: 'selection-change',
+        anchor: base + newSel.anchor,
+        head: base + newSel.head,
+        anchorX: coords.left,
+        anchorY: coords.top,
+      });
+    } else {
+      ctx.port.postMessage({
+        type: 'cursor-move',
+        cursorOffset: base,
+        textCursorOffset: newSel.from,
+      });
+    }
+  }
+
+  // Notify the controller when stored marks change (e.g. Cmd+B keyboard shortcut).
+  // This lets the da-nx toolbar reflect mark toggles immediately without waiting
+  // for the next character to be typed.
+  if (!marksEqual(oldStoredMarks, newState.storedMarks)) {
     ctx.port.postMessage({
-      type: 'cursor-move',
-      cursorOffset: currentCursorOffset - 1,
-      textCursorOffset: newSelection,
+      type: 'stored-marks',
+      marks: newState.storedMarks ? newState.storedMarks.map((m) => m.toJSON()) : [],
     });
   }
 
@@ -64,16 +93,58 @@ function handleTransaction(tr, ctx, editorView, editorParent) {
   positionToolbar();
 }
 
+let scrollRaf = null;
+let scrollCtx = null;
+let scrollBound = false;
+
+function initScrollListener(win, ctx) {
+  scrollCtx = ctx;
+  if (scrollBound) return;
+  scrollBound = true;
+  win.addEventListener('scroll', () => {
+    if (scrollRaf) return;
+    scrollRaf = requestAnimationFrame(() => {
+      scrollRaf = null;
+      const focused = document.querySelector('.prosemirror-editor .ProseMirror:focus');
+      if (!focused) return;
+      const editorParent = focused.closest('.prosemirror-editor');
+      const view = editorParent?.view;
+      if (!view) return;
+      const { selection } = view.state;
+      if (selection.anchor === selection.head) return;
+      const offset = parseInt(editorParent.getAttribute('data-prose-index'), 10);
+      const base = offset - 1;
+      const coords = view.coordsAtPos(selection.anchor);
+      scrollCtx.port.postMessage({
+        type: 'selection-change',
+        anchor: base + selection.anchor,
+        head: base + selection.head,
+        anchorX: coords.left,
+        anchorY: coords.top,
+      });
+    });
+  }, { passive: true });
+}
+
+let blurClearTimeout = null;
+
 function focus(view) {
+  if (blurClearTimeout !== null) {
+    clearTimeout(blurClearTimeout);
+    blurClearTimeout = null;
+  }
   setCurrentEditorView(view);
-  showToolbar(view);
+  // showToolbar(view);
   return false;
 }
 
 function blur(view, event, ctx) {
   hideToolbar(view);
   setCurrentEditorView(null);
-  ctx.port.postMessage({ type: 'cursor-move' });
+  blurClearTimeout = setTimeout(() => {
+    ctx.port.postMessage({ type: 'cursor-move' });
+    blurClearTimeout = null;
+  }, 150);
   return false; // Let other handlers run
 }
 
@@ -123,8 +194,15 @@ function createEditor(cursorOffset, state, ctx) {
   element.replaceWith(editorParent);
   editorParent.view = editorView;
   setupImageDropListeners(ctx, editorParent);
-
   setRemoteCursors();
+  initScrollListener(editorParent.ownerDocument.defaultView, ctx);
+
+  if (blurClearTimeout !== null) {
+    clearTimeout(blurClearTimeout);
+    blurClearTimeout = null;
+    setCurrentEditorView(editorView);
+    editorView.focus();
+  }
 }
 
 function updateEditor(editorEl, state, ctx) {
@@ -135,19 +213,38 @@ function updateEditor(editorEl, state, ctx) {
   const { schema } = view.state;
   const node = schema.nodeFromJSON(state);
 
+  // Save selection to restore after the content replacement.
+  // Marks don't change node structure, so positions are identical in the new doc.
+  const { anchor, head } = view.state.selection;
+
   // Create transaction to replace the root node (first child of doc)
   const tr = view.state.tr.replaceWith(0, view.state.doc.content.size, node);
+  const newSize = tr.doc.content.size;
+  try {
+    const a = Math.min(anchor, newSize);
+    const h = Math.min(head, newSize);
+    tr.setSelection(TextSelection.create(tr.doc, a, h));
+  } catch {
+    // If positions are invalid in new doc, leave selection as-is
+  }
   ctx.remoteUpdate = true;
   view.dispatch(tr);
   ctx.remoteUpdate = false;
   setupImageDropListeners(ctx, editorEl.parentElement);
+
+  if (blurClearTimeout !== null) {
+    clearTimeout(blurClearTimeout);
+    blurClearTimeout = null;
+    setCurrentEditorView(view);
+    view.focus();
+  }
 }
 
 export function setEditorState(cursorOffset, state, ctx) {
   const existingEditorParent = document.querySelector(`.prosemirror-editor[data-prose-index="${cursorOffset}"]`);
   if (existingEditorParent) {
-    const editorEl = existingEditorParent.view;
-    updateEditor(editorEl, state, ctx);
+    updateEditor(existingEditorParent.view, state, ctx);
+    return;
   }
   createEditor(cursorOffset, state, ctx);
 }
