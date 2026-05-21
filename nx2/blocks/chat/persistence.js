@@ -84,11 +84,6 @@ export function saveMessages(room, messages, sessionId) {
   return write((store) => store.put({ room, messages, sessionId, updatedAt: Date.now() }));
 }
 
-// Deletes the record entirely — use resetSession instead when starting a new session.
-export function clearMessages(room) {
-  return write((store) => store.delete(room));
-}
-
 // Clears messages but writes the new sessionId so a reload continues the same session boundary.
 export function resetSession(room, sessionId) {
   return write((store) => store.put({ room, messages: [], sessionId, updatedAt: Date.now() }));

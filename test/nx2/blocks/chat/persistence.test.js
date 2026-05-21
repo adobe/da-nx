@@ -3,7 +3,6 @@ import {
   loadMessages,
   saveMessages,
   resetSession,
-  clearMessages,
 } from '../../../../nx2/blocks/chat/persistence.js';
 
 let counter = 0;
@@ -99,18 +98,6 @@ describe('persistence', () => {
       const result = await loadMessages(testRoom);
       expect(result.messages).to.deep.equal([]);
       expect(result.sessionId).to.equal(id);
-    });
-  });
-
-  describe('clearMessages', () => {
-    it('removes the record entirely so loadMessages returns defaults', async () => {
-      const testRoom = room();
-      await saveMessages(testRoom, [{ role: 'user', content: 'x' }], crypto.randomUUID());
-      await clearMessages(testRoom);
-
-      const result = await loadMessages(testRoom);
-      expect(result.messages).to.deep.equal([]);
-      expect(result.sessionId).to.be.null;
     });
   });
 });
