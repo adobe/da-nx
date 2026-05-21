@@ -281,9 +281,7 @@ export async function sendAllLanguages({
 
 export function getSourceFileStatus(tasks) {
   // If source file tasks fail, all langs fail
-  const sourceTasks = tasks.filter((task) => (
-    ['scan', 'convert', 'copy-to-target'].includes(task.taskType?.key)
-  ));
+  const sourceTasks = tasks.filter((task) => task.input?.type === 'sourceFile');
   if (!sourceTasks.length) return null;
   if (sourceTasks.some((t) => t.status === 'failed')) return 'error';
   if (sourceTasks.some((t) => t.status === 'canceled')) return 'canceled';
@@ -302,8 +300,6 @@ export function getLangStatus(tasks, langCode, fileCount) {
   )).length;
 
   if (langTasks.some((t) => t.status === 'failed')) return { status: 'error', translated };
-  if (langTasks.some((t) => t.status === 'skipped')) return { status: 'skipped', translated };
-  if (langTasks.some((t) => t.status === 'canceled')) return { status: 'canceled', translated };
   if (translated === fileCount) return { status: 'translated', translated };
 
   return { status: 'in progress', translated };

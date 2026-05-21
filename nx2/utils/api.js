@@ -5,6 +5,26 @@ const { loadIms, handleSignIn } = await (async () => {
   return import(`${getNx()}/utils/ims.js`);
 })();
 
+const SOURCE = 'source';
+const LIST = 'list';
+const CONFIG = 'config';
+const VERSIONS = 'versions';
+const REF = 'main';
+
+const TYPE_MAP = {
+  '.html': 'text/html',
+  '.json': 'application/json',
+  '.link': 'application/json',
+  '.svg': 'image/svg+xml',
+  '.ico': 'image/x-icon',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.png': 'image/png',
+  '.gif': 'image/gif',
+  '.mp4': 'video/mp4',
+  '.pdf': 'application/pdf',
+};
+
 export const daFetch = async ({ url, opts = { method: 'GET' }, redirect = false }) => {
   const { accessToken } = await loadIms();
   if (!accessToken) {
@@ -75,106 +95,76 @@ export const isHlx6 = (() => {
   };
 })();
 
-const getApiPath = async (org, site, api, daPath) => {
+// DA-owned endpoints proxied between DA_ADMIN and AEM_API.
+const getDaApiPath = async (api, org, site, path = '') => {
   const hlx6 = await isHlx6(org, site);
 
-  if (api === 'versionsource') {
-    if (hlx6) return `${AEM_API}/${org}/sites/${site}/${api}${daPath}/.versions`;
-    return `${DA_ADMIN}/versionsource/${org}/${site}${daPath}`;
+  if (api === VERSIONS) {
+    if (hlx6) return `${AEM_API}/${org}/sites/${site}/source${path}/.versions`;
+    return `${DA_ADMIN}/versionsource/${org}/${site}${path}`;
   }
 
-  if (api === 'config') {
-    if (hlx6) {
-      if (!site) return `${AEM_API}/${org}/config.json`;
-      return `${AEM_API}/${org}/sites/${site}/config.json`;
-    }
-    if (!site) return `${DA_ADMIN}/${api}/${org}/`;
-    return `${DA_ADMIN}/${api}/${org}/${site}/`;
+  if (api === CONFIG) {
+    // TODO: For now config is only supported on DA_ADMIN
+    // if (hlx6) {
+    //   if (!site) return `${AEM_API}/${org}/config.json`;
+    //   return `${AEM_API}/${org}/sites/${site}/config.json`;
+    // }
+    if (!site) return `${DA_ADMIN}/config/${org}/`;
+    return `${DA_ADMIN}/config/${org}/${site}/`;
   }
 
-  // HLX6 does not have a list api,
-  // it will use the source formatting.
-  if (api === 'list') {
-    return `${DA_ADMIN}/${api}/${org}/${site}${daPath}`;
+  // HLX6 has no list api, so source formatting is used (with trailing slash).
+  if (api === LIST) {
+    if (!site) return `${DA_ADMIN}/list/${org}`;
+    return `${DA_ADMIN}/list/${org}/${site}${path}`;
   }
 
-  // api === 'source'
-  if (hlx6) return `${AEM_API}/${org}/sites/${site}/${api}${daPath}`;
-  return `${DA_ADMIN}/${api}/${org}/${site}${daPath}`;
+  // SOURCE
+  if (hlx6) return `${AEM_API}/${org}/sites/${site}/source${path}`;
+  return `${DA_ADMIN}/source/${org}/${site}${path}`;
 };
 
-export const signout = () => {
-  daFetch(`${DA_ADMIN}/logout`);
-};
-
-const TEXT_TYPES = {
-  '.html': 'text/html',
-  '.json': 'application/json',
-};
-
-export const putSource = async ({ org, site, daPath, body }) => {
+// AEM-only endpoints. New API origin or legacy admin.hlx.page with ref=main.
+const getAemApiPath = async (api, org, site, path = '') => {
   const hlx6 = await isHlx6(org, site);
-  const url = await getApiPath(org, site, 'source', daPath);
-  const textExt = Object.keys(TEXT_TYPES).find((e) => daPath.endsWith(e));
-  const opts = { method: 'POST' };
+
   if (hlx6) {
-    const hlx6Opts = { ...opts };
-    // Convert blobs to text for HLX6
-    if (textExt) {
-      hlx6Opts.body = body instanceof Blob ? await body.text() : body;
-      hlx6Opts.headers = { 'Content-Type': TEXT_TYPES[textExt] };
-    } else {
-      hlx6Opts.body = body;
-    }
-    return daFetch({ url, opts: hlx6Opts });
+    if (api === 'jobs') return `${AEM_API}/${org}/sites/${site}/jobs${path}`;
+    if (api === 'snapshots') return `${AEM_API}/${org}/sites/${site}/snapshots${path}`;
+    return `${AEM_API}/${org}/sites/${site}/${api}${path}`;
   }
-  const formData = new FormData();
-  formData.append('data', body);
-  const daOpts = { ...opts, body: formData };
-  return daFetch({ url, opts: daOpts });
+
+  // Legacy: singular forms for jobs/snapshots, ref in path.
+  if (api === 'jobs') return `${HLX_ADMIN}/job/${org}/${site}/${REF}${path}`;
+  if (api === 'snapshots') return `${HLX_ADMIN}/snapshot/${org}/${site}/${REF}${path}`;
+  return `${HLX_ADMIN}/${api}/${org}/${site}/${REF}${path}`;
 };
 
-export const getSource = async ({ org, site, daPath }) => {
-  const url = await getApiPath(org, site, 'source', daPath);
-  return daFetch({ url });
+const HLX6_ONLY = { error: 'Requires Helix 6 upgrade', status: 501 };
+
+// Convert a `/org/site/file/path` string into `{ org, site, path }`.
+export const fromPath = (str) => {
+  const [, org, site, ...parts] = str.split('/');
+  return { org, site, path: parts.length ? `/${parts.join('/')}` : '' };
 };
 
-export const listSource = async ({ org, site, daPath }) => {
-  const hlx6 = await isHlx6(org, site);
-  if (hlx6) {
-    const path = daPath ? `/${daPath}/` : '/';
-    const url = await getApiPath(org, site, 'source', path);
-    return daFetch({ url });
-  }
-  const url = await getApiPath(org, site, 'list', daPath);
-  return daFetch({ url });
-};
+// Normalize a bulk action response (delete/copy/move) into the common
+// `{ ok, status, continuationToken }` shape. Pagination continues when the
+// server returns `{ continuationToken: ... }` in the JSON body; on 204
+// (no content) or non-2xx there's nothing more to read.
+async function wrapActionResp(resp) {
+  const ok = !!resp?.ok;
+  const status = resp?.status ?? 0;
+  if (!ok || status === 204) return { ok, status, continuationToken: null };
+  let body;
+  try {
+    body = await resp.json();
+  } catch { body = null; }
+  return { ok, status, continuationToken: body?.continuationToken || null };
+}
 
-export const putVersion = async ({ org, site, daPath, operation, comment }) => {
-  const url = new URL(await getApiPath(org, site, 'versionsource', daPath));
-  if (operation) url.searchParams.set('operation', operation);
-  if (comment) url.searchParams.set('comment', comment);
-  const opts = { method: 'POST' };
-  return daFetch({ url: url.toString(), opts });
-};
-
-export const getConfig = async ({ org, site }) => {
-  const url = await getApiPath(org, site, 'config');
-  return daFetch({ url });
-};
-
-export const putConfig = async ({ org, site, body }) => {
-  const url = await getApiPath(org, site, 'config');
-
-  const formData = new FormData();
-  formData.append('config', body);
-
-  const opts = { method: 'POST', body: formData };
-
-  return daFetch({ url, opts });
-};
-
-export function hlx6ToDaList(parentPath, items) {
+function hlx6ToDaList(parentPath, items) {
   return items.map((item) => {
     const contentType = item['content-type'];
 
@@ -207,3 +197,405 @@ export function hlx6ToDaList(parentPath, items) {
     return daItem;
   });
 }
+
+// HOF: wraps a method body so it receives resolved args. The first arg
+// can be either `{ org, site, path, ...extras }` or a `/org/site/file/path`
+// string; `extras` (second positional) merges in when arg is a string.
+// `org` is required; `site` is required by most methods but optional for a
+// few (e.g., `source.list({ org })` lists at the org level on legacy DA).
+// Bad input is logged but still passed through — the resulting fetch
+// fails naturally and callers handle non-ok responses as usual.
+const withArgs = (fn) => (arg = {}, extras = {}) => {
+  const args = typeof arg === 'string'
+    ? { ...fromPath(arg), ...extras }
+    : arg;
+  if (!args.org) {
+    // eslint-disable-next-line no-console
+    console.error('api: invalid args - pass /org/site/... string or { org, site, path }', arg);
+  }
+  if (typeof args.path === 'string' && !args.path.startsWith('/')) {
+    args.path = `/${args.path}`;
+  }
+  return fn(args);
+};
+
+const jsonOpts = (method, payload) => ({
+  method,
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify(payload),
+});
+
+// Dispatcher for AEM ops that accept path as string or array.
+// Array of length >= 2 routes to the bulk /* endpoint with { paths, delete? }.
+// `forceUpdate`/`forceSync` are bulk-only (server ignores them on single-path).
+const callPath = async ({
+  api, org, site, path, method, includeDelete = false, forceUpdate, forceSync, returnJson = true,
+}) => {
+  if (Array.isArray(path) && path.length >= 2) {
+    const url = await getAemApiPath(api, org, site, '/*');
+    const payload = { paths: path };
+    if (includeDelete) payload.delete = true;
+    if (forceUpdate) payload.forceUpdate = true;
+    if (forceSync) payload.forceSync = true;
+    return daFetch({ url, opts: jsonOpts('POST', payload) });
+  }
+  const single = Array.isArray(path) ? path[0] : path;
+  const url = await getAemApiPath(api, org, site, single);
+  const resp = await daFetch({ url, opts: { method } });
+  if (!returnJson) return resp;
+  if (!resp.ok) return undefined;
+  try {
+    return resp.json();
+  } catch {
+    return undefined;
+  }
+};
+
+export const signout = () => {
+  daFetch({ url: `${DA_ADMIN}/logout` });
+};
+
+// source: DA <-> AEM document operations. First arg is either
+// { org, site, path, ...extras } or a `/org/site/file/path` string.
+// `extras` (second arg) merges with parsed args when arg is a string.
+export const source = {
+  load: withArgs(async ({ org, site, path }) => {
+    const url = await getDaApiPath(SOURCE, org, site, path);
+    return daFetch({ url });
+  }),
+
+  // Returns `{ ok, items, continuationToken, permissions }`
+  list: withArgs(async ({ org, site, path, opts }) => {
+    const cleanPath = (path || '').replace(/\/$/, '');
+    const parentPath = `/${org}${site ? `/${site}` : ''}${cleanPath}`;
+    let resp;
+    // Org-only list (no site) is DA-legacy only; hlx6 has no equivalent.
+    if (site) {
+      const hlx6 = await isHlx6(org, site);
+      if (hlx6) {
+        const slashed = path?.endsWith('/') ? path : `${path ?? ''}/`;
+        const url = await getDaApiPath(SOURCE, org, site, slashed);
+        resp = await daFetch({ url, opts });
+      }
+    }
+    if (!resp) {
+      const url = await getDaApiPath(LIST, org, site, path);
+      resp = await daFetch({ url, opts });
+    }
+    const continuationToken = resp?.headers?.get?.('da-continuation-token') || null;
+    const { permissions } = resp || {};
+    if (!resp?.ok) return { ok: false, items: [], continuationToken, permissions };
+    let raw;
+    try {
+      raw = await resp.json();
+    } catch { raw = []; }
+    const items = Array.isArray(raw) ? hlx6ToDaList(parentPath, raw) : [];
+    return { ok: true, items, continuationToken, permissions };
+  }),
+
+  save: withArgs(async ({ org, site, path, data }) => {
+    const hlx6 = await isHlx6(org, site);
+    const url = await getDaApiPath(SOURCE, org, site, path);
+    const opts = { method: 'POST' };
+    if (hlx6) {
+      const ext = Object.keys(TYPE_MAP).find((e) => path.endsWith(e));
+      opts.body = data;
+      if (ext) opts.headers = { 'Content-Type': TYPE_MAP[ext] };
+      return daFetch({ url, opts });
+    }
+    const formData = new FormData();
+    formData.append('data', data);
+    opts.body = formData;
+    return daFetch({ url, opts });
+  }),
+
+  // Returns `{ ok, status, headers }`. HEAD request — the value is the
+  // headers (doc-id, last-modified, etc.). `headers` is the raw Headers
+  // object so callers can call `.get(name)` on it as usual.
+  getMetadata: withArgs(async ({ org, site, path }) => {
+    const url = await getDaApiPath(SOURCE, org, site, path);
+    const resp = await daFetch({ url, opts: { method: 'HEAD' } });
+    return { ok: !!resp?.ok, status: resp?.status ?? 0, headers: resp?.headers };
+  }),
+
+  // Returns `{ ok, status, continuationToken }`. Bulk delete paginates
+  // via `continuationToken` in the response body; pass it back via the
+  // method's `continuationToken` arg to fetch the next page.
+  delete: withArgs(async ({ org, site, path, continuationToken }) => {
+    const baseUrl = await getDaApiPath(SOURCE, org, site, path);
+    const url = new URL(baseUrl);
+    if (continuationToken) url.searchParams.set('continuation-token', continuationToken);
+    const resp = await daFetch({ url: url.toString(), opts: { method: 'DELETE' } });
+    return wrapActionResp(resp);
+  }),
+
+  // Returns `{ ok, status, continuationToken }`. See `delete` for the
+  // pagination contract.
+  copy: withArgs(async ({
+    org, site, path, destination, collision, continuationToken,
+  }) => {
+    const hlx6 = await isHlx6(org, site);
+    let resp;
+    if (hlx6) {
+      const url = new URL(await getDaApiPath(SOURCE, org, site, destination));
+      url.searchParams.set('source', path);
+      if (collision) url.searchParams.set('collision', collision);
+      if (continuationToken) url.searchParams.set('continuation-token', continuationToken);
+      resp = await daFetch({ url: url.toString(), opts: { method: 'PUT' } });
+    } else {
+      const formData = new FormData();
+      formData.append('destination', destination);
+      if (continuationToken) formData.append('continuation-token', continuationToken);
+      resp = await daFetch({
+        url: `${DA_ADMIN}/copy/${org}/${site}${path}`,
+        opts: { method: 'POST', body: formData },
+      });
+    }
+    return wrapActionResp(resp);
+  }),
+
+  // Returns `{ ok, status, continuationToken }`. See `delete` for the
+  // pagination contract.
+  move: withArgs(async ({
+    org, site, path, destination, collision, continuationToken,
+  }) => {
+    const hlx6 = await isHlx6(org, site);
+    let resp;
+    if (hlx6) {
+      const url = new URL(await getDaApiPath(SOURCE, org, site, destination));
+      url.searchParams.set('source', path);
+      url.searchParams.set('move', 'true');
+      if (collision) url.searchParams.set('collision', collision);
+      if (continuationToken) url.searchParams.set('continuation-token', continuationToken);
+      resp = await daFetch({ url: url.toString(), opts: { method: 'PUT' } });
+    } else {
+      const formData = new FormData();
+      formData.append('destination', destination);
+      if (continuationToken) formData.append('continuation-token', continuationToken);
+      resp = await daFetch({
+        url: `${DA_ADMIN}/move/${org}/${site}${path}`,
+        opts: { method: 'POST', body: formData },
+      });
+    }
+    return wrapActionResp(resp);
+  }),
+
+  createFolder: withArgs(async ({ org, site, path }) => {
+    const url = await getDaApiPath(SOURCE, org, site, `${path}/`);
+    return daFetch({ url, opts: { method: 'POST' } });
+  }),
+
+  deleteFolder: withArgs(async ({ org, site, path }) => {
+    const url = await getDaApiPath(SOURCE, org, site, `${path}/`);
+    return daFetch({ url, opts: { method: 'DELETE' } });
+  }),
+};
+
+// versions: list/get/create document versions.
+export const versions = {
+  list: withArgs(async ({ org, site, path }) => {
+    const hlx6 = await isHlx6(org, site);
+    if (hlx6) {
+      return daFetch({ url: `${AEM_API}/${org}/sites/${site}/source${path}/.versions` });
+    }
+    // Legacy DA uses a separate /versionlist endpoint for listing.
+    return daFetch({ url: `${DA_ADMIN}/versionlist/${org}/${site}${path}` });
+  }),
+
+  // versionId on hlx6 is the ULID returned by versions.list; on legacy it is
+  // the trailing `{versionGuid}/{fileGuid}.{ext}` segment from the list response.
+  get: withArgs(async ({ org, site, path, versionId }) => {
+    const hlx6 = await isHlx6(org, site);
+    if (hlx6) {
+      const url = `${AEM_API}/${org}/sites/${site}/source${path}/.versions/${versionId}`;
+      return daFetch({ url });
+    }
+    return daFetch({ url: `${DA_ADMIN}/versionsource/${org}/${versionId}` });
+  }),
+
+  create: withArgs(async ({ org, site, path, operation, comment }) => {
+    const hlx6 = await isHlx6(org, site);
+    const url = await getDaApiPath(VERSIONS, org, site, path);
+    const opts = { method: 'POST' };
+    if (hlx6) {
+      // hlx6 accepts { operation, comment } JSON body.
+      const payload = {};
+      if (operation) payload.operation = operation;
+      if (comment) payload.comment = comment;
+      if (Object.keys(payload).length > 0) {
+        opts.headers = { 'Content-Type': 'application/json' };
+        opts.body = JSON.stringify(payload);
+      }
+    } else if (comment) {
+      // Legacy DA accepts { label } JSON body. Map comment -> label.
+      opts.body = JSON.stringify({ label: comment });
+    }
+    return daFetch({ url, opts });
+  }),
+};
+
+// config: top-level org/site config.
+export const config = {
+  get: async ({ org, site }) => {
+    const url = await getDaApiPath(CONFIG, org, site);
+    return daFetch({ url });
+  },
+
+  put: async ({ org, site, body }) => {
+    const url = await getDaApiPath(CONFIG, org, site);
+    const formData = new FormData();
+    formData.append(CONFIG, body);
+    return daFetch({ url, opts: { method: 'POST', body: formData } });
+  },
+
+  delete: async ({ org, site }) => {
+    const url = await getDaApiPath(CONFIG, org, site);
+    return daFetch({ url, opts: { method: 'DELETE' } });
+  },
+
+  getAggregated: async ({ org, site }) => {
+    const hlx6 = await isHlx6(org, site);
+    if (!hlx6) return { ...HLX6_ONLY };
+    const url = `${AEM_API}/${org}/aggregated/${site}/config.json`;
+    return daFetch({ url });
+  },
+};
+
+// org: organization-level operations. New-API only; no hlx6 detection
+// (no site to probe). The endpoint will 404 on non-migrated orgs.
+const orgNs = {
+  listSites: async ({ org }) => daFetch({ url: `${AEM_API}/${org}/sites` }),
+};
+export { orgNs as org };
+
+// status: single-path only. H6 has no bulk status endpoint.
+export const status = {
+  get: withArgs(async ({ org, site, path }) => {
+    const url = await getAemApiPath('status', org, site, path);
+    const resp = await daFetch({ url });
+    if (!resp.ok) return undefined;
+    try {
+      return resp.json();
+    } catch {
+      return undefined;
+    }
+  }),
+};
+
+// aem: combined preview + live operations.
+// preview/unPreview/publish/unPublish accept `path` as string or array (2+ -> bulk).
+// preview/publish also accept optional `forceUpdate`/`forceSync` flags.
+export const aem = {
+  getPreview: withArgs(({ org, site, path, returnJson = true }) => callPath({
+    api: 'preview', org, site, path, method: 'GET', returnJson,
+  })),
+
+  getPublish: withArgs(({ org, site, path, returnJson = true }) => callPath({
+    api: 'live', org, site, path, method: 'GET', returnJson,
+  })),
+
+  preview: withArgs(({
+    org, site, path, forceUpdate, forceSync, returnJson = true,
+  }) => callPath({
+    api: 'preview', org, site, path, method: 'POST', forceUpdate, forceSync, returnJson,
+  })),
+
+  unPreview: withArgs(async ({ org, site, path, returnJson = true }) => {
+    const resp = await callPath({
+      api: 'preview', org, site, path, method: 'DELETE', includeDelete: true, returnJson: false,
+    });
+    if (!returnJson) return resp;
+    if (resp.ok && resp.status === 204) return { ok: true, status: 204 };
+    return undefined;
+  }),
+
+  publish: withArgs(({
+    org, site, path, forceUpdate, forceSync, returnJson = true,
+  }) => callPath({
+    api: 'live', org, site, path, method: 'POST', forceUpdate, forceSync, returnJson,
+  })),
+
+  unPublish: withArgs(async ({ org, site, path, returnJson = true }) => {
+    const resp = await callPath({
+      api: 'live', org, site, path, method: 'DELETE', includeDelete: true, returnJson: false,
+    });
+    if (!returnJson) return resp;
+    if (resp.ok && resp.status === 204) return { ok: true, status: 204 };
+    return undefined;
+  }),
+};
+
+// snapshot: snapshot CRUD and review/publish actions.
+export const snapshot = {
+  list: async ({ org, site }) => {
+    const url = await getAemApiPath('snapshots', org, site);
+    return daFetch({ url });
+  },
+
+  get: async ({ org, site, snapshotId }) => {
+    const url = await getAemApiPath('snapshots', org, site, `/${snapshotId}`);
+    return daFetch({ url });
+  },
+
+  update: async ({ org, site, snapshotId, body }) => {
+    const url = await getAemApiPath('snapshots', org, site, `/${snapshotId}`);
+    const opts = body ? jsonOpts('POST', body) : { method: 'POST' };
+    return daFetch({ url, opts });
+  },
+
+  delete: async ({ org, site, snapshotId }) => {
+    const url = await getAemApiPath('snapshots', org, site, `/${snapshotId}`);
+    return daFetch({ url, opts: { method: 'DELETE' } });
+  },
+
+  addPath: async ({ org, site, snapshotId, path }) => {
+    if (Array.isArray(path) && path.length >= 2) {
+      const url = await getAemApiPath('snapshots', org, site, `/${snapshotId}/*`);
+      return daFetch({ url, opts: jsonOpts('POST', { paths: path }) });
+    }
+    const single = Array.isArray(path) ? path[0] : path;
+    const url = await getAemApiPath('snapshots', org, site, `/${snapshotId}${single}`);
+    return daFetch({ url, opts: { method: 'POST' } });
+  },
+
+  removePath: async ({ org, site, snapshotId, path }) => {
+    if (Array.isArray(path) && path.length >= 2) {
+      const url = await getAemApiPath('snapshots', org, site, `/${snapshotId}/*`);
+      return daFetch({ url, opts: jsonOpts('POST', { paths: path, delete: true }) });
+    }
+    const single = Array.isArray(path) ? path[0] : path;
+    const url = await getAemApiPath('snapshots', org, site, `/${snapshotId}${single}`);
+    return daFetch({ url, opts: { method: 'DELETE' } });
+  },
+
+  publish: async ({ org, site, snapshotId }) => {
+    const url = new URL(await getAemApiPath('snapshots', org, site, `/${snapshotId}`));
+    url.searchParams.set('publish', 'true');
+    return daFetch({ url: url.toString(), opts: { method: 'POST' } });
+  },
+
+  review: async ({ org, site, snapshotId, action }) => {
+    const url = new URL(await getAemApiPath('snapshots', org, site, `/${snapshotId}`));
+    url.searchParams.set('review', action);
+    return daFetch({ url: url.toString(), opts: { method: 'POST' } });
+  },
+};
+
+// jobs: background job control.
+export const jobs = {
+  get: async ({ org, site, topic, name }) => {
+    const tail = name ? `/${topic}/${name}` : `/${topic}`;
+    const url = await getAemApiPath('jobs', org, site, tail);
+    return daFetch({ url });
+  },
+
+  details: async ({ org, site, topic, name }) => {
+    const url = await getAemApiPath('jobs', org, site, `/${topic}/${name}/details`);
+    return daFetch({ url });
+  },
+
+  stop: async ({ org, site, topic, name }) => {
+    const url = await getAemApiPath('jobs', org, site, `/${topic}/${name}`);
+    return daFetch({ url, opts: { method: 'DELETE' } });
+  },
+};

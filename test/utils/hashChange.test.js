@@ -11,6 +11,16 @@ function withHash(hash, fn) {
   }
 }
 
+function withPathname(pathname, fn) {
+  const original = window.location.pathname;
+  history.pushState(null, '', pathname);
+  try {
+    return fn();
+  } finally {
+    history.pushState(null, '', original);
+  }
+}
+
 describe('hashChange', () => {
   describe('subscribe immediate call', () => {
     it('returns null for IMS OAuth access_token hash', () => {
@@ -114,6 +124,54 @@ describe('hashChange', () => {
         unsub();
       });
       expect(received).to.be.null;
+    });
+
+    it('returns pathDetails for org/repo hash with trailing slash', () => {
+      let received;
+      withHash('#/myorg/myrepo/', () => {
+        const unsub = hashChange.subscribe((details) => { received = details; });
+        unsub();
+      });
+      expect(received).to.not.be.null;
+      expect(received.org).to.equal('myorg');
+      expect(received.site).to.equal('myrepo');
+    });
+
+    it('returns pathDetails for org/repo/path hash with trailing slash', () => {
+      let received;
+      withHash('#/myorg/myrepo/some/deep/path/', () => {
+        const unsub = hashChange.subscribe((details) => { received = details; });
+        unsub();
+      });
+      expect(received).to.not.be.null;
+      expect(received.org).to.equal('myorg');
+      expect(received.site).to.equal('myrepo');
+      expect(received.path).to.equal('some/deep/path');
+    });
+
+    it('returns pathDetails for org-only hash with trailing slash', () => {
+      let received;
+      withHash('#/myorg/', () => {
+        const unsub = hashChange.subscribe((details) => { received = details; });
+        unsub();
+      });
+      expect(received).to.not.be.null;
+      expect(received.org).to.equal('myorg');
+      expect(received.site).to.be.null;
+    });
+
+    it('does not strip trailing slash when view is config', () => {
+      let received;
+      withPathname('/config', () => {
+        withHash('#/myorg/myrepo/', () => {
+          const unsub = hashChange.subscribe((details) => { received = details; });
+          unsub();
+        });
+      });
+      expect(received).to.not.be.null;
+      expect(received.org).to.equal('myorg');
+      expect(received.site).to.equal('myrepo');
+      expect(received.fullpath.endsWith('/')).to.be.true;
     });
   });
 });

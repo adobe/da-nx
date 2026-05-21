@@ -1,6 +1,4 @@
-import { env, getConfig } from '../scripts/nx.js';
-
-const config = getConfig();
+import { env } from '../scripts/nx.js';
 
 export const SUPPORTED_FILES = {
   html: 'text/html',
@@ -93,18 +91,18 @@ const parseWindowPath = () => {
   const pathView = window.location.pathname.slice(1);
   const view = pathView === '' ? 'browse' : pathView;
 
-  if (location.hash.endsWith('/index')) {
-    const clean = location.hash.slice(0, -5);
-    history.replaceState(null, '', clean);
-  }
-
   const cleanHash = stripImsHash(location.hash);
   if (cleanHash !== location.hash) {
     history.replaceState(null, '', `${location.pathname}${location.search}${cleanHash}`);
   }
 
-  const fullpath = cleanHash.slice(1);
+  let fullpath = cleanHash.slice(1);
   if (!fullpath || !fullpath.startsWith('/')) return null;
+
+  if (view !== 'config' && fullpath.endsWith('/')) {
+    fullpath = fullpath.slice(0, -1);
+    history.replaceState(null, '', `${location.pathname}${location.search}#${fullpath}`);
+  }
 
   const [org, site, ...parts] = fullpath.slice(1).split('/');
   if (!org || (parts.length && !site)) return null;
@@ -144,27 +142,4 @@ export const loadPageStyle = (href) => new Promise((resolve) => {
   }
 });
 
-export const loadStyle = (() => {
-  const cache = {};
-
-  return (supplied) => {
-    // Convenience replacement for WCs
-    const path = supplied.replace('.js', '.css');
-
-    try {
-      cache[path] ??= new Promise((resolve) => {
-        (async () => {
-          const resp = await fetch(path);
-          const text = await resp.text();
-          const sheet = new CSSStyleSheet();
-          sheet.path = path;
-          sheet.replaceSync(text);
-          resolve(sheet);
-        })();
-      });
-    } catch {
-      config.log(`Could not load ${path}`);
-    }
-    return cache[path];
-  };
-})();
+export { loadStyle } from '../scripts/nx.js';

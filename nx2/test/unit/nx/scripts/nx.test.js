@@ -331,7 +331,7 @@ describe('loadBlock', () => {
     expect(block.dataset.blockName).to.equal('myblock');
   });
 
-  it('sets dataset.blockName for provider-prefixed blocks', async () => {
+  it('strips provider prefix and sets blockName to the remainder', async () => {
     const block = document.createElement('div');
     block.classList.add('custom-widget');
 
@@ -341,7 +341,7 @@ describe('loadBlock', () => {
       // Expected to fail in test environment
     }
 
-    expect(block.dataset.blockName).to.equal('custom-widget');
+    expect(block.dataset.blockName).to.equal('widget');
   });
 
   it('calls log on error', async () => {
@@ -351,6 +351,19 @@ describe('loadBlock', () => {
 
     await loadBlock(block);
     expect(config.log.called).to.be.true;
+  });
+
+  it('strips only the first segment as provider prefix for multi-hyphen names', async () => {
+    const block = document.createElement('div');
+    block.classList.add('custom-skills-editor');
+
+    try {
+      await loadBlock(block);
+    } catch {
+      // Expected to fail in test environment
+    }
+
+    expect(block.dataset.blockName).to.equal('skills-editor');
   });
 
   it('returns the block element', async () => {

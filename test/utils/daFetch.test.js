@@ -106,6 +106,35 @@ describe('replaceHtml', () => {
       expect(out).to.include('<div>key</div><div>val</div>');
       expect(out).to.include('https://main--repo--org.aem.live/media/img.png');
     });
+
+    it('extracts .text when metadata value is a getElementMetadata { content, text } object', () => {
+      // getElementMetadata returns { key: { content: <DOMElement>, text: string } },
+      // and rollout/merge pass that object straight into saveToDa -> replaceHtml.
+      // Without unwrapping, ${value} would interpolate as "[object Object]".
+      const out = replaceHtml('x', null, null, {
+        daMetadata: {
+          acceptedhashes: { content: {}, text: 'abc123,def456' },
+          rejectedhashes: { content: {}, text: 'ghi789' },
+        },
+      });
+      expect(out).to.include('<div>acceptedhashes</div><div>abc123,def456</div>');
+      expect(out).to.include('<div>rejectedhashes</div><div>ghi789</div>');
+      expect(out).not.to.include('[object Object]');
+    });
+
+    it('handles mixed string and { content, text } values in the same metadata object', () => {
+      // rolloutCopy/mergeCopy read existing metadata (object values) and then
+      // assign plain-string labels (diff-label-local, diff-label-upstream).
+      const out = replaceHtml('x', null, null, {
+        daMetadata: {
+          acceptedhashes: { content: {}, text: 'hash1' },
+          'diff-label-local': 'Local',
+        },
+      });
+      expect(out).to.include('<div>acceptedhashes</div><div>hash1</div>');
+      expect(out).to.include('<div>diff-label-local</div><div>Local</div>');
+      expect(out).not.to.include('[object Object]');
+    });
   });
 
   describe('replaceRelative option', () => {
