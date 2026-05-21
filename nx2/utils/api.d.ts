@@ -11,6 +11,36 @@ export interface ApiResponse extends Response {
   permissions: string[];
 }
 
+/** Normalized return shape for `source.list`. Items are always in the
+ * legacy `{ name, ext, path, lastModified, ... }` form regardless of whether
+ * the server is hlx6 (content-type entries) or legacy DA. */
+export interface ListResult {
+  ok: boolean;
+  /** Normalized children. Empty when `ok` is false. */
+  items: Array<{ name: string; path: string; ext?: string; lastModified?: number; contentType?: string }>;
+  /** Pass back in `opts.headers['da-continuation-token']` for the next page. Null when there's no more. */
+  continuationToken: string | null;
+  /** Same hint as `ApiResponse.permissions`. */
+  permissions?: string[];
+}
+
+/** Normalized return shape for `source.delete` / `source.copy` / `source.move`.
+ * Bulk operations paginate via `continuationToken`; pass it back via the
+ * method's `continuationToken` arg to fetch the next page. */
+export interface ActionResult {
+  ok: boolean;
+  status: number;
+  continuationToken: string | null;
+}
+
+/** Normalized return shape for `source.getMetadata`. The value of a HEAD
+ * request IS the headers (doc-id, last-modified, etc.). */
+export interface MetadataResult {
+  ok: boolean;
+  status: number;
+  headers: Headers;
+}
+
 // ─── low-level ──────────────────────────────────────────────────────────────
 
 export function daFetch(args: {
@@ -23,50 +53,67 @@ export function isHlx6(org: string, site: string): Promise<boolean>;
 
 export function signout(): void;
 
-export function hlx6ToDaList(parentPath: string, items: any[]): any[];
-
 /** Split `/org/site/file/path` into `{ org, site, path }`. */
 export function fromPath(fullPath: string): { org: string; site: string; path: string };
 
 // ─── source ─────────────────────────────────────────────────────────────────
 
 export const source: {
-  get(arg: { org: string; site: string; path?: string }): Promise<ApiResponse>;
+  load(arg: { org: string; site: string; path?: string }): Promise<ApiResponse>;
   /** `fullPath` is a `/org/site/file/path` string. */
-  get(fullPath: string): Promise<ApiResponse>;
+  load(fullPath: string): Promise<ApiResponse>;
 
   /**
    * List a folder. Pass `{ org }` (no site) to list sites at the org level —
    * this falls back to DA-legacy `/list/{org}` (no hlx6 equivalent).
+   * Pass `opts.headers['da-continuation-token']` to request a subsequent page.
    */
-  list(arg: { org: string; site?: string; path?: string }): Promise<ApiResponse>;
+  list(arg: {
+    org: string;
+    site?: string;
+    path?: string;
+    /** Extra fetch options (e.g., pagination headers). */
+    opts?: RequestInit;
+  }): Promise<ListResult>;
   /** `fullPath` is a `/org/site/folder` string (omit trailing file for root). */
-  list(fullPath: string): Promise<ApiResponse>;
+  list(fullPath: string, extras?: { opts?: RequestInit }): Promise<ListResult>;
 
-  put(arg: {
+  save(arg: {
     org: string;
     site: string;
     path: string;
-    /** File contents to upload. */
-    body: BodyInit;
+    /**
+     * File contents to upload. String, Blob, or File. On hlx6, the
+     * `Content-Type` header is set from the path extension (see TYPE_MAP)
+     * and overrides any auto-applied Blob type.
+     */
+    data: BodyInit;
   }): Promise<ApiResponse>;
   /** `fullPath` is a `/org/site/file/path` string. */
-  put(
+  save(
     fullPath: string,
     extras: {
-      /** File contents to upload. */
-      body: BodyInit;
+      /** File contents to upload. See object-form docs above. */
+      data: BodyInit;
     },
   ): Promise<ApiResponse>;
 
-  getMetadata(arg: { org: string; site: string; path: string }): Promise<ApiResponse>;
+  /** HEAD request — returns `{ ok, status, headers }`. */
+  getMetadata(arg: { org: string; site: string; path: string }): Promise<MetadataResult>;
   /** `fullPath` is a `/org/site/file/path` string. */
-  getMetadata(fullPath: string): Promise<ApiResponse>;
+  getMetadata(fullPath: string): Promise<MetadataResult>;
 
-  delete(arg: { org: string; site: string; path: string }): Promise<ApiResponse>;
+  /** Bulk delete. Pass back `continuationToken` from the previous result to fetch the next page. */
+  delete(arg: {
+    org: string;
+    site: string;
+    path: string;
+    continuationToken?: string;
+  }): Promise<ActionResult>;
   /** `fullPath` is a `/org/site/file/path` string. */
-  delete(fullPath: string): Promise<ApiResponse>;
+  delete(fullPath: string, extras?: { continuationToken?: string }): Promise<ActionResult>;
 
+  /** Copy. Paginates via `continuationToken` for large trees. */
   copy(arg: {
     org: string;
     site: string;
@@ -76,7 +123,9 @@ export const source: {
     destination: string;
     /** Conflict policy when destination exists. e.g. `'overwrite'`. */
     collision?: 'overwrite' | string;
-  }): Promise<ApiResponse>;
+    /** Pagination token from a previous `copy` result. */
+    continuationToken?: string;
+  }): Promise<ActionResult>;
   /** `fullPath` is the source `/org/site/file/path` string. */
   copy(
     fullPath: string,
@@ -85,9 +134,11 @@ export const source: {
       destination: string;
       /** Conflict policy when destination exists. e.g. `'overwrite'`. */
       collision?: string;
+      continuationToken?: string;
     },
-  ): Promise<ApiResponse>;
+  ): Promise<ActionResult>;
 
+  /** Move. Paginates via `continuationToken` for large trees. */
   move(arg: {
     org: string;
     site: string;
@@ -97,7 +148,9 @@ export const source: {
     destination: string;
     /** Conflict policy when destination exists. e.g. `'overwrite'`. */
     collision?: 'overwrite' | string;
-  }): Promise<ApiResponse>;
+    /** Pagination token from a previous `move` result. */
+    continuationToken?: string;
+  }): Promise<ActionResult>;
   /** `fullPath` is the source `/org/site/file/path` string. */
   move(
     fullPath: string,
@@ -106,8 +159,9 @@ export const source: {
       destination: string;
       /** Conflict policy when destination exists. e.g. `'overwrite'`. */
       collision?: string;
+      continuationToken?: string;
     },
-  ): Promise<ApiResponse>;
+  ): Promise<ActionResult>;
 
   createFolder(arg: { org: string; site: string; path: string }): Promise<ApiResponse>;
   /** `fullPath` is a `/org/site/folder` string. */
@@ -186,60 +240,105 @@ export const org: {
 // ─── status ────────────────────────────────────────────────────────────────
 
 export const status: {
-  /** Single-path only. H6 has no bulk status endpoint. */
-  get(arg: { org: string; site: string; path: string }): Promise<ApiResponse>;
+  /** Single-path only. H6 has no bulk status endpoint. Returns parsed JSON
+   * (typically `{ preview, live, edit, ... }`) or `undefined` when the
+   * response is not ok or the body fails to parse. */
+  get(arg: { org: string; site: string; path: string }): Promise<unknown | undefined>;
   /** `fullPath` is a `/org/site/file/path` string. */
-  get(fullPath: string): Promise<ApiResponse>;
+  get(fullPath: string): Promise<unknown | undefined>;
 };
 
 // ─── aem (preview + live) ───────────────────────────────────────────────────
 
+/** Parsed JSON from a single-path aem call when `returnJson` is true (default). */
+export type AemJson = unknown;
+
 export const aem: {
-  /** GET preview status (single only). */
-  getPreview(arg: { org: string; site: string; path: string }): Promise<ApiResponse>;
+  /** GET preview status (single only). Default: parsed JSON; `undefined` when not ok. */
+  getPreview(arg: { org: string; site: string; path: string; returnJson?: true }): Promise<AemJson | undefined>;
+  getPreview(arg: { org: string; site: string; path: string; returnJson: false }): Promise<ApiResponse>;
   /** `fullPath` is a `/org/site/file/path` string. */
-  getPreview(fullPath: string): Promise<ApiResponse>;
+  getPreview(fullPath: string, extras?: { returnJson?: boolean }): Promise<AemJson | undefined | ApiResponse>;
 
-  /** GET publish status (single only). */
-  getPublish(arg: { org: string; site: string; path: string }): Promise<ApiResponse>;
+  /** GET publish status (single only). Default: parsed JSON; `undefined` when not ok. */
+  getPublish(arg: { org: string; site: string; path: string; returnJson?: true }): Promise<AemJson | undefined>;
+  getPublish(arg: { org: string; site: string; path: string; returnJson: false }): Promise<ApiResponse>;
   /** `fullPath` is a `/org/site/file/path` string. */
-  getPublish(fullPath: string): Promise<ApiResponse>;
+  getPublish(fullPath: string, extras?: { returnJson?: boolean }): Promise<AemJson | undefined | ApiResponse>;
 
-  /** Update preview. `path` array of 2+ → bulk. `forceUpdate`/`forceSync` are bulk-only. */
+  /** Update preview. `path` array of 2+ → bulk (always `ApiResponse`). `forceUpdate`/`forceSync` are bulk-only. */
   preview(arg: {
     org: string;
     site: string;
-    path: string | string[];
-    /** Bulk only: force update even if source is unchanged. */
+    path: string;
+    returnJson?: true;
     forceUpdate?: boolean;
-    /** Bulk only: run synchronously and wait for the operation to complete. */
+    forceSync?: boolean;
+  }): Promise<AemJson | undefined>;
+  preview(arg: {
+    org: string;
+    site: string;
+    path: string;
+    returnJson: false;
+    forceUpdate?: boolean;
+    forceSync?: boolean;
+  }): Promise<ApiResponse>;
+  preview(arg: {
+    org: string;
+    site: string;
+    path: string[];
+    forceUpdate?: boolean;
     forceSync?: boolean;
   }): Promise<ApiResponse>;
   /** `fullPath` is a `/org/site/file/path` string (single only). */
-  preview(fullPath: string): Promise<ApiResponse>;
+  preview(
+    fullPath: string,
+    extras?: { returnJson?: boolean; forceUpdate?: boolean; forceSync?: boolean },
+  ): Promise<AemJson | undefined | ApiResponse>;
 
-  /** Remove from preview. `path` array of 2+ → bulk with `{ delete: true }`. */
-  unPreview(arg: { org: string; site: string; path: string | string[] }): Promise<ApiResponse>;
+  /** Remove from preview. Bulk (`path` array of 2+) always returns `ApiResponse`. */
+  unPreview(arg: { org: string; site: string; path: string; returnJson?: true }): Promise<AemJson | undefined>;
+  unPreview(arg: { org: string; site: string; path: string; returnJson: false }): Promise<ApiResponse>;
+  unPreview(arg: { org: string; site: string; path: string[] }): Promise<ApiResponse>;
   /** `fullPath` is a `/org/site/file/path` string (single only). */
-  unPreview(fullPath: string): Promise<ApiResponse>;
+  unPreview(fullPath: string, extras?: { returnJson?: boolean }): Promise<AemJson | undefined | ApiResponse>;
 
-  /** Publish. `path` array of 2+ → bulk. `forceUpdate`/`forceSync` are bulk-only. */
+  /** Publish. `path` array of 2+ → bulk (always `ApiResponse`). `forceUpdate`/`forceSync` are bulk-only. */
   publish(arg: {
     org: string;
     site: string;
-    path: string | string[];
-    /** Bulk only: force update even if source is unchanged. */
+    path: string;
+    returnJson?: true;
     forceUpdate?: boolean;
-    /** Bulk only: run synchronously and wait for the operation to complete. */
+    forceSync?: boolean;
+  }): Promise<AemJson | undefined>;
+  publish(arg: {
+    org: string;
+    site: string;
+    path: string;
+    returnJson: false;
+    forceUpdate?: boolean;
+    forceSync?: boolean;
+  }): Promise<ApiResponse>;
+  publish(arg: {
+    org: string;
+    site: string;
+    path: string[];
+    forceUpdate?: boolean;
     forceSync?: boolean;
   }): Promise<ApiResponse>;
   /** `fullPath` is a `/org/site/file/path` string (single only). */
-  publish(fullPath: string): Promise<ApiResponse>;
+  publish(
+    fullPath: string,
+    extras?: { returnJson?: boolean; forceUpdate?: boolean; forceSync?: boolean },
+  ): Promise<AemJson | undefined | ApiResponse>;
 
-  /** Unpublish. `path` array of 2+ → bulk with `{ delete: true }`. */
-  unPublish(arg: { org: string; site: string; path: string | string[] }): Promise<ApiResponse>;
+  /** Unpublish. Bulk (`path` array of 2+) always returns `ApiResponse`. */
+  unPublish(arg: { org: string; site: string; path: string; returnJson?: true }): Promise<AemJson | undefined>;
+  unPublish(arg: { org: string; site: string; path: string; returnJson: false }): Promise<ApiResponse>;
+  unPublish(arg: { org: string; site: string; path: string[] }): Promise<ApiResponse>;
   /** `fullPath` is a `/org/site/file/path` string (single only). */
-  unPublish(fullPath: string): Promise<ApiResponse>;
+  unPublish(fullPath: string, extras?: { returnJson?: boolean }): Promise<AemJson | undefined | ApiResponse>;
 };
 
 // ─── snapshot ───────────────────────────────────────────────────────────────
