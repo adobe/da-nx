@@ -102,4 +102,4 @@ export function showToast({ text, variant = VARIANT_SUCCESS, timeout = 6000 } = 
   ensureHost().append(toast);
 }
 
-customElements.define('nx-toast', NxToast);
+if (!customElements.get('nx-toast')) customElements.define('nx-toast', NxToast);
