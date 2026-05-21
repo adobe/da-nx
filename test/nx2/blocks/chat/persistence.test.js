@@ -21,31 +21,32 @@ describe('persistence', () => {
     });
 
     it('returns saved messages and sessionId', async () => {
-      const r = room();
+      const testRoom = room();
       const msgs = [{ role: 'user', content: 'hello' }];
       const id = crypto.randomUUID();
-      await saveMessages(r, msgs, id);
+      await saveMessages(testRoom, msgs, id);
 
-      const result = await loadMessages(r);
+      const result = await loadMessages(testRoom);
       expect(result.messages).to.deep.equal(msgs);
       expect(result.sessionId).to.equal(id);
     });
 
     it('returns null sessionId for old-format records without sessionId field', async () => {
-      const r = room();
+      const testRoom = room();
       const msgs = [{ role: 'user', content: 'legacy' }];
 
-      await new Promise((resolve) => {
+      await new Promise((resolve, reject) => {
         const req = indexedDB.open('da-chat', 1);
+        req.onerror = () => reject(req.error);
         req.onsuccess = (e) => {
           const db = e.target.result;
           const tx = db.transaction('conversations', 'readwrite');
-          tx.objectStore('conversations').put({ room: r, messages: msgs, updatedAt: Date.now() });
+          tx.objectStore('conversations').put({ room: testRoom, messages: msgs, updatedAt: Date.now() });
           tx.oncomplete = resolve;
         };
       });
 
-      const result = await loadMessages(r);
+      const result = await loadMessages(testRoom);
       expect(result.messages).to.have.lengthOf(1); // guard: write must have landed
       expect(result.messages).to.deep.equal(msgs);
       expect(result.sessionId).to.be.null;
@@ -54,22 +55,22 @@ describe('persistence', () => {
 
   describe('saveMessages', () => {
     it('stores messages and sessionId, retrievable via loadMessages', async () => {
-      const r = room();
+      const testRoom = room();
       const id = crypto.randomUUID();
-      await saveMessages(r, [{ role: 'user', content: 'first' }], id);
+      await saveMessages(testRoom, [{ role: 'user', content: 'first' }], id);
 
-      const result = await loadMessages(r);
+      const result = await loadMessages(testRoom);
       expect(result.messages).to.deep.equal([{ role: 'user', content: 'first' }]);
       expect(result.sessionId).to.equal(id);
     });
 
     it('overwrites previous messages and preserves sessionId', async () => {
-      const r = room();
+      const testRoom = room();
       const id = crypto.randomUUID();
-      await saveMessages(r, [{ role: 'user', content: 'first' }], id);
-      await saveMessages(r, [{ role: 'user', content: 'second' }], id);
+      await saveMessages(testRoom, [{ role: 'user', content: 'first' }], id);
+      await saveMessages(testRoom, [{ role: 'user', content: 'second' }], id);
 
-      const result = await loadMessages(r);
+      const result = await loadMessages(testRoom);
       expect(result.messages).to.have.lengthOf(1);
       expect(result.messages[0].content).to.equal('second');
       expect(result.sessionId).to.equal(id);
@@ -78,24 +79,24 @@ describe('persistence', () => {
 
   describe('resetSession', () => {
     it('clears messages and stores the new sessionId', async () => {
-      const r = room();
+      const testRoom = room();
       const oldId = crypto.randomUUID();
-      await saveMessages(r, [{ role: 'user', content: 'hi' }], oldId);
+      await saveMessages(testRoom, [{ role: 'user', content: 'hi' }], oldId);
 
       const newId = crypto.randomUUID();
-      await resetSession(r, newId);
+      await resetSession(testRoom, newId);
 
-      const result = await loadMessages(r);
+      const result = await loadMessages(testRoom);
       expect(result.messages).to.deep.equal([]);
       expect(result.sessionId).to.equal(newId);
     });
 
     it('creates a record for a room with no prior messages', async () => {
-      const r = room();
+      const testRoom = room();
       const id = crypto.randomUUID();
-      await resetSession(r, id);
+      await resetSession(testRoom, id);
 
-      const result = await loadMessages(r);
+      const result = await loadMessages(testRoom);
       expect(result.messages).to.deep.equal([]);
       expect(result.sessionId).to.equal(id);
     });
@@ -103,11 +104,11 @@ describe('persistence', () => {
 
   describe('clearMessages', () => {
     it('removes the record entirely so loadMessages returns defaults', async () => {
-      const r = room();
-      await saveMessages(r, [{ role: 'user', content: 'x' }], crypto.randomUUID());
-      await clearMessages(r);
+      const testRoom = room();
+      await saveMessages(testRoom, [{ role: 'user', content: 'x' }], crypto.randomUUID());
+      await clearMessages(testRoom);
 
-      const result = await loadMessages(r);
+      const result = await loadMessages(testRoom);
       expect(result.messages).to.deep.equal([]);
       expect(result.sessionId).to.be.null;
     });
