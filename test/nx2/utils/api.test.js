@@ -192,15 +192,24 @@ describe('api.js', () => {
       expect(lastCall().url).to.equal(`${DA_ADMIN}/list/${o}`);
     });
 
-    it('source.list forwards opts (e.g., pagination headers) to fetch', async () => {
+    it('source.list forwards continuationToken as da-continuation-token header', async () => {
       const { org: o, site: s } = makeOrgSite();
       await source.list({
         org: o,
         site: s,
         path: '/folder',
-        opts: { headers: { 'da-continuation-token': 'tok-1' } },
+        continuationToken: 'tok-1',
       });
       expect(lastCall().headers['da-continuation-token']).to.equal('tok-1');
+    });
+
+    it('source.list forwards continuationToken from path-string call form', async () => {
+      const { org: o, site: s } = makeOrgSite();
+      const fullPath = `/${o}/${s}/folder`;
+      const requestToken = 'tok-1';
+      await source.list(fullPath, { continuationToken: requestToken });
+      expect(lastCall().headers['da-continuation-token']).to.equal(requestToken);
+      expect(lastCall().url).to.equal(`${DA_ADMIN}/list/${o}/${s}/folder`);
     });
 
     it('source.list returns { ok, items, continuationToken, permissions } with legacy items normalized', async () => {
@@ -322,30 +331,14 @@ describe('api.js', () => {
       expect(result.status).to.equal(404);
     });
 
-    it('source.delete sends DELETE and returns { ok, status, continuationToken: null } on 204', async () => {
+    it('source.delete sends DELETE and returns { ok, status } on 204', async () => {
       restoreFetch();
       // 204 is a null-body status; Response constructor rejects a non-null body.
       installFetch({ status: 204, body: null });
       const { org: o, site: s } = makeOrgSite();
       const result = await source.delete({ org: o, site: s, path: '/x.html' });
       expect(lastCall().method).to.equal('DELETE');
-      expect(result).to.deep.equal({ ok: true, status: 204, continuationToken: null });
-    });
-
-    it('source.delete returns continuationToken from response body when paginated', async () => {
-      restoreFetch();
-      installFetch({ status: 200, body: JSON.stringify({ continuationToken: 'tok-next' }) });
-      const { org: o, site: s } = makeOrgSite();
-      const result = await source.delete({ org: o, site: s, path: '/folder' });
-      expect(result.ok).to.equal(true);
-      expect(result.continuationToken).to.equal('tok-next');
-    });
-
-    it('source.delete forwards continuationToken arg as query param', async () => {
-      const { org: o, site: s } = makeOrgSite();
-      await source.delete({ org: o, site: s, path: '/folder', continuationToken: 'prev-tok' });
-      const u = new URL(lastCall().url);
-      expect(u.searchParams.get('continuation-token')).to.equal('prev-tok');
+      expect(result).to.deep.equal({ ok: true, status: 204 });
     });
 
     it('source.copy hlx6 PUTs with source/collision query params', async () => {
