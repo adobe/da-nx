@@ -10,7 +10,7 @@
  * governing permissions and limitations under the License.
  */
 
-import { loadArea, setConfig, env } from './nx.js';
+import { loadArea, setConfig } from './nx.js';
 
 const hostnames = ['nx.live'];
 
@@ -40,12 +40,6 @@ const decorateArea = ({ area = document }) => {
   eagerLoad(area, 'img');
 };
 
-const EW_ORIGINS = {
-  dev: 'http://localhost:3001',
-  stage: 'https://main--ew-extensions--exp-workspace.aem.page',
-  prod: 'https://main--ew-extensions--exp-workspace.aem.live',
-};
-
 const conf = {
   hostnames,
   locales,
@@ -53,9 +47,6 @@ const conf = {
   imsScope,
   linkBlocks,
   decorateArea,
-  providers: {
-    ew: EW_ORIGINS[env],
-  },
 };
 
 export async function loadPage() {
