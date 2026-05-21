@@ -353,6 +353,19 @@ describe('loadBlock', () => {
     expect(config.log.called).to.be.true;
   });
 
+  it('strips only the first segment as provider prefix for multi-hyphen names', async () => {
+    const block = document.createElement('div');
+    block.classList.add('custom-skills-editor');
+
+    try {
+      await loadBlock(block);
+    } catch {
+      // Expected to fail in test environment
+    }
+
+    expect(block.dataset.blockName).to.equal('skills-editor');
+  });
+
   it('returns the block element', async () => {
     const block = document.createElement('div');
     block.classList.add('test');

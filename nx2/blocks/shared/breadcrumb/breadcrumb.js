@@ -39,4 +39,4 @@ export default class NxBreadcrumb extends LitElement {
   }
 }
 
-customElements.define('nx-breadcrumb', NxBreadcrumb);
+if (!customElements.get('nx-breadcrumb')) customElements.define('nx-breadcrumb', NxBreadcrumb);

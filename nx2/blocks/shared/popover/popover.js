@@ -149,4 +149,4 @@ class NxPopover extends LitElement {
   }
 }
 
-customElements.define('nx-popover', NxPopover);
+if (!customElements.get('nx-popover')) customElements.define('nx-popover', NxPopover);
