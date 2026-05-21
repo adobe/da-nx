@@ -12,6 +12,12 @@
 
 const LOG = async (ex, el) => (await import('../utils/error.js')).default(ex, el);
 
+const EW_ORIGINS = {
+  dev: 'http://localhost:3001',
+  stage: 'https://main--ew-extensions--adobe-rnd.aem.page',
+  prod: 'https://main--ew-extensions--adobe-rnd.aem.live',
+};
+
 export function getColorScheme() {
   return localStorage.getItem('color-scheme')
     || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark-scheme' : 'light-scheme');
@@ -74,7 +80,7 @@ export const [setConfig, getConfig] = (() => {
         env: conf.env || env,
         iconSize: conf.iconSize || '20',
         linkBlocks: conf.linkBlocks || [{ fragment: '/fragments/' }],
-        providers: conf.providers || {},
+        providers: { ew: EW_ORIGINS[env], ...conf.providers },
         codeBase: conf.codeBase || nxBase,
         log,
         locales,
