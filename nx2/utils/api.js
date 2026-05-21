@@ -1,8 +1,13 @@
 import { HLX_ADMIN, AEM_API, DA_ADMIN, ALLOWED_TOKEN } from './utils.js';
 
 const { loadIms, handleSignIn } = await (async () => {
-  const { getNx } = await import(new URL('/scripts/utils.js', import.meta.url).href);
-  return import(`${getNx() || '/nx'}/utils/ims.js`);
+  try {
+    const { getNx } = await import(`${window.location.origin}/scripts/utils.js`);
+    return await import(`${getNx()}/utils/ims.js`);
+  } catch {
+    // Default to NX1 ims.js
+    return import('../../nx/utils/ims.js');
+  }
 })();
 
 const SOURCE = 'source';
