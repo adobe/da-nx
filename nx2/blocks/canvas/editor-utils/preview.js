@@ -1,11 +1,17 @@
 import { CON_ORIGIN, daFetch } from '../../../utils/daFetch.js';
 
+/** Preview ref from `?branch=` (defaults to `main`). */
+export function getPreviewBranch() {
+  return new URLSearchParams(window.location.search).get('branch') || 'main';
+}
+
 export function getPreviewOrigin(org, repo) {
+  const branch = getPreviewBranch();
   const hostname = window?.location?.hostname ?? '';
   const domain = hostname.endsWith('aem.page') || hostname.endsWith('localhost')
     ? 'stage-preview.da.live'
     : 'preview.da.live';
-  return `https://main--${repo}--${org}.${domain}`;
+  return `https://${branch}--${repo}--${org}.${domain}`;
 }
 
 export async function fetchWysiwygCookie({ org, repo, token }) {
