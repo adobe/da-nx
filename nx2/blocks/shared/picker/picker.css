@@ -49,12 +49,8 @@
     width: 10px;
     height: 10px;
     flex-shrink: 0;
-    background-color: var(--s2-gray-800);
-    mask-image: url("/nx2/img/icons/S2_Icon_ChevronLeft_10_N.svg");
+    display: block;
     transform: rotate(90deg);
-    mask-size: contain;
-    mask-repeat: no-repeat;
-    mask-position: center;
   }
 }
 

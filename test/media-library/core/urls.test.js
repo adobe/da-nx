@@ -93,10 +93,11 @@ describe('urls', () => {
       expect(key).to.equal('/media/logo.svg');
     });
 
-    it('returns pathname without query params for non-hashed URLs', () => {
+    it('returns full canonical URL for external URLs including query params', () => {
       const url = 'https://example.com/assets/video.mp4?autoplay=1';
       const key = getDedupeKey(url);
-      expect(key).to.equal('/assets/video.mp4');
+      // External URLs keep query params since they may be significant (e.g., YouTube video IDs)
+      expect(key).to.equal('https://example.com/assets/video.mp4?autoplay=1');
     });
 
     it('returns empty string for empty URL', () => {

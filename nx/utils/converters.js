@@ -1,6 +1,7 @@
 import {
   unified,
   remarkParse,
+  remarkGfmNoLink,
   remarkGridTable,
   toHtml,
   mdast2hast,
@@ -144,6 +145,7 @@ export function mdToDocDom(md) {
   // convert to mdast
   const mdast = unified()
     .use(remarkParse)
+    .use(remarkGfmNoLink)
     .use(remarkGridTable)
     .parse(converted);
 

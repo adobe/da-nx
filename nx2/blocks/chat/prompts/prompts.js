@@ -1,8 +1,10 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../utils/utils.js';
 import '../../shared/picker/picker.js';
+import { getConfig } from '../../../scripts/nx.js';
 
 const styles = await loadStyle(import.meta.url);
+const { codeBase } = getConfig();
 
 const ALL_CATEGORY = 'all';
 
@@ -84,6 +86,7 @@ class NxPrompts extends LitElement {
       : `Search in ${this._category}`;
     return html`
       <div class="prompts-header">
+        <svg class="prompts-search-icon" viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/s2-icon-search-20-n.svg#icon"></use></svg>
         <input
           type="search"
           name="prompt-search"
@@ -94,7 +97,9 @@ class NxPrompts extends LitElement {
           @input=${this._onSearch}
           autocomplete="off"
         />
-        <button type="button" class="prompts-clear" aria-label="Clear search" @click=${this._clearSearch}></button>
+        <button type="button" class="prompts-clear" aria-label="Clear search" @click=${this._clearSearch}>
+          <svg viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/s2-icon-close-20-n.svg#icon"></use></svg>
+        </button>
         <nx-picker
           .items=${this._categories}
           .value=${this._category}

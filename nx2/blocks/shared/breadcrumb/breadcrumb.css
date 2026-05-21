@@ -25,14 +25,13 @@
   min-width: 0;
 }
 
-.crumb:not(:first-child)::before {
-  content: "";
+.crumb-sep {
   flex-shrink: 0;
   width: 8px;
   height: 8px;
   margin-inline: var(--s2-spacing-75);
-  background: currentcolor;
-  mask: url("/nx2/img/icons/S2_Icon_ChevronLeft_10_N.svg") center / contain no-repeat;
+  color: currentcolor;
+  display: block;
 }
 
 .crumb a,

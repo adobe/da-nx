@@ -1,9 +1,12 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../utils/utils.js';
+import { getConfig } from '../../../scripts/nx.js';
 import '../popover/popover.js';
 import { listKeydown } from '../utils/list-nav.js';
 
 const styles = await loadStyle(import.meta.url);
+const { codeBase } = getConfig();
+const CHEVRON_HREF = `${codeBase}/img/icons/s2-icon-chevronleft-10-n.svg#icon`;
 
 // todo: replace with s2 icon once tools PR is merged
 const CHECKMARK = html`<svg class="picker-check" viewBox="0 0 20 20" fill="none" aria-hidden="true">
@@ -168,7 +171,7 @@ class NxPicker extends LitElement {
         @keydown=${this._onTriggerKeydown}
       >
         <span class="picker-trigger-label">${this._triggerLabel}</span>
-        <span class="picker-chevron" aria-hidden="true"></span>
+        <svg class="picker-chevron" viewBox="0 0 10 10" aria-hidden="true"><use href=${CHEVRON_HREF}></use></svg>
       </button>
       <nx-popover
         @toggle=${this._onPopoverToggle}

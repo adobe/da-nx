@@ -1,7 +1,12 @@
 import { daFetch, initIms } from '../../../utils/daFetch.js';
 import { etcFetch } from '../core/urls.js';
-import { AEM_ORIGIN, DA_ORIGIN } from '../../../public/utils/constants.js';
-import { IndexFiles, ExternalMedia, DA_ETC_ORIGIN } from '../core/constants.js';
+import {
+  IndexFiles,
+  ExternalMedia,
+  DA_ETC_ORIGIN,
+  AEM_ORIGIN,
+  DA_ORIGIN,
+} from '../core/constants.js';
 import { MediaLibraryError, ErrorCodes, logMediaLibraryError } from '../core/errors.js';
 import { isPerfEnabled } from '../core/params.js';
 import { t } from '../core/messages.js';
@@ -36,10 +41,6 @@ function createRateLimiter(initialRate) {
 }
 
 const aemPageMarkdownLimiter = createRateLimiter(AEM_PAGE_MARKDOWN_RATE);
-
-export function resetAemPageMarkdownRateLimiter() {
-  aemPageMarkdownLimiter.reset();
-}
 
 async function fetchWithAuthRaw(url, opts = {}) {
   opts.headers ||= {};
@@ -97,20 +98,6 @@ function getChunkFileName(chunkNum) {
   return `${IndexFiles.MEDIA_INDEX_CHUNK_PREFIX}${String(chunkNum).padStart(3, '0')}.json`;
 }
 
-/**
- * Split media sheet into chunks
- * @param {Array} mediaData - Full media sheet data
- * @param {number} chunkSize - Entries per chunk
- * @returns {Array<Array>} Array of chunks
- */
-function chunkMediaSheet(mediaData, chunkSize) {
-  const chunks = [];
-  for (let i = 0; i < mediaData.length; i += chunkSize) {
-    chunks.push(mediaData.slice(i, i + chunkSize));
-  }
-  return chunks;
-}
-
 const DEFAULT_TIMEFRAME_DAYS = 3650; /* 10 years */
 
 export async function fetchWithAuth(url, opts = {}) {
@@ -141,13 +128,6 @@ export function timestampToDuration(timestamp) {
   }
 
   return `${Math.min(days, DEFAULT_TIMEFRAME_DAYS)}d`;
-}
-
-export function isMetadataStale(meta, thresholdMs = 5 * 60 * 1000) {
-  if (!meta || !meta.lastFetchTime) return true;
-
-  const age = Date.now() - meta.lastFetchTime;
-  return age > thresholdMs;
 }
 
 export async function fetchPaginated(
@@ -325,59 +305,6 @@ export async function loadIndexChunks(basePath, chunkCount, sheetName, onProgres
   }
 
   return results.map((r) => r.data).flat();
-}
-
-/**
- * Save index as chunks
- * @param {string} basePath - Base path without filename
- * @param {Array} mediaData - Media sheet data (must be pre-sorted)
- * @param {Array} usageData - Usage sheet data
- * @param {number} chunkSize - Entries per chunk
- * @returns {Promise<number>} Number of chunks created
- */
-export async function saveIndexChunks(basePath, mediaData, usageData, chunkSize) {
-  const mediaChunks = chunkMediaSheet(mediaData, chunkSize);
-
-  // Always save at least chunk 0, even if empty (for consistency)
-  const chunksToSave = mediaChunks.length > 0 ? mediaChunks : [[]];
-  const savePromises = [];
-
-  for (let i = 0; i < chunksToSave.length; i += 1) {
-    const chunkFileName = getChunkFileName(i);
-    const chunkPath = `${basePath}/${chunkFileName}`;
-
-    // Only include usage sheet in first chunk to avoid duplication
-    const sheets = {
-      media: chunksToSave[i],
-      usage: i === 0 ? usageData : [],
-    };
-
-    const formData = await createMultiSheet(sheets);
-    const savePromise = daFetch(`${DA_ORIGIN}/source${chunkPath}`, {
-      method: 'PUT',
-      body: formData,
-    });
-
-    savePromises.push(savePromise);
-  }
-
-  const responses = await Promise.all(savePromises);
-
-  // Validate all chunks saved successfully
-  const failedChunks = [];
-  responses.forEach((resp, i) => {
-    if (!resp.ok) {
-      failedChunks.push({ chunk: i, status: resp.status });
-    }
-  });
-
-  if (failedChunks.length > 0) {
-    const error = new Error(`Failed to save ${failedChunks.length}/${chunksToSave.length} chunks: ${failedChunks.map((f) => `chunk ${f.chunk} (${f.status})`).join(', ')}`);
-    error.failedChunks = failedChunks;
-    throw error;
-  }
-
-  return chunksToSave.length;
 }
 
 export async function saveSheet(data, path) {
@@ -752,12 +679,8 @@ function getCachedAemSiteToken(org, site, ref = 'main') {
   return cached.siteToken ? cached : null;
 }
 
-function clearCachedAemSiteToken(org, site, ref = 'main') {
+export function clearCachedAemSiteToken(org, site, ref = 'main') {
   aemSiteTokenCache.delete(getAemSiteTokenCacheKey(org, site, ref));
-}
-
-export function resetAemSiteTokenCache() {
-  aemSiteTokenCache.clear();
 }
 
 async function fetchAemSiteToken(org, site, ref = 'main') {
@@ -794,7 +717,7 @@ async function fetchAemSiteToken(org, site, ref = 'main') {
   return { siteToken, siteTokenExpiry };
 }
 
-const getAemSiteToken = (() => {
+export const getAemSiteToken = (() => {
   const loadToken = async (org, site, ref = 'main') => {
     const result = await fetchAemSiteToken(org, site, ref);
     if (result?.siteToken) {

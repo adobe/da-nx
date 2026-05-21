@@ -1,4 +1,5 @@
-import { DA_ORIGIN, daFetch } from './daFetch.js';
+import { DA_ADMIN } from './utils.js';
+import { daFetch } from './api.js';
 
 /** Returns the primary data array from a DA config JSON response (handles multi-sheet). */
 export function getFirstSheet(json) {
@@ -11,7 +12,7 @@ export const fetchDaConfigs = (() => {
   const cache = {};
 
   const fetchConfig = async (pathname) => {
-    const resp = await daFetch(`${DA_ORIGIN}/config${pathname}/`);
+    const resp = await daFetch({ url: `${DA_ADMIN}/config${pathname}/` });
     if (!resp.ok) return { error: `Error loading ${pathname}`, status: resp.status };
     return resp.json();
   };

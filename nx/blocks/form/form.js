@@ -6,9 +6,15 @@ import FormModel from './data/model.js';
 // Internal utils
 import { getParentPointer } from './utils/pointer.js';
 import { schemas as schemasPromise } from './utils/schema.js';
-import { findNodeByPointer, loadHtml } from './utils/utils.js';
+import {
+  findNodeByPointer,
+  isEmptyDocumentHtml,
+  isStructuredContentHtml,
+  loadHtml,
+} from './utils/utils.js';
 
 import 'https://da.live/blocks/edit/da-title/da-title.js';
+import 'https://da.live/blocks/shared/da-dialog/da-dialog.js';
 
 // Internal Web Components
 import './views/editor.js';
@@ -31,6 +37,8 @@ class FormEditor extends LitElement {
     details: { attribute: false },
     formModel: { state: true },
     _schemas: { state: true },
+    _hasUnsupportedContent: { state: true },
+    _missingSchemaName: { state: true },
     _activeNavPointer: { state: true },
     _scrollEditorIntoView: { state: true },
     _scrollNavItemIntoView: { state: true },
@@ -40,12 +48,24 @@ class FormEditor extends LitElement {
   constructor() {
     super();
     this._pendingSchemaId = '';
+    this._hasUnsupportedContent = false;
+    this._missingSchemaName = undefined;
   }
 
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
     this.fetchDoc(this.details);
+  }
+
+  _resetEditorState() {
+    this.formModel = null;
+    this._hasUnsupportedContent = false;
+    this._missingSchemaName = undefined;
+    this._pendingSchemaId = '';
+    this._activeNavPointer = undefined;
+    this._scrollEditorIntoView = undefined;
+    this._scrollNavItemIntoView = undefined;
   }
 
   async fetchDoc() {
@@ -55,20 +75,41 @@ class FormEditor extends LitElement {
 
     if (schemas) this._schemas = schemas;
 
-    if (!result.html) {
-      this.formModel = null;
-      this._pendingSchemaId = '';
-      this._activeNavPointer = undefined;
-      this._scrollEditorIntoView = undefined;
-      this._scrollNavItemIntoView = undefined;
+    if (result.error || typeof result.html !== 'string') {
+      this._resetEditorState();
+      this._hasUnsupportedContent = true;
+      return;
+    }
+
+    if (isEmptyDocumentHtml(result.html)) {
+      this._resetEditorState();
+      return;
+    }
+
+    if (!isStructuredContentHtml(result.html)) {
+      this._resetEditorState();
+      this._hasUnsupportedContent = true;
       return;
     }
 
     const path = this.details.fullpath;
+    this._hasUnsupportedContent = false;
+    this._missingSchemaName = undefined;
     this._activeNavPointer = undefined;
     this._scrollEditorIntoView = undefined;
     this._scrollNavItemIntoView = undefined;
-    this.formModel = new FormModel({ path, html: result.html, schemas });
+    const model = new FormModel({ path, html: result.html, schemas });
+    const json = JSON.parse(model.getSerializedJson());
+    const schemaName = json?.metadata?.schemaName;
+
+    if (!model.schema) {
+      this._resetEditorState();
+      this._hasUnsupportedContent = true;
+      this._missingSchemaName = schemaName ?? '';
+      return;
+    }
+
+    this.formModel = model;
   }
 
   _onPendingSchemaChange(e) {
@@ -86,6 +127,8 @@ class FormEditor extends LitElement {
     const emptyForm = { data, metadata };
 
     const path = this.details.fullpath;
+    this._hasUnsupportedContent = false;
+    this._missingSchemaName = undefined;
     this._activeNavPointer = undefined;
     this._scrollEditorIntoView = undefined;
     this._scrollNavItemIntoView = undefined;
@@ -94,6 +137,19 @@ class FormEditor extends LitElement {
 
   _confirmSchemaStart() {
     this._applySelectedSchema(this._pendingSchemaId);
+  }
+
+  _getSchemaEditorHref() {
+    const { owner, repo } = this.details ?? {};
+    if (!owner || !repo) return 'https://da.live/apps/schema';
+    return `https://da.live/apps/schema#/${owner}/${repo}`;
+  }
+
+  _goToRepoRoot() {
+    const { owner, repo } = this.details ?? {};
+    if (!owner || !repo) return;
+    const query = window.location.search ?? '';
+    window.location.href = `https://da.live${query}#/${owner}/${repo}`;
   }
 
   _handleNavPointerSelectFromSidebar(e) {
@@ -172,35 +228,86 @@ class FormEditor extends LitElement {
   }
 
   renderSchemaSelector() {
+    const schemaEditorHref = this._getSchemaEditorHref();
     return html`
       <div class="da-form-schema-shell">
-        <div class="da-form-schema-card">
-          <h2 class="da-form-schema-heading">Choose a schema</h2>
-          <div class="da-form-schema-form">
-            <sl-select
-              hoist
-              class="da-form-schema-select"
-              label="Schema"
-              placeholder="Select a schema"
-              .value=${this._pendingSchemaId}
-              @change=${this._onPendingSchemaChange}
-            >
-              <option value="">Select a schema</option>
-              ${Object.entries(this._schemas).map(([key, value]) => html`
-                <option value="${key}">${value.title}</option>
-              `)}
-            </sl-select>
-            <sl-button
-              class="da-form-schema-start"
-              ?disabled=${!this._pendingSchemaId}
-              @click=${this._confirmSchemaStart}
-            >Start</sl-button>
-          </div>
+        <h2 class="da-form-schema-heading">Choose a schema</h2>
+        <div class="da-form-schema-form">
+          <sl-select
+            hoist
+            class="da-form-schema-select"
+            label="Schema"
+            placeholder="Select a schema"
+            .value=${this._pendingSchemaId}
+            @change=${this._onPendingSchemaChange}
+          >
+            <option value="">Select a schema</option>
+            ${Object.entries(this._schemas).map(([key, value]) => html`
+              <option value="${key}">${value.title}</option>
+            `)}
+          </sl-select>
+          <p class="da-form-schema-hint da-form-schema-selector-hint">
+            To create a new schema, open
+            <a
+              class="da-form-schema-text-link"
+              href=${schemaEditorHref}
+              target="_blank"
+              rel="noopener noreferrer"
+            >Schema Editor</a>.
+          </p>
+          <sl-button
+            class="da-form-schema-start"
+            ?disabled=${!this._pendingSchemaId}
+            @click=${this._confirmSchemaStart}
+          >Create</sl-button>
         </div>
       </div>`;
   }
 
+  renderUnsupportedContentMessage() {
+    const fullpath = this.details?.fullpath ?? '';
+    const path = fullpath.endsWith('.html') ? fullpath.slice(0, -5) : fullpath;
+    const schemaEditorHref = this._getSchemaEditorHref();
+    const hasMissingSchema = this._missingSchemaName !== undefined;
+    const schemaName = this._missingSchemaName || '(empty)';
+    const action = {
+      label: 'Return to Home',
+      style: '',
+      click: () => this._goToRepoRoot(),
+    };
+    return html`
+      <da-dialog
+        title=${hasMissingSchema ? 'Schema not found' : 'Not supported'}
+        size="large"
+        @close=${this._goToRepoRoot}
+        .action=${action}
+      >
+        ${hasMissingSchema
+          ? html`
+            <p class="da-form-schema-hint">
+              The schema <strong>${schemaName}</strong> referenced by this resource
+              ${path ? html`at <strong>${path}</strong> ` : ''}does not exist. To create it, open
+              <a
+                class="da-form-schema-text-link"
+                href=${schemaEditorHref}
+                target="_blank"
+                rel="noopener noreferrer"
+              >Schema Editor</a>.
+            </p>
+          `
+          : html`
+            <p class="da-form-schema-hint">
+              The resource under this path${path ? html` <strong>${path}</strong>` : ''} cannot be
+              opened as structured content.
+            </p>
+          `}
+      </da-dialog>
+    `;
+  }
+
   renderFormEditor() {
+    if (this._hasUnsupportedContent) return this.renderUnsupportedContentMessage();
+
     if (this.formModel === null) {
       if (this._schemas) return this.renderSchemaSelector();
 
@@ -214,8 +321,10 @@ class FormEditor extends LitElement {
             <div class="da-form-schema-field da-form-schema-field-link">
               <a
                 class="da-form-schema-cta"
-                href="https://main--da-live--adobe.aem.live/apps/schema?nx=schema#/${this.details.owner}/${this.details.repo}"
-              >Open schema editor</a>
+                href=${this._getSchemaEditorHref()}
+                target="_blank"
+                rel="noopener noreferrer"
+              >Open Schema Editor</a>
             </div>
           </div>
         </div>

@@ -21,7 +21,7 @@ export default class ChatController {
 
   _pageContextForAgent() {
     const { org, site, path, view } = this._context ?? {};
-    return org && site ? { org, site, path, view } : undefined;
+    return org && site ? { org, site, path: path ?? '', view } : undefined;
   }
 
   async _getRoom() {
@@ -52,9 +52,8 @@ export default class ChatController {
       if (msg.role === ROLE.ASSISTANT && Array.isArray(msg.content)) {
         const call = msg.content.find((p) => p.type === AGENT_EVENT.TOOL_CALL);
         if (call) {
-          this._toolCards.set(call.toolCallId, {
-            toolName: call.toolName, input: call.input, state: TOOL_STATE.DONE,
-          });
+          const { toolCallId, toolName, input } = call;
+          this._toolCards.set(toolCallId, { toolName, input, state: TOOL_STATE.DONE });
         }
       }
     }
@@ -159,7 +158,9 @@ export default class ChatController {
           {
             role: ROLE.ASSISTANT,
             virtual: true,
-            content: [{ type: AGENT_EVENT.TOOL_CALL, toolCallId, toolName: prior.toolName }],
+            content: [{
+              type: AGENT_EVENT.TOOL_CALL, toolCallId, toolName: prior.toolName, input: prior.input,
+            }],
           },
         ];
         this._onToolDone?.();
@@ -183,13 +184,12 @@ export default class ChatController {
     next.set(toolCallId, { ...card, state: approved ? TOOL_STATE.APPROVED : TOOL_STATE.REJECTED });
     this._toolCards = next;
 
+    const { approvalId } = card;
     this._messages = [
       ...this._messages,
       {
         role: ROLE.TOOL,
-        content: [{
-          type: AGENT_EVENT.TOOL_APPROVAL_RESPONSE, approvalId: card.approvalId, approved,
-        }],
+        content: [{ type: AGENT_EVENT.TOOL_APPROVAL_RESPONSE, approvalId, approved }],
       },
     ];
     this._thinking = approved;
@@ -220,14 +220,12 @@ export default class ChatController {
       body: JSON.stringify({
         messages: this._messages.filter((msg) => !msg.virtual),
         pageContext,
-        context: this._pendingContext ?? [],
         imsToken: accessToken?.token ?? null,
         room,
+        ...(this._requestedSkills?.length ? { requestedSkills: this._requestedSkills } : {}),
       }),
       signal: this._abortController.signal,
     });
-
-    this._pendingContext = [];
 
     if (!resp.ok) {
       throw new Error(`Agent responded with ${resp.status}: ${await resp.text()}`);
@@ -245,11 +243,25 @@ export default class ChatController {
     });
   }
 
-  async sendMessage(message, context = []) {
+  async sendMessage(message, context = [], { requestedSkills = [] } = {}) {
     if (this._thinking || !this._connected) return;
 
-    this._pendingContext = context;
-    this._messages = [...(this._messages ?? []), { role: ROLE.USER, content: message }];
+    this._requestedSkills = requestedSkills;
+    const selectionContext = context
+      .filter((item) => typeof item.proseIndex === 'number' || item.blockName)
+      .map(({ proseIndex, blockName, innerText }) => ({
+        ...(typeof proseIndex === 'number' && { proseIndex }),
+        ...(blockName && { blockName }),
+        ...(innerText && { innerText }),
+      }));
+
+    const userMessage = {
+      role: ROLE.USER,
+      content: message,
+      ...(selectionContext.length && { selectionContext }),
+    };
+
+    this._messages = [...(this._messages ?? []), userMessage];
     this._thinking = true;
     this._update();
 

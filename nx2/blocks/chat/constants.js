@@ -1,12 +1,13 @@
 const MENU_OPTIONS = {
   PROMPT: 'prompt',
+  COMMAND: 'command',
 };
 
 const ADD_MENU_ITEMS = [
   { section: 'Add' },
-  { id: 'files', label: 'Files or images', icon: 'Link' },
-  { id: MENU_OPTIONS.PROMPT, label: 'Prompt', icon: 'CommentText' },
-  { id: 'command', label: '"/" Command', icon: 'Prompt' },
+  { id: 'files', label: 'Files or images', icon: 'link' },
+  { id: MENU_OPTIONS.PROMPT, label: 'Prompt' },
+  { id: 'command', label: '"/" Command' },
   { divider: true },
   { id: 'prompts', label: 'Manage Prompts' },
   { id: 'skills', label: 'Manage Skills' },

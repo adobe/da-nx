@@ -273,13 +273,24 @@ export function canonicalizeMediaUrl(mediaUrl, org, repo) {
 
   try {
     const url = new URL(mediaUrl);
+
+    if (url.hostname === 'localhost' || url.hostname === '127.0.0.1') {
+      const previewHostUrl = getMediaHashRuntimeHostUrl(org, repo, true);
+      if (previewHostUrl) {
+        url.hostname = previewHostUrl.hostname;
+        url.port = previewHostUrl.port || '';
+        url.protocol = previewHostUrl.protocol;
+      } else if (org && repo) {
+        url.hostname = `main--${repo}--${org}${Domains.AEM_PAGE}`;
+        url.port = '';
+      }
+      return url.toString();
+    }
+
     url.hostname = toAemRuntimeHostname(url.hostname);
 
-    // Normalize internal absolute URLs to .aem.page (matches audit log content)
     if (org && repo && isInternalToSite(url.toString(), org, repo)) {
       url.hostname = `main--${repo}--${org}${Domains.AEM_PAGE}`;
-
-      // Remove /{org}/{repo}/ prefix from path
       url.pathname = url.pathname.replace(`/${org}/${repo}`, '');
     }
 
@@ -404,11 +415,20 @@ export function parseOrgRepoFromUrl(siteUrl) {
 }
 
 // Returns stable key for dedupe (filename or pathname).
+// For external URLs (YouTube, Vimeo, etc.), returns the full URL to avoid collisions.
 export function getDedupeKey(url) {
   if (!url) return '';
 
   try {
-    const urlObj = new URL(canonicalizeMediaUrl(url));
+    const canonicalUrl = canonicalizeMediaUrl(url);
+
+    // For external URLs, use the full URL as the dedupe key to avoid collisions
+    // (e.g., all YouTube videos would have pathname '/watch')
+    if (isExternalUrl(url)) {
+      return canonicalUrl;
+    }
+
+    const urlObj = new URL(canonicalUrl);
     const { pathname } = urlObj;
     const filename = pathname.split('/').pop();
 

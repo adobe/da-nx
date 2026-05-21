@@ -134,6 +134,39 @@ describe('Regional diff', () => {
     expect(cleanHtmlWhitespace(mainEl.outerHTML))
       .to.equal(cleanHtmlWhitespace(expectedDiffedMain));
   });
+
+  it('Handle block group differences with sections', async () => {
+    const original = document.implementation.createHTMLDocument();
+    original.body.innerHTML = await readFile({ path: './mocks/block-group-us.html' });
+    const modified = document.implementation.createHTMLDocument();
+    modified.body.innerHTML = await readFile({ path: './mocks/block-group-au.html' });
+    const mainEl = await regionalDiff(original, modified);
+    const expectedDiffedMain = await readFile({ path: './mocks/block-group-merged.html' });
+    expect(cleanHtmlWhitespace(mainEl.outerHTML))
+      .to.equal(cleanHtmlWhitespace(expectedDiffedMain));
+  });
+
+  it('Handle block group only added in modified document', async () => {
+    const original = document.implementation.createHTMLDocument();
+    original.body.innerHTML = await readFile({ path: './mocks/block-group-added-only-us.html' });
+    const modified = document.implementation.createHTMLDocument();
+    modified.body.innerHTML = await readFile({ path: './mocks/block-group-added-only-au.html' });
+    const mainEl = await regionalDiff(original, modified);
+    const expectedDiffedMain = await readFile({ path: './mocks/block-group-added-only-merged.html' });
+    expect(cleanHtmlWhitespace(mainEl.outerHTML))
+      .to.equal(cleanHtmlWhitespace(expectedDiffedMain));
+  });
+
+  it('Handle block group only deleted from modified document', async () => {
+    const original = document.implementation.createHTMLDocument();
+    original.body.innerHTML = await readFile({ path: './mocks/block-group-deleted-only-us.html' });
+    const modified = document.implementation.createHTMLDocument();
+    modified.body.innerHTML = await readFile({ path: './mocks/block-group-deleted-only-au.html' });
+    const mainEl = await regionalDiff(original, modified);
+    const expectedDiffedMain = await readFile({ path: './mocks/block-group-deleted-only-merged.html' });
+    expect(cleanHtmlWhitespace(mainEl.outerHTML))
+      .to.equal(cleanHtmlWhitespace(expectedDiffedMain));
+  });
 });
 
 describe('normalizeLinks', () => {

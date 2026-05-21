@@ -18,9 +18,9 @@ function createRow(key, valCol) {
   const row = document.createElement('div');
 
   const keyCol = document.createElement('div');
-  const keyPara = document.createElement('p');
-  keyPara.textContent = key;
-  keyCol.append(keyPara);
+  const keyHeading = document.createElement('h3');
+  keyHeading.textContent = key;
+  keyCol.append(keyHeading);
 
   row.append(keyCol, valCol);
   return row;

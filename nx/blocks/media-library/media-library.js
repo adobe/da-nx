@@ -1,15 +1,17 @@
 import { html, LitElement } from 'da-lit';
 import getStyle from '../../utils/styles.js';
-import { loadMediaSheet, buildMediaIndexStructures } from './indexing/load.js';
+import { loadMediaSheet, buildMediaIndexStructures, getUsageIndexKey } from './ui/data.js';
 import { copyMediaToClipboard, exportToCsv } from './core/export.js';
 import {
   validateSitePath, getBasePath, resolveAbsolutePath, normalizeSitePath, parseSitePathFromHash,
-  parseRouteState, buildUrlWithState,
+  parseRouteState, buildUrlWithState, getMediaLibraryAppHref,
 } from './core/paths.js';
 import { saveRecentSite } from './core/storage.js';
 import {
   ensureAuthenticated,
   getCanonicalMediaTimestamp,
+  getMediaLibraryHostMode,
+  isMediaLibraryPluginMode,
   sortMediaData,
   deduplicateMediaByHash,
   checkSiteAuthRequired,
@@ -31,26 +33,27 @@ import {
   filterMedia,
   enrichMediaItemsWithUsage,
   initializeProcessedData,
-} from './features/filters.js';
-import { loadPinnedFolders, savePinnedFolders } from './features/pin.js';
+} from './ui/filters.js';
+import { loadPinnedFolders, savePinnedFolders } from './ui/pin.js';
 import {
   getAppState, updateAppState, onStateChange, showNotification, dismissNotification,
 } from './core/state.js';
 import { t } from './core/messages.js';
-import { initService, disposeService } from './indexing/coordinator.js';
+import { initService, disposeService, triggerBuild } from './indexing/coordinator.js';
+import { handleIndexingEvent } from './core/indexing-adapter.js';
 import { fetchSidekickConfig } from './indexing/admin-api.js';
 import '../../public/sl/components.js';
-import './views/topbar/topbar.js';
-import './views/sidebar/sidebar.js';
-import './views/grid/grid.js';
-import './views/mediainfo/mediainfo.js';
-import './views/onboard/onboard.js';
+import './ui/views/topbar/topbar.js';
+import './ui/views/sidebar/sidebar.js';
+import './ui/views/grid/grid.js';
+import './ui/views/mediainfo/mediainfo.js';
+import './ui/views/onboard/onboard.js';
 
 const EL_NAME = 'nx-media-library';
 const nx = `${new URL(import.meta.url).origin}/nx`;
 const sl = await getStyle(`${nx}/public/sl/styles.css`);
 const slComponents = await getStyle(`${nx}/public/sl/components.css`);
-const topbarStyles = await getStyle(`${nx}/blocks/media-library/views/topbar/topbar.css`);
+const topbarStyles = await getStyle(`${nx}/blocks/media-library/ui/views/topbar/topbar.css`);
 const styles = await getStyle(import.meta.url);
 const shellStyles = await getStyle(new URL('./media-library-shell.css', import.meta.url).href);
 
@@ -505,7 +508,7 @@ class NxMediaLibrary extends LitElement {
       }
       modal.show({
         media: matchedItem,
-        usageData: state.usageIndex?.get(getDedupeKey(matchedItem.url)) || [],
+        usageData: state.usageIndex?.get(getUsageIndexKey(matchedItem)) || [],
         org: state.org,
         repo: state.repo,
         isIndexing: state.isIndexing,
@@ -619,9 +622,31 @@ class NxMediaLibrary extends LitElement {
       });
 
       saveRecentSite(this.sitePath);
-      await this.loadMediaData();
+
+      // Callback when final media data is ready
       const onMediaDataUpdated = (mediaData) => this.setMediaData(mediaData);
-      initService(this.sitePath, { onMediaDataUpdated });
+
+      const mode = getMediaLibraryHostMode();
+
+      // Event handler for indexing events
+      const onEvent = (event) => {
+        handleIndexingEvent(event, onMediaDataUpdated);
+
+        // App policy: Auto-trigger builds when index is missing (app mode only)
+        if (event.type === 'index-missing' && mode === 'app') {
+          const [siteOrg, siteRepo] = this.sitePath.split('/').slice(1, 3);
+          triggerBuild(this.sitePath, siteOrg, siteRepo);
+        }
+      };
+
+      const hasMediaData = (getAppState().mediaData?.length || 0) > 0;
+
+      // Start lock check in parallel with data loading to prevent UI flash
+      // This ensures LOCK_DETECTED event arrives before or with setMediaData
+      initService(this.sitePath, { onEvent, mode, hasMediaData });
+
+      // Load media data (runs concurrently with lock check)
+      await this.loadMediaData();
     } catch (error) {
       updateAppState({
         isValidating: false,
@@ -664,31 +689,14 @@ class NxMediaLibrary extends LitElement {
         }
       };
 
-      const {
-        data, indexMissing, indexing, lockFresh,
-      } = await loadMediaSheet(
+      const { data, indexMissing } = await loadMediaSheet(
         this.sitePath,
         onProgressiveChunk,
       );
 
-      if (indexing) {
-        updateAppState({
-          isLoadingData: false,
-          isProgressiveLoading: false,
-          isIndexing: false,
-          isBackgroundRefreshInProgress: false,
-          indexLockedByOther: true,
-          indexMissing: true,
-          persistentError: null,
-        });
-        return;
-      }
-
       updateAppState({
         persistentError: null,
         indexMissing: !!indexMissing,
-        indexLockedByOther: false,
-        isBackgroundRefreshInProgress: !!(data?.length > 0) && !!lockFresh,
       });
 
       const finalData = accumulatedData.length > 0 ? accumulatedData : data;
@@ -785,7 +793,7 @@ class NxMediaLibrary extends LitElement {
         <div class="validation-state">
           <div class="validation-content indexing-state">
             <div class="indexing-spinner"></div>
-            <p class="indexing-message">${t('UI_DISCOVERING')}</p>
+            <p class="indexing-message">${isMediaLibraryPluginMode() ? t('UI_LOADING') : t('UI_DISCOVERING')}</p>
           </div>
         </div>
       `;
@@ -947,10 +955,11 @@ class NxMediaLibrary extends LitElement {
   }
 
   renderIndexingState() {
+    const label = isMediaLibraryPluginMode() ? t('UI_LOADING') : t('UI_DISCOVERING');
     return html`
       <div class="indexing-state">
         <div class="indexing-spinner"></div>
-        <p class="indexing-message">${t('UI_DISCOVERING')}</p>
+        <p class="indexing-message">${label}</p>
       </div>
     `;
   }
@@ -967,6 +976,25 @@ class NxMediaLibrary extends LitElement {
 
   renderEmptyState() {
     if (this._appState.indexMissing) {
+      if (isMediaLibraryPluginMode()) {
+        const appHref = getMediaLibraryAppHref(this.sitePath);
+        return html`
+          <div class="empty-state">
+            <h3>${t('INDEX_MISSING_PLUGIN')}</h3>
+            <p>${t('INDEX_MISSING_PLUGIN_HINT')}</p>
+            ${appHref ? html`
+              <p>
+                <a
+                  class="ml-open-app-link"
+                  href=${appHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >${t('INDEX_MISSING_PLUGIN_OPEN')}</a>
+              </p>
+            ` : ''}
+          </div>
+        `;
+      }
       return html`
         <div class="empty-state">
           <h3>${t('INDEX_MISSING')}</h3>
@@ -1117,7 +1145,7 @@ class NxMediaLibrary extends LitElement {
     const { media } = e.detail;
     if (!media) return;
 
-    const groupingKey = getDedupeKey(media.url);
+    const groupingKey = getUsageIndexKey(media);
     const usageData = this._appState.usageIndex?.get(groupingKey) || [];
 
     const snapshot = [...this.displayMediaData];
@@ -1151,6 +1179,7 @@ class NxMediaLibrary extends LitElement {
 
     try {
       const result = await copyMediaToClipboard(media);
+      if (result.silent) return;
       const isError = result.heading === 'Error';
       showNotification(result.heading, result.message, isError ? 'danger' : 'success');
     } catch (_) {
@@ -1187,6 +1216,7 @@ class NxMediaLibrary extends LitElement {
     }
   };
 }
+
 customElements.define(EL_NAME, NxMediaLibrary);
 
 function setupMediaLibrary(el) {

@@ -1,5 +1,61 @@
 # Worklog
 
+## 2026-05-11
+
+### Remove `/index` stripping from `nx2/utils/utils.js`
+
+Removed the 3-line block in `parseWindowPath` that redirected `#/org/site/path/index` → `#/org/site/path`:
+
+```js
+if (location.hash.endsWith('/index')) {
+  const clean = location.hash.slice(0, -5);
+  history.replaceState(null, '', clean);
+}
+```
+
+**Reasoning:** `parseWindowPath` is shared by both browse and canvas. In canvas (da-live), this silently redirected hash URLs before the editor could read the path, breaking direct links to `index` files (e.g. `/canvas#/org/site/path/index`). The stripping was introduced by Claude in commit `9626865e` with no explanation — likely a browse UX convention (index ≡ directory) applied incorrectly to a shared parser. Removed from `nx2` only; `nx` is left unchanged as it's a separate code path.
+
+## 2026-05-08
+
+### quick-edit merge conflict
+
+Resolved `origin/main` ↔ branch conflict in `nx/public/plugins/quick-edit/quick-edit.js`: kept a single `handleReady`, retained branch `checkDomain` + parent-controller flow, removed duplicate `checkDomain()` invocation left from the merge.
+
+## 2026-05-06
+
+### Phase 3 continued — chat and tool-panel moved into da-live
+
+Moved `nx2/blocks/chat/` and `nx2/blocks/tool-panel/` from da-nx into da-live as `blocks/ew-chat/` and `blocks/ew-tool-panel/`, following the same procedure as canvas/inventory.
+
+**What landed in da-live `ew`:**
+- `blocks/ew-chat/` — full chat block with sub-components (`pills`, `prompts`, `welcome`), controller, persistence, renderers, utils
+- `blocks/ew-tool-panel/` — tool panel (picker, fullsize-dialog, header actions)
+- `deps/mdast/` — copied from da-nx; used by `renderers.js` for markdown rendering
+
+**Custom element renames:**
+- `nx-chat` → `ew-chat`
+- `nx-tool-panel` → `ew-tool-panel`
+- Internal sub-elements (`nx-chat-welcome`, `nx-chat-pills`, `nx-prompts`) kept as-is
+
+**Import adaptations:**
+- `../../utils/utils.js` → `../shared/nxutils.js` (loadStyle, hashChange, getNx, DA_ADMIN)
+- `../../utils/api.js` daFetch → `../shared/utils.js` daFetch (positional signature); api.js call site updated
+- `../../utils/ims.js` loadIms → `../shared/utils.js` initIms (aliased as loadIms)
+- `../shared/menu/menu.js` (static) → `await import(\`\${getNx()}/blocks/shared/menu/menu.js\`)` (top-level dynamic; menu stays in shell)
+- `../../shared/picker/picker.js` (static) → `await import(\`\${getNx()}/blocks/shared/picker/picker.js\`)` in prompts.js and tool-panel.js
+
+**Icon migration applied (per feedback_icon_migration.md):**
+- Removed `loadHrefSvg` / `ICONS_BASE` / `loadChatIcons` from all files
+- chat.js: `ICON_SRCS` map with `/img/icons/s2-icon-*-20-n.svg` URLs; `icon()` returns `<img>` TemplateResult
+- tool-panel.js: close icon now `<img src="/img/icons/s2-icon-splitright-20-n.svg">`
+- CSS: `svg` selectors → `img`; removed `path { fill: ... }` rules; `/nx2/img/icons/` → `/img/icons/` (lowercase kebab); added `filter: invert(1)` on `.action-btn img` for dark-background buttons
+
+**canvas.js + inventory.js updated:**
+- Dynamic imports now point to local `../ew-chat/chat.js` and `../ew-tool-panel/tool-panel.js`
+- `document.createElement('nx-chat/nx-tool-panel')` → `ew-chat/ew-tool-panel`
+- `querySelector('nx-tool-panel')` selectors updated to `ew-tool-panel`
+- Removed `getNx` from canvas.js imports (no longer needed there)
+
 ## 2026-04-28
 
 ### nx2 canvas — library vs extension panel split
@@ -166,6 +222,23 @@ Decided to wrap nav and sidenav in semantic HTML elements:
 - Codifies the distinct meaning of `null` (absent), `undefined` (not yet loaded), and `''` (explicitly cleared).
 - `parseWindowPath` is the canonical example: returns a clean `{ view, org, site, path }` or `null`.
 
+## 2026-05-07
+
+### nx2/utils/api.js — namespaced helpers + Helix 6 endpoint coverage
+- Replaced flat exports (`getSource`, `putSource`, etc.) with namespaced objects: `source`, `versions`, `config`, `org`, `status`, `aem` (combined preview + live), `log`, `snapshot`, `jobs`. Low-level primitives (`daFetch`, `isHlx6`, `signout`, `hlx6ToDaList`) stay top-level.
+- Two private URL builders: `getDaApiPath` for DA ↔ AEM endpoints (source/list/config/versions), `getAemApiPath` for AEM-only endpoints. AEM-only legacy fallback hits `HLX_ADMIN` with hardcoded `ref=main`.
+- Bulk endpoints inlined: `status.get`, `aem.preview`/`unPreview`/`publish`/`unPublish`, `snapshot.addPath`/`removePath` accept `daPath` as string or array. Array of length ≥ 2 dispatches to `/*` with JSON body `{ paths, delete? }`.
+- hlx6-only methods (`source.copy`/`move`, `versions.get`, `org.listSites`, `config.getAggregated`, `jobs.test`) return `{ error, status: 501 }` on legacy.
+- IMS import refactored from doubly-dynamic IIFE to relative `import { loadIms, handleSignIn } from './ims.js';` — same production behavior, no top-level await, lets the wtr importmap mock cleanly.
+- Snapshots: new API uses plural `/snapshots/{path}`, legacy uses singular `/snapshot/{org}/{site}/main{path}` — handled in `getAemApiPath`. Same singular/plural switch for `jobs`/`job`.
+- Migrated `nx/blocks/importer/index.js` from `putSource` to `source.put`.
+- New tests at `test/nx2/utils/api.test.js` (68 tests) covering daFetch, isHlx6, every namespace method, bulk dispatcher, hlx6-only short-circuits, hlx6ToDaList, signout. Added `/nx2/utils/ims.js` → `/nx2/test/mocks/ims.js` to the top-level `web-test-runner.config.mjs` importmap.
+
+### Out of scope
+- `code`, `cache`, `index`, `sitemap`, `media`, `discover` namespaces — explicitly skipped.
+- Login/logout/profile, config sub-namespaces (users/secrets/apikeys/tokens), nested config, profile config, org profiles — DA uses IMS, none of these are needed in the DA flow.
+- `versions.get` legacy — DA's versionsource get-by-id pattern isn't documented and existing repo usage only has POST-to-create. Marked hlx6-only with 501 on legacy.
+
 ## 2026-04-08
 
 ### nx2 canvas — split toggle moved into panel chrome
@@ -219,6 +292,13 @@ Decided to wrap nav and sidenav in semantic HTML elements:
 - When either side panel is visible (`aside.panel:not([hidden])`), `.default-content` inside `main` now uses `max-width: 83.4%` instead of the fixed `--se-grid-container-width` value.
 - Uses sibling selectors: `main:has(~ aside.panel:not([hidden]))` for panels after main, `aside.panel:not([hidden]) ~ main` for panels before main.
 - The fixed `1200px` media query (`@media (width >= 1440px)`) remains for the no-panel case.
+
+## 2026-05-13
+
+### `replaceHtml` da-metadata serialization
+- `replaceHtml` was interpolating `${value}` directly into the `<div class="da-metadata">` rows. `getElementMetadata` returns values as `{ content, text }` objects, so any caller that round-tripped existing metadata (`rolloutCopy`, `mergeCopy`) wrote `[object Object]` into the saved HTML.
+- Fix unwraps `value.text` when present, falls back to the raw value, and emits `''` for nullish — so the function handles both shapes (object from `getElementMetadata`, plain string from `daMetadata['diff-label-local'] = labelLocal`).
+- Kept `getElementMetadata`'s `{ content, text }` shape since `regional-diff` callers use `.content` (the DOM element) directly for diffing.
 
 ## 2026-04-14
 

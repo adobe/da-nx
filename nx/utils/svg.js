@@ -34,7 +34,7 @@ async function fetchIcon(path) {
   return svg ? svg.cloneNode(true) : null;
 }
 
-export default async function getSvg({ parent, paths }) {
+export async function getSvg({ parent, paths }) {
   const svgs = await Promise.all(paths.map((path) => fetchIcon(path)));
 
   if (parent) {
@@ -74,3 +74,5 @@ export async function link2svg(a) {
     return a;
   }
 }
+
+export default getSvg;

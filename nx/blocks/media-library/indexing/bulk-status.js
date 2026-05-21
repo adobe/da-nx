@@ -14,7 +14,8 @@ const REQ_PER_SEC = 10;
 const THROTTLE_MS = 1000 / REQ_PER_SEC;
 
 const LARGE_SITE_PATH_THRESHOLD = IndexConfig.DISCOVERY_SMALL_SITE_THRESHOLD ?? 20_000;
-const TARGET_PARTITION_RESOURCE_COUNT = IndexConfig.DISCOVERY_TARGET_PATHS_PER_JOB ?? 20_000;
+// Reduced from 20K to 10K to prevent server-side timeouts on large sites
+const TARGET_PARTITION_RESOURCE_COUNT = IndexConfig.DISCOVERY_TARGET_PATHS_PER_JOB ?? 10_000;
 const MAX_PARTITION_PATHS = IndexConfig.DISCOVERY_MAX_PATHS_PER_JOB ?? 250;
 
 function normalizePath(p) {

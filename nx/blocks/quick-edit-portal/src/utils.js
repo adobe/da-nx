@@ -1,5 +1,46 @@
 import { handleSignIn, loadIms } from '../../../utils/ims.js';
 
+const DA_LIVE_PREVIEW_ENVS = {
+  local: 'localhost:8000',
+  stage: 'stage-preview.da.live',
+  prod: 'preview.da.live',
+};
+
+export async function getToken() {
+  const ims = await loadIms(true);
+  if (ims.anonymous) return null;
+  const { token } = ims.accessToken;
+  return token;
+}
+
+function getLivePreviewDomain() {
+  const { href } = window.location;
+  const query = new URL(href).searchParams.get('da-live-preview');
+  if (query && query === 'reset') {
+    localStorage.removeItem('da-live-preview');
+  } else if (query) {
+    localStorage.setItem('da-live-preview', query);
+  }
+  const env = DA_LIVE_PREVIEW_ENVS[localStorage.getItem('da-live-preview') || 'prod'];
+  return window.location.origin === 'https://da.page' ? env.replace('.live', '.page') : env;
+}
+
+function getLivePreviewUrl(owner, repo) {
+  const domain = getLivePreviewDomain();
+  const protocol = domain.startsWith('localhost') ? 'http' : 'https';
+  return `${protocol}://main--${repo}--${owner}.${domain}`;
+}
+
+export async function getImageCookie(owner, repo) {
+  const token = await getToken();
+  if (token) {
+    await fetch(`${getLivePreviewUrl(owner, repo)}/gimme_cookie`, {
+      credentials: 'include',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+  }
+}
+
 export function findChangedNodes(oldDoc, newDoc) {
   const changes = [];
 
@@ -173,13 +214,6 @@ export function generateColor(name, hRange = [0, 360], sRange = [60, 80], lRange
     return Math.round(255 * color).toString(16).padStart(2, '0');
   };
   return `#${f(0)}${f(8)}${f(4)}`;
-}
-
-export async function getToken() {
-  const ims = await loadIms(true);
-  if (ims.anonymous) return null;
-  const { token } = ims.accessToken;
-  return token;
 }
 
 export async function checkPermissions(sourceUrl) {

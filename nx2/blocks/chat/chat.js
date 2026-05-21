@@ -1,19 +1,29 @@
 import { LitElement, html, nothing } from 'da-lit';
+import { loadStyle, hashChange } from '../../utils/utils.js';
+import '../shared/menu/menu.js';
 import ChatController from './chat-controller.js';
 import { renderMessage, renderApprovalCard } from './renderers.js';
 import './welcome/welcome.js';
 import './prompts/prompts.js';
 import './pills/pills.js';
-import '../shared/menu/menu.js';
-import { loadStyle, hashChange } from '../../utils/utils.js';
-import { loadChatIcons } from './utils.js';
-import { loadPrompts } from './api.js';
-import { ADD_MENU_ITEMS, CHAT_ICONS, MENU_OPTIONS, ROLE, TOOL_STATE } from './constants.js';
+import { loadSiteConfig } from './api.js';
+import { ADD_MENU_ITEMS, MENU_OPTIONS, ROLE, TOOL_STATE } from './constants.js';
+import { getConfig } from '../../scripts/nx.js';
 
 const styles = await loadStyle(import.meta.url);
-const icons = await loadChatIcons(CHAT_ICONS);
+const { codeBase } = getConfig();
 
-const icon = (name) => icons?.[name]?.cloneNode(true);
+const ICON_NAMES = {
+  add: 's2-icon-add-20-n',
+  clear: 's2-icon-removecircle-20-n',
+  close: 's2-icon-splitleft-20-n',
+  send: 's2-icon-arrowupsend-20-n',
+  stop: 's2-icon-stop-20-n',
+  up: 's2-icon-chevronup-20-n',
+};
+
+const icon = (name) => html`<svg class="chat-icon" viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/${ICON_NAMES[name]}.svg#icon"></use></svg>`;
+
 const UI_PROMPTS_GAP = 8;
 
 class NxChat extends LitElement {
@@ -23,7 +33,7 @@ class NxChat extends LitElement {
     connected: { type: Boolean },
     toolCards: { type: Object },
     _prompts: { state: true },
-    _attachedItems: { state: true },
+    _items: { state: true },
   };
 
   set context(value) {
@@ -31,18 +41,38 @@ class NxChat extends LitElement {
     this._applyContext(value);
   }
 
-  _onAddToChat = ({ detail }) => this.addAttachment(detail);
+  _keyedItemIds = new Map();
+
+  _onAddToChat = ({ detail }) => {
+    const { key, ...item } = detail;
+    if (key !== undefined) {
+      const prevId = this._keyedItemIds.get(key);
+      const without = (this._items ?? []).filter((i) => i.id !== prevId);
+      if (item.id) {
+        this._keyedItemIds.set(key, item.id);
+        this._items = [...without, item];
+      } else {
+        this._keyedItemIds.delete(key);
+        this._items = without;
+      }
+    } else {
+      this.addAttachment(item);
+    }
+  };
 
   addAttachment(item) {
-    const current = this._attachedItems ?? [];
+    const current = this._items ?? [];
     if (current.some((i) => i.id === item.id)) return;
-    this._attachedItems = [...current, item];
+    this._items = [...current, item];
   }
 
   _applyContext(value) {
     this._context = value;
     this._controller?.setContext(value);
-    this._loadPrompts();
+    const contextIds = new Set(this._keyedItemIds.values());
+    this._items = (this._items ?? []).filter((item) => !contextIds.has(item.id));
+    this._keyedItemIds = new Map();
+    this._loadConfig();
     this.requestUpdate();
   }
 
@@ -54,14 +84,76 @@ class NxChat extends LitElement {
     this.dispatchEvent(new CustomEvent('nx-panel-close', { bubbles: true, composed: true }));
   }
 
-  async _loadPrompts() {
+  async _loadConfig() {
     const { org, site } = this._context ?? {};
     if (!org || !site) return;
     const key = `${org}/${site}`;
-    if (this._promptsKey === key) return;
-    this._promptsKey = key;
-    const data = await loadPrompts(org, site);
-    if (data) this._prompts = data.filter((p) => p.title && p.prompt);
+    if (this._configKey === key) return;
+    this._configKey = key;
+    const { prompts, skills } = await loadSiteConfig(org, site);
+    this._prompts = prompts ?? [];
+    this._skills = skills ?? [];
+    if (this._slashCtx) this._syncSlashMenu(this._slashCtx);
+  }
+
+  _getSlashItems(filter) {
+    if (!this._skills) return [];
+    const skills = this._skills.map((id) => ({ id, label: id }));
+    const filtered = filter
+      ? skills.filter((item) => item.id.toLowerCase().includes(filter))
+      : skills;
+    if (!filtered.length) return [];
+    return [{ section: 'Skills' }, ...filtered];
+  }
+
+  firstUpdated() {
+    this._slashMenuEl = this.shadowRoot.querySelector('.slash-menu');
+  }
+
+  _getSlashContext(input) {
+    const pos = input.selectionStart;
+    const before = input.value.slice(0, pos);
+    const wordStart = Math.max(before.lastIndexOf(' '), before.lastIndexOf('\n')) + 1;
+    const word = before.slice(wordStart);
+    if (!word.startsWith('/')) return null;
+    return { filter: word.slice(1).toLowerCase(), wordStart };
+  }
+
+  _syncSlashMenu(ctx) {
+    if (!this._slashMenuEl) return;
+    if (!ctx) {
+      this._slashMenuEl.close();
+      return;
+    }
+    const items = this._getSlashItems(ctx.filter);
+    if (!items.length) {
+      this._slashMenuEl.close();
+      return;
+    }
+    this._slashMenuEl.items = items;
+    if (!this._slashMenuEl.open) {
+      const form = this.shadowRoot.querySelector('.chat-form');
+      this._slashMenuEl.show({ anchor: form, placement: 'above' });
+    } else {
+      this._slashMenuEl.reposition();
+    }
+  }
+
+  _spliceInput(input, text, start, end = start) {
+    input.value = input.value.slice(0, start) + text + input.value.slice(end);
+    input.setSelectionRange(start + text.length, start + text.length);
+  }
+
+  _onSlashSelect(skillId) {
+    const input = this.shadowRoot?.querySelector('.chat-input');
+    const { wordStart } = this._slashCtx ?? {};
+    const before = input?.value.slice(0, wordStart ?? 0).trimEnd();
+    const after = input?.value.slice(input.selectionStart).trimStart();
+    const message = [before, `/${skillId}`, after].filter(Boolean).join(' ');
+    this._slashCtx = null;
+    this._slashMenuEl?.close();
+    if (input) input.value = '';
+    this._controller.sendMessage(message, [], { requestedSkills: [skillId] });
   }
 
   async connectedCallback() {
@@ -72,9 +164,7 @@ class NxChat extends LitElement {
       onToolDone: () => {
         this.dispatchEvent(new CustomEvent('nx-agent-change', { bubbles: true, composed: true }));
       },
-      onUpdate: ({
-        messages, thinking, streamingText, connected, toolCards,
-      }) => {
+      onUpdate: ({ messages, thinking, streamingText, connected, toolCards }) => {
         this.messages = streamingText
           ? [...(messages ?? []), { role: ROLE.ASSISTANT, content: streamingText, streaming: true }]
           : messages;
@@ -163,7 +253,28 @@ class NxChat extends LitElement {
     popover.close();
   }
 
+  _handleInput(e) {
+    this._slashCtx = this._getSlashContext(e.target);
+    this._syncSlashMenu(this._slashCtx);
+  }
+
+  _handleBlur() {
+    // Defer past any click event on a menu item that triggered the blur
+    setTimeout(() => {
+      this._slashMenuEl?.close();
+      this._slashCtx = null;
+    }, 0);
+  }
+
   _handleKeydown(e) {
+    if (this._slashMenuEl?.open) {
+      const keys = ['ArrowDown', 'ArrowUp', 'Enter', 'Escape'];
+      if (keys.includes(e.key)) {
+        e.preventDefault();
+        this._slashMenuEl.handleKey(e.key);
+        return;
+      }
+    }
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       this._submit();
@@ -178,25 +289,50 @@ class NxChat extends LitElement {
     }
     const input = this.shadowRoot.querySelector('.chat-input');
     const message = input.value.trim();
-    if (!message && !this._attachedItems?.length) return;
-    const context = this._attachedItems ?? [];
+    if (!message && !this._items?.length) return;
+    const context = this._items ?? [];
+    this._slashMenuEl?.close();
     this._controller.sendMessage(message, context);
     input.value = '';
-    this._attachedItems = [];
+    this._items = [];
   }
 
   _sendPrompt(prompt) {
     if (!prompt || this.thinking || !this.connected) return;
     this.shadowRoot.querySelector('.prompts-popover')?.close();
-    this._controller.sendMessage(prompt);
+    const input = this.shadowRoot.querySelector('.chat-input');
+    if (!input) return;
+    input.value = prompt;
+    input.focus();
   }
 
   _handleMenuSelect({ detail: { id } }) {
     if (id === MENU_OPTIONS.PROMPT) this._openPrompts();
+    if (id === MENU_OPTIONS.COMMAND) this._insertSlash();
+    if (id === 'prompts' || id === 'skills') {
+      const { org, site } = this._context ?? {};
+      if (!org || !site) return;
+      const url = new URL(window.location.href);
+      url.pathname = '/apps/skills';
+      url.search = `?tab=${id}`;
+      url.hash = `#/${org}/${site}`;
+      window.open(url.href, '_blank', 'noopener,noreferrer');
+    }
+  }
+
+  _insertSlash() {
+    const input = this.shadowRoot.querySelector('.chat-input');
+    if (!input) return;
+    const { value, selectionStart: pos } = input;
+    const before = value.slice(0, pos);
+    const slash = (before && !before.endsWith(' ')) ? ' /' : '/';
+    this._spliceInput(input, slash, pos);
+    input.focus();
+    input.dispatchEvent(new Event('input'));
   }
 
   _handlePillRemove({ detail: { id } }) {
-    this._attachedItems = (this._attachedItems ?? []).filter((item) => item.id !== id);
+    this._items = (this._items ?? []).filter((item) => item.id !== id);
   }
 
   render() {
@@ -235,26 +371,35 @@ class NxChat extends LitElement {
               @nx-show-prompts=${this._openPrompts}
             ></nx-chat-welcome>`
         : nothing}
-        ${this.messages?.map((msg) => renderMessage(msg, icons, this.toolCards))}
+        ${this.messages?.map((msg) => renderMessage(msg, this.toolCards))}
         ${this.thinking && !this.messages?.at(-1)?.streaming ? html`<div class="chat-thinking">Thinking...</div>` : nothing}
         </div>
       </div>
       <div class="chat-form-wrap">
+        <nx-menu
+          class="slash-menu"
+          .ignoreFocus=${true}
+          .scoped=${true}
+          @select=${({ detail }) => this._onSlashSelect(detail.id)}
+          @mousedown=${(e) => e.preventDefault()}
+        ></nx-menu>
         ${renderApprovalCard(this._pendingApproval(), this._controller.approveToolCall)}
         <form class="chat-form" autocomplete="off" @submit=${this._submit}>
-        ${this._attachedItems?.length ? html`
+        ${this._items?.length ? html`
           <nx-chat-pills
-            .items=${this._attachedItems}
+            .items=${this._items}
             @nx-pill-remove=${this._handlePillRemove}
           ></nx-chat-pills>` : nothing}
         <textarea
           name="chat-input"
           class="chat-input"
-          placeholder="Ask anything, or type / for commands..."
+          placeholder="Ask anything, or type / for skills..."
           ?disabled=${this.thinking || !this.connected}
+          @input=${this._handleInput}
           @keydown=${this._handleKeydown}
+          @blur=${this._handleBlur}
         ></textarea>
-        <div class="chat-actions ${this.thinking ? 'chat-thinking' : ''}">
+        <div class="chat-actions" ?data-thinking=${this.thinking}>
           <nx-menu .items=${ADD_MENU_ITEMS} placement="above" @select=${this._handleMenuSelect}>
             <button slot="trigger" class="chat-add" type="button" aria-label="Add" @click=${this._onAddClick}>
               <span class="icon-add">${icon('add')}</span>
@@ -271,8 +416,3 @@ class NxChat extends LitElement {
 }
 
 customElements.define('nx-chat', NxChat);
-
-export default async function init(el) {
-  const chat = document.createElement('nx-chat');
-  el.replaceWith(chat);
-}

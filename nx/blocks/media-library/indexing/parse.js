@@ -1,30 +1,63 @@
-import { fetchPageMarkdown } from './admin-api.js';
 import {
   IndexConfig,
-  Domains,
   Operation,
   Paths,
   MediaType,
 } from '../core/constants.js';
-import { isPerfEnabled } from '../core/params.js';
-import { getExternalMediaTypeInfo, normalizeExternalVideoUrl } from '../core/media.js';
+import { normalizeExternalVideoUrl } from '../core/media.js';
 import { getDedupeKey, canonicalizeMediaUrl } from '../core/urls.js';
+import {
+  normalizePath,
+  isHiddenPath,
+  extractImageUrls,
+  extractVideoUrls,
+  extractFragmentReferences,
+  extractExternalMediaUrls,
+  extractLinks,
+  getExternalMediaType,
+  processConcurrently,
+} from './parse-utils.js';
+
+// Lazy-load admin-api.js and params.js to avoid triggering window.location in worker context
+// (admin-api.js → daFetch.js → public/utils/constants.js → window.location)
+// (params.js → isPerfEnabled uses window.location)
+// Only buildUsageMap needs these, and worker uses worker-parse.js's buildUsageMap instead
+let fetchPageMarkdown;
+let isPerfEnabled;
+
+async function getFetchPageMarkdown() {
+  if (!fetchPageMarkdown) {
+    const module = await import('./admin-api.js');
+    fetchPageMarkdown = module.fetchPageMarkdown;
+  }
+  return fetchPageMarkdown;
+}
+
+async function getIsPerfEnabled() {
+  if (!isPerfEnabled) {
+    const module = await import('../core/params.js');
+    isPerfEnabled = module.isPerfEnabled;
+  }
+  return isPerfEnabled;
+}
 
 export { getDedupeKey };
 
-const MD_LINK_RE = /\[[^\]]*\]\(([^)]+)\)/gi;
-const MD_AUTOLINK_RE = /<(https?:\/\/[^>]+|\/[^>\s]*)>/g;
-const HTML_MEDIA_ATTR_RE = /<(?:img|video|audio|source|iframe)\b[^>]*\b(src|srcset|poster)=["']([^"']+)["'][^>]*>/gi;
-const HTML_ANCHOR_RE = /<a\b[^>]*\bhref=["']([^"']+)["'][^>]*>/gi;
+export function normalizeOriginalPath(originalFilename) {
+  if (!originalFilename) return '';
+  const str = String(originalFilename).trim();
+  if (!str) return '';
 
-// Normalizes path (lowercase, no leading slash, / for dirs).
-export function normalizePath(path) {
-  if (!path) return '';
-  let cleanPath = path.split('?')[0].split('#')[0];
-  if (!cleanPath.includes('.') && !cleanPath.startsWith(Paths.MEDIA)) {
-    cleanPath = cleanPath === '/' || cleanPath === '' ? '/index.md' : `${cleanPath}.md`;
+  try {
+    const url = new URL(str);
+    const parts = url.pathname.split('/').filter(Boolean);
+    if (parts.length > 2) {
+      return `/${parts.slice(2).join('/')}`;
+    }
+    return url.pathname;
+  } catch {
+    return str;
   }
-  return cleanPath;
 }
 
 export function isPage(path) {
@@ -36,11 +69,6 @@ export function isPage(path) {
 export function isFragment(path) {
   if (!path || typeof path !== 'string') return false;
   return path.includes(Paths.FRAGMENTS) && !path.includes('.');
-}
-
-export function isHiddenPath(path) {
-  if (!path || typeof path !== 'string') return false;
-  return path.includes('/.');
 }
 
 export function extractName(mediaEntry) {
@@ -102,43 +130,27 @@ export function extractBestFilename(mediaEntry) {
 /**
  * Computes canonical modifiedTimestamp from all medialog entries for a hash.
  * Logic:
- * 1. Prefer ingest entry's modifiedTimestamp (if > 0)
- * 2. Else use ingest entry's timestamp (if > 0)
- * 3. Else use oldest reuse entry's timestamp (closest to actual ingest time)
- * 4. Else use 0
+ * Use the most recent activity timestamp (ingest or reuse) so that recently
+ * added/used images appear on top, regardless of the file's modification time on CDN.
  */
 export function computeCanonicalModifiedTimestamp(allEntriesForHash) {
   if (!allEntriesForHash || allEntriesForHash.length === 0) {
     return 0;
   }
 
-  // Find ingest entry
-  const ingestEntry = allEntriesForHash.find((e) => e.operation === 'ingest');
+  // Find the most recent timestamp across all operations (ingest, reuse, etc.)
+  const allTimestamps = allEntriesForHash
+    .map((e) => e.timestamp || 0)
+    .filter((ts) => ts > 0);
 
-  // Find all reuse entries and get oldest timestamp
-  const reuseEntries = allEntriesForHash.filter((e) => e.operation === 'reuse');
-  const oldestReuseTimestamp = reuseEntries.length > 0
-    ? Math.min(...reuseEntries.map((e) => e.timestamp || 0))
-    : 0;
-
-  // Apply fallback logic
-  if (ingestEntry) {
-    // Prefer ingest's modifiedTimestamp (asset's actual modified time from HTTP HEAD)
-    if (ingestEntry.modifiedTimestamp && ingestEntry.modifiedTimestamp > 0) {
-      return ingestEntry.modifiedTimestamp;
-    }
-    // Else use ingest's timestamp (upload time)
-    if (ingestEntry.timestamp && ingestEntry.timestamp > 0) {
-      return ingestEntry.timestamp;
-    }
+  if (allTimestamps.length === 0) {
+    return 0;
   }
 
-  // No ingest or ingest timestamp is 0 → use oldest reuse timestamp
-  if (oldestReuseTimestamp > 0) {
-    return oldestReuseTimestamp;
-  }
+  // Return the most recent activity timestamp
+  const maxTimestamp = Math.max(...allTimestamps);
 
-  return 0;
+  return maxTimestamp;
 }
 
 export function computeCanonicalMetadata(mediaEntry, existingMetadata = null) {
@@ -167,6 +179,27 @@ export function detectMediaType(mediaEntry) {
   const contentType = mediaEntry.contentType || '';
   if (contentType.startsWith('image/')) return MediaType.IMAGE;
   if (contentType.startsWith('video/')) return MediaType.VIDEO;
+
+  // Fall back to file extension detection if contentType not available
+  const url = mediaEntry.url || mediaEntry.path || '';
+  if (!url) return 'unknown';
+
+  // Extract extension from URL (handle query params and fragments)
+  const cleanUrl = url.split('?')[0].split('#')[0];
+  const match = cleanUrl.match(/\.([a-z0-9]+)$/i);
+  if (!match) return 'unknown';
+
+  const ext = match[1].toLowerCase();
+
+  // Map extension to MediaType
+  const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'bmp'];
+  const videoExts = ['mp4', 'webm', 'mov', 'avi', 'm4v'];
+
+  if (imageExts.includes(ext)) return MediaType.IMAGE;
+  if (videoExts.includes(ext)) return MediaType.VIDEO;
+  if (ext === 'pdf') return MediaType.DOCUMENT;
+  if (ext === 'svg') return MediaType.IMAGE;
+
   return 'unknown';
 }
 
@@ -188,17 +221,22 @@ export function createMedialogEntry(media, options = {}) {
   const hash = media.mediaHash || dedupeKey;
   const canonical = computeCanonicalMetadata(media, existingMeta);
 
+  let finalModifiedTimestamp = canonicalModifiedTimestamp ?? canonical.modifiedTimestamp;
+  if (finalModifiedTimestamp === '') {
+    finalModifiedTimestamp = null;
+  }
+
   return {
     hash,
     url,
-    originalPath: media.originalPath || media.originalFilename || '',
+    originalPath: normalizeOriginalPath(media.originalPath || media.originalFilename),
     timestamp: media.timestamp || 0,
     user: media.user || '',
     operation: media.operation || '',
     type: detectMediaType(media),
     doc,
     displayName: canonical.displayName,
-    modifiedTimestamp: canonicalModifiedTimestamp ?? canonical.modifiedTimestamp,
+    modifiedTimestamp: finalModifiedTimestamp,
   };
 }
 
@@ -210,12 +248,18 @@ export function isSvg(path) {
   return path && path.toLowerCase().endsWith('.svg');
 }
 
+export function isVideo(path) {
+  if (!path) return false;
+  const lower = path.toLowerCase();
+  return lower.endsWith('.mp4') || lower.endsWith('.webm') || lower.endsWith('.mov') || lower.endsWith('.avi') || lower.endsWith('.m4v');
+}
+
 export function isFragmentDoc(path) {
   return path && path.includes(Paths.FRAGMENTS);
 }
 
 export function isLinkedContentPath(path) {
-  return path && (isPdf(path) || isSvg(path) || isFragmentDoc(path));
+  return path && (isPdf(path) || isSvg(path) || isVideo(path) || isFragmentDoc(path));
 }
 
 export function toAbsoluteFilePath(path) {
@@ -231,196 +275,24 @@ export function isPdfOrSvg(path) {
 export function getLinkedContentType(path) {
   if (isPdf(path)) return MediaType.DOCUMENT;
   if (isSvg(path)) return MediaType.IMAGE;
+  if (isVideo(path)) return MediaType.VIDEO;
   if (isFragmentDoc(path)) return MediaType.FRAGMENT;
   return 'unknown';
-}
-
-function toPath(href) {
-  if (!href) return '';
-  try {
-    if (href.startsWith('http')) {
-      return new URL(href).pathname;
-    }
-    return href.startsWith('/') ? href : `/${href}`;
-  } catch (error) {
-    // eslint-disable-next-line no-console
-    console.error(`[MediaIndexer] Failed to parse URL ${href}:`, error.message);
-    return href;
-  }
-}
-
-function extractHtmlMediaUrls(md) {
-  return [...md.matchAll(HTML_MEDIA_ATTR_RE)].flatMap((match) => {
-    const [, attrName, rawValue] = match;
-    if (!rawValue) return [];
-    if (attrName.toLowerCase() === 'srcset') {
-      return rawValue
-        .split(',')
-        .map((candidate) => candidate.trim().split(/\s+/)[0])
-        .filter(Boolean);
-    }
-    return [rawValue];
-  });
-}
-
-function extractHtmlAnchorUrls(html) {
-  return [...html.matchAll(HTML_ANCHOR_RE)].map((match) => match[1]).filter(Boolean);
-}
-
-function htmlForMediaExtraction(html) {
-  if (!html || typeof html !== 'string') return '';
-  const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
-  if (bodyMatch) {
-    return bodyMatch[1];
-  }
-  return html.replace(/<head\b[^>]*>[\s\S]*?<\/head>/gi, '');
-}
-
-function stripMarkdownTitle(target) {
-  const trimmed = target.trim();
-  if (!trimmed) return '';
-
-  const angleMatch = trimmed.match(/^<([^>]+)>(?:\s+['"].*['"])?$/);
-  if (angleMatch) {
-    return angleMatch[1].trim();
-  }
-
-  const titleMatch = trimmed.match(/^(\S+)(?:\s+['"].*['"])?$/);
-  return titleMatch ? titleMatch[1] : trimmed;
-}
-
-function hasMalformedEncodedQuotes(target) {
-  return /^(?:%5c%22|%22)/i.test(target) || /(?:%5c%22|%22)$/i.test(target);
-}
-
-function sanitizeExtractedUrl(rawUrl) {
-  if (!rawUrl || typeof rawUrl !== 'string') return null;
-
-  let value = stripMarkdownTitle(rawUrl);
-  if (!value || hasMalformedEncodedQuotes(value)) return null;
-
-  value = value.trim().replace(/&amp;/g, '&');
-
-  if (
-    (value.startsWith('"') && value.endsWith('"'))
-    || (value.startsWith('\'') && value.endsWith('\''))
-  ) {
-    value = value.slice(1, -1).trim();
-  }
-
-  if (!value || value.includes('\n') || value.includes('\r') || value.includes('\t')) {
-    return null;
-  }
-
-  if (
-    value.startsWith('\\"')
-    || value.endsWith('\\"')
-    || value.startsWith("\\'")
-    || value.endsWith("\\'")
-  ) {
-    return null;
-  }
-
-  if (!value.startsWith('http') && !value.startsWith('/')) {
-    return null;
-  }
-
-  return value;
-}
-
-function extractUrlsFromMarkdown(md) {
-  if (!md || typeof md !== 'string') return [];
-  const candidates = [
-    ...[...md.matchAll(MD_LINK_RE)].map((m) => m[1]),
-    ...[...md.matchAll(MD_AUTOLINK_RE)].map((m) => m[1]),
-    ...extractHtmlMediaUrls(md),
-  ];
-
-  return [...new Set(candidates.map(sanitizeExtractedUrl).filter(Boolean))];
-}
-
-function extractUrlsFromHtml(html) {
-  if (!html || typeof html !== 'string') return [];
-  const scan = htmlForMediaExtraction(html);
-  const candidates = [
-    ...extractHtmlMediaUrls(scan),
-    ...extractHtmlAnchorUrls(scan),
-  ];
-
-  return [...new Set(candidates.map(sanitizeExtractedUrl).filter(Boolean))];
-}
-
-function extractUrls(content, isHtml = false) {
-  return isHtml ? extractUrlsFromHtml(content) : extractUrlsFromMarkdown(content);
-}
-
-function isExternalUrl(url) {
-  if (!url || !url.startsWith('http')) return false;
-  return !Domains.SAME_ORIGIN.some((d) => url.includes(d));
-}
-
-export function getExternalMediaType(url) {
-  return getExternalMediaTypeInfo(url);
-}
-
-export function isExternalMediaUrl(url) {
-  return getExternalMediaType(url) !== null;
-}
-
-export function extractExternalMediaUrls(content, isHtml = false) {
-  if (!content || typeof content !== 'string') return [];
-  const urls = extractUrls(content, isHtml);
-  return [...new Set(urls.filter((u) => isExternalMediaUrl(u)))];
-}
-
-export function extractFragmentReferences(content, isHtml = false) {
-  const urls = extractUrls(content, isHtml);
-  return [...new Set(urls.filter((u) => u.includes(Paths.FRAGMENTS)).map((u) => toPath(u)))];
-}
-
-export function extractLinks(content, pattern, isHtml = false) {
-  const urls = extractUrls(content, isHtml);
-  const pathPart = (u) => u.split('?')[0].split('#')[0];
-  return [...new Set(
-    urls
-      .filter((u) => pattern.test(pathPart(u)) && !isExternalUrl(u))
-      .map((u) => toPath(u)),
-  )];
-}
-
-// Runs fn over items with concurrency limit; returns results in order.
-export async function processConcurrently(items, fn, concurrency) {
-  const results = [];
-  const executing = [];
-
-  for (let i = 0; i < items.length; i += 1) {
-    const item = items[i];
-    const promise = Promise.resolve().then(() => fn(item, i));
-    results.push(promise);
-
-    if (concurrency <= items.length) {
-      const executingPromise = promise.then(() => {
-        executing.splice(executing.indexOf(executingPromise), 1);
-      });
-      executing.push(executingPromise);
-
-      if (executing.length >= concurrency) {
-        // eslint-disable-next-line no-await-in-loop
-        await Promise.race(executing);
-      }
-    }
-  }
-
-  return Promise.all(results);
 }
 
 // Parses pages for PDF/SVG/fragment refs; returns usage map + external media.
 // When onBatchComplete is provided, processes in batches and calls it after each batch.
 export async function buildUsageMap(pageEntries, org, repo, ref, onProgress, onBatch = null) {
+  // Lazy-load dependencies (only needed in main thread, not worker)
+  const fetchPageMarkdownFn = await getFetchPageMarkdown();
+  const isPerfEnabledFn = await getIsPerfEnabled();
+
   const usageMap = {
     fragments: new Map(),
     pdfs: new Map(),
     svgs: new Map(),
+    videos: new Map(), // Videos from markdown links
+    images: new Map(), // Regular images from markdown
     externalMedia: new Map(),
   };
 
@@ -457,6 +329,8 @@ export async function buildUsageMap(pageEntries, org, repo, ref, onProgress, onB
     const fragments = extractFragmentReferences(md, isHtml);
     const pdfs = extractLinks(md, /\.pdf$/, isHtml);
     const svgs = extractLinks(md, /\.svg$/, isHtml);
+    const videos = extractVideoUrls(md, isHtml);
+    const images = extractImageUrls(md, isHtml);
     const externalUrls = extractExternalMediaUrls(md, isHtml);
     const addToMap = (map, path) => {
       if (!map.has(path)) map.set(path, []);
@@ -480,6 +354,8 @@ export async function buildUsageMap(pageEntries, org, repo, ref, onProgress, onB
     fragments.forEach((f) => addToMap(usageMap.fragments, f));
     pdfs.forEach((p) => addToMap(usageMap.pdfs, p));
     svgs.forEach((s) => addToMap(usageMap.svgs, s));
+    videos.forEach((v) => addToMap(usageMap.videos, v));
+    images.forEach((i) => addToMap(usageMap.images, i));
     externalUrls.forEach((u) => addToExternalMedia(u));
   };
 
@@ -490,7 +366,7 @@ export async function buildUsageMap(pageEntries, org, repo, ref, onProgress, onB
       async (normalizedPath, i) => {
         const globalIndex = batchStart + i;
         onProgress?.({ message: `Parsing page ${globalIndex + 1}/${uniquePages.length}: ${normalizedPath}` });
-        const result = await fetchPageMarkdown(normalizedPath, org, repo, ref);
+        const result = await fetchPageMarkdownFn(normalizedPath, org, repo, ref);
 
         const md = result?.markdown !== undefined ? result.markdown : null;
         const html = result?.html || null;
@@ -534,7 +410,7 @@ export async function buildUsageMap(pageEntries, org, repo, ref, onProgress, onB
     const retryResults = await processConcurrently(
       allFailedPaths,
       async (normalizedPath) => {
-        const result = await fetchPageMarkdown(normalizedPath, org, repo, ref);
+        const result = await fetchPageMarkdownFn(normalizedPath, org, repo, ref);
         const md = result?.markdown !== undefined ? result.markdown : null;
         const html = result?.html || null;
         const wasSuccessful = result?.status === 200;
@@ -571,37 +447,59 @@ export async function buildUsageMap(pageEntries, org, repo, ref, onProgress, onB
   const fragCount = usageMap.fragments?.size ?? 0;
   const pdfCount = usageMap.pdfs?.size ?? 0;
   const svgCount = usageMap.svgs?.size ?? 0;
+  const videoCount = usageMap.videos?.size ?? 0;
+  const imgCount = usageMap.images?.size ?? 0;
   const extCount = usageMap.externalMedia?.size ?? 0;
 
-  if (isPerfEnabled()) {
+  if (isPerfEnabledFn()) {
     // eslint-disable-next-line no-console
     console.log(
       `[buildUsageMap] ${Math.round(durationMs / 1000)}s | pages ${counters.success}/${uniquePages.length} | `
-      + `items frag=${fragCount} pdf=${pdfCount} svg=${svgCount} ext=${extCount}`,
+      + `items frag=${fragCount} pdf=${pdfCount} svg=${svgCount} video=${videoCount} img=${imgCount} ext=${extCount}`,
     );
   }
 
   return usageMap;
 }
 
-export function toExternalMediaEntry(url, doc, firstDiscoveredTimestamp = 0) {
+export function toExternalMediaEntry(
+  url,
+  doc,
+  firstDiscoveredTimestamp = 0,
+  org = null,
+  repo = null,
+) {
   const info = getExternalMediaType(url);
   if (!info) return null;
 
-  // Normalize external video URLs for consistent hashing
-  // (e.g., youtube.com/watch?v=X and youtu.be/X get same hash)
-  const normalizedUrl = normalizeExternalVideoUrl(url);
+  const canonicalUrl = canonicalizeMediaUrl(url, org, repo);
+  const normalizedUrl = normalizeExternalVideoUrl(canonicalUrl);
+
+  let displayName = info.name;
+  try {
+    displayName = decodeURIComponent(info.name);
+  } catch {
+    // Keep original if decode fails
+  }
+
+  const modifiedTimestamp = (firstDiscoveredTimestamp === '' || firstDiscoveredTimestamp === null || firstDiscoveredTimestamp === undefined)
+    ? null
+    : firstDiscoveredTimestamp;
+
+  // Use normalized URL as hash for consistent deduplication
+  // (e.g., youtube.com/watch?v=xyz and youtu.be/xyz both normalize to youtube.com/watch?v=xyz)
+  const hash = normalizedUrl;
 
   return {
-    hash: normalizedUrl, // Use normalized URL as dedupe key for external media
-    url, // Keep original URL for display
+    hash,
+    url: canonicalUrl,
     timestamp: firstDiscoveredTimestamp,
     user: '',
     operation: Operation.EXTLINKS,
     type: info.type,
     doc: doc || '',
-    displayName: info.name, // Use extracted name for display
-    modifiedTimestamp: firstDiscoveredTimestamp,
+    displayName,
+    modifiedTimestamp,
   };
 }
 
@@ -620,8 +518,22 @@ export function toLinkedContentEntry(
   const url = `https://main--${repo}--${org}.aem.page${urlPath}`;
   const fileName = filePath.split('/').pop() || filePath;
 
+  const rawModifiedTimestamp = lastModified || fileEvent.timestamp;
+  const modifiedTimestamp = (rawModifiedTimestamp === '' || rawModifiedTimestamp === null || rawModifiedTimestamp === undefined)
+    ? null
+    : rawModifiedTimestamp;
+
+  // For videos/images with media_ prefix, extract bare hash (strip media_ prefix and extension)
+  // For other content (PDFs, fragments), use full path as hash
+  let hash = filePath;
+  if (fileName.includes('media_') && fileName.includes('.')) {
+    // Extract bare hash: media_HASH.ext -> HASH
+    const bareHash = fileName.substring(6, fileName.lastIndexOf('.'));
+    hash = bareHash;
+  }
+
   return {
-    hash: filePath, // Path used as dedupe key for linked content
+    hash,
     url,
     timestamp: fileEvent.timestamp,
     user: fileEvent.user || '',
@@ -629,7 +541,7 @@ export function toLinkedContentEntry(
     type: getLinkedContentType(filePath),
     doc: doc || '',
     displayName: fileName, // Use filename for display
-    modifiedTimestamp: lastModified || fileEvent.timestamp,
+    modifiedTimestamp,
   };
 }
 
@@ -667,7 +579,7 @@ export function createLinkedContentEntries(usageMap, linkedFilesByPath, deletedP
     const { pages: linkedPages, firstDiscoveredTimestamp } = data;
     if (linkedPages.length > 0) {
       linkedPages.forEach((doc) => {
-        const entry = toExternalMediaEntry(url, doc, firstDiscoveredTimestamp);
+        const entry = toExternalMediaEntry(url, doc, firstDiscoveredTimestamp, org, repo);
         if (entry) entries.push(entry);
       });
     }

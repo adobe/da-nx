@@ -47,7 +47,12 @@ sl-textarea {
     align-self: flex-start;
   }
 
-  /* Schema picker — centered card: title, labeled select, full-width Start */
+  da-dialog {
+    font-family: var(--font-family);
+    font-size: 16px;
+    line-height: var(--s2-line-height-200);
+  }
+
   .da-form-schema-shell {
     flex: 1 1 700px;
     width: 700px;
@@ -56,9 +61,9 @@ sl-textarea {
   }
 
   &.da-form-wrapper-centered .da-form-schema-shell {
-    flex: 0 1 480px;
-    width: min(480px, 100%);
-    max-width: 480px;
+    flex: 0 1 620px;
+    width: min(620px, 100%);
+    max-width: 620px;
   }
 
   .da-form-schema-card {
@@ -80,6 +85,23 @@ sl-textarea {
     font-size: var(--sl-font-size-small, 0.875rem);
     line-height: var(--sl-line-height-normal, 1.5);
     color: var(--sl-color-neutral-600, #64748b);
+  }
+
+  da-dialog .da-form-schema-hint {
+    font-family: var(--font-family);
+    font-size: 16px;
+    line-height: var(--s2-line-height-200);
+    color: var(--s2-gray-800);
+  }
+
+  .da-form-schema-selector-hint {
+    margin: 0;
+  }
+
+  .da-form-schema-text-link {
+    color: var(--sl-color-primary-700, #1d4ed8);
+    text-decoration: underline;
+    text-underline-offset: 2px;
   }
 
   .da-form-schema-heading {
@@ -126,20 +148,7 @@ sl-textarea {
   }
 
   sl-button.da-form-schema-start {
-    display: block;
-    width: 100%;
-  }
-
-  sl-button.da-form-schema-start::part(wrap) {
-    display: block;
-    width: 100%;
-  }
-
-  sl-button.da-form-schema-start::part(base) {
-    width: 100%;
-    box-sizing: border-box;
-    justify-content: center;
-    border-radius: var(--s2-radius-100, 8px);
+    align-self: flex-end;
   }
 
   .da-form-schema-cta {

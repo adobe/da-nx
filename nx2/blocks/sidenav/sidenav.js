@@ -1,15 +1,13 @@
 import { LitElement, html, nothing } from 'da-lit';
 
 import { loadFragment } from '../fragment/fragment.js';
-import { loadStyle, HashController } from '../../utils/utils.js';
+import { loadStyle } from '../../utils/utils.js';
 
 const DEFAULT_NAV_PATH = '/nx/fragments/sidenav';
 
 const style = await loadStyle(import.meta.url);
 
 class NXSidenav extends LitElement {
-  details = new HashController(this);
-
   static properties = {
     path: { attribute: false },
     _navLinks: { state: true },

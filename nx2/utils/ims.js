@@ -1,6 +1,14 @@
-import { getConfig } from '../scripts/nx.js';
-
-const { imsClientId, imsScope, env } = getConfig();
+// TODO: simplify post-NX2.
+const { imsClientId, imsScope, imsEnv, env } = await (async () => {
+  try {
+    const { nxJS, getNx } = await import(`${window.location.origin}/scripts/utils.js`);
+    const { getConfig } = await import(`${getNx()}${nxJS}`);
+    return getConfig();
+  } catch {
+    const { getConfig } = await import('../scripts/nx.js');
+    return getConfig();
+  }
+})();
 
 const IMS_URL = 'https://auth.services.adobe.com/imslib/imslib.min.js';
 const DEFAULT_SCOPE = 'AdobeID,openid,gnav';
@@ -23,24 +31,29 @@ const IO_ENV = {
   prod: 'cc-collab.adobe.io',
 };
 
-export const IMS_ORIGIN = (() => `https://${IMS_ENDPOINT[env]}`)();
+export const IMS_ORIGIN = (() => `https://${IMS_ENDPOINT[imsEnv || env]}`)();
 
 export function handleSignIn() {
+  localStorage.setItem('nx-ims', true);
   window.adobeIMS.signIn();
 }
 
 export function handleSignOut() {
+  localStorage.removeItem('nx-ims');
   window.adobeIMS.signOut();
 }
 
 async function loadScript(src) {
   return new Promise((resolve, reject) => {
-    if (!document.querySelector(`head > script[src="${src}"]`)) {
-      const script = document.createElement('script');
+    let script = document.querySelector(`head > script[src="${src}"]`);
+    if (!script) {
+      script = document.createElement('script');
       script.src = src;
+      document.head.append(script);
+    }
+    if (!window.adobeIMS) {
       script.onload = resolve;
       script.onerror = reject;
-      document.head.append(script);
     } else {
       resolve();
     }
@@ -83,7 +96,7 @@ const getTenantId = (profile) => {
   const found = profile.projectedProductContext?.find(
     (projected) => projected.prodCtx.serviceCode === 'dma_tartan',
   );
-  return found?.prodCtx.serviceCode;
+  return found?.prodCtx.tenant_id;
 };
 
 async function loadDetails(accessToken) {
@@ -94,15 +107,19 @@ async function loadDetails(accessToken) {
   return { ...profile, tenantId, accessToken, getIo, getOrgs };
 }
 
+function settleWithTimeout(resolve, reject) {
+  const timeout = setTimeout(() => reject(new Error('IMS timeout')), IMS_TIMEOUT);
+  return [resolve, reject].map((fn) => (v) => {
+    clearTimeout(timeout);
+    fn(v);
+  });
+}
+
 export const loadIms = (() => {
   let ims;
 
   const setup = () => new Promise((resolve, reject) => {
-    if (!imsClientId) {
-      reject(new Error('Missing IMS Client ID'));
-      return;
-    }
-    const timeout = setTimeout(() => reject(new Error('IMS timeout')), IMS_TIMEOUT);
+    const [done, fail] = settleWithTimeout(resolve, reject);
 
     window.adobeid = {
       client_id: imsClientId,
@@ -111,18 +128,19 @@ export const loadIms = (() => {
       autoValidateToken: true,
       environment: IMS_ENV[env],
       useLocalStorage: true,
+      onError: fail,
       onReady: () => {
         const accessToken = window.adobeIMS.getAccessToken();
-        if (accessToken) {
-          loadDetails(accessToken).then((details) => resolve(details));
-        } else {
-          resolve({ anonymous: true });
+        if (!accessToken) {
+          localStorage.removeItem('nx-ims');
+          done({ anonymous: true });
+          return;
         }
-        clearTimeout(timeout);
+        localStorage.setItem('nx-ims', true);
+        loadDetails(accessToken).then(done, fail);
       },
-      onError: reject,
     };
-    loadScript(IMS_URL);
+    loadScript(IMS_URL).catch(fail);
   });
 
   return () => {

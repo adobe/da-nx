@@ -1,7 +1,7 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { getConfig } from '../../../../scripts/nexter.js';
 import getStyle from '../../../../utils/styles.js';
-import getSvg from '../../../../utils/svg.js';
+import { getSvg } from '../../../../utils/svg.js';
 import { VIEWS } from '../../utils/steps.js';
 
 const style = await getStyle(import.meta.url);

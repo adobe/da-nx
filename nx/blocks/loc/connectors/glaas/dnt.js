@@ -204,8 +204,8 @@ function makeImagesRelative(document) {
 }
 
 function makeIconSpans(html) {
-  // Regex that matches :icon: but not when inside alt text double-quoted string
-  const iconRegex = /(?<!alt="[^"]*):([a-zA-Z0-9-]+?):/gm;
+  // Regex to match icon segments in text, but NOT inside any HTML attribute values
+  const iconRegex = /(?<!\w)(?<!="[^"]*):([a-zA-Z0-9-]+?):/gm;
 
   return html.replace(iconRegex, (_, iconName) => `<span class="icon icon-${iconName}"></span>`);
 }
@@ -256,8 +256,10 @@ function resetIcons(doc) {
   const icons = doc.querySelectorAll('span.icon');
   icons.forEach((icon) => {
     const parent = icon.parentElement;
-    const name = icon.classList[1].split('-')[1];
-    const textIcon = document.createTextNode(`:${name}:`);
+    const iconClass = [...icon.classList].find((cls) => cls.startsWith('icon-'));
+    if (!iconClass) return;
+    const name = iconClass.split('-').slice(1).join('-');
+    const textIcon = doc.createTextNode(`:${name}:`);
     parent.replaceChild(textIcon, icon);
   });
 }

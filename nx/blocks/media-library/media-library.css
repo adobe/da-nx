@@ -437,6 +437,16 @@ nx-media-sidebar {
   font-size: var(--font-size-300);
 }
 
+.empty-state .ml-open-app-link {
+  color: var(--s2-blue-600);
+  font-weight: var(--font-weight-600);
+  text-decoration: underline;
+}
+
+.empty-state .ml-open-app-link:hover {
+  color: var(--s2-blue-700);
+}
+
 .scan-stats {
   display: flex;
   gap: var(--spacing-400);

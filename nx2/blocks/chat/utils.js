@@ -1,15 +1,4 @@
 import { AGENT_EVENT as EVENT } from './constants.js';
-import { loadHrefSvg } from '../../utils/svg.js';
-
-const ICONS_PREFIX = new URL('../../img/icons/', import.meta.url).href;
-
-export async function loadChatIcons(iconMap) {
-  const entries = Object.entries(iconMap);
-  const svgs = await Promise.all(
-    entries.map(([, name]) => loadHrefSvg(`${ICONS_PREFIX}S2_Icon_${name}_20_N.svg`)),
-  );
-  return Object.fromEntries(entries.map(([key], i) => [key, svgs[i]]));
-}
 
 function processEvent(event, streaming, callbacks) {
   const { onDelta, onText, onTool } = callbacks;

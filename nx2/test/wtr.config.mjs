@@ -11,6 +11,7 @@ function customReporter() {
   return {
     async reportTestFileResults({ logger, sessionsForTestFile }) {
       sessionsForTestFile.forEach((session) => {
+        if (!session.testResults?.tests) return;
         session.testResults.tests.forEach((test) => {
           if (!test.passed && !test.skipped) {
             logger.log(test);
@@ -24,7 +25,7 @@ function customReporter() {
 export default {
   coverageConfig: {
     include: [
-      '**/nx/**',
+      '**/nx2/**',
       '**/scripts/**',
     ],
     exclude: [
@@ -49,9 +50,8 @@ export default {
           {
             "imports": {
               "da-lit": "/nx2/deps/lit/dist/index.js",
-              "da-y-wrapper": "/nx2/deps/da-y-wrapper/dist/index.js",
-              "da-parser": "/nx2/deps/da-parser/dist/index.js",
-              "/nx2/public/sl/components.js": "/nx2/test/mocks/sl-components.js"
+              "/nx2/public/sl/components.js": "/nx2/test/mocks/sl-components.js",
+              "/nx2/utils/ims.js": "/nx2/test/mocks/ims.js"
             }
           }
         </script>
@@ -71,7 +71,7 @@ export default {
           const oldXHROpen = XMLHttpRequest.prototype.open;
           XMLHttpRequest.prototype.open = async function (...args) {
             let [method, url, asyn] = args;
-            if (!resource.startsWith('/') && url.startsWith('http://localhost')) {
+            if (!url.startsWith('/') && !url.startsWith('http://localhost')) {
               console.error(
                 '** XMLHttpRequest request for an external resource is disallowed in unit tests, please find a way to mock! https://github.com/orgs/adobecom/discussions/127 provides guidance on how to fix the issue.',
                 url

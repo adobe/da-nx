@@ -1,6 +1,6 @@
 import { html, LitElement, nothing } from 'da-lit';
 import getStyle from '../../../utils/styles.js';
-import getSvg from '../../../utils/svg.js';
+import { getSvg } from '../../../utils/svg.js';
 
 const nx = `${new URL(import.meta.url).origin}/nx`;
 const sl = await getStyle(`${nx}/public/sl/styles.css`);

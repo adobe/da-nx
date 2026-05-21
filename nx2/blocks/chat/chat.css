@@ -1,3 +1,16 @@
+.chat-actions svg.chat-icon {
+  display: block;
+  width: 16px;
+  height: 16px;
+}
+
+.chat-header .chat-header-btn svg.chat-icon {
+  display: block;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
 :host {
   display: flex;
   flex-direction: column;
@@ -24,10 +37,6 @@
     background-color: var(--s2-gray-300);
   }
 
-  path {
-    fill: currentcolor;
-  }
-
   button {
     border: none;
     background: none;
@@ -44,9 +53,6 @@
         color: var(--s2-gray-25);
       }
 
-      path {
-        fill: var(--s2-gray-25);
-      }
     }
 
     &.secondary-btn {
@@ -69,11 +75,6 @@
     border: none;
     outline: none;
   }
-}
-
-.chat-actions svg {
-  width: 16px;
-  height: 16px;
 }
 
 .chat-header {
@@ -102,13 +103,6 @@
 
     &.clear-btn {
       padding: 0 var(--s2-spacing-100);
-    }
-
-    svg {
-      display: block;
-      width: 16px;
-      height: 16px;
-      flex-shrink: 0;
     }
 
     &:hover {
@@ -149,6 +143,22 @@
   height: 100%;
 }
 
+.tool-card summary::before,
+.message .selection-context > summary::before {
+  content: "";
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  background-color: currentcolor;
+  mask-image: url("/nx2/img/icons/S2_Icon_ChevronUp_20_N.svg");
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+  transform: rotate(90deg);
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+}
+
 .tool-card {
   font-size: var(--s2-body-size-xs);
   color: var(--s2-gray-600);
@@ -159,16 +169,10 @@
     display: flex;
     align-items: center;
     gap: var(--s2-spacing-75);
-
-    &::before {
-      content: "›";
-      display: inline-block;
-      transition: transform 0.15s;
-    }
   }
 
   &[open] summary::before {
-    transform: rotate(90deg);
+    transform: rotate(180deg);
   }
 
   .tool-card-status {
@@ -223,26 +227,77 @@
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+    color: var(--s2-gray-500);
 
-    &::before {
-      content: "";
+    svg {
       width: 16px;
       height: 16px;
       flex-shrink: 0;
       display: block;
-      background-color: var(--s2-gray-500);
-      mask: url("/nx2/img/icons/S2_Icon_Paste_20_N.svg") center / contain
-        no-repeat;
     }
 
-    &:focus::before {
-      mask: url("/nx2/img/icons/S2_Icon_Checkmark_20_N.svg") center / contain
-        no-repeat;
+    .icon-checkmark { display: none; }
+
+    &:focus {
+      .icon-paste { display: none; }
+      .icon-checkmark { display: block; }
     }
   }
 
   &:hover .message-action-copy {
     visibility: visible;
+  }
+
+  .selection-icon {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+  }
+
+  .selection-context-list {
+    list-style: none;
+    margin: 0;
+    padding: 0 0 var(--s2-spacing-75) 0;
+
+    .selection-context-item {
+      display: flex;
+      align-items: center;
+      gap: var(--s2-spacing-75);
+      padding: var(--s2-spacing-50) 0;
+      font-size: var(--s2-body-size-xs);
+      color: var(--s2-gray-700);
+      min-width: 0;
+
+      span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+    }
+  }
+
+  .selection-context {
+    padding-bottom: var(--s2-spacing-75);
+
+    > summary {
+      display: flex;
+      align-items: center;
+      gap: var(--s2-spacing-75);
+      list-style: none;
+      cursor: pointer;
+      user-select: none;
+      font-size: var(--s2-body-size-xs);
+      color: var(--s2-gray-700);
+      line-height: 24px;
+
+      &::-webkit-details-marker {
+        display: none;
+      }
+    }
+
+    &[open] > summary::before {
+      transform: rotate(180deg);
+    }
   }
 }
 
@@ -296,21 +351,13 @@
 
   .chat-send {
     background-color: var(--s2-blue-900);
-
-    &.action-btn path {
-      fill: white;
-    }
   }
 
   .chat-stop {
     background-color: var(--s2-gray-800);
-
-    &.action-btn path {
-      fill: var(--s2-gray-25);
-    }
   }
 
-  &.chat-thinking .chat-stop {
+  &[data-thinking] .chat-stop {
     display: flex;
   }
 }

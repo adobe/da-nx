@@ -12,6 +12,11 @@
 
 const LOG = async (ex, el) => (await import('../utils/error.js')).default(ex, el);
 
+export function getColorScheme() {
+  return localStorage.getItem('color-scheme')
+    || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark-scheme' : 'light-scheme');
+}
+
 export function getMetadata(name) {
   const attr = name && name.includes(':') ? 'property' : 'name';
   const meta = document.head.querySelector(`meta[${attr}="${name}"]`);
@@ -20,7 +25,7 @@ export function getMetadata(name) {
 
 export function getLocale(locales) {
   const key = getMetadata('lang') || localStorage.getItem('lang') || '';
-  if (locales[key].lang) document.documentElement.lang = locales[key].lang;
+  if (locales[key]?.lang) document.documentElement.lang = locales[key].lang;
   return { key, ...locales[key] };
 }
 
@@ -32,18 +37,22 @@ export const env = (() => {
   return 'dev';
 })();
 
-async function getStrings(locales, locale) {
+async function getStrings(locales, locale, log) {
   const strings = new Map();
 
   // If not the default lang, load localized strings
-  const defaultLang = Object.values(locales)[0].lang;
-  if (locale.lang !== defaultLang) {
-    const resp = await fetch(`/${locale.lang}/placeholders.json`);
-    if (resp.ok) {
-      const { data } = await resp.json();
-      for (const row of data) {
-        strings.set(row.key, row.value);
+  const defaultLang = Object.values(locales)[0]?.lang;
+  if (locale.lang && locale.lang !== defaultLang) {
+    try {
+      const resp = await fetch(`/${locale.lang}/placeholders.json`);
+      if (resp.ok) {
+        const { data } = await resp.json();
+        for (const row of data) {
+          strings.set(row.key, row.value);
+        }
       }
+    } catch {
+      log(`Could not load strings for ${locale.lang}.`);
     }
   }
 
@@ -54,9 +63,10 @@ export const [setConfig, getConfig] = (() => {
   let config;
   return [
     async (conf = {}) => {
+      const log = conf.log || LOG;
       const locales = conf.locales || { '': {} };
       const locale = getLocale(locales);
-      const strings = await getStrings(locales, locale);
+      const strings = await getStrings(locales, locale, log);
       const nxBase = `${import.meta.url.replace('/scripts/nx.js', '')}`;
 
       config = {
@@ -66,7 +76,7 @@ export const [setConfig, getConfig] = (() => {
         linkBlocks: conf.linkBlocks || [{ fragment: '/fragments/' }],
         providers: conf.providers || {},
         codeBase: conf.codeBase || nxBase,
-        log: conf.log || LOG,
+        log,
         locales,
         locale,
         strings,
@@ -85,15 +95,28 @@ export const loc = ([first], ...values) => {
 };
 
 export async function loadBlock(block) {
-  const { nxBase, codeBase, log } = getConfig();
+  const { nxBase, codeBase, providers, log } = getConfig();
   const { classList } = block;
   let name = classList[0];
+
+  let path;
   const isNx = name.startsWith('nx-');
-  name = isNx ? name.replace('nx-', '') : name;
+  if (isNx) {
+    name = name.replace('nx-', '');
+    path = `${nxBase}/blocks`;
+  } else {
+    const prefix = name.split('-')[0];
+    const provider = providers[prefix];
+    if (provider) {
+      name = name.slice(prefix.length + 1);
+      path = `${provider}/blocks`;
+    } else {
+      path = `${codeBase}/blocks`;
+    }
+  }
+
   block.dataset.blockName = name;
-  const path = isNx ? `${nxBase}/blocks` : `${codeBase}/blocks`;
   const blockPath = `${path}/${name}/${name}`;
-  block.dataset.blockName = name;
   try {
     await (await import(`${blockPath}.js`)).default(block);
   } catch (ex) {
@@ -303,7 +326,27 @@ export async function loadArea({ area } = { area: document }) {
   }
 }
 
-export function getColorScheme() {
-  return localStorage.getItem('color-scheme')
-    || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark-scheme' : 'light-scheme');
-}
+const cache = {};
+
+// eslint-disable-next-line import/prefer-default-export
+export const loadStyle = (supplied) => {
+  // Convenience replacement for WCs
+  const path = supplied.replace('.js', '.css');
+
+  try {
+    cache[path] ??= new Promise((resolve) => {
+      (async () => {
+        const resp = await fetch(path);
+        const text = await resp.text();
+        const sheet = new CSSStyleSheet({ baseURL: path });
+        sheet.path = path;
+        sheet.replaceSync(text);
+        resolve(sheet);
+      })();
+    });
+  } catch {
+    // eslint-disable-next-line no-console
+    console.warn(`Could not load ${path}`);
+  }
+  return cache[path];
+};

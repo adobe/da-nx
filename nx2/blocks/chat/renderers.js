@@ -1,6 +1,17 @@
 import { html, nothing } from 'da-lit';
 import { AGENT_EVENT, ROLE, TOOL_INPUT, TOOL_STATE } from './constants.js';
-import { unified, remarkParse } from '../../deps/mdast/dist/index.js';
+import { getConfig } from '../../scripts/nx.js';
+
+const { codeBase } = getConfig();
+
+const SELECTION_ICON_NAMES = {
+  block: 's2-icon-3d-20-n',
+  file: 's2-icon-filetext-20-n',
+  image: 's2-icon-image-20-n',
+  table: 's2-icon-table-20-n',
+};
+
+const { unified, remarkParse } = await import('../../deps/mdast/dist/index.js');
 
 function renderNode(node) {
   switch (node.type) {
@@ -90,7 +101,17 @@ function renderApprovalCard(pending, onApprove) {
   `;
 }
 
-function renderMessage(msg, icons, toolCards) {
+// Mirrors entryTypeFromExtension in browse/utils.js — switch to common utils once migrated.
+function selectionIcon(blockName) {
+  const ext = (blockName ?? '').includes('.') ? blockName.split('.').pop().toLowerCase() : '';
+  let name = SELECTION_ICON_NAMES.block;
+  if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'mp4', 'webm', 'mov'].includes(ext)) name = SELECTION_ICON_NAMES.image;
+  else if (['json', 'xlsx', 'xls', 'csv'].includes(ext)) name = SELECTION_ICON_NAMES.table;
+  else if (ext) name = SELECTION_ICON_NAMES.file;
+  return html`<svg class="selection-icon" viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/${name}.svg#icon"></use></svg>`;
+}
+
+function renderMessage(msg, toolCards) {
   if (msg.role === ROLE.TOOL) return nothing;
   const isAssistant = msg.role === ROLE.ASSISTANT;
 
@@ -103,11 +124,30 @@ function renderMessage(msg, icons, toolCards) {
 
   const copy = isAssistant && !msg.streaming
     ? html`<button class="message-action-copy" @click=${() => navigator.clipboard.writeText(msg.content)} aria-label="Copy">
+        <svg class="icon-paste" viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/s2-icon-paste-20-n.svg#icon"></use></svg>
+        <svg class="icon-checkmark" viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/s2-icon-checkmark-20-n.svg#icon"></use></svg>
       </button>`
     : nothing;
 
+  const selectionItem = ({ blockName }) => html`
+    <li class="selection-context-item">
+      ${selectionIcon(blockName)}
+      <span>${blockName}</span>
+    </li>`;
+
+  let selectionPills = nothing;
+  if (!isAssistant && msg.selectionContext?.length) {
+    selectionPills = msg.selectionContext.length === 1
+      ? html`<ul class="selection-context-list" aria-label="Attached context">${selectionItem(msg.selectionContext[0])}</ul>`
+      : html`<details class="selection-context">
+          <summary><span class="selection-context-count">${msg.selectionContext.length} items added</span></summary>
+          <ul class="selection-context-list">${msg.selectionContext.map(selectionItem)}</ul>
+        </details>`;
+  }
+
   return html`
     <div class="message message-${msg.role}">
+      ${selectionPills}
       <div class="message-content">${isAssistant ? renderMessageContent(msg.content) : msg.content}</div>
       ${copy}
     </div>

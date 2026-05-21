@@ -41,10 +41,30 @@ export function getFileName(url) {
     try {
       return decodeURIComponent(filename);
     } catch {
-      // If decoding fails (malformed encoding), return as-is
       return filename;
     }
   }
+}
+
+export function decodeDisplayName(name) {
+  if (!name) return name;
+
+  let decoded = name;
+  let prevDecoded = '';
+  let iterations = 0;
+  const maxIterations = 3;
+
+  while (decoded !== prevDecoded && iterations < maxIterations) {
+    prevDecoded = decoded;
+    try {
+      decoded = decodeURIComponent(decoded);
+    } catch {
+      return prevDecoded;
+    }
+    iterations += 1;
+  }
+
+  return decoded;
 }
 
 export function optimizeImageUrls(src, widths = CARD_IMAGE_WIDTHS) {

@@ -1,7 +1,7 @@
 import { LitElement, html, nothing } from 'da-lit';
 import getStyle from '../../../../utils/styles.js';
 import { getConfig } from '../../../../scripts/nexter.js';
-import getSvg from '../../../../utils/svg.js';
+import { getSvg } from '../../../../utils/svg.js';
 import { sortLangs, rolloutLang, getFilteredLangs, getSummaryCards } from './index.js';
 
 const { nxBase: nx } = getConfig();
