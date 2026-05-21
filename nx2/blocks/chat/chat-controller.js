@@ -37,7 +37,7 @@ export default class ChatController {
     this._messages = [];
     const room = await this._getRoom();
     const { messages: cached, sessionId } = await loadMessages(room);
-    this._sessionId = sessionId ?? crypto.randomUUID();
+    this._sessionId = sessionId ?? this._sessionId;
     if (!cached.length) return;
     // Strip orphaned tool-calls (assistant array-content without a tool-approval-request).
     // These are from sessions before the current fix — they have no matching tool-result
