@@ -1,5 +1,5 @@
 import { replaceHtml } from '../../utils/daFetch.js';
-import { isHlx6, putSource } from '../../../nx2/utils/api.js';
+import { isHlx6, source } from '../../../nx2/utils/api.js';
 import { mdToDocDom, docDomToAemHtml } from '../../utils/converters.js';
 import { Queue } from '../../public/utils/tree.js';
 
@@ -101,7 +101,7 @@ async function saveAllToDa(url, blob) {
   const body = blob;
 
   try {
-    const resp = await putSource({ org: toOrg, site: toRepo, daPath: formattedPath, body });
+    const resp = await source.put({ org: toOrg, site: toRepo, path: formattedPath, body });
     return resp.status;
   } catch {
     // eslint-disable-next-line no-console

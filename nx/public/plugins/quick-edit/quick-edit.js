@@ -92,7 +92,10 @@ function checkDomain() {
   const currentUrl = new URL(window.location.href);
   if (currentUrl.origin.endsWith('.aem.page')) {
     const newOrigin = currentUrl.origin.replace('.aem.page', '.preview.da.live');
-    const newHref = `${newOrigin}${currentUrl.pathname}${currentUrl.search}${currentUrl.hash}`;
+    const params = new URLSearchParams(currentUrl.search);
+    if (!params.has('quick-edit')) params.set('quick-edit', 'on');
+    const search = params.toString() ? `?${params.toString()}` : '';
+    const newHref = `${newOrigin}${currentUrl.pathname}${search}${currentUrl.hash}`;
     window.location.replace(newHref);
   }
 }
@@ -109,7 +112,7 @@ function handleLoad(target, config, location, ctx) {
 function getQuickEditSrc() {
   const { search } = window.location;
   const ref = new URLSearchParams(search).get('quick-edit');
-  if (!ref || ref === 'on') return `${window.location.origin}/plugins/quick-edit`;
+  if (!ref || ref === 'on') return 'https://da.live/plugins/quick-edit';
   return `https://main--da-live--adobe.aem.live/plugins/quick-edit?nx=${ref}`;
 }
 
