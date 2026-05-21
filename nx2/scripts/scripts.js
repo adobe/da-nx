@@ -42,8 +42,8 @@ const decorateArea = ({ area = document }) => {
 
 const EW_ORIGINS = {
   dev: 'http://localhost:3001',
-  stage: 'https://main--ew-extensions--exp-workspace.aem.page',
-  prod: 'https://main--ew-extensions--exp-workspace.aem.live',
+  stage: 'https://main--ew-extensions--adobe-rnd.aem.page',
+  prod: 'https://main--ew-extensions--adobe-rnd.aem.live',
 };
 
 const conf = {
