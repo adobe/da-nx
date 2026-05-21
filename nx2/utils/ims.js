@@ -1,7 +1,7 @@
 // TODO: simplify post-NX2.
 const { imsClientId, imsScope, imsEnv, env } = await (async () => {
   try {
-    const { nxJS, getNx } = await import(`${window.location.origin}/scripts/utils.js`);
+    const { nxJS, getNx } = await import(new URL('/scripts/utils.js', import.meta.url).href);
     const { getConfig } = await import(`${getNx()}${nxJS}`);
     return getConfig();
   } catch {

@@ -1,7 +1,7 @@
 import { HLX_ADMIN, AEM_API, DA_ADMIN, ALLOWED_TOKEN } from './utils.js';
 
 const { loadIms, handleSignIn } = await (async () => {
-  const { getNx } = await import(`${window.location.origin}/scripts/utils.js`);
+  const { getNx } = await import(new URL('/scripts/utils.js', import.meta.url).href);
   return import(`${getNx()}/utils/ims.js`);
 })();
 
@@ -149,19 +149,9 @@ export const fromPath = (str) => {
   return { org, site, path: parts.length ? `/${parts.join('/')}` : '' };
 };
 
-// Normalize a bulk action response (delete/copy/move) into the common
-// `{ ok, status, continuationToken }` shape. Pagination continues when the
-// server returns `{ continuationToken: ... }` in the JSON body; on 204
-// (no content) or non-2xx there's nothing more to read.
-async function wrapActionResp(resp) {
-  const ok = !!resp?.ok;
-  const status = resp?.status ?? 0;
-  if (!ok || status === 204) return { ok, status, continuationToken: null };
-  let body;
-  try {
-    body = await resp.json();
-  } catch { body = null; }
-  return { ok, status, continuationToken: body?.continuationToken || null };
+// Normalize a delete/copy/move response into `{ ok, status }`.
+function wrapActionResp(resp) {
+  return { ok: !!resp?.ok, status: resp?.status ?? 0 };
 }
 
 function hlx6ToDaList(parentPath, items) {
@@ -264,10 +254,15 @@ export const source = {
     return daFetch({ url });
   }),
 
-  // Returns `{ ok, items, continuationToken, permissions }`
-  list: withArgs(async ({ org, site, path, opts }) => {
+  // Returns `{ ok, items, continuationToken, permissions }`. Pagination
+  // continues when the server returns a `da-continuation-token` header; pass
+  // it back via the method's `continuationToken` arg to fetch the next page.
+  list: withArgs(async ({ org, site, path, continuationToken, opts }) => {
     const cleanPath = (path || '').replace(/\/$/, '');
     const parentPath = `/${org}${site ? `/${site}` : ''}${cleanPath}`;
+    const fetchOpts = continuationToken
+      ? { ...opts, headers: { ...opts?.headers, 'da-continuation-token': continuationToken } }
+      : opts;
     let resp;
     // Org-only list (no site) is DA-legacy only; hlx6 has no equivalent.
     if (site) {
@@ -275,22 +270,22 @@ export const source = {
       if (hlx6) {
         const slashed = path?.endsWith('/') ? path : `${path ?? ''}/`;
         const url = await getDaApiPath(SOURCE, org, site, slashed);
-        resp = await daFetch({ url, opts });
+        resp = await daFetch({ url, opts: fetchOpts });
       }
     }
     if (!resp) {
       const url = await getDaApiPath(LIST, org, site, path);
-      resp = await daFetch({ url, opts });
+      resp = await daFetch({ url, opts: fetchOpts });
     }
-    const continuationToken = resp?.headers?.get?.('da-continuation-token') || null;
+    const nextToken = resp?.headers?.get?.('da-continuation-token') || null;
     const { permissions } = resp || {};
-    if (!resp?.ok) return { ok: false, items: [], continuationToken, permissions };
+    if (!resp?.ok) return { ok: false, items: [], continuationToken: nextToken, permissions };
     let raw;
     try {
       raw = await resp.json();
     } catch { raw = []; }
     const items = Array.isArray(raw) ? hlx6ToDaList(parentPath, raw) : [];
-    return { ok: true, items, continuationToken, permissions };
+    return { ok: true, items, continuationToken: nextToken, permissions };
   }),
 
   save: withArgs(async ({ org, site, path, data }) => {
@@ -318,21 +313,16 @@ export const source = {
     return { ok: !!resp?.ok, status: resp?.status ?? 0, headers: resp?.headers };
   }),
 
-  // Returns `{ ok, status, continuationToken }`. Bulk delete paginates
-  // via `continuationToken` in the response body; pass it back via the
-  // method's `continuationToken` arg to fetch the next page.
-  delete: withArgs(async ({ org, site, path, continuationToken }) => {
-    const baseUrl = await getDaApiPath(SOURCE, org, site, path);
-    const url = new URL(baseUrl);
-    if (continuationToken) url.searchParams.set('continuation-token', continuationToken);
-    const resp = await daFetch({ url: url.toString(), opts: { method: 'DELETE' } });
+  // Returns `{ ok, status }`. Deletes a single document (204, no body).
+  delete: withArgs(async ({ org, site, path }) => {
+    const url = await getDaApiPath(SOURCE, org, site, path);
+    const resp = await daFetch({ url, opts: { method: 'DELETE' } });
     return wrapActionResp(resp);
   }),
 
-  // Returns `{ ok, status, continuationToken }`. See `delete` for the
-  // pagination contract.
+  // Returns `{ ok, status }`.
   copy: withArgs(async ({
-    org, site, path, destination, collision, continuationToken,
+    org, site, path, destination, collision,
   }) => {
     const hlx6 = await isHlx6(org, site);
     let resp;
@@ -340,12 +330,10 @@ export const source = {
       const url = new URL(await getDaApiPath(SOURCE, org, site, destination));
       url.searchParams.set('source', path);
       if (collision) url.searchParams.set('collision', collision);
-      if (continuationToken) url.searchParams.set('continuation-token', continuationToken);
       resp = await daFetch({ url: url.toString(), opts: { method: 'PUT' } });
     } else {
       const formData = new FormData();
       formData.append('destination', destination);
-      if (continuationToken) formData.append('continuation-token', continuationToken);
       resp = await daFetch({
         url: `${DA_ADMIN}/copy/${org}/${site}${path}`,
         opts: { method: 'POST', body: formData },
@@ -354,10 +342,9 @@ export const source = {
     return wrapActionResp(resp);
   }),
 
-  // Returns `{ ok, status, continuationToken }`. See `delete` for the
-  // pagination contract.
+  // Returns `{ ok, status }`.
   move: withArgs(async ({
-    org, site, path, destination, collision, continuationToken,
+    org, site, path, destination, collision,
   }) => {
     const hlx6 = await isHlx6(org, site);
     let resp;
@@ -366,12 +353,10 @@ export const source = {
       url.searchParams.set('source', path);
       url.searchParams.set('move', 'true');
       if (collision) url.searchParams.set('collision', collision);
-      if (continuationToken) url.searchParams.set('continuation-token', continuationToken);
       resp = await daFetch({ url: url.toString(), opts: { method: 'PUT' } });
     } else {
       const formData = new FormData();
       formData.append('destination', destination);
-      if (continuationToken) formData.append('continuation-token', continuationToken);
       resp = await daFetch({
         url: `${DA_ADMIN}/move/${org}/${site}${path}`,
         opts: { method: 'POST', body: formData },

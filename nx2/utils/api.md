@@ -52,8 +52,8 @@ Methods fall into a few return-shape categories:
 **Raw `Response`** — `source.load`, `source.save`, `source.createFolder`, `source.deleteFolder`, all of `versions`, `config`, `org`, `snapshot`, `jobs`, and bulk `aem` calls. The response is augmented by `daFetch` with `resp.permissions: string[]` — parsed from the `x-da-child-actions` header (preferred), `x-da-actions` (fallback), or defaulted to `['read', 'write']`. Treat like any `fetch` result: `await resp.json()`, check `resp.ok`, etc.
 
 **Normalized objects** for `source` mutation/listing methods:
-- `source.list` → `{ ok, items, continuationToken, permissions }` — `items` is the normalized list (legacy DA shape regardless of server).
-- `source.delete` / `source.copy` / `source.move` → `{ ok, status, continuationToken }` — pass `continuationToken` back into the same call to fetch the next page.
+- `source.list` → `{ ok, items, continuationToken, permissions }` — `items` is the normalized list (legacy DA shape regardless of server). Pass `continuationToken` back into the same call to fetch the next page.
+- `source.delete` / `source.copy` / `source.move` → `{ ok, status }` — single-resource operations; success is typically 204 (empty body) on legacy DA, 204 or 200 on hlx6.
 - `source.getMetadata` → `{ ok, status, headers }` — the raw `Headers` object (HEAD request value is in the headers).
 
 **Parsed JSON or `undefined`** — `status.get` and `aem` single-path calls (the default `returnJson: true`). Returns the parsed body on success, `undefined` when the response is not ok or the body fails to parse. For `aem`, pass `returnJson: false` to get the raw augmented `Response` instead. **Bulk** `aem` calls (`path` as an array of length ≥ 2) always return a `Response` — `returnJson` does not apply.
@@ -97,12 +97,12 @@ Document CRUD on `source` paths. Bridges DA's `/source` and AEM's `/sites/{site}
 | Method         | Signature                                                                                     | Notes                                                                                                                                                                                          |
 | -------------- | --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `load`         | `({ org, site, path })` or `(fullPath)`                                                       | GET — raw `Response`.                                                                                                                                                                          |
-| `list`         | `({ org, site, path? })` or `(fullPath)`                                                      | List a folder. Returns `{ ok, items, continuationToken, permissions }` (normalized — items match legacy DA shape regardless of server). Pass `{ org }` (no site) to list at org level — DA-legacy only. |
+| `list`         | `({ org, site, path?, continuationToken? })` or `(fullPath, { continuationToken? })`            | List a folder. Returns `{ ok, items, continuationToken, permissions }` (normalized — items match legacy DA shape regardless of server). Pass `{ org }` (no site) to list at org level — DA-legacy only. Bulk lists paginate — pass `continuationToken` back into the next call. |
 | `save`         | `({ org, site, path, data })` or `(fullPath, { data })`                                       | Upload — raw `Response`. POST for both branches. **DA-legacy**: wraps `data` in `multipart/form-data` field `data`. **hlx6**: sends `data` raw (string, Blob, or File); `Content-Type` is set from the path extension via `TYPE_MAP` and overrides any auto-applied Blob type. Extensions not in `TYPE_MAP` send no `Content-Type`. |
 | `getMetadata`  | `({ org, site, path })` or `(fullPath)`                                                       | HEAD — returns `{ ok, status, headers }`. `headers` is the raw `Headers` object (`doc-id`, `last-modified`, etc.).                                                                            |
-| `delete`       | `({ org, site, path, continuationToken? })` or `(fullPath, { continuationToken? })`           | Returns `{ ok, status, continuationToken }`. Bulk deletes paginate — pass `continuationToken` back into the next call.                                                                         |
-| `copy`         | `({ org, site, path, destination, collision?, continuationToken? })` or `(fullPath, { destination, collision?, continuationToken? })` | `path` = source, `destination` = target. Returns `{ ok, status, continuationToken }`. **hlx6**: PUT to dest URL with `?source=…&collision=…` query. **DA**: POST `/copy/{org}/{site}{path}` with `multipart/form-data` field `destination`. |
-| `move`         | `({ org, site, path, destination, collision?, continuationToken? })` or `(fullPath, { destination, collision?, continuationToken? })` | Same shape as `copy` (and same return) but adds `?move=true` (hlx6) or POSTs to `/move/{org}/{site}{path}` (DA).                              |
+| `delete`       | `({ org, site, path })` or `(fullPath)`                                                       | Delete a single document. Returns `{ ok, status }` (204 on success). For recursive folder deletion use `deleteFolder`.                                                                         |
+| `copy`         | `({ org, site, path, destination, collision? })` or `(fullPath, { destination, collision? })` | `path` = source, `destination` = target. Returns `{ ok, status }`. **hlx6**: PUT to dest URL with `?source=…&collision=…` query. **DA**: POST `/copy/{org}/{site}{path}` with `multipart/form-data` field `destination`. |
+| `move`         | `({ org, site, path, destination, collision? })` or `(fullPath, { destination, collision? })` | Same shape as `copy` (and same return) but adds `?move=true` (hlx6) or POSTs to `/move/{org}/{site}{path}` (DA).                              |
 | `createFolder` | `({ org, site, path })` or `(fullPath)`                                                       | POST on `${path}/` (trailing slash).                                                                                                                                                           |
 | `deleteFolder` | `({ org, site, path })` or `(fullPath)`                                                       | DELETE on `${path}/`.                                                                                                                                                                          |
 
@@ -134,21 +134,17 @@ await source.save('/adobe/aem-boilerplate/img/logo.png', { data: file });
 // List a folder — returns { ok, items, continuationToken, permissions }
 const { ok, items } = await source.list('/adobe/aem-boilerplate/folder');
 
-// Copy — returns { ok, status, continuationToken }
-let { ok: copied, continuationToken } = await source.copy({
+// Delete a document — returns { ok, status }
+const { ok: deleted } = await source.delete('/adobe/aem-boilerplate/old.html');
+
+// Copy — returns { ok, status }
+const { ok: copied } = await source.copy({
   org: 'adobe',
   site: 'aem-boilerplate',
   path: '/old.html',          // source
   destination: '/new.html',   // dest
   collision: 'overwrite',
 });
-// Continue pagination if the server signals more work
-while (copied && continuationToken) {
-  ({ ok: copied, continuationToken } = await source.copy({
-    org: 'adobe', site: 'aem-boilerplate', path: '/old.html',
-    destination: '/new.html', continuationToken,
-  }));
-}
 ```
 
 ---

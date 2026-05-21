@@ -4,7 +4,7 @@ import { mdToDocDom, docDomToAemHtml } from '../../utils/converters.js';
 import { Queue } from '../../public/utils/tree.js';
 
 const { accessToken } = await (async () => {
-  const { getNx } = await import(`${window.location.origin}/scripts/utils.js`);
+  const { getNx } = await import(new URL('/scripts/utils.js', import.meta.url).href);
   const { loadIms } = await import(`${getNx()}/utils/ims.js`);
   return loadIms();
 })();
