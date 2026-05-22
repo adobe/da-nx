@@ -1,453 +1,488 @@
-import { LitElement, html, nothing, ref } from 'da-lit';
-import './components/array-item-menu/array-item-menu.js';
-import './components/reorder-dialog/reorder-dialog.js';
-import { getParentPointer } from '../utils/pointer.js';
-import { findNodeByPointer } from '../utils/utils.js';
+import { LitElement, html, nothing } from 'da-lit';
 
 const { default: getStyle } = await import('../../../utils/styles.js');
 const style = await getStyle(import.meta.url);
 
-function debounce(func, wait) {
-  let timeout;
-  return function executedFunction(...args) {
-    const later = () => {
-      clearTimeout(timeout);
-      func.apply(this, args);
-    };
-    clearTimeout(timeout);
-    timeout = setTimeout(later, wait);
-  };
+const EL_NAME = 'nx-editor';
+const DEBOUNCE_MS = 350;
+
+function describeIssue(issue) {
+  const feature = issue.feature ?? issue.compositionKeyword ?? 'unknown';
+  const ref = issue.details?.ref;
+  switch (issue.reason) {
+    case 'unsupported-composition':
+      return `uses unsupported composition keyword "${feature}"`;
+    case 'unsupported-type':
+      return `declares unsupported type "${feature}"`;
+    case 'type-as-array':
+      return 'declares "type" as an array';
+    case 'missing-type':
+      return 'is missing a "type" declaration';
+    case 'external-ref':
+      return `uses external $ref "${ref}" (only same-document refs are supported)`;
+    case 'unresolved-ref':
+      return `uses $ref "${ref}" which does not resolve in the document`;
+    default:
+      return `uses unsupported schema feature "${feature}"`;
+  }
 }
 
-class FormEditor extends LitElement {
+class Editor extends LitElement {
   static properties = {
-    formModel: { state: true },
-    activeNavPointer: { attribute: false },
-    scrollEditorIntoView: { attribute: false },
-    _errorsByPointer: { state: true },
-    _moveActive: { state: true },
+    core: { attribute: false },
+    state: { attribute: false },
+    nav: { attribute: false },
+    onSelect: { attribute: false },
+    _reorderPointer: { state: true },
+    _reorderTargetIndex: { state: true },
+    _reorderConfirmed: { state: true },
   };
 
   constructor() {
     super();
-    this._moveActive = null;
-    this._sectionElByPointer = new Map();
+    this._reorderPointer = '';
+    this._reorderTargetIndex = 0;
+    this._reorderConfirmed = false;
+    this._inputTimers = new Map();
+    this._lastIssues = null;
   }
 
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
-    this.debouncedHandleChange = debounce(this.handleChange.bind(this), 1000);
   }
 
-  _handleMoveActivate(e) {
-    const { pointer, currentIndex } = e.detail;
-    const parentPointer = getParentPointer(pointer);
-    this._moveActive = {
-      pointer,
-      currentIndex,
-      parentPointer,
-      targetIndex: currentIndex,
-    };
+  firstUpdated() {
+    // Lazily register array UI sub-elements. Browsers upgrade existing tags
+    // (`nx-array-menu`, `nx-reorder`) once the modules call customElements.define.
+    import('./array-menu.js');
+    import('./reorder.js');
   }
 
-  _getArrayItems(parentPointer) {
-    const node = findNodeByPointer(this.formModel.annotated, parentPointer);
-    return node?.children ?? [];
+  disconnectedCallback() {
+    this._inputTimers.forEach((id) => clearTimeout(id));
+    this._inputTimers.clear();
+    super.disconnectedCallback();
   }
 
-  _cancelMoveMode() {
-    this._moveActive = null;
-  }
+  updated(changed) {
+    if (!changed.has('state') && !changed.has('nav')) return;
 
-  _setTargetIndex(index) {
-    if (!this._moveActive) return;
-    const items = this.formModel?.annotated
-      ? this._getArrayItems(this._moveActive.parentPointer)
-      : [];
-    const clamped = Math.max(0, Math.min(index, items.length));
-    this._moveActive = { ...this._moveActive, targetIndex: clamped };
-  }
+    this._maybeShowIssuesDialog();
 
-  _handleConfirmMove() {
-    if (!this._moveActive) return;
-    const { pointer, currentIndex, targetIndex } = this._moveActive;
-    if (targetIndex === currentIndex) {
-      this._cancelMoveMode();
+    if (this._reorderConfirmed) {
+      this._resetReorder();
       return;
     }
-    const items = this.formModel?.annotated
-      ? this._getArrayItems(this._moveActive.parentPointer)
-      : [];
-    const beforePointer = targetIndex >= items.length
-      ? undefined
-      : items[targetIndex].pointer;
-    this.dispatchEvent(new CustomEvent('move-array-item', {
-      detail: { pointer, beforePointer },
-      bubbles: true,
-      composed: true,
-    }));
-    this._cancelMoveMode();
+
+    const prevNav = changed.get('nav');
+    const prevSeq = prevNav?.seq ?? -1;
+    const nextPointer = this.nav?.pointer;
+    const nextOrigin = this.nav?.origin;
+    const nextSeq = this.nav?.seq ?? 0;
+
+    if (!nextPointer || nextSeq === prevSeq) return;
+    if (nextOrigin !== 'sidebar') return;
+    this._scrollTo(nextPointer);
   }
 
-  renderReorderDialog() {
-    if (!this._moveActive) return nothing;
-    const { targetIndex } = this._moveActive;
-    const items = this.formModel?.annotated
-      ? this._getArrayItems(this._moveActive.parentPointer)
-      : [];
+  _scrollTo(pointer) {
+    const safe = typeof CSS !== 'undefined' && typeof CSS.escape === 'function'
+      ? CSS.escape(pointer)
+      : pointer.replace(/"/g, '\\"');
+    const el = this.shadowRoot?.querySelector(`[data-pointer="${safe}"]`);
+    el?.scrollIntoView({ block: 'start', behavior: 'auto' });
+  }
+
+  _select(pointer) {
+    this.onSelect?.(pointer, 'editor');
+  }
+
+  // Group containers (object fieldsets, array sections, structured array
+  // items) claim selection for their own pointer on click/focusin and stop
+  // propagation. Native bubbling ensures the innermost container wins, so
+  // clicking a leaf input inside nested groups activates the closest group.
+  _onGroupActivate(pointer, e) {
+    e.stopPropagation();
+    this._select(pointer);
+  }
+
+  _mutate(fn) {
+    // State notification flows through core's `onChange` callback wired in
+    // the shell. UI just invokes the mutation.
+    fn(this.core);
+  }
+
+  _mutateDebounced(pointer, fn) {
+    clearTimeout(this._inputTimers.get(pointer));
+    this._inputTimers.set(pointer, setTimeout(() => {
+      this._inputTimers.delete(pointer);
+      this._mutate(fn);
+    }, DEBOUNCE_MS));
+  }
+
+  _error(pointer) {
+    return this.state?.validation?.errorsByPointer?.[pointer] ?? '';
+  }
+
+  _activeClass(pointer) {
+    return pointer && this.nav?.pointer === pointer ? ' is-active' : '';
+  }
+
+  _primitiveValue(node) {
+    if (!node) return '';
+    if (node.value !== undefined) return node.value;
+    if (node.kind === 'boolean') return false;
+    // Defaults are materialized into the document at load (see core/index.js).
+    // The renderer is a pure function of `node.value` — a missing value means
+    // the field is empty, never that a default should be synthesized here.
+    return '';
+  }
+
+  _onTextInput(node, e) {
+    const raw = e.target.value;
+    this._mutateDebounced(node.pointer, (core) => {
+      core.setField(node.pointer, raw === '' ? undefined : raw);
+    });
+  }
+
+  _onNumberInput(node, e) {
+    const raw = e.target.value;
+    const value = raw === '' ? undefined : Number(raw);
+    this._mutateDebounced(node.pointer, (core) => {
+      core.setField(node.pointer, Number.isNaN(value) ? undefined : value);
+    });
+  }
+
+  _onBooleanInput(node, e) {
+    this._mutate((core) => core.setField(node.pointer, !!e.target.checked));
+  }
+
+  _onSelectInput(node, e) {
+    const raw = e.target.value;
+    this._mutate((core) => core.setField(node.pointer, raw === '' ? undefined : raw));
+  }
+
+  _renderPrimitive(node, { hideLabel = false } = {}) {
+    const required = !!node?.required;
+    const readonly = !!node?.readonly;
+    const pointer = node?.pointer ?? '';
+    const error = this._error(pointer);
+    const value = this._primitiveValue(node);
+    const label = hideLabel ? '' : `${node?.label ?? ''}${required ? '*' : ''}`;
+
+    if (Array.isArray(node.enumValues)) {
+      const currentValue = value === '' || value === undefined || value === null ? '' : value;
+      return html`
+        <sl-select
+          data-pointer=${pointer}
+          .label=${label}
+          .error=${error}
+          .value=${currentValue}
+          ?disabled=${readonly}
+          @change=${(e) => this._onSelectInput(node, e)}
+        >
+          ${required
+        ? html`<option value="" disabled ?selected=${currentValue === ''}>Please Select</option>`
+        : html`<option value="" ?selected=${currentValue === ''}>None</option>`}
+          ${node.enumValues.map((item) => html`
+            <option value=${item} ?selected=${item === currentValue}>${item}</option>
+          `)}
+        </sl-select>
+      `;
+    }
+
+    if (node.kind === 'boolean') {
+      // sl-checkbox uses its default slot as the label.
+      return html`
+        <sl-checkbox
+          data-pointer=${pointer}
+          .error=${error}
+          ?checked=${!!value}
+          ?disabled=${readonly}
+          @change=${(e) => this._onBooleanInput(node, e)}
+        >${label}</sl-checkbox>
+      `;
+    }
+
+    if (node.kind === 'number' || node.kind === 'integer') {
+      return html`
+        <sl-input
+          data-pointer=${pointer}
+          type="number"
+          .label=${label}
+          .error=${error}
+          .value=${String(value ?? '')}
+          ?disabled=${readonly}
+          @input=${(e) => this._onNumberInput(node, e)}
+        ></sl-input>
+      `;
+    }
+
     return html`
-      <reorder-dialog
-        .targetIndex=${targetIndex}
-        .totalItems=${items.length}
-        @reorder-move-up=${() => this._setTargetIndex(this._moveActive.targetIndex - 1)}
-        @reorder-move-down=${() => this._setTargetIndex(this._moveActive.targetIndex + 1)}
-        @reorder-move-to-first=${() => this._setTargetIndex(0)}
-        @reorder-move-to-last=${() => this._setTargetIndex(items.length)}
-        @reorder-confirm=${this._handleConfirmMove}
-        @reorder-cancel=${this._cancelMoveMode}
-      ></reorder-dialog>
+      <sl-input
+        data-pointer=${pointer}
+        type="text"
+        .label=${label}
+        .error=${error}
+        .value=${value ?? ''}
+        ?disabled=${readonly}
+        @input=${(e) => this._onTextInput(node, e)}
+      ></sl-input>
     `;
   }
 
-  _getItemsInPreviewOrder(items, parentPointer) {
-    if (!this._moveActive || this._moveActive.parentPointer !== parentPointer) return items;
-    const { currentIndex, targetIndex } = this._moveActive;
-    if (currentIndex === targetIndex) return items;
+  _addLabel(node) {
+    const itemLabel = node?.itemLabel ?? '';
+    return itemLabel ? `+ Add ${itemLabel}` : '+ Add item';
+  }
+
+  _resetReorder() {
+    this._reorderPointer = '';
+    this._reorderTargetIndex = 0;
+    this._reorderConfirmed = false;
+  }
+
+  _setReorderTarget(index, itemCount) {
+    const lastIndex = Math.max(itemCount - 1, 0);
+    this._reorderTargetIndex = Math.max(0, Math.min(index, lastIndex));
+  }
+
+  _onArrayMenuOpen() {
+    if (this._reorderPointer) this._resetReorder();
+  }
+
+  _onReorderStart(e, itemCount) {
+    const pointer = e?.detail?.pointer ?? '';
+    if (!pointer) return;
+    this._reorderPointer = pointer;
+    this._setReorderTarget(e?.detail?.index ?? 0, itemCount);
+  }
+
+  _onArrayInsert(e) {
+    const pointer = e?.detail?.pointer ?? '';
+    if (!pointer) return;
+    this._mutate((core) => core.insertItem(pointer));
+  }
+
+  _onArrayRemove(e) {
+    const pointer = e?.detail?.pointer ?? '';
+    if (!pointer) return;
+    this._mutate((core) => core.removeItem(pointer));
+  }
+
+  _itemsInPreviewOrder(items) {
+    if (!this._reorderPointer) return items;
+
+    const currentIndex = items.findIndex((item) => item.pointer === this._reorderPointer);
+    if (currentIndex < 0) return items;
+
+    const lastIndex = Math.max(items.length - 1, 0);
+    const targetIndex = Math.max(0, Math.min(this._reorderTargetIndex, lastIndex));
+    if (targetIndex === currentIndex) return items;
+
     const reordered = items.slice();
     const [item] = reordered.splice(currentIndex, 1);
     reordered.splice(targetIndex, 0, item);
     return reordered;
   }
 
-  update(props) {
-    if (props.has('formModel') && this.formModel) {
-      this.runValidation();
+  _confirmReorder(arrayPointer, items) {
+    if (!this._reorderPointer) return;
+
+    const fromIndex = items.findIndex((item) => item.pointer === this._reorderPointer);
+    if (fromIndex < 0) {
+      this._resetReorder();
+      return;
     }
-    super.update(props);
-  }
 
-  updated(changed) {
-    super.updated(changed);
-    if (changed.has('activeNavPointer')) {
-      this._scrollEditorToActivePointer();
+    const toIndex = this._reorderTargetIndex;
+    if (toIndex === fromIndex) {
+      this._resetReorder();
+      return;
     }
+
+    this._reorderConfirmed = true;
+    this._mutate((core) => core.moveItem(arrayPointer, fromIndex, toIndex));
   }
 
-  _scrollEditorToActivePointer() {
-    if (!this.scrollEditorIntoView) return;
-    const el = this._sectionElByPointer.get(this.activeNavPointer);
-    if (!el) return;
-    el.scrollIntoView({ block: 'start', behavior: 'auto' });
-  }
-
-  _bindSectionRef(pointer, el) {
-    if (el) this._sectionElByPointer.set(pointer, el);
-    else this._sectionElByPointer.delete(pointer);
-  }
-
-  _emitNavPointerSelect(pointer) {
-    if (pointer == null) return;
-    this.dispatchEvent(new CustomEvent('nav-pointer-select', {
-      detail: { pointer },
-      bubbles: true,
-      composed: true,
-    }));
-  }
-
-  _navPointerFromComposedPath(event) {
-    const path = event.composedPath();
-    for (let i = 0; i < path.length; i += 1) {
-      const n = path[i];
-      if (n instanceof HTMLElement && n.dataset.navPointer != null) {
-        return n.dataset.navPointer;
-      }
-    }
-    return null;
-  }
-
-  _onFormFocusIn(e) {
-    this._emitNavPointerSelect(this._navPointerFromComposedPath(e));
-  }
-
-  _onGroupPointerActivate(e, pointer) {
-    if (e.button !== 0) return;
-    const innermost = e.composedPath().find(
-      (n) => n instanceof HTMLElement && n.classList.contains('item-group'),
-    );
-    if (innermost !== e.currentTarget) return;
-    this._emitNavPointerSelect(pointer);
-  }
-
-  runValidation() {
-    if (!this.formModel) return;
-    const result = this.formModel.validate();
-    const { errorsByPointer } = result;
-    this._errorsByPointer = errorsByPointer;
-  }
-
-  getError(pointer) {
-    if (!this._errorsByPointer) return null;
-    const key = pointer || '/data';
-    return this._errorsByPointer.get?.(key) ?? null;
-  }
-
-  handleChange({ target }) {
-    const { name } = target;
-    const inputType = target.type ?? target.getAttribute?.('type');
-    let value;
-    switch (inputType) {
-      case 'checkbox':
-        value = target.checked;
-        break;
-      case 'number': {
-        if (target.value === '') {
-          value = undefined;
-        } else {
-          const parsed = Number(target.value);
-          value = Number.isNaN(parsed) ? undefined : parsed;
-        }
-        break;
-      }
-
-      default:
-        value = target.value;
-    }
-    if (value === '' || value === null) value = undefined;
-    const opts = { detail: { name, value }, bubbles: true, composed: true };
-    const event = new CustomEvent('update', opts);
-    this.dispatchEvent(event);
-  }
-
-  handleInput({ target }) {
-    this.debouncedHandleChange({ target });
-  }
-
-  handleAddItem(parent) {
-    const { pointer, items } = parent;
-    const opts = { detail: { pointer, items }, bubbles: true, composed: true };
-    this.dispatchEvent(new CustomEvent('add-item', opts));
-  }
-
-  getItemLabel(item, arrayItemIndex = null) {
-    const base = `${item.title ?? ''}${item.required ? ' *' : ''}`;
-    return arrayItemIndex != null ? `#${arrayItemIndex} ${base}` : base;
-  }
-
-  renderCheckbox(item, arrayItemIndex = null) {
-    const error = this.getError(item.pointer);
-    const label = this.getItemLabel(item, arrayItemIndex);
-    const value = this.formModel.getValue(item) ?? this.getDisplayFallbackForInput(item);
+  _renderObject(node, { itemLabel = '' } = {}) {
+    const children = node.children ?? [];
+    const activate = (e) => this._onGroupActivate(node.pointer, e);
     return html`
-      <sl-checkbox
-        name="${item.pointer}"
-        ?checked=${value}
-        .error=${error || ''}
-        @change=${this.handleChange}
-      >${label}</sl-checkbox>
-    `;
-  }
-
-  renderSelect(item, arrayItemIndex = null) {
-    const error = this.getError(item.pointer);
-    const label = this.getItemLabel(item, arrayItemIndex);
-    const enumValues = item.enum ?? [];
-    const optional = !item.required;
-    const currentValue = this.formModel.getValue(item) ?? this.getDisplayFallbackForInput(item);
-    const hasInvalidValue = currentValue && !enumValues.includes(currentValue);
-    const options = hasInvalidValue
-      ? [currentValue, ...enumValues]
-      : enumValues;
-    return html`
-      <sl-select
-        .label=${label}
-        name="${item.pointer}"
-        value="${currentValue}"
-        .error=${error || ''}
-        @change=${this.handleChange}
+      <fieldset
+        class="form-node${this._activeClass(node.pointer)}"
+        data-pointer=${node.pointer}
+        @click=${activate}
+        @focusin=${activate}
       >
-        ${optional
-        ? html`<option value="">None</option>`
-        : html`<option value="" disabled>Please Select</option>`}
-        ${options.map((optionValue) => html`<option value="${optionValue}">${optionValue}</option>`)}
-      </sl-select>
+        <legend class="form-node-title">
+          ${itemLabel ? html`<span class="form-item-label">${itemLabel}</span>` : nothing}
+          ${node.label}${node.required ? html`<span class="is-required">*</span>` : nothing}
+        </legend>
+        ${children.map((child) => this._renderNode(child))}
+      </fieldset>
     `;
   }
 
-  renderInput(item, inputType = 'text', arrayItemIndex = null) {
-    const error = this.getError(item.pointer);
-    const label = this.getItemLabel(item, arrayItemIndex);
-    const value = this.formModel.getValue(item) ?? this.getDisplayFallbackForInput(item);
+  _renderArray(node) {
+    const {
+      items = [], readonly: nodeReadonly, minItems: nodeMin, maxItems,
+    } = node ?? {};
+    const itemCount = items.length;
+    const displayItems = this._itemsInPreviewOrder(items);
+    const displayPointers = displayItems.map((item) => item.pointer);
+    const readonly = !!nodeReadonly;
+    const minItems = nodeMin ?? 0;
+    const canAdd = !readonly && (maxItems === undefined || itemCount < maxItems);
+    const addLabel = this._addLabel(node);
+
+    const activate = (e) => this._onGroupActivate(node.pointer, e);
     return html`
-      <sl-input
-        .label=${label}
-        type="${inputType}"
-        name="${item.pointer}"
-        value="${value}"
-        .error=${error || ''}
-        @input=${this.handleInput}
-      ></sl-input>
-    `;
-  }
+      <section
+        class="form-node${this._activeClass(node.pointer)}"
+        data-pointer=${node.pointer}
+        @click=${activate}
+        @focusin=${activate}
+        @array-menu-open=${this._onArrayMenuOpen}
+        @array-reorder-start=${(e) => { e.stopPropagation(); this._onReorderStart(e, itemCount); }}
+        @array-insert=${(e) => { e.stopPropagation(); this._onArrayInsert(e); }}
+        @array-remove=${(e) => { e.stopPropagation(); this._onArrayRemove(e); }}
+      >
+        <div class="form-node-header">
+          <p class="form-node-title">
+            ${node.label}${node.required ? html`<span class="is-required">*</span>` : nothing}
+          </p>
+        </div>
 
-  getPrimitiveType(item) {
-    const { type, enum: enumVal } = item ?? {};
-    if (enumVal) return 'select';
-    if (type === 'boolean') return 'checkbox';
-    if (type === 'string') return 'text';
-    if (type === 'number' || type === 'integer') return 'number';
-    return null;
-  }
-
-  /** Display value when key is omitted. For HTML inputs only; never stored. */
-  getDisplayFallbackForInput(item) {
-    const type = this.getPrimitiveType(item);
-    if (type === 'checkbox') return false;
-    if (type === 'select' || type === 'text' || type === 'number') return '';
-    return '';
-  }
-
-  renderPrimitiveByType(item, arrayItemIndex = null) {
-    const type = this.getPrimitiveType(item);
-    let inner = nothing;
-    switch (type) {
-      case 'checkbox': inner = this.renderCheckbox(item, arrayItemIndex); break;
-      case 'select': inner = this.renderSelect(item, arrayItemIndex); break;
-      case 'text': inner = this.renderInput(item, 'text', arrayItemIndex); break;
-      case 'number': inner = this.renderInput(item, 'number', arrayItemIndex); break;
-      default: break;
-    }
-    return !inner ? nothing : html`
-      <div class="primitive-item-content">
-        ${inner}
-      </div>
-    `;
-  }
-
-  renderArrayItemMenu(item, index, arrayLength) {
-    if (!arrayLength) return nothing;
-    const active = this._moveActive?.pointer === item.pointer;
-    return html`
-      <array-item-menu
+        ${displayItems.map((item, index) => {
+      const structured = item.kind === 'object' || item.kind === 'array';
+      const reorderActive = this._reorderPointer === item.pointer && !this._reorderConfirmed;
+      const title = `#${index + 1} ${item.label ?? node.itemLabel ?? 'Item'}`;
+      const content = item.kind === 'object'
+        ? (item.children ?? []).map((c) => this._renderNode(c))
+        : this._renderNode(item, { itemLabel: `#${index + 1}` });
+      const menu = html`
+      <nx-array-menu
         .pointer=${item.pointer}
         .index=${index}
-        .arrayLength=${arrayLength}
-        .active=${active}
-      ></array-item-menu>
+        .pointers=${displayPointers}
+        .readonly=${readonly}
+        .itemCount=${itemCount}
+        .minItems=${minItems}
+        .maxItems=${maxItems}
+        .active=${reorderActive}
+      ></nx-array-menu>
     `;
-  }
 
-  renderPrimitiveAsArrayItem(control, item, index, arrayLength, arrayParent) {
-    const moveItemPicked = this._moveActive?.pointer === item.pointer;
-    return html`
-      <div class="primitive-item-row ${moveItemPicked ? 'move-item-picked' : ''}">
-        ${control}
-        <div class="primitive-item-actions">
-          ${arrayParent ? this.renderArrayItemMenu(item, index, arrayLength) : nothing}
+      // For primitive items we deliberately do nothing so the click bubbles
+      // up to the surrounding array section and activates the array.
+      const itemActivate = (e) => {
+        if (!structured) return;
+        this._onGroupActivate(item.pointer, e);
+      };
+      return html`
+            <article
+              class="form-array-item${this._activeClass(item.pointer)}${structured ? '' : ' form-array-item-primitive'}${reorderActive ? ' move-item-picked' : ''}"
+              data-pointer=${item.pointer}
+              @click=${itemActivate}
+              @focusin=${itemActivate}
+            >
+              ${structured ? html`
+                <div class="form-array-item-header">
+                  <p class="form-array-item-title">${title}</p>
+                  <div class="form-array-item-actions">${menu}</div>
+                </div>
+                ${content}
+              ` : html`
+                <p class="form-array-item-simple-label">${title}</p>
+                <div class="form-array-item-input-row">
+                  <div class="form-array-item-input-main">
+                    ${this._renderPrimitive(item, { hideLabel: true })}
+                  </div>
+                  <div class="form-array-item-actions">${menu}</div>
+                </div>
+              `}
+              ${reorderActive ? html`
+                <nx-reorder
+                  .targetIndex=${this._reorderTargetIndex}
+                  .totalItems=${itemCount}
+                  @reorder-move-up=${() => this._setReorderTarget(this._reorderTargetIndex - 1, itemCount)}
+                  @reorder-move-down=${() => this._setReorderTarget(this._reorderTargetIndex + 1, itemCount)}
+                  @reorder-move-to-first=${() => this._setReorderTarget(0, itemCount)}
+                  @reorder-move-to-last=${() => this._setReorderTarget(itemCount - 1, itemCount)}
+                  @reorder-confirm=${() => this._confirmReorder(node.pointer, items)}
+                  @reorder-cancel=${() => this._resetReorder()}
+                ></nx-reorder>
+              ` : nothing}
+            </article>
+          `;
+    })}
+        <div class="form-array-footer">
+          <button
+            type="button"
+            class="add-item-btn"
+            ?disabled=${!canAdd}
+            @click=${() => this._mutate((core) => core.addItem(node.pointer))}
+          >${addLabel}</button>
         </div>
-        ${moveItemPicked ? this.renderReorderDialog() : nothing}
-      </div>
+      </section>
     `;
   }
 
-  renderPrimitive(item, index, isArrayItem, arrayLength = 0, arrayParent = null) {
-    const control = this.renderPrimitiveByType(item, isArrayItem ? index : null);
-    if (!control) return nothing;
+  _renderNode(node, options = {}) {
+    if (!node) return nothing;
+    // Unsupported subtrees are skipped — the schema-issues dialog explains
+    // what was dropped. The document value is preserved untouched.
+    if (node.kind === 'unsupported') return nothing;
+    if (node.kind === 'object') return this._renderObject(node, options);
+    if (node.kind === 'array') return this._renderArray(node);
+    return this._renderPrimitive(node);
+  }
 
-    const inner = isArrayItem
-      ? this.renderPrimitiveAsArrayItem(control, item, index, arrayLength, arrayParent)
-      : control;
+  _maybeShowIssuesDialog() {
+    // schemaIssues is a closure-stable reference in createCore (only changes
+    // inside load), so reference equality is sufficient to detect a new set.
+    const issues = this.state?.schemaIssues;
+    if (issues === this._lastIssues) return;
+    this._lastIssues = issues;
+    if (!issues || issues.length === 0) return;
+    const dialog = this.shadowRoot?.querySelector('dialog.schema-issues');
+    if (dialog && !dialog.open) dialog.showModal();
+  }
 
+  _renderIssuesDialog() {
+    const issues = this.state?.schemaIssues ?? [];
+    if (issues.length === 0) return nothing;
     return html`
-        ${inner}
-    `;
-  }
-
-  isArrayType(parent) {
-    return parent.type === 'array';
-  }
-
-  getAddItemLabel(parent) {
-    const { items } = parent;
-    const label = items?.title;
-    return label ? `+ Add ${label}` : '+ Add item';
-  }
-
-  renderAddItemButton(parent) {
-    return html`
-      <button
-        type="button"
-        class="add-item-btn"
-        @click=${() => this.handleAddItem(parent)}
-      >${this.getAddItemLabel(parent)}</button>
-    `;
-  }
-
-  renderList(
-    parent,
-    isRoot,
-    parentIndex = null,
-    isArrayItem = false,
-    arrayLength = 0,
-    arrayParent = null,
-  ) {
-    const { children } = parent;
-    if (!Array.isArray(children)) {
-      return this.renderPrimitive(parent, parentIndex, isArrayItem, arrayLength, arrayParent);
-    }
-
-    const showAddButton = this.isArrayType(parent);
-    const items = children ?? [];
-
-    const moveItemPicked = isArrayItem && this._moveActive?.pointer === parent.pointer;
-    return html`
-      <div
-        class="item-group ${isRoot ? 'root-group' : 'child-group'} ${moveItemPicked ? 'move-item-picked' : ''}"
-        data-key="${parent.key}"
-        data-nav-pointer="${parent.pointer}"
-        @click=${(e) => this._onGroupPointerActivate(e, parent.pointer)}
-        ${ref((el) => this._bindSectionRef(parent.pointer, el))}
-      >
-        <div class="item-group-title">
-          <p>
-            ${isArrayItem && parentIndex != null ? `#${parentIndex} ` : ''}${parent.title ?? ''}${parent.required ? html`<span class="is-required">*</span>` : ''}
-          </p>
-          ${isArrayItem && arrayParent
-        ? html`<div class="item-group-actions">
-              ${this.renderArrayItemMenu(parent, parentIndex, items.length)}
-            </div>`
-        : nothing}
-          ${moveItemPicked ? this.renderReorderDialog() : nothing}
-        </div>
-        <div class="item-group-children">
-          ${(this._getItemsInPreviewOrder(items, parent.pointer)).map((item, index) => {
-          const isArray = this.isArrayType(parent);
-          const arrayLen = isArray ? items.length : 0;
-          const nextArrayParent = isArray ? parent : arrayParent;
-          return this.renderList(item, false, index + 1, isArray, arrayLen, nextArrayParent);
-        })}
-          ${showAddButton ? this.renderAddItemButton(parent) : nothing}
-        </div>
-      </div>
+      <dialog class="schema-issues">
+        <h2>Schema issues</h2>
+        <p>The schema uses features the form does not support. Affected fields are not rendered. Their existing values remain in the saved document but cannot be edited here.</p>
+        <ul>
+          ${issues.map((issue) => html`
+            <li>
+              <code>${issue.pointer}</code> — ${describeIssue(issue)}
+            </li>
+          `)}
+        </ul>
+        <form method="dialog">
+          <button type="submit">Dismiss</button>
+        </form>
+      </dialog>
     `;
   }
 
   render() {
-    const annotated = this.formModel?.annotated;
-    if (!annotated) return nothing;
-
+    const root = this.state?.model?.root;
     return html`
-      <form
-        @focusin=${this._onFormFocusIn}
-        @move-activate=${this._handleMoveActivate}
-        @menu-open=${this._cancelMoveMode}
-      >
-        <div>
-          ${this.renderList(annotated, true)}
-        </div>
-      </form>
+      ${this._renderIssuesDialog()}
+      ${root
+        ? html`<div class="editor-root">${this._renderNode(root)}</div>`
+        : html`<p class="hint">No editable fields found.</p>`}
     `;
   }
 }
 
-customElements.define('da-form-editor', FormEditor);
+if (!customElements.get(EL_NAME)) {
+  customElements.define(EL_NAME, Editor);
+}
