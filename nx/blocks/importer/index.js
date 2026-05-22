@@ -4,7 +4,7 @@ import { mdToDocDom, docDomToAemHtml } from '../../utils/converters.js';
 import { Queue } from '../../public/utils/tree.js';
 
 const { accessToken } = await (async () => {
-  const { getNx } = await import(`${window.location.origin}/scripts/utils.js`);
+  const { getNx } = await import(new URL('/scripts/utils.js', import.meta.url).href);
   const { loadIms } = await import(`${getNx()}/utils/ims.js`);
   return loadIms();
 })();
@@ -101,7 +101,7 @@ async function saveAllToDa(url, blob) {
   const body = blob;
 
   try {
-    const resp = await source.put({ org: toOrg, site: toRepo, path: formattedPath, body });
+    const resp = await source.save({ org: toOrg, site: toRepo, path: formattedPath, body });
     return resp.status;
   } catch {
     // eslint-disable-next-line no-console
