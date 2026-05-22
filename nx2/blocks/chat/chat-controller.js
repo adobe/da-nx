@@ -19,6 +19,10 @@ export default class ChatController {
     this._room = null;
   }
 
+  setAgentId(id) {
+    this._agentId = id;
+  }
+
   _pageContextForAgent() {
     const { org, site, path, view } = this._context ?? {};
     return org && site ? { org, site, path: path ?? '', view } : undefined;
@@ -222,6 +226,7 @@ export default class ChatController {
         pageContext,
         imsToken: accessToken?.token ?? null,
         room,
+        ...(this._agentId ? { agentId: this._agentId } : {}),
         ...(this._requestedSkills?.length ? { requestedSkills: this._requestedSkills } : {}),
       }),
       signal: this._abortController.signal,
