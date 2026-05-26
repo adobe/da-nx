@@ -30,14 +30,14 @@ The component manages its own controller internally. No external wiring needed.
 { role: 'tool', ... }  // filtered from display automatically
 ```
 
-**Request body:** The controller POSTs `{ messages, pageContext, imsToken, room }` to the agent. Selection context is embedded on individual user messages (see [Selection context](#selection-context)) rather than as a top-level request field.
+**Request body:** The controller POSTs `{ messages, pageContext, imsToken, room, sessionId }` to the agent. `sessionId` is a UUID scoped to the current conversation session — it resets when the user clears the chat. Selection context is embedded on individual user messages (see [Selection context](#selection-context)) rather than as a top-level request field.
 
 ## Methods
 
 | Method | Description |
 |---|---|
 | `chat.addAttachment({ id, label, ...rest })` | Adds a pill above the textarea. `id` is required — duplicate ids are silently ignored. `label` is the display text. Any additional fields are forwarded to the agent as context alongside the next message. |
-| `chat.clear()` | Clears conversation history and resets IndexedDB for the current room. |
+| `chat.clear()` | Clears conversation history and writes a fresh `sessionId` for the current room. The new session ID takes effect immediately for subsequent agent requests. |
 
 **Current scope:** `addAttachment` supports simple content references — e.g. a block or element from the document editor. Binary file attachments (images, uploads) are not yet supported and will extend this same API when introduced.
 
@@ -171,19 +171,13 @@ Conversation history is persisted in IndexedDB, keyed by `org--site--userId`. Th
 
 - History is **shared across all pages within a site** — navigating between paths does not start a new conversation.
 - History is **user-specific** — different IMS users on the same site have separate histories.
-- `clear()` deletes the stored history for the current room.
+- `clear()` resets the stored history for the current room and generates a new `sessionId` — the record is updated rather than deleted so the new session ID survives a reload.
 
-### Future: sessions
+### Sessions
 
-Currently there is one conversation per `org--site--userId` — all or nothing. A session model would let users maintain multiple named conversations and switch between them.
+Each conversation has a `sessionId` (UUID) stored in IndexedDB alongside its messages. The ID is shared across tabs on the same room and survives page reloads. A new ID is generated on first open (no stored record) or when the user calls `clear()`. The agent receives `sessionId` on POST so it can scope server-side state to the current session and combine traces to a session for telemetry.
 
-When introduced, the room key would extend to `org--site--userId--sessionId`. The `sessionId` structure and generation strategy are to be defined. The component derives the full room key internally. Persistence and the agent's `room` parameter both use the full key, so sessions are isolated end-to-end. The host never interacts with IndexedDB directly.
-
-If no `session` is set, the component resumes the last active session. A `lastActiveSession` metadata entry in IndexedDB (keyed by `org--site--userId`, storing the active `sessionId`) tracks which session was most recently used and is updated on every switch. Session switching UI (picker, create/rename/delete) lives inside the chat component — the host has no role in session management.
-
-Each session would have a human-readable title so users can make informed switching decisions. The agent would emit a `session-title` stream event after the first exchange — a short generated summary of the conversation intent (e.g. "Update header copy"). The client stores it in session metadata and displays it in the picker. Users can rename sessions; the agent-provided title is only the initial suggestion.
-
-> **Agent team ask:** `session-title` is not yet supported by da-agent. Needs to be raised with the agent team — emit a `session-title` event (with a `title` field) after the first `text-end` in a new session.
+**Not yet implemented:** multiple named sessions per room, session switching UI, and agent-emitted `session-title` events. When introduced, the session picker and create/rename/delete UI would live inside the chat component — the host has no role in session management.
 
 ## Events out
 
