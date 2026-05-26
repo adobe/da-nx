@@ -14,6 +14,11 @@ const EDITABLES = [
 ];
 const EDITABLE_SELECTORS = EDITABLES.map((edit) => edit.selector).join(', ');
 
+function isOutermostWysiwygEditable(el) {
+  if (!el?.matches?.(EDITABLE_SELECTORS)) return false;
+  return !el.parentElement?.closest(EDITABLE_SELECTORS);
+}
+
 export function extractCursors(view) {
   const remoteCursors = view.dom.querySelectorAll('.ProseMirror-yjs-cursor');
   const cursorMap = new Map();
@@ -56,6 +61,7 @@ export function getInstrumentedHTML(view) {
   const clonedElements = editorClone.querySelectorAll(EDITABLE_SELECTORS);
 
   originalElements.forEach((originalElement, index) => {
+    if (!isOutermostWysiwygEditable(originalElement)) return;
     if (clonedElements[index]) {
       try {
         // Get the ProseMirror position at the start of this editable element
