@@ -1,159 +1,98 @@
-import { LitElement, html, nothing, ref } from 'da-lit';
+import { LitElement, html, nothing } from 'da-lit';
 
 const { default: getStyle } = await import('../../../utils/styles.js');
-
 const style = await getStyle(import.meta.url);
 
-/**
- * FormsEditor
- *
- * Standalone web component that loads a page's form data from DA, lets the
- * user pick a JSON Schema, mounts the schema-driven Form UI, and provides
- * actions to save/preview/publish via backend services.
- */
-class FormSidebar extends LitElement {
-  static properties = {
-    formModel: { attribute: false },
-    activeNavPointer: { attribute: false },
-    scrollNavItemIntoView: { attribute: false },
-    _schemas: { attribute: false },
-    _nav: { state: true },
-  };
+const EL_NAME = 'nx-sidebar';
 
-  constructor() {
-    super();
-    this._navButtonByPointer = new Map();
-  }
+class Sidebar extends LitElement {
+  static properties = {
+    state: { attribute: false },
+    nav: { attribute: false },
+    onSelect: { attribute: false },
+  };
 
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
   }
 
-  update(props) {
-    if (props.has('formModel') && this.formModel) {
-      this.getNav();
-    }
-    super.update(props);
-  }
-
-  getNav() {
-    this._nav = this.formModel.annotated;
-  }
-
-  _bindNavButtonRef(pointer, el) {
-    if (el) this._navButtonByPointer.set(pointer, el);
-    else this._navButtonByPointer.delete(pointer);
-  }
-
   updated(changed) {
-    super.updated(changed);
-    if (changed.has('activeNavPointer')) {
-      this._scrollNavToActivePointer();
-    }
+    if (!changed.has('state') && !changed.has('nav')) return;
+
+    const prevNav = changed.get('nav');
+    const prevSeq = prevNav?.seq ?? -1;
+    const nextPointer = this.nav?.pointer;
+    const nextOrigin = this.nav?.origin;
+    const nextSeq = this.nav?.seq ?? 0;
+
+    if (!nextPointer || nextSeq === prevSeq) return;
+    if (nextOrigin !== 'editor') return;
+    this._scrollTo(nextPointer);
   }
 
-  _scrollNavToActivePointer() {
-    if (!this.scrollNavItemIntoView) return;
-    const btn = this._navButtonByPointer.get(this.activeNavPointer);
-    if (!btn) return;
-    btn.scrollIntoView({ block: 'nearest', behavior: 'auto' });
+  _scrollTo(pointer) {
+    const safe = typeof CSS !== 'undefined' && typeof CSS.escape === 'function'
+      ? CSS.escape(pointer)
+      : pointer.replace(/"/g, '\\"');
+    const el = this.shadowRoot?.querySelector(`[data-pointer="${safe}"]`);
+    el?.scrollIntoView({ block: 'nearest', behavior: 'auto' });
   }
 
-  renderNoSchemas() {
-    return html`
-      <p>This project has no schemas.</p>
-      <p><a href="https://main--da-live--adobe.aem.live/apps/schema?nx=schema">Create one</a></p>
-    `;
+  _select(pointer) {
+    this.onSelect?.(pointer, 'sidebar');
   }
 
-  renderSchemaSelector() {
-    return html`
-      <sl-select value="${this._schema?.id || nothing}">
-        ${Object.keys(this.schemas).map((key) => html`
-          <option value="${key}">${this.schemas[key].title}</option>
-        `)}
-      </sl-select>
-      <p class="da-sidebar-title">Version</p>
-      <sl-select disabled>
-        <option>Current</option>
-      </sl-select>
-      ${this.json === null ? html`<sl-button class="primary outline">Use schema</sl-button>` : nothing}`;
+  _canRender(node) {
+    return node?.kind === 'object' || node?.kind === 'array';
   }
 
-  renderSchema() {
-    if (!this.schemas) return nothing;
-    return html`
-      <p class="da-sidebar-title">Schema</p>
-    `;
-  }
+  _renderNode(node, { isArrayItem = false, arrayIndex = null } = {}) {
+    if (!this._canRender(node)) return nothing;
 
-  /**
-   * Determine if the item should be rendered.
-   * Render only object and array nodes.
-   * @param {Object} item the form item
-   * @returns {Boolean} whether or not something should render
-   */
-  canRender(item) {
-    return item.type === 'object' || item.type === 'array';
-  }
-
-  _emitNavSelect(pointer) {
-    this.dispatchEvent(new CustomEvent('nav-pointer-select', {
-      detail: { pointer },
-      bubbles: true,
-      composed: true,
-    }));
-  }
-
-  renderList(parent, isArrayItem = false, arrayIndex = null) {
-    if (!this.canRender(parent)) return nothing;
-
-    const children = parent.children ?? [];
     const label = isArrayItem && arrayIndex != null
-      ? `#${arrayIndex} ${parent.title ?? ''}`
-      : (parent.title ?? '');
-    const isActive = this.activeNavPointer === parent.pointer;
+      ? `#${arrayIndex} ${node.label ?? ''}`
+      : (node.label ?? '');
+    const isActive = this.nav?.pointer === node.pointer;
+    const children = node.kind === 'array' ? (node.items ?? []) : (node.children ?? []);
 
     return html`
-      <li data-key="${parent.key}">
+      <li>
         <button
           type="button"
-          class="item nav-item ${isActive ? 'is-active' : ''}"
+          class=${`item ${isActive ? 'is-active' : ''}`}
+          data-pointer=${node.pointer}
           aria-current=${isActive ? 'location' : undefined}
-          @click=${() => this._emitNavSelect(parent.pointer)}
-          ${ref((el) => this._bindNavButtonRef(parent.pointer, el))}
+          @click=${() => this._select(node.pointer)}
         >${label}</button>
-        ${children.length
-        ? html`<ul>${children.map((item, i) => {
-          const isArray = parent.type === 'array';
-          return this.renderList(item, isArray, isArray ? i + 1 : null);
-        })}</ul>`
-        : nothing}
+        ${children.length ? html`
+          <ul>
+            ${children.map((child, index) => this._renderNode(
+      child,
+      node.kind === 'array' ? { isArrayItem: true, arrayIndex: index + 1 } : {},
+    ))}
+          </ul>
+        ` : nothing}
       </li>
     `;
   }
 
-  renderNav() {
-    if (!this._nav) return nothing;
-
-    return html`
-      <p class="da-sidebar-title">Navigation</p>
-      <div class="nav-list">
-        <ul>${this.renderList(this._nav)}</ul>
-      </div>
-    `;
-  }
-
   render() {
-    if (!this.formModel) return nothing;
+    const root = this.state?.model?.root;
 
     return html`
-      <div class="da-sidebar-section">
-        ${this.renderNav()}
+      <div class="nx-sidebar-section">
+        <p class="nx-sidebar-title">Navigation</p>
+        ${root ? html`
+          <div class="nav-list">
+            <ul>${this._renderNode(root)}</ul>
+          </div>
+        ` : nothing}
       </div>
     `;
   }
 }
 
-customElements.define('da-form-sidebar', FormSidebar);
+if (!customElements.get(EL_NAME)) {
+  customElements.define(EL_NAME, Sidebar);
+}

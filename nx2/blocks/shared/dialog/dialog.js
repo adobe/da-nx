@@ -65,4 +65,4 @@ class NxDialog extends LitElement {
   }
 }
 
-customElements.define('nx-dialog', NxDialog);
+if (!customElements.get('nx-dialog')) customElements.define('nx-dialog', NxDialog);
