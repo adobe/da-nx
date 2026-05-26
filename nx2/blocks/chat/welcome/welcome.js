@@ -36,7 +36,7 @@ class NxChatWelcome extends LitElement {
           ${prompts.slice(0, 3).map((card) => html`
             <button class="prompt-card" @click=${() => this.onSend?.(card.prompt)}>
               <svg class="prompt-card-icon" viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/s2-icon-aichat-20-n.svg#icon"></use></svg>
-              <span class="prompt-card-description">${card.description}</span>
+              <span class="prompt-card-description">${card.description ?? card.title}</span>
             </button>
           `)}
         </div>
