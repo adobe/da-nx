@@ -3,10 +3,9 @@ import { AGENT_EVENT, ROLE, TOOL_STATE } from './constants.js';
 import { readStream } from './utils.js';
 import { loadMessages, saveMessages, resetSession } from './persistence.js';
 
-// ?ref=local routes to a local da-agent dev server (port 5173).
 const AGENT_URL = new URLSearchParams(window.location.search).get('ref') === 'local'
   ? 'http://localhost:4200/chat'
-  : 'https://da-agent.adobeaem.workers.dev/chat';
+  : 'https://agent.da.live/chat';
 
 export default class ChatController {
   constructor({ onUpdate, onToolDone }) {
