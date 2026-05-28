@@ -22,6 +22,33 @@ const AGENT_URL = new URLSearchParams(window.location.search).get('ref') === 'lo
   ? 'http://localhost:4200/chat'
   : 'https://agent.da.live/chat';
 
+/**
+ * Drop assistant array-content messages whose tool-call IDs have no matching
+ * tool-result anywhere in the history. These orphans appear when the agent's
+ * streamText step-limit fires mid-tool-execution or when the client strips
+ * virtual (non-approval) tool results. Without this filter the Anthropic API
+ * rejects the request with "tool_use ids without tool_result blocks".
+ */
+function stripOrphanedToolCallMessages(messages) {
+  const resolvedIds = new Set();
+  for (const msg of messages) {
+    if (msg.role === ROLE.TOOL && Array.isArray(msg.content)) {
+      for (const p of msg.content) {
+        if (p.type === AGENT_EVENT.TOOL_RESULT && p.toolCallId) resolvedIds.add(p.toolCallId);
+      }
+    }
+  }
+
+  return messages.filter((msg) => {
+    if (msg.role !== ROLE.ASSISTANT || !Array.isArray(msg.content)) return true;
+    const calls = msg.content.filter((p) => p.type === AGENT_EVENT.TOOL_CALL);
+    if (calls.length === 0) return true;
+    const hasApproval = msg.content.some((p) => p.type === AGENT_EVENT.TOOL_APPROVAL_REQUEST);
+    if (hasApproval) return true;
+    return calls.every((c) => resolvedIds.has(c.toolCallId));
+  });
+}
+
 export default class ChatController {
   constructor({ onUpdate, onToolDone }) {
     this._onUpdate = onUpdate;
@@ -53,15 +80,7 @@ export default class ChatController {
     const { messages: cached, sessionId } = await loadMessages(room);
     this._sessionId = sessionId ?? this._sessionId;
     if (!cached.length) return;
-    // Strip orphaned tool-calls (assistant array-content without a tool-approval-request).
-    // These are from sessions before the current fix — they have no matching tool-result
-    // and cause "Tool result is missing". Complete approval sequences are kept so users
-    // see what the agent approved and did in prior conversations.
-    this._messages = cached.filter(
-      (msg) => !(msg.role === ROLE.ASSISTANT && Array.isArray(msg.content)
-        && !msg.virtual
-        && !msg.content.some((p) => p.type === AGENT_EVENT.TOOL_APPROVAL_REQUEST)),
-    );
+    this._messages = stripOrphanedToolCallMessages(cached);
     // Reconstruct tool cards from persisted approval messages so they render on reload.
     this._toolCards = new Map();
     for (const msg of this._messages) {
@@ -237,7 +256,7 @@ export default class ChatController {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        messages: this._messages.filter((msg) => !msg.virtual),
+        messages: stripOrphanedToolCallMessages(this._messages.filter((msg) => !msg.virtual)),
         pageContext,
         imsToken: accessToken?.token ?? null,
         room,

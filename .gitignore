@@ -8,4 +8,4 @@ helix-importer-ui
 *.bak
 .idea
 .claude/settings.local.json
-.cursor/*
+PR-throwaways/
