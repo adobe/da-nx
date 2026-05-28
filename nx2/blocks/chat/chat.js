@@ -1,5 +1,6 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle, hashChange } from '../../utils/utils.js';
+import { readFileAsBase64 } from './utils.js';
 import '../shared/menu/menu.js';
 import ChatController from './chat-controller.js';
 import { renderMessage, renderApprovalCard } from './renderers.js';
@@ -34,6 +35,7 @@ class NxChat extends LitElement {
     toolCards: { type: Object },
     _prompts: { state: true },
     _items: { state: true },
+    _dragging: { state: true },
   };
 
   set context(value) {
@@ -185,6 +187,9 @@ class NxChat extends LitElement {
 
   disconnectedCallback() {
     super.disconnectedCallback();
+    (this._items ?? []).forEach((item) => {
+      if (item.thumbnail) URL.revokeObjectURL(item.thumbnail);
+    });
     this._unsubscribeHash?.();
     this._controller?.destroy();
     document.removeEventListener('keydown', this._onApprovalKeydown);
@@ -288,11 +293,17 @@ class NxChat extends LitElement {
       return;
     }
     const input = this.shadowRoot.querySelector('.chat-input');
-    const message = input.value.trim();
-    if (!message && !this._items?.length) return;
-    const context = this._items ?? [];
+    const text = input.value.trim();
+    if (!text && !this._items?.length) return;
+    const fileItems = (this._items ?? []).filter((i) => i.dataBase64);
+    const contextItems = (this._items ?? []).filter((i) => !i.dataBase64);
+    const message = text || (fileItems.length > 1 ? 'Attached files' : 'Attached file');
+    const attachments = fileItems.map(({ id, fileName, mediaType, sizeBytes, dataBase64 }) => ({
+      id, fileName, mediaType, dataBase64, ...(typeof sizeBytes === 'number' ? { sizeBytes } : {}),
+    }));
+    fileItems.forEach((i) => { if (i.thumbnail) URL.revokeObjectURL(i.thumbnail); });
     this._slashMenuEl?.close();
-    this._controller.sendMessage(message, context);
+    this._controller.sendMessage(message, contextItems, { attachments });
     input.value = '';
     this._items = [];
   }
@@ -307,6 +318,7 @@ class NxChat extends LitElement {
   }
 
   _handleMenuSelect({ detail: { id } }) {
+    if (id === MENU_OPTIONS.FILES) this._openFilePicker();
     if (id === MENU_OPTIONS.PROMPT) this._openPrompts();
     if (id === MENU_OPTIONS.COMMAND) this._insertSlash();
     if (id === 'prompts' || id === 'skills') {
@@ -331,8 +343,76 @@ class NxChat extends LitElement {
     input.dispatchEvent(new Event('input'));
   }
 
+  _openFilePicker() {
+    this.shadowRoot.querySelector('.chat-file-input')?.click();
+  }
+
+  async _onFilesSelected(fileList) {
+    const MAX_FILES = 20;
+    const fileCount = (this._items ?? []).filter((i) => i.dataBase64).length;
+    const available = Math.max(0, MAX_FILES - fileCount);
+    const files = Array.from(fileList).slice(0, available);
+    if (!files.length) return;
+
+    const results = await Promise.all(files.map(async (file) => {
+      try {
+        const dataBase64 = await readFileAsBase64(file);
+        if (!dataBase64) return null;
+        const isImage = file.type?.startsWith('image/');
+        return {
+          id: crypto.randomUUID(),
+          label: file.name,
+          type: isImage ? 'image' : 'file',
+          fileName: file.name,
+          mediaType: file.type,
+          sizeBytes: file.size,
+          dataBase64,
+          ...(isImage ? { thumbnail: URL.createObjectURL(file) } : {}),
+        };
+      } catch { return null; }
+    }));
+
+    results.filter(Boolean).forEach((item) => this.addAttachment(item));
+  }
+
+  async _onFileInputChange(e) {
+    const { target } = e;
+    await this._onFilesSelected(target.files);
+    target.value = '';
+  }
+
   _handlePillRemove({ detail: { id } }) {
+    const removed = (this._items ?? []).find((i) => i.id === id);
+    if (removed?.thumbnail) URL.revokeObjectURL(removed.thumbnail);
     this._items = (this._items ?? []).filter((item) => item.id !== id);
+  }
+
+  _onDragEnter(e) {
+    e.preventDefault();
+    this._dragging = true;
+  }
+
+  _onDragLeave(e) {
+    if (e.currentTarget.contains(e.relatedTarget)) return;
+    this._dragging = false;
+  }
+
+  _onDragOver(e) {
+    e.preventDefault();
+  }
+
+  async _onDrop(e) {
+    e.preventDefault();
+    this._dragging = false;
+    const { files } = e.dataTransfer ?? {};
+    if (!files?.length) return;
+    const accepted = Array.from(files).filter((f) => (
+      f.type?.startsWith('image/')
+      || f.type === 'application/pdf'
+      || f.type === 'text/markdown'
+      || f.name?.endsWith('.md')
+    ));
+    await this._onFilesSelected(accepted);
   }
 
   render() {
@@ -384,7 +464,25 @@ class NxChat extends LitElement {
           @mousedown=${(e) => e.preventDefault()}
         ></nx-menu>
         ${renderApprovalCard(this._pendingApproval(), this._controller.approveToolCall)}
-        <form class="chat-form" autocomplete="off" @submit=${this._submit}>
+        <form class="chat-form" autocomplete="off" @submit=${this._submit}
+          @dragenter=${this._onDragEnter}
+          @dragleave=${this._onDragLeave}
+          @dragover=${this._onDragOver}
+          @drop=${this._onDrop}
+        >
+        <input
+          class="chat-file-input"
+          type="file"
+          accept="image/*,text/markdown,.md,application/pdf,.pdf"
+          multiple
+          hidden
+          @change=${this._onFileInputChange}
+        />
+        ${this._dragging ? html`
+          <div class="chat-drop-zone" aria-hidden="true">
+            <span class="chat-drop-title">Drop a file to add context</span>
+            <span class="chat-drop-hint">Supports PDF, images, and documents</span>
+          </div>` : nothing}
         ${this._items?.length ? html`
           <nx-chat-pills
             .items=${this._items}
