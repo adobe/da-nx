@@ -4,11 +4,15 @@
 imports it directly:
 
 ```js
-import { createEngine, convertJsonToHtml, convertHtmlToJson } from './deps/da-sc-sdk/dist/index.js';
+import {
+  createEngine,
+  convertJsonToHtml,
+  convertHtmlToJson,
+} from "./deps/da-sc-sdk/dist/index.js";
 ```
 
 **Current bundle:** built from
-[`adobe-rnd/da-sc-sdk@5102c21b31bbc01e59cb51052a89f00de900de29`](https://github.com/adobe-rnd/da-sc-sdk/commit/5102c21b31bbc01e59cb51052a89f00de900de29).
+[`adobe-rnd/da-sc-sdk@1e81c45ead0481027f4ca242eb5fa5de6d8d6ada`](https://github.com/adobe-rnd/da-sc-sdk/commit/1e81c45ead0481027f4ca242eb5fa5de6d8d6ada).
 
 > **Temporary arrangement.** This vendored bundle is in place until `da-sc-sdk` has a
 > proper release process (npm publish or pinned tag/tarball). Once that exists, the
