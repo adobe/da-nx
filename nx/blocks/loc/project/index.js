@@ -109,12 +109,20 @@ export async function saveStatus(json) {
   return json;
 }
 
-async function saveVersion(path, label) {
-  const opts = { method: 'POST' };
-  if (label) opts.body = JSON.stringify({ label });
+// Tracks in-flight version saves so parallel rollout/resync operations for
+// the same destination path don't fire duplicate POSTs causing R2 412 audit conflicts.
+const versionSaving = new Set();
 
-  const res = await daFetch(`${DA_ORIGIN}/versionsource${path}`, opts);
-  return res;
+async function saveVersion(path, label) {
+  if (versionSaving.has(path)) return;
+  versionSaving.add(path);
+  try {
+    const opts = { method: 'POST' };
+    if (label) opts.body = JSON.stringify({ label });
+    await daFetch(`${DA_ORIGIN}/versionsource${path}`, opts);
+  } finally {
+    versionSaving.delete(path);
+  }
 }
 
 function collapseInnerTextSpaces(html) {
