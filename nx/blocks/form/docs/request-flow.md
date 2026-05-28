@@ -108,7 +108,7 @@ Triggered every time the shell's `onChange` fires (after every real mutation).
 ```txt
 shell._onChange()
   └─ persistence.notify()
-       ├─ reference-compare state.document.values vs last captured
+       ├─ reference-compare state.document vs last captured
        │    (mutate.js deep-clones on every real mutation → new ref = new content)
        ├─ if same reference: return (no-op)
        └─ persist()  ← async, NOT awaited by notify
@@ -121,7 +121,7 @@ shell._onChange()
                  └─ do {
                       pending = false
                       const { html, error } = convertJsonToHtml({
-                        json: engine.getState().document.values,
+                        json: engine.getState().document,
                       })
                         ├─ prune(data)               ← strips empty/null
                         └─ json2html({ ...json, data: pruned })
@@ -140,7 +140,7 @@ shell._onChange()
 
 - **Fire-and-forget at the mutation site.** `engine.setField` returns synchronously. UI never waits on the network.
 - **Single-flight.** At most one POST is in flight. New mutations during a save flip `pending`.
-- **Latest-wins.** When the in-flight save completes with `pending=true`, the loop iterates and POSTs `engine.getState().document.values` again — which reflects every edit that happened during the wait. An earlier POST cannot land after a newer one.
+- **Latest-wins.** When the in-flight save completes with `pending=true`, the loop iterates and POSTs `engine.getState().document` again — which reflects every edit that happened during the wait. An earlier POST cannot land after a newer one.
 - **Errors stop the loop.** A failed POST exits the loop cleanly; the next user edit kicks off a fresh save. No infinite retry.
 - **`detach()` halts everything.** A teardown (hashchange / context reset) calls `persistence.detach()`; subsequent `notify()` calls become no-ops. A stale in-flight save from a previous document cannot trigger a resave of the new one.
 - **No save status in the SDK.** The engine never emits a `saveStatus` field. If a save-indicator UI is added later, the form block's persistence would gain a status callback at that layer — the SDK stays uninvolved.

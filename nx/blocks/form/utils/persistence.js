@@ -22,7 +22,7 @@ import { saveSourceHtml } from './da-api.js';
 export function attachPersistence(editor, { path, save = saveSourceHtml } = {}) {
   let inFlight = false;
   let pending = false;
-  let lastValues = editor.getState()?.document?.values;
+  let lastValues = editor.getState()?.document;
   let detached = false;
 
   async function persist() {
@@ -34,7 +34,7 @@ export function attachPersistence(editor, { path, save = saveSourceHtml } = {}) 
     try {
       do {
         pending = false;
-        const { html, error } = convertJsonToHtml({ json: editor.getState().document?.values });
+        const { html, error } = convertJsonToHtml({ json: editor.getState().document });
         if (error) return;
         try {
           await save({ path, html });
@@ -49,11 +49,11 @@ export function attachPersistence(editor, { path, save = saveSourceHtml } = {}) 
 
   return {
     // Called by the shell's onChange after every state transition. Mutations
-    // are detected by reference comparison on document.values: mutate.js
+    // are detected by reference comparison on document: mutate.js
     // deep-clones on every real mutation, so a new reference means new content.
     notify: () => {
       if (detached) return;
-      const next = editor.getState()?.document?.values;
+      const next = editor.getState()?.document;
       if (next === lastValues) return;
       lastValues = next;
       persist();

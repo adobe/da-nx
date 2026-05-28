@@ -2,15 +2,13 @@ import { expect } from '@esm-bundle/chai';
 import { attachPersistence } from '../../../../../nx/blocks/form/utils/persistence.js';
 
 // Minimal editor stub. `setValues(next)` simulates a real mutation by
-// replacing `state.document.values` with a NEW reference — persistence uses
-// reference equality on `values` to detect mutations.
+// replacing `state.document` with a NEW reference — persistence uses
+// reference equality on the document to detect mutations.
 function makeEditor(initial = {}) {
   let state = {
     document: {
-      values: {
-        metadata: { schemaName: 'demo' },
-        data: initial,
-      },
+      metadata: { schemaName: 'demo' },
+      data: initial,
     },
   };
   return {
@@ -18,10 +16,8 @@ function makeEditor(initial = {}) {
     setValues: (next) => {
       state = {
         document: {
-          values: {
-            metadata: { schemaName: 'demo' },
-            data: next,
-          },
+          metadata: { schemaName: 'demo' },
+          data: next,
         },
       };
     },
@@ -175,10 +171,10 @@ describe('attachPersistence', () => {
     // Persistence must NOT try to save — and must not loop forever waiting
     // for a fix. (`pending` is cleared even when convertJsonToHtml errors.)
     const editor = {
-      _state: { document: { values: { metadata: {}, data: { a: 1 } } } },
+      _state: { document: { metadata: {}, data: { a: 1 } } },
       getState() { return this._state; },
       mutate(next) {
-        this._state = { document: { values: { metadata: {}, data: next } } };
+        this._state = { document: { metadata: {}, data: next } };
       },
     };
     const { save, calls } = makeSave();
@@ -191,9 +187,7 @@ describe('attachPersistence', () => {
 
     // Mutating to a valid doc should now save normally.
     editor._state = {
-      document: {
-        values: { metadata: { schemaName: 'demo' }, data: { a: 3 } },
-      },
+      document: { metadata: { schemaName: 'demo' }, data: { a: 3 } },
     };
     p.notify();
     await tick();

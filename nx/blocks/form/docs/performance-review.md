@@ -8,14 +8,14 @@ A walk through the hot paths, the bottlenecks they expose, and how reactive upda
 
 This block is an editor for human-authored structured content. The performance envelope is:
 
-| Dimension | Realistic worst case | Budget |
-|---|---|---|
-| Document size | 50–200 KB JSON, ~50–500 fields | Operations on the doc are O(size) and run on a keystroke — they must stay under ~16 ms to keep typing at 60 fps. |
-| Schema size | < 100 KB, < 1000 properties total after `$ref` resolution | Compile happens once per load — budget ~100 ms. |
-| Initial load | First meaningful paint (either the editor on a warm cache, or one of the explicit status screens) | < 200 ms after the block module starts. The transient loading state renders nothing — no spinner, no "preparing…" message. |
-| Time-to-edit | From `init(el)` to a working editor | < 1 s on a warm cache, < 2 s cold. |
-| Save latency | After typing stops | One round-trip per debounced burst; debounce 350 ms. |
-| Typing latency | Keystroke → character visible | Native input echo is immediate (the `<input>` value is uncontrolled in the React sense — we don't block the DOM). The mutation pipeline runs in the background after 350 ms. So typing should *feel* instant regardless of doc size. |
+| Dimension      | Realistic worst case                                                                              | Budget                                                                                                                                                                                                                               |
+| -------------- | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Document size  | 50–200 KB JSON, ~50–500 fields                                                                    | Operations on the doc are O(size) and run on a keystroke — they must stay under ~16 ms to keep typing at 60 fps.                                                                                                                     |
+| Schema size    | < 100 KB, < 1000 properties total after `$ref` resolution                                         | Compile happens once per load — budget ~100 ms.                                                                                                                                                                                      |
+| Initial load   | First meaningful paint (either the editor on a warm cache, or one of the explicit status screens) | < 200 ms after the block module starts. The transient loading state renders nothing — no spinner, no "preparing…" message.                                                                                                           |
+| Time-to-edit   | From `init(el)` to a working editor                                                               | < 1 s on a warm cache, < 2 s cold.                                                                                                                                                                                                   |
+| Save latency   | After typing stops                                                                                | One round-trip per debounced burst; debounce 350 ms.                                                                                                                                                                                 |
+| Typing latency | Keystroke → character visible                                                                     | Native input echo is immediate (the `<input>` value is uncontrolled in the React sense — we don't block the DOM). The mutation pipeline runs in the background after 350 ms. So typing should _feel_ instant regardless of doc size. |
 
 Anything that pushes the per-keystroke pipeline past 16 ms on a representative doc is a real problem. Anything that pushes initial load past 1 s on a warm cache is a real problem.
 
@@ -69,12 +69,12 @@ engine.setField(pointer, value)   ← SDK commits new state + fires onChange
 
 **Per-keystroke cost summary, form-block side** (N = number of fields, D = document byte size):
 
-| Step | Cost | Where |
-|---|---|---|
-| Editor template build | O(N) | views/editor.js |
-| Sidebar template build | O(N_structural) | views/sidebar.js |
-| Preview render (cached text; stringify itself runs once per 500 ms quiet period) | O(1) per keystroke, O(D) per debounce | views/preview.js |
-| HTTP POST (background, fire-and-forget) | network | utils/persistence.js + utils/da-api.js |
+| Step                                                                             | Cost                                  | Where                                  |
+| -------------------------------------------------------------------------------- | ------------------------------------- | -------------------------------------- |
+| Editor template build                                                            | O(N)                                  | views/editor.js                        |
+| Sidebar template build                                                           | O(N_structural)                       | views/sidebar.js                       |
+| Preview render (cached text; stringify itself runs once per 500 ms quiet period) | O(1) per keystroke, O(D) per debounce | views/preview.js                       |
+| HTTP POST (background, fire-and-forget)                                          | network                               | utils/persistence.js + utils/da-api.js |
 
 **Plus the SDK's side of the per-keystroke cost** (deep-clone the document, rebuild the model, validate) — these are inside `engine.setField` and detailed in [SDK lifecycle.md §2](https://github.com/adobe-rnd/da-sc-sdk/blob/main/docs/lifecycle.md#2-mutation-lifecycle) (call flow) and [§4](https://github.com/adobe-rnd/da-sc-sdk/blob/main/docs/lifecycle.md#4-cost-characteristics) (cost table). The SDK side is also O(N+D) per keystroke.
 
@@ -98,7 +98,7 @@ Both `updated()` callbacks bail early unless origin matches. Then `scrollIntoVie
 
 ### 2.5. Hash change (route to a different doc)
 
-The shell's `hashchange` listener calls `setup(el)` which `replaceChildren()` and re-creates everything. This is heavy — *the same as initial load*. We lose all cached state for the same domain.
+The shell's `hashchange` listener calls `setup(el)` which `replaceChildren()` and re-creates everything. This is heavy — _the same as initial load_. We lose all cached state for the same domain.
 
 ---
 
@@ -133,7 +133,7 @@ Same root issue as the sidebar. Lit's template caching makes the DOM diff cheap 
 
 **Fix:** split the editor into per-field components — each is a small `LitElement` that only re-renders when its own node changes. Then Lit's reactive boundary stops at each field. This is significant work; not worth doing until users hit it. Worth profiling first to confirm.
 
-**[H3] Validation runs the entire document on every mutation** *(SDK concern)*
+**[H3] Validation runs the entire document on every mutation** _(SDK concern)_
 
 The SDK re-validates the full document after every mutation; cost scales with document size and schema complexity. This is a deliberate SDK design choice — per-field incremental validation is unsafe in the general case because JSON Schema supports cross-field rules (`anyOf`, `oneOf`, `dependentRequired`, `dependentSchemas`, `if`/`then`/`else`) where one field can flip the validity of another.
 
@@ -143,29 +143,31 @@ If a profile ever shows validation latency dominating on a real form, the fix li
 [form.js:399](nx/blocks/form/form.js:399)
 
 ```js
-window.addEventListener('hashchange', () => { setup(el); });
+window.addEventListener("hashchange", () => {
+  setup(el);
+});
 ```
 
-`setup` does `el.replaceChildren()` and recreates `da-title` + the form. For a hash change *within the same document* (e.g. anchor navigation, query-param tweak) we lose all state.
+`setup` does `el.replaceChildren()` and recreates `da-title` + the form. For a hash change _within the same document_ (e.g. anchor navigation, query-param tweak) we lose all state.
 
 **Fix:** compare the new path to the current one and only re-setup when the document actually changes. Sub-fix: if only query params changed (e.g. `?nx=branch`), update them in place.
 
 ### Medium — adds up over a session
 
-**[M1] Save POST on every debounced burst** — *implemented*. The form block's `utils/persistence.js` is single-flight with re-queue (see [request-flow.md §4](./request-flow.md)). At most one POST in flight at a time; new mutations during a save flip `pending` and the loop re-iterates with the latest `engine.getState().document.values`. An earlier POST cannot land after a newer one. Contract verified by [persistence.test.js](../../../../test/nx/blocks/form/utils/persistence.test.js).
+**[M1] Save POST on every debounced burst** — _implemented_. The form block's `utils/persistence.js` is single-flight with re-queue (see [request-flow.md §4](./request-flow.md)). At most one POST in flight at a time; new mutations during a save flip `pending` and the loop re-iterates with the latest `engine.getState().document`. An earlier POST cannot land after a newer one. Contract verified by [persistence.test.js](../../../../test/nx/blocks/form/utils/persistence.test.js).
 
 ### Low — measure before optimizing
 
 **[L1] `getStyle` may or may not cache constructed stylesheets**
 The `utils/styles.js` helper is shared. If it doesn't memoize per URL, every editor instance creates a new `CSSStyleSheet`. Verify, not assume.
 
-**[L2] `byPointer` map is rebuilt fresh every time** *(SDK concern)*
+**[L2] `byPointer` map is rebuilt fresh every time** _(SDK concern)_
 For the current sizes (< 1000 fields), the cost is negligible. Worth revisiting only if N grows; fix lives in the SDK.
 
 **[L3] `schemaCache` in [utils/schemas.js:6](nx/blocks/form/utils/schemas.js:6) never invalidates**
 Stale schemas survive until full reload. Memory bound is small (per `owner/repo` combo). Document staleness is the real concern, not perf.
 
-**[L4] `deepClone` fallback path** *(SDK concern)*
+**[L4] `deepClone` fallback path** _(SDK concern)_
 The SDK's `deepClone` falls back to `JSON.parse(JSON.stringify(...))` when `structuredClone` is unavailable. Modern targets always have `structuredClone` — the fallback is effectively dead. Could be deleted on the SDK side.
 
 ---
@@ -180,6 +182,7 @@ The SDK's `deepClone` falls back to `JSON.parse(JSON.stringify(...))` when `stru
   nav   ← changes on every selection
   _context, _pendingSchemaId ← change on context load / schema picker
 ```
+
 each is a reactive property. Any change schedules an `updated()` cycle.
 
 ```
@@ -217,7 +220,7 @@ But every mutation propagates a new `state` reference to all three children. All
 
 ### 4.4. Where reactivity is subtly wrong
 
-- ⚠️ `_inputTimers` in the editor is *instance state*, not a reactive property. That's correct — debounce timers should not trigger re-renders. But note: if the editor instance is disconnected and reconnected (e.g. moved in the DOM), timers survive disconnect (we clear on disconnect) but a pending mutation may still fire after the engine handle is rebound. Today the engine is created once per `_start`, so this is fine in practice. If we ever lazy-instantiate engines per route, this becomes a use-after-free hazard. Worth a `_inputTimers.clear()` in the `editor` property setter or a guard in the timer body.
+- ⚠️ `_inputTimers` in the editor is _instance state_, not a reactive property. That's correct — debounce timers should not trigger re-renders. But note: if the editor instance is disconnected and reconnected (e.g. moved in the DOM), timers survive disconnect (we clear on disconnect) but a pending mutation may still fire after the engine handle is rebound. Today the engine is created once per `_start`, so this is fine in practice. If we ever lazy-instantiate engines per route, this becomes a use-after-free hazard. Worth a `_inputTimers.clear()` in the `editor` property setter or a guard in the timer body.
 - ⚠️ The sidebar's `scrollIntoView` runs inside `updated()` synchronously. If the editor is also scrolling at the same frame, two scroll triggers can interleave awkwardly. Visible only on slow machines.
 
 ---
@@ -231,12 +234,12 @@ The "do these now" set, in order:
 The "consider later, profile first" set:
 
 2. **[H1] / [H2]** Sidebar/editor partial re-rendering. Significant refactor; only worth it when a real form crosses the threshold. Measure on the largest production schema before committing.
-3. **Structural sharing in `buildModel`** *(SDK fix)*. Return identity-stable `root` when only leaf values changed. Unlocks the form block's `shouldUpdate` checks for free. Lives in the SDK; the form block can't fix it alone.
+3. **Structural sharing in `buildModel`** _(SDK fix)_. Return identity-stable `root` when only leaf values changed. Unlocks the form block's `shouldUpdate` checks for free. Lives in the SDK; the form block can't fix it alone.
 
 The "leave alone" set:
 
-4. `byPointer` rebuild *(SDK)* — O(N) is fine when N is small.
-5. `deepClone` fallback *(SDK)* — dead code but harmless.
+4. `byPointer` rebuild _(SDK)_ — O(N) is fine when N is small.
+5. `deepClone` fallback _(SDK)_ — dead code but harmless.
 6. `getStyle` semantics — verify if curious but don't preempt.
 
 ---
@@ -244,7 +247,7 @@ The "leave alone" set:
 ## 6. What is NOT a performance concern
 
 - **Element registration / Lit lifecycle** — overhead is one-time and small.
-- **The debounce** — 350 ms is a UX choice, not a performance choice. Reducing it would *worsen* per-keystroke cost.
+- **The debounce** — 350 ms is a UX choice, not a performance choice. Reducing it would _worsen_ per-keystroke cost.
 - **The vendored `html2json` / `json2html`** — both are linear in doc size and only invoked at load + save boundaries (well outside the typing hot path).
 - **JSON Pointer parsing in `pointer.js`** — O(segments) and pointers are short.
 - **Validation regex compilation** — handled inside the schema validator; not on the typing hot path in any way that warrants intervention today.
