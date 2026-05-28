@@ -101,7 +101,7 @@ async function saveAllToDa(url, blob) {
   const body = blob;
 
   try {
-    const resp = await source.save({ org: toOrg, site: toRepo, path: formattedPath, data: body });
+    const resp = await source.save({ org: toOrg, site: toRepo, path: formattedPath, body });
     return resp.status;
   } catch {
     // eslint-disable-next-line no-console
