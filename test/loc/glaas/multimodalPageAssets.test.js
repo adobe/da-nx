@@ -2,6 +2,7 @@ import { expect } from '@esm-bundle/chai';
 import { glaasSourcePreviewUrl } from '../../../nx/blocks/loc/connectors/glaas/api.js';
 import {
   buildMultimodalPageAssetEntry,
+  buildMultimodalTextAsset,
   collectContentDaLiveImageUrls,
   collectMultimodalAssetNames,
   countMultimodalTranslatedPages,
@@ -63,6 +64,50 @@ describe('GLaaS multimodal pageAssets', () => {
     });
     expect(entry.htmlGlaasName).to.equal('/drafts/page.html');
     expect(entry.images).to.deep.equal([]);
+  });
+});
+
+describe('GLaaS multimodal TEXT asset metadata', () => {
+  it('includes langMetadata and languageContext on TEXT assets (v1.2 parity)', () => {
+    const asset = buildMultimodalTextAsset({
+      pagePath: '/drafts/demo/page.html',
+      signedUrl: 'https://put.example/html',
+      targetLocales: ['de', 'fr'],
+      pagePreviewUrl: 'https://main--site--org.aem.page/drafts/demo/page',
+      translationMetadata: {
+        de: { 'keywords|block_1_title': 'keyword de' },
+      },
+      languageContext: {
+        de: {
+          keywords: [{ sourceKeyword: 'gif file', targetKeywords: [{ keyword: 'GIF-Datei' }] }],
+        },
+      },
+    });
+    expect(asset).to.deep.equal({
+      type: 'TEXT',
+      name: '/drafts/demo/page.html',
+      signedUrl: 'https://put.example/html',
+      targetLocales: ['de', 'fr'],
+      sourcePreviewUrlPage: 'https://main--site--org.aem.page/drafts/demo/page',
+      langMetadata: {
+        de: { 'keywords|block_1_title': 'keyword de' },
+      },
+      languageContext: {
+        de: {
+          keywords: [{ sourceKeyword: 'gif file', targetKeywords: [{ keyword: 'GIF-Datei' }] }],
+        },
+      },
+    });
+  });
+
+  it('omits empty langMetadata and languageContext', () => {
+    const asset = buildMultimodalTextAsset({
+      pagePath: '/drafts/demo/page.html',
+      signedUrl: 'https://put.example/html',
+      targetLocales: ['de'],
+    });
+    expect(asset.langMetadata).to.equal(undefined);
+    expect(asset.languageContext).to.equal(undefined);
   });
 });
 

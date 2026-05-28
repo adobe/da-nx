@@ -419,6 +419,27 @@ export function buildMultimodalPageAssetEntry({ htmlAssetName, imageUrls }) {
   return { htmlGlaasName, images };
 }
 
+export function buildMultimodalTextAsset({
+  pagePath,
+  signedUrl,
+  targetLocales,
+  pagePreviewUrl,
+  translationMetadata,
+  languageContext,
+}) {
+  return {
+    type: 'TEXT',
+    name: pagePath,
+    signedUrl,
+    targetLocales,
+    ...(pagePreviewUrl && { sourcePreviewUrlPage: pagePreviewUrl }),
+    ...(translationMetadata && Object.keys(translationMetadata).length > 0 && {
+      langMetadata: translationMetadata,
+    }),
+    ...(languageContext && Object.keys(languageContext).length > 0 && { languageContext }),
+  };
+}
+
 export async function uploadMultimodalPageAssets({
   origin,
   clientid,
@@ -430,6 +451,8 @@ export async function uploadMultimodalPageAssets({
   logRequest,
   aemHref,
   sourcePreviewUrl,
+  translationMetadata,
+  languageContext,
 }) {
   const htmlPut = await getPutUrlForFile({
     origin, clientid, token, assetName: htmlAssetName, logRequest,
@@ -447,13 +470,14 @@ export async function uploadMultimodalPageAssets({
 
   const pagePath = glaasLogicalAssetName(htmlAssetName);
   const pagePreviewUrl = sourcePreviewUrl ?? glaasSourcePreviewUrl(aemHref);
-  const assets = [{
-    type: 'TEXT',
-    name: pagePath,
+  const assets = [buildMultimodalTextAsset({
+    pagePath,
     signedUrl: htmlPut.putURL,
     targetLocales,
-    ...(pagePreviewUrl && { sourcePreviewUrlPage: pagePreviewUrl }),
-  }];
+    pagePreviewUrl,
+    translationMetadata,
+    languageContext,
+  })];
 
   let imageUrls = collectContentDaLiveImageUrls(htmlContent);
   if (maxImages != null) imageUrls = imageUrls.slice(0, maxImages);

@@ -241,6 +241,8 @@ async function sendMultimodalTask(service, suppliedTask, urls, actions) {
         targetLocales,
         logRequest,
         aemHref: url.aemHref,
+        translationMetadata: url.translationMetadata,
+        languageContext: url.languageContext,
       });
       if (uploaded.error) {
         sendMessage({ text: `Multimodal upload failed: ${uploaded.error}`, type: 'error' });
