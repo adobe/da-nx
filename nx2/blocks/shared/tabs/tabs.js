@@ -1,12 +1,38 @@
+/**
+ * `<nx-tabs>` — accessible tab navigation primitive.
+ *
+ * Properties:
+ *   - `items` (Array<{ id: string, label: string }>): tab definitions. Setting
+ *     this property triggers a render; mutating the array in place will NOT.
+ *   - `active` (String, reflected): id of the active tab. Auto-defaults to
+ *     `items[0].id` when missing OR when the current value is not present in
+ *     the new `items` list.
+ *   - `label` (String): value used as `aria-label` on the tablist. Defaults to
+ *     `"Navigation tabs"` when unset; override for localised contexts.
+ *
+ * Events:
+ *   - `tab-change` (bubbles, composed): fired on click or keyboard activation.
+ *     Detail: `{ id: string }`. Not fired when the active tab is reactivated.
+ *
+ * Keyboard model (matches WAI-ARIA tablist pattern):
+ *   - ArrowRight / ArrowLeft cycle through tabs with wrap.
+ *   - Home / End jump to first / last tab.
+ *   - Focus follows selection; disconnect-safe (focus call no-ops if removed).
+ *
+ * Shadow part: `tab`.
+ */
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../utils/utils.js';
 
 const styles = await loadStyle(import.meta.url);
 
+const DEFAULT_TABLIST_LABEL = 'Navigation tabs';
+
 class NxTabs extends LitElement {
   static properties = {
     items: { attribute: false },
     active: { type: String, reflect: true },
+    label: { type: String },
   };
 
   connectedCallback() {
@@ -15,8 +41,10 @@ class NxTabs extends LitElement {
   }
 
   updated(changed) {
-    if (changed.has('items') && this.items?.length && !this.active) {
-      this.active = this.items[0].id;
+    if (!changed.has('items') || !this.items?.length) return;
+    const ids = this.items.map((i) => i.id);
+    if (!ids.includes(this.active)) {
+      [this.active] = ids;
     }
   }
 
@@ -28,6 +56,12 @@ class NxTabs extends LitElement {
       bubbles: true,
       composed: true,
     }));
+  }
+
+  _focusTab(id) {
+    if (!this.isConnected || !this.shadowRoot) return;
+    const [btn] = this.shadowRoot.querySelectorAll(`[data-id="${CSS.escape(id)}"]`);
+    btn?.focus();
   }
 
   _onKeydown(e) {
@@ -49,17 +83,21 @@ class NxTabs extends LitElement {
     }
 
     e.preventDefault();
-    this._select(ids[nextIdx]);
-    this.updateComplete.then(() => {
-      this.shadowRoot.querySelector(`[data-id="${CSS.escape(ids[nextIdx])}"]`)?.focus();
-    });
+    const nextId = ids[nextIdx];
+    this._select(nextId);
+    this.updateComplete.then(() => this._focusTab(nextId));
   }
 
   render() {
     if (!this.items?.length) return nothing;
 
     return html`
-      <div class="tabs" role="tablist" aria-label="Navigation tabs" @keydown=${this._onKeydown}>
+      <div
+        class="tabs"
+        role="tablist"
+        aria-label=${this.label || DEFAULT_TABLIST_LABEL}
+        @keydown=${this._onKeydown}
+      >
         ${this.items.map((item) => html`
           <button
             role="tab"
@@ -77,4 +115,4 @@ class NxTabs extends LitElement {
   }
 }
 
-customElements.define('nx-tabs', NxTabs);
+if (!customElements.get('nx-tabs')) customElements.define('nx-tabs', NxTabs);

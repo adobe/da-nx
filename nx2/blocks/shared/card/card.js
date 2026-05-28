@@ -1,3 +1,26 @@
+/**
+ * `<nx-card>` — minimal Spectrum 2 card primitive for list views.
+ *
+ * Properties (attributes):
+ *   - `heading` (String): primary text line; omitted from render when unset.
+ *   - `subheading` (String): secondary text line; omitted from render when unset.
+ *   - `pill` (String): label rendered inside the leading badge. When set to a
+ *     non-empty string it takes precedence over the `pill` slot; when unset or
+ *     empty, the `<slot name="pill">` is exposed instead. Only one of the two
+ *     ever renders.
+ *   - `selected` (Boolean, reflected): renders the selected visual state.
+ *   - `interactive` (Boolean, reflected): cursor + hover affordance.
+ *
+ * Slots:
+ *   - default: card body content (below subheading).
+ *   - `name="pill"`: custom badge content; ignored when `pill` attribute is set.
+ *   - `name="actions"`: trailing controls (icon buttons, checkboxes).
+ *
+ * Events: none — the component is purely presentational. Consumers handle
+ * clicks/keys on the host or via `actions` slot children.
+ *
+ * Shadow parts: `card`, `pill`, `heading`, `subheading`.
+ */
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../utils/utils.js';
 
@@ -18,12 +41,12 @@ class NxCard extends LitElement {
   }
 
   render() {
+    const hasPill = typeof this.pill === 'string' && this.pill.length > 0;
     return html`
       <div class="card" part="card">
-        ${this.pill !== undefined
+        ${hasPill
           ? html`<div class="card-pill" part="pill">${this.pill}</div>`
-          : nothing}
-        <slot name="pill"></slot>
+          : html`<slot name="pill"></slot>`}
         <div class="card-body">
           ${this.heading
             ? html`<span class="card-heading" part="heading">${this.heading}</span>`
@@ -41,4 +64,4 @@ class NxCard extends LitElement {
   }
 }
 
-customElements.define('nx-card', NxCard);
+if (!customElements.get('nx-card')) customElements.define('nx-card', NxCard);

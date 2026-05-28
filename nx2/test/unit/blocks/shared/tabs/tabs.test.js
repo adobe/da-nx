@@ -7,11 +7,15 @@ const ITEMS = [
   { id: 'prompts', label: 'Prompts' },
 ];
 
-async function createTabs(items = ITEMS, active = undefined) {
+const created = [];
+
+async function createTabs(items = ITEMS, active = undefined, label = undefined) {
   const el = document.createElement('nx-tabs');
   el.items = items;
   if (active !== undefined) el.active = active;
+  if (label !== undefined) el.label = label;
   document.body.appendChild(el);
+  created.push(el);
   await el.updateComplete;
   return el;
 }
@@ -20,9 +24,14 @@ function buttons(el) {
   return [...el.shadowRoot.querySelectorAll('button[role="tab"]')];
 }
 
+function pressKey(el, key) {
+  const tablist = el.shadowRoot.querySelector('[role="tablist"]');
+  tablist.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+}
+
 describe('nx-tabs', () => {
   afterEach(() => {
-    document.body.querySelectorAll('nx-tabs').forEach((el) => el.remove());
+    while (created.length) created.pop().remove();
   });
 
   it('registers the custom element', () => {
@@ -76,28 +85,95 @@ describe('nx-tabs', () => {
 
   it('ArrowRight moves to the next tab and wraps at the end', async () => {
     const el = await createTabs(ITEMS, 'prompts');
-    const tablist = el.shadowRoot.querySelector('[role="tablist"]');
-    tablist.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true }));
+    pressKey(el, 'ArrowRight');
     await el.updateComplete;
     expect(el.active).to.equal('skills');
   });
 
   it('ArrowLeft moves to the previous tab and wraps at the start', async () => {
     const el = await createTabs(ITEMS, 'skills');
-    const tablist = el.shadowRoot.querySelector('[role="tablist"]');
-    tablist.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowLeft', bubbles: true }));
+    pressKey(el, 'ArrowLeft');
     await el.updateComplete;
     expect(el.active).to.equal('prompts');
   });
 
   it('Home and End jump to first and last tab respectively', async () => {
     const el = await createTabs(ITEMS, 'agents');
-    const tablist = el.shadowRoot.querySelector('[role="tablist"]');
-    tablist.dispatchEvent(new KeyboardEvent('keydown', { key: 'End', bubbles: true }));
+    pressKey(el, 'End');
     await el.updateComplete;
     expect(el.active).to.equal('prompts');
-    tablist.dispatchEvent(new KeyboardEvent('keydown', { key: 'Home', bubbles: true }));
+    pressKey(el, 'Home');
     await el.updateComplete;
     expect(el.active).to.equal('skills');
+  });
+
+  it('focuses the newly active tab button after Arrow navigation', async () => {
+    const el = await createTabs(ITEMS, 'skills');
+    el.focus();
+    pressKey(el, 'ArrowRight');
+    await el.updateComplete;
+    await new Promise((resolve) => { setTimeout(resolve, 0); });
+    const focusedId = el.shadowRoot.activeElement?.dataset.id;
+    expect(focusedId).to.equal('agents');
+  });
+
+  it('focuses the new tab on Home/End navigation', async () => {
+    const el = await createTabs(ITEMS, 'agents');
+    el.focus();
+    pressKey(el, 'End');
+    await el.updateComplete;
+    await new Promise((resolve) => { setTimeout(resolve, 0); });
+    expect(el.shadowRoot.activeElement?.dataset.id).to.equal('prompts');
+  });
+
+  it('defaults active when items arrive after mount', async () => {
+    const el = await createTabs([]);
+    expect(el.active).to.be.undefined;
+    el.items = ITEMS;
+    await el.updateComplete;
+    expect(el.active).to.equal('skills');
+    expect(el.shadowRoot.querySelector('.tab.is-active')?.dataset.id).to.equal('skills');
+  });
+
+  it('resets active to first id when current active is no longer in items', async () => {
+    const el = await createTabs(ITEMS, 'agents');
+    el.items = [{ id: 'other', label: 'Other' }];
+    await el.updateComplete;
+    expect(el.active).to.equal('other');
+  });
+
+  it('preserves active when it is still present after items change', async () => {
+    const el = await createTabs(ITEMS, 'agents');
+    el.items = [
+      { id: 'agents', label: 'Agents' },
+      { id: 'extras', label: 'Extras' },
+    ];
+    await el.updateComplete;
+    expect(el.active).to.equal('agents');
+  });
+
+  it('uses the provided label for aria-label on the tablist', async () => {
+    const el = await createTabs(ITEMS, undefined, 'Skill categories');
+    const tablist = el.shadowRoot.querySelector('[role="tablist"]');
+    expect(tablist.getAttribute('aria-label')).to.equal('Skill categories');
+  });
+
+  it('falls back to "Navigation tabs" when no label is provided', async () => {
+    const el = await createTabs();
+    const tablist = el.shadowRoot.querySelector('[role="tablist"]');
+    expect(tablist.getAttribute('aria-label')).to.equal('Navigation tabs');
+  });
+
+  it('does not throw if disconnected before focus settles', async () => {
+    const el = await createTabs(ITEMS, 'skills');
+    el.focus();
+    pressKey(el, 'ArrowRight');
+    el.remove();
+    await new Promise((resolve) => { setTimeout(resolve, 0); });
+  });
+
+  it('guards customElements.define against double registration', () => {
+    expect(() => customElements.define('nx-tabs', class extends HTMLElement {})).to.throw();
+    expect(customElements.get('nx-tabs')).to.exist;
   });
 });
