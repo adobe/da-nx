@@ -1,4 +1,13 @@
 :host {
+  /* tmp: pill badge dimensions — no s2 sizing token for fixed icon/badge sizes */
+  --_card-pill-size: 1.75rem;
+  /* tmp: badge font — intentionally smaller than --s2-body-size-xs */
+  --_card-pill-font-size: 10px;
+  /* tmp: sub-pixel gap between heading and subheading lines */
+  --_card-body-gap: 1px;
+  /* tmp: hover/selection transition — no s2 motion token in this codebase */
+  --_card-transition-duration: 0.15s;
+
   display: block;
   font-family: var(--s2-font-family);
 }
@@ -11,7 +20,7 @@
   border: 1px solid var(--s2-gray-200);
   border-radius: var(--s2-corner-radius-200);
   background: light-dark(var(--s2-gray-25), var(--s2-gray-50));
-  transition: border-color 0.15s, background 0.15s;
+  transition: border-color var(--_card-transition-duration), background var(--_card-transition-duration);
   user-select: none;
 }
 
@@ -36,11 +45,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 1.75rem;
-  height: 1.75rem;
+  width: var(--_card-pill-size);
+  height: var(--_card-pill-size);
   border-radius: var(--s2-corner-radius-200);
   background: var(--s2-gray-200);
-  font-size: 10px;
+  font-size: var(--_card-pill-font-size);
   font-weight: var(--s2-heading-font-weight);
   text-transform: uppercase;
   letter-spacing: 0.03em;
@@ -55,7 +64,7 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: var(--_card-body-gap);
   min-width: 0;
 }
 
