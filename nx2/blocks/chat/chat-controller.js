@@ -1,5 +1,5 @@
 import { loadIms } from '../../utils/ims.js';
-import { AGENT_EVENT, ROLE, TOOL_NAME, TOOL_STATE } from './constants.js';
+import { AGENT_EVENT, ROLE, TOOL_NAME, TOOL_SCOPE, TOOL_STATE } from './constants.js';
 import { readStream } from './utils.js';
 import { loadMessages, saveMessages, resetSession } from './persistence.js';
 
@@ -215,6 +215,8 @@ export default class ChatController {
     if (approved) {
       try {
         await this._stream(this._pageContextForAgent());
+        const scope = TOOL_SCOPE[card.toolName];
+        if (scope) this._onToolDone?.(scope, affectedFolders(card.toolName, card.input));
       } catch (err) {
         if (err.name !== 'AbortError') {
           this._messages = [...this._messages, { role: ROLE.ASSISTANT, content: `Error: ${err.message}` }];
