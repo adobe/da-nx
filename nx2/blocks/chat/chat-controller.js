@@ -2,9 +2,10 @@ import { loadIms } from '../../utils/ims.js';
 import { AGENT_EVENT, ROLE, TOOL_STATE } from './constants.js';
 import { readStream } from './utils.js';
 import { loadMessages, saveMessages, resetSession } from './persistence.js';
-import { DA_AGENT } from '../../utils/utils.js';
 
-const AGENT_URL = `${DA_AGENT}/chat`;
+const AGENT_URL = new URLSearchParams(window.location.search).get('ref') === 'local'
+  ? 'http://localhost:4200/chat'
+  : 'https://agent.da.live/chat';
 
 /**
  * Drop assistant array-content messages whose tool-call IDs have no matching

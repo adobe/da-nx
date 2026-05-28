@@ -40,14 +40,6 @@ const DA_LIVE_PREVIEW_ENVS = {
   prod: 'https://preview.da.live',
 };
 
-const DA_AGENT_ENVS = {
-  local: 'http://localhost:4002',
-  dev: 'http://localhost:4002',
-  stage: 'https://agent.da.live',
-  ci: 'https://da-agent-ci.adobeaem.workers.dev',
-  prod: 'https://agent.da.live',
-};
-
 const DA_ETC_ENVS = {
   dev: 'http://localhost:8787',
   prod: 'https://da-etc.adobeaem.workers.dev',
@@ -69,7 +61,6 @@ export const DA_ADMIN = getEnv('da-admin', DA_ADMIN_ENVS);
 export const DA_COLLAB = getEnv('da-collab', DA_COLLAB_ENVS);
 export const DA_CONTENT = getEnv('da-content', DA_CONTENT_ENVS);
 export const DA_PREVIEW = getEnv('da-preview', DA_LIVE_PREVIEW_ENVS);
-export const DA_AGENT = getEnv('da-agent', DA_AGENT_ENVS);
 export const DA_ETC = getEnv('da-etc', DA_ETC_ENVS);
 
 export const HLX_ADMIN = 'https://admin.hlx.page';
@@ -77,7 +68,6 @@ export const AEM_API = 'https://api.aem.live';
 
 export const ALLOWED_TOKEN = [
   DA_ADMIN,
-  DA_AGENT,
   DA_COLLAB,
   DA_CONTENT,
   DA_PREVIEW,
