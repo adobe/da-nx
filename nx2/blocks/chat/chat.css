@@ -457,6 +457,7 @@
   flex-direction: column;
   gap: var(--s2-spacing-100);
   padding: var(--s2-spacing-100);
+  z-index: 1;
 
   .approval-tool-name {
     font-weight: bold;
