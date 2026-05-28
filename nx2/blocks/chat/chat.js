@@ -161,8 +161,12 @@ class NxChat extends LitElement {
     this.shadowRoot.adoptedStyleSheets = [styles];
 
     this._controller = new ChatController({
-      onToolDone: () => {
-        this.dispatchEvent(new CustomEvent('nx-agent-change', { bubbles: true, composed: true }));
+      onToolDone: (scope, paths) => {
+        this.dispatchEvent(new CustomEvent('nx-agent-change', {
+          bubbles: true,
+          composed: true,
+          detail: { scope, paths },
+        }));
       },
       onUpdate: ({ messages, thinking, streamingText, connected, toolCards }) => {
         this.messages = streamingText

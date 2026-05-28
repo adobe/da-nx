@@ -1,4 +1,4 @@
-import { AGENT_EVENT as EVENT } from './constants.js';
+import { AGENT_EVENT as EVENT, TOOL_SCOPE } from './constants.js';
 
 function processEvent(event, streaming, callbacks) {
   const { onDelta, onText, onTool } = callbacks;
@@ -43,6 +43,7 @@ function processEvent(event, streaming, callbacks) {
       toolName: event.toolName,
       output: raw,
       isError,
+      scope: !isError ? TOOL_SCOPE[event.toolName] : undefined,
     });
   }
 

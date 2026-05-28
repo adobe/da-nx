@@ -1,7 +1,22 @@
 import { loadIms } from '../../utils/ims.js';
-import { AGENT_EVENT, ROLE, TOOL_STATE } from './constants.js';
+import { AGENT_EVENT, ROLE, TOOL_NAME, TOOL_STATE } from './constants.js';
 import { readStream } from './utils.js';
 import { loadMessages, saveMessages, resetSession } from './persistence.js';
+
+function affectedFolders(toolName, input) {
+  const { org, repo } = input ?? {};
+  if (!org || !repo) return [];
+  const toParent = (p) => {
+    const parts = (p ?? '').replace(/^\//, '').split('/').filter(Boolean);
+    parts.pop();
+    return `/${org}/${repo}${parts.length ? `/${parts.join('/')}` : ''}`;
+  };
+  if (toolName === TOOL_NAME.CONTENT_MOVE) {
+    return [...new Set([toParent(input.sourcePath), toParent(input.destinationPath)])];
+  }
+  if (toolName === TOOL_NAME.CONTENT_COPY) return [toParent(input.destinationPath)];
+  return input.path ? [toParent(input.path)] : [];
+}
 
 const AGENT_URL = new URLSearchParams(window.location.search).get('ref') === 'local'
   ? 'http://localhost:4200/chat'
@@ -114,7 +129,7 @@ export default class ChatController {
   }
 
   _onToolEvent = ({
-    type, toolCallId, toolName, input, output, isError, approvalId,
+    type, toolCallId, toolName, input, output, isError, approvalId, scope,
   }) => {
     const next = new Map(this._toolCards ?? []);
 
@@ -165,7 +180,7 @@ export default class ChatController {
             }],
           },
         ];
-        this._onToolDone?.();
+        this._onToolDone?.(scope, affectedFolders(toolName, prior.input));
       }
     }
 
