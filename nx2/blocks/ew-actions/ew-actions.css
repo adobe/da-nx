@@ -28,6 +28,13 @@
   justify-content: flex-end;
 }
 
+.preview-row da-prepare {
+  display: block;
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+}
+
 .preview-dropdown-btn {
   display: inline-flex;
   align-items: center;

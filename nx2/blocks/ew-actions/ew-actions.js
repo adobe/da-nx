@@ -13,11 +13,45 @@ const style = await loadStyle(import.meta.url);
 const { codeBase } = getConfig();
 const SEND_ICON_HREF = `${codeBase}/img/icons/s2-icon-send-20-n.svg#icon`;
 
+const prepareModuleUrl = () => `${window.location.origin}/blocks/edit/da-prepare/da-prepare.js`;
+
+/** @param {string} segment */
+const withHtmlExt = (segment) => {
+  if (!segment || segment.endsWith('/') || /\.(html|json)$/.test(segment)) return segment;
+  return `${segment}.html`;
+};
+
+/**
+ * Shape expected by da-prepare and its OOTB actions (matches da.live pathDetails).
+ * @param {{ org?: string, site?: string, path?: string, fullpath?: string } | null} state
+ */
+function buildPrepareDetails(state) {
+  const { org, site, path } = state || {};
+  if (!org || !site || !path) return null;
+
+  const docPath = path.startsWith('/') ? path : `/${path}`;
+  const pathname = withHtmlExt(docPath);
+  let fullpath = state.fullpath || `/${org}/${site}${pathname}`;
+  if (!fullpath.startsWith('/')) fullpath = `/${fullpath}`;
+  fullpath = withHtmlExt(fullpath);
+
+  return {
+    org,
+    site,
+    owner: org,
+    repo: site,
+    path: pathname,
+    fullpath,
+    view: 'edit',
+  };
+}
+
 class NXEwActions extends LitElement {
   static properties = {
     _busy: { state: true },
     _error: { state: true },
     _hashState: { state: true },
+    _prepareReady: { state: true },
   };
 
   _busy = false;
@@ -34,6 +68,18 @@ class NXEwActions extends LitElement {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
     this._unsubHash = hashChange.subscribe((state) => { this._hashState = state; });
+    this._loadPrepare();
+  }
+
+  async _loadPrepare() {
+    if (this._prepareReady) return;
+    try {
+      await import(prepareModuleUrl());
+      if (!this.isConnected) return;
+      this._prepareReady = true;
+    } catch {
+      /* prepare menu unavailable (e.g. module load failure) */
+    }
   }
 
   disconnectedCallback() {
@@ -87,11 +133,13 @@ class NXEwActions extends LitElement {
   render() {
     const hasDoc = Boolean(buildAemPathFromHashState(this._hashState));
     const disabled = !hasDoc || this._busy;
+    const prepareDetails = this._prepareReady ? buildPrepareDetails(this._hashState) : null;
 
     return html`
       <div class="ew-actions">
         <div class="right">
           <div class="preview-row">
+            ${prepareDetails ? html`<da-prepare class="s2" .details=${prepareDetails}></da-prepare>` : nothing}
             <button
               type="button"
               class="preview-dropdown-btn"
