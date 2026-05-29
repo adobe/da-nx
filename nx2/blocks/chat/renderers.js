@@ -48,10 +48,98 @@ function renderNode(node) {
 
 const parser = unified().use(remarkParse);
 
+function parseDirectives(text) {
+  const segments = [];
+  const buf = [];
+  let type = null;
+  let openLine = null;
+
+  for (const line of text.split('\n')) {
+    if (!type && line.startsWith(':::')) {
+      const content = buf.splice(0).join('\n');
+      if (content) segments.push({ kind: 'text', content });
+      [type] = line.slice(3).split(' ');
+      openLine = line;
+    } else if (type && line.trimEnd() === ':::') {
+      segments.push({ kind: 'directive', type, content: buf.splice(0).join('\n') });
+      type = null;
+      openLine = null;
+    } else {
+      buf.push(line);
+    }
+  }
+
+  if (openLine) buf.unshift(openLine);
+  const tail = buf.join('\n');
+  if (tail) segments.push({ kind: 'text', content: tail });
+  return segments;
+}
+
+function renderChecklistItem(node) {
+  const para = node.children[0];
+  if (para?.type !== 'paragraph') return html`<li>${node.children.map(renderNode)}</li>`;
+  const first = para.children[0];
+  if (first?.type !== 'text') return html`<li>${renderNode(para)}</li>`;
+
+  const checked = first.value.startsWith('[x] ') || first.value.startsWith('[X] ');
+  const unchecked = first.value.startsWith('[ ] ');
+  if (!checked && !unchecked) return html`<li>${renderNode(para)}</li>`;
+
+  const inline = [
+    { ...first, value: first.value.slice(4) },
+    ...para.children.slice(1),
+  ].map(renderNode);
+  return html`<li class="${checked ? 'checked' : 'unchecked'}">
+    <input type="checkbox" ?checked=${checked} disabled><span>${inline}</span>
+  </li>`;
+}
+
+function renderToggleList(tree) {
+  const items = [];
+  let i = 0;
+  while (i < tree.children.length) {
+    const node = tree.children[i];
+    if (node.type === 'blockquote') {
+      const summary = node.children.flatMap((c) => (c.children ?? []).map(renderNode));
+      const body = [];
+      while (i + 1 < tree.children.length && tree.children[i + 1].type !== 'blockquote') {
+        i += 1;
+        body.push(renderNode(tree.children[i]));
+      }
+      items.push(html`<li><details><summary>${summary}</summary>${body}</details></li>`);
+    } else {
+      items.push(html`<li>${renderNode(node)}</li>`);
+    }
+    i += 1;
+  }
+  return html`<ul class="directive directive-toggle-list">${items}</ul>`;
+}
+
+function renderChecklist(tree) {
+  const inner = tree.children.map((n) => {
+    if (n.type !== 'list') return renderNode(n);
+    return n.ordered
+      ? html`<ol>${n.children.map(renderChecklistItem)}</ol>`
+      : html`<ul>${n.children.map(renderChecklistItem)}</ul>`;
+  });
+  return html`<div class="directive directive-checklist">${inner}</div>`;
+}
+
+function renderDirective(type, content) {
+  const tree = parser.parse(content);
+  if (type === 'toggle-list') return renderToggleList(tree);
+  if (type === 'checklist') return renderChecklist(tree);
+  return html`<div class="directive directive-${type}">${renderNode(tree)}</div>`;
+}
+
 function renderMessageContent(text) {
   if (!text) return nothing;
-  const tree = parser.parse(text);
-  return renderNode(tree);
+  const segments = parseDirectives(text);
+  return segments.map(({ kind, type, content }) => {
+    if (kind === 'directive') return renderDirective(type, content);
+    const tree = parser.parse(content);
+    return renderNode(tree);
+  });
 }
 
 function approvalSummary(input) {
@@ -160,4 +248,4 @@ function renderMessage(msg, toolCards) {
   `;
 }
 
-export { renderMessage, renderApprovalCard };
+export { renderMessage, renderApprovalCard, parseDirectives };

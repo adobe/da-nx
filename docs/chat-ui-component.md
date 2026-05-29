@@ -183,7 +183,7 @@ Each conversation has a `sessionId` (UUID) stored in IndexedDB alongside its mes
 
 | Event | Bubbles | Detail | Description |
 |---|---|---|---|
-| `nx-agent-change` | Yes | — | The agent completed a tool action. Host views can listen to react (e.g. reload the document). Fired once per successful tool-result. |
+| `nx-agent-change` | Yes | `{ scope: 'file' \| 'document', paths: string[] }` | The agent completed a tool action that changed content. `scope: 'file'` means the file tree changed (files created, deleted, moved, or copied); `scope: 'document'` means a document's content was modified. `paths` contains the affected parent folder paths. |
 
 ## Skills slash menu
 

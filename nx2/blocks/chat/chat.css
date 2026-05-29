@@ -142,6 +142,7 @@
   height: 100%;
 }
 
+.directive-toggle-list summary::before,
 .tool-card summary::before,
 .message .selection-context > summary::before {
   content: "";
@@ -190,6 +191,104 @@
     color: var(--s2-gray-500);
     overflow-wrap: break-word;
   }
+}
+
+.directive-checklist ul,
+.directive-toggle-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.directive-toggle-list {
+  details {
+    summary {
+      cursor: pointer;
+      display: flex;
+      align-items: flex-start;
+      gap: var(--s2-spacing-75);
+
+      &::-webkit-details-marker {
+        display: none;
+      }
+
+      &::before {
+        margin-top: 6px;
+      }
+    }
+
+    &[open] > summary::before {
+      transform: rotate(180deg);
+    }
+
+    &:not(:has(> :not(summary))) > summary {
+      pointer-events: none;
+
+      &::before {
+        display: none;
+      }
+    }
+  }
+}
+
+.directive-checklist {
+  li {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--s2-spacing-75);
+  }
+
+  input[type="checkbox"] {
+    position: relative;
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    margin-top: 4px;
+    appearance: none;
+    border: 2px solid var(--s2-gray-800);
+    border-radius: var(--s2-corner-radius-75);
+    background: var(--s2-gray-75);
+
+    &:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+
+    &:checked {
+      background: var(--s2-gray-800);
+
+      &::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background-color: var(--s2-gray-25);
+        mask-image: url("/nx2/img/icons/S2_Icon_Checkmark_20_N.svg");
+        mask-size: contain;
+        mask-repeat: no-repeat;
+        mask-position: center;
+      }
+    }
+  }
+}
+
+.directive-alert-info,
+.directive-alert-warning,
+.directive-alert-error {
+  padding: 6px var(--s2-spacing-200);
+  border-radius: 12px;
+  margin: 12px 0;
+}
+
+.directive-alert-info {
+  background-color: var(--s2-blue-200);
+}
+
+.directive-alert-warning {
+  background-color: var(--s2-orange-200);
+}
+
+.directive-alert-error {
+  background-color: var(--s2-red-200);
 }
 
 .message {
