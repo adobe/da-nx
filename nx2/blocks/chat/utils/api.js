@@ -1,5 +1,5 @@
-import { daFetch } from '../../utils/api.js';
-import { DA_ADMIN } from '../../utils/utils.js';
+import { daFetch } from '../../../utils/api.js';
+import { DA_ADMIN } from '../../../utils/utils.js';
 
 export async function loadSiteConfig(org, site) {
   try {

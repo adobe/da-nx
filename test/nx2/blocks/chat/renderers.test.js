@@ -1,5 +1,5 @@
 import { expect } from '@esm-bundle/chai';
-import { parseDirectives } from '../../../../nx2/blocks/chat/renderers.js';
+import { parseDirectives } from '../../../../nx2/blocks/chat/utils/parse.js';
 
 describe('parseDirectives', () => {
   describe('plain text', () => {
@@ -54,6 +54,21 @@ describe('parseDirectives', () => {
       expect(result).to.deep.equal([
         { kind: 'directive', type: 'list', content: '- a' },
         { kind: 'directive', type: 'checklist', content: '- [x] b' },
+      ]);
+    });
+  });
+
+  describe('bare ::: with no type', () => {
+    it('treats ::: with no type as plain text', () => {
+      expect(parseDirectives(':::')).to.deep.equal([{ kind: 'text', content: ':::' }]);
+    });
+
+    it('does not open a directive scope for bare :::', () => {
+      const text = ':::\n:::checklist\n- item\n:::';
+      const result = parseDirectives(text);
+      expect(result).to.deep.equal([
+        { kind: 'text', content: ':::' },
+        { kind: 'directive', type: 'checklist', content: '- item' },
       ]);
     });
   });

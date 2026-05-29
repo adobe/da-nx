@@ -1,6 +1,7 @@
 import { html, nothing } from 'da-lit';
 import { AGENT_EVENT, ROLE, TOOL_INPUT, TOOL_STATE } from './constants.js';
 import { getConfig } from '../../scripts/nx.js';
+import { parseDirectives } from './utils/parse.js';
 
 const { codeBase } = getConfig();
 
@@ -47,33 +48,6 @@ function renderNode(node) {
 }
 
 const parser = unified().use(remarkParse);
-
-function parseDirectives(text) {
-  const segments = [];
-  const buf = [];
-  let type = null;
-  let openLine = null;
-
-  for (const line of text.split('\n')) {
-    if (!type && line.startsWith(':::')) {
-      const content = buf.splice(0).join('\n');
-      if (content) segments.push({ kind: 'text', content });
-      [type] = line.slice(3).split(' ');
-      openLine = line;
-    } else if (type && line.trimEnd() === ':::') {
-      segments.push({ kind: 'directive', type, content: buf.splice(0).join('\n') });
-      type = null;
-      openLine = null;
-    } else {
-      buf.push(line);
-    }
-  }
-
-  if (openLine) buf.unshift(openLine);
-  const tail = buf.join('\n');
-  if (tail) segments.push({ kind: 'text', content: tail });
-  return segments;
-}
 
 function renderChecklistItem(node) {
   const para = node.children[0];
@@ -248,4 +222,4 @@ function renderMessage(msg, toolCards) {
   `;
 }
 
-export { renderMessage, renderApprovalCard, parseDirectives };
+export { renderMessage, renderApprovalCard };

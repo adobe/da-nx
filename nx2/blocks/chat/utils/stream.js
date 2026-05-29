@@ -1,4 +1,4 @@
-import { AGENT_EVENT as EVENT, TOOL_SCOPE } from './constants.js';
+import { AGENT_EVENT as EVENT, TOOL_SCOPE } from '../constants.js';
 
 function processEvent(event, streaming, callbacks) {
   const { onDelta, onText, onTool } = callbacks;
