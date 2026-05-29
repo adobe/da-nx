@@ -508,7 +508,8 @@
   font-size: var(--s2-body-size-s);
   background: inherit;
 
-  &:not(:placeholder-shown) + .chat-actions .chat-send {
+  &:not(:placeholder-shown) + .chat-actions .chat-send,
+  & + .chat-actions[data-has-items] .chat-send {
     display: flex;
   }
 
