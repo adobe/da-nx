@@ -52,7 +52,6 @@
         background-color: var(--s2-gray-700);
         color: var(--s2-gray-25);
       }
-
     }
 
     &.secondary-btn {
@@ -244,6 +243,7 @@
       .icon-paste {
         display: none;
       }
+
       .icon-checkmark {
         display: block;
       }
