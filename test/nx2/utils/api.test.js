@@ -471,7 +471,7 @@ describe('api.js', () => {
     it('versions.get legacy hits /versionsource/{org}/{versionId}', async () => {
       const { org: o, site: s } = makeOrgSite();
       await versions.get({ org: o, site: s, path: '/x.html', versionId: 'guid1/guid2.html' });
-      expect(lastCall().url).to.equal(`${DA_ADMIN}/versionsource/${o}/guid1/guid2.html`);
+      expect(lastCall().url).to.equal(`${DA_ADMIN}/versionsource/${o}/${s}/guid1/guid2.html`);
     });
 
     it('versions.create hlx6 POSTs operation/comment as JSON body', async () => {

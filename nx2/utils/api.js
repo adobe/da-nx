@@ -329,7 +329,7 @@ export const versions = {
       const url = `${AEM_API}/${org}/sites/${site}/source${path}/.versions/${versionId}`;
       return daFetch({ url });
     }
-    return daFetch({ url: `${DA_ADMIN}/versionsource/${org}/${versionId}` });
+    return daFetch({ url: `${DA_ADMIN}/versionsource/${org}/${site}/${versionId}` });
   }),
 
   create: withArgs(async ({ org, site, path, operation, comment }) => {
