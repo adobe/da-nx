@@ -1,6 +1,9 @@
+const ADOBE_AI_GUIDELINES_URL = 'https://www.adobe.com/legal/licenses-terms/adobe-dx-gen-ai-user-guidelines.html';
+
 const MENU_OPTIONS = {
   PROMPT: 'prompt',
   COMMAND: 'command',
+  FILES: 'files',
 };
 
 const ADD_MENU_ITEMS = [
@@ -90,11 +93,13 @@ const ROLE = {
 };
 
 export {
+  ADOBE_AI_GUIDELINES_URL,
   ADD_MENU_ITEMS,
   AGENT_EVENT,
   CHAT_ICONS,
   MENU_OPTIONS,
-  ROLE, TOOL_INPUT,
+  ROLE,
+  TOOL_INPUT,
   TOOL_NAME,
   TOOL_SCOPE,
   TOOL_STATE,

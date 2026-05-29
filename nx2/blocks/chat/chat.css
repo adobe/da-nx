@@ -52,7 +52,6 @@
         background-color: var(--s2-gray-700);
         color: var(--s2-gray-25);
       }
-
     }
 
     &.secondary-btn {
@@ -236,11 +235,18 @@
       display: block;
     }
 
-    .icon-checkmark { display: none; }
+    .icon-checkmark {
+      display: none;
+    }
 
     &:focus {
-      .icon-paste { display: none; }
-      .icon-checkmark { display: block; }
+      .icon-paste {
+        display: none;
+      }
+
+      .icon-checkmark {
+        display: block;
+      }
     }
   }
 
@@ -318,6 +324,35 @@
     var(--s2-spacing-100);
   gap: var(--s2-spacing-75);
   margin: 0 auto;
+  position: relative;
+}
+
+.chat-drop-zone {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s2-spacing-75);
+  background: color-mix(in srgb, var(--s2-gray-25) 85%, transparent);
+  border: 2px solid var(--s2-blue-900);
+  border-radius: var(--s2-corner-radius-400);
+  text-align: center;
+  padding: var(--s2-spacing-200);
+  box-sizing: border-box;
+
+  .chat-drop-title {
+    font-size: var(--s2-body-size-s);
+    font-weight: var(--s2-component-m-bold-font-weight);
+    color: var(--s2-gray-900);
+  }
+
+  .chat-drop-hint {
+    font-size: var(--s2-body-size-xs);
+    color: var(--s2-gray-600);
+  }
 }
 
 .chat-actions {
@@ -422,6 +457,7 @@
   flex-direction: column;
   gap: var(--s2-spacing-100);
   padding: var(--s2-spacing-100);
+  z-index: 1;
 
   .approval-tool-name {
     font-weight: bold;
@@ -461,6 +497,26 @@
 
   .icon-up {
     display: flex;
+  }
+}
+
+.chat-disclaimer {
+  max-width: 720px;
+  width: calc(100% - 2 * var(--s2-spacing-200));
+  margin: 0;
+  font-size: var(--s2-body-size-xs);
+  color: var(--s2-gray-700);
+  line-height: 1.5;
+  box-sizing: border-box;
+
+  a {
+    color: inherit;
+    font-weight: bold;
+    text-decoration: underline;
+
+    &:hover {
+      color: var(--s2-gray-900);
+    }
   }
 }
 
