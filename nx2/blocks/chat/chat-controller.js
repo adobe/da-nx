@@ -1,7 +1,22 @@
 import { loadIms } from '../../utils/ims.js';
-import { AGENT_EVENT, ROLE, TOOL_STATE } from './constants.js';
+import { AGENT_EVENT, ROLE, TOOL_NAME, TOOL_SCOPE, TOOL_STATE } from './constants.js';
 import { readStream } from './utils.js';
 import { loadMessages, saveMessages, resetSession } from './persistence.js';
+
+function affectedFolders(toolName, input) {
+  const { org, repo } = input ?? {};
+  if (!org || !repo) return [];
+  const toParent = (p) => {
+    const parts = (p ?? '').replace(/^\//, '').split('/').filter(Boolean);
+    parts.pop();
+    return `/${org}/${repo}${parts.length ? `/${parts.join('/')}` : ''}`;
+  };
+  if (toolName === TOOL_NAME.CONTENT_MOVE) {
+    return [...new Set([toParent(input.sourcePath), toParent(input.destinationPath)])];
+  }
+  if (toolName === TOOL_NAME.CONTENT_COPY) return [toParent(input.destinationPath)];
+  return input.path ? [toParent(input.path)] : [];
+}
 
 const AGENT_URL = new URLSearchParams(window.location.search).get('ref') === 'local'
   ? 'http://localhost:4200/chat'
@@ -133,7 +148,7 @@ export default class ChatController {
   }
 
   _onToolEvent = ({
-    type, toolCallId, toolName, input, output, isError, approvalId,
+    type, toolCallId, toolName, input, output, isError, approvalId, scope,
   }) => {
     const next = new Map(this._toolCards ?? []);
 
@@ -172,19 +187,40 @@ export default class ChatController {
       const state = isError ? TOOL_STATE.ERROR : TOOL_STATE.DONE;
       next.set(toolCallId, { ...prior, state, output });
       if (state === TOOL_STATE.DONE) {
-        // Add a virtual message so the tool renders in the conversation at the right
-        // position and persists across refreshes, without being sent back to the agent.
-        this._messages = [
-          ...this._messages,
-          {
-            role: ROLE.ASSISTANT,
-            virtual: true,
-            content: [{
-              type: AGENT_EVENT.TOOL_CALL, toolCallId, toolName: prior.toolName, input: prior.input,
-            }],
-          },
-        ];
-        this._onToolDone?.();
+        // Skip if a real message already exists for this toolCallId (approval flow adds one).
+        const hasApprovalMessage = this._messages.some(
+          (m) => !m.virtual && Array.isArray(m.content) && m.content.some(
+            (p) => p.type === AGENT_EVENT.TOOL_CALL && p.toolCallId === toolCallId,
+          ),
+        );
+        if (!hasApprovalMessage) {
+          this._messages = [
+            ...this._messages,
+            {
+              role: ROLE.ASSISTANT,
+              virtual: true,
+              content: [{
+                type: AGENT_EVENT.TOOL_CALL,
+                toolCallId,
+                toolName: prior.toolName,
+                input: prior.input,
+              }],
+            },
+          ];
+        }
+
+        // Once content_upload succeeds, replace dataBase64 with contentUrl so
+        // continuation POSTs don't retransmit bytes already in storage.
+        const contentUrl = output?.source?.contentUrl;
+        if (prior.toolName === 'content_upload' && prior.input?.attachmentRef && contentUrl) {
+          this._pendingAttachments = (this._pendingAttachments ?? []).map((a) => (
+            a.id === prior.input.attachmentRef
+              ? { id: a.id, fileName: a.fileName, mediaType: a.mediaType, contentUrl, ...(typeof a.sizeBytes === 'number' ? { sizeBytes: a.sizeBytes } : {}) }
+              : a
+          ));
+        }
+
+        this._onToolDone?.(scope, affectedFolders(toolName, prior.input));
       }
     }
 
@@ -219,6 +255,8 @@ export default class ChatController {
     if (approved) {
       try {
         await this._stream(this._pageContextForAgent());
+        const scope = TOOL_SCOPE[card.toolName];
+        if (scope) this._onToolDone?.(scope, affectedFolders(card.toolName, card.input));
       } catch (err) {
         if (err.name !== 'AbortError') {
           this._messages = [...this._messages, { role: ROLE.ASSISTANT, content: `Error: ${err.message}` }];
@@ -245,6 +283,7 @@ export default class ChatController {
         room,
         sessionId: this._sessionId,
         ...(this._requestedSkills?.length ? { requestedSkills: this._requestedSkills } : {}),
+        ...(this._pendingAttachments?.length ? { attachments: this._pendingAttachments } : {}),
       }),
       signal: this._abortController.signal,
     });
@@ -265,7 +304,7 @@ export default class ChatController {
     });
   }
 
-  async sendMessage(message, context = [], { requestedSkills = [] } = {}) {
+  async sendMessage(message, context = [], { requestedSkills = [], attachments = [] } = {}) {
     if (this._thinking || !this._connected) return;
 
     this._requestedSkills = requestedSkills;
@@ -277,12 +316,21 @@ export default class ChatController {
         ...(innerText && { innerText }),
       }));
 
+    const attachmentsMeta = attachments.map(({ id, fileName, mediaType, sizeBytes }) => ({
+      id,
+      fileName,
+      mediaType,
+      ...(typeof sizeBytes === 'number' ? { sizeBytes } : {}),
+    }));
+
     const userMessage = {
       role: ROLE.USER,
       content: message,
       ...(selectionContext.length && { selectionContext }),
+      ...(attachmentsMeta.length && { attachmentsMeta }),
     };
 
+    this._pendingAttachments = attachments;
     this._messages = [...(this._messages ?? []), userMessage];
     this._thinking = true;
     this._update();

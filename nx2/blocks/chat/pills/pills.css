@@ -47,6 +47,21 @@
     }
   }
 
+  .pill-thumbnail {
+    width: 16px;
+    height: 16px;
+    object-fit: cover;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  .pill-type-icon {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    color: var(--s2-blue-1000);
+  }
+
   .pill-label {
     overflow: hidden;
     text-overflow: ellipsis;
