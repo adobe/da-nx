@@ -200,7 +200,7 @@ async function createNewTask(service, task) {
   return { ...result, ...task, status: 'draft' };
 }
 
-async function sendMultimodalTask(service, suppliedTask, urls, actions) {
+async function sendMultimodalTask(service, suppliedTask, urls, actions, { org, site } = {}) {
   const { sendMessage, saveState } = actions;
   const { origin, clientid } = service;
   const targetLocales = suppliedTask.langs.map((lang) => lang.code);
@@ -243,6 +243,8 @@ async function sendMultimodalTask(service, suppliedTask, urls, actions) {
         aemHref: url.aemHref,
         translationMetadata: url.translationMetadata,
         languageContext: url.languageContext,
+        org,
+        site,
       });
       if (uploaded.error) {
         sendMessage({ text: `Multimodal upload failed: ${uploaded.error}`, type: 'error' });
@@ -288,9 +290,9 @@ async function sendMultimodalTask(service, suppliedTask, urls, actions) {
   }
 }
 
-async function sendTask(service, suppliedTask, urls, actions) {
+async function sendTask(service, suppliedTask, urls, actions, { org, site } = {}) {
   if (suppliedTask.workflowName === 'MULTIMODAL') {
-    await sendMultimodalTask(service, suppliedTask, urls, actions);
+    await sendMultimodalTask(service, suppliedTask, urls, actions, { org, site });
     return;
   }
 
@@ -404,11 +406,13 @@ export async function sendAllLanguages({
   const tasks = await getTasks(org, site, title, langs, urls, timestamp);
   await addTranslationMetadata(org, site, langs, urls);
   for (const key of Object.keys(tasks)) {
-    await sendTask(service, tasks[key], urls, actions);
+    await sendTask(service, tasks[key], urls, actions, { org, site });
   }
 }
 
-export async function getStatusAll({ service, langs, urls, actions }) {
+export async function getStatusAll({
+  org, site, service, langs, urls, actions,
+}) {
   const baseConf = { ...service, token };
   const { sendMessage, saveState } = actions;
 
@@ -471,7 +475,7 @@ export async function getStatusAll({ service, langs, urls, actions }) {
         urlPaths: task.urlPaths,
       };
 
-      await sendTask(service, tempTask, taskUrls, actions);
+      await sendTask(service, tempTask, taskUrls, actions, { org, site });
       if (task.workflowName === 'MULTIMODAL') {
         subtasks = await getMultimodalV2TaskStatus({
           service,

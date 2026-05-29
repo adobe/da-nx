@@ -49,6 +49,17 @@ describe('GLaaS multimodal pageAssets', () => {
     expect(entry.images[0].glaasName).to.equal('/adobecom/foo/rectangle 810724.png');
   });
 
+  it('collects only images under https://content.da.live/{org}/{site}', () => {
+    const html = `
+      <img src="https://content.da.live/adobecom/foo/same-site.png">
+      <img src="https://content.da.live/otherorg/foo/other-org.png">
+      <img src="https://content.da.live/adobecom/othersite/other-site.png">
+    `;
+    expect(collectContentDaLiveImageUrls(html, { org: 'adobecom', site: 'foo' })).to.deep.equal([
+      'https://content.da.live/adobecom/foo/same-site.png',
+    ]);
+  });
+
   it('ignores relative ./media_ paths (DNT) that are not on content.da.live', () => {
     const html = `
       <img src="./media_13f28848e8da34fafe003ee7053bf2118fb26c78a.jpg">

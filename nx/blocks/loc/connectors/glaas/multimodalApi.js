@@ -206,17 +206,28 @@ function isAbsoluteContentDaLiveUrl(href) {
   }
 }
 
+function isProjectContentDaLiveUrl(href, org, site) {
+  if (!isAbsoluteContentDaLiveUrl(href)) return false;
+  if (!org || !site) return true;
+  const prefix = `https://${CONTENT_DA_LIVE}/${org}/${site}`;
+  try {
+    return new URL(href).href.startsWith(prefix);
+  } catch {
+    return false;
+  }
+}
+
 /** MVP: absolute https://content.da.live/... image URLs only (not relative ./media_ from DNT). */
-export function collectContentDaLiveImageUrls(html) {
+export function collectContentDaLiveImageUrls(html, { org, site } = {}) {
   const doc = new DOMParser().parseFromString(html, 'text/html');
   const urls = new Set();
   doc.querySelectorAll('img[src]').forEach((img) => {
     const src = img.getAttribute('src');
-    if (isAbsoluteContentDaLiveUrl(src)) urls.add(new URL(src).href);
+    if (isProjectContentDaLiveUrl(src, org, site)) urls.add(new URL(src).href);
   });
   doc.querySelectorAll('source[srcset]').forEach((source) => {
     collectSrcsetUrls(source.getAttribute('srcset') || '').forEach((src) => {
-      if (isAbsoluteContentDaLiveUrl(src)) urls.add(new URL(src).href);
+      if (isProjectContentDaLiveUrl(src, org, site)) urls.add(new URL(src).href);
     });
   });
   return [...urls];
@@ -453,6 +464,8 @@ export async function uploadMultimodalPageAssets({
   sourcePreviewUrl,
   translationMetadata,
   languageContext,
+  org,
+  site,
 }) {
   const htmlPut = await getPutUrlForFile({
     origin, clientid, token, assetName: htmlAssetName, logRequest,
@@ -479,9 +492,9 @@ export async function uploadMultimodalPageAssets({
     languageContext,
   })];
 
-  let imageUrls = collectContentDaLiveImageUrls(htmlContent);
+  let imageUrls = collectContentDaLiveImageUrls(htmlContent, { org, site });
   if (maxImages != null) imageUrls = imageUrls.slice(0, maxImages);
-  logRequest?.('collect-images', { htmlAssetName, count: imageUrls.length, imageUrls });
+  logRequest?.('collect-images', { htmlAssetName, org, site, count: imageUrls.length, imageUrls });
   const sentImageUrls = [];
 
   for (let i = 0; i < imageUrls.length; i += 1) {
