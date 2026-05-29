@@ -275,9 +275,9 @@
 .directive-alert-info,
 .directive-alert-warning,
 .directive-alert-error {
-  padding: 6px var(--s2-spacing-200);
+  padding: var(--s2-spacing-75) var(--s2-spacing-200);
   border-radius: 12px;
-  margin: 12px 0;
+  margin: var(--s2-spacing-200) 0;
 }
 
 .directive-alert-info {
