@@ -8,7 +8,7 @@ import './welcome/welcome.js';
 import './prompts/prompts.js';
 import './pills/pills.js';
 import { loadSiteConfig } from './api.js';
-import { ADD_MENU_ITEMS, MENU_OPTIONS, ROLE, TOOL_STATE } from './constants.js';
+import { ADOBE_AI_GUIDELINES_URL, ADD_MENU_ITEMS, MENU_OPTIONS, ROLE, TOOL_STATE } from './constants.js';
 import { getConfig } from '../../scripts/nx.js';
 
 const styles = await loadStyle(import.meta.url);
@@ -509,6 +509,10 @@ class NxChat extends LitElement {
         </div>
         </form>
       </div>
+      <p class="chat-disclaimer">
+        Responses are generated using AI, and may be inaccurate. Check before using.
+        <a href="${ADOBE_AI_GUIDELINES_URL}" target="_blank" rel="noopener noreferrer">AI User Guidelines</a>
+      </p>
     `;
   }
 }
