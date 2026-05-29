@@ -74,20 +74,20 @@ describe('parseDirectives', () => {
   });
 
   describe('unclosed directive (streaming)', () => {
-    it('emits the opening line as text when directive is never closed', () => {
+    it('renders an unclosed directive as a directive with partial content', () => {
       const text = ':::checklist\n- [x] partial';
       const result = parseDirectives(text);
       expect(result).to.deep.equal([
-        { kind: 'text', content: ':::checklist\n- [x] partial' },
+        { kind: 'directive', type: 'checklist', content: '- [x] partial' },
       ]);
     });
 
-    it('emits completed directives before an unclosed one', () => {
+    it('renders completed and unclosed directives in order', () => {
       const text = ':::list\n- done\n:::\n:::checklist\n- partial';
       const result = parseDirectives(text);
       expect(result).to.deep.equal([
         { kind: 'directive', type: 'list', content: '- done' },
-        { kind: 'text', content: ':::checklist\n- partial' },
+        { kind: 'directive', type: 'checklist', content: '- partial' },
       ]);
     });
   });

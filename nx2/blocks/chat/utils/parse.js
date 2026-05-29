@@ -24,8 +24,11 @@ export function parseDirectives(text) {
     }
   }
 
-  if (openLine) buf.unshift(openLine);
-  const tail = buf.join('\n');
-  if (tail) segments.push({ kind: 'text', content: tail });
+  if (openLine) {
+    segments.push({ kind: 'directive', type, content: buf.join('\n') });
+  } else {
+    const tail = buf.join('\n');
+    if (tail) segments.push({ kind: 'text', content: tail });
+  }
   return segments;
 }
