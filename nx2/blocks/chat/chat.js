@@ -501,7 +501,7 @@ class NxChat extends LitElement {
           @keydown=${this._handleKeydown}
           @blur=${this._handleBlur}
         ></textarea>
-        <div class="chat-actions" ?data-thinking=${this.thinking}>
+        <div class="chat-actions" ?data-thinking=${this.thinking} ?data-has-items=${!!this._items?.length}>
           <nx-menu .items=${ADD_MENU_ITEMS} placement="above" @select=${this._handleMenuSelect}>
             <button slot="trigger" class="chat-add" type="button" aria-label="Add" @click=${this._onAddClick}>
               <span class="icon-add">${icon('add')}</span>
