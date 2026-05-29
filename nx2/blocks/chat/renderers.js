@@ -129,20 +129,26 @@ function renderMessage(msg, toolCards) {
       </button>`
     : nothing;
 
-  const selectionItem = ({ blockName }) => html`
+  const contextItem = (name) => html`
     <li class="selection-context-item">
-      ${selectionIcon(blockName)}
-      <span>${blockName}</span>
+      ${selectionIcon(name)}
+      <span>${name}</span>
     </li>`;
 
   let selectionPills = nothing;
-  if (!isAssistant && msg.selectionContext?.length) {
-    selectionPills = msg.selectionContext.length === 1
-      ? html`<ul class="selection-context-list" aria-label="Attached context">${selectionItem(msg.selectionContext[0])}</ul>`
-      : html`<details class="selection-context">
-          <summary><span class="selection-context-count">${msg.selectionContext.length} items added</span></summary>
-          <ul class="selection-context-list">${msg.selectionContext.map(selectionItem)}</ul>
+  if (!isAssistant) {
+    const items = [
+      ...(msg.selectionContext ?? []).map(({ blockName }) => contextItem(blockName)),
+      ...(msg.attachmentsMeta ?? []).map(({ fileName }) => contextItem(fileName)),
+    ];
+    if (items.length === 1) {
+      selectionPills = html`<ul class="selection-context-list" aria-label="Attached context">${items[0]}</ul>`;
+    } else if (items.length > 1) {
+      selectionPills = html`<details class="selection-context">
+          <summary><span class="selection-context-count">${items.length} items added</span></summary>
+          <ul class="selection-context-list">${items}</ul>
         </details>`;
+    }
   }
 
   return html`

@@ -3,6 +3,7 @@ const ADOBE_AI_GUIDELINES_URL = 'https://www.adobe.com/legal/licenses-terms/adob
 const MENU_OPTIONS = {
   PROMPT: 'prompt',
   COMMAND: 'command',
+  FILES: 'files',
 };
 
 const ADD_MENU_ITEMS = [
