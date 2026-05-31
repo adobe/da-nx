@@ -9,7 +9,7 @@ const DA_METADATA_SELECTOR = 'body > .da-metadata';
 const VERSION_SKIP_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'avif']);
 
 function shouldSaveVersion(url) {
-  if (url.isMultimodalMedia || url.skipVersion) return false;
+  if (url.skipVersion) return false;
   if (url.contentType?.startsWith('image/')) return false;
   const ext = url.destination?.split('.').pop()?.toLowerCase();
   return !VERSION_SKIP_EXTS.has(ext);

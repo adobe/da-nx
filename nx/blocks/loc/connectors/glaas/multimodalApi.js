@@ -8,18 +8,35 @@ function putUrlAssetName(assetName) {
   return assetName.replace(/^\/+/, '').replaceAll('/', '-');
 }
 
-export function glaasLogicalAssetName(assetName) {
+export function ensureLeadingSlash(assetName) {
   return assetName.startsWith('/') ? assetName : `/${assetName}`;
 }
 
-export function langstorePathFromGlaasName({ org, site, glaasName }) {
-  const logical = glaasLogicalAssetName(glaasName);
-  const sitePrefix = `/${org}/${site}`;
-  if (logical === sitePrefix) return '/';
-  if (logical.startsWith(`${sitePrefix}/`)) {
-    return logical.slice(sitePrefix.length);
+export function siteRelativePathFromContentDaLiveUrl(contentDaLiveUrl) {
+  try {
+    const pathname = decodeURIComponent(new URL(contentDaLiveUrl).pathname);
+    const segments = pathname.split('/').filter(Boolean);
+    if (segments.length <= 2) return '/';
+    return `/${segments.slice(2).join('/')}`;
+  } catch {
+    return '/';
   }
-  return logical;
+}
+
+export function buildTranslatedMediaPath({ langCode, glaasName }) {
+  const base = ensureLeadingSlash(glaasName);
+  const locale = String(langCode ?? '').replace(/^\/+|\/+$/g, '');
+  if (!locale) return base;
+  return `/${locale}${base}`;
+}
+
+export function removeSuffixFromMediaUrl(href) {
+  try {
+    const u = new URL(href);
+    return `${u.origin}${u.pathname}`;
+  } catch {
+    return href;
+  }
 }
 
 export function shouldLogMultimodalRequests() {
@@ -132,16 +149,14 @@ export async function createMultimodalTask({
   }
 }
 
-export async function getV2Asset(service, token, task, assetName, { storageSource = 'AZ', withMetadata } = {}) {
+export async function getV2Asset(service, token, task, assetName) {
   const { clientid, origin } = service;
   const { name: taskName, code: lang, workflow } = task;
   const [product = '', project = ''] = workflow?.split('/') ?? [];
   const opts = getOpts(clientid, token);
-  const sp = new URLSearchParams({ storageSource });
-  if (withMetadata === true) sp.set('withMetadata', 'true');
   try {
-    const path = glaasLogicalAssetName(assetName);
-    const resp = await fetch(`${origin}/api/l10n/v2.0/tasks/${product}/${project}/${taskName}/assets/${lang}${path}?${sp}`, opts);
+    const path = ensureLeadingSlash(assetName);
+    const resp = await fetch(`${origin}/api/l10n/v2.0/tasks/${product}/${project}/${taskName}/assets/${lang}${path}`, opts);
     const json = await resp.json();
     return { status: resp.status, json };
   } catch {
@@ -233,26 +248,11 @@ export function collectContentDaLiveImageUrls(html, { org, site } = {}) {
   return [...urls];
 }
 
-function assetNameFromUrl(url) {
-  return decodeURIComponent(new URL(url).pathname);
-}
-
 const CONTENT_DA_LIVE_ORIGIN = `https://${CONTENT_DA_LIVE}`;
 
 /** Map delivery URL to DA Admin source (same path after /source/). */
 export function contentDaLiveToDaSourceUrl(imageUrl) {
   return imageUrl.replace(CONTENT_DA_LIVE_ORIGIN, `${DA_ORIGIN}/source`);
-}
-
-/** DA Admin source path for a translated image in langstore. */
-export function buildLangstoreDaSourcePath({ org, site, langLocation, glaasName }) {
-  return `/${org}/${site}${langLocation}${langstorePathFromGlaasName({ org, site, glaasName })}`;
-}
-
-/** AEM delivery URL for a langstore image (matches quick-edit pattern). */
-export function buildLangstoreContentDaLiveUrl({ org, site, langLocation, glaasName }) {
-  const path = buildLangstoreDaSourcePath({ org, site, langLocation, glaasName });
-  return `https://content.da.live${path}`;
 }
 
 export function contentDaLivePathKey(href) {
@@ -263,18 +263,6 @@ export function contentDaLivePathKey(href) {
   } catch {
     return undefined;
   }
-}
-
-/** Strip /langstore/{lang} or /{locale} prefix; keep shared asset path (e.g. /acrobat/...). */
-export function stripRegionalDeliveryPrefix(siteRelativePath) {
-  if (!siteRelativePath?.startsWith('/')) return siteRelativePath ?? '';
-  if (siteRelativePath.startsWith('/langstore/')) {
-    const afterLangstore = siteRelativePath.slice('/langstore/'.length);
-    const slashIdx = afterLangstore.indexOf('/');
-    return slashIdx >= 0 ? afterLangstore.slice(slashIdx) : '/';
-  }
-  const slashIdx = siteRelativePath.indexOf('/', 1);
-  return slashIdx >= 0 ? siteRelativePath.slice(slashIdx) : '/';
 }
 
 function replaceSrcsetUrls(srcset, resolveNewUrl) {
@@ -330,9 +318,8 @@ export function collectMultimodalAssetNames(pageAssets) {
   return [...names];
 }
 
-/** Map one v2 get-asset probe to v1.2-style asset status for countMultimodalTranslatedPages. */
 export function v2AssetStatusFromProbe(assetName, meta) {
-  const logical = glaasLogicalAssetName(assetName);
+  const logical = ensureLeadingSlash(assetName);
   if (isV2AssetReady(meta)) {
     return {
       assetName: logical,
@@ -404,7 +391,7 @@ export function countMultimodalTranslatedPages(pageAssets, assets) {
   const completedNames = new Set(
     (assets ?? [])
       .filter((asset) => asset.status === 'COMPLETED')
-      .map((asset) => glaasLogicalAssetName(asset.assetName ?? '')),
+      .map((asset) => ensureLeadingSlash(asset.assetName ?? '')),
   );
 
   if (!pageAssets || Object.keys(pageAssets).length === 0) {
@@ -419,14 +406,11 @@ export function countMultimodalTranslatedPages(pageAssets, assets) {
 }
 
 export function buildMultimodalPageAssetEntry({ htmlAssetName, imageUrls }) {
-  const htmlGlaasName = glaasLogicalAssetName(htmlAssetName);
-  const images = imageUrls.map((contentDaLiveUrl) => {
-    const pathname = assetNameFromUrl(contentDaLiveUrl);
-    return {
-      contentDaLiveUrl,
-      glaasName: glaasLogicalAssetName(pathname),
-    };
-  });
+  const htmlGlaasName = ensureLeadingSlash(htmlAssetName);
+  const images = imageUrls.map((contentDaLiveUrl) => ({
+    contentDaLiveUrl,
+    glaasName: ensureLeadingSlash(siteRelativePathFromContentDaLiveUrl(contentDaLiveUrl)),
+  }));
   return { htmlGlaasName, images };
 }
 
@@ -441,6 +425,7 @@ export function buildMultimodalTextAsset({
   return {
     type: 'TEXT',
     name: pagePath,
+    parentAsset: pagePath,
     signedUrl,
     targetLocales,
     ...(pagePreviewUrl && { sourcePreviewUrlPage: pagePreviewUrl }),
@@ -481,7 +466,7 @@ export async function uploadMultimodalPageAssets({
   });
   if (htmlUpload.error) return { error: htmlUpload.error, step: 'put-html', ...htmlUpload };
 
-  const pagePath = glaasLogicalAssetName(htmlAssetName);
+  const pagePath = ensureLeadingSlash(htmlAssetName);
   const pagePreviewUrl = sourcePreviewUrl ?? glaasSourcePreviewUrl(aemHref);
   const assets = [buildMultimodalTextAsset({
     pagePath,
@@ -500,7 +485,7 @@ export async function uploadMultimodalPageAssets({
   for (let i = 0; i < imageUrls.length; i += 1) {
     const n = i + 1;
     const imageUrl = imageUrls[i];
-    const imageAssetName = assetNameFromUrl(imageUrl);
+    const imageAssetName = siteRelativePathFromContentDaLiveUrl(imageUrl);
     const imageSourceUrl = contentDaLiveToDaSourceUrl(imageUrl);
     logRequest?.('fetch-image', { n, contentDaLiveUrl: imageUrl, daSourceUrl: imageSourceUrl });
     let imageResp;
@@ -534,7 +519,7 @@ export async function uploadMultimodalPageAssets({
 
     assets.push({
       type: 'IMAGE',
-      name: glaasLogicalAssetName(imageAssetName),
+      name: ensureLeadingSlash(imageAssetName),
       parentAsset: pagePath,
       signedUrl: imagePut.putURL,
       targetLocales,
@@ -590,69 +575,63 @@ function mimeTypeForPath(path) {
   return MIME_BY_EXT[name.slice(dot + 1).toLowerCase()];
 }
 
-function isGenericBlobType(type) {
-  return !type || type === 'application/octet-stream';
-}
-
-/** Pick a concrete MIME for DA /source uploads (GLaaS often returns octet-stream). */
 export function blobContentTypeForDaSource({ daSourcePath, blob, contentType }) {
   const fromPath = mimeTypeForPath(daSourcePath);
   if (fromPath) return fromPath;
-  if (!isGenericBlobType(contentType)) return contentType;
-  if (!isGenericBlobType(blob?.type)) return blob.type;
+  if (contentType && contentType !== 'application/octet-stream') return contentType;
+  if (blob?.type && blob.type !== 'application/octet-stream') return blob.type;
   return contentType || blob?.type || 'application/octet-stream';
 }
 
-export async function saveBlobToDaSource(daSourcePath, blob, contentType) {
-  const type = blobContentTypeForDaSource({ daSourcePath, blob, contentType });
+export async function postImageToDaMedia({
+  org, site, langCode, glaasName, blob, contentType,
+}) {
+  const mediaPath = buildTranslatedMediaPath({ langCode, glaasName });
+  const type = blobContentTypeForDaSource({ daSourcePath: mediaPath, blob, contentType });
   const data = blob.type === type ? blob : new Blob([await blob.arrayBuffer()], { type });
   const body = new FormData();
-  body.append('data', data, daSourcePath.split('/').pop());
+  body.append('data', data, mediaPath.split('/').pop());
   try {
-    const resp = await daFetch(`${DA_ORIGIN}/source${daSourcePath}`, { method: 'POST', body });
-    if (!resp.ok) return { error: 'Error saving asset to DA.', status: resp.status };
-    return { status: resp.status };
+    const resp = await daFetch(`${DA_ORIGIN}/media/${org}/${site}${mediaPath}`, { method: 'POST', body });
+    if (!resp.ok) return { error: 'Error uploading image to media.', status: resp.status };
+    const json = await resp.json();
+    const href = json?.uri ?? json?.url;
+    if (!href) return { error: 'Missing media URI in response.', status: resp.status, json };
+    return { url: removeSuffixFromMediaUrl(href), status: resp.status };
   } catch {
-    return { error: 'Error saving asset to DA.' };
+    return { error: 'Error uploading image to media.' };
   }
 }
 
-/**
- * MULTIMODAL save: download images → langstore, rewrite HTML URLs, return translated HTML.
- */
 export async function prepareMultimodalPageForSave({
   service,
   token,
   task,
   org,
   site,
-  langLocation,
+  langCode,
   pageAsset,
   htmlAssetName,
 }) {
   const pathToNewUrl = new Map();
+  const locale = langCode ?? task.code;
 
   for (const image of pageAsset.images) {
     const downloaded = await downloadMultimodalAssetBlob(service, token, task, image.glaasName);
     if (downloaded.error) return downloaded;
 
-    const daPath = buildLangstoreDaSourcePath({
+    const uploaded = await postImageToDaMedia({
       org,
       site,
-      langLocation,
+      langCode: locale,
       glaasName: image.glaasName,
+      blob: downloaded.blob,
+      contentType: downloaded.contentType,
     });
-    const saved = await saveBlobToDaSource(daPath, downloaded.blob, downloaded.contentType);
-    if (saved.error) return saved;
+    if (uploaded.error) return uploaded;
 
-    const newUrl = buildLangstoreContentDaLiveUrl({
-      org,
-      site,
-      langLocation,
-      glaasName: image.glaasName,
-    });
     const sourceKey = contentDaLivePathKey(image.contentDaLiveUrl);
-    if (sourceKey) pathToNewUrl.set(sourceKey, newUrl);
+    if (sourceKey) pathToNewUrl.set(sourceKey, uploaded.url);
   }
 
   const htmlDownload = await downloadMultimodalAsset(service, token, task, htmlAssetName);
@@ -662,12 +641,5 @@ export async function prepareMultimodalPageForSave({
     ? rewriteContentDaLiveImageUrls(htmlDownload, pathToNewUrl)
     : htmlDownload;
 
-  const mediaPaths = pageAsset.images.map((image) => buildLangstoreDaSourcePath({
-    org,
-    site,
-    langLocation,
-    glaasName: image.glaasName,
-  }));
-
-  return { text, mediaPaths };
+  return { text };
 }

@@ -38,7 +38,7 @@ describe('GLaaS multimodal pageAssets', () => {
     const html = `
       <img src="https://content.da.live/adobecom/foo/rectangle%20810724.png">
     `;
-    const imageUrls = collectContentDaLiveImageUrls(html);
+    const imageUrls = collectContentDaLiveImageUrls(html, { org: 'adobecom', site: 'foo' });
     const entry = buildMultimodalPageAssetEntry({
       htmlAssetName: '/drafts/demo/page.html',
       imageUrls,
@@ -46,7 +46,7 @@ describe('GLaaS multimodal pageAssets', () => {
     expect(entry.htmlGlaasName).to.equal('/drafts/demo/page.html');
     expect(entry.images).to.have.length(1);
     expect(entry.images[0].contentDaLiveUrl).to.include('rectangle%20810724.png');
-    expect(entry.images[0].glaasName).to.equal('/adobecom/foo/rectangle 810724.png');
+    expect(entry.images[0].glaasName).to.equal('/rectangle 810724.png');
   });
 
   it('collects only images under https://content.da.live/{org}/{site}', () => {
@@ -97,6 +97,7 @@ describe('GLaaS multimodal TEXT asset metadata', () => {
     expect(asset).to.deep.equal({
       type: 'TEXT',
       name: '/drafts/demo/page.html',
+      parentAsset: '/drafts/demo/page.html',
       signedUrl: 'https://put.example/html',
       targetLocales: ['de', 'fr'],
       sourcePreviewUrlPage: 'https://main--site--org.aem.page/drafts/demo/page',
@@ -207,15 +208,15 @@ describe('GLaaS multimodal translated page count', () => {
       '/drafts/demo/page': {
         htmlGlaasName: '/drafts/demo/page.html',
         images: [
-          { glaasName: '/org/site/media/hero.png' },
-          { glaasName: '/org/site/media/report.png' },
+          { glaasName: '/media/hero.png' },
+          { glaasName: '/media/report.png' },
         ],
       },
     };
     const assets = [
       { assetName: '/drafts/demo/page.html', status: 'COMPLETED' },
-      { assetName: '/org/site/media/hero.png', status: 'COMPLETED' },
-      { assetName: '/org/site/media/report.png', status: 'COMPLETED' },
+      { assetName: '/media/hero.png', status: 'COMPLETED' },
+      { assetName: '/media/report.png', status: 'COMPLETED' },
     ];
     expect(countMultimodalTranslatedPages(singlePageAssets, assets)).to.equal(1);
     expect(assets.filter((asset) => asset.status === 'COMPLETED').length).to.equal(3);

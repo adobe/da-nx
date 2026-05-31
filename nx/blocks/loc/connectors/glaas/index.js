@@ -571,13 +571,12 @@ export async function saveItems({
         task: { ...task, code },
         org,
         site,
-        langLocation: lang.location,
+        langCode: code,
         pageAsset,
         htmlAssetName: glaasPath,
       });
       if (prepared.error) throw new Error(prepared.error);
       text = prepared.text;
-      if (prepared.mediaPaths?.length) url.multimodalMediaPaths = prepared.mediaPaths;
     } else {
       text = await downloadAsset(service, token, { ...task, code }, glaasPath);
     }
