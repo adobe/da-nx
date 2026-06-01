@@ -196,11 +196,8 @@ export default class ChatController {
           ),
         );
         if (!hasApprovalMessage) {
-          // Virtual message: renders the tool card in conversation position and persists
-          // across refreshes. Not POSTed verbatim — _messagesForAgent() replays the current
-          // turn's non-approval tool calls (e.g. content_read) as a tool-call + tool-result
-          // pair so the stateless agent still "sees" what it read across an approval
-          // round-trip. We stamp the turn and stash the output for that replay.
+          // Virtual message: renders the tool card and persists across refreshes.
+          // turnId + toolResult let _messagesForAgent() replay this read to the agent.
           this._messages = [
             ...this._messages,
             {
@@ -278,17 +275,7 @@ export default class ChatController {
     }
   };
 
-  // The agent is stateless: it rebuilds the model context purely from the messages
-  // we POST. Completed tool calls live in the UI as `virtual` messages, which we must
-  // NOT send verbatim (an output-less, unpaired tool-call would break the model history).
-  // Instead:
-  // - Approval tools (content_replace, …) are already represented by their real
-  //   tool-call + approval-response messages; the agent reconstructs their result, so
-  //   we drop their virtual twin to avoid a duplicate tool-call id.
-  // - Non-approval tools (content_read) exist ONLY as virtual messages. For the current
-  //   turn we replay them as a proper tool-call + tool-result pair (carrying the output)
-  //   so that across an approval round-trip the agent still "sees" what it just read and
-  //   doesn't pointlessly re-read. Prior turns' tool I/O is dropped to bound the payload.
+  // Adds in the tool calls and tool results for the current turn so the agent can replay them.
   _messagesForAgent() {
     const represented = new Set();
     this._messages.forEach((msg) => {
@@ -359,9 +346,7 @@ export default class ChatController {
   async sendMessage(message, context = [], { requestedSkills = [], attachments = [] } = {}) {
     if (this._thinking || !this._connected) return;
 
-    // New user turn. An approval round-trip (approveToolCall → _stream) keeps this id so
-    // the tool calls done earlier in the same turn are still replayed; a new sendMessage
-    // rolls it so the previous turn's tool I/O drops out of the POST.
+    // New turn id; an approval round-trip keeps it, so this turn's reads stay replayable.
     this._currentTurnId = crypto.randomUUID();
     this._requestedSkills = requestedSkills;
     const selectionContext = context
