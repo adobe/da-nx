@@ -6,7 +6,6 @@ import {
   buildTranslatedMediaPath,
   postImageToDaMedia,
   prepareMultimodalPageForSave,
-  removeSuffixFromMediaUrl,
   siteRelativePathFromContentDaLiveUrl,
   rewriteContentDaLiveImageUrls,
 } from '../../../nx/blocks/loc/connectors/glaas/multimodalApi.js';
@@ -23,12 +22,9 @@ describe('GLaaS multimodal save', () => {
   });
 
   describe('media bus POST path', () => {
-    // Contract: POST {DA_ORIGIN}/media/{org}/{site}/{langCode}{siteRelativeGlaasName}
-    // org/site appear once in the URL base; glaasName must not repeat /{org}/{site}/.
-
     it('postImageToDaMedia hits /media/{org}/{site}/{lang}{site-relative path}', async () => {
       const fetchStub = sinon.stub(window, 'fetch').resolves(new Response(
-        JSON.stringify({ uri: 'https://main--da-dc--adobecom.aem.page/media_abc.avif#width=740' }),
+        JSON.stringify({ uri: 'https://main--da-dc--adobecom.aem.page/media_abc.avif' }),
         { status: 200, headers: { 'Content-Type': 'application/json' } },
       ));
       const blob = new Blob(['x'], { type: 'image/png' });
@@ -74,16 +70,6 @@ describe('GLaaS multimodal save', () => {
     });
   });
 
-  it('removeSuffixFromMediaUrl drops query and fragment', () => {
-    expect(removeSuffixFromMediaUrl(
-      'https://main--da-dc--adobecom.aem.page/media_abc.avif#width=740&height=740',
-    )).to.equal('https://main--da-dc--adobecom.aem.page/media_abc.avif');
-
-    expect(removeSuffixFromMediaUrl(
-      'https://main--da-dc--adobecom.aem.page/media_abc.avif?width=2000',
-    )).to.equal('https://main--da-dc--adobecom.aem.page/media_abc.avif');
-  });
-
   it('builds translated media path from GLaaS lang code and site-relative glaas name', () => {
     const glaasName = '/acrobat/shared/hero.png';
     expect(buildTranslatedMediaPath({ langCode: 'de', glaasName }))
@@ -110,7 +96,7 @@ describe('GLaaS multimodal save', () => {
     const htmlAssetName = '/drafts/page.html';
     const contentDaLiveUrl = `https://content.da.live/${org}/${site}/acrobat/shared/hero.png`;
     const translatedHtml = `<img src="${contentDaLiveUrl}">`;
-    const deliveryUrl = 'https://main--da-dc--adobecom.aem.page/media_abc.avif#width=740';
+    const deliveryUrl = 'https://main--da-dc--adobecom.aem.page/media_abc.avif';
 
     const expectedMediaPost = `${DA_ORIGIN}/media/${org}/${site}/de/acrobat/shared/hero.png`;
     const fetchStub = sinon.stub(window, 'fetch').callsFake((url) => {

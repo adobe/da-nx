@@ -30,15 +30,6 @@ export function buildTranslatedMediaPath({ langCode, glaasName }) {
   return `/${locale}${base}`;
 }
 
-export function removeSuffixFromMediaUrl(href) {
-  try {
-    const u = new URL(href);
-    return `${u.origin}${u.pathname}`;
-  } catch {
-    return href;
-  }
-}
-
 export function shouldLogMultimodalRequests() {
   try {
     return localStorage.getItem(MULTIMODAL_LOG_KEY) === 'true';
@@ -597,7 +588,7 @@ export async function postImageToDaMedia({
     const json = await resp.json();
     const href = json?.uri ?? json?.url;
     if (!href) return { error: 'Missing media URI in response.', status: resp.status, json };
-    return { url: removeSuffixFromMediaUrl(href), status: resp.status };
+    return { url: href, status: resp.status };
   } catch {
     return { error: 'Error uploading image to media.' };
   }
