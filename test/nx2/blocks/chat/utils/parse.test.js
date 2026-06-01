@@ -1,5 +1,5 @@
 import { expect } from '@esm-bundle/chai';
-import { parseDirectives } from '../../../../nx2/blocks/chat/utils/parse.js';
+import { parseDirectives } from '../../../../../nx2/blocks/chat/utils/parse.js';
 
 describe('parseDirectives', () => {
   describe('plain text', () => {

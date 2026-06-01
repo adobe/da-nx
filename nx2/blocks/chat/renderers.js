@@ -2,15 +2,9 @@ import { html, nothing } from 'da-lit';
 import { AGENT_EVENT, ROLE, TOOL_INPUT, TOOL_STATE } from './constants.js';
 import { getConfig } from '../../scripts/nx.js';
 import { parseDirectives } from './utils/parse.js';
+import { fileIconName } from './utils/icons.js';
 
 const { codeBase } = getConfig();
-
-const SELECTION_ICON_NAMES = {
-  block: 's2-icon-3d-20-n',
-  file: 's2-icon-filetext-20-n',
-  image: 's2-icon-image-20-n',
-  table: 's2-icon-table-20-n',
-};
 
 const { unified, remarkParse } = await import('../../deps/mdast/dist/index.js');
 
@@ -163,14 +157,8 @@ function renderApprovalCard(pending, onApprove) {
   `;
 }
 
-// Mirrors entryTypeFromExtension in browse/utils.js — switch to common utils once migrated.
 function selectionIcon(blockName) {
-  const ext = (blockName ?? '').includes('.') ? blockName.split('.').pop().toLowerCase() : '';
-  let name = SELECTION_ICON_NAMES.block;
-  if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'mp4', 'webm', 'mov'].includes(ext)) name = SELECTION_ICON_NAMES.image;
-  else if (['json', 'xlsx', 'xls', 'csv'].includes(ext)) name = SELECTION_ICON_NAMES.table;
-  else if (ext) name = SELECTION_ICON_NAMES.file;
-  return html`<svg class="selection-icon" viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/${name}.svg#icon"></use></svg>`;
+  return html`<svg class="selection-icon" viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/${fileIconName(blockName)}.svg#icon"></use></svg>`;
 }
 
 function renderMessage(msg, toolCards) {
