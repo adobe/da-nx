@@ -1,4 +1,4 @@
-import { convertHtmlToJson } from '../deps/da-sc-sdk/dist/index.js';
+import { convertHtmlToJson } from '../../../deps/da-sc-sdk/dist/index.js';
 import { fetchSourceHtml } from './da-api.js';
 import { loadSchemas } from './schemas.js';
 

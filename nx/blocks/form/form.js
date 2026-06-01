@@ -3,7 +3,7 @@ import getPathDetails from 'https://da.live/blocks/shared/pathDetails.js';
 
 import 'https://da.live/blocks/edit/da-title/da-title.js';
 
-import { createEngine } from './deps/da-sc-sdk/dist/index.js';
+import { createEngine } from '../../deps/da-sc-sdk/dist/index.js';
 import { loadFormContext } from './utils/context.js';
 import { attachPersistence } from './utils/persistence.js';
 

@@ -16,7 +16,7 @@
 // form block's `saveSourceHtml`. A different consumer could swap in a
 // queue-backed save, an offline write, etc., without touching persistence.
 
-import { convertJsonToHtml } from '../deps/da-sc-sdk/dist/index.js';
+import { convertJsonToHtml } from '../../../deps/da-sc-sdk/dist/index.js';
 import { saveSourceHtml } from './da-api.js';
 
 export function attachPersistence(editor, { path, save = saveSourceHtml } = {}) {

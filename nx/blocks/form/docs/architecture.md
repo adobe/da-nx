@@ -23,11 +23,11 @@ nx/blocks/form/
     preview.js / .css   read-only JSON preview
     array-menu.js       per-item actions
     reorder.js          reorder dialog
-  deps/                 prism syntax highlighting; vendored da-sc-sdk bundle
+  deps/                 prism syntax highlighting
   docs/                 (this directory)
 ```
 
-The SDK is consumed via the vendored bundle at `nx/blocks/form/deps/da-sc-sdk/dist/index.js` — block-local (same shelf as `prism`) because the form block is the only consumer of the SDK inside this repo. External consumers (MCP servers, Workers, import tools) will eventually `npm install da-sc-sdk` once it publishes. To refresh the vendor: `npm run build:da-sc-sdk` from the repo root.
+The SDK is consumed via the bundled artifact at [`nx/deps/da-sc-sdk/dist/index.js`](../../../deps/da-sc-sdk/dist/index.js), built from the published [`@adobe/da-sc-sdk`](https://www.npmjs.com/package/@adobe/da-sc-sdk) npm package (see [`nx/deps/da-sc-sdk/src/index.js`](../../../deps/da-sc-sdk/src/index.js) for the re-export shim). It lives in the shared `nx/deps/` shelf alongside `lit`, `codemirror`, `mdast`, etc. To rev the version, bump the dep in `package.json`, `npm install`, then `npm run build:da-sc-sdk` from the repo root.
 
 ---
 
@@ -127,7 +127,7 @@ The SDK engine is a pure state machine; it does not persist. The form block owns
 Wiring (in `form.js`):
 
 ```js
-import { createEngine } from './deps/da-sc-sdk/dist/index.js';
+import { createEngine } from '../../deps/da-sc-sdk/dist/index.js';
 import { attachPersistence } from './utils/persistence.js';
 
 // In _start — single synchronous creation. The SDK's createEngine doesn't
@@ -159,4 +159,4 @@ For test details on the single-flight + re-queue contract, see [test/nx/blocks/f
 
 - Keep UI/navigation state local to the shell (`_nav`, focus, scroll, debounce).
 - Use JSON Pointer for canonical addressing in props and event payloads.
-- Refresh the vendored SDK bundle via `npm run build:da-sc-sdk` after any SDK change.
+- Refresh the bundled SDK via `npm install` + `npm run build:da-sc-sdk` after bumping `@adobe/da-sc-sdk` in `package.json`.
