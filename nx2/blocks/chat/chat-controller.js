@@ -1,17 +1,60 @@
 import { loadIms } from '../../utils/ims.js';
-import { AGENT_EVENT, ROLE, TOOL_STATE } from './constants.js';
+import { AGENT_EVENT, ROLE, TOOL_NAME, TOOL_SCOPE, TOOL_STATE } from './constants.js';
 import { readStream } from './utils.js';
 import { loadMessages, saveMessages, resetSession } from './persistence.js';
+
+function affectedFolders(toolName, input) {
+  const { org, repo } = input ?? {};
+  if (!org || !repo) return [];
+  const toParent = (p) => {
+    const parts = (p ?? '').replace(/^\//, '').split('/').filter(Boolean);
+    parts.pop();
+    return `/${org}/${repo}${parts.length ? `/${parts.join('/')}` : ''}`;
+  };
+  if (toolName === TOOL_NAME.CONTENT_MOVE) {
+    return [...new Set([toParent(input.sourcePath), toParent(input.destinationPath)])];
+  }
+  if (toolName === TOOL_NAME.CONTENT_COPY) return [toParent(input.destinationPath)];
+  return input.path ? [toParent(input.path)] : [];
+}
 
 const AGENT_URL = new URLSearchParams(window.location.search).get('ref') === 'local'
   ? 'http://localhost:4200/chat'
   : 'https://agent.da.live/chat';
+
+/**
+ * Drop assistant array-content messages whose tool-call IDs have no matching
+ * tool-result anywhere in the history. These orphans appear when the agent's
+ * streamText step-limit fires mid-tool-execution or when the client strips
+ * virtual (non-approval) tool results. Without this filter the Anthropic API
+ * rejects the request with "tool_use ids without tool_result blocks".
+ */
+function stripOrphanedToolCallMessages(messages) {
+  const resolvedIds = new Set();
+  for (const msg of messages) {
+    if (msg.role === ROLE.TOOL && Array.isArray(msg.content)) {
+      for (const p of msg.content) {
+        if (p.type === AGENT_EVENT.TOOL_RESULT && p.toolCallId) resolvedIds.add(p.toolCallId);
+      }
+    }
+  }
+
+  return messages.filter((msg) => {
+    if (msg.role !== ROLE.ASSISTANT || !Array.isArray(msg.content)) return true;
+    const calls = msg.content.filter((p) => p.type === AGENT_EVENT.TOOL_CALL);
+    if (calls.length === 0) return true;
+    const hasApproval = msg.content.some((p) => p.type === AGENT_EVENT.TOOL_APPROVAL_REQUEST);
+    if (hasApproval) return true;
+    return calls.every((c) => resolvedIds.has(c.toolCallId));
+  });
+}
 
 export default class ChatController {
   constructor({ onUpdate, onToolDone }) {
     this._onUpdate = onUpdate;
     this._onToolDone = onToolDone;
     this._sessionId = crypto.randomUUID();
+    this._currentTurnId = crypto.randomUUID();
   }
 
   setContext(context) {
@@ -38,15 +81,7 @@ export default class ChatController {
     const { messages: cached, sessionId } = await loadMessages(room);
     this._sessionId = sessionId ?? this._sessionId;
     if (!cached.length) return;
-    // Strip orphaned tool-calls (assistant array-content without a tool-approval-request).
-    // These are from sessions before the current fix — they have no matching tool-result
-    // and cause "Tool result is missing". Complete approval sequences are kept so users
-    // see what the agent approved and did in prior conversations.
-    this._messages = cached.filter(
-      (msg) => !(msg.role === ROLE.ASSISTANT && Array.isArray(msg.content)
-        && !msg.virtual
-        && !msg.content.some((p) => p.type === AGENT_EVENT.TOOL_APPROVAL_REQUEST)),
-    );
+    this._messages = stripOrphanedToolCallMessages(cached);
     // Reconstruct tool cards from persisted approval messages so they render on reload.
     this._toolCards = new Map();
     for (const msg of this._messages) {
@@ -103,6 +138,7 @@ export default class ChatController {
     this._toolCards = new Map();
     this._autoApprovedTools = new Set();
     this._sessionId = crypto.randomUUID();
+    this._currentTurnId = crypto.randomUUID();
     this._update();
     const room = await this._getRoom();
     resetSession(room, this._sessionId);
@@ -114,7 +150,7 @@ export default class ChatController {
   }
 
   _onToolEvent = ({
-    type, toolCallId, toolName, input, output, isError, approvalId,
+    type, toolCallId, toolName, input, output, isError, approvalId, scope,
   }) => {
     const next = new Map(this._toolCards ?? []);
 
@@ -153,19 +189,44 @@ export default class ChatController {
       const state = isError ? TOOL_STATE.ERROR : TOOL_STATE.DONE;
       next.set(toolCallId, { ...prior, state, output });
       if (state === TOOL_STATE.DONE) {
-        // Add a virtual message so the tool renders in the conversation at the right
-        // position and persists across refreshes, without being sent back to the agent.
-        this._messages = [
-          ...this._messages,
-          {
-            role: ROLE.ASSISTANT,
-            virtual: true,
-            content: [{
-              type: AGENT_EVENT.TOOL_CALL, toolCallId, toolName: prior.toolName, input: prior.input,
-            }],
-          },
-        ];
-        this._onToolDone?.();
+        // Skip if a real message already exists for this toolCallId (approval flow adds one).
+        const hasApprovalMessage = this._messages.some(
+          (m) => !m.virtual && Array.isArray(m.content) && m.content.some(
+            (p) => p.type === AGENT_EVENT.TOOL_CALL && p.toolCallId === toolCallId,
+          ),
+        );
+        if (!hasApprovalMessage) {
+          // Virtual message: renders the tool card and persists across refreshes.
+          // turnId + toolResult let _messagesForAgent() replay this read to the agent.
+          this._messages = [
+            ...this._messages,
+            {
+              role: ROLE.ASSISTANT,
+              virtual: true,
+              turnId: this._currentTurnId,
+              toolResult: { output },
+              content: [{
+                type: AGENT_EVENT.TOOL_CALL,
+                toolCallId,
+                toolName: prior.toolName,
+                input: prior.input,
+              }],
+            },
+          ];
+        }
+
+        // Once content_upload succeeds, replace dataBase64 with contentUrl so
+        // continuation POSTs don't retransmit bytes already in storage.
+        const contentUrl = output?.source?.contentUrl;
+        if (prior.toolName === 'content_upload' && prior.input?.attachmentRef && contentUrl) {
+          this._pendingAttachments = (this._pendingAttachments ?? []).map((a) => (
+            a.id === prior.input.attachmentRef
+              ? { id: a.id, fileName: a.fileName, mediaType: a.mediaType, contentUrl, ...(typeof a.sizeBytes === 'number' ? { sizeBytes: a.sizeBytes } : {}) }
+              : a
+          ));
+        }
+
+        this._onToolDone?.(scope, affectedFolders(toolName, prior.input));
       }
     }
 
@@ -200,6 +261,8 @@ export default class ChatController {
     if (approved) {
       try {
         await this._stream(this._pageContextForAgent());
+        const scope = TOOL_SCOPE[card.toolName];
+        if (scope) this._onToolDone?.(scope, affectedFolders(card.toolName, card.input));
       } catch (err) {
         if (err.name !== 'AbortError') {
           this._messages = [...this._messages, { role: ROLE.ASSISTANT, content: `Error: ${err.message}` }];
@@ -212,6 +275,39 @@ export default class ChatController {
     }
   };
 
+  // Adds in the tool calls and tool results for the current turn so the agent can replay them.
+  _messagesForAgent() {
+    const represented = new Set();
+    this._messages.forEach((msg) => {
+      if (msg.virtual || msg.role !== ROLE.ASSISTANT || !Array.isArray(msg.content)) return;
+      msg.content.forEach((part) => {
+        if (part.type === AGENT_EVENT.TOOL_CALL) represented.add(part.toolCallId);
+      });
+    });
+
+    return this._messages.flatMap((msg) => {
+      if (!msg.virtual) return [msg];
+      if (msg.turnId !== this._currentTurnId || !msg.toolResult) return [];
+      const call = msg.content?.find((p) => p.type === AGENT_EVENT.TOOL_CALL);
+      if (!call || represented.has(call.toolCallId)) return [];
+      const { output } = msg.toolResult;
+      const { toolCallId, toolName, input } = call;
+      const wrapped = typeof output === 'string'
+        ? { type: 'text', value: output }
+        : { type: 'json', value: output };
+      return [
+        {
+          role: ROLE.ASSISTANT,
+          content: [{ type: AGENT_EVENT.TOOL_CALL, toolCallId, toolName, input }],
+        },
+        {
+          role: ROLE.TOOL,
+          content: [{ type: AGENT_EVENT.TOOL_RESULT, toolCallId, toolName, output: wrapped }],
+        },
+      ];
+    });
+  }
+
   async _stream(pageContext) {
     const [{ accessToken }, room] = await Promise.all([loadIms(), this._getRoom()]);
     this._abortController = new AbortController();
@@ -220,12 +316,13 @@ export default class ChatController {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        messages: this._messages.filter((msg) => !msg.virtual),
+        messages: stripOrphanedToolCallMessages(this._messagesForAgent()),
         pageContext,
         imsToken: accessToken?.token ?? null,
         room,
         sessionId: this._sessionId,
         ...(this._requestedSkills?.length ? { requestedSkills: this._requestedSkills } : {}),
+        ...(this._pendingAttachments?.length ? { attachments: this._pendingAttachments } : {}),
       }),
       signal: this._abortController.signal,
     });
@@ -246,9 +343,11 @@ export default class ChatController {
     });
   }
 
-  async sendMessage(message, context = [], { requestedSkills = [] } = {}) {
+  async sendMessage(message, context = [], { requestedSkills = [], attachments = [] } = {}) {
     if (this._thinking || !this._connected) return;
 
+    // New turn id; an approval round-trip keeps it, so this turn's reads stay replayable.
+    this._currentTurnId = crypto.randomUUID();
     this._requestedSkills = requestedSkills;
     const selectionContext = context
       .filter((item) => typeof item.proseIndex === 'number' || item.blockName)
@@ -258,12 +357,21 @@ export default class ChatController {
         ...(innerText && { innerText }),
       }));
 
+    const attachmentsMeta = attachments.map(({ id, fileName, mediaType, sizeBytes }) => ({
+      id,
+      fileName,
+      mediaType,
+      ...(typeof sizeBytes === 'number' ? { sizeBytes } : {}),
+    }));
+
     const userMessage = {
       role: ROLE.USER,
       content: message,
       ...(selectionContext.length && { selectionContext }),
+      ...(attachmentsMeta.length && { attachmentsMeta }),
     };
 
+    this._pendingAttachments = attachments;
     this._messages = [...(this._messages ?? []), userMessage];
     this._thinking = true;
     this._update();

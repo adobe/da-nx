@@ -1,4 +1,4 @@
-import { AGENT_EVENT as EVENT } from './constants.js';
+import { AGENT_EVENT as EVENT, TOOL_SCOPE } from './constants.js';
 
 function processEvent(event, streaming, callbacks) {
   const { onDelta, onText, onTool } = callbacks;
@@ -43,10 +43,23 @@ function processEvent(event, streaming, callbacks) {
       toolName: event.toolName,
       output: raw,
       isError,
+      scope: !isError ? TOOL_SCOPE[event.toolName] : undefined,
     });
   }
 
   return { streaming, done: false };
+}
+
+export function readFileAsBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = String(reader.result || '');
+      resolve(result.includes(',') ? result.split(',')[1] : '');
+    };
+    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.readAsDataURL(file);
+  });
 }
 
 export async function readStream(body, callbacks) {
