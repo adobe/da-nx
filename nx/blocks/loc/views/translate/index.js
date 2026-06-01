@@ -48,7 +48,11 @@ export async function getUrls(
 
     // Fetch the content and add DNT
     const fetchUrl = async (url) => {
-      const resp = await daFetch(`${DA_ORIGIN}/source/${org}/${site}${url.daDestPath}`);
+      const resp = await daFetch(`${DA_ORIGIN}/source/${org}/${site}${url.daDestPath}`, {
+        headers: {
+          'Cache-Control': 'no-cache',
+        },
+      });
       if (!resp.ok) {
         url.error = `Error fetching content from ${url.daDestPath} - ${resp.status}`;
         return;

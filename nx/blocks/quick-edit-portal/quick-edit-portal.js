@@ -1,4 +1,4 @@
-import { checkPermissions, signIn, handlePreview } from './src/utils.js';
+import { checkPermissions, signIn, handlePreview, getImageCookie } from './src/utils.js';
 import createProse from './src/prose.js';
 import {
   updateDocument, updateCursors, updateState, handleUndoRedo, getEditor, handleCursorMove,
@@ -88,13 +88,15 @@ export default async function decorate(el) {
       ctx.path = path;
       ctx.port = port;
 
+      await getImageCookie(owner, repo);
+
       await initProse(owner, repo, path, el, ctx);
 
       // Going forward, all messages will be sent via the port
       port.onmessage = (event) => onMessage(event, ctx);
 
       // Tell the other side we are ready
-      port.postMessage({ ready: true });
+      port.postMessage({ type: 'ready', ready: true });
     }
   }
   // set up message channel

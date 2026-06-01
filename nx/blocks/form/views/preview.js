@@ -1,65 +1,80 @@
 import { LitElement, html } from 'da-lit';
 
 const { default: getStyle } = await import('../../../utils/styles.js');
-
 const style = await getStyle(import.meta.url);
 
-class FormPreview extends LitElement {
+const EL_NAME = 'nx-preview';
+const REFRESH_MS = 500;
+
+let prismLoading;
+async function loadPrism() {
+  if (window.Prism) return window.Prism;
+  if (!prismLoading) {
+    prismLoading = (async () => {
+      await import('../deps/prism.js');
+      await import('../deps/prism-json.min.js');
+      return window.Prism;
+    })();
+  }
+  return prismLoading;
+}
+
+class Preview extends LitElement {
   static properties = {
-    formModel: { attribute: false },
+    state: { attribute: false },
   };
+
+  _refreshTimer = null;
 
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
   }
 
-  updated() {
-    if (this.formModel) this.setPreview();
+  disconnectedCallback() {
+    if (this._refreshTimer) clearTimeout(this._refreshTimer);
+    this._refreshTimer = null;
+    super.disconnectedCallback();
   }
 
-  async setPreview() {
-    this.toggleVis();
-    await this.loadPrism();
-    if (this.code) this.code.remove();
+  updated(changed) {
+    if (!changed.has('state')) return;
 
-    const code = document.createElement('code');
-    code.classList.add('language-json');
-    this.pre.append(code);
-
-    code.textContent = this.formModel.getSerializedJson();
-    window.Prism.highlightElement(code);
-    this.toggleVis();
-  }
-
-  async loadPrism() {
-    if (!this.prism) {
-      await import('../deps/prism.js');
-      await import('../deps/prism-json.min.js');
-      this.prism = true;
+    // Render the first state synchronously so the preview is never blank.
+    // After that, debounce — the expensive JSON.stringify only runs once the
+    // user pauses typing.
+    if (changed.get('state') === undefined) {
+      this._paint();
+      return;
     }
+
+    if (this._refreshTimer) clearTimeout(this._refreshTimer);
+    this._refreshTimer = setTimeout(() => {
+      this._refreshTimer = null;
+      this._paint();
+    }, REFRESH_MS);
   }
 
-  toggleVis() {
-    const wrapper = this.shadowRoot.querySelector('.vis-wrapper');
-    wrapper.classList.toggle('is-visible');
-  }
-
-  get pre() {
-    return this.shadowRoot.querySelector('pre');
-  }
-
-  get code() {
-    return this.shadowRoot.querySelector('code');
+  // Owns <code>'s contents imperatively: Prism mutates the element, so Lit
+  // template interpolation inside it would fight the highlighter on every paint.
+  async _paint() {
+    const code = this.shadowRoot?.querySelector('code');
+    if (!code) return;
+    code.textContent = JSON.stringify(this.state?.document?.values ?? {}, null, 2);
+    const Prism = await loadPrism();
+    if (Prism) Prism.highlightElement(code);
   }
 
   render() {
     return html`
       <div class="vis-wrapper is-visible">
-        <p class="da-title">Preview</p>
-        <pre></pre>
-      </div>`;
+        <p class="nx-title">Preview</p>
+        <pre><code class="language-json"></code></pre>
+      </div>
+    `;
   }
 }
 
-customElements.define('da-form-preview', FormPreview);
+if (!customElements.get(EL_NAME)) {
+  customElements.define(EL_NAME, Preview);
+}

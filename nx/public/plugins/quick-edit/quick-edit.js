@@ -10,18 +10,31 @@ await loadStyle(`${nx}/public/plugins/quick-edit/quick-edit.css`);
 
 const QUICK_EDIT_ID = 'quick-edit-iframe';
 
+/**
+ * When set, the preview page is using exp-workspace as controller;
+ * do not create the portal iframe.
+ */
+let parentControllerPort = null;
+
 async function setBody(body, ctx) {
   const doc = new DOMParser().parseFromString(body, 'text/html');
   document.body.innerHTML = doc.body.innerHTML;
   await ctx.loadPage();
   setupContentEditableListeners(ctx);
   setupImageDropListeners(ctx, document.body.querySelector('main'));
-  setupActions(ctx);
+  if (!parentControllerPort) {
+    setupActions(ctx);
+  }
+}
+
+function handleReady(e, ctx) {
+  ctx.initialized = true;
 }
 
 function onMessage(e, ctx) {
-  ctx.initialized = true;
-  if (e.data.type === 'set-body') {
+  if (e.data.type === 'ready') {
+    handleReady(e, ctx);
+  } else if (e.data.type === 'set-body') {
     setBody(e.data.body, ctx);
   } else if (e.data.type === 'set-editor-state') {
     const { editorState, cursorOffset } = e.data;
@@ -33,6 +46,38 @@ function onMessage(e, ctx) {
     updateImageSrc(originalSrc, newSrc);
   } else if (e.data.type === 'image-error') {
     handleImageError(e.data.error);
+  }
+}
+
+function setupParentController(loadPage) {
+  const listener = (e) => {
+    if (e.source !== window.parent || e.data?.init == null || !e.ports?.length) return;
+
+    const port = e.ports[0];
+    parentControllerPort = port;
+
+    const ctx = {
+      initialized: true,
+      loadPage,
+      port,
+    };
+    port.onmessage = (ev) => onMessage(ev, ctx);
+    port.postMessage({ ready: true });
+
+    window.removeEventListener('message', listener);
+  };
+  window.addEventListener('message', listener);
+}
+
+function checkDomain() {
+  const currentUrl = new URL(window.location.href);
+  if (currentUrl.origin.endsWith('.aem.page')) {
+    const newOrigin = currentUrl.origin.replace('.aem.page', '.preview.da.live');
+    const params = new URLSearchParams(currentUrl.search);
+    if (!params.has('quick-edit')) params.set('quick-edit', 'on');
+    const search = params.toString() ? `?${params.toString()}` : '';
+    const newHref = `${newOrigin}${currentUrl.pathname}${search}${currentUrl.hash}`;
+    window.location.replace(newHref);
   }
 }
 
@@ -52,8 +97,8 @@ function getQuickEditSrc() {
   return `https://main--da-live--adobe.aem.live/plugins/quick-edit?nx=${ref}`;
 }
 
-export default async function loadQuickEdit({ detail: payload }, loadPage) {
-  if (document.getElementById(QUICK_EDIT_ID)) return;
+function setupIframeController({ detail: payload }, loadPage) {
+  checkDomain();
 
   const ctx = {
     initialized: false,
@@ -70,4 +115,16 @@ export default async function loadQuickEdit({ detail: payload }, loadPage) {
   });
   document.documentElement.append(iframe);
   iframe.style.visibility = 'hidden';
+}
+
+export default async function loadQuickEdit(payload, loadPage) {
+  if (document.getElementById(QUICK_EDIT_ID)) return;
+  if (parentControllerPort != null) return;
+
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('controller') === 'parent') {
+    setupParentController(loadPage);
+  } else {
+    setupIframeController(payload, loadPage);
+  }
 }

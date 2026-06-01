@@ -10,11 +10,15 @@
  * governing permissions and limitations under the License.
  */
 
-const NX_BLOCKS = new Set([
-  'importer',
-]);
-
 const LOG = async (ex, el) => (await import('../utils/error.js')).default(ex, el);
+
+const NX_BLOCKS = new Set(['importer']);
+
+const EW_ORIGINS = {
+  dev: 'http://localhost:3001',
+  stage: 'https://main--ew-extensions--adobe-rnd.aem.page',
+  prod: 'https://main--ew-extensions--adobe-rnd.aem.live',
+};
 
 export function getColorScheme() {
   return localStorage.getItem('color-scheme')
@@ -78,7 +82,7 @@ export const [setConfig, getConfig] = (() => {
         env: conf.env || env,
         iconSize: conf.iconSize || '20',
         linkBlocks: conf.linkBlocks || [{ fragment: '/fragments/' }],
-        providers: conf.providers || {},
+        providers: { ew: EW_ORIGINS[env], ...conf.providers },
         codeBase: conf.codeBase || nxBase,
         log,
         locales,
@@ -99,18 +103,28 @@ export const loc = ([first], ...values) => {
 };
 
 export async function loadBlock(block) {
-  const { codeBase, log } = getConfig();
+  const { nxBase, codeBase, providers, log } = getConfig();
   const { classList } = block;
   let name = classList[0];
+
+  let path;
   const isNx = name.startsWith('nx-');
-  name = isNx ? name.replace('nx-', '') : name;
+  if (isNx) {
+    name = name.replace('nx-', '');
+    path = NX_BLOCKS.has(name) ? '/nx/blocks' : `${nxBase}/blocks`;
+  } else {
+    const prefix = name.split('-')[0];
+    const provider = providers[prefix];
+    if (provider) {
+      name = name.slice(prefix.length + 1);
+      path = `${provider}/blocks`;
+    } else {
+      path = `${codeBase}/blocks`;
+    }
+  }
+
   block.dataset.blockName = name;
-
-  const nxBase = NX_BLOCKS.has(name) ? '/nx' : '/nx2';
-
-  const path = isNx ? `${nxBase}/blocks` : `${codeBase}/blocks`;
   const blockPath = `${path}/${name}/${name}`;
-  block.dataset.blockName = name;
   try {
     await (await import(`${blockPath}.js`)).default(block);
   } catch (ex) {
@@ -283,11 +297,6 @@ async function decorateDoc() {
 
   const pageId = window.location.hash?.replace('#', '');
   if (pageId) localStorage.setItem('lazyhash', pageId);
-
-  if (localStorage.getItem('nx-panels')) {
-    const { restorePanels } = await import('../utils/panel.js');
-    await restorePanels();
-  }
 }
 
 export async function loadArea({ area } = { area: document }) {
@@ -318,4 +327,34 @@ export async function loadArea({ area } = { area: document }) {
       import('../utils/favicon.js');
     }
   }
+
+  if (isDoc && localStorage.getItem('nx-panels')) {
+    const { restorePanels } = await import('../utils/panel.js');
+    await restorePanels();
+  }
 }
+
+const cache = {};
+
+// eslint-disable-next-line import/prefer-default-export
+export const loadStyle = (supplied) => {
+  // Convenience replacement for WCs
+  const path = supplied.replace('.js', '.css');
+
+  try {
+    cache[path] ??= new Promise((resolve) => {
+      (async () => {
+        const resp = await fetch(path);
+        const text = await resp.text();
+        const sheet = new CSSStyleSheet({ baseURL: path });
+        sheet.path = path;
+        sheet.replaceSync(text);
+        resolve(sheet);
+      })();
+    });
+  } catch {
+    // eslint-disable-next-line no-console
+    console.warn(`Could not load ${path}`);
+  }
+  return cache[path];
+};
