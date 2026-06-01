@@ -12,6 +12,7 @@ export default class ChatController {
     this._onUpdate = onUpdate;
     this._onToolDone = onToolDone;
     this._sessionId = crypto.randomUUID();
+    this._currentTurnId = crypto.randomUUID();
   }
 
   setContext(context) {
@@ -103,6 +104,7 @@ export default class ChatController {
     this._toolCards = new Map();
     this._autoApprovedTools = new Set();
     this._sessionId = crypto.randomUUID();
+    this._currentTurnId = crypto.randomUUID();
     this._update();
     const room = await this._getRoom();
     resetSession(room, this._sessionId);
@@ -154,12 +156,17 @@ export default class ChatController {
       next.set(toolCallId, { ...prior, state, output });
       if (state === TOOL_STATE.DONE) {
         // Add a virtual message so the tool renders in the conversation at the right
-        // position and persists across refreshes, without being sent back to the agent.
+        // position and persists across refreshes. Virtual messages are not POSTed
+        // verbatim; _messagesForAgent() decides what (if anything) to send. We stamp
+        // the turn and stash the output so the current turn's non-approval tool calls
+        // (e.g. content_read) can be replayed to the stateless agent on a resume POST.
         this._messages = [
           ...this._messages,
           {
             role: ROLE.ASSISTANT,
             virtual: true,
+            turnId: this._currentTurnId,
+            toolResult: { output },
             content: [{
               type: AGENT_EVENT.TOOL_CALL, toolCallId, toolName: prior.toolName, input: prior.input,
             }],
@@ -212,6 +219,49 @@ export default class ChatController {
     }
   };
 
+  // The agent is stateless: it rebuilds the model context purely from the messages
+  // we POST. Completed tool calls live in the UI as `virtual` messages, which we must
+  // NOT send verbatim (an output-less, unpaired tool-call would break the model history).
+  // Instead:
+  // - Approval tools (content_replace, …) are already represented by their real
+  //   tool-call + approval-response messages; the agent reconstructs their result, so
+  //   we drop their virtual twin to avoid a duplicate tool-call id.
+  // - Non-approval tools (content_read) exist ONLY as virtual messages. For the current
+  //   turn we replay them as a proper tool-call + tool-result pair (carrying the output)
+  //   so that across an approval round-trip the agent still "sees" what it just read and
+  //   doesn't pointlessly re-read. Prior turns' tool I/O is dropped to bound the payload.
+  _messagesForAgent() {
+    const represented = new Set();
+    this._messages.forEach((msg) => {
+      if (msg.virtual || msg.role !== ROLE.ASSISTANT || !Array.isArray(msg.content)) return;
+      msg.content.forEach((part) => {
+        if (part.type === AGENT_EVENT.TOOL_CALL) represented.add(part.toolCallId);
+      });
+    });
+
+    return this._messages.flatMap((msg) => {
+      if (!msg.virtual) return [msg];
+      if (msg.turnId !== this._currentTurnId || !msg.toolResult) return [];
+      const call = msg.content?.find((p) => p.type === AGENT_EVENT.TOOL_CALL);
+      if (!call || represented.has(call.toolCallId)) return [];
+      const { output } = msg.toolResult;
+      const { toolCallId, toolName, input } = call;
+      const wrapped = typeof output === 'string'
+        ? { type: 'text', value: output }
+        : { type: 'json', value: output };
+      return [
+        {
+          role: ROLE.ASSISTANT,
+          content: [{ type: AGENT_EVENT.TOOL_CALL, toolCallId, toolName, input }],
+        },
+        {
+          role: ROLE.TOOL,
+          content: [{ type: AGENT_EVENT.TOOL_RESULT, toolCallId, toolName, output: wrapped }],
+        },
+      ];
+    });
+  }
+
   async _stream(pageContext) {
     const [{ accessToken }, room] = await Promise.all([loadIms(), this._getRoom()]);
     this._abortController = new AbortController();
@@ -220,7 +270,7 @@ export default class ChatController {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        messages: this._messages.filter((msg) => !msg.virtual),
+        messages: this._messagesForAgent(),
         pageContext,
         imsToken: accessToken?.token ?? null,
         room,
@@ -249,6 +299,10 @@ export default class ChatController {
   async sendMessage(message, context = [], { requestedSkills = [] } = {}) {
     if (this._thinking || !this._connected) return;
 
+    // New user turn. An approval round-trip (approveToolCall → _stream) keeps this id so
+    // the tool calls done earlier in the same turn are still replayed; a new sendMessage
+    // rolls it so the previous turn's tool I/O drops out of the POST.
+    this._currentTurnId = crypto.randomUUID();
     this._requestedSkills = requestedSkills;
     const selectionContext = context
       .filter((item) => typeof item.proseIndex === 'number' || item.blockName)
