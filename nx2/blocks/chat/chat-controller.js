@@ -54,6 +54,7 @@ export default class ChatController {
     this._onUpdate = onUpdate;
     this._onToolDone = onToolDone;
     this._sessionId = crypto.randomUUID();
+    this._currentTurnId = crypto.randomUUID();
   }
 
   setContext(context) {
@@ -137,6 +138,7 @@ export default class ChatController {
     this._toolCards = new Map();
     this._autoApprovedTools = new Set();
     this._sessionId = crypto.randomUUID();
+    this._currentTurnId = crypto.randomUUID();
     this._update();
     const room = await this._getRoom();
     resetSession(room, this._sessionId);
@@ -194,11 +196,15 @@ export default class ChatController {
           ),
         );
         if (!hasApprovalMessage) {
+          // Virtual message: renders the tool card and persists across refreshes.
+          // turnId + toolResult let _messagesForAgent() replay this read to the agent.
           this._messages = [
             ...this._messages,
             {
               role: ROLE.ASSISTANT,
               virtual: true,
+              turnId: this._currentTurnId,
+              toolResult: { output },
               content: [{
                 type: AGENT_EVENT.TOOL_CALL,
                 toolCallId,
@@ -269,6 +275,39 @@ export default class ChatController {
     }
   };
 
+  // Adds in the tool calls and tool results for the current turn so the agent can replay them.
+  _messagesForAgent() {
+    const represented = new Set();
+    this._messages.forEach((msg) => {
+      if (msg.virtual || msg.role !== ROLE.ASSISTANT || !Array.isArray(msg.content)) return;
+      msg.content.forEach((part) => {
+        if (part.type === AGENT_EVENT.TOOL_CALL) represented.add(part.toolCallId);
+      });
+    });
+
+    return this._messages.flatMap((msg) => {
+      if (!msg.virtual) return [msg];
+      if (msg.turnId !== this._currentTurnId || !msg.toolResult) return [];
+      const call = msg.content?.find((p) => p.type === AGENT_EVENT.TOOL_CALL);
+      if (!call || represented.has(call.toolCallId)) return [];
+      const { output } = msg.toolResult;
+      const { toolCallId, toolName, input } = call;
+      const wrapped = typeof output === 'string'
+        ? { type: 'text', value: output }
+        : { type: 'json', value: output };
+      return [
+        {
+          role: ROLE.ASSISTANT,
+          content: [{ type: AGENT_EVENT.TOOL_CALL, toolCallId, toolName, input }],
+        },
+        {
+          role: ROLE.TOOL,
+          content: [{ type: AGENT_EVENT.TOOL_RESULT, toolCallId, toolName, output: wrapped }],
+        },
+      ];
+    });
+  }
+
   async _stream(pageContext) {
     const [{ accessToken }, room] = await Promise.all([loadIms(), this._getRoom()]);
     this._abortController = new AbortController();
@@ -277,7 +316,7 @@ export default class ChatController {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        messages: stripOrphanedToolCallMessages(this._messages.filter((msg) => !msg.virtual)),
+        messages: stripOrphanedToolCallMessages(this._messagesForAgent()),
         pageContext,
         imsToken: accessToken?.token ?? null,
         room,
@@ -307,6 +346,8 @@ export default class ChatController {
   async sendMessage(message, context = [], { requestedSkills = [], attachments = [] } = {}) {
     if (this._thinking || !this._connected) return;
 
+    // New turn id; an approval round-trip keeps it, so this turn's reads stay replayable.
+    this._currentTurnId = crypto.randomUUID();
     this._requestedSkills = requestedSkills;
     const selectionContext = context
       .filter((item) => typeof item.proseIndex === 'number' || item.blockName)
