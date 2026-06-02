@@ -26,6 +26,10 @@ function closeLibrary() {
   port2.postMessage({ action: 'closeLibrary' });
 }
 
+function setPrompt(text) {
+  port2.postMessage({ action: 'setPrompt', details: text });
+}
+
 function getSelection() {
   return new Promise((resolve, reject) => {
     const listener = (e) => {
@@ -71,6 +75,7 @@ const DA_SDK = (() => new Promise((resolve) => {
         setHash,
         closeLibrary,
         getSelection,
+        setPrompt,
       };
 
       resolve({ ...e.data, actions });
