@@ -26,6 +26,22 @@ const icon = (name) => html`<svg class="chat-icon" viewBox="0 0 20 20" aria-hidd
 
 const UI_PROMPTS_GAP = 8;
 
+// Cross-window bridge from the Skills Editor (ew-extensions) prompt cards.
+// The editor's `+` (add) and `▶` (run) buttons post `prompt-add` / `prompt-send`
+// on this BroadcastChannel and as window CustomEvents.
+const SKILLS_CHANNEL = 'da-skills-editor';
+const SKILLS_PROMPT_ADD_EVENTS = [
+  'da-skills-editor-prompt-add-to-chat',
+  'da-skills-lab-prompt-add-to-chat',
+];
+const SKILLS_PROMPT_SEND_EVENTS = [
+  'da-skills-editor-prompt-send',
+  'da-skills-lab-prompt-send',
+];
+// The editor dispatches each click twice (editor + legacy const). Suppress
+// repeats of the same prompt within a short window so we don't double-submit.
+const SKILLS_DEDUPE_MS = 250;
+
 class NxChat extends LitElement {
   static properties = {
     messages: { type: Array },
@@ -181,6 +197,7 @@ class NxChat extends LitElement {
 
     this._controller.connect().then(() => this._controller.loadInitialMessages());
     document.addEventListener('nx-add-to-chat', this._onAddToChat);
+    this._connectSkillsBridge();
   }
 
   disconnectedCallback() {
@@ -189,6 +206,55 @@ class NxChat extends LitElement {
     this._controller?.destroy();
     document.removeEventListener('keydown', this._onApprovalKeydown);
     document.removeEventListener('nx-add-to-chat', this._onAddToChat);
+    this._disconnectSkillsBridge();
+  }
+
+  _connectSkillsBridge() {
+    this._lastSkillsKey = '';
+    this._lastSkillsAt = 0;
+
+    if (typeof BroadcastChannel !== 'undefined') {
+      try {
+        this._skillsChannel = new BroadcastChannel(SKILLS_CHANNEL);
+        this._skillsChannel.onmessage = (e) => {
+          const { type, payload } = e.data ?? {};
+          this._handleSkillsMessage(type, payload?.prompt);
+        };
+      } catch { /* BroadcastChannel unavailable — fall back to window events */ }
+    }
+
+    this._onSkillsPromptAdd = (e) => this._handleSkillsMessage('prompt-add', e.detail?.prompt);
+    this._onSkillsPromptSend = (e) => this._handleSkillsMessage('prompt-send', e.detail?.prompt);
+    SKILLS_PROMPT_ADD_EVENTS.forEach((name) => {
+      window.addEventListener(name, this._onSkillsPromptAdd);
+    });
+    SKILLS_PROMPT_SEND_EVENTS.forEach((name) => {
+      window.addEventListener(name, this._onSkillsPromptSend);
+    });
+  }
+
+  _disconnectSkillsBridge() {
+    try { this._skillsChannel?.close(); } catch { /* already closed */ }
+    this._skillsChannel = null;
+    SKILLS_PROMPT_ADD_EVENTS.forEach((name) => {
+      window.removeEventListener(name, this._onSkillsPromptAdd);
+    });
+    SKILLS_PROMPT_SEND_EVENTS.forEach((name) => {
+      window.removeEventListener(name, this._onSkillsPromptSend);
+    });
+  }
+
+  _handleSkillsMessage(type, rawPrompt) {
+    if (type !== 'prompt-add' && type !== 'prompt-send') return;
+    const prompt = String(rawPrompt ?? '').trim();
+    if (!prompt) return;
+    const key = `${type}|${prompt}`;
+    const now = (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    if (this._lastSkillsKey === key && now - this._lastSkillsAt < SKILLS_DEDUPE_MS) return;
+    this._lastSkillsKey = key;
+    this._lastSkillsAt = now;
+    if (type === 'prompt-send') this._runPrompt(prompt);
+    else this._addPromptToInput(prompt);
   }
 
   _pendingApproval() {
@@ -299,11 +365,22 @@ class NxChat extends LitElement {
 
   _sendPrompt(prompt) {
     if (!prompt || this.thinking || !this.connected) return;
+    this._addPromptToInput(prompt);
+  }
+
+  _addPromptToInput(prompt) {
+    if (!prompt) return;
     this.shadowRoot.querySelector('.prompts-popover')?.close();
     const input = this.shadowRoot.querySelector('.chat-input');
     if (!input) return;
     input.value = prompt;
     input.focus();
+  }
+
+  _runPrompt(prompt) {
+    if (!prompt || this.thinking || !this.connected) return;
+    this._addPromptToInput(prompt);
+    this._submit();
   }
 
   _handleMenuSelect({ detail: { id } }) {
