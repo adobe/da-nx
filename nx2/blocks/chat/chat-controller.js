@@ -1,7 +1,7 @@
 import { loadIms } from '../../utils/ims.js';
 import { AGENT_EVENT, ROLE, TOOL_NAME, TOOL_SCOPE, TOOL_STATE } from './constants.js';
-import { readStream } from './utils.js';
-import { loadMessages, saveMessages, resetSession } from './persistence.js';
+import { readStream } from './utils/stream.js';
+import { loadMessages, saveMessages, resetSession } from './utils/persistence.js';
 
 function affectedFolders(toolName, input) {
   const { org, repo } = input ?? {};
