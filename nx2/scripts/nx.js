@@ -301,6 +301,18 @@ export async function loadArea({ area } = { area: document }) {
     const { restorePanels } = await import('../utils/panel.js');
     await restorePanels();
   }
+
+  if (isDoc) {
+    const lazy = () => Promise.all([
+      import('../utils/user-settings.js').then(({ loadUserSettings }) => loadUserSettings()),
+      import('../utils/omega-tracking.js').then(({ initOmegaTracking }) => initOmegaTracking()),
+    ]);
+    if ('requestIdleCallback' in window) {
+      requestIdleCallback(lazy);
+    } else {
+      setTimeout(lazy, 0);
+    }
+  }
 }
 
 export function getColorScheme() {
