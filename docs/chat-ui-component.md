@@ -150,7 +150,7 @@ The approval popover accepts keyboard shortcuts: `Esc` = Reject, `↵` = Approve
 
 The UI picks one field from `input` to display as a human-readable summary beneath the tool name. Priority order:
 
-1. `humanReadableSummary` — preferred; plain-language description of what changed (used by `content_update`)
+1. `humanReadableSummary` — preferred; plain-language description of what changed (used by `content_replace_doc` for whole-document rewrites and `content_replace` for incremental block edits)
 2. `sourcePath` + `destinationPath` — rendered as `sourcePath → destinationPath` (used by `content_move`)
 3. `path` — file path being created or deleted (used by `content_create`, `content_delete`)
 4. `skillId` / `name` — identifier for skill/agent creation tools
