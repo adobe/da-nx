@@ -271,19 +271,20 @@ async function sendMultimodalTask(service, suppliedTask, urls, actions, { org, s
     });
     if (created.error) {
       sendMessage({ text: `Error creating multimodal task for: ${localesString}.`, type: 'error' });
+      task.error = (task.error || 0) + 1;
+      updateLangTask(task, task.langs);
+      await saveState();
       return;
     }
 
     task.sent = taskUrls.length;
-    task.status = 'uploaded';
+    task.status = 'created';
     updateLangTask(task, task.langs);
     await saveState();
     await prepareTargetPreview(task, taskUrls, service);
-  }
-
-  if (task.status === 'uploaded') {
-    sendMessage({ text: `Finalizing multimodal task: ${localesString}.` });
-    await updateStatus(service, token, task);
+    sendMessage();
+  } else if (task.status === 'uploaded') {
+    task.status = 'created';
     updateLangTask(task, task.langs);
     await saveState();
     sendMessage();
