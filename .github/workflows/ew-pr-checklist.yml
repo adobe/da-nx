@@ -1,0 +1,78 @@
+name: EW PR checklist
+
+on:
+  pull_request_target:
+    types: [opened, edited, synchronize, reopened]
+    branches:
+      - ew
+
+permissions:
+  pull-requests: read
+
+jobs:
+  checklist:
+    name: Validate EW Definition of Done
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check EW PR template checklist
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = context.payload.pull_request.body || '';
+
+            // Only enforce when the EW template marker is present
+            if (!body.includes('<!-- EW_PR_TEMPLATE -->')) {
+              core.info('EW PR template not used — skipping checklist enforcement.');
+              return;
+            }
+
+            // Items that must be checked in every EW PR
+            const required = [
+              'Feature behaves as specified',
+              'No new lint errors',
+              'No new `console.error`',
+              'Client code does **not** contain orchestration / session logic',
+              'No secrets, tokens, or credentials',
+              'AuthN/AuthZ ordering respected',
+              'No capability resolution before policy check',
+              'Branch is up to date with `origin/ew`',
+              'PR targets `ew`',
+            ];
+
+            const missing = required.filter(item => {
+              // Look for an unchecked checkbox line containing the item text
+              const pattern = new RegExp(`- \\[ \\].*${item.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`);
+              return pattern.test(body);
+            });
+
+            if (missing.length > 0) {
+              core.setFailed(
+                `EW DoD: the following required items are unchecked:\n${missing.map(i => `  • ${i}`).join('\n')}`
+              );
+            }
+
+            // Conditional: if Skills Lab checkbox is checked, enforce Skills Lab items
+            const skillsLabChanged = /- \[x\].*Skills Lab changed in this PR/i.test(body);
+            if (skillsLabChanged) {
+              const skillsLabRequired = [
+                'All 13 Playwright E2E tests pass',
+                'Data model `{ id, body, status }` preserved',
+                'Dual storage preserved',
+                '`.md` file-content-wins merge rule preserved',
+                'Public CSS selectors unchanged',
+                'DA admin API surface unchanged',
+              ];
+
+              const skillsMissing = skillsLabRequired.filter(item => {
+                const pattern = new RegExp(`- \\[ \\].*${item.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`);
+                return pattern.test(body);
+              });
+
+              if (skillsMissing.length > 0) {
+                core.setFailed(
+                  `EW DoD (Skills Lab): the following items are unchecked:\n${skillsMissing.map(i => `  • ${i}`).join('\n')}`
+                );
+              }
+            }
+
+            core.info('EW PR checklist passed.');
