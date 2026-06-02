@@ -1,7 +1,7 @@
 import { DA_ORIGIN, AEM_ORIGIN } from '../../utils/constants.js';
 import { Queue } from '../../utils/tree.js';
 
-const LANG_CONF = '/.da/translate-v2.json';
+const LANG_CONF = '/.da/translate.json';
 
 export const [setContext, getContext] = (() => {
   let ctx;
