@@ -63,7 +63,7 @@ class NxChat extends LitElement {
   };
 
   _onSetPrompt = ({ detail }) => {
-    this._sendPrompt(detail.text);
+    this._sendPrompt(detail.text, { autoSend: detail.autoSend });
   };
 
   addAttachment(item) {
@@ -318,13 +318,17 @@ class NxChat extends LitElement {
     this._items = [];
   }
 
-  _sendPrompt(prompt) {
+  _sendPrompt(prompt, { autoSend = false } = {}) {
     if (!prompt || this.thinking || !this.connected) return;
     this.shadowRoot.querySelector('.prompts-popover')?.close();
     const input = this.shadowRoot.querySelector('.chat-input');
     if (!input) return;
     input.value = prompt;
-    input.focus();
+    if (autoSend) {
+      input.closest('form')?.requestSubmit();
+    } else {
+      input.focus();
+    }
   }
 
   _handleMenuSelect({ detail: { id } }) {

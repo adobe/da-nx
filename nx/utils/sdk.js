@@ -26,8 +26,8 @@ function closeLibrary() {
   port2.postMessage({ action: 'closeLibrary' });
 }
 
-function setPrompt(text) {
-  port2.postMessage({ action: 'setPrompt', details: text });
+function setPrompt(text, { autoSend = false } = {}) {
+  port2.postMessage({ action: 'setPrompt', details: { text, autoSend } });
 }
 
 function getSelection() {
