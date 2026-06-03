@@ -1,5 +1,5 @@
 import { loadIms } from '../../utils/ims.js';
-import { AGENT_EVENT, ROLE, TOOL_NAME, TOOL_SCOPE, TOOL_STATE } from './constants.js';
+import { AGENT_EVENT, ROLE, TOOL_NAME, TOOL_STATE } from './constants.js';
 import { readStream } from './utils/stream.js';
 import { loadMessages, saveMessages, resetSession } from './utils/persistence.js';
 
@@ -31,20 +31,46 @@ const AGENT_URL = new URLSearchParams(window.location.search).get('ref') === 'lo
  */
 function stripOrphanedToolCallMessages(messages) {
   const resolvedIds = new Set();
+  const requestedApprovalIds = new Set();
+  const respondedApprovalIds = new Set();
   for (const msg of messages) {
+    if (msg.role === ROLE.ASSISTANT && Array.isArray(msg.content)) {
+      for (const p of msg.content) {
+        if (p.type === AGENT_EVENT.TOOL_APPROVAL_REQUEST && p.approvalId) {
+          requestedApprovalIds.add(p.approvalId);
+        }
+      }
+    }
     if (msg.role === ROLE.TOOL && Array.isArray(msg.content)) {
       for (const p of msg.content) {
         if (p.type === AGENT_EVENT.TOOL_RESULT && p.toolCallId) resolvedIds.add(p.toolCallId);
+        if (p.type === AGENT_EVENT.TOOL_APPROVAL_RESPONSE && p.approvalId) {
+          respondedApprovalIds.add(p.approvalId);
+        }
       }
     }
   }
+  // An approval is "complete" only when both request and response exist.
+  // Incomplete approvals (e.g. session interrupted mid-flow) are treated as orphans.
+  const completeApprovalIds = new Set(
+    [...respondedApprovalIds].filter((id) => requestedApprovalIds.has(id)),
+  );
 
   return messages.filter((msg) => {
+    // Strip dangling approval-response messages whose request was already dropped.
+    if (msg.role === ROLE.TOOL && Array.isArray(msg.content)) {
+      const resp = msg.content.find((p) => p.type === AGENT_EVENT.TOOL_APPROVAL_RESPONSE);
+      if (resp) return completeApprovalIds.has(resp.approvalId);
+      return true;
+    }
     if (msg.role !== ROLE.ASSISTANT || !Array.isArray(msg.content)) return true;
     const calls = msg.content.filter((p) => p.type === AGENT_EVENT.TOOL_CALL);
     if (calls.length === 0) return true;
-    const hasApproval = msg.content.some((p) => p.type === AGENT_EVENT.TOOL_APPROVAL_REQUEST);
-    if (hasApproval) return true;
+    const approvals = msg.content.filter((p) => p.type === AGENT_EVENT.TOOL_APPROVAL_REQUEST);
+    if (approvals.length > 0) {
+      // Keep only if every approval in this message has a corresponding response.
+      return approvals.every((a) => completeApprovalIds.has(a.approvalId));
+    }
     return calls.every((c) => resolvedIds.has(c.toolCallId));
   });
 }
@@ -158,11 +184,17 @@ export default class ChatController {
       if (next.has(toolCallId)) return; // duplicate — ignore
       next.set(toolCallId, { toolName, input, state: TOOL_STATE.RUNNING });
     } else if (type === AGENT_EVENT.TOOL_APPROVAL_REQUEST) {
-      const autoApprove = this._autoApprovedTools?.has(toolName);
+      const existingCard = next.get(toolCallId);
+      const settled = existingCard?.state;
+      if (settled === TOOL_STATE.APPROVED || settled === TOOL_STATE.REJECTED
+        || settled === TOOL_STATE.DONE || settled === TOOL_STATE.ERROR) return;
+      // prior carries the toolName from the earlier TOOL_CALL event; the TOOL_APPROVAL_REQUEST
+      // event from da-agent omits toolName, so we cannot rely on the destructured value here.
+      const prior = existingCard ?? { toolName, input: {} };
+      const autoApprove = this._autoApprovedTools?.has(prior.toolName ?? toolName);
       // Promote to _messages now that we know approval is needed.
       // Both parts go in one message — resolveApprovals() matches tool-approval-request
       // to tool-call by toolCallId within the same assistant message.
-      const prior = next.get(toolCallId) ?? { toolName, input: {} };
       this._messages = [
         ...this._messages,
         {
@@ -245,6 +277,25 @@ export default class ChatController {
 
     const next = new Map(this._toolCards ?? []);
     next.set(toolCallId, { ...card, state: approved ? TOOL_STATE.APPROVED : TOOL_STATE.REJECTED });
+
+    // When "always approve" is clicked, bulk-approve any other pending parallel calls
+    // with the same tool name so they don't surface their own popovers.
+    const bulkApprovalMessages = [];
+    if (always && approved) {
+      for (const [id, c] of next) {
+        if (id !== toolCallId && c.toolName === card.toolName
+          && c.state === TOOL_STATE.APPROVAL_REQUESTED && c.approvalId) {
+          next.set(id, { ...c, state: TOOL_STATE.APPROVED });
+          bulkApprovalMessages.push({
+            role: ROLE.TOOL,
+            content: [{
+              type: AGENT_EVENT.TOOL_APPROVAL_RESPONSE, approvalId: c.approvalId, approved: true,
+            }],
+          });
+        }
+      }
+    }
+
     this._toolCards = next;
 
     const { approvalId } = card;
@@ -254,6 +305,7 @@ export default class ChatController {
         role: ROLE.TOOL,
         content: [{ type: AGENT_EVENT.TOOL_APPROVAL_RESPONSE, approvalId, approved }],
       },
+      ...bulkApprovalMessages,
     ];
     this._thinking = approved;
     this._update();
@@ -261,8 +313,6 @@ export default class ChatController {
     if (approved) {
       try {
         await this._stream(this._pageContextForAgent());
-        const scope = TOOL_SCOPE[card.toolName];
-        if (scope) this._onToolDone?.(scope, affectedFolders(card.toolName, card.input));
       } catch (err) {
         if (err.name !== 'AbortError') {
           this._messages = [...this._messages, { role: ROLE.ASSISTANT, content: `Error: ${err.message}` }];

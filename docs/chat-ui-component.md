@@ -115,7 +115,7 @@ The controller consumes a server-sent event stream from `da-agent`. Each line is
 | Type | Legacy alias | Fields | Description |
 |---|---|---|---|
 | `tool-call` | `tool-input-available` | `toolCallId`, `toolName`, `input` | Agent invoked a tool. Legacy field alias: `args` → `input` |
-| `tool-approval-request` | — | `toolCallId`, `approvalId`, `toolName`, `input` | Tool requires user approval; `input` is the same object from `tool-call` and is used to render the approval summary |
+| `tool-approval-request` | — | `toolCallId`, `approvalId` | Tool requires user approval. `toolName` and `input` are **not** included — the client recovers them from the prior `tool-call` event with the matching `toolCallId` |
 | `tool-result` | `tool-output-available` | `toolCallId`, `toolName`, `output` | Tool completed; `output.error` signals failure. Legacy field alias: `result` → `output` |
 
 ### Tool card states

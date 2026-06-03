@@ -74,7 +74,7 @@ function renderToggleList(tree) {
         i += 1;
         body.push(renderNode(tree.children[i]));
       }
-      items.push(html`<li><details><summary>${summary}</summary>${body}</details></li>`);
+      items.push(html`<li>${summary}<p>${body}</p></li>`);
     } else {
       items.push(html`<li>${renderNode(node)}</li>`);
     }
