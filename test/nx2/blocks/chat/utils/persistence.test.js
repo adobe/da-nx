@@ -3,7 +3,7 @@ import {
   loadMessages,
   saveMessages,
   resetSession,
-} from '../../../../nx2/blocks/chat/persistence.js';
+} from '../../../../../nx2/blocks/chat/utils/persistence.js';
 
 let counter = 0;
 const room = () => {

@@ -1,7 +1,7 @@
 import { loadIms } from '../../utils/ims.js';
 import { AGENT_EVENT, ROLE, TOOL_NAME, TOOL_STATE } from './constants.js';
-import { readStream } from './utils.js';
-import { loadMessages, saveMessages, resetSession } from './persistence.js';
+import { readStream } from './utils/stream.js';
+import { loadMessages, saveMessages, resetSession } from './utils/persistence.js';
 
 function affectedFolders(toolName, input) {
   const { org, repo } = input ?? {};
@@ -161,7 +161,7 @@ export default class ChatController {
       const existingCard = next.get(toolCallId);
       const settled = existingCard?.state;
       if (settled === TOOL_STATE.APPROVED || settled === TOOL_STATE.REJECTED
-          || settled === TOOL_STATE.DONE || settled === TOOL_STATE.ERROR) return;
+        || settled === TOOL_STATE.DONE || settled === TOOL_STATE.ERROR) return;
       const autoApprove = this._autoApprovedTools?.has(toolName);
       // Promote to _messages now that we know approval is needed.
       // Both parts go in one message — resolveApprovals() matches tool-approval-request
@@ -256,7 +256,7 @@ export default class ChatController {
     if (always && approved) {
       for (const [id, c] of next) {
         if (id !== toolCallId && c.toolName === card.toolName
-            && c.state === TOOL_STATE.APPROVAL_REQUESTED && c.approvalId) {
+          && c.state === TOOL_STATE.APPROVAL_REQUESTED && c.approvalId) {
           next.set(id, { ...c, state: TOOL_STATE.APPROVED });
           bulkApprovalMessages.push({
             role: ROLE.TOOL,

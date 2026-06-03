@@ -1,6 +1,7 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../utils/utils.js';
 import { getConfig } from '../../../scripts/nx.js';
+import { fileIconName } from '../utils/icons.js';
 
 const styles = await loadStyle(import.meta.url);
 const { codeBase } = getConfig();
@@ -19,9 +20,7 @@ class NxChatPills extends LitElement {
 
   _pillTypeIcon(label, thumbnail) {
     if (thumbnail) return html`<img class="pill-thumbnail" src=${thumbnail} alt="" aria-hidden="true">`;
-    const isImage = label && /\.(png|jpg|jpeg|gif|webp|svg|mp4|webm|mov)$/i.test(label);
-    const icon = isImage ? 's2-icon-image-20-n' : 's2-icon-filetext-20-n';
-    return html`<svg class="pill-type-icon" viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/${icon}.svg#icon"></use></svg>`;
+    return html`<svg class="pill-type-icon" viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/${fileIconName(label)}.svg#icon"></use></svg>`;
   }
 
   _renderPill({ id, label, thumbnail, type }) {
