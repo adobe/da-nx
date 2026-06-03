@@ -26,12 +26,8 @@ function closeLibrary() {
   port2.postMessage({ action: 'closeLibrary' });
 }
 
-function setPrompt(text) {
-  port2.postMessage({ action: 'setPrompt', details: text });
-}
-
-function sendPrompt(text) {
-  port2.postMessage({ action: 'sendPrompt', details: text });
+function setPrompt(text, { autoSend = false } = {}) {
+  port2.postMessage({ action: 'setPrompt', details: { text, autoSend } });
 }
 
 function getSelection() {
@@ -80,7 +76,6 @@ const DA_SDK = (() => new Promise((resolve) => {
         closeLibrary,
         getSelection,
         setPrompt,
-        sendPrompt,
       };
 
       resolve({ ...e.data, actions });

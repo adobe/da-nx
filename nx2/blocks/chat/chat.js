@@ -63,11 +63,7 @@ class NxChat extends LitElement {
   };
 
   _onSetPrompt = ({ detail }) => {
-    this._sendPrompt(detail.text);
-  };
-
-  _onSendPrompt = ({ detail }) => {
-    this._sendPrompt(detail.text, { autoSend: true });
+    this._sendPrompt(detail.text, { autoSend: detail.autoSend });
   };
 
   addAttachment(item) {
@@ -196,7 +192,6 @@ class NxChat extends LitElement {
     this._controller.connect().then(() => this._controller.loadInitialMessages());
     document.addEventListener('nx-add-to-chat', this._onAddToChat);
     document.addEventListener('nx-set-prompt', this._onSetPrompt);
-    document.addEventListener('nx-send-prompt', this._onSendPrompt);
   }
 
   disconnectedCallback() {
@@ -209,7 +204,6 @@ class NxChat extends LitElement {
     document.removeEventListener('keydown', this._onApprovalKeydown);
     document.removeEventListener('nx-add-to-chat', this._onAddToChat);
     document.removeEventListener('nx-set-prompt', this._onSetPrompt);
-    document.removeEventListener('nx-send-prompt', this._onSendPrompt);
   }
 
   _pendingApproval() {
