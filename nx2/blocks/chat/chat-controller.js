@@ -1,5 +1,5 @@
 import { loadIms } from '../../utils/ims.js';
-import { AGENT_EVENT, ROLE, TOOL_NAME, TOOL_SCOPE, TOOL_STATE } from './constants.js';
+import { AGENT_EVENT, ROLE, TOOL_NAME, TOOL_STATE } from './constants.js';
 import { readStream } from './utils.js';
 import { loadMessages, saveMessages, resetSession } from './persistence.js';
 
@@ -158,6 +158,10 @@ export default class ChatController {
       if (next.has(toolCallId)) return; // duplicate — ignore
       next.set(toolCallId, { toolName, input, state: TOOL_STATE.RUNNING });
     } else if (type === AGENT_EVENT.TOOL_APPROVAL_REQUEST) {
+      const existingCard = next.get(toolCallId);
+      const settled = existingCard?.state;
+      if (settled === TOOL_STATE.APPROVED || settled === TOOL_STATE.REJECTED
+          || settled === TOOL_STATE.DONE || settled === TOOL_STATE.ERROR) return;
       const autoApprove = this._autoApprovedTools?.has(toolName);
       // Promote to _messages now that we know approval is needed.
       // Both parts go in one message — resolveApprovals() matches tool-approval-request
@@ -245,6 +249,25 @@ export default class ChatController {
 
     const next = new Map(this._toolCards ?? []);
     next.set(toolCallId, { ...card, state: approved ? TOOL_STATE.APPROVED : TOOL_STATE.REJECTED });
+
+    // When "always approve" is clicked, bulk-approve any other pending parallel calls
+    // with the same tool name so they don't surface their own popovers.
+    const bulkApprovalMessages = [];
+    if (always && approved) {
+      for (const [id, c] of next) {
+        if (id !== toolCallId && c.toolName === card.toolName
+            && c.state === TOOL_STATE.APPROVAL_REQUESTED && c.approvalId) {
+          next.set(id, { ...c, state: TOOL_STATE.APPROVED });
+          bulkApprovalMessages.push({
+            role: ROLE.TOOL,
+            content: [{
+              type: AGENT_EVENT.TOOL_APPROVAL_RESPONSE, approvalId: c.approvalId, approved: true,
+            }],
+          });
+        }
+      }
+    }
+
     this._toolCards = next;
 
     const { approvalId } = card;
@@ -254,6 +277,7 @@ export default class ChatController {
         role: ROLE.TOOL,
         content: [{ type: AGENT_EVENT.TOOL_APPROVAL_RESPONSE, approvalId, approved }],
       },
+      ...bulkApprovalMessages,
     ];
     this._thinking = approved;
     this._update();
@@ -261,8 +285,6 @@ export default class ChatController {
     if (approved) {
       try {
         await this._stream(this._pageContextForAgent());
-        const scope = TOOL_SCOPE[card.toolName];
-        if (scope) this._onToolDone?.(scope, affectedFolders(card.toolName, card.input));
       } catch (err) {
         if (err.name !== 'AbortError') {
           this._messages = [...this._messages, { role: ROLE.ASSISTANT, content: `Error: ${err.message}` }];
