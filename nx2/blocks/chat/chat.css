@@ -142,7 +142,6 @@
   height: 100%;
 }
 
-.directive-toggle-list summary::before,
 .tool-card summary::before,
 .message .selection-context > summary::before {
   content: "";
@@ -201,33 +200,10 @@
 }
 
 .directive-toggle-list {
-  details {
-    summary {
-      cursor: pointer;
-      display: flex;
-      align-items: flex-start;
-      gap: var(--s2-spacing-75);
-
-      &::-webkit-details-marker {
-        display: none;
-      }
-
-      &::before {
-        margin-top: var(--s2-spacing-75);
-      }
-    }
-
-    &[open] > summary::before {
-      transform: rotate(180deg);
-    }
-
-    &:not(:has(> :not(summary))) > summary {
-      pointer-events: none;
-
-      &::before {
-        display: none;
-      }
-    }
+  li {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s2-spacing-75);
   }
 }
 
