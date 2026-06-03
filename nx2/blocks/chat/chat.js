@@ -66,6 +66,10 @@ class NxChat extends LitElement {
     this._sendPrompt(detail.text);
   };
 
+  _onSendPrompt = ({ detail }) => {
+    this._sendPrompt(detail.text, { autoSend: true });
+  };
+
   addAttachment(item) {
     const current = this._items ?? [];
     if (current.some((i) => i.id === item.id)) return;
@@ -192,6 +196,7 @@ class NxChat extends LitElement {
     this._controller.connect().then(() => this._controller.loadInitialMessages());
     document.addEventListener('nx-add-to-chat', this._onAddToChat);
     document.addEventListener('nx-set-prompt', this._onSetPrompt);
+    document.addEventListener('nx-send-prompt', this._onSendPrompt);
   }
 
   disconnectedCallback() {
@@ -204,6 +209,7 @@ class NxChat extends LitElement {
     document.removeEventListener('keydown', this._onApprovalKeydown);
     document.removeEventListener('nx-add-to-chat', this._onAddToChat);
     document.removeEventListener('nx-set-prompt', this._onSetPrompt);
+    document.removeEventListener('nx-send-prompt', this._onSendPrompt);
   }
 
   _pendingApproval() {
@@ -318,13 +324,17 @@ class NxChat extends LitElement {
     this._items = [];
   }
 
-  _sendPrompt(prompt) {
+  _sendPrompt(prompt, { autoSend = false } = {}) {
     if (!prompt || this.thinking || !this.connected) return;
     this.shadowRoot.querySelector('.prompts-popover')?.close();
     const input = this.shadowRoot.querySelector('.chat-input');
     if (!input) return;
     input.value = prompt;
-    input.focus();
+    if (autoSend) {
+      input.closest('form')?.requestSubmit();
+    } else {
+      input.focus();
+    }
   }
 
   _handleMenuSelect({ detail: { id } }) {
