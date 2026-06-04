@@ -27,9 +27,21 @@ export async function loadSiteConfig(org, site) {
       const en = String(row?.enabled ?? 'true').trim().toLowerCase();
       if (!key || !url || st === 'draft' || en === 'false') return;
       mcpServers[key] = url;
-      const hN = String(row?.authHeaderName ?? '').trim();
-      const hV = String(row?.authHeaderValue ?? '').trim();
-      if (hN && hV) mcpServerHeaders[key] = { [hN]: hV };
+      // headers[] array (new format) → Record<string, string>; legacy single-header fallback
+      const parsedHeaders = {};
+      if (Array.isArray(row?.headers)) {
+        row.headers.forEach((header) => {
+          const headerName = String(header?.name || '').trim();
+          const headerValue = String(header?.value || '').trim();
+          if (headerName && headerValue) parsedHeaders[headerName] = headerValue;
+        });
+      }
+      const legacyName = String(row?.authHeaderName ?? '').trim();
+      const legacyValue = String(row?.authHeaderValue ?? '').trim();
+      if (legacyName && legacyValue && !(legacyName in parsedHeaders)) {
+        parsedHeaders[legacyName] = legacyValue;
+      }
+      if (Object.keys(parsedHeaders).length) mcpServerHeaders[key] = parsedHeaders;
     });
 
     return { prompts, skills, mcpServers, mcpServerHeaders };
