@@ -12,7 +12,22 @@ export async function loadSiteConfig(org, site) {
       .filter((row) => String(row.status ?? '').trim().toLowerCase() !== 'draft')
       .map((row) => String(row.key ?? row.id ?? '').trim().replace(/\.md$/i, ''))
       .filter(Boolean);
-    return { prompts, skills };
+
+    const mcpServers = {};
+    const mcpServerHeaders = {};
+    (json?.['mcp-servers']?.data ?? []).forEach((row) => {
+      const key = String(row?.key ?? '').trim();
+      const url = row?.url || row?.value;
+      const status = String(row?.status ?? '').trim().toLowerCase();
+      const enabled = String(row?.enabled ?? 'true').trim().toLowerCase();
+      if (!key || !url || status === 'draft' || enabled === 'false') return;
+      mcpServers[key] = url;
+      const hName = String(row?.authHeaderName ?? '').trim();
+      const hValue = String(row?.authHeaderValue ?? '').trim();
+      if (hName && hValue) mcpServerHeaders[key] = { [hName]: hValue };
+    });
+
+    return { prompts, skills, mcpServers, mcpServerHeaders };
   } catch {
     return {};
   }

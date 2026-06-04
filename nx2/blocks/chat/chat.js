@@ -96,9 +96,10 @@ class NxChat extends LitElement {
     const key = `${org}/${site}`;
     if (this._configKey === key) return;
     this._configKey = key;
-    const { prompts, skills } = await loadSiteConfig(org, site);
+    const { prompts, skills, mcpServers, mcpServerHeaders } = await loadSiteConfig(org, site);
     this._prompts = prompts ?? [];
     this._skills = skills ?? [];
+    this._controller?.setMcpConfig(mcpServers ?? {}, mcpServerHeaders ?? {});
     if (this._slashCtx) this._syncSlashMenu(this._slashCtx);
   }
 
