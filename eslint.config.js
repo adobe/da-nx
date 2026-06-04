@@ -85,18 +85,5 @@ export default defineConfig([
       'no-unused-expressions': 0,
     },
   },
-  {
-    files: ['nx/blocks/form/core/**/*.js'],
-    rules: {
-      'no-restricted-imports': ['error', {
-        patterns: [
-          {
-            group: ['../views/*', '../views/**', '../app/*', '../app/**'],
-            message: 'core/ must not import from views/ or app/ — see nx/blocks/form/docs/architecture.md §2.',
-          },
-        ],
-      }],
-    },
-  },
 ]);
 

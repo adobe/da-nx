@@ -373,6 +373,7 @@ export default class ChatController {
         sessionId: this._sessionId,
         ...(this._requestedSkills?.length ? { requestedSkills: this._requestedSkills } : {}),
         ...(this._pendingAttachments?.length ? { attachments: this._pendingAttachments } : {}),
+        ...this._mcpPayload(),
       }),
       signal: this._abortController.signal,
     });
@@ -393,10 +394,23 @@ export default class ChatController {
     });
   }
 
+  setMcpConfig(mcpServers, mcpServerHeaders) {
+    this._mcpServers = mcpServers;
+    this._mcpServerHeaders = mcpServerHeaders;
+  }
+
+  _mcpPayload() {
+    const s = this._mcpServers;
+    const h = this._mcpServerHeaders;
+    return {
+      ...(s && Object.keys(s).length ? { mcpServers: s } : {}),
+      ...(h && Object.keys(h).length ? { mcpServerHeaders: h } : {}),
+    };
+  }
+
   async sendMessage(message, context = [], { requestedSkills = [], attachments = [] } = {}) {
     if (this._thinking || !this._connected) return;
 
-    // New turn id; an approval round-trip keeps it, so this turn's reads stay replayable.
     this._currentTurnId = crypto.randomUUID();
     this._requestedSkills = requestedSkills;
     const selectionContext = context
