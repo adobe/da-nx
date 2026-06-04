@@ -30,6 +30,10 @@ function setPrompt(text, { autoSend = false } = {}) {
   port2.postMessage({ action: 'setPrompt', details: { text, autoSend } });
 }
 
+function showPanel(name) {
+  port2.postMessage({ action: 'showPanel', details: name });
+}
+
 function getSelection() {
   return new Promise((resolve, reject) => {
     const listener = (e) => {
@@ -76,6 +80,7 @@ const DA_SDK = (() => new Promise((resolve) => {
         closeLibrary,
         getSelection,
         setPrompt,
+        showPanel,
       };
 
       resolve({ ...e.data, actions });
