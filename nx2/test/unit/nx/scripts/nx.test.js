@@ -366,6 +366,24 @@ describe('loadBlock', () => {
     expect(block.dataset.blockName).to.equal('skills-editor');
   });
 
+  it('routes nx- blocks in NX_BLOCKS to /nx/blocks', async () => {
+    const block = document.createElement('div');
+    block.classList.add('nx-importer');
+
+    await loadBlock(block);
+
+    expect(block.dataset.blockName).to.equal('importer');
+  });
+
+  it('routes other nx- blocks to nxBase/blocks', async () => {
+    const block = document.createElement('div');
+    block.classList.add('nx-sidenav');
+
+    await loadBlock(block);
+
+    expect(block.dataset.blockName).to.equal('sidenav');
+  });
+
   it('returns the block element', async () => {
     const block = document.createElement('div');
     block.classList.add('test');

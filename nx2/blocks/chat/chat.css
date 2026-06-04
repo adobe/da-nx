@@ -52,7 +52,6 @@
         background-color: var(--s2-gray-700);
         color: var(--s2-gray-25);
       }
-
     }
 
     &.secondary-btn {
@@ -193,6 +192,82 @@
   }
 }
 
+.directive-checklist ul,
+.directive-toggle-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.directive-toggle-list {
+  li {
+    display: flex;
+    flex-direction: column;
+    gap: var(--s2-spacing-75);
+  }
+}
+
+.directive-checklist {
+  li {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--s2-spacing-75);
+  }
+
+  input[type="checkbox"] {
+    position: relative;
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    margin-top: var(--s2-spacing-75);
+    appearance: none;
+    border: 2px solid var(--s2-gray-800);
+    border-radius: var(--s2-corner-radius-75);
+    background: var(--s2-gray-75);
+
+    &:disabled {
+      opacity: 0.8;
+      cursor: not-allowed;
+    }
+
+    &:checked {
+      background: var(--s2-gray-800);
+      color: var(--s2-gray-25);
+
+      &::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background-color: currentcolor;
+        mask-image: url("https://da.live/img/icons/s2-icon-checkmark-20-n.svg");
+        mask-size: contain;
+        mask-repeat: no-repeat;
+        mask-position: center;
+      }
+    }
+  }
+}
+
+.directive-alert-info,
+.directive-alert-warning,
+.directive-alert-error {
+  padding: var(--s2-spacing-75) var(--s2-spacing-200);
+  border-radius: 12px;
+  margin: var(--s2-spacing-200) 0;
+}
+
+.directive-alert-info {
+  background-color: var(--s2-blue-200);
+}
+
+.directive-alert-warning {
+  background-color: var(--s2-orange-200);
+}
+
+.directive-alert-error {
+  background-color: var(--s2-red-200);
+}
+
 .message {
   padding: 6px var(--s2-spacing-200);
   border-radius: 12px;
@@ -236,11 +311,18 @@
       display: block;
     }
 
-    .icon-checkmark { display: none; }
+    .icon-checkmark {
+      display: none;
+    }
 
     &:focus {
-      .icon-paste { display: none; }
-      .icon-checkmark { display: block; }
+      .icon-paste {
+        display: none;
+      }
+
+      .icon-checkmark {
+        display: block;
+      }
     }
   }
 
@@ -318,6 +400,35 @@
     var(--s2-spacing-100);
   gap: var(--s2-spacing-75);
   margin: 0 auto;
+  position: relative;
+}
+
+.chat-drop-zone {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s2-spacing-75);
+  background: color-mix(in srgb, var(--s2-gray-25) 85%, transparent);
+  border: 2px solid var(--s2-blue-900);
+  border-radius: var(--s2-corner-radius-400);
+  text-align: center;
+  padding: var(--s2-spacing-200);
+  box-sizing: border-box;
+
+  .chat-drop-title {
+    font-size: var(--s2-body-size-s);
+    font-weight: var(--s2-component-m-bold-font-weight);
+    color: var(--s2-gray-900);
+  }
+
+  .chat-drop-hint {
+    font-size: var(--s2-body-size-xs);
+    color: var(--s2-gray-600);
+  }
 }
 
 .chat-actions {
@@ -373,7 +484,8 @@
   font-size: var(--s2-body-size-s);
   background: inherit;
 
-  &:not(:placeholder-shown) + .chat-actions .chat-send {
+  &:not(:placeholder-shown) + .chat-actions .chat-send,
+  & + .chat-actions[data-has-items] .chat-send {
     display: flex;
   }
 
@@ -422,6 +534,7 @@
   flex-direction: column;
   gap: var(--s2-spacing-100);
   padding: var(--s2-spacing-100);
+  z-index: 1;
 
   .approval-tool-name {
     font-weight: bold;
@@ -461,6 +574,26 @@
 
   .icon-up {
     display: flex;
+  }
+}
+
+.chat-disclaimer {
+  max-width: 720px;
+  width: calc(100% - 2 * var(--s2-spacing-200));
+  margin: 0;
+  font-size: var(--s2-body-size-xs);
+  color: var(--s2-gray-700);
+  line-height: 1.5;
+  box-sizing: border-box;
+
+  a {
+    color: inherit;
+    font-weight: bold;
+    text-decoration: underline;
+
+    &:hover {
+      color: var(--s2-gray-900);
+    }
   }
 }
 

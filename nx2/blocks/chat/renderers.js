@@ -1,15 +1,10 @@
 import { html, nothing } from 'da-lit';
 import { AGENT_EVENT, ROLE, TOOL_INPUT, TOOL_STATE } from './constants.js';
 import { getConfig } from '../../scripts/nx.js';
+import { parseDirectives } from './utils/parse.js';
+import { fileIconName } from './utils/icons.js';
 
 const { codeBase } = getConfig();
-
-const SELECTION_ICON_NAMES = {
-  block: 's2-icon-3d-20-n',
-  file: 's2-icon-filetext-20-n',
-  image: 's2-icon-image-20-n',
-  table: 's2-icon-table-20-n',
-};
 
 const { unified, remarkParse } = await import('../../deps/mdast/dist/index.js');
 
@@ -48,10 +43,71 @@ function renderNode(node) {
 
 const parser = unified().use(remarkParse);
 
+function renderChecklistItem(node) {
+  const para = node.children[0];
+  if (para?.type !== 'paragraph') return html`<li>${node.children.map(renderNode)}</li>`;
+  const first = para.children[0];
+  if (first?.type !== 'text') return html`<li>${renderNode(para)}</li>`;
+
+  const checked = first.value.startsWith('[x] ') || first.value.startsWith('[X] ');
+  const unchecked = first.value.startsWith('[ ] ');
+  if (!checked && !unchecked) return html`<li>${renderNode(para)}</li>`;
+
+  const inline = [
+    { ...first, value: first.value.slice(4) },
+    ...para.children.slice(1),
+  ].map(renderNode);
+  return html`<li class="${checked ? 'checked' : 'unchecked'}">
+    <input type="checkbox" ?checked=${checked} disabled><span>${inline}</span>
+  </li>`;
+}
+
+function renderToggleList(tree) {
+  const items = [];
+  let i = 0;
+  while (i < tree.children.length) {
+    const node = tree.children[i];
+    if (node.type === 'blockquote') {
+      const summary = node.children.flatMap((c) => (c.children ?? []).map(renderNode));
+      const body = [];
+      while (i + 1 < tree.children.length && tree.children[i + 1].type !== 'blockquote') {
+        i += 1;
+        body.push(renderNode(tree.children[i]));
+      }
+      items.push(html`<li>${summary}<p>${body}</p></li>`);
+    } else {
+      items.push(html`<li>${renderNode(node)}</li>`);
+    }
+    i += 1;
+  }
+  return html`<ul class="directive directive-toggle-list">${items}</ul>`;
+}
+
+function renderChecklist(tree) {
+  const inner = tree.children.map((n) => {
+    if (n.type !== 'list') return renderNode(n);
+    return n.ordered
+      ? html`<ol>${n.children.map(renderChecklistItem)}</ol>`
+      : html`<ul>${n.children.map(renderChecklistItem)}</ul>`;
+  });
+  return html`<div class="directive directive-checklist">${inner}</div>`;
+}
+
+function renderDirective(type, content) {
+  const tree = parser.parse(content);
+  if (type === 'toggle-list') return renderToggleList(tree);
+  if (type === 'checklist') return renderChecklist(tree);
+  return html`<div class="directive directive-${type}">${renderNode(tree)}</div>`;
+}
+
 function renderMessageContent(text) {
   if (!text) return nothing;
-  const tree = parser.parse(text);
-  return renderNode(tree);
+  const segments = parseDirectives(text);
+  return segments.map(({ kind, type, content }) => {
+    if (kind === 'directive') return renderDirective(type, content);
+    const tree = parser.parse(content);
+    return renderNode(tree);
+  });
 }
 
 function approvalSummary(input) {
@@ -101,14 +157,8 @@ function renderApprovalCard(pending, onApprove) {
   `;
 }
 
-// Mirrors entryTypeFromExtension in browse/utils.js — switch to common utils once migrated.
 function selectionIcon(blockName) {
-  const ext = (blockName ?? '').includes('.') ? blockName.split('.').pop().toLowerCase() : '';
-  let name = SELECTION_ICON_NAMES.block;
-  if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'mp4', 'webm', 'mov'].includes(ext)) name = SELECTION_ICON_NAMES.image;
-  else if (['json', 'xlsx', 'xls', 'csv'].includes(ext)) name = SELECTION_ICON_NAMES.table;
-  else if (ext) name = SELECTION_ICON_NAMES.file;
-  return html`<svg class="selection-icon" viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/${name}.svg#icon"></use></svg>`;
+  return html`<svg class="selection-icon" viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/${fileIconName(blockName)}.svg#icon"></use></svg>`;
 }
 
 function renderMessage(msg, toolCards) {
@@ -129,20 +179,26 @@ function renderMessage(msg, toolCards) {
       </button>`
     : nothing;
 
-  const selectionItem = ({ blockName }) => html`
+  const contextItem = (name) => html`
     <li class="selection-context-item">
-      ${selectionIcon(blockName)}
-      <span>${blockName}</span>
+      ${selectionIcon(name)}
+      <span>${name}</span>
     </li>`;
 
   let selectionPills = nothing;
-  if (!isAssistant && msg.selectionContext?.length) {
-    selectionPills = msg.selectionContext.length === 1
-      ? html`<ul class="selection-context-list" aria-label="Attached context">${selectionItem(msg.selectionContext[0])}</ul>`
-      : html`<details class="selection-context">
-          <summary><span class="selection-context-count">${msg.selectionContext.length} items added</span></summary>
-          <ul class="selection-context-list">${msg.selectionContext.map(selectionItem)}</ul>
+  if (!isAssistant) {
+    const items = [
+      ...(msg.selectionContext ?? []).map(({ blockName }) => contextItem(blockName)),
+      ...(msg.attachmentsMeta ?? []).map(({ fileName }) => contextItem(fileName)),
+    ];
+    if (items.length === 1) {
+      selectionPills = html`<ul class="selection-context-list" aria-label="Attached context">${items[0]}</ul>`;
+    } else if (items.length > 1) {
+      selectionPills = html`<details class="selection-context">
+          <summary><span class="selection-context-count">${items.length} items added</span></summary>
+          <ul class="selection-context-list">${items}</ul>
         </details>`;
+    }
   }
 
   return html`

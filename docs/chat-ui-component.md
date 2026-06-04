@@ -50,8 +50,11 @@ Components that want to add pills without holding a direct reference to the chat
 | Event | Detail | Description |
 |---|---|---|
 | `nx-add-to-chat` | `{ key?, id, label, ...contextFields }` | Adds or replaces a pill. If `key` is set, replaces any existing pill with the same key (use for selection-driven context that changes as the user moves focus). If `key` is omitted, appends a new pill regardless. Dispatching `{ key }` with no `id` removes the pill for that key. |
+| `nx-set-prompt` | `{ text: string, autoSend?: boolean }` | Sets the chat input field to `text`. If `autoSend` is `true`, submits immediately; otherwise focuses the input for the user to review and send. No-ops if the agent is already processing. |
 
 Context fields on the detail (`blockName`, `innerText`, `proseIndex`) are forwarded to the agent as selection context on the next message. See [Selection context](#selection-context).
+
+**Extension iframe usage:** Extensions running in cross-origin iframes cannot dispatch document events directly. Use `actions.setPrompt(text)` or `actions.setPrompt(text, { autoSend: true })` from the DA SDK — the iframe protocol relays it to `nx-set-prompt` on the host document. `actions.setPrompt` is available on the object resolved from `DA_SDK`.
 
 ## Selection context
 
@@ -112,7 +115,7 @@ The controller consumes a server-sent event stream from `da-agent`. Each line is
 | Type | Legacy alias | Fields | Description |
 |---|---|---|---|
 | `tool-call` | `tool-input-available` | `toolCallId`, `toolName`, `input` | Agent invoked a tool. Legacy field alias: `args` → `input` |
-| `tool-approval-request` | — | `toolCallId`, `approvalId`, `toolName`, `input` | Tool requires user approval; `input` is the same object from `tool-call` and is used to render the approval summary |
+| `tool-approval-request` | — | `toolCallId`, `approvalId` | Tool requires user approval. `toolName` and `input` are **not** included — the client recovers them from the prior `tool-call` event with the matching `toolCallId` |
 | `tool-result` | `tool-output-available` | `toolCallId`, `toolName`, `output` | Tool completed; `output.error` signals failure. Legacy field alias: `result` → `output` |
 
 ### Tool card states
@@ -183,7 +186,7 @@ Each conversation has a `sessionId` (UUID) stored in IndexedDB alongside its mes
 
 | Event | Bubbles | Detail | Description |
 |---|---|---|---|
-| `nx-agent-change` | Yes | — | The agent completed a tool action. Host views can listen to react (e.g. reload the document). Fired once per successful tool-result. |
+| `nx-agent-change` | Yes | `{ scope: 'file' \| 'document', paths: string[] }` | The agent completed a tool action that changed content. `scope: 'file'` means the file tree changed (files created, deleted, moved, or copied); `scope: 'document'` means a document's content was modified. `paths` contains the affected parent folder paths. |
 
 ## Skills slash menu
 

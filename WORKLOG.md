@@ -1,5 +1,45 @@
 # Worklog
 
+## 2026-05-28
+
+### nx2/utils/api.js — consistency refactor (api-refactor branch)
+
+Method-name + arg-shape alignment across the public surface, plus a return-shape simplification.
+
+**Renames** (object-form arg names unchanged otherwise):
+- `source.load` → `source.get`
+- `source.save({ data })` → `source.save({ body })`
+- `config.put` → `config.save`
+- `snapshot.update` → `snapshot.save` (aligns with AEM's documented `createSnapshot` upsert)
+- `wrapActionResp` removed; `HLX6_ONLY` constant kept (still used by `config.getAggregated`).
+
+**Return-shape unification:** every namespace method now returns a raw augmented `Response` except `source.list` (which legitimately merges body + header continuation token + normalized items). Concrete changes:
+- `source.delete/copy/move` no longer wrap into `{ ok, status }`.
+- `source.getMetadata` returns `Response` directly; caller reads `resp.headers`.
+- `status.get` returns `Response` (was: parsed JSON | undefined).
+- `aem.*` drops the `returnJson` flag and the `204 → { ok, status: 204 }` wrapper on `unPreview` / `unPublish`. `callPath` no longer parses JSON.
+
+**Opt-in unwrappers added:** `asJson` / `asText`. Both return `{ ok, data, status, error }` where `data` is parsed (populated on non-ok when the body parses — matches axios), `status` is the HTTP code, `error` is one of `'no-response' | 'not-ok' | 'parse-failed'` or `null`. Considered `asOk` and dropped it — `const { ok } = await foo()` is the same length.
+
+**Other fixes:**
+- `snapshot.addPath` / `snapshot.removePath` auto-prepend `/` to path (latent bug: callers passing `'index.html'` would build `…/{id}index.html`). New `normalizePath` helper handles string and array forms.
+- `snapshot` review action gained no new args; bulk-`removePath` `POST {paths, delete:true}` shape kept although it's not in the published AEM spec — flagged in known-issues but left alone pending verification against the server.
+
+**File layout:** reorganized so the public namespaces are at the top in alphabetical order, then response helpers, then low-level (`daFetch` / `isHlx6` / `fromPath`), then internal helpers (constants, URL builders, `withArgs`, etc.). Internal helpers converted from arrow-consts to function declarations so hoisting lets the top-of-file exports reference them. `/* eslint-disable no-use-before-define */` at file top.
+
+**Gotcha discovered:** `chai.deep.equal(<Response>, {...})` hangs Chrome by traversing the `body` ReadableStream. One test (`source.delete sends DELETE and returns { ok, status } on 204`) hit this when `source.delete` switched to returning a `Response`. Fix is `expect(resp.ok)` / `expect(resp.status)` separately. Worth remembering — symptoms were "wtr reports 0 passed / 0 failed, Chrome never returns results."
+
+**Tests:** 90/90 in `test/nx2/utils/api.test.js`. Updated assertions for new shapes; dropped one `returnJson: false` test that no longer applies.
+
+**Docs:** `api.d.ts` and `api.md` updated; new `UnwrapResult<T>` type, new return-values section, new helpers section.
+
+**Out of scope, flagged as future work:**
+- No per-call `headers` / `opts` on most methods (biggest remaining gap — blocks `If-Match` / tracing / `Accept-Language`).
+- No `AbortController` signal plumbing.
+- No retry on 429/5xx.
+- `org.listSites` vs `source.list({ org })` naming inconsistency.
+- `source.delete/copy/move` have no bulk variants (unlike `aem.*` and `snapshot.addPath/removePath`).
+
 ## 2026-05-11
 
 ### Remove `/index` stripping from `nx2/utils/utils.js`

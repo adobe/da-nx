@@ -49,30 +49,12 @@ function onMessage(e, ctx) {
   }
 }
 
-function setupParentControllerListener() {
-  const params = new URLSearchParams(window.location.search);
-  if (params.get('controller') !== 'parent') return;
-
+function setupParentController(loadPage) {
   const listener = (e) => {
     if (e.source !== window.parent || e.data?.init == null || !e.ports?.length) return;
 
     const port = e.ports[0];
     parentControllerPort = port;
-
-    let loadPageFn = null;
-    const scriptsUrl = `${window.location.origin}/scripts/scripts.js`;
-
-    const loadPage = async () => {
-      if (loadPageFn === null) {
-        try {
-          const mod = await import(/* webpackIgnore: true */ scriptsUrl);
-          loadPageFn = typeof mod?.loadPage === 'function' ? mod.loadPage : () => { };
-        } catch {
-          loadPageFn = () => { };
-        }
-      }
-      if (typeof loadPageFn === 'function') await loadPageFn();
-    };
 
     const ctx = {
       initialized: true,
@@ -86,7 +68,6 @@ function setupParentControllerListener() {
   };
   window.addEventListener('message', listener);
 }
-setupParentControllerListener();
 
 function checkDomain() {
   const currentUrl = new URL(window.location.href);
@@ -116,13 +97,7 @@ function getQuickEditSrc() {
   return `https://main--da-live--adobe.aem.live/plugins/quick-edit?nx=${ref}`;
 }
 
-export default async function loadQuickEdit({ detail: payload }, loadPage) {
-  if (document.getElementById(QUICK_EDIT_ID)) return;
-  if (parentControllerPort != null) return;
-
-  const params = new URLSearchParams(window.location.search);
-  if (params.get('controller') === 'parent') return;
-
+function setupIframeController({ detail: payload }, loadPage) {
   checkDomain();
 
   const ctx = {
@@ -140,4 +115,16 @@ export default async function loadQuickEdit({ detail: payload }, loadPage) {
   });
   document.documentElement.append(iframe);
   iframe.style.visibility = 'hidden';
+}
+
+export default async function loadQuickEdit(payload, loadPage) {
+  if (document.getElementById(QUICK_EDIT_ID)) return;
+  if (parentControllerPort != null) return;
+
+  const params = new URLSearchParams(window.location.search);
+  if (params.get('controller') === 'parent') {
+    setupParentController(loadPage);
+  } else {
+    setupIframeController(payload, loadPage);
+  }
 }
