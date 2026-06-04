@@ -60,7 +60,7 @@ class Preview extends LitElement {
   async _paint() {
     const code = this.shadowRoot?.querySelector('code');
     if (!code) return;
-    code.textContent = JSON.stringify(this.state?.document?.values ?? {}, null, 2);
+    code.textContent = JSON.stringify(this.state?.document ?? {}, null, 2);
     const Prism = await loadPrism();
     if (Prism) Prism.highlightElement(code);
   }

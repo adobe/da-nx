@@ -3,10 +3,9 @@ import getPathDetails from 'https://da.live/blocks/shared/pathDetails.js';
 
 import 'https://da.live/blocks/edit/da-title/da-title.js';
 
-import { createCore } from './core/index.js';
-import { loadFormContext } from './app/context.js';
-import { saveSourceHtml } from './app/da-api.js';
-import { serialize } from './app/serialize.js';
+import { createEngine } from '../../deps/da-sc-sdk/dist/index.js';
+import { loadFormContext } from './utils/context.js';
+import { attachPersistence } from './utils/persistence.js';
 
 import './views/editor.js';
 import './views/sidebar.js';
@@ -20,12 +19,6 @@ const SL_COMPONENTS_MODULE = '../../public/sl/components.js';
 const EL_NAME = 'nx-form';
 const PREVIEW_PREFIX = 'https://da-sc.adobeaem.workers.dev/preview';
 const LIVE_PREFIX = 'https://da-sc.adobeaem.workers.dev/live';
-
-async function saveDocument({ path, document }) {
-  const result = serialize({ json: document });
-  if (result.error) return result;
-  return saveSourceHtml({ path, html: result.html });
-}
 
 class Form extends LitElement {
   static properties = {
@@ -41,11 +34,17 @@ class Form extends LitElement {
   // https://lit.dev/docs/components/properties/#avoiding-issues-with-class-fields
   _loadVersion = 0;
 
-  _core = null;
+  _editor = null;
+
+  _persistence = null;
 
   _onChange = () => {
-    if (!this._core) return;
-    this._state = this._core.getState();
+    if (!this._editor) return;
+    this._state = this._editor.getState();
+    // The editor has a single onChange slot — used here for Lit reactivity.
+    // Forward the notification to the persistence so it can save when the
+    // document has actually changed (it filters non-mutation transitions).
+    this._persistence?.notify();
   };
 
   _onSelect = (pointer, origin = null) => {
@@ -68,13 +67,12 @@ class Form extends LitElement {
     }
   }
 
-  async _start({ schema, json }) {
-    this._core = createCore({
-      path: this.details?.fullpath,
-      saveDocument,
-      onChange: this._onChange,
-    });
-    this._state = await this._core.load({ schema, document: json });
+  _start({ schema, json }) {
+    this._editor = createEngine({ schema, document: json, onChange: this._onChange });
+    this._state = this._editor.getState();
+    // Attach AFTER load so the loaded document is the persistence's baseline —
+    // mutations after this point trigger saves; the load itself does not.
+    this._persistence = attachPersistence(this._editor, { path: this.details?.fullpath });
     this._nav = { pointer: '/data', origin: null, seq: 0 };
   }
 
@@ -83,7 +81,9 @@ class Form extends LitElement {
     const version = this._loadVersion;
     this._pendingSchemaId = '';
     this._state = null;
-    this._core = null;
+    this._editor = null;
+    this._persistence?.detach();
+    this._persistence = null;
     this._context = { status: 'loading', schemas: {} };
 
     const context = await loadFormContext({ details: this.details });
@@ -97,7 +97,7 @@ class Form extends LitElement {
     this._context = context;
 
     if (context.status === 'ready') {
-      await this._start({ schema: context.schema, json: context.json });
+      this._start({ schema: context.schema, json: context.json });
     }
   }
 
@@ -126,7 +126,7 @@ class Form extends LitElement {
       json,
     };
 
-    await this._start({ schema, json });
+    this._start({ schema, json });
   }
 
   _schemaEditorHref() {
@@ -285,7 +285,7 @@ class Form extends LitElement {
       <div class="nx-form-wrapper">
         <div class="nx-editor-pane">
           <nx-editor
-            .core=${this._core}
+            .editor=${this._editor}
             .state=${this._state}
             .nav=${this._nav}
             .onSelect=${this._onSelect}

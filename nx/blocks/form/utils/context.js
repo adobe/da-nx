@@ -1,17 +1,8 @@
-import HTMLConverter from './html2json.js';
+import { convertHtmlToJson } from '../../../deps/da-sc-sdk/dist/index.js';
 import { fetchSourceHtml } from './da-api.js';
 import { loadSchemas } from './schemas.js';
 
-export function convertHtmlToJson(html) {
-  if (typeof html !== 'string' || !html.trim()) return null;
-
-  try {
-    const converter = new HTMLConverter(html);
-    return converter.json;
-  } catch {
-    return null;
-  }
-}
+export { convertHtmlToJson };
 
 export function isEmptyDocumentHtml(htmlString) {
   if (typeof htmlString !== 'string') return false;
@@ -65,9 +56,9 @@ function displayPath(details) {
   return fullpath.toLowerCase().endsWith('.html') ? fullpath.slice(0, -5) : fullpath;
 }
 
-async function loadHtml(details) {
+async function loadHtml(details, fetchHtml) {
   if (!details?.sourceUrl) return { error: 'Missing source URL.' };
-  return fetchSourceHtml({ sourceUrl: details.sourceUrl });
+  return fetchHtml({ sourceUrl: details.sourceUrl });
 }
 
 function loadErrorToBlocker(result) {
@@ -86,8 +77,15 @@ function withBase(details, schemas) {
   };
 }
 
-export async function loadFormContext({ details }) {
-  const schemasPromise = loadSchemas({
+// `fetchHtml` and `fetchSchemas` are injectable for testability; defaults are
+// the production network calls. Tests pass stubs without touching importmaps
+// or stubbing globals.
+export async function loadFormContext({
+  details,
+  fetchHtml = fetchSourceHtml,
+  fetchSchemas = loadSchemas,
+} = {}) {
+  const schemasPromise = fetchSchemas({
     owner: details?.owner,
     repo: details?.repo,
   });
@@ -101,7 +99,7 @@ export async function loadFormContext({ details }) {
     };
   }
 
-  const [schemas, docResult] = await Promise.all([schemasPromise, loadHtml(details)]);
+  const [schemas, docResult] = await Promise.all([schemasPromise, loadHtml(details, fetchHtml)]);
 
   if (docResult.error) {
     return {
@@ -128,8 +126,8 @@ export async function loadFormContext({ details }) {
     };
   }
 
-  const json = convertHtmlToJson(html);
-  if (!json) {
+  const { json, error: parseError } = convertHtmlToJson({ html });
+  if (parseError || !json) {
     return {
       status: 'blocked',
       blocker: { type: 'load-failed' },
