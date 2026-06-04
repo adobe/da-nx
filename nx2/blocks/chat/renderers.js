@@ -63,23 +63,9 @@ function renderChecklistItem(node) {
 }
 
 function renderToggleList(tree) {
-  const items = [];
-  let i = 0;
-  while (i < tree.children.length) {
-    const node = tree.children[i];
-    if (node.type === 'blockquote') {
-      const summary = node.children.flatMap((c) => (c.children ?? []).map(renderNode));
-      const body = [];
-      while (i + 1 < tree.children.length && tree.children[i + 1].type !== 'blockquote') {
-        i += 1;
-        body.push(renderNode(tree.children[i]));
-      }
-      items.push(html`<li>${summary}<p>${body}</p></li>`);
-    } else {
-      items.push(html`<li>${renderNode(node)}</li>`);
-    }
-    i += 1;
-  }
+  const items = tree.children.map((node) => (node.type === 'blockquote'
+    ? html`<li>${node.children.map(renderNode)}</li>`
+    : renderNode(node)));
   return html`<ul class="directive directive-toggle-list">${items}</ul>`;
 }
 
