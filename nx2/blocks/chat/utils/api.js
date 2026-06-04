@@ -1,30 +1,35 @@
-import { daFetch } from '../../../utils/api.js';
-import { DA_ADMIN } from '../../../utils/utils.js';
+import { fetchDaConfigs } from '../../../utils/daConfig.js';
 
 export async function loadSiteConfig(org, site) {
   try {
-    const resp = await daFetch({ url: `${DA_ADMIN}/config/${org}/${site}` });
-    if (!resp.ok) return {};
-    const json = await resp.json();
-    const prompts = (json?.prompts?.data ?? []).filter((p) => p.title && p.prompt);
-    const rows = json?.skills?.data ?? [];
+    const configs = fetchDaConfigs({ org, site });
+    const siteJson = await configs[configs.length - 1];
+    if (!siteJson || siteJson.error) return {};
+
+    const prompts = (siteJson?.prompts?.data ?? [])
+      .filter((p) => p.title && p.prompt);
+    const rows = siteJson?.skills?.data ?? [];
     const skills = rows
-      .filter((row) => String(row.status ?? '').trim().toLowerCase() !== 'draft')
-      .map((row) => String(row.key ?? row.id ?? '').trim().replace(/\.md$/i, ''))
+      .filter((r) => {
+        const s = String(r.status ?? '').trim().toLowerCase();
+        return s !== 'draft';
+      })
+      .map((r) => String(r.key ?? r.id ?? '').trim()
+        .replace(/\.md$/i, ''))
       .filter(Boolean);
 
     const mcpServers = {};
     const mcpServerHeaders = {};
-    (json?.['mcp-servers']?.data ?? []).forEach((row) => {
+    (siteJson?.['mcp-servers']?.data ?? []).forEach((row) => {
       const key = String(row?.key ?? '').trim();
       const url = row?.url || row?.value;
-      const status = String(row?.status ?? '').trim().toLowerCase();
-      const enabled = String(row?.enabled ?? 'true').trim().toLowerCase();
-      if (!key || !url || status === 'draft' || enabled === 'false') return;
+      const st = String(row?.status ?? '').trim().toLowerCase();
+      const en = String(row?.enabled ?? 'true').trim().toLowerCase();
+      if (!key || !url || st === 'draft' || en === 'false') return;
       mcpServers[key] = url;
-      const hName = String(row?.authHeaderName ?? '').trim();
-      const hValue = String(row?.authHeaderValue ?? '').trim();
-      if (hName && hValue) mcpServerHeaders[key] = { [hName]: hValue };
+      const hN = String(row?.authHeaderName ?? '').trim();
+      const hV = String(row?.authHeaderValue ?? '').trim();
+      if (hN && hV) mcpServerHeaders[key] = { [hN]: hV };
     });
 
     return { prompts, skills, mcpServers, mcpServerHeaders };
