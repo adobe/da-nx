@@ -27,10 +27,14 @@ export async function loadSiteConfig(org, site) {
       const en = String(row?.enabled ?? 'true').trim().toLowerCase();
       if (!key || !url || st === 'draft' || en === 'false') return;
       mcpServers[key] = url;
-      // headers[] array (new format) → Record<string, string>; legacy single-header fallback
+      // headers: JSON string or array of {name, value}; legacy single-header fallback
       const parsedHeaders = {};
-      if (Array.isArray(row?.headers)) {
-        row.headers.forEach((header) => {
+      let headersList = row?.headers;
+      if (typeof headersList === 'string') {
+        try { headersList = JSON.parse(headersList); } catch { headersList = null; }
+      }
+      if (Array.isArray(headersList)) {
+        headersList.forEach((header) => {
           const headerName = String(header?.name || '').trim();
           const headerValue = String(header?.value || '').trim();
           if (headerName && headerValue) parsedHeaders[headerName] = headerValue;
