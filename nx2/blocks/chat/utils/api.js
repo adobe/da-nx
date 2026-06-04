@@ -1,0 +1,39 @@
+import { fetchDaConfigs } from '../../../utils/daConfig.js';
+
+export async function loadSiteConfig(org, site) {
+  try {
+    const configs = fetchDaConfigs({ org, site });
+    const siteJson = await configs[configs.length - 1];
+    if (!siteJson || siteJson.error) return {};
+
+    const prompts = (siteJson?.prompts?.data ?? [])
+      .filter((p) => p.title && p.prompt);
+    const rows = siteJson?.skills?.data ?? [];
+    const skills = rows
+      .filter((r) => {
+        const s = String(r.status ?? '').trim().toLowerCase();
+        return s !== 'draft';
+      })
+      .map((r) => String(r.key ?? r.id ?? '').trim()
+        .replace(/\.md$/i, ''))
+      .filter(Boolean);
+
+    const mcpServers = {};
+    const mcpServerHeaders = {};
+    (siteJson?.['mcp-servers']?.data ?? []).forEach((row) => {
+      const key = String(row?.key ?? '').trim();
+      const url = row?.url || row?.value;
+      const st = String(row?.status ?? '').trim().toLowerCase();
+      const en = String(row?.enabled ?? 'true').trim().toLowerCase();
+      if (!key || !url || st === 'draft' || en === 'false') return;
+      mcpServers[key] = url;
+      const hN = String(row?.authHeaderName ?? '').trim();
+      const hV = String(row?.authHeaderValue ?? '').trim();
+      if (hN && hV) mcpServerHeaders[key] = { [hN]: hV };
+    });
+
+    return { prompts, skills, mcpServers, mcpServerHeaders };
+  } catch {
+    return {};
+  }
+}
