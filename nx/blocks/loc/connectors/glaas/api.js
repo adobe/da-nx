@@ -6,7 +6,7 @@ async function throttle(ms = 500) {
   });
 }
 
-function getOpts(clientid, token, body, contentType, method = 'GET') {
+export function getOpts(clientid, token, body, contentType, method = 'GET') {
   const opts = {
     method,
     headers: {
@@ -39,13 +39,14 @@ async function getSha256InHex(input) {
     .join('');
 }
 
-export async function createTask({ origin, clientid, token, task, service }) {
-  const { name, workflowName, workflow, targetLocales, businessUnit } = task;
+/** Shared callbackConfig + config for v1.2 and v2 multimodal task create. */
+export async function buildGlaasCreateMetadata({ task, service }) {
+  const { name, workflow, businessUnit } = task;
   const callbackConfig = [];
   const projectKeyKV = [];
-  if (service.preview) {
-    const [product = '', project = ''] = task?.workflow?.split('/') ?? [];
-    const projectHash = await getSha256InHex(`${product}-${project}-${task?.name}`);
+  if (service?.preview) {
+    const [product = '', project = ''] = workflow?.split('/') ?? [];
+    const projectHash = await getSha256InHex(`${product}-${project}-${name}`);
     projectKeyKV.push({
       key: 'dalocProjectKey',
       value: `v1/${projectHash}`,
@@ -54,6 +55,16 @@ export async function createTask({ origin, clientid, token, task, service }) {
     callbackConfig.push({ key: 'taskCallbackURL', value: hookUrl });
     callbackConfig.push({ key: 'assetCallbackURL', value: hookUrl });
   }
+  const config = [{
+    key: 'businessUnit',
+    value: businessUnit,
+  }, ...projectKeyKV];
+  return { callbackConfig, config };
+}
+
+export async function createTask({ origin, clientid, token, task, service }) {
+  const { name, workflowName, workflow, targetLocales } = task;
+  const { callbackConfig, config } = await buildGlaasCreateMetadata({ task, service });
 
   const body = {
     name,
@@ -61,10 +72,7 @@ export async function createTask({ origin, clientid, token, task, service }) {
     workflowName,
     contentSource: 'Adhoc',
     callbackConfig,
-    config: [{
-      key: 'businessUnit',
-      value: businessUnit,
-    }, ...projectKeyKV],
+    config,
   };
 
   const opts = getOpts(clientid, token, JSON.stringify(body), 'application/json', 'POST');
@@ -78,10 +86,13 @@ export async function createTask({ origin, clientid, token, task, service }) {
   }
 }
 
-export async function getTask({ origin, clientid, token, workflow, name }) {
+export async function getTask({
+  origin, clientid, token, workflow, name, service,
+}) {
+  const apiOrigin = service?.origin ?? origin;
   const opts = getOpts(clientid, token);
   try {
-    const resp = await fetch(`${origin}/api/l10n/v1.2/tasks/${workflow}/${name}`, opts);
+    const resp = await fetch(`${apiOrigin}/api/l10n/v1.2/tasks/${workflow}/${name}`, opts);
     const json = await resp.json();
     return { status: resp.status, json };
   } catch {
@@ -91,6 +102,12 @@ export async function getTask({ origin, clientid, token, workflow, name }) {
 
 // Helper function to ensure GLaaS compatibility with json extensions are converted to html
 export const getGlaasFilename = (daBasePath) => (daBasePath.endsWith('.html') ? daBasePath : `${daBasePath}.html`);
+
+/** AEM preview URL for GLaaS (v1.2 metadata and v2 multimodal create). */
+export function glaasSourcePreviewUrl(aemHref) {
+  if (!aemHref) return undefined;
+  return aemHref.replace(/\/index$/, '/');
+}
 
 export async function addAssets({
   origin,
@@ -126,7 +143,7 @@ export async function addAssets({
 
       const assetMetadata = {
         assetName: glaasFilename,
-        metadata: { 'source-preview-url': item.aemHref.replace(/\/index$/, '/') },
+        metadata: { 'source-preview-url': glaasSourcePreviewUrl(item.aemHref) },
         // GLaaS backward compatibility issue for WS (En-GB) - hence adding here as well.
         assetType: 'SOURCE',
         targetLocales,
