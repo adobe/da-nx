@@ -530,9 +530,7 @@ async function downloadMultimodalFromGlaas(service, token, task, assetName, form
     return { error: 'Error downloading multimodal asset.', status: meta.status, json: meta.json };
   }
   if (format === 'blob') {
-    const fetched = await fetchBlobFromSignedUrl(meta.json.signedURL);
-    if (fetched.error) return fetched;
-    return fetched;
+    return fetchBlobFromSignedUrl(meta.json.signedURL);
   }
   const fetched = await fetchFromSignedUrl(meta.json.signedURL);
   if (fetched.error) return fetched;

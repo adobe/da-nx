@@ -4,33 +4,6 @@ import { daFetch } from '../../../../utils/daFetch.js';
 import { mergeCopy, overwriteCopy } from '../../project/index.js';
 import { convertPath, createSnapshotPrefix } from '../../utils/utils.js';
 
-const IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'avif']);
-
-function extFromPath(path) {
-  const name = path.split('/').pop() ?? '';
-  const parts = name.split('.');
-  return parts.length > 1 ? parts.pop().toLowerCase() : 'html';
-}
-
-function mimeTypeForExt(ext) {
-  const types = {
-    png: 'image/png',
-    jpg: 'image/jpeg',
-    jpeg: 'image/jpeg',
-    gif: 'image/gif',
-    webp: 'image/webp',
-    svg: 'image/svg+xml',
-    avif: 'image/avif',
-    json: 'application/json',
-  };
-  return types[ext] ?? 'application/octet-stream';
-}
-
-function isBinaryRolloutUrl(url) {
-  const ext = url.ext ?? extFromPath(url.source ?? url.aemBasePath ?? '');
-  return url.hasExt && ext !== 'html';
-}
-
 function getTitle(status) {
   const title = {
     'not started': 'Ready',
@@ -60,14 +33,6 @@ async function fetchLangSources(lang, urls) {
     const resp = await daFetch(`${DA_ORIGIN}/source${url.source}`);
     if (!resp.ok) {
       url.error = `Error fetching content from ${url.source} - ${getRespStatusText(resp.status)}`;
-      return url;
-    }
-
-    if (isBinaryRolloutUrl(url)) {
-      const ext = url.ext ?? extFromPath(url.source);
-      const blob = await resp.blob();
-      url.content = blob;
-      url.contentType = blob.type || mimeTypeForExt(ext);
       return url;
     }
 
@@ -150,7 +115,7 @@ function formatLangUrls(org, site, sourceLocation, lang, urls, snapshot) {
     };
     const { daDestPath, aemBasePath, ext } = convertPath(convertConf);
     const source = `/${org}/${site}${daDestPath}`;
-    return { source, aemBasePath, ext, suppliedPath: url.suppliedPath };
+    return { source, aemBasePath, ext };
   });
 }
 
@@ -165,9 +130,8 @@ function formatRolloutUrls(org, site, lang, urls, snapshot) {
         snapshotPrefix,
       });
       return {
-        hasExt: langUrl.hasExt || langUrl.ext === 'json' || IMAGE_EXTS.has(langUrl.ext),
-        contentType: langUrl.contentType,
-        sourceContent: langUrl.content ?? langUrl.sourceContent,
+        hasExt: langUrl.ext === 'json',
+        sourceContent: langUrl.content,
         source: `/${org}/${site}${langUrl.aemBasePath}`,
         destination: `/${org}/${site}${daDestPath}`,
       };
@@ -193,10 +157,12 @@ export async function rolloutLang({
   const sourceLocation = options['source.language']?.location || '/';
   const behavior = options['rollout.conflict.behavior'];
 
+  // Determine all sources are valid before continuing
   const langUrls = formatLangUrls(org, site, sourceLocation, lang, projectUrls, snapshot);
   let { errors, message, urls } = await fetchLangSources(lang, langUrls);
   if (errors) return { errors, message };
 
+  // Convert base lang urls to the full locale list
   const urlsToSave = formatRolloutUrls(org, site, lang, urls, snapshot);
 
   // Perform the actual rollout
@@ -205,7 +171,7 @@ export async function rolloutLang({
 
   // The presumption is that no errors means success
   lang.rollout.status = 'complete';
-  lang.rollout.saved = projectUrls.length * lang.locales.length;
+  lang.rollout.saved = urls.length;
   lang.locales.forEach((locale) => {
     locale.saved = projectUrls.length;
   });
