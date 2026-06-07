@@ -346,6 +346,56 @@ async function sendTask(service, suppliedTask, urls, actions, { org, site } = {}
   }
 }
 
+async function fetchTaskSubtasks({
+  service, glaasToken, taskConfig, task, langs, pageAssets,
+}) {
+  return task.workflowName === 'MULTIMODAL'
+    ? getMultimodalV2TaskStatus({
+      service,
+      token: glaasToken,
+      task: taskConfig,
+      langs,
+      pageAssets,
+    })
+    : getTask({ ...taskConfig, token: glaasToken, service });
+}
+
+async function recreateTaskAndFetchSubtasks({
+  service,
+  glaasToken,
+  taskConfig,
+  task,
+  langs,
+  urls,
+  actions,
+  org,
+  site,
+  workflowMeta,
+}) {
+  const taskUrls = task.urlPaths
+    ? urls.filter((url) => task.urlPaths.includes(url.suppliedPath))
+    : urls;
+
+  const tempTask = {
+    name: task.name,
+    workflow: task.workflow,
+    workflowName: task.workflowName,
+    businessUnit: workflowMeta?.businessUnit,
+    langs: task.langs,
+    urlPaths: task.urlPaths,
+  };
+
+  await sendTask(service, tempTask, taskUrls, actions, { org, site });
+  return fetchTaskSubtasks({
+    service,
+    glaasToken,
+    taskConfig,
+    task,
+    langs,
+    pageAssets: pageAssetsFromTaskLangs(task),
+  });
+}
+
 // Business unit determination logic for GLaaS Transcreation Style Guide
 const getBusinessUnit = (siteName) => {
   if (siteName && siteName.includes('bacom')) {
@@ -448,46 +498,27 @@ export async function getStatusAll({
 
     const workflowMeta = task.langs[0]?.translation?.workflowTasks?.[task.name];
     const taskPageAssets = pageAssetsFromTaskLangs(task);
-    let subtasks;
-    if (task.workflowName === 'MULTIMODAL') {
-      subtasks = await getMultimodalV2TaskStatus({
-        service,
-        token: baseConf.token,
-        task: taskConfig,
-        langs: task.langs,
-        pageAssets: taskPageAssets,
-      });
-    } else {
-      subtasks = await getTask({ ...taskConfig, service });
-    }
-    // If something went wrong, create the task again.
+    let subtasks = await fetchTaskSubtasks({
+      service,
+      glaasToken: baseConf.token,
+      taskConfig,
+      task,
+      langs: task.langs,
+      pageAssets: taskPageAssets,
+    });
     if (subtasks.status === 404) {
-      // If something went wrong, create the task again.
-      const taskUrls = task.urlPaths
-        ? urls.filter((url) => task.urlPaths.includes(url.suppliedPath))
-        : urls;
-
-      const tempTask = {
-        name: task.name,
-        workflow: task.workflow,
-        workflowName: task.workflowName,
-        businessUnit: workflowMeta?.businessUnit,
+      subtasks = await recreateTaskAndFetchSubtasks({
+        service,
+        glaasToken: baseConf.token,
+        taskConfig,
+        task,
         langs: task.langs,
-        urlPaths: task.urlPaths,
-      };
-
-      await sendTask(service, tempTask, taskUrls, actions, { org, site });
-      if (task.workflowName === 'MULTIMODAL') {
-        subtasks = await getMultimodalV2TaskStatus({
-          service,
-          token: baseConf.token,
-          task: taskConfig,
-          langs: task.langs,
-          pageAssets: pageAssetsFromTaskLangs(task),
-        });
-      } else {
-        subtasks = await getTask({ ...taskConfig, service });
-      }
+        urls,
+        actions,
+        org,
+        site,
+        workflowMeta,
+      });
     }
 
     for (const subtask of subtasks.json) {

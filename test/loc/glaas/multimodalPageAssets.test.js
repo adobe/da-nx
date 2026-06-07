@@ -1,4 +1,5 @@
 import { expect } from '@esm-bundle/chai';
+import sinon from 'sinon';
 import { glaasSourcePreviewUrl } from '../../../nx/blocks/loc/connectors/glaas/api.js';
 import {
   buildMultimodalPageAssetEntry,
@@ -7,6 +8,7 @@ import {
   collectMultimodalAssetNames,
   countMultimodalTranslatedPages,
   contentDaLiveToDaSourceUrl,
+  getMultimodalV2TaskStatus,
   isV2AssetReady,
   v2AssetStatusFromProbe,
 } from '../../../nx/blocks/loc/connectors/glaas/multimodalApi.js';
@@ -154,6 +156,36 @@ describe('GLaaS multimodal v2 asset status', () => {
       },
     });
     expect(names).to.deep.equal(['/drafts/page.html', '/media/a.png']);
+  });
+
+  it('returns 200 with IN_PROGRESS when v2 assets are not ready yet', async () => {
+    sinon.stub(window, 'fetch').callsFake(() => Promise.resolve(new Response(
+      JSON.stringify({}),
+      { status: 404, headers: { 'Content-Type': 'application/json' } },
+    )));
+
+    const result = await getMultimodalV2TaskStatus({
+      service: { clientid: 'client', origin: 'https://glaas.example' },
+      token: 'token',
+      task: { name: 'task-1', workflow: 'Product/Project' },
+      langs: [{ code: 'de' }],
+      pageAssets: {
+        '/page': {
+          htmlGlaasName: '/drafts/page.html',
+          images: [{ glaasName: '/media/a.png' }],
+        },
+      },
+    });
+
+    expect(result.status).to.equal(200);
+    expect(result.json).to.have.length(1);
+    expect(result.json[0].targetLocale).to.equal('de');
+    expect(result.json[0].status).to.equal('IN_PROGRESS');
+    expect(result.json[0].assets.every((asset) => asset.status !== 'COMPLETED')).to.equal(true);
+  });
+
+  afterEach(() => {
+    sinon.restore();
   });
 });
 
