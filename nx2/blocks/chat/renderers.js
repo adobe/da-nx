@@ -6,105 +6,88 @@ import { fileIconName } from './utils/icons.js';
 
 const { codeBase } = getConfig();
 
-const { unified, remarkParse, remarkGfmNoLink } = await import('../../deps/mdast/dist/index.js');
+const { unified, remarkParse, remarkGfmNoLink, mdast2hast } = await import('../../deps/mdast/dist/index.js');
+
+const SAFE_URL = /^https?:\/\//i;
 
 const parser = unified().use(remarkParse).use(remarkGfmNoLink);
 
-function renderNode(node) {
-  switch (node.type) {
-    case 'root':
-      return node.children.map(renderNode);
-    case 'paragraph':
-      return html`<p>${node.children.map(renderNode)}</p>`;
-    case 'heading':
-      return html`<h${node.depth}>${node.children.map(renderNode)}</h${node.depth}>`;
-    case 'list':
-      return node.ordered
-        ? html`<ol>${node.children.map(renderNode)}</ol>`
-        : html`<ul>${node.children.map(renderNode)}</ul>`;
-    case 'listItem': {
-      const children = node.spread
-        ? node.children.map(renderNode)
-        : node.children.flatMap((c) => (c.type === 'paragraph' ? c.children.map(renderNode) : [renderNode(c)]));
-      return html`<li>${children}</li>`;
+function renderElement(node) {
+  if (node.type === 'root') return node.children.map(renderElement);
+  if (node.type === 'text') return node.value;
+  if (node.type !== 'element') return nothing;
+
+  const children = () => node.children.map(renderElement);
+
+  switch (node.tagName) {
+    case 'p': return html`<p>${children()}</p>`;
+    case 'h1': return html`<h1>${children()}</h1>`;
+    case 'h2': return html`<h2>${children()}</h2>`;
+    case 'h3': return html`<h3>${children()}</h3>`;
+    case 'h4': return html`<h4>${children()}</h4>`;
+    case 'h5': return html`<h5>${children()}</h5>`;
+    case 'h6': return html`<h6>${children()}</h6>`;
+    case 'ul': return html`<ul>${children()}</ul>`;
+    case 'ol': return html`<ol>${children()}</ol>`;
+    case 'li': return html`<li>${children()}</li>`;
+    case 'strong': return html`<strong>${children()}</strong>`;
+    case 'em': return html`<em>${children()}</em>`;
+    case 'code': return html`<code>${children()}</code>`;
+    case 'pre': return html`<pre>${children()}</pre>`;
+    case 'blockquote': return html`<blockquote>${children()}</blockquote>`;
+    case 'table': return html`<table>${children()}</table>`;
+    case 'thead': return html`<thead>${children()}</thead>`;
+    case 'tbody': return html`<tbody>${children()}</tbody>`;
+    case 'tr': return html`<tr>${children()}</tr>`;
+    case 'th': return html`<th>${children()}</th>`;
+    case 'td': return html`<td>${children()}</td>`;
+    case 'a': {
+      const href = SAFE_URL.test(node.properties?.href) ? node.properties.href : '#';
+      return html`<a href="${href}" target="_blank" rel="noopener noreferrer">${children()}</a>`;
     }
-    case 'strong':
-      return html`<strong>${node.children.map(renderNode)}</strong>`;
-    case 'emphasis':
-      return html`<em>${node.children.map(renderNode)}</em>`;
-    case 'inlineCode':
-      return html`<code>${node.value}</code>`;
-    case 'blockquote':
-      return html`<blockquote>${node.children.map(renderNode)}</blockquote>`;
-    case 'table':
-      return html`<table>${node.children.map(renderNode)}</table>`;
-    case 'tableRow':
-      return html`<tr>${node.children.map(renderNode)}</tr>`;
-    case 'tableCell':
-      return html`<td>${node.children.map(renderNode)}</td>`;
-    case 'link':
-      return html`<a href="${node.url}" target="_blank" rel="noopener noreferrer">${node.children.map(renderNode)}</a>`;
-    case 'text':
-      return node.value;
-    default: {
-      if (node.value) return node.value;
-      if (node.children) return node.children.map(renderNode);
-      return nothing;
-    }
+    default: return html`${children()}`;
   }
 }
 
-function renderChecklistItem(node) {
-  const para = node.children[0];
-  if (para?.type !== 'paragraph') return html`<li>${node.children.map(renderNode)}</li>`;
-  const first = para.children[0];
-  if (first?.type !== 'text') return html`<li>${renderNode(para)}</li>`;
-
-  const checked = first.value.startsWith('[x] ') || first.value.startsWith('[X] ');
-  const unchecked = first.value.startsWith('[ ] ');
-  if (!checked && !unchecked) return html`<li>${renderNode(para)}</li>`;
-
-  const inline = [
-    { ...first, value: first.value.slice(4) },
-    ...para.children.slice(1),
-  ].map(renderNode);
+function renderChecklistLi(node) {
+  const [first, ...rest] = node.children;
+  if (first?.tagName !== 'input') return html`<li>${node.children.map(renderElement)}</li>`;
+  const checked = first.properties?.checked ?? false;
   return html`<li class="${checked ? 'checked' : 'unchecked'}">
-    <input type="checkbox" ?checked=${checked} disabled><span>${inline}</span>
+    <input type="checkbox" ?checked=${checked} disabled><span>${rest.map(renderElement)}</span>
   </li>`;
 }
 
-function renderToggleList(tree) {
-  const items = tree.children.map((node) => (node.type === 'blockquote'
-    ? html`<li>${node.children.map(renderNode)}</li>`
-    : renderNode(node)));
-  return html`<ul class="directive directive-toggle-list">${items}</ul>`;
-}
-
-function renderChecklist(tree) {
-  const inner = tree.children.map((n) => {
-    if (n.type !== 'list') return renderNode(n);
-    return n.ordered
-      ? html`<ol>${n.children.map(renderChecklistItem)}</ol>`
-      : html`<ul>${n.children.map(renderChecklistItem)}</ul>`;
-  });
-  return html`<div class="directive directive-checklist">${inner}</div>`;
-}
-
 function renderDirective(type, content) {
-  const tree = parser.parse(content);
-  if (type === 'toggle-list') return renderToggleList(tree);
-  if (type === 'checklist') return renderChecklist(tree);
-  return html`<div class="directive directive-${type}">${renderNode(tree)}</div>`;
+  const hast = mdast2hast(parser.parse(content));
+
+  if (type === 'toggle-list') {
+    const items = hast.children.map((node) => (node.tagName === 'blockquote'
+      ? html`<li>${node.children.map(renderElement)}</li>`
+      : renderElement(node)));
+    return html`<ul class="directive directive-toggle-list">${items}</ul>`;
+  }
+
+  if (type === 'checklist') {
+    const inner = hast.children.map((node) => {
+      if (node.tagName !== 'ul' && node.tagName !== 'ol') return renderElement(node);
+      const items = node.children
+        .filter((child) => child.type === 'element')
+        .map((child) => (child.tagName === 'li' ? renderChecklistLi(child) : renderElement(child)));
+      return node.tagName === 'ol' ? html`<ol>${items}</ol>` : html`<ul>${items}</ul>`;
+    });
+
+    return html`<div class="directive directive-checklist">${inner}</div>`;
+  }
+
+  return html`<div class="directive directive-${type}">${renderElement(hast)}</div>`;
 }
 
 function renderMessageContent(text) {
   if (!text) return nothing;
-  const segments = parseDirectives(text);
-  return segments.map(({ kind, type, content }) => {
-    if (kind === 'directive') return renderDirective(type, content);
-    const tree = parser.parse(content);
-    return renderNode(tree);
-  });
+  return parseDirectives(text).map(({ kind, type, content }) => (kind === 'directive'
+    ? renderDirective(type, content)
+    : renderElement(mdast2hast(parser.parse(content)))));
 }
 
 function approvalSummary(input) {
@@ -215,4 +198,4 @@ function renderMessage(msg, toolCards) {
     : renderUserMessage(msg);
 }
 
-export { renderMessage, renderApprovalCard };
+export { renderMessage, renderApprovalCard, renderMessageContent };

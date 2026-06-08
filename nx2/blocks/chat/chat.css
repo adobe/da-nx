@@ -192,6 +192,12 @@
   }
 }
 
+.tool-card:not(:has(.tool-card-detail)) > summary {
+  list-style: none;
+  pointer-events: none;
+  cursor: default;
+}
+
 .directive-checklist ul,
 .directive-toggle-list {
   list-style: none;
