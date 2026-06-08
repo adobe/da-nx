@@ -198,4 +198,4 @@ function renderMessage(msg, toolCards) {
     : renderUserMessage(msg);
 }
 
-export { renderMessage, renderApprovalCard, renderMessageContent };
+export { renderMessage, renderApprovalCard };
