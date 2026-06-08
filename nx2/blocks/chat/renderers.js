@@ -6,7 +6,9 @@ import { fileIconName } from './utils/icons.js';
 
 const { codeBase } = getConfig();
 
-const { unified, remarkParse } = await import('../../deps/mdast/dist/index.js');
+const { unified, remarkParse, remarkGfmNoLink } = await import('../../deps/mdast/dist/index.js');
+
+const parser = unified().use(remarkParse).use(remarkGfmNoLink);
 
 function renderNode(node) {
   switch (node.type) {
@@ -32,16 +34,25 @@ function renderNode(node) {
       return html`<em>${node.children.map(renderNode)}</em>`;
     case 'inlineCode':
       return html`<code>${node.value}</code>`;
+    case 'blockquote':
+      return html`<blockquote>${node.children.map(renderNode)}</blockquote>`;
+    case 'table':
+      return html`<table>${node.children.map(renderNode)}</table>`;
+    case 'tableRow':
+      return html`<tr>${node.children.map(renderNode)}</tr>`;
+    case 'tableCell':
+      return html`<td>${node.children.map(renderNode)}</td>`;
     case 'link':
       return html`<a href="${node.url}" target="_blank" rel="noopener noreferrer">${node.children.map(renderNode)}</a>`;
     case 'text':
       return node.value;
-    default:
+    default: {
+      if (node.value) return node.value;
+      if (node.children) return node.children.map(renderNode);
       return nothing;
+    }
   }
 }
-
-const parser = unified().use(remarkParse);
 
 function renderChecklistItem(node) {
   const para = node.children[0];
@@ -143,57 +154,65 @@ function renderApprovalCard(pending, onApprove) {
   `;
 }
 
-function selectionIcon(blockName) {
-  return html`<svg class="selection-icon" viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/${fileIconName(blockName)}.svg#icon"></use></svg>`;
-}
-
-function renderMessage(msg, toolCards) {
-  if (msg.role === ROLE.TOOL) return nothing;
-  const isAssistant = msg.role === ROLE.ASSISTANT;
-
-  // Assistant message with tool-call parts (array content)
-  if (isAssistant && Array.isArray(msg.content)) {
+function renderAssistantMessage(msg, toolCards) {
+  if (Array.isArray(msg.content)) {
     return html`${msg.content.map((part) => (part.type === AGENT_EVENT.TOOL_CALL
       ? renderToolCard(part.toolCallId, toolCards)
       : nothing))}`;
   }
 
-  const copy = isAssistant && !msg.streaming
-    ? html`<button class="message-action-copy" @click=${() => navigator.clipboard.writeText(msg.content)} aria-label="Copy">
-        <svg class="icon-paste" viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/s2-icon-paste-20-n.svg#icon"></use></svg>
-        <svg class="icon-checkmark" viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/s2-icon-checkmark-20-n.svg#icon"></use></svg>
-      </button>`
-    : nothing;
-
-  const contextItem = (name) => html`
-    <li class="selection-context-item">
-      ${selectionIcon(name)}
-      <span>${name}</span>
-    </li>`;
-
-  let selectionPills = nothing;
-  if (!isAssistant) {
-    const items = [
-      ...(msg.selectionContext ?? []).map(({ blockName }) => contextItem(blockName)),
-      ...(msg.attachmentsMeta ?? []).map(({ fileName }) => contextItem(fileName)),
-    ];
-    if (items.length === 1) {
-      selectionPills = html`<ul class="selection-context-list" aria-label="Attached context">${items[0]}</ul>`;
-    } else if (items.length > 1) {
-      selectionPills = html`<details class="selection-context">
-          <summary><span class="selection-context-count">${items.length} items added</span></summary>
-          <ul class="selection-context-list">${items}</ul>
-        </details>`;
-    }
-  }
+  const copy = msg.streaming ? nothing : html`<button class="message-action-copy" @click=${() => navigator.clipboard.writeText(msg.content)} aria-label="Copy">
+      <svg class="icon-paste" viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/s2-icon-paste-20-n.svg#icon"></use></svg>
+      <svg class="icon-checkmark" viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/s2-icon-checkmark-20-n.svg#icon"></use></svg>
+    </button>`;
 
   return html`
-    <div class="message message-${msg.role}">
-      ${selectionPills}
-      <div class="message-content">${isAssistant ? renderMessageContent(msg.content) : msg.content}</div>
+    <div class="message message-assistant">
+      <div class="message-content">${renderMessageContent(msg.content)}</div>
       ${copy}
     </div>
   `;
+}
+
+function renderSelectionPills(msg) {
+  const contextItem = (name) => html`
+    <li class="selection-context-item">
+      <svg class="selection-icon" viewBox="0 0 20 20" aria-hidden="true">
+        <use href="${codeBase}/img/icons/${fileIconName(name)}.svg#icon"></use>
+      </svg>
+      <span>${name}</span>
+    </li>`;
+
+  const items = [
+    ...(msg.selectionContext ?? []).map(({ blockName }) => contextItem(blockName)),
+    ...(msg.attachmentsMeta ?? []).map(({ fileName }) => contextItem(fileName)),
+  ];
+  if (items.length === 1) {
+    return html`<ul class="selection-context-list" aria-label="Attached context">${items[0]}</ul>`;
+  }
+  if (items.length > 1) {
+    return html`<details class="selection-context">
+        <summary><span class="selection-context-count">${items.length} items added</span></summary>
+        <ul class="selection-context-list">${items}</ul>
+      </details>`;
+  }
+  return nothing;
+}
+
+function renderUserMessage(msg) {
+  return html`
+    <div class="message message-user">
+      ${renderSelectionPills(msg)}
+      <div class="message-content">${msg.content}</div>
+    </div>
+  `;
+}
+
+function renderMessage(msg, toolCards) {
+  if (msg.role === ROLE.TOOL) return nothing;
+  return msg.role === ROLE.ASSISTANT
+    ? renderAssistantMessage(msg, toolCards)
+    : renderUserMessage(msg);
 }
 
 export { renderMessage, renderApprovalCard };
