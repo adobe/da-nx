@@ -73,6 +73,7 @@
     "codemirror": "^6.0.2",
     "esbuild": ">=0.25.0",
     "hast-util-raw": "^9.0.4",
+    "hast-util-to-dom": "^4.0.1",
     "hast-util-to-html": "^9.0.3",
     "lit": "^3.2.0",
     "mdast-util-to-hast": "^13.2.0",
