@@ -197,9 +197,6 @@
   ol {
     padding: 0;
     margin: 0;
-  }
-
-  ol {
     padding-left: var(--s2-spacing-300);
   }
 }
