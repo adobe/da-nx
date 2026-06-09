@@ -230,10 +230,19 @@ class NxChat extends LitElement {
     }
   };
 
+  willUpdate(changed) {
+    if (changed.has('messages')) {
+      const log = this.shadowRoot?.querySelector('.chat-scroll-container');
+      this._wasNearBottom = !log || (log.scrollHeight - log.scrollTop - log.clientHeight < 50);
+    }
+  }
+
   updated(changed) {
     if (changed.has('messages')) {
       const log = this.shadowRoot.querySelector('.chat-scroll-container');
-      if (log) requestAnimationFrame(() => { log.scrollTop = log.scrollHeight; });
+      if (log && this._wasNearBottom) {
+        requestAnimationFrame(() => { log.scrollTop = log.scrollHeight; });
+      }
     }
     if (changed.has('thinking') && !this.thinking && changed.get('thinking')) {
       this.shadowRoot.querySelector('.chat-input')?.focus();
