@@ -1,5 +1,15 @@
 # Worklog
 
+## 2026-06-09
+
+### Shared `nx-canvas-header` base (canvas-header branch)
+
+Extracted the generic workspace header into `nx2/blocks/shared/canvas-header/` so the canvas toolbar and the form workspace stop duplicating it (it previously lived in da-live as `ew-canvas-header-base`).
+
+- **`nx-canvas-header`**: the bar + a built-in before-panel toggle + `start` / `center` / `end` slots. Emits a generic `header-toggle-before`; exposes `part`s (`bar`, `group-*`, `toggle-before`, `btn`) so consumers can style/hide the toggle (forward via `exportparts` when nested). Follows the shared-component conventions (`da-lit`, `loadStyle` from `utils/utils.js`, `customElements.get` guard, light-dark CSS).
+- **Icon owned by nx2**: added `nx2/img/icons/S2_Icon_SplitLeft_20_N.svg`, loaded via `loadHrefSvg` + inlined (the `toast` pattern) rather than `${codeBase}/…#use`. Reason: cross-origin `<use href>` to the nx origin is blocked, so an nx-owned icon must be fetched + inlined. (Open: relies on nx serving the icon with CORS — same assumption `toast` makes; verify on a cross-origin `/canvas` load.)
+- **Consumers** (in da-live): canvas `ew-canvas-header` now composes the base via slots (undo/redo → start, view toggle → center, after toggle → end) and maps `header-toggle-before` → its existing `nx-canvas-open-panel`; the form uses the base directly. Both import it via `getNx()`.
+
 ## 2026-05-28
 
 ### nx2/utils/api.js — consistency refactor (api-refactor branch)
