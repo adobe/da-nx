@@ -30,47 +30,13 @@ function toDOM(hast) {
   return hastToDom(sanitizeLinks(hast));
 }
 
-function renderChecklistLi(node) {
-  // mdast2hast places the input inside a <p>: li > p > [input, ...text]
-  const para = node.children[0];
-  if (para?.tagName !== 'p') return toDOM(node);
-  const [input, ...rest] = para.children;
-  if (input?.tagName !== 'input') return toDOM(node);
-  const checked = input.properties?.checked ?? false;
-  return html`<li class="${checked ? 'checked' : 'unchecked'}">
-    <input type="checkbox" ?checked=${checked} disabled><span>${rest.map(toDOM)}</span>
-  </li>`;
-}
-
-function renderDirective(type, content) {
-  const hast = mdast2hast(parser.parse(content));
-
-  if (type === 'toggle-list') {
-    const items = hast.children.map((node) => (node.tagName === 'blockquote'
-      ? html`<li>${node.children.map(toDOM)}</li>`
-      : toDOM(node)));
-    return html`<ul class="directive directive-toggle-list">${items}</ul>`;
-  }
-
-  if (type === 'checklist') {
-    const inner = hast.children.map((node) => {
-      if (node.tagName !== 'ul' && node.tagName !== 'ol') return toDOM(node);
-      const items = node.children
-        .filter((child) => child.type === 'element')
-        .map((child) => (child.tagName === 'li' ? renderChecklistLi(child) : toDOM(child)));
-      return node.tagName === 'ol' ? html`<ol>${items}</ol>` : html`<ul>${items}</ul>`;
-    });
-    return html`<div class="directive directive-checklist">${inner}</div>`;
-  }
-
-  return html`<div class="directive directive-${type}">${toDOM(hast)}</div>`;
-}
-
 function renderMessageContent(text) {
   if (!text) return nothing;
-  return parseDirectives(text).map(({ kind, type, content }) => (kind === 'directive'
-    ? renderDirective(type, content)
-    : toDOM(mdast2hast(parser.parse(content)))));
+
+  return parseDirectives(text).map(({ kind, type, content }) => {
+    const dom = toDOM(mdast2hast(parser.parse(content)));
+    return kind === 'directive' ? html`<div class="directive directive-${type}">${dom}</div>` : dom;
+  });
 }
 
 function approvalSummary(input) {
