@@ -27,7 +27,7 @@ function sanitizeLinks(node) {
 }
 
 function toDOM(hast) {
-  return hastToDom(sanitizeLinks(hast));
+  return hastToDom(sanitizeLinks(hast), { fragment: true });
 }
 
 function renderMessageContent(text) {

@@ -249,7 +249,6 @@
   }
 
   .task-list-item input[type="checkbox"] {
-    position: relative;
     top: 6px;
   }
 }
@@ -296,6 +295,15 @@
 
   .message-content p {
     margin: 0;
+  }
+
+  .message-content code {
+    background: var(--s2-gray-75);
+    border-radius: var(--s2-corner-radius-75);
+    padding: var(--s2-spacing-50);
+    overflow-x: auto;
+    margin: 0;
+    font-size: var(--s2-body-size-xs);
   }
 
   .message-action-copy {
