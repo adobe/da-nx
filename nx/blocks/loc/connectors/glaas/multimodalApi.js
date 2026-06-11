@@ -1,8 +1,10 @@
 import { DA_ORIGIN } from '../../../../public/utils/constants.js';
+import { Queue } from '../../../../public/utils/tree.js';
 import { daFetch } from '../../../../utils/daFetch.js';
 import { buildGlaasCreateMetadata, getOpts, glaasSourcePreviewUrl } from './api.js';
 
 const MULTIMODAL_LOG_KEY = 'glaas.multimodal.log';
+const IMAGE_QUEUE_CONCURRENCY = 5;
 
 function putUrlAssetName(assetName) {
   return assetName.replace(/^\/+/, '').replaceAll('/', '-');
@@ -368,13 +370,6 @@ export async function getMultimodalV2TaskStatus({
     }),
   );
 
-  const anyNotFound = subtasks.some((subtask) => (
-    subtask.assets.some((asset) => asset.status === 'NOT_FOUND')
-  ));
-  if (anyNotFound) {
-    return { status: 404, json: subtasks };
-  }
-
   return { status: 200, json: subtasks };
 }
 
@@ -427,6 +422,81 @@ export function buildMultimodalTextAsset({
   };
 }
 
+async function runImageQueue({ items, processItem, concurrency = IMAGE_QUEUE_CONCURRENCY }) {
+  let firstError;
+  const results = [];
+  const queue = new Queue(async (item) => {
+    if (firstError) return;
+    const result = await processItem(item);
+    if (result?.error) {
+      firstError = result;
+      return;
+    }
+    results.push(result);
+  }, concurrency);
+
+  await Promise.all(items.map((item) => queue.push(item)));
+  if (firstError) return { error: firstError };
+  return { results };
+}
+
+async function uploadMultimodalImage({
+  imageIndex,
+  imageUrl,
+  origin,
+  clientid,
+  token,
+  pagePath,
+  pagePreviewUrl,
+  targetLocales,
+  logRequest,
+}) {
+  const imageAssetName = siteRelativePathFromContentDaLiveUrl(imageUrl);
+  const imageSourceUrl = contentDaLiveToDaSourceUrl(imageUrl);
+  logRequest?.('fetch-image', { imageIndex, contentDaLiveUrl: imageUrl, daSourceUrl: imageSourceUrl });
+  let imageResp;
+  try {
+    imageResp = await daFetch(imageSourceUrl);
+  } catch {
+    return { error: 'Error fetching content.da.live image.', step: `fetch-image-${imageIndex}` };
+  }
+  if (!imageResp.ok) {
+    return {
+      error: 'Error fetching content.da.live image.',
+      step: `fetch-image-${imageIndex}`,
+      status: imageResp.status,
+    };
+  }
+
+  const imagePut = await getPutUrlForFile({
+    origin, clientid, token, assetName: imageAssetName, logRequest,
+  });
+  if (imagePut.error) return { error: imagePut.error, step: `getPutURL-image-${imageIndex}`, ...imagePut };
+
+  const imageBlob = await imageResp.blob();
+  const imageUpload = await putAssetToSignedUrl({
+    putURL: imagePut.putURL,
+    body: imageBlob,
+    contentType: imageBlob.type || 'image/png',
+    logRequest,
+    putLabel: `image-${imageIndex}`,
+  });
+  if (imageUpload.error) return { error: imageUpload.error, step: `put-image-${imageIndex}`, ...imageUpload };
+
+  return {
+    asset: {
+      type: 'IMAGE',
+      name: ensureLeadingSlash(imageAssetName),
+      parentAsset: pagePath,
+      signedUrl: imagePut.putURL,
+      targetLocales,
+      ...(pagePreviewUrl && { sourcePreviewUrlPage: pagePreviewUrl }),
+    },
+    imageUrl,
+    imageIndex,
+  };
+}
+
 export async function uploadMultimodalPageAssets({
   origin,
   clientid,
@@ -471,53 +541,28 @@ export async function uploadMultimodalPageAssets({
   let imageUrls = collectContentDaLiveImageUrls(htmlContent, { org, site });
   if (maxImages != null) imageUrls = imageUrls.slice(0, maxImages);
   logRequest?.('collect-images', { htmlAssetName, org, site, count: imageUrls.length, imageUrls });
-  const sentImageUrls = [];
 
-  for (let i = 0; i < imageUrls.length; i += 1) {
-    const n = i + 1;
-    const imageUrl = imageUrls[i];
-    const imageAssetName = siteRelativePathFromContentDaLiveUrl(imageUrl);
-    const imageSourceUrl = contentDaLiveToDaSourceUrl(imageUrl);
-    logRequest?.('fetch-image', { n, contentDaLiveUrl: imageUrl, daSourceUrl: imageSourceUrl });
-    let imageResp;
-    try {
-      imageResp = await daFetch(imageSourceUrl);
-    } catch {
-      return { error: 'Error fetching content.da.live image.', step: `fetch-image-${n}` };
-    }
-    if (!imageResp.ok) {
-      return {
-        error: 'Error fetching content.da.live image.',
-        step: `fetch-image-${n}`,
-        status: imageResp.status,
-      };
-    }
-
-    const imagePut = await getPutUrlForFile({
-      origin, clientid, token, assetName: imageAssetName, logRequest,
-    });
-    if (imagePut.error) return { error: imagePut.error, step: `getPutURL-image-${n}`, ...imagePut };
-
-    const imageBlob = await imageResp.blob();
-    const imageUpload = await putAssetToSignedUrl({
-      putURL: imagePut.putURL,
-      body: imageBlob,
-      contentType: imageBlob.type || 'image/png',
-      logRequest,
-      putLabel: `image-${n}`,
-    });
-    if (imageUpload.error) return { error: imageUpload.error, step: `put-image-${n}`, ...imageUpload };
-
-    assets.push({
-      type: 'IMAGE',
-      name: ensureLeadingSlash(imageAssetName),
-      parentAsset: pagePath,
-      signedUrl: imagePut.putURL,
+  const { error: imageError, results: imageResults } = await runImageQueue({
+    items: imageUrls.map((imageUrl, index) => ({ imageIndex: index + 1, imageUrl })),
+    processItem: ({ imageIndex, imageUrl }) => uploadMultimodalImage({
+      imageIndex,
+      imageUrl,
+      origin,
+      clientid,
+      token,
+      pagePath,
+      pagePreviewUrl,
       targetLocales,
-      ...(pagePreviewUrl && { sourcePreviewUrlPage: pagePreviewUrl }),
-    });
-    sentImageUrls.push(imageUrl);
-  }
+      logRequest,
+    }),
+  });
+  if (imageError) return imageError;
+
+  imageResults.sort((a, b) => a.imageIndex - b.imageIndex);
+  const sentImageUrls = imageResults.map((result) => result.imageUrl);
+  imageResults.forEach((result) => {
+    assets.push(result.asset);
+  });
 
   const pageAsset = buildMultimodalPageAssetEntry({ htmlAssetName, imageUrls: sentImageUrls });
   logRequest?.('upload-page-assets', { htmlAssetName, assetCount: assets.length, pageAsset });
@@ -592,6 +637,32 @@ export async function postImageToDaMedia({
   }
 }
 
+async function saveMultimodalImageToMedia({
+  service,
+  token,
+  task,
+  org,
+  site,
+  langCode,
+  image,
+}) {
+  const downloaded = await downloadMultimodalAssetBlob(service, token, task, image.glaasName);
+  if (downloaded.error) return downloaded;
+
+  const uploaded = await postImageToDaMedia({
+    org,
+    site,
+    langCode,
+    glaasName: image.glaasName,
+    blob: downloaded.blob,
+    contentType: downloaded.contentType,
+  });
+  if (uploaded.error) return uploaded;
+
+  const sourceKey = contentDaLivePathKey(image.contentDaLiveUrl);
+  return { sourceKey, url: uploaded.url };
+}
+
 export async function prepareMultimodalPageForSave({
   service,
   token,
@@ -605,23 +676,23 @@ export async function prepareMultimodalPageForSave({
   const pathToNewUrl = new Map();
   const locale = langCode ?? task.code;
 
-  for (const image of pageAsset.images) {
-    const downloaded = await downloadMultimodalAssetBlob(service, token, task, image.glaasName);
-    if (downloaded.error) return downloaded;
-
-    const uploaded = await postImageToDaMedia({
+  const { error: imageError, results: imageEntries } = await runImageQueue({
+    items: pageAsset.images,
+    processItem: (image) => saveMultimodalImageToMedia({
+      service,
+      token,
+      task,
       org,
       site,
       langCode: locale,
-      glaasName: image.glaasName,
-      blob: downloaded.blob,
-      contentType: downloaded.contentType,
-    });
-    if (uploaded.error) return uploaded;
+      image,
+    }),
+  });
+  if (imageError) return imageError;
 
-    const sourceKey = contentDaLivePathKey(image.contentDaLiveUrl);
-    if (sourceKey) pathToNewUrl.set(sourceKey, uploaded.url);
-  }
+  imageEntries.forEach(({ sourceKey, url }) => {
+    if (sourceKey) pathToNewUrl.set(sourceKey, url);
+  });
 
   const htmlDownload = await downloadMultimodalAsset(service, token, task, htmlAssetName);
   if (htmlDownload?.error) return { error: htmlDownload.error };
