@@ -259,17 +259,43 @@ describe('GLaaS multimodal pageAssets', () => {
     expect(collectContentDaLiveImageUrls(html)).to.deep.equal([]);
   });
 
-  it('collects comma-containing filenames from img[src] without srcset fragments', () => {
-    const fullUrl = 'https://content.da.live/adobecom/da-dc/drafts/demo/.hero/variant=default,%20width=full,%20content=feature%20image.png';
+  it('collects comma-separated png and jpeg filenames from img[src] only', () => {
+    const commaPng = 'https://content.da.live/adobecom/da-dc/drafts/demo/.hero/variant=default,%20width=full,%20content=feature%20image.png';
+    const commaJpg = 'https://content.da.live/adobecom/da-dc/drafts/demo/.hero/breakpoint=small,%20width=full,%20content=hero%20photo.jpg';
+    const commaSvg = 'https://content.da.live/adobecom/da-dc/drafts/demo/.hero/variant=default,%20width=full,%20content=blur%20bg.svg';
     const html = `
       <picture>
-        <source srcset="${fullUrl}">
-        <source srcset="${fullUrl}" media="(min-width: 600px)">
-        <img src="${fullUrl}" loading="lazy">
+        <source srcset="${commaPng}">
+        <source srcset="${commaPng}" media="(min-width: 600px)">
+        <img src="${commaPng}" loading="lazy">
+      </picture>
+      <img src="${commaJpg}">
+      <picture>
+        <source srcset="${commaSvg}">
+        <source srcset="${commaSvg}" media="(min-width: 600px)">
+        <img src="${commaSvg}" loading="lazy">
       </picture>
     `;
     expect(collectContentDaLiveImageUrls(html, { org: 'adobecom', site: 'da-dc' })).to.deep.equal([
-      fullUrl,
+      commaPng,
+      commaJpg,
+    ]);
+  });
+
+  it('collects only png and jpeg images (GLaaS multimodal format support)', () => {
+    const html = `
+      <img src="https://content.da.live/adobecom/foo/hero.png">
+      <img src="https://content.da.live/adobecom/foo/photo.jpg">
+      <img src="https://content.da.live/adobecom/foo/photo.jpeg">
+      <img src="https://content.da.live/adobecom/foo/blur.svg">
+      <img src="https://content.da.live/adobecom/foo/anim.gif">
+      <img src="https://content.da.live/adobecom/foo/modern.webp">
+      <img src="https://content.da.live/adobecom/foo/next.avif">
+    `;
+    expect(collectContentDaLiveImageUrls(html, { org: 'adobecom', site: 'foo' })).to.deep.equal([
+      'https://content.da.live/adobecom/foo/hero.png',
+      'https://content.da.live/adobecom/foo/photo.jpg',
+      'https://content.da.live/adobecom/foo/photo.jpeg',
     ]);
   });
 

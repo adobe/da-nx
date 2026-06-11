@@ -402,13 +402,29 @@ function isProjectContentDaLiveUrl(href, org, site) {
   }
 }
 
-/** MVP: absolute https://content.da.live/... image URLs from img[src] only (not relative ./media_ from DNT). */
+const GLAAS_MULTIMODAL_IMAGE_EXTS = new Set(['png', 'jpg', 'jpeg']);
+
+function isGlaasMultimodalImageUrl(href) {
+  try {
+    const pathname = decodeURIComponent(new URL(href).pathname);
+    const filename = pathname.split('/').pop() ?? '';
+    const dot = filename.lastIndexOf('.');
+    if (dot === -1) return false;
+    return GLAAS_MULTIMODAL_IMAGE_EXTS.has(filename.slice(dot + 1).toLowerCase());
+  } catch {
+    return false;
+  }
+}
+
+/** MVP: absolute https://content.da.live/... png/jpeg image URLs from img[src] only. */
 export function collectContentDaLiveImageUrls(html, { org, site } = {}) {
   const doc = new DOMParser().parseFromString(html, 'text/html');
   const urls = new Set();
   doc.querySelectorAll('img[src]').forEach((img) => {
     const src = img.getAttribute('src');
-    if (isProjectContentDaLiveUrl(src, org, site)) urls.add(new URL(src).href);
+    if (isProjectContentDaLiveUrl(src, org, site) && isGlaasMultimodalImageUrl(src)) {
+      urls.add(new URL(src).href);
+    }
   });
   return [...urls];
 }
