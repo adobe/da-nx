@@ -4,30 +4,110 @@ import { daFetch } from '../../../../utils/daFetch.js';
 import { buildGlaasCreateMetadata, getOpts, glaasSourcePreviewUrl } from './api.js';
 
 const MULTIMODAL_LOG_KEY = 'glaas.multimodal.log';
+/** Documented GLaaS budget is 120/min per client id; target 100 for shared-stage headroom. */
+const GLAAS_API_LIMIT_PER_MINUTE = 100;
+const GLAAS_API_WINDOW_MS = 60_000;
+const GLAAS_API_MIN_INTERVAL_MS = Math.ceil(
+  GLAAS_API_WINDOW_MS / GLAAS_API_LIMIT_PER_MINUTE,
+);
+const IMAGE_FETCH_QUEUE_CONCURRENCY = 5;
 const IMAGE_SAVE_QUEUE_CONCURRENCY = 5;
 const IMAGE_UPLOAD_QUEUE_CONCURRENCY = 3;
+const V2_PROBE_QUEUE_CONCURRENCY = 3;
 const IMAGE_PUSH_INTERVAL_MS = 250;
 const PUT_URL_MAX_RETRIES = 4;
 const PUT_URL_RETRY_WAIT_MS = 1000;
-const PUT_URL_429_DEFAULT_DELAY_MS = 30250;
+const PUT_URL_429_FALLBACK_DELAY_MS = Math.ceil(GLAAS_API_WINDOW_MS / 2) + 250;
 
-let putUrlRateLimitUntil = 0;
+let glaasApiRateLimitUntil = 0;
 
 function delay(ms) {
   return new Promise((resolve) => { setTimeout(resolve, ms); });
 }
 
-async function awaitPutUrlRateLimitGate() {
-  const waitMs = putUrlRateLimitUntil - Date.now();
+export function createPutUrlRollingLimiter({
+  limitPerWindow = GLAAS_API_LIMIT_PER_MINUTE,
+  windowMs = GLAAS_API_WINDOW_MS,
+  minIntervalMs = GLAAS_API_MIN_INTERVAL_MS,
+} = {}) {
+  let chain = Promise.resolve();
+  let timestamps = [];
+  let lastAcquireAt = 0;
+
+  const prune = (now) => {
+    timestamps = timestamps.filter((t) => now - t < windowMs);
+  };
+
+  return {
+    windowRetryDelayMs(now = Date.now()) {
+      prune(now);
+      if (timestamps.length >= limitPerWindow) {
+        return timestamps[0] + windowMs - now + 250;
+      }
+      return 0;
+    },
+    async acquire() {
+      const previous = chain;
+      let release;
+      chain = new Promise((resolve) => { release = resolve; });
+      await previous;
+      try {
+        // eslint-disable-next-line no-constant-condition
+        while (true) {
+          const now = Date.now();
+          prune(now);
+          const waitForWindow = timestamps.length >= limitPerWindow
+            ? timestamps[0] + windowMs - now
+            : 0;
+          const waitForSpacing = Math.max(0, lastAcquireAt + minIntervalMs - now);
+          const waitMs = Math.max(waitForWindow, waitForSpacing);
+          if (waitMs > 0) {
+            await delay(waitMs);
+            // eslint-disable-next-line no-continue
+            continue;
+          }
+          lastAcquireAt = now;
+          timestamps.push(now);
+          return;
+        }
+      } finally {
+        release();
+      }
+    },
+    reset() {
+      chain = Promise.resolve();
+      timestamps = [];
+      lastAcquireAt = 0;
+    },
+  };
+}
+
+const glaasApiLimiter = createPutUrlRollingLimiter();
+
+async function awaitGlaasApiRateLimitGate() {
+  const waitMs = glaasApiRateLimitUntil - Date.now();
   if (waitMs > 0) await delay(waitMs);
 }
 
-function extendPutUrlRateLimitGate(waitMs) {
-  putUrlRateLimitUntil = Math.max(putUrlRateLimitUntil, Date.now() + waitMs);
+async function acquireGlaasApiSlot() {
+  await awaitGlaasApiRateLimitGate();
+  await glaasApiLimiter.acquire();
+}
+
+function extendGlaasApiRateLimitGate(waitMs) {
+  glaasApiRateLimitUntil = Math.max(glaasApiRateLimitUntil, Date.now() + waitMs);
+}
+
+function putUrlReactiveRetryDelayMs({ waitInterval }) {
+  return Math.max(
+    waitInterval,
+    glaasApiLimiter.windowRetryDelayMs() || PUT_URL_429_FALLBACK_DELAY_MS,
+  );
 }
 
 export function resetPutUrlRateLimitGateForTests() {
-  putUrlRateLimitUntil = 0;
+  glaasApiRateLimitUntil = 0;
+  glaasApiLimiter.reset();
 }
 
 function getPutUrlRateLimitHeaders(resp) {
@@ -51,7 +131,7 @@ function putUrl429RetryDelayMs({ resp, waitInterval }) {
   const { retryAfter, xRateLimitRetryAfterSeconds } = getPutUrlRateLimitHeaders(resp);
   const retryIn = getMillisToSleep(retryAfter || xRateLimitRetryAfterSeconds || '');
   if (retryIn > 0) return retryIn + 250;
-  return Math.max(waitInterval, PUT_URL_429_DEFAULT_DELAY_MS);
+  return putUrlReactiveRetryDelayMs({ waitInterval });
 }
 
 async function backoffPutUrl429({
@@ -62,7 +142,7 @@ async function backoffPutUrl429({
   status,
   detail = {},
 }) {
-  extendPutUrlRateLimitGate(waitMs);
+  extendGlaasApiRateLimitGate(waitMs);
   logRequest?.('getPutURL-retry', {
     status,
     attempt: attempt + 1,
@@ -128,7 +208,7 @@ export async function getPutUrlForFile({
   let waitInterval = PUT_URL_RETRY_WAIT_MS;
   for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
     try {
-      await awaitPutUrlRateLimitGate();
+      await acquireGlaasApiSlot();
       const resp = await fetch(url, opts);
       if (resp.status === 429 && attempt < maxRetries) {
         waitInterval *= 2;
@@ -151,7 +231,7 @@ export async function getPutUrlForFile({
       return { putURL: json.putURL, instanceId: json.instanceId, status: resp.status };
     } catch (e) {
       if (attempt < maxRetries) {
-        const waitMs = PUT_URL_429_DEFAULT_DELAY_MS;
+        const waitMs = glaasApiLimiter.windowRetryDelayMs() || PUT_URL_429_FALLBACK_DELAY_MS;
         await backoffPutUrl429({
           waitMs,
           logRequest,
@@ -255,6 +335,7 @@ export async function getV2Asset(service, token, task, assetName) {
   const [product = '', project = ''] = workflow?.split('/') ?? [];
   const opts = getOpts(clientid, token);
   try {
+    await acquireGlaasApiSlot();
     const path = ensureLeadingSlash(assetName);
     const resp = await fetch(`${origin}/api/l10n/v2.0/tasks/${product}/${project}/${taskName}/assets/${lang}${path}`, opts);
     const json = await resp.json();
@@ -407,16 +488,53 @@ export function v2AssetStatusFromProbe(assetName, meta) {
   };
 }
 
+async function runImageQueue({
+  items,
+  processItem,
+  concurrency = IMAGE_SAVE_QUEUE_CONCURRENCY,
+  pushIntervalMs,
+}) {
+  if (!items.length) return { results: [] };
+
+  let firstError;
+  const results = [];
+  const queue = new Queue(async (item) => {
+    if (firstError) return;
+    const result = await processItem(item);
+    if (result?.error) {
+      firstError = result;
+      return;
+    }
+    results.push(result);
+  }, concurrency);
+
+  if (pushIntervalMs) {
+    const pending = [];
+    for (let i = 0; i < items.length; i += 1) {
+      if (i > 0) await delay(pushIntervalMs);
+      pending.push(queue.push(items[i]));
+    }
+    await Promise.all(pending);
+  } else {
+    await Promise.all(items.map((item) => queue.push(item)));
+  }
+
+  if (firstError) return { error: firstError };
+  return { results };
+}
+
 async function probeMultimodalAssetStatuses({
   service, token, task, langCode, assetNames,
 }) {
   const langTask = { ...task, code: langCode };
-  const probes = await Promise.all(
-    assetNames.map(async (assetName) => {
+  const { results: probes } = await runImageQueue({
+    items: assetNames,
+    concurrency: V2_PROBE_QUEUE_CONCURRENCY,
+    processItem: async (assetName) => {
       const meta = await getV2Asset(service, token, langTask, assetName);
       return v2AssetStatusFromProbe(assetName, meta);
-    }),
-  );
+    },
+  });
   return probes;
 }
 
@@ -432,23 +550,23 @@ export async function getMultimodalV2TaskStatus({
     return { status: 404, json: [] };
   }
 
-  const subtasks = await Promise.all(
-    langs.map(async (lang) => {
-      const assets = await probeMultimodalAssetStatuses({
-        service,
-        token,
-        task,
-        langCode: lang.code,
-        assetNames,
-      });
-      const allCompleted = assets.every((asset) => asset.status === 'COMPLETED');
-      return {
-        targetLocale: lang.code,
-        status: allCompleted ? 'COMPLETED' : 'IN_PROGRESS',
-        assets,
-      };
-    }),
-  );
+  const subtasks = [];
+  for (const lang of langs) {
+    // eslint-disable-next-line no-await-in-loop
+    const assets = await probeMultimodalAssetStatuses({
+      service,
+      token,
+      task,
+      langCode: lang.code,
+      assetNames,
+    });
+    const allCompleted = assets.every((asset) => asset.status === 'COMPLETED');
+    subtasks.push({
+      targetLocale: lang.code,
+      status: allCompleted ? 'COMPLETED' : 'IN_PROGRESS',
+      assets,
+    });
+  }
 
   return { status: 200, json: subtasks };
 }
@@ -502,52 +620,7 @@ export function buildMultimodalTextAsset({
   };
 }
 
-async function runImageQueue({
-  items,
-  processItem,
-  concurrency = IMAGE_SAVE_QUEUE_CONCURRENCY,
-  pushIntervalMs,
-}) {
-  if (!items.length) return { results: [] };
-
-  let firstError;
-  const results = [];
-  const queue = new Queue(async (item) => {
-    if (firstError) return;
-    const result = await processItem(item);
-    if (result?.error) {
-      firstError = result;
-      return;
-    }
-    results.push(result);
-  }, concurrency);
-
-  if (pushIntervalMs) {
-    const pending = [];
-    for (let i = 0; i < items.length; i += 1) {
-      if (i > 0) await delay(pushIntervalMs);
-      pending.push(queue.push(items[i]));
-    }
-    await Promise.all(pending);
-  } else {
-    await Promise.all(items.map((item) => queue.push(item)));
-  }
-
-  if (firstError) return { error: firstError };
-  return { results };
-}
-
-async function uploadMultimodalImage({
-  imageIndex,
-  imageUrl,
-  origin,
-  clientid,
-  token,
-  pagePath,
-  pagePreviewUrl,
-  targetLocales,
-  logRequest,
-}) {
+async function fetchMultimodalImage({ imageIndex, imageUrl, logRequest }) {
   const imageAssetName = siteRelativePathFromContentDaLiveUrl(imageUrl);
   const imageSourceUrl = contentDaLiveToDaSourceUrl(imageUrl);
   logRequest?.('fetch-image', { imageIndex, contentDaLiveUrl: imageUrl, daSourceUrl: imageSourceUrl });
@@ -565,12 +638,33 @@ async function uploadMultimodalImage({
     };
   }
 
+  const imageBlob = await imageResp.blob();
+  return {
+    imageIndex,
+    imageUrl,
+    imageAssetName,
+    imageBlob,
+  };
+}
+
+async function uploadFetchedMultimodalImage({
+  imageIndex,
+  imageUrl,
+  imageAssetName,
+  imageBlob,
+  origin,
+  clientid,
+  token,
+  pagePath,
+  pagePreviewUrl,
+  targetLocales,
+  logRequest,
+}) {
   const imagePut = await getPutUrlForFile({
     origin, clientid, token, assetName: imageAssetName, logRequest,
   });
   if (imagePut.error) return { error: imagePut.error, step: `getPutURL-image-${imageIndex}`, ...imagePut };
 
-  const imageBlob = await imageResp.blob();
   const imageUpload = await putAssetToSignedUrl({
     putURL: imagePut.putURL,
     body: imageBlob,
@@ -639,13 +733,23 @@ export async function uploadMultimodalPageAssets({
   if (maxImages != null) imageUrls = imageUrls.slice(0, maxImages);
   logRequest?.('collect-images', { htmlAssetName, org, site, count: imageUrls.length, imageUrls });
 
-  const { error: imageError, results: imageResults } = await runImageQueue({
-    items: imageUrls.map((imageUrl, index) => ({ imageIndex: index + 1, imageUrl })),
-    concurrency: IMAGE_UPLOAD_QUEUE_CONCURRENCY,
-    pushIntervalMs: IMAGE_PUSH_INTERVAL_MS,
-    processItem: ({ imageIndex, imageUrl }) => uploadMultimodalImage({
+  const imageItems = imageUrls.map((imageUrl, index) => ({ imageIndex: index + 1, imageUrl }));
+  const { error: fetchError, results: fetchedImages } = await runImageQueue({
+    items: imageItems,
+    concurrency: IMAGE_FETCH_QUEUE_CONCURRENCY,
+    processItem: ({ imageIndex, imageUrl }) => fetchMultimodalImage({
       imageIndex,
       imageUrl,
+      logRequest,
+    }),
+  });
+  if (fetchError) return fetchError;
+
+  const { error: imageError, results: imageResults } = await runImageQueue({
+    items: fetchedImages,
+    concurrency: IMAGE_UPLOAD_QUEUE_CONCURRENCY,
+    processItem: (fetched) => uploadFetchedMultimodalImage({
+      ...fetched,
       origin,
       clientid,
       token,

@@ -218,12 +218,16 @@ class NxLocTranslate extends LitElement {
 
     const { cancelTranslation } = this._service.connector;
 
+    let cancelAccepted = true;
     for (const lang of this._translateLangs) {
-      await cancelTranslation({ service: this._service, lang, sendMessage });
+      const result = await cancelTranslation({ service: this._service, lang, sendMessage });
+      if (result?.ok === false) cancelAccepted = false;
     }
 
-    // Re-fetch status to ensure the service canceled everything.
-    this.handleGetStatus();
+    if (cancelAccepted) {
+      // Re-fetch status to ensure the service canceled everything.
+      await this.handleGetStatus();
+    }
   }
 
   async handleCancelLang(lang) {
@@ -231,9 +235,11 @@ class NxLocTranslate extends LitElement {
 
     const { cancelTranslation } = this._service.connector;
 
-    await cancelTranslation({ service: this._service, lang, sendMessage });
+    const result = await cancelTranslation({ service: this._service, lang, sendMessage });
 
-    await this.handleGetStatus();
+    if (result?.ok !== false) {
+      await this.handleGetStatus();
+    }
   }
 
   async handleCopyAll() {
