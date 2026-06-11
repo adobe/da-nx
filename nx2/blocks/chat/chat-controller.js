@@ -19,8 +19,12 @@ function affectedFolders(toolName, input) {
 }
 
 const AGENT_URL = new URLSearchParams(window.location.search).get('ref') === 'local'
-  ? 'http://localhost:4200/chat'
+  ? 'http://localhost:4002/chat'
   : 'https://agent.da.live/chat';
+
+function getHarnessPreference() {
+  return localStorage.getItem('da-harness') || undefined;
+}
 
 /**
  * Drop assistant array-content messages whose tool-call IDs have no matching
@@ -374,6 +378,7 @@ export default class ChatController {
         ...(this._requestedSkills?.length ? { requestedSkills: this._requestedSkills } : {}),
         ...(this._pendingAttachments?.length ? { attachments: this._pendingAttachments } : {}),
         ...this._mcpPayload(),
+        ...(getHarnessPreference() ? { harness: getHarnessPreference() } : {}),
       }),
       signal: this._abortController.signal,
     });
