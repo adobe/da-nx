@@ -9,9 +9,70 @@ import {
   countMultimodalTranslatedPages,
   contentDaLiveToDaSourceUrl,
   getMultimodalV2TaskStatus,
+  getPutUrlForFile,
   isV2AssetReady,
   v2AssetStatusFromProbe,
 } from '../../../nx/blocks/loc/connectors/glaas/multimodalApi.js';
+
+describe('GLaaS multimodal getPutUrlForFile', () => {
+  afterEach(() => {
+    sinon.restore();
+  });
+
+  it('retries on 429 using Retry-After before returning putURL', async () => {
+    const clock = sinon.useFakeTimers();
+    let calls = 0;
+    sinon.stub(window, 'fetch').callsFake(() => {
+      calls += 1;
+      if (calls === 1) {
+        return Promise.resolve(new Response(JSON.stringify({}), {
+          status: 429,
+          headers: { 'Retry-After': '1' },
+        }));
+      }
+      return Promise.resolve(new Response(
+        JSON.stringify({ putURL: 'https://put.example/blob' }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ));
+    });
+
+    const promise = getPutUrlForFile({
+      origin: 'https://glaas.example',
+      clientid: 'client',
+      token: 'token',
+      assetName: '/drafts/demo/hero.png',
+      maxRetries: 1,
+    });
+    await clock.tickAsync(1250);
+    const result = await promise;
+
+    expect(result.putURL).to.equal('https://put.example/blob');
+    expect(calls).to.equal(2);
+    clock.restore();
+  });
+
+  it('returns error when 429 persists after retries', async () => {
+    const clock = sinon.useFakeTimers();
+    sinon.stub(window, 'fetch').resolves(new Response(JSON.stringify({}), {
+      status: 429,
+      headers: { 'Retry-After': '1' },
+    }));
+
+    const promise = getPutUrlForFile({
+      origin: 'https://glaas.example',
+      clientid: 'client',
+      token: 'token',
+      assetName: '/drafts/demo/hero.png',
+      maxRetries: 1,
+    });
+    await clock.tickAsync(1250);
+    const result = await promise;
+
+    expect(result.error).to.equal('Error getting put URL for file.');
+    expect(result.status).to.equal(429);
+    clock.restore();
+  });
+});
 
 describe('GLaaS multimodal source preview URL', () => {
   it('normalizes aem.page href for GLaaS (strip trailing /index)', () => {

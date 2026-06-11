@@ -4,7 +4,38 @@ import { daFetch } from '../../../../utils/daFetch.js';
 import { buildGlaasCreateMetadata, getOpts, glaasSourcePreviewUrl } from './api.js';
 
 const MULTIMODAL_LOG_KEY = 'glaas.multimodal.log';
-const IMAGE_QUEUE_CONCURRENCY = 5;
+const IMAGE_SAVE_QUEUE_CONCURRENCY = 5;
+const IMAGE_UPLOAD_QUEUE_CONCURRENCY = 5;
+const IMAGE_PUSH_INTERVAL_MS = 250;
+const PUT_URL_MAX_RETRIES = 4;
+const PUT_URL_RETRY_WAIT_MS = 1000;
+
+function delay(ms) {
+  return new Promise((resolve) => { setTimeout(resolve, ms); });
+}
+
+function getPutUrlRateLimitHeaders(resp) {
+  return {
+    retryAfter: resp.headers.get('retry-after'),
+    xRateLimitRetryAfterSeconds: resp.headers.get('x-rate-limit-retry-after-seconds'),
+  };
+}
+
+function getMillisToSleep(retryHeaderString) {
+  if (typeof retryHeaderString === 'string' && retryHeaderString) {
+    const millisToSleep = Math.round(parseFloat(retryHeaderString) * 1000);
+    if (!Number.isNaN(millisToSleep) && millisToSleep > 0) return millisToSleep;
+    const dateDiff = new Date(retryHeaderString) - Date.now();
+    if (dateDiff > 0) return dateDiff;
+  }
+  return -1;
+}
+
+function putUrl429RetryDelayMs({ resp, waitInterval }) {
+  const { retryAfter, xRateLimitRetryAfterSeconds } = getPutUrlRateLimitHeaders(resp);
+  const retryIn = getMillisToSleep(retryAfter || xRateLimitRetryAfterSeconds || '');
+  return retryIn > 0 ? retryIn + 250 : waitInterval;
+}
 
 function putUrlAssetName(assetName) {
   return assetName.replace(/^\/+/, '').replaceAll('/', '-');
@@ -45,21 +76,47 @@ export function logMultimodalRequest(step, detail) {
   console.info('[GLaaS multimodal]', step, detail);
 }
 
-export async function getPutUrlForFile({ origin, clientid, token, assetName, logRequest }) {
+export async function getPutUrlForFile({
+  origin,
+  clientid,
+  token,
+  assetName,
+  logRequest,
+  maxRetries = PUT_URL_MAX_RETRIES,
+}) {
   const opts = getOpts(clientid, token);
   const pathName = putUrlAssetName(assetName);
   const url = `${origin}/api/l10n/v1.1/asset/getPutURLForFile/${pathName}`;
   logRequest?.('getPutURL', { method: 'GET', url, assetName, wireName: pathName });
-  try {
-    const resp = await fetch(url, opts);
-    const json = await resp.json();
-    if (!resp.ok) return { error: 'Error getting put URL for file.', status: resp.status, json };
-    if (!json.putURL) return { error: 'Missing putURL in response.', status: resp.status, json };
-    logRequest?.('getPutURL-response', { status: resp.status, assetName });
-    return { putURL: json.putURL, instanceId: json.instanceId, status: resp.status };
-  } catch {
-    return { error: 'Error getting put URL for file.' };
+
+  let waitInterval = PUT_URL_RETRY_WAIT_MS;
+  for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+    try {
+      const resp = await fetch(url, opts);
+      if (resp.status === 429 && attempt < maxRetries) {
+        waitInterval *= 2;
+        const waitMs = putUrl429RetryDelayMs({ resp, waitInterval });
+        logRequest?.('getPutURL-retry', {
+          status: 429,
+          attempt: attempt + 1,
+          waitMs,
+          assetName,
+          ...getPutUrlRateLimitHeaders(resp),
+        });
+        await delay(waitMs);
+        // eslint-disable-next-line no-continue
+        continue;
+      }
+      const json = await resp.json();
+      if (!resp.ok) return { error: 'Error getting put URL for file.', status: resp.status, json };
+      if (!json.putURL) return { error: 'Missing putURL in response.', status: resp.status, json };
+      logRequest?.('getPutURL-response', { status: resp.status, assetName });
+      return { putURL: json.putURL, instanceId: json.instanceId, status: resp.status };
+    } catch {
+      return { error: 'Error getting put URL for file.' };
+    }
   }
+  return { error: 'Error getting put URL for file.' };
 }
 
 function contentTypeForPutUrl(putURL, contentType) {
@@ -395,7 +452,14 @@ export function buildMultimodalTextAsset({
   };
 }
 
-async function runImageQueue({ items, processItem, concurrency = IMAGE_QUEUE_CONCURRENCY }) {
+async function runImageQueue({
+  items,
+  processItem,
+  concurrency = IMAGE_SAVE_QUEUE_CONCURRENCY,
+  pushIntervalMs,
+}) {
+  if (!items.length) return { results: [] };
+
   let firstError;
   const results = [];
   const queue = new Queue(async (item) => {
@@ -408,7 +472,17 @@ async function runImageQueue({ items, processItem, concurrency = IMAGE_QUEUE_CON
     results.push(result);
   }, concurrency);
 
-  await Promise.all(items.map((item) => queue.push(item)));
+  if (pushIntervalMs) {
+    const pending = [];
+    for (let i = 0; i < items.length; i += 1) {
+      if (i > 0) await delay(pushIntervalMs);
+      pending.push(queue.push(items[i]));
+    }
+    await Promise.all(pending);
+  } else {
+    await Promise.all(items.map((item) => queue.push(item)));
+  }
+
   if (firstError) return { error: firstError };
   return { results };
 }
@@ -517,6 +591,8 @@ export async function uploadMultimodalPageAssets({
 
   const { error: imageError, results: imageResults } = await runImageQueue({
     items: imageUrls.map((imageUrl, index) => ({ imageIndex: index + 1, imageUrl })),
+    concurrency: IMAGE_UPLOAD_QUEUE_CONCURRENCY,
+    pushIntervalMs: IMAGE_PUSH_INTERVAL_MS,
     processItem: ({ imageIndex, imageUrl }) => uploadMultimodalImage({
       imageIndex,
       imageUrl,
@@ -651,6 +727,7 @@ export async function prepareMultimodalPageForSave({
 
   const { error: imageError, results: imageEntries } = await runImageQueue({
     items: pageAsset.images,
+    pushIntervalMs: IMAGE_PUSH_INTERVAL_MS,
     processItem: (image) => saveMultimodalImageToMedia({
       service,
       token,
