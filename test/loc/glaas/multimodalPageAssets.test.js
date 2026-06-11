@@ -70,6 +70,20 @@ describe('GLaaS multimodal pageAssets', () => {
     expect(collectContentDaLiveImageUrls(html)).to.deep.equal([]);
   });
 
+  it('collects comma-containing filenames from img[src] without srcset fragments', () => {
+    const fullUrl = 'https://content.da.live/adobecom/da-dc/drafts/demo/.hero/variant=default,%20width=full,%20content=feature%20image.png';
+    const html = `
+      <picture>
+        <source srcset="${fullUrl}">
+        <source srcset="${fullUrl}" media="(min-width: 600px)">
+        <img src="${fullUrl}" loading="lazy">
+      </picture>
+    `;
+    expect(collectContentDaLiveImageUrls(html, { org: 'adobecom', site: 'da-dc' })).to.deep.equal([
+      fullUrl,
+    ]);
+  });
+
   it('returns empty images when page has no content.da.live assets', () => {
     const entry = buildMultimodalPageAssetEntry({
       htmlAssetName: 'drafts/page.html',

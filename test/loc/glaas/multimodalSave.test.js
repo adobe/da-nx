@@ -149,18 +149,41 @@ describe('GLaaS multimodal save', () => {
     expect(result.text).not.to.include(contentDaLiveUrl);
   });
 
-  it('rewrites img and srcset content.da.live URLs to media bus delivery urls', () => {
+  it('rewrites img[src] and mirrors delivery URL onto picture source[srcset]', () => {
+    const deliveryUrl = 'https://main--da-dc--adobecom.aem.page/media_abc.avif';
     const html = `
       <picture>
         <source srcset="https://content.da.live/adobecom/da-dc/acrobat/foo/rect%201.png 1x">
+        <source srcset="https://content.da.live/adobecom/da-dc/acrobat/foo/rect%201.png 1x" media="(min-width: 600px)">
         <img src="https://content.da.live/adobecom/da-dc/acrobat/foo/rect%201.png">
       </picture>
     `;
     const pathToNewUrl = new Map([
-      ['/adobecom/da-dc/acrobat/foo/rect 1.png', 'https://main--da-dc--adobecom.aem.page/media_abc.avif'],
+      ['/adobecom/da-dc/acrobat/foo/rect 1.png', deliveryUrl],
     ]);
     const out = rewriteContentDaLiveImageUrls(html, pathToNewUrl);
-    expect(out).to.include('main--da-dc--adobecom.aem.page/media_abc.avif');
+    expect(out).to.include(`src="${deliveryUrl}"`);
+    expect(out).to.include(`srcset="${deliveryUrl}"`);
     expect(out).not.to.include('content.da.live/adobecom/da-dc/acrobat/foo/rect%201.png');
+  });
+
+  it('rewrites comma-containing filenames without srcset comma splitting', () => {
+    const contentDaLiveUrl = 'https://content.da.live/adobecom/da-dc/drafts/demo/.hero/variant=default,%20width=half%20or%20third,%20content=feature%20image.png';
+    const deliveryUrl = 'https://main--da-dc--adobecom.aem.page/media_hero.avif';
+    const html = `
+      <picture>
+        <source srcset="${contentDaLiveUrl}">
+        <source srcset="${contentDaLiveUrl}" media="(min-width: 600px)">
+        <img src="${contentDaLiveUrl}">
+      </picture>
+    `;
+    const pathToNewUrl = new Map([
+      ['/adobecom/da-dc/drafts/demo/.hero/variant=default, width=half or third, content=feature image.png', deliveryUrl],
+    ]);
+    const out = rewriteContentDaLiveImageUrls(html, pathToNewUrl);
+    expect(out).to.include(`src="${deliveryUrl}"`);
+    expect((out.match(/srcset="/g) ?? []).length).to.equal(2);
+    expect(out).not.to.include('content.da.live');
+    expect(out).not.to.include('variant=default,');
   });
 });

@@ -184,17 +184,6 @@ export async function fetchBlobFromSignedUrl(signedURL) {
 
 const CONTENT_DA_LIVE = 'content.da.live';
 
-/** One srcset candidate URL; strips trailing width/density descriptor (e.g. 600w, 2x) only. */
-export function parseSrcsetUrl(part) {
-  const trimmed = part.trim();
-  if (!trimmed) return '';
-  return trimmed.replace(/\s+\d+(?:\.\d+)?[wx]\s*$/i, '').trim();
-}
-
-function collectSrcsetUrls(srcset) {
-  return srcset.split(',').map(parseSrcsetUrl).filter(Boolean);
-}
-
 /** Encode delivery URL for HTML src/srcset (spaces → %20, valid srcset). */
 export function contentDaLiveHrefForAttribute(href) {
   if (!href) return href;
@@ -225,18 +214,13 @@ function isProjectContentDaLiveUrl(href, org, site) {
   }
 }
 
-/** MVP: absolute https://content.da.live/... image URLs only (not relative ./media_ from DNT). */
+/** MVP: absolute https://content.da.live/... image URLs from img[src] only (not relative ./media_ from DNT). */
 export function collectContentDaLiveImageUrls(html, { org, site } = {}) {
   const doc = new DOMParser().parseFromString(html, 'text/html');
   const urls = new Set();
   doc.querySelectorAll('img[src]').forEach((img) => {
     const src = img.getAttribute('src');
     if (isProjectContentDaLiveUrl(src, org, site)) urls.add(new URL(src).href);
-  });
-  doc.querySelectorAll('source[srcset]').forEach((source) => {
-    collectSrcsetUrls(source.getAttribute('srcset') || '').forEach((src) => {
-      if (isProjectContentDaLiveUrl(src, org, site)) urls.add(new URL(src).href);
-    });
   });
   return [...urls];
 }
@@ -258,19 +242,6 @@ export function contentDaLivePathKey(href) {
   }
 }
 
-function replaceSrcsetUrls(srcset, resolveNewUrl) {
-  return srcset.split(',').map((part) => {
-    const trimmed = part.trim();
-    if (!trimmed) return part;
-    const src = parseSrcsetUrl(trimmed);
-    const descriptor = trimmed.slice(src.length).trim();
-    const resolved = resolveNewUrl(src);
-    if (!resolved) return part;
-    const encoded = contentDaLiveHrefForAttribute(resolved);
-    return descriptor ? `${encoded} ${descriptor}` : encoded;
-  }).join(', ');
-}
-
 /** Replace content.da.live image URLs using pathname → new delivery URL map. */
 export function rewriteContentDaLiveImageUrls(html, pathToNewUrl) {
   const doc = new DOMParser().parseFromString(html, 'text/html');
@@ -282,12 +253,14 @@ export function rewriteContentDaLiveImageUrls(html, pathToNewUrl) {
 
   doc.querySelectorAll('img[src]').forEach((img) => {
     const next = resolveNewUrl(img.getAttribute('src'));
-    if (next) img.setAttribute('src', contentDaLiveHrefForAttribute(next));
-  });
-  doc.querySelectorAll('source[srcset]').forEach((source) => {
-    const srcset = source.getAttribute('srcset');
-    if (!srcset) return;
-    source.setAttribute('srcset', replaceSrcsetUrls(srcset, resolveNewUrl));
+    if (!next) return;
+    const encoded = contentDaLiveHrefForAttribute(next);
+    img.setAttribute('src', encoded);
+    const picture = img.closest('picture');
+    if (!picture) return;
+    picture.querySelectorAll('source[srcset]').forEach((source) => {
+      source.setAttribute('srcset', encoded);
+    });
   });
 
   return doc.documentElement?.querySelector('body')?.innerHTML
