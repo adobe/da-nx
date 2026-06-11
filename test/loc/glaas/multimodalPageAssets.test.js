@@ -10,6 +10,7 @@ import {
   contentDaLiveToDaSourceUrl,
   getMultimodalV2TaskStatus,
   getPutUrlForFile,
+  resetPutUrlRateLimitGateForTests,
   isV2AssetReady,
   v2AssetStatusFromProbe,
 } from '../../../nx/blocks/loc/connectors/glaas/multimodalApi.js';
@@ -17,6 +18,7 @@ import {
 describe('GLaaS multimodal getPutUrlForFile', () => {
   afterEach(() => {
     sinon.restore();
+    resetPutUrlRateLimitGateForTests();
   });
 
   it('retries on 429 using Retry-After before returning putURL', async () => {
@@ -48,6 +50,101 @@ describe('GLaaS multimodal getPutUrlForFile', () => {
 
     expect(result.putURL).to.equal('https://put.example/blob');
     expect(calls).to.equal(2);
+    clock.restore();
+  });
+
+  it('uses default backoff when 429 has no readable rate-limit headers', async () => {
+    const clock = sinon.useFakeTimers();
+    let calls = 0;
+    sinon.stub(window, 'fetch').callsFake(() => {
+      calls += 1;
+      if (calls === 1) {
+        return Promise.resolve(new Response(JSON.stringify({}), { status: 429 }));
+      }
+      return Promise.resolve(new Response(
+        JSON.stringify({ putURL: 'https://put.example/blob' }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ));
+    });
+
+    const promise = getPutUrlForFile({
+      origin: 'https://glaas.example',
+      clientid: 'client',
+      token: 'token',
+      assetName: '/drafts/demo/hero.png',
+      maxRetries: 1,
+    });
+    await clock.tickAsync(30250);
+    const result = await promise;
+
+    expect(result.putURL).to.equal('https://put.example/blob');
+    clock.restore();
+  });
+
+  it('retries on opaque fetch failure without a readable 429 response', async () => {
+    const clock = sinon.useFakeTimers();
+    const logRequest = sinon.spy();
+    let calls = 0;
+    sinon.stub(window, 'fetch').callsFake(() => {
+      calls += 1;
+      if (calls === 1) {
+        return Promise.reject(new TypeError('Failed to fetch'));
+      }
+      return Promise.resolve(new Response(
+        JSON.stringify({ putURL: 'https://put.example/blob' }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ));
+    });
+
+    const promise = getPutUrlForFile({
+      origin: 'https://glaas.example',
+      clientid: 'client',
+      token: 'token',
+      assetName: '/drafts/demo/hero.png',
+      logRequest,
+      maxRetries: 1,
+    });
+    await clock.tickAsync(30250);
+    const result = await promise;
+
+    expect(result.putURL).to.equal('https://put.example/blob');
+    expect(logRequest.calledWith('getPutURL-retry', sinon.match({
+      status: 'fetch-error',
+      waitMs: 30250,
+    }))).to.be.true;
+    clock.restore();
+  });
+
+  it('retries after fetch error following a 429', async () => {
+    const clock = sinon.useFakeTimers();
+    let calls = 0;
+    sinon.stub(window, 'fetch').callsFake(() => {
+      calls += 1;
+      if (calls === 1) {
+        return Promise.resolve(new Response(JSON.stringify({}), { status: 429 }));
+      }
+      if (calls === 2) {
+        return Promise.reject(new TypeError('Failed to fetch'));
+      }
+      return Promise.resolve(new Response(
+        JSON.stringify({ putURL: 'https://put.example/blob' }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ));
+    });
+
+    const promise = getPutUrlForFile({
+      origin: 'https://glaas.example',
+      clientid: 'client',
+      token: 'token',
+      assetName: '/drafts/demo/hero.png',
+      maxRetries: 2,
+    });
+    await clock.tickAsync(30250);
+    await clock.tickAsync(30250);
+    const result = await promise;
+
+    expect(result.putURL).to.equal('https://put.example/blob');
+    expect(calls).to.equal(3);
     clock.restore();
   });
 

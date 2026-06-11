@@ -5,13 +5,29 @@ import { buildGlaasCreateMetadata, getOpts, glaasSourcePreviewUrl } from './api.
 
 const MULTIMODAL_LOG_KEY = 'glaas.multimodal.log';
 const IMAGE_SAVE_QUEUE_CONCURRENCY = 5;
-const IMAGE_UPLOAD_QUEUE_CONCURRENCY = 5;
+const IMAGE_UPLOAD_QUEUE_CONCURRENCY = 3;
 const IMAGE_PUSH_INTERVAL_MS = 250;
 const PUT_URL_MAX_RETRIES = 4;
 const PUT_URL_RETRY_WAIT_MS = 1000;
+const PUT_URL_429_DEFAULT_DELAY_MS = 30250;
+
+let putUrlRateLimitUntil = 0;
 
 function delay(ms) {
   return new Promise((resolve) => { setTimeout(resolve, ms); });
+}
+
+async function awaitPutUrlRateLimitGate() {
+  const waitMs = putUrlRateLimitUntil - Date.now();
+  if (waitMs > 0) await delay(waitMs);
+}
+
+function extendPutUrlRateLimitGate(waitMs) {
+  putUrlRateLimitUntil = Math.max(putUrlRateLimitUntil, Date.now() + waitMs);
+}
+
+export function resetPutUrlRateLimitGateForTests() {
+  putUrlRateLimitUntil = 0;
 }
 
 function getPutUrlRateLimitHeaders(resp) {
@@ -34,7 +50,27 @@ function getMillisToSleep(retryHeaderString) {
 function putUrl429RetryDelayMs({ resp, waitInterval }) {
   const { retryAfter, xRateLimitRetryAfterSeconds } = getPutUrlRateLimitHeaders(resp);
   const retryIn = getMillisToSleep(retryAfter || xRateLimitRetryAfterSeconds || '');
-  return retryIn > 0 ? retryIn + 250 : waitInterval;
+  if (retryIn > 0) return retryIn + 250;
+  return Math.max(waitInterval, PUT_URL_429_DEFAULT_DELAY_MS);
+}
+
+async function backoffPutUrl429({
+  waitMs,
+  logRequest,
+  attempt,
+  assetName,
+  status,
+  detail = {},
+}) {
+  extendPutUrlRateLimitGate(waitMs);
+  logRequest?.('getPutURL-retry', {
+    status,
+    attempt: attempt + 1,
+    waitMs,
+    assetName,
+    ...detail,
+  });
+  await delay(waitMs);
 }
 
 function putUrlAssetName(assetName) {
@@ -92,18 +128,19 @@ export async function getPutUrlForFile({
   let waitInterval = PUT_URL_RETRY_WAIT_MS;
   for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
     try {
+      await awaitPutUrlRateLimitGate();
       const resp = await fetch(url, opts);
       if (resp.status === 429 && attempt < maxRetries) {
         waitInterval *= 2;
         const waitMs = putUrl429RetryDelayMs({ resp, waitInterval });
-        logRequest?.('getPutURL-retry', {
-          status: 429,
-          attempt: attempt + 1,
+        await backoffPutUrl429({
           waitMs,
+          logRequest,
+          attempt,
           assetName,
-          ...getPutUrlRateLimitHeaders(resp),
+          status: 429,
+          detail: getPutUrlRateLimitHeaders(resp),
         });
-        await delay(waitMs);
         // eslint-disable-next-line no-continue
         continue;
       }
@@ -112,7 +149,20 @@ export async function getPutUrlForFile({
       if (!json.putURL) return { error: 'Missing putURL in response.', status: resp.status, json };
       logRequest?.('getPutURL-response', { status: resp.status, assetName });
       return { putURL: json.putURL, instanceId: json.instanceId, status: resp.status };
-    } catch {
+    } catch (e) {
+      if (attempt < maxRetries) {
+        const waitMs = PUT_URL_429_DEFAULT_DELAY_MS;
+        await backoffPutUrl429({
+          waitMs,
+          logRequest,
+          attempt,
+          assetName,
+          status: 'fetch-error',
+          detail: { error: String(e) },
+        });
+        // eslint-disable-next-line no-continue
+        continue;
+      }
       return { error: 'Error getting put URL for file.' };
     }
   }
