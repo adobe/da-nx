@@ -7,7 +7,7 @@ function processEvent(event, streaming, callbacks) {
   }
 
   if (event.type === EVENT.FINISH_MESSAGE || event.type === EVENT.FINISH) {
-    return { streaming, done: true };
+    return { streaming, done: true, finishReason: event.finishReason };
   }
   if (event.type === EVENT.TEXT_END) {
     if (streaming) onText(streaming);
@@ -67,6 +67,7 @@ export async function readStream(body, callbacks) {
   let buffer = '';
   let streaming = '';
   let finished = false;
+  let finishReason;
 
   for await (const chunk of body) {
     if (finished) break;
@@ -84,11 +85,14 @@ export async function readStream(body, callbacks) {
           event = null;
         }
         if (event) {
-          ({ streaming, done: finished } = processEvent(event, streaming, callbacks));
+          const result = processEvent(event, streaming, callbacks);
+          ({ streaming, done: finished } = result);
+          if (result.finishReason !== undefined) finishReason = result.finishReason;
         }
       }
     }
   }
 
-  if (streaming) callbacks.onText(streaming);
+  if (streaming) callbacks.onText?.(streaming);
+  callbacks.onFinish?.(finishReason);
 }
