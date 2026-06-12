@@ -91,7 +91,7 @@ export function stripOrphanedToolCallMessages(messages, { liveToolCallIds = new 
       const calls = msg.content.filter((p) => p.type === AGENT_EVENT.TOOL_CALL);
       if (!calls.length) return true;
 
-      // Keep if any call is live so da-agent sees all pending approvals.
+      // Keep if any call is live so the agent sees all pending approvals.
       if (calls.some((c) => liveToolCallIds.has(c.toolCallId))) return true;
 
       const approvals = msg.content.filter((p) => p.type === AGENT_EVENT.TOOL_APPROVAL_REQUEST);

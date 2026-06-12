@@ -135,8 +135,8 @@ export default class ChatController {
       ...bulkCards.map(([, c]) => toResponse(c.approvalId, true)),
     ];
 
-    // Stream per approval so da-agent emits results via buildApprovalContinuationResponse —
-    // batching would trigger streamText early and silently swallow tool results.
+    // Stream per approval — batching all approvals causes the agent to execute tools
+    // internally without streaming results back, so the client never receives them.
     this._turn.resume();
     this._update();
 
