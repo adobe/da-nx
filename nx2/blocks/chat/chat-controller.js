@@ -2,6 +2,7 @@ import { loadIms } from '../../utils/ims.js';
 import { AGENT_EVENT, ROLE, TOOL_NAME, TOOL_STATE } from './constants.js';
 import { readStream } from './utils/stream.js';
 import { loadMessages, saveMessages, resetSession } from './utils/persistence.js';
+import { createAOClient, resolveImsIdentity } from './ao/ao-client.js';
 
 function affectedFolders(toolName, input) {
   const { org, repo } = input ?? {};
@@ -22,8 +23,30 @@ const AGENT_URL = new URLSearchParams(window.location.search).get('ref') === 'lo
   ? 'http://localhost:4002/chat'
   : 'https://agent.da.live/chat';
 
+const AO_BACKEND_URL = new URLSearchParams(window.location.search).get('ref') === 'local'
+  ? 'http://localhost:64053'
+  : 'https://ao.adobe.io';
+
 function getHarnessPreference() {
   return localStorage.getItem('da-harness') || undefined;
+}
+
+/** Pull the newest user message text out of the chat history. */
+function latestUserText(messages) {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const msg = messages[i];
+    if (msg.role === ROLE.USER) {
+      if (typeof msg.content === 'string') return msg.content;
+      if (Array.isArray(msg.content)) {
+        const text = msg.content
+          .filter((p) => p.type === 'text' && typeof p.text === 'string')
+          .map((p) => p.text)
+          .join('\n');
+        if (text) return text;
+      }
+    }
+  }
+  return '';
 }
 
 /**
@@ -363,8 +386,14 @@ export default class ChatController {
   }
 
   async _stream(pageContext) {
-    const [{ accessToken }, room] = await Promise.all([loadIms(), this._getRoom()]);
     this._abortController = new AbortController();
+
+    if (getHarnessPreference() === 'ao') {
+      await this._streamAO();
+      return;
+    }
+
+    const [{ accessToken }, room] = await Promise.all([loadIms(), this._getRoom()]);
 
     const resp = await fetch(AGENT_URL, {
       method: 'POST',
@@ -386,6 +415,40 @@ export default class ChatController {
     if (!resp.ok) {
       throw new Error(`Agent responded with ${resp.status}: ${await resp.text()}`);
     }
+
+    await readStream(resp.body, {
+      onDelta: (next) => { this._streamingText = next; this._update(); },
+      onText: (text) => {
+        this._messages = [...this._messages, { role: ROLE.ASSISTANT, content: text }];
+        this._streamingText = '';
+        this._update();
+        saveMessages(room, this._messages, this._sessionId);
+      },
+      onTool: this._onToolEvent,
+    });
+  }
+
+  /**
+   * AO harness path: stream directly from the browser to Agent Orchestrator,
+   * with no Cloudflare Worker in the request path. AO is stateful, so only the
+   * newest user message is sent — `sessionId` is reused as AO's contextId.
+   */
+  async _streamAO() {
+    const room = await this._getRoom();
+    const isLocalAO = new URLSearchParams(window.location.search).get('ref') === 'local';
+    const client = createAOClient({
+      backendUrl: AO_BACKEND_URL,
+      getIdentity: () => resolveImsIdentity(window.adobeIMS),
+      // Local AO runs with token validation off and cannot validate the staging
+      // token; use header-based identity there. Prod AO requires the extension.
+      sendImsIdentity: !isLocalAO,
+    });
+
+    const resp = await client.streamChat({
+      message: latestUserText(this._messages),
+      contextId: this._sessionId,
+      signal: this._abortController.signal,
+    });
 
     await readStream(resp.body, {
       onDelta: (next) => { this._streamingText = next; this._update(); },
