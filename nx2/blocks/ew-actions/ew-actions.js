@@ -3,6 +3,7 @@ import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle, hashChange } from '../../utils/utils.js';
 import {
   buildAemPathFromHashState,
+  buildScRendererUrl,
   formatAemPreviewPublishError,
   runAemPreviewOrPublish,
 } from '../../utils/aem-preview-publish.js';
@@ -151,7 +152,17 @@ class NXEwActions extends LitElement {
       return;
     }
 
-    window.open(result.url, result.url);
+    // The preview/publish work above is unchanged; only the URL we open differs.
+    // The form workspace opts into the structured-content renderer by setting
+    // the `ew-preview-renderer` meta (see da-live's form block). Everywhere else keeps
+    // the standard EDS delivery URL computed by the helper.
+    const useScRenderer = document.head
+      .querySelector('meta[name="ew-preview-renderer"]')?.content === 'sc';
+    const url = useScRenderer
+      ? buildScRendererUrl({ aemPath, action }) || result.url
+      : result.url;
+
+    window.open(url, url);
 
     this._busy = false;
   }
