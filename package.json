@@ -19,6 +19,7 @@
     "build:mdast": "esbuild --format=esm --minify ./nx/deps/mdast/src/index.js --bundle --outfile=./nx/deps/mdast/dist/index.js",
     "build:codemirror": "esbuild --format=esm --minify ./nx/deps/codemirror/src/index.js --bundle --outfile=./nx/deps/codemirror/dist/index.js",
     "build:da-sc-sdk": "esbuild --format=esm --minify ./nx/deps/da-sc-sdk/src/index.js --bundle --outfile=./nx/deps/da-sc-sdk/dist/index.js",
+    "build:da-sc-sdk:nx2": "esbuild --format=esm --minify ./nx2/deps/da-sc-sdk/src/index.js --bundle --outfile=./nx2/deps/da-sc-sdk/dist/index.js",
     "build:da-lit": "esbuild --format=esm --minify ./deps/lit/src/index.js --bundle --outfile=./deps/lit/dist/index.js",
     "build:ml-lit": "esbuild --format=esm --minify ./nx/deps/ml-lit/src/index.js --bundle --outfile=./nx/deps/ml-lit/dist/index.js",
     "build:virtualizer": "esbuild --format=esm --minify ./nx/deps/virtualizer/src/index.js --bundle --outfile=./nx/deps/virtualizer/dist/index.js",
