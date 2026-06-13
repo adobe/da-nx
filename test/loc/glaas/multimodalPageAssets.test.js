@@ -417,6 +417,28 @@ describe('GLaaS multimodal v2 asset status', () => {
     expect(result.json[0].assets.every((asset) => asset.status !== 'COMPLETED')).to.equal(true);
   });
 
+  it('returns IN_PROGRESS without throwing when a v2 probe request fails', async () => {
+    sinon.stub(window, 'fetch').rejects(new TypeError('Failed to fetch'));
+
+    const result = await getMultimodalV2TaskStatus({
+      service: { clientid: 'client', origin: 'https://glaas.example' },
+      token: 'token',
+      task: { name: 'task-1', workflow: 'Product/Project' },
+      langs: [{ code: 'de' }],
+      pageAssets: {
+        '/page': {
+          htmlGlaasName: '/drafts/page.html',
+          images: [{ glaasName: '/media/a.png' }],
+        },
+      },
+    });
+
+    expect(result.status).to.equal(200);
+    expect(result.json[0].targetLocale).to.equal('de');
+    expect(result.json[0].status).to.equal('IN_PROGRESS');
+    expect(result.json[0].assets).to.deep.equal([]);
+  });
+
   afterEach(() => {
     sinon.restore();
   });

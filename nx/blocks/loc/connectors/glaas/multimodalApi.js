@@ -1,7 +1,9 @@
 import { DA_ORIGIN } from '../../../../public/utils/constants.js';
 import { Queue } from '../../../../public/utils/tree.js';
 import { daFetch } from '../../../../utils/daFetch.js';
-import { buildGlaasCreateMetadata, getOpts, glaasSourcePreviewUrl } from './api.js';
+import {
+  buildGlaasCreateMetadata, getOpts, glaasSourcePreviewUrl, throttle,
+} from './api.js';
 
 const MULTIMODAL_LOG_KEY = 'glaas.multimodal.log';
 /** Documented GLaaS budget is 120/min per client id; target 100 for shared-stage headroom. */
@@ -18,12 +20,6 @@ const IMAGE_PUSH_INTERVAL_MS = 250;
 const PUT_URL_MAX_RETRIES = 4;
 const PUT_URL_RETRY_WAIT_MS = 1000;
 const PUT_URL_429_FALLBACK_DELAY_MS = Math.ceil(GLAAS_API_WINDOW_MS / 2) + 250;
-
-let glaasApiRateLimitUntil = 0;
-
-function delay(ms) {
-  return new Promise((resolve) => { setTimeout(resolve, ms); });
-}
 
 export function createPutUrlRollingLimiter({
   limitPerWindow = GLAAS_API_LIMIT_PER_MINUTE,
@@ -62,7 +58,7 @@ export function createPutUrlRollingLimiter({
           const waitForSpacing = Math.max(0, lastAcquireAt + minIntervalMs - now);
           const waitMs = Math.max(waitForWindow, waitForSpacing);
           if (waitMs > 0) {
-            await delay(waitMs);
+            await throttle(waitMs);
             // eslint-disable-next-line no-continue
             continue;
           }
@@ -84,18 +80,14 @@ export function createPutUrlRollingLimiter({
 
 const glaasApiLimiter = createPutUrlRollingLimiter();
 
-async function awaitGlaasApiRateLimitGate() {
-  const waitMs = glaasApiRateLimitUntil - Date.now();
-  if (waitMs > 0) await delay(waitMs);
-}
-
 async function acquireGlaasApiSlot() {
-  await awaitGlaasApiRateLimitGate();
   await glaasApiLimiter.acquire();
 }
 
-function extendGlaasApiRateLimitGate(waitMs) {
-  glaasApiRateLimitUntil = Math.max(glaasApiRateLimitUntil, Date.now() + waitMs);
+function putUrlOpaqueRetryDelayMs({ waitInterval }) {
+  const windowWait = glaasApiLimiter.windowRetryDelayMs();
+  if (windowWait > 0) return windowWait;
+  return Math.max(waitInterval, PUT_URL_429_FALLBACK_DELAY_MS);
 }
 
 function putUrlReactiveRetryDelayMs({ waitInterval }) {
@@ -106,7 +98,6 @@ function putUrlReactiveRetryDelayMs({ waitInterval }) {
 }
 
 export function resetPutUrlRateLimitGateForTests() {
-  glaasApiRateLimitUntil = 0;
   glaasApiLimiter.reset();
 }
 
@@ -142,7 +133,6 @@ async function backoffPutUrl429({
   status,
   detail = {},
 }) {
-  extendGlaasApiRateLimitGate(waitMs);
   logRequest?.('getPutURL-retry', {
     status,
     attempt: attempt + 1,
@@ -150,7 +140,7 @@ async function backoffPutUrl429({
     assetName,
     ...detail,
   });
-  await delay(waitMs);
+  await throttle(waitMs);
 }
 
 function putUrlAssetName(assetName) {
@@ -231,7 +221,7 @@ export async function getPutUrlForFile({
       return { putURL: json.putURL, instanceId: json.instanceId, status: resp.status };
     } catch (e) {
       if (attempt < maxRetries) {
-        const waitMs = glaasApiLimiter.windowRetryDelayMs() || PUT_URL_429_FALLBACK_DELAY_MS;
+        const waitMs = putUrlOpaqueRetryDelayMs({ waitInterval });
         await backoffPutUrl429({
           waitMs,
           logRequest,
@@ -527,7 +517,7 @@ async function runImageQueue({
   if (pushIntervalMs) {
     const pending = [];
     for (let i = 0; i < items.length; i += 1) {
-      if (i > 0) await delay(pushIntervalMs);
+      if (i > 0) await throttle(pushIntervalMs);
       pending.push(queue.push(items[i]));
     }
     await Promise.all(pending);
@@ -543,15 +533,17 @@ async function probeMultimodalAssetStatuses({
   service, token, task, langCode, assetNames,
 }) {
   const langTask = { ...task, code: langCode };
-  const { results: probes } = await runImageQueue({
+  const queued = await runImageQueue({
     items: assetNames,
     concurrency: V2_PROBE_QUEUE_CONCURRENCY,
     processItem: async (assetName) => {
       const meta = await getV2Asset(service, token, langTask, assetName);
+      if (meta.error) return meta;
       return v2AssetStatusFromProbe(assetName, meta);
     },
   });
-  return probes;
+  if (queued.error) return { error: queued.error };
+  return queued.results ?? [];
 }
 
 /**
@@ -576,6 +568,15 @@ export async function getMultimodalV2TaskStatus({
       langCode: lang.code,
       assetNames,
     });
+    if (assets?.error) {
+      subtasks.push({
+        targetLocale: lang.code,
+        status: 'IN_PROGRESS',
+        assets: [],
+      });
+      // eslint-disable-next-line no-continue
+      continue;
+    }
     const allCompleted = assets.every((asset) => asset.status === 'COMPLETED');
     subtasks.push({
       targetLocale: lang.code,

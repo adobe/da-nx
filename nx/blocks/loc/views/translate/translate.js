@@ -218,14 +218,14 @@ class NxLocTranslate extends LitElement {
 
     const { cancelTranslation } = this._service.connector;
 
-    let cancelAccepted = true;
+    let shouldRefresh = false;
     for (const lang of this._translateLangs) {
       const result = await cancelTranslation({ service: this._service, lang, sendMessage });
-      if (result?.ok === false) cancelAccepted = false;
+      if (result?.ok !== false) shouldRefresh = true;
     }
 
-    if (cancelAccepted) {
-      // Re-fetch status to ensure the service canceled everything.
+    if (shouldRefresh) {
+      // Refresh locales GLaaS accepted; skip when every cancel was rejected.
       await this.handleGetStatus();
     }
   }
