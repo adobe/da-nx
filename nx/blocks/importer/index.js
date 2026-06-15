@@ -1,100 +1,10 @@
 import { replaceHtml, initIms } from '../../utils/daFetch.js';
-import { isHlx6, source } from '../../../nx2/utils/api.js';
+import { isHlx6, source, getAemSiteToken } from '../../../nx2/utils/api.js';
 import { mdToDocDom, docDomToAemHtml } from '../../utils/converters.js';
 import { Queue } from '../../public/utils/tree.js';
 
 const parser = new DOMParser();
 const EXTS = ['json', 'svg', 'png', 'jpg', 'jpeg', 'gif', 'mp4', 'pdf'];
-
-// Site token cache to avoid repeated token exchanges
-const aemSiteTokenCache = new Map();
-
-function getAemSiteTokenCacheKey(org, site, ref = 'main') {
-  return `${org}/${site}/${ref}`;
-}
-
-function getCachedAemSiteToken(org, site, ref = 'main') {
-  const key = getAemSiteTokenCacheKey(org, site, ref);
-  const cached = aemSiteTokenCache.get(key);
-  if (!cached || cached.promise) return null;
-  // Check if token is expired (within 60 seconds of expiry)
-  if (cached.siteTokenExpiry && cached.siteTokenExpiry <= Date.now() + 60_000) {
-    aemSiteTokenCache.delete(key);
-    return null;
-  }
-  return cached.siteToken ? cached : null;
-}
-
-function clearCachedAemSiteToken(org, site, ref = 'main') {
-  aemSiteTokenCache.delete(getAemSiteTokenCacheKey(org, site, ref));
-}
-
-async function fetchAemSiteToken(org, site, ref = 'main') {
-  const { accessToken } = await initIms() || {};
-  const imsToken = accessToken?.token;
-  if (!imsToken) {
-    return { error: 'Missing IMS access token' };
-  }
-
-  const body = JSON.stringify({
-    org,
-    site,
-    ref,
-    accessToken: imsToken,
-  });
-
-  const resp = await fetch('https://admin.hlx.page/auth/adobe/exchange', {
-    method: 'POST',
-    body,
-    headers: { 'Content-Type': 'application/json' },
-  });
-
-  if (!resp.ok) {
-    return { error: `Error fetch AEM Site Token ${resp.status}` };
-  }
-
-  const data = await resp.json();
-  const siteToken = data.siteToken || data.token;
-  const siteTokenExpiry = data.siteTokenExpiry || data.tokenExpiry || 0;
-
-  if (!siteToken) {
-    return { error: 'AEM Site Token missing from exchange response' };
-  }
-
-  return { siteToken, siteTokenExpiry };
-}
-
-// IIFE for request deduplication and caching
-const getAemSiteToken = (() => {
-  const loadToken = async (org, site, ref = 'main') => {
-    const result = await fetchAemSiteToken(org, site, ref);
-    if (result?.siteToken) {
-      aemSiteTokenCache.set(getAemSiteTokenCacheKey(org, site, ref), result);
-      return result;
-    }
-    clearCachedAemSiteToken(org, site, ref);
-    return result;
-  };
-
-  return ({ org, site, ref = 'main' }) => {
-    const key = getAemSiteTokenCacheKey(org, site, ref);
-    const cached = getCachedAemSiteToken(org, site, ref);
-    if (cached) return Promise.resolve(cached);
-
-    // Check if there's already a pending request
-    const pending = aemSiteTokenCache.get(key);
-    if (pending?.promise) return pending.promise;
-
-    // Create new request
-    const promise = loadToken(org, site, ref)
-      .catch((error) => {
-        clearCachedAemSiteToken(org, site, ref);
-        throw error;
-      });
-    aemSiteTokenCache.set(key, { promise });
-    return promise;
-  };
-})();
 
 const LINK_SELECTORS = [
   'a[href*="/fragments/"]',
@@ -109,17 +19,14 @@ const LINK_SELECTOR_REGEX = /https:\/\/[^"'\s]+\.svg/g;
 
 let localUrls;
 
-export async function getOptions(org, repo, ref = 'main') {
-  // Try to get cached site token first
-  const cached = getCachedAemSiteToken(org, repo, ref);
-  if (cached?.siteToken) {
-    return { headers: { Authorization: `token ${cached.siteToken}` } };
-  }
+export async function getOptions(org, repo) {
+  // Get site token using shared implementation
+  const result = await getAemSiteToken({ org, site: repo });
 
-  // Fetch new site token
-  const result = await getAemSiteToken({ org, site: repo, ref });
-  if (result?.siteToken) {
-    return { headers: { Authorization: `token ${result.siteToken}` } };
+  // Check for site token (can be .siteToken or .token)
+  const siteToken = result?.siteToken || result?.token;
+  if (siteToken) {
+    return { headers: { Authorization: `token ${siteToken}` } };
   }
 
   // Fallback to IMS token if site token exchange fails
@@ -255,14 +162,7 @@ async function importUrl(url, findFragmentsFlag, liveDomain, setProcessed) {
     // Use SOURCE org/repo for authentication (where we're fetching FROM)
     const opts = await getOptions(url.fromOrg, url.fromRepo);
     const proxyUrl = `https://da-etc.adobeaem.workers.dev/cors?url=${encodeURIComponent(`${url.origin}${srcPath}`)}`;
-    let resp = await fetch(proxyUrl, opts);
-
-    // Retry on 401/403 with fresh token
-    if ((resp.status === 401 || resp.status === 403) && url.fromOrg && url.fromRepo) {
-      clearCachedAemSiteToken(url.fromOrg, url.fromRepo);
-      const freshOpts = await getOptions(url.fromOrg, url.fromRepo);
-      resp = await fetch(proxyUrl, freshOpts);
-    }
+    const resp = await fetch(proxyUrl, opts);
 
     if (resp.redirected && !(srcPath.endsWith('.mp4') || srcPath.endsWith('.png') || srcPath.endsWith('.jpg'))) {
       url.status = 'redir';

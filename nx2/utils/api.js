@@ -476,6 +476,29 @@ export function fromPath(str) {
   return { org, site, path: parts.length ? `/${parts.join('/')}` : '' };
 }
 
+// Site token exchange for authenticated content access.
+// Uses IIFE pattern for memoized token retrieval.
+export const getAemSiteToken = (() => {
+  const tokenCache = {};
+
+  const fetchToken = async (org, site) => {
+    const { accessToken } = await loadIms();
+    const { token } = accessToken;
+
+    const body = JSON.stringify({ org, site, accessToken: token });
+    const opts = { method: 'POST', body, headers: { 'Content-Type': 'application/json' } };
+    const resp = await fetch(`${HLX_ADMIN}/auth/adobe/exchange`, opts);
+    if (!resp.ok) return { error: `Error fetch AEM Site Token ${resp.status}` };
+    return resp.json();
+  };
+
+  return ({ org, site }) => {
+    const path = `/${org}/${site}`;
+    tokenCache[path] ??= fetchToken(org, site);
+    return tokenCache[path];
+  };
+})();
+
 // ============================================================================
 // Internal helpers
 // ============================================================================
