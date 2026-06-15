@@ -5,6 +5,7 @@ import getStyle from '../../../../utils/styles.js';
 import {
   calculateTime,
   formatDate,
+  MAX_CONCURRENT_WRITES,
   mergeCopy,
   overwriteCopy,
   saveStatus,
@@ -83,7 +84,7 @@ class NxLocRollout extends LitElement {
       return acc;
     }, []);
 
-    const queue = new Queue(timeoutWrapper, 50);
+    const queue = new Queue(timeoutWrapper, MAX_CONCURRENT_WRITES);
     await Promise.all(items.map((item) => queue.push(item)));
     saveStatus(this.state);
     this.requestUpdate();
