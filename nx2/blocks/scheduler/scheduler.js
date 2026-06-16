@@ -1,18 +1,11 @@
 import { html, LitElement, nothing } from 'da-lit';
-import { AEM_ORIGIN } from '../../public/utils/constants.js';
+import { AEM_ORIGIN, SNAPSHOT_SCHEDULER } from '../../public/utils/constants.js';
 import getStyle from '../../public/utils/styles.js';
+import { daFetch } from '../../utils/api.js';
 import '../../public/sl/components.js';
 import '../shared/path/path.js';
 
 const EL_NAME = 'nx-scheduler';
-const SCHEDULER_BASE = 'https://helix-snapshot-scheduler-prod.adobeaem.workers.dev';
-
-async function daFetch(url, opts = {}) {
-  opts.headers ||= {};
-  const { accessToken } = await import('../../utils/ims.js').then((m) => m.loadIms());
-  if (accessToken) opts.headers.Authorization = `Bearer ${accessToken.token}`;
-  return fetch(url, opts);
-}
 
 const styles = await getStyle(import.meta.url);
 
@@ -78,17 +71,20 @@ async function getError(resp, fallback) {
 }
 
 async function checkRegistration(org, site) {
-  const resp = await daFetch(`${SCHEDULER_BASE}/register/${org}/${site}`);
+  const resp = await daFetch({ url: `${SNAPSHOT_SCHEDULER}/register/${org}/${site}` });
   if (resp.status === 200) return { registered: true };
   if (resp.status === 404) return { registered: false };
   return { error: await getError(resp, 'Could not check scheduler registration status.') };
 }
 
 async function createApiKey(org, site) {
-  const resp = await daFetch(`${AEM_ORIGIN}/config/${org}/sites/${site}/apiKeys.json`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ description: 'Scheduler registration', roles: ['publish'] }),
+  const resp = await daFetch({
+    url: `${AEM_ORIGIN}/config/${org}/sites/${site}/apiKeys.json`,
+    opts: {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description: 'Scheduler registration', roles: ['publish'] }),
+    },
   });
   if (!resp.ok) {
     return { error: await getError(resp, 'Failed to create publish API key.') };
@@ -102,10 +98,13 @@ async function createApiKey(org, site) {
 }
 
 async function registerSite(org, site, apiKey) {
-  const resp = await daFetch(`${SCHEDULER_BASE}/register`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ org, site, apiKey }),
+  const resp = await daFetch({
+    url: `${SNAPSHOT_SCHEDULER}/register`,
+    opts: {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ org, site, apiKey }),
+    },
   });
   if (resp.ok) return { ok: true };
   return { ok: false, error: await getError(resp, 'Failed to register site with scheduler.') };
@@ -114,14 +113,17 @@ async function registerSite(org, site, apiKey) {
 async function clearSnapshotScheduledPublish(org, site, snapshotId) {
   const name = snapshotId.startsWith('/') ? snapshotId.slice(1) : snapshotId;
   const url = `${AEM_ORIGIN}/snapshot/${org}/${site}/main/${name}`;
-  const fetchResp = await daFetch(url);
+  const fetchResp = await daFetch({ url });
   if (!fetchResp.ok) return { ok: false, error: await getError(fetchResp, 'Could not fetch snapshot manifest.') };
   const { manifest } = await fetchResp.json();
   delete manifest.metadata.scheduledPublish;
-  const saveResp = await daFetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(manifest),
+  const saveResp = await daFetch({
+    url,
+    opts: {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(manifest),
+    },
   });
   if (saveResp.ok) return { ok: true };
   return { ok: false, error: await getError(saveResp, 'Could not update snapshot metadata.') };
@@ -130,14 +132,14 @@ async function clearSnapshotScheduledPublish(org, site, snapshotId) {
 async function deleteScheduleEntry(org, site, entry) {
   const type = entry.type === 'page' ? 'page' : 'snapshot';
   const idPath = entry.id.startsWith('/') ? entry.id : `/${entry.id}`;
-  const url = `${SCHEDULER_BASE}/schedule/${type}/${org}/${site}${idPath}`;
-  const resp = await daFetch(url, { method: 'DELETE' });
+  const url = `${SNAPSHOT_SCHEDULER}/schedule/${type}/${org}/${site}${idPath}`;
+  const resp = await daFetch({ url, opts: { method: 'DELETE' } });
   if (resp.ok) return { ok: true };
   return { ok: false, error: await getError(resp, `Failed to delete scheduled ${type}.`) };
 }
 
 async function fetchSchedule(org, site) {
-  const resp = await daFetch(`${SCHEDULER_BASE}/schedule/${org}/${site}`);
+  const resp = await daFetch({ url: `${SNAPSHOT_SCHEDULER}/schedule/${org}/${site}` });
   if (!resp.ok) {
     return { error: await getError(resp, 'Could not load scheduled pages and snapshots.') };
   }
