@@ -32,10 +32,10 @@ class NxLocSync extends LitElement {
     getSvg({ parent: this.shadowRoot, paths: ICONS });
   }
 
-  syncDone() {
+  async syncDone() {
     this._status = undefined;
     this.sourceLang.lastSync = Date.now();
-    saveStatus(this.state);
+    await saveStatus(this.state);
   }
 
   async syncUrl(url) {

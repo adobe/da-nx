@@ -97,21 +97,11 @@ export function convertUrl({ path, srcLang, destLang }) {
 }
 
 export async function saveStatus(json) {
-  // Make a deep (string) copy so the in-memory data is not destroyed
   const copy = JSON.stringify(json);
-
-  // Only save if the data is different;
   if (copy === projJson) return json;
-
-  // Store it for future comparisons
   projJson = copy;
-
-  // Re-parse for other uses
   const proj = JSON.parse(projJson);
-
-  // Do not persist source content
   proj.urls.forEach((url) => { delete url.content; });
-
   const body = new FormData();
   const file = new Blob([JSON.stringify(proj)], { type: 'application/json' });
   body.append('data', file);

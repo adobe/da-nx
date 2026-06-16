@@ -546,12 +546,14 @@ export async function getStatusAll({
     }
     sendMessage();
   }
+  let hasUpdates = false;
   for (const lang of langs) {
     if (lang.translation?.workflowTasks) {
       aggregateWorkflowStatus(lang);
-      await saveState();
+      hasUpdates = true;
     }
   }
+  if (hasUpdates) await saveState();
 }
 
 export async function saveItems({
