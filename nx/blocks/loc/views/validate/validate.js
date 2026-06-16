@@ -6,6 +6,7 @@ import { daFetch } from '../../../../utils/daFetch.js';
 import { Queue } from '../../../../public/utils/tree.js';
 import { convertPath, createSnapshotPrefix, fetchConfig } from '../../utils/utils.js';
 import { getFragmentUrls } from './validate-utils.js';
+import { MAX_CONCURRENT_READS } from '../../project/index.js';
 
 const { nxBase } = getConfig();
 const style = await getStyle(import.meta.url);
@@ -123,7 +124,7 @@ class NxLocValidate extends LitElement {
 
     const checkUrl = this.checkUrl.bind(this);
 
-    const queue = new Queue(checkUrl, 50);
+    const queue = new Queue(checkUrl, MAX_CONCURRENT_READS);
 
     let notChecked;
     while (!notChecked || notChecked.length > 0) {

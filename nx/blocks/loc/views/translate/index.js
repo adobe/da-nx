@@ -2,7 +2,7 @@ import { DA_ORIGIN } from '../../../../public/utils/constants.js';
 import { Queue } from '../../../../public/utils/tree.js';
 import { daFetch } from '../../../../utils/daFetch.js';
 import { convertPath, createSnapshotPrefix, fetchConfig } from '../../utils/utils.js';
-import { MAX_CONCURRENT_WRITES, mergeCopy, overwriteCopy } from '../../project/index.js';
+import { MAX_CONCURRENT_READS, MAX_CONCURRENT_WRITES, mergeCopy, overwriteCopy } from '../../project/index.js';
 
 let CONNECTOR;
 
@@ -81,7 +81,7 @@ export async function getUrls(
       }
     };
 
-    const queue = new Queue(fetchUrl, 50);
+    const queue = new Queue(fetchUrl, MAX_CONCURRENT_READS);
 
     await Promise.allSettled(formattedUrls.map((url) => queue.push(url)));
   }
