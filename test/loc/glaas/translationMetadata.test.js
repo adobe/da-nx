@@ -812,6 +812,267 @@ describe('translationMetadata', () => {
       const hasLanguageKey = keys.some((key) => key.includes('language'));
       expect(hasLanguageKey).to.be.false;
     });
+
+    describe('placeholders from constants metadata file', () => {
+      let mockConstantsHtml;
+      const listingSchema = {
+        'aso-app_apple_listing': {
+          selector: '.aso-app.apple.listing',
+          fields: [
+            {
+              fieldName: 'Description',
+              fieldKey: 'description',
+              charCount: '4000',
+              keywordsInjection: true,
+            },
+          ],
+        },
+      };
+      const listingHtml = `
+        <div class="aso-app listing apple">
+          <div>
+            <div><p>Description</p></div>
+            <div><p>Intro copy</p><p>{{legal-terms}}</p></div>
+          </div>
+        </div>
+      `;
+      const metadataOptions = () => ({
+        constantsHtml: mockConstantsHtml,
+        pageHtml: listingHtml,
+        parsedSchema: listingSchema,
+      });
+
+      before(async () => {
+        mockConstantsHtml = await readFile({ path: './mocks/page-constants.html' });
+      });
+
+      it('should add placeholders metadata for target languages only', () => {
+        const result = buildLanguageMetadata(null, [
+          { name: 'Japanese', code: 'ja' },
+          { name: 'French', code: 'fr' },
+        ], metadataOptions());
+
+        expect(result).to.deep.equal({
+          ja: {
+            'placeholders|aso-app_apple_listing_1_description': {
+              'legal-terms': '<p>[オプションのアクセス権]</p><p>カメラ: ページをスキャン</p>',
+            },
+          },
+        });
+      });
+
+      it('should include both keywords and placeholders for the same locale', () => {
+        const result = buildLanguageMetadata(
+          {
+            'aso-app (apple, listing) (1)': {
+              data: [{
+                language: 'Japanese',
+                Description: 'keyword string',
+              }],
+            },
+          },
+          [{ name: 'Japanese', code: 'ja' }],
+          metadataOptions(),
+        );
+
+        expect(result).to.deep.equal({
+          ja: {
+            'keywords|aso-app_apple_listing_1_description': 'keyword string',
+            'placeholders|aso-app_apple_listing_1_description': {
+              'legal-terms': '<p>[オプションのアクセス権]</p><p>カメラ: ページをスキャン</p>',
+            },
+          },
+        });
+      });
+
+      it('should include multiple placeholder slugs in one field when all are mapped', () => {
+        const constantsHtml = `
+          <body><main>
+            <div class="aso-constants legal-terms">
+              <div>
+                <div><p>Japanese</p></div>
+                <div><p>LEGAL JA</p></div>
+              </div>
+            </div>
+            <div class="aso-constants privacy-note">
+              <div>
+                <div><p>Japanese</p></div>
+                <div><p>PRIVACY JA</p></div>
+              </div>
+            </div>
+          </main></body>
+        `;
+        const pageHtml = `
+          <div class="aso-app listing apple">
+            <div>
+              <div><p>Description</p></div>
+              <div><p>{{legal-terms}}</p><p>{{privacy-note}}</p></div>
+            </div>
+          </div>
+        `;
+        const result = buildLanguageMetadata(null, [{ name: 'Japanese', code: 'ja' }], {
+          constantsHtml,
+          pageHtml,
+          parsedSchema: listingSchema,
+        });
+
+        expect(result).to.deep.equal({
+          ja: {
+            'placeholders|aso-app_apple_listing_1_description': {
+              'legal-terms': '<p>LEGAL JA</p>',
+              'privacy-note': '<p>PRIVACY JA</p>',
+            },
+          },
+        });
+      });
+
+      it('should omit unmapped slugs but keep mapped ones in placeholders metadata', () => {
+        const constantsHtml = `
+          <body><main>
+            <div class="aso-constants legal-terms">
+              <div>
+                <div><p>Japanese</p></div>
+                <div><p>LEGAL JA</p></div>
+              </div>
+            </div>
+            <div class="aso-constants privacy-note">
+              <div>
+                <div><p>Japanese</p></div>
+                <div></div>
+              </div>
+            </div>
+          </main></body>
+        `;
+        const pageHtml = `
+          <div class="aso-app listing apple">
+            <div>
+              <div><p>Description</p></div>
+              <div><p>{{legal-terms}} and {{privacy-note}}</p></div>
+            </div>
+          </div>
+        `;
+        const result = buildLanguageMetadata(null, [{ name: 'Japanese', code: 'ja' }], {
+          constantsHtml,
+          pageHtml,
+          parsedSchema: listingSchema,
+        });
+
+        expect(result).to.deep.equal({
+          ja: {
+            'placeholders|aso-app_apple_listing_1_description': {
+              'legal-terms': '<p>LEGAL JA</p>',
+            },
+          },
+        });
+      });
+
+      it('should omit placeholders metadata when no slugs resolve for a target locale', () => {
+        const constantsHtml = `
+          <body><main>
+            <div class="aso-constants legal-terms">
+              <div>
+                <div><p>Japanese</p></div>
+                <div></div>
+              </div>
+              <div>
+                <div><p>French</p></div>
+                <div></div>
+              </div>
+            </div>
+            <div class="aso-constants privacy-note">
+              <div>
+                <div><p>Japanese</p></div>
+                <div></div>
+              </div>
+            </div>
+          </main></body>
+        `;
+        const pageHtml = `
+          <div class="aso-app listing apple">
+            <div>
+              <div><p>Description</p></div>
+              <div><p>{{legal-terms}} {{privacy-note}}</p></div>
+            </div>
+          </div>
+        `;
+        const result = buildLanguageMetadata(null, [
+          { name: 'Japanese', code: 'ja' },
+          { name: 'French', code: 'fr' },
+        ], {
+          constantsHtml,
+          pageHtml,
+          parsedSchema: listingSchema,
+        });
+
+        expect(result).to.deep.equal({});
+      });
+
+      it('should emit separate placeholders metadata per field with different slug sets', () => {
+        const constantsHtml = `
+          <body><main>
+            <div class="aso-constants legal-terms">
+              <div>
+                <div><p>Japanese</p></div>
+                <div><p>LEGAL JA</p></div>
+              </div>
+            </div>
+            <div class="aso-constants promo-disclaimer">
+              <div>
+                <div><p>Japanese</p></div>
+                <div><p>PROMO JA</p></div>
+              </div>
+            </div>
+          </main></body>
+        `;
+        const schema = {
+          'aso-app_apple_listing': {
+            selector: '.aso-app.apple.listing',
+            fields: [
+              {
+                fieldName: 'Description',
+                fieldKey: 'description',
+                charCount: '4000',
+                keywordsInjection: true,
+              },
+              {
+                fieldName: 'Promotional Text',
+                fieldKey: 'promotional-text',
+                charCount: '170',
+                keywordsInjection: false,
+              },
+            ],
+          },
+        };
+        const pageHtml = `
+          <div class="aso-app listing apple">
+            <div>
+              <div><p>Description</p></div>
+              <div><p>{{legal-terms}}</p></div>
+            </div>
+            <div>
+              <div><p>Promotional Text</p></div>
+              <div><p>{{promo-disclaimer}}</p></div>
+            </div>
+          </div>
+        `;
+        const result = buildLanguageMetadata(null, [{ name: 'Japanese', code: 'ja' }], {
+          constantsHtml,
+          pageHtml,
+          parsedSchema: schema,
+        });
+
+        expect(result).to.deep.equal({
+          ja: {
+            'placeholders|aso-app_apple_listing_1_description': {
+              'legal-terms': '<p>LEGAL JA</p>',
+            },
+            'placeholders|aso-app_apple_listing_1_promotional-text': {
+              'promo-disclaimer': '<p>PROMO JA</p>',
+            },
+          },
+        });
+      });
+    });
   });
 
   describe('addSeoGlossary (languageContext)', () => {
