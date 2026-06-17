@@ -20,6 +20,8 @@ const IMAGE_PUSH_INTERVAL_MS = 250;
 const PUT_URL_MAX_RETRIES = 4;
 const PUT_URL_RETRY_WAIT_MS = 1000;
 const PUT_URL_429_FALLBACK_DELAY_MS = Math.ceil(GLAAS_API_WINDOW_MS / 2) + 250;
+export const MEDIA_IMAGE_MAX_BYTES = 20 * 1024 * 1024;
+export const MEDIA_IMAGE_UPLOAD_MAX_BYTES = 5 * 1024 * 1024;
 
 export function createPutUrlRollingLimiter({
   limitPerWindow = GLAAS_API_LIMIT_PER_MINUTE,
@@ -328,7 +330,12 @@ export async function getV2Asset(service, token, task, assetName) {
     await acquireGlaasApiSlot();
     const path = ensureLeadingSlash(assetName);
     const resp = await fetch(`${origin}/api/l10n/v2.0/tasks/${product}/${project}/${taskName}/assets/${lang}${path}`, opts);
-    const json = await resp.json();
+    let json;
+    try {
+      json = await resp.json();
+    } catch {
+      json = null;
+    }
     return { status: resp.status, json };
   } catch {
     return { error: 'Error getting v2 asset.' };
@@ -837,17 +844,82 @@ export function blobContentTypeForDaSource({ daSourcePath, blob, contentType }) 
   return contentType || blob?.type || 'application/octet-stream';
 }
 
+export function formatMediaImageByteSize(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KiB`;
+  return `${(bytes / (1024 * 1024)).toFixed(2)} MiB`;
+}
+
+export function checkMediaImageSize({ glaasName, mediaPath, sizeBytes, logRequest }) {
+  const exceedsDocumentedLimit = sizeBytes > MEDIA_IMAGE_MAX_BYTES;
+  const exceedsUploadLimit = sizeBytes > MEDIA_IMAGE_UPLOAD_MAX_BYTES;
+  const detail = {
+    glaasName,
+    mediaPath,
+    sizeBytes,
+    sizeFormatted: formatMediaImageByteSize(sizeBytes),
+    maxBytes: MEDIA_IMAGE_UPLOAD_MAX_BYTES,
+    maxFormatted: formatMediaImageByteSize(MEDIA_IMAGE_UPLOAD_MAX_BYTES),
+    documentedMaxBytes: MEDIA_IMAGE_MAX_BYTES,
+    documentedMaxFormatted: formatMediaImageByteSize(MEDIA_IMAGE_MAX_BYTES),
+    exceedsUploadLimit,
+    exceedsDocumentedLimit,
+  };
+  logRequest?.('media-image-size', detail);
+  if (!logRequest) {
+    console.info('[GLaaS multimodal] Media image upload size:', detail);
+  }
+  if (exceedsUploadLimit) {
+    console.warn('[GLaaS multimodal] Image exceeds observed Media Bus upload limit:', detail);
+  } else if (exceedsDocumentedLimit) {
+    console.warn('[GLaaS multimodal] Image exceeds documented Media Bus limit:', detail);
+  }
+  return detail;
+}
+
+function mediaImageSkipWarning({ glaasName, sizeFormatted, maxFormatted }) {
+  return `Skipping oversized image (keeping source URL): ${glaasName} (${sizeFormatted} exceeds ${maxFormatted} upload limit). Compress or resize the source asset.`;
+}
+
+function skippedOversizedMediaUpload({ glaasName, sizeCheck }) {
+  return {
+    skipped: true,
+    reason: 'exceeds_upload_limit',
+    warning: mediaImageSkipWarning({
+      glaasName,
+      sizeFormatted: sizeCheck.sizeFormatted,
+      maxFormatted: sizeCheck.maxFormatted,
+    }),
+    glaasName,
+    ...sizeCheck,
+  };
+}
+
 export async function postImageToDaMedia({
-  org, site, langCode, glaasName, blob, contentType,
+  org, site, langCode, glaasName, blob, contentType, logRequest,
 }) {
   const mediaPath = buildTranslatedMediaPath({ langCode, glaasName });
   const type = blobContentTypeForDaSource({ daSourcePath: mediaPath, blob, contentType });
   const data = blob.type === type ? blob : new Blob([await blob.arrayBuffer()], { type });
+  const sizeCheck = checkMediaImageSize({
+    glaasName,
+    mediaPath,
+    sizeBytes: data.size,
+    logRequest,
+  });
+  if (sizeCheck.exceedsUploadLimit) {
+    return skippedOversizedMediaUpload({ glaasName, sizeCheck });
+  }
   const body = new FormData();
   body.append('data', data, mediaPath.split('/').pop());
   try {
     const resp = await daFetch(`${DA_ORIGIN}/media/${org}/${site}${mediaPath}`, { method: 'POST', body });
-    if (!resp.ok) return { error: 'Error uploading image to media.', status: resp.status };
+    if (!resp.ok) {
+      if (resp.status === 413) {
+        return skippedOversizedMediaUpload({ glaasName, sizeCheck });
+      }
+      return { error: 'Error uploading image to media.', status: resp.status, glaasName, ...sizeCheck };
+    }
     const json = await resp.json();
     const href = json?.uri ?? json?.url;
     if (!href) return { error: 'Missing media URI in response.', status: resp.status, json };
@@ -865,6 +937,7 @@ async function saveMultimodalImageToMedia({
   site,
   langCode,
   image,
+  logRequest,
 }) {
   const downloaded = await downloadMultimodalAssetBlob(service, token, task, image.glaasName);
   if (downloaded.error) return downloaded;
@@ -876,7 +949,25 @@ async function saveMultimodalImageToMedia({
     glaasName: image.glaasName,
     blob: downloaded.blob,
     contentType: downloaded.contentType,
+    logRequest,
   });
+  if (uploaded.skipped) {
+    const detail = {
+      glaasName: image.glaasName,
+      contentDaLiveUrl: image.contentDaLiveUrl,
+      warning: uploaded.warning,
+      sizeFormatted: uploaded.sizeFormatted,
+      maxFormatted: uploaded.maxFormatted,
+    };
+    logRequest?.('media-image-skip', detail);
+    console.warn('[GLaaS multimodal] Skipping oversized image (keeping source URL):', detail);
+    return {
+      skipped: true,
+      glaasName: image.glaasName,
+      contentDaLiveUrl: image.contentDaLiveUrl,
+      warning: uploaded.warning,
+    };
+  }
   if (uploaded.error) return uploaded;
 
   const sourceKey = contentDaLivePathKey(image.contentDaLiveUrl);
@@ -892,8 +983,11 @@ export async function prepareMultimodalPageForSave({
   langCode,
   pageAsset,
   htmlAssetName,
+  logRequest,
+  onWarning,
 }) {
   const pathToNewUrl = new Map();
+  const skippedImages = [];
   const locale = langCode ?? task.code;
 
   const { error: imageError, results: imageEntries } = await runImageQueue({
@@ -907,12 +1001,21 @@ export async function prepareMultimodalPageForSave({
       site,
       langCode: locale,
       image,
+      logRequest,
     }),
   });
   if (imageError) return imageError;
 
-  imageEntries.forEach(({ sourceKey, url }) => {
-    if (sourceKey) pathToNewUrl.set(sourceKey, url);
+  imageEntries.forEach((entry) => {
+    if (entry?.skipped) {
+      skippedImages.push(entry);
+      return;
+    }
+    if (entry?.sourceKey) pathToNewUrl.set(entry.sourceKey, entry.url);
+  });
+
+  skippedImages.forEach(({ warning }) => {
+    onWarning?.({ text: warning, type: 'warning' });
   });
 
   const htmlDownload = await downloadMultimodalAsset(service, token, task, htmlAssetName);
@@ -922,5 +1025,5 @@ export async function prepareMultimodalPageForSave({
     ? rewriteContentDaLiveImageUrls(htmlDownload, pathToNewUrl)
     : htmlDownload;
 
-  return { text };
+  return { text, skippedImages };
 }

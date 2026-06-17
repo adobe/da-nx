@@ -4,6 +4,7 @@ import { DA_ORIGIN } from '../../../nx/public/utils/constants.js';
 import {
   blobContentTypeForDaSource,
   buildTranslatedMediaPath,
+  MEDIA_IMAGE_UPLOAD_MAX_BYTES,
   postImageToDaMedia,
   prepareMultimodalPageForSave,
   siteRelativePathFromContentDaLiveUrl,
@@ -67,6 +68,24 @@ describe('GLaaS multimodal save', () => {
       });
       const [url] = fetchStub.firstCall.args;
       expect(url).to.equal(`${DA_ORIGIN}/media/adobecom/da-dc/fr-CA/acrobat/online/test/report.png`);
+    });
+
+    it('postImageToDaMedia skips images above observed upload limit without POST', async () => {
+      const fetchStub = sinon.stub(window, 'fetch');
+      const oversized = new Blob([new Uint8Array(MEDIA_IMAGE_UPLOAD_MAX_BYTES + 1)], { type: 'image/jpeg' });
+      const result = await postImageToDaMedia({
+        org: 'adobecom',
+        site: 'da-dc',
+        langCode: 'de',
+        glaasName: '/hero/large.jpg',
+        blob: oversized,
+        contentType: 'image/jpeg',
+      });
+      expect(fetchStub.called).to.be.false;
+      expect(result.skipped).to.be.true;
+      expect(result.warning).to.include('hero/large.jpg');
+      expect(result.warning).to.include('5.00 MiB');
+      expect(result.warning).to.include('keeping source URL');
     });
   });
 
@@ -147,6 +166,70 @@ describe('GLaaS multimodal save', () => {
     expect(fetchStub.calledWith(expectedMediaPost, sinon.match({ method: 'POST' }))).to.be.true;
     expect(result.text).to.include('main--da-dc--adobecom.aem.page/media_abc.avif');
     expect(result.text).not.to.include(contentDaLiveUrl);
+  });
+
+  it('prepareMultimodalPageForSave skips oversized images and keeps source URLs in html', async () => {
+    const org = 'adobecom';
+    const site = 'da-dc';
+    const imageGlaasName = '/acrobat/shared/hero-large.jpg';
+    const htmlAssetName = '/drafts/page.html';
+    const contentDaLiveUrl = `https://content.da.live/${org}/${site}/acrobat/shared/hero-large.jpg`;
+    const translatedHtml = `<img src="${contentDaLiveUrl}">`;
+    const oversized = new Blob([new Uint8Array(MEDIA_IMAGE_UPLOAD_MAX_BYTES + 1)], { type: 'image/jpeg' });
+    const warnings = [];
+
+    const fetchStub = sinon.stub(window, 'fetch').callsFake((url) => {
+      const href = String(url);
+      if (href.includes('/api/l10n/v2.0/') && href.includes(encodeURI(imageGlaasName))) {
+        return Promise.resolve(new Response(
+          JSON.stringify({ signedURL: 'https://signed.example/image' }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        ));
+      }
+      if (href.includes('/api/l10n/v2.0/') && href.includes(encodeURI(htmlAssetName))) {
+        return Promise.resolve(new Response(
+          JSON.stringify({ signedURL: 'https://signed.example/html' }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        ));
+      }
+      if (href === 'https://signed.example/image') {
+        return Promise.resolve(new Response(oversized, { status: 200 }));
+      }
+      if (href === 'https://signed.example/html') {
+        return Promise.resolve(new Response(translatedHtml, {
+          status: 200,
+          headers: { 'Content-Type': 'text/html' },
+        }));
+      }
+      if (href.includes('/media/')) {
+        return Promise.resolve(new Response('', { status: 413 }));
+      }
+      return Promise.resolve(new Response('', { status: 404 }));
+    });
+
+    const result = await prepareMultimodalPageForSave({
+      service: { origin: 'https://glaas.example', clientid: 'client' },
+      token: 'token',
+      task: { name: 'task-1', code: 'de', workflow: 'P/P' },
+      org,
+      site,
+      langCode: 'de',
+      pageAsset: {
+        images: [{ glaasName: imageGlaasName, contentDaLiveUrl }],
+      },
+      htmlAssetName,
+      onWarning: (message) => warnings.push(message),
+    });
+
+    const mediaPosts = fetchStub.getCalls().filter((call) => String(call.args[0]).includes('/media/'));
+    expect(mediaPosts).to.have.length(0);
+    expect(result.text).to.include(contentDaLiveUrl);
+    expect(result.skippedImages).to.have.length(1);
+    expect(result.skippedImages[0].glaasName).to.equal(imageGlaasName);
+    expect(warnings).to.have.length(1);
+    expect(warnings[0].type).to.equal('warning');
+    expect(warnings[0].text).to.include('keeping source URL');
+    expect(warnings[0].text).to.include('hero-large.jpg');
   });
 
   it('rewrites img[src] and mirrors delivery URL onto picture source[srcset]', () => {

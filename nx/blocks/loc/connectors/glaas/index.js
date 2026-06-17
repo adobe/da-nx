@@ -563,6 +563,7 @@ export async function saveItems({
   lang,
   urls,
   saveFn,
+  sendMessage,
 }) {
   normalizeLegacyStructure(lang, urls);
 
@@ -587,6 +588,8 @@ export async function saveItems({
     throw new Error(`No matching tasks found for URLs: ${missingUrls.map((u) => u.suppliedPath).join(', ')}`);
   }
 
+  const logRequest = shouldLogMultimodalRequests() ? logMultimodalRequest : undefined;
+
   const downloadCallback = async (url) => {
     const task = urlToTaskMap.get(url.suppliedPath);
     const glaasPath = getGlaasFilename(url.daBasePath);
@@ -608,6 +611,8 @@ export async function saveItems({
         langCode: code,
         pageAsset,
         htmlAssetName: glaasPath,
+        logRequest,
+        onWarning: sendMessage,
       });
       if (prepared.error) throw new Error(prepared.error);
       text = prepared.text;
