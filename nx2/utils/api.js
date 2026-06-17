@@ -44,7 +44,7 @@ export { AEM_API };
 
 // aem: combined preview + live operations.
 // preview/unPreview/publish/unPublish accept `path` as string or array (2+ -> bulk).
-// preview/publish also accept optional `forceUpdate`/`forceSync` flags.
+// preview/publish also accept an optional `forceUpdate` flag.
 export const aem = {
   getPreview: withArgs(({ org, site, path }) => callPath({
     api: 'preview', org, site, path, method: 'GET',
@@ -54,16 +54,16 @@ export const aem = {
     api: 'live', org, site, path, method: 'GET',
   })),
 
-  preview: withArgs(({ org, site, path, forceUpdate, forceSync }) => callPath({
-    api: 'preview', org, site, path, method: 'POST', forceUpdate, forceSync,
+  preview: withArgs(({ org, site, path, forceUpdate }) => callPath({
+    api: 'preview', org, site, path, method: 'POST', forceUpdate,
   })),
 
   unPreview: withArgs(({ org, site, path }) => callPath({
     api: 'preview', org, site, path, method: 'DELETE', includeDelete: true,
   })),
 
-  publish: withArgs(({ org, site, path, forceUpdate, forceSync }) => callPath({
-    api: 'live', org, site, path, method: 'POST', forceUpdate, forceSync,
+  publish: withArgs(({ org, site, path, forceUpdate }) => callPath({
+    api: 'live', org, site, path, method: 'POST', forceUpdate,
   })),
 
   unPublish: withArgs(({ org, site, path }) => callPath({
@@ -589,16 +589,15 @@ function jsonOpts(method, payload) {
 
 // Dispatcher for AEM ops that accept path as string or array.
 // Array of length >= 2 routes to the bulk /* endpoint with { paths, delete? }.
-// `forceUpdate`/`forceSync` are bulk-only (server ignores them on single-path).
+// `forceUpdate` is bulk-only (server ignores it on single-path).
 async function callPath({
-  api, org, site, path, method, includeDelete = false, forceUpdate, forceSync,
+  api, org, site, path, method, includeDelete = false, forceUpdate,
 }) {
   if (Array.isArray(path) && path.length >= 2) {
     const url = await getAemApiPath(api, org, site, '/*');
     const payload = { paths: path };
     if (includeDelete) payload.delete = true;
     if (forceUpdate) payload.forceUpdate = true;
-    if (forceSync) payload.forceSync = true;
     return daFetch({ url, opts: jsonOpts('POST', payload) });
   }
   const single = Array.isArray(path) ? path[0] : path;

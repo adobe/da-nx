@@ -625,10 +625,10 @@ describe('api.js', () => {
       expect(JSON.parse(last.body)).to.deep.equal({ paths: ['/a', '/b'], delete: true });
     });
 
-    it('aem.preview single ignores forceUpdate/forceSync (bulk-only flags)', async () => {
+    it('aem.preview single ignores forceUpdate (bulk-only flag)', async () => {
       const { org: o, site: s } = makeOrgSite({ hlx6: true });
       await aem.preview({
-        org: o, site: s, path: '/x.html', forceUpdate: true, forceSync: true,
+        org: o, site: s, path: '/x.html', forceUpdate: true,
       });
       const last = lastCall();
       // Single-path URL has no query params for these flags.
@@ -636,14 +636,14 @@ describe('api.js', () => {
       expect(last.body).to.be.undefined;
     });
 
-    it('aem.preview bulk folds forceUpdate/forceSync into JSON body', async () => {
+    it('aem.preview bulk folds forceUpdate into JSON body', async () => {
       const { org: o, site: s } = makeOrgSite({ hlx6: true });
       await aem.preview({
-        org: o, site: s, path: ['/a', '/b'], forceUpdate: true, forceSync: true,
+        org: o, site: s, path: ['/a', '/b'], forceUpdate: true,
       });
       const last = lastCall();
       expect(JSON.parse(last.body)).to.deep.equal({
-        paths: ['/a', '/b'], forceUpdate: true, forceSync: true,
+        paths: ['/a', '/b'], forceUpdate: true,
       });
     });
 
