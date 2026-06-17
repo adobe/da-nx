@@ -212,10 +212,13 @@ async function directDaCopy(url) {
   const blob = new Blob([data], { type });
   const body = new FormData();
   body.append('data', blob);
-  const resp = await daFetch({ url: `${DA_ORIGIN}/source${url.destination}`, opts: {
-    method: 'POST',
-    body,
-  } });
+  const resp = await daFetch({
+    url: `${DA_ORIGIN}/source${url.destination}`,
+    opts: {
+      method: 'POST',
+      body,
+    },
+  });
   url.status = resp.ok ? 'success' : 'error';
 }
 
@@ -276,11 +279,14 @@ export async function updateSchedule(snapshotId, approved = false) {
     userId: imsProfile?.email,
   };
   const headers = { 'content-type': 'application/json' };
-  const resp = await daFetch({ url: `${adminURL}`, opts: {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(body),
-  } });
+  const resp = await daFetch({
+    url: `${adminURL}`,
+    opts: {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+    },
+  });
   const result = resp.headers.get('X-Error');
   return { status: resp.status, text: result };
 }

@@ -10,7 +10,7 @@
 
 input,
 button {
-  font-family: var(--font-family);
+  font-family: var(--s2-font-family);
 }
 
 hr {
@@ -18,8 +18,8 @@ hr {
 }
 
 h1 {
-  font-size: var(--type-heading-xxl-size);
-  line-height: var(--spectrum-line-height-100);
+  font-size: var(--s2-heading-size-xxl);
+  line-height: var(--s2-heading-line-height);
   margin: 0 0 var(--s2-spacing-400);
 }
 
@@ -32,7 +32,7 @@ ul {
   padding: 0;
   list-style: none;
   border: var(--sl-field-border);
-  border-radius: var(--s2-radius-100);
+  border-radius: var(--s2-corner-radius-500);
   overflow: hidden;
 }
 

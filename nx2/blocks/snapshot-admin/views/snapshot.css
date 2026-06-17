@@ -7,7 +7,7 @@
 
 input,
 button {
-  font-family: var(--font-family);
+  font-family: var(--s2-font-family);
 }
 
 p {
@@ -250,7 +250,7 @@ svg.icon {
     border-radius: 6px;
     text-decoration: none;
     cursor: pointer;
-    font-family: var(--font-family);
+    font-family: var(--s2-font-family);
 
     &:hover {
       background-color: var(--s2-blue-1000);
@@ -272,7 +272,7 @@ svg.icon {
 .nx-launch-sub-heading {
   font-weight: 700;
   text-transform: uppercase;
-  font-size: var(--s2-body-s-size);
+  font-size: var(--s2-body-size-s);
   margin-bottom: 4px;
 
   &.nx-snapshot-sub-heading-urls {
@@ -310,7 +310,7 @@ svg.icon {
     color: var(--s2-blue-900);
     font-weight: 700;
     text-transform: uppercase;
-    font-size: var(--s2-body-s-size);
+    font-size: var(--s2-body-size-s);
     padding: 0;
     border: none;
     cursor: pointer;
