@@ -27,7 +27,7 @@ svg.icon {
   transition: background-color 0.2s ease-in-out;
 
   &.is-open {
-    background-color: var(--s2-blue-200);
+    background-color: light-dark(var(--s2-blue-200), var(--s2-gray-50));
   }
 
   .nx-snapshot-overlay {
@@ -113,7 +113,8 @@ svg.icon {
     border-radius: 4px;
     text-indent: -1000px;
     overflow: hidden;
-    background: transparent;
+    background-color: light-dark(transparent, var(--s2-gray-900));
+
   }
 
   .nx-snapshot-expand::after {
@@ -127,7 +128,8 @@ svg.icon {
   }
 
   .nx-snapshot-expand:hover {
-    background: #0000001a;
+    background-color: light-dark(#0000001a, var(--s2-gray-800));
+    cursor: pointer;
   }
 
   input {
@@ -172,7 +174,6 @@ svg.icon {
     left: 0;
     right: 0;
     bottom: 0;
-    background: linear-gradient(0deg, #e5f0fe 0%, #e5f0fe00 100%);
   }
 }
 
@@ -400,7 +401,7 @@ svg.icon {
 
     &:disabled {
       background-color: #00000045;
-      color: #000;
+      color: light-dark(#000, var(--s2-gray-500));
     }
   }
 }
