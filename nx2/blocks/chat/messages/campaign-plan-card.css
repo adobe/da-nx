@@ -1,0 +1,176 @@
+:host {
+  display: block;
+  font-family: var(--s2-font-family);
+}
+
+.plan-card {
+  background: var(--s2-gray-25);
+  border-radius: var(--s2-corner-radius-400);
+  box-shadow: 0 1px 4px 0 color-mix(in srgb, var(--s2-gray-800) 12%, transparent);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Header ── */
+
+.plan-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--s2-spacing-200);
+  padding: var(--s2-spacing-200) var(--s2-spacing-200) 0;
+}
+
+.plan-header-meta {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2-spacing-50);
+  min-width: 0;
+}
+
+.plan-type-label {
+  font-size: var(--s2-body-size-xs);
+  color: var(--s2-gray-600);
+  display: flex;
+  align-items: center;
+  gap: var(--s2-spacing-75);
+}
+
+.plan-type-icon {
+  width: 14px;
+  height: 14px;
+  display: inline-block;
+  flex-shrink: 0;
+  background-color: currentcolor;
+  mask-image: url("https://da.live/img/icons/s2-icon-aichat-20-n.svg");
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+}
+
+.plan-title {
+  font-size: var(--s2-heading-size-s);
+  font-weight: var(--s2-component-m-bold-font-weight);
+  color: var(--s2-gray-900);
+  margin: 0;
+  line-height: 1.3;
+}
+
+.plan-description {
+  font-size: var(--s2-body-size-s);
+  color: var(--s2-gray-700);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.plan-header-actions {
+  display: flex;
+  gap: var(--s2-spacing-75);
+  flex-shrink: 0;
+}
+
+.plan-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--s2-corner-radius-300);
+  border: none;
+  background: transparent;
+  color: var(--s2-gray-700);
+  cursor: pointer;
+  padding: 0;
+
+  &:hover {
+    background-color: var(--s2-gray-100);
+  }
+
+  svg {
+    width: 16px;
+    height: 16px;
+    display: block;
+  }
+}
+
+/* ── Task area ── */
+
+.plan-tasks {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2-spacing-75);
+  padding: var(--s2-spacing-200);
+  margin: var(--s2-spacing-150) var(--s2-spacing-200);
+  background-color: var(--s2-gray-75);
+  border-radius: var(--s2-corner-radius-300);
+}
+
+.plan-tasks-header {
+  font-size: var(--s2-body-size-xs);
+  color: var(--s2-gray-600);
+  margin-bottom: var(--s2-spacing-50);
+}
+
+/* "1/4" counter shown above the single running task */
+.plan-tasks-progress {
+  font-size: var(--s2-body-size-xs);
+  color: var(--s2-gray-600);
+  font-variant-numeric: tabular-nums;
+}
+
+.plan-task-row {
+  display: flex;
+  align-items: center;
+  gap: var(--s2-spacing-150);
+}
+
+/* ── Footer ── */
+
+.plan-footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--s2-spacing-100);
+  padding: var(--s2-spacing-150) var(--s2-spacing-200);
+  border-top: 1px solid var(--s2-gray-100);
+}
+
+.plan-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  padding: 0 var(--s2-spacing-200);
+  border-radius: var(--s2-corner-radius-300);
+  font-family: var(--s2-font-family);
+  font-size: var(--s2-body-size-s);
+  font-weight: var(--s2-component-m-bold-font-weight);
+  cursor: pointer;
+  border: none;
+  white-space: nowrap;
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+}
+
+.plan-btn-ghost {
+  background: transparent;
+  color: var(--s2-gray-700);
+  border: 1px solid var(--s2-gray-300);
+
+  &:hover:not(:disabled) {
+    background: var(--s2-gray-75);
+  }
+}
+
+.plan-btn-primary {
+  background: var(--s2-blue-900);
+  color: var(--s2-gray-25);
+
+  &:hover:not(:disabled) {
+    background: var(--s2-blue-1000);
+  }
+}

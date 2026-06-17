@@ -92,11 +92,22 @@ const ROLE = {
   TOOL: 'tool',
 };
 
+/**
+ * Directive fence types that map to rich interactive renderer components.
+ * These are emitted by da-agent inside :::type ... ::: fences in text-delta events.
+ */
+const DIRECTIVE_TYPE = {
+  PLAN: 'plan',
+  TASK_LIST: 'task-list',
+  TASK_ITEM: 'task-item',
+};
+
 export {
   ADOBE_AI_GUIDELINES_URL,
   ADD_MENU_ITEMS,
   AGENT_EVENT,
   CHAT_ICONS,
+  DIRECTIVE_TYPE,
   MENU_OPTIONS,
   ROLE,
   TOOL_INPUT,

@@ -1,5 +1,5 @@
 import { html, nothing } from 'da-lit';
-import { AGENT_EVENT, ROLE, TOOL_INPUT, TOOL_STATE } from './constants.js';
+import { AGENT_EVENT, DIRECTIVE_TYPE, ROLE, TOOL_INPUT, TOOL_STATE } from './constants.js';
 import { getConfig } from '../../scripts/nx.js';
 import { parseDirectives } from './utils/parse.js';
 import { fileIconName } from './utils/icons.js';
@@ -30,12 +30,53 @@ function toDOM(hast) {
   return hastToDom(sanitizeLinks(hast), { fragment: true });
 }
 
+function parseDirectiveJSON(content) {
+  try {
+    return JSON.parse(content.trim());
+  } catch {
+    return null;
+  }
+}
+
+function renderPlanDirective(content) {
+  const plan = parseDirectiveJSON(content);
+  if (!plan) return html`<div class="directive directive-plan"></div>`;
+  const el = document.createElement('nx-campaign-plan-card');
+  el.plan = plan;
+  return el;
+}
+
+function renderTaskListDirective(content) {
+  const data = parseDirectiveJSON(content);
+  if (!data) return html`<div class="directive directive-task-list"></div>`;
+  const el = document.createElement('nx-task-list');
+  el.tasks = data.tasks ?? [];
+  return el;
+}
+
+function renderTaskItemDirective(content) {
+  const data = parseDirectiveJSON(content);
+  if (!data) return html`<div class="directive directive-task-item"></div>`;
+  const el = document.createElement('nx-task-item');
+  el.status = data.status ?? 'pending';
+  el.label = data.label ?? '';
+  if (data.current != null) el.current = data.current;
+  if (data.total != null) el.total = data.total;
+  return el;
+}
+
 function renderMessageContent(text) {
   if (!text) return nothing;
 
   return parseDirectives(text).map(({ kind, type, content }) => {
-    const dom = toDOM(mdast2hast(parser.parse(content)));
-    return kind === 'directive' ? html`<div class="directive directive-${type}">${dom}</div>` : dom;
+    if (kind === 'directive') {
+      if (type === DIRECTIVE_TYPE.PLAN) return renderPlanDirective(content);
+      if (type === DIRECTIVE_TYPE.TASK_LIST) return renderTaskListDirective(content);
+      if (type === DIRECTIVE_TYPE.TASK_ITEM) return renderTaskItemDirective(content);
+      const dom = toDOM(mdast2hast(parser.parse(content)));
+      return html`<div class="directive directive-${type}">${dom}</div>`;
+    }
+    return toDOM(mdast2hast(parser.parse(content)));
   });
 }
 
