@@ -344,18 +344,14 @@ export const versions = {
     const url = await getDaApiPath(VERSIONS, org, site, path);
     const opts = { method: 'POST' };
     if (hlx6) {
-      // hlx6 accepts { operation, comment } JSON body.
-      const payload = {};
-      if (operation) payload.operation = operation;
-      if (comment) payload.comment = comment;
-      if (Object.keys(payload).length > 0) {
-        opts.headers = { 'Content-Type': 'application/json' };
-        opts.body = JSON.stringify(payload);
-      }
-    } else if (comment) {
-      // Legacy DA accepts { label } JSON body. Map comment -> label.
-      opts.body = JSON.stringify({ label: comment });
+      // hlx6 takes operation/comment as query params with no request body.
+      const u = new URL(url);
+      if (operation) u.searchParams.set('operation', operation);
+      if (comment) u.searchParams.set('comment', comment);
+      return daFetch({ url: u.toString(), opts });
     }
+    // Legacy DA accepts a { label } JSON body. Map comment -> label.
+    if (comment) opts.body = JSON.stringify({ label: comment });
     return daFetch({ url, opts });
   }),
 };

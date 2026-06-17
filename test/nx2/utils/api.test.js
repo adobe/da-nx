@@ -474,13 +474,16 @@ describe('api.js', () => {
       expect(lastCall().url).to.equal(`${DA_ADMIN}/versionsource/${o}/${s}/guid1/guid2.html`);
     });
 
-    it('versions.create hlx6 POSTs operation/comment as JSON body', async () => {
+    it('versions.create hlx6 POSTs operation/comment as query params with no body', async () => {
       const { org: o, site: s } = makeOrgSite({ hlx6: true });
       await versions.create({ org: o, site: s, path: '/x.html', operation: 'preview', comment: 'note' });
       const last = lastCall();
       expect(last.method).to.equal('POST');
-      expect(last.headers['Content-Type']).to.equal('application/json');
-      expect(JSON.parse(last.body)).to.deep.equal({ operation: 'preview', comment: 'note' });
+      const u = new URL(last.url);
+      expect(u.pathname).to.equal(`/${o}/sites/${s}/source/x.html/.versions`);
+      expect(u.searchParams.get('operation')).to.equal('preview');
+      expect(u.searchParams.get('comment')).to.equal('note');
+      expect(last.body).to.be.undefined;
     });
 
     it('versions.create legacy POSTs comment as { label } JSON body', async () => {
