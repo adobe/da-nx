@@ -107,32 +107,84 @@ export function needsKeywordsMetadata(parsedSchema) {
   return Object.values(parsedSchema).some(hasKeywords);
 }
 
-export async function fetchKeywordsFile(org, site, pagePath) {
-  // Remove .html extension if present and add -keywords.json
+const CONSTANT_SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+const CONSTANT_TOKEN_PATTERN = /\{\{([a-z0-9]+(-[a-z0-9]+)*)\}\}/g;
+
+function metadataPathForPage(pagePath, suffix) {
   const cleanPath = pagePath.replace(/\.html$/, '');
-  const keywordsPath = `${cleanPath}-keywords.json`;
-  // Try primary path
-  let url = `${DA_ORIGIN}/source/${org}/${site}${keywordsPath}`;
+  return `${cleanPath}${suffix}`;
+}
+
+async function fetchMetadataFile(org, site, pagePath, suffix, readBody) {
+  const metadataPath = metadataPathForPage(pagePath, suffix);
+  let url = `${DA_ORIGIN}/source/${org}/${site}${metadataPath}`;
   try {
-    const resp = await daFetch(url);
+    let resp = await daFetch(url);
     if (resp.ok) {
-      return resp.json();
+      return readBody(resp);
     }
-    // If 404 and path contains /langstore/, try fallback
-    if (resp.status === 404 && keywordsPath.includes('/langstore/')) {
-      const fallbackPath = keywordsPath.replace(/\/langstore\/[^/]+\//, '/');
+    if (resp.status === 404 && metadataPath.includes('/langstore/')) {
+      const fallbackPath = metadataPath.replace(/\/langstore\/[^/]+\//, '/');
       url = `${DA_ORIGIN}/source/${org}/${site}${fallbackPath}`;
-      const fallbackResp = await daFetch(url);
-      if (fallbackResp.ok) {
-        return fallbackResp.json();
+      resp = await daFetch(url);
+      if (resp.ok) {
+        return readBody(resp);
       }
     }
     return null;
   } catch (error) {
     // eslint-disable-next-line no-console
-    console.error('Error fetching keywords file:', error);
+    console.error('Error fetching page metadata file:', suffix, error);
     return null;
   }
+}
+
+export async function fetchKeywordsFile(org, site, pagePath) {
+  return fetchMetadataFile(org, site, pagePath, '-keywords.json', (resp) => resp.json());
+}
+
+export async function fetchConstantsFile(org, site, pagePath) {
+  return fetchMetadataFile(org, site, pagePath, '-constants.html', (resp) => resp.text());
+}
+
+function collectConstantSlugsFromText(text) {
+  if (!text || typeof text !== 'string') return [];
+  const slugs = new Set();
+  const pattern = new RegExp(CONSTANT_TOKEN_PATTERN.source, CONSTANT_TOKEN_PATTERN.flags);
+  let match = pattern.exec(text);
+  while (match) {
+    const slug = match[1];
+    if (CONSTANT_SLUG_PATTERN.test(slug)) slugs.add(slug);
+    match = pattern.exec(text);
+  }
+  return [...slugs].sort();
+}
+
+function slugFromConstantsBlock(block) {
+  if (!block) return null;
+  const slugClasses = [...block.classList].filter((className) => className !== 'aso-constants');
+  if (slugClasses.length !== 1) return null;
+  const slug = slugClasses[0];
+  return CONSTANT_SLUG_PATTERN.test(slug) ? slug : null;
+}
+
+function constantsRowsFromHtml(html) {
+  if (!html || typeof html !== 'string') return [];
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const byLanguage = new Map();
+  doc.querySelectorAll('div.aso-constants').forEach((block) => {
+    const slug = slugFromConstantsBlock(block);
+    if (!slug) return;
+    Array.from(block.children).forEach((row) => {
+      if (row.tagName !== 'DIV' || row.children.length < 2) return;
+      const language = row.children[0].textContent.trim();
+      const value = row.children[1].innerHTML.trim();
+      if (!language || !value) return;
+      if (!byLanguage.has(language)) byLanguage.set(language, {});
+      byLanguage.get(language)[slug] = value;
+    });
+  });
+  return [...byLanguage.entries()].map(([language, slugs]) => ({ language, slugs }));
 }
 
 /**
@@ -171,16 +223,8 @@ function isExactMatch(div, fieldName) {
   return false;
 }
 
-export function annotateHTML(htmlContent, parsedSchema) {
-  if (!htmlContent) {
-    return htmlContent;
-  }
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(htmlContent, 'text/html');
-  unwrapSoleParagraphs(doc);
-  if (!parsedSchema || Object.keys(parsedSchema).length === 0) {
-    return doc.body.innerHTML;
-  }
+function forEachMetadataField(doc, parsedSchema, visitField) {
+  if (!parsedSchema || Object.keys(parsedSchema).length === 0) return;
   Object.entries(parsedSchema).forEach(([blockId, block]) => {
     const { selector, fields } = block;
     const blockElements = doc.querySelectorAll(selector);
@@ -194,26 +238,67 @@ export function annotateHTML(htmlContent, parsedSchema) {
         }
         const field = fields.find((f) => isExactMatch(labelDiv, f.fieldName));
         if (!field) return;
-        const { fieldName, fieldKey, charCount, keywordsInjection } = field;
-        if (charCount) {
-          contentDiv.setAttribute('its-storage-size', charCount);
-        }
-        const keywordsValue = String(keywordsInjection);
-        const locNoteValue = `block-name=${blockId}_${blockIndex + 1}_${fieldKey}|fieldName=${fieldName}|apply-keywords=${keywordsValue}`;
-        contentDiv.setAttribute('its-loc-note', locNoteValue);
-        contentDiv.setAttribute('its-loc-note-type', 'description');
+        visitField({
+          blockId,
+          blockIndex: blockIndex + 1,
+          field,
+          contentDiv,
+        });
       });
     });
+  });
+}
+
+function fieldConstantSlugs(pageHtml, parsedSchema) {
+  if (!pageHtml || !parsedSchema) return [];
+  const doc = new DOMParser().parseFromString(pageHtml, 'text/html');
+  const fieldsWithSlugs = [];
+  forEachMetadataField(doc, parsedSchema, ({ blockId, blockIndex, field, contentDiv }) => {
+    const slugs = collectConstantSlugsFromText(contentDiv.innerHTML);
+    if (slugs.length === 0) return;
+    fieldsWithSlugs.push({
+      blockId,
+      blockIndex,
+      fieldKey: field.fieldKey,
+      slugs,
+    });
+  });
+  return fieldsWithSlugs;
+}
+
+export function annotateHTML(htmlContent, parsedSchema) {
+  if (!htmlContent) {
+    return htmlContent;
+  }
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(htmlContent, 'text/html');
+  unwrapSoleParagraphs(doc);
+  forEachMetadataField(doc, parsedSchema, ({
+    blockId, blockIndex, field, contentDiv,
+  }) => {
+    const { fieldName, fieldKey, charCount, keywordsInjection } = field;
+    if (charCount) {
+      contentDiv.setAttribute('its-storage-size', charCount);
+    }
+    const keywordsValue = String(keywordsInjection);
+    const locNoteValue = `block-name=${blockId}_${blockIndex}_${fieldKey}|fieldName=${fieldName}|apply-keywords=${keywordsValue}`;
+    contentDiv.setAttribute('its-loc-note', locNoteValue);
+    contentDiv.setAttribute('its-loc-note-type', 'description');
   });
 
   return doc.body.innerHTML;
 }
 
-export function buildLanguageMetadata(keywordsData, langs) {
-  if (!keywordsData || !langs) return {};
+export function buildLanguageMetadata(keywordsData, langs, {
+  constantsHtml,
+  pageHtml,
+  parsedSchema,
+} = {}) {
+  if (!langs) return {};
   const targetLangCodes = new Set(langs.map((lang) => lang.code));
   const langCodeByName = new Map();
-  const getLangCode = (languageName) => {
+  const langCodeForName = (languageName) => {
+    if (!languageName) return null;
     const normalizedName = languageName.toLowerCase();
     let code = langCodeByName.get(normalizedName);
     if (code === undefined) {
@@ -223,33 +308,55 @@ export function buildLanguageMetadata(keywordsData, langs) {
     return code;
   };
   const langMetadata = {};
-  Object.entries(keywordsData).forEach(([key, blockData]) => {
-    if (key.startsWith(':') || !blockData?.data) return;
-    // Parse the key: "aso-app (apple, listing) (1)" -> blockId + index
-    const indexMatch = key.match(/\((\d+)\)$/);
-    if (!indexMatch) return;
-    const index = indexMatch[1];
-    const blockKeyWithoutIndex = key.replace(/\s*\(\d+\)$/, '').trim();
-    const { id: blockId } = processSchemaKey(blockKeyWithoutIndex);
-    // Process each language entry
-    blockData.data.forEach((entry) => {
-      const languageName = entry.language;
-      if (!languageName) return;
-      const langCode = getLangCode(languageName);
-      if (!langCode || !targetLangCodes.has(langCode)) return;
-      if (!langMetadata[langCode]) {
-        langMetadata[langCode] = {};
-      }
-      Object.keys(entry).forEach((fieldName) => {
-        if (fieldName === 'language') return;
-        const keywordValue = entry[fieldName];
-        if (!keywordValue || !keywordValue.trim()) return;
-        const fieldKey = fieldNameToKey(fieldName);
-        const metadataKey = `keywords|${blockId}_${index}_${fieldKey}`;
-        langMetadata[langCode][metadataKey] = keywordValue;
+
+  if (keywordsData) {
+    Object.entries(keywordsData).forEach(([key, blockData]) => {
+      if (key.startsWith(':') || !blockData?.data) return;
+      const indexMatch = key.match(/\((\d+)\)$/);
+      if (!indexMatch) return;
+      const index = indexMatch[1];
+      const blockKeyWithoutIndex = key.replace(/\s*\(\d+\)$/, '').trim();
+      const { id: blockId } = processSchemaKey(blockKeyWithoutIndex);
+      blockData.data.forEach((entry) => {
+        const languageName = entry.language;
+        if (!languageName) return;
+        const langCode = langCodeForName(languageName);
+        if (!langCode || !targetLangCodes.has(langCode)) return;
+        if (!langMetadata[langCode]) {
+          langMetadata[langCode] = {};
+        }
+        Object.keys(entry).forEach((fieldName) => {
+          if (fieldName === 'language') return;
+          const keywordValue = entry[fieldName];
+          if (!keywordValue || !keywordValue.trim()) return;
+          const fieldKey = fieldNameToKey(fieldName);
+          const metadataKey = `keywords|${blockId}_${index}_${fieldKey}`;
+          langMetadata[langCode][metadataKey] = keywordValue;
+        });
       });
     });
-  });
+  }
+
+  if (constantsHtml && pageHtml && parsedSchema) {
+    const fieldsWithSlugs = fieldConstantSlugs(pageHtml, parsedSchema);
+    if (fieldsWithSlugs.length > 0) {
+      constantsRowsFromHtml(constantsHtml).forEach(({ language, slugs }) => {
+        const langCode = langCodeForName(language);
+        if (!langCode || !targetLangCodes.has(langCode)) return;
+        fieldsWithSlugs.forEach(({ blockId, blockIndex, fieldKey, slugs: fieldSlugs }) => {
+          const placeholders = fieldSlugs.reduce((acc, slug) => {
+            const value = slugs[slug];
+            if (value) acc[slug] = value;
+            return acc;
+          }, {});
+          if (Object.keys(placeholders).length === 0) return;
+          if (!langMetadata[langCode]) langMetadata[langCode] = {};
+          const metadataKey = `placeholders|${blockId}_${blockIndex}_${fieldKey}`;
+          langMetadata[langCode][metadataKey] = placeholders;
+        });
+      });
+    }
+  }
 
   return langMetadata;
 }
@@ -374,7 +481,21 @@ export function addSeoGlossary(urls, langs) {
 }
 
 /**
- * Add translation metadata to URLs (HTML annotation + keywords + SEO glossary languageContext)
+ * Logs langMetadata in the shape sent to GLaaS (copy from browser console for handoff).
+ * @param {string} pagePath
+ * @param {object} langMetadata
+ */
+export function logGlaasLangMetadata(pagePath, langMetadata) {
+  if (!langMetadata || Object.keys(langMetadata).length === 0) return;
+  // eslint-disable-next-line no-console -- reference payload for GLaaS team
+  console.info(
+    `[GLaaS langMetadata] ${pagePath}\n`,
+    JSON.stringify({ langMetadata }, null, 2),
+  );
+}
+
+/**
+ * Add translation metadata to URLs (HTML annotation + keywords + placeholders + SEO glossary)
  * Modifies url.content, url.translationMetadata, and url.languageContext in place
  * @param {string} org - Organization name
  * @param {string} site - Site name
@@ -382,7 +503,6 @@ export function addSeoGlossary(urls, langs) {
  * @param {Array} urls - Array of URL objects with .content and .suppliedPath
  */
 export async function addTranslationMetadata(org, site, langs, urls) {
-  // Block schema flow (HTML annotation + per-page keywords)
   const blockSchema = await fetchBlockSchema(org, site);
   if (blockSchema) {
     const hasKeywords = needsKeywordsMetadata(blockSchema);
@@ -390,17 +510,26 @@ export async function addTranslationMetadata(org, site, langs, urls) {
       if (url.content && typeof url.content === 'string') {
         url.content = annotateHTML(url.content, blockSchema);
       }
-      if (!hasKeywords) return;
-      const keywordsData = await fetchKeywordsFile(org, site, url.suppliedPath);
-      if (!keywordsData) return;
-      const langMetadata = buildLanguageMetadata(keywordsData, langs);
-      if (langMetadata && Object.keys(langMetadata).length > 0) {
-        url.translationMetadata = langMetadata;
+
+      const needsConstants = fieldConstantSlugs(url.content, blockSchema).length > 0;
+      const [keywordsData, constantsHtml] = await Promise.all([
+        hasKeywords ? fetchKeywordsFile(org, site, url.suppliedPath) : null,
+        needsConstants ? fetchConstantsFile(org, site, url.suppliedPath) : null,
+      ]);
+
+      const translationMetadata = buildLanguageMetadata(keywordsData, langs, {
+        constantsHtml,
+        pageHtml: url.content,
+        parsedSchema: blockSchema,
+      });
+
+      if (Object.keys(translationMetadata).length > 0) {
+        url.translationMetadata = translationMetadata;
+        logGlaasLangMetadata(url.suppliedPath, translationMetadata);
       }
     }));
   }
 
-  // SEO glossary: if /.da/seo/glossary.json exists, add languageContext for GLaaS
   await loadSeoGlossary(org, site);
   addSeoGlossary(urls, langs);
 }
