@@ -4,7 +4,7 @@ import { getConfig } from '../../../../scripts/nexter.js';
 import { getSvg } from '../../../../utils/svg.js';
 import { Queue } from '../../../../public/utils/tree.js';
 import { getSyncUrls } from './index.js';
-import { mergeCopy, overwriteCopy } from '../../project/index.js';
+import { MAX_CONCURRENT_WRITES, mergeCopy, overwriteCopy } from '../../project/index.js';
 
 const { nxBase: nx } = getConfig();
 
@@ -87,7 +87,7 @@ class NxLocSync extends LitElement {
     }
 
     const syncUrl = this.syncUrl.bind(this);
-    const queue = new Queue(syncUrl, 50);
+    const queue = new Queue(syncUrl, MAX_CONCURRENT_WRITES);
     await Promise.allSettled(this._syncUrls.map((url) => queue.push(url)));
 
     const urls = this.getPersistedUrls();
