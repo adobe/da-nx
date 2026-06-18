@@ -59,7 +59,8 @@ const TOOL_NAME = {
   CONTENT_DELETE: 'content_delete',
   CONTENT_COPY: 'content_copy',
   CONTENT_MOVE: 'content_move',
-  CONTENT_UPDATE: 'content_update',
+  CONTENT_REPLACE_DOC: 'content_replace_doc',
+  CONTENT_REPLACE: 'content_replace',
   CONTENT_UPLOAD: 'content_upload',
 };
 
@@ -82,7 +83,8 @@ const TOOL_SCOPE = {
   [TOOL_NAME.CONTENT_DELETE]: 'file',
   [TOOL_NAME.CONTENT_COPY]: 'file',
   [TOOL_NAME.CONTENT_MOVE]: 'file',
-  [TOOL_NAME.CONTENT_UPDATE]: 'document',
+  [TOOL_NAME.CONTENT_REPLACE_DOC]: 'document',
+  [TOOL_NAME.CONTENT_REPLACE]: 'document',
   [TOOL_NAME.CONTENT_UPLOAD]: 'document',
 };
 
