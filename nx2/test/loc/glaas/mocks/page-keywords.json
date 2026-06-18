@@ -1,0 +1,43 @@
+{
+  ":description": "Mock keywords file for testing fetchKeywordsFile and buildLanguageMetadata",
+  "aso-app (apple, listing) (1)": {
+    "total": 3,
+    "offset": 0,
+    "limit": 3,
+    "data": [
+      {
+        "language": "English",
+        "Subtitle": "ai art generator, ai create, ai image generator, ai image, ai design, ai video, ai photo, ai video editing, ai artist, ai tool, animation, video, content, video effects, sound effects, backgrounds, video animation, image creator, generate, creator, producer, designer, content creator, graphic design, movie maker, text to image, editing tools, text to video, editing app, edit images, edit videos",
+        "Description": "create stunning images with ai, generate professional content, edit photos and videos, design graphics, produce animations, make movies, transform text to visuals"
+      },
+      {
+        "language": "French",
+        "Subtitle": "générateur d'art ia, créer ia, générateur d'image ia, image ia, design ia, vidéo ia, photo ia, montage vidéo ia, artiste ia, outil ia, animation, vidéo, contenu, effets vidéo, effets sonores, arrière-plans, animation vidéo, créateur d'images, générer, créateur, producteur, designer, créateur de contenu, design graphique, créateur de films, texte en image, outils de montage, texte en vidéo, application de montage, modifier des images, modifier des vidéos",
+        "Description": "créez des images époustouflantes avec l'ia, générez du contenu professionnel, modifiez des photos et des vidéos, concevez des graphiques, produisez des animations, créez des films, transformez du texte en visuels"
+      },
+      {
+        "language": "Japanese",
+        "Subtitle": "ai アートジェネレーター, ai 作成, ai 画像ジェネレーター, ai 画像, ai デザイン, ai ビデオ, ai 写真, ai ビデオ編集, ai アーティスト, ai ツール, アニメーション, ビデオ, コンテンツ, ビデオエフェクト, サウンドエフェクト, 背景, ビデオアニメーション, 画像クリエーター, 生成, クリエーター, プロデューサー, デザイナー, コンテンツクリエーター, グラフィックデザイン, 映画メーカー, テキストから画像, 編集ツール, テキストからビデオ, 編集アプリ, 画像編集, ビデオ編集",
+        "Description": "ai で素晴らしい画像を作成, プロフェッショナルなコンテンツを生成, 写真とビデオを編集, グラフィックをデザイン, アニメーションを制作, 映画を作成, テキストをビジュアルに変換"
+      }
+    ]
+  },
+  "aso-app (apple, listing) (2)": {
+    "total": 2,
+    "offset": 0,
+    "limit": 2,
+    "data": [
+      {
+        "language": "English",
+        "Subtitle": "photo editor pro, professional editing, edit photos, photo tools, image editing, photo filters, retouch photos, photo enhancement, creative editing, photo studio",
+        "Description": "professional photo editing tools, advanced filters and effects, retouch and enhance images, creative photo studio"
+      },
+      {
+        "language": "French",
+        "Subtitle": "éditeur de photos pro, montage professionnel, modifier des photos, outils photo, édition d'image, filtres photo, retoucher des photos, amélioration photo, montage créatif, studio photo",
+        "Description": "outils d'édition photo professionnels, filtres et effets avancés, retoucher et améliorer les images, studio photo créatif"
+      }
+    ]
+  }
+}
+

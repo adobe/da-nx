@@ -1,0 +1,90 @@
+/* Page-level styles for the shell. The fullscreen app iframe must fill the
+   available height, so the component's section and the light-DOM ancestors nx
+   creates during decoration need to stretch. These selectors target the light
+   DOM and cannot be reached from the component's shadow root. */
+
+/* app-frame pages: body/main are a CSS grid that already gives `main` a
+   definite height (1fr of 100vh). Leave the grid alone (touching `body` here
+   dislodges the sidenav from its grid cell) and only lay `main` out as a
+   column so the shell section can stretch to fill it. */
+body.app-frame:has(nx-shell) main {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Non-app-frame shell pages have no height chain, so establish one. */
+body:not(.app-frame):has(nx-shell) {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+body:not(.app-frame):has(nx-shell) main {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* Shared: stretch the section -> .block-content -> nx-shell chain. nx wraps
+   each block's DOM in a `.block-content` div during decoration, so that wrapper
+   must stretch too or the iframe collapses to its intrinsic height. */
+.section:has(nx-shell),
+.section:has(nx-shell) > .block-content {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+/* The edge-delivery pre-decoration reset in styles.css sets
+   `html:has(meta[content="edge-delivery"]) .section { display: block }` at a
+   higher specificity (0,2,2) than the rule above (0,1,1), which would flatten
+   the host section back to a block box and collapse the iframe to its intrinsic
+   height. Re-assert flex with matching context so the chain can stretch. */
+html:has(meta[content="edge-delivery"]) .section:has(nx-shell) {
+  display: flex;
+  flex-direction: column;
+}
+
+nx-shell {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* nx2 must support dark scheme on the shell page. The body's scheme class only
+   maps to `color-scheme` on edge-delivery pages in styles.css, so set it here so
+   the shell page honors the active scheme regardless of template (e.g. app-frame). */
+body.dark-scheme:has(nx-shell) {
+  color-scheme: dark;
+}
+
+body.light-scheme:has(nx-shell) {
+  color-scheme: light;
+}
+
+/* Backstop background while the iframe loads; respects the active color scheme. */
+.no-shell {
+  background-color: light-dark(#fff, #000);
+}
+
+/* Disclaimer (rendered in the light DOM) */
+.nx-button-group {
+  display: flex;
+  gap: 10px;
+  justify-content: end;
+  margin-top: 20px;
+}
+
+.nx-dialog {
+  padding: 20px;
+  max-width: 600px;
+
+  h2 {
+    margin-bottom: 15px;
+  }
+
+  p {
+    margin-bottom: 10px;
+  }
+}

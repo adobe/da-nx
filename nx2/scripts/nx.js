@@ -21,7 +21,8 @@ const EW_ORIGINS = {
 };
 
 export function getColorScheme() {
-  return localStorage.getItem('color-scheme')
+  return new URLSearchParams(window.location.search).get('colorScheme')
+    || localStorage.getItem('color-scheme')
     || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark-scheme' : 'light-scheme');
 }
 
@@ -292,7 +293,10 @@ async function decorateDoc() {
   const template = getMetadata('template');
   if (template) document.body.classList.add(template);
 
-  const scheme = localStorage.getItem('color-scheme');
+  // The colorScheme param lets a parent (e.g. the shell iframe) force a scheme
+  // across the document boundary, since localStorage is not shared cross-origin.
+  const scheme = new URLSearchParams(window.location.search).get('colorScheme')
+    || localStorage.getItem('color-scheme');
   if (scheme) document.body.classList.add(scheme);
 
   const pageId = window.location.hash?.replace('#', '');

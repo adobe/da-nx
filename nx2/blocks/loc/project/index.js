@@ -1,0 +1,351 @@
+import getElementMetadata from '../../../utils/getElementMetadata.js';
+import { regionalDiff, removeLocTags } from '../regional-diff/regional-diff.js';
+import { source, versions } from '../../../utils/api.js';
+import { saveToDa } from '../utils/save.js';
+
+const DEFAULT_TIMEOUT = 20000; // ms
+const DA_METADATA_SELECTOR = 'body > .da-metadata';
+
+const VERSION_SAVE_EXTS = new Set(['json', 'html']);
+
+function shouldSaveVersion(url) {
+  const ext = url.destination?.split('.').pop()?.toLowerCase();
+  return VERSION_SAVE_EXTS.has(ext);
+}
+
+const PARSER = new DOMParser();
+
+let projPath;
+let projJson;
+
+export function formatDate(timestamp) {
+  const rawDate = timestamp ? new Date(timestamp) : new Date();
+  const date = rawDate.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' });
+  const time = rawDate.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  return { date, time };
+}
+
+export function calculateTime(startTime) {
+  const crawlTime = Date.now() - startTime;
+  return `${String(crawlTime / 1000).substring(0, 4)}s`;
+}
+
+export async function detectService(config, env = 'stage') {
+  const name = config['translation.service.name']?.value || 'Google';
+  if (name === 'GLaaS') {
+    return {
+      name,
+      canResave: true,
+      origin: config[`translation.service.${env}.origin`].value,
+      clientid: config[`translation.service.${env}.clientid`].value,
+      // eslint-disable-next-line import/no-unresolved
+      actions: await import('../glaas/index.js'),
+      // eslint-disable-next-line import/no-unresolved
+      dnt: await import('../glaas/dnt.js'),
+      preview: config[`translation.service.${env}.preview`].value,
+    };
+  }
+  if (name === 'Google') {
+    return {
+      name,
+      origin: 'http://localhost:8787/google/live',
+      canResave: false,
+      // eslint-disable-next-line import/no-unresolved
+      actions: await import('../google/index.js'),
+      // eslint-disable-next-line import/no-unresolved
+      dnt: await import('../google/dnt.js'),
+    };
+  }
+  // We get the service name for free via 'translation.service.name'
+  const service = {
+    env: env || 'stage',
+    actions: await import(`../${name.toLowerCase()}/index.js`),
+    dnt: await import('../dnt/dnt.js'),
+  };
+  Object.keys(config).forEach((key) => {
+    if (key.startsWith('translation.service.')) {
+      const serviceKey = key.replace('translation.service.', '');
+      service[serviceKey] = config[key].value;
+    }
+  });
+  return service;
+}
+
+export async function getDetails() {
+  projPath = window.location.hash.replace('#', '');
+  const resp = await source.get(`${projPath}.json`);
+  if (!resp.ok) return null;
+  return resp.json();
+}
+
+export function convertUrl({ path, srcLang, destLang }) {
+  const srcPath = path.startsWith(srcLang) ? path : `${srcLang}${path}`;
+  const destSlash = srcLang === '/' ? '/' : '';
+  const destination = path.startsWith(srcLang) ? path.replace(srcLang, `${destLang}${destSlash}`) : `${destLang}${path}`;
+
+  return { source: srcPath, destination };
+}
+
+export async function saveStatus(json) {
+  // Make a deep (string) copy so the in-memory data is not destroyed
+  const copy = JSON.stringify(json);
+
+  // Only save if the data is different;
+  if (copy === projJson) return json;
+
+  // Store it for future comparisons
+  projJson = copy;
+
+  // Re-parse for other uses
+  const proj = JSON.parse(projJson);
+
+  // Do not persist source content
+  proj.urls.forEach((url) => { delete url.content; });
+
+  const resp = await source.save(`${projPath}.json`, { body: JSON.stringify(proj) });
+  if (!resp.ok) return { error: 'Could not update project' };
+  return json;
+}
+
+// Tracks in-flight version saves so parallel rollout/resync operations for
+// the same destination path don't fire duplicate POSTs causing R2 412 audit conflicts.
+const versionSaving = new Set();
+
+async function saveVersion(path, label) {
+  if (versionSaving.has(path)) return;
+  versionSaving.add(path);
+  try {
+    await versions.create(path, { comment: label });
+  } finally {
+    versionSaving.delete(path);
+  }
+}
+
+function collapseInnerTextSpaces(html) {
+  return html.replace(/>([^<]*)</g, (match, textContent) => {
+    // Only process if there's actual text content
+    if (!textContent.trim()) {
+      return match;
+    }
+
+    // Collapse multiple spaces to single space
+    const cleaned = textContent.replace(/\s+/g, ' ');
+    return `>${cleaned}<`;
+  });
+}
+
+const getHtml = async (path, html) => {
+  const fetchHtml = async () => {
+    const res = await source.get(path);
+    if (!res.ok) return null;
+    const str = await res.text();
+    return str;
+  };
+
+  const str = html || await fetchHtml(path);
+  if (!str) return null;
+  return PARSER.parseFromString(collapseInnerTextSpaces(str), 'text/html');
+};
+
+const getDaUrl = (url) => {
+  const [, org, repo, ...path] = url.destination.split('/');
+  const pathname = `/${path.join('/').replace('.html', '')}`;
+  return { org, repo, pathname };
+};
+
+export async function overwriteCopy(url, title) {
+  let resp;
+  if (url.sourceContent) {
+    resp = await source.save(url.destination, { body: url.sourceContent });
+  } else {
+    const srcHtml = await getHtml(url.source);
+    if (srcHtml) {
+      removeLocTags(srcHtml);
+      const daMetadata = getElementMetadata(srcHtml.querySelector(DA_METADATA_SELECTOR));
+      delete daMetadata?.acceptedhashes;
+      delete daMetadata?.rejectedhashes;
+      resp = await saveToDa(
+        srcHtml.querySelector('main').innerHTML,
+        getDaUrl(url),
+        { daMetadata, replaceRelative: false },
+      );
+    }
+  }
+
+  if (!resp?.ok) {
+    url.status = 'error';
+    return null;
+  }
+
+  url.status = 'success';
+  if (shouldSaveVersion(url)) {
+    await saveVersion(url.destination, `${title} - Rolled Out`);
+  }
+  return resp;
+}
+
+function getPreviousHashes(metadata) {
+  const acceptedHashes = metadata.acceptedhashes?.text?.split(',') || [];
+  const rejectedHashes = metadata.rejectedhashes?.text?.split(',') || [];
+  return { acceptedHashes, rejectedHashes };
+}
+
+export async function rolloutCopy(
+  url,
+  projectTitle,
+  { labelLocal = null, labelUpstream = null } = {},
+) {
+  // if the regional folder has content that differs from langstore,
+  // then a regional diff needs to be done
+  try {
+    const regionalCopy = await getHtml(url.destination);
+    if (!regionalCopy) {
+      throw new Error('No regional content or error fetching');
+    }
+
+    const langstoreCopy = await getHtml(url.source);
+    if (!langstoreCopy) {
+      throw new Error('No langstore content or error fetching');
+    }
+
+    removeLocTags(regionalCopy);
+    removeLocTags(langstoreCopy);
+
+    if (langstoreCopy.querySelector('body').outerHTML === regionalCopy.querySelector('body').outerHTML) {
+      // No differences, don't need to do anything
+      url.status = 'success';
+      return Promise.resolve();
+    }
+
+    const daMetadataEl = regionalCopy.querySelector(DA_METADATA_SELECTOR);
+    const daMetadata = getElementMetadata(daMetadataEl);
+    const { acceptedHashes, rejectedHashes } = getPreviousHashes(daMetadata);
+
+    // There are differences, upload the diffed regional file
+    const diffed = await regionalDiff(langstoreCopy, regionalCopy, acceptedHashes, rejectedHashes);
+
+    if (labelLocal) daMetadata['diff-label-local'] = labelLocal;
+    if (labelUpstream) daMetadata['diff-label-upstream'] = labelUpstream;
+
+    return new Promise((resolve) => {
+      const daUrl = getDaUrl(url);
+      const savePromise = saveToDa(diffed.innerHTML, daUrl, { daMetadata, replaceRelative: false });
+
+      const timedout = setTimeout(() => {
+        url.status = 'timeout';
+        resolve('timeout');
+      }, DEFAULT_TIMEOUT);
+
+      savePromise.then(({ daResp }) => {
+        clearTimeout(timedout);
+        url.status = daResp.ok ? 'success' : 'error';
+        if (daResp.ok) {
+          saveVersion(url.destination, `${projectTitle} - Rolled Out`);
+        }
+        resolve();
+      }).catch(() => {
+        clearTimeout(timedout);
+        url.status = 'error';
+        resolve();
+      });
+    });
+  } catch (e) {
+    return overwriteCopy(url, projectTitle);
+  }
+}
+
+export async function mergeCopy(
+  url,
+  projectTitle,
+  { labelLocal = null, labelUpstream = null } = {},
+) {
+  try {
+    const regionalCopy = await getHtml(url.destination);
+    const regionalMain = regionalCopy?.querySelector('body > main').innerHTML;
+    if (!regionalCopy || regionalMain === '' || regionalMain === '<div></div>') {
+      throw new Error('No regional content or error fetching');
+    }
+
+    const langstoreCopy = url.sourceContent
+      ? await getHtml(null, url.sourceContent)
+      : await getHtml(url.source);
+    if (!langstoreCopy) throw new Error('No langstore content or error fetching');
+
+    removeLocTags(regionalCopy);
+    removeLocTags(langstoreCopy);
+
+    if (langstoreCopy.querySelector('body').outerHTML === regionalCopy.querySelector('body').outerHTML) {
+      // No differences, don't need to do anything
+      url.status = 'success';
+      return { ok: true };
+    }
+
+    const daMetadataEl = regionalCopy.querySelector(DA_METADATA_SELECTOR);
+    const daMetadata = getElementMetadata(daMetadataEl);
+    const { acceptedHashes, rejectedHashes } = getPreviousHashes(daMetadata);
+
+    // There are differences, upload the annotated loc file
+    const diffed = await regionalDiff(langstoreCopy, regionalCopy, acceptedHashes, rejectedHashes);
+
+    if (labelLocal) daMetadata['diff-label-local'] = labelLocal;
+    if (labelUpstream) daMetadata['diff-label-upstream'] = labelUpstream;
+
+    const daUrl = getDaUrl(url);
+    const { daResp } = await saveToDa(
+      diffed.innerHTML,
+      daUrl,
+      { daMetadata, replaceRelative: false },
+    );
+    if (daResp.ok) {
+      url.status = 'success';
+      saveVersion(url.destination, `${projectTitle} - Rolled Out`);
+    }
+    return daResp;
+  } catch (e) {
+    return overwriteCopy(url, projectTitle);
+  }
+}
+
+export async function saveLangItems(sitePath, items, lang, removeDnt) {
+  const [org, repo] = window.location.hash.replace('#/', '').split('/');
+
+  return Promise.all(items.map(async (item) => {
+    const html = await item.blob.text();
+    const isJson = item.basePath.endsWith('.json');
+    const htmlToSave = await removeDnt(html, org, repo, { fileType: isJson ? 'json' : 'html' });
+
+    const path = `${sitePath}${lang.location}${item.basePath}`;
+    try {
+      const resp = await source.save(path, { body: htmlToSave });
+      return { success: resp.status };
+    } catch {
+      return { error: 'Could not save documents' };
+    }
+  }));
+}
+
+/**
+ * Run a function with a maximum timeout.
+ * If the timeout limit hits, resolve the still in progress promise.
+ *
+ * @param {Function} fn the function to run
+ * @param {Number} timeout the miliseconds to wait before timing out.
+ * @returns the results of the function
+ */
+export async function timeoutWrapper(fn, timeout = DEFAULT_TIMEOUT) {
+  return new Promise((resolve) => {
+    const loading = fn();
+
+    const timedout = setTimeout(() => {
+      resolve({ error: 'timeout', loading });
+    }, timeout);
+
+    loading.then((result) => {
+      clearTimeout(timedout);
+      resolve(result);
+    }).catch((error) => {
+      clearTimeout(timedout);
+      resolve({ error });
+    });
+  });
+}
