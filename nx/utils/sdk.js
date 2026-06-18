@@ -26,8 +26,8 @@ function closeLibrary() {
   port2.postMessage({ action: 'closeLibrary' });
 }
 
-function setPrompt(text, { autoSend = false, openChatPanel = true } = {}) {
-  port2.postMessage({ action: 'setPrompt', details: { text, autoSend, openChatPanel } });
+function setPrompt(text, { autoSend = false } = {}) {
+  port2.postMessage({ action: 'setPrompt', details: { text, autoSend } });
 }
 
 function showPanel(name) {
