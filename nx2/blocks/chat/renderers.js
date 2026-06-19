@@ -165,7 +165,7 @@ function renderToolCard(toolCallId, toolCards, streamingText) {
   const card = toolCards?.get(toolCallId);
   if (!card || card.state === TOOL_STATE.APPROVAL_REQUESTED) return nothing;
   const { toolName, state, input } = card;
-  if (toolName === TOOL_NAME.SUBMIT_PLAN) return renderSubmitPlanCard(input, streamingText);
+  if (toolName === TOOL_NAME.EXIT_PLAN_MODE) return renderSubmitPlanCard(input, streamingText);
   const detail = approvalSummary(input);
   const failed = state === TOOL_STATE.ERROR || state === TOOL_STATE.REJECTED;
   return html`
@@ -179,7 +179,7 @@ function renderToolCard(toolCallId, toolCards, streamingText) {
 function renderApprovalCard(pending, onApprove) {
   if (!pending) return nothing;
   const { toolCallId, toolName, input } = pending;
-  if (toolName === TOOL_NAME.SUBMIT_PLAN) {
+  if (toolName === TOOL_NAME.EXIT_PLAN_MODE) {
     const el = document.createElement('nx-campaign-plan-card');
     el.plan = input;
     el.addEventListener('nx-plan-run', () => onApprove(toolCallId, true));
