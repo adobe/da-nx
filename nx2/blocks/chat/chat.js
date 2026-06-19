@@ -485,7 +485,11 @@ class NxChat extends LitElement {
               @nx-show-prompts=${this._openPrompts}
             ></nx-chat-welcome>`
         : nothing}
-        ${this.messages?.map((msg) => renderMessage(msg, this.toolCards))}
+        ${(() => {
+          const last = this.messages?.at(-1);
+          const streamingText = last?.streaming ? last.content : null;
+          return this.messages?.map((msg) => renderMessage(msg, this.toolCards, streamingText));
+        })()}
         ${this.thinking && !this.messages?.at(-1)?.streaming ? html`<div class="chat-thinking">Thinking...</div>` : nothing}
         </div>
       </div>

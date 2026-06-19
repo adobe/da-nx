@@ -61,6 +61,7 @@ const TOOL_NAME = {
   CONTENT_MOVE: 'content_move',
   CONTENT_UPDATE: 'content_update',
   CONTENT_UPLOAD: 'content_upload',
+  SUBMIT_PLAN: 'submit_plan',
 };
 
 /**
