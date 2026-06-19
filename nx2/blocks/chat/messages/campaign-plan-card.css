@@ -66,6 +66,7 @@
 
 .plan-header-actions {
   display: flex;
+  align-items: center;
   gap: var(--s2-spacing-75);
   flex-shrink: 0;
 }
@@ -86,12 +87,17 @@
   &:hover {
     background-color: var(--s2-gray-100);
   }
+}
 
-  svg {
-    width: 16px;
-    height: 16px;
-    display: block;
-  }
+.plan-chevron-icon {
+  width: 16px;
+  height: 16px;
+  display: block;
+  transition: transform 0.2s ease;
+}
+
+.plan-icon-btn-expanded .plan-chevron-icon {
+  transform: rotate(180deg);
 }
 
 /* ── Task area ── */
@@ -99,7 +105,7 @@
 .plan-tasks {
   display: flex;
   flex-direction: column;
-  gap: var(--s2-spacing-75);
+  gap: var(--s2-spacing-150);
   padding: var(--s2-spacing-200);
   margin: var(--s2-spacing-150) var(--s2-spacing-200);
   background-color: var(--s2-gray-75);
@@ -112,7 +118,6 @@
   margin-bottom: var(--s2-spacing-50);
 }
 
-/* "1/4" counter shown above the single running task */
 .plan-tasks-progress {
   font-size: var(--s2-body-size-xs);
   color: var(--s2-gray-600);
@@ -125,16 +130,7 @@
   gap: var(--s2-spacing-150);
 }
 
-/* ── Footer ── */
-
-.plan-footer {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: var(--s2-spacing-100);
-  padding: var(--s2-spacing-150) var(--s2-spacing-200);
-  border-top: 1px solid var(--s2-gray-100);
-}
+/* ── Buttons ── */
 
 .plan-btn {
   display: inline-flex;
