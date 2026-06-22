@@ -56,17 +56,6 @@ function renderTaskListDirective(content) {
   return el;
 }
 
-function renderTaskItemDirective(content) {
-  const data = parseDirectiveJSON(content);
-  if (!data) return html`<div class="directive directive-task-item"></div>`;
-  const el = document.createElement('nx-task-item');
-  el.status = data.status ?? 'pending';
-  el.label = data.label ?? '';
-  if (data.current != null) el.current = data.current;
-  if (data.total != null) el.total = data.total;
-  return el;
-}
-
 /**
  * Merge :::task-item status updates from streaming text into a submit_plan task list.
  * Returns a new plan object with updated task statuses, or the original if nothing changed.
@@ -132,16 +121,18 @@ function renderMessageContent(text) {
 
   const directives = mergeTaskItemsIntoPlan(parseDirectives(text));
 
-  return directives.map(({ kind, type, content }) => {
+  const items = directives.map(({ kind, type, content }) => {
     if (kind === 'directive') {
       if (type === DIRECTIVE_TYPE.PLAN) return renderPlanDirective(content);
       if (type === DIRECTIVE_TYPE.TASK_LIST) return renderTaskListDirective(content);
-      if (type === DIRECTIVE_TYPE.TASK_ITEM) return renderTaskItemDirective(content);
+      if (type === DIRECTIVE_TYPE.TASK_ITEM) return nothing;
       const dom = toDOM(mdast2hast(parser.parse(content)));
       return html`<div class="directive directive-${type}">${dom}</div>`;
     }
     return toDOM(mdast2hast(parser.parse(content)));
-  });
+  }).filter((item) => item !== nothing);
+
+  return items.length ? items : nothing;
 }
 
 function approvalSummary(input) {
@@ -154,11 +145,9 @@ function approvalSummary(input) {
     ?? input[PATH] ?? input[SKILL_ID] ?? input[NAME] ?? null;
 }
 
-function renderSubmitPlanCard(plan, streamingText) {
-  const merged = mergeTaskItemsFromText(plan, streamingText);
-  const el = document.createElement('nx-campaign-plan-card');
-  el.plan = merged;
-  return el;
+function renderSubmitPlanCard(plan, taskText) {
+  const merged = mergeTaskItemsFromText(plan, taskText);
+  return html`<nx-campaign-plan-card .plan=${merged}></nx-campaign-plan-card>`;
 }
 
 function renderToolCard(toolCallId, toolCards, streamingText) {
@@ -180,10 +169,10 @@ function renderApprovalCard(pending, onApprove) {
   if (!pending) return nothing;
   const { toolCallId, toolName, input } = pending;
   if (toolName === TOOL_NAME.EXIT_PLAN_MODE) {
-    const el = document.createElement('nx-campaign-plan-card');
-    el.plan = input;
-    el.addEventListener('nx-plan-run', () => onApprove(toolCallId, true));
-    return el;
+    return html`<nx-campaign-plan-card
+      .plan=${input}
+      @nx-plan-run=${() => onApprove(toolCallId, true)}
+    ></nx-campaign-plan-card>`;
   }
   const summary = approvalSummary(input);
   return html`
@@ -212,6 +201,9 @@ function renderAssistantMessage(msg, toolCards, streamingText) {
       : nothing))}`;
   }
 
+  const content = renderMessageContent(msg.content);
+  if (content === nothing) return nothing;
+
   const copy = msg.streaming ? nothing : html`<button class="message-action-copy" @click=${() => navigator.clipboard.writeText(msg.content)} aria-label="Copy">
       <svg class="icon-paste" viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/s2-icon-paste-20-n.svg#icon"></use></svg>
       <svg class="icon-checkmark" viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/s2-icon-checkmark-20-n.svg#icon"></use></svg>
@@ -219,7 +211,7 @@ function renderAssistantMessage(msg, toolCards, streamingText) {
 
   return html`
     <div class="message message-assistant">
-      <div class="message-content">${renderMessageContent(msg.content)}</div>
+      <div class="message-content">${content}</div>
       ${copy}
     </div>
   `;

@@ -486,9 +486,18 @@ class NxChat extends LitElement {
             ></nx-chat-welcome>`
         : nothing}
         ${(() => {
-          const last = this.messages?.at(-1);
+          const msgs = this.messages ?? [];
+          const last = msgs.at(-1);
           const streamingText = last?.streaming ? last.content : null;
-          return this.messages?.map((msg) => renderMessage(msg, this.toolCards, streamingText));
+          // TEXT_END splits output into one string message per inter-tool segment, so
+          // task-item directives for step N may live in a different message than step N+1.
+          // Concatenate all assistant text to let mergeTaskItemsFromText find them all.
+          const allAssistantText = streamingText ? null : msgs
+            .filter((m) => m.role === ROLE.ASSISTANT && typeof m.content === 'string' && !m.streaming)
+            .map((m) => m.content)
+            .join('\n') || null;
+          const taskText = streamingText ?? allAssistantText;
+          return msgs.map((msg) => renderMessage(msg, this.toolCards, taskText));
         })()}
         ${this.thinking && !this.messages?.at(-1)?.streaming ? html`<div class="chat-thinking">Thinking...</div>` : nothing}
         </div>

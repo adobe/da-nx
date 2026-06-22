@@ -24,7 +24,7 @@ class NxCampaignPlanCard extends LitElement {
 
   constructor() {
     super();
-    this._expanded = false;
+    this._expanded = true;
   }
 
   connectedCallback() {
@@ -96,20 +96,16 @@ class NxCampaignPlanCard extends LitElement {
     const chevronClass = `plan-icon-btn${this._expanded ? ' plan-icon-btn-expanded' : ''}`;
     const chevronLabel = this._expanded ? 'Collapse plan' : 'Expand plan';
 
-    // Show collapsed running view only when running and not manually expanded
-    const showCollapsed = isRunning && !this._expanded;
+    // Collapsed: show current running task only; hide tasks entirely when not running
+    const showCollapsed = !this._expanded;
 
     return html`
       <div class="plan-card">
         <div class="plan-header">
-          <div class="plan-header-meta">
-            <span class="plan-type-label">
-              <span class="plan-type-icon" aria-hidden="true"></span>
-              Content Generation Plan
-            </span>
-            <h3 class="plan-title">${title}</h3>
-            ${description ? html`<p class="plan-description">${description}</p>` : nothing}
-          </div>
+          <span class="plan-type-label">
+            <span class="plan-type-icon" aria-hidden="true"></span>
+            Content Generation Plan
+          </span>
           <div class="plan-header-actions">
             <button
               type="button"
@@ -126,9 +122,15 @@ class NxCampaignPlanCard extends LitElement {
           </div>
         </div>
 
-        ${showCollapsed
+        <div class="plan-body">
+          <h3 class="plan-title">${title}</h3>
+          ${description ? html`<p class="plan-description">${description}</p>` : nothing}
+        </div>
+
+        ${showCollapsed && isRunning
           ? this._renderTasksCollapsed(running.task, running.current, tasks.length)
-          : this._renderTasksFull(tasks)}
+          : nothing}
+        ${!showCollapsed ? this._renderTasksFull(tasks) : nothing}
       </div>
     `;
   }
