@@ -28,11 +28,40 @@
   justify-content: flex-end;
 }
 
-.preview-row da-prepare {
-  display: block;
+.prepare-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
   width: 32px;
   height: 32px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-radius: var(--s2-corner-radius-500);
+  color: var(--s2-gray-800);
+  background-color: var(--s2-gray-100);
+  cursor: pointer;
+}
+
+.prepare-btn:focus-visible {
+  outline: 2px solid var(--s2-blue-800);
+  outline-offset: 2px;
+}
+
+.prepare-btn:hover {
+  background-color: var(--s2-gray-200);
+}
+
+.prepare-btn:active {
+  background-color: var(--s2-gray-300);
+}
+
+.prepare-btn-icon {
+  display: block;
   flex-shrink: 0;
+  width: 18px;
+  height: 18px;
 }
 
 .preview-dropdown-btn {

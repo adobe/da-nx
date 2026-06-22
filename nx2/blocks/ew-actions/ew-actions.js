@@ -12,8 +12,9 @@ import '../shared/popover/popover.js';
 const style = await loadStyle(import.meta.url);
 const { codeBase } = getConfig();
 const SEND_ICON_HREF = `${codeBase}/img/icons/s2-icon-send-20-n.svg#icon`;
+const PREPARE_ICON_HREF = `${codeBase}/img/icons/s2-icon-filetext-20-n.svg#icon`;
 
-const prepareModuleUrl = () => `${window.location.origin}/blocks/edit/da-prepare/da-prepare.js`;
+const prepareModuleUrl = () => `${window.location.origin}/blocks/canvas/editor-utils/prepare-menu.js`;
 
 /** @param {string} segment */
 const withHtmlExt = (segment) => {
@@ -64,6 +65,14 @@ class NXEwActions extends LitElement {
     return this.shadowRoot?.querySelector('.preview-dropdown-btn');
   }
 
+  get _prepareMenu() {
+    return this.shadowRoot?.querySelector('prepare-menu');
+  }
+
+  get _prepareBtn() {
+    return this.shadowRoot?.querySelector('.prepare-btn');
+  }
+
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
@@ -99,6 +108,11 @@ class NXEwActions extends LitElement {
       pop.show({ anchor, placement: 'below' });
       anchor.setAttribute('aria-expanded', 'true');
     }
+  }
+
+  _togglePrepareMenu(e) {
+    e.preventDefault();
+    this._prepareMenu?.toggle(this._prepareBtn);
   }
 
   _onSendPopoverClose() {
@@ -139,7 +153,18 @@ class NXEwActions extends LitElement {
       <div class="ew-actions">
         <div class="right">
           <div class="preview-row">
-            ${prepareDetails ? html`<da-prepare class="s2" .details=${prepareDetails}></da-prepare>` : nothing}
+            ${prepareDetails ? html`
+              <button
+                type="button"
+                class="prepare-btn"
+                aria-label="Open prepare menu"
+                aria-haspopup="menu"
+                @click=${this._togglePrepareMenu}
+              >
+                <svg class="prepare-btn-icon" viewBox="0 0 20 20" aria-hidden="true"><use href=${PREPARE_ICON_HREF}></use></svg>
+              </button>
+              <prepare-menu .details=${prepareDetails}></prepare-menu>
+            ` : nothing}
             <button
               type="button"
               class="preview-dropdown-btn"
