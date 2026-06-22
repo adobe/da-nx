@@ -4,8 +4,8 @@ import { TOOL_NAME } from '../constants.js';
 export function affectedFolders(toolName, input) {
   const { org, repo } = input ?? {};
   if (!org || !repo) return [];
-  const toParent = (p) => {
-    const parts = (p ?? '').replace(/^\//, '').split('/').filter(Boolean);
+  const toParent = (path) => {
+    const parts = (path ?? '').replace(/^\//, '').split('/').filter(Boolean);
     parts.pop();
     return `/${org}/${repo}${parts.length ? `/${parts.join('/')}` : ''}`;
   };

@@ -36,9 +36,9 @@ export default class ChatController {
   async connect(attempt = 0) {
     try {
       await fetch(AGENT_URL, { method: 'HEAD', signal: AbortSignal.timeout(5000) });
-      this._connected = true;
+      this._isConnected = true;
     } catch {
-      this._connected = false;
+      this._isConnected = false;
       const delay = 1000 * 2 ** attempt;
       if (delay < 30000) this._retryTimeout = setTimeout(() => this.connect(attempt + 1), delay);
     } finally {
@@ -69,7 +69,7 @@ export default class ChatController {
   }
 
   async sendMessage(message, context = [], { requestedSkills = [], attachments = [] } = {}) {
-    if (this._turn.isActive || !this._connected) return;
+    if (this._turn.isActive || !this._isConnected) return;
 
     this._turn.begin();
     this._pendingBatch = emptyBatch();
@@ -296,7 +296,7 @@ export default class ChatController {
           { role: ROLE.ASSISTANT, content: `Error: ${err.message}` },
         ];
       }
-    }).finally(() => this._done());
+    }).finally(() => { this._done(); this._persistMessages(); });
   }
 
   _onToolEvent = ({
@@ -511,7 +511,9 @@ export default class ChatController {
   // input and any error message survive a page reload even when no text was streamed.
   _persistMessages() {
     if (!this._messages) return;
-    this._getRoom().then((room) => saveMessages(room, this._messages, this._sessionId));
+    this._getRoom()
+      .then((room) => saveMessages(room, this._messages, this._sessionId))
+      .catch(() => { });
   }
 
   _update() {
@@ -519,7 +521,7 @@ export default class ChatController {
       messages: this._messages,
       thinking: this._turn.isActive,
       streamingText: this._streamingText,
-      connected: this._connected,
+      connected: this._isConnected,
       toolCards: this._toolCards,
     });
   }

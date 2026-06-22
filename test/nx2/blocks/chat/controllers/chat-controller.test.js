@@ -629,7 +629,7 @@ describe('ChatController — sendMessage', () => {
   describe('guards', () => {
     it('does nothing when turn is already active', async () => {
       const ctrl = makeController();
-      ctrl._connected = true;
+      ctrl._isConnected = true;
       ctrl._turn.begin();
       await ctrl.sendMessage('hi', [], {});
       expect(ctrl._messages).to.be.undefined;
@@ -637,7 +637,7 @@ describe('ChatController — sendMessage', () => {
 
     it('does nothing when not connected', async () => {
       const ctrl = makeController();
-      // _connected is undefined by default
+      // _isConnected is undefined by default
       await ctrl.sendMessage('hi', [], {});
       expect(ctrl._messages).to.be.undefined;
     });
@@ -646,7 +646,7 @@ describe('ChatController — sendMessage', () => {
   describe('error handling', () => {
     it('appends an error message when stream throws', async () => {
       const ctrl = makeController();
-      ctrl._connected = true;
+      ctrl._isConnected = true;
       ctrl._stream = () => Promise.reject(new Error('network failure'));
       await ctrl.sendMessage('hi', [], {});
       expect(ctrl._messages.at(-1)).to.deep.equal({
@@ -657,7 +657,7 @@ describe('ChatController — sendMessage', () => {
 
     it('does not append an error message when stream is aborted', async () => {
       const ctrl = makeController();
-      ctrl._connected = true;
+      ctrl._isConnected = true;
       ctrl._stream = () => Promise.reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
       await ctrl.sendMessage('hi', [], {});
       expect(ctrl._messages.at(-1).role).to.equal('user');

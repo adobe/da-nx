@@ -62,7 +62,7 @@ function renderToolCard(toolCallId, toolCards) {
     <details class="tool-card tool-card-${state}">
       <summary>${toolName}${status}</summary>
       <span class="tool-card-detail">${detail}</span>
-    </details>` : html`<span class="tool-card tool-card-detail">${toolName}${status}</span>`;
+    </details>` : html`<span class="tool-card-detail">${toolName}${status}</span>`;
 }
 
 function renderApprovalCard(pending, onApprove) {
