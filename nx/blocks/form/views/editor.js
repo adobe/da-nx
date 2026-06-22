@@ -29,7 +29,7 @@ function describeIssue(issue) {
 
 class Editor extends LitElement {
   static properties = {
-    core: { attribute: false },
+    editor: { attribute: false },
     state: { attribute: false },
     nav: { attribute: false },
     onSelect: { attribute: false },
@@ -108,9 +108,9 @@ class Editor extends LitElement {
   }
 
   _mutate(fn) {
-    // State notification flows through core's `onChange` callback wired in
+    // State notification flows through editor's `onChange` callback wired in
     // the shell. UI just invokes the mutation.
-    fn(this.core);
+    fn(this.editor);
   }
 
   _mutateDebounced(pointer, fn) {
@@ -122,7 +122,7 @@ class Editor extends LitElement {
   }
 
   _error(pointer) {
-    return this.state?.validation?.errorsByPointer?.[pointer] ?? '';
+    return this.state?.validation?.errors?.[pointer]?.message ?? '';
   }
 
   _activeClass(pointer) {
@@ -133,34 +133,34 @@ class Editor extends LitElement {
     if (!node) return '';
     if (node.value !== undefined) return node.value;
     if (node.kind === 'boolean') return false;
-    // Defaults are materialized into the document at load (see core/index.js).
-    // The renderer is a pure function of `node.value` — a missing value means
-    // the field is empty, never that a default should be synthesized here.
+    // Defaults are materialized into the document at load by the SDK. The
+    // renderer is a pure function of `node.value` — a missing value means the
+    // field is empty, never that a default should be synthesized here.
     return '';
   }
 
   _onTextInput(node, e) {
     const raw = e.target.value;
-    this._mutateDebounced(node.pointer, (core) => {
-      core.setField(node.pointer, raw === '' ? undefined : raw);
+    this._mutateDebounced(node.pointer, (editor) => {
+      editor.setField(node.pointer, raw === '' ? undefined : raw);
     });
   }
 
   _onNumberInput(node, e) {
     const raw = e.target.value;
     const value = raw === '' ? undefined : Number(raw);
-    this._mutateDebounced(node.pointer, (core) => {
-      core.setField(node.pointer, Number.isNaN(value) ? undefined : value);
+    this._mutateDebounced(node.pointer, (editor) => {
+      editor.setField(node.pointer, Number.isNaN(value) ? undefined : value);
     });
   }
 
   _onBooleanInput(node, e) {
-    this._mutate((core) => core.setField(node.pointer, !!e.target.checked));
+    this._mutate((editor) => editor.setField(node.pointer, !!e.target.checked));
   }
 
   _onSelectInput(node, e) {
     const raw = e.target.value;
-    this._mutate((core) => core.setField(node.pointer, raw === '' ? undefined : raw));
+    this._mutate((editor) => editor.setField(node.pointer, raw === '' ? undefined : raw));
   }
 
   _renderPrimitive(node, { hideLabel = false } = {}) {
@@ -262,13 +262,13 @@ class Editor extends LitElement {
   _onArrayInsert(e) {
     const pointer = e?.detail?.pointer ?? '';
     if (!pointer) return;
-    this._mutate((core) => core.insertItem(pointer));
+    this._mutate((editor) => editor.insertItem(pointer));
   }
 
   _onArrayRemove(e) {
     const pointer = e?.detail?.pointer ?? '';
     if (!pointer) return;
-    this._mutate((core) => core.removeItem(pointer));
+    this._mutate((editor) => editor.removeItem(pointer));
   }
 
   _itemsInPreviewOrder(items) {
@@ -303,7 +303,7 @@ class Editor extends LitElement {
     }
 
     this._reorderConfirmed = true;
-    this._mutate((core) => core.moveItem(arrayPointer, fromIndex, toIndex));
+    this._mutate((editor) => editor.moveItem(arrayPointer, fromIndex, toIndex));
   }
 
   _renderObject(node, { itemLabel = '' } = {}) {
@@ -423,7 +423,7 @@ class Editor extends LitElement {
             type="button"
             class="add-item-btn"
             ?disabled=${!canAdd}
-            @click=${() => this._mutate((core) => core.addItem(node.pointer))}
+            @click=${() => this._mutate((editor) => editor.addItem(node.pointer))}
           >${addLabel}</button>
         </div>
       </section>
@@ -441,7 +441,7 @@ class Editor extends LitElement {
   }
 
   _maybeShowIssuesDialog() {
-    // schemaIssues is a closure-stable reference in createCore (only changes
+    // schemaIssues is a closure-stable reference in createEngine (only changes
     // inside load), so reference equality is sufficient to detect a new set.
     const issues = this.state?.schemaIssues;
     if (issues === this._lastIssues) return;

@@ -2,7 +2,7 @@
 
 A unified client for talking to **DA admin** (`admin.da.live`) and the **AEM admin API** in either its legacy form (`admin.hlx.page`, "helix5") or its new form (`api.aem.live`, "helix6"). Every method auto-routes by the per-site **hlx6** upgrade flag — once a site has been upgraded, calls flow to the new origin; otherwise they fall back to the legacy origin.
 
-The module ships its low-level primitive (`daFetch`), an upgrade detector (`isHlx6`), helpers (`fromPath`, `signout`, `hlx6ToDaList`), and **eight namespaced surfaces**: `source`, `versions`, `config`, `org`, `status`, `aem`, `snapshot`, `jobs`. Type definitions live in `[api.d.ts](./api.d.ts)` — VSCode picks them up automatically and surfaces overloads, field-level docs, and inline shapes.
+The module ships its low-level primitive (`daFetch`), an upgrade detector (`isHlx6`), helpers (`fromPath`, `signout`, `asJson`, `asText`), and **eight namespaced surfaces**: `source`, `versions`, `config`, `org`, `status`, `aem`, `snapshot`, `jobs`. Type definitions live in `[api.d.ts](./api.d.ts)` — VSCode picks them up automatically and surfaces overloads, field-level docs, and inline shapes.
 
 > **Routing model.** Some endpoints are owned by DA itself (`source`, `list`, `config`, `versions`) and DA proxies them to AEM when the site is upgraded. Others are AEM-only (`status`, `preview`, `live`, `snapshots`, `jobs`) and live on either `admin.hlx.page` (legacy) or `api.aem.live` (hlx6). The module hides this distinction; callers always pass `{ org, site, path }` and get a `Response` back.
 
@@ -13,9 +13,11 @@ The module ships its low-level primitive (`daFetch`), an upgrade detector (`isHl
 ```js
 import {
   // Low-level
-  daFetch, isHlx6, signout, fromPath, hlx6ToDaList,
+  daFetch, isHlx6, signout, fromPath,
   // Namespaces
   source, versions, config, org, status, aem, snapshot, jobs,
+  // Response helpers
+  asJson, asText,
 } from '/nx2/utils/api.js';
 ```
 
@@ -28,14 +30,14 @@ Most methods accept the first argument as **either** an object or a path string.
 **Object form** — pass parts explicitly:
 
 ```js
-source.load({ org: 'adobe', site: 'aem-boilerplate', path: '/index.html' });
+source.get({ org: 'adobe', site: 'aem-boilerplate', path: '/index.html' });
 ```
 
 **Path-string form** — pass a `/org/site/file/path` string. The helper splits it for you. Method-specific extras go in a second positional argument:
 
 ```js
-source.load('/adobe/aem-boilerplate/index.html');
-source.save('/adobe/aem-boilerplate/page.html', { data: '<main>…</main>' });
+source.get('/adobe/aem-boilerplate/index.html');
+source.save('/adobe/aem-boilerplate/page.html', { body: '<main>…</main>' });
 versions.get('/adobe/aem-boilerplate/index.html', { versionId: 'abc' });
 ```
 
@@ -47,18 +49,34 @@ versions.get('/adobe/aem-boilerplate/index.html', { versionId: 'abc' });
 
 ## Return values
 
-Methods fall into a few return-shape categories:
+**Every namespace method returns a raw `Response`** — augmented by `daFetch` with `resp.permissions: string[]` (parsed from `x-da-child-actions` / `x-da-actions`, defaulted to `['read', 'write']`). Treat like any `fetch` result: `await resp.json()`, check `resp.ok`, read `resp.headers`, etc.
 
-**Raw `Response`** — `source.load`, `source.save`, `source.createFolder`, `source.deleteFolder`, all of `versions`, `config`, `org`, `snapshot`, `jobs`, and bulk `aem` calls. The response is augmented by `daFetch` with `resp.permissions: string[]` — parsed from the `x-da-child-actions` header (preferred), `x-da-actions` (fallback), or defaulted to `['read', 'write']`. Treat like any `fetch` result: `await resp.json()`, check `resp.ok`, etc.
+**Two exceptions:**
+- **`source.list`** → `{ ok, items, continuationToken, permissions }`. Merges body (normalized items) + headers (continuation token) + permissions into one object — the only namespace method whose return shape isn't a `Response`. Pass `continuationToken` back into the same call to fetch the next page.
+- **`config.getAggregated`** on a non-hlx6 site → `{ error: 'Requires Helix 6 upgrade', status: 501 }` sentinel. On hlx6 sites it returns a normal `Response` like everything else.
 
-**Normalized objects** for `source` mutation/listing methods:
-- `source.list` → `{ ok, items, continuationToken, permissions }` — `items` is the normalized list (legacy DA shape regardless of server). Pass `continuationToken` back into the same call to fetch the next page.
-- `source.delete` / `source.copy` / `source.move` → `{ ok, status }` — single-resource operations; success is typically 204 (empty body) on legacy DA, 204 or 200 on hlx6.
-- `source.getMetadata` → `{ ok, status, headers }` — the raw `Headers` object (HEAD request value is in the headers).
+### Opt-in response helpers
 
-**Parsed JSON or `undefined`** — `status.get` and `aem` single-path calls (the default `returnJson: true`). Returns the parsed body on success, `undefined` when the response is not ok or the body fails to parse. For `aem`, pass `returnJson: false` to get the raw augmented `Response` instead. **Bulk** `aem` calls (`path` as an array of length ≥ 2) always return a `Response` — `returnJson` does not apply.
+Most call sites do `await resp.json()` (or check `resp.ok`) right after the call. Three small helpers cover the common patterns:
 
-**Sentinel objects** — `config.getAggregated` is hlx6-only; calling it on a non-upgraded site returns `{ error: 'Requires Helix 6 upgrade', status: 501 }`. `aem.unPreview` / `aem.unPublish` return `{ ok: true, status: 204 }` on a successful single-path delete (default `returnJson: true`), and `undefined` otherwise.
+```js
+import { asJson, asText, source, config } from '/nx2/utils/api.js';
+
+// Success: { ok: true, data: <parsed>, status: 200, error: null }
+// Failure: { ok: false, data: <error body if parseable, else null>, status, error }
+const { ok, data: cfg, status, error } = await asJson(config.get({ org, site }));
+if (!ok) {
+  console.warn(`config.get failed (${status}, ${error})`, cfg);
+  return;
+}
+useConfig(cfg);
+
+const { data: html } = await asText(source.get(path));
+```
+
+Both resolve a method's returned promise, await `.json()` / `.text()`, and return a flat result with `ok`, `data`, `status`, and `error`. `data` is populated even on non-ok responses when the body parses (matches axios) — so error JSON bodies aren't lost.
+
+For a plain boolean ok-check, destructure the method's return directly without a helper: `const { ok } = await source.delete(path);`
 
 ---
 
@@ -96,13 +114,13 @@ Document CRUD on `source` paths. Bridges DA's `/source` and AEM's `/sites/{site}
 
 | Method         | Signature                                                                                     | Notes                                                                                                                                                                                          |
 | -------------- | --------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `load`         | `({ org, site, path })` or `(fullPath)`                                                       | GET — raw `Response`.                                                                                                                                                                          |
+| `get`          | `({ org, site, path })` or `(fullPath)`                                                       | GET — raw `Response`.                                                                                                                                                                          |
 | `list`         | `({ org, site, path?, continuationToken? })` or `(fullPath, { continuationToken? })`            | List a folder. Returns `{ ok, items, continuationToken, permissions }` (normalized — items match legacy DA shape regardless of server). Pass `{ org }` (no site) to list at org level — DA-legacy only. Bulk lists paginate — pass `continuationToken` back into the next call. |
-| `save`         | `({ org, site, path, data })` or `(fullPath, { data })`                                       | Upload — raw `Response`. POST for both branches. **DA-legacy**: wraps `data` in `multipart/form-data` field `data`. **hlx6**: sends `data` raw (string, Blob, or File); `Content-Type` is set from the path extension via `TYPE_MAP` and overrides any auto-applied Blob type. Extensions not in `TYPE_MAP` send no `Content-Type`. |
-| `getMetadata`  | `({ org, site, path })` or `(fullPath)`                                                       | HEAD — returns `{ ok, status, headers }`. `headers` is the raw `Headers` object (`doc-id`, `last-modified`, etc.).                                                                            |
-| `delete`       | `({ org, site, path })` or `(fullPath)`                                                       | Delete a single document. Returns `{ ok, status }` (204 on success). For recursive folder deletion use `deleteFolder`.                                                                         |
-| `copy`         | `({ org, site, path, destination, collision? })` or `(fullPath, { destination, collision? })` | `path` = source, `destination` = target. Returns `{ ok, status }`. **hlx6**: PUT to dest URL with `?source=…&collision=…` query. **DA**: POST `/copy/{org}/{site}{path}` with `multipart/form-data` field `destination`. |
-| `move`         | `({ org, site, path, destination, collision? })` or `(fullPath, { destination, collision? })` | Same shape as `copy` (and same return) but adds `?move=true` (hlx6) or POSTs to `/move/{org}/{site}{path}` (DA).                              |
+| `save`         | `({ org, site, path, body })` or `(fullPath, { body })`                                       | Upload — raw `Response`. POST for both branches. **DA-legacy**: wraps `body` as a Blob in `multipart/form-data` field `data`, with the Blob's type set from the path extension via `TYPE_MAP`. **hlx6**: sends `body` raw (string, Blob, or File); `Content-Type` is set from the path extension via `TYPE_MAP` and overrides any auto-applied Blob type. Extensions not in `TYPE_MAP` send no `Content-Type`. |
+| `getMetadata`  | `({ org, site, path })` or `(fullPath)`                                                       | HEAD — raw `Response`. Value is in `resp.headers` (`doc-id`, `last-modified`, etc.).                                                                                                          |
+| `delete`       | `({ org, site, path })` or `(fullPath)`                                                       | DELETE — raw `Response` (typically 204). For recursive folder deletion use `deleteFolder`.                                                                                                    |
+| `copy`         | `({ org, site, path, destination, collision? })` or `(fullPath, { destination, collision? })` | Raw `Response`. `path` = source, `destination` = target. **hlx6**: PUT to dest URL with `?source=…&collision=…` query. **DA**: POST `/copy/{org}/{site}{path}` with `multipart/form-data` field `destination`. |
+| `move`         | `({ org, site, path, destination, collision? })` or `(fullPath, { destination, collision? })` | Same shape as `copy`. Raw `Response`. Adds `?move=true` (hlx6) or POSTs to `/move/{org}/{site}{path}` (DA).                                                                                  |
 | `createFolder` | `({ org, site, path })` or `(fullPath)`                                                       | POST on `${path}/` (trailing slash).                                                                                                                                                           |
 | `deleteFolder` | `({ org, site, path })` or `(fullPath)`                                                       | DELETE on `${path}/`.                                                                                                                                                                          |
 
@@ -112,7 +130,7 @@ Document CRUD on `source` paths. Bridges DA's `/source` and AEM's `/sites/{site}
 
 | Method                                       | hlx6                                             | legacy DA                                                                                |
 | -------------------------------------------- | ------------------------------------------------ | ---------------------------------------------------------------------------------------- |
-| load / list / save / getMetadata / delete    | `${AEM_API}/{org}/sites/{site}/source{path}`     | `${DA_ADMIN}/source/{org}/{site}{path}`                                                  |
+| get / list / save / getMetadata / delete     | `${AEM_API}/{org}/sites/{site}/source{path}`     | `${DA_ADMIN}/source/{org}/{site}{path}`                                                  |
 | list (org-only)                  | n/a                                              | `${DA_ADMIN}/list/{org}`                                                                 |
 | list (with site, legacy)         | n/a                                              | `${DA_ADMIN}/list/{org}/{site}{path}`                                                    |
 | copy / move                      | PUT to dest URL with `?source=&collision=&move=` | POST to `${DA_ADMIN}/copy/{org}/{site}{path}` (or `/move`) with `destination` form field |
@@ -122,23 +140,27 @@ Document CRUD on `source` paths. Bridges DA's `/source` and AEM's `/sites/{site}
 
 ```js
 // Read
-const resp = await source.load('/adobe/aem-boilerplate/index.html');
+const resp = await source.get('/adobe/aem-boilerplate/index.html');
 const html = await resp.text();
 
-// Write (path string + data extra)
-await source.save('/adobe/aem-boilerplate/page.html', { data: '<main>…</main>' });
+// Write (path string + body extra)
+await source.save('/adobe/aem-boilerplate/page.html', { body: '<main>…</main>' });
 
 // Upload a binary file (e.g., from <input type=file>)
-await source.save('/adobe/aem-boilerplate/img/logo.png', { data: file });
+await source.save('/adobe/aem-boilerplate/img/logo.png', { body: file });
 
 // List a folder — returns { ok, items, continuationToken, permissions }
 const { ok, items } = await source.list('/adobe/aem-boilerplate/folder');
 
-// Delete a document — returns { ok, status }
+// Delete a document — returns raw Response (204 on success)
+const delResp = await source.delete('/adobe/aem-boilerplate/old.html');
+if (!delResp.ok) { /* handle */ }
+
+// Or destructure for a boolean
 const { ok: deleted } = await source.delete('/adobe/aem-boilerplate/old.html');
 
-// Copy — returns { ok, status }
-const { ok: copied } = await source.copy({
+// Copy — returns raw Response
+const copyResp = await source.copy({
   org: 'adobe',
   site: 'aem-boilerplate',
   path: '/old.html',          // source
@@ -184,7 +206,7 @@ Org or site-level configuration JSON. The `site` argument is **optional** — om
 | Method          | Signature                | Notes                                                                                                                                                                                                                        |
 | --------------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `get`           | `({ org, site? })`       | Read                                                                                                                                                                                                                         |
-| `put`           | `({ org, site?, body })` | Update. Sent as `multipart/form-data` with field `config`. **NOTE:** This wire shape currently doesn't match what the H5/H6 admin endpoints expect (JSON body) and may need realignment — see [Known issues](#known-issues). |
+| `save`          | `({ org, site?, body })` | Update. Sent as `multipart/form-data` with field `config`. **NOTE:** This wire shape currently doesn't match what the H5/H6 admin endpoints expect (JSON body) and may need realignment — see [Known issues](#known-issues). |
 | `delete`        | `({ org, site? })`       | DELETE                                                                                                                                                                                                                       |
 | `getAggregated` | `({ org, site })`        | hlx6-only. Returns `{ error, status: 501 }` on legacy. Hits `${AEM_API}/{org}/aggregated/{site}/config.json`.                                                                                                                |
 
@@ -231,9 +253,9 @@ Organization-level operations. hlx6-only (no DA-legacy fallback exists at org le
 Resource status (preview + live combined view). **Single-path only** — H6 has no bulk status endpoint.
 
 
-| Method | Signature                               | Notes                                                                       |
-| ------ | --------------------------------------- | --------------------------------------------------------------------------- |
-| `get`  | `({ org, site, path })` or `(fullPath)` | GET `/status/{path}`. Returns parsed JSON; `undefined` if not ok or unparseable. |
+| Method | Signature                               | Notes                                                |
+| ------ | --------------------------------------- | ---------------------------------------------------- |
+| `get`  | `({ org, site, path })` or `(fullPath)` | GET `/status/{path}`. Returns raw `Response`.        |
 
 
 ### URL shapes
@@ -247,8 +269,10 @@ Resource status (preview + live combined view). **Single-path only** — H6 has 
 ### Example
 
 ```js
-const info = await status.get('/adobe/aem-boilerplate/index.html');
-if (!info) return; // not ok or unparseable
+import { asJson, status } from '/nx2/utils/api.js';
+
+const { ok, data: info } = await asJson(status.get('/adobe/aem-boilerplate/index.html'));
+if (!ok) return;
 const { preview, live, edit } = info;
 ```
 
@@ -258,19 +282,19 @@ const { preview, live, edit } = info;
 
 Combined preview + live (publish) operations. The `path` argument can be a **string** (single op) or an **array of length ≥ 2** (bulk op). Single string or one-item array hits the single-path endpoint.
 
-`forceUpdate` and `forceSync` are **bulk-only** — server ignores them on single-path calls.
+`forceUpdate` is **bulk-only** — server ignores it on single-path calls.
 
-**Returns:** single-path methods default to **parsed JSON** (`returnJson: true`). Set `returnJson: false` for the raw `Response`. Bulk operations always return a `Response`.
+**Returns:** all methods return a raw `Response`. Parse with `await resp.json()` or the `asJson` helper.
 
 
-| Method       | Signature                                                              | Notes                                                                                                            |
-| ------------ | ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `getPreview` | `({ org, site, path, returnJson? })` or `(fullPath, { returnJson? })` | GET preview status (single only). Default: JSON; `undefined` if not ok.                                          |
-| `getPublish` | `({ org, site, path, returnJson? })` or `(fullPath, { returnJson? })` | GET publish status (single only). Default: JSON; `undefined` if not ok.                                          |
-| `preview`    | `({ org, site, path, forceUpdate?, forceSync?, returnJson? })`         | string → POST `/preview/{path}`. Array of 2+ → POST `/preview/.../*` with `{ paths, forceUpdate?, forceSync? }`. |
-| `unPreview`  | `({ org, site, path, returnJson? })`                                   | string → DELETE `/preview/{path}`. Array of 2+ → POST `/preview/.../*` with `{ paths, delete: true }`.           |
-| `publish`    | `({ org, site, path, forceUpdate?, forceSync?, returnJson? })`         | string → POST `/live/{path}`. Array of 2+ → POST `/live/.../*` with `{ paths, forceUpdate?, forceSync? }`.       |
-| `unPublish`  | `({ org, site, path, returnJson? })`                                   | string → DELETE `/live/{path}`. Array of 2+ → POST `/live/.../*` with `{ paths, delete: true }`.                 |
+| Method       | Signature                                                | Notes                                                                                                            |
+| ------------ | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `getPreview` | `({ org, site, path })` or `(fullPath)`                  | GET preview status (single only).                                                                                |
+| `getPublish` | `({ org, site, path })` or `(fullPath)`                  | GET publish status (single only).                                                                                |
+| `preview`    | `({ org, site, path, forceUpdate? })`                    | string → POST `/preview/{path}`. Array of 2+ → POST `/preview/.../*` with `{ paths, forceUpdate? }`.             |
+| `unPreview`  | `({ org, site, path })`                                  | string → DELETE `/preview/{path}`. Array of 2+ → POST `/preview/.../*` with `{ paths, delete: true }`.           |
+| `publish`    | `({ org, site, path, forceUpdate? })`                    | string → POST `/live/{path}`. Array of 2+ → POST `/live/.../*` with `{ paths, forceUpdate? }`.                   |
+| `unPublish`  | `({ org, site, path })`                                  | string → DELETE `/live/{path}`. Array of 2+ → POST `/live/.../*` with `{ paths, delete: true }`.                 |
 
 
 ### URL shapes
@@ -285,17 +309,19 @@ Combined preview + live (publish) operations. The `path` argument can be a **str
 ### Examples
 
 ```js
-// Single preview — returns parsed JSON by default
-const previewJob = await aem.preview('/adobe/aem-boilerplate/index.html');
+import { asJson, aem } from '/nx2/utils/api.js';
 
-// Single preview — raw Response when you need headers/permissions
-const resp = await aem.preview('/adobe/aem-boilerplate/index.html', { returnJson: false });
+// Single preview — returns raw Response; use asJson to parse
+const { data: previewJob } = await asJson(aem.preview('/adobe/aem-boilerplate/index.html'));
+
+// Or work with the Response directly when you need headers/permissions
+const resp = await aem.preview('/adobe/aem-boilerplate/index.html');
 if (resp.ok) { /* … */ }
 
-// GET preview status (parsed JSON)
-const status = await aem.getPreview({ org, site, path: '/index.html' });
+// GET preview status
+const { data: status } = await asJson(aem.getPreview({ org, site, path: '/index.html' }));
 
-// Bulk publish with extras — always returns Response
+// Bulk publish with extras
 const bulkResp = await aem.publish({
   org, site,
   path: ['/a.html', '/b.html', '/c.html'],
@@ -318,10 +344,10 @@ Snapshot CRUD plus review/publish actions. Snapshots are AEM-only. New API uses 
 | ------------ | ------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
 | `list`       | `({ org, site })`                     | List all snapshots                                                                                            |
 | `get`        | `({ org, site, snapshotId })`         | Retrieve manifest                                                                                             |
-| `update`     | `({ org, site, snapshotId, body? })`  | POST manifest                                                                                                 |
+| `save`       | `({ org, site, snapshotId, body? })`  | POST manifest (create-or-update; aligns with AEM's `createSnapshot` operation).                               |
 | `delete`     | `({ org, site, snapshotId })`         | DELETE                                                                                                        |
-| `addPath`    | `({ org, site, snapshotId, path })`   | string → POST `…/{snapshotId}{path}`. Array of 2+ → POST `…/{snapshotId}/*` with `{ paths }`.                 |
-| `removePath` | `({ org, site, snapshotId, path })`   | string → DELETE `…/{snapshotId}{path}`. Array of 2+ → POST `…/{snapshotId}/*` with `{ paths, delete: true }`. |
+| `addPath`    | `({ org, site, snapshotId, path })`   | `path` is auto-normalized to a leading slash. String → POST `…/{snapshotId}{path}`. Array of 2+ → POST `…/{snapshotId}/*` with `{ paths }`. |
+| `removePath` | `({ org, site, snapshotId, path })`   | `path` is auto-normalized to a leading slash. String → DELETE `…/{snapshotId}{path}`. Array of 2+ → POST `…/{snapshotId}/*` with `{ paths, delete: true }`. |
 | `publish`    | `({ org, site, snapshotId })`         | POST `?publish=true`                                                                                          |
 | `review`     | `({ org, site, snapshotId, action })` | POST `?review=…`. `action`: `'request'` | `'approve'` | `'reject'`                                            |
 
@@ -330,7 +356,7 @@ Snapshot CRUD plus review/publish actions. Snapshots are AEM-only. New API uses 
 
 ```js
 // Create + populate + publish a snapshot
-await snapshot.update({
+await snapshot.save({
   org, site, snapshotId: 'snap-1', body: { title: 'Launch candidate' },
 });
 await snapshot.addPath({
@@ -389,11 +415,26 @@ fromPath('/adobe/aem-boilerplate/index.html');
 // → { org: 'adobe', site: 'aem-boilerplate', path: '/index.html' }
 ```
 
-### `hlx6ToDaList(parentPath, items)`
+### `asJson(promise)` / `asText(promise)`
 
-Normalizes a folder listing returned by hlx6's source bus into the shape DA's `/list` endpoint produces. Folders get their trailing slash stripped, file extensions get extracted into `ext`, `last-modified` becomes a unix timestamp at `lastModified`. Items without a `content-type` (i.e., DA's existing format) pass through unchanged.
+Opt-in unwrappers. Each awaits a namespace method's returned promise, attempts to parse the body, and returns a flat result:
 
-Useful when you want to render a folder listing without caring whether the site is hlx6 or legacy.
+```ts
+{ ok: boolean, data: T | null, status: number, error: null | 'no-response' | 'not-ok' | 'parse-failed' }
+```
+
+- On success (`resp.ok`): `{ ok: true, data: <parsed>, status, error: null }`.
+- On failure: `{ ok: false, data: <error body if parseable, else null>, status, error: <reason> }`. The body is still parsed when possible, so error JSON (e.g., `{ error: 'bad request' }`) surfaces in `data`.
+
+```js
+const { ok, data: cfg, status, error } = await asJson(config.get({ org, site }));
+if (!ok) { console.warn(`failed (${status}, ${error})`, cfg); return; }
+useConfig(cfg);
+
+const { data: html } = await asText(source.get(path));
+```
+
+For a boolean ok-check on a `Response`-returning method, destructure directly without a helper: `const { ok } = await source.delete(path);`
 
 ### `signout()`
 
@@ -414,43 +455,39 @@ const resp = await daFetch({
 
 ## Error handling
 
-No method throws on HTTP failure. The branching idiom depends on the return category (see [Return values](#return-values)):
-
-**Raw `Response` methods** — branch on `resp.ok` / `resp.status`:
+No method throws on HTTP failure. Branch on `resp.ok` (or `resp.status`):
 
 ```js
-const resp = await source.load(path);
-if (!resp.ok) {
-  // 4xx/5xx — handle as appropriate
-  return;
-}
-const json = await resp.json();
+const resp = await source.get(path);
+if (!resp.ok) return;            // 4xx/5xx
+const html = await resp.text();
 ```
 
-**Normalized `source` methods** — branch on `ok`:
+Or use the opt-in helpers to collapse the parse + ok-check into one line:
+
+```js
+const { ok: htmlOk, data: html, status } = await asText(source.get(path));
+if (!htmlOk) return;             // inspect `status` / `error` if needed
+
+const { ok: cfgOk, data: cfg } = await asJson(config.get({ org, site }));
+if (!cfgOk) return;
+
+const { ok: deleted } = await source.delete(path);  // boolean
+```
+
+`source.list` is the one method that doesn't return a `Response` — branch on the wrapper's `ok`:
 
 ```js
 const { ok, items } = await source.list(path);
 if (!ok) return;
 ```
 
-**Parsed-JSON methods** (`status.get`, `aem` single-path default) — check for `undefined`:
-
-```js
-const data = await aem.getPreview({ org, site, path: '/index.html' });
-if (data === undefined) {
-  // non-ok or unparseable body
-  return;
-}
-```
-
 **Special return shapes:**
 
 - `daFetch` returns `{}` (empty object) when no IMS access token is available.
 - `config.getAggregated` returns `{ error: 'Requires Helix 6 upgrade', status: 501 }` when the site isn't hlx6.
-- `aem.unPreview` / `aem.unPublish` return `{ ok: true, status: 204 }` on a successful single-path delete (default `returnJson: true`), and `undefined` otherwise.
 
-`**console.error` on bad args:** when an invalid first argument is passed (missing `org`), the module logs a console error but doesn't throw — the bad call still flows through and produces a malformed URL that the server will reject. The console message is the only signal from the client side; rely on the server's response status for handling.
+**`console.error` on bad args:** when an invalid first argument is passed (missing `org`), the module logs a console error but doesn't throw — the bad call still flows through and produces a malformed URL that the server will reject. The console message is the only signal from the client side; rely on the server's response status for handling.
 
 ---
 
@@ -468,8 +505,9 @@ These are not exported, but understanding them helps when reading the source.
 
 - `**getDaApiPath(api, org, site, path)`** — URL builder for endpoints DA proxies (`source`, `list`, `config`, `versions`). Branches on `isHlx6` to choose `DA_ADMIN` or `AEM_API`.
 - `**getAemApiPath(api, org, site, path)**` — URL builder for AEM-only endpoints (`status`, `preview`, `live`, `snapshots`, `jobs`). Branches on `isHlx6` to choose `HLX_ADMIN` (with hardcoded `ref=main`) or `AEM_API`.
-- `**withArgs(fn)**` — HOF that resolves the first arg (object or path string) and forwards a normalized `{ org, site, path, ...extras }` object to `fn`. Handles the bad-arg `console.error` for missing org.
-- `**callPath({ api, org, site, path, method, … })**` — Dispatcher used by `aem.*` methods. Handles the string-vs-array branching for bulk preview/publish operations, folds `forceUpdate`/`forceSync` into the bulk JSON body, and on single-path calls parses JSON when `returnJson` is true (default).
+- `**withArgs(fn)**` — HOF that resolves the first arg (object or path string) and forwards a normalized `{ org, site, path, ...extras }` object to `fn`. Handles the bad-arg `console.error` for missing org. Also prepends a leading slash to `path` if missing.
+- `**normalizePath(path)**` — Standalone leading-slash normalizer. Accepts a string or string-array (and passes non-strings through). Used by `snapshot.addPath` / `snapshot.removePath`, which don't go through `withArgs`.
+- `**callPath({ api, org, site, path, method, … })**` — Dispatcher used by `aem.*` methods. Handles the string-vs-array branching for bulk preview/publish operations and folds `forceUpdate` into the bulk JSON body. Returns a `Response`.
 - `**jsonOpts(method, payload)**` — small helper that builds `{ method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }`.
 
 ---
@@ -505,8 +543,7 @@ Defined locally:
 
 These are tracked but not yet resolved. They don't block typical usage; flagged here for completeness.
 
-- `**config.put` wire shape**: currently sends `multipart/form-data` with field `config`. The H5/H6 admin endpoints actually expect raw JSON body. DA's exact requirement is undocumented; existing da-live tests assert PUT instead of POST. Needs verification against running servers.
-- `**forceSync` field name**: the H6 server source reads `forceAsync` (with inverse meaning), not `forceSync`. Currently sending `forceSync: true` is silently ignored by the server. This affects the `aem.preview`/`aem.publish` bulk paths and `start/index.js` in da-live.
+- `**config.save` wire shape**: currently sends `multipart/form-data` with field `config`. The H5/H6 admin endpoints actually expect raw JSON body. DA's exact requirement is undocumented; existing da-live tests assert PUT instead of POST. Needs verification against running servers.
 
 ---
 

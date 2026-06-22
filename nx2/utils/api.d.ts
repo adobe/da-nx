@@ -4,6 +4,15 @@
  * Every namespace method accepts either an object form
  * `{ org, site, path, ...extras }` or a path-string form
  * `'/org/site/file/path'` (with extras passed as the second arg).
+ *
+ * Returns: all namespace methods return a raw `Response` augmented with
+ * `resp.permissions: string[]` — EXCEPT `source.list`, which merges body
+ * + header continuation token + normalized items into a `ListResult`.
+ *
+ * Opt-in helpers `asJson` / `asText` unwrap a method promise into
+ * `{ ok, data, status, error }`. `data` is the parsed body (populated on
+ * non-ok responses when parseable). For a plain boolean ok-check, destructure
+ * directly: `const { ok } = await foo()`.
  */
 
 /** A `Response` augmented with parsed permission hints from x-da-(child-)actions. */
@@ -24,20 +33,6 @@ export interface ListResult {
   permissions?: string[];
 }
 
-/** Normalized return shape for `source.delete` / `source.copy` / `source.move`. */
-export interface ActionResult {
-  ok: boolean;
-  status: number;
-}
-
-/** Normalized return shape for `source.getMetadata`. The value of a HEAD
- * request IS the headers (doc-id, last-modified, etc.). */
-export interface MetadataResult {
-  ok: boolean;
-  status: number;
-  headers: Headers;
-}
-
 // ─── low-level ──────────────────────────────────────────────────────────────
 
 export function daFetch(args: {
@@ -53,20 +48,45 @@ export function signout(): void;
 /** Split `/org/site/file/path` into `{ org, site, path }`. */
 export function fromPath(fullPath: string): { org: string; site: string; path: string };
 
+// ─── response helpers ──────────────────────────────────────────────────────
+
+/** Failure reason returned by `asJson` / `asText` when `ok` is false. */
+export type UnwrapError = 'no-response' | 'not-ok' | 'parse-failed';
+
+/** Flat result shape returned by `asJson` / `asText`.
+ *
+ * - `ok` mirrors `resp.ok`.
+ * - `data` is the parsed body. Populated even on non-ok when the error
+ *   response had a parseable body (matches axios). `null` when the body
+ *   could not be parsed or there is no response.
+ * - `status` is the HTTP status (`0` for no response).
+ * - `error` is `null` on success, otherwise an `UnwrapError` discriminator.
+ */
+export interface UnwrapResult<T> {
+  ok: boolean;
+  data: T | null;
+  status: number;
+  error: UnwrapError | null;
+}
+
+export function asJson<T = unknown>(promise: Promise<Response | unknown>): Promise<UnwrapResult<T>>;
+export function asText(promise: Promise<Response | unknown>): Promise<UnwrapResult<string>>;
+
+
 // ─── source ─────────────────────────────────────────────────────────────────
 
 export const source: {
   /**
-   * Load a document. Accepts either calling style:
+   * Get a document. Accepts either calling style:
    *
-   * - **Object:** `load({ org, site, path? })`
-   * - **Path:** `load('/org/site/file/path')`
+   * - **Object:** `get({ org, site, path? })`
+   * - **Path:** `get('/org/site/file/path')`
    *
    * Returns an augmented `Response` — use `resp.text()`, `resp.json()`, etc.
    *
    * @param arg Path string (`/org/site/file/path`) or `{ org, site, path? }`
    */
-  load(arg: any): Promise<ApiResponse>;
+  get(arg: any): Promise<ApiResponse>;
 
   /**
    * List folder contents. Accepts either calling style:
@@ -87,75 +107,40 @@ export const source: {
   /**
    * Save a document. Accepts either calling style:
    *
-   * - **Object:** `save({ org, site, path, data })`
-   * - **Path:** `save('/org/site/file/path', { data })`
+   * - **Object:** `save({ org, site, path, body })`
+   * - **Path:** `save('/org/site/file/path', { body })`
    *
-   * `data` is file contents (string, Blob, or File). On hlx6, `Content-Type` is
-   * set from the path extension (see `TYPE_MAP`).
+   * `body` is file contents (string, Blob, or File). `Content-Type` is set
+   * from the path extension via `TYPE_MAP`. On legacy DA, `body` is wrapped
+   * in a `multipart/form-data` field named `data`.
    *
    * Returns an augmented `Response`.
-   *
-   * @param arg Path string (`/org/site/file/path`) or `{ org, site, path, data }`
-   * @param pathExtras Path-form only — `{ data }` (required)
    */
   save(arg: any, pathExtras?: object): Promise<ApiResponse>;
 
   /**
-   * HEAD request for document metadata. Accepts either calling style:
-   *
-   * - **Object:** `getMetadata({ org, site, path })`
-   * - **Path:** `getMetadata('/org/site/file/path')`
-   *
-   * Returns `{ ok, status, headers }` — `headers` is the raw `Headers` object.
-   *
-   * @param arg Path string (`/org/site/file/path`) or `{ org, site, path }`
+   * HEAD request for document metadata. Returns an augmented `Response` —
+   * the value is in `resp.headers` (doc-id, last-modified, etc.).
    */
-  getMetadata(arg: any): Promise<MetadataResult>;
+  getMetadata(arg: any): Promise<ApiResponse>;
 
   /**
-   * Delete a document. Accepts either calling style:
-   *
-   * - **Object:** `delete({ org, site, path })`
-   * - **Path:** `delete('/org/site/file/path')`
-   *
-   * Returns `{ ok, status }` (204 on success, empty body). For recursive folder
-   * deletion use `deleteFolder`.
-   *
-   * @param arg Path string (`/org/site/file/path`) or `{ org, site, path }`
+   * Delete a document. Returns an augmented `Response` (204 on success,
+   * empty body). For recursive folder deletion use `deleteFolder`.
    */
-  delete(arg: any): Promise<ActionResult>;
+  delete(arg: any): Promise<ApiResponse>;
 
   /**
-   * Copy a document. Accepts either calling style:
-   *
-   * - **Object:** `copy({ org, site, path, destination, collision? })`
-   * - **Path:** `copy('/org/site/source/path', { destination, collision? })`
-   *
-   * `path` is the source file; `destination` is the target path (leading-slash).
-   * `collision` sets conflict policy when the destination exists (e.g. `'overwrite'`).
-   *
-   * Returns `{ ok, status }`.
-   *
-   * @param arg Path string (source `/org/site/file/path`) or object form above
-   * @param pathExtras Path-form only — `{ destination, collision? }`
+   * Copy a document. `path` is the source file; `destination` is the target
+   * path (leading-slash). `collision` sets conflict policy when the destination
+   * exists (e.g. `'overwrite'`). Returns an augmented `Response`.
    */
-  copy(arg: any, pathExtras?: object): Promise<ActionResult>;
+  copy(arg: any, pathExtras?: object): Promise<ApiResponse>;
 
   /**
-   * Move a document. Accepts either calling style:
-   *
-   * - **Object:** `move({ org, site, path, destination, collision? })`
-   * - **Path:** `move('/org/site/source/path', { destination, collision? })`
-   *
-   * `path` is the source file; `destination` is the target path (leading-slash).
-   * `collision` sets conflict policy when the destination exists (e.g. `'overwrite'`).
-   *
-   * Returns `{ ok, status }`.
-   *
-   * @param arg Path string (source `/org/site/file/path`) or object form above
-   * @param pathExtras Path-form only — `{ destination, collision? }`
+   * Move a document. Same shape as `copy`. Returns an augmented `Response`.
    */
-  move(arg: any, pathExtras?: object): Promise<ActionResult>;
+  move(arg: any, pathExtras?: object): Promise<ApiResponse>;
 
   /**
    * Create a folder. Accepts either calling style:
@@ -230,7 +215,7 @@ export const versions: {
 
 export const config: {
   get(arg: { org: string; site?: string }): Promise<ApiResponse>;
-  put(arg: {
+  save(arg: {
     org: string;
     site?: string;
     /** Config payload (typically a JSON Blob or string). */
@@ -250,121 +235,31 @@ export const org: {
 // ─── status ────────────────────────────────────────────────────────────────
 
 export const status: {
-  /** Single-path only. H6 has no bulk status endpoint. Returns parsed JSON
-   * (typically `{ preview, live, edit, ... }`) or `undefined` when the
-   * response is not ok or the body fails to parse. */
-  get(arg: { org: string; site: string; path: string }): Promise<unknown | undefined>;
+  /** Single-path only. H6 has no bulk status endpoint. Returns an augmented
+   * `Response` — parse with `await resp.json()` or `asJson(status.get(...))`. */
+  get(arg: { org: string; site: string; path: string }): Promise<ApiResponse>;
   /** `fullPath` is a `/org/site/file/path` string. */
-  get(fullPath: string): Promise<unknown | undefined>;
+  get(fullPath: string): Promise<ApiResponse>;
 };
 
 // ─── aem (preview + live) ───────────────────────────────────────────────────
 
-/** Parsed JSON from a single-path aem call when `returnJson` is true (default). */
-export type AemJson = unknown;
-
 export const aem: {
-  /**
-   * GET preview status (single path only). Accepts either calling style:
-   *
-   * - **Object:** `getPreview({ org, site, path, returnJson? })`
-   * - **Path:** `getPreview('/org/site/file/path', { returnJson? })`
-   *
-   * Default: parsed JSON; `undefined` when the response is not ok or fails to parse.
-   * Set `returnJson: false` for the raw augmented `Response`.
-   *
-   * @param arg Path string (`/org/site/file/path`) or `{ org, site, path, returnJson? }`
-   * @param pathExtras Path-form only — `{ returnJson? }`
-   */
-  getPreview(arg: any, pathExtras?: object): Promise<AemJson | undefined | ApiResponse>;
-
-  /**
-   * GET publish status (single path only). Accepts either calling style:
-   *
-   * - **Object:** `getPublish({ org, site, path, returnJson? })`
-   * - **Path:** `getPublish('/org/site/file/path', { returnJson? })`
-   *
-   * Default: parsed JSON; `undefined` when the response is not ok or fails to parse.
-   * Set `returnJson: false` for the raw augmented `Response`.
-   *
-   * @param arg Path string (`/org/site/file/path`) or `{ org, site, path, returnJson? }`
-   * @param pathExtras Path-form only — `{ returnJson? }`
-   */
-  getPublish(arg: any, pathExtras?: object): Promise<AemJson | undefined | ApiResponse>;
-
-  /**
-   * Update preview. Accepts either calling style:
-   *
-   * - **Object:** `preview({ org, site, path, forceUpdate?, forceSync?, returnJson? })`
-   * - **Path:** `preview('/org/site/file/path', { forceUpdate?, forceSync?, returnJson? })`
-   *
-   * `path` as a string (or one-item array) hits the single-path endpoint.
-   * `path` as an array of length ≥ 2 routes to the bulk `/*` endpoint
-   * (always returns an augmented `Response`; `returnJson` does not apply).
-   * `forceUpdate` and `forceSync` are bulk-only — the server ignores them on single-path calls.
-   *
-   * Default: parsed JSON on single-path success; `undefined` when not ok.
-   * Set `returnJson: false` for the raw augmented `Response` on single-path calls.
-   *
-   * @param arg Path string, object form above, or bulk object with `path: string[]`
-   * @param pathExtras Path-form only — `{ forceUpdate?, forceSync?, returnJson? }`
-   */
-  preview(arg: any, pathExtras?: object): Promise<AemJson | undefined | ApiResponse>;
-
-  /**
-   * Remove from preview. Accepts either calling style:
-   *
-   * - **Object:** `unPreview({ org, site, path, returnJson? })`
-   * - **Path:** `unPreview('/org/site/file/path', { returnJson? })`
-   *
-   * `path` as a string (or one-item array) → DELETE `/preview/{path}`.
-   * `path` as an array of length ≥ 2 → POST `/preview/.../*` with `{ paths, delete: true }`
-   * (always returns an augmented `Response`; `returnJson` does not apply).
-   *
-   * Default: `{ ok, status }` on single-path success (204); `undefined` otherwise.
-   * Set `returnJson: false` for the raw augmented `Response` on single-path calls.
-   *
-   * @param arg Path string, object form above, or bulk object with `path: string[]`
-   * @param pathExtras Path-form only — `{ returnJson? }`
-   */
-  unPreview(arg: any, pathExtras?: object): Promise<ActionResult | undefined | ApiResponse>;
-
-  /**
-   * Publish. Accepts either calling style:
-   *
-   * - **Object:** `publish({ org, site, path, forceUpdate?, forceSync?, returnJson? })`
-   * - **Path:** `publish('/org/site/file/path', { forceUpdate?, forceSync?, returnJson? })`
-   *
-   * `path` as a string (or one-item array) hits the single-path endpoint.
-   * `path` as an array of length ≥ 2 routes to the bulk `/*` endpoint
-   * (always returns an augmented `Response`; `returnJson` does not apply).
-   * `forceUpdate` and `forceSync` are bulk-only — the server ignores them on single-path calls.
-   *
-   * Default: parsed JSON on single-path success; `undefined` when not ok.
-   * Set `returnJson: false` for the raw augmented `Response` on single-path calls.
-   *
-   * @param arg Path string, object form above, or bulk object with `path: string[]`
-   * @param pathExtras Path-form only — `{ forceUpdate?, forceSync?, returnJson? }`
-   */
-  publish(arg: any, pathExtras?: object): Promise<AemJson | undefined | ApiResponse>;
-
-  /**
-   * Unpublish. Accepts either calling style:
-   *
-   * - **Object:** `unPublish({ org, site, path, returnJson? })`
-   * - **Path:** `unPublish('/org/site/file/path', { returnJson? })`
-   *
-   * `path` as a string (or one-item array) → DELETE `/live/{path}`.
-   * `path` as an array of length ≥ 2 → POST `/live/.../*` with `{ paths, delete: true }`
-   * (always returns an augmented `Response`; `returnJson` does not apply).
-   *
-   * Default: `{ ok, status }` on single-path success (204); `undefined` otherwise.
-   * Set `returnJson: false` for the raw augmented `Response` on single-path calls.
-   *
-   * @param arg Path string, object form above, or bulk object with `path: string[]`
-   * @param pathExtras Path-form only — `{ returnJson? }`
-   */
-  unPublish(arg: any, pathExtras?: object): Promise<ActionResult | undefined | ApiResponse>;
+  /** GET preview status (single path only). Returns augmented `Response`. */
+  getPreview(arg: any, pathExtras?: object): Promise<ApiResponse>;
+  /** GET publish status (single path only). Returns augmented `Response`. */
+  getPublish(arg: any, pathExtras?: object): Promise<ApiResponse>;
+  /** Update preview. `path` string → single-path POST. `path` string[] of 2+ →
+   * bulk POST to `/*` with `{ paths, forceUpdate? }` body.
+   * `forceUpdate` is bulk-only. Returns augmented `Response`. */
+  preview(arg: any, pathExtras?: object): Promise<ApiResponse>;
+  /** Remove from preview. `path` string → DELETE. Array of 2+ → POST `/*`
+   * with `{ paths, delete: true }`. Returns augmented `Response`. */
+  unPreview(arg: any, pathExtras?: object): Promise<ApiResponse>;
+  /** Publish. Same shape as `preview`. Returns augmented `Response`. */
+  publish(arg: any, pathExtras?: object): Promise<ApiResponse>;
+  /** Unpublish. Same shape as `unPreview`. Returns augmented `Response`. */
+  unPublish(arg: any, pathExtras?: object): Promise<ApiResponse>;
 };
 
 // ─── snapshot ───────────────────────────────────────────────────────────────
@@ -372,7 +267,7 @@ export const aem: {
 export const snapshot: {
   list(arg: { org: string; site: string }): Promise<ApiResponse>;
   get(arg: { org: string; site: string; snapshotId: string }): Promise<ApiResponse>;
-  update(arg: {
+  save(arg: {
     org: string;
     site: string;
     snapshotId: string;
