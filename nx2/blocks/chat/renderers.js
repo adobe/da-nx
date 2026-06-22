@@ -43,17 +43,13 @@ function parseDirectiveJSON(content) {
 function renderPlanDirective(content) {
   const plan = parseDirectiveJSON(content);
   if (!plan) return html`<div class="directive directive-plan"></div>`;
-  const el = document.createElement('nx-campaign-plan-card');
-  el.plan = plan;
-  return el;
+  return html`<nx-campaign-plan-card .plan=${plan}></nx-campaign-plan-card>`;
 }
 
 function renderTaskListDirective(content) {
   const data = parseDirectiveJSON(content);
   if (!data) return html`<div class="directive directive-task-list"></div>`;
-  const el = document.createElement('nx-task-list');
-  el.tasks = data.tasks ?? [];
-  return el;
+  return html`<nx-task-list .tasks=${data.tasks ?? []}></nx-task-list>`;
 }
 
 /**

@@ -50,7 +50,7 @@
   display: inline-block;
   flex-shrink: 0;
   background-color: currentcolor;
-  mask-image: url("https://da.live/img/icons/s2-icon-aichat-20-n.svg");
+  mask-image: url("/img/icons/s2-icon-aichat-20-n.svg");
   mask-size: contain;
   mask-repeat: no-repeat;
   mask-position: center;

@@ -19,12 +19,12 @@ const styles = await loadStyle(import.meta.url);
 class NxCampaignPlanCard extends LitElement {
   static properties = {
     plan: { attribute: false },
-    _expanded: { state: true },
+    _isExpanded: { state: true },
   };
 
   constructor() {
     super();
-    this._expanded = true;
+    this._isExpanded = true;
   }
 
   connectedCallback() {
@@ -87,17 +87,14 @@ class NxCampaignPlanCard extends LitElement {
 
     const running = this._runningState(tasks);
     const isRunning = running !== null;
-    const allDone = tasks.length > 0 && tasks.every((t) => t.status === TASK_STATUS.DONE);
-    const isDone = !isRunning && allDone;
+    const isAllDone = tasks.length > 0 && tasks.every((t) => t.status === TASK_STATUS.DONE);
+    const isDone = !isRunning && isAllDone;
     let runBtnLabel = 'Run';
     if (isRunning) runBtnLabel = 'Running...';
     else if (isDone) runBtnLabel = 'Done';
     const runBtnClass = `plan-btn ${isRunning ? 'plan-btn-ghost' : 'plan-btn-primary'} plan-btn-run`;
-    const chevronClass = `plan-icon-btn${this._expanded ? ' plan-icon-btn-expanded' : ''}`;
-    const chevronLabel = this._expanded ? 'Collapse plan' : 'Expand plan';
-
-    // Collapsed: show current running task only; hide tasks entirely when not running
-    const showCollapsed = !this._expanded;
+    const chevronClass = `plan-icon-btn${this._isExpanded ? ' plan-icon-btn-expanded' : ''}`;
+    const chevronLabel = this._isExpanded ? 'Collapse plan' : 'Expand plan';
 
     return html`
       <div class="plan-card">
@@ -117,7 +114,7 @@ class NxCampaignPlanCard extends LitElement {
               type="button"
               class=${chevronClass}
               aria-label=${chevronLabel}
-              @click=${() => { this._expanded = !this._expanded; }}
+              @click=${() => { this._isExpanded = !this._isExpanded; }}
             >${this._renderChevronIcon()}</button>
           </div>
         </div>
@@ -127,10 +124,10 @@ class NxCampaignPlanCard extends LitElement {
           ${description ? html`<p class="plan-description">${description}</p>` : nothing}
         </div>
 
-        ${showCollapsed && isRunning
+        ${!this._isExpanded && isRunning
           ? this._renderTasksCollapsed(running.task, running.current, tasks.length)
           : nothing}
-        ${!showCollapsed ? this._renderTasksFull(tasks) : nothing}
+        ${this._isExpanded ? this._renderTasksFull(tasks) : nothing}
       </div>
     `;
   }
