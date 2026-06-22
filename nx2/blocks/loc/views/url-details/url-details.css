@@ -33,11 +33,11 @@
     width: 33.33px;
     height: 32px;
     border-radius: 5px;
-    background-color: #959595;
+    background-color: var(--s2-gray-500);
     flex: 0 0 auto;
 
     &.is-active {
-      background-color: rgb(250 15 0);
+      background-color: var(--s2-red-900);
     }
   }
 

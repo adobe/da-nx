@@ -33,7 +33,7 @@ p {
   justify-content: center;
   align-items: center;
   transition: transform 0.2s ease-in-out;
-  background: #e8e6e6;
+  background: var(--s2-gray-100);
   width: 32px;
   height: 32px;
   border-radius: 16px;
@@ -75,7 +75,7 @@ p {
 
 .da-lang-card {
   position: relative;
-  background: #fff;
+  background: var(--s2-gray-25);
   box-shadow: rgb(0 0 0 / 8%) 0 0 16px, rgb(0 0 0 / 12%) 0 3px 6px;
   border-radius: var(--s2-corner-radius-500);
   overflow: hidden;
@@ -89,14 +89,14 @@ p {
   min-height: 100px;
   padding: var(--s2-spacing-400);
   box-sizing: border-box;
-  background: #676767;
+  background: var(--s2-gray-600);
   color: #fff;
 }
 
 .da-card-header.translated,
 .da-card-header.rolling-out,
 .da-card-header.saving {
-  background: #087e89;
+  background: var(--s2-seafoam-900);
 }
 
 .da-card-header.ready,
@@ -104,11 +104,11 @@ p {
 .da-card-header.uploading,
 .da-card-header.uploaded,
 .da-card-header.sending {
-  background: #0b78b3;
+  background: var(--s2-cyan-900);
 }
 
 .da-card-header.complete {
-  background: #05834e;
+  background: var(--s2-green-900);
 }
 
 .da-card-subtitle {

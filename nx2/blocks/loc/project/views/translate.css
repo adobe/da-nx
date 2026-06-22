@@ -8,8 +8,8 @@
   position: relative;
   padding: var(--s2-spacing-400) var(--s2-spacing-400);
   box-sizing: border-box;
-  border-top: 1px solid rgb(229 229 229);
-  border-bottom: 1px solid rgb(229 229 229);
+  border-top: 1px solid var(--s2-gray-200);
+  border-bottom: 1px solid var(--s2-gray-200);
   margin: -1px 0;
 }
 

@@ -20,8 +20,18 @@ const EW_ORIGINS = {
   prod: 'https://main--ew-extensions--adobe-rnd.aem.live',
 };
 
+const COLOR_SCHEMES = ['dark-scheme', 'light-scheme'];
+
+// Only honor an explicit, known scheme from the URL. The param lets a parent
+// (e.g. the shell iframe) force a scheme across the document boundary, but it
+// is untrusted input, so we allowlist it before applying it to the DOM.
+function getSchemeParam() {
+  const param = new URLSearchParams(window.location.search).get('colorScheme');
+  return COLOR_SCHEMES.includes(param) ? param : null;
+}
+
 export function getColorScheme() {
-  return new URLSearchParams(window.location.search).get('colorScheme')
+  return getSchemeParam()
     || localStorage.getItem('color-scheme')
     || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark-scheme' : 'light-scheme');
 }
@@ -293,10 +303,7 @@ async function decorateDoc() {
   const template = getMetadata('template');
   if (template) document.body.classList.add(template);
 
-  // The colorScheme param lets a parent (e.g. the shell iframe) force a scheme
-  // across the document boundary, since localStorage is not shared cross-origin.
-  const scheme = new URLSearchParams(window.location.search).get('colorScheme')
-    || localStorage.getItem('color-scheme');
+  const scheme = getSchemeParam() || localStorage.getItem('color-scheme');
   if (scheme) document.body.classList.add(scheme);
 
   const pageId = window.location.hash?.replace('#', '');
