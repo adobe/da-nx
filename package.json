@@ -68,6 +68,8 @@
     "@adobe/mdast-util-gridtables": "^4.0.6",
     "@adobe/remark-gridtables": "^3.0.6",
     "@codemirror/lang-json": "^6.0.2",
+    "@codemirror/lang-markdown": "^6.5.0",
+    "@fsegurai/codemirror-theme-github-dark": "^6.2.5",
     "@fsegurai/codemirror-theme-github-light": "^6.2.2",
     "@lit-labs/virtualizer": "^2.0.16",
     "codemirror": "^6.0.2",
