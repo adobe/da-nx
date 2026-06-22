@@ -85,5 +85,12 @@ export default defineConfig([
       'no-unused-expressions': 0,
     },
   },
+  {
+    // Allow devDependencies in Playwright config and e2e specs
+    files: ['playwright.config.js', 'nx2/test/e2e/**/*.js'],
+    rules: {
+      'import/no-extraneous-dependencies': ['error', { devDependencies: true }],
+    },
+  },
 ]);
 
