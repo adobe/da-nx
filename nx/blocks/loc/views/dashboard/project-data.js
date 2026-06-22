@@ -20,8 +20,7 @@ import createProjectCache from './project-cache.js';
 import { daFetch } from '../../../../utils/daFetch.js';
 import { DA_ORIGIN } from '../../../../public/utils/constants.js';
 import { fetchProject } from './index.js';
-
-const MAX_CONCURRENT_REQUESTS = 50;
+import { MAX_CONCURRENT_READS } from '../../project/index.js';
 
 const createProjectData = async ({
   org, site, currentUser, initialType, handleError, initialSignal,
@@ -177,7 +176,7 @@ const createProjectData = async ({
     const queue = new Queue(async (project) => {
       const result = await fetchProjectDetails(project, signal);
       results.push(result);
-    }, MAX_CONCURRENT_REQUESTS);
+    }, MAX_CONCURRENT_READS);
 
     await Promise.all(projectList.map((project) => queue.push(project)));
     return results.sort((a, b) => b.createdOn - a.createdOn);

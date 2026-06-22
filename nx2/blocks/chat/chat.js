@@ -1,13 +1,13 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle, hashChange } from '../../utils/utils.js';
-import { readFileAsBase64 } from './utils.js';
+import { readFileAsBase64 } from './utils/stream.js';
 import '../shared/menu/menu.js';
 import ChatController from './chat-controller.js';
 import { renderMessage, renderApprovalCard } from './renderers.js';
 import './welcome/welcome.js';
 import './prompts/prompts.js';
 import './pills/pills.js';
-import { loadSiteConfig } from './api.js';
+import { loadSiteConfig } from './utils/api.js';
 import { ADOBE_AI_GUIDELINES_URL, ADD_MENU_ITEMS, MENU_OPTIONS, ROLE, TOOL_STATE } from './constants.js';
 import { getConfig } from '../../scripts/nx.js';
 
@@ -62,6 +62,14 @@ class NxChat extends LitElement {
     }
   };
 
+  setPrompt(text, { autoSend = false } = {}) {
+    if (this.connected) {
+      this._sendPrompt(text, { autoSend });
+    } else {
+      this._pendingPrompt = { text, autoSend };
+    }
+  }
+
   addAttachment(item) {
     const current = this._items ?? [];
     if (current.some((i) => i.id === item.id)) return;
@@ -92,9 +100,10 @@ class NxChat extends LitElement {
     const key = `${org}/${site}`;
     if (this._configKey === key) return;
     this._configKey = key;
-    const { prompts, skills } = await loadSiteConfig(org, site);
+    const { prompts, skills, mcpServers, mcpServerHeaders } = await loadSiteConfig(org, site);
     this._prompts = prompts ?? [];
     this._skills = skills ?? [];
+    this._controller?.setMcpConfig(mcpServers ?? {}, mcpServerHeaders ?? {});
     if (this._slashCtx) this._syncSlashMenu(this._slashCtx);
   }
 
@@ -223,10 +232,19 @@ class NxChat extends LitElement {
     }
   };
 
+  willUpdate(changed) {
+    if (changed.has('messages')) {
+      const log = this.shadowRoot?.querySelector('.chat-scroll-container');
+      this._wasNearBottom = !log || (log.scrollHeight - log.scrollTop - log.clientHeight < 50);
+    }
+  }
+
   updated(changed) {
     if (changed.has('messages')) {
       const log = this.shadowRoot.querySelector('.chat-scroll-container');
-      if (log) requestAnimationFrame(() => { log.scrollTop = log.scrollHeight; });
+      if (log && this._wasNearBottom) {
+        requestAnimationFrame(() => { log.scrollTop = log.scrollHeight; });
+      }
     }
     if (changed.has('thinking') && !this.thinking && changed.get('thinking')) {
       this.shadowRoot.querySelector('.chat-input')?.focus();
@@ -237,6 +255,11 @@ class NxChat extends LitElement {
       } else {
         document.removeEventListener('keydown', this._onApprovalKeydown);
       }
+    }
+    if (changed.has('connected') && this.connected && this._pendingPrompt) {
+      const { text, autoSend } = this._pendingPrompt;
+      this._pendingPrompt = null;
+      this._sendPrompt(text, { autoSend });
     }
   }
 
@@ -312,13 +335,17 @@ class NxChat extends LitElement {
     this._items = [];
   }
 
-  _sendPrompt(prompt) {
+  _sendPrompt(prompt, { autoSend = false } = {}) {
     if (!prompt || this.thinking || !this.connected) return;
     this.shadowRoot.querySelector('.prompts-popover')?.close();
     const input = this.shadowRoot.querySelector('.chat-input');
     if (!input) return;
     input.value = prompt;
-    input.focus();
+    if (autoSend) {
+      input.closest('form')?.requestSubmit();
+    } else {
+      input.focus();
+    }
   }
 
   _handleMenuSelect({ detail: { id } }) {
