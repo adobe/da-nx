@@ -7,6 +7,9 @@ import { renderMessage, renderApprovalCard } from './renderers.js';
 import './welcome/welcome.js';
 import './prompts/prompts.js';
 import './pills/pills.js';
+import './messages/campaign-plan-card.js';
+import './messages/task-list.js';
+import './messages/task-item.js';
 import { loadSiteConfig } from './utils/api.js';
 import { ADOBE_AI_GUIDELINES_URL, ADD_MENU_ITEMS, MENU_OPTIONS, ROLE, TOOL_STATE } from './constants.js';
 import { getConfig } from '../../scripts/nx.js';
@@ -482,7 +485,20 @@ class NxChat extends LitElement {
               @nx-show-prompts=${this._openPrompts}
             ></nx-chat-welcome>`
         : nothing}
-        ${this.messages?.map((msg) => renderMessage(msg, this.toolCards))}
+        ${(() => {
+          const msgs = this.messages ?? [];
+          const last = msgs.at(-1);
+          const streamingText = last?.streaming ? last.content : null;
+          // TEXT_END splits output into one string message per inter-tool segment, so
+          // task-item directives for step N may live in a different message than step N+1.
+          // Concatenate all assistant text to let mergeTaskItemsFromText find them all.
+          const allAssistantText = streamingText ? null : msgs
+            .filter((m) => m.role === ROLE.ASSISTANT && typeof m.content === 'string' && !m.streaming)
+            .map((m) => m.content)
+            .join('\n') || null;
+          const taskText = streamingText ?? allAssistantText;
+          return msgs.map((msg) => renderMessage(msg, this.toolCards, taskText));
+        })()}
         ${this.thinking && !this.messages?.at(-1)?.streaming ? html`<div class="chat-thinking">Thinking...</div>` : nothing}
         </div>
       </div>

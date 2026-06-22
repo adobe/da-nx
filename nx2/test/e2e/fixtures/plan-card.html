@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Plan Card Fixture</title>
+  <script type="importmap">
+    {
+      "imports": {
+        "da-lit": "/nx2/deps/lit/dist/index.js"
+      }
+    }
+  </script>
+</head>
+<body>
+  <nx-campaign-plan-card id="card"></nx-campaign-plan-card>
+  <script type="module">
+    import '/nx2/blocks/chat/messages/campaign-plan-card.js';
+    const card = document.getElementById('card');
+    card.plan = {
+      title: 'Test Plan',
+      description: 'A test description',
+      tasks: [
+        { id: '1', label: 'Read content', status: 'pending' },
+        { id: '2', label: 'Write draft', status: 'pending' },
+      ],
+    };
+  </script>
+</body>
+</html>
