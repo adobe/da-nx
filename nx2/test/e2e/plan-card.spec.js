@@ -8,12 +8,12 @@ const shadow = (host, selector) => host.locator(`css=${selector}`);
 test.describe('nx-campaign-plan-card', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto(FIXTURE);
-    // Wait for Lit to render the shadow root
-    await page.waitForSelector('nx-campaign-plan-card');
+    // Wait for Lit to render — element is in DOM immediately but shadow root
+    // and styles are async, so wait until .plan-title exists in the shadow DOM
     await page.waitForFunction(() => {
       const el = document.getElementById('card');
       return el?.shadowRoot?.querySelector('.plan-title') != null;
-    });
+    }, { timeout: 10000 });
   });
 
   test('renders title and description', async ({ page }) => {
