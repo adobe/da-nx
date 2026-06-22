@@ -2,7 +2,8 @@ import { LitElement, html, nothing } from '../../../../deps/lit/dist/index.js';
 import { getConfig } from '../../../../scripts/nexter.js';
 import getStyle from '../../../../utils/styles.js';
 import { getSvg } from '../../../../utils/svg.js';
-import { overwriteCopy, rolloutCopy, formatDate, saveStatus } from '../index.js';
+import { overwriteCopy, rolloutCopy, formatDate, MAX_CONCURRENT_WRITES, saveStatus } from '../index.js';
+import { Queue } from '../../../../public/utils/tree.js';
 
 const { nxBase } = getConfig();
 const style = await getStyle(import.meta.url);
@@ -31,10 +32,10 @@ class NxLocSync extends LitElement {
     getSvg({ parent: this.shadowRoot, paths: ICONS });
   }
 
-  syncDone() {
+  async syncDone() {
     this._status = undefined;
     this.sourceLang.lastSync = Date.now();
-    saveStatus(this.state);
+    await saveStatus(this.state);
   }
 
   async syncUrl(url) {
@@ -62,11 +63,12 @@ class NxLocSync extends LitElement {
 
     let complete = 0;
     this._status = `Syncing ${this.urls.length} URLs to ${this.sourceLang.name} for translation.`;
-    await Promise.all(this.urls.map(async (url) => {
+    const queue = new Queue(async (url) => {
       await this.syncUrl(url);
       complete += 1;
       this._status = `Syncing ${this.urls.length - complete} URLs to ${this.sourceLang.name} for translation.`;
-    }));
+    }, MAX_CONCURRENT_WRITES);
+    await Promise.all(this.urls.map((url) => queue.push(url)));
 
     target.disabled = false;
     this.syncDone();
