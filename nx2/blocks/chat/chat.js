@@ -2,7 +2,7 @@ import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle, hashChange } from '../../utils/utils.js';
 import { readFileAsBase64 } from './utils/stream.js';
 import '../shared/menu/menu.js';
-import ChatController from './chat-controller.js';
+import ChatController from './controllers/chat-controller.js';
 import { renderMessage, renderApprovalCard } from './renderers.js';
 import './welcome/welcome.js';
 import './prompts/prompts.js';
@@ -180,12 +180,16 @@ class NxChat extends LitElement {
         }));
       },
       onUpdate: ({ messages, thinking, streamingText, connected, toolCards }) => {
-        this.messages = streamingText
+        const newMessages = streamingText
           ? [...(messages ?? []), { role: ROLE.ASSISTANT, content: streamingText, streaming: true }]
           : messages;
-        this.thinking = thinking;
-        this.connected = connected;
-        this.toolCards = toolCards;
+        cancelAnimationFrame(this._updateRaf);
+        this._updateRaf = requestAnimationFrame(() => {
+          this.messages = newMessages;
+          this.thinking = thinking;
+          this.connected = connected;
+          this.toolCards = toolCards;
+        });
       },
     });
     if (this._context) this._controller.setContext(this._context);
@@ -200,6 +204,7 @@ class NxChat extends LitElement {
 
   disconnectedCallback() {
     super.disconnectedCallback();
+    cancelAnimationFrame(this._updateRaf);
     (this._items ?? []).forEach((item) => {
       if (item.thumbnail) URL.revokeObjectURL(item.thumbnail);
     });
@@ -243,7 +248,8 @@ class NxChat extends LitElement {
     if (changed.has('messages')) {
       const log = this.shadowRoot.querySelector('.chat-scroll-container');
       if (log && this._wasNearBottom) {
-        requestAnimationFrame(() => { log.scrollTop = log.scrollHeight; });
+        cancelAnimationFrame(this._scrollRaf);
+        this._scrollRaf = requestAnimationFrame(() => { log.scrollTop = log.scrollHeight; });
       }
     }
     if (changed.has('thinking') && !this.thinking && changed.get('thinking')) {

@@ -13,8 +13,8 @@
   display: block;
   padding: var(--s2-spacing-75) var(--s2-spacing-100);
   color: light-dark(var(--s2-gray-600), var(--s2-gray-700));
-  font-size: var(--s2-body-size-xs);
-  font-weight: var(--s2-heading-font-weight);
+  font-size: var(--s2-body-size-xxs);
+  line-height: var(--s2-component-xs-regular-line-height);
   cursor: default;
 }
 
@@ -29,7 +29,8 @@
   background: none;
   color: var(--s2-gray-900);
   font-family: inherit;
-  font-size: var(--s2-body-size-s);
+  font-size: var(--s2-body-size-xs);
+  line-height: var(--s2-component-s-regular-line-height);
   margin-bottom: 2px;
   cursor: pointer;
   box-sizing: border-box;
