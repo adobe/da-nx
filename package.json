@@ -63,7 +63,7 @@
     "stylelint-config-standard": "40.0.0"
   },
   "dependencies": {
-    "@adobe/da-sc-sdk": "^0.1.0",
+    "@adobe/da-sc-sdk": "^0.1.2",
     "@adobe/helix-markdown-support": "^7.1.18",
     "@adobe/mdast-util-gridtables": "^4.0.6",
     "@adobe/remark-gridtables": "^3.0.6",
