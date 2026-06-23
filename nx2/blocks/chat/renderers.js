@@ -107,16 +107,17 @@ function renderAssistantMessage(msg, toolCards) {
 }
 
 function renderSelectionPills(msg) {
-  const contextItem = (name) => html`
+  const contextItem = (name, iconName) => html`
     <li class="selection-context-item">
       <svg class="selection-icon" viewBox="0 0 20 20" aria-hidden="true">
-        <use href="${codeBase}/img/icons/${fileIconName(name)}.svg#icon"></use>
+        <use href="${codeBase}/img/icons/${iconName ?? fileIconName(name)}.svg#icon"></use>
       </svg>
       <span>${name}</span>
     </li>`;
 
+  const selectionIcon = (sc) => (sc.type === 'text' ? 's2-icon-text-20-n' : 's2-icon-3d-20-n');
   const items = [
-    ...(msg.selectionContext ?? []).map(({ blockName }) => contextItem(blockName)),
+    ...(msg.selectionContext ?? []).map((sc) => contextItem(sc.blockName || 'Selection', selectionIcon(sc))),
     ...(msg.attachmentsMeta ?? []).map(({ fileName }) => contextItem(fileName)),
   ];
   if (items.length === 1) {
