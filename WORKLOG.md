@@ -1,5 +1,14 @@
 # Worklog
 
+## 2026-06-23
+
+### Loc moved nx → nx2
+- Migrated the full Loc app (dashboard, project wizard, connectors, DNT/regional-diff pipelines, 255 tests) onto the nx2 API/IMS/config/Lit layer.
+- **Styling — pure nx2 tokens.** Rejected a `loc-tokens.css` nx compat shim; converted every Loc CSS file to Spectrum 2 tokens. `--spacing-*` → `--s2-spacing-*` (1:1); radius mapped by value; `--s2-font-size-600/800` (31/39px) → `--s2-heading-size-l/xl` (28/36px, accepted shrink — no 31/39px step); fuchsia/turquoise → nearest `--s2-pink-*`/`--s2-seafoam-*` (nx2 has neither).
+- **Dark mode.** nx pinned `color-scheme: light`; nx2 is dark-aware, so hardcoded colors were tokenized. Structural neutrals → `--s2-*`/`light-dark()`; white-on-saturated foregrounds, translucent overlays, and box-shadows kept fixed (tokenizing flips them to near-black in dark).
+- **Chevrons.** Added block-local `Smock_ChevronLeft`, pointed `actions.js`/`steps.js` at `blocks/loc/img/`. Nav chevrons use `fill: currentcolor`; expand chevrons switched `background-image` → `mask` + `currentcolor` (absolute SVG path kept — constructed sheets resolve relative URLs against the doc).
+- **colorScheme param.** `shell.js` forwards `colorScheme` into the iframe (localStorage isn't cross-origin); `nx.js` reads it via `getSchemeParam()`, allowlisting `dark-scheme`/`light-scheme` before DOM use.
+
 ## 2026-05-28
 
 ### nx2/utils/api.js — consistency refactor (api-refactor branch)
