@@ -3,7 +3,7 @@ import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle, hashChange } from '../../utils/utils.js';
 import {
   buildAemPathFromHashState,
-  formatAemPreviewPublishError,
+  requestAemRole,
   runAemPreviewOrPublish,
 } from '../../utils/aem-preview-publish.js';
 import { getConfig } from '../../scripts/nx.js';
@@ -11,6 +11,7 @@ import '../shared/popover/popover.js';
 
 const style = await loadStyle(import.meta.url);
 const { codeBase } = getConfig();
+const NX_BASE = new URL('../../', import.meta.url).href.replace(/\/$/, '');
 const SEND_ICON_HREF = `${codeBase}/img/icons/s2-icon-send-20-n.svg#icon`;
 const PREPARE_ICON_HREF = `${codeBase}/img/icons/s2-icon-filetext-20-n.svg#icon`;
 
@@ -50,9 +51,11 @@ function buildPrepareDetails(state) {
 class NXEwActions extends LitElement {
   static properties = {
     _busy: { state: true },
-    _error: { state: true },
+    _hasError: { state: true },
     _hashState: { state: true },
     _prepareReady: { state: true },
+    // phase: 'error' | 'pending' | 'result'
+    _dialog: { state: true },
   };
 
   _busy = false;
@@ -131,6 +134,18 @@ class NXEwActions extends LitElement {
     this._menuAnchor?.setAttribute('aria-expanded', 'false');
   }
 
+  async _handleRoleRequest() {
+    const { org, site } = this._hashState || {};
+    const { action } = this._dialog?.error || {};
+    this._dialog = { phase: 'pending' };
+    try {
+      const { message } = await requestAemRole(org, site, action);
+      this._dialog = { phase: 'result', message };
+    } catch {
+      this._dialog = { phase: 'result', message: ['An error occurred.', 'Please try again.'] };
+    }
+  }
+
   _pickAem(action) {
     if (action !== 'preview' && action !== 'publish') return;
     this._popover?.close();
@@ -141,19 +156,63 @@ class NXEwActions extends LitElement {
     const aemPath = buildAemPathFromHashState(this._hashState);
     if (!aemPath || this._busy) return;
 
-    this._error = undefined;
+    this._dialog = undefined;
     this._busy = true;
 
     const result = await runAemPreviewOrPublish({ aemPath, action });
     if (!result.ok) {
-      this._error = formatAemPreviewPublishError(result.error);
+      await Promise.all([
+        import('../shared/dialog/dialog.js'),
+        import(`${NX_BASE}/public/sl/components.js`),
+      ]);
       this._busy = false;
+      this._hasError = true;
+      this._dialog = { phase: 'error', error: result.error };
       return;
     }
 
+    this._hasError = false;
     window.open(result.url, result.url);
-
     this._busy = false;
+  }
+
+  _renderDialog() {
+    if (!this._dialog) return nothing;
+    const { phase, error, message } = this._dialog;
+    const close = () => { this._dialog = undefined; };
+    const is403 = phase === 'error' && error?.status === 403;
+    const actionLabel = error?.action === 'publish' ? 'Publish' : 'Preview';
+
+    let title = 'Role request';
+    if (phase === 'error') title = is403 ? 'Not authorized' : `${actionLabel} failed`;
+
+    let body;
+    if (phase === 'error') {
+      body = html`<p>${error?.message}</p>${error?.details ? html`<p>${error.details}</p>` : nothing}`;
+    } else if (phase === 'pending') {
+      body = html`<p>Requesting permissions...</p>`;
+    } else {
+      body = html`<p>${message?.[0]}</p><p>${message?.[1]}</p>`;
+    }
+
+    return html`
+      <nx-dialog title=${title} @close=${close}>
+        <div class="role-request-body">${body}</div>
+        ${phase === 'error' && is403 ? html`
+          <sl-button slot="actions" @click=${this._handleRoleRequest}>Request access</sl-button>
+        ` : nothing}
+        ${phase === 'error' && !is403 ? html`
+          <sl-button slot="actions" @click=${() => this.shadowRoot.querySelector('nx-dialog').close()}>Dismiss</sl-button>
+        ` : nothing}
+        ${phase !== 'error' ? html`
+          <sl-button
+            slot="actions"
+            ?disabled=${phase === 'pending'}
+            @click=${() => this.shadowRoot.querySelector('nx-dialog').close()}
+          >OK</sl-button>
+        ` : nothing}
+      </nx-dialog>
+    `;
   }
 
   render() {
@@ -180,7 +239,7 @@ class NXEwActions extends LitElement {
             ` : nothing}
             <button
               type="button"
-              class="preview-dropdown-btn"
+              class="preview-dropdown-btn${this._hasError ? ' is-error' : ''}"
               aria-label="Preview and publish"
               aria-haspopup="menu"
               aria-expanded="false"
@@ -200,9 +259,9 @@ class NXEwActions extends LitElement {
               </div>
             </nx-popover>
           </div>
-          ${this._error ? html`<p class="action-error" role="alert">${this._error}</p>` : nothing}
         </div>
       </div>
+      ${this._renderDialog()}
     `;
   }
 }
