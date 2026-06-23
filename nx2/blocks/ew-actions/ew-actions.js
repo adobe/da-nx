@@ -70,7 +70,7 @@ class NXEwActions extends LitElement {
   }
 
   get _prepareBtn() {
-    return this.shadowRoot?.querySelector('.prepare-btn');
+    return this.shadowRoot?.querySelector('.prepare-dropdown-btn');
   }
 
   connectedCallback() {
@@ -112,7 +112,19 @@ class NXEwActions extends LitElement {
 
   _togglePrepareMenu(e) {
     e.preventDefault();
-    this._prepareMenu?.toggle(this._prepareBtn);
+    const btn = this._prepareBtn;
+    const menu = this._prepareMenu;
+    if (!btn || !menu) return;
+    if (btn.getAttribute('aria-expanded') === 'true') {
+      menu.toggle(btn);
+    } else {
+      menu.toggle(btn);
+      btn.setAttribute('aria-expanded', 'true');
+    }
+  }
+
+  _onPrepareMenuClose() {
+    this._prepareBtn?.setAttribute('aria-expanded', 'false');
   }
 
   _onSendPopoverClose() {
@@ -156,14 +168,15 @@ class NXEwActions extends LitElement {
             ${prepareDetails ? html`
               <button
                 type="button"
-                class="prepare-btn"
+                class="prepare-dropdown-btn"
                 aria-label="Open prepare menu"
                 aria-haspopup="menu"
+                aria-expanded="false"
                 @click=${this._togglePrepareMenu}
               >
-                <svg class="prepare-btn-icon" viewBox="0 0 20 20" aria-hidden="true"><use href=${PREPARE_ICON_HREF}></use></svg>
+                <svg class="prepare-dropdown-btn-icon" viewBox="0 0 20 20" aria-hidden="true"><use href=${PREPARE_ICON_HREF}></use></svg>
               </button>
-              <prepare-menu .details=${prepareDetails}></prepare-menu>
+              <prepare-menu .details=${prepareDetails} @close=${this._onPrepareMenuClose}></prepare-menu>
             ` : nothing}
             <button
               type="button"

@@ -28,7 +28,7 @@
   justify-content: flex-end;
 }
 
-.prepare-btn {
+.prepare-dropdown-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -44,20 +44,20 @@
   cursor: pointer;
 }
 
-.prepare-btn:focus-visible {
+.prepare-dropdown-btn:focus-visible {
   outline: 2px solid var(--s2-blue-800);
   outline-offset: 2px;
 }
 
-.prepare-btn:hover {
+.prepare-dropdown-btn:hover {
   background-color: var(--s2-gray-200);
 }
 
-.prepare-btn:active {
+.prepare-dropdown-btn:active {
   background-color: var(--s2-gray-300);
 }
 
-.prepare-btn-icon {
+.prepare-dropdown-btn-icon {
   display: block;
   flex-shrink: 0;
   width: 18px;
