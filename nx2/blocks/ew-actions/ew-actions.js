@@ -3,14 +3,14 @@ import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle, hashChange } from '../../utils/utils.js';
 import {
   buildAemPathFromHashState,
-  formatAemPreviewPublishError,
+  requestAemRole,
   runAemPreviewOrPublish,
 } from '../../utils/aem-preview-publish.js';
 import { getConfig } from '../../scripts/nx.js';
 import '../shared/popover/popover.js';
 
 const style = await loadStyle(import.meta.url);
-const { codeBase } = getConfig();
+const { codeBase, nxBase } = getConfig();
 const SEND_ICON_HREF = `${codeBase}/img/icons/s2-icon-send-20-n.svg#icon`;
 const PREPARE_ICON_HREF = `${codeBase}/img/icons/s2-icon-filetext-20-n.svg#icon`;
 
@@ -50,9 +50,10 @@ function buildPrepareDetails(state) {
 class NXEwActions extends LitElement {
   static properties = {
     _busy: { state: true },
-    _error: { state: true },
+    _error: { state: true }, // raw error object { action, status, message, details? }
     _hashState: { state: true },
     _prepareReady: { state: true },
+    _dialog: { state: true }, // { pending: boolean, message?: [string, string] } | undefined
   };
 
   _busy = false;
@@ -131,6 +132,22 @@ class NXEwActions extends LitElement {
     this._menuAnchor?.setAttribute('aria-expanded', 'false');
   }
 
+  async _handleRoleRequest() {
+    await Promise.all([
+      import('../shared/dialog/dialog.js'),
+      import(`${nxBase}/public/sl/components.js`),
+    ]);
+    const { org, site } = this._hashState || {};
+    const { action } = this._error || {};
+    this._dialog = { pending: true };
+    try {
+      const { message } = await requestAemRole(org, site, action);
+      this._dialog = { pending: false, message };
+    } catch {
+      this._dialog = { pending: false, message: ['An error occurred.', 'Please try again.'] };
+    }
+  }
+
   _pickAem(action) {
     if (action !== 'preview' && action !== 'publish') return;
     this._popover?.close();
@@ -146,7 +163,7 @@ class NXEwActions extends LitElement {
 
     const result = await runAemPreviewOrPublish({ aemPath, action });
     if (!result.ok) {
-      this._error = formatAemPreviewPublishError(result.error);
+      this._error = result.error;
       this._busy = false;
       return;
     }
@@ -178,9 +195,17 @@ class NXEwActions extends LitElement {
               </button>
               <prepare-menu .details=${prepareDetails} @close=${this._onPrepareMenuClose}></prepare-menu>
             ` : nothing}
+            ${this._error ? html`
+              <div class="action-error-badge" role="alert">
+                <span>${this._error.message}</span>
+                ${this._error.status === 403 ? html`
+                  <button type="button" class="request-access-btn" @click=${this._handleRoleRequest}>Request access</button>
+                ` : nothing}
+              </div>
+            ` : nothing}
             <button
               type="button"
-              class="preview-dropdown-btn"
+              class="preview-dropdown-btn${this._error ? ' is-error' : ''}"
               aria-label="Preview and publish"
               aria-haspopup="menu"
               aria-expanded="false"
@@ -200,9 +225,20 @@ class NXEwActions extends LitElement {
               </div>
             </nx-popover>
           </div>
-          ${this._error ? html`<p class="action-error" role="alert">${this._error}</p>` : nothing}
         </div>
       </div>
+      ${this._dialog ? html`
+        <nx-dialog title="Role request" @close=${() => { this._dialog = undefined; }}>
+          ${this._dialog.pending
+            ? html`<p>Requesting permissions...</p>`
+            : html`<p>${this._dialog.message?.[0]}</p><p>${this._dialog.message?.[1]}</p>`}
+          <sl-button
+            slot="actions"
+            ?disabled=${this._dialog.pending}
+            @click=${() => this.shadowRoot.querySelector('nx-dialog').close()}
+          >OK</sl-button>
+        </nx-dialog>
+      ` : nothing}
     `;
   }
 }

@@ -2,8 +2,10 @@
  * Copyright 2026 Adobe. All rights reserved.
  * AEM admin preview / live (publish) flows aligned with da.live helpers.
  */
-import { HLX_ADMIN } from './utils.js';
+import { HLX_ADMIN, DA_ADMIN } from './utils.js';
 import { daFetch } from './api.js';
+
+const AEM_PERMISSION_TPL = '{"users":{"total":1,"limit":1,"offset":0,"data":[]},"data":{"total":1,"limit":1,"offset":0,"data":[{}]},":names":["users","data"],":version":3,":type":"multi-sheet"}';
 
 async function fetchSidekickHosts(org, site) {
   const path = `/${org}/${site}/config.json`;
@@ -40,7 +42,7 @@ async function saveToAem(path, action) {
   if (!resp.ok) {
     const { status } = resp;
     const authErr = [401, 403].includes(status);
-    const message = authErr ? `Not authorized to ${action}` : `Error during ${action}`;
+    const message = authErr ? `Not authorized to ${action}.` : `Error during ${action}`;
     const xerror = resp.headers.get('x-error');
     const error = { action, status, type: 'error', message };
     if (xerror && !authErr) {
@@ -108,4 +110,50 @@ export async function runAemPreviewOrPublish({ aemPath, action }) {
   }
 
   return { ok: true, url };
+}
+
+/**
+ * Writes a role-request entry for the current IMS user to the DA permission
+ * requests file, so an admin can grant preview/publish access.
+ * @param {string} org
+ * @param {string} site
+ * @param {string} action  'preview' | 'publish'
+ * @returns {Promise<{ message: [string, string] }>}
+ */
+export async function requestAemRole(org, site, action) {
+  const profile = await window.adobeIMS?.getProfile();
+  if (!profile) {
+    return {
+      message: ['Could not get user profile.', 'Please sign in and try again.'],
+    };
+  }
+
+  const url = `${DA_ADMIN}/source/${org}/${site}/.da/aem-permission-requests.json`;
+  let json = JSON.parse(AEM_PERMISSION_TPL);
+  const getResp = await daFetch({ url });
+  if (getResp.ok) {
+    try { json = await getResp.json(); } catch { /* fall back to template */ }
+  }
+
+  const entry = {
+    Id: profile.userId,
+    Email: profile.email,
+    Name: profile.displayName || profile.name,
+    Action: action,
+    Requested: new Date().toISOString(),
+  };
+  const idx = json.users.data.findIndex((u) => u.Id === entry.Id);
+  if (idx === -1) json.users.data.unshift(entry);
+  else json.users.data[idx] = entry;
+
+  const formData = new FormData();
+  formData.append('data', new Blob([JSON.stringify(json)], { type: 'application/json' }));
+  const postResp = await daFetch({ url, opts: { method: 'POST', body: formData } });
+
+  if (!postResp.ok) {
+    return {
+      message: ['Could not request permissions.', 'Please notify your administrator.'],
+    };
+  }
+  return { message: ['Successfully requested role!', 'An administrator will need to approve.'] };
 }
