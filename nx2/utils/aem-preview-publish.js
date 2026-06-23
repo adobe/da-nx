@@ -63,26 +63,6 @@ export function buildAemPathFromHashState(state) {
 }
 
 /**
- * Structured-content renderer URL, used by the form workspace instead of the
- * standard EDS delivery host. The SC renderer renders a structured-content doc
- * at `/{preview|live}/{org}/{site}/{path}`.
- *
- * NOTE: the host is derived from the site segment (e.g. site `da-sc` ->
- * `da-sc.adobeaem.workers.dev`). If the renderer is actually a single fixed
- * worker shared across sites, replace the derived host with that constant.
- *
- * @param {{ aemPath: string, action: 'preview' | 'publish' }} params
- * @returns {string | null} e.g. https://da-sc.adobeaem.workers.dev/preview/kozmaadrian/da-sc/forms/x
- */
-export function buildScRendererUrl({ aemPath, action }) {
-  if (!aemPath) return null;
-  const [, , site] = aemPath.split('/'); // ['', org, site, ...rest]
-  if (!site) return null;
-  const branch = action === 'publish' ? 'live' : 'preview';
-  return `https://${site}.adobeaem.workers.dev/${branch}${aemPath}`;
-}
-
-/**
  * @param {{ message?: string, details?: string }} error
  * @returns {string}
  */
