@@ -89,3 +89,33 @@ dialog.busy = false;
 | ----------- | --------------------------------------------------------------- |
 | _(default)_ | Dialog body content                                             |
 | `actions`   | Action buttons rendered in the footer, right-aligned            |
+
+## CSS custom properties
+
+The panel sizing and padding can be overridden from the consuming page. Each property has a sensible default — set it on the `nx-dialog` element (or any ancestor) only when you need to deviate. All values are still clamped to the viewport so a too-large value won't overflow.
+
+| Property                | Default                  | Description                                          |
+| ----------------------- | ------------------------ | ---------------------------------------------------- |
+| `--nx-dialog-min-width` | `400px`                  | Panel minimum width.                                 |
+| `--nx-dialog-max-width` | `480px`                  | Panel maximum width.                                 |
+| `--nx-dialog-max-height`| `90vh` (`90dvh` modern)  | Panel maximum height.                                |
+| `--nx-dialog-padding`   | `var(--s2-spacing-500)`  | Inner padding around heading, body, and actions.     |
+
+### Wide dialog
+
+```css
+nx-dialog.block-library {
+  --nx-dialog-max-width: 960px;
+  --nx-dialog-max-height: 640px;
+}
+```
+
+### Full-bleed body
+
+Combine a zero `--nx-dialog-padding` with your own padding on the slotted content to push body content to the panel edge (useful for split layouts).
+
+```css
+nx-dialog.split-pane {
+  --nx-dialog-padding: 0;
+}
+```
