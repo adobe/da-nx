@@ -282,7 +282,7 @@ const { preview, live, edit } = info;
 
 Combined preview + live (publish) operations. The `path` argument can be a **string** (single op) or an **array of length ≥ 2** (bulk op). Single string or one-item array hits the single-path endpoint.
 
-`forceUpdate` and `forceSync` are **bulk-only** — server ignores them on single-path calls.
+`forceUpdate` is **bulk-only** — server ignores it on single-path calls.
 
 **Returns:** all methods return a raw `Response`. Parse with `await resp.json()` or the `asJson` helper.
 
@@ -291,9 +291,9 @@ Combined preview + live (publish) operations. The `path` argument can be a **str
 | ------------ | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | `getPreview` | `({ org, site, path })` or `(fullPath)`                  | GET preview status (single only).                                                                                |
 | `getPublish` | `({ org, site, path })` or `(fullPath)`                  | GET publish status (single only).                                                                                |
-| `preview`    | `({ org, site, path, forceUpdate?, forceSync? })`        | string → POST `/preview/{path}`. Array of 2+ → POST `/preview/.../*` with `{ paths, forceUpdate?, forceSync? }`. |
+| `preview`    | `({ org, site, path, forceUpdate? })`                    | string → POST `/preview/{path}`. Array of 2+ → POST `/preview/.../*` with `{ paths, forceUpdate? }`.             |
 | `unPreview`  | `({ org, site, path })`                                  | string → DELETE `/preview/{path}`. Array of 2+ → POST `/preview/.../*` with `{ paths, delete: true }`.           |
-| `publish`    | `({ org, site, path, forceUpdate?, forceSync? })`        | string → POST `/live/{path}`. Array of 2+ → POST `/live/.../*` with `{ paths, forceUpdate?, forceSync? }`.       |
+| `publish`    | `({ org, site, path, forceUpdate? })`                    | string → POST `/live/{path}`. Array of 2+ → POST `/live/.../*` with `{ paths, forceUpdate? }`.                   |
 | `unPublish`  | `({ org, site, path })`                                  | string → DELETE `/live/{path}`. Array of 2+ → POST `/live/.../*` with `{ paths, delete: true }`.                 |
 
 
@@ -507,7 +507,7 @@ These are not exported, but understanding them helps when reading the source.
 - `**getAemApiPath(api, org, site, path)**` — URL builder for AEM-only endpoints (`status`, `preview`, `live`, `snapshots`, `jobs`). Branches on `isHlx6` to choose `HLX_ADMIN` (with hardcoded `ref=main`) or `AEM_API`.
 - `**withArgs(fn)**` — HOF that resolves the first arg (object or path string) and forwards a normalized `{ org, site, path, ...extras }` object to `fn`. Handles the bad-arg `console.error` for missing org. Also prepends a leading slash to `path` if missing.
 - `**normalizePath(path)**` — Standalone leading-slash normalizer. Accepts a string or string-array (and passes non-strings through). Used by `snapshot.addPath` / `snapshot.removePath`, which don't go through `withArgs`.
-- `**callPath({ api, org, site, path, method, … })**` — Dispatcher used by `aem.*` methods. Handles the string-vs-array branching for bulk preview/publish operations and folds `forceUpdate`/`forceSync` into the bulk JSON body. Returns a `Response`.
+- `**callPath({ api, org, site, path, method, … })**` — Dispatcher used by `aem.*` methods. Handles the string-vs-array branching for bulk preview/publish operations and folds `forceUpdate` into the bulk JSON body. Returns a `Response`.
 - `**jsonOpts(method, payload)**` — small helper that builds `{ method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }`.
 
 ---
@@ -544,7 +544,6 @@ Defined locally:
 These are tracked but not yet resolved. They don't block typical usage; flagged here for completeness.
 
 - `**config.save` wire shape**: currently sends `multipart/form-data` with field `config`. The H5/H6 admin endpoints actually expect raw JSON body. DA's exact requirement is undocumented; existing da-live tests assert PUT instead of POST. Needs verification against running servers.
-- `**forceSync` field name**: the H6 server source reads `forceAsync` (with inverse meaning), not `forceSync`. Currently sending `forceSync: true` is silently ignored by the server. This affects the `aem.preview`/`aem.publish` bulk paths and `start/index.js` in da-live.
 
 ---
 
