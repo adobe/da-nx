@@ -1,13 +1,13 @@
 .nx-card {
-  box-shadow: 0 1px 6px 0 rgb(0 0 0 / 12%);
+  box-shadow: 0 1px 6px 0 light-dark(rgb(0 0 0 / 12%), rgb(0 0 0 / 40%));
   border-radius: var(--s2-corner-radius-700);
   overflow: hidden;
-  background-color: #fff;
+  background-color: light-dark(#fff, var(--s2-gray-75));
   transition: all 0.25s ease-in-out;
 
   &:hover {
     transform: scale(1.005);
-    box-shadow: 0 2px 8px 0 rgb(0 0 0 / 16%);
+    box-shadow: 0 2px 8px 0 light-dark(rgb(0 0 0 / 16%), rgb(0 0 0 / 50%));
   }
 }
 
@@ -79,7 +79,7 @@
 }
 
 .nx-card-cta-container strong a:focus {
-  background-color: #3b63fb;
-  border: 2px solid #3b63fb;
+  background-color: var(--s2-blue-900);
+  border: 2px solid var(--s2-blue-900);
   outline-offset: 4px;
 }
