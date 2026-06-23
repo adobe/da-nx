@@ -1,5 +1,20 @@
 # Worklog
 
+## 2026-06-23
+
+### nx2/blocks/shared/dialog — configurable panel sizing (dialog-css-vars branch)
+
+Exposes four CSS custom properties on `.panel` so consumers can resize the dialog without forking it:
+
+- `--nx-dialog-min-width` (default `400px`)
+- `--nx-dialog-max-width` (default `480px`)
+- `--nx-dialog-max-height` (default `90vh` / `90dvh`)
+- `--nx-dialog-padding` (default `var(--s2-spacing-500)`)
+
+Values stay clamped to the viewport via the existing `min(<custom>, calc(100vw - 2 * --s2-spacing-500))` envelope, so a too-large custom value won't overflow. Purely additive — existing usage of `<nx-dialog>` is unchanged (each fallback in the `var()` call matches the previous literal).
+
+Driving use case is da-live's new EW block library modal, which needs a ~960px wide 2-column tree+preview layout that the previous fixed 480px cap couldn't accommodate.
+
 ## 2026-05-28
 
 ### nx2/utils/api.js — consistency refactor (api-refactor branch)
