@@ -12,12 +12,47 @@ import '../shared/popover/popover.js';
 const style = await loadStyle(import.meta.url);
 const { codeBase } = getConfig();
 const SEND_ICON_HREF = `${codeBase}/img/icons/s2-icon-send-20-n.svg#icon`;
+const PREPARE_ICON_HREF = `${codeBase}/img/icons/s2-icon-filetext-20-n.svg#icon`;
+
+const prepareModuleUrl = () => `${window.location.origin}/blocks/canvas/editor-utils/prepare-menu.js`;
+
+/** @param {string} segment */
+const withHtmlExt = (segment) => {
+  if (!segment || segment.endsWith('/') || /\.(html|json)$/.test(segment)) return segment;
+  return `${segment}.html`;
+};
+
+/**
+ * Shape expected by da-prepare and its OOTB actions (matches da.live pathDetails).
+ * @param {{ org?: string, site?: string, path?: string, fullpath?: string } | null} state
+ */
+function buildPrepareDetails(state) {
+  const { org, site, path } = state || {};
+  if (!org || !site || !path) return null;
+
+  const docPath = path.startsWith('/') ? path : `/${path}`;
+  const pathname = withHtmlExt(docPath);
+  let fullpath = state.fullpath || `/${org}/${site}${pathname}`;
+  if (!fullpath.startsWith('/')) fullpath = `/${fullpath}`;
+  fullpath = withHtmlExt(fullpath);
+
+  return {
+    org,
+    site,
+    owner: org,
+    repo: site,
+    path: pathname,
+    fullpath,
+    view: 'edit',
+  };
+}
 
 class NXEwActions extends LitElement {
   static properties = {
     _busy: { state: true },
     _error: { state: true },
     _hashState: { state: true },
+    _prepareReady: { state: true },
   };
 
   _busy = false;
@@ -30,10 +65,30 @@ class NXEwActions extends LitElement {
     return this.shadowRoot?.querySelector('.preview-dropdown-btn');
   }
 
+  get _prepareMenu() {
+    return this.shadowRoot?.querySelector('prepare-menu');
+  }
+
+  get _prepareBtn() {
+    return this.shadowRoot?.querySelector('.prepare-dropdown-btn');
+  }
+
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
     this._unsubHash = hashChange.subscribe((state) => { this._hashState = state; });
+    this._loadPrepare();
+  }
+
+  async _loadPrepare() {
+    if (this._prepareReady) return;
+    try {
+      await import(prepareModuleUrl());
+      if (!this.isConnected) return;
+      this._prepareReady = true;
+    } catch {
+      /* prepare menu unavailable (e.g. module load failure) */
+    }
   }
 
   disconnectedCallback() {
@@ -53,6 +108,23 @@ class NXEwActions extends LitElement {
       pop.show({ anchor, placement: 'below' });
       anchor.setAttribute('aria-expanded', 'true');
     }
+  }
+
+  _togglePrepareMenu(e) {
+    e.preventDefault();
+    const btn = this._prepareBtn;
+    const menu = this._prepareMenu;
+    if (!btn || !menu) return;
+    if (btn.getAttribute('aria-expanded') === 'true') {
+      menu.toggle(btn);
+    } else {
+      menu.toggle(btn);
+      btn.setAttribute('aria-expanded', 'true');
+    }
+  }
+
+  _onPrepareMenuClose() {
+    this._prepareBtn?.setAttribute('aria-expanded', 'false');
   }
 
   _onSendPopoverClose() {
@@ -87,11 +159,25 @@ class NXEwActions extends LitElement {
   render() {
     const hasDoc = Boolean(buildAemPathFromHashState(this._hashState));
     const disabled = !hasDoc || this._busy;
+    const prepareDetails = this._prepareReady ? buildPrepareDetails(this._hashState) : null;
 
     return html`
       <div class="ew-actions">
         <div class="right">
           <div class="preview-row">
+            ${prepareDetails ? html`
+              <button
+                type="button"
+                class="prepare-dropdown-btn"
+                aria-label="Open prepare menu"
+                aria-haspopup="menu"
+                aria-expanded="false"
+                @click=${this._togglePrepareMenu}
+              >
+                <svg class="prepare-dropdown-btn-icon" viewBox="0 0 20 20" aria-hidden="true"><use href=${PREPARE_ICON_HREF}></use></svg>
+              </button>
+              <prepare-menu .details=${prepareDetails} @close=${this._onPrepareMenuClose}></prepare-menu>
+            ` : nothing}
             <button
               type="button"
               class="preview-dropdown-btn"
