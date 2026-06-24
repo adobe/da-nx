@@ -47,6 +47,15 @@
     }
   }
 
+  .pill-pin {
+    color: var(--s2-blue-1000);
+
+    svg {
+      width: 14px;
+      height: 14px;
+    }
+  }
+
   .pill-thumbnail {
     width: 16px;
     height: 16px;
@@ -71,5 +80,16 @@
     font-size: var(--s2-body-size-xs);
     color: var(--s2-blue-1000);
     line-height: var(--s2-component-s-medium-line-height);
+  }
+
+  .pill-label-button {
+    text-align: left;
+    text-decoration: underline;
+    text-decoration-color: transparent;
+  }
+
+  .pill-label-button:hover,
+  .pill-label-button:focus-visible {
+    text-decoration-color: currentcolor;
   }
 }
