@@ -1,5 +1,21 @@
 # Worklog
 
+## 2026-06-24
+
+### nx2 panels — pre-mount outlines from localStorage (clspnl branch)
+
+Chat / tool panels on app-frame pages were causing visible layout shift on load: `restorePanels` and canvas.js's `openCanvasPanel('before' | 'after')` both fire un-awaited, the after-panel's `getContent()` resolves before chat's, and `setPanelsGrid()` rewrote the grid based on whichever aside was in the DOM at that moment — wiping the other side's track until its content also resolved.
+
+Fix: mount the aside chrome from localStorage *before* first paint, then let the slow content imports fill the already-placed shell.
+
+- nx.js top-level await: when `meta[template=app-frame]` is present and `localStorage.nx-panels` is set, dynamically imports `panel.js` and calls `mountPanelOutlines()`. Skipped on pages without panels in the store, so cost is paid only when there's something to restore.
+- `panel.js` exports `mountPanelOutlines()` which iterates the store and builds each aside via the existing `buildPanelDOM` (resize handle works from first paint), then calls `setPanelsGrid()` once. `.panel-body` stays empty until content arrives.
+- `openPanel` / `restorePanels` now check for an existing outline and fill its `.panel-body` instead of remounting — covers both fragment-based panels (`restorePanels`) and canvas chat / tool panels (`openPanel` via canvas.js).
+- `setPanelsGrid` reverted to DOM-only — no race because both asides are in the DOM before any `getContent` is awaited.
+- `getMetadata` inlined in `panel.js` to break a static-import cycle with nx.js (cycle + TLA on nx.js's side wedges module evaluation in some runtimes).
+
+Side effect: writing `--app-frame-areas` / `--app-frame-columns` moved from `body.style` to `documentElement.style` so the outlines and the runtime grid updates share `:root` as the single source of truth.
+
 ## 2026-06-23
 
 ### nx2/blocks/shared/dialog — configurable panel sizing (dialog-css-vars branch)
