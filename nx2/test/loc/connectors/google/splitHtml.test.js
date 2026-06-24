@@ -1,5 +1,5 @@
 import { expect } from '@esm-bundle/chai';
-import { splitHtml, rejoinHtml } from '../../../../blocks/loc/connectors/google/splitHtml.js';
+import { splitHtml, rejoinHtml } from '../../../../../nx/blocks/loc/connectors/google/splitHtml.js';
 
 const MAX = 5000;
 

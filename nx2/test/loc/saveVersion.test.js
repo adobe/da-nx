@@ -1,6 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import sinon from 'sinon';
-import { overwriteCopy } from '../../blocks/loc/project/index.js';
+import { overwriteCopy } from '../../../nx/blocks/loc/project/index.js';
 
 // Regression tests for the parallel-saveVersion bug that caused R2 412 audit
 // conflicts in da-admin. When N items share the same destination path (e.g.

@@ -1,5 +1,5 @@
 import { expect } from '@esm-bundle/chai';
-import { getImageAltFragmentUrls, getFragmentUrls } from '../../blocks/loc/views/validate/validate-utils.js';
+import { getImageAltFragmentUrls, getFragmentUrls } from '../../../nx/blocks/loc/views/validate/validate-utils.js';
 
 describe('validate-utils', () => {
   describe('getImageAltFragmentUrls', () => {

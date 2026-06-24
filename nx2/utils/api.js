@@ -417,7 +417,6 @@ export const daFetch = async ({ url, opts = { method: 'GET' }, redirect = false 
     opts.headers.Authorization = `Bearer ${accessToken.token}`;
     if ([HLX_ADMIN, AEM_API].some((origin) => new URL(url).origin === origin)) {
       opts.headers['x-content-source-authorization'] = `Bearer ${accessToken.token}`;
-      opts.headers.Authorization = `Bearer ${accessToken.token}`;
     }
   }
 

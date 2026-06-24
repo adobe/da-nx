@@ -1,5 +1,5 @@
-import { LitElement, html, nothing } from '../../../deps/lit/dist/index.js';
-import getStyle from '../../../utils/styles.js';
+import { LitElement, html, nothing } from 'da-lit';
+import getStyle from '../../../../nx2/public/utils/styles.js';
 import { getDetails } from './index.js';
 
 const style = await getStyle(import.meta.url);

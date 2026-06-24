@@ -1,9 +1,9 @@
 import { LitElement, html, nothing } from 'da-lit';
-import { getConfig } from '../../scripts/nexter.js';
-import getStyle from '../../utils/styles.js';
+import { getConfig } from '../../../nx2/scripts/nx.js';
+import getStyle from '../../../nx2/public/utils/styles.js';
 import { getHashDetails, loadProject, updateProject } from './utils/utils.js';
 
-import '../../public/sl/components.js';
+import '../../../nx2/public/sl/components.js';
 
 import './views/header/header.js';
 import './views/steps/steps.js';

@@ -1,8 +1,8 @@
 import { LitElement, html, nothing } from 'da-lit';
-import getStyle from '../../../../utils/styles.js';
-import { getConfig } from '../../../../scripts/nexter.js';
-import { getSvg } from '../../../../utils/svg.js';
-import { Queue } from '../../../../public/utils/tree.js';
+import getStyle from '../../../../../nx2/public/utils/styles.js';
+import { getConfig } from '../../../../../nx2/scripts/nx.js';
+import { getSvg } from '../../../../../nx2/utils/svg.js';
+import { Queue } from '../../../../../nx2/public/utils/tree.js';
 import { getSyncUrls } from './index.js';
 import { MAX_CONCURRENT_WRITES, mergeCopy, overwriteCopy } from '../../project/index.js';
 

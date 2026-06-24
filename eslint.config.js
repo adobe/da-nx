@@ -14,9 +14,6 @@ export default defineConfig([
     '**/nx/blocks/loc/regional-diff/object_hash.js',
     '**/nx/blocks/loc/views/complete/confetti.js',
     '**/nx/blocks/loc/connectors/sample/index.js',
-    '**/nx2/blocks/loc/regional-diff/object_hash.js',
-    '**/nx2/blocks/loc/views/complete/confetti.js',
-    '**/nx2/blocks/loc/connectors/sample/index.js',
   ]),
   {
     languageOptions: {

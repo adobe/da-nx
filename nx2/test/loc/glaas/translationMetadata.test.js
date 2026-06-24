@@ -11,7 +11,7 @@ import {
   buildLanguageMetadata,
   loadSeoGlossary,
   addSeoGlossary,
-} from '../../../blocks/loc/connectors/glaas/translationMetadata.js';
+} from '../../../../nx/blocks/loc/connectors/glaas/translationMetadata.js';
 
 const mockRes = ({ payload, status = 404, ok = false } = {}) => new Promise((resolve) => {
   resolve({

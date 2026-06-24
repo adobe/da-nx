@@ -1,13 +1,18 @@
 # Worklog
 
-## 2026-06-23
+## 2026-06-24
 
-### Loc moved nx → nx2
-- Migrated the full Loc app (dashboard, project wizard, connectors, DNT/regional-diff pipelines, 255 tests) onto the nx2 API/IMS/config/Lit layer.
+### Loc nx2 support (nx/blocks/loc, nx2-wired via importer pattern)
+The Loc app runs on the nx2 layer (API/IMS/config/Lit, Spectrum 2 tokens, dark mode) but physically lives at `nx/blocks/loc` so the public path stays `/nx/blocks/loc`. The nx2 shell loads it via `NX_BLOCKS = new Set(['importer', 'loc'])` in `nx2/scripts/nx.js`, following the `importer` precedent.
+
+- **Migration to nx2 layer.** Full app (dashboard, project wizard, connectors, DNT/regional-diff pipelines, 255 tests) moved onto the nx2 API/IMS/config/Lit stack.
 - **Styling — pure nx2 tokens.** Rejected a `loc-tokens.css` nx compat shim; converted every Loc CSS file to Spectrum 2 tokens. `--spacing-*` → `--s2-spacing-*` (1:1); radius mapped by value; `--s2-font-size-600/800` (31/39px) → `--s2-heading-size-l/xl` (28/36px, accepted shrink — no 31/39px step); fuchsia/turquoise → nearest `--s2-pink-*`/`--s2-seafoam-*` (nx2 has neither).
-- **Dark mode.** nx pinned `color-scheme: light`; nx2 is dark-aware, so hardcoded colors were tokenized. Structural neutrals → `--s2-*`/`light-dark()`; white-on-saturated foregrounds, translucent overlays, and box-shadows kept fixed (tokenizing flips them to near-black in dark).
-- **Chevrons.** Added block-local `Smock_ChevronLeft`, pointed `actions.js`/`steps.js` at `blocks/loc/img/`. Nav chevrons use `fill: currentcolor`; expand chevrons switched `background-image` → `mask` + `currentcolor` (absolute SVG path kept — constructed sheets resolve relative URLs against the doc).
-- **colorScheme param.** `shell.js` forwards `colorScheme` into the iframe (localStorage isn't cross-origin); `nx.js` reads it via `getSchemeParam()`, allowlisting `dark-scheme`/`light-scheme` before DOM use.
+- **Dark mode.** nx pinned `color-scheme: light`; nx2 is dark-aware, so hardcoded colors were tokenized. Structural neutrals → `--s2-*`/`light-dark()`; white-on-saturated foregrounds, translucent overlays, and box-shadows kept fixed (tokenizing flips them to near-black in dark). Loc inherits the scheme from the nx2 shell's own `color-scheme` handling; no Loc-specific override is needed.
+- **Cross-tree imports (importer pattern).** Every `scripts/`, `utils/`, `public/` specifier (incl. `public/sl/components.js`) climbs one extra `../` + `nx2/` (e.g. `../../scripts/nx.js` → `../../../nx2/scripts/nx.js`); loc-internal imports and the `da-lit` bare specifier untouched. da.live serves both trees, so the relative climbs resolve at runtime.
+- **Asset paths.** Loc's own assets (img incl. block-local `Smock_ChevronLeft`, `project/views/shared.*`, `setup/translate.json`, `connectors/google/translate.json`) use `new URL('…', import.meta.url).href` so they load from wherever loc physically lives; nx2 SDK refs (`${nxBase}/public/*`, `${nxBase}/styles/*`) stay pointed at `/nx2`. Removed now-unused `getConfig`/`nx` in `actions.js`, `options.js`, `utils/utils.js`. Expand chevrons switched `background-image` → `mask` + `currentcolor`; nav chevrons use `fill: currentcolor`.
+- **Consumers/config.** `nx2/public/plugins/rollout/rollout.js` imports `/nx/blocks/loc/project/index.js`; dead `nx2/blocks/loc/*` entries dropped from `eslint.config.js`.
+
+## 2026-06-23
 
 ### nx2/blocks/shared/dialog — configurable panel sizing (dialog-css-vars branch)
 

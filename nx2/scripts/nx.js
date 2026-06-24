@@ -12,7 +12,7 @@
 
 const LOG = async (ex, el) => (await import('../utils/error.js')).default(ex, el);
 
-const NX_BLOCKS = new Set(['importer']);
+const NX_BLOCKS = new Set(['importer', 'loc']);
 
 const EW_ORIGINS = {
   dev: 'http://localhost:3001',
@@ -20,19 +20,8 @@ const EW_ORIGINS = {
   prod: 'https://main--ew-extensions--adobe-rnd.aem.live',
 };
 
-const COLOR_SCHEMES = ['dark-scheme', 'light-scheme'];
-
-// Only honor an explicit, known scheme from the URL. The param lets a parent
-// (e.g. the shell iframe) force a scheme across the document boundary, but it
-// is untrusted input, so we allowlist it before applying it to the DOM.
-function getSchemeParam() {
-  const param = new URLSearchParams(window.location.search).get('colorScheme');
-  return COLOR_SCHEMES.includes(param) ? param : null;
-}
-
 export function getColorScheme() {
-  return getSchemeParam()
-    || localStorage.getItem('color-scheme')
+  return localStorage.getItem('color-scheme')
     || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark-scheme' : 'light-scheme');
 }
 
@@ -303,7 +292,7 @@ async function decorateDoc() {
   const template = getMetadata('template');
   if (template) document.body.classList.add(template);
 
-  const scheme = getSchemeParam() || localStorage.getItem('color-scheme');
+  const scheme = localStorage.getItem('color-scheme');
   if (scheme) document.body.classList.add(scheme);
 
   const pageId = window.location.hash?.replace('#', '');

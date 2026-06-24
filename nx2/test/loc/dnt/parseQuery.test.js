@@ -1,5 +1,5 @@
 import { expect } from '@esm-bundle/chai';
-import parseQuery from '../../../blocks/loc/dnt/parseQuery.js';
+import parseQuery from '../../../../nx/blocks/loc/dnt/parseQuery.js';
 
 describe('parseQuery', () => {
   it('should parse simple translate directive', () => {

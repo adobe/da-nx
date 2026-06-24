@@ -1,6 +1,6 @@
-import { DA_ORIGIN } from '../../../../public/utils/constants.js';
-import { Queue } from '../../../../public/utils/tree.js';
-import { daFetch } from '../../../../utils/daFetch.js';
+import { DA_ORIGIN } from '../../../../../nx2/public/utils/constants.js';
+import { Queue } from '../../../../../nx2/public/utils/tree.js';
+import { daFetch } from '../../../../../nx2/utils/api.js';
 import { buildGlaasCreateMetadata, getOpts, glaasSourcePreviewUrl } from './api.js';
 
 const MULTIMODAL_LOG_KEY = 'glaas.multimodal.log';
@@ -456,7 +456,7 @@ async function uploadMultimodalImage({
   logRequest?.('fetch-image', { imageIndex, contentDaLiveUrl: imageUrl, daSourceUrl: imageSourceUrl });
   let imageResp;
   try {
-    imageResp = await daFetch(imageSourceUrl);
+    imageResp = await daFetch({ url: imageSourceUrl });
   } catch {
     return { error: 'Error fetching content.da.live image.', step: `fetch-image-${imageIndex}` };
   }
@@ -626,7 +626,7 @@ export async function postImageToDaMedia({
   const body = new FormData();
   body.append('data', data, mediaPath.split('/').pop());
   try {
-    const resp = await daFetch(`${DA_ORIGIN}/media/${org}/${site}${mediaPath}`, { method: 'POST', body });
+    const resp = await daFetch({ url: `${DA_ORIGIN}/media/${org}/${site}${mediaPath}`, opts: { method: 'POST', body } });
     if (!resp.ok) return { error: 'Error uploading image to media.', status: resp.status };
     const json = await resp.json();
     const href = json?.uri ?? json?.url;

@@ -1,18 +1,18 @@
-import { LitElement, html, nothing } from '../../../../deps/lit/dist/index.js';
-import { getConfig } from '../../../../scripts/nexter.js';
-import getStyle from '../../../../utils/styles.js';
-import { getSvg } from '../../../../utils/svg.js';
-import { overwriteCopy, rolloutCopy, formatDate, MAX_CONCURRENT_WRITES, saveStatus } from '../index.js';
-import { Queue } from '../../../../public/utils/tree.js';
+import { LitElement, html, nothing } from 'da-lit';
+import { getConfig } from '../../../../../nx2/scripts/nx.js';
+import getStyle from '../../../../../nx2/public/utils/styles.js';
+import { getSvg } from '../../../../../nx2/utils/svg.js';
+import { overwriteCopy, rolloutCopy, formatDate, saveStatus, MAX_CONCURRENT_WRITES } from '../index.js';
+import { Queue } from '../../../../../nx2/public/utils/tree.js';
 
 const { nxBase } = getConfig();
 const style = await getStyle(import.meta.url);
-const shared = await getStyle(`${nxBase}/blocks/loc/project/views/shared.js`);
+const shared = await getStyle(new URL('./shared.js', import.meta.url).href);
 const buttons = await getStyle(`${nxBase}/styles/buttons.js`);
 
 const ICONS = [
-  `${nxBase}/blocks/loc/img/Smock_Checkmark_18_N.svg`,
-  `${nxBase}/blocks/loc/img/Smock_ChevronRight_18_N.svg`,
+  new URL('../../img/Smock_Checkmark_18_N.svg', import.meta.url).href,
+  new URL('../../img/Smock_ChevronRight_18_N.svg', import.meta.url).href,
 ];
 
 class NxLocSync extends LitElement {

@@ -1,5 +1,5 @@
 import { expect } from '@esm-bundle/chai';
-import { groupUrlsByWorkflow } from '../../../blocks/loc/connectors/glaas/locPageRules.js';
+import { groupUrlsByWorkflow } from '../../../../nx/blocks/loc/connectors/glaas/locPageRules.js';
 
 describe('locPageRules', () => {
   describe('groupUrlsByWorkflow', () => {

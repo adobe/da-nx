@@ -26,6 +26,7 @@ export default {
   coverageConfig: {
     include: [
       '**/nx2/**',
+      '**/nx/blocks/loc/**',
       '**/scripts/**',
     ],
     exclude: [

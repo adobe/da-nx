@@ -8,7 +8,7 @@ import {
   prepareMultimodalPageForSave,
   siteRelativePathFromContentDaLiveUrl,
   rewriteContentDaLiveImageUrls,
-} from '../../../blocks/loc/connectors/glaas/multimodalApi.js';
+} from '../../../../nx/blocks/loc/connectors/glaas/multimodalApi.js';
 
 describe('GLaaS multimodal save', () => {
   it('strips content.da.live org/site segments from image URL', () => {

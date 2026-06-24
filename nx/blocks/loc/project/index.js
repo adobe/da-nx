@@ -1,8 +1,8 @@
-import getElementMetadata from '../../../utils/getElementMetadata.js';
+import getElementMetadata from '../../../../nx2/utils/getElementMetadata.js';
 import { regionalDiff, removeLocTags } from '../regional-diff/regional-diff.js';
-import { daFetch, saveToDa } from '../../../utils/daFetch.js';
-import { DA_ORIGIN } from '../../../public/utils/constants.js';
-import { Queue } from '../../../public/utils/tree.js';
+import { source, versions } from '../../../../nx2/utils/api.js';
+import { Queue } from '../../../../nx2/public/utils/tree.js';
+import { saveToDa } from '../utils/save.js';
 
 // Max concurrent /source/ reads from da-admin. Prevents flooding da-admin
 // with OPTIONS+GET bursts during content scans (translate, rollout, validate).
@@ -26,12 +26,6 @@ const PARSER = new DOMParser();
 
 let projPath;
 let projJson;
-
-async function fetchData(path) {
-  const resp = await daFetch(path);
-  if (!resp.ok) return null;
-  return resp.json();
-}
 
 export function formatDate(timestamp) {
   const rawDate = timestamp ? new Date(timestamp) : new Date();
@@ -88,16 +82,17 @@ export async function detectService(config, env = 'stage') {
 
 export async function getDetails() {
   projPath = window.location.hash.replace('#', '');
-  const data = await fetchData(`${DA_ORIGIN}/source${projPath}.json`);
-  return data;
+  const resp = await source.get(`${projPath}.json`);
+  if (!resp.ok) return null;
+  return resp.json();
 }
 
 export function convertUrl({ path, srcLang, destLang }) {
-  const source = path.startsWith(srcLang) ? path : `${srcLang}${path}`;
+  const srcPath = path.startsWith(srcLang) ? path : `${srcLang}${path}`;
   const destSlash = srcLang === '/' ? '/' : '';
   const destination = path.startsWith(srcLang) ? path.replace(srcLang, `${destLang}${destSlash}`) : `${destLang}${path}`;
 
-  return { source, destination };
+  return { source: srcPath, destination };
 }
 
 export async function saveStatus(json) {
@@ -106,11 +101,8 @@ export async function saveStatus(json) {
   projJson = copy;
   const proj = JSON.parse(projJson);
   proj.urls.forEach((url) => { delete url.content; });
-  const body = new FormData();
-  const file = new Blob([JSON.stringify(proj)], { type: 'application/json' });
-  body.append('data', file);
-  const opts = { body, method: 'POST' };
-  const resp = await daFetch(`${DA_ORIGIN}/source${projPath}.json`, opts);
+
+  const resp = await source.save(`${projPath}.json`, { body: JSON.stringify(proj) });
   if (!resp.ok) return { error: 'Could not update project' };
   return json;
 }
@@ -123,9 +115,7 @@ async function saveVersion(path, label) {
   if (versionSaving.has(path)) return;
   versionSaving.add(path);
   try {
-    const opts = { method: 'POST' };
-    if (label) opts.body = JSON.stringify({ label });
-    await daFetch(`${DA_ORIGIN}/versionsource${path}`, opts);
+    await versions.create(path, { comment: label });
   } finally {
     versionSaving.delete(path);
   }
@@ -146,7 +136,7 @@ function collapseInnerTextSpaces(html) {
 
 const getHtml = async (path, html) => {
   const fetchHtml = async () => {
-    const res = await daFetch(`${DA_ORIGIN}/source${path}`);
+    const res = await source.get(path);
     if (!res.ok) return null;
     const str = await res.text();
     return str;
@@ -166,14 +156,7 @@ const getDaUrl = (url) => {
 export async function overwriteCopy(url, title) {
   let resp;
   if (url.sourceContent) {
-    const type = url.destination.includes('.json') ? 'application/json' : 'text/html';
-    const blob = new Blob([url.sourceContent], { type });
-    const opts = {
-      method: 'POST',
-      body: new FormData(),
-    };
-    opts.body.append('data', blob);
-    resp = await daFetch(`${DA_ORIGIN}/source${url.destination}`, opts);
+    resp = await source.save(url.destination, { body: url.sourceContent });
   } else {
     const srcHtml = await getHtml(url.source);
     if (srcHtml) {
@@ -196,7 +179,7 @@ export async function overwriteCopy(url, title) {
 
   url.status = 'success';
   if (shouldSaveVersion(url)) {
-    saveVersion(url.destination, `${title} - Rolled Out`);
+    await saveVersion(url.destination, `${title} - Rolled Out`);
   }
   return resp;
 }
@@ -332,14 +315,13 @@ export async function saveLangItems(sitePath, items, lang, removeDnt) {
     const isJson = item.basePath.endsWith('.json');
     const htmlToSave = await removeDnt(html, org, repo, { fileType: isJson ? 'json' : 'html' });
 
-    const blob = new Blob([htmlToSave], { type: isJson ? 'application/json' : 'text/html' });
-
     const path = `${sitePath}${lang.location}${item.basePath}`;
-    const body = new FormData();
-    body.append('data', blob);
-    const opts = { body, method: 'POST' };
-    const resp = await daFetch(`${DA_ORIGIN}/source${path}`, opts);
-    results[idx] = { success: resp.status };
+    try {
+      const resp = await source.save(path, { body: htmlToSave });
+      results[idx] = { success: resp.status };
+    } catch {
+      results[idx] = { error: 'Could not save documents' };
+    }
   }, MAX_CONCURRENT_WRITES);
 
   await Promise.all(items.map((item, idx) => queue.push({ item, idx })));

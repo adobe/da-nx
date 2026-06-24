@@ -1,11 +1,8 @@
-import { source } from '../../../utils/api.js';
+import { source } from '../../../../nx2/utils/api.js';
 
 /**
  * Wrap localized content in a DA-compatible HTML document and rewrite
  * relative media / hrefs back to the source site's absolute origin.
- *
- * Ported from nx/utils/daFetch.js — kept Loc-local because it is content
- * shaping specific to the localization pipeline, not a generic API concern.
  */
 export function replaceHtml(text, fromOrg, fromRepo, options = {}) {
   const { daMetadata = {}, replaceRelative = true } = options;
