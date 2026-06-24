@@ -289,6 +289,49 @@ export function annotateHTML(htmlContent, parsedSchema) {
   return doc.body.innerHTML;
 }
 
+function normalizeColumnKey(key) {
+  return typeof key === 'string' ? key.trim() : '';
+}
+
+export function isUpdatedColumn(key) {
+  return normalizeColumnKey(key).endsWith(' (updated)');
+}
+
+export function parseUpdatedFlag(cell) {
+  const val = normalizeColumnKey(cell).toLowerCase();
+  if (!val) return false;
+  return val === 'yes' || val === 'true';
+}
+
+function updatedColumnName(fieldName) {
+  return `${normalizeColumnKey(fieldName)} (updated)`;
+}
+
+function normalizedEntryLookup(entry) {
+  const lookup = new Map();
+  Object.entries(entry).forEach(([key, value]) => {
+    lookup.set(normalizeColumnKey(key), value);
+  });
+  return lookup;
+}
+
+function keywordFieldNamesFromEntry(entry) {
+  const names = new Set();
+  Object.keys(entry).forEach((key) => {
+    const normalized = normalizeColumnKey(key);
+    if (normalized === 'language' || isUpdatedColumn(normalized)) return;
+    names.add(normalized);
+  });
+  return [...names];
+}
+
+function buildKeywordMetadataValue(keywordValue, updatedCell) {
+  const updated = parseUpdatedFlag(updatedCell);
+  const value = typeof keywordValue === 'string' ? keywordValue.trim() : '';
+  if (!value && !updated) return null;
+  return { value, updated };
+}
+
 export function buildLanguageMetadata(keywordsData, langs, {
   constantsHtml,
   pageHtml,
@@ -322,16 +365,19 @@ export function buildLanguageMetadata(keywordsData, langs, {
         if (!languageName) return;
         const langCode = langCodeForName(languageName);
         if (!langCode || !targetLangCodes.has(langCode)) return;
-        if (!langMetadata[langCode]) {
-          langMetadata[langCode] = {};
-        }
-        Object.keys(entry).forEach((fieldName) => {
-          if (fieldName === 'language') return;
-          const keywordValue = entry[fieldName];
-          if (!keywordValue || !keywordValue.trim()) return;
+        const rowLookup = normalizedEntryLookup(entry);
+        keywordFieldNamesFromEntry(entry).forEach((fieldName) => {
+          const keywordMetadata = buildKeywordMetadataValue(
+            rowLookup.get(fieldName),
+            rowLookup.get(updatedColumnName(fieldName)),
+          );
+          if (!keywordMetadata) return;
+          if (!langMetadata[langCode]) {
+            langMetadata[langCode] = {};
+          }
           const fieldKey = fieldNameToKey(fieldName);
           const metadataKey = `keywords|${blockId}_${index}_${fieldKey}`;
-          langMetadata[langCode][metadataKey] = keywordValue;
+          langMetadata[langCode][metadataKey] = keywordMetadata;
         });
       });
     });
