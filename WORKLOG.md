@@ -1,5 +1,15 @@
 # Worklog
 
+## 2026-06-24
+
+### exp block — migrated to nx2
+
+- `nx2/scripts/nx.js`: added `'exp'` to `NX_BLOCKS` so `nx-exp` loads from `/nx/blocks/exp/` when served by nx2 (same pattern as `'importer'`).
+- `nx/blocks/exp/utils.js`: replaced nx1 API imports with nx2 equivalents:
+  - `DA_ORIGIN` → `DA_ADMIN` from `nx2/utils/utils.js`
+  - `AEM_ORIGIN` → `HLX_ADMIN` from `nx2/utils/utils.js`
+  - `loadIms` → from `nx2/utils/ims.js`
+
 ## 2026-06-23
 
 ### nx2/blocks/shared/dialog — configurable panel sizing (dialog-css-vars branch)
