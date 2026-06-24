@@ -1,5 +1,5 @@
-import { AEM_ORIGIN, DA_ORIGIN } from '../../../public/utils/constants.js';
-import { daFetch } from '../../../utils/daFetch.js';
+import { AEM_ORIGIN } from '../../../../nx2/public/utils/constants.js';
+import { daFetch, source } from '../../../../nx2/utils/api.js';
 
 // See: https://www.aem.live/docs/authentication-setup-authoring
 const AEM_ROLES = ['admin', 'basic_author', 'basic_publish', 'author', 'publish', 'develop', 'config', 'config_admin'];
@@ -51,12 +51,10 @@ async function formatAccess(resp) {
   return { users };
 }
 
-async function daUserConfig(path, opts = {}) {
-  return daFetch(`${DA_ORIGIN}/source${path}/.da/aem-permission-requests.json`, opts);
-}
+const DA_PERMISSIONS_PATH = (path) => `${path}/.da/aem-permission-requests.json`;
 
 export async function getDaUsers(path) {
-  const resp = await daUserConfig(path);
+  const resp = await source.get(DA_PERMISSIONS_PATH(path));
   if (!resp.ok) return [];
   return (await resp.json()).users?.data.map((user) => {
     const formatted = {
@@ -76,11 +74,11 @@ export async function getDaUsers(path) {
 }
 
 async function fetchAemOrg(org) {
-  return daFetch(`${AEM_ORIGIN}/config/${org}.json`);
+  return daFetch({ url: `${AEM_ORIGIN}/config/${org}.json` });
 }
 
 async function fetchAemSite(org, site) {
-  const resp = await daFetch(`${AEM_ORIGIN}/config/${org}/sites/${site}/access.json`);
+  const resp = await daFetch({ url: `${AEM_ORIGIN}/config/${org}/sites/${site}/access.json` });
   if (resp.status === 404) {
     return {
       ok: true,
@@ -107,7 +105,7 @@ async function saveToAem(path, json, method = 'POST') {
     opts.headers = { 'Content-Type': 'application/json' };
   }
 
-  return daFetch(`${AEM_ORIGIN}${path}`, opts);
+  return daFetch({ url: `${AEM_ORIGIN}${path}`, opts });
 }
 
 export async function getAemConfig(suppliedPath) {
@@ -166,7 +164,7 @@ export function combineUsers(daUsers, aemUsers) {
 }
 
 export async function clearRequests(path, user) {
-  const resp = await daUserConfig(path);
+  const resp = await source.get(DA_PERMISSIONS_PATH(path));
   if (!resp.ok) return handleError(resp.status, path);
   const json = await resp.json();
 
@@ -175,12 +173,7 @@ export async function clearRequests(path, user) {
   if (!daUser) return null;
   daUser['Role Request'] = '';
 
-  const body = new FormData();
-  const data = new Blob([JSON.stringify(json)], { type: 'application/json' });
-
-  body.set('data', data);
-  const opts = { method: 'POST', body };
-  return daUserConfig(path, opts);
+  return source.save(DA_PERMISSIONS_PATH(path), { body: JSON.stringify(json) });
 }
 
 async function approveSiteUser(org, site, path, user) {
