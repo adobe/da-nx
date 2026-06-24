@@ -538,11 +538,13 @@ html:has(meta[content="edge-delivery"]) {
             height: 100%;
             border-radius: 999px;
             background-color: transparent;
+            transition: background-color 0.1s;
           }
 
           .panel-resize-handle:hover::before,
           .panel-resize-handle:focus-visible::before {
             background-color: var(--s2-gray-400);
+            transition: background-color 0.2s ease-in;
           }
 
           .panel-resize-handle:focus-visible {
