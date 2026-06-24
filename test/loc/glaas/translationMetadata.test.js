@@ -11,6 +11,8 @@ import {
   buildLanguageMetadata,
   loadSeoGlossary,
   addSeoGlossary,
+  isUpdatedColumn,
+  parseUpdatedFlag,
 } from '../../../nx/blocks/loc/connectors/glaas/translationMetadata.js';
 
 const mockRes = ({ payload, status = 404, ok = false } = {}) => new Promise((resolve) => {
@@ -749,8 +751,14 @@ describe('translationMetadata', () => {
 
       expect(result.fr).to.have.property('keywords|aso-app_apple_listing_1_subtitle');
       expect(result.fr).to.have.property('keywords|aso-app_apple_listing_1_description');
-      expect(result.fr['keywords|aso-app_apple_listing_1_subtitle']).to.equal(expectedSubtitle);
-      expect(result.fr['keywords|aso-app_apple_listing_1_description']).to.equal(expectedDescription);
+      expect(result.fr['keywords|aso-app_apple_listing_1_subtitle']).to.deep.equal({
+        value: expectedSubtitle,
+        updated: true,
+      });
+      expect(result.fr['keywords|aso-app_apple_listing_1_description']).to.deep.equal({
+        value: expectedDescription,
+        updated: true,
+      });
     });
 
     it('should handle multiple blocks', () => {
@@ -766,8 +774,14 @@ describe('translationMetadata', () => {
 
       expect(result.fr).to.have.property('keywords|aso-app_apple_listing_1_subtitle');
       expect(result.fr).to.have.property('keywords|aso-app_apple_listing_2_subtitle');
-      expect(result.fr['keywords|aso-app_apple_listing_2_subtitle']).to.equal(expectedBlock2Subtitle);
-      expect(result.fr['keywords|aso-app_apple_listing_2_description']).to.equal(expectedBlock2Description);
+      expect(result.fr['keywords|aso-app_apple_listing_2_subtitle']).to.deep.equal({
+        value: expectedBlock2Subtitle,
+        updated: true,
+      });
+      expect(result.fr['keywords|aso-app_apple_listing_2_description']).to.deep.equal({
+        value: expectedBlock2Description,
+        updated: true,
+      });
     });
 
     it('should return empty object if keywordsData is null', () => {
@@ -811,6 +825,93 @@ describe('translationMetadata', () => {
       const keys = Object.keys(result.fr || {});
       const hasLanguageKey = keys.some((key) => key.includes('language'));
       expect(hasLanguageKey).to.be.false;
+    });
+
+    it('should send keywords with updated false when flag is empty or no', () => {
+      const keywords = {
+        'aso-app (google, listing) (1)': {
+          data: [{
+            language: 'French',
+            'Short Description': 'keyword text',
+            'Short Description (updated)': 'no',
+            Description: 'other keyword',
+            'Description (updated)': '',
+          }],
+        },
+      };
+      const result = buildLanguageMetadata(keywords, [{ name: 'French', code: 'fr' }]);
+      expect(result.fr['keywords|aso-app_google_listing_1_short-description']).to.deep.equal({
+        value: 'keyword text',
+        updated: false,
+      });
+      expect(result.fr['keywords|aso-app_google_listing_1_description']).to.deep.equal({
+        value: 'other keyword',
+        updated: false,
+      });
+    });
+
+    it('should send empty value when updated is yes and keywords were deleted', () => {
+      const keywords = {
+        'aso-app (google, listing) (1)': {
+          data: [{
+            language: 'Japanese',
+            'Short Description': '',
+            'Short Description (updated)': 'yes',
+          }],
+        },
+      };
+      const result = buildLanguageMetadata(keywords, [{ name: 'Japanese', code: 'ja' }]);
+      expect(result.ja['keywords|aso-app_google_listing_1_short-description']).to.deep.equal({
+        value: '',
+        updated: true,
+      });
+    });
+
+    it('should trim keyword value before send', () => {
+      const keywords = {
+        'aso-app (google, listing) (1)': {
+          data: [{
+            language: 'French',
+            'Short Description': '  keyword text  ',
+            'Short Description (updated)': ' yes ',
+          }],
+        },
+      };
+      const result = buildLanguageMetadata(keywords, [{ name: 'French', code: 'fr' }]);
+      expect(result.fr['keywords|aso-app_google_listing_1_short-description']).to.deep.equal({
+        value: 'keyword text',
+        updated: true,
+      });
+    });
+
+    it('should send legacy keywords with updated false when column is missing', () => {
+      const legacyKeywords = {
+        'aso-app (google, listing) (1)': {
+          data: [{
+            language: 'French',
+            'Short Description': 'legacy keyword',
+          }],
+        },
+      };
+      const result = buildLanguageMetadata(legacyKeywords, [{ name: 'French', code: 'fr' }]);
+      expect(result.fr['keywords|aso-app_google_listing_1_short-description']).to.deep.equal({
+        value: 'legacy keyword',
+        updated: false,
+      });
+    });
+
+    describe('updated column helpers', () => {
+      it('should detect updated columns with surrounding whitespace', () => {
+        expect(isUpdatedColumn(' Short Description (updated) ')).to.be.true;
+        expect(isUpdatedColumn('Short Description')).to.be.false;
+      });
+
+      it('should parse updated flag case-insensitively with trim', () => {
+        expect(parseUpdatedFlag(' YES ')).to.be.true;
+        expect(parseUpdatedFlag('True')).to.be.true;
+        expect(parseUpdatedFlag('')).to.be.false;
+        expect(parseUpdatedFlag('no')).to.be.false;
+      });
     });
 
     describe('placeholders from constants metadata file', () => {
@@ -868,6 +969,7 @@ describe('translationMetadata', () => {
               data: [{
                 language: 'Japanese',
                 Description: 'keyword string',
+                'Description (updated)': 'yes',
               }],
             },
           },
@@ -877,7 +979,10 @@ describe('translationMetadata', () => {
 
         expect(result).to.deep.equal({
           ja: {
-            'keywords|aso-app_apple_listing_1_description': 'keyword string',
+            'keywords|aso-app_apple_listing_1_description': {
+              value: 'keyword string',
+              updated: true,
+            },
             'placeholders|aso-app_apple_listing_1_description': {
               'legal-terms': '<p>[オプションのアクセス権]</p><p>カメラ: ページをスキャン</p>',
             },
