@@ -1,5 +1,5 @@
 import { expect } from '@esm-bundle/chai';
-import init from '../../../../../blocks/section-metadata/section-metadata.js';
+import init from '../../../../../../nx/blocks/section-metadata/section-metadata.js';
 
 function buildSection(innerHtml) {
   const section = document.createElement('div');
