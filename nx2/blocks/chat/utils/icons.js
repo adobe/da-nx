@@ -8,3 +8,9 @@ export function fileIconName(filename) {
   if (ext) return 's2-icon-filetext-20-n';
   return 's2-icon-3d-20-n';
 }
+
+export function pillIconName(type, name) {
+  if (type === 'block') return 's2-icon-3d-20-n';
+  if (type === 'text') return 's2-icon-text-20-n';
+  return fileIconName(name);
+}
