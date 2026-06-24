@@ -7,7 +7,7 @@
 
 input,
 button {
-  font-family: var(--font-family);
+  font-family: var(--s2-font-family);
 }
 
 p {
@@ -27,7 +27,7 @@ svg.icon {
   transition: background-color 0.2s ease-in-out;
 
   &.is-open {
-    background-color: var(--s2-blue-200);
+    background-color: light-dark(var(--s2-blue-200), var(--s2-gray-50));
   }
 
   .nx-snapshot-overlay {
@@ -58,13 +58,13 @@ svg.icon {
   display: grid;
   align-items: center;
   grid-template-columns: 1fr auto;
-  gap: var(--spacing-400);
+  gap: var(--s2-spacing-400);
   font-weight: 700;
 
   .nx-snapshot-header-title {
     display: grid;
     grid-template-columns: 1fr 64px;
-    gap: var(--spacing-400);
+    gap: var(--s2-spacing-400);
 
     .nx-snapshot-link {
       display: inline-flex;
@@ -113,7 +113,7 @@ svg.icon {
     border-radius: 4px;
     text-indent: -1000px;
     overflow: hidden;
-    background: transparent;
+    background-color: light-dark(transparent, var(--s2-gray-900));
   }
 
   .nx-snapshot-expand::after {
@@ -127,7 +127,8 @@ svg.icon {
   }
 
   .nx-snapshot-expand:hover {
-    background: #0000001a;
+    background-color: light-dark(#0000001a, var(--s2-gray-800));
+    cursor: pointer;
   }
 
   input {
@@ -172,7 +173,6 @@ svg.icon {
     left: 0;
     right: 0;
     bottom: 0;
-    background: linear-gradient(0deg, #e5f0fe 0%, #e5f0fe00 100%);
   }
 }
 
@@ -250,7 +250,7 @@ svg.icon {
     border-radius: 6px;
     text-decoration: none;
     cursor: pointer;
-    font-family: var(--font-family);
+    font-family: var(--s2-font-family);
 
     &:hover {
       background-color: var(--s2-blue-1000);
@@ -272,7 +272,7 @@ svg.icon {
 .nx-launch-sub-heading {
   font-weight: 700;
   text-transform: uppercase;
-  font-size: var(--s2-body-s-size);
+  font-size: var(--s2-body-size-s);
   margin-bottom: 4px;
 
   &.nx-snapshot-sub-heading-urls {
@@ -310,7 +310,7 @@ svg.icon {
     color: var(--s2-blue-900);
     font-weight: 700;
     text-transform: uppercase;
-    font-size: var(--s2-body-s-size);
+    font-size: var(--s2-body-size-s);
     padding: 0;
     border: none;
     cursor: pointer;
@@ -400,7 +400,7 @@ svg.icon {
 
     &:disabled {
       background-color: #00000045;
-      color: #000;
+      color: light-dark(#000, var(--s2-gray-500));
     }
   }
 }

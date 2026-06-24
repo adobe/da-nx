@@ -1,16 +1,16 @@
 import { html, LitElement, nothing } from 'da-lit';
-import getStyle from '../../utils/styles.js';
-import { getSvg } from '../../utils/svg.js';
-import '../../public/sl/components.js';
+import getStyle from '../../../nx2/public/utils/styles.js';
+import { getSvg } from '../../../nx2/utils/svg.js';
+import '../../../nx2/public/sl/components.js';
 
-const nx = `${new URL(import.meta.url).origin}/nx`;
-const sl = await getStyle(`${nx}/public/sl/styles.css`);
+const nxBase = `${new URL(import.meta.url).origin}/nx2`;
+const sl = await getStyle(`${nxBase}/public/sl/styles.css`);
 const styles = await getStyle(import.meta.url);
 
 const ICONS = [
-  `${nx}/public/icons/S2_Icon_Add_20_N.svg`,
-  `${nx}/public/icons/S2_Icon_Checkmark_20_N.svg`,
-  `${nx}/public/icons/S2_Icon_Close_20_N.svg`,
+  `${nxBase}/public/icons/S2_Icon_Add_20_N.svg`,
+  `${nxBase}/public/icons/S2_Icon_Checkmark_20_N.svg`,
+  `${nxBase}/public/icons/S2_Icon_Close_20_N.svg`,
 ];
 
 class NxPermissionUser extends LitElement {

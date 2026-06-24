@@ -1,6 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import sinon from 'sinon';
-import { DA_ORIGIN } from '../../../nx/public/utils/constants.js';
+import { DA_ORIGIN } from '../../../public/utils/constants.js';
 import {
   blobContentTypeForDaSource,
   buildTranslatedMediaPath,
@@ -9,7 +9,7 @@ import {
   prepareMultimodalPageForSave,
   siteRelativePathFromContentDaLiveUrl,
   rewriteContentDaLiveImageUrls,
-} from '../../../nx/blocks/loc/connectors/glaas/multimodalApi.js';
+} from '../../../../nx/blocks/loc/connectors/glaas/multimodalApi.js';
 
 describe('GLaaS multimodal save', () => {
   it('strips content.da.live org/site segments from image URL', () => {

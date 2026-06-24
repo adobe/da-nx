@@ -1,16 +1,13 @@
 import { LitElement, html, nothing } from 'da-lit';
-import { getConfig } from '../../../../scripts/nexter.js';
-import getStyle from '../../../../utils/styles.js';
-import { getSvg } from '../../../../utils/svg.js';
+import getStyle from '../../../../../nx2/public/utils/styles.js';
+import { getSvg } from '../../../../../nx2/utils/svg.js';
 import { VIEWS } from '../../utils/steps.js';
 
 const style = await getStyle(import.meta.url);
 
-const { nxBase: nx } = getConfig();
-
 const ICONS = [
-  `${nx}/img/icons/Smock_ChevronLeft_18_N.svg`,
-  `${nx}/img/icons/Smock_ChevronRight_18_N.svg`,
+  new URL('../../img/Smock_ChevronLeft_18_N.svg', import.meta.url).href,
+  new URL('../../img/Smock_ChevronRight_18_N.svg', import.meta.url).href,
 ];
 
 class NxLocActions extends LitElement {

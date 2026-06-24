@@ -1,18 +1,17 @@
-import { LitElement, html, nothing } from '../../../../deps/lit/dist/index.js';
-import { DA_ORIGIN } from '../../../../public/utils/constants.js';
-import { getConfig } from '../../../../scripts/nexter.js';
-import { daFetch } from '../../../../utils/daFetch.js';
-import getStyle from '../../../../utils/styles.js';
-import { getSvg } from '../../../../utils/svg.js';
+import { LitElement, html, nothing } from 'da-lit';
+import { getConfig } from '../../../../../nx2/scripts/nx.js';
+import { source } from '../../../../../nx2/utils/api.js';
+import getStyle from '../../../../../nx2/public/utils/styles.js';
+import { getSvg } from '../../../../../nx2/utils/svg.js';
 import { detectService, saveLangItems, saveStatus, formatDate } from '../index.js';
 
 const { nxBase } = getConfig();
 const style = await getStyle(import.meta.url);
-const shared = await getStyle(`${nxBase}/blocks/loc/project/views/shared.css`);
+const shared = await getStyle(new URL('./shared.css', import.meta.url).href);
 const buttons = await getStyle(`${nxBase}/styles/buttons.js`);
 
 const ICONS = [
-  `${nxBase}/blocks/loc/img/Smock_ChevronRight_18_N.svg`,
+  new URL('../../img/Smock_ChevronRight_18_N.svg', import.meta.url).href,
 ];
 
 class NxLocTranslate extends LitElement {
@@ -151,9 +150,9 @@ class NxLocTranslate extends LitElement {
   }
 
   async getSiteConfig() {
-    let resp = await daFetch(`${DA_ORIGIN}/source/${this.state.org}/${this.state.site}/.da/translate.json`);
+    let resp = await source.get({ org: this.state.org, site: this.state.site, path: '/.da/translate.json' });
     if (!resp.ok) {
-      resp = await fetch(`${nxBase}/blocks/loc/setup/translate.json`);
+      resp = await fetch(new URL('../../setup/translate.json', import.meta.url).href);
     }
     return resp.json();
   }
@@ -164,7 +163,7 @@ class NxLocTranslate extends LitElement {
     const siteConfig = await this.getSiteConfig();
 
     await Promise.all(this.urls.map(async (url) => {
-      const resp = await daFetch(`${DA_ORIGIN}/source${url.srcPath}`);
+      const resp = await source.get(url.srcPath);
       if (!resp.ok) {
         url.error = 'Error fetching document for DNT.';
         url.status = 520;

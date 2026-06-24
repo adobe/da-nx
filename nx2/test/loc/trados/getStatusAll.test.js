@@ -1,6 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import { readFile } from '@web/test-runner-commands';
-import { getSourceFileStatus, getLangStatus } from '../../../nx/blocks/loc/connectors/trados/index.js';
+import { getSourceFileStatus, getLangStatus } from '../../../../nx/blocks/loc/connectors/trados/index.js';
 
 async function loadMock(name) {
   const text = await readFile({ path: `./mocks/${name}.json` });

@@ -8,7 +8,7 @@
 
 .pagination-info {
   font-size: 0.9rem;
-  color: #555;
+  color: var(--s2-gray-700);
 }
 
 .pagination-controls {
@@ -18,7 +18,7 @@
 
 .pagination-ellipsis {
   padding: 8px 2px;
-  background-color: #fff;
+  background-color: var(--s2-gray-25);
   border-radius: 4px;
   text-align: center;
   white-space: nowrap;
@@ -29,8 +29,8 @@
 
 .pagination-btn {
   padding: 8px 2px;
-  border: 1px solid #ccc;
-  background-color: #fff;
+  border: 1px solid var(--s2-gray-400);
+  background-color: var(--s2-gray-25);
   border-radius: 4px;
   cursor: pointer;
   text-align: center;
@@ -44,7 +44,7 @@
 }
 
 .pagination-btn:hover {
-  background-color: #f3f3f3;
+  background-color: var(--s2-gray-75);
 }
 
 .pagination-btn.active {

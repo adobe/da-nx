@@ -1,12 +1,12 @@
 import { html, LitElement, nothing } from 'da-lit';
-import getStyle from '../../../utils/styles.js';
-import { getSvg } from '../../../utils/svg.js';
+import getStyle from '../../../../nx2/public/utils/styles.js';
+import { getSvg } from '../../../../nx2/utils/svg.js';
 
-const nx = `${new URL(import.meta.url).origin}/nx`;
-const sl = await getStyle(`${nx}/public/sl/styles.css`);
+const nxBase = `${new URL(import.meta.url).origin}/nx2`;
+const sl = await getStyle(`${nxBase}/public/sl/styles.css`);
 const style = await getStyle(import.meta.url);
 
-const ICONS = [`${nx}/img/icons/S2IconClose20N-icon.svg`];
+const ICONS = [`${nxBase}/img/icons/S2IconClose20N-icon.svg`];
 
 class NxDialog extends LitElement {
   static properties = { details: { attribute: false } };

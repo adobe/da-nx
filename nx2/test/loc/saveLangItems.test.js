@@ -1,9 +1,8 @@
 import { expect } from '@esm-bundle/chai';
 import sinon from 'sinon';
-import { setImsDetails } from '../../nx/utils/daFetch.js';
-import { saveLangItems, MAX_CONCURRENT_WRITES } from '../../nx/blocks/loc/project/index.js';
+import { saveLangItems, MAX_CONCURRENT_WRITES } from '../../../nx/blocks/loc/project/index.js';
 
-// saveLangItems must rate-limit /source/ POSTs to MAX_CONCURRENT_WRITES
+// saveLangItems must rate-limit /source/ writes to MAX_CONCURRENT_WRITES
 // to avoid thundering-herd 412 conflicts on da-admin's R2 audit entries.
 
 const SITE_PATH = '/test/org/site';
@@ -34,7 +33,6 @@ describe('saveLangItems', () => {
   let fetchStub;
 
   beforeEach(() => {
-    setImsDetails('test-token');
     originalFetch = globalThis.fetch;
     window.location.hash = '#/test/org/site';
   });
@@ -107,25 +105,23 @@ describe('saveLangItems', () => {
     );
   });
 
-  it('returns success 500 when the underlying fetch fails with a network error', async () => {
+  it('returns an error object when the underlying save fails with a network error', async () => {
     globalThis.fetch = sinon.stub().rejects(new Error('network failure'));
 
     const items = [makeItem('/fail.html')];
     const results = await saveLangItems(SITE_PATH, items, LANG, removeDnt);
 
-    expect(results[0]).to.deep.equal({ success: 500 });
+    expect(results[0]).to.deep.equal({ error: 'Could not save documents' });
   });
 
-  it('handles JSON items with correct content-type', async () => {
+  it('saves JSON items to a .json source path', async () => {
     fetchStub = makeFetchStub();
     globalThis.fetch = fetchStub;
 
     const items = [makeItem('/data.json', '{"key":"value"}')];
     await saveLangItems(SITE_PATH, items, LANG, removeDnt);
 
-    const [, opts] = fetchStub.args[0];
-    const formData = opts.body;
-    const blob = formData.get('data');
-    expect(blob.type).to.equal('application/json');
+    const jsonCalls = fetchStub.args.filter(([url]) => url.includes('/source/') && url.includes('data.json'));
+    expect(jsonCalls.length).to.equal(1);
   });
 });
