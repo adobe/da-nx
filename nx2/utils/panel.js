@@ -1,4 +1,10 @@
-import { getMetadata } from '../scripts/nx.js';
+// Inlined to avoid a cycle with nx.js — panel.js is imported from nx.js's
+// top-level await, which would otherwise deadlock against the static import.
+function getMetadata(name) {
+  const attr = name && name.includes(':') ? 'property' : 'name';
+  const meta = document.head.querySelector(`meta[${attr}="${name}"]`);
+  return meta && meta.content;
+}
 
 const PANEL_WIDTH_MIN = 120;
 const PANEL_WIDTH_MAX = () => Math.min(1600, window.innerWidth * 0.4);
@@ -37,12 +43,15 @@ function removePanelState(position) {
   localStorage.setItem(PANEL_STORAGE_KEY, JSON.stringify(store));
 }
 
+const VALID_WIDTH = /^\d+(\.\d+)?px$/i;
+
 export function setPanelsGrid() {
   const { body } = document;
   if (getMetadata('template') !== 'app-frame') return;
 
   const before = body.querySelector('aside.panel[data-position="before"]:not([hidden])');
   const after = body.querySelector('aside.panel[data-position="after"]:not([hidden])');
+  const root = document.documentElement;
 
   const getWidth = (el) => {
     const w = el?.dataset.width?.trim();
@@ -71,8 +80,8 @@ export function setPanelsGrid() {
     columns.push(getWidth(after));
   }
 
-  body.style.setProperty('--app-frame-areas', `"${header.join(' ')}" var(--s2-nav-height) "${content.join(' ')}" 1fr`);
-  body.style.setProperty('--app-frame-columns', columns.join(' '));
+  root.style.setProperty('--app-frame-areas', `"${header.join(' ')}" var(--s2-nav-height) "${content.join(' ')}" 1fr`);
+  root.style.setProperty('--app-frame-columns', columns.join(' '));
 }
 
 function resizePointerDown(downEvent) {
@@ -200,15 +209,58 @@ export async function openPanelWithFragment({ width = '400px', beforeMain = fals
   return mountPanel({ width, beforeMain, content, fragment: persistedFragment });
 }
 
+// Build the panel chrome for a position (no content). Used by mountPanelOutlines
+// to reserve grid space synchronously, before the slow content imports finish.
+function createPanelOutline({ position, width, fragment }) {
+  const aside = document.createElement('aside');
+  aside.classList.add('panel');
+  aside.dataset.width = width;
+  aside.style.width = width;
+  aside.dataset.position = position;
+  if (fragment) aside.dataset.fragment = fragment;
+  buildPanelDOM(aside);
+  const main = document.querySelector('main');
+  if (!main) return null;
+  if (position === 'before') main.before(aside);
+  else main.after(aside);
+  return aside;
+}
+
+export function mountPanelOutlines() {
+  if (getMetadata('template') !== 'app-frame') return;
+  const store = getPanelStore();
+  for (const position of ['before', 'after']) {
+    const entry = store[position];
+    const width = entry?.width?.trim();
+    if (width && VALID_WIDTH.test(width)
+        && !document.querySelector(`aside.panel[data-position="${position}"]`)) {
+      createPanelOutline({ position, width, fragment: entry.fragment });
+    }
+  }
+  setPanelsGrid();
+}
+
+async function fillPanelOutline(aside, getContent) {
+  const body = aside.querySelector('.panel-body');
+  if (!body || body.firstChild || !getContent) return;
+  const content = await getContent();
+  if (content) body.append(content);
+}
+
 export async function restorePanels() {
   const panels = getPanelStore();
   if (!panels.before && !panels.after) return;
   for (const [position, { width, fragment }] of Object.entries(panels)) {
     if (fragment) {
-      const { content, fragment: frag } = await loadPanelContent(fragment);
-      if (content) {
-        const beforeMain = position === 'before';
-        mountPanel({ width, beforeMain, content, fragment: frag });
+      const existing = document.querySelector(`aside.panel[data-position="${position}"]`);
+      if (existing) {
+        await fillPanelOutline(existing, async () => (await loadPanelContent(fragment)).content);
+      } else {
+        const { content, fragment: frag } = await loadPanelContent(fragment);
+        if (content) {
+          const beforeMain = position === 'before';
+          mountPanel({ width, beforeMain, content, fragment: frag });
+        }
       }
     }
   }
@@ -217,9 +269,13 @@ export async function restorePanels() {
 
 export async function openPanel({ position, width = '400px', getContent } = {}) {
   const existing = document.querySelector(`aside.panel[data-position="${position}"]`);
-  if (existing && !existing.hidden) return existing;
+  if (existing && !existing.hidden) {
+    await fillPanelOutline(existing, getContent);
+    return existing;
+  }
   if (existing?.hidden) {
     showPanel(existing);
+    await fillPanelOutline(existing, getContent);
     return existing;
   }
 
