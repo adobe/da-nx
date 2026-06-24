@@ -435,7 +435,7 @@ class NxChat extends LitElement {
     if (!item) return;
     const { selFrom, selTo, selectionType, blockName, proseIndex } = item;
     if (typeof selFrom !== 'number' || typeof selTo !== 'number') return;
-    document.dispatchEvent(new CustomEvent('nx-canvas-highlight', {
+    document.dispatchEvent(new CustomEvent('nx-highlight-selection', {
       detail: { selFrom, selTo, selectionType, blockName, proseIndex },
     }));
   }
