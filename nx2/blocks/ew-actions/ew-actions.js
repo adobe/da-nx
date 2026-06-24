@@ -3,7 +3,6 @@ import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle, hashChange } from '../../utils/utils.js';
 import {
   buildAemPathFromHashState,
-  buildScRendererUrl,
   formatAemPreviewPublishError,
   runAemPreviewOrPublish,
 } from '../../utils/aem-preview-publish.js';
@@ -152,19 +151,24 @@ class NXEwActions extends LitElement {
       return;
     }
 
-    // The preview/publish work above is unchanged; only the URL we open differs.
-    // The form workspace opts into the structured-content renderer by setting
-    // the `ew-preview-renderer` meta (see da-live's form block). Everywhere else keeps
-    // the standard EDS delivery URL computed by the helper.
-    const useScRenderer = document.head
-      .querySelector('meta[name="ew-preview-renderer"]')?.content === 'sc';
-    const url = useScRenderer
-      ? buildScRendererUrl({ aemPath, action }) || result.url
-      : result.url;
-
+    const url = this._resolveOpenUrl(action, aemPath, result.url);
     window.open(url, url);
 
     this._busy = false;
+  }
+
+  // A page can override the EDS delivery URL with `preview-url` / `live-url`
+  // metas whose content is a template containing `${aemPath}`.
+  // eslint-disable-next-line class-methods-use-this
+  _resolveOpenUrl(action, aemPath, fallbackUrl) {
+    const metaName = action === 'publish' ? 'live-url' : 'preview-url';
+    const template = document.head.querySelector(`meta[name="${metaName}"]`)?.content;
+    if (!template) return fallbackUrl;
+    // eslint-disable-next-line no-template-curly-in-string
+    const url = template.replace('${aemPath}', aemPath);
+    // aemPath carries a leading slash, so a template like `.../preview/${aemPath}`
+    // yields `preview//...`; collapse duplicate slashes but keep the `://` scheme.
+    return url.replace(/([^:])\/{2,}/g, '$1/');
   }
 
   render() {
