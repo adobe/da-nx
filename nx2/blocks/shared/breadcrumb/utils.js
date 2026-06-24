@@ -31,9 +31,7 @@ export function pathSegmentsToCrumbs(segments, opts) {
   const n = segments.length;
   return segments.map((label, i) => {
     if (i === n - 1) return { label, href: '' };
-    const hash = i === 0
-      ? `#/${segments[0]}/${segments[1]}`
-      : `#/${segments.slice(0, i + 1).join('/')}`;
+    const hash = `#/${segments.slice(0, i + 1).join('/')}`;
     return { label, href: resolveBreadcrumbHref({ baseUrl, hash }) };
   });
 }

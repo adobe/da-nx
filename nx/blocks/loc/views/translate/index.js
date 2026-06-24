@@ -122,6 +122,7 @@ async function saveLang({
     langIndex,
     urls: urlsToSave,
     saveFn,
+    sendMessage,
   });
 
   const savedCount = saved.filter((url) => url.status === 'success').length;

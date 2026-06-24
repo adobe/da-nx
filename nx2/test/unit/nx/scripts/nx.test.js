@@ -445,7 +445,7 @@ describe('decorateLink', () => {
     const a = document.createElement('a');
     a.href = 'https://example.com/fragments/modal#dialog';
     const result = decorateLink(config, a);
-    expect(a.classList.contains('dialog')).to.be.true;
+    expect(a.classList.contains('nx-dialog')).to.be.true;
     expect(a.classList.contains('auto-block')).to.be.true;
     expect(result).to.equal(a);
   });

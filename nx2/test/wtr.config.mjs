@@ -37,7 +37,20 @@ export default {
     ],
   },
   testFramework: { config: { retries: GITHUB_ACTIONS ? 1 : 0 } },
-  plugins: [importMapsPlugin({})],
+  plugins: [
+    // Resolve the bundled Lit for server-side transforms. The import-maps plugin
+    // only rewrites `da-lit` within an active HTML session, so modules pulled in
+    // via dynamic import() (e.g. cache-busted `import(path + '?x')`) bypass it and
+    // fail node-resolve. This handles those cases directly.
+    {
+      name: 'resolve-da-lit',
+      resolveImport({ source }) {
+        if (source === 'da-lit') return '/nx2/deps/lit/dist/index.js';
+        return undefined;
+      },
+    },
+    importMapsPlugin({}),
+  ],
   reporters: [
     defaultReporter({ reportTestResults: false, reportTestProgress: true }),
     customReporter(),
