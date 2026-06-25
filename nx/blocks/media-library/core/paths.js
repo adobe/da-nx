@@ -1,5 +1,5 @@
 import { daFetch } from '../../../utils/daFetch.js';
-import { Paths, Domains, DA_LIVE_EDIT_BASE, DA_ORIGIN } from './constants.js';
+import { Paths, Domains, DA_LIVE_EDIT_BASE, DA_ADMIN } from './constants.js';
 import { ErrorCodes, logMediaLibraryError } from './errors.js';
 import { t } from './messages.js';
 import {
@@ -188,7 +188,7 @@ export async function validateSitePath(sitePath) {
 
   if (restPath.length === 0) {
     try {
-      const listUrl = `${DA_ORIGIN}/list/${org}/${repo}`;
+      const listUrl = `${DA_ADMIN}/list/${org}/${repo}`;
       const resp = await daFetch(listUrl);
 
       if (resp.ok) {
@@ -230,7 +230,7 @@ export async function validateSitePath(sitePath) {
   const parentPath = `/${parentParts.join('/')}`;
 
   try {
-    const listUrl = `${DA_ORIGIN}/list${parentPath}`;
+    const listUrl = `${DA_ADMIN}/list${parentPath}`;
     const resp = await daFetch(listUrl);
 
     if (!resp.ok) {

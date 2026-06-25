@@ -77,19 +77,6 @@ export function deduplicateMediaByHash(mediaData) {
   return Array.from(hashMap.values());
 }
 
-export async function ensureAuthenticated() {
-  const imsResult = await initIms();
-
-  if (!imsResult || imsResult.anonymous) {
-    const { loadIms, handleSignIn } = await import('../../../utils/ims.js');
-    await loadIms();
-    handleSignIn();
-    return false;
-  }
-
-  return true;
-}
-
 function shouldDebugLog() {
   const params = new URLSearchParams(window.location.search);
   const debugValue = params.get('debug');

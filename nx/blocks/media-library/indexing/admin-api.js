@@ -4,8 +4,8 @@ import {
   IndexFiles,
   ExternalMedia,
   DA_ETC_ORIGIN,
-  AEM_ORIGIN,
-  DA_ORIGIN,
+  HLX_ADMIN,
+  DA_ADMIN,
 } from '../core/constants.js';
 import { MediaLibraryError, ErrorCodes, logMediaLibraryError } from '../core/errors.js';
 import { isPerfEnabled } from '../core/params.js';
@@ -108,7 +108,7 @@ export async function fetchSidekickConfig(org, repo, ref = 'main') {
   if (!org || !repo) return null;
 
   try {
-    const resp = await fetchWithAuth(`${AEM_ORIGIN}/sidekick/${org}/${repo}/${ref}/config.json`);
+    const resp = await fetchWithAuth(`${HLX_ADMIN}/sidekick/${org}/${repo}/${ref}/config.json`);
     if (!resp.ok) return null;
     return await resp.json();
   } catch {
@@ -188,7 +188,7 @@ export async function fetchPaginated(
 
 export async function loadSheet(path) {
   try {
-    const resp = await daFetch(`${DA_ORIGIN}/source${path}`);
+    const resp = await daFetch(`${DA_ADMIN}/source${path}`);
 
     if (resp.ok) {
       const data = await resp.json();
@@ -204,7 +204,7 @@ export async function loadMultiSheet(path, sheetName, options = {}) {
   const { allowMissing = false } = options;
 
   try {
-    const resp = await daFetch(`${DA_ORIGIN}/source${path}`);
+    const resp = await daFetch(`${DA_ADMIN}/source${path}`);
 
     if (resp.ok) {
       const data = await resp.json();
@@ -309,7 +309,7 @@ export async function loadIndexChunks(basePath, chunkCount, sheetName, onProgres
 
 export async function saveSheet(data, path) {
   const formData = await createSheet(data);
-  return daFetch(`${DA_ORIGIN}/source${path}`, {
+  return daFetch(`${DA_ADMIN}/source${path}`, {
     method: 'PUT',
     body: formData,
   });
@@ -317,7 +317,7 @@ export async function saveSheet(data, path) {
 
 export async function loadSheetMeta(path) {
   try {
-    const resp = await daFetch(`${DA_ORIGIN}/source${path}`);
+    const resp = await daFetch(`${DA_ADMIN}/source${path}`);
     if (resp.ok) {
       const data = await resp.json();
       const metaData = data.data || data || null;
@@ -336,7 +336,7 @@ export async function saveSheetMeta(meta, path) {
   const metaArray = Array.isArray(meta) ? meta : [meta];
   const formData = await createSheet(metaArray);
 
-  return daFetch(`${DA_ORIGIN}/source${path}`, {
+  return daFetch(`${DA_ADMIN}/source${path}`, {
     method: 'PUT',
     body: formData,
   });
@@ -696,7 +696,7 @@ async function fetchAemSiteToken(org, site, ref = 'main') {
     ref,
     accessToken: imsToken,
   });
-  const resp = await fetch(`${AEM_ORIGIN}/auth/adobe/exchange`, {
+  const resp = await fetch(`${HLX_ADMIN}/auth/adobe/exchange`, {
     method: 'POST',
     body,
     headers: { 'Content-Type': 'application/json' },
@@ -918,7 +918,7 @@ export async function listFolder(path, org, repo) {
   }
 
   const normalizedPath = contentPath.replace(/^\//, '') || '';
-  const url = `${DA_ORIGIN}/list/${org}/${repo}/${normalizedPath}`;
+  const url = `${DA_ADMIN}/list/${org}/${repo}/${normalizedPath}`;
 
   const resp = await daFetch(url);
   if (!resp.ok) {
@@ -1049,7 +1049,7 @@ export async function checkIndex(folderPath, org, repo) {
 // Loads index meta JSON (lastFetchTime, etc.) from DA.
 export async function loadIndexMeta(path) {
   try {
-    const resp = await daFetch(`${DA_ORIGIN}/source${path}`);
+    const resp = await daFetch(`${DA_ADMIN}/source${path}`);
     if (resp.ok) {
       const data = await resp.json();
       return data.data?.[0] || data;
@@ -1065,7 +1065,7 @@ export async function loadIndexMeta(path) {
 // Saves index meta to DA source path.
 export async function saveIndexMeta(meta, path) {
   const formData = await createSheet([meta]);
-  return daFetch(`${DA_ORIGIN}/source${path}`, {
+  return daFetch(`${DA_ADMIN}/source${path}`, {
     method: 'POST',
     body: formData,
   });

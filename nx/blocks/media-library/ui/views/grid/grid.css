@@ -373,11 +373,16 @@ svg.icon {
     padding: 4px;
     border-radius: var(--s2-radius-100);
 
+    svg.icon {
+      filter: drop-shadow(0 1px 2px rgb(0 0 0 / 40%));
+    }
+
     &:hover {
       background-color: var(--s2-gray-50);
 
       svg.icon {
         color: initial;
+        filter: none;
       }
     }
   }
