@@ -44,7 +44,7 @@ const aemPageMarkdownLimiter = createRateLimiter(AEM_PAGE_MARKDOWN_RATE);
 
 async function fetchWithAuthRaw(url, opts = {}) {
   opts.headers ||= {};
-  const { accessToken } = await initIms();
+  const { accessToken } = await initIms() || {};
   if (accessToken?.token) {
     opts.headers.Authorization = `Bearer ${accessToken.token}`;
   }
