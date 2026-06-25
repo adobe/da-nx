@@ -1,5 +1,7 @@
 // TODO: simplify post-NX2.
-const { imsClientId, imsScope, imsEnv, env } = await (async () => {
+// Reads the consuming app's nx config. Called per-setup (not at module init) so
+// the values can't be stale-captured before the host calls setConfig().
+async function resolveNxConfig() {
   try {
     const { nxJS, getNx } = await import(`${window.location.origin}/scripts/utils.js`);
     const { getConfig } = await import(`${getNx()}${nxJS}`);
@@ -8,7 +10,9 @@ const { imsClientId, imsScope, imsEnv, env } = await (async () => {
     const { getConfig } = await import('../scripts/nx.js');
     return getConfig();
   }
-})();
+}
+
+const { imsClientId, imsScope, imsEnv, env } = await resolveNxConfig();
 
 const IMS_URL = 'https://auth.services.adobe.com/imslib/imslib.min.js';
 const DEFAULT_SCOPE = 'AdobeID,openid,gnav';
@@ -118,34 +122,44 @@ function settleWithTimeout(resolve, reject) {
 export const loadIms = (() => {
   let ims;
 
-  const setup = (loginPopup) => new Promise((resolve, reject) => {
-    const [done, fail] = settleWithTimeout(resolve, reject);
+  const setup = async (loginPopup) => {
+    // Re-read config at call time; the module-level capture above races with
+    // host setConfig() in some load orders (iframes especially) and can pin
+    // imsClientId to undefined, which makes imslib hang and time out.
+    const cfg = await resolveNxConfig();
+    const clientId = cfg.imsClientId ?? imsClientId;
+    const scope = cfg.imsScope ?? imsScope;
+    const environment = IMS_ENV[cfg.imsEnv ?? cfg.env ?? imsEnv ?? env];
 
-    window.adobeid = {
-      client_id: imsClientId,
-      scope: imsScope || DEFAULT_SCOPE,
-      locale: document.documentElement.lang?.replace('-', '_') || 'en_US',
-      autoValidateToken: true,
-      environment: IMS_ENV[env],
-      useLocalStorage: true,
-      onError: fail,
-      onReady: () => {
-        const accessToken = window.adobeIMS.getAccessToken();
-        if (!accessToken) {
-          localStorage.removeItem('nx-ims');
-          done({ anonymous: true });
-          return;
-        }
-        localStorage.setItem('nx-ims', true);
-        loadDetails(accessToken).then(done, fail);
-      },
-    };
-    if (loginPopup) {
-      window.adobeid.modalMode = true;
-      window.adobeid.modalSettings = { allowedOrigin: window.location.origin };
-    }
-    loadScript(IMS_URL).catch(fail);
-  });
+    return new Promise((resolve, reject) => {
+      const [done, fail] = settleWithTimeout(resolve, reject);
+
+      window.adobeid = {
+        client_id: clientId,
+        scope: scope || DEFAULT_SCOPE,
+        locale: document.documentElement.lang?.replace('-', '_') || 'en_US',
+        autoValidateToken: true,
+        environment,
+        useLocalStorage: true,
+        onError: fail,
+        onReady: () => {
+          const accessToken = window.adobeIMS.getAccessToken();
+          if (!accessToken) {
+            localStorage.removeItem('nx-ims');
+            done({ anonymous: true });
+            return;
+          }
+          localStorage.setItem('nx-ims', true);
+          loadDetails(accessToken).then(done, fail);
+        },
+      };
+      if (loginPopup) {
+        window.adobeid.modalMode = true;
+        window.adobeid.modalSettings = { allowedOrigin: window.location.origin };
+      }
+      loadScript(IMS_URL).catch(fail);
+    });
+  };
 
   return (loginPopup) => {
     ims ??= setup(loginPopup);
