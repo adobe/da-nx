@@ -118,46 +118,30 @@ function settleWithTimeout(resolve, reject) {
 export const loadIms = (() => {
   let ims;
 
-  const setup = () => {
-    // If imslib is already initialized — e.g., by a sibling caller in this
-    // window — don't try to re-bootstrap it. imslib only reads window.adobeid
-    // once at load time, so overwriting it later wouldn't re-fire onReady and
-    // we'd time out for no reason. Consume the existing access token instead.
-    if (window.adobeIMS?.getAccessToken) {
-      const accessToken = window.adobeIMS.getAccessToken();
-      if (!accessToken) {
-        localStorage.removeItem('nx-ims');
-        return Promise.resolve({ anonymous: true });
-      }
-      localStorage.setItem('nx-ims', true);
-      return loadDetails(accessToken);
-    }
+  const setup = () => new Promise((resolve, reject) => {
+    const [done, fail] = settleWithTimeout(resolve, reject);
 
-    return new Promise((resolve, reject) => {
-      const [done, fail] = settleWithTimeout(resolve, reject);
-
-      window.adobeid = {
-        client_id: imsClientId,
-        scope: imsScope || DEFAULT_SCOPE,
-        locale: document.documentElement.lang?.replace('-', '_') || 'en_US',
-        autoValidateToken: true,
-        environment: IMS_ENV[env],
-        useLocalStorage: true,
-        onError: fail,
-        onReady: () => {
-          const accessToken = window.adobeIMS.getAccessToken();
-          if (!accessToken) {
-            localStorage.removeItem('nx-ims');
-            done({ anonymous: true });
-            return;
-          }
-          localStorage.setItem('nx-ims', true);
-          loadDetails(accessToken).then(done, fail);
-        },
-      };
-      loadScript(IMS_URL).catch(fail);
-    });
-  };
+    window.adobeid = {
+      client_id: imsClientId,
+      scope: imsScope || DEFAULT_SCOPE,
+      locale: document.documentElement.lang?.replace('-', '_') || 'en_US',
+      autoValidateToken: true,
+      environment: IMS_ENV[env],
+      useLocalStorage: true,
+      onError: fail,
+      onReady: () => {
+        const accessToken = window.adobeIMS.getAccessToken();
+        if (!accessToken) {
+          localStorage.removeItem('nx-ims');
+          done({ anonymous: true });
+          return;
+        }
+        localStorage.setItem('nx-ims', true);
+        loadDetails(accessToken).then(done, fail);
+      },
+    };
+    loadScript(IMS_URL).catch(fail);
+  });
 
   return () => {
     ims ??= setup();
