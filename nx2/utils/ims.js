@@ -1,7 +1,5 @@
 // TODO: simplify post-NX2.
-// Reads the consuming app's nx config. Called per-setup (not at module init) so
-// the values can't be stale-captured before the host calls setConfig().
-async function resolveNxConfig() {
+const { imsClientId, imsScope, imsEnv, env } = await (async () => {
   try {
     const { nxJS, getNx } = await import(`${window.location.origin}/scripts/utils.js`);
     const { getConfig } = await import(`${getNx()}${nxJS}`);
@@ -10,13 +8,11 @@ async function resolveNxConfig() {
     const { getConfig } = await import('../scripts/nx.js');
     return getConfig();
   }
-}
-
-const { imsClientId, imsScope, imsEnv, env } = await resolveNxConfig();
+})();
 
 const IMS_URL = 'https://auth.services.adobe.com/imslib/imslib.min.js';
 const DEFAULT_SCOPE = 'AdobeID,openid,gnav';
-const IMS_TIMEOUT = 15000;
+const IMS_TIMEOUT = 5000;
 const IMS_ENV = {
   dev: 'stg1',
   stage: 'stg1',
@@ -122,38 +118,30 @@ function settleWithTimeout(resolve, reject) {
 export const loadIms = (() => {
   let ims;
 
-  const setup = async (loginPopup) => {
-    // If imslib already initialized (e.g., by a sibling caller or an earlier
-    // navigation in the same context), don't try to re-init — imslib reads
-    // adobeid once at load time and won't re-fire onReady, leaving us to
-    // time out for no reason. Just consume the existing access token.
+  const setup = () => {
+    // If imslib is already initialized — e.g., by a sibling caller in this
+    // window — don't try to re-bootstrap it. imslib only reads window.adobeid
+    // once at load time, so overwriting it later wouldn't re-fire onReady and
+    // we'd time out for no reason. Consume the existing access token instead.
     if (window.adobeIMS?.getAccessToken) {
       const accessToken = window.adobeIMS.getAccessToken();
       if (!accessToken) {
         localStorage.removeItem('nx-ims');
-        return { anonymous: true };
+        return Promise.resolve({ anonymous: true });
       }
       localStorage.setItem('nx-ims', true);
       return loadDetails(accessToken);
     }
 
-    // Re-read config at call time; the module-level capture above races with
-    // host setConfig() in some load orders (iframes especially) and can pin
-    // imsClientId to undefined, which makes imslib hang and time out.
-    const cfg = await resolveNxConfig();
-    const clientId = cfg.imsClientId ?? imsClientId;
-    const scope = cfg.imsScope ?? imsScope;
-    const environment = IMS_ENV[cfg.imsEnv ?? cfg.env ?? imsEnv ?? env];
-
     return new Promise((resolve, reject) => {
       const [done, fail] = settleWithTimeout(resolve, reject);
 
       window.adobeid = {
-        client_id: clientId,
-        scope: scope || DEFAULT_SCOPE,
+        client_id: imsClientId,
+        scope: imsScope || DEFAULT_SCOPE,
         locale: document.documentElement.lang?.replace('-', '_') || 'en_US',
         autoValidateToken: true,
-        environment,
+        environment: IMS_ENV[env],
         useLocalStorage: true,
         onError: fail,
         onReady: () => {
@@ -167,16 +155,12 @@ export const loadIms = (() => {
           loadDetails(accessToken).then(done, fail);
         },
       };
-      if (loginPopup) {
-        window.adobeid.modalMode = true;
-        window.adobeid.modalSettings = { allowedOrigin: window.location.origin };
-      }
       loadScript(IMS_URL).catch(fail);
     });
   };
 
-  return (loginPopup) => {
-    ims ??= setup(loginPopup);
+  return () => {
+    ims ??= setup();
     return ims;
   };
 })();
