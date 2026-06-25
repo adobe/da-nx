@@ -21,6 +21,12 @@ const nx = `${new URL(import.meta.url).origin}/nx`;
 const sl = await loadStyle(`${nx}/public/sl/styles.css`);
 const styles = await loadStyle(import.meta.url);
 
+// SL CSS targets `:root`, which doesn't match inside a shadow tree. Adopt it on
+// document too so the --s2-* custom properties inherit into the shadow.
+if (!document.adoptedStyleSheets.includes(sl)) {
+  document.adoptedStyleSheets = [...document.adoptedStyleSheets, sl];
+}
+
 class NxExp extends LitElement {
   static properties = {
     port: { attribute: false },
