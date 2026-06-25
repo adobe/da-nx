@@ -12,7 +12,7 @@
 
 const LOG = async (ex, el) => (await import('../utils/error.js')).default(ex, el);
 
-const NX_BLOCKS = new Set(['importer']);
+const NX_BLOCKS = new Set(['importer', 'site-apps', 'hero', 'card', 'section-metadata']);
 
 const EW_ORIGINS = {
   dev: 'http://localhost:3001',
