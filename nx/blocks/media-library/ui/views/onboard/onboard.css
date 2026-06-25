@@ -145,7 +145,7 @@ sl-alert {
       right: 0;
       height: 3px;
       transition: opacity 0.2s ease-in-out;
-      background: rgb(19  19 19);
+      background: light-dark(rgb(19 19 19), var(--s2-gray-25));
       border-radius: 3px;
     }
 
@@ -172,7 +172,7 @@ sl-alert {
   justify-content: center;
   min-height: 300px;
   text-align: center;
-  background: white;
+  background: light-dark(white, var(--s2-gray-100));
   border-radius: var(--s2-radius-200);
   padding: var(--spacing-500);
   box-shadow: 0 4px 6px -1px rgb(0 0 0 / 10%);
@@ -295,7 +295,7 @@ form button {
 
 form button:hover {
   background: var(--s2-blue-800);
-  color: var(--s2-white, #fff);
+  color: light-dark(#fff, var(--s2-gray-25));
 }
 
 .da-form-btn-offset {
@@ -312,7 +312,7 @@ form button:hover {
 
 
   .card-arrow {
-    color: white;
+    color: light-dark(white, var(--s2-gray-25));
     display: flex;
     align-items: center;
     justify-content: end;
@@ -334,7 +334,7 @@ form button:hover {
 
 .nx-card-inner {
   box-shadow: 0 1px 6px 0 rgb(0 0 0 / 12%);
-  background-color: var(--s2-white, #fff);
+  background-color: light-dark(#fff, var(--s2-gray-100));
   border-radius: var(--s2-radius-200);
   height: 240px;
   overflow: hidden;
@@ -360,7 +360,7 @@ form button:hover {
   position: absolute;
   left: var(--spacing-200);
   background: none;
-  color: white;
+  color: light-dark(white, var(--s2-gray-25));
   border: none;
   width: 32px;
   height: 32px;
@@ -405,7 +405,7 @@ form button:hover {
     right: var(--spacing-400);
     left: unset;
     bottom: var(--spacing-400);
-    color: #000;
+    color: light-dark(#000, var(--s2-gray-900));
   }
 }
 
@@ -448,7 +448,7 @@ form button:hover {
   margin: 0;
   font-size: 20px;
   font-weight: 700;
-  color: white;
+  color: light-dark(white, var(--s2-gray-25));
 }
 
 .nx-card-overlay p {

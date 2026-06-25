@@ -30,9 +30,9 @@ import { t } from '../../../core/messages.js';
 import { isMediaLibraryPluginMode } from '../../../core/utils.js';
 
 const style = await loadStyle(import.meta.url);
-const nx = `${new URL(import.meta.url).origin}/nx`;
-const sl = await loadStyle(`${nx}/public/sl/styles.css`);
-const slComponents = await loadStyle(`${nx}/public/sl/components.css`);
+const nx2 = `${new URL(import.meta.url).origin}/nx2`;
+const sl = await loadStyle(`${nx2}/public/sl/styles.css`);
+const slComponents = await loadStyle(`${nx2}/public/sl/components.css`);
 const iconsBase = new URL('../../../../../img/icons/', import.meta.url).href;
 
 const ICONS = [

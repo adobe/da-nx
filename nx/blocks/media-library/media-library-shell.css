@@ -1,3 +1,12 @@
+/* Dark mode support - nx2 classes are scoped to edge-delivery pages only, so we redefine them here */
+body.light-scheme {
+  color-scheme: light;
+}
+
+body.dark-scheme {
+  color-scheme: dark;
+}
+
 @media (width > 600px) {
   body.nx-app.has-media-library main {
     overflow: hidden;
