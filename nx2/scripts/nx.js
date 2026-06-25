@@ -99,7 +99,7 @@ export const [setConfig, getConfig] = (() => {
 export const loc = ([first], ...values) => {
   const key = values.length ? values[0] : first;
   const { strings } = getConfig();
-  return strings.get(key) ?? key;
+  return strings?.get(key) ?? key;
 };
 
 export async function loadBlock(block) {
