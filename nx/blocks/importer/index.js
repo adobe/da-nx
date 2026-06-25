@@ -1,13 +1,7 @@
-import { replaceHtml } from '../../utils/daFetch.js';
-import { isHlx6, source } from '../../../nx2/utils/api.js';
+import { replaceHtml, initIms } from '../../utils/daFetch.js';
+import { isHlx6, source, getAemSiteToken } from '../../../nx2/utils/api.js';
 import { mdToDocDom, docDomToAemHtml } from '../../utils/converters.js';
 import { Queue } from '../../public/utils/tree.js';
-
-const { accessToken } = await (async () => {
-  const { getNx } = await import(new URL('/scripts/utils.js', import.meta.url).href);
-  const { loadIms } = await import(`${getNx()}/utils/ims.js`);
-  return loadIms();
-})();
 
 const parser = new DOMParser();
 const EXTS = ['json', 'svg', 'png', 'jpg', 'jpeg', 'gif', 'mp4', 'pdf'];
@@ -25,8 +19,25 @@ const LINK_SELECTOR_REGEX = /https:\/\/[^"'\s]+\.svg/g;
 
 let localUrls;
 
-export function getOptions() {
-  return { headers: { Authorization: `Bearer ${accessToken.token}` } };
+export async function getOptions(org, repo) {
+  // Get site token using shared implementation
+  const result = await getAemSiteToken({ org, site: repo });
+
+  // Check for site token (can be .siteToken or .token)
+  const siteToken = result?.siteToken || result?.token;
+  if (siteToken) {
+    return { headers: { Authorization: `token ${siteToken}` } };
+  }
+
+  // Fallback to IMS token if site token exchange fails
+  const { accessToken } = await initIms() || {};
+  const imsToken = accessToken?.token;
+  if (imsToken) {
+    return { headers: { Authorization: `Bearer ${imsToken}` } };
+  }
+
+  // No token available
+  return { headers: {} };
 }
 
 async function findFragments(pageUrl, text, liveDomain) {
@@ -148,15 +159,17 @@ async function importUrl(url, findFragmentsFlag, liveDomain, setProcessed) {
   }
 
   try {
-    const opts = getOptions();
+    // Use SOURCE org/repo for authentication (where we're fetching FROM)
+    const opts = await getOptions(url.fromOrg, url.fromRepo);
     const proxyUrl = `https://da-etc.adobeaem.workers.dev/cors?url=${encodeURIComponent(`${url.origin}${srcPath}`)}`;
     const resp = await fetch(proxyUrl, opts);
+
     if (resp.redirected && !(srcPath.endsWith('.mp4') || srcPath.endsWith('.png') || srcPath.endsWith('.jpg'))) {
       url.status = 'redir';
       throw new Error('redir');
     }
     if (!resp.ok && resp.status !== 304) {
-      url.status = 'error';
+      url.status = resp.status;
       throw new Error('error');
     }
     let content = isExt ? await resp.blob() : await resp.text();

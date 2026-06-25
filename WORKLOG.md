@@ -1,5 +1,6 @@
 # Worklog
 
+<<<<<<< feat/plan-tasks
 ## 2026-06-22
 
 ### nx2 chat — plan card UX polish + task-status persistence fixes
@@ -28,6 +29,22 @@
 - `.plan-btn`: height 24px, padding `0 16px`, weight 400.
 - `.plan-btn-primary`: color `--s2-static-white` (was `--s2-gray-25` which flips to near-black in dark mode).
 - `task-item.css`: `.task-label` margin-left `--s2-spacing-100`; `:host` gap `--s2-spacing-200`.
+=======
+## 2026-06-23
+
+### nx2/blocks/shared/dialog — configurable panel sizing (dialog-css-vars branch)
+
+Exposes four CSS custom properties on `.panel` so consumers can resize the dialog without forking it:
+
+- `--nx-dialog-min-width` (default `400px`)
+- `--nx-dialog-max-width` (default `480px`)
+- `--nx-dialog-max-height` (default `90vh` / `90dvh`)
+- `--nx-dialog-padding` (default `var(--s2-spacing-500)`)
+
+Values stay clamped to the viewport via the existing `min(<custom>, calc(100vw - 2 * --s2-spacing-500))` envelope, so a too-large custom value won't overflow. Purely additive — existing usage of `<nx-dialog>` is unchanged (each fallback in the `var()` call matches the previous literal).
+
+Driving use case is da-live's new EW block library modal, which needs a ~960px wide 2-column tree+preview layout that the previous fixed 480px cap couldn't accommodate.
+>>>>>>> main
 
 ## 2026-05-28
 

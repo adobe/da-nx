@@ -414,12 +414,29 @@ export default class ChatController {
     this._currentTurnId = crypto.randomUUID();
     this._requestedSkills = requestedSkills;
     const selectionContext = context
-      .filter((item) => typeof item.proseIndex === 'number' || item.blockName)
-      .map(({ proseIndex, blockName, innerText }) => ({
-        ...(typeof proseIndex === 'number' && { proseIndex }),
-        ...(blockName && { blockName }),
-        ...(innerText && { innerText }),
-      }));
+      .filter((item) => {
+        const t = item.type ?? (item.blockName ? 'block' : null);
+        if (t === 'block') return !!item.blockName;
+        if (t === 'text') return !!item.innerHTML;
+        return false;
+      })
+      .map((item) => {
+        const t = item.type ?? 'block';
+        const { proseIndex } = item;
+        if (t === 'block') {
+          return {
+            type: 'block',
+            ...(typeof proseIndex === 'number' && { proseIndex }),
+            blockName: item.blockName,
+            ...(item.innerText && { innerText: item.innerText }),
+          };
+        }
+        return {
+          type: 'text',
+          ...(typeof proseIndex === 'number' && { proseIndex }),
+          innerHTML: item.innerHTML,
+        };
+      });
 
     const attachmentsMeta = attachments.map(({ id, fileName, mediaType, sizeBytes }) => ({
       id,
