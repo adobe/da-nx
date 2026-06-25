@@ -2,6 +2,14 @@
 
 ## 2026-06-25
 
+### exp block — swap to nx2 profile; fix IMS timeout in iframe
+
+`nx/blocks/exp/exp.js` imported the nx1 profile element while the rest of the block was migrated to `nx2/utils/ims.js`. Profile + exp/utils ended up calling two different `loadIms` exports backed by the same `window.adobeIMS`. Profile's call ran first, initialized imslib, memoized in nx1's module. exp/utils' later `getToken` → `loadIms` (nx2) ran a fresh `setup()`: overwrote `window.adobeid`, called `loadScript` which short-circuited because `window.adobeIMS` already existed — so imslib never re-fired `onReady` against the new config and the nx2 promise timed out after 5s (`Error: IMS timeout` at `nx2/utils/ims.js:111`). On main, both call sites import from `nx/utils/ims.js`, so the second call is a memoization hit and never reinitializes.
+
+Fix: switched exp.js to import `nx2/blocks/profile/profile.js`. Side effects on the nx2 profile + ims:
+- `nx2/blocks/profile/profile.js` `handleLoaded` now also dispatches `CustomEvent('loaded', { detail: this._ims, bubbles, composed })`, matching the nx1 contract that exp's `@loaded=${this.handleProfileLoad}` listens for (nx2 previously only added an `is-loaded` class).
+- `nx2/utils/ims.js` `loadIms` accepts `loginPopup`; when true, sets `window.adobeid.modalMode` + `modalSettings = { allowedOrigin }` so the iframe's "Sign in" opens a modal instead of redirecting the iframe.
+
 ### exp block — completed nx2 migration (importer pattern)
 
 Block stays under `nx/blocks/exp/`; all nx2 API imports use relative paths into `nx2/`.
