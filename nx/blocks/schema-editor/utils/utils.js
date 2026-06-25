@@ -5,9 +5,19 @@ import { daFetch } from '../../../../nx2/utils/api.js';
 import {
   EditorView,
   basicSetup,
+  Compartment,
   json as cmjson,
   githubLight,
+  oneDark,
 } from '../../../deps/codemirror/dist/index.js';
+
+const themeCompartment = new Compartment();
+
+function getTheme() {
+  const stored = localStorage.getItem('color-scheme');
+  const isDark = stored ? stored === 'dark-scheme' : matchMedia('(prefers-color-scheme: dark)').matches;
+  return isDark ? oneDark : githubLight;
+}
 
 const FORMS_BASE_PATH = '/.da/forms/schemas';
 const HTML_SHELL = '<body><header></header><main><div><pre><code>{{JSON}}</code></pre></div></main><footer></footer></body>';
@@ -88,9 +98,14 @@ export async function deleteSchema(prefix, id) {
 export function loadCodeMirror(el, doc) {
   const editor = new EditorView({
     doc,
-    extensions: [basicSetup, cmjson(), githubLight],
+    extensions: [basicSetup, cmjson(), themeCompartment.of(getTheme())],
     parent: el,
   });
+
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    editor.dispatch({ effects: themeCompartment.reconfigure(getTheme()) });
+  });
+
   return editor;
 }
 
