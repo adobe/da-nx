@@ -12,7 +12,7 @@ import './views/edit.js';
 import './views/login.js';
 import './views/dialog.js';
 import './views/actions.js';
-import '../profile/profile.js';
+import '../../../nx2/blocks/profile/profile.js';
 
 // NX Base
 const nx = `${new URL(import.meta.url).origin}/nx`;

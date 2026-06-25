@@ -118,7 +118,7 @@ function settleWithTimeout(resolve, reject) {
 export const loadIms = (() => {
   let ims;
 
-  const setup = () => new Promise((resolve, reject) => {
+  const setup = (loginPopup) => new Promise((resolve, reject) => {
     const [done, fail] = settleWithTimeout(resolve, reject);
 
     window.adobeid = {
@@ -140,11 +140,15 @@ export const loadIms = (() => {
         loadDetails(accessToken).then(done, fail);
       },
     };
+    if (loginPopup) {
+      window.adobeid.modalMode = true;
+      window.adobeid.modalSettings = { allowedOrigin: window.location.origin };
+    }
     loadScript(IMS_URL).catch(fail);
   });
 
-  return () => {
-    ims ??= setup();
+  return (loginPopup) => {
+    ims ??= setup(loginPopup);
     return ims;
   };
 })();
