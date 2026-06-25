@@ -416,25 +416,25 @@ export default class ChatController {
     const selectionContext = context
       .filter((item) => {
         const t = item.type ?? (item.blockName ? 'block' : null);
-        if (t === 'block') return !!item.blockName;
+        if (t === 'block' || t === 'file' || t === 'folder' || t === 'image') return !!item.blockName;
         if (t === 'text') return !!item.innerHTML;
         return false;
       })
       .map((item) => {
         const t = item.type ?? 'block';
         const { proseIndex } = item;
-        if (t === 'block') {
+        if (t === 'text') {
           return {
-            type: 'block',
+            type: 'text',
             ...(typeof proseIndex === 'number' && { proseIndex }),
-            blockName: item.blockName,
-            ...(item.innerText && { innerText: item.innerText }),
+            innerHTML: item.innerHTML,
           };
         }
         return {
-          type: 'text',
+          type: t,
           ...(typeof proseIndex === 'number' && { proseIndex }),
-          innerHTML: item.innerHTML,
+          blockName: item.blockName,
+          ...(item.innerText && { innerText: item.innerText }),
         };
       });
 
