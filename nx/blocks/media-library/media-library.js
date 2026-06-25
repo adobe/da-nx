@@ -138,18 +138,6 @@ class NxMediaLibrary extends LitElement {
     installMediaLibraryShellStyles();
     this.shadowRoot.adoptedStyleSheets = [sl, slComponents, topbarStyles, style];
 
-    // Initialize color-scheme from system preference if not already set
-    const existingScheme = localStorage.getItem('color-scheme');
-    if (!existingScheme) {
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      const scheme = prefersDark ? 'dark-scheme' : 'light-scheme';
-      localStorage.setItem('color-scheme', scheme);
-      document.body.classList.add(scheme);
-    } else if (!document.body.classList.contains(existingScheme)) {
-      // Ensure the body class is applied (in case nx2 didn't apply it)
-      document.body.classList.add(existingScheme);
-    }
-
     this._unsubscribe = onStateChange(MEDIA_LIBRARY_STATE_KEYS, (state) => {
       this._appState = state;
     });
