@@ -62,20 +62,20 @@ input[type="range"]::-webkit-slider-thumb {
 
 .nx-grid-two-up {
   display: grid;
-  gap: var(--spacing-200);
+  gap: var(--s2-spacing-200);
   grid-template-columns: repeat(2, 1fr);
 }
 
 .nx-space-bottom-100 {
-  margin-bottom: var(--spacing-100);
+  margin-bottom: var(--s2-spacing-100);
 }
 
 .nx-space-bottom-200 {
-  margin-bottom: var(--spacing-200);
+  margin-bottom: var(--s2-spacing-200);
 }
 
 .nx-space-bottom-300 {
-  margin-bottom: var(--spacing-300);
+  margin-bottom: var(--s2-spacing-300);
 }
 
 .nx-exp-details-header {
@@ -112,17 +112,17 @@ input[type="range"]::-webkit-slider-thumb {
 }
 
 .nx-details-area {
-  padding: 0 var(--spacing-300);
+  padding: 0 var(--s2-spacing-300);
   border-bottom: 1px solid #dedede;
 }
 
 .nx-variants-area {
-  padding: var(--spacing-300);
+  padding: var(--s2-spacing-300);
   border-bottom: 1px solid #dedede;
 }
 
 .nx-date-area {
-  padding: var(--spacing-300);
+  padding: var(--s2-spacing-300);
 }
 
 .nx-expandable {
