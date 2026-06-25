@@ -1,13 +1,13 @@
-import { DA_ADMIN } from '../../../../nx2/utils/utils.js';
-import { daFetch } from '../../../../nx2/utils/api.js';
-
 // CodeMirror
 import {
   EditorView,
   basicSetup,
   json as cmjson,
   githubLight,
-} from '../../../deps/codemirror/dist/index.js';
+} from 'da-codemirror';
+
+import { DA_ADMIN } from '../../../../nx2/utils/utils.js';
+import { daFetch } from '../../../../nx2/utils/api.js';
 
 const FORMS_BASE_PATH = '/.da/forms/schemas';
 const HTML_SHELL = '<body><header></header><main><div><pre><code>{{JSON}}</code></pre></div></main><footer></footer></body>';
