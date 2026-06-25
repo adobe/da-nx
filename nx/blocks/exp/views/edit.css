@@ -67,6 +67,7 @@ input[type="range"]::-webkit-slider-thumb {
 }
 
 input[type="range"]::-moz-range-thumb {
+  appearance: none;
   border: 2px solid #464646;
   background: #fff;
   width: 16px;
@@ -226,10 +227,10 @@ input[type="range"]::-moz-range-thumb {
 
     p {
       position: absolute;
-      top: -10px;
+      bottom: 100%;
       font-size: var(--s2-body-xxs-size);
       color: var(--s2-gray-600);
-      margin: 0;
+      margin: 0 0 2px;
 
       &.on-right {
         right: 0;
