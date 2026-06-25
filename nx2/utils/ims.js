@@ -16,7 +16,7 @@ const { imsClientId, imsScope, imsEnv, env } = await resolveNxConfig();
 
 const IMS_URL = 'https://auth.services.adobe.com/imslib/imslib.min.js';
 const DEFAULT_SCOPE = 'AdobeID,openid,gnav';
-const IMS_TIMEOUT = 5000;
+const IMS_TIMEOUT = 15000;
 const IMS_ENV = {
   dev: 'stg1',
   stage: 'stg1',
