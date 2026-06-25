@@ -1,5 +1,7 @@
 import { html, nothing } from 'da-lit';
-import { AGENT_EVENT, ROLE, TOOL_INPUT, TOOL_STATE } from './constants.js';
+import {
+  AGENT_EVENT, DIRECTIVE_TYPE, ROLE, TOOL_INPUT, TOOL_NAME, TOOL_STATE,
+} from './constants.js';
 import { getConfig } from '../../scripts/nx.js';
 import { parseDirectives } from './utils/parse.js';
 import { pillIconName } from './utils/icons.js';
@@ -30,13 +32,110 @@ function toDOM(hast) {
   return hastToDom(sanitizeLinks(hast), { fragment: true });
 }
 
+function parseDirectiveJSON(content) {
+  try {
+    return JSON.parse(content.trim());
+  } catch {
+    return null;
+  }
+}
+
+function renderPlanDirective(content) {
+  const plan = parseDirectiveJSON(content);
+  if (!plan) return html`<div class="directive directive-plan"></div>`;
+  return html`<nx-campaign-plan-card .plan=${plan}></nx-campaign-plan-card>`;
+}
+
+function renderPreflightDirective(content) {
+  const preflight = parseDirectiveJSON(content);
+  if (!preflight) return html`<div class="directive directive-preflight"></div>`;
+  return html`<nx-preflight-card .preflight=${preflight}></nx-preflight-card>`;
+}
+
+function renderTaskListDirective(content) {
+  const data = parseDirectiveJSON(content);
+  if (!data) return html`<div class="directive directive-task-list"></div>`;
+  return html`<nx-task-list .tasks=${data.tasks ?? []}></nx-task-list>`;
+}
+
+/**
+ * Merge :::task-item status updates from streaming text into a submit_plan task list.
+ * Returns a new plan object with updated task statuses, or the original if nothing changed.
+ */
+function mergeTaskItemsFromText(plan, streamingText) {
+  if (!streamingText || !plan?.tasks?.length) return plan;
+  const directives = parseDirectives(streamingText);
+  const updates = new Map();
+  for (const d of directives) {
+    if (d.kind === 'directive' && d.type === DIRECTIVE_TYPE.TASK_ITEM) {
+      const data = parseDirectiveJSON(d.content);
+      if (data?.label) updates.set(data.label, data.status);
+    }
+  }
+  if (!updates.size) return plan;
+  return {
+    ...plan,
+    tasks: plan.tasks.map((t) => ({ ...t, status: updates.get(t.label) ?? t.status })),
+  };
+}
+
+function mergeTaskItemsIntoPlan(directives) {
+  const planIdx = directives.findIndex((d) => d.kind === 'directive' && d.type === DIRECTIVE_TYPE.PLAN);
+  if (planIdx < 0) return directives;
+
+  // Collect the latest status for each label from subsequent :::task-item directives
+  const updates = new Map();
+  for (let i = planIdx + 1; i < directives.length; i += 1) {
+    const d = directives[i];
+    if (d.kind === 'directive' && d.type === DIRECTIVE_TYPE.TASK_ITEM) {
+      const data = parseDirectiveJSON(d.content);
+      if (data?.label) updates.set(data.label, data.status);
+    }
+  }
+
+  if (!updates.size) return directives;
+
+  const planData = parseDirectiveJSON(directives[planIdx].content);
+  if (!planData?.tasks) return directives;
+
+  const merged = directives.map((d, i) => {
+    if (i === planIdx) {
+      return {
+        ...d,
+        content: JSON.stringify({
+          ...planData,
+          tasks: planData.tasks.map((t) => ({ ...t, status: updates.get(t.label) ?? t.status })),
+        }),
+      };
+    }
+    // Suppress standalone task-item blocks that belong to this plan
+    if (i > planIdx && d.kind === 'directive' && d.type === DIRECTIVE_TYPE.TASK_ITEM) {
+      return null;
+    }
+    return d;
+  });
+
+  return merged.filter(Boolean);
+}
+
 function renderMessageContent(text) {
   if (!text) return nothing;
 
-  return parseDirectives(text).map(({ kind, type, content }) => {
-    const dom = toDOM(mdast2hast(parser.parse(content)));
-    return kind === 'directive' ? html`<div class="directive directive-${type}">${dom}</div>` : dom;
-  });
+  const directives = mergeTaskItemsIntoPlan(parseDirectives(text));
+
+  const items = directives.map(({ kind, type, content }) => {
+    if (kind === 'directive') {
+      if (type === DIRECTIVE_TYPE.PLAN) return renderPlanDirective(content);
+      if (type === DIRECTIVE_TYPE.TASK_LIST) return renderTaskListDirective(content);
+      if (type === DIRECTIVE_TYPE.TASK_ITEM) return nothing;
+      if (type === DIRECTIVE_TYPE.PREFLIGHT) return renderPreflightDirective(content);
+      const dom = toDOM(mdast2hast(parser.parse(content)));
+      return html`<div class="directive directive-${type}">${dom}</div>`;
+    }
+    return toDOM(mdast2hast(parser.parse(content)));
+  }).filter((item) => item !== nothing);
+
+  return items.length ? items : nothing;
 }
 
 function approvalSummary(input) {
@@ -49,10 +148,17 @@ function approvalSummary(input) {
     ?? input[PATH] ?? input[SKILL_ID] ?? input[NAME] ?? null;
 }
 
-function renderToolCard(toolCallId, toolCards) {
+function renderSubmitPlanCard(plan, taskText) {
+  const merged = mergeTaskItemsFromText(plan, taskText);
+  return html`<nx-campaign-plan-card .plan=${merged}></nx-campaign-plan-card>`;
+}
+
+function renderToolCard(toolCallId, toolCards, streamingText) {
   const card = toolCards?.get(toolCallId);
   if (!card || card.state === TOOL_STATE.APPROVAL_REQUESTED) return nothing;
   const { toolName, state, input } = card;
+  if (toolName === TOOL_NAME.EXIT_PLAN_MODE) return renderSubmitPlanCard(input, streamingText);
+  if (toolName === TOOL_NAME.RUN_PREFLIGHT) return html`<nx-preflight-card .preflight=${input}></nx-preflight-card>`;
   const detail = approvalSummary(input);
   const failed = state === TOOL_STATE.ERROR || state === TOOL_STATE.REJECTED;
   return html`
@@ -66,6 +172,31 @@ function renderToolCard(toolCallId, toolCards) {
 function renderApprovalCard(pending, onApprove) {
   if (!pending) return nothing;
   const { toolCallId, toolName, input } = pending;
+  if (toolName === TOOL_NAME.EXIT_PLAN_MODE) {
+    return html`<nx-campaign-plan-card
+      .plan=${input}
+      @nx-plan-run=${() => onApprove(toolCallId, true)}
+    ></nx-campaign-plan-card>`;
+  }
+  if (toolName === TOOL_NAME.RUN_PREFLIGHT) {
+    const pfSummary = input?.summary ?? `${input?.readiness ?? 0}% readiness across all checks.`;
+    return html`
+      <div class="approval-actions">
+        <span class="approval-tool-name">Pre-flight checks complete</span>
+        <span class="approval-summary">${pfSummary}</span>
+        <div class="approval-buttons">
+          <button type="button" class="secondary-btn" @click=${() => onApprove(toolCallId, false)}>
+            <span>Reject</span><kbd>Esc</kbd>
+          </button>
+          <button type="button" class="secondary-btn" @click=${() => onApprove(toolCallId, true, true)}>
+            <span>Always approve</span><kbd>⌘↵</kbd>
+          </button>
+          <button type="button" class="action-btn" @click=${() => onApprove(toolCallId, true)}>
+            <span>Approve</span><kbd>↵</kbd>
+          </button>
+        </div>
+      </div>`;
+  }
   const summary = approvalSummary(input);
   return html`
     <div class="approval-actions">
@@ -86,12 +217,15 @@ function renderApprovalCard(pending, onApprove) {
   `;
 }
 
-function renderAssistantMessage(msg, toolCards) {
+function renderAssistantMessage(msg, toolCards, streamingText) {
   if (Array.isArray(msg.content)) {
     return html`${msg.content.map((part) => (part.type === AGENT_EVENT.TOOL_CALL
-      ? renderToolCard(part.toolCallId, toolCards)
+      ? renderToolCard(part.toolCallId, toolCards, streamingText)
       : nothing))}`;
   }
+
+  const content = renderMessageContent(msg.content);
+  if (content === nothing) return nothing;
 
   const copy = msg.streaming ? nothing : html`<button class="message-action-copy" @click=${() => navigator.clipboard.writeText(msg.content)} aria-label="Copy">
       <svg class="icon-paste" viewBox="0 0 20 20" aria-hidden="true"><use href="${codeBase}/img/icons/s2-icon-paste-20-n.svg#icon"></use></svg>
@@ -100,7 +234,7 @@ function renderAssistantMessage(msg, toolCards) {
 
   return html`
     <div class="message message-assistant">
-      <div class="message-content">${renderMessageContent(msg.content)}</div>
+      <div class="message-content">${content}</div>
       ${copy}
     </div>
   `;
@@ -145,10 +279,10 @@ function renderUserMessage(msg) {
   `;
 }
 
-function renderMessage(msg, toolCards) {
+function renderMessage(msg, toolCards, streamingText) {
   if (msg.role === ROLE.TOOL) return nothing;
   return msg.role === ROLE.ASSISTANT
-    ? renderAssistantMessage(msg, toolCards)
+    ? renderAssistantMessage(msg, toolCards, streamingText)
     : renderUserMessage(msg);
 }
 

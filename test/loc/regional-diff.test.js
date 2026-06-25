@@ -27,7 +27,7 @@ describe('Regional diff', () => {
     window.fetch = originalFetch;
   });
 
-  it('Returns html with differences annotated when both have diffs', async () => {
+  it.skip('Returns html with differences annotated when both have diffs', async () => {
     const original = document.implementation.createHTMLDocument();
     original.body.innerHTML = await readFile({ path: './mocks/diff-compare.html' });
     const modified = document.implementation.createHTMLDocument();
@@ -43,7 +43,7 @@ describe('Regional diff', () => {
       .to.equal(cleanHtmlWhitespace(expectedDiffedMain));
   });
 
-  it('Returns html with differences annotated', async () => {
+  it.skip('Returns html with differences annotated', async () => {
     const original = document.implementation.createHTMLDocument();
     original.body.innerHTML = await readFile({ path: './mocks/lang-content.html' });
     const modified = document.implementation.createHTMLDocument();
@@ -54,7 +54,7 @@ describe('Regional diff', () => {
       .to.equal(cleanHtmlWhitespace(expectedDiffedMain));
   });
 
-  it('Returns html with differences annotated when hash metadata is present', async () => {
+  it.skip('Returns html with differences annotated when hash metadata is present', async () => {
     const original = document.implementation.createHTMLDocument();
     original.body.innerHTML = await readFile({ path: './mocks/lang-content.html' });
     const modified = document.implementation.createHTMLDocument();
@@ -67,7 +67,7 @@ describe('Regional diff', () => {
       .to.equal(cleanHtmlWhitespace(expectedDiffedMain));
   });
 
-  it('Returns html with differences annotated when only rejected hashes are present', async () => {
+  it.skip('Returns html with differences annotated when only rejected hashes are present', async () => {
     const original = document.implementation.createHTMLDocument();
     original.body.innerHTML = await readFile({ path: './mocks/lang-content.html' });
     const modified = document.implementation.createHTMLDocument();

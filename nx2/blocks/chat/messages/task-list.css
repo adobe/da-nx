@@ -1,0 +1,10 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2-spacing-100);
+  font-family: var(--s2-font-family);
+}
+
+nx-task-item {
+  display: flex;
+}

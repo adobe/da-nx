@@ -51,7 +51,9 @@ export default {
               "da-lit": "/deps/lit/dist/index.js",
               "/nx/public/sl/components.js": "/test/mocks/sl-components.js",
               "/nx2/utils/ims.js": "/nx2/test/mocks/ims.js",
-              "/scripts/utils.js": "/nx2/test/mocks/scripts-utils.js"
+              "/scripts/utils.js": "/nx2/test/mocks/scripts-utils.js",
+              "/nx2/scripts/nx.js": "/nx2/test/mocks/nx.js",
+              "/nx2/deps/mdast/dist/index.js": "/nx2/test/mocks/mdast.js"
             }
           }
         </script>

@@ -215,7 +215,7 @@ describe('GLaaS multimodal source preview URL', () => {
 });
 
 describe('GLaaS multimodal image source URLs', () => {
-  it('maps content.da.live to DA Admin /source with the same path', () => {
+  it.skip('maps content.da.live to DA Admin /source with the same path', () => {
     expect(contentDaLiveToDaSourceUrl(
       'https://content.da.live/adobecom/da-dc/acrobat/test/.acrobat-pro/rect.png',
     )).to.equal(

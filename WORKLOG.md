@@ -1,5 +1,35 @@
 # Worklog
 
+<<<<<<< feat/plan-tasks
+## 2026-06-22
+
+### nx2 chat — plan card UX polish + task-status persistence fixes
+
+**Task status persistence across tool boundaries** (`chat.js`):
+- `TEXT_END` fires after each text segment between tool calls, splitting output into multiple string messages per inter-tool boundary. Task-item directives for step N live in a different message than step N+1, so the previous code (passing only the last message) missed earlier `done` directives. Fixed by concatenating all completed assistant text messages before passing to `mergeTaskItemsFromText`.
+
+**Plan card renderer fixes** (`renderers.js`):
+- Switched `renderSubmitPlanCard` and `renderApprovalCard` from `document.createElement` to Lit `html\`\`` templates; `document.createElement` recreated the element each render, losing `_expanded` state.
+- `renderMessageContent`: returns `nothing` for `TASK_ITEM` directives (previously rendered as visible text); filters `nothing` items; returns `nothing` if all items suppressed.
+- `renderAssistantMessage`: skips message wrapper when content is `nothing` (eliminates empty `<div class="message message-assistant">` gaps in the DOM).
+- Removed unused `renderTaskItemDirective` function.
+
+**Plan card template restructure** (`campaign-plan-card.js`):
+- `_expanded` defaults to `true`.
+- `showCollapsed = !this._expanded` (was: only collapsed when running AND not expanded).
+- Moved title/description out of `.plan-header` into a new `.plan-body` div below the header strip.
+- Header strip is now 48px fixed-height with border-bottom, matching Figma spec.
+
+**CSS fixes** (`campaign-plan-card.css`, `task-item.css`):
+- All `--s2-spacing-150` (undefined) replaced with `--s2-spacing-200` (12px).
+- All `--s2-spacing-115` replaced with `--s2-spacing-100` (8px).
+- `.plan-card` gap: 12px; `.plan-header`: height 48px, border-bottom, padding 12px.
+- `.plan-body`: padding 12px 16px, gap 8px.
+- `.plan-tasks`: background `--s2-gray-50`, border `1px solid --s2-gray-200`, border-radius 8px, margin with side 16px offset.
+- `.plan-btn`: height 24px, padding `0 16px`, weight 400.
+- `.plan-btn-primary`: color `--s2-static-white` (was `--s2-gray-25` which flips to near-black in dark mode).
+- `task-item.css`: `.task-label` margin-left `--s2-spacing-100`; `:host` gap `--s2-spacing-200`.
+=======
 ## 2026-06-23
 
 ### nx2/blocks/shared/dialog — configurable panel sizing (dialog-css-vars branch)
@@ -14,6 +44,7 @@ Exposes four CSS custom properties on `.panel` so consumers can resize the dialo
 Values stay clamped to the viewport via the existing `min(<custom>, calc(100vw - 2 * --s2-spacing-500))` envelope, so a too-large custom value won't overflow. Purely additive — existing usage of `<nx-dialog>` is unchanged (each fallback in the `var()` call matches the previous literal).
 
 Driving use case is da-live's new EW block library modal, which needs a ~960px wide 2-column tree+preview layout that the previous fixed 480px cap couldn't accommodate.
+>>>>>>> main
 
 ## 2026-05-28
 
