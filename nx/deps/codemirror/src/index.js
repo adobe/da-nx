@@ -3,5 +3,6 @@ import { json } from '@codemirror/lang-json';
 import { markdown } from '@codemirror/lang-markdown';
 import { githubLight } from '@fsegurai/codemirror-theme-github-light';
 import { githubDark } from '@fsegurai/codemirror-theme-github-dark';
+import { oneDark } from '@codemirror/theme-one-dark';
 
-export { EditorView, basicSetup, json, markdown, githubLight, githubDark };
+export { EditorView, basicSetup, json, markdown, githubLight, githubDark, oneDark };
