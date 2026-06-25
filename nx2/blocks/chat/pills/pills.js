@@ -57,7 +57,7 @@ class NxChatPills extends LitElement {
           @click=${() => this._activate(id)}
         >${label}</button>`
       : html`<span class="pill-label" title=${label}>${label}</span>`;
-    const showTypeIcon = type === 'image' || type === 'file' || type === 'block' || type === 'text';
+    const showTypeIcon = type === 'image' || type === 'file' || type === 'folder' || type === 'block' || type === 'text';
     return html`
       <li class="pill">
         ${action}
