@@ -1,10 +1,10 @@
 import { html, LitElement, nothing } from 'da-lit';
-import { getConfig } from '../../scripts/nexter.js';
-import getStyle from '../../utils/styles.js';
-import { getSvg } from '../../utils/svg.js';
+import { getConfig } from '../../../nx2/scripts/nx.js';
+import { loadStyle } from '../../../nx2/utils/utils.js';
+import { loadHrefSvg } from '../../../nx2/utils/svg.js';
 import { loadSchemas, saveSchema, deleteSchema, loadCodeMirror, updateCodeMirror } from './utils/utils.js';
 
-import '../../public/sl/components.js';
+import '../../../nx2/public/sl/components.js';
 import '../shared/path/path.js';
 
 const { nxBase: nx } = getConfig();
@@ -18,8 +18,8 @@ const ICONS = [
 const EL_NAME = 'nx-schema-editor';
 const DEFAULT_SCHEMA = { $schema: 'https://json-schema.org/draft/2020-12/schema' };
 
-const styles = await getStyle(import.meta.url);
-const icons = await getSvg({ paths: ICONS });
+const style = await loadStyle(import.meta.url);
+const icons = (await Promise.all(ICONS.map(loadHrefSvg))).filter(Boolean);
 
 class SchemaEditor extends LitElement {
   static properties = {
@@ -33,7 +33,7 @@ class SchemaEditor extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [styles];
+    this.shadowRoot.adoptedStyleSheets = [style];
     this.shadowRoot.append(...icons);
   }
 
