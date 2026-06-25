@@ -10,9 +10,9 @@ import '../shared/path/path.js';
 const { nxBase: nx } = getConfig();
 
 const ICONS = [
-  `${nx}/public/icons/S2_Icon_InfoCircle_20_N.svg`,
-  `${nx}/public/icons/S2_Icon_AlertDiamond_20_N.svg`,
-  `${nx}/public/icons/S2_Icon_CheckmarkCircle_20_N.svg`,
+  `${nx}/img/icons/s2-icon-infocircle-20-n.svg`,
+  `${nx}/img/icons/s2-icon-alertdiamond-20-n.svg`,
+  `${nx}/img/icons/s2-icon-checkmarkcircle-20-n.svg`,
 ];
 
 const EL_NAME = 'nx-schema-editor';
