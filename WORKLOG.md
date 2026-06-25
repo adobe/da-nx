@@ -2,13 +2,23 @@
 
 ## 2026-06-25
 
-### exp block — swap to nx2 profile; fix IMS timeout in iframe
+### exp block — fix IMS timeout, restore SL typography
 
-`nx/blocks/exp/exp.js` imported the nx1 profile element while the rest of the block was migrated to `nx2/utils/ims.js`. Profile + exp/utils ended up calling two different `loadIms` exports backed by the same `window.adobeIMS`. Profile's call ran first, initialized imslib, memoized in nx1's module. exp/utils' later `getToken` → `loadIms` (nx2) ran a fresh `setup()`: overwrote `window.adobeid`, called `loadScript` which short-circuited because `window.adobeIMS` already existed — so imslib never re-fired `onReady` against the new config and the nx2 promise timed out after 5s (`Error: IMS timeout` at `nx2/utils/ims.js:111`). On main, both call sites import from `nx/utils/ims.js`, so the second call is a memoization hit and never reinitializes.
+The iframe palette failed with `Error: IMS timeout` from `nx2/utils/ims.js` on `?nx=nx2-exp` URLs. Real root cause: `window.adobeIMS` was already initialized by an earlier code path in the iframe context (most often da-live's `initIms()` running first), so when our `setup()` overwrote `window.adobeid` with a fresh `onReady`, imslib didn't re-fire it — imslib only reads `adobeid` once at load time — and the 5s timer was the only thing left.
 
-Fix: switched exp.js to import `nx2/blocks/profile/profile.js`. Side effects on the nx2 profile + ims:
-- `nx2/blocks/profile/profile.js` `handleLoaded` now also dispatches `CustomEvent('loaded', { detail: this._ims, bubbles, composed })`, matching the nx1 contract that exp's `@loaded=${this.handleProfileLoad}` listens for (nx2 previously only added an `is-loaded` class).
-- `nx2/utils/ims.js` `loadIms` accepts `loginPopup`; when true, sets `window.adobeid.modalMode` + `modalSettings = { allowedOrigin }` so the iframe's "Sign in" opens a modal instead of redirecting the iframe.
+Minimal fix in `nx2/utils/ims.js` `setup()`: short-circuit when `window.adobeIMS?.getAccessToken` exists — consume the existing access token (or resolve `{ anonymous: true }`) rather than rebuilding `adobeid`. Memoization still holds for the cold-start case.
+
+Other changes needed to support exp on nx2 profile:
+- `nx/blocks/exp/exp.js`: swapped `'../profile/profile.js'` → `'../../../nx2/blocks/profile/profile.js'` so exp shares the nx2 ims memoization.
+- `nx2/blocks/profile/profile.js`: `handleLoaded` now also dispatches `CustomEvent('loaded', { detail: this._ims, bubbles, composed })`, matching the nx1 contract that exp's `@loaded=${this.handleProfileLoad}` listens for.
+- `nx/blocks/exp/exp.js`: adopt the SL stylesheet on `document` as well as the shadow root. SL targets `:root`, which doesn't match inside a shadow tree, so without document adoption the `--s2-*` custom-property cascade was never set up and typography (e.g. the "Edit experiment" heading, the slider's `%` label) fell back to browser defaults. nx1 got this for free because the previous `loadStyle` had a document-level side effect; nx2's `loadStyle` returns a constructable sheet only.
+- `nx2/scripts/nx.js` `loc()`: `strings.get(key) ?? key` → `strings?.get(key) ?? key`. Latent bug — when `getConfig()` returns the `{ error }` stub (config not set yet, or third-party-anonymous iframe paths), `strings` is undefined and the throw masked the design-intended `?? key` fallback. exp's first profile-render in the iframe hit this when rendering the "Sign in" button.
+
+Things that looked load-bearing during investigation but weren't:
+- `loginPopup` / `modalMode` plumbing in `loadIms` — never takes effect in the working state (da-live's `initIms` wins the setup race, so the iframe profile's `loadIms(true)` short-circuits before reaching the modal-mode branch). Reverted.
+- Async setup + per-call `resolveNxConfig()` re-read — the config-race hypothesis was wrong; the surviving setup always runs after `setConfig` in practice. Reverted.
+- `IMS_TIMEOUT` bump to 15s — band-aid for the wrong diagnosis, back to 5s.
+- Defensive `config.log` / `_ims` guards in `nx2/blocks/profile/profile.js` `loadIms()` — `loadIms` no longer throws on the happy path. Reverted.
 
 ### exp block — completed nx2 migration (importer pattern)
 
