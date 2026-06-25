@@ -1,22 +1,20 @@
 import { expect } from '@esm-bundle/chai';
 import sinon from 'sinon';
-import { setImsDetails } from '../../nx/utils/daFetch.js';
-import { saveStatus } from '../../nx/blocks/loc/project/index.js';
+import { saveStatus, getDetails } from '../../../nx/blocks/loc/project/index.js';
 
-// saveStatus must coalesce concurrent writes to the project JSON:
-// if a save is already in-flight, queue the latest state and flush
-// it in a second POST rather than firing N concurrent POSTs.
+// saveStatus must dedup writes to the project JSON: an identical serialised
+// state must not fire a second POST. A single "Get status" click should
+// produce one save, not N concurrent POSTs to the same audit-logged path.
 
 const PROJ_PATH = '/test/org/site/project';
 
-function makeFetchStub(delay = 5) {
-  return sinon.stub().callsFake(() => new Promise((resolve) => {
-    setTimeout(() => resolve({
-      ok: true,
-      status: 200,
-      headers: new Headers({ 'x-da-actions': 'read=true' }),
-      text: async () => '',
-    }), delay);
+function makeFetchStub({ ok = true, status = 200 } = {}) {
+  return sinon.stub().callsFake(() => Promise.resolve({
+    ok,
+    status,
+    headers: new Headers({ 'x-da-actions': 'read=true' }),
+    text: async () => '',
+    json: async () => ({}),
   }));
 }
 
@@ -33,10 +31,13 @@ function makeState(extra = {}) {
 describe('saveStatus', () => {
   let originalFetch;
 
-  beforeEach(() => {
-    setImsDetails('test-token');
+  beforeEach(async () => {
     originalFetch = globalThis.fetch;
     window.location.hash = `#${PROJ_PATH}`;
+    globalThis.fetch = makeFetchStub();
+    // Set the module-private projPath the way the app does.
+    await getDetails();
+    globalThis.fetch.resetHistory();
   });
 
   afterEach(() => {
@@ -45,10 +46,7 @@ describe('saveStatus', () => {
   });
 
   it('POSTs the project JSON to /source/<projPath>.json', async () => {
-    globalThis.fetch = makeFetchStub();
-    const state = makeState();
-
-    await saveStatus(state);
+    await saveStatus(makeState({ seq: 'post' }));
 
     const calls = globalThis.fetch.args.filter(([url]) => url.includes('.json'));
     expect(calls.length).to.equal(1);
@@ -57,8 +55,7 @@ describe('saveStatus', () => {
   });
 
   it('skips the POST when the serialised state has not changed', async () => {
-    globalThis.fetch = makeFetchStub();
-    const state = makeState();
+    const state = makeState({ seq: 'dedup' });
 
     await saveStatus(state);
     const countAfterFirst = globalThis.fetch.callCount;
@@ -68,12 +65,7 @@ describe('saveStatus', () => {
   });
 
   it('returns an error object when the fetch response is not ok', async () => {
-    globalThis.fetch = sinon.stub().resolves({
-      ok: false,
-      status: 500,
-      headers: new Headers(),
-      text: async () => '',
-    });
+    globalThis.fetch = makeFetchStub({ ok: false, status: 500 });
 
     const result = await saveStatus(makeState({ seq: 'err' }));
     expect(result).to.deep.equal({ error: 'Could not update project' });

@@ -1,7 +1,7 @@
 import { LitElement, html, nothing } from 'da-lit';
-import getStyle from '../../../../utils/styles.js';
-import { getConfig } from '../../../../scripts/nexter.js';
-import { getSvg } from '../../../../utils/svg.js';
+import getStyle from '../../../../../nx2/public/utils/styles.js';
+import { getConfig } from '../../../../../nx2/scripts/nx.js';
+import { getSvg } from '../../../../../nx2/utils/svg.js';
 import {
   setupConnector,
   getUrls,

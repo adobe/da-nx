@@ -1,4 +1,4 @@
-import { Queue } from '../../../../public/utils/tree.js';
+import { Queue } from '../../../../../nx2/public/utils/tree.js';
 import {
   checkSession, createTask, addAssets, updateStatus, getTask, downloadAsset,
   prepareTargetPreview, getGlaasFilename,

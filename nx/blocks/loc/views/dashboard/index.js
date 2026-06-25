@@ -1,17 +1,16 @@
-import { DA_ORIGIN } from '../../../../public/utils/constants.js';
-import { daFetch } from '../../../../utils/daFetch.js';
+import { source, fromPath } from '../../../../../nx2/utils/api.js';
 
 const TRANSLATION_PATH_ACTIVE = 'translation/active';
 const TRANSLATION_PATH_ARCHIVE = 'translation/archive';
 
 /**
- * Fetch project JSON from the server
- * @param {string} projectPath - The project path (e.g., '/.da/translation/active/123456.json')
- * @param {Object} options - Optional fetch options
+ * Fetch project JSON from the server. Routes through the Helix-6-aware
+ * `source.get` so upgraded sites read from AEM and legacy sites from DA.
+ * @param {string} projectPath - Full project path, e.g. '/org/site/.da/translation/active/1.json'
  * @returns {Promise<{ok: boolean, status: number, data?: Object}>}
  */
-export async function fetchProject(projectPath, options = {}) {
-  const resp = await daFetch(`${DA_ORIGIN}/source${projectPath}`, options);
+export async function fetchProject(projectPath) {
+  const resp = await source.get(projectPath);
 
   if (!resp.ok) {
     return { ok: false, status: resp.status, statusText: resp.statusText };
@@ -50,15 +49,11 @@ export async function copyProject(project, email) {
     langs: json.langs,
   };
 
-  const body = new FormData();
-  const data = new Blob([JSON.stringify(newProject)], { type: 'application/json' });
-  body.append('data', data);
-
   const newTimestamp = Date.now();
   // Replace the last path segment (timestamp) with the new timestamp
   const newPath = path.substring(0, path.lastIndexOf('/') + 1) + newTimestamp;
 
-  await daFetch(`${DA_ORIGIN}/source${newPath}.json`, { body, method: 'POST' });
+  await source.save(`${newPath}.json`, { body: JSON.stringify(newProject) });
 
   // Return just the path and timestamp for the new project
   return { path: newPath, lastModified: newTimestamp, newProject };
@@ -67,10 +62,11 @@ export async function copyProject(project, email) {
 export async function archiveProject(project) {
   const { path } = project;
 
-  const formData = new FormData();
+  // `path` is a full /org/site/... path; source.move takes org/site-relative paths.
+  const { org, site, path: relPath } = fromPath(path);
+  const relDest = relPath.replace(TRANSLATION_PATH_ACTIVE, TRANSLATION_PATH_ARCHIVE);
+  await source.move({ org, site, path: `${relPath}.json`, destination: `${relDest}.json` });
+
   const newPath = path.replace(TRANSLATION_PATH_ACTIVE, TRANSLATION_PATH_ARCHIVE);
-  formData.append('destination', `${newPath}.json`);
-  const opts = { body: formData, method: 'POST' };
-  await daFetch(`${DA_ORIGIN}/move${path}.json`, opts);
   return newPath;
 }

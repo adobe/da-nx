@@ -1,5 +1,5 @@
 import { LitElement, html, nothing } from 'da-lit';
-import getStyle from '../../../../utils/styles.js';
+import getStyle from '../../../../../nx2/public/utils/styles.js';
 
 const root = import.meta.url.replace('/views/header/header.js', '');
 const style = await getStyle(import.meta.url);

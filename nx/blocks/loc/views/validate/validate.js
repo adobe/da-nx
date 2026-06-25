@@ -1,12 +1,11 @@
 import { LitElement, html, nothing } from 'da-lit';
-import { DA_ORIGIN } from '../../../../public/utils/constants.js';
-import { getConfig } from '../../../../scripts/nexter.js';
-import getStyle from '../../../../utils/styles.js';
-import { daFetch } from '../../../../utils/daFetch.js';
-import { Queue } from '../../../../public/utils/tree.js';
+import { getConfig } from '../../../../../nx2/scripts/nx.js';
+import getStyle from '../../../../../nx2/public/utils/styles.js';
+import { source } from '../../../../../nx2/utils/api.js';
+import { Queue } from '../../../../../nx2/public/utils/tree.js';
 import { convertPath, createSnapshotPrefix, fetchConfig } from '../../utils/utils.js';
-import { getFragmentUrls } from './validate-utils.js';
 import { MAX_CONCURRENT_READS } from '../../project/index.js';
+import { getFragmentUrls } from './validate-utils.js';
 
 const { nxBase } = getConfig();
 const style = await getStyle(import.meta.url);
@@ -103,8 +102,9 @@ class NxLocValidate extends LitElement {
     const isSheet = pathname.endsWith('.json');
     const extPath = isSheet ? pathname : `${pathname}.html`;
     const snapshotUrlFragment = createSnapshotPrefix(this._snapshot);
-    const daUrl = `${DA_ORIGIN}/source/${this._org}/${this._site}${snapshotUrlFragment}${extPath}`;
-    const resp = await daFetch(daUrl);
+    const resp = await source.get({
+      org: this._org, site: this._site, path: `${snapshotUrlFragment}${extPath}`,
+    });
     const text = await resp.text();
     const ok = resp.status === 200;
     url.status = ok ? 'ready' : 'error - not found';

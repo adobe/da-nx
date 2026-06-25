@@ -1,14 +1,14 @@
-import { LitElement, html, nothing } from '../../../../deps/lit/lit-core.min.js';
-import { getConfig } from '../../../../scripts/nexter.js';
-import getStyle from '../../../../utils/styles.js';
-import { getSvg } from '../../../../utils/svg.js';
+import { LitElement, html, nothing } from 'da-lit';
+import { getConfig } from '../../../../../nx2/scripts/nx.js';
+import getStyle from '../../../../../nx2/public/utils/styles.js';
+import { getSvg } from '../../../../../nx2/utils/svg.js';
 
 const { nxBase } = getConfig();
 const style = await getStyle(import.meta.url);
 const buttons = await getStyle(`${nxBase}/styles/buttons.js`);
 
 const FILTER_BAR_ICONS = [
-  `${nxBase}/blocks/loc/img/clear.svg`,
+  new URL('../../img/clear.svg', import.meta.url).href,
 ];
 
 const PROJECT_STATUSES = ['not started', 'in progress', 'complete', 'cancelled'];

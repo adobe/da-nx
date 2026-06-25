@@ -1,9 +1,6 @@
-import { getConfig } from '../../../scripts/nexter.js';
-import { DA_ORIGIN } from '../../../public/utils/constants.js';
-import { daFetch } from '../../../utils/daFetch.js';
-import { loadIms } from '../../../utils/ims.js';
-
-const { nxBase: nx } = getConfig();
+import { DA_ORIGIN } from '../../../../nx2/public/utils/constants.js';
+import { daFetch, source } from '../../../../nx2/utils/api.js';
+import { loadIms } from '../../../../nx2/utils/ims.js';
 
 const CONFIG_PATH = '/.da/translate.json';
 const CONFIG_PATH_V2 = '/.da/translate-v2.json';
@@ -197,32 +194,33 @@ export function getPathDetails() {
 export async function fetchConfig(org, site) {
   if (CONFIG_CACHE) return CONFIG_CACHE;
 
-  const fetchConf = async (path) => {
+  // Safely resolve a fetcher to JSON, degrading on any error (bad resp or thrown).
+  const fetchConf = async (fetcher) => {
     try {
-      const resp = await daFetch(path);
-      if (!resp.ok) return { error: 'Options not available.' };
-      return resp.json();
+      const resp = await fetcher();
+      if (!resp || !resp.ok) return { error: 'Options not available.' };
+      return await resp.json();
     } catch {
       return { config: { data: [] } };
     }
   };
 
-  // Attempt a site based config
-  let options = await fetchConf(`${DA_ORIGIN}/source/${org}/${site}${CONFIG_PATH}`);
+  // Attempt a site based config (Helix 6 aware via source.get)
+  let options = await fetchConf(() => source.get({ org, site, path: CONFIG_PATH }));
 
-  // Attempt the old V2 config path
+  // Attempt the old V2 config path (org-level, DA-legacy only)
   if (options.error) {
-    options = await fetchConf(`${DA_ORIGIN}/source/${org}${CONFIG_PATH_V2}`);
+    options = await fetchConf(() => daFetch({ url: `${DA_ORIGIN}/source/${org}${CONFIG_PATH_V2}` }));
   }
 
-  // Attempt an org based config
+  // Attempt an org based config (org-level, DA-legacy only)
   if (options.error) {
-    options = await fetchConf(`${DA_ORIGIN}/source/${org}${CONFIG_PATH}`);
+    options = await fetchConf(() => daFetch({ url: `${DA_ORIGIN}/source/${org}${CONFIG_PATH}` }));
   }
 
-  // Fallback to zero config defaults
+  // Fallback to zero config defaults (static asset on nxBase)
   if (options.error) {
-    options = await fetchConf(`${nx}/blocks/loc/connectors/google/translate.json`);
+    options = await fetchConf(() => daFetch({ url: new URL('../connectors/google/translate.json', import.meta.url).href }));
   }
 
   CONFIG_CACHE = options;
@@ -253,19 +251,9 @@ async function fetchProject({ path, updates, updateDocTitle = true }) {
   // If there's no updates, and there's a cache, use it.
   if (!updates && PROJECT_CACHE[path]) return { project: PROJECT_CACHE[path] };
 
-  const opts = {};
-  if (updates) {
-    const content = JSON.stringify(updates);
-    const data = new Blob([content], { type: 'application/json' });
-
-    const body = new FormData();
-    body.append('data', data);
-
-    opts.method = 'POST';
-    opts.body = body;
-  }
-
-  const resp = await daFetch(`${DA_ORIGIN}/source${path}.json`, opts);
+  const resp = updates
+    ? await source.save(`${path}.json`, { body: JSON.stringify(updates) })
+    : await source.get(`${path}.json`);
   if (!resp.ok) {
     if (resp.status === 401 || resp.status === 403) {
       const [org, site] = path.substring(1).split('/');

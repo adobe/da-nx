@@ -15,10 +15,9 @@
  * from Adobe.
  ************************************************************************* */
 
-import { Queue } from '../../../../public/utils/tree.js';
+import { Queue } from '../../../../../nx2/public/utils/tree.js';
 import createProjectCache from './project-cache.js';
-import { daFetch } from '../../../../utils/daFetch.js';
-import { DA_ORIGIN } from '../../../../public/utils/constants.js';
+import { source } from '../../../../../nx2/utils/api.js';
 import { fetchProject } from './index.js';
 import { MAX_CONCURRENT_READS } from '../../project/index.js';
 
@@ -75,13 +74,21 @@ const createProjectData = async ({
   };
 
   const fetchProjectList = async (signal, type) => {
-    const resp = await daFetch(`${DA_ORIGIN}/list/${org}/${site}/.da/translation/${type}`, { signal });
-    if (!resp.ok) {
-      setError(resp.status, resp.statusText);
-      return { projects: [] };
-    }
-    const json = await resp.json();
-    return { projects: json.reverse() };
+    const projects = [];
+    let continuationToken;
+    do {
+      // eslint-disable-next-line no-await-in-loop
+      const resp = await source.list({
+        org, site, path: `/.da/translation/${type}`, continuationToken, opts: { signal },
+      });
+      if (!resp.ok) {
+        setError(resp.status, resp.statusText);
+        return { projects: [] };
+      }
+      projects.push(...resp.items);
+      continuationToken = resp.continuationToken;
+    } while (continuationToken);
+    return { projects: projects.reverse() };
   };
 
   const populateLastModifiedMap = (projects) => {

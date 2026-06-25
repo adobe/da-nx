@@ -1,7 +1,7 @@
 import { expect } from '@esm-bundle/chai';
-import decorateTable from '../../../nx/blocks/loc/dnt/decorateTable.js';
-import parseQuery from '../../../nx/blocks/loc/dnt/parseQuery.js';
-import { prettyPrintNode } from '../../../nx/utils/testUtils.js';
+import decorateTable from '../../../../nx/blocks/loc/dnt/decorateTable.js';
+import parseQuery from '../../../../nx/blocks/loc/dnt/parseQuery.js';
+import { prettyPrintNode } from '../../../utils/testUtils.js';
 
 function createTableCell(text) {
   const cell = document.createElement('div');

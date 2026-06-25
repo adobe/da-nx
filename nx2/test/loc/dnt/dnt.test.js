@@ -1,5 +1,5 @@
 import { expect } from '@esm-bundle/chai';
-import { addDnt, removeDnt, resetIcons, makeIconSpans } from '../../../nx/blocks/loc/dnt/dnt.js';
+import { addDnt, removeDnt, resetIcons, makeIconSpans } from '../../../../nx/blocks/loc/dnt/dnt.js';
 
 describe('parseConfig with dnt sheet', () => {
   it('should parse universal columns from dnt sheet', async () => {

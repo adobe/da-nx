@@ -1,8 +1,8 @@
 import { LitElement, html, nothing } from 'da-lit';
-import { getConfig } from '../../../../scripts/nexter.js';
-import getStyle from '../../../../utils/styles.js';
-import { getSvg } from '../../../../utils/svg.js';
-import { loadIms } from '../../../../utils/ims.js';
+import { getConfig } from '../../../../../nx2/scripts/nx.js';
+import getStyle from '../../../../../nx2/public/utils/styles.js';
+import { getSvg } from '../../../../../nx2/utils/svg.js';
+import { loadIms } from '../../../../../nx2/utils/ims.js';
 import { archiveProject, copyProject } from './index.js';
 
 import './pagination.js';

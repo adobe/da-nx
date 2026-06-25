@@ -18,7 +18,7 @@ p {
 }
 
 .da-loc-panel-subtitle {
-  margin-top: var(--spacing-50);
+  margin-top: var(--s2-spacing-50);
 }
 
 .da-loc-panel-title-expand {
@@ -33,7 +33,7 @@ p {
   justify-content: center;
   align-items: center;
   transition: transform 0.2s ease-in-out;
-  background: #e8e6e6;
+  background: var(--s2-gray-100);
   width: 32px;
   height: 32px;
   border-radius: 16px;
@@ -47,7 +47,7 @@ p {
 
 .da-loc-panel-content {
   display: none;
-  margin-top: var(--spacing-400);
+  margin-top: var(--s2-spacing-400);
 }
 
 .da-loc-panel-content.is-visible {
@@ -59,7 +59,7 @@ p {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: var(--spacing-400);
+  margin-top: var(--s2-spacing-400);
 }
 
 .da-loc-panel-actions p {
@@ -68,16 +68,16 @@ p {
 
 .da-lang-cards {
   display: grid;
-  gap: var(--spacing-400);
+  gap: var(--s2-spacing-400);
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-  margin-bottom: var(--spacing-400);
+  margin-bottom: var(--s2-spacing-400);
 }
 
 .da-lang-card {
   position: relative;
-  background: #fff;
+  background: var(--s2-gray-25);
   box-shadow: rgb(0 0 0 / 8%) 0 0 16px, rgb(0 0 0 / 12%) 0 3px 6px;
-  border-radius: var(--s2-radius-100);
+  border-radius: var(--s2-corner-radius-500);
   overflow: hidden;
   display: grid;
   grid-template-rows: auto 1fr auto;
@@ -87,16 +87,16 @@ p {
   display: flex;
   align-items: center;
   min-height: 100px;
-  padding: var(--spacing-400);
+  padding: var(--s2-spacing-400);
   box-sizing: border-box;
-  background: #676767;
+  background: var(--s2-gray-600);
   color: #fff;
 }
 
 .da-card-header.translated,
 .da-card-header.rolling-out,
 .da-card-header.saving {
-  background: #087e89;
+  background: var(--s2-seafoam-900);
 }
 
 .da-card-header.ready,
@@ -104,18 +104,18 @@ p {
 .da-card-header.uploading,
 .da-card-header.uploaded,
 .da-card-header.sending {
-  background: #0b78b3;
+  background: var(--s2-cyan-900);
 }
 
 .da-card-header.complete {
-  background: #05834e;
+  background: var(--s2-green-900);
 }
 
 .da-card-subtitle {
   font-weight: 700;
   text-transform: uppercase;
   font-size: 14px;
-  margin-bottom: var(--spacing-75);
+  margin-bottom: var(--s2-spacing-75);
 }
 
 .da-card-title {
@@ -124,7 +124,7 @@ p {
 
 .da-card-badge {
   position: absolute;
-  top: var(--spacing-200);
+  top: var(--s2-spacing-200);
   right: 0;
   background: rgb(0 0 0 / 20%);
   padding: 4px 6px 5px;
@@ -135,14 +135,14 @@ p {
 }
 
 .da-card-content {
-  padding: var(--spacing-400);
+  padding: var(--s2-spacing-400);
   box-sizing: border-box;
 }
 
 .da-card-details {
   display: grid;
   grid-template-columns: 1fr 1.1fr 0.9fr;
-  margin-bottom: var(--spacing-400);
+  margin-bottom: var(--s2-spacing-400);
 }
 
 .da-card-details.rollout {
@@ -152,8 +152,8 @@ p {
 .da-card-locales {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--spacing-200);
-  margin-bottom: var(--spacing-200);
+  gap: var(--s2-spacing-200);
+  margin-bottom: var(--s2-spacing-200);
   align-self: start;
 }
 
@@ -161,7 +161,7 @@ p {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 0 var(--spacing-400) var(--spacing-400) var(--spacing-400);
+  padding: 0 var(--s2-spacing-400) var(--s2-spacing-400) var(--s2-spacing-400);
 }
 
 .da-card-date-heading {

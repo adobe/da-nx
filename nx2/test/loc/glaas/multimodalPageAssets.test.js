@@ -1,6 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import sinon from 'sinon';
-import { glaasSourcePreviewUrl } from '../../../nx/blocks/loc/connectors/glaas/api.js';
+import { glaasSourcePreviewUrl } from '../../../../nx/blocks/loc/connectors/glaas/api.js';
 import {
   buildMultimodalPageAssetEntry,
   buildMultimodalTextAsset,
@@ -14,7 +14,7 @@ import {
   resetPutUrlRateLimitGateForTests,
   isV2AssetReady,
   v2AssetStatusFromProbe,
-} from '../../../nx/blocks/loc/connectors/glaas/multimodalApi.js';
+} from '../../../../nx/blocks/loc/connectors/glaas/multimodalApi.js';
 
 describe('GLaaS multimodal getPutUrlForFile', () => {
   beforeEach(() => {

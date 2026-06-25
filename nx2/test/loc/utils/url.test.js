@@ -1,5 +1,5 @@
 import { expect } from '@esm-bundle/chai';
-import { convertPath } from '../../../nx/blocks/loc/utils/url.js';
+import { convertPath } from '../../../../nx/blocks/loc/utils/url.js';
 
 describe('URL conversion', () => {
   it('Converts base URL to source language URL', () => {
