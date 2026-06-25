@@ -1,5 +1,6 @@
 :host {
   display: block;
+  color-scheme: light dark;
 
   > svg {
     display: none;
@@ -9,7 +10,7 @@
 svg.icon {
   width: 20px;
   height: 20px;
-  color: var(--s2-gray-900, #000);
+  color: light-dark(var(--s2-gray-900, #000), var(--s2-gray-100, #fff));
 }
 
 svg.fragment-icon {
@@ -120,9 +121,10 @@ dialog.modal-overlay::backdrop {
       height: 32px;
       z-index: 1;
       border-radius: var(--s2-radius-100);
+      background-color: light-dark(var(--s2-gray-100), var(--s2-gray-800));
 
       &:hover {
-        background-color: var(--s2-gray-200);
+        background-color: light-dark(var(--s2-gray-200), var(--s2-gray-700));
       }
     }
   }

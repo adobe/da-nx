@@ -1,4 +1,6 @@
 :host {
+  color-scheme: light dark;
+
   >svg {
     display: none;
   }
@@ -14,8 +16,8 @@ svg.icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: var(--spacing-300);
-  padding: var(--spacing-100) var(--spacing-100) var(--spacing-100) 0;
+  gap: var(--s2-spacing-300, var(--spacing-300, 16px));
+  padding: var(--s2-spacing-100, var(--spacing-100, 8px)) var(--s2-spacing-100, var(--spacing-100, 8px)) var(--s2-spacing-100, var(--spacing-100, 8px)) 0;
   background: light-dark(var(--s2-gray-50), #1a1a1a);
 }
 
@@ -55,7 +57,7 @@ svg.icon {
 .left-controls {
   display: flex;
   align-items: center;
-  gap: var(--spacing-200);
+  gap: var(--s2-spacing-200, var(--spacing-200, 12px));
 }
 
 .search-container {
@@ -234,7 +236,7 @@ svg.icon {
 }
 
 .suggestion-item {
-  padding: var(--spacing-200) var(--spacing-300);
+  padding: var(--s2-spacing-200, var(--spacing-200, 12px)) var(--s2-spacing-300, var(--spacing-300, 16px));
   cursor: pointer;
   border-bottom: 1px solid var(--s2-gray-100);
   transition: background-color 0.2s ease;
@@ -255,7 +257,7 @@ svg.icon {
 .suggestion-main {
   display: flex;
   align-items: center;
-  gap: var(--spacing-200);
+  gap: var(--s2-spacing-200, var(--spacing-200, 12px));
 }
 
 .suggestion-icon {
@@ -280,13 +282,13 @@ svg.icon {
 
 .suggestion-details {
   margin-inline-start: 0;
-  margin-block-start: var(--spacing-100);
+  margin-block-start: var(--s2-spacing-100, var(--spacing-100, 8px));
   font-size: var(--s2-font-size-100);
   color: light-dark(var(--s2-gray-600), var(--s2-gray-400));
 }
 
 .detail-line {
-  margin-bottom: var(--spacing-75);
+  margin-bottom: var(--s2-spacing-75, var(--spacing-75, 4px));
 }
 
 .detail-line:last-child {
@@ -302,8 +304,8 @@ mark {
 .scanning-indicator {
   display: flex;
   align-items: center;
-  gap: var(--spacing-200);
-  padding: var(--spacing-200) var(--spacing-300);
+  gap: var(--s2-spacing-200, var(--spacing-200, 12px));
+  padding: var(--s2-spacing-200, var(--spacing-200, 12px)) var(--s2-spacing-300, var(--spacing-300, 16px));
   background: light-dark(
     linear-gradient(135deg, var(--s2-green-200) 0%, var(--s2-green-300) 100%),
     linear-gradient(135deg, var(--s2-green-900) 0%, var(--s2-green-700) 100%)
@@ -346,15 +348,15 @@ mark {
 
 .view-controls {
   display: flex;
-  gap: var(--spacing-200);
+  gap: var(--s2-spacing-200, var(--spacing-200, 12px));
   justify-self: end;
 }
 
 .view-btn {
   display: flex;
   align-items: center;
-  gap: var(--spacing-200);
-  padding: var(--spacing-200) var(--spacing-300);
+  gap: var(--s2-spacing-200, var(--spacing-200, 12px));
+  padding: var(--s2-spacing-200, var(--spacing-200, 12px)) var(--s2-spacing-300, var(--spacing-300, 16px));
   border: 1px solid var(--s2-gray-200);
   border-radius: var(--s2-radius-75);
   background: light-dark(var(--s2-gray-50), var(--s2-gray-800));

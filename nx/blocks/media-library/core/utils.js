@@ -1,6 +1,5 @@
 import { Domains } from './constants.js';
 import { etcFetch, getLivePreviewUrl } from './urls.js';
-import { initIms } from '../../../utils/daFetch.js';
 import {
   getCanonicalMediaTimestamp as _getCanonicalMediaTimestamp,
   sortMediaData as _sortMediaData,
@@ -146,7 +145,8 @@ export async function checkSiteAuthRequired(org, repo) {
 
 export async function livePreviewLogin(owner, repo) {
   try {
-    const { accessToken } = await initIms() || {};
+    const { loadIms } = await import('../../../../nx2/utils/ims.js');
+    const { accessToken } = await loadIms() || {};
     const url = `${getLivePreviewUrl(owner, repo)}/gimme_cookie`;
 
     debugLog('Setting preview.da.live cookie', { owner, repo, url });

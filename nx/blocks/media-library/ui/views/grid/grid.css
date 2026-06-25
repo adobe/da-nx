@@ -53,7 +53,7 @@ svg.icon {
 }
 
 .empty-state h2 {
-  margin: 0 0 var(--spacing-200);
+  margin: 0 0 var(--s2-spacing-200, var(--spacing-200, 12px));
   font-size: 1.5rem;
   font-weight: 600;
   color: var(--s2-gray-800);
@@ -76,7 +76,7 @@ svg.icon {
 }
 
 .scanning-state h3 {
-  margin: 0 0 var(--spacing-200);
+  margin: 0 0 var(--s2-spacing-200, var(--spacing-200, 12px));
   font-size: 1.5rem;
   font-weight: 600;
   color: var(--s2-gray-800);
@@ -89,7 +89,7 @@ svg.icon {
   border-top: 2px solid var(--s2-blue-600);
   border-radius: 50%;
   animation: spin 1s linear infinite;
-  margin-bottom: var(--spacing-200);
+  margin-bottom: var(--s2-spacing-200, var(--spacing-200, 12px));
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -107,7 +107,7 @@ svg.icon {
   border-top: 2px solid var(--s2-blue-600);
   border-radius: 50%;
   animation: spin 1s linear infinite;
-  margin-top: var(--spacing-200);
+  margin-top: var(--s2-spacing-200, var(--spacing-200, 12px));
 }
 
 .media-main {
@@ -308,7 +308,7 @@ svg.icon {
 }
 
 .media-name {
-  margin: 0 0 var(--spacing-100);
+  margin: 0 0 var(--s2-spacing-100, var(--spacing-100, 8px));
   font-size: 0.85rem;
   font-weight: 700;
   color: light-dark(white, var(--s2-gray-25));
@@ -320,12 +320,12 @@ svg.icon {
 
 .media-meta {
   display: flex;
-  gap: var(--spacing-100);
-  margin-bottom: var(--spacing-100);
+  gap: var(--s2-spacing-100, var(--spacing-100, 8px));
+  margin-bottom: var(--s2-spacing-100, var(--spacing-100, 8px));
   flex-wrap: wrap;
   align-items: center;
   justify-content: end;
-  padding: var(--spacing-300);
+  padding: var(--s2-spacing-300, var(--spacing-300, 16px));
   pointer-events: auto;
 }
 
@@ -359,7 +359,7 @@ svg.icon {
   left: 0;
   right: 0;
   display: flex;
-  padding: var(--spacing-300);
+  padding: var(--s2-spacing-300, var(--spacing-300, 16px));
   align-items: center;
   pointer-events: none;
   z-index: 10;
@@ -448,7 +448,7 @@ svg.icon {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--spacing-100);
+  gap: var(--s2-spacing-100, var(--spacing-100, 8px));
 }
 
 .video-name {
@@ -510,7 +510,7 @@ svg.icon {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--spacing-100);
+  gap: var(--s2-spacing-100, var(--spacing-100, 8px));
 }
 
 .pdf-name {
@@ -533,14 +533,14 @@ svg.icon {
 
 .pdf-link {
   text-decoration: none;
-  margin-top: var(--spacing-200);
+  margin-top: var(--s2-spacing-200, var(--spacing-200, 12px));
 }
 
 .pdf-loading {
   font-size: 0.8rem;
   color: var(--s2-blue-600);
   font-style: italic;
-  margin-top: var(--spacing-100);
+  margin-top: var(--s2-spacing-100, var(--spacing-100, 8px));
 }
 
 /* Fragment/PDF full card placeholders */
