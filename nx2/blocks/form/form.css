@@ -14,8 +14,15 @@
    so the header — a sibling above .nx-form — stays put without `sticky`. */
 .nx-form {
   box-sizing: border-box;
-  height: calc(100vh - var(--s2-nav-height) - var(--canvas-header-height));
+  height: calc(100vh - var(--s2-nav-height));
   overflow-y: auto;
+}
+
+/* When EW is enabled the chat header precedes the block; reserve its height so
+   the form fills exactly the space below it. Without the header (EW off) the
+   form takes the full height — no empty bar. */
+nx-form-header + .nx-form {
+  height: calc(100vh - var(--s2-nav-height) - var(--canvas-header-height));
 }
 
 /* Never override the chat's `display` here, or its flex layout collapses. */

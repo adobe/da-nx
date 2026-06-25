@@ -1,5 +1,6 @@
-import { loadStyle } from '../../utils/utils.js';
+import { loadStyle, hashChange } from '../../utils/utils.js';
 import { openPanel } from '../../utils/panel.js';
+import { getEWFlags } from '../../utils/ewFlags.js';
 import './header.js';
 import decorateEditor from './editor.js';
 
@@ -50,18 +51,34 @@ function installHeader(block) {
   return header;
 }
 
+// The chat workspace (header toggle + docked chat) is gated on the `ew.enabled`
+// flag for the current site. Read once from the hash on load — the form
+// workspace is scoped to a single org/site.
+async function setupChat(block) {
+  let state;
+  const unsubscribe = hashChange.subscribe((s) => { state = s; });
+  unsubscribe();
+
+  const { org, site } = state ?? {};
+  if (!org || !site) return;
+
+  const flags = await getEWFlags({ org, site });
+  if (flags['ew.enabled'] !== 'true') return;
+
+  installHeader(block);
+  await openChatPanel();
+}
+
 // Block entry: EW surfaces the form via an `nx-form` content block, which NX
 // loads as `nx2/blocks/form/form.js`. This wrapper sets up the canvas-style
-// workspace (app-frame grid, header, docked chat) around the form editor
-// (editor.js), mirroring how canvas.js drives ew-editor-doc. The form and chat
-// both read the `#/org/site/path` hash, so they stay in sync.
+// workspace (app-frame grid, and — when EW is enabled — the header + docked
+// chat) around the form editor (editor.js). The form and chat both read the
+// `#/org/site/path` hash, so they stay in sync.
 export default async function decorate(block) {
   ensureAppFrame();
   ensureNavPath();
 
-  installHeader(block);
-
   decorateEditor(block);
 
-  await openChatPanel();
+  await setupChat(block);
 }
