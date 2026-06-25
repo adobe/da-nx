@@ -54,7 +54,6 @@ async function getChildren(path) {
   let continuationToken = null;
 
   do {
-    // source.list handles both legacy DA and HLX6 routing + response normalisation.
     const result = await source.list({ ...fromPath(path), continuationToken });
     if (!result.ok) break;
 
