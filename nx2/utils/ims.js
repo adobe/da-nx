@@ -123,8 +123,20 @@ export const loadIms = (() => {
   let ims;
 
   const setup = async (loginPopup) => {
-    // eslint-disable-next-line no-console
-    console.warn('[nx2-ims] setup() called', { loginPopup, t: performance.now(), adobeIMSAlready: !!window.adobeIMS });
+    // If imslib already initialized (e.g., by a sibling caller or an earlier
+    // navigation in the same context), don't try to re-init — imslib reads
+    // adobeid once at load time and won't re-fire onReady, leaving us to
+    // time out for no reason. Just consume the existing access token.
+    if (window.adobeIMS?.getAccessToken) {
+      const accessToken = window.adobeIMS.getAccessToken();
+      if (!accessToken) {
+        localStorage.removeItem('nx-ims');
+        return { anonymous: true };
+      }
+      localStorage.setItem('nx-ims', true);
+      return loadDetails(accessToken);
+    }
+
     // Re-read config at call time; the module-level capture above races with
     // host setConfig() in some load orders (iframes especially) and can pin
     // imsClientId to undefined, which makes imslib hang and time out.
@@ -132,8 +144,6 @@ export const loadIms = (() => {
     const clientId = cfg.imsClientId ?? imsClientId;
     const scope = cfg.imsScope ?? imsScope;
     const environment = IMS_ENV[cfg.imsEnv ?? cfg.env ?? imsEnv ?? env];
-    // eslint-disable-next-line no-console
-    console.warn('[nx2-ims] setup config resolved', { clientId, environment, t: performance.now() });
 
     return new Promise((resolve, reject) => {
       const [done, fail] = settleWithTimeout(resolve, reject);
@@ -145,14 +155,8 @@ export const loadIms = (() => {
         autoValidateToken: true,
         environment,
         useLocalStorage: true,
-        onError: (e) => {
-          // eslint-disable-next-line no-console
-          console.warn('[nx2-ims] onError fired', e, performance.now());
-          fail(e);
-        },
+        onError: fail,
         onReady: () => {
-          // eslint-disable-next-line no-console
-          console.warn('[nx2-ims] onReady fired', performance.now());
           const accessToken = window.adobeIMS.getAccessToken();
           if (!accessToken) {
             localStorage.removeItem('nx-ims');
@@ -167,8 +171,6 @@ export const loadIms = (() => {
         window.adobeid.modalMode = true;
         window.adobeid.modalSettings = { allowedOrigin: window.location.origin };
       }
-      // eslint-disable-next-line no-console
-      console.warn('[nx2-ims] adobeid set, calling loadScript', performance.now());
       loadScript(IMS_URL).catch(fail);
     });
   };
