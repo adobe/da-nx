@@ -46,6 +46,12 @@ function renderPlanDirective(content) {
   return html`<nx-campaign-plan-card .plan=${plan}></nx-campaign-plan-card>`;
 }
 
+function renderPreflightDirective(content) {
+  const preflight = parseDirectiveJSON(content);
+  if (!preflight) return html`<div class="directive directive-preflight"></div>`;
+  return html`<nx-preflight-card .preflight=${preflight}></nx-preflight-card>`;
+}
+
 function renderTaskListDirective(content) {
   const data = parseDirectiveJSON(content);
   if (!data) return html`<div class="directive directive-task-list"></div>`;
@@ -122,6 +128,7 @@ function renderMessageContent(text) {
       if (type === DIRECTIVE_TYPE.PLAN) return renderPlanDirective(content);
       if (type === DIRECTIVE_TYPE.TASK_LIST) return renderTaskListDirective(content);
       if (type === DIRECTIVE_TYPE.TASK_ITEM) return nothing;
+      if (type === DIRECTIVE_TYPE.PREFLIGHT) return renderPreflightDirective(content);
       const dom = toDOM(mdast2hast(parser.parse(content)));
       return html`<div class="directive directive-${type}">${dom}</div>`;
     }
@@ -151,6 +158,7 @@ function renderToolCard(toolCallId, toolCards, streamingText) {
   if (!card || card.state === TOOL_STATE.APPROVAL_REQUESTED) return nothing;
   const { toolName, state, input } = card;
   if (toolName === TOOL_NAME.EXIT_PLAN_MODE) return renderSubmitPlanCard(input, streamingText);
+  if (toolName === TOOL_NAME.RUN_PREFLIGHT) return html`<nx-preflight-card .preflight=${input}></nx-preflight-card>`;
   const detail = approvalSummary(input);
   const failed = state === TOOL_STATE.ERROR || state === TOOL_STATE.REJECTED;
   return html`
@@ -169,6 +177,25 @@ function renderApprovalCard(pending, onApprove) {
       .plan=${input}
       @nx-plan-run=${() => onApprove(toolCallId, true)}
     ></nx-campaign-plan-card>`;
+  }
+  if (toolName === TOOL_NAME.RUN_PREFLIGHT) {
+    const pfSummary = input?.summary ?? `${input?.readiness ?? 0}% readiness across all checks.`;
+    return html`
+      <div class="approval-actions">
+        <span class="approval-tool-name">Pre-flight checks complete</span>
+        <span class="approval-summary">${pfSummary}</span>
+        <div class="approval-buttons">
+          <button type="button" class="secondary-btn" @click=${() => onApprove(toolCallId, false)}>
+            <span>Reject</span><kbd>Esc</kbd>
+          </button>
+          <button type="button" class="secondary-btn" @click=${() => onApprove(toolCallId, true, true)}>
+            <span>Always approve</span><kbd>⌘↵</kbd>
+          </button>
+          <button type="button" class="action-btn" @click=${() => onApprove(toolCallId, true)}>
+            <span>Approve</span><kbd>↵</kbd>
+          </button>
+        </div>
+      </div>`;
   }
   const summary = approvalSummary(input);
   return html`

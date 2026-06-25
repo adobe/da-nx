@@ -8,6 +8,7 @@ import './welcome/welcome.js';
 import './prompts/prompts.js';
 import './pills/pills.js';
 import './messages/campaign-plan-card.js';
+import './messages/preflight-card.js';
 import './messages/task-list.js';
 import './messages/task-item.js';
 import { loadSiteConfig } from './utils/api.js';

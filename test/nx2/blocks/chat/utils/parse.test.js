@@ -92,3 +92,28 @@ describe('parseDirectives', () => {
     });
   });
 });
+
+describe('parseDirectives — preflight directive', () => {
+  const payload = JSON.stringify({ title: 'Test', readiness: 90, categories: [] });
+
+  it('parses a complete :::preflight block', () => {
+    const text = `:::preflight\n${payload}\n:::`;
+    expect(parseDirectives(text)).to.deep.equal([
+      { kind: 'directive', type: 'preflight', content: payload },
+    ]);
+  });
+
+  it('parses :::preflight mixed with surrounding text', () => {
+    const text = `Here are the results:\n:::preflight\n${payload}\n:::\nLet me know if you want changes.`;
+    const result = parseDirectives(text);
+    expect(result).to.have.lengthOf(3);
+    expect(result[1]).to.deep.equal({ kind: 'directive', type: 'preflight', content: payload });
+  });
+
+  it('handles an unclosed :::preflight block gracefully', () => {
+    const text = `:::preflight\n${payload}`;
+    const result = parseDirectives(text);
+    expect(result).to.have.lengthOf(1);
+    expect(result[0].type).to.equal('preflight');
+  });
+});

@@ -63,6 +63,7 @@ const TOOL_NAME = {
   CONTENT_UPLOAD: 'content_upload',
   ENTER_PLAN_MODE: 'enter_plan_mode',
   EXIT_PLAN_MODE: 'exit_plan_mode',
+  RUN_PREFLIGHT: 'run_preflight',
 };
 
 /**
@@ -102,6 +103,7 @@ const DIRECTIVE_TYPE = {
   PLAN: 'plan',
   TASK_LIST: 'task-list',
   TASK_ITEM: 'task-item',
+  PREFLIGHT: 'preflight',
 };
 
 export {
