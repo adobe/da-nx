@@ -1,10 +1,9 @@
 import { html, LitElement, nothing } from 'da-lit';
-import { loadStyle } from '../../scripts/nexter.js';
-import getStyle from '../../utils/styles.js';
+import { loadStyle } from '../../../nx2/utils/utils.js';
 import { getIsAllowed, processDetails, getStrings } from './utils.js';
 
 // Super Lite
-import '../../public/sl/components.js';
+import '../../../nx2/public/sl/components.js';
 
 // Sub-components
 import './views/new.js';
@@ -19,9 +18,8 @@ import '../profile/profile.js';
 const nx = `${new URL(import.meta.url).origin}/nx`;
 
 // Styles
-await loadStyle(`${nx}/public/sl/styles.css`);
-const sl = await getStyle(`${nx}/public/sl/styles.css`);
-const styles = await getStyle(import.meta.url);
+const sl = await loadStyle(`${nx}/public/sl/styles.css`);
+const styles = await loadStyle(import.meta.url);
 
 class NxExp extends LitElement {
   static properties = {
