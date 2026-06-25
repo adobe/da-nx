@@ -1,14 +1,18 @@
 # Worklog
 
-## 2026-06-24
+## 2026-06-25
 
-### exp block — migrated to nx2
+### exp block — completed nx2 migration (importer pattern)
 
-- `nx2/scripts/nx.js`: added `'exp'` to `NX_BLOCKS` so `nx-exp` loads from `/nx/blocks/exp/` when served by nx2 (same pattern as `'importer'`).
-- `nx/blocks/exp/utils.js`: replaced nx1 API imports with nx2 equivalents:
-  - `DA_ORIGIN` → `DA_ADMIN` from `nx2/utils/utils.js`
-  - `AEM_ORIGIN` → `HLX_ADMIN` from `nx2/utils/utils.js`
-  - `loadIms` → from `nx2/utils/ims.js`
+Block stays under `nx/blocks/exp/`; all nx2 API imports use relative paths into `nx2/`.
+
+- `nx/blocks/exp/exp.js`: removed nx1 `loadStyle` (nexter.js) and `getStyle` (utils/styles.js); imports `loadStyle` from `nx2/utils/utils.js`; SL components updated to `nx2/public/sl/components.js`; dropped document-level `loadStyle` side effect (nx2 version returns constructable sheet directly).
+- `nx/blocks/exp/views/edit.js`: removed `getConfig` from nx1 `nexter.js` (returns `{ error }` in nx2 context since nx1 config is never initialized); replaced `nxBase` with `new URL(import.meta.url).origin + '/nx'` pattern; switched to nx2 `loadStyle`.
+- All other views (`actions`, `dialog`, `login`, `new`, `view`): `getStyle` (nx1) → `loadStyle` from `nx2/utils/utils.js`.
+
+Previously done (2026-06-24):
+- `nx2/scripts/nx.js`: added `'exp'` to `NX_BLOCKS`.
+- `nx/blocks/exp/utils.js`: `DA_ORIGIN` → `DA_ADMIN`, `AEM_ORIGIN` → `HLX_ADMIN`, `loadIms` → `nx2/utils/ims.js`.
 
 ## 2026-06-23
 
