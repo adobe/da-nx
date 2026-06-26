@@ -1,5 +1,15 @@
 # Worklog
 
+## 2026-06-25
+
+### nx2/public/utils/tree.js — backend-aware crawl (crawlhlx6 branch)
+
+`getChildren` listed folder contents by fetching `${DA_ORIGIN}/list${path}` directly, bypassing the backend-aware `source.list`. On a Helix 6 site that endpoint has nothing, so da-live's delete confirmation — which crawls a folder to count its files before showing the dialog — reported "0 items" and the delete flow broke (adobe/da-live#1034).
+
+Now routes through `source.list` (from `../../utils/api.js`), which detects the backend per-site via `isHlx6` and returns DA-normalized items. Legacy DA behavior is unchanged: DA *is* the backend, and `source.list` falls back to the same `/list` endpoint. Only Helix 6 sites — previously broken — change. Removed the now-unused `daFetch`/`DA_ORIGIN` imports.
+
+Only consumer is da-live (no internal nx2 callers). nx1's `tree.js` is intentionally left DA-only since nx1 is the legacy DA-only world. Added `test/nx2/public/utils/tree.test.js` covering the hlx6 crawl, legacy fallback, continuation paging, and non-ok handling; hlx6 detection in the tests is driven via the ping response header rather than seeded localStorage, which is shared across concurrently-running test files and was racing api.test.js's `removeItem`.
+
 ## 2026-06-23
 
 ### nx2/blocks/shared/dialog — configurable panel sizing (dialog-css-vars branch)
