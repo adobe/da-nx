@@ -3,6 +3,8 @@ import {
   loadMessages,
   saveMessages,
   resetSession,
+  loadAutoApprovedTools,
+  saveAutoApprovedTools,
 } from '../../../../../nx2/blocks/chat/utils/persistence.js';
 
 let counter = 0;
@@ -98,6 +100,57 @@ describe('persistence', () => {
       const result = await loadMessages(testRoom);
       expect(result.messages).to.deep.equal([]);
       expect(result.sessionId).to.equal(id);
+    });
+  });
+
+  describe('loadAutoApprovedTools', () => {
+    it('returns an empty Set for an unknown room', async () => {
+      const result = await loadAutoApprovedTools(room());
+      expect(result).to.be.instanceOf(Set);
+      expect(result.size).to.equal(0);
+    });
+
+    it('returns the saved tool names as a Set', async () => {
+      const testRoom = room();
+      await saveAutoApprovedTools(testRoom, new Set(['content_read', 'content_replace']));
+
+      // saveAutoApprovedTools is best-effort / fire-and-forget internally;
+      // give the IndexedDB transaction a tick to commit.
+      await new Promise((r) => setTimeout(r, 50));
+
+      const result = await loadAutoApprovedTools(testRoom);
+      expect(result).to.be.instanceOf(Set);
+      expect(result.has('content_read')).to.be.true;
+      expect(result.has('content_replace')).to.be.true;
+      expect(result.size).to.equal(2);
+    });
+  });
+
+  describe('saveAutoApprovedTools', () => {
+    it('does not overwrite existing messages or sessionId', async () => {
+      const testRoom = room();
+      const id = crypto.randomUUID();
+      const msgs = [{ role: 'user', content: 'keep me' }];
+      await saveMessages(testRoom, msgs, id);
+
+      await saveAutoApprovedTools(testRoom, new Set(['content_read']));
+      await new Promise((r) => setTimeout(r, 50));
+
+      const result = await loadMessages(testRoom);
+      expect(result.messages).to.deep.equal(msgs);
+      expect(result.sessionId).to.equal(id);
+    });
+
+    it('merges new tools into an existing autoApprovedTools list', async () => {
+      const testRoom = room();
+      await saveAutoApprovedTools(testRoom, new Set(['content_read']));
+      await new Promise((r) => setTimeout(r, 50));
+      await saveAutoApprovedTools(testRoom, new Set(['content_read', 'content_replace']));
+      await new Promise((r) => setTimeout(r, 50));
+
+      const result = await loadAutoApprovedTools(testRoom);
+      expect(result.has('content_read')).to.be.true;
+      expect(result.has('content_replace')).to.be.true;
     });
   });
 });

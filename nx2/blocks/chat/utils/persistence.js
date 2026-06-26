@@ -88,3 +88,40 @@ export function saveMessages(room, messages, sessionId) {
 export function resetSession(room, sessionId) {
   return write((store) => store.put({ room, messages: [], sessionId, updatedAt: Date.now() }));
 }
+
+export async function loadAutoApprovedTools(room) {
+  const db = await openDb();
+  if (!db) return new Set();
+
+  return new Promise((resolve) => {
+    try {
+      const tx = db.transaction(STORE_NAME, 'readonly');
+      const req = tx.objectStore(STORE_NAME).get(room);
+
+      req.onsuccess = (e) => {
+        const { result } = e.target;
+        resolve(new Set(Array.isArray(result?.autoApprovedTools) ? result.autoApprovedTools : []));
+      };
+      req.onerror = () => resolve(new Set());
+    } catch {
+      resolve(new Set());
+    }
+  });
+}
+
+export async function saveAutoApprovedTools(room, toolNamesSet) {
+  const db = await openDb();
+  if (!db) return;
+  try {
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    tx.onerror = () => { }; // best-effort
+    const store = tx.objectStore(STORE_NAME);
+    const req = store.get(room);
+    req.onsuccess = (e) => {
+      const existing = e.target.result ?? { room, messages: [], sessionId: null };
+      store.put({ ...existing, autoApprovedTools: [...toolNamesSet], updatedAt: Date.now() });
+    };
+  } catch {
+    // best-effort
+  }
+}

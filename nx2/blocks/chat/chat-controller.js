@@ -1,7 +1,10 @@
 import { loadIms } from '../../utils/ims.js';
 import { AGENT_EVENT, ROLE, TOOL_NAME, TOOL_STATE } from './constants.js';
 import { readStream } from './utils/stream.js';
-import { loadMessages, saveMessages, resetSession } from './utils/persistence.js';
+import {
+  loadMessages, saveMessages, resetSession,
+  loadAutoApprovedTools, saveAutoApprovedTools,
+} from './utils/persistence.js';
 
 function affectedFolders(toolName, input) {
   const { org, repo } = input ?? {};
@@ -104,7 +107,11 @@ export default class ChatController {
   async loadInitialMessages() {
     this._messages = [];
     const room = await this._getRoom();
-    const { messages: cached, sessionId } = await loadMessages(room);
+    const [{ messages: cached, sessionId }, autoApprovedTools] = await Promise.all([
+      loadMessages(room),
+      loadAutoApprovedTools(room),
+    ]);
+    this._autoApprovedTools = autoApprovedTools;
     this._sessionId = sessionId ?? this._sessionId;
     if (!cached.length) return;
     this._messages = stripOrphanedToolCallMessages(cached);
@@ -162,7 +169,6 @@ export default class ChatController {
     this._messages = undefined;
     this._streamingText = undefined;
     this._toolCards = new Map();
-    this._autoApprovedTools = new Set();
     this._sessionId = crypto.randomUUID();
     this._currentTurnId = crypto.randomUUID();
     this._update();
@@ -273,6 +279,7 @@ export default class ChatController {
     if (always) {
       this._autoApprovedTools ??= new Set();
       this._autoApprovedTools.add(card.toolName);
+      this._getRoom().then((room) => saveAutoApprovedTools(room, this._autoApprovedTools));
     }
 
     const next = new Map(this._toolCards ?? []);
