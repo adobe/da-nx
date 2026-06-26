@@ -1,5 +1,13 @@
 # Worklog
 
+## 2026-06-26 (lint fixes)
+
+### nx2/blocks/chat — CI lint fixes
+
+- `chat-controller.js` line 283: broke the long `.then().catch()` chain onto three lines to satisfy `max-len` (100 char limit).
+- `persistence.js` line 119: changed bare `return;` to `return undefined;` so the `.then()` callback is `consistent-return` (always returns a value or always returns nothing — now always returns a value).
+- `persistence.js` line 123: replaced `console.warn(...)` on `tx.onerror` with a silent no-op comment; transaction errors bubble via `req.onerror → reject(err)` anyway.
+
 ## 2026-06-26 (follow-up)
 
 ### nx2/blocks/chat — review fixes for always-approve persistence
