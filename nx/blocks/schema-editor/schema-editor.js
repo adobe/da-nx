@@ -109,7 +109,11 @@ class SchemaEditor extends LitElement {
   }
 
   async handleSave(isUpdate) {
-    const id = isUpdate && this._currentSchema ? this._currentSchema : this.newInput.value;
+    const id = isUpdate && this._currentSchema ? this._currentSchema : this.newInput?.value;
+    if (this._createNew && !id) {
+      this._alert = { type: 'warning', message: 'Please enter a schema name before saving.' };
+      return;
+    }
     const content = this._editor.state.doc.toString();
     const prefix = this.getPrefix();
     const result = await saveSchema(prefix, id, content);
