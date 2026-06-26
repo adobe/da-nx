@@ -3,82 +3,13 @@ import { AGENT_EVENT, ROLE, TOOL_INPUT, TOOL_STATE } from './constants.js';
 import { getConfig } from '../../scripts/nx.js';
 import { parseDirectives } from './utils/parse.js';
 import { pillIconName } from './utils/icons.js';
+import { linkifyBareUrls, sanitizeLinks } from './utils/links.js';
 
 const { codeBase } = getConfig();
 
 const { unified, remarkParse, remarkGfmNoLink, mdast2hast, hastToDom } = await import('../../deps/mdast/dist/index.js');
 
-const SAFE_URL = /^https?:\/\//i;
-const BARE_URL = /https?:\/\/[^\s<>]+/g;
-const TRAILING_PUNCT = /[.,;:!?]+$/;
-const LINKIFY_SKIP = new Set(['a', 'code', 'pre']);
-
 const parser = unified().use(remarkParse).use(remarkGfmNoLink);
-
-const countChar = (str, char) => str.split(char).length - 1;
-
-function splitUrlText(value) {
-  const nodes = [];
-  let lastIndex = 0;
-  let matched = false;
-
-  for (const match of value.matchAll(BARE_URL)) {
-    matched = true;
-    let url = match[0];
-    let trailing = '';
-
-    const punct = url.match(TRAILING_PUNCT);
-    if (punct) {
-      [trailing] = punct;
-      url = url.slice(0, -trailing.length);
-    }
-    while (url.endsWith(')') && countChar(url, ')') > countChar(url, '(')) {
-      trailing = `)${trailing}`;
-      url = url.slice(0, -1);
-    }
-
-    if (match.index > lastIndex) {
-      nodes.push({ type: 'text', value: value.slice(lastIndex, match.index) });
-    }
-    nodes.push({
-      type: 'element',
-      tagName: 'a',
-      properties: { href: url },
-      children: [{ type: 'text', value: url }],
-    });
-    if (trailing) nodes.push({ type: 'text', value: trailing });
-    lastIndex = match.index + match[0].length;
-  }
-
-  if (!matched) return null;
-  if (lastIndex < value.length) nodes.push({ type: 'text', value: value.slice(lastIndex) });
-  return nodes;
-}
-
-function linkifyBareUrls(node) {
-  if (!node.children) return node;
-  if (node.type === 'element' && LINKIFY_SKIP.has(node.tagName)) return node;
-
-  node.children = node.children.flatMap((child) => {
-    if (child.type === 'text') return splitUrlText(child.value) ?? [child];
-    return [linkifyBareUrls(child)];
-  });
-  return node;
-}
-
-function sanitizeLinks(node) {
-  if (node.type === 'element' && node.tagName === 'a') {
-    const href = node.properties?.href ?? '';
-    node.properties = {
-      ...node.properties,
-      href: SAFE_URL.test(href) ? href : '#',
-      target: '_blank',
-      rel: ['noopener', 'noreferrer'],
-    };
-  }
-  node.children?.forEach(sanitizeLinks);
-  return node;
-}
 
 function toDOM(hast) {
   return hastToDom(sanitizeLinks(linkifyBareUrls(hast)), { fragment: true });
