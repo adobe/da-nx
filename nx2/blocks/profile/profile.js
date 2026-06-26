@@ -47,6 +47,12 @@ class NxProfile extends LitElement {
 
   handleLoaded() {
     this.classList.add('is-loaded');
+    const event = new CustomEvent('loaded', {
+      detail: this._ims,
+      bubbles: true,
+      composed: true,
+    });
+    this.dispatchEvent(event);
   }
 
   handleCopyUser() {
