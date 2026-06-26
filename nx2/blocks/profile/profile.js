@@ -1,5 +1,7 @@
 import { LitElement, html, nothing } from 'da-lit';
-import { getConfig, loc } from '../../scripts/nx.js';
+import {
+  getConfig, loc, getColorScheme, setColorScheme,
+} from '../../scripts/nx.js';
 import { loadIms, handleSignOut, handleSignIn } from '../../utils/ims.js';
 import { loadStyle } from '../../utils/utils.js';
 import { signout } from '../../utils/api.js';
@@ -14,11 +16,13 @@ class NxProfile extends LitElement {
     _avatar: { state: true },
     _openOrgs: { state: true },
     _orgs: { state: true },
+    _scheme: { state: true },
   };
 
   async connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
+    this._scheme = getColorScheme();
     this.loadIms();
   }
 
@@ -82,17 +86,8 @@ class NxProfile extends LitElement {
     this.dispatchEvent(event);
   }
 
-  handleScheme() {
-    let curr = localStorage.getItem('color-scheme');
-    if (!curr) {
-      curr = matchMedia('(prefers-color-scheme: dark)').matches
-        ? 'dark-scheme' : 'light-scheme';
-    }
-
-    const next = curr === 'dark-scheme' ? 'light-scheme' : 'dark-scheme';
-    document.body.classList.remove('dark-scheme', 'light-scheme');
-    document.body.classList.add(next);
-    localStorage.setItem('color-scheme', next);
+  selectScheme(scheme) {
+    this._scheme = setColorScheme(scheme);
   }
 
   get _org() {
@@ -137,6 +132,30 @@ class NxProfile extends LitElement {
     `;
   }
 
+  renderScheme() {
+    const schemes = [
+      { id: 'light-scheme', label: loc`Light` },
+      { id: 'dark-scheme', label: loc`Dark` },
+    ];
+    return html`
+      <div class="nx-menu-scheme">
+        <p class="nx-menu-link-title">${loc`Theme`}</p>
+        <div class="nx-scheme-options" role="radiogroup" aria-label=${loc`Theme`}>
+          ${schemes.map((scheme) => html`
+            <button
+              type="button"
+              class="nx-scheme-option"
+              role="radio"
+              aria-checked=${this._scheme === scheme.id}
+              @click=${() => this.selectScheme(scheme.id)}>
+              ${scheme.label}
+            </button>
+          `)}
+        </div>
+      </div>
+    `;
+  }
+
   render() {
     if (!this._ims) return nothing;
     if (this._ims.anonymous) return this.renderSignIn();
@@ -169,6 +188,7 @@ class NxProfile extends LitElement {
               <li><a href="https://adminconsole.adobe.com" target="_blank">Admin Console</a></li>
             </ul>
           </div>
+          ${this.renderScheme()}
           <button class="nx-menu-btn nx-menu-btn-signout" @click=${this.handleSignOut}>${loc`Sign out`}</button>
         </div>
       </div>
