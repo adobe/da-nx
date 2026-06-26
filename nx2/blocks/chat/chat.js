@@ -164,6 +164,18 @@ class NxChat extends LitElement {
     input.setSelectionRange(start + text.length, start + text.length);
   }
 
+  _buildAttachmentPayload(items) {
+    return items
+      .filter((item) => item.dataBase64)
+      .map(({ id, fileName, mediaType, sizeBytes, dataBase64 }) => ({
+        id,
+        fileName,
+        mediaType,
+        dataBase64,
+        ...(typeof sizeBytes === 'number' ? { sizeBytes } : {}),
+      }));
+  }
+
   _onSlashSelect(skillId) {
     const input = this.shadowRoot?.querySelector('.chat-input');
     const { wordStart } = this._slashCtx ?? {};
@@ -173,15 +185,14 @@ class NxChat extends LitElement {
     this._slashCtx = null;
     this._slashMenuEl?.close();
     if (input) input.value = '';
-    const fileItems = (this._items ?? []).filter((i) => i.dataBase64);
-    const contextItems = (this._items ?? []).filter((i) => !i.dataBase64);
-    const attachments = fileItems.map(({ id, fileName, mediaType, sizeBytes, dataBase64 }) => ({
-      id, fileName, mediaType, dataBase64, ...(typeof sizeBytes === 'number' ? { sizeBytes } : {}),
-    }));
-    fileItems.forEach((i) => { if (i.thumbnail) URL.revokeObjectURL(i.thumbnail); });
-    this._items = [];
-    const opts = { requestedSkills: [skillId], attachments };
+    const items = this._items ?? [];
+    const fileItems = items.filter((item) => item.dataBase64);
+    const contextItems = items.filter((item) => !item.dataBase64);
+    const attachments = this._buildAttachmentPayload(items);
+    fileItems.forEach((item) => { if (item.thumbnail) URL.revokeObjectURL(item.thumbnail); });
+    const opts = { requestedSkills: [skillId], ...(attachments.length ? { attachments } : {}) };
     this._controller.sendMessage(message, contextItems, opts);
+    this._items = [];
   }
 
   async connectedCallback() {
@@ -342,9 +353,7 @@ class NxChat extends LitElement {
     const fileItems = (this._items ?? []).filter((i) => i.dataBase64);
     const contextItems = (this._items ?? []).filter((i) => !i.dataBase64);
     const message = text || (fileItems.length > 1 ? 'Attached files' : 'Attached file');
-    const attachments = fileItems.map(({ id, fileName, mediaType, sizeBytes, dataBase64 }) => ({
-      id, fileName, mediaType, dataBase64, ...(typeof sizeBytes === 'number' ? { sizeBytes } : {}),
-    }));
+    const attachments = this._buildAttachmentPayload(this._items ?? []);
     fileItems.forEach((i) => { if (i.thumbnail) URL.revokeObjectURL(i.thumbnail); });
     this._slashMenuEl?.close();
     this._controller.sendMessage(message, contextItems, { attachments });
