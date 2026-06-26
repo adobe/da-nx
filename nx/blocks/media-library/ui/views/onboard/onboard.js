@@ -1,15 +1,15 @@
 import { html, LitElement, nothing } from 'da-lit';
-import getStyle from '../../../../../utils/styles.js';
+import { loadStyle } from '../../../../../../nx2/utils/utils.js';
 import { parseOrgRepoFromUrl } from '../../../core/urls.js';
 import { normalizeSitePath } from '../../../core/paths.js';
-import loadSvgIcons from '../../../../../utils/svg.js';
+import { loadHrefSvg } from '../../../../../../nx2/utils/svg.js';
 import { Storage } from '../../../core/constants.js';
 import { showNotification } from '../../../core/state.js';
 import { t } from '../../../core/messages.js';
 import { ErrorCodes, logMediaLibraryError } from '../../../core/errors.js';
 
 const EL_NAME = 'nx-media-onboard';
-const styles = await getStyle(import.meta.url);
+const style = await loadStyle(import.meta.url);
 const RANDOM_MAX = 8;
 const iconsBase = new URL('../../../../../img/icons/', import.meta.url).href;
 const assetsBase = new URL('../../../assets/', import.meta.url).href;
@@ -54,10 +54,13 @@ class NxMediaOnboard extends LitElement {
     this._flippedCards = new Set();
   }
 
-  connectedCallback() {
+  async connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [styles];
-    loadSvgIcons({ parent: this.shadowRoot, paths: ICONS });
+    this.shadowRoot.adoptedStyleSheets = [style];
+    const icons = (await Promise.all(ICONS.map(loadHrefSvg)))
+      .filter(Boolean)
+      .map((svg) => svg.cloneNode(true));
+    this.shadowRoot.append(...icons);
     this.loadRecentSites();
     this.loadPinnedFolders();
   }

@@ -1,6 +1,5 @@
 import { Domains } from './constants.js';
 import { etcFetch, getLivePreviewUrl } from './urls.js';
-import { initIms } from '../../../utils/daFetch.js';
 import {
   getCanonicalMediaTimestamp as _getCanonicalMediaTimestamp,
   sortMediaData as _sortMediaData,
@@ -77,19 +76,6 @@ export function deduplicateMediaByHash(mediaData) {
   return Array.from(hashMap.values());
 }
 
-export async function ensureAuthenticated() {
-  const imsResult = await initIms();
-
-  if (!imsResult || imsResult.anonymous) {
-    const { loadIms, handleSignIn } = await import('../../../utils/ims.js');
-    await loadIms();
-    handleSignIn();
-    return false;
-  }
-
-  return true;
-}
-
 function shouldDebugLog() {
   const params = new URLSearchParams(window.location.search);
   const debugValue = params.get('debug');
@@ -159,14 +145,15 @@ export async function checkSiteAuthRequired(org, repo) {
 
 export async function livePreviewLogin(owner, repo) {
   try {
-    const { accessToken } = await initIms();
+    const { loadIms } = await import('../../../../nx2/utils/ims.js');
+    const { accessToken } = await loadIms() || {};
     const url = `${getLivePreviewUrl(owner, repo)}/gimme_cookie`;
 
     debugLog('Setting preview.da.live cookie', { owner, repo, url });
 
     const response = await fetch(url, {
       credentials: 'include',
-      headers: { Authorization: `Bearer ${accessToken.token}` },
+      headers: { Authorization: `Bearer ${accessToken?.token}` },
     });
 
     if (!response.ok) {

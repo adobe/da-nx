@@ -1,11 +1,10 @@
-import { daFetch, initIms } from '../../../utils/daFetch.js';
+import { source, fromPath, daFetch as nx2DaFetch } from '../../../../nx2/utils/api.js';
 import { etcFetch } from '../core/urls.js';
 import {
   IndexFiles,
   ExternalMedia,
   DA_ETC_ORIGIN,
-  AEM_ORIGIN,
-  DA_ORIGIN,
+  HLX_ADMIN,
 } from '../core/constants.js';
 import { MediaLibraryError, ErrorCodes, logMediaLibraryError } from '../core/errors.js';
 import { isPerfEnabled } from '../core/params.js';
@@ -43,12 +42,8 @@ function createRateLimiter(initialRate) {
 const aemPageMarkdownLimiter = createRateLimiter(AEM_PAGE_MARKDOWN_RATE);
 
 async function fetchWithAuthRaw(url, opts = {}) {
-  opts.headers ||= {};
-  const { accessToken } = await initIms();
-  if (accessToken?.token) {
-    opts.headers.Authorization = `Bearer ${accessToken.token}`;
-  }
-  return fetch(url, opts);
+  // Use nx2's daFetch which handles IMS internally
+  return nx2DaFetch({ url, opts });
 }
 
 export async function createSheet(data, type = 'sheet') {
@@ -59,10 +54,7 @@ export async function createSheet(data, type = 'sheet') {
     data,
     ':type': type,
   };
-  const blob = new Blob([JSON.stringify(sheetMeta, null, 2)], { type: 'application/json' });
-  const formData = new FormData();
-  formData.append('data', blob);
-  return formData;
+  return JSON.stringify(sheetMeta, null, 2);
 }
 
 export async function createMultiSheet(sheets) {
@@ -83,10 +75,7 @@ export async function createMultiSheet(sheets) {
     };
   });
 
-  const blob = new Blob([JSON.stringify(multiSheetData, null, 2)], { type: 'application/json' });
-  const formData = new FormData();
-  formData.append('data', blob);
-  return formData;
+  return JSON.stringify(multiSheetData, null, 2);
 }
 
 /**
@@ -108,7 +97,7 @@ export async function fetchSidekickConfig(org, repo, ref = 'main') {
   if (!org || !repo) return null;
 
   try {
-    const resp = await fetchWithAuth(`${AEM_ORIGIN}/sidekick/${org}/${repo}/${ref}/config.json`);
+    const resp = await fetchWithAuth(`${HLX_ADMIN}/sidekick/${org}/${repo}/${ref}/config.json`);
     if (!resp.ok) return null;
     return await resp.json();
   } catch {
@@ -188,7 +177,8 @@ export async function fetchPaginated(
 
 export async function loadSheet(path) {
   try {
-    const resp = await daFetch(`${DA_ORIGIN}/source${path}`);
+    const { org, site, path: filePath } = fromPath(path);
+    const resp = await source.get({ org, site, path: filePath });
 
     if (resp.ok) {
       const data = await resp.json();
@@ -204,7 +194,8 @@ export async function loadMultiSheet(path, sheetName, options = {}) {
   const { allowMissing = false } = options;
 
   try {
-    const resp = await daFetch(`${DA_ORIGIN}/source${path}`);
+    const { org, site, path: filePath } = fromPath(path);
+    const resp = await source.get({ org, site, path: filePath });
 
     if (resp.ok) {
       const data = await resp.json();
@@ -308,16 +299,15 @@ export async function loadIndexChunks(basePath, chunkCount, sheetName, onProgres
 }
 
 export async function saveSheet(data, path) {
-  const formData = await createSheet(data);
-  return daFetch(`${DA_ORIGIN}/source${path}`, {
-    method: 'PUT',
-    body: formData,
-  });
+  const body = await createSheet(data);
+  const { org, site, path: filePath } = fromPath(path);
+  return source.save({ org, site, path: filePath, body });
 }
 
 export async function loadSheetMeta(path) {
   try {
-    const resp = await daFetch(`${DA_ORIGIN}/source${path}`);
+    const { org, site, path: filePath } = fromPath(path);
+    const resp = await source.get({ org, site, path: filePath });
     if (resp.ok) {
       const data = await resp.json();
       const metaData = data.data || data || null;
@@ -334,12 +324,9 @@ export async function loadSheetMeta(path) {
 
 export async function saveSheetMeta(meta, path) {
   const metaArray = Array.isArray(meta) ? meta : [meta];
-  const formData = await createSheet(metaArray);
-
-  return daFetch(`${DA_ORIGIN}/source${path}`, {
-    method: 'PUT',
-    body: formData,
-  });
+  const body = await createSheet(metaArray);
+  const { org, site, path: filePath } = fromPath(path);
+  return source.save({ org, site, path: filePath, body });
 }
 
 export async function fetchAuditLog(org, repo, ref = 'main', since = null, limit = 1000) {
@@ -683,32 +670,17 @@ export function clearCachedAemSiteToken(org, site, ref = 'main') {
   aemSiteTokenCache.delete(getAemSiteTokenCacheKey(org, site, ref));
 }
 
-async function fetchAemSiteToken(org, site, ref = 'main') {
-  const { accessToken } = await initIms() || {};
-  const imsToken = accessToken?.token;
-  if (!imsToken) {
-    return { error: 'Missing IMS access token' };
+async function fetchAemSiteToken(org, site, _ = 'main') {
+  // Use nx2's getAemSiteToken instead (ref parameter not supported in nx2)
+  const { getAemSiteToken } = await import('../../../../nx2/utils/api.js');
+  const result = await getAemSiteToken({ org, site });
+
+  if (!result || result.error) {
+    return result || { error: 'Error fetching AEM Site Token' };
   }
 
-  const body = JSON.stringify({
-    org,
-    site,
-    ref,
-    accessToken: imsToken,
-  });
-  const resp = await fetch(`${AEM_ORIGIN}/auth/adobe/exchange`, {
-    method: 'POST',
-    body,
-    headers: { 'Content-Type': 'application/json' },
-  });
-
-  if (!resp.ok) {
-    return { error: `Error fetch AEM Site Token ${resp.status}` };
-  }
-
-  const data = await resp.json();
-  const siteToken = data.siteToken || data.token;
-  const siteTokenExpiry = data.siteTokenExpiry || data.tokenExpiry || 0;
+  const siteToken = result.siteToken || result.token;
+  const siteTokenExpiry = result.siteTokenExpiry || result.tokenExpiry || 0;
 
   if (!siteToken) {
     return { error: 'AEM Site Token missing from exchange response' };
@@ -918,14 +890,13 @@ export async function listFolder(path, org, repo) {
   }
 
   const normalizedPath = contentPath.replace(/^\//, '') || '';
-  const url = `${DA_ORIGIN}/list/${org}/${repo}/${normalizedPath}`;
+  const listPath = normalizedPath ? `/${normalizedPath}` : '';
 
-  const resp = await daFetch(url);
-  if (!resp.ok) {
+  const result = await source.list({ org, site: repo, path: listPath });
+  if (!result.ok) {
     return [];
   }
-  const data = await resp.json();
-  return Array.isArray(data) ? data : (data.sources || []);
+  return result.items || [];
 }
 
 const MEDIA_EXTS = new Set([
@@ -1049,7 +1020,8 @@ export async function checkIndex(folderPath, org, repo) {
 // Loads index meta JSON (lastFetchTime, etc.) from DA.
 export async function loadIndexMeta(path) {
   try {
-    const resp = await daFetch(`${DA_ORIGIN}/source${path}`);
+    const { org, site, path: filePath } = fromPath(path);
+    const resp = await source.get({ org, site, path: filePath });
     if (resp.ok) {
       const data = await resp.json();
       return data.data?.[0] || data;
@@ -1064,11 +1036,9 @@ export async function loadIndexMeta(path) {
 
 // Saves index meta to DA source path.
 export async function saveIndexMeta(meta, path) {
-  const formData = await createSheet([meta]);
-  return daFetch(`${DA_ORIGIN}/source${path}`, {
-    method: 'POST',
-    body: formData,
-  });
+  const body = await createSheet([meta]);
+  const { org, site, path: filePath } = fromPath(path);
+  return source.save({ org, site, path: filePath, body });
 }
 
 function isProtectedSiteAssetUrl(url, org, repo, ref = 'main') {

@@ -1,15 +1,15 @@
 import { html, LitElement } from 'da-lit';
-import getStyle from '../../../../../utils/styles.js';
-import getSvg from '../../../../../public/utils/svg.js';
+import { loadStyle } from '../../../../../../nx2/utils/utils.js';
+import { loadHrefSvg } from '../../../../../../nx2/utils/svg.js';
 import { parseColonSyntax, getSearchSuggestions, createSearchSuggestion } from '../../filters.js';
 import { formatDocPath, getBasePath } from '../../../core/paths.js';
 import { highlightMatch } from '../../templates.js';
 import { t } from '../../../core/messages.js';
 
-const styles = await getStyle(import.meta.url);
+const style = await loadStyle(import.meta.url);
 const nx = `${new URL(import.meta.url).origin}/nx`;
-const sl = await getStyle(`${nx}/public/sl/styles.css`);
-const slComponents = await getStyle(`${nx}/public/sl/components.css`);
+const sl = await loadStyle(`${nx}/public/sl/styles.css`);
+const slComponents = await loadStyle(`${nx}/public/sl/components.css`);
 const iconsBase = new URL('../../../../../img/icons/', import.meta.url).href;
 const ICONS = [
   `${iconsBase}Smock_Folder_18_N.svg`,
@@ -66,9 +66,12 @@ class NxMediaTopBar extends LitElement {
 
   async connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [sl, slComponents, styles];
+    this.shadowRoot.adoptedStyleSheets = [sl, slComponents, style];
 
-    getSvg({ parent: this.shadowRoot, paths: ICONS });
+    const icons = (await Promise.all(ICONS.map(loadHrefSvg)))
+      .filter(Boolean)
+      .map((svg) => svg.cloneNode(true));
+    this.shadowRoot.append(...icons);
 
     this.handleOutsideClick = this.handleOutsideClick.bind(this);
     document.addEventListener('click', this.handleOutsideClick);

@@ -182,13 +182,11 @@ export function resolveAemOrigin() {
   return 'https://admin.hlx.page';
 }
 
-// Main-thread convenience exports (use window.location)
-// IMPORTANT: These will fail in worker context - use resolve* functions instead
-export const DA_ORIGIN = typeof window !== 'undefined'
-  ? resolveDaOrigin(window.location)
-  : DA_ADMIN_ENVS.prod;
-
-export const AEM_ORIGIN = resolveAemOrigin();
+// Worker-safe constants (no window/localStorage dependency)
+// Use static prod values - workers don't need environment switching
+export const DA_ADMIN = 'https://admin.da.live';
+export const HLX_ADMIN = 'https://admin.hlx.page';
+export const AEM_API = 'https://api.aem.live';
 
 export const DA_ETC_ORIGIN = typeof window !== 'undefined'
   ? resolveDaEtcOrigin(window.location)
