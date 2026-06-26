@@ -1,5 +1,51 @@
 # Worklog
 
+## 2026-06-25
+
+### nx2 chat — AO harness `x-tenant-id` fallback (feat/ao-browser-client)
+
+- `_streamAO()` in `chat-controller.js`: local AO rejected requests with
+  `Missing x-tenant-id header`. Staging IMS (`ims-na1-stg1`) returns no org id
+  in the profile/JWT, so the AO client sent no tenant. Now falls back to the DA
+  page-context org (`<org>@AdobeOrg`) when the IMS identity has no `orgId`.
+- `sendImsIdentity` stays off for local AO (`?ref=local`) — local AO runs with
+  token validation off; prod AO requires extension-based identity.
+
+### nx2 chat — fix HierarchyRequestError crashing the render
+
+- `renderers.js`: `toDOM`/`renderMessageContent` could feed lit-html a
+  `#document` node (`hastToDom` yields one when streamed content carries
+  document-level raw HTML — e.g. an agent streaming a `<body>`/`<html>` page on
+  the AO content-creation path). lit's `insertBefore` then throws
+  `HierarchyRequestError`, crashing the whole chat render — so tool/approval
+  cards never paint. Added `unwrapDocuments()` to flatten any document node into
+  a safe fragment, plus a raw-text fallback if a markdown chunk fails to parse.
+
+### nx2 chat — pin the DA manifest on the AO surface
+
+- `ao-client.js`: new `manifestId` option on `createAOClient`. When set, `buildAuth`
+  emits two A2A metadata extensions so AO resolves our manifest instead of the
+  org's default: request-context (`.../dx/request-context/v0` → `aoInstanceId`)
+  and feature-flags (`.../dx/feature-flags/v0` → `featureFlags.forceManifest:true`).
+- `chat-controller.js` `_streamAO`: passes `manifestId: isLocalAO ? 'da-local' : 'ew-agent'`.
+  Only the AO-toggled DA surface sends this, so only it pins the manifest;
+  ao.adobe.io web-UI users fall through to normal org targeting.
+
+### nx2 chat — reuse the approval card on the AO harness path
+
+- `ao-client.js`: `processAOLine` now translates a final `status: input-required`
+  + `mutation-proposal-v0` DataPart into `tool-input-available` +
+  `tool-approval-request` events, so the existing approval card renders on the
+  AO path (previously all AO events collapsed to `text-delta`). New
+  `submitDecision({ resume, decision })` resumes the task via a
+  `mutation-decision-v0` DataPart (echoes payload + taskId).
+- `utils/stream.js`: forwards the optional `proposal` field on approval events.
+- `chat-controller.js`: `_streamAO` retains the AO client; `_onToolEvent` stores
+  `proposal` on the card; `approveToolCall` branches to new `_resumeAO` for
+  proposal-bearing cards (sends decision to AO instead of replaying to da-agent).
+- Full cross-repo context (da-agent A2A v0.2 + approval bridge, AO manifest):
+  see `../AO-HARNESS-INTEGRATION.md`.
+
 ## 2026-05-28
 
 ### nx2/utils/api.js — consistency refactor (api-refactor branch)
