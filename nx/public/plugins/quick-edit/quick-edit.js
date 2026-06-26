@@ -2,6 +2,13 @@ import { setupContentEditableListeners, setupImageDropListeners, updateImageSrc,
 import { setEditorState } from './src/prose.js';
 import { setCursors } from './src/cursors.js';
 import { pollConnection, setupActions } from './src/utils.js';
+import {
+  scrollToProseIndex,
+  setCommentMarkers,
+  applyCommentMarkers,
+  setupCommentShortcut,
+  restoreBlockIndices,
+} from './src/comments.js';
 
 import { loadStyle } from '../../../scripts/nexter.js';
 
@@ -20,6 +27,8 @@ async function setBody(body, ctx) {
   const doc = new DOMParser().parseFromString(body, 'text/html');
   document.body.innerHTML = doc.body.innerHTML;
   await ctx.loadPage();
+  restoreBlockIndices(doc, document);
+  applyCommentMarkers(ctx);
   setupContentEditableListeners(ctx);
   setupImageDropListeners(ctx, document.body.querySelector('main'));
   if (!parentControllerPort) {
@@ -46,6 +55,10 @@ function onMessage(e, ctx) {
     updateImageSrc(originalSrc, newSrc);
   } else if (e.data.type === 'image-error') {
     handleImageError(e.data.error);
+  } else if (e.data.type === 'scroll-to-pos') {
+    scrollToProseIndex(e.data.proseIndex);
+  } else if (e.data.type === 'set-comment-markers') {
+    setCommentMarkers(e.data, ctx);
   }
 }
 
@@ -63,6 +76,7 @@ function setupParentController(loadPage) {
     };
     port.onmessage = (ev) => onMessage(ev, ctx);
     port.postMessage({ ready: true });
+    setupCommentShortcut(ctx);
 
     window.removeEventListener('message', listener);
   };
