@@ -171,6 +171,8 @@ export default class ChatController {
     this._toolCards = new Map();
     this._sessionId = crypto.randomUUID();
     this._currentTurnId = crypto.randomUUID();
+    // _autoApprovedTools is intentionally NOT reset here: it is persisted per-user
+    // in IndexedDB and should survive conversation clears.
     this._update();
     const room = await this._getRoom();
     resetSession(room, this._sessionId);
@@ -277,9 +279,8 @@ export default class ChatController {
     if (!card?.approvalId) return;
 
     if (always) {
-      this._autoApprovedTools ??= new Set();
       this._autoApprovedTools.add(card.toolName);
-      this._getRoom().then((room) => saveAutoApprovedTools(room, this._autoApprovedTools));
+      this._getRoom().then((room) => saveAutoApprovedTools(room, this._autoApprovedTools)).catch(() => {});
     }
 
     const next = new Map(this._toolCards ?? []);

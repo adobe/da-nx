@@ -114,10 +114,6 @@ describe('persistence', () => {
       const testRoom = room();
       await saveAutoApprovedTools(testRoom, new Set(['content_read', 'content_replace']));
 
-      // saveAutoApprovedTools is best-effort / fire-and-forget internally;
-      // give the IndexedDB transaction a tick to commit.
-      await new Promise((r) => setTimeout(r, 50));
-
       const result = await loadAutoApprovedTools(testRoom);
       expect(result).to.be.instanceOf(Set);
       expect(result.has('content_read')).to.be.true;
@@ -134,7 +130,6 @@ describe('persistence', () => {
       await saveMessages(testRoom, msgs, id);
 
       await saveAutoApprovedTools(testRoom, new Set(['content_read']));
-      await new Promise((r) => setTimeout(r, 50));
 
       const result = await loadMessages(testRoom);
       expect(result.messages).to.deep.equal(msgs);
@@ -144,9 +139,7 @@ describe('persistence', () => {
     it('merges new tools into an existing autoApprovedTools list', async () => {
       const testRoom = room();
       await saveAutoApprovedTools(testRoom, new Set(['content_read']));
-      await new Promise((r) => setTimeout(r, 50));
       await saveAutoApprovedTools(testRoom, new Set(['content_read', 'content_replace']));
-      await new Promise((r) => setTimeout(r, 50));
 
       const result = await loadAutoApprovedTools(testRoom);
       expect(result.has('content_read')).to.be.true;

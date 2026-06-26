@@ -3,6 +3,10 @@ const DB_VERSION = 1;
 const STORE_NAME = 'conversations';
 const EMPTY_STATE = { messages: [], sessionId: null };
 
+function blankRecord(room) {
+  return { room, messages: [], sessionId: null, updatedAt: Date.now() };
+}
+
 let dbPromise = null;
 
 function closeDb(resolve) {
@@ -109,19 +113,28 @@ export async function loadAutoApprovedTools(room) {
   });
 }
 
-export async function saveAutoApprovedTools(room, toolNamesSet) {
-  const db = await openDb();
-  if (!db) return;
-  try {
-    const tx = db.transaction(STORE_NAME, 'readwrite');
-    tx.onerror = () => { }; // best-effort
-    const store = tx.objectStore(STORE_NAME);
-    const req = store.get(room);
-    req.onsuccess = (e) => {
-      const existing = e.target.result ?? { room, messages: [], sessionId: null };
-      store.put({ ...existing, autoApprovedTools: [...toolNamesSet], updatedAt: Date.now() });
-    };
-  } catch {
-    // best-effort
-  }
+export function saveAutoApprovedTools(room, toolNamesSet) {
+  return openDb().then((db) => {
+    if (!db) return;
+    return new Promise((resolve, reject) => {
+      try {
+        const tx = db.transaction(STORE_NAME, 'readwrite');
+        tx.oncomplete = () => resolve();
+        tx.onerror = (e) => console.warn('[persistence] saveAutoApprovedTools failed', e);
+        const store = tx.objectStore(STORE_NAME);
+        const req = store.get(room);
+        req.onsuccess = (e) => {
+          try {
+            const existing = e.target.result ?? blankRecord(room);
+            store.put({ ...existing, autoApprovedTools: [...toolNamesSet], updatedAt: Date.now() });
+          } catch (err) {
+            reject(err);
+          }
+        };
+        req.onerror = (e) => reject(e);
+      } catch (err) {
+        reject(err);
+      }
+    });
+  });
 }
