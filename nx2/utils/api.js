@@ -238,7 +238,7 @@ export const source = {
     const hlx6 = await isHlx6(org, site);
     const url = await getDaApiPath(SOURCE, org, site, path);
     const opts = { method: 'POST' };
-    const ext = Object.keys(TYPE_MAP).find((e) => path.endsWith(e));
+    const ext = Object.keys(TYPE_MAP).find((e) => path.toLowerCase().endsWith(e));
     if (hlx6) {
       opts.body = body;
       if (ext) opts.headers = { 'Content-Type': TYPE_MAP[ext] };
