@@ -1,5 +1,4 @@
 import { html, LitElement, nothing } from 'da-lit';
-import { getConfig } from '../../../nx2/scripts/nx.js';
 import { loadStyle } from '../../../nx2/utils/utils.js';
 import { loadHrefSvg } from '../../../nx2/utils/svg.js';
 import { loadSchemas, saveSchema, deleteSchema, loadCodeMirror, updateCodeMirror } from './utils/utils.js';
@@ -7,19 +6,19 @@ import { loadSchemas, saveSchema, deleteSchema, loadCodeMirror, updateCodeMirror
 import '../../../nx2/public/sl/components.js';
 import '../shared/path/path.js';
 
-const { nxBase: nx } = getConfig();
-
-const ICONS = [
-  `${nx}/img/icons/s2-icon-infocircle-20-n.svg`,
-  `${nx}/img/icons/s2-icon-alertdiamond-20-n.svg`,
-  `${nx}/img/icons/s2-icon-checkmarkcircle-20-n.svg`,
-];
+const ALERT_ICONS = {
+  info: '/img/icons/s2-icon-infocircle-20-n.svg',
+  warning: '/img/icons/s2-icon-alertdiamond-20-n.svg',
+  success: '/img/icons/s2-icon-checkmarkcircle-20-n.svg',
+};
 
 const EL_NAME = 'nx-schema-editor';
 const DEFAULT_SCHEMA = { $schema: 'https://json-schema.org/draft/2020-12/schema' };
 
 const style = await loadStyle(import.meta.url);
-const icons = (await Promise.all(ICONS.map(loadHrefSvg))).filter(Boolean);
+const icons = (await Promise.all(
+  Object.values(ALERT_ICONS).map((path) => loadHrefSvg(path)),
+)).filter(Boolean);
 
 class SchemaEditor extends LitElement {
   static properties = {
@@ -184,15 +183,9 @@ class SchemaEditor extends LitElement {
   renderAlert() {
     if (!this._alert) return nothing;
 
-    const type2icon = {
-      info: 'InfoCircle',
-      warning: 'AlertDiamond',
-      success: 'CheckmarkCircle',
-    };
-
     return html`
       <div class="nx-alert ${this._alert.type || 'info'}">
-        <svg class="icon"><use href="#S2_Icon_${type2icon[this._alert.type || 'info']}_20_N"/></svg>
+        <svg class="icon"><use href="${ALERT_ICONS[this._alert.type || 'info']}"/></svg>
         <p>${this._alert.message}</p>
       </div>
     `;
