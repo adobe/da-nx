@@ -143,3 +143,4 @@ export const loadPageStyle = (href) => new Promise((resolve) => {
 });
 
 export { loadStyle } from '../scripts/nx.js';
+export { default as loadScript } from '../../nx/utils/script.js';
