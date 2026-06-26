@@ -1,5 +1,22 @@
 # Worklog
 
+## 2026-06-26
+
+### nx2/blocks/chat — persist always-approve tool selections (feat/da-always-approve-persist branch)
+
+`_autoApprovedTools` was an in-memory Set that reset on every page load. Now it round-trips through IndexedDB alongside messages.
+
+**persistence.js** — two new exports:
+- `loadAutoApprovedTools(room)` — readonly transaction, returns `new Set(record?.autoApprovedTools ?? [])`.
+- `saveAutoApprovedTools(room, toolNamesSet)` — opens a readwrite transaction, does a `get` then `put` inside the same transaction to merge only `autoApprovedTools` without touching `messages` or `sessionId`.
+
+**chat-controller.js**:
+- `loadInitialMessages` now calls both `loadMessages` and `loadAutoApprovedTools` in parallel via `Promise.all` and sets `this._autoApprovedTools` from the result.
+- `approveToolCall` fires `saveAutoApprovedTools` (fire-and-forget) after adding to the Set in the `if (always)` branch.
+- `clear()` no longer resets `_autoApprovedTools` — the Set persists through conversation resets.
+
+Tests: 4 new cases in `test/nx2/blocks/chat/utils/persistence.test.js`; all 28 chat tests pass.
+
 ## 2026-06-23
 
 ### nx2/blocks/shared/dialog — configurable panel sizing (dialog-css-vars branch)
