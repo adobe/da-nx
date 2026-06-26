@@ -1,5 +1,21 @@
 # Worklog
 
+## 2026-06-26 (follow-up)
+
+### nx2/blocks/chat — review fixes for always-approve persistence
+
+**persistence.js**:
+- `saveAutoApprovedTools` now returns a real Promise (resolves on `tx.oncomplete`, rejects on `tx.onerror` / `req.onerror` / `store.put` throw). Previously `async` function returned `undefined` before the IDB write settled.
+- Added `blankRecord(room)` factory to replace duplicated `{ room, messages: [], sessionId: null }` skeleton.
+- `tx.onerror` now logs a `console.warn` instead of silently swallowing quota-exceeded errors.
+
+**chat-controller.js**:
+- `approveToolCall`: removed dead `??= new Set()` guard (unreachable after `loadInitialMessages` always sets `_autoApprovedTools`).
+- Fire-and-forget `saveAutoApprovedTools` call now has `.catch(() => {})` to suppress unhandled rejection.
+- Added comment in `clear()` explaining `_autoApprovedTools` is intentionally not reset (persisted per-user).
+
+**Tests**: removed `setTimeout(50)` timing hacks — tests now `await saveAutoApprovedTools(...)` directly.
+
 ## 2026-06-26
 
 ### nx2/blocks/chat — persist always-approve tool selections (feat/da-always-approve-persist branch)
