@@ -280,7 +280,9 @@ export default class ChatController {
 
     if (always) {
       this._autoApprovedTools.add(card.toolName);
-      this._getRoom().then((room) => saveAutoApprovedTools(room, this._autoApprovedTools)).catch(() => {});
+      this._getRoom()
+        .then((room) => saveAutoApprovedTools(room, this._autoApprovedTools))
+        .catch(() => {});
     }
 
     const next = new Map(this._toolCards ?? []);

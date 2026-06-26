@@ -115,12 +115,12 @@ export async function loadAutoApprovedTools(room) {
 
 export function saveAutoApprovedTools(room, toolNamesSet) {
   return openDb().then((db) => {
-    if (!db) return;
+    if (!db) return undefined;
     return new Promise((resolve, reject) => {
       try {
         const tx = db.transaction(STORE_NAME, 'readwrite');
         tx.oncomplete = () => resolve();
-        tx.onerror = (e) => console.warn('[persistence] saveAutoApprovedTools failed', e);
+        tx.onerror = () => { /* transaction errors are surfaced via reject in req.onerror */ };
         const store = tx.objectStore(STORE_NAME);
         const req = store.get(room);
         req.onsuccess = (e) => {
