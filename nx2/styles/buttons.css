@@ -1,0 +1,69 @@
+button,
+input[type="submit"],
+input[type="button"] {
+  background: none;
+  font-family: var(--s2-font-family);
+  display: inline-block;
+  font-style: normal;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.action {
+  line-height: 1;
+  padding: 4px 8px;
+  font-weight: 400;
+  border-radius: var(--s2-corner-radius-100);
+  background: var(--s2-gray-200);
+  border: 2px solid var(--s2-gray-200);
+}
+
+.primary,
+.accent,
+.negative,
+input[type="submit"].accent {
+  padding: 5px 14px;
+  line-height: 18px;
+  font-size: 15px;
+  border: 2px solid var(--s2-gray-1000);
+  color: var(--s2-gray-1000);
+  border-radius: var(--s2-corner-radius-300);
+  outline-offset: 0;
+  transition: outline-offset 0.2s;
+  text-decoration: none;
+  font-weight: 700;
+  text-align: center;
+}
+
+.accent,
+input[type="submit"].accent {
+  background: var(--s2-blue-900);
+  border: 2px solid var(--s2-blue-900);
+  outline-color: var(--s2-blue-900);
+  color: var(--s2-gray-1000);
+}
+
+.negative,
+input[type="submit"].negative {
+  background: var(--s2-red-900);
+  border: 2px solid var(--s2-red-900);
+  outline-color: var(--s2-red-900);
+  color: var(--s2-gray-1000);
+}
+
+.accent:focus-visible,
+input[type="submit"].accent:focus-visible {
+  background: var(--s2-blue-900);
+  border: 2px solid var(--s2-blue-900);
+  outline-offset: 4px;
+}
+
+button:disabled {
+  background-color: var(--s2-gray-75);
+  border: 2px solid var(--s2-gray-75);
+}
+
+button.accent:disabled {
+  color: var(--s2-gray-700);
+}

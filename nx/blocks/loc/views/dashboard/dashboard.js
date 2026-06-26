@@ -1,5 +1,5 @@
 import { LitElement, html, nothing } from 'da-lit';
-import { getConfig } from '../../../../../nx2/scripts/nx.js';
+import { nxBase as nx } from '../../../../../nx2/scripts/nx.js';
 import getStyle from '../../../../../nx2/public/utils/styles.js';
 import { getSvg } from '../../../../../nx2/utils/svg.js';
 import { loadIms } from '../../../../../nx2/utils/ims.js';
@@ -10,8 +10,6 @@ import './filter-bar.js';
 import createProjectData from './project-data.js';
 
 const style = await getStyle(import.meta.url);
-
-const { nxBase: nx } = getConfig();
 
 const ICONS = [
   `${nx}/public/icons/S2_Icon_Copy_20_N.svg`,

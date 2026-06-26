@@ -1,5 +1,5 @@
 import { LitElement, html, nothing } from 'da-lit';
-import { getConfig } from '../../../nx2/scripts/nx.js';
+import { nxBase as nx } from '../../../nx2/scripts/nx.js';
 import getStyle from '../../../nx2/public/utils/styles.js';
 import { getHashDetails, loadProject, updateProject } from './utils/utils.js';
 
@@ -20,7 +20,6 @@ import './views/url-details/url-details.js';
 
 const EL_NAME = 'nx-loc';
 
-const { nxBase: nx } = getConfig();
 const sl = await getStyle(`${nx}/public/sl/styles.css`);
 const styles = await getStyle(import.meta.url);
 

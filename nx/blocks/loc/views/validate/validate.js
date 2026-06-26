@@ -1,5 +1,5 @@
 import { LitElement, html, nothing } from 'da-lit';
-import { getConfig } from '../../../../../nx2/scripts/nx.js';
+import { nxBase } from '../../../../../nx2/scripts/nx.js';
 import getStyle from '../../../../../nx2/public/utils/styles.js';
 import { source } from '../../../../../nx2/utils/api.js';
 import { Queue } from '../../../../../nx2/public/utils/tree.js';
@@ -7,7 +7,6 @@ import { convertPath, createSnapshotPrefix, fetchConfig } from '../../utils/util
 import { MAX_CONCURRENT_READS } from '../../project/index.js';
 import { getFragmentUrls } from './validate-utils.js';
 
-const { nxBase } = getConfig();
 const style = await getStyle(import.meta.url);
 const buttons = await getStyle(`${nxBase}/styles/buttons.js`);
 

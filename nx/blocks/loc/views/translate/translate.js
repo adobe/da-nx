@@ -1,6 +1,6 @@
 import { LitElement, html, nothing } from 'da-lit';
 import getStyle from '../../../../../nx2/public/utils/styles.js';
-import { getConfig } from '../../../../../nx2/scripts/nx.js';
+import { nxBase as nx } from '../../../../../nx2/scripts/nx.js';
 import { getSvg } from '../../../../../nx2/utils/svg.js';
 import {
   setupConnector,
@@ -11,8 +11,6 @@ import {
   sendAllForTranslation,
   removeWaitingLanguagesFromConf,
 } from './index.js';
-
-const { nxBase: nx } = getConfig();
 
 const style = await getStyle(import.meta.url);
 

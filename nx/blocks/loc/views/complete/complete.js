@@ -1,12 +1,10 @@
 import { LitElement, html } from 'da-lit';
-import { getConfig } from '../../../../../nx2/scripts/nx.js';
+import { nxBase as nx } from '../../../../../nx2/scripts/nx.js';
 import getStyle from '../../../../../nx2/public/utils/styles.js';
 import { getSvg } from '../../../../../nx2/utils/svg.js';
 import loadScript from '../../../../../nx2/utils/script.js';
 
 const style = await getStyle(import.meta.url);
-
-const { nxBase: nx } = getConfig();
 
 const ICONS = [
   `${nx}/public/icons/S2_Icon_Emoji_20_N.svg`,

@@ -14,6 +14,11 @@ const LOG = async (ex, el) => (await import('../utils/error.js')).default(ex, el
 
 const NX_BLOCKS = new Set(['importer', 'loc']);
 
+// Shell-independent nx2 base URL. Computed at module load from this file's own
+// location so it resolves correctly whether the nx2 shell ran setConfig or not
+// (e.g. when a block like loc is loaded by the legacy nx shell).
+export const nxBase = import.meta.url.replace('/scripts/nx.js', '');
+
 const EW_ORIGINS = {
   dev: 'http://localhost:3001',
   stage: 'https://main--ew-extensions--adobe-rnd.aem.page',
@@ -75,7 +80,6 @@ export const [setConfig, getConfig] = (() => {
       const locales = conf.locales || { '': {} };
       const locale = getLocale(locales);
       const strings = await getStrings(locales, locale, log);
-      const nxBase = `${import.meta.url.replace('/scripts/nx.js', '')}`;
 
       config = {
         ...conf,
@@ -103,7 +107,7 @@ export const loc = ([first], ...values) => {
 };
 
 export async function loadBlock(block) {
-  const { nxBase, codeBase, providers, log } = getConfig();
+  const { codeBase, providers, log } = getConfig();
   const { classList } = block;
   let name = classList[0];
 

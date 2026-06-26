@@ -1,11 +1,10 @@
 import { LitElement, html, nothing } from 'da-lit';
-import { getConfig } from '../../../../../nx2/scripts/nx.js';
+import { nxBase } from '../../../../../nx2/scripts/nx.js';
 import { source } from '../../../../../nx2/utils/api.js';
 import getStyle from '../../../../../nx2/public/utils/styles.js';
 import { getSvg } from '../../../../../nx2/utils/svg.js';
 import { detectService, saveLangItems, saveStatus, formatDate } from '../index.js';
 
-const { nxBase } = getConfig();
 const style = await getStyle(import.meta.url);
 const shared = await getStyle(new URL('./shared.css', import.meta.url).href);
 const buttons = await getStyle(`${nxBase}/styles/buttons.js`);

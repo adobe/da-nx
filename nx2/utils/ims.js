@@ -118,8 +118,47 @@ function settleWithTimeout(resolve, reject) {
 export const loadIms = (() => {
   let ims;
 
+  const settleFromExisting = (done, fail) => {
+    const accessToken = window.adobeIMS.getAccessToken();
+    if (!accessToken) {
+      localStorage.removeItem('nx-ims');
+      done({ anonymous: true });
+      return;
+    }
+    localStorage.setItem('nx-ims', true);
+    loadDetails(accessToken).then(done, fail);
+  };
+
   const setup = () => new Promise((resolve, reject) => {
     const [done, fail] = settleWithTimeout(resolve, reject);
+
+    // imslib is a global singleton. When the consuming shell loads this module
+    // from a different base (e.g. the nx shell uses /nx/utils/ims.js
+    // while loc uses /nx2/utils/ims.js), imslib may already be initialized by
+    // that other instance. Re-assigning window.adobeid would not re-fire
+    // onReady, so reuse the live session instead of waiting for a callback
+    // that never comes.
+    // imslib sets `initialized` only after it has finished validating/refreshing
+    // the session, so it — not the mere presence of getAccessToken — is the
+    // signal that getAccessToken() returns a real answer rather than a
+    // not-yet-validated null that would look anonymous.
+    if (window.adobeIMS?.initialized) {
+      settleFromExisting(done, fail);
+      return;
+    }
+
+    // Another loader already injected imslib but it isn't ready yet. Poll for
+    // readiness rather than registering our own window.adobeid (whose onReady
+    // would never fire for this instance).
+    if (document.querySelector(`head > script[src="${IMS_URL}"]`)) {
+      const poll = setInterval(() => {
+        if (!window.adobeIMS?.initialized) return;
+        clearInterval(poll);
+        settleFromExisting(done, fail);
+      }, 100);
+      setTimeout(() => clearInterval(poll), IMS_TIMEOUT);
+      return;
+    }
 
     window.adobeid = {
       client_id: imsClientId,
@@ -129,16 +168,7 @@ export const loadIms = (() => {
       environment: IMS_ENV[env],
       useLocalStorage: true,
       onError: fail,
-      onReady: () => {
-        const accessToken = window.adobeIMS.getAccessToken();
-        if (!accessToken) {
-          localStorage.removeItem('nx-ims');
-          done({ anonymous: true });
-          return;
-        }
-        localStorage.setItem('nx-ims', true);
-        loadDetails(accessToken).then(done, fail);
-      },
+      onReady: () => settleFromExisting(done, fail),
     };
     loadScript(IMS_URL).catch(fail);
   });

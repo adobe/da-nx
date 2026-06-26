@@ -1,9 +1,8 @@
 import { LitElement, html, nothing } from 'da-lit';
-import { getConfig } from '../../../../../nx2/scripts/nx.js';
+import { nxBase } from '../../../../../nx2/scripts/nx.js';
 import getStyle from '../../../../../nx2/public/utils/styles.js';
 import { getSvg } from '../../../../../nx2/utils/svg.js';
 
-const { nxBase } = getConfig();
 const style = await getStyle(import.meta.url);
 const buttons = await getStyle(`${nxBase}/styles/buttons.js`);
 
