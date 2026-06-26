@@ -6,6 +6,6 @@
 
 .nx-loc-step {
   display: block;
-  max-width: var(--grid-container-width);
-  margin: 0 auto var(--spacing-500) auto;
+  max-width: var(--se-grid-container-width);
+  margin: 0 auto var(--s2-spacing-500) auto;
 }

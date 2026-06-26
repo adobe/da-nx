@@ -6,7 +6,7 @@
   }
 
   button {
-    font-family: var(--body-font-family);
+    font-family: var(--s2-font-family);
     font-weight: 700;
   }
 
@@ -20,9 +20,9 @@
 }
 
 .nx-steps-container {
-  max-width: var(--grid-container-width);
+  max-width: var(--se-grid-container-width);
   margin: 0 auto;
-  padding: var(--spacing-600) 0;
+  padding: var(--s2-spacing-600) 0;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -65,7 +65,7 @@
   color: var(--s2-gray-500);
 
   &.filled {
-    color: #000;
+    color: var(--s2-gray-900);
   }
 
   &.highlight {
@@ -98,7 +98,7 @@
   font-weight: 700;
   font-size: 14px;
   flex: 1 1 auto;
-  border-radius: var(--s2-radius-100);
+  border-radius: var(--s2-corner-radius-500);
   background-color: var(--s2-blue-200);
   color: var(--s2-blue-1000);
   border: 1px solid var(--s2-blue-400);
@@ -111,8 +111,8 @@
 }
 
 .nx-loc-actions-header {
-  max-width: var(--grid-container-width);
-  margin: 24px auto var(--spacing-500) auto;
+  max-width: var(--se-grid-container-width);
+  margin: 24px auto var(--s2-spacing-500) auto;
   padding: 0 12px;
   display: flex;
   justify-content: space-between;

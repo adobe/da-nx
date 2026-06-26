@@ -12,7 +12,7 @@
 
 const LOG = async (ex, el) => (await import('../utils/error.js')).default(ex, el);
 
-const NX_BLOCKS = new Set(['importer', 'site-apps', 'hero', 'card', 'section-metadata', 'media-library']);
+const NX_BLOCKS = new Set(['importer', 'site-apps', 'hero', 'card', 'section-metadata', 'media-library', 'loc']);
 
 const EW_ORIGINS = {
   dev: 'http://localhost:3001',
@@ -101,6 +101,31 @@ export const loc = ([first], ...values) => {
   const { strings } = getConfig();
   return strings.get(key) ?? key;
 };
+
+export const loadStyle = (() => {
+  const cache = {};
+
+  return (supplied) => {
+    // Convenience replacement for WCs
+    const path = supplied.replace('.js', '.css');
+
+    try {
+      cache[path] ??= new Promise((resolve) => {
+        (async () => {
+          const resp = await fetch(path);
+          const text = await resp.text();
+          const sheet = new CSSStyleSheet({ baseURL: path });
+          sheet.path = path;
+          sheet.replaceSync(text);
+          resolve(sheet);
+        })();
+      });
+    } catch {
+      getConfig().log(`Could not load ${path}`);
+    }
+    return cache[path];
+  };
+})();
 
 export async function loadBlock(block) {
   const { nxBase, codeBase, providers, log } = getConfig();
@@ -333,28 +358,3 @@ export async function loadArea({ area } = { area: document }) {
     await restorePanels();
   }
 }
-
-const cache = {};
-
-// eslint-disable-next-line import/prefer-default-export
-export const loadStyle = (supplied) => {
-  // Convenience replacement for WCs
-  const path = supplied.replace('.js', '.css');
-
-  try {
-    cache[path] ??= new Promise((resolve) => {
-      (async () => {
-        const resp = await fetch(path);
-        const text = await resp.text();
-        const sheet = new CSSStyleSheet({ baseURL: path });
-        sheet.path = path;
-        sheet.replaceSync(text);
-        resolve(sheet);
-      })();
-    });
-  } catch {
-    // eslint-disable-next-line no-console
-    console.warn(`Could not load ${path}`);
-  }
-  return cache[path];
-};

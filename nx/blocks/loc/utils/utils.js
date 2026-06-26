@@ -1,12 +1,8 @@
-import { getConfig } from '../../../scripts/nexter.js';
-import { DA_ORIGIN } from '../../../public/utils/constants.js';
-import { daFetch } from '../../../utils/daFetch.js';
-import { loadIms } from '../../../utils/ims.js';
-
-const { nxBase: nx } = getConfig();
+import { DA_ADMIN } from '../../../../nx2/utils/utils.js';
+import { daFetch, loadIms } from '../../../../nx2/utils/api.js';
+import config from '../../../../nx2/utils/nxToggle.js';
 
 const CONFIG_PATH = '/.da/translate.json';
-const CONFIG_PATH_V2 = '/.da/translate-v2.json';
 
 export const VIEWS = [
   'dashboard',
@@ -199,7 +195,7 @@ export async function fetchConfig(org, site) {
 
   const fetchConf = async (path) => {
     try {
-      const resp = await daFetch(path);
+      const resp = await daFetch({ url: path });
       if (!resp.ok) return { error: 'Options not available.' };
       return resp.json();
     } catch {
@@ -208,21 +204,16 @@ export async function fetchConfig(org, site) {
   };
 
   // Attempt a site based config
-  let options = await fetchConf(`${DA_ORIGIN}/source/${org}/${site}${CONFIG_PATH}`);
-
-  // Attempt the old V2 config path
-  if (options.error) {
-    options = await fetchConf(`${DA_ORIGIN}/source/${org}${CONFIG_PATH_V2}`);
-  }
+  let options = await fetchConf(`${DA_ADMIN}/source/${org}/${site}${CONFIG_PATH}`);
 
   // Attempt an org based config
   if (options.error) {
-    options = await fetchConf(`${DA_ORIGIN}/source/${org}${CONFIG_PATH}`);
+    options = await fetchConf(`${DA_ADMIN}/source/${org}${CONFIG_PATH}`);
   }
 
   // Fallback to zero config defaults
   if (options.error) {
-    options = await fetchConf(`${nx}/blocks/loc/connectors/google/translate.json`);
+    options = await fetchConf(`${config.nxBase.replace('nx2', 'nx')}/blocks/loc/connectors/google/translate.json`);
   }
 
   CONFIG_CACHE = options;
@@ -265,7 +256,7 @@ async function fetchProject({ path, updates, updateDocTitle = true }) {
     opts.body = body;
   }
 
-  const resp = await daFetch(`${DA_ORIGIN}/source${path}.json`, opts);
+  const resp = await daFetch({ url: `${DA_ADMIN}/source${path}.json`, opts });
   if (!resp.ok) {
     if (resp.status === 401 || resp.status === 403) {
       const [org, site] = path.substring(1).split('/');

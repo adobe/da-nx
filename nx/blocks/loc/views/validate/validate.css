@@ -7,31 +7,31 @@
 .details {
   display: grid;
   grid-template-columns: 1fr;
-  gap: var(--spacing-400);
-  margin: var(--spacing-400) 0;
+  gap: var(--s2-spacing-400);
+  margin: var(--s2-spacing-400) 0;
 }
 
 .detail-card {
-  background: #d7f7e1;
+  background: var(--s2-green-200);
   border-radius: 18px;
   overflow: hidden;
-  padding: var(--spacing-400);
+  padding: var(--s2-spacing-400);
 }
 
 .detail-card-pages {
-  background: #b5e6fc;
+  background: var(--s2-cyan-300);
 }
 
 .detail-card-sheets {
-  background: #caffa4;
+  background: var(--s2-green-300);
 }
 
 .detail-card-fragments {
-  background: #caf8fa;
+  background: var(--s2-seafoam-300);
 }
 
 .detail-card-errors {
-  background: #ffd6d1;
+  background: var(--s2-red-300);
 }
 
 .detail-card p {
@@ -44,17 +44,17 @@
 }
 
 .detail-card p:last-child {
-  font-size: var(--s2-font-size-600);
+  font-size: var(--s2-heading-size-l);
 }
 
 ul {
   padding: 0;
   margin: 0;
   list-style: none;
-  border: 1px solid rgb(209 209 209);
+  border: 1px solid var(--s2-gray-300);
   border-radius: 18px;
   overflow: hidden;
-  background: rgb(248 248 248);
+  background: var(--s2-gray-50);
 }
 
 li {
@@ -66,14 +66,14 @@ li {
   justify-content: space-between;
   align-items: center;
   gap: 24px;
-  border-top: 1px solid rgb(209 209 209);
-  border-bottom: 1px solid rgb(209 209 209);
+  border-top: 1px solid var(--s2-gray-300);
+  border-bottom: 1px solid var(--s2-gray-300);
 }
 
 li:hover {
-  background: rgb(228 240 255);
-  border-top: 1px solid rgb(20 122 243);
-  border-bottom: 1px solid rgb(20 122 243);
+  background: var(--s2-blue-200);
+  border-top: 1px solid var(--s2-blue-1000);
+  border-bottom: 1px solid var(--s2-blue-1000);
 }
 
 input[type="checkbox"] {
@@ -97,7 +97,7 @@ input[type="checkbox"] {
   justify-content: center;
   align-items: center;
   font-weight: 700;
-  border-radius: var(--s2-radius-200);
+  border-radius: var(--s2-corner-radius-700);
   text-align: center;
   color: #fff;
   text-transform: uppercase;
@@ -106,18 +106,18 @@ input[type="checkbox"] {
 }
 
 .status-ready {
-  background: var(--s2-green);
+  background: var(--s2-green-800);
 }
 
 .status-error {
-  background: var(--s2-red);
+  background: var(--s2-red-800);
 }
 
 .actions {
   display: flex;
   justify-content: end;
   align-items: stretch;
-  gap: var(--spacing-200);
+  gap: var(--s2-spacing-200);
 }
 
 @media (width > 600px) {

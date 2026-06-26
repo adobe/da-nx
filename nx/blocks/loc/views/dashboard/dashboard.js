@@ -1,22 +1,25 @@
 import { LitElement, html, nothing } from 'da-lit';
-import { getConfig } from '../../../../scripts/nexter.js';
-import getStyle from '../../../../utils/styles.js';
-import { getSvg } from '../../../../utils/svg.js';
-import { loadIms } from '../../../../utils/ims.js';
+
+import config from '../../../../../nx2/utils/nxToggle.js';
+import { loadStyle } from '../../../../../nx2/utils/utils.js';
+import loadIcons from '../../../../../nx2/utils/svg.js';
+import { loadIms } from '../../../../../nx2/utils/api.js';
+
 import { archiveProject, copyProject } from './index.js';
 
 import './pagination.js';
 import './filter-bar.js';
 import createProjectData from './project-data.js';
 
-const style = await getStyle(import.meta.url);
+const style = await loadStyle(import.meta.url);
 
-const { nxBase: nx } = getConfig();
+const { nxBase: nx } = config;
 
 const ICONS = [
   `${nx}/public/icons/S2_Icon_Copy_20_N.svg`,
   `${nx}/public/icons/S2_Icon_ProjectAddInto_20_N.svg`,
 ];
+const icons = await loadIcons({ paths: ICONS });
 
 const ITEMS_PER_PAGE = 25;
 const DRAFT_STATUS_HTML = html`<p class="draft-project"><strong>Draft</strong></p>`;
@@ -135,7 +138,7 @@ class NxLocDashboard extends LitElement {
     this._currentPage = 0;
     this._isLoading = true;
     this.shadowRoot.adoptedStyleSheets = [style];
-    getSvg({ parent: this.shadowRoot, paths: ICONS });
+    this.shadowRoot.append(...icons);
     // not awaiting to not block UI
     this.ensureInitialized();
   }

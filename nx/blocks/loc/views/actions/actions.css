@@ -1,9 +1,9 @@
 :host {
   display: block;
-  margin: 0 auto var(--spacing-400) auto;
+  margin: 0 auto var(--s2-spacing-400) auto;
 
   button {
-    font-family: var(--body-font-family);
+    font-family: var(--s2-font-family);
     font-weight: 700;
   }
 
@@ -22,7 +22,7 @@
   font-weight: 700;
   font-size: 14px;
   flex: 1 1 auto;
-  border-radius: var(--s2-radius-100);
+  border-radius: var(--s2-corner-radius-500);
   background-color: var(--s2-blue-200);
   color: var(--s2-blue-1000);
   border: 1px solid var(--s2-blue-400);
@@ -79,5 +79,6 @@
 
   .icon {
     display: block;
+    fill: currentcolor;
   }
 }
