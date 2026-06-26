@@ -23,6 +23,7 @@ form button svg {
   width: 100%;
   height: 100vh;
   background: var(--s2-gray-50);
+  color-scheme: light dark;
 
   /* Fonts */
   --font-family: "Adobe Clean", adobe-clean, "Trebuchet MS", sans-serif;
@@ -53,11 +54,11 @@ sl-alert {
 .da-site-container {
   max-width: 1400px;
   margin: 0 auto;
-  padding: var(--spacing-600) var(--spacing-500);
+  padding: var(--s2-spacing-600, var(--spacing-600, 40px)) var(--s2-spacing-500, var(--spacing-500, 32px));
 
   .da-site-header {
     display: flex;
-    gap: var(--spacing-400);
+    gap: var(--s2-spacing-400, var(--spacing-400, 24px));
     align-items: flex-start;
     justify-content: space-between;
     flex-flow: wrap;
@@ -72,7 +73,7 @@ sl-alert {
   font-size: 1.5rem;
   font-weight: 700;
   color: var(--s2-gray-800);
-  margin: 0 0 var(--spacing-500) 0;
+  margin: 0 0 var(--s2-spacing-500, var(--spacing-500, 32px)) 0;
   text-align: left;
 }
 
@@ -115,7 +116,7 @@ sl-alert {
 .tabs {
   display: flex;
   gap: 18px;
-  margin-bottom: var(--spacing-400);
+  margin-bottom: var(--s2-spacing-400, var(--spacing-400, 24px));
 
   .tab-button {
     padding: 12px 0;
@@ -145,7 +146,7 @@ sl-alert {
       right: 0;
       height: 3px;
       transition: opacity 0.2s ease-in-out;
-      background: rgb(19  19 19);
+      background: light-dark(rgb(19 19 19), var(--s2-gray-25));
       border-radius: 3px;
     }
 
@@ -172,9 +173,9 @@ sl-alert {
   justify-content: center;
   min-height: 300px;
   text-align: center;
-  background: white;
+  background: light-dark(white, var(--s2-gray-100));
   border-radius: var(--s2-radius-200);
-  padding: var(--spacing-500);
+  padding: var(--s2-spacing-500, var(--spacing-500, 32px));
   box-shadow: 0 4px 6px -1px rgb(0 0 0 / 10%);
 
   &.browse-media {
@@ -183,20 +184,20 @@ sl-alert {
 }
 
 .da-no-site-well img {
-  margin-bottom: var(--spacing-300);
+  margin-bottom: var(--s2-spacing-300, var(--spacing-300, 16px));
 }
 
 .da-no-site-text h3 {
   font-size: 1.5rem;
   font-weight: 600;
   color: var(--s2-gray-800);
-  margin: 0 0 var(--spacing-200) 0;
+  margin: 0 0 var(--s2-spacing-200, var(--spacing-200, 12px)) 0;
 }
 
 .da-no-site-text p {
   font-size: 1rem;
   color: var(--s2-gray-600);
-  margin: 0 0 var(--spacing-400) 0;
+  margin: 0 0 var(--s2-spacing-400, var(--spacing-400, 24px)) 0;
 }
 
 /* Form styling */
@@ -295,7 +296,7 @@ form button {
 
 form button:hover {
   background: var(--s2-blue-800);
-  color: var(--s2-white, #fff);
+  color: light-dark(#fff, var(--s2-gray-25));
 }
 
 .da-form-btn-offset {
@@ -312,7 +313,7 @@ form button:hover {
 
 
   .card-arrow {
-    color: white;
+    color: light-dark(white, var(--s2-gray-25));
     display: flex;
     align-items: center;
     justify-content: end;
@@ -334,7 +335,7 @@ form button:hover {
 
 .nx-card-inner {
   box-shadow: 0 1px 6px 0 rgb(0 0 0 / 12%);
-  background-color: var(--s2-white, #fff);
+  background-color: light-dark(#fff, var(--s2-gray-100));
   border-radius: var(--s2-radius-200);
   height: 240px;
   overflow: hidden;
@@ -358,9 +359,9 @@ form button:hover {
 /* Card menu button - before .nx-card-back .card-menu-btn for specificity order */
 .card-menu-btn {
   position: absolute;
-  left: var(--spacing-200);
+  left: var(--s2-spacing-200, var(--spacing-200, 12px));
   background: none;
-  color: white;
+  color: light-dark(white, var(--s2-gray-25));
   border: none;
   width: 32px;
   height: 32px;
@@ -396,16 +397,16 @@ form button:hover {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: var(--spacing-400);
+  gap: var(--s2-spacing-400, var(--spacing-400, 24px));
   opacity: 0;
   box-sizing: border-box;
 
   .card-menu-btn {
     position: absolute;
-    right: var(--spacing-400);
+    right: var(--s2-spacing-400, var(--spacing-400, 24px));
     left: unset;
-    bottom: var(--spacing-400);
-    color: #000;
+    bottom: var(--s2-spacing-400, var(--spacing-400, 24px));
+    color: light-dark(#000, var(--s2-gray-900));
   }
 }
 
@@ -440,7 +441,7 @@ form button:hover {
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  padding: var(--spacing-400);
+  padding: var(--s2-spacing-400, var(--spacing-400, 24px));
   color: white;
 }
 
@@ -448,7 +449,7 @@ form button:hover {
   margin: 0;
   font-size: 20px;
   font-weight: 700;
-  color: white;
+  color: light-dark(white, var(--s2-gray-25));
 }
 
 .nx-card-overlay p {
@@ -458,7 +459,7 @@ form button:hover {
 }
 
 .nx-card-overlay p.base-path {
-  margin-top: var(--spacing-100);
+  margin-top: var(--s2-spacing-100, var(--spacing-100, 8px));
   font-size: 13px;
   font-style: italic;
   color: rgb(255 255 255 / 70%);
@@ -510,8 +511,8 @@ form button:hover {
 
 /* Site-apps grid styles */
 .nx-site-apps {
-  margin-top: var(--spacing-500);
+  margin-top: var(--s2-spacing-500, var(--spacing-500, 32px));
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: var(--spacing-500);
+  gap: var(--s2-spacing-500, var(--spacing-500, 32px));
 }

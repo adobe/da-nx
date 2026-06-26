@@ -1,6 +1,6 @@
 import { html, LitElement } from 'da-lit';
-import getStyle from '../../../../../utils/styles.js';
-import loadSvgIcons from '../../../../../utils/svg.js';
+import { loadStyle } from '../../../../../../nx2/utils/utils.js';
+import { loadHrefSvg } from '../../../../../../nx2/utils/svg.js';
 import {
   getSubtype,
   isImage,
@@ -36,7 +36,7 @@ import { SUPPORTED_FILES } from '../../../../../public/utils/constants.js';
 import { Domains, MediaType } from '../../../core/constants.js';
 import { t } from '../../../core/messages.js';
 
-const styles = await getStyle(import.meta.url);
+const style = await loadStyle(import.meta.url);
 const iconsBase = new URL('../../../../../img/icons/', import.meta.url).href;
 
 const ICONS = [
@@ -108,10 +108,13 @@ class NxMediaInfo extends LitElement {
     this._pdfCurrentUrl = null;
   }
 
-  connectedCallback() {
+  async connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [styles];
-    loadSvgIcons({ parent: this.shadowRoot, paths: ICONS });
+    this.shadowRoot.adoptedStyleSheets = [style];
+    const icons = (await Promise.all(ICONS.map(loadHrefSvg)))
+      .filter(Boolean)
+      .map((svg) => svg.cloneNode(true));
+    this.shadowRoot.append(...icons);
   }
 
   disconnectedCallback() {

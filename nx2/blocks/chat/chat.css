@@ -149,7 +149,7 @@
   width: 10px;
   height: 10px;
   background-color: currentcolor;
-  mask-image: url("/nx2/img/icons/S2_Icon_ChevronUp_20_N.svg");
+  mask-image: url("/img/icons/s2-icon-chevronup-20-n.svg");
   mask-size: contain;
   mask-repeat: no-repeat;
   mask-position: center;
@@ -247,7 +247,7 @@
         position: absolute;
         inset: 0;
         background-color: currentcolor;
-        mask-image: url("https://da.live/img/icons/s2-icon-checkmark-20-n.svg");
+        mask-image: url("/img/icons/s2-icon-checkmark-20-n.svg");
         mask-size: contain;
         mask-repeat: no-repeat;
         mask-position: center;
@@ -278,6 +278,12 @@
 
 .directive-alert-error {
   background-color: var(--s2-red-200);
+}
+
+.message-content a {
+  color: var(--s2-blue-900);
+  text-decoration: underline;
+  overflow-wrap: anywhere;
 }
 
 .message {

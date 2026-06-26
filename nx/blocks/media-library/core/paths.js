@@ -1,5 +1,5 @@
-import { daFetch } from '../../../utils/daFetch.js';
-import { Paths, Domains, DA_LIVE_EDIT_BASE, DA_ORIGIN } from './constants.js';
+import { source } from '../../../../nx2/utils/api.js';
+import { Paths, Domains, DA_LIVE_EDIT_BASE } from './constants.js';
 import { ErrorCodes, logMediaLibraryError } from './errors.js';
 import { t } from './messages.js';
 import {
@@ -99,7 +99,7 @@ export function buildUrlWithState(sitePath, appParams, preserveEnvParams = true)
   // Preserve existing environment params if requested
   if (preserveEnvParams) {
     const current = new URLSearchParams(window.location.search);
-    const envParams = ['nx', 'debug', 'perf']; // Environment param whitelist
+    const envParams = ['nx', 'nxver', 'debug', 'perf']; // Environment param whitelist
     envParams.forEach((key) => {
       const val = current.get(key);
       if (val) merged.set(key, val);
@@ -188,13 +188,12 @@ export async function validateSitePath(sitePath) {
 
   if (restPath.length === 0) {
     try {
-      const listUrl = `${DA_ORIGIN}/list/${org}/${repo}`;
-      const resp = await daFetch(listUrl);
+      const result = await source.list({ org, site: repo, path: '' });
 
-      if (resp.ok) {
-        const json = await resp.json();
+      if (result.ok) {
+        const items = result.items || [];
 
-        if (!json || (Array.isArray(json) && json.length === 0)) {
+        if (!items || items.length === 0) {
           logMediaLibraryError(ErrorCodes.VALIDATION_SITE_NOT_FOUND, { path: `/${org}/${repo}`, status: 404 });
           return {
             valid: false,
@@ -205,13 +204,13 @@ export async function validateSitePath(sitePath) {
         return { valid: true, org, repo };
       }
 
-      if (resp.status === 404) {
+      if (result.status === 404) {
         logMediaLibraryError(ErrorCodes.VALIDATION_SITE_NOT_FOUND, { path: `/${org}/${repo}`, status: 404 });
         return { valid: false, error: t('VALIDATION_SITE_NOT_FOUND', { path: `/${org}/${repo}` }) };
       }
 
-      if (resp.status === 401 || resp.status === 403) {
-        logMediaLibraryError(ErrorCodes.DA_READ_DENIED, { path: `/${org}/${repo}`, status: resp.status });
+      if (result.status === 401 || result.status === 403) {
+        logMediaLibraryError(ErrorCodes.DA_READ_DENIED, { path: `/${org}/${repo}`, status: result.status });
         return {
           valid: false,
           error: t('VALIDATION_SITE_403'),
@@ -219,7 +218,7 @@ export async function validateSitePath(sitePath) {
         };
       }
 
-      return { valid: false, error: `Validation failed: ${resp.status}` };
+      return { valid: false, error: `Validation failed: ${result.status}` };
     } catch (error) {
       return { valid: false, error: error.message };
     }
@@ -230,11 +229,13 @@ export async function validateSitePath(sitePath) {
   const parentPath = `/${parentParts.join('/')}`;
 
   try {
-    const listUrl = `${DA_ORIGIN}/list${parentPath}`;
-    const resp = await daFetch(listUrl);
+    // Extract parent path segments after org/repo for source.list
+    const parentSegments = restPath.slice(0, -1);
+    const parentFilePath = parentSegments.length > 0 ? `/${parentSegments.join('/')}` : '';
+    const result = await source.list({ org, site: repo, path: parentFilePath });
 
-    if (!resp.ok) {
-      if (resp.status === 404) {
+    if (!result.ok) {
+      if (result.status === 404) {
         logMediaLibraryError(ErrorCodes.VALIDATION_PATH_NOT_FOUND, {
           path: parentPath,
           status: 404,
@@ -245,8 +246,11 @@ export async function validateSitePath(sitePath) {
         };
       }
 
-      if (resp.status === 401 || resp.status === 403) {
-        logMediaLibraryError(ErrorCodes.DA_READ_DENIED, { path: parentPath, status: resp.status });
+      if (result.status === 401 || result.status === 403) {
+        logMediaLibraryError(
+          ErrorCodes.DA_READ_DENIED,
+          { path: parentPath, status: result.status },
+        );
         return {
           valid: false,
           error: t('VALIDATION_PATH_403'),
@@ -254,19 +258,19 @@ export async function validateSitePath(sitePath) {
         };
       }
 
-      return { valid: false, error: `Validation failed: ${resp.status}` };
+      return { valid: false, error: `Validation failed: ${result.status}` };
     }
 
-    const json = await resp.json();
+    const items = result.items || [];
 
-    if (!json || (Array.isArray(json) && json.length === 0)) {
+    if (!items || items.length === 0) {
       return {
         valid: false,
         error: t('VALIDATION_PATH_EMPTY', { path: parentPath }),
       };
     }
 
-    const targetEntry = json.find((child) => {
+    const targetEntry = items.find((child) => {
       const childName = child.path.split('/').pop();
       return childName === lastSegment;
     });
