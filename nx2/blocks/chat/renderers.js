@@ -26,15 +26,47 @@ function sanitizeLinks(node) {
   return node;
 }
 
+/**
+ * Flatten a DOM node into a fragment that contains no `#document` nodes.
+ *
+ * `hastToDom` can return — or nest — a full `#document` when the rendered
+ * content carries document-level raw HTML (e.g. an agent streaming a
+ * `<body>`/`<html>` page, common on the AO content-creation path). lit-html
+ * cannot `insertBefore` a `#document` into an element, so it throws
+ * `HierarchyRequestError` and the whole chat render (including tool/approval
+ * cards) fails to paint. Unwrap any document into its body/root children.
+ */
+function unwrapDocuments(node) {
+  const frag = document.createDocumentFragment();
+  const append = (n) => {
+    if (!n) return;
+    if (n.nodeType === Node.DOCUMENT_NODE || n.nodeType === Node.DOCUMENT_FRAGMENT_NODE) {
+      const host = n.body ?? n.documentElement ?? n;
+      [...host.childNodes].forEach(append);
+    } else {
+      frag.appendChild(n);
+    }
+  };
+  append(node);
+  return frag;
+}
+
 function toDOM(hast) {
-  return hastToDom(sanitizeLinks(hast), { fragment: true });
+  return unwrapDocuments(hastToDom(sanitizeLinks(hast), { fragment: true }));
 }
 
 function renderMessageContent(text) {
   if (!text) return nothing;
 
   return parseDirectives(text).map(({ kind, type, content }) => {
-    const dom = toDOM(mdast2hast(parser.parse(content)));
+    let dom;
+    try {
+      dom = toDOM(mdast2hast(parser.parse(content)));
+    } catch {
+      // Never let a malformed/partial markdown chunk crash the whole render —
+      // fall back to showing the raw text.
+      dom = content;
+    }
     return kind === 'directive' ? html`<div class="directive directive-${type}">${dom}</div>` : dom;
   });
 }
