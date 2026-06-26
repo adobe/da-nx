@@ -3,31 +3,16 @@ import { AGENT_EVENT, ROLE, TOOL_INPUT, TOOL_STATE } from './constants.js';
 import { getConfig } from '../../scripts/nx.js';
 import { parseDirectives } from './utils/parse.js';
 import { pillIconName } from './utils/icons.js';
+import { linkifyBareUrls, sanitizeLinks } from './utils/links.js';
 
 const { codeBase } = getConfig();
 
 const { unified, remarkParse, remarkGfmNoLink, mdast2hast, hastToDom } = await import('../../deps/mdast/dist/index.js');
 
-const SAFE_URL = /^https?:\/\//i;
-
 const parser = unified().use(remarkParse).use(remarkGfmNoLink);
 
-function sanitizeLinks(node) {
-  if (node.type === 'element' && node.tagName === 'a') {
-    const href = node.properties?.href ?? '';
-    node.properties = {
-      ...node.properties,
-      href: SAFE_URL.test(href) ? href : '#',
-      target: '_blank',
-      rel: ['noopener', 'noreferrer'],
-    };
-  }
-  node.children?.forEach(sanitizeLinks);
-  return node;
-}
-
 function toDOM(hast) {
-  return hastToDom(sanitizeLinks(hast), { fragment: true });
+  return hastToDom(sanitizeLinks(linkifyBareUrls(hast)), { fragment: true });
 }
 
 function renderMessageContent(text) {
