@@ -6,11 +6,11 @@ import { Queue } from '../../../public/utils/tree.js';
 
 // Max concurrent /source/ reads from da-admin. Prevents flooding da-admin
 // with OPTIONS+GET bursts during content scans (translate, rollout, validate).
-export const MAX_CONCURRENT_READS = 5;
+export const MAX_CONCURRENT_READS = 10;
 
 // Max concurrent /source/ writes to da-admin. Keeps R2 conditional-write
 // (If-Match) contention and audit-log 412 retries at an acceptable level.
-export const MAX_CONCURRENT_WRITES = 5;
+export const MAX_CONCURRENT_WRITES = 8;
 
 const DEFAULT_TIMEOUT = 20000; // ms
 const DA_METADATA_SELECTOR = 'body > .da-metadata';
