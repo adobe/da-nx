@@ -203,7 +203,7 @@ export default class ChatController {
   }
 
   _onToolEvent = ({
-    type, toolCallId, toolName, input, output, isError, approvalId, scope,
+    type, toolCallId, toolName, input, output, isError, approvalId, scope, proposal,
   }) => {
     const next = new Map(this._toolCards ?? []);
 
@@ -238,7 +238,9 @@ export default class ChatController {
         },
       ];
       const state = autoApprove ? TOOL_STATE.APPROVED : TOOL_STATE.APPROVAL_REQUESTED;
-      next.set(toolCallId, { ...prior, state, approvalId });
+      // `proposal` is present only on the AO harness path — it carries the
+      // resume context so approveToolCall() can send the decision back to AO.
+      next.set(toolCallId, { ...prior, state, approvalId, ...(proposal ? { proposal } : {}) });
       this._toolCards = next;
       this._update();
       if (autoApprove) queueMicrotask(() => this.approveToolCall(toolCallId, true));
@@ -297,6 +299,14 @@ export default class ChatController {
     const card = this._toolCards.get(toolCallId);
     if (!card?.approvalId) return;
 
+    // AO harness path: the approval is a remote A2A mutation proposal, not a
+    // local da-agent tool. Send the decision back to AO to resume the task
+    // rather than replaying the message history to da-agent.
+    if (card.proposal) {
+      await this._resumeAO(card, toolCallId, approved, always);
+      return;
+    }
+
     if (always) {
       this._autoApprovedTools ??= new Set();
       this._autoApprovedTools.add(card.toolName);
@@ -351,6 +361,61 @@ export default class ChatController {
       this._done();
     }
   };
+
+  /**
+   * Resume an AO approval-paused task with the user's decision. Mirrors the
+   * tail of approveToolCall() but routes the decision to AO (via the retained
+   * client) instead of replaying messages to da-agent, then streams AO's reply
+   * back into the same chat UI.
+   */
+  async _resumeAO(card, toolCallId, approved, always) {
+    if (always && approved) {
+      this._autoApprovedTools ??= new Set();
+      this._autoApprovedTools.add(card.toolName);
+    }
+
+    const next = new Map(this._toolCards ?? []);
+    next.set(toolCallId, { ...card, state: approved ? TOOL_STATE.APPROVED : TOOL_STATE.REJECTED });
+    this._toolCards = next;
+    // Record the decision so the approval card is not orphaned on reload.
+    this._messages = [
+      ...this._messages,
+      {
+        role: ROLE.TOOL,
+        content: [{
+          type: AGENT_EVENT.TOOL_APPROVAL_RESPONSE, approvalId: card.approvalId, approved,
+        }],
+      },
+    ];
+    this._thinking = true;
+    this._update();
+
+    this._abortController = new AbortController();
+    const room = await this._getRoom();
+    try {
+      const resp = await this._aoClient.submitDecision({
+        resume: card.proposal,
+        decision: approved ? 'approve' : 'reject',
+        signal: this._abortController.signal,
+      });
+      await readStream(resp.body, {
+        onDelta: (next2) => { this._streamingText = next2; this._update(); },
+        onText: (text) => {
+          this._messages = [...this._messages, { role: ROLE.ASSISTANT, content: text }];
+          this._streamingText = '';
+          this._update();
+          saveMessages(room, this._messages, this._sessionId);
+        },
+        onTool: this._onToolEvent,
+      });
+    } catch (err) {
+      if (err.name !== 'AbortError') {
+        this._messages = [...this._messages, { role: ROLE.ASSISTANT, content: `Error: ${err.message}` }];
+      }
+    } finally {
+      this._done();
+    }
+  }
 
   // Adds in the tool calls and tool results for the current turn so the agent can replay them.
   _messagesForAgent() {
@@ -436,13 +501,27 @@ export default class ChatController {
   async _streamAO() {
     const room = await this._getRoom();
     const isLocalAO = new URLSearchParams(window.location.search).get('ref') === 'local';
+    const { org } = this._pageContextForAgent() ?? {};
     const client = createAOClient({
       backendUrl: AO_BACKEND_URL,
-      getIdentity: () => resolveImsIdentity(window.adobeIMS),
+      getIdentity: async () => {
+        const identity = await resolveImsIdentity(window.adobeIMS);
+        // Staging IMS does not include org in the token — fall back to the
+        // DA page context org so x-tenant-id is always sent to local AO.
+        if (!identity.orgId && org) identity.orgId = `${org}@AdobeOrg`;
+        return identity;
+      },
       // Local AO runs with token validation off and cannot validate the staging
       // token; use header-based identity there. Prod AO requires the extension.
       sendImsIdentity: !isLocalAO,
+      // Pin the DA manifest for this surface so it never resolves to the org's
+      // default (e.g. cx-coworker). Local AO serves it as `da-local`; deployed
+      // AO as `ew-agent`. Only the AO-toggled DA surface sends this.
+      manifestId: isLocalAO ? 'da-local' : 'ew-agent',
     });
+    // Retained so approveToolCall() can resume an approval-paused task on the
+    // AO harness path by sending the decision back to the same AO session.
+    this._aoClient = client;
 
     const resp = await client.streamChat({
       message: latestUserText(this._messages),

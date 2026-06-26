@@ -33,6 +33,8 @@ function processEvent(event, streaming, callbacks) {
       toolName: event.toolName,
       approvalId: event.approvalId,
       input: event.input ?? event.args ?? {},
+      // AO path only: resume context for sending the decision back to AO.
+      ...(event.proposal ? { proposal: event.proposal } : {}),
     });
   } else if (event.type === EVENT.TOOL_RESULT || event.type === EVENT.TOOL_RESULT_LEGACY) {
     const raw = event.output ?? event.result;

@@ -20,6 +20,16 @@
 
 const IMS_IDENTITY_URI = 'https://ns.adobe.com/a2a/extensions/adobe/ims-identity/v0';
 const CONVERSATION_URI = 'https://ns.adobe.com/a2a/extensions/adobe/dx/conversation-correlation/v0';
+// Pins which AO manifest handles these requests. AO reads aoInstanceId off the
+// request-context extension (forceManifest overrides the org's default targeting).
+// Only the toggled DA surface sends these, so only it resolves to our manifest.
+const REQUEST_CONTEXT_URI = 'https://ns.adobe.com/a2a/extensions/adobe/dx/request-context/v0';
+const FEATURE_FLAGS_URI = 'https://ns.adobe.com/a2a/extensions/adobe/dx/feature-flags/v0';
+
+// Adobe mutation-mandate extension — how da-agent surfaces a content-write
+// approval over A2A, and how we send the user's decision back to resume it.
+const MUTATION_PROPOSAL_URI = 'https://ns.adobe.com/a2a/extensions/adobe/mandates/mutation-proposal-v0';
+const MUTATION_DECISION_URI = 'https://ns.adobe.com/a2a/extensions/adobe/mandates/mutation-decision-v0';
 
 const ARTIFACT_TEXT_KIND = 'text';
 
@@ -84,6 +94,42 @@ function emit(controller, encoder, event) {
   controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
 }
 
+/**
+ * Pull an Adobe mutation proposal out of an `input-required` status event.
+ * Returns the data the chat UI needs to render the same approval card it uses
+ * for the direct da-agent path, plus the `resume` context needed to send the
+ * decision back to AO. Returns null when the event carries no proposal.
+ */
+function extractProposal(result) {
+  const parts = result.status?.message?.parts ?? [];
+  let text = '';
+  let dataPart;
+  for (const part of parts) {
+    if (part.kind === ARTIFACT_TEXT_KIND && part.text) text += part.text;
+    if (part.kind === 'data' && part.data && part.metadata?.extensionSchema === MUTATION_PROPOSAL_URI) {
+      dataPart = part;
+    }
+  }
+  if (!dataPart) return null;
+  const proposal = dataPart.data[MUTATION_PROPOSAL_URI] ?? {};
+  const payload = proposal.payload ?? {};
+  return {
+    text,
+    // proposalId doubles as the tool-card key — it's stable across the pause.
+    toolCallId: proposal.proposalId,
+    approvalId: proposal.proposalId,
+    toolName: payload.toolName ?? 'action',
+    input: payload.args ?? {},
+    resume: {
+      contextId: result.contextId,
+      taskId: result.taskId,
+      proposalId: proposal.proposalId,
+      decisionSchemaRef: proposal.decisionSchemaRef,
+      payload,
+    },
+  };
+}
+
 function finalize(controller, encoder, hasText) {
   if (hasText) emit(controller, encoder, { type: 'text-end' });
   emit(controller, encoder, { type: 'finish-message' });
@@ -132,6 +178,34 @@ function processAOLine(line, hasText, controller, encoder) {
 
   if (result.kind === 'status-update') {
     if (result.final === true) {
+      // Approval pause: translate the mutation proposal into the same tool
+      // events the chat UI already renders as an approval card. The user's
+      // approve/reject is sent back via submitDecision() to resume the task.
+      if (result.status?.state === 'input-required') {
+        const proposal = extractProposal(result);
+        if (proposal) {
+          if (proposal.text) {
+            emit(controller, encoder, { type: 'text-delta', delta: proposal.text });
+            nextHasText = true;
+          }
+          emit(controller, encoder, {
+            type: 'tool-input-available',
+            toolCallId: proposal.toolCallId,
+            toolName: proposal.toolName,
+            input: proposal.input,
+          });
+          emit(controller, encoder, {
+            type: 'tool-approval-request',
+            toolCallId: proposal.toolCallId,
+            toolName: proposal.toolName,
+            approvalId: proposal.approvalId,
+            input: proposal.input,
+            proposal: proposal.resume,
+          });
+        }
+        finalize(controller, encoder, nextHasText);
+        return { hasText: nextHasText, done: true };
+      }
       if (result.status?.state === 'failed') {
         const message = result.status?.message
           || result.status?.error
@@ -223,7 +297,9 @@ function randomId(prefix) {
  *   with token validation disabled — it cannot validate the token and will drop
  *   the connection. Local dev relies on the x-user-id / x-tenant-id headers.
  */
-export function createAOClient({ backendUrl, getIdentity, sendImsIdentity = true }) {
+export function createAOClient({
+  backendUrl, getIdentity, sendImsIdentity = true, manifestId,
+}) {
   if (!backendUrl) throw new Error('createAOClient: backendUrl is required');
   const base = backendUrl.replace(/\/+$/, '');
 
@@ -238,12 +314,10 @@ export function createAOClient({ backendUrl, getIdentity, sendImsIdentity = true
    *   A fetch-Response-like object whose `body` emits Vercel AI SDK SSE events,
    *   consumable directly by the chat UI's `readStream()`.
    */
-  async function streamChat({ message, contextId, signal }) {
+  /** Resolve identity, then build the A2A metadata + HTTP headers for a turn. */
+  async function buildAuth(ctx, messageId) {
     const identity = (await getIdentity?.()) ?? {};
     const { token, orgId, userId = 'anonymous' } = identity;
-
-    const messageId = randomId('msg');
-    const ctx = contextId || randomId('da-ctx');
 
     const metadata = {};
     // The ims-identity extension makes AO validate the bearer token against IMS.
@@ -255,25 +329,11 @@ export function createAOClient({ backendUrl, getIdentity, sendImsIdentity = true
       metadata[IMS_IDENTITY_URI] = { imsOrgId: orgId, imsUserId: userId };
     }
     metadata[CONVERSATION_URI] = { conversationId: ctx, interactionId: messageId };
-
-    const rpc = {
-      jsonrpc: '2.0',
-      id: randomId('rpc'),
-      method: 'message/stream',
-      params: {
-        message: {
-          messageId,
-          role: 'user',
-          parts: [{ kind: 'text', text: message }],
-          contextId: ctx,
-          metadata,
-        },
-        configuration: {
-          acceptedOutputModes: ['text', 'text/plain'],
-          blocking: false,
-        },
-      },
-    };
+    // Pin our manifest for this surface, overriding the org's default targeting.
+    if (manifestId) {
+      metadata[REQUEST_CONTEXT_URI] = { aoInstanceId: manifestId };
+      metadata[FEATURE_FLAGS_URI] = { featureFlags: { forceManifest: true } };
+    }
 
     const headers = {
       'Content-Type': 'application/json',
@@ -285,6 +345,32 @@ export function createAOClient({ backendUrl, getIdentity, sendImsIdentity = true
       headers['x-tenant-id'] = orgId;
       headers['x-gw-ims-org-id'] = orgId;
     }
+    return { metadata, headers };
+  }
+
+  /** POST a message/stream RPC and return a translated, UI-consumable stream. */
+  async function postStream({ parts, ctx, taskId, signal }) {
+    const messageId = randomId('msg');
+    const { metadata, headers } = await buildAuth(ctx, messageId);
+    const rpc = {
+      jsonrpc: '2.0',
+      id: randomId('rpc'),
+      method: 'message/stream',
+      params: {
+        message: {
+          messageId,
+          role: 'user',
+          parts,
+          contextId: ctx,
+          ...(taskId ? { taskId } : {}),
+          metadata,
+        },
+        configuration: {
+          acceptedOutputModes: ['text', 'text/plain'],
+          blocking: false,
+        },
+      },
+    };
 
     const resp = await fetch(`${base}/a2a/rpc`, {
       method: 'POST',
@@ -301,5 +387,48 @@ export function createAOClient({ backendUrl, getIdentity, sendImsIdentity = true
     return { ok: true, status: resp.status, body: createTranslatingStream(resp.body) };
   }
 
-  return { streamChat };
+  async function streamChat({ message, contextId, signal }) {
+    return postStream({
+      parts: [{ kind: 'text', text: message }],
+      ctx: contextId || randomId('da-ctx'),
+      signal,
+    });
+  }
+
+  /**
+   * Resume an approval-paused task by sending the user's decision back to AO as
+   * a mutation-decision DataPart. `resume` is the object the UI captured from
+   * the proposal (contextId, taskId, proposalId, decisionSchemaRef, payload).
+   *
+   * @param {object} params
+   * @param {object} params.resume       Proposal context captured at pause time.
+   * @param {'approve'|'reject'} params.decision
+   * @param {AbortSignal} [params.signal]
+   */
+  async function submitDecision({ resume, decision, signal }) {
+    const { contextId, taskId, proposalId, decisionSchemaRef, payload } = resume;
+    const decisionPart = {
+      kind: 'data',
+      data: {
+        [MUTATION_DECISION_URI]: {
+          decisionId: randomId('dec'),
+          proposalRef: proposalId,
+          proposalSchemaRef: decisionSchemaRef,
+          decidedAt: new Date().toISOString(),
+          payload,
+          decision: { id: decision, reason: `User ${decision}d the proposal in DA chat` },
+        },
+      },
+      metadata: { extensionSchema: MUTATION_DECISION_URI },
+    };
+    // A2A requires a leading non-data part before any DataPart.
+    return postStream({
+      parts: [{ kind: 'text', text: '' }, decisionPart],
+      ctx: contextId || randomId('da-ctx'),
+      taskId,
+      signal,
+    });
+  }
+
+  return { streamChat, submitDecision };
 }
