@@ -173,7 +173,15 @@ class NxChat extends LitElement {
     this._slashCtx = null;
     this._slashMenuEl?.close();
     if (input) input.value = '';
-    this._controller.sendMessage(message, [], { requestedSkills: [skillId] });
+    const fileItems = (this._items ?? []).filter((i) => i.dataBase64);
+    const contextItems = (this._items ?? []).filter((i) => !i.dataBase64);
+    const attachments = fileItems.map(({ id, fileName, mediaType, sizeBytes, dataBase64 }) => ({
+      id, fileName, mediaType, dataBase64, ...(typeof sizeBytes === 'number' ? { sizeBytes } : {}),
+    }));
+    fileItems.forEach((i) => { if (i.thumbnail) URL.revokeObjectURL(i.thumbnail); });
+    this._items = [];
+    const opts = { requestedSkills: [skillId], attachments };
+    this._controller.sendMessage(message, contextItems, opts);
   }
 
   async connectedCallback() {
