@@ -43,6 +43,20 @@ Completes the agent-triggered execution path documented in §5.2.1 of `docs/skil
 
 **Out of scope (still):** chat attachment wiring for client-triggered path; AO marketplace skill resolution; server SANDBOX runner.
 
+### E2E skill-script round-trip test (same branch)
+
+**What shipped:**
+- `test/nx2/blocks/chat/skill-script-e2e.test.js` — three test cases that prove the full client execution path with the real sandboxed worker:
+  1. **Happy path** — real worker + real `script.js` (loaded via `localhost` URL served by WTR) + real `.docx` fixture (built with fflate `zipSync`) → asserts `card.state === DONE`, virtual message recorded, `_messagesForAgent()` expands to ASSISTANT/TOOL pair with `markdown` containing `"hello e2e"`.
+  2. **Eligibility gate** — `execution_capabilities: network` in served skill.md → `card.state === ERROR`, `output.error === 'requires server runtime'`, worker never spun up.
+  3. **Security** — agent passes `capabilities: []` hint in tool args; manifest has `network` → manifest wins, same server-runtime error.
+
+**What is real vs simulated:**
+- Real: `runSkillScript`, worker bootstrap, `script.js` (WTR serves at localhost), fflate import chain, manifest parsing, `_recordSkillResult`, `_messagesForAgent`, tool card state.
+- Simulated: `fetch` for `skill.md` (returns real skill.md bytes, no DA Admin needed); `_stream` (resolves immediately, no live LLM); `moduleUrl` redirected from DA Admin URL to localhost script path (only seam available — `DA_ADMIN` is a closed-over constant in `resolveSkill`, unreachable via fetch stub).
+
+**Adaptation:** `_onToolEvent` is replaced on the controller instance for the happy-path test to supply a localhost `moduleUrl`. All other logic — eligibility check, worker creation, script execution — runs real. Tests 2 & 3 use the real `_onToolEvent`.
+
 ## 2026-06-23
 
 ### nx2/blocks/shared/dialog — configurable panel sizing (dialog-css-vars branch)
