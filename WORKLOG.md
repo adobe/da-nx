@@ -1,5 +1,26 @@
 # Worklog
 
+## 2026-06-27
+
+### Skill-script execution substrate (feat/da-skill-script-runtime)
+
+Platform capability — NOT a docx feature; docx is the proof case.
+
+**What shipped:**
+- `nx2/utils/skill-runtime/` — public platform API: `runSkillScript({ manifest, moduleUrl, input })`, `isClientEligible(capabilities)`, capability constants (NETWORK/SECRETS/PII/STORAGE).
+- Client eligibility enforced by construction: `capabilities: []` → runs in a sandboxed blob-URL module worker; any non-empty capabilities → `{ error: 'requires server runtime' }` (drop-in seam for future SANDBOX server runner).
+- Worker bootstrap (`worker-host.js`) neuters `fetch`, `XMLHttpRequest`, `WebSocket`, `importScripts`, `indexedDB`, `caches`, `Notification`, `navigator.sendBeacon` before loading any skill module. The worker's `host` exposes only a buffered `log(...)`.
+- `nx2/deps/fflate/` — bundled ESM dep (src + dist, `nx2:build:fflate` script).
+- `nx2/blocks/chat/skills-builtin/docx-to-markdown/` — proof skill: pure ECMAScript + lazy fflate; extracts `<w:t>` nodes from `word/document.xml` + header/footer XML, unescapes XML entities, returns `{ markdown }`.
+- 9 tests all passing: eligibility, server-runtime gate, pure worker execution, ambient-global neutering (fetch undefined in worker), timeout, docx round-trip, entity unescape, corrupt-input → `{ error }`.
+
+**Key decisions:**
+- JSON-serializable I/O only — contract is language-neutral; future Python mirror is `def entry(input, host): return output`.
+- SANDBOX runner seam is a comment block in `runner.js` at the strategy point — same caller shape, no caller changes when server runner lands.
+- `convert` tests run in-process (pure function); worker integration tests use blob-URL inline skills to avoid CDN dependency in CI.
+
+**Out of scope (not done):** chat attachment wiring; Python AO runtime; server SANDBOX runner.
+
 ## 2026-06-23
 
 ### nx2/blocks/shared/dialog — configurable panel sizing (dialog-css-vars branch)
