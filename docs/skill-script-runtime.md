@@ -109,6 +109,37 @@ Because the contract is async + serializable from day one, **callers do not chan
 when a skill moves from `LOCAL` to `SANDBOX`. The only thing the switch changes is data
 flow (see §5.3).
 
+### 2.5 Invocation: who decides, who runs
+
+Running a skill-script involves three distinct roles. Keeping them separate is what
+preserves the thin-agent mandate:
+
+1. **Read / distribute** — the agent loads script-carrying skills (from `.da/skills/`
+   or a marketplace), parses the `execution` contract, and includes them in the skills
+   index. Pure plumbing.
+2. **Orchestrate / decide** — at runtime the **agent (LLM)** decides *when* a script
+   should run and *what input* to pass. This is the agent's job; it is the brain that
+   knows intent.
+3. **Execute** — the code actually runs in the **swappable substrate** (client worker
+   today, server sandbox / AO later). Never in the agent.
+
+The agent therefore **orchestrates but does not execute**. It delegates execution to
+the substrate over the *existing client-executed tool-call round-trip* — a
+script-carrying skill is, mechanically, **a client-executed tool whose body is the
+skill's script**. The agent emits a run request; da-nx runs it via `runSkillScript`;
+the JSON result flows back to the agent, which continues reasoning.
+
+There are **two triggers**:
+
+- **Client-triggered (normalization)** — da-nx runs the script proactively on a client
+  event (e.g. a `.docx` is attached). The agent only ever sees the result (markdown).
+  No orchestration; the agent is not involved in the decision.
+- **Agent-triggered** — the LLM decides mid-turn to run a skill (e.g. "extract tables
+  from this data"). The agent orchestrates via the round-trip below.
+
+Both triggers route through the same `runSkillScript` boundary, so the
+client/server/AO execution choice is identical regardless of who pulled the trigger.
+
 ## 3. Proof of concept (Phase 1)
 
 The PoC proves the **substrate**, with `docx-to-markdown` as the first skill riding on
@@ -209,6 +240,36 @@ flowchart TD
 
 The caller-facing boundary (`runSkillScript` → JSON output) is identical to §5.1. Only
 the runner strategy and the data path differ.
+
+### 5.2.1 Agent-triggered orchestration round-trip
+
+When the LLM decides mid-turn to run a skill-script, it reuses the existing
+client-executed tool-call round-trip — the agent orchestrates, the substrate executes.
+
+```mermaid
+sequenceDiagram
+    participant LLM as Agent (LLM)
+    participant CC as da-nx chat-controller
+    participant RT as runSkillScript (dispatcher)
+    participant EX as Substrate (worker / sandbox)
+
+    LLM->>CC: emit run-skill tool call { skillId, input }
+    CC->>RT: runSkillScript({ manifest, moduleUrl, input })
+    RT->>RT: isClientEligible? (capabilities == [])
+    alt client-eligible
+        RT->>EX: run in sandboxed worker (LOCAL)
+    else needs capabilities
+        RT->>EX: POST to server sandbox (SANDBOX)
+    end
+    EX-->>RT: { json: output } / { error }
+    RT-->>CC: result (JSON)
+    CC-->>LLM: tool result ({ output })
+    LLM->>LLM: continue reasoning with result
+```
+
+The agent never sees *where* the script ran — it only sent input and got JSON back.
+That is the same property that lets the execution location swap (§2.4) without touching
+the agent.
 
 ### 5.3 The one thing the switch is *not* free
 
