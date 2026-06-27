@@ -1,5 +1,4 @@
-import { source, fromPath, daFetch as nx2DaFetch } from '../../../../nx2/utils/api.js';
-import { HLX_ADMIN } from '../../../../nx2/utils/utils.js';
+import { source, fromPath, daFetch as nx2DaFetch } from '../core/api-loader.js';
 import { etcFetch } from '../core/urls.js';
 import {
   IndexFiles,
@@ -9,6 +8,8 @@ import {
 import { MediaLibraryError, ErrorCodes, logMediaLibraryError } from '../core/errors.js';
 import { isPerfEnabled } from '../core/params.js';
 import { t } from '../core/messages.js';
+
+const HLX_ADMIN = 'https://admin.hlx.page';
 
 const AEM_PAGE_MARKDOWN_RATE = 180; /* keep some headroom under the 200 RPS host limit */
 const AEM_SITE_AUTH_DENIED = new Set([401, 403]);

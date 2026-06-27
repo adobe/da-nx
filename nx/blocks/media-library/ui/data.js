@@ -10,7 +10,7 @@
  * NO indexing logic - only reads already-published index data.
  */
 
-import { source, fromPath } from '../../../../nx2/utils/api.js';
+import { source, fromPath } from '../core/api-loader.js';
 import {
   loadIndexChunks,
   loadSheetMeta,
