@@ -21,6 +21,28 @@ Platform capability — NOT a docx feature; docx is the proof case.
 
 **Out of scope (not done):** chat attachment wiring; Python AO runtime; server SANDBOX runner.
 
+### Agent-triggered skill-script orchestration round-trip (same branch)
+
+Completes the agent-triggered execution path documented in §5.2.1 of `docs/skill-script-runtime.md`.
+
+**What shipped:**
+- `nx2/blocks/chat/utils/skill-script-loader.js` — trusted manifest resolver: fetches `${DA_ADMIN}/source/${org}/${site}/.da/skills/${id}/skill.md`, parses flat `execution_*` frontmatter (using `[ \t]*` not `\s*` to avoid consuming newlines), resolves the `script.js` module URL. AO marketplace prefix (`ao:`) reserved as an error seam.
+- `chat-controller.js` — `_onToolEvent` intercepts `skill_run_script` TOOL_CALL: resolves trusted manifest client-side, enforces `isClientEligible` from the manifest (agent args never decide capabilities), calls `runSkillScript`, records result via `_recordSkillResult` (virtual-message pattern), re-engages agent via `_stream` on success so it continues reasoning. On error (resolve failure, non-client-eligible, script error) records an ERROR virtual message and calls `_done()`.
+- `_recordSkillResult` helper — encapsulates virtual-message append + tool-card state update; reusable for future client tools.
+- `nx2/blocks/chat/skills-builtin/docx-to-markdown/skill.md` — real skill artifact with flat `execution_*` frontmatter; seed file for `.da/skills/docx-to-markdown/`.
+
+**Tests:**
+- `test/nx2/blocks/chat/utils/skill-script-loader.test.js` — frontmatter parsing (all fields, empty capabilities, blank capabilities, default timeout, no frontmatter, missing entry, multi-runtime); resolve happy path, 404, missing skillId, missing context, ao: prefix.
+- `test/nx2/blocks/chat/skill-script-roundtrip.test.js` — TOOL_CALL → record → tool card state; server-runtime gate (non-empty capabilities → ERROR, no execution); resolve error propagation; **security test** (capability hint in agent args ignored — manifest decides); virtual-message expansion in `_messagesForAgent`.
+- 1006 tests all passing.
+
+**Key decisions:**
+- `[ \t]*` in frontmatter regex (not `\s*`) — `\s*` consumes newlines and would match the next YAML key's value. Caught by tests.
+- Worker errors (external module URL not served in WTR) settle gracefully as `{ error }` via `worker.onerror` — the round-trip test verifies the card leaves RUNNING regardless.
+- `_recordSkillResult` is a regular prototype method (not arrow field) so tests can patch it on instances.
+
+**Out of scope (still):** chat attachment wiring for client-triggered path; AO marketplace skill resolution; server SANDBOX runner.
+
 ## 2026-06-23
 
 ### nx2/blocks/shared/dialog — configurable panel sizing (dialog-css-vars branch)
