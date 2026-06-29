@@ -5,6 +5,7 @@ version: 1
 execution_entry: convert
 execution_runtimes: js
 execution_capabilities:
+execution_dependencies: fflate
 execution_timeout_ms: 5000
 ---
 
@@ -35,3 +36,5 @@ On failure the script returns `{ "error": "<message>" }` instead of `{ "markdown
 - Does not preserve rich formatting (bold, italic, tables) — plain text only in this version.
 - `execution_capabilities` is empty, meaning this skill is client-eligible and runs
   without any network, storage, secrets, or PII access.
+- `fflate` is declared via `execution_dependencies` and injected by the host as
+  `host.deps.fflate` — the skill never imports host paths directly.

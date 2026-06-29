@@ -23,6 +23,7 @@ body here
       entry: 'convert',
       runtimes: ['js'],
       capabilities: ['network', 'secrets'],
+      dependencies: [],
       timeoutMs: 8000,
     });
   });
@@ -48,6 +49,54 @@ execution_timeout_ms: 5000
 `;
     const { capabilities } = parseSkillFrontmatter(text);
     expect(capabilities).to.deep.equal([]);
+  });
+
+  it('parses execution_dependencies into dependencies array', () => {
+    const text = `---
+execution_entry: convert
+execution_runtimes: js
+execution_capabilities:
+execution_dependencies: fflate
+execution_timeout_ms: 5000
+---
+`;
+    const { dependencies } = parseSkillFrontmatter(text);
+    expect(dependencies).to.deep.equal(['fflate']);
+  });
+
+  it('parses multiple comma-separated execution_dependencies', () => {
+    const text = `---
+execution_entry: run
+execution_runtimes: js
+execution_capabilities:
+execution_dependencies: fflate, marked
+---
+`;
+    const { dependencies } = parseSkillFrontmatter(text);
+    expect(dependencies).to.deep.equal(['fflate', 'marked']);
+  });
+
+  it('returns empty dependencies array when execution_dependencies is absent', () => {
+    const text = `---
+execution_entry: convert
+execution_runtimes: js
+execution_capabilities:
+---
+`;
+    const { dependencies } = parseSkillFrontmatter(text);
+    expect(dependencies).to.deep.equal([]);
+  });
+
+  it('returns empty dependencies array when execution_dependencies value is blank', () => {
+    const text = `---
+execution_entry: convert
+execution_runtimes: js
+execution_capabilities:
+execution_dependencies:
+---
+`;
+    const { dependencies } = parseSkillFrontmatter(text);
+    expect(dependencies).to.deep.equal([]);
   });
 
   it('defaults timeoutMs to 5000 when execution_timeout_ms absent', () => {
@@ -87,27 +136,31 @@ execution_capabilities:
 });
 
 // ---------------------------------------------------------------------------
-// resolveSkill — module URL resolution
+// resolveSkill — GH marketplace resolution
 // ---------------------------------------------------------------------------
 
 describe('resolveSkill', () => {
-  const MOCK_DA_ADMIN = 'https://admin.da.live';
+  const GH_RAW_BASE = 'https://raw.githubusercontent.com/exp-workspace/skills/main';
 
   // Stub global fetch for these tests
   let origFetch;
   before(() => { origFetch = globalThis.fetch; });
   after(() => { globalThis.fetch = origFetch; });
 
-  function mockFetch(text, ok = true, status = 200) {
-    globalThis.fetch = async (url) => ({
-      ok,
-      status,
-      text: async () => text,
-      url: String(url),
-    });
+  function mockFetch({ skillMdText, skillMdOk = true, skillMdStatus = 200, scriptText = 'export function convert() {}', scriptOk = true, scriptStatus = 200 } = {}) {
+    globalThis.fetch = async (url) => {
+      const u = String(url);
+      if (u.includes('skill.md')) {
+        return { ok: skillMdOk, status: skillMdStatus, text: async () => skillMdText ?? '' };
+      }
+      if (u.includes('/scripts/')) {
+        return { ok: scriptOk, status: scriptStatus, text: async () => scriptText };
+      }
+      return { ok: false, status: 404, text: async () => '' };
+    };
   }
 
-  it('resolves module URL from a valid skill.md', async () => {
+  it('resolves manifest and a blob moduleUrl from GH marketplace', async () => {
     const skillMd = `---
 execution_entry: convert
 execution_runtimes: js
@@ -116,15 +169,33 @@ execution_timeout_ms: 5000
 ---
 body
 `;
-    mockFetch(skillMd);
-    const result = await resolveSkill('docx-to-markdown', { org: 'myorg', site: 'mysite' });
+    mockFetch({ skillMdText: skillMd });
+    const result = await resolveSkill('docx-to-markdown');
     expect(result.error).to.be.undefined;
     expect(result.manifest.entry).to.equal('convert');
     expect(result.manifest.capabilities).to.deep.equal([]);
-    // moduleUrl points to script.js alongside skill.md on DA Admin
-    expect(result.moduleUrl).to.include('.da/skills/docx-to-markdown/script.js');
-    expect(result.moduleUrl).to.include('myorg');
-    expect(result.moduleUrl).to.include('mysite');
+    // moduleUrl must be a blob URL (text/javascript), NOT a raw GitHub URL
+    expect(result.moduleUrl).to.match(/^blob:/);
+    // Revoke to avoid leak
+    URL.revokeObjectURL(result.moduleUrl);
+  });
+
+  it('fetches skill.md from GH marketplace and script from scripts/<entry>.js', async () => {
+    const skillMd = `---
+execution_entry: convert
+execution_runtimes: js
+execution_capabilities:
+---
+`;
+    const fetchedUrls = [];
+    globalThis.fetch = async (url) => {
+      fetchedUrls.push(String(url));
+      return { ok: true, status: 200, text: async () => skillMd };
+    };
+    const result = await resolveSkill('docx-to-markdown');
+    expect(fetchedUrls[0]).to.equal(`${GH_RAW_BASE}/docx-to-markdown/skill.md`);
+    expect(fetchedUrls[1]).to.equal(`${GH_RAW_BASE}/docx-to-markdown/scripts/convert.js`);
+    if (result.moduleUrl) URL.revokeObjectURL(result.moduleUrl);
   });
 
   it('includes the skillId in the manifest', async () => {
@@ -134,30 +205,67 @@ execution_runtimes: js
 execution_capabilities:
 ---
 `;
-    mockFetch(skillMd);
-    const result = await resolveSkill('my-skill', { org: 'o', site: 's' });
+    mockFetch({ skillMdText: skillMd });
+    const result = await resolveSkill('my-skill');
     expect(result.manifest.id).to.equal('my-skill');
+    if (result.moduleUrl) URL.revokeObjectURL(result.moduleUrl);
+  });
+
+  it('includes dependencies in the manifest', async () => {
+    const skillMd = `---
+execution_entry: convert
+execution_runtimes: js
+execution_capabilities:
+execution_dependencies: fflate
+---
+`;
+    mockFetch({ skillMdText: skillMd });
+    const result = await resolveSkill('docx-to-markdown');
+    expect(result.manifest.dependencies).to.deep.equal(['fflate']);
+    if (result.moduleUrl) URL.revokeObjectURL(result.moduleUrl);
   });
 
   it('returns an error when skill.md is not found (404)', async () => {
-    mockFetch('', false, 404);
-    const result = await resolveSkill('missing-skill', { org: 'o', site: 's' });
+    mockFetch({ skillMdOk: false, skillMdStatus: 404 });
+    const result = await resolveSkill('missing-skill');
     expect(result.error).to.be.a('string');
     expect(result.error).to.include('missing-skill');
   });
 
-  it('returns an error when skillId is absent', async () => {
-    const result = await resolveSkill('', { org: 'o', site: 's' });
+  it('returns an error when the script is not found (404)', async () => {
+    const skillMd = `---
+execution_entry: convert
+execution_runtimes: js
+execution_capabilities:
+---
+`;
+    mockFetch({ skillMdText: skillMd, scriptOk: false, scriptStatus: 404 });
+    const result = await resolveSkill('partial-skill');
     expect(result.error).to.be.a('string');
+    expect(result.error).to.include('partial-skill');
   });
 
-  it('returns an error when org/site context is missing', async () => {
-    const result = await resolveSkill('some-skill', {});
+  it('returns an error when skillId is absent', async () => {
+    const result = await resolveSkill('');
     expect(result.error).to.be.a('string');
   });
 
   it('returns an error for ao: prefixed marketplace skills (not yet supported)', async () => {
-    const result = await resolveSkill('ao:some-skill', { org: 'o', site: 's' });
+    const result = await resolveSkill('ao:some-skill');
     expect(result.error).to.be.a('string');
+  });
+
+  it('does not need org/site — resolveSkill takes only skillId', async () => {
+    const skillMd = `---
+execution_entry: run
+execution_runtimes: js
+execution_capabilities:
+---
+`;
+    mockFetch({ skillMdText: skillMd });
+    // No second argument — must not error on missing org/site
+    const result = await resolveSkill('any-skill');
+    expect(result.error).to.be.undefined;
+    if (result.moduleUrl) URL.revokeObjectURL(result.moduleUrl);
   });
 });

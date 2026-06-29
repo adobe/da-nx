@@ -1,12 +1,3 @@
-let fflateCache;
-async function loadFflate() {
-  if (!fflateCache) {
-    // eslint-disable-next-line import/no-unresolved, import/no-absolute-path
-    fflateCache = await import('/nx2/deps/fflate/dist/index.js');
-  }
-  return fflateCache;
-}
-
 function unescapeXml(str) {
   return str
     .replace(/&amp;/g, '&')
@@ -28,7 +19,8 @@ function extractTextFromXml(xml) {
 }
 
 export async function convert({ bytesBase64 }, host) {
-  const { unzipSync, strFromU8 } = await loadFflate();
+  // fflate is injected by the host — not imported — so this skill stays host-independent
+  const { unzipSync, strFromU8 } = host.deps.fflate;
 
   // Decode base64 to Uint8Array
   const binaryStr = atob(bytesBase64);

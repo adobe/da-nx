@@ -223,9 +223,8 @@ export default class ChatController {
         this._toolCards = next;
         this._update();
         const { skillId, input: skillInput } = input ?? {};
-        const { org, site } = this._context ?? {};
         (async () => {
-          const resolved = await resolveSkill(skillId, { org, site });
+          const resolved = await resolveSkill(skillId);
           if (resolved.error) {
             this._recordSkillResult(toolCallId, toolName, input, { error: resolved.error }, true);
             this._done();

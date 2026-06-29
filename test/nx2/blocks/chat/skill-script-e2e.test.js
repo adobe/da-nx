@@ -51,6 +51,7 @@ version: 1
 execution_entry: convert
 execution_runtimes: js
 execution_capabilities:
+execution_dependencies: fflate
 execution_timeout_ms: 5000
 ---
 
@@ -90,8 +91,8 @@ function bytesToBase64(bytes) {
   return btoa(binary);
 }
 
-// The real script.js served by WTR at this localhost path.
-const REAL_SCRIPT_URL = `${window.location.origin}/nx2/blocks/chat/skills-builtin/docx-to-markdown/script.js`;
+// The real scripts/convert.js served by WTR at this localhost path.
+const REAL_SCRIPT_URL = `${window.location.origin}/nx2/blocks/chat/skills-builtin/docx-to-markdown/scripts/convert.js`;
 
 // ─── Controller factory ───────────────────────────────────────────────────────
 
@@ -109,13 +110,19 @@ function buildController({ skillMdText }) {
   ctrl._currentTurnId = 'turn-e2e';
   ctrl._thinking = true;
 
-  // Stub fetch: skill.md returns the provided text; everything else gets a stream
-  // finish so _stream() does not hit the real agent.
+  // Stub fetch: skill.md and script.js return marketplace content; everything else
+  // gets a finish-message SSE stream so _stream() does not hit the real agent.
   const origFetch = globalThis.fetch;
+  // The real script text served by WTR at localhost — used as the marketplace payload
+  // so resolveSkill gets valid JS (eligibility/security tests never reach the worker).
+  const DUMMY_SCRIPT_JS = 'export function run() {}';
   globalThis.fetch = async (url, opts) => {
     const u = String(url);
     if (u.includes('skill.md')) {
       return { ok: true, status: 200, text: async () => skillMdText };
+    }
+    if (u.includes('/scripts/')) {
+      return { ok: true, status: 200, text: async () => DUMMY_SCRIPT_JS };
     }
     // Anything else — return a finish-message SSE stream.
     return {

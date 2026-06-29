@@ -148,7 +148,11 @@ execution_timeout_ms: 5000
         }
         return { ok: true, status: 200, text: async () => skillMd };
       }
-      if (u.includes('script.js') || u.includes('agent.da.live')) {
+      if (u.includes('/scripts/')) {
+        // Marketplace scripts/<entry>.js — return minimal valid JS so resolveSkill can create blob URL
+        return { ok: true, status: 200, text: async () => 'export function run() {}' };
+      }
+      if (u.includes('agent.da.live')) {
         // _stream hits agent URL; return a finish-message response
         return {
           ok: true,

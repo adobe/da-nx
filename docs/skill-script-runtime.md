@@ -286,7 +286,79 @@ flow**:
 So the default is `LOCAL` for pure skills; `SANDBOX` is reached for when a skill
 genuinely needs capabilities a client cannot safely have.
 
-## 6. Decisions on record
+## 6. Script layout and host-injected dependencies
+
+### 6.1 `scripts/<entry>.<ext>` layout
+
+Marketplace skill repositories store their executable code under a `scripts/` subdirectory:
+
+```
+<skillId>/
+  skill.md              # manifest + docs
+  scripts/
+    <entry>.js          # JS implementation (entry from execution_entry)
+    <entry>.py          # (future) Python implementation
+```
+
+`resolveSkill` builds the script URL as:
+
+```
+${MARKETPLACE_RAW_BASE}/<skillId>/scripts/<entry><ext>
+```
+
+where `ext` is mapped from the first declared runtime (`js` → `.js`). This separates the
+skill descriptor (`skill.md`) from its implementations and keeps the root clean for
+potential multi-runtime skills.
+
+### 6.2 Host-injected dependencies
+
+Skills must **not** import host paths directly. Instead they declare the names of any
+dependencies they need, and the host injects them at runtime.
+
+**Declaration** — a new flat frontmatter field in `skill.md`:
+
+```yaml
+execution_dependencies: fflate         # comma-separated; empty/absent = none
+```
+
+`parseSkillFrontmatter` parses this into `dependencies: string[]` on the manifest.
+
+**Host allowlist** — `worker-host.js` exports `DEPENDENCY_ALLOWLIST`, a map from
+dependency name to a vetted module URL served by this host:
+
+```js
+export const DEPENDENCY_ALLOWLIST = {
+  fflate: '/nx2/deps/fflate/dist/index.js',
+};
+```
+
+**Injection** — `runner.js` passes `dependencies` (from the manifest) and `allowlist` (the
+full `DEPENDENCY_ALLOWLIST` object) to the worker via `postMessage`. The worker bootstrap:
+
+1. For each declared dependency name, looks it up in `allowlist`.
+2. If present: `await import(allowlist[name])` and stores the module on `host.deps[name]`.
+3. If not present: posts `{ error: 'dependency "<name>" not allowed' }` and returns
+   immediately — the skill does not run.
+
+**Usage in a skill script**:
+
+```js
+export async function convert({ bytesBase64 }, host) {
+  const { unzipSync, strFromU8 } = host.deps.fflate;  // injected, not imported
+  ...
+}
+```
+
+This is the same capability-injection principle as `host.log`: skills declare what they
+need, the host grants exactly that from its vetted set, and skills contain no host-specific
+paths. AO's Python runtime would inject its own `fflate`-equivalent (or a different
+implementation of the declared name) using the same declared-name contract — the skill
+source is unchanged.
+
+The fflate path (`/nx2/deps/fflate/dist/index.js`) lives **only** in the host allowlist.
+Skills never see it.
+
+## 7. Decisions on record
 
 - **Runtime model:** one JSON-serializable I/O contract per skill, with per-runtime
   implementations (`script.js`, later `script.py`). Same contract, runtime picks the
@@ -296,3 +368,8 @@ genuinely needs capabilities a client cannot safely have.
   capabilities.
 - **Phase 1 scope:** prove the substrate in isolation with docx as the proof skill; no
   chat wiring, no PDF, no authored-skill loading yet.
+- **scripts/ layout:** skill code lives at `<skillId>/scripts/<entry>.<ext>`, not flat
+  alongside `skill.md`. Keeps the root clean; prepares for multi-runtime implementations.
+- **Host-injected deps:** skills declare dep names; the host allowlist grants exact vetted
+  URLs; the worker imports and injects. No skill ever imports a host path. AO's Python
+  runtime provides its own impl for the declared name — contract is host-independent.
