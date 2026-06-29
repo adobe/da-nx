@@ -71,7 +71,7 @@
 .crumb-suffix {
   display: flex;
   align-items: center;
-  gap: var(--s2-spacing-75);
+  gap: var(--s2-spacing-50);
 }
 
 .crumb-suffix.hide {
