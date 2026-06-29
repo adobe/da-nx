@@ -23,13 +23,16 @@ export async function runSkillScript({ manifest, moduleUrl, input }) {
     const result = await new Promise((resolve) => {
       worker.onmessage = ({ data }) => resolve(data);
       worker.onerror = (event) => resolve({ error: event.message || 'worker error' });
-      // Resolve allowlist URLs to absolute — relative paths like /nx2/... are valid on
-      // the page but would resolve against blob: origin inside the worker. The worker
-      // receives absolute URLs so it can import() them regardless of its own origin.
+      // Resolve allowlist URLs to absolute against THIS module's location (the nx2
+      // base where deps are served), not the page origin. The consuming page may be
+      // served from a different origin (e.g. da-live on :3000) than nx2 (da-nx on
+      // :6456 locally, or the nx CDN in prod); resolving against import.meta.url
+      // points dependency imports at wherever nx2 actually lives. The worker receives
+      // absolute URLs so it can import() them regardless of its own (blob:) origin.
       const resolvedAllowlist = Object.fromEntries(
         Object.entries(DEPENDENCY_ALLOWLIST).map(([name, url]) => [
           name,
-          new URL(url, globalThis.location?.origin ?? 'http://localhost').href,
+          new URL(url, import.meta.url).href,
         ]),
       );
 
