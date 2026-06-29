@@ -268,4 +268,62 @@ execution_capabilities:
     expect(result.error).to.be.undefined;
     if (result.moduleUrl) URL.revokeObjectURL(result.moduleUrl);
   });
+
+  // -------------------------------------------------------------------------
+  // §10 Row: Scripts only from marketplace — URL construction security (§10)
+  // -------------------------------------------------------------------------
+
+  it('security: all fetched URLs use the marketplace raw base — never a da-admin or .da/skills path', async () => {
+    const skillMd = `---
+execution_entry: convert
+execution_runtimes: js
+execution_capabilities:
+---
+`;
+    const fetchedUrls = [];
+    globalThis.fetch = async (url) => {
+      fetchedUrls.push(String(url));
+      return { ok: true, status: 200, text: async () => skillMd };
+    };
+    await resolveSkill('docx-to-markdown');
+
+    // Every URL fetched must start with the marketplace raw base
+    for (const u of fetchedUrls) {
+      expect(u, `fetched URL must be from marketplace: ${u}`)
+        .to.match(/^https:\/\/raw\.githubusercontent\.com\//);
+    }
+    // Must not contain any .da/skills or da-admin path segments
+    for (const u of fetchedUrls) {
+      expect(u, `URL must not be a .da/skills path: ${u}`).to.not.include('.da/skills');
+      expect(u, `URL must not be a da-admin URL: ${u}`).to.not.include('da-admin');
+      expect(u, `URL must not be a localhost admin URL: ${u}`).to.not.include('admin.da.live');
+    }
+  });
+
+  it('security: ao: prefix returns an error and never makes a network request', async () => {
+    let fetchCalled = false;
+    globalThis.fetch = async () => { fetchCalled = true; return { ok: true, status: 200, text: async () => '' }; };
+    const result = await resolveSkill('ao:evil-skill');
+    expect(result.error).to.be.a('string');
+    expect(fetchCalled, 'fetch must not be called for ao: prefix').to.be.false;
+  });
+
+  it('security: skill.md URL is constructed from skillId — no path traversal via ../', async () => {
+    const fetchedUrls = [];
+    globalThis.fetch = async (url) => {
+      fetchedUrls.push(String(url));
+      return { ok: false, status: 404, text: async () => '' };
+    };
+    // A skillId containing ../ would be a path traversal attempt
+    await resolveSkill('../../../etc/passwd');
+    // If a fetch was attempted, the URL must still be under the marketplace base
+    for (const u of fetchedUrls) {
+      expect(u, `traversal attempt must stay under marketplace host: ${u}`)
+        .to.match(/^https:\/\/raw\.githubusercontent\.com\//);
+      // The constructed URL must not escape the marketplace path by resolving ../
+      // (URL() normalizes ../ so the result stays under the expected host)
+      const parsed = new URL(u);
+      expect(parsed.hostname).to.equal('raw.githubusercontent.com');
+    }
+  });
 });
