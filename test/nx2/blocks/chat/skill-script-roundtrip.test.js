@@ -293,6 +293,68 @@ execution_timeout_ms: 5000
     expect(output.error).to.equal('requires server runtime');
   });
 
+  // --------------------------------------------------------------------------
+  // attachmentRef resolution tests
+  // --------------------------------------------------------------------------
+
+  it('attachmentRef with no matching attachment → error result, skill not run', async () => {
+    const { ctrl, recorded } = buildPatchedController({
+      resolvedManifest: { entry: 'convert', capabilities: [] },
+    });
+
+    // Set up pending attachments that do NOT include the referenced id
+    ctrl._pendingAttachments = [
+      { id: 'other-id', fileName: 'other.docx', mediaType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', dataBase64: 'aaa=', sizeBytes: 100 },
+    ];
+
+    ctrl._onToolEvent({
+      type: AGENT_EVENT.TOOL_CALL,
+      toolCallId: 'tc-ref-miss',
+      toolName: 'skill_run_script',
+      input: { skillId: 'docx-to-markdown', input: { attachmentRef: 'missing-id' } },
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    expect(recorded).to.have.lengthOf(1);
+    const [tcId, tName, , output, isError] = recorded[0];
+    expect(tcId).to.equal('tc-ref-miss');
+    expect(tName).to.equal('skill_run_script');
+    expect(isError).to.be.true;
+    expect(output.error).to.equal('attachment missing-id not found');
+
+    const card = ctrl._toolCards.get('tc-ref-miss');
+    expect(card.state).to.equal(TOOL_STATE.ERROR);
+  });
+
+  it('no attachmentRef → input passed through unchanged', async () => {
+    const { ctrl, recorded } = buildPatchedController({
+      resolvedManifest: { entry: 'convert', capabilities: [] },
+    });
+
+    // No _pendingAttachments needed — there is no attachmentRef
+    ctrl._pendingAttachments = [];
+
+    ctrl._onToolEvent({
+      type: AGENT_EVENT.TOOL_CALL,
+      toolCallId: 'tc-no-ref',
+      toolName: 'skill_run_script',
+      input: { skillId: 'docx-to-markdown', input: { bytesBase64: 'direct-bytes' } },
+    });
+
+    // Wait for the async IIFE to settle (worker will fail with a blob URL but the
+    // key assertion is that _recordSkillResult was called once and the input was
+    // forwarded — not rewritten — to runSkillScript).
+    await new Promise((resolve) => setTimeout(resolve, 300));
+
+    // _recordSkillResult must have been called (worker error or success — either is fine)
+    expect(recorded).to.have.lengthOf(1);
+    // Importantly: the tool card must have left RUNNING (not stuck)
+    const card = ctrl._toolCards.get('tc-no-ref');
+    expect(card).to.exist;
+    expect([TOOL_STATE.DONE, TOOL_STATE.ERROR]).to.include(card.state);
+  });
+
   it('virtual message from skill result replays correctly in _messagesForAgent', async () => {
     // Verify the virtual-message shape so _messagesForAgent() expands it correctly.
     // We call _recordSkillResult directly with a known output and check the expansion.

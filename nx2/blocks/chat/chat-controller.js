@@ -237,7 +237,26 @@ export default class ChatController {
             this._done();
             return;
           }
-          const result = await runSkillScript({ manifest, moduleUrl, input: skillInput ?? {} });
+
+          // Resolve attachment reference client-side — bytes NEVER come from agent args.
+          // If attachmentRef is present, look it up in _pendingAttachments by id and
+          // inject bytesBase64, fileName, mediaType into the effective skill input.
+          let effectiveInput = skillInput ?? {};
+          const { attachmentRef } = effectiveInput;
+          if (attachmentRef !== undefined) {
+            const attachment = (this._pendingAttachments ?? []).find((a) => a.id === attachmentRef);
+            if (!attachment) {
+              this._recordSkillResult(toolCallId, toolName, input, { error: `attachment ${attachmentRef} not found` }, true);
+              this._done();
+              return;
+            }
+            const { dataBase64, fileName, mediaType } = attachment;
+            // Merge: non-attachment fields from skillInput co-exist; attachmentRef removed.
+            const { attachmentRef: _removed, ...rest } = effectiveInput;
+            effectiveInput = { bytesBase64: dataBase64, fileName, mediaType, ...rest };
+          }
+
+          const result = await runSkillScript({ manifest, moduleUrl, input: effectiveInput });
           const resultOutput = result.error ? { error: result.error } : { output: result.json };
           this._recordSkillResult(toolCallId, toolName, input, resultOutput, !!result.error);
           // Re-engage the agent with the tool result so it can continue reasoning.

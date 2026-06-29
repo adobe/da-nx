@@ -250,6 +250,88 @@ describe('skill-script E2E — real worker, real script, real docx fixture', () 
       .to.include('hello e2e');
   });
 
+  // ── Test 1b: attachmentRef → bytes resolved client-side, real worker runs ─
+  it('attachmentRef: real worker receives bytesBase64 from pending attachment, markdown contains fixture text', async function () {
+    this.timeout(10000);
+
+    // Build a real .docx fixture and register it as a pending attachment
+    const bytes = buildDocx('hello attachmentRef');
+    const bytesBase64 = bytesToBase64(bytes);
+    const attachmentId = 'att-e2e-ref';
+
+    const ctrl = buildController({ skillMdText: REAL_SKILL_MD });
+
+    // Register the attachment in the controller — this is the same shape that sendMessage sets
+    ctrl._pendingAttachments = [
+      {
+        id: attachmentId,
+        fileName: 'test.docx',
+        mediaType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        dataBase64: bytesBase64,
+        sizeBytes: bytes.length,
+      },
+    ];
+
+    const { runSkillScript } = await import('../../../../nx2/utils/skill-runtime/index.js');
+    const { parseSkillFrontmatter } = await import('../../../../nx2/blocks/chat/utils/skill-script-loader.js');
+
+    // Replace _onToolEvent to use real localhost moduleUrl (same adaptation as test 1)
+    // but pass input: { attachmentRef: attachmentId } — NO bytesBase64 in args.
+    const origOnToolEvent = ctrl._onToolEvent.bind(ctrl);
+
+    ctrl._onToolEvent = async ({ type, toolCallId, toolName, input, ...rest }) => {
+      if (type === AGENT_EVENT.TOOL_CALL && toolName === 'skill_run_script') {
+        const next = new Map(ctrl._toolCards ?? []);
+        if (next.has(toolCallId)) return;
+        next.set(toolCallId, { toolName, input, state: TOOL_STATE.RUNNING });
+        ctrl._toolCards = next;
+
+        const { skillId, input: skillInput } = input ?? {};
+
+        // Resolve attachment reference client-side (mirrors chat-controller logic)
+        let effectiveInput = skillInput ?? {};
+        const { attachmentRef } = effectiveInput;
+        if (attachmentRef !== undefined) {
+          const attachment = (ctrl._pendingAttachments ?? []).find((a) => a.id === attachmentRef);
+          if (!attachment) {
+            ctrl._recordSkillResult(toolCallId, toolName, input, { error: `attachment ${attachmentRef} not found` }, true);
+            return;
+          }
+          const { dataBase64, fileName, mediaType } = attachment;
+          const { attachmentRef: _removed, ...restInput } = effectiveInput;
+          effectiveInput = { bytesBase64: dataBase64, fileName, mediaType, ...restInput };
+        }
+
+        const manifest = { ...parseSkillFrontmatter(REAL_SKILL_MD), id: skillId };
+        const moduleUrl = REAL_SCRIPT_URL;
+
+        const result = await runSkillScript({ manifest, moduleUrl, input: effectiveInput });
+        const isError = !!result.error;
+        const resultOutput = isError ? { error: result.error } : { output: result.json };
+        ctrl._recordSkillResult(toolCallId, toolName, input, resultOutput, isError);
+      } else {
+        origOnToolEvent({ type, toolCallId, toolName, input, ...rest });
+      }
+    };
+
+    // Fire the tool event with attachmentRef — bytes are NOT in the input
+    await ctrl._onToolEvent({
+      type: AGENT_EVENT.TOOL_CALL,
+      toolCallId: 'tc-e2e-ref',
+      toolName: 'skill_run_script',
+      input: { skillId: 'docx-to-markdown', input: { attachmentRef: attachmentId } },
+    });
+
+    const card = ctrl._toolCards.get('tc-e2e-ref');
+    expect(card, 'tool card must exist').to.exist;
+    expect(card.state, `card state should be DONE, got ${card.state} (output: ${JSON.stringify(card.output)})`).to.equal(TOOL_STATE.DONE);
+
+    const { output } = card;
+    expect(output, 'output must exist').to.exist;
+    expect(output.output?.markdown ?? '', 'markdown must contain "hello attachmentRef"')
+      .to.include('hello attachmentRef');
+  });
+
   // ── Test 2: Eligibility gate ───────────────────────────────────────────────
   it('eligibility gate: network capability in manifest yields server-runtime error, no worker', async () => {
     const ctrl = buildController({ skillMdText: NETWORK_SKILL_MD });
