@@ -1,17 +1,19 @@
 import { LitElement, html, nothing } from 'da-lit';
-import { loadStyle, hashChange } from '../../../nx2/utils/utils.js';
 
 import { createEngine } from '../../deps/da-sc-sdk/dist/index.js';
 import { loadFormContext } from './utils/context.js';
 import { attachPersistence } from './utils/persistence.js';
+import { loadStyle, hashChange } from '../../../nx2/utils/utils.js';
 
 import './views/editor.js';
 import './views/sidebar.js';
 import './views/preview.js';
+// Fields the shell renders directly (schema selector + messages); the editor
+// imports the rest.
+import './fields/picker.js';
+import './fields/button.js';
 
 const style = await loadStyle(import.meta.url);
-
-const SL_COMPONENTS_MODULE = '../../../nx2/public/sl/components.js';
 
 const EL_NAME = 'nx-form';
 
@@ -137,11 +139,6 @@ class Form extends LitElement {
     const context = await loadFormContext({ details: this._details });
     if (version !== this._loadVersion) return;
 
-    if (context.status !== 'blocked') {
-      await import(SL_COMPONENTS_MODULE);
-    }
-    if (version !== this._loadVersion) return;
-
     this._context = context;
 
     if (context.status === 'ready') {
@@ -210,11 +207,10 @@ class Form extends LitElement {
           <p>${body}</p>
           ${showHomeAction ? html`
             <div class="nx-form-actions">
-              <button
-                type="button"
-                class="nx-form-button"
+              <sl-button
+                variant="secondary"
                 @click=${() => this._goHome()}
-              >Return to Home</button>
+              >Return to Home</sl-button>
             </div>
           ` : nothing}
         </section>
@@ -268,7 +264,7 @@ class Form extends LitElement {
       <div class="nx-form-schema-shell">
         <h2 class="nx-form-schema-heading">Choose a schema</h2>
         <div class="nx-form-schema-form">
-          <sl-select
+          <sl-picker
             hoist
             class="nx-form-schema-select"
             label="Schema"
@@ -280,17 +276,18 @@ class Form extends LitElement {
             ${Object.entries(schemas).map(([id, schema]) => html`
               <option value="${id}">${schema?.title ?? id}</option>
             `)}
-          </sl-select>
-          <p class="nx-form-schema-hint nx-form-schema-selector-hint">
-            To create a new schema, open
-            <a
-              class="nx-form-schema-text-link"
-              href=${schemaEditorHref}
-              target="_blank"
-              rel="noopener noreferrer"
-            >Schema Editor</a>.
-          </p>
+            <p slot="description">
+              To create a new schema, open
+              <a
+                class="nx-form-schema-text-link"
+                href=${schemaEditorHref}
+                target="_blank"
+                rel="noopener noreferrer"
+              >Schema Editor</a>.
+            </p>
+          </sl-picker>
           <sl-button
+            variant="accent"
             class="nx-form-schema-start"
             ?disabled=${!this._pendingSchemaId}
             @click=${this._applySelectedSchema}
