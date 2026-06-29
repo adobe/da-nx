@@ -1,5 +1,13 @@
 # Worklog
 
+## 2026-06-29
+
+### nx2/blocks/chat/renderers.js — empty directive body fix (fix/chat-empty-directive-render branch)
+
+Pre-existing bug: when a chat directive block had an empty body, `hastToDom` returned a `Document` node. Lit's `insertBefore` cannot insert a `Document`, throwing a `HierarchyRequestError`. Fix: in `toDOM()`, after `hastToDom`, detect `Node.DOCUMENT_NODE` and extract its `body` children into a `DocumentFragment` before returning. Three regression tests added.
+
+Cherry-picked from `6e02f889` onto a clean `main`-based branch.
+
 ## 2026-06-23
 
 ### nx2/blocks/shared/dialog — configurable panel sizing (dialog-css-vars branch)
