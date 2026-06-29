@@ -1,5 +1,5 @@
 import { LitElement, html, nothing } from 'da-lit';
-import { loadStyle } from '../../../nx2/utils/utils.js';
+import { loadStyle, hashChange } from '../../../nx2/utils/utils.js';
 
 import { createEngine } from '../../deps/da-sc-sdk/dist/index.js';
 import { loadFormContext } from './utils/context.js';
@@ -15,9 +15,33 @@ const SL_COMPONENTS_MODULE = '../../../nx2/public/sl/components.js';
 
 const EL_NAME = 'nx-form';
 
+// Derive the legacy `details` shape the form utils expect from the EW-supplied
+// `ctx`. `ctx.path` is the full `org/site/path` locator; the DA source is the
+// `.html` document at that path.
+function detailsFromCtx(ctx) {
+  if (!ctx?.org || !ctx?.repo || !ctx?.path) return null;
+  const raw = `/${String(ctx.path).replace(/^\/+/, '')}`;
+  const fullpath = raw.toLowerCase().endsWith('.html') ? raw : `${raw}.html`;
+  const name = fullpath.slice(fullpath.lastIndexOf('/') + 1, -'.html'.length);
+  return {
+    owner: ctx.org,
+    repo: ctx.repo,
+    name,
+    fullpath,
+    sourceUrl: fullpath,
+  };
+}
+
+// hashChange emits `{ org, site, path, fullpath }`; the element wants
+// `ctx = { org, repo, path }` with `path` as the full `org/site/path` locator.
+function ctxFromHashState(state) {
+  if (!state?.org || !state?.site || !state?.path) return null;
+  return { org: state.org, repo: state.site, path: state.fullpath.slice(1) };
+}
+
 class Form extends LitElement {
   static properties = {
-    details: { attribute: false },
+    ctx: { attribute: false },
     _context: { state: true },
     _state: { state: true },
     _nav: { state: true },
@@ -29,9 +53,13 @@ class Form extends LitElement {
   // https://lit.dev/docs/components/properties/#avoiding-issues-with-class-fields
   _loadVersion = 0;
 
+  _details = null;
+
   _editor = null;
 
   _persistence = null;
+
+  _unsubscribe = null;
 
   _onChange = () => {
     if (!this._editor) return;
@@ -56,8 +84,26 @@ class Form extends LitElement {
     this.shadowRoot.adoptedStyleSheets = [style];
   }
 
+  disconnectedCallback() {
+    this._unsubscribe?.();
+    this._unsubscribe = null;
+    this._persistence?.detach();
+    this._persistence = null;
+    super.disconnectedCallback();
+  }
+
+  // Standalone (nx2-served) routing: subscribe the element's own ctx to the
+  // hash. The EW host pushes `ctx` directly instead and never calls this.
+  startRouting() {
+    this._unsubscribe?.();
+    this._unsubscribe = hashChange.subscribe((state) => {
+      const ctx = ctxFromHashState(state);
+      if (ctx) this.ctx = ctx;
+    });
+  }
+
   updated(changed) {
-    if (changed.has('details') && this.details) {
+    if (changed.has('ctx')) {
       this._loadContext();
     }
   }
@@ -67,7 +113,7 @@ class Form extends LitElement {
     this._state = this._editor.getState();
     // Attach AFTER load so the loaded document is the persistence's baseline —
     // mutations after this point trigger saves; the load itself does not.
-    this._persistence = attachPersistence(this._editor, { path: this.details?.fullpath });
+    this._persistence = attachPersistence(this._editor, { path: this._details?.fullpath });
     this._nav = { pointer: '/data', origin: null, seq: 0 };
   }
 
@@ -79,9 +125,16 @@ class Form extends LitElement {
     this._editor = null;
     this._persistence?.detach();
     this._persistence = null;
+    this._details = detailsFromCtx(this.ctx);
+
+    if (!this._details) {
+      this._context = undefined;
+      return;
+    }
+
     this._context = { status: 'loading', schemas: {} };
 
-    const context = await loadFormContext({ details: this.details });
+    const context = await loadFormContext({ details: this._details });
     if (version !== this._loadVersion) return;
 
     if (context.status !== 'blocked') {
@@ -107,7 +160,7 @@ class Form extends LitElement {
 
     const json = {
       metadata: {
-        title: this.details?.name ?? '',
+        title: this._details?.name ?? '',
         schemaName,
       },
       data: {},
@@ -124,14 +177,18 @@ class Form extends LitElement {
     this._start({ schema, json });
   }
 
+  // TODO(EW): cross-app nav to the da.live schema editor. Revisit if EW should
+  // own schema authoring rather than linking out.
   _schemaEditorHref() {
-    const { owner, repo } = this.details ?? {};
+    const { owner, repo } = this._details ?? {};
     if (!owner || !repo) return 'https://da.live/apps/schema';
     return `https://da.live/apps/schema#/${owner}/${repo}`;
   }
 
+  // TODO(EW): cross-app nav back to the da.live home. Revisit if EW should
+  // provide its own "home" target.
   _goHome() {
-    const { owner, repo } = this.details ?? {};
+    const { owner, repo } = this._details ?? {};
     if (!owner || !repo) return;
     const query = window.location.search ?? '';
     window.location.href = `https://da.live${query}#/${owner}/${repo}`;
@@ -297,7 +354,7 @@ class Form extends LitElement {
   }
 
   render() {
-    if (!this.details) return nothing;
+    if (!this.ctx) return nothing;
 
     const { status } = this._context ?? {};
     if (!status || status === 'loading') return nothing;
@@ -312,4 +369,12 @@ class Form extends LitElement {
 
 if (!customElements.get(EL_NAME)) {
   customElements.define(EL_NAME, Form);
+}
+
+// Mount the ctx-driven `nx-form` element and feed it the hash. The wrapper
+// (form.js) calls this after setting up the surrounding workspace.
+export default function decorate(block) {
+  const nxForm = document.createElement(EL_NAME);
+  block.append(nxForm);
+  nxForm.startRouting();
 }
