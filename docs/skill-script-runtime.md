@@ -373,3 +373,141 @@ Skills never see it.
 - **Host-injected deps:** skills declare dep names; the host allowlist grants exact vetted
   URLs; the worker imports and injects. No skill ever imports a host path. AO's Python
   runtime provides its own impl for the declared name — contract is host-independent.
+
+## 8. Skill marketplace providers (configurable, swappable)
+
+Script-carrying skills come **only** from curated marketplaces, never from user-writable
+`.da/skills` (§10). A marketplace is accessed through one stable interface, so the *source*
+can change without touching callers:
+
+```ts
+interface SkillMarketplaceProvider {
+  listSkills(): Promise<SkillSummary[]>;          // index entries incl. execution metadata
+  getSkillManifest(id): Promise<SkillManifest>;   // entry, runtimes, capabilities, deps, timeoutMs
+  getScript(id, runtime): Promise<{ source } | { url }>;
+}
+```
+
+**Implementations**
+- `GitHubMarketplaceProvider` — **today**. Reads `skill.md` + `scripts/<entry>.<ext>` from a
+  GitHub repo over raw HTTPS + the contents API.
+- `ConfigSheetMarketplaceProvider` — **later**. Marketplace list comes from the site config
+  sheet.
+- `AOMarketplaceProvider` — **later**. Wraps AO's backend/harness behind the same interface.
+
+**Configuration is a list, and only its *source* migrates:**
+
+| Phase | Where the marketplace list lives |
+|---|---|
+| now | **in code** — a hardcoded `MARKETPLACES` array |
+| next | **config sheet** — read from site config (`ConfigSheetMarketplaceProvider`) |
+| later | **ew-extensions UI** — authored/edited in the Skills panel |
+
+Today's config (in code):
+
+```js
+const MARKETPLACES = [
+  // DEMO: prod target is adobe/skills once the PR lands.
+  { type: 'github', owner: 'exp-workspace', repo: 'skills', branch: 'main', path: 'ew' },
+];
+```
+
+A `providerFor(entry)` factory turns each config entry into a provider. Adding AO is a new
+entry `{ type: 'ao', … }` → `AOMarketplaceProvider`; **no caller changes**. Swappability is
+proven by running the same provider conformance suite against an `AOMarketplaceProvider` stub.
+
+## 9. Backwards compatibility (no PLG regression)
+
+Existing customers already load prose skills from `.da/skills` and the legacy config sheet.
+That behavior is a **frozen contract**:
+
+- **Marketplace is purely additive.** It is appended to the index after the existing
+  folder→sheet resolution and resolved through its own provider. It never displaces,
+  reorders, or alters folder/sheet skills.
+- **Untouched paths:** `loadSkillsIndexFromFolders`, `loadSkillBodyFromFolder`,
+  `loadSkillsIndex`, `loadSkillContent`, `saveSkillContent` (load, read, **save, delete**).
+- **Folder skills stay prose-only** — `.da/skills` `skill.md` never yields `execution`
+  metadata, so a `script.js` there is inert.
+- **Precedence unchanged:** `.da/skills` (exclusive when present) → config sheet (fallback)
+  → then marketplace appended.
+
+**Regression net (written *before* the refactor):** characterization tests snapshot the
+current output of all five functions above. Any change to existing-skill behavior fails them.
+
+## 10. Security model — tested, not asserted
+
+| Property | Mechanism | Test |
+|---|---|---|
+| **Scripts only from marketplace** | folder/sheet skills carry no `execution`; only provider-sourced skills are runnable | a `script.js` in `.da/skills` is never executed |
+| **No network** | worker deletes `fetch`/XHR/`WebSocket`/`importScripts`/`sendBeacon` before loading the script | each global is `undefined` in the worker |
+| **No storage** | no `indexedDB`/`caches`/`localStorage`; worker has no `document`/cookies | each absent in the worker |
+| **No credentials / PII** | IMS tokens, cookies, session are **never injected**; `host` exposes only `log` + allowlisted `deps` | `host` has no token/credential fields; script cannot read them |
+| **Capability gating** | only `capabilities: []` (pure) runs client-side; anything else routed to server runtime | non-empty capability → refused, no worker spun |
+| **Dependency allowlist** | only allowlisted dep names inject; others refused | non-allowlisted dep → `{ error: 'dependency not allowed' }` |
+| **No exfiltration** | combination of no-network + no-creds means a script *cannot* leak data even if malicious | script attempting `fetch` fails |
+
+**Prompt injection.** Two surfaces:
+1. **The script** cannot inject into the agent — it returns JSON `output`; it has no path to
+   the system prompt.
+2. **The converted document content** is untrusted user data that *does* reach the agent (as
+   the skill's `output`). Mitigation: tool/skill output is presented to the model as **data,
+   not instructions**, and skill output is **never merged into the system prompt**. The
+   curation of marketplace *scripts* does not extend to *user document content* — that is
+   always treated as untrusted.
+
+## 11. Migration path & flow
+
+Two independent axes migrate over time; the contracts (§2.1 I/O, §8 provider) stay fixed:
+
+- **Config source:** code → config sheet → ew-extensions UI.
+- **Execution location:** client worker (now) → harness server sandbox → AO Python runtime.
+
+### Today
+
+```mermaid
+flowchart LR
+  CFG["Marketplace config<br/>(in code)"] --> PROV["GitHubMarketplaceProvider"]
+  PROV --> IDX["da-agent: skills index<br/>folder + sheet + marketplace"]
+  IDX --> PROMPT["system prompt:<br/>script-runnable skills"]
+  PROMPT --> LLM["agent emits skill_run_script"]
+  LLM --> RES["da-nx: resolveSkill<br/>from marketplace (GH raw)"]
+  RES --> WORK["sandboxed Web Worker<br/>(pure, host.deps injected)"]
+  WORK --> OUT["JSON output → agent"]
+  style WORK fill:#e8f4ec,stroke:#2d7d46
+```
+
+### Tomorrow (with AO / harness)
+
+```mermaid
+flowchart LR
+  CFG["Marketplace config<br/>(config sheet / UI)"] --> FAC["providerFor(entry)"]
+  FAC --> GH["GitHubMarketplaceProvider"]
+  FAC --> AO["AOMarketplaceProvider"]
+  GH --> IDX["skills index"]
+  AO --> IDX
+  IDX --> LLM["agent emits skill_run_script"]
+  LLM --> DISP["runSkillScript dispatcher"]
+  DISP -- "pure" --> WORK["client Web Worker"]
+  DISP -- "needs capabilities" --> SBX["harness server sandbox"]
+  SBX --> PY["AO Python runtime<br/>def entry(input, host)"]
+  WORK --> OUT["JSON output → agent"]
+  PY --> OUT
+  SBX --> OUT
+  style AO fill:#def,stroke:#39c
+  style SBX fill:#def,stroke:#39c
+  style PY fill:#def,stroke:#39c
+```
+
+The caller boundary (`skill_run_script` → JSON output) is identical in both diagrams. What
+changes between today and tomorrow is *where the marketplace list comes from* and *where the
+script executes* — never the skill contract or the calling code.
+
+## 12. Decisions on record (additions)
+
+- **Marketplace provider interface** is the swap point. Config is a list whose *source*
+  migrates (code → sheet → UI); providers are interchangeable; AO is just another provider.
+- **Backwards compatibility is a frozen contract**, protected by characterization tests on
+  the five existing load/read/save functions before any refactor.
+- **Security is structural and tested**: scripts only from marketplace, sandbox has no
+  network/storage/creds, capability + dependency gating, document content treated as
+  untrusted data.
