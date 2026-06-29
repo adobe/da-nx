@@ -2,6 +2,22 @@
 
 ## 2026-06-29
 
+### attachmentRef → bytes resolution for script-skills (feat/da-skill-script-runtime)
+
+`_onToolEvent` `skill_run_script` branch in `chat-controller.js` now resolves an attachment reference entirely client-side before calling `runSkillScript`:
+
+- If `input.attachmentRef` is set, find the attachment in `this._pendingAttachments` by `id`.
+  - Found: build `effectiveInput` with `bytesBase64` (from `dataBase64`), `fileName`, `mediaType`; remove `attachmentRef`; other `skillInput` fields survive unchanged.
+  - Not found: record `{ error: 'attachment <ref> not found' }` via `_recordSkillResult`, call `_done()`, return — skill is not run.
+- No `attachmentRef`: `skillInput` passes through unchanged.
+- Bytes come exclusively from `_pendingAttachments`; agent args never supply bytes — security invariant preserved.
+
+**Tests added:** 1021 total (+3).
+- `skill-script-roundtrip.test.js` — missing attachment → ERROR; no attachmentRef → passthrough.
+- `skill-script-e2e.test.js` — real worker, real `scripts/convert.js`, real fflate, real docx fixture supplied via `attachmentRef` → markdown contains fixture text.
+
+---
+
 ### Fix marketplace skill URL namespace (feat/da-skill-script-runtime)
 
 `MARKETPLACE_RAW_BASE` in `skill-script-loader.js` was missing the `/ew` namespace segment, causing skill fetches to resolve to the wrong path. Updated constant from `.../main` to `.../main/ew`. Updated `GH_RAW_BASE` in `skill-script-loader.test.js` to match. All 1018 tests pass.
