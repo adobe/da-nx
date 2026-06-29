@@ -477,6 +477,8 @@ class NxChat extends LitElement {
       || f.type === 'application/pdf'
       || f.type === 'text/markdown'
       || f.name?.endsWith('.md')
+      || f.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      || f.name?.toLowerCase().endsWith('.docx')
     ));
     await this._onFilesSelected(accepted);
   }
@@ -539,7 +541,7 @@ class NxChat extends LitElement {
         <input
           class="chat-file-input"
           type="file"
-          accept="image/*,text/markdown,.md,application/pdf,.pdf"
+          accept="image/*,text/markdown,.md,application/pdf,.pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.docx"
           multiple
           hidden
           @change=${this._onFileInputChange}
