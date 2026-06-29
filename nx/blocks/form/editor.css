@@ -48,6 +48,11 @@
 
 .nx-form-wrapper.nx-form-wrapper-centered {
   justify-content: center;
+
+  /* The ready editor gets its top offset from the scroll container (views/
+     editor.css); the centered states (schema selector, messages) render
+     straight in the host, so give them the same gap below the header. */
+  padding-top: var(--form-content-top, 32px);
 }
 
 .nx-editor-pane {
