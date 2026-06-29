@@ -14,7 +14,7 @@ import './views/preview.js';
 
 const style = await loadStyle(import.meta.url);
 
-const SL_COMPONENTS_MODULE = '../../public/sl/components.js';
+const SL_COMPONENTS_MODULE = '../../../nx2/public/sl/components.js';
 
 const EL_NAME = 'nx-form';
 const PREVIEW_PREFIX = 'https://da-sc.adobeaem.workers.dev/preview';
