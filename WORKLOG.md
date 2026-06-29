@@ -1,6 +1,41 @@
 # Worklog
 
+## 2026-06-29
+
+### scripts/ layout + host-injected dependencies (feat/da-skill-script-runtime)
+
+Two refinements on top of the GH-marketplace rework.
+
+**scripts/ layout:** marketplace skills store code at `<skillId>/scripts/<entry>.<ext>` (not flat alongside `skill.md`). `resolveSkill` now builds the script URL from `execution_entry` + a runtime→ext map (`js` → `.js`). `skill.md` stays at `<skillId>/skill.md`.
+
+**Host-injected dependencies:** skills declare deps via `execution_dependencies: fflate` (comma-separated flat field). `parseSkillFrontmatter` parses into `dependencies: string[]` on the manifest. `worker-host.js` exports `DEPENDENCY_ALLOWLIST = { fflate: '/nx2/deps/fflate/dist/index.js' }`. `runner.js` resolves allowlist paths to absolute (blob-URL workers can't resolve root-relative paths) and sends `{ dependencies, allowlist }` to the worker. The worker `await import(allowlist[name])`s each dep into `host.deps[name]`; any dep not in the allowlist returns `{ error: 'dependency "..." not allowed' }` before running. `scripts/convert.js` uses `host.deps.fflate` — no host path import.
+
+**Key fix:** allowlist URLs must be absolute before `postMessage` — worker blob-URL origin can't resolve `/nx2/...` relative paths. `new URL(url, globalThis.location?.origin).href` in `runner.js` handles this.
+
+**Tests added/updated:**
+- `skill-script-loader.test.js` — `execution_dependencies` parsing (single, multi, absent, blank); script URL now asserts `scripts/convert.js` path.
+- `skill-runtime.test.js` — non-allowlisted dep refusal (`{ error: '... not allowed' }`); `convert()` tests updated to use `host.deps.fflate` host.
+- `skill-script-e2e.test.js` — `REAL_SKILL_MD` updated with `execution_dependencies: fflate`; `REAL_SCRIPT_URL` points to `scripts/convert.js`; fetch stub intercepts `/scripts/` path.
+- All 1018 tests passing.
+
+**Security invariant:** no skill can import arbitrary URLs; the worker only loads from the vetted allowlist. Same security-by-construction principle as neutered ambient globals.
+
 ## 2026-06-27
+
+### Resolve script-skills from curated GH marketplace, not .da/skills (feat/da-skill-script-runtime)
+
+**Security rationale:** `.da/skills/` is user-writable content. Resolving a skill's manifest and script from there lets an attacker-controlled document substitute arbitrary code or a forged manifest. Script skills must be resolved from the curated, read-only GH marketplace only.
+
+**What changed:**
+- `nx2/blocks/chat/utils/skill-script-loader.js` — `resolveSkill` now fetches from `MARKETPLACE_RAW_BASE` (`https://raw.githubusercontent.com/exp-workspace/skills/main`, TODO: adobe/skills once PR lands). No org/site argument — the marketplace is global. Fetches `skill.md` (parses trusted frontmatter) then `script.js` as text, converts to a `Blob` with `type: 'text/javascript'` and returns `URL.createObjectURL(blob)` as `moduleUrl`. This is required because `raw.githubusercontent.com` serves `text/plain`, which browsers reject for ES module `import()`. Removed the DA Admin `.da/skills` path entirely.
+- `nx2/blocks/chat/chat-controller.js` — `_onToolEvent` `skill_run_script` branch: removed `{ org, site }` argument from `resolveSkill` call (no longer needed).
+- `test/nx2/blocks/chat/utils/skill-script-loader.test.js` — rewritten: stubs GH raw URLs (`skill.md` + `script.js`); asserts blob URL returned; verifies both marketplace URLs fetched; drops org/site from all `resolveSkill` calls; new test confirms no org/site needed; kept all frontmatter parsing and error tests.
+- `test/nx2/blocks/chat/skill-script-roundtrip.test.js` — fetch stub updated to return `'export function run() {}'` for `script.js` URLs (marketplace JS payload for blob URL creation).
+- `test/nx2/blocks/chat/skill-script-e2e.test.js` — `buildController` fetch stub updated to handle `script.js` with dummy JS; happy-path still uses real localhost `moduleUrl` via `_onToolEvent` replacement (unchanged); eligibility and security tests now complete the full `resolveSkill` including script.js fetch.
+
+**Security invariant preserved:** `isClientEligible` runs on the manifest fetched from MARKETPLACE (trusted). Agent-supplied capability hints are still ignored. Security test still passes (1011/1011).
+
+**Key detail:** blob URL pattern is required because browsers enforce `text/javascript` MIME for module workers — raw GitHub cannot serve that MIME type. The blob is created client-side from the fetched text, so the MIME is correct and `import()` succeeds.
 
 ### Skill-script execution substrate (feat/da-skill-script-runtime)
 
