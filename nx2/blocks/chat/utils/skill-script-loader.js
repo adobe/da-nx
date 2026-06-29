@@ -1,5 +1,5 @@
 // DEMO ONLY — prod target is adobe/skills (pending PR approval).
-const MARKETPLACE_RAW_BASE = 'https://raw.githubusercontent.com/exp-workspace/skills/main';
+const MARKETPLACE_RAW_BASE = 'https://raw.githubusercontent.com/exp-workspace/skills/main/ew';
 
 // Map execution_runtimes values to file extensions
 const RUNTIME_EXT = { js: '.js' };

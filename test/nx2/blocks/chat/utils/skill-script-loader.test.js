@@ -140,7 +140,7 @@ execution_capabilities:
 // ---------------------------------------------------------------------------
 
 describe('resolveSkill', () => {
-  const GH_RAW_BASE = 'https://raw.githubusercontent.com/exp-workspace/skills/main';
+  const GH_RAW_BASE = 'https://raw.githubusercontent.com/exp-workspace/skills/main/ew';
 
   // Stub global fetch for these tests
   let origFetch;
