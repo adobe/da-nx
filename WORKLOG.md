@@ -1,5 +1,27 @@
 # Worklog
 
+## 2026-06-29 (security suite)
+
+### §10 security matrix test suite (feat/da-skill-script-runtime)
+
+Added a focused security test suite asserting every row of the §10 security matrix in `docs/skill-script-runtime.md`. All 1035 tests pass.
+
+**Coverage before → after:**
+- No network (fetch): already covered → extended to full set (XMLHttpRequest, WebSocket, importScripts, navigator.sendBeacon)
+- No exfiltration: new — skill calling fetch() errors rather than completing
+- No storage: new — indexedDB, caches, localStorage each asserted undefined in worker
+- No document/cookies: new — document undefined; document.cookie access throws
+- No credentials/PII: new — Object.keys(host) asserted to be exactly ['deps', 'log']; explicit deny list for token/ims/session/auth/credential/secret/apiKey
+- Capability gating: already covered (section 2)
+- Dependency allowlist: already covered (section 6)
+- Marketplace-only resolution: extended — all fetched URLs asserted under raw.githubusercontent.com; ao: prefix verified to make zero fetch calls; path traversal (../...) asserted to stay under marketplace host
+
+**No substrate changes needed** — all properties held by construction (Worker spec excludes localStorage/document; worker-host.js neuters network/storage globals; runner.js builds host with only log+deps).
+
+**Files changed:**
+- `test/nx2/utils/skill-runtime/skill-runtime.test.js` — +14 security tests in 4 describe blocks
+- `test/nx2/blocks/chat/utils/skill-script-loader.test.js` — +3 marketplace-only security tests
+
 ## 2026-06-29
 
 ### attachmentRef → bytes resolution for script-skills (feat/da-skill-script-runtime)
