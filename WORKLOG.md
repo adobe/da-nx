@@ -2,6 +2,12 @@
 
 ## 2026-06-29
 
+### Fix marketplace skill URL namespace (feat/da-skill-script-runtime)
+
+`MARKETPLACE_RAW_BASE` in `skill-script-loader.js` was missing the `/ew` namespace segment, causing skill fetches to resolve to the wrong path. Updated constant from `.../main` to `.../main/ew`. Updated `GH_RAW_BASE` in `skill-script-loader.test.js` to match. All 1018 tests pass.
+
+---
+
 ### scripts/ layout + host-injected dependencies (feat/da-skill-script-runtime)
 
 Two refinements on top of the GH-marketplace rework.
