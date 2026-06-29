@@ -1,5 +1,13 @@
 # Worklog
 
+## 2026-06-29 (skill-script-runtime + marketplace design)
+
+### Landed on feat/da-skill-script-runtime
+
+- **`fix(skill-runtime)`** — `runner.js`: resolve DEPENDENCY_ALLOWLIST URLs against `import.meta.url` (the nx2 module origin) instead of `globalThis.location.origin` (the page origin). Fixes dep loading when da-nx is served from a different origin than the consuming page (e.g. da-live :3000 vs da-nx :6456 locally).
+- **`feat(chat)`** — `chat.js`: added `.docx` / `application/vnd.openxmlformats-officedocument.wordprocessingml.document` to both the `<input accept>` attribute and the `_onDrop` filter, so Word documents are accepted in the attachment picker.
+- **`docs(skill-runtime)`** — `docs/skill-script-runtime.md`: added §8 marketplace provider interface + swappable implementations (`GitHubMarketplaceProvider`, `ConfigSheetMarketplaceProvider`, `AOMarketplaceProvider`); §9 backwards-compat frozen contract + characterization-test strategy; §10 security model table (network, storage, credentials, capability gating, dependency allowlist, exfiltration); §11 migration path with today/tomorrow AO flow diagrams; §12 decisions on record.
+
 ## 2026-06-29 (security suite)
 
 ### §10 security matrix test suite (feat/da-skill-script-runtime)
