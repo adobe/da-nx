@@ -12,7 +12,21 @@ const { unified, remarkParse, remarkGfmNoLink, mdast2hast, hastToDom } = await i
 const parser = unified().use(remarkParse).use(remarkGfmNoLink);
 
 function toDOM(hast) {
-  return hastToDom(sanitizeLinks(linkifyBareUrls(hast)), { fragment: true });
+  const result = hastToDom(sanitizeLinks(linkifyBareUrls(hast)), { fragment: true });
+  // hastToDom returns a full Document (nodeType 9) when the hast root has no
+  // children or contains an <html> element — e.g. an empty directive body
+  // produces an empty root whose children.length === 0 triggers createDocument()
+  // instead of createDocumentFragment(). Inserting a Document into a Lit
+  // binding causes HierarchyRequestError, so we extract the body children into
+  // a DocumentFragment instead.
+  if (result.nodeType === Node.DOCUMENT_NODE) {
+    const frag = document.createDocumentFragment();
+    if (result.body) {
+      while (result.body.firstChild) frag.append(result.body.firstChild);
+    }
+    return frag;
+  }
+  return result;
 }
 
 function renderMessageContent(text) {
