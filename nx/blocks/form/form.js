@@ -1,5 +1,6 @@
 import { LitElement, html, nothing } from 'da-lit';
 import getPathDetails from 'https://da.live/blocks/shared/pathDetails.js';
+import { loadStyle } from '../../../nx2/utils/utils.js';
 
 import 'https://da.live/blocks/edit/da-title/da-title.js';
 
@@ -11,8 +12,7 @@ import './views/editor.js';
 import './views/sidebar.js';
 import './views/preview.js';
 
-const { default: getStyle } = await import('../../utils/styles.js');
-const style = await getStyle(import.meta.url);
+const style = await loadStyle(import.meta.url);
 
 const SL_COMPONENTS_MODULE = '../../public/sl/components.js';
 
