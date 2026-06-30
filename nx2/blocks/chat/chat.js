@@ -10,6 +10,7 @@ import './pills/pills.js';
 import { loadSiteConfig } from './utils/api.js';
 import { ADOBE_AI_GUIDELINES_URL, ADD_MENU_ITEMS, MENU_OPTIONS, ROLE, TOOL_STATE } from './constants.js';
 import { getConfig } from '../../scripts/nx.js';
+import { buildAttachmentPayload, buildSlashMessage } from './utils/chat-helpers.js';
 
 const styles = await loadStyle(import.meta.url);
 const { codeBase } = getConfig();
@@ -167,13 +168,18 @@ class NxChat extends LitElement {
   _onSlashSelect(skillId) {
     const input = this.shadowRoot?.querySelector('.chat-input');
     const { wordStart } = this._slashCtx ?? {};
-    const before = input?.value.slice(0, wordStart ?? 0).trimEnd();
-    const after = input?.value.slice(input.selectionStart).trimStart();
-    const message = [before, `/${skillId}`, after].filter(Boolean).join(' ');
+    const message = buildSlashMessage(input?.value ?? '', input?.selectionStart ?? 0, wordStart, skillId);
     this._slashCtx = null;
     this._slashMenuEl?.close();
     if (input) input.value = '';
-    this._controller.sendMessage(message, [], { requestedSkills: [skillId] });
+    const items = this._items ?? [];
+    const fileItems = items.filter((item) => item.dataBase64);
+    const contextItems = items.filter((item) => !item.dataBase64);
+    const attachments = buildAttachmentPayload(items);
+    fileItems.forEach((item) => { if (item.thumbnail) URL.revokeObjectURL(item.thumbnail); });
+    const opts = { requestedSkills: [skillId], ...(attachments.length ? { attachments } : {}) };
+    this._controller.sendMessage(message, contextItems, opts);
+    this._items = [];
   }
 
   async connectedCallback() {
@@ -334,9 +340,7 @@ class NxChat extends LitElement {
     const fileItems = (this._items ?? []).filter((i) => i.dataBase64);
     const contextItems = (this._items ?? []).filter((i) => !i.dataBase64);
     const message = text || (fileItems.length > 1 ? 'Attached files' : 'Attached file');
-    const attachments = fileItems.map(({ id, fileName, mediaType, sizeBytes, dataBase64 }) => ({
-      id, fileName, mediaType, dataBase64, ...(typeof sizeBytes === 'number' ? { sizeBytes } : {}),
-    }));
+    const attachments = buildAttachmentPayload(this._items ?? []);
     fileItems.forEach((i) => { if (i.thumbnail) URL.revokeObjectURL(i.thumbnail); });
     this._slashMenuEl?.close();
     this._controller.sendMessage(message, contextItems, { attachments });
