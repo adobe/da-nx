@@ -1,58 +1,36 @@
 import { expect } from '@esm-bundle/chai';
+import { buildAttachmentPayload, buildSlashMessage } from '../../../../nx2/blocks/chat/utils/chat-helpers.js';
 
-// Test _buildAttachmentPayload and _onSlashSelect in isolation without
-// importing chat.js (which has side-effect imports and top-level await).
-// We mirror the exact method implementations from the class under test.
-
-function buildAttachmentPayload(items) {
-  return items
-    .filter((item) => item.dataBase64)
-    .map(({ id, fileName, mediaType, sizeBytes, dataBase64 }) => ({
-      id,
-      fileName,
-      mediaType,
-      dataBase64,
-      ...(typeof sizeBytes === 'number' ? { sizeBytes } : {}),
-    }));
-}
-
-// Build a minimal chat-like object that has just enough state/methods
-// to exercise _onSlashSelect logic.
+// Build a minimal chat-like object with just enough state to exercise
+// the _onSlashSelect orchestration (menu close, sendMessage call, items reset).
 function makeChat(items = []) {
   const calls = [];
   const chat = {
     _items: items,
     _slashCtx: { wordStart: 0 },
     _slashMenuEl: { close() {} },
-    // Minimal shadow root: input with empty value and selectionStart=0
     shadowRoot: {
       querySelector(sel) {
-        if (sel === '.chat-input') {
-          return { value: '/writeBlog', selectionStart: 10 };
-        }
+        if (sel === '.chat-input') return { value: '/writeBlog', selectionStart: 10 };
         return null;
       },
     },
     _controller: {
       sendMessage(...args) { calls.push(args); },
     },
-    _buildAttachmentPayload: buildAttachmentPayload,
   };
 
-  // Inline _onSlashSelect as it appears in chat.js after the fixes.
   chat._onSlashSelect = function onSlashSelect(skillId) {
     const input = this.shadowRoot?.querySelector('.chat-input');
     const { wordStart } = this._slashCtx ?? {};
-    const before = input?.value.slice(0, wordStart ?? 0).trimEnd();
-    const after = input?.value.slice(input.selectionStart).trimStart();
-    const message = [before, `/${skillId}`, after].filter(Boolean).join(' ');
+    const message = buildSlashMessage(input?.value ?? '', input?.selectionStart ?? 0, wordStart, skillId);
     this._slashCtx = null;
     this._slashMenuEl?.close();
     if (input) input.value = '';
     const localItems = this._items ?? [];
     const fileItems = localItems.filter((item) => item.dataBase64);
     const contextItems = localItems.filter((item) => !item.dataBase64);
-    const attachments = this._buildAttachmentPayload(localItems);
+    const attachments = buildAttachmentPayload(localItems);
     fileItems.forEach((item) => { if (item.thumbnail) URL.revokeObjectURL(item.thumbnail); });
     const opts = { requestedSkills: [skillId], ...(attachments.length ? { attachments } : {}) };
     this._controller.sendMessage(message, contextItems, opts);
@@ -62,7 +40,7 @@ function makeChat(items = []) {
   return { chat, calls };
 }
 
-describe('NxChat _buildAttachmentPayload', () => {
+describe('buildAttachmentPayload', () => {
   it('returns only items that have dataBase64', () => {
     const items = [
       { id: '1', fileName: 'a.png', mediaType: 'image/png', sizeBytes: 100, dataBase64: 'abc' },
@@ -83,6 +61,23 @@ describe('NxChat _buildAttachmentPayload', () => {
     const items = [{ id: '1', fileName: 'a.png', mediaType: 'image/png', sizeBytes: 42, dataBase64: 'abc' }];
     const result = buildAttachmentPayload(items);
     expect(result[0].sizeBytes).to.equal(42);
+  });
+});
+
+describe('buildSlashMessage', () => {
+  it('replaces the slash word with the skill id', () => {
+    const result = buildSlashMessage('/writeBlog', 10, 0, 'writeBlog');
+    expect(result).to.equal('/writeBlog');
+  });
+
+  it('preserves text before the word start', () => {
+    const result = buildSlashMessage('hello /write', 12, 6, 'writeBlog');
+    expect(result).to.equal('hello /writeBlog');
+  });
+
+  it('preserves text after the cursor', () => {
+    const result = buildSlashMessage('/write world', 6, 0, 'writeBlog');
+    expect(result).to.equal('/writeBlog world');
   });
 });
 
