@@ -18,9 +18,15 @@ function affectedFolders(toolName, input) {
   return input.path ? [toParent(input.path)] : [];
 }
 
-const AGENT_URL = new URLSearchParams(window.location.search).get('ref') === 'local'
-  ? 'http://localhost:4200/chat'
-  : 'https://agent.da.live/chat';
+function resolveAgentUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const agent = params.get('da-agent') || params.get('ref');
+  if (agent === 'local') return 'http://localhost:4002/chat';
+  if (agent === 'stage') return 'https://stage-agent.da.live/chat';
+  return 'https://agent.da.live/chat';
+}
+
+const AGENT_URL = resolveAgentUrl();
 
 /**
  * Drop assistant array-content messages whose tool-call IDs have no matching
