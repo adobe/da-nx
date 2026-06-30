@@ -1,10 +1,10 @@
 import { source, fromPath, daFetch as nx2DaFetch } from '../../../../nx2/utils/api.js';
+import { HLX_ADMIN } from '../../../../nx2/utils/utils.js';
 import { etcFetch } from '../core/urls.js';
 import {
   IndexFiles,
   ExternalMedia,
   DA_ETC_ORIGIN,
-  HLX_ADMIN,
 } from '../core/constants.js';
 import { MediaLibraryError, ErrorCodes, logMediaLibraryError } from '../core/errors.js';
 import { isPerfEnabled } from '../core/params.js';

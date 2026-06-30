@@ -56,15 +56,15 @@
     }
 
     &.active {
-      background: light-dark(var(--s2-blue-200), var(--s2-blue-900));
-      color: light-dark(var(--s2-blue-800), var(--s2-blue-200));
+      background: light-dark(var(--s2-blue-200), var(--s2-blue-800));
+      color: light-dark(var(--s2-blue-800), var(--s2-blue-100));
       font-weight: 600;
     }
 
     &:hover,
     &.active:hover {
-      background: light-dark(var(--s2-blue-200), var(--s2-blue-900));
-      color: light-dark(var(--s2-blue-800), var(--s2-blue-200));
+      background: light-dark(var(--s2-blue-200), var(--s2-blue-800));
+      color: light-dark(var(--s2-blue-800), var(--s2-blue-100));
     }
 
     &:focus-visible {
@@ -299,9 +299,9 @@
   padding: 8px 12px;
   font-size: 14px;
   font-weight: 500;
-  color: var(--s2-gray-700);
-  background: var(--s2-gray-50);
-  border: 1px solid var(--s2-gray-300);
+  color: light-dark(var(--s2-gray-700), var(--s2-gray-300));
+  background: light-dark(var(--s2-gray-50), var(--s2-gray-800));
+  border: 1px solid light-dark(var(--s2-gray-300), var(--s2-gray-600));
   border-radius: var(--s2-radius-100);
   cursor: pointer;
   transition: all 0.2s ease;
@@ -309,9 +309,9 @@
 }
 
 .report-btn.active {
-  color: var(--s2-blue-700);
-  background: var(--s2-blue-100);
-  border-color: var(--s2-blue-500);
+  color: light-dark(var(--s2-blue-700), var(--s2-blue-100));
+  background: light-dark(var(--s2-blue-100), var(--s2-blue-800));
+  border-color: light-dark(var(--s2-blue-500), var(--s2-blue-600));
   font-weight: 600;
 }
 
@@ -321,9 +321,9 @@
   padding: 8px 12px;
   font-size: 14px;
   font-weight: 500;
-  color: var(--s2-gray-700);
-  background: var(--s2-gray-50);
-  border: 1px solid var(--s2-gray-300);
+  color: light-dark(var(--s2-gray-700), var(--s2-gray-300));
+  background: light-dark(var(--s2-gray-50), var(--s2-gray-800));
+  border: 1px solid light-dark(var(--s2-gray-300), var(--s2-gray-600));
   border-radius: var(--s2-radius-100);
   cursor: pointer;
   transition: all 0.2s ease;
@@ -341,9 +341,9 @@
 /* Same blue hover as Types (.media-sidebar button:hover); higher specificity than .report-btn alone */
 .media-sidebar button.report-btn:hover,
 .media-sidebar button.export-btn:hover:not(:disabled) {
-  background: var(--s2-blue-200);
-  color: var(--s2-blue-800);
-  border-color: var(--s2-blue-400);
+  background: light-dark(var(--s2-blue-200), var(--s2-blue-800));
+  color: light-dark(var(--s2-blue-800), var(--s2-blue-100));
+  border-color: light-dark(var(--s2-blue-400), var(--s2-blue-600));
 }
 
 .badge {
