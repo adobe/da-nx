@@ -1,19 +1,29 @@
-import { DA_ORIGIN } from '../../../public/utils/constants.js';
-import { daFetch } from '../../../utils/daFetch.js';
+import { DA_ADMIN } from '../../../../nx2/utils/utils.js';
+import { daFetch } from '../../../../nx2/utils/api.js';
 
 // CodeMirror
 import {
   EditorView,
   basicSetup,
+  Compartment,
   json as cmjson,
   githubLight,
+  oneDark,
 } from '../../../deps/codemirror/dist/index.js';
+
+const themeCompartment = new Compartment();
+
+function getTheme() {
+  const stored = localStorage.getItem('color-scheme');
+  const isDark = stored ? stored === 'dark-scheme' : matchMedia('(prefers-color-scheme: dark)').matches;
+  return isDark ? oneDark : githubLight;
+}
 
 const FORMS_BASE_PATH = '/.da/forms/schemas';
 const HTML_SHELL = '<body><header></header><main><div><pre><code>{{JSON}}</code></pre></div></main><footer></footer></body>';
 
 async function loadSchema(schema) {
-  const resp = await daFetch(`${DA_ORIGIN}/source${schema.path}`);
+  const resp = await daFetch({ url: `${DA_ADMIN}/source${schema.path}` });
   if (!resp.ok) return { error: 'Could not load current schema.' };
   const html = await resp.text();
 
@@ -28,10 +38,10 @@ export async function loadSchemas(org, site) {
   const sitePath = `/${org}/${site}${FORMS_BASE_PATH}`;
   const path = site ? sitePath : orgPath;
 
-  let resp = await daFetch(`${DA_ORIGIN}/list${path}`);
+  let resp = await daFetch({ url: `${DA_ADMIN}/list${path}` });
 
   // If this was a site request, and it was empty, fallback to org
-  if (!resp.ok && site) resp = await daFetch(`${DA_ORIGIN}/list${orgPath}`);
+  if (!resp.ok && site) resp = await daFetch({ url: `${DA_ADMIN}/list${orgPath}` });
 
   if (!resp.ok) {
     // eslint-disable-next-line no-console
@@ -71,7 +81,7 @@ export async function saveSchema(prefix, id, jsonStr) {
   body.append('data', data);
 
   const opts = { method: 'POST', body };
-  const resp = await daFetch(`${DA_ORIGIN}/source${path}`, opts);
+  const resp = await daFetch({ url: `${DA_ADMIN}/source${path}`, opts });
   if (!resp.ok) return { error: `Error saving. Status: ${resp.status}` };
   return { status: resp.status };
 }
@@ -80,7 +90,7 @@ export async function deleteSchema(prefix, id) {
   const path = `${prefix}${FORMS_BASE_PATH}/${id}.html`;
 
   const opts = { method: 'DELETE' };
-  const resp = await daFetch(`${DA_ORIGIN}/source${path}`, opts);
+  const resp = await daFetch({ url: `${DA_ADMIN}/source${path}`, opts });
   if (!resp.ok) return { error: `Error deleting. Status: ${resp.status}` };
   return { status: resp.status };
 }
@@ -88,9 +98,14 @@ export async function deleteSchema(prefix, id) {
 export function loadCodeMirror(el, doc) {
   const editor = new EditorView({
     doc,
-    extensions: [basicSetup, cmjson(), githubLight],
+    extensions: [basicSetup, cmjson(), themeCompartment.of(getTheme())],
     parent: el,
   });
+
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    editor.dispatch({ effects: themeCompartment.reconfigure(getTheme()) });
+  });
+
   return editor;
 }
 
