@@ -20,6 +20,9 @@ neuter(self, 'importScripts');
 neuter(self, 'indexedDB');
 neuter(self, 'caches');
 neuter(self, 'Notification');
+neuter(self, 'localStorage');
+neuter(self, 'sessionStorage');
+neuter(self, 'document');
 if (self.navigator) {
   try { Object.defineProperty(self.navigator, 'sendBeacon', { value: undefined, writable: false }); } catch {}
 }
