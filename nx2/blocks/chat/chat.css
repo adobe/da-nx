@@ -285,6 +285,12 @@
   background-color: var(--s2-red-200);
 }
 
+.message-content a {
+  color: var(--s2-blue-900);
+  text-decoration: underline;
+  overflow-wrap: anywhere;
+}
+
 .message {
   padding: 6px var(--s2-spacing-200);
   border-radius: 12px;
