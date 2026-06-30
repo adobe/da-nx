@@ -1,5 +1,22 @@
 # Worklog
 
+## 2026-06-30 (harden/worker-neuter-storage)
+
+### Explicitly neuter localStorage / sessionStorage / document in worker-host.js
+
+Extended the `neuter(self, prop)` block in `WORKER_BOOTSTRAP` to also neuter three additional globals:
+- `localStorage`
+- `sessionStorage`
+- `document` (covers `document.cookie`)
+
+These are absent in a dedicated Web Worker by spec today, but neutering them explicitly makes the guarantee enforce-by-construction: if the bootstrap ever runs in a non-Worker isolate or a future runtime that exposes them, the guarantee holds without relying on spec defaults.
+
+**Files changed:**
+- `nx2/utils/skill-runtime/worker-host.js` — three new `neuter(self, ...)` calls after `caches` / `Notification`
+- `test/nx2/utils/skill-runtime/skill-runtime.test.js` — added `sessionStorage` test; strengthened `localStorage` + `document` comments to note explicit neutering (enforce-by-construction)
+
+**Test count:** 1036 passed, 0 failed (up from 1035).
+
 ## 2026-06-29 (skill-script-runtime + marketplace design)
 
 ### Landed on feat/da-skill-script-runtime
