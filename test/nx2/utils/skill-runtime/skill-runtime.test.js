@@ -219,9 +219,23 @@ describe('security — no storage globals in worker (§10)', () => {
     }
   });
 
-  it('localStorage is unavailable inside the worker', async () => {
-    // localStorage is not part of the Worker spec — typeof returns 'undefined'.
+  it('localStorage is undefined inside the worker (explicitly neutered)', async () => {
+    // Explicitly neutered by worker-host.js — enforce-by-construction, not just spec absence.
     const scriptBody = 'export async function run() { return { t: typeof localStorage }; }';
+    const moduleUrl = makeSkillBlobUrl(scriptBody);
+    const manifest = makeFakeManifest();
+    try {
+      const result = await runSkillScript({ manifest, moduleUrl, input: {} });
+      expect(result.error).to.be.undefined;
+      expect(result.json.t).to.equal('undefined');
+    } finally {
+      URL.revokeObjectURL(moduleUrl);
+    }
+  });
+
+  it('sessionStorage is undefined inside the worker (explicitly neutered)', async () => {
+    // Explicitly neutered by worker-host.js — enforce-by-construction, not just spec absence.
+    const scriptBody = 'export async function run() { return { t: typeof sessionStorage }; }';
     const moduleUrl = makeSkillBlobUrl(scriptBody);
     const manifest = makeFakeManifest();
     try {
@@ -239,7 +253,8 @@ describe('security — no storage globals in worker (§10)', () => {
 // ---------------------------------------------------------------------------
 
 describe('security — no document or cookies in worker (§10)', () => {
-  it('document is undefined inside the worker', async () => {
+  it('document is undefined inside the worker (explicitly neutered)', async () => {
+    // Explicitly neutered by worker-host.js — enforce-by-construction, not just spec absence.
     const scriptBody = 'export async function run() { return { t: typeof document }; }';
     const moduleUrl = makeSkillBlobUrl(scriptBody);
     const manifest = makeFakeManifest();
@@ -286,7 +301,7 @@ describe('security — host object exposes only log and deps (§10)', () => {
     try {
       const result = await runSkillScript({ manifest, moduleUrl, input: {} });
       expect(result.error).to.be.undefined;
-      const keys = result.json.keys;
+      const { keys } = result.json;
       // Must contain exactly log and deps — nothing else
       expect(keys).to.deep.equal(['deps', 'log']);
       // Explicit deny: no credential-adjacent fields
