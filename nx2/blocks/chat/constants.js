@@ -106,6 +106,10 @@ const DIRECTIVE_TYPE = {
   PREFLIGHT: 'preflight',
 };
 
+/**
+ * Task status values shared across plan/task-list/task-item components.
+ * Matches values sent in :::plan / :::task-list / :::task-item directive payloads.
+ */
 const TASK_STATUS = {
   PENDING: 'pending',
   RUNNING: 'running',

@@ -485,7 +485,7 @@ class NxChat extends LitElement {
     await this._onFilesSelected(accepted);
   }
 
-  _getTaskText() {
+  get _taskText() {
     const msgs = this.messages ?? [];
     const last = msgs.at(-1);
     const streamingText = last?.streaming ? last.content : null;
@@ -500,8 +500,7 @@ class NxChat extends LitElement {
   }
 
   _renderMessages() {
-    const taskText = this._getTaskText();
-    return (this.messages ?? []).map((msg) => renderMessage(msg, this.toolCards, taskText));
+    return (this.messages ?? []).map((msg) => renderMessage(msg, this.toolCards, this._taskText));
   }
 
   render() {

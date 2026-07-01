@@ -1,6 +1,6 @@
 import { html, nothing } from 'da-lit';
 import {
-  AGENT_EVENT, DIRECTIVE_TYPE, PLAN_RUN_EVENT, ROLE, TOOL_INPUT, TOOL_NAME, TOOL_STATE,
+  AGENT_EVENT, DIRECTIVE_TYPE, ROLE, TOOL_INPUT, TOOL_NAME, TOOL_STATE,
 } from './constants.js';
 import { getConfig } from '../../scripts/nx.js';
 import { parseDirectives } from './utils/parse.js';
@@ -171,7 +171,7 @@ function renderApprovalCard(pending, onApprove) {
   if (toolName === TOOL_NAME.EXIT_PLAN_MODE) {
     return html`<nx-campaign-plan-card
       .plan=${input}
-      @${PLAN_RUN_EVENT}=${() => onApprove(toolCallId, true)}
+      @nx-plan-run=${() => onApprove(toolCallId, true)}
     ></nx-campaign-plan-card>`;
   }
   if (toolName === TOOL_NAME.RUN_PREFLIGHT) {
