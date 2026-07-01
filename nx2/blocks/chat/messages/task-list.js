@@ -1,5 +1,6 @@
 import { LitElement, html } from 'da-lit';
 import { loadStyle } from '../../../utils/utils.js';
+import { TASK_STATUS } from '../constants.js';
 import './task-item.js';
 
 const styles = await loadStyle(import.meta.url);
@@ -27,7 +28,7 @@ class NxTaskList extends LitElement {
       ${tasks.map((task) => html`
         <nx-task-item
           truncate
-          status=${task.status ?? 'pending'}
+          status=${task.status ?? TASK_STATUS.PENDING}
           label=${task.label ?? ''}
         ></nx-task-item>
       `)}

@@ -1,6 +1,6 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../../utils/utils.js';
-import { TASK_STATUS } from './task-item.js';
+import { PLAN_RUN_EVENT, TASK_STATUS } from '../constants.js';
 
 const styles = await loadStyle(import.meta.url);
 
@@ -38,7 +38,7 @@ class NxCampaignPlanCard extends LitElement {
     }));
   }
 
-  _runningState(tasks) {
+  _findRunningTask(tasks) {
     const runningIdx = tasks.findIndex((t) => t.status === TASK_STATUS.RUNNING);
     return runningIdx >= 0 ? { task: tasks[runningIdx], current: runningIdx + 1 } : null;
   }
@@ -85,7 +85,7 @@ class NxCampaignPlanCard extends LitElement {
     const plan = this.plan ?? {};
     const { title = '', description = '', tasks = [] } = plan;
 
-    const running = this._runningState(tasks);
+    const running = this._findRunningTask(tasks);
     const isRunning = running !== null;
     const isAllDone = tasks.length > 0 && tasks.every((t) => t.status === TASK_STATUS.DONE);
     const isDone = !isRunning && isAllDone;
@@ -108,7 +108,7 @@ class NxCampaignPlanCard extends LitElement {
               type="button"
               class=${runBtnClass}
               ?disabled=${isRunning || isDone}
-              @click=${() => !isRunning && !isDone && this._dispatch('nx-plan-run')}
+              @click=${() => !isRunning && !isDone && this._dispatch(PLAN_RUN_EVENT)}
             >${runBtnLabel}</button>
             <button
               type="button"

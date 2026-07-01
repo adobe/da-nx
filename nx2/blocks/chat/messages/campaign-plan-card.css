@@ -117,7 +117,7 @@
   padding: var(--s2-spacing-200);
   margin: 0 var(--s2-spacing-300) var(--s2-spacing-200);
   background-color: var(--s2-gray-50, #f8f8f8);
-  border-radius: 8px;
+  border-radius: var(--s2-corner-radius-500);
   border: 1px solid var(--s2-gray-200, #e1e1e1);
 }
 

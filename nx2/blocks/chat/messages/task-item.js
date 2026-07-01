@@ -1,17 +1,10 @@
 import { LitElement, html } from 'da-lit';
 import { loadStyle } from '../../../utils/utils.js';
+import { TASK_STATUS } from '../constants.js';
+
+export { TASK_STATUS };
 
 const styles = await loadStyle(import.meta.url);
-
-/**
- * Task status constants shared across plan/task-list/task-item components.
- * Matches values sent in :::plan / :::task-list / :::task-item directive payloads.
- */
-export const TASK_STATUS = {
-  PENDING: 'pending',
-  RUNNING: 'running',
-  DONE: 'done',
-};
 
 /**
  * <nx-task-item> — single task row with icon + label + optional progress badge.

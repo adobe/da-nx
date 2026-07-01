@@ -106,6 +106,14 @@ const DIRECTIVE_TYPE = {
   PREFLIGHT: 'preflight',
 };
 
+const TASK_STATUS = {
+  PENDING: 'pending',
+  RUNNING: 'running',
+  DONE: 'done',
+};
+
+const PLAN_RUN_EVENT = 'nx-plan-run';
+
 export {
   ADOBE_AI_GUIDELINES_URL,
   ADD_MENU_ITEMS,
@@ -113,7 +121,9 @@ export {
   CHAT_ICONS,
   DIRECTIVE_TYPE,
   MENU_OPTIONS,
+  PLAN_RUN_EVENT,
   ROLE,
+  TASK_STATUS,
   TOOL_INPUT,
   TOOL_NAME,
   TOOL_SCOPE,

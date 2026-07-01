@@ -1,6 +1,6 @@
 import { html, nothing } from 'da-lit';
 import {
-  AGENT_EVENT, DIRECTIVE_TYPE, ROLE, TOOL_INPUT, TOOL_NAME, TOOL_STATE,
+  AGENT_EVENT, DIRECTIVE_TYPE, PLAN_RUN_EVENT, ROLE, TOOL_INPUT, TOOL_NAME, TOOL_STATE,
 } from './constants.js';
 import { getConfig } from '../../scripts/nx.js';
 import { parseDirectives } from './utils/parse.js';
@@ -58,13 +58,7 @@ function renderTaskListDirective(content) {
   return html`<nx-task-list .tasks=${data.tasks ?? []}></nx-task-list>`;
 }
 
-/**
- * Merge :::task-item status updates from streaming text into a submit_plan task list.
- * Returns a new plan object with updated task statuses, or the original if nothing changed.
- */
-function mergeTaskItemsFromText(plan, streamingText) {
-  if (!streamingText || !plan?.tasks?.length) return plan;
-  const directives = parseDirectives(streamingText);
+function buildTaskStatusMap(directives) {
   const updates = new Map();
   for (const d of directives) {
     if (d.kind === 'directive' && d.type === DIRECTIVE_TYPE.TASK_ITEM) {
@@ -72,6 +66,16 @@ function mergeTaskItemsFromText(plan, streamingText) {
       if (data?.label) updates.set(data.label, data.status);
     }
   }
+  return updates;
+}
+
+/**
+ * Merge :::task-item status updates from streaming text into a plan task list.
+ * Returns a new plan object with updated task statuses, or the original if nothing changed.
+ */
+function mergeTaskItemsFromText(plan, streamingText) {
+  if (!streamingText || !plan?.tasks?.length) return plan;
+  const updates = buildTaskStatusMap(parseDirectives(streamingText));
   if (!updates.size) return plan;
   return {
     ...plan,
@@ -83,15 +87,7 @@ function mergeTaskItemsIntoPlan(directives) {
   const planIdx = directives.findIndex((d) => d.kind === 'directive' && d.type === DIRECTIVE_TYPE.PLAN);
   if (planIdx < 0) return directives;
 
-  // Collect the latest status for each label from subsequent :::task-item directives
-  const updates = new Map();
-  for (let i = planIdx + 1; i < directives.length; i += 1) {
-    const d = directives[i];
-    if (d.kind === 'directive' && d.type === DIRECTIVE_TYPE.TASK_ITEM) {
-      const data = parseDirectiveJSON(d.content);
-      if (data?.label) updates.set(data.label, data.status);
-    }
-  }
+  const updates = buildTaskStatusMap(directives.slice(planIdx + 1));
 
   if (!updates.size) return directives;
 
@@ -148,7 +144,7 @@ function approvalSummary(input) {
     ?? input[PATH] ?? input[SKILL_ID] ?? input[NAME] ?? null;
 }
 
-function renderSubmitPlanCard(plan, taskText) {
+function renderExitPlanCard(plan, taskText) {
   const merged = mergeTaskItemsFromText(plan, taskText);
   return html`<nx-campaign-plan-card .plan=${merged}></nx-campaign-plan-card>`;
 }
@@ -157,7 +153,7 @@ function renderToolCard(toolCallId, toolCards, streamingText) {
   const card = toolCards?.get(toolCallId);
   if (!card || card.state === TOOL_STATE.APPROVAL_REQUESTED) return nothing;
   const { toolName, state, input } = card;
-  if (toolName === TOOL_NAME.EXIT_PLAN_MODE) return renderSubmitPlanCard(input, streamingText);
+  if (toolName === TOOL_NAME.EXIT_PLAN_MODE) return renderExitPlanCard(input, streamingText);
   if (toolName === TOOL_NAME.RUN_PREFLIGHT) return html`<nx-preflight-card .preflight=${input}></nx-preflight-card>`;
   const detail = approvalSummary(input);
   const failed = state === TOOL_STATE.ERROR || state === TOOL_STATE.REJECTED;
@@ -175,7 +171,7 @@ function renderApprovalCard(pending, onApprove) {
   if (toolName === TOOL_NAME.EXIT_PLAN_MODE) {
     return html`<nx-campaign-plan-card
       .plan=${input}
-      @nx-plan-run=${() => onApprove(toolCallId, true)}
+      @${PLAN_RUN_EVENT}=${() => onApprove(toolCallId, true)}
     ></nx-campaign-plan-card>`;
   }
   if (toolName === TOOL_NAME.RUN_PREFLIGHT) {

@@ -485,6 +485,25 @@ class NxChat extends LitElement {
     await this._onFilesSelected(accepted);
   }
 
+  _getTaskText() {
+    const msgs = this.messages ?? [];
+    const last = msgs.at(-1);
+    const streamingText = last?.streaming ? last.content : null;
+    if (streamingText) return streamingText;
+    // TEXT_END splits output into one string message per inter-tool segment, so
+    // task-item directives for step N may live in a different message than step N+1.
+    // Concatenate all assistant text to let mergeTaskItemsFromText find them all.
+    return msgs
+      .filter((m) => m.role === ROLE.ASSISTANT && typeof m.content === 'string' && !m.streaming)
+      .map((m) => m.content)
+      .join('\n') || null;
+  }
+
+  _renderMessages() {
+    const taskText = this._getTaskText();
+    return (this.messages ?? []).map((msg) => renderMessage(msg, this.toolCards, taskText));
+  }
+
   render() {
     const { view } = this._context ?? {};
     const prompts = (this._prompts ?? [])
@@ -521,20 +540,7 @@ class NxChat extends LitElement {
               @nx-show-prompts=${this._openPrompts}
             ></nx-chat-welcome>`
         : nothing}
-        ${(() => {
-          const msgs = this.messages ?? [];
-          const last = msgs.at(-1);
-          const streamingText = last?.streaming ? last.content : null;
-          // TEXT_END splits output into one string message per inter-tool segment, so
-          // task-item directives for step N may live in a different message than step N+1.
-          // Concatenate all assistant text to let mergeTaskItemsFromText find them all.
-          const allAssistantText = streamingText ? null : msgs
-            .filter((m) => m.role === ROLE.ASSISTANT && typeof m.content === 'string' && !m.streaming)
-            .map((m) => m.content)
-            .join('\n') || null;
-          const taskText = streamingText ?? allAssistantText;
-          return msgs.map((msg) => renderMessage(msg, this.toolCards, taskText));
-        })()}
+        ${this._renderMessages()}
         ${this.thinking && !this.messages?.at(-1)?.streaming ? html`<div class="chat-thinking">Thinking...</div>` : nothing}
         </div>
       </div>
