@@ -31,15 +31,15 @@ import { isMediaLibraryPluginMode } from '../../../core/utils.js';
 
 const style = await loadStyle(import.meta.url);
 const nx2 = `${new URL(import.meta.url).origin}/nx2`;
+const nx = `${new URL(import.meta.url).origin}/nx`;
 const sl = await loadStyle(`${nx2}/public/sl/styles.css`);
 const slComponents = await loadStyle(`${nx2}/public/sl/components.css`);
-const iconsBase = new URL('../../../../../img/icons/', import.meta.url).href;
 
 const ICONS = [
-  `${iconsBase}Smock_Copy_18_N.svg`,
-  `${iconsBase}S2_Icon_Play_20_N.svg`,
-  `${iconsBase}C_Icon_Fragment.svg`,
-  `${iconsBase}S2_Icon_AlertCircle_18_N.svg`,
+  `${nx}/img/icons/Smock_Copy_18_N.svg`,
+  `${nx}/img/icons/S2_Icon_Play_20_N.svg`,
+  `${nx}/img/icons/C_Icon_Fragment.svg`,
+  `${nx}/img/icons/S2_Icon_AlertCircle_18_N.svg`,
 ];
 
 class NxMediaGrid extends LitElement {

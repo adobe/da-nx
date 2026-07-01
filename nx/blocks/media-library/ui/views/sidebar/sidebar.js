@@ -8,10 +8,9 @@ const style = await loadStyle(import.meta.url);
 const nx = `${new URL(import.meta.url).origin}/nx`;
 const sl = await loadStyle(`${nx}/public/sl/styles.css`);
 const slComponents = await loadStyle(`${nx}/public/sl/components.css`);
-const iconsBase = new URL('../../../../../img/icons/', import.meta.url).href;
 const ICONS = [
-  `${iconsBase}S2_Icon_Properties_20_N.svg`,
-  `${iconsBase}S2_GraphBarVertical_18_N.svg`,
+  `${nx}/img/icons/S2_Icon_Properties_20_N.svg`,
+  `${nx}/img/icons/S2_GraphBarVertical_18_N.svg`,
 ];
 
 class NxMediaSidebar extends LitElement {
