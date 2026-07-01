@@ -1,5 +1,16 @@
 # Worklog
 
+## 2026-07-01 (feat/skill-scripts-runtime — eslint clean-up)
+
+### Fix 16 ESLint errors so `npm run lint` exits 0
+
+- `chat-controller.js`: renamed destructure binding `_removed` → `_` (no-unused-vars)
+- `skill-script-roundtrip.test.js`: removed dead `fireSkillToolCall` + `stubResolveAndRun` helpers; `let updates` → `const`; dropped unused `runResult` param; wrapped all six `new Promise((resolve) => setTimeout(...))` calls in braces (no-promise-executor-return); shortened overlong comment (max-len)
+- `skill-script-loader.test.js`: split `mockFetch` param list onto multiple lines (object-curly-newline); split ao-prefix fetch stub body (max-statements-per-line)
+- `skill-script-e2e.test.js`: named the two anonymous async `function` expressions (func-names)
+
+`npm run lint` → 0 errors (4 pre-existing glaas console warnings remain). All 1039 tests pass.
+
 ## 2026-06-30 (feat/skill-scripts-runtime — remove built-in skill)
 
 ### da-nx ships no skill content; skill body moved to a test fixture
