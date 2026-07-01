@@ -1,5 +1,17 @@
 # Worklog
 
+## 2026-06-30 (feat/skill-scripts-runtime — remove built-in skill)
+
+### da-nx ships no skill content; skill body moved to a test fixture
+
+Under the marketplace model, skills live in the curated GH marketplace, not in
+da-nx. Removed the PoC leftover `nx2/blocks/chat/skills-builtin/docx-to-markdown/`
+(skill.md, manifest.js, scripts/convert.js) entirely. The `convert()` body that the
+substrate + real-worker e2e tests need was moved to a test-only fixture at
+`test/fixtures/skill-scripts/docx-convert.js`; `skill-runtime.test.js` and
+`skill-script-e2e.test.js` now reference the fixture. Net: the PR carries only the
+runtime + marketplace resolver + the host-provided `fflate` dep — no skill.
+
 ## 2026-06-30 (harden/worker-neuter-storage)
 
 ### Explicitly neuter localStorage / sessionStorage / document in worker-host.js
