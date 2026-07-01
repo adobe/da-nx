@@ -247,6 +247,10 @@ nx-media-sidebar {
   position: relative;
 }
 
+.content:has(nx-media-grid[pluginmode]) {
+  height: 100%;
+}
+
 .media-content {
   grid-area: main;
   overflow: hidden;
