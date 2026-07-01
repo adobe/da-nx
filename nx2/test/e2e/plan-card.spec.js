@@ -95,6 +95,14 @@ test.describe('nx-campaign-plan-card', () => {
     await expect(items.nth(1)).toHaveAttribute('status', 'running');
   });
 
+  test('renders without error when plan is set to null', async ({ page }) => {
+    await page.evaluate(() => {
+      document.getElementById('card').plan = null;
+    });
+    const card = page.locator('nx-campaign-plan-card');
+    await expect(shadow(card, '.plan-card')).toBeVisible();
+  });
+
   test('shows Done and disables run button when all tasks complete', async ({ page }) => {
     await page.evaluate(() => {
       const card = document.getElementById('card');
