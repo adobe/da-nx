@@ -13,7 +13,7 @@
   gap: 0;
   min-width: 0;
   font-family: var(--s2-font-family);
-  font-size: var(--s2-component-m-regular-font-size);
+  font-size: var(--nx-breadcrumb-font-size, var(--s2-component-m-regular-font-size));
   line-height: var(--s2-component-m-regular-line-height);
   font-weight: var(--s2-component-m-regular-font-weight);
   color: var(--s2-gray-700);
@@ -60,4 +60,19 @@
 .crumb .current {
   color: var(--s2-gray-800);
   font-weight: var(--s2-component-m-bold-font-weight);
+}
+
+::slotted([slot="leaf"]) {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.crumb-suffix {
+  display: flex;
+  align-items: center;
+}
+
+.crumb-suffix.hide {
+  display: none;
 }
