@@ -47,7 +47,7 @@ svg.icon {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: calc(100vh - 200px);
+  height: calc(100vh - var(--ml-chrome-height, 130px) - 70px);
   text-align: center;
   color: var(--s2-gray-700);
 }
@@ -70,7 +70,7 @@ svg.icon {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: calc(100vh - 200px);
+  height: calc(100vh - var(--ml-chrome-height, 130px) - 70px);
   text-align: center;
   color: var(--s2-gray-700);
 }
@@ -111,7 +111,7 @@ svg.icon {
 }
 
 .media-main {
-  height: calc(100vh - 130px);
+  height: calc(100vh - var(--ml-chrome-height, 130px));
   overflow-y: auto;
   position: relative;
   contain: layout;
