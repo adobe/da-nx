@@ -147,7 +147,10 @@ describe('resolveSkill', () => {
   before(() => { origFetch = globalThis.fetch; });
   after(() => { globalThis.fetch = origFetch; });
 
-  function mockFetch({ skillMdText, skillMdOk = true, skillMdStatus = 200, scriptText = 'export function convert() {}', scriptOk = true, scriptStatus = 200 } = {}) {
+  function mockFetch({
+    skillMdText, skillMdOk = true, skillMdStatus = 200,
+    scriptText = 'export function convert() {}', scriptOk = true, scriptStatus = 200,
+  } = {}) {
     globalThis.fetch = async (url) => {
       const u = String(url);
       if (u.includes('skill.md')) {
@@ -302,7 +305,10 @@ execution_capabilities:
 
   it('security: ao: prefix returns an error and never makes a network request', async () => {
     let fetchCalled = false;
-    globalThis.fetch = async () => { fetchCalled = true; return { ok: true, status: 200, text: async () => '' }; };
+    globalThis.fetch = async () => {
+      fetchCalled = true;
+      return { ok: true, status: 200, text: async () => '' };
+    };
     const result = await resolveSkill('ao:evil-skill');
     expect(result.error).to.be.a('string');
     expect(fetchCalled, 'fetch must not be called for ao: prefix').to.be.false;

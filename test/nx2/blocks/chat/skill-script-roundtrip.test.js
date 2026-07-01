@@ -12,47 +12,6 @@ import ChatController from '../../../../nx2/blocks/chat/chat-controller.js';
 import { AGENT_EVENT, ROLE, TOOL_STATE } from '../../../../nx2/blocks/chat/constants.js';
 
 // ---------------------------------------------------------------------------
-// Harness helpers
-// ---------------------------------------------------------------------------
-
-/**
- * Build a minimal ChatController, wire its _context, then fire a TOOL_CALL event
- * for skill_run_script synchronously and return the controller so assertions can run
- * after the async IIFE settles.
- */
-async function fireSkillToolCall({ skillId, input = {}, agentCapabilityHint } = {}) {
-  let updates = [];
-  const ctrl = new ChatController({
-    onUpdate: (state) => updates.push(state),
-    onToolDone: () => {},
-  });
-  ctrl.setContext({ org: 'myorg', site: 'mysite', path: '/index', view: 'edit' });
-  ctrl._messages = [];
-  ctrl._currentTurnId = 'turn-1';
-  ctrl._thinking = true;
-
-  // Build tool input: the agent may (illegitimately) include capability hints.
-  const toolInput = {
-    skillId,
-    input,
-    ...(agentCapabilityHint ? { capabilities: agentCapabilityHint } : {}),
-  };
-
-  // Fire the TOOL_CALL event — the handler launches an async IIFE internally.
-  ctrl._onToolEvent({
-    type: AGENT_EVENT.TOOL_CALL,
-    toolCallId: 'tc-1',
-    toolName: 'skill_run_script',
-    input: toolInput,
-  });
-
-  // Let the async IIFE run to completion.
-  await new Promise((resolve) => setTimeout(resolve, 50));
-
-  return { ctrl, updates };
-}
-
-// ---------------------------------------------------------------------------
 // Mock resolveSkill and runSkillScript at module level via importmap / monkey-patch
 //
 // Since we cannot use dynamic import rewrites in the test runner, we patch the
@@ -75,47 +34,12 @@ describe('skill_run_script round-trip', () => {
     globalThis.fetch = origFetch;
   });
 
-  function stubResolveAndRun({ skillMd, runSkillResult }) {
-    // resolveSkill uses fetch to load skill.md
-    globalThis.fetch = async (url) => {
-      const u = String(url);
-      if (u.includes('skill.md')) {
-        return { ok: true, status: 200, text: async () => skillMd };
-      }
-      // _stream() will also fetch — return a minimal valid SSE response
-      return {
-        ok: true,
-        status: 200,
-        body: new ReadableStream({
-          start(controller) {
-            controller.enqueue(new TextEncoder().encode('data: {"type":"finish-message"}\n\n'));
-            controller.close();
-          },
-        }),
-      };
-    };
-
-    // runSkillScript is imported by chat-controller. We can't easily replace it
-    // without a module mock, so instead we verify the virtual message output
-    // indirectly by observing what the fake skill execution flow produces.
-    // For that we need to inject a fake worker. Use a known-good worker message by
-    // setting up a global spy that the worker-host will receive.
-    //
-    // Alternative: since the skill fetched from DA Admin is script.js at the URL
-    // returned by resolveSkill, and the Worker() constructor needs a real URL, this
-    // path is hard to test end-to-end in WTR without a real URL. We therefore test
-    // the round-trip by stubbing at a higher level: we patch _recordSkillResult and
-    // _stream on the controller instance to capture what was recorded, then call
-    // _onToolEvent and verify the flow dispatched correctly.
-    return runSkillResult; // returned for use in instance-level patching
-  }
-
   // --------------------------------------------------------------------------
   // Instance-level patching approach: replace _recordSkillResult and _stream
   // so we can verify the exact arguments without needing a live Worker.
   // --------------------------------------------------------------------------
 
-  function buildPatchedController({ resolvedManifest, resolveError, runResult }) {
+  function buildPatchedController({ resolvedManifest, resolveError } = {}) {
     const recorded = [];
     const streamed = [];
     const ctrl = new ChatController({
@@ -149,7 +73,7 @@ execution_timeout_ms: 5000
         return { ok: true, status: 200, text: async () => skillMd };
       }
       if (u.includes('/scripts/')) {
-        // Marketplace scripts/<entry>.js — return minimal valid JS so resolveSkill can create blob URL
+        // Marketplace scripts/<entry>.js — minimal JS so resolveSkill can create blob URL
         return { ok: true, status: 200, text: async () => 'export function run() {}' };
       }
       if (u.includes('agent.da.live')) {
@@ -214,7 +138,7 @@ execution_timeout_ms: 5000
     });
 
     // Wait longer for worker creation + onerror to settle
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    await new Promise((resolve) => { setTimeout(resolve, 300); });
 
     // _recordSkillResult must have been called exactly once
     expect(recorded).to.have.lengthOf(1);
@@ -240,7 +164,7 @@ execution_timeout_ms: 5000
       input: { skillId: 'network-skill', input: {} },
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await new Promise((resolve) => { setTimeout(resolve, 50); });
 
     expect(recorded).to.have.lengthOf(1);
     const [, , , output, isError] = recorded[0];
@@ -261,7 +185,7 @@ execution_timeout_ms: 5000
       input: { skillId: 'missing-skill', input: {} },
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await new Promise((resolve) => { setTimeout(resolve, 50); });
 
     expect(recorded).to.have.lengthOf(1);
     const [, , , output, isError] = recorded[0];
@@ -284,7 +208,7 @@ execution_timeout_ms: 5000
       input: { skillId: 'sneaky-skill', input: {}, capabilities: [] },
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 50));
+    await new Promise((resolve) => { setTimeout(resolve, 50); });
 
     // Must still gate on the MANIFEST's capabilities: ['network'] → server-runtime error
     expect(recorded).to.have.lengthOf(1);
@@ -314,7 +238,7 @@ execution_timeout_ms: 5000
       input: { skillId: 'docx-to-markdown', input: { attachmentRef: 'missing-id' } },
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    await new Promise((resolve) => { setTimeout(resolve, 100); });
 
     expect(recorded).to.have.lengthOf(1);
     const [tcId, tName, , output, isError] = recorded[0];
@@ -345,7 +269,7 @@ execution_timeout_ms: 5000
     // Wait for the async IIFE to settle (worker will fail with a blob URL but the
     // key assertion is that _recordSkillResult was called once and the input was
     // forwarded — not rewritten — to runSkillScript).
-    await new Promise((resolve) => setTimeout(resolve, 300));
+    await new Promise((resolve) => { setTimeout(resolve, 300); });
 
     // _recordSkillResult must have been called (worker error or success — either is fine)
     expect(recorded).to.have.lengthOf(1);

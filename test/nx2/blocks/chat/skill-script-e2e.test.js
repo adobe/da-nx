@@ -156,7 +156,7 @@ describe('skill-script E2E — real worker, real script, real docx fixture', () 
   after(() => { globalThis.fetch = origFetch; });
 
   // ── Test 1: Happy path ─────────────────────────────────────────────────────
-  it('happy path: real worker runs real docx script and markdown contains "hello e2e"', async function () {
+  it('happy path: real worker runs real docx script and markdown contains "hello e2e"', async function happyPath() {
     this.timeout(10000);
     const bytes = buildDocx('hello e2e');
     const bytesBase64 = bytesToBase64(bytes);
@@ -251,7 +251,7 @@ describe('skill-script E2E — real worker, real script, real docx fixture', () 
   });
 
   // ── Test 1b: attachmentRef → bytes resolved client-side, real worker runs ─
-  it('attachmentRef: real worker receives bytesBase64 from pending attachment, markdown contains fixture text', async function () {
+  it('attachmentRef: real worker receives bytesBase64 from pending attachment, markdown contains fixture text', async function attachmentRefHappyPath() {
     this.timeout(10000);
 
     // Build a real .docx fixture and register it as a pending attachment

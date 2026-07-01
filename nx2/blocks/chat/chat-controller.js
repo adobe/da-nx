@@ -252,7 +252,7 @@ export default class ChatController {
             }
             const { dataBase64, fileName, mediaType } = attachment;
             // Merge: non-attachment fields from skillInput co-exist; attachmentRef removed.
-            const { attachmentRef: _removed, ...rest } = effectiveInput;
+            const { attachmentRef: _, ...rest } = effectiveInput;
             effectiveInput = { bytesBase64: dataBase64, fileName, mediaType, ...rest };
           }
 
