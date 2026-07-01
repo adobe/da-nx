@@ -1,5 +1,5 @@
-import { source } from '../../../../nx2/utils/api.js';
-import { Paths, Domains, DA_LIVE_EDIT_BASE } from './constants.js';
+import { daFetch } from '../../../utils/daFetch.js';
+import { Paths, Domains, DA_LIVE_EDIT_BASE, DA_ADMIN } from './constants.js';
 import { ErrorCodes, logMediaLibraryError } from './errors.js';
 import { t } from './messages.js';
 import {
@@ -188,10 +188,12 @@ export async function validateSitePath(sitePath) {
 
   if (restPath.length === 0) {
     try {
-      const result = await source.list({ org, site: repo, path: '' });
+      const url = `${DA_ADMIN}/list/${org}/${repo}/`;
+      const resp = await daFetch(url);
 
-      if (result.ok) {
-        const items = result.items || [];
+      if (resp.ok) {
+        const data = await resp.json();
+        const items = Array.isArray(data) ? data : (data.sources || []);
 
         if (!items || items.length === 0) {
           logMediaLibraryError(ErrorCodes.VALIDATION_SITE_NOT_FOUND, { path: `/${org}/${repo}`, status: 404 });
@@ -204,13 +206,13 @@ export async function validateSitePath(sitePath) {
         return { valid: true, org, repo };
       }
 
-      if (result.status === 404) {
+      if (resp.status === 404) {
         logMediaLibraryError(ErrorCodes.VALIDATION_SITE_NOT_FOUND, { path: `/${org}/${repo}`, status: 404 });
         return { valid: false, error: t('VALIDATION_SITE_NOT_FOUND', { path: `/${org}/${repo}` }) };
       }
 
-      if (result.status === 401 || result.status === 403) {
-        logMediaLibraryError(ErrorCodes.DA_READ_DENIED, { path: `/${org}/${repo}`, status: result.status });
+      if (resp.status === 401 || resp.status === 403) {
+        logMediaLibraryError(ErrorCodes.DA_READ_DENIED, { path: `/${org}/${repo}`, status: resp.status });
         return {
           valid: false,
           error: t('VALIDATION_SITE_403'),
@@ -218,7 +220,7 @@ export async function validateSitePath(sitePath) {
         };
       }
 
-      return { valid: false, error: `Validation failed: ${result.status}` };
+      return { valid: false, error: `Validation failed: ${resp.status}` };
     } catch (error) {
       return { valid: false, error: error.message };
     }
@@ -229,13 +231,14 @@ export async function validateSitePath(sitePath) {
   const parentPath = `/${parentParts.join('/')}`;
 
   try {
-    // Extract parent path segments after org/repo for source.list
+    // Extract parent path segments after org/repo for daFetch list
     const parentSegments = restPath.slice(0, -1);
     const parentFilePath = parentSegments.length > 0 ? `/${parentSegments.join('/')}` : '';
-    const result = await source.list({ org, site: repo, path: parentFilePath });
+    const url = `${DA_ADMIN}/list/${org}/${repo}${parentFilePath}`;
+    const resp = await daFetch(url);
 
-    if (!result.ok) {
-      if (result.status === 404) {
+    if (!resp.ok) {
+      if (resp.status === 404) {
         logMediaLibraryError(ErrorCodes.VALIDATION_PATH_NOT_FOUND, {
           path: parentPath,
           status: 404,
@@ -246,10 +249,10 @@ export async function validateSitePath(sitePath) {
         };
       }
 
-      if (result.status === 401 || result.status === 403) {
+      if (resp.status === 401 || resp.status === 403) {
         logMediaLibraryError(
           ErrorCodes.DA_READ_DENIED,
-          { path: parentPath, status: result.status },
+          { path: parentPath, status: resp.status },
         );
         return {
           valid: false,
@@ -258,10 +261,11 @@ export async function validateSitePath(sitePath) {
         };
       }
 
-      return { valid: false, error: `Validation failed: ${result.status}` };
+      return { valid: false, error: `Validation failed: ${resp.status}` };
     }
 
-    const items = result.items || [];
+    const data = await resp.json();
+    const items = Array.isArray(data) ? data : (data.sources || []);
 
     if (!items || items.length === 0) {
       return {

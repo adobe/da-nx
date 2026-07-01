@@ -5,11 +5,11 @@
  * It handles lock creation, refresh (heartbeat), removal, ownership, and checking.
  */
 
-import { source, fromPath } from '../../../../nx2/utils/api.js';
+import { daFetch } from '../../../utils/daFetch.js';
 import { createSheet } from './admin-api.js';
 import { MediaLibraryError, ErrorCodes, logMediaLibraryError } from '../core/errors.js';
 import { t } from '../core/messages.js';
-import { IndexFiles, IndexConfig } from '../core/constants.js';
+import { IndexFiles, IndexConfig, DA_ADMIN } from '../core/constants.js';
 
 const LOCK_OWNER_STORAGE_KEY = 'media-library-lock-owner-id';
 
@@ -24,8 +24,7 @@ export function getIndexLockPath(sitePath) {
 export async function checkIndexLock(sitePath) {
   const path = getIndexLockPath(sitePath);
   try {
-    const { org, site, path: filePath } = fromPath(path);
-    const resp = await source.get({ org, site, path: filePath });
+    const resp = await daFetch(`${DA_ADMIN}/source${path}`);
     if (resp.ok) {
       const data = await resp.json();
       const lockData = data.data?.[0] || data;
@@ -90,9 +89,11 @@ export async function createIndexLock(sitePath) {
     ownerId,
     locked: true,
   }];
-  const body = await createSheet(lockData);
-  const { org, site, path: filePath } = fromPath(path);
-  const resp = await source.save({ org, site, path: filePath, body });
+  const formData = await createSheet(lockData);
+  const resp = await daFetch(`${DA_ADMIN}/source${path}`, {
+    method: 'PUT',
+    body: formData,
+  });
   if (!resp.ok) {
     logMediaLibraryError(ErrorCodes.LOCK_CREATE_FAILED, { status: resp.status, path });
     const isDenied = resp.status === 401 || resp.status === 403;
@@ -105,7 +106,7 @@ export async function createIndexLock(sitePath) {
 export async function refreshIndexLock(sitePath, lockData = {}) {
   const path = getIndexLockPath(sitePath);
   const now = Date.now();
-  const body = await createSheet([{
+  const formData = await createSheet([{
     locked: true,
     timestamp: lockData.timestamp || lockData.startedAt || now,
     startedAt: lockData.startedAt || lockData.timestamp || now,
@@ -113,8 +114,10 @@ export async function refreshIndexLock(sitePath, lockData = {}) {
     ownerId: lockData.ownerId || getIndexLockOwnerId(),
     mode: lockData.mode || '',
   }]);
-  const { org, site, path: filePath } = fromPath(path);
-  const resp = await source.save({ org, site, path: filePath, body });
+  const resp = await daFetch(`${DA_ADMIN}/source${path}`, {
+    method: 'PUT',
+    body: formData,
+  });
   if (!resp.ok) {
     logMediaLibraryError(ErrorCodes.LOCK_CREATE_FAILED, { status: resp.status, path });
     const isDenied = resp.status === 401 || resp.status === 403;
@@ -126,8 +129,9 @@ export async function refreshIndexLock(sitePath, lockData = {}) {
 
 export async function removeIndexLock(sitePath) {
   const path = getIndexLockPath(sitePath);
-  const { org, site, path: filePath } = fromPath(path);
-  const resp = await source.delete({ org, site, path: filePath });
+  const resp = await daFetch(`${DA_ADMIN}/source${path}`, {
+    method: 'DELETE',
+  });
   if (!resp.ok) {
     if (resp.status === 404) return resp;
     logMediaLibraryError(ErrorCodes.LOCK_REMOVE_FAILED, { status: resp.status, path });

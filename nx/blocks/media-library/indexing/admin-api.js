@@ -1,10 +1,11 @@
-import { source, fromPath, daFetch as nx2DaFetch } from '../../../../nx2/utils/api.js';
-import { HLX_ADMIN } from '../../../../nx2/utils/utils.js';
+import { daFetch } from '../../../utils/daFetch.js';
 import { etcFetch } from '../core/urls.js';
 import {
   IndexFiles,
   ExternalMedia,
   DA_ETC_ORIGIN,
+  DA_ADMIN,
+  HLX_ADMIN,
 } from '../core/constants.js';
 import { MediaLibraryError, ErrorCodes, logMediaLibraryError } from '../core/errors.js';
 import { isPerfEnabled } from '../core/params.js';
@@ -42,8 +43,7 @@ function createRateLimiter(initialRate) {
 const aemPageMarkdownLimiter = createRateLimiter(AEM_PAGE_MARKDOWN_RATE);
 
 async function fetchWithAuthRaw(url, opts = {}) {
-  // Use nx2's daFetch which handles IMS internally
-  return nx2DaFetch({ url, opts });
+  return daFetch(url, opts);
 }
 
 export async function createSheet(data, type = 'sheet') {
@@ -177,8 +177,7 @@ export async function fetchPaginated(
 
 export async function loadSheet(path) {
   try {
-    const { org, site, path: filePath } = fromPath(path);
-    const resp = await source.get({ org, site, path: filePath });
+    const resp = await daFetch(`${DA_ADMIN}/source${path}`);
 
     if (resp.ok) {
       const data = await resp.json();
@@ -194,8 +193,7 @@ export async function loadMultiSheet(path, sheetName, options = {}) {
   const { allowMissing = false } = options;
 
   try {
-    const { org, site, path: filePath } = fromPath(path);
-    const resp = await source.get({ org, site, path: filePath });
+    const resp = await daFetch(`${DA_ADMIN}/source${path}`);
 
     if (resp.ok) {
       const data = await resp.json();
@@ -299,15 +297,16 @@ export async function loadIndexChunks(basePath, chunkCount, sheetName, onProgres
 }
 
 export async function saveSheet(data, path) {
-  const body = await createSheet(data);
-  const { org, site, path: filePath } = fromPath(path);
-  return source.save({ org, site, path: filePath, body });
+  const formData = await createSheet(data);
+  return daFetch(`${DA_ADMIN}/source${path}`, {
+    method: 'PUT',
+    body: formData,
+  });
 }
 
 export async function loadSheetMeta(path) {
   try {
-    const { org, site, path: filePath } = fromPath(path);
-    const resp = await source.get({ org, site, path: filePath });
+    const resp = await daFetch(`${DA_ADMIN}/source${path}`);
     if (resp.ok) {
       const data = await resp.json();
       const metaData = data.data || data || null;
@@ -324,9 +323,11 @@ export async function loadSheetMeta(path) {
 
 export async function saveSheetMeta(meta, path) {
   const metaArray = Array.isArray(meta) ? meta : [meta];
-  const body = await createSheet(metaArray);
-  const { org, site, path: filePath } = fromPath(path);
-  return source.save({ org, site, path: filePath, body });
+  const formData = await createSheet(metaArray);
+  return daFetch(`${DA_ADMIN}/source${path}`, {
+    method: 'PUT',
+    body: formData,
+  });
 }
 
 export async function fetchAuditLog(org, repo, ref = 'main', since = null, limit = 1000) {
@@ -892,11 +893,13 @@ export async function listFolder(path, org, repo) {
   const normalizedPath = contentPath.replace(/^\//, '') || '';
   const listPath = normalizedPath ? `/${normalizedPath}` : '';
 
-  const result = await source.list({ org, site: repo, path: listPath });
-  if (!result.ok) {
+  const url = `${DA_ADMIN}/list/${org}/${repo}${listPath}`;
+  const resp = await daFetch(url);
+  if (!resp.ok) {
     return [];
   }
-  return result.items || [];
+  const data = await resp.json();
+  return Array.isArray(data) ? data : (data.sources || []);
 }
 
 const MEDIA_EXTS = new Set([
@@ -1020,8 +1023,7 @@ export async function checkIndex(folderPath, org, repo) {
 // Loads index meta JSON (lastFetchTime, etc.) from DA.
 export async function loadIndexMeta(path) {
   try {
-    const { org, site, path: filePath } = fromPath(path);
-    const resp = await source.get({ org, site, path: filePath });
+    const resp = await daFetch(`${DA_ADMIN}/source${path}`);
     if (resp.ok) {
       const data = await resp.json();
       return data.data?.[0] || data;
@@ -1036,9 +1038,11 @@ export async function loadIndexMeta(path) {
 
 // Saves index meta to DA source path.
 export async function saveIndexMeta(meta, path) {
-  const body = await createSheet([meta]);
-  const { org, site, path: filePath } = fromPath(path);
-  return source.save({ org, site, path: filePath, body });
+  const formData = await createSheet([meta]);
+  return daFetch(`${DA_ADMIN}/source${path}`, {
+    method: 'POST',
+    body: formData,
+  });
 }
 
 function isProtectedSiteAssetUrl(url, org, repo, ref = 'main') {
