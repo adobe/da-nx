@@ -255,6 +255,24 @@ describe('api.js', () => {
       expect(folder.path).to.equal(`/${o}/${s}/parent/sub`);
     });
 
+    it('source.list hlx6 filters out hidden files and folders starting with "."', async () => {
+      restoreFetch();
+      installFetch({
+        body: JSON.stringify([
+          { name: 'visible.html', 'content-type': 'text/html', 'last-modified': '2026-05-03T19:05:03.000Z' },
+          { name: '.trash/', 'content-type': 'application/folder' },
+          { name: '.da/', 'content-type': 'application/folder' },
+          { name: '.hidden-file.json', 'content-type': 'application/json' },
+          { name: 'normal/', 'content-type': 'application/folder' },
+        ]),
+      });
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      const result = await source.list({ org: o, site: s, path: '/parent' });
+      expect(result.ok).to.equal(true);
+      expect(result.items).to.have.length(2);
+      expect(result.items.map((i) => i.name)).to.deep.equal(['visible', 'normal']);
+    });
+
     it('source.list returns { ok: false, items: [] } on non-ok response', async () => {
       restoreFetch();
       installFetch({ status: 403, body: '' });
