@@ -629,7 +629,11 @@ async function callPath({
 }
 
 function hlx6ToDaList(parentPath, items) {
-  return items.filter((item) => !item.name.startsWith('.')).map((item) => {
+  return items.filter((item) => {
+    // Legacy DA items (no content-type) are returned as-is; callers handle their edge cases.
+    if (!item['content-type']) return true;
+    return item.name && !item.name.startsWith('.');
+  }).map((item) => {
     const contentType = item['content-type'];
 
     // Only HLX6 has a content type
