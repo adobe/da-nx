@@ -49,7 +49,7 @@ class NxMediaGrid extends LitElement {
     repo: { type: String },
     usePreviewDaLive: { type: Boolean },
     resultsBusy: { type: Boolean },
-    pluginMode: { type: Boolean },
+    pluginMode: { type: Boolean, reflect: true },
   };
 
   constructor() {
