@@ -3,7 +3,7 @@
   width: 100%;
   max-width: 100%;
   margin: 0;
-  height: 100vh;
+  height: 100%;
   overflow: hidden;
   color-scheme: light dark;
 
@@ -25,7 +25,7 @@
     "sidebar topbar" auto
     "sidebar main" 1fr
     / auto 1fr;
-  height: 100vh;
+  height: 100%;
   width: 100%;
   max-width: 100%;
   background: var(--s2-gray-50);
