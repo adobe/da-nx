@@ -1,3 +1,5 @@
+// Test fixture — sample skill script body; the real skill lives in the GH marketplace.
+
 function unescapeXml(str) {
   return str
     .replace(/&amp;/g, '&')

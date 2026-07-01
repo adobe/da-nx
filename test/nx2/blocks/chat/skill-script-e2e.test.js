@@ -6,8 +6,8 @@
  * REAL (not mocked):
  *   • runSkillScript substrate (nx2/utils/skill-runtime/runner.js + worker-host.js)
  *     — a live sandboxed Web Worker is created for every eligible invocation.
- *   • The docx-to-markdown script.js — the worker loads the actual file via
- *     `window.location.origin + '/nx2/blocks/chat/skills-builtin/docx-to-markdown/script.js'`.
+ *   • The docx-to-markdown fixture script — the worker loads the actual file via
+ *     `window.location.origin + '/test/fixtures/skill-scripts/docx-convert.js'`.
  *     WTR serves the file at that path from the project root.  Within the script,
  *     `import('/nx2/deps/fflate/dist/index.js')` resolves to localhost identically.
  *   • The .docx fixture — built in-test with fflate zipSync (same approach as
@@ -91,8 +91,8 @@ function bytesToBase64(bytes) {
   return btoa(binary);
 }
 
-// The real scripts/convert.js served by WTR at this localhost path.
-const REAL_SCRIPT_URL = `${window.location.origin}/nx2/blocks/chat/skills-builtin/docx-to-markdown/scripts/convert.js`;
+// The fixture script served by WTR at this localhost path (real skill lives in GH marketplace).
+const REAL_SCRIPT_URL = `${window.location.origin}/test/fixtures/skill-scripts/docx-convert.js`;
 
 // ─── Controller factory ───────────────────────────────────────────────────────
 
@@ -116,7 +116,7 @@ function buildController({ skillMdText }) {
   // The real script text served by WTR at localhost — used as the marketplace payload
   // so resolveSkill gets valid JS (eligibility/security tests never reach the worker).
   const DUMMY_SCRIPT_JS = 'export function run() {}';
-  globalThis.fetch = async (url, opts) => {
+  globalThis.fetch = async (url) => {
     const u = String(url);
     if (u.includes('skill.md')) {
       return { ok: true, status: 200, text: async () => skillMdText };
@@ -298,7 +298,7 @@ describe('skill-script E2E — real worker, real script, real docx fixture', () 
             return;
           }
           const { dataBase64, fileName, mediaType } = attachment;
-          const { attachmentRef: _removed, ...restInput } = effectiveInput;
+          const { attachmentRef: _, ...restInput } = effectiveInput;
           effectiveInput = { bytesBase64: dataBase64, fileName, mediaType, ...restInput };
         }
 
@@ -355,7 +355,7 @@ describe('skill-script E2E — real worker, real script, real docx fixture', () 
       input: { skillId: 'network-skill', input: {} },
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    await new Promise((resolve) => { setTimeout(resolve, 200); });
 
     const card = ctrl._toolCards.get('tc-e2e-2');
     expect(card, 'tool card must exist').to.exist;
@@ -383,7 +383,7 @@ describe('skill-script E2E — real worker, real script, real docx fixture', () 
       input: { skillId: 'network-skill', input: {}, capabilities: [] },
     });
 
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    await new Promise((resolve) => { setTimeout(resolve, 200); });
 
     const card = ctrl._toolCards.get('tc-e2e-3');
     expect(card, 'tool card must exist').to.exist;

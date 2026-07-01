@@ -1,6 +1,6 @@
 import { expect } from '@esm-bundle/chai';
 import { isClientEligible, runSkillScript } from '../../../../nx2/utils/skill-runtime/index.js';
-import { convert } from '../../../../nx2/blocks/chat/skills-builtin/docx-to-markdown/scripts/convert.js';
+import { convert } from '../../../fixtures/skill-scripts/docx-convert.js';
 import { zipSync, strToU8, unzipSync, strFromU8 } from '../../../../nx2/deps/fflate/dist/index.js';
 
 // ---------------------------------------------------------------------------
