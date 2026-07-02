@@ -6,10 +6,11 @@
  */
 
 import { daFetch } from '../../../utils/daFetch.js';
+import { DA_ADMIN } from '../../../utils/utils.js';
 import { createSheet } from './admin-api.js';
 import { MediaLibraryError, ErrorCodes, logMediaLibraryError } from '../core/errors.js';
 import { t } from '../core/messages.js';
-import { IndexFiles, IndexConfig, DA_ADMIN } from '../core/constants.js';
+import { IndexFiles, IndexConfig } from '../core/constants.js';
 
 const LOCK_OWNER_STORAGE_KEY = 'media-library-lock-owner-id';
 

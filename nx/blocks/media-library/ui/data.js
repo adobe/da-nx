@@ -11,6 +11,7 @@
  */
 
 import { daFetch } from '../../../utils/daFetch.js';
+import { DA_ADMIN } from '../../../utils/utils.js';
 import {
   loadIndexChunks,
   loadSheetMeta,
@@ -24,7 +25,6 @@ import { isIndexedExternalMediaEntry } from '../core/media.js';
 import {
   IndexFiles,
   SheetNames,
-  DA_ADMIN,
 } from '../core/constants.js';
 
 function getOrgRepoFromSitePath(sitePath) {

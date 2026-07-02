@@ -1,11 +1,10 @@
 import { daFetch } from '../../../utils/daFetch.js';
+import { DA_ADMIN, HLX_ADMIN } from '../../../utils/utils.js';
 import { etcFetch } from '../core/urls.js';
 import {
   IndexFiles,
   ExternalMedia,
   DA_ETC_ORIGIN,
-  DA_ADMIN,
-  HLX_ADMIN,
 } from '../core/constants.js';
 import { MediaLibraryError, ErrorCodes, logMediaLibraryError } from '../core/errors.js';
 import { isPerfEnabled } from '../core/params.js';

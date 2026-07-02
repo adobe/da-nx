@@ -182,12 +182,6 @@ export function resolveAemOrigin() {
   return 'https://admin.hlx.page';
 }
 
-export const DA_ADMIN = typeof window !== 'undefined'
-  ? resolveDaOrigin(window.location)
-  : DA_ADMIN_ENVS.prod;
-
-export const HLX_ADMIN = 'https://admin.hlx.page';
-
 export const DA_ETC_ORIGIN = typeof window !== 'undefined'
   ? resolveDaEtcOrigin(window.location)
   : DA_ETC_ENVS.prod;
