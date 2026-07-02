@@ -27,3 +27,25 @@ export function parseFeedbackItems(fragment) {
     return items;
   }, []);
 }
+
+class NxFeedbackMenu extends HTMLElement {
+  set path(value) { this._path = value; }
+
+  get path() { return this._path; }
+}
+
+if (!customElements.get('nx-feedback-menu')) customElements.define('nx-feedback-menu', NxFeedbackMenu);
+
+export default function init(a) {
+  const button = document.createElement('button');
+  button.append(...a.childNodes);
+  button.className = a.className;
+  button.dataset.pathname = a.pathname;
+  button.setAttribute('slot', 'trigger');
+
+  const wrapper = document.createElement('nx-feedback-menu');
+  wrapper.path = a.pathname;
+  wrapper.append(button);
+
+  a.replaceWith(wrapper);
+}

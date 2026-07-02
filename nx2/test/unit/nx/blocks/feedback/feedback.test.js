@@ -1,5 +1,5 @@
 import { expect } from '@esm-bundle/chai';
-import { parseFeedbackItems } from '../../../../../blocks/feedback/feedback.js';
+import init, { parseFeedbackItems } from '../../../../../blocks/feedback/feedback.js';
 
 const FEEDBACK_FRAGMENT_HTML = `
   <div>
@@ -68,5 +68,43 @@ describe('parseFeedbackItems', () => {
       <div><p><a href="#idea"><span class="icon icon-idea"></span>Submit an idea</a></p></div>
     `));
     expect(items[0].description).to.be.undefined;
+  });
+});
+
+function buildAnchor({ href = '/fragments/nav/feedback', className = 'nx-feedback auto-block' } = {}) {
+  const a = document.createElement('a');
+  a.href = href;
+  a.className = className;
+  a.innerHTML = '<span class="icon icon-feedback"></span>Feedback';
+  document.body.append(a);
+  return a;
+}
+
+describe('feedback init', () => {
+  afterEach(() => {
+    document.querySelectorAll('a, nx-feedback-menu').forEach((el) => el.remove());
+  });
+
+  it('replaces the anchor with a nx-feedback-menu wrapping a trigger button', () => {
+    const a = buildAnchor();
+    init(a);
+
+    expect(document.querySelector('a.nx-feedback')).to.be.null;
+    const wrapper = document.querySelector('nx-feedback-menu');
+    expect(wrapper).to.not.be.null;
+
+    const button = wrapper.querySelector('button[slot="trigger"]');
+    expect(button).to.not.be.null;
+    expect(button.className).to.equal('nx-feedback auto-block');
+    expect(button.dataset.pathname).to.equal('/fragments/nav/feedback');
+    expect(button.querySelector('span.icon.icon-feedback')).to.not.be.null;
+    expect(button.textContent.trim()).to.equal('Feedback');
+  });
+
+  it('sets the wrapper path from the anchor pathname', () => {
+    const a = buildAnchor();
+    init(a);
+    const wrapper = document.querySelector('nx-feedback-menu');
+    expect(wrapper.path).to.equal('/fragments/nav/feedback');
   });
 });
