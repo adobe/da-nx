@@ -112,6 +112,9 @@ class NXNav extends LitElement {
         await import(`../${name}/${name}.js`);
         const cmp = document.createElement(`nx-${name}`);
         child.replaceChildren(cmp);
+      } else if (button.classList.contains('nx-feedback')) {
+        // Self-wired by nx-feedback-menu (nx-menu's slot="trigger" contract) —
+        // skip the generic single-dialog wiring below to avoid double-binding.
       } else if (button.dataset.pathname) {
         const hasLabel = [...button.childNodes].some(
           (n) => n.nodeType === Node.TEXT_NODE && n.textContent.trim(),
