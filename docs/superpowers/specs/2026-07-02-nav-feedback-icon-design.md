@@ -174,8 +174,24 @@ are unaffected since none of their items set `description`.
 
 - Feedback submission endpoint (step 2, follow-up work).
 - Icon SVG assets (added separately by the requester).
-- Fixing the Help button's missing dialog wiring (pre-existing gap, not
-  part of this feature).
+
+## Amendment: Help button wiring landed upstream mid-implementation
+
+While this feature was in progress, `main` merged a fix (#528) that wires
+the Help button for real: `nx2/blocks/nav/nav.js`'s `decorateActions` now
+adds a generic click handler (`openFragmentDialog`) to any action button
+carrying `data-pathname`, which fetches the fragment and dumps its raw
+content into a plain `<nx-dialog>`. This was previously a no-op gap
+(documented above as "out of scope" before the fix existed).
+
+Because our `nx-feedback` button also carries `data-pathname` (for parity
+with the Help button's shape) but wires its own click handling internally
+(via `<nx-feedback-menu>` → `nx-menu`'s `slot="trigger"` contract), the
+generic handler would double-bind onto it. `decorateActions` now has an
+explicit `else if (button.classList.contains('nx-feedback'))` branch
+(no-op) before the generic `data-pathname` branch, so both buttons share
+the same dispatch point in `nav.js` while only one wiring path applies to
+each.
 
 ## Testing
 
