@@ -629,7 +629,7 @@ async function callPath({
 }
 
 function hlx6ToDaList(parentPath, items) {
-  return items.map((item) => {
+  return items.filter((item) => !item.name.startsWith('.')).map((item) => {
     const contentType = item['content-type'];
 
     // Only HLX6 has a content type

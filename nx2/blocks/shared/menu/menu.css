@@ -29,7 +29,7 @@
   background: none;
   color: var(--s2-gray-900);
   font-family: inherit;
-  font-size: var(--s2-body-size-xs);
+  font-size: var(--nx-menu-font-size, var(--s2-body-size-xs));
   line-height: var(--s2-component-s-regular-line-height);
   cursor: pointer;
   box-sizing: border-box;
