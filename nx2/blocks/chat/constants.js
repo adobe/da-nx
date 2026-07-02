@@ -8,17 +8,13 @@ const MENU_OPTIONS = {
 
 const ADD_MENU_ITEMS = [
   { section: 'Add' },
-  { id: 'files', label: 'Files or images', icon: 'link' },
-  { id: MENU_OPTIONS.PROMPT, label: 'Prompt' },
-  { id: 'command', label: '"/" Command' },
+  { id: MENU_OPTIONS.FILES, label: 'Files or images', icon: 'link' },
+  { id: MENU_OPTIONS.PROMPT, label: 'Prompt', icon: 'commentremove' },
+  { id: MENU_OPTIONS.COMMAND, label: '"/" Command', icon: 'prompt' },
   { divider: true },
   { id: 'prompts', label: 'Manage Prompts' },
   { id: 'skills', label: 'Manage Skills' },
 ];
-
-const CHAT_ICONS = {
-  add: 'Add', clear: 'RemoveCircle', close: 'SplitLeft', send: 'ArrowUpSend', stop: 'Stop', up: 'ChevronUp',
-};
 
 /**
  * Agent stream event types.
@@ -96,7 +92,6 @@ export {
   ADOBE_AI_GUIDELINES_URL,
   ADD_MENU_ITEMS,
   AGENT_EVENT,
-  CHAT_ICONS,
   MENU_OPTIONS,
   ROLE,
   TOOL_INPUT,

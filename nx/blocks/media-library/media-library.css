@@ -3,8 +3,9 @@
   width: 100%;
   max-width: 100%;
   margin: 0;
-  height: 100vh;
+  height: 100%;
   overflow: hidden;
+  color-scheme: light dark;
 
   > svg {
     display: none;
@@ -13,9 +14,9 @@
 
 .nx-site-path {
   display: grid;
-  gap: var(--spacing-400);
+  gap: var(--s2-spacing-400, var(--spacing-400, 24px));
   grid-template-columns: 1fr auto;
-  margin-bottom: var(--spacing-400);
+  margin-bottom: var(--s2-spacing-400, var(--spacing-400, 24px));
 }
 
 .media-library {
@@ -24,7 +25,7 @@
     "sidebar topbar" auto
     "sidebar main" 1fr
     / auto 1fr;
-  height: 100vh;
+  height: 100%;
   width: 100%;
   max-width: 100%;
   background: var(--s2-gray-50);
@@ -35,13 +36,13 @@
 .sidebar {
   grid-area: sidebar;
   z-index: 1001;
-  border-right: 1px solid #eaeaea;
+  border-right: 1px solid light-dark(#eaeaea, var(--s2-gray-300));
 }
 
 .top-bar {
   grid-area: topbar;
   z-index: 1000;
-  border-bottom: 1px solid #eaeaea;
+  border-bottom: 1px solid light-dark(#eaeaea, var(--s2-gray-300));
   padding-inline-start: 24px;
 }
 
@@ -62,15 +63,15 @@ nx-media-scan {
 
 .view-controls {
   display: flex;
-  gap: var(--spacing-200);
+  gap: var(--s2-spacing-200, var(--spacing-200, 12px));
   justify-self: end;
 }
 
 .view-btn {
   display: flex;
   align-items: center;
-  gap: var(--spacing-200);
-  padding: var(--spacing-200) var(--spacing-300);
+  gap: var(--s2-spacing-200, var(--spacing-200, 12px));
+  padding: var(--s2-spacing-200, var(--spacing-200, 12px)) var(--s2-spacing-300, var(--spacing-300, 16px));
   border: 1px solid var(--s2-gray-200);
   border-radius: var(--s2-radius-75);
   background: var(--s2-gray-50);
@@ -91,7 +92,7 @@ nx-media-scan {
 .view-btn.active {
   background: var(--s2-blue-800);
   border-color: var(--s2-blue-800);
-  color: var(--s2-white, #fff);
+  color: light-dark(#fff, var(--s2-gray-25));
 }
 
 .view-btn.active:hover {
@@ -109,7 +110,7 @@ nx-media-scan {
 .da-notification-status {
   position: fixed;
   inset: 0;
-  background: rgb(255 255 255 / 60%);
+  background: light-dark(rgb(255 255 255 / 60%), rgb(0 0 0 / 60%));
   display: flex;
   justify-content: center;
   align-items: center;
@@ -124,7 +125,7 @@ nx-media-scan {
   border-radius: 6px;
   filter: drop-shadow(rgb(0 0 0 / 15%) 0 1px 4px);
   box-sizing: border-box;
-  color: #fff;
+  color: light-dark(#fff, var(--s2-gray-25));
   font-size: 14px;
   overflow: hidden;
 }
@@ -222,7 +223,7 @@ nx-media-scan {
   top: -4px;
   right: -4px;
   background: var(--s2-blue-800);
-  color: var(--s2-white, #fff);
+  color: light-dark(#fff, var(--s2-gray-25));
   font-size: 12px;
   font-weight: 600;
   padding: 2px 4px;
@@ -246,6 +247,10 @@ nx-media-sidebar {
   position: relative;
 }
 
+.content:has(nx-media-grid[pluginmode]) {
+  height: 100%;
+}
+
 .media-content {
   grid-area: main;
   overflow: hidden;
@@ -263,12 +268,12 @@ nx-media-sidebar {
 
   .top-bar {
     flex-direction: column;
-    gap: var(--spacing-200);
+    gap: var(--s2-spacing-200, var(--spacing-200, 12px));
   }
 
   nx-media-scan {
     margin-inline-start: 0;
-    margin-block-start: var(--spacing-200);
+    margin-block-start: var(--s2-spacing-200, var(--spacing-200, 12px));
   }
 
   nx-media-sidebar {
@@ -280,16 +285,16 @@ nx-media-sidebar {
 /* Background status indicator */
 .background-status {
   position: fixed;
-  top: var(--spacing-400);
-  right: var(--spacing-400);
+  top: var(--s2-spacing-400, var(--spacing-400, 24px));
+  right: var(--s2-spacing-400, var(--spacing-400, 24px));
   background: var(--s2-gray-50);
   border: 1px solid var(--s2-gray-200);
   border-radius: var(--s2-radius-100);
-  padding: var(--spacing-200) var(--spacing-300);
+  padding: var(--s2-spacing-200, var(--spacing-200, 12px)) var(--s2-spacing-300, var(--spacing-300, 16px));
   box-shadow: 0 1px 3px rgb(0 0 0 / 10%);
   display: flex;
   align-items: center;
-  gap: var(--spacing-200);
+  gap: var(--s2-spacing-200, var(--spacing-200, 12px));
   z-index: 1000;
   font-size: 14px;
   color: var(--s2-gray-700);
@@ -373,9 +378,9 @@ nx-media-sidebar {
   justify-content: center;
   flex: 1;
   min-height: 0;
-  padding: var(--spacing-600);
+  padding: var(--s2-spacing-600, var(--spacing-600, 40px));
   text-align: center;
-  background: var(--s2-gray-50);
+  background: light-dark(var(--s2-gray-50), #1a1a1a);
 }
 
 .indexing-spinner {
@@ -385,20 +390,20 @@ nx-media-sidebar {
   border-top: 2px solid var(--s2-blue-500);
   border-radius: 50%;
   animation: spin 1s linear infinite;
-  margin-bottom: var(--spacing-300);
+  margin-bottom: var(--s2-spacing-300, var(--spacing-300, 16px));
 }
 
 .indexing-message {
   margin: 0;
   font-size: var(--font-size-300);
   font-weight: 400;
-  color: var(--s2-gray-600);
+  color: light-dark(var(--s2-gray-600), var(--s2-gray-400));
 }
 
 .indexing-hint {
-  margin: var(--spacing-200) 0 0;
+  margin: var(--s2-spacing-200, var(--spacing-200, 12px)) 0 0;
   font-size: var(--font-size-100);
-  color: var(--s2-gray-500);
+  color: light-dark(var(--s2-gray-500), var(--s2-gray-500));
 }
 
 .scanning-spinner {
@@ -408,12 +413,12 @@ nx-media-sidebar {
   border-top: 3px solid var(--s2-blue-500);
   border-radius: 50%;
   animation: spin 1s linear infinite;
-  margin-bottom: var(--spacing-400);
+  margin-bottom: var(--s2-spacing-400, var(--spacing-400, 24px));
 }
 
 .empty-state-icon {
   font-size: 48px;
-  margin-bottom: var(--spacing-400);
+  margin-bottom: var(--s2-spacing-400, var(--spacing-400, 24px));
   opacity: 0.5;
 }
 
@@ -424,16 +429,16 @@ nx-media-sidebar {
 
 .scanning-state h3,
 .empty-state h3 {
-  margin: 0 0 var(--spacing-200) 0;
-  color: var(--s2-gray-900);
+  margin: 0 0 var(--s2-spacing-200, var(--spacing-200, 12px)) 0;
+  color: light-dark(var(--s2-gray-900), var(--s2-gray-100));
   font-size: var(--font-size-500);
   font-weight: var(--font-weight-600);
 }
 
 .scanning-state p,
 .empty-state p {
-  margin: 0 0 var(--spacing-400) 0;
-  color: var(--s2-gray-600);
+  margin: 0 0 var(--s2-spacing-400, var(--spacing-400, 24px)) 0;
+  color: light-dark(var(--s2-gray-600), var(--s2-gray-400));
   font-size: var(--font-size-300);
 }
 
@@ -449,13 +454,13 @@ nx-media-sidebar {
 
 .scan-stats {
   display: flex;
-  gap: var(--spacing-400);
+  gap: var(--s2-spacing-400, var(--spacing-400, 24px));
   font-size: var(--font-size-200);
   color: var(--s2-gray-500);
 }
 
 .scan-stats span {
-  padding: var(--spacing-100) var(--spacing-200);
+  padding: var(--s2-spacing-100, var(--spacing-100, 8px)) var(--s2-spacing-200, var(--spacing-200, 12px));
   background: var(--s2-gray-100);
   border-radius: var(--border-radius-100);
 }
@@ -467,7 +472,7 @@ nx-media-sidebar {
   justify-content: center;
   width: 100%;
   height: 100vh;
-  background: var(--s2-gray-50);
+  background: light-dark(var(--s2-gray-50), #1a1a1a);
 }
 
 .validation-content,
@@ -477,31 +482,33 @@ nx-media-sidebar {
   align-items: center;
   justify-content: center;
   text-align: center;
-  padding: var(--spacing-600);
+  padding: var(--s2-spacing-600, var(--spacing-600, 40px));
   max-width: 500px;
+  background: light-dark(white, var(--s2-gray-800));
+  border-radius: var(--s2-radius-100);
 }
 
 .validation-content p {
   font-size: 16px;
-  color: var(--s2-gray-700);
+  color: light-dark(var(--s2-gray-700), var(--s2-gray-200));
   margin: 0;
 }
 
 .error-content p {
   font-size: 16px;
-  color: var(--s2-gray-700);
-  margin: 0 0 var(--spacing-300) 0;
+  color: light-dark(var(--s2-gray-700), var(--s2-gray-200));
+  margin: 0 0 var(--s2-spacing-300, var(--spacing-300, 16px)) 0;
 }
 
 .error-content p.error-suggestion {
   font-size: 14px;
-  color: var(--s2-gray-600);
+  color: light-dark(var(--s2-gray-600), var(--s2-gray-400));
   margin: 0;
 }
 
 .error-content a {
   font-size: 14px;
-  color: var(--s2-blue-600);
+  color: light-dark(var(--s2-blue-600), var(--s2-blue-400));
   text-decoration: none;
 }
 
@@ -534,12 +541,12 @@ nx-media-sidebar {
 
 .da-persistent-banner.danger .da-persistent-banner-header {
   background: var(--s2-red-400);
-  color: var(--s2-white, #fff);
+  color: light-dark(#fff, var(--s2-gray-25));
 }
 
 .da-persistent-banner.warning .da-persistent-banner-header {
   background: var(--s2-orange-400);
-  color: var(--s2-white, #fff);
+  color: light-dark(#fff, var(--s2-gray-25));
 }
 
 .da-persistent-banner-heading {

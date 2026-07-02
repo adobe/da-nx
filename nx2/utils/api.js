@@ -238,7 +238,7 @@ export const source = {
     const hlx6 = await isHlx6(org, site);
     const url = await getDaApiPath(SOURCE, org, site, path);
     const opts = { method: 'POST' };
-    const ext = Object.keys(TYPE_MAP).find((e) => path.endsWith(e));
+    const ext = Object.keys(TYPE_MAP).find((e) => path.toLowerCase().endsWith(e));
     if (hlx6) {
       opts.body = body;
       if (ext) opts.headers = { 'Content-Type': TYPE_MAP[ext] };
@@ -476,6 +476,29 @@ export function fromPath(str) {
   return { org, site, path: parts.length ? `/${parts.join('/')}` : '' };
 }
 
+// Site token exchange for authenticated content access.
+// Uses IIFE pattern for memoized token retrieval.
+export const getAemSiteToken = (() => {
+  const tokenCache = {};
+
+  const fetchToken = async (org, site) => {
+    const { accessToken } = await loadIms();
+    const { token } = accessToken;
+
+    const body = JSON.stringify({ org, site, accessToken: token });
+    const opts = { method: 'POST', body, headers: { 'Content-Type': 'application/json' } };
+    const resp = await fetch(`${HLX_ADMIN}/auth/adobe/exchange`, opts);
+    if (!resp.ok) return { error: `Error fetch AEM Site Token ${resp.status}` };
+    return resp.json();
+  };
+
+  return ({ org, site }) => {
+    const path = `/${org}/${site}`;
+    tokenCache[path] ??= fetchToken(org, site);
+    return tokenCache[path];
+  };
+})();
+
 // ============================================================================
 // Internal helpers
 // ============================================================================
@@ -606,7 +629,7 @@ async function callPath({
 }
 
 function hlx6ToDaList(parentPath, items) {
-  return items.map((item) => {
+  return items.filter((item) => !item.name.startsWith('.')).map((item) => {
     const contentType = item['content-type'];
 
     // Only HLX6 has a content type

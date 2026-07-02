@@ -1,5 +1,11 @@
-import { DA_ORIGIN } from '../../public/utils/constants.js';
-import { daFetch } from '../../utils/daFetch.js';
+import { DA_ADMIN, loadStyle } from '../../../nx2/utils/utils.js';
+import { daFetch } from '../../../nx2/utils/api.js';
+
+const style = await loadStyle(import.meta.url);
+
+if (!document.adoptedStyleSheets.includes(style)) {
+  document.adoptedStyleSheets = [...document.adoptedStyleSheets, style];
+}
 
 const MOCK_IMG = './media_1728df71ca494e752fda7ddf788b9cad0b39b5323.jpeg';
 
@@ -58,7 +64,7 @@ export default async function init(el) {
   el.innerHTML = '';
   const [org, repo] = window.location.hash.slice(2).split('/');
   try {
-    const resp = await daFetch(`${DA_ORIGIN}/config/${org}/${repo}/`);
+    const resp = await daFetch({ url: `${DA_ADMIN}/config/${org}/${repo}/` });
     const json = await resp.json();
     if (!json.apps) {
       removeSection(el);

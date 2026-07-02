@@ -144,11 +144,15 @@
   outline-offset: 1px;
 }
 
-.action-error {
-  margin: 0;
-  max-width: 280px;
-  font-size: var(--s2-body-size-xs, 0.75rem);
-  font-weight: 500;
-  color: var(--s2-negative-900, #c00);
-  text-align: right;
+.role-request-body {
+  min-height: 4rem;
 }
+
+.preview-dropdown-btn.is-error {
+  background-color: var(--s2-red-800);
+}
+
+.preview-dropdown-btn.is-error:hover:not(:disabled) {
+  background-color: var(--s2-red-900);
+}
+

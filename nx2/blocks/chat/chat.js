@@ -50,7 +50,16 @@ class NxChat extends LitElement {
     if (key !== undefined) {
       const prevId = this._keyedItemIds.get(key);
       const without = (this._items ?? []).filter((i) => i.id !== prevId);
-      if (item.id) {
+      const matchesPinned = item.id
+        && typeof item.selFrom === 'number'
+        && typeof item.selTo === 'number'
+        && without.some((i) => i.pinned
+          && i.selFrom === item.selFrom
+          && i.selTo === item.selTo);
+      if (matchesPinned) {
+        this._keyedItemIds.delete(key);
+        this._items = without;
+      } else if (item.id) {
         this._keyedItemIds.set(key, item.id);
         this._items = [...without, item];
       } else {
@@ -180,12 +189,19 @@ class NxChat extends LitElement {
         }));
       },
       onUpdate: ({ messages, thinking, streamingText, connected, toolCards }) => {
-        this.messages = streamingText
+        const newMessages = streamingText
           ? [...(messages ?? []), { role: ROLE.ASSISTANT, content: streamingText, streaming: true }]
           : messages;
         this.thinking = thinking;
         this.connected = connected;
         this.toolCards = toolCards;
+        cancelAnimationFrame(this._updateRaf);
+        this._updateRaf = requestAnimationFrame(() => {
+          this.messages = newMessages;
+          this.thinking = thinking;
+          this.connected = connected;
+          this.toolCards = toolCards;
+        });
       },
     });
     if (this._context) this._controller.setContext(this._context);
@@ -200,6 +216,7 @@ class NxChat extends LitElement {
 
   disconnectedCallback() {
     super.disconnectedCallback();
+    cancelAnimationFrame(this._updateRaf);
     (this._items ?? []).forEach((item) => {
       if (item.thumbnail) URL.revokeObjectURL(item.thumbnail);
     });
@@ -243,7 +260,8 @@ class NxChat extends LitElement {
     if (changed.has('messages')) {
       const log = this.shadowRoot.querySelector('.chat-scroll-container');
       if (log && this._wasNearBottom) {
-        requestAnimationFrame(() => { log.scrollTop = log.scrollHeight; });
+        cancelAnimationFrame(this._scrollRaf);
+        this._scrollRaf = requestAnimationFrame(() => { log.scrollTop = log.scrollHeight; });
       }
     }
     if (changed.has('thinking') && !this.thinking && changed.get('thinking')) {
@@ -415,7 +433,33 @@ class NxChat extends LitElement {
   _handlePillRemove({ detail: { id } }) {
     const removed = (this._items ?? []).find((i) => i.id === id);
     if (removed?.thumbnail) URL.revokeObjectURL(removed.thumbnail);
+    for (const [key, mappedId] of this._keyedItemIds) {
+      if (mappedId === id) this._keyedItemIds.delete(key);
+    }
     this._items = (this._items ?? []).filter((item) => item.id !== id);
+  }
+
+  _handlePillActivate({ detail: { id } }) {
+    const item = (this._items ?? []).find((i) => i.id === id);
+    if (!item) return;
+    const { selFrom, selTo, selectionType, blockName, proseIndex } = item;
+    if (typeof selFrom !== 'number' || typeof selTo !== 'number') return;
+    document.dispatchEvent(new CustomEvent('nx-highlight-selection', {
+      detail: { selFrom, selTo, selectionType, blockName, proseIndex },
+    }));
+  }
+
+  _handlePillPin({ detail: { id } }) {
+    const items = this._items ?? [];
+    const target = items.find((i) => i.id === id);
+    if (!target || !target.pinnable || target.pinned) return;
+    for (const [key, mappedId] of this._keyedItemIds) {
+      if (mappedId === id) this._keyedItemIds.delete(key);
+    }
+    const pinnedId = `pinned-${crypto.randomUUID()}`;
+    this._items = items.map((item) => (
+      item.id === id ? { ...item, id: pinnedId, pinned: true } : item
+    ));
   }
 
   _onDragEnter(e) {
@@ -518,6 +562,8 @@ class NxChat extends LitElement {
           <nx-chat-pills
             .items=${this._items}
             @nx-pill-remove=${this._handlePillRemove}
+            @nx-pill-pin=${this._handlePillPin}
+            @nx-pill-activate=${this._handlePillActivate}
           ></nx-chat-pills>` : nothing}
         <textarea
           name="chat-input"

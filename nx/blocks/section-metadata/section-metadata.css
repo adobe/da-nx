@@ -9,7 +9,7 @@
 
 /* Container */
 .section.container .nx-section-container {
-  max-width: var(--grid-container-width);
+  max-width: var(--se-grid-container-width);
   margin: 0 auto;
 }
 
@@ -19,98 +19,97 @@
 
 /* Gap */
 .section.gap-400 .nx-section-container {
-  gap: var(--spacing-400);
+  gap: var(--s2-spacing-400);
 }
 
 .section.gap-500 .nx-section-container {
-  gap: var(--spacing-500);
+  gap: var(--s2-spacing-500);
 }
 
 .section.gap-600 .nx-section-container {
-  gap: var(--spacing-600);
+  gap: var(--s2-spacing-600);
 }
 
 .section.gap-700 .nx-section-container {
-  gap: var(--spacing-700);
+  gap: var(--s2-spacing-700);
 }
 
 .section.gap-800 .nx-section-container {
-  gap: var(--spacing-800);
+  gap: var(--s2-spacing-800);
 }
 
 .section.gap-900 .nx-section-container {
-  gap: var(--spacing-900);
+  gap: var(--s2-spacing-900);
 }
 
 /* 200 Spacing */
 .section.spacing-200 {
-  padding-top: var(--spacing-200);
-  padding-bottom: var(--spacing-200);
+  padding-top: var(--s2-spacing-200);
+  padding-bottom: var(--s2-spacing-200);
 }
 
 .section.spacing-top-200 {
-  padding-top: var(--spacing-200);
+  padding-top: var(--s2-spacing-200);
 }
 
 .section.spacing-bottom-200 {
-  padding-bottom: var(--spacing-200);
+  padding-bottom: var(--s2-spacing-200);
 }
 
 /* 400 Spacing */
 .section.spacing-400 {
-  padding-top: var(--spacing-400);
-  padding-bottom: var(--spacing-400);
+  padding-top: var(--s2-spacing-400);
+  padding-bottom: var(--s2-spacing-400);
 }
 
 .section.spacing-top-400 {
-  padding-top: var(--spacing-400);
+  padding-top: var(--s2-spacing-400);
 }
 
 .section.spacing-bottom-400 {
-  padding-bottom: var(--spacing-400);
+  padding-bottom: var(--s2-spacing-400);
 }
 
 /* 600 Spacing */
 .section.spacing-600 {
-  padding-top: var(--spacing-600);
-  padding-bottom: var(--spacing-600);
+  padding-top: var(--s2-spacing-600);
+  padding-bottom: var(--s2-spacing-600);
 }
 
 .section.spacing-top-600 {
-  padding-top: var(--spacing-600);
+  padding-top: var(--s2-spacing-600);
 }
 
 .section.spacing-bottom-600 {
-  padding-bottom: var(--spacing-600);
+  padding-bottom: var(--s2-spacing-600);
 }
 
 /* 800 Spacing */
 .section.spacing-800 {
-  padding-top: var(--spacing-800);
-  padding-bottom: var(--spacing-800);
+  padding-top: var(--s2-spacing-800);
+  padding-bottom: var(--s2-spacing-800);
 }
 
 .section.spacing-top-800 {
-  padding-top: var(--spacing-800);
+  padding-top: var(--s2-spacing-800);
 }
 
 .section.spacing-bottom-800 {
-  padding-bottom: var(--spacing-800);
+  padding-bottom: var(--s2-spacing-800);
 }
 
 /* 1000 Spacing */
-
 .section.spacing-1000 {
-  padding-top: var(--spacing-1000);
-  padding-bottom: var(--spacing-1000);
+  padding-top: var(--s2-spacing-1000);
+  padding-bottom: var(--s2-spacing-1000);
 }
 
 .section.spacing-top-1000 {
-  padding-top: var(--spacing-1000);
+  padding-top: var(--s2-spacing-1000);
 }
 
 .section.spacing-bottom-1000 {
-  padding-bottom: var(--spacing-1000);
+  padding-bottom: var(--s2-spacing-1000);
 }
 
 .nx-section-container .content > *:first-child {

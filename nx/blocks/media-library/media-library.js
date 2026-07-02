@@ -1,5 +1,5 @@
 import { html, LitElement } from 'da-lit';
-import getStyle from '../../utils/styles.js';
+import { loadStyle } from '../../../nx2/utils/utils.js';
 import { loadMediaSheet, buildMediaIndexStructures, getUsageIndexKey } from './ui/data.js';
 import { copyMediaToClipboard, exportToCsv } from './core/export.js';
 import {
@@ -8,7 +8,6 @@ import {
 } from './core/paths.js';
 import { saveRecentSite } from './core/storage.js';
 import {
-  ensureAuthenticated,
   getCanonicalMediaTimestamp,
   getMediaLibraryHostMode,
   isMediaLibraryPluginMode,
@@ -51,11 +50,11 @@ import './ui/views/onboard/onboard.js';
 
 const EL_NAME = 'nx-media-library';
 const nx = `${new URL(import.meta.url).origin}/nx`;
-const sl = await getStyle(`${nx}/public/sl/styles.css`);
-const slComponents = await getStyle(`${nx}/public/sl/components.css`);
-const topbarStyles = await getStyle(`${nx}/blocks/media-library/ui/views/topbar/topbar.css`);
-const styles = await getStyle(import.meta.url);
-const shellStyles = await getStyle(new URL('./media-library-shell.css', import.meta.url).href);
+const sl = await loadStyle(`${nx}/public/sl/styles.css`);
+const slComponents = await loadStyle(`${nx}/public/sl/components.css`);
+const topbarStyles = await loadStyle(`${nx}/blocks/media-library/ui/views/topbar/topbar.css`);
+const style = await loadStyle(import.meta.url);
+const shellStyles = await loadStyle(new URL('./media-library-shell.css', import.meta.url).href);
 
 let shellStylesInstalled = false;
 
@@ -137,7 +136,7 @@ class NxMediaLibrary extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     installMediaLibraryShellStyles();
-    this.shadowRoot.adoptedStyleSheets = [sl, slComponents, topbarStyles, styles];
+    this.shadowRoot.adoptedStyleSheets = [sl, slComponents, topbarStyles, style];
 
     this._unsubscribe = onStateChange(MEDIA_LIBRARY_STATE_KEYS, (state) => {
       this._appState = state;
@@ -583,9 +582,6 @@ class NxMediaLibrary extends LitElement {
     });
 
     try {
-      const isAuthenticated = await ensureAuthenticated();
-      if (!isAuthenticated) return;
-
       const validation = await validateSitePath(this.sitePath);
 
       if (!validation.valid) {
@@ -659,12 +655,6 @@ class NxMediaLibrary extends LitElement {
   async loadMediaData() {
     try {
       updateAppState({ isLoadingData: true });
-
-      const isAuthenticated = await ensureAuthenticated();
-      if (!isAuthenticated) {
-        updateAppState({ isLoadingData: false });
-        return;
-      }
 
       // Progressive chunk loading callback
       let accumulatedData = [];
@@ -930,6 +920,7 @@ class NxMediaLibrary extends LitElement {
       || this._appState.isProgressiveLoading
       || this._appState.isLoadingData);
 
+    const pluginMode = isMediaLibraryPluginMode();
     return html`
       <nx-media-grid
         .mediaData=${displayData}
@@ -937,6 +928,7 @@ class NxMediaLibrary extends LitElement {
         .repo=${this.repo}
         .usePreviewDaLive=${this.siteAuthInfo?.requiresAuth || false}
         .resultsBusy=${resultsBusy}
+        .pluginMode=${pluginMode}
         @mediaClick=${this.handleMediaClick}
         @mediaCopy=${this.handleMediaCopy}
       ></nx-media-grid>
