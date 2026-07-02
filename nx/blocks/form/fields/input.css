@@ -1,9 +1,9 @@
-.sl-input-wrap {
+.form-input-wrap {
   position: relative;
   display: flex;
 }
 
-.sl-field input {
+.form-field input {
   /* Default (bordered) field: 2px box border, 8px radius, static focus ring. */
   box-sizing: border-box;
   width: 100%;
@@ -45,7 +45,7 @@
   }
 }
 
-.sl-field.has-error input {
+.form-field.has-error input {
   /* Reserve room for the alert icon (18px) at its 12px inline-end inset. */
   padding-right: 38px;
   border-color: var(--s2-red-900);
@@ -55,6 +55,6 @@
   }
 }
 
-.sl-field.has-error .sl-field-icon {
+.form-field.has-error .form-field-icon {
   inset-inline-end: 12px;
 }

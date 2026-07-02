@@ -15,7 +15,7 @@ const SHIFT_FACTOR = 10;
 // Spectrum 2 number field: a bordered input with stacked increment/decrement
 // steppers at the inline-end. Steps via click (with press-and-hold repeat),
 // ArrowUp/ArrowDown, and the wheel while focused; honors min/max/step.
-class SlNumberField extends LitElement {
+class FormNumberField extends LitElement {
   static properties = {
     value: { type: String },
     label: { type: String },
@@ -54,8 +54,8 @@ class SlNumberField extends LitElement {
 
   handleEvent(event) {
     this.value = event.target.value;
-    // Re-dispatch from the host so listeners on <sl-number-field> fire across
-    // the shadow boundary (matches sl-input).
+    // Re-dispatch from the host so listeners on <form-number-field> fire across
+    // the shadow boundary (matches form-input).
     this.dispatchEvent(new event.constructor(event.type, event));
   }
 
@@ -143,11 +143,11 @@ class SlNumberField extends LitElement {
 
   render() {
     return html`
-      <div class="sl-field${this.error ? ' has-error' : ''}">
-        ${this.label ? html`<label for="sl-number">${this.label}${this.required ? html`<span class="sl-required">*</span>` : nothing}</label>` : nothing}
-        <div class="sl-number-wrap">
+      <div class="form-field${this.error ? ' has-error' : ''}">
+        ${this.label ? html`<label for="form-number">${this.label}${this.required ? html`<span class="form-required">*</span>` : nothing}</label>` : nothing}
+        <div class="form-number-wrap">
           <input
-            id="sl-number"
+            id="form-number"
             type="number"
             inputmode="numeric"
             .value=${this.value ?? ''}
@@ -161,36 +161,36 @@ class SlNumberField extends LitElement {
             @keydown=${this._onKeydown}
             @wheel=${this._onWheel}
           />
-          ${this.error ? icon('alert', 'sl-field-icon') : nothing}
-          <span class="sl-number-buttons" aria-hidden="true">
+          ${this.error ? icon('alert', 'form-field-icon') : nothing}
+          <span class="form-number-buttons" aria-hidden="true">
             <button
               type="button"
-              class="sl-number-step sl-number-step-up"
+              class="form-number-step form-number-step-up"
               tabindex="-1"
               ?disabled=${this.disabled || this._atMax()}
               @pointerdown=${(e) => this._onStepPointerdown(e, 1)}
               @pointerup=${this._onStepPointerup}
               @pointercancel=${this._onStepPointerup}
-            >${icon('chevronUp', 'sl-number-chevron')}</button>
+            >${icon('chevronUp', 'form-number-chevron')}</button>
             <button
               type="button"
-              class="sl-number-step sl-number-step-down"
+              class="form-number-step form-number-step-down"
               tabindex="-1"
               ?disabled=${this.disabled || this._atMin()}
               @pointerdown=${(e) => this._onStepPointerdown(e, -1)}
               @pointerup=${this._onStepPointerup}
               @pointercancel=${this._onStepPointerup}
-            >${icon('chevronDown', 'sl-number-chevron')}</button>
+            >${icon('chevronDown', 'form-number-chevron')}</button>
           </span>
         </div>
         ${this.error
-        ? html`<p class="sl-field-error">${this.error}</p>`
+        ? html`<p class="form-field-error">${this.error}</p>`
         : html`<slot name="description"></slot>`}
       </div>
     `;
   }
 }
 
-if (!customElements.get('sl-number-field')) customElements.define('sl-number-field', SlNumberField);
+if (!customElements.get('form-number-field')) customElements.define('form-number-field', FormNumberField);
 
-export default SlNumberField;
+export default FormNumberField;

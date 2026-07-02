@@ -180,7 +180,7 @@ After a reorder, the model is rebuilt positionally — items have no separate st
 
 ```txt
 context.status === 'select-schema'
-  └─ render <sl-picker> + Create button
+  └─ render <form-picker> + Create button
        └─ user picks a schema, clicks Create
             └─ nx-form._applySelectedSchema()
                  ├─ build empty json: { metadata: { schemaName }, data: {} }

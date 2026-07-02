@@ -207,10 +207,10 @@ class Form extends LitElement {
           <p>${body}</p>
           ${showHomeAction ? html`
             <div class="nx-form-actions">
-              <sl-button
+              <form-button
                 variant="secondary"
                 @click=${() => this._goHome()}
-              >Return to Home</sl-button>
+              >Return to Home</form-button>
             </div>
           ` : nothing}
         </section>
@@ -264,7 +264,7 @@ class Form extends LitElement {
       <div class="nx-form-schema-shell">
         <h2 class="nx-form-schema-heading">Choose a schema</h2>
         <div class="nx-form-schema-form">
-          <sl-picker
+          <form-picker
             hoist
             class="nx-form-schema-select"
             label="Schema"
@@ -285,13 +285,13 @@ class Form extends LitElement {
                 rel="noopener noreferrer"
               >Schema Editor</a>.
             </p>
-          </sl-picker>
-          <sl-button
+          </form-picker>
+          <form-button
             variant="accent"
             class="nx-form-schema-start"
             ?disabled=${!this._pendingSchemaId}
             @click=${this._applySelectedSchema}
-          >Create</sl-button>
+          >Create</form-button>
         </div>
       </div>
     `;

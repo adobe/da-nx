@@ -1,9 +1,9 @@
-.sl-picker-wrap {
+.form-picker-wrap {
   position: relative;
   display: flex;
 }
 
-.sl-picker-wrap select {
+.form-picker-wrap select {
   /* Default (bordered) picker: matches the text input box, plus a disclosure
      chevron at the inline-end. */
   box-sizing: border-box;
@@ -42,7 +42,7 @@
   }
 }
 
-.sl-field.has-error .sl-picker-wrap select {
+.form-field.has-error .form-picker-wrap select {
   /* Reserve room for the alert icon ahead of the disclosure chevron. */
   padding-right: 52px;
   border-color: var(--s2-red-900);
@@ -52,7 +52,7 @@
   }
 }
 
-.sl-picker-chevron {
+.form-picker-chevron {
   position: absolute;
   top: 50%;
   right: var(--s2-spacing-200);
@@ -63,10 +63,10 @@
   pointer-events: none;
 }
 
-.sl-picker-wrap:has(select:disabled) .sl-picker-chevron {
+.form-picker-wrap:has(select:disabled) .form-picker-chevron {
   color: var(--s2-gray-400);
 }
 
-.sl-field.has-error .sl-field-icon {
+.form-field.has-error .form-field-icon {
   inset-inline-end: 30px;
 }

@@ -1,4 +1,4 @@
-.sl-switch {
+.form-switch {
   display: inline-flex;
   align-items: center;
   gap: var(--s2-spacing-100);
@@ -7,7 +7,7 @@
   cursor: pointer;
 }
 
-.sl-switch-input {
+.form-switch-input {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -19,7 +19,7 @@
   clip-path: inset(50%);
 }
 
-.sl-switch-track {
+.form-switch-track {
   /* 2nd-gen switch (medium): control 26x16, 2px border, handle 8px -> 10px. */
   position: relative;
   flex-shrink: 0;
@@ -36,7 +36,7 @@
     border-color 0.13s cubic-bezier(0.45, 0, 0.4, 1);
 }
 
-.sl-switch-handle {
+.form-switch-handle {
   position: absolute;
   top: 50%;
   left: 2px;
@@ -52,43 +52,43 @@
     background 0.13s cubic-bezier(0.45, 0, 0.4, 1);
 }
 
-.sl-switch-input:checked + .sl-switch-track {
+.form-switch-input:checked + .form-switch-track {
   background: var(--s2-gray-800);
   border-color: transparent;
 }
 
-.sl-switch-input:checked + .sl-switch-track .sl-switch-handle {
+.form-switch-input:checked + .form-switch-track .form-switch-handle {
   width: 10px;
   height: 10px;
   background: var(--s2-gray-25);
   transform: translate(8px, -50%);
 }
 
-.sl-switch-input:focus-visible + .sl-switch-track {
+.form-switch-input:focus-visible + .form-switch-track {
   outline-color: var(--s2-blue-800);
 }
 
-.sl-switch.has-error .sl-switch-track {
+.form-switch.has-error .form-switch-track {
   outline-color: var(--s2-red-900);
 }
 
-.sl-switch-input:disabled + .sl-switch-track {
+.form-switch-input:disabled + .form-switch-track {
   border-color: var(--s2-gray-400);
 }
 
-.sl-switch-input:disabled + .sl-switch-track .sl-switch-handle {
+.form-switch-input:disabled + .form-switch-track .form-switch-handle {
   background: var(--s2-gray-400);
 }
 
-.sl-switch-input:checked:disabled + .sl-switch-track {
+.form-switch-input:checked:disabled + .form-switch-track {
   background: var(--s2-gray-400);
   border-color: transparent;
 }
 
-.sl-switch:has(.sl-switch-input:disabled) {
+.form-switch:has(.form-switch-input:disabled) {
   cursor: not-allowed;
 }
 
-.sl-switch:hover .sl-switch-input:not(:checked) + .sl-switch-track {
+.form-switch:hover .form-switch-input:not(:checked) + .form-switch-track {
   border-color: var(--s2-gray-900);
 }

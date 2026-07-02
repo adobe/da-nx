@@ -100,6 +100,6 @@ describe('nx-form', () => {
     el.ctx = { org: 'adobe', repo: 'demo', path: 'adobe/demo/page' };
     await el.updateComplete;
     expect(el.shadowRoot.querySelector('.nx-form-schema-heading')).to.exist;
-    expect(el.shadowRoot.querySelector('sl-picker')).to.exist;
+    expect(el.shadowRoot.querySelector('form-picker')).to.exist;
   });
 });

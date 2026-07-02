@@ -4,7 +4,7 @@ import defaults from './defaults.js';
 
 const style = await loadStyle(import.meta.url);
 
-class SlCheckbox extends LitElement {
+class FormCheckbox extends LitElement {
   static properties = {
     checked: { type: Boolean, reflect: true },
     error: { type: String },
@@ -24,25 +24,25 @@ class SlCheckbox extends LitElement {
 
   render() {
     return html`
-      <label class="sl-switch${this.error ? ' has-error' : ''}">
+      <label class="form-switch${this.error ? ' has-error' : ''}">
         <input
-          class="sl-switch-input"
+          class="form-switch-input"
           type="checkbox"
           role="switch"
           ?checked=${this.checked}
           ?disabled=${this.disabled}
           @change=${this.handleChange}
         />
-        <span class="sl-switch-track" aria-hidden="true">
-          <span class="sl-switch-handle"></span>
+        <span class="form-switch-track" aria-hidden="true">
+          <span class="form-switch-handle"></span>
         </span>
-        <span class="sl-switch-label"><slot></slot></span>
+        <span class="form-switch-label"><slot></slot></span>
       </label>
-      ${this.error ? html`<p class="sl-field-error">${this.error}</p>` : nothing}
+      ${this.error ? html`<p class="form-field-error">${this.error}</p>` : nothing}
     `;
   }
 }
 
-if (!customElements.get('sl-checkbox')) customElements.define('sl-checkbox', SlCheckbox);
+if (!customElements.get('form-checkbox')) customElements.define('form-checkbox', FormCheckbox);
 
-export default SlCheckbox;
+export default FormCheckbox;

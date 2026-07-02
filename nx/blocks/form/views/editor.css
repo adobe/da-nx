@@ -127,27 +127,27 @@
   color: var(--s2-blue-800);
 }
 
-.editor-root sl-input,
-.editor-root sl-number-field,
-.editor-root sl-picker,
-.editor-root sl-checkbox {
+.editor-root form-input,
+.editor-root form-number-field,
+.editor-root form-picker,
+.editor-root form-checkbox {
   display: block;
   margin: 16px 0 8px;
 }
 
-.editor-root .form-array-item-primitive sl-input,
-.editor-root .form-array-item-primitive sl-number-field,
-.editor-root .form-array-item-primitive sl-picker,
-.editor-root .form-array-item-primitive sl-checkbox {
+.editor-root .form-array-item-primitive form-input,
+.editor-root .form-array-item-primitive form-number-field,
+.editor-root .form-array-item-primitive form-picker,
+.editor-root .form-array-item-primitive form-checkbox {
   margin: 0;
 }
 
 /* In a primitive array row the field takes the remaining width and the action
    sits beside it. */
-.editor-root .form-array-item-input-row > sl-input,
-.editor-root .form-array-item-input-row > sl-number-field,
-.editor-root .form-array-item-input-row > sl-picker,
-.editor-root .form-array-item-input-row > sl-checkbox {
+.editor-root .form-array-item-input-row > form-input,
+.editor-root .form-array-item-input-row > form-number-field,
+.editor-root .form-array-item-input-row > form-picker,
+.editor-root .form-array-item-input-row > form-checkbox {
   flex: 1;
   min-width: 0;
 }

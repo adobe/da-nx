@@ -196,7 +196,7 @@ class Editor extends LitElement {
     if (Array.isArray(node.enumValues)) {
       const currentValue = value === '' || value === undefined || value === null ? '' : value;
       return html`
-        <sl-picker
+        <form-picker
           data-pointer=${pointer}
           .label=${label}
           .required=${showRequired}
@@ -211,27 +211,27 @@ class Editor extends LitElement {
           ${node.enumValues.map((item) => html`
             <option value=${item} ?selected=${item === currentValue}>${item}</option>
           `)}
-        </sl-picker>
+        </form-picker>
       `;
     }
 
     if (node.kind === 'boolean') {
-      // sl-checkbox uses its default slot as the label.
+      // form-checkbox uses its default slot as the label.
       return html`
-        <sl-checkbox
+        <form-checkbox
           data-pointer=${pointer}
           .error=${error}
           ?checked=${!!value}
           ?disabled=${readonly}
           @change=${(e) => this._onBooleanInput(node, e)}
-        >${label}${showRequired ? html`<span class="is-required">*</span>` : nothing}</sl-checkbox>
+        >${label}${showRequired ? html`<span class="is-required">*</span>` : nothing}</form-checkbox>
       `;
     }
 
     if (node.kind === 'number' || node.kind === 'integer') {
       const { minimum, maximum } = node.validation ?? {};
       return html`
-        <sl-number-field
+        <form-number-field
           data-pointer=${pointer}
           .label=${label}
           .required=${showRequired}
@@ -242,12 +242,12 @@ class Editor extends LitElement {
           .step=${node.kind === 'integer' ? 1 : undefined}
           ?disabled=${readonly}
           @input=${(e) => this._onNumberInput(node, e)}
-        ></sl-number-field>
+        ></form-number-field>
       `;
     }
 
     return html`
-      <sl-input
+      <form-input
         data-pointer=${pointer}
         type="text"
         .label=${label}
@@ -256,7 +256,7 @@ class Editor extends LitElement {
         .value=${value ?? ''}
         ?disabled=${readonly}
         @input=${(e) => this._onTextInput(node, e)}
-      ></sl-input>
+      ></form-input>
     `;
   }
 
@@ -479,12 +479,12 @@ class Editor extends LitElement {
           `;
     })}
         <div class="form-array-footer">
-          <sl-button
+          <form-button
             variant="secondary"
             class="add-item-btn"
             ?disabled=${!canAdd}
             @click=${() => { if (canAdd) this._mutate((editor) => editor.addItem(node.pointer)); }}
-          >${icon('add')}<span>${addLabel}</span></sl-button>
+          >${icon('add')}<span>${addLabel}</span></form-button>
         </div>
       </section>
     `;
@@ -522,7 +522,7 @@ class Editor extends LitElement {
             </li>
           `)}
         </ul>
-        <sl-button slot="actions" variant="secondary" @click=${() => { this._issuesOpen = false; }}>Dismiss</sl-button>
+        <form-button slot="actions" variant="secondary" @click=${() => { this._issuesOpen = false; }}>Dismiss</form-button>
       </nx-dialog>
     `;
   }

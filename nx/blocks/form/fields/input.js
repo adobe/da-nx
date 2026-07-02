@@ -5,7 +5,7 @@ import { icon } from '../icons.js';
 
 const style = await loadStyle(import.meta.url);
 
-class SlInput extends LitElement {
+class FormInput extends LitElement {
   static properties = {
     value: { type: String },
     label: { type: String },
@@ -28,17 +28,17 @@ class SlInput extends LitElement {
 
   handleEvent(event) {
     this.value = event.target.value;
-    // Re-dispatch from the host so listeners on <sl-input> fire across the shadow boundary.
+    // Re-dispatch from the host so listeners on <form-input> fire across the shadow boundary.
     this.dispatchEvent(new event.constructor(event.type, event));
   }
 
   render() {
     return html`
-      <div class="sl-field${this.error ? ' has-error' : ''}">
-        ${this.label ? html`<label for="sl-input">${this.label}${this.required ? html`<span class="sl-required">*</span>` : nothing}</label>` : nothing}
-        <div class="sl-input-wrap">
+      <div class="form-field${this.error ? ' has-error' : ''}">
+        ${this.label ? html`<label for="form-input">${this.label}${this.required ? html`<span class="form-required">*</span>` : nothing}</label>` : nothing}
+        <div class="form-input-wrap">
           <input
-            id="sl-input"
+            id="form-input"
             type=${this.type || 'text'}
             .value=${this.value ?? ''}
             placeholder=${this.placeholder ?? nothing}
@@ -46,14 +46,14 @@ class SlInput extends LitElement {
             @input=${this.handleEvent}
             @change=${this.handleEvent}
           />
-          ${this.error ? icon('alert', 'sl-field-icon') : nothing}
+          ${this.error ? icon('alert', 'form-field-icon') : nothing}
         </div>
-        ${this.error ? html`<p class="sl-field-error">${this.error}</p>` : nothing}
+        ${this.error ? html`<p class="form-field-error">${this.error}</p>` : nothing}
       </div>
     `;
   }
 }
 
-if (!customElements.get('sl-input')) customElements.define('sl-input', SlInput);
+if (!customElements.get('form-input')) customElements.define('form-input', FormInput);
 
-export default SlInput;
+export default FormInput;

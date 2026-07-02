@@ -12,7 +12,7 @@
    input drops its inline-end border and squares those corners, and the column
    carries the seam + outer border and rounds the end corners. */
 
-.sl-number-wrap {
+.form-number-wrap {
   position: relative;
   display: flex;
   flex-flow: row;
@@ -24,7 +24,7 @@
   outline-offset: 2px;
 }
 
-.sl-number-wrap input {
+.form-number-wrap input {
   flex: 1;
   min-width: 0;
   box-sizing: border-box;
@@ -60,7 +60,7 @@
 
 /* Stacked stepper column at the inline-end (increase on top, decrease below).
    Carries the seam (inline-start) and the outer border; end corners rounded. */
-.sl-number-buttons {
+.form-number-buttons {
   box-sizing: border-box;
   display: flex;
   flex: none;
@@ -80,7 +80,7 @@
   transition: border-color 0.13s cubic-bezier(0.45, 0, 0.4, 1);
 }
 
-.sl-number-step {
+.form-number-step {
   display: flex;
   flex: 1;
   align-items: center;
@@ -108,11 +108,11 @@
 }
 
 /* 1px divider between the two stacked buttons (stepper button-border-width). */
-.sl-number-step-up {
+.form-number-step-up {
   border-block-end: 1px solid var(--s2-gray-500);
 }
 
-.sl-number-chevron {
+.form-number-chevron {
   width: 9px;
   height: 9px;
   pointer-events: none;
@@ -123,51 +123,51 @@
    cascade (invalid stays red on focus; disabled wins last). */
 
 /* Hover: border, seam, and divider move to gray-600. */
-.sl-number-wrap:hover input,
-.sl-number-wrap:hover .sl-number-buttons,
-.sl-number-wrap:hover .sl-number-step-up {
+.form-number-wrap:hover input,
+.form-number-wrap:hover .form-number-buttons,
+.form-number-wrap:hover .form-number-step-up {
   border-color: var(--s2-gray-600);
 }
 
 /* Focus follows the inner input: border to gray-800. */
-.sl-number-wrap:focus-within input,
-.sl-number-wrap:focus-within .sl-number-buttons,
-.sl-number-wrap:focus-within .sl-number-step-up {
+.form-number-wrap:focus-within input,
+.form-number-wrap:focus-within .form-number-buttons,
+.form-number-wrap:focus-within .form-number-step-up {
   border-color: var(--s2-gray-800);
 }
 
 /* Invalid: negative border on the box, seam, and divider (holds through focus). */
-.sl-field.has-error .sl-number-buttons,
-.sl-field.has-error .sl-number-step-up,
-.sl-field.has-error .sl-number-wrap input {
+.form-field.has-error .form-number-buttons,
+.form-field.has-error .form-number-step-up,
+.form-field.has-error .form-number-wrap input {
   border-color: var(--s2-red-900);
 }
 
 /* Disabled. */
-:host([disabled]) .sl-number-buttons,
-:host([disabled]) .sl-number-step-up,
-:host([disabled]) .sl-number-wrap input {
+:host([disabled]) .form-number-buttons,
+:host([disabled]) .form-number-step-up,
+:host([disabled]) .form-number-wrap input {
   border-color: var(--s2-gray-300);
 }
 
-:host([disabled]) .sl-number-wrap input {
+:host([disabled]) .form-number-wrap input {
   color: var(--s2-gray-400);
   cursor: not-allowed;
 }
 
-:host([disabled]) .sl-number-buttons {
+:host([disabled]) .form-number-buttons {
   background: var(--s2-gray-50);
 }
 
 /* Keyboard focus adds the 2px focus indicator (2px gap). */
-.sl-number-wrap:has(input:focus-visible) {
+.form-number-wrap:has(input:focus-visible) {
   outline-color: var(--s2-blue-800);
 }
 
-.sl-field.has-error .sl-number-wrap input {
+.form-field.has-error .form-number-wrap input {
   padding-right: 30px;
 }
 
-.sl-field.has-error .sl-field-icon {
+.form-field.has-error .form-field-icon {
   inset-inline-end: 34px;
 }

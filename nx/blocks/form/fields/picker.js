@@ -5,7 +5,7 @@ import { icon } from '../icons.js';
 
 const style = await loadStyle(import.meta.url);
 
-class SlPicker extends LitElement {
+class FormPicker extends LitElement {
   static properties = {
     value: { type: String },
     label: { type: String },
@@ -54,25 +54,25 @@ class SlPicker extends LitElement {
   render() {
     return html`
       <slot hidden @slotchange=${this.handleSlotchange}></slot>
-      <div class="sl-field${this.error ? ' has-error' : ''}">
-        ${this.label ? html`<label for="sl-picker">${this.label}${this.required ? html`<span class="sl-required">*</span>` : nothing}</label>` : nothing}
-        <div class="sl-picker-wrap">
+      <div class="form-field${this.error ? ' has-error' : ''}">
+        ${this.label ? html`<label for="form-picker">${this.label}${this.required ? html`<span class="form-required">*</span>` : nothing}</label>` : nothing}
+        <div class="form-picker-wrap">
           <select
-            id="sl-picker"
+            id="form-picker"
             ?disabled=${this.disabled}
             @change=${this.handleChange}
           ></select>
-          ${this.error ? icon('alert', 'sl-field-icon') : nothing}
-          ${icon('chevronDown', 'sl-picker-chevron')}
+          ${this.error ? icon('alert', 'form-field-icon') : nothing}
+          ${icon('chevronDown', 'form-picker-chevron')}
         </div>
         ${this.error
-        ? html`<p class="sl-field-error">${this.error}</p>`
+        ? html`<p class="form-field-error">${this.error}</p>`
         : html`<slot name="description"></slot>`}
       </div>
     `;
   }
 }
 
-if (!customElements.get('sl-picker')) customElements.define('sl-picker', SlPicker);
+if (!customElements.get('form-picker')) customElements.define('form-picker', FormPicker);
 
-export default SlPicker;
+export default FormPicker;

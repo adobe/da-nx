@@ -11,7 +11,7 @@
   line-height: 1;
 }
 
-:host sl-picker {
+:host form-picker {
   margin-bottom: 12px;
 }
 

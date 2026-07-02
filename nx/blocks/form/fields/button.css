@@ -14,7 +14,7 @@
 }
 
 /* Shared structure: Spectrum 2 pill shape and bold label. */
-.sl-button {
+.form-button {
   box-sizing: border-box;
   display: inline-flex;
   align-items: center;
@@ -44,7 +44,7 @@
 }
 
 /* Accent (default variant): blue fill, static white label. */
-:host([variant="accent"]) .sl-button {
+:host([variant="accent"]) .form-button {
   background: var(--s2-blue-900);
   color: white;
 
@@ -61,7 +61,7 @@
 }
 
 /* Secondary: transparent at rest; neutral text with a gray wash on state. */
-:host([variant="secondary"]) .sl-button {
+:host([variant="secondary"]) .form-button {
   background: transparent;
   color: var(--s2-gray-700);
 
