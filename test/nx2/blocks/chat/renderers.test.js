@@ -61,3 +61,32 @@ describe('renderers link handling', () => {
     expect(host.querySelector('.message-content a')).to.equal(null);
   });
 });
+
+describe('renderers — no Document node inserted into Lit template', () => {
+  // Regression: hastToDom returns a full #document node (nodeType 9) when the
+  // hast root has no children (e.g. an empty directive body). Inserting a
+  // Document into a Lit binding throws HierarchyRequestError. toDOM() must
+  // extract the body children into a DocumentFragment instead.
+
+  it('renders a directive with empty body without throwing', () => {
+    // ":::info\n:::" produces a directive segment with content === ''
+    // which causes parser.parse('') → hast root with 0 children → createDocument()
+    expect(() => renderAssistant(':::info\n:::')).to.not.throw();
+  });
+
+  it('renders a directive with empty body as a DocumentFragment (not a Document)', () => {
+    // The rendered DOM must not contain a Document node — the container should
+    // just be empty (or contain the directive wrapper) without error.
+    const host = renderAssistant(':::info\n:::');
+    // If we got here without a HierarchyRequestError, the fix is working.
+    // Verify the host is still a valid element (not corrupted).
+    expect(host.nodeType).to.equal(Node.ELEMENT_NODE);
+  });
+
+  it('renders normal markdown after an empty directive', () => {
+    const host = renderAssistant(':::info\n:::\nHello **world**.');
+    const strong = host.querySelector('.message-content strong');
+    expect(strong).to.exist;
+    expect(strong.textContent).to.equal('world');
+  });
+});

@@ -1,5 +1,197 @@
 # Worklog
 
+## 2026-07-01 (feat/skill-scripts-runtime — eslint clean-up)
+
+### Fix 16 ESLint errors so `npm run lint` exits 0
+
+- `chat-controller.js`: renamed destructure binding `_removed` → `_` (no-unused-vars)
+- `skill-script-roundtrip.test.js`: removed dead `fireSkillToolCall` + `stubResolveAndRun` helpers; `let updates` → `const`; dropped unused `runResult` param; wrapped all six `new Promise((resolve) => setTimeout(...))` calls in braces (no-promise-executor-return); shortened overlong comment (max-len)
+- `skill-script-loader.test.js`: split `mockFetch` param list onto multiple lines (object-curly-newline); split ao-prefix fetch stub body (max-statements-per-line)
+- `skill-script-e2e.test.js`: named the two anonymous async `function` expressions (func-names)
+
+`npm run lint` → 0 errors (4 pre-existing glaas console warnings remain). All 1039 tests pass.
+
+## 2026-06-30 (feat/skill-scripts-runtime — remove built-in skill)
+
+### da-nx ships no skill content; skill body moved to a test fixture
+
+Under the marketplace model, skills live in the curated GH marketplace, not in
+da-nx. Removed the PoC leftover `nx2/blocks/chat/skills-builtin/docx-to-markdown/`
+(skill.md, manifest.js, scripts/convert.js) entirely. The `convert()` body that the
+substrate + real-worker e2e tests need was moved to a test-only fixture at
+`test/fixtures/skill-scripts/docx-convert.js`; `skill-runtime.test.js` and
+`skill-script-e2e.test.js` now reference the fixture. Net: the PR carries only the
+runtime + marketplace resolver + the host-provided `fflate` dep — no skill.
+
+## 2026-06-30 (harden/worker-neuter-storage)
+
+### Explicitly neuter localStorage / sessionStorage / document in worker-host.js
+
+Extended the `neuter(self, prop)` block in `WORKER_BOOTSTRAP` to also neuter three additional globals:
+- `localStorage`
+- `sessionStorage`
+- `document` (covers `document.cookie`)
+
+These are absent in a dedicated Web Worker by spec today, but neutering them explicitly makes the guarantee enforce-by-construction: if the bootstrap ever runs in a non-Worker isolate or a future runtime that exposes them, the guarantee holds without relying on spec defaults.
+
+**Files changed:**
+- `nx2/utils/skill-runtime/worker-host.js` — three new `neuter(self, ...)` calls after `caches` / `Notification`
+- `test/nx2/utils/skill-runtime/skill-runtime.test.js` — added `sessionStorage` test; strengthened `localStorage` + `document` comments to note explicit neutering (enforce-by-construction)
+
+**Test count:** 1036 passed, 0 failed (up from 1035).
+
+## 2026-06-29 (skill-script-runtime + marketplace design)
+
+### Landed on feat/da-skill-script-runtime
+
+- **`fix(skill-runtime)`** — `runner.js`: resolve DEPENDENCY_ALLOWLIST URLs against `import.meta.url` (the nx2 module origin) instead of `globalThis.location.origin` (the page origin). Fixes dep loading when da-nx is served from a different origin than the consuming page (e.g. da-live :3000 vs da-nx :6456 locally).
+- **`feat(chat)`** — `chat.js`: added `.docx` / `application/vnd.openxmlformats-officedocument.wordprocessingml.document` to both the `<input accept>` attribute and the `_onDrop` filter, so Word documents are accepted in the attachment picker.
+- **`docs(skill-runtime)`** — `docs/skill-script-runtime.md`: added §8 marketplace provider interface + swappable implementations (`GitHubMarketplaceProvider`, `ConfigSheetMarketplaceProvider`, `AOMarketplaceProvider`); §9 backwards-compat frozen contract + characterization-test strategy; §10 security model table (network, storage, credentials, capability gating, dependency allowlist, exfiltration); §11 migration path with today/tomorrow AO flow diagrams; §12 decisions on record.
+
+## 2026-06-29 (security suite)
+
+### §10 security matrix test suite (feat/da-skill-script-runtime)
+
+Added a focused security test suite asserting every row of the §10 security matrix in `docs/skill-script-runtime.md`. All 1035 tests pass.
+
+**Coverage before → after:**
+- No network (fetch): already covered → extended to full set (XMLHttpRequest, WebSocket, importScripts, navigator.sendBeacon)
+- No exfiltration: new — skill calling fetch() errors rather than completing
+- No storage: new — indexedDB, caches, localStorage each asserted undefined in worker
+- No document/cookies: new — document undefined; document.cookie access throws
+- No credentials/PII: new — Object.keys(host) asserted to be exactly ['deps', 'log']; explicit deny list for token/ims/session/auth/credential/secret/apiKey
+- Capability gating: already covered (section 2)
+- Dependency allowlist: already covered (section 6)
+- Marketplace-only resolution: extended — all fetched URLs asserted under raw.githubusercontent.com; ao: prefix verified to make zero fetch calls; path traversal (../...) asserted to stay under marketplace host
+
+**No substrate changes needed** — all properties held by construction (Worker spec excludes localStorage/document; worker-host.js neuters network/storage globals; runner.js builds host with only log+deps).
+
+**Files changed:**
+- `test/nx2/utils/skill-runtime/skill-runtime.test.js` — +14 security tests in 4 describe blocks
+- `test/nx2/blocks/chat/utils/skill-script-loader.test.js` — +3 marketplace-only security tests
+
+## 2026-06-29
+
+### attachmentRef → bytes resolution for script-skills (feat/da-skill-script-runtime)
+
+`_onToolEvent` `skill_run_script` branch in `chat-controller.js` now resolves an attachment reference entirely client-side before calling `runSkillScript`:
+
+- If `input.attachmentRef` is set, find the attachment in `this._pendingAttachments` by `id`.
+  - Found: build `effectiveInput` with `bytesBase64` (from `dataBase64`), `fileName`, `mediaType`; remove `attachmentRef`; other `skillInput` fields survive unchanged.
+  - Not found: record `{ error: 'attachment <ref> not found' }` via `_recordSkillResult`, call `_done()`, return — skill is not run.
+- No `attachmentRef`: `skillInput` passes through unchanged.
+- Bytes come exclusively from `_pendingAttachments`; agent args never supply bytes — security invariant preserved.
+
+**Tests added:** 1021 total (+3).
+- `skill-script-roundtrip.test.js` — missing attachment → ERROR; no attachmentRef → passthrough.
+- `skill-script-e2e.test.js` — real worker, real `scripts/convert.js`, real fflate, real docx fixture supplied via `attachmentRef` → markdown contains fixture text.
+
+---
+
+### Fix marketplace skill URL namespace (feat/da-skill-script-runtime)
+
+`MARKETPLACE_RAW_BASE` in `skill-script-loader.js` was missing the `/ew` namespace segment, causing skill fetches to resolve to the wrong path. Updated constant from `.../main` to `.../main/ew`. Updated `GH_RAW_BASE` in `skill-script-loader.test.js` to match. All 1018 tests pass.
+
+---
+
+### scripts/ layout + host-injected dependencies (feat/da-skill-script-runtime)
+
+Two refinements on top of the GH-marketplace rework.
+
+**scripts/ layout:** marketplace skills store code at `<skillId>/scripts/<entry>.<ext>` (not flat alongside `skill.md`). `resolveSkill` now builds the script URL from `execution_entry` + a runtime→ext map (`js` → `.js`). `skill.md` stays at `<skillId>/skill.md`.
+
+**Host-injected dependencies:** skills declare deps via `execution_dependencies: fflate` (comma-separated flat field). `parseSkillFrontmatter` parses into `dependencies: string[]` on the manifest. `worker-host.js` exports `DEPENDENCY_ALLOWLIST = { fflate: '/nx2/deps/fflate/dist/index.js' }`. `runner.js` resolves allowlist paths to absolute (blob-URL workers can't resolve root-relative paths) and sends `{ dependencies, allowlist }` to the worker. The worker `await import(allowlist[name])`s each dep into `host.deps[name]`; any dep not in the allowlist returns `{ error: 'dependency "..." not allowed' }` before running. `scripts/convert.js` uses `host.deps.fflate` — no host path import.
+
+**Key fix:** allowlist URLs must be absolute before `postMessage` — worker blob-URL origin can't resolve `/nx2/...` relative paths. `new URL(url, globalThis.location?.origin).href` in `runner.js` handles this.
+
+**Tests added/updated:**
+- `skill-script-loader.test.js` — `execution_dependencies` parsing (single, multi, absent, blank); script URL now asserts `scripts/convert.js` path.
+- `skill-runtime.test.js` — non-allowlisted dep refusal (`{ error: '... not allowed' }`); `convert()` tests updated to use `host.deps.fflate` host.
+- `skill-script-e2e.test.js` — `REAL_SKILL_MD` updated with `execution_dependencies: fflate`; `REAL_SCRIPT_URL` points to `scripts/convert.js`; fetch stub intercepts `/scripts/` path.
+- All 1018 tests passing.
+
+**Security invariant:** no skill can import arbitrary URLs; the worker only loads from the vetted allowlist. Same security-by-construction principle as neutered ambient globals.
+
+## 2026-06-27
+
+### Resolve script-skills from curated GH marketplace, not .da/skills (feat/da-skill-script-runtime)
+
+**Security rationale:** `.da/skills/` is user-writable content. Resolving a skill's manifest and script from there lets an attacker-controlled document substitute arbitrary code or a forged manifest. Script skills must be resolved from the curated, read-only GH marketplace only.
+
+**What changed:**
+- `nx2/blocks/chat/utils/skill-script-loader.js` — `resolveSkill` now fetches from `MARKETPLACE_RAW_BASE` (`https://raw.githubusercontent.com/exp-workspace/skills/main`, TODO: adobe/skills once PR lands). No org/site argument — the marketplace is global. Fetches `skill.md` (parses trusted frontmatter) then `script.js` as text, converts to a `Blob` with `type: 'text/javascript'` and returns `URL.createObjectURL(blob)` as `moduleUrl`. This is required because `raw.githubusercontent.com` serves `text/plain`, which browsers reject for ES module `import()`. Removed the DA Admin `.da/skills` path entirely.
+- `nx2/blocks/chat/chat-controller.js` — `_onToolEvent` `skill_run_script` branch: removed `{ org, site }` argument from `resolveSkill` call (no longer needed).
+- `test/nx2/blocks/chat/utils/skill-script-loader.test.js` — rewritten: stubs GH raw URLs (`skill.md` + `script.js`); asserts blob URL returned; verifies both marketplace URLs fetched; drops org/site from all `resolveSkill` calls; new test confirms no org/site needed; kept all frontmatter parsing and error tests.
+- `test/nx2/blocks/chat/skill-script-roundtrip.test.js` — fetch stub updated to return `'export function run() {}'` for `script.js` URLs (marketplace JS payload for blob URL creation).
+- `test/nx2/blocks/chat/skill-script-e2e.test.js` — `buildController` fetch stub updated to handle `script.js` with dummy JS; happy-path still uses real localhost `moduleUrl` via `_onToolEvent` replacement (unchanged); eligibility and security tests now complete the full `resolveSkill` including script.js fetch.
+
+**Security invariant preserved:** `isClientEligible` runs on the manifest fetched from MARKETPLACE (trusted). Agent-supplied capability hints are still ignored. Security test still passes (1011/1011).
+
+**Key detail:** blob URL pattern is required because browsers enforce `text/javascript` MIME for module workers — raw GitHub cannot serve that MIME type. The blob is created client-side from the fetched text, so the MIME is correct and `import()` succeeds.
+
+### Skill-script execution substrate (feat/da-skill-script-runtime)
+
+Platform capability — NOT a docx feature; docx is the proof case.
+
+**What shipped:**
+- `nx2/utils/skill-runtime/` — public platform API: `runSkillScript({ manifest, moduleUrl, input })`, `isClientEligible(capabilities)`, capability constants (NETWORK/SECRETS/PII/STORAGE).
+- Client eligibility enforced by construction: `capabilities: []` → runs in a sandboxed blob-URL module worker; any non-empty capabilities → `{ error: 'requires server runtime' }` (drop-in seam for future SANDBOX server runner).
+- Worker bootstrap (`worker-host.js`) neuters `fetch`, `XMLHttpRequest`, `WebSocket`, `importScripts`, `indexedDB`, `caches`, `Notification`, `navigator.sendBeacon` before loading any skill module. The worker's `host` exposes only a buffered `log(...)`.
+- `nx2/deps/fflate/` — bundled ESM dep (src + dist, `nx2:build:fflate` script).
+- `nx2/blocks/chat/skills-builtin/docx-to-markdown/` — proof skill: pure ECMAScript + lazy fflate; extracts `<w:t>` nodes from `word/document.xml` + header/footer XML, unescapes XML entities, returns `{ markdown }`.
+- 9 tests all passing: eligibility, server-runtime gate, pure worker execution, ambient-global neutering (fetch undefined in worker), timeout, docx round-trip, entity unescape, corrupt-input → `{ error }`.
+
+**Key decisions:**
+- JSON-serializable I/O only — contract is language-neutral; future Python mirror is `def entry(input, host): return output`.
+- SANDBOX runner seam is a comment block in `runner.js` at the strategy point — same caller shape, no caller changes when server runner lands.
+- `convert` tests run in-process (pure function); worker integration tests use blob-URL inline skills to avoid CDN dependency in CI.
+
+**Out of scope (not done):** chat attachment wiring; Python AO runtime; server SANDBOX runner.
+
+### Agent-triggered skill-script orchestration round-trip (same branch)
+
+Completes the agent-triggered execution path documented in §5.2.1 of `docs/skill-script-runtime.md`.
+
+**What shipped:**
+- `nx2/blocks/chat/utils/skill-script-loader.js` — trusted manifest resolver: fetches `${DA_ADMIN}/source/${org}/${site}/.da/skills/${id}/skill.md`, parses flat `execution_*` frontmatter (using `[ \t]*` not `\s*` to avoid consuming newlines), resolves the `script.js` module URL. AO marketplace prefix (`ao:`) reserved as an error seam.
+- `chat-controller.js` — `_onToolEvent` intercepts `skill_run_script` TOOL_CALL: resolves trusted manifest client-side, enforces `isClientEligible` from the manifest (agent args never decide capabilities), calls `runSkillScript`, records result via `_recordSkillResult` (virtual-message pattern), re-engages agent via `_stream` on success so it continues reasoning. On error (resolve failure, non-client-eligible, script error) records an ERROR virtual message and calls `_done()`.
+- `_recordSkillResult` helper — encapsulates virtual-message append + tool-card state update; reusable for future client tools.
+- `nx2/blocks/chat/skills-builtin/docx-to-markdown/skill.md` — real skill artifact with flat `execution_*` frontmatter; seed file for `.da/skills/docx-to-markdown/`.
+
+**Tests:**
+- `test/nx2/blocks/chat/utils/skill-script-loader.test.js` — frontmatter parsing (all fields, empty capabilities, blank capabilities, default timeout, no frontmatter, missing entry, multi-runtime); resolve happy path, 404, missing skillId, missing context, ao: prefix.
+- `test/nx2/blocks/chat/skill-script-roundtrip.test.js` — TOOL_CALL → record → tool card state; server-runtime gate (non-empty capabilities → ERROR, no execution); resolve error propagation; **security test** (capability hint in agent args ignored — manifest decides); virtual-message expansion in `_messagesForAgent`.
+- 1006 tests all passing.
+
+**Key decisions:**
+- `[ \t]*` in frontmatter regex (not `\s*`) — `\s*` consumes newlines and would match the next YAML key's value. Caught by tests.
+- Worker errors (external module URL not served in WTR) settle gracefully as `{ error }` via `worker.onerror` — the round-trip test verifies the card leaves RUNNING regardless.
+- `_recordSkillResult` is a regular prototype method (not arrow field) so tests can patch it on instances.
+
+**Out of scope (still):** chat attachment wiring for client-triggered path; AO marketplace skill resolution; server SANDBOX runner.
+
+### E2E skill-script round-trip test (same branch)
+
+**What shipped:**
+- `test/nx2/blocks/chat/skill-script-e2e.test.js` — three test cases that prove the full client execution path with the real sandboxed worker:
+  1. **Happy path** — real worker + real `script.js` (loaded via `localhost` URL served by WTR) + real `.docx` fixture (built with fflate `zipSync`) → asserts `card.state === DONE`, virtual message recorded, `_messagesForAgent()` expands to ASSISTANT/TOOL pair with `markdown` containing `"hello e2e"`.
+  2. **Eligibility gate** — `execution_capabilities: network` in served skill.md → `card.state === ERROR`, `output.error === 'requires server runtime'`, worker never spun up.
+  3. **Security** — agent passes `capabilities: []` hint in tool args; manifest has `network` → manifest wins, same server-runtime error.
+
+**What is real vs simulated:**
+- Real: `runSkillScript`, worker bootstrap, `script.js` (WTR serves at localhost), fflate import chain, manifest parsing, `_recordSkillResult`, `_messagesForAgent`, tool card state.
+- Simulated: `fetch` for `skill.md` (returns real skill.md bytes, no DA Admin needed); `_stream` (resolves immediately, no live LLM); `moduleUrl` redirected from DA Admin URL to localhost script path (only seam available — `DA_ADMIN` is a closed-over constant in `resolveSkill`, unreachable via fetch stub).
+
+**Adaptation:** `_onToolEvent` is replaced on the controller instance for the happy-path test to supply a localhost `moduleUrl`. All other logic — eligibility check, worker creation, script execution — runs real. Tests 2 & 3 use the real `_onToolEvent`.
+
+## 2026-06-29
+
+### nx2/blocks/chat/renderers.js — empty directive body fix (fix/chat-empty-directive-render branch)
+
+Pre-existing bug: when a chat directive block had an empty body, `hastToDom` returned a `Document` node. Lit's `insertBefore` cannot insert a `Document`, throwing a `HierarchyRequestError`. Fix: in `toDOM()`, after `hastToDom`, detect `Node.DOCUMENT_NODE` and extract its `body` children into a `DocumentFragment` before returning. Three regression tests added.
+
+Cherry-picked from `6e02f889` onto a clean `main`-based branch.
+
 ## 2026-06-23
 
 ### nx2/blocks/shared/dialog — configurable panel sizing (dialog-css-vars branch)

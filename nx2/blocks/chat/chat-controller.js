@@ -2,6 +2,10 @@ import { loadIms } from '../../utils/ims.js';
 import { AGENT_EVENT, ROLE, TOOL_NAME, TOOL_STATE } from './constants.js';
 import { readStream } from './utils/stream.js';
 import { loadMessages, saveMessages, resetSession } from './utils/persistence.js';
+import { runSkillScript, isClientEligible } from '../../utils/skill-runtime/index.js';
+import { resolveSkill } from './utils/skill-script-loader.js';
+
+const SKILL_RUN_SCRIPT = 'skill_run_script';
 
 function affectedFolders(toolName, input) {
   const { org, repo } = input ?? {};
@@ -152,6 +156,34 @@ export default class ChatController {
     this._update();
   }
 
+  /**
+   * Record a skill_run_script tool result using the virtual-message pattern so
+   * _messagesForAgent() can replay it as an ASSISTANT tool-call + TOOL tool-result
+   * pair on the next POST. Updates the tool card to DONE or ERROR.
+   */
+  _recordSkillResult(toolCallId, toolName, callInput, output, isError) {
+    const next = new Map(this._toolCards ?? []);
+    const state = isError ? TOOL_STATE.ERROR : TOOL_STATE.DONE;
+    next.set(toolCallId, { toolName, input: callInput, state, output });
+    this._messages = [
+      ...this._messages,
+      {
+        role: ROLE.ASSISTANT,
+        virtual: true,
+        turnId: this._currentTurnId,
+        toolResult: { output },
+        content: [{
+          type: AGENT_EVENT.TOOL_CALL,
+          toolCallId,
+          toolName,
+          input: callInput,
+        }],
+      },
+    ];
+    this._toolCards = next;
+    this._update();
+  }
+
   stop() {
     this._abortController?.abort();
     this._done();
@@ -183,6 +215,66 @@ export default class ChatController {
     if (type === AGENT_EVENT.TOOL_CALL) {
       if (next.has(toolCallId)) return; // duplicate — ignore
       next.set(toolCallId, { toolName, input, state: TOOL_STATE.RUNNING });
+
+      // Client-executed skill-script: resolve manifest client-side (trusted), run the
+      // script via the substrate, then record the result as a virtual message and
+      // continue streaming. NEVER trust capability hints from the agent's tool args.
+      if (toolName === SKILL_RUN_SCRIPT) {
+        this._toolCards = next;
+        this._update();
+        const { skillId, input: skillInput } = input ?? {};
+        (async () => {
+          const resolved = await resolveSkill(skillId);
+          if (resolved.error) {
+            this._recordSkillResult(toolCallId, toolName, input, { error: resolved.error }, true);
+            this._done();
+            return;
+          }
+          const { manifest, moduleUrl } = resolved;
+          // isClientEligible uses the trusted manifest — never the agent's args.
+          if (!isClientEligible(manifest.capabilities)) {
+            this._recordSkillResult(toolCallId, toolName, input, { error: 'requires server runtime' }, true);
+            this._done();
+            return;
+          }
+
+          // Resolve attachment reference client-side — bytes NEVER come from agent args.
+          // If attachmentRef is present, look it up in _pendingAttachments by id and
+          // inject bytesBase64, fileName, mediaType into the effective skill input.
+          let effectiveInput = skillInput ?? {};
+          const { attachmentRef } = effectiveInput;
+          if (attachmentRef !== undefined) {
+            const attachment = (this._pendingAttachments ?? []).find((a) => a.id === attachmentRef);
+            if (!attachment) {
+              this._recordSkillResult(toolCallId, toolName, input, { error: `attachment ${attachmentRef} not found` }, true);
+              this._done();
+              return;
+            }
+            const { dataBase64, fileName, mediaType } = attachment;
+            // Merge: non-attachment fields from skillInput co-exist; attachmentRef removed.
+            const { attachmentRef: _, ...rest } = effectiveInput;
+            effectiveInput = { bytesBase64: dataBase64, fileName, mediaType, ...rest };
+          }
+
+          const result = await runSkillScript({ manifest, moduleUrl, input: effectiveInput });
+          const resultOutput = result.error ? { error: result.error } : { output: result.json };
+          this._recordSkillResult(toolCallId, toolName, input, resultOutput, !!result.error);
+          // Re-engage the agent with the tool result so it can continue reasoning.
+          try {
+            await this._stream(this._pageContextForAgent());
+          } catch (err) {
+            if (err.name !== 'AbortError') {
+              this._messages = [
+                ...this._messages,
+                { role: ROLE.ASSISTANT, content: `Error: ${err.message}` },
+              ];
+            }
+          } finally {
+            this._done();
+          }
+        })();
+        return;
+      }
     } else if (type === AGENT_EVENT.TOOL_APPROVAL_REQUEST) {
       const existingCard = next.get(toolCallId);
       const settled = existingCard?.state;
