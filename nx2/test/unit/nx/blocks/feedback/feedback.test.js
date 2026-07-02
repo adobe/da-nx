@@ -7,7 +7,7 @@ import { setConfig } from '../../../../../scripts/nx.js';
 // before feedback.js is ever imported — a static import would evaluate (and
 // freeze that constant) before this file's own top-level code could run.
 await setConfig({ hostnames: [] });
-const { default: init, parseFeedbackItems } = await import('../../../../../blocks/feedback/feedback.js');
+const { attachFeedbackMenu, parseFeedbackItems } = await import('../../../../../blocks/feedback/feedback.js');
 
 const FEEDBACK_FRAGMENT_HTML = `
   <div>
@@ -79,39 +79,42 @@ describe('parseFeedbackItems', () => {
   });
 });
 
-function buildAnchor({ href = '/fragments/nav/feedback', className = 'nx-feedback auto-block' } = {}) {
-  const a = document.createElement('a');
-  a.href = href;
-  a.className = className;
-  a.innerHTML = '<span class="icon icon-feedback"></span>Feedback';
-  document.body.append(a);
-  return a;
+// Matches the shape blocks/dialog/dialog.js produces from a generic
+// hash-linked fragment anchor — the same shape Help's button has, since
+// Feedback is no longer distinguished by any linkBlocks config, only by
+// nav.js's decorateActions checking dataset.pathname.
+function buildTriggerButton({ pathname = '/fragments/nav/feedback' } = {}) {
+  const button = document.createElement('button');
+  button.className = 'nx-dialog auto-block';
+  button.dataset.pathname = pathname;
+  button.innerHTML = '<span class="icon icon-feedback"></span>Feedback';
+  document.body.append(button);
+  return button;
 }
 
-describe('feedback init', () => {
+describe('attachFeedbackMenu', () => {
   afterEach(() => {
-    document.querySelectorAll('a, nx-feedback-menu').forEach((el) => el.remove());
+    document.querySelectorAll('button, nx-feedback-menu').forEach((el) => el.remove());
   });
 
-  it('replaces the anchor with a nx-feedback-menu wrapping a trigger button', () => {
-    const a = buildAnchor();
-    init(a);
+  it('wraps the button in a nx-feedback-menu, keeping it as the trigger slot', () => {
+    const button = buildTriggerButton();
+    attachFeedbackMenu(button);
 
-    expect(document.querySelector('a.nx-feedback')).to.be.null;
     const wrapper = document.querySelector('nx-feedback-menu');
     expect(wrapper).to.not.be.null;
 
-    const button = wrapper.querySelector('button[slot="trigger"]');
-    expect(button).to.not.be.null;
-    expect(button.className).to.equal('nx-feedback auto-block');
-    expect(button.dataset.pathname).to.equal('/fragments/nav/feedback');
-    expect(button.querySelector('span.icon.icon-feedback')).to.not.be.null;
-    expect(button.textContent.trim()).to.equal('Feedback');
+    const trigger = wrapper.querySelector('button[slot="trigger"]');
+    expect(trigger).to.equal(button);
+    expect(trigger.classList.contains('nx-feedback')).to.be.true;
+    expect(trigger.dataset.pathname).to.equal('/fragments/nav/feedback');
+    expect(trigger.querySelector('span.icon.icon-feedback')).to.not.be.null;
+    expect(trigger.textContent.trim()).to.equal('Feedback');
   });
 
-  it('sets the wrapper path from the anchor pathname', () => {
-    const a = buildAnchor();
-    init(a);
+  it('sets the wrapper path from the button dataset.pathname', () => {
+    const button = buildTriggerButton();
+    attachFeedbackMenu(button);
     const wrapper = document.querySelector('nx-feedback-menu');
     expect(wrapper.path).to.equal('/fragments/nav/feedback');
   });
@@ -140,13 +143,13 @@ describe('NxFeedbackMenu', () => {
 
   afterEach(() => {
     restoreFetch?.();
-    document.querySelectorAll('a, nx-feedback-menu').forEach((el) => el.remove());
+    document.querySelectorAll('button, nx-feedback-menu').forEach((el) => el.remove());
   });
 
   it('loads and parses items from the fragment on connect', async () => {
     restoreFetch = mockFeedbackFragmentFetch();
-    const a = buildAnchor();
-    init(a);
+    const button = buildTriggerButton();
+    attachFeedbackMenu(button);
     const wrapper = document.querySelector('nx-feedback-menu');
     await wrapper.updateComplete;
     await new Promise((r) => { setTimeout(r, 50); });
@@ -158,8 +161,8 @@ describe('NxFeedbackMenu', () => {
 
   it('opens a dialog for a hash-href item on select', async () => {
     restoreFetch = mockFeedbackFragmentFetch();
-    const a = buildAnchor();
-    init(a);
+    const button = buildTriggerButton();
+    attachFeedbackMenu(button);
     const wrapper = document.querySelector('nx-feedback-menu');
     await wrapper.updateComplete;
     await new Promise((r) => { setTimeout(r, 50); });
@@ -176,8 +179,8 @@ describe('NxFeedbackMenu', () => {
 
   it('opens an external link in a new tab on select instead of a dialog', async () => {
     restoreFetch = mockFeedbackFragmentFetch();
-    const a = buildAnchor();
-    init(a);
+    const button = buildTriggerButton();
+    attachFeedbackMenu(button);
     const wrapper = document.querySelector('nx-feedback-menu');
     await wrapper.updateComplete;
     await new Promise((r) => { setTimeout(r, 50); });
@@ -193,8 +196,8 @@ describe('NxFeedbackMenu', () => {
 
   it('closes the dialog and clears state on submit (no network call)', async () => {
     restoreFetch = mockFeedbackFragmentFetch();
-    const a = buildAnchor();
-    init(a);
+    const button = buildTriggerButton();
+    attachFeedbackMenu(button);
     const wrapper = document.querySelector('nx-feedback-menu');
     await wrapper.updateComplete;
     await new Promise((r) => { setTimeout(r, 50); });

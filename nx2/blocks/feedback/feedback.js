@@ -107,16 +107,24 @@ class NxFeedbackMenu extends LitElement {
 
 if (!customElements.get('nx-feedback-menu')) customElements.define('nx-feedback-menu', NxFeedbackMenu);
 
-export default function init(a) {
-  const button = document.createElement('button');
-  button.append(...a.childNodes);
-  button.className = a.className;
-  button.dataset.pathname = a.pathname;
+/**
+ * Wraps an already-decorated dialog auto-block button (see
+ * blocks/dialog/dialog.js, which turns a hash-linked fragment anchor into a
+ * plain button) in a <nx-feedback-menu>, so it opens a popover menu
+ * (nx-menu) instead of the generic single-dialog behavior nav.js's
+ * decorateActions wires onto every other data-pathname button.
+ *
+ * Called directly from nav.js — not registered as an auto-block itself —
+ * so it works regardless of any consuming project's own linkBlocks config.
+ * @param {HTMLButtonElement} button
+ */
+export function attachFeedbackMenu(button) {
+  button.classList.add('nx-feedback');
   button.setAttribute('slot', 'trigger');
 
   const wrapper = document.createElement('nx-feedback-menu');
-  wrapper.path = a.pathname;
-  wrapper.append(button);
+  wrapper.path = button.dataset.pathname;
 
-  a.replaceWith(wrapper);
+  button.replaceWith(wrapper);
+  wrapper.append(button);
 }

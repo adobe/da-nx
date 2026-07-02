@@ -41,7 +41,7 @@ describe('nav decorateActions', () => {
     document.querySelectorAll('nx-dialog').forEach((el) => el.remove());
   });
 
-  it('wires a generic dialog button (data-pathname, no nx-feedback class) to open a fragment dialog on click', async () => {
+  it('wires the generic dialog handler for a Help-style button (unknown data-pathname) and opens a fragment dialog on click', async () => {
     restoreFetch = mockFragmentFetch();
     const section = buildActionsSection({
       buttonHtml: '<button class="nx-dialog auto-block" data-pathname="/fragments/nav/help">Help</button>',
@@ -55,14 +55,22 @@ describe('nav decorateActions', () => {
     expect(document.querySelector('nx-dialog')).to.not.be.null;
   });
 
-  it('does not wire the generic dialog click handler onto an nx-feedback button (avoids double-binding with its own menu)', async () => {
+  it('wraps a button pointing at the well-known feedback path in nx-feedback-menu instead of the generic dialog handler', async () => {
     restoreFetch = mockFragmentFetch();
+    // Same starting shape as the Help button — Feedback is not distinguished
+    // by any linkBlocks config or class the content author sets; nav.js
+    // itself detects the well-known path and rewires it.
     const section = buildActionsSection({
-      buttonHtml: '<button class="nx-feedback auto-block" data-pathname="/fragments/nav/feedback">Feedback</button>',
+      buttonHtml: '<button class="nx-dialog auto-block" data-pathname="/fragments/nav/feedback">Feedback</button>',
     });
     await nav.decorateActions(section);
 
-    const button = section.querySelector('button');
+    const wrapper = section.querySelector('nx-feedback-menu');
+    expect(wrapper).to.not.be.null;
+    const button = wrapper.querySelector('button[slot="trigger"]');
+    expect(button).to.not.be.null;
+    expect(button.classList.contains('nx-feedback')).to.be.true;
+
     button.click();
     await new Promise((r) => { setTimeout(r, 50); });
 
