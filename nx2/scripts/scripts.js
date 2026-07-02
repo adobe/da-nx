@@ -21,6 +21,7 @@ const locales = {
 };
 
 const linkBlocks = [
+  { 'nx-feedback': '/fragments/nav/feedback' },
   { fragment: '/fragments/' },
   { 'action-button': '/tools/widgets/panel' },
 ];
