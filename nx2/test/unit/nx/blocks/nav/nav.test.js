@@ -65,9 +65,11 @@ describe('nav decorateActions', () => {
     });
     await nav.decorateActions(section);
 
-    const wrapper = section.querySelector('nx-feedback-menu');
-    expect(wrapper).to.not.be.null;
-    const button = wrapper.querySelector('button[slot="trigger"]');
+    const menu = section.querySelector('nx-menu');
+    expect(menu).to.not.be.null;
+    const controller = section.querySelector('nx-feedback-menu');
+    expect(controller).to.not.be.null;
+    const button = menu.querySelector('button[slot="trigger"]');
     expect(button).to.not.be.null;
     expect(button.classList.contains('nx-feedback')).to.be.true;
 

@@ -36,9 +36,20 @@ export function parseFeedbackItems(fragment) {
   }, []);
 }
 
+// NxFeedbackMenu is an invisible sibling *controller*, not a wrapper: the
+// trigger button lives directly inside <nx-menu> (see attachFeedbackMenu
+// below), matching the exact pattern chat.js already uses
+// (`<nx-menu ...><button slot="trigger">...</button></nx-menu>`). Nesting
+// <nx-menu> one level deeper, inside this component's own shadow DOM and
+// forwarding the trigger through a second <slot>, silently dropped the
+// button from rendering (a <slot> forwarded into another custom element's
+// named slot must itself carry a matching slot="" attribute, or it's never
+// assigned anywhere and its content never renders) — so this controller
+// only renders the stub dialog and talks to its sibling <nx-menu> directly.
 class NxFeedbackMenu extends LitElement {
   static properties = {
     path: { attribute: false },
+    menu: { attribute: false },
     _items: { state: true },
     _loadFailed: { state: true },
     _dialog: { state: true },
@@ -47,6 +58,7 @@ class NxFeedbackMenu extends LitElement {
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style];
+    this.menu?.addEventListener('select', (e) => this._handleSelect(e));
     this._loadItems();
   }
 
@@ -57,6 +69,10 @@ class NxFeedbackMenu extends LitElement {
       return;
     }
     this._items = parseFeedbackItems(fragment);
+  }
+
+  updated(changed) {
+    if (changed.has('_items') && this.menu) this.menu.items = this._items ?? [];
   }
 
   async _handleSelect({ detail: { id } }) {
@@ -84,7 +100,7 @@ class NxFeedbackMenu extends LitElement {
     this._dialog = undefined;
   }
 
-  _renderDialog() {
+  render() {
     if (!this._dialog) return nothing;
     return html`
       <nx-dialog title=${this._dialog.titleText} @close=${this._closeDialog}>
@@ -94,25 +110,21 @@ class NxFeedbackMenu extends LitElement {
       </nx-dialog>
     `;
   }
-
-  render() {
-    return html`
-      <nx-menu .items=${this._items ?? []} placement="below-end" @select=${this._handleSelect}>
-        <slot name="trigger"></slot>
-      </nx-menu>
-      ${this._renderDialog()}
-    `;
-  }
 }
 
 if (!customElements.get('nx-feedback-menu')) customElements.define('nx-feedback-menu', NxFeedbackMenu);
 
 /**
- * Wraps an already-decorated dialog auto-block button (see
+ * Turns an already-decorated dialog auto-block button (see
  * blocks/dialog/dialog.js, which turns a hash-linked fragment anchor into a
- * plain button) in a <nx-feedback-menu>, so it opens a popover menu
- * (nx-menu) instead of the generic single-dialog behavior nav.js's
- * decorateActions wires onto every other data-pathname button.
+ * plain button) into a popover-menu trigger, instead of the generic
+ * single-dialog behavior nav.js's decorateActions wires onto every other
+ * data-pathname button.
+ *
+ * DOM produced: `<nx-menu><button slot="trigger">...</button></nx-menu>`
+ * followed by a sibling `<nx-feedback-menu>` controller (invisible,
+ * renders only the stub dialog) that loads the menu items and forwards
+ * nx-menu's `select` event.
  *
  * Called directly from nav.js — not registered as an auto-block itself —
  * so it works regardless of any consuming project's own linkBlocks config.
@@ -122,9 +134,14 @@ export function attachFeedbackMenu(button) {
   button.classList.add('nx-feedback');
   button.setAttribute('slot', 'trigger');
 
-  const wrapper = document.createElement('nx-feedback-menu');
-  wrapper.path = button.dataset.pathname;
+  const menu = document.createElement('nx-menu');
+  menu.setAttribute('placement', 'below-end');
 
-  button.replaceWith(wrapper);
-  wrapper.append(button);
+  const controller = document.createElement('nx-feedback-menu');
+  controller.path = button.dataset.pathname;
+  controller.menu = menu;
+
+  button.replaceWith(menu);
+  menu.append(button);
+  menu.after(controller);
 }

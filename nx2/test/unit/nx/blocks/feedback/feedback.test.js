@@ -94,17 +94,17 @@ function buildTriggerButton({ pathname = '/fragments/nav/feedback' } = {}) {
 
 describe('attachFeedbackMenu', () => {
   afterEach(() => {
-    document.querySelectorAll('button, nx-feedback-menu').forEach((el) => el.remove());
+    document.querySelectorAll('button, nx-menu, nx-feedback-menu').forEach((el) => el.remove());
   });
 
-  it('wraps the button in a nx-feedback-menu, keeping it as the trigger slot', () => {
+  it('wraps the button directly in nx-menu (single level, no forwarding slot)', () => {
     const button = buildTriggerButton();
     attachFeedbackMenu(button);
 
-    const wrapper = document.querySelector('nx-feedback-menu');
-    expect(wrapper).to.not.be.null;
+    const menu = document.querySelector('nx-menu');
+    expect(menu).to.not.be.null;
 
-    const trigger = wrapper.querySelector('button[slot="trigger"]');
+    const trigger = menu.querySelector('button[slot="trigger"]');
     expect(trigger).to.equal(button);
     expect(trigger.classList.contains('nx-feedback')).to.be.true;
     expect(trigger.dataset.pathname).to.equal('/fragments/nav/feedback');
@@ -112,11 +112,16 @@ describe('attachFeedbackMenu', () => {
     expect(trigger.textContent.trim()).to.equal('Feedback');
   });
 
-  it('sets the wrapper path from the button dataset.pathname', () => {
+  it('inserts nx-feedback-menu as a sibling controller after nx-menu, with path and menu set', () => {
     const button = buildTriggerButton();
     attachFeedbackMenu(button);
-    const wrapper = document.querySelector('nx-feedback-menu');
-    expect(wrapper.path).to.equal('/fragments/nav/feedback');
+
+    const menu = document.querySelector('nx-menu');
+    const controller = document.querySelector('nx-feedback-menu');
+    expect(controller).to.not.be.null;
+    expect(controller.previousElementSibling).to.equal(menu);
+    expect(controller.path).to.equal('/fragments/nav/feedback');
+    expect(controller.menu).to.equal(menu);
   });
 });
 
@@ -143,7 +148,7 @@ describe('NxFeedbackMenu', () => {
 
   afterEach(() => {
     restoreFetch?.();
-    document.querySelectorAll('button, nx-feedback-menu').forEach((el) => el.remove());
+    document.querySelectorAll('button, nx-menu, nx-feedback-menu').forEach((el) => el.remove());
   });
 
   it('loads and parses items from the fragment on connect', async () => {
@@ -157,6 +162,20 @@ describe('NxFeedbackMenu', () => {
 
     expect(wrapper._items).to.have.lengthOf(3);
     expect(wrapper._items[0].id).to.equal('idea');
+  });
+
+  it('forwards the loaded items onto the sibling nx-menu (so they actually render)', async () => {
+    restoreFetch = mockFeedbackFragmentFetch();
+    const button = buildTriggerButton();
+    attachFeedbackMenu(button);
+    const menu = document.querySelector('nx-menu');
+    const wrapper = document.querySelector('nx-feedback-menu');
+    await wrapper.updateComplete;
+    await new Promise((r) => { setTimeout(r, 50); });
+    await wrapper.updateComplete;
+
+    expect(menu.items).to.deep.equal(wrapper._items);
+    expect(menu.items).to.have.lengthOf(3);
   });
 
   it('opens a dialog for a hash-href item on select', async () => {
@@ -209,5 +228,28 @@ describe('NxFeedbackMenu', () => {
 
     wrapper._submitDialog();
     expect(wrapper._dialog).to.be.undefined;
+  });
+
+  it('end-to-end: clicking the real trigger button opens the popover and renders visible menu items', async () => {
+    restoreFetch = mockFeedbackFragmentFetch();
+    const button = buildTriggerButton();
+    attachFeedbackMenu(button);
+    const menu = document.querySelector('nx-menu');
+    const wrapper = document.querySelector('nx-feedback-menu');
+    await wrapper.updateComplete;
+    await new Promise((r) => { setTimeout(r, 50); });
+    await wrapper.updateComplete;
+    await menu.updateComplete;
+
+    // Clicking the actual button the browser renders (not a synthetic call
+    // into internal state) must open nx-menu's popover — this is exactly
+    // the path that silently did nothing when the trigger was buried behind
+    // an unassigned forwarding <slot>.
+    button.click();
+    await menu.updateComplete;
+
+    expect(menu.open).to.be.true;
+    const menuItemLabels = [...menu.shadowRoot.querySelectorAll('.menu-item-label')].map((el) => el.textContent);
+    expect(menuItemLabels).to.deep.equal(['Submit an idea', 'Report a bug', 'Join our Discord Server']);
   });
 });
