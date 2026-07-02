@@ -70,48 +70,74 @@ Resulting DOM after decoration (matches the Help button's shape):
 
 ## Component: `nx2/blocks/feedback/feedback.js`
 
-One file, two parts (small enough to stay together per project conventions).
+**Amendment (post-review):** the design below was updated after discovering
+an existing shared `<nx-menu>` component (`nx2/blocks/shared/menu/menu.js`,
+already used by `chat.js`) that handles popover positioning, keyboard nav,
+ARIA, and item rendering generically. We use it instead of hand-rolling
+menu behavior on top of raw `nx-popover`. `nx-menu` is extended with an
+optional `item.description` field (backward compatible) so items can show
+a title + subtext line, matching the Figma reference.
 
-### 1. `init(a)` (default export, vanilla)
+One file, three parts (small enough to stay together per project
+conventions).
 
-Mirrors `blocks/dialog/dialog.js`:
+### 1. `parseFeedbackItems(fragment)` (pure helper, exported for testing)
+
+Parses the fetched `/fragments/nav/feedback` content into
+`{ id, label, description, icon, href }` objects, one per `<p>` row:
+
+- `icon` — derived from the row's `<span class="icon icon-X">` class token
+  (`X`), used as `nx-menu`'s `item.icon` (lowercase, matches the
+  `s2-icon-<name>-20-n.svg` convention `nx-menu` already expects —
+  independent from the `S2_Icon_<Name>_20_N.svg` convention used by the
+  trigger button's own icon span).
+- `label` — the link's trimmed text content.
+- `description` — the row's `<em>` text content, if present.
+- `href` — the link's raw `href` attribute (kept as authored, so callers
+  can distinguish `#idea`/`#bug` from an external URL).
+- `id` — the hash without `#` for internal links; otherwise the icon name,
+  or a positional fallback (`link-<index>`) if neither is available.
+
+### 2. `init(a)` (default export, vanilla)
+
+Mirrors `blocks/dialog/dialog.js`, but wraps the button in the new
+custom element instead of leaving it as a bare sibling:
 
 - Create a `<button>`, copy `a.className` and `a.childNodes` (icon + label),
-  set `button.dataset.pathname = a.pathname`.
-- Replace `a` with the button.
-- Lazily import the Lit companion (`NxFeedbackMenu`, defined in the same
-  file) and insert `<nx-feedback-menu>` immediately after the button,
-  setting `.trigger` (the button element) and `.path`
-  (`button.dataset.pathname`) as properties.
+  set `button.dataset.pathname = a.pathname`, set `slot="trigger"`.
+- Create `<nx-feedback-menu>`, set its `.path` property to `a.pathname`,
+  append the button as its light-DOM child.
+- Replace `a` with the `<nx-feedback-menu>` wrapper.
 
-### 2. `NxFeedbackMenu` (Lit, stateful)
+Resulting DOM: `<nx-feedback-menu><button slot="trigger" class="nx-feedback
+ auto-block" data-pathname="/fragments/nav/feedback">...</button></nx-feedback-menu>`.
+The button itself keeps the exact class/dataset shape confirmed for the
+Help button convention; it's just nested one level inside the wrapper
+rather than being a top-level sibling, so it can participate in
+`<nx-menu>`'s `slot="trigger"` contract (see below).
 
-Properties: `trigger` (button el, not reactive), `path` (string, not
-reactive), `_items` (state, menu items parsed from the fragment),
+### 3. `NxFeedbackMenu` (Lit, stateful)
+
+Properties: `path` (string), `_items` (state), `_loadFailed` (state),
 `_dialog` (state, `{ id, titleText }` or `undefined`).
 
 Behavior:
 
-- `connectedCallback`: adds a click listener on `trigger` that toggles the
-  popover (`nx-popover`, imported lazily — same shared component used by
-  `ew-actions`). `trigger.setAttribute('aria-haspopup', 'menu')` /
-  `aria-expanded` toggled to match state, consistent with `ew-actions`.
-- On first open only, calls `loadFragment(this.path)` (from
-  `nx2/blocks/fragment/fragment.js`) to fetch and decorate
-  `/fragments/nav/feedback` (icons and `{placeholders}` are decorated for
-  free by the existing `loadArea` pipeline inside `loadFragment`).
-- Parses the fragment's `<p>` rows into menu items:
-  - `<a>` → `href`, inner HTML (icon span + label).
-  - Following `<em>` (if present) → description text.
-- Renders each item generically based on `href`, no hardcoded item count/order:
-  - `href` starting with `#` → a `<button role="menuitem">` inside the
-    popover; on click, closes the popover and sets `_dialog = { id, titleText }`
-    where `id` is the href fragment (`idea`/`bug`) and `titleText` is the
-    link's visible text (e.g. "Submit an idea").
-  - Any other `href` → a plain `<a role="menuitem" target="_blank"
-    rel="noopener">`, left as a normal link (no click interception).
-- Renders `<nx-dialog>` (shared component, lazily imported) when `_dialog`
-  is set:
+- `connectedCallback`: fetches and parses items immediately (via
+  `loadFragment(this.path)` + `parseFeedbackItems`) — no need to defer
+  until first open, since `<nx-menu>` itself owns open/close state and
+  wiring the trigger button's click handler automatically (via its
+  `slot="trigger"` + `slotchange` mechanism). This avoids a flash of an
+  empty menu on first click.
+- Renders `<nx-menu .items=${this._items ?? []} @select=${...}><slot
+  name="trigger"></slot></nx-menu>` — the light-DOM trigger button is
+  forwarded through to `nx-menu`'s own trigger slot.
+- On `@select` (`{ detail: { id } }`), looks up the item by `id`:
+  - `href` starting with `#` → lazily imports `nx-dialog` and `sl-button`,
+    sets `_dialog = { id, titleText: item.label }`.
+  - Any other `href` → `window.open(href, '_blank', 'noopener,noreferrer')`
+    (same pattern chat.js already uses for external menu-triggered links).
+- Renders `<nx-dialog>` (shared component) when `_dialog` is set:
   - `title` = `_dialog.titleText`.
   - Body: a single `<textarea>` (autofocus), no label copy beyond what's
     obviously needed for step 1.
@@ -122,11 +148,17 @@ Behavior:
 
 ### Error handling
 
-If `loadFragment` returns `null` (fetch failure), the popover shows a
-single disabled-looking `<p>` with a generic message ("Feedback options
-unavailable.") instead of throwing — consistent with the project's
-"consistent return shape, let the caller decide" convention, adapted for a
-UI leaf node.
+If `loadFragment` returns `null` (fetch failure), `_loadFailed` is set and
+`<nx-menu>` simply renders with an empty `items` array (no crash, no
+menu items) — consistent with the project's "consistent return shape, let
+the caller decide" convention, adapted for a UI leaf node.
+
+### Shared component change: `nx-menu` description support
+
+`nx2/blocks/shared/menu/menu.js`'s `_renderItem` gains an optional second
+line under the label when `item.description` is set; `nx2/blocks/shared/menu/menu.css`
+gains matching styles. Existing consumers (`chat.js`'s `ADD_MENU_ITEMS`)
+are unaffected since none of their items set `description`.
 
 ## CSS
 
