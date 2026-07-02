@@ -204,6 +204,52 @@ single-dialog wiring instead of opening its own menu.
 Fix: removed the `linkBlocks` entry entirely (see "How the trigger gets
 wired up" above for the corrected, config-independent mechanism).
 
+## Amendment 3: trigger button was invisible (broken double-slot-forwarding)
+
+After Amendment 2 landed, the rendered DOM confirmed both buttons were
+correctly separated (`nx-dialog auto-block nx-feedback` for Feedback,
+`nx-dialog auto-block has-label` for Help) — but the Feedback icon didn't
+render at all.
+
+Root cause: `NxFeedbackMenu` rendered `<nx-menu><slot
+name="trigger"></slot></nx-menu>` inside its **own** shadow DOM, forwarding
+its light-DOM trigger button into `nx-menu`'s named `trigger` slot. But the
+forwarding `<slot name="trigger">` itself had no `slot="trigger"`
+attribute, so it was never assigned into `nx-menu`'s slot at all — the
+button existed in the DOM (light-DOM child of `nx-feedback-menu`) but had
+no rendering path into `nx-menu`, so it never displayed.
+
+Fix: dropped the wrapper/forwarding structure entirely in favor of the
+already-proven pattern `chat.js` uses successfully
+(`<nx-menu ...><button slot="trigger">...</button></nx-menu>`, single
+level, no forwarding). `attachFeedbackMenu(button)` now:
+
+- Wraps the button **directly** inside a `<nx-menu>` (light-DOM child,
+  `slot="trigger"`) — identical structural depth to chat.js's usage.
+- Inserts `<nx-feedback-menu>` as a **sibling** *controller* immediately
+  after `<nx-menu>`, not as a wrapper. The controller holds a `.menu`
+  property (reference to the sibling `<nx-menu>`), fetches/parses items in
+  `connectedCallback`, forwards them onto `menu.items` via `updated()`, and
+  listens for `nx-menu`'s `select` event directly
+  (`this.menu.addEventListener('select', ...)`).
+- The controller's own `render()` now renders **only** the stub dialog
+  (`nx-dialog`) when open — it has no other visual output
+  (`:host { display: contents }`), so it never gets in the way of layout.
+
+Resulting DOM:
+
+```html
+<nx-menu placement="below-end">
+  <button slot="trigger" class="nx-dialog auto-block nx-feedback" data-pathname="/fragments/nav/feedback">...</button>
+</nx-menu>
+<nx-feedback-menu></nx-feedback-menu>
+```
+
+Covered by a new end-to-end unit test that clicks the *real* button (not a
+synthetic call into internal state) and asserts `nx-menu.open === true` and
+that its shadow DOM actually renders the three item labels — the exact
+path that silently did nothing under the old forwarding-slot bug.
+
 ## Testing
 
 - Unit test for `feedback.js`: `init(a)` produces the expected button
