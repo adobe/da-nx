@@ -1,4 +1,5 @@
 import { env } from '../scripts/nx.js';
+import { APP_ORIGINS } from '../public/utils/constants.js';
 
 export const SUPPORTED_FILES = {
   html: 'text/html',
@@ -65,7 +66,6 @@ export const DA_ETC = getEnv('da-etc', DA_ETC_ENVS);
 
 export const HLX_ADMIN = 'https://admin.hlx.page';
 export const AEM_API = 'https://api.aem.live';
-
 export const ALLOWED_TOKEN = [
   DA_ADMIN,
   DA_COLLAB,
@@ -74,6 +74,7 @@ export const ALLOWED_TOKEN = [
   DA_ETC,
   AEM_API,
   HLX_ADMIN,
+  ...APP_ORIGINS,
 ];
 
 const IMS_HASH_KEYS = ['access_token', 'old_hash', 'ld_hash'];
