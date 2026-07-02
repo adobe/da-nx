@@ -1,5 +1,5 @@
 import { loadStyle, hashChange } from '../../../nx2/utils/utils.js';
-import { openPanel } from '../../../nx2/utils/panel.js';
+import { openPanel, getPanelStore } from '../../../nx2/utils/panel.js';
 import { getEWFlags } from '../../../nx2/utils/ewFlags.js';
 import { getConfig } from '../../../nx2/scripts/nx.js';
 import decorateEditor from './editor.js';
@@ -35,15 +35,41 @@ function ensureNavPath() {
   document.head.append(meta);
 }
 
-function openChatPanel() {
-  return openPanel({
+// Remember the chat's open/closed state per browser session, so a refresh
+// keeps the user's choice. Mirrors da-live's browse panel (same key/value).
+const BROWSE_CHAT_SESSION_KEY = 'nx-browse-chat-open';
+
+function isBrowseChatOpen() {
+  try {
+    return !!sessionStorage.getItem(BROWSE_CHAT_SESSION_KEY);
+  } catch {
+    return false;
+  }
+}
+
+function setBrowseChatOpen(open) {
+  try {
+    if (open) sessionStorage.setItem(BROWSE_CHAT_SESSION_KEY, '1');
+    else sessionStorage.removeItem(BROWSE_CHAT_SESSION_KEY);
+  } catch { /* ignore */ }
+}
+
+async function openChatPanel() {
+  const store = getPanelStore();
+  const width = store.before?.width ?? '400px';
+  const aside = await openPanel({
     position: 'before',
-    width: '400px',
+    width,
     getContent: async () => {
       await import('../../../nx2/blocks/chat/chat.js');
       return document.createElement('nx-chat');
     },
   });
+  if (aside) {
+    setBrowseChatOpen(true);
+    aside.addEventListener('nx-panel-close', () => setBrowseChatOpen(false), { once: true });
+  }
+  return aside;
 }
 
 // A floating toggle at the top-left of the canvas opens the chat panel. The
@@ -80,7 +106,7 @@ async function setupChat(block) {
   if (flags['ew.enabled'] !== 'true') return;
 
   installChatToggle(block);
-  await openChatPanel();
+  if (isBrowseChatOpen()) await openChatPanel();
 }
 
 // Block entry: EW surfaces the form via an `nx-form` content block, which NX
