@@ -32,41 +32,39 @@ will be added separately.
 
 ## How the trigger gets wired up
 
+**Revised after a live testing bug — see "Amendment: wiring correction"
+below for why.** The final mechanism:
+
 The nav fragment's Feedback `<li>` contains a link to a hash-fragment path,
-e.g. `href="/fragments/nav/feedback#feedback"`. The existing
-`decorateLink`/`loadBlock` auto-block mechanism in `nx2/scripts/nx.js`
-converts matching links into blocks based on `config.linkBlocks`.
+`href="/fragments/nav/feedback#feedback"`. Like any `/fragments/...#hash`
+link, the framework's built-in `decorateLink`/`loadBlock` auto-block
+mechanism (`nx2/scripts/nx.js`) converts it into the generic
+`nx-dialog auto-block` button shape (loading `nx2/blocks/dialog/dialog.js`,
+which just builds the button shell) — **identical to the Help button**, no
+special linkBlocks config needed or used.
 
-Today, any `/fragments/...#hash` link matches the generic
-`{ fragment: '/fragments/' }` entry and becomes class `nx-dialog auto-block`
-(loading `nx2/blocks/dialog/dialog.js`). That block only builds a button
-shell — clicking it currently does nothing (no wiring exists in the
-codebase to open anything from `data-pathname`). This is a pre-existing gap
-in nx2, out of scope for this work — we're not fixing Help's wiring.
+`nx2/blocks/nav/nav.js`'s `decorateActions` (which already wires up Help's
+button, per #528) is the single place that then differentiates: it checks
+`button.dataset.pathname` against a well-known, hardcoded constant
+(`FEEDBACK_PATH = '/fragments/nav/feedback'`) and, on a match, imports
+`blocks/feedback/feedback.js` and calls `attachFeedbackMenu(button)`
+instead of wiring the generic single-dialog handler. This works regardless
+of any consuming project's own `linkBlocks` config (see amendment below
+for why that matters), since nothing outside nx2 itself needs to opt in.
 
-To get our own dedicated block instead of falling into the generic
-`nx-dialog` bucket, we add a more specific entry to `linkBlocks` in
-`nx2/scripts/scripts.js`, placed **before** the generic fragment entry:
-
-```js
-const linkBlocks = [
-  { 'nx-feedback': '/fragments/nav/feedback' },
-  { fragment: '/fragments/' },
-  { 'action-button': '/tools/widgets/panel' },
-];
-```
-
-Because the object key is used verbatim as the class name when it isn't
-`'fragment'`, this produces `<a class="nx-feedback auto-block" ...>`, and
-`loadBlock` (seeing the `nx-` prefix) imports `nx2/blocks/feedback/feedback.js`.
-
-Resulting DOM after decoration (matches the Help button's shape):
+Resulting DOM after `nav.js` processes the action area:
 
 ```html
-<button class="nx-feedback auto-block" data-pathname="/fragments/nav/feedback">
-  <span class="icon icon-feedback"><svg>...</svg></span>Feedback
-</button>
+<nx-feedback-menu>
+  <button slot="trigger" class="nx-dialog auto-block nx-feedback" data-pathname="/fragments/nav/feedback">
+    <span class="icon icon-feedback"><svg>...</svg></span>Feedback
+  </button>
+</nx-feedback-menu>
 ```
+
+The `nx-feedback` marker class is added by `attachFeedbackMenu` itself (in
+JS, after the generic auto-block conversion already happened) purely for
+CSS targeting — it plays no role in block/class routing.
 
 ## Component: `nx2/blocks/feedback/feedback.js`
 
@@ -98,23 +96,17 @@ Parses the fetched `/fragments/nav/feedback` content into
 - `id` — the hash without `#` for internal links; otherwise the icon name,
   or a positional fallback (`link-<index>`) if neither is available.
 
-### 2. `init(a)` (default export, vanilla)
+### 2. `attachFeedbackMenu(button)` (named export, vanilla)
 
-Mirrors `blocks/dialog/dialog.js`, but wraps the button in the new
-custom element instead of leaving it as a bare sibling:
+Called directly by `nav.js`'s `decorateActions` (not registered as an
+auto-block — see wiring section above) on the already-converted
+`nx-dialog auto-block` button:
 
-- Create a `<button>`, copy `a.className` and `a.childNodes` (icon + label),
-  set `button.dataset.pathname = a.pathname`, set `slot="trigger"`.
-- Create `<nx-feedback-menu>`, set its `.path` property to `a.pathname`,
-  append the button as its light-DOM child.
-- Replace `a` with the `<nx-feedback-menu>` wrapper.
-
-Resulting DOM: `<nx-feedback-menu><button slot="trigger" class="nx-feedback
- auto-block" data-pathname="/fragments/nav/feedback">...</button></nx-feedback-menu>`.
-The button itself keeps the exact class/dataset shape confirmed for the
-Help button convention; it's just nested one level inside the wrapper
-rather than being a top-level sibling, so it can participate in
-`<nx-menu>`'s `slot="trigger"` contract (see below).
+- Adds the `nx-feedback` marker class (for CSS) and `slot="trigger"`.
+- Creates `<nx-feedback-menu>`, sets `.path` from `button.dataset.pathname`.
+- Replaces the button in the DOM with the wrapper, then re-appends the
+  (same) button inside it, so it participates in `<nx-menu>`'s
+  `slot="trigger"` contract (see below).
 
 ### 3. `NxFeedbackMenu` (Lit, stateful)
 
@@ -162,9 +154,11 @@ are unaffected since none of their items set `description`.
 
 ## CSS
 
-- `nx2/blocks/nav/nav.css`: add a `.feedback` rule alongside the existing
-  `.dialog` / `.profile` rules under `.action-area button` (icon-only
-  sizing, no visible text — `font-size: 0` like `.dialog`).
+- `nx2/blocks/nav/nav.css`: add a `.nx-feedback` rule alongside the
+  existing `.dialog` / `.profile` rules under `.action-area button`
+  (icon-only sizing, no visible text — `font-size: 0` like `.dialog`).
+  Selector matches the marker class `attachFeedbackMenu` adds in JS (see
+  above), not a linkBlocks-derived class.
 - `nx2/blocks/feedback/feedback.css`: styles for the popover menu items
   (icon + title + description stack), using `--s2-*` design tokens, same
   approach as `profile.css`. Supports light/dark via existing tokens
@@ -175,7 +169,7 @@ are unaffected since none of their items set `description`.
 - Feedback submission endpoint (step 2, follow-up work).
 - Icon SVG assets (added separately by the requester).
 
-## Amendment: Help button wiring landed upstream mid-implementation
+## Amendment 1: Help button wiring landed upstream mid-implementation
 
 While this feature was in progress, `main` merged a fix (#528) that wires
 the Help button for real: `nx2/blocks/nav/nav.js`'s `decorateActions` now
@@ -184,14 +178,31 @@ carrying `data-pathname`, which fetches the fragment and dumps its raw
 content into a plain `<nx-dialog>`. This was previously a no-op gap
 (documented above as "out of scope" before the fix existed).
 
-Because our `nx-feedback` button also carries `data-pathname` (for parity
-with the Help button's shape) but wires its own click handling internally
-(via `<nx-feedback-menu>` → `nx-menu`'s `slot="trigger"` contract), the
-generic handler would double-bind onto it. `decorateActions` now has an
-explicit `else if (button.classList.contains('nx-feedback'))` branch
-(no-op) before the generic `data-pathname` branch, so both buttons share
-the same dispatch point in `nav.js` while only one wiring path applies to
-each.
+The first fix attempted here kept the original `nx-feedback` linkBlocks
+entry and just added a class check in `decorateActions` to skip the
+generic wiring for `nx-feedback`-classed buttons. That fix turned out to
+be insufficient — see Amendment 2.
+
+## Amendment 2: wiring correction (linkBlocks config doesn't reach consuming projects)
+
+Live testing surfaced two bugs: the feedback menu rendered *inside a modal
+dialog* instead of as a popover below the trigger, and the two buttons'
+click behavior appeared to collide (Help's content showing for Feedback's
+button).
+
+Root cause: the `{ 'nx-feedback': '/fragments/nav/feedback' }` entry lived
+in `nx2/scripts/scripts.js`, which is **nx2's own default/dev config only**.
+Consuming projects (e.g. da.live) maintain their own `scripts.js` with
+their own `linkBlocks` array, which this repo doesn't control and can't
+require an update to. Nexter must stay self-sufficient for evergreen,
+HTTPS-imported consumption (see AGENTS.md). Without that entry, the
+Feedback anchor fell back to the universal `{ fragment: '/fragments/' }`
+default and became a plain `nx-dialog auto-block` button — indistinguishable
+from Help's — which is exactly why it got caught by the generic
+single-dialog wiring instead of opening its own menu.
+
+Fix: removed the `linkBlocks` entry entirely (see "How the trigger gets
+wired up" above for the corrected, config-independent mechanism).
 
 ## Testing
 

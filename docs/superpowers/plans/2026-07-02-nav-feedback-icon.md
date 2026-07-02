@@ -2,6 +2,20 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+> **Post-implementation amendment:** Tasks 1–6 below (as originally written)
+> routed the Feedback button via a `linkBlocks` entry in
+> `nx2/scripts/scripts.js`. Live testing after merging main's Help-wiring
+> fix (#528) surfaced that this doesn't work for consuming projects with
+> their own `scripts.js` config (e.g. da.live) — see the design spec's
+> "Amendment 2" section for the full root-cause writeup. The `linkBlocks`
+> entry was removed; `nx2/blocks/nav/nav.js`'s `decorateActions` now
+> detects the Feedback button by a hardcoded well-known path and calls
+> `attachFeedbackMenu(button)` (named export, replacing the `init(a)`
+> auto-block entry point described in Task 4 below) directly. The tasks
+> below are kept as originally written for implementation-history
+> traceability; treat the design spec as the source of truth for the
+> current architecture.
+
 **Goal:** Add a Feedback icon button to the nx2 main nav action area (next to profile) that opens a menu with "Submit an idea", "Report a bug" (each opening a stub dialog), and "Join our Discord Server" (external link).
 
 **Architecture:** The nav fragment's Feedback link (`/fragments/nav/feedback#feedback`) is auto-converted into a `nx-feedback` block by the existing `linkBlocks`/`loadBlock` mechanism in `nx2/scripts/nx.js`. `nx2/blocks/feedback/feedback.js` turns that link into a button (mirroring `blocks/dialog/dialog.js`), wraps it in a new `<nx-feedback-menu>` Lit element that lazily fetches `/fragments/nav/feedback`, parses it into menu items, and renders them via the existing shared `<nx-menu>` component (extended with an optional description line) and shared `<nx-dialog>` component for the stub dialogs.
