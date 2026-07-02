@@ -628,36 +628,39 @@ async function callPath({
   return daFetch({ url, opts: { method } });
 }
 
+function toHlx6DaItem(parentPath, item) {
+  // Normalize folder
+  const isFolder = item.name.endsWith('/');
+  let name = isFolder ? item.name.slice(0, -1) : item.name;
+
+  // Set the path before extension removal
+  const path = `${parentPath}/${name}`;
+
+  // Remove extension for display
+  const nameSplit = name.split('.');
+  name = nameSplit.length > 1 ? nameSplit[0] : name;
+
+  // Scaffold out the basics
+  const daItem = { name, path, contentType: item['content-type'] };
+
+  const ext = nameSplit.length > 1 && nameSplit.pop();
+  if (ext) daItem.ext = ext;
+
+  const lastModified = item['last-modified'];
+  if (lastModified) {
+    const unixTime = Math.floor(new Date(lastModified).getTime());
+    daItem.lastModified = unixTime;
+  }
+
+  return daItem;
+}
+
 function hlx6ToDaList(parentPath, items) {
-  return items.filter((item) => !item.name.startsWith('.')).map((item) => {
-    const contentType = item['content-type'];
-
-    // Only HLX6 has a content type
-    if (!contentType) return item;
-
-    // Normalize folder
-    const isFolder = item.name.endsWith('/');
-    let name = isFolder ? item.name.slice(0, -1) : item.name;
-
-    // Set the path before extension removal
-    const path = `${parentPath}/${name}`;
-
-    // Remove extension for display
-    const nameSplit = name.split('.');
-    name = nameSplit.length > 1 ? nameSplit[0] : name;
-
-    // Scaffold out the basics
-    const daItem = { name, path, contentType };
-
-    const ext = nameSplit.length > 1 && nameSplit.pop();
-    if (ext) daItem.ext = ext;
-
-    const lastModified = item['last-modified'];
-    if (lastModified) {
-      const unixTime = Math.floor(new Date(lastModified).getTime());
-      daItem.lastModified = unixTime;
-    }
-
-    return daItem;
-  });
+  return items.map((item) => {
+    // Legacy DA items (no content-type) are returned as-is; callers handle their edge cases.
+    if (!item['content-type']) return item;
+    // HLX6 items: filter out hidden or nameless entries, then normalize.
+    if (!item.name || item.name.startsWith('.')) return null;
+    return toHlx6DaItem(parentPath, item);
+  }).filter(Boolean);
 }
