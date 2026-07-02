@@ -12,10 +12,9 @@ For engine internals — schema compilation, model build, validation, defaults p
 
 ```txt
 nx/blocks/form/
-  form.js               EW workspace wrapper: app-frame grid, header, docked chat (flag-gated)
+  form.js               EW workspace wrapper: app-frame grid, floating chat toggle, docked chat (flag-gated)
   form.css              workspace layout
   editor.js / .css      nx-form Lit element: routes (ctx/hash), mounts SDK, state snapshot + nav
-  header.js / .css      canvas header (chat toggle)
   icons.js              sprite-backed icon() helper
   fields/               Spectrum 2 field components (input, picker, checkbox, button, number)
   utils/
