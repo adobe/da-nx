@@ -11,6 +11,8 @@ const { loadIms, handleSignIn } = await (async () => {
   }
 })();
 
+export { AEM_API };
+
 // ============================================================================
 // Public API
 // ----------------------------------------------------------------------------
@@ -42,7 +44,7 @@ const { loadIms, handleSignIn } = await (async () => {
 
 // aem: combined preview + live operations.
 // preview/unPreview/publish/unPublish accept `path` as string or array (2+ -> bulk).
-// preview/publish also accept optional `forceUpdate`/`forceSync` flags.
+// preview/publish also accept an optional `forceUpdate` flag.
 export const aem = {
   getPreview: withArgs(({ org, site, path }) => callPath({
     api: 'preview', org, site, path, method: 'GET',
@@ -52,16 +54,16 @@ export const aem = {
     api: 'live', org, site, path, method: 'GET',
   })),
 
-  preview: withArgs(({ org, site, path, forceUpdate, forceSync }) => callPath({
-    api: 'preview', org, site, path, method: 'POST', forceUpdate, forceSync,
+  preview: withArgs(({ org, site, path, forceUpdate }) => callPath({
+    api: 'preview', org, site, path, method: 'POST', forceUpdate,
   })),
 
   unPreview: withArgs(({ org, site, path }) => callPath({
     api: 'preview', org, site, path, method: 'DELETE', includeDelete: true,
   })),
 
-  publish: withArgs(({ org, site, path, forceUpdate, forceSync }) => callPath({
-    api: 'live', org, site, path, method: 'POST', forceUpdate, forceSync,
+  publish: withArgs(({ org, site, path, forceUpdate }) => callPath({
+    api: 'live', org, site, path, method: 'POST', forceUpdate,
   })),
 
   unPublish: withArgs(({ org, site, path }) => callPath({
@@ -188,9 +190,14 @@ export const snapshot = {
 // { org, site, path, ...extras } or a `/org/site/file/path` string.
 // `extras` (second arg) merges with parsed args when arg is a string.
 export const source = {
-  get: withArgs(async ({ org, site, path }) => {
+  get: withArgs(async ({
+    org, site, path, cachebust,
+  }) => {
     const url = await getDaApiPath(SOURCE, org, site, path);
-    return daFetch({ url });
+    const finalUrl = cachebust
+      ? `${url}${url.includes('?') ? '&' : '?'}nocache=${Date.now()}`
+      : url;
+    return daFetch({ url: finalUrl });
   }),
 
   // Returns `{ ok, items, continuationToken, permissions }`. Pagination
@@ -231,7 +238,7 @@ export const source = {
     const hlx6 = await isHlx6(org, site);
     const url = await getDaApiPath(SOURCE, org, site, path);
     const opts = { method: 'POST' };
-    const ext = Object.keys(TYPE_MAP).find((e) => path.endsWith(e));
+    const ext = Object.keys(TYPE_MAP).find((e) => path.toLowerCase().endsWith(e));
     if (hlx6) {
       opts.body = body;
       if (ext) opts.headers = { 'Content-Type': TYPE_MAP[ext] };
@@ -337,18 +344,14 @@ export const versions = {
     const url = await getDaApiPath(VERSIONS, org, site, path);
     const opts = { method: 'POST' };
     if (hlx6) {
-      // hlx6 accepts { operation, comment } JSON body.
-      const payload = {};
-      if (operation) payload.operation = operation;
-      if (comment) payload.comment = comment;
-      if (Object.keys(payload).length > 0) {
-        opts.headers = { 'Content-Type': 'application/json' };
-        opts.body = JSON.stringify(payload);
-      }
-    } else if (comment) {
-      // Legacy DA accepts { label } JSON body. Map comment -> label.
-      opts.body = JSON.stringify({ label: comment });
+      // hlx6 takes operation/comment as query params with no request body.
+      const u = new URL(url);
+      if (operation) u.searchParams.set('operation', operation);
+      if (comment) u.searchParams.set('comment', comment);
+      return daFetch({ url: u.toString(), opts });
     }
+    // Legacy DA accepts a { label } JSON body. Map comment -> label.
+    if (comment) opts.body = JSON.stringify({ label: comment });
     return daFetch({ url, opts });
   }),
 };
@@ -473,6 +476,29 @@ export function fromPath(str) {
   return { org, site, path: parts.length ? `/${parts.join('/')}` : '' };
 }
 
+// Site token exchange for authenticated content access.
+// Uses IIFE pattern for memoized token retrieval.
+export const getAemSiteToken = (() => {
+  const tokenCache = {};
+
+  const fetchToken = async (org, site) => {
+    const { accessToken } = await loadIms();
+    const { token } = accessToken;
+
+    const body = JSON.stringify({ org, site, accessToken: token });
+    const opts = { method: 'POST', body, headers: { 'Content-Type': 'application/json' } };
+    const resp = await fetch(`${HLX_ADMIN}/auth/adobe/exchange`, opts);
+    if (!resp.ok) return { error: `Error fetch AEM Site Token ${resp.status}` };
+    return resp.json();
+  };
+
+  return ({ org, site }) => {
+    const path = `/${org}/${site}`;
+    tokenCache[path] ??= fetchToken(org, site);
+    return tokenCache[path];
+  };
+})();
+
 // ============================================================================
 // Internal helpers
 // ============================================================================
@@ -586,16 +612,15 @@ function jsonOpts(method, payload) {
 
 // Dispatcher for AEM ops that accept path as string or array.
 // Array of length >= 2 routes to the bulk /* endpoint with { paths, delete? }.
-// `forceUpdate`/`forceSync` are bulk-only (server ignores them on single-path).
+// `forceUpdate` is bulk-only (server ignores it on single-path).
 async function callPath({
-  api, org, site, path, method, includeDelete = false, forceUpdate, forceSync,
+  api, org, site, path, method, includeDelete = false, forceUpdate,
 }) {
   if (Array.isArray(path) && path.length >= 2) {
     const url = await getAemApiPath(api, org, site, '/*');
     const payload = { paths: path };
     if (includeDelete) payload.delete = true;
     if (forceUpdate) payload.forceUpdate = true;
-    if (forceSync) payload.forceSync = true;
     return daFetch({ url, opts: jsonOpts('POST', payload) });
   }
   const single = Array.isArray(path) ? path[0] : path;
@@ -604,7 +629,7 @@ async function callPath({
 }
 
 function hlx6ToDaList(parentPath, items) {
-  return items.map((item) => {
+  return items.filter((item) => !item.name.startsWith('.')).map((item) => {
     const contentType = item['content-type'];
 
     // Only HLX6 has a content type

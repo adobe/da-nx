@@ -83,7 +83,7 @@
   padding: 0 var(--s2-spacing-300);
   box-sizing: border-box;
   justify-content: flex-end;
-  gap: var(--s2-spacing-300);
+  gap: var(--s2-spacing-100);
 
   .chat-header-btn {
     display: inline-flex;
@@ -98,7 +98,7 @@
     color: var(--s2-gray-800);
     cursor: pointer;
     font-family: inherit;
-    font-size: var(--s2-body-size-s);
+    font-size: var(--s2-body-size-xs);
 
     &.clear-btn {
       padding: 0 var(--s2-spacing-100);
@@ -149,7 +149,7 @@
   width: 10px;
   height: 10px;
   background-color: currentcolor;
-  mask-image: url("/nx2/img/icons/S2_Icon_ChevronUp_20_N.svg");
+  mask-image: url("/img/icons/s2-icon-chevronup-20-n.svg");
   mask-size: contain;
   mask-repeat: no-repeat;
   mask-position: center;
@@ -190,25 +190,38 @@
     color: var(--s2-gray-500);
     overflow-wrap: break-word;
   }
+
+  &.tool-card-detail {
+    margin-left: 14px;
+  }
 }
 
-.directive-checklist ul,
-.directive-toggle-list {
+.directive {
+  ul,
+  ol {
+    padding: 0;
+    margin: 0;
+    padding-left: var(--s2-spacing-300);
+  }
+}
+
+.directive-checklist ul {
   list-style: none;
   padding: 0;
-  margin: 0;
 }
 
 .directive-toggle-list {
-  li {
+  blockquote {
     display: flex;
     flex-direction: column;
     gap: var(--s2-spacing-75);
+    margin: 0;
+    padding: 0;
   }
 }
 
 .directive-checklist {
-  li {
+  li:not(.task-list-item) {
     display: flex;
     align-items: flex-start;
     gap: var(--s2-spacing-75);
@@ -239,12 +252,16 @@
         position: absolute;
         inset: 0;
         background-color: currentcolor;
-        mask-image: url("https://da.live/img/icons/s2-icon-checkmark-20-n.svg");
+        mask-image: url("/img/icons/s2-icon-checkmark-20-n.svg");
         mask-size: contain;
         mask-repeat: no-repeat;
         mask-position: center;
       }
     }
+  }
+
+  .task-list-item input[type="checkbox"] {
+    top: 6px;
   }
 }
 
@@ -268,6 +285,12 @@
   background-color: var(--s2-red-200);
 }
 
+.message-content a {
+  color: var(--s2-blue-900);
+  text-decoration: underline;
+  overflow-wrap: anywhere;
+}
+
 .message {
   padding: 6px var(--s2-spacing-200);
   border-radius: 12px;
@@ -288,12 +311,38 @@
     gap: var(--s2-spacing-75);
   }
 
-  .message-content p {
+  .message-content {
+    p {
+      margin: 0;
+    }
+
+    code {
+      background: var(--s2-gray-75);
+      border-radius: var(--s2-corner-radius-75);
+      padding: var(--s2-spacing-50);
+      overflow-x: auto;
+      margin: 0;
+      font-size: var(--s2-body-size-xs);
+    }
+
+    hr {
+      border: none;
+      height: 1px;
+      background: var(--s2-gray-200);
+    }
+  }
+
+  .message-content code {
+    background: var(--s2-gray-75);
+    border-radius: var(--s2-corner-radius-75);
+    padding: var(--s2-spacing-50);
+    overflow-x: auto;
     margin: 0;
+    font-size: var(--s2-body-size-xs);
   }
 
   .message-action-copy {
-    align-self: flex-end;
+    align-self: flex-start;
     visibility: hidden;
     box-sizing: border-box;
     width: 20px;

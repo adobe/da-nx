@@ -4,8 +4,9 @@
 }
 
 .nx-hero-foreground {
-  max-width: var(--grid-container-width);
-  min-height: 350px;
+  max-width: var(--se-grid-container-width);
+  min-height: var(--nx-hero-min-height, 350px);
+  padding-inline: var(--s2-spacing-400);
   margin: 0 auto;
   position: relative;
   display: flex;
