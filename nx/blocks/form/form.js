@@ -36,21 +36,21 @@ function ensureNavPath() {
 }
 
 // Remember the chat's open/closed state per browser session, so a refresh
-// keeps the user's choice. Mirrors da-live's browse panel (same key/value).
-const BROWSE_CHAT_SESSION_KEY = 'nx-browse-chat-open';
+// keeps the user's choice.
+const CHAT_SESSION_KEY = 'nx-chat-open';
 
-function isBrowseChatOpen() {
+function isChatOpen() {
   try {
-    return !!sessionStorage.getItem(BROWSE_CHAT_SESSION_KEY);
+    return !!sessionStorage.getItem(CHAT_SESSION_KEY);
   } catch {
     return false;
   }
 }
 
-function setBrowseChatOpen(open) {
+function setChatOpen(open) {
   try {
-    if (open) sessionStorage.setItem(BROWSE_CHAT_SESSION_KEY, '1');
-    else sessionStorage.removeItem(BROWSE_CHAT_SESSION_KEY);
+    if (open) sessionStorage.setItem(CHAT_SESSION_KEY, '1');
+    else sessionStorage.removeItem(CHAT_SESSION_KEY);
   } catch { /* ignore */ }
 }
 
@@ -66,8 +66,8 @@ async function openChatPanel() {
     },
   });
   if (aside) {
-    setBrowseChatOpen(true);
-    aside.addEventListener('nx-panel-close', () => setBrowseChatOpen(false), { once: true });
+    setChatOpen(true);
+    aside.addEventListener('nx-panel-close', () => setChatOpen(false), { once: true });
   }
   return aside;
 }
@@ -106,7 +106,7 @@ async function setupChat(block) {
   if (flags['ew.enabled'] !== 'true') return;
 
   installChatToggle(block);
-  if (isBrowseChatOpen()) await openChatPanel();
+  if (isChatOpen()) await openChatPanel();
 }
 
 // Block entry: EW surfaces the form via an `nx-form` content block, which NX
