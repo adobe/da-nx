@@ -1,7 +1,8 @@
 import { LitElement, html } from 'da-lit';
+import { loadStyle } from '../../../../nx2/utils/utils.js';
+import { icon } from '../icons.js';
 
-const { default: getStyle } = await import('../../../utils/styles.js');
-const style = await getStyle(import.meta.url);
+const style = await loadStyle(import.meta.url);
 
 const EL_NAME = 'nx-reorder';
 
@@ -77,20 +78,17 @@ class Reorder extends LitElement {
     const canMoveDown = this.targetIndex < lastIndex;
 
     return html`
-      <div class="reorder-dialog" role="dialog" aria-label="Reorder item">
+      <div class="reorder-dialog" role="toolbar" aria-label="Reorder item">
         <div class="reorder-dialog-buttons">
           <button
             type="button"
             class="reorder-btn"
             ?disabled=${!canMoveUp}
-            title="Move to top (Shift+Up)"
-            aria-label="Move to top (Shift+Up)"
+            title="Move to first (Shift+Up)"
+            aria-label="Move to first (Shift+Up)"
             @click=${() => this._dispatch('reorder-move-to-first')}
           >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="12 19 7 14 12 9"></polyline>
-              <polyline points="19 19 14 14 19 9"></polyline>
-            </svg>
+            ${icon('doubleLeft')}
           </button>
           <button
             type="button"
@@ -100,9 +98,7 @@ class Reorder extends LitElement {
             aria-label="Move up one (Up)"
             @click=${() => this._dispatch('reorder-move-up')}
           >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="18 15 12 9 6 15"></polyline>
-            </svg>
+            ${icon('chevronUp')}
           </button>
           <button
             type="button"
@@ -112,22 +108,17 @@ class Reorder extends LitElement {
             aria-label="Move down one (Down)"
             @click=${() => this._dispatch('reorder-move-down')}
           >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="6 9 12 15 18 9"></polyline>
-            </svg>
+            ${icon('chevronDown')}
           </button>
           <button
             type="button"
             class="reorder-btn"
             ?disabled=${!canMoveDown}
-            title="Move to bottom (Shift+Down)"
-            aria-label="Move to bottom (Shift+Down)"
+            title="Move to last (Shift+Down)"
+            aria-label="Move to last (Shift+Down)"
             @click=${() => this._dispatch('reorder-move-to-last')}
           >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="12 5 17 10 12 15"></polyline>
-              <polyline points="5 5 10 10 5 15"></polyline>
-            </svg>
+            ${icon('doubleRight')}
           </button>
           <span class="reorder-dialog-separator" aria-hidden="true"></span>
           <button
@@ -137,9 +128,7 @@ class Reorder extends LitElement {
             aria-label="Apply new order (Enter)"
             @click=${() => this._dispatch('reorder-confirm')}
           >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polyline points="20 6 9 17 4 12"></polyline>
-            </svg>
+            ${icon('confirm')}
           </button>
           <button
             type="button"
@@ -148,10 +137,7 @@ class Reorder extends LitElement {
             aria-label="Cancel reorder (Esc)"
             @click=${() => this._dispatch('reorder-cancel')}
           >
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <line x1="18" y1="6" x2="6" y2="18"></line>
-              <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
+            ${icon('cancel')}
           </button>
         </div>
       </div>
