@@ -7,7 +7,6 @@ const COMPONENTS = [
   { name: 'nx-breadcrumb', path: '../../../../../blocks/shared/breadcrumb/breadcrumb.js' },
   { name: 'nx-dialog', path: '../../../../../blocks/shared/dialog/dialog.js' },
   { name: 'nx-toast', path: '../../../../../blocks/shared/toast/toast.js' },
-  { name: 'nx-feedback-menu', path: '../../../../../blocks/feedback/feedback.js' },
 ];
 
 describe('shared component define guards', () => {

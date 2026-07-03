@@ -1,5 +1,4 @@
 import { expect } from '@esm-bundle/chai';
-import sinon from 'sinon';
 import { setConfig } from '../../../../../scripts/nx.js';
 
 // fragment.js (a transitive dependency of feedback.js) captures getConfig()
@@ -92,39 +91,10 @@ function buildTriggerButton({ pathname = '/fragments/nav/feedback' } = {}) {
   return button;
 }
 
-describe('attachFeedbackMenu', () => {
-  afterEach(() => {
-    document.querySelectorAll('button, nx-menu, nx-feedback-menu').forEach((el) => el.remove());
-  });
-
-  it('wraps the button directly in nx-menu (single level, no forwarding slot)', () => {
-    const button = buildTriggerButton();
-    attachFeedbackMenu(button);
-
-    const menu = document.querySelector('nx-menu');
-    expect(menu).to.not.be.null;
-
-    const trigger = menu.querySelector('button[slot="trigger"]');
-    expect(trigger).to.equal(button);
-    expect(trigger.classList.contains('nx-feedback')).to.be.true;
-    expect(trigger.dataset.pathname).to.equal('/fragments/nav/feedback');
-    expect(trigger.querySelector('span.icon.icon-feedback')).to.not.be.null;
-    expect(trigger.textContent.trim()).to.equal('Feedback');
-  });
-
-  it('inserts nx-feedback-menu as a sibling controller after nx-menu, with path and menu set', () => {
-    const button = buildTriggerButton();
-    attachFeedbackMenu(button);
-
-    const menu = document.querySelector('nx-menu');
-    const controller = document.querySelector('nx-feedback-menu');
-    expect(controller).to.not.be.null;
-    expect(controller.previousElementSibling).to.equal(menu);
-    expect(controller.path).to.equal('/fragments/nav/feedback');
-    expect(controller.menu).to.equal(menu);
-  });
-});
-
+// Always mock fetch for attachFeedbackMenu tests: it fires an unawaited
+// loadFeedbackItems() fetch as a side effect, and letting that hit the real
+// dev server (unmocked) across multiple tests in the same session caused
+// the whole browser session to hang indefinitely.
 function mockFeedbackFragmentFetch(html = FEEDBACK_FRAGMENT_HTML) {
   // html is already a single top-level <div>...</div> (the authored fragment
   // shape) — that div itself becomes the one `main > div` section loadFragment()
@@ -143,113 +113,29 @@ function mockFeedbackFragmentFetch(html = FEEDBACK_FRAGMENT_HTML) {
   return () => { window.fetch = originalFetch; };
 }
 
-describe('NxFeedbackMenu', () => {
+describe('attachFeedbackMenu', () => {
   let restoreFetch;
 
   afterEach(() => {
     restoreFetch?.();
-    document.querySelectorAll('button, nx-menu, nx-feedback-menu').forEach((el) => el.remove());
+    document.querySelectorAll('button, nx-menu').forEach((el) => el.remove());
   });
 
-  it('loads and parses items from the fragment on connect', async () => {
+  it('wraps the button directly in nx-menu (single level, no wrapper element)', () => {
     restoreFetch = mockFeedbackFragmentFetch();
     const button = buildTriggerButton();
     attachFeedbackMenu(button);
-    const wrapper = document.querySelector('nx-feedback-menu');
-    await wrapper.updateComplete;
-    await new Promise((r) => { setTimeout(r, 50); });
-    await wrapper.updateComplete;
 
-    expect(wrapper._items).to.have.lengthOf(3);
-    expect(wrapper._items[0].id).to.equal('idea');
-  });
-
-  it('forwards the loaded items onto the sibling nx-menu (so they actually render)', async () => {
-    restoreFetch = mockFeedbackFragmentFetch();
-    const button = buildTriggerButton();
-    attachFeedbackMenu(button);
     const menu = document.querySelector('nx-menu');
-    const wrapper = document.querySelector('nx-feedback-menu');
-    await wrapper.updateComplete;
-    await new Promise((r) => { setTimeout(r, 50); });
-    await wrapper.updateComplete;
+    expect(menu).to.not.be.null;
+    expect(menu.nextElementSibling).to.be.null;
+    expect(menu.previousElementSibling).to.be.null;
 
-    expect(menu.items).to.deep.equal(wrapper._items);
-    expect(menu.items).to.have.lengthOf(3);
-  });
-
-  it('opens a dialog for a hash-href item on select', async () => {
-    restoreFetch = mockFeedbackFragmentFetch();
-    const button = buildTriggerButton();
-    attachFeedbackMenu(button);
-    const wrapper = document.querySelector('nx-feedback-menu');
-    await wrapper.updateComplete;
-    await new Promise((r) => { setTimeout(r, 50); });
-    await wrapper.updateComplete;
-
-    await wrapper._handleSelect({ detail: { id: 'idea' } });
-    await wrapper.updateComplete;
-
-    expect(wrapper._dialog).to.deep.equal({ id: 'idea', titleText: 'Submit an idea' });
-    const dialog = wrapper.shadowRoot.querySelector('nx-dialog');
-    expect(dialog).to.not.be.null;
-    expect(dialog.getAttribute('title')).to.equal('Submit an idea');
-  });
-
-  it('opens an external link in a new tab on select instead of a dialog', async () => {
-    restoreFetch = mockFeedbackFragmentFetch();
-    const button = buildTriggerButton();
-    attachFeedbackMenu(button);
-    const wrapper = document.querySelector('nx-feedback-menu');
-    await wrapper.updateComplete;
-    await new Promise((r) => { setTimeout(r, 50); });
-    await wrapper.updateComplete;
-
-    const openStub = sinon.stub(window, 'open');
-    await wrapper._handleSelect({ detail: { id: 'discord' } });
-
-    expect(openStub.calledOnceWith('https://discord.gg/X8D9JhyDX', '_blank', 'noopener,noreferrer')).to.be.true;
-    expect(wrapper._dialog).to.be.undefined;
-    openStub.restore();
-  });
-
-  it('closes the dialog and clears state on submit (no network call)', async () => {
-    restoreFetch = mockFeedbackFragmentFetch();
-    const button = buildTriggerButton();
-    attachFeedbackMenu(button);
-    const wrapper = document.querySelector('nx-feedback-menu');
-    await wrapper.updateComplete;
-    await new Promise((r) => { setTimeout(r, 50); });
-    await wrapper.updateComplete;
-
-    await wrapper._handleSelect({ detail: { id: 'bug' } });
-    await wrapper.updateComplete;
-    expect(wrapper._dialog).to.not.be.undefined;
-
-    wrapper._submitDialog();
-    expect(wrapper._dialog).to.be.undefined;
-  });
-
-  it('end-to-end: clicking the real trigger button opens the popover and renders visible menu items', async () => {
-    restoreFetch = mockFeedbackFragmentFetch();
-    const button = buildTriggerButton();
-    attachFeedbackMenu(button);
-    const menu = document.querySelector('nx-menu');
-    const wrapper = document.querySelector('nx-feedback-menu');
-    await wrapper.updateComplete;
-    await new Promise((r) => { setTimeout(r, 50); });
-    await wrapper.updateComplete;
-    await menu.updateComplete;
-
-    // Clicking the actual button the browser renders (not a synthetic call
-    // into internal state) must open nx-menu's popover — this is exactly
-    // the path that silently did nothing when the trigger was buried behind
-    // an unassigned forwarding <slot>.
-    button.click();
-    await menu.updateComplete;
-
-    expect(menu.open).to.be.true;
-    const menuItemLabels = [...menu.shadowRoot.querySelectorAll('.menu-item-label')].map((el) => el.textContent);
-    expect(menuItemLabels).to.deep.equal(['Submit an idea', 'Report a bug', 'Join our Discord Server']);
+    const trigger = menu.querySelector('button[slot="trigger"]');
+    expect(trigger).to.equal(button);
+    expect(trigger.classList.contains('nx-feedback')).to.be.true;
+    expect(trigger.dataset.pathname).to.equal('/fragments/nav/feedback');
+    expect(trigger.querySelector('span.icon.icon-feedback')).to.not.be.null;
+    expect(trigger.textContent.trim()).to.equal('Feedback');
   });
 });

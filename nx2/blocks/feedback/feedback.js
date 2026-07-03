@@ -1,10 +1,16 @@
-import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle } from '../../utils/utils.js';
 import { loadFragment } from '../fragment/fragment.js';
 import '../shared/menu/menu.js';
 
 const NX_BASE = new URL('../../', import.meta.url).href.replace(/\/$/, '');
+
+// Applied once, globally: the stub dialog's body (built with plain DOM
+// nodes below, not inside any custom element's own shadow root) needs
+// this rule reachable from wherever <nx-dialog> ends up in the document.
 const style = await loadStyle(import.meta.url);
+if (!document.adoptedStyleSheets.includes(style)) {
+  document.adoptedStyleSheets = [...document.adoptedStyleSheets, style];
+}
 
 export function parseFeedbackItems(fragment) {
   // Descendant search (not :scope > p): loadFragment() wraps the authored
@@ -25,8 +31,16 @@ export function parseFeedbackItems(fragment) {
     const href = a.getAttribute('href') || '';
     const em = p.querySelector('em');
 
+    // loadFragment() runs the fragment's content through loadArea(), which
+    // (via nx.js's decorateLink) can rewrite a same-origin hash-only href
+    // like "#idea" into a path-qualified one like "/current-page#idea" once
+    // the fragment is loaded on a real page. Look for the hash anywhere in
+    // the href, not just at the start, so the id survives that rewrite.
+    const hashIndex = href.indexOf('#');
+    const id = hashIndex !== -1 ? href.slice(hashIndex + 1) : (icon || `link-${index}`);
+
     items.push({
-      id: href.startsWith('#') ? href.slice(1) : (icon || `link-${index}`),
+      id,
       label: a.textContent.trim(),
       description: em ? em.textContent.trim() : undefined,
       icon,
@@ -36,83 +50,69 @@ export function parseFeedbackItems(fragment) {
   }, []);
 }
 
-// NxFeedbackMenu is an invisible sibling *controller*, not a wrapper: the
-// trigger button lives directly inside <nx-menu> (see attachFeedbackMenu
-// below), matching the exact pattern chat.js already uses
-// (`<nx-menu ...><button slot="trigger">...</button></nx-menu>`). Nesting
-// <nx-menu> one level deeper, inside this component's own shadow DOM and
-// forwarding the trigger through a second <slot>, silently dropped the
-// button from rendering (a <slot> forwarded into another custom element's
-// named slot must itself carry a matching slot="" attribute, or it's never
-// assigned anywhere and its content never renders) — so this controller
-// only renders the stub dialog and talks to its sibling <nx-menu> directly.
-class NxFeedbackMenu extends LitElement {
-  static properties = {
-    path: { attribute: false },
-    menu: { attribute: false },
-    _items: { state: true },
-    _loadFailed: { state: true },
-    _dialog: { state: true },
-  };
+/**
+ * Opens the stub feedback dialog for an internal (#idea / #bug) item.
+ * Plain DOM construction, matching the vanilla pattern nav.js's own
+ * openFragmentDialog already uses for Help.
+ * @param {{ id: string, label: string }} item
+ */
+export async function openFeedbackDialog(item) {
+  await Promise.all([
+    import('../shared/dialog/dialog.js'),
+    import(`${NX_BASE}/public/sl/components.js`),
+  ]);
 
-  connectedCallback() {
-    super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [style];
-    this.menu?.addEventListener('select', (e) => this._handleSelect(e));
-    this._loadItems();
-  }
+  const dialog = document.createElement('nx-dialog');
+  dialog.setAttribute('title', item.label);
 
-  async _loadItems() {
-    const fragment = await loadFragment(this.path);
-    if (!fragment) {
-      this._loadFailed = true;
-      return;
-    }
-    this._items = parseFeedbackItems(fragment);
-  }
+  const textarea = document.createElement('textarea');
+  textarea.className = 'feedback-textarea';
+  textarea.autofocus = true;
+  textarea.placeholder = 'Tell us more...';
 
-  updated(changed) {
-    if (changed.has('_items') && this.menu) this.menu.items = this._items ?? [];
-  }
+  const cancel = document.createElement('sl-button');
+  cancel.slot = 'actions';
+  cancel.textContent = 'Cancel';
+  cancel.addEventListener('click', () => dialog.close());
 
-  async _handleSelect({ detail: { id } }) {
-    const item = this._items?.find((i) => i.id === id);
-    if (!item) return;
-
-    if (item.href.startsWith('#')) {
-      await Promise.all([
-        import('../shared/dialog/dialog.js'),
-        import(`${NX_BASE}/public/sl/components.js`),
-      ]);
-      this._dialog = { id: item.id, titleText: item.label };
-      return;
-    }
-
-    if (item.href) window.open(item.href, '_blank', 'noopener,noreferrer');
-  }
-
-  _closeDialog() {
-    this._dialog = undefined;
-  }
-
-  _submitDialog() {
+  const submit = document.createElement('sl-button');
+  submit.slot = 'actions';
+  submit.textContent = 'Submit';
+  submit.addEventListener('click', () => {
     // TODO: POST to feedback endpoint in a follow-up iteration.
-    this._dialog = undefined;
-  }
+    dialog.close();
+  });
 
-  render() {
-    if (!this._dialog) return nothing;
-    return html`
-      <nx-dialog title=${this._dialog.titleText} @close=${this._closeDialog}>
-        <textarea class="feedback-textarea" autofocus placeholder="Tell us more..."></textarea>
-        <sl-button slot="actions" @click=${this._closeDialog}>Cancel</sl-button>
-        <sl-button slot="actions" @click=${this._submitDialog}>Submit</sl-button>
-      </nx-dialog>
-    `;
-  }
+  dialog.append(textarea, cancel, submit);
+  dialog.addEventListener('close', () => dialog.remove());
+  document.body.append(dialog);
 }
 
-if (!customElements.get('nx-feedback-menu')) customElements.define('nx-feedback-menu', NxFeedbackMenu);
+// A fully-qualified http(s) URL (e.g. the Discord link) opens externally;
+// anything else — a bare "#idea" hash or one rewritten to a path-qualified
+// "/current-page#idea" by decorateLink() during fragment loading — is one
+// of our own internal actions and opens the stub dialog instead.
+function isExternalLink(href) {
+  return /^https?:\/\//i.test(href);
+}
+
+function handleSelect(menu, { detail: { id } }) {
+  const item = menu.items?.find((i) => i.id === id);
+  if (!item) return;
+
+  if (!item.href || isExternalLink(item.href)) {
+    if (item.href) window.open(item.href, '_blank', 'noopener,noreferrer');
+    return;
+  }
+
+  openFeedbackDialog(item);
+}
+
+async function loadFeedbackItems(menu, path) {
+  const fragment = await loadFragment(path);
+  if (!fragment) return;
+  menu.items = parseFeedbackItems(fragment);
+}
 
 /**
  * Turns an already-decorated dialog auto-block button (see
@@ -121,10 +121,10 @@ if (!customElements.get('nx-feedback-menu')) customElements.define('nx-feedback-
  * single-dialog behavior nav.js's decorateActions wires onto every other
  * data-pathname button.
  *
- * DOM produced: `<nx-menu><button slot="trigger">...</button></nx-menu>`
- * followed by a sibling `<nx-feedback-menu>` controller (invisible,
- * renders only the stub dialog) that loads the menu items and forwards
- * nx-menu's `select` event.
+ * DOM produced: `<nx-menu><button slot="trigger">...</button></nx-menu>` —
+ * no extra wrapper/controller element. Item loading and dialog behavior are
+ * wired imperatively (loadFeedbackItems / handleSelect / openFeedbackDialog
+ * above) directly onto the nx-menu instance.
  *
  * Called directly from nav.js — not registered as an auto-block itself —
  * so it works regardless of any consuming project's own linkBlocks config.
@@ -136,12 +136,10 @@ export function attachFeedbackMenu(button) {
 
   const menu = document.createElement('nx-menu');
   menu.setAttribute('placement', 'below-end');
-
-  const controller = document.createElement('nx-feedback-menu');
-  controller.path = button.dataset.pathname;
-  controller.menu = menu;
+  menu.addEventListener('select', (e) => handleSelect(menu, e));
 
   button.replaceWith(menu);
   menu.append(button);
-  menu.after(controller);
+
+  loadFeedbackItems(menu, button.dataset.pathname);
 }
