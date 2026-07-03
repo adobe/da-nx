@@ -1,8 +1,9 @@
 import { loadStyle } from '../../utils/utils.js';
+import { getConfig } from '../../scripts/nx.js';
 import { loadFragment } from '../fragment/fragment.js';
 import '../shared/menu/menu.js';
 
-const NX_BASE = new URL('../../', import.meta.url).href.replace(/\/$/, '');
+const { codeBase } = getConfig();
 
 // Applied once, globally: the stub dialog's body (built with plain DOM
 // nodes below, not inside any custom element's own shadow root) needs
@@ -59,7 +60,7 @@ export function parseFeedbackItems(fragment) {
 export async function openFeedbackDialog(item) {
   await Promise.all([
     import('../shared/dialog/dialog.js'),
-    import(`${NX_BASE}/public/sl/components.js`),
+    import(`${codeBase}/public/sl/components.js`),
   ]);
 
   const dialog = document.createElement('nx-dialog');
