@@ -1,17 +1,5 @@
-import { loadStyle } from '../../utils/utils.js';
-import { getConfig } from '../../scripts/nx.js';
 import { loadFragment } from '../fragment/fragment.js';
 import '../shared/menu/menu.js';
-
-const { codeBase } = getConfig();
-
-// Applied once, globally: the stub dialog's body (built with plain DOM
-// nodes below, not inside any custom element's own shadow root) needs
-// this rule reachable from wherever <nx-dialog> ends up in the document.
-const style = await loadStyle(import.meta.url);
-if (!document.adoptedStyleSheets.includes(style)) {
-  document.adoptedStyleSheets = [...document.adoptedStyleSheets, style];
-}
 
 export function parseFeedbackItems(fragment) {
   // Descendant search (not :scope > p): loadFragment() wraps the authored
@@ -53,39 +41,13 @@ export function parseFeedbackItems(fragment) {
 
 /**
  * Opens the stub feedback dialog for an internal (#idea / #bug) item.
- * Plain DOM construction, matching the vanilla pattern nav.js's own
- * openFragmentDialog already uses for Help.
  * @param {{ id: string, label: string }} item
  */
 export async function openFeedbackDialog(item) {
-  await Promise.all([
-    import('../shared/dialog/dialog.js'),
-    import(`${codeBase}/public/sl/components.js`),
-  ]);
+  await import('./feedback-dialog.js');
 
-  const dialog = document.createElement('nx-dialog');
-  dialog.setAttribute('title', item.label);
-
-  const textarea = document.createElement('textarea');
-  textarea.className = 'feedback-textarea';
-  textarea.autofocus = true;
-  textarea.placeholder = 'Tell us more...';
-
-  const cancel = document.createElement('sl-button');
-  cancel.slot = 'actions';
-  cancel.textContent = 'Cancel';
-  cancel.addEventListener('click', () => dialog.close());
-
-  const submit = document.createElement('sl-button');
-  submit.slot = 'actions';
-  submit.textContent = 'Submit';
-  submit.addEventListener('click', () => {
-    // TODO: POST to feedback endpoint in a follow-up iteration.
-    dialog.close();
-  });
-
-  dialog.append(textarea, cancel, submit);
-  dialog.addEventListener('close', () => dialog.remove());
+  const dialog = document.createElement('nx-feedback-dialog');
+  dialog.label = item.label;
   document.body.append(dialog);
 }
 
