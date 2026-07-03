@@ -21,13 +21,20 @@
 
 /* .da-input (shared/dialog/dialog-content.css) supplies border, radius,
    background, color, and focus styling. These are just the overrides a
-   multi-line textarea needs on top of that single-line-input default. */
+   multi-line textarea needs on top of that single-line-input default.
+   The compound .feedback-textarea.da-input selector (rather than just
+   .feedback-textarea) is needed for the padding override: dialog-content.css
+   loads after this sheet, so .da-input's own equal-specificity padding rule
+   would otherwise win and zero out the top/bottom padding added here. */
 .feedback-textarea {
   width: 100%;
   height: auto;
   min-height: 120px;
-  padding: var(--s2-spacing-100);
   resize: vertical;
+}
+
+.feedback-textarea.da-input {
+  padding: var(--s2-spacing-100) var(--s2-spacing-200);
 }
 
 

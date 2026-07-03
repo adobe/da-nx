@@ -3,20 +3,12 @@ import { loadStyle } from '../../utils/utils.js';
 import '../shared/dialog/dialog.js';
 
 const style = await loadStyle(import.meta.url);
-
-// da-btn-primary/da-btn-secondary/da-checkbox below are reusable form
-// primitives from shared/dialog/dialog-content.css. Even though those
-// buttons/checkbox end up slotted into <nx-dialog>, the DOM nodes
-// themselves live in *this* component's own shadow root (that's where
-// render() below creates them) — so, like feedback-dialog.css's own
-// .feedback-* rules, this sheet needs to be in *our* shadowRoot's own
-// adoptedStyleSheets, not document.adoptedStyleSheets (which only reaches
-// the top-level document, never into any shadow root).
 const contentStyle = await loadStyle(new URL('../shared/dialog/dialog-content.css', import.meta.url).href);
 
 const CATEGORIES = [
   { value: 'general', label: 'General' },
-  { value: 'ui', label: 'UI' },
+  { value: 'ui', label: 'User Interface' },
+  { value: 'editor', label: 'Editor' },
   { value: 'chat', label: 'Chat' },
   { value: 'permissions', label: 'Permissions' },
   { value: 'other', label: 'Other' },
@@ -77,7 +69,7 @@ class NxFeedbackDialog extends LitElement {
             <input id="feedback-include-chat" type="checkbox" />
             Include chat messages?
           </label>
-                    <p class="feedback-intro"><span>Your name, email, session ID, and current page will be shared with the team.</span></p>
+          <p class="feedback-intro"><span>Your name, email, session ID, and current page will be shared with the team.</span></p>
         </div>
         <button type="button" class="da-btn-secondary" slot="actions" @click=${this.close}>Cancel</button>
         <button type="button" class="da-btn-primary" slot="actions" @click=${this._handleSubmit}>Submit</button>
