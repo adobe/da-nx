@@ -52,6 +52,8 @@ class NxFeedbackDialog extends LitElement {
     return html`
       <nx-dialog title=${this.label} @close=${this._handleClose}>
         <div class="feedback-body">
+          <p class="feedback-intro">Your name, email, session ID, and current page will be shared with the team.</p>
+          <p class="feedback-intro">Describe what you tried, what you expected, and what actually happened. Do not share credentials or tokens!</p>
           <div class="feedback-field">
             <label class="feedback-label" for="feedback-category">Category</label>
             <select id="feedback-category" class="feedback-select">

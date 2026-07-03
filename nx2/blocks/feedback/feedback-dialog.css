@@ -4,6 +4,13 @@
   gap: var(--s2-spacing-300);
 }
 
+.feedback-intro {
+  margin: 0;
+  color: var(--s2-gray-700);
+  font-size: var(--s2-body-size-xs);
+  line-height: 1.5;
+}
+
 .feedback-field {
   display: flex;
   flex-flow: column nowrap;
