@@ -80,10 +80,6 @@
       font-size: 0;
     }
 
-    &.nx-feedback {
-      font-size: 0;
-    }
-
     &.profile {
       padding: 12px;
       box-sizing: border-box;

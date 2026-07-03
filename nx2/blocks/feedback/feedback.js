@@ -1,5 +1,22 @@
+import { LitElement, html, nothing } from 'da-lit';
+import { getConfig } from '../../scripts/nx.js';
+import { loadStyle } from '../../utils/utils.js';
 import { loadFragment } from '../fragment/fragment.js';
 import '../shared/menu/menu.js';
+
+const { codeBase } = getConfig();
+const style = await loadStyle(import.meta.url);
+
+// Well-known, hardcoded path (not configurable) so the feedback menu works
+// regardless of a consuming project's own linkBlocks config, and regardless
+// of whatever content nav.js's decorateActions() finds in the nav fragment's
+// action-area <li> (it only ever sees a plain "Feedback" label, no href).
+const FEEDBACK_PATH = '/fragments/nav/feedback';
+
+// Matches the S2_Icon_<Name>_20_N.svg naming convention utils/svg.js uses
+// for markup-authored `<span class="icon icon-lightbulb">` icons, so the
+// trigger button's icon looks the same as one decorated that way (e.g. Help).
+const ICON_HREF = `${codeBase}/img/icons/S2_Icon_Lightbulb_20_N.svg#lightbulb`;
 
 export function parseFeedbackItems(fragment) {
   // Descendant search (not :scope > p): loadFragment() wraps the authored
@@ -39,18 +56,6 @@ export function parseFeedbackItems(fragment) {
   }, []);
 }
 
-/**
- * Opens the stub feedback dialog for an internal (#idea / #bug) item.
- * @param {{ id: string, label: string }} item
- */
-export async function openFeedbackDialog(item) {
-  await import('./feedback-dialog.js');
-
-  const dialog = document.createElement('nx-feedback-dialog');
-  dialog.label = item.label;
-  document.body.append(dialog);
-}
-
 // A fully-qualified http(s) URL (e.g. the Discord link) opens externally;
 // anything else — a bare "#idea" hash or one rewritten to a path-qualified
 // "/current-page#idea" by decorateLink() during fragment loading — is one
@@ -59,50 +64,64 @@ function isExternalLink(href) {
   return /^https?:\/\//i.test(href);
 }
 
-function handleSelect(menu, { detail: { id } }) {
-  const item = menu.items?.find((i) => i.id === id);
-  if (!item) return;
+/**
+ * Opens the stub feedback dialog for an internal (#idea / #bug) item.
+ * @param {{ id: string, label: string }} item
+ */
+async function openFeedbackDialog(item) {
+  await import('./feedback-dialog.js');
 
-  if (!item.href || isExternalLink(item.href)) {
-    if (item.href) window.open(item.href, '_blank', 'noopener,noreferrer');
-    return;
-  }
-
-  openFeedbackDialog(item);
-}
-
-async function loadFeedbackItems(menu, path) {
-  const fragment = await loadFragment(path);
-  if (!fragment) return;
-  menu.items = parseFeedbackItems(fragment);
+  const dialog = document.createElement('nx-feedback-dialog');
+  dialog.label = item.label;
+  document.body.append(dialog);
 }
 
 /**
- * Turns an already-decorated dialog auto-block button (see
- * blocks/dialog/dialog.js, which turns a hash-linked fragment anchor into a
- * plain button) into a popover-menu trigger, instead of the generic
- * single-dialog behavior nav.js's decorateActions wires onto every other
- * data-pathname button.
- *
- * DOM produced: `<nx-menu><button slot="trigger">...</button></nx-menu>` —
- * no extra wrapper/controller element. Item loading and dialog behavior are
- * wired imperatively (loadFeedbackItems / handleSelect / openFeedbackDialog
- * above) directly onto the nx-menu instance.
- *
- * Called directly from nav.js — not registered as an auto-block itself —
- * so it works regardless of any consuming project's own linkBlocks config.
- * @param {HTMLButtonElement} button
+ * Feedback trigger + popover menu for the nav action area. Rendered directly
+ * by nav.js's decorateActions() the same way it renders <nx-profile> — from
+ * a plain "Feedback" label <li>, with no href of its own (see
+ * blocks/nav/nav.js) — so this component owns its own icon and fetches its
+ * own menu content from the well-known FEEDBACK_PATH.
  */
-export function attachFeedbackMenu(button) {
-  button.classList.add('nx-feedback');
-  button.setAttribute('slot', 'trigger');
+class NxFeedback extends LitElement {
+  static properties = {
+    _items: { state: true },
+  };
 
-  const menu = document.createElement('nx-menu');
-  menu.setAttribute('placement', 'below-end');
-  menu.addEventListener('select', (e) => handleSelect(menu, e));
+  connectedCallback() {
+    super.connectedCallback();
+    this.shadowRoot.adoptedStyleSheets = [style];
+    this._loadItems();
+  }
 
-  button.replaceWith(menu);
-  menu.append(button);
+  async _loadItems() {
+    const fragment = await loadFragment(FEEDBACK_PATH);
+    if (!fragment) return;
+    this._items = parseFeedbackItems(fragment);
+  }
 
-  loadFeedbackItems(menu, button.dataset.pathname);
+  _handleSelect({ detail: { id } }) {
+    const item = this._items?.find((i) => i.id === id);
+    if (!item) return;
+
+    if (!item.href || isExternalLink(item.href)) {
+      if (item.href) window.open(item.href, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
+    openFeedbackDialog(item);
+  }
+
+  render() {
+    if (!this._items) return nothing;
+    return html`
+      <nx-menu .items=${this._items} placement="below-end" @select=${this._handleSelect}>
+        <button type="button" slot="trigger" class="nx-feedback-trigger" aria-label="Feedback">
+          <svg class="icon" viewBox="0 0 20 20" aria-hidden="true"><use href="${ICON_HREF}"></use></svg>
+        </button>
+      </nx-menu>
+    `;
+  }
 }
+
+if (!customElements.get('nx-feedback')) customElements.define('nx-feedback', NxFeedback);

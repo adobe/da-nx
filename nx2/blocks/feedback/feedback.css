@@ -1,0 +1,28 @@
+:host {
+  display: flex;
+  align-items: center;
+  height: 100%;
+}
+
+.nx-feedback-trigger {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: none;
+  border-radius: var(--s2-corner-radius-500);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.nx-feedback-trigger:hover {
+  background-color: var(--s2-gray-100);
+}
+
+.nx-feedback-trigger .icon {
+  width: 20px;
+  height: 20px;
+}

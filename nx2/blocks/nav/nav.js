@@ -6,10 +6,6 @@ import { loadFragment } from '../fragment/fragment.js';
 import { loadHrefSvg } from '../../utils/svg.js';
 
 const DEFAULT_NAV_PATH = '/nx/fragments/nav';
-// Well-known, hardcoded path (not configurable) so the feedback menu works
-// regardless of a consuming project's own linkBlocks config — see
-// blocks/feedback/feedback.js's attachFeedbackMenu doc comment.
-const FEEDBACK_PATH = '/fragments/nav/feedback';
 
 const style = await loadStyle(import.meta.url);
 
@@ -116,9 +112,6 @@ class NXNav extends LitElement {
         await import(`../${name}/${name}.js`);
         const cmp = document.createElement(`nx-${name}`);
         child.replaceChildren(cmp);
-      } else if (button.dataset.pathname === FEEDBACK_PATH) {
-        const { attachFeedbackMenu } = await import('../feedback/feedback.js');
-        attachFeedbackMenu(button);
       } else if (button.dataset.pathname) {
         const hasLabel = [...button.childNodes].some(
           (n) => n.nodeType === Node.TEXT_NODE && n.textContent.trim(),
