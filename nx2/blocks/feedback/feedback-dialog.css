@@ -1,13 +1,63 @@
+.feedback-body {
+  display: flex;
+  flex-flow: column nowrap;
+  gap: var(--s2-spacing-300);
+}
+
+.feedback-field {
+  display: flex;
+  flex-flow: column nowrap;
+  gap: var(--s2-spacing-75, 4px);
+}
+
+.feedback-label {
+  font-size: var(--s2-body-size-xs);
+  font-weight: 700;
+  color: var(--s2-gray-900);
+}
+
+.feedback-select,
 .feedback-textarea {
   box-sizing: border-box;
   width: 100%;
-  min-height: 120px;
   padding: var(--s2-spacing-100);
   border: 1px solid var(--s2-gray-200);
   border-radius: var(--s2-corner-radius-200);
+  background: none;
+  color: var(--s2-gray-900);
   font-family: inherit;
   font-size: var(--s2-body-size-xs);
+}
+
+.feedback-select {
+  height: 32px;
+}
+
+.feedback-textarea {
+  min-height: 120px;
   resize: vertical;
+}
+
+.feedback-select:focus-visible,
+.feedback-textarea:focus-visible {
+  outline: 2px solid var(--s2-blue-800);
+  outline-offset: 1px;
+}
+
+.feedback-checkbox {
+  display: flex;
+  align-items: center;
+  gap: var(--s2-spacing-100);
+  font-size: var(--s2-body-size-xs);
+  color: var(--s2-gray-900);
+  cursor: pointer;
+}
+
+.feedback-checkbox input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--s2-blue-900);
 }
 
 .feedback-btn {

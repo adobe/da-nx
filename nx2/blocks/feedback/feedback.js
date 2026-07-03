@@ -12,11 +12,7 @@ const style = await loadStyle(import.meta.url);
 // of whatever content nav.js's decorateActions() finds in the nav fragment's
 // action-area <li> (it only ever sees a plain "Feedback" label, no href).
 const FEEDBACK_PATH = '/fragments/nav/feedback';
-
-// Matches the S2_Icon_<Name>_20_N.svg naming convention utils/svg.js uses
-// for markup-authored `<span class="icon icon-lightbulb">` icons, so the
-// trigger button's icon looks the same as one decorated that way (e.g. Help).
-const ICON_HREF = `${codeBase}/img/icons/S2_Icon_Lightbulb_20_N.svg#lightbulb`;
+const ICON_HREF = `${codeBase}/img/icons/s2-icon-commenttext-20-n.svg#icon`;
 
 export function parseFeedbackItems(fragment) {
   // Descendant search (not :scope > p): loadFragment() wraps the authored
