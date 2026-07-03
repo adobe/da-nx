@@ -6,8 +6,11 @@
 
 .feedback-intro {
   margin: 0;
-  color: var(--s2-gray-700);
   line-height: 1.5;
+
+  span {
+    color: var(--s2-gray-500);
+  }
 }
 
 .feedback-field {
@@ -16,34 +19,25 @@
   gap: var(--s2-spacing-75, 4px);
 }
 
-.feedback-label {
-  font-weight: 700;
-}
-
-.feedback-select,
 .feedback-textarea {
   box-sizing: border-box;
   width: 100%;
+  min-height: 120px;
   padding: var(--s2-spacing-100);
   border: 1px solid var(--s2-gray-200);
   border-radius: var(--s2-corner-radius-200);
   background: none;
   font-family: inherit;
-}
-
-.feedback-select {
-  height: 32px;
-}
-
-.feedback-textarea {
-  min-height: 120px;
   resize: vertical;
 }
 
-.feedback-select:focus-visible,
 .feedback-textarea:focus-visible {
   outline: 2px solid var(--s2-blue-800);
   outline-offset: 1px;
+}
+
+.feedback-field nx-picker {
+  align-self: flex-start;
 }
 
 .feedback-checkbox {
