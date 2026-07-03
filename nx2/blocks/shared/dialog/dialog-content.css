@@ -43,7 +43,9 @@
 }
 
 .da-field-error input,
-.da-field-error input:focus {
+.da-field-error input:focus,
+.da-field-error textarea,
+.da-field-error textarea:focus {
   border-color: var(--s2-red-800);
 }
 
