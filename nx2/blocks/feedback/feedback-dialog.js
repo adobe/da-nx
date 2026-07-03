@@ -1,17 +1,8 @@
 import { LitElement, html } from 'da-lit';
 import { loadStyle } from '../../utils/utils.js';
-import { getConfig } from '../../scripts/nx.js';
 import '../shared/dialog/dialog.js';
 
-const { codeBase } = getConfig();
-
-// Dynamically imported alongside this module (only when a feedback item is
-// actually selected, see feedback.js's openFeedbackDialog), not statically
-// at nav load time: sl-button is only needed once this dialog is shown.
-const [style] = await Promise.all([
-  loadStyle(import.meta.url),
-  import(`${codeBase}/public/sl/components.js`),
-]);
+const style = await loadStyle(import.meta.url);
 
 /**
  * Stub feedback dialog: a title + free-text textarea + Cancel/Submit
@@ -51,8 +42,8 @@ class NxFeedbackDialog extends LitElement {
     return html`
       <nx-dialog title=${this.label} @close=${this._handleClose}>
         <textarea class="feedback-textarea" autofocus placeholder="Tell us more..."></textarea>
-        <sl-button slot="actions" @click=${this.close}>Cancel</sl-button>
-        <sl-button slot="actions" @click=${this._handleSubmit}>Submit</sl-button>
+        <button type="button" class="feedback-btn" slot="actions" @click=${this.close}>Cancel</button>
+        <button type="button" class="feedback-btn feedback-btn-primary" slot="actions" @click=${this._handleSubmit}>Submit</button>
       </nx-dialog>
     `;
   }

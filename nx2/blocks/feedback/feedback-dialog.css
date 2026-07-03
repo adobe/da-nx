@@ -9,3 +9,41 @@
   font-size: var(--s2-body-size-xs);
   resize: vertical;
 }
+
+.feedback-btn {
+  box-sizing: border-box;
+  padding: var(--s2-spacing-100) var(--s2-spacing-300);
+  border: 1px solid var(--s2-gray-300);
+  border-radius: var(--s2-corner-radius-800);
+  background: none;
+  color: var(--s2-gray-900);
+  font-family: inherit;
+  font-size: var(--s2-body-size-xs);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.feedback-btn:hover {
+  background: var(--s2-gray-100);
+}
+
+.feedback-btn:focus-visible {
+  outline: 2px solid var(--s2-blue-800);
+  outline-offset: 2px;
+}
+
+.feedback-btn-primary {
+  border-color: var(--s2-blue-900);
+  background: var(--s2-blue-900);
+  color: var(--s2-white, #fff);
+}
+
+.feedback-btn-primary:hover {
+  border-color: var(--s2-blue-1000);
+  background: var(--s2-blue-1000);
+}
+
+.feedback-btn-primary:active {
+  border-color: var(--s2-blue-1100);
+  background: var(--s2-blue-1100);
+}
