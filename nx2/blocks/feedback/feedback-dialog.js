@@ -5,6 +5,18 @@ import '../shared/picker/picker.js';
 
 const style = await loadStyle(import.meta.url);
 
+// da-btn-primary/da-btn-secondary/da-checkbox below are reusable form
+// primitives from shared/dialog/dialog-content.css. They live outside
+// nx-dialog's own shadow tree (Shadow DOM styles can't reach slotted light
+// DOM content via plain class selectors), so consumers that actually use
+// them - like this dialog - are responsible for adopting that stylesheet
+// globally, rather than every nx-dialog user (e.g. Help's plain-content
+// dialog, which never uses these classes) paying for it unconditionally.
+const contentStyle = await loadStyle(new URL('../shared/dialog/dialog-content.css', import.meta.url).href);
+if (!document.adoptedStyleSheets.includes(contentStyle)) {
+  document.adoptedStyleSheets = [...document.adoptedStyleSheets, contentStyle];
+}
+
 const CATEGORIES = [
   { value: 'general', label: 'General' },
   { value: 'ui', label: 'UI' },

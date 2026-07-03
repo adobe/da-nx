@@ -1,13 +1,3 @@
-/*
- * Reusable form primitives for content slotted into <nx-dialog> (or any
- * other component's shadow tree). These live in dialog.css's own shadow
- * stylesheet by class name alone; since Shadow DOM styles don't cross into
- * slotted (light DOM) content without ::slotted() - which itself can't
- * reach descendants of a slotted element - dialog.js instead adopts this
- * sheet globally (see ensureContentStyles()), the same way toast.js adopts
- * toast-host.css for its document.body-level host.
- */
-
 .da-input {
   box-sizing: border-box;
   height: 32px;
