@@ -78,12 +78,12 @@ class NxFeedbackDialog extends LitElement {
             <label class="feedback-label" for="feedback-message">Details</label>
             <textarea id="feedback-message" class="feedback-textarea" autofocus placeholder="Tell us more..."></textarea>
           </div>
-          <label class="feedback-checkbox">
+          <label class="da-checkbox">
             <input id="feedback-include-chat" type="checkbox" />
             Include chat messages?
           </label>
         </div>
-        <button type="button" class="feedback-btn" slot="actions" @click=${this.close}>Cancel</button>
+        <button type="button" class="da-btn-secondary" slot="actions" @click=${this.close}>Cancel</button>
         <button type="button" class="da-btn-primary" slot="actions" @click=${this._handleSubmit}>Submit</button>
       </nx-dialog>
     `;

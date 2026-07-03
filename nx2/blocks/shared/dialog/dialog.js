@@ -3,6 +3,18 @@ import { loadStyle } from '../../../utils/utils.js';
 
 const styles = await loadStyle(import.meta.url);
 
+// .da-btn-primary/.da-btn-secondary/.da-checkbox/.da-form-field/.da-input are
+// reusable form primitives meant for content consumers slot into <nx-dialog>
+// (e.g. blocks/feedback/feedback-dialog.js). Shadow DOM styles don't apply to
+// slotted (light DOM) content via plain class selectors - only ::slotted(),
+// which itself can't reach a slotted element's own descendants - so this
+// stylesheet is adopted globally instead, the same way toast.js adopts
+// toast-host.css for its document.body-level host.
+const contentStyles = await loadStyle(new URL('dialog-content.css', import.meta.url).href);
+if (!document.adoptedStyleSheets.includes(contentStyles)) {
+  document.adoptedStyleSheets = [...document.adoptedStyleSheets, contentStyles];
+}
+
 class NxDialog extends LitElement {
   static properties = {
     title: { type: String },
