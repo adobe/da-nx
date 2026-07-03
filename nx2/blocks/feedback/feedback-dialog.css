@@ -6,6 +6,7 @@
 
 .feedback-intro {
   margin: 0;
+  color: var(--s2-gray-700);
   line-height: 1.5;
 }
 
