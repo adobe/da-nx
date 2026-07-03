@@ -16,6 +16,29 @@
   outline: none;
 }
 
+.da-select {
+  box-sizing: border-box;
+  height: 32px;
+  padding: 0 var(--s2-spacing-200);
+  border: 2px solid var(--s2-gray-300);
+  border-radius: var(--s2-corner-radius-500);
+  background: var(--s2-gray-25);
+  color: var(--s2-gray-900);
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.da-select:focus {
+  border-color: var(--s2-gray-900);
+  outline: none;
+}
+
+.da-select:focus-visible {
+  outline: 2px solid var(--s2-blue-800);
+  outline-offset: 2px;
+}
+
 .da-form-field {
   display: flex;
   flex-direction: column;

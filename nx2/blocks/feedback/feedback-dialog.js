@@ -1,7 +1,6 @@
 import { LitElement, html } from 'da-lit';
 import { loadStyle } from '../../utils/utils.js';
 import '../shared/dialog/dialog.js';
-import '../shared/picker/picker.js';
 
 const style = await loadStyle(import.meta.url);
 
@@ -34,13 +33,7 @@ const CATEGORIES = [
 class NxFeedbackDialog extends LitElement {
   static properties = {
     label: { attribute: false },
-    _category: { state: true },
   };
-
-  constructor() {
-    super();
-    this._category = CATEGORIES[0].value;
-  }
 
   connectedCallback() {
     super.connectedCallback();
@@ -58,12 +51,8 @@ class NxFeedbackDialog extends LitElement {
     this.remove();
   }
 
-  _onCategoryChange({ detail: { value } }) {
-    this._category = value;
-  }
-
-  // TODO: read message/includeChatMessages from the fields below (ids:
-  // feedback-message, feedback-include-chat), plus this._category, and
+  // TODO: read category/message/includeChatMessages from the fields below
+  // (ids: feedback-category, feedback-message, feedback-include-chat) and
   // POST them to a feedback endpoint in a follow-up iteration.
   _handleSubmit() {
     this.close();
@@ -76,17 +65,14 @@ class NxFeedbackDialog extends LitElement {
           <p class="feedback-intro"><span>Your name, email, session ID, and current page will be shared with the team.</span></p>
           <p class="feedback-intro">Describe what you tried, what you expected, and what actually happened. Do not share credentials or tokens!</p>
           <div class="feedback-field">
-            <span class="feedback-label">Category</span>
-            <nx-picker
-              .items=${CATEGORIES}
-              .value=${this._category}
-              placement="below-start"
-              @change=${this._onCategoryChange}
-            ></nx-picker>
+            <label class="feedback-label" for="feedback-category">Category</label>
+            <select id="feedback-category" class="da-select">
+              ${CATEGORIES.map((c) => html`<option value=${c.value}>${c.label}</option>`)}
+            </select>
           </div>
           <div class="feedback-field">
             <label class="feedback-label" for="feedback-message">Details</label>
-            <textarea id="feedback-message" class="feedback-textarea" autofocus placeholder="Tell us more..."></textarea>
+            <textarea id="feedback-message" class="feedback-textarea da-input" autofocus placeholder="Tell us more..."></textarea>
           </div>
           <label class="da-checkbox">
             <input id="feedback-include-chat" type="checkbox" />

@@ -19,25 +19,15 @@
   gap: var(--s2-spacing-75, 4px);
 }
 
+/* .da-input (shared/dialog/dialog-content.css) supplies border, radius,
+   background, color, and focus styling. These are just the overrides a
+   multi-line textarea needs on top of that single-line-input default. */
 .feedback-textarea {
-  box-sizing: border-box;
   width: 100%;
+  height: auto;
   min-height: 120px;
   padding: var(--s2-spacing-100);
-  border: 1px solid var(--s2-gray-200);
-  border-radius: var(--s2-corner-radius-200);
-  background: none;
-  font-family: inherit;
   resize: vertical;
-}
-
-.feedback-textarea:focus-visible {
-  outline: 2px solid var(--s2-blue-800);
-  outline-offset: 1px;
-}
-
-.feedback-field nx-picker {
-  align-self: flex-start;
 }
 
 
