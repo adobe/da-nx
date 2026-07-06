@@ -28,10 +28,10 @@ const CATEGORIES = [
 const KIND_LABELS = { idea: 'Idea', bug: 'Bug' };
 
 /**
- * Feedback dialog: a title + category dropdown + free-text textarea + an
- * "include chat messages" checkbox + Cancel/Submit actions, wrapping the
- * shared <nx-dialog>. Submit POSTs to the da-feedback worker (see
- * FEEDBACK_ENDPOINT above and _handleSubmit below).
+ * Feedback dialog: a title + category dropdown + free-text textarea + a
+ * "link my current chat session" checkbox + Cancel/Submit actions,
+ * wrapping the shared <nx-dialog>. Submit POSTs to the da-feedback worker
+ * (see FEEDBACK_ENDPOINT above and _handleSubmit below).
  *
  * @fires close - When the dialog has fully closed (mirrors nx-dialog's
  * own close event; also removes itself from the DOM).
@@ -49,7 +49,7 @@ class NxFeedbackDialog extends LitElement {
 
   get _category() { return this.shadowRoot.getElementById('feedback-category'); }
 
-  get _includeChatMessages() { return this.shadowRoot.getElementById('feedback-include-chat'); }
+  get _linkChatSession() { return this.shadowRoot.getElementById('feedback-include-chat'); }
 
   connectedCallback() {
     super.connectedCallback();
@@ -71,22 +71,18 @@ class NxFeedbackDialog extends LitElement {
     if (this._messageError) this._messageError = false;
   }
 
-  // Loads the current chat's persisted state directly from IndexedDB
-  // (same room key formula ChatController uses - see getRoomKey), rather
-  // than depending on a live <nx-chat> being mounted on the page right
-  // now. Returns { transcript, sessionId }, both null if there's nothing
+  // Looks up the current chat's sessionId directly from IndexedDB (same
+  // room key formula ChatController uses - see getRoomKey), rather than
+  // depending on a live <nx-chat> being mounted on the page right now.
+  // Only the sessionId is read here - no message content is sent, just
+  // an identifier the team can use to correlate feedback with a chat
+  // session server-side if needed. Returns null if there's nothing
   // persisted yet for this room.
-  async _getChatState({ org, site }) {
+  async _getChatSessionId({ org, site }) {
     const { userId } = await loadIms();
     const room = getRoomKey({ org, site, userId });
-    const { messages, sessionId } = await loadMessages(room);
-
-    const textMessages = messages.filter((m) => m.role !== 'tool' && typeof m.content === 'string');
-    const transcript = textMessages.length
-      ? textMessages.map((m) => `${m.role}: ${m.content}`).join('\n')
-      : null;
-
-    return { transcript, sessionId };
+    const { sessionId } = await loadMessages(room);
+    return sessionId;
   }
 
   // Best-effort org/site/path context from the current DA/EW hash route.
@@ -118,21 +114,16 @@ class NxFeedbackDialog extends LitElement {
     const categoryOption = CATEGORIES.find((c) => c.value === this._category.value);
     const categoryLabel = categoryOption?.label ?? this._category.value;
 
-    const includeChatMessages = this._includeChatMessages.checked;
+    const linkChatSession = this._linkChatSession.checked;
     const context = this._getContext();
-    const { transcript, sessionId } = includeChatMessages
-      ? await this._getChatState(context)
-      : { transcript: null, sessionId: null };
-    const message = transcript
-      ? `${this._message.value.trim()}\n\n--- Chat history ---\n${transcript}`
-      : this._message.value.trim();
+    const sessionId = linkChatSession ? await this._getChatSessionId(context) : null;
 
     const body = {
       category: `${kindLabel} - ${categoryLabel}`,
-      message,
+      message: this._message.value.trim(),
       context: {
         ...context,
-        includeChatMessages,
+        linkChatSession,
       },
       ...(sessionId ? { sessionId } : {}),
       ...(ims?.anonymous ? {} : { user: { email: ims.email, imsId: ims.userId } }),
