@@ -278,6 +278,7 @@ describe('api.js', () => {
       installFetch({
         body: JSON.stringify([
           { name: 'visible.html', 'content-type': 'text/html' },
+          { name: '', 'content-type': 'text/html' },
           { name: '', 'content-type': 'application/folder' },
           { name: null, 'content-type': 'application/folder' },
           { 'content-type': 'application/folder' },
