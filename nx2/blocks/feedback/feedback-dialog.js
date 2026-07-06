@@ -6,7 +6,7 @@ import '../shared/dialog/dialog.js';
 import '../shared/picker/picker.js';
 
 const style = await loadStyle(import.meta.url);
-const contentStyle = await loadStyle(new URL('../shared/dialog/dialog-content.css', import.meta.url).href);
+const formStyle = await loadStyle(new URL('../../styles/form.css', import.meta.url).href);
 
 const CATEGORIES = [
   { value: 'general', label: 'General Feedback' },
@@ -38,7 +38,7 @@ class NxFeedbackDialog extends LitElement {
 
   connectedCallback() {
     super.connectedCallback();
-    this.shadowRoot.adoptedStyleSheets = [style, contentStyle];
+    this.shadowRoot.adoptedStyleSheets = [style, formStyle];
   }
 
   close() {
