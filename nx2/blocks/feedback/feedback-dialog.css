@@ -24,12 +24,6 @@
   padding: var(--s2-spacing-100) var(--s2-spacing-200);
 }
 
-/* Give the Category picker a border/background so it reads as a form field
-   alongside the Details textarea, matching .da-input/.da-select. Scoped to
-   nx-picker instances here only (via CSS custom properties, which pierce
-   its shadow root) rather than changing picker.css's own defaults, since
-   other pickers (e.g. chat/prompts.js's category filter) are intentionally
-   borderless. */
 .da-form-field nx-picker {
   align-self: flex-start;
 
