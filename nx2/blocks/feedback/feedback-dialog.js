@@ -1,5 +1,5 @@
 import { LitElement, html, nothing } from 'da-lit';
-import { loadStyle, hashChange, FEEDBACK_ENDPOINT } from '../../utils/utils.js';
+import { loadStyle, hashChange, DA_FEEDBACK } from '../../utils/utils.js';
 import { loadIms } from '../../utils/ims.js';
 import { loadMessages, getRoomKey } from '../chat/utils/persistence.js';
 import '../shared/dialog/dialog.js';
@@ -110,7 +110,7 @@ class NxFeedbackDialog extends LitElement {
     };
 
     try {
-      const resp = await fetch(FEEDBACK_ENDPOINT, {
+      const resp = await fetch(DA_FEEDBACK, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
