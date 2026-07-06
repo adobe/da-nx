@@ -37,36 +37,25 @@ class NxFeedbackDialog extends LitElement {
     this._category = CATEGORIES[0].value;
   }
 
-  get _message() { return this.shadowRoot.getElementById('feedback-message'); }
-
-  get _linkChatSession() { return this.shadowRoot.getElementById('feedback-include-chat'); }
-
-  // Just tracks the selection - nx-picker owns its own open/close state,
-  // this only needs to know which value is currently picked so it can be
-  // read back in _handleSubmit.
-  _onCategoryChange({ detail: { value } }) {
-    this._category = value;
-  }
-
   connectedCallback() {
     super.connectedCallback();
     this.shadowRoot.adoptedStyleSheets = [style, contentStyle];
   }
 
-  get _dialog() { return this.shadowRoot.querySelector('nx-dialog'); }
-
   close() {
     this._dialog?.close();
   }
 
-  // 'close' is a generic event name - nx-popover (used internally by the
-  // nx-picker Category field below) dispatches its own bubbling/composed
-  // 'close' event whenever its dropdown closes, e.g. on every item
-  // selection. That event passes through <nx-dialog> on its way further
-  // up the tree and would otherwise be mistaken for nx-dialog's own close,
-  // closing (and removing) the whole feedback dialog just from picking a
-  // category. Only react when the event actually came from <nx-dialog>
-  // itself.
+  get _dialog() { return this.shadowRoot.querySelector('nx-dialog'); }
+
+  get _message() { return this.shadowRoot.getElementById('feedback-message'); }
+
+  get _linkChatSession() { return this.shadowRoot.getElementById('feedback-include-chat'); }
+
+  _onCategoryChange({ detail: { value } }) {
+    this._category = value;
+  }
+
   _handleClose(e) {
     if (e.target !== this._dialog) return;
     this.dispatchEvent(new CustomEvent('close', { bubbles: true, composed: true }));
