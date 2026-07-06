@@ -1,6 +1,7 @@
 import { LitElement, html, nothing } from 'da-lit';
 import { loadStyle, hashChange } from '../../utils/utils.js';
 import { loadIms } from '../../utils/ims.js';
+import { loadMessages, getRoomKey } from '../chat/utils/persistence.js';
 import '../shared/dialog/dialog.js';
 
 const style = await loadStyle(import.meta.url);
@@ -70,16 +71,22 @@ class NxFeedbackDialog extends LitElement {
     if (this._messageError) this._messageError = false;
   }
 
-  // Reads the transcript from a live <nx-chat> on the page, if there is one.
-  // Skips tool-call messages and anything whose content isn't plain text
-  // (e.g. structured tool-call parts), which is enough for a human reading
-  // it in Slack. Returns null if there's no chat on the page or no messages
-  // yet, so the caller can leave the feedback message untouched.
-  _getChatTranscript() {
-    const chat = document.querySelector('nx-chat');
-    const messages = chat?.messages?.filter((m) => m.role !== 'tool' && typeof m.content === 'string');
-    if (!messages?.length) return null;
-    return messages.map((m) => `${m.role}: ${m.content}`).join('\n');
+  // Loads the current chat's persisted state directly from IndexedDB
+  // (same room key formula ChatController uses - see getRoomKey), rather
+  // than depending on a live <nx-chat> being mounted on the page right
+  // now. Returns { transcript, sessionId }, both null if there's nothing
+  // persisted yet for this room.
+  async _getChatState({ org, site }) {
+    const { userId } = await loadIms();
+    const room = getRoomKey({ org, site, userId });
+    const { messages, sessionId } = await loadMessages(room);
+
+    const textMessages = messages.filter((m) => m.role !== 'tool' && typeof m.content === 'string');
+    const transcript = textMessages.length
+      ? textMessages.map((m) => `${m.role}: ${m.content}`).join('\n')
+      : null;
+
+    return { transcript, sessionId };
   }
 
   // Best-effort org/site/path context from the current DA/EW hash route.
@@ -112,7 +119,10 @@ class NxFeedbackDialog extends LitElement {
     const categoryLabel = categoryOption?.label ?? this._category.value;
 
     const includeChatMessages = this._includeChatMessages.checked;
-    const transcript = includeChatMessages ? this._getChatTranscript() : null;
+    const context = this._getContext();
+    const { transcript, sessionId } = includeChatMessages
+      ? await this._getChatState(context)
+      : { transcript: null, sessionId: null };
     const message = transcript
       ? `${this._message.value.trim()}\n\n--- Chat history ---\n${transcript}`
       : this._message.value.trim();
@@ -121,9 +131,10 @@ class NxFeedbackDialog extends LitElement {
       category: `${kindLabel} - ${categoryLabel}`,
       message,
       context: {
-        ...this._getContext(),
+        ...context,
         includeChatMessages,
       },
+      ...(sessionId ? { sessionId } : {}),
       ...(ims?.anonymous ? {} : { user: { email: ims.email, imsId: ims.userId } }),
     };
 

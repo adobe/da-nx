@@ -3,6 +3,16 @@ const DB_VERSION = 1;
 const STORE_NAME = 'conversations';
 const EMPTY_STATE = { messages: [], sessionId: null };
 
+// Same room key used by ChatController to store/load a conversation, kept
+// here (rather than inlined in chat-controller.js) so other code that
+// needs to look up a chat's persisted state - e.g. the feedback dialog
+// attaching the current session's transcript/sessionId - can compute the
+// exact same key without duplicating (and risking drifting from) the
+// formula.
+export function getRoomKey({ org, site, userId }) {
+  return org && site && userId ? `${org}--${site}--${userId}` : 'default';
+}
+
 let dbPromise = null;
 
 function closeDb(resolve) {
