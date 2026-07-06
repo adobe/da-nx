@@ -70,6 +70,18 @@ class NxFeedbackDialog extends LitElement {
     if (this._messageError) this._messageError = false;
   }
 
+  // Reads the transcript from a live <nx-chat> on the page, if there is one.
+  // Skips tool-call messages and anything whose content isn't plain text
+  // (e.g. structured tool-call parts), which is enough for a human reading
+  // it in Slack. Returns null if there's no chat on the page or no messages
+  // yet, so the caller can leave the feedback message untouched.
+  _getChatTranscript() {
+    const chat = document.querySelector('nx-chat');
+    const messages = chat?.messages?.filter((m) => m.role !== 'tool' && typeof m.content === 'string');
+    if (!messages?.length) return null;
+    return messages.map((m) => `${m.role}: ${m.content}`).join('\n');
+  }
+
   // Best-effort org/site/path context from the current DA/EW hash route.
   _getContext() {
     let context;
@@ -98,12 +110,19 @@ class NxFeedbackDialog extends LitElement {
     const kindLabel = KIND_LABELS[this.kind] ?? KIND_LABELS.idea;
     const categoryOption = CATEGORIES.find((c) => c.value === this._category.value);
     const categoryLabel = categoryOption?.label ?? this._category.value;
+
+    const includeChatMessages = this._includeChatMessages.checked;
+    const transcript = includeChatMessages ? this._getChatTranscript() : null;
+    const message = transcript
+      ? `${this._message.value.trim()}\n\n--- Chat history ---\n${transcript}`
+      : this._message.value.trim();
+
     const body = {
       category: `${kindLabel} - ${categoryLabel}`,
-      message: this._message.value.trim(),
+      message,
       context: {
         ...this._getContext(),
-        includeChatMessages: this._includeChatMessages.checked,
+        includeChatMessages,
       },
       ...(ims?.anonymous ? {} : { user: { email: ims.email, imsId: ims.userId } }),
     };
