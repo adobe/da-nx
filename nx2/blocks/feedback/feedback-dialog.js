@@ -1,16 +1,11 @@
 import { LitElement, html, nothing } from 'da-lit';
-import { loadStyle, hashChange } from '../../utils/utils.js';
+import { loadStyle, hashChange, FEEDBACK_ENDPOINT } from '../../utils/utils.js';
 import { loadIms } from '../../utils/ims.js';
 import { loadMessages, getRoomKey } from '../chat/utils/persistence.js';
 import '../shared/dialog/dialog.js';
 
 const style = await loadStyle(import.meta.url);
 const contentStyle = await loadStyle(new URL('../shared/dialog/dialog-content.css', import.meta.url).href);
-
-// da-feedback worker endpoint (see ~/Desktop/da-feedback-handoff.md for the
-// full request/response contract). Same worker for all environments (it's
-// not tied to da.live's own dev/stage/prod split).
-const FEEDBACK_ENDPOINT = 'https://feedback.da.live/feedback';
 
 const CATEGORIES = [
   { value: 'general', label: 'General Feedback' },
@@ -20,21 +15,11 @@ const CATEGORIES = [
   { value: 'other', label: 'Other' },
 ];
 
-// The worker's category enum is a flat string (general | feature-request |
-// bug | question | other), but we want to keep both which entry point
-// (Submit an idea / Report a bug) and the finer-grained CATEGORIES above
-// for the team reading it in Slack. Sent as e.g. "Idea - User Interface"
-// or "Bug - Permissions" instead of trying to map onto the worker's enum.
 const KIND_LABELS = { idea: 'Idea', bug: 'Bug' };
 
 /**
  * Feedback dialog: a title + category dropdown + free-text textarea + a
- * "link my current chat session" checkbox + Cancel/Submit actions,
- * wrapping the shared <nx-dialog>. Submit POSTs to the da-feedback worker
- * (see FEEDBACK_ENDPOINT above and _handleSubmit below).
- *
- * @fires close - When the dialog has fully closed (mirrors nx-dialog's
- * own close event; also removes itself from the DOM).
+ * "link my current chat session" checkbox + Cancel/Submit actions.
  */
 class NxFeedbackDialog extends LitElement {
   static properties = {
@@ -72,12 +57,7 @@ class NxFeedbackDialog extends LitElement {
   }
 
   // Looks up the current chat's sessionId directly from IndexedDB (same
-  // room key formula ChatController uses - see getRoomKey), rather than
-  // depending on a live <nx-chat> being mounted on the page right now.
-  // Only the sessionId is read here - no message content is sent, just
-  // an identifier the team can use to correlate feedback with a chat
-  // session server-side if needed. Returns null if there's nothing
-  // persisted yet for this room.
+  // room key formula ChatController uses - see getRoomKey).
   async _getChatSessionId({ org, site }) {
     const { userId } = await loadIms();
     const room = getRoomKey({ org, site, userId });
