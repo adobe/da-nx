@@ -69,6 +69,7 @@ async function openFeedbackDialog(item) {
 
   const dialog = document.createElement('nx-feedback-dialog');
   dialog.label = item.label;
+  dialog.kind = item.id;
   document.body.append(dialog);
 }
 
