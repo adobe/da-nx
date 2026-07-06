@@ -25,7 +25,6 @@ const KIND_LABELS = { idea: 'Idea', bug: 'Bug' };
 class NxFeedbackDialog extends LitElement {
   static properties = {
     label: { attribute: false },
-    kind: { attribute: false },
     _messageError: { state: true },
     _submitting: { state: true },
     _submitError: { state: true },
