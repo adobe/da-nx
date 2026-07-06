@@ -265,12 +265,24 @@
   margin-bottom: 0;
 }
 
-.nx-menu-links a {
+.nx-menu-links a,
+.nx-menu-link-btn {
   text-decoration: none;
   color: var(--s2-blue-900);
 }
 
-.nx-menu-links a:hover {
+.nx-menu-link-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.nx-menu-links a:hover,
+.nx-menu-link-btn:hover {
   text-decoration: underline;
 }
 

@@ -6,7 +6,23 @@ import { signout } from '../../utils/api.js';
 
 const config = getConfig();
 
+// Well-known, hardcoded path (not configurable) for the legal notices
+const LEGAL_NOTICES_PATH = '/fragments/nav/help';
+
 const style = await loadStyle(import.meta.url);
+
+async function openFragmentDialog(path) {
+  const [{ loadFragment }] = await Promise.all([
+    import('../fragment/fragment.js'),
+    import('../shared/dialog/dialog.js'),
+  ]);
+  const fragment = await loadFragment(path);
+  if (!fragment) return;
+  const dialog = document.createElement('nx-dialog');
+  dialog.append(...fragment.children);
+  dialog.addEventListener('close', () => dialog.remove());
+  document.body.append(dialog);
+}
 class NxProfile extends LitElement {
   static properties = {
     loginPopup: { type: Boolean },
@@ -80,6 +96,10 @@ class NxProfile extends LitElement {
     const opts = { bubbles: true, composed: true };
     const event = new CustomEvent('signout', opts);
     this.dispatchEvent(event);
+  }
+
+  handleLegalNotices() {
+    openFragmentDialog(LEGAL_NOTICES_PATH);
   }
 
   handleScheme() {
@@ -167,6 +187,7 @@ class NxProfile extends LitElement {
               <li><a href="https://account.adobe.com/" target="_blank">Account</a></li>
               <li><a href="https://experience.adobe.com/#/preferences" target="_blank">Preferences</a></li>
               <li><a href="https://adminconsole.adobe.com" target="_blank">Admin Console</a></li>
+              <li><button class="nx-menu-link-btn" @click=${this.handleLegalNotices}>Legal notices</button></li>
             </ul>
           </div>
           <button class="nx-menu-btn nx-menu-btn-signout" @click=${this.handleSignOut}>${loc`Sign out`}</button>
