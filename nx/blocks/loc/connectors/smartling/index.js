@@ -230,7 +230,7 @@ export async function sendAllLanguages({ title, options, langs, urls, actions })
     lang.translation.status = accepted === urls.length ? 'created' : 'error';
   });
 
-  saveState({ options });
+  await saveState({ options });
 }
 
 export async function getStatusAll({ service, langs, urls, actions }) {

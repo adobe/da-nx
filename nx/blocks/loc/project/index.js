@@ -2,6 +2,15 @@ import getElementMetadata from '../../../utils/getElementMetadata.js';
 import { regionalDiff, removeLocTags } from '../regional-diff/regional-diff.js';
 import { daFetch, saveToDa } from '../../../utils/daFetch.js';
 import { DA_ORIGIN } from '../../../public/utils/constants.js';
+import { Queue } from '../../../public/utils/tree.js';
+
+// Max concurrent /source/ reads from da-admin. Prevents flooding da-admin
+// with OPTIONS+GET bursts during content scans (translate, rollout, validate).
+export const MAX_CONCURRENT_READS = 10;
+
+// Max concurrent /source/ writes to da-admin. Keeps R2 conditional-write
+// (If-Match) contention and audit-log 412 retries at an acceptable level.
+export const MAX_CONCURRENT_WRITES = 8;
 
 const DEFAULT_TIMEOUT = 20000; // ms
 const DA_METADATA_SELECTOR = 'body > .da-metadata';
@@ -92,21 +101,11 @@ export function convertUrl({ path, srcLang, destLang }) {
 }
 
 export async function saveStatus(json) {
-  // Make a deep (string) copy so the in-memory data is not destroyed
   const copy = JSON.stringify(json);
-
-  // Only save if the data is different;
   if (copy === projJson) return json;
-
-  // Store it for future comparisons
   projJson = copy;
-
-  // Re-parse for other uses
   const proj = JSON.parse(projJson);
-
-  // Do not persist source content
   proj.urls.forEach((url) => { delete url.content; });
-
   const body = new FormData();
   const file = new Blob([JSON.stringify(proj)], { type: 'application/json' });
   body.append('data', file);
@@ -326,8 +325,9 @@ export async function mergeCopy(
 
 export async function saveLangItems(sitePath, items, lang, removeDnt) {
   const [org, repo] = window.location.hash.replace('#/', '').split('/');
+  const results = new Array(items.length).fill(null);
 
-  return Promise.all(items.map(async (item) => {
+  const queue = new Queue(async ({ item, idx }) => {
     const html = await item.blob.text();
     const isJson = item.basePath.endsWith('.json');
     const htmlToSave = await removeDnt(html, org, repo, { fileType: isJson ? 'json' : 'html' });
@@ -338,13 +338,12 @@ export async function saveLangItems(sitePath, items, lang, removeDnt) {
     const body = new FormData();
     body.append('data', blob);
     const opts = { body, method: 'POST' };
-    try {
-      const resp = await daFetch(`${DA_ORIGIN}/source${path}`, opts);
-      return { success: resp.status };
-    } catch {
-      return { error: 'Could not save documents' };
-    }
-  }));
+    const resp = await daFetch(`${DA_ORIGIN}/source${path}`, opts);
+    results[idx] = { success: resp.status };
+  }, MAX_CONCURRENT_WRITES);
+
+  await Promise.all(items.map((item, idx) => queue.push({ item, idx })));
+  return results;
 }
 
 /**

@@ -250,8 +250,8 @@ export const aem: {
   /** GET publish status (single path only). Returns augmented `Response`. */
   getPublish(arg: any, pathExtras?: object): Promise<ApiResponse>;
   /** Update preview. `path` string → single-path POST. `path` string[] of 2+ →
-   * bulk POST to `/*` with `{ paths, forceUpdate?, forceSync? }` body.
-   * `forceUpdate` / `forceSync` are bulk-only. Returns augmented `Response`. */
+   * bulk POST to `/*` with `{ paths, forceUpdate? }` body.
+   * `forceUpdate` is bulk-only. Returns augmented `Response`. */
   preview(arg: any, pathExtras?: object): Promise<ApiResponse>;
   /** Remove from preview. `path` string → DELETE. Array of 2+ → POST `/*`
    * with `{ paths, delete: true }`. Returns augmented `Response`. */

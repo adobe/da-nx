@@ -50,11 +50,15 @@ Components that want to add pills without holding a direct reference to the chat
 | Event | Detail | Description |
 |---|---|---|
 | `nx-add-to-chat` | `{ key?, id, label, ...contextFields }` | Adds or replaces a pill. If `key` is set, replaces any existing pill with the same key (use for selection-driven context that changes as the user moves focus). If `key` is omitted, appends a new pill regardless. Dispatching `{ key }` with no `id` removes the pill for that key. |
-| `nx-set-prompt` | `{ text: string, autoSend?: boolean }` | Sets the chat input field to `text`. If `autoSend` is `true`, submits immediately; otherwise focuses the input for the user to review and send. No-ops if the agent is already processing. |
-
 Context fields on the detail (`blockName`, `innerText`, `proseIndex`) are forwarded to the agent as selection context on the next message. See [Selection context](#selection-context).
 
-**Extension iframe usage:** Extensions running in cross-origin iframes cannot dispatch document events directly. Use `actions.setPrompt(text)` or `actions.setPrompt(text, { autoSend: true })` from the DA SDK — the iframe protocol relays it to `nx-set-prompt` on the host document. `actions.setPrompt` is available on the object resolved from `DA_SDK`.
+**Setting a prompt programmatically:** Call `setPrompt(text, { autoSend? })` directly on the `nx-chat` element. Within DA Live, prefer dispatching `nx-open-chat-panel` on `document` instead — this also ensures the chat panel is open before the prompt is set:
+
+```js
+document.dispatchEvent(new CustomEvent('nx-open-chat-panel', { detail: { text, autoSend } }));
+```
+
+**Extension iframe usage:** Extensions running in cross-origin iframes cannot dispatch document events directly. Use `actions.setPrompt(text)` or `actions.setPrompt(text, { autoSend: true })` from the DA SDK — the iframe protocol relays it to `nx-open-chat-panel` on the host document, which opens the panel and calls `setPrompt()` on the chat element. `actions.setPrompt` is available on the object resolved from `DA_SDK`.
 
 ## Selection context
 

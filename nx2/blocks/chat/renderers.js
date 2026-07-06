@@ -2,65 +2,52 @@ import { html, nothing } from 'da-lit';
 import { AGENT_EVENT, ROLE, TOOL_INPUT, TOOL_STATE } from './constants.js';
 import { getConfig } from '../../scripts/nx.js';
 import { parseDirectives } from './utils/parse.js';
-import { fileIconName } from './utils/icons.js';
+import { pillIconName } from './utils/icons.js';
+import { linkifyBareUrls, sanitizeLinks } from './utils/links.js';
 
 const { codeBase } = getConfig();
 
 const { unified, remarkParse, remarkGfmNoLink, mdast2hast, hastToDom } = await import('../../deps/mdast/dist/index.js');
 
-const SAFE_URL = /^https?:\/\//i;
-
 const parser = unified().use(remarkParse).use(remarkGfmNoLink);
 
-function sanitizeLinks(node) {
-  if (node.type === 'element' && node.tagName === 'a') {
-    const href = node.properties?.href ?? '';
-    node.properties = {
-      ...node.properties,
-      href: SAFE_URL.test(href) ? href : '#',
-      target: '_blank',
-      rel: ['noopener', 'noreferrer'],
-    };
-  }
-  node.children?.forEach(sanitizeLinks);
-  return node;
-}
-
 function toDOM(hast) {
-  return hastToDom(sanitizeLinks(hast), { fragment: true });
+  return hastToDom(sanitizeLinks(linkifyBareUrls(hast)), { fragment: true });
 }
 
 function renderMessageContent(text) {
   if (!text) return nothing;
 
   return parseDirectives(text).map(({ kind, type, content }) => {
+    if (!content) return nothing;
     const dom = toDOM(mdast2hast(parser.parse(content)));
     return kind === 'directive' ? html`<div class="directive directive-${type}">${dom}</div>` : dom;
   });
 }
 
-function approvalSummary(input) {
+function approvalSummary(input, { json = false } = {}) {
   if (!input) return null;
   const {
     HUMAN_READABLE_SUMMARY, SOURCE_PATH, DESTINATION_PATH, PATH, SKILL_ID, NAME,
   } = TOOL_INPUT;
   return input[HUMAN_READABLE_SUMMARY]
     ?? (input[SOURCE_PATH] && input[DESTINATION_PATH] ? `${input[SOURCE_PATH]} → ${input[DESTINATION_PATH]}` : null)
-    ?? input[PATH] ?? input[SKILL_ID] ?? input[NAME] ?? null;
+    ?? input[PATH] ?? input[SKILL_ID] ?? input[NAME]
+    ?? (json ? JSON.stringify(input, null, 2) : null);
 }
 
 function renderToolCard(toolCallId, toolCards) {
   const card = toolCards?.get(toolCallId);
   if (!card || card.state === TOOL_STATE.APPROVAL_REQUESTED) return nothing;
   const { toolName, state, input } = card;
-  const detail = approvalSummary(input);
+  const detail = approvalSummary(input, { json: true });
   const failed = state === TOOL_STATE.ERROR || state === TOOL_STATE.REJECTED;
-  return html`
+  const status = failed ? html`<span class="tool-card-status">${state}</span>` : nothing;
+  return detail ? html`
     <details class="tool-card tool-card-${state}">
-      <summary>${toolName}${failed ? html`<span class="tool-card-status">${state}</span>` : nothing}</summary>
-      ${detail ? html`<span class="tool-card-detail">${detail}</span>` : nothing}
-    </details>
-  `;
+      <summary>${toolName}${status}</summary>
+      <span class="tool-card-detail">${detail}</span>
+    </details>` : html`<span class="tool-card-detail">${toolName}${status}</span>`;
 }
 
 function renderApprovalCard(pending, onApprove) {
@@ -107,17 +94,22 @@ function renderAssistantMessage(msg, toolCards) {
 }
 
 function renderSelectionPills(msg) {
-  const contextItem = (name) => html`
+  const contextItem = (name, iconName) => html`
     <li class="selection-context-item">
       <svg class="selection-icon" viewBox="0 0 20 20" aria-hidden="true">
-        <use href="${codeBase}/img/icons/${fileIconName(name)}.svg#icon"></use>
+        <use href="${codeBase}/img/icons/${iconName}.svg#icon"></use>
       </svg>
       <span>${name}</span>
     </li>`;
 
   const items = [
-    ...(msg.selectionContext ?? []).map(({ blockName }) => contextItem(blockName)),
-    ...(msg.attachmentsMeta ?? []).map(({ fileName }) => contextItem(fileName)),
+    ...(msg.selectionContext ?? []).map((sc) => {
+      const name = sc.blockName || 'Selection';
+      return contextItem(name, pillIconName(sc.type, name));
+    }),
+    ...(msg.attachmentsMeta ?? []).map(({ fileName }) => (
+      contextItem(fileName, pillIconName(undefined, fileName))
+    )),
   ];
   if (items.length === 1) {
     return html`<ul class="selection-context-list" aria-label="Attached context">${items[0]}</ul>`;

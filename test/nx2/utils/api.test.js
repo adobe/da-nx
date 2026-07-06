@@ -255,6 +255,24 @@ describe('api.js', () => {
       expect(folder.path).to.equal(`/${o}/${s}/parent/sub`);
     });
 
+    it('source.list hlx6 filters out hidden files and folders starting with "."', async () => {
+      restoreFetch();
+      installFetch({
+        body: JSON.stringify([
+          { name: 'visible.html', 'content-type': 'text/html', 'last-modified': '2026-05-03T19:05:03.000Z' },
+          { name: '.trash/', 'content-type': 'application/folder' },
+          { name: '.da/', 'content-type': 'application/folder' },
+          { name: '.hidden-file.json', 'content-type': 'application/json' },
+          { name: 'normal/', 'content-type': 'application/folder' },
+        ]),
+      });
+      const { org: o, site: s } = makeOrgSite({ hlx6: true });
+      const result = await source.list({ org: o, site: s, path: '/parent' });
+      expect(result.ok).to.equal(true);
+      expect(result.items).to.have.length(2);
+      expect(result.items.map((i) => i.name)).to.deep.equal(['visible', 'normal']);
+    });
+
     it('source.list returns { ok: false, items: [] } on non-ok response', async () => {
       restoreFetch();
       installFetch({ status: 403, body: '' });
@@ -474,13 +492,16 @@ describe('api.js', () => {
       expect(lastCall().url).to.equal(`${DA_ADMIN}/versionsource/${o}/${s}/guid1/guid2.html`);
     });
 
-    it('versions.create hlx6 POSTs operation/comment as JSON body', async () => {
+    it('versions.create hlx6 POSTs operation/comment as query params with no body', async () => {
       const { org: o, site: s } = makeOrgSite({ hlx6: true });
       await versions.create({ org: o, site: s, path: '/x.html', operation: 'preview', comment: 'note' });
       const last = lastCall();
       expect(last.method).to.equal('POST');
-      expect(last.headers['Content-Type']).to.equal('application/json');
-      expect(JSON.parse(last.body)).to.deep.equal({ operation: 'preview', comment: 'note' });
+      const u = new URL(last.url);
+      expect(u.pathname).to.equal(`/${o}/sites/${s}/source/x.html/.versions`);
+      expect(u.searchParams.get('operation')).to.equal('preview');
+      expect(u.searchParams.get('comment')).to.equal('note');
+      expect(last.body).to.be.undefined;
     });
 
     it('versions.create legacy POSTs comment as { label } JSON body', async () => {
@@ -622,10 +643,10 @@ describe('api.js', () => {
       expect(JSON.parse(last.body)).to.deep.equal({ paths: ['/a', '/b'], delete: true });
     });
 
-    it('aem.preview single ignores forceUpdate/forceSync (bulk-only flags)', async () => {
+    it('aem.preview single ignores forceUpdate (bulk-only flag)', async () => {
       const { org: o, site: s } = makeOrgSite({ hlx6: true });
       await aem.preview({
-        org: o, site: s, path: '/x.html', forceUpdate: true, forceSync: true,
+        org: o, site: s, path: '/x.html', forceUpdate: true,
       });
       const last = lastCall();
       // Single-path URL has no query params for these flags.
@@ -633,14 +654,14 @@ describe('api.js', () => {
       expect(last.body).to.be.undefined;
     });
 
-    it('aem.preview bulk folds forceUpdate/forceSync into JSON body', async () => {
+    it('aem.preview bulk folds forceUpdate into JSON body', async () => {
       const { org: o, site: s } = makeOrgSite({ hlx6: true });
       await aem.preview({
-        org: o, site: s, path: ['/a', '/b'], forceUpdate: true, forceSync: true,
+        org: o, site: s, path: ['/a', '/b'], forceUpdate: true,
       });
       const last = lastCall();
       expect(JSON.parse(last.body)).to.deep.equal({
-        paths: ['/a', '/b'], forceUpdate: true, forceSync: true,
+        paths: ['/a', '/b'], forceUpdate: true,
       });
     });
 

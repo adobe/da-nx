@@ -546,12 +546,14 @@ export async function getStatusAll({
     }
     sendMessage();
   }
+  let hasUpdates = false;
   for (const lang of langs) {
     if (lang.translation?.workflowTasks) {
       aggregateWorkflowStatus(lang);
-      await saveState();
+      hasUpdates = true;
     }
   }
+  if (hasUpdates) await saveState();
 }
 
 export async function saveItems({
@@ -561,6 +563,7 @@ export async function saveItems({
   lang,
   urls,
   saveFn,
+  sendMessage,
 }) {
   normalizeLegacyStructure(lang, urls);
 
@@ -585,6 +588,8 @@ export async function saveItems({
     throw new Error(`No matching tasks found for URLs: ${missingUrls.map((u) => u.suppliedPath).join(', ')}`);
   }
 
+  const logRequest = shouldLogMultimodalRequests() ? logMultimodalRequest : undefined;
+
   const downloadCallback = async (url) => {
     const task = urlToTaskMap.get(url.suppliedPath);
     const glaasPath = getGlaasFilename(url.daBasePath);
@@ -606,6 +611,8 @@ export async function saveItems({
         langCode: code,
         pageAsset,
         htmlAssetName: glaasPath,
+        logRequest,
+        onWarning: sendMessage,
       });
       if (prepared.error) throw new Error(prepared.error);
       text = prepared.text;
@@ -652,22 +659,35 @@ export async function cancelTranslation({ service, lang, sendMessage }) {
 
   if (!canCancelLang({ lang })) {
     sendMessage({ text: `Skipping ${lang.name}. No translation information.` });
-    return null;
+    return { ok: true, skipped: true };
   }
 
   const { code } = lang;
   // As a service provider, you need to say what will be canceled
   if (lang.translation?.workflowTasks) {
-    const cancelPromises = Object.values(lang.translation.workflowTasks)
-      .map(async (workflowTask) => {
-        const taskName = workflowTask.name;
-        const taskWorkflow = workflowTask.workflow;
-        sendMessage({ text: `Canceling task ${taskName} for ${lang.name}.` });
-        return updateStatus(service, token, { name: taskName, workflow: taskWorkflow, targetLocales: [code] }, 'CANCELLED');
+    const cancelResults = await Promise.all(
+      Object.values(lang.translation.workflowTasks)
+        .map(async (workflowTask) => {
+          const taskName = workflowTask.name;
+          const taskWorkflow = workflowTask.workflow;
+          sendMessage({ text: `Canceling task ${taskName} for ${lang.name}.` });
+          return updateStatus(
+            service,
+            token,
+            { name: taskName, workflow: taskWorkflow, targetLocales: [code] },
+            'CANCELLED',
+          );
+        }),
+    );
+    const ok = cancelResults.every((result) => result?.ok);
+    if (!ok) {
+      sendMessage({
+        text: `GLaaS did not accept cancel for ${lang.name} (task may not be in a cancelable state).`,
+        type: 'error',
       });
-
-    return Promise.all(cancelPromises);
+    }
+    return { ok };
   }
   sendMessage({ text: `No tasks found to cancel for ${lang.name}.` });
-  return null;
+  return { ok: true };
 }
