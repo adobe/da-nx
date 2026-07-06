@@ -53,7 +53,6 @@ dialog {
 .heading {
   flex-shrink: 0;
   padding-bottom: var(--s2-spacing-200);
-  border-bottom: 1px solid var(--s2-gray-200);
 }
 
 .title {
@@ -81,4 +80,5 @@ dialog {
   flex-flow: row wrap;
   justify-content: flex-end;
   gap: var(--s2-spacing-100);
+  padding-top: var(--s2-spacing-200);
 }

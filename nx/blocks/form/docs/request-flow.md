@@ -6,22 +6,27 @@ How a request moves through the block.
 
 ## 1. Initial load
 
-From `init(el)` to a rendered editor (or a status screen).
+From `decorate(block)` to a rendered editor (or a status screen).
 
 ```txt
-init(el)
-  ├─ getPathDetails()                            sync
-  ├─ create <da-title> + <nx-form>               sync
-  └─ <nx-form> upgrades
+decorate(block)                                  ← form.js (EW workspace wrapper)
+  ├─ ensureAppFrame() / ensureNavPath()          sync
+  ├─ decorateEditor(block)                        sync
+  │    ├─ create <nx-form>                         sync
+  │    └─ nxForm.startRouting()                    ← subscribe ctx to hashChange
+  ├─ setupChat(block)                             ← header + docked chat when ew.enabled
+  └─ <nx-form> upgrades                            ← editor.js element
        ├─ connectedCallback → adoptedStyleSheets sync
-       ├─ updated(changed) sees `details`        sync
+       ├─ hashChange emits → set `ctx`            sync
+       ├─ updated(changed) sees `ctx`             sync
        └─ _loadContext()
+            ├─ _details = detailsFromCtx(ctx); bail if none
             ├─ status = 'loading' → render nothing (no spinner, no message)
             ├─ loadFormContext({ details })      ← network
             │    ├─ loadSchemas({ owner, repo })     ← DA list + N source GETs
             │    └─ fetchSourceHtml({ sourceUrl })    ← single GET
             ├─ if status !== 'blocked':
-            │    └─ await import('../../public/sl/components.js')  ← SL components
+            │    └─ await import('../../../nx2/public/sl/components.js')  ← SL components
             ├─ Route by status:
             │    ├─ 'blocked'        → inline message (no modal, no extra import)
             │    ├─ 'select-schema'  → schema picker
@@ -127,8 +132,8 @@ shell._onChange()
                         └─ json2html({ ...json, data: pruned })
                       if error: return              ← do-while exits cleanly
                       try {
-                        await save({ path, html })  ← POST /source{path}
-                          └─ daFetch (auth + retry handled here)
+                        await save({ path, html })  ← source.save({ body }) (nx2 api)
+                          └─ daFetch (auth + retry handled in the nx2 api)
                       } catch {
                         return                       ← do-while exits cleanly
                       }
@@ -175,9 +180,9 @@ After a reorder, the model is rebuilt positionally — items have no separate st
 
 ```txt
 context.status === 'select-schema'
-  └─ render <sl-select> + Create button
+  └─ render <form-picker> + Create button
        └─ user picks a schema, clicks Create
-            └─ form._applySelectedSchema()
+            └─ nx-form._applySelectedSchema()
                  ├─ build empty json: { metadata: { schemaName }, data: {} }
                  ├─ context = { ...context, status: 'ready', schema, json }
                  └─ _start({ schema, json })   ← same entry as §1's _start
@@ -190,15 +195,13 @@ Result: an empty doc loaded with the picked schema, defaults already materialize
 ## 7. Hash change
 
 ```txt
-window 'hashchange'
-  └─ setup(el)
-       ├─ el.replaceChildren()                      ← full teardown
-       ├─ getPathDetails()                          ← new path
-       └─ setDetails(...) for <da-title>, <nx-form>
-            └─ <nx-form> upgrades → see §1
+window hash changes
+  └─ hashChange emits new { org, site, path }   ← editor.js subscribed in startRouting()
+       └─ ctxFromHashState(state) → set `ctx`
+            └─ updated() sees `ctx` → _loadContext() → see §1
 ```
 
-Full teardown and re-mount. Documented as a perf item in [performance-review.md §H4](./performance-review.md) — fix is a path comparison before tearing down. Not done because it doesn't bite at current usage.
+The `nx-form` element subscribes to `hashChange` once (in `startRouting`); a new hash sets `ctx`, which re-runs `_loadContext`. No element teardown/re-mount — `_loadContext` resets state and detaches the previous persistence in place.
 
 ---
 
@@ -221,5 +224,4 @@ That's the entire seam. The shell's reactive Lit property `_state` triggers re-r
 
 - Detailed contracts and rules: [architecture.md](./architecture.md)
 - Schema contract (what consumers can write): SDK [schema-spec.md](https://github.com/adobe-rnd/da-sc-sdk/blob/main/docs/schema-spec.md)
-- Hot-path costs and ranked bottlenecks: [performance-review.md](./performance-review.md)
 - Headless / agentic consumer example: SDK [headless-consumer.md](https://github.com/adobe-rnd/da-sc-sdk/blob/main/docs/headless-consumer.md)
