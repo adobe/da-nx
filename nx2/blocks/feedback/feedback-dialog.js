@@ -1,5 +1,4 @@
 import { LitElement, html, nothing } from 'da-lit';
-import { env } from '../../scripts/nx.js';
 import { loadStyle, hashChange } from '../../utils/utils.js';
 import { loadIms } from '../../utils/ims.js';
 import '../shared/dialog/dialog.js';
@@ -8,14 +7,9 @@ const style = await loadStyle(import.meta.url);
 const contentStyle = await loadStyle(new URL('../shared/dialog/dialog-content.css', import.meta.url).href);
 
 // da-feedback worker endpoint (see ~/Desktop/da-feedback-handoff.md for the
-// full request/response contract). Not deployed to stage/prod yet, so those
-// are left blank rather than pointing at a guessed URL - submitting there
-// logs a warning instead of silently failing a POST.
-const FEEDBACK_ENDPOINTS = {
-  dev: 'http://localhost:8787/feedback',
-  stage: '',
-  prod: '',
-};
+// full request/response contract). Same worker for all environments (it's
+// not tied to da.live's own dev/stage/prod split).
+const FEEDBACK_ENDPOINT = 'https://feedback.da.live/feedback';
 
 const CATEGORIES = [
   { value: 'general', label: 'General Feedback' },
@@ -36,7 +30,7 @@ const KIND_LABELS = { idea: 'Idea', bug: 'Bug' };
  * Feedback dialog: a title + category dropdown + free-text textarea + an
  * "include chat messages" checkbox + Cancel/Submit actions, wrapping the
  * shared <nx-dialog>. Submit POSTs to the da-feedback worker (see
- * FEEDBACK_ENDPOINTS above and _handleSubmit below).
+ * FEEDBACK_ENDPOINT above and _handleSubmit below).
  *
  * @fires close - When the dialog has fully closed (mirrors nx-dialog's
  * own close event; also removes itself from the DOM).
@@ -97,12 +91,6 @@ class NxFeedbackDialog extends LitElement {
       return;
     }
 
-    const endpoint = FEEDBACK_ENDPOINTS[env];
-    if (!endpoint) {
-      this._submitError = 'Feedback isn\u2019t available in this environment yet.';
-      return;
-    }
-
     this._submitting = true;
     this._submitError = undefined;
 
@@ -121,7 +109,7 @@ class NxFeedbackDialog extends LitElement {
     };
 
     try {
-      const resp = await fetch(endpoint, {
+      const resp = await fetch(FEEDBACK_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
