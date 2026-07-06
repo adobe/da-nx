@@ -113,8 +113,9 @@ class NxFeedback extends LitElement {
     if (!this._items) return nothing;
     return html`
       <nx-menu .items=${this._items} placement="below-end" @select=${this._handleSelect}>
-        <button type="button" slot="trigger" class="nx-feedback-trigger" aria-label="Feedback">
+        <button type="button" slot="trigger" class="nx-feedback-trigger">
           <svg class="icon" viewBox="0 0 20 20" aria-hidden="true"><use href="${ICON_HREF}"></use></svg>
+          <span>Feedback</span>
         </button>
       </nx-menu>
     `;

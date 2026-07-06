@@ -8,13 +8,16 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  width: 32px;
+  gap: var(--s2-spacing-75, 4px);
   height: 32px;
   padding: 0;
+  padding-inline-end: var(--s2-spacing-100);
   border: none;
   border-radius: var(--s2-corner-radius-500);
   background: transparent;
   color: inherit;
+  font: inherit;
+  font-size: 14px;
   cursor: pointer;
 }
 
@@ -23,8 +26,15 @@
 }
 
 .nx-feedback-trigger .icon {
-  width: 20px;
-  height: 20px;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  padding: 6px;
+  box-sizing: border-box;
+}
+
+.nx-feedback-trigger span {
+  display: block;
 }
 
 nx-menu {
